@@ -108,8 +108,8 @@ export default defineConfig({
     ...(isWC ? [cssInjectedByJs()] : [dts(...)])
   ],
   build: {
+    target: 'esnext',
     emptyOutDir: !isWC,
-    codeSplitting: !isWC,
     cssCodeSplit: !isWC,
     lib: isWC
       ? {
@@ -120,12 +120,14 @@ export default defineConfig({
         }
       : {
           entry: './src/index.ts',
-          name: 'KLineChartVue',
+          name: 'KlineChart',
           formats: ['es', 'cjs'],
-          fileName: (format) => format === 'es' ? 'index.js' : 'index.cjs',
+          fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
         },
-    rollupOptions: {
-      external: isWC ? [] : ['vue', /@363045841yyt\/klinechart-core/],
+    rolldownOptions: {
+      external: isWC
+        ? []
+        : ['vue', /@363045841yyt\/klinechart-core/, /@363045841yyt\/klinechart-agent-runtime/],
       output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
     },
   },
@@ -134,20 +136,23 @@ export default defineConfig({
 
 The important build decisions are:
 
-- **Normal Vue package** externalizes `vue` and `@363045841yyt/klinechart-core`, emits ESM/CJS, and generates declaration files.
+- **Normal Vue package** externalizes `vue`, `@363045841yyt/klinechart-core`, and `@363045841yyt/klinechart-agent-runtime`, emits ESM/CJS, and generates declaration files. The agent runtime stays a `peerDependency` instead of being bundled, so its types resolve to the published package entry rather than a workspace source path.
 - **Web Component package** bundles its runtime dependencies into one ESM file, emits `dist/web-component.js`, and inlines dynamic imports.
 - `cssInjectedByJs()` is enabled only for the Web Component build so component styles travel with the element instead of requiring a separate stylesheet import.
 - `emptyOutDir: !isWC` prevents the Web Component build from deleting files produced by the normal library build.
-- `codeSplitting: !isWC` and `inlineDynamicImports: true` make the Custom Element easier to consume from host apps.
+- `inlineDynamicImports: true` makes the Custom Element easier to consume from host apps.
 
 The package scripts reflect that split:
 
 ```json
 {
-  "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
-  "build:wc": "cross-env BUILD_TARGET=web-component vite build"
+  "build": "vite build && pnpm build:wc",
+  "build:wc": "cross-env BUILD_TARGET=web-component vite build",
+  "postbuild": "node scripts/postbuild.mjs"
 }
 ```
+
+`scripts/postbuild.mjs` rewrites the `.vue` module specifiers in the emitted declarations to `.vue.js` (TypeScript cannot resolve a bare `.vue` specifier, but it does map `X.vue.js` onto the emitted `X.vue.d.ts`) and writes the CJS declaration copy for the `require` condition.
 
 ## 6. Passing Data Across the DOM Boundary
 

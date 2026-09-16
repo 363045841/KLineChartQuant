@@ -34,7 +34,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
     "coverage": "vitest run --coverage",
     "lint:publish": "publint --strict .",
     "prepublishOnly": "pnpm build",

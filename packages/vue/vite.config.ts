@@ -6,7 +6,6 @@ import Icons from 'unplugin-icons/vite'
 import cssInjectedByJs from 'vite-plugin-css-injected-by-js'
 
 const isWC = process.env.BUILD_TARGET === 'web-component'
-const agentContracts = fileURLToPath(new URL('../agent-runtime/src/contracts/ui.ts', import.meta.url))
 
 export default defineConfig({
   plugins: [
@@ -39,16 +38,10 @@ export default defineConfig({
           fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
         },
     rolldownOptions: {
-      external: isWC ? [] : ['vue', /@363045841yyt\/klinechart-core/],
+      external: isWC
+        ? []
+        : ['vue', /@363045841yyt\/klinechart-core/, /@363045841yyt\/klinechart-agent-runtime/],
       output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
     },
-  },
-  resolve: {
-    alias: [
-      {
-        find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
-        replacement: agentContracts,
-      },
-    ],
   },
 })

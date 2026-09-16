@@ -49,7 +49,7 @@
     "dev": "vite --config preview/vite.config.ts",
     "build": "vite build && pnpm build:wc",
     "build:wc": "cross-env BUILD_TARGET=web-component vite build",
-    "postbuild": "node -e \"var f='dist/index.d.ts';require('fs').existsSync(f)&&require('fs').copyFileSync(f,'dist/index.d.cts')\"",
+    "postbuild": "node scripts/postbuild.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",
