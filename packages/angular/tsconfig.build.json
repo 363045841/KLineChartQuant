@@ -13,8 +13,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
-    "incremental": true,
-    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.build.angular.tsbuildinfo",
     "outDir": "dist",
     "rootDir": "src"
   },
