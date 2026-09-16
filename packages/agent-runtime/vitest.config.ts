@@ -8,7 +8,10 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.d.ts', 'src/**/__tests__/**'],
+      // `src/testing` 是给下游测试用的 scripted 替身，对替身本身做覆盖率没有意义。
+      exclude: ['src/**/*.d.ts', 'src/**/__tests__/**', 'src/testing/**'],
+      // PRD §16.4 的发布门槛，低于阈值时 `pnpm coverage` 直接失败。
+      thresholds: { statements: 90, branches: 85, functions: 90, lines: 90 },
     },
   },
 })
