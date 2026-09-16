@@ -53,6 +53,14 @@
     color: var(--klc-color-ui-text);
   }
 
+  .canvas-toolbar :deep(.toolbar-btn:disabled),
+  .canvas-toolbar :deep(.toolbar-btn:hover:disabled) {
+    opacity: 0.4;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    cursor: not-allowed;
+  }
+
   .canvas-toolbar :deep(.toolbar-btn--delete) {
     width: 26px;
     padding: 0;
