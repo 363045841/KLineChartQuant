@@ -112,10 +112,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # WARN-ONLY: each package's build script targets `tsconfig.build.json`,
-      # which does not exist yet. This job currently catches type regressions
-      # in any package that DOES have one. Promote to required once every
-      # publishable package ships a working `tsconfig.build.json`.
+      # WARN-ONLY: `pnpm -r build` resolves to every workspace target, not just
+      # the publishable packages. It also runs `electron-builder` for
+      # packages/desktop-electron and `ng build` for examples/angular-universal,
+      # which fails outside that example's own workspace. So this job cannot go
+      # green as written; the publishable packages are already built by the test
+      # job's "Build packages under the type-resolution gate" step. Narrow this
+      # to the publishable set or drop it before promoting it to required.
       - name: Build all packages (pnpm -r build) [WARN]
         run: pnpm -r build
         continue-on-error: true

@@ -14,7 +14,7 @@ required, update the table here in the same PR.
 | Bundle size budgets           | `size-limit`                  | core/react/vue/ng | WARN     | Budgets are still pre-build measurements off `src/index.ts`; core currently reports ~242 kB against a 30 kB limit. |
 | Publish hygiene (exports/types/main) | `publint --strict`     | core/react/vue/ng | WARN     | publint needs `dist/` to verify file existence under `pkg.exports`.              |
 | Type-resolution (ESM)         | `@arethetypeswrong/cli` (attw)| core/agent-runtime/vue/react/ng | REQUIRED | —                                                        |
-| Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | Only `packages/ui-schema` fails: it ships no `src/` and no `tsconfig.build.json` (see #190). |
+| Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | The recursive run also targets `packages/desktop-electron` (`electron-builder`) and `examples/angular-universal` (`ng build`, fails outside its own workspace), so it is not a library gate. The publishable packages are built by the test job instead. |
 | Coverage threshold            | `@vitest/coverage-v8`         | Root              | NOT WIRED| Intentionally deferred until Round 1E lands real engine code worth covering.     |
 
 ### attw profile
