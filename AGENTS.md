@@ -137,6 +137,7 @@ Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/s
 - **Rendering docs SSOT**: `docs/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
 - **Viewport too large** may trigger `MAX_CANVAS_PIXELS` (`clampDpr` in viewportState), causing DPR to be actively downgraded.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
+- **tsc 增量构建与产物**: 四个 tsc 包（core/agent-runtime/react/angular）的 `tsconfig.build.json` 使用 `incremental` + `node_modules/.tmp` 缓存。该缓存只比对源文件时间戳，若 `dist/` 被带外删除而缓存仍在，`tsc` 会认为已最新、跳过 emit 并退出 0（得到空 `dist`）。本地遇到这种情况删掉对应的 `node_modules/.tmp/tsconfig.build.*.tsbuildinfo` 再构建即可；CI 每次都是干净检出，不存在该缓存。
 
 ## Agent
 - @Tool 注册的工具,不应该让Agent直接传入时间戳
