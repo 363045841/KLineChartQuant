@@ -54,8 +54,7 @@
     "test:watch": "vitest",
     "size": "size-limit",
     "lint:publish": "publint --strict .",
-    "prepublishOnly": "npm run build",
-    "lint:types": "attw --pack ."
+    "prepublishOnly": "npm run build"
   },
   "size-limit": [
     {

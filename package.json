@@ -66,7 +66,7 @@
     "docs:check": "node scripts/generate-readmes.mjs --check",
     "size:packages": "pnpm -r --workspace-concurrency=4 size",
     "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
-    "lint:types": "pnpm -r --workspace-concurrency=4 lint:types",
+    "lint:types": "node scripts/lint-types.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write ."
