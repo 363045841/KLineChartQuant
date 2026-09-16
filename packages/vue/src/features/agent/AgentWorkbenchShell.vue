@@ -178,6 +178,7 @@
     letter-spacing: 0;
   }
 
+  /* 轨道宽度瞬间到位，只触发一次图表 resize；面板位移交给 compositor 的 transform，避免逐帧重布局。 */
   .chart-surface {
     --kmap-chart-height: 100%;
     --kmap-chart-width: 100%;
@@ -191,7 +192,6 @@
     box-sizing: border-box;
     background: var(--agent-bg);
     margin-right: var(--agent-panel-track, 0px);
-    transition: margin-right 0.28s ease;
   }
 
   .agent-panel {
@@ -207,6 +207,7 @@
     background: var(--agent-bg);
     visibility: hidden;
     transform: translateX(100%);
+    will-change: transform;
     transition:
       transform 0.28s ease,
       visibility 0s linear 0.28s;
@@ -302,7 +303,6 @@
 
   .agent-workbench-shell--compact .chart-surface {
     margin-right: 0;
-    transition: none;
   }
 
   .agent-workbench-shell--compact .drawer-backdrop {
