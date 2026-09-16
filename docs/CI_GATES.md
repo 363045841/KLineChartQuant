@@ -10,11 +10,11 @@ required, update the table here in the same PR.
 | Gate                          | Tool                          | Scope             | State    | Promotion blocker                                                                |
 |-------------------------------|-------------------------------|-------------------|----------|----------------------------------------------------------------------------------|
 | Package unit tests            | `pnpm -r test` (vitest)       | All workspaces    | REQUIRED | —                                                                                |
-| Legacy root vitest suite      | `./node_modules/.bin/vitest`  | Root `src/`       | REQUIRED | —                                                                                |
-| Bundle size budgets           | `size-limit`                  | core/react/vue/ng | WARN     | Pre-build measurement off `src/index.ts`; needs real `dist/` for accurate gzip.  |
+| Legacy root vitest suite      | `./node_modules/.bin/vitest`  | Root `src/`       | NOT WIRED| Root `src/` was removed when the code moved into `packages/`, so the root run finds no tests and no workflow invokes it. |
+| Bundle size budgets           | `size-limit`                  | core/react/vue/ng | WARN     | Budgets are still pre-build measurements off `src/index.ts`; core currently reports ~242 kB against a 30 kB limit. |
 | Publish hygiene (exports/types/main) | `publint --strict`     | core/react/vue/ng | WARN     | publint needs `dist/` to verify file existence under `pkg.exports`.              |
 | Type-resolution (ESM)         | `@arethetypeswrong/cli` (attw)| core/agent-runtime/vue/react/ng | REQUIRED | —                                                        |
-| Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | Each package's `build` script points to `tsconfig.build.json` which doesn't exist yet. |
+| Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | Only `packages/ui-schema` fails: it ships no `src/` and no `tsconfig.build.json` (see #190). |
 | Coverage threshold            | `@vitest/coverage-v8`         | Root              | NOT WIRED| Intentionally deferred until Round 1E lands real engine code worth covering.     |
 
 ### attw profile
