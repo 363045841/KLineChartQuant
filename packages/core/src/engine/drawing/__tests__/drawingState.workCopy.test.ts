@@ -5,74 +5,60 @@ import type { DrawingObject } from '../../../foundation/plugin/index'
 import { DrawingState, mergePaint, PREVIEW_ID } from '../DrawingState'
 import { createTrendLine } from './helpers/drawingTestKit'
 
+/** 构造由内存 kernel 列表承载文档状态的完整适配器。 */
 function mockAdapter(
   initial: DrawingObject[] = [],
   initialSelected: string[] = [],
-): DrawingChartAdapter & {
-  kernelList: DrawingObject[]
-  replaceDrawings: ReturnType<typeof vi.fn>
-  updateDrawing: ReturnType<typeof vi.fn>
-  requestDraw: ReturnType<typeof vi.fn>
-} {
+): DrawingChartAdapter {
   let selected = [...initialSelected]
   let kernelList = [...initial]
-  const replaceDrawings = vi.fn((list: DrawingObject[]) => {
-    kernelList = list.filter((d) => d.id !== PREVIEW_ID).map((d) => ({ ...d }))
+  const replaceDrawings = vi.fn((list: ReadonlyArray<DrawingObject>) => {
+    kernelList = list
+      .filter((drawing) => drawing.id !== PREVIEW_ID)
+      .map((drawing) => ({ ...drawing }))
   })
-  const updateDrawing = vi.fn(
-    (id: string, patch: { anchors?: Array<{ timestamp?: number; price: number }> }) => {
-      const index = kernelList.findIndex((drawing) => drawing.id === id)
-      if (index === -1 || !patch.anchors) return null
-      const current = kernelList[index]!
-      const next = {
-        ...current,
-        anchors: patch.anchors.map((anchor, anchorIndex) => ({
-          id: current.anchors[anchorIndex]?.id ?? `p-${anchorIndex}`,
-          ...anchor,
-        })),
-      }
-      kernelList[index] = next
-      return next
-    },
-  )
-  const requestDraw = vi.fn()
+  const setSelectedDrawingIds = vi.fn((ids: ReadonlyArray<string>) => {
+    selected = [...ids]
+  })
   return {
-    kernelList: kernelList as DrawingObject[],
-    get kernel() {
-      return kernelList
-    },
     replaceDrawings,
     createDrawing: vi.fn(() => createTrendLine('created')),
-    updateDrawing,
-    commitDrawingDrag: vi.fn(),
+    updateDrawing: vi.fn(() => null),
+    commitDrawingDrag: vi.fn(() => null),
+    commitDrawingDrags: vi.fn(() => []),
+    updateBatch: vi.fn(() => []),
+    getBatchStyleKeys: vi.fn(() => []),
     removeDrawing: vi.fn(() => false),
+    removeBatch: vi.fn(() => false),
     clearDrawings: vi.fn(),
-    getFullDrawings: vi.fn(() => kernelList),
-    setSelectedDrawingIds: vi.fn((ids: ReadonlyArray<string>) => {
-      selected = [...ids]
-    }),
-    getSelectedDrawingIds: vi.fn(() => selected),
+    getFullDrawings: () => kernelList,
+    setSelectedDrawingIds,
+    getSelectedDrawingIds: () => selected,
     setDrawingToolId: vi.fn(),
-    getDrawingToolId: vi.fn(() => 'cursor'),
-    requestDraw,
-    getViewport: vi.fn(() => null),
-    getKWidthKGap: vi.fn(() => ({ kWidth: 6, kGap: 2 })),
-    getCurrentDpr: vi.fn(() => 1),
-    getData: vi.fn(() => []),
-    getLogicalIndexAtX: vi.fn(() => null),
-    getTimestampAtLogicalIndex: vi.fn(() => null),
-    getLogicalIndexAtTimestamp: vi.fn(() => null),
-    priceToY: vi.fn(() => 0),
-    yToPrice: vi.fn(() => 0),
-    getPaneInfo: vi.fn(() => undefined),
-  } as any
+    getDrawingToolId: () => 'cursor',
+    requestDraw: vi.fn(),
+    getViewport: () => null,
+    getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
+    getCurrentDpr: () => 1,
+    getData: () => [],
+    getDrawingData: () => [],
+    getLogicalIndexAtX: () => null,
+    getScreenXAtLogicalIndex: () => null,
+    getDrawingTimestampAtLogicalIndex: () => null,
+    getLogicalIndexAtTimestamp: () => null,
+    getDrawingWorkspaceId: () => 'kline',
+    priceToY: () => 0,
+    yToPrice: () => 0,
+    getPaneInfo: () => undefined,
+    getPaneAtY: () => undefined,
+  }
 }
 
 describe('DrawingState session SSOT', () => {
   it('setPreview does not write kernel; only requestDraw', () => {
     const adapter = mockAdapter([createTrendLine('a')])
     const state = new DrawingState(adapter)
-    adapter.replaceDrawings.mockClear()
+    vi.mocked(adapter.replaceDrawings).mockClear()
     state.setPreview({ ...createTrendLine(PREVIEW_ID), id: PREVIEW_ID })
     expect(adapter.replaceDrawings).not.toHaveBeenCalled()
     expect(adapter.requestDraw).toHaveBeenCalled()
@@ -101,7 +87,7 @@ describe('DrawingState session SSOT', () => {
   it('setDragOverride does not write kernel; commitDrag delegates resolved anchors once', () => {
     const adapter = mockAdapter([createTrendLine('a')])
     const state = new DrawingState(adapter)
-    adapter.commitDrawingDrag.mockClear()
+    vi.mocked(adapter.commitDrawingDrag).mockClear()
     const moved = { ...createTrendLine('a'), anchors: [{ id: 'p', time: 1, price: 99 }] }
     state.setDragOverride(moved)
     expect(adapter.commitDrawingDrag).not.toHaveBeenCalled()

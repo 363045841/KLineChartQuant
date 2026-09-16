@@ -64,7 +64,7 @@ describe('indicatorResultState', () => {
       firstReadyIndex: 1,
     })
     expect(() => (snapshot.pool!.timestamps as number[]).push(3000)).toThrow(TypeError)
-    expect(() => snapshot.committed?.bundle._changed.push('boll')).toThrow(TypeError)
+    expect(() => (snapshot.committed!.bundle._changed as string[]).push('boll')).toThrow(TypeError)
     expect(() => (snapshot.pool!.results as Map<string, unknown>).set('macd-b', {})).toThrow(
       TypeError,
     )

@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
+import {
+  createMockCanvasContext,
+  createMockRenderContext,
+  type MockPaneInfoOverrides,
+  type MockRenderContextOverrides,
+} from '@/engine/__tests__/helpers/renderTestKit'
 
 import type { RenderContext } from '../../../foundation/plugin/index'
 import type { KLineData } from '../../../foundation/types/price'
@@ -23,7 +29,7 @@ const cmpData: KLineData[] = [
 /** symbolSpecIdentityKey({ symbol:'CMP', market:'CN', period:'daily' }) */
 const CMP_IDENTITY = '["","CN","","CMP",[]]'
 
-function makePane(priceToY = (p: number) => p) {
+function makePane(priceToY = (p: number) => p): MockPaneInfoOverrides {
   return {
     id: 'main',
     role: 'price',
@@ -52,21 +58,18 @@ function makePane(priceToY = (p: number) => p) {
   }
 }
 
-function makeContext(overrides: Partial<RenderContext> = {}): RenderContext {
-  return {
-    ctx: {} as CanvasRenderingContext2D,
+function makeContext(overrides: MockRenderContextOverrides = {}): RenderContext {
+  return createMockRenderContext({
+    ctx: createMockCanvasContext(),
     pane: makePane(),
     data: mainData,
-    period: 'daily',
     dataView: 'comparison',
     comparisonData: new Map([[CMP_IDENTITY, cmpData]]),
     comparisonSymbols: [{ symbol: 'CMP', market: 'CN', period: 'daily' }],
     comparisonColors: new Map(),
     range: { start: 0, end: 3 },
-    scrollLeft: 0,
     kWidth: 10,
     kGap: 2,
-    dpr: 1,
     paneWidth: 300,
     kLinePositions: [0, 10, 20],
     kLineCenters: [0, 10, 20],
@@ -75,21 +78,8 @@ function makeContext(overrides: Partial<RenderContext> = {}): RenderContext {
       { x: 10, width: 9 },
       { x: 20, width: 9 },
     ],
-    theme: 'light',
     ...overrides,
-  } as unknown as RenderContext
-}
-
-function mockCtx() {
-  return {
-    save: vi.fn(),
-    restore: vi.fn(),
-    translate: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-  } as unknown as CanvasRenderingContext2D
+  })
 }
 
 describe('buildComparisonLinePoints', () => {
@@ -115,7 +105,7 @@ describe('buildComparisonLinePoints', () => {
 
 describe('createComparisonLineRenderer.draw baseline', () => {
   it('anchors the baseline on the first bar whose center is inside the content area', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     // 首根中心 x=-5 落在屏外 → 基准取索引 1：MAIN[1].close=102，cmp 基准 51
     createComparisonLineRenderer().draw(
       makeContext({ ctx, scrollLeft: 5, kLineCenters: [-5, 5, 15] }),
@@ -128,7 +118,7 @@ describe('createComparisonLineRenderer.draw baseline', () => {
 
 describe('strokeStrip', () => {
   it('breaks the path at non-finite points', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     strokeStrip(
       ctx,
       [
@@ -146,7 +136,7 @@ describe('strokeStrip', () => {
   })
 
   it('does nothing with fewer than two points', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     strokeStrip(ctx, [{ x: 0, y: 0 }], '#000')
     expect(ctx.beginPath).not.toHaveBeenCalled()
   })
@@ -154,7 +144,7 @@ describe('strokeStrip', () => {
 
 describe('createComparisonLineRenderer.draw', () => {
   it('draws one line per comparison symbol, with no privileged main line', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     const renderer = createComparisonLineRenderer()
     renderer.draw(makeContext({ ctx }))
     expect(ctx.save).toHaveBeenCalledTimes(1)
@@ -165,7 +155,7 @@ describe('createComparisonLineRenderer.draw', () => {
   })
 
   it('does not draw when no comparison symbols are present', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     const renderer = createComparisonLineRenderer()
     renderer.draw(makeContext({ ctx, comparisonSymbols: [] }))
     expect(ctx.save).not.toHaveBeenCalled()
@@ -173,14 +163,14 @@ describe('createComparisonLineRenderer.draw', () => {
   })
 
   it('does not draw outside comparison view', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     const renderer = createComparisonLineRenderer()
     renderer.draw(makeContext({ ctx, dataView: 'kline' }))
     expect(ctx.save).not.toHaveBeenCalled()
   })
 
   it('skips comparison symbols without loaded data', () => {
-    const ctx = mockCtx()
+    const ctx = createMockCanvasContext()
     const renderer = createComparisonLineRenderer()
     renderer.draw(makeContext({ ctx, comparisonData: new Map() }))
     expect(ctx.stroke).not.toHaveBeenCalled()

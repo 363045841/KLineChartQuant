@@ -1,124 +1,26 @@
-// @ts-nocheck - Test file with intentional type relaxations for mocking
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/state/maState'
-import type { Pane } from '@/core/layout/pane'
+import {
+  createMockCanvasContext,
+  createMockIndicatorHost,
+  createMockRenderContext,
+  createMockStateReader,
+} from '@/engine/__tests__/helpers/renderTestKit'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
-import type { KLineData } from '@/types/price'
 import { createMARendererPlugin } from '../Indicator/ma'
 
 // Type helper for tests - we know these methods exist on the implementation
 interface TestableMARenderer extends RendererPluginWithHost {
+  onInstall: (host: PluginHost) => void
   draw: (context: RenderContext) => void
+  getDeclaredNamespaces: () => string[]
   getConfig: () => Record<string, unknown>
   setConfig: (config: Record<string, unknown>) => void
 }
 
-/**
- * 创建 mock canvas context
- */
-function createMockCanvasContext(): CanvasRenderingContext2D {
-  return {
-    save: vi.fn(),
-    restore: vi.fn(),
-    translate: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    strokeStyle: '',
-    lineWidth: 0,
-    lineJoin: '',
-    lineCap: '',
-  } as unknown as CanvasRenderingContext2D
-}
-
-/**
- * 创建 mock PluginHost
- */
-function createMockPluginHost(state?: MARenderState): PluginHost {
-  return {
-    setSharedState: vi.fn(),
-    getSharedState: vi.fn(<T>(key: string): T | undefined => {
-      if (key === MA_STATE_KEY) {
-        return state as T
-      }
-      return undefined
-    }),
-    clearByOwner: vi.fn(),
-    registerService: vi.fn(),
-    getService: vi.fn(<T>(name: string) => {
-      if (name === 'indicatorScheduler') {
-        return {
-          getIndicatorMetadata: (indicatorName: string) => {
-            if (indicatorName === 'ma') {
-              return { name: 'ma', stateKey: MA_STATE_KEY }
-            }
-            return undefined
-          },
-          getAllIndicators: () => [],
-          createRenderStateReader: () => ({
-            get: <T>(key: string): T | undefined =>
-              key === MA_STATE_KEY ? (state as T) : undefined,
-          }),
-        } as T
-      }
-      return undefined
-    }),
-    getCanvas: vi.fn(),
-    getMainPane: vi.fn(),
-    getSubPane: vi.fn(),
-    getAllSubPanes: vi.fn(),
-    getTheme: vi.fn(),
-    getStyles: vi.fn(),
-    getBarStyles: vi.fn(),
-    getConfig: vi.fn(),
-    setConfig: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
-    emit: vi.fn(),
-  } as unknown as PluginHost
-}
-
-/**
- * 创建 mock RenderContext
- */
-function createMockRenderContext(
-  ctx: CanvasRenderingContext2D,
-  overrides: Partial<RenderContext> = {},
-): RenderContext {
-  const mockPane = {
-    height: 200,
-    yAxis: {
-      priceToY: (price: number) => price * 10,
-      getDisplayRange: () => ({ minPrice: 0, maxPrice: 200 }),
-      getPriceOffset: () => 0,
-      getScaleType: () => 'linear',
-    },
-  } as unknown as Pane
-
-  return {
-    ctx,
-    data: [] as KLineData[],
-    range: { start: 0, end: 10 },
-    visibleRange: { start: 0, end: 10 },
-    crosshair: null,
-    crosshairIndex: null,
-    dpr: 1,
-    scrollLeft: 0,
-    pane: mockPane,
-    kLineCenters: Array.from({ length: 10 }, (_, i) => i * 10 + 5),
-    period: 'daily',
-    ...overrides,
-  } as RenderContext
-}
-
-function createMockIndicatorStateReader(state?: MARenderState) {
-  return {
-    get: vi.fn(<T>(key: string): T | undefined =>
-      key === MA_STATE_KEY ? (state as T) : undefined,
-    ),
-  }
+/** 构造携带 MA 指标元数据与帧状态的 PluginHost。 */
+function createMockPluginHost(state?: MARenderState) {
+  return createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
 }
 
 /**
@@ -151,7 +53,7 @@ function createTestMARenderState(overrides: Partial<MARenderState> = {}): MARend
 
 describe('createMARendererPlugin', () => {
   it('should create a renderer plugin with correct metadata', () => {
-    const plugin = createMARendererPlugin()
+    const plugin = createMARendererPlugin() as TestableMARenderer
 
     expect(plugin.name).toBe('ma')
     expect(plugin.version).toBe('2.1.0')
@@ -161,18 +63,18 @@ describe('createMARendererPlugin', () => {
   })
 
   it('should have onInstall method', () => {
-    const plugin = createMARendererPlugin()
+    const plugin = createMARendererPlugin() as TestableMARenderer
     expect(typeof plugin.onInstall).toBe('function')
   })
 
   it('should declare MA_STATE_KEY namespace', () => {
-    const plugin = createMARendererPlugin()
+    const plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([MA_STATE_KEY])
   })
 
   it('should accept PluginHost via onInstall', () => {
-    const plugin = createMARendererPlugin()
+    const plugin = createMARendererPlugin() as TestableMARenderer
     const mockHost = createMockPluginHost()
 
     expect(() => plugin.onInstall(mockHost)).not.toThrow()
@@ -192,8 +94,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY),
     })
     plugin.draw(context)
 
@@ -212,8 +115,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -229,8 +133,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -244,8 +149,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -260,9 +166,10 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
+    const context = createMockRenderContext({
+      ctx,
       scrollLeft: 100,
-      indicatorStateReader: createMockIndicatorStateReader(state),
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -275,8 +182,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -300,10 +208,11 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
+    const context = createMockRenderContext({
+      ctx,
       range: { start: 0, end: 10 },
       kLineCenters: Array.from({ length: 10 }, (_, i) => i * 10 + 5),
-      indicatorStateReader: createMockIndicatorStateReader(state),
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -324,10 +233,11 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
+    const context = createMockRenderContext({
+      ctx,
       range: { start: 0, end: 10 },
       kLineCenters: Array.from({ length: 10 }, (_, i) => i * 10 + 5),
-      indicatorStateReader: createMockIndicatorStateReader(state),
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -352,8 +262,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(MA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -363,7 +274,7 @@ describe('MA renderer draw', () => {
 })
 
 describe('MA renderer getConfig/setConfig', () => {
-  let plugin: ReturnType<typeof createMARendererPlugin>
+  let plugin: TestableMARenderer
 
   it('getConfig should return enabled periods from StateStore', () => {
     const state = createTestMARenderState({
@@ -413,7 +324,7 @@ describe('MA renderer getConfig/setConfig', () => {
 
 describe('MA renderer stateless design verification', () => {
   it('should not have any internal caching', () => {
-    const plugin = createMARendererPlugin()
+    const plugin = createMARendererPlugin() as TestableMARenderer
 
     // Plugin should not expose any cache-related methods
     expect('maCache' in plugin).toBe(false)
@@ -423,33 +334,17 @@ describe('MA renderer stateless design verification', () => {
   })
 
   it('should read fresh state on each draw call', () => {
-    const reader = createMockIndicatorStateReader(createTestMARenderState())
-    const mockHost = {
-      setSharedState: vi.fn(),
-      getSharedState: vi.fn(),
-      clearByOwner: vi.fn(),
-      registerService: vi.fn(),
-      getService: vi.fn(<T>(name: string) => {
-        if (name === 'indicatorScheduler') {
-          return {
-            getIndicatorMetadata: (indicatorName: string) => {
-              if (indicatorName === 'ma') {
-                return { name: 'ma', stateKey: MA_STATE_KEY }
-              }
-              return undefined
-            },
-            getAllIndicators: () => [],
-          } as T
-        }
-        return undefined
-      }),
-    } as unknown as PluginHost
+    const state = createTestMARenderState()
+    const reader = createMockStateReader(MA_STATE_KEY, state)
+    const mockHost = createMockPluginHost(state)
 
-    const plugin = createMARendererPlugin()
+    const plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const ctx = createMockCanvasContext()
-    const context = createMockRenderContext(ctx, { indicatorStateReader: reader })
+    const context = createMockRenderContext({
+      ctx: createMockCanvasContext(),
+      indicatorStateReader: reader,
+    })
 
     // First draw
     plugin.draw(context)

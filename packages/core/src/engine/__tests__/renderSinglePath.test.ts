@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
+import type { RendererPlugin } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { RendererPluginManager } from '../../foundation/plugin/rendererPluginManager'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import { createScene } from '../../rendering/scene/createScene'
+import { createMockRenderContext } from './helpers/renderTestKit'
 
 /**
  * Phase 0 契约：绘制只走 Scene；Manager 仅注册表；
@@ -50,7 +51,7 @@ describe('render single-path (Phase 0)', () => {
   it('bridge: register + createLayerFromPlugin paints via scene only', () => {
     const draw = vi.fn()
     const plugin = makePlugin('bridge-a', draw)
-    const ctx = { theme: 'dark' } as unknown as RenderContext
+    const ctx = createMockRenderContext({ theme: 'dark' })
     manager.register(plugin)
     scene.addLayer(createLayerFromPlugin(plugin, () => ctx, 'main'))
 
@@ -62,7 +63,7 @@ describe('render single-path (Phase 0)', () => {
   it('setLayerVisibility false skips paint (timeshare candle path)', () => {
     const draw = vi.fn()
     const plugin = makePlugin('candle', draw)
-    scene.addLayer(createLayerFromPlugin(plugin, () => ({}) as RenderContext, 'main'))
+    scene.addLayer(createLayerFromPlugin(plugin, () => createMockRenderContext(), 'main'))
 
     expect(scene.setLayerVisibility('plugin:candle', false)).toBe(true)
     paintMain()
@@ -94,9 +95,11 @@ describe('render single-path (Phase 0)', () => {
       throw new Error('boom')
     })
     scene.addLayer(
-      createLayerFromPlugin(makePlugin('boom', boom), () => ({}) as RenderContext, 'main'),
+      createLayerFromPlugin(makePlugin('boom', boom), () => createMockRenderContext(), 'main'),
     )
-    scene.addLayer(createLayerFromPlugin(makePlugin('ok', ok), () => ({}) as RenderContext, 'main'))
+    scene.addLayer(
+      createLayerFromPlugin(makePlugin('ok', ok), () => createMockRenderContext(), 'main'),
+    )
 
     expect(() => paintMain()).not.toThrow()
     expect(boom).toHaveBeenCalledOnce()
@@ -108,7 +111,7 @@ describe('render single-path (Phase 0)', () => {
     const plugin = makePlugin('only-scene', draw)
     manager.register(plugin)
     manager.setEnabled(plugin.name, false)
-    scene.addLayer(createLayerFromPlugin(plugin, () => ({}) as RenderContext, 'main'))
+    scene.addLayer(createLayerFromPlugin(plugin, () => createMockRenderContext(), 'main'))
 
     // Manager 无 render 入口；Scene 仍画
     expect(typeof (manager as { render?: unknown }).render).toBe('undefined')

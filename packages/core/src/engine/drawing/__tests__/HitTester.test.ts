@@ -1,31 +1,35 @@
 /** 验证单轴锚点图元的命中检测。 */
 import { describe, expect, it } from 'vitest'
 
-import type { DrawingChartAdapter } from '../../../controllers/types'
 import type { DrawingObject } from '../../../foundation/plugin'
 import { HitTester } from '../HitTester'
 import { LINE_LABEL_NORMAL_OFFSET } from '../labelLayout'
+import { createDrawingAdapter } from './helpers/drawingTestKit'
 
 /** 创建垂直线命中检测所需的最小图表适配器。 */
-function createAdapter(): DrawingChartAdapter {
-  return {
-    getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
-    getScreenXAtLogicalIndex: () => 137,
-    getLogicalIndexAtTimestamp: () => 0,
-    priceToY: (_paneId: string, price: number) => price,
-    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
-  } as unknown as DrawingChartAdapter
+function createAdapter() {
+  return createDrawingAdapter({
+    viewport: {
+      getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
+      getScreenXAtLogicalIndex: () => 137,
+      getLogicalIndexAtTimestamp: () => 0,
+      priceToY: (_paneId: string, price: number) => price,
+      getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
+    },
+  })
 }
 
 /** 创建具有不同横坐标的两锚点命中测试适配器。 */
-function createLineAdapter(): DrawingChartAdapter {
-  return {
-    getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
-    getScreenXAtLogicalIndex: (index: number) => (index === 0 ? 20 : 220),
-    getLogicalIndexAtTimestamp: (timestamp: number) => (timestamp === 1_000 ? 0 : 1),
-    priceToY: (_paneId: string, price: number) => price,
-    getPaneInfo: () => ({ paneId: 'main', top: 30, height: 240 }),
-  } as unknown as DrawingChartAdapter
+function createLineAdapter() {
+  return createDrawingAdapter({
+    viewport: {
+      getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
+      getScreenXAtLogicalIndex: (index: number) => (index === 0 ? 20 : 220),
+      getLogicalIndexAtTimestamp: (timestamp: number) => (timestamp === 1_000 ? 0 : 1),
+      priceToY: (_paneId: string, price: number) => price,
+      getPaneInfo: () => ({ paneId: 'main', top: 30, height: 240 }),
+    },
+  })
 }
 
 describe('HitTester', () => {

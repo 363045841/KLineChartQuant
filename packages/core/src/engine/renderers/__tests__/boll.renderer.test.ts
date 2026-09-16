@@ -1,9 +1,12 @@
-// @ts-nocheck - Test file with intentional type relaxations for mocking
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/state/bollState'
-import type { Pane } from '@/core/layout/pane'
+import {
+  createMockCanvasContext,
+  createMockIndicatorHost,
+  createMockRenderContext,
+  createMockStateReader,
+} from '@/engine/__tests__/helpers/renderTestKit'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
-import type { KLineData } from '@/types/price'
 import { createBOLLRendererPlugin } from '../Indicator/boll'
 
 if (typeof globalThis.Path2D === 'undefined') {
@@ -17,122 +20,16 @@ if (typeof globalThis.Path2D === 'undefined') {
 
 // Type helper for tests
 interface TestableBOLLRenderer extends RendererPluginWithHost {
+  onInstall: (host: PluginHost) => void
   draw: (context: RenderContext) => void
+  getDeclaredNamespaces: () => string[]
   getConfig: () => Record<string, unknown>
   setConfig: (config: Record<string, unknown>) => void
 }
 
-function createMockCanvasContext(): CanvasRenderingContext2D {
-  return {
-    save: vi.fn(),
-    restore: vi.fn(),
-    translate: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    fill: vi.fn(),
-    closePath: vi.fn(),
-    strokeStyle: '',
-    fillStyle: '',
-    lineWidth: 0,
-    lineJoin: '',
-    lineCap: '',
-  } as unknown as CanvasRenderingContext2D
-}
-
-function createMockPluginHost(state?: BOLLRenderState): PluginHost {
-  return {
-    setSharedState: vi.fn(),
-    getSharedState: vi.fn(<T>(key: string): T | undefined => {
-      if (key === BOLL_STATE_KEY) {
-        return state as T
-      }
-      return undefined
-    }),
-    clearByOwner: vi.fn(),
-    registerService: vi.fn(),
-    getService: vi.fn(<T>(name: string) => {
-      if (name === 'indicatorScheduler') {
-        return {
-          getIndicatorMetadata: (indicatorName: string) => {
-            if (indicatorName === 'boll') {
-              return { name: 'boll', stateKey: BOLL_STATE_KEY }
-            }
-            return undefined
-          },
-          getAllIndicators: () => [],
-          createRenderStateReader: () => ({
-            get: <T>(key: string): T | undefined =>
-              key === BOLL_STATE_KEY ? (state as T) : undefined,
-          }),
-        } as T
-      }
-      return undefined
-    }),
-    getCanvas: vi.fn(),
-    getMainPane: vi.fn(),
-    getSubPane: vi.fn(),
-    getAllSubPanes: vi.fn(),
-    getTheme: vi.fn(),
-    getStyles: vi.fn(),
-    getBarStyles: vi.fn(),
-    getConfig: vi.fn(),
-    setConfig: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
-    emit: vi.fn(),
-  } as unknown as PluginHost
-}
-
-function createMockRenderContext(
-  ctx: CanvasRenderingContext2D,
-  overrides: Partial<RenderContext> = {},
-): RenderContext {
-  const mockPane = {
-    height: 200,
-    yAxis: {
-      priceToY: (price: number) => price * 10,
-      getDisplayRange: () => ({ minPrice: 0, maxPrice: 200 }),
-      getPriceOffset: () => 0,
-      getScaleType: () => 'linear',
-    },
-  } as unknown as Pane
-
-  // Create default test data with sufficient length
-  const defaultData: KLineData[] = Array.from({ length: 100 }, (_, i) => ({
-    timestamp: 1000000000000 + i * 60000,
-    open: 100 + i,
-    high: 101 + i,
-    low: 99 + i,
-    close: 100 + i,
-    volume: 1000 + i * 100,
-  }))
-
-  return {
-    ctx,
-    data: defaultData,
-    // BOLL period defaults to 20 — range must cover post-warm-up indices for draw() to execute
-    range: { start: 0, end: 100 },
-    visibleRange: { start: 0, end: 100 },
-    crosshair: null,
-    crosshairIndex: null,
-    dpr: 1,
-    scrollLeft: 0,
-    pane: mockPane,
-    kLineCenters: Array.from({ length: 100 }, (_, i) => i * 10 + 5),
-    period: 'daily',
-    ...overrides,
-  } as RenderContext
-}
-
-function createMockIndicatorStateReader(state?: BOLLRenderState) {
-  return {
-    get: vi.fn(<T>(key: string): T | undefined =>
-      key === BOLL_STATE_KEY ? (state as T) : undefined,
-    ),
-  }
+/** 构造携带 BOLL 指标元数据与帧状态的 PluginHost。 */
+function createMockPluginHost(state?: BOLLRenderState) {
+  return createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY, state })
 }
 
 function createTestBOLLState(overrides: Partial<BOLLRenderState> = {}): BOLLRenderState {
@@ -156,7 +53,7 @@ function createTestBOLLState(overrides: Partial<BOLLRenderState> = {}): BOLLRend
 
 describe('createBOLLRendererPlugin', () => {
   it('should create a renderer plugin with correct metadata', () => {
-    const plugin = createBOLLRendererPlugin()
+    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
 
     expect(plugin.name).toBe('boll')
     expect(plugin.version).toBe('2.2.0')
@@ -164,12 +61,12 @@ describe('createBOLLRendererPlugin', () => {
   })
 
   it('should have onInstall method', () => {
-    const plugin = createBOLLRendererPlugin()
+    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     expect(typeof plugin.onInstall).toBe('function')
   })
 
   it('should declare BOLL_STATE_KEY namespace', () => {
-    const plugin = createBOLLRendererPlugin()
+    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([BOLL_STATE_KEY])
   })
@@ -188,7 +85,7 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext({ ctx })
     plugin.draw(context)
 
     // Should not call any drawing methods
@@ -205,8 +102,9 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -220,8 +118,8 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const reader = createMockIndicatorStateReader(state)
-    const context = createMockRenderContext(ctx, { indicatorStateReader: reader })
+    const reader = createMockStateReader(BOLL_STATE_KEY, state)
+    const context = createMockRenderContext({ ctx, indicatorStateReader: reader })
     plugin.draw(context)
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
@@ -238,8 +136,9 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -253,8 +152,9 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -272,9 +172,10 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
+    const context = createMockRenderContext({
+      ctx,
       range: { start: 0, end: 25 },
-      indicatorStateReader: createMockIndicatorStateReader(state),
+      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
     })
 
     expect(() => plugin.draw(context)).not.toThrow()
@@ -293,7 +194,7 @@ describe('BOLL renderer config', () => {
       },
     })
     const mockHost = createMockPluginHost(state)
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
+    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
     const config = plugin.getConfig()
@@ -305,7 +206,7 @@ describe('BOLL renderer config', () => {
 
   it('getConfig should return empty object when no state', () => {
     const mockHost = createMockPluginHost(undefined)
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
+    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
     const config = plugin.getConfig()
@@ -315,7 +216,7 @@ describe('BOLL renderer config', () => {
 
   it('setConfig should be a no-op', () => {
     const mockHost = createMockPluginHost(createTestBOLLState())
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
+    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
     // setConfig should not throw
