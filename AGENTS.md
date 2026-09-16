@@ -37,7 +37,6 @@ pnpm workspace at `packages/*`。发布包：
 | `packages/vue` | `@363045841yyt/klinechart` |
 | `packages/react` | `@363045841yyt/klinechart-react` |
 | `packages/angular` | `@363045841yyt/klinechart-angular` |
-| `packages/ui-schema` | `@363045841yyt/klinechart-ui-schema` |
 
 框架包通过 `workspace:*` 依赖 core；发布构建使用 `pnpm build:packages`（core → vue）。
 
