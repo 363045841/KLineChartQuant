@@ -9,8 +9,12 @@ export interface BOLLPoint {
   lower: number
 }
 
-export function calcBOLLData(data: KLineData[], period: number, multiplier: number): BOLLPoint[] {
-  const result: BOLLPoint[] = new Array(data.length)
+export function calcBOLLData(
+  data: KLineData[],
+  period: number,
+  multiplier: number,
+): Array<BOLLPoint | undefined> {
+  const result: Array<BOLLPoint | undefined> = new Array(data.length)
 
   if (data.length < period) return result
 
@@ -64,8 +68,12 @@ export interface ENEPoint {
   lower: number
 }
 
-export function calcENEData(data: KLineData[], period: number, deviation: number): ENEPoint[] {
-  const result: ENEPoint[] = new Array(data.length)
+export function calcENEData(
+  data: KLineData[],
+  period: number,
+  deviation: number,
+): Array<ENEPoint | undefined> {
+  const result: Array<ENEPoint | undefined> = new Array(data.length)
 
   if (data.length < period) return result
 

@@ -12,7 +12,7 @@ export const DEFAULT_BOLL_MULTIPLIER = 2
 export interface BOLLRenderState extends BaseIndicatorState {
   timestamp: number
   /** 全量 BOLL 数组（稀疏：前 period-1 个为 undefined） */
-  series: BOLLPoint[]
+  series: Array<BOLLPoint | undefined>
   /** 计算和渲染参数（渲染器从此读取 showUpper/showMiddle/showLower） */
   params: {
     period: number
