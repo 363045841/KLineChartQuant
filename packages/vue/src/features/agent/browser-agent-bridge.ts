@@ -701,6 +701,20 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return this.profiles.active()?.exaApiKey?.trim() || undefined
   }
 
+  /** 当前生效的全部真实凭据，供 PiRunDriver 在事件投影前逐字剔除。 */
+  private async secretValues(): Promise<readonly string[]> {
+    const values: string[] = []
+    try {
+      const apiKey = await this.credentials.read()
+      if (apiKey) values.push(apiKey)
+    } catch {
+      // 凭据不可读不应阻断运行；此时仅内置正则生效。
+    }
+    const exaApiKey = this.webSearchApiKey()
+    if (exaApiKey) values.push(exaApiKey)
+    return values
+  }
+
   /** 解析工具执行目标：命中原语宿主则用宿主，否则归属 Agent facade 自身工具。 */
   private chartToolTarget(tool: RegisteredChartTool, agent: ChartAgentController): object {
     const host = agent.toolHosts.find((candidate) => tool.owns(candidate))
@@ -960,7 +974,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const session = this.requireSession(input.sessionId)
     const runId = `run-${this.nextRun++}`
     const startedAt = Date.now()
-    const driver = new PiRunDriver()
+    // 真实凭据必须进脱敏名单：内置正则只覆盖 Bearer/Basic、`sk-` 前缀与本地路径，
+    // 非该形态的 Provider Key（自建网关、非 OpenAI 厂商）否则会原样出现在事件流里。
+    const driver = new PiRunDriver({ redaction: { secretValues: await this.secretValues() } })
     const runInput: StartRunInput = {
       ...input,
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
