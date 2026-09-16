@@ -34,11 +34,12 @@ pnpm workspace at `packages/*`。发布包：
 | 目录 | 发布包 |
 |------|--------|
 | `packages/core` | `@363045841yyt/klinechart-core` |
+| `packages/agent-runtime` | `@363045841yyt/klinechart-agent-runtime` |
 | `packages/vue` | `@363045841yyt/klinechart` |
 | `packages/react` | `@363045841yyt/klinechart-react` |
 | `packages/angular` | `@363045841yyt/klinechart-angular` |
 
-框架包通过 `workspace:*` 依赖 core；发布构建使用 `pnpm build:packages`（core → vue）。
+框架包通过 `workspace:` 协议依赖 core 与 agent-runtime；发布构建使用 `pnpm build:packages`（core → agent-runtime → vue）。vue 把 agent-runtime 声明为 `peerDependencies`，因此发布顺序不可颠倒。
 
 Node `^20.19.0 || >=22.12.0`，pnpm 11.x。
 
@@ -52,7 +53,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 |---------|------|
 | `pnpm lint` | Biome 检查（`biome check .`，含 lint + format + import 排序）；`pnpm lint:fix` 自动修复 |
 | `pnpm format` | Biome 格式化（`biome format --write .`） |
-| `pnpm build:packages` | 发布包构建（core → vue） |
+| `pnpm build:packages` | 发布包构建（core → agent-runtime → vue） |
 | `pnpm type-check` | 使用 `vue-tsc --noEmit -p <tsconfig>` 逐个检查，不要使用 `tsc` |
 | `pnpm test:unit` | root 测试 |
 | `pnpm test:packages` | 所有 workspace 包测试 |

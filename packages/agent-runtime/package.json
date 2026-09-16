@@ -1,8 +1,14 @@
 {
   "name": "@363045841yyt/klinechart-agent-runtime",
-  "version": "0.1.0",
+  "version": "0.11.0-alpha.3",
   "description": "Framework-neutral Pi agent runtime, durable sessions, and typed host contracts for KLineChartQuant.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "bugs": "https://github.com/363045841/KLineChartQuant/issues",
+  "homepage": "https://363045841.github.io/KLineChartQuant/",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
