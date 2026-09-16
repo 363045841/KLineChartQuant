@@ -1,12 +1,13 @@
 # Library CI — runs on every push and PR to main.
 #
-# Gate state (Round 1G):
-#   - REQUIRED  : package tests, root vitest
-#   - WARN-ONLY : size:packages, lint:publish, lint:types, build
+# Gate state:
+#   - REQUIRED  : package tests, lint:types (attw)
+#   - WARN-ONLY : size:packages, lint:publish, build
 #
-# TODO: Promote size/lint:publish/lint:types from warn-only to required once
-# Round 1E lands createChartController and we wire `tsc --build` into the
-# pipeline so every job has a real `dist/` to inspect. See docs/CI_GATES.md.
+# lint:types checks the *packed* output of each publishable package, so the
+# `test` job builds them before running the gate. The remaining warn-only
+# gates still need their own fixes before they can block merges; see
+# docs/CI_GATES.md for the current matrix and blockers.
 
 name: library-ci
 
@@ -60,27 +61,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build core package
-        run: pnpm --filter @363045841yyt/klinechart-core build
+      # lint:types inspects the packed output of every publishable package, so
+      # they must be built first, in workspace dependency order:
+      # core -> agent-runtime -> vue; react and angular depend on core.
+      - name: Build packages under the type-resolution gate
+        run: |
+          pnpm build:packages
+          pnpm --filter @363045841yyt/klinechart-react build
+          pnpm --filter @363045841yyt/klinechart-angular build
 
       - name: Run package tests (pnpm -r test)
         run: pnpm test:packages
 
+      - name: Type-resolution check (attw) [REQUIRED]
+        run: pnpm lint:types
+
       # ---- WARN-ONLY GATES ----
-      # These all require a built `dist/` per package. Until Round 1E lands
-      # createChartController and we add `tsc --build` to the workflow, these
-      # are intentionally non-blocking. They MUST be promoted to required
-      # before the first npm publish — silent rot is the only failure mode.
+      # These still need their own fixes before they can block merges; see
+      # docs/CI_GATES.md for the current blockers.
       - name: Bundle size budgets (size-limit) [WARN]
         run: pnpm size:packages
         continue-on-error: true
 
       - name: Publish hygiene (publint --strict) [WARN]
         run: pnpm lint:publish
-        continue-on-error: true
-
-      - name: Type-resolution check (attw --pack) [WARN]
-        run: pnpm lint:types
         continue-on-error: true
 
   build:

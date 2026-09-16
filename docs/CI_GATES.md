@@ -13,9 +13,23 @@ required, update the table here in the same PR.
 | Legacy root vitest suite      | `./node_modules/.bin/vitest`  | Root `src/`       | REQUIRED | —                                                                                |
 | Bundle size budgets           | `size-limit`                  | core/react/vue/ng | WARN     | Pre-build measurement off `src/index.ts`; needs real `dist/` for accurate gzip.  |
 | Publish hygiene (exports/types/main) | `publint --strict`     | core/react/vue/ng | WARN     | publint needs `dist/` to verify file existence under `pkg.exports`.              |
-| Type-resolution (ESM + CJS)   | `@arethetypeswrong/cli` (attw)| core/react/vue/ng | WARN     | attw runs against `npm pack` output, which is empty until `tsc --build` works.   |
+| Type-resolution (ESM)         | `@arethetypeswrong/cli` (attw)| core/agent-runtime/vue/react/ng | REQUIRED | —                                                        |
 | Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | Each package's `build` script points to `tsconfig.build.json` which doesn't exist yet. |
 | Coverage threshold            | `@vitest/coverage-v8`         | Root              | NOT WIRED| Intentionally deferred until Round 1E lands real engine code worth covering.     |
+
+### attw profile
+
+`pnpm lint:types` runs `scripts/lint-types.mjs`, which pins one profile for
+every publishable package:
+
+- `--profile esm-only` — each publishable package ships ESM only, and Node 22+
+  supports `require()` of ESM, so the legacy Node CJS resolution rules only
+  produce false alarms here.
+- `--exclude-entrypoints style.css` for the Vue package — a CSS entry is not
+  JavaScript and can never resolve as a type.
+
+The package list and the per-package exclusions live in that script, so the
+profile has a single definition. Gate the new package by adding it there.
 
 ## Per-package bundle budgets
 
@@ -37,27 +51,31 @@ shake or peer-dep externalization is the right move.
 
 When Round 1E lands and we are ready to publish:
 
-1. Add a `tsc --build` step before `size:packages` / `lint:publish` / `lint:types`
-   in `library-ci.yml`.
-2. Flip the three warn-only gates to required (remove `continue-on-error: true`).
+1. `library-ci.yml` already builds every package under the type-resolution gate
+   before running it; `lint:publish` and `size:packages` reuse those builds.
+2. Flip the remaining warn-only gates to required (remove
+   `continue-on-error: true`) once their blockers in the matrix are resolved.
 3. Re-baseline the size budgets against the real `dist/index.js`.
 4. Verify `publishConfig.provenance: true` is honored by the publish workflow
    (it requires `id-token: write` permission and OIDC-enabled runners — already
    the default on `ubuntu-latest`).
 
-## Top-2 promotion priority (maintainer guidance)
+## Promotion order for the remaining warn-only gates
 
-When promoting warn-only gates to required, do them in this order:
+`lint:types` (attw) is required as of #189. The two gates still warn-only:
 
 1. **`publint --strict`** — cheapest to fix, catches broken `exports`/`main`/
    `types` paths before a user ever installs the package. Failure here means
-   the package is literally unimportable.
-2. **`size-limit`** — once budgets are baselined against real `dist/`, this is
-   the single best regression alarm for accidental dependency bloat or losing
-   tree-shakability (e.g., a stray side-effectful import).
+   the package is literally unimportable. It passes today; promote it once the
+   `exports` shape of every publishable package is settled.
+2. **`size-limit`** — still measured pre-build off `src/index.ts`, so the
+   budgets must be re-baselined against the real `dist/` output before the
+   gate can be trusted.
 
-`attw` is valuable but the hardest of the three to satisfy cleanly; promote it
-third, after `exports` shape has stabilized post-Round-1E.
+Promoting `attw` first was deliberate: unlike the other two, it was the only
+gate that could see the type/runtime mismatch shipped in #189 (extensionless
+relative imports, `.vue` declaration specifiers, a leaked workspace path), so
+it had to go live before the packages could be called correct.
 
 ## Local commands
 
@@ -65,5 +83,5 @@ third, after `exports` shape has stabilized post-Round-1E.
 pnpm test:packages     # workspace tests
 pnpm size:packages     # bundle budgets
 pnpm lint:publish      # publint --strict, every publishable package
-pnpm lint:types        # attw --pack, every publishable package
+pnpm lint:types        # attw (esm-only profile), every publishable package
 ```
