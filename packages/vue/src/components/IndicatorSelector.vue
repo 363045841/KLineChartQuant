@@ -30,41 +30,47 @@
           <span class="section-count">{{ group.items.length }}</span>
         </div>
         <div class="indicator-grid" :class="{ compact: indicatorView === 'compact' }">
-          <div
+          <BaseTooltip
             v-for="indicator in group.items"
             :key="indicator.id"
-            class="indicator-card"
-            :class="{ active: isActive(indicator.id) }"
+            :content="indicator.name"
+            placement="top"
+            trigger-display="contents"
+            :show-delay="0"
+            :disabled="indicatorView !== 'compact'"
           >
-            <button class="card-select" @click="toggleIndicator(indicator.id)">
-              <div class="card-header">
-                <span class="card-label">{{ indicator.label }}</span>
-                <span v-if="indicatorView === 'type'" class="pane-badge">
-                  {{ indicator.role === 'main' ? '主' : '副' }}
-                </span>
-              </div>
-              <div v-if="indicatorView !== 'compact'" class="card-name">{{ indicator.name }}</div>
-              <span v-else class="card-tooltip">{{ indicator.name }}</span>
-            </button>
-            <button
-              v-if="indicator.params?.length"
-              class="card-action-btn"
-              title="编辑参数"
-              aria-label="编辑参数"
-              @click="showParams(indicator.id)"
-            >
-              <IconTablerSettings aria-hidden="true" />
-            </button>
-            <button
-              v-else-if="indicator.description"
-              class="card-action-btn"
-              title="查看指标说明"
-              aria-label="查看指标说明"
-              @click="showDescription(indicator.id)"
-            >
-              <IconTablerInfoCircle aria-hidden="true" />
-            </button>
-          </div>
+            <div class="indicator-card" :class="{ active: isActive(indicator.id) }">
+              <button class="card-select" @click="toggleIndicator(indicator.id)">
+                <div class="card-header">
+                  <span class="card-label">{{ indicator.label }}</span>
+                  <span v-if="indicatorView === 'type'" class="pane-badge">
+                    {{ indicator.role === 'main' ? '主' : '副' }}
+                  </span>
+                </div>
+                <div v-if="indicatorView !== 'compact'" class="card-name">
+                  {{ indicator.name }}
+                </div>
+              </button>
+              <button
+                v-if="indicator.params?.length"
+                class="card-action-btn"
+                title="编辑参数"
+                aria-label="编辑参数"
+                @click="showParams(indicator.id)"
+              >
+                <IconTablerSettings aria-hidden="true" />
+              </button>
+              <button
+                v-else-if="indicator.description"
+                class="card-action-btn"
+                title="查看指标说明"
+                aria-label="查看指标说明"
+                @click="showDescription(indicator.id)"
+              >
+                <IconTablerInfoCircle aria-hidden="true" />
+              </button>
+            </div>
+          </BaseTooltip>
         </div>
       </div>
 
@@ -137,6 +143,7 @@
   import BaseModal from './BaseModal.vue'
   import IndicatorParams from './IndicatorParams.vue'
   import SegmentedTabs from './SegmentedTabs.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import SearchField from './common/SearchField.vue'
 
   const props = defineProps<{
@@ -438,28 +445,6 @@
   .indicator-grid.compact .card-select {
     justify-content: center;
     padding: 6px 32px 6px 10px;
-  }
-
-  .indicator-grid.compact .indicator-card .card-tooltip {
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 4px 10px;
-    border-radius: 6px;
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    font-size: 12px;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    z-index: 10;
-  }
-
-  .indicator-grid.compact .indicator-card:hover .card-tooltip,
-  .indicator-grid.compact .indicator-card:focus-within .card-tooltip {
-    opacity: 1;
   }
 
   .indicator-grid.compact .indicator-card .card-label {

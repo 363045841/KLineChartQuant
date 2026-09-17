@@ -1,44 +1,46 @@
 <template>
   <nav class="left-toolbar" aria-label="图表工具栏">
     <div class="left-toolbar__group">
-      <button
-        type="button"
-        class="left-toolbar__button"
-        title="指标"
-        aria-label="指标"
-        @click="$emit('toggleIndicator')"
-        @pointerdown.stop
-        @pointermove.stop
-        @pointerup.stop
-      >
-        <IconTablerMathFunction class="tool-icon" aria-hidden="true" />
-      </button>
+      <BaseTooltip content="指标">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="指标"
+          @click="$emit('toggleIndicator')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerMathFunction class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
       <div v-for="tool in primaryTools" :key="tool.id" class="tool-item">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :class="{ active: isActive(tool) }"
-          :title="tool.title"
-          :aria-label="tool.title"
-          @click="selectTool(tool)"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <component :is="tool.icon" class="tool-icon" aria-hidden="true" />
-          <span
-            v-if="tool.children && tool.children.length"
-            class="corner-indicator"
-            :class="{ open: openGroupId === tool.id }"
-            aria-label="展开子菜单"
-            @click.stop="toggleExpand(tool.id)"
-          ></span>
-        </button>
+        <BaseTooltip :content="tool.title" :disabled="openGroupId !== null">
+          <button
+            type="button"
+            class="left-toolbar__button"
+            :class="{ active: isActive(tool) }"
+            :aria-label="tool.title"
+            @click="selectTool(tool)"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <component :is="tool.icon" class="tool-icon" aria-hidden="true" />
+            <span
+              v-if="tool.children && tool.children.length"
+              class="corner-indicator"
+              :class="{ open: openGroupId === tool.id }"
+              aria-label="展开子菜单"
+              @click.stop="toggleExpand(tool.id)"
+            ></span>
+          </button>
+        </BaseTooltip>
 
         <Transition name="dropdown">
           <div
@@ -48,18 +50,22 @@
             @pointermove.stop
             @pointerup.stop
           >
-            <button
+            <BaseTooltip
               v-for="child in tool.children"
               :key="child.id"
-              type="button"
-              class="left-toolbar__button"
-              :class="{ active: highlightToolId === child.id }"
-              :title="child.title"
-              :aria-label="child.title"
-              @click="selectChild(child)"
+              :content="child.title"
+              placement="top"
             >
-              <component :is="child.icon" class="tool-icon" aria-hidden="true" />
-            </button>
+              <button
+                type="button"
+                class="left-toolbar__button"
+                :class="{ active: highlightToolId === child.id }"
+                :aria-label="child.title"
+                @click="selectChild(child)"
+              >
+                <component :is="child.icon" class="tool-icon" aria-hidden="true" />
+              </button>
+            </BaseTooltip>
           </div>
         </Transition>
       </div>
@@ -69,87 +75,92 @@
       <span class="left-toolbar__divider"></span>
 
       <div class="left-toolbar__group">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :class="{ active: showAlerts }"
-          title="预警"
-          aria-label="预警"
-          @click="showAlerts = true"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerBell class="tool-icon" aria-hidden="true" />
-          <span v-if="unreadCount > 0" class="alert-badge">{{
-            unreadCount > 99 ? '99+' : unreadCount
-          }}</span>
-        </button>
+        <BaseTooltip content="预警">
+          <button
+            type="button"
+            class="left-toolbar__button"
+            :class="{ active: showAlerts }"
+            aria-label="预警"
+            @click="showAlerts = true"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <IconTablerBell class="tool-icon" aria-hidden="true" />
+            <span v-if="unreadCount > 0" class="alert-badge">{{
+              unreadCount > 99 ? '99+' : unreadCount
+            }}</span>
+          </button>
+        </BaseTooltip>
       </div>
     </template>
 
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <button
-        type="button"
-        class="left-toolbar__button"
-        title="放大"
-        aria-label="放大"
-        @click="$emit('zoomIn')"
-        @pointerdown.stop
-        @pointermove.stop
-        @pointerup.stop
-      >
-        <IconTablerZoomIn class="tool-icon" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="left-toolbar__button"
-        title="缩小"
-        aria-label="缩小"
-        @click="$emit('zoomOut')"
-        @pointerdown.stop
-        @pointermove.stop
-        @pointerup.stop
-      >
-        <IconTablerZoomOut class="tool-icon" aria-hidden="true" />
-      </button>
+      <BaseTooltip content="放大">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="放大"
+          @click="$emit('zoomIn')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerZoomIn class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip content="缩小">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="缩小"
+          @click="$emit('zoomOut')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerZoomOut class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <button
-        type="button"
-        class="left-toolbar__button"
-        :title="isFullscreen ? '退出全屏' : '全屏显示'"
-        :aria-label="isFullscreen ? '退出全屏' : '全屏显示'"
-        @click="$emit('toggleFullscreen')"
-        @pointerdown.stop
-        @pointermove.stop
-        @pointerup.stop
-      >
-        <IconTablerMinimize v-if="isFullscreen" class="tool-icon" aria-hidden="true" />
-        <IconTablerMaximize v-else class="tool-icon" aria-hidden="true" />
-      </button>
+      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :aria-label="isFullscreen ? '退出全屏' : '全屏显示'"
+          @click="$emit('toggleFullscreen')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerMinimize v-if="isFullscreen" class="tool-icon" aria-hidden="true" />
+          <IconTablerMaximize v-else class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <button
-        type="button"
-        class="left-toolbar__button"
-        title="设置"
-        aria-label="设置"
-        @click="openSettings"
-        @pointerdown.stop
-        @pointermove.stop
-        @pointerup.stop
-      >
-        <IconTablerSettings class="tool-icon" aria-hidden="true" />
-      </button>
+      <BaseTooltip content="设置">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="设置"
+          @click="openSettings"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerSettings class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
   </nav>
 
@@ -191,26 +202,29 @@
 
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import AlertDialog from './alert/AlertDialog.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
 
+  import IconTablerAlignJustified from '~icons/tabler/align-justified'
+  import IconTablerAngle from '~icons/tabler/angle'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
   import IconTablerBell from '~icons/tabler/bell'
-  import IconTablerBrackets from '~icons/tabler/brackets'
-  import IconTablerCaretUpDown from '~icons/tabler/caret-up-down'
   import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
   import IconTablerChartLine from '~icons/tabler/chart-line'
-  import IconTablerCrosshair from '~icons/tabler/crosshair'
+  import IconTablerEqual from '~icons/tabler/equal'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerMaximize from '~icons/tabler/maximize'
   import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerMinus from '~icons/tabler/minus'
+  import IconTablerMinusVertical from '~icons/tabler/minus-vertical'
+  import IconTablerPlus from '~icons/tabler/plus'
   import IconTablerPointer from '~icons/tabler/pointer'
-  import IconTablerSeparator from '~icons/tabler/separator'
   import IconTablerSelect from '~icons/tabler/select'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerShape from '~icons/tabler/shape'
+  import IconTablerX from '~icons/tabler/x'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
 
@@ -233,20 +247,20 @@
         { id: 'ray', title: '射线', icon: IconTablerArrowUpRight },
         { id: 'h-line', title: '水平线', icon: IconTablerMinus },
         { id: 'h-ray', title: '水平射线', icon: IconTablerArrowRight },
-        { id: 'v-line', title: '垂直线', icon: IconTablerSeparator },
-        { id: 'crosshair-line', title: '十字线', icon: IconTablerCrosshair },
+        { id: 'v-line', title: '垂直线', icon: IconTablerMinusVertical },
+        { id: 'crosshair-line', title: '十字线', icon: IconTablerPlus },
         { id: 'info-line', title: '信息线', icon: IconTablerInfoCircle },
       ],
     },
     {
       id: 'channels',
       title: '通道',
-      icon: IconTablerShape,
+      icon: IconTablerEqual,
       children: [
-        { id: 'parallel-channel', title: '平行通道', icon: IconTablerShape },
+        { id: 'parallel-channel', title: '平行通道', icon: IconTablerEqual },
         { id: 'regression-channel', title: '回归趋势', icon: IconTablerChartDots3 },
-        { id: 'flat-line', title: '平滑顶底', icon: IconTablerCaretUpDown },
-        { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerBrackets },
+        { id: 'flat-line', title: '平滑顶底', icon: IconTablerAngle },
+        { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerX },
       ],
     },
     {
@@ -254,12 +268,12 @@
       title: '标注',
       icon: IconTablerShape,
       children: [
-        { id: 'fib-retracement', title: '斐波那契回撤', icon: IconTablerChartDots3 },
+        { id: 'fib-retracement', title: '斐波那契回撤', icon: IconTablerAlignJustified },
         { id: 'rectangle', title: '矩形', icon: IconTablerShape },
         { id: 'arrow', title: '箭头', icon: IconTablerArrowUpRight },
       ],
     },
-    { id: 'range-select', title: '导出区间数据', icon: IconTablerArrowsHorizontal },
+    { id: 'range-select', title: '区间选择', icon: IconTablerArrowsHorizontal },
   ]
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
