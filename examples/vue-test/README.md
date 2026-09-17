@@ -2,6 +2,8 @@
 
 Pre-publish smoke test for `@363045841yyt/klinechart`. Installs from **npm registry** via `npm install` — not linked to the monorepo workspace.
 
+> **Note**: This app imports the package by name, so it resolves to the built `dist` artifacts via package `exports`. Changes to `packages/*/src` are not hot-reloaded here — run `pnpm build:packages` after editing library source. For source-level HMR use `pnpm dev` (the `packages/vue` preview server).
+
 ## Usage
 
 ```bash
