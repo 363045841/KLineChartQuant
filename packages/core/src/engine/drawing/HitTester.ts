@@ -1,5 +1,5 @@
 import type { DrawingViewportPort } from '../../controllers/types.js'
-import type { DrawingObject } from '../../foundation/plugin/index.js'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index.js'
 
 import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
@@ -241,41 +241,11 @@ export class HitTester {
       segments.push({ a: start, b: end })
     } else if (points.length >= 3) {
       switch (drawing.kind) {
-        case 'parallel-channel': {
-          const [p1, p2, p3] = points as unknown as [
-            { x: number; y: number },
-            { x: number; y: number },
-            { x: number; y: number },
-          ]
-          const dx = p2.x - p1.x
-          const dy = p2.y - p1.y
-          const p4 = { x: p3.x + dx, y: p3.y + dy }
-          segments.push({ a: p1, b: p2 }, { a: p3, b: p4 })
+        case 'parallel-channel':
+        case 'flat-line':
+        case 'disjoint-channel':
+          segments.push(...this.getChannelSegments(drawing, adapter))
           break
-        }
-        case 'flat-line': {
-          const [p1, p2, p3] = points as unknown as [
-            { x: number; y: number },
-            { x: number; y: number },
-            { x: number; y: number },
-          ]
-          const h1 = { x: p1.x, y: p3.y }
-          const h2 = { x: p2.x, y: p3.y }
-          segments.push({ a: p1, b: p2 }, { a: h1, b: h2 })
-          break
-        }
-        case 'disjoint-channel': {
-          const [p1, p2, p3] = points as unknown as [
-            { x: number; y: number },
-            { x: number; y: number },
-            { x: number; y: number },
-          ]
-          const dx = p2.x - p1.x
-          const dy = p2.y - p1.y
-          const p4 = { x: p3.x + dx, y: p3.y - dy }
-          segments.push({ a: p1, b: p2 }, { a: p3, b: p4 })
-          break
-        }
         default:
           for (let i = 0; i < points.length - 1; i++) {
             segments.push({ a: points[i]!, b: points[i + 1]! })
@@ -283,6 +253,21 @@ export class HitTester {
       }
     }
 
+    return segments
+  }
+
+  /** 通道类图元的两条边：持久化锚点按 [0,1] 与 [2,3] 成对构成。 */
+  private getChannelSegments(drawing: DrawingObject, adapter: DrawingViewportPort): LineSegment[] {
+    const [first, second, third, fourth] = drawing.anchors
+    const edges: Array<readonly [PersistedDrawingAnchor, PersistedDrawingAnchor]> = []
+    if (first && second) edges.push([first, second])
+    if (third && fourth) edges.push([third, fourth])
+    const segments: LineSegment[] = []
+    for (const [start, end] of edges) {
+      const a = anchorToScreen(start, drawing.paneId, adapter)
+      const b = anchorToScreen(end, drawing.paneId, adapter)
+      if (isScreenPoint(a) && isScreenPoint(b)) segments.push({ a, b })
+    }
     return segments
   }
 

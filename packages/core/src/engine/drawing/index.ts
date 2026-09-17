@@ -708,29 +708,17 @@ export function createInfoLineDefinition(): DrawingDefinition {
 export function createParallelChannelDefinition(): DrawingDefinition {
   return {
     kind: 'parallel-channel',
-    minAnchors: 3,
-    maxAnchors: 3,
+    minAnchors: 4,
+    maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third] = drawing.anchors
-      if (!first || !second || !third) return { primitives: [] }
+      const [first, second, third, fourth] = drawing.anchors
+      if (!first || !second || !third || !fourth) return { primitives: [] }
       const p1 = context.toScreen(first)
       const p2 = context.toScreen(second)
       const p3 = context.toScreen(third)
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-      const p4 = { x: p3.x + dx, y: p3.y + dy }
+      const p4 = context.toScreen(fourth)
       const extend =
         (drawing.params as { extend?: LinePrimitive['extend'] } | undefined)?.extend ?? 'none'
-
-      // 计算 p4 对应的锚点信息（用于轴标签注册）
-      const p4Index = third.index + (second.index - first.index)
-      const p4Time = third.time
-        ? (typeof third.time === 'string' ? new Date(third.time).getTime() : third.time) +
-          ((typeof second.time === 'string'
-            ? new Date(second.time).getTime()
-            : (second.time ?? 0)) -
-            (typeof first.time === 'string' ? new Date(first.time).getTime() : (first.time ?? 0)))
-        : undefined
 
       return {
         primitives: [
@@ -743,14 +731,6 @@ export function createParallelChannelDefinition(): DrawingDefinition {
           { kind: 'line', a: p1, b: p2, extend, style: drawing.style },
           { kind: 'line', a: p3, b: p4, extend, style: drawing.style },
         ],
-        computedAnchors: [
-          {
-            id: `${drawing.id}-p4`,
-            index: p4Index,
-            time: p4Time,
-            price: third.price + (second.price - first.price),
-          },
-        ],
       }
     },
   }
@@ -759,17 +739,16 @@ export function createParallelChannelDefinition(): DrawingDefinition {
 export function createFlatLineDefinition(): DrawingDefinition {
   return {
     kind: 'flat-line',
-    minAnchors: 3,
-    maxAnchors: 3,
+    minAnchors: 4,
+    maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third] = drawing.anchors
-      if (!first || !second || !third) return { primitives: [] }
+      const [first, second, third, fourth] = drawing.anchors
+      if (!first || !second || !third || !fourth) return { primitives: [] }
 
       const p1 = context.toScreen(first)
       const p2 = context.toScreen(second)
-      const thirdScreen = context.toScreen(third)
-      const h1 = { x: p1.x, y: thirdScreen.y }
-      const h2 = { x: p2.x, y: thirdScreen.y }
+      const h1 = context.toScreen(third)
+      const h2 = context.toScreen(fourth)
 
       return {
         primitives: [
@@ -784,10 +763,6 @@ export function createFlatLineDefinition(): DrawingDefinition {
           { kind: 'point', point: h1, style: drawing.style },
           { kind: 'point', point: h2, style: drawing.style },
         ],
-        computedAnchors: [
-          { id: `${drawing.id}-h1`, index: first.index, time: first.time, price: third.price },
-          { id: `${drawing.id}-h2`, index: second.index, time: second.time, price: third.price },
-        ],
       }
     },
   }
@@ -796,47 +771,28 @@ export function createFlatLineDefinition(): DrawingDefinition {
 export function createDisjointChannelDefinition(): DrawingDefinition {
   return {
     kind: 'disjoint-channel',
-    minAnchors: 3,
-    maxAnchors: 3,
+    minAnchors: 4,
+    maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third] = drawing.anchors
-      if (!first || !second || !third) return { primitives: [] }
+      const [first, second, third, fourth] = drawing.anchors
+      if (!first || !second || !third || !fourth) return { primitives: [] }
 
       const p1 = context.toScreen(first)
       const p2 = context.toScreen(second)
       const p3 = context.toScreen(third)
-
-      // 第二条线：过 p3，斜率取反
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-      const p4 = { x: p3.x + dx, y: p3.y - dy }
-
-      // 计算 p4 对应的锚点信息（用于轴标签注册）
-      const p4Index = third.index + (second.index - first.index)
-      const p4Price = third.price - (second.price - first.price)
-      const p4Time = third.time
-        ? (typeof third.time === 'string' ? new Date(third.time).getTime() : third.time) -
-          ((typeof second.time === 'string'
-            ? new Date(second.time).getTime()
-            : (second.time ?? 0)) -
-            (typeof first.time === 'string' ? new Date(first.time).getTime() : (first.time ?? 0)))
-        : undefined
+      const p4 = context.toScreen(fourth)
 
       return {
         primitives: [
-          // 填充区域
           {
             kind: 'area',
             points: [p1, p2, p4, p3],
             closed: true,
             style: drawing.style,
           },
-          // 斜率 k 的线
           { kind: 'line', a: p1, b: p2, style: drawing.style },
-          // 斜率 -k 的线
           { kind: 'line', a: p3, b: p4, style: drawing.style },
         ],
-        computedAnchors: [{ id: `${drawing.id}-p4`, index: p4Index, time: p4Time, price: p4Price }],
       }
     },
   }

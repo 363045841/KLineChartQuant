@@ -128,6 +128,44 @@ describe('HitTester', () => {
     })
   })
 
+  it('hits every persisted anchor of a parallel channel, including the derived fourth', () => {
+    const timestamps = [500, 1_000, 1_500, 2_000]
+    const drawing: DrawingObject = {
+      id: 'channel',
+      kind: 'parallel-channel',
+      paneId: 'main',
+      visible: true,
+      anchors: timestamps.map((time, index) => ({
+        id: `a${index}`,
+        type: 'point' as const,
+        time,
+        price: (index + 1) * 10,
+      })),
+      params: {},
+      style: {},
+    }
+    const adapter = createDrawingAdapter({
+      viewport: {
+        getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
+        getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
+        getLogicalIndexAtTimestamp: (timestamp) => {
+          const index = timestamps.indexOf(timestamp)
+          return index >= 0 ? index : null
+        },
+      },
+    })
+
+    // 锚点 i 的屏幕位置为 (i*10+5, 200 - price)，四个点均应可命中拖动。
+    for (let index = 0; index < drawing.anchors.length; index++) {
+      const x = index * 10 + 5
+      const y = 200 - (index + 1) * 10
+      expect(new HitTester().hitTest(x, y, [drawing], adapter)).toEqual({
+        drawing,
+        anchorIndex: index,
+      })
+    }
+  })
+
   it('prefers a line label over the area center when both are in range', () => {
     const drawing: DrawingObject = {
       id: 'flat-rectangle',

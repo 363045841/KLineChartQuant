@@ -65,6 +65,6 @@ describe('DrawingInteractionController locked drawings', () => {
     expect(controller.onPointerDown({ clientX: 10, clientY: 10 } as PointerEvent, CONTAINER)).toBe(
       true,
     )
-    expect(startDrag).toHaveBeenCalledWith([free], undefined, 10, 10)
+    expect(startDrag).toHaveBeenCalledWith([free], { type: 'all' }, 10, 10)
   })
 })

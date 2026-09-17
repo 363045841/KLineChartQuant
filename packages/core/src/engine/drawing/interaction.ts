@@ -12,6 +12,7 @@ import { resolveDrawingPointer } from './coordinateUtils.js'
 import { DragHandler } from './DragHandler.js'
 import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
 import { DrawingState, PREVIEW_ID } from './DrawingState.js'
+import type { DrawingDragTarget } from './dragPolicy.js'
 import { isDrawingLocked } from './drawingAccess.js'
 import type { HitResult, LineLabelTarget } from './HitTester.js'
 import { HitTester } from './HitTester.js'
@@ -196,6 +197,7 @@ export class DrawingInteractionController {
         pointer,
         pointer.paneId,
         this.adapter.getDrawingWorkspaceId(),
+        this.adapter,
       )
       if (!preview) {
         this.drawingState.removePreview()
@@ -372,17 +374,13 @@ export class DrawingInteractionController {
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
-    const isAnchorHit = 'anchorIndex' in hit
-    const targets = (isAnchorHit ? [hit.drawing] : selectedDrawings).filter(
+    const target: DrawingDragTarget =
+      'anchorIndex' in hit ? { type: 'anchor', index: hit.anchorIndex } : { type: 'all' }
+    const targets = (target.type === 'anchor' ? [hit.drawing] : selectedDrawings).filter(
       (drawing) => !isDrawingLocked(drawing),
     )
     if (targets.length === 0) return
-    this.dragHandler.startDrag(
-      targets,
-      isAnchorHit ? hit.anchorIndex : undefined,
-      pointer.x,
-      pointer.y,
-    )
+    this.dragHandler.startDrag(targets, target, pointer.x, pointer.y)
     this.pointerSession = { kind: 'drag' }
   }
 

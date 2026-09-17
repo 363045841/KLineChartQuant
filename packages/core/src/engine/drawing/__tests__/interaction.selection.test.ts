@@ -156,7 +156,7 @@ describe('DrawingInteractionController selection', () => {
     const container = CONTAINER
 
     expect(controller.onPointerDown(pointerDown(10, 10), container)).toBe(true)
-    expect(startDrag).toHaveBeenCalledWith([first, second], undefined, 10, 10)
+    expect(startDrag).toHaveBeenCalledWith([first, second], { type: 'all' }, 10, 10)
     expect(controller.onPointerMove(pointerMove(20, 20), container)).toBe(true)
     expect(controller.onPointerUp(pointerMove(20, 20), container)).toBe(true)
     expect(adapter.commitDrawingDrags).toHaveBeenCalledWith([
@@ -181,7 +181,7 @@ describe('DrawingInteractionController selection', () => {
     const container = CONTAINER
 
     expect(controller.onPointerDown(pointerMove(10, 10), container)).toBe(true)
-    expect(startDrag).toHaveBeenCalledWith([first, second], undefined, 10, 10)
+    expect(startDrag).toHaveBeenCalledWith([first, second], { type: 'all' }, 10, 10)
     expect(controller.getSelectionMarquee()).toBeNull()
   })
 

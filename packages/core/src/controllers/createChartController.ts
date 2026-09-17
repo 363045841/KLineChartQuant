@@ -314,6 +314,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getLogicalIndexAtTimestamp(timestamp) {
       return chart.getLogicalIndexAtTimestamp(timestamp)
     },
+    getDrawingTimestampAtLogicalIndex(index) {
+      return chart.drawing.getTimestampAtLogicalIndex(index)
+    },
+    getDrawingData() {
+      return chart.drawing.getData()
+    },
     findAnchorAtTradingDate(tradingDate) {
       const bar = chart.getData().find((item) => item.date === tradingDate)
       return bar === undefined ? null : { timestamp: bar.timestamp }

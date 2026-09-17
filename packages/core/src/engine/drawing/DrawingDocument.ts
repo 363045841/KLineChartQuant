@@ -15,6 +15,11 @@ import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { DrawingStateModule } from '../state/drawingState.js'
 import { PREVIEW_ID } from './DrawingState.js'
 import { isDrawingLocked } from './drawingAccess.js'
+import {
+  getDrawingAnchorCount,
+  getDrawingInputAnchorCount,
+  materializeDrawingAnchors,
+} from './materializeAnchors.js'
 
 /** 外部命令按图元需要提供价格和一种明确的时间轴定位方式。 */
 export type DrawingAnchorCommandInput =
@@ -92,6 +97,8 @@ const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
   readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
+  readonly getDrawingTimestampAtLogicalIndex: (index: number) => number | null
+  readonly getDrawingData: () => ReadonlyArray<{ timestamp: number }>
   readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => {
     readonly timestamp: number
   } | null
@@ -118,23 +125,6 @@ function normalizeDrawingLabels(labels: DrawingLabels): DrawingLabels {
   return {
     line: normalizeGroup(labels.line),
     area: normalizeGroup(labels.area),
-  }
-}
-
-/** 返回不同图元种类要求的锚点数。 */
-function getRequiredAnchorCount(kind: DrawingKind): 1 | 2 | 3 {
-  switch (kind) {
-    case 'horizontal-line':
-    case 'horizontal-ray':
-    case 'vertical-line':
-    case 'cross-line':
-      return 1
-    case 'parallel-channel':
-    case 'flat-line':
-    case 'disjoint-channel':
-      return 3
-    default:
-      return 2
   }
 }
 
@@ -287,7 +277,7 @@ export class DrawingDocument {
     drawing: DrawingObject,
     anchors: ReadonlyArray<PersistedDrawingAnchor>,
   ): boolean {
-    if (anchors.length !== getRequiredAnchorCount(drawing.kind)) return false
+    if (anchors.length !== getDrawingAnchorCount(drawing.kind)) return false
     return anchors.every((anchor) => {
       const hasValidFutureOffset =
         anchor.futureOffset === undefined ||
@@ -374,24 +364,30 @@ export class DrawingDocument {
     this.dependencies.drawingState.actions.clearDrawings()
   }
 
-  /** 原子替换整份文档，仅供受控组件与导入导出使用。 */
+  /** 原子替换整份文档，仅供受控组件与导入导出使用；旧数据的输入锚点在此补齐。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
     this.dependencies.drawingState.actions.setDrawings(
       drawings
         .filter((drawing) => drawing.id !== PREVIEW_ID)
         .map((drawing) => ({
           ...drawing,
+          anchors: materializeDrawingAnchors(
+            drawing.kind,
+            drawing.anchors,
+            () => `anchor-${generateUUID()}`,
+            this.dependencies,
+          ),
           labels: normalizeDrawingLabels(drawing.labels ?? { line: {}, area: {} }),
         })),
     )
   }
 
-  /** 校验锚点数量并持久化时间坐标与价格。 */
+  /** 校验输入锚点数量，解析坐标并补齐该图元的全部持久化锚点。 */
   private resolveAnchors(
     kind: DrawingKind,
     inputs: ReadonlyArray<DrawingAnchorCommandInput>,
   ): PersistedDrawingAnchor[] {
-    const required = getRequiredAnchorCount(kind)
+    const required = getDrawingInputAnchorCount(kind)
     if (inputs.length !== required) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR_COUNT,
@@ -399,15 +395,12 @@ export class DrawingDocument {
         { details: { kind, expected: required, actual: inputs.length } },
       )
     }
-    const anchors = inputs.map((input) => this.resolveAnchor(kind, input))
-    if (kind === 'flat-line') {
-      anchors[2] = {
-        ...anchors[2]!,
-        time: anchors[1]!.time,
-        futureOffset: anchors[1]!.futureOffset,
-      }
-    }
-    return anchors
+    return materializeDrawingAnchors(
+      kind,
+      inputs.map((input) => this.resolveAnchor(kind, input)),
+      () => `anchor-${generateUUID()}`,
+      this.dependencies,
+    )
   }
 
   /** 按输入顺序读取唯一图元；任一 id 不存在时返回空数组。 */

@@ -7,12 +7,14 @@ import {
   resolveDrawingPointer,
   screenToAnchor,
 } from './coordinateUtils.js'
+import type { DrawingDragTarget } from './dragPolicy.js'
+import { resolveDragAnchors } from './dragPolicy.js'
 
 // ---- Types ----
 
 export interface DragState {
   drawings: DrawingObject[]
-  anchorIndex?: number
+  target: DrawingDragTarget
   startMouse: { x: number; y: number }
 }
 
@@ -40,14 +42,14 @@ export class DragHandler {
 
   /**
    * 开始拖拽。
-   * @param drawing 拖拽的图元
-   * @param anchorIndex 拖拽单个锚点时传锚点下标；拖拽整线时不传
+   * @param drawings 参与本次拖拽的图元
+   * @param target 命中目标（点 / 边 / 整体）
    * @param mouseX 起始鼠标 X（屏幕 px）
    * @param mouseY 起始鼠标 Y（屏幕 px）
    */
   startDrag(
     drawings: ReadonlyArray<DrawingObject>,
-    anchorIndex: number | undefined,
+    target: DrawingDragTarget,
     mouseX: number,
     mouseY: number,
   ): void {
@@ -57,7 +59,7 @@ export class DragHandler {
         ...drawing,
         anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
       })),
-      anchorIndex,
+      target,
       startMouse: { x: mouseX, y: mouseY },
     }
   }
@@ -76,48 +78,86 @@ export class DragHandler {
   ): DrawingObject[] | null {
     if (!this.dragState) return null
 
-    const magnet = this.dragState.anchorIndex !== undefined ? options?.magnet : undefined
+    const target = this.dragState.target
+    const magnet = target.type === 'anchor' ? options?.magnet : undefined
     const pointer = resolveDrawingPointer(e, container, adapter, magnet ? { magnet } : undefined)
     const primary = this.dragState.drawings[0]
     if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
-    if (this.dragState.anchorIndex !== undefined) {
-      return [this.moveAnchor(primary, pointer)]
+    if (target.type === 'anchor') {
+      return [this.moveAnchor(primary, target, pointer, adapter)]
     }
     const dx = pointer.x - this.dragState.startMouse.x
     const dy = pointer.y - this.dragState.startMouse.y
-    return this.dragState.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
+    return this.dragState.drawings.map((drawing) =>
+      this.moveDrawing(drawing, target, dx, dy, adapter),
+    )
   }
 
-  /** 移动单个锚点，保持多选之外的图元不受影响。 */
+  /**
+   * 移动命中锚点所在的移动组：命中锚点落在指针上，组内其余锚点按同一屏幕位移跟随。
+   * @param drawing 拖拽的图元
+   * @param target 锚点命中目标
+   * @param pointer 指针解析出的落点锚点
+   * @param adapter 视口与坐标换算查询
+   */
   private moveAnchor(
     drawing: DrawingObject,
+    target: Extract<DrawingDragTarget, { type: 'anchor' }>,
     pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+    adapter: DrawingViewportPort,
   ): DrawingObject {
+    const snapshot = this.dragState?.drawings[0]
+    const origin = snapshot?.anchors[target.index]
+    const originScreen = origin ? anchorToScreen(origin, drawing.paneId, adapter) : null
+    if (!isScreenPoint(originScreen)) return drawing
+
+    const dx = pointer.x - originScreen.x
+    const dy = pointer.y - originScreen.y
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
-    const index = this.dragState?.anchorIndex
-    if (index === undefined) return drawing
-    anchors[index] = {
-      ...anchors[index]!,
-      time: pointer.time,
-      futureOffset: pointer.futureOffset,
-      price: pointer.price,
-    }
-    if (drawing.kind === 'flat-line' && index === 1 && anchors.length >= 3) {
-      anchors[2] = { ...anchors[2]!, time: pointer.time, futureOffset: pointer.futureOffset }
+    for (const index of resolveDragAnchors(drawing.kind, target, drawing.anchors.length)) {
+      if (index === target.index) {
+        anchors[index] = {
+          ...anchors[index]!,
+          time: pointer.time,
+          futureOffset: pointer.futureOffset,
+          price: pointer.price,
+        }
+        continue
+      }
+      const follower = snapshot?.anchors[index]
+      const screen = follower ? anchorToScreen(follower, drawing.paneId, adapter) : null
+      if (!isScreenPoint(screen)) continue
+      const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
+      if (!resolved) continue
+      anchors[index] = {
+        ...anchors[index]!,
+        time: resolved.time,
+        futureOffset: resolved.futureOffset,
+        price: resolved.price,
+      }
     }
     return { ...drawing, anchors }
   }
 
-  /** 对一个图元的全部锚点应用同一屏幕位移。 */
+  /**
+   * 对命中目标解析出的移动组应用同一屏幕位移。
+   * @param drawing 拖拽的图元
+   * @param target 命中目标
+   * @param dx 屏幕 X 位移（px）
+   * @param dy 屏幕 Y 位移（px）
+   * @param adapter 视口与坐标换算查询
+   */
   private moveDrawing(
     drawing: DrawingObject,
+    target: DrawingDragTarget,
     dx: number,
     dy: number,
     adapter: DrawingViewportPort,
   ): DrawingObject {
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
-    for (let index = 0; index < anchors.length; index++) {
-      const anchor = anchors[index]!
+    for (const index of resolveDragAnchors(drawing.kind, target, drawing.anchors.length)) {
+      const anchor = anchors[index]
+      if (!anchor) continue
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
       if (!screen) continue
       if (screen.type === 'horizontal') {
@@ -139,7 +179,6 @@ export class DragHandler {
           }
         continue
       }
-      if (!isScreenPoint(screen)) continue
       const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
       if (resolved) {
         anchors[index] = {

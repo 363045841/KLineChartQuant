@@ -71,6 +71,8 @@ function createFixture() {
       const index = bars.findIndex((bar) => bar.timestamp === timestamp)
       return index === -1 ? null : index
     },
+    getDrawingTimestampAtLogicalIndex: (index) => bars[index]?.timestamp ?? null,
+    getDrawingData: () => bars,
     findAnchorAtTradingDate: (tradingDate) => {
       const index = bars.findIndex((bar) => bar.date === tradingDate)
       const bar = index === -1 ? undefined : bars[index]

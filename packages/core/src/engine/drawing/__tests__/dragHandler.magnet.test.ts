@@ -23,7 +23,7 @@ const createAnchorDragDrawing = () =>
 describe('DragHandler magnet', () => {
   it('锚点拖拽：strong 磁吸把被拖锚点收敛到 OHLC 与 Bar 中心', () => {
     const handler = new DragHandler()
-    handler.startDrag([createAnchorDragDrawing()], 0, 15, 90)
+    handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
 
     // 指针 (12, 83)：距 high(y=80) 3px，strong 半径内 → 价格收敛 120；X 吸 Bar 中心 15（时间 1000）。
     const updated = handler.handleDragMove(pointerMove(12, 83), CONTAINER, adapter, {
@@ -35,7 +35,7 @@ describe('DragHandler magnet', () => {
 
   it('锚点拖拽：不传磁吸时锚点保持原始指针落点', () => {
     const handler = new DragHandler()
-    handler.startDrag([createAnchorDragDrawing()], 0, 15, 90)
+    handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
 
     const updated = handler.handleDragMove(pointerMove(12, 83), CONTAINER, adapter)
     expect(updated![0]!.anchors[0]).toMatchObject({ time: 1000, price: 117 })
@@ -43,7 +43,7 @@ describe('DragHandler magnet', () => {
 
   it('整线拖拽不受磁吸影响（位移增量语义）', () => {
     const handler = new DragHandler()
-    handler.startDrag([createAnchorDragDrawing()], undefined, 15, 90)
+    handler.startDrag([createAnchorDragDrawing()], { type: 'all' }, 15, 90)
 
     // 指针 (12, 83) 若被磁吸改写为 (15, 80)，锚点会收敛到价格 120；
     // 增量语义下应随位移 (-3, -7) 到 (12, 83)，价格 117。

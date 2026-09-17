@@ -2,6 +2,8 @@ import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
 import type { InteractionDrawingAnchor } from './coordinateUtils.js'
 import { PREVIEW_ID } from './DrawingState.js'
+import type { DrawingAnchorTimeline } from './materializeAnchors.js'
+import { materializeDrawingAnchors } from './materializeAnchors.js'
 import type { DrawingToolId } from './toolConfig.js'
 import {
   CHANNEL_KINDS,
@@ -26,6 +28,7 @@ export class PreviewRenderer {
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
     workspaceId: DrawingWorkspaceId,
+    timeline: DrawingAnchorTimeline,
   ): DrawingObject | null {
     const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
     const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
@@ -46,7 +49,13 @@ export class PreviewRenderer {
     }
 
     // Triple anchor tools
-    const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
+    const preview = this.buildTripleAnchorPreview(
+      activeTool,
+      pendingAnchors,
+      currentAnchor,
+      paneId,
+      timeline,
+    )
     return preview ? { ...preview, workspaceId } : null
   }
 
@@ -129,13 +138,14 @@ export class PreviewRenderer {
    * 三锚点工具预览：
    * - pending 数 = 0 → 无法预览，返回 null
    * - pending 数 = 1 → 暂以趋势线（双锚点）形式显示前两个点
-   * - pending 数 ≥ 2 → 完整三锚点预览（含 flat-line 的特殊 price 处理）
+   * - pending 数 ≥ 2 → 物化出全部持久化锚点后预览
    */
   private buildTripleAnchorPreview(
     activeTool: DrawingToolId,
     pendingAnchors: InteractionDrawingAnchor[],
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
+    timeline: DrawingAnchorTimeline,
   ): DrawingObject | null {
     if (pendingAnchors.length === 0) return null
 
@@ -170,30 +180,13 @@ export class PreviewRenderer {
       }
     }
 
-    // pendingAnchors.length >= 2 — full 3-anchor preview
-    const thirdAnchor =
-      activeTool === 'flat-line'
-        ? {
-            id: `${PREVIEW_ID}-c`,
-            time: pendingAnchors[1]!.time,
-            futureOffset: pendingAnchors[1]!.futureOffset,
-            price: currentAnchor.price,
-          }
-        : {
-            id: `${PREVIEW_ID}-c`,
-            time: currentAnchor.time,
-            futureOffset: currentAnchor.futureOffset,
-            price: currentAnchor.price,
-          }
-
-    const isChannel = CHANNEL_KINDS.includes(getDrawingKind(activeTool) as any)
-
-    return {
-      id: PREVIEW_ID,
-      kind: getDrawingKind(activeTool),
-      paneId,
-      visible: true,
-      anchors: [
+    // pendingAnchors.length >= 2 — materialize the full persisted anchors for preview
+    const kind = getDrawingKind(activeTool)
+    const isChannel = CHANNEL_KINDS.includes(kind)
+    let derivedId = 0
+    const anchors = materializeDrawingAnchors(
+      kind,
+      [
         {
           id: `${PREVIEW_ID}-a`,
           time: pendingAnchors[0]!.time,
@@ -206,8 +199,23 @@ export class PreviewRenderer {
           futureOffset: pendingAnchors[1]!.futureOffset,
           price: pendingAnchors[1]!.price,
         },
-        thirdAnchor,
+        {
+          id: `${PREVIEW_ID}-c`,
+          time: currentAnchor.time,
+          futureOffset: currentAnchor.futureOffset,
+          price: currentAnchor.price,
+        },
       ],
+      () => `${PREVIEW_ID}-x${derivedId++}`,
+      timeline,
+    )
+
+    return {
+      id: PREVIEW_ID,
+      kind,
+      paneId,
+      visible: true,
+      anchors,
       params: {},
       style: {
         stroke: DEFAULT_DRAWING_STROKE,
