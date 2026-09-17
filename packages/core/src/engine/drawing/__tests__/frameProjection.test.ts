@@ -69,6 +69,40 @@ describe('projectDrawingsForFrame', () => {
     expect(context.yAxisRanges).toHaveLength(0)
   })
 
+  it('enlarges every anchor of a selected drawing, including line endpoints', () => {
+    const drawing = createDrawingObject({
+      id: 'flat',
+      kind: 'flat-line',
+      anchors: [
+        { id: 'a', time: 1_000, price: 10 },
+        { id: 'b', time: 2_000, price: 20 },
+        { id: 'h1', time: 1_000, price: 5 },
+        { id: 'h2', time: 2_000, price: 5 },
+      ],
+    })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['flat']),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const context = createContext()
+
+    const projection = projectDrawingsForFrame(store, definitions, context)
+
+    // 线段端点与点图元共用同一放大半径，选中后锚点视觉一致。
+    expect(
+      projection.primitives
+        .filter((primitive) => primitive.kind === 'line')
+        .map((primitive) => primitive.style?.pointRadius),
+    ).toEqual([6, 6])
+    expect(
+      projection.primitives
+        .filter((primitive) => primitive.kind === 'point')
+        .map((primitive) => primitive.style?.pointRadius),
+    ).toEqual([6, 6])
+  })
+
   it('attaches a persisted line label to its matching line primitive', () => {
     const drawing = createTrendDrawing({
       id: 'labeled-trend',

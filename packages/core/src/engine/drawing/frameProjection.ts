@@ -84,13 +84,15 @@ function applySelectedStyle(
 ): DrawingPrimitive {
   const stroke = baseStyle.stroke
   const strokeWidth = (baseStyle.strokeWidth ?? 1) + 1
+  // 选中态的锚点统一放大：点图元与线段的端点圆点使用同一半径。
+  const pointRadius = (baseStyle.pointRadius ?? 4) + 2
   if (primitive.kind === 'point') {
-    return {
-      ...primitive,
-      style: { ...primitive.style, stroke, pointRadius: (baseStyle.pointRadius ?? 4) + 2 },
-    }
+    return { ...primitive, style: { ...primitive.style, stroke, pointRadius } }
   }
-  if (primitive.kind === 'line' || primitive.kind === 'arrow') {
+  if (primitive.kind === 'line') {
+    return { ...primitive, style: { ...primitive.style, stroke, strokeWidth, pointRadius } }
+  }
+  if (primitive.kind === 'arrow') {
     return { ...primitive, style: { ...primitive.style, stroke, strokeWidth } }
   }
   if (primitive.kind === 'area') return { ...primitive, style: { ...primitive.style, stroke } }
