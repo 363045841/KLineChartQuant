@@ -7,7 +7,7 @@ import {
   resolveDrawingPointer,
   screenToAnchor,
 } from './coordinateUtils.js'
-import type { DrawingDragTarget } from './dragPolicy.js'
+import type { DragFollowAxis, DrawingDragTarget } from './dragPolicy.js'
 import { resolveDragAnchors } from './dragPolicy.js'
 
 // ---- Types ----
@@ -16,6 +16,19 @@ export interface DragState {
   drawings: DrawingObject[]
   target: DrawingDragTarget
   startMouse: { x: number; y: number }
+}
+
+/** 按位移分量求锚点的新屏幕坐标：只跟时间时保持 Y，只跟价格时保持 X。 */
+function offsetScreen(
+  screen: { x: number; y: number },
+  dx: number,
+  dy: number,
+  axis: DragFollowAxis | undefined,
+): { x: number; y: number } {
+  return {
+    x: axis === 'price' ? screen.x : screen.x + dx,
+    y: axis === 'time' ? screen.y : screen.y + dy,
+  }
 }
 
 /**
@@ -114,23 +127,24 @@ export class DragHandler {
     const dx = pointer.x - originScreen.x
     const dy = pointer.y - originScreen.y
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
-    for (const index of resolveDragAnchors(drawing.kind, target, drawing.anchors.length)) {
-      if (index === target.index) {
-        anchors[index] = {
-          ...anchors[index]!,
+    for (const moving of resolveDragAnchors(drawing.kind, target, drawing.anchors.length)) {
+      if (moving.index === target.index) {
+        anchors[moving.index] = {
+          ...anchors[moving.index]!,
           time: pointer.time,
           futureOffset: pointer.futureOffset,
           price: pointer.price,
         }
         continue
       }
-      const follower = snapshot?.anchors[index]
+      const follower = snapshot?.anchors[moving.index]
       const screen = follower ? anchorToScreen(follower, drawing.paneId, adapter) : null
       if (!isScreenPoint(screen)) continue
-      const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
+      const offset = offsetScreen(screen, dx, dy, moving.axis)
+      const resolved = screenToAnchor(offset.x, offset.y, drawing.paneId, adapter)
       if (!resolved) continue
-      anchors[index] = {
-        ...anchors[index]!,
+      anchors[moving.index] = {
+        ...anchors[moving.index]!,
         time: resolved.time,
         futureOffset: resolved.futureOffset,
         price: resolved.price,
@@ -140,7 +154,7 @@ export class DragHandler {
   }
 
   /**
-   * 对命中目标解析出的移动组应用同一屏幕位移。
+   * 对命中目标解析出的移动组应用同一屏幕位移，跟随锚点按各自分量接受位移。
    * @param drawing 拖拽的图元
    * @param target 命中目标
    * @param dx 屏幕 X 位移（px）
@@ -155,13 +169,13 @@ export class DragHandler {
     adapter: DrawingViewportPort,
   ): DrawingObject {
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
-    for (const index of resolveDragAnchors(drawing.kind, target, drawing.anchors.length)) {
-      const anchor = anchors[index]
+    for (const moving of resolveDragAnchors(drawing.kind, target, drawing.anchors.length)) {
+      const anchor = anchors[moving.index]
       if (!anchor) continue
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
       if (!screen) continue
       if (screen.type === 'horizontal') {
-        anchors[index] = {
+        anchors[moving.index] = {
           ...anchor,
           type: 'horizontal',
           price: adapter.yToPrice(drawing.paneId, screen.y + dy),
@@ -171,7 +185,7 @@ export class DragHandler {
       if (screen.type === 'vertical') {
         const resolved = screenToAnchor(screen.x + dx, 0, drawing.paneId, adapter)
         if (resolved)
-          anchors[index] = {
+          anchors[moving.index] = {
             ...anchor,
             type: 'vertical',
             time: resolved.time,
@@ -179,9 +193,10 @@ export class DragHandler {
           }
         continue
       }
-      const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
+      const offset = offsetScreen(screen, dx, dy, moving.axis)
+      const resolved = screenToAnchor(offset.x, offset.y, drawing.paneId, adapter)
       if (resolved) {
-        anchors[index] = {
+        anchors[moving.index] = {
           ...anchor,
           time: resolved.time,
           futureOffset: resolved.futureOffset,

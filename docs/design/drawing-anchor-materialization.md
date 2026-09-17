@@ -28,9 +28,13 @@
 ## 拖拽策略
 
 - `DrawingDragTarget`：点（一个锚点下标）、边（两个锚点下标）、整体。
-- `DrawingDragStrategy` 与 `resolveDragAnchors(kind, target, anchorCount)`：把命中目标解析为一起按同一屏幕位移移动的锚点下标。缺省行为是点只动自身、边动两端、整体动全部。
-- `DragHandler` 不认识 `kind`，只在拖拽移动时按目标解析移动组；位移换算（屏幕位移 → 时间 / 价格）仍由 `DragHandler` 统一完成。
+- `DrawingDragStrategy` 与 `resolveDragAnchors(kind, target, anchorCount)`：把命中目标解析为要移动的 `MovingAnchor` 列表。每项可声明 `axis`（`both` / `time` / `price`），缺省为完整位移；被拖锚点自身始终接受完整位移。缺省行为是点只动自身、边动两端、整体动全部。
+- `DragHandler` 不认识 `kind`，只在拖拽移动时按目标解析移动组，并按每项的 `axis` 只取位移的对应分量；屏幕位移与时间 / 价格的换算仍由 `DragHandler` 统一完成。
 
 ## 已登记策略
 
 `parallel-channel`：端点按角色跨线成对（`0/2` 左端、`1/3` 右端）。拖动任一端点时，另一条线上的同角色端点按同一位移跟随，剩下两点固定，因此两条线向量始终相同、始终平行；拖动一条边则整条线平移，另一条线不动。`HitTester` 为平行通道的线段带上两个锚点下标，命中线段即产生 `edge` 目标。
+
+`flat-line`（平滑顶底）：`0/1` 为斜线端点，`2/3` 为水平线端点。同侧端点共享 X（`0↔2`、`1↔3`），水平线两端共享价格。拖斜线端点时，水平线同侧端点只跟时间；拖水平线端点时，斜线同侧端点只跟时间（`axis: 'time'`）、水平线另一端只跟价格（`axis: 'price'`），因此水平线始终水平、同侧 X 始终对齐。拖斜线时水平线两端只跟时间；拖水平线时斜线两端只跟时间。
+
+`regression-channel` 不做拖拽策略：其端点由数据拟合产生，命中时映射回两个范围锚点，走缺省行为。

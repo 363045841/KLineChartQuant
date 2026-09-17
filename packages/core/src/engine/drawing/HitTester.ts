@@ -273,8 +273,9 @@ export class HitTester {
       const a = anchorToScreen(start, drawing.paneId, adapter)
       const b = anchorToScreen(end, drawing.paneId, adapter)
       if (!isScreenPoint(a) || !isScreenPoint(b)) continue
-      // 平行通道的边可整条拖动，线段需携带锚点下标；其余通道类暂不参与边拖拽。
-      segments.push(drawing.kind === 'parallel-channel' ? { a, b, anchors: [from, to] } : { a, b })
+      // 已登记边拖拽策略的图元，线段需携带锚点下标供 edge 目标使用。
+      const edgeDraggable = drawing.kind === 'parallel-channel' || drawing.kind === 'flat-line'
+      segments.push(edgeDraggable ? { a, b, anchors: [from, to] } : { a, b })
     }
     return segments
   }

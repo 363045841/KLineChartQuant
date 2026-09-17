@@ -42,15 +42,32 @@ function anchorScreenY(index: number): number {
   return 200 - (index + 1) * 10
 }
 
+/** 通道类夹具的时间轴与坐标约定：索引 i → x = i*50+20，y = 200 - price。 */
+const CHANNEL_TIMESTAMPS = [500, 1_000, 1_500, 2_000]
+
+/** 构造通道类夹具共用的适配器。 */
+function createChannelAdapter() {
+  return createDrawingAdapter({
+    viewport: {
+      getDrawingData: () => CHANNEL_TIMESTAMPS.map((timestamp) => ({ timestamp })),
+      getDrawingTimestampAtLogicalIndex: (index) => CHANNEL_TIMESTAMPS[index] ?? null,
+      getLogicalIndexAtTimestamp: (timestamp) => {
+        const index = CHANNEL_TIMESTAMPS.indexOf(timestamp)
+        return index >= 0 ? index : null
+      },
+      getScreenXAtLogicalIndex: anchorScreenX,
+    },
+  })
+}
+
 /** 四锚点平行通道夹具：0/1 为第一条线，2/3 为第二条线。 */
 function createChannelFixture() {
-  const timestamps = [500, 1_000, 1_500, 2_000]
   const drawing: DrawingObject = {
     id: 'channel',
     kind: 'parallel-channel',
     paneId: 'main',
     visible: true,
-    anchors: timestamps.map((time, index) => ({
+    anchors: CHANNEL_TIMESTAMPS.map((time, index) => ({
       id: `a${index}`,
       type: 'point' as const,
       time,
@@ -59,18 +76,26 @@ function createChannelFixture() {
     params: {},
     style: {},
   }
-  const adapter = createDrawingAdapter({
-    viewport: {
-      getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
-      getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
-      getLogicalIndexAtTimestamp: (timestamp) => {
-        const index = timestamps.indexOf(timestamp)
-        return index >= 0 ? index : null
-      },
-      getScreenXAtLogicalIndex: anchorScreenX,
-    },
-  })
-  return { drawing, adapter }
+  return { drawing, adapter: createChannelAdapter() }
+}
+
+/** 平滑顶底夹具：0/1 为斜线两端，2/3 为水平线两端。 */
+function createFlatLineFixture() {
+  const drawing: DrawingObject = {
+    id: 'flat',
+    kind: 'flat-line',
+    paneId: 'main',
+    visible: true,
+    anchors: [
+      { id: 'a', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 100 },
+      { id: 'b', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 140 },
+      { id: 'h1', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 60 },
+      { id: 'h2', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 60 },
+    ],
+    params: {},
+    style: {},
+  }
+  return { drawing, adapter: createChannelAdapter() }
 }
 
 describe('HitTester', () => {
@@ -189,6 +214,20 @@ describe('HitTester', () => {
       edge: [0, 1],
     })
     expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({
+      drawing,
+      edge: [2, 3],
+    })
+  })
+
+  it('returns the edge of a flat line when the pointer hits one of its lines', () => {
+    const { drawing, adapter } = createFlatLineFixture()
+
+    // 斜线中点为 (45, 80)，水平线中点为 (45, 140)。
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
+      drawing,
+      edge: [0, 1],
+    })
+    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({
       drawing,
       edge: [2, 3],
     })
