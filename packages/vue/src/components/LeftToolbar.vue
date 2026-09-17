@@ -189,21 +189,12 @@
 <script setup lang="ts">
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
-    SETTINGS_STORAGE_KEY,
-    resolveSettings,
     type ChartSettings,
+    resolveSettings,
+    SETTINGS_STORAGE_KEY,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
-  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
-  import { useAlerts } from '../composables/useAlerts'
-  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
-
-  import ChartSettingsDialog from './ChartSettingsDialog.vue'
-  import AlertDialog from './alert/AlertDialog.vue'
-  import BaseTooltip from './common/BaseTooltip.vue'
-
+  import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
@@ -227,6 +218,12 @@
   import IconTablerX from '~icons/tabler/x'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
+  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
+  import { useAlerts } from '../composables/useAlerts.js'
+  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
+  import AlertDialog from './alert/AlertDialog.vue'
+  import ChartSettingsDialog from './ChartSettingsDialog.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
 
   export interface ToolDef {
     id: string
@@ -299,7 +296,7 @@
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
       aggregationSources?: ReadonlyArray<
-        import('../composables/useAggregationSources').AggregationSourceDefinition
+        import('../composables/useAggregationSources.js').AggregationSourceDefinition
       >
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>

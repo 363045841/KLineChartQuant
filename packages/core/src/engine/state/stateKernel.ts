@@ -24,7 +24,7 @@
  * 子状态并暴露其 readonly 视图和 actions。
  */
 
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 
 /**
  * 每个子状态模块需提供的基本形状（shape）。

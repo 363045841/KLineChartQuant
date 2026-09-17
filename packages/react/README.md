@@ -75,14 +75,9 @@ npm install @363045841yyt/klinechart-react
 
 ```tsx
 import { KLineChartWC } from '@363045841yyt/klinechart-react'
-import type { SemanticChartConfig } from '@363045841yyt/klinechart-react'
 
 function App() {
-  const semanticConfig: SemanticChartConfig = {
-    data: { type: 'kline' },
-  }
-
-  return <KLineChartWC semanticConfig={semanticConfig} zoomLevels={12} />
+  return <KLineChartWC zoomLevels={12} style={{ width: '100%', height: '100%' }} />
 }
 ```
 
@@ -117,7 +112,7 @@ For full setup including the data backend, see the [root README]../../README.md)
 | `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | — |
+| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
 
 
 ## 📄 License

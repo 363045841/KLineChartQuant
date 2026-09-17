@@ -25,6 +25,8 @@ export default defineConfig({
     ],
   },
   test: {
+    // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+）
+    fsModuleCache: true,
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'electron/**/*.test.ts'],
     passWithNoTests: true,

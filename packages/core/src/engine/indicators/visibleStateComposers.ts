@@ -1,5 +1,8 @@
-import type { IndicatorVisibleStateComposer } from './indicatorMetadata'
-import type { IndicatorSeriesBundle } from './workerProtocol'
+import {
+  type IndicatorVisibleStateComposer,
+  readIndicatorSeriesEntry,
+} from './indicatorMetadata.js'
+import type { IndicatorSeriesBundle } from './workerProtocol.js'
 
 type SparseIndicatorSeries = {
   series: (number | undefined)[]
@@ -20,7 +23,7 @@ function getSparseSeriesBundle(
   bundle: IndicatorSeriesBundle,
   bundleKey: string,
 ): SparseIndicatorSeries {
-  return (bundle as unknown as Record<string, SparseIndicatorSeries>)[bundleKey]!
+  return readIndicatorSeriesEntry<SparseIndicatorSeries>(bundle, bundleKey)
 }
 
 function calcSparseExtremes(
@@ -95,7 +98,7 @@ function getRecordSeriesBundle(
   bundle: IndicatorSeriesBundle,
   bundleKey: string,
 ): RecordIndicatorSeries {
-  return (bundle as unknown as Record<string, RecordIndicatorSeries>)[bundleKey]!
+  return readIndicatorSeriesEntry<RecordIndicatorSeries>(bundle, bundleKey)
 }
 
 function calcRecordExtremes(
@@ -242,16 +245,14 @@ function getDualSparseSeriesBundle(
   bundle: IndicatorSeriesBundle,
   bundleKey: string,
 ): DualSparseIndicatorSeries {
-  return (bundle as unknown as Record<string, DualSparseIndicatorSeries>)[bundleKey]!
+  return readIndicatorSeriesEntry<DualSparseIndicatorSeries>(bundle, bundleKey)
 }
 
 function getPointArraySeriesBundle<T extends object>(
   bundle: IndicatorSeriesBundle,
   bundleKey: string,
 ): { series: (T | undefined)[]; params: unknown } {
-  return (bundle as unknown as Record<string, { series: (T | undefined)[]; params: unknown }>)[
-    bundleKey
-  ]!
+  return readIndicatorSeriesEntry<{ series: (T | undefined)[]; params: unknown }>(bundle, bundleKey)
 }
 
 function calc1<T extends object>(
@@ -885,9 +886,7 @@ export function createFixedUnitVisibleStateComposer(
   },
 ): IndicatorVisibleStateComposer {
   return ({ bundle, timestamp, active }) => {
-    const source = (bundle as unknown as Record<string, { series: unknown; params: unknown }>)[
-      bundleKey
-    ]!
+    const source = readIndicatorSeriesEntry<{ series: unknown; params: unknown }>(bundle, bundleKey)
     if (!active) {
       return {
         ...emptyState,
@@ -958,20 +957,15 @@ export function createVolumeProfileVisibleStateComposer(
   },
 ): IndicatorVisibleStateComposer {
   return ({ bundle, timestamp, active }) => {
-    const source = (
-      bundle as unknown as Record<
-        string,
-        {
-          series: {
-            bins: { priceLow: number; priceHigh: number }[]
-            val: number
-            vah: number
-            poc: number
-          }
-          params: unknown
-        }
-      >
-    )[bundleKey]!
+    const source = readIndicatorSeriesEntry<{
+      series: {
+        bins: { priceLow: number; priceHigh: number }[]
+        val: number
+        vah: number
+        poc: number
+      }
+      params: unknown
+    }>(bundle, bundleKey)
     if (!active) {
       return {
         ...emptyState,

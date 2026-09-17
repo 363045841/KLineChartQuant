@@ -25,15 +25,15 @@
  * just the function the caller registered.
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 import {
+  type DetectRendererTierOptions,
   detectRendererTier,
   isTierAtLeast,
   RENDERER_TIER_RANK,
-  type DetectRendererTierOptions,
   type RendererTier,
   type RendererTierResult,
-} from '../../foundation/utils/rendererCapability'
+} from '../../foundation/utils/rendererCapability.js'
 
 // ---------------------------------------------------------------------------
 // Public shape

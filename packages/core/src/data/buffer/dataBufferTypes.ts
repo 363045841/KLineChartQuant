@@ -1,8 +1,8 @@
 /** 数据缓冲层共享契约：定义已加载窗口、数据变更描述与 K 线/分时缓冲的统一接口。 */
-import type { KLineData, SymbolSpec } from '../../controllers/types'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { TimeShareData } from '../../foundation/types/price'
-import type { OlderDataStatus, TimeShareRange } from '../provider/types'
+import type { KLineData, SymbolSpec } from '../../controllers/types.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { TimeShareData } from '../../foundation/types/price.js'
+import type { OlderDataStatus, TimeShareRange } from '../provider/types.js'
 
 /** 已加载行情数据覆盖的时间范围。 */
 export interface LoadedTimeRange {

@@ -21,7 +21,7 @@
  * is intentionally NOT serialisable — see `ruleSchema.ts` for the reasoning.
  */
 
-import type { Signal } from '../../foundation/reactivity/signal'
+import type { Signal } from '../../foundation/reactivity/signal.js'
 
 // ---------------------------------------------------------------------------
 // MarketSnapshot — the read-only input fed into every predicate.

@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcKeltnerData } from '../calculators'
 
-import { empty, constantPrice, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
+import { constantPrice, empty, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
 
 describe('calcKeltnerData', () => {
   it('empty returns empty', () => {

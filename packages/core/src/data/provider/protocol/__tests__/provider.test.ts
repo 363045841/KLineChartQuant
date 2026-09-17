@@ -1,6 +1,6 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
 import { describe, expect, it } from 'vitest'
-
+import type { InstrumentDescriptor } from '../../types'
 import { createMarketDataProvider } from '../provider'
 import type {
   MarketDataTransport,
@@ -8,7 +8,6 @@ import type {
   ProtocolInstrumentSearchResult,
   ProtocolTimeShareSeries,
 } from '../types'
-import type { InstrumentDescriptor } from '../../types'
 
 const instrument: InstrumentDescriptor = {
   id: 'gotdx:stock:1:600519',
@@ -108,9 +107,9 @@ describe('createMarketDataProvider', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
-           timezone: 'Asia/Shanghai',
-           olderData: 'unknown',
-           items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
+          timezone: 'Asia/Shanghai',
+          olderData: 'unknown',
+          items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
         }),
       }),
     )
@@ -137,9 +136,9 @@ describe('createMarketDataProvider', () => {
           period: 'daily',
           adjustment: 'none',
           timezone: 'Asia/Shanghai',
-           volumeUnit: 'share',
-           olderData: 'exhausted',
-           items: [],
+          volumeUnit: 'share',
+          olderData: 'exhausted',
+          items: [],
         }),
       }),
     )

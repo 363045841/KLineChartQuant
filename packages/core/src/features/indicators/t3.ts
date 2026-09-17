@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * T3 — Tim Tillson's smoothed-EMA cascade (1998).
  *

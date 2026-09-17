@@ -1,9 +1,8 @@
 /** 验证 RendererHost 的后端降级、切换、设备丢失和销毁行为。 */
 
 import { describe, expect, it, vi } from 'vitest'
-
-import type { Renderer } from '../Renderer'
 import { createCanvas2DRenderer } from '../backend/createCanvas2DRenderer'
+import type { Renderer } from '../Renderer'
 import { createRendererHost, type RendererBackend } from '../rendererHost'
 
 function deferred<T>() {

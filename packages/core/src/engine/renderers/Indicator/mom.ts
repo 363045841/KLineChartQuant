@@ -1,23 +1,21 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcMOMData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { MOMRenderState } from '../../indicators/state/momState'
-import { createMOMStateKey } from '../../indicators/state/momState'
-import { EMPTY_MOM_STATE } from '../../indicators/state/momState'
-import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
-import { createMomScaleRendererPlugin } from './scale/mom_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcMOMData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { MOMRenderState } from '../../indicators/state/momState.js'
+import { createMOMStateKey, EMPTY_MOM_STATE } from '../../indicators/state/momState.js'
+import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createMomScaleRendererPlugin } from './scale/mom_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

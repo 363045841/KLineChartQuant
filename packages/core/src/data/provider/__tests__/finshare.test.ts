@@ -1,9 +1,8 @@
 /** FinShare V1 Provider 装配与注册测试。 */
 
 import { describe, expect, it } from 'vitest'
-
-import { finshareMarketDataProvider } from '../sources/finshare'
 import { marketDataProviderRegistry } from '../registry'
+import { finshareMarketDataProvider } from '../sources/finshare'
 
 describe('finshareMarketDataProvider', () => {
   // 验证模块加载后 Provider 可被 SourceRouter 和聚合源面板发现。

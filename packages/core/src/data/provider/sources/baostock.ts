@@ -1,13 +1,14 @@
 /** BaoStock V1 Provider：装配与注册集中于此，接入逻辑由通用装配器提供。 */
-import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol'
-import { marketDataProviderRegistry } from '../registry'
-import { dataSourceRegistry } from '../sourceRegistry'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol/index.js'
+import { marketDataProviderRegistry } from '../registry.js'
+import { dataSourceRegistry } from '../sourceRegistry.js'
 
 const BAOSTOCK = dataSourceRegistry.baostock
 
 /** V1 HTTP Transport：运行时从注册表读取 baseUrl，支持面板动态覆盖。 */
 const v1Transport = createHttpMarketDataTransport({
-  baseUrl: () => marketDataProviderRegistry.getConfig('baostock').baseUrl ?? BAOSTOCK.defaultBaseUrl,
+  baseUrl: () =>
+    marketDataProviderRegistry.getConfig('baostock').baseUrl ?? BAOSTOCK.defaultBaseUrl,
   sourceLabel: 'baostock',
 })
 

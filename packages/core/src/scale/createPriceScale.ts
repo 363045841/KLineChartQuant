@@ -30,12 +30,12 @@
  * we don't want one bad row to crash the chart.
  */
 
-import { KLineChartError } from '../errors'
-import { createSignal } from '../foundation/reactivity/signal'
-import type { Signal } from '../foundation/reactivity/signal'
+import { KLineChartError } from '../errors.js'
+import type { Signal } from '../foundation/reactivity/signal.js'
+import { createSignal } from '../foundation/reactivity/signal.js'
 
-import { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift'
-import type { PriceScale, ScaleMode } from './types'
+import { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift.js'
+import type { PriceScale, ScaleMode } from './types.js'
 
 export interface PriceScaleConfig {
   /** Initial mode. Default `'linear'`. */

@@ -53,6 +53,14 @@
     color: var(--klc-color-ui-text);
   }
 
+  .canvas-toolbar :deep(.toolbar-btn:disabled),
+  .canvas-toolbar :deep(.toolbar-btn:hover:disabled) {
+    opacity: 0.4;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    cursor: not-allowed;
+  }
+
   .canvas-toolbar :deep(.toolbar-btn--delete) {
     width: 26px;
     padding: 0;
@@ -64,6 +72,20 @@
   }
 
   .canvas-toolbar :deep(.delete-icon) {
+    width: 14px;
+    height: 14px;
+  }
+
+  .canvas-toolbar :deep(.toolbar-btn--lock) {
+    width: 26px;
+    padding: 0;
+  }
+
+  .canvas-toolbar :deep(.toolbar-btn--lock.is-locked) {
+    color: var(--klc-color-ui-text);
+  }
+
+  .canvas-toolbar :deep(.lock-icon) {
     width: 14px;
     height: 14px;
   }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createHeikinAshi } from '../heikinAshi'
 import type { OHLCV } from '../types'

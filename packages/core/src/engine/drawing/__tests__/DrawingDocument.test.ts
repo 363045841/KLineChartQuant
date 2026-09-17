@@ -260,10 +260,12 @@ describe('DrawingDocument', () => {
     expect(document.listDrawings()).toEqual(before)
 
     expect(
-      document.commitDrawingDrags([
-        { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
-        { id: second.id, anchors: second.anchors.map((anchor) => ({ ...anchor, price: 21 })) },
-      ]).map((drawing) => drawing.id),
+      document
+        .commitDrawingDrags([
+          { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
+          { id: second.id, anchors: second.anchors.map((anchor) => ({ ...anchor, price: 21 })) },
+        ])
+        .map((drawing) => drawing.id),
     ).toEqual([first.id, second.id])
     expect(document.getDrawing(first.id)?.anchors[0]?.price).toBe(11)
     expect(document.getDrawing(second.id)?.anchors[0]?.price).toBe(21)
@@ -303,6 +305,52 @@ describe('DrawingDocument', () => {
     expect(document.listDrawings().map((drawing) => drawing.style.stroke)).toEqual(['#0f0', '#0f0'])
   })
 
+  it('treats fill as batch-modifiable only for all-channel selections', () => {
+    const { document } = createDocument()
+    document.replaceDrawings([
+      {
+        id: 'rect',
+        kind: 'rectangle',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#2962ff', strokeWidth: 1, fillOpacity: 0.1 },
+      },
+      {
+        id: 'line',
+        kind: 'trend-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#f00', strokeWidth: 1 },
+      },
+      {
+        id: 'channel',
+        kind: 'parallel-channel',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#0f0', strokeWidth: 1, fillOpacity: 0.1 },
+      },
+    ])
+
+    // 全通道类集合：fill 可批量修改，style 上无需显式存在该键。
+    expect(document.getBatchStyleKeys(['rect', 'channel'])).toContain('fill')
+    expect(document.updateBatch(['rect', 'channel'], { style: { fill: '#ff0' } })).toHaveLength(2)
+    expect(document.listDrawings().map((drawing) => drawing.style.fill)).toEqual([
+      '#ff0',
+      undefined,
+      '#ff0',
+    ])
+
+    // 通道类与线类混合集合：线类渲染端不消费 fill，维持交集守卫拒绝。
+    expect(document.getBatchStyleKeys(['rect', 'line'])).not.toContain('fill')
+    expect(document.updateBatch(['rect', 'line'], { style: { fill: '#fff' } })).toEqual([])
+  })
+
   it('removes a batch and clears every removed id from the selection', () => {
     const { state, document } = createDocument()
     const first = document.createDrawing({
@@ -332,6 +380,46 @@ describe('DrawingDocument', () => {
     const anchors = [{ ...drawing.anchors[0]!, price: 11 }]
 
     expect(document.commitDrawingDrag(drawing.id, anchors)?.anchors).toEqual(anchors)
+  })
+
+  it('freezes locked drawings against edits but still allows unlocking', () => {
+    const { document } = createDocument()
+    const drawing = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    document.updateDrawingFromInput(drawing.id, { locked: true })
+
+    expect(document.updateDrawing({ ...drawing, style: { stroke: '#f00' } })).toBeNull()
+    expect(document.updateDrawingFromInput(drawing.id, { style: { stroke: '#f00' } })).toBeNull()
+    expect(document.updateBatch([drawing.id], { style: { stroke: '#f00' } })).toEqual([])
+    expect(document.removeDrawing(drawing.id)).toBe(false)
+    expect(document.commitDrawingDrag(drawing.id, drawing.anchors)).toBeNull()
+
+    expect(document.updateBatch([drawing.id], { locked: false })).toHaveLength(1)
+    expect(document.getDrawing(drawing.id)?.locked).toBe(false)
+  })
+
+  it('skips locked targets in a mixed batch while updating the rest', () => {
+    const { document } = createDocument()
+    const locked = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    const free = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 11 }],
+    })
+    document.updateBatch([locked.id], { locked: true })
+
+    expect(document.updateBatch([locked.id, free.id], { style: { stroke: '#f00' } })).toHaveLength(
+      1,
+    )
+    expect(document.getDrawing(locked.id)?.style.stroke).not.toBe('#f00')
+    expect(document.getDrawing(free.id)?.style.stroke).toBe('#f00')
   })
 
   it('does not persist session preview objects through document replacement', () => {

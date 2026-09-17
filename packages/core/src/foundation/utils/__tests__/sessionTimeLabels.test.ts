@@ -2,18 +2,18 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   ASHARE_MARKET_SESSION,
-  HK_MARKET_SESSION,
-  KR_MARKET_SESSION,
-  US_MARKET_SESSION,
   computeSessionTimeLabels,
   countSessionSlots,
+  HK_MARKET_SESSION,
+  KR_MARKET_SESSION,
+  type MarketSessionConfig,
   minuteOfDayToTimestamp,
+  type OpenTimeRange,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
   resolveTimestampSessionSlot,
   sessionSlotCenterX,
-  type MarketSessionConfig,
-  type OpenTimeRange,
+  US_MARKET_SESSION,
 } from '../sessionTimeLabels'
 
 function hm(h: number, m: number): number {
@@ -123,9 +123,7 @@ describe('minuteOfDayToTimestamp timeZone', () => {
 
 describe('resolveTimestampSessionSlot', () => {
   it('maps timestamps with the market time zone and session boundaries', () => {
-    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 1, 30), ASHARE_MARKET_SESSION)).toBe(
-      0,
-    )
+    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 1, 30), ASHARE_MARKET_SESSION)).toBe(0)
     expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 3, 30), ASHARE_MARKET_SESSION)).toBe(
       120,
     )

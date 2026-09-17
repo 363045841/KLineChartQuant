@@ -6,12 +6,12 @@
  * import line.
  */
 
-export { computeAnchoredVwap } from './computeAnchoredVwap'
-export { createAnchoredVwapController } from './createAnchoredVwapController'
+export { computeAnchoredVwap } from './computeAnchoredVwap.js'
+export { createAnchoredVwapController } from './createAnchoredVwapController.js'
 export type {
   ActiveAnchor,
   AnchorDefinition,
   AnchoredVwapController,
   AVWAPBar,
   AVWAPPoint,
-} from './types'
+} from './types.js'

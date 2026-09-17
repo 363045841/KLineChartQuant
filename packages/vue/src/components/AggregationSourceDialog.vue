@@ -87,14 +87,14 @@
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
   import {
+    type AggregationSourceDefinition,
+    type AggregationSourceEndpoint,
+    type AggregationSourceStatus,
+    isMockSourceName,
     parseProviderEndpoint,
     probeAggregationSource,
-    isMockSourceName,
-    type AggregationSourceEndpoint,
-    type AggregationSourceDefinition,
-    type AggregationSourceStatus,
     supportsAggregationSourceSearch,
-  } from '../composables/useAggregationSources'
+  } from '../composables/useAggregationSources.js'
 
   import BaseModal from './BaseModal.vue'
   import CollapsibleSection from './common/CollapsibleSection.vue'

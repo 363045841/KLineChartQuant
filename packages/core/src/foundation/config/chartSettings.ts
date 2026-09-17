@@ -314,11 +314,16 @@ export function resolveSettings(
 import {
   type ColorPresetSettings,
   normalizeColorPresetSettings,
-} from '../tokens/colorPresetSettings'
-import { detectRendererTier, type RendererTier } from '../utils/rendererCapability'
+} from '../tokens/colorPresetSettings.js'
+import { detectRendererTier, type RendererTier } from '../utils/rendererCapability.js'
 
-import { migrateAxisSettings } from './axisSettings'
+import { migrateAxisSettings } from './axisSettings.js'
 
+export type {
+  AxisDisplaySetting,
+  PriceScaleTypeSetting,
+  RightAxisTypeSetting,
+} from './axisSettings.js'
 export {
   buildPaneScaleTypesFromSetting,
   migrateAxisSettings,
@@ -327,9 +332,4 @@ export {
   resolvePriceScaleTypeSetting,
   resolveRightAxisDisplayFromType,
   resolveRightAxisTypeSetting,
-} from './axisSettings'
-export type {
-  AxisDisplaySetting,
-  PriceScaleTypeSetting,
-  RightAxisTypeSetting,
-} from './axisSettings'
+} from './axisSettings.js'

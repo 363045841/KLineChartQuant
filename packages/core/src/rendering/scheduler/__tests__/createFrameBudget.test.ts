@@ -27,10 +27,9 @@
  *   5. clear / dispose.
  */
 
-import { describe, it, expect } from 'vitest'
-
-import { createFrameBudget, type FrameTask } from '..'
+import { describe, expect, it } from 'vitest'
 import { isKLineChartError } from '../../../errors'
+import { createFrameBudget, type FrameTask } from '..'
 
 function fakeClock(): {
   now: () => number

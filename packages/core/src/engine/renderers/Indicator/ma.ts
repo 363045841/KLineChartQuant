@@ -1,35 +1,35 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
   PluginHost,
   RenderContext,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcMAData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcMAData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
+  GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
-  GetTitleInfoFn,
   TitleInfo,
   TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+} from '../../indicators/indicatorMetadata.js'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 // Re-export MAFlags from calculators for backward compatibility
-export type { MAFlags } from '../../indicators/calculators'
+export type { MAFlags } from '../../indicators/calculators/index.js'
 
 type LinePoint = { x: number; y: number }
 
 const computeMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<MARenderState, 'series'>>(bundle, 'ma')
+  const { series } = readIndicatorSeriesEntry(bundle, 'ma')
   const seriesList = Object.values(series)
   if (seriesList.length === 0 || range.start >= seriesList[0]!.length) {
     return null
@@ -56,10 +56,7 @@ const composeMARenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): MARenderState => {
-  const source = readIndicatorSeriesEntry<Pick<MARenderState, 'series' | 'enabledPeriods'>>(
-    bundle,
-    'ma',
-  )
+  const source = readIndicatorSeriesEntry(bundle, 'ma')
   const priceRange = computeMAPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,

@@ -10,8 +10,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   AgentRuntimeError,
-  PiRunDriver,
   type AgentRunUiEventInput,
+  PiRunDriver,
   type PiRunPlan,
   type RuntimeToolDefinition,
 } from '../index'
@@ -363,10 +363,9 @@ describe('PiRunDriver', () => {
     }
     const { plan } = fixture(
       [
-        fauxAssistantMessage(
-          fauxToolCall('ask_user', {}, { id: 'ask-1' }),
-          { stopReason: 'toolUse' },
-        ),
+        fauxAssistantMessage(fauxToolCall('ask_user', {}, { id: 'ask-1' }), {
+          stopReason: 'toolUse',
+        }),
         fauxAssistantMessage('Added the index.'),
       ],
       [tool],

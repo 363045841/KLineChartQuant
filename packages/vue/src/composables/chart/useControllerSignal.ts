@@ -1,6 +1,6 @@
 /** 将 Core ReadonlySignal 接入 Vue 响应式系统。 */
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-import { computed, shallowRef, watch, type ComputedRef, type Ref } from 'vue'
+import { type ComputedRef, computed, type Ref, shallowRef, watch } from 'vue'
 
 type ReadonlyControllerSignal<T> = {
   peek(): T

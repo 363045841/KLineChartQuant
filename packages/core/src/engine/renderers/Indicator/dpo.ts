@@ -3,26 +3,26 @@
  */
 
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcDPOData } from '../../indicators/calculators/dpo'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { DPORenderState } from '../../indicators/state/dpoState'
-import { createDPOStateKey, EMPTY_DPO_STATE } from '../../indicators/state/dpoState'
-import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcDPOData } from '../../indicators/calculators/dpo.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { DPORenderState } from '../../indicators/state/dpoState.js'
+import { createDPOStateKey, EMPTY_DPO_STATE } from '../../indicators/state/dpoState.js'
+import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createDpoScaleRendererPlugin } from './scale/dpo_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createDpoScaleRendererPlugin } from './scale/dpo_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

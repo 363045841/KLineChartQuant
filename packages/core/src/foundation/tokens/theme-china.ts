@@ -19,10 +19,10 @@
  * ```
  */
 
-import { applyColorPresetOverrides, type ColorPresetSettings } from './colorPresetSettings'
-import { darkTheme } from './theme-dark'
-import { lightTheme } from './theme-light'
-import type { ColorTokens, Theme } from './types'
+import { applyColorPresetOverrides, type ColorPresetSettings } from './colorPresetSettings.js'
+import { darkTheme } from './theme-dark.js'
+import { lightTheme } from './theme-light.js'
+import type { ColorTokens, Theme } from './types.js'
 
 /**
  * Swap all bull/bear colour pairs in a Theme so that "up" (bull) uses

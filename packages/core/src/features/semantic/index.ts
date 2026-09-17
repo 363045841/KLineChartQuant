@@ -1,34 +1,30 @@
+export type { ChartIndicatorConfig, SymbolSpec } from '../../controllers/types.js'
+export { drawLabel, drawShape, hitTestShape } from './drawShape.js'
+export type { SemanticChartProps } from './props.js'
+export { toKLineChartProps } from './props.js'
 export type {
-  SemanticChartConfig,
   AdjustType,
+  BOLLParams,
+  CustomMarker,
   DataConfig,
   IndicatorsConfig,
-  MainIndicatorConfig,
-  SubIndicatorConfig,
-  SubIndicatorType,
+  LegendConfig,
   MAParams,
-  BOLLParams,
-  MarkersConfig,
-  CustomMarker,
+  MainIndicatorConfig,
+  MarkerLabel,
   MarkerShapeType,
   MarkerStyle,
-  MarkerLabel,
-  LegendConfig,
-  ValidationResult,
+  MarkersConfig,
   SecurityResult,
-} from './types'
-
-export { toKLineChartProps } from './props'
-export type { SemanticChartProps } from './props'
-export type { ChartIndicatorConfig } from '../../controllers/types'
-export type { SymbolSpec } from '../../controllers/types'
-
+  SemanticChartConfig,
+  SubIndicatorConfig,
+  SubIndicatorType,
+  ValidationResult,
+} from './types.js'
 export {
   SemanticConfigValidator,
-  sanitizeParams,
   sanitizeColor,
+  sanitizeParams,
   validateColor,
   validateSymbol,
-} from './validator'
-
-export { drawShape, drawLabel, hitTestShape } from './drawShape'
+} from './validator.js'

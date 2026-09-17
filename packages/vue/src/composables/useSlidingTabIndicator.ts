@@ -1,6 +1,6 @@
 // 下划线 Tabs 的滑动指示器：把指示条对齐到当前激活 tab，供 BaseTabs 复用。
 
-import { nextTick, onMounted, ref, watch, type Ref } from 'vue'
+import { nextTick, onMounted, type Ref, ref, watch } from 'vue'
 
 /**
  * 追踪 Tabs 容器内激活项的位置与宽度，输出指示器的绝对定位样式。

@@ -1,5 +1,5 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject } from '../../foundation/plugin/index'
+import type { DrawingDocumentPort, DrawingSessionPort } from '../../controllers/types.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
 
 const PREVIEW_ID = '__preview__'
 
@@ -11,7 +11,7 @@ export class DrawingState {
   private preview: DrawingObject | null = null
   private dragOverrides: DrawingObject[] = []
 
-  constructor(private adapter: DrawingChartAdapter) {}
+  constructor(private adapter: DrawingDocumentPort & DrawingSessionPort) {}
 
   // ---- Read ----
 
@@ -92,7 +92,10 @@ export class DrawingState {
   /** 将整组拖拽结果原子写入 kernel，再清理会话覆盖。 */
   commitDrags(): void {
     if (this.dragOverrides.length === 0) return
-    const updates = this.dragOverrides.map((drawing) => ({ id: drawing.id, anchors: drawing.anchors }))
+    const updates = this.dragOverrides.map((drawing) => ({
+      id: drawing.id,
+      anchors: drawing.anchors,
+    }))
     this.dragOverrides = []
     if (updates.length === 1) {
       const update = updates[0]!

@@ -1,15 +1,13 @@
 // 验证浏览器 Agent bridge 可通过 runtime 根入口完成 Provider 目录请求。
-import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { BrowserAgentBridge } from '../browser-agent-bridge'
-
-import { createTestChartAgent } from './_testChartAgent'
-
-import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentChartSymbolContextItem,
   RuntimeToolDefinition,
 } from '@363045841yyt/klinechart-agent-runtime'
+import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BrowserAgentBridge } from '../browser-agent-bridge'
+import { createTestChartAgent } from './_testChartAgent'
 
 /** 清理每个测试写入的浏览器全局状态。 */
 afterEach(() => {
@@ -697,10 +695,7 @@ describe('BrowserAgentBridge', () => {
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
     const resolveTarget = (
       bridge as unknown as {
-        chartToolTarget(
-          tool: { owns(host: object): boolean },
-          agent: ChartAgentController,
-        ): object
+        chartToolTarget(tool: { owns(host: object): boolean }, agent: ChartAgentController): object
       }
     ).chartToolTarget.bind(bridge)
 

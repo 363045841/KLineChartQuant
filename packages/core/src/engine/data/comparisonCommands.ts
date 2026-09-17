@@ -1,16 +1,16 @@
 // 本文件实现对比品种的统一写原语：唯一入口处理选择、歧义消解、视图切换与重绘。
 import { type Static, Type } from 'typebox'
 
-import type { SymbolSpec } from '../../controllers/types'
-import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors'
+import type { SymbolSpec } from '../../controllers/types.js'
 import {
-  KNOWN_ASSET_CLASS_VALUES,
   type AssetClass,
   type InstrumentDescriptor,
-} from '../../data/provider/types'
-import { Tool } from '../../foundation/agent/chartToolRegistry'
+  KNOWN_ASSET_CLASS_VALUES,
+} from '../../data/provider/types.js'
+import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors.js'
+import { Tool } from '../../foundation/agent/chartToolRegistry.js'
 
-import { symbolSpecIdentityKey } from './symbolIdentity'
+import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
 // unknown 只描述数据源未归一化状态，禁止作为歧义消解筛选条件。
@@ -64,8 +64,9 @@ export type ComparisonRemoveInput = Static<typeof ComparisonRemoveToolParameters
  * assetClass 只参与歧义消解，不进入品种 spec。
  */
 export type ComparisonAddInput = Omit<ComparisonCreateInput, 'assetClass' | 'primary'> &
-  Partial<Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>>
-
+  Partial<
+    Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>
+  >
 
 /** 按代码解析品种的输入；source 省略时跨源查询。 */
 export interface ComparisonInstrumentQuery {
@@ -207,9 +208,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
     if (
-      specs.some(
-        (item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol,
-      )
+      specs.some((item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol)
     ) {
       return false
     }

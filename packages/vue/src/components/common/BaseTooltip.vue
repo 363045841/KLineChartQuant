@@ -28,8 +28,8 @@
 </template>
 
 <script setup lang="ts">
-  import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget'
-  import { useTooltip, type TooltipPlacement } from '../../composables/useTooltip'
+  import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
+  import { type TooltipPlacement, useTooltip } from '../../composables/useTooltip.js'
 
   const props = withDefaults(
     defineProps<{

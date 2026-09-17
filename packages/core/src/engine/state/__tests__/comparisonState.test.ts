@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '../../../controllers/types'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import { ChartStateKernel } from '../chartStateKernel'
@@ -89,10 +89,7 @@ describe('ChartStateKernel comparison selection transaction', () => {
       { symbol: 'CMP', market: 'CN', period: 'daily' },
     ])
 
-    expect(kernel.data.readonly.symbols.peek().map((spec) => spec.symbol)).toEqual([
-      'MAIN',
-      'CMP',
-    ])
+    expect(kernel.data.readonly.symbols.peek().map((spec) => spec.symbol)).toEqual(['MAIN', 'CMP'])
     expect(kernel.comparison.readonly.specs.peek()).toEqual([])
   })
 

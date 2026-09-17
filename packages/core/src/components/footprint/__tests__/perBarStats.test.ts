@@ -2,11 +2,11 @@
  * Per-bar statistics tests — delta / cumulativeDelta / diagonal imbalance.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  computeDelta,
   computeCumulativeDelta,
+  computeDelta,
   computeDiagonalImbalances,
   type FootprintBarCell,
 } from '../perBarStats'

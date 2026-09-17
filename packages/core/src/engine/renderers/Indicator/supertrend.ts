@@ -1,26 +1,26 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcSuperTrendData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcSuperTrendData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
+  type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
-  type GetTitleInfoFn,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { SuperTrendRenderState } from '../../indicators/state/supertrendState'
+} from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { SuperTrendRenderState } from '../../indicators/state/supertrendState.js'
 import {
   createSuperTrendStateKey,
   EMPTY_SUPERTREND_STATE,
-} from '../../indicators/state/supertrendState'
-import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/state/supertrendState.js'
+import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 interface SuperTrendRendererOptions {
   paneId?: string

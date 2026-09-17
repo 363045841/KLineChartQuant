@@ -2,7 +2,6 @@
 export class PinchTracker {
   private activePointers = new Map<number, { x: number; y: number }>()
   private lastPinchDistance = 0
-  private pinchCenter = { x: 0, y: 0 }
   private isPinching = false
   private onPinchZoomCallback?: (delta: number, centerX: number) => void
 
@@ -28,7 +27,6 @@ export class PinchTracker {
       const p1 = pointers[0]!
       const p2 = pointers[1]!
       this.lastPinchDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-      this.pinchCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
       return true
     }
     return false

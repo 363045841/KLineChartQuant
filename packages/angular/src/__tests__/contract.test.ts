@@ -12,20 +12,20 @@ import type { ChartControllerFactory, ChartViewport } from '@363045841yyt/klinec
 import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 import {
   DestroyRef,
+  type ElementRef,
   Injector,
   PLATFORM_ID,
   runInInjectionContext,
-  type ElementRef,
 } from '@angular/core'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import * as AngularAdapter from '../index'
 import {
+  coreSignalToAngular,
+  createChart,
   KLINE_CHART_FACTORY,
   KLINE_CHART_THEME,
   KLineChartComponent,
-  coreSignalToAngular,
-  createChart,
   provideKLineChart,
 } from '../index'
 

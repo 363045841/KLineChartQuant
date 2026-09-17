@@ -1,10 +1,7 @@
-import { describe, it, expect } from 'vitest'
-
-import { calcStructureData } from '../calculators'
-
-import { empty, pureUptrend, pureDowntrend, sideways } from './__fixtures__/synthetic'
-
+import { describe, expect, it } from 'vitest'
 import type { KLineData } from '@/types/price'
+import { calcStructureData } from '../calculators'
+import { empty, pureDowntrend, pureUptrend, sideways } from './__fixtures__/synthetic'
 
 // Build a fixture with a clear swing high, swing low, and breakout
 function buildPyramidFixture(): KLineData[] {

@@ -1,24 +1,22 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcKSTData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { KSTRenderState } from '../../indicators/state/kstState'
-import { createKSTStateKey } from '../../indicators/state/kstState'
-import { EMPTY_KST_STATE } from '../../indicators/state/kstState'
-import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
-import { createKstScaleRendererPlugin } from './scale/kst_scale'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcKSTData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { KSTRenderState } from '../../indicators/state/kstState.js'
+import { createKSTStateKey, EMPTY_KST_STATE } from '../../indicators/state/kstState.js'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createKstScaleRendererPlugin } from './scale/kst_scale.js'
 
 type LinePoint = { x: number; y: number }
 

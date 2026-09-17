@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { SharedWebGLSurface } from './sharedWebGLSurface'
+import { SharedWebGLSurface } from './sharedWebGLSurface.js'
 
 /** 创建帧结束所需的最小 WebGL2 mock。 */
 function createMockGl() {

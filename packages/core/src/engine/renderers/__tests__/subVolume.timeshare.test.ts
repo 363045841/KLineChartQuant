@@ -1,34 +1,29 @@
 import { describe, expect, it, vi } from 'vitest'
+import {
+  createMockCanvasContext,
+  createMockRenderContext,
+  createMockServiceHost,
+  type MockCanvasContext,
+} from '@/engine/__tests__/helpers/renderTestKit'
 
 import type { RenderContext } from '../../../foundation/plugin/index'
 import { VolumeIndicatorDefinition } from '../subVolume'
 
-function createContext(): RenderContext {
-  let fillStyle = ''
+/** 构造记录每次填充颜色的上下文。 */
+function createContext(): { context: RenderContext; fills: string[] } {
+  const ctx = createMockCanvasContext()
   const fills: string[] = []
-  const ctx = {
-    save: vi.fn(),
-    restore: vi.fn(),
-    translate: vi.fn(),
-    fillRect: vi.fn(() => fills.push(fillStyle)),
-    get fillStyle() {
-      return fillStyle
-    },
-    set fillStyle(value: string) {
-      fillStyle = value
-    },
-  } as unknown as CanvasRenderingContext2D & { fills: string[] }
-  ;(ctx as CanvasRenderingContext2D & { fills: string[] }).fills = fills
+  ctx.fillRect = vi.fn(function (this: MockCanvasContext) {
+    fills.push(String(this.fillStyle))
+  })
 
-  return {
+  const context = createMockRenderContext({
     ctx,
     pane: {
       id: 'sub',
       top: 0,
       height: 100,
-      yAxis: {
-        getDisplayRange: (range: { maxPrice: number; minPrice: number }) => range,
-      },
+      yAxis: { getDisplayRange: (range) => range ?? { maxPrice: 0, minPrice: 0 } },
     },
     data: [
       { timestamp: 1, price: 10, average: 10, volume: 100 },
@@ -36,16 +31,14 @@ function createContext(): RenderContext {
     ],
     period: 'timeshare',
     range: { start: 0, end: 2 },
-    scrollLeft: 0,
-    dpr: 1,
     kBarRects: [
       { x: 0, width: 5 },
       { x: 10, width: 5 },
     ],
-    theme: 'light',
     isAsiaMarket: true,
     colorPresetSettings: {},
-  } as unknown as RenderContext
+  })
+  return { context, fills }
 }
 
 describe('timeshare volume renderer', () => {
@@ -53,15 +46,15 @@ describe('timeshare volume renderer', () => {
     const renderer = VolumeIndicatorDefinition.rendererFactory({ paneId: 'sub' })
     const { onInstall } = renderer
     if (!onInstall) throw new Error('Volume renderer must expose an install hook')
-    onInstall({
-      getService: () => ({ getIndicatorMetadata: () => ({ stateKey: 'volume' }) }),
-      setSharedState: vi.fn(),
-    } as never)
-    const context = createContext()
+    onInstall(
+      createMockServiceHost({
+        indicatorScheduler: { getIndicatorMetadata: () => ({ stateKey: 'volume' }) },
+      }),
+    )
+    const { context, fills } = createContext()
 
     renderer.draw(context)
 
-    const ctx = context.ctx as CanvasRenderingContext2D & { fills: string[] }
-    expect(ctx.fills).toEqual(['#C2363B66', '#00000066'])
+    expect(fills).toEqual(['#C2363B66', '#00000066'])
   })
 })

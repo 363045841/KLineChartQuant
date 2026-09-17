@@ -24,10 +24,8 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
-
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
-  import type { AgentContextItem } from '../agent-contracts'
+  import type { AgentContextItem } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>

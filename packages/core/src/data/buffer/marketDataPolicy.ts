@@ -1,5 +1,5 @@
 /** 行情缓存取数策略：定义初始窗口大小与统一重试退避。 */
-import { DEFAULT_KLINE_PERIOD } from '../provider/types'
+import { DEFAULT_KLINE_PERIOD } from '../provider/types.js'
 
 // ── Constants ──
 
@@ -37,7 +37,10 @@ export function getPeriodDays(period?: string): number {
 export function resolveMarketDataCacheMaxBytes(value: unknown): number {
   const fallback = DEFAULT_MARKET_DATA_CACHE_MAX_BYTES / MEBIBYTE
   const mib = typeof value === 'number' && Number.isFinite(value) ? value : fallback
-  return Math.round(Math.min(MAX_MARKET_DATA_CACHE_MAX_MIB, Math.max(MIN_MARKET_DATA_CACHE_MAX_MIB, mib)) * MEBIBYTE)
+  return Math.round(
+    Math.min(MAX_MARKET_DATA_CACHE_MAX_MIB, Math.max(MIN_MARKET_DATA_CACHE_MAX_MIB, mib)) *
+      MEBIBYTE,
+  )
 }
 
 // ── Retry backoff: 失败后等待约 1 秒 / 2 秒 ──
@@ -45,4 +48,3 @@ export function resolveMarketDataCacheMaxBytes(value: unknown): number {
 export function retryBackoffMs(attempt: number): number {
   return 1_000 * 2 ** Math.max(0, attempt - 1)
 }
-

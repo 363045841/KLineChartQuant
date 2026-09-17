@@ -1,13 +1,13 @@
-import type { ScaleType } from '../utils/tickPosition'
+import type { ScaleType } from '../utils/tickPosition.js'
 
 import {
-  type LogFormula,
-  toLog,
   fromLog,
+  type LogFormula,
   logFormulaForPriceRange,
   logFormulasAreSame,
-} from './logFormula'
-import type { PriceRange } from './price'
+  toLog,
+} from './logFormula.js'
+import type { PriceRange } from './price.js'
 
 /**
  * Pane 级别的价格坐标系（价格 -> pane 内 Y）

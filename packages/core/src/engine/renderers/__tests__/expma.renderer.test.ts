@@ -1,125 +1,26 @@
-// @ts-nocheck - Test file with intentional type relaxations for mocking
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-import { createEXPMARendererPlugin } from '../Indicator/expma'
-
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/state/expmaState'
-import type { Pane } from '@/core/layout/pane'
+import {
+  createMockCanvasContext,
+  createMockIndicatorHost,
+  createMockRenderContext,
+  createMockStateReader,
+} from '@/engine/__tests__/helpers/renderTestKit'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
-import type { KLineData } from '@/types/price'
+import { createEXPMARendererPlugin } from '../Indicator/expma'
 
 // Type helper for tests
 interface TestableEXPMARenderer extends RendererPluginWithHost {
+  onInstall: (host: PluginHost) => void
   draw: (context: RenderContext) => void
+  getDeclaredNamespaces: () => string[]
   getConfig: () => Record<string, unknown>
   setConfig: (config: Record<string, unknown>) => void
 }
 
-function createMockCanvasContext(): CanvasRenderingContext2D {
-  return {
-    save: vi.fn(),
-    restore: vi.fn(),
-    translate: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    strokeStyle: '',
-    lineWidth: 0,
-    lineJoin: '',
-    lineCap: '',
-  } as unknown as CanvasRenderingContext2D
-}
-
-function createMockPluginHost(state?: EXPMARenderState): PluginHost {
-  return {
-    setSharedState: vi.fn(),
-    getSharedState: vi.fn(<T>(key: string): T | undefined => {
-      if (key === EXPMA_STATE_KEY) {
-        return state as T
-      }
-      return undefined
-    }),
-    clearByOwner: vi.fn(),
-    registerService: vi.fn(),
-    getService: vi.fn(<T>(name: string) => {
-      if (name === 'indicatorScheduler') {
-        return {
-          getIndicatorMetadata: (indicatorName: string) => {
-            if (indicatorName === 'expma') {
-              return { name: 'expma', stateKey: EXPMA_STATE_KEY }
-            }
-            return undefined
-          },
-          getAllIndicators: () => [],
-          createRenderStateReader: () => ({
-            get: <T>(key: string): T | undefined =>
-              key === EXPMA_STATE_KEY ? (state as T) : undefined,
-          }),
-        } as T
-      }
-      return undefined
-    }),
-    getCanvas: vi.fn(),
-    getMainPane: vi.fn(),
-    getSubPane: vi.fn(),
-    getAllSubPanes: vi.fn(),
-    getTheme: vi.fn(),
-    getStyles: vi.fn(),
-    getBarStyles: vi.fn(),
-    getConfig: vi.fn(),
-    setConfig: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
-    emit: vi.fn(),
-  } as unknown as PluginHost
-}
-
-function createMockRenderContext(
-  ctx: CanvasRenderingContext2D,
-  overrides: Partial<RenderContext> = {},
-): RenderContext {
-  const mockPane = {
-    height: 200,
-    yAxis: {
-      priceToY: (price: number) => price * 10,
-      getDisplayRange: () => ({ minPrice: 0, maxPrice: 200 }),
-      getPriceOffset: () => 0,
-      getScaleType: () => 'linear',
-    },
-  } as unknown as Pane
-
-  // Create default test data with sufficient length
-  const defaultData: KLineData[] = Array.from({ length: 100 }, (_, i) => ({
-    timestamp: 1000000000000 + i * 60000,
-    open: 100 + i,
-    high: 101 + i,
-    low: 99 + i,
-    close: 100 + i,
-    volume: 1000 + i * 100,
-  }))
-
-  return {
-    ctx,
-    data: defaultData,
-    range: { start: 0, end: 10 },
-    visibleRange: { start: 0, end: 10 },
-    crosshair: null,
-    crosshairIndex: null,
-    dpr: 1,
-    scrollLeft: 0,
-    pane: mockPane,
-    kLineCenters: Array.from({ length: 100 }, (_, i) => i * 10 + 5),
-    period: 'daily',
-    ...overrides,
-  } as RenderContext
-}
-
-function createMockIndicatorStateReader(state?: EXPMARenderState) {
-  return {
-    get: vi.fn(<T>(key: string): T | undefined => (key === EXPMA_STATE_KEY ? (state as T) : undefined)),
-  }
+/** 构造携带 EXPMA 指标元数据与帧状态的 PluginHost。 */
+function createMockPluginHost(state?: EXPMARenderState) {
+  return createMockIndicatorHost({ indicatorName: 'expma', stateKey: EXPMA_STATE_KEY, state })
 }
 
 function createTestEXPMARenderState(overrides: Partial<EXPMARenderState> = {}): EXPMARenderState {
@@ -141,7 +42,7 @@ function createTestEXPMARenderState(overrides: Partial<EXPMARenderState> = {}): 
 
 describe('createEXPMARendererPlugin', () => {
   it('should create a renderer plugin with correct metadata', () => {
-    const plugin = createEXPMARendererPlugin()
+    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
 
     expect(plugin.name).toBe('expma')
     expect(plugin.version).toBe('2.1.0')
@@ -149,12 +50,12 @@ describe('createEXPMARendererPlugin', () => {
   })
 
   it('should have onInstall method', () => {
-    const plugin = createEXPMARendererPlugin()
+    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     expect(typeof plugin.onInstall).toBe('function')
   })
 
   it('should declare EXPMA_STATE_KEY namespace', () => {
-    const plugin = createEXPMARendererPlugin()
+    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([EXPMA_STATE_KEY])
   })
@@ -173,7 +74,7 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext({ ctx })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -189,8 +90,9 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(EXPMA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -204,8 +106,9 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(EXPMA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -219,8 +122,8 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const reader = createMockIndicatorStateReader(state)
-    const context = createMockRenderContext(ctx, { indicatorStateReader: reader })
+    const reader = createMockStateReader(EXPMA_STATE_KEY, state)
+    const context = createMockRenderContext({ ctx, indicatorStateReader: reader })
     plugin.draw(context)
 
     // Should have stroke calls for both lines
@@ -236,8 +139,9 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
-      indicatorStateReader: createMockIndicatorStateReader(state),
+    const context = createMockRenderContext({
+      ctx,
+      indicatorStateReader: createMockStateReader(EXPMA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -254,9 +158,10 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, {
+    const context = createMockRenderContext({
+      ctx,
       range: { start: 0, end: 10 },
-      indicatorStateReader: createMockIndicatorStateReader(state),
+      indicatorStateReader: createMockStateReader(EXPMA_STATE_KEY, state),
     })
     plugin.draw(context)
 
@@ -271,7 +176,7 @@ describe('EXPMA renderer config', () => {
       params: { fastPeriod: 20, slowPeriod: 60 },
     })
     const mockHost = createMockPluginHost(state)
-    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
+    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
     const config = plugin.getConfig()
@@ -282,7 +187,7 @@ describe('EXPMA renderer config', () => {
 
   it('getConfig should return empty object when no state', () => {
     const mockHost = createMockPluginHost(undefined)
-    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
+    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
     const config = plugin.getConfig()
@@ -292,7 +197,7 @@ describe('EXPMA renderer config', () => {
 
   it('setConfig should be a no-op', () => {
     const mockHost = createMockPluginHost(createTestEXPMARenderState())
-    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
+    const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
     expect(() => plugin.setConfig({ fastPeriod: 30 })).not.toThrow()

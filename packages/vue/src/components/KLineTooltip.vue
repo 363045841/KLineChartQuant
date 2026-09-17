@@ -52,8 +52,8 @@
 
 <script setup lang="ts">
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
-  import { computed } from 'vue'
   import type { ComponentPublicInstance } from 'vue'
+  import { computed } from 'vue'
 
   interface KLineData {
     timestamp: number

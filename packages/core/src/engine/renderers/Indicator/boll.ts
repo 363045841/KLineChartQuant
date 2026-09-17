@@ -1,28 +1,28 @@
 import type {
-  RendererPluginWithHost,
   PluginHost,
   RenderContext,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcBOLLData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcBOLLData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
+  GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
-  GetTitleInfoFn,
   TitleInfo,
   TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { BOLLRenderState } from '../../indicators/state/bollState'
-import { ChartDataViewId } from '../../state/modeState'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+} from '../../indicators/indicatorMetadata.js'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { BOLLRenderState } from '../../indicators/state/bollState.js'
+import { ChartDataViewId } from '../../state/modeState.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -101,7 +101,7 @@ function getBOLLStateKey(host: PluginHost | null, paneId: string): string | null
 }
 
 const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series'>>(bundle, 'boll')
+  const { series } = readIndicatorSeriesEntry(bundle, 'boll')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -125,10 +125,7 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): BOLLRenderState => {
-  const source = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series' | 'params'>>(
-    bundle,
-    'boll',
-  )
+  const source = readIndicatorSeriesEntry(bundle, 'boll')
   const priceRange = computeBOLLPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,

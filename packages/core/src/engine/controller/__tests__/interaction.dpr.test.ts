@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { InteractionController } from '@/core/controller/interaction'
 import type { KLineData } from '@/types/price'
 import { writableRef } from '../../../foundation/reactivity/signal'
-import { ChartDataViewId, type ChartDataView } from '../../../foundation/types/chartView'
+import { type ChartDataView, ChartDataViewId } from '../../../foundation/types/chartView'
 
 function createMockInteractionState() {
   const signals = {
@@ -314,7 +314,12 @@ describe('InteractionController DPR consumption', () => {
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    interaction.onPointerDown({ clientX: 100, clientY: 40, isPrimary: true, pointerId: 1 } as PointerEvent)
+    interaction.onPointerDown({
+      clientX: 100,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 1,
+    } as PointerEvent)
     scheduleDraw.mockClear()
     interaction.onPointerMove({ clientX: 80, clientY: 40, isPrimary: true } as PointerEvent)
 
@@ -331,12 +336,22 @@ describe('InteractionController DPR consumption', () => {
     interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
 
-    interaction.onPointerDown({ clientX: 50, clientY: 40, isPrimary: true, pointerId: 1 } as PointerEvent)
+    interaction.onPointerDown({
+      clientX: 50,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 1,
+    } as PointerEvent)
     interaction.onPointerMove({ clientX: 30, clientY: 40, isPrimary: true } as PointerEvent)
     expect(interaction.crosshairPos).toBeNull()
     expect(interaction.hoveredIndex).toBeNull()
 
-    interaction.onPointerUp({ clientX: 30, clientY: 40, isPrimary: true, pointerId: 1 } as PointerEvent)
+    interaction.onPointerUp({
+      clientX: 30,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 1,
+    } as PointerEvent)
     // 渲染帧先封存平移后的几何，再用松手位置恢复 hover。
     interaction.setKLinePositions([20, 30], { start: 0, end: 2 }, 10)
     interaction.flushPendingHover()

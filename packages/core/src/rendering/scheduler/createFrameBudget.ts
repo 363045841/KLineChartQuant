@@ -33,8 +33,8 @@
  *   if (budget.recentFrameMs() > 18) skipLowPriorityWork()
  */
 
-import { KLineChartError } from '../../errors'
-import { createSignal, type Signal } from '../../foundation/reactivity/index'
+import { KLineChartError } from '../../errors.js'
+import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Public shape

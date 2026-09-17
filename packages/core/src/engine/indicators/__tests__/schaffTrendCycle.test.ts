@@ -3,10 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-
-import { calcSchaffTrendCycleData } from '../calculators/schaffTrendCycle'
-
 import type { KLineData } from '../../../foundation/types/price'
+import { calcSchaffTrendCycleData } from '../calculators/schaffTrendCycle'
 
 /**
  * 生成线性收盘价的测试 K 线。

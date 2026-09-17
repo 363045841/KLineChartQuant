@@ -1,65 +1,66 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
-import { StateKernel, type SubStateModule } from './stateKernel'
-import { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomState'
-import { createDataState, type DataStateModule } from './dataState'
+
+import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
+import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId.js'
+import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
+import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'
+import type { RendererBackendRuntime } from '../../rendering/render/rendererHost.js'
+import type { PaneSpec } from '../chartTypes.js'
+import type { DrawingToolId } from '../drawing/toolConfig.js'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
+import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
+import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
+import type { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
+import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession.js'
+import { PaneManager } from '../paneManager.js'
+import { type ComparisonStateModule, createComparisonState } from './comparisonState.js'
+import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
+import { createDataState, type DataStateModule } from './dataState.js'
+import { createDrawingState, type DrawingStateModule } from './drawingState.js'
 import {
-  createViewportState,
-  type ViewportStateModule,
-  type ViewportDomDeps,
-} from './viewportState'
-import { createPaneState, type PaneStateModule } from './paneState'
-import { PaneManager } from '../paneManager'
-import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
-import { createSettingsState, type SettingsStateModule } from './settingsState'
-import {
-  ChartDataViewId,
-  createModeState,
-  isTimeShareDataView,
-  resolveChartWorkspaceId,
-  type ChartDataView,
-  type ModeStateModule,
-} from './modeState'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
-import { createDrawingState, type DrawingStateModule } from './drawingState'
-import {
-  createInteractionState,
-  type InteractionStateModule,
-  type InteractionDeps,
-} from './interactionState'
-import { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
-import { createOptionsState, type OptionsStateModule } from './optionsState'
-import { createComparisonState, type ComparisonStateModule } from './comparisonState'
+  createIndicatorResultState,
+  type IndicatorResultAvailability,
+  type IndicatorResultStateModule,
+  resolveIndicatorResultAvailability,
+} from './indicatorResultState.js'
 import {
   createIndicatorState,
   type IndicatorInstanceSpec,
   type IndicatorStateModule,
-} from './indicatorState'
-import { createMarkerState, type MarkerStateModule } from './markerState'
-import { createRendererState, type RendererStateModule } from './rendererState'
+} from './indicatorState.js'
+import type { DragMode } from './interactionState.js'
 import {
-  createIndicatorResultState,
-  resolveIndicatorResultAvailability,
-  type IndicatorResultAvailability,
-  type IndicatorResultStateModule,
-} from './indicatorResultState'
-import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
-import type { DrawingObject } from '../../foundation/plugin/index'
-import type { PaneSpec } from '../chartTypes'
-import type { DrawingToolId } from '../drawing/toolConfig'
-import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
-import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
-import type { DragMode } from './interactionState'
-import type { ChartSettings } from '../../foundation/config/chartSettings'
-import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
-import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
-import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
-import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
-import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
-import type { ViewWorkspacesSnapshot } from './viewWorkspace'
-import '../renderers/extremaMarkers'
-import '../renderers/lastPrice'
+  createInteractionState,
+  type InteractionDeps,
+  type InteractionStateModule,
+} from './interactionState.js'
+import { createMarkerState, type MarkerStateModule } from './markerState.js'
+import {
+  type ChartDataView,
+  ChartDataViewId,
+  createModeState,
+  isTimeShareDataView,
+  type ModeStateModule,
+  resolveChartWorkspaceId,
+} from './modeState.js'
+import { createOptionsState, type OptionsStateModule } from './optionsState.js'
+import { createPaneState, type PaneStateModule } from './paneState.js'
+import { createRendererState, type RendererStateModule } from './rendererState.js'
+import { createSettingsState, type SettingsStateModule } from './settingsState.js'
+import { StateKernel, type SubStateModule } from './stateKernel.js'
+import { createSystemThemeState, type SystemThemeStateModule } from './themeState.js'
+import {
+  createViewportState,
+  type ViewportDomDeps,
+  type ViewportStateModule,
+} from './viewportState.js'
+import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
+import { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState.js'
+import '../renderers/extremaMarkers.js'
+import '../renderers/lastPrice.js'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
 export interface ActiveRendererDescriptor {
@@ -414,7 +415,7 @@ export class ChartStateKernel extends StateKernel {
       // Drawing
       drawingTool: this.drawing.readonly.drawingTool,
       drawings: this.drawing.readonly.drawings,
-       selectedDrawingIds: this.drawing.readonly.selectedDrawingIds,
+      selectedDrawingIds: this.drawing.readonly.selectedDrawingIds,
       // Interaction
       interactionSnapshot: this.interaction.readonly.interactionSnapshot,
       crosshairIndex: this.interaction.readonly.crosshairIndex,

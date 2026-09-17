@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createPluginHost } from '../../../foundation/plugin/PluginHost'
 import { createSignal } from '../../../foundation/reactivity/signal'
-import { createIndicatorState } from '../../state/indicatorState'
-import { createIndicatorResultState } from '../../state/indicatorResultState'
 import type { VisibleRange } from '../../layout/pane'
 import { UpdateLevel } from '../../layout/pane'
+import { createIndicatorResultState } from '../../state/indicatorResultState'
+import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 

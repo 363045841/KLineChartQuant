@@ -3,10 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-
-import { calcStochRSIData } from '../calculators/stochRSI'
-
 import type { KLineData } from '../../../foundation/types/price'
+import { calcStochRSIData } from '../calculators/stochRSI'
 
 /**
  * 生成线性收盘价的测试 K 线。

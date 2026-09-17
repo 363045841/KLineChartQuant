@@ -42,7 +42,11 @@ function createMetrics(): CanvasProfilerMetrics {
 }
 
 function record(bucket: MetricBucket, name: string, duration: number): void {
-  const entry = (bucket[name] ??= { count: 0, totalTime: 0 })
+  let entry = bucket[name]
+  if (!entry) {
+    entry = { count: 0, totalTime: 0 }
+    bucket[name] = entry
+  }
   entry.count += 1
   entry.totalTime += duration
 }
@@ -53,7 +57,11 @@ function recordMethodSource(
   source: string,
   duration: number,
 ): void {
-  const bucket = (metrics.ctxMethodSources[methodName] ??= createBucket())
+  let bucket = metrics.ctxMethodSources[methodName]
+  if (!bucket) {
+    bucket = createBucket()
+    metrics.ctxMethodSources[methodName] = bucket
+  }
   record(bucket, source, duration)
 }
 

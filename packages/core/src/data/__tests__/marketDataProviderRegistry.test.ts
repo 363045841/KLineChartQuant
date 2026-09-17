@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { KLineChartError } from '../../errors'
-import { MarketDataProviderRegistry, type MarketDataProvider } from '../provider'
+import { type MarketDataProvider, MarketDataProviderRegistry } from '../provider'
 
 const gotdxProvider = {
   source: {

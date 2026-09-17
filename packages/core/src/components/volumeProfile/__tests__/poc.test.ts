@@ -9,7 +9,7 @@
  *     value is ever found).
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { findPOCIndex } from '../poc'
 

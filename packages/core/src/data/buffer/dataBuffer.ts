@@ -1,11 +1,15 @@
 /** K 线图表快照适配器：接收缓存查询结果并发布数据、加载与错误状态。 */
-import type { KLineData, SymbolSpec } from '../../controllers/types'
-import { createSignal, type ReadonlySignal, type WritableSignal } from '../../foundation/reactivity/signal'
-import type { OlderDataStatus } from '../provider/types'
+import type { KLineData, SymbolSpec } from '../../controllers/types.js'
+import {
+  createSignal,
+  type ReadonlySignal,
+  type WritableSignal,
+} from '../../foundation/reactivity/signal.js'
+import type { OlderDataStatus } from '../provider/types.js'
 
-import type { DataChange, KLineBuffer, LoadedTimeRange } from './dataBufferTypes'
-import { KLineDataStore } from './kLineDataStore'
-import { TimeKeyIndex } from './timeKeyIndex'
+import type { DataChange, KLineBuffer, LoadedTimeRange } from './dataBufferTypes.js'
+import { KLineDataStore } from './kLineDataStore.js'
+import { TimeKeyIndex } from './timeKeyIndex.js'
 
 /** 图表消费的 K 线快照；不负责 Provider 请求、重试或分页策略。 */
 export class DataBuffer implements KLineBuffer {

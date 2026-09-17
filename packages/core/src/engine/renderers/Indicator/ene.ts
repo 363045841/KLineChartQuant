@@ -1,27 +1,26 @@
 import type {
-  RendererPluginWithHost,
   PluginHost,
   RenderContext,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcENEData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcENEData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
+  GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
-  GetTitleInfoFn,
   TitleInfo,
   TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState'
-
-import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand'
-import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer'
+} from '../../indicators/indicatorMetadata.js'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState.js'
+import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -93,7 +92,7 @@ function getENEStateKey(host: PluginHost | null): string | null {
 }
 
 const computeENEPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<ENERenderState, 'series'>>(bundle, 'ene')
+  const { series } = readIndicatorSeriesEntry(bundle, 'ene')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -117,7 +116,7 @@ const composeENERenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): ENERenderState => {
-  const source = readIndicatorSeriesEntry<Pick<ENERenderState, 'series' | 'params'>>(bundle, 'ene')
+  const source = readIndicatorSeriesEntry(bundle, 'ene')
   const priceRange = computeENEPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,

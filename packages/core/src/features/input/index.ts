@@ -6,21 +6,21 @@
  */
 
 export {
-  createShortcutRegistry,
-  parseCombo,
-  canonicalCombo,
-  type ShortcutRegistry,
-  type ShortcutRegistryOptions,
-  type ShortcutDef,
-  type ParsedCombo,
-  type ModifierState,
-  type KeyboardEventLike,
-} from './keyboard'
-export {
   createGestureRecognizer,
+  type GestureEvent,
   type GestureRecognizer,
   type GestureRecognizerOptions,
-  type GestureEvent,
   type GestureState,
   type PointerEventLike,
-} from './gesture'
+} from './gesture.js'
+export {
+  canonicalCombo,
+  createShortcutRegistry,
+  type KeyboardEventLike,
+  type ModifierState,
+  type ParsedCombo,
+  parseCombo,
+  type ShortcutDef,
+  type ShortcutRegistry,
+  type ShortcutRegistryOptions,
+} from './keyboard.js'

@@ -1,10 +1,10 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { drawCrosshairPriceLabel } from '../../foundation/utils/kLineDraw/axis'
-import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
-import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings'
+import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { drawCrosshairPriceLabel } from '../../foundation/utils/kLineDraw/axis.js'
+import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign.js'
 
 type LeftYAxisOptions = {
   axisWidth: number

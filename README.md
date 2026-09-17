@@ -401,7 +401,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| semanticConfig | `SemanticChartConfig` | — | Semantic configuration (optional). When provided, drives chart data, indicators, markers and chart options |
 | theme | `'light' \| 'dark'` | — | Chart theme. Use `v-model:theme` for two-way binding |
 | isFullscreen | `boolean` | — | Controlled fullscreen state. Leave unbound for internal (non-controlled) mode |
 | timezone | `string` | `'Asia/Shanghai'` | Time zone for date/time display |
@@ -442,7 +441,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | — |
+| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
 
 
 ## 🚀 What's New

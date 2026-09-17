@@ -13,10 +13,9 @@
  *   9. dispose() makes everything a no-op.
  */
 
-import { describe, it, expect } from 'vitest'
-
-import { createGestureRecognizer, type PointerEventLike, type GestureEvent } from '..'
+import { describe, expect, it } from 'vitest'
 import { isKLineChartError } from '../../../errors'
+import { createGestureRecognizer, type GestureEvent, type PointerEventLike } from '..'
 
 function pt(id: number, x: number, y: number, ts: number): PointerEventLike {
   return { pointerId: id, x, y, timestamp: ts }

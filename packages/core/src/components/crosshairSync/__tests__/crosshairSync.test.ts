@@ -19,10 +19,9 @@
  *  15. Loop-prevention pattern: subscribers can identify own emissions.
  */
 
-import { describe, it, expect } from 'vitest'
-
-import { createCrosshairSync, type CrosshairPosition } from '..'
+import { describe, expect, it } from 'vitest'
 import { isKLineChartError } from '../../../errors'
+import { type CrosshairPosition, createCrosshairSync } from '..'
 
 function collect(s: ReturnType<typeof createCrosshairSync>): CrosshairPosition[] {
   const out: CrosshairPosition[] = []

@@ -8,7 +8,7 @@
  */
 
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 
 import { createMockChartController, type MockChartController } from './_mockController'
@@ -26,10 +26,9 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
   }
 })
 
+import { loadBuiltinIndicators } from '@363045841yyt/klinechart-core/controllers'
 import { KlineChart } from '../components/index'
 import type { LegendSlotProps } from '../index'
-
-import { loadBuiltinIndicators } from '@363045841yyt/klinechart-core/controllers'
 
 // ── Pre-load builtin indicators so IndicatorSelector mounted hook doesn't
 //    trigger in-flight dynamic imports after environment teardown ──

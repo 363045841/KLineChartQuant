@@ -1,56 +1,56 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
 import { type Static, Type } from 'typebox'
-
-import { KLineChartError } from '../../errors'
-import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provider/instrumentSearch'
-import type { MarketDataProviderRegistry } from '../../data/provider/registry'
-import { MarketDataCache } from '../../data/buffer/marketDataCache'
-import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { AGENT_DRAWING_COLOR_VALUES } from '../../foundation/tokens/agentDrawingColors'
-import type { ChartDataView } from '../../foundation/types/chartView'
+import { MarketDataCache } from '../../data/buffer/marketDataCache.js'
+import {
+  lookupInstrumentsBySymbol,
+  searchInstruments,
+} from '../../data/provider/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '../../data/provider/registry.js'
+import type { DrawingCommands } from '../../engine/drawing/DrawingCommands.js'
 import type {
   DrawingAnchorCommandInput,
   DrawingDocument,
-} from '../../engine/drawing/DrawingDocument'
-import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
+} from '../../engine/drawing/DrawingDocument.js'
+import { KLineChartError } from '../../errors.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { AGENT_DRAWING_COLOR_VALUES } from '../../foundation/tokens/agentDrawingColors.js'
+import type { ChartDataView } from '../../foundation/types/chartView.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
-import '../../engine/data/comparisonCommands'
-import type { ComparisonCommands } from '../../engine/data/comparisonCommands'
-import type { DrawingObject } from '../../foundation/plugin'
-
+import '../../engine/data/comparisonCommands.js'
+import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
+import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types.js'
+import { KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types.js'
+import type { PaneSpec } from '../../engine/chartTypes.js'
+import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
+import type { PaneManager } from '../../engine/paneManager.js'
+import type { DataStateModule } from '../../engine/state/dataState.js'
 import {
-  Tool,
-  getRegisteredChartTools,
   type ChartToolExecutionContext,
-} from '../../foundation/agent/chartToolRegistry'
-import { CHART_AGENT_ERROR_CODES } from './errors'
+  getRegisteredChartTools,
+  Tool,
+} from '../../foundation/agent/chartToolRegistry.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
+import { CHART_AGENT_ERROR_CODES } from './errors.js'
+import type { IndicatorQuery } from './indicator/indicatorQuery.js'
 import {
   createMarketDataTextFormatter,
   type MarketDataTextFormatter,
-} from './marketDataTextFormatter'
-
-import type { IndicatorQuery } from './indicator/indicatorQuery'
+} from './marketDataTextFormatter.js'
 import type {
+  BarsQueryInput,
+  BarsQueryResult,
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
-  BarsQueryInput,
-  BarsQueryResult,
   IndicatorQueryInput,
   TimeShareQueryInput,
   TimeShareQueryResult,
   TimeShareRangeQueryInput,
   TimeShareRangeQueryResult,
-} from './types'
-import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
-import { KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types'
-import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types'
-import type { DataStateModule } from '../../engine/state/dataState'
-import type { PaneManager } from '../../engine/paneManager'
-import type { PaneSpec } from '../../engine/chartTypes'
+} from './types.js'
 
 interface ChartAgentControllerDependencies {
   readonly chartId: string
@@ -815,21 +815,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: Static<typeof DrawingUpdateToolParameters>,
   ): Promise<ChartAgentDrawingSnapshot | null> {
     const patch = input.patch
-    const current = this.dependencies.drawingDocument.getDrawing(input.drawingId)
-    if (!current) return null
-    if (patch.anchors === undefined) {
-      const drawing = this.dependencies.drawingCommands.update({
-        ...current,
-        ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
-        ...(patch.labels === undefined ? {} : { labels: patch.labels }),
-        ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-        ...(patch.locked === undefined ? {} : { locked: patch.locked }),
-        ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
-      })
-      return drawing ? projectDrawing(drawing) : null
-    }
     const drawing = this.dependencies.drawingCommands.updateFromInput(input.drawingId, {
-      anchors: parseDrawingAnchors(patch.anchors),
+      ...(patch.anchors === undefined ? {} : { anchors: parseDrawingAnchors(patch.anchors) }),
       ...(patch.style === undefined ? {} : { style: patch.style }),
       ...(patch.labels === undefined ? {} : { labels: patch.labels }),
       ...(patch.visible === undefined ? {} : { visible: patch.visible }),

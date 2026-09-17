@@ -1,6 +1,6 @@
-import type { SymbolSpec } from '../../controllers/types'
-import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels'
-import type { MarketSessionRegistry } from './marketSessionRegistry'
+import type { SymbolSpec } from '../../controllers/types.js'
+import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
+import type { MarketSessionRegistry } from './marketSessionRegistry.js'
 
 export function resolveSymbolMarketSession(
   spec: SymbolSpec,

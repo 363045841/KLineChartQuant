@@ -72,12 +72,6 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-
-  import Dropdown from '../../../components/Dropdown.vue'
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
-  import type { AgentSessionView } from '../agent-contracts'
-
   import IconLanguage from '~icons/tabler/language'
   import IconPanelRightClose from '~icons/tabler/layout-sidebar-right-collapse'
   import IconPencil from '~icons/tabler/pencil'
@@ -85,6 +79,9 @@
   import IconSettings from '~icons/tabler/settings'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconTrash from '~icons/tabler/trash'
+  import Dropdown from '../../../components/Dropdown.vue'
+  import type { AgentSessionView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     sessions: AgentSessionView[]

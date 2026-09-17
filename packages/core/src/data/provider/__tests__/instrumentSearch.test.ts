@@ -79,7 +79,9 @@ describe('searchInstruments', () => {
   it('returns available results when a source search fails', async () => {
     const registry = new MarketDataProviderRegistry()
     registry.register(createProvider('first', vi.fn().mockRejectedValue(new Error('offline'))))
-    registry.register(createProvider('second', vi.fn().mockResolvedValue([instrument('second', 'stock:600519')])))
+    registry.register(
+      createProvider('second', vi.fn().mockResolvedValue([instrument('second', 'stock:600519')])),
+    )
 
     await expect(searchInstruments(registry, { keyword: '600519', limit: 10 })).resolves.toEqual([
       instrument('second', 'stock:600519'),
@@ -90,19 +92,19 @@ describe('searchInstruments', () => {
 describe('lookupInstrumentsBySymbol', () => {
   it('returns only normalized exact matches while preserving source-scoped results', async () => {
     const registry = new MarketDataProviderRegistry()
-    const firstSearch = vi.fn().mockResolvedValue([
-      instrument('first', 'stock:600519'),
-      { ...instrument('first', 'stock:600519-hk'), symbol: '600519.HK' },
-    ])
-    const secondSearch = vi.fn().mockResolvedValue([
-      { ...instrument('second', 'stock:600519'), symbol: '600519' },
-    ])
+    const firstSearch = vi
+      .fn()
+      .mockResolvedValue([
+        instrument('first', 'stock:600519'),
+        { ...instrument('first', 'stock:600519-hk'), symbol: '600519.HK' },
+      ])
+    const secondSearch = vi
+      .fn()
+      .mockResolvedValue([{ ...instrument('second', 'stock:600519'), symbol: '600519' }])
     registry.register(createProvider('first', firstSearch))
     registry.register(createProvider('second', secondSearch))
 
-    await expect(
-      lookupInstrumentsBySymbol(registry, { symbol: ' 600519 ' }),
-    ).resolves.toEqual([
+    await expect(lookupInstrumentsBySymbol(registry, { symbol: ' 600519 ' })).resolves.toEqual([
       instrument('first', 'stock:600519'),
       instrument('second', 'stock:600519'),
     ])

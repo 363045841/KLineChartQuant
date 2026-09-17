@@ -21,16 +21,16 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import {
-  onBeforeUnmount,
-  onScopeDispose,
-  shallowRef,
-  watch,
   type App,
   type ComputedRef,
+  onBeforeUnmount,
+  onScopeDispose,
   type Ref,
+  shallowRef,
+  watch,
 } from 'vue'
 
-import { KlineChart } from './components/index'
+import { KlineChart } from './components/index.js'
 import './styles/scrollbar.css'
 
 export type {
@@ -45,45 +45,45 @@ export type {
 // SFC components (for consumers using Vite / SFC compiler)
 // ---------------------------------------------------------------------------
 
+export type {
+  LegendComparisonRow,
+  LegendCurrentBar,
+  LegendIndicatorRow,
+  LegendLayout,
+  LegendRenderMode,
+  LegendTemplateContext,
+  LegendTimeshareRow,
+} from '@363045841yyt/klinechart-core/controllers'
+
+export type {
+  KlineTooltipSlotProps,
+  LegendSlotProps,
+  MarkerTooltipSlotProps,
+} from './components/index.js'
 export {
   DrawingStyleToolbar,
   IndicatorParams,
   IndicatorSelector,
-  KlineChart,
   KLineTooltip,
+  KlineChart,
   LeftToolbar,
   MarkerTooltip,
-} from './components/index'
-
-export type {
-  KlineTooltipSlotProps,
-  MarkerTooltipSlotProps,
-  LegendSlotProps,
-} from './components/index'
-export type {
-  LegendTemplateContext,
-  LegendRenderMode,
-  LegendLayout,
-  LegendCurrentBar,
-  LegendTimeshareRow,
-  LegendIndicatorRow,
-  LegendComparisonRow,
-} from '@363045841yyt/klinechart-core/controllers'
+} from './components/index.js'
 
 // ---------------------------------------------------------------------------
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
-export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
-export * from './features/agent/agent-contracts'
+export * from './features/agent/agent-contracts.js'
 export {
+  type AgentWorkspaceState,
   createInitialAgentState,
   reduceAgentUiEvent,
-  type AgentWorkspaceState,
-} from './features/agent/agent-reducer'
-export { useAgentWorkspace } from './features/agent/use-agent-workspace'
-export type { AgentPanelWidthStorage } from './features/agent/workbench-shell'
+} from './features/agent/agent-reducer.js'
+export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
+export { useAgentWorkspace } from './features/agent/use-agent-workspace.js'
+export type { AgentPanelWidthStorage } from './features/agent/workbench-shell.js'
 
 // ---------------------------------------------------------------------------
 // Controller factory injection
@@ -128,7 +128,8 @@ export function createChart(opts: ChartMountOptions): ChartController | Promise<
   return controllerFactory(opts)
 }
 
-import { coreSignalToVueRef } from './utils/signalBridge'
+import { coreSignalToVueRef } from './utils/signalBridge.js'
+
 export { coreSignalToVueRef }
 
 // ---------------------------------------------------------------------------
@@ -337,5 +338,7 @@ export const KMapPlugin = {
 // DOM access only happens when `createChart(opts)` is actually called.
 // ---------------------------------------------------------------------------
 import { createChartController } from '@363045841yyt/klinechart-core'
+
 __setControllerFactory(createChartController)
-export { VERSION, CORE_VERSION } from './version'
+
+export { CORE_VERSION, VERSION } from './version.js'

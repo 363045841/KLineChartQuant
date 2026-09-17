@@ -1,6 +1,6 @@
-import type { KLineData } from '../../foundation/types/price'
-import type { PriceRange } from '../scale/price'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import type { KLineData } from '../../foundation/types/price.js'
+import type { PriceRange } from '../scale/price.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
 /**
  * 计算当前视口可见的 K 线索引范围（使用物理像素对齐）。
@@ -65,8 +65,7 @@ export function computeMaxScrollLeftWithVisibleData(
   if (totalDataCount === 0) return contentMaxScrollLeft
 
   const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  const rawMax =
-    leftLoadBufferWidth + (startXPx + (totalDataCount - 1) * unitPx) / dpr
+  const rawMax = leftLoadBufferWidth + (startXPx + (totalDataCount - 1) * unitPx) / dpr
   const maxScrollRaw = Math.min(contentMaxScrollLeft, rawMax)
   // 向下吸附到 K 线网格边界，确保 scrollLeft 对齐物理像素网格
   const maxScrollPx = (maxScrollRaw - leftLoadBufferWidth) * dpr - startXPx
@@ -81,10 +80,10 @@ export function computeMaxScrollLeftWithVisibleData(
  * 绘制 / hit-test / 数据下标必须用 clamp 后的 start>=0。
  * 增量加载检测仍读 raw（start 小于 0 表示已滚到左缘扩窗）。
  */
-export function clampVisibleRange(range: {
+export function clampVisibleRange(range: { start: number; end: number }): {
   start: number
   end: number
-}): { start: number; end: number } {
+} {
   return { start: Math.max(0, range.start), end: range.end }
 }
 

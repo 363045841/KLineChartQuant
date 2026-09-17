@@ -1,8 +1,9 @@
 /** 绘图状态模块：工具、图元与选中图元集合的 SSOT。 */
-import { batch, createSubState } from '../../foundation/reactivity/signal'
-import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
-import type { DrawingToolId } from '../drawing/toolConfig'
-import { deepFreezeSnapshot } from './immutable'
+
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
+import { batch, createSubState } from '../../foundation/reactivity/signal.js'
+import type { DrawingToolId } from '../drawing/toolConfig.js'
+import { deepFreezeSnapshot } from './immutable.js'
 
 function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
   return Object.freeze(

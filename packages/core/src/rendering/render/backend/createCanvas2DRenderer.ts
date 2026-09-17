@@ -9,8 +9,8 @@ import type {
   DrawLinesParams,
   PipelineHandle,
   Renderer,
-} from '../Renderer'
-import type { SurfaceBackend } from '../SurfaceBackend'
+} from '../Renderer.js'
+import type { SurfaceBackend } from '../SurfaceBackend.js'
 
 export function createCanvas2DRenderer(): Renderer {
   let disposed = false

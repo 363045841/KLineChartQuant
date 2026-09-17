@@ -1,6 +1,6 @@
 /** 验证 WebGL Renderer 在资源或表面不可用时的 fail-closed 行为。 */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createWebGLRenderer } from '../backend/createWebGLRenderer'
 import type { SurfaceBackend, SurfaceRegion } from '../index'

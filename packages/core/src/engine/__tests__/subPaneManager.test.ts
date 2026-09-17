@@ -1,32 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import type { IndicatorScheduler } from '../indicators/scheduler'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../indicators/scheduler'
 import type { SubPaneSpec } from '../state/indicatorState'
-import { SubPaneManager, type SubPaneContext } from '../subPaneManager'
+import { type SubPaneContext, SubPaneManager } from '../subPaneManager'
 
 function createMockScheduler(): Partial<IndicatorScheduler> {
   return {
-    getIndicatorMetadata: vi.fn((id: string): IndicatorMetadata => ({
-      name: id,
-      displayName: 'Test',
-      category: 'sub' as const,
-      indicatorType: 'other',
-      stateKey: id,
-      defaultPaneId: 'sub',
-      rendererFactory: vi.fn(({ paneId } = { paneId: '', indicatorId: '' }) => ({
-        name: `${id.toLowerCase()}_${paneId}`,
-        paneId,
-        priority: 0,
-        draw: vi.fn(),
-      })),
-      getRendererName: ({ paneId }) => `${id.toLowerCase()}_${paneId}`,
-      getScaleRendererName: ({ paneId }) =>
-        `${id.toLowerCase()}Scale_${paneId}`,
-      getPaneTitleRendererName: ({ paneId }) => `paneTitle_${paneId}`,
-      updateConfig: vi.fn(),
-      scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
-    })),
+    getIndicatorMetadata: vi.fn(
+      (id: string): IndicatorMetadata => ({
+        name: id,
+        displayName: 'Test',
+        category: 'sub' as const,
+        indicatorType: 'other',
+        stateKey: id,
+        defaultPaneId: 'sub',
+        rendererFactory: vi.fn(({ paneId } = { paneId: '', indicatorId: '' }) => ({
+          name: `${id.toLowerCase()}_${paneId}`,
+          paneId,
+          priority: 0,
+          draw: vi.fn(),
+        })),
+        getRendererName: ({ paneId }) => `${id.toLowerCase()}_${paneId}`,
+        getScaleRendererName: ({ paneId }) => `${id.toLowerCase()}Scale_${paneId}`,
+        getPaneTitleRendererName: ({ paneId }) => `paneTitle_${paneId}`,
+        updateConfig: vi.fn(),
+        scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
+      }),
+    ),
     onSubPaneChanged: vi.fn(),
   }
 }

@@ -3,31 +3,31 @@
  */
 
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcAwesomeOscillatorData } from '../../indicators/calculators/awesomeOscillator'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { AwesomeOscillatorRenderState } from '../../indicators/state/awesomeOscillatorState'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcAwesomeOscillatorData } from '../../indicators/calculators/awesomeOscillator.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { AwesomeOscillatorRenderState } from '../../indicators/state/awesomeOscillatorState.js'
 import {
   createAwesomeOscillatorStateKey,
   DEFAULT_AO_FAST_PERIOD,
   DEFAULT_AO_SLOW_PERIOD,
   EMPTY_AO_STATE,
-} from '../../indicators/state/awesomeOscillatorState'
-import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/state/awesomeOscillatorState.js'
+import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createAwesomeOscillatorScaleRendererPlugin } from './scale/awesomeOscillator_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createAwesomeOscillatorScaleRendererPlugin } from './scale/awesomeOscillator_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

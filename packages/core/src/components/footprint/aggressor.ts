@@ -16,7 +16,7 @@
  * always explicit > Lee-Ready > tick rule.
  */
 
-import type { AggressorSide, Trade, TradeWithFlag } from './types'
+import type { AggressorSide, Trade, TradeWithFlag } from './types.js'
 
 /**
  * Output of every classifier.

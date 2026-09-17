@@ -24,17 +24,17 @@
  *     adequate for visual profiles; tick-snapped binning is a future option.
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/index'
+import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
-import { binBarToBuckets } from './binning'
-import { findPOCIndex } from './poc'
+import { binBarToBuckets } from './binning.js'
+import { findPOCIndex } from './poc.js'
 import type {
   VolumeProfileBar,
   VolumeProfileConfig,
   VolumeProfileController,
   VolumeProfileState,
-} from './types'
-import { computeValueArea } from './valueArea'
+} from './types.js'
+import { computeValueArea } from './valueArea.js'
 
 const DEFAULT_CONFIG: VolumeProfileConfig = {
   binCount: 100,

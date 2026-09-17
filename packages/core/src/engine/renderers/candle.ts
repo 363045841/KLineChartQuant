@@ -1,17 +1,17 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index'
-import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine'
-import type { KLineData } from '../../foundation/types/price'
-import { ChartDataViewId } from '../../foundation/types/chartView'
-import { VolumePriceRelation } from '../../foundation/types/volumePrice'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
+import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { VolumePriceRelation } from '../../foundation/types/volumePrice.js'
 import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
-} from '../../foundation/utils/volumePrice'
-import type { MarkerManager } from '../marker/registry'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { drawCandlesViaRenderer } from './candleViaRenderer'
+} from '../../foundation/utils/volumePrice.js'
+import type { MarkerManager } from '../marker/registry.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
 // --- Float32Array buffer pool (reduces per-frame GC pressure) ---
 let poolUpBody: Float32Array | null = null

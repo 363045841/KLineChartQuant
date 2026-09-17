@@ -1,24 +1,24 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { calcFibData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcFibData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
+  type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
-  type GetTitleInfoFn,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { FibRenderState } from '../../indicators/state/fibState'
-import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState'
-import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+} from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { FibRenderState } from '../../indicators/state/fibState.js'
+import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState.js'
+import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 /** 构建斐波那契回撤线颜色映射：palette 索引 + token 色组，draw/title 共用同一来源 */
 function getFibColors(colors: ColorTokens) {

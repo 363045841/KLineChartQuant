@@ -3,10 +3,10 @@
  * classifier composition, cumulativeDelta wiring, dispose semantics.
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createFootprintController } from '../createFootprintController'
-import type { FootprintController, FootprintConfig } from '../types'
+import type { FootprintConfig, FootprintController } from '../types'
 
 const baseConfig: FootprintConfig = {
   tickSize: 0.01,

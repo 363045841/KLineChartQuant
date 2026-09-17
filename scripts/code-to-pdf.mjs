@@ -18,11 +18,7 @@ const ROOT = path.resolve(__dirname, '..')
 
 /** 入口：收集代码文本并导出 PDF。 */
 async function main() {
-  const { pages, outDir } = parseArgs(
-    process.argv.slice(2),
-    ROOT,
-    path.join(ROOT, '.code-pdf'),
-  )
+  const { pages, outDir } = parseArgs(process.argv.slice(2), ROOT, path.join(ROOT, '.code-pdf'))
   const relPaths = listProjectFiles(ROOT).filter(isTextFile)
   await exportPdf({ root: ROOT, outDir, name: 'all-code', relPaths, pages })
 }

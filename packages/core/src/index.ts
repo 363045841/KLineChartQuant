@@ -1,47 +1,42 @@
-export * from './foundation/reactivity'
-export * from './controllers'
-export * from './features/agent'
-export { VERSION } from './version'
-export * from './foundation/tokens'
-export { formatTimestamp } from './foundation/utils/dateFormat'
-export { generateUUID } from './foundation/utils/uuid'
-export type { ChartSettings } from './foundation/config/chartSettings'
-
+export * from './components/anchoredVwap/index.js'
+export * from './components/crosshairSync/index.js'
+export * from './components/footprint/index.js'
+export * from './components/mtfOverlay/index.js'
+export * from './components/orderBookHeatmap/index.js'
+// ── Batch 5: Component data models ────────────────────────────────────────
+export * from './components/volumeProfile/index.js'
+export * from './controllers/index.js'
+export * from './engine/market/marketSessionRegistry.js'
+export * from './engine/market/resolveSymbolMarketSession.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
-  KLineChartError,
-  isKLineChartError,
-  type KLineChartErrorCode,
-  type KLineChartErrorOptions,
   createMarketDataError,
   createMissingSessionError,
-} from './errors'
-export { getRecoveryHint, formatKLineChartError, type FormatErrorOptions } from './errors-help'
-
-// ── Batch 2: Framework-agnostic foundation ────────────────────────────────
-export * from './features/input'
-export * from './scale'
-export * from './rendering/scheduler'
-export type * from './rendering/render'
-export * from './foundation/utils/rendererCapability'
-export * from './rendering/renderer-tier'
-
-// ── Batch 3: Scene abstraction (depends on render) ────────────────────────
-export * from './rendering/scene'
-
+  isKLineChartError,
+  KLineChartError,
+  type KLineChartErrorCode,
+  type KLineChartErrorOptions,
+} from './errors.js'
+export { type FormatErrorOptions, formatKLineChartError, getRecoveryHint } from './errors-help.js'
+export * from './features/agent/index.js'
 // ── Batch 4: Independent business features ────────────────────────────────
-export * from './features/alerts'
-export * from './features/replay'
-export * from './features/chartTypes'
-export * from './features/indicators'
-export * from './engine/market/marketSessionRegistry'
-export * from './engine/market/resolveSymbolMarketSession'
-export type { MarketSessionConfig, OpenTimeRange } from './foundation/utils/sessionTimeLabels'
-
-// ── Batch 5: Component data models ────────────────────────────────────────
-export * from './components/volumeProfile'
-export * from './components/orderBookHeatmap'
-export * from './components/footprint'
-export * from './components/anchoredVwap'
-export * from './components/mtfOverlay'
-export * from './components/crosshairSync'
+export * from './features/alerts/index.js'
+export * from './features/chartTypes/index.js'
+export * from './features/indicators/index.js'
+// ── Batch 2: Framework-agnostic foundation ────────────────────────────────
+export * from './features/input/index.js'
+export * from './features/replay/index.js'
+export type { ChartSettings } from './foundation/config/chartSettings.js'
+export * from './foundation/reactivity/index.js'
+export * from './foundation/tokens/index.js'
+export { formatTimestamp } from './foundation/utils/dateFormat.js'
+export * from './foundation/utils/rendererCapability.js'
+export type { MarketSessionConfig, OpenTimeRange } from './foundation/utils/sessionTimeLabels.js'
+export { generateUUID } from './foundation/utils/uuid.js'
+export type * from './rendering/render/index.js'
+export * from './rendering/renderer-tier/index.js'
+// ── Batch 3: Scene abstraction (depends on render) ────────────────────────
+export * from './rendering/scene/index.js'
+export * from './rendering/scheduler/index.js'
+export * from './scale/index.js'
+export { VERSION } from './version.js'

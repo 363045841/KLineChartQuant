@@ -1,6 +1,6 @@
 /** 将逻辑索引按当前帧封存的中心点投影为屏幕 X 坐标。 */
 
-import { worldXToScreenX } from '../../foundation/utils/pixelAlign'
+import { worldXToScreenX } from '../../foundation/utils/pixelAlign.js'
 
 export interface LogicalIndexScreenXInput {
   readonly index: number

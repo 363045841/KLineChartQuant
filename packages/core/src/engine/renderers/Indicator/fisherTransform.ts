@@ -4,28 +4,28 @@
 
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcFisherTransformData } from '../../indicators/calculators/fisherTransform'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { FisherTransformRenderState } from '../../indicators/state/fisherTransformState'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcFisherTransformData } from '../../indicators/calculators/fisherTransform.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { FisherTransformRenderState } from '../../indicators/state/fisherTransformState.js'
 import {
   createFisherTransformStateKey,
   EMPTY_FISHER_TRANSFORM_STATE,
-} from '../../indicators/state/fisherTransformState'
-import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/state/fisherTransformState.js'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createFisherTransformScaleRendererPlugin } from './scale/fisherTransform_scale'
+import { createFisherTransformScaleRendererPlugin } from './scale/fisherTransform_scale.js'
 
 type LinePoint = { x: number; y: number }
 

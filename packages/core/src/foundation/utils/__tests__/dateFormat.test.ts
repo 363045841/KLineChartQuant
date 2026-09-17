@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { findMonthBoundaries, findDayBoundaries } from '../dateFormat'
+import { findDayBoundaries, findMonthBoundaries } from '../dateFormat'
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))

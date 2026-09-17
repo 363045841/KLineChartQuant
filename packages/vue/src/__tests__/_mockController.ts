@@ -20,8 +20,8 @@ import type {
   KLineData,
   PaneSpec,
   SubPaneInfo,
-  SymbolSpec,
   SymbolInfo,
+  SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 

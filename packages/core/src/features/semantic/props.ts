@@ -3,10 +3,10 @@
  * 此模块不持有 ChartController，也不写入 StateKernel。
  */
 
-import type { ChartIndicatorConfig, SymbolSpec } from '../../controllers/types'
-import type { CustomMarkerEntity } from '../../engine/marker/registry'
+import type { ChartIndicatorConfig, SymbolSpec } from '../../controllers/types.js'
+import type { CustomMarkerEntity } from '../../engine/marker/registry.js'
 
-import type { SemanticChartConfig } from './types'
+import type { SemanticChartConfig } from './types.js'
 
 /** 可直接绑定给 KLineChart 的语义映射结果。 */
 export interface SemanticChartProps {

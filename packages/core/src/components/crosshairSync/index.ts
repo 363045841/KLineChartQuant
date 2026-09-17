@@ -1,5 +1,5 @@
 export {
-  createCrosshairSync,
-  type CrosshairSync,
   type CrosshairPosition,
-} from './createCrosshairSync'
+  type CrosshairSync,
+  createCrosshairSync,
+} from './createCrosshairSync.js'

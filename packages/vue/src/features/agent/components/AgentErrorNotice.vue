@@ -18,13 +18,10 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
-  import type { AgentErrorView } from '../agent-contracts'
-
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconRefresh from '~icons/tabler/refresh'
+  import type { AgentErrorView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ error: AgentErrorView; locale: AgentLocale }>()
   defineEmits<{ retry: [] }>()

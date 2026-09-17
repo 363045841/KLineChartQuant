@@ -1,12 +1,12 @@
-import type { PaneRole } from '../../foundation/plugin/index'
-import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
-import { PaneRenderer } from '../paneRenderer'
-import type { ScaleType } from '../utils/tickPosition'
-import type { PaneStateModule } from '../state/paneState'
-import type { ViewportStateModule } from '../state/viewportState'
+import type { PaneRole } from '../../foundation/plugin/index.js'
+import type { ChartDom, PaneSpec, Viewport } from '../chartTypes.js'
+import { PaneRenderer } from '../paneRenderer.js'
+import type { PaneStateModule } from '../state/paneState.js'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import type { ScaleType } from '../utils/tickPosition.js'
 
-import { Pane, UpdateLevel } from './pane'
-import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath'
+import { Pane, UpdateLevel } from './pane.js'
+import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath.js'
 
 export interface PaneLayoutDependencies {
   getDom: () => ChartDom
@@ -133,8 +133,7 @@ export class ChartPaneLayout {
       })
 
       // 优先 kernel SSOT，其次重建前 runtime，最后 linear
-      const scaleType =
-        kernelScaleTypes.get(spec.id) ?? prevScaleTypes.get(spec.id) ?? 'linear'
+      const scaleType = kernelScaleTypes.get(spec.id) ?? prevScaleTypes.get(spec.id) ?? 'linear'
       pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')
@@ -228,19 +227,6 @@ export class ChartPaneLayout {
       ...spec,
       role: this.paneRenderers[index]?.getPane().role ?? spec.role,
     }))
-  }
-
-  private syncPaneRatiosFromSpecs(specs: PaneSpec[]): void {
-    const next = new Map<string, number>()
-    for (const spec of specs) {
-      const prev = this._internalPaneRatios.get(spec.id)
-      const incoming = Number.isFinite(spec.ratio) ? spec.ratio : 0
-      const ratio = prev !== undefined ? prev : incoming > 0 ? incoming : 1
-      next.set(spec.id, ratio)
-    }
-    this._internalPaneRatios = next
-    this.normalizeVisiblePaneRatios(specs)
-    this.syncPaneRatiosToSpecs()
   }
 
   private syncPaneRatiosToSpecs(): void {

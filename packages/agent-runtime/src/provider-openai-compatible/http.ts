@@ -1,7 +1,7 @@
 // OpenAI-compatible Provider 的 HTTP 请求、超时、重试与脱敏诊断工具。
-import { AgentRuntimeError } from '../contracts/errors.js'
 
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
+import { AgentRuntimeError } from '../contracts/errors.js'
 import type { ProviderDiagnostic } from './types.js'
 
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -92,7 +92,9 @@ export function normalizeProviderBaseUrl(value: string): string {
 export function parseRetryAfter(value: string | null, now = Date.now()): number | undefined {
   if (!value) return undefined
   const seconds = Number(value)
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1_000)
+  // 数值形式的 Retry-After 必须在这里收敛：负数不能落到下面的日期分支，
+  // 否则 `Date.parse('-5')` 会当成年份解析成功并返回一个久远的时间戳。
+  if (Number.isFinite(seconds)) return seconds >= 0 ? Math.round(seconds * 1_000) : undefined
   const at = Date.parse(value)
   if (!Number.isFinite(at)) return undefined
   return Math.max(0, at - now)

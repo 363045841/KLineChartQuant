@@ -1,6 +1,6 @@
-import type { KLineData } from '../../../foundation/types/price'
+import type { KLineData } from '../../../foundation/types/price.js'
 
-import { _computeEMASeries } from './_shared'
+import { _computeEMASeries } from './_shared.js'
 
 export function calcATRData(data: KLineData[], period: number): (number | undefined)[] {
   const n = data.length

@@ -1,26 +1,27 @@
-import { KLineChartError } from '../../errors'
-import type { PluginHost } from '../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys'
-
+import { KLineChartError } from '../../errors.js'
+import type { PluginHost } from '../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys.js'
+import type { ChartDataView } from '../state/modeState.js'
+import type { IndicatorName } from './indicatorContracts.js'
 import type {
-  IndicatorMetadata,
+  GetTitleInfoFn,
+  IndicatorAuxiliaryRendererNameResolver,
   IndicatorCategory,
+  IndicatorConfigUpdater,
+  IndicatorMetadata,
+  IndicatorPresentationDescriptor,
+  IndicatorRendererNameResolver,
+  IndicatorRuntimeDescriptor,
   IndicatorType,
-  StateKey,
   RendererFactory,
   ScaleRendererFactory,
-  IndicatorConfigUpdater,
-  IndicatorRuntimeDescriptor,
-  IndicatorPresentationDescriptor,
-  GetTitleInfoFn,
-  IndicatorRendererNameResolver,
-  IndicatorAuxiliaryRendererNameResolver,
-} from './indicatorMetadata'
-import { resolveStateKey } from './indicatorMetadata'
-import type { ChartDataView } from '../state/modeState'
+  StateKey,
+} from './indicatorMetadata.js'
+import { resolveStateKey } from './indicatorMetadata.js'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
-  name: string
+  /** 指标内部 name，必须是契约注册表（`indicatorContracts.ts`）登记的键。 */
+  name: IndicatorName
   aliases?: readonly string[]
   displayName: string
   category: IndicatorCategory

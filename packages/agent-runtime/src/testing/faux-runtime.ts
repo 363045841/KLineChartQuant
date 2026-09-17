@@ -5,11 +5,9 @@ import {
   fauxToolCall,
 } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
-
-import { AgentRuntimeError } from '../contracts/errors.js'
-
 import type { AgentApplicationServiceOptions } from '../application/types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
+import { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   ProviderModelsInput,
   ProviderModelsResult,

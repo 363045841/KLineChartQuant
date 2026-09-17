@@ -2,15 +2,15 @@
 
 import 'fake-indexeddb/auto'
 
-import { reactive } from 'vue'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { reactive } from 'vue'
 
 import type { SearchableSymbol } from '../useSymbolSearch'
 import {
-  WATCHLIST_DATABASE_NAME,
   loadWatchlist,
   saveWatchlist,
   useWatchlist,
+  WATCHLIST_DATABASE_NAME,
 } from '../useWatchlist'
 
 const symbol: SearchableSymbol = {

@@ -1,4 +1,4 @@
-import type { PaneRole, PaneCapabilities } from '../foundation/plugin/index'
+import type { PaneCapabilities, PaneRole } from '../foundation/plugin/index.js'
 
 /** Pane 左上角标题与右上角操作控件共用的逻辑像素内边距。 */
 export const PANE_HEADER_INSET_PX = 12

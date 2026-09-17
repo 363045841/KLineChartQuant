@@ -270,26 +270,23 @@
 
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
-
-  import BaseButton from '../../../components/BaseButton.vue'
-  import BaseModal from '../../../components/BaseModal.vue'
-  import BaseTabs from '../../../components/BaseTabs.vue'
-  import Dropdown from '../../../components/Dropdown.vue'
-  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
-  import {
-    PROVIDER_API_PROTOCOLS,
-    type ProviderApiProtocol,
-    type ProviderStatusView,
-  } from '../agent-contracts'
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
-  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
-
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
   import IconTrash from '~icons/tabler/trash'
+  import BaseButton from '../../../components/BaseButton.vue'
+  import BaseModal from '../../../components/BaseModal.vue'
+  import BaseTabs from '../../../components/BaseTabs.vue'
+  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
+  import Dropdown from '../../../components/Dropdown.vue'
+  import {
+    PROVIDER_API_PROTOCOLS,
+    type ProviderApiProtocol,
+    type ProviderStatusView,
+  } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store.js'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore

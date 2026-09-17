@@ -1,51 +1,51 @@
 import {
+  type CustomDataSource,
   FIVE_DAY_TIME_SHARE_DAYS,
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,
-  type SymbolSpec,
   type SymbolInfo,
-  type CustomDataSource,
-} from '../../controllers/types'
-import { DataBuffer } from '../../data/buffer/dataBuffer'
-import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy'
-import { MarketDataCache } from '../../data/buffer/marketDataCache'
-import type { KLineBuffer, TimeShareBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
-import { marketDataProviderRegistry } from '../../data/provider/registry'
+  type SymbolSpec,
+} from '../../controllers/types.js'
+import { DataBuffer } from '../../data/buffer/dataBuffer.js'
+import type { DataChange, KLineBuffer, TimeShareBuffer } from '../../data/buffer/dataBufferTypes.js'
+import { MarketDataCache } from '../../data/buffer/marketDataCache.js'
+import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy.js'
+import {
+  AUTO_SOURCE_ID,
+  instrumentKeyFromSpec,
+  LATEST_TRADING_DATE,
+  SeriesRepository,
+  type SeriesSelection,
+  seriesSelectionKey,
+  sourceIdFromSpec,
+  type TradingDateKey,
+} from '../../data/buffer/seriesRepository.js'
+import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer.js'
+import { marketDataProviderRegistry } from '../../data/provider/registry.js'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
   TradingDate,
-} from '../../data/provider/types'
-import { DEFAULT_KLINE_ADJUSTMENT, DEFAULT_KLINE_PERIOD } from '../../data/provider/types'
-import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer'
-import {
-  AUTO_SOURCE_ID,
-  LATEST_TRADING_DATE,
-  SeriesRepository,
-  instrumentKeyFromSpec,
-  seriesSelectionKey,
-  sourceIdFromSpec,
-  type SeriesSelection,
-  type TradingDateKey,
-} from '../../data/buffer/seriesRepository'
-import { MarketSessionRegistry } from '../market/marketSessionRegistry'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import type { ChartDom } from '../chartTypes'
-import type { VisibleRange, UpdateLevel } from '../layout/pane'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
-import type { DataStateModule } from '../state/dataState'
-import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
-import type { ViewportStateModule } from '../state/viewportState'
-import type { ComparisonStateModule } from '../state/comparisonState'
-import { ChartDataViewId } from '../state/modeState'
+} from '../../data/provider/types.js'
+import { DEFAULT_KLINE_ADJUSTMENT, DEFAULT_KLINE_PERIOD } from '../../data/provider/types.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import type { ChartDom } from '../chartTypes.js'
+import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
+import { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
+import type { ComparisonStateModule } from '../state/comparisonState.js'
+import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
+import type { DataStateModule } from '../state/dataState.js'
+import { ChartDataViewId } from '../state/modeState.js'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex.js'
 
-import { ComparisonManager } from './comparisonManager'
-import { IncrementalLoadHint } from './incrementalLoadHint'
-import { ScrollCompensator } from './scrollCompensator'
-import { symbolSpecIdentityKey } from './symbolIdentity'
+import { ComparisonManager } from './comparisonManager.js'
+import { IncrementalLoadHint } from './incrementalLoadHint.js'
+import { ScrollCompensator } from './scrollCompensator.js'
+import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
@@ -672,11 +672,6 @@ export class ChartDataManager {
     return this.deps.viewport.readonly.leftLoadBufferWidth.peek()
   }
 
-  private getActiveKLineLength(): number {
-    const buf = this.getActiveDataBuffer()
-    return buf ? buf.getRawData().length : 0
-  }
-
   /** 无 viewport / 无数据时返回 null；clamped 可索引区间（start>=0） */
   private getVisibleRangeOrNull(): VisibleRange | null {
     if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
@@ -789,7 +784,7 @@ export class ChartDataManager {
   }
 
   /** 返回当前多日分时的原子分组快照。 */
-  getTimeShareRange(): import('../../data/provider/types').TimeShareRange | null {
+  getTimeShareRange(): import('../../data/provider/types.js').TimeShareRange | null {
     return this._dataState.readonly.timeShareRange.peek()
   }
 
@@ -1354,14 +1349,14 @@ function findComparisonBaselineByTimestamp(
 function findFirstAtOrAfter<T, TValue extends string | number>(
   data: ReadonlyArray<T>,
   target: TValue,
-  valueOf: (item: T) => TValue,
+  getValue: (item: T) => TValue,
 ): T | null {
   let low = 0
   let high = data.length
   while (low < high) {
     const middle = low + Math.floor((high - low) / 2)
     const item = data[middle]
-    if (item && valueOf(item) < target) {
+    if (item && getValue(item) < target) {
       low = middle + 1
     } else {
       high = middle

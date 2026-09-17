@@ -17,10 +17,9 @@
  * as the source of truth for drawingCount.
  */
 
-import { createSignal, type Signal } from '../foundation/reactivity/index'
-
-import type { DrawingController, DrawingState } from './types'
-import type { DrawingToolId } from '../engine/drawing/toolConfig'
+import type { DrawingToolId } from '../engine/drawing/toolConfig.js'
+import { createSignal, type Signal } from '../foundation/reactivity/index.js'
+import type { DrawingController, DrawingState } from './types.js'
 
 // ---------------------------------------------------------------------------
 // Factory

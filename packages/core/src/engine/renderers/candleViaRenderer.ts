@@ -1,5 +1,5 @@
-import type { Renderer } from '../../rendering/render/Renderer'
-import { drawRectBatchesViaRenderer } from './rectsViaRenderer'
+import type { Renderer } from '../../rendering/render/Renderer.js'
+import { drawRectBatchesViaRenderer } from './rectsViaRenderer.js'
 
 /** 与 prepareCandles 输出对齐的矩形 batch（仅 GPU 路径所需字段） */
 export type CandleRectBatch = {

@@ -1,14 +1,14 @@
 /**
  * ChartDrawingFacade —— 绘图状态、查询与工具操作。
  */
-import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { ChartDataManager } from '../data/chartDataManager'
-import type { DrawingInteractionController } from '../drawing/interaction'
-import type { DrawingToolId } from '../drawing/toolConfig'
-import type { ChartRenderer } from '../render/chartRenderer'
-import { resolveChartWorkspaceId } from '../state/modeState'
-import type { ChartStateKernel } from '../state/chartStateKernel'
+import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { ChartDataManager } from '../data/chartDataManager.js'
+import type { DrawingInteractionController } from '../drawing/interaction.js'
+import type { DrawingToolId } from '../drawing/toolConfig.js'
+import type { ChartRenderer } from '../render/chartRenderer.js'
+import type { ChartStateKernel } from '../state/chartStateKernel.js'
+import { resolveChartWorkspaceId } from '../state/modeState.js'
 
 /** Drawing Facade 所需依赖。 */
 export interface ChartDrawingFacadeDependencies {
@@ -40,7 +40,9 @@ export class ChartDrawingFacade {
 
   /** 写入已确认图元并剥离会话预览。 */
   setDrawings(drawings: DrawingObject[]): void {
-    this.deps.kernel.drawing.actions.setDrawings(drawings.filter((drawing) => drawing.id !== '__preview__'))
+    this.deps.kernel.drawing.actions.setDrawings(
+      drawings.filter((drawing) => drawing.id !== '__preview__'),
+    )
     this.deps.scheduleDraw()
   }
 
@@ -86,7 +88,9 @@ export class ChartDrawingFacade {
       session.removeDrawing(drawingId)
       return
     }
-    this.setDrawings(this.deps.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId))
+    this.setDrawings(
+      this.deps.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId),
+    )
   }
 
   /** 清除全部已确认图元。 */

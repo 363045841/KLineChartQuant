@@ -1,19 +1,18 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
-
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMockPluginHost } from '@/engine/__tests__/helpers/renderTestKit'
+import type { PluginHost } from '@/plugin'
+import type { KLineData } from '@/types/price'
+import { createIndicatorResultState } from '../../state/indicatorResultState'
+import { ChartDataViewId } from '../../state/modeState'
 import type { IndicatorMetadata } from '../indicatorMetadata'
 import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
 import { IndicatorScheduler } from '../scheduler'
-import { createIndicatorResultState } from '../../state/indicatorResultState'
-import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../state/bollState'
-import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../state/eneState'
-import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../state/expmaState'
-import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../state/maState'
-import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../state/rsiState'
+import { BOLL_STATE_KEY, type BOLLRenderState, EMPTY_BOLL_STATE } from '../state/bollState'
+import { EMPTY_ENE_STATE, ENE_STATE_KEY, type ENERenderState } from '../state/eneState'
+import { EMPTY_EXPMA_STATE, EXPMA_STATE_KEY, type EXPMARenderState } from '../state/expmaState'
 import { createMACDStateKey, type MACDRenderState } from '../state/macdState'
-import { ChartDataViewId } from '../../state/modeState'
-
-import type { PluginHost } from '@/plugin'
-import type { KLineData } from '@/types/price'
+import { EMPTY_MA_STATE, MA_STATE_KEY, type MARenderState } from '../state/maState'
+import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../state/rsiState'
 
 function applyMainResult(key: string): NonNullable<IndicatorMetadata['applyResult']> {
   return (host, state, _paneId) => {
@@ -98,38 +97,6 @@ function createTestData(length: number, startPrice = 100): KLineData[] {
     close: startPrice + i,
     volume: 1000 + i * 100,
   }))
-}
-
-/**
- * 创建 mock PluginHost
- */
-function createMockPluginHost(): PluginHost {
-  const stateStore = new Map<string, unknown>()
-
-  return {
-    setSharedState: vi.fn((key: string, state: unknown, _owner: string) => {
-      stateStore.set(key, state)
-    }),
-    getSharedState: vi.fn(<T>(key: string): T | undefined => {
-      return stateStore.get(key) as T | undefined
-    }),
-    clearByOwner: vi.fn(),
-    registerService: vi.fn(),
-    getService: vi.fn(),
-    getCanvas: vi.fn(),
-    getMainPane: vi.fn(),
-    getSubPane: vi.fn(),
-    getAllSubPanes: vi.fn(),
-    getTheme: vi.fn(),
-    getStyles: vi.fn(),
-    getBarStyles: vi.fn(),
-    getConfig: vi.fn(),
-    setConfig: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
-    emit: vi.fn(),
-  } as unknown as PluginHost
 }
 
 /**
@@ -384,45 +351,6 @@ describe('IndicatorScheduler', () => {
 
   describe('visible range update (dual dirty flags)', () => {
     it('should recalculate extremes but not series on viewport change only', () => {
-      // Mark sub-indicators active so their states get real extremes (not the EMPTY sentinels)
-      scheduler.setActiveSubPaneProvider(() => [
-        'sub_RSI',
-        'sub_CCI',
-        'sub_STOCH',
-        'sub_MOM',
-        'sub_WMSR',
-        'sub_KST',
-        'sub_FASTK',
-        'sub_MACD',
-        'sub_ATR',
-        'sub_WMA',
-        'sub_DEMA',
-        'sub_TEMA',
-        'sub_HMA',
-        'sub_KAMA',
-        'sub_SAR',
-        'sub_SuperTrend',
-        'sub_Keltner',
-        'sub_Donchian',
-        'sub_Ichimoku',
-        'sub_ROC',
-        'sub_TRIX',
-        'sub_HV',
-        'sub_Parkinson',
-        'sub_ChaikinVol',
-        'sub_VMA',
-        'sub_OBV',
-        'sub_PVT',
-        'sub_VWAP',
-        'sub_CMF',
-        'sub_MFI',
-        'sub_Pivot',
-        'sub_Fib',
-        'sub_Structure',
-        'sub_Zones',
-        'sub_VolumeProfile',
-      ])
-
       const data = createTestData(100)
 
       // First update with full range

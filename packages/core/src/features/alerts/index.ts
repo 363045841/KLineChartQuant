@@ -1,3 +1,6 @@
+export { createAlertController } from './createAlertController.js'
+export { evaluatePredicate } from './predicates.js'
+export { AlertRuleSchemaError, deserializeRule, serializeRule } from './ruleSchema.js'
 export type {
   AlertController,
   AlertControllerOptions,
@@ -8,7 +11,4 @@ export type {
   CrossDirection,
   IndicatorCrossPairDirection,
   MarketSnapshot,
-} from './types'
-export { createAlertController } from './createAlertController'
-export { evaluatePredicate } from './predicates'
-export { AlertRuleSchemaError, deserializeRule, serializeRule } from './ruleSchema'
+} from './types.js'

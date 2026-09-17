@@ -1,10 +1,10 @@
 /** 按视图工作区保存主图/副图布局、比例与坐标轴状态。 */
-import { batch, createSubState } from '../../foundation/reactivity/signal'
-import type { PaneSpec } from '../chartTypes'
-import type { ScaleType } from '../utils/tickPosition'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
-import { immutableMap } from './immutable'
-import type { ViewWorkspacesSnapshot } from './viewWorkspace'
+import { batch, createSubState } from '../../foundation/reactivity/signal.js'
+import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
+import type { PaneSpec } from '../chartTypes.js'
+import type { ScaleType } from '../utils/tickPosition.js'
+import { immutableMap } from './immutable.js'
+import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 
 function copyRatios(ratios: Readonly<Record<string, number>>): Record<string, number> {
   return { ...ratios }

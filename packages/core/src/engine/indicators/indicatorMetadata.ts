@@ -5,17 +5,18 @@
  * 每个指标通过 metadata 描述其状态 key、渲染器工厂等元信息
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 import type {
   IndicatorRenderStateReader,
   PluginHost,
   RendererPluginWithHost,
-} from '../../foundation/plugin/index'
-import type { ColorTokens } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
-import type { ChartDataView } from '../state/modeState'
+} from '../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../foundation/tokens/index.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import type { ChartDataView } from '../state/modeState.js'
 
-import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
+import type { IndicatorSeriesResultOf, IndicatorStateName } from './indicatorContracts.js'
+import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol.js'
 
 export type IndicatorId = string
 
@@ -125,9 +126,21 @@ export interface IndicatorPriceRange {
   max: number
 }
 
-/** 按注册表 configKey 读取由对应指标定义约束的结果项。 */
-export function readIndicatorSeriesEntry<T>(bundle: IndicatorSeriesBundle, configKey: string): T {
-  return bundle[configKey] as T
+/**
+ * 结果包读取入口。Worker 动态产出 `IndicatorSeriesBundle`，这里是动态结果与静态契约之间
+ * 唯一的转换边界：传入指标内部 name 时形状由 `indicatorContracts` 推导。
+ */
+export function readIndicatorSeriesEntry<K extends IndicatorStateName>(
+  bundle: IndicatorSeriesBundle,
+  configKey: K,
+): IndicatorSeriesResultOf<K>
+/** 读取调用方工厂自行约束结构的结果项（泛型 visibleState composer）。 */
+export function readIndicatorSeriesEntry<T>(bundle: IndicatorSeriesBundle, configKey: string): T
+export function readIndicatorSeriesEntry(
+  bundle: IndicatorSeriesBundle,
+  configKey: string,
+): unknown {
+  return bundle[configKey]
 }
 
 export type IndicatorPriceRangeComputer = (

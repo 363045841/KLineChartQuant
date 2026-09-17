@@ -3,17 +3,16 @@ import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentRunUiEventInput,
   type AgentUiEvent,
-  type ProviderStatusView,
   type ProviderModelsInput,
   type ProviderModelsResult,
+  type ProviderStatusView,
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
 } from '../contracts/ui.js'
 import { PiRunDriver } from '../pi/pi-run-driver.js'
-
-import type { AgentApplicationApi, AgentApplicationServiceOptions, RunDriver } from './types.js'
 import type { RunPersistenceContext } from '../sessions/types.js'
+import type { AgentApplicationApi, AgentApplicationServiceOptions, RunDriver } from './types.js'
 
 interface ActiveRun {
   context: RunPersistenceContext

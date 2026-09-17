@@ -16,13 +16,13 @@
  *      with these capabilities.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { isKLineChartError } from '../../../errors'
 import {
+  compareRendererTier,
   detectRendererTier,
   detectRendererTierOrThrow,
-  compareRendererTier,
   isTierAtLeast,
   RENDERER_TIER_RANK,
   type RendererTier,

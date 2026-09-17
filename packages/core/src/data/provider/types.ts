@@ -3,9 +3,9 @@
  * 数据源适配器负责把私有协议转换为这些类型，图表和 UI 不解析上游字段。
  */
 
-import type { KLineData, TimeShareData } from '../../controllers/types'
-import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels'
-import type { DepthSource } from '../depth/depthTypes'
+import type { KLineData, TimeShareData } from '../../controllers/types.js'
+import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
+import type { DepthSource } from '../depth/depthTypes.js'
 
 /** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
 export const ASSET_CLASS_VALUES = [

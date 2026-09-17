@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import {
+  createMockRenderContext,
+  createMockServiceHost,
+  createMockStateReader,
+} from '@/engine/__tests__/helpers/renderTestKit'
 
-import type { RenderContext } from '../../../../foundation/plugin'
 import type { SymbolSpec } from '../../../../controllers/types'
-import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
 import { ChartDataViewId } from '../../../../foundation/types/chartView'
+import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
 import { symbolSpecIdentityKey } from '../../../data/symbolIdentity'
 import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
 
@@ -13,17 +17,16 @@ function point(timestamp: number, price: number): TimeShareData {
 
 describe('buildLegendTemplateContext timeshare baseline', () => {
   it('formats timeshare volume as hands', () => {
-    const context = {
+    const context = createMockRenderContext({
       data: [{ ...point(1, 10), volume: 12_345 }],
       period: 'timeshare',
       dataView: ChartDataViewId.TimeShare,
       range: { start: 0, end: 1 },
       crosshairIndex: 0,
       paneWidth: 800,
-      theme: 'light',
       isAsiaMarket: true,
       settings: { preClose: 9 },
-    } as unknown as RenderContext
+    })
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
@@ -32,17 +35,16 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
 
   // 验证仅有成交额的分时不伪造成交量。
   it('keeps amount-only timeshare metrics separate from volume', () => {
-    const context = {
+    const context = createMockRenderContext({
       data: [{ timestamp: 1, price: 3812.11, average: 3812.11, amount: 6_972_838_100 }],
       period: 'timeshare',
       dataView: ChartDataViewId.TimeShare,
       range: { start: 0, end: 1 },
       crosshairIndex: 0,
       paneWidth: 800,
-      theme: 'light',
       isAsiaMarket: true,
       settings: { preClose: 3828.47 },
-    } as unknown as RenderContext
+    })
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
@@ -55,17 +57,16 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
   it.each([undefined, -1])(
     'does not derive changes from the first price when preClose is %s',
     (preClose) => {
-      const context = {
+      const context = createMockRenderContext({
         data: [point(1, 10), point(2, 11)],
         period: 'timeshare',
         dataView: ChartDataViewId.TimeShare,
         range: { start: 0, end: 2 },
         crosshairIndex: 1,
         paneWidth: 800,
-        theme: 'light',
         isAsiaMarket: true,
         settings: { preClose },
-      } as unknown as RenderContext
+      })
 
       const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
@@ -90,23 +91,19 @@ describe('buildLegendTemplateContext indicator rows', () => {
       isMainIndicatorActive: () => true,
       getMainIndicatorParams: () => ({}),
     }
-    const context = {
+    const context = createMockRenderContext({
       data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
       period: 'timeshare',
       dataView: ChartDataViewId.TimeShare,
       range: { start: 0, end: 1 },
       paneWidth: 800,
-      theme: 'light',
       isAsiaMarket: true,
-      indicatorStateReader: {},
-    } as unknown as RenderContext
-    const host = {
-      getService: () => scheduler,
-    }
+      indicatorStateReader: createMockStateReader('indicator:unused'),
+    })
 
     const result = buildLegendTemplateContext({
       context,
-      host: host as never,
+      host: createMockServiceHost({ indicatorScheduler: scheduler }),
       yPaddingPx: 0,
       visibleIndicatorIds: new Set(['ma']),
     })
@@ -162,19 +159,18 @@ describe('buildLegendTemplateContext comparison rows', () => {
     },
   ])('resolves comparison data by identity key ($label)', ({ spec, expectedPercent }) => {
     const identity = symbolSpecIdentityKey(spec)
-    const context = {
+    const context = createMockRenderContext({
       data: mainData,
       period: 'daily',
       dataView: 'comparison',
       range: { start: 0, end: 2 },
       crosshairIndex: 1,
       paneWidth: 800,
-      theme: 'light',
       isAsiaMarket: true,
       comparisonSymbols: [spec],
       comparisonData: new Map([[identity, comparisonDataFor(spec)]]),
       comparisonColors: new Map([[identity, '#123456']]),
-    } as unknown as RenderContext
+    })
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
@@ -193,17 +189,16 @@ describe('buildLegendTemplateContext comparison rows', () => {
 
   it('has no main symbol row when comparison data is not loaded', () => {
     const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
-    const context = {
+    const context = createMockRenderContext({
       data: mainData,
       period: 'daily',
       range: { start: 0, end: 2 },
       paneWidth: 800,
-      theme: 'light',
       isAsiaMarket: true,
       comparisonSymbols: [spec],
       comparisonData: new Map([[symbolSpecIdentityKey(spec), []]]),
       comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
-    } as unknown as RenderContext
+    })
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 

@@ -12,14 +12,11 @@ vi.mock('../../renderers/Indicator/mainIndicatorLegend', () => ({
   createMainIndicatorLegendRendererPlugin: vi.fn(() => plugin),
 }))
 
-import { createMainIndicatorLegendLayer } from './mainIndicatorLegendLayer'
+import { createMainIndicatorLegendLayer } from './mainIndicatorLegendLayer.js'
 
 describe('createMainIndicatorLegendLayer', () => {
   it('leaves plugin installation to RendererPluginManager', () => {
-    createMainIndicatorLegendLayer(
-      { yPaddingPx: 20 },
-      () => null,
-    )
+    createMainIndicatorLegendLayer({ yPaddingPx: 20 }, () => null)
 
     expect(plugin.onInstall).not.toHaveBeenCalled()
   })

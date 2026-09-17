@@ -1,7 +1,7 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
-import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
-import type { IndicatorMetadata } from './indicatorMetadata'
+import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry.js'
+import type { IndicatorMetadata } from './indicatorMetadata.js'
 
 /**
  * IndicatorRegistry - 指标注册表
@@ -19,7 +19,7 @@ export class IndicatorRegistry {
   private indicators = new Map<string, IndicatorMetadata>()
   private aliases = new Map<string, string>()
 
-  constructor(private autoSync = true) {
+  constructor(autoSync = true) {
     if (autoSync) {
       for (const def of getRegisteredIndicatorDefinitions()) {
         this.register(def)

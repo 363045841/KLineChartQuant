@@ -48,11 +48,7 @@ import {
 } from '@363045841yyt/klinechart-core/controllers'
 ```
 
-It receives semantic inputs as props:
-
-```ts
-semanticConfig: SemanticChartConfig
-```
+It receives its data and chart options through typed props (such as `symbols`, `settings`, and `customData`), which keep the Vue shell a thin host rather than a chart engine.
 
 This matters for compatibility. The Vue SFC is not a Vue-only chart engine. It is a Vue-hosted shell around the shared engine. That shell can be published as normal Vue bindings or compiled into a Web Component.
 
@@ -88,7 +84,8 @@ The Vue package exposes the Web Component through `package.json`:
   "exports": {
     "./web-component": {
       "import": {
-        "default": "./dist/kline-chart.js"
+        "types": "./dist/web-component.d.ts",
+        "default": "./dist/web-component.js"
       }
     }
   }
@@ -111,24 +108,26 @@ export default defineConfig({
     ...(isWC ? [cssInjectedByJs()] : [dts(...)])
   ],
   build: {
+    target: 'esnext',
     emptyOutDir: !isWC,
-    codeSplitting: !isWC,
     cssCodeSplit: !isWC,
     lib: isWC
       ? {
           entry: './src/web-component.ts',
           name: 'KLineChartWC',
           formats: ['es'],
-          fileName: () => 'kline-chart.js',
+          fileName: () => 'web-component.js',
         }
       : {
           entry: './src/index.ts',
-          name: 'KLineChartVue',
+          name: 'KlineChart',
           formats: ['es', 'cjs'],
-          fileName: (format) => format === 'es' ? 'index.js' : 'index.cjs',
+          fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
         },
-    rollupOptions: {
-      external: isWC ? [] : ['vue', /@363045841yyt\/klinechart-core/],
+    rolldownOptions: {
+      external: isWC
+        ? []
+        : ['vue', /@363045841yyt\/klinechart-core/, /@363045841yyt\/klinechart-agent-runtime/],
       output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
     },
   },
@@ -137,31 +136,27 @@ export default defineConfig({
 
 The important build decisions are:
 
-- **Normal Vue package** externalizes `vue` and `@363045841yyt/klinechart-core`, emits ESM/CJS, and generates declaration files.
-- **Web Component package** bundles its runtime dependencies into one ESM file, emits `dist/kline-chart.js`, and inlines dynamic imports.
+- **Normal Vue package** externalizes `vue`, `@363045841yyt/klinechart-core`, and `@363045841yyt/klinechart-agent-runtime`, emits ESM/CJS, and generates declaration files. The agent runtime stays a `peerDependency` instead of being bundled, so its types resolve to the published package entry rather than a workspace source path.
+- **Web Component package** bundles its runtime dependencies into one ESM file, emits `dist/web-component.js`, and inlines dynamic imports.
 - `cssInjectedByJs()` is enabled only for the Web Component build so component styles travel with the element instead of requiring a separate stylesheet import.
 - `emptyOutDir: !isWC` prevents the Web Component build from deleting files produced by the normal library build.
-- `codeSplitting: !isWC` and `inlineDynamicImports: true` make the Custom Element easier to consume from host apps.
+- `inlineDynamicImports: true` makes the Custom Element easier to consume from host apps.
 
 The package scripts reflect that split:
 
 ```json
 {
-  "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
-  "build:wc": "cross-env BUILD_TARGET=web-component vite build"
+  "build": "vite build && pnpm build:wc",
+  "build:wc": "cross-env BUILD_TARGET=web-component vite build",
+  "postbuild": "node scripts/postbuild.mjs"
 }
 ```
 
+`scripts/postbuild.mjs` rewrites the `.vue` module specifiers in the emitted declarations to `.vue.js` (TypeScript cannot resolve a bare `.vue` specifier, but it does map `X.vue.js` onto the emitted `X.vue.d.ts`) and writes the CJS declaration copy for the `require` condition.
+
 ## 6. Passing Data Across the DOM Boundary
 
-Custom Element attributes are strings. KLineChart needs to receive complex objects, especially `SemanticChartConfig`. The React wrapper therefore assigns them as DOM properties instead of attributes:
-
-```ts
-const el = hostRef.current
-el.semanticConfig = props.semanticConfig
-```
-
-Primitive options still map cleanly to attributes:
+Custom Element attributes are strings, so only primitives can travel as attributes. Objects, arrays, and callbacks must be assigned as DOM properties once the element declares a matching property; no such complex property is currently wired, so React only syncs primitives:
 
 ```ts
 el.setAttribute('initial-zoom-level', String(props.initialZoomLevel))
@@ -258,9 +253,8 @@ The fastest Regular integration is to consume the existing Web Component:
 
 1. Import `@363045841yyt/klinechart/web-component` once at app startup or inside the Regular package entry.
 2. Render `<kline-chart>` from a Regular component.
-3. Assign `semanticConfig` as an element property after mount and whenever it changes.
-4. Reflect primitive props such as `initialZoomLevel`, `zoomLevels`, and `isFullscreen` as attributes.
-5. Register DOM listeners for `zoom-level-change` and `toggle-fullscreen`, then remove them during component teardown.
+3. Reflect primitive props such as `initialZoomLevel`, `zoomLevels`, and `isFullscreen` as attributes.
+4. Register DOM listeners for `zoom-level-change` and `toggle-fullscreen`, then remove them during component teardown.
 
 This is the lowest-risk path because it reuses the existing Vue UI and only requires a small host wrapper.
 

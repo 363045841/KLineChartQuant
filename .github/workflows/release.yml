@@ -24,7 +24,7 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          version: 9.15.8
+          version: 12.4.1
 
       - uses: actions/setup-node@v7
         with:
@@ -43,7 +43,7 @@ jobs:
         run: node scripts/generate-readmes.mjs
 
       - name: Build packages
-        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
+        run: pnpm build:packages
 
       - name: Publish to npm
         shell: bash
@@ -73,7 +73,20 @@ jobs:
             exit 1
           fi
 
-          # === 2. 发布 vue 包 ===
+          # === 2. 发布 agent-runtime 包 ===
+          # vue 把它声明为 peerDependency（workspace:^ → ^${TAG}），所以它必须先于 vue 发布，
+          # 否则 vue 的 peer 范围指向 npm 上不存在的版本。
+          if [ -d "packages/agent-runtime" ]; then
+            echo "====== 开始发布 Agent Runtime 包 ======"
+            cd packages/agent-runtime
+            npm publish --access public --tag "$NPM_TAG"
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "❌ 错误：未找到 packages/agent-runtime 目录！"
+            exit 1
+          fi
+
+          # === 3. 发布 vue 包 ===
           if [ -d "packages/vue" ]; then
             echo "====== 开始发布 Vue 包 ======"
             cd packages/vue
@@ -269,7 +282,7 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          version: 9.15.8
+          version: 12.4.1
 
       - uses: actions/setup-node@v7
         with:

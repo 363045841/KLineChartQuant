@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from 'vitest'
-
-import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
-
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
+import { createDrawingAdapter } from '../drawing/__tests__/helpers/drawingTestKit'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 
 class ResizeObserverMock {
   static instances: ResizeObserverMock[] = []
@@ -412,7 +411,9 @@ describe('Chart DPR pipeline', () => {
     const commitSpy = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
     commitSpy.mockClear()
 
-    const layout = (chart as unknown as { layoutManager: { projectState: Function } }).layoutManager
+    const layout = (
+      chart as unknown as { layoutManager: { projectState: (...args: unknown[]) => unknown } }
+    ).layoutManager
     layout.projectState(
       [
         { id: 'main', ratio: 0.7, role: 'price', visible: true },
@@ -651,7 +652,9 @@ describe('Chart pane layout regressions', () => {
     expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
     chart.setActiveMode(tsMode)
     expect(
-      chart.indicators.subPanes.peek().map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId })),
+      chart.indicators.subPanes
+        .peek()
+        .map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId })),
     ).toEqual(timeShareEntries)
     await chart.destroy()
   })
@@ -723,34 +726,34 @@ describe('Chart pane layout regressions', () => {
     chart.drawing.setDrawings([d1, d2])
     chart.drawing.setSelectedIds(['d1'])
 
-    const adapter = {
-      replaceDrawings: (list: ReadonlyArray<typeof d1>) => chart.drawing.setDrawings([...list]),
-      getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
-      createDrawing: () => d1,
-      updateDrawing: () => null,
-      commitDrawingDrag: () => null,
-      removeDrawing: (id: string) => {
-        const removed = chart.kernel.drawing.actions.removeDrawing(id)
-        if (removed) chart.scheduleDraw()
-        return removed
+    const adapter = createDrawingAdapter({
+      document: {
+        replaceDrawings: (list) => chart.drawing.setDrawings([...list]),
+        getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
+        createDrawing: () => d1,
+        removeDrawing: (id) => {
+          const removed = chart.kernel.drawing.actions.removeDrawing(id)
+          if (removed) chart.scheduleDraw()
+          return removed
+        },
+        clearDrawings: () => chart.drawing.clear(),
+        setSelectedDrawingIds: (ids) => chart.drawing.setSelectedIds(ids),
+        getSelectedDrawingIds: () => chart.kernel.drawing.readonly.selectedDrawingIds.peek(),
+        setDrawingToolId: (id) => chart.drawing.setTool(id),
+        getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
       },
-      clearDrawings: () => chart.drawing.clear(),
-      setSelectedDrawingIds: (ids: ReadonlyArray<string>) => chart.drawing.setSelectedIds(ids),
-      getSelectedDrawingIds: () => chart.kernel.drawing.readonly.selectedDrawingIds.peek(),
-      setDrawingToolId: (id: import('../drawing/toolConfig').DrawingToolId) =>
-        chart.drawing.setTool(id),
-      getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
-      requestDraw: () => chart.scheduleDraw(),
-      getViewport: () => null,
-      getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
-      getCurrentDpr: () => 1,
-      getData: () => [],
-      getLogicalIndexAtX: () => null,
-      getTimestampAtLogicalIndex: () => null,
-      priceToY: () => 0,
-      yToPrice: () => 0,
-      getPaneInfo: () => undefined,
-    }
+      viewport: {
+        getViewport: () => null,
+        getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
+        getCurrentDpr: () => 1,
+        getData: () => [],
+        getLogicalIndexAtX: () => null,
+        priceToY: () => 0,
+        yToPrice: () => 0,
+        getPaneInfo: () => undefined,
+      },
+      session: { requestDraw: () => chart.scheduleDraw() },
+    })
     const session = new DrawingInteractionController(adapter)
     chart.registerDrawingSession(session)
     chart.drawing.setSelectedIds(['d1'])

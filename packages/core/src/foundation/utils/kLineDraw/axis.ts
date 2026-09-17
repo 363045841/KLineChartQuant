@@ -1,25 +1,25 @@
-import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign'
-import { getFont, setCanvasFont } from '../../tokens/fonts'
-import { resolveThemeColors } from '../../tokens'
-import type { ColorPresetSettings } from '../../tokens'
-import type { KLineData } from '../../types/price'
-import { isTimeSharePeriod } from '../../types/chartPeriod'
+import { getFont, setCanvasFont } from '../../tokens/fonts.js'
+import type { ColorPresetSettings } from '../../tokens/index.js'
+import { resolveThemeColors } from '../../tokens/index.js'
+import { isTimeSharePeriod } from '../../types/chartPeriod.js'
+import type { KLineData } from '../../types/price.js'
 import {
-  formatYMDShanghai,
-  formatTimeLabel,
-  formatMonthOrYear,
-  formatDay,
-  findMonthBoundaries,
   findDayBoundaries,
-} from '../dateFormat'
-import { priceToY, yToPrice } from '../priceToY'
+  findMonthBoundaries,
+  formatDay,
+  formatMonthOrYear,
+  formatTimeLabel,
+  formatYMDShanghai,
+} from '../dateFormat.js'
+import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign.js'
+import { priceToY, yToPrice } from '../priceToY.js'
 import {
   ASHARE_MARKET_SESSION,
   computeTimeShareTimeLabels,
+  type MarketSessionConfig,
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
-  type MarketSessionConfig,
-} from '../timeShareAxisLabels'
+} from '../timeShareAxisLabels.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512

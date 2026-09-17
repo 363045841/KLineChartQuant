@@ -1,6 +1,6 @@
 /** 将逻辑绘制区域转换为物理像素边界，保证相邻 pane 无缝拼接。 */
 
-import type { SurfaceRegion } from './SurfaceBackend'
+import type { SurfaceRegion } from './SurfaceBackend.js'
 
 export type PhysicalRegion = {
   x: number
@@ -15,10 +15,7 @@ export type PhysicalBounds = {
 }
 
 /** 将逻辑 region 的两端分别对齐到物理像素，避免相邻 pane 出现缝隙。 */
-export function toPhysicalRegion(
-  region: SurfaceRegion,
-  bounds?: PhysicalBounds,
-): PhysicalRegion {
+export function toPhysicalRegion(region: SurfaceRegion, bounds?: PhysicalBounds): PhysicalRegion {
   const left = Math.round(region.x * region.dpr)
   const top = Math.round(region.y * region.dpr)
   const right = Math.round((region.x + region.width) * region.dpr)

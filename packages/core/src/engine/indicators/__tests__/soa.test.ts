@@ -1,39 +1,41 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-
-import {
-  calcBOLLData,
-  calcEXPMAData,
-  calcENEData,
-  calcMAData,
-  calcRSIData,
-  calcCCIData,
-  calcSTOCHData,
-  calcMOMData,
-  calcWMSRData,
-  calcKSTData,
-  calcFASTKData,
-  calcMACDData,
-} from '../calculators'
+import { beforeAll, describe, expect, it } from 'vitest'
+import type { KLineData } from '@/types/price'
 import type {
   BOLLPoint,
-  EXPMAPoint,
   ENEPoint,
-  STOCHPoint,
+  EXPMAPoint,
   KSTPoint,
   MACDPoint,
+  STOCHPoint,
 } from '../calculators'
 import {
-  SharedKLineBuffer,
+  calcBOLLData,
+  calcCCIData,
+  calcENEData,
+  calcEXPMAData,
+  calcFASTKData,
+  calcKSTData,
+  calcMACDData,
+  calcMAData,
+  calcMOMData,
+  calcRSIData,
+  calcSTOCHData,
+  calcWMSRData,
+} from '../calculators'
+import {
   getClosesView,
   getHighsLowsViews,
   getOHLCViews,
   type KLineSoALayout,
+  SharedKLineBuffer,
 } from '../soa'
 
-import type { KLineData } from '@/types/price'
-
 // SoA wrapper functions (test-only — convert SoA → AoS before computing)
-function calcBOLLDataSoA(layout: KLineSoALayout, period: number, multiplier: number): BOLLPoint[] {
+function calcBOLLDataSoA(
+  layout: KLineSoALayout,
+  period: number,
+  multiplier: number,
+): Array<BOLLPoint | undefined> {
   return calcBOLLData(SharedKLineBuffer.toKLineData(layout), period, multiplier)
 }
 function calcEXPMADataSoA(
@@ -43,7 +45,11 @@ function calcEXPMADataSoA(
 ): EXPMAPoint[] {
   return calcEXPMAData(SharedKLineBuffer.toKLineData(layout), fastPeriod, slowPeriod)
 }
-function calcENEDataSoA(layout: KLineSoALayout, period: number, deviation: number): ENEPoint[] {
+function calcENEDataSoA(
+  layout: KLineSoALayout,
+  period: number,
+  deviation: number,
+): Array<ENEPoint | undefined> {
   return calcENEData(SharedKLineBuffer.toKLineData(layout), period, deviation)
 }
 function calcMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {

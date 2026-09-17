@@ -7,5 +7,5 @@
     "moduleResolution": "bundler",
     "types": ["vue", "vite/client", "unplugin-icons/types/vue"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts", "electron/credential-bridge.ts"]
 }

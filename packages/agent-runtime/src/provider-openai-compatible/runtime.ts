@@ -1,8 +1,20 @@
 // OpenAI-compatible Provider 的模型发现、连接验证与 Pi 流式运行计划适配。
+
+import type { FetchFunction } from '@earendil-works/pi-ai'
 import { createModels, createProvider } from '@earendil-works/pi-ai'
-
+import type { RuntimeSupport } from '../application/unavailable-runtime.js'
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
-
+import type {
+  AgentRunContext,
+  ProviderModelsInput,
+  ProviderModelsResult,
+  ProviderModelView,
+  ProviderProbeStageResult,
+  ProviderStatusView,
+  ProviderTestInput,
+  ProviderTestResult,
+} from '../contracts/ui.js'
+import type { PiRunPlan } from '../pi/types.js'
 import {
   normalizeProviderBaseUrl,
   parseProviderErrorDetails,
@@ -12,36 +24,22 @@ import {
   requestProviderJson,
   sleepWithSignal,
 } from './http.js'
-import { getProviderApiProtocolAdapter, type ProviderStreamObservation } from './protocol.js'
 import {
+  type ProviderCatalogModel,
   parseProviderModelCatalog,
   providerModelView,
-  type ProviderCatalogModel,
 } from './model-catalog.js'
+import { getProviderApiProtocolAdapter, type ProviderStreamObservation } from './protocol.js'
+import type {
+  OpenAiCompatibleProviderSettings,
+  OpenAiCompatibleRuntimeOptions,
+  ProviderDiagnostic,
+} from './types.js'
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
   PROVIDER_SETTINGS_VERSION,
 } from './types.js'
-
-import type {
-  OpenAiCompatibleRuntimeOptions,
-  OpenAiCompatibleProviderSettings,
-  ProviderDiagnostic,
-} from './types.js'
-import type { RuntimeSupport } from '../application/unavailable-runtime.js'
-import type {
-  ProviderModelView,
-  ProviderModelsInput,
-  ProviderModelsResult,
-  ProviderProbeStageResult,
-  ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
-  AgentRunContext,
-} from '../contracts/ui.js'
-import type { PiRunPlan } from '../pi/types.js'
-import type { FetchFunction } from '@earendil-works/pi-ai'
 
 /** 合并 Provider 附加请求头，保留运行时生成的鉴权和协议头优先级。 */
 function createProviderFetch(
@@ -197,7 +195,12 @@ export function createOpenAiCompatibleRuntimeSupport(
   async function fetchCatalog(
     input: ProviderModelsInput,
     signal?: AbortSignal,
-  ): Promise<{ baseUrl: string; apiKey: string; models: ProviderCatalogModel[]; refreshedAt: number }> {
+  ): Promise<{
+    baseUrl: string
+    apiKey: string
+    models: ProviderCatalogModel[]
+    refreshedAt: number
+  }> {
     const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
     const apiKey = await resolveCredential(input.apiKey, signal)
     const result = await requestProviderJson(
@@ -285,9 +288,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         headers: input.headers ?? {},
         modelId: selected.id,
         modelName: selected.name,
-        ...(selected.contextWindow === undefined
-          ? {}
-          : { contextWindow: selected.contextWindow }),
+        ...(selected.contextWindow === undefined ? {} : { contextWindow: selected.contextWindow }),
         maxOutputTokens: selected.maxOutputTokens ?? 16_384,
         reasoningEfforts: selected.reasoningEfforts,
         reasoningEffort: selected.defaultReasoningEffort,

@@ -1,6 +1,6 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
-import type { ENEPoint } from '../calculators'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
+import type { ENEPoint } from '../calculators/index.js'
 
 export const DEFAULT_ENE_PERIOD = 10
 export const DEFAULT_ENE_DEVIATION = 11
@@ -12,7 +12,7 @@ export const DEFAULT_ENE_DEVIATION = 11
 export interface ENERenderState extends BaseIndicatorState {
   timestamp: number
   /** 全量 ENE 数组（稀疏：前 period-1 个为 undefined） */
-  series: ENEPoint[]
+  series: Array<ENEPoint | undefined>
   /** 计算参数 */
   params: {
     period: number

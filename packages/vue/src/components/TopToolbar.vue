@@ -74,21 +74,21 @@
 </template>
 
 <script setup lang="ts">
-  import type { AggregationSourceDefinition } from '../composables/useAggregationSources'
   import { computed, ref } from 'vue'
-
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
-  import type { SymbolSearchFn } from '../composables/useSymbolSearch'
-
   import IconTablerArrowLeft from '~icons/tabler/arrow-left'
+  import type {
+    AggregationSourceDefinition,
+    AggregationSourceEndpoint,
+  } from '../composables/useAggregationSources.js'
+  import type { SymbolSearchFn } from '../composables/useSymbolSearch.js'
 
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import BaseButton from './BaseButton.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
-  import SymbolSelector from './SymbolSelector.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
+  import SymbolSelector from './SymbolSelector.vue'
 
   export type { SymbolItem }
 

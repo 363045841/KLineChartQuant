@@ -17,5 +17,8 @@ export interface WebSearchSource {
 /** 可替换的网络搜索供应商。 */
 export interface WebSearchProvider {
   /** 执行搜索并返回标准化来源。 */
-  search(request: WebSearchRequest, context: { readonly signal: AbortSignal }): Promise<readonly WebSearchSource[]>
+  search(
+    request: WebSearchRequest,
+    context: { readonly signal: AbortSignal },
+  ): Promise<readonly WebSearchSource[]>
 }

@@ -57,7 +57,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
 
-  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
 
   const props = withDefaults(
     defineProps<{

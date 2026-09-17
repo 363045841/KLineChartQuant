@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-
-import { HK_MARKET_SESSION, resolveMarketSessionSlots } from '../../../foundation/utils/sessionTimeLabels'
 import type { SymbolSpec } from '../../../controllers/types'
+import {
+  HK_MARKET_SESSION,
+  resolveMarketSessionSlots,
+} from '../../../foundation/utils/sessionTimeLabels'
 import { MarketSessionRegistry } from '../marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../resolveSymbolMarketSession'
 

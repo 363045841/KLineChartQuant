@@ -1,11 +1,11 @@
+import type { TimeShareRange } from '../../data/provider/types.js'
 import {
   ASHARE_MARKET_SESSION,
+  type MarketSessionConfig,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
-  type MarketSessionConfig,
-} from '../../foundation/utils/timeShareAxisLabels'
-import type { TimeShareRange } from '../../data/provider/types'
-import { calcKBarWidthPx } from '../utils/klineConfig'
+} from '../../foundation/utils/timeShareAxisLabels.js'
+import { calcKBarWidthPx } from '../utils/klineConfig.js'
 
 export type TimeShareBaselineInput = {
   preClose?: number | null
@@ -196,7 +196,7 @@ export function computeTimeSharePaneLayout(
 }
 
 export {
-  TIMESHARE_MIN_LABEL_SPACING_PX,
   computeTimeShareTimeLabelIndices,
+  TIMESHARE_MIN_LABEL_SPACING_PX,
   type TimeShareTimeLabelInput,
-} from '../../foundation/utils/timeShareAxisLabels'
+} from '../../foundation/utils/timeShareAxisLabels.js'

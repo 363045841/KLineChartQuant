@@ -6,9 +6,8 @@
  * 额外允许注入 `dependencies`，供 `drawing_create` 等原语宿主在测试中解析执行目标。
  */
 
-import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
-
 import type { ChartAgentController } from '@363045841yyt/klinechart-core'
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 /** overrides 在接口字段之外还允许注入原语宿主依赖。 */
 export type TestChartAgentOverrides = Partial<ChartAgentController> & {

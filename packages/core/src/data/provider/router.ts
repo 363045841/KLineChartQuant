@@ -1,12 +1,12 @@
 /** 行情 Provider 能力流转层：按源级能力选择 Provider，并在确定性拒绝时切换数据源。 */
 
-import { isKLineChartError, KLineChartError } from '../../errors'
+import { isKLineChartError, KLineChartError } from '../../errors.js'
 
 import {
-  marketDataProviderRegistry,
   MarketDataProviderRegistry,
+  marketDataProviderRegistry,
   type SourceCapabilityQuery,
-} from './registry'
+} from './registry.js'
 import type {
   AssetClass,
   BarSeries,
@@ -18,7 +18,7 @@ import type {
   TimeShareRange,
   TimeShareSeries,
   TradingDate,
-} from './types'
+} from './types.js'
 
 /** Router 识别的统一品种身份，不包含任何 Provider 私有路由字段。 */
 export interface SourceRouterInstrumentIdentity {
@@ -225,7 +225,9 @@ export class SourceRouter {
     await Promise.all(
       enabled
         .filter((provider) => this.registry.getCapabilities(provider.source.id) === undefined)
-        .map((provider) => discoverCapabilities(this.registry, provider, signal).catch(() => undefined)),
+        .map((provider) =>
+          discoverCapabilities(this.registry, provider, signal).catch(() => undefined),
+        ),
     )
     const filtered = this.registry.getEnabledByCapability(query)
     return filtered
@@ -296,7 +298,7 @@ export class SourceRouter {
           period: request.period,
           adjustment: request.adjustment,
           limit: request.limit,
-            beforeTimestamp: request.beforeTimestamp,
+          beforeTimestamp: request.beforeTimestamp,
           signal: request.signal,
         })
       },
@@ -351,8 +353,7 @@ export class SourceRouter {
             `[${provider.source.id}] has no timeShareRange source`,
           )
         }
-        const endTradingDate =
-          request.endTradingDate ?? request.resolveEndTradingDate?.(instrument)
+        const endTradingDate = request.endTradingDate ?? request.resolveEndTradingDate?.(instrument)
         if (!endTradingDate) {
           throw new KLineChartError(
             'INVALID_PARAM',

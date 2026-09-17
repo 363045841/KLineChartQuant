@@ -1,9 +1,9 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
-import { ChartDataViewId } from '../../foundation/types/chartView'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 
 function getLastPriceInfo(context: RenderContext) {
   const { pane, data } = context

@@ -3,14 +3,14 @@ import {
   ASHARE_OPEN_SESSIONS,
   computeSessionTimeLabels,
   countSessionSlots,
+  type MarketSessionConfig,
   minuteOfDayToTimestamp,
-  resolveTimestampSessionSlot,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
-  sessionSlotCenterX,
-  type MarketSessionConfig,
+  resolveTimestampSessionSlot,
   type SessionTimeLabel,
-} from './sessionTimeLabels'
+  sessionSlotCenterX,
+} from './sessionTimeLabels.js'
 
 /** A 股默认全天 1 分钟槽位数（兼容旧导出） */
 export const ASHARE_TIMESHARE_SESSION_SLOTS = resolveMarketSessionSlots(ASHARE_MARKET_SESSION)
@@ -59,16 +59,13 @@ export function resolveTimeShareSlotTimestamp(
   slotIndex: number,
   marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION,
 ): number {
-  const step = marketSession.slotMinutes && marketSession.slotMinutes > 0 ? marketSession.slotMinutes : 1
+  const step =
+    marketSession.slotMinutes && marketSession.slotMinutes > 0 ? marketSession.slotMinutes : 1
   let remaining = slotIndex * step
   for (const range of marketSession.sessions) {
     const len = range.close - range.open
     if (remaining < len) {
-      return minuteOfDayToTimestamp(
-        baseTimestamp,
-        range.open + remaining,
-        marketSession.timeZone,
-      )
+      return minuteOfDayToTimestamp(baseTimestamp, range.open + remaining, marketSession.timeZone)
     }
     remaining -= len
   }
@@ -79,20 +76,20 @@ export function resolveTimeShareSlotTimestamp(
   return baseTimestamp
 }
 
+export type {
+  MarketSessionConfig,
+  OpenTimeRange,
+  SessionTimeLabel,
+} from './sessionTimeLabels.js'
+export { HK_MARKET_SESSION, KR_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels.js'
 export {
   ASHARE_MARKET_SESSION,
   ASHARE_OPEN_SESSIONS,
   computeSessionTimeLabels,
   countSessionSlots,
   minuteOfDayToTimestamp,
-  resolveTimestampSessionSlot,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
+  resolveTimestampSessionSlot,
   sessionSlotCenterX,
 }
-export type {
-  MarketSessionConfig,
-  OpenTimeRange,
-  SessionTimeLabel,
-} from './sessionTimeLabels'
-export { HK_MARKET_SESSION, KR_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels'

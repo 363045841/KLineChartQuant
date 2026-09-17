@@ -13,80 +13,82 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { KLineData } from '../../foundation/types/price'
-import type { IndicatorRenderStateReader, PluginHost } from '../../foundation/plugin/index'
+import type { IndicatorRenderStateReader, PluginHost } from '../../foundation/plugin/index.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { KLineData } from '../../foundation/types/price.js'
 import {
   createIndicatorResultState,
   type IndicatorResultStateModule,
-} from '../state/indicatorResultState'
-
-import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
-import { IndicatorRegistry } from './indicatorRegistry'
-import { IndicatorRuntime } from './indicatorRuntime'
+} from '../state/indicatorResultState.js'
+import { type IndicatorMetadata, resolveStateKey } from './indicatorMetadata.js'
+import { IndicatorRegistry } from './indicatorRegistry.js'
+import { IndicatorRuntime } from './indicatorRuntime.js'
 // Default constants for default config
-import { DEFAULT_ATR_PERIOD } from './state/atrState'
+import { DEFAULT_ATR_PERIOD } from './state/atrState.js'
 import {
   DEFAULT_CHAIKIN_VOL_EMA_PERIOD,
   DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
-} from './state/chaikinVolState'
-import { DEFAULT_CMF_PERIOD } from './state/cmfState'
-import { DEFAULT_DEMA_PERIOD } from './state/demaState'
-import { DEFAULT_DONCHIAN_PERIOD } from './state/donchianState'
-import { DEFAULT_FIB_PERIOD } from './state/fibState'
-import { DEFAULT_HMA_PERIOD } from './state/hmaState'
-import { DEFAULT_HV_PERIOD, DEFAULT_HV_ANNUALIZATION } from './state/hvState'
+} from './state/chaikinVolState.js'
+import { DEFAULT_CMF_PERIOD } from './state/cmfState.js'
+import { DEFAULT_DEMA_PERIOD } from './state/demaState.js'
+import { DEFAULT_DONCHIAN_PERIOD } from './state/donchianState.js'
+import { DEFAULT_FIB_PERIOD } from './state/fibState.js'
+import { DEFAULT_HMA_PERIOD } from './state/hmaState.js'
+import { DEFAULT_HV_ANNUALIZATION, DEFAULT_HV_PERIOD } from './state/hvState.js'
 import {
-  DEFAULT_ICHIMOKU_TENKAN,
+  DEFAULT_ICHIMOKU_DISPLACEMENT,
   DEFAULT_ICHIMOKU_KIJUN,
   DEFAULT_ICHIMOKU_SPAN_B,
-  DEFAULT_ICHIMOKU_DISPLACEMENT,
-} from './state/ichimokuState'
+  DEFAULT_ICHIMOKU_TENKAN,
+} from './state/ichimokuState.js'
 import {
-  DEFAULT_KAMA_PERIOD,
   DEFAULT_KAMA_FAST_PERIOD,
+  DEFAULT_KAMA_PERIOD,
   DEFAULT_KAMA_SLOW_PERIOD,
-} from './state/kamaState'
+} from './state/kamaState.js'
 import {
-  DEFAULT_KELTNER_EMA_PERIOD,
   DEFAULT_KELTNER_ATR_PERIOD,
+  DEFAULT_KELTNER_EMA_PERIOD,
   DEFAULT_KELTNER_MULTIPLIER,
-} from './state/keltnerState'
-import { DEFAULT_MFI_PERIOD } from './state/mfiState'
-import { DEFAULT_PARKINSON_PERIOD, DEFAULT_PARKINSON_ANNUALIZATION } from './state/parkinsonState'
-import { DEFAULT_ROC_PERIOD } from './state/rocState'
-import { DEFAULT_SAR_STEP, DEFAULT_SAR_MAX_STEP } from './state/sarState'
-import { DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './state/structureState'
+} from './state/keltnerState.js'
+import { DEFAULT_MFI_PERIOD } from './state/mfiState.js'
+import {
+  DEFAULT_PARKINSON_ANNUALIZATION,
+  DEFAULT_PARKINSON_PERIOD,
+} from './state/parkinsonState.js'
+import { DEFAULT_ROC_PERIOD } from './state/rocState.js'
+import { DEFAULT_SAR_MAX_STEP, DEFAULT_SAR_STEP } from './state/sarState.js'
+import { DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './state/structureState.js'
 import {
   DEFAULT_SUPERTREND_ATR_PERIOD,
   DEFAULT_SUPERTREND_MULTIPLIER,
-} from './state/supertrendState'
-import { DEFAULT_TEMA_PERIOD } from './state/temaState'
-import { DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './state/trixState'
-import { DEFAULT_VMA_PERIOD } from './state/vmaState'
+} from './state/supertrendState.js'
+import { DEFAULT_TEMA_PERIOD } from './state/temaState.js'
+import { DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './state/trixState.js'
+import { DEFAULT_VMA_PERIOD } from './state/vmaState.js'
 import {
   DEFAULT_VP_BINS,
   DEFAULT_VP_LOOKBACK,
   DEFAULT_VP_VALUE_AREA,
-} from './state/volumeProfileState'
-import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState'
-import { DEFAULT_WMA_PERIOD } from './state/wmaState'
-import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState'
+} from './state/volumeProfileState.js'
+import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState.js'
+import { DEFAULT_WMA_PERIOD } from './state/wmaState.js'
+import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState.js'
 import {
   composeRenderStates,
   composeVolumeRenderState,
   computeMainIndicatorPriceRange,
-} from './stateComposer'
-import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
+} from './stateComposer.js'
 import type {
   IndicatorConfig,
   IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
   IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
+  IndicatorWorkerResponse,
   SerializedRuntimeDescriptor,
-} from './workerProtocol'
-import type { IndicatorWorkerResponse } from './workerProtocol'
-import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+} from './workerProtocol.js'
+import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol.js'
 
 /**
  * 可见范围
@@ -199,8 +201,6 @@ export class IndicatorScheduler {
   // Worker 异步结果应用完毕回调（用于串联其他管线，如 Alert）
   private onResultsAppliedCallback: (() => void) | null = null
 
-  /** 从 Chart 获取活跃副图 paneId 列表的回调 */
-  private getActiveSubPaneIds: (() => string[]) | null = null
   /** 从 Kernel 获取指标实例计算输入的回调。 */
   private getIndicatorInstances: (() => ReadonlyArray<IndicatorInstanceCalculationSource>) | null =
     null
@@ -316,13 +316,6 @@ export class IndicatorScheduler {
    */
   onSubPaneChanged(): void {
     if (this.getLatestBundle()) this.updateVisibleStatesOnly()
-  }
-
-  /**
-   * 设置活跃副图 paneId 提供者（来自 Chart.getSubPaneIndicators）
-   */
-  setActiveSubPaneProvider(provider: () => string[]): void {
-    this.getActiveSubPaneIds = provider
   }
 
   /** 注入指标实例快照，作为实例级计算输入的唯一来源。 */
@@ -518,7 +511,7 @@ export class IndicatorScheduler {
         this.handleSeriesResult(msg)
         break
 
-      case 'error':
+      case 'error': {
         console.error('[IndicatorScheduler] Worker error:', msg.stage, msg.message)
         const shouldRetry =
           this.pendingRequest !== null &&
@@ -528,6 +521,7 @@ export class IndicatorScheduler {
           this.fallbackToInline(true)
         }
         break
+      }
 
       default: {
         const _exhaustive: never = msg

@@ -13,7 +13,9 @@
   "engines": {
     "node": "^22.12.0 || >=24.0.0"
   },
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -30,7 +32,8 @@
     },
     "./web-component": {
       "import": {
-        "default": "./dist/kline-chart.js"
+        "types": "./dist/web-component.d.ts",
+        "default": "./dist/web-component.js"
       }
     },
     "./style.css": "./dist/index.css"
@@ -46,13 +49,12 @@
     "dev": "vite --config preview/vite.config.ts",
     "build": "vite build && pnpm build:wc",
     "build:wc": "cross-env BUILD_TARGET=web-component vite build",
-    "postbuild": "node -e \"var f='dist/index.d.ts';require('fs').existsSync(f)&&require('fs').copyFileSync(f,'dist/index.d.cts')\"",
+    "postbuild": "node scripts/postbuild.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",
     "lint:publish": "publint --strict .",
-    "prepublishOnly": "npm run build",
-    "lint:types": "attw --pack ."
+    "prepublishOnly": "npm run build"
   },
   "size-limit": [
     {
@@ -73,26 +75,27 @@
   },
   "devDependencies": {
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
-    "@arethetypeswrong/cli": "^0.18.3",
-    "@size-limit/preset-small-lib": "^12.1.0",
-    "@vitejs/plugin-vue": "^6.0.8",
-    "@vue/test-utils": "^2.4.11",
-    "cross-env": "^7.0.3",
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@size-limit/preset-small-lib": "^13.1.1",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/test-utils": "^2.5.0",
+    "cross-env": "^10.1.0",
     "fake-indexeddb": "^6.2.5",
-    "jsdom": "^29.1.1",
-    "publint": "^0.3.21",
-    "size-limit": "^12.1.0",
+    "happy-dom": "^20.14.5",
+    "jsdom": "^30.0.1",
+    "publint": "^0.3.24",
+    "size-limit": "^13.1.1",
     "typescript": "~6.0.3",
-    "unplugin-icons": "^23.0.1",
+    "unplugin-icons": "^24.0.0",
     "vite": "^8.2.1",
     "vite-plugin-babel": "^1.7.3",
     "vite-plugin-css-injected-by-js": "^5.0.2",
-    "vite-plugin-dts": "^5.0.3",
+    "vite-plugin-dts": "^5.1.0",
     "vitest": "^5.0.0",
-    "vue": "^3.5.41"
+    "vue": "^3.5.42"
   },
   "dependencies": {
-    "dompurify": "^3.4.14",
+    "dompurify": "^3.4.15",
     "markdown-it": "^15.0.0",
     "pinia": "^4.0.3"
   }
