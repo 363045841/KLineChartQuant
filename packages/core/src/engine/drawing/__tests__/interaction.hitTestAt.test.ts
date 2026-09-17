@@ -17,8 +17,8 @@ describe('DrawingInteractionController hitTestAt', () => {
     ;(controller as unknown as { hitTester: { hitTest: typeof hitTest } }).hitTester = { hitTest }
 
     expect(controller.hitTestAt(20, 55)).toBe(free)
-    // y=55 减 pane.top=40 后以 Pane 局部 15 查询；锁定图元不进入候选。
-    expect(hitTest).toHaveBeenCalledWith(20, 15, [free], adapter)
+    // y=55 减 pane.top=40 后以 Pane 局部 15 查询；锁定图元同样进入候选。
+    expect(hitTest).toHaveBeenCalledWith(20, 15, [free, locked], adapter)
   })
 
   it('未命中或 Pane 不可解析时返回 null', () => {

@@ -1,27 +1,29 @@
-/** 验证 locked 图元的交互强制：不可点选、不可框选、不参与连带拖拽。 */
+/** 验证 locked 图元的交互语义：可点选、可框选，但不参与拖动。 */
 import { describe, expect, it, vi } from 'vitest'
 
 import { DrawingInteractionController } from '../interaction'
 import { CONTAINER, createDrawingObject, createSelectionAdapter } from './helpers/drawingTestKit'
 
 describe('DrawingInteractionController locked drawings', () => {
-  it('locked 图元不进入命中候选，点击视同空白并清空选中', () => {
+  it('locked 图元可被点选，但不开始拖拽', () => {
     const locked = createDrawingObject({ id: 'locked', locked: true })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([locked])
     const controller = new DrawingInteractionController(adapter)
-    const hitTest = vi.fn(() => null)
-    ;(controller as unknown as { hitTester: { hitTest: typeof hitTest } }).hitTester = { hitTest }
-    adapter.setSelectedDrawingIds(['locked'])
+    const hitTest = vi.fn(() => ({ drawing: locked }))
+    const startDrag = vi.fn()
+    ;(controller as unknown as { hitTester: unknown; dragHandler: unknown }).hitTester = { hitTest }
+    ;(controller as unknown as { dragHandler: unknown }).dragHandler = { startDrag }
 
     expect(controller.onPointerDown({ clientX: 10, clientY: 10 } as PointerEvent, CONTAINER)).toBe(
-      false,
+      true,
     )
-    // 命中候选在传入 hitTester 前已滤除 locked 图元。
-    expect(hitTest).toHaveBeenCalledWith(10, 10, [], adapter)
-    expect(setSelectedDrawingIds).toHaveBeenLastCalledWith([])
+    // 锁定图元进入命中候选，选中后不开拖。
+    expect(hitTest).toHaveBeenCalledWith(10, 10, [locked], adapter)
+    expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['locked'])
+    expect(startDrag).not.toHaveBeenCalled()
   })
 
-  it('locked 图元不被框选选中', () => {
+  it('locked 图元可被框选选中', () => {
     const locked = createDrawingObject({ id: 'locked', locked: true })
     const free = createDrawingObject({ id: 'free' })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([locked, free], {
@@ -43,10 +45,9 @@ describe('DrawingInteractionController locked drawings', () => {
     expect(controller.onPointerUp({ clientX: 30, clientY: 30 } as PointerEvent, CONTAINER)).toBe(
       true,
     )
-    // 框选几何只对未锁定的 free 图元求交，locked 不进入 toggle。
-    expect(getDrawingLineSegments).toHaveBeenCalledTimes(1)
-    expect(getDrawingLineSegments).toHaveBeenCalledWith(free, adapter)
-    expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['free'])
+    // 框选几何对两个图元都求交，锁定图元也进入 toggle。
+    expect(getDrawingLineSegments).toHaveBeenCalledTimes(2)
+    expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['locked', 'free'])
   })
 
   it('拖拽连带组不携带锁定的已选图元', () => {

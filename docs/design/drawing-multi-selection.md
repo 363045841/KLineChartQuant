@@ -22,7 +22,7 @@
 
 `DrawingDocument.updateBatch()` 与 `removeBatch()` 是批量写入的唯一入口。批量目标必须全部存在，否则整次操作不写入。
 
-`getBatchStyleKeys()` 返回所有目标图元样式字段的交集。`updateBatch()` 只接受该交集内的样式字段；任何非交集字段都会使整次操作无效，避免部分图元被修改。`visible`、`locked` 与 `zIndex` 是所有图元共有的字段，可直接批量更新。
+`getBatchStyleKeys()` 返回所有目标图元样式字段的交集。`updateBatch()` 只接受该交集内的样式字段；任何非交集字段都会使整次操作无效，避免部分图元被修改。`visible`、`locked` 与 `zIndex` 是所有图元共有的字段，可直接批量更新；但锁定图元只接受 `locked` 字段写入，含其它字段的批量写入会跳过锁定目标（详见 `drawing-interaction-hardening.md` 的 locked 语义）。
 
 交互拖拽传递的是已解析 `DrawingAnchor`，通过 `commitDrawingDrag()` 直接提交；外部 API 的 `DrawingAnchorInput` 只用于创建和声明式更新，二者禁止相互伪装转换。
 

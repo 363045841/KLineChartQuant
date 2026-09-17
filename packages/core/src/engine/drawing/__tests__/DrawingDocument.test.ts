@@ -382,6 +382,46 @@ describe('DrawingDocument', () => {
     expect(document.commitDrawingDrag(drawing.id, anchors)?.anchors).toEqual(anchors)
   })
 
+  it('freezes locked drawings against edits but still allows unlocking', () => {
+    const { document } = createDocument()
+    const drawing = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    document.updateDrawingFromInput(drawing.id, { locked: true })
+
+    expect(document.updateDrawing({ ...drawing, style: { stroke: '#f00' } })).toBeNull()
+    expect(document.updateDrawingFromInput(drawing.id, { style: { stroke: '#f00' } })).toBeNull()
+    expect(document.updateBatch([drawing.id], { style: { stroke: '#f00' } })).toEqual([])
+    expect(document.removeDrawing(drawing.id)).toBe(false)
+    expect(document.commitDrawingDrag(drawing.id, drawing.anchors)).toBeNull()
+
+    expect(document.updateBatch([drawing.id], { locked: false })).toHaveLength(1)
+    expect(document.getDrawing(drawing.id)?.locked).toBe(false)
+  })
+
+  it('skips locked targets in a mixed batch while updating the rest', () => {
+    const { document } = createDocument()
+    const locked = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    const free = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 11 }],
+    })
+    document.updateBatch([locked.id], { locked: true })
+
+    expect(document.updateBatch([locked.id, free.id], { style: { stroke: '#f00' } })).toHaveLength(
+      1,
+    )
+    expect(document.getDrawing(locked.id)?.style.stroke).not.toBe('#f00')
+    expect(document.getDrawing(free.id)?.style.stroke).toBe('#f00')
+  })
+
   it('does not persist session preview objects through document replacement', () => {
     const { document } = createDocument()
 

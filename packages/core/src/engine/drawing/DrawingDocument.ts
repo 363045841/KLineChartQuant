@@ -13,8 +13,8 @@ import type {
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { DrawingStateModule } from '../state/drawingState.js'
-
 import { PREVIEW_ID } from './DrawingState.js'
+import { isDrawingLocked } from './drawingAccess.js'
 
 /** 外部命令按图元需要提供价格和一种明确的时间轴定位方式。 */
 export type DrawingAnchorCommandInput =
@@ -149,6 +149,25 @@ function isChannel(kind: DrawingKind): boolean {
   ].includes(kind)
 }
 
+/** 判断 patch 是否触及 locked 以外的可写字段；锁定图元只接受 locked 字段。 */
+function hasEditablePatchFields(patch: {
+  readonly anchors?: unknown
+  readonly style?: unknown
+  readonly params?: unknown
+  readonly labels?: unknown
+  readonly visible?: unknown
+  readonly zIndex?: unknown
+}): boolean {
+  return (
+    patch.anchors !== undefined ||
+    patch.style !== undefined ||
+    patch.params !== undefined ||
+    patch.labels !== undefined ||
+    patch.visible !== undefined ||
+    patch.zIndex !== undefined
+  )
+}
+
 /** 已确认图元的唯一 CRUD 入口。 */
 export class DrawingDocument {
   constructor(private readonly dependencies: DrawingDocumentDependencies) {}
@@ -195,23 +214,21 @@ export class DrawingDocument {
     return this.getDrawing(drawing.id)!
   }
 
-  /** 以完整模型快照替换一个已确认图元。 */
+  /** 以完整模型快照替换一个已确认图元；锁定图元拒绝。 */
   updateDrawing(drawing: DrawingObject): DrawingObject | null {
     const current = this.getDrawing(drawing.id)
-    if (!current || drawing.kind !== current.kind || drawing.paneId !== current.paneId) return null
-    return this.dependencies.drawingState.actions.updateDrawing(drawing.id, {
-      ...drawing,
-      labels: normalizeDrawingLabels(drawing.labels ?? { line: {}, area: {} }),
-    })
+    if (!current || isDrawingLocked(current)) return null
+    return this.writeDrawing(drawing)
   }
 
-  /** 将外部声明式 patch 转换为完整模型快照后提交。 */
+  /** 将外部声明式 patch 转换为完整模型快照后提交；锁定图元只接受 locked 字段。 */
   updateDrawingFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
     const current = this.getDrawing(id)
     if (!current) return null
+    if (isDrawingLocked(current) && hasEditablePatchFields(patch)) return null
     const anchors =
       patch.anchors === undefined ? undefined : this.resolveAnchorsForUpdate(id, patch.anchors)
-    return this.updateDrawing({
+    return this.writeDrawing({
       ...current,
       ...(anchors === undefined ? {} : { anchors }),
       ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
@@ -220,6 +237,16 @@ export class DrawingDocument {
       ...(patch.visible === undefined ? {} : { visible: patch.visible }),
       ...(patch.locked === undefined ? {} : { locked: patch.locked }),
       ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+    })
+  }
+
+  /** 无策略的原子快照写入，仅校验 id/kind/pane 匹配。 */
+  private writeDrawing(drawing: DrawingObject): DrawingObject | null {
+    const current = this.getDrawing(drawing.id)
+    if (!current || drawing.kind !== current.kind || drawing.paneId !== current.paneId) return null
+    return this.dependencies.drawingState.actions.updateDrawing(drawing.id, {
+      ...drawing,
+      labels: normalizeDrawingLabels(drawing.labels ?? { line: {}, area: {} }),
     })
   }
 
@@ -239,6 +266,8 @@ export class DrawingDocument {
     if (ids.length === 0 || new Set(ids).size !== ids.length) return Object.freeze([])
     const drawings = this.getDrawingsByIds(ids)
     if (drawings.length !== updates.length) return Object.freeze([])
+    // 锁定图元不可拖拽。
+    if (drawings.some((drawing) => isDrawingLocked(drawing))) return Object.freeze([])
 
     const updatedById = new Map<string, DrawingObject>()
     for (const update of updates) {
@@ -299,7 +328,7 @@ export class DrawingDocument {
     )
   }
 
-  /** 原子更新多个图元的公共属性；目标或样式字段不合法时不写入。 */
+  /** 原子更新多个图元的公共属性；样式字段不合法时整批不写，含其它字段时跳过锁定目标。 */
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject> {
     const drawings = this.getDrawingsByIds(ids)
     if (drawings.length === 0) return Object.freeze([])
@@ -313,23 +342,30 @@ export class DrawingDocument {
       return Object.freeze([])
     }
 
+    const targets = hasEditablePatchFields(patch)
+      ? drawings.filter((drawing) => !isDrawingLocked(drawing))
+      : drawings
+    if (targets.length === 0) return Object.freeze([])
+
     return this.dependencies.drawingState.actions.updateDrawings(
-      drawings.map((drawing) => drawing.id),
+      targets.map((drawing) => drawing.id),
       patch,
     )
   }
 
-  /** 移除指定图元。 */
+  /** 移除指定图元；锁定图元不可移除。 */
   removeDrawing(id: string): boolean {
+    const drawing = this.getDrawing(id)
+    if (!drawing || isDrawingLocked(drawing)) return false
     return this.dependencies.drawingState.actions.removeDrawing(id)
   }
 
-  /** 原子移除一批图元；任一 id 不存在时不写入。 */
+  /** 原子移除一批图元；锁定图元保留，其余照常移除。 */
   removeBatch(ids: ReadonlyArray<string>): boolean {
-    const drawings = this.getDrawingsByIds(ids)
-    if (drawings.length === 0) return false
+    const targets = this.getDrawingsByIds(ids).filter((drawing) => !isDrawingLocked(drawing))
+    if (targets.length === 0) return false
     return this.dependencies.drawingState.actions.removeDrawings(
-      drawings.map((drawing) => drawing.id),
+      targets.map((drawing) => drawing.id),
     )
   }
 

@@ -1,6 +1,11 @@
 <template>
   <CanvasToolbar>
-    <div v-if="canEdit('stroke')" class="color-item" title="颜色">
+    <div
+      v-if="canEdit('stroke')"
+      class="color-item"
+      :class="{ 'is-disabled': allLocked }"
+      title="颜色"
+    >
       <span
         class="color-swatch"
         :style="{ background: style.stroke ?? DEFAULT_DRAWING_STROKE }"
@@ -9,6 +14,7 @@
         type="color"
         class="color-input"
         :value="style.stroke ?? DEFAULT_DRAWING_STROKE"
+        :disabled="allLocked"
         @input="onColorChange(($event.target as HTMLInputElement).value)"
       />
     </div>
@@ -19,6 +25,7 @@
       :options="widthOptions"
       size="sm"
       title="线宽"
+      :disabled="allLocked"
       @update:model-value="onWidthChange(Number($event))"
     />
 
@@ -28,6 +35,7 @@
       :options="styleOptions"
       size="sm"
       title="线型"
+      :disabled="allLocked"
       @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
     />
 
@@ -49,6 +57,7 @@
       type="button"
       class="toolbar-btn toolbar-btn--delete"
       title="删除"
+      :disabled="allLocked"
       @click="$emit('delete')"
     >
       <svg
@@ -156,6 +165,13 @@
 
   .color-item:hover {
     background: var(--klc-color-ui-hover);
+  }
+
+  /* 全选锁定：样式与删除不可编辑，仅保留解锁按钮。 */
+  .color-item.is-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .color-swatch {
