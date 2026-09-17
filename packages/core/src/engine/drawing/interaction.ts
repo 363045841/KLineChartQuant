@@ -368,15 +368,19 @@ export class DrawingInteractionController {
     return this.getSelectableDrawings(paneId).filter((drawing) => !isDrawingLocked(drawing))
   }
 
-  /** 进入拖拽会话；锚点命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
+  /** 进入拖拽会话；锚点/边命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
   private startDrag(
     pointer: DrawingPointerAnchor,
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
     const target: DrawingDragTarget =
-      'anchorIndex' in hit ? { type: 'anchor', index: hit.anchorIndex } : { type: 'all' }
-    const targets = (target.type === 'anchor' ? [hit.drawing] : selectedDrawings).filter(
+      'anchorIndex' in hit
+        ? { type: 'anchor', index: hit.anchorIndex }
+        : 'edge' in hit
+          ? { type: 'edge', anchors: hit.edge }
+          : { type: 'all' }
+    const targets = (target.type === 'all' ? selectedDrawings : [hit.drawing]).filter(
       (drawing) => !isDrawingLocked(drawing),
     )
     if (targets.length === 0) return

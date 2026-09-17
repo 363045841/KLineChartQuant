@@ -1,5 +1,5 @@
 import type { DrawingViewportPort } from '../../controllers/types.js'
-import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
 
 import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
@@ -8,13 +8,17 @@ import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
 
-/** 命中检测结果：anchorIndex 存在表示点到锚点，否则点到线段 */
-export type HitResult = { drawing: DrawingObject; anchorIndex: number } | { drawing: DrawingObject }
+/** 命中检测结果：点到锚点返回 anchorIndex，点到可拖动的边返回 edge，否则仅命中图元主体。 */
+export type HitResult =
+  | { drawing: DrawingObject; anchorIndex: number }
+  | { drawing: DrawingObject; edge: readonly [number, number] }
+  | { drawing: DrawingObject }
 
-/** 二维线段，两端点为屏幕坐标（px） */
+/** 二维线段，两端点为屏幕坐标（px）；anchors 存在时表示该线段由这两个锚点构成。 */
 export interface LineSegment {
   a: { x: number; y: number }
   b: { x: number; y: number }
+  anchors?: readonly [number, number]
 }
 
 /**
@@ -103,7 +107,7 @@ export class HitTester {
       const segments = this.getDrawingLineSegments(drawing, adapter, regressionGeometryCache)
       for (const seg of segments) {
         if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
-          return { drawing }
+          return seg.anchors ? { drawing, edge: seg.anchors } : { drawing }
         }
       }
     }
@@ -258,15 +262,19 @@ export class HitTester {
 
   /** 通道类图元的两条边：持久化锚点按 [0,1] 与 [2,3] 成对构成。 */
   private getChannelSegments(drawing: DrawingObject, adapter: DrawingViewportPort): LineSegment[] {
-    const [first, second, third, fourth] = drawing.anchors
-    const edges: Array<readonly [PersistedDrawingAnchor, PersistedDrawingAnchor]> = []
-    if (first && second) edges.push([first, second])
-    if (third && fourth) edges.push([third, fourth])
     const segments: LineSegment[] = []
-    for (const [start, end] of edges) {
+    for (const [from, to] of [
+      [0, 1],
+      [2, 3],
+    ] as const) {
+      const start = drawing.anchors[from]
+      const end = drawing.anchors[to]
+      if (!start || !end) continue
       const a = anchorToScreen(start, drawing.paneId, adapter)
       const b = anchorToScreen(end, drawing.paneId, adapter)
-      if (isScreenPoint(a) && isScreenPoint(b)) segments.push({ a, b })
+      if (!isScreenPoint(a) || !isScreenPoint(b)) continue
+      // 平行通道的边可整条拖动，线段需携带锚点下标；其余通道类暂不参与边拖拽。
+      segments.push(drawing.kind === 'parallel-channel' ? { a, b, anchors: [from, to] } : { a, b })
     }
     return segments
   }

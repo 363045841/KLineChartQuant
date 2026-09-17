@@ -32,6 +32,47 @@ function createLineAdapter() {
   })
 }
 
+/** 通道锚点 i 的屏幕 X。 */
+function anchorScreenX(index: number): number {
+  return index * 50 + 20
+}
+
+/** 通道锚点 i 的屏幕 Y（价格 (i+1)*10，y = 200 - price）。 */
+function anchorScreenY(index: number): number {
+  return 200 - (index + 1) * 10
+}
+
+/** 四锚点平行通道夹具：0/1 为第一条线，2/3 为第二条线。 */
+function createChannelFixture() {
+  const timestamps = [500, 1_000, 1_500, 2_000]
+  const drawing: DrawingObject = {
+    id: 'channel',
+    kind: 'parallel-channel',
+    paneId: 'main',
+    visible: true,
+    anchors: timestamps.map((time, index) => ({
+      id: `a${index}`,
+      type: 'point' as const,
+      time,
+      price: (index + 1) * 10,
+    })),
+    params: {},
+    style: {},
+  }
+  const adapter = createDrawingAdapter({
+    viewport: {
+      getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
+      getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
+      getLogicalIndexAtTimestamp: (timestamp) => {
+        const index = timestamps.indexOf(timestamp)
+        return index >= 0 ? index : null
+      },
+      getScreenXAtLogicalIndex: anchorScreenX,
+    },
+  })
+  return { drawing, adapter }
+}
+
 describe('HitTester', () => {
   it('hits a vertical anchor along its full height', () => {
     const drawing: DrawingObject = {
@@ -129,41 +170,28 @@ describe('HitTester', () => {
   })
 
   it('hits every persisted anchor of a parallel channel, including the derived fourth', () => {
-    const timestamps = [500, 1_000, 1_500, 2_000]
-    const drawing: DrawingObject = {
-      id: 'channel',
-      kind: 'parallel-channel',
-      paneId: 'main',
-      visible: true,
-      anchors: timestamps.map((time, index) => ({
-        id: `a${index}`,
-        type: 'point' as const,
-        time,
-        price: (index + 1) * 10,
-      })),
-      params: {},
-      style: {},
-    }
-    const adapter = createDrawingAdapter({
-      viewport: {
-        getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
-        getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
-        getLogicalIndexAtTimestamp: (timestamp) => {
-          const index = timestamps.indexOf(timestamp)
-          return index >= 0 ? index : null
-        },
-      },
-    })
+    const { drawing, adapter } = createChannelFixture()
 
-    // 锚点 i 的屏幕位置为 (i*10+5, 200 - price)，四个点均应可命中拖动。
+    // 锚点 i 的屏幕位置为 (i*50+20, 200 - price)，四个点均应可命中拖动。
     for (let index = 0; index < drawing.anchors.length; index++) {
-      const x = index * 10 + 5
-      const y = 200 - (index + 1) * 10
-      expect(new HitTester().hitTest(x, y, [drawing], adapter)).toEqual({
-        drawing,
-        anchorIndex: index,
-      })
+      expect(
+        new HitTester().hitTest(anchorScreenX(index), anchorScreenY(index), [drawing], adapter),
+      ).toEqual({ drawing, anchorIndex: index })
     }
+  })
+
+  it('returns the edge of a parallel channel when the pointer hits one of its lines', () => {
+    const { drawing, adapter } = createChannelFixture()
+
+    // 两条线的中点均远离四个锚点，命中应落到整条边上。
+    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({
+      drawing,
+      edge: [0, 1],
+    })
+    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({
+      drawing,
+      edge: [2, 3],
+    })
   })
 
   it('prefers a line label over the area center when both are in range', () => {
