@@ -22,7 +22,7 @@ describe('DrawingInteractionController selection', () => {
       hitTester: { hitTest: ReturnType<typeof vi.fn> }
       dragHandler: { startDrag: ReturnType<typeof vi.fn> }
     }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second })) }
+    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second, target: { type: 'all' } })) }
     internal.dragHandler.startDrag = vi.fn()
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
@@ -61,7 +61,7 @@ describe('DrawingInteractionController selection', () => {
       hitTester: { hitTest: ReturnType<typeof vi.fn> }
       dragHandler: { startDrag: ReturnType<typeof vi.fn> }
     }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second })) }
+    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second, target: { type: 'all' } })) }
     internal.dragHandler.startDrag = vi.fn()
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
@@ -144,7 +144,7 @@ describe('DrawingInteractionController selection', () => {
         endDrag: ReturnType<typeof vi.fn>
       }
     }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: first })) }
+    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: first, target: { type: 'all' } })) }
     internal.dragHandler = {
       isDragging: vi.fn(() => startDrag.mock.calls.length > 0),
       getDraggingDrawingIds: vi.fn(() => [first.id, second.id]),
@@ -175,7 +175,7 @@ describe('DrawingInteractionController selection', () => {
       hitTester: { hitTest: ReturnType<typeof vi.fn> }
       dragHandler: { startDrag: ReturnType<typeof vi.fn> }
     }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: first })) }
+    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: first, target: { type: 'all' } })) }
     internal.dragHandler.startDrag = startDrag
     adapter.setSelectedDrawingIds([first.id, second.id])
     const container = CONTAINER

@@ -1,7 +1,7 @@
 /** 验证拖拽策略把被拖锚点解析为要一起移动的锚点及其位移系数。 */
 import { describe, expect, it } from 'vitest'
 
-import { resolveAnchorFollowers } from '../dragPolicy'
+import { resolveAnchorFollowers, resolveVerticalHandleAnchors } from '../dragPolicy'
 
 describe('resolveAnchorFollowers', () => {
   it.each([
@@ -50,5 +50,21 @@ describe('resolveAnchorFollowers', () => {
 
   it('falls back to moving only the dragged anchor for unregistered kinds', () => {
     expect(resolveAnchorFollowers('trend-line', 1)).toEqual([{ index: 1 }])
+  })
+})
+
+describe('resolveVerticalHandleAnchors', () => {
+  it.each([
+    { kind: 'flat-line', lineIndex: 0, pair: [0, 1] },
+    { kind: 'flat-line', lineIndex: 1, pair: [2, 3] },
+    { kind: 'disjoint-channel', lineIndex: 0, pair: [0, 1] },
+    { kind: 'disjoint-channel', lineIndex: 1, pair: [2, 3] },
+    { kind: 'parallel-channel', lineIndex: 0, pair: [0, 1] },
+    { kind: 'parallel-channel', lineIndex: 1, pair: [2, 3] },
+    // 出界的线下标与未登记线表的图元一律返回 null。
+    { kind: 'flat-line', lineIndex: 2, pair: null },
+    { kind: 'trend-line', lineIndex: 0, pair: null },
+  ] as const)('resolves $kind line $lineIndex to $pair', ({ kind, lineIndex, pair }) => {
+    expect(resolveVerticalHandleAnchors(kind, lineIndex)).toEqual(pair)
   })
 })

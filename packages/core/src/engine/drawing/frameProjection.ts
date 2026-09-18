@@ -14,8 +14,10 @@ import type { KLineData } from '../../foundation/types/price.js'
 import { resolveChartWorkspaceId } from '../state/modeState.js'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
 
+import { midpoint } from './coordinateUtils.js'
 import { DrawingDefinitionRegistry, DrawingStore } from './index.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
+import { getVerticalHandleLines } from './lines.js'
 import {
   createSelectionMarqueePrimitives,
   type DrawingSelectionMarquee,
@@ -77,6 +79,11 @@ function resolveDrawingForFrame(
   }
 }
 
+/** 选中态锚点与线段中点手柄的统一半径。 */
+function selectedPointRadius(style: DrawingStyle): number {
+  return (style.pointRadius ?? 4) + 2
+}
+
 /** 将选中图元的 primitive 视觉样式提升，保持原始 geometry 不变。 */
 function applySelectedStyle(
   primitive: DrawingPrimitive,
@@ -85,7 +92,7 @@ function applySelectedStyle(
   const stroke = baseStyle.stroke
   const strokeWidth = (baseStyle.strokeWidth ?? 1) + 1
   // 选中态的锚点统一放大：点图元与线段的端点圆点使用同一半径。
-  const pointRadius = (baseStyle.pointRadius ?? 4) + 2
+  const pointRadius = selectedPointRadius(baseStyle)
   if (primitive.kind === 'point') {
     return { ...primitive, style: { ...primitive.style, stroke, pointRadius } }
   }
@@ -97,6 +104,31 @@ function applySelectedStyle(
   }
   if (primitive.kind === 'area') return { ...primitive, style: { ...primitive.style, stroke } }
   return primitive
+}
+
+/**
+ * 选中图元的线段中点垂直手柄：与选中锚点同色、同半径的点图元，形状由绘制侧决定。
+ * @param drawing 已解析到当前帧的图元
+ * @param toScreen 锚点 → 屏幕坐标（与图元绘制同一映射）
+ */
+function projectVerticalHandles(
+  drawing: ResolvedDrawingObject,
+  toScreen: (anchor: ResolvedDrawingAnchor) => ScreenPoint,
+): DrawingPrimitive[] {
+  const handles: DrawingPrimitive[] = []
+  for (const line of getVerticalHandleLines(drawing.kind)) {
+    const from = drawing.anchors[line.from]
+    const to = drawing.anchors[line.to]
+    // 锚点缺失（导入的残缺图元）时不出手柄，避免把手柄画到错误的线上。
+    if (!from || !to) continue
+    handles.push({
+      kind: 'point',
+      role: 'handle',
+      point: midpoint(toScreen(from), toScreen(to)),
+      style: { stroke: drawing.style.stroke, pointRadius: selectedPointRadius(drawing.style) },
+    })
+  }
+  return handles
 }
 
 /** 将持久化文本附加到对应线段；锚点、旋转、对齐与基线由渲染器和热点共用同一约定。 */
@@ -226,6 +258,8 @@ export function projectDrawingsForFrame(
     xAxisRanges: [],
   }
   const selectedIds = new Set(store.getSelectedIds())
+  // 手柄统一在所有图元之后压入，保证不被后画的图元遮住。
+  const handlePrimitives: DrawingPrimitive[] = []
   const seriesData = context.data as KLineData[]
   const visibleData = seriesData.slice(context.range.start, context.range.end)
   // 锚点索引由活动 Buffer 的时间索引解析，RenderContext 已保证解析器存在。
@@ -263,6 +297,7 @@ export function projectDrawingsForFrame(
       : primitives
     output.primitives.push(...styledPrimitives)
     if (isSelected) {
+      handlePrimitives.push(...projectVerticalHandles(drawing, toScreen))
       projectAxisDecorations(
         drawing.kind,
         [...drawing.anchors, ...(geometry.computedAnchors ?? [])],
@@ -274,6 +309,7 @@ export function projectDrawingsForFrame(
       )
     }
   }
+  output.primitives.push(...handlePrimitives)
   if (selectionMarquee?.paneId === context.pane.id) {
     output.primitives.push(...createSelectionMarqueePrimitives(selectionMarquee, themeColors))
   }

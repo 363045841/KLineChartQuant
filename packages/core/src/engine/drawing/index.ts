@@ -10,6 +10,7 @@ import type {
   DrawingWorkspaceId,
   LinePrimitive,
   PointPrimitive,
+  ScreenPoint,
   TextPrimitive,
 } from '../../foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
@@ -136,6 +137,25 @@ function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): vo
 function applyFillStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
   ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.globalAlpha = style?.fillOpacity ?? 1
+}
+
+/** 线段中点垂直手柄的描边宽度与圆角半径（px）。 */
+const HANDLE_STROKE_WIDTH = 2
+const HANDLE_CORNER_RADIUS = 3
+
+/** 绘制线段中点垂直手柄：以中点为心的空心圆角矩形，指示这条线可沿价格轴平移。 */
+function drawVerticalHandle(
+  ctx: CanvasRenderingContext2D,
+  point: ScreenPoint,
+  halfSize: number,
+  style?: DrawingStyle,
+): void {
+  const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
+  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
+  ctx.lineWidth = style?.strokeWidth ?? HANDLE_STROKE_WIDTH
+  ctx.beginPath()
+  ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
+  ctx.stroke()
 }
 
 function clipLineToRect(
@@ -280,11 +300,16 @@ function drawMultilineText(
 export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
   return {
     point(ctx, primitive, dpr) {
-      const radius = primitive.style?.pointRadius ?? 4
+      const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
       ctx.save()
+      if (primitive.role === 'handle') {
+        drawVerticalHandle(ctx, primitive.point, radius, primitive.style)
+        ctx.restore()
+        return
+      }
       ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
       ctx.beginPath()
-      ctx.arc(primitive.point.x, primitive.point.y, Math.max(radius, 1 / dpr), 0, Math.PI * 2)
+      ctx.arc(primitive.point.x, primitive.point.y, radius, 0, Math.PI * 2)
       ctx.fill()
       if (primitive.text) {
         ctx.fillStyle =

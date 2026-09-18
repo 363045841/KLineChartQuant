@@ -4,24 +4,15 @@ import type { ResolveDrawingPointerOptions } from './coordinateUtils.js'
 import {
   anchorToScreen,
   isScreenPoint,
+  midpoint,
   resolveDrawingPointer,
   screenToAnchor,
 } from './coordinateUtils.js'
 import type { DragFollow } from './dragPolicy.js'
-import { resolveAnchorFollowers } from './dragPolicy.js'
+import { resolveAnchorFollowers, resolveVerticalHandleAnchors } from './dragPolicy.js'
+import type { DrawingDragTarget } from './HitTester.js'
 
 // ---- Types ----
-
-/** 一次拖拽的命中目标：锚点（含下标）或整个图元。 */
-export type DrawingDragTarget =
-  | {
-      readonly type: 'anchor'
-      /** 拖拽锚点下标。 */
-      readonly index: number
-    }
-  | {
-      readonly type: 'all'
-    }
 
 export interface DragState {
   drawings: DrawingObject[]
@@ -67,7 +58,7 @@ export class DragHandler {
   /**
    * 开始拖拽。
    * @param drawings 参与本次拖拽的图元
-   * @param target 命中目标（点 / 边 / 整体）
+   * @param target 命中目标（锚点 / 线段中点手柄 / 整体）
    * @param mouseX 起始鼠标 X（屏幕 px）
    * @param mouseY 起始鼠标 Y（屏幕 px）
    */
@@ -90,9 +81,9 @@ export class DragHandler {
 
   /**
    * 基于拖拽快照生成整组图元的临时覆盖，不修改已确认状态。
-   * options.magnet 仅在锚点拖拽分支生效：被拖锚点绝对跟随指针，磁吸随指针落点
+   * options.magnet 仅在锚点/手柄拖拽分支生效：命中点绝对跟随指针，磁吸随指针落点
    * 收敛到 OHLC（修饰键语义由调用方 resolveMagnetOptions 统一分发）；
-   * 整线拖拽是位移增量语义，全体锚点平移，无单一落点基准，不吸附。
+   * 整体拖拽是位移增量语义，全体锚点平移，无单一落点基准，不吸附。
    */
   handleDragMove(
     e: PointerEvent,
@@ -103,12 +94,15 @@ export class DragHandler {
     if (!this.dragState) return null
 
     const target = this.dragState.target
-    const magnet = target.type === 'anchor' ? options?.magnet : undefined
+    const magnet = target.type === 'all' ? undefined : options?.magnet
     const pointer = resolveDrawingPointer(e, container, adapter, magnet ? { magnet } : undefined)
     const primary = this.dragState.drawings[0]
     if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
     if (target.type === 'anchor') {
       return [this.moveAnchor(primary, target.index, pointer, adapter)]
+    }
+    if (target.type === 'vertical-handle') {
+      return [this.moveVerticalHandle(primary, target.lineIndex, pointer, adapter)]
     }
     const dx = pointer.x - this.dragState.startMouse.x
     const dy = pointer.y - this.dragState.startMouse.y
@@ -160,6 +154,53 @@ export class DragHandler {
       }
     }
     return { ...drawing, anchors }
+  }
+
+  /**
+   * 拖拽线段中点垂直手柄：指针 Y 相对手柄中点的偏移换算成价格增量，
+   * 对该线的两个锚点同增同减，时间与 futureOffset 保持不变（这条线只沿价格轴平移）。
+   * @param drawing 拖拽的图元
+   * @param lineIndex 手柄所在线在线表中的下标
+   * @param pointer 指针解析出的落点锚点
+   * @param adapter 视口与坐标换算查询
+   */
+  private moveVerticalHandle(
+    drawing: DrawingObject,
+    lineIndex: number,
+    pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+    adapter: DrawingViewportPort,
+  ): DrawingObject {
+    const snapshot = this.dragState?.drawings[0]
+    const pair = resolveVerticalHandleAnchors(drawing.kind, lineIndex)
+    if (!snapshot || !pair) return drawing
+
+    const [from, to] = pair
+    const origin = this.anchorMidpoint(snapshot, from, to, adapter)
+    if (!origin) return drawing
+
+    const priceDelta =
+      adapter.yToPrice(drawing.paneId, pointer.y) - adapter.yToPrice(drawing.paneId, origin.y)
+    const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
+    for (const index of pair) {
+      const anchor = anchors[index]
+      if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
+    }
+    return { ...drawing, anchors }
+  }
+
+  /** 两个锚点的屏幕中点；任一端不可投影时返回 null。 */
+  private anchorMidpoint(
+    drawing: DrawingObject,
+    fromIndex: number,
+    toIndex: number,
+    adapter: DrawingViewportPort,
+  ): { x: number; y: number } | null {
+    const from = drawing.anchors[fromIndex]
+    const to = drawing.anchors[toIndex]
+    const a = from ? anchorToScreen(from, drawing.paneId, adapter) : null
+    const b = to ? anchorToScreen(to, drawing.paneId, adapter) : null
+    if (!isScreenPoint(a) || !isScreenPoint(b)) return null
+    return midpoint(a, b)
   }
 
   /**

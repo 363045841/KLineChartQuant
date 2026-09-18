@@ -129,7 +129,10 @@ describe('HitTester', () => {
       style: {},
     }
 
-    expect(new HitTester().hitTest(137, 120, [drawing], createAdapter())).toEqual({ drawing })
+    expect(new HitTester().hitTest(137, 120, [drawing], createAdapter())).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
   })
 
   it('returns the Fibonacci line label target at its offset anchor', () => {
@@ -220,7 +223,7 @@ describe('HitTester', () => {
     for (let index = 0; index < drawing.anchors.length; index++) {
       expect(
         new HitTester().hitTest(anchorScreenX(index), anchorScreenY(index), [drawing], adapter),
-      ).toEqual({ drawing, anchorIndex: index })
+      ).toEqual({ drawing, target: { type: 'anchor', index } })
     }
   })
 
@@ -228,24 +231,62 @@ describe('HitTester', () => {
     const { drawing, adapter } = createChannelFixture()
 
     // 两条线的中点均远离四个锚点，命中只报告图元主体。
-    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({ drawing })
-    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({ drawing })
+    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
   })
 
   it('hits the body of a flat line when the pointer lands on one of its lines', () => {
     const { drawing, adapter } = createFlatLineFixture()
 
     // 斜线中点为 (45, 80)，水平线中点为 (45, 140)。
-    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({ drawing })
-    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({ drawing })
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
   })
 
   it('hits the body of a disjoint channel when the pointer lands on one of its lines', () => {
     const { drawing, adapter } = createDisjointChannelFixture()
 
     // 两条线的中点为 (45, 90) 与 (45, 150)，距离四个锚点均超过命中半径。
-    expect(new HitTester().hitTest(45, 90, [drawing], adapter)).toEqual({ drawing })
-    expect(new HitTester().hitTest(45, 150, [drawing], adapter)).toEqual({ drawing })
+    expect(new HitTester().hitTest(45, 90, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+    expect(new HitTester().hitTest(45, 150, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the line midpoint handle of a selected drawing, and the body otherwise', () => {
+    const { drawing, adapter } = createFlatLineFixture()
+    const selected = new Set([drawing.id])
+
+    // 斜线中点 (45, 80)、水平线中点 (45, 140)：命中报告线在 LINES 表中的下标。
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter, selected)).toEqual({
+      drawing,
+      target: { type: 'vertical-handle', lineIndex: 0 },
+    })
+    expect(new HitTester().hitTest(45, 140, [drawing], adapter, selected)).toEqual({
+      drawing,
+      target: { type: 'vertical-handle', lineIndex: 1 },
+    })
+    // 手柄只在选中态可见：未选中时中点按线身命中 → 整体拖拽。
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
   })
 
   it('prefers a line label over the area center when both are in range', () => {

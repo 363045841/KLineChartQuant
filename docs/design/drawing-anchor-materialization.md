@@ -43,3 +43,11 @@
 `disjoint-channel` 是刚性形状：创建期不变量（`x(0) = x(3)`、`x(1) = x(2)`、`p(2) − p(3) = −(p(1) − p(0))`）在点拖（同 X 配对同步 X、价格反向）与整体拖拽后都成立。
 
 `regression-channel` 不做拖拽策略：其端点由数据拟合产生，命中时映射回两个范围锚点，走缺省行为。
+
+## 线段中点垂直手柄
+
+- 声明：`lines.ts` 的线表逐条声明 `verticalHandle`，登记即开启。当前 `parallel-channel`、`flat-line`、`disjoint-channel` 的两条线都开启；未声明的线不绘制手柄、不命中、拖拽策略返回 null。
+- 可见与命中：手柄只在图元被选中时绘制（`frameProjection` 统一压在所有图元之后），也只在该图元被选中时参与命中；未选中时中点按线身命中 → 整体拖拽。宿主查询 `hitTestAt` 一律不返回手柄。
+- 外观：中点为心的空心圆角矩形（半径沿用选中态锚点半径），形状由 `createDefaultPrimitiveRendererSet` 的 `point` 渲染器按 `role: 'handle'` 决定，颜色取图元描边。
+- 移动：拖拽只改价格、不改时间。`DragHandler` 把指针 Y 相对快照中点的偏移换算成**价格增量**，对该线的两个锚点同增同减；用价格增量而非屏幕位移，log 轴下这条线的价格差（以及 `disjoint-channel` 的镜像不变量）都不被破坏。另一条线不受影响：通道宽度会改变，`parallel-channel` 的两条线因此不再平行。
+- 不持久化：中点是两端锚点的派生量，锚点数量、拖拽提交校验、序列化与 Agent 契约均不变。

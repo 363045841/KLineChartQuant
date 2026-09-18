@@ -1,6 +1,7 @@
 /** 绘图拖拽策略：拖动图元的某个锚点时，解析要一起移动的锚点及其位移系数。 */
 
 import type { DrawingKind } from '../../foundation/plugin/index.js'
+import { getLines } from './lines.js'
 
 /** 锚点跟随位移的分量系数：1 同向、-1 反向、0 不跟随，缺省为 1。 */
 export interface DragFollow {
@@ -84,4 +85,19 @@ const anchorDragFollowers: Partial<Record<DrawingKind, AnchorDragFollowers>> = {
  */
 export function resolveAnchorFollowers(kind: DrawingKind, index: number): readonly MovingAnchor[] {
   return (anchorDragFollowers[kind] ?? onlyDraggedAnchor)(index)
+}
+
+/**
+ * 解析拖拽线段中点垂直手柄时一起上下移动的锚点对。
+ * 两个锚点按同一价格增量移动、时间不变，因此该线只沿价格轴平移、形状不变。
+ * @param kind 图元种类
+ * @param lineIndex 线在 {@link getLines} 数组中的下标
+ * @returns 锚点对；该线未开启垂直手柄时返回 null
+ */
+export function resolveVerticalHandleAnchors(
+  kind: DrawingKind,
+  lineIndex: number,
+): readonly [from: number, to: number] | null {
+  const line = getLines(kind)[lineIndex]
+  return line?.verticalHandle ? [line.from, line.to] : null
 }

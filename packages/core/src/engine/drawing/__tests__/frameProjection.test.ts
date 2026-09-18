@@ -1,7 +1,14 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import type { DrawingKind, DrawingObject, RenderContext } from '../../../foundation/plugin'
+import type {
+  DrawingFrameProjection,
+  DrawingKind,
+  DrawingObject,
+  DrawingPrimitive,
+  PointPrimitive,
+  RenderContext,
+} from '../../../foundation/plugin'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
 import { projectDrawingsForFrame } from '../frameProjection'
@@ -48,6 +55,38 @@ const createTrendDrawing = (overrides: Partial<DrawingObject> = {}) =>
     ...overrides,
   })
 
+/** 从帧投影中取出点图元（含线段中点手柄）。 */
+function pointPrimitives(
+  primitives: ReadonlyArray<DrawingPrimitive>,
+): ReadonlyArray<PointPrimitive> {
+  return primitives.filter((primitive): primitive is PointPrimitive => primitive.kind === 'point')
+}
+
+/** 平滑顶底夹具：斜线 (10,90)-(30,80)，水平线 (10,95)-(30,95)。 */
+function createFlatLineDrawing(id: string): DrawingObject {
+  return createDrawingObject({
+    id,
+    kind: 'flat-line',
+    anchors: [
+      { id: 'a', time: 1_000, price: 10 },
+      { id: 'b', time: 2_000, price: 20 },
+      { id: 'h1', time: 1_000, price: 5 },
+      { id: 'h2', time: 2_000, price: 5 },
+    ],
+  })
+}
+
+/** 用单个图元跑一次帧投影，selected 决定其是否被选中。 */
+function projectSingleDrawing(drawing: DrawingObject, selected: boolean): DrawingFrameProjection {
+  const store = new DrawingStore({
+    drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+    selectedDrawingIds$: createSignal<ReadonlyArray<string>>(selected ? [drawing.id] : []),
+  })
+  const definitions = new DrawingDefinitionRegistry()
+  registerDefaultDrawingDefinitions(definitions)
+  return projectDrawingsForFrame(store, definitions, createContext())
+}
+
 describe('projectDrawingsForFrame', () => {
   it('returns selected drawing primitives and axis decorations without mutating context', () => {
     const drawing = createTrendDrawing({ style: { stroke: '#2962ff', strokeWidth: 1 } })
@@ -70,25 +109,7 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('enlarges every anchor of a selected drawing, including line endpoints', () => {
-    const drawing = createDrawingObject({
-      id: 'flat',
-      kind: 'flat-line',
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, price: 20 },
-        { id: 'h1', time: 1_000, price: 5 },
-        { id: 'h2', time: 2_000, price: 5 },
-      ],
-    })
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['flat']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-    const context = createContext()
-
-    const projection = projectDrawingsForFrame(store, definitions, context)
+    const projection = projectSingleDrawing(createFlatLineDrawing('flat'), true)
 
     // 线段端点与点图元共用同一放大半径，选中后锚点视觉一致。
     expect(
@@ -97,11 +118,62 @@ describe('projectDrawingsForFrame', () => {
         .map((primitive) => primitive.style?.pointRadius),
     ).toEqual([6, 6])
     expect(
-      projection.primitives
-        .filter((primitive) => primitive.kind === 'point')
-        .map((primitive) => primitive.style?.pointRadius),
-    ).toEqual([6, 6])
+      pointPrimitives(projection.primitives).map((primitive) => primitive.style?.pointRadius),
+    ).toEqual([6, 6, 6, 6])
   })
+
+  const handleCases: ReadonlyArray<{
+    label: string
+    drawing: DrawingObject
+    selected: boolean
+    midpoints: ReadonlyArray<{ x: number; y: number }>
+  }> = [
+    {
+      label: 'a selected drawing',
+      drawing: createFlatLineDrawing('flat'),
+      selected: true,
+      // 锚点屏幕位置为 (10,90)、(30,80)、(10,95)、(30,95)：手柄落在两条线的中点。
+      midpoints: [
+        { x: 20, y: 85 },
+        { x: 20, y: 95 },
+      ],
+    },
+    {
+      label: 'an unselected drawing',
+      drawing: createFlatLineDrawing('flat'),
+      selected: false,
+      midpoints: [],
+    },
+    {
+      label: 'a drawing without a line table',
+      drawing: createDrawingObject({
+        id: 'trend',
+        kind: 'trend-line',
+        anchors: [
+          { id: 'a', time: 1_000, price: 10 },
+          { id: 'b', time: 2_000, price: 20 },
+        ],
+      }),
+      selected: true,
+      midpoints: [],
+    },
+  ]
+
+  it.each(handleCases)(
+    'projects a vertical handle per line midpoint for $label',
+    ({ drawing, selected, midpoints }) => {
+      const projection = projectSingleDrawing(drawing, selected)
+
+      const handles = pointPrimitives(projection.primitives).filter(
+        (primitive) => primitive.role === 'handle',
+      )
+      expect(handles.map((primitive) => primitive.point)).toEqual(midpoints)
+      // 手柄统一压在所有图元之后，不被后画的图元遮住。
+      expect(handles.length === 0 ? [] : projection.primitives.slice(-handles.length)).toEqual(
+        handles,
+      )
+    },
+  )
 
   it('attaches a persisted line label to its matching line primitive', () => {
     const drawing = createTrendDrawing({

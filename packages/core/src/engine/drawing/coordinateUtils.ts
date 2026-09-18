@@ -174,6 +174,11 @@ export function resolveDrawingPointer(
 
 // ---- Geometry ----
 
+/** 两点连线的中点。 */
+export function midpoint(a: ScreenPoint, b: ScreenPoint): ScreenPoint {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+}
+
 /**
  * 计算点 P 到线段 AB 的最短距离平方。
  * 投影点在 AB 线段外时取最近端点距离。

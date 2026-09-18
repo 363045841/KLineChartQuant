@@ -1,8 +1,5 @@
-/** 验证平滑顶底（flat-line）拖拽策略：斜线端点自由、水平线只跟时间，水平线端点另一头只跟价格。 */ import {
-  describe,
-  expect,
-  it,
-} from 'vitest'
+/** 验证平滑顶底（flat-line）拖拽策略：斜线端点自由、水平线只跟时间，水平线端点另一头只跟价格。 */
+import { describe, expect, it } from 'vitest'
 
 import type { DrawingObject } from '../../../foundation/plugin'
 import { DragHandler } from '../DragHandler'

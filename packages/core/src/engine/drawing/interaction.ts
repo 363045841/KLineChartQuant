@@ -1,7 +1,6 @@
 import type { DrawingChartAdapter } from '../../controllers/types.js'
 import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
-
 import { AnchorCollector } from './AnchorCollector.js'
 import type {
   DrawingPointerAnchor,
@@ -9,7 +8,6 @@ import type {
   ResolvedInteractionAnchor,
 } from './coordinateUtils.js'
 import { resolveDrawingPointer } from './coordinateUtils.js'
-import type { DrawingDragTarget } from './DragHandler.js'
 import { DragHandler } from './DragHandler.js'
 import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
 import { DrawingState, PREVIEW_ID } from './DrawingState.js'
@@ -316,25 +314,32 @@ export class DrawingInteractionController {
     return this.startSelectionMarquee(e, container)
   }
 
-  /** 查找当前 Pane 和工作区内被指针命中的图元。 */
+  /** 查找当前 Pane 和工作区内被指针命中的图元；选中集合决定线段中点手柄是否参与命中。 */
   private findDrawingHit(
     e: PointerEvent,
     container: HTMLElement,
   ): { pointer: DrawingPointerAnchor; hit: HitResult } | null {
     const pointer = resolveDrawingPointer(e, container, this.adapter)
     if (!pointer) return null
-    const hit = this.hitTester.hitTest(
+    const hit = this.findSelectableHit(pointer)
+    return hit ? { pointer, hit } : null
+  }
+
+  /** 命中当前 Pane 与工作区内可选中图元的拖拽目标；手柄只在图元被选中时参与命中。 */
+  private findSelectableHit(pointer: DrawingPointerAnchor): HitResult | null {
+    return this.hitTester.hitTest(
       pointer.x,
       pointer.y,
       this.getSelectableDrawings(pointer.paneId),
       this.adapter,
+      new Set(this.adapter.getSelectedDrawingIds()),
     )
-    return hit ? { pointer, hit } : null
   }
 
   /**
    * 公开命中查询：返回容器局部坐标 (x, y) 处的图元，供橡皮擦、对象树 hover 等宿主交互使用。
    * 过滤口径与光标点选一致（当前 Pane + 当前工作区 + 可见）；锁定图元同样命中，编辑策略由调用方决定。
+   * 不传选中集合：线段中点手柄是选中态专属的操作，宿主查询一律不返回它。
    * @param x 容器局部 X 坐标（px）
    * @param y 容器局部 Y 坐标（px）
    * @returns 命中的图元；未命中或 Pane 不可解析时返回 null
@@ -368,14 +373,13 @@ export class DrawingInteractionController {
     return this.getSelectableDrawings(paneId).filter((drawing) => !isDrawingLocked(drawing))
   }
 
-  /** 进入拖拽会话；锚点命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
+  /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
   private startDrag(
     pointer: DrawingPointerAnchor,
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
-    const target: DrawingDragTarget =
-      'anchorIndex' in hit ? { type: 'anchor', index: hit.anchorIndex } : { type: 'all' }
+    const target = hit.target
     const targets = (target.type === 'all' ? selectedDrawings : [hit.drawing]).filter(
       (drawing) => !isDrawingLocked(drawing),
     )
