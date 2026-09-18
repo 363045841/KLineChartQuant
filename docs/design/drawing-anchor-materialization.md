@@ -57,11 +57,10 @@
 - 契约：`DrawingInteractionController.getHoveredTarget` 返回 `DrawingHoverTarget`（`none` / `anchor` / `vertical-handle` / `all`，未命中为 `none`），kernel 以 `interactionSnapshot.drawingHoverTarget` 暴露，宿主按类型决定光标——中点手柄 `ns-resize`、线身 `move`、圆形锚点 `default`。
 - 置 `none` 的时机：指针离开画布（`Chart.handlePointerEvent` 的 `pointerleave`）、悬停被清空（`InteractionController.clearHover`：滚轮、平移、拖拽、指针移出绘图区）、切换绘图工具（`ChartDrawingFacade.setTool`，悬停目标只对 `cursor` / `box-select` 有效）。
 
-## 选中态锚点
+## 锚点视觉
 
-- 锚点只在选中态可见：未选中图元的线段端点不绘制（`showEndpoints: false`）、锚点点图元不投影，未选中态只剩线与填充。唯一例外是创建中的预览（`PREVIEW_ID`），正在放置的点需要即时反馈。
-- 外观：线段端点与点图元都由 `frameProjection.applySelectedStyle` 写入 `anchorFill`，渲染器（`createDefaultPrimitiveRendererSet` 的 `point` / `line`）据此填 `anchorFill` 并用圆形描边（`drawAnchor` 用 `arc`）。填充色是 `foundation/tokens/drawingColors.ts` 的 `DRAWING_ANCHOR_FILL`，业务代码不硬编码颜色。
-- 选中态只加强锚点，线身不加粗：`applySelectedStyle` 不覆写 `strokeWidth`，线图元沿用图元自身线宽。
+- 可见性：锚点只在图元被选中或处于创建预览（`PREVIEW_ID`）时显示。未选中图元的线段端点不绘制（`showEndpoints: false`）、锚点点图元不投影，未选中态只剩线与填充；创建中的预览正在放置的点需要即时反馈，因此保留端点与锚点。
+- 外观：锚点统一是白底实心 + 图元色描边环的圆形。填充色取 `foundation/tokens/drawingColors.ts` 的 `DRAWING_ANCHOR_FILL`，描边取图元 `stroke`，业务代码不硬编码颜色。渲染端没有「按描边色实心、不描环」的分支，投影也无需再传填充色开关。
 - 描边环是交互提示，始终实线：`drawAnchor` 描环前 `setLineDash([])`，`strokeStyle: 'dashed'` 只作用于线身（如 `regression-channel` 的中间回归线）。
 - 锚点归属：线图元的端点即锚点；水平射线与十字线的锚点由显式 `role: 'anchor'` 的点图元提供（`flat-line` 的两个水平端点已由第二条线的端点覆盖，不重复投影）。
-- 描边宽度：锚点与中点手柄共用 `ANCHOR_STROKE_WIDTH`，不受图元 `strokeWidth` 影响，选中态加粗只作用于线身。
+- 描边宽度：锚点与中点手柄共用 `ANCHOR_STROKE_WIDTH`，不受图元 `strokeWidth` 影响；选中态不加粗线身，`applySelectedStyle` 只对齐描边、不覆写 `strokeWidth`。

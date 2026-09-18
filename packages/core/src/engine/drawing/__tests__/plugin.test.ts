@@ -118,8 +118,8 @@ describe('createDefaultPrimitiveRendererSet', () => {
     expect(ctx.fillText).toHaveBeenCalledWith('第二行', 0, 0)
   })
 
-  /** 线身虚线不得传染到选中态锚点环：虚线只作用于线本身。 */
-  it('keeps selected anchor rings solid on a dashed line', () => {
+  /** 线身虚线不得传染到锚点环：虚线只作用于线本身。 */
+  it('keeps anchor rings solid on a dashed line', () => {
     const ctx = createMockCanvasContext()
     const renderers = createDefaultPrimitiveRendererSet()
 
@@ -129,7 +129,6 @@ describe('createDefaultPrimitiveRendererSet', () => {
         kind: 'line',
         a: { x: 10, y: 20 },
         b: { x: 90, y: 20 },
-        anchorFill: '#fff',
         style: { stroke: '#f00', strokeWidth: 1, strokeStyle: 'dashed' },
       },
       { left: 0, top: 0, right: 100, bottom: 100 },

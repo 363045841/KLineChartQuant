@@ -15,7 +15,7 @@ import {
   type ScreenPoint,
   type TextPrimitive,
 } from '../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
+import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '../../foundation/tokens/index.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 
@@ -149,7 +149,7 @@ const ANCHOR_STROKE_WIDTH = 1
 const HANDLE_CORNER_RADIUS = 2
 
 /**
- * 绘制线段中点垂直手柄：以中点为心的圆角矩形，填充同锚点、描边取图元颜色，指示这条线可沿价格轴平移。
+ * 绘制线段中点垂直手柄：以中点为心的圆角矩形，填白底、描图元颜色，指示这条线可沿价格轴平移。
  * 圆角只是让方块不显得生硬，整体仍是方形轮廓，与圆形锚点区分；描边宽度与锚点一致。
  */
 function drawVerticalHandle(
@@ -157,7 +157,6 @@ function drawVerticalHandle(
   point: ScreenPoint,
   halfSize: number,
   style?: DrawingStyle,
-  anchorFill?: string,
 ): void {
   const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
   ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
@@ -166,7 +165,7 @@ function drawVerticalHandle(
   ctx.setLineDash([])
   ctx.beginPath()
   ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
-  ctx.fillStyle = anchorFill ?? style?.fill ?? DEFAULT_DRAWING_STROKE
+  ctx.fillStyle = DRAWING_ANCHOR_FILL
   ctx.fill()
   ctx.stroke()
 }
@@ -182,25 +181,18 @@ function isInsideViewport(
 }
 
 /**
- * 绘制锚点。
- * 提供 anchorFill 时画成「填充色实心 + 图元描边环」，即选中态锚点；缺省按描边色实心。
- * 形状为圆形，圆心即锚点；描边环是交互提示，始终实线，图元的 strokeStyle 只作用于线身。
+ * 绘制锚点：白底实心 + 图元色描边环，圆形，圆心即锚点。
+ * 描边环是交互提示，始终实线，图元的 strokeStyle 只作用于线身。
  */
 function drawAnchor(
   ctx: CanvasRenderingContext2D,
   point: ScreenPoint,
   radius: number,
   style?: DrawingStyle,
-  anchorFill?: string,
 ): void {
   ctx.beginPath()
   ctx.arc(point.x, point.y, radius, 0, Math.PI * 2)
-  if (anchorFill === undefined) {
-    ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
-    ctx.fill()
-    return
-  }
-  ctx.fillStyle = anchorFill
+  ctx.fillStyle = DRAWING_ANCHOR_FILL
   ctx.fill()
   ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.lineWidth = ANCHOR_STROKE_WIDTH
@@ -353,11 +345,11 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
       ctx.save()
       if (primitive.role === POINT_ROLE['translate-handle']) {
-        drawVerticalHandle(ctx, primitive.point, radius, primitive.style, primitive.anchorFill)
+        drawVerticalHandle(ctx, primitive.point, radius, primitive.style)
         ctx.restore()
         return
       }
-      drawAnchor(ctx, primitive.point, radius, primitive.style, primitive.anchorFill)
+      drawAnchor(ctx, primitive.point, radius, primitive.style)
       if (primitive.text) {
         ctx.fillStyle =
           primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
@@ -409,7 +401,7 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
         const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
         for (const endpoint of [primitive.a, primitive.b]) {
           if (!isInsideViewport(endpoint, viewportClip)) continue
-          drawAnchor(ctx, endpoint, pointRadius, primitive.style, primitive.anchorFill)
+          drawAnchor(ctx, endpoint, pointRadius, primitive.style)
         }
       }
 

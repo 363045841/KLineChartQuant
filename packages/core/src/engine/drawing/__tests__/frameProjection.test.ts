@@ -12,7 +12,6 @@ import {
   type RenderContext,
 } from '../../../foundation/plugin'
 import { createSignal } from '../../../foundation/reactivity/signal'
-import { DRAWING_ANCHOR_FILL } from '../../../foundation/tokens/drawingColors'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
 import { PREVIEW_ID } from '../DrawingState'
 import { projectDrawingsForFrame } from '../frameProjection'
@@ -122,14 +121,10 @@ describe('projectDrawingsForFrame', () => {
 
     const projection = projectSingleDrawing(drawing, true)
 
-    // 选中态只加锚点，线身不加粗：线图元仍沿用图元自身的 strokeWidth。
+    // 选中态只对齐描边，线身不加粗：线图元仍沿用图元自身的 strokeWidth。
     expect(
       linePrimitives(projection.primitives).map((primitive) => primitive.style?.strokeWidth),
     ).toEqual([2])
-    // 端点仍拿到 anchorFill，说明选中态的锚点提示没有丢。
-    expect(linePrimitives(projection.primitives).map((primitive) => primitive.anchorFill)).toEqual([
-      DRAWING_ANCHOR_FILL,
-    ])
   })
 
   it('keeps the anchors of an in-progress preview visible', () => {

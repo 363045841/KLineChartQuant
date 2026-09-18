@@ -11,11 +11,7 @@ import {
   type ResolvedDrawingObject,
   type ScreenPoint,
 } from '../../foundation/plugin/index.js'
-import {
-  DEFAULT_DRAWING_STROKE,
-  DRAWING_ANCHOR_FILL,
-  resolveThemeColors,
-} from '../../foundation/tokens/index.js'
+import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { resolveChartWorkspaceId } from '../state/modeState.js'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
@@ -94,8 +90,8 @@ function withoutAnchorVisuals(primitive: DrawingPrimitive): DrawingPrimitive | n
 }
 
 /**
- * 选中态锚点填充；未选中态不投影锚点。
- * 创建中的预览例外：正在放置的点需要即时反馈，保持原样。
+ * 选中态把图元描边对齐到自身 style；未选中态不投影锚点。
+ * 创建中的预览例外：正在放置的点需要即时反馈，保留端点与锚点。
  */
 function resolveStyledPrimitives(
   primitives: ReadonlyArray<DrawingPrimitive>,
@@ -103,9 +99,7 @@ function resolveStyledPrimitives(
   isSelected: boolean,
 ): DrawingPrimitive[] {
   if (isSelected) {
-    return primitives.map((primitive) =>
-      applySelectedStyle(primitive, drawing.style, DRAWING_ANCHOR_FILL),
-    )
+    return primitives.map((primitive) => applySelectedStyle(primitive, drawing.style))
   }
   if (drawing.id === PREVIEW_ID) return [...primitives]
   return primitives.map(withoutAnchorVisuals).filter((primitive) => primitive !== null)
@@ -113,28 +107,15 @@ function resolveStyledPrimitives(
 
 /**
  * 将选中图元的 primitive 视觉样式提升，保持原始 geometry 不变。
- * 选中态只加强锚点视觉：点图元与线段端点写入 anchorFill，画成「anchorFill 实心 + 图元描边环」；
- * 线身不加粗，线宽与未选中一致，避免改变图元的原始视觉重量。
+ * 锚点视觉由渲染端统一处理（白底 + 图元色描边环）；这里只把描边对齐到图元 stroke，
+ * 不覆写 strokeWidth，避免改变图元的原始视觉重量。
  */
 function applySelectedStyle(
   primitive: DrawingPrimitive,
   baseStyle: DrawingStyle,
-  anchorFill: string,
 ): DrawingPrimitive {
-  const stroke = baseStyle.stroke
-  if (primitive.kind === PRIMITIVE_KIND.point) {
-    return { ...primitive, anchorFill, style: { ...primitive.style, stroke } }
-  }
-  if (primitive.kind === PRIMITIVE_KIND.line) {
-    return { ...primitive, anchorFill, style: { ...primitive.style, stroke } }
-  }
-  if (primitive.kind === PRIMITIVE_KIND.arrow) {
-    return { ...primitive, style: { ...primitive.style, stroke } }
-  }
-  if (primitive.kind === PRIMITIVE_KIND.area) {
-    return { ...primitive, style: { ...primitive.style, stroke } }
-  }
-  return primitive
+  if (primitive.kind === PRIMITIVE_KIND.text) return primitive
+  return { ...primitive, style: { ...primitive.style, stroke: baseStyle.stroke } }
 }
 
 /**
@@ -156,7 +137,6 @@ function projectVerticalHandles(
       kind: PRIMITIVE_KIND.point,
       role: POINT_ROLE['translate-handle'],
       point: midpoint(toScreen(from), toScreen(to)),
-      anchorFill: DRAWING_ANCHOR_FILL,
       style: { stroke: drawing.style.stroke },
     })
   }

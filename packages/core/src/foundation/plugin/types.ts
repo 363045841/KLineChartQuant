@@ -569,12 +569,11 @@ export const POINT_ROLE = {
   'translate-handle': 'translate-handle',
 } as const satisfies Record<PointRole, PointRole>
 
+/** 点图元：锚点圆点统一填白底、描图元色环，没有填充色开关。 */
 export type PointPrimitive = {
   kind: 'point'
   point: ScreenPoint
   role?: PointRole
-  /** 拖拽点（锚点圆点 / 平移手柄）的内部填充色；提供后按「该色填充 + style.stroke 描边」，缺省用描边色实心。 */
-  anchorFill?: string
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
@@ -585,8 +584,6 @@ export type LinePrimitive = {
   b: ScreenPoint
   extend?: 'none' | 'left' | 'right' | 'both'
   showEndpoints?: boolean
-  /** 端点圆点（锚点）的内部填充色，语义同 {@link PointPrimitive.anchorFill}。 */
-  anchorFill?: string
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
