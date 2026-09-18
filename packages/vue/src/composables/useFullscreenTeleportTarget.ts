@@ -11,7 +11,5 @@ export function provideFullscreenTeleportTarget(targetRef: Ref<HTMLElement | nul
 export function useFullscreenTeleportTarget() {
   const targetRef = inject(FULLSCREEN_TARGET_KEY, null)
 
-  return computed<HTMLElement | string>(() => {
-    return targetRef?.value ?? 'body'
-  })
+  return computed<HTMLElement | string>(() => targetRef?.value ?? 'body')
 }

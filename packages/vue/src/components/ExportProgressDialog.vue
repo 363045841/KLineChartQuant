@@ -2,7 +2,6 @@
   <BaseModal
     title="导出数据"
     :show="!!progress"
-    :z-index="1100"
     :close-on-overlay="false"
     footer-align="center"
     @close="emit('close')"

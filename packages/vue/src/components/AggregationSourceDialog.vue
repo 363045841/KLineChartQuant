@@ -4,8 +4,6 @@
     title="聚合源管理"
     width="min(92vw, 480px)"
     body-padding="8px"
-    :z-index="zIndex"
-    transition-variant="compact"
     @close="emit('close')"
   >
     <div class="source-list">
@@ -108,10 +106,8 @@
       /** source name -> host/port 草稿 */
       endpoints: Record<string, AggregationSourceEndpoint>
       /** 嵌套在图表设置内时抬高层级 */
-      zIndex?: number
     }>(),
     {
-      zIndex: 1000,
     },
   )
 

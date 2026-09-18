@@ -1,5 +1,3 @@
-// 锚定弹层的「外部点击关闭」：统一监听器生命周期与命中判定，供 Dropdown / SymbolPopover 复用。
-
 import { onBeforeUnmount, watch } from 'vue'
 
 interface UseClickOutsideOptions {
@@ -19,7 +17,6 @@ export function useClickOutside(
   onOutside: () => void,
   options: UseClickOutsideOptions = {},
 ) {
-  /** 点击路径是否命中任一目标元素。 */
   function isInside(event: PointerEvent): boolean {
     const path = event.composedPath()
     return getTargets().some((target) => target !== null && path.includes(target))
