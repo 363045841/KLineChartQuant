@@ -10,16 +10,16 @@
         "start": "next start"
     },
     "dependencies": {
+        "@363045841yyt/klinechart-core": "link:../../packages/core",
         "@363045841yyt/klinechart-react": "link:../../packages/react",
-"@363045841yyt/klinechart-core": "link:../../packages/core",
         "next": "^15.0.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0"
+        "react": "^19.3.0",
+        "react-dom": "^19.3.0"
     },
     "devDependencies": {
         "@types/node": "^22.0.0",
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
+        "@types/react": "^19.3.0",
+        "@types/react-dom": "^19.3.0",
         "typescript": "~5.6.0"
     }
 }

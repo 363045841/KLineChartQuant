@@ -7,9 +7,16 @@ import { PREVIEW_ID } from '../DrawingState'
 
 function createDocument() {
   const state = createDrawingState()
+  // 五个 Bar 的时间轴：锚点 1_000 落在索引 4，派生锚点仍可落在数据范围内。
+  const timestamps = [0, 250, 500, 750, 1_000]
   const document = new DrawingDocument({
     drawingState: state,
-    getLogicalIndexAtTimestamp: (timestamp) => (timestamp === 1_000 ? 4 : null),
+    getLogicalIndexAtTimestamp: (timestamp) => {
+      const index = timestamps.indexOf(timestamp)
+      return index === -1 ? null : index
+    },
+    getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
+    getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
     findAnchorAtTradingDate: (tradingDate) =>
       tradingDate === '2026-04-10' ? { timestamp: 1_000 } : null,
     hasPaneId: (paneId) => paneId === 'main',
@@ -29,6 +36,28 @@ describe('DrawingDocument', () => {
     })
 
     expect(drawing.anchors).toEqual([expect.objectContaining({ price: 9 })])
+  })
+
+  it('persists the derived parallel-channel anchor and accepts it on drag', () => {
+    const { document } = createDocument()
+
+    const drawing = document.createDrawing({
+      kind: 'parallel-channel',
+      paneId: 'main',
+      anchors: [
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 1_000, price: 20 },
+        { timestamp: 1_000, price: 30 },
+      ],
+    })
+
+    // 第三个输入价格落在 3（次点 X），2（首点 X）按首两点增量反向回推为 20。
+    expect(drawing.anchors).toHaveLength(4)
+    expect(drawing.anchors[2]).toMatchObject({ time: 1_000, price: 20 })
+    expect(drawing.anchors[3]).toMatchObject({ time: 1_000, price: 30 })
+
+    const moved = drawing.anchors.map((anchor) => ({ ...anchor, price: anchor.price + 1 }))
+    expect(document.commitDrawingDrag(drawing.id, moved)?.anchors[2]).toMatchObject({ price: 21 })
   })
 
   it('selects the new drawing and drops the previous selection', () => {

@@ -1,18 +1,21 @@
-import type {
-  AreaPrimitive,
-  ArrowPrimitive,
-  DrawingComputeContext,
-  DrawingDefinition,
-  DrawingGeometry,
-  DrawingKind,
-  DrawingObject,
-  DrawingStyle,
-  DrawingWorkspaceId,
-  LinePrimitive,
-  PointPrimitive,
-  TextPrimitive,
+import {
+  type AreaPrimitive,
+  type ArrowPrimitive,
+  type DrawingComputeContext,
+  type DrawingDefinition,
+  type DrawingGeometry,
+  type DrawingKind,
+  type DrawingObject,
+  type DrawingStyle,
+  type DrawingWorkspaceId,
+  type LinePrimitive,
+  POINT_ROLE,
+  type PointPrimitive,
+  PRIMITIVE_KIND,
+  type ScreenPoint,
+  type TextPrimitive,
 } from '../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
+import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '../../foundation/tokens/index.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 
@@ -31,7 +34,9 @@ export type {
 }
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { midpoint } from './coordinateUtils.js'
 import { mergePaint } from './DrawingState.js'
+import { buildFillPolygon } from './fillRegions.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 
 export type { DrawingCommandsDependencies } from './DrawingCommands.js'
@@ -136,6 +141,63 @@ function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): vo
 function applyFillStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
   ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.globalAlpha = style?.fillOpacity ?? 1
+}
+
+/** 锚点与中点手柄的描边宽度（px）。 */
+const ANCHOR_STROKE_WIDTH = 1
+/** 线段中点垂直手柄的圆角半径（px）。 */
+const HANDLE_CORNER_RADIUS = 2
+
+/**
+ * 绘制线段中点垂直手柄：以中点为心的圆角矩形，填白底、描图元颜色，指示这条线可沿价格轴平移。
+ * 圆角只是让方块不显得生硬，整体仍是方形轮廓，与圆形锚点区分；描边宽度与锚点一致。
+ */
+function drawVerticalHandle(
+  ctx: CanvasRenderingContext2D,
+  point: ScreenPoint,
+  halfSize: number,
+  style?: DrawingStyle,
+): void {
+  const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
+  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
+  ctx.lineWidth = ANCHOR_STROKE_WIDTH
+  // 手柄是交互提示，描边始终实线；图元的 strokeStyle 只作用于线身。
+  ctx.setLineDash([])
+  ctx.beginPath()
+  ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
+  ctx.fillStyle = DRAWING_ANCHOR_FILL
+  ctx.fill()
+  ctx.stroke()
+}
+
+/** 判断屏幕点是否落在视口裁剪矩形内（含边界），线段端点据此决定是否绘制。 */
+function isInsideViewport(
+  point: ScreenPoint,
+  clip: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  return (
+    point.x >= clip.left && point.x <= clip.right && point.y >= clip.top && point.y <= clip.bottom
+  )
+}
+
+/**
+ * 绘制锚点：白底实心 + 图元色描边环，圆形，圆心即锚点。
+ * 描边环是交互提示，始终实线，图元的 strokeStyle 只作用于线身。
+ */
+function drawAnchor(
+  ctx: CanvasRenderingContext2D,
+  point: ScreenPoint,
+  radius: number,
+  style?: DrawingStyle,
+): void {
+  ctx.beginPath()
+  ctx.arc(point.x, point.y, radius, 0, Math.PI * 2)
+  ctx.fillStyle = DRAWING_ANCHOR_FILL
+  ctx.fill()
+  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
+  ctx.lineWidth = ANCHOR_STROKE_WIDTH
+  ctx.setLineDash([])
+  ctx.stroke()
 }
 
 function clipLineToRect(
@@ -280,12 +342,14 @@ function drawMultilineText(
 export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
   return {
     point(ctx, primitive, dpr) {
-      const radius = primitive.style?.pointRadius ?? 4
+      const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
       ctx.save()
-      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-      ctx.beginPath()
-      ctx.arc(primitive.point.x, primitive.point.y, Math.max(radius, 1 / dpr), 0, Math.PI * 2)
-      ctx.fill()
+      if (primitive.role === POINT_ROLE['translate-handle']) {
+        drawVerticalHandle(ctx, primitive.point, radius, primitive.style)
+        ctx.restore()
+        return
+      }
+      drawAnchor(ctx, primitive.point, radius, primitive.style)
       if (primitive.text) {
         ctx.fillStyle =
           primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
@@ -334,29 +398,10 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
 
       // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
-        const pointRadius = primitive.style?.pointRadius ?? 4
-        ctx.fillStyle = primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-
-        if (
-          primitive.a.x >= viewportClip.left &&
-          primitive.a.x <= viewportClip.right &&
-          primitive.a.y >= viewportClip.top &&
-          primitive.a.y <= viewportClip.bottom
-        ) {
-          ctx.beginPath()
-          ctx.arc(primitive.a.x, primitive.a.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-          ctx.fill()
-        }
-
-        if (
-          primitive.b.x >= viewportClip.left &&
-          primitive.b.x <= viewportClip.right &&
-          primitive.b.y >= viewportClip.top &&
-          primitive.b.y <= viewportClip.bottom
-        ) {
-          ctx.beginPath()
-          ctx.arc(primitive.b.x, primitive.b.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-          ctx.fill()
+        const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
+        for (const endpoint of [primitive.a, primitive.b]) {
+          if (!isInsideViewport(endpoint, viewportClip)) continue
+          drawAnchor(ctx, endpoint, pointRadius, primitive.style)
         }
       }
 
@@ -627,7 +672,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
               showEndpoints: false,
               style: drawing.style,
             },
-            { kind: 'point', point, style: drawing.style },
+            { kind: PRIMITIVE_KIND.point, role: POINT_ROLE.anchor, point, style: drawing.style },
           ],
         }
       }
@@ -664,7 +709,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
             showEndpoints: false,
             style: drawing.style,
           },
-          { kind: 'point', point, style: drawing.style },
+          { kind: PRIMITIVE_KIND.point, role: POINT_ROLE.anchor, point, style: drawing.style },
         ],
       }
     },
@@ -708,47 +753,36 @@ export function createInfoLineDefinition(): DrawingDefinition {
 export function createParallelChannelDefinition(): DrawingDefinition {
   return {
     kind: 'parallel-channel',
-    minAnchors: 3,
-    maxAnchors: 3,
+    minAnchors: 4,
+    maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third] = drawing.anchors
-      if (!first || !second || !third) return { primitives: [] }
+      const [first, second, third, fourth] = drawing.anchors
+      if (!first || !second || !third || !fourth) return { primitives: [] }
       const p1 = context.toScreen(first)
       const p2 = context.toScreen(second)
       const p3 = context.toScreen(third)
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-      const p4 = { x: p3.x + dx, y: p3.y + dy }
+      const p4 = context.toScreen(fourth)
       const extend =
         (drawing.params as { extend?: LinePrimitive['extend'] } | undefined)?.extend ?? 'none'
-
-      // 计算 p4 对应的锚点信息（用于轴标签注册）
-      const p4Index = third.index + (second.index - first.index)
-      const p4Time = third.time
-        ? (typeof third.time === 'string' ? new Date(third.time).getTime() : third.time) +
-          ((typeof second.time === 'string'
-            ? new Date(second.time).getTime()
-            : (second.time ?? 0)) -
-            (typeof first.time === 'string' ? new Date(first.time).getTime() : (first.time ?? 0)))
-        : undefined
 
       return {
         primitives: [
           {
             kind: 'area',
-            points: [p1, p2, p4, p3],
+            points: buildFillPolygon('parallel-channel', [p1, p2, p3, p4]),
             closed: true,
             style: drawing.style,
           },
           { kind: 'line', a: p1, b: p2, extend, style: drawing.style },
           { kind: 'line', a: p3, b: p4, extend, style: drawing.style },
-        ],
-        computedAnchors: [
+          // 中线：两条平行线的中间虚线，端点不是锚点，选中态也不画锚点圆。
           {
-            id: `${drawing.id}-p4`,
-            index: p4Index,
-            time: p4Time,
-            price: third.price + (second.price - first.price),
+            kind: 'line',
+            a: midpoint(p1, p3),
+            b: midpoint(p2, p4),
+            extend,
+            showEndpoints: false,
+            style: { ...drawing.style, strokeStyle: 'dashed' },
           },
         ],
       }
@@ -759,34 +793,27 @@ export function createParallelChannelDefinition(): DrawingDefinition {
 export function createFlatLineDefinition(): DrawingDefinition {
   return {
     kind: 'flat-line',
-    minAnchors: 3,
-    maxAnchors: 3,
+    minAnchors: 4,
+    maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third] = drawing.anchors
-      if (!first || !second || !third) return { primitives: [] }
+      const [first, second, third, fourth] = drawing.anchors
+      if (!first || !second || !third || !fourth) return { primitives: [] }
 
       const p1 = context.toScreen(first)
       const p2 = context.toScreen(second)
-      const thirdScreen = context.toScreen(third)
-      const h1 = { x: p1.x, y: thirdScreen.y }
-      const h2 = { x: p2.x, y: thirdScreen.y }
+      const h1 = context.toScreen(third)
+      const h2 = context.toScreen(fourth)
 
       return {
         primitives: [
           {
             kind: 'area',
-            points: [p1, p2, h2, h1],
+            points: buildFillPolygon('flat-line', [p1, p2, h1, h2]),
             closed: true,
             style: drawing.style,
           },
           { kind: 'line', a: p1, b: p2, style: drawing.style },
           { kind: 'line', a: h1, b: h2, style: drawing.style },
-          { kind: 'point', point: h1, style: drawing.style },
-          { kind: 'point', point: h2, style: drawing.style },
-        ],
-        computedAnchors: [
-          { id: `${drawing.id}-h1`, index: first.index, time: first.time, price: third.price },
-          { id: `${drawing.id}-h2`, index: second.index, time: second.time, price: third.price },
         ],
       }
     },
@@ -796,47 +823,30 @@ export function createFlatLineDefinition(): DrawingDefinition {
 export function createDisjointChannelDefinition(): DrawingDefinition {
   return {
     kind: 'disjoint-channel',
-    minAnchors: 3,
-    maxAnchors: 3,
+    minAnchors: 4,
+    maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third] = drawing.anchors
-      if (!first || !second || !third) return { primitives: [] }
+      const [firstStart, firstEnd, secondEnd, secondStart] = drawing.anchors
+      if (!firstStart || !firstEnd || !secondEnd || !secondStart) return { primitives: [] }
 
-      const p1 = context.toScreen(first)
-      const p2 = context.toScreen(second)
-      const p3 = context.toScreen(third)
-
-      // 第二条线：过 p3，斜率取反
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-      const p4 = { x: p3.x + dx, y: p3.y - dy }
-
-      // 计算 p4 对应的锚点信息（用于轴标签注册）
-      const p4Index = third.index + (second.index - first.index)
-      const p4Price = third.price - (second.price - first.price)
-      const p4Time = third.time
-        ? (typeof third.time === 'string' ? new Date(third.time).getTime() : third.time) -
-          ((typeof second.time === 'string'
-            ? new Date(second.time).getTime()
-            : (second.time ?? 0)) -
-            (typeof first.time === 'string' ? new Date(first.time).getTime() : (first.time ?? 0)))
-        : undefined
+      // 锚点顺序：0 第一条线起点、1 第一条线终点、2 第二条线终点、3 第二条线起点。
+      const a0 = context.toScreen(firstStart)
+      const a1 = context.toScreen(firstEnd)
+      const a2 = context.toScreen(secondEnd)
+      const a3 = context.toScreen(secondStart)
 
       return {
         primitives: [
-          // 填充区域
+          // 填充按 0 → 1 → 2 → 3 环绕，与两条线的方向一致，避免自交。
           {
             kind: 'area',
-            points: [p1, p2, p4, p3],
+            points: buildFillPolygon('disjoint-channel', [a0, a1, a2, a3]),
             closed: true,
             style: drawing.style,
           },
-          // 斜率 k 的线
-          { kind: 'line', a: p1, b: p2, style: drawing.style },
-          // 斜率 -k 的线
-          { kind: 'line', a: p3, b: p4, style: drawing.style },
+          { kind: 'line', a: a0, b: a1, style: drawing.style },
+          { kind: 'line', a: a2, b: a3, style: drawing.style },
         ],
-        computedAnchors: [{ id: `${drawing.id}-p4`, index: p4Index, time: p4Time, price: p4Price }],
       }
     },
   }

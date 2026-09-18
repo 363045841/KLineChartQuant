@@ -1,10 +1,11 @@
 import type { DrawingChartAdapter } from '../../controllers/types.js'
 import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
-
+import type { DrawingHoverTarget } from '../state/interactionState.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import type {
   DrawingPointerAnchor,
+  PointerCoordinates,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from './coordinateUtils.js'
@@ -183,9 +184,9 @@ export class DrawingInteractionController {
         e,
         container,
         this.adapter,
-        this.resolveMagnetOptions(e),
+        this.resolvePlacementOptions(e),
       )
-      if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId)) {
+      if (!pointer) {
         this.drawingState.removePreview()
         return false
       }
@@ -223,9 +224,13 @@ export class DrawingInteractionController {
       return this.handleBoxSelectDown(e, container)
     }
 
-    const pointer = resolveDrawingPointer(e, container, this.adapter, this.resolveMagnetOptions(e))
-    if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
-      return false
+    const pointer = resolveDrawingPointer(
+      e,
+      container,
+      this.adapter,
+      this.resolvePlacementOptions(e),
+    )
+    if (!pointer) return false
 
     const anchorCount = getAnchorCountForTool(activeTool)
 
@@ -262,6 +267,8 @@ export class DrawingInteractionController {
     if (session.kind !== 'drag') return false
     this.drawingState.commitDrags()
     this.dragHandler.endDrag()
+    // 解冻悬停目标：下一次 hover flush 重新按当前位置命中。
+    this.adapter.unfreezeHoverTarget?.()
     return true
   }
 
@@ -279,6 +286,16 @@ export class DrawingInteractionController {
       return this.magnetMode === 'off' ? { magnet: { mode: 'strong' } } : undefined
     }
     return this.magnetMode === 'off' ? undefined : { magnet: { mode: this.magnetMode } }
+  }
+
+  /**
+   * 绘图落点解析选项：磁吸 + 出界钳制。
+   * 进行中的多锚点图元固定在其起始 Pane 内，指针移出该 Pane（含轴区）时贴边继续预览，
+   * 不再因落点解析失败而抹掉预览。首个锚点仍要求落在有效 Pane 内。
+   */
+  private resolvePlacementOptions(e: PointerEvent): ResolveDrawingPointerOptions {
+    const options = this.resolveMagnetOptions(e) ?? {}
+    return this.pendingPaneId === null ? options : { ...options, clampPaneId: this.pendingPaneId }
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
@@ -314,25 +331,47 @@ export class DrawingInteractionController {
     return this.startSelectionMarquee(e, container)
   }
 
-  /** 查找当前 Pane 和工作区内被指针命中的图元。 */
+  /** 查找当前 Pane 和工作区内被指针命中的图元；选中集合决定线段中点手柄是否参与命中。 */
   private findDrawingHit(
     e: PointerEvent,
     container: HTMLElement,
   ): { pointer: DrawingPointerAnchor; hit: HitResult } | null {
     const pointer = resolveDrawingPointer(e, container, this.adapter)
     if (!pointer) return null
-    const hit = this.hitTester.hitTest(
+    const hit = this.findSelectableHit(pointer)
+    return hit ? { pointer, hit } : null
+  }
+
+  /** 命中当前 Pane 与工作区内可选中图元的拖拽目标；手柄只在图元被选中时参与命中。 */
+  private findSelectableHit(pointer: DrawingPointerAnchor): HitResult | null {
+    return this.hitTester.hitTest(
       pointer.x,
       pointer.y,
       this.getSelectableDrawings(pointer.paneId),
       this.adapter,
+      new Set(this.adapter.getSelectedDrawingIds()),
     )
-    return hit ? { pointer, hit } : null
+  }
+
+  /**
+   * 指针悬停的绘图拖拽目标，与命中返回的目标类型一致；未命中时由本方法给出 `none`。
+   * 与命中共用同一份选中集合与线表：中点手柄只在图元被选中时可悬停，锚点与线身不受选中限制。
+   * @param pointer 指针 client 坐标；一般由 hover flush 用缓存的指针位置传入
+   */
+  getHoveredTarget(pointer: PointerCoordinates, container: HTMLElement): DrawingHoverTarget {
+    const tool = this.getActiveTool()
+    if (tool !== 'cursor' && tool !== 'box-select') return 'none'
+    if (this.dragHandler.isDragging()) return 'none'
+    const resolved = resolveDrawingPointer(pointer, container, this.adapter)
+    if (!resolved) return 'none'
+    const hit = this.findSelectableHit(resolved)
+    return hit === null ? 'none' : hit.target.type
   }
 
   /**
    * 公开命中查询：返回容器局部坐标 (x, y) 处的图元，供橡皮擦、对象树 hover 等宿主交互使用。
    * 过滤口径与光标点选一致（当前 Pane + 当前工作区 + 可见）；锁定图元同样命中，编辑策略由调用方决定。
+   * 不传选中集合：线段中点手柄是选中态专属的操作，宿主查询一律不返回它。
    * @param x 容器局部 X 坐标（px）
    * @param y 容器局部 Y 坐标（px）
    * @returns 命中的图元；未命中或 Pane 不可解析时返回 null
@@ -366,24 +405,21 @@ export class DrawingInteractionController {
     return this.getSelectableDrawings(paneId).filter((drawing) => !isDrawingLocked(drawing))
   }
 
-  /** 进入拖拽会话；锚点命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
+  /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
   private startDrag(
     pointer: DrawingPointerAnchor,
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
-    const isAnchorHit = 'anchorIndex' in hit
-    const targets = (isAnchorHit ? [hit.drawing] : selectedDrawings).filter(
+    const target = hit.target
+    const targets = (target.type === 'all' ? selectedDrawings : [hit.drawing]).filter(
       (drawing) => !isDrawingLocked(drawing),
     )
     if (targets.length === 0) return
-    this.dragHandler.startDrag(
-      targets,
-      isAnchorHit ? hit.anchorIndex : undefined,
-      pointer.x,
-      pointer.y,
-    )
+    this.dragHandler.startDrag(targets, target, pointer.x, pointer.y)
     this.pointerSession = { kind: 'drag' }
+    // 冻结悬停目标：拖拽中指针会离开锚点，实时命中会把光标重算成 none。
+    this.adapter.freezeHoverTarget?.()
   }
 
   /** 开始框选，坐标只在按下所在 Pane 内解释。 */

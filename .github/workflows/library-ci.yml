@@ -39,8 +39,8 @@ jobs:
       fail-fast: false
       matrix:
         # Pinned to engines field in root package.json:
-        #   "node": "^22.12.0 || >=24.0.0"
-        node: ['22.12', '24']
+        #   "node": "^22.18.0 || >=24.11.0"
+        node: ['22.18', '24']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -93,7 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['22.12', '24']
+        node: ['22.18', '24']
     steps:
       - name: Checkout
         uses: actions/checkout@v7

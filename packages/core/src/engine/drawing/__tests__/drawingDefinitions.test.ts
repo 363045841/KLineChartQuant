@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest'
 import type { DrawingComputeContext, ResolvedDrawingObject } from '../../../foundation/plugin/index'
 import {
   createArrowDefinition,
+  createDisjointChannelDefinition,
   createFibRetracementDefinition,
   createInfoLineDefinition,
+  createParallelChannelDefinition,
   createRectangleDefinition,
 } from '../index'
 import { getAnchorCountForTool, getDrawingKind } from '../toolConfig'
@@ -83,5 +85,54 @@ describe('new drawing tools', () => {
         text: expect.objectContaining({ text: expect.any(String) }),
       }),
     ])
+  })
+
+  it('fills the disjoint channel in anchor order so the quad does not self-intersect', () => {
+    const geometry = createDisjointChannelDefinition().compute(
+      {
+        ...drawing('disjoint-channel'),
+        anchors: [
+          { id: 'a0', index: 2, price: 100 },
+          { id: 'a1', index: 12, price: 140 },
+          { id: 'a2', index: 12, price: 20 },
+          { id: 'a3', index: 2, price: 60 },
+        ],
+      },
+      context(),
+    )
+
+    // toScreen：x = index*10、y = 200 - price，四个锚点分别为左上 / 右上 / 右下 / 左下。
+    const area = geometry.primitives.find((primitive) => primitive.kind === 'area')
+    expect(area?.points).toEqual([
+      { x: 20, y: 100 },
+      { x: 120, y: 60 },
+      { x: 120, y: 180 },
+      { x: 20, y: 140 },
+    ])
+  })
+
+  it('draws a dashed midline between the two parallel channel lines without anchor endpoints', () => {
+    const geometry = createParallelChannelDefinition().compute(
+      {
+        ...drawing('parallel-channel'),
+        anchors: [
+          { id: 'a0', index: 2, price: 100 },
+          { id: 'a1', index: 12, price: 40 },
+          { id: 'a2', index: 2, price: 60 },
+          { id: 'a3', index: 12, price: 100 },
+        ],
+      },
+      context(),
+    )
+
+    const lines = geometry.primitives.filter((primitive) => primitive.kind === 'line')
+    expect(lines).toHaveLength(3)
+    const midline = lines.find((line) => line.style?.strokeStyle === 'dashed')
+    // toScreen 后两条线为 (20,100)-(120,160) 与 (20,140)-(120,100)，中线取同 X 端点的中点。
+    expect(midline).toMatchObject({
+      a: { x: 20, y: 120 },
+      b: { x: 120, y: 130 },
+      showEndpoints: false,
+    })
   })
 })

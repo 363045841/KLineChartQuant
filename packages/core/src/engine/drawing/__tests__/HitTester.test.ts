@@ -32,6 +32,91 @@ function createLineAdapter() {
   })
 }
 
+/** 通道锚点 i 的屏幕 X。 */
+function anchorScreenX(index: number): number {
+  return index * 50 + 20
+}
+
+/** 通道锚点 i 的屏幕 Y（价格 (i+1)*10，y = 200 - price）。 */
+function anchorScreenY(index: number): number {
+  return 200 - (index + 1) * 10
+}
+
+/** 通道类夹具的时间轴与坐标约定：索引 i → x = i*50+20，y = 200 - price。 */
+const CHANNEL_TIMESTAMPS = [500, 1_000, 1_500, 2_000]
+
+/** 构造通道类夹具共用的适配器。 */
+function createChannelAdapter() {
+  return createDrawingAdapter({
+    viewport: {
+      getDrawingData: () => CHANNEL_TIMESTAMPS.map((timestamp) => ({ timestamp })),
+      getDrawingTimestampAtLogicalIndex: (index) => CHANNEL_TIMESTAMPS[index] ?? null,
+      getLogicalIndexAtTimestamp: (timestamp) => {
+        const index = CHANNEL_TIMESTAMPS.indexOf(timestamp)
+        return index >= 0 ? index : null
+      },
+      getScreenXAtLogicalIndex: anchorScreenX,
+    },
+  })
+}
+
+/** 四锚点平行通道夹具：0/1 为第一条线，2/3 为第二条线。 */
+function createChannelFixture() {
+  const drawing: DrawingObject = {
+    id: 'channel',
+    kind: 'parallel-channel',
+    paneId: 'main',
+    visible: true,
+    anchors: CHANNEL_TIMESTAMPS.map((time, index) => ({
+      id: `a${index}`,
+      type: 'point' as const,
+      time,
+      price: (index + 1) * 10,
+    })),
+    params: {},
+    style: {},
+  }
+  return { drawing, adapter: createChannelAdapter() }
+}
+
+/** 平滑顶底夹具：0/1 为斜线两端，2/3 为水平线两端。 */
+function createFlatLineFixture() {
+  const drawing: DrawingObject = {
+    id: 'flat',
+    kind: 'flat-line',
+    paneId: 'main',
+    visible: true,
+    anchors: [
+      { id: 'a', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 100 },
+      { id: 'b', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 140 },
+      { id: 'h1', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 60 },
+      { id: 'h2', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 60 },
+    ],
+    params: {},
+    style: {},
+  }
+  return { drawing, adapter: createChannelAdapter() }
+}
+
+/** 不相交通道夹具：0/1 为第一条线，2/3 为第二条线。 */
+function createDisjointChannelFixture() {
+  const drawing: DrawingObject = {
+    id: 'disjoint',
+    kind: 'disjoint-channel',
+    paneId: 'main',
+    visible: true,
+    anchors: [
+      { id: 'p1', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 100 },
+      { id: 'p2', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 120 },
+      { id: 'p3', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 60 },
+      { id: 'p4', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 40 },
+    ],
+    params: {},
+    style: {},
+  }
+  return { drawing, adapter: createChannelAdapter() }
+}
+
 describe('HitTester', () => {
   it('hits a vertical anchor along its full height', () => {
     const drawing: DrawingObject = {
@@ -44,7 +129,10 @@ describe('HitTester', () => {
       style: {},
     }
 
-    expect(new HitTester().hitTest(137, 120, [drawing], createAdapter())).toEqual({ drawing })
+    expect(new HitTester().hitTest(137, 120, [drawing], createAdapter())).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
   })
 
   it('returns the Fibonacci line label target at its offset anchor', () => {
@@ -125,6 +213,142 @@ describe('HitTester', () => {
       align: 'center',
       baseline: 'middle',
       fontSize: 12,
+    })
+  })
+
+  it('hits every persisted anchor of a parallel channel, including the derived fourth', () => {
+    const { drawing, adapter } = createChannelFixture()
+
+    // 锚点 i 的屏幕位置为 (i*50+20, 200 - price)，四个点均应可命中拖动。
+    for (let index = 0; index < drawing.anchors.length; index++) {
+      expect(
+        new HitTester().hitTest(anchorScreenX(index), anchorScreenY(index), [drawing], adapter),
+      ).toEqual({ drawing, target: { type: 'anchor', index } })
+    }
+  })
+
+  it('hits the body of a parallel channel when the pointer lands on one of its lines', () => {
+    const { drawing, adapter } = createChannelFixture()
+
+    // 两条线的中点均远离四个锚点，命中只报告图元主体。
+    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the body of a flat line when the pointer lands on one of its lines', () => {
+    const { drawing, adapter } = createFlatLineFixture()
+
+    // 斜线中点为 (45, 80)，水平线中点为 (45, 140)。
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the body of a disjoint channel when the pointer lands on one of its lines', () => {
+    const { drawing, adapter } = createDisjointChannelFixture()
+
+    // 两条线的中点为 (45, 90) 与 (45, 150)，距离四个锚点均超过命中半径。
+    expect(new HitTester().hitTest(45, 90, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+    expect(new HitTester().hitTest(45, 150, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  /**
+   * 构造满足通道不变量的填充命中夹具；锚点顺序与物化结果一致。
+   * 平行通道同端同 X（0↔2、1↔3），不相交通道同 X 配对相反（0↔3、1↔2）。
+   */
+  function createFillFixture(
+    kind: 'parallel-channel' | 'disjoint-channel',
+    anchors: ReadonlyArray<{ time: number; price: number }>,
+  ): DrawingObject {
+    return {
+      id: kind,
+      kind,
+      paneId: 'main',
+      visible: true,
+      anchors: anchors.map((anchor, index) => ({
+        id: `a${index}`,
+        type: 'point' as const,
+        ...anchor,
+      })),
+      params: {},
+      style: {},
+    }
+  }
+
+  it('hits the fill interior of a parallel channel away from its lines and anchors', () => {
+    const drawing = createFillFixture('parallel-channel', [
+      { time: 500, price: 100 },
+      { time: 1_000, price: 120 },
+      { time: 500, price: 60 },
+      { time: 1_000, price: 40 },
+    ])
+
+    // 内部点 (45, 120) 距两条线的中点 (45, 90) / (45, 150) 与四个锚点均超过命中半径。
+    expect(new HitTester().hitTest(45, 120, [drawing], createChannelAdapter())).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the fill interior of a flat line away from its lines and anchors', () => {
+    const { drawing, adapter } = createFlatLineFixture()
+
+    // 斜线与水平线的中点为 (45, 80) / (45, 140)，内部点取包围盒中心。
+    expect(new HitTester().hitTest(45, 110, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the fill interior of a disjoint channel with the reversed same-X pairing', () => {
+    const drawing = createFillFixture('disjoint-channel', [
+      { time: 500, price: 100 },
+      { time: 1_000, price: 80 },
+      { time: 1_000, price: 140 },
+      { time: 500, price: 160 },
+    ])
+
+    // 第二条线由右向左，内部点 (45, 80) 仍应命中；错误的环绕顺序会判成自交多边形而落空。
+    expect(new HitTester().hitTest(45, 80, [drawing], createChannelAdapter())).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the line midpoint handle of a selected drawing, and the body otherwise', () => {
+    const { drawing, adapter } = createFlatLineFixture()
+    const selected = new Set([drawing.id])
+
+    // 斜线中点 (45, 80)、水平线中点 (45, 140)：命中报告线在 LINES 表中的下标。
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter, selected)).toEqual({
+      drawing,
+      target: { type: 'vertical-handle', lineIndex: 0 },
+    })
+    expect(new HitTester().hitTest(45, 140, [drawing], adapter, selected)).toEqual({
+      drawing,
+      target: { type: 'vertical-handle', lineIndex: 1 },
+    })
+    // 手柄只在选中态可见：未选中时中点按线身命中 → 整体拖拽。
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
     })
   })
 

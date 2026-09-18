@@ -1,17 +1,35 @@
 import type { DrawingViewportPort } from '../../controllers/types.js'
-import type { DrawingObject } from '../../foundation/plugin/index.js'
+import type { DrawingObject, ScreenPoint } from '../../foundation/plugin/index.js'
 
-import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils.js'
+import {
+  anchorToScreen,
+  isScreenPoint,
+  midpoint,
+  pointInPolygon,
+  pointToSegmentDistanceSq,
+} from './coordinateUtils.js'
+import { buildFillPolygon } from './fillRegions.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 import { computeLinearRegression } from './linearRegression.js'
+import type { DrawingLine, VerticalHandleLine } from './lines.js'
+import { getLines, getVerticalHandleLines } from './lines.js'
 import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
 
-/** 命中检测结果：anchorIndex 存在表示点到锚点，否则点到线段 */
-export type HitResult = { drawing: DrawingObject; anchorIndex: number } | { drawing: DrawingObject }
+/** 命中的拖拽目标：锚点、线段中点垂直手柄，或图元主体（整体拖拽）。命中与拖拽会话共用。 */
+export type DrawingDragTarget =
+  | { readonly type: 'anchor'; readonly index: number }
+  | { readonly type: 'vertical-handle'; readonly lineIndex: number }
+  | { readonly type: 'all' }
 
-/** 二维线段，两端点为屏幕坐标（px） */
+/** 命中检测结果：命中的图元及其拖拽目标。 */
+export interface HitResult {
+  readonly drawing: DrawingObject
+  readonly target: DrawingDragTarget
+}
+
+/** 二维线段，两端点为屏幕坐标（px）。 */
 export interface LineSegment {
   a: { x: number; y: number }
   b: { x: number; y: number }
@@ -26,15 +44,18 @@ export interface RegressionChannelGeometry {
   endpoints: Array<{ point: { x: number; y: number }; anchorIndex: 0 | 1 }>
 }
 
-/** 锚点点击命中半径（px） */
-const ANCHOR_HIT_RADIUS = 8
-const ANCHOR_HIT_RADIUS_SQ = ANCHOR_HIT_RADIUS * ANCHOR_HIT_RADIUS
+/** 可拖拽点（锚点、线段中点手柄）的点击命中半径（px） */
+const DRAG_POINT_HIT_RADIUS = 8
+const DRAG_POINT_HIT_RADIUS_SQ = DRAG_POINT_HIT_RADIUS * DRAG_POINT_HIT_RADIUS
 /** 线段点击命中半径（px） */
 const LINE_HIT_RADIUS = 6
 const LINE_HIT_RADIUS_SQ = LINE_HIT_RADIUS * LINE_HIT_RADIUS
 /** 线段中心文本热点半径（px）。 */
 const LINE_LABEL_TARGET_RADIUS = 18
 const LINE_LABEL_TARGET_RADIUS_SQ = LINE_LABEL_TARGET_RADIUS * LINE_LABEL_TARGET_RADIUS
+
+/** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
+const NO_SELECTION: ReadonlySet<string> = new Set()
 
 /** 线段/填充标签热点，携带与绘制完全一致的锚点、旋转、对齐、基线与字号。 */
 export interface LineLabelTarget {
@@ -61,19 +82,21 @@ export interface LineLabelTarget {
  */
 export class HitTester {
   /**
-   * Find the drawing (and optionally which anchor) under the given mouse position.
-   * Anchors are checked first, then line segments.
+   * Find the drawing (and its drag target) under the given mouse position.
+   * 优先级：锚点 > 线段中点手柄 > 线身（整体拖拽）。
+   * 中点手柄只在图元被选中时可见，因此也只在选中时参与命中；未选中时中点按线身命中。
    */
   hitTest(
     mouseX: number,
     mouseY: number,
     drawings: DrawingObject[],
     adapter: DrawingViewportPort,
+    selectedDrawingIds: ReadonlySet<string> = NO_SELECTION,
   ): HitResult | null {
     const visibleDrawings = drawings.filter((d) => d.visible)
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
 
-    // Check anchor hits first
+    // Check anchor and vertical-handle hits first
     for (const drawing of visibleDrawings) {
       // regression-channel: computed endpoints are also draggable
       if (drawing.kind === 'regression-channel' && drawing.anchors.length >= 2) {
@@ -89,12 +112,17 @@ export class HitTester {
 
       for (let i = 0; i < drawing.anchors.length; i++) {
         const screen = anchorToScreen(drawing.anchors[i]!, drawing.paneId, adapter)
-        if (!screen || !isScreenPoint(screen)) continue
+        if (!isScreenPoint(screen)) continue
         const dx = mouseX - screen.x
         const dy = mouseY - screen.y
-        if (dx * dx + dy * dy <= ANCHOR_HIT_RADIUS_SQ) {
-          return { drawing, anchorIndex: i }
+        if (dx * dx + dy * dy <= DRAG_POINT_HIT_RADIUS_SQ) {
+          return { drawing, target: { type: 'anchor', index: i } }
         }
+      }
+
+      if (selectedDrawingIds.has(drawing.id)) {
+        const hit = this.hitTestVerticalHandles(drawing, mouseX, mouseY, adapter)
+        if (hit) return hit
       }
     }
 
@@ -103,12 +131,54 @@ export class HitTester {
       const segments = this.getDrawingLineSegments(drawing, adapter, regressionGeometryCache)
       for (const seg of segments) {
         if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
-          return { drawing }
+          return { drawing, target: { type: 'all' } }
         }
       }
     }
 
+    // Check fill region hits：通道类组合图元的填充与线身同属「图元主体」，落在内部也整体拖拽。
+    for (const drawing of visibleDrawings) {
+      const polygon = this.getDrawingFillPolygon(drawing, adapter)
+      if (polygon.length >= 3 && pointInPolygon({ x: mouseX, y: mouseY }, polygon)) {
+        return { drawing, target: { type: 'all' } }
+      }
+    }
+
     return null
+  }
+
+  /** 线段中点垂直手柄命中：只有开启手柄的线参与。 */
+  private hitTestVerticalHandles(
+    drawing: DrawingObject,
+    mouseX: number,
+    mouseY: number,
+    adapter: DrawingViewportPort,
+  ): HitResult | null {
+    for (const line of getVerticalHandleLines(drawing.kind)) {
+      const point = this.getVerticalHandlePoint(drawing, line, adapter)
+      if (!point) continue
+      const dx = mouseX - point.x
+      const dy = mouseY - point.y
+      if (dx * dx + dy * dy <= DRAG_POINT_HIT_RADIUS_SQ) {
+        return { drawing, target: { type: 'vertical-handle', lineIndex: line.index } }
+      }
+    }
+    return null
+  }
+
+  /** 线段中点手柄的屏幕位置；两端锚点任一不可投影时返回 null。 */
+  private getVerticalHandlePoint(
+    drawing: DrawingObject,
+    line: VerticalHandleLine,
+    adapter: DrawingViewportPort,
+  ): ScreenPoint | null {
+    const from = drawing.anchors[line.from]
+    const to = drawing.anchors[line.to]
+    if (!from || !to) return null
+    const a = anchorToScreen(from, drawing.paneId, adapter)
+    const b = anchorToScreen(to, drawing.paneId, adapter)
+    if (!isScreenPoint(a) || !isScreenPoint(b)) return null
+    return midpoint(a, b)
   }
 
   /**
@@ -128,6 +198,10 @@ export class HitTester {
         this.getRegressionChannelGeometry(drawing, adapter, regressionGeometryCache)?.segments ?? []
       )
     }
+
+    // 组合图元：线由线表（LINES）的锚点对定义，不再按锚点顺序推导。
+    const lines = getLines(drawing.kind)
+    if (lines.length > 0) return this.getPairedLineSegments(drawing, lines, adapter)
 
     // Single-anchor drawings (horizontal-line, horizontal-ray, vertical-line, cross-line)
     if (drawing.anchors.length === 1) {
@@ -161,129 +235,112 @@ export class HitTester {
       }
     }
 
-    // Multi-anchor drawings (2+)
+    // 两锚点图元：线段直接由两个锚点派生（矩形四条边 / 斐波那契水平线 / 箭头等）。
     const points = drawing.anchors
       .map((anchor) => anchorToScreen(anchor, drawing.paneId, adapter))
-      .filter((anchor): anchor is NonNullable<typeof anchor> => anchor !== null)
       .filter(isScreenPoint)
     if (points.length < 2) return []
+    const a = points[0]!
+    const b = points[1]!
 
-    const segments: LineSegment[] = []
-
-    if (points.length === 2) {
-      const a = points[0]!
-      const b = points[1]!
-
-      if (drawing.kind === 'rectangle') {
-        const left = Math.min(a.x, b.x)
-        const right = Math.max(a.x, b.x)
-        const top = Math.min(a.y, b.y)
-        const bottom = Math.max(a.y, b.y)
-        const topLeft = { x: left, y: top }
-        const topRight = { x: right, y: top }
-        const bottomRight = { x: right, y: bottom }
-        const bottomLeft = { x: left, y: bottom }
-        return [
-          { a: topLeft, b: topRight },
-          { a: topRight, b: bottomRight },
-          { a: bottomRight, b: bottomLeft },
-          { a: bottomLeft, b: topLeft },
-        ]
-      }
-
-      if (drawing.kind === 'fib-retracement') {
-        const ratios = (drawing.params as { levels?: number[] } | undefined)?.levels ?? [
-          0, 0.236, 0.382, 0.5, 0.618, 0.786, 1,
-        ]
-        const left = Math.min(a.x, b.x)
-        const right = Math.max(a.x, b.x)
-        return ratios.map((ratio) => {
-          const y = a.y + (b.y - a.y) * ratio
-          return { a: { x: left, y }, b: { x: right, y } }
-        })
-      }
-
-      if (drawing.kind === 'arrow') {
-        const angle = Math.atan2(b.y - a.y, b.x - a.x)
-        const headLength = 10
-        const headAngle = Math.PI / 6
-        const headA = {
-          x: b.x - headLength * Math.cos(angle - headAngle),
-          y: b.y - headLength * Math.sin(angle - headAngle),
-        }
-        const headB = {
-          x: b.x - headLength * Math.cos(angle + headAngle),
-          y: b.y - headLength * Math.sin(angle + headAngle),
-        }
-        return [
-          { a, b },
-          { a: headA, b },
-          { a: headB, b },
-        ]
-      }
-
-      const dx = b.x - a.x
-      const dy = b.y - a.y
-
-      let start: { x: number; y: number } = a
-      let end: { x: number; y: number } = b
-
-      const extend = getExtendMode(drawing.kind)
-      const maxLen = Math.max(viewport.plotWidth, viewport.plotHeight) * 4
-
-      if (extend === 'right' || extend === 'both') {
-        end = { x: b.x + dx * maxLen, y: b.y + dy * maxLen }
-      }
-      if (extend === 'left' || extend === 'both') {
-        start = { x: a.x - dx * maxLen, y: a.y - dy * maxLen }
-      }
-
-      segments.push({ a: start, b: end })
-    } else if (points.length >= 3) {
-      switch (drawing.kind) {
-        case 'parallel-channel': {
-          const [p1, p2, p3] = points as unknown as [
-            { x: number; y: number },
-            { x: number; y: number },
-            { x: number; y: number },
-          ]
-          const dx = p2.x - p1.x
-          const dy = p2.y - p1.y
-          const p4 = { x: p3.x + dx, y: p3.y + dy }
-          segments.push({ a: p1, b: p2 }, { a: p3, b: p4 })
-          break
-        }
-        case 'flat-line': {
-          const [p1, p2, p3] = points as unknown as [
-            { x: number; y: number },
-            { x: number; y: number },
-            { x: number; y: number },
-          ]
-          const h1 = { x: p1.x, y: p3.y }
-          const h2 = { x: p2.x, y: p3.y }
-          segments.push({ a: p1, b: p2 }, { a: h1, b: h2 })
-          break
-        }
-        case 'disjoint-channel': {
-          const [p1, p2, p3] = points as unknown as [
-            { x: number; y: number },
-            { x: number; y: number },
-            { x: number; y: number },
-          ]
-          const dx = p2.x - p1.x
-          const dy = p2.y - p1.y
-          const p4 = { x: p3.x + dx, y: p3.y - dy }
-          segments.push({ a: p1, b: p2 }, { a: p3, b: p4 })
-          break
-        }
-        default:
-          for (let i = 0; i < points.length - 1; i++) {
-            segments.push({ a: points[i]!, b: points[i + 1]! })
-          }
-      }
+    if (drawing.kind === 'rectangle') {
+      const left = Math.min(a.x, b.x)
+      const right = Math.max(a.x, b.x)
+      const top = Math.min(a.y, b.y)
+      const bottom = Math.max(a.y, b.y)
+      const topLeft = { x: left, y: top }
+      const topRight = { x: right, y: top }
+      const bottomRight = { x: right, y: bottom }
+      const bottomLeft = { x: left, y: bottom }
+      return [
+        { a: topLeft, b: topRight },
+        { a: topRight, b: bottomRight },
+        { a: bottomRight, b: bottomLeft },
+        { a: bottomLeft, b: topLeft },
+      ]
     }
 
+    if (drawing.kind === 'fib-retracement') {
+      const ratios = (drawing.params as { levels?: number[] } | undefined)?.levels ?? [
+        0, 0.236, 0.382, 0.5, 0.618, 0.786, 1,
+      ]
+      const left = Math.min(a.x, b.x)
+      const right = Math.max(a.x, b.x)
+      return ratios.map((ratio) => {
+        const y = a.y + (b.y - a.y) * ratio
+        return { a: { x: left, y }, b: { x: right, y } }
+      })
+    }
+
+    if (drawing.kind === 'arrow') {
+      const angle = Math.atan2(b.y - a.y, b.x - a.x)
+      const headLength = 10
+      const headAngle = Math.PI / 6
+      const headA = {
+        x: b.x - headLength * Math.cos(angle - headAngle),
+        y: b.y - headLength * Math.sin(angle - headAngle),
+      }
+      const headB = {
+        x: b.x - headLength * Math.cos(angle + headAngle),
+        y: b.y - headLength * Math.sin(angle + headAngle),
+      }
+      return [
+        { a, b },
+        { a: headA, b },
+        { a: headB, b },
+      ]
+    }
+
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+
+    let start: { x: number; y: number } = a
+    let end: { x: number; y: number } = b
+
+    const extend = getExtendMode(drawing.kind)
+    const maxLen = Math.max(viewport.plotWidth, viewport.plotHeight) * 4
+
+    if (extend === 'right' || extend === 'both') {
+      end = { x: b.x + dx * maxLen, y: b.y + dy * maxLen }
+    }
+    if (extend === 'left' || extend === 'both') {
+      start = { x: a.x - dx * maxLen, y: a.y - dy * maxLen }
+    }
+
+    return [{ a: start, b: end }]
+  }
+
+  /** 组合图元的线段：由线表（LINES）的锚点对直接构成。 */
+  private getPairedLineSegments(
+    drawing: DrawingObject,
+    lines: readonly DrawingLine[],
+    adapter: DrawingViewportPort,
+  ): LineSegment[] {
+    const segments: LineSegment[] = []
+    for (const line of lines) {
+      const from = drawing.anchors[line.from]
+      const to = drawing.anchors[line.to]
+      if (!from || !to) continue
+      const a = anchorToScreen(from, drawing.paneId, adapter)
+      const b = anchorToScreen(to, drawing.paneId, adapter)
+      if (!isScreenPoint(a) || !isScreenPoint(b)) continue
+      segments.push({ a, b })
+    }
     return segments
+  }
+
+  /** 组合图元的填充多边形：所有锚点可投影时按登记的环绕顺序成环，否则不参与命中。 */
+  private getDrawingFillPolygon(
+    drawing: DrawingObject,
+    adapter: DrawingViewportPort,
+  ): ScreenPoint[] {
+    const anchorsOnScreen: ScreenPoint[] = []
+    for (const anchor of drawing.anchors) {
+      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+      if (!isScreenPoint(screen)) return []
+      anchorsOnScreen.push(screen)
+    }
+    return buildFillPolygon(drawing.kind, anchorsOnScreen)
   }
 
   /**
@@ -486,15 +543,15 @@ export class HitTester {
     mouseY: number,
     adapter: DrawingViewportPort,
     cache?: Map<string, RegressionChannelGeometry | null>,
-  ): { drawing: DrawingObject; anchorIndex: number } | null {
+  ): HitResult | null {
     const geometry = this.getRegressionChannelGeometry(drawing, adapter, cache)
     if (!geometry) return null
 
     for (const endpoint of geometry.endpoints) {
       const dx = mouseX - endpoint.point.x
       const dy = mouseY - endpoint.point.y
-      if (dx * dx + dy * dy <= ANCHOR_HIT_RADIUS_SQ) {
-        return { drawing, anchorIndex: endpoint.anchorIndex }
+      if (dx * dx + dy * dy <= DRAG_POINT_HIT_RADIUS_SQ) {
+        return { drawing, target: { type: 'anchor', index: endpoint.anchorIndex } }
       }
     }
 

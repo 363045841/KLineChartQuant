@@ -10,6 +10,8 @@ function createFixture() {
   const document = new DrawingDocument({
     drawingState: createDrawingState(),
     getLogicalIndexAtTimestamp: () => 0,
+    getDrawingTimestampAtLogicalIndex: () => 1_000,
+    getDrawingData: () => [{ timestamp: 1_000 }],
     findAnchorAtTradingDate: () => ({ timestamp: 1_000 }),
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',

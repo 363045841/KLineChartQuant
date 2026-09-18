@@ -47,7 +47,7 @@ export default defineConfig({
           sourceMaps: true,
           plugins: [
             ['@babel/plugin-proposal-decorators', { version: '2023-11' }],
-            ['@babel/plugin-transform-typescript', { allowDeclareFields: true }],
+            ['@babel/plugin-transform-typescript'],
           ],
         },
       }),

@@ -16,13 +16,13 @@ import type {
   ChartViewport,
   DrawingObject,
   IndicatorInstance,
-  InteractionSnapshot,
   KLineData,
   PaneSpec,
   SubPaneInfo,
   SymbolInfo,
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
+import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 
 // ---------------------------------------------------------------------------
@@ -134,22 +134,7 @@ export function createMockChartController(
     selectedDrawingIds: createSignal<ReadonlyArray<string>>([]),
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
-    interactionState: createSignal<InteractionSnapshot>({
-      crosshairPos: null,
-      crosshairIndex: null,
-      crosshairPrice: null,
-      hoveredIndex: null,
-      activePaneId: null,
-      tooltipPos: { x: 0, y: 0 },
-      tooltipAnchorPlacement: 'right-bottom',
-      hoveredMarkerData: null,
-      hoveredCustomMarker: null,
-      isDragging: false,
-      isResizingPaneBoundary: false,
-      isHoveringPaneBoundary: false,
-      hoveredPaneBoundaryId: null,
-      isHoveringRightAxis: false,
-    }),
+    interactionState: createSignal(createIdleInteractionSnapshot()),
     selectedRange: createSignal<{ from: number; to: number } | null>(null),
     rangeSelection,
     legendTemplateContext,
@@ -198,6 +183,10 @@ export function createMockChartController(
         zoomLevel: viewport.peek().zoomLevel - 1,
       }),
     handlePointerEvent: () => false,
+    // 绘图会话：SFC 只在真实拖拽路径上依赖，替身显式给出空实现，避免「缺成员却静默通过」。
+    requestDraw: () => {},
+    freezeHoverTarget: () => {},
+    unfreezeHoverTarget: () => {},
     handleWheelEvent: () => {},
     handleScrollEvent: () => {},
     handlePinchZoom: () => {},

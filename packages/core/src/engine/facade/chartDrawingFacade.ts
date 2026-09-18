@@ -78,6 +78,8 @@ export class ChartDrawingFacade {
     const toolId = tool ?? 'cursor'
     this.deps.kernel.drawing.actions.setDrawingTool(toolId)
     this.deps.getSession()?.applyToolSession()
+    // 悬停目标只对 cursor/box-select 有效；换工具后由下一个 hover flush 重算
+    this.deps.kernel.interaction.actions.setDrawingTargetHover('none')
     this.deps.scheduleDraw()
   }
 

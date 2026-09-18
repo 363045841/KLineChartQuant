@@ -9,7 +9,6 @@
     "includes": [
       "**",
       "!**/dist",
-      "!**/dist-demo",
       "!**/node_modules",
       "!**/coverage",
       "!**/*.config.*",

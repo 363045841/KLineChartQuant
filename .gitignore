@@ -10,11 +10,11 @@ lerna-debug.log*
 node_modules
 .DS_Store
 dist
-dist-demo
 dist-ssr
 coverage
 *.local
 .claude
+.trellis
 .codegraph/
 
 # Editor directories and files

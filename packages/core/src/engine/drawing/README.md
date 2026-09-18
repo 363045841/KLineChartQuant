@@ -18,6 +18,7 @@
 - `DrawingState` 只管预览/拖拽覆盖，绝不持有已确认图元列表。
 - 磁吸仅作用于落点与预览路径；命中、框选、标签等只读路径不得开启磁吸，否则命中范围会随吸附漂移。
 - 线段标签的锚点、对齐、基线与字号必须同源于 `labelLayout.ts`，宿主输入框只镜像热点返回值，禁止各算一套。
+- 图元的线段构成与手柄开启只声明在 `lines.ts`：绘制、命中、拖拽不得各自推导锚点对。
 - 图元几何由 `DrawingDefinition` 的 `compute` 纯函数产出，绘制侧只消费 `DrawingPrimitive`，不感知具体图形语义。
 
 ## 文件职责
@@ -31,8 +32,9 @@
 | `interaction.ts` | `DrawingInteractionController`：组合 AnchorCollector/PreviewRenderer/HitTester/DragHandler，处理工具切换、指针会话、选中与磁吸 |
 | `AnchorCollector.ts` | 多锚点工具的分步锚点累积（单锚点工具首次点击即创建） |
 | `PreviewRenderer.ts` | 依据待定锚点构造预览图元（按单/双/三锚点工具分支） |
-| `HitTester.ts` | 命中测试：锚点、线段、文字标签、回归通道端点，并暴露 `getDrawingLineSegments` 供框选复用 |
-| `DragHandler.ts` | 拖拽会话：整线平移与单锚点编辑，编辑路径可应用磁吸 |
+| `HitTester.ts` | 命中测试：锚点、线段中点手柄、线段、文字标签、回归通道端点，并暴露 `getDrawingLineSegments` 供框选复用 |
+| `DragHandler.ts` | 拖拽会话：单锚点、线段中点手柄与整体平移，编辑路径可应用磁吸 |
+| `lines.ts` | 线表：图元的线段由哪些锚点构成，以及该线段是否开启中点垂直手柄（绘制、命中、拖拽共用） |
 | `DrawingSelection.ts` | 选中集合的纯函数操作（清空、Ctrl 多选切换） |
 | `selectionMarquee.ts` | 框选会话几何与临时绘制原语投影 |
 | `coordinateUtils.ts` | 锚点逻辑坐标（时间戳 + 价格）↔ 屏幕坐标换算、`resolveDrawingPointer`、点线距离几何 |

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { DrawingViewportPort } from '../../../controllers/types'
 import {
   anchorToScreen,
+  pointInPolygon,
   pointToSegmentDistanceSq,
   resolveDrawingPointer,
   screenToAnchor,
@@ -64,6 +65,38 @@ describe('drawing coordinate utilities', () => {
     })
   })
 
+  it('returns null when the pointer leaves the drawing area without a clamp target', () => {
+    expect(
+      resolveDrawingPointer(
+        { clientX: 80, clientY: 300 } as PointerEvent,
+        CONTAINER,
+        createAdapter(),
+      ),
+    ).toBeNull()
+  })
+
+  it('clamps an out-of-bounds pointer to the target pane edge', () => {
+    expect(
+      resolveDrawingPointer(
+        { clientX: 80, clientY: 300 } as PointerEvent,
+        CONTAINER,
+        createAdapter(),
+        { clampPaneId: 'sub' },
+      ),
+    ).toMatchObject({ time: 1_000, price: 180, paneId: 'sub', x: 80, y: 80 })
+  })
+
+  it('clamps the horizontal coordinate to the plot width', () => {
+    expect(
+      resolveDrawingPointer(
+        { clientX: 500, clientY: 150 } as PointerEvent,
+        CONTAINER,
+        createAdapter(),
+        { clampPaneId: 'sub' },
+      ),
+    ).toMatchObject({ x: 300, y: 30 })
+  })
+
   it('stores a right-side blank-area anchor as an offset from the last bar', () => {
     const adapter = createAdapter({
       getLogicalIndexAtX: () => 3,
@@ -87,5 +120,18 @@ describe('drawing coordinate utilities', () => {
   it('returns squared distance for projected and degenerate line segments', () => {
     expect(pointToSegmentDistanceSq(5, 3, { x: 0, y: 0 }, { x: 10, y: 0 })).toBe(9)
     expect(pointToSegmentDistanceSq(3, 4, { x: 0, y: 0 }, { x: 0, y: 0 })).toBe(25)
+  })
+
+  it('detects whether a point lies inside a polygon', () => {
+    const square = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ]
+
+    expect(pointInPolygon({ x: 5, y: 5 }, square)).toBe(true)
+    expect(pointInPolygon({ x: 15, y: 5 }, square)).toBe(false)
+    expect(pointInPolygon({ x: 5, y: -1 }, square)).toBe(false)
   })
 })

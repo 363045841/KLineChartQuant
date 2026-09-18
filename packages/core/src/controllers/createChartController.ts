@@ -90,6 +90,7 @@ const INITIAL_INTERACTION: InteractionSnapshot = {
   isHoveringPaneBoundary: false,
   hoveredPaneBoundaryId: null,
   isHoveringRightAxis: false,
+  drawingHoverTarget: 'none',
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +314,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     drawingState: chart.kernel.drawing,
     getLogicalIndexAtTimestamp(timestamp) {
       return chart.getLogicalIndexAtTimestamp(timestamp)
+    },
+    getDrawingTimestampAtLogicalIndex(index) {
+      return chart.drawing.getTimestampAtLogicalIndex(index)
+    },
+    getDrawingData() {
+      return chart.drawing.getData()
     },
     findAnchorAtTradingDate(tradingDate) {
       const bar = chart.getData().find((item) => item.date === tradingDate)
@@ -769,6 +776,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.scheduleDraw()
   }
 
+  function freezeHoverTarget(): void {
+    if (disposed) return
+    chart.freezeDrawingHover()
+  }
+
+  function unfreezeHoverTarget(): void {
+    if (disposed) return
+    chart.unfreezeDrawingHover()
+  }
+
   function setSelectedDrawingIds(ids: ReadonlyArray<string>): void {
     if (disposed) return
     chart.drawing.setSelectedIds(ids)
@@ -1030,6 +1047,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     replaceDrawings,
     getFullDrawings,
     requestDraw,
+    freezeHoverTarget,
+    unfreezeHoverTarget,
     setSelectedDrawingIds,
     getSelectedDrawingIds,
     getViewport,

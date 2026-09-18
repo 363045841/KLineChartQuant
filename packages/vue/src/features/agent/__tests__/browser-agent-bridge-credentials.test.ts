@@ -1,9 +1,8 @@
 // 验证注入外部凭据存储后 API Key 不再落入 localStorage，且默认路径保持原有行为。
-import { afterEach, describe, expect, it } from 'vitest'
-
-import { BrowserAgentBridge } from '../browser-agent-bridge'
 
 import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
+import { afterEach, describe, expect, it } from 'vitest'
+import { BrowserAgentBridge } from '../browser-agent-bridge'
 
 const PROFILES_KEY = 'agent.provider.profiles'
 

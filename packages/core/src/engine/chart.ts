@@ -1188,6 +1188,8 @@ export class Chart {
       }
       this.renderer.clearCachedFrame()
       this.layoutManager.layoutPanes()
+      // 尺寸变了：指针派生态（含绘图悬停目标）需按新几何重算，否则光标会陈旧到下一次指针移动
+      this.interaction.invalidateHover()
       this.scheduleDraw()
       return
     }
@@ -1198,6 +1200,7 @@ export class Chart {
     }
     this.renderer.clearCachedFrame()
     this.layoutManager.layoutPanes()
+    this.interaction.invalidateHover()
     this.scheduleDraw()
   }
 
@@ -1381,6 +1384,38 @@ export class Chart {
     if (session) {
       session.applyToolSession()
     }
+  }
+
+  /**
+   * 按指针位置重算绘图悬停目标（none / 锚点 / 平移手柄 / 线身），宿主据此切换光标。
+   * 由 InteractionController 在 hover flush 中调用，与本帧几何同代。
+   */
+  updateDrawingHover(clientX: number, clientY: number): void {
+    if (this.drawingSession === null) {
+      this.clearDrawingHover()
+      return
+    }
+    this.kernel.interaction.actions.setDrawingTargetHover(
+      this.drawingSession.getHoveredTarget({ clientX, clientY }, this.dom.container),
+    )
+  }
+
+  /** 冻结绘图悬停目标：图元拖拽开始时调用，拖拽期间不再被实时命中改写。 */
+  freezeDrawingHover(): void {
+    if (this.drawingSession === null) return
+    this.kernel.interaction.actions.setDrawingDragTarget(
+      this.kernel.interaction.readonly.hoveredDrawingTarget.peek(),
+    )
+  }
+
+  /** 解冻绘图悬停目标：图元拖拽结束后调用，恢复为实时命中。 */
+  unfreezeDrawingHover(): void {
+    this.kernel.interaction.actions.setDrawingDragTarget(null)
+  }
+
+  /** 清除绘图悬停目标：指针离开画布、悬停被清空或切换绘图工具时调用。 */
+  clearDrawingHover(): void {
+    this.kernel.interaction.actions.setDrawingTargetHover('none')
   }
 
   /** 面板比例信号 */
@@ -1628,7 +1663,10 @@ export class Chart {
           const handled = drawingController.onPointerMove(e, this.dom.container)
           if (handled) return true
         }
+        // 绘图悬停目标不在事件里直接写：由 InteractionController 的 hover flush 与本帧几何同代推导
         if (isRightAxis) {
+          // 右轴不参与绘图悬停
+          this.clearDrawingHover()
           this.interaction.onRightAxisPointerMove(e)
         } else {
           this.interaction.onPointerMove(e)
@@ -1647,7 +1685,8 @@ export class Chart {
         }
         return false
       case 'pointerleave':
-        // pointerleave 通常不用于绘图，直接交给 interaction
+        // 指针离开画布：先清绘图悬停，再交给 interaction 处理
+        this.clearDrawingHover()
         if (isRightAxis) {
           this.interaction.onRightAxisPointerLeave(e)
         } else {

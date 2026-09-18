@@ -5,17 +5,14 @@ WORKDIR /app
 
 # 安装 pnpm（使用阿里云镜像）
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm install -g pnpm@9 && \
+    npm install -g pnpm@12 && \
     pnpm config set registry https://registry.npmmirror.com
-
-# 复制依赖文件
-COPY package.json pnpm-lock.yaml ./
-
-# 安装依赖
-RUN pnpm install --frozen-lockfile
 
 # 复制源代码
 COPY . .
+
+# 安装依赖（pnpm workspace：需带 pnpm-workspace.yaml 与各子包 manifest）
+RUN pnpm install --frozen-lockfile
 
 # 构建演示应用
 RUN pnpm run build:demo
@@ -29,7 +26,7 @@ RUN apk add --no-cache gettext
 
 COPY devops/nginx.conf.template /etc/nginx/templates/default.conf.template
 
-COPY --from=builder /app/dist-demo /usr/share/nginx/html
+COPY --from=builder /app/packages/vue/preview/dist /usr/share/nginx/html
 
 EXPOSE 80
 

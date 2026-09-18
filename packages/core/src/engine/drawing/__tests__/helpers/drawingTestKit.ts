@@ -13,9 +13,11 @@ import type {
   DrawingDocumentPort,
   DrawingSessionPort,
   DrawingViewportPort,
+  PaneLayoutInfo,
 } from '../../../../controllers/types'
 import type { DrawingObject } from '../../../../foundation/plugin'
 import type { KLineData } from '../../../../foundation/types/price'
+import type { HitResult } from '../../HitTester'
 import type { DrawingToolId } from '../../toolConfig'
 
 /** 测试图元默认描边色。 */
@@ -82,6 +84,61 @@ export function pointerMove(
   modifiers: Omit<PointerInput, 'clientX' | 'clientY'> = {},
 ): PointerEvent {
   return createPointerEvent({ clientX: x, clientY: y, ...modifiers })
+}
+
+// ---- 绘图控制器私有协作者替身 ----
+
+/** 绘图控制器用例可替换的私有协作者：命中器与拖拽处理器。 */
+export interface DrawingControllerInternals {
+  hitTester: {
+    hitTest: ReturnType<typeof vi.fn>
+    getDrawingLineSegments: ReturnType<typeof vi.fn>
+  }
+  dragHandler: {
+    isDragging: ReturnType<typeof vi.fn>
+    getDraggingDrawingIds: ReturnType<typeof vi.fn>
+    startDrag: ReturnType<typeof vi.fn>
+    handleDragMove: ReturnType<typeof vi.fn>
+    endDrag: ReturnType<typeof vi.fn>
+  }
+}
+
+/** 拖拽处理器替身的返回值差异；只覆盖用例关心的部分。 */
+export interface DragHandlerStubOptions {
+  /** 命中器命中结果；null 表示空白处。 */
+  hit: HitResult | null
+  /** 正在拖拽的图元 id；`isDragging` 由此推导。 */
+  draggingIds?: ReadonlyArray<string>
+  /** 拖拽移动后的图元快照；缺省按原 id 返回同一图元。 */
+  movedDrawings?: ReadonlyArray<DrawingObject>
+  /** 覆盖 startDrag；用于断言入参。 */
+  startDrag?: ReturnType<typeof vi.fn>
+}
+
+/**
+ * 替换 DrawingInteractionController 的私有协作者（命中器 / 拖拽处理器）。
+ * 命中器可选暴露 getDrawingLineSegments，供框选用例注入线段。
+ */
+export function stubDrawingControllerInternals(
+  controller: object,
+  options: DragHandlerStubOptions,
+): DrawingControllerInternals {
+  const startDrag = options.startDrag ?? vi.fn()
+  const draggingIds = options.draggingIds ?? []
+  const movedDrawings = options.movedDrawings ?? []
+  const internals = controller as unknown as DrawingControllerInternals
+  internals.hitTester = {
+    hitTest: vi.fn(() => options.hit),
+    getDrawingLineSegments: vi.fn(() => []),
+  }
+  internals.dragHandler = {
+    isDragging: vi.fn(() => draggingIds.length > 0),
+    getDraggingDrawingIds: vi.fn(() => draggingIds),
+    startDrag,
+    handleDragMove: vi.fn(() => movedDrawings),
+    endDrag: vi.fn(),
+  }
+  return internals
 }
 
 // ---- 磁吸坐标系夹具 ----
@@ -257,4 +314,50 @@ export function createSelectionAdapter(
     }),
   } satisfies DrawingChartAdapter
   return { adapter, setSelectedDrawingIds: documentPort.setSelectedDrawingIds }
+}
+
+/** 绘图落点 / 创建 / 预览用例 adapter 的差异项。 */
+export interface PlacementAdapterOptions {
+  /** 当前绘图工具 id，决定 onPointerDown / onPointerMove 走哪条分支。 */
+  tool: DrawingToolId
+  /** 落点所属 Pane 的布局。 */
+  pane: PaneLayoutInfo
+  /** 绘图区宽度。 */
+  plotWidth: number
+  /** 绘图区高度。 */
+  plotHeight: number
+  /** getLogicalIndexAtX 的固定返回值；用于右侧未来槽位用例。 */
+  logicalIndex: number
+  document?: Partial<DrawingDocumentPort>
+  session?: Partial<DrawingSessionPort>
+}
+
+/**
+ * 构造绘图落点 / 创建 / 预览用例的完整 adapter：单 Pane、扁平价格映射（y 即价格）。
+ * 与选择用例的 createSelectionAdapter 相比，多出工具 id 与逻辑索引的显式声明。
+ */
+export function createPlacementAdapter(
+  options: PlacementAdapterOptions,
+  drawings: ReadonlyArray<DrawingObject> = [],
+): DrawingChartAdapter {
+  return createDrawingAdapter(
+    {
+      document: { getDrawingToolId: () => options.tool, ...options.document },
+      viewport: {
+        getViewport: () => ({
+          scrollLeft: 0,
+          plotWidth: options.plotWidth,
+          plotHeight: options.plotHeight,
+        }),
+        getPaneAtY: () => options.pane,
+        getPaneInfo: () => options.pane,
+        getDrawingData: () => [{ timestamp: 1 }],
+        getLogicalIndexAtX: () => options.logicalIndex,
+        getDrawingTimestampAtLogicalIndex: () => 1,
+        yToPrice: (_paneId: string, y: number) => y,
+      },
+      session: options.session,
+    },
+    drawings,
+  )
 }

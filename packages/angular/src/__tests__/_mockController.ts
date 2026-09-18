@@ -10,8 +10,8 @@ import type {
   ChartController,
   ChartViewport,
   IndicatorInstance,
-  InteractionSnapshot,
 } from '@363045841yyt/klinechart-core'
+import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
 import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 export interface MockControllerHandle {
@@ -32,22 +32,7 @@ export function createMockChartController(): MockControllerHandle {
     visibleFrom: 0,
     visibleTo: 0,
   })
-  const interactionState = createSignal<InteractionSnapshot>({
-    crosshairPos: null,
-    crosshairIndex: null,
-    crosshairPrice: null,
-    hoveredIndex: null,
-    activePaneId: null,
-    tooltipPos: { x: 0, y: 0 },
-    tooltipAnchorPlacement: 'right-bottom',
-    hoveredMarkerData: null,
-    hoveredCustomMarker: null,
-    isDragging: false,
-    isResizingPaneBoundary: false,
-    isHoveringPaneBoundary: false,
-    hoveredPaneBoundaryId: null,
-    isHoveringRightAxis: false,
-  })
+  const interactionState = createSignal(createIdleInteractionSnapshot())
   const paneRatios = createSignal<Readonly<Record<string, number>>>({})
   const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([])
 

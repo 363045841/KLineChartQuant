@@ -548,10 +548,32 @@ export type ScreenDrawingAnchor =
   | ScreenHorizontalAnchor
   | ScreenVerticalAnchor
 
+/** 绘图图元种类。 */
+export type DrawingPrimitiveKind = 'point' | 'line' | 'area' | 'text' | 'arrow'
+
+/** 点图元角色：锚点、平移手柄。 */
+export type PointRole = 'anchor' | 'translate-handle'
+
+/** 图元种类字面量；判别图元种类时引用它，不在业务代码里散落字符串。 */
+export const PRIMITIVE_KIND = {
+  point: 'point',
+  line: 'line',
+  area: 'area',
+  text: 'text',
+  arrow: 'arrow',
+} as const satisfies Record<DrawingPrimitiveKind, DrawingPrimitiveKind>
+
+/** 点图元角色字面量；判别角色时引用它，不在业务代码里散落字符串。 */
+export const POINT_ROLE = {
+  anchor: 'anchor',
+  'translate-handle': 'translate-handle',
+} as const satisfies Record<PointRole, PointRole>
+
+/** 点图元：锚点圆点统一填白底、描图元色环，没有填充色开关。 */
 export type PointPrimitive = {
   kind: 'point'
   point: ScreenPoint
-  role?: 'anchor' | 'handle' | 'marker' | 'center'
+  role?: PointRole
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }

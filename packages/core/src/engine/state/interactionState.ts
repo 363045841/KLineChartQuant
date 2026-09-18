@@ -7,6 +7,13 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 
+/**
+ * 指针悬停的绘图拖拽目标，与命中结果的目标类型一致，`none` 表示没有悬停在任何可拖拽图元上：
+ * `anchor` 圆形锚点、`vertical-handle` 线段中点手柄、`all` 线身（可整体拖拽）。
+ * 宿主按目标类型决定光标：手柄 → ns-resize，线身 → move，锚点 → default（显式回到默认箭头）。
+ */
+export type DrawingHoverTarget = 'none' | 'anchor' | 'vertical-handle' | 'all'
+
 export interface InteractionSnapshot {
   crosshairPos: { x: number; y: number } | null
   crosshairIndex: number | null
@@ -22,9 +29,35 @@ export interface InteractionSnapshot {
   isHoveringPaneBoundary: boolean
   hoveredPaneBoundaryId: string | null
   isHoveringRightAxis: boolean
+  /** 指针悬停的绘图拖拽目标；没有悬停在任何可拖拽图元上时为 `none`。 */
+  drawingHoverTarget: DrawingHoverTarget
 }
 
 export type DragMode = 'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore'
+
+/**
+ * 交互快照的空态（无指针、无拖拽）。
+ * 供渲染/宿主测试构造初始 signal 使用，避免手抄字段而在新增字段时静默漏掉。
+ */
+export function createIdleInteractionSnapshot(): InteractionSnapshot {
+  return {
+    crosshairPos: null,
+    crosshairIndex: null,
+    crosshairPrice: null,
+    hoveredIndex: null,
+    activePaneId: null,
+    tooltipPos: { x: 0, y: 0 },
+    tooltipAnchorPlacement: 'right-bottom',
+    hoveredMarkerData: null,
+    hoveredCustomMarker: null,
+    isDragging: false,
+    isResizingPaneBoundary: false,
+    isHoveringPaneBoundary: false,
+    hoveredPaneBoundaryId: null,
+    isHoveringRightAxis: false,
+    drawingHoverTarget: 'none',
+  }
+}
 
 export interface InteractionDeps {
   visibleRange$: ReadonlySignal<{ start: number; end: number } | null>
@@ -60,6 +93,12 @@ export function createInteractionState(_deps: InteractionDeps) {
     hoveredMarkerData: null as MarkerEntity | null,
     hoveredCustomMarker: null as CustomMarkerEntity | null,
     hoveredMarkerId: null as string | null,
+    hoveredDrawingTarget: 'none' as DrawingHoverTarget,
+    /**
+     * 图元拖拽会话期间冻结的绘图悬停目标。拖拽中指针会移出锚点，若继续实时命中，
+     * 光标会被重算成 `none` 并落回十字线；因此拖拽期间沿用按下时认定的目标。
+     */
+    drawingDragTarget: null as DrawingHoverTarget | null,
     rangeSelection: Object.freeze({
       startTimestamp: null,
       endTimestamp: null,
@@ -91,6 +130,8 @@ export function createInteractionState(_deps: InteractionDeps) {
       isHoveringPaneBoundary: hoveredSep !== null,
       hoveredPaneBoundaryId: hoveredSep,
       isHoveringRightAxis: hoveredRight !== null,
+      // 拖拽期间沿用按下时冻结的目标，否则指针离开锚点会被实时命中重算成 none（光标随之落回十字线）。
+      drawingHoverTarget: readonly.drawingDragTarget() ?? readonly.hoveredDrawingTarget(),
     }
 
     if (_cachedSnapshot) {
@@ -109,7 +150,8 @@ export function createInteractionState(_deps: InteractionDeps) {
         c.isResizingPaneBoundary === next.isResizingPaneBoundary &&
         c.isHoveringPaneBoundary === next.isHoveringPaneBoundary &&
         c.hoveredPaneBoundaryId === next.hoveredPaneBoundaryId &&
-        c.isHoveringRightAxis === next.isHoveringRightAxis
+        c.isHoveringRightAxis === next.isHoveringRightAxis &&
+        c.drawingHoverTarget === next.drawingHoverTarget
       ) {
         return _cachedSnapshot
       }
@@ -194,6 +236,11 @@ export function createInteractionState(_deps: InteractionDeps) {
         })
       },
 
+      /** 图元拖拽会话期间冻结绘图悬停目标；`null` 表示未拖拽，目标按实时命中推导。 */
+      setDrawingDragTarget(target: DrawingHoverTarget | null) {
+        signals.drawingDragTarget.set(target)
+      },
+
       setDragMode(mode: DragMode) {
         signals.dragMode.set(mode)
       },
@@ -204,6 +251,16 @@ export function createInteractionState(_deps: InteractionDeps) {
 
       setRightAxisHover(paneId: string | null) {
         signals.hoveredRightAxisPaneId.set(paneId)
+      },
+
+      /**
+       * 设置绘图悬停目标（none / 锚点 / 线段中点手柄 / 线身），宿主据此切换光标。
+       * 拖拽会话冻结目标期间丢弃实时命中结果，防止指针离开锚点后光标在拖拽中途回落。
+       */
+      setDrawingTargetHover(target: DrawingHoverTarget) {
+        if (signals.drawingDragTarget.peek() !== null) return
+        if (signals.hoveredDrawingTarget.peek() === target) return
+        signals.hoveredDrawingTarget.set(target)
       },
 
       /**
@@ -293,6 +350,7 @@ export function createInteractionState(_deps: InteractionDeps) {
           signals.hoveredMarkerData.set(null)
           signals.hoveredCustomMarker.set(null)
           signals.hoveredMarkerId.set(null)
+          signals.hoveredDrawingTarget.set('none')
           signals.rangeSelection.set(
             Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
           )
@@ -316,6 +374,7 @@ export function createInteractionState(_deps: InteractionDeps) {
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
         signals.hoveredMarkerId.set(null)
+        signals.hoveredDrawingTarget.set('none')
         signals.rangeSelection.set(
           Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
         )
