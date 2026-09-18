@@ -73,7 +73,7 @@ import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { calculateTickCount } from '../utils/tickCount.js'
-import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex.js'
+import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 import { createCandleLayer } from './layers/candleLayer.js'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer.js'
 import { createCrosshairLayer } from './layers/crosshairLayer.js'
@@ -834,6 +834,7 @@ export class ChartRenderer {
             range,
             kLineCenters,
             vp.scrollLeft,
+            vp.plotWidth,
           )
           if (lineRange) {
             const linePriceRange = { maxPrice: lineRange.max, minPrice: lineRange.min }
@@ -844,7 +845,12 @@ export class ChartRenderer {
           }
           // 绕过 Pane.updateRange 时需手动补齐 percent 基准价；
           // 基准与折线一致，锚定内容区内首根完全可见的 bar。
-          const baseIdx = findFirstVisibleBarIndex(range, kLineCenters, vp.scrollLeft)
+          const { first: baseIdx } = findVisibleBarRange(
+            range,
+            kLineCenters,
+            vp.scrollLeft,
+            vp.plotWidth,
+          )
           const baseItem = renderData[baseIdx]
           pane.yAxis.setBasePrice(baseItem && 'close' in baseItem ? baseItem.close : null)
         } else {

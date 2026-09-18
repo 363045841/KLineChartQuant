@@ -40,7 +40,7 @@ import type { DataStateModule } from '../state/dataState.js'
 import { ChartDataViewId } from '../state/modeState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
-import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex.js'
+import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 
 import { ComparisonManager } from './comparisonManager.js'
 import { IncrementalLoadHint } from './incrementalLoadHint.js'
@@ -1238,18 +1238,20 @@ export class ChartDataManager {
    * @param range 当前可见区间
    * @param kLineCenters 本帧各 bar 的世界坐标中心 x（与 range 对齐）
    * @param scrollLeft 本帧横向滚动量，用于与渲染器共用同一基准索引
+   * @param paneWidth 内容区逻辑宽度，用于判定可见 bar 范围
    */
   getComparisonViewLineRange(
     range: VisibleRange,
     kLineCenters: ReadonlyArray<number>,
     scrollLeft: number,
+    paneWidth: number,
   ): { min: number; max: number } | null {
     const comparisonSpecs = this.deps.comparison.readonly.specs.peek()
     if (comparisonSpecs.length === 0) return null
     // 参考序列是对比集合首个品种，仅决定横轴与百分比基准价。
     const internalData = this.getComparisonReferenceData()
     if (internalData.length === 0) return null
-    const baseIndex = findFirstVisibleBarIndex(range, kLineCenters, scrollLeft)
+    const { first: baseIndex } = findVisibleBarRange(range, kLineCenters, scrollLeft, paneWidth)
     const baseItem = internalData[baseIndex]
     if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
     const mainBase = baseItem.close

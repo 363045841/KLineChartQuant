@@ -131,7 +131,7 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   /** 以 scrollLeft=0、中心从 0 递增的几何调用，基准索引即 range.start。 */
   function lineRange(m: ChartDataManager, range: { start: number; end: number }) {
     const centers = Array.from({ length: Math.max(0, range.end - range.start) }, (_, i) => i * 10)
-    return m.getComparisonViewLineRange(range, centers, 0)
+    return m.getComparisonViewLineRange(range, centers, 0, 800)
   }
 
   it('returns null when no comparison symbols exist', () => {
@@ -184,7 +184,7 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     // 折线从基准起算：bar2 MAIN 101 → 0%，CMP 52 → 0% → 范围 {101,101}
     const range = { start: 1, end: 3 }
     const centers = [-5, 5]
-    expect(m.getComparisonViewLineRange(range, centers, 0)).toEqual({ min: 101, max: 101 })
+    expect(m.getComparisonViewLineRange(range, centers, 0, 800)).toEqual({ min: 101, max: 101 })
   })
 
   it('checks comparison coverage when the reference series already covers the visible range', () => {
