@@ -7,7 +7,7 @@ import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Chart } from '../chart.js'
 import { UpdateLevel } from '../layout/pane.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
-import type { InteractionStateModule } from '../state/interactionState.js'
+import type { InteractionSnapshot, InteractionStateModule } from '../state/interactionState.js'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
 import { MarkerInteractionState } from './markerInteraction.js'
 import { PinchTracker } from './pinchTracker.js'
@@ -39,22 +39,7 @@ interface NearestBar {
   widthLogical: number
 }
 
-export interface InteractionSnapshot {
-  crosshairPos: { x: number; y: number } | null
-  crosshairIndex: number | null
-  crosshairPrice: number | null
-  hoveredIndex: number | null
-  activePaneId: string | null
-  tooltipPos: { x: number; y: number }
-  tooltipAnchorPlacement: 'right-bottom' | 'left-bottom'
-  hoveredMarkerData: MarkerEntity | null
-  hoveredCustomMarker: CustomMarkerEntity | null
-  isDragging: boolean
-  isResizingPaneBoundary: boolean
-  isHoveringPaneBoundary: boolean
-  hoveredPaneBoundaryId: string | null
-  isHoveringRightAxis: boolean
-}
+export type { InteractionSnapshot }
 
 /**
  * 交互控制器，处理拖拽滚动、缩放、十字线 hover 等交互逻辑

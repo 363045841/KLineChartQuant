@@ -1262,6 +1262,8 @@
     isHoveringPaneBoundary: false,
     hoveredPaneBoundaryId: null,
     isHoveringRightAxis: false,
+    isHoveringAnchor: false,
+    isHoveringVerticalHandle: false,
   }
   const externalInteractionState = shallowRef<InteractionSnapshot>(latestInteractionState)
   const hoveredMarker = shallowRef<MarkerEntity | null>(null)
@@ -1861,11 +1863,15 @@
       if (container) {
         container.style.cursor = next.isDragging
           ? 'grabbing'
-          : next.isResizingPaneBoundary || next.isHoveringPaneBoundary
+          : next.isResizingPaneBoundary ||
+              next.isHoveringPaneBoundary ||
+              next.isHoveringVerticalHandle
             ? 'ns-resize'
-            : next.hoveredIndex !== null
-              ? 'pointer'
-              : 'crosshair'
+            : next.isHoveringAnchor
+              ? 'move'
+              : next.hoveredIndex !== null
+                ? 'pointer'
+                : 'crosshair'
       }
 
       // 自定义 K 线 tooltip 是调用方显式选择的 Vue slot；仅该分支保留高频响应式 props。

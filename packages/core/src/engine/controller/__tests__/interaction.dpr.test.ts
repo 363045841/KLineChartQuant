@@ -22,6 +22,7 @@ function createMockInteractionState() {
     hoveredMarkerData: writableRef<any>(null),
     hoveredCustomMarker: writableRef<any>(null),
     hoveredMarkerId: writableRef<string | null>(null),
+    hoveredDrawingTarget: writableRef<'anchor' | 'vertical-handle' | null>(null),
     rangeSelection: writableRef({
       startTimestamp: null as number | null,
       endTimestamp: null as number | null,
@@ -46,6 +47,7 @@ function createMockInteractionState() {
       hoveredMarkerData: signals.hoveredMarkerData,
       hoveredCustomMarker: signals.hoveredCustomMarker,
       hoveredMarkerId: signals.hoveredMarkerId,
+      hoveredDrawingTarget: signals.hoveredDrawingTarget,
       rangeSelection: signals.rangeSelection,
       selectedRange: signals.selectedRange,
       interactionSnapshot: {
@@ -64,6 +66,8 @@ function createMockInteractionState() {
           isHoveringPaneBoundary: signals.hoveredSeparatorUpperPaneId.peek() !== null,
           hoveredPaneBoundaryId: signals.hoveredSeparatorUpperPaneId.peek(),
           isHoveringRightAxis: signals.hoveredRightAxisPaneId.peek() !== null,
+          isHoveringAnchor: signals.hoveredDrawingTarget.peek() === 'anchor',
+          isHoveringVerticalHandle: signals.hoveredDrawingTarget.peek() === 'vertical-handle',
         }),
       } as any,
     },
@@ -102,6 +106,9 @@ function createMockInteractionState() {
       },
       setRightAxisHover(id: any) {
         signals.hoveredRightAxisPaneId.set(id)
+      },
+      setDrawingTargetHover(target: any) {
+        signals.hoveredDrawingTarget.set(target)
       },
       updateTooltip(pos: any, placement: any) {
         signals.tooltipPos.set(pos)
@@ -150,6 +157,7 @@ function createMockInteractionState() {
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
         signals.hoveredMarkerId.set(null)
+        signals.hoveredDrawingTarget.set(null)
       },
     },
     dispose() {},

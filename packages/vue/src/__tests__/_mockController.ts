@@ -149,6 +149,8 @@ export function createMockChartController(
       isHoveringPaneBoundary: false,
       hoveredPaneBoundaryId: null,
       isHoveringRightAxis: false,
+      isHoveringAnchor: false,
+      isHoveringVerticalHandle: false,
     }),
     selectedRange: createSignal<{ from: number; to: number } | null>(null),
     rangeSelection,

@@ -90,6 +90,8 @@ const INITIAL_INTERACTION: InteractionSnapshot = {
   isHoveringPaneBoundary: false,
   hoveredPaneBoundaryId: null,
   isHoveringRightAxis: false,
+  isHoveringAnchor: false,
+  isHoveringVerticalHandle: false,
 }
 
 // ---------------------------------------------------------------------------

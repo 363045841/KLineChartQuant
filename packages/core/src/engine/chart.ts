@@ -1383,6 +1383,16 @@ export class Chart {
     }
   }
 
+  /**
+   * 同步绘图悬停目标（锚点 / 线段中点手柄），宿主据此切换光标。
+   * @param e 指针事件；传 null 表示指针离开画布，清除悬停
+   */
+  private syncDrawingHover(e: PointerEvent | null): void {
+    const target =
+      e !== null ? (this.drawingSession?.getHoveredTarget(e, this.dom.container) ?? null) : null
+    this.kernel.interaction.actions.setDrawingTargetHover(target)
+  }
+
   /** 面板比例信号 */
   get paneRatios(): ReadonlySignal<Readonly<Record<string, number>>> {
     return this.kernel.pane.readonly.paneRatios
@@ -1628,6 +1638,7 @@ export class Chart {
           const handled = drawingController.onPointerMove(e, this.dom.container)
           if (handled) return true
         }
+        this.syncDrawingHover(e)
         if (isRightAxis) {
           this.interaction.onRightAxisPointerMove(e)
         } else {
@@ -1648,6 +1659,7 @@ export class Chart {
         return false
       case 'pointerleave':
         // pointerleave 通常不用于绘图，直接交给 interaction
+        this.syncDrawingHover(null)
         if (isRightAxis) {
           this.interaction.onRightAxisPointerLeave(e)
         } else {

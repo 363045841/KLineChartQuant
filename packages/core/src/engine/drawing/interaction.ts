@@ -1,6 +1,7 @@
 import type { DrawingChartAdapter } from '../../controllers/types.js'
 import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
+import type { DrawingHoverTarget } from '../state/interactionState.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import type {
   DrawingPointerAnchor,
@@ -334,6 +335,20 @@ export class DrawingInteractionController {
       this.adapter,
       new Set(this.adapter.getSelectedDrawingIds()),
     )
+  }
+
+  /**
+   * 指针悬停的绘图拖拽目标；宿主据此切换光标（圆形锚点 → move，中点手柄 → ns-resize）。
+   * 与命中共用同一份选中集合与线表：中点手柄只在图元被选中时可悬停，锚点不受选中限制。
+   */
+  getHoveredTarget(e: PointerEvent, container: HTMLElement): DrawingHoverTarget | null {
+    const tool = this.getActiveTool()
+    if (tool !== 'cursor' && tool !== 'box-select') return null
+    if (this.dragHandler.isDragging()) return null
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer) return null
+    const type = this.findSelectableHit(pointer)?.target.type
+    return type === 'anchor' || type === 'vertical-handle' ? type : null
   }
 
   /**
