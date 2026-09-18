@@ -62,50 +62,33 @@ jobs:
 
           echo "Publishing version $TAG with npm tag '$NPM_TAG' (prerelease=$PRERELEASE)"
 
-          # === 1. 发布 core 包 ===
-          if [ -d "packages/core" ]; then
-            echo "====== 开始发布 Core 包 ======"
-            cd packages/core
-            npm publish --access public --tag "$NPM_TAG"
-            cd "$GITHUB_WORKSPACE"
-          else
-            echo "❌ 错误：未找到 packages/core 目录！"
-            exit 1
-          fi
+          # 只发布已构建产物：构建已在上一步 pnpm build:packages 完成。
+          # pnpm pack 打包时会把 workspace: 协议原生替换为具体版本，npm publish 只负责上传 tarball；
+          # 因此无需就地改写 package.json，也不会在发布阶段再触发 pnpm 脚本与依赖校验。
+          # 注意不要改用 pnpm publish：自 pnpm 11 起它是原生实现，npm OIDC 可信发布尚未支持。
+          publish_package() {
+            local package_dir="$1"
+            local pack_dir
+            pack_dir="$(mktemp -d)"
+            (
+              cd "$GITHUB_WORKSPACE/packages/$package_dir"
+              pnpm pack --ignore-scripts --pack-destination "$pack_dir" >/dev/null
+              npm publish "$pack_dir"/*.tgz --access public --tag "$NPM_TAG"
+            )
+            rm -rf "$pack_dir"
+          }
 
-          # === 2. 发布 agent-runtime 包 ===
-          # vue 把它声明为 peerDependency（workspace:^ → ^${TAG}），所以它必须先于 vue 发布，
-          # 否则 vue 的 peer 范围指向 npm 上不存在的版本。
-          if [ -d "packages/agent-runtime" ]; then
-            echo "====== 开始发布 Agent Runtime 包 ======"
-            cd packages/agent-runtime
-            npm publish --access public --tag "$NPM_TAG"
-            cd "$GITHUB_WORKSPACE"
-          else
-            echo "❌ 错误：未找到 packages/agent-runtime 目录！"
-            exit 1
-          fi
+          # 发布顺序：core -> agent-runtime -> vue。
+          # vue 把 core / agent-runtime 声明为 peerDependency（workspace:^ → ^${TAG}），
+          # 必须先发布前两者，否则 vue 的 peer 范围指向 npm 上尚不存在的版本。
+          echo "====== 开始发布 Core 包 ======"
+          publish_package core
 
-          # === 3. 发布 vue 包 ===
-          if [ -d "packages/vue" ]; then
-            echo "====== 开始发布 Vue 包 ======"
-            cd packages/vue
-            cp package.json package.json.bak
-            trap 'mv -f package.json.bak package.json' EXIT
-            # workspace:^ → ^<TAG> (e.g. workspace:^ → ^0.8.9), and
-            # workspace:* → <TAG> (exact pin). Without the version number,
-            # npm would publish bare ^/* — unresolvable peer deps that
-            # prevent auto-install of klinechart-core.
-            sed -i "s/workspace:\^/^${TAG}/g" package.json
-            sed -i "s/workspace:\*/${TAG}/g" package.json
-            npm publish --access public --tag "$NPM_TAG"
-            mv package.json.bak package.json
-            trap - EXIT
-            cd "$GITHUB_WORKSPACE"
-          else
-            echo "❌ 错误：未找到 packages/vue 目录！"
-            exit 1
-          fi
+          echo "====== 开始发布 Agent Runtime 包 ======"
+          publish_package agent-runtime
+
+          echo "====== 开始发布 Vue 包 ======"
+          publish_package vue
 
       - name: Generate release notes
         id: notes

@@ -1,6 +1,6 @@
 # 发版流程指南
 
-本文档说明如何发布 `@363045841yyt/klinechart-core` 和 `@363045841yyt/klinechart` 的新版本。
+本文档说明如何发布 `@363045841yyt/klinechart-core`、`@363045841yyt/klinechart-agent-runtime` 和 `@363045841yyt/klinechart` 的新版本。
 
 ## 概述
 
@@ -13,39 +13,36 @@
    - 所有功能代码已合并
    - CI 测试通过
 
-2. **检查 npm 权限**
-   - 确保 GitHub 仓库已配置 `NPM_TOKEN` secret
-   - 该 token 需要有 npm 包的发布权限
+2. **检查 npm 可信发布配置**
+   - 在 npm 侧为每个包配置 Trusted Publisher（GitHub Actions，仓库 `363045841/KLineChartQuant`）
+   - 发布 workflow 通过 OIDC 临时凭证认证，无需 `NPM_TOKEN`
 
 ## 发版步骤
 
 ### 1. 更新版本号
 
-需要更新以下文件中的版本号：
+需要更新以下文件中的版本号（可借助 `update-version` skill）：
 
 ```bash
 # packages/core/package.json
+# packages/agent-runtime/package.json
+# packages/desktop-electron/package.json
 # packages/vue/package.json
 # packages/core/src/version.ts
 ```
 
-例如，从 `0.7.5-alpha.2` 更新到 `0.7.5`：
+例如，从 `0.11.0-alpha.3` 更新到 `0.11.0-alpha.4`：
 
 ```json
 // packages/core/package.json
 {
-  "version": "0.7.5"
-}
-
-// packages/vue/package.json
-{
-  "version": "0.7.5"
+  "version": "0.11.0-alpha.4"
 }
 ```
 
 ```typescript
 // packages/core/src/version.ts
-export const VERSION = "0.7.5"
+export const VERSION = "0.11.0-alpha.4"
 ```
 
 ### 2. 编写 Release 日志（可选）
@@ -55,21 +52,19 @@ export const VERSION = "0.7.5"
 ### 3. 提交版本更新
 
 ```bash
-git add packages/core/package.json packages/vue/package.json packages/core/src/version.ts docs/release/v0.7.5.md
-git commit -m "chore(release): v0.7.5"
+git add packages/core/package.json packages/agent-runtime/package.json packages/desktop-electron/package.json packages/vue/package.json packages/core/src/version.ts docs/release/v0.11.0-alpha.4.md
+git commit -m "chore(release): v0.11.0-alpha.4"
 ```
 
 ### 4. 创建并推送 Tag
 
 ```bash
 # 创建 tag
-git tag v0.7.5
+git tag v0.11.0-alpha.4
 
 # 推送 tag 到 GitHub（触发发布流程）
-git push github v0.7.5
+git push origin v0.11.0-alpha.4
 ```
-
-> **注意**：本项目 remote 名为 `github`，不是默认的 `origin`
 
 ## CI/CD 流程说明
 
@@ -81,27 +76,25 @@ git push github v0.7.5
 - 安装依赖
 
 ### 阶段 2: 构建
+
+按依赖顺序构建 core → agent-runtime → vue：
+
 ```bash
-pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
+pnpm build:packages
 ```
 
 ### 阶段 3: 发布到 npm
 
-**Core 包发布：**
+发布阶段不再重新构建，也不改写工作区清单：先用 `pnpm pack` 生成 tarball（pnpm 会原生把 `workspace:` 协议替换为具体版本），再交给 npm 完成 OIDC 可信发布与 provenance。顺序为 core → agent-runtime → vue（vue 的 peerDependencies 指向前两者）：
+
 ```bash
+# 以 core 为例，agent-runtime / vue 同理
 cd packages/core
-npm publish --provenance --access public
+pnpm pack --ignore-scripts --pack-destination "$PACK_DIR"
+npm publish "$PACK_DIR"/*.tgz --access public --tag alpha
 ```
 
-**Vue 包发布：**
-```bash
-cd packages/vue
-# 将 workspace:^ 替换为 ^（发布时移除 workspace 协议）
-sed -i 's/workspace:^/^/g' package.json
-npm publish --provenance --access public
-```
-
-> 发布需要 `NPM_TOKEN` secret 已配置
+> 不要改用 `pnpm publish`：自 pnpm 11 起它是原生实现，尚不支持 npm OIDC 可信发布。
 
 ### 阶段 4: 生成 Release Notes
 
@@ -149,6 +142,7 @@ npm publish --provenance --access public
 
 2. **npm 包版本**
    - https://www.npmjs.com/package/@363045841yyt/klinechart-core
+   - https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime
    - https://www.npmjs.com/package/@363045841yyt/klinechart
 
 3. **GitHub Release**
@@ -158,11 +152,11 @@ npm publish --provenance --access public
 
 ### Workflow 失败
 
-**缺少 NPM_TOKEN：**
+**OIDC 可信发布失败：**
 ```
-❌ 错误：缺少 NPM_TOKEN secret
+npm error 404 Not Found - PUT ... / EOTP / ENEEDAUTH
 ```
-解决：在 GitHub 仓库 Settings → Secrets → Actions 中添加 `NPM_TOKEN`
+解决：确认 npm 侧已为该包配置 Trusted Publisher，且 workflow 具备 `id-token: write` 权限（npm >= 11.5.1）
 
 **包名已存在：**
 ```
@@ -180,14 +174,16 @@ npm ERR! 403 Forbidden
 1. 修复问题
 2. 删除本地和远程 tag：
    ```bash
-   git tag -d v0.7.5
-   git push github --delete v0.7.5
+   git tag -d v0.11.0-alpha.4
+   git push origin --delete v0.11.0-alpha.4
    ```
 3. 重新创建并推送 tag
 
 ## 相关文件
 
-- `.github/workflows/release.yml` - 发布 workflow 配置
+- `.github/workflows/release.yml` - npm 发布 workflow（OIDC 可信发布）
+- `.github/workflows/publish-github-packages.yml` - GitHub Packages 镜像发布 workflow
 - `packages/core/package.json` - Core 包配置
+- `packages/agent-runtime/package.json` - Agent Runtime 包配置
 - `packages/vue/package.json` - Vue 包配置
 - `packages/core/src/version.ts` - 版本常量（运行时可用）

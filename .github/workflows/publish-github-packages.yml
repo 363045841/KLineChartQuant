@@ -60,35 +60,25 @@ jobs:
 
           echo "Publishing to GitHub Packages — tag '$NPM_TAG'"
 
-          # === Core ===
-          cd packages/core
-          cp package.json package.json.bak
-          trap 'mv -f package.json.bak package.json' EXIT
-          sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
-          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
-          mv package.json.bak package.json
-          trap - EXIT
-          cd "$GITHUB_WORKSPACE"
+          # 构建已在上一步 pnpm build:packages 完成，publish 只上传已构建产物：
+          # --ignore-scripts 避免在改写后的清单上再跑 pnpm 脚本（否则会触发依赖校验并自动 install）。
+          # GitHub Packages 要求包名 scope 属于仓库 owner，必须把 @363045841yyt 改写为 @363045841；
+          # 改名会连带改写依赖名，pnpm 无法再把 workspace: 协议解析到工作区包，故这里手动翻译为具体版本。
+          publish_gh_package() {
+            local package_dir="$1"
+            cd "$GITHUB_WORKSPACE/packages/$package_dir"
+            cp package.json package.json.bak
+            trap 'mv -f package.json.bak package.json' EXIT
+            # workspace:^ → ^<TAG>，workspace:* → <TAG>；裸 ^/* 是无效 semver range，必须写入版本号。
+            sed -i "s/workspace:\^/^${TAG}/g" package.json
+            sed -i "s/workspace:\*/${TAG}/g" package.json
+            sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
+            npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG" --ignore-scripts
+            mv package.json.bak package.json
+            trap - EXIT
+          }
 
-          # === Agent Runtime ===
-          cd packages/agent-runtime
-          cp package.json package.json.bak
-          trap 'mv -f package.json.bak package.json' EXIT
-          sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
-          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
-          mv package.json.bak package.json
-          trap - EXIT
-          cd "$GITHUB_WORKSPACE"
-
-          # === Vue ===
-          cd packages/vue
-          cp package.json package.json.bak
-          trap 'mv -f package.json.bak package.json' EXIT
-          # 必须写入具体版本号：裸 ^ 是无效的 semver range，
-          # 而 vue 的 peerDependencies 指向 agent-runtime，需要解析到本次发布的版本。
-          sed -i "s/workspace:\^/^${TAG}/g" package.json
-          sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
-          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
-          mv package.json.bak package.json
-          trap - EXIT
-          cd "$GITHUB_WORKSPACE"
+          # 发布顺序同 npm：core -> agent-runtime -> vue。
+          publish_gh_package core
+          publish_gh_package agent-runtime
+          publish_gh_package vue
