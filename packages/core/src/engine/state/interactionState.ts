@@ -10,7 +10,7 @@ import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 /**
  * 指针悬停的绘图拖拽目标，与命中结果的目标类型一致，`none` 表示没有悬停在任何可拖拽图元上：
  * `anchor` 圆形锚点、`vertical-handle` 线段中点手柄、`all` 线身（可整体拖拽）。
- * 宿主按目标类型决定光标：手柄 → ns-resize，线身 → move，锚点不改变光标。
+ * 宿主按目标类型决定光标：手柄 → ns-resize，线身 → move，锚点 → default（显式回到默认箭头）。
  */
 export type DrawingHoverTarget = 'none' | 'anchor' | 'vertical-handle' | 'all'
 

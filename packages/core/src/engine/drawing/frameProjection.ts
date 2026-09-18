@@ -113,7 +113,8 @@ function resolveStyledPrimitives(
 
 /**
  * 将选中图元的 primitive 视觉样式提升，保持原始 geometry 不变。
- * 锚点画成「anchorFill 实心 + 图元描边环」，因此点图元与线段端点都要拿到该填充色。
+ * 选中态只加强锚点视觉：点图元与线段端点写入 anchorFill，画成「anchorFill 实心 + 图元描边环」；
+ * 线身不加粗，线宽与未选中一致，避免改变图元的原始视觉重量。
  */
 function applySelectedStyle(
   primitive: DrawingPrimitive,
@@ -121,19 +122,14 @@ function applySelectedStyle(
   anchorFill: string,
 ): DrawingPrimitive {
   const stroke = baseStyle.stroke
-  const strokeWidth = (baseStyle.strokeWidth ?? 1) + 1
   if (primitive.kind === PRIMITIVE_KIND.point) {
     return { ...primitive, anchorFill, style: { ...primitive.style, stroke } }
   }
   if (primitive.kind === PRIMITIVE_KIND.line) {
-    return {
-      ...primitive,
-      anchorFill,
-      style: { ...primitive.style, stroke, strokeWidth },
-    }
+    return { ...primitive, anchorFill, style: { ...primitive.style, stroke } }
   }
   if (primitive.kind === PRIMITIVE_KIND.arrow) {
-    return { ...primitive, style: { ...primitive.style, stroke, strokeWidth } }
+    return { ...primitive, style: { ...primitive.style, stroke } }
   }
   if (primitive.kind === PRIMITIVE_KIND.area) {
     return { ...primitive, style: { ...primitive.style, stroke } }

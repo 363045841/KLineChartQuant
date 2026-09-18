@@ -1844,13 +1844,15 @@
 
   /**
    * 舞台光标：拖拽中 grabbing；面板分隔与绘图中点手柄 ns-resize；
-   * 图元线身 move（可整体拖动）；圆形锚点不改变光标。
+   * 图元线身 move（可整体拖动）；圆形锚点显式 default，避免沿用十字线/指针。
    */
   function resolveStageCursor(state: InteractionSnapshot): string {
     if (state.isDragging) return 'grabbing'
     if (state.isResizingPaneBoundary || state.isHoveringPaneBoundary) return 'ns-resize'
     if (state.drawingHoverTarget === 'vertical-handle') return 'ns-resize'
     if (state.drawingHoverTarget === 'all') return 'move'
+    // 圆形锚点是纯拖拽热点，指向它时不再提示十字线或 K 线工具。
+    if (state.drawingHoverTarget === 'anchor') return 'default'
     return state.hoveredIndex !== null ? 'pointer' : 'crosshair'
   }
 
