@@ -1,19 +1,20 @@
 // 本文件实现本地 Python 子进程 Provider，供开发与单测使用。
 //
 // 隔离强度如实记账（design.md §5）：
-//   - Linux：`unshare -n` 空 netns，出站被阻断，可信基是本进程而非平台。
+//   - Linux：`unshare -rn`（user namespace 内建空 netns）实测可用时出站被阻断，
+//     可信基是本进程而非平台；内核或 AppArmor 拒绝非特权 userns 时退化为不隔离。
 //   - macOS / Windows：**没有等效隔离机制**，出站不受限。
 // 因此本 Provider **仅供单测与开发**，禁止用于执行不可信代码。
 //
 // `limits.memoryMb` 在本 Provider **不强制**（contract.ts 已说明理由）：`spec.memoryMb`
 // 被有意忽略，且 `ProviderStatus` 不回填 `memoryMb`——不报一个我们没度量的数。
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { SOFT_TIMEOUT_EXIT_CODE, type Artifact } from '../contract.js'
+import { type Artifact, SOFT_TIMEOUT_EXIT_CODE } from '../contract.js'
 
 import type {
   ExecutionSpec,
@@ -37,10 +38,16 @@ const TEXT_MIME_PREFIXES = ['text/', 'application/json', 'image/svg+xml']
 /** 单流采集上限：留出截断标记的余量，最终截断由 transport/channel 统一执行。 */
 const STREAM_CAPTURE_LIMIT = 2 * 1024 * 1024
 
+/** util-linux `unshare` 的绝对路径；只在 Linux 上读取。 */
+const UNSHARE_PATH = '/usr/bin/unshare'
+
+/** `unshare -rn` 能力探测超时：探测不应拖慢首次执行。 */
+const UNSHARE_PROBE_TIMEOUT_MS = 5_000
+
 export interface LocalProviderOptions {
   /** Python 可执行文件，默认 `python3`。 */
   readonly pythonPath?: string
-  /** 关闭 macOS/Windows 上的「无隔离」告警，仅供已知悉风险的单测使用。 */
+  /** 关闭「无隔离」告警，仅供已知悉风险的单测使用。 */
   readonly suppressIsolationWarning?: boolean
 }
 
@@ -87,6 +94,67 @@ function runnerSource(softTimeoutMs: number): string {
   ].join('\n')
 }
 
+/** LocalProvider 一次执行的启动计划。 */
+export interface LocalCommandPlan {
+  readonly command: string
+  readonly args: string[]
+  /** true 表示已进入空 netns，出站被阻断。 */
+  readonly isolated: boolean
+}
+
+export interface LocalCommandInputs {
+  readonly platform: NodeJS.Platform
+  readonly pythonPath: string
+  readonly runnerPath: string
+  /** Linux 上 `unshare` 的路径；不存在时为 null。 */
+  readonly unsharePath: string | null
+  /** `unshare -rn` 能力探测是否通过。 */
+  readonly unshareUsable: boolean
+}
+
+/**
+ * 决定 LocalProvider 如何启动一次执行。
+ *
+ * 只有 Linux 且 `unshare -rn` 实测可用时才隔离：单用 `-n` 建 netns 需要 CAP_SYS_ADMIN，
+ * 非 root 必然 EPERM，因此不能用「文件存在」代替可用性（issue #193）。其余情况一律
+ * 直接跑 Python，与 macOS/Windows 的「无隔离」语义一致，由调用方据此告警一次。
+ */
+export function resolveLocalCommand(inputs: LocalCommandInputs): LocalCommandPlan {
+  const { platform, pythonPath, runnerPath, unsharePath, unshareUsable } = inputs
+  if (platform === 'linux' && unsharePath !== null && unshareUsable) {
+    return { command: unsharePath, args: ['-rn', '--', pythonPath, runnerPath], isolated: true }
+  }
+  return { command: pythonPath, args: [runnerPath], isolated: false }
+}
+
+/** Linux 上是否存在 `unshare`；非 Linux 恒为 null。 */
+function localUnsharePath(): string | null {
+  if (process.platform !== 'linux') return null
+  return existsSync(UNSHARE_PATH) ? UNSHARE_PATH : null
+}
+
+/** `unshare -rn` 能力探测的进程级缓存。 */
+let unshareUsable: boolean | undefined
+
+/**
+ * 探测 `unshare -rn` 是否真的可用。
+ * 非 root 用户只有在 user namespace 可用时才能建 netns（AppArmor 等仍可能拒绝），
+ * 因此必须实跑一次；结果进程级缓存，只探测一次。
+ */
+function canUseUnshareNetworkNamespace(): boolean {
+  if (unshareUsable !== undefined) return unshareUsable
+  unshareUsable = false
+  const unsharePath = localUnsharePath()
+  if (unsharePath !== null) {
+    const probe = spawnSync(unsharePath, ['-rn', '--', 'true'], {
+      stdio: 'ignore',
+      timeout: UNSHARE_PROBE_TIMEOUT_MS,
+    })
+    unshareUsable = probe.status === 0
+  }
+  return unshareUsable
+}
+
 let warnedAboutIsolation = false
 
 /**
@@ -113,7 +181,6 @@ export class LocalProvider implements RuntimeProvider {
   }
 
   async start(spec: ExecutionSpec, signal: AbortSignal): Promise<ProviderHandle> {
-    this.#warnIfUnisolated()
     const workDir = await mkdtemp(join(tmpdir(), 'kq-code-interpreter-'))
     const codeDir = join(workDir, 'code')
     const inputDir = join(workDir, 'input')
@@ -130,6 +197,15 @@ export class LocalProvider implements RuntimeProvider {
       )
     }
 
+    const plan = resolveLocalCommand({
+      platform: process.platform,
+      pythonPath: this.#pythonPath,
+      runnerPath: join(codeDir, 'runner.py'),
+      unsharePath: localUnsharePath(),
+      unshareUsable: canUseUnshareNetworkNamespace(),
+    })
+    this.#warnIfUnisolated(plan.isolated)
+
     const run: LocalRun = {
       workDir,
       outputDir,
@@ -139,7 +215,7 @@ export class LocalProvider implements RuntimeProvider {
       stderr: '',
       done: Promise.resolve(),
     }
-    run.done = this.#spawn(run, spec, codeDir, inputDir, mplConfigDir, signal)
+    run.done = this.#spawn(run, plan, codeDir, inputDir, mplConfigDir, signal)
     this.#runs.set(spec.taskId, run)
     return { taskId: spec.taskId, providerId: this.id, ref: run }
   }
@@ -164,22 +240,24 @@ export class LocalProvider implements RuntimeProvider {
     return run
   }
 
-  #warnIfUnisolated(): void {
-    if (this.#suppressIsolationWarning || warnedAboutIsolation) return
-    if (process.platform === 'linux' && existsSync('/usr/bin/unshare')) return
+  /** 隔离不可用时告警一次；Linux 上 userns 被拒时同样要看见（issue #193）。 */
+  #warnIfUnisolated(isolated: boolean): void {
+    if (isolated || this.#suppressIsolationWarning || warnedAboutIsolation) return
     warnedAboutIsolation = true
+    const reason =
+      process.platform === 'linux' ? 'unshare -rn is not usable' : 'no isolation mechanism'
     // 隔离缺失必须让开发者看见，不能沉默。
     // eslint-disable-next-line no-console
     console.warn(
-      '[code_interpreter] LocalProvider has no network isolation on this platform ' +
-        `(${process.platform}). It is intended for unit tests and development only; ` +
-        'never use it to execute untrusted code.',
+      '[code_interpreter] LocalProvider is running without network isolation ' +
+        `(platform: ${process.platform}; ${reason}). It is intended for unit tests ` +
+        'and development only; never use it to execute untrusted code.',
     )
   }
 
   async #spawn(
     run: LocalRun,
-    spec: ExecutionSpec,
+    plan: LocalCommandPlan,
     codeDir: string,
     inputDir: string,
     mplConfigDir: string,
@@ -196,12 +274,7 @@ export class LocalProvider implements RuntimeProvider {
       MPLCONFIGDIR: mplConfigDir,
       PYTHONDONTWRITEBYTECODE: '1',
     }
-    const runner = join(codeDir, 'runner.py')
-    const useUnshare = process.platform === 'linux' && existsSync('/usr/bin/unshare')
-    const command = useUnshare ? '/usr/bin/unshare' : this.#pythonPath
-    const args = useUnshare ? ['-n', '--', this.#pythonPath, runner] : [runner]
-
-    const child = spawn(command, args, { cwd: inputDir, env, stdio: 'pipe' })
+    const child = spawn(plan.command, plan.args, { cwd: inputDir, env, stdio: 'pipe' })
     run.child = child
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')

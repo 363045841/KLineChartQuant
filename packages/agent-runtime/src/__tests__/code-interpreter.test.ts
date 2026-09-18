@@ -14,10 +14,10 @@ import {
   CodeInterpreterService,
   CodeInterpreterTool,
   ExecutionRejectedError,
+  type ExecutionResult,
   MAX_STREAM_BYTES,
   selectChannel,
   truncateStream,
-  type ExecutionResult,
 } from '../tools/code-interpreter/index.js'
 import {
   CloudRunSandboxProvider,
@@ -27,10 +27,13 @@ import {
   type SandboxCommandRunner,
 } from '../tools/code-interpreter/providers/cloud-run-sandbox-provider.js'
 import {
-  FlyMachinesProvider,
   createFlyMachinesProviderFromEnv,
+  FlyMachinesProvider,
 } from '../tools/code-interpreter/providers/fly-machines-provider.js'
-import { LocalProvider } from '../tools/code-interpreter/providers/local-provider.js'
+import {
+  LocalProvider,
+  resolveLocalCommand,
+} from '../tools/code-interpreter/providers/local-provider.js'
 
 function hasPython(): boolean {
   try {
@@ -64,6 +67,49 @@ async function settle(
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
 }
+
+// LocalProvider 的隔离选择是纯函数，无需 Python 即可断言（issue #193）：
+// Linux 只有在 `unshare -rn` 实测可用时才隔离，否则与 macOS/Windows 一样直跑。
+describe('LocalProvider isolation selection (issue #193)', () => {
+  const base = { pythonPath: '/usr/bin/python3', runnerPath: '/tmp/kq/runner.py' }
+  const unsharePath = '/usr/bin/unshare'
+
+  it('isolates on Linux when `unshare -rn` is usable', () => {
+    expect(
+      resolveLocalCommand({
+        ...base,
+        platform: 'linux',
+        unsharePath,
+        unshareUsable: true,
+      }),
+    ).toEqual({
+      command: unsharePath,
+      args: ['-rn', '--', base.pythonPath, base.runnerPath],
+      isolated: true,
+    })
+  })
+
+  const directRunCases: Array<[string, NodeJS.Platform, string | null, boolean]> = [
+    ['the probe failed (AppArmor blocks unprivileged userns)', 'linux', unsharePath, false],
+    ['unshare is absent', 'linux', null, false],
+    ['the platform is macOS', 'darwin', unsharePath, true],
+    ['the platform is Windows', 'win32', unsharePath, true],
+  ]
+
+  it.each(directRunCases)(
+    'degrades to a direct run when %s',
+    (_case, platform, unsharePathForCase, unshareUsable) => {
+      expect(
+        resolveLocalCommand({
+          ...base,
+          platform,
+          unsharePath: unsharePathForCase,
+          unshareUsable,
+        }),
+      ).toEqual({ command: base.pythonPath, args: [base.runnerPath], isolated: false })
+    },
+  )
+})
 
 describe('code_interpreter registration (AC1)', () => {
   it('registers into the core ChartToolRegistry as a destructive tool', () => {
@@ -244,7 +290,10 @@ describe('FlyMachinesProvider wiring', () => {
     interface FlyCall {
       method: string
       url: string
-      body?: { command?: string[]; config?: { files: Array<{ guest_path: string; raw_value: string }> } }
+      body?: {
+        command?: string[]
+        config?: { files: Array<{ guest_path: string; raw_value: string }> }
+      }
     }
     const calls: FlyCall[] = []
     const fetchImpl = (async (url: string, init: RequestInit) => {
@@ -326,7 +375,9 @@ describe('FlyMachinesProvider soft timeout budget', () => {
     const execCommands: string[][] = []
     const fetchImpl = (async (url: string, init: RequestInit) => {
       const path = String(url)
-      const body = init.body ? (JSON.parse(init.body as string) as { command?: string[] }) : undefined
+      const body = init.body
+        ? (JSON.parse(init.body as string) as { command?: string[] })
+        : undefined
       if (path.endsWith('/machines') && init.method === 'POST') {
         return new Response(JSON.stringify({ id: 'm1' }), { status: 200 })
       }
@@ -704,7 +755,12 @@ describePython('code_interpreter agent integration: CSV in, stdout + PNG out (AC
       new CodeInterpreterTool(createService()),
       {
         code: SANDBOX_CODE,
-        files: [{ name: 'prices.csv', content: 'date,close\n2026-09-01,10\n2026-09-02,20\n2026-09-03,30\n' }],
+        files: [
+          {
+            name: 'prices.csv',
+            content: 'date,close\n2026-09-01,10\n2026-09-02,20\n2026-09-03,30\n',
+          },
+        ],
         timeoutMs: 30_000,
       },
       { signal: new AbortController().signal, progress: (update) => labels.push(update.label) },

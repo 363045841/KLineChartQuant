@@ -75,16 +75,17 @@ Read it before choosing a provider — the three are **not** interchangeable.
 | --- | --- | --- | --- | --- |
 | `cloud-run-sandbox` | `true` | Platform blocks all outbound traffic by default; no access to the parent workload, its environment, or the metadata server | Google Cloud | **No. Never run against a real GCP environment.** |
 | `fly-machines` | `false` | Sandbox image unmounts `/.fly/api`, drops to a non-root uid, drops all capabilities, then enters an empty network namespace | This project's runner image | Yes, end to end on fly.io including the network-disabled assertions |
-| `local` | `false` | `unshare -n` on Linux only | The developer's machine | Yes, by unit tests |
+| `local` | `false` | `unshare -rn` on Linux when the capability probe passes; otherwise the child runs directly | The developer's machine | Yes, by unit tests |
 
 Two statements must not be softened:
 
 - **fly.io does not provide outbound blocking.** Egress is blocked by the
   network namespace inside our own sandbox image, so the trusted base is this
   project's runner, not the fly.io platform.
-- **`LocalProvider` has no isolation at all on macOS and Windows.** There is no
-  equivalent mechanism on those platforms, so outbound traffic is unrestricted.
-  It exists for unit tests and development. Never use it to execute untrusted
+- **`LocalProvider` isolates nothing on macOS or Windows, nor on a Linux host
+  where `unshare -rn` is not usable** (the kernel or AppArmor may reject
+  unprivileged user namespaces). Outbound traffic is unrestricted there. It
+  exists for unit tests and development. Never use it to execute untrusted
   code.
 
 `CloudRunSandboxProvider` is implemented strictly from Google's published

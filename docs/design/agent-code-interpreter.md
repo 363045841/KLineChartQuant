@@ -75,3 +75,15 @@ Google Cloud Run：
 1. 工具注册到 `ChartToolRegistry`，`@Tool` 装饰器标注 `safety: 'destructive'`。
 2. `submit / get / cancel` 三个调用在 `localProvider` 单测中覆盖成功、错误、超时、取消。
 3. Agent 集成测试：CSV 输入，断言 stdout 与 PNG 产物。
+
+## LocalProvider 的 Linux 隔离（issue #193）
+
+`unshare -n` 单独使用需要 CAP_SYS_ADMIN，非 root 必然 EPERM，Linux 上 LocalProvider 会一启动就失败；
+macOS / Windows 因本就不隔离反而正常，同一个 Provider 的语义不一致。
+
+现约定：
+
+- Linux 优先用 `unshare -rn`：在 user namespace 内建空 netns，非 root 可用。
+- 启动前实跑一次 `unshare -rn -- true` 探测能力；失败（内核或 AppArmor 拒绝非特权 userns）
+  时退化为直接运行并告警一次，与 macOS / Windows 语义一致。
+- 隔离只看探测结果，不看 `unshare` 文件是否存在——存在不等于可用。
