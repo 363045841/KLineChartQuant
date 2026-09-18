@@ -36,6 +36,7 @@ export type {
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import { midpoint } from './coordinateUtils.js'
 import { mergePaint } from './DrawingState.js'
+import { buildFillPolygon } from './fillRegions.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 
 export type { DrawingCommandsDependencies } from './DrawingCommands.js'
@@ -774,7 +775,7 @@ export function createParallelChannelDefinition(): DrawingDefinition {
         primitives: [
           {
             kind: 'area',
-            points: [p1, p2, p4, p3],
+            points: buildFillPolygon('parallel-channel', [p1, p2, p3, p4]),
             closed: true,
             style: drawing.style,
           },
@@ -813,7 +814,7 @@ export function createFlatLineDefinition(): DrawingDefinition {
         primitives: [
           {
             kind: 'area',
-            points: [p1, p2, h2, h1],
+            points: buildFillPolygon('flat-line', [p1, p2, h1, h2]),
             closed: true,
             style: drawing.style,
           },
@@ -845,7 +846,7 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
           // 填充按 0 → 1 → 2 → 3 环绕，与两条线的方向一致，避免自交。
           {
             kind: 'area',
-            points: [a0, a1, a2, a3],
+            points: buildFillPolygon('disjoint-channel', [a0, a1, a2, a3]),
             closed: true,
             style: drawing.style,
           },

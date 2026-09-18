@@ -5,8 +5,10 @@ import {
   anchorToScreen,
   isScreenPoint,
   midpoint,
+  pointInPolygon,
   pointToSegmentDistanceSq,
 } from './coordinateUtils.js'
+import { buildFillPolygon } from './fillRegions.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 import { computeLinearRegression } from './linearRegression.js'
 import type { DrawingLine, VerticalHandleLine } from './lines.js'
@@ -131,6 +133,14 @@ export class HitTester {
         if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
           return { drawing, target: { type: 'all' } }
         }
+      }
+    }
+
+    // Check fill region hits：通道类组合图元的填充与线身同属「图元主体」，落在内部也整体拖拽。
+    for (const drawing of visibleDrawings) {
+      const polygon = this.getDrawingFillPolygon(drawing, adapter)
+      if (polygon.length >= 3 && pointInPolygon({ x: mouseX, y: mouseY }, polygon)) {
+        return { drawing, target: { type: 'all' } }
       }
     }
 
@@ -317,6 +327,20 @@ export class HitTester {
       segments.push({ a, b })
     }
     return segments
+  }
+
+  /** 组合图元的填充多边形：所有锚点可投影时按登记的环绕顺序成环，否则不参与命中。 */
+  private getDrawingFillPolygon(
+    drawing: DrawingObject,
+    adapter: DrawingViewportPort,
+  ): ScreenPoint[] {
+    const anchorsOnScreen: ScreenPoint[] = []
+    for (const anchor of drawing.anchors) {
+      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+      if (!isScreenPoint(screen)) return []
+      anchorsOnScreen.push(screen)
+    }
+    return buildFillPolygon(drawing.kind, anchorsOnScreen)
   }
 
   /**

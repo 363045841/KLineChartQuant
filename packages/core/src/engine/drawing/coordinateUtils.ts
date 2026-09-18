@@ -186,6 +186,25 @@ export function midpoint(a: ScreenPoint, b: ScreenPoint): ScreenPoint {
 }
 
 /**
+ * 判断点是否落在简单多边形内部（射线法）。
+ * 边界上的结果不做保证；调用方命中判定会先看线段，不依赖边界语义。
+ * @param point 待测点
+ * @param polygon 多边形顶点，按环绕顺序给出
+ * @returns 点在多边形内部时为 true
+ */
+export function pointInPolygon(point: ScreenPoint, polygon: ReadonlyArray<ScreenPoint>): boolean {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i]!
+    const b = polygon[j]!
+    if (a.y > point.y === b.y > point.y) continue
+    const x = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+    if (point.x < x) inside = !inside
+  }
+  return inside
+}
+
+/**
  * 计算点 P 到线段 AB 的最短距离平方。
  * 投影点在 AB 线段外时取最近端点距离。
  */

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { DrawingViewportPort } from '../../../controllers/types'
 import {
   anchorToScreen,
+  pointInPolygon,
   pointToSegmentDistanceSq,
   resolveDrawingPointer,
   screenToAnchor,
@@ -87,5 +88,18 @@ describe('drawing coordinate utilities', () => {
   it('returns squared distance for projected and degenerate line segments', () => {
     expect(pointToSegmentDistanceSq(5, 3, { x: 0, y: 0 }, { x: 10, y: 0 })).toBe(9)
     expect(pointToSegmentDistanceSq(3, 4, { x: 0, y: 0 }, { x: 0, y: 0 })).toBe(25)
+  })
+
+  it('detects whether a point lies inside a polygon', () => {
+    const square = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ]
+
+    expect(pointInPolygon({ x: 5, y: 5 }, square)).toBe(true)
+    expect(pointInPolygon({ x: 15, y: 5 }, square)).toBe(false)
+    expect(pointInPolygon({ x: 5, y: -1 }, square)).toBe(false)
   })
 })

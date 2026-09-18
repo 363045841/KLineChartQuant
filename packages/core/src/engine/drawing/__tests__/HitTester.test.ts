@@ -269,6 +269,69 @@ describe('HitTester', () => {
     })
   })
 
+  /**
+   * 构造满足通道不变量的填充命中夹具；锚点顺序与物化结果一致。
+   * 平行通道同端同 X（0↔2、1↔3），不相交通道同 X 配对相反（0↔3、1↔2）。
+   */
+  function createFillFixture(
+    kind: 'parallel-channel' | 'disjoint-channel',
+    anchors: ReadonlyArray<{ time: number; price: number }>,
+  ): DrawingObject {
+    return {
+      id: kind,
+      kind,
+      paneId: 'main',
+      visible: true,
+      anchors: anchors.map((anchor, index) => ({
+        id: `a${index}`,
+        type: 'point' as const,
+        ...anchor,
+      })),
+      params: {},
+      style: {},
+    }
+  }
+
+  it('hits the fill interior of a parallel channel away from its lines and anchors', () => {
+    const drawing = createFillFixture('parallel-channel', [
+      { time: 500, price: 100 },
+      { time: 1_000, price: 120 },
+      { time: 500, price: 60 },
+      { time: 1_000, price: 40 },
+    ])
+
+    // 内部点 (45, 120) 距两条线的中点 (45, 90) / (45, 150) 与四个锚点均超过命中半径。
+    expect(new HitTester().hitTest(45, 120, [drawing], createChannelAdapter())).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the fill interior of a flat line away from its lines and anchors', () => {
+    const { drawing, adapter } = createFlatLineFixture()
+
+    // 斜线与水平线的中点为 (45, 80) / (45, 140)，内部点取包围盒中心。
+    expect(new HitTester().hitTest(45, 110, [drawing], adapter)).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
+  it('hits the fill interior of a disjoint channel with the reversed same-X pairing', () => {
+    const drawing = createFillFixture('disjoint-channel', [
+      { time: 500, price: 100 },
+      { time: 1_000, price: 80 },
+      { time: 1_000, price: 140 },
+      { time: 500, price: 160 },
+    ])
+
+    // 第二条线由右向左，内部点 (45, 80) 仍应命中；错误的环绕顺序会判成自交多边形而落空。
+    expect(new HitTester().hitTest(45, 80, [drawing], createChannelAdapter())).toEqual({
+      drawing,
+      target: { type: 'all' },
+    })
+  })
+
   it('hits the line midpoint handle of a selected drawing, and the body otherwise', () => {
     const { drawing, adapter } = createFlatLineFixture()
     const selected = new Set([drawing.id])
