@@ -34,6 +34,7 @@ export type {
 }
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { midpoint } from './coordinateUtils.js'
 import { mergePaint } from './DrawingState.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 
@@ -779,6 +780,15 @@ export function createParallelChannelDefinition(): DrawingDefinition {
           },
           { kind: 'line', a: p1, b: p2, extend, style: drawing.style },
           { kind: 'line', a: p3, b: p4, extend, style: drawing.style },
+          // 中线：两条平行线的中间虚线，端点不是锚点，选中态也不画锚点圆。
+          {
+            kind: 'line',
+            a: midpoint(p1, p3),
+            b: midpoint(p2, p4),
+            extend,
+            showEndpoints: false,
+            style: { ...drawing.style, strokeStyle: 'dashed' },
+          },
         ],
       }
     },

@@ -8,6 +8,7 @@ import {
   createDisjointChannelDefinition,
   createFibRetracementDefinition,
   createInfoLineDefinition,
+  createParallelChannelDefinition,
   createRectangleDefinition,
 } from '../index'
 import { getAnchorCountForTool, getDrawingKind } from '../toolConfig'
@@ -108,5 +109,30 @@ describe('new drawing tools', () => {
       { x: 120, y: 180 },
       { x: 20, y: 140 },
     ])
+  })
+
+  it('draws a dashed midline between the two parallel channel lines without anchor endpoints', () => {
+    const geometry = createParallelChannelDefinition().compute(
+      {
+        ...drawing('parallel-channel'),
+        anchors: [
+          { id: 'a0', index: 2, price: 100 },
+          { id: 'a1', index: 12, price: 40 },
+          { id: 'a2', index: 2, price: 60 },
+          { id: 'a3', index: 12, price: 100 },
+        ],
+      },
+      context(),
+    )
+
+    const lines = geometry.primitives.filter((primitive) => primitive.kind === 'line')
+    expect(lines).toHaveLength(3)
+    const midline = lines.find((line) => line.style?.strokeStyle === 'dashed')
+    // toScreen 后两条线为 (20,100)-(120,160) 与 (20,140)-(120,100)，中线取同 X 端点的中点。
+    expect(midline).toMatchObject({
+      a: { x: 20, y: 120 },
+      b: { x: 120, y: 130 },
+      showEndpoints: false,
+    })
   })
 })
