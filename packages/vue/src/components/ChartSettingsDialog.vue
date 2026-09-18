@@ -182,7 +182,6 @@
     :sources="aggregationSources"
     :enabled-names="enabledSourceNames"
     :endpoints="sourceEndpoints"
-    :z-index="1100"
     @close="showAggregationSourceModal = false"
     @toggle="onToggleAggregationSource"
     @update-endpoint="onUpdateSourceEndpoint"
@@ -195,7 +194,6 @@
     subtitle="自定义图表颜色"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
-    :z-index="1100"
     footer-align="space-between"
     @close="showColorPresetModal = false"
   >
@@ -382,7 +380,7 @@
 
   .settings-subsection-label {
     font-size: 11px;
-    color: var(--klc-color-axis-text);
+    color: #edf2f3;
     font-weight: 500;
     padding: 8px 12px 2px;
     opacity: 0.85;
@@ -401,7 +399,7 @@
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-axis-text);
     transition: background 0.15s ease;
   }
 
@@ -451,7 +449,7 @@
   }
 
   .cache-clear-btn:hover {
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-axis-text);
   }
 
   .cache-clear-btn svg {
@@ -464,7 +462,7 @@
     min-height: 32px;
     padding: 6px 12px;
     text-decoration: none;
-    color: inherit;
+    color: var(--klc-color-axis-text);
   }
 
   a.settings-item.credit-item:hover {
@@ -505,7 +503,7 @@
   }
 
   .settings-item.nav-item:hover .nav-arrow {
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-axis-text);
     transform: translateX(2px);
   }
 

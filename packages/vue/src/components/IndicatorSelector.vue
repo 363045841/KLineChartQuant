@@ -7,7 +7,6 @@
       width="90vw"
       max-width="860px"
       max-height="85vh"
-      transition-variant="compact"
       footer-align="space-between"
       @close="closeMenu"
     >
@@ -106,7 +105,6 @@
       @confirm="onParamsConfirm"
     />
 
-    <!-- z-index 高于指标选择弹窗(1000)，避免被其 Teleport 重排后遮挡 -->
     <BaseModal
       v-if="descriptionIndicator"
       :show="descriptionVisible"
@@ -114,8 +112,6 @@
       subtitle="指标说明"
       width="90vw"
       max-width="420px"
-      transition-variant="compact"
-      :z-index="1100"
       @close="descriptionVisible = false"
     >
       <p class="indicator-description">{{ descriptionIndicator.description }}</p>
@@ -132,7 +128,7 @@
     isBuiltinIndicatorsLoaded,
     loadBuiltinIndicators,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, onUnmounted, ref } from 'vue'
+  import { computed, onMounted, ref } from 'vue'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
@@ -332,20 +328,6 @@
     }
     paramsVisible.value = false
   }
-
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && controller.menuOpen.peek()) {
-      closeMenu()
-    }
-  }
-
-  onMounted(() => {
-    document.addEventListener('keydown', handleKeydown)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeydown)
-  })
 
   defineExpose({
     openMenu: () => controller.openMenu(),

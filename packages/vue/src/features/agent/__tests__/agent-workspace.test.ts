@@ -4,12 +4,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentWorkspace from '../components/AgentWorkspace.vue'
 import { FakeAgentBridge } from '../testing/fake-agent-bridge'
 
+/**
+ * happy-dom 未实现 Popover API 的开关与分层。
+ * 这里补齐 popover 状态属性与事件，使组件走真实的 showPopover/hidePopover 路径。
+ */
+function installPopoverApi(): void {
+  HTMLElement.prototype.showPopover = function (this: HTMLElement) {
+    if (this.hasAttribute('popover') === false) return
+    this.setAttribute('popover-open', '')
+    this.dispatchEvent(new Event('toggle', { bubbles: false }))
+  }
+  HTMLElement.prototype.hidePopover = function (this: HTMLElement) {
+    if (!this.hasAttribute('popover-open')) return
+    this.removeAttribute('popover-open')
+    this.dispatchEvent(new Event('toggle', { bubbles: false }))
+  }
+}
+
 describe('AgentWorkspace', () => {
   let wrapper: VueWrapper | undefined
 
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-24T00:00:00Z'))
+    installPopoverApi()
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -87,7 +105,7 @@ describe('AgentWorkspace', () => {
 
     document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
     await flushPromises()
-    expect(document.querySelector('.base-modal')).toBeNull()
+    expect(document.querySelector('.base-modal')?.classList.contains('base-modal--closing')).toBe(true)
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
     const modelTrigger = mounted.wrapper.get('.composer__model .dropdown__trigger')

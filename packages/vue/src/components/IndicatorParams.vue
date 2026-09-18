@@ -1,15 +1,10 @@
 <template>
-  <!-- z-index 高于指标选择弹窗(1000)，避免被其 Teleport 重排后遮挡 -->
   <BaseModal
     :show="visible"
     :title="indicatorName"
     subtitle="参数设置"
-    width="90vw"
-    max-width="420px"
-    transition-variant="compact"
-    overlay-padding="0"
+    width="min(92vw, 360px)"
     footer-align="space-between"
-    :z-index="1100"
     @close="$emit('close')"
   >
     <template #header-extra>

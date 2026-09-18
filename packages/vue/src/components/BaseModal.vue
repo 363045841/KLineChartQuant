@@ -1,61 +1,57 @@
 <template>
   <Teleport :to="teleportTarget">
-    <Transition name="overlay">
-      <div
-        v-if="show"
-        class="base-overlay"
-        :style="{ zIndex, padding: overlayPadding }"
-        @click="closeOnOverlay ? emit('close') : undefined"
-      >
-        <Transition :name="modalTransitionName">
-          <div class="base-modal" :style="modalStyle" @click.stop>
-            <div v-if="$slots.header || $slots.title || title" class="base-header">
-              <slot name="header">
-                <div class="base-header-left">
-                  <span class="base-title"
-                    ><slot name="title">{{ title }}</slot></span
-                  >
-                  <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
-                </div>
-              </slot>
-              <div v-if="showClose" class="base-header-right">
-                <slot name="header-extra" />
-                <button class="base-close-btn" @click="emit('close')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div v-if="$slots.subheader" class="base-subheader">
-              <slot name="subheader" />
-            </div>
-
-            <div v-if="$slots.tabs" class="base-tabs">
-              <slot name="tabs" />
-            </div>
-
-            <div
-              class="base-body"
-              :class="{ 'base-body--scrollable': bodyScrollable }"
-              :style="{ padding: bodyPadding }"
-            >
-              <slot />
-            </div>
-
-            <div v-if="$slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
-              <slot name="footer" />
-            </div>
-          </div>
-        </Transition>
+    <dialog
+      v-if="rendered"
+      ref="dialog"
+      class="base-modal"
+      :class="{ 'base-modal--closing': closing }"
+      :style="modalStyle"
+      @cancel.prevent="closeDialog(true)"
+      @click.self="closeOnOverlay && closeDialog(true)"
+      @close="handleClose"
+    >
+    <div v-if="$slots.header || $slots.title || title" class="base-header">
+      <slot name="header">
+        <div class="base-header-left">
+          <span class="base-title"><slot name="title">{{ title }}</slot></span>
+          <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
+        </div>
+      </slot>
+      <div v-if="showClose" class="base-header-right">
+        <slot name="header-extra" />
+        <button class="base-close-btn" @click="closeDialog(true)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-    </Transition>
+    </div>
+
+    <div v-if="$slots.subheader" class="base-subheader">
+      <slot name="subheader" />
+    </div>
+
+    <div v-if="$slots.tabs" class="base-tabs">
+      <slot name="tabs" />
+    </div>
+
+    <div
+      class="base-body"
+      :class="{ 'base-body--scrollable': bodyScrollable }"
+      :style="{ padding: bodyPadding }"
+    >
+      <slot />
+    </div>
+
+    <div v-if="$slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
+      <slot name="footer" />
+    </div>
+    </dialog>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
 
@@ -64,7 +60,6 @@
       show: boolean
       title?: string
       subtitle?: string
-      zIndex?: number
       width?: string
       maxWidth?: string
       maxHeight?: string
@@ -74,12 +69,10 @@
       footerAlign?: 'flex-end' | 'center' | 'flex-start' | 'space-between'
       closeOnOverlay?: boolean
       showClose?: boolean
-      transitionVariant?: 'default' | 'compact'
     }>(),
     {
       title: '',
       subtitle: '',
-      zIndex: 1000,
       width: 'min(92vw, 400px)',
       maxWidth: '',
       maxHeight: 'min(600px, calc(100vh - 48px))',
@@ -89,7 +82,6 @@
       footerAlign: 'flex-end',
       closeOnOverlay: true,
       showClose: true,
-      transitionVariant: 'default',
     },
   )
 
@@ -98,37 +90,109 @@
   }>()
 
   const teleportTarget = useFullscreenTeleportTarget()
-
-  const modalTransitionName = computed(() =>
-    props.transitionVariant === 'compact' ? 'modal-compact' : 'modal',
-  )
+  const dialog = ref<HTMLDialogElement>()
+  const rendered = ref(props.show)
+  const closing = ref(false)
+  const closeDuration = 160
+  let closeTimer: ReturnType<typeof setTimeout> | undefined
+  let intentionalClose = false
 
   const modalStyle = computed(() => ({
     width: props.width,
-    maxWidth: props.maxWidth || undefined,
-    maxHeight: props.maxHeight,
+    maxWidth: props.maxWidth
+      ? `min(${props.maxWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
+      : `calc(100vw - ${props.overlayPadding} - ${props.overlayPadding})`,
+    maxHeight: `min(${props.maxHeight}, calc(100vh - ${props.overlayPadding} - ${props.overlayPadding}))`,
   }))
+
+  const openDialog = async () => {
+    if (closeTimer) clearTimeout(closeTimer)
+    closeTimer = undefined
+    closing.value = false
+    rendered.value = true
+    await nextTick()
+    if (dialog.value && !dialog.value.open) dialog.value.showModal()
+  }
+
+  const closeDialog = (notifyParent: boolean) => {
+    if (closing.value) return
+    if (!dialog.value?.open) {
+      rendered.value = false
+      if (notifyParent) emit('close')
+      return
+    }
+
+    closing.value = true
+    closeTimer = setTimeout(() => {
+      intentionalClose = true
+      dialog.value?.close()
+      intentionalClose = false
+      rendered.value = false
+      closing.value = false
+      if (notifyParent) emit('close')
+    }, closeDuration)
+  }
+
+  watch(
+    () => props.show,
+    (show) => (show ? openDialog() : closeDialog(false)),
+  )
+  onMounted(() => props.show && openDialog())
+  onBeforeUnmount(() => closeTimer && clearTimeout(closeTimer))
+
+  const handleClose = () => {
+    rendered.value = false
+    closing.value = false
+    if (!intentionalClose) emit('close')
+  }
 </script>
 
 <style scoped>
-  .base-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   .base-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin: 0;
+    transform: translate(-50%, -50%);
     background: var(--klc-color-ui-surface);
+    color: var(--klc-color-ui-text, #edf2f3);
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    padding: 0;
+    animation: dialog-enter 0.22s ease-out;
+    transition:
+      opacity 0.16s ease-in,
+      transform 0.16s ease-in;
+  }
+
+  .base-modal::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    transition:
+      background 0.16s ease-in,
+      backdrop-filter 0.16s ease-in;
+  }
+
+  .base-modal--closing {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98) translateY(8px);
+  }
+
+  .base-modal--closing::backdrop {
+    background: transparent;
+    backdrop-filter: blur(0);
+  }
+
+  @keyframes dialog-enter {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96) translateY(-10px);
+    }
   }
 
   .base-header {
@@ -226,62 +290,8 @@
     flex-shrink: 0;
   }
 
-  /* ── Overlay transition ── */
-  .overlay-enter-active,
-  .overlay-leave-active {
-    transition: opacity 0.2s ease;
-  }
-
-  .overlay-enter-from,
-  .overlay-leave-to {
-    opacity: 0;
-  }
-
-  /* ── Modal transition (default variant) ── */
-  .modal-enter-active {
-    transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .modal-leave-active {
-    transition: all 0.16s ease-in;
-  }
-
-  .modal-enter-from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-10px);
-  }
-
-  .modal-leave-to {
-    opacity: 0;
-    transform: scale(0.98) translateY(8px);
-  }
-
-  /* ── Modal transition (compact variant) ── */
-  .modal-compact-enter-active {
-    transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .modal-compact-leave-active {
-    transition: all 0.16s ease-in;
-  }
-
-  .modal-compact-enter-from {
-    opacity: 0;
-    transform: scale(0.88) translateY(-16px);
-  }
-
-  .modal-compact-leave-to {
-    opacity: 0;
-    transform: scale(0.94) translateY(8px);
-  }
-
   /* ── Responsive ── */
   @media (max-width: 480px) {
-    .base-overlay {
-      padding: 12px;
-      align-items: flex-end;
-    }
-
     .base-modal {
       min-width: 0;
       width: 100% !important;

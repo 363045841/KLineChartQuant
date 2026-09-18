@@ -242,7 +242,6 @@
     :show="profileNameDialog !== null"
     :title="profileNameDialogTitle"
     width="min(92vw, 360px)"
-    :z-index="1100"
     @close="closeProfileNameDialog()"
   >
     <form id="agent-provider-profile-form" @submit.prevent="submitProfileName()">
