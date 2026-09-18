@@ -23,7 +23,7 @@
 
 ## Committing
 
-- **Must use commit-message-generator skill**: When committing, always load the skill at `.opencode/skills/commit/SKILL.md` via `skill("commit-message-generator")` to generate conventional commit messages.
+- **Must use commit-message-generator skill**: When committing, always load the skill at `.opencode/skills/commit-message-generator/SKILL.md` via `skill("commit-message-generator")` to generate conventional commit messages.
 - **PR descriptions should cover the entire branch**: When creating a PR, describe the full scope of changes across all commits in the branch, not just the latest commit.
 - You can **only** commit when I explicitly ask you to do it.
 
