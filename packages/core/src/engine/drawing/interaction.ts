@@ -263,6 +263,8 @@ export class DrawingInteractionController {
     if (session.kind !== 'drag') return false
     this.drawingState.commitDrags()
     this.dragHandler.endDrag()
+    // 解冻悬停目标：下一次 hover flush 重新按当前位置命中。
+    this.adapter.unfreezeHoverTarget?.()
     return true
   }
 
@@ -402,6 +404,8 @@ export class DrawingInteractionController {
     if (targets.length === 0) return
     this.dragHandler.startDrag(targets, target, pointer.x, pointer.y)
     this.pointerSession = { kind: 'drag' }
+    // 冻结悬停目标：拖拽中指针会离开锚点，实时命中会把光标重算成 none。
+    this.adapter.freezeHoverTarget?.()
   }
 
   /** 开始框选，坐标只在按下所在 Pane 内解释。 */

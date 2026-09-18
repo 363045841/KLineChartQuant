@@ -10,6 +10,7 @@ import {
   createSelectionAdapter,
   pointerDown,
   pointerMove,
+  stubDrawingControllerInternals,
 } from './helpers/drawingTestKit'
 
 describe('DrawingInteractionController selection', () => {
@@ -18,12 +19,9 @@ describe('DrawingInteractionController selection', () => {
     const second = createDrawingObject({ id: 'second' })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second])
     const controller = new DrawingInteractionController(adapter)
-    const internal = controller as unknown as {
-      hitTester: { hitTest: ReturnType<typeof vi.fn> }
-      dragHandler: { startDrag: ReturnType<typeof vi.fn> }
-    }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second, target: { type: 'all' } })) }
-    internal.dragHandler.startDrag = vi.fn()
+    const internal = stubDrawingControllerInternals(controller, {
+      hit: { drawing: second, target: { type: 'all' } },
+    })
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
 
@@ -40,9 +38,7 @@ describe('DrawingInteractionController selection', () => {
     const drawing = createDrawingObject({ id: 'selected' })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([drawing])
     const controller = new DrawingInteractionController(adapter)
-    ;(controller as unknown as { hitTester: unknown }).hitTester = {
-      hitTest: vi.fn(() => null),
-    }
+    stubDrawingControllerInternals(controller, { hit: null })
     adapter.setSelectedDrawingIds([drawing.id])
     const container = CONTAINER
 
@@ -57,12 +53,9 @@ describe('DrawingInteractionController selection', () => {
     const second = createDrawingObject({ id: 'second' })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second])
     const controller = new DrawingInteractionController(adapter)
-    const internal = controller as unknown as {
-      hitTester: { hitTest: ReturnType<typeof vi.fn> }
-      dragHandler: { startDrag: ReturnType<typeof vi.fn> }
-    }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second, target: { type: 'all' } })) }
-    internal.dragHandler.startDrag = vi.fn()
+    const internal = stubDrawingControllerInternals(controller, {
+      hit: { drawing: second, target: { type: 'all' } },
+    })
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
 
@@ -83,19 +76,11 @@ describe('DrawingInteractionController selection', () => {
       tool: 'box-select',
     })
     const controller = new DrawingInteractionController(adapter)
-    const internal = controller as unknown as {
-      hitTester: {
-        hitTest: ReturnType<typeof vi.fn>
-        getDrawingLineSegments: ReturnType<typeof vi.fn>
-      }
-    }
-    internal.hitTester = {
-      hitTest: vi.fn(() => null),
-      getDrawingLineSegments: vi.fn((drawing: DrawingObject) => {
-        if (drawing.id === 'third') return [{ a: { x: 50, y: 50 }, b: { x: 60, y: 60 } }]
-        return [{ a: { x: 12, y: 12 }, b: { x: 28, y: 28 } }]
-      }),
-    }
+    const internal = stubDrawingControllerInternals(controller, { hit: null })
+    internal.hitTester.getDrawingLineSegments = vi.fn((drawing: DrawingObject) => {
+      if (drawing.id === 'third') return [{ a: { x: 50, y: 50 }, b: { x: 60, y: 60 } }]
+      return [{ a: { x: 12, y: 12 }, b: { x: 28, y: 28 } }]
+    })
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
 
@@ -134,24 +119,12 @@ describe('DrawingInteractionController selection', () => {
       anchors: [{ id: 'second-anchor', type: 'horizontal' as const, price: 21 }],
     }
     const startDrag = vi.fn()
-    const internal = controller as unknown as {
-      hitTester: { hitTest: ReturnType<typeof vi.fn> }
-      dragHandler: {
-        isDragging: ReturnType<typeof vi.fn>
-        getDraggingDrawingIds: ReturnType<typeof vi.fn>
-        startDrag: ReturnType<typeof vi.fn>
-        handleDragMove: ReturnType<typeof vi.fn>
-        endDrag: ReturnType<typeof vi.fn>
-      }
-    }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: first, target: { type: 'all' } })) }
-    internal.dragHandler = {
-      isDragging: vi.fn(() => startDrag.mock.calls.length > 0),
-      getDraggingDrawingIds: vi.fn(() => [first.id, second.id]),
+    stubDrawingControllerInternals(controller, {
+      hit: { drawing: first, target: { type: 'all' } },
+      draggingIds: [first.id, second.id],
+      movedDrawings: [movedFirst, movedSecond],
       startDrag,
-      handleDragMove: vi.fn(() => [movedFirst, movedSecond]),
-      endDrag: vi.fn(),
-    }
+    })
     adapter.setSelectedDrawingIds([first.id, second.id])
     const container = CONTAINER
 
@@ -171,18 +144,55 @@ describe('DrawingInteractionController selection', () => {
     const { adapter } = createSelectionAdapter([first, second], { tool: 'box-select' })
     const controller = new DrawingInteractionController(adapter)
     const startDrag = vi.fn()
-    const internal = controller as unknown as {
-      hitTester: { hitTest: ReturnType<typeof vi.fn> }
-      dragHandler: { startDrag: ReturnType<typeof vi.fn> }
-    }
-    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: first, target: { type: 'all' } })) }
-    internal.dragHandler.startDrag = startDrag
+    stubDrawingControllerInternals(controller, {
+      hit: { drawing: first, target: { type: 'all' } },
+      startDrag,
+    })
     adapter.setSelectedDrawingIds([first.id, second.id])
     const container = CONTAINER
 
     expect(controller.onPointerDown(pointerMove(10, 10), container)).toBe(true)
     expect(startDrag).toHaveBeenCalledWith([first, second], { type: 'all' }, 10, 10)
     expect(controller.getSelectionMarquee()).toBeNull()
+  })
+
+  it('freezes and unfreezes the hover target across a drawing drag', () => {
+    const drawing = createDrawingObject({ id: 'subject' })
+    const freeze = vi.fn()
+    const unfreeze = vi.fn()
+    const adapter = createDrawingAdapter(
+      {
+        document: { getDrawingToolId: () => 'cursor' },
+        viewport: {
+          getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
+          getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
+          getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
+          getDrawingData: () => [{ timestamp: 1 }],
+          getLogicalIndexAtX: () => 0,
+          getDrawingTimestampAtLogicalIndex: () => 1,
+          yToPrice: (_paneId: string, y: number) => y,
+        },
+        session: { freezeHoverTarget: freeze, unfreezeHoverTarget: unfreeze },
+      },
+      [drawing],
+    )
+    const controller = new DrawingInteractionController(adapter)
+    stubDrawingControllerInternals(controller, {
+      hit: { drawing, target: { type: 'anchor', index: 0 } },
+      draggingIds: [drawing.id],
+      movedDrawings: [drawing],
+    })
+    const container = CONTAINER
+
+    // 拖拽会话：按下时冻结悬停目标，抬起时解冻；中途不重复调用。
+    expect(freeze).not.toHaveBeenCalled()
+    expect(controller.onPointerDown(pointerDown(10, 10), container)).toBe(true)
+    expect(freeze).toHaveBeenCalledTimes(1)
+    expect(controller.onPointerMove(pointerMove(40, 40), container)).toBe(true)
+    expect(freeze).toHaveBeenCalledTimes(1)
+    expect(unfreeze).not.toHaveBeenCalled()
+    expect(controller.onPointerUp(pointerMove(40, 40), container)).toBe(true)
+    expect(unfreeze).toHaveBeenCalledTimes(1)
   })
 
   it('passes the future-slot offset through when creating a drawing in the right blank area', () => {

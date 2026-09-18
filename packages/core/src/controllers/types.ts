@@ -216,6 +216,7 @@ export interface IndicatorDefinition {
 // Interaction state
 // ---------------------------------------------------------------------------
 
+export { createIdleInteractionSnapshot } from '../engine/state/interactionState.js'
 export type { InteractionSnapshot }
 
 // ---------------------------------------------------------------------------
@@ -317,9 +318,15 @@ export interface DrawingViewportPort {
 
 /**
  * 会话态通知：预览 / 拖拽中间态只改会话层时请求重绘，不写 kernel。
+ * 拖拽冻结钩子与重绘共用这里，因为二者都属于「会话层怎么对外表现」，
+ * 新增一个只服务绘图拖拽的 port 会让协作方多背一份依赖。
  */
 export interface DrawingSessionPort {
   requestDraw?(): void
+  /** 图元拖拽开始：冻结绘图悬停目标，拖拽期间光标不再被实时命中改写。 */
+  freezeHoverTarget?(): void
+  /** 图元拖拽结束：解冻绘图悬停目标，恢复实时命中。 */
+  unfreezeHoverTarget?(): void
 }
 
 /**

@@ -1400,6 +1400,19 @@ export class Chart {
     )
   }
 
+  /** 冻结绘图悬停目标：图元拖拽开始时调用，拖拽期间不再被实时命中改写。 */
+  freezeDrawingHover(): void {
+    if (this.drawingSession === null) return
+    this.kernel.interaction.actions.setDrawingDragTarget(
+      this.kernel.interaction.readonly.hoveredDrawingTarget.peek(),
+    )
+  }
+
+  /** 解冻绘图悬停目标：图元拖拽结束后调用，恢复为实时命中。 */
+  unfreezeDrawingHover(): void {
+    this.kernel.interaction.actions.setDrawingDragTarget(null)
+  }
+
   /** 清除绘图悬停目标：指针离开画布、悬停被清空或切换绘图工具时调用。 */
   clearDrawingHover(): void {
     this.kernel.interaction.actions.setDrawingTargetHover('none')

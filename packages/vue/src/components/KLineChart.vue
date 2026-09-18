@@ -1247,6 +1247,8 @@
   // ── 高频交互 Overlay ──
   // 鼠标坐标和帧快照只服务于 DOM overlay，不能写入 Vue ref，否则会在事件和 RAF 后各排一次 flushJobs。
   let mousePos = { x: 0, y: 0 }
+  /** 绘图拖拽按下瞬间的光标；非空表示正处于图元拖拽会话，期间光标不随 pointermove 变化。 */
+  let drawingDragCursor: string | null = null
   let latestInteractionState: InteractionSnapshot = {
     crosshairPos: null,
     crosshairIndex: null,
@@ -1456,9 +1458,13 @@
   }
 
   function onPointerDown(e: PointerEvent) {
+    // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
+    drawingDragCursor =
+      e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
     controller.value?.handlePointerEvent(e, {
       onPointerDown: (event, container) => {
         if (handleRangePointerDown(event, container)) {
+          drawingDragCursor = null
           return true
         }
         if (drawingController.value?.onPointerDown(event, container)) {
@@ -1500,14 +1506,18 @@
     controller.value?.handlePointerEvent(e, {
       onPointerUp: (event, container) => {
         if (handleRangePointerUp(event, container)) {
+          drawingDragCursor = null
           return true
         }
         if (drawingController.value?.onPointerUp(event, container)) {
+          drawingDragCursor = null
           return true
         }
         return false
       },
     })
+    // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
+    drawingDragCursor = null
   }
 
   function onPointerLeave(e: PointerEvent) {
@@ -1516,6 +1526,7 @@
       return
     }
     if (!isEditingLineLabel.value) lineLabelTarget.value = null
+    drawingDragCursor = null
     controller.value?.handlePointerEvent(e)
   }
 
@@ -1843,17 +1854,30 @@
   }
 
   /**
-   * 舞台光标：拖拽中 grabbing；面板分隔与绘图中点手柄 ns-resize；
+   * 光标优先级：图元拖拽会话冻结目标 > 实时绘图悬停 > 通用 hover。
+   * 拖拽中 kernel 的 isDragging 恒为 true（记 `grabbing`），无法区分「平移」与「拖图元」，
+   * 因此图元拖拽沿用按下时认定的 cursor；标尺/平移仍走 grabbing。
+   */
+  function pickCursor(
+    snap: InteractionSnapshot,
+    dragCursor: string | null,
+    fallbackCursor: string,
+  ): string {
+    if (dragCursor !== null && snap.drawingHoverTarget !== 'none') return dragCursor
+    return resolveStageCursor(snap, fallbackCursor)
+  }
+
+  /**
+   * 舞台光标：图表平移/框选 dragging；面板分隔与绘图中点手柄 ns-resize；
    * 图元线身 move（可整体拖动）；圆形锚点显式 default，避免沿用十字线/指针。
    */
-  function resolveStageCursor(state: InteractionSnapshot): string {
-    if (state.isDragging) return 'grabbing'
+  function resolveStageCursor(state: InteractionSnapshot, fallbackCursor: string): string {
     if (state.isResizingPaneBoundary || state.isHoveringPaneBoundary) return 'ns-resize'
     if (state.drawingHoverTarget === 'vertical-handle') return 'ns-resize'
     if (state.drawingHoverTarget === 'all') return 'move'
-    // 圆形锚点是纯拖拽热点，指向它时不再提示十字线或 K 线工具。
     if (state.drawingHoverTarget === 'anchor') return 'default'
-    return state.hoveredIndex !== null ? 'pointer' : 'crosshair'
+    if (state.isDragging) return 'grabbing'
+    return fallbackCursor
   }
 
   function setupInteractionCallbacks(ctrl: ChartController): void {
@@ -1864,6 +1888,13 @@
 
       const stage = chartStageRef.value
       stage?.classList.toggle('is-dragging', next.isDragging)
+      const drawingDragging = drawingDragCursor !== null && next.drawingHoverTarget !== 'none'
+      stage?.classList.toggle('is-dragging-drawing', drawingDragging)
+      if (stage && drawingDragging) {
+        stage.dataset.drawingCursor = next.drawingHoverTarget
+      } else if (stage) {
+        delete stage.dataset.drawingCursor
+      }
       stage?.classList.toggle('is-resizing-pane', next.isResizingPaneBoundary)
       stage?.classList.toggle('is-hovering-pane-separator', next.isHoveringPaneBoundary)
       stage?.classList.toggle('is-hovering-right-axis', next.isHoveringRightAxis)
@@ -1874,7 +1905,9 @@
 
       const container = containerRef.value
       if (container) {
-        container.style.cursor = resolveStageCursor(next)
+        // 下一帧兜底光标：本帧没有绘图会话时按通用 hover 推导。
+        const fallback = next.hoveredIndex !== null ? 'pointer' : 'crosshair'
+        container.style.cursor = pickCursor(next, drawingDragCursor, fallback)
       }
 
       // 自定义 K 线 tooltip 是调用方显式选择的 Vue slot；仅该分支保留高频响应式 props。
@@ -2148,6 +2181,23 @@
 
   .chart-stage.is-dragging {
     cursor: grabbing;
+  }
+
+  /* 拖拽图元时沿用锚点/手柄/线身光标；内联 `cursor` 不足以覆盖上面的 CSS 规则。 */
+  .chart-stage.is-dragging-drawing {
+    cursor: inherit;
+  }
+
+  .chart-stage.is-dragging-drawing[data-drawing-cursor='anchor'] {
+    cursor: default;
+  }
+
+  .chart-stage.is-dragging-drawing[data-drawing-cursor='vertical-handle'] {
+    cursor: ns-resize;
+  }
+
+  .chart-stage.is-dragging-drawing[data-drawing-cursor='all'] {
+    cursor: move;
   }
 
   .chart-container {

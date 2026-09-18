@@ -16,6 +16,7 @@ export {
   type SubPaneSpec,
 } from './indicatorState.js'
 export {
+  createIdleInteractionSnapshot,
   createInteractionState,
   type DragMode,
   type InteractionDeps,
