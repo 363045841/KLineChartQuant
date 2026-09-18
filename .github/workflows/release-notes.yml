@@ -50,6 +50,14 @@ jobs:
 
           notes_file="release-notes.md"
 
+          # 优先使用仓库内的 docs/release/<tag>.md（与 tag 同 commit 提交的策划日志），
+          # 与 release.yml 的发布日志策略保持一致；缺失时再回退到 git log 自动生成。
+          if [ -f "docs/release/${current_tag}.md" ]; then
+            echo "使用 docs/release/${current_tag}.md 作为 release notes"
+            cp "docs/release/${current_tag}.md" "$notes_file"
+            exit 0
+          fi
+
           CURRENT_TAG="$current_tag" PREVIOUS_TAG="$previous_tag" RANGE="$range" python <<'PY'
           import os
           import re
