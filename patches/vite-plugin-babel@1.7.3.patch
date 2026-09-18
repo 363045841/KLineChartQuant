@@ -1,0 +1,32 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 564ea47993cbee2f776982bd53ed5a35877f64ac..8d6c3dd25ae3cff57797450b9319ed530d5d3f08 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -120,7 +120,7 @@ function useBabelConfig(babelConfig) {
+   let babelPartialConfig;
+   const getBabelOptions = () => {
+     if (babelPartialConfig) return babelPartialConfig.options;
+-    babelPartialConfig = babel.loadPartialConfig({
++    babelPartialConfig = babel.loadPartialConfigSync({
+       ...babelConfig,
+       cwd: root,
+       root,
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 915f7bbed9a488bac54c55ff7e6f11184269e114..5956811eb3a29d5a32b19470a5e7c046f88fba0f 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,4 +1,4 @@
+-import babel from '@babel/core';
++import * as babel from '@babel/core';
+ import { version, createFilter } from 'vite';
+ import fs from 'fs';
+ import path from 'path';
+@@ -116,7 +116,7 @@ function useBabelConfig(babelConfig) {
+   let babelPartialConfig;
+   const getBabelOptions = () => {
+     if (babelPartialConfig) return babelPartialConfig.options;
+-    babelPartialConfig = babel.loadPartialConfig({
++    babelPartialConfig = babel.loadPartialConfigSync({
+       ...babelConfig,
+       cwd: root,
+       root,

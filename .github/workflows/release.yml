@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.14.0
+          node-version: 22.18.0
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
@@ -286,7 +286,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.12
+          node-version: 22.18
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 

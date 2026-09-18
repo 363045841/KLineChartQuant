@@ -55,7 +55,7 @@ cd examples/angular-universal && pnpm install && pnpm build  # see angular READM
   server makes no sense). The contract is "import-safe and mount-safe", not
   "renders pixels on the server".
 - Visual fidelity, indicator correctness, drawing tools — all covered by
-  unit tests and the legacy demo at `vite.demo.config.ts`.
+  unit tests and the preview demo at `packages/vue/preview`.
 
 ## Adding a new framework
 
