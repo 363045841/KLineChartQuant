@@ -117,4 +117,27 @@ describe('createDefaultPrimitiveRendererSet', () => {
     expect(ctx.fillText).toHaveBeenCalledWith('第一行', 0, expect.closeTo(-14.4, 5))
     expect(ctx.fillText).toHaveBeenCalledWith('第二行', 0, 0)
   })
+
+  /** 线身虚线不得传染到选中态锚点环：虚线只作用于线本身。 */
+  it('keeps selected anchor rings solid on a dashed line', () => {
+    const ctx = createMockCanvasContext()
+    const renderers = createDefaultPrimitiveRendererSet()
+
+    renderers.line(
+      ctx,
+      {
+        kind: 'line',
+        a: { x: 10, y: 20 },
+        b: { x: 90, y: 20 },
+        anchorFill: '#fff',
+        style: { stroke: '#f00', strokeWidth: 1, strokeStyle: 'dashed' },
+      },
+      { left: 0, top: 0, right: 100, bottom: 100 },
+      1,
+    )
+
+    // 三次描边：线身 + 两个锚点环；只有线身带 dash。
+    expect(ctx.strokedPaths).toHaveLength(3)
+    expect(ctx.dashedPaths).toHaveLength(1)
+  })
 })

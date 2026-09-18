@@ -48,7 +48,7 @@
 
 - 声明：`lines.ts` 的线表逐条声明 `verticalHandle`，登记即开启。当前 `parallel-channel`、`flat-line`、`disjoint-channel` 的两条线都开启；未声明的线不绘制手柄、不命中、拖拽策略返回 null。
 - 可见与命中：手柄只在图元被选中时绘制（`frameProjection` 统一压在所有图元之后），也只在该图元被选中时参与命中；未选中时中点按线身命中 → 整体拖拽。宿主查询 `hitTestAt` 一律不返回手柄。
-- 外观：中点为心的圆角矩形（与锚点同半径），形状由 `createDefaultPrimitiveRendererSet` 的 `point` 渲染器按 `role: 'translate-handle'` 决定：填充同锚点色、描边取图元颜色。
+- 外观：中点为心的圆角矩形（与锚点同半径），形状由 `createDefaultPrimitiveRendererSet` 的 `point` 渲染器按 `role: 'translate-handle'` 决定：填充同锚点色、描边取图元颜色。描边同样始终实线。
 - 悬停光标：`DrawingInteractionController.getHoveredTarget` 返回命中目标类型（`none` / `anchor` / `vertical-handle` / `all`，未命中为 `none`，接口不带 null），kernel 以 `interactionSnapshot.drawingHoverTarget` 暴露；宿主按类型决定光标——中点手柄 `ns-resize`、线身 `move`、圆形锚点不改变光标。
 - 推导时机：指针事件只记录指针位置（`InteractionController.lastClientPos`），不写悬停目标。目标在 `flushPendingHover()` 里用缓存的指针位置 + 本帧几何推导，与 crosshair / hover / tooltip 在同一个 `batch` 内写入。触发 flush 的时机有三类：idle 指针移动、帧 K 线几何变化（`setKLinePositions` 比出引用/区间变化）、容器尺寸变化（`Chart.resize` → `invalidateHover`）。因此缩放、改尺寸后光标按新几何立即重算，不会陈旧到下一次指针移动；写入点唯一，不存在"事件路径 + 帧路径"两个写入者。
 - 置 `none` 的时机：指针离开画布（`Chart.handlePointerEvent` 的 `pointerleave` 分支）、悬停被清空（`InteractionController.clearHover`：滚轮、平移、拖拽、指针移出绘图区）、切换绘图工具（`ChartDrawingFacade.setTool`，悬停目标只对 `cursor` / `box-select` 有效）。
@@ -59,6 +59,7 @@
 
 - 锚点只在选中态可见：未选中图元的线段端点不绘制（`showEndpoints: false`）、锚点点图元不投影，未选中态只剩线与填充。唯一的例外是创建中的预览（`PREVIEW_ID`）：正在放置的点需要即时反馈，保持原样。
 - 选中图元的锚点统一画成「内部填充 + 图元颜色描边环」：线段端点与点图元都由 `frameProjection.applySelectedStyle` 写入 `anchorFill`，渲染器（`createDefaultPrimitiveRendererSet` 的 `point` / `line`）据此填充该色并描一圈 `style.stroke`。
+- 描边环是交互提示，始终实线：`drawAnchor` 在描环前 `setLineDash([])`，因此 `strokeStyle: 'dashed'` 只作用于线身（如 `regression-channel` 的中间回归线），不会让锚点环变虚。
 - 锚点归属：线图元的端点即锚点；水平射线与十字线的锚点由显式 `role: 'anchor'` 的点图元提供（`flat-line` 的两个水平端点已由第二条线的端点覆盖，不再重复投影）。
 - 填充色是 `foundation/tokens/drawingColors.ts` 的 `DRAWING_ANCHOR_FILL`（白），业务代码不硬编码颜色。
 - 中点手柄与锚点同款：`frameProjection.projectVerticalHandles` 也写入 `anchorFill`，渲染器按 `role: 'translate-handle'` 填充该色并描边。

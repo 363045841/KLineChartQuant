@@ -158,6 +158,8 @@ function drawVerticalHandle(
   const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
   ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.lineWidth = style?.strokeWidth ?? HANDLE_STROKE_WIDTH
+  // 手柄是交互提示，描边始终实线；图元的 strokeStyle 只作用于线身。
+  ctx.setLineDash([])
   ctx.beginPath()
   ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
   ctx.fillStyle = anchorFill ?? style?.fill ?? DEFAULT_DRAWING_STROKE
@@ -178,6 +180,7 @@ function isInsideViewport(
 /**
  * 绘制锚点。
  * 提供 anchorFill 时画成「填充色实心 + 图元描边环」，即选中态锚点；缺省按描边色实心。
+ * 描边环是交互提示，始终实线；图元的 strokeStyle 只作用于线身。
  */
 function drawAnchor(
   ctx: CanvasRenderingContext2D,
@@ -197,6 +200,7 @@ function drawAnchor(
   ctx.fill()
   ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.lineWidth = style?.strokeWidth ?? 1
+  ctx.setLineDash([])
   ctx.stroke()
 }
 
