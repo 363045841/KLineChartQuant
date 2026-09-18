@@ -1,4 +1,4 @@
-/** 验证平行通道拖拽策略：端点按角色跨线成对，边拖拽整条线平移。 */
+/** 验证平行通道拖拽策略：端点按角色跨线成对跟随。 */
 import { describe, expect, it } from 'vitest'
 
 import type { DrawingObject } from '../../../foundation/plugin'
@@ -48,15 +48,5 @@ describe('DragHandler parallel channel', () => {
 
     // 拖动 d 下移 20px：b 同位移跟随，a 与 c 固定。
     expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([100, 120, 60, 80])
-  })
-
-  it('translates only the dragged edge', () => {
-    const handler = new DragHandler()
-    handler.startDrag([createChannel()], { type: 'edge', anchors: [2, 3] }, 25, 100)
-
-    const updated = handler.handleDragMove(pointerMove(25, 120), CONTAINER, adapter)
-
-    // 第二条线下移 20px：第一条线不动。
-    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([100, 140, 40, 80])
   })
 })

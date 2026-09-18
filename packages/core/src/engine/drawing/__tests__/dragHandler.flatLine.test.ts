@@ -1,5 +1,8 @@
-/** 验证平滑顶底（flat-line）拖拽策略：斜线端点自由、水平线只跟时间，水平线端点另一头只跟价格。 */
-import { describe, expect, it } from 'vitest'
+/** 验证平滑顶底（flat-line）拖拽策略：斜线端点自由、水平线只跟时间，水平线端点另一头只跟价格。 */ import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 
 import type { DrawingObject } from '../../../foundation/plugin'
 import { DragHandler } from '../DragHandler'
@@ -62,28 +65,16 @@ describe('DragHandler flat line', () => {
     expect(updated?.[0]?.anchors[3]).toMatchObject({ time: 1_000, price: 90 })
   })
 
-  it('moves both flat endpoints freely when dragging the flat edge', () => {
+  it('translates every anchor when dragging the whole drawing', () => {
     const handler = new DragHandler()
-    handler.startDrag([createFlatLine()], { type: 'edge', anchors: [2, 3] }, 25, 100)
+    handler.startDrag([createFlatLine()], { type: 'all' }, 25, 100)
 
     const updated = handler.handleDragMove(pointerMove(35, 90), CONTAINER, adapter)
 
-    // 水平线整体平移：斜线两端只跟时间。
-    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([100, 140, 70, 70])
+    // 整体平移 (+10px 时间 / +10px 价格)：四个锚点保持相对位置。
+    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([110, 150, 70, 70])
     expect(updated?.[0]?.anchors[0]).toMatchObject({ time: 1_000 })
     expect(updated?.[0]?.anchors[1]).toMatchObject({ time: 1_500 })
-    expect(updated?.[0]?.anchors[2]).toMatchObject({ time: 1_000 })
-    expect(updated?.[0]?.anchors[3]).toMatchObject({ time: 1_500 })
-  })
-
-  it('carries the flat endpoints in time when dragging the slanted edge', () => {
-    const handler = new DragHandler()
-    handler.startDrag([createFlatLine()], { type: 'edge', anchors: [0, 1] }, 25, 100)
-
-    const updated = handler.handleDragMove(pointerMove(35, 90), CONTAINER, adapter)
-
-    // 斜线整体平移 (-10px 价格)：水平线两端只跟时间，价格不变。
-    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([110, 150, 60, 60])
     expect(updated?.[0]?.anchors[2]).toMatchObject({ time: 1_000 })
     expect(updated?.[0]?.anchors[3]).toMatchObject({ time: 1_500 })
   })

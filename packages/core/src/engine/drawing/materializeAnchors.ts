@@ -58,9 +58,9 @@ export function materializeDrawingAnchors(
   if (anchors.length !== getDrawingInputAnchorCount(kind)) return [...anchors]
   switch (kind) {
     case 'parallel-channel':
-      return appendTranslatedAnchor(kind, anchors, 1, createAnchorId, timeline)
+      return appendTranslatedAnchor(kind, anchors, createAnchorId, timeline)
     case 'disjoint-channel':
-      return appendTranslatedAnchor(kind, anchors, -1, createAnchorId, timeline)
+      return appendDisjointChannelAnchors(anchors, createAnchorId)
     case 'flat-line':
       return appendFlatLineAnchors(anchors, createAnchorId)
     default:
@@ -68,11 +68,19 @@ export function materializeDrawingAnchors(
   }
 }
 
-/** 按首两点的逻辑索引差平移第三个输入点，追加为第四个锚点。 */
+/** 复制来源锚点的时间坐标（含未来槽位），按给定价格构造点锚点。 */
+function pointAt(
+  source: PersistedDrawingAnchor,
+  id: string,
+  price: number,
+): PersistedDrawingAnchor {
+  return { id, type: 'point', time: source.time, futureOffset: source.futureOffset, price }
+}
+
+/** 平行通道：第四点按首两点的逻辑索引差平移第三个输入点，价格同向相加。 */
 function appendTranslatedAnchor(
   kind: DrawingKind,
   anchors: ReadonlyArray<PersistedDrawingAnchor>,
-  priceSign: 1 | -1,
   createAnchorId: () => string,
   timeline: DrawingAnchorTimeline,
 ): PersistedDrawingAnchor[] {
@@ -91,13 +99,13 @@ function appendTranslatedAnchor(
   const fourth = createPointAnchor(
     createAnchorId(),
     thirdIndex + (secondIndex - firstIndex),
-    third.price + (second.price - first.price) * priceSign,
+    third.price + (second.price - first.price),
     timeline,
   )
   return [...anchors, fourth]
 }
 
-/** flat-line 的两个水平端点分别落在首两点的时间上，价格取第三个输入点。 */
+/** 平滑顶底：两个水平端点分别落在首两点的时间上，价格取第三个输入点。 */
 function appendFlatLineAnchors(
   anchors: ReadonlyArray<PersistedDrawingAnchor>,
   createAnchorId: () => string,
@@ -107,20 +115,26 @@ function appendFlatLineAnchors(
   return [
     first,
     second,
-    {
-      id: createAnchorId(),
-      type: 'point',
-      time: first.time,
-      futureOffset: first.futureOffset,
-      price: third.price,
-    },
-    {
-      id: createAnchorId(),
-      type: 'point',
-      time: second.time,
-      futureOffset: second.futureOffset,
-      price: third.price,
-    },
+    pointAt(first, createAnchorId(), third.price),
+    pointAt(second, createAnchorId(), third.price),
+  ]
+}
+
+/**
+ * 不相交通道：第二条线与第一条线跨越同样的首两点时间，斜率互为相反数。
+ * 2 与次点同 X、价格取第三个输入点；3 与首点同 X，价格由第一条线的价格增量取反推出。
+ */
+function appendDisjointChannelAnchors(
+  anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  createAnchorId: () => string,
+): PersistedDrawingAnchor[] {
+  const [first, second, third] = anchors
+  if (!first || !second || !third) return [...anchors]
+  return [
+    first,
+    second,
+    pointAt(second, createAnchorId(), third.price),
+    pointAt(first, createAnchorId(), third.price + (second.price - first.price)),
   ]
 }
 

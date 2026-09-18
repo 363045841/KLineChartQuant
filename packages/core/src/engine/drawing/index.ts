@@ -774,24 +774,26 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
     minAnchors: 4,
     maxAnchors: 4,
     compute(drawing, context) {
-      const [first, second, third, fourth] = drawing.anchors
-      if (!first || !second || !third || !fourth) return { primitives: [] }
+      const [firstStart, firstEnd, secondEnd, secondStart] = drawing.anchors
+      if (!firstStart || !firstEnd || !secondEnd || !secondStart) return { primitives: [] }
 
-      const p1 = context.toScreen(first)
-      const p2 = context.toScreen(second)
-      const p3 = context.toScreen(third)
-      const p4 = context.toScreen(fourth)
+      // 锚点顺序：0 第一条线起点、1 第一条线终点、2 第二条线终点、3 第二条线起点。
+      const a0 = context.toScreen(firstStart)
+      const a1 = context.toScreen(firstEnd)
+      const a2 = context.toScreen(secondEnd)
+      const a3 = context.toScreen(secondStart)
 
       return {
         primitives: [
+          // 填充按 0 → 1 → 2 → 3 环绕，与两条线的方向一致，避免自交。
           {
             kind: 'area',
-            points: [p1, p2, p4, p3],
+            points: [a0, a1, a2, a3],
             closed: true,
             style: drawing.style,
           },
-          { kind: 'line', a: p1, b: p2, style: drawing.style },
-          { kind: 'line', a: p3, b: p4, style: drawing.style },
+          { kind: 'line', a: a0, b: a1, style: drawing.style },
+          { kind: 'line', a: a2, b: a3, style: drawing.style },
         ],
       }
     },

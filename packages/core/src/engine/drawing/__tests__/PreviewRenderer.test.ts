@@ -38,4 +38,23 @@ describe('PreviewRenderer', () => {
     expect(preview?.anchors).toHaveLength(4)
     expect(preview?.anchors[3]).toMatchObject({ time: 1_500, futureOffset: 1, price: 40 })
   })
+
+  it('materializes the mirrored second line of a disjoint-channel preview', () => {
+    const preview = new PreviewRenderer().buildPreview(
+      'disjoint-channel',
+      [
+        { time: 500, price: 100 },
+        { time: 1_000, price: 140 },
+      ],
+      { time: 1_500, price: 20 },
+      'main',
+      'kline',
+      timeline,
+    )
+
+    // 光标只提供价格：第二条线与首两点同 X、斜率取反，光标时间（1500）被忽略。
+    expect(preview?.anchors).toHaveLength(4)
+    expect(preview?.anchors[2]).toMatchObject({ time: 1_000, price: 20 })
+    expect(preview?.anchors[3]).toMatchObject({ time: 500, price: 60 })
+  })
 })

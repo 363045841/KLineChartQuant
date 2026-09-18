@@ -30,19 +30,16 @@ function createIdFactory(): () => string {
 }
 
 describe('materializeDrawingAnchors', () => {
-  it.each([
-    { kind: 'parallel-channel' as const, price: 40 },
-    { kind: 'disjoint-channel' as const, price: 20 },
-  ])('appends the translated fourth anchor of $kind', ({ kind, price }) => {
+  it('appends the translated fourth anchor of a parallel channel', () => {
     const anchors = materializeDrawingAnchors(
-      kind,
+      'parallel-channel',
       [anchor('a', 500, 10), anchor('b', 1_000, 20), anchor('c', 1_500, 30)],
       createIdFactory(),
       timeline,
     )
 
     expect(anchors).toHaveLength(4)
-    expect(anchors[3]).toMatchObject({ time: 2_000, price })
+    expect(anchors[3]).toMatchObject({ time: 2_000, price: 40 })
     expect(anchors[3]?.futureOffset).toBeUndefined()
   })
 
@@ -68,6 +65,20 @@ describe('materializeDrawingAnchors', () => {
     expect(anchors).toHaveLength(4)
     expect(anchors[2]).toMatchObject({ time: 500, price: 30 })
     expect(anchors[3]).toMatchObject({ time: 1_000, price: 30 })
+  })
+
+  it('derives the mirrored disjoint-channel line on the first two bar times', () => {
+    const anchors = materializeDrawingAnchors(
+      'disjoint-channel',
+      [anchor('a', 500, 100), anchor('b', 1_000, 140), anchor('c', 1_500, 20)],
+      createIdFactory(),
+      timeline,
+    )
+
+    // 第三个输入点只提供价格：2 与次点同 X，3 与首点同 X 且价格按首两点增量取反。
+    expect(anchors).toHaveLength(4)
+    expect(anchors[2]).toMatchObject({ time: 1_000, price: 20 })
+    expect(anchors[3]).toMatchObject({ time: 500, price: 60 })
   })
 
   it('rejects a derived anchor that falls before the first bar', () => {

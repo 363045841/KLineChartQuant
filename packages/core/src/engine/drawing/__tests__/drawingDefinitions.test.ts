@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { DrawingComputeContext, ResolvedDrawingObject } from '../../../foundation/plugin/index'
 import {
   createArrowDefinition,
+  createDisjointChannelDefinition,
   createFibRetracementDefinition,
   createInfoLineDefinition,
   createRectangleDefinition,
@@ -82,6 +83,30 @@ describe('new drawing tools', () => {
         kind: 'line',
         text: expect.objectContaining({ text: expect.any(String) }),
       }),
+    ])
+  })
+
+  it('fills the disjoint channel in anchor order so the quad does not self-intersect', () => {
+    const geometry = createDisjointChannelDefinition().compute(
+      {
+        ...drawing('disjoint-channel'),
+        anchors: [
+          { id: 'a0', index: 2, price: 100 },
+          { id: 'a1', index: 12, price: 140 },
+          { id: 'a2', index: 12, price: 20 },
+          { id: 'a3', index: 2, price: 60 },
+        ],
+      },
+      context(),
+    )
+
+    // toScreen：x = index*10、y = 200 - price，四个锚点分别为左上 / 右上 / 右下 / 左下。
+    const area = geometry.primitives.find((primitive) => primitive.kind === 'area')
+    expect(area?.points).toEqual([
+      { x: 20, y: 100 },
+      { x: 120, y: 60 },
+      { x: 120, y: 180 },
+      { x: 20, y: 140 },
     ])
   })
 })

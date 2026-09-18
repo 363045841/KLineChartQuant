@@ -98,6 +98,25 @@ function createFlatLineFixture() {
   return { drawing, adapter: createChannelAdapter() }
 }
 
+/** 不相交通道夹具：0/1 为第一条线，2/3 为第二条线。 */
+function createDisjointChannelFixture() {
+  const drawing: DrawingObject = {
+    id: 'disjoint',
+    kind: 'disjoint-channel',
+    paneId: 'main',
+    visible: true,
+    anchors: [
+      { id: 'p1', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 100 },
+      { id: 'p2', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 120 },
+      { id: 'p3', type: 'point' as const, time: CHANNEL_TIMESTAMPS[0]!, price: 60 },
+      { id: 'p4', type: 'point' as const, time: CHANNEL_TIMESTAMPS[1]!, price: 40 },
+    ],
+    params: {},
+    style: {},
+  }
+  return { drawing, adapter: createChannelAdapter() }
+}
+
 describe('HitTester', () => {
   it('hits a vertical anchor along its full height', () => {
     const drawing: DrawingObject = {
@@ -205,32 +224,28 @@ describe('HitTester', () => {
     }
   })
 
-  it('returns the edge of a parallel channel when the pointer hits one of its lines', () => {
+  it('hits the body of a parallel channel when the pointer lands on one of its lines', () => {
     const { drawing, adapter } = createChannelFixture()
 
-    // 两条线的中点均远离四个锚点，命中应落到整条边上。
-    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({
-      drawing,
-      edge: [0, 1],
-    })
-    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({
-      drawing,
-      edge: [2, 3],
-    })
+    // 两条线的中点均远离四个锚点，命中只报告图元主体。
+    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({ drawing })
+    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({ drawing })
   })
 
-  it('returns the edge of a flat line when the pointer hits one of its lines', () => {
+  it('hits the body of a flat line when the pointer lands on one of its lines', () => {
     const { drawing, adapter } = createFlatLineFixture()
 
     // 斜线中点为 (45, 80)，水平线中点为 (45, 140)。
-    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
-      drawing,
-      edge: [0, 1],
-    })
-    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({
-      drawing,
-      edge: [2, 3],
-    })
+    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({ drawing })
+    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({ drawing })
+  })
+
+  it('hits the body of a disjoint channel when the pointer lands on one of its lines', () => {
+    const { drawing, adapter } = createDisjointChannelFixture()
+
+    // 两条线的中点为 (45, 90) 与 (45, 150)，距离四个锚点均超过命中半径。
+    expect(new HitTester().hitTest(45, 90, [drawing], adapter)).toEqual({ drawing })
+    expect(new HitTester().hitTest(45, 150, [drawing], adapter)).toEqual({ drawing })
   })
 
   it('prefers a line label over the area center when both are in range', () => {

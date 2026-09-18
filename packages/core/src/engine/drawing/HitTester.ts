@@ -8,17 +8,13 @@ import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
 
-/** 命中检测结果：点到锚点返回 anchorIndex，点到可拖动的边返回 edge，否则仅命中图元主体。 */
-export type HitResult =
-  | { drawing: DrawingObject; anchorIndex: number }
-  | { drawing: DrawingObject; edge: readonly [number, number] }
-  | { drawing: DrawingObject }
+/** 命中检测结果：点到锚点返回 anchorIndex，否则仅命中图元主体。 */
+export type HitResult = { drawing: DrawingObject; anchorIndex: number } | { drawing: DrawingObject }
 
-/** 二维线段，两端点为屏幕坐标（px）；anchors 存在时表示该线段由这两个锚点构成。 */
+/** 二维线段，两端点为屏幕坐标（px）。 */
 export interface LineSegment {
   a: { x: number; y: number }
   b: { x: number; y: number }
-  anchors?: readonly [number, number]
 }
 
 /**
@@ -107,7 +103,7 @@ export class HitTester {
       const segments = this.getDrawingLineSegments(drawing, adapter, regressionGeometryCache)
       for (const seg of segments) {
         if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
-          return seg.anchors ? { drawing, edge: seg.anchors } : { drawing }
+          return { drawing }
         }
       }
     }
@@ -273,9 +269,7 @@ export class HitTester {
       const a = anchorToScreen(start, drawing.paneId, adapter)
       const b = anchorToScreen(end, drawing.paneId, adapter)
       if (!isScreenPoint(a) || !isScreenPoint(b)) continue
-      // 已登记边拖拽策略的图元，线段需携带锚点下标供 edge 目标使用。
-      const edgeDraggable = drawing.kind === 'parallel-channel' || drawing.kind === 'flat-line'
-      segments.push(edgeDraggable ? { a, b, anchors: [from, to] } : { a, b })
+      segments.push({ a, b })
     }
     return segments
   }

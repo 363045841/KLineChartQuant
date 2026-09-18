@@ -9,10 +9,10 @@ import type {
   ResolvedInteractionAnchor,
 } from './coordinateUtils.js'
 import { resolveDrawingPointer } from './coordinateUtils.js'
+import type { DrawingDragTarget } from './DragHandler.js'
 import { DragHandler } from './DragHandler.js'
 import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
 import { DrawingState, PREVIEW_ID } from './DrawingState.js'
-import type { DrawingDragTarget } from './dragPolicy.js'
 import { isDrawingLocked } from './drawingAccess.js'
 import type { HitResult, LineLabelTarget } from './HitTester.js'
 import { HitTester } from './HitTester.js'
@@ -368,18 +368,14 @@ export class DrawingInteractionController {
     return this.getSelectableDrawings(paneId).filter((drawing) => !isDrawingLocked(drawing))
   }
 
-  /** 进入拖拽会话；锚点/边命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
+  /** 进入拖拽会话；锚点命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
   private startDrag(
     pointer: DrawingPointerAnchor,
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
     const target: DrawingDragTarget =
-      'anchorIndex' in hit
-        ? { type: 'anchor', index: hit.anchorIndex }
-        : 'edge' in hit
-          ? { type: 'edge', anchors: hit.edge }
-          : { type: 'all' }
+      'anchorIndex' in hit ? { type: 'anchor', index: hit.anchorIndex } : { type: 'all' }
     const targets = (target.type === 'all' ? selectedDrawings : [hit.drawing]).filter(
       (drawing) => !isDrawingLocked(drawing),
     )
