@@ -14,7 +14,7 @@ describe('BrowserAgentBridge secret redaction', () => {
 
   const secretsOf = async (bridge: BrowserAgentBridge): Promise<readonly string[]> =>
     // secretValues 是私有的：这里断言的是它的产物，而不是它的存在。
-    (await (bridge as unknown as { secretValues(): Promise<readonly string[]> }).secretValues())
+    await (bridge as unknown as { secretValues(): Promise<readonly string[]> }).secretValues()
 
   it('collects the provider key so it can be stripped verbatim', async () => {
     const bridge = new BrowserAgentBridge()
