@@ -28,10 +28,10 @@ describe('PreviewRenderer', () => {
       'kline',
     )
 
-    // 光标只提供价格：第二条线与首两点同 X，光标时间（1500）被忽略。
+    // 光标只提供价格并落在次点 X 上，光标时间（1500）被忽略；首点 X 的派生点按首两点增量反向回推。
     expect(preview?.anchors).toHaveLength(4)
-    expect(preview?.anchors[2]).toMatchObject({ time: 500, price: 30 })
-    expect(preview?.anchors[3]).toMatchObject({ time: 1_000, price: 40 })
+    expect(preview?.anchors[2]).toMatchObject({ time: 500, price: 20 })
+    expect(preview?.anchors[3]).toMatchObject({ time: 1_000, price: 30 })
   })
 
   it('materializes the mirrored second line of a disjoint-channel preview', () => {

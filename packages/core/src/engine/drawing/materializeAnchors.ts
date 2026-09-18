@@ -68,7 +68,7 @@ function pointAt(
 
 /**
  * 平行通道：第二条线与第一条线跨越同样的首两点时间、斜率相同。
- * 2 落在首点 X 上、价格取第三个输入点；3 落在次点 X 上，价格按第一条线的价格增量同向平移。
+ * 3 落在次点 X 上、价格取第三个输入点（即光标所在时间槽跟手）；2 落在首点 X 上，价格按第一条线的价格增量反向回推。
  */
 function appendParallelAnchors(
   anchors: ReadonlyArray<PersistedDrawingAnchor>,
@@ -79,8 +79,8 @@ function appendParallelAnchors(
   return [
     first,
     second,
-    pointAt(first, createAnchorId(), third.price),
-    pointAt(second, createAnchorId(), third.price + (second.price - first.price)),
+    pointAt(first, createAnchorId(), third.price - (second.price - first.price)),
+    pointAt(second, createAnchorId(), third.price),
   ]
 }
 

@@ -38,7 +38,7 @@ describe('DrawingDocument', () => {
     expect(drawing.anchors).toEqual([expect.objectContaining({ price: 9 })])
   })
 
-  it('persists the derived fourth anchor of a parallel channel and accepts it on drag', () => {
+  it('persists the derived parallel-channel anchor and accepts it on drag', () => {
     const { document } = createDocument()
 
     const drawing = document.createDrawing({
@@ -51,11 +51,13 @@ describe('DrawingDocument', () => {
       ],
     })
 
+    // 第三个输入价格落在 3（次点 X），2（首点 X）按首两点增量反向回推为 20。
     expect(drawing.anchors).toHaveLength(4)
-    expect(drawing.anchors[3]).toMatchObject({ time: 1_000, price: 40 })
+    expect(drawing.anchors[2]).toMatchObject({ time: 1_000, price: 20 })
+    expect(drawing.anchors[3]).toMatchObject({ time: 1_000, price: 30 })
 
     const moved = drawing.anchors.map((anchor) => ({ ...anchor, price: anchor.price + 1 }))
-    expect(document.commitDrawingDrag(drawing.id, moved)?.anchors[3]).toMatchObject({ price: 41 })
+    expect(document.commitDrawingDrag(drawing.id, moved)?.anchors[2]).toMatchObject({ price: 21 })
   })
 
   it('selects the new drawing and drops the previous selection', () => {

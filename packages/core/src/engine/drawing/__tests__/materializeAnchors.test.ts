@@ -23,10 +23,10 @@ describe('materializeDrawingAnchors', () => {
       createIdFactory(),
     )
 
-    // 第三个输入点只提供价格：2 与首点同 X，3 与次点同 X 且价格按首两点增量同向平移。
+    // 第三个输入点只提供价格：3 与次点同 X 且直接取该价格，2 与首点同 X 且按首两点增量反向回推。
     expect(anchors).toHaveLength(4)
-    expect(anchors[2]).toMatchObject({ time: 500, price: 30 })
-    expect(anchors[3]).toMatchObject({ time: 1_000, price: 40 })
+    expect(anchors[2]).toMatchObject({ time: 500, price: 20 })
+    expect(anchors[3]).toMatchObject({ time: 1_000, price: 30 })
   })
 
   it('copies the source future slot onto a derived anchor', () => {
