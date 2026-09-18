@@ -65,6 +65,38 @@ describe('drawing coordinate utilities', () => {
     })
   })
 
+  it('returns null when the pointer leaves the drawing area without a clamp target', () => {
+    expect(
+      resolveDrawingPointer(
+        { clientX: 80, clientY: 300 } as PointerEvent,
+        CONTAINER,
+        createAdapter(),
+      ),
+    ).toBeNull()
+  })
+
+  it('clamps an out-of-bounds pointer to the target pane edge', () => {
+    expect(
+      resolveDrawingPointer(
+        { clientX: 80, clientY: 300 } as PointerEvent,
+        CONTAINER,
+        createAdapter(),
+        { clampPaneId: 'sub' },
+      ),
+    ).toMatchObject({ time: 1_000, price: 180, paneId: 'sub', x: 80, y: 80 })
+  })
+
+  it('clamps the horizontal coordinate to the plot width', () => {
+    expect(
+      resolveDrawingPointer(
+        { clientX: 500, clientY: 150 } as PointerEvent,
+        CONTAINER,
+        createAdapter(),
+        { clampPaneId: 'sub' },
+      ),
+    ).toMatchObject({ x: 300, y: 30 })
+  })
+
   it('stores a right-side blank-area anchor as an offset from the last bar', () => {
     const adapter = createAdapter({
       getLogicalIndexAtX: () => 3,

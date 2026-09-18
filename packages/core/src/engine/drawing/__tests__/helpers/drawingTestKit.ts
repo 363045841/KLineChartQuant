@@ -13,6 +13,7 @@ import type {
   DrawingDocumentPort,
   DrawingSessionPort,
   DrawingViewportPort,
+  PaneLayoutInfo,
 } from '../../../../controllers/types'
 import type { DrawingObject } from '../../../../foundation/plugin'
 import type { KLineData } from '../../../../foundation/types/price'
@@ -313,4 +314,50 @@ export function createSelectionAdapter(
     }),
   } satisfies DrawingChartAdapter
   return { adapter, setSelectedDrawingIds: documentPort.setSelectedDrawingIds }
+}
+
+/** 绘图落点 / 创建 / 预览用例 adapter 的差异项。 */
+export interface PlacementAdapterOptions {
+  /** 当前绘图工具 id，决定 onPointerDown / onPointerMove 走哪条分支。 */
+  tool: DrawingToolId
+  /** 落点所属 Pane 的布局。 */
+  pane: PaneLayoutInfo
+  /** 绘图区宽度。 */
+  plotWidth: number
+  /** 绘图区高度。 */
+  plotHeight: number
+  /** getLogicalIndexAtX 的固定返回值；用于右侧未来槽位用例。 */
+  logicalIndex: number
+  document?: Partial<DrawingDocumentPort>
+  session?: Partial<DrawingSessionPort>
+}
+
+/**
+ * 构造绘图落点 / 创建 / 预览用例的完整 adapter：单 Pane、扁平价格映射（y 即价格）。
+ * 与选择用例的 createSelectionAdapter 相比，多出工具 id 与逻辑索引的显式声明。
+ */
+export function createPlacementAdapter(
+  options: PlacementAdapterOptions,
+  drawings: ReadonlyArray<DrawingObject> = [],
+): DrawingChartAdapter {
+  return createDrawingAdapter(
+    {
+      document: { getDrawingToolId: () => options.tool, ...options.document },
+      viewport: {
+        getViewport: () => ({
+          scrollLeft: 0,
+          plotWidth: options.plotWidth,
+          plotHeight: options.plotHeight,
+        }),
+        getPaneAtY: () => options.pane,
+        getPaneInfo: () => options.pane,
+        getDrawingData: () => [{ timestamp: 1 }],
+        getLogicalIndexAtX: () => options.logicalIndex,
+        getDrawingTimestampAtLogicalIndex: () => 1,
+        yToPrice: (_paneId: string, y: number) => y,
+      },
+      session: options.session,
+    },
+    drawings,
+  )
 }

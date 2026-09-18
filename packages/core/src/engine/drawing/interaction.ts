@@ -184,9 +184,9 @@ export class DrawingInteractionController {
         e,
         container,
         this.adapter,
-        this.resolveMagnetOptions(e),
+        this.resolvePlacementOptions(e),
       )
-      if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId)) {
+      if (!pointer) {
         this.drawingState.removePreview()
         return false
       }
@@ -224,9 +224,13 @@ export class DrawingInteractionController {
       return this.handleBoxSelectDown(e, container)
     }
 
-    const pointer = resolveDrawingPointer(e, container, this.adapter, this.resolveMagnetOptions(e))
-    if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
-      return false
+    const pointer = resolveDrawingPointer(
+      e,
+      container,
+      this.adapter,
+      this.resolvePlacementOptions(e),
+    )
+    if (!pointer) return false
 
     const anchorCount = getAnchorCountForTool(activeTool)
 
@@ -282,6 +286,16 @@ export class DrawingInteractionController {
       return this.magnetMode === 'off' ? { magnet: { mode: 'strong' } } : undefined
     }
     return this.magnetMode === 'off' ? undefined : { magnet: { mode: this.magnetMode } }
+  }
+
+  /**
+   * 绘图落点解析选项：磁吸 + 出界钳制。
+   * 进行中的多锚点图元固定在其起始 Pane 内，指针移出该 Pane（含轴区）时贴边继续预览，
+   * 不再因落点解析失败而抹掉预览。首个锚点仍要求落在有效 Pane 内。
+   */
+  private resolvePlacementOptions(e: PointerEvent): ResolveDrawingPointerOptions {
+    const options = this.resolveMagnetOptions(e) ?? {}
+    return this.pendingPaneId === null ? options : { ...options, clampPaneId: this.pendingPaneId }
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {

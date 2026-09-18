@@ -3,7 +3,7 @@
 // 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
 // 另含点线距离等几何工具。
 
-import type { DrawingViewportPort } from '../../controllers/types.js'
+import type { DrawingViewportPort, PaneLayoutInfo } from '../../controllers/types.js'
 import type {
   PersistedDrawingAnchor,
   ScreenDrawingAnchor,
@@ -128,6 +128,19 @@ export interface ResolveDrawingPointerOptions {
    * 否则点选命中与框选范围会随吸附漂移。
    */
   magnet?: MagnetSnapConfig
+  /**
+   * 出界钳制目标 Pane：指针超出绘图区或该 Pane 时，把落点贴到 Pane 边界后继续解析，
+   * 供进行中的多锚点图元保持预览（橡皮筋式贴边）。
+   * 命中、框选、标签等只读路径不得传入，否则会在画布外产生假命中。
+   */
+  clampPaneId?: string
+}
+
+/** 容器局部落点与其所属 Pane。 */
+interface DrawingAreaPlacement {
+  x: number
+  y: number
+  pane: PaneLayoutInfo
 }
 
 /**
@@ -135,11 +148,11 @@ export interface ResolveDrawingPointerOptions {
  *
  * 边界检测：
  * - 鼠标超出 viewport.plotWidth / plotHeight → null
- * - 鼠标不在 main pane 范围内 → null
+ * - 鼠标不在任何 Pane 范围内 → null
  * - 鼠标位置无对应时间轴槽位 → null
  *
  * 传入 magnet 配置时，吸附发生在 screenToAnchor 之前（改写局部 x/y），
- * 返回的锚点与 x/y 均为吸附后的值。
+ * 返回的锚点与 x/y 均为吸附后的值；传入 clampPaneId 时先贴边再做同样的吸附与反解析。
  *
  * @returns DrawingPointerAnchor，超出范围或数据不可用时返回 null
  */
@@ -156,26 +169,69 @@ export function resolveDrawingPointer(
   const rect = container.getBoundingClientRect()
   const mouseX = pointer.clientX - rect.left
   const mouseY = pointer.clientY - rect.top
-  if (mouseX < 0 || mouseY < 0 || mouseX > viewport.plotWidth || mouseY > viewport.plotHeight) {
-    return null
-  }
 
-  const pane = adapter.getPaneAtY(mouseY)
-  if (!pane) return null
+  const placement = options?.clampPaneId
+    ? clampToPane(mouseX, mouseY, viewport, adapter, options.clampPaneId)
+    : resolveWithinDrawingArea(mouseX, mouseY, viewport, adapter)
+  if (!placement) return null
 
-  // 磁吸只改写局部坐标，不影响 pane 判定（吸附基准仍取指针原始所在 Pane）。
-  let x = mouseX
-  let y = mouseY - pane.top
+  // 磁吸只改写局部坐标，不影响 pane 判定（吸附基准仍取落点所在 Pane）。
+  let x = placement.x
+  let y = placement.y - placement.pane.top
   if (options?.magnet) {
-    const snapped = snapPointerToOhlc(mouseX, mouseY, pane, adapter, options.magnet)
+    const snapped = snapPointerToOhlc(
+      placement.x,
+      placement.y,
+      placement.pane,
+      adapter,
+      options.magnet,
+    )
     if (snapped) {
       x = snapped.x
-      y = snapped.y - pane.top
+      y = snapped.y - placement.pane.top
     }
   }
 
-  const anchor = screenToAnchor(x, y, pane.paneId, adapter)
-  return anchor ? { ...anchor, paneId: pane.paneId, x, y } : null
+  const anchor = screenToAnchor(x, y, placement.pane.paneId, adapter)
+  return anchor ? { ...anchor, paneId: placement.pane.paneId, x, y } : null
+}
+
+/** 严格落点：超出绘图区或不在任何 Pane 内返回 null。 */
+function resolveWithinDrawingArea(
+  mouseX: number,
+  mouseY: number,
+  viewport: { plotWidth: number; plotHeight: number },
+  adapter: DrawingViewportPort,
+): DrawingAreaPlacement | null {
+  if (mouseX < 0 || mouseY < 0 || mouseX > viewport.plotWidth || mouseY > viewport.plotHeight) {
+    return null
+  }
+  const pane = adapter.getPaneAtY(mouseY)
+  return pane ? { x: mouseX, y: mouseY, pane } : null
+}
+
+/** 出界钳制：X 贴绘图区，Y 贴目标 Pane，保证进行中的图元预览不因指针离开而中断。 */
+function clampToPane(
+  mouseX: number,
+  mouseY: number,
+  viewport: { plotWidth: number },
+  adapter: DrawingViewportPort,
+  paneId: string,
+): DrawingAreaPlacement | null {
+  const pane = adapter.getPaneInfo(paneId)
+  if (!pane) return null
+  return {
+    x: clampRange(mouseX, 0, viewport.plotWidth),
+    y: clampRange(mouseY, pane.top, pane.top + pane.height),
+    pane,
+  }
+}
+
+/** 把 value 限制在 [min, max]。 */
+function clampRange(value: number, min: number, max: number): number {
+  if (value < min) return min
+  if (value > max) return max
+  return value
 }
 
 // ---- Geometry ----

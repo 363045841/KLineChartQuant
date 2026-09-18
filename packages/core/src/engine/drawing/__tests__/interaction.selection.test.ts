@@ -5,8 +5,8 @@ import type { DrawingObject } from '../../../foundation/plugin'
 import { DrawingInteractionController } from '../interaction'
 import {
   CONTAINER,
-  createDrawingAdapter,
   createDrawingObject,
+  createPlacementAdapter,
   createSelectionAdapter,
   pointerDown,
   pointerMove,
@@ -160,18 +160,13 @@ describe('DrawingInteractionController selection', () => {
     const drawing = createDrawingObject({ id: 'subject' })
     const freeze = vi.fn()
     const unfreeze = vi.fn()
-    const adapter = createDrawingAdapter(
+    const adapter = createPlacementAdapter(
       {
-        document: { getDrawingToolId: () => 'cursor' },
-        viewport: {
-          getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
-          getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
-          getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
-          getDrawingData: () => [{ timestamp: 1 }],
-          getLogicalIndexAtX: () => 0,
-          getDrawingTimestampAtLogicalIndex: () => 1,
-          yToPrice: (_paneId: string, y: number) => y,
-        },
+        tool: 'cursor',
+        pane: { paneId: 'main', top: 0, height: 100 },
+        plotWidth: 100,
+        plotHeight: 100,
+        logicalIndex: 0,
         session: { freezeHoverTarget: freeze, unfreezeHoverTarget: unfreeze },
       },
       [drawing],
@@ -193,67 +188,5 @@ describe('DrawingInteractionController selection', () => {
     expect(unfreeze).not.toHaveBeenCalled()
     expect(controller.onPointerUp(pointerMove(40, 40), container)).toBe(true)
     expect(unfreeze).toHaveBeenCalledTimes(1)
-  })
-
-  it('passes the future-slot offset through when creating a drawing in the right blank area', () => {
-    const createdDrawing = createDrawingObject({ id: 'future-line' })
-    const createDrawingCommand = vi.fn(() => createdDrawing)
-    const adapter = createDrawingAdapter({
-      document: {
-        getDrawingToolId: () => 'v-line',
-        createDrawing: createDrawingCommand,
-        setDrawingToolId: vi.fn(),
-      },
-      viewport: {
-        getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
-        getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
-        getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
-        getDrawingData: () => [{ timestamp: 1 }],
-        getLogicalIndexAtX: () => 3,
-        getDrawingTimestampAtLogicalIndex: () => 1,
-        yToPrice: (_paneId: string, y: number) => y,
-      },
-    })
-    const controller = new DrawingInteractionController(adapter)
-    const container = CONTAINER
-
-    expect(controller.onPointerDown(pointerDown(10, 10), container)).toBe(true)
-    expect(createDrawingCommand).toHaveBeenCalledWith({
-      kind: 'vertical-line',
-      paneId: 'main',
-      anchors: [{ timestamp: 1, futureOffset: 3, price: 10 }],
-    })
-  })
-
-  it('resets the tool before creating so the new selection is not cleared', () => {
-    const createdDrawing = createDrawingObject({ id: 'created' })
-    const calls: string[] = []
-    const adapter = createDrawingAdapter({
-      document: {
-        getDrawingToolId: () => 'v-line',
-        createDrawing: vi.fn(() => {
-          calls.push('createDrawing')
-          return createdDrawing
-        }),
-        setDrawingToolId: vi.fn(() => {
-          calls.push('setDrawingToolId')
-        }),
-      },
-      viewport: {
-        getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
-        getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
-        getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
-        getDrawingData: () => [{ timestamp: 1 }],
-        getLogicalIndexAtX: () => 3,
-        getDrawingTimestampAtLogicalIndex: () => 1,
-        yToPrice: (_paneId: string, y: number) => y,
-      },
-    })
-    const controller = new DrawingInteractionController(adapter)
-    const container = CONTAINER
-
-    expect(controller.onPointerDown(pointerDown(10, 10), container)).toBe(true)
-    // 切换工具会清空选中，必须发生在创建（原子选中新图元）之前。
-    expect(calls).toEqual(['setDrawingToolId', 'createDrawing'])
   })
 })

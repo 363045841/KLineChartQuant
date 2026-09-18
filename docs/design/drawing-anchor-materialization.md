@@ -26,6 +26,13 @@
 
 填充命中只覆盖三个组合图元：填充多边形顶点顺序由 `fillRegions.ts` 的唯一一张表声明，绘制（`createXxxDefinition` 的 `area`）与命中（点在多边形内判定）共用同一份顺序，不会各自漂移。不相交通道第二条线方向相反，环绕顺序与另两者不同，单独登记。命中优先级为锚点 > 中点手柄 > 线段 > 填充；矩形与回归通道的填充不由四个持久化锚点直接构成，仍按线段命中。
 
+## 绘图落点钳制
+
+- 进行中的多锚点图元会记住起始 Pane（`pendingPaneId`）。指针移出该 Pane 或绘图区（含底部时间轴、pane 间隙）时，`resolveDrawingPointer` 把落点贴到该 Pane 边界后照常解析，预览不再被抹掉，回到 Pane 内即恢复跟手；出界点击同样在边界处完成本次绘制。
+- 钳制只发生在 `DrawingInteractionController` 的落点路径（`resolvePlacementOptions` 传 `clampPaneId`）；命中、框选、标签等只读路径仍严格要求指针在绘图区内，避免画布外假命中。
+- 首个锚点不钳制：此时没有起始 Pane 可钳，指针必须落在有效 Pane 内才能开始绘制。
+- 钳制范围：X 贴 `[0, plotWidth]`，Y 贴目标 Pane 的 `[top, top + height]`；贴边后再走磁吸与时间/价格反解析，因此边界点仍可参与磁吸。
+
 ## 拖拽策略
 
 - `AnchorDragFollowers` / `resolveAnchorFollowers(kind, index)` 只回答「拖锚点 `index` 时哪些锚点一起动」。每项声明 `follow`：`time` / `price` 各取 `1` 同向、`-1` 反向、`0` 不跟随（缺省 1）；被拖锚点自身始终接受完整位移，未登记的图元只动被拖锚点。
