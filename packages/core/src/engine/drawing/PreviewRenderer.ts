@@ -2,7 +2,6 @@ import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
 import type { InteractionDrawingAnchor } from './coordinateUtils.js'
 import { PREVIEW_ID } from './DrawingState.js'
-import type { DrawingAnchorTimeline } from './materializeAnchors.js'
 import { materializeDrawingAnchors } from './materializeAnchors.js'
 import type { DrawingToolId } from './toolConfig.js'
 import {
@@ -28,7 +27,6 @@ export class PreviewRenderer {
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
     workspaceId: DrawingWorkspaceId,
-    timeline: DrawingAnchorTimeline,
   ): DrawingObject | null {
     const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
     const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
@@ -49,13 +47,7 @@ export class PreviewRenderer {
     }
 
     // Triple anchor tools
-    const preview = this.buildTripleAnchorPreview(
-      activeTool,
-      pendingAnchors,
-      currentAnchor,
-      paneId,
-      timeline,
-    )
+    const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
     return preview ? { ...preview, workspaceId } : null
   }
 
@@ -145,7 +137,6 @@ export class PreviewRenderer {
     pendingAnchors: InteractionDrawingAnchor[],
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
-    timeline: DrawingAnchorTimeline,
   ): DrawingObject | null {
     if (pendingAnchors.length === 0) return null
 
@@ -207,7 +198,6 @@ export class PreviewRenderer {
         },
       ],
       () => `${PREVIEW_ID}-x${derivedId++}`,
-      timeline,
     )
 
     return {

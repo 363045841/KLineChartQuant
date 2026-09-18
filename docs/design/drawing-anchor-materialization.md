@@ -12,12 +12,12 @@
 
 - `getDrawingInputAnchorCount(kind)`：创建时用户输入的锚点数（1 / 2 / 3）。
 - `getDrawingAnchorCount(kind)`：持久化后的完整锚点数（组合图元为 4）。
-- `materializeDrawingAnchors(kind, anchors, createAnchorId, timeline)` 把输入锚点补齐为完整锚点：
-  - `parallel-channel`：第四点由第三点按前两点的逻辑索引差平移，价格同向相加。
-  - `disjoint-channel`：第二条线与第一条线跨越同样的首两点时间、斜率互为相反数。第 2 点取次点时间、价格取第三个输入点；第 3 点取首点时间，价格 = 第三个输入点价格 + (次点价格 − 首点价格)。第三个输入点只提供价格，其时间被忽略。
+- `materializeDrawingAnchors(kind, anchors, createAnchorId)` 把输入锚点补齐为完整锚点。三个组合图元的第三个输入锚点一律只提供**价格**，其时间被忽略：派生点复制首两点的时间坐标（含未来槽位），因此不需要时间轴能力，也不存在派生索引越界的失败路径。
+  - `parallel-channel`：第二条线与第一条线跨越同样的首两点时间、斜率相同。第 2 点取首点时间、价格取第三个输入点；第 3 点取次点时间，价格 = 第三个输入点价格 + (次点价格 − 首点价格)。
+  - `disjoint-channel`：第二条线与第一条线跨越同样的首两点时间、斜率互为相反数。第 2 点取次点时间、价格取第三个输入点；第 3 点取首点时间，价格 = 第三个输入点价格 + (次点价格 − 首点价格)。
   - `flat-line`：两个水平端点分别落在首两点的时间上、价格取第三个输入点，替代输入的第三个锚点。
-- `disjoint-channel` 的第 2 点为第二条线的右端、第 3 点为左端（与 `flat-line` 的左右顺序相反），因此它的同 X 配对是 `0↔3`、`1↔2`，而不是 `0↔2`、`1↔3`。这是刻意的：第二条线由「第二条线端点 = 首两点时间 + 负斜率」唯一确定，不是 `flat-line` 的左右同价平移。
-- 派生点的时间戳经逻辑索引换算取得，保证后续帧内投影可解析；索引超出数据末尾时记为 `futureOffset`。派生点落在首根 K 线之前时抛 `DRAWING_INVALID_ANCHOR`，因为时间坐标无法表达该位置（仅 `parallel-channel` 需要派生时间，`disjoint-channel` / `flat-line` 直接复制首两点的时间，不会触发）。
+- `disjoint-channel` 的第 2 点为第二条线的右端、第 3 点为左端（与 `flat-line` / `parallel-channel` 的左右顺序相反），因此它的同 X 配对是 `0↔3`、`1↔2`，而不是 `0↔2`、`1↔3`。这是刻意的：第二条线由「第二条线端点 = 首两点时间 + 负斜率」唯一确定，不是 `flat-line` 的左右同价平移。
+- `parallel-channel` 的两条线因此左右端各自同 X（`x(2) = x(0)`、`x(3) = x(1)`），与它的拖拽策略（`0/2` 左端、`1/3` 右端成对）互为前提。
 - 旧的 3 锚点快照在 `replaceDrawings` 导入时按同一函数补齐。
 
 ## 帧内消费
@@ -34,7 +34,7 @@
 
 ## 已登记策略
 
-`parallel-channel`：端点按角色跨线成对（`0/2` 左端、`1/3` 右端）。拖动任一端点时，另一条线上的同角色端点按同一位移跟随，剩下两点固定，因此两条线向量始终相同、始终平行。
+`parallel-channel`：端点按角色跨线成对（`0/2` 左端、`1/3` 右端）。拖动任一端点时，另一条线上的同角色端点按同一位移跟随，剩下两点固定，因此两条线向量始终相同、始终平行，创建期保证的同端同 X 也一直成立。
 
 `flat-line`（平滑顶底）：`0/1` 为斜线端点，`2/3` 为水平线端点。同侧端点共享 X（`0↔2`、`1↔3`），水平线两端共享价格。拖斜线端点时，水平线同侧端点只跟时间；拖水平线端点时，斜线同侧端点只跟时间（`follow: { time: 1, price: 0 }`）、水平线另一端只跟价格（`follow: { time: 0, price: 1 }`），因此水平线始终水平、同侧 X 始终对齐。
 
@@ -48,6 +48,17 @@
 
 - 声明：`lines.ts` 的线表逐条声明 `verticalHandle`，登记即开启。当前 `parallel-channel`、`flat-line`、`disjoint-channel` 的两条线都开启；未声明的线不绘制手柄、不命中、拖拽策略返回 null。
 - 可见与命中：手柄只在图元被选中时绘制（`frameProjection` 统一压在所有图元之后），也只在该图元被选中时参与命中；未选中时中点按线身命中 → 整体拖拽。宿主查询 `hitTestAt` 一律不返回手柄。
-- 外观：中点为心的空心圆角矩形（半径沿用选中态锚点半径），形状由 `createDefaultPrimitiveRendererSet` 的 `point` 渲染器按 `role: 'handle'` 决定，颜色取图元描边。
+- 外观：中点为心的圆角矩形（与锚点同半径），形状由 `createDefaultPrimitiveRendererSet` 的 `point` 渲染器按 `role: 'translate-handle'` 决定：填充同锚点色、描边取图元颜色。
+- 悬停光标：`DrawingInteractionController.getHoveredTarget` 返回命中目标类型（`none` / `anchor` / `vertical-handle` / `all`，未命中为 `none`，接口不带 null），kernel 以 `interactionSnapshot.drawingHoverTarget` 暴露；宿主按类型决定光标——中点手柄 `ns-resize`、线身 `move`、圆形锚点不改变光标。
+- 推导时机：指针事件只记录指针位置（`InteractionController.lastClientPos`），不写悬停目标。目标在 `flushPendingHover()` 里用缓存的指针位置 + 本帧几何推导，与 crosshair / hover / tooltip 在同一个 `batch` 内写入。触发 flush 的时机有三类：idle 指针移动、帧 K 线几何变化（`setKLinePositions` 比出引用/区间变化）、容器尺寸变化（`Chart.resize` → `invalidateHover`）。因此缩放、改尺寸后光标按新几何立即重算，不会陈旧到下一次指针移动；写入点唯一，不存在"事件路径 + 帧路径"两个写入者。
+- 置 `none` 的时机：指针离开画布（`Chart.handlePointerEvent` 的 `pointerleave` 分支）、悬停被清空（`InteractionController.clearHover`：滚轮、平移、拖拽、指针移出绘图区）、切换绘图工具（`ChartDrawingFacade.setTool`，悬停目标只对 `cursor` / `box-select` 有效）。
 - 移动：拖拽只改价格、不改时间。`DragHandler` 把指针 Y 相对快照中点的偏移换算成**价格增量**，对该线的两个锚点同增同减；用价格增量而非屏幕位移，log 轴下这条线的价格差（以及 `disjoint-channel` 的镜像不变量）都不被破坏。另一条线不受影响：通道宽度会改变，`parallel-channel` 的两条线因此不再平行。
 - 不持久化：中点是两端锚点的派生量，锚点数量、拖拽提交校验、序列化与 Agent 契约均不变。
+
+## 选中态锚点
+
+- 锚点只在选中态可见：未选中图元的线段端点不绘制（`showEndpoints: false`）、锚点点图元不投影，未选中态只剩线与填充。唯一的例外是创建中的预览（`PREVIEW_ID`）：正在放置的点需要即时反馈，保持原样。
+- 选中图元的锚点统一画成「内部填充 + 图元颜色描边环」：线段端点与点图元都由 `frameProjection.applySelectedStyle` 写入 `anchorFill`，渲染器（`createDefaultPrimitiveRendererSet` 的 `point` / `line`）据此填充该色并描一圈 `style.stroke`。
+- 锚点归属：线图元的端点即锚点；水平射线与十字线的锚点由显式 `role: 'anchor'` 的点图元提供（`flat-line` 的两个水平端点已由第二条线的端点覆盖，不再重复投影）。
+- 填充色是 `foundation/tokens/drawingColors.ts` 的 `DRAWING_ANCHOR_FILL`（白），业务代码不硬编码颜色。
+- 中点手柄与锚点同款：`frameProjection.projectVerticalHandles` 也写入 `anchorFill`，渲染器按 `role: 'translate-handle'` 填充该色并描边。

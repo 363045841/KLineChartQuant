@@ -548,10 +548,33 @@ export type ScreenDrawingAnchor =
   | ScreenHorizontalAnchor
   | ScreenVerticalAnchor
 
+/** 绘图图元种类。 */
+export type DrawingPrimitiveKind = 'point' | 'line' | 'area' | 'text' | 'arrow'
+
+/** 点图元角色：锚点、平移手柄。 */
+export type PointRole = 'anchor' | 'translate-handle'
+
+/** 图元种类字面量；判别图元种类时引用它，不在业务代码里散落字符串。 */
+export const PRIMITIVE_KIND = {
+  point: 'point',
+  line: 'line',
+  area: 'area',
+  text: 'text',
+  arrow: 'arrow',
+} as const satisfies Record<DrawingPrimitiveKind, DrawingPrimitiveKind>
+
+/** 点图元角色字面量；判别角色时引用它，不在业务代码里散落字符串。 */
+export const POINT_ROLE = {
+  anchor: 'anchor',
+  'translate-handle': 'translate-handle',
+} as const satisfies Record<PointRole, PointRole>
+
 export type PointPrimitive = {
   kind: 'point'
   point: ScreenPoint
-  role?: 'anchor' | 'handle' | 'marker' | 'center'
+  role?: PointRole
+  /** 拖拽点（锚点圆点 / 平移手柄）的内部填充色；提供后按「该色填充 + style.stroke 描边」，缺省用描边色实心。 */
+  anchorFill?: string
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
@@ -562,6 +585,8 @@ export type LinePrimitive = {
   b: ScreenPoint
   extend?: 'none' | 'left' | 'right' | 'both'
   showEndpoints?: boolean
+  /** 端点圆点（锚点）的内部填充色，语义同 {@link PointPrimitive.anchorFill}。 */
+  anchorFill?: string
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }

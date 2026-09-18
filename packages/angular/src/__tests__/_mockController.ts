@@ -47,8 +47,7 @@ export function createMockChartController(): MockControllerHandle {
     isHoveringPaneBoundary: false,
     hoveredPaneBoundaryId: null,
     isHoveringRightAxis: false,
-    isHoveringAnchor: false,
-    isHoveringVerticalHandle: false,
+    drawingHoverTarget: 'none',
   })
   const paneRatios = createSignal<Readonly<Record<string, number>>>({})
   const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([])

@@ -375,7 +375,6 @@ export class DrawingDocument {
             drawing.kind,
             drawing.anchors,
             () => `anchor-${generateUUID()}`,
-            this.dependencies,
           ),
           labels: normalizeDrawingLabels(drawing.labels ?? { line: {}, area: {} }),
         })),
@@ -399,7 +398,6 @@ export class DrawingDocument {
       kind,
       inputs.map((input) => this.resolveAnchor(kind, input)),
       () => `anchor-${generateUUID()}`,
-      this.dependencies,
     )
   }
 

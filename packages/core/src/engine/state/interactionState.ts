@@ -7,8 +7,12 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 
-/** 会改变宿主光标的绘图悬停目标：锚点与线段中点手柄。 */
-export type DrawingHoverTarget = 'anchor' | 'vertical-handle'
+/**
+ * 指针悬停的绘图拖拽目标，与命中结果的目标类型一致，`none` 表示没有悬停在任何可拖拽图元上：
+ * `anchor` 圆形锚点、`vertical-handle` 线段中点手柄、`all` 线身（可整体拖拽）。
+ * 宿主按目标类型决定光标：手柄 → ns-resize，线身 → move，锚点不改变光标。
+ */
+export type DrawingHoverTarget = 'none' | 'anchor' | 'vertical-handle' | 'all'
 
 export interface InteractionSnapshot {
   crosshairPos: { x: number; y: number } | null
@@ -25,10 +29,8 @@ export interface InteractionSnapshot {
   isHoveringPaneBoundary: boolean
   hoveredPaneBoundaryId: string | null
   isHoveringRightAxis: boolean
-  /** 指针悬停在图元锚点上（宿主据此显示十字光标）。 */
-  isHoveringAnchor: boolean
-  /** 指针悬停在绘图线段的中点手柄上（宿主据此显示上下移动光标）。 */
-  isHoveringVerticalHandle: boolean
+  /** 指针悬停的绘图拖拽目标；没有悬停在任何可拖拽图元上时为 `none`。 */
+  drawingHoverTarget: DrawingHoverTarget
 }
 
 export type DragMode = 'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore'
@@ -67,7 +69,7 @@ export function createInteractionState(_deps: InteractionDeps) {
     hoveredMarkerData: null as MarkerEntity | null,
     hoveredCustomMarker: null as CustomMarkerEntity | null,
     hoveredMarkerId: null as string | null,
-    hoveredDrawingTarget: null as DrawingHoverTarget | null,
+    hoveredDrawingTarget: 'none' as DrawingHoverTarget,
     rangeSelection: Object.freeze({
       startTimestamp: null,
       endTimestamp: null,
@@ -99,8 +101,7 @@ export function createInteractionState(_deps: InteractionDeps) {
       isHoveringPaneBoundary: hoveredSep !== null,
       hoveredPaneBoundaryId: hoveredSep,
       isHoveringRightAxis: hoveredRight !== null,
-      isHoveringAnchor: readonly.hoveredDrawingTarget() === 'anchor',
-      isHoveringVerticalHandle: readonly.hoveredDrawingTarget() === 'vertical-handle',
+      drawingHoverTarget: readonly.hoveredDrawingTarget(),
     }
 
     if (_cachedSnapshot) {
@@ -120,8 +121,7 @@ export function createInteractionState(_deps: InteractionDeps) {
         c.isHoveringPaneBoundary === next.isHoveringPaneBoundary &&
         c.hoveredPaneBoundaryId === next.hoveredPaneBoundaryId &&
         c.isHoveringRightAxis === next.isHoveringRightAxis &&
-        c.isHoveringAnchor === next.isHoveringAnchor &&
-        c.isHoveringVerticalHandle === next.isHoveringVerticalHandle
+        c.drawingHoverTarget === next.drawingHoverTarget
       ) {
         return _cachedSnapshot
       }
@@ -218,8 +218,8 @@ export function createInteractionState(_deps: InteractionDeps) {
         signals.hoveredRightAxisPaneId.set(paneId)
       },
 
-      /** 设置绘图悬停目标（锚点 / 线段中点手柄），宿主据此切换光标。 */
-      setDrawingTargetHover(target: DrawingHoverTarget | null) {
+      /** 设置绘图悬停目标（none / 锚点 / 线段中点手柄 / 线身），宿主据此切换光标。 */
+      setDrawingTargetHover(target: DrawingHoverTarget) {
         if (signals.hoveredDrawingTarget.peek() === target) return
         signals.hoveredDrawingTarget.set(target)
       },
@@ -311,7 +311,7 @@ export function createInteractionState(_deps: InteractionDeps) {
           signals.hoveredMarkerData.set(null)
           signals.hoveredCustomMarker.set(null)
           signals.hoveredMarkerId.set(null)
-          signals.hoveredDrawingTarget.set(null)
+          signals.hoveredDrawingTarget.set('none')
           signals.rangeSelection.set(
             Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
           )
@@ -335,7 +335,7 @@ export function createInteractionState(_deps: InteractionDeps) {
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
         signals.hoveredMarkerId.set(null)
-        signals.hoveredDrawingTarget.set(null)
+        signals.hoveredDrawingTarget.set('none')
         signals.rangeSelection.set(
           Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
         )

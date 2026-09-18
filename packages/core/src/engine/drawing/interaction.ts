@@ -5,6 +5,7 @@ import type { DrawingHoverTarget } from '../state/interactionState.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import type {
   DrawingPointerAnchor,
+  PointerCoordinates,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from './coordinateUtils.js'
@@ -196,7 +197,6 @@ export class DrawingInteractionController {
         pointer,
         pointer.paneId,
         this.adapter.getDrawingWorkspaceId(),
-        this.adapter,
       )
       if (!preview) {
         this.drawingState.removePreview()
@@ -338,17 +338,18 @@ export class DrawingInteractionController {
   }
 
   /**
-   * 指针悬停的绘图拖拽目标；宿主据此切换光标（圆形锚点 → move，中点手柄 → ns-resize）。
-   * 与命中共用同一份选中集合与线表：中点手柄只在图元被选中时可悬停，锚点不受选中限制。
+   * 指针悬停的绘图拖拽目标，与命中返回的目标类型一致；未命中时由本方法给出 `none`。
+   * 与命中共用同一份选中集合与线表：中点手柄只在图元被选中时可悬停，锚点与线身不受选中限制。
+   * @param pointer 指针 client 坐标；一般由 hover flush 用缓存的指针位置传入
    */
-  getHoveredTarget(e: PointerEvent, container: HTMLElement): DrawingHoverTarget | null {
+  getHoveredTarget(pointer: PointerCoordinates, container: HTMLElement): DrawingHoverTarget {
     const tool = this.getActiveTool()
-    if (tool !== 'cursor' && tool !== 'box-select') return null
-    if (this.dragHandler.isDragging()) return null
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
-    if (!pointer) return null
-    const type = this.findSelectableHit(pointer)?.target.type
-    return type === 'anchor' || type === 'vertical-handle' ? type : null
+    if (tool !== 'cursor' && tool !== 'box-select') return 'none'
+    if (this.dragHandler.isDragging()) return 'none'
+    const resolved = resolveDrawingPointer(pointer, container, this.adapter)
+    if (!resolved) return 'none'
+    const hit = this.findSelectableHit(resolved)
+    return hit === null ? 'none' : hit.target.type
   }
 
   /**

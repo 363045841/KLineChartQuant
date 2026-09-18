@@ -1,6 +1,7 @@
 // 交互控制中心
 
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { batch } from '../../foundation/reactivity/signal.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
@@ -449,7 +450,16 @@ export class InteractionController {
   }
 
   /**
-   * 将 pending 指针推导为 crosshair/hover/tooltip 并写入 kernel。
+   * 标记指针派生态待重算，供 Chart 在帧几何变化（如容器尺寸变化）后调用。
+   * 由下一个 flushPendingHover 用缓存的指针位置重算，避免光标陈旧到下一次指针移动。
+   */
+  invalidateHover(): void {
+    if (!this.lastClientPos || this._state.readonly.isDragging.peek()) return
+    this.hoverFlushPending = true
+  }
+
+  /**
+   * 将 pending 指针推导为 crosshair/hover/tooltip 与绘图悬停目标并写入 kernel。
    * ChartRenderer 在 seal 几何之后、paint 之前调用，保证与本帧几何同代。
    * 无 pending 时为 no-op。
    */
@@ -458,7 +468,12 @@ export class InteractionController {
     this.hoverFlushPending = false
     if (!this.lastClientPos) return
 
-    this.updatePlotHoverFromPoint(this.lastClientPos.x, this.lastClientPos.y)
+    const { x, y } = this.lastClientPos
+    // 指针派生态一次通知：先算绘图悬停目标，再算 plot hover（后者可能清空悬停，连带清掉绘图悬停）
+    batch(() => {
+      this.chart.updateDrawingHover(x, y)
+      this.updatePlotHoverFromPoint(x, y)
+    })
     const hoverRenderKey = this.getHoverRenderKey()
     if (hoverRenderKey !== this.lastHoverRenderKey) {
       this.lastHoverRenderKey = hoverRenderKey
@@ -567,6 +582,8 @@ export class InteractionController {
 
   onRightAxisPointerMove(e: PointerEvent) {
     if (!e.isPrimary) return
+    // 右轴不在绘图区内：指针位置不参与 plot hover 推导，避免几何变化时用陈旧位置重算
+    this.lastClientPos = null
     if (e.pointerType === 'touch') {
       this.isTouchSession = true
     }
@@ -688,6 +705,7 @@ export class InteractionController {
     this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, null)
     this._state.actions.updateMarkerHover(null, null, null)
+    this.chart.clearDrawingHover()
     this.markerState.clearAll(this.chart.markers.getManager())
   }
 

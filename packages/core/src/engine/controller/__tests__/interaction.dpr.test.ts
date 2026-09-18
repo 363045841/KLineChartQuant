@@ -22,7 +22,7 @@ function createMockInteractionState() {
     hoveredMarkerData: writableRef<any>(null),
     hoveredCustomMarker: writableRef<any>(null),
     hoveredMarkerId: writableRef<string | null>(null),
-    hoveredDrawingTarget: writableRef<'anchor' | 'vertical-handle' | null>(null),
+    hoveredDrawingTarget: writableRef<'none' | 'anchor' | 'vertical-handle' | 'all'>('none'),
     rangeSelection: writableRef({
       startTimestamp: null as number | null,
       endTimestamp: null as number | null,
@@ -66,8 +66,7 @@ function createMockInteractionState() {
           isHoveringPaneBoundary: signals.hoveredSeparatorUpperPaneId.peek() !== null,
           hoveredPaneBoundaryId: signals.hoveredSeparatorUpperPaneId.peek(),
           isHoveringRightAxis: signals.hoveredRightAxisPaneId.peek() !== null,
-          isHoveringAnchor: signals.hoveredDrawingTarget.peek() === 'anchor',
-          isHoveringVerticalHandle: signals.hoveredDrawingTarget.peek() === 'vertical-handle',
+          drawingHoverTarget: signals.hoveredDrawingTarget.peek(),
         }),
       } as any,
     },
@@ -157,7 +156,7 @@ function createMockInteractionState() {
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
         signals.hoveredMarkerId.set(null)
-        signals.hoveredDrawingTarget.set(null)
+        signals.hoveredDrawingTarget.set('none')
       },
     },
     dispose() {},
@@ -298,6 +297,8 @@ function createChartStub(args: {
     currentPeriod: 'daily',
     checkVisibleRangeGap: () => undefined,
     translatePrice: () => undefined,
+    updateDrawingHover: () => undefined,
+    clearDrawingHover: () => undefined,
     scheduleDraw: args.scheduleDraw ?? (() => undefined),
     zoomAt: () => undefined,
     resetPriceOffset: () => undefined,

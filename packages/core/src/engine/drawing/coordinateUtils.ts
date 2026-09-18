@@ -114,6 +114,12 @@ export function screenToAnchor(
   }
 }
 
+/** 指针位置的最小形状：只需 client 坐标，便于用缓存的指针位置重算命中。 */
+export interface PointerCoordinates {
+  clientX: number
+  clientY: number
+}
+
 /** resolveDrawingPointer 的可选行为配置。 */
 export interface ResolveDrawingPointerOptions {
   /**
@@ -125,7 +131,7 @@ export interface ResolveDrawingPointerOptions {
 }
 
 /**
- * 从 PointerEvent 中解析出光标位置对应的逻辑锚点。
+ * 从指针位置解析出光标对应的逻辑锚点。
  *
  * 边界检测：
  * - 鼠标超出 viewport.plotWidth / plotHeight → null
@@ -138,7 +144,7 @@ export interface ResolveDrawingPointerOptions {
  * @returns DrawingPointerAnchor，超出范围或数据不可用时返回 null
  */
 export function resolveDrawingPointer(
-  e: PointerEvent,
+  pointer: PointerCoordinates,
   container: HTMLElement,
   adapter: DrawingViewportPort,
   options?: ResolveDrawingPointerOptions,
@@ -148,8 +154,8 @@ export function resolveDrawingPointer(
   if (!viewport || data.length === 0) return null
 
   const rect = container.getBoundingClientRect()
-  const mouseX = e.clientX - rect.left
-  const mouseY = e.clientY - rect.top
+  const mouseX = pointer.clientX - rect.left
+  const mouseY = pointer.clientY - rect.top
   if (mouseX < 0 || mouseY < 0 || mouseX > viewport.plotWidth || mouseY > viewport.plotHeight) {
     return null
   }

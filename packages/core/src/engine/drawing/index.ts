@@ -1,17 +1,19 @@
-import type {
-  AreaPrimitive,
-  ArrowPrimitive,
-  DrawingComputeContext,
-  DrawingDefinition,
-  DrawingGeometry,
-  DrawingKind,
-  DrawingObject,
-  DrawingStyle,
-  DrawingWorkspaceId,
-  LinePrimitive,
-  PointPrimitive,
-  ScreenPoint,
-  TextPrimitive,
+import {
+  type AreaPrimitive,
+  type ArrowPrimitive,
+  type DrawingComputeContext,
+  type DrawingDefinition,
+  type DrawingGeometry,
+  type DrawingKind,
+  type DrawingObject,
+  type DrawingStyle,
+  type DrawingWorkspaceId,
+  type LinePrimitive,
+  POINT_ROLE,
+  type PointPrimitive,
+  PRIMITIVE_KIND,
+  type ScreenPoint,
+  type TextPrimitive,
 } from '../../foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
@@ -143,18 +145,58 @@ function applyFillStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): vo
 const HANDLE_STROKE_WIDTH = 2
 const HANDLE_CORNER_RADIUS = 3
 
-/** 绘制线段中点垂直手柄：以中点为心的空心圆角矩形，指示这条线可沿价格轴平移。 */
+/**
+ * 绘制线段中点垂直手柄：以中点为心的圆角矩形，填充同锚点、描边取图元颜色，指示这条线可沿价格轴平移。
+ */
 function drawVerticalHandle(
   ctx: CanvasRenderingContext2D,
   point: ScreenPoint,
   halfSize: number,
   style?: DrawingStyle,
+  anchorFill?: string,
 ): void {
   const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
   ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.lineWidth = style?.strokeWidth ?? HANDLE_STROKE_WIDTH
   ctx.beginPath()
   ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
+  ctx.fillStyle = anchorFill ?? style?.fill ?? DEFAULT_DRAWING_STROKE
+  ctx.fill()
+  ctx.stroke()
+}
+
+/** 判断屏幕点是否落在视口裁剪矩形内（含边界），线段端点据此决定是否绘制。 */
+function isInsideViewport(
+  point: ScreenPoint,
+  clip: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  return (
+    point.x >= clip.left && point.x <= clip.right && point.y >= clip.top && point.y <= clip.bottom
+  )
+}
+
+/**
+ * 绘制锚点。
+ * 提供 anchorFill 时画成「填充色实心 + 图元描边环」，即选中态锚点；缺省按描边色实心。
+ */
+function drawAnchor(
+  ctx: CanvasRenderingContext2D,
+  point: ScreenPoint,
+  radius: number,
+  style?: DrawingStyle,
+  anchorFill?: string,
+): void {
+  ctx.beginPath()
+  ctx.arc(point.x, point.y, radius, 0, Math.PI * 2)
+  if (anchorFill === undefined) {
+    ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
+    ctx.fill()
+    return
+  }
+  ctx.fillStyle = anchorFill
+  ctx.fill()
+  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
+  ctx.lineWidth = style?.strokeWidth ?? 1
   ctx.stroke()
 }
 
@@ -302,15 +344,12 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
     point(ctx, primitive, dpr) {
       const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
       ctx.save()
-      if (primitive.role === 'handle') {
-        drawVerticalHandle(ctx, primitive.point, radius, primitive.style)
+      if (primitive.role === POINT_ROLE['translate-handle']) {
+        drawVerticalHandle(ctx, primitive.point, radius, primitive.style, primitive.anchorFill)
         ctx.restore()
         return
       }
-      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-      ctx.beginPath()
-      ctx.arc(primitive.point.x, primitive.point.y, radius, 0, Math.PI * 2)
-      ctx.fill()
+      drawAnchor(ctx, primitive.point, radius, primitive.style, primitive.anchorFill)
       if (primitive.text) {
         ctx.fillStyle =
           primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
@@ -359,29 +398,10 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
 
       // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
-        const pointRadius = primitive.style?.pointRadius ?? 4
-        ctx.fillStyle = primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-
-        if (
-          primitive.a.x >= viewportClip.left &&
-          primitive.a.x <= viewportClip.right &&
-          primitive.a.y >= viewportClip.top &&
-          primitive.a.y <= viewportClip.bottom
-        ) {
-          ctx.beginPath()
-          ctx.arc(primitive.a.x, primitive.a.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-          ctx.fill()
-        }
-
-        if (
-          primitive.b.x >= viewportClip.left &&
-          primitive.b.x <= viewportClip.right &&
-          primitive.b.y >= viewportClip.top &&
-          primitive.b.y <= viewportClip.bottom
-        ) {
-          ctx.beginPath()
-          ctx.arc(primitive.b.x, primitive.b.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-          ctx.fill()
+        const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
+        for (const endpoint of [primitive.a, primitive.b]) {
+          if (!isInsideViewport(endpoint, viewportClip)) continue
+          drawAnchor(ctx, endpoint, pointRadius, primitive.style, primitive.anchorFill)
         }
       }
 
@@ -652,7 +672,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
               showEndpoints: false,
               style: drawing.style,
             },
-            { kind: 'point', point, style: drawing.style },
+            { kind: PRIMITIVE_KIND.point, role: POINT_ROLE.anchor, point, style: drawing.style },
           ],
         }
       }
@@ -689,7 +709,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
             showEndpoints: false,
             style: drawing.style,
           },
-          { kind: 'point', point, style: drawing.style },
+          { kind: PRIMITIVE_KIND.point, role: POINT_ROLE.anchor, point, style: drawing.style },
         ],
       }
     },
@@ -785,8 +805,6 @@ export function createFlatLineDefinition(): DrawingDefinition {
           },
           { kind: 'line', a: p1, b: p2, style: drawing.style },
           { kind: 'line', a: h1, b: h2, style: drawing.style },
-          { kind: 'point', point: h1, style: drawing.style },
-          { kind: 'point', point: h2, style: drawing.style },
         ],
       }
     },

@@ -1,16 +1,19 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import type {
-  DrawingFrameProjection,
-  DrawingKind,
-  DrawingObject,
-  DrawingPrimitive,
-  PointPrimitive,
-  RenderContext,
+import {
+  type DrawingFrameProjection,
+  type DrawingKind,
+  type DrawingObject,
+  type DrawingPrimitive,
+  type LinePrimitive,
+  POINT_ROLE,
+  type PointPrimitive,
+  type RenderContext,
 } from '../../../foundation/plugin'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
+import { PREVIEW_ID } from '../DrawingState'
 import { projectDrawingsForFrame } from '../frameProjection'
 import { createDrawingObject } from './helpers/drawingTestKit'
 
@@ -62,6 +65,11 @@ function pointPrimitives(
   return primitives.filter((primitive): primitive is PointPrimitive => primitive.kind === 'point')
 }
 
+/** 从帧投影中取出线图元；其端点在选中态充当锚点。 */
+function linePrimitives(primitives: ReadonlyArray<DrawingPrimitive>): ReadonlyArray<LinePrimitive> {
+  return primitives.filter((primitive): primitive is LinePrimitive => primitive.kind === 'line')
+}
+
 /** 平滑顶底夹具：斜线 (10,90)-(30,80)，水平线 (10,95)-(30,95)。 */
 function createFlatLineDrawing(id: string): DrawingObject {
   return createDrawingObject({
@@ -108,18 +116,46 @@ describe('projectDrawingsForFrame', () => {
     expect(context.yAxisRanges).toHaveLength(0)
   })
 
-  it('enlarges every anchor of a selected drawing, including line endpoints', () => {
-    const projection = projectSingleDrawing(createFlatLineDrawing('flat'), true)
+  it('keeps the anchors of an in-progress preview visible', () => {
+    // 预览只经会话 overlay 参与绘制，committed 列表里的同名 id 会被丢弃。
+    const preview = createDrawingObject({
+      id: PREVIEW_ID,
+      kind: 'horizontal-ray',
+      anchors: [{ id: 'a', type: 'point', time: 1_000, price: 25 }],
+    })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+      getOverlay: () => [preview],
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
 
-    // 线段端点与点图元共用同一放大半径，选中后锚点视觉一致。
-    expect(
-      projection.primitives
-        .filter((primitive) => primitive.kind === 'line')
-        .map((primitive) => primitive.style?.pointRadius),
-    ).toEqual([6, 6])
-    expect(
-      pointPrimitives(projection.primitives).map((primitive) => primitive.style?.pointRadius),
-    ).toEqual([6, 6, 6, 6])
+    const projection = projectDrawingsForFrame(store, definitions, createContext())
+
+    // 预览未选中，但正在放置的锚点仍要投影。
+    expect(pointPrimitives(projection.primitives).map((primitive) => primitive.role)).toEqual([
+      'anchor',
+    ])
+  })
+
+  it('hides every anchor of an unselected drawing', () => {
+    const flatLine = projectSingleDrawing(createFlatLineDrawing('flat'), false)
+    expect(linePrimitives(flatLine.primitives).map((primitive) => primitive.showEndpoints)).toEqual(
+      [false, false],
+    )
+    expect(pointPrimitives(flatLine.primitives)).toEqual([])
+
+    // 显式锚点点图元同样不投影：未选中态只剩线与填充。
+    const ray = projectSingleDrawing(
+      createDrawingObject({
+        id: 'ray',
+        kind: 'horizontal-ray',
+        anchors: [{ id: 'a', type: 'point', time: 1_000, price: 25 }],
+      }),
+      false,
+    )
+    expect(pointPrimitives(ray.primitives)).toEqual([])
   })
 
   const handleCases: ReadonlyArray<{
@@ -165,7 +201,7 @@ describe('projectDrawingsForFrame', () => {
       const projection = projectSingleDrawing(drawing, selected)
 
       const handles = pointPrimitives(projection.primitives).filter(
-        (primitive) => primitive.role === 'handle',
+        (primitive) => primitive.role === POINT_ROLE['translate-handle'],
       )
       expect(handles.map((primitive) => primitive.point)).toEqual(midpoints)
       // 手柄统一压在所有图元之后，不被后画的图元遮住。

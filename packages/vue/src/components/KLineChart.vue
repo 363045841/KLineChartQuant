@@ -1262,8 +1262,7 @@
     isHoveringPaneBoundary: false,
     hoveredPaneBoundaryId: null,
     isHoveringRightAxis: false,
-    isHoveringAnchor: false,
-    isHoveringVerticalHandle: false,
+    drawingHoverTarget: 'none',
   }
   const externalInteractionState = shallowRef<InteractionSnapshot>(latestInteractionState)
   const hoveredMarker = shallowRef<MarkerEntity | null>(null)
@@ -1843,6 +1842,18 @@
     applyThemeFromSettings(resolved.theme as string)
   }
 
+  /**
+   * 舞台光标：拖拽中 grabbing；面板分隔与绘图中点手柄 ns-resize；
+   * 图元线身 move（可整体拖动）；圆形锚点不改变光标。
+   */
+  function resolveStageCursor(state: InteractionSnapshot): string {
+    if (state.isDragging) return 'grabbing'
+    if (state.isResizingPaneBoundary || state.isHoveringPaneBoundary) return 'ns-resize'
+    if (state.drawingHoverTarget === 'vertical-handle') return 'ns-resize'
+    if (state.drawingHoverTarget === 'all') return 'move'
+    return state.hoveredIndex !== null ? 'pointer' : 'crosshair'
+  }
+
   function setupInteractionCallbacks(ctrl: ChartController): void {
     ctrl.setTooltipAnchorPositioning(false)
     ctrl.interactionState.subscribe(() => {
@@ -1861,17 +1872,7 @@
 
       const container = containerRef.value
       if (container) {
-        container.style.cursor = next.isDragging
-          ? 'grabbing'
-          : next.isResizingPaneBoundary ||
-              next.isHoveringPaneBoundary ||
-              next.isHoveringVerticalHandle
-            ? 'ns-resize'
-            : next.isHoveringAnchor
-              ? 'move'
-              : next.hoveredIndex !== null
-                ? 'pointer'
-                : 'crosshair'
+        container.style.cursor = resolveStageCursor(next)
       }
 
       // 自定义 K 线 tooltip 是调用方显式选择的 Vue slot；仅该分支保留高频响应式 props。

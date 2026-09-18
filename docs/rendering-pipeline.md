@@ -203,7 +203,7 @@ interaction.setKLinePositions(
 )
 ```
 
-随后 `flushPendingHover()` 使用本帧几何完成最近 K 线吸附和十字线更新。交互命中与屏幕上的图形
+随后 `flushPendingHover()` 使用本帧几何完成最近 K 线吸附、十字线更新与绘图悬停目标重算，三者同批写入。交互命中与屏幕上的图形
 因此属于同一代。
 
 ## 6. 帧事务

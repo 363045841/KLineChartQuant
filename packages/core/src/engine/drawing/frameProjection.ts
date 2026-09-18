@@ -1,20 +1,27 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
-import type {
-  DrawingFrameProjection,
-  DrawingKind,
-  DrawingPrimitive,
-  DrawingStyle,
-  RenderContext,
-  ResolvedDrawingAnchor,
-  ResolvedDrawingObject,
-  ScreenPoint,
+import {
+  type DrawingFrameProjection,
+  type DrawingKind,
+  type DrawingPrimitive,
+  type DrawingStyle,
+  POINT_ROLE,
+  PRIMITIVE_KIND,
+  type RenderContext,
+  type ResolvedDrawingAnchor,
+  type ResolvedDrawingObject,
+  type ScreenPoint,
 } from '../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../foundation/tokens/index.js'
+import {
+  DEFAULT_DRAWING_STROKE,
+  DRAWING_ANCHOR_FILL,
+  resolveThemeColors,
+} from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { resolveChartWorkspaceId } from '../state/modeState.js'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
 
 import { midpoint } from './coordinateUtils.js'
+import { PREVIEW_ID } from './DrawingState.js'
 import { DrawingDefinitionRegistry, DrawingStore } from './index.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
 import { getVerticalHandleLines } from './lines.js'
@@ -79,35 +86,63 @@ function resolveDrawingForFrame(
   }
 }
 
-/** 选中态锚点与线段中点手柄的统一半径。 */
-function selectedPointRadius(style: DrawingStyle): number {
-  return (style.pointRadius ?? 4) + 2
-}
-
-/** 将选中图元的 primitive 视觉样式提升，保持原始 geometry 不变。 */
-function applySelectedStyle(
-  primitive: DrawingPrimitive,
-  baseStyle: DrawingStyle,
-): DrawingPrimitive {
-  const stroke = baseStyle.stroke
-  const strokeWidth = (baseStyle.strokeWidth ?? 1) + 1
-  // 选中态的锚点统一放大：点图元与线段的端点圆点使用同一半径。
-  const pointRadius = selectedPointRadius(baseStyle)
-  if (primitive.kind === 'point') {
-    return { ...primitive, style: { ...primitive.style, stroke, pointRadius } }
-  }
-  if (primitive.kind === 'line') {
-    return { ...primitive, style: { ...primitive.style, stroke, strokeWidth, pointRadius } }
-  }
-  if (primitive.kind === 'arrow') {
-    return { ...primitive, style: { ...primitive.style, stroke, strokeWidth } }
-  }
-  if (primitive.kind === 'area') return { ...primitive, style: { ...primitive.style, stroke } }
+/** 锚点只在选中态可见：未选中的图元不画线段端点，也不投影锚点点图元。 */
+function withoutAnchorVisuals(primitive: DrawingPrimitive): DrawingPrimitive | null {
+  if (primitive.kind === PRIMITIVE_KIND.line) return { ...primitive, showEndpoints: false }
+  if (primitive.kind === PRIMITIVE_KIND.point && primitive.role === POINT_ROLE.anchor) return null
   return primitive
 }
 
 /**
- * 选中图元的线段中点垂直手柄：与选中锚点同色、同半径的点图元，形状由绘制侧决定。
+ * 选中态锚点填充；未选中态不投影锚点。
+ * 创建中的预览例外：正在放置的点需要即时反馈，保持原样。
+ */
+function resolveStyledPrimitives(
+  primitives: ReadonlyArray<DrawingPrimitive>,
+  drawing: ResolvedDrawingObject,
+  isSelected: boolean,
+): DrawingPrimitive[] {
+  if (isSelected) {
+    return primitives.map((primitive) =>
+      applySelectedStyle(primitive, drawing.style, DRAWING_ANCHOR_FILL),
+    )
+  }
+  if (drawing.id === PREVIEW_ID) return [...primitives]
+  return primitives.map(withoutAnchorVisuals).filter((primitive) => primitive !== null)
+}
+
+/**
+ * 将选中图元的 primitive 视觉样式提升，保持原始 geometry 不变。
+ * 锚点画成「anchorFill 实心 + 图元描边环」，因此点图元与线段端点都要拿到该填充色。
+ */
+function applySelectedStyle(
+  primitive: DrawingPrimitive,
+  baseStyle: DrawingStyle,
+  anchorFill: string,
+): DrawingPrimitive {
+  const stroke = baseStyle.stroke
+  const strokeWidth = (baseStyle.strokeWidth ?? 1) + 1
+  if (primitive.kind === PRIMITIVE_KIND.point) {
+    return { ...primitive, anchorFill, style: { ...primitive.style, stroke } }
+  }
+  if (primitive.kind === PRIMITIVE_KIND.line) {
+    return {
+      ...primitive,
+      anchorFill,
+      style: { ...primitive.style, stroke, strokeWidth },
+    }
+  }
+  if (primitive.kind === PRIMITIVE_KIND.arrow) {
+    return { ...primitive, style: { ...primitive.style, stroke, strokeWidth } }
+  }
+  if (primitive.kind === PRIMITIVE_KIND.area) {
+    return { ...primitive, style: { ...primitive.style, stroke } }
+  }
+  return primitive
+}
+
+/**
+ * 选中图元的线段中点垂直手柄：与锚点同色、同半径的点图元，形状由绘制侧决定。
  * @param drawing 已解析到当前帧的图元
  * @param toScreen 锚点 → 屏幕坐标（与图元绘制同一映射）
  */
@@ -122,10 +157,11 @@ function projectVerticalHandles(
     // 锚点缺失（导入的残缺图元）时不出手柄，避免把手柄画到错误的线上。
     if (!from || !to) continue
     handles.push({
-      kind: 'point',
-      role: 'handle',
+      kind: PRIMITIVE_KIND.point,
+      role: POINT_ROLE['translate-handle'],
       point: midpoint(toScreen(from), toScreen(to)),
-      style: { stroke: drawing.style.stroke, pointRadius: selectedPointRadius(drawing.style) },
+      anchorFill: DRAWING_ANCHOR_FILL,
+      style: { stroke: drawing.style.stroke },
     })
   }
   return handles
@@ -138,7 +174,9 @@ function attachLineLabels(
 ): DrawingPrimitive[] {
   let lineIndex = 0
   return primitives.map((primitive) => {
-    if (primitive.kind !== 'line' && primitive.kind !== 'arrow') return primitive
+    if (primitive.kind !== PRIMITIVE_KIND.line && primitive.kind !== PRIMITIVE_KIND.arrow) {
+      return primitive
+    }
     const label = drawing.labels?.line[String(lineIndex++)]
     return label === undefined
       ? primitive
@@ -156,7 +194,7 @@ function attachAreaLabels(
 ): DrawingPrimitive[] {
   let areaIndex = 0
   return primitives.map((primitive) => {
-    if (primitive.kind !== 'area') return primitive
+    if (primitive.kind !== PRIMITIVE_KIND.area) return primitive
     const label = drawing.labels?.area[String(areaIndex++)]
     return label === undefined
       ? primitive
@@ -292,10 +330,7 @@ export function projectDrawingsForFrame(
     if (!geometry) continue
     const isSelected = selectedIds.has(drawing.id)
     const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
-    const styledPrimitives = isSelected
-      ? primitives.map((primitive) => applySelectedStyle(primitive, drawing.style))
-      : primitives
-    output.primitives.push(...styledPrimitives)
+    output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
     if (isSelected) {
       handlePrimitives.push(...projectVerticalHandles(drawing, toScreen))
       projectAxisDecorations(

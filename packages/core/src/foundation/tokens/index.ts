@@ -19,7 +19,7 @@ export {
   type ColorPresetThemeName,
   normalizeColorPresetSettings,
 } from './colorPresetSettings.js'
-export { DEFAULT_DRAWING_STROKE } from './drawingColors.js'
+export { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from './drawingColors.js'
 export { mergeTheme } from './mergeTheme.js'
 export { resolveThemeColors, withAsiaMarketColors } from './theme-china.js'
 export { darkTheme } from './theme-dark.js'
