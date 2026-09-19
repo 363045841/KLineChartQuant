@@ -38,6 +38,7 @@ export const mockMarketDataProvider: MarketDataProvider = {
         instrumentId: query.instrument.id,
         period: query.period,
         adjustment: query.adjustment,
+        barAggregation: query.barAggregation,
         timezone: 'Asia/Shanghai',
         volumeUnit: 'share',
         olderData: 'unknown',

@@ -2,101 +2,66 @@ import { describe, expect, it, vi } from 'vitest'
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types'
 import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart } from '../chart'
-import { ComparisonCommands } from '../data/comparisonCommands'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
-import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { ChartDataViewId } from '../state/modeState'
 
+/** 分时会话被写入的替身，断言其 setMarketSession 调用。 */
+type TimeShareSessionSpy = { setMarketSession: ReturnType<typeof vi.fn> }
+
+/** 构造只覆盖会话解析所需字段的 Chart 实例。 */
 function chartHarness() {
-  const timeShareMode = { setMarketSession: vi.fn() }
-  const marketSessions = new MarketSessionRegistry()
-  const comparisonCommands = new ComparisonCommands({
-    getSpecs: () => [],
-    setSpecs: vi.fn(),
-    setComparisonViewActive: vi.fn(),
-    validateSpec: (spec) => resolveSymbolMarketSession(spec, marketSessions),
-    registerSpec: vi.fn(),
-    resolveInstrument: async () => ({
-      candidates: [],
-      searchedSourceIds: [],
-      foundElsewhereSourceIds: [],
-    }),
-    getColor: () => undefined,
-    scheduleDraw: vi.fn(),
-  })
-  return Object.assign(Object.create(Chart.prototype), {
-    marketSessions,
-    _timeShareMode: timeShareMode,
-    _kLineMode: {},
-    setActiveMode: vi.fn(),
-    comparisonCommands,
-    dataManager: {
-      symbols: {
-        peek: () => [{ symbol: '01810', market: 'HK', period: 'daily' }],
+  const timeShareMode: TimeShareSessionSpy = { setMarketSession: vi.fn() }
+  return {
+    chart: Object.assign(Object.create(Chart.prototype), {
+      marketSessions: new MarketSessionRegistry(),
+      _timeShareMode: timeShareMode,
+      _kLineMode: {},
+      setActiveMode: vi.fn(),
+      dataManager: {
+        symbols: {
+          peek: () => [{ symbol: '01810', market: 'HK', period: 'daily' }],
+        },
+        applyCustomData: vi.fn(),
+        resetToFetcher: vi.fn(),
+        setCurrentPeriod: vi.fn(),
+        setTimeShareQueryDate: vi.fn(),
       },
-      resetToFetcher: vi.fn(),
-      applyCustomData: vi.fn(),
-      setCurrentPeriod: vi.fn(),
-      setTimeShareQueryDate: vi.fn(),
-    },
-  }) as Chart
+    }) as Chart,
+    timeShareMode,
+  }
 }
 
 describe('Chart market validation boundaries', () => {
-  it('rejects an unknown comparison market before committing symbols', () => {
-    const chart = chartHarness()
-
-    expect(() =>
-      Chart.prototype.addComparisonSymbol.call(chart, {
-        symbol: 'IF2608',
-        market: 'FUTURES',
-        period: 'daily',
-      }),
-    ).toThrow('Market session is not registered: FUTURES')
-  })
-
-  it('rejects an unknown reset target before fetching', () => {
-    const chart = chartHarness()
-
-    expect(() =>
-      Chart.prototype.resetToFetcher.call(chart, {
-        symbol: 'IF2608',
-        market: 'FUTURES',
-        period: 'daily',
-      }),
-    ).toThrow('Market session is not registered: FUTURES')
-  })
-
   it('configures HK session when setCurrentPeriod enters timeshare', () => {
-    const chart = chartHarness()
+    const { chart, timeShareMode } = chartHarness()
 
     Chart.prototype.setCurrentPeriod.call(chart, 'timeshare')
 
-    expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+    expect(timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
   })
 
   it('enters the dedicated five-day timeshare view', () => {
-    const chart = chartHarness()
+    const { chart, timeShareMode } = chartHarness()
 
     Chart.prototype.setCurrentPeriod.call(chart, FIVE_DAY_TIME_SHARE_PERIOD)
 
-    expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
-    expect((chart as any).setActiveMode).toHaveBeenCalledWith(
-      (chart as any)._timeShareMode,
+    expect(timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+    expect(chart.setActiveMode).toHaveBeenCalledWith(
+      timeShareMode,
       ChartDataViewId.FiveDayTimeShare,
     )
   })
 
   it('configures HK session when switching to a historical timeshare date', () => {
-    const chart = chartHarness()
+    const { chart, timeShareMode } = chartHarness()
 
     Chart.prototype.switchToTimeShareForDate.call(chart, 20260728)
 
-    expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+    expect(timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
   })
 
   it('configures HK session when resetting to a timeshare fetcher', () => {
-    const chart = chartHarness()
+    const { chart, timeShareMode } = chartHarness()
 
     Chart.prototype.resetToFetcher.call(chart, {
       symbol: '01810',
@@ -104,11 +69,24 @@ describe('Chart market validation boundaries', () => {
       period: 'timeshare',
     })
 
-    expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+    expect(timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+  })
+
+  it('does not resolve a session for a non-timeshare fetcher reset', () => {
+    const { chart, timeShareMode } = chartHarness()
+
+    expect(() =>
+      Chart.prototype.resetToFetcher.call(chart, {
+        symbol: 'IF2608',
+        market: 'FUTURES',
+        period: 'daily',
+      }),
+    ).not.toThrow()
+    expect(timeShareMode.setMarketSession).not.toHaveBeenCalled()
   })
 
   it('rejects unknown custom-data market before applying data', () => {
-    const chart = chartHarness()
+    const { chart } = chartHarness()
 
     expect(() =>
       Chart.prototype.applyCustomData.call(chart, {
@@ -121,7 +99,7 @@ describe('Chart market validation boundaries', () => {
   })
 
   it('configures HK session when applying custom timeshare data', () => {
-    const chart = chartHarness()
+    const { chart, timeShareMode } = chartHarness()
 
     Chart.prototype.applyCustomData.call(chart, {
       symbol: '01810',
@@ -130,6 +108,6 @@ describe('Chart market validation boundaries', () => {
       data: [],
     })
 
-    expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+    expect(timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
   })
 })

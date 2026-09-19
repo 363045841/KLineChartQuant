@@ -88,6 +88,7 @@ describe('gotdx V1 provider', () => {
       instrument,
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 500,
     })
 

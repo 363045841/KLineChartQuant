@@ -22,7 +22,7 @@ class FakeEventSource {
 
 function createSource() {
   const instances: FakeEventSource[] = []
-  const source = new Mt5LiveSource('XAUUSD', '4h', 'http://127.0.0.1:8090', (url) => {
+  const source = new Mt5LiveSource('XAUUSD', '4h', 'original', 'http://127.0.0.1:8090', (url) => {
     const es = new FakeEventSource(url)
     instances.push(es)
     return es as unknown as EventSource
@@ -40,7 +40,7 @@ describe('Mt5LiveSource', () => {
 
     source.connect()
     expect(instances[0]!.url).toBe(
-      'http://127.0.0.1:8090/api/v1/market-data/sources/mt5/stream?symbol=XAUUSD&period=4h',
+      'http://127.0.0.1:8090/api/v1/market-data/sources/mt5/stream?symbol=XAUUSD&period=4h&barAggregation=original',
     )
     instances[0]!.onopen?.()
     instances[0]!.onmessage?.({
@@ -94,7 +94,7 @@ describe('RealtimeBarsConnector', () => {
   }
 
   it('merges a closed frame with the following forming frame into one atomic write', () => {
-    const { source, instances, writes } = setup()
+    const { instances, writes } = setup()
 
     instances[0]!.onmessage?.({
       data: JSON.stringify({
@@ -123,7 +123,7 @@ describe('RealtimeBarsConnector', () => {
   })
 
   it('writes a lone forming update immediately', () => {
-    const { source, instances, writes } = setup()
+    const { instances, writes } = setup()
 
     instances[0]!.onmessage?.({
       data: JSON.stringify({
@@ -138,7 +138,7 @@ describe('RealtimeBarsConnector', () => {
   })
 
   it('writes snapshot batches directly and drops any stashed closed bar', () => {
-    const { source, instances, writes } = setup()
+    const { instances, writes } = setup()
 
     instances[0]!.onmessage?.({
       data: JSON.stringify({
@@ -169,7 +169,7 @@ describe('RealtimeBarsConnector', () => {
   })
 
   it('flushes a stashed closed bar on stop so the final value is not lost', () => {
-    const { source, instances, writes, connector } = setup()
+    const { instances, writes, connector } = setup()
 
     instances[0]!.onmessage?.({
       data: JSON.stringify({

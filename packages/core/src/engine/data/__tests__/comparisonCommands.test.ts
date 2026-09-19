@@ -33,7 +33,6 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
   })
   const setComparisonViewActive = vi.fn()
   const scheduleDraw = vi.fn()
-  const validateSpec = vi.fn()
   const registerSpec = vi.fn()
   const resolveInstrument = vi.fn(
     async (query: { symbol: string }): Promise<ComparisonInstrumentResolution> => ({
@@ -58,7 +57,6 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
     getSpecs: () => specs,
     setSpecs,
     setComparisonViewActive,
-    validateSpec,
     registerSpec,
     resolveInstrument,
     getColor: (identity) => colors.get(identity),
@@ -69,7 +67,6 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
     setSpecs,
     setComparisonViewActive,
     scheduleDraw,
-    validateSpec,
     registerSpec,
     resolveInstrument,
     colors,
@@ -83,7 +80,6 @@ describe('ComparisonCommands', () => {
 
     await harness.commands.create({ symbol: 'CMP' })
 
-    expect(harness.validateSpec).toHaveBeenCalledOnce()
     expect(harness.specs().map((spec) => spec.symbol)).toEqual(['CMP'])
     expect(harness.setComparisonViewActive).toHaveBeenCalledWith(true)
     expect(harness.scheduleDraw).toHaveBeenCalledOnce()
@@ -333,18 +329,6 @@ describe('ComparisonCommands', () => {
     const harness = createHarness([{ ...COMPARISON, id: 'CMP-ID' }])
 
     expect(harness.commands.add({ symbol: 'CMP', market: 'CN', exchange: 'SSE' })).toBe(false)
-    expect(harness.setSpecs).not.toHaveBeenCalled()
-  })
-
-  it('validates the spec before committing specs', () => {
-    const harness = createHarness()
-    harness.validateSpec.mockImplementation(() => {
-      throw new Error('Market session is not registered: FUTURES')
-    })
-
-    expect(() => harness.commands.add({ symbol: 'CMP', market: 'FUTURES' })).toThrow(
-      'Market session is not registered: FUTURES',
-    )
     expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 

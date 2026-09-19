@@ -118,8 +118,6 @@ export interface ComparisonCommandsDependencies {
   setSpecs(next: ReadonlyArray<SymbolSpec>): void
   /** 进入或退出比较视图（mode + 主图 percent 刻度副作用）。 */
   setComparisonViewActive(active: boolean): void
-  /** 校验品种市场会话；未知 market 抛领域错误。 */
-  validateSpec(spec: SymbolSpec): void
   /** 将对比品种登记进可解析目录，供 UI picker 与后续操作复用。 */
   registerSpec(spec: SymbolSpec): void
   /** 按代码返回全部精确匹配品种描述，供消解策略过滤与裁决；未找到时候选为空。 */
@@ -203,7 +201,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     return this.write(this.resolveSpec(input, primary ?? null, input.instrument ?? null))
   }
 
-  /** 去重 → 校验 → 登记 → 原子写回对比 specs → 切视图 → 重绘；重复返回 false。 */
+  /** 去重 → 登记 → 原子写回对比 specs → 切视图 → 重绘；重复返回 false。 */
   private write(spec: SymbolSpec): boolean {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
@@ -212,7 +210,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     ) {
       return false
     }
-    this.dependencies.validateSpec(spec)
     this.dependencies.registerSpec(spec)
     this.dependencies.setSpecs([...specs, spec])
     if (specs.length === 0) this.dependencies.setComparisonViewActive(true)

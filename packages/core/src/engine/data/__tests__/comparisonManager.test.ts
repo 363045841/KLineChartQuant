@@ -21,6 +21,7 @@ function selectionForSpec(spec: SymbolSpec): BarsSelection {
     sourceId: sourceIdFromSpec(spec),
     period: (spec.period ?? 'daily') as BarsSelection['period'],
     adjustment: (spec.adjust ?? 'none') as BarsSelection['adjustment'],
+    barAggregation: 'original',
   }
 }
 

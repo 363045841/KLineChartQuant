@@ -9,6 +9,7 @@ import {
 } from './registry.js'
 import type {
   AssetClass,
+  BarAggregation,
   BarSeries,
   InstrumentDescriptor,
   KLineAdjustment,
@@ -33,6 +34,7 @@ export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity 
   instrument?: InstrumentDescriptor
   period: KLinePeriod
   adjustment: KLineAdjustment
+  barAggregation: BarAggregation
   limit: number
   beforeTimestamp?: number
   signal?: AbortSignal
@@ -297,6 +299,7 @@ export class SourceRouter {
           instrument,
           period: request.period,
           adjustment: request.adjustment,
+          barAggregation: request.barAggregation,
           limit: request.limit,
           beforeTimestamp: request.beforeTimestamp,
           signal: request.signal,

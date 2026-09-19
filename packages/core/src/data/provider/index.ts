@@ -57,6 +57,7 @@ export type { DataSourceRegistration } from './sourceRegistry.js'
 export { dataSourceRegistry } from './sourceRegistry.js'
 export type {
   AssetClass,
+  BarAggregation,
   BarCapability,
   BarDataSource,
   BarQuery,
@@ -86,4 +87,9 @@ export type {
   TimeShareSeries,
   TradingDate,
   VolumeUnit,
+} from './types.js'
+export {
+  ALIGNED_BAR_AGGREGATION,
+  BAR_AGGREGATIONS,
+  ORIGINAL_BAR_AGGREGATION,
 } from './types.js'

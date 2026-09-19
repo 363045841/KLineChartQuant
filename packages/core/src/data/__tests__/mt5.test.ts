@@ -1,8 +1,8 @@
 /** 验证 MT5 Provider 通过统一 V1 协议访问 :8090 连接器，且 7x24 会话可供时区解析。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { mt5MarketDataProvider } from '../provider/sources/mt5'
 import { marketDataProviderRegistry } from '../provider/registry'
+import { mt5MarketDataProvider } from '../provider/sources/mt5'
 import type { InstrumentDescriptor } from '../provider/types'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -71,6 +71,7 @@ describe('mt5 V1 provider', () => {
           instrumentId: 'mt5:XAUUSD',
           period: '4h',
           adjustment: 'none',
+          barAggregation: 'original',
           timezone: 'UTC',
           items: [
             { timestamp: 1000, open: 1, high: 2, low: 0, close: 1.5, volume: 10, turnover: 15 },
@@ -85,6 +86,7 @@ describe('mt5 V1 provider', () => {
       instrument,
       period: '4h',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 300,
     })
 

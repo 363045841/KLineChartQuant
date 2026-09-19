@@ -23,12 +23,18 @@ import {
 import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer.js'
 import { marketDataProviderRegistry } from '../../data/provider/registry.js'
 import type {
+  BarAggregation,
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
   TradingDate,
 } from '../../data/provider/types.js'
-import { DEFAULT_KLINE_ADJUSTMENT, DEFAULT_KLINE_PERIOD } from '../../data/provider/types.js'
+import {
+  ALIGNED_BAR_AGGREGATION,
+  DEFAULT_KLINE_ADJUSTMENT,
+  DEFAULT_KLINE_PERIOD,
+  ORIGINAL_BAR_AGGREGATION,
+} from '../../data/provider/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { ChartDom } from '../chartTypes.js'
@@ -84,6 +90,7 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
   '15min',
   '30min',
   '60min',
+  '4h',
   'daily',
   'weekly',
   'monthly',
@@ -145,6 +152,7 @@ export class ChartDataManager {
       setReferenceLength: (length) => this.deps.comparison.actions.setReferenceLength(length),
     })
     this._comparisonSpecsUnsub = this.deps.comparison.readonly.specs.subscribe(() => {
+      this.reconcilePrimaryBarAggregation()
       this.reconcileComparisonBuffers()
     })
     this.reconcileComparisonBuffers()
@@ -172,7 +180,36 @@ export class ChartDataManager {
       sourceId: sourceIdFromSpec(spec),
       period: period as KLinePeriod,
       adjustment: adjustment as KLineAdjustment,
+      barAggregation: this.barAggregation(),
     }
+  }
+
+  /** 比较视图统一使用 aligned，其余 K 线使用 original，避免同图混合不同桶边界。 */
+  private barAggregation(): BarAggregation {
+    return this.deps.comparison.readonly.active.peek()
+      ? ALIGNED_BAR_AGGREGATION
+      : ORIGINAL_BAR_AGGREGATION
+  }
+
+  /** 对比状态改变即切换 K 线数据身份，销毁旧 Buffer 后重新请求，禁止混用不同桶边界。 */
+  private reconcilePrimaryBarAggregation(): void {
+    const primary = this._dataState.readonly.symbols.peek()[0]
+    const active = this._activeSelection
+    if (!primary || isTimeSharePeriod(primary.period) || active?.kind !== 'bars') return
+    const activeBuffer = this._repository.getBars(active)
+    if (primary.incremental === false || activeBuffer?.currentSpec?.incremental === false) return
+    if (activeBuffer && activeBuffer.getRawData().length > 0 && !activeBuffer.loadedTimeRange)
+      return
+    const nextSelection = this.barsSelectionForSpec(primary)
+    if (seriesSelectionKey(active) === seriesSelectionKey(nextSelection)) return
+    this._repository.delete(active)
+    this._repository.delete(nextSelection)
+    const nextBuffer = this._repository.getOrCreateBars(nextSelection, () =>
+      this.createKLineBuffer(nextSelection),
+    )
+    nextBuffer.setSymbol(primary)
+    this.activateBuffer(nextSelection)
+    void this.loadBars(nextSelection, nextBuffer, primary, { limit: DEFAULT_BAR_PAGE_LIMIT })
   }
 
   /** 将业务品种转换为 Repository 分时选择。 */
@@ -378,6 +415,7 @@ export class ChartDataManager {
         assetClass: spec.instrument?.assetClass,
         period: period as KLinePeriod,
         adjustment: adjustment as KLineAdjustment,
+        barAggregation: selection.barAggregation,
         limit: target.limit,
         ...(target.beforeTimestamp === undefined
           ? {}
@@ -648,6 +686,7 @@ export class ChartDataManager {
         assetClass: spec.instrument?.assetClass,
         period: '1min',
         adjustment: (spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT) as KLineAdjustment,
+        barAggregation: ORIGINAL_BAR_AGGREGATION,
         limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
       })
       if (requestId !== this._timeShareIndicatorRequestId) return
@@ -839,7 +878,12 @@ export class ChartDataManager {
   }
 
   setData(data: KLineData[]): void {
-    this.dataBuffer.setInlineData(data)
+    const buffer = this.dataBuffer
+    const currentSpec = buffer.currentSpec
+    if (currentSpec && currentSpec.incremental !== false) {
+      buffer.setCurrentSpec({ ...currentSpec, incremental: false })
+    }
+    buffer.setInlineData(data)
   }
 
   /** 实时帧写入活动 K 线 Buffer（末尾窗口 replace-on-conflict）；分时视图或无活动序列时忽略。 */

@@ -1,7 +1,7 @@
 /** 图表实例级行情序列仓库：统一管理 K 线与分时 Buffer 的身份、拓扑和生命周期。 */
 import type { SymbolSpec } from '../../controllers/types.js'
 import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { KLineAdjustment, KLinePeriod } from '../provider/types.js'
+import type { BarAggregation, KLineAdjustment, KLinePeriod } from '../provider/types.js'
 
 import type { KLineBuffer, TimeShareBuffer } from './dataBufferTypes.js'
 
@@ -21,6 +21,7 @@ export type SeriesSelection =
       readonly sourceId: SourceId
       readonly period: KLinePeriod
       readonly adjustment: KLineAdjustment
+      readonly barAggregation: BarAggregation
     }
   | {
       readonly kind: 'timeShare'
@@ -68,9 +69,13 @@ export function sourceIdFromSpec(spec: SymbolSpec): SourceId {
   return sourceId?.trim() || AUTO_SOURCE_ID
 }
 
-/** 生成 K 线叶子键，周期与复权方式共同决定序列身份。 */
-export function barSeriesKey(period: KLinePeriod, adjustment: KLineAdjustment): BarSeriesKey {
-  return `${period}:${adjustment}`
+/** 生成 K 线叶子键，周期、复权和聚合方式共同决定序列身份。 */
+export function barSeriesKey(
+  period: KLinePeriod,
+  adjustment: KLineAdjustment,
+  barAggregation: BarAggregation,
+): BarSeriesKey {
+  return `${period}:${adjustment}:${barAggregation}`
 }
 
 /** 生成可用于订阅表和兼容诊断字段的稳定选择键。 */
@@ -82,6 +87,7 @@ export function seriesSelectionKey(selection: SeriesSelection): string {
         selection.sourceId,
         selection.period,
         selection.adjustment,
+        selection.barAggregation,
       ])
     : JSON.stringify([
         selection.kind,
@@ -120,7 +126,9 @@ export class SeriesRepository {
 
   /** 按完整 K 线身份查询 Buffer。 */
   getBars(selection: Extract<SeriesSelection, { kind: 'bars' }>): KLineBuffer | undefined {
-    return this.getSource(selection)?.bars.get(barSeriesKey(selection.period, selection.adjustment))
+    return this.getSource(selection)?.bars.get(
+      barSeriesKey(selection.period, selection.adjustment, selection.barAggregation),
+    )
   }
 
   /** 按完整分时身份查询 Buffer。 */
@@ -182,7 +190,7 @@ export class SeriesRepository {
     const oldBars = new Map(oldSource.bars)
     const oldTimeShare = new Map(oldSource.timeShare)
     if (selection.kind === 'bars') {
-      oldBars.delete(barSeriesKey(selection.period, selection.adjustment))
+      oldBars.delete(barSeriesKey(selection.period, selection.adjustment, selection.barAggregation))
     } else {
       oldTimeShare.delete(selection.tradingDate)
     }
@@ -191,7 +199,10 @@ export class SeriesRepository {
     const targetBars = new Map(targetSource?.bars)
     const targetTimeShare = new Map(targetSource?.timeShare)
     if (selection.kind === 'bars') {
-      targetBars.set(barSeriesKey(selection.period, selection.adjustment), buffer as KLineBuffer)
+      targetBars.set(
+        barSeriesKey(selection.period, selection.adjustment, selection.barAggregation),
+        buffer as KLineBuffer,
+      )
     } else {
       targetTimeShare.set(selection.tradingDate, buffer as TimeShareBuffer)
     }
@@ -224,12 +235,12 @@ export class SeriesRepository {
     const timeShare = new Map(source.timeShare)
     const buffer =
       selection.kind === 'bars'
-        ? bars.get(barSeriesKey(selection.period, selection.adjustment))
+        ? bars.get(barSeriesKey(selection.period, selection.adjustment, selection.barAggregation))
         : timeShare.get(selection.tradingDate)
     if (!buffer) return false
 
     if (selection.kind === 'bars') {
-      bars.delete(barSeriesKey(selection.period, selection.adjustment))
+      bars.delete(barSeriesKey(selection.period, selection.adjustment, selection.barAggregation))
     } else {
       timeShare.delete(selection.tradingDate)
     }
@@ -283,7 +294,10 @@ export class SeriesRepository {
     const bars = new Map(source?.bars)
     const timeShare = new Map(source?.timeShare)
     if (selection.kind === 'bars') {
-      bars.set(barSeriesKey(selection.period, selection.adjustment), buffer as KLineBuffer)
+      bars.set(
+        barSeriesKey(selection.period, selection.adjustment, selection.barAggregation),
+        buffer as KLineBuffer,
+      )
     } else {
       timeShare.set(selection.tradingDate, buffer as TimeShareBuffer)
     }

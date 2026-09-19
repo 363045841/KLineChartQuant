@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '../../../controllers/types'
 import { marketDataProviderRegistry } from '../../../data/provider/registry'
-import type { MarketDataProvider } from '../../../data/provider/types'
+import type { BarAggregation, BarSeries, MarketDataProvider } from '../../../data/provider/types'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import type { ChartDom } from '../../chartTypes'
 import { createComparisonState } from '../../state/comparisonState'
@@ -78,8 +78,15 @@ function registerTestProvider(provider: MarketDataProvider): void {
   marketDataProviderRegistry.register(provider)
 }
 
+type TestBarSeries = Omit<BarSeries, 'barAggregation'> & { barAggregation?: BarAggregation }
+type TestBarsSource = {
+  fetch: (
+    query: Parameters<NonNullable<MarketDataProvider['bars']>['fetch']>[0],
+  ) => Promise<TestBarSeries>
+}
+
 function createTestProvider(options: {
-  fetchBars?: MarketDataProvider['bars']
+  fetchBars?: TestBarsSource
   fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
   fetchTimeShareRange?: NonNullable<MarketDataProvider['timeShareRange']>['fetch']
 }): MarketDataProvider {
@@ -102,7 +109,14 @@ function createTestProvider(options: {
         return [instrumentFor(query.keyword)]
       },
     },
-    bars: options.fetchBars,
+    bars: options.fetchBars
+      ? {
+          fetch: async (query) => ({
+            ...(await options.fetchBars!.fetch(query)),
+            barAggregation: 'original',
+          }),
+        }
+      : undefined,
     timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
     timeShareRange: options.fetchTimeShareRange
       ? { fetch: options.fetchTimeShareRange }

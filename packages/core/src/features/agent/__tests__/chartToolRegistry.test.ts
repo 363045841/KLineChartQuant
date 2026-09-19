@@ -105,7 +105,6 @@ describe('Chart Agent @Tool registry', () => {
         specs = [...next]
       },
       setComparisonViewActive: () => undefined,
-      validateSpec: () => undefined,
       registerSpec: () => undefined,
       resolveInstrument: async ({ symbol }) => ({
         candidates: [

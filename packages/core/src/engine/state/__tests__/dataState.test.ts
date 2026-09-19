@@ -10,6 +10,7 @@ const barsSelection: Extract<SeriesSelection, { kind: 'bars' }> = {
   sourceId: 'gotdx',
   period: 'daily',
   adjustment: 'none',
+  barAggregation: 'original',
 }
 
 describe('dataState', () => {

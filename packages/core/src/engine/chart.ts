@@ -380,9 +380,6 @@ export class Chart {
         this.applyComparisonScaleType(false)
         this.setActiveMode(this._kLineMode)
       },
-      validateSpec: (spec) => {
-        resolveSymbolMarketSession(spec, this.marketSessions)
-      },
       registerSpec: (spec) => this.dataManager.registerSymbols([symbolInfoFromSpec(spec)]),
       resolveInstrument: async ({ symbol, source }) => {
         // 具体源才限定查询范围，auto/缺省时允许跨全部已启用数据源解析。
@@ -1583,9 +1580,10 @@ export class Chart {
   }
 
   private configureModeForSpec(spec: SymbolSpec): void {
-    const session = resolveSymbolMarketSession(spec, this.marketSessions)
     const isTimeShare = isTimeSharePeriod(spec.period)
-    if (isTimeShare) this._timeShareMode.setMarketSession(session)
+    if (isTimeShare) {
+      this._timeShareMode.setMarketSession(resolveSymbolMarketSession(spec, this.marketSessions))
+    }
     this.setActiveMode(
       isTimeShare ? this._timeShareMode : this._kLineMode,
       spec.period === FIVE_DAY_TIME_SHARE_PERIOD ? ChartDataViewId.FiveDayTimeShare : undefined,

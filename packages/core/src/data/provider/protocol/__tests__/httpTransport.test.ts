@@ -97,6 +97,7 @@ describe('createHttpMarketDataTransport', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
+          barAggregation: 'original',
           timezone: 'Asia/Shanghai',
           olderData: 'exhausted',
           items: [],
@@ -111,6 +112,7 @@ describe('createHttpMarketDataTransport', () => {
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 500,
       beforeTimestamp: 2,
     })

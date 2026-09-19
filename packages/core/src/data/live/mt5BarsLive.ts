@@ -2,8 +2,9 @@
  * MT5 实时 K 线消费器：EventSource 封装（Mt5LiveSource）+ 帧驱动的 updateBars 接线
  * （RealtimeBarsConnector）。EventSource 原生重连；断线重连凭 Last-Event-ID 由连接器补帧。
  */
-import { KLineChartError } from '../../errors'
 import type { KLineData } from '../../controllers/types'
+import { KLineChartError } from '../../errors'
+import type { BarAggregation } from '../provider/types'
 
 /** SSE 帧里的 K 线载荷（UTC 毫秒时间戳）。 */
 export interface Mt5LiveBar {
@@ -29,7 +30,7 @@ export type Mt5LiveStatus = 'connecting' | 'connected' | 'disconnected'
 /** 本地 MT5-Connecter 默认地址。 */
 export const DEFAULT_MT5_SSE_URL = 'http://127.0.0.1:8090'
 
-/** 单连接固定订阅一个 (symbol, period)；切品种 = 断开重连。 */
+/** 单连接固定订阅一个 (symbol, period, barAggregation)；切换任一维度均断开重连。 */
 export class Mt5LiveSource {
   private es: EventSource | null = null
   private frameCbs = new Set<(frame: Mt5LiveFrame) => void>()
@@ -40,6 +41,7 @@ export class Mt5LiveSource {
   constructor(
     readonly symbol: string,
     readonly period: string,
+    readonly barAggregation: BarAggregation,
     private readonly baseUrl: string = DEFAULT_MT5_SSE_URL,
     private readonly esFactory?: (url: string) => EventSource,
   ) {}
@@ -68,7 +70,7 @@ export class Mt5LiveSource {
     this.disconnect()
     this.emitStatus('connecting')
 
-    const url = `${this.baseUrl}/api/v1/market-data/sources/mt5/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}`
+    const url = `${this.baseUrl}/api/v1/market-data/sources/mt5/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
 

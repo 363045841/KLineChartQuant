@@ -1,6 +1,7 @@
 /** Agent 查询品种目录与行情数据的输入。 */
 import type {
   AssetClass,
+  BarAggregation,
   BarSeries,
   InstrumentDescriptor,
   KLineAdjustment,
@@ -109,6 +110,7 @@ export interface BarsQueryInput {
   readonly symbol: string
   readonly period: KLinePeriod
   readonly adjustment: KLineAdjustment
+  readonly barAggregation: BarAggregation
   readonly limit: number
   readonly sourceId?: string
   readonly exchange?: string

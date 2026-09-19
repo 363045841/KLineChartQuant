@@ -28,6 +28,7 @@ Agent runtime 通过 `ChartAgentController.toolHosts` 找到原语实例作为�
 - UI 不得在调用原语前后手工 `registerSymbols` 或写 `mainRightAxisTypeSetting`；品种登记与视图刻度副作用的唯一归属是原语。
 - `ChartDataManager` 不再持有 add/remove 选择逻辑，仅保留对比数据注入与 runtime 投影（`ComparisonManager`）。
 - UI 与 Agent 调用同一实例，行为一致；工具随原语模块加载注册。
+- 对比写入不做市场会话校验：会话只在分时消费，详见 `market-session-scope.md`。
 - Agent 侧的对比新增失败必须抛出具名 `KLineChartError` 并带可操作 message，不得用布尔返回值表达失败原因；UI/程序化入口 `add` 保留 boolean 契约。
 - `dataState.symbols` 只承载 kline 主品种；对比品种唯一状态是 `comparisonState.specs`。
 - 对比视图没有主品种：渲染、y 轴范围、图例一律以对比集合为唯一展示集合，`specs[0]` 仅作参考序列。

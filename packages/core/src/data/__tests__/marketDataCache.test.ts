@@ -15,6 +15,7 @@ function page(
     instrumentId: 'test:BTCUSDT',
     period: 'daily' as const,
     adjustment: 'none' as const,
+    barAggregation: 'original' as const,
     timezone: 'UTC',
     data,
     olderData,
@@ -58,6 +59,7 @@ function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
     assetClass: 'crypto' as const,
     period: 'daily' as const,
     adjustment: 'none' as const,
+    barAggregation: 'original' as const,
     limit: overrides.limit ?? 100,
     ...(overrides.beforeTimestamp === undefined
       ? {}

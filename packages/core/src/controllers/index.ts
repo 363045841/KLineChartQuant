@@ -78,6 +78,7 @@ export type {
 export { createHeatmapController } from '../components/orderBookHeatmap/index.js'
 export type {
   AssetClass,
+  BarAggregation,
   BarCapability,
   BarDataSource,
   BarQuery,
@@ -116,6 +117,8 @@ export type {
 } from '../data/index.js'
 // Data access
 export {
+  ALIGNED_BAR_AGGREGATION,
+  BAR_AGGREGATIONS,
   BinanceSSESource,
   baostockMarketDataProvider,
   DataBuffer,
@@ -126,10 +129,11 @@ export {
   finshareMarketDataProvider,
   gotdxMarketDataProvider,
   MarketDataProviderRegistry,
+  Mt5LiveSource,
   marketDataProviderRegistry,
   mockMarketDataProvider,
-  Mt5LiveSource,
   mt5MarketDataProvider,
+  ORIGINAL_BAR_AGGREGATION,
   RealtimeBarsConnector,
   searchInstruments,
   tradingviewMarketDataProvider,

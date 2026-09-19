@@ -5,6 +5,7 @@
  */
 import type {
   AssetClass,
+  BarAggregation,
   BarCapability,
   InstrumentCapabilities,
   KLineAdjustment,
@@ -120,6 +121,7 @@ export interface ProtocolBarRequest {
   instrument: ProtocolInstrumentReference
   period: KLinePeriod
   adjustment: KLineAdjustment
+  barAggregation: BarAggregation
   limit: number
   beforeTimestamp?: number
 }
@@ -145,6 +147,7 @@ export interface ProtocolBarSeries {
   instrumentId: string
   period: KLinePeriod
   adjustment: KLineAdjustment
+  barAggregation: BarAggregation
   timezone: string
   volumeUnit?: VolumeUnit
   items: ReadonlyArray<ProtocolKLineItem>
