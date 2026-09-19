@@ -141,6 +141,7 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
+  import { useAggregationSourceHealth } from '../composables/useAggregationSourceHealth.js'
   import {
     type AggregationSourceDefinition,
     isMockSourceName,
@@ -187,11 +188,19 @@
   const searchQuery = ref('')
   const activeSourceTab = useAggregationSourceTab()
   const rootRef = ref<HTMLElement | null>(null)
+  const { onlineNameSet, refresh: refreshSourceHealth } = useAggregationSourceHealth()
 
+  /** 全部 + 已启用、在线且可搜索的源；连接失败的源不展示；mock 沉底 */
   const sourceTabs = computed<Array<{ id: string; label: string }>>(() => {
     const enabled = props.enabledSourceNames
+    const online = onlineNameSet.value
     const searchable = props.aggregationSources
-      .filter((source) => enabled.has(source.name) && supportsAggregationSourceSearch(source))
+      .filter(
+        (source) =>
+          enabled.has(source.name) &&
+          online.has(source.name) &&
+          supportsAggregationSourceSearch(source),
+      )
       .slice()
       .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
     if (searchable.length === 0) return []
@@ -254,6 +263,13 @@
     showPopup.value = false
     searchQuery.value = ''
   }
+
+  // 弹层打开时刷新已启用源的健康状态，离线源不进入 Tab（TTL 内复用上次结果）
+  watch(showPopup, (show) => {
+    if (show) {
+      void refreshSourceHealth(props.aggregationSources, { names: props.enabledSourceNames })
+    }
+  })
 
   watch(sourceTabs, (tabs) => {
     if (!tabs.some((tab) => tab.id === activeSourceTab.value)) {
