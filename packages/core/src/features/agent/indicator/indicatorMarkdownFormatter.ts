@@ -1,6 +1,6 @@
 // 本文件将未注册专用转义器的指标结果转义为紧凑 Markdown 表格。
 
-import { formatTimestamp } from '../../../foundation/utils/dateFormat.js'
+import { formatDateTimeInTimeZone } from '../../../foundation/utils/dateFormat.js'
 import { createMarkdownTable } from '../markdownTable.js'
 
 import type { IndicatorTextFormatContext } from './indicatorTextFormatter.js'
@@ -84,7 +84,7 @@ function createRow(value: unknown, excludedKeys: ReadonlySet<string> = new Set()
 
 /** 将毫秒时间戳格式化为 Agent 可读的日期时间。 */
 function formatDate(timestamp: number): string {
-  return formatTimestamp(timestamp, { showTime: true })
+  return formatDateTimeInTimeZone(timestamp)
 }
 
 /** 从未知对象读取有限数字字段。 */

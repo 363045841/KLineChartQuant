@@ -804,14 +804,6 @@ export class ChartDataManager {
     return buffer ? buffer.getRawData() : []
   }
 
-  getMonthKeys(): Int32Array | null {
-    return this.getActiveDataBuffer()?.getMonthKeys() ?? null
-  }
-
-  getDayKeys(): Int32Array | null {
-    return this.getActiveDataBuffer()?.getDayKeys() ?? null
-  }
-
   getTimeShareData(): TimeShareData[] {
     const buf = this.getActiveTimeShareBuffer()
     return buf ? buf.getRawData() : []

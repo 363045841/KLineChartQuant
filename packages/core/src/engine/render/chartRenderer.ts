@@ -1,5 +1,11 @@
 import type { SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import {
+  createDisplayTimeFormatter,
+  resolveDisplayTimeZone,
+  type DisplayTimeFormatter,
+  type DisplayTimeZoneSetting,
+} from '../../foundation/utils/dateFormat.js'
 import type {
   FiveDayTimeShareGeometry,
   PluginHostImpl,
@@ -220,6 +226,8 @@ export class ChartRenderer {
   private currentPaneId = 'main'
   private timeAxisCtx: RenderContext | null = null
   private timeAxisLayer: Layer | null = null
+  private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
+  private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
   private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
 
   constructor(deps: RendererDependencies) {
@@ -436,6 +444,17 @@ export class ChartRenderer {
 
   private get settings(): ChartSettings {
     return this.deps.settings$.peek()
+  }
+
+  /** 仅在持久化显示时区偏好变更时重建 formatter 状态。 */
+  private getDisplayTimeFormatter(): DisplayTimeFormatter {
+    const configured = this.settings.displayTimeZone
+    const setting: DisplayTimeZoneSetting = configured === 'local' ? 'local' : 'UTC'
+    if (setting !== this.displayTimeZoneSetting) {
+      this.displayTimeZoneSetting = setting
+      this.displayTimeFormatter = createDisplayTimeFormatter(resolveDisplayTimeZone(setting))
+    }
+    return this.displayTimeFormatter
   }
 
   /**
@@ -948,6 +967,7 @@ export class ChartRenderer {
         data: renderData,
         period: dataManager.currentPeriod,
         dataView: this.deps.dataView$(),
+        displayTimeFormatter: this.getDisplayTimeFormatter(),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         comparisonData: dataManager.getComparisonData(),
@@ -991,8 +1011,6 @@ export class ChartRenderer {
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
-        monthKeys: dataManager.getMonthKeys() ?? undefined,
-        dayKeys: dataManager.getDayKeys() ?? undefined,
       }
 
       // 在任一 layer 绘制前一次性投影，后续 renderer 只读本 Pane 的结果。
@@ -1129,6 +1147,7 @@ export class ChartRenderer {
         marketSession,
         data: renderData,
         dataView: this.deps.dataView$.peek(),
+        displayTimeFormatter: this.getDisplayTimeFormatter(),
         getLogicalIndexAtTimestamp: (timestamp) =>
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
@@ -1155,8 +1174,6 @@ export class ChartRenderer {
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
-        monthKeys: dataManager.getMonthKeys() ?? undefined,
-        dayKeys: dataManager.getDayKeys() ?? undefined,
       }
       const paintCtx: PaintContext = {
         renderer: this.deps.getSceneRenderer(),

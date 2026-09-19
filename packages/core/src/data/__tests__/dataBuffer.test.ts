@@ -61,7 +61,7 @@ describe('DataBuffer', () => {
     expect(buffer.lastError()).toBeNull()
   })
 
-  it('maintains calendar indexes for cache results', () => {
+  it('keeps source timezone metadata without deriving display calendar indexes', () => {
     const buffer = new DataBuffer()
     buffer.mergeData(
       [bar(Date.UTC(2026, 0, 1)), bar(Date.UTC(2026, 1, 1))],
@@ -69,8 +69,6 @@ describe('DataBuffer', () => {
       'America/New_York',
     )
 
-    expect(buffer.getMonthKeys()).toHaveLength(2)
-    expect(buffer.getDayKeys()).toHaveLength(2)
     expect(buffer.timezone).toBe('America/New_York')
   })
 })

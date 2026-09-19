@@ -329,10 +329,8 @@ export interface RenderDataContext {
   comparisonColors?: ReadonlyMap<string, string>
   /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null
-  /** 预计算的月份键值数组（year*12+month），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
-  monthKeys?: Int32Array
-  /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
-  dayKeys?: Int32Array
+  /** 当前图表的显示时区 formatter；仅用于普通 K 线的日期显示与边界。 */
+  displayTimeFormatter: import('../utils/dateFormat.js').DisplayTimeFormatter
 }
 
 /** 渲染几何子契约：Pane、视口、K 线位置与缩放。 */

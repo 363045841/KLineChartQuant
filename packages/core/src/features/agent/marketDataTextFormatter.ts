@@ -7,7 +7,7 @@ import type {
   OlderDataStatus,
 } from '../../data/provider/types.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
-import { formatTimestamp } from '../../foundation/utils/dateFormat.js'
+import { formatDateTimeInTimeZone } from '../../foundation/utils/dateFormat.js'
 import { createMarkdownTable, escapeMarkdownCell } from './markdownTable.js'
 import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types.js'
 
@@ -55,7 +55,7 @@ function createTitle(
 
 /** 按行情时区格式化数据点时间。 */
 function formatTime(timestamp: number, timeZone: string | null): string {
-  return formatTimestamp(timestamp, { timeZone: timeZone ?? undefined, showTime: true })
+  return formatDateTimeInTimeZone(timestamp, timeZone ?? 'UTC')
 }
 
 /** 将 K 线数据映射为 OHLCV 表格行。 */

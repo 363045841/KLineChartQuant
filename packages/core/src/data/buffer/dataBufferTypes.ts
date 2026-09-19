@@ -45,8 +45,6 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
   mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
   /** 实时帧写入：末尾窗口 replace-on-conflict 合并，拒绝陈旧帧。 */
   updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult
-  getMonthKeys(): Int32Array | null
-  getDayKeys(): Int32Array | null
   setSymbol(spec: SymbolSpec): void
   setCurrentSpec(spec: SymbolSpec): void
 }

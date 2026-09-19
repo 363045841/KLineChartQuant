@@ -33,7 +33,7 @@
           <div class="custom-tooltip">
             <div class="custom-tooltip__title">
               <span>{{ hoverData.symbol }}</span>
-              <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+              <span>{{ formatTimeInTimeZone(hoverData.timestamp, { timeZone: 'Asia/Shanghai', showTime: false }) }}</span>
             </div>
             <div class="custom-tooltip__price"
                 :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
@@ -82,7 +82,7 @@
     DepthConnector,
     createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
   const DEMO_MAIN_DATA: KLineData[] = [

@@ -9,7 +9,7 @@
         <div class="custom-tooltip">
           <div class="custom-tooltip__title">
             <span>{{ hoverData.symbol }}</span>
-            <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+            <span>{{ formatTimeInTimeZone(hoverData.timestamp, { timeZone: 'Asia/Shanghai', showTime: false }) }}</span>
           </div>
           <div
             class="custom-tooltip__price"
@@ -73,7 +73,7 @@
   import { ref } from 'vue'
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core'
 
   const currentTheme = ref<'light' | 'dark'>('dark')

@@ -281,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
   import type {
     CanvasLegendOptions,
@@ -1135,7 +1135,7 @@
     const closeC = closeDiff > 0 ? upColor : closeDiff < 0 ? downColor : NEUTRAL_COLOR
     const changeC = changePct > 0 ? upColor : changePct < 0 ? downColor : NEUTRAL_COLOR
 
-    slots.date.textContent = formatTimestamp(kline.timestamp, { timeZone: timezone, showTime })
+     slots.date.textContent = formatTimeInTimeZone(kline.timestamp, { timeZone: timezone, showTime })
     if (slots.symbol) slots.symbol.textContent = kline.symbol ?? ''
 
     slots.open.textContent = kline.open.toFixed(2)
