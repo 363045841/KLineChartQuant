@@ -8,6 +8,7 @@
  */
 import { vi } from 'vitest'
 import { ChartDataViewId } from '@/foundation/types/chartView'
+import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
 
@@ -198,6 +199,7 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     xAxisLabels: [],
     yAxisRanges: [],
     xAxisRanges: [],
+    displayTimeFormatter: createDisplayTimeFormatter('UTC'),
     theme: 'light',
   } satisfies RenderContext
   return {

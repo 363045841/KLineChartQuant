@@ -43,6 +43,10 @@
     { label: '12月', value: 'yearly' },
   ]
 
+  export function isKLineLevel(level: string): level is KLineLevel {
+    return kLineLevelOptions.some((option) => option.value === level)
+  }
+
   const props = defineProps<{
     modelValue?: string
     supportedLevels?: ReadonlyArray<KLineLevel>

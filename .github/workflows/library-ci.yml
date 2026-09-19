@@ -1,7 +1,7 @@
 # Library CI — runs on every push and PR to main.
 #
 # Gate state:
-#   - REQUIRED  : package tests, lint:types (attw)
+#   - REQUIRED  : type-check:src, type-check:tests, package tests, lint:types (attw)
 #   - WARN-ONLY : size:packages, lint:publish, build
 #
 # lint:types checks the *packed* output of each publishable package, so the
@@ -59,6 +59,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Type-check source (pnpm type-check:src) [REQUIRED]
+        run: pnpm type-check:src
+
+      - name: Type-check tests (pnpm type-check:tests) [REQUIRED]
+        run: pnpm type-check:tests
 
       # lint:types inspects the packed output of every publishable package, so
       # they must be built first, in workspace dependency order:
