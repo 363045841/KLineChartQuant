@@ -38,9 +38,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Pinned to engines field in root package.json:
-        #   "node": "^22.18.0 || >=24.11.0"
-        node: ['22.18', '24']
+        # Node 22 采用当前最新 LTS 补丁版本；另一项覆盖当前偶数主线。
+        node: ['22.23.2', '24']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -93,7 +92,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['22.18', '24']
+        node: ['22.23.2', '24']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
