@@ -38,8 +38,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Node 22 采用当前最新 LTS 补丁版本；另一项覆盖当前偶数主线。
-        node: ['22.23.2', '24']
+        # 两个受支持 LTS 主线均固定到当前最新补丁，确保可复现的 CI 环境。
+        node: ['22.23.2', '24.21.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -92,7 +92,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['22.23.2', '24']
+        node: ['22.23.2', '24.21.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
