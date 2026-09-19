@@ -4,7 +4,7 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { OlderDataStatus, TimeShareRange } from '../provider/types.js'
 
-import type { UpdateBarsResult } from './kLineDataStore'
+import type { UpdateBarsResult } from './kLineDataStore.js'
 
 /** 已加载行情数据覆盖的时间范围。 */
 export interface LoadedTimeRange {

@@ -1,7 +1,7 @@
 /** MT5 Provider：注册配置集中声明于 sourceRegistry，接入逻辑由通用装配器提供。 */
-import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol'
-import { marketDataProviderRegistry } from '../registry'
-import { dataSourceRegistry } from '../sourceRegistry'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol/index.js'
+import { marketDataProviderRegistry } from '../registry.js'
+import { dataSourceRegistry } from '../sourceRegistry.js'
 
 const MT5 = dataSourceRegistry.mt5
 

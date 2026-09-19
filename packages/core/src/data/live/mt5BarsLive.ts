@@ -2,9 +2,9 @@
  * MT5 实时 K 线消费器：EventSource 封装（Mt5LiveSource）+ 帧驱动的 updateBars 接线
  * （RealtimeBarsConnector）。EventSource 原生重连；断线重连凭 Last-Event-ID 由连接器补帧。
  */
-import type { KLineData } from '../../controllers/types'
-import { KLineChartError } from '../../errors'
-import type { BarAggregation } from '../provider/types'
+import type { KLineData } from '../../controllers/types.js'
+import { KLineChartError } from '../../errors.js'
+import type { BarAggregation } from '../provider/types.js'
 
 /** SSE 帧里的 K 线载荷（UTC 毫秒时间戳）。 */
 export interface Mt5LiveBar {
