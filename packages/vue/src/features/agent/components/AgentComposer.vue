@@ -16,10 +16,11 @@
             class="composer__model"
             allow-empty
             size="sm"
+            placement="top"
             :model-value="provider.modelId"
             :options="modelOptions"
             :placeholder="modelsLoading ? text.loadingModels : text.modelPlaceholder"
-            :title="text.model"
+            title="Model ID"
             :disabled="running || !provider.configured"
             @open="$emit('models-open')"
             @update:model-value="$emit('model', $event)"
@@ -29,10 +30,11 @@
             class="composer__reasoning"
             allow-empty
             size="sm"
+            placement="top"
             :model-value="provider.reasoningEffort"
             :options="reasoningOptions"
             :placeholder="text.reasoning"
-            :title="text.reasoning"
+            title="Reasoning Effort"
             :disabled="running"
             @update:model-value="$emit('reasoning-effort', $event)"
           />
@@ -54,7 +56,7 @@
           v-if="running"
           type="button"
           class="composer__primary composer__primary--stop"
-          :title="text.stop"
+          title="Stop"
           :aria-label="text.stop"
           @click="$emit('stop')"
         >
@@ -66,7 +68,7 @@
           type="button"
           class="composer__primary"
           :disabled="!draft.trim()"
-          :title="text.send"
+          title="Send"
           :aria-label="text.send"
           @click="$emit('send')"
         >

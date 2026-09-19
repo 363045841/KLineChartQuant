@@ -8,7 +8,7 @@
       <div class="agent-header__actions">
         <button
           type="button"
-          :title="text.newSession"
+          title="New session"
           :aria-label="text.newSession"
           @click="$emit('create')"
         >
@@ -16,7 +16,7 @@
         </button>
         <button
           type="button"
-          :title="text.renameSession"
+          title="Rename session"
           :aria-label="text.renameSession"
           :disabled="!activeSessionId"
           @click="rename"
@@ -25,7 +25,7 @@
         </button>
         <button
           type="button"
-          :title="text.deleteSession"
+          title="Delete session"
           :aria-label="text.deleteSession"
           :disabled="!activeSessionId"
           @click="remove"
@@ -34,7 +34,7 @@
         </button>
         <button
           type="button"
-          :title="text.switchLanguage"
+          title="Switch language"
           :aria-label="text.switchLanguage"
           @click="$emit('toggle-locale')"
         >
@@ -42,7 +42,7 @@
         </button>
         <button
           type="button"
-          :title="text.settings"
+          title="Agent settings"
           :aria-label="text.settings"
           @click="$emit('settings')"
         >
@@ -51,7 +51,7 @@
         <button
           type="button"
           data-testid="agent-panel-close"
-          :title="text.closePanel"
+          title="Close Agent panel"
           :aria-label="text.closePanel"
           @click="$emit('close')"
         >
