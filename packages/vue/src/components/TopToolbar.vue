@@ -87,7 +87,8 @@
   import BaseButton from './BaseButton.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
-  import KLineLevelDropdown, { isKLineLevel, type KLineLevel } from './KLineLevelDropdown.vue'
+  import KLineLevelDropdown from './KLineLevelDropdown.vue'
+  import { isKLineLevel, type KLineLevel } from './kLineLevel'
   import type { SymbolItem } from './SymbolSelector.vue'
   import SymbolSelector from './SymbolSelector.vue'
 

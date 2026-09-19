@@ -11,41 +11,8 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-
   import Dropdown from './Dropdown.vue'
-
-  export type KLineLevel =
-    | '1min'
-    | '5min'
-    | '15min'
-    | '30min'
-    | '60min'
-    | 'daily'
-    | 'weekly'
-    | 'monthly'
-    | 'quarterly'
-    | 'yearly'
-    | 'timeshare'
-    | '5daytimeshare'
-
-  const kLineLevelOptions: Array<{ label: string; value: KLineLevel }> = [
-    { label: '分时', value: 'timeshare' },
-    { label: '5日分时', value: '5daytimeshare' },
-    { label: '1day', value: 'daily' },
-    { label: '1min', value: '1min' },
-    { label: '5min', value: '5min' },
-    { label: '15min', value: '15min' },
-    { label: '30min', value: '30min' },
-    { label: '1小时', value: '60min' },
-    { label: '1周', value: 'weekly' },
-    { label: '1月', value: 'monthly' },
-    { label: '3月', value: 'quarterly' },
-    { label: '12月', value: 'yearly' },
-  ]
-
-  export function isKLineLevel(level: string): level is KLineLevel {
-    return kLineLevelOptions.some((option) => option.value === level)
-  }
+  import { K_LINE_LEVEL_OPTIONS, type KLineLevel } from './kLineLevel'
 
   const props = defineProps<{
     modelValue?: string
@@ -54,9 +21,9 @@
 
   /** 根据当前品种能力过滤周期选项；未提供能力时保持旧行为。 */
   const visibleOptions = computed(() => {
-    if (!props.supportedLevels) return kLineLevelOptions
+    if (!props.supportedLevels) return [...K_LINE_LEVEL_OPTIONS]
     const supported = new Set(props.supportedLevels)
-    return kLineLevelOptions.filter((option) => supported.has(option.value))
+    return K_LINE_LEVEL_OPTIONS.filter((option) => supported.has(option.value))
   })
 
   const emit = defineEmits<{
