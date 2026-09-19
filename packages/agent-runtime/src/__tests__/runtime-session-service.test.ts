@@ -1,4 +1,4 @@
-import { InMemorySessionRepo } from '@earendil-works/pi-agent-core'
+import { BACKGROUND_CONTEXT, MemorySessionRepo } from '@earendil-works/pi-agent-core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -11,7 +11,7 @@ import {
 function createFixture() {
   let now = 1_000
   let id = 0
-  const repository = new InMemorySessionRepo()
+  const repository = new MemorySessionRepo()
   const service = new RuntimeSessionService({
     repository,
     now: () => ++now,
@@ -72,9 +72,13 @@ describe('RuntimeSessionService', () => {
       lane: 'retry:run-3',
     })
     expect(retry.userEntryId).not.toBe(first.userEntryId)
-    const piSession = await repository.open((await repository.list())[0]!)
-    const originalEntry = await piSession.getEntry(first.userEntryId)
-    const retryEntry = await piSession.getEntry(retry.userEntryId)
+    await service.close()
+    const piSession = await repository.open(
+      (await repository.list(undefined, BACKGROUND_CONTEXT))[0]!,
+      BACKGROUND_CONTEXT,
+    )
+    const originalEntry = await piSession.getEntry(first.userEntryId, BACKGROUND_CONTEXT)
+    const retryEntry = await piSession.getEntry(retry.userEntryId, BACKGROUND_CONTEXT)
     expect(retryEntry?.parentId).toBe(originalEntry?.parentId)
   })
 
@@ -144,22 +148,34 @@ describe('RuntimeSessionService', () => {
 
   it('fails closed on future and corrupt schemas', async () => {
     const { repository, service } = createFixture()
-    const future = await repository.create({ id: 'future' })
-    await future.setName('Future')
-    await future.appendCustomEntry(KQ_CUSTOM_ENTRY.sessionMetadata, {
-      schemaVersion: 99,
-      updatedAt: 1,
-    })
+    const future = await repository.create({ id: 'future' }, BACKGROUND_CONTEXT)
+    await future.setName('Future', BACKGROUND_CONTEXT)
+    const futureMain = await future.createBranch('main', null, BACKGROUND_CONTEXT)
+    await futureMain.appendCustomEntry(
+      KQ_CUSTOM_ENTRY.sessionMetadata,
+      {
+        schemaVersion: 99,
+        updatedAt: 1,
+      },
+      BACKGROUND_CONTEXT,
+    )
+    await future.close(BACKGROUND_CONTEXT)
     await expect(service.open('future')).rejects.toMatchObject({
       code: 'SESSION_SCHEMA_UNSUPPORTED',
     } satisfies Partial<AgentRuntimeError>)
 
-    const corrupt = await repository.create({ id: 'corrupt' })
-    await corrupt.setName('Corrupt')
-    await corrupt.appendCustomEntry(KQ_CUSTOM_ENTRY.sessionMetadata, {
-      schemaVersion: 1,
-      updatedAt: 'bad',
-    })
+    const corrupt = await repository.create({ id: 'corrupt' }, BACKGROUND_CONTEXT)
+    await corrupt.setName('Corrupt', BACKGROUND_CONTEXT)
+    const corruptMain = await corrupt.createBranch('main', null, BACKGROUND_CONTEXT)
+    await corruptMain.appendCustomEntry(
+      KQ_CUSTOM_ENTRY.sessionMetadata,
+      {
+        schemaVersion: 1,
+        updatedAt: 'bad',
+      },
+      BACKGROUND_CONTEXT,
+    )
+    await corrupt.close(BACKGROUND_CONTEXT)
     await expect(service.open('corrupt')).rejects.toMatchObject({
       code: 'SESSION_CORRUPT',
     } satisfies Partial<AgentRuntimeError>)
@@ -167,20 +183,34 @@ describe('RuntimeSessionService', () => {
 
   it('migrates the supported version-zero metadata deterministically', async () => {
     const { repository, service } = createFixture()
-    const legacy = await repository.create({ id: 'legacy' })
-    await legacy.setName('Legacy')
-    await legacy.appendCustomEntry(KQ_CUSTOM_ENTRY.sessionMetadata, {
-      schemaVersion: 0,
-      updatedAt: 42,
-    })
+    const legacy = await repository.create({ id: 'legacy' }, BACKGROUND_CONTEXT)
+    await legacy.setName('Legacy', BACKGROUND_CONTEXT)
+    const legacyMain = await legacy.createBranch('main', null, BACKGROUND_CONTEXT)
+    await legacyMain.appendCustomEntry(
+      KQ_CUSTOM_ENTRY.sessionMetadata,
+      {
+        schemaVersion: 0,
+        updatedAt: 42,
+      },
+      BACKGROUND_CONTEXT,
+    )
+    await legacy.close(BACKGROUND_CONTEXT)
 
     expect(await service.open('legacy')).toMatchObject({
       session: { id: 'legacy', title: 'Legacy', updatedAt: 42 },
     })
-    const metadataEntries = await legacy.findEntries({
-      customType: KQ_CUSTOM_ENTRY.sessionMetadata,
-      order: 'oldestFirst',
-    })
+    await service.close()
+    const reopenedLegacy = await repository.open(
+      (await repository.list(undefined, BACKGROUND_CONTEXT))[0]!,
+      BACKGROUND_CONTEXT,
+    )
+    const metadataEntries = await reopenedLegacy.findEntries(
+      {
+        customType: KQ_CUSTOM_ENTRY.sessionMetadata,
+        order: 'asc',
+      },
+      BACKGROUND_CONTEXT,
+    )
     expect(
       metadataEntries.map((entry) => (entry.type === 'custom' ? entry.data : undefined)),
     ).toEqual([

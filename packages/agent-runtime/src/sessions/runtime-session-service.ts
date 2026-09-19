@@ -1,13 +1,16 @@
 import type {
   AgentMessage,
+  Branch,
+  Context,
   CustomEntry,
   Entry,
+  JsonValue,
   Session,
   SessionCreateOptions,
   SessionMetadata,
   SessionRepo,
-  SessionTree,
 } from '@earendil-works/pi-agent-core'
+import { BACKGROUND_CONTEXT } from '@earendil-works/pi-agent-core'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
@@ -37,10 +40,39 @@ export interface RuntimeSessionServiceOptions {
   id?: () => string
   defaultTitle?: string
   redaction?: RedactionOptions
+  context?: Context
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isJsonValue(value: unknown): value is JsonValue {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return true
+  if (Array.isArray(value)) return value.every(isJsonValue)
+  return isObject(value) && Object.values(value).every(isJsonValue)
+}
+
+function toJsonValue(value: unknown): JsonValue {
+  const serialized = JSON.stringify(value)
+  if (serialized === undefined)
+    throw new AgentRuntimeError(
+      'SESSION_CORRUPT',
+      'The Agent session entry is not JSON-serializable.',
+    )
+  const parsed: unknown = JSON.parse(serialized)
+  if (!isJsonValue(parsed))
+    throw new AgentRuntimeError(
+      'SESSION_CORRUPT',
+      'The Agent session entry is not JSON-compatible.',
+    )
+  return parsed
 }
 
 function requireMetadata(value: unknown): KqSessionMetadataEntry {
@@ -196,6 +228,7 @@ export class RuntimeSessionService {
   private readonly id: () => string
   private readonly defaultTitle: string
   private readonly redaction: RedactionOptions
+  private readonly context: Context
   private readonly opened = new Map<string, Session>()
   private readonly metadata = new Map<string, SessionMetadata>()
 
@@ -206,24 +239,32 @@ export class RuntimeSessionService {
     this.id = options.id ?? (() => globalThis.crypto.randomUUID())
     this.defaultTitle = options.defaultTitle ?? 'New analysis'
     this.redaction = options.redaction ?? {}
+    this.context = options.context ?? BACKGROUND_CONTEXT
   }
 
   async create(title = this.defaultTitle): Promise<AgentSessionView> {
     const id = this.id()
-    const session = await this.repository.create(this.createOptions(id))
+    const session = await this.repository.create(this.createOptions(id), this.context)
     this.opened.set(id, session)
-    this.metadata.set(id, await session.getMetadata())
-    await session.setName(title)
+    this.metadata.set(id, session.metadata)
+    await session.setName(title, this.context)
+    await session.createBranch('main', null, this.context)
     const updatedAt = this.now()
-    await session.appendCustomEntry(KQ_CUSTOM_ENTRY.sessionMetadata, {
-      schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-      updatedAt,
-    } satisfies KqSessionMetadataEntry)
+    await this.requireBranch(session, 'main').then((branch) =>
+      branch.appendCustomEntry(
+        KQ_CUSTOM_ENTRY.sessionMetadata,
+        {
+          schemaVersion: KQ_SESSION_SCHEMA_VERSION,
+          updatedAt,
+        } satisfies KqSessionMetadataEntry,
+        this.context,
+      ),
+    )
     return { id, title, updatedAt }
   }
 
   async list(): Promise<AgentSessionView[]> {
-    const metadata = await this.repository.list()
+    const metadata = await this.repository.list(undefined, this.context)
     const sessions = await Promise.all(metadata.map((entry) => this.catalogEntry(entry)))
     // The array is newly allocated above and has no external observers.
     return sessions.sort((left, right) => right.updatedAt - left.updatedAt)
@@ -232,11 +273,14 @@ export class RuntimeSessionService {
   async open(sessionId: string): Promise<AgentSessionSnapshot> {
     const session = await this.requireSession(sessionId)
     await this.ensureSchema(session)
-    const view = await this.catalogEntry(await session.getMetadata())
-    const entries = await session.findEntries({
-      customType: KQ_CUSTOM_ENTRY.event,
-      order: 'oldestFirst',
-    })
+    const view = await this.catalogEntry(session.metadata)
+    const entries = await session.findEntries(
+      {
+        customType: KQ_CUSTOM_ENTRY.event,
+        order: 'asc',
+      },
+      this.context,
+    )
     const events = entries.map((entry) => {
       if (
         !isCustom(entry, KQ_CUSTOM_ENTRY.event) ||
@@ -252,26 +296,32 @@ export class RuntimeSessionService {
 
   async rename(sessionId: string, title: string): Promise<void> {
     const session = await this.requireSession(sessionId)
-    await session.setName(title.trim())
+    await session.setName(title.trim(), this.context)
     await this.touch(session)
   }
 
   async delete(sessionId: string): Promise<void> {
     const metadata = await this.requireMetadata(sessionId)
+    const session = this.opened.get(sessionId)
+    if (session) await session.close(this.context)
     this.opened.delete(sessionId)
     this.metadata.delete(sessionId)
-    await this.repository.delete(metadata)
+    await this.repository.delete(metadata, this.context)
   }
 
   async beginRun(input: BeginRunInput): Promise<RunPersistenceContext> {
     const session = await this.requireSession(input.sessionId)
     const lane = 'main'
     const prompt = redactString(input.prompt, this.redaction)
-    const userEntryId = await session.view(lane).appendMessage({
-      role: 'user',
-      content: prompt,
-      timestamp: input.startedAt,
-    })
+    const branch = await this.requireBranch(session, lane)
+    const userEntryId = await branch.appendMessage(
+      {
+        role: 'user',
+        content: prompt,
+        timestamp: input.startedAt,
+      },
+      this.context,
+    )
     const record: KqRunStartedEntry = {
       schemaVersion: KQ_SESSION_SCHEMA_VERSION,
       runId: input.runId,
@@ -283,7 +333,7 @@ export class RuntimeSessionService {
       userEntryId,
       startedAt: input.startedAt,
     }
-    await session.view(lane).appendCustomEntry(KQ_CUSTOM_ENTRY.runStarted, record)
+    await branch.appendCustomEntry(KQ_CUSTOM_ENTRY.runStarted, toJsonValue(record), this.context)
     await this.touch(session)
     return { sessionId: input.sessionId, ...record }
   }
@@ -291,17 +341,19 @@ export class RuntimeSessionService {
   async retryRun(input: RetryRunInput): Promise<RunPersistenceContext> {
     const session = await this.requireSession(input.sessionId)
     const original = await this.findRunStart(session, input.originalRunId)
-    const userEntry = await session.getEntry(original.userEntryId)
+    const userEntry = await session.getEntry(original.userEntryId, this.context)
     if (!userEntry)
       throw new AgentRuntimeError('SESSION_CORRUPT', 'The retry source message is missing.')
     const lane = `retry:${input.runId}`
-    await session.createLane(lane, userEntry.parentId)
-    const branch = session.view(lane)
-    const userEntryId = await branch.appendMessage({
-      role: 'user',
-      content: original.prompt,
-      timestamp: input.startedAt,
-    })
+    const branch = await session.createBranch(lane, userEntry.parentId, this.context)
+    const userEntryId = await branch.appendMessage(
+      {
+        role: 'user',
+        content: original.prompt,
+        timestamp: input.startedAt,
+      },
+      this.context,
+    )
     const record: KqRunStartedEntry = {
       schemaVersion: KQ_SESSION_SCHEMA_VERSION,
       runId: input.runId,
@@ -314,7 +366,7 @@ export class RuntimeSessionService {
       startedAt: input.startedAt,
       retryOfRunId: input.originalRunId,
     }
-    await branch.appendCustomEntry(KQ_CUSTOM_ENTRY.runStarted, record)
+    await branch.appendCustomEntry(KQ_CUSTOM_ENTRY.runStarted, toJsonValue(record), this.context)
     await this.touch(session)
     return { sessionId: input.sessionId, ...record }
   }
@@ -326,10 +378,14 @@ export class RuntimeSessionService {
       protocolVersion: AGENT_UI_PROTOCOL_VERSION,
     } as AgentUiEvent
     const safe = redactValue(event, this.redaction) as AgentUiEvent
-    await session.view(input.lane).appendCustomEntry(KQ_CUSTOM_ENTRY.event, {
-      schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-      event: safe,
-    })
+    await (await this.requireBranch(session, input.lane)).appendCustomEntry(
+      KQ_CUSTOM_ENTRY.event,
+      toJsonValue({
+        schemaVersion: KQ_SESSION_SCHEMA_VERSION,
+        event: safe,
+      }),
+      this.context,
+    )
     return safe
   }
 
@@ -338,23 +394,28 @@ export class RuntimeSessionService {
     content: string,
     timestamp: number,
   ): Promise<void> {
-    await (await this.requireSession(context.sessionId)).view(context.lane).appendMessage({
-      role: 'assistant',
-      content: [{ type: 'text', text: redactString(content, this.redaction) }],
-      api: 'openai-responses',
-      provider: 'kq-runtime',
-      model: 'redacted',
-      usage: {
-        input: 0,
-        output: 0,
-        cacheRead: 0,
-        cacheWrite: 0,
-        totalTokens: 0,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    await (
+      await this.requireBranch(await this.requireSession(context.sessionId), context.lane)
+    ).appendMessage(
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: redactString(content, this.redaction) }],
+        api: 'openai-responses',
+        provider: 'kq-runtime',
+        model: 'redacted',
+        usage: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 0,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        stopReason: 'stop',
+        timestamp,
       },
-      stopReason: 'stop',
-      timestamp,
-    })
+      this.context,
+    )
   }
 
   async finishRun(
@@ -362,28 +423,38 @@ export class RuntimeSessionService {
     terminal: Omit<KqRunTerminalEntry, 'schemaVersion' | 'runId'>,
   ): Promise<void> {
     const session = await this.requireSession(context.sessionId)
-    await session.view(context.lane).appendCustomEntry(KQ_CUSTOM_ENTRY.runTerminal, {
-      schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-      runId: context.runId,
-      ...terminal,
-    } satisfies KqRunTerminalEntry)
+    await (await this.requireBranch(session, context.lane)).appendCustomEntry(
+      KQ_CUSTOM_ENTRY.runTerminal,
+      {
+        schemaVersion: KQ_SESSION_SCHEMA_VERSION,
+        runId: context.runId,
+        ...terminal,
+      } satisfies KqRunTerminalEntry,
+      this.context,
+    )
     await this.touch(session)
   }
 
   async recoverInterrupted(): Promise<string[]> {
     const interrupted: string[] = []
     // Pi branch writes must remain ordered during recovery.
-    for (const metadata of await this.repository.list()) {
+    for (const metadata of await this.repository.list(undefined, this.context)) {
       const session = await this.openMetadata(metadata)
       await this.ensureSchema(session)
-      const starts = await session.findEntries({
-        customType: KQ_CUSTOM_ENTRY.runStarted,
-        order: 'oldestFirst',
-      })
-      const terminals = await session.findEntries({
-        customType: KQ_CUSTOM_ENTRY.runTerminal,
-        order: 'oldestFirst',
-      })
+      const starts = await session.findEntries(
+        {
+          customType: KQ_CUSTOM_ENTRY.runStarted,
+          order: 'asc',
+        },
+        this.context,
+      )
+      const terminals = await session.findEntries(
+        {
+          customType: KQ_CUSTOM_ENTRY.runTerminal,
+          order: 'asc',
+        },
+        this.context,
+      )
       const terminalIds = new Set(
         terminals.map((entry) => requireRunTerminal((entry as CustomEntry).data).runId),
       )
@@ -417,12 +488,15 @@ export class RuntimeSessionService {
 
   async findRun(runId: string): Promise<RunPersistenceContext> {
     // Stop on the first newest match without opening every session concurrently.
-    for (const metadata of await this.repository.list()) {
+    for (const metadata of await this.repository.list(undefined, this.context)) {
       const session = await this.openMetadata(metadata)
-      const entries = await session.findEntries({
-        customType: KQ_CUSTOM_ENTRY.runStarted,
-        order: 'newestFirst',
-      })
+      const entries = await session.findEntries(
+        {
+          customType: KQ_CUSTOM_ENTRY.runStarted,
+          order: 'desc',
+        },
+        this.context,
+      )
       for (const entry of entries) {
         const started = requireRunStarted((entry as CustomEntry).data)
         if (started.runId === runId) return { sessionId: metadata.id, ...started }
@@ -431,19 +505,33 @@ export class RuntimeSessionService {
     throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The requested Agent run does not exist.')
   }
 
+  async close(): Promise<void> {
+    await Promise.all([...this.opened.values()].map((session) => session.close(this.context)))
+    this.opened.clear()
+  }
+
   async getTranscript(context: RunPersistenceContext): Promise<AgentMessage[]> {
-    const branch = (await this.requireSession(context.sessionId)).view(context.lane)
-    const entries = await branch.findEntriesOnBranch({ type: 'message', order: 'oldestFirst' })
+    const branch = await this.requireBranch(
+      await this.requireSession(context.sessionId),
+      context.lane,
+    )
+    const entries = await branch.findEntries(
+      { type: 'message', order: 'oldestFirst' },
+      this.context,
+    )
     return entries.flatMap((entry) =>
       entry.type === 'message' && entry.id !== context.userEntryId ? [entry.message] : [],
     )
   }
 
   private async findRunStart(session: Session, runId: string): Promise<KqRunStartedEntry> {
-    const entries = await session.findEntries({
-      customType: KQ_CUSTOM_ENTRY.runStarted,
-      order: 'newestFirst',
-    })
+    const entries = await session.findEntries(
+      {
+        customType: KQ_CUSTOM_ENTRY.runStarted,
+        order: 'desc',
+      },
+      this.context,
+    )
     for (const entry of entries) {
       const record = requireRunStarted((entry as CustomEntry).data)
       if (record.runId === runId) return record
@@ -456,33 +544,44 @@ export class RuntimeSessionService {
     const sessionMetadata = await this.ensureSchema(session)
     return {
       id: metadata.id,
-      title: (await session.getName()) ?? this.defaultTitle,
+      title: (await session.getName(this.context)) ?? this.defaultTitle,
       updatedAt: sessionMetadata.updatedAt,
     }
   }
 
   private async ensureSchema(session: Session): Promise<KqSessionMetadataEntry> {
-    const entry = await session.findEntry({
-      customType: KQ_CUSTOM_ENTRY.sessionMetadata,
-      order: 'newestFirst',
-    })
+    const entry = await session.findEntry(
+      {
+        customType: KQ_CUSTOM_ENTRY.sessionMetadata,
+        order: 'desc',
+      },
+      this.context,
+    )
     if (!entry || !isCustom(entry, KQ_CUSTOM_ENTRY.sessionMetadata)) {
       throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent session metadata is missing.')
     }
     const metadata = requireMetadata(entry.data)
     if (metadata.schemaVersion < KQ_SESSION_SCHEMA_VERSION) {
       const migrated = { schemaVersion: KQ_SESSION_SCHEMA_VERSION, updatedAt: metadata.updatedAt }
-      await session.appendCustomEntry(KQ_CUSTOM_ENTRY.sessionMetadata, migrated)
+      await (await this.requireBranch(session, 'main')).appendCustomEntry(
+        KQ_CUSTOM_ENTRY.sessionMetadata,
+        migrated,
+        this.context,
+      )
       return migrated
     }
     return metadata
   }
 
-  private async touch(session: SessionTree): Promise<void> {
-    await session.appendCustomEntry(KQ_CUSTOM_ENTRY.sessionMetadata, {
-      schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-      updatedAt: this.now(),
-    } satisfies KqSessionMetadataEntry)
+  private async touch(session: Session): Promise<void> {
+    await (await this.requireBranch(session, 'main')).appendCustomEntry(
+      KQ_CUSTOM_ENTRY.sessionMetadata,
+      {
+        schemaVersion: KQ_SESSION_SCHEMA_VERSION,
+        updatedAt: this.now(),
+      } satisfies KqSessionMetadataEntry,
+      this.context,
+    )
   }
 
   private async requireSession(sessionId: string): Promise<Session> {
@@ -494,7 +593,9 @@ export class RuntimeSessionService {
   private async requireMetadata(sessionId: string): Promise<SessionMetadata> {
     const cached = this.metadata.get(sessionId)
     if (cached) return cached
-    const metadata = (await this.repository.list()).find((entry) => entry.id === sessionId)
+    const metadata = (await this.repository.list(undefined, this.context)).find(
+      (entry) => entry.id === sessionId,
+    )
     if (!metadata)
       throw new AgentRuntimeError(
         'SESSION_NOT_FOUND',
@@ -507,9 +608,19 @@ export class RuntimeSessionService {
   private async openMetadata(metadata: SessionMetadata): Promise<Session> {
     const existing = this.opened.get(metadata.id)
     if (existing) return existing
-    const session = await this.repository.open(metadata)
+    const session = await this.repository.open(metadata, this.context)
     this.opened.set(metadata.id, session)
     this.metadata.set(metadata.id, metadata)
     return session
+  }
+
+  private async requireBranch(session: Session, name: string): Promise<Branch> {
+    const branch = await session.branch(name, this.context)
+    if (!branch)
+      throw new AgentRuntimeError(
+        'SESSION_CORRUPT',
+        `The Agent session branch "${name}" is missing.`,
+      )
+    return branch
   }
 }
