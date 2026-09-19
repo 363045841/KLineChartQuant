@@ -1,6 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["packages/**/*.ts", "packages/**/*.vue"],
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "packages/**/*.vue"],
   "exclude": [
     "**/__tests__/**",
     "**/__bench__/**",
@@ -13,6 +13,8 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ESNext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "useDefineForClassFields": true,
     "resolveJsonModule": true,
     "paths": {

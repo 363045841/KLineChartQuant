@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     :show="providerSettings.open"
-    :title="text.agentSettings"
+    title="Agent settings"
     width="min(92vw, 760px)"
     max-height="calc(100vh - 36px)"
     body-padding="12px 20px 16px"
@@ -39,7 +39,7 @@
                 <button
                   type="button"
                   class="provider-settings-profile__action"
-                  :title="text.renameProviderProfile"
+                  title="Rename configuration"
                   :aria-label="text.renameProviderProfile"
                   @click.stop="openRenameProfileDialog(profile.value)"
                 >
@@ -48,7 +48,7 @@
                 <button
                   type="button"
                   class="provider-settings-profile__action provider-settings-profile__action--danger"
-                  :title="text.deleteProviderProfile"
+                  title="Delete configuration"
                   :aria-label="text.deleteProviderProfile"
                   @click.stop="removeProfile(profile.value)"
                 >
@@ -59,7 +59,7 @@
             <button
               type="button"
               class="provider-profile-new-button"
-              :title="text.addModel"
+              title="Add model"
               :aria-label="text.addModel"
               @click="openCreateProfileDialog()"
             >
@@ -123,7 +123,7 @@
                 <BaseButton
                   size="sm"
                   class="provider-settings-models__refresh"
-                  :title="text.refreshModels"
+                  title="Refresh model list"
                   :aria-label="text.refreshModels"
                   :disabled="providerSettings.modelsLoading || !canRefreshModels"
                   @click="providerSettings.refreshModelCatalog()"
@@ -304,9 +304,7 @@
     { id: 'tools', label: text.value.tools },
   ])
   const profileNameDialogTitle = computed(() =>
-    profileNameDialog.value === 'rename'
-      ? text.value.renameProviderProfile
-      : text.value.newProviderProfile,
+    profileNameDialog.value === 'rename' ? 'Rename configuration' : 'New configuration',
   )
   const persistedProfileNames = computed(
     () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),

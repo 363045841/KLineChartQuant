@@ -9,7 +9,7 @@
         >{{ rangeContext.value.from }} - {{ rangeContext.value.to }}</span
       >
     </div>
-    <div class="context-bar__toggle" :title="text.readOnlyHint">
+    <div class="context-bar__toggle" title="Block chart changes">
       <ToggleSwitch
         :model-value="readOnly"
         :aria-label="text.readOnly"

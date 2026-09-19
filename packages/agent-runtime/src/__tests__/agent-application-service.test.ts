@@ -1,4 +1,4 @@
-import { InMemorySessionRepo } from '@earendil-works/pi-agent-core'
+import { MemorySessionRepo } from '@earendil-works/pi-agent-core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -46,7 +46,7 @@ function fixture() {
   let now = 1_000
   const drivers: ControlledDriver[] = []
   const sessions = new RuntimeSessionService({
-    repository: new InMemorySessionRepo(),
+    repository: new MemorySessionRepo(),
     id: () => `session-${++id}`,
     now: () => ++now,
   })
@@ -73,7 +73,7 @@ describe('AgentApplicationService', () => {
     let connected = false
     const events: AgentUiEvent[] = []
     const runtime = new AgentApplicationService({
-      sessions: new RuntimeSessionService({ repository: new InMemorySessionRepo() }),
+      sessions: new RuntimeSessionService({ repository: new MemorySessionRepo() }),
       createPlan: () => ({}) as PiRunPlan,
       provider: {
         getStatus: () =>
@@ -231,7 +231,7 @@ describe('AgentApplicationService', () => {
   })
 
   it('continues the durable event sequence after a runtime restart', async () => {
-    const repository = new InMemorySessionRepo()
+    const repository = new MemorySessionRepo()
     let id = 0
     const createService = () => {
       const drivers: ControlledDriver[] = []
@@ -257,6 +257,7 @@ describe('AgentApplicationService', () => {
     await tick()
     const previousSequence = (await firstRuntime.service.openSession(session.id)).lastSequence
 
+    await firstRuntime.service.close()
     const restarted = createService()
     await restarted.service.initialize()
     const events: AgentUiEvent[] = []

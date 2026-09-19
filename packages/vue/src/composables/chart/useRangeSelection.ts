@@ -2,7 +2,7 @@
 import { formatDateTimeInTimeZone } from '@363045841yyt/klinechart-core'
 import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
 import type { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
-import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import { ORIGINAL_BAR_AGGREGATION, sourceRouter } from '@363045841yyt/klinechart-core/market-data'
 import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel.js'
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel.js'
@@ -385,6 +385,7 @@ export function useRangeSelection(options: {
             assetClass: spec?.instrument?.assetClass,
             period,
             adjustment,
+            barAggregation: ORIGINAL_BAR_AGGREGATION,
             limit: 500,
             beforeTimestamp: endTs + 86_400_000,
           })

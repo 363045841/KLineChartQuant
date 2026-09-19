@@ -1,7 +1,7 @@
-import { NodeExecutionEnv } from '@earendil-works/pi-agent-core/node'
+import { BACKGROUND_CONTEXT, NodeExecutionEnv } from '@earendil-works/pi-agent-core/node'
 import {
   createNodeSqliteFactory,
-  SqliteSessionRepository,
+  SqliteSessionRepo,
 } from '@earendil-works/pi-session-backend-sqlite-node'
 
 import {
@@ -19,15 +19,15 @@ export interface NodeRuntimeSessionOptions {
 
 export interface NodeRuntimeSessions {
   sessions: RuntimeSessionService
-  repository: SqliteSessionRepository
+  repository: SqliteSessionRepo
   close(): Promise<void>
 }
 
 export function createNodeRuntimeSessions(options: NodeRuntimeSessionOptions): NodeRuntimeSessions {
   const env = new NodeExecutionEnv({ cwd: options.cwd })
-  const repository = new SqliteSessionRepository({
-    env,
-    sqlite: createNodeSqliteFactory(),
+  const repository = new SqliteSessionRepo({
+    directory: options.cwd,
+    databaseFactory: createNodeSqliteFactory(),
     databasePath: options.databasePath,
   })
   const sessions = new RuntimeSessionService({
@@ -35,7 +35,6 @@ export function createNodeRuntimeSessions(options: NodeRuntimeSessionOptions): N
     createOptions: (id) => ({
       id,
       cwd: options.cwd,
-      metadata: { kqSchemaVersion: 1 },
     }),
     now: options.now,
     id: options.id,
@@ -45,8 +44,9 @@ export function createNodeRuntimeSessions(options: NodeRuntimeSessionOptions): N
     sessions,
     repository,
     async close() {
-      await repository.close()
-      await env.cleanup()
+      await sessions.close()
+      await repository.close(BACKGROUND_CONTEXT)
+      await env.cleanup(BACKGROUND_CONTEXT)
     },
   }
 }

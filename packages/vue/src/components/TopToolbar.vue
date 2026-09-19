@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+  import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
   import { computed, ref } from 'vue'
   import IconTablerArrowLeft from '~icons/tabler/arrow-left'
   import type {
@@ -86,11 +87,14 @@
   import BaseButton from './BaseButton.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
-  import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
+  import KLineLevelDropdown from './KLineLevelDropdown.vue'
+  import { isKLineLevel, type KLineLevel } from './kLineLevel'
   import type { SymbolItem } from './SymbolSelector.vue'
   import SymbolSelector from './SymbolSelector.vue'
 
   export type { SymbolItem }
+
+  type SelectableKLinePeriod = Extract<KLinePeriod, KLineLevel>
 
   const toolbarRef = ref<HTMLElement | null>(null)
   const showSourceDialog = ref(false)
@@ -191,7 +195,9 @@
       ...((capabilities.timeShareRange?.maxTradingDays ?? 0) >= 5
         ? (['5daytimeshare'] as const)
         : []),
-      ...(capabilities.bars?.periods ?? []),
+      ...(capabilities.bars?.periods.filter((period): period is SelectableKLinePeriod =>
+        isKLineLevel(period),
+      ) ?? []),
     ]
   })
 

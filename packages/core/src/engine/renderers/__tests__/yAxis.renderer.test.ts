@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLeftYAxisStaticRendererPlugin } from '@/core/renderers/leftYAxis'
 import { createYAxisOverlayRendererPlugin, createYAxisRendererPlugin } from '@/core/renderers/yAxis'
 import type { PaneInfo, RenderContext, YAxisTick } from '@/plugin'
+import { createDisplayTimeFormatter } from '@/utils/dateFormat'
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
   drawCrosshairPriceLabel: vi.fn(),
@@ -87,6 +88,7 @@ function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
     dataView: 'kline',
     getLogicalIndexAtTimestamp: () => null,
     viewport: { scrollLeft: 0, plotWidth: 600, plotHeight: 200 },
+    displayTimeFormatter: createDisplayTimeFormatter('UTC'),
     theme: 'light',
     yAxisTicks: mockYAxisTicks,
     ...overrides,

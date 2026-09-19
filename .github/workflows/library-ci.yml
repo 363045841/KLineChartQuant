@@ -1,13 +1,14 @@
 # Library CI — runs on every push and PR to main.
 #
 # Gate state:
-#   - REQUIRED  : package tests, lint:types (attw)
+#   - REQUIRED  : type-check:src, type-check:tests, package tests, lint:types (attw)
 #   - WARN-ONLY : size:packages, lint:publish, build
 #
-# lint:types checks the *packed* output of each publishable package, so the
-# `test` job builds them before running the gate. The remaining warn-only
-# gates still need their own fixes before they can block merges; see
-# docs/CI_GATES.md for the current matrix and blockers.
+# type-check and lint:types resolve each workspace package through its
+# published entrypoint (dist/*.d.ts), so the `test` job builds them before
+# running either gate. The remaining warn-only gates still need their own
+# fixes before they can block merges; see docs/CI_GATES.md for the current
+# matrix and blockers.
 
 name: library-ci
 
@@ -38,9 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Pinned to engines field in root package.json:
-        #   "node": "^22.18.0 || >=24.11.0"
-        node: ['22.18', '24']
+        # 两个受支持 LTS 主线均固定到当前最新补丁，确保可复现的 CI 环境。
+        node: ['22.23.2', '24.21.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -61,14 +61,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # lint:types inspects the packed output of every publishable package, so
-      # they must be built first, in workspace dependency order:
+      # type-check and lint:types both resolve the workspace packages through
+      # their published entrypoints (dist/*.d.ts), so every package must be
+      # built first, in workspace dependency order:
       # core -> agent-runtime -> vue; react and angular depend on core.
       - name: Build packages under the type-resolution gate
         run: |
           pnpm build:packages
           pnpm --filter @363045841yyt/klinechart-react build
           pnpm --filter @363045841yyt/klinechart-angular build
+
+      - name: Type-check source (pnpm type-check:src) [REQUIRED]
+        run: pnpm type-check:src
+
+      - name: Type-check tests (pnpm type-check:tests) [REQUIRED]
+        run: pnpm type-check:tests
 
       - name: Run package tests (pnpm -r test)
         run: pnpm test:packages
@@ -93,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['22.18', '24']
+        node: ['22.23.2', '24.21.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v7

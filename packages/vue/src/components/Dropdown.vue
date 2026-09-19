@@ -71,6 +71,7 @@
       size?: 'sm' | 'md'
       minWidth?: string
       maxHeight?: string
+      placement?: 'auto' | 'top' | 'bottom'
       label?: string
       title?: string
       placeholder?: string
@@ -80,6 +81,7 @@
     {
       size: 'md',
       maxHeight: 'min(320px, calc(100vh - 24px))',
+      placement: 'auto',
       title: '',
       placeholder: '',
       allowEmpty: false,
@@ -105,6 +107,7 @@
     menuRef,
     4,
     false,
+    props.placement,
   )
 
   // 点击触发器与菜单之外时关闭

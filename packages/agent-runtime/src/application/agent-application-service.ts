@@ -75,6 +75,10 @@ export class AgentApplicationService implements AgentApplicationApi {
     return interrupted
   }
 
+  async close(): Promise<void> {
+    await this.sessions.close()
+  }
+
   listSessions() {
     return this.sessions.list()
   }

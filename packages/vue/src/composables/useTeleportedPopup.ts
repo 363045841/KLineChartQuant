@@ -5,6 +5,7 @@ export function useTeleportedPopup(
   popupRef: Ref<HTMLElement | null>,
   gap = 4,
   matchTriggerWidth = false,
+  placement: 'auto' | 'top' | 'bottom' = 'auto',
 ) {
   const popupStyle = ref<Record<string, string>>({})
 
@@ -18,7 +19,9 @@ export function useTeleportedPopup(
     const spaceBelow = Math.max(0, viewportHeight - rect.bottom - gap - margin)
     const spaceAbove = Math.max(0, rect.top - gap - margin)
     const popupHeight = popup?.offsetHeight ?? 0
-    const opensUpward = popupHeight > spaceBelow && spaceAbove > spaceBelow
+    const opensUpward =
+      placement === 'top' ||
+      (placement === 'auto' && popupHeight > spaceBelow && spaceAbove > spaceBelow)
     const availableHeight = opensUpward ? spaceAbove : spaceBelow
 
     let left = rect.left
