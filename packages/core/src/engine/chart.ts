@@ -1478,6 +1478,11 @@ export class Chart {
     this.dataManager.setData(data)
   }
 
+  /** 实时帧写入活动 K 线序列：末尾窗口 replace-on-conflict（SSE forming/closed 链路）。 */
+  updateBars(bars: KLineData[]): void {
+    this.dataManager.updateBars(bars)
+  }
+
   appendData(newData: KLineData[]): void {
     this.dataManager.appendData(newData)
   }

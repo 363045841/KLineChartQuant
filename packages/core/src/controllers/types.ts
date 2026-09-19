@@ -467,6 +467,8 @@ export interface ChartController extends DrawingChartAdapter {
   clearMarketDataCache(): void
   resetToFetcher(spec: SymbolSpec): void
   setData(next: ReadonlyArray<KLineData>): void
+  /** 实时帧写入：末尾窗口 replace-on-conflict（forming bar 更新不被保旧弃新吞掉）。 */
+  updateBars(next: ReadonlyArray<KLineData>): void
   appendData(next: ReadonlyArray<KLineData>): void
   updateData(next: ReadonlyArray<KLineData>): void
   getData(): ReadonlyArray<KLineData>

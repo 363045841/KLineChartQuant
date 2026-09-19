@@ -121,6 +121,8 @@
   const sourceStatuses = ref<Record<string, AggregationSourceStatus>>({})
   /** 各源最近一次在线拨测的延迟毫秒 */
   const sourceLatencies = ref<Record<string, number>>({})
+  /** 连接器附带的补充说明（如 MT5 对齐摘要/离线原因） */
+  const sourceMessages = ref<Record<string, string>>({})
   /** 每个源的地址区块展开状态；默认全部收起 */
   const expandedEndpoints = ref<Record<string, boolean>>({})
   let probeController: AbortController | undefined
@@ -155,9 +157,14 @@
     const status = sourceStatuses.value[source.name] ?? 'checking'
     if (status === 'online') {
       const ms = sourceLatencies.value[source.name]
-      return ms !== undefined ? `在线 · ${ms}ms` : '在线'
+      const base = ms !== undefined ? `在线 · ${ms}ms` : '在线'
+      const detail = sourceMessages.value[source.name]
+      return detail ? `${base} · ${detail}` : base
     }
-    if (status === 'offline') return '离线'
+    if (status === 'offline') {
+      const detail = sourceMessages.value[source.name]
+      return detail ? `离线 · ${detail.slice(0, 40)}` : '离线'
+    }
     return '检测中'
   }
 
@@ -195,6 +202,7 @@
       searchableSources.map((source) => [source.name, 'checking' as const]),
     )
     sourceLatencies.value = {}
+    sourceMessages.value = {}
     const timeout = setTimeout(() => controller.abort(), 5000)
 
     await Promise.all(
@@ -204,6 +212,12 @@
         sourceStatuses.value = { ...sourceStatuses.value, [source.name]: result.status }
         if (result.latencyMs !== undefined) {
           sourceLatencies.value = { ...sourceLatencies.value, [source.name]: result.latencyMs }
+        }
+        if (result.message) {
+          sourceMessages.value = { ...sourceMessages.value, [source.name]: result.message }
+        } else {
+          const { [source.name]: _removed, ...rest } = sourceMessages.value
+          sourceMessages.value = rest
         }
       }),
     )
