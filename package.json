@@ -52,6 +52,7 @@
     "dev:g": "node scripts/dev.mjs -c gotdx",
     "dev:b": "node scripts/dev.mjs -c baostock",
     "dev:bnb": "node scripts/dev.mjs -c binance",
+    "dev:mt5": "node scripts/dev.mjs -c mt5",
     "dev:lan:all": "node scripts/dev.mjs --lan -c all",
     "connecter": "node scripts/start-connecter.mjs",
     "build": "pnpm build:packages",

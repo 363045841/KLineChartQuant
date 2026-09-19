@@ -13,6 +13,7 @@ export const LOG_COLORS = {
   gotdx: '\u001b[32m',
   binance: '\u001b[33m',
   baostock: '\u001b[36m',
+  mt5: '\u001b[34m',
 }
 
 /** 根据输出环境生成固定宽度前缀，非 TTY 或 NO_COLOR 环境自动禁用颜色。 */
