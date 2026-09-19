@@ -404,7 +404,7 @@
   }
 
   .settings-item:hover {
-    background: var(--klc-color-tag-bg-hover);
+    background: var(--klc-color-ui-hover);
   }
 
   .settings-item.runtime-hint {
@@ -466,7 +466,7 @@
   }
 
   a.settings-item.credit-item:hover {
-    background: var(--klc-color-tag-bg-hover);
+    background: var(--klc-color-ui-hover);
   }
 
   .credit-name {

@@ -53,7 +53,10 @@
 <script setup lang="ts">
   import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
+  import {
+    provideFullscreenTeleportTarget,
+    useFullscreenTeleportTarget,
+  } from '../composables/useFullscreenTeleportTarget.js'
 
   const props = withDefaults(
     defineProps<{
@@ -90,7 +93,10 @@
   }>()
 
   const teleportTarget = useFullscreenTeleportTarget()
-  const dialog = ref<HTMLDialogElement>()
+  const dialog = ref<HTMLDialogElement | null>(null)
+  // 原生 modal dialog 位于浏览器 top layer；其内容中的弹层也必须挂在 dialog 内，
+  // 否则 Teleport 到 body 的 Dropdown/Popover 无法显示在 dialog 之上。
+  provideFullscreenTeleportTarget(dialog)
   const rendered = ref(props.show)
   const closing = ref(false)
   const closeDuration = 160
@@ -159,7 +165,8 @@
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
+    /* Teleport 到 dialog 内的 fixed 弹层可以越过对话框边界显示。 */
+    overflow: visible;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
