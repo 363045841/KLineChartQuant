@@ -6,11 +6,7 @@
     :class="{ 'base-tabs--compact': size === 'compact', 'base-tabs--draggable': draggable }"
     role="tablist"
     :aria-label="ariaLabel"
-    @mousedown="onMouseDown"
-    @mousemove="onMouseMove"
-    @mouseup="onMouseUp"
-    @mouseleave="onMouseUp"
-    @wheel="onWheel"
+    v-on="draggable ? dragListeners : {}"
   >
     <button
       v-for="tab in tabs"
@@ -62,7 +58,6 @@
 
   /** 记录拖拽起点，用于横向浏览被遮挡的标签。 */
   function onMouseDown(event: MouseEvent) {
-    if (!props.draggable) return
     const el = event.currentTarget as HTMLElement
     isDragging = true
     startX = event.pageX - el.getBoundingClientRect().left
@@ -91,12 +86,24 @@
 
   /** 将滚轮增量映射到 scrollLeft，支持滚轮与触控板横向手势浏览标签。 */
   function onWheel(event: WheelEvent) {
-    if (!props.draggable || event.ctrlKey) return
+    if (event.ctrlKey) return
     const el = event.currentTarget as HTMLElement
     const delta = event.deltaX || event.deltaY
     if (delta === 0) return
     event.preventDefault()
     el.scrollLeft += delta
+  }
+
+  /**
+   * 拖拽与滚轮监听仅在 draggable 时注册。
+   * 非拖拽实例（设置弹窗等）不注册 wheel，避免无意义的 scroll-blocking 非 passive 监听告警。
+   */
+  const dragListeners = {
+    mousedown: onMouseDown,
+    mousemove: onMouseMove,
+    mouseup: onMouseUp,
+    mouseleave: onMouseUp,
+    wheel: onWheel,
   }
 </script>
 
