@@ -28,7 +28,7 @@
             <template v-else-if="item.type === 'select' && item.options">
               <Dropdown
                 :model-value="String(settings[item.key])"
-                :options="item.options"
+                :options="optionsFor(item)"
                 size="sm"
                 min-width="100px"
                 @update:model-value="settings[item.key] = $event"
@@ -100,7 +100,7 @@
             <template v-else-if="item.type === 'select' && item.options">
               <Dropdown
                 :model-value="String(settings[item.key])"
-                :options="item.options"
+                :options="optionsFor(item)"
                 size="sm"
                 min-width="100px"
                 @update:model-value="settings[item.key] = $event"
@@ -265,6 +265,23 @@
   const mainSettings = computed(
     () => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[],
   )
+
+  const localTimeZone = resolveLocalTimeZone()
+
+  function optionsFor(item: SettingItem): { value: string; label: string }[] {
+    if (item.key !== 'displayTimeZone') return item.options ?? []
+    return (item.options ?? []).map((option) =>
+      option.value === 'local' ? { ...option, label: `${option.label}（${localTimeZone}）` } : option,
+    )
+  }
+
+  function resolveLocalTimeZone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    } catch {
+      return 'UTC'
+    }
+  }
   const experimentalSettings = computed(
     () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
   )
@@ -404,7 +421,7 @@
   }
 
   .settings-item:hover {
-    background: var(--klc-color-tag-bg-hover);
+    background: var(--klc-color-ui-hover);
   }
 
   .settings-item.runtime-hint {
@@ -466,7 +483,7 @@
   }
 
   a.settings-item.credit-item:hover {
-    background: var(--klc-color-tag-bg-hover);
+    background: var(--klc-color-ui-hover);
   }
 
   .credit-name {

@@ -26,6 +26,7 @@ const BAR_SELECTION = {
   sourceId: 'fixture',
   period: 'daily' as const,
   adjustment: 'none' as const,
+  barAggregation: 'original' as const,
 }
 
 function createBars(): KLineData[] {
@@ -139,6 +140,7 @@ function createFixture() {
       instrumentId: instrument.id,
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       timezone: 'UTC',
       data: createBars(),
       olderData: 'exhausted',
@@ -191,7 +193,6 @@ function createFixture() {
     getSpecs: () => [],
     setSpecs: () => {},
     setComparisonViewActive: () => {},
-    validateSpec: () => {},
     registerSpec: () => {},
     resolveInstrument: async () => ({
       candidates: [],
@@ -365,6 +366,7 @@ describe('createChartAgentController', () => {
         sourceId: 'akshare',
         period: 'daily',
         adjustment: 'none',
+        barAggregation: 'original',
         limit: 100,
       }),
     ).rejects.toMatchObject({
@@ -632,6 +634,7 @@ describe('createChartAgentController', () => {
       assetClass: 'crypto' as const,
       period: 'daily' as const,
       adjustment: 'none' as const,
+      barAggregation: 'original' as const,
       limit: 100,
     }
     const timeShareInput = {
@@ -790,6 +793,7 @@ describe('createChartAgentController', () => {
         sourceId: 'fixture',
         period: 'daily',
         adjustment: 'none',
+        barAggregation: 'original',
         limit: 100,
       }),
     ).resolves.toMatch(/\| 2026-09-01/)

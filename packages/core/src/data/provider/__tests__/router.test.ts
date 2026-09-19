@@ -75,6 +75,7 @@ describe('SourceRouter', () => {
         instrumentId: instrument.id,
         period: 'daily' as const,
         adjustment: 'none' as const,
+        barAggregation: 'original' as const,
         timezone: 'Asia/Shanghai',
         data: [],
         olderData: 'unknown' as const,
@@ -93,6 +94,7 @@ describe('SourceRouter', () => {
       assetClass: baseInstrument.assetClass,
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 500,
       beforeTimestamp: 2,
     })
@@ -121,6 +123,7 @@ describe('SourceRouter', () => {
           instrumentId: 'baostock:stock:600519',
           period: 'daily',
           adjustment: 'none',
+          barAggregation: 'original',
           timezone: 'Asia/Shanghai',
           data: [],
           olderData: 'unknown',
@@ -139,6 +142,7 @@ describe('SourceRouter', () => {
         exchange: baseInstrument.exchange,
         period: 'daily',
         adjustment: 'none',
+        barAggregation: 'original',
         limit: 500,
       }),
     ).rejects.toMatchObject({
@@ -165,6 +169,7 @@ describe('SourceRouter', () => {
           instrumentId: 'baostock:stock:600519',
           period: 'daily',
           adjustment: 'none',
+          barAggregation: 'original',
           timezone: 'Asia/Shanghai',
           data: [],
           olderData: 'unknown',
@@ -183,6 +188,7 @@ describe('SourceRouter', () => {
         exchange: baseInstrument.exchange,
         period: 'daily',
         adjustment: 'none',
+        barAggregation: 'original',
         limit: 500,
       }),
     ).rejects.toMatchObject({ code: 'FETCH_FAILED' })
@@ -207,6 +213,7 @@ describe('SourceRouter', () => {
       exchange: baseInstrument.exchange,
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 500,
     })
     await expect(promise).rejects.toBeInstanceOf(SourceRoutingError)

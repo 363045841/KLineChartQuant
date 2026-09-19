@@ -33,6 +33,7 @@ function fakeTransport(overrides: Partial<MarketDataTransport> = {}): MarketData
       instrumentId: 'gotdx:stock:1:600519',
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       timezone: 'Asia/Shanghai',
       items: [],
       olderData: 'unknown',
@@ -107,6 +108,7 @@ describe('createMarketDataProvider', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
+          barAggregation: 'original',
           timezone: 'Asia/Shanghai',
           olderData: 'unknown',
           items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
@@ -117,6 +119,7 @@ describe('createMarketDataProvider', () => {
       instrument,
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 500,
     })
     expect(series.timezone).toBe('Asia/Shanghai')
@@ -135,6 +138,7 @@ describe('createMarketDataProvider', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
+          barAggregation: 'original',
           timezone: 'Asia/Shanghai',
           volumeUnit: 'share',
           olderData: 'exhausted',
@@ -146,6 +150,7 @@ describe('createMarketDataProvider', () => {
       instrument,
       period: 'daily',
       adjustment: 'none',
+      barAggregation: 'original',
       limit: 500,
     })
     expect(series.volumeUnit).toBe('share')
@@ -160,6 +165,7 @@ describe('createMarketDataProvider', () => {
         instrument: noBars,
         period: 'daily',
         adjustment: 'none',
+        barAggregation: 'original',
         limit: 500,
       }),
     ).rejects.toThrow(/does not support bars/)

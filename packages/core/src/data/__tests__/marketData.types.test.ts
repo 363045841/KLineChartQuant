@@ -77,6 +77,7 @@ describe('MarketData 类型契约', () => {
             instrumentId: query.instrument.id,
             period: query.period,
             adjustment: query.adjustment,
+            barAggregation: query.barAggregation,
             timezone: 'Asia/Shanghai',
             volumeUnit: 'share' as const,
             data: [],
@@ -90,6 +91,7 @@ describe('MarketData 类型契约', () => {
       instrument: stock,
       period: 'daily',
       adjustment: 'qfq',
+      barAggregation: 'original',
       limit: 500,
     })
 

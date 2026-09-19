@@ -6,10 +6,11 @@
  *   node scripts/dev.mjs                        # 仅开发服务器
  *   node scripts/dev.mjs -c all                 # 开发服务器 + 全部 connecter
  *   node scripts/dev.mjs -c gotdx baostock      # 开发服务器 + 指定的 connecter
- *   node scripts/dev.mjs -c tdx                 # 支持别名（tdx / g / b / bnb / all）
+ *   node scripts/dev.mjs -c mt5                 # MT5 本地终端后端（不在 all 内，需显式指定）
+ *   node scripts/dev.mjs -c tdx                 # 支持别名（tdx / g / b / bnb / m / all）
  *   node scripts/dev.mjs --lan -c all           # 开发服务器绑定 0.0.0.0（局域网可访问）
  *
- * 对应 pnpm 简写命令：pnpm dev:all / pnpm dev:g / pnpm dev:b / pnpm dev:bnb / pnpm dev:lan:all。
+ * 对应 pnpm 简写命令：pnpm dev:all / pnpm dev:g / pnpm dev:b / pnpm dev:bnb / pnpm dev:mt5 / pnpm dev:lan:all。
  */
 
 import { spawn } from 'node:child_process'

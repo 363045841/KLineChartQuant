@@ -5,6 +5,7 @@ import type { MarketDataProviderRegistry } from '../provider/registry.js'
 import { SourceRouter } from '../provider/router.js'
 import type {
   AssetClass,
+  BarAggregation,
   BarSeries,
   InstrumentDescriptor,
   KLineAdjustment,
@@ -14,6 +15,7 @@ import type {
   TimeShareSeries,
   TradingDate,
 } from '../provider/types.js'
+import { ORIGINAL_BAR_AGGREGATION } from '../provider/types.js'
 import {
   DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
   FETCH_TOTAL_ATTEMPTS,
@@ -24,6 +26,7 @@ export interface BarsCacheQuery {
   readonly symbol: string
   readonly period: KLinePeriod
   readonly adjustment: KLineAdjustment
+  readonly barAggregation: BarAggregation
   readonly sourceId?: string
   readonly instrument?: InstrumentDescriptor
   readonly exchange?: string
@@ -176,6 +179,7 @@ function cacheKey(query: {
   readonly symbol: string
   readonly period: string
   readonly adjustment: string
+  readonly barAggregation: string
   readonly sourceId?: string
   readonly instrument?: InstrumentDescriptor
   readonly exchange?: string
@@ -189,6 +193,7 @@ function cacheKey(query: {
     query.symbol,
     query.period,
     query.adjustment,
+    query.barAggregation,
   ].join(':')
 }
 
@@ -262,7 +267,12 @@ export class MarketDataCache {
     if (!query.tradingDate && !query.resolveTradingDate) {
       throw new TypeError('[MarketDataCache] tradingDate or resolveTradingDate is required')
     }
-    const key = `${cacheKey({ ...query, period: 'daily', adjustment: 'none' })}:${query.tradingDate ?? 'latest'}`
+    const key = `${cacheKey({
+      ...query,
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: ORIGINAL_BAR_AGGREGATION,
+    })}:${query.tradingDate ?? 'latest'}`
     const cached = this.timeShares.get(key)
     if (cached) {
       this.touchEntry('timeShares', key)
@@ -295,7 +305,12 @@ export class MarketDataCache {
     if (!query.endTradingDate && !query.resolveEndTradingDate) {
       throw new TypeError('[MarketDataCache] endTradingDate or resolveEndTradingDate is required')
     }
-    const key = `${cacheKey({ ...query, period: 'daily', adjustment: 'none' })}:${query.endTradingDate ?? 'latest'}:${query.days}`
+    const key = `${cacheKey({
+      ...query,
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: ORIGINAL_BAR_AGGREGATION,
+    })}:${query.endTradingDate ?? 'latest'}:${query.days}`
     const cached = this.timeShareRanges.get(key)
     if (cached) {
       this.touchEntry('timeShareRanges', key)
@@ -403,6 +418,7 @@ export class MarketDataCache {
         instrumentId: result.series.instrumentId,
         period: result.series.period,
         adjustment: result.series.adjustment,
+        barAggregation: result.series.barAggregation,
         timezone: result.series.timezone,
         ...(result.series.volumeUnit === undefined ? {} : { volumeUnit: result.series.volumeUnit }),
       },
@@ -435,6 +451,7 @@ export class MarketDataCache {
           assetClass: query.assetClass,
           period: query.period,
           adjustment: query.adjustment,
+          barAggregation: query.barAggregation,
           limit: query.limit,
           ...(query.beforeTimestamp === undefined
             ? {}

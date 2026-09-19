@@ -23,7 +23,7 @@ import {
   RuntimeToolCatalog,
   WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
-import { formatTimestamp } from '@363045841yyt/klinechart-core'
+import { formatDateTimeInTimeZone } from '@363045841yyt/klinechart-core'
 import {
   type ChartAgentController,
   getRegisteredChartTools,
@@ -386,12 +386,11 @@ function projectContextItems(
     })
   }
   if (context.visibleRange) {
-    const formatOptions = { timeZone: context.timezone ?? undefined, showTime: true }
     items.push({
       kind: 'selected-time-range',
       value: {
-        from: formatTimestamp(context.visibleRange.from, formatOptions),
-        to: formatTimestamp(context.visibleRange.to, formatOptions),
+        from: formatDateTimeInTimeZone(context.visibleRange.from, context.timezone ?? 'UTC'),
+        to: formatDateTimeInTimeZone(context.visibleRange.to, context.timezone ?? 'UTC'),
       },
     })
   }

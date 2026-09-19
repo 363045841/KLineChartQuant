@@ -19,7 +19,7 @@ import type { ChartDataView } from '../../foundation/types/chartView.js'
 import '../../engine/data/comparisonCommands.js'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
 import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types.js'
-import { KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types.js'
+import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types.js'
 import type { PaneSpec } from '../../engine/chartTypes.js'
 import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
 import type { PaneManager } from '../../engine/paneManager.js'
@@ -90,6 +90,7 @@ const KLINE_PERIOD_VALUES = [
   '15min',
   '30min',
   '60min',
+  '4h',
   'daily',
   'weekly',
   'monthly',
@@ -106,6 +107,7 @@ const KLINE_ADJUSTMENT_VALUES = [
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
 const KLinePeriodToolParameter = Type.Enum(KLINE_PERIOD_VALUES)
 const KLineAdjustmentToolParameter = Type.Enum(KLINE_ADJUSTMENT_VALUES)
+const BarAggregationToolParameter = Type.Enum(BAR_AGGREGATIONS)
 // unknown 只描述数据源未归一化状态，禁止作为工具输入的路由筛选条件。
 const AssetClassToolParameter = Type.Enum(KNOWN_ASSET_CLASS_VALUES)
 const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
@@ -124,6 +126,7 @@ const BarsQueryToolParameters = Type.Object(
     symbol: Type.String({ minLength: 1 }),
     period: KLinePeriodToolParameter,
     adjustment: KLineAdjustmentToolParameter,
+    barAggregation: BarAggregationToolParameter,
     limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
     sourceId: Type.Optional(Type.String({ minLength: 1 })),
     exchange: Type.Optional(Type.String({ minLength: 1 })),
@@ -678,6 +681,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       assetClass: input.assetClass,
       period: input.period,
       adjustment: input.adjustment,
+      barAggregation: input.barAggregation,
       limit: input.limit,
       signal: context?.signal,
     })

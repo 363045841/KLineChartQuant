@@ -14,6 +14,7 @@ const BAR_SELECTION = {
   sourceId: 'test',
   period: 'daily' as const,
   adjustment: 'none' as const,
+  barAggregation: 'original' as const,
 }
 
 /** 创建连续收盘价的 K 线测试数据。 */

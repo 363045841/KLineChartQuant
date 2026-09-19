@@ -8,13 +8,11 @@ import {
 import type { OlderDataStatus } from '../provider/types.js'
 
 import type { DataChange, KLineBuffer, LoadedTimeRange } from './dataBufferTypes.js'
-import { KLineDataStore } from './kLineDataStore.js'
-import { TimeKeyIndex } from './timeKeyIndex.js'
+import { KLineDataStore, type UpdateBarsResult } from './kLineDataStore.js'
 
 /** 图表消费的 K 线快照；不负责 Provider 请求、重试或分页策略。 */
 export class DataBuffer implements KLineBuffer {
   private readonly store = new KLineDataStore()
-  private readonly keyIndex = new TimeKeyIndex()
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
   private current: SymbolSpec | null = null
@@ -61,23 +59,12 @@ export class DataBuffer implements KLineBuffer {
     return this.store.getLogicalIndexAtTimestamp(timestamp)
   }
 
-  /** 返回月份索引，供时间轴快速定位。 */
-  getMonthKeys(): Int32Array | null {
-    return this.keyIndex.monthKeys
-  }
-
-  /** 返回交易日索引，供时间轴快速定位。 */
-  getDayKeys(): Int32Array | null {
-    return this.keyIndex.dayKeys
-  }
-
   /** 切换图表选择并清空旧快照；请求由上层缓存 API 发起。 */
   setSymbol(spec: SymbolSpec): void {
     if (this.disposed) return
     this.current = spec
     this.currentTimezone = null
     this.store.reset()
-    this.keyIndex.reset()
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
@@ -92,7 +79,6 @@ export class DataBuffer implements KLineBuffer {
     if (this.disposed) return
     this.currentTimezone = null
     this.store.setInlineData([...data])
-    this.keyIndex.recompute(this.store.getRawData())
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
@@ -102,9 +88,18 @@ export class DataBuffer implements KLineBuffer {
     if (this.disposed) return
     this.currentTimezone = timezone
     this.store.merge(data)
-    this.keyIndex.recompute(this.store.getRawData())
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
+  }
+
+  /** 实时帧写入：末尾窗口 replace-on-conflict 合并（SSE forming/closed 链路）。 */
+  updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
+    if (this.disposed) return { appendedCount: 0, replacedCount: 0, rejected: [...bars] }
+    const result = this.store.updateBars(bars)
+    if (result.appendedCount > 0 || result.replacedCount > 0) {
+      this.errorSignal.set(null)
+    }
+    return result
   }
 
   /** 发布缓存查询加载状态。 */
@@ -120,13 +115,12 @@ export class DataBuffer implements KLineBuffer {
     }
   }
 
-  /** 销毁图表快照与派生索引。 */
+  /** 销毁图表快照。 */
   dispose(): void {
     this.disposed = true
     this.current = null
     this.currentTimezone = null
     this.store.reset()
-    this.keyIndex.reset()
     this.loadingSignal.set(false)
     this.errorSignal.set(null)
   }

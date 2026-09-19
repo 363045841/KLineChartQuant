@@ -1,6 +1,6 @@
 // 本文件为已知指标结果提供比通用表格更紧凑的语义化文本转义器。
 
-import { formatTimestamp } from '../../../foundation/utils/dateFormat.js'
+import { formatDateTimeInTimeZone } from '../../../foundation/utils/dateFormat.js'
 import { MARKDOWN_EMPTY_TEXT } from '../markdownTable.js'
 
 import type {
@@ -52,7 +52,7 @@ function readString(value: Readonly<Record<string, unknown>>, key: string): stri
 /** 将内部下标转换为对应的行情时间戳。 */
 function resolveTimestamp(timestamps: ReadonlyArray<number>, index: number | null): string {
   return index !== null && timestamps[index] !== undefined
-    ? ` @ ${formatTimestamp(timestamps[index]!, { showTime: true })}`
+    ? ` @ ${formatDateTimeInTimeZone(timestamps[index]!)}`
     : ''
 }
 

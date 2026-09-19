@@ -4,12 +4,9 @@ import { resolveThemeColors } from '../../tokens/index.js'
 import { isTimeSharePeriod } from '../../types/chartPeriod.js'
 import type { KLineData } from '../../types/price.js'
 import {
-  findDayBoundaries,
-  findMonthBoundaries,
-  formatDay,
-  formatMonthOrYear,
-  formatTimeLabel,
-  formatYMDShanghai,
+  createMarketSessionTimeFormatter,
+  type DisplayTimeFormatter,
+  type MarketSessionTimeFormatter,
 } from '../dateFormat.js'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign.js'
 import { priceToY, yToPrice } from '../priceToY.js'
@@ -23,6 +20,15 @@ import {
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512
+const marketSessionFormatters = new Map<string, MarketSessionTimeFormatter>()
+
+function getMarketSessionFormatter(timeZone: string): MarketSessionTimeFormatter {
+  const existing = marketSessionFormatters.get(timeZone)
+  if (existing) return existing
+  const formatter = createMarketSessionTimeFormatter(timeZone)
+  marketSessionFormatters.set(timeZone, formatter)
+  return formatter
+}
 
 function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
   const key = `${ctx.font}\n${text}`
@@ -67,10 +73,8 @@ export interface TimeAxisOptions {
   kLineCenters: number[]
   /** 数据索引可见范围 { start, end } */
   visibleRange: { start: number; end: number }
-  /** 预计算的月份键值数组（year*12+month），与 data 长度一致 */
-  monthKeys?: Int32Array
-  /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致 */
-  dayKeys?: Int32Array
+  /** 普通 K 线的显示时区 formatter。 */
+  displayTimeFormatter: DisplayTimeFormatter
   /** 分时市场 session；默认 A 股 */
   marketSession?: MarketSessionConfig
 }
@@ -137,6 +141,8 @@ export interface CrosshairTimeLabelOptions {
   paddingY?: number
   /** 周期类型，分时图显示 HH:mm 格式 */
   period?: string
+  displayTimeFormatter: DisplayTimeFormatter
+  marketSessionTimeZone?: string
 }
 
 export function drawCrosshairTimeLabel(
@@ -160,7 +166,9 @@ export function drawCrosshairTimeLabel(
     period,
   } = opts
 
-  const text = isTimeSharePeriod(period) ? formatTimeLabel(timestamp) : formatYMDShanghai(timestamp)
+  const text = isTimeSharePeriod(period)
+    ? getMarketSessionFormatter(opts.marketSessionTimeZone ?? ASHARE_MARKET_SESSION.timeZone).formatAxisTime(timestamp)
+    : opts.displayTimeFormatter.formatDate(timestamp)
 
   ctx.save()
   setCanvasFont(ctx, getFont(fontSize))
@@ -368,7 +376,7 @@ export function drawTimeAxis(
   const isMinuteData = !isTimeShare && opts.period.includes('min')
   const showOnlyYear = !isMinuteData && !isTimeShare && opts.period !== 'daily'
 
-  let boundaries: number[]
+  let boundaries: ReadonlyArray<number>
   let labelFn: (ts: number) => { text: string; isYear: boolean }
 
   if (isTimeShare) {
@@ -392,7 +400,7 @@ export function drawTimeAxis(
     ctx.textBaseline = 'middle'
     for (const label of labels) {
       const ts = minuteOfDayToTimestamp(baseTs, label.minuteOfDay, market.timeZone)
-      const text = formatTimeLabel(ts)
+      const text = getMarketSessionFormatter(market.timeZone).formatAxisTime(ts)
       const centerX = centerBySlot.get(label.slotIndex)
       if (centerX === undefined) continue
       const drawX = centerX - scrollLeft
@@ -405,11 +413,11 @@ export function drawTimeAxis(
   }
 
   if (isMinuteData) {
-    boundaries = findDayBoundaries(data, opts.dayKeys)
-    labelFn = formatDay
+    boundaries = opts.displayTimeFormatter.getDayBoundaries(data)
+    labelFn = opts.displayTimeFormatter.formatAxisDay
   } else {
-    boundaries = findMonthBoundaries(data, opts.monthKeys)
-    labelFn = formatMonthOrYear
+    boundaries = opts.displayTimeFormatter.getMonthBoundaries(data)
+    labelFn = opts.displayTimeFormatter.formatAxisMonthOrYear
   }
 
   const visibleBoundaries = boundaries.filter((idx: number) => idx >= startIndex && idx < endIndex)
@@ -529,6 +537,7 @@ export interface AxisTimeLabelOptions {
   textColor?: string
   fontSize?: number
   paddingX?: number
+  displayTimeFormatter: DisplayTimeFormatter
 }
 
 export function drawAxisTimeLabel(
@@ -541,7 +550,7 @@ export function drawAxisTimeLabel(
   const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
   const { x, y, width, height, labelX, timestamp, dpr, fontSize = 12, paddingX = 8 } = opts
 
-  const text = formatYMDShanghai(timestamp)
+  const text = opts.displayTimeFormatter.formatDate(timestamp)
 
   ctx.save()
   setCanvasFont(ctx, getFont(fontSize))

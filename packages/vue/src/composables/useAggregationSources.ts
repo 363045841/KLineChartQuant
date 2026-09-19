@@ -19,10 +19,11 @@ interface StoredAggregationSources {
 
 export type AggregationSourceStatus = 'checking' | 'online' | 'offline'
 
-/** 聚合源拨测结果：在线时附带请求延迟毫秒。 */
+/** 聚合源拨测结果：在线时附带请求延迟毫秒；message 为连接器附带的补充说明（如对齐摘要/离线原因）。 */
 export interface AggregationSourceProbeResult {
   status: 'online' | 'offline'
   latencyMs?: number
+  message?: string
 }
 
 /** 聚合源管理 UI 所需的最小元数据。 */
@@ -69,6 +70,7 @@ export async function probeAggregationSource(
       status: probeResult.status === 'offline' ? 'offline' : 'online',
     }
     if (probeResult.latencyMs !== undefined) result.latencyMs = probeResult.latencyMs
+    if (probeResult.message) result.message = probeResult.message
     return result
   } catch {
     return { status: 'offline' }

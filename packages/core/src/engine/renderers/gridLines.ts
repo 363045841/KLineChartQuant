@@ -3,7 +3,6 @@ import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import { findMonthBoundaries } from '../../foundation/utils/dateFormat.js'
 import {
   createHorizontalLineRect,
   createVerticalLineRect,
@@ -63,7 +62,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
           if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
         }
       } else if (!isTimeShareDataView(context.dataView)) {
-        const boundaries = findMonthBoundaries(klineData, context.monthKeys)
+        const boundaries = context.displayTimeFormatter.getMonthBoundaries(klineData)
 
         for (const idx of boundaries) {
           if (idx < range.start || idx >= range.end || idx >= klineData.length) continue

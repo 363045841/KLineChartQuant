@@ -20,6 +20,7 @@ function barsSelection(
     sourceId: 'gotdx',
     period: 'daily',
     adjustment: 'none',
+    barAggregation: 'original',
     ...overrides,
   }
 }

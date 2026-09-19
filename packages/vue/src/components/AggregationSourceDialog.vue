@@ -25,7 +25,7 @@
           <span
             v-if="supportsSearch(source)"
             class="source-status"
-            :class="`is-${sourceStatuses[source.name] ?? 'checking'}`"
+            :class="`is-${sourceHealth(source).status}`"
           >
             <span class="source-status__dot" aria-hidden="true" />
             {{ statusText(source) }}
@@ -83,14 +83,15 @@
 
 <script setup lang="ts">
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
-
+  import {
+    type AggregationSourceHealth,
+    useAggregationSourceHealth,
+  } from '../composables/useAggregationSourceHealth.js'
   import {
     type AggregationSourceDefinition,
     type AggregationSourceEndpoint,
-    type AggregationSourceStatus,
     isMockSourceName,
     parseProviderEndpoint,
-    probeAggregationSource,
     supportsAggregationSourceSearch,
   } from '../composables/useAggregationSources.js'
 
@@ -107,8 +108,7 @@
       endpoints: Record<string, AggregationSourceEndpoint>
       /** 嵌套在图表设置内时抬高层级 */
     }>(),
-    {
-    },
+    {},
   )
 
   const emit = defineEmits<{
@@ -118,13 +118,19 @@
     updateEndpoint: [name: string, patch: Partial<AggregationSourceEndpoint>]
   }>()
 
-  const sourceStatuses = ref<Record<string, AggregationSourceStatus>>({})
-  /** 各源最近一次在线拨测的延迟毫秒 */
-  const sourceLatencies = ref<Record<string, number>>({})
+  const {
+    health,
+    refresh: refreshSourceHealth,
+    cancel: cancelSourceHealth,
+  } = useAggregationSourceHealth()
+
   /** 每个源的地址区块展开状态；默认全部收起 */
   const expandedEndpoints = ref<Record<string, boolean>>({})
-  let probeController: AbortController | undefined
-  let probeRequestId = 0
+
+  /** 取源的最近拨测结果；尚未检测过的源按检测中展示。 */
+  function sourceHealth(source: AggregationSourceDefinition): AggregationSourceHealth {
+    return health.value[source.name] ?? { status: 'checking' }
+  }
 
   /** mock 源沉底，网络源排在前面 */
   const orderedSources = computed(() => {
@@ -152,12 +158,14 @@
   }
 
   function statusText(source: AggregationSourceDefinition): string {
-    const status = sourceStatuses.value[source.name] ?? 'checking'
-    if (status === 'online') {
-      const ms = sourceLatencies.value[source.name]
-      return ms !== undefined ? `在线 · ${ms}ms` : '在线'
+    const entry = sourceHealth(source)
+    if (entry.status === 'online') {
+      const base = entry.latencyMs !== undefined ? `在线 · ${entry.latencyMs}ms` : '在线'
+      return entry.message ? `${base} · ${entry.message}` : base
     }
-    if (status === 'offline') return '离线'
+    if (entry.status === 'offline') {
+      return entry.message ? `离线 · ${entry.message.slice(0, 40)}` : '离线'
+    }
     return '检测中'
   }
 
@@ -184,44 +192,13 @@
     emit('updateEndpoint', name, { port: (event.target as HTMLInputElement).value })
   }
 
-  /** 弹窗打开时对可搜索源并发拨测；关闭时取消 */
-  async function probeSources() {
-    probeController?.abort()
-    const controller = new AbortController()
-    probeController = controller
-    const requestId = ++probeRequestId
-    const searchableSources = props.sources.filter(supportsSearch)
-    sourceStatuses.value = Object.fromEntries(
-      searchableSources.map((source) => [source.name, 'checking' as const]),
-    )
-    sourceLatencies.value = {}
-    const timeout = setTimeout(() => controller.abort(), 5000)
-
-    await Promise.all(
-      searchableSources.map(async (source) => {
-        const result = await probeAggregationSource(source, controller.signal)
-        if (requestId !== probeRequestId) return
-        sourceStatuses.value = { ...sourceStatuses.value, [source.name]: result.status }
-        if (result.latencyMs !== undefined) {
-          sourceLatencies.value = { ...sourceLatencies.value, [source.name]: result.latencyMs }
-        }
-      }),
-    )
-    clearTimeout(timeout)
-    if (requestId === probeRequestId) probeController = undefined
-  }
-
   watch(
     () => props.show,
     (show) => {
       if (show) {
-        // 每次打开重置为默认收起，与图表设置一致
+        // 每次打开重置为默认收起，与图表设置一致，并强制刷新全部可搜索源状态
         expandedEndpoints.value = {}
-        void probeSources()
-      } else {
-        probeRequestId++
-        probeController?.abort()
-        probeController = undefined
+        void refreshSourceHealth(props.sources, { force: true })
       }
     },
     { immediate: true },
@@ -236,16 +213,15 @@
       if (endpointProbeTimer !== undefined) clearTimeout(endpointProbeTimer)
       endpointProbeTimer = setTimeout(() => {
         endpointProbeTimer = undefined
-        void probeSources()
+        void refreshSourceHealth(props.sources, { force: true })
       }, 400)
     },
     { deep: true },
   )
 
   onBeforeUnmount(() => {
-    probeRequestId++
-    probeController?.abort()
     if (endpointProbeTimer !== undefined) clearTimeout(endpointProbeTimer)
+    cancelSourceHealth()
   })
 </script>
 

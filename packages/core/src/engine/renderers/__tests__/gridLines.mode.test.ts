@@ -6,6 +6,7 @@ import {
 
 import type { ChartDataView } from '../../../foundation/types/chartView'
 import { ChartDataViewId } from '../../../foundation/types/chartView'
+import { createDisplayTimeFormatter } from '../../../foundation/utils/dateFormat'
 import { createGridLinesRendererPlugin } from '../gridLines'
 
 /** 构造记录 fillRect 矩形的画布。 */
@@ -58,6 +59,7 @@ function buildContext(dataView: ChartDataView) {
     dataView,
     isAsiaMarket: true,
     colorPresetSettings: {},
+    displayTimeFormatter: createDisplayTimeFormatter('UTC'),
   })
   return { ctx, fillRects, context }
 }

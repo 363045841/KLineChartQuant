@@ -43,6 +43,7 @@ flowchart TB
         Go["GoTDX-Connecter<br/>gotdx :8080"]
         Bn["GoTDX-Connecter<br/>币安深度 :8081"]
         Bs["Baostock-Tradingview-Connecter<br/>BaoStock / TradingView :8000"]
+        Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
     end
 
     UI --> VuePkg
@@ -65,6 +66,7 @@ flowchart TB
     Go -->|行情数据| Data
     Bn -->|行情数据| Data
     Bs -->|行情数据| Data
+    Mt -->|"行情数据 + SSE"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -227,10 +229,13 @@ flowchart TB
 | GoTDX-Connecter | 同级 `GoTDX-Connecter/` | `8080` | gotdx 通达信：A 股 / 期货 / MAC K 线 |
 | GoTDX-Connecter | 同级 `GoTDX-Connecter/` | `8081` | 币安 L2 订单簿 + SSE 深度 |
 | Baostock-Tradingview-Connecter | 同级 `Baostock-Tradingview-Connecter/` | `8000` | BaoStock A 股 + TradingView 全球品种 |
+| KCQ-MT5-connector | 同级 `KCQ-MT5-connector/` | `8090` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD + SSE 实时 K 线（Windows） |
 
 前端对接代码：`packages/core/src/data/provider/sources/gotdx.ts`、
+`packages/core/src/data/provider/sources/mt5.ts`、`packages/core/src/data/live/mt5BarsLive.ts`、
 `packages/core/src/data/depth/binance.ts`。Vite 开发代理 `/api/public` → `:8080`、
-`/api/stock` → `:8000`。`pnpm setup` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动。
+`/api/stock` → `:8000`。`pnpm setup` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
+（`mt5` 依赖 Windows + 本机 MT5 终端，不纳入 `all`，需显式 `pnpm connecter mt5` / `pnpm dev -c mt5`）。
 
 ## 6. 关键文件索引
 

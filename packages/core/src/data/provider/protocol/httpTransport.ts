@@ -164,6 +164,7 @@ export function createHttpMarketDataTransport(
         instrument: req.instrument,
         period: req.period,
         adjustment: req.adjustment,
+        barAggregation: req.barAggregation,
         limit: req.limit,
         ...(req.beforeTimestamp === undefined ? {} : { beforeTimestamp: req.beforeTimestamp }),
       })

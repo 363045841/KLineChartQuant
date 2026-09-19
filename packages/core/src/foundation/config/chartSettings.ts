@@ -85,6 +85,17 @@ export function resolveSettingDefault(value: SettingItem['default']): boolean | 
 
 /** 默认设置配置 */
 export const DEFAULT_SETTINGS = [
+  {
+    key: 'displayTimeZone',
+    label: '显示时区',
+    type: 'select',
+    default: 'UTC',
+    group: 'main',
+    options: [
+      { value: 'UTC', label: 'UTC' },
+      { value: 'local', label: '本地' },
+    ],
+  },
   { key: 'showGridLines', label: '显示网格', type: 'boolean', default: true, group: 'main' },
   {
     key: 'showVolumePriceMarkers',

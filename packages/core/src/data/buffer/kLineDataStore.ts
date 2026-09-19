@@ -14,6 +14,19 @@ export interface MergeResult {
   readonly advancedEarliest: boolean
 }
 
+/** updateBars 的写入结果：区分追加、替换与陈旧拒绝。 */
+export interface UpdateBarsResult {
+  readonly appendedCount: number
+  readonly replacedCount: number
+  readonly rejected: ReadonlyArray<KLineData>
+}
+
+/**
+ * 实时帧可修订的末尾窗口大小（根）。
+ * forming bar 更新与收线后短暂延迟的终值修订都落在末 1-2 根；更早的帧视为陈旧数据拒绝。
+ */
+const REALTIME_REVISABLE_TAIL_BARS = 2
+
 /** 按时间戳去重并合并两批 K 线数据。 */
 function mergeSortedData(existing: KLineData[], incoming: KLineData[]): KLineData[] {
   if (existing.length === 0) return [...incoming]
@@ -91,6 +104,70 @@ export class KLineDataStore {
       data.length > 0
         ? { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
         : null
+  }
+
+  /**
+   * 实时帧写入：replace-on-conflict 的末尾窗口合并。
+   *
+   * 与 merge() 的保旧弃新不同，同时间戳的末尾 bar 会被新值替换（forming bar 更新）；
+   * 晚于末根的时间戳追加；早于可修订窗口（末 REALTIME_REVISABLE_TAIL_BARS 根）的陈旧帧拒绝。
+   * 一次调用只发布一个数据快照（closed+forming 批合并为原子写）。
+   */
+  updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
+    if (bars.length === 0) return { appendedCount: 0, replacedCount: 0, rejected: [] }
+
+    // 空存储：整批作为初始序列（批内重复时间戳按后写生效）
+    if (this._data.length === 0) {
+      const byTs = new Map<number, KLineData>()
+      for (const bar of bars) byTs.set(bar.timestamp, bar)
+      const seeded = [...byTs.values()].sort((a, b) => a.timestamp - b.timestamp)
+      return this._commitRealtimeWrite(seeded, seeded.length, 0, [])
+    }
+
+    const tailCount = Math.min(REALTIME_REVISABLE_TAIL_BARS, this._data.length)
+    const windowStartTs = this._data[this._data.length - tailCount]!.timestamp
+
+    const accepted: KLineData[] = []
+    const rejected: KLineData[] = []
+    for (const bar of bars) {
+      if (bar.timestamp >= windowStartTs) accepted.push(bar)
+      else rejected.push(bar)
+    }
+    if (accepted.length === 0) {
+      return { appendedCount: 0, replacedCount: 0, rejected }
+    }
+
+    // 可修订尾段与帧合并：同时间戳帧覆盖旧值，新时间戳插入
+    const existingTs = new Set(this._data.map((item) => item.timestamp))
+    const mergedTail = new Map<number, KLineData>()
+    for (const bar of this._data.slice(this._data.length - tailCount)) {
+      mergedTail.set(bar.timestamp, bar)
+    }
+    let appendedCount = 0
+    let replacedCount = 0
+    for (const bar of accepted) {
+      if (!mergedTail.has(bar.timestamp) && !existingTs.has(bar.timestamp)) appendedCount += 1
+      else replacedCount += 1
+      mergedTail.set(bar.timestamp, bar)
+    }
+    const head = this._data.slice(0, this._data.length - tailCount)
+    const next = [...head, ...[...mergedTail.values()].sort((a, b) => a.timestamp - b.timestamp)]
+    this._commitRealtimeWrite(next, appendedCount, replacedCount, rejected)
+    return { appendedCount, replacedCount, rejected }
+  }
+
+  /** 提交实时写入结果：重建索引、扩窗并发布单次数据快照。 */
+  private _commitRealtimeWrite(
+    next: KLineData[],
+    appendedCount: number,
+    replacedCount: number,
+    rejected: ReadonlyArray<KLineData>,
+  ): UpdateBarsResult {
+    this._data = next
+    this.timestampIndex.rebuild(this._data)
+    this._updateWindow()
+    this._dataSignal.set({ data: [...next], prependedCount: 0 })
+    return { appendedCount, replacedCount, rejected }
   }
 
   /** 清空缓存、加载窗口和数据变更快照。 */

@@ -304,7 +304,14 @@ export class LocalProvider implements RuntimeProvider {
     })
     signal.removeEventListener('abort', onAbort)
 
-    const artifacts = await this.#collectArtifacts(run.outputDir)
+    // Provider 只有在工作目录已清理后才能暴露终态；否则 poll 可能让上层先返回结果，
+    // 导致调用方观察到本应 ephemeral 的目录短暂泄漏。
+    let artifacts: Artifact[] = []
+    try {
+      artifacts = await this.#collectArtifacts(run.outputDir)
+    } finally {
+      await rm(run.workDir, { recursive: true, force: true })
+    }
     run.exited = {
       exitCode,
       stdout: run.stdout,
@@ -312,7 +319,6 @@ export class LocalProvider implements RuntimeProvider {
       artifacts,
       durationMs: Date.now() - run.startedAt,
     }
-    await rm(run.workDir, { recursive: true, force: true })
   }
 
   /** 只捕获 $OUTPUT_DIR 的顶层文件：子目录与临时文件不进产物（design.md §6.2）。 */

@@ -180,6 +180,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
             },
             period: query.period,
             adjustment: query.adjustment,
+            barAggregation: query.barAggregation,
             limit: query.limit,
             ...(query.beforeTimestamp === undefined
               ? {}
@@ -191,6 +192,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
           instrumentId: query.instrument.id,
           period: query.period,
           adjustment: query.adjustment,
+          barAggregation: result.barAggregation,
           timezone: result.timezone || timeZone,
           volumeUnit: result.volumeUnit ?? resolveVolumeUnit(query.instrument),
           data: result.items.map((item) => mapBar(item, query.instrument.symbol)),

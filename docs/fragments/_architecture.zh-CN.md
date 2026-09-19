@@ -31,6 +31,7 @@ flowchart TB
         Go["GoTDX-Connecter<br/>gotdx :8080"]
         Bn["GoTDX-Connecter<br/>币安深度 :8081"]
         Bs["Baostock-Tradingview-Connecter<br/>BaoStock / TradingView :8000"]
+        Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
     end
 
     UI --> VuePkg
@@ -53,6 +54,7 @@ flowchart TB
     Go -->|行情数据| Data
     Bn -->|行情数据| Data
     Bs -->|行情数据| Data
+    Mt -->|"行情数据 + SSE"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -63,7 +65,7 @@ flowchart TB
 - **渲染** — 图元一次提交，WebGPU / WebGL2 / Canvas2D 三后端渲染，自动降级
   （WebGPU → WebGL → Canvas2D）。
 - **数据层** — 统一 `SeriesRepository` + 增量缓冲 + 拉取调度；多数据源聚合
-  （gotdx / BaoStock / TradingView / mock）与币安深度。
+  （gotdx / BaoStock / TradingView / MT5 / mock）与币安深度。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 经 Web Component 接入** — `@363045841yyt/klinechart-react` 的 `KLineChartWC` 渲染由

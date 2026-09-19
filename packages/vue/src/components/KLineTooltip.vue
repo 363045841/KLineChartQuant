@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import type { ComponentPublicInstance } from 'vue'
   import { computed } from 'vue'
 
@@ -100,7 +100,7 @@
 
   const formattedDate = computed(() => {
     if (!props.hoverData) return ''
-    return formatTimestamp(props.hoverData.timestamp, {
+    return formatTimeInTimeZone(props.hoverData.timestamp, {
       timeZone: props.timezone,
       showTime: props.showTime,
     })
