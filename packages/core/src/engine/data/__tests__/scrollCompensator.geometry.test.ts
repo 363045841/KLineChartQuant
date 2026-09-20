@@ -4,54 +4,9 @@ import {
   computeLeftLoadBufferWidth,
   computeMaxScrollLeft,
 } from '../../state/contentGeometry'
-import type { ViewportStateModule } from '../../state/viewportState'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import { ScrollCompensator, type ScrollDeps } from '../scrollCompensator'
-
-function makeViewportModule(options: {
-  scrollLeft?: number
-  leftBuffer?: number
-  contentWidth?: number
-  viewWidth?: number
-  dpr?: number
-}): { viewport: ViewportStateModule; getScrollLeft: () => number } {
-  let scrollLeft = options.scrollLeft ?? 0
-  const viewWidth = options.viewWidth ?? 800
-  const dpr = options.dpr ?? 1
-  const leftBuffer = options.leftBuffer ?? 800
-  const contentWidth = options.contentWidth ?? 1600
-
-  const viewport = {
-    readonly: {
-      dpr: { peek: () => dpr },
-      scrollLeft: { peek: () => scrollLeft },
-      leftLoadBufferWidth: { peek: () => leftBuffer },
-      contentWidth: { peek: () => contentWidth },
-      viewWidth: { peek: () => viewWidth },
-      viewHeight: { peek: () => 600 },
-      viewport: {
-        peek: () => ({
-          viewWidth,
-          viewHeight: 600,
-          plotWidth: viewWidth,
-          plotHeight: 600,
-          scrollLeft,
-          dpr,
-        }),
-      },
-    },
-    actions: {
-      scrollTo: (v: number) => {
-        scrollLeft = v
-      },
-    },
-  } as unknown as ViewportStateModule
-
-  return {
-    viewport,
-    getScrollLeft: () => scrollLeft,
-  }
-}
+import { createMockViewport } from './helpers/chartDataManagerTestKit'
 
 function makeDeps(
   options: {
@@ -91,9 +46,9 @@ function makeDeps(
       kGap,
     })
 
-  const { viewport, getScrollLeft } = makeViewportModule({
+  const { viewport, getScrollLeft } = createMockViewport({
     scrollLeft: options.scrollLeft ?? 0,
-    leftBuffer,
+    leftLoadBufferWidth: leftBuffer,
     contentWidth,
     viewWidth,
     dpr,
@@ -156,9 +111,9 @@ describe('ScrollCompensator geometry SSOT', () => {
     const injectedLeft = 111
     const injectedContent = 500
     const viewWidth = 400
-    const { viewport, getScrollLeft } = makeViewportModule({
+    const { viewport, getScrollLeft } = createMockViewport({
       scrollLeft: 0,
-      leftBuffer: injectedLeft,
+      leftLoadBufferWidth: injectedLeft,
       contentWidth: injectedContent,
       viewWidth,
       dpr: 1,
@@ -179,9 +134,9 @@ describe('ScrollCompensator geometry SSOT', () => {
 
   it('adjustScrollAfterDataChange uses injected left buffer when scrollLeft <= 0', () => {
     const injectedLeft = 640
-    const { viewport, getScrollLeft } = makeViewportModule({
+    const { viewport, getScrollLeft } = createMockViewport({
       scrollLeft: 0,
-      leftBuffer: injectedLeft,
+      leftLoadBufferWidth: injectedLeft,
       contentWidth: 2000,
       viewWidth: 800,
       dpr: 1,

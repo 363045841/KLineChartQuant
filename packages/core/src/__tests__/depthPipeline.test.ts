@@ -2,41 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createHeatmapController } from '../components/orderBookHeatmap/createHeatmapController'
 import type { HeatmapController } from '../components/orderBookHeatmap/types'
+import {
+  createEventSourceFactory,
+  createFakeEventSource,
+  type FakeEventSource,
+  makeDeltaEvent,
+  makeSnapshotEvent,
+} from '../data/__tests__/helpers/depthTestKit'
 import { BinanceSSESource } from '../data/depth/binance'
 import { DepthConnector } from '../data/depth/depthConnector'
-
-// ---------------------------------------------------------------------------
-// Fake EventSource — same shape as binance.test.ts
-// ---------------------------------------------------------------------------
-interface FakeES {
-  onopen: (() => void) | null
-  onerror: ((e: unknown) => void) | null
-  onmessage: ((event: { data: string }) => void) | null
-  close: ReturnType<typeof vi.fn>
-}
-
-function createFakeES(): FakeES {
-  return {
-    onopen: null,
-    onerror: null,
-    onmessage: null,
-    close: vi.fn(),
-  }
-}
-
-function snapshotMsg(
-  bids: ReadonlyArray<readonly [number, number]>,
-  asks: ReadonlyArray<readonly [number, number]>,
-  timestamp: number,
-) {
-  return { data: JSON.stringify({ type: 'snapshot', bids, asks, timestamp }) }
-}
-
-function deltaMsg(
-  entries: { side: 'bid' | 'ask'; price: number; size: number; timestamp: number }[],
-) {
-  return { data: JSON.stringify({ type: 'delta', entries }) }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,12 +29,12 @@ function makeController(snapshotIntervalMs = 100, tickSize = 0.01): HeatmapContr
 // Integration tests
 // ---------------------------------------------------------------------------
 describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapController', () => {
-  let es: FakeES
+  let es: FakeEventSource
   let esFactory: (url: string) => EventSource
 
   beforeEach(() => {
-    es = createFakeES()
-    esFactory = vi.fn<(url: string) => EventSource>(() => es as unknown as EventSource)
+    es = createFakeEventSource()
+    esFactory = createEventSourceFactory(es)
   })
 
   /**
@@ -89,7 +63,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
 
     // --- Step 1: snapshot resets the book ---
     es.onmessage!(
-      snapshotMsg(
+      makeSnapshotEvent(
         [
           [100, 10],
           [99, 5],
@@ -117,7 +91,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     expect(st.deltaCount).toBe(0)
 
     // --- Step 2: first delta anchors the clock (no snapshot emitted) ---
-    es.onmessage!(deltaMsg([{ side: 'bid', price: 100, size: 15, timestamp: 1000 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'bid', price: 100, size: 15, timestamp: 1000 }]))
     st = ctrl.state.peek()
     // latestSnapshot hasn't changed (first delta doesn't emit one)
     expect(st.latestSnapshot!.bids).toEqual([
@@ -134,7 +108,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     ])
 
     // --- Step 3: second delta crosses snapshotIntervalMs (100ms) → one snapshot ---
-    es.onmessage!(deltaMsg([{ side: 'ask', price: 101, size: 0, timestamp: 1100 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'ask', price: 101, size: 0, timestamp: 1100 }]))
     st = ctrl.state.peek()
     // Interval crossed → snapshot was emitted at 1100
     expect(st.snapshotCount).toBe(2) // previous forceSnapshot + 1
@@ -146,7 +120,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     ])
 
     // --- Step 4: more deltas produce more snapshots ---
-    es.onmessage!(deltaMsg([{ side: 'bid', price: 99, size: 0, timestamp: 1250 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'bid', price: 99, size: 0, timestamp: 1250 }]))
     st = ctrl.state.peek()
     // Crossed 1200 → snapshot (captures pre-delta state: bid 99 still present)
     expect(st.snapshotCount).toBe(3)
@@ -161,14 +135,14 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     const { connector, ctrl, es } = wired()
 
     // Initial snapshot + deltas
-    es.onmessage!(snapshotMsg([[100, 10]], [[101, 8]], 1000))
-    es.onmessage!(deltaMsg([{ side: 'bid', price: 100, size: 20, timestamp: 1100 }]))
+    es.onmessage!(makeSnapshotEvent([[100, 10]], [[101, 8]], 1000))
+    es.onmessage!(makeDeltaEvent([{ side: 'bid', price: 100, size: 20, timestamp: 1100 }]))
     ctrl.forceSnapshot() // capture state after first delta
     expect(ctrl.state.peek().snapshotCount).toBe(1)
     expect(ctrl.state.peek().deltaCount).toBe(1)
 
     // --- Reconnect: second snapshot ---
-    es.onmessage!(snapshotMsg([[200, 50]], [[201, 40]], 2000))
+    es.onmessage!(makeSnapshotEvent([[200, 50]], [[201, 40]], 2000))
     let st = ctrl.state.peek()
     // Book replaced and published
     expect(st.latestSnapshot!.bids).toEqual([[200, 50]])
@@ -178,7 +152,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     expect(st.deltaCount).toBe(0)
 
     // Deltas after reconnect work normally
-    es.onmessage!(deltaMsg([{ side: 'bid', price: 200, size: 60, timestamp: 2100 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'bid', price: 200, size: 60, timestamp: 2100 }]))
     st = ctrl.state.peek()
     // First delta anchors clock → no snapshot
     expect(st.snapshotCount).toBe(0)
@@ -188,7 +162,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     expect(ctrl.state.peek().latestSnapshot!.bids).toEqual([[200, 60]])
 
     // Second delta crosses 100ms → snapshot
-    es.onmessage!(deltaMsg([{ side: 'ask', price: 201, size: 35, timestamp: 2200 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'ask', price: 201, size: 35, timestamp: 2200 }]))
     st = ctrl.state.peek()
     expect(st.snapshotCount).toBe(2) // forceSnapshot + 1
     expect(st.deltaCount).toBe(2)
@@ -212,12 +186,12 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     es.onopen!()
 
     // Snapshot — resetBook publishes book snapshot
-    es.onmessage!(snapshotMsg([[100, 5]], [[101, 3]], 500))
+    es.onmessage!(makeSnapshotEvent([[100, 5]], [[101, 3]], 500))
     expect(ctrlA.state.peek().latestSnapshot!.bids).toEqual([[100, 5]])
     expect(ctrlB.state.peek().latestSnapshot!.bids).toEqual([[100, 5]])
 
     // Delta — first delta anchors, no new snapshot emitted
-    es.onmessage!(deltaMsg([{ side: 'bid', price: 100, size: 10, timestamp: 600 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'bid', price: 100, size: 10, timestamp: 600 }]))
     expect(ctrlA.state.peek().deltaCount).toBe(1)
     expect(ctrlB.state.peek().deltaCount).toBe(1)
     // forceSnapshot to peek book state
@@ -228,7 +202,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
 
     // Remove ctrlA — only ctrlB gets subsequent deltas
     connector.removeController(ctrlA)
-    es.onmessage!(deltaMsg([{ side: 'ask', price: 101, size: 5, timestamp: 700 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'ask', price: 101, size: 5, timestamp: 700 }]))
     // Delta at 700 triggers a snapshot at 700 (pre-delta state: ask 101 still 3)
     expect(ctrlB.state.peek().latestSnapshot!.asks).toEqual([[101, 3]])
     // The book did apply the delta though — verify via forceSnapshot
@@ -253,7 +227,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     es.onopen!()
 
     // 100.07 with tick 0.05 → index 2001 → dequantized 100.05
-    es.onmessage!(snapshotMsg([[100.07, 3]], [[101.03, 2]], 100))
+    es.onmessage!(makeSnapshotEvent([[100.07, 3]], [[101.03, 2]], 100))
     const st = ctrl.state.peek()
     expect(st.latestSnapshot!.bids).toEqual([[100.05, 3]])
     expect(st.latestSnapshot!.asks).toEqual([[101.05, 2]])
@@ -266,13 +240,13 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
   it('destroy stops data from reaching the controller', () => {
     const { connector, ctrl, es } = wired()
 
-    es.onmessage!(snapshotMsg([[100, 1]], [[101, 1]], 100))
+    es.onmessage!(makeSnapshotEvent([[100, 1]], [[101, 1]], 100))
     expect(ctrl.state.peek().latestSnapshot).not.toBeNull()
 
     connector.destroy()
 
     // After destroy, delta does nothing
-    es.onmessage!(deltaMsg([{ side: 'bid', price: 100, size: 99, timestamp: 200 }]))
+    es.onmessage!(makeDeltaEvent([{ side: 'bid', price: 100, size: 99, timestamp: 200 }]))
     expect(ctrl.state.peek().latestSnapshot!.bids).toEqual([[100, 1]])
   })
 
@@ -289,7 +263,7 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     expect(consoleSpy).toHaveBeenCalled()
 
     // Subsequent valid message still works
-    es.onmessage!(snapshotMsg([[100, 1]], [[101, 1]], 100))
+    es.onmessage!(makeSnapshotEvent([[100, 1]], [[101, 1]], 100))
     expect(ctrl.state.peek().latestSnapshot).not.toBeNull()
 
     consoleSpy.mockRestore()
@@ -302,11 +276,11 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     const { connector, ctrl, es } = wired()
 
     // Populate book
-    es.onmessage!(snapshotMsg([[100, 10]], [[101, 8]], 500))
+    es.onmessage!(makeSnapshotEvent([[100, 10]], [[101, 8]], 500))
     expect(ctrl.state.peek().latestSnapshot!.bids).toHaveLength(1)
 
     // Empty snapshot
-    es.onmessage!(snapshotMsg([], [], 600))
+    es.onmessage!(makeSnapshotEvent([], [], 600))
     const st = ctrl.state.peek()
     expect(st.latestSnapshot!.bids).toEqual([])
     expect(st.latestSnapshot!.asks).toEqual([])

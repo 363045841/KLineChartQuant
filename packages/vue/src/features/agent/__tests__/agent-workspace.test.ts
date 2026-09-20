@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AgentWorkspace from '../components/AgentWorkspace.vue'
 import { FakeAgentBridge } from '../testing/fake-agent-bridge'
+import { stubProviderModelCatalog } from './_agentProviderFixtures'
 
 /**
  * happy-dom 未实现 Popover API 的开关与分层。
@@ -28,21 +29,7 @@ describe('AgentWorkspace', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-24T00:00:00Z'))
     installPopoverApi()
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              data: [
-                { id: 'provider-model-a', name: 'Provider Model A' },
-                { id: 'provider-model-b', name: 'Provider Model B' },
-              ],
-            }),
-            { headers: { 'content-type': 'application/json' } },
-          ),
-      ),
-    )
+    stubProviderModelCatalog()
   })
 
   afterEach(() => {
@@ -105,7 +92,9 @@ describe('AgentWorkspace', () => {
 
     document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
     await flushPromises()
-    expect(document.querySelector('.base-modal')?.classList.contains('base-modal--closing')).toBe(true)
+    expect(document.querySelector('.base-modal')?.classList.contains('base-modal--closing')).toBe(
+      true,
+    )
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
     const modelTrigger = mounted.wrapper.get('.composer__model .dropdown__trigger')

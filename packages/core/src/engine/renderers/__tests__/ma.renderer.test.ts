@@ -18,11 +18,6 @@ interface TestableMARenderer extends RendererPluginWithHost {
   setConfig: (config: Record<string, unknown>) => void
 }
 
-/** 构造携带 MA 指标元数据与帧状态的 PluginHost。 */
-function createMockPluginHost(state?: MARenderState) {
-  return createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
-}
-
 /**
  * 创建测试用的 MARenderState
  */
@@ -69,13 +64,13 @@ describe('createMARendererPlugin', () => {
 
   it('should declare MA_STATE_KEY namespace', () => {
     const plugin = createMARendererPlugin() as TestableMARenderer
-    plugin.onInstall(createMockPluginHost())
+    plugin.onInstall(createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY }))
     expect(plugin.getDeclaredNamespaces()).toEqual([MA_STATE_KEY])
   })
 
   it('should accept PluginHost via onInstall', () => {
     const plugin = createMARendererPlugin() as TestableMARenderer
-    const mockHost = createMockPluginHost()
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY })
 
     expect(() => plugin.onInstall(mockHost)).not.toThrow()
   })
@@ -90,7 +85,7 @@ describe('MA renderer draw', () => {
   })
 
   it('should not draw when StateStore has no MA state', () => {
-    const mockHost = createMockPluginHost(undefined)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -111,7 +106,7 @@ describe('MA renderer draw', () => {
       visibleMax: -Infinity,
       enabledPeriods: [],
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -129,7 +124,7 @@ describe('MA renderer draw', () => {
     const state = createTestMARenderState({
       enabledPeriods: [],
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -145,7 +140,7 @@ describe('MA renderer draw', () => {
 
   it('should save and restore context', () => {
     const state = createTestMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -162,7 +157,7 @@ describe('MA renderer draw', () => {
 
   it('should translate context by -scrollLeft', () => {
     const state = createTestMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -178,7 +173,7 @@ describe('MA renderer draw', () => {
 
   it('should set correct stroke style and line properties', () => {
     const state = createTestMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -204,7 +199,7 @@ describe('MA renderer draw', () => {
       visibleMin: 10,
       visibleMax: 19,
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -229,7 +224,7 @@ describe('MA renderer draw', () => {
       },
       enabledPeriods: [5],
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -258,7 +253,7 @@ describe('MA renderer draw', () => {
       },
       enabledPeriods: [5, 10, 20, 30, 60],
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -280,7 +275,7 @@ describe('MA renderer getConfig/setConfig', () => {
     const state = createTestMARenderState({
       enabledPeriods: [5, 20, 60],
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -296,7 +291,7 @@ describe('MA renderer getConfig/setConfig', () => {
   })
 
   it('getConfig should return empty object when no state', () => {
-    const mockHost = createMockPluginHost(undefined)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -309,7 +304,7 @@ describe('MA renderer getConfig/setConfig', () => {
     const state = createTestMARenderState({
       enabledPeriods: [5],
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
@@ -336,7 +331,7 @@ describe('MA renderer stateless design verification', () => {
   it('should read fresh state on each draw call', () => {
     const state = createTestMARenderState()
     const reader = createMockStateReader(MA_STATE_KEY, state)
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'ma', stateKey: MA_STATE_KEY, state })
 
     const plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)

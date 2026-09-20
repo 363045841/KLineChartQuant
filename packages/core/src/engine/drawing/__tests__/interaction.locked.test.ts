@@ -2,25 +2,29 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { DrawingInteractionController } from '../interaction'
-import { CONTAINER, createDrawingObject, createSelectionAdapter } from './helpers/drawingTestKit'
+import {
+  CONTAINER,
+  createDrawingObject,
+  createSelectionAdapter,
+  pointerDown,
+  pointerMove,
+  stubDrawingControllerInternals,
+} from './helpers/drawingTestKit'
 
 describe('DrawingInteractionController locked drawings', () => {
   it('locked 图元可被点选，但不开始拖拽', () => {
     const locked = createDrawingObject({ id: 'locked', locked: true })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([locked])
     const controller = new DrawingInteractionController(adapter)
-    const hitTest = vi.fn(() => ({ drawing: locked, target: { type: 'all' } }))
-    const startDrag = vi.fn()
-    ;(controller as unknown as { hitTester: unknown; dragHandler: unknown }).hitTester = { hitTest }
-    ;(controller as unknown as { dragHandler: unknown }).dragHandler = { startDrag }
+    const internal = stubDrawingControllerInternals(controller, {
+      hit: { drawing: locked, target: { type: 'all' } },
+    })
 
-    expect(controller.onPointerDown({ clientX: 10, clientY: 10 } as PointerEvent, CONTAINER)).toBe(
-      true,
-    )
+    expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
     // 锁定图元进入命中候选，选中后不开拖；未选中时手柄不参与命中，因此选中集合为空。
-    expect(hitTest).toHaveBeenCalledWith(10, 10, [locked], adapter, new Set())
+    expect(internal.hitTester.hitTest).toHaveBeenCalledWith(10, 10, [locked], adapter, new Set())
     expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['locked'])
-    expect(startDrag).not.toHaveBeenCalled()
+    expect(internal.dragHandler.startDrag).not.toHaveBeenCalled()
   })
 
   it('locked 图元可被框选选中', () => {
@@ -30,23 +34,16 @@ describe('DrawingInteractionController locked drawings', () => {
       tool: 'box-select',
     })
     const controller = new DrawingInteractionController(adapter)
-    const getDrawingLineSegments = vi.fn(() => [{ a: { x: 12, y: 12 }, b: { x: 28, y: 28 } }])
-    ;(controller as unknown as { hitTester: unknown }).hitTester = {
-      hitTest: vi.fn(() => null),
-      getDrawingLineSegments,
-    }
+    const internal = stubDrawingControllerInternals(controller, { hit: null })
+    internal.hitTester.getDrawingLineSegments = vi.fn(() => [
+      { a: { x: 12, y: 12 }, b: { x: 28, y: 28 } },
+    ])
 
-    expect(controller.onPointerDown({ clientX: 10, clientY: 10 } as PointerEvent, CONTAINER)).toBe(
-      true,
-    )
-    expect(controller.onPointerMove({ clientX: 30, clientY: 30 } as PointerEvent, CONTAINER)).toBe(
-      true,
-    )
-    expect(controller.onPointerUp({ clientX: 30, clientY: 30 } as PointerEvent, CONTAINER)).toBe(
-      true,
-    )
+    expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
+    expect(controller.onPointerMove(pointerMove(30, 30), CONTAINER)).toBe(true)
+    expect(controller.onPointerUp(pointerMove(30, 30), CONTAINER)).toBe(true)
     // 框选几何对两个图元都求交，锁定图元也进入 toggle。
-    expect(getDrawingLineSegments).toHaveBeenCalledTimes(2)
+    expect(internal.hitTester.getDrawingLineSegments).toHaveBeenCalledTimes(2)
     expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['locked', 'free'])
   })
 
@@ -55,16 +52,12 @@ describe('DrawingInteractionController locked drawings', () => {
     const locked = createDrawingObject({ id: 'locked', locked: true })
     const { adapter } = createSelectionAdapter([free, locked])
     const controller = new DrawingInteractionController(adapter)
-    const startDrag = vi.fn()
-    ;(controller as unknown as { hitTester: unknown; dragHandler: unknown }).hitTester = {
-      hitTest: vi.fn(() => ({ drawing: free, target: { type: 'all' } })),
-    }
-    ;(controller as unknown as { dragHandler: unknown }).dragHandler = { startDrag }
+    const internal = stubDrawingControllerInternals(controller, {
+      hit: { drawing: free, target: { type: 'all' } },
+    })
     adapter.setSelectedDrawingIds(['free', 'locked'])
 
-    expect(controller.onPointerDown({ clientX: 10, clientY: 10 } as PointerEvent, CONTAINER)).toBe(
-      true,
-    )
-    expect(startDrag).toHaveBeenCalledWith([free], { type: 'all' }, 10, 10)
+    expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
+    expect(internal.dragHandler.startDrag).toHaveBeenCalledWith([free], { type: 'all' }, 10, 10)
   })
 })

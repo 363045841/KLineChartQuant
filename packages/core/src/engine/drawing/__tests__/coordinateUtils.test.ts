@@ -9,7 +9,7 @@ import {
   resolveDrawingPointer,
   screenToAnchor,
 } from '../coordinateUtils'
-import { CONTAINER, createDrawingAdapter } from './helpers/drawingTestKit'
+import { CONTAINER, createDrawingAdapter, createPointerEvent } from './helpers/drawingTestKit'
 
 /** 创建覆盖副图与分时坐标路径的最小 adapter。 */
 function createAdapter(overrides: Partial<DrawingViewportPort> = {}) {
@@ -51,7 +51,7 @@ describe('drawing coordinate utilities', () => {
 
   it('resolves the pointer to the hit sub-pane and local Y coordinate', () => {
     const pointer = resolveDrawingPointer(
-      { clientX: 80, clientY: 150 } as PointerEvent,
+      createPointerEvent({ clientX: 80, clientY: 150 }),
       CONTAINER,
       createAdapter(),
     )
@@ -68,7 +68,7 @@ describe('drawing coordinate utilities', () => {
   it('returns null when the pointer leaves the drawing area without a clamp target', () => {
     expect(
       resolveDrawingPointer(
-        { clientX: 80, clientY: 300 } as PointerEvent,
+        createPointerEvent({ clientX: 80, clientY: 300 }),
         CONTAINER,
         createAdapter(),
       ),
@@ -78,7 +78,7 @@ describe('drawing coordinate utilities', () => {
   it('clamps an out-of-bounds pointer to the target pane edge', () => {
     expect(
       resolveDrawingPointer(
-        { clientX: 80, clientY: 300 } as PointerEvent,
+        createPointerEvent({ clientX: 80, clientY: 300 }),
         CONTAINER,
         createAdapter(),
         { clampPaneId: 'sub' },
@@ -89,7 +89,7 @@ describe('drawing coordinate utilities', () => {
   it('clamps the horizontal coordinate to the plot width', () => {
     expect(
       resolveDrawingPointer(
-        { clientX: 500, clientY: 150 } as PointerEvent,
+        createPointerEvent({ clientX: 500, clientY: 150 }),
         CONTAINER,
         createAdapter(),
         { clampPaneId: 'sub' },

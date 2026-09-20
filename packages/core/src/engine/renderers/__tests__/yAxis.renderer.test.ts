@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLeftYAxisStaticRendererPlugin } from '@/core/renderers/leftYAxis'
 import { createYAxisOverlayRendererPlugin, createYAxisRendererPlugin } from '@/core/renderers/yAxis'
-import type { PaneInfo, RenderContext, YAxisTick } from '@/plugin'
-import { createDisplayTimeFormatter } from '@/utils/dateFormat'
+import {
+  createMockCanvasContext,
+  createMockRenderContext,
+  type MockPaneInfoOverrides,
+  type MockRenderContextOverrides,
+} from '@/engine/__tests__/helpers/renderTestKit'
+import type { RenderContext, YAxisTick } from '@/plugin'
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
   drawCrosshairPriceLabel: vi.fn(),
@@ -11,17 +16,9 @@ vi.mock('@/utils/kLineDraw/axis', () => ({
 
 import { drawAxisPriceLabel, drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
 
-function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
+/** yAxis 用例的 Pane 差异：价格区间 80~120、坐标恒等映射与价格偏移。 */
+function createPane(overrides: MockPaneInfoOverrides = {}): MockPaneInfoOverrides {
   return {
-    id: 'main',
-    role: 'price',
-    capabilities: {
-      showPriceAxisTicks: true,
-      showCrosshairPriceLabel: true,
-      candleHitTest: true,
-      supportsPriceTranslate: true,
-    },
-    top: 0,
     height: 200,
     yAxis: {
       priceToY: (price) => price,
@@ -30,16 +27,8 @@ function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
       getPaddingBottom: () => 10,
       getPriceOffset: () => 2,
       getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 120, minPrice: 80 },
-      getScaleType: () => 'linear',
-      getBasePrice: () => null,
-      toPercent: () => 0,
-      fromPercent: () => 0,
-      getDisplayPercentRange: () => ({ minPct: 0, maxPct: 0 }),
     },
-    priceRange: {
-      maxPrice: 120,
-      minPrice: 80,
-    },
+    priceRange: { maxPrice: 120, minPrice: 80 },
     ...overrides,
   }
 }
@@ -52,47 +41,17 @@ const mockYAxisTicks: YAxisTick[] = [
   { y: 190, value: 80 },
 ]
 
-function createCtx() {
-  return {
-    canvas: { width: 80, height: 200 },
-    clearRect: vi.fn(),
-    fillText: vi.fn(),
-    measureText: vi.fn(() => ({ width: 10 })),
-    save: vi.fn(),
-    restore: vi.fn(),
-  } as unknown as CanvasRenderingContext2D
-}
-
-function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
-  const ctx = createCtx()
-
-  return {
+function createContext(overrides: MockRenderContextOverrides = {}): RenderContext {
+  const ctx = createMockCanvasContext()
+  return createMockRenderContext({
     ctx,
     yAxisCtx: ctx,
     pane: createPane(),
     data: [{ timestamp: 0, open: 101, high: 101, low: 101, close: 101 }],
     range: { start: 0, end: 0 },
-    scrollLeft: 0,
-    kWidth: 10,
-    kGap: 2,
-    dpr: 1,
-    paneWidth: 600,
-    kLinePositions: [],
-    kLineCenters: [],
-    kBarRects: [] as { x: number; width: number }[],
-    yAxisLabels: [],
-    xAxisLabels: [],
-    yAxisRanges: [],
-    xAxisRanges: [],
-    period: 'daily',
-    dataView: 'kline',
-    getLogicalIndexAtTimestamp: () => null,
-    viewport: { scrollLeft: 0, plotWidth: 600, plotHeight: 200 },
-    displayTimeFormatter: createDisplayTimeFormatter('UTC'),
-    theme: 'light',
     yAxisTicks: mockYAxisTicks,
     ...overrides,
-  }
+  })
 }
 
 describe('yAxis renderer', () => {
@@ -132,7 +91,7 @@ describe('yAxis renderer', () => {
 
   it('uses the percent scale for timeshare left-axis ticks', () => {
     const plugin = createLeftYAxisStaticRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
-    const leftAxisCtx = createCtx()
+    const leftAxisCtx = createMockCanvasContext()
     const context = createContext({
       period: 'timeshare',
       leftAxisCtx,
@@ -170,7 +129,7 @@ describe('yAxis renderer', () => {
 
   it('uses ctx when yAxisCtx is not provided', () => {
     const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
-    const fallbackCtx = createCtx()
+    const fallbackCtx = createMockCanvasContext()
     const context = createContext({ ctx: fallbackCtx, yAxisCtx: undefined })
 
     plugin.draw(context)
@@ -183,7 +142,7 @@ describe('yAxis renderer', () => {
     const plugin = createYAxisOverlayRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
     const context = createContext({
       pane: createPane({ id: 'main' }),
-      yAxisOverlayCtx: createCtx(),
+      yAxisOverlayCtx: createMockCanvasContext(),
       yAxisLabels: [
         {
           type: 'lastPrice',
@@ -217,7 +176,7 @@ describe('yAxis renderer', () => {
     })
     const context = createContext({
       pane: createPane({ id: 'main' }),
-      yAxisOverlayCtx: createCtx(),
+      yAxisOverlayCtx: createMockCanvasContext(),
     })
 
     plugin.draw(context)
@@ -231,7 +190,7 @@ describe('yAxis renderer', () => {
       yPaddingPx: 0,
       getCrosshair: () => null,
     })
-    const context = createContext({ yAxisOverlayCtx: createCtx() })
+    const context = createContext({ yAxisOverlayCtx: createMockCanvasContext() })
 
     plugin.draw(context)
 

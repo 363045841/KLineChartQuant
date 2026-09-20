@@ -1,45 +1,17 @@
 /** 验证 WebGL SurfaceBackend 的区域绑定、清理、合成和销毁行为。 */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createWebGLSurfaceBackend, type WebGLSurfaceBackend } from '../createWebGLSurfaceBackend'
 import type { SurfaceRegion } from '../index'
-
-function createMockSharedWebGLSurface() {
-  let canvasWidth = 1
-  let canvasHeight = 1
-  let disposed = false
-  const mockCanvas = { width: 0, height: 0 } as HTMLCanvasElement
-
-  return {
-    isAvailable: vi.fn(() => !disposed),
-    getCanvas: vi.fn(() => mockCanvas),
-    resize: vi.fn((w: number, h: number, dpr: number) => {
-      mockCanvas.width = Math.max(1, Math.round(w * dpr))
-      mockCanvas.height = Math.max(1, Math.round(h * dpr))
-      canvasWidth = mockCanvas.width
-      canvasHeight = mockCanvas.height
-    }),
-    bindRegion: vi.fn((region: SurfaceRegion) => {
-      if (disposed) return false
-      return region.width > 0 && region.height > 0
-    }),
-    clearRegion: vi.fn((_region: SurfaceRegion) => {}),
-    compositeRegionTo: vi.fn(
-      (_ctx: CanvasRenderingContext2D, _region: SurfaceRegion, _options?: unknown) => {},
-    ),
-    destroy: vi.fn(() => {
-      disposed = true
-    }),
-  }
-}
+import { createMockSharedWebGLSurface } from './helpers/rendererTestKit'
 
 type MockSurface = ReturnType<typeof createMockSharedWebGLSurface>
 
 describe('WebGL SurfaceBackend adapter', () => {
   function makeBackend(): { backend: WebGLSurfaceBackend; mock: MockSurface } {
     const mock = createMockSharedWebGLSurface()
-    const backend = createWebGLSurfaceBackend(mock as any)
+    const backend = createWebGLSurfaceBackend(mock)
     return { backend, mock }
   }
 

@@ -7,59 +7,14 @@ import type {
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge } from '../browser-agent-bridge'
-import { createTestChartAgent } from './_testChartAgent'
+import { createOpenAiCompatibleFetchStub } from './_agentProviderFixtures'
+import { createTestChartAgent, createTestChartAgentContext } from './_testChartAgent'
 
 /** 清理每个测试写入的浏览器全局状态。 */
 afterEach(() => {
   vi.unstubAllGlobals()
   window.localStorage.clear()
 })
-
-/** 返回 OpenAI-compatible Provider 的最小模型目录响应。 */
-function modelsResponse(): Response {
-  return new Response(JSON.stringify({ data: [{ id: 'chart-model', name: 'Chart model' }] }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** 返回包含目录、文本与函数探针的 Chat Completions 测试端点。 */
-function providerResponse(input: RequestInfo | URL, init?: RequestInit): Response {
-  if (String(input).endsWith('/models')) return modelsResponse()
-  const body = JSON.parse(String(init?.body)) as Record<string, unknown>
-  if (!Array.isArray(body.tools)) {
-    return new Response(
-      JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] }),
-      { headers: { 'Content-Type': 'application/json' } },
-    )
-  }
-  const tool = body.tools[0] as {
-    function: { name: string; parameters: { properties: { nonce: { const: string } } } }
-  }
-  return new Response(
-    JSON.stringify({
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            tool_calls: [
-              {
-                type: 'function',
-                function: {
-                  name: tool.function.name,
-                  arguments: JSON.stringify({
-                    nonce: tool.function.parameters.properties.nonce.const,
-                  }),
-                },
-              },
-            ],
-          },
-        },
-      ],
-    }),
-    { headers: { 'Content-Type': 'application/json' } },
-  )
-}
 
 describe('BrowserAgentBridge', () => {
   it('persists the enabled state of registered Agent tools', async () => {
@@ -100,7 +55,7 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('requests the Provider model catalog with the supplied credential', async () => {
-    const fetchMock = vi.fn(async () => modelsResponse())
+    const fetchMock = createOpenAiCompatibleFetchStub()
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
     await bridge.saveProvider({
@@ -168,10 +123,7 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('saves a successfully tested Provider and reports a connected status', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input, init) => providerResponse(input, init)),
-    )
+    vi.stubGlobal('fetch', createOpenAiCompatibleFetchStub())
     const bridge = new BrowserAgentBridge()
 
     await expect(
@@ -201,10 +153,7 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('persists multiple Provider profiles and switches the active runtime configuration', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input, init) => providerResponse(input, init)),
-    )
+    vi.stubGlobal('fetch', createOpenAiCompatibleFetchStub())
     const bridge = new BrowserAgentBridge()
     const first = {
       baseUrl: 'https://provider-one.example/v1',
@@ -510,34 +459,7 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('subscribes after a chart controller becomes available', () => {
-    const listeners = new Set<() => void>()
-    let symbol = 'BTCUSDT'
-    const context = Object.assign(
-      () => ({
-        chartId: 'chart-1',
-        symbol,
-        symbolName: null,
-        market: 'crypto',
-        exchange: 'BINANCE',
-        period: '1h',
-        dataSource: 'fixture',
-        timezone: null,
-        adjustMode: null,
-        dataRange: { from: 1, to: 2, bars: 2 },
-        visibleRange: { from: 1, to: 2 },
-        activeIndicators: [],
-        selectedKLineBars: null,
-        drawingSelection: null,
-        dataRevision: 1,
-      }),
-      {
-        peek: () => context(),
-        subscribe(listener: () => void) {
-          listeners.add(listener)
-          return () => listeners.delete(listener)
-        },
-      },
-    )
+    const context = createTestChartAgentContext()
     const agent = createTestChartAgent({ context, getContext: context })
     const bridge = new BrowserAgentBridge()
     const received: Array<string | null> = []
@@ -549,37 +471,21 @@ describe('BrowserAgentBridge', () => {
       received.push(symbol?.value.symbol ?? null)
     })
     bridge.bindChartAgent(agent)
-    symbol = 'ETHUSDT'
-    for (const listener of listeners) listener()
+    context.set({ ...context(), symbol: 'ETHUSDT' })
 
     expect(received).toEqual([null, 'BTCUSDT', 'ETHUSDT'])
   })
 
   it('projects selected ranges as dates in the instrument timezone', () => {
-    const context = Object.assign(
-      () => ({
-        chartId: 'chart-1',
-        symbol: 'BTCUSDT',
-        symbolName: null,
-        market: 'crypto',
-        exchange: 'BINANCE',
-        period: '1h',
-        dataSource: 'fixture',
-        timezone: 'America/New_York',
-        adjustMode: null,
-        dataRange: { from: 1, to: 2, bars: 2 },
-        visibleRange: {
-          from: Date.parse('2026-09-02T01:30:00Z'),
-          to: Date.parse('2026-09-02T02:45:00Z'),
-        },
-        selectedKLineBars:
-          'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
-        activeIndicators: [],
-        drawingSelection: null,
-        dataRevision: 1,
-      }),
-      { peek: () => context(), subscribe: () => () => {} },
-    )
+    const context = createTestChartAgentContext({
+      timezone: 'America/New_York',
+      visibleRange: {
+        from: Date.parse('2026-09-02T01:30:00Z'),
+        to: Date.parse('2026-09-02T02:45:00Z'),
+      },
+      selectedKLineBars:
+        'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
+    })
     const bridge = new BrowserAgentBridge()
 
     bridge.bindChartAgent(createTestChartAgent({ context }))
@@ -597,52 +503,37 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('projects selected drawings as one drawing-selection context item', () => {
-    const context = Object.assign(
-      () => ({
-        chartId: 'chart-1',
-        symbol: 'BTCUSDT',
-        symbolName: null,
-        market: 'crypto',
-        exchange: 'BINANCE',
-        period: 'kline',
-        dataSource: 'fixture',
-        timezone: null,
-        adjustMode: null,
-        dataRange: { from: 1, to: 2, bars: 2 },
-        visibleRange: null,
-        activeIndicators: [],
-        selectedKLineBars: null,
-        drawingSelection: {
-          selectedIds: ['line-1', 'line-2'],
-          drawings: [
-            {
-              id: 'line-1',
-              kind: 'trend-line',
-              paneId: 'main',
-              visible: true,
-              locked: false,
-              zIndex: null,
-              anchors: [{ timestamp: 1, price: 10 }],
-              style: { stroke: '#2962ff', fill: undefined },
-              labels: { line: {}, area: {} },
-            },
-            {
-              id: 'line-2',
-              kind: 'horizontal-line',
-              paneId: 'main',
-              visible: true,
-              locked: true,
-              zIndex: 2,
-              anchors: [{ timestamp: null, price: 11 }],
-              style: { stroke: '#f00' },
-              labels: { line: {}, area: {} },
-            },
-          ],
-        },
-        dataRevision: 1,
-      }),
-      { peek: () => context(), subscribe: () => () => {} },
-    )
+    const context = createTestChartAgentContext({
+      period: 'kline',
+      visibleRange: null,
+      drawingSelection: {
+        selectedIds: ['line-1', 'line-2'],
+        drawings: [
+          {
+            id: 'line-1',
+            kind: 'trend-line',
+            paneId: 'main',
+            visible: true,
+            locked: false,
+            zIndex: null,
+            anchors: [{ timestamp: 1, price: 10 }],
+            style: { stroke: '#2962ff', fill: undefined },
+            labels: { line: {}, area: {} },
+          },
+          {
+            id: 'line-2',
+            kind: 'horizontal-line',
+            paneId: 'main',
+            visible: true,
+            locked: true,
+            zIndex: 2,
+            anchors: [{ timestamp: null, price: 11 }],
+            style: { stroke: '#f00' },
+            labels: { line: {}, area: {} },
+          },
+        ],
+      },
+    })
     const agent = createTestChartAgent({ context })
     const bridge = new BrowserAgentBridge()
 

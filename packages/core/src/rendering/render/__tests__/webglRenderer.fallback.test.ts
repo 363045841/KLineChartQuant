@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createWebGLRenderer } from '../backend/createWebGLRenderer'
-import type { SurfaceBackend, SurfaceRegion } from '../index'
+import { createMockSharedWebGLSurface, createMockSurfaceBackend } from './helpers/rendererTestKit'
 
 vi.mock('../../engine/renderers/webgl/candleSurface', () => ({
   CandleWebGLSurface: class {
@@ -25,37 +25,12 @@ vi.mock('../../engine/renderers/webgl/candleSurface', () => ({
   },
 }))
 
-function createMockSurfaceBackend(): SurfaceBackend {
-  let disposed = false
-  return {
-    isAvailable: () => !disposed,
-    resize: vi.fn(),
-    bindRegion: vi.fn((region: SurfaceRegion) => {
-      if (disposed) return false
-      return region.width > 0 && region.height > 0
-    }),
-    clearRegion: vi.fn(),
-    compositeTo: vi.fn(),
-    dispose: vi.fn(() => {
-      disposed = true
-    }),
-  }
-}
-
-function createMockSharedWebGLSurface() {
-  return {
-    isAvailable: vi.fn(() => false),
-    getGL: vi.fn(() => null),
-    getCanvas: vi.fn(() => ({ width: 0, height: 0 }) as HTMLCanvasElement),
-    resize: vi.fn(),
-    bindRegion: vi.fn(() => false),
-    clearRegion: vi.fn(),
-    compositeRegionTo: vi.fn(),
-    getPhysicalRegion: vi.fn(() => null),
-    beginFrame: vi.fn(() => false),
-    endFrame: vi.fn(),
-    destroy: vi.fn(),
-  }
+/** 构造 GPU surface 不可用的 renderer，覆盖 fail-closed 分支。 */
+function makeRenderer() {
+  return createWebGLRenderer(
+    createMockSurfaceBackend(),
+    createMockSharedWebGLSurface({ available: false }),
+  )
 }
 
 beforeEach(() => {
@@ -65,9 +40,7 @@ beforeEach(() => {
 describe('fail-closed when GPU surfaces unavailable', () => {
   describe('drawLines — line type', () => {
     it('returns false when lineSurface unavailable', () => {
-      const surface = createMockSurfaceBackend()
-      const glSurface = createMockSharedWebGLSurface()
-      const renderer = createWebGLRenderer(surface, glSurface as any)
+      const renderer = makeRenderer()
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
 
@@ -87,9 +60,7 @@ describe('fail-closed when GPU surfaces unavailable', () => {
     })
 
     it('returns false on drawLines with no lineSurface', () => {
-      const surface = createMockSurfaceBackend()
-      const glSurface = createMockSharedWebGLSurface()
-      const renderer = createWebGLRenderer(surface, glSurface as any)
+      const renderer = makeRenderer()
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
       const pipeline = renderer.createPipeline({ type: 'line' })
@@ -102,9 +73,7 @@ describe('fail-closed when GPU surfaces unavailable', () => {
 
   describe('drawLines — fill type', () => {
     it('returns false when lineSurface unavailable', () => {
-      const surface = createMockSurfaceBackend()
-      const glSurface = createMockSharedWebGLSurface()
-      const renderer = createWebGLRenderer(surface, glSurface as any)
+      const renderer = makeRenderer()
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
 
@@ -126,9 +95,7 @@ describe('fail-closed when GPU surfaces unavailable', () => {
 
   describe('drawInstances', () => {
     it('returns false when candleSurface unavailable', () => {
-      const surface = createMockSurfaceBackend()
-      const glSurface = createMockSharedWebGLSurface()
-      const renderer = createWebGLRenderer(surface, glSurface as any)
+      const renderer = makeRenderer()
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
 
@@ -152,9 +119,7 @@ describe('fail-closed when GPU surfaces unavailable', () => {
 
   describe('dispose behaviour', () => {
     it('after dispose, draw calls are no-ops / false', () => {
-      const surface = createMockSurfaceBackend()
-      const glSurface = createMockSharedWebGLSurface()
-      const renderer = createWebGLRenderer(surface, glSurface as any)
+      const renderer = makeRenderer()
 
       const pipeline = renderer.createPipeline({ type: 'line' })
       const vertexBuf = renderer.createBuffer('vertex', 256)

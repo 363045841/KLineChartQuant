@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   createMockCanvasContext,
   createMockRenderContext,
   type MockPaneInfoOverrides,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 
 import type { RenderContext } from '../../../foundation/plugin/index'
 import type { Renderer } from '../../../rendering/render/Renderer'
@@ -60,37 +61,14 @@ function makeBars(length: number) {
   }))
 }
 
-function makeSceneRenderer(name = 'webgl2') {
-  const compositeTo = vi.fn()
-  const drawInstances = vi.fn(() => true)
-  const writeBuffer = vi.fn()
-  const r: Renderer = {
-    surface: {
-      isAvailable: () => true,
-      resize: () => {},
-      bindRegion: () => true,
-      clearRegion: () => {},
-      compositeTo,
-      dispose: () => {},
-    },
-    caps: { compute: false, storageBuffer: false, maxInstances: 1e6, name },
-    createBuffer: vi.fn(() => ({}) as never),
-    writeBuffer,
-    destroyBuffer: vi.fn(),
-    createPipeline: vi.fn(() => ({}) as never),
-    destroyPipeline: vi.fn(),
-    createComputePipeline: () => {
-      throw new Error('no')
-    },
-    destroyComputePipeline: () => {},
-    beginFrame: vi.fn(),
-    drawInstances,
-    drawLines: vi.fn(),
-    dispatchCompute: () => {},
-    endFrame: vi.fn(),
-    dispose: vi.fn(),
+function makeSceneRenderer(capsName = 'webgl2') {
+  const r = createMockRenderer({ capsName })
+  return {
+    r,
+    drawInstances: r.drawInstances,
+    writeBuffer: r.writeBuffer,
+    compositeTo: r.surface.compositeTo,
   }
-  return { r, drawInstances, writeBuffer, compositeTo }
 }
 
 describe('candle sceneRenderer path', () => {

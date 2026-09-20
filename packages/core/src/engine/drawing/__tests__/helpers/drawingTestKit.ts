@@ -43,6 +43,81 @@ export function createTrendLine(id: string, overrides: Partial<DrawingObject> = 
   return createDrawingObject({ id, kind: 'trend-line', ...overrides })
 }
 
+/** 四 Bar 时间轴用例共用的时间戳。 */
+export const FOUR_BAR_TIMESTAMPS = [500, 1_000, 1_500, 2_000]
+
+/**
+ * 构造四 Bar 时间轴 adapter。
+ * 坐标约定：索引 i → x = i*10+5，价格 → y = 200 - price；overrides 覆盖价格轴等差异。
+ */
+export function createFourBarTimelineAdapter(
+  overrides: Partial<DrawingViewportPort> = {},
+): DrawingChartAdapter {
+  return createDrawingAdapter({
+    viewport: {
+      getDrawingData: () => FOUR_BAR_TIMESTAMPS.map((timestamp) => ({ timestamp })),
+      getDrawingTimestampAtLogicalIndex: (index) => FOUR_BAR_TIMESTAMPS[index] ?? null,
+      getLogicalIndexAtTimestamp: (timestamp) => {
+        const index = FOUR_BAR_TIMESTAMPS.indexOf(timestamp)
+        return index >= 0 ? index : null
+      },
+      ...overrides,
+    },
+  })
+}
+
+/** 构造平滑顶底图元：0/1 为斜线两端，2/3 为水平线两端。 */
+export function createFlatLineDrawing(overrides: Partial<DrawingObject> = {}): DrawingObject {
+  return createDrawingObject({
+    id: 'flat',
+    kind: 'flat-line',
+    anchors: [
+      { id: 'a', type: 'point', time: 500, price: 100 },
+      { id: 'b', type: 'point', time: 1_000, price: 140 },
+      { id: 'h1', type: 'point', time: 500, price: 60 },
+      { id: 'h2', type: 'point', time: 1_000, price: 60 },
+    ],
+    style: {},
+    ...overrides,
+  })
+}
+
+/** 构造不相交通道图元：0/1 为第一条线，2/3 为第二条线（同 X 反向配对）。 */
+export function createDisjointChannelDrawing(
+  overrides: Partial<DrawingObject> = {},
+): DrawingObject {
+  return createDrawingObject({
+    id: 'disjoint',
+    kind: 'disjoint-channel',
+    anchors: [
+      { id: 'p0', type: 'point', time: 500, price: 100 },
+      { id: 'p1', type: 'point', time: 1_000, price: 140 },
+      { id: 'p2', type: 'point', time: 1_000, price: 20 },
+      { id: 'p3', type: 'point', time: 500, price: 60 },
+    ],
+    style: {},
+    ...overrides,
+  })
+}
+
+/** 构造平行通道图元：0/1 为第一条线，2/3 为第二条线。 */
+export function createParallelChannelDrawing(
+  overrides: Partial<DrawingObject> = {},
+): DrawingObject {
+  return createDrawingObject({
+    id: 'channel',
+    kind: 'parallel-channel',
+    anchors: [
+      { id: 'a', type: 'point', time: 500, price: 100 },
+      { id: 'b', type: 'point', time: 1_000, price: 140 },
+      { id: 'c', type: 'point', time: 500, price: 60 },
+      { id: 'd', type: 'point', time: 1_000, price: 100 },
+    ],
+    style: {},
+    ...overrides,
+  })
+}
+
 /** 命中 / 拖拽测试所需的最小容器，局部坐标原点在左上角。 */
 export const CONTAINER = {
   getBoundingClientRect: () => ({ left: 0, top: 0 }),

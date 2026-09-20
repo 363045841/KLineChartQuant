@@ -1,16 +1,17 @@
-import { JSDOM } from 'jsdom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '../../../controllers/types'
 import { marketDataProviderRegistry } from '../../../data/provider/registry'
 import type { BarAggregation, BarSeries, MarketDataProvider } from '../../../data/provider/types'
 import { createSignal } from '../../../foundation/reactivity/signal'
-import type { ChartDom } from '../../chartTypes'
-import { createComparisonState } from '../../state/comparisonState'
 import { createDataManagerState } from '../../state/dataManagerState'
 import { createDataState } from '../../state/dataState'
-import type { ViewportStateModule } from '../../state/viewportState'
-import { ChartDataManager, type DataDependencies } from '../chartDataManager'
+import { ChartDataManager } from '../chartDataManager'
+import {
+  createChartDom,
+  createMockDataDependencies,
+  createTestDocument,
+} from './helpers/chartDataManagerTestKit'
 
 const MS_PER_DAY = 86_400_000
 
@@ -23,38 +24,6 @@ function makeKLine(timestamp: number): KLineData {
     close: 105,
     volume: 1_000,
   }
-}
-
-function createMockViewport(scrollLeft = 800): ViewportStateModule {
-  let scroll = scrollLeft
-  return {
-    readonly: {
-      dpr: { peek: () => 1 },
-      scrollLeft: { peek: () => scroll },
-      scrollLeftLogical: { peek: () => scroll },
-      leftLoadBufferWidth: { peek: () => 800 },
-      contentWidth: { peek: () => 1600 },
-      viewWidth: { peek: () => 800 },
-      viewHeight: { peek: () => 600 },
-      visibleRange: { peek: () => ({ start: 0, end: 0 }) },
-      rawVisibleRange: { peek: () => ({ start: 0, end: 0 }) },
-      viewport: {
-        peek: () => ({
-          viewWidth: 800,
-          viewHeight: 600,
-          plotWidth: 800,
-          plotHeight: 600,
-          scrollLeft: scroll,
-          dpr: 1,
-        }),
-      },
-    },
-    actions: {
-      scrollTo: (v: number) => {
-        scroll = v
-      },
-    },
-  } as unknown as ViewportStateModule
 }
 
 function instrumentFor(symbol: string) {
@@ -124,49 +93,12 @@ function createTestProvider(options: {
   }
 }
 
-function createDependencies(
-  dom: ChartDom,
-  setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
-  _symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
-  scheduleDraw: () => void = () => {},
-): DataDependencies {
-  return {
-    getOption: () => ({ kWidth: 8, kGap: 2 }),
-    getZoomLevel: () => 1,
-    setZoomLevel: () => {},
-    getDom: () => dom,
-    viewport: createMockViewport(),
-    comparison: createComparisonState(),
-    scheduleDraw,
-    resetInteraction: () => {},
-    getIndicatorScheduler: () => ({
-      update: () => true,
-      busySignal: createSignal(false),
-    }),
-    isPointerDown: () => false,
-    onTimeShareDataReady: () => {},
-    setSymbols,
-  }
-}
-
-function createChartDom(document: Document): ChartDom {
-  return {
-    container: document.querySelector<HTMLDivElement>('#container')!,
-    scrollContent: document.querySelector<HTMLDivElement>('#scroll-content')!,
-    canvasLayer: document.createElement('div'),
-    rightAxisLayer: document.createElement('div'),
-    xAxisCanvas: document.createElement('canvas'),
-  }
-}
-
 describe('ChartDataManager incremental load', () => {
   let manager: ChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {
-    const dom = new JSDOM('<div id="container"><div id="scroll-content"></div></div>')
-    document = dom.window.document
-    vi.stubGlobal('window', dom.window)
+    document = createTestDocument()
   })
 
   afterEach(() => {
@@ -214,13 +146,13 @@ describe('ChartDataManager incremental load', () => {
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,
@@ -288,13 +220,13 @@ describe('ChartDataManager incremental load', () => {
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,
@@ -345,13 +277,13 @@ describe('ChartDataManager incremental load', () => {
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,
@@ -387,14 +319,13 @@ describe('ChartDataManager incremental load', () => {
     const dataManagerState = createDataManagerState()
     const scheduleDraw = vi.fn()
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
-        scheduleDraw,
+        { viewport: { scrollLeft: 800 }, scheduleDraw },
       ),
       dataState,
       dataManagerState,
@@ -443,13 +374,13 @@ describe('ChartDataManager incremental load', () => {
       ],
     }))
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,
@@ -521,13 +452,13 @@ describe('ChartDataManager incremental load', () => {
       ],
     }))
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,
@@ -570,13 +501,13 @@ describe('ChartDataManager incremental load', () => {
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,
@@ -617,13 +548,13 @@ describe('ChartDataManager incremental load', () => {
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     manager = new ChartDataManager(
-      createDependencies(
+      createMockDataDependencies(
         createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
+        { viewport: { scrollLeft: 800 } },
       ),
       dataState,
       dataManagerState,

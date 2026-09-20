@@ -1,43 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { Renderer } from '../../../rendering/render/Renderer'
+import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
+
 import { drawRectBatchesViaRenderer } from '../rectsViaRenderer'
-
-function mockRenderer(): Renderer & {
-  drawInstances: ReturnType<typeof vi.fn>
-  writeBuffer: ReturnType<typeof vi.fn>
-} {
-  return {
-    surface: {
-      isAvailable: () => true,
-      resize: () => {},
-      bindRegion: () => true,
-      clearRegion: () => {},
-      compositeTo: vi.fn(),
-      dispose: () => {},
-    },
-    caps: { compute: false, storageBuffer: false, maxInstances: 1e6, name: 'webgl2' },
-    createBuffer: vi.fn(() => ({}) as never),
-    writeBuffer: vi.fn(),
-    destroyBuffer: vi.fn(),
-    createPipeline: vi.fn(() => ({}) as never),
-    destroyPipeline: vi.fn(),
-    createComputePipeline: () => {
-      throw new Error('no')
-    },
-    destroyComputePipeline: () => {},
-    beginFrame: vi.fn(),
-    drawInstances: vi.fn(() => true),
-    drawLines: vi.fn(() => true),
-    dispatchCompute: () => {},
-    endFrame: vi.fn(),
-    dispose: vi.fn(),
-  } as never
-}
 
 describe('drawRectBatchesViaRenderer', () => {
   it('draws each non-empty batch via drawInstances', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     const ok = drawRectBatchesViaRenderer(
       r,
       [
@@ -52,7 +21,7 @@ describe('drawRectBatchesViaRenderer', () => {
   })
 
   it('returns false when any batch fails', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     r.drawInstances.mockReturnValueOnce(true).mockReturnValueOnce(false)
     expect(
       drawRectBatchesViaRenderer(
@@ -67,7 +36,7 @@ describe('drawRectBatchesViaRenderer', () => {
   })
 
   it('returns true when all counts are zero', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     expect(
       drawRectBatchesViaRenderer(r, [{ buf: new Float32Array(0), count: 0, color: '#0f0' }], 0),
     ).toBe(true)
@@ -75,7 +44,7 @@ describe('drawRectBatchesViaRenderer', () => {
   })
 
   it('caches pipeline and unit vertex buffer; creates + destroys instance buffer per batch', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     const batches = [{ buf: new Float32Array([0, 0, 10, 20]), count: 1, color: '#0f0' }]
     expect(drawRectBatchesViaRenderer(r, batches, 0)).toBe(true)
     expect(drawRectBatchesViaRenderer(r, batches, 3)).toBe(true)

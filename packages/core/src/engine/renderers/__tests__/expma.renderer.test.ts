@@ -18,11 +18,6 @@ interface TestableEXPMARenderer extends RendererPluginWithHost {
   setConfig: (config: Record<string, unknown>) => void
 }
 
-/** 构造携带 EXPMA 指标元数据与帧状态的 PluginHost。 */
-function createMockPluginHost(state?: EXPMARenderState) {
-  return createMockIndicatorHost({ indicatorName: 'expma', stateKey: EXPMA_STATE_KEY, state })
-}
-
 function createTestEXPMARenderState(overrides: Partial<EXPMARenderState> = {}): EXPMARenderState {
   return {
     timestamp: Date.now(),
@@ -56,7 +51,7 @@ describe('createEXPMARendererPlugin', () => {
 
   it('should declare EXPMA_STATE_KEY namespace', () => {
     const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
-    plugin.onInstall(createMockPluginHost())
+    plugin.onInstall(createMockIndicatorHost({ indicatorName: 'expma', stateKey: EXPMA_STATE_KEY }))
     expect(plugin.getDeclaredNamespaces()).toEqual([EXPMA_STATE_KEY])
   })
 })
@@ -70,7 +65,7 @@ describe('EXPMA renderer draw', () => {
   })
 
   it('should not draw when StateStore has no EXPMA state', () => {
-    const mockHost = createMockPluginHost(undefined)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'expma', stateKey: EXPMA_STATE_KEY })
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -86,7 +81,11 @@ describe('EXPMA renderer draw', () => {
       visibleMin: Infinity,
       visibleMax: -Infinity,
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state,
+    })
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -102,7 +101,11 @@ describe('EXPMA renderer draw', () => {
 
   it('should save and restore context', () => {
     const state = createTestEXPMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state,
+    })
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -118,7 +121,11 @@ describe('EXPMA renderer draw', () => {
 
   it('should draw both fast and slow lines', () => {
     const state = createTestEXPMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state,
+    })
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -135,7 +142,11 @@ describe('EXPMA renderer draw', () => {
 
   it('should use correct line styles', () => {
     const state = createTestEXPMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state,
+    })
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -154,7 +165,11 @@ describe('EXPMA renderer draw', () => {
     const state = createTestEXPMARenderState({
       series: Array.from({ length: 10 }, (_, i) => ({ fast: 100 + i, slow: 100 + i * 0.5 })),
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state,
+    })
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -175,7 +190,11 @@ describe('EXPMA renderer config', () => {
     const state = createTestEXPMARenderState({
       params: { fastPeriod: 20, slowPeriod: 60 },
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state,
+    })
     const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -186,7 +205,7 @@ describe('EXPMA renderer config', () => {
   })
 
   it('getConfig should return empty object when no state', () => {
-    const mockHost = createMockPluginHost(undefined)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'expma', stateKey: EXPMA_STATE_KEY })
     const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
@@ -196,7 +215,11 @@ describe('EXPMA renderer config', () => {
   })
 
   it('setConfig should be a no-op', () => {
-    const mockHost = createMockPluginHost(createTestEXPMARenderState())
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'expma',
+      stateKey: EXPMA_STATE_KEY,
+      state: createTestEXPMARenderState(),
+    })
     const plugin = createEXPMARendererPlugin() as TestableEXPMARenderer as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 

@@ -5,36 +5,16 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 
-import type { SearchableSymbol } from '../useSymbolSearch'
 import {
   loadWatchlist,
   saveWatchlist,
   useWatchlist,
   WATCHLIST_DATABASE_NAME,
 } from '../useWatchlist'
+import { TEST_SYMBOLS } from './testSymbols'
 
-const symbol: SearchableSymbol = {
-  id: 'gotdx:stock:1:600519',
-  sourceId: 'gotdx',
-  symbol: '600519',
-  name: '贵州茅台',
-  assetClass: 'stock',
-  exchange: 'SH',
-  sessionId: 'CN',
-  providerRef: { market: 1 },
-  capabilities: {},
-}
-
-const secondSymbol: SearchableSymbol = {
-  id: 'tradingview:stock:NASDAQ:AAPL',
-  sourceId: 'tradingview',
-  symbol: 'AAPL',
-  name: 'Apple Inc.',
-  assetClass: 'stock',
-  exchange: 'NASDAQ',
-  sessionId: 'US',
-  capabilities: {},
-}
+const symbol = TEST_SYMBOLS[0]!
+const secondSymbol = TEST_SYMBOLS[1]!
 
 /** 删除测试数据库，确保用例之间没有持久化状态。 */
 function deleteWatchlistDatabase(): Promise<void> {

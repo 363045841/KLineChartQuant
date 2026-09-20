@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   createMockCanvasContext,
   createMockRenderContext,
@@ -29,32 +29,10 @@ const cmpData: KLineData[] = [
 /** symbolSpecIdentityKey({ symbol:'CMP', market:'CN', period:'daily' }) */
 const CMP_IDENTITY = '["","CN","","CMP",[]]'
 
-function makePane(priceToY = (p: number) => p): MockPaneInfoOverrides {
+/** 比较折线只消费 pane.id 与 yAxis.priceToY，其余走共享默认值。 */
+function makePane(): MockPaneInfoOverrides {
   return {
-    id: 'main',
-    role: 'price',
-    capabilities: {
-      showPriceAxisTicks: true,
-      showCrosshairPriceLabel: true,
-      candleHitTest: true,
-      supportsPriceTranslate: true,
-    },
-    top: 0,
-    height: 100,
-    yAxis: {
-      priceToY,
-      yToPrice: () => 0,
-      getPaddingTop: () => 0,
-      getPaddingBottom: () => 0,
-      getPriceOffset: () => 0,
-      getDisplayRange: () => ({ maxPrice: 110, minPrice: 90 }),
-      getScaleType: () => 'percent' as const,
-      getBasePrice: () => 100,
-      toPercent: (p: number) => p - 100,
-      fromPercent: (p: number) => 100 + p,
-      getDisplayPercentRange: () => ({ minPct: -10, maxPct: 10 }),
-    },
-    priceRange: { maxPrice: 110, minPrice: 90 },
+    yAxis: { priceToY: (price) => price },
   }
 }
 

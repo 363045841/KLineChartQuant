@@ -1,47 +1,21 @@
 /** 验证平滑顶底（flat-line）拖拽策略：斜线端点自由、水平线只跟时间，水平线端点另一头只跟价格。 */
 import { describe, expect, it } from 'vitest'
 
-import type { DrawingObject } from '../../../foundation/plugin'
 import { DragHandler } from '../DragHandler'
-import { CONTAINER, createDrawingAdapter, pointerMove } from './helpers/drawingTestKit'
-
-/** 四个 Bar 的时间轴，保证四个锚点都能投影。 */
-const TIMESTAMPS = [500, 1_000, 1_500, 2_000]
+import {
+  CONTAINER,
+  createFlatLineDrawing,
+  createFourBarTimelineAdapter,
+  pointerMove,
+} from './helpers/drawingTestKit'
 
 /** 坐标约定：索引 i → x = i*10+5，价格 → y = 200 - price。 */
-const adapter = createDrawingAdapter({
-  viewport: {
-    getDrawingData: () => TIMESTAMPS.map((timestamp) => ({ timestamp })),
-    getDrawingTimestampAtLogicalIndex: (index) => TIMESTAMPS[index] ?? null,
-    getLogicalIndexAtTimestamp: (timestamp) => {
-      const index = TIMESTAMPS.indexOf(timestamp)
-      return index >= 0 ? index : null
-    },
-  },
-})
-
-/** 平滑顶底：0/1 为斜线两端，2/3 为水平线两端，屏幕位置分别为 (5,100)、(15,60)、(5,140)、(15,140)。 */
-function createFlatLine(): DrawingObject {
-  return {
-    id: 'flat',
-    kind: 'flat-line',
-    paneId: 'main',
-    visible: true,
-    anchors: [
-      { id: 'a', type: 'point', time: 500, price: 100 },
-      { id: 'b', type: 'point', time: 1_000, price: 140 },
-      { id: 'h1', type: 'point', time: 500, price: 60 },
-      { id: 'h2', type: 'point', time: 1_000, price: 60 },
-    ],
-    params: {},
-    style: {},
-  }
-}
+const adapter = createFourBarTimelineAdapter()
 
 describe('DragHandler flat line', () => {
   it('lets the flat endpoint follow the slanted endpoint in time only', () => {
     const handler = new DragHandler()
-    handler.startDrag([createFlatLine()], { type: 'anchor', index: 0 }, 5, 100)
+    handler.startDrag([createFlatLineDrawing()], { type: 'anchor', index: 0 }, 5, 100)
 
     const updated = handler.handleDragMove(pointerMove(12, 80), CONTAINER, adapter)
 
@@ -52,7 +26,7 @@ describe('DragHandler flat line', () => {
 
   it('keeps the flat line horizontal and drags the slanted endpoint in time', () => {
     const handler = new DragHandler()
-    handler.startDrag([createFlatLine()], { type: 'anchor', index: 2 }, 5, 140)
+    handler.startDrag([createFlatLineDrawing()], { type: 'anchor', index: 2 }, 5, 140)
 
     const updated = handler.handleDragMove(pointerMove(12, 110), CONTAINER, adapter)
 
@@ -64,7 +38,7 @@ describe('DragHandler flat line', () => {
 
   it('translates every anchor when dragging the whole drawing', () => {
     const handler = new DragHandler()
-    handler.startDrag([createFlatLine()], { type: 'all' }, 25, 100)
+    handler.startDrag([createFlatLineDrawing()], { type: 'all' }, 25, 100)
 
     const updated = handler.handleDragMove(pointerMove(35, 90), CONTAINER, adapter)
 

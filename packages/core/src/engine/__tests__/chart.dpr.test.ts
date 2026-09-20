@@ -1,36 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
+import { Chart, type ChartOptions } from '@/core/chart'
+import {
+  createCanvasGetContextMock,
+  createChartDom,
+  ResizeObserverMock,
+} from '@/engine/__tests__/helpers/chartDomTestKit'
 import { createDrawingAdapter } from '../drawing/__tests__/helpers/drawingTestKit'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-
-class ResizeObserverMock {
-  static instances: ResizeObserverMock[] = []
-  static failWithDevicePixelBox = false
-
-  private callback: ResizeObserverCallback
-  observe = vi.fn((target: Element, options?: ResizeObserverOptions) => {
-    if (options?.box === 'device-pixel-content-box' && ResizeObserverMock.failWithDevicePixelBox) {
-      throw new Error('device-pixel-content-box not supported')
-    }
-  })
-  disconnect = vi.fn()
-
-  constructor(callback: ResizeObserverCallback) {
-    this.callback = callback
-    ResizeObserverMock.instances.push(this)
-  }
-
-  emit(entry: Partial<ResizeObserverEntry>) {
-    this.callback([entry as ResizeObserverEntry], this as unknown as ResizeObserver)
-  }
-
-  static reset() {
-    ResizeObserverMock.instances = []
-    ResizeObserverMock.failWithDevicePixelBox = false
-  }
-}
 
 const defaultOptions: ChartOptions = {
   kWidth: 10,
@@ -43,66 +21,6 @@ const defaultOptions: ChartOptions = {
   maxKWidth: 50,
   panes: [{ id: 'main', ratio: 1 }],
   priceLabelWidth: 60,
-}
-
-function createCanvasContextStub() {
-  return {
-    setTransform: vi.fn(),
-    scale: vi.fn(),
-    clearRect: vi.fn(),
-    save: vi.fn(),
-    restore: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    fillRect: vi.fn(),
-    strokeRect: vi.fn(),
-    fillText: vi.fn(),
-    measureText: vi.fn(() => ({ width: 40 })),
-  } as unknown as CanvasRenderingContext2D
-}
-
-function createWebGLStub(): WebGL2RenderingContext {
-  const noop = () => {}
-  return new Proxy({} as unknown as WebGL2RenderingContext, {
-    get(_, prop) {
-      if (typeof prop !== 'string') return undefined
-      if (/^[A-Z][A-Z0-9_]*$/.test(prop)) return 0
-      if (prop === 'getShaderInfoLog' || prop === 'getProgramInfoLog') return () => ''
-      if (prop === 'getShaderParameter' || prop === 'getProgramParameter') return () => true
-      if (prop === 'getError') return () => 0
-      if (prop === 'getSupportedExtensions') return () => []
-      if (prop === 'getContextAttributes') return () => ({})
-      if (prop === 'getParameter') return () => 0
-      if (prop === 'getUniformLocation' || prop === 'getAttribLocation') return () => 0
-      if (prop.startsWith('create') || prop === 'getExtension') return () => ({ __webglStub: true })
-      if (prop === 'drawingBufferWidth' || prop === 'drawingBufferHeight') return 300
-      return noop
-    },
-  }) as WebGL2RenderingContext
-}
-
-function createDom(width: number, height: number): ChartDom {
-  const container = document.createElement('div')
-  const canvasLayer = document.createElement('div')
-  const rightAxisLayer = document.createElement('div')
-  const xAxisCanvas = document.createElement('canvas')
-
-  Object.defineProperty(container, 'clientWidth', { configurable: true, value: width })
-  Object.defineProperty(container, 'clientHeight', { configurable: true, value: height })
-  Object.defineProperty(container, 'scrollLeft', { configurable: true, writable: true, value: 0 })
-
-  container.appendChild(canvasLayer)
-  container.appendChild(rightAxisLayer)
-  canvasLayer.appendChild(xAxisCanvas)
-
-  return {
-    container: container as HTMLDivElement,
-    canvasLayer: canvasLayer as HTMLDivElement,
-    rightAxisLayer: rightAxisLayer as HTMLDivElement,
-    xAxisCanvas,
-  }
 }
 
 describe('Chart DPR pipeline', () => {
@@ -124,15 +42,7 @@ describe('Chart DPR pipeline', () => {
       value: 1,
     })
 
-    HTMLCanvasElement.prototype.getContext = vi.fn(function (
-      this: HTMLCanvasElement,
-      type: string,
-    ) {
-      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-        return createWebGLStub() as unknown as RenderingContext
-      }
-      return createCanvasContextStub() as unknown as RenderingContext
-    }) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = createCanvasGetContextMock()
   })
 
   afterEach(async () => {
@@ -147,7 +57,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('mounts renderer layers for restored sub-pane indicators', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions, {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions, {
       initialViewWorkspaces: {
         kline: {
           instances: [
@@ -187,7 +97,7 @@ describe('Chart DPR pipeline', () => {
 
   it('falls back to default observe when device-pixel-content-box observe fails', async () => {
     ResizeObserverMock.failWithDevicePixelBox = true
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
 
     const ro = ResizeObserverMock.instances[0]
     expect(ro).toBeDefined()
@@ -207,7 +117,7 @@ describe('Chart DPR pipeline', () => {
       value: 1,
     })
 
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const ro = ResizeObserverMock.instances[0]
 
     ro?.emit({
@@ -230,7 +140,7 @@ describe('Chart DPR pipeline', () => {
       value: 1.234,
     })
 
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const ro = ResizeObserverMock.instances[0]
 
     ro?.emit({
@@ -250,7 +160,7 @@ describe('Chart DPR pipeline', () => {
       value: 0.5,
     })
 
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const ro = ResizeObserverMock.instances[0]
 
     ro?.emit({
@@ -270,7 +180,7 @@ describe('Chart DPR pipeline', () => {
       value: 3,
     })
 
-    const chart = new Chart(createDom(6000, 4000), defaultOptions)
+    const chart = new Chart(createChartDom(6000, 4000), defaultOptions)
     chart.resize()
 
     const viewport = chart.getViewport()
@@ -281,7 +191,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('disconnects ResizeObserver on destroy', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const ro = ResizeObserverMock.instances[0]
 
     await chart.destroy()
@@ -290,7 +200,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('does not emit viewport change on draw when viewport is unchanged', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const onViewportChange = vi.fn()
 
     chart.viewport.subscribe(onViewportChange)
@@ -304,7 +214,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('publishes each DOM scroll position before scheduling its frame', async () => {
-    const dom = createDom(1000, 600)
+    const dom = createChartDom(1000, 600)
     const chart = new Chart(dom, defaultOptions)
     const data = Array.from({ length: 200 }, (_, index) => ({
       timestamp: index,
@@ -327,7 +237,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('does not schedule redraw for identical render state', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
 
     chart.applyRenderState(12, 3, 2)
@@ -339,7 +249,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('routes custom markers through kernel and clears position cache', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const manager = chart.markers.getManager()
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
     const clearCacheSpy = vi.spyOn(manager, 'clearPositionCache')
@@ -376,7 +286,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('routes drawings through kernel for store projection', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const store = chart.drawing.getStore()
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
     const drawing = {
@@ -407,7 +317,7 @@ describe('Chart DPR pipeline', () => {
   })
 
   it('projectState does not commitLayout back to kernel', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const commitSpy = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
     commitSpy.mockClear()
 
@@ -442,15 +352,7 @@ describe('Chart pane layout regressions', () => {
       value: 1,
     })
 
-    HTMLCanvasElement.prototype.getContext = vi.fn(function (
-      this: HTMLCanvasElement,
-      type: string,
-    ) {
-      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-        return createWebGLStub() as unknown as RenderingContext
-      }
-      return createCanvasContextStub() as unknown as RenderingContext
-    }) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = createCanvasGetContextMock()
   })
 
   afterEach(async () => {
@@ -465,7 +367,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('allocates initial pane ratios as 3:1:1 for main+MACD+RSI', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
 
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
@@ -484,7 +386,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('keeps indicator pane heights equal for main+MACD+RSI', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
     chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
@@ -502,7 +404,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('keeps visible ratio sum at 1 after boundary resize', async () => {
-    const chart = new Chart(createDom(1000, 800), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 800), defaultOptions)
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
     chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
@@ -519,7 +421,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('returns false and keeps layout unchanged for invalid boundary resize input', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
     chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
@@ -538,7 +440,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('updateSettings mainRightAxisTypeSetting writes paneScaleTypes then projects', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
@@ -548,7 +450,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('createPane seeds scale from settings and projects', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
@@ -563,7 +465,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('enter timeshare writes the price pane percent scale to kernel', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     const tsMode = (
@@ -577,7 +479,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('setActiveMode updates kernel chartMode', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')
     const tsMode = (
       chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
@@ -592,7 +494,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('clears stale canvases and cached geometry when switching data views', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const renderer = (
       chart as unknown as {
         renderer: { clearAllCanvases: () => void; clearCachedFrame: () => void }
@@ -616,7 +518,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('timeshare switching preserves independent indicator workspaces and layouts', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     expect(chart.indicators.enableMain('MA')).toBe(true)
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
@@ -660,7 +562,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('timeshare does not reuse a K-line volume pane', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.resize()
     const volumePaneId = chart.indicators.add('VOL', 'sub')
     expect(volumePaneId).not.toBeNull()
@@ -691,7 +593,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('removeDrawing drops id from kernel and clears selection', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const d1 = {
       id: 'd1',
       kind: 'trend-line' as const,
@@ -712,7 +614,7 @@ describe('Chart pane layout regressions', () => {
 
   it('removeDrawing with registered session updates kernel only', async () => {
     const { DrawingInteractionController } = await import('../drawing/interaction')
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const d1 = {
       id: 'd1',
       kind: 'trend-line' as const,
@@ -764,7 +666,7 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
   it('setDrawingTool writes DrawingToolId to kernel', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
     chart.drawing.setTool('trend-line')
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('trend-line')
@@ -774,7 +676,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('updateSettings writes kernel settings SSOT for renderer reads', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.updateSettings({ showGridLines: false, mainRightAxisTypeSetting: 'log' })
     expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
     expect(chart.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting).toBe('log')
@@ -784,7 +686,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('updateSettings partial patch preserves prior keys', async () => {
-    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     chart.updateSettings({ showGridLines: false })
     chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
@@ -793,7 +695,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('normalizes only visible panes in imported layout', async () => {
-    const chart = new Chart(createDom(1000, 800), defaultOptions)
+    const chart = new Chart(createChartDom(1000, 800), defaultOptions)
     chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },

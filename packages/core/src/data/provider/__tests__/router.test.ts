@@ -6,6 +6,7 @@ import { KLineChartError } from '../../../errors'
 import { marketDataProviderRegistry } from '../registry'
 import { SourceRouter, SourceRoutingError } from '../router'
 import type { InstrumentDescriptor, MarketDataProvider } from '../types'
+import { createMockMarketDataProvider } from './helpers/providerTestKit'
 
 const baseInstrument: InstrumentDescriptor = {
   id: 'gotdx:stock:600519',
@@ -17,28 +18,6 @@ const baseInstrument: InstrumentDescriptor = {
   sessionId: 'CN',
   providerRef: { market: 1 },
   capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },
-}
-
-function sourceCapabilities() {
-  return {
-    assetClasses: ['stock' as const],
-    bars: { periods: ['daily' as const], adjustments: ['none' as const] },
-  }
-}
-
-function createProvider(
-  sourceId: string,
-  fetchBars: NonNullable<MarketDataProvider['bars']>['fetch'],
-  search: NonNullable<MarketDataProvider['catalog']>['search'],
-): MarketDataProvider {
-  return {
-    source: { id: sourceId, displayName: sourceId, capabilities: sourceCapabilities() },
-    async probe() {
-      return { status: 'online', checkedAt: 1, capabilities: sourceCapabilities() }
-    },
-    catalog: { search },
-    bars: { fetch: fetchBars },
-  }
 }
 
 describe('SourceRouter', () => {
@@ -55,13 +34,13 @@ describe('SourceRouter', () => {
       providerRef: { code: 'sh.600519' },
     }
     const targetSearch = async () => [targetInstrument]
-    const first = createProvider(
-      'gotdx',
-      async () => {
+    const first = createMockMarketDataProvider({
+      sourceId: 'gotdx',
+      fetchBars: async () => {
         throw new KLineChartError('INSTRUMENT_NOT_FOUND', 'missing')
       },
-      async () => [],
-    )
+      search: async () => [],
+    })
     const targetFetch = async ({
       instrument,
       limit,
@@ -81,7 +60,11 @@ describe('SourceRouter', () => {
         olderData: 'unknown' as const,
       }
     }
-    const second = createProvider('baostock', targetFetch, targetSearch)
+    const second = createMockMarketDataProvider({
+      sourceId: 'baostock',
+      fetchBars: targetFetch,
+      search: targetSearch,
+    })
     marketDataProviderRegistry.register(first, { priority: 10 })
     marketDataProviderRegistry.register(second, { priority: 1 })
 
@@ -108,16 +91,16 @@ describe('SourceRouter', () => {
   // 验证显式来源即使确定性拒绝，也不得回退到其他 Provider。
   it('does not flow explicit source requests', async () => {
     let fallbackCalled = false
-    const first = createProvider(
-      'gotdx',
-      async () => {
+    const first = createMockMarketDataProvider({
+      sourceId: 'gotdx',
+      fetchBars: async () => {
         throw new KLineChartError('INSTRUMENT_NOT_FOUND', 'missing')
       },
-      async () => [baseInstrument],
-    )
-    const second = createProvider(
-      'baostock',
-      async () => {
+      search: async () => [baseInstrument],
+    })
+    const second = createMockMarketDataProvider({
+      sourceId: 'baostock',
+      fetchBars: async () => {
         fallbackCalled = true
         return {
           instrumentId: 'baostock:stock:600519',
@@ -129,8 +112,8 @@ describe('SourceRouter', () => {
           olderData: 'unknown',
         }
       },
-      async () => [{ ...baseInstrument, sourceId: 'baostock' }],
-    )
+      search: async () => [{ ...baseInstrument, sourceId: 'baostock' }],
+    })
     marketDataProviderRegistry.register(first, { priority: 10 })
     marketDataProviderRegistry.register(second, { priority: 1 })
 
@@ -154,16 +137,16 @@ describe('SourceRouter', () => {
   // 验证网络或上游故障不会触发下一个 Provider。
   it('does not flow on upstream failure', async () => {
     let fallbackCalled = false
-    const first = createProvider(
-      'gotdx',
-      async () => {
+    const first = createMockMarketDataProvider({
+      sourceId: 'gotdx',
+      fetchBars: async () => {
         throw new KLineChartError('FETCH_FAILED', 'connection refused')
       },
-      async () => [baseInstrument],
-    )
-    const second = createProvider(
-      'baostock',
-      async () => {
+      search: async () => [baseInstrument],
+    })
+    const second = createMockMarketDataProvider({
+      sourceId: 'baostock',
+      fetchBars: async () => {
         fallbackCalled = true
         return {
           instrumentId: 'baostock:stock:600519',
@@ -175,8 +158,8 @@ describe('SourceRouter', () => {
           olderData: 'unknown',
         }
       },
-      async () => [],
-    )
+      search: async () => [],
+    })
     marketDataProviderRegistry.register(first, { priority: 10 })
     marketDataProviderRegistry.register(second, { priority: 1 })
 
@@ -200,10 +183,18 @@ describe('SourceRouter', () => {
     const reject = async () => {
       throw new KLineChartError('UNSUPPORTED_CAPABILITY', 'unsupported')
     }
-    const first = createProvider('gotdx', reject, async () => [baseInstrument])
-    const second = createProvider('baostock', reject, async () => [
-      { ...baseInstrument, sourceId: 'baostock', id: 'baostock:stock:600519' },
-    ])
+    const first = createMockMarketDataProvider({
+      sourceId: 'gotdx',
+      fetchBars: reject,
+      search: async () => [baseInstrument],
+    })
+    const second = createMockMarketDataProvider({
+      sourceId: 'baostock',
+      fetchBars: reject,
+      search: async () => [
+        { ...baseInstrument, sourceId: 'baostock', id: 'baostock:stock:600519' },
+      ],
+    })
     marketDataProviderRegistry.register(first, { priority: 2 })
     marketDataProviderRegistry.register(second, { priority: 1 })
 
