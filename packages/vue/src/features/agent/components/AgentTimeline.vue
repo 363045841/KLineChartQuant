@@ -1,5 +1,10 @@
 <template>
-  <main ref="scroller" class="timeline" aria-label="Agent timeline" @scroll.passive="updateAutoScroll">
+  <main
+    ref="scroller"
+    class="timeline"
+    :aria-label="text.timeline"
+    @scroll.passive="updateAutoScroll"
+  >
     <section v-if="entries.length === 0" class="empty-state">
       <IconChartCandle aria-hidden="true" />
       <h2>{{ text.emptyTitle }}</h2>
@@ -18,7 +23,12 @@
     </section>
 
     <template v-for="entry in entries" :key="entry.id">
-      <AgentMessageItem v-if="entry.kind === 'message'" :message="entry.message" :locale="locale" />
+      <AgentMessageItem
+        v-if="entry.kind === 'message'"
+        :message="entry.message"
+        :collapse-reasoning="collapseReasoning"
+        :locale="locale"
+      />
       <template v-else-if="entry.kind === 'tool'">
         <ToolCallCard
           :tool="entry.tool"
@@ -112,6 +122,7 @@
     runs: AgentRunView[]
     error: AgentErrorView | null
     canUndo: boolean
+    collapseReasoning: boolean
     locale: AgentLocale
   }>()
 

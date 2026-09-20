@@ -20,7 +20,7 @@
             :model-value="provider.modelId"
             :options="modelOptions"
             :placeholder="modelsLoading ? text.loadingModels : text.modelPlaceholder"
-            title="Model ID"
+            :title="text.model"
             :disabled="running || !provider.configured"
             @open="$emit('models-open')"
             @update:model-value="$emit('model', $event)"
@@ -34,7 +34,7 @@
             :model-value="provider.reasoningEffort"
             :options="reasoningOptions"
             :placeholder="text.reasoning"
-            title="Reasoning Effort"
+            :title="text.reasoningEffort"
             :disabled="running"
             @update:model-value="$emit('reasoning-effort', $event)"
           />
@@ -56,7 +56,7 @@
           v-if="running"
           type="button"
           class="composer__primary composer__primary--stop"
-          title="Stop"
+          :title="text.stop"
           :aria-label="text.stop"
           @click="$emit('stop')"
         >
@@ -68,7 +68,7 @@
           type="button"
           class="composer__primary"
           :disabled="!draft.trim()"
-          title="Send"
+          :title="text.send"
           :aria-label="text.send"
           @click="$emit('send')"
         >

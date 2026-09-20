@@ -20,6 +20,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
   const readOnly = ref(false)
+  const collapseReasoning = ref(false)
   const models = shallowRef<readonly ProviderModelView[]>([])
   const modelsLoading = ref(false)
   const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
@@ -234,6 +235,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     activeSession,
     isRunning,
     providerReady,
+    collapseReasoning,
     createSession,
     selectSession,
     renameSession,

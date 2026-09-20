@@ -1,15 +1,23 @@
 /** Localized copy shared by browser and Electron Renderer hosts. */
 export type AgentLocale = 'en' | 'zh-CN'
 
+/** 设置弹窗「界面」分组中的语言选项；名称使用各语言的自称，不随界面语言变化。 */
+export const AGENT_LOCALE_OPTIONS: ReadonlyArray<{ value: AgentLocale; label: string }> = [
+  { value: 'en', label: 'English' },
+  { value: 'zh-CN', label: '简体中文' },
+]
+
 const copy = {
   en: {
     agent: 'Agent Alpha',
+    timeline: 'Agent timeline',
     newSession: 'New session',
     renameSession: 'Rename session',
     deleteSession: 'Delete session',
-    settings: 'Agent settings',
+    settings: 'Model settings',
     closePanel: 'Close Agent panel',
-    switchLanguage: 'Switch language',
+    interface: 'Interface',
+    language: 'Language',
     connected: 'Connected',
     testing: 'Testing',
     notConfigured: 'Setup required',
@@ -37,6 +45,8 @@ const copy = {
     steeringDisabled: 'A run is active. Your draft will stay here.',
     action: 'Action',
     reasoning: 'Reasoning',
+    reasoningEffort: 'Reasoning effort',
+    collapseReasoning: 'Collapse reasoning',
     input: 'Input',
     output: 'Output',
     total: 'Total',
@@ -61,7 +71,6 @@ const copy = {
     },
     tokens: 'tokens',
     providerTitle: 'Model provider',
-    agentSettings: 'Agent settings',
     providerSettings: 'Provider settings',
     externalServices: 'External services',
     tools: 'Tools',
@@ -126,12 +135,14 @@ const copy = {
   },
   'zh-CN': {
     agent: 'Agent Alpha',
+    timeline: 'Agent 时间线',
     newSession: '新建会话',
     renameSession: '重命名会话',
     deleteSession: '删除会话',
-    settings: 'Agent 设置',
+    settings: '模型设置',
     closePanel: '关闭 Agent 面板',
-    switchLanguage: '切换语言',
+    interface: '界面',
+    language: '语言',
     connected: '已连接',
     testing: '测试中',
     notConfigured: '需要设置',
@@ -158,7 +169,9 @@ const copy = {
     stop: '停止',
     steeringDisabled: '任务正在运行，当前草稿会保留。',
     action: '操作',
-    reasoning: '思考过程',
+    reasoning: '思考',
+    reasoningEffort: '推理强度',
+    collapseReasoning: '折叠思考过程',
     input: '输入',
     output: '输出',
     total: '共计',
@@ -183,7 +196,6 @@ const copy = {
     },
     tokens: 'tokens',
     providerTitle: '模型 Provider',
-    agentSettings: 'Agent 设置',
     providerSettings: '供应商设置',
     externalServices: '外部服务',
     tools: '工具',

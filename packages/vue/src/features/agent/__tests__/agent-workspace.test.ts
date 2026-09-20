@@ -111,7 +111,7 @@ describe('AgentWorkspace', () => {
 
   it('selects models from the Composer dropdown', async () => {
     const mounted = await mountWorkspace()
-    await mounted.wrapper.get('button[aria-label="Agent settings"]').trigger('click')
+    await mounted.wrapper.get('button[aria-label="Model settings"]').trigger('click')
     await flushPromises()
 
     await createProfile('Fake Provider')
@@ -133,6 +133,58 @@ describe('AgentWorkspace', () => {
     await document.querySelectorAll<HTMLButtonElement>('.dropdown__option')[1]!.click()
     await flushPromises()
     expect(mounted.wrapper.get('.composer__model .dropdown__value').text()).toBe('Provider Model B')
+  })
+
+  it('switches the interface language from the settings dialog', async () => {
+    const mounted = await mountWorkspace()
+    document.querySelector<HTMLButtonElement>('button[aria-label="Model settings"]')!.click()
+    await flushPromises()
+
+    const interfaceTab = [...document.querySelectorAll<HTMLButtonElement>('.base-tabs__tab')].find(
+      (tab) => tab.textContent?.trim() === 'Interface',
+    )!
+    interfaceTab.click()
+    await flushPromises()
+
+    document
+      .querySelector<HTMLButtonElement>('.agent-settings-interface .dropdown__trigger')!
+      .click()
+    await flushPromises()
+    const chinese = [...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].find(
+      (option) => option.textContent?.includes('简体中文'),
+    )!
+    chinese.click()
+    await flushPromises()
+
+    expect(document.querySelector('.base-title')?.textContent).toBe('模型设置')
+    expect(mounted.wrapper.find('button[aria-label="模型设置"]').attributes('title')).toBe(
+      '模型设置',
+    )
+  })
+
+  it('renders the interface group first with the collapse-reasoning option', async () => {
+    const mounted = await mountWorkspace()
+    document.querySelector<HTMLButtonElement>('button[aria-label="Model settings"]')!.click()
+    await flushPromises()
+
+    const tabs = [...document.querySelectorAll<HTMLButtonElement>('.base-tabs__tab')]
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+      'Interface',
+      'Provider settings',
+      'Tools',
+    ])
+
+    tabs[0]!.click()
+    await flushPromises()
+    const interfacePanel = document.querySelector('.agent-settings-interface')!
+    expect(interfacePanel.textContent).toContain('Collapse reasoning')
+    const toggle = interfacePanel.querySelector<HTMLInputElement>(
+      'input[aria-label="Collapse reasoning"]',
+    )!
+    expect(toggle.checked).toBe(false)
+    toggle.click()
+    await flushPromises()
+    expect(toggle.checked).toBe(true)
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

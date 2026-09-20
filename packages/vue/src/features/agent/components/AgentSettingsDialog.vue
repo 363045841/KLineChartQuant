@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     :show="providerSettings.open"
-    title="Agent settings"
+    :title="text.settings"
     width="min(92vw, 760px)"
     max-height="calc(100vh - 36px)"
     body-padding="12px 20px 16px"
@@ -9,12 +9,38 @@
     @close="closeProviderSettings()"
   >
     <template #tabs>
-      <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.agentSettings" />
+      <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.settings" />
     </template>
 
     <div class="provider-form">
       <div class="agent-settings-body">
-        <section v-if="activeTab === 'provider'" class="provider-settings-layout" role="tabpanel">
+        <section v-if="activeTab === 'interface'" class="agent-settings-interface" role="tabpanel">
+          <div class="settings-item">
+            <span>{{ text.language }}</span>
+            <Dropdown
+              :model-value="locale"
+              :options="languageOptions"
+              :title="text.language"
+              size="sm"
+              min-width="120px"
+              @update:model-value="setLocale($event)"
+            />
+          </div>
+          <div class="settings-item">
+            <span>{{ text.collapseReasoning }}</span>
+            <ToggleSwitch
+              :model-value="collapseReasoning"
+              :aria-label="text.collapseReasoning"
+              @update:model-value="emit('update:collapseReasoning', $event)"
+            />
+          </div>
+        </section>
+
+        <section
+          v-else-if="activeTab === 'provider'"
+          class="provider-settings-layout"
+          role="tabpanel"
+        >
           <aside class="provider-settings-profiles">
             <div class="provider-settings-profiles__header">
               <span>{{ text.providerProfile }}</span>
@@ -39,7 +65,7 @@
                 <button
                   type="button"
                   class="provider-settings-profile__action"
-                  title="Rename configuration"
+                  :title="text.renameProviderProfile"
                   :aria-label="text.renameProviderProfile"
                   @click.stop="openRenameProfileDialog(profile.value)"
                 >
@@ -48,7 +74,7 @@
                 <button
                   type="button"
                   class="provider-settings-profile__action provider-settings-profile__action--danger"
-                  title="Delete configuration"
+                  :title="text.deleteProviderProfile"
                   :aria-label="text.deleteProviderProfile"
                   @click.stop="removeProfile(profile.value)"
                 >
@@ -59,12 +85,12 @@
             <button
               type="button"
               class="provider-profile-new-button"
-              title="Add model"
-              :aria-label="text.addModel"
+              :title="text.newProviderProfile"
+              :aria-label="text.newProviderProfile"
               @click="openCreateProfileDialog()"
             >
               <IconPlus aria-hidden="true" />
-              <span>{{ text.addModel }}</span>
+              <span>{{ text.newProviderProfile }}</span>
             </button>
           </aside>
 
@@ -123,7 +149,7 @@
                 <BaseButton
                   size="sm"
                   class="provider-settings-models__refresh"
-                  title="Refresh model list"
+                  :title="text.refreshModels"
                   :aria-label="text.refreshModels"
                   :disabled="providerSettings.modelsLoading || !canRefreshModels"
                   @click="providerSettings.refreshModelCatalog()"
@@ -284,27 +310,39 @@
     type ProviderApiProtocol,
     type ProviderStatusView,
   } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import type { AgentProviderSettingsStore } from '../agent-provider-settings-store.js'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
     status: ProviderStatusView
     locale: AgentLocale
+    collapseReasoning: boolean
+  }>()
+
+  const emit = defineEmits<{
+    'update:locale': [value: AgentLocale]
+    'update:collapseReasoning': [value: boolean]
   }>()
 
   const profileNameInput = ref<HTMLInputElement | null>(null)
   const profileNameDialog = ref<'create' | 'rename' | null>(null)
   const profileNameDraft = ref('')
   const renamingProfile = ref('')
-  const activeTab = ref<'provider' | 'tools'>('provider')
+  const activeTab = ref<'provider' | 'tools' | 'interface'>('provider')
   const text = computed(() => getAgentCopy(props.locale))
-  const agentTabs = computed<ReadonlyArray<{ id: 'provider' | 'tools'; label: string }>>(() => [
+  const languageOptions = computed(() => [...AGENT_LOCALE_OPTIONS])
+  const agentTabs = computed<
+    ReadonlyArray<{ id: 'provider' | 'tools' | 'interface'; label: string }>
+  >(() => [
+    { id: 'interface', label: text.value.interface },
     { id: 'provider', label: text.value.providerSettings },
     { id: 'tools', label: text.value.tools },
   ])
   const profileNameDialogTitle = computed(() =>
-    profileNameDialog.value === 'rename' ? 'Rename configuration' : 'New configuration',
+    profileNameDialog.value === 'rename'
+      ? text.value.renameProviderProfile
+      : text.value.newProviderProfile,
   )
   const persistedProfileNames = computed(
     () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
@@ -358,6 +396,16 @@
   function updateProtocol(value: string): void {
     props.providerSettings.setProtocol(value)
     void props.providerSettings.persistConnection()
+  }
+
+  /** 判断下拉返回的字符串是否为受支持的界面语言。 */
+  function isAgentLocale(value: string): value is AgentLocale {
+    return AGENT_LOCALE_OPTIONS.some((option) => option.value === value)
+  }
+
+  /** 提交界面语言变更，交由上层 Workspace 更新全局 locale。 */
+  function setLocale(value: string): void {
+    if (isAgentLocale(value)) emit('update:locale', value)
   }
 
   /** 将模型声明的上下文窗口格式化为紧凑标签。 */
@@ -486,6 +534,21 @@
   .agent-settings-tools {
     max-height: min(560px, calc(100vh - 230px));
     overflow-y: auto;
+  }
+
+  .agent-settings-interface {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--klc-color-foreground);
+    font-size: 12px;
   }
 
   .provider-settings-layout {

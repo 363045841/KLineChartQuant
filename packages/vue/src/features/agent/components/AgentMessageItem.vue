@@ -17,7 +17,7 @@
     <details
       v-if="message.role === 'reasoning'"
       class="message__reasoning"
-      :open="message.status === 'streaming'"
+      :open="reasoningOpen"
     >
       <summary>
         <IconBrain aria-hidden="true" />
@@ -51,9 +51,17 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import { renderAgentMarkdown } from '../render-agent-markdown.js'
 
-  const props = defineProps<{ message: AgentMessageView; locale: AgentLocale }>()
+  const props = defineProps<{
+    message: AgentMessageView
+    collapseReasoning: boolean
+    locale: AgentLocale
+  }>()
   const text = computed(() => getAgentCopy(props.locale))
   const html = computed(() => renderAgentMarkdown(props.message.content, props.message.citations))
+  // 启用折叠后思考过程默认收起；否则流式输出期间默认展开。
+  const reasoningOpen = computed(
+    () => !props.collapseReasoning && props.message.status === 'streaming',
+  )
 
   /** 打开当前消息中已验证来源的原始页面。 */
   function openCitation(event: MouseEvent): void {

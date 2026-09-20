@@ -8,7 +8,7 @@
       <div class="agent-header__actions">
         <button
           type="button"
-          title="New session"
+          :title="text.newSession"
           :aria-label="text.newSession"
           @click="$emit('create')"
         >
@@ -16,7 +16,7 @@
         </button>
         <button
           type="button"
-          title="Rename session"
+          :title="text.renameSession"
           :aria-label="text.renameSession"
           :disabled="!activeSessionId"
           @click="rename"
@@ -25,7 +25,7 @@
         </button>
         <button
           type="button"
-          title="Delete session"
+          :title="text.deleteSession"
           :aria-label="text.deleteSession"
           :disabled="!activeSessionId"
           @click="remove"
@@ -34,15 +34,7 @@
         </button>
         <button
           type="button"
-          title="Switch language"
-          :aria-label="text.switchLanguage"
-          @click="$emit('toggle-locale')"
-        >
-          <IconLanguage aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          title="Agent settings"
+          :title="text.settings"
           :aria-label="text.settings"
           @click="$emit('settings')"
         >
@@ -51,7 +43,7 @@
         <button
           type="button"
           data-testid="agent-panel-close"
-          title="Close Agent panel"
+          :title="text.closePanel"
           :aria-label="text.closePanel"
           @click="$emit('close')"
         >
@@ -72,7 +64,6 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-  import IconLanguage from '~icons/tabler/language'
   import IconPanelRightClose from '~icons/tabler/layout-sidebar-right-collapse'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
@@ -96,7 +87,6 @@
     delete: []
     settings: []
     close: []
-    'toggle-locale': []
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))

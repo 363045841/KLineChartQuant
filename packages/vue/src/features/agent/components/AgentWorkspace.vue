@@ -10,7 +10,6 @@
       @delete="deleteSession"
       @settings="providerSettings.show(state.provider)"
       @close="$emit('close')"
-      @toggle-locale="toggleLocale"
     />
 
     <AgentTimeline
@@ -22,6 +21,7 @@
       :runs="[...state.previousRuns, state.run]"
       :error="state.error"
       :can-undo="state.canUndoTurn"
+      :collapse-reasoning="collapseReasoning"
       :locale="locale"
       @prompt="draft = $event"
       @confirm="confirmTool"
@@ -55,9 +55,10 @@
     <p class="sr-only" aria-live="polite" aria-atomic="true">{{ liveAnnouncement }}</p>
 
     <AgentSettingsDialog
+      v-model:locale="locale"
+      v-model:collapse-reasoning="collapseReasoning"
       :provider-settings="providerSettings"
       :status="state.provider"
-      :locale="locale"
     />
   </section>
 </template>
@@ -87,6 +88,7 @@
     providerSettings,
     locale,
     readOnly,
+    collapseReasoning,
     models,
     modelsLoading,
     isRunning,
@@ -105,10 +107,6 @@
     loadModels,
     setReasoningEffort,
   } = useAgentWorkspace(props.bridge)
-
-  function toggleLocale(): void {
-    locale.value = locale.value === 'en' ? 'zh-CN' : 'en'
-  }
 
   function focusTarget(selector: string): void {
     void nextTick(() => workspace.value?.querySelector<HTMLElement>(selector)?.focus())
