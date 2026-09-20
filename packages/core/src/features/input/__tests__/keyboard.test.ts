@@ -54,10 +54,7 @@ describe('parseCombo', () => {
     ['Option+K', { altKey: true, key: 'K' }],
     ['Shift+K', { shiftKey: true, key: 'K' }],
   ] as const)('%s parses modifier correctly', (src, expected) => {
-    const p = parseCombo(src)
-    for (const [k, v] of Object.entries(expected)) {
-      expect((p as unknown as Record<string, unknown>)[k]).toBe(v)
-    }
+    expect(parseCombo(src)).toMatchObject(expected)
   })
 
   it('parses named keys', () => {

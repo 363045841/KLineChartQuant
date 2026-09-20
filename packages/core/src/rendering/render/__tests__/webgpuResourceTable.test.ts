@@ -1,35 +1,17 @@
 /** 验证 WebGPU 资源表按 key、revision 和容量复用 buffer 的行为。 */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createFrameMetrics } from '../frameMetrics'
 import { createWebGPUResourceTable } from '../webgpuResourceTable'
-
-function makeDevice() {
-  const buffers: Array<{ destroy: ReturnType<typeof vi.fn>; size: number }> = []
-  const queue = {
-    writeBuffer: vi.fn(),
-  }
-  const device = {
-    queue,
-    createBuffer: vi.fn(({ size }: { size: number }) => {
-      const buffer = { destroy: vi.fn(), size }
-      buffers.push(buffer)
-      return buffer
-    }),
-  }
-  return { device, queue, buffers }
-}
+import { createMockWebGPU } from './helpers/webgpuTestKit'
 
 describe('createWebGPUResourceTable', () => {
   it('reuses buffer when revision unchanged', () => {
-    const fake = makeDevice()
+    const fake = createMockWebGPU()
     const metrics = createFrameMetrics()
     metrics.beginFrame()
-    const table = createWebGPUResourceTable({
-      device: fake.device as unknown as GPUDevice,
-      metrics,
-    })
+    const table = createWebGPUResourceTable({ device: fake.device, metrics })
     const data = new Float32Array([1, 2, 3, 4])
     const a = table.ensureUploaded({ key: 'k', revision: 1, data, usage: 'vertex' })
     const b = table.ensureUploaded({ key: 'k', revision: 1, data, usage: 'vertex' })
@@ -39,13 +21,10 @@ describe('createWebGPUResourceTable', () => {
   })
 
   it('uploads again when revision changes', () => {
-    const fake = makeDevice()
+    const fake = createMockWebGPU()
     const metrics = createFrameMetrics()
     metrics.beginFrame()
-    const table = createWebGPUResourceTable({
-      device: fake.device as unknown as GPUDevice,
-      metrics,
-    })
+    const table = createWebGPUResourceTable({ device: fake.device, metrics })
     table.ensureUploaded({
       key: 'k',
       revision: 1,

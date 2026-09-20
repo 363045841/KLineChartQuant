@@ -4,104 +4,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createWebGPURenderer } from '../backend/createWebGPURenderer'
 import { createFrameMetrics, getFrameMetrics, resetFrameMetrics } from '../frameMetrics'
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((done) => {
-    resolve = done
-  })
-  return { promise, resolve }
-}
-
-function makeWebGPU() {
-  const passes: Array<ReturnType<typeof makePass>> = []
-  const renderPassDescriptors: GPURenderPassDescriptor[] = []
-  const pipelineDescriptors: GPURenderPipelineDescriptor[] = []
-  const buffers: Array<{ destroy: ReturnType<typeof vi.fn> }> = []
-  const lost = deferred<GPUDeviceLostInfo>()
-
-  function makePass() {
-    return {
-      setViewport: vi.fn(),
-      setScissorRect: vi.fn(),
-      setPipeline: vi.fn(),
-      setVertexBuffer: vi.fn(),
-      setBindGroup: vi.fn(),
-      draw: vi.fn(),
-      end: vi.fn(),
-    }
-  }
-
-  const queue = {
-    writeBuffer: vi.fn(),
-    submit: vi.fn(),
-    onSubmittedWorkDone: vi.fn(async () => {}),
-  }
-  const device = {
-    queue,
-    lost: lost.promise,
-    createBuffer: vi.fn(() => {
-      const buffer = { destroy: vi.fn() }
-      buffers.push(buffer)
-      return buffer
-    }),
-    createShaderModule: vi.fn((descriptor) => descriptor),
-    createRenderPipeline: vi.fn((descriptor: GPURenderPipelineDescriptor) => {
-      pipelineDescriptors.push(descriptor)
-      return { getBindGroupLayout: vi.fn(() => ({})) }
-    }),
-    createBindGroup: vi.fn((descriptor) => descriptor),
-    createTexture: vi.fn(() => ({
-      createView: vi.fn(() => ({ kind: 'msaa-view' })),
-      destroy: vi.fn(),
-    })),
-    createCommandEncoder: vi.fn(() => ({
-      beginRenderPass: vi.fn((descriptor: GPURenderPassDescriptor) => {
-        renderPassDescriptors.push(descriptor)
-        const pass = makePass()
-        passes.push(pass)
-        return pass
-      }),
-      finish: vi.fn(() => ({ kind: 'commands' })),
-    })),
-  }
-  const adapter = { requestDevice: vi.fn(async () => device) }
-  const gpu = {
-    requestAdapter: vi.fn(async () => adapter),
-    getPreferredCanvasFormat: vi.fn(() => 'bgra8unorm'),
-  }
-  const context = {
-    configure: vi.fn(),
-    unconfigure: vi.fn(),
-    getCurrentTexture: vi.fn(() => ({ createView: vi.fn(() => ({ kind: 'target-view' })) })),
-  }
-  const canvas = {
-    width: 1,
-    height: 1,
-    style: { width: '', height: '' },
-    getContext: vi.fn(() => context),
-  } as unknown as HTMLCanvasElement
-
-  return {
-    gpu,
-    adapter,
-    device,
-    queue,
-    context,
-    canvas,
-    passes,
-    renderPassDescriptors,
-    pipelineDescriptors,
-    buffers,
-    lost,
-  }
-}
+import { createMockWebGPU } from './helpers/webgpuTestKit'
 
 describe('createWebGPURenderer', () => {
   it('requests a device and reports MVP capabilities', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
 
@@ -112,9 +21,9 @@ describe('createWebGPURenderer', () => {
   })
 
   it('uploads owned buffers and delays destruction until submitted work completes', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     const handle = renderer.createBuffer('instance', 16)
@@ -131,9 +40,9 @@ describe('createWebGPURenderer', () => {
   })
 
   it('draws rectangle instances into an MSAA region', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     renderer.surface.resize(200, 100, 2)
@@ -167,15 +76,15 @@ describe('createWebGPURenderer', () => {
     expect(
       Array.from(new Float32Array(uniformWrite![2] as ArrayBuffer, uniformWrite![3], 8)),
     ).toEqual([160, 80, 2, 4, 1, 0, 0, 1])
-    expect(
-      (fake.pipelineDescriptors[0]!.vertex.module as unknown as { code: string }).code,
-    ).toContain('round((rect.x - uniforms.scrollLeft) * uniforms.dpr)')
+    expect(fake.shaderModules[0]!.code).toContain(
+      'round((rect.x - uniforms.scrollLeft) * uniforms.dpr)',
+    )
   })
 
   it('draws rectangle instances with an alpha hex color', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     renderer.surface.resize(100, 100, 1)
@@ -204,9 +113,9 @@ describe('createWebGPURenderer', () => {
   })
 
   it('records multiple draws and submits once on endFrame', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     renderer.surface.resize(200, 100, 1)
@@ -232,9 +141,9 @@ describe('createWebGPURenderer', () => {
   })
 
   it('expands a line wider than one physical pixel at fractional DPR', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     renderer.surface.resize(100, 100, 1.25)
@@ -262,9 +171,9 @@ describe('createWebGPURenderer', () => {
   })
 
   it('preserves earlier rectangle batches within the same frame', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     renderer.surface.resize(200, 100, 1)
@@ -294,9 +203,9 @@ describe('createWebGPURenderer', () => {
   })
 
   it('draws multiple line strips in one render pass', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
     })
     renderer.surface.resize(200, 100, 1)
@@ -340,10 +249,10 @@ describe('createWebGPURenderer', () => {
   })
 
   it('uses triangle-strip for filled bands and reports device loss', async () => {
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const onDeviceLost = vi.fn()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
       onDeviceLost,
     })
@@ -358,7 +267,7 @@ describe('createWebGPURenderer', () => {
       fake.pipelineDescriptors.some((item) => item.primitive?.topology === 'triangle-strip'),
     ).toBe(true)
 
-    const info = { reason: 'unknown', message: 'device reset' } as GPUDeviceLostInfo
+    const info: GPUDeviceLostInfo = { reason: 'unknown', message: 'device reset' }
     fake.lost.resolve(info)
     await Promise.resolve()
     expect(onDeviceLost).toHaveBeenCalledWith(info)
@@ -366,10 +275,10 @@ describe('createWebGPURenderer', () => {
 
   it('reuses strip ResourceTable buffers when geometry revision is unchanged', async () => {
     resetFrameMetrics()
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const metrics = createFrameMetrics()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
       metrics,
     })
@@ -415,10 +324,10 @@ describe('createWebGPURenderer', () => {
 
   it('records submit and draw metrics on endFrame', async () => {
     resetFrameMetrics()
-    const fake = makeWebGPU()
+    const fake = createMockWebGPU()
     const metrics = createFrameMetrics()
     const renderer = await createWebGPURenderer({
-      gpu: fake.gpu as unknown as GPU,
+      gpu: fake.gpu,
       canvas: fake.canvas,
       metrics,
     })

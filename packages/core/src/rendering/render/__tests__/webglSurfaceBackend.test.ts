@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createWebGLSurfaceBackend, type WebGLSurfaceBackend } from '../createWebGLSurfaceBackend'
 import type { SurfaceRegion } from '../index'
-import { createMockSharedWebGLSurface } from './helpers/rendererTestKit'
+import { createMockCanvas2DContext, createMockSharedWebGLSurface } from './helpers/rendererTestKit'
 
 type MockSurface = ReturnType<typeof createMockSharedWebGLSurface>
 
@@ -55,7 +55,7 @@ describe('WebGL SurfaceBackend adapter', () => {
 
   it('compositeTo delegates to the underlying surface', () => {
     const { backend, mock } = makeBackend()
-    const ctx = {} as CanvasRenderingContext2D
+    const ctx = createMockCanvas2DContext()
     const region: SurfaceRegion = { x: 0, y: 0, width: 800, height: 600, dpr: 2 }
     backend.compositeTo(ctx, region)
     expect(mock.compositeRegionTo).toHaveBeenCalledWith(ctx, region, undefined)
@@ -63,7 +63,7 @@ describe('WebGL SurfaceBackend adapter', () => {
 
   it('compositeTo passes options through', () => {
     const { backend, mock } = makeBackend()
-    const ctx = {} as CanvasRenderingContext2D
+    const ctx = createMockCanvas2DContext()
     const region: SurfaceRegion = { x: 0, y: 0, width: 800, height: 600, dpr: 2 }
     backend.compositeTo(ctx, region, { alpha: 0.5 })
     expect(mock.compositeRegionTo).toHaveBeenCalledWith(ctx, region, { alpha: 0.5 })
@@ -84,7 +84,7 @@ describe('WebGL SurfaceBackend adapter', () => {
     expect(backend.bindRegion({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })).toBe(false)
     backend.resize(800, 600, 2)
     backend.clearRegion({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
-    backend.compositeTo({} as CanvasRenderingContext2D, {
+    backend.compositeTo(createMockCanvas2DContext(), {
       x: 0,
       y: 0,
       width: 100,

@@ -584,11 +584,13 @@ describe('BrowserAgentBridge', () => {
     const primitiveHost = { create: () => true }
     const agent = createTestChartAgent({ toolHosts: [primitiveHost] })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
-    const resolveTarget = (
-      bridge as unknown as {
-        chartToolTarget(tool: { owns(host: object): boolean }, agent: ChartAgentController): object
-      }
-    ).chartToolTarget.bind(bridge)
+    // 读取私有方法：private 无法静态访问，测试只断言其路由行为。
+    const chartToolTarget: (
+      tool: { owns(host: object): boolean },
+      agent: ChartAgentController,
+    ) => object = Reflect.get(bridge, 'chartToolTarget')
+    const resolveTarget = (tool: { owns(host: object): boolean }, agent: ChartAgentController) =>
+      chartToolTarget.call(bridge, tool, agent)
 
     // 原语工具由其真实方法宿主识别，而非按工具名匹配。
     expect(resolveTarget({ owns: (host) => host === primitiveHost }, agent)).toBe(primitiveHost)
@@ -602,16 +604,14 @@ describe('BrowserAgentBridge', () => {
       getAvailableDrawingPaneIds: () => ['main', 'volume'],
     })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
-    const resolveTools = (
-      bridge as unknown as {
-        toolCatalog: {
-          resolve(context: {
-            agent: ChartAgentController
-            readOnly: boolean
-          }): readonly RuntimeToolDefinition[]
-        }
-      }
-    ).toolCatalog.resolve({ agent, readOnly: false })
+    // 读取私有 catalog：private 无法静态访问，测试只断言解析出的工具描述。
+    const toolCatalog: {
+      resolve(context: {
+        agent: ChartAgentController
+        readOnly: boolean
+      }): readonly RuntimeToolDefinition[]
+    } = Reflect.get(bridge, 'toolCatalog')
+    const resolveTools = toolCatalog.resolve({ agent, readOnly: false })
 
     expect(resolveTools.find((tool) => tool.name === 'drawing_create')?.description).toContain(
       'Available runtime paneIds: main, volume.',

@@ -9,7 +9,7 @@ import {
 
 /** 创建满足状态边界测试的最小结果包。 */
 function bundle(): IndicatorSeriesBundle {
-  return { _changed: ['ma'] } as unknown as IndicatorSeriesBundle
+  return { _changed: ['ma'] }
 }
 
 const input = { requestId: 1, dataRevision: 7, configRevision: 3 }

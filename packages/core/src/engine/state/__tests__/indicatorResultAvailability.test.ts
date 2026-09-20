@@ -17,7 +17,7 @@ describe('indicatorResultAvailability', () => {
       requestId: 1,
       dataRevision,
       configRevision,
-      bundle: { _changed: [] } as never,
+      bundle: { _changed: [] },
       timestamps: [],
       instanceResults: [],
       renderStates: new Map(),

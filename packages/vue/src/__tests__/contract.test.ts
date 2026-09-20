@@ -15,7 +15,7 @@ import type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from '../index'
 import * as VueAdapter from '../index'
 import { coreSignalToVueRef } from '../index'
 
-import { createMockChartController, createTestSignal } from './_mockController'
+import { createMockApp, createMockChartController, createTestSignal } from './_mockController'
 
 /** 将颜色归一化为当前测试环境 DOM 的序列化形式，避免断言耦合具体环境的色彩格式。 */
 function normalizeColor(color: string): string {
@@ -34,12 +34,7 @@ describe('@363045841yyt/klinechart —public API surface', () => {
 
   it('KMapPlugin.install is callable with a mock app and registers KLineChart', () => {
     const registered: Record<string, unknown> = {}
-    const mockApp = {
-      component(name: string, comp: unknown) {
-        registered[name] = comp
-      },
-    } as unknown as Parameters<typeof VueAdapter.KMapPlugin.install>[0]
-    VueAdapter.KMapPlugin.install(mockApp)
+    VueAdapter.KMapPlugin.install(createMockApp(registered))
     expect(registered.KLineChart).toBe(VueAdapter.KlineChart)
   })
 })
@@ -123,7 +118,7 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
       name: 'BridgeHost',
       setup() {
         const r = coreSignalToVueRef(signal)
-        bridgedRef.value = r as unknown as { value: number }
+        bridgedRef.value = r
         return () => h('div', String(r.value))
       },
     })

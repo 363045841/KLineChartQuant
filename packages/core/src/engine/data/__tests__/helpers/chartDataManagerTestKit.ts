@@ -10,11 +10,13 @@ import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
 import type { SymbolSpec } from '@/controllers/types'
+import type { TimeShareRange } from '@/data/provider/types'
 import type { ChartDom } from '@/engine/chartTypes'
-import type { DataDependencies } from '@/engine/data/chartDataManager'
+import type { ChartDataManager, DataDependencies } from '@/engine/data/chartDataManager'
 import { createComparisonState } from '@/engine/state/comparisonState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
 import { createSignal } from '@/foundation/reactivity/signal'
+import type { TimeShareData } from '@/foundation/types/price'
 
 /** ViewportStateModule 替身入参。 */
 export interface MockViewportOptions {
@@ -110,6 +112,35 @@ export function createMockDataDependencies(
     onTimeShareDataReady: () => {},
     setSymbols,
   }
+}
+
+/** ChartDataManager 分时读取替身入参。 */
+export interface MockChartDataManagerOptions {
+  currentPeriod?: string
+  timeShareData?: TimeShareData[]
+  preClose?: number | null
+  timeShareRange?: TimeShareRange
+}
+
+/**
+ * 构造只实现分时读取的 ChartDataManager 替身。
+ * ChartDataManager 是含私有字段的 class，结构化对象无法满足，强转集中在本文件内。
+ */
+export function createMockChartDataManager(
+  options: MockChartDataManagerOptions = {},
+): ChartDataManager {
+  const {
+    currentPeriod = 'timeshare',
+    timeShareData = [],
+    preClose = null,
+    timeShareRange,
+  } = options
+  return {
+    currentPeriod,
+    getTimeShareData: () => timeShareData,
+    getTimeSharePreClose: () => preClose,
+    getTimeShareRange: () => timeShareRange,
+  } as unknown as ChartDataManager
 }
 
 /** 创建测试用 JSDOM Document，并把其 window 注入全局。 */

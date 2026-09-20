@@ -19,7 +19,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  type ColorTokens,
   darkTheme,
   type IndicatorPalette,
   lightTheme,
@@ -117,12 +116,12 @@ describe('theme parity', () => {
 // Color value validity
 // ---------------------------------------------------------------------------
 
-function colorEntries(c: ColorTokens, prefix = ''): Array<[string, string]> {
+function colorEntries(c: object, prefix = ''): Array<[string, string]> {
   const out: Array<[string, string]> = []
   for (const [k, v] of Object.entries(c)) {
     const key = prefix ? `${prefix}.${k}` : k
     if (typeof v === 'object' && v !== null) {
-      out.push(...colorEntries(v as unknown as ColorTokens, key))
+      out.push(...colorEntries(v, key))
     } else {
       out.push([key, v as string])
     }

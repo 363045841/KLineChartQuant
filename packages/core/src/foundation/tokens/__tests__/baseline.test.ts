@@ -27,7 +27,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { darkTheme, lightTheme, themeToCssVars, toCssDeclarationBlock } from '..'
+import { type ColorTokens, darkTheme, lightTheme, themeToCssVars, toCssDeclarationBlock } from '..'
 
 // ---------------------------------------------------------------------------
 // Local contrast helpers (kept inline so the snapshot files don't reach
@@ -72,11 +72,16 @@ function hexBase(c: string): string {
  * the baseline. The audit categories are: must-be-visible (candle, axis,
  * crosshair) and prefer-strong (palette, accent).
  */
+/** ColorTokens 中取值为 ColorValue（string）的角色名。 */
+type ColorRole = {
+  [K in keyof ColorTokens]: ColorTokens[K] extends string ? K : never
+}[keyof ColorTokens]
+
 interface TrackedRole {
-  role: string
+  role: ColorRole
   threshold: number
   /** Role this is measured against. Default `'background'`. */
-  against?: string
+  against?: ColorRole
 }
 
 const TRACKED_ROLES: ReadonlyArray<TrackedRole> = [
@@ -111,9 +116,9 @@ function buildContrastReport(theme: typeof lightTheme): string {
   lines.push('| Role | Value | Surface | Ratio | Floor | Pass |')
   lines.push('|---|---|---|---|---|---|')
   for (const { role, threshold, against } of TRACKED_ROLES) {
-    const value = (theme.colors as unknown as Record<string, string>)[role]
+    const value = theme.colors[role]
     const surfaceKey = against ?? 'background'
-    const surfaceVal = (theme.colors as unknown as Record<string, string>)[surfaceKey]
+    const surfaceVal = theme.colors[surfaceKey]
     const r = contrast(hexBase(value), hexBase(surfaceVal))
     const ratio = r === null ? 'n/a' : r.toFixed(2)
     const pass = r === null ? '?' : r >= threshold ? '✅' : '❌'
@@ -171,9 +176,9 @@ describe('theme baseline — contrast floors hold', () => {
   for (const theme of [lightTheme, darkTheme]) {
     for (const { role, threshold, against } of TRACKED_ROLES) {
       it(`${theme.name}: ${role} ≥ ${threshold}:1`, () => {
-        const value = (theme.colors as unknown as Record<string, string>)[role]
+        const value = theme.colors[role]
         const surfaceKey = against ?? 'background'
-        const surface = (theme.colors as unknown as Record<string, string>)[surfaceKey]
+        const surface = theme.colors[surfaceKey]
         const r = contrast(hexBase(value), hexBase(surface))
         expect(r).not.toBeNull()
         expect(r as number).toBeGreaterThanOrEqual(threshold)

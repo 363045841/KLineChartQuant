@@ -88,10 +88,16 @@ describe('useSymbolSearch', () => {
     const first = deferred<ReadonlyArray<SearchableSymbol>>()
     const second = deferred<ReadonlyArray<SearchableSymbol>>()
     const signals: AbortSignal[] = []
-    const search = vi.fn((...args: unknown[]) => {
-      signals.push(args[2] as AbortSignal)
-      return signals.length === 1 ? first.promise : second.promise
-    }) as unknown as SymbolSearchFn<SearchableSymbol>
+    const search = vi.fn(
+      (
+        _query: string,
+        _limit: number,
+        signal: AbortSignal,
+      ): Promise<ReadonlyArray<SearchableSymbol>> => {
+        signals.push(signal)
+        return signals.length === 1 ? first.promise : second.promise
+      },
+    )
     const query = ref('first')
     const state = useSymbolSearch({
       query,
