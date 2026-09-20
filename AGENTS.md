@@ -91,6 +91,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - 不要硬编码字符串
 - 禁止编写和保留复杂化、无意义的回退逻辑,回退是风险放大点
 - 禁止在编程过程中刻意先留兼容逻辑,然后再修改的行为
+- 不许写副作用函数,导致耦合
 
 ## Architecture
 
