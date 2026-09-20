@@ -71,4 +71,25 @@ describe('DataBuffer', () => {
 
     expect(buffer.timezone).toBe('America/New_York')
   })
+
+  it('atomically replaces the forming bar and appends the next bar', () => {
+    const buffer = new DataBuffer()
+    buffer.setInlineData([bar(10), bar(20)])
+    const changes: number[] = []
+    const unsubscribe = buffer.data.subscribe(() => changes.push(buffer.data().data.length))
+
+    const result = buffer.applyRealtimeBars([
+      { ...bar(20), close: 3 },
+      { ...bar(30), close: 4 },
+    ])
+
+    expect(buffer.getRawData().map((item) => [item.timestamp, item.close])).toEqual([
+      [10, 1],
+      [20, 3],
+      [30, 4],
+    ])
+    expect(result).toMatchObject({ appendedCount: 1, replacedCount: 1, rejected: [] })
+    expect(changes).toEqual([3])
+    unsubscribe()
+  })
 })

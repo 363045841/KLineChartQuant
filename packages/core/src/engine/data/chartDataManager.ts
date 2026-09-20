@@ -881,7 +881,7 @@ export class ChartDataManager {
   /** 实时帧写入活动 K 线 Buffer（末尾窗口 replace-on-conflict）；分时视图或无活动序列时忽略。 */
   updateBars(bars: KLineData[]): void {
     if (isTimeSharePeriod(this.currentPeriod)) return
-    this.getActiveDataBuffer()?.updateBars(bars)
+    this.getActiveDataBuffer()?.applyRealtimeBars(bars)
   }
 
   appendData(newData: KLineData[]): void {

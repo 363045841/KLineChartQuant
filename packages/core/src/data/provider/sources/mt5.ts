@@ -2,6 +2,7 @@
 import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol/index.js'
 import { marketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
+import { BarsLiveSource } from '../../live/barsLive.js'
 
 const MT5 = dataSourceRegistry.mt5
 
@@ -22,6 +23,13 @@ export const mt5MarketDataProvider = createMarketDataProvider({
     marketSessions: MT5.marketSessions,
   },
   transport,
+  /** MT5 实时 K 线流在连接时读取运行时地址，面板改址后的下一次订阅立即生效。 */
+  liveBars: {
+    createStream({ symbol, period, barAggregation }) {
+      const baseUrl = marketDataProviderRegistry.getConfig(MT5.id).baseUrl ?? MT5.defaultBaseUrl
+      return new BarsLiveSource(MT5.id, symbol, period, barAggregation, baseUrl)
+    },
+  },
 })
 
 // 模块加载副作用：把 mt5 Provider 注册进全局注册表，供应用直接使用。

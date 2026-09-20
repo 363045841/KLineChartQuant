@@ -1,59 +1,55 @@
 /**
- * MT5 实时 K 线消费器：EventSource 封装（Mt5LiveSource）+ 帧驱动的 updateBars 接线
+ * 实时 K 线消费器：EventSource 封装（BarsLiveSource）+ 帧驱动的 updateBars 接线
  * （RealtimeBarsConnector）。EventSource 原生重连；断线重连凭 Last-Event-ID 由连接器补帧。
  */
 import type { KLineData } from '../../controllers/types.js'
 import { KLineChartError } from '../../errors.js'
-import type { BarAggregation } from '../provider/types.js'
+import { marketDataProviderRegistry } from '../provider/registry.js'
+import {
+  ORIGINAL_BAR_AGGREGATION,
+  type BarAggregation,
+} from '../provider/types.js'
+import type {
+  LiveBar,
+  LiveBarsFrame,
+  LiveBarsStatus,
+  LiveBarsStream,
+} from './types.js'
 
-/** SSE 帧里的 K 线载荷（UTC 毫秒时间戳）。 */
-export interface Mt5LiveBar {
-  timestamp: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume?: number
-  turnover?: number
-}
+export type {
+  LiveBar,
+  LiveBarsDataSource,
+  LiveBarsFrame,
+  LiveBarsRequest,
+  LiveBarsStatus,
+  LiveBarsStream,
+} from './types.js'
 
-/** MT5-Connecter SSE 帧协议：snapshot/forming/closed/status。 */
-export type Mt5LiveFrame =
-  | { type: 'snapshot'; symbol: string; period: string; bars: Mt5LiveBar[] }
-  | { type: 'forming'; symbol: string; period: string; bar: Mt5LiveBar }
-  | { type: 'closed'; symbol: string; period: string; bar: Mt5LiveBar }
-  | { type: 'status'; symbol: string; period: string; status: string; detail?: string }
-
-/** 连接器生命周期状态（EventSource 驱动）。 */
-export type Mt5LiveStatus = 'connecting' | 'connected' | 'disconnected'
-
-/** 本地 MT5-Connecter 默认地址。 */
-export const DEFAULT_MT5_SSE_URL = 'http://127.0.0.1:8090'
-
-/** 单连接固定订阅一个 (symbol, period, barAggregation)；切换任一维度均断开重连。 */
-export class Mt5LiveSource {
+/** 单连接固定订阅一个数据源的 (symbol, period, barAggregation)；切换任一维度均断开重连。 */
+export class BarsLiveSource implements LiveBarsStream {
   private es: EventSource | null = null
-  private frameCbs = new Set<(frame: Mt5LiveFrame) => void>()
-  private statusCbs = new Set<(status: Mt5LiveStatus) => void>()
+  private frameCbs = new Set<(frame: LiveBarsFrame) => void>()
+  private statusCbs = new Set<(status: LiveBarsStatus) => void>()
   private errorCbs = new Set<(err: Error) => void>()
   private destroyed = false
 
   constructor(
+    readonly sourceId: string,
     readonly symbol: string,
     readonly period: string,
     readonly barAggregation: BarAggregation,
-    private readonly baseUrl: string = DEFAULT_MT5_SSE_URL,
+    private readonly baseUrl: string,
     private readonly esFactory?: (url: string) => EventSource,
   ) {}
 
   /** 订阅数据帧；返回退订函数。 */
-  onFrame(cb: (frame: Mt5LiveFrame) => void): () => void {
+  onFrame(cb: (frame: LiveBarsFrame) => void): () => void {
     this.frameCbs.add(cb)
     return () => this.frameCbs.delete(cb)
   }
 
   /** 订阅连接状态；返回退订函数。 */
-  onStatus(cb: (status: Mt5LiveStatus) => void): () => void {
+  onStatus(cb: (status: LiveBarsStatus) => void): () => void {
     this.statusCbs.add(cb)
     return () => this.statusCbs.delete(cb)
   }
@@ -70,7 +66,7 @@ export class Mt5LiveSource {
     this.disconnect()
     this.emitStatus('connecting')
 
-    const url = `${this.baseUrl}/api/v1/market-data/sources/mt5/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
+    const url = `${this.baseUrl}/api/v1/market-data/sources/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
 
@@ -87,12 +83,12 @@ export class Mt5LiveSource {
       const raw = event.data as string
       if (raw === '' || raw.startsWith(':')) return
       try {
-        const frame = JSON.parse(raw) as Mt5LiveFrame
+        const frame = JSON.parse(raw) as LiveBarsFrame
         for (const cb of this.frameCbs) cb(frame)
       } catch (e) {
         const err = new KLineChartError(
           'FETCH_FAILED',
-          `Mt5LiveSource parse error: ${(e as Error).message}`,
+          `BarsLiveSource parse error: ${(e as Error).message}`,
         )
         for (const cb of this.errorCbs) cb(err)
       }
@@ -118,7 +114,7 @@ export class Mt5LiveSource {
   }
 
   /** 广播连接状态。 */
-  private emitStatus(status: Mt5LiveStatus): void {
+  private emitStatus(status: LiveBarsStatus): void {
     for (const cb of this.statusCbs) cb(status)
   }
 }
@@ -129,7 +125,7 @@ export interface RealtimeBarsSink {
 }
 
 /** 把 SSE 帧序列转成 updateBars 原子写的最小接受端。 */
-function toKLineData(bar: Mt5LiveBar): KLineData {
+function toKLineData(bar: LiveBar): KLineData {
   return {
     timestamp: bar.timestamp,
     open: bar.open,
@@ -142,7 +138,7 @@ function toKLineData(bar: Mt5LiveBar): KLineData {
 }
 
 /**
- * 帧驱动接线：Mt5LiveSource → sink.updateBars。
+ * 帧驱动接线：BarsLiveSource → sink.updateBars。
  *
  * - closed 帧先暂存，随后的 forming 帧合并为一次原子写（收线 + 新开一根）；
  * - 快照帧自带全量尾态，直接整批写入并清空暂存；
@@ -156,7 +152,7 @@ export class RealtimeBarsConnector {
 
   constructor(
     private readonly sink: RealtimeBarsSink,
-    private readonly source: Mt5LiveSource,
+    private readonly source: LiveBarsStream,
   ) {}
 
   /** 开始消费帧并连接数据源；重复调用无效果。 */
@@ -167,7 +163,7 @@ export class RealtimeBarsConnector {
     this.unsubError = this.source.onError((err) => {
       // 解析异常不影响连接（EventSource 继续收流），仅冲刷暂存避免终值滞留
       this.flushPendingClosed()
-      console.error(`[RealtimeBarsConnector] ${this.source.symbol}:`, err.message)
+      console.error('[RealtimeBarsConnector]', err.message)
     })
     this.source.connect()
   }
@@ -185,7 +181,7 @@ export class RealtimeBarsConnector {
   }
 
   /** 帧分发：closed 暂存、forming 合并写、snapshot 整批写。 */
-  private handleFrame(frame: Mt5LiveFrame): void {
+  private handleFrame(frame: LiveBarsFrame): void {
     if (frame.type === 'closed') {
       this.pendingClosed = toKLineData(frame.bar)
       return
@@ -211,5 +207,75 @@ export class RealtimeBarsConnector {
     const pending = this.pendingClosed
     this.pendingClosed = null
     this.sink.updateBars([pending])
+  }
+}
+
+/**
+ * 当前活动品种的实时 K 线订阅编排器。
+ *
+ * 仅在当前数据源声明 liveBars 能力时建立 SSE 连接；每次切换先停止旧连接，
+ * 以保证旧品种的延迟帧不会写入当前图表 Buffer。
+ */
+export class BarsLiveSubscription {
+  private active: {
+    key: string
+    source: LiveBarsStream
+    connector: RealtimeBarsConnector
+  } | null = null
+
+  /**
+   * 创建活动品种的实时订阅编排器。
+   *
+   * @param sink 实时 K 线写入端。
+   */
+  constructor(private readonly sink: RealtimeBarsSink) {}
+
+  /**
+   * 按当前品种重新协调订阅；不支持实时行情时停止已有订阅。
+   *
+   * @param spec 当前图表品种。
+   * @param barAggregation 当前活动 K 线序列的聚合方式。
+   */
+  reconcile(
+    spec: { symbol: string; period?: string; source?: string; instrument?: { sourceId: string } } | null,
+    barAggregation: BarAggregation = ORIGINAL_BAR_AGGREGATION,
+  ): void {
+    const sourceId = spec?.instrument?.sourceId ?? spec?.source
+    if (!spec?.symbol || !spec.period || !sourceId) {
+      this.stop()
+      return
+    }
+
+    const provider = marketDataProviderRegistry.get(sourceId)
+    if (!provider || provider.source.capabilities?.liveBars !== true) {
+      this.stop()
+      return
+    }
+
+    if (!provider.liveBars) {
+      this.stop()
+      return
+    }
+
+    const key = JSON.stringify([sourceId, spec.symbol, spec.period, barAggregation])
+    if (this.active?.key === key) return
+    this.stop()
+
+    const source = provider.liveBars.createStream({
+      symbol: spec.symbol,
+      period: spec.period,
+      barAggregation,
+    })
+    const connector = new RealtimeBarsConnector(this.sink, source)
+    this.active = { key, source, connector }
+    connector.start()
+  }
+
+  /** 停止当前订阅并释放 EventSource 回调。 */
+  stop(): void {
+    if (!this.active) return
+    this.active.connector.stop()
+    this.active.source.destroy()
+    this.active = null
   }
 }

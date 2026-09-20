@@ -43,8 +43,12 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
   setError(error: string | null): void
   /** 合并缓存查询结果并保留前置插入信息。 */
   mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
-  /** 实时帧写入：末尾窗口 replace-on-conflict 合并，拒绝陈旧帧。 */
-  updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult
+  /**
+   * 原子应用一批实时 K 线：同时间戳替换尾部 K 线，新时间戳追加，陈旧帧拒绝。
+   *
+   * 收线帧与下一根 forming 帧应作为同一批传入，避免图表观察到中间状态。
+   */
+  applyRealtimeBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult
   setSymbol(spec: SymbolSpec): void
   setCurrentSpec(spec: SymbolSpec): void
 }

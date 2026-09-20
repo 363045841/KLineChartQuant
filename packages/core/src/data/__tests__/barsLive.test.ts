@@ -1,7 +1,23 @@
-/** Mt5LiveSource 与 RealtimeBarsConnector 测试：esFactory 注入假 EventSource，无网络依赖。 */
+/** BarsLiveSource 与 RealtimeBarsConnector 测试：esFactory 注入假 EventSource，无网络依赖。 */
 import { describe, expect, it } from 'vitest'
 
-import { Mt5LiveSource, RealtimeBarsConnector } from '../live/mt5BarsLive'
+import { DataBuffer } from '../buffer/dataBuffer'
+import { BarsLiveSource, type LiveBar, RealtimeBarsConnector } from '../live/barsLive'
+
+/** K 线 fixture 入参：timestamp/close 必填，确有差异的 OHLCV 字段可按需覆盖。 */
+type BarOverrides = Pick<LiveBar, 'timestamp' | 'close'> &
+  Partial<Omit<LiveBar, 'timestamp' | 'close'>>
+
+/**
+ * 构造 K 线测试 fixture：默认生成以 close 为开高低收的平盘 bar。
+ *
+ * @param overrides 必填 timestamp/close；确有差异的字段可覆盖。
+ * @returns 完整 LiveBar，同时可用于 SSE 帧载荷与 KLineData 输入。
+ */
+function createBar(overrides: BarOverrides): LiveBar {
+  const { timestamp, close, ...rest } = overrides
+  return { timestamp, open: close, high: close, low: close, close, ...rest }
+}
 
 /** 可手动触发 open/error/message 的 EventSource 替身。 */
 class FakeEventSource {
@@ -22,7 +38,7 @@ class FakeEventSource {
 
 function createSource() {
   const instances: FakeEventSource[] = []
-  const source = new Mt5LiveSource('XAUUSD', '4h', 'original', 'http://127.0.0.1:8090', (url) => {
+  const source = new BarsLiveSource('mt5', 'XAUUSD', '4h', 'original', 'http://127.0.0.1:8090', (url) => {
     const es = new FakeEventSource(url)
     instances.push(es)
     return es as unknown as EventSource
@@ -30,7 +46,7 @@ function createSource() {
   return { source, instances }
 }
 
-describe('Mt5LiveSource', () => {
+describe('BarsLiveSource', () => {
   it('connects to the mt5 stream endpoint and forwards parsed frames', () => {
     const { source, instances } = createSource()
     const statuses: string[] = []
@@ -101,7 +117,7 @@ describe('RealtimeBarsConnector', () => {
         type: 'closed',
         symbol: 'XAUUSD',
         period: '4h',
-        bar: { timestamp: 1000, open: 1, high: 2, low: 0, close: 2, volume: 50 },
+        bar: createBar({ timestamp: 1000, close: 2 }),
       }),
     })
     expect(writes).toEqual([]) // closed 先暂存，等 forming 合并
@@ -110,7 +126,7 @@ describe('RealtimeBarsConnector', () => {
         type: 'forming',
         symbol: 'XAUUSD',
         period: '4h',
-        bar: { timestamp: 2000, open: 2, high: 3, low: 1, close: 2.5 },
+        bar: createBar({ timestamp: 2000, close: 2.5 }),
       }),
     })
 
@@ -130,7 +146,7 @@ describe('RealtimeBarsConnector', () => {
         type: 'forming',
         symbol: 'XAUUSD',
         period: '4h',
-        bar: { timestamp: 2000, open: 2, high: 3, low: 1, close: 3, volume: 5 },
+        bar: createBar({ timestamp: 2000, close: 3 }),
       }),
     })
 
@@ -145,7 +161,7 @@ describe('RealtimeBarsConnector', () => {
         type: 'closed',
         symbol: 'XAUUSD',
         period: '4h',
-        bar: { timestamp: 1000, open: 1, high: 2, low: 0, close: 2 },
+        bar: createBar({ timestamp: 1000, close: 2 }),
       }),
     })
     instances[0]!.onmessage?.({
@@ -154,8 +170,8 @@ describe('RealtimeBarsConnector', () => {
         symbol: 'XAUUSD',
         period: '4h',
         bars: [
-          { timestamp: 1000, open: 1, high: 2, low: 0, close: 2 },
-          { timestamp: 2000, open: 2, high: 3, low: 1, close: 2.5 },
+          createBar({ timestamp: 1000, close: 2 }),
+          createBar({ timestamp: 2000, close: 2.5 }),
         ],
       }),
     })
@@ -168,6 +184,49 @@ describe('RealtimeBarsConnector', () => {
     ])
   })
 
+  it('aligns a snapshot through the buffer tail-write API in one publication', () => {
+    const { source, instances } = createSource()
+    const buffer = new DataBuffer()
+    buffer.setInlineData([
+      createBar({ timestamp: 10, close: 1 }),
+      createBar({ timestamp: 20, close: 2 }),
+      createBar({ timestamp: 30, close: 3 }),
+    ])
+    let publications = 0
+    const unsubscribe = buffer.data.subscribe(() => {
+      publications += 1
+    })
+    const connector = new RealtimeBarsConnector(
+      { updateBars: (bars) => buffer.applyRealtimeBars(bars) },
+      source,
+    )
+    connector.start()
+
+    instances[0]!.onmessage?.({
+      data: JSON.stringify({
+        type: 'snapshot',
+        symbol: 'XAUUSD',
+        period: '4h',
+        bars: [
+          createBar({ timestamp: 10, close: 9 }),
+          createBar({ timestamp: 20, close: 8 }),
+          createBar({ timestamp: 30, close: 7 }),
+          createBar({ timestamp: 40, close: 6 }),
+        ],
+      }),
+    })
+
+    expect(buffer.getRawData().map((bar) => [bar.timestamp, bar.close])).toEqual([
+      [10, 1],
+      [20, 8],
+      [30, 7],
+      [40, 6],
+    ])
+    expect(publications).toBe(1)
+    unsubscribe()
+    connector.stop()
+  })
+
   it('flushes a stashed closed bar on stop so the final value is not lost', () => {
     const { instances, writes, connector } = setup()
 
@@ -176,7 +235,7 @@ describe('RealtimeBarsConnector', () => {
         type: 'closed',
         symbol: 'XAUUSD',
         period: '4h',
-        bar: { timestamp: 1000, open: 1, high: 2, low: 0, close: 2 },
+        bar: createBar({ timestamp: 1000, close: 2 }),
       }),
     })
     connector.stop()
