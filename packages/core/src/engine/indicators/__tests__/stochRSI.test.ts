@@ -3,30 +3,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { KLineData } from '../../../foundation/types/price'
 import { calcStochRSIData } from '../calculators/stochRSI'
-
-/**
- * 生成线性收盘价的测试 K 线。
- * @param length K 线数量。
- * @returns 合成 K 线数据。
- */
-function createTrendData(length: number): KLineData[] {
-  return Array.from({ length }, (_, index) => {
-    const close = 100 + index
-    return {
-      timestamp: index * 60_000,
-      open: close - 0.25,
-      high: close + 0.5,
-      low: close - 0.5,
-      close,
-    }
-  })
-}
+import { createRisingTrend } from './__fixtures__/synthetic'
 
 describe('calcStochRSIData', () => {
   it('returns an equal-length series with an undefined warm-up region', () => {
-    const data = createTrendData(50)
+    const data = createRisingTrend(50)
     const result = calcStochRSIData(data, 14, 3, 3)
 
     expect(result).toHaveLength(data.length)
@@ -37,13 +19,13 @@ describe('calcStochRSIData', () => {
   })
 
   it('returns deterministic K/D values for a continuously rising series', () => {
-    const result = calcStochRSIData(createTrendData(50), 14, 3, 3)
+    const result = calcStochRSIData(createRisingTrend(50), 14, 3, 3)
 
     expect(result[31]).toEqual({ k: 50, d: 50 })
   })
 
   it('returns all undefined for invalid parameters', () => {
-    const result = calcStochRSIData(createTrendData(20), 1, 3, 3)
+    const result = calcStochRSIData(createRisingTrend(20), 1, 3, 3)
 
     expect(result).toHaveLength(20)
     for (const point of result) {

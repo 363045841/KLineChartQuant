@@ -3,30 +3,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { KLineData } from '../../../foundation/types/price'
 import { calcSchaffTrendCycleData } from '../calculators/schaffTrendCycle'
-
-/**
- * 生成线性收盘价的测试 K 线。
- * @param length K 线数量。
- * @returns 合成 K 线数据。
- */
-function createTrendData(length: number): KLineData[] {
-  return Array.from({ length }, (_, index) => {
-    const close = 100 + index
-    return {
-      timestamp: index * 60_000,
-      open: close - 0.25,
-      high: close + 0.5,
-      low: close - 0.5,
-      close,
-    }
-  })
-}
+import { createRisingTrend } from './__fixtures__/synthetic'
 
 describe('calcSchaffTrendCycleData', () => {
   it('returns an equal-length series with an undefined double-stochastic warm-up region', () => {
-    const data = createTrendData(20)
+    const data = createRisingTrend(20)
     const result = calcSchaffTrendCycleData(data, 2, 3, 2, 1)
 
     expect(result).toHaveLength(data.length)
@@ -36,13 +18,13 @@ describe('calcSchaffTrendCycleData', () => {
   })
 
   it('returns 50 when the second stochastic window has equal smoothed values', () => {
-    const result = calcSchaffTrendCycleData(createTrendData(20), 2, 3, 2, 1)
+    const result = calcSchaffTrendCycleData(createRisingTrend(20), 2, 3, 2, 1)
 
     expect(result[2]).toBe(50)
   })
 
   it('returns all undefined for invalid parameters', () => {
-    const result = calcSchaffTrendCycleData(createTrendData(20), 23, 23, 10, 0.5)
+    const result = calcSchaffTrendCycleData(createRisingTrend(20), 23, 23, 10, 0.5)
 
     for (const value of result) {
       expect(value).toBeUndefined()

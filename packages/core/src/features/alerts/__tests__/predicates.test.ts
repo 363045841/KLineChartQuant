@@ -2,32 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { evaluatePredicate } from '../predicates'
 import type { AlertPredicate, MarketSnapshot } from '../types'
-
-// ---------------------------------------------------------------------------
-// Test fixtures
-// ---------------------------------------------------------------------------
-
-function snap(
-  overrides: Partial<MarketSnapshot> & { close?: number; volume?: number } = {},
-): MarketSnapshot {
-  const close = overrides.close ?? 100
-  const volume = overrides.volume ?? 1000
-  return {
-    bar: {
-      timestamp: 1,
-      open: close - 1,
-      high: close + 1,
-      low: close - 2,
-      close,
-      volume,
-    },
-    indicators: overrides.indicators ?? {},
-    rollingVolume: overrides.rollingVolume ?? {},
-    volumeProfile: overrides.volumeProfile,
-    orderBook: overrides.orderBook,
-    footprint: overrides.footprint,
-  }
-}
+import { createMarketSnapshot } from './helpers/marketSnapshot'
 
 // ---------------------------------------------------------------------------
 // price-cross
@@ -36,37 +11,37 @@ function snap(
 describe('predicate: price-cross', () => {
   it('fires up-cross when prev < threshold and curr >= threshold', () => {
     const pred: AlertPredicate = { kind: 'price-cross', price: 100, direction: 'up' }
-    const prev = snap({ close: 99 })
-    const curr = snap({ close: 100 })
+    const prev = createMarketSnapshot({ close: 99 })
+    const curr = createMarketSnapshot({ close: 100 })
     expect(evaluatePredicate(pred, curr, prev)).toBe(true)
   })
 
   it('does not fire up-cross when both prev and curr are above threshold', () => {
     const pred: AlertPredicate = { kind: 'price-cross', price: 100, direction: 'up' }
-    const prev = snap({ close: 101 })
-    const curr = snap({ close: 102 })
+    const prev = createMarketSnapshot({ close: 101 })
+    const curr = createMarketSnapshot({ close: 102 })
     expect(evaluatePredicate(pred, curr, prev)).toBe(false)
   })
 
   it('fires down-cross when prev > threshold and curr <= threshold', () => {
     const pred: AlertPredicate = { kind: 'price-cross', price: 100, direction: 'down' }
-    const prev = snap({ close: 101 })
-    const curr = snap({ close: 100 })
+    const prev = createMarketSnapshot({ close: 101 })
+    const curr = createMarketSnapshot({ close: 100 })
     expect(evaluatePredicate(pred, curr, prev)).toBe(true)
   })
 
   it('does not fire on first-evaluation (prev=null) even if curr equals threshold', () => {
     const pred: AlertPredicate = { kind: 'price-cross', price: 100, direction: 'any' }
-    const curr = snap({ close: 100 })
+    const curr = createMarketSnapshot({ close: 100 })
     expect(evaluatePredicate(pred, curr, null)).toBe(false)
   })
 
   it("direction='any' fires on either up or down cross", () => {
     const pred: AlertPredicate = { kind: 'price-cross', price: 100, direction: 'any' }
-    const upPrev = snap({ close: 99 })
-    const upCurr = snap({ close: 100 })
-    const downPrev = snap({ close: 101 })
-    const downCurr = snap({ close: 99 })
+    const upPrev = createMarketSnapshot({ close: 99 })
+    const upCurr = createMarketSnapshot({ close: 100 })
+    const downPrev = createMarketSnapshot({ close: 101 })
+    const downCurr = createMarketSnapshot({ close: 99 })
     expect(evaluatePredicate(pred, upCurr, upPrev)).toBe(true)
     expect(evaluatePredicate(pred, downCurr, downPrev)).toBe(true)
   })
@@ -79,18 +54,18 @@ describe('predicate: price-cross', () => {
 describe('predicate: price-in-range', () => {
   it('fires when close lies inside the closed interval', () => {
     const pred: AlertPredicate = { kind: 'price-in-range', min: 90, max: 110 }
-    expect(evaluatePredicate(pred, snap({ close: 100 }), null)).toBe(true)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 100 }), null)).toBe(true)
   })
 
   it('does not fire when close is below min', () => {
     const pred: AlertPredicate = { kind: 'price-in-range', min: 90, max: 110 }
-    expect(evaluatePredicate(pred, snap({ close: 89 }), null)).toBe(false)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 89 }), null)).toBe(false)
   })
 
   it('boundary values count as inside (>=, <=)', () => {
     const pred: AlertPredicate = { kind: 'price-in-range', min: 90, max: 110 }
-    expect(evaluatePredicate(pred, snap({ close: 90 }), null)).toBe(true)
-    expect(evaluatePredicate(pred, snap({ close: 110 }), null)).toBe(true)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 90 }), null)).toBe(true)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 110 }), null)).toBe(true)
   })
 
   it('returns false when bar is null', () => {
@@ -111,7 +86,7 @@ describe('predicate: price-out-of-range', () => {
       min: 90,
       max: 110,
     }
-    expect(evaluatePredicate(pred, snap({ close: 111 }), null)).toBe(true)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 111 }), null)).toBe(true)
   })
 
   it('does not fire when close is exactly on a boundary', () => {
@@ -120,8 +95,8 @@ describe('predicate: price-out-of-range', () => {
       min: 90,
       max: 110,
     }
-    expect(evaluatePredicate(pred, snap({ close: 90 }), null)).toBe(false)
-    expect(evaluatePredicate(pred, snap({ close: 110 }), null)).toBe(false)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 90 }), null)).toBe(false)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 110 }), null)).toBe(false)
   })
 })
 
@@ -137,8 +112,8 @@ describe('predicate: indicator-cross', () => {
       threshold: 70,
       direction: 'up',
     }
-    const prev = snap({ indicators: { rsi: 69 } })
-    const curr = snap({ indicators: { rsi: 71 } })
+    const prev = createMarketSnapshot({ indicators: { rsi: 69 } })
+    const curr = createMarketSnapshot({ indicators: { rsi: 71 } })
     expect(evaluatePredicate(pred, curr, prev)).toBe(true)
   })
 
@@ -149,7 +124,7 @@ describe('predicate: indicator-cross', () => {
       threshold: 70,
       direction: 'any',
     }
-    expect(evaluatePredicate(pred, snap({ indicators: {} }), null)).toBe(false)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ indicators: {} }), null)).toBe(false)
   })
 })
 
@@ -165,8 +140,8 @@ describe('predicate: indicator-cross-indicator', () => {
       bId: 'slow',
       direction: 'a-above-b',
     }
-    const prev = snap({ indicators: { fast: 9, slow: 10 } })
-    const curr = snap({ indicators: { fast: 11, slow: 10 } })
+    const prev = createMarketSnapshot({ indicators: { fast: 9, slow: 10 } })
+    const curr = createMarketSnapshot({ indicators: { fast: 11, slow: 10 } })
     expect(evaluatePredicate(pred, curr, prev)).toBe(true)
   })
 
@@ -177,8 +152,8 @@ describe('predicate: indicator-cross-indicator', () => {
       bId: 'slow',
       direction: 'a-above-b',
     }
-    const prev = snap({ indicators: { fast: 11, slow: 10 } })
-    const curr = snap({ indicators: { fast: 12, slow: 10 } })
+    const prev = createMarketSnapshot({ indicators: { fast: 11, slow: 10 } })
+    const curr = createMarketSnapshot({ indicators: { fast: 12, slow: 10 } })
     expect(evaluatePredicate(pred, curr, prev)).toBe(false)
   })
 })
@@ -194,7 +169,7 @@ describe('predicate: volume-spike', () => {
       multipleOfAvg: 3,
       lookbackBars: 20,
     }
-    const s = snap({ volume: 6000, rollingVolume: { 20: 2000 } })
+    const s = createMarketSnapshot({ volume: 6000, rollingVolume: { 20: 2000 } })
     expect(evaluatePredicate(pred, s, null)).toBe(true)
   })
 
@@ -204,7 +179,7 @@ describe('predicate: volume-spike', () => {
       multipleOfAvg: 3,
       lookbackBars: 20,
     }
-    const s = snap({ volume: 5999, rollingVolume: { 20: 2000 } })
+    const s = createMarketSnapshot({ volume: 5999, rollingVolume: { 20: 2000 } })
     expect(evaluatePredicate(pred, s, null)).toBe(false)
   })
 
@@ -214,7 +189,7 @@ describe('predicate: volume-spike', () => {
       multipleOfAvg: 3,
       lookbackBars: 20,
     }
-    const s = snap({ volume: 9999, rollingVolume: {} })
+    const s = createMarketSnapshot({ volume: 9999, rollingVolume: {} })
     expect(evaluatePredicate(pred, s, null)).toBe(false)
   })
 })
@@ -229,7 +204,7 @@ describe('predicate: volume-profile-poc-touch', () => {
       kind: 'volume-profile-poc-touch',
       bandPercent: 0.005, // 0.5%
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       close: 100,
       volumeProfile: { poc: 100.3, vah: 101, val: 99 },
     })
@@ -241,7 +216,7 @@ describe('predicate: volume-profile-poc-touch', () => {
       kind: 'volume-profile-poc-touch',
       bandPercent: 0.001, // 0.1%
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       close: 100,
       volumeProfile: { poc: 102, vah: 103, val: 99 },
     })
@@ -253,7 +228,7 @@ describe('predicate: volume-profile-poc-touch', () => {
       kind: 'volume-profile-poc-touch',
       bandPercent: 0.005,
     }
-    expect(evaluatePredicate(pred, snap({ close: 100 }), null)).toBe(false)
+    expect(evaluatePredicate(pred, createMarketSnapshot({ close: 100 }), null)).toBe(false)
   })
 })
 
@@ -267,7 +242,7 @@ describe('predicate: order-book-wall', () => {
       kind: 'order-book-wall',
       sizeMultipleOfMedian: 10,
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       orderBook: {
         medianBidSize: 5,
         medianAskSize: 5,
@@ -283,7 +258,7 @@ describe('predicate: order-book-wall', () => {
       kind: 'order-book-wall',
       sizeMultipleOfMedian: 10,
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       orderBook: {
         medianBidSize: 0,
         medianAskSize: 0,
@@ -308,7 +283,7 @@ describe('predicate: footprint-imbalance', () => {
       minImbalanceRatio: 3,
       consecutivePriceLevels: 3,
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       footprint: {
         latestBarMaxImbalanceRatio: 4.2,
         latestBarImbalanceCount: 5,
@@ -323,7 +298,7 @@ describe('predicate: footprint-imbalance', () => {
       minImbalanceRatio: 3,
       consecutivePriceLevels: 3,
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       footprint: {
         latestBarMaxImbalanceRatio: 4.2,
         latestBarImbalanceCount: 2,
@@ -338,7 +313,7 @@ describe('predicate: footprint-imbalance', () => {
       minImbalanceRatio: 3,
       consecutivePriceLevels: 3,
     }
-    const s = snap({
+    const s = createMarketSnapshot({
       footprint: {
         latestBarMaxImbalanceRatio: 2.9,
         latestBarImbalanceCount: 5,
@@ -356,8 +331,8 @@ describe('predicate: custom', () => {
   it("respects the user's boolean return value", () => {
     const truePred: AlertPredicate = { kind: 'custom', evaluate: () => true }
     const falsePred: AlertPredicate = { kind: 'custom', evaluate: () => false }
-    expect(evaluatePredicate(truePred, snap(), null)).toBe(true)
-    expect(evaluatePredicate(falsePred, snap(), null)).toBe(false)
+    expect(evaluatePredicate(truePred, createMarketSnapshot(), null)).toBe(true)
+    expect(evaluatePredicate(falsePred, createMarketSnapshot(), null)).toBe(false)
   })
 
   it('survives a throwing custom predicate (inner guard)', () => {
@@ -369,7 +344,7 @@ describe('predicate: custom', () => {
     }
     // The inner try/catch in evaluatePredicate must convert this to false
     // without rethrowing — this is the first half of the sandbox guarantee.
-    expect(() => evaluatePredicate(boomPred, snap(), null)).not.toThrow()
-    expect(evaluatePredicate(boomPred, snap(), null)).toBe(false)
+    expect(() => evaluatePredicate(boomPred, createMarketSnapshot(), null)).not.toThrow()
+    expect(evaluatePredicate(boomPred, createMarketSnapshot(), null)).toBe(false)
   })
 })

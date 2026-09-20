@@ -1,6 +1,6 @@
 # 测试替身收敛到共享夹具
 
-渲染上下文、绘图适配器、Canvas / PluginHost、渲染后端、Chart DOM、ChartDataManager、depth、provider 与 Vue 侧的品种 / 聚合源 / Provider HTTP 替身不再是每个用例各写一份，而是统一由各域 `__tests__/helpers/`（Vue 在 `__tests__/`）下的夹具工厂产出。替身大小 = 接口大小，接口加字段时缺失会变成编译错误。
+渲染上下文、绘图适配器、Canvas / PluginHost、渲染后端、Chart DOM、ChartDataManager、depth、provider、领域业务数据（指标 K 线、Kernel、chartTypes、alerts、数值序列、AVWAP、MTF、order book、marker）与 Vue 侧的品种 / 聚合源 / Provider HTTP 替身不再是每个用例各写一份，而是统一由各域 `__tests__/helpers/`（Vue 在 `__tests__/`）下的夹具工厂产出。替身大小 = 接口大小，接口加字段时缺失会变成编译错误。
 
 ## 问题
 
@@ -30,6 +30,15 @@
 | `vue/src/composables/__tests__/_aggregationSourceFixtures.ts` | `source` / `createOnlineProbe` / `createOfflineProbe` / `registerProvider` |
 | `vue/src/features/agent/__tests__/_agentProviderFixtures.ts` | `providerModelCatalogResponse` / `stubProviderModelCatalog` / `createOpenAiCompatibleFetchStub` |
 | `vue/src/features/agent/__tests__/_testChartAgent.ts` | `createTestChartAgent` / `createTestChartAgentContext` |
+| `engine/indicators/__tests__/__fixtures__/synthetic.ts` | `fromCloses` / `createRisingTrend` |
+| `engine/state/__tests__/helpers/createTestChartStateKernel.ts` | `createTestChartStateKernel` |
+| `features/chartTypes/__tests__/helpers/createOhlcvBar.ts` | `createOhlcvBar` |
+| `features/alerts/__tests__/helpers/marketSnapshot.ts` | `createMarketSnapshot` |
+| `features/indicators/__tests__/helpers/sequences.ts` | `ramp` / `constant` |
+| `components/anchoredVwap/__tests__/helpers/createAvwapBar.ts` | `createAvwapBar` |
+| `components/mtfOverlay/__tests__/helpers/createBaseBar.ts` | `createBaseBar` |
+| `components/orderBookHeatmap/__tests__/helpers/createOrderBookDelta.ts` | `createOrderBookDelta` |
+| `engine/marker/__tests__/helpers/createCustomMarker.ts` | `createCustomMarker` |
 
 约束：
 

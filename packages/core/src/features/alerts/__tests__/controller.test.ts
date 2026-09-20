@@ -1,19 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createAlertController } from '../createAlertController'
-import type { AlertRule, MarketSnapshot } from '../types'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function snap(close: number, volume = 1000, ts = 1): MarketSnapshot {
-  return {
-    bar: { timestamp: ts, open: close, high: close, low: close, close, volume },
-    indicators: {},
-    rollingVolume: {},
-  }
-}
+import type { AlertRule } from '../types'
+import { createMarketSnapshot } from './helpers/marketSnapshot'
 
 const ruleCrossUp100: AlertRule = {
   id: 'r-up-100',
@@ -71,10 +60,10 @@ describe('controller: evaluate', () => {
     const c = createAlertController()
     c.addRule(ruleCrossUp100)
     // First eval: prev is null → cross predicates cannot fire (by design).
-    const first = c.evaluate(snap(99), 1)
+    const first = c.evaluate(createMarketSnapshot({ close: 99 }), 1)
     expect(first.length).toBe(0)
     // Second eval crosses through 100 → fires.
-    const second = c.evaluate(snap(101), 2)
+    const second = c.evaluate(createMarketSnapshot({ close: 101 }), 2)
     expect(second.length).toBe(1)
     expect(second[0]!.ruleId).toBe('r-up-100')
     expect(c.events().length).toBe(1)
@@ -83,22 +72,22 @@ describe('controller: evaluate', () => {
   it('skips disabled rules during evaluate', () => {
     const c = createAlertController()
     c.addRule({ ...ruleCrossUp100, enabled: false })
-    c.evaluate(snap(99), 1)
-    const fired = c.evaluate(snap(101), 2)
+    c.evaluate(createMarketSnapshot({ close: 99 }), 1)
+    const fired = c.evaluate(createMarketSnapshot({ close: 101 }), 2)
     expect(fired.length).toBe(0)
   })
 
   it('oneShot rule auto-disables after firing once', () => {
     const c = createAlertController()
     c.addRule({ ...ruleCrossUp100, oneShot: true })
-    c.evaluate(snap(99), 1)
-    const fire1 = c.evaluate(snap(101), 2)
+    c.evaluate(createMarketSnapshot({ close: 99 }), 1)
+    const fire1 = c.evaluate(createMarketSnapshot({ close: 101 }), 2)
     expect(fire1.length).toBe(1)
     expect(c.rules()[0]!.enabled).toBe(false)
     // A subsequent down-and-back-up sequence must NOT fire again because
     // the rule is disabled.
-    const fire2 = c.evaluate(snap(99), 3)
-    const fire3 = c.evaluate(snap(101), 4)
+    const fire2 = c.evaluate(createMarketSnapshot({ close: 99 }), 3)
+    const fire3 = c.evaluate(createMarketSnapshot({ close: 101 }), 4)
     expect(fire2.length).toBe(0)
     expect(fire3.length).toBe(0)
   })
@@ -111,20 +100,20 @@ describe('controller: evaluate', () => {
       predicate: { kind: 'price-cross', price: 100, direction: 'any' },
     })
     // priming eval so prev is set
-    c.evaluate(snap(99), 0)
+    c.evaluate(createMarketSnapshot({ close: 99 }), 0)
     // First fire (up cross)
-    expect(c.evaluate(snap(101), 100).length).toBe(1)
+    expect(c.evaluate(createMarketSnapshot({ close: 101 }), 100).length).toBe(1)
     // Within cooldown: down-cross would fire normally, but is suppressed.
-    expect(c.evaluate(snap(99), 500).length).toBe(0)
+    expect(c.evaluate(createMarketSnapshot({ close: 99 }), 500).length).toBe(0)
     // Outside cooldown: next cross fires again.
-    expect(c.evaluate(snap(101), 2000).length).toBe(1)
+    expect(c.evaluate(createMarketSnapshot({ close: 101 }), 2000).length).toBe(1)
   })
 
   it('clears events from the signal', () => {
     const c = createAlertController()
     c.addRule(ruleCrossUp100)
-    c.evaluate(snap(99), 1)
-    c.evaluate(snap(101), 2)
+    c.evaluate(createMarketSnapshot({ close: 99 }), 1)
+    c.evaluate(createMarketSnapshot({ close: 101 }), 2)
     expect(c.events().length).toBe(1)
     c.clearEvents()
     expect(c.events().length).toBe(0)
@@ -141,13 +130,13 @@ describe('controller: onEvent', () => {
     c.addRule(ruleCrossUp100)
     const listener = vi.fn()
     const unsub = c.onEvent(listener)
-    c.evaluate(snap(99), 1)
-    c.evaluate(snap(101), 2)
+    c.evaluate(createMarketSnapshot({ close: 99 }), 1)
+    c.evaluate(createMarketSnapshot({ close: 101 }), 2)
     expect(listener).toHaveBeenCalledTimes(1)
     unsub()
     // After unsubscribe the listener should not be called again
-    c.evaluate(snap(99), 3)
-    c.evaluate(snap(101), 4)
+    c.evaluate(createMarketSnapshot({ close: 99 }), 3)
+    c.evaluate(createMarketSnapshot({ close: 101 }), 4)
     expect(listener).toHaveBeenCalledTimes(1)
   })
 })
@@ -167,7 +156,7 @@ describe('controller: maxEvents ring', () => {
       enabled: true,
       oneShot: false,
     })
-    for (let i = 0; i < 10; i++) c.evaluate(snap(100 + i), i)
+    for (let i = 0; i < 10; i++) c.evaluate(createMarketSnapshot({ close: 100 + i }), i)
     const evs = c.events()
     expect(evs.length).toBe(3)
     // Last fire should reflect the newest `now` (=9).
@@ -206,7 +195,7 @@ describe('controller: custom predicate sandbox', () => {
     // must complete without throwing, and the OK rule must still fire.
     let fired: ReturnType<typeof c.evaluate> | undefined
     expect(() => {
-      fired = c.evaluate(snap(100), 1)
+      fired = c.evaluate(createMarketSnapshot({ close: 100 }), 1)
     }).not.toThrow()
     expect(fired).toBeDefined()
     expect(fired!.length).toBe(1)
@@ -227,6 +216,6 @@ describe('controller: dispose', () => {
     expect(c.addRule({ ...ruleCrossUp100, id: 'r2' })).toBe(false)
     expect(c.removeRule('r-up-100')).toBe(false)
     expect(c.setRuleEnabled('r-up-100', false)).toBe(false)
-    expect(c.evaluate(snap(101), 1)).toEqual([])
+    expect(c.evaluate(createMarketSnapshot({ close: 101 }), 1)).toEqual([])
   })
 })

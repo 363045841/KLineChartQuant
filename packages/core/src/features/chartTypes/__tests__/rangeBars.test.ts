@@ -2,25 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import { createRangeBars } from '../rangeBars'
 import type { OHLCV, TransformedBar } from '../types'
-
-const bar = (i: number, o: number, h: number, l: number, c: number, v = 100): OHLCV => ({
-  timestamp: 1_700_000_000_000 + i * 60_000,
-  open: o,
-  high: h,
-  low: l,
-  close: c,
-  volume: v,
-})
+import { createOhlcvBar } from './helpers/createOhlcvBar'
 
 describe('rangeBars', () => {
   it('simple trending input produces range bars whose span = range', () => {
     const r = createRangeBars()
     const out = r.transform(
       [
-        bar(0, 100, 102, 99, 101),
-        bar(1, 101, 105, 100, 104),
-        bar(2, 104, 110, 103, 109),
-        bar(3, 109, 115, 108, 114),
+        createOhlcvBar(0, { open: 100, high: 102, low: 99, close: 101 }),
+        createOhlcvBar(1, { open: 101, high: 105, low: 100, close: 104 }),
+        createOhlcvBar(2, { open: 104, high: 110, low: 103, close: 109 }),
+        createOhlcvBar(3, { open: 109, high: 115, low: 108, close: 114 }),
       ],
       { range: 5 },
     )
@@ -34,7 +26,11 @@ describe('rangeBars', () => {
   it('sideways input within range emits no closed bars', () => {
     const r = createRangeBars()
     const out = r.transform(
-      [bar(0, 100, 101, 99, 100), bar(1, 100, 102, 99, 101), bar(2, 101, 102, 99, 100)],
+      [
+        createOhlcvBar(0, { open: 100, high: 101, low: 99, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 102, low: 99, close: 101 }),
+        createOhlcvBar(2, { open: 101, high: 102, low: 99, close: 100 }),
+      ],
       { range: 10 },
     )
     // Only the in-progress bar should be present.
@@ -43,7 +39,9 @@ describe('rangeBars', () => {
 
   it('first bar establishes the first range', () => {
     const r = createRangeBars()
-    const out = r.transform([bar(0, 100, 101, 99, 100)], { range: 10 })
+    const out = r.transform([createOhlcvBar(0, { open: 100, high: 101, low: 99, close: 100 })], {
+      range: 10,
+    })
     expect(out).toHaveLength(1)
     expect(out[0]!.open).toBe(100)
   })
@@ -51,7 +49,9 @@ describe('rangeBars', () => {
   it('input bar exceeding range splits into multiple output bars', () => {
     const r = createRangeBars()
     // A wide input bar spanning 50 units with range 10 should split into ~5 bars.
-    const out = r.transform([bar(0, 100, 150, 100, 150)], { range: 10 })
+    const out = r.transform([createOhlcvBar(0, { open: 100, high: 150, low: 100, close: 150 })], {
+      range: 10,
+    })
     const closed = out.filter((b) => Math.abs(b.high - b.low - 10) < 1e-6)
     expect(closed.length).toBeGreaterThanOrEqual(4)
   })
@@ -59,7 +59,9 @@ describe('rangeBars', () => {
   it('exact-range boundary triggers immediate close', () => {
     const r = createRangeBars()
     // Single bar with H - L == 10 exactly.
-    const out = r.transform([bar(0, 100, 110, 100, 110)], { range: 10 })
+    const out = r.transform([createOhlcvBar(0, { open: 100, high: 110, low: 100, close: 110 })], {
+      range: 10,
+    })
     // At least one bar must have closed.
     const closed = out.filter((_, i, arr) => i < arr.length - 1)
     expect(closed.length).toBeGreaterThanOrEqual(1)
@@ -69,7 +71,11 @@ describe('rangeBars', () => {
     const r = createRangeBars()
     // Three sideways bars accumulate into one open range bar.
     const out = r.transform(
-      [bar(0, 100, 101, 99, 100, 50), bar(1, 100, 102, 99, 101, 60), bar(2, 101, 102, 99, 100, 70)],
+      [
+        createOhlcvBar(0, { open: 100, high: 101, low: 99, close: 100, volume: 50 }),
+        createOhlcvBar(1, { open: 100, high: 102, low: 99, close: 101, volume: 60 }),
+        createOhlcvBar(2, { open: 101, high: 102, low: 99, close: 100, volume: 70 }),
+      ],
       { range: 10 },
     )
     // The only present bar (the open one) should hold the summed volume.
@@ -79,7 +85,10 @@ describe('rangeBars', () => {
 
   it('split input bar distributes volume proportionally (no spike on first)', () => {
     const r = createRangeBars()
-    const out = r.transform([bar(0, 100, 150, 100, 150, 500)], { range: 10 })
+    const out = r.transform(
+      [createOhlcvBar(0, { open: 100, high: 150, low: 100, close: 150, volume: 500 })],
+      { range: 10 },
+    )
     const closed = out.slice(0, -1)
     expect(closed.length).toBeGreaterThan(1)
     // No single closed bar should hold all the volume.
@@ -115,7 +124,9 @@ describe('rangeBars', () => {
       const close = price + drift
       const high = Math.max(price, close) + rand() * 1.5
       const low = Math.min(price, close) - rand() * 1.5
-      series.push(bar(i, price, high, low, close, Math.floor(rand() * 100)))
+      series.push(
+        createOhlcvBar(i, { open: price, high, low, close, volume: Math.floor(rand() * 100) }),
+      )
       price = close
     }
     const batch = createRangeBars().transform(series, { range: 3 })
@@ -138,9 +149,9 @@ describe('rangeBars', () => {
 
   it('reset() drops state so the next series starts clean', () => {
     const r = createRangeBars()
-    r.transform([bar(0, 100, 110, 100, 110)], { range: 10 })
+    r.transform([createOhlcvBar(0, { open: 100, high: 110, low: 100, close: 110 })], { range: 10 })
     r.reset!()
-    const out = r.appendBar!(bar(1, 200, 201, 199, 200))
+    const out = r.appendBar!(createOhlcvBar(1, { open: 200, high: 201, low: 199, close: 200 }))
     // First post-reset bar should not have closed anything (range not met).
     expect(out).toEqual([])
   })

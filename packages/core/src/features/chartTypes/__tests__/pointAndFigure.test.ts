@@ -2,25 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import { createPointAndFigure } from '../pointAndFigure'
 import type { OHLCV, TransformedBar } from '../types'
-
-const bar = (i: number, o: number, h: number, l: number, c: number, v = 100): OHLCV => ({
-  timestamp: 1_700_000_000_000 + i * 60_000,
-  open: o,
-  high: h,
-  low: l,
-  close: c,
-  volume: v,
-})
+import { createOhlcvBar } from './helpers/createOhlcvBar'
 
 describe('pointAndFigure', () => {
   it('simple uptrend produces a single X column (batch includes in-progress)', () => {
     const pf = createPointAndFigure()
     const out = pf.transform(
       [
-        bar(0, 100, 100, 100, 100),
-        bar(1, 100, 110, 100, 110),
-        bar(2, 110, 120, 110, 120),
-        bar(3, 120, 130, 120, 130),
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 110, low: 100, close: 110 }),
+        createOhlcvBar(2, { open: 110, high: 120, low: 110, close: 120 }),
+        createOhlcvBar(3, { open: 120, high: 130, low: 120, close: 130 }),
       ],
       { boxSize: 10, reversal: 3 },
     )
@@ -33,9 +25,9 @@ describe('pointAndFigure', () => {
     const pf = createPointAndFigure()
     const out = pf.transform(
       [
-        bar(0, 100, 100, 100, 100),
-        bar(1, 100, 130, 100, 130), // big X column up to 130
-        bar(2, 130, 130, 90, 90), // drops 40 (4 boxes), reversal of 3 met
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }), // big X column up to 130
+        createOhlcvBar(2, { open: 130, high: 130, low: 90, close: 90 }), // drops 40 (4 boxes), reversal of 3 met
       ],
       { boxSize: 10, reversal: 3 },
     )
@@ -50,9 +42,9 @@ describe('pointAndFigure', () => {
     const pf = createPointAndFigure()
     const out = pf.transform(
       [
-        bar(0, 100, 100, 100, 100),
-        bar(1, 100, 130, 100, 130),
-        bar(2, 130, 130, 115, 115), // only 1.5 boxes down — below threshold
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }),
+        createOhlcvBar(2, { open: 130, high: 130, low: 115, close: 115 }), // only 1.5 boxes down — below threshold
       ],
       { boxSize: 10, reversal: 3 },
     )
@@ -65,11 +57,11 @@ describe('pointAndFigure', () => {
     const pf = createPointAndFigure()
     const out = pf.transform(
       [
-        bar(0, 100, 100, 100, 100),
-        bar(1, 100, 130, 100, 130), // X up to 130
-        bar(2, 130, 130, 90, 90), // O down (reverse, 4 boxes)
-        bar(3, 90, 130, 90, 130), // X back up (reverse from O, 4 boxes)
-        bar(4, 130, 130, 90, 90), // O down again
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }), // X up to 130
+        createOhlcvBar(2, { open: 130, high: 130, low: 90, close: 90 }), // O down (reverse, 4 boxes)
+        createOhlcvBar(3, { open: 90, high: 130, low: 90, close: 130 }), // X back up (reverse from O, 4 boxes)
+        createOhlcvBar(4, { open: 130, high: 130, low: 90, close: 90 }), // O down again
       ],
       { boxSize: 10, reversal: 3 },
     )
@@ -85,7 +77,10 @@ describe('pointAndFigure', () => {
 
   it('first bar seeds an X column with low/high snapped to box boundaries', () => {
     const pf = createPointAndFigure()
-    const out = pf.transform([bar(0, 103, 117, 102, 115)], { boxSize: 5, reversal: 3 })
+    const out = pf.transform([createOhlcvBar(0, { open: 103, high: 117, low: 102, close: 115 })], {
+      boxSize: 5,
+      reversal: 3,
+    })
     expect(out).toHaveLength(1)
     // low 102 -> 100 (floor of 5), high 117 -> 115 (floor of 5).
     expect(out[0]!.low).toBeCloseTo(100, 10)
@@ -95,10 +90,16 @@ describe('pointAndFigure', () => {
 
   it('column open and close match the column endpoints', () => {
     const pf = createPointAndFigure()
-    const out = pf.transform([bar(0, 100, 100, 100, 100), bar(1, 100, 130, 100, 130)], {
-      boxSize: 10,
-      reversal: 3,
-    })
+    const out = pf.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }),
+      ],
+      {
+        boxSize: 10,
+        reversal: 3,
+      },
+    )
     const col = out[0]!
     // X column: open = start price, close = end price = high.
     expect(col.open).toBeLessThanOrEqual(col.close)
@@ -109,9 +110,9 @@ describe('pointAndFigure', () => {
     const pf = createPointAndFigure()
     const out = pf.transform(
       [
-        bar(0, 100, 100, 100, 100),
-        bar(1, 100, 130, 100, 130),
-        bar(2, 130, 130, 100, 100), // exactly 3 boxes (30) down — at threshold
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }),
+        createOhlcvBar(2, { open: 130, high: 130, low: 100, close: 100 }), // exactly 3 boxes (30) down — at threshold
       ],
       { boxSize: 10, reversal: 3 },
     )
@@ -133,12 +134,12 @@ describe('pointAndFigure', () => {
 
   it('incremental closed columns match batch closed columns', () => {
     const series: OHLCV[] = [
-      bar(0, 100, 100, 100, 100),
-      bar(1, 100, 130, 100, 130),
-      bar(2, 130, 130, 90, 90),
-      bar(3, 90, 130, 90, 130),
-      bar(4, 130, 130, 100, 100),
-      bar(5, 100, 140, 100, 140),
+      createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+      createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }),
+      createOhlcvBar(2, { open: 130, high: 130, low: 90, close: 90 }),
+      createOhlcvBar(3, { open: 90, high: 130, low: 90, close: 130 }),
+      createOhlcvBar(4, { open: 130, high: 130, low: 100, close: 100 }),
+      createOhlcvBar(5, { open: 100, high: 140, low: 100, close: 140 }),
     ]
     const batch = createPointAndFigure().transform(series, { boxSize: 10, reversal: 3 })
     const inc = createPointAndFigure()
@@ -159,9 +160,12 @@ describe('pointAndFigure', () => {
 
   it('reset() returns to a seed state', () => {
     const pf = createPointAndFigure()
-    pf.transform([bar(0, 100, 130, 100, 130)], { boxSize: 10, reversal: 3 })
+    pf.transform([createOhlcvBar(0, { open: 100, high: 130, low: 100, close: 130 })], {
+      boxSize: 10,
+      reversal: 3,
+    })
     pf.reset!()
-    const out = pf.appendBar!(bar(1, 200, 215, 200, 215))
+    const out = pf.appendBar!(createOhlcvBar(1, { open: 200, high: 215, low: 200, close: 215 }))
     // No closed columns yet; in-progress is now an X anchored at 200/215.
     expect(out).toEqual([])
   })

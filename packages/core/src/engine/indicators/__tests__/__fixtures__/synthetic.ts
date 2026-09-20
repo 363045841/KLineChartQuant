@@ -14,6 +14,43 @@ function bar(
   return { timestamp: T0 + i * MINUTE, open, high, low, close, volume }
 }
 
+/** `fromCloses` 的可选参数。 */
+export interface FromClosesOptions {
+  /** 开高低价相对收盘价的对称偏移，默认 0.5 */
+  spread?: number
+  /** 起始时间戳，默认 T0 */
+  timestamp?: number
+  /** 第 index 根的成交量；不传则不写 volume 字段 */
+  volume?: (index: number) => number
+}
+
+/**
+ * 由收盘价序列合成 K 线，开高低价按 spread 对称展开。
+ * @param closes 收盘价序列。
+ * @param options 偏移、起始时间戳与成交量覆盖。
+ * @returns 与 closes 等长的 K 线数组。
+ */
+export function fromCloses(closes: number[], options: FromClosesOptions = {}): KLineData[] {
+  const { spread = 0.5, timestamp = T0, volume } = options
+  return closes.map((close, index) => ({
+    timestamp: timestamp + index * MINUTE,
+    open: close - spread,
+    high: close + spread,
+    low: close - spread,
+    close,
+    ...(volume ? { volume: volume(index) } : {}),
+  }))
+}
+
+/**
+ * 生成收盘价从 100 起逐根 +1 的线性上涨 K 线。
+ * @param length K 线数量。
+ * @returns 与 length 等长的 K 线数组。
+ */
+export function createRisingTrend(length: number): KLineData[] {
+  return fromCloses(Array.from({ length }, (_, index) => 100 + index))
+}
+
 export const empty: KLineData[] = []
 
 export const singleBar: KLineData[] = [bar(0, 100, 101, 99, 100)]

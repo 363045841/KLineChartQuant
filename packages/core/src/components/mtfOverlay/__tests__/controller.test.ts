@@ -7,14 +7,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createMtfController } from '../createMtfController'
 import type { BaseBar, ResampledBar } from '../types'
+import { createBaseBar } from './helpers/createBaseBar'
 
 const MIN = 60_000
 const FIVE_MIN = 5 * MIN
 const HOUR = 60 * MIN
-
-function bar(tsMs: number, c: number, v = 10): BaseBar {
-  return { timestamp: tsMs, open: c, high: c, low: c, close: c, volume: v }
-}
 
 /** A trivial "last close" compute fn for asserting against. */
 const lastClose = (rs: ReadonlyArray<ResampledBar>): number[] => rs.map((r) => r.close)
@@ -22,7 +19,7 @@ const lastClose = (rs: ReadonlyArray<ResampledBar>): number[] => rs.map((r) => r
 describe('createMtfController — CRUD + recompute', () => {
   it('addSeries returns id and series signal fires', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100), bar(FIVE_MIN, 101)],
+      initialBars: [createBaseBar(0, 100), createBaseBar(FIVE_MIN, 101)],
       baseIntervalMs: FIVE_MIN,
     })
     const listener = vi.fn()
@@ -40,7 +37,7 @@ describe('createMtfController — CRUD + recompute', () => {
 
   it('addSeries with duplicate id throws', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100)],
+      initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: HOUR, compute: lastClose })
@@ -51,7 +48,7 @@ describe('createMtfController — CRUD + recompute', () => {
 
   it('addSeries with targetIntervalMs not a multiple of baseIntervalMs throws', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100)],
+      initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     expect(() =>
@@ -61,7 +58,7 @@ describe('createMtfController — CRUD + recompute', () => {
 
   it('removeSeries returns true if found, false otherwise', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100)],
+      initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: HOUR, compute: lastClose })
@@ -72,7 +69,7 @@ describe('createMtfController — CRUD + recompute', () => {
 
   it('updateSeries patches compute fn and re-runs it', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100), bar(FIVE_MIN, 200)],
+      initialBars: [createBaseBar(0, 100), createBaseBar(FIVE_MIN, 200)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: FIVE_MIN, compute: lastClose })
@@ -86,7 +83,7 @@ describe('createMtfController — CRUD + recompute', () => {
 describe('createMtfController — alignment correctness', () => {
   it('lifts a 1h compute onto 5m base bars (12 base bars share one hbar value)', () => {
     const base: BaseBar[] = []
-    for (let i = 0; i < 12; i++) base.push(bar(i * FIVE_MIN, 100 + i))
+    for (let i = 0; i < 12; i++) base.push(createBaseBar(i * FIVE_MIN, 100 + i))
     const ctl = createMtfController({
       initialBars: base,
       baseIntervalMs: FIVE_MIN,
@@ -104,7 +101,7 @@ describe('createMtfController — alignment correctness', () => {
   })
 
   it('appendBaseBar extends aligned series by exactly one entry', () => {
-    const base: BaseBar[] = [bar(0, 100)]
+    const base: BaseBar[] = [createBaseBar(0, 100)]
     const ctl = createMtfController({ initialBars: base, baseIntervalMs: FIVE_MIN })
     ctl.addSeries({
       id: 'a',
@@ -113,13 +110,13 @@ describe('createMtfController — alignment correctness', () => {
       compute: lastClose,
     })
     expect(ctl.series()[0]!.alignedValues).toEqual([100])
-    ctl.appendBaseBar(bar(FIVE_MIN, 200))
+    ctl.appendBaseBar(createBaseBar(FIVE_MIN, 200))
     expect(ctl.series()[0]!.alignedValues).toEqual([100, 200])
   })
 
   it('two series at different higher TFs co-exist independently', () => {
     const base: BaseBar[] = []
-    for (let i = 0; i < 12; i++) base.push(bar(i * FIVE_MIN, 100 + i))
+    for (let i = 0; i < 12; i++) base.push(createBaseBar(i * FIVE_MIN, 100 + i))
     const ctl = createMtfController({ initialBars: base, baseIntervalMs: FIVE_MIN })
     ctl.addSeries({ id: '5m', label: '5m', targetIntervalMs: FIVE_MIN, compute: lastClose })
     ctl.addSeries({ id: '1h', label: '1h', targetIntervalMs: HOUR, compute: lastClose })
@@ -138,28 +135,28 @@ describe('createMtfController — alignment correctness', () => {
 describe('createMtfController — config + lifecycle', () => {
   it('setBaseBars rebuilds all series', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100)],
+      initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: FIVE_MIN, compute: lastClose })
     expect(ctl.series()[0]!.alignedValues).toEqual([100])
-    ctl.setBaseBars([bar(0, 1), bar(FIVE_MIN, 2)], FIVE_MIN)
+    ctl.setBaseBars([createBaseBar(0, 1), createBaseBar(FIVE_MIN, 2)], FIVE_MIN)
     expect(ctl.series()[0]!.alignedValues).toEqual([1, 2])
   })
 
   it('setBaseBars throws if an existing series target no longer cleanly divides', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100)],
+      initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: HOUR, compute: lastClose })
     // Changing base to 7-minute bars makes 1h (3_600_000) no longer divisible by 7m (420_000)
-    expect(() => ctl.setBaseBars([bar(0, 1)], 7 * MIN)).toThrow(/cleanly divide/)
+    expect(() => ctl.setBaseBars([createBaseBar(0, 1)], 7 * MIN)).toThrow(/cleanly divide/)
   })
 
   it('dispose silences subsequent mutators', () => {
     const ctl = createMtfController({
-      initialBars: [bar(0, 100)],
+      initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     const listener = vi.fn()
@@ -167,7 +164,7 @@ describe('createMtfController — config + lifecycle', () => {
     ctl.dispose()
     const beforeCalls = listener.mock.calls.length
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: FIVE_MIN, compute: lastClose })
-    ctl.appendBaseBar(bar(FIVE_MIN, 200))
+    ctl.appendBaseBar(createBaseBar(FIVE_MIN, 200))
     expect(listener.mock.calls.length).toBe(beforeCalls)
   })
 })

@@ -15,14 +15,7 @@ import { computeFisherTransform } from '../fisherTransform'
 import { computeSchaffTrendCycle } from '../schaffTrendCycle'
 import { computeStochRSI } from '../stochRSI'
 import { computeUltimateOscillator } from '../ultimateOscillator'
-
-function ramp(n: number, start = 1, step = 1): number[] {
-  return Array.from({ length: n }, (_, i) => start + step * i)
-}
-
-function constantClose(n: number, v: number): number[] {
-  return Array.from({ length: n }, () => v)
-}
+import { constant, ramp } from './helpers/sequences'
 
 function hlBars(n: number, mid = 100, spread = 1): Array<{ high: number; low: number }> {
   return Array.from({ length: n }, (_, i) => ({
@@ -101,7 +94,7 @@ describe('computeUltimateOscillator', () => {
 
 describe('computeDPO', () => {
   it('output length === input length and constant input → ~0 once primed', () => {
-    const r = computeDPO(constantClose(40, 50), { period: 10 })
+    const r = computeDPO(constant(40, 50), { period: 10 })
     expect(r.length).toBe(40)
     for (let i = 14; i < 40; i++) expect(r[i]!).toBeCloseTo(0, 9)
   })
