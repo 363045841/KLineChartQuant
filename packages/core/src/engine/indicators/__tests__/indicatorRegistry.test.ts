@@ -17,7 +17,7 @@ function createMeta(overrides: Partial<IndicatorMetadata> = {}): IndicatorMetada
     indicatorType: 'momentum',
     stateKey: (paneId: string) => `indicator:rsi:${paneId}`,
     defaultPaneId: 'sub_RSI',
-    rendererFactory: vi.fn() as any,
+    rendererFactory: vi.fn(),
     getRendererName: ({ paneId }) => `rsi_${paneId}`,
     getScaleRendererName: () => null,
     getPaneTitleRendererName: () => null,
@@ -46,7 +46,7 @@ describe('IndicatorRegistry', () => {
     expect(() => registry.register(createMeta({ displayName: '' }))).toThrow(
       'displayName is required',
     )
-    expect(() => registry.register(createMeta({ rendererFactory: undefined as any }))).toThrow(
+    expect(() => registry.register(createMeta({ rendererFactory: undefined }))).toThrow(
       'rendererFactory is required',
     )
   })

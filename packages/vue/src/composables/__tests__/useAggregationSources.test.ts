@@ -4,26 +4,13 @@ import { nextTick } from 'vue'
 
 import {
   AGGREGATION_SOURCES_STORAGE_KEY,
-  type AggregationSourceDefinition,
   applyAggregationSourceBaseUrls,
   probeAggregationSource,
   resolveAggregationSourceEndpoints,
   resolveEnabledAggregationSources,
   useAggregationSources,
 } from '../useAggregationSources'
-
-function source(
-  name: string,
-  options: { searchable?: boolean; defaultBaseUrl?: string } = {},
-): AggregationSourceDefinition {
-  const searchable = options.searchable ?? true
-  return {
-    name,
-    displayName: name.toUpperCase(),
-    capabilities: searchable ? ['search'] : ['daily'],
-    defaultBaseUrl: options.defaultBaseUrl,
-  }
-}
+import { createOnlineProbe, registerProvider, source } from './_aggregationSourceFixtures'
 
 describe('useAggregationSources', () => {
   beforeEach(() => {
@@ -39,13 +26,7 @@ describe('useAggregationSources', () => {
   })
 
   it('enables every searchable provider on first use', () => {
-    marketDataProviderRegistry.register({
-      source: { id: 'first', displayName: 'First' },
-      async probe() {
-        return { status: 'online', checkedAt: 1 }
-      },
-      catalog: { search: async () => [] },
-    })
+    registerProvider('first', createOnlineProbe())
     expect(
       resolveEnabledAggregationSources([
         source('first'),
@@ -55,20 +36,8 @@ describe('useAggregationSources', () => {
   })
 
   it('keeps disabled sources disabled and enables newly registered sources', () => {
-    marketDataProviderRegistry.register({
-      source: { id: 'first', displayName: 'First' },
-      async probe() {
-        return { status: 'online', checkedAt: 1 }
-      },
-      catalog: { search: async () => [] },
-    })
-    marketDataProviderRegistry.register({
-      source: { id: 'second', displayName: 'Second' },
-      async probe() {
-        return { status: 'online', checkedAt: 1 }
-      },
-      catalog: { search: async () => [] },
-    })
+    registerProvider('first', createOnlineProbe())
+    registerProvider('second', createOnlineProbe())
     expect(
       resolveEnabledAggregationSources([source('first'), source('second')], {
         known: ['first'],
@@ -108,20 +77,10 @@ describe('useAggregationSources', () => {
   })
 
   it('persists toggle and endpoint changes', async () => {
-    marketDataProviderRegistry.register({
-      source: { id: 'first', displayName: 'First', defaultBaseUrl: 'http://127.0.0.1:8080' },
-      async probe() {
-        return { status: 'online', checkedAt: 1 }
-      },
-      catalog: { search: async () => [] },
+    registerProvider('first', createOnlineProbe(), {
+      defaultBaseUrl: 'http://127.0.0.1:8080',
     })
-    marketDataProviderRegistry.register({
-      source: { id: 'second', displayName: 'Second' },
-      async probe() {
-        return { status: 'online', checkedAt: 1 }
-      },
-      catalog: { search: async () => [] },
-    })
+    registerProvider('second', createOnlineProbe())
     const state = useAggregationSources([
       source('first', { defaultBaseUrl: 'http://127.0.0.1:8080' }),
       source('second'),
@@ -152,11 +111,7 @@ describe('useAggregationSources', () => {
 
   it('uses MarketDataProvider probe for registered sources', async () => {
     const probe = vi.fn().mockResolvedValue({ status: 'online', checkedAt: 1, latencyMs: 12 })
-    marketDataProviderRegistry.register({
-      source: { id: 'probe-source', displayName: 'Probe Source' },
-      probe,
-      catalog: { search: async () => [] },
-    })
+    registerProvider('probe-source', probe)
 
     await expect(
       probeAggregationSource(source('probe-source'), new AbortController().signal),

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { ChartStateKernel } from '../chartStateKernel'
 import { createIndicatorState } from '../indicatorState'
+import { createTestChartStateKernel } from './helpers/createTestChartStateKernel'
 
 describe('indicatorState sub-pane instances', () => {
   it('publishes immutable entry snapshots and copies action inputs', () => {
@@ -96,25 +96,8 @@ describe('indicatorState sub-pane instances', () => {
 })
 
 describe('ChartStateKernel sub-pane transactions', () => {
-  function createKernel() {
-    return new ChartStateKernel({
-      initialOptions: {
-        minKWidth: 3,
-        maxKWidth: 20,
-        zoomLevelCount: 10,
-        bottomAxisHeight: 24,
-        rightAxisWidth: 60,
-        leftAxisWidth: 0,
-        yPaddingPx: 4,
-        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
-      },
-      initialZoomLevel: 0,
-      scheduleDraw: () => {},
-    })
-  }
-
   it('publishes pane layout and sub-pane entry as one complete snapshot', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
     const snapshots: Array<{ paneIds: string[]; entryIds: string[] }> = []
     const capture = () => {
       snapshots.push({
@@ -139,7 +122,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
   })
 
   it('removes pane layout and sub-pane entry atomically', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
     kernel.paneManager.actions.create({
       paneId: 'RSI_0',
       indicatorId: 'RSI',
@@ -161,7 +144,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
   })
 
   it('updates layout and indicator content through the pane manager actions', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
     kernel.paneManager.actions.create({
       paneId: 'RSI_0',
       indicatorId: 'RSI',
@@ -177,7 +160,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
   })
 
   it('moves panes without changing their content ownership', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
     kernel.paneManager.actions.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
     kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-
+import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import {
   batch,
   computed,
@@ -130,13 +130,7 @@ describe('createSubState', () => {
 describe('viewportState template', () => {
   it('creates a sub-state with computed dpr + viewportState', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 8, kGap: 2 })) as any,
-      dataLength$: (() => 100) as any,
-      period$: (() => 'daily') as any,
-      zoomLevel$: (() => 5) as any,
-      sessionSlots$: (() => 240) as any,
-    })
+    const module = createViewportState(createViewportStateDeps())
     module.actions.resize(800, 600, 2)
     expect(module.readonly.viewWidth()).toBe(800)
     expect(module.readonly.viewHeight()).toBe(600)
@@ -155,29 +149,21 @@ describe('viewportState template', () => {
 
   it('scrollTo writes signal and DOM', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
-      dataLength$: (() => 100) as any,
-      period$: (() => 'daily') as any,
-      zoomLevel$: (() => 1) as any,
-      sessionSlots$: (() => 240) as any,
-    })
+    const module = createViewportState(
+      createViewportStateDeps({ options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
+    )
     module.actions.scrollTo(100)
     expect(module.readonly.scrollLeft()).toBe(100)
   })
 
   it('derives content width and max scroll from viewport, data, DPR, options, and period', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const dataLength$ = createSignal(10)
-    const options$ = createSignal({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })
-    const period$ = createSignal('daily')
-    const module = createViewportState({
-      options$,
-      dataLength$,
-      zoomLevel$: (() => 1) as any,
-      period$,
-      sessionSlots$: (() => 240) as any,
-    } as any)
+    const deps = createViewportStateDeps({
+      dataLength: 10,
+      options: { kWidth: 6, kGap: 1 },
+      zoomLevel: 1,
+    })
+    const module = createViewportState(deps)
     module.actions.resize(200, 150, 2)
 
     // kGap 由 kGapFromKWidth(6,2)=1.5 自动推导。宽度取奇 11px，间隙 3px（物理）。
@@ -185,7 +171,7 @@ describe('viewportState template', () => {
     // 允许尾部空槽；最大位置吸附到 K 线物理网格，使最后一根 K 线左缘对齐绘图区左缘。
     expect((module.readonly as any).maxScrollLeft()).toBe(264.5)
 
-    dataLength$.set(20)
+    deps.dataLength$.set(20)
     expect((module.readonly as any).contentWidth()).toBe(551.5)
     expect((module.readonly as any).maxScrollLeft()).toBe(334.5)
 
@@ -193,18 +179,22 @@ describe('viewportState template', () => {
     expect((module.readonly as any).contentWidth()).toBe(651.5)
     expect((module.readonly as any).maxScrollLeft()).toBe(350.5)
 
-    options$.set({ bottomAxisHeight: 30, kWidth: 10, kGap: 2 })
+    deps.options$.set({ bottomAxisHeight: 30, kWidth: 10, kGap: 2 })
     expect((module.readonly as any).contentWidth()).toBe(851.5)
     expect((module.readonly as any).maxScrollLeft()).toBe(510.5)
 
-    period$.set('timeshare')
+    deps.period$.set('timeshare')
     expect((module.readonly as any).contentWidth()).toBe(300)
     expect((module.readonly as any).maxScrollLeft()).toBe(0)
   })
 
   it('clamps programmatic and user DOM scroll inputs to the derived maximum', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const dataLength$ = createSignal(10)
+    const deps = createViewportStateDeps({
+      dataLength: 10,
+      options: { kWidth: 6, kGap: 1 },
+      zoomLevel: 1,
+    })
     let scrollLeft = 0
     const container = {
       clientWidth: 100,
@@ -216,12 +206,7 @@ describe('viewportState template', () => {
         scrollLeft = value
       },
     } as unknown as HTMLElement
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
-      dataLength$,
-      zoomLevel$: (() => 1) as any,
-      period$: (() => 'daily') as any,
-    } as any)
+    const module = createViewportState(deps)
 
     module.setDomDeps({
       getDom: () => ({ container, scrollContent: null, canvasLayer: null, xAxisCanvas: null }),
@@ -241,7 +226,7 @@ describe('viewportState template', () => {
     expect(module.readonly.scrollLeft()).toBe(0)
 
     module.actions.scrollTo(10_000)
-    dataLength$.set(1)
+    deps.dataLength$.set(1)
     expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
   })
 
@@ -267,12 +252,9 @@ describe('viewportState template', () => {
         scrollLeft = value
       },
     } as unknown as HTMLElement
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
-      dataLength$: (() => 10) as any,
-      zoomLevel$: (() => 1) as any,
-      period$: (() => 'daily') as any,
-    } as any)
+    const module = createViewportState(
+      createViewportStateDeps({ dataLength: 10, options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
+    )
 
     module.setDomDeps({
       getDom: () => ({ container, scrollContent, canvasLayer: null, xAxisCanvas: null }),
@@ -286,13 +268,9 @@ describe('viewportState template', () => {
 
   it('resize batches dimension writes into one notification', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
-      dataLength$: (() => 100) as any,
-      period$: (() => 'daily') as any,
-      zoomLevel$: (() => 1) as any,
-      sessionSlots$: (() => 240) as any,
-    })
+    const module = createViewportState(
+      createViewportStateDeps({ options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
+    )
     const listener = vi.fn()
     module.readonly.viewWidth.subscribe(listener)
     module.readonly.viewHeight.subscribe(listener)

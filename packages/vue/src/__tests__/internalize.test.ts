@@ -81,8 +81,7 @@ function installFullscreenApi(): FullscreenSpies {
     value: exitFullscreen,
   })
   // jsdom does not implement requestFullscreen on elements
-  ;(HTMLElement.prototype as unknown as Record<string, unknown>).requestFullscreen =
-    requestFullscreen
+  Object.assign(HTMLElement.prototype, { requestFullscreen })
 
   return {
     requestFullscreen,
@@ -221,9 +220,7 @@ describe('KLineChart legend slot lifecycle', () => {
       bar: { timestamp: 1, open: 10, high: 12, low: 9, close: 11, volume: 1000 },
     }
 
-    ;(
-      mockController.legendTemplateContext as unknown as { set: (next: LegendSlotProps) => void }
-    ).set(context)
+    mockController._setLegendTemplateContext(context)
     await nextTick()
 
     expect(wrapper.get('.legend-contract').text()).toBe(JSON.stringify(context))

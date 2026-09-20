@@ -1,27 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { ChartStateKernel } from '../chartStateKernel'
-
-function createKernel() {
-  return new ChartStateKernel({
-    initialOptions: {
-      minKWidth: 2,
-      maxKWidth: 50,
-      zoomLevelCount: 20,
-      bottomAxisHeight: 24,
-      rightAxisWidth: 60,
-      leftAxisWidth: 0,
-      yPaddingPx: 8,
-      panes: [{ id: 'main', ratio: 1 }],
-    },
-    initialZoomLevel: 1,
-    scheduleDraw: () => {},
-  })
-}
+import { createTestChartStateKernel } from './helpers/createTestChartStateKernel'
 
 describe('effectiveTheme', () => {
   it('follows settings.theme when not auto', () => {
-    const k = createKernel()
+    const k = createTestChartStateKernel()
     k.settings.actions.patch({ theme: 'light' })
     expect(k.effectiveTheme$.peek()).toBe('light')
     k.settings.actions.patch({ theme: 'dark' })
@@ -30,7 +13,7 @@ describe('effectiveTheme', () => {
   })
 
   it('follows systemTheme when settings.theme is auto', () => {
-    const k = createKernel()
+    const k = createTestChartStateKernel()
     k.settings.actions.patch({ theme: 'auto' })
     k.systemTheme.actions.setSystemTheme('dark')
     expect(k.effectiveTheme$.peek()).toBe('dark')
@@ -40,7 +23,7 @@ describe('effectiveTheme', () => {
   })
 
   it('setTheme action patches settings preference', () => {
-    const k = createKernel()
+    const k = createTestChartStateKernel()
     k.actions.setTheme('light')
     expect(k.settings.readonly.settings.peek().theme).toBe('light')
     expect(k.signals.theme()).toBe('light')

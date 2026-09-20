@@ -1,101 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { HeatmapController, HeatmapControllerConfig } from '../../components/orderBookHeatmap'
 import { DepthConnector } from '../depth/depthConnector'
-import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from '../depth/depthTypes'
-
-// ---------------------------------------------------------------------------
-// Fake DepthSource — controllable callbacks
-// ---------------------------------------------------------------------------
-function createFakeSource(): DepthSource & {
-  triggerDelta: (deltas: ReadonlyArray<DepthDelta>) => void
-  triggerSnapshot: (snap: DepthSnapshot) => void
-  triggerError: (err: Error) => void
-  triggerStatus: (s: DepthSourceStatus) => void
-} {
-  const deltaCbs: Array<(d: ReadonlyArray<DepthDelta>) => void> = []
-  const snapshotCbs: Array<(s: DepthSnapshot) => void> = []
-  const errorCbs: Array<(e: Error) => void> = []
-  const statusCbs: Array<(s: DepthSourceStatus) => void> = []
-
-  return {
-    exchange: 'test',
-    symbol: 'test-symbol',
-    onDelta: (cb) => {
-      deltaCbs.push(cb)
-      return () => {
-        const idx = deltaCbs.indexOf(cb)
-        if (idx >= 0) deltaCbs.splice(idx, 1)
-      }
-    },
-    onSnapshot: (cb) => {
-      snapshotCbs.push(cb)
-      return () => {
-        const idx = snapshotCbs.indexOf(cb)
-        if (idx >= 0) snapshotCbs.splice(idx, 1)
-      }
-    },
-    onError: (cb) => {
-      errorCbs.push(cb)
-      return () => {
-        const idx = errorCbs.indexOf(cb)
-        if (idx >= 0) errorCbs.splice(idx, 1)
-      }
-    },
-    onStatus: (cb) => {
-      statusCbs.push(cb)
-      return () => {
-        const idx = statusCbs.indexOf(cb)
-        if (idx >= 0) statusCbs.splice(idx, 1)
-      }
-    },
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    destroy: vi.fn(),
-    triggerDelta: (deltas) => {
-      for (const cb of deltaCbs) cb(deltas)
-    },
-    triggerSnapshot: (snap) => {
-      for (const cb of snapshotCbs) cb(snap)
-    },
-    triggerError: (err) => {
-      for (const cb of errorCbs) cb(err)
-    },
-    triggerStatus: (s) => {
-      for (const cb of statusCbs) cb(s)
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Fake HeatmapController
-// ---------------------------------------------------------------------------
-function createFakeController(): HeatmapController & {
-  calls: { ingest: DepthDelta[]; resetBook: DepthSnapshot[] }
-} {
-  const calls: { ingest: DepthDelta[]; resetBook: DepthSnapshot[] } = {
-    ingest: [],
-    resetBook: [],
-  }
-  return {
-    state: null as never,
-    ingest: (d: DepthDelta) => calls.ingest.push(d),
-    ingestDelta: () => {},
-    forceSnapshot: () => {},
-    replay: () => [],
-    resetBook: (s: DepthSnapshot) => calls.resetBook.push(s),
-    setConfig: () => {},
-    dispose: vi.fn(),
-    calls,
-  }
-}
+import type { DepthDelta, DepthSnapshot } from '../depth/depthTypes'
+import { createFakeDepthSource, createFakeHeatmapController } from './helpers/depthTestKit'
 
 describe('DepthConnector', () => {
-  let source: ReturnType<typeof createFakeSource>
+  let source: ReturnType<typeof createFakeDepthSource>
   let connector: DepthConnector
 
   beforeEach(() => {
-    source = createFakeSource()
+    source = createFakeDepthSource()
     connector = new DepthConnector(source)
   })
 
@@ -126,7 +40,7 @@ describe('DepthConnector', () => {
 
   describe('delta forwarding', () => {
     it('forwards deltas from source to controller.ingest()', () => {
-      const ctrl = createFakeController()
+      const ctrl = createFakeHeatmapController()
       connector.addController(ctrl)
       connector.start()
 
@@ -139,8 +53,8 @@ describe('DepthConnector', () => {
     })
 
     it('forwards deltas to all controllers', () => {
-      const ctrl1 = createFakeController()
-      const ctrl2 = createFakeController()
+      const ctrl1 = createFakeHeatmapController()
+      const ctrl2 = createFakeHeatmapController()
       connector.addController(ctrl1)
       connector.addController(ctrl2)
       connector.start()
@@ -154,8 +68,8 @@ describe('DepthConnector', () => {
     })
 
     it('removed controller stops receiving deltas', () => {
-      const ctrl1 = createFakeController()
-      const ctrl2 = createFakeController()
+      const ctrl1 = createFakeHeatmapController()
+      const ctrl2 = createFakeHeatmapController()
       connector.addController(ctrl1)
       connector.addController(ctrl2)
       connector.start()
@@ -175,7 +89,7 @@ describe('DepthConnector', () => {
 
   describe('snapshot forwarding', () => {
     it('forwards snapshot from source to controller.resetBook()', () => {
-      const ctrl = createFakeController()
+      const ctrl = createFakeHeatmapController()
       connector.addController(ctrl)
       connector.start()
 
@@ -187,8 +101,8 @@ describe('DepthConnector', () => {
     })
 
     it('forwards snapshot to all controllers', () => {
-      const ctrl1 = createFakeController()
-      const ctrl2 = createFakeController()
+      const ctrl1 = createFakeHeatmapController()
+      const ctrl2 = createFakeHeatmapController()
       connector.addController(ctrl1)
       connector.addController(ctrl2)
       connector.start()
@@ -218,8 +132,8 @@ describe('DepthConnector', () => {
 
   describe('destroy', () => {
     it('destroy() stops connector and disposes all controllers and source', () => {
-      const ctrl1 = createFakeController()
-      const ctrl2 = createFakeController()
+      const ctrl1 = createFakeHeatmapController()
+      const ctrl2 = createFakeHeatmapController()
       connector.addController(ctrl1)
       connector.addController(ctrl2)
       connector.start()
@@ -236,7 +150,7 @@ describe('DepthConnector', () => {
 
   describe('addController before start', () => {
     it('controllers added before start still receive events', () => {
-      const ctrl = createFakeController()
+      const ctrl = createFakeHeatmapController()
       connector.addController(ctrl)
       connector.start()
 
@@ -249,9 +163,9 @@ describe('DepthConnector', () => {
   describe('getControllerCount', () => {
     it('reports correct controller count', () => {
       expect(connector.getControllerCount()).toBe(0)
-      connector.addController(createFakeController())
+      connector.addController(createFakeHeatmapController())
       expect(connector.getControllerCount()).toBe(1)
-      connector.addController(createFakeController())
+      connector.addController(createFakeHeatmapController())
       expect(connector.getControllerCount()).toBe(2)
       connector.destroy()
       expect(connector.getControllerCount()).toBe(0)

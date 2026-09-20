@@ -296,11 +296,12 @@ describe('FlyMachinesProvider wiring', () => {
       }
     }
     const calls: FlyCall[] = []
-    const fetchImpl = (async (url: string, init: RequestInit) => {
-      const body = init.body ? (JSON.parse(init.body as string) as FlyCall['body']) : undefined
-      calls.push({ method: String(init.method), url: String(url), body })
-      const path = String(url)
-      if (path.endsWith('/machines') && init.method === 'POST') {
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input)
+      const body = init?.body ? (JSON.parse(init.body as string) as FlyCall['body']) : undefined
+      calls.push({ method: String(init?.method), url, body })
+      const path = url
+      if (path.endsWith('/machines') && init?.method === 'POST') {
         return new Response(JSON.stringify({ id: 'm1' }), { status: 200 })
       }
       if (path.includes('/exec')) {
@@ -321,7 +322,7 @@ describe('FlyMachinesProvider wiring', () => {
         )
       }
       return new Response('', { status: 200 })
-    }) as unknown as typeof fetch
+    }
 
     const provider = new FlyMachinesProvider({
       token: 'secret-token',
@@ -373,12 +374,12 @@ describe('FlyMachinesProvider soft timeout budget', () => {
   function createHarness(coldStartMs: number, timeoutMs = 60_000): Harness {
     let clock = 1_000_000
     const execCommands: string[][] = []
-    const fetchImpl = (async (url: string, init: RequestInit) => {
-      const path = String(url)
-      const body = init.body
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const path = String(input)
+      const body = init?.body
         ? (JSON.parse(init.body as string) as { command?: string[] })
         : undefined
-      if (path.endsWith('/machines') && init.method === 'POST') {
+      if (path.endsWith('/machines') && init?.method === 'POST') {
         return new Response(JSON.stringify({ id: 'm1' }), { status: 200 })
       }
       if (path.includes('/wait')) {
@@ -394,7 +395,7 @@ describe('FlyMachinesProvider soft timeout budget', () => {
         return new Response(JSON.stringify({ exit_code: 0, stdout: '' }), { status: 200 })
       }
       return new Response('', { status: 200 })
-    }) as unknown as typeof fetch
+    }
 
     const provider = new FlyMachinesProvider({
       token: 't',

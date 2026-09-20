@@ -1,14 +1,14 @@
-import { JSDOM } from 'jsdom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { KLineData, SymbolSpec } from '../../../controllers/types'
-import { createSignal } from '../../../foundation/reactivity/signal'
-import type { ChartDom } from '../../chartTypes'
-import { createComparisonState } from '../../state/comparisonState'
+import type { KLineData } from '../../../controllers/types'
 import { createDataManagerState } from '../../state/dataManagerState'
 import { createDataState } from '../../state/dataState'
-import type { ViewportStateModule } from '../../state/viewportState'
-import { ChartDataManager, type DataDependencies } from '../chartDataManager'
+import { ChartDataManager } from '../chartDataManager'
+import {
+  createChartDom,
+  createMockDataDependencies,
+  createTestDocument,
+} from './helpers/chartDataManagerTestKit'
 
 const mainData: KLineData[] = [
   { timestamp: 1743318000000, date: '2026-01-01', open: 100, high: 110, low: 90, close: 100 },
@@ -22,66 +22,12 @@ const cmpData: KLineData[] = [
   { timestamp: 1743490800000, date: '2026-01-03', open: 52, high: 52, low: 52, close: 52 },
 ]
 
-function createMockViewport(): ViewportStateModule {
-  return {
-    readonly: {
-      dpr: { peek: () => 1 },
-      scrollLeft: { peek: () => 0 },
-      scrollLeftLogical: { peek: () => 0 },
-      leftLoadBufferWidth: { peek: () => 0 },
-      contentWidth: { peek: () => 1600 },
-      viewWidth: { peek: () => 800 },
-      viewHeight: { peek: () => 600 },
-      visibleRange: { peek: () => ({ start: 0, end: 3 }) },
-      rawVisibleRange: { peek: () => ({ start: 0, end: 3 }) },
-      viewport: {
-        peek: () => ({
-          viewWidth: 800,
-          viewHeight: 600,
-          plotWidth: 800,
-          plotHeight: 600,
-          scrollLeft: 0,
-          dpr: 1,
-        }),
-      },
-    },
-    actions: {
-      scrollTo: () => {},
-    },
-  } as unknown as ViewportStateModule
-}
-
-function createDependencies(
-  dom: ChartDom,
-  setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
-): DataDependencies {
-  return {
-    getOption: () => ({ kWidth: 8, kGap: 2 }),
-    getZoomLevel: () => 1,
-    setZoomLevel: () => {},
-    getDom: () => dom,
-    viewport: createMockViewport(),
-    comparison: createComparisonState(),
-    scheduleDraw: () => {},
-    resetInteraction: () => {},
-    getIndicatorScheduler: () => ({
-      update: () => true,
-      busySignal: createSignal(false),
-    }),
-    isPointerDown: () => false,
-    onTimeShareDataReady: () => {},
-    setSymbols,
-  }
-}
-
 describe('ChartDataManager.getComparisonViewLineRange', () => {
   let manager: ChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {
-    const dom = new JSDOM('<div id="container"><div id="scroll-content"></div></div>')
-    document = dom.window.document
-    vi.stubGlobal('window', dom.window)
+    document = createTestDocument()
   })
 
   afterEach(() => {
@@ -93,17 +39,13 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   function makeManager(): ChartDataManager {
     const dataState = createDataState()
     const dataManagerState = createDataManagerState()
-    const container = document.querySelector<HTMLDivElement>('#container')!
-    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
-    const canvasLayer = document.createElement('div')
-    const rightAxisLayer = document.createElement('div')
-    const xAxisCanvas = document.createElement('canvas')
     const m = new ChartDataManager(
-      createDependencies(
-        { container, scrollContent, canvasLayer, rightAxisLayer, xAxisCanvas },
+      createMockDataDependencies(
+        createChartDom(document),
         (symbols) => {
           dataState.actions.setSymbols(symbols)
         },
+        { viewport: { visibleRange: { start: 0, end: 3 } } },
       ),
       dataState,
       dataManagerState,

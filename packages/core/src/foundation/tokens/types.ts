@@ -199,7 +199,6 @@ export interface ENEColors {
   readonly upper: ColorValue
   readonly middle: ColorValue
   readonly lower: ColorValue
-  readonly bandFill: ColorValue
 }
 
 /** Ichimoku (一目均衡表) indicator colours. */

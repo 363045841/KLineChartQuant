@@ -2,20 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { createHeikinAshi } from '../heikinAshi'
 import type { OHLCV } from '../types'
-
-const bar = (i: number, o: number, h: number, l: number, c: number, v = 100): OHLCV => ({
-  timestamp: 1_700_000_000_000 + i * 60_000,
-  open: o,
-  high: h,
-  low: l,
-  close: c,
-  volume: v,
-})
+import { createOhlcvBar } from './helpers/createOhlcvBar'
 
 describe('heikinAshi', () => {
   it('seeds HA_open[0] = (open + close) / 2', () => {
     const ha = createHeikinAshi()
-    const [out] = ha.transform([bar(0, 100, 110, 90, 108)], {})
+    const [out] = ha.transform(
+      [createOhlcvBar(0, { open: 100, high: 110, low: 90, close: 108 })],
+      {},
+    )
     expect(out).toBeDefined()
     expect(out!.open).toBeCloseTo((100 + 108) / 2, 10)
     expect(out!.close).toBeCloseTo((100 + 110 + 90 + 108) / 4, 10)
@@ -23,7 +18,13 @@ describe('heikinAshi', () => {
 
   it('subsequent bars use HA_open = (prevHAOpen + prevHAClose) / 2', () => {
     const ha = createHeikinAshi()
-    const out = ha.transform([bar(0, 100, 110, 90, 108), bar(1, 108, 120, 105, 118)], {})
+    const out = ha.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 110, low: 90, close: 108 }),
+        createOhlcvBar(1, { open: 108, high: 120, low: 105, close: 118 }),
+      ],
+      {},
+    )
     const prev = out[0]!
     const cur = out[1]!
     expect(cur.open).toBeCloseTo((prev.open + prev.close) / 2, 10)
@@ -33,7 +34,11 @@ describe('heikinAshi', () => {
   it('HA_high >= max(HA_open, HA_close) and HA_high >= input high', () => {
     const ha = createHeikinAshi()
     const out = ha.transform(
-      [bar(0, 100, 110, 90, 108), bar(1, 108, 120, 105, 118), bar(2, 118, 125, 116, 120)],
+      [
+        createOhlcvBar(0, { open: 100, high: 110, low: 90, close: 108 }),
+        createOhlcvBar(1, { open: 108, high: 120, low: 105, close: 118 }),
+        createOhlcvBar(2, { open: 118, high: 125, low: 116, close: 120 }),
+      ],
       {},
     )
     for (const b of out) {
@@ -48,7 +53,7 @@ describe('heikinAshi', () => {
     for (let i = 0; i < 10; i++) {
       const base = 100 + i * 5
       // Strong up bars: open near low, close at high.
-      series.push(bar(i, base, base + 6, base - 1, base + 5))
+      series.push(createOhlcvBar(i, { open: base, high: base + 6, low: base - 1, close: base + 5 }))
     }
     const out = ha.transform(series, {})
     // The first bar may be ambiguous; expect the trend to dominate the tail.
@@ -71,7 +76,7 @@ describe('heikinAshi', () => {
       const close = open + drift
       const high = Math.max(open, close) + rand() * 2
       const low = Math.min(open, close) - rand() * 2
-      series.push(bar(i, open, high, low, close, Math.floor(rand() * 1000)))
+      series.push(createOhlcvBar(i, { open, high, low, close, volume: Math.floor(rand() * 1000) }))
       price = close
     }
     const haBatch = createHeikinAshi()
@@ -95,17 +100,17 @@ describe('heikinAshi', () => {
 
   it('reset() clears state so the next appendBar uses the seed formula', () => {
     const ha = createHeikinAshi()
-    ha.appendBar!(bar(0, 100, 110, 90, 108))
-    ha.appendBar!(bar(1, 108, 115, 105, 112))
+    ha.appendBar!(createOhlcvBar(0, { open: 100, high: 110, low: 90, close: 108 }))
+    ha.appendBar!(createOhlcvBar(1, { open: 108, high: 115, low: 105, close: 112 }))
     ha.reset!()
-    const [first] = ha.appendBar!(bar(2, 200, 210, 190, 205))
+    const [first] = ha.appendBar!(createOhlcvBar(2, { open: 200, high: 210, low: 190, close: 205 }))
     expect(first!.open).toBeCloseTo((200 + 205) / 2, 10)
     expect(first!.sourceBarIndexStart).toBe(0)
   })
 
   it('handles single-bar input cleanly', () => {
     const ha = createHeikinAshi()
-    const out = ha.transform([bar(0, 50, 55, 45, 52)], {})
+    const out = ha.transform([createOhlcvBar(0, { open: 50, high: 55, low: 45, close: 52 })], {})
     expect(out).toHaveLength(1)
     expect(out[0]!.open).toBeCloseTo((50 + 52) / 2, 10)
     expect(out[0]!.high).toBeGreaterThanOrEqual(55)
@@ -114,7 +119,13 @@ describe('heikinAshi', () => {
 
   it('preserves source bar indices 1:1', () => {
     const ha = createHeikinAshi()
-    const out = ha.transform([bar(0, 100, 110, 90, 108), bar(1, 108, 120, 105, 118)], {})
+    const out = ha.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 110, low: 90, close: 108 }),
+        createOhlcvBar(1, { open: 108, high: 120, low: 105, close: 118 }),
+      ],
+      {},
+    )
     expect(out[0]!.sourceBarIndexStart).toBe(0)
     expect(out[0]!.sourceBarIndexEnd).toBe(0)
     expect(out[1]!.sourceBarIndexStart).toBe(1)

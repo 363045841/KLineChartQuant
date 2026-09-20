@@ -3,7 +3,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createWebGLRenderer } from '../backend/createWebGLRenderer'
-import type { SurfaceBackend, SurfaceRegion } from '../index'
+import type { SurfaceRegion } from '../index'
+import type { ComputePipelineHandle } from '../Renderer'
+import { createMockSharedWebGLSurface, createMockSurfaceBackend } from './helpers/rendererTestKit'
 
 type MockLineStrip = {
   points: Array<{ x: number; y: number }>
@@ -52,47 +54,10 @@ vi.mock('../../../engine/renderers/webgl/candleSurface', () => {
   }
 })
 
-function createMockSurfaceBackend(): SurfaceBackend {
-  let disposed = false
-  return {
-    isAvailable: () => !disposed,
-    resize: vi.fn(),
-    bindRegion: vi.fn((region: SurfaceRegion) => {
-      if (disposed) return false
-      return region.width > 0 && region.height > 0
-    }),
-    clearRegion: vi.fn(),
-    compositeTo: vi.fn(),
-    dispose: vi.fn(() => {
-      disposed = true
-    }),
-  }
-}
-
-function createMockSharedWebGLSurface() {
-  return {
-    isAvailable: vi.fn(() => true),
-    getGL: vi.fn(() => null),
-    getCanvas: vi.fn(() => ({ width: 0, height: 0 }) as HTMLCanvasElement),
-    resize: vi.fn(),
-    bindRegion: vi.fn(() => true),
-    clearRegion: vi.fn(),
-    compositeRegionTo: vi.fn(),
-    getPhysicalRegion: vi.fn(() => null),
-    beginFrame: vi.fn(() => true),
-    endFrame: vi.fn(),
-    destroy: vi.fn(),
-  }
-}
-
-function makeRenderer(): {
-  renderer: ReturnType<typeof createWebGLRenderer>
-  surface: SurfaceBackend
-  glSurface: ReturnType<typeof createMockSharedWebGLSurface>
-} {
+function makeRenderer() {
   const surface = createMockSurfaceBackend()
   const glSurface = createMockSharedWebGLSurface()
-  const renderer = createWebGLRenderer(surface, glSurface as any)
+  const renderer = createWebGLRenderer(surface, glSurface)
   return { renderer, surface, glSurface }
 }
 
@@ -174,7 +139,7 @@ describe('createWebGLRenderer', () => {
 
     it('dispatchCompute throws', () => {
       const { renderer } = makeRenderer()
-      const fakePipeline = { __brand: 'ComputePipelineHandle' } as any
+      const fakePipeline: ComputePipelineHandle = { __brand: 'ComputePipelineHandle' }
       expect(() =>
         renderer.dispatchCompute({ pipeline: fakePipeline, workgroups: [1], bindings: {} }),
       ).toThrow(/compute/)

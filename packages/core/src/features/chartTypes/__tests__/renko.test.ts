@@ -2,23 +2,21 @@ import { describe, expect, it } from 'vitest'
 
 import { createRenko } from '../renko'
 import type { OHLCV, TransformedBar } from '../types'
-
-const bar = (i: number, o: number, h: number, l: number, c: number, v = 100): OHLCV => ({
-  timestamp: 1_700_000_000_000 + i * 60_000,
-  open: o,
-  high: h,
-  low: l,
-  close: c,
-  volume: v,
-})
+import { createOhlcvBar } from './helpers/createOhlcvBar'
 
 describe('renko', () => {
   it('rising prices emit up-bricks', () => {
     const r = createRenko()
     // Anchor at close 100, then push close up 30 (3 bricks of 10).
-    const out = r.transform([bar(0, 100, 100, 100, 100), bar(1, 100, 130, 100, 130)], {
-      brickSize: 10,
-    })
+    const out = r.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 130, low: 100, close: 130 }),
+      ],
+      {
+        brickSize: 10,
+      },
+    )
     expect(out).toHaveLength(3)
     for (const b of out) {
       expect(b.meta?.direction).toBe('up')
@@ -31,9 +29,15 @@ describe('renko', () => {
 
   it('falling prices emit down-bricks', () => {
     const r = createRenko()
-    const out = r.transform([bar(0, 100, 100, 100, 100), bar(1, 100, 100, 70, 70)], {
-      brickSize: 10,
-    })
+    const out = r.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 100, low: 70, close: 70 }),
+      ],
+      {
+        brickSize: 10,
+      },
+    )
     expect(out).toHaveLength(3)
     for (const b of out) {
       expect(b.meta?.direction).toBe('down')
@@ -46,10 +50,10 @@ describe('renko', () => {
     const r = createRenko()
     const out = r.transform(
       [
-        bar(0, 100, 100, 100, 100),
-        bar(1, 100, 105, 95, 103),
-        bar(2, 103, 106, 98, 102),
-        bar(3, 102, 109, 100, 108),
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 105, low: 95, close: 103 }),
+        createOhlcvBar(2, { open: 103, high: 106, low: 98, close: 102 }),
+        createOhlcvBar(3, { open: 102, high: 109, low: 100, close: 108 }),
       ],
       { brickSize: 10 },
     )
@@ -61,7 +65,11 @@ describe('renko', () => {
     // Anchor at 100, push up to 110 (one up-brick from 100->110).
     // Then a 1x brickSize move down (to 100) should NOT reverse.
     const out1 = r.transform(
-      [bar(0, 100, 100, 100, 100), bar(1, 100, 110, 100, 110), bar(2, 110, 110, 100, 100)],
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 110, low: 100, close: 110 }),
+        createOhlcvBar(2, { open: 110, high: 110, low: 100, close: 100 }),
+      ],
       { brickSize: 10 },
     )
     // Only the original up-brick should be emitted.
@@ -71,7 +79,11 @@ describe('renko', () => {
     // 2x brickSize move down DOES reverse (down to 90 = 110 - 20).
     const r2 = createRenko()
     const out2 = r2.transform(
-      [bar(0, 100, 100, 100, 100), bar(1, 100, 110, 100, 110), bar(2, 110, 110, 90, 90)],
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 110, low: 100, close: 110 }),
+        createOhlcvBar(2, { open: 110, high: 110, low: 90, close: 90 }),
+      ],
       { brickSize: 10 },
     )
     expect(out2.length).toBeGreaterThanOrEqual(2)
@@ -83,10 +95,10 @@ describe('renko', () => {
     const r = createRenko()
     // ATR period 3 — no bricks until the third bar's TR fills the window.
     const series: OHLCV[] = [
-      bar(0, 100, 102, 99, 101),
-      bar(1, 101, 103, 100, 102),
-      bar(2, 102, 104, 101, 103),
-      bar(3, 103, 120, 102, 119),
+      createOhlcvBar(0, { open: 100, high: 102, low: 99, close: 101 }),
+      createOhlcvBar(1, { open: 101, high: 103, low: 100, close: 102 }),
+      createOhlcvBar(2, { open: 102, high: 104, low: 101, close: 103 }),
+      createOhlcvBar(3, { open: 103, high: 120, low: 102, close: 119 }),
     ]
     const out = r.transform(series, { useATR: { period: 3 } })
     // After bar 3 the window has 4 TR values; brickSize is the rolling mean
@@ -111,7 +123,9 @@ describe('renko', () => {
       const close = price + drift
       const high = Math.max(price, close) + rand() * 2
       const low = Math.min(price, close) - rand() * 2
-      series.push(bar(i, price, high, low, close, Math.floor(rand() * 100)))
+      series.push(
+        createOhlcvBar(i, { open: price, high, low, close, volume: Math.floor(rand() * 100) }),
+      )
       price = close
     }
     const batch = createRenko().transform(series, { brickSize: 3 })
@@ -132,9 +146,15 @@ describe('renko', () => {
 
   it('large gap close emits multiple bricks from one input bar', () => {
     const r = createRenko()
-    const out = r.transform([bar(0, 100, 100, 100, 100), bar(1, 100, 200, 100, 200)], {
-      brickSize: 10,
-    })
+    const out = r.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 200, low: 100, close: 200 }),
+      ],
+      {
+        brickSize: 10,
+      },
+    )
     // 100 -> 200 across one bar should emit 10 up-bricks.
     expect(out).toHaveLength(10)
     // Only the first brick from that source bar carries its volume; the
@@ -158,10 +178,16 @@ describe('renko', () => {
 
   it('reset() drops state so the next series starts fresh', () => {
     const r = createRenko()
-    r.transform([bar(0, 100, 100, 100, 100), bar(1, 100, 150, 100, 150)], { brickSize: 10 })
+    r.transform(
+      [
+        createOhlcvBar(0, { open: 100, high: 100, low: 100, close: 100 }),
+        createOhlcvBar(1, { open: 100, high: 150, low: 100, close: 150 }),
+      ],
+      { brickSize: 10 },
+    )
     r.reset!()
     // After reset the next bar anchors the new series — no bricks yet.
-    const out = r.appendBar!(bar(2, 200, 200, 200, 200))
+    const out = r.appendBar!(createOhlcvBar(2, { open: 200, high: 200, low: 200, close: 200 }))
     expect(out).toHaveLength(0)
   })
 })

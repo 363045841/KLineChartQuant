@@ -3,23 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { lookupInstrumentsBySymbol, searchInstruments } from '../instrumentSearch'
 import { MarketDataProviderRegistry } from '../registry'
-import type { InstrumentDescriptor, MarketDataProvider } from '../types'
-
-/** 创建只提供品种目录的测试 Provider。 */
-function createProvider(
-  sourceId: string,
-  search: MarketDataProvider['catalog'] extends infer Catalog
-    ? Catalog extends { search: infer Search }
-      ? Search
-      : never
-    : never,
-): MarketDataProvider {
-  return {
-    source: { id: sourceId, displayName: sourceId },
-    probe: async () => ({ status: 'online', checkedAt: 1 }),
-    catalog: { search },
-  }
-}
+import type { InstrumentDescriptor } from '../types'
+import { createMockMarketDataProvider } from './helpers/providerTestKit'
 
 /** 创建用于断言的最小标准品种。 */
 function instrument(sourceId: string, id: string): InstrumentDescriptor {
@@ -39,8 +24,8 @@ describe('searchInstruments', () => {
     const registry = new MarketDataProviderRegistry()
     const firstSearch = vi.fn().mockResolvedValue([instrument('first', 'stock:600519')])
     const secondSearch = vi.fn().mockResolvedValue([instrument('second', 'stock:600519')])
-    registry.register(createProvider('first', firstSearch))
-    registry.register(createProvider('second', secondSearch))
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search: firstSearch }))
+    registry.register(createMockMarketDataProvider({ sourceId: 'second', search: secondSearch }))
 
     await expect(searchInstruments(registry, { keyword: '600519', limit: 10 })).resolves.toEqual([
       instrument('first', 'stock:600519'),
@@ -54,8 +39,8 @@ describe('searchInstruments', () => {
     const registry = new MarketDataProviderRegistry()
     const firstSearch = vi.fn().mockResolvedValue([instrument('first', 'stock:600519')])
     const secondSearch = vi.fn().mockResolvedValue([instrument('second', 'stock:600519')])
-    registry.register(createProvider('first', firstSearch))
-    registry.register(createProvider('second', secondSearch))
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search: firstSearch }))
+    registry.register(createMockMarketDataProvider({ sourceId: 'second', search: secondSearch }))
 
     await expect(
       searchInstruments(registry, { keyword: '600519', limit: 10, sourceIds: ['second'] }),
@@ -66,8 +51,8 @@ describe('searchInstruments', () => {
 
   it('rejects unavailable source IDs with the enabled catalog source IDs needed to retry', async () => {
     const registry = new MarketDataProviderRegistry()
-    registry.register(createProvider('first', vi.fn()))
-    registry.register(createProvider('second', vi.fn()))
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search: vi.fn() }))
+    registry.register(createMockMarketDataProvider({ sourceId: 'second', search: vi.fn() }))
 
     await expect(
       searchInstruments(registry, { keyword: '600519', limit: 10, sourceIds: ['akshare'] }),
@@ -78,9 +63,17 @@ describe('searchInstruments', () => {
 
   it('returns available results when a source search fails', async () => {
     const registry = new MarketDataProviderRegistry()
-    registry.register(createProvider('first', vi.fn().mockRejectedValue(new Error('offline'))))
     registry.register(
-      createProvider('second', vi.fn().mockResolvedValue([instrument('second', 'stock:600519')])),
+      createMockMarketDataProvider({
+        sourceId: 'first',
+        search: vi.fn().mockRejectedValue(new Error('offline')),
+      }),
+    )
+    registry.register(
+      createMockMarketDataProvider({
+        sourceId: 'second',
+        search: vi.fn().mockResolvedValue([instrument('second', 'stock:600519')]),
+      }),
     )
 
     await expect(searchInstruments(registry, { keyword: '600519', limit: 10 })).resolves.toEqual([
@@ -101,8 +94,8 @@ describe('lookupInstrumentsBySymbol', () => {
     const secondSearch = vi
       .fn()
       .mockResolvedValue([{ ...instrument('second', 'stock:600519'), symbol: '600519' }])
-    registry.register(createProvider('first', firstSearch))
-    registry.register(createProvider('second', secondSearch))
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search: firstSearch }))
+    registry.register(createMockMarketDataProvider({ sourceId: 'second', search: secondSearch }))
 
     await expect(lookupInstrumentsBySymbol(registry, { symbol: ' 600519 ' })).resolves.toEqual([
       instrument('first', 'stock:600519'),
@@ -115,7 +108,7 @@ describe('lookupInstrumentsBySymbol', () => {
   it('returns no result for a blank symbol without searching providers', async () => {
     const registry = new MarketDataProviderRegistry()
     const search = vi.fn()
-    registry.register(createProvider('first', search))
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search }))
 
     await expect(lookupInstrumentsBySymbol(registry, { symbol: '   ' })).resolves.toEqual([])
     expect(search).not.toHaveBeenCalled()
@@ -126,8 +119,8 @@ describe('lookupInstrumentsBySymbol', () => {
     const firstSearch = vi.fn().mockResolvedValue([instrument('first', 'stock:600519')])
     const secondSearch = vi.fn().mockResolvedValue([instrument('second', 'stock:600519')])
     const signal = new AbortController().signal
-    registry.register(createProvider('first', firstSearch))
-    registry.register(createProvider('second', secondSearch))
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search: firstSearch }))
+    registry.register(createMockMarketDataProvider({ sourceId: 'second', search: secondSearch }))
 
     await expect(
       lookupInstrumentsBySymbol(registry, { symbol: '600519', sourceIds: ['second'], signal }),

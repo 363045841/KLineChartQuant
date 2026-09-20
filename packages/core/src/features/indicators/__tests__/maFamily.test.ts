@@ -17,14 +17,7 @@ import { computeLSMA } from '../lsma'
 import { computeT3 } from '../t3'
 import { computeVIDYA } from '../vidya'
 import { computeZLEMA } from '../zlema'
-
-function constant(n: number, v: number): number[] {
-  return Array.from({ length: n }, () => v)
-}
-
-function ramp(n: number, start = 1, step = 1): number[] {
-  return Array.from({ length: n }, (_, i) => start + step * i)
-}
+import { constant, ramp } from './helpers/sequences'
 
 function countLeadingNaN(out: Float64Array): number {
   let c = 0

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
-import { ChartStateKernel } from '../chartStateKernel'
 import { ChartDataViewId, createModeState } from '../modeState'
+import { createTestChartStateKernel } from './helpers/createTestChartStateKernel'
 
 describe('modeState', () => {
   it('defaults to kline', () => {
@@ -84,20 +84,7 @@ describe('modeState', () => {
 
   it('publishes the data-view primary plugin through the kernel active renderer set', async () => {
     await loadBuiltinIndicators()
-    const kernel = new ChartStateKernel({
-      initialOptions: {
-        minKWidth: 1,
-        maxKWidth: 50,
-        zoomLevelCount: 20,
-        bottomAxisHeight: 24,
-        rightAxisWidth: 0,
-        leftAxisWidth: 0,
-        yPaddingPx: 20,
-        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
-      },
-      initialZoomLevel: 3,
-      scheduleDraw: () => undefined,
-    })
+    const kernel = createTestChartStateKernel()
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
@@ -187,21 +174,7 @@ describe('modeState', () => {
         paneScaleTypes: { main: 'percent' as const },
       },
     }
-    const kernel = new ChartStateKernel({
-      initialOptions: {
-        minKWidth: 1,
-        maxKWidth: 50,
-        zoomLevelCount: 20,
-        bottomAxisHeight: 24,
-        rightAxisWidth: 0,
-        leftAxisWidth: 0,
-        yPaddingPx: 20,
-        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
-      },
-      initialZoomLevel: 3,
-      initialViewWorkspaces,
-      scheduleDraw: () => undefined,
-    })
+    const kernel = createTestChartStateKernel({ initialViewWorkspaces })
 
     expect(kernel.snapshotViewWorkspaces()).toEqual(initialViewWorkspaces)
     kernel.actions.setDataView(ChartDataViewId.TimeShare)
@@ -217,20 +190,7 @@ describe('modeState', () => {
         indicatorId: 'RSI',
       }),
     ).toBe('rsi_sub_RSI')
-    const kernel = new ChartStateKernel({
-      initialOptions: {
-        minKWidth: 1,
-        maxKWidth: 50,
-        zoomLevelCount: 20,
-        bottomAxisHeight: 24,
-        rightAxisWidth: 0,
-        leftAxisWidth: 0,
-        yPaddingPx: 20,
-        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
-      },
-      initialZoomLevel: 3,
-      scheduleDraw: () => undefined,
-    })
+    const kernel = createTestChartStateKernel()
     kernel.indicator.actions.upsertMain('MA', {})
     kernel.indicator.actions.upsertMain('BOLL', {})
     kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })

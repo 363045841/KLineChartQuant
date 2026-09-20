@@ -1,24 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
 
 import { type CloudSeg, fillCloud } from '../ichimoku'
 
-function createMockCtx(): CanvasRenderingContext2D {
-  return {
-    save: vi.fn(),
-    restore: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    closePath: vi.fn(),
-    fill: vi.fn(),
-    globalAlpha: 0,
-    fillStyle: '',
-  } as unknown as CanvasRenderingContext2D
-}
-
 describe('fillCloud', () => {
   it('should include the bottom point of the last segment in the fill polygon', () => {
-    const ctx = createMockCtx()
+    const ctx = createMockCanvasContext()
     const segs: CloudSeg[] = [
       { x: 0, ya: 100, yb: 50, bull: true },
       { x: 1, ya: 95, yb: 55, bull: true },

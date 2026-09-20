@@ -1,24 +1,20 @@
 /** 验证 WebGPU SurfaceBackend 的 canvas 配置、尺寸、清屏和生命周期。 */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createWebGPUSurfaceBackend } from '../backend/createWebGPUSurfaceBackend'
+import { createMockCanvas2DContext } from './helpers/rendererTestKit'
+import { createMockWebGPU } from './helpers/webgpuTestKit'
 
+/** 构造 SurfaceBackend 与可观测的 canvas / context / device 替身。 */
 function makeSurface() {
-  const context = {
-    configure: vi.fn(),
-    unconfigure: vi.fn(),
-    getCurrentTexture: vi.fn(() => ({ createView: vi.fn(() => ({ id: 'view' })) })),
-  }
-  const canvas = {
-    width: 1,
-    height: 1,
-    style: { width: '', height: '' },
-    getContext: vi.fn(() => context),
-  } as unknown as HTMLCanvasElement
-  const device = {} as GPUDevice
-  const surface = createWebGPUSurfaceBackend({ canvas, device, format: 'bgra8unorm' })
-  return { canvas, context, device, surface }
+  const fake = createMockWebGPU()
+  const surface = createWebGPUSurfaceBackend({
+    canvas: fake.canvas,
+    device: fake.device,
+    format: 'bgra8unorm',
+  })
+  return { ...fake, surface }
 }
 
 describe('createWebGPUSurfaceBackend', () => {
@@ -66,12 +62,7 @@ describe('createWebGPUSurfaceBackend', () => {
 
   it('compositeTo is a no-op under hybrid DOM (M2)', () => {
     const { surface } = makeSurface()
-    const target = {
-      save: vi.fn(),
-      restore: vi.fn(),
-      setTransform: vi.fn(),
-      drawImage: vi.fn(),
-    } as unknown as CanvasRenderingContext2D
+    const target = createMockCanvas2DContext()
 
     surface.compositeTo(target, { x: 10, y: 20, width: 100, height: 50, dpr: 2 })
 
@@ -79,45 +70,27 @@ describe('createWebGPUSurfaceBackend', () => {
   })
 
   it('clearRegion submits a transparent clear of the WebGPU canvas', () => {
-    const context = {
-      configure: vi.fn(),
-      unconfigure: vi.fn(),
-      getCurrentTexture: vi.fn(() => ({ createView: vi.fn(() => ({ id: 'view' })) })),
-    }
-    const canvas = {
-      width: 100,
-      height: 50,
-      style: { width: '', height: '' },
-      getContext: vi.fn(() => context),
-    } as unknown as HTMLCanvasElement
-    const pass = { end: vi.fn() }
-    const encoder = {
-      beginRenderPass: vi.fn(() => pass),
-      finish: vi.fn(() => ({ kind: 'commands' })),
-    }
-    const queue = { submit: vi.fn() }
-    const device = {
-      createCommandEncoder: vi.fn(() => encoder),
-      queue,
-    } as unknown as GPUDevice
-    const surface = createWebGPUSurfaceBackend({ canvas, device, format: 'bgra8unorm' })
+    const fake = createMockWebGPU()
+    const surface = createWebGPUSurfaceBackend({
+      canvas: fake.canvas,
+      device: fake.device,
+      format: 'bgra8unorm',
+    })
 
     surface.clearRegion({ x: 0, y: 0, width: 100, height: 50, dpr: 1 })
 
-    expect(device.createCommandEncoder).toHaveBeenCalledOnce()
-    expect(encoder.beginRenderPass).toHaveBeenCalledWith(
-      expect.objectContaining({
-        colorAttachments: [
-          expect.objectContaining({
-            clearValue: { r: 0, g: 0, b: 0, a: 0 },
-            loadOp: 'clear',
-            storeOp: 'store',
-          }),
-        ],
-      }),
-    )
-    expect(pass.end).toHaveBeenCalledOnce()
-    expect(queue.submit).toHaveBeenCalledOnce()
+    expect(fake.device.createCommandEncoder).toHaveBeenCalledOnce()
+    expect(fake.renderPassDescriptors[0]).toMatchObject({
+      colorAttachments: [
+        expect.objectContaining({
+          clearValue: { r: 0, g: 0, b: 0, a: 0 },
+          loadOp: 'clear',
+          storeOp: 'store',
+        }),
+      ],
+    })
+    expect(fake.passes[0]?.end).toHaveBeenCalledOnce()
+    expect(fake.queue.submit).toHaveBeenCalledOnce()
   })
 
   it('unconfigures once and rejects work after dispose', () => {

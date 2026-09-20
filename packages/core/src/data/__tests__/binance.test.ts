@@ -1,48 +1,24 @@
 import type { Mock } from 'vitest'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '../depth/binance'
 import type { DepthDelta, DepthSnapshot, DepthSourceStatus } from '../depth/depthTypes'
-
-interface FakeEventSource {
-  onopen: (() => void) | null
-  onerror: ((e: unknown) => void) | null
-  onmessage: ((event: { data: string }) => void) | null
-  close: ReturnType<typeof vi.fn>
-}
-
-function createFakeES(): FakeEventSource {
-  return {
-    onopen: null,
-    onerror: null,
-    onmessage: null,
-    close: vi.fn(),
-  }
-}
-
-function makeSnapshotEvent(
-  bids: ReadonlyArray<readonly [number, number]>,
-  asks: ReadonlyArray<readonly [number, number]>,
-  timestamp: number,
-) {
-  return {
-    data: JSON.stringify({ type: 'snapshot', bids, asks, timestamp }),
-  }
-}
-
-function makeDeltaEvent(entries: DepthDelta[]) {
-  return {
-    data: JSON.stringify({ type: 'delta', entries }),
-  }
-}
+import {
+  asEventSource,
+  createEventSourceFactory,
+  createFakeEventSource,
+  type FakeEventSource,
+  makeDeltaEvent,
+  makeSnapshotEvent,
+} from './helpers/depthTestKit'
 
 describe('BinanceSSESource', () => {
   let es: FakeEventSource
   let esFactory: Mock<(url: string) => EventSource>
 
   beforeEach(() => {
-    es = createFakeES()
-    esFactory = vi.fn<(url: string) => EventSource>(() => es as unknown as EventSource)
+    es = createFakeEventSource()
+    esFactory = createEventSourceFactory(es)
   })
 
   afterEach(() => {
@@ -108,8 +84,8 @@ describe('BinanceSSESource', () => {
       const src = createSource()
       src.connect()
       const es1 = es
-      const es2 = createFakeES()
-      esFactory.mockReturnValue(es2 as unknown as EventSource)
+      const es2 = createFakeEventSource()
+      esFactory.mockReturnValue(asEventSource(es2))
       src.connect()
       expect(es1.close).toHaveBeenCalledOnce()
       expect(esFactory).toHaveBeenCalledTimes(2)

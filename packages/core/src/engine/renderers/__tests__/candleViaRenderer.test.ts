@@ -1,43 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { Renderer } from '../../../rendering/render/Renderer'
+import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
+
 import { drawCandlesViaRenderer } from '../candleViaRenderer'
-
-function mockRenderer(): Renderer & {
-  writeBuffer: ReturnType<typeof vi.fn>
-  drawInstances: ReturnType<typeof vi.fn>
-  createBuffer: ReturnType<typeof vi.fn>
-  createPipeline: ReturnType<typeof vi.fn>
-  destroyBuffer: ReturnType<typeof vi.fn>
-  destroyPipeline: ReturnType<typeof vi.fn>
-} {
-  return {
-    surface: {
-      isAvailable: () => true,
-      resize: () => {},
-      bindRegion: () => true,
-      clearRegion: () => {},
-      compositeTo: vi.fn(),
-      dispose: () => {},
-    },
-    caps: { compute: false, storageBuffer: false, maxInstances: 1_000_000, name: 'webgl2' },
-    createBuffer: vi.fn(() => ({}) as never),
-    writeBuffer: vi.fn(),
-    destroyBuffer: vi.fn(),
-    createPipeline: vi.fn(() => ({}) as never),
-    destroyPipeline: vi.fn(),
-    createComputePipeline: () => {
-      throw new Error('no')
-    },
-    destroyComputePipeline: () => {},
-    beginFrame: vi.fn(),
-    drawInstances: vi.fn(),
-    drawLines: vi.fn(),
-    dispatchCompute: () => {},
-    endFrame: vi.fn(),
-    dispose: vi.fn(),
-  } as never
-}
 
 describe('drawCandlesViaRenderer', () => {
   const nonEmpty = {
@@ -52,7 +17,7 @@ describe('drawCandlesViaRenderer', () => {
   }
 
   it('issues 4 drawInstances for non-empty up/down body and wick', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     r.drawInstances.mockReturnValue(true)
     const ok = drawCandlesViaRenderer(r, nonEmpty, '#0f0', '#f00', 0)
     expect(ok).toBe(true)
@@ -61,7 +26,7 @@ describe('drawCandlesViaRenderer', () => {
   })
 
   it('returns true without draw when all counts are zero', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     r.drawInstances.mockReturnValue(true)
     const prepared = {
       upBodyCount: 0,
@@ -79,19 +44,19 @@ describe('drawCandlesViaRenderer', () => {
   })
 
   it('returns false when surface unavailable', () => {
-    const r = mockRenderer()
-    r.surface.isAvailable = () => false
+    const r = createMockRenderer()
+    r.surface.isAvailable.mockReturnValue(false)
     expect(drawCandlesViaRenderer(r, nonEmpty, '#0f0', '#f00', 0)).toBe(false)
   })
 
   it('returns false when drawInstances silent-fails (fail-closed)', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     r.drawInstances.mockReturnValue(false)
     expect(drawCandlesViaRenderer(r, nonEmpty, '#0f0', '#f00', 0)).toBe(false)
   })
 
   it('returns false if any non-empty batch fails', () => {
-    const r = mockRenderer()
+    const r = createMockRenderer()
     r.drawInstances.mockReturnValueOnce(true).mockReturnValueOnce(false)
     expect(drawCandlesViaRenderer(r, nonEmpty, '#0f0', '#f00', 0)).toBe(false)
   })

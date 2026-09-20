@@ -16,14 +16,11 @@ import { describe, expect, it } from 'vitest'
 import { computeAnchoredVwap } from '../computeAnchoredVwap'
 import { createAnchoredVwapController } from '../createAnchoredVwapController'
 import type { AnchorDefinition, AVWAPBar } from '../types'
+import { createAvwapBar } from './helpers/createAvwapBar'
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
 // ---------------------------------------------------------------------------
-
-function bar(high: number, low: number, close: number, volume: number): AVWAPBar {
-  return { high, low, close, volume }
-}
 
 /** Realistic-ish trending series with mixed volume for the equivalence test. */
 function makeSeries(n: number, seed = 1): AVWAPBar[] {
@@ -43,7 +40,7 @@ function makeSeries(n: number, seed = 1): AVWAPBar[] {
     const low = price - rand() * 1.5
     const close = low + rand() * (high - low)
     const volume = 100 + Math.floor(rand() * 10_000)
-    out.push(bar(high, low, close, volume))
+    out.push(createAvwapBar(high, low, close, volume))
   }
   return out
 }
@@ -235,7 +232,7 @@ describe('createAnchoredVwapController — appendBar', () => {
     c.addAnchor(defaultAnchor('a2', 3))
     const before = c.anchors.peek().map((a) => a.series.length)
 
-    c.appendBar(bar(110, 108, 109, 500))
+    c.appendBar(createAvwapBar(110, 108, 109, 500))
 
     const after = c.anchors.peek()
     for (let i = 0; i < after.length; i++) {
@@ -340,9 +337,9 @@ describe('createAnchoredVwapController — appendBar', () => {
     const unsub = c.anchors.subscribe(() => {
       notifications += 1
     })
-    c.appendBar(bar(110, 108, 109, 500))
-    c.appendBar(bar(111, 109, 110, 500))
-    c.appendBar(bar(112, 110, 111, 500))
+    c.appendBar(createAvwapBar(110, 108, 109, 500))
+    c.appendBar(createAvwapBar(111, 109, 110, 500))
+    c.appendBar(createAvwapBar(112, 110, 111, 500))
     expect(notifications).toBe(3)
     unsub()
     c.dispose()
@@ -398,7 +395,7 @@ describe('createAnchoredVwapController — dispose', () => {
     expect(c.addAnchor(defaultAnchor('a2', 1))).toBeNull()
     expect(c.removeAnchor('a1')).toBe(false)
     expect(c.updateAnchor('a1', { label: 'no' })).toBe(false)
-    c.appendBar(bar(110, 108, 109, 500))
+    c.appendBar(createAvwapBar(110, 108, 109, 500))
     c.setBars(makeSeries(8))
 
     expect(notifications).toBe(0)

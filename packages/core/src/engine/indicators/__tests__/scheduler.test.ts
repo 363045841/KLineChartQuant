@@ -1,10 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockPluginHost } from '@/engine/__tests__/helpers/renderTestKit'
-import type { PluginHost } from '@/plugin'
+import type { BaseIndicatorState, PluginHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { createIndicatorResultState } from '../../state/indicatorResultState'
 import { ChartDataViewId } from '../../state/modeState'
 import type { IndicatorMetadata } from '../indicatorMetadata'
+import type { IndicatorRuntime } from '../indicatorRuntime'
 import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
 import { IndicatorScheduler } from '../scheduler'
 import { BOLL_STATE_KEY, type BOLLRenderState, EMPTY_BOLL_STATE } from '../state/bollState'
@@ -14,10 +15,17 @@ import { createMACDStateKey, type MACDRenderState } from '../state/macdState'
 import { EMPTY_MA_STATE, MA_STATE_KEY, type MARenderState } from '../state/maState'
 import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../state/rsiState'
 
+/** 构造把指标状态写入 StateStore 的 applyResult；scheduler 传入的 state 是 unknown，按状态基类收窄。 */
 function applyMainResult(key: string): NonNullable<IndicatorMetadata['applyResult']> {
   return (host, state, _paneId) => {
-    ;(host as PluginHost).setSharedState(key, state as any, 'indicator_scheduler')
+    host.setSharedState(key, state as BaseIndicatorState, 'indicator_scheduler')
   }
+}
+
+/** 读取 scheduler 的私有 inlineRuntime，供故障注入；private 字段无法静态访问。 */
+function getSchedulerInlineRuntime(scheduler: IndicatorScheduler): IndicatorRuntime {
+  const runtime: IndicatorRuntime = Reflect.get(scheduler, 'inlineRuntime')
+  return runtime
 }
 
 let builtinDefinitionsByName: Map<string, IndicatorMetadata>
@@ -52,11 +60,11 @@ function registerTestIndicators(scheduler: IndicatorScheduler): void {
       indicatorType: 'volume',
       stateKey: (paneId: string) => `indicator:volume:${paneId}`,
       defaultPaneId: 'sub_Volume',
-      rendererFactory: vi.fn() as any,
+      rendererFactory: vi.fn(),
       getRendererName: ({ paneId }) => `volume_${paneId}`,
       getScaleRendererName: () => null,
       getPaneTitleRendererName: () => null,
-      paneIdField: 'volumePaneId' as any,
+      paneIdField: 'volumePaneId',
       applyResult: applyMainResult('indicator:volume:sub_Volume'),
     },
     getBuiltinTestIndicator('stoch'),
@@ -83,6 +91,15 @@ function registerTestIndicators(scheduler: IndicatorScheduler): void {
   for (const meta of indicators) {
     scheduler.registerIndicator(meta)
   }
+}
+
+/** 创建注入了 mock host 并注册内置指标的 scheduler。 */
+function createSchedulerHarness(): { scheduler: IndicatorScheduler; mockHost: PluginHost } {
+  const scheduler = new IndicatorScheduler(false)
+  const mockHost = createMockPluginHost()
+  scheduler.setPluginHost(mockHost)
+  registerTestIndicators(scheduler)
+  return { scheduler, mockHost }
 }
 
 /**
@@ -118,10 +135,7 @@ describe('IndicatorScheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
     vi.mocked(mockHost.setSharedState).mockClear()
   })
 
@@ -478,10 +492,7 @@ describe('BOLL State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write BOLLRenderState to StateStore after update', () => {
@@ -535,9 +546,6 @@ describe('BOLL State in scheduler', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    const stateBefore = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
-    const seriesBefore = stateBefore!.series[19]
-
     scheduler.updateIndicatorConfig('boll', { period: 10 })
 
     const stateAfter = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
@@ -560,10 +568,7 @@ describe('EXPMA State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write EXPMARenderState to StateStore after update', () => {
@@ -614,10 +619,7 @@ describe('ENE State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write ENERenderState to StateStore after update', () => {
@@ -671,19 +673,12 @@ describe('Per-indicator dirty flags', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('updateBOLLConfig should not recalculate MA series', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
-
-    // Capture MA state after initial update
-    const maStateBefore = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    const maSeriesBefore = maStateBefore!.series[5]
 
     // Reset mock to track new calls
     vi.mocked(mockHost.setSharedState).mockClear()
@@ -704,9 +699,6 @@ describe('Per-indicator dirty flags', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    const maStateBefore = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    const maSeriesBefore = maStateBefore!.series[5]
-
     vi.mocked(mockHost.setSharedState).mockClear()
 
     scheduler.updateIndicatorConfig('expma', { fastPeriod: 6 })
@@ -724,9 +716,6 @@ describe('Per-indicator dirty flags', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    const maStateBefore = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    const maSeriesBefore = maStateBefore!.series[5]
-
     vi.mocked(mockHost.setSharedState).mockClear()
 
     scheduler.updateIndicatorConfig('ene', { period: 20 })
@@ -743,8 +732,6 @@ describe('Per-indicator dirty flags', () => {
   it('updateBOLLConfig should recalculate BOLL extremes', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
-
-    const bollStateBefore = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
 
     scheduler.updateIndicatorConfig('boll', { period: 10 })
 
@@ -819,10 +806,7 @@ describe('RSI State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write RSIRenderState to StateStore after update', () => {
@@ -830,7 +814,7 @@ describe('RSI State in scheduler', () => {
     scheduler.update(data, { start: 0, end: 20 })
 
     const rsiKey = createRSIStateKey('sub_RSI')
-    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const setSharedState = vi.mocked(mockHost.setSharedState)
     const rsiCall = setSharedState.mock.calls.find((call: unknown[]) => call[0] === rsiKey)
     expect(rsiCall).toBeDefined()
 
@@ -849,7 +833,7 @@ describe('RSI State in scheduler', () => {
     scheduler.update(data, { start: 0, end: 30 })
 
     const rsiKey = createRSIStateKey('sub_RSI')
-    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const setSharedState = vi.mocked(mockHost.setSharedState)
     const rsiCall = setSharedState.mock.calls.find((call: unknown[]) => call[0] === rsiKey)
     const rsiState = rsiCall?.[1] as RSIRenderState
 
@@ -869,7 +853,7 @@ describe('RSI State in scheduler', () => {
     scheduler.update(data, { start: 0, end: 20 })
 
     const rsiKey = createRSIStateKey('sub_RSI')
-    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const setSharedState = vi.mocked(mockHost.setSharedState)
     const rsiCall = setSharedState.mock.calls.find((call: unknown[]) => call[0] === rsiKey)
     const rsiState = rsiCall?.[1] as RSIRenderState
 
@@ -888,7 +872,7 @@ describe('RSI State in scheduler', () => {
     scheduler.update(data, { start: 0, end: 50 })
 
     const rsiKey = createRSIStateKey('sub_RSI')
-    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const setSharedState = vi.mocked(mockHost.setSharedState)
     const rsiCall = setSharedState.mock.calls.find((call: unknown[]) => call[0] === rsiKey)
     const rsiState = rsiCall?.[1] as RSIRenderState
 
@@ -902,17 +886,17 @@ describe('RSI State in scheduler', () => {
     scheduler.update(data, { start: 0, end: 20 })
 
     // Get the MA state after first update
-    const maStateBefore = (mockHost.setSharedState as ReturnType<typeof vi.fn>).mock.calls.find(
-      (call: unknown[]) => call[0] === MA_STATE_KEY,
-    )?.[1] as MARenderState
+    const maStateBefore = vi
+      .mocked(mockHost.setSharedState)
+      .mock.calls.find((call: unknown[]) => call[0] === MA_STATE_KEY)?.[1] as MARenderState
 
     // Update RSI config only
     scheduler.updateIndicatorConfig('rsi', { period1: 14 }, 'sub_RSI')
 
     // Get the MA state after RSI config update
-    const maStateAfter = (mockHost.setSharedState as ReturnType<typeof vi.fn>).mock.calls.find(
-      (call: unknown[]) => call[0] === MA_STATE_KEY,
-    )?.[1] as MARenderState
+    const maStateAfter = vi
+      .mocked(mockHost.setSharedState)
+      .mock.calls.find((call: unknown[]) => call[0] === MA_STATE_KEY)?.[1] as MARenderState
 
     // MA series should remain the same reference (not recalculated)
     expect(maStateAfter.series).toBe(maStateBefore.series)
@@ -924,7 +908,7 @@ describe('RSI State in scheduler', () => {
     scheduler.update(data, { start: 0, end: 20 })
 
     const expectedKey = createRSIStateKey('custom_RSI_pane')
-    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const setSharedState = vi.mocked(mockHost.setSharedState)
     const rsiCall = setSharedState.mock.calls.find((call: unknown[]) => call[0] === expectedKey)
     expect(rsiCall).toBeDefined()
   })
@@ -933,7 +917,7 @@ describe('RSI State in scheduler', () => {
     scheduler.update([], { start: 0, end: 0 })
 
     const rsiKey = createRSIStateKey('sub_RSI')
-    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const setSharedState = vi.mocked(mockHost.setSharedState)
     const rsiCall = setSharedState.mock.calls.find((call: unknown[]) => call[0] === rsiKey)
     const rsiState = rsiCall?.[1] as RSIRenderState
 
@@ -1027,8 +1011,7 @@ describe('IndicatorScheduler failure handling', () => {
     const resultState = createIndicatorResultState()
     const scheduler = new IndicatorScheduler(resultState)
     registerTestIndicators(scheduler)
-    const runtime = (scheduler as unknown as { inlineRuntime: { computeSeries: () => never } })
-      .inlineRuntime
+    const runtime = getSchedulerInlineRuntime(scheduler)
     vi.spyOn(runtime, 'computeSeries').mockImplementation(() => {
       throw new Error('inline calculation failed')
     })

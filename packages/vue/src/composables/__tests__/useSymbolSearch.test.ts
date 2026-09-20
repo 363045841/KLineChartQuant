@@ -10,30 +10,7 @@ import {
   uniqueSymbolsByIdentity,
   useSymbolSearch,
 } from '../useSymbolSearch'
-
-const catalog: SearchableSymbol[] = [
-  {
-    id: 'gotdx:stock:1:600519',
-    sourceId: 'gotdx',
-    symbol: '600519',
-    name: '贵州茅台',
-    assetClass: 'stock',
-    exchange: 'SH',
-    sessionId: 'CN',
-    providerRef: { market: 1 },
-    capabilities: {},
-  },
-  {
-    id: 'tradingview:stock:NASDAQ:AAPL',
-    sourceId: 'tradingview',
-    symbol: 'AAPL',
-    name: 'Apple Inc.',
-    assetClass: 'stock',
-    exchange: 'NASDAQ',
-    sessionId: 'US',
-    capabilities: {},
-  },
-]
+import { makeSearchableSymbol, TEST_SYMBOLS } from './testSymbols'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -51,21 +28,13 @@ describe('useSymbolSearch', () => {
 
   // 验证远程品种目录会与本地目录合并，并按稳定 ID 去重。
   it('debounces remote search and merges it with local matches', async () => {
-    const symbols = ref(catalog)
-    const search = vi.fn<SymbolSearchFn<SearchableSymbol>>().mockResolvedValue([
-      catalog[0]!,
-      {
-        id: 'gotdx:stock:1:600036',
-        sourceId: 'gotdx',
-        symbol: '600036',
-        name: '招商银行',
-        assetClass: 'stock',
-        exchange: 'SH',
-        sessionId: 'CN',
-        providerRef: { market: 1 },
-        capabilities: {},
-      },
-    ])
+    const symbols = ref(TEST_SYMBOLS)
+    const search = vi
+      .fn<SymbolSearchFn<SearchableSymbol>>()
+      .mockResolvedValue([
+        TEST_SYMBOLS[0]!,
+        makeSearchableSymbol({ id: 'gotdx:stock:1:600036', symbol: '600036', name: '招商银行' }),
+      ])
     const query = ref('')
     const state = useSymbolSearch({
       query,
@@ -90,20 +59,18 @@ describe('useSymbolSearch', () => {
     const query = ref('A')
     const sourceFilter = ref<'all' | string>('tradingview')
     const search = vi.fn<SymbolSearchFn<SearchableSymbol>>().mockResolvedValue([
-      {
+      makeSearchableSymbol({
         id: 'tradingview:stock:NASDAQ:AMZN',
         sourceId: 'tradingview',
         symbol: 'AMZN',
         name: 'Amazon',
-        assetClass: 'stock',
         exchange: 'NASDAQ',
         sessionId: 'US',
-        capabilities: {},
-      },
+      }),
     ])
     const state = useSymbolSearch({
       query,
-      symbols: ref(catalog),
+      symbols: ref(TEST_SYMBOLS),
       search: ref(search),
       sourceFilter,
     })
@@ -121,10 +88,16 @@ describe('useSymbolSearch', () => {
     const first = deferred<ReadonlyArray<SearchableSymbol>>()
     const second = deferred<ReadonlyArray<SearchableSymbol>>()
     const signals: AbortSignal[] = []
-    const search = vi.fn((...args: unknown[]) => {
-      signals.push(args[2] as AbortSignal)
-      return signals.length === 1 ? first.promise : second.promise
-    }) as unknown as SymbolSearchFn<SearchableSymbol>
+    const search = vi.fn(
+      (
+        _query: string,
+        _limit: number,
+        signal: AbortSignal,
+      ): Promise<ReadonlyArray<SearchableSymbol>> => {
+        signals.push(signal)
+        return signals.length === 1 ? first.promise : second.promise
+      },
+    )
     const query = ref('first')
     const state = useSymbolSearch({
       query,
@@ -138,27 +111,25 @@ describe('useSymbolSearch', () => {
     expect(signals[0]?.aborted).toBe(true)
     await vi.advanceTimersByTimeAsync(250)
     second.resolve([
-      {
+      makeSearchableSymbol({
         id: 'test:SECOND',
         sourceId: 'test',
         symbol: 'SECOND',
         name: 'Second',
         assetClass: 'unknown',
         exchange: 'TEST',
-        capabilities: {},
-      },
+      }),
     ])
     await Promise.resolve()
     first.resolve([
-      {
+      makeSearchableSymbol({
         id: 'test:FIRST',
         sourceId: 'test',
         symbol: 'FIRST',
         name: 'First',
         assetClass: 'unknown',
         exchange: 'TEST',
-        capabilities: {},
-      },
+      }),
     ])
     await Promise.resolve()
 
@@ -167,32 +138,32 @@ describe('useSymbolSearch', () => {
 
   // 验证相同代码的不同市场品种由不同稳定 ID 区分。
   it('builds distinct identities for the same code in different markets', () => {
-    const main = { ...catalog[0]!, id: 'gotdx:stock:1:600519' }
-    const extended = { ...catalog[0]!, id: 'gotdx:ex:31:600519' }
+    const main = { ...TEST_SYMBOLS[0]!, id: 'gotdx:stock:1:600519' }
+    const extended = { ...TEST_SYMBOLS[0]!, id: 'gotdx:ex:31:600519' }
 
     expect(symbolIdentityKey(main)).not.toBe(symbolIdentityKey(extended))
   })
 
   // 验证不同数据源内相同的品种 ID 不会在聚合搜索结果中相互覆盖。
   it('includes the source in a standard instrument identity', () => {
-    const first = { ...catalog[0]!, id: 'stock:600519', sourceId: 'first' }
-    const second = { ...catalog[0]!, id: 'stock:600519', sourceId: 'second' }
+    const first = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', sourceId: 'first' }
+    const second = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', sourceId: 'second' }
 
     expect(symbolIdentityKey(first)).not.toBe(symbolIdentityKey(second))
   })
 
   // 验证 providerRef 的变化不影响稳定 ID 身份。
   it('uses the stable instrument id as the only identity key', () => {
-    const first = { ...catalog[0]!, providerRef: { market: 1 } }
-    const second = { ...catalog[0]!, providerRef: { category: 31 } }
+    const first = { ...TEST_SYMBOLS[0]!, providerRef: { market: 1 } }
+    const second = { ...TEST_SYMBOLS[0]!, providerRef: { category: 31 } }
 
     expect(symbolIdentityKey(first)).toBe(symbolIdentityKey(second))
   })
 
   // 验证比较候选保留相同代码但不同稳定 ID 的品种。
   it('keeps comparison candidates with the same code but distinct identities', () => {
-    const first = { ...catalog[0]!, id: 'gotdx:stock:1:600519' }
-    const duplicate = { ...catalog[0]!, id: 'gotdx:ex:1:600519', exchange: 'CN' }
+    const first = { ...TEST_SYMBOLS[0]!, id: 'gotdx:stock:1:600519' }
+    const duplicate = { ...TEST_SYMBOLS[0]!, id: 'gotdx:ex:1:600519', exchange: 'CN' }
 
     expect(uniqueSymbolsByIdentity([first, duplicate])).toEqual([first, duplicate])
   })
@@ -201,7 +172,7 @@ describe('useSymbolSearch', () => {
   it('keeps local results and exposes an error when remote search fails', async () => {
     const query = ref('Apple')
     const search = vi.fn().mockRejectedValue(new Error('offline'))
-    const state = useSymbolSearch({ query, symbols: ref(catalog), search: ref(search) })
+    const state = useSymbolSearch({ query, symbols: ref(TEST_SYMBOLS), search: ref(search) })
 
     await vi.advanceTimersByTimeAsync(250)
 
@@ -214,11 +185,11 @@ describe('useSymbolSearch', () => {
   it('shows the full local catalog without calling search for an empty query', async () => {
     const query = ref('')
     const search = vi.fn()
-    const state = useSymbolSearch({ query, symbols: ref(catalog), search: ref(search) })
+    const state = useSymbolSearch({ query, symbols: ref(TEST_SYMBOLS), search: ref(search) })
 
     await vi.advanceTimersByTimeAsync(250)
 
-    expect(state.results.value).toEqual(catalog)
+    expect(state.results.value).toEqual(TEST_SYMBOLS)
     expect(search).not.toHaveBeenCalled()
   })
 })

@@ -27,11 +27,6 @@ interface TestableBOLLRenderer extends RendererPluginWithHost {
   setConfig: (config: Record<string, unknown>) => void
 }
 
-/** 构造携带 BOLL 指标元数据与帧状态的 PluginHost。 */
-function createMockPluginHost(state?: BOLLRenderState) {
-  return createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY, state })
-}
-
 function createTestBOLLState(overrides: Partial<BOLLRenderState> = {}): BOLLRenderState {
   return {
     timestamp: Date.now(),
@@ -67,7 +62,7 @@ describe('createBOLLRendererPlugin', () => {
 
   it('should declare BOLL_STATE_KEY namespace', () => {
     const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(createMockPluginHost())
+    plugin.onInstall(createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY }))
     expect(plugin.getDeclaredNamespaces()).toEqual([BOLL_STATE_KEY])
   })
 })
@@ -81,7 +76,7 @@ describe('BOLL renderer draw', () => {
   })
 
   it('should not draw when StateStore has no BOLL state', () => {
-    const mockHost = createMockPluginHost(undefined)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY })
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -98,7 +93,11 @@ describe('BOLL renderer draw', () => {
       visibleMin: Infinity,
       visibleMax: -Infinity,
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state,
+    })
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -114,7 +113,11 @@ describe('BOLL renderer draw', () => {
 
   it('should save and restore context', () => {
     const state = createTestBOLLState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state,
+    })
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -132,7 +135,11 @@ describe('BOLL renderer draw', () => {
     const state = createTestBOLLState({
       params: { ...createTestBOLLState().params, showUpper: true },
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state,
+    })
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -148,7 +155,11 @@ describe('BOLL renderer draw', () => {
 
   it('should use correct colors for BOLL lines', () => {
     const state = createTestBOLLState()
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state,
+    })
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -168,7 +179,11 @@ describe('BOLL renderer draw', () => {
         i < 19 ? undefined : { upper: 110, middle: 100, lower: 90 },
       ),
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state,
+    })
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -193,7 +208,11 @@ describe('BOLL renderer config', () => {
         showLower: false,
       },
     })
-    const mockHost = createMockPluginHost(state)
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state,
+    })
     const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -205,7 +224,7 @@ describe('BOLL renderer config', () => {
   })
 
   it('getConfig should return empty object when no state', () => {
-    const mockHost = createMockPluginHost(undefined)
+    const mockHost = createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY })
     const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
@@ -215,7 +234,11 @@ describe('BOLL renderer config', () => {
   })
 
   it('setConfig should be a no-op', () => {
-    const mockHost = createMockPluginHost(createTestBOLLState())
+    const mockHost = createMockIndicatorHost({
+      indicatorName: 'boll',
+      stateKey: BOLL_STATE_KEY,
+      state: createTestBOLLState(),
+    })
     const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 

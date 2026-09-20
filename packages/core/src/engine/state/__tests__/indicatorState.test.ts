@@ -95,7 +95,7 @@ describe('indicatorState', () => {
 
   it('readonly has no set at runtime', () => {
     const m = createIndicatorState()
-    expect((m.readonly.instances as any).set).toBeUndefined()
+    expect(Reflect.get(m.readonly.instances, 'set')).toBeUndefined()
   })
 
   it('setParams only works when entry exists', () => {

@@ -32,11 +32,11 @@ describe('camelToKebab', () => {
   })
 })
 
-function countColorLeaves(c: Record<string, unknown>): number {
+function countColorLeaves(c: object): number {
   let count = 0
   for (const v of Object.values(c)) {
     if (v !== null && typeof v === 'object') {
-      count += countColorLeaves(v as Record<string, unknown>)
+      count += countColorLeaves(v)
     } else {
       count++
     }
@@ -48,7 +48,7 @@ describe('themeToCssVars — coverage', () => {
   it('emits the expected number of variables for lightTheme', () => {
     const vars = themeToCssVars(lightTheme)
     const expectedCount =
-      countColorLeaves(lightTheme.colors as unknown as Record<string, unknown>) +
+      countColorLeaves(lightTheme.colors) +
       Object.keys(lightTheme.spacing).length +
       Object.keys(lightTheme.typography).length +
       Object.keys(lightTheme.motion).length

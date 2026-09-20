@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '../../../controllers/types'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
-import { ChartStateKernel } from '../chartStateKernel'
 import { createComparisonState } from '../comparisonState'
+import { createTestChartStateKernel } from './helpers/createTestChartStateKernel'
 
 describe('comparisonState', () => {
   it('external mutation of returned colors map does not alter store', () => {
@@ -41,25 +41,8 @@ describe('comparisonState', () => {
 })
 
 describe('ChartStateKernel comparison selection transaction', () => {
-  function createKernel(): ChartStateKernel {
-    return new ChartStateKernel({
-      initialOptions: {
-        minKWidth: 3,
-        maxKWidth: 20,
-        zoomLevelCount: 10,
-        bottomAxisHeight: 24,
-        rightAxisWidth: 60,
-        leftAxisWidth: 0,
-        yPaddingPx: 4,
-        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
-      },
-      initialZoomLevel: 0,
-      scheduleDraw: () => {},
-    })
-  }
-
   it('publishes comparison specs and colors without an intermediate snapshot', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
     const snapshots: Array<{ specs: string[]; colors: string[] }> = []
     const capture = () => {
       snapshots.push({
@@ -82,7 +65,7 @@ describe('ChartStateKernel comparison selection transaction', () => {
   })
 
   it('setSymbols no longer writes comparison specs', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
 
     kernel.actions.setSymbols([
       { symbol: 'MAIN', market: 'CN', period: 'daily' },
@@ -94,7 +77,7 @@ describe('ChartStateKernel comparison selection transaction', () => {
   })
 
   it('uses the comparison reference length for the viewport when comparison is active', () => {
-    const kernel = createKernel()
+    const kernel = createTestChartStateKernel()
 
     kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
     kernel.comparison.actions.setReferenceLength(42)

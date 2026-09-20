@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../../controllers/types'
 import type { TimeShareRange } from '../../../data/provider/types'
 import type { TimeShareData } from '../../../foundation/types/price'
+import { createMockChartDataManager } from '../../data/__tests__/helpers/chartDataManagerTestKit'
 import { Pane } from '../../layout/pane'
 import { TimeShareMode } from '../timeShareMode'
 
@@ -14,12 +15,12 @@ function mockDm(
   preClose: number | null = null,
   options?: { currentPeriod?: string; timeShareRange?: TimeShareRange },
 ) {
-  return {
+  return createMockChartDataManager({
     currentPeriod: options?.currentPeriod ?? 'timeshare',
-    getTimeShareData: () => points,
-    getTimeSharePreClose: () => preClose,
-    getTimeShareRange: () => options?.timeShareRange,
-  } as unknown as import('../../data/chartDataManager').ChartDataManager
+    timeShareData: points,
+    preClose,
+    timeShareRange: options?.timeShareRange,
+  })
 }
 
 describe('TimeShareMode', () => {

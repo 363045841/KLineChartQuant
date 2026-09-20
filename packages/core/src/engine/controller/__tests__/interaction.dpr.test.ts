@@ -110,7 +110,7 @@ function createChartStub(args: {
         kWidth: 6,
         kGap: 2,
       }),
-    } as any,
+    },
     getViewport: () => ({
       viewWidth: 320,
       viewHeight: 200,

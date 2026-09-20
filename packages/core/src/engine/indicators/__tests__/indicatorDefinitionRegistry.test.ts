@@ -31,7 +31,7 @@ describe('Indicator definition registry', () => {
       defaultPaneId: 'sub_CUSTOM_RSI',
     })
     class CustomRsiDefinition {
-      static rendererFactory = vi.fn() as any
+      static rendererFactory = vi.fn()
     }
 
     void CustomRsiDefinition
@@ -55,7 +55,7 @@ describe('Indicator definition registry', () => {
       defaultPaneId: 'sub_CUSTOM_MACD',
     })
     class CustomMacdDefinition {
-      static rendererFactory = vi.fn() as any
+      static rendererFactory = vi.fn()
     }
 
     void CustomMacdDefinition

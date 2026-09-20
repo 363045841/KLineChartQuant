@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { KLineData } from '@/types/price'
 import {
   calcBOLLData,
   calcENEData,
@@ -12,25 +11,37 @@ import { DEFAULT_BOLL_MULTIPLIER, DEFAULT_BOLL_PERIOD } from '../state/bollState
 import { DEFAULT_ENE_DEVIATION, DEFAULT_ENE_PERIOD } from '../state/eneState'
 import { DEFAULT_EXPMA_FAST_PERIOD, DEFAULT_EXPMA_SLOW_PERIOD } from '../state/expmaState'
 import { DEFAULT_RSI_PERIOD1, DEFAULT_RSI_PERIOD2, DEFAULT_RSI_PERIOD3 } from '../state/rsiState'
+import { type FromClosesOptions, fromCloses } from './__fixtures__/synthetic'
+
+/** 计算器测试统一的 K 线选项：固定时间基准与递增成交量。 */
+const CALCULATOR_KLINE_OPTIONS: FromClosesOptions = {
+  timestamp: 1_000_000_000_000,
+  volume: (index) => 1000 + index * 100,
+}
 
 /**
- * 创建测试用的 K 线数据
- * 收盘价序列: 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+ * 生成测试用的线性上涨价格序列。
+ * @param count 序列长度。
+ * @param start 首项，默认 10。
+ * @returns 等差数列。
  */
-function createTestData(prices: number[]): KLineData[] {
-  return prices.map((close, index) => ({
-    timestamp: 1000000000000 + index * 60000,
-    open: close - 0.5,
-    high: close + 0.5,
-    low: close - 0.5,
-    close,
-    volume: 1000 + index * 100,
-  }))
+function createRisingPrices(count: number, start = 10): number[] {
+  return Array.from({ length: count }, (_, i) => start + i)
+}
+
+/**
+ * 生成测试用的线性下跌价格序列。
+ * @param count 序列长度。
+ * @param start 首项，默认 20。
+ * @returns 等差数列。
+ */
+function createFallingPrices(count: number, start = 20): number[] {
+  return Array.from({ length: count }, (_, i) => start - i)
 }
 
 describe('calcMAData', () => {
   const prices = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-  const data = createTestData(prices)
+  const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
 
   it('should return array of same length as input', () => {
     const result = calcMAData(data, 5)
@@ -80,7 +91,7 @@ describe('calcMAData', () => {
   })
 
   it('should return all undefined when data length < period', () => {
-    const shortData = createTestData([10, 11, 12])
+    const shortData = fromCloses([10, 11, 12], CALCULATOR_KLINE_OPTIONS)
     const result = calcMAData(shortData, 5)
 
     expect(result).toHaveLength(3)
@@ -109,8 +120,8 @@ describe('calcMAData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
-    const largeData = createTestData(largePrices)
+    const largePrices = createRisingPrices(10000, 100)
+    const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
     const result = calcMAData(largeData, 60)
@@ -143,7 +154,7 @@ describe('DEFAULT_MA_PERIODS', () => {
 
 describe('calcBOLLData', () => {
   const prices = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-  const data = createTestData(prices)
+  const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
 
   it('should return array of same length as input', () => {
     const result = calcBOLLData(data, 5, 2)
@@ -192,7 +203,7 @@ describe('calcBOLLData', () => {
   })
 
   it('should return all undefined when data length < period', () => {
-    const shortData = createTestData([10, 11, 12])
+    const shortData = fromCloses([10, 11, 12], CALCULATOR_KLINE_OPTIONS)
     const result = calcBOLLData(shortData, 5, 2)
 
     expect(result).toHaveLength(3)
@@ -229,8 +240,8 @@ describe('calcBOLLData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
-    const largeData = createTestData(largePrices)
+    const largePrices = createRisingPrices(10000, 100)
+    const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
     const result = calcBOLLData(largeData, 20, 2)
@@ -244,7 +255,7 @@ describe('calcBOLLData', () => {
 
 describe('calcEXPMAData', () => {
   const prices = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-  const data = createTestData(prices)
+  const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
 
   it('should return array of same length as input', () => {
     const result = calcEXPMAData(data, 12, 50)
@@ -297,7 +308,7 @@ describe('calcEXPMAData', () => {
   })
 
   it('should handle single data point', () => {
-    const singleData = createTestData([42])
+    const singleData = fromCloses([42], CALCULATOR_KLINE_OPTIONS)
     const result = calcEXPMAData(singleData, 12, 50)
 
     expect(result).toHaveLength(1)
@@ -325,8 +336,8 @@ describe('calcEXPMAData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
-    const largeData = createTestData(largePrices)
+    const largePrices = createRisingPrices(10000, 100)
+    const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
     const result = calcEXPMAData(largeData, 12, 50)
@@ -340,7 +351,7 @@ describe('calcEXPMAData', () => {
 
 describe('calcENEData', () => {
   const prices = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-  const data = createTestData(prices)
+  const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
 
   it('should return array of same length as input', () => {
     const result = calcENEData(data, 5, 10)
@@ -388,7 +399,7 @@ describe('calcENEData', () => {
   })
 
   it('should return all undefined when data length < period', () => {
-    const shortData = createTestData([10, 11, 12])
+    const shortData = fromCloses([10, 11, 12], CALCULATOR_KLINE_OPTIONS)
     const result = calcENEData(shortData, 5, 10)
 
     expect(result).toHaveLength(3)
@@ -419,8 +430,8 @@ describe('calcENEData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
-    const largeData = createTestData(largePrices)
+    const largePrices = createRisingPrices(10000, 100)
+    const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
     const result = calcENEData(largeData, 10, 11)
@@ -463,31 +474,16 @@ describe('ENE default constants', () => {
 })
 
 describe('calcRSIData', () => {
-  // 创建测试数据：价格连续上涨序列
-  function createRisingPrices(count: number, start = 10): number[] {
-    return Array.from({ length: count }, (_, i) => start + i)
-  }
-
-  // 创建测试数据：价格连续下跌序列
-  function createFallingPrices(count: number, start = 20): number[] {
-    return Array.from({ length: count }, (_, i) => start - i)
-  }
-
-  // 创建测试数据：价格震荡序列
-  function createOscillatingPrices(count: number): number[] {
-    return Array.from({ length: count }, (_, i) => 10 + (i % 2 === 0 ? 1 : -1))
-  }
-
   it('should return array of same length as input', () => {
     const prices = createRisingPrices(20)
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const result = calcRSIData(data, 6)
     expect(result).toHaveLength(data.length)
   })
 
   it('should return undefined for first period indices', () => {
     const prices = createRisingPrices(20)
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const period = 6
     const result = calcRSIData(data, period)
 
@@ -501,7 +497,7 @@ describe('calcRSIData', () => {
 
   it('should return 100 when all gains (no losses)', () => {
     const prices = createRisingPrices(20)
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const period = 6
     const result = calcRSIData(data, period)
 
@@ -511,7 +507,7 @@ describe('calcRSIData', () => {
 
   it('should return 0 when all losses (no gains)', () => {
     const prices = createFallingPrices(20)
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const period = 6
     const result = calcRSIData(data, period)
 
@@ -521,7 +517,7 @@ describe('calcRSIData', () => {
 
   it('should return all undefined when data length < period+1', () => {
     const prices = [10, 11, 12, 13, 14]
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const period = 6
     const result = calcRSIData(data, period)
 
@@ -540,7 +536,7 @@ describe('calcRSIData', () => {
   it('should calculate correct RSI with known oscillating data', () => {
     // 震荡价格：10, 11, 10, 11, 10, 11, 10, 11, ...
     const prices = [10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11]
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const period = 6
     const result = calcRSIData(data, period)
 
@@ -555,7 +551,7 @@ describe('calcRSIData', () => {
   it('should handle period=1', () => {
     // period=1 只需要 2 条数据
     const prices = [10, 12]
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const result = calcRSIData(data, 1)
 
     // 第一个变化是 +2，所以 avgGain = 2, avgLoss = 0
@@ -567,7 +563,7 @@ describe('calcRSIData', () => {
 
   it('should produce consistent results with manual Wilder smoothing', () => {
     const prices = [10, 11, 12, 11, 12, 13, 12, 11, 12, 13]
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
     const period = 3
     const result = calcRSIData(data, period)
 
@@ -582,7 +578,7 @@ describe('calcRSIData', () => {
 
   it('should handle large datasets efficiently', () => {
     const prices = Array.from({ length: 10000 }, (_, i) => 100 + Math.sin(i / 10) * 10)
-    const data = createTestData(prices)
+    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
     const result = calcRSIData(data, 14)

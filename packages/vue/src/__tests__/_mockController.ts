@@ -23,7 +23,9 @@ import type {
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
+import type { LegendTemplateContext } from '@363045841yyt/klinechart-core/controllers'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
+import type { App } from 'vue'
 
 // ---------------------------------------------------------------------------
 // 内联 mini-signal：Object.is 相等性短路、同步通知，仅用于测试替身。
@@ -69,6 +71,8 @@ export interface MockChartController extends ChartController {
   _setData: (data: ReadonlyArray<KLineData>) => void
   /** test-only: emit a theme change as the controller would */
   _emitTheme: (next: 'light' | 'dark') => void
+  /** test-only: 写入主图图例上下文 */
+  _setLegendTemplateContext: (next: LegendTemplateContext | null) => void
 }
 
 export function createMockChartController(
@@ -97,7 +101,7 @@ export function createMockChartController(
     endTimestamp: null as number | null,
     isDragging: false,
   })
-  const legendTemplateContext = createSignal(null)
+  const legendTemplateContext = createSignal<LegendTemplateContext | null>(null)
   const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
   const alertController: AlertController = {
     rules: createSignal<ReadonlyArray<AlertRule>>([]),
@@ -267,10 +271,20 @@ export function createMockChartController(
     _setViewport: (vp) => viewport.set(vp),
     _setData: (next) => data.set(next),
     _emitTheme: (next) => theme.set(next),
+    _setLegendTemplateContext: (next) => legendTemplateContext.set(next),
   }
 }
 
 /** Signal helper used by reactivity bridge tests. */
 export function createTestSignal<T>(initial: T): Signal<T> {
   return createSignal(initial)
+}
+
+/** Vue App 最小替身：只记录 component 注册；App 成员众多，强转集中在此。 */
+export function createMockApp(registered: Record<string, unknown> = {}): App {
+  return {
+    component(name: string, comp: unknown) {
+      registered[name] = comp
+    },
+  } as unknown as App
 }

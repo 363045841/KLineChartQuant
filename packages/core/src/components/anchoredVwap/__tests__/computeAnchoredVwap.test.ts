@@ -22,15 +22,11 @@ import { describe, expect, it } from 'vitest'
 import { isKLineChartError } from '../../../errors'
 import { computeAnchoredVwap } from '../computeAnchoredVwap'
 import type { AVWAPBar } from '../types'
+import { createAvwapBar } from './helpers/createAvwapBar'
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
 // ---------------------------------------------------------------------------
-
-/** Single-line bar constructor — keeps the fixtures readable. */
-function bar(high: number, low: number, close: number, volume: number): AVWAPBar {
-  return { high, low, close, volume }
-}
 
 /** typical price = (H + L + C) / 3 — used by the manual-formula tests. */
 function tp(b: AVWAPBar): number {
@@ -54,7 +50,7 @@ describe('computeAnchoredVwap — edge cases', () => {
   // `AVWAP_ANCHOR_OUT_OF_RANGE` (stronger contract than the previous
   // built-in RangeError — instanceof KLineChartError + code narrowing).
   it('throws KLineChartError(AVWAP_ANCHOR_OUT_OF_RANGE) when anchorIndex is negative', () => {
-    const bars = [bar(100, 90, 95, 1000)]
+    const bars = [createAvwapBar(100, 90, 95, 1000)]
     try {
       computeAnchoredVwap(bars, -1, true)
       throw new Error('expected throw')
@@ -64,7 +60,7 @@ describe('computeAnchoredVwap — edge cases', () => {
   })
 
   it('throws KLineChartError(AVWAP_ANCHOR_OUT_OF_RANGE) when anchorIndex >= bars.length', () => {
-    const bars = [bar(100, 90, 95, 1000), bar(101, 91, 96, 1100)]
+    const bars = [createAvwapBar(100, 90, 95, 1000), createAvwapBar(101, 91, 96, 1100)]
     for (const idx of [2, 10]) {
       try {
         computeAnchoredVwap(bars, idx, idx === 2)
@@ -82,7 +78,7 @@ describe('computeAnchoredVwap — edge cases', () => {
 
 describe('computeAnchoredVwap — core AVWAP math', () => {
   it('single-bar anchor: AVWAP equals that bar typical price; stdDev = 0', () => {
-    const b0 = bar(100, 90, 95, 1000) // tp = 95
+    const b0 = createAvwapBar(100, 90, 95, 1000) // tp = 95
     const series = computeAnchoredVwap([b0], 0, true)
     expect(series).toHaveLength(1)
     const p0 = series[0]!
@@ -101,8 +97,8 @@ describe('computeAnchoredVwap — core AVWAP math', () => {
     // tp0 = (100+90+95)/3 = 95, v0 = 1000  → vwp0 = 95_000
     // tp1 = (110+100+105)/3 = 105, v1 = 2000 → vwp1 = 210_000
     // AVWAP[1] = (95_000 + 210_000) / (1000 + 2000) = 305_000 / 3000
-    const b0 = bar(100, 90, 95, 1000)
-    const b1 = bar(110, 100, 105, 2000)
+    const b0 = createAvwapBar(100, 90, 95, 1000)
+    const b1 = createAvwapBar(110, 100, 105, 2000)
     const series = computeAnchoredVwap([b0, b1], 0, false)
 
     expect(series).toHaveLength(2)
@@ -117,7 +113,7 @@ describe('computeAnchoredVwap — core AVWAP math', () => {
     const bars: AVWAPBar[] = []
     for (let i = 0; i < 10; i++) {
       const t = 100 + i // tp ≈ 100, 101, 102, ...
-      bars.push(bar(t + 1, t - 1, t, 100))
+      bars.push(createAvwapBar(t + 1, t - 1, t, 100))
     }
     const series = computeAnchoredVwap(bars, 0, false)
     for (let i = 1; i < series.length; i++) {
@@ -130,9 +126,9 @@ describe('computeAnchoredVwap — core AVWAP math', () => {
 
   it('high-volume bar dominates the AVWAP toward its typical price', () => {
     // A massively oversized v on bar 2 should pull AVWAP toward tp(b2).
-    const b0 = bar(101, 99, 100, 10) // tp = 100
-    const b1 = bar(101, 99, 100, 10) // tp = 100
-    const b2 = bar(201, 199, 200, 1_000_000) // tp = 200, huge V
+    const b0 = createAvwapBar(101, 99, 100, 10) // tp = 100
+    const b1 = createAvwapBar(101, 99, 100, 10) // tp = 100
+    const b2 = createAvwapBar(201, 199, 200, 1_000_000) // tp = 200, huge V
     const series = computeAnchoredVwap([b0, b1, b2], 0, false)
     // After the whale bar, AVWAP should be >>> 100 and close to 200.
     expect(series[2]!.vwap).toBeGreaterThan(199)
@@ -141,9 +137,9 @@ describe('computeAnchoredVwap — core AVWAP math', () => {
 
   it('anchorIndex > 0 ignores bars before the anchor', () => {
     // Anchor at bar 2 → bars 0 and 1 must NOT contribute.
-    const ignored = bar(1000, 1000, 1000, 1_000_000) // massive but ignored
-    const b2 = bar(50, 50, 50, 100) // tp = 50
-    const b3 = bar(60, 60, 60, 100) // tp = 60
+    const ignored = createAvwapBar(1000, 1000, 1000, 1_000_000) // massive but ignored
+    const b2 = createAvwapBar(50, 50, 50, 100) // tp = 50
+    const b3 = createAvwapBar(60, 60, 60, 100) // tp = 60
     const series = computeAnchoredVwap([ignored, ignored, b2, b3], 2, false)
     expect(series).toHaveLength(2)
     expect(series[0]!.barIndex).toBe(2)
@@ -160,9 +156,9 @@ describe('computeAnchoredVwap — core AVWAP math', () => {
 
 describe('computeAnchoredVwap — zero-volume handling', () => {
   it('zero-volume bar mid-series carries forward the prior AVWAP', () => {
-    const b0 = bar(100, 100, 100, 1000) // tp = 100, vwap = 100
-    const b1 = bar(150, 150, 150, 0) // v = 0 → carry forward
-    const b2 = bar(110, 110, 110, 1000) // tp = 110
+    const b0 = createAvwapBar(100, 100, 100, 1000) // tp = 100, vwap = 100
+    const b1 = createAvwapBar(150, 150, 150, 0) // v = 0 → carry forward
+    const b2 = createAvwapBar(110, 110, 110, 1000) // tp = 110
     const series = computeAnchoredVwap([b0, b1, b2], 0, false)
 
     expect(series).toHaveLength(3)
@@ -177,8 +173,8 @@ describe('computeAnchoredVwap — zero-volume handling', () => {
   })
 
   it('zero-volume anchor: first point is NaN, second is its own typical price', () => {
-    const b0 = bar(100, 100, 100, 0) // anchor — v = 0
-    const b1 = bar(200, 200, 200, 1000) // tp = 200
+    const b0 = createAvwapBar(100, 100, 100, 0) // anchor — v = 0
+    const b1 = createAvwapBar(200, 200, 200, 1000) // tp = 200
     const series = computeAnchoredVwap([b0, b1], 0, true)
 
     expect(series).toHaveLength(2)
@@ -201,8 +197,8 @@ describe('computeAnchoredVwap — zero-volume handling', () => {
 
 describe('computeAnchoredVwap — bands', () => {
   it('includeBands=false: upper1/lower1/upper2/lower2 all equal vwap', () => {
-    const b0 = bar(100, 90, 95, 1000)
-    const b1 = bar(110, 100, 105, 2000)
+    const b0 = createAvwapBar(100, 90, 95, 1000)
+    const b1 = createAvwapBar(110, 100, 105, 2000)
     const series = computeAnchoredVwap([b0, b1], 0, false)
     for (const p of series) {
       expect(p.upper1).toBe(p.vwap)
@@ -213,7 +209,7 @@ describe('computeAnchoredVwap — bands', () => {
   })
 
   it('at the anchor stdDev = 0 → upper/lower bands equal AVWAP exactly', () => {
-    const b0 = bar(101, 99, 100, 1000) // tp = 100
+    const b0 = createAvwapBar(101, 99, 100, 1000) // tp = 100
     const series = computeAnchoredVwap([b0], 0, true)
     expect(series[0]!.vwap).toBeCloseTo(100, 12)
     // Bands collapse onto the line because there is no deviation yet.
@@ -229,7 +225,7 @@ describe('computeAnchoredVwap — bands', () => {
     const bars: AVWAPBar[] = []
     for (let i = 0; i < 10; i++) {
       const t = 100 + i
-      bars.push(bar(t, t, t, 100))
+      bars.push(createAvwapBar(t, t, t, 100))
     }
     const series = computeAnchoredVwap(bars, 0, true)
     // Skip i = 0 (stdDev = 0). From i = 1 onward dispersion is positive.
@@ -275,9 +271,9 @@ describe('computeAnchoredVwap — bands', () => {
     // The two stdDevs differ by ~1.7 → upper1 differs by ~1.7. The
     // test pins the CORRECT value; a regression to the wrong formula
     // would fail loudly here.
-    const b0 = bar(100, 100, 100, 1000)
-    const b1 = bar(110, 110, 110, 1000)
-    const b2 = bar(120, 120, 120, 1000)
+    const b0 = createAvwapBar(100, 100, 100, 1000)
+    const b1 = createAvwapBar(110, 110, 110, 1000)
+    const b2 = createAvwapBar(120, 120, 120, 1000)
     const series = computeAnchoredVwap([b0, b1, b2], 0, true)
 
     // Final AVWAP is 110 either way.
@@ -300,8 +296,8 @@ describe('computeAnchoredVwap — bands', () => {
   it('mixed-volume bars: bands match a hand-computed reference', () => {
     // Sanity check that the prevailing formula also handles uneven
     // volumes (the formula is variance-weighted, not equal-weighted).
-    const b0 = bar(100, 100, 100, 1000) // tp = 100
-    const b1 = bar(120, 120, 120, 3000) // tp = 120
+    const b0 = createAvwapBar(100, 100, 100, 1000) // tp = 100
+    const b1 = createAvwapBar(120, 120, 120, 3000) // tp = 120
     const series = computeAnchoredVwap([b0, b1], 0, true)
 
     // sumVwp = 100*1000 + 120*3000 = 460_000

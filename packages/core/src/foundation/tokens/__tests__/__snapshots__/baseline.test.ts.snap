@@ -121,7 +121,6 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-ene-upper: rgba(255, 80, 100, 1);
   --klc-color-ene-middle: rgba(90, 140, 255, 1);
   --klc-color-ene-lower: rgba(60, 200, 160, 1);
-  --klc-color-ene-band-fill: rgba(90, 140, 255, 0.12);
   --klc-color-ichimoku-tenkan: rgb(224, 96, 86);
   --klc-color-ichimoku-kijun: rgba(90, 140, 255, 1);
   --klc-color-ichimoku-span-a: rgba(60, 200, 160, 1);
@@ -376,7 +375,6 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ene-upper: rgba(214, 10, 34, 1);
   --klc-color-ene-middle: rgba(69, 112, 249, 1);
   --klc-color-ene-lower: rgba(3, 123, 102, 1);
-  --klc-color-ene-band-fill: rgba(69, 112, 249, 0.08);
   --klc-color-ichimoku-tenkan: rgb(128, 25, 34);
   --klc-color-ichimoku-kijun: rgba(69, 112, 249, 1);
   --klc-color-ichimoku-span-a: rgba(3, 123, 102, 1);

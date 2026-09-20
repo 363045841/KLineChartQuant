@@ -1,53 +1,19 @@
-import type { SourceProbeResult } from '@363045841yyt/klinechart-core/controllers'
 import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   refreshAggregationSourceHealth,
   resetAggregationSourceHealth,
   useAggregationSourceHealth,
 } from '../useAggregationSourceHealth'
-import type { AggregationSourceDefinition } from '../useAggregationSources'
+import {
+  createOfflineProbe,
+  createOnlineProbe,
+  registerProvider,
+  source,
+} from './_aggregationSourceFixtures'
 
 const REGISTERED_SOURCES = ['health-online', 'health-offline', 'health-chart-only']
-
-/** 构造拨测用的最小源元数据；capabilities 仅用于展示，可搜索性以注册表为准。 */
-function source(name: string, searchable = true): AggregationSourceDefinition {
-  return {
-    name,
-    displayName: name,
-    capabilities: searchable ? ['search'] : ['daily'],
-  }
-}
-
-/** 在线拨测替身；latencyMs 省略时不带延迟字段。 */
-function createOnlineProbe(latencyMs?: number) {
-  return vi.fn(
-    async (): Promise<SourceProbeResult> => ({
-      status: 'online',
-      checkedAt: 1,
-      ...(latencyMs === undefined ? {} : { latencyMs }),
-    }),
-  )
-}
-
-/** 离线拨测替身。 */
-function createOfflineProbe() {
-  return vi.fn(async (): Promise<SourceProbeResult> => ({ status: 'offline', checkedAt: 1 }))
-}
-
-/** 注册一个测试 Provider；不传 catalog 时该源不可参与聚合搜索。 */
-function registerProvider(
-  name: string,
-  probe: () => Promise<SourceProbeResult>,
-  searchable = true,
-): void {
-  marketDataProviderRegistry.register({
-    source: { id: name, displayName: name },
-    probe,
-    ...(searchable ? { catalog: { search: async () => [] } } : {}),
-  })
-}
 
 describe('useAggregationSourceHealth', () => {
   beforeEach(() => {
@@ -73,10 +39,10 @@ describe('useAggregationSourceHealth', () => {
 
   it('ignores sources that cannot participate in aggregation search', async () => {
     const probe = createOnlineProbe()
-    registerProvider('health-chart-only', probe, false)
+    registerProvider('health-chart-only', probe, { searchable: false })
     const { onlineNameSet } = useAggregationSourceHealth()
 
-    await refreshAggregationSourceHealth([source('health-chart-only', false)])
+    await refreshAggregationSourceHealth([source('health-chart-only', { searchable: false })])
 
     expect(probe).not.toHaveBeenCalled()
     expect(onlineNameSet.value.size).toBe(0)

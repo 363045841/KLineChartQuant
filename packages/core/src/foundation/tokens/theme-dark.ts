@@ -195,7 +195,6 @@ export const darkTheme: Theme = {
       upper: 'rgba(255, 80, 100, 1)',
       middle: 'rgba(90, 140, 255, 1)',
       lower: 'rgba(60, 200, 160, 1)',
-      bandFill: 'rgba(90, 140, 255, 0.12)',
     },
     ichimoku: {
       tenkan: 'rgb(224, 96, 86)',

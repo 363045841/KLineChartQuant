@@ -1,26 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentUiEvent } from '../agent-contracts'
 import { FakeAgentBridge } from '../testing/fake-agent-bridge'
+import { stubProviderModelCatalog } from './_agentProviderFixtures'
 
 describe('FakeAgentBridge', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-24T00:00:00Z'))
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              data: [
-                { id: 'provider-model-a', name: 'Provider Model A' },
-                { id: 'provider-model-b', name: 'Provider Model B' },
-              ],
-            }),
-            { headers: { 'content-type': 'application/json' } },
-          ),
-      ),
-    )
+    stubProviderModelCatalog()
   })
 
   afterEach(() => {
