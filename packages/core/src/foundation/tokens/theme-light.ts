@@ -201,7 +201,6 @@ export const lightTheme: Theme = {
       upper: 'rgba(214, 10, 34, 1)',
       middle: 'rgba(69, 112, 249, 1)',
       lower: 'rgba(3, 123, 102, 1)',
-      bandFill: 'rgba(69, 112, 249, 0.08)',
     },
     ichimoku: {
       tenkan: 'rgb(128, 25, 34)',

@@ -19,13 +19,12 @@ import type {
 import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
 import type { IndicatorScheduler } from '../../indicators/scheduler.js'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState.js'
-import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type LinePoint = { x: number; y: number }
 
 /**
- * ENE GPU：先 band fill 再上/中/下轨。仅 sceneRenderer；失败返回 false 走 2D。
+ * ENE GPU：绘制上/中/下三轨。仅 sceneRenderer；失败返回 false 走 2D。
  */
 function drawENEWithWebGL(
   context: RenderContext,
@@ -40,18 +39,6 @@ function drawENEWithWebGL(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  // band 默认 false：无 surface 时不得假成功跳过 2D
-  let bandOk = false
-  if (data.upperPoints.length >= 2 && data.lowerPoints.length >= 2) {
-    bandOk = tryDrawFilledBandGpu(
-      context,
-      data.upperPoints,
-      data.lowerPoints,
-      toOpaqueRgba(colors.ene.bandFill),
-      context.scrollLeft,
-      getRgbaAlpha(colors.ene.bandFill),
-    )
-  }
 
   const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
   if (data.upperPoints.length >= 2) {
@@ -64,8 +51,8 @@ function drawENEWithWebGL(
     lineStrips.push({ points: data.lowerPoints, width: 1, color: colors.ene.lower })
   }
 
-  if (lineStrips.length === 0) return bandOk
-  // 线失败 → false，整图 2D 重画（含 band）
+  if (lineStrips.length === 0) return false
+  // 线失败 → false，整图 2D 重画
   return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
 }
 
@@ -217,22 +204,6 @@ export function createENERendererPlugin(): RendererPluginWithHost {
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-
-      ctx.fillStyle = colors.ene.bandFill
-      ctx.beginPath()
-      if (upperPoints.length > 0) {
-        ctx.moveTo(upperPoints[0]!.x, upperPoints[0]!.y)
-        for (let i = 1; i < upperPoints.length; i++) {
-          const point = upperPoints[i]!
-          ctx.lineTo(point.x, point.y)
-        }
-        for (let i = lowerPoints.length - 1; i >= 0; i--) {
-          const point = lowerPoints[i]!
-          ctx.lineTo(point.x, point.y)
-        }
-      }
-      ctx.closePath()
-      ctx.fill()
 
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
