@@ -968,6 +968,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   return {
     agent,
     viewport,
+    rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
     data,
     dataLoading,
     dataError,
