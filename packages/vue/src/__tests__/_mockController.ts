@@ -101,6 +101,8 @@ export function createMockChartController(
     endTimestamp: null as number | null,
     isDragging: false,
   })
+  // 与 Chart 初始值一致：右轴有效宽度由渲染帧测量后写入。
+  const rightAxisEffectiveWidth = createSignal(0)
   const legendTemplateContext = createSignal<LegendTemplateContext | null>(null)
   const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
   const alertController: AlertController = {
@@ -141,6 +143,7 @@ export function createMockChartController(
     interactionState: createSignal(createIdleInteractionSnapshot()),
     selectedRange: createSignal<{ from: number; to: number } | null>(null),
     rangeSelection,
+    rightAxisEffectiveWidth,
     legendTemplateContext,
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),

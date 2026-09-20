@@ -72,6 +72,7 @@
 <script setup lang="ts">
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
+  import { useChartDocumentTitle } from './useChartDocumentTitle'
   import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../src/index'
   import { BrowserAgentBridge } from '../src/features/agent/browser-agent-bridge'
   import {
@@ -556,6 +557,9 @@
   // 产品内不传 settings prop，图表内部以 localStorage 偏好 + 默认值自行接管
   const currentTheme = ref<'light' | 'dark'>('dark')
 
+  /** 主品种 → 浏览器 Tab 标题同步器，控制器就绪时绑定。 */
+  const { bind: bindDocumentTitle } = useChartDocumentTitle()
+
   function onThemeChange(theme: 'light' | 'dark') {
     currentTheme.value = theme
   }
@@ -564,6 +568,7 @@
   function onControllerReady(controller: ChartController) {
     agentBridge.bindChartAgent(controller.agent)
     currentTheme.value = controller.theme.peek()
+    bindDocumentTitle(controller)
   }
 
   provideFullscreenTeleportTarget(embedContainerRef)

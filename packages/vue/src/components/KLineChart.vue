@@ -1600,7 +1600,10 @@
   }
 
   // ── Width / Zoom / Expose ──
-  const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
+  const effectiveRightAxisWidth = ref(0)
+  const axisHostWidth = computed(() =>
+    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
+  )
 
   const computedLeftAxisWidth = computed(() => props.leftAxisWidth ?? 0)
 
@@ -1683,6 +1686,10 @@
   }
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
+    effectiveRightAxisWidth.value = ctrl.rightAxisEffectiveWidth.peek()
+    const unsubscribeRightAxisWidth = ctrl.rightAxisEffectiveWidth.subscribe(() => {
+      effectiveRightAxisWidth.value = ctrl.rightAxisEffectiveWidth.peek()
+    })
     const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
       invalidateContainerRectCache()
       const borderTop = containerRef.value
@@ -1829,6 +1836,7 @@
     })
 
     return () => {
+      unsubscribeRightAxisWidth()
       unsubscribeData()
       unsubscribeDataLoading()
       unsubscribeDataError()

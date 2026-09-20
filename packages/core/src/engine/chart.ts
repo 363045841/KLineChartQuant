@@ -29,7 +29,6 @@ import {
   type VolumeLookbacks,
 } from '../features/alerts/rollingVolume.js'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types.js'
-
 import {
   buildPaneScaleTypesFromSetting,
   type ChartSettings,
@@ -53,6 +52,7 @@ import {
   type Signal,
   type WritableSignal,
 } from '../foundation/reactivity/signal.js'
+import { getFont } from '../foundation/tokens/fonts.js'
 import type { KLineData } from '../foundation/types/price.js'
 import {
   createDefaultRendererHostSync,
@@ -130,6 +130,9 @@ export { getPhysicalKLineConfig }
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'>
 
+const RIGHT_AXIS_FONT = getFont(12)
+const RIGHT_AXIS_TEXT_PADDING = 12
+
 export class Chart {
   private dom: ChartDom
   private dataManager: ChartDataManager
@@ -206,6 +209,9 @@ export class Chart {
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
   private _lastAlertTimestamp: number | null = null
+  /** 右轴 host 当前生效的 CSS 宽度；仅在可视区极值变化时更新。 */
+  private effectiveRightAxisWidth: number | null = null
+  private readonly _effectiveRightAxisWidth = createSignal(0)
 
   /** 预警控制器 */
   readonly alertController: AlertController
@@ -468,6 +474,9 @@ export class Chart {
       getSelectionMarquee: () => this.drawingSession?.getSelectionMarquee() ?? null,
       onLegendContext: (ctx) => {
         this._legendTemplateContext.set(ctx)
+      },
+      commitRightAxisWidthMeasurement: (extrema) => {
+        this.commitRightAxisWidthMeasurement(extrema)
       },
     })
     this.renderer.registerDrawingPlugins()
@@ -1169,6 +1178,43 @@ export class Chart {
     this.dataManager.scrollToRight()
   }
 
+  /**
+   * 由可视区价格 high/low 变更驱动右轴宽度。
+   *
+   * 帧准备阶段仅在可视区极值跨数量级时调用本方法, 避免 measureText 高成本
+   * 该函数不得进入高频路径
+   */
+  private commitRightAxisWidthMeasurement(extrema: { min: number; max: number }): void {
+    const options = this.kernel.options.readonly.options.peek()
+    const minimumWidth = options.rightAxisWidth + (options.priceLabelWidth ?? 60)
+    const yAxisCtx = this.paneRenderers[0]?.getContexts().yAxisCtx ?? null
+    if (!yAxisCtx) return
+    yAxisCtx.save()
+    yAxisCtx.font = RIGHT_AXIS_FONT
+    const widestLabel = Math.max(
+      yAxisCtx.measureText(extrema.min.toFixed(2)).width,
+      yAxisCtx.measureText(extrema.max.toFixed(2)).width,
+    )
+    yAxisCtx.restore()
+
+    const nextWidth = Math.max(minimumWidth, Math.ceil(widestLabel + RIGHT_AXIS_TEXT_PADDING))
+    if (this.effectiveRightAxisWidth === nextWidth) return
+
+    this.effectiveRightAxisWidth = nextWidth
+    this._effectiveRightAxisWidth.set(nextWidth)
+    const rightAxisLayer = this.dom.rightAxisLayer
+    if (rightAxisLayer && rightAxisLayer.style.width !== `${nextWidth}px`) {
+      rightAxisLayer.style.width = `${nextWidth}px`
+    }
+
+    // 本帧后续右轴绘制即可使用新 canvas 宽度；不触发容器 resize，也不会重走滚动链路。
+    const viewport = this.getViewport()
+    if (!viewport) return
+    for (const renderer of this.paneRenderers) {
+      renderer.resize(viewport.plotWidth, renderer.getPane().height, viewport.dpr)
+    }
+  }
+
   /** 容器尺寸变化时调用 */
   resize() {
     if (this.activeMode === this._timeShareMode) {
@@ -1324,6 +1370,11 @@ export class Chart {
     return this.__interactionSnapshot
   }
   private __interactionSnapshot: Computed<InteractionSnapshot> | null = null
+
+  /** 右轴当前有效 CSS 宽度；外部宿主应使用它而非覆盖内联宽度。 */
+  get rightAxisEffectiveWidth(): ReadonlySignal<number> {
+    return this._effectiveRightAxisWidth
+  }
 
   /** 视口状态信号 */
   get viewport(): ReadonlySignal<ViewportState> {

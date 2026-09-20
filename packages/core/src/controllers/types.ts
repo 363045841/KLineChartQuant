@@ -382,6 +382,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly agent: ChartAgentController
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
+  /** 右轴当前有效 CSS 宽度（包含用户配置的最小宽度）。 */
+  readonly rightAxisEffectiveWidth: ReadonlySignal<number>
   readonly data: ReadonlySignal<ReadonlyArray<KLineData>>
   readonly dataLoading: ReadonlySignal<boolean>
   /** 主品种最近一次显式拉取失败原因；成功或重置后为 null */

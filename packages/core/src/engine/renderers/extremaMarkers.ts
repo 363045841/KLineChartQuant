@@ -3,7 +3,6 @@ import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
-import type { KLineData } from '../../foundation/types/price.js'
 import {
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
@@ -12,7 +11,6 @@ import {
 } from '../../foundation/utils/pixelAlign.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
-import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
@@ -108,41 +106,26 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
     draw(context: RenderContext) {
       if (context.dataView !== ChartDataViewId.KLine) return
-      const { overlayCtx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
+      const {
+        overlayCtx,
+        pane,
+        range,
+        scrollLeft,
+        dpr,
+        paneWidth,
+        kLineCenters,
+        visiblePriceExtrema,
+      } = context
       const ctx = overlayCtx
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const klineData = data as KLineData[]
-      if (!klineData.length) return
       if (pane.role !== 'price') return
       if (!ctx) return
-
-      // 只在真正可见的 bar 范围内取极值，避免标出 ±1 缓冲区内落在屏外的极值
-      const { first, last } = findVisibleBarRange(range, kLineCenters, scrollLeft, paneWidth)
-      if (last < first) return
-
-      let max = -Infinity
-      let min = Infinity
-      let maxIndex = first
-      let minIndex = first
-
-      for (let i = first; i <= last; i++) {
-        const e = klineData[i]
-        if (!e) continue
-        if (e.high >= max) {
-          max = e.high
-          maxIndex = i
-        }
-        if (e.low <= min) {
-          min = e.low
-          minIndex = i
-        }
-      }
-
-      if (!Number.isFinite(max) || !Number.isFinite(min)) return
+      if (!visiblePriceExtrema) return
+      const { max, min, maxIndex, minIndex } = visiblePriceExtrema
 
       const getScreenCenterX = (i: number) => {
         const localIdx = i - range.start
