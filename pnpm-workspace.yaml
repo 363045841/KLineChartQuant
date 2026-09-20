@@ -11,5 +11,11 @@ allowBuilds:
   protobufjs: false
   sharp: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@earendil-works/chord@0.86.0'
+  - '@earendil-works/pi-agent-core@0.86.0'
+  - '@earendil-works/pi-ai@0.86.0'
+  - '@earendil-works/pi-session-backend-sqlite-node@0.86.0'
+  - '@earendil-works/pi-telemetry@0.86.0'
 patchedDependencies:
   vite-plugin-babel@1.7.3: patches/vite-plugin-babel@1.7.3.patch
