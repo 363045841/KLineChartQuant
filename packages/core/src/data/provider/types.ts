@@ -100,6 +100,8 @@ export interface InstrumentCapabilities {
   timeShare?: boolean
   timeShareRange?: TimeShareRangeCapability
   depth?: boolean
+  /** 是否支持实时逐笔行情流。 */
+  marketTicks?: boolean
 }
 
 /** 数据源级能力声明，用于在请求前筛选流转候选源。 */
@@ -109,6 +111,8 @@ export interface SourceCapabilities {
   timeShare?: boolean
   timeShareRange?: TimeShareRangeCapability
   depth?: boolean
+  /** 是否支持实时逐笔行情流。 */
+  marketTicks?: boolean
   historyCoverage?: {
     from?: number
     to?: number

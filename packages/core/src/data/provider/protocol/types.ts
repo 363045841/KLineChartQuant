@@ -205,6 +205,51 @@ export interface ProtocolTimeShareRangeSeries {
   olderData: OlderDataStatus
 }
 
+/** 单笔逐笔 tick；时间为真 UTC 毫秒。 */
+export interface ProtocolMarketTickItem {
+  /** 报价 / 成交时间，真 UTC 毫秒（已按实测服务器偏移换算）。 */
+  timestamp: number
+  /** 买一价。 */
+  bid: number
+  /** 卖一价。 */
+  ask: number
+  /** 最新成交价；纯报价 tick 通常为 0。 */
+  last: number
+  /** 该笔 tick 的成交量；纯报价 tick 通常为 0。 */
+  volume: number
+}
+
+// tick 流事件载荷；一批 tick 在同一采样窗口内按时间升序合并推送
+export interface ProtocolMarketTicksEvent {
+  type: 'ticks'
+  symbol: string
+  ticks: ReadonlyArray<ProtocolMarketTickItem>
+}
+
+// tick 流订阅请求；tick 与 period 无关
+export interface ProtocolMarketTickStreamRequest {
+  sourceId: string
+  instrument: ProtocolInstrumentReference
+}
+
+// tick 流订阅回调；onError 不终止订阅，由实现决定重连
+export interface ProtocolMarketTickStreamHandlers {
+  onMarketTicks(event: ProtocolMarketTicksEvent): void
+  onOpen?(): void
+  onError?(error: Error): void
+}
+
+/**
+ * 实时 tick 传输接口：与 REST 的 MarketDataTransport 分离（独立长连接）。
+ * 实现负责 wire 语义（SSE/WebSocket 等）与重连，返回退订函数；不掺领域映射。
+ */
+export interface MarketTickTransport {
+  subscribeMarketTicks(
+    request: ProtocolMarketTickStreamRequest,
+    handlers: ProtocolMarketTickStreamHandlers,
+  ): () => void
+}
+
 /**
  * 协议传输接口：实现负责 wire 语义（URL、envelope 解包、错误解析）
  * 返回统一解包后的 data 载荷，不掺领域映射逻辑

@@ -10,7 +10,8 @@ info:
     前端通过 InstrumentDescriptor、BarSeries 和 TimeShareSeries 消费数据。
 
     V1 覆盖数据源探测、品种搜索、历史 K 线和单交易日分时。实时深度使用
-    独立连接 Transport，不包含在本 REST 协议中。
+    独立连接 Transport，不包含在本 REST 协议中。实时逐笔 tick 通过独立的
+    SSE 连接提供，见 `/sources/{sourceId}/ticks/stream`。
 servers:
   - url: http://127.0.0.1:8080
     description: 本地 GOTDX 服务
@@ -107,6 +108,35 @@ paths:
         '422':
           $ref: '#/components/responses/ErrorResponse'
         '502':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/market-data/sources/{sourceId}/ticks/stream:
+    get:
+      operationId: streamTicks
+      summary: 订阅指定品种的实时逐笔 tick（SSE）
+      description: |
+        以 Server-Sent Events 持续推送逐笔 tick，事件 data 为 MarketTicksEvent JSON。
+        事件 id 为流内单调递增序号，断线重连时可经 Last-Event-ID 请求补帧；
+        新订阅只推送建立之后的 tick，不回放历史。tick 与 period 无关。
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: XAUUSD
+      responses:
+        '200':
+          description: tick 事件流
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/MarketTicksEvent'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        default:
           $ref: '#/components/responses/ErrorResponse'
 
 components:
@@ -225,6 +255,9 @@ components:
           type: boolean
         depth:
           type: boolean
+        marketTicks:
+          type: boolean
+          description: 是否支持实时逐笔行情流（ticks/stream）
 
     InstrumentDescriptor:
       type: object
@@ -464,6 +497,42 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/TimeShareSeries'
+
+    MarketTickItem:
+      type: object
+      required: [timestamp, bid, ask, last, volume]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: UTC Unix 毫秒时间戳（已按实测服务器偏移换算）
+        bid:
+          type: number
+          description: 买一价
+        ask:
+          type: number
+          description: 卖一价
+        last:
+          type: number
+          description: 最新成交价
+        volume:
+          type: number
+          description: 该笔 tick 的成交量
+
+    MarketTicksEvent:
+      type: object
+      description: SSE 事件 data 载荷；一批 tick 按时间升序合并推送
+      required: [type, symbol, ticks]
+      properties:
+        type:
+          type: string
+          const: ticks
+        symbol:
+          type: string
+        ticks:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketTickItem'
 
     SourceProbe:
       type: object
