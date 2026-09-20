@@ -2,8 +2,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Chart, type ChartOptions } from '@/core/chart'
 import {
-  createCanvasGetContextMock,
   createChartDom,
+  installChartDomStubs,
   ResizeObserverMock,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { createDrawingAdapter } from '../drawing/__tests__/helpers/drawingTestKit'
@@ -24,35 +24,18 @@ const defaultOptions: ChartOptions = {
 }
 
 describe('Chart DPR pipeline', () => {
-  const originalResizeObserver = globalThis.ResizeObserver
-  const originalDevicePixelRatio = window.devicePixelRatio
-  const originalGetContext = HTMLCanvasElement.prototype.getContext
+  let restoreChartDomStubs: () => void
 
   beforeAll(async () => {
     await loadBuiltinIndicators()
   })
 
   beforeEach(() => {
-    ResizeObserverMock.reset()
-    globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
-
-    Object.defineProperty(window, 'devicePixelRatio', {
-      configurable: true,
-      writable: true,
-      value: 1,
-    })
-
-    HTMLCanvasElement.prototype.getContext = createCanvasGetContextMock()
+    restoreChartDomStubs = installChartDomStubs()
   })
 
-  afterEach(async () => {
-    globalThis.ResizeObserver = originalResizeObserver
-    Object.defineProperty(window, 'devicePixelRatio', {
-      configurable: true,
-      writable: true,
-      value: originalDevicePixelRatio,
-    })
-    HTMLCanvasElement.prototype.getContext = originalGetContext
+  afterEach(() => {
+    restoreChartDomStubs()
     vi.restoreAllMocks()
   })
 
@@ -338,31 +321,14 @@ describe('Chart DPR pipeline', () => {
 })
 
 describe('Chart pane layout regressions', () => {
-  const originalResizeObserver = globalThis.ResizeObserver
-  const originalDevicePixelRatio = window.devicePixelRatio
-  const originalGetContext = HTMLCanvasElement.prototype.getContext
+  let restoreChartDomStubs: () => void
 
   beforeEach(() => {
-    ResizeObserverMock.reset()
-    globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
-
-    Object.defineProperty(window, 'devicePixelRatio', {
-      configurable: true,
-      writable: true,
-      value: 1,
-    })
-
-    HTMLCanvasElement.prototype.getContext = createCanvasGetContextMock()
+    restoreChartDomStubs = installChartDomStubs()
   })
 
-  afterEach(async () => {
-    globalThis.ResizeObserver = originalResizeObserver
-    Object.defineProperty(window, 'devicePixelRatio', {
-      configurable: true,
-      writable: true,
-      value: originalDevicePixelRatio,
-    })
-    HTMLCanvasElement.prototype.getContext = originalGetContext
+  afterEach(() => {
+    restoreChartDomStubs()
     vi.restoreAllMocks()
   })
 

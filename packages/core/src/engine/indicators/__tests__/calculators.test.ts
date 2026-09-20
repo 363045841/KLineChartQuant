@@ -19,6 +19,26 @@ const CALCULATOR_KLINE_OPTIONS: FromClosesOptions = {
   volume: (index) => 1000 + index * 100,
 }
 
+/**
+ * 生成测试用的线性上涨价格序列。
+ * @param count 序列长度。
+ * @param start 首项，默认 10。
+ * @returns 等差数列。
+ */
+function createRisingPrices(count: number, start = 10): number[] {
+  return Array.from({ length: count }, (_, i) => start + i)
+}
+
+/**
+ * 生成测试用的线性下跌价格序列。
+ * @param count 序列长度。
+ * @param start 首项，默认 20。
+ * @returns 等差数列。
+ */
+function createFallingPrices(count: number, start = 20): number[] {
+  return Array.from({ length: count }, (_, i) => start - i)
+}
+
 describe('calcMAData', () => {
   const prices = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
   const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
@@ -100,7 +120,7 @@ describe('calcMAData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
+    const largePrices = createRisingPrices(10000, 100)
     const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
@@ -220,7 +240,7 @@ describe('calcBOLLData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
+    const largePrices = createRisingPrices(10000, 100)
     const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
@@ -316,7 +336,7 @@ describe('calcEXPMAData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
+    const largePrices = createRisingPrices(10000, 100)
     const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
@@ -410,7 +430,7 @@ describe('calcENEData', () => {
   })
 
   it('should handle large datasets efficiently', () => {
-    const largePrices = Array.from({ length: 10000 }, (_, i) => 100 + i)
+    const largePrices = createRisingPrices(10000, 100)
     const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
 
     const start = performance.now()
@@ -454,16 +474,6 @@ describe('ENE default constants', () => {
 })
 
 describe('calcRSIData', () => {
-  // 创建测试数据：价格连续上涨序列
-  function createRisingPrices(count: number, start = 10): number[] {
-    return Array.from({ length: count }, (_, i) => start + i)
-  }
-
-  // 创建测试数据：价格连续下跌序列
-  function createFallingPrices(count: number, start = 20): number[] {
-    return Array.from({ length: count }, (_, i) => start - i)
-  }
-
   it('should return array of same length as input', () => {
     const prices = createRisingPrices(20)
     const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)

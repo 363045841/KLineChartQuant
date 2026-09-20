@@ -85,6 +85,15 @@ function registerTestIndicators(scheduler: IndicatorScheduler): void {
   }
 }
 
+/** 创建注入了 mock host 并注册内置指标的 scheduler。 */
+function createSchedulerHarness(): { scheduler: IndicatorScheduler; mockHost: PluginHost } {
+  const scheduler = new IndicatorScheduler(false)
+  const mockHost = createMockPluginHost()
+  scheduler.setPluginHost(mockHost)
+  registerTestIndicators(scheduler)
+  return { scheduler, mockHost }
+}
+
 /**
  * 创建测试用的 K 线数据
  */
@@ -118,10 +127,7 @@ describe('IndicatorScheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
     vi.mocked(mockHost.setSharedState).mockClear()
   })
 
@@ -478,10 +484,7 @@ describe('BOLL State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write BOLLRenderState to StateStore after update', () => {
@@ -535,9 +538,6 @@ describe('BOLL State in scheduler', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    const stateBefore = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
-    const seriesBefore = stateBefore!.series[19]
-
     scheduler.updateIndicatorConfig('boll', { period: 10 })
 
     const stateAfter = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
@@ -560,10 +560,7 @@ describe('EXPMA State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write EXPMARenderState to StateStore after update', () => {
@@ -614,10 +611,7 @@ describe('ENE State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write ENERenderState to StateStore after update', () => {
@@ -671,19 +665,12 @@ describe('Per-indicator dirty flags', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('updateBOLLConfig should not recalculate MA series', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
-
-    // Capture MA state after initial update
-    const maStateBefore = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    const maSeriesBefore = maStateBefore!.series[5]
 
     // Reset mock to track new calls
     vi.mocked(mockHost.setSharedState).mockClear()
@@ -704,9 +691,6 @@ describe('Per-indicator dirty flags', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    const maStateBefore = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    const maSeriesBefore = maStateBefore!.series[5]
-
     vi.mocked(mockHost.setSharedState).mockClear()
 
     scheduler.updateIndicatorConfig('expma', { fastPeriod: 6 })
@@ -724,9 +708,6 @@ describe('Per-indicator dirty flags', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    const maStateBefore = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    const maSeriesBefore = maStateBefore!.series[5]
-
     vi.mocked(mockHost.setSharedState).mockClear()
 
     scheduler.updateIndicatorConfig('ene', { period: 20 })
@@ -743,8 +724,6 @@ describe('Per-indicator dirty flags', () => {
   it('updateBOLLConfig should recalculate BOLL extremes', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
-
-    const bollStateBefore = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
 
     scheduler.updateIndicatorConfig('boll', { period: 10 })
 
@@ -819,10 +798,7 @@ describe('RSI State in scheduler', () => {
   let mockHost: PluginHost
 
   beforeEach(() => {
-    scheduler = new IndicatorScheduler(false)
-    mockHost = createMockPluginHost()
-    scheduler.setPluginHost(mockHost)
-    registerTestIndicators(scheduler)
+    ;({ scheduler, mockHost } = createSchedulerHarness())
   })
 
   it('should write RSIRenderState to StateStore after update', () => {

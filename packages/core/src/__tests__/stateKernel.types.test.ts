@@ -3,6 +3,7 @@
  * Doesn't run at runtime — `pnpm type-check` enforces these constraints.
  */
 import { describe, expect, it } from 'vitest'
+import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import { createViewportState } from '../engine/state/viewportState'
 import {
   computed,
@@ -26,13 +27,9 @@ describe('StateKernel type constraints (compile-time)', () => {
   })
 
   it('createViewportState readonly viewportState signal has no .set', () => {
-    const m = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
-      dataLength$: (() => 100) as any,
-      period$: (() => 'daily') as any,
-      zoomLevel$: (() => 1) as any,
-      sessionSlots$: (() => 240) as any,
-    })
+    const m = createViewportState(
+      createViewportStateDeps({ options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
+    )
     // @ts-expect-error `.set` should not exist on the readonly view
     void m.readonly.viewportState.set
   })

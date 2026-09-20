@@ -97,6 +97,35 @@ export function createChartDom(width: number, height: number): ChartDom {
   return { container, canvasLayer, rightAxisLayer, xAxisCanvas } satisfies ChartDom
 }
 
+/**
+ * 安装 Chart DOM 集成测试所需的全局替身：ResizeObserver、DPR 与 canvas getContext。
+ * @returns 恢复原始全局对象的回调。
+ */
+export function installChartDomStubs(): () => void {
+  const originalResizeObserver = globalThis.ResizeObserver
+  const originalDevicePixelRatio = window.devicePixelRatio
+  const originalGetContext = HTMLCanvasElement.prototype.getContext
+
+  ResizeObserverMock.reset()
+  globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
+  Object.defineProperty(window, 'devicePixelRatio', {
+    configurable: true,
+    writable: true,
+    value: 1,
+  })
+  HTMLCanvasElement.prototype.getContext = createCanvasGetContextMock()
+
+  return () => {
+    globalThis.ResizeObserver = originalResizeObserver
+    Object.defineProperty(window, 'devicePixelRatio', {
+      configurable: true,
+      writable: true,
+      value: originalDevicePixelRatio,
+    })
+    HTMLCanvasElement.prototype.getContext = originalGetContext
+  }
+}
+
 /** 安装同步的 requestAnimationFrame / cancelAnimationFrame 替身。 */
 export function stubAnimationFrame(): void {
   vi.stubGlobal(

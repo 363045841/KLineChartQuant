@@ -20,7 +20,7 @@
 | 模块 | 覆盖 |
 | --- | --- |
 | `engine/__tests__/helpers/renderTestKit.ts` | `createMockRenderContext` / `createMockPaneInfo` / `createMockPluginHost` / `createMockCanvasContext` / `createMockStateReader` / `createMockServiceHost` / `createMockIndicatorHost` |
-| `engine/__tests__/helpers/chartDomTestKit.ts` | `createChartDom` / `createCanvasGetContextMock` / `createWebGLContextStub` / `ResizeObserverMock` / `stubAnimationFrame` |
+| `engine/__tests__/helpers/chartDomTestKit.ts` | `createChartDom` / `createCanvasGetContextMock` / `createWebGLContextStub` / `ResizeObserverMock` / `installChartDomStubs` / `stubAnimationFrame` |
 | `engine/drawing/__tests__/helpers/drawingTestKit.ts` | 图元构造 + `DrawingDocumentPort` / `DrawingViewportPort` / `DrawingSessionPort` 工厂 + `createDrawingAdapter` + `createFourBarTimelineAdapter` / flat-line / disjoint-channel / parallel-channel 图元工厂 |
 | `engine/data/__tests__/helpers/chartDataManagerTestKit.ts` | `createMockViewport` / `createMockDataDependencies` / `createTestDocument` / `createChartDom` |
 | `data/__tests__/helpers/depthTestKit.ts` | `createFakeEventSource` / `asEventSource` / `createEventSourceFactory` / `makeSnapshotEvent` / `makeDeltaEvent` / `createFakeDepthSource` / `createFakeHeatmapController` |
@@ -32,12 +32,14 @@
 | `vue/src/features/agent/__tests__/_testChartAgent.ts` | `createTestChartAgent` / `createTestChartAgentContext` |
 | `engine/indicators/__tests__/__fixtures__/synthetic.ts` | `fromCloses` / `createRisingTrend` |
 | `engine/state/__tests__/helpers/createTestChartStateKernel.ts` | `createTestChartStateKernel` |
+| `engine/state/__tests__/helpers/createViewportStateDeps.ts` | `createViewportStateDeps` |
 | `features/chartTypes/__tests__/helpers/createOhlcvBar.ts` | `createOhlcvBar` |
 | `features/alerts/__tests__/helpers/marketSnapshot.ts` | `createMarketSnapshot` |
 | `features/indicators/__tests__/helpers/sequences.ts` | `ramp` / `constant` |
 | `components/anchoredVwap/__tests__/helpers/createAvwapBar.ts` | `createAvwapBar` |
 | `components/mtfOverlay/__tests__/helpers/createBaseBar.ts` | `createBaseBar` |
 | `components/orderBookHeatmap/__tests__/helpers/createOrderBookDelta.ts` | `createOrderBookDelta` |
+| `components/orderBookHeatmap/__tests__/helpers/createTestHeatmapController.ts` | `createTestHeatmapController` |
 | `engine/marker/__tests__/helpers/createCustomMarker.ts` | `createCustomMarker` |
 
 约束：

@@ -4,6 +4,7 @@ import { createHeatmapController } from '../createHeatmapController'
 import { createOrderBookState } from '../createOrderBookState'
 import type { BookSnapshot, OrderBookDelta } from '../types'
 import { createOrderBookDelta } from './helpers/createOrderBookDelta'
+import { createTestHeatmapController } from './helpers/createTestHeatmapController'
 
 function findBidSize(snap: BookSnapshot, price: number): number {
   for (const [p, s] of snap.bids) if (p === price) return s
@@ -12,13 +13,7 @@ function findBidSize(snap: BookSnapshot, price: number): number {
 
 describe('createHeatmapController', () => {
   it('auto-generates snapshots at the configured interval driven by delta timestamps', () => {
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
-      snapshotIntervalMs: 100,
-      snapshotRingCapacity: 10,
-      deltaArchiveMaxSize: 1000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    })
+    const ctrl = createTestHeatmapController()
     // Send 5 deltas spanning 0 → 450ms — 4 interval crossings.
     ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
     ctrl.ingestDelta(createOrderBookDelta(150, { price: 100, size: 2 })) // crosses 100ms
@@ -33,13 +28,7 @@ describe('createHeatmapController', () => {
   })
 
   it('records flash orders in the archive even when they vanish before the next snapshot', () => {
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
-      snapshotIntervalMs: 100,
-      snapshotRingCapacity: 10,
-      deltaArchiveMaxSize: 1000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    })
+    const ctrl = createTestHeatmapController()
     // First delta anchors snapshot clock at t=0.
     ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
     // Place + cancel inside the [0, 100) window.
@@ -64,13 +53,7 @@ describe('createHeatmapController', () => {
   })
 
   it('forceSnapshot() pushes the current book state immediately', () => {
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
-      snapshotIntervalMs: 1000,
-      snapshotRingCapacity: 10,
-      deltaArchiveMaxSize: 1000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    })
+    const ctrl = createTestHeatmapController({ snapshotIntervalMs: 1000 })
     ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 5 }))
     ctrl.ingestDelta(createOrderBookDelta(0, { side: 'ask', price: 101, size: 7 }))
     expect(ctrl.state.peek().snapshotCount).toBe(0)
@@ -87,12 +70,10 @@ describe('createHeatmapController', () => {
     // the controller, and assert the replayed snapshot at every grid
     // timestamp equals the snapshot computed by applying deltas
     // up-to-and-including that timestamp to a fresh order book.
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
+    const ctrl = createTestHeatmapController({
       snapshotIntervalMs: 50,
       snapshotRingCapacity: 100,
       deltaArchiveMaxSize: 10_000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
     })
     const deltas: OrderBookDelta[] = [
       createOrderBookDelta(0, { price: 100, size: 5 }),
@@ -124,14 +105,10 @@ describe('createHeatmapController', () => {
   it('replay across midpoint matches live-state snapshot at that point', () => {
     // Hand-coded equivalence: a known midpoint timestamp must yield the
     // same book state whether reached via live ingest or via replay.
-    const cfg = {
-      tickSize: 0.01,
-      snapshotIntervalMs: 100,
+    const live = createTestHeatmapController({
       snapshotRingCapacity: 64,
       deltaArchiveMaxSize: 10_000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    }
-    const live = createHeatmapController(cfg)
+    })
     const deltas: OrderBookDelta[] = [
       createOrderBookDelta(0, { price: 100, size: 1 }),
       createOrderBookDelta(0, { side: 'ask', price: 101, size: 1 }),
@@ -155,13 +132,7 @@ describe('createHeatmapController', () => {
   })
 
   it('dispose() silences subsequent mutator calls', () => {
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
-      snapshotIntervalMs: 100,
-      snapshotRingCapacity: 10,
-      deltaArchiveMaxSize: 1000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    })
+    const ctrl = createTestHeatmapController()
     ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
     const before = ctrl.state.peek().deltaCount
     ctrl.dispose()
@@ -176,13 +147,7 @@ describe('createHeatmapController', () => {
   })
 
   it('setConfig() rebuilds book + ring + archive cap when tick/capacity/maxSize change', () => {
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
-      snapshotIntervalMs: 100,
-      snapshotRingCapacity: 4,
-      deltaArchiveMaxSize: 1000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    })
+    const ctrl = createTestHeatmapController({ snapshotRingCapacity: 4 })
     // Three distinct fine prices that all fall inside a single coarse
     // bucket once we re-quantize.
     ctrl.ingestDelta(createOrderBookDelta(0, { price: 100.1, size: 1 }))
@@ -209,13 +174,7 @@ describe('createHeatmapController', () => {
   })
 
   it('emits a state notification on every ingestDelta', () => {
-    const ctrl = createHeatmapController({
-      tickSize: 0.01,
-      snapshotIntervalMs: 1_000,
-      snapshotRingCapacity: 10,
-      deltaArchiveMaxSize: 1000,
-      logColorRange: { sizeMin: 1, sizeMax: 1000 },
-    })
+    const ctrl = createTestHeatmapController({ snapshotIntervalMs: 1_000 })
     let calls = 0
     const off = ctrl.state.subscribe(() => calls++)
     ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
@@ -229,13 +188,7 @@ describe('createHeatmapController', () => {
 
   describe('resetBook', () => {
     it('replaces book state with snapshot, resets ring/archive/clock', () => {
-      const ctrl = createHeatmapController({
-        tickSize: 0.01,
-        snapshotIntervalMs: 100,
-        snapshotRingCapacity: 10,
-        deltaArchiveMaxSize: 1000,
-        logColorRange: { sizeMin: 1, sizeMax: 1000 },
-      })
+      const ctrl = createTestHeatmapController()
       // Establish some live state.
       ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
       ctrl.ingestDelta(createOrderBookDelta(150, { price: 100, size: 2 })) // crosses 100ms → 1 snapshot
@@ -265,13 +218,7 @@ describe('createHeatmapController', () => {
     })
 
     it('clears snapshot ring and delta archive', () => {
-      const ctrl = createHeatmapController({
-        tickSize: 0.01,
-        snapshotIntervalMs: 100,
-        snapshotRingCapacity: 10,
-        deltaArchiveMaxSize: 1000,
-        logColorRange: { sizeMin: 1, sizeMax: 1000 },
-      })
+      const ctrl = createTestHeatmapController()
       // Ingest enough to create snapshots in the ring.
       ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
       ctrl.ingestDelta(createOrderBookDelta(150, { price: 100, size: 2 }))
@@ -302,13 +249,7 @@ describe('createHeatmapController', () => {
     })
 
     it('resets snapshot clock so next ingest anchors fresh', () => {
-      const ctrl = createHeatmapController({
-        tickSize: 0.01,
-        snapshotIntervalMs: 100,
-        snapshotRingCapacity: 10,
-        deltaArchiveMaxSize: 1000,
-        logColorRange: { sizeMin: 1, sizeMax: 1000 },
-      })
+      const ctrl = createTestHeatmapController()
       ctrl.ingestDelta(createOrderBookDelta(0, { price: 100, size: 1 }))
       // Clock at 0. Next delta at 50 should NOT trigger snapshot (not past
       // interval). But after resetBook, the clock resets so the next delta
@@ -330,13 +271,7 @@ describe('createHeatmapController', () => {
     })
 
     it('resetBook ingests the snapshot as deltas into the book', () => {
-      const ctrl = createHeatmapController({
-        tickSize: 0.5,
-        snapshotIntervalMs: 1000,
-        snapshotRingCapacity: 10,
-        deltaArchiveMaxSize: 1000,
-        logColorRange: { sizeMin: 1, sizeMax: 1000 },
-      })
+      const ctrl = createTestHeatmapController({ tickSize: 0.5, snapshotIntervalMs: 1000 })
       // Tick size 0.5 means 100.25 → 100.0.
       ctrl.resetBook({
         bids: [[100.25, 7]],

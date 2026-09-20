@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-
-import { createSignal } from '../../../foundation/reactivity/signal'
+import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
 import { createViewportState } from '../../state/viewportState'
 import {
   clampVisibleRange,
@@ -43,14 +42,9 @@ describe('computeMaxScrollLeftWithVisibleData', () => {
 
 describe('viewportState visibleRange SSOT', () => {
   it('exposes clamped visibleRange/visibleFrom while keeping rawVisibleRange for load triggers', async () => {
-    const dataLength$ = createSignal(20)
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 8, kGap: 2 })) as any,
-      dataLength$,
-      period$: (() => 'daily') as any,
-      zoomLevel$: (() => 3) as any,
-      sessionSlots$: (() => 240) as any,
-    })
+    const module = createViewportState(
+      createViewportStateDeps({ dataLength: 20, options: { kWidth: 8, kGap: 2 }, zoomLevel: 3 }),
+    )
 
     // resize 后 scrollLeftLogical≈0（右对齐短序列或左缘），raw start 常为 -1
     module.actions.resize(800, 400, 1)
@@ -68,14 +62,14 @@ describe('viewportState visibleRange SSOT', () => {
   })
 
   it('timeshare visible range covers full data regardless of kWidth rounding (slot grid)', () => {
-    const dataLength$ = createSignal(240)
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 3, kGap: 1 })) as any,
-      dataLength$,
-      period$: (() => 'timeshare') as any,
-      zoomLevel$: (() => 3) as any,
-      sessionSlots$: (() => 240) as any,
-    })
+    const module = createViewportState(
+      createViewportStateDeps({
+        dataLength: 240,
+        options: { kWidth: 3, kGap: 1 },
+        period: 'timeshare',
+        zoomLevel: 3,
+      }),
+    )
     // 旧实现（kWidth/kGap 取整网格）在 W=900, kWidth=3, kGap=1 时 end 只有 226
     module.actions.resize(900, 400, 1)
     const raw = module.readonly.rawVisibleRange()
@@ -87,13 +81,9 @@ describe('viewportState visibleRange SSOT', () => {
   })
 
   it('keeps the final K-line in range at the maximum scroll position after zooming in', () => {
-    const dataLength$ = createSignal(10)
-    const module = createViewportState({
-      options$: (() => ({ bottomAxisHeight: 30, kWidth: 100, kGap: 2 })) as any,
-      dataLength$,
-      period$: (() => 'daily') as any,
-      zoomLevel$: (() => 3) as any,
-    })
+    const module = createViewportState(
+      createViewportStateDeps({ dataLength: 10, options: { kWidth: 100, kGap: 2 }, zoomLevel: 3 }),
+    )
 
     module.actions.resize(100, 400, 1)
     module.actions.scrollTo(Number.MAX_SAFE_INTEGER)

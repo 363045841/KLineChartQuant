@@ -7,6 +7,11 @@ beforeAll(async () => {
   await loadBuiltinIndicators()
 })
 
+/** 构造只记录 updateIndicatorConfig 调用的 scheduler 替身。 */
+function createSchedulerSpy() {
+  return { updateIndicatorConfig: vi.fn() }
+}
+
 describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {
     const definitions = getBuiltinIndicatorDefinitions()
@@ -116,55 +121,27 @@ describe('builtin indicator registration', () => {
     }
   })
 
-  it('routes stage 4A metadata config updates to scheduler methods', () => {
-    const scheduler = {
-      updateIndicatorConfig: vi.fn(),
-    }
+  it.each([
+    ['RSI', { period1: 7 }, 'RSI_0', 'rsi'],
+    ['MACD', { fastPeriod: 8 }, 'MACD_0', 'macd'],
+    ['VOLUME_PROFILE', { bins: 32 }, 'VP_0', 'volumeProfile'],
+  ])('routes stage 4A %s config updates to scheduler methods', (id, params, paneId, expectedId) => {
+    const scheduler = createSchedulerSpy()
+    getRegisteredIndicatorDefinition(id)?.updateConfig?.(scheduler, params, paneId)
 
-    getRegisteredIndicatorDefinition('RSI')?.updateConfig?.(scheduler, { period1: 7 }, 'RSI_0')
-    getRegisteredIndicatorDefinition('MACD')?.updateConfig?.(scheduler, { fastPeriod: 8 }, 'MACD_0')
-    getRegisteredIndicatorDefinition('VOLUME_PROFILE')?.updateConfig?.(
-      scheduler,
-      { bins: 32 },
-      'VP_0',
-    )
-    getRegisteredIndicatorDefinition('VOL')?.updateConfig?.(scheduler, {}, 'VOL_0')
-
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('rsi', { period1: 7 }, 'RSI_0')
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(
-      'macd',
-      { fastPeriod: 8 },
-      'MACD_0',
-    )
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(
-      'volumeProfile',
-      { bins: 32 },
-      'VP_0',
-    )
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(expectedId, params, paneId)
   })
 
-  it('routes stage 4B metadata config updates to scheduler methods', () => {
-    const scheduler = {
-      updateIndicatorConfig: vi.fn(),
-    }
+  it.each([
+    ['CCI', { period: 14 }, 'CCI_0', 'cci'],
+    ['ATR', { period: 10 }, 'ATR_0', 'atr'],
+    ['CHAIKIN_VOL', { emaPeriod: 10 }, 'CV_0', 'chaikinVol'],
+    ['ZONES', { showFVG: true }, 'Z_0', 'zones'],
+  ])('routes stage 4B %s config updates to scheduler methods', (id, params, paneId, expectedId) => {
+    const scheduler = createSchedulerSpy()
+    getRegisteredIndicatorDefinition(id)?.updateConfig?.(scheduler, params, paneId)
 
-    getRegisteredIndicatorDefinition('CCI')?.updateConfig?.(scheduler, { period: 14 }, 'CCI_0')
-    getRegisteredIndicatorDefinition('ATR')?.updateConfig?.(scheduler, { period: 10 }, 'ATR_0')
-    getRegisteredIndicatorDefinition('CHAIKIN_VOL')?.updateConfig?.(
-      scheduler,
-      { emaPeriod: 10 },
-      'CV_0',
-    )
-    getRegisteredIndicatorDefinition('ZONES')?.updateConfig?.(scheduler, { showFVG: true }, 'Z_0')
-
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('cci', { period: 14 }, 'CCI_0')
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('atr', { period: 10 }, 'ATR_0')
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(
-      'chaikinVol',
-      { emaPeriod: 10 },
-      'CV_0',
-    )
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('zones', { showFVG: true }, 'Z_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(expectedId, params, paneId)
   })
 
   it('registers dedicated scale renderer factories for stage 5A indicators', () => {
@@ -414,25 +391,20 @@ describe('builtin indicator registration', () => {
     ).toBeNull()
   })
 
-  it('routes base main metadata config updates to scheduler methods', () => {
-    const scheduler = {
-      updateIndicatorConfig: vi.fn(),
-    }
+  it.each([
+    ['MA', { ma5: true }, 'main', 'ma'],
+    ['BOLL', { period: 20 }, 'main', 'boll'],
+    ['EXPMA', { fastPeriod: 12 }, 'main', 'expma'],
+    ['ENE', { period: 10 }, 'main', 'ene'],
+  ])(
+    'routes base main %s config updates to scheduler methods',
+    (id, params, paneId, expectedId) => {
+      const scheduler = createSchedulerSpy()
+      getRegisteredIndicatorDefinition(id)?.updateConfig?.(scheduler, params, paneId)
 
-    getRegisteredIndicatorDefinition('MA')?.updateConfig?.(scheduler, { ma5: true }, 'main')
-    getRegisteredIndicatorDefinition('BOLL')?.updateConfig?.(scheduler, { period: 20 }, 'main')
-    getRegisteredIndicatorDefinition('EXPMA')?.updateConfig?.(scheduler, { fastPeriod: 12 }, 'main')
-    getRegisteredIndicatorDefinition('ENE')?.updateConfig?.(scheduler, { period: 10 }, 'main')
-
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ma', { ma5: true }, 'main')
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('boll', { period: 20 }, 'main')
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(
-      'expma',
-      { fastPeriod: 12 },
-      'main',
-    )
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ene', { period: 10 }, 'main')
-  })
+      expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith(expectedId, params, paneId)
+    },
+  )
 
   it('registers main pane price range metadata for stage 8A indicators', () => {
     for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
