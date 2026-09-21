@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { StochRSIPoint } from '../calculators/stochRSI.js'
 
 export interface StochRSIRenderState extends BaseIndicatorState {
@@ -27,8 +26,6 @@ export interface StochRSIRenderState extends BaseIndicatorState {
  * @param paneId 目标副图 ID。
  * @returns StochRSI 状态命名空间键。
  */
-export const createStochRSIStateKey = (paneId: string) =>
-  createIndicatorStateKey('stochRSI', paneId)
 
 export const EMPTY_STOCH_RSI_STATE: StochRSIRenderState = {
   timestamp: 0,

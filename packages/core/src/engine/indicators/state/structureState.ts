@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface SwingPoint {
   index: number
@@ -43,9 +42,6 @@ export interface StructureRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createStructureStateKey = (paneId: string) =>
-  createIndicatorStateKey('structure', paneId)
 
 export const DEFAULT_STRUCTURE_LEFT = 2
 export const DEFAULT_STRUCTURE_RIGHT = 2

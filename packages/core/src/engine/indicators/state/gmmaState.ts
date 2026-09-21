@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /**
  * GMMA（顾比均线）渲染器状态
@@ -32,7 +31,6 @@ export const GMMA_PERIODS = [...GMMA_SHORT_PERIODS, ...GMMA_LONG_PERIODS] as con
  * GMMA 状态的 StateStore 键名
  * 格式：indicator:gmma:paneId
  */
-export const createGMMAStateKey = (paneId: string) => createIndicatorStateKey('gmma', paneId)
 
 /** 空数据占位状态（visibleMin > visibleMax 表示无有效数据） */
 export const EMPTY_GMMA_STATE: GMMARenderState = {

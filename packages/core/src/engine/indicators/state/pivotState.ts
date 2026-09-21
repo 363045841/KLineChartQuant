@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface PivotPoint {
   pp: number
@@ -28,8 +27,6 @@ export interface PivotRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createPivotStateKey = (paneId: string) => createIndicatorStateKey('pivot', paneId)
 
 export const EMPTY_PIVOT_STATE: PivotRenderState = {
   timestamp: 0,

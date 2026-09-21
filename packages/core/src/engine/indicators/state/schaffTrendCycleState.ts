@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface SchaffTrendCycleRenderState extends BaseIndicatorState {
   timestamp: number
@@ -20,8 +19,6 @@ export interface SchaffTrendCycleRenderState extends BaseIndicatorState {
  * @param paneId 目标副图 ID。
  * @returns STC 状态命名空间键。
  */
-export const createSchaffTrendCycleStateKey = (paneId: string) =>
-  createIndicatorStateKey('schaffTrendCycle', paneId)
 
 export const EMPTY_SCHAFF_TREND_CYCLE_STATE: SchaffTrendCycleRenderState = {
   timestamp: 0,

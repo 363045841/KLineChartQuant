@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { ENEPoint } from '../calculators/index.js'
 
 export const DEFAULT_ENE_PERIOD = 10
@@ -28,7 +27,6 @@ export interface ENERenderState extends BaseIndicatorState {
  * ENE 状态的 StateStore 键名
  * 格式：indicator:ene:main
  */
-export const ENE_STATE_KEY = createIndicatorStateKey('ene', 'main')
 
 /**
  * 空数据占位状态

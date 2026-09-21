@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { EXPMAPoint } from '../calculators/index.js'
 
 export const DEFAULT_EXPMA_FAST_PERIOD = 12
@@ -28,7 +27,6 @@ export interface EXPMARenderState extends BaseIndicatorState {
  * EXPMA 状态的 StateStore 键名
  * 格式：indicator:expma:main
  */
-export const EXPMA_STATE_KEY = createIndicatorStateKey('expma', 'main')
 
 /**
  * 空数据占位状态

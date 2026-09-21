@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export type ZoneKind = 'FVG_BULL' | 'FVG_BEAR' | 'OB_BULL' | 'OB_BEAR'
 
@@ -25,8 +24,6 @@ export interface ZonesRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createZonesStateKey = (paneId: string) => createIndicatorStateKey('zones', paneId)
 
 export const DEFAULT_ZONES_OB_LOOKBACK = 5
 

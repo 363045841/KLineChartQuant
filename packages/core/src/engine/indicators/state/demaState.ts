@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface DEMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface DEMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createDEMAStateKey = (paneId: string) => createIndicatorStateKey('dema', paneId)
 
 export const DEFAULT_DEMA_PERIOD = 20
 

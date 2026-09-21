@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface DonchianPoint {
   upper: number
@@ -21,9 +20,6 @@ export interface DonchianRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createDonchianStateKey = (paneId: string) =>
-  createIndicatorStateKey('donchian', paneId)
 
 export const DEFAULT_DONCHIAN_PERIOD = 20
 

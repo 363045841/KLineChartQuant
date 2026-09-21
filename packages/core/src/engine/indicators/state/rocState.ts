@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface ROCRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface ROCRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createROCStateKey = (paneId: string) => createIndicatorStateKey('roc', paneId)
 
 export const DEFAULT_ROC_PERIOD = 12
 

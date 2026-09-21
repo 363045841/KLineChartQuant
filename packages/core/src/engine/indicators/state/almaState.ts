@@ -3,7 +3,6 @@
  * 定义单线序列的渲染状态结构、状态 key 工厂与默认参数
  */
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface ALMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -14,8 +13,6 @@ export interface ALMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createALMAStateKey = (paneId: string) => createIndicatorStateKey('alma', paneId)
 
 export const DEFAULT_ALMA_PERIOD = 9
 export const DEFAULT_ALMA_OFFSET = 0.85

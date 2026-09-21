@@ -3,7 +3,6 @@
  * 定义单线序列、状态 key 工厂与主图默认参数。
  */
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface VIDYARenderState extends BaseIndicatorState {
   timestamp: number
@@ -16,7 +15,6 @@ export interface VIDYARenderState extends BaseIndicatorState {
 }
 
 /** 根据 pane ID 创建 VIDYA 共享状态 key。 */
-export const createVIDYAStateKey = (paneId: string) => createIndicatorStateKey('vidya', paneId)
 
 export const DEFAULT_VIDYA_PERIOD = 14
 export const DEFAULT_VIDYA_CMO_PERIOD = 9

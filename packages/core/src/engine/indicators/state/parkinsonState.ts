@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface ParkinsonRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,9 +9,6 @@ export interface ParkinsonRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createParkinsonStateKey = (paneId: string) =>
-  createIndicatorStateKey('parkinson', paneId)
 
 export const DEFAULT_PARKINSON_PERIOD = 20
 export const DEFAULT_PARKINSON_ANNUALIZATION = 252

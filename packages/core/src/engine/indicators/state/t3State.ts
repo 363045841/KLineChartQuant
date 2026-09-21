@@ -3,7 +3,6 @@
  * 定义单线序列、状态 key 工厂与主图默认参数。
  */
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface T3RenderState extends BaseIndicatorState {
   timestamp: number
@@ -16,7 +15,6 @@ export interface T3RenderState extends BaseIndicatorState {
 }
 
 /** 根据 pane ID 创建 T3 共享状态 key。 */
-export const createT3StateKey = (paneId: string) => createIndicatorStateKey('t3', paneId)
 
 export const DEFAULT_T3_PERIOD = 5
 export const DEFAULT_T3_VOLUME_FACTOR = 0.7

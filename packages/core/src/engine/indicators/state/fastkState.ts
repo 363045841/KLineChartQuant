@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface FASTKRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface FASTKRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createFASTKStateKey = (paneId: string) => createIndicatorStateKey('fastk', paneId)
 
 export const EMPTY_FASTK_STATE: FASTKRenderState = {
   timestamp: 0,

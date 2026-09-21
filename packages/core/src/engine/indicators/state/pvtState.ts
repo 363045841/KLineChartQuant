@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface PVTRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface PVTRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createPVTStateKey = (paneId: string) => createIndicatorStateKey('pvt', paneId)
 
 export const EMPTY_PVT_STATE: PVTRenderState = {
   timestamp: 0,

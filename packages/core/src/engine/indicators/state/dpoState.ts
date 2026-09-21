@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface DPORenderState extends BaseIndicatorState {
   timestamp: number
@@ -22,7 +21,6 @@ export const DEFAULT_DPO_PERIOD = 20
  * @param paneId 目标副图 ID。
  * @returns DPO 状态命名空间键。
  */
-export const createDPOStateKey = (paneId: string) => createIndicatorStateKey('dpo', paneId)
 
 export const EMPTY_DPO_STATE: DPORenderState = {
   timestamp: 0,

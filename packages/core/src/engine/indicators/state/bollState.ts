@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { BOLLPoint } from '../calculators/index.js'
 
 export const DEFAULT_BOLL_PERIOD = 20
@@ -31,7 +30,6 @@ export interface BOLLRenderState extends BaseIndicatorState {
  * BOLL 状态的 StateStore 键名
  * 格式：indicator:boll:main
  */
-export const BOLL_STATE_KEY = createIndicatorStateKey('boll', 'main')
 
 /**
  * 空数据占位状态

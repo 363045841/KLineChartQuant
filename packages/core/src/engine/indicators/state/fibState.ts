@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface FibPoint {
   high: number
@@ -24,8 +23,6 @@ export interface FibRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createFibStateKey = (paneId: string) => createIndicatorStateKey('fib', paneId)
 
 export const DEFAULT_FIB_PERIOD = 50
 

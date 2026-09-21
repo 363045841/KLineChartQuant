@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface CCIRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface CCIRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createCCIStateKey = (paneId: string) => createIndicatorStateKey('cci', paneId)
 
 export const EMPTY_CCI_STATE: CCIRenderState = {
   timestamp: 0,
