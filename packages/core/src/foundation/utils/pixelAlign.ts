@@ -17,6 +17,18 @@ export function worldXToScreenX(worldX: number, scrollLeft: number, dpr: number)
   return Math.round((worldX - scrollLeft) * dpr) / dpr
 }
 
+/** 将世界坐标中的矩形 X 边界投影到屏幕物理像素，保持至少一个物理像素宽度。 */
+export function projectWorldRectToScreen(
+  worldX: number,
+  width: number,
+  scrollLeft: number,
+  dpr: number,
+): { x: number; width: number } {
+  const x = worldXToScreenX(worldX, scrollLeft, dpr)
+  const right = worldXToScreenX(worldX + width, scrollLeft, dpr)
+  return { x, width: Math.max(1 / dpr, right - x) }
+}
+
 /**
  * 将逻辑坐标对齐到物理像素中心（用于 1px 线条）
  * @param value - 逻辑坐标值

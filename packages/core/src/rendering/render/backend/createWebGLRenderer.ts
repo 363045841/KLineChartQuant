@@ -5,7 +5,7 @@ import {
   LineWebGLSurface,
 } from '../../../engine/renderers/webgl/candleSurface.js'
 import { SharedWebGLSurface } from '../../../engine/renderers/webgl/sharedWebGLSurface.js'
-import { worldXToScreenX } from '../../../foundation/utils/pixelAlign.js'
+import { projectWorldRectToScreen } from '../../../foundation/utils/pixelAlign.js'
 import { prepareLineStripForPhysicalPixels } from '../physicalLine.js'
 import type {
   BufferHandle,
@@ -81,13 +81,15 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
     }
     for (let index = 0; index < rectCount; index++) {
       const offset = index * 4
-      const worldLeft = rects[offset]!
-      const worldRight = worldLeft + rects[offset + 2]!
-      const screenLeft = worldXToScreenX(worldLeft, scrollLeft, dpr)
-      const screenRight = worldXToScreenX(worldRight, scrollLeft, dpr)
-      rectScreenScratch[offset] = screenLeft
+      const projected = projectWorldRectToScreen(
+        rects[offset]!,
+        rects[offset + 2]!,
+        scrollLeft,
+        dpr,
+      )
+      rectScreenScratch[offset] = projected.x
       rectScreenScratch[offset + 1] = rects[offset + 1]!
-      rectScreenScratch[offset + 2] = Math.max(1 / dpr, screenRight - screenLeft)
+      rectScreenScratch[offset + 2] = projected.width
       rectScreenScratch[offset + 3] = rects[offset + 3]!
     }
     return rectScreenScratch.subarray(0, floatCount)

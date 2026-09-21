@@ -582,6 +582,7 @@ export class ChartRenderer {
       kLinePositions,
       kLineCenters,
       kBarRects,
+      kWidthPx,
       mainIndicatorRange,
       useCachedFrame,
       level,
@@ -845,6 +846,7 @@ export class ChartRenderer {
     kLinePositions: KLinePositions,
     kLineCenters: number[],
     kBarRects: Array<{ x: number; width: number }>,
+    kWidthPx: number,
     mainIndicatorRange: { min: number; max: number } | null,
     useCachedFrame: boolean,
     level: UpdateLevel,
@@ -1010,6 +1012,7 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
+        kWidthPx,
         visiblePriceExtrema,
         requiresRightAxisWidthMeasurement,
         getLogicalIndexAtTimestamp: (timestamp) =>
@@ -1191,6 +1194,7 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
+        kWidthPx,
         xAxisCtx,
         viewport: {
           scrollLeft: vp.scrollLeft,
