@@ -13,21 +13,25 @@ import {
   useAgentProviderSettingsStore,
 } from './agent-provider-settings-store.js'
 import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer.js'
+import {
+  agentWorkspacePreferencesPersistence,
+  defaultAgentWorkspacePreferences,
+} from './agent-workspace-preferences.js'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
+  const preferences =
+    agentWorkspacePreferencesPersistence.load() ?? defaultAgentWorkspacePreferences()
   const state = shallowRef(createInitialAgentState())
   // UI 与模型请求共享 Bridge 从 Core 投影的同一份上下文项。
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
-  const readOnly = ref(false)
-  const collapseReasoning = ref(false)
+  const readOnly = ref(preferences.readOnly)
+  const collapseReasoning = ref(preferences.collapseReasoning)
   const models = shallowRef<readonly ProviderModelView[]>([])
   const modelsLoading = ref(false)
   const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
   providerSettings.bindBridge(bridge)
-  const locale = ref<'en' | 'zh-CN'>(
-    typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
-  )
+  const locale = ref<'en' | 'zh-CN'>(preferences.locale)
   let unsubscribe: (() => void) | undefined
   let unsubscribeContextItems: (() => void) | undefined
   let bufferedEvents: AgentUiEvent[] | undefined
@@ -218,6 +222,13 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     () => void loadModels(),
     { immediate: true },
   )
+  watch([locale, readOnly, collapseReasoning], () => {
+    agentWorkspacePreferencesPersistence.schedule(() => ({
+      locale: locale.value,
+      readOnly: readOnly.value,
+      collapseReasoning: collapseReasoning.value,
+    }))
+  })
   onUnmounted(() => {
     unsubscribe?.()
     unsubscribeContextItems?.()

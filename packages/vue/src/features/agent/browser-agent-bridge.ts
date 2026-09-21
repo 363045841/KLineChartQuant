@@ -23,7 +23,11 @@ import {
   RuntimeToolCatalog,
   WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
-import { formatDateTimeInTimeZone } from '@363045841yyt/klinechart-core'
+import {
+  createLocalStoragePersistence,
+  formatDateTimeInTimeZone,
+  type PersistenceCodec,
+} from '@363045841yyt/klinechart-core'
 import {
   type ChartAgentController,
   getRegisteredChartTools,
@@ -52,9 +56,8 @@ import type {
 } from './agent-contracts.js'
 import { ProviderModelPool } from './provider-model-pool.js'
 
-const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
-const PROVIDER_MODEL_POOL_STORAGE_KEY = 'agent.provider.model-pool'
-const ENABLED_TOOLS_STORAGE_KEY = 'agent.enabled-tools'
+/** LocalStorage 中 Agent 模型设置的键名；测试据此断言持久化文档。 */
+export const AGENT_MODEL_SETTINGS_STORAGE_KEY = 'agent.model-settings'
 
 type DrawingCreateError = Error & {
   readonly code?: string
@@ -159,6 +162,76 @@ interface BrowserProviderConnection {
   protocol: ProviderApiProtocol
 }
 
+interface BrowserAgentModelSettings {
+  profiles: BrowserProviderProfile[]
+  modelPool: ProviderModelPoolEntry[]
+  enabledTools: string[]
+}
+
+function isBrowserAgentModelSettings(value: unknown): value is BrowserAgentModelSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  return (
+    Array.isArray(Object.getOwnPropertyDescriptor(value, 'profiles')?.value) &&
+    Array.isArray(Object.getOwnPropertyDescriptor(value, 'modelPool')?.value) &&
+    Array.isArray(Object.getOwnPropertyDescriptor(value, 'enabledTools')?.value)
+  )
+}
+
+const browserAgentModelSettingsCodec: PersistenceCodec<BrowserAgentModelSettings> = {
+  decode(value): BrowserAgentModelSettings | null {
+    return isBrowserAgentModelSettings(value) ? value : null
+  },
+  encode(value): unknown {
+    return value
+  },
+}
+
+/** Agent 模型设置的唯一持久化入口。 */
+const browserAgentModelSettingsPersistence = createLocalStoragePersistence({
+  key: AGENT_MODEL_SETTINGS_STORAGE_KEY,
+  codec: browserAgentModelSettingsCodec,
+})
+
+/** 管理 Agent 模型设置文档，领域集合共享一次持久化写入。 */
+class BrowserAgentModelSettingsStore {
+  private cache = browserAgentModelSettingsPersistence.load() ?? {
+    profiles: [],
+    modelPool: [],
+    enabledTools: [],
+  }
+
+  profiles(): BrowserProviderProfile[] {
+    return this.cache.profiles.map((profile) => ({ ...profile }))
+  }
+
+  modelPool(): ProviderModelPoolEntry[] {
+    return [...this.cache.modelPool]
+  }
+
+  enabledTools(): string[] {
+    return [...this.cache.enabledTools]
+  }
+
+  setProfiles(profiles: BrowserProviderProfile[]): void {
+    this.cache = { ...this.cache, profiles: profiles.map((profile) => ({ ...profile })) }
+    this.persist()
+  }
+
+  setModelPool(modelPool: readonly ProviderModelPoolEntry[]): void {
+    this.cache = { ...this.cache, modelPool: [...modelPool] }
+    this.persist()
+  }
+
+  setEnabledTools(enabledTools: ReadonlySet<string>): void {
+    this.cache = { ...this.cache, enabledTools: [...enabledTools] }
+    this.persist()
+  }
+
+  private persist(): void {
+    browserAgentModelSettingsPersistence.save(this.cache)
+  }
+}
+
 /** Browser 宿主解析运行时工具所需的最小上下文。 */
 interface BrowserToolContext {
   readonly agent: ChartAgentController | null | undefined
@@ -183,11 +256,7 @@ async function fetchBrowserProvider(
 class BrowserProviderProfiles {
   private cache: BrowserProviderProfile[] | undefined
 
-  /**
-   * @param persistApiKey 是否允许 apiKey 进入 localStorage。宿主注入了外部凭据存储
-   * （Electron safeStorage）时必须为 false，否则加密存储没有意义——明文副本还在。
-   */
-  constructor(private readonly persistApiKey: boolean) {}
+  constructor(private readonly modelSettings: BrowserAgentModelSettingsStore) {}
 
   read(): BrowserProviderProfile[] {
     return this.models().map((profile) => ({ ...profile }))
@@ -195,20 +264,7 @@ class BrowserProviderProfiles {
 
   write(profiles: BrowserProviderProfile[]): void {
     this.cache = profiles.map((profile) => ({ ...profile }))
-    const persisted = this.persistApiKey
-      ? this.cache
-      : this.cache.map(({ apiKey: _apiKey, ...rest }) => ({ ...rest, apiKey: '' }))
-    window.localStorage.setItem(PROVIDER_PROFILES_STORAGE_KEY, JSON.stringify(persisted))
-  }
-
-  /** 是否存在 localStorage 中的历史明文 apiKey。 */
-  hasStoredApiKey(): boolean {
-    return this.models().some((profile) => Boolean(profile.apiKey))
-  }
-
-  /** 清除全部 profile 上的 apiKey，内存与 localStorage 同步生效。 */
-  clearApiKeys(): void {
-    this.write(this.models().map((profile) => ({ ...profile, apiKey: '' })))
+    this.modelSettings.setProfiles(this.cache)
   }
 
   active(): BrowserProviderProfile | undefined {
@@ -252,32 +308,15 @@ class BrowserProviderProfiles {
   }
 
   private load(): BrowserProviderProfile[] {
-    const raw = window.localStorage.getItem(PROVIDER_PROFILES_STORAGE_KEY)
-    if (!raw) return []
-    try {
-      const profiles = JSON.parse(raw)
-      return Array.isArray(profiles) ? (profiles as BrowserProviderProfile[]) : []
-    } catch {
-      return []
-    }
-  }
-}
-
-/** 读取跨 Provider Profile 的扁平模型池。 */
-function readStoredModelPool(): ProviderModelPoolEntry[] {
-  const raw = window.localStorage.getItem(PROVIDER_MODEL_POOL_STORAGE_KEY)
-  if (!raw) return []
-  try {
-    const models = JSON.parse(raw)
-    return Array.isArray(models) ? (models as ProviderModelPoolEntry[]) : []
-  } catch {
-    return []
+    return this.modelSettings.profiles()
   }
 }
 
 /** 保存用户选择的已启用工具；首次使用时保持所有已注册工具启用，内存缓存避免重复读盘。 */
 class BrowserEnabledTools {
   private cache: Set<string> | undefined
+
+  constructor(private readonly modelSettings: BrowserAgentModelSettingsStore) {}
 
   read(defaultNames: readonly string[]): Set<string> {
     this.cache ??= this.parse(defaultNames)
@@ -286,21 +325,15 @@ class BrowserEnabledTools {
 
   write(names: ReadonlySet<string>): void {
     this.cache = new Set(names)
-    window.localStorage.setItem(ENABLED_TOOLS_STORAGE_KEY, JSON.stringify([...this.cache]))
+    this.modelSettings.setEnabledTools(this.cache)
   }
 
   /** 解析持久化的工具名称；缺失或损坏时回退到全部注册名。 */
   private parse(defaultNames: readonly string[]): Set<string> {
-    const raw = window.localStorage.getItem(ENABLED_TOOLS_STORAGE_KEY)
-    if (!raw) return new Set(defaultNames)
-    try {
-      const names = JSON.parse(raw)
-      return Array.isArray(names)
-        ? new Set(names.filter((name): name is string => typeof name === 'string'))
-        : new Set(defaultNames)
-    } catch {
-      return new Set(defaultNames)
-    }
+    const names = this.modelSettings.enabledTools()
+    return names.length > 0 && names.every((name) => typeof name === 'string')
+      ? new Set(names)
+      : new Set(defaultNames)
   }
 }
 
@@ -429,14 +462,16 @@ function projectContextItems(
 
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
-  private readonly modelPool = new ProviderModelPool(readStoredModelPool, (models) => {
-    window.localStorage.setItem(PROVIDER_MODEL_POOL_STORAGE_KEY, JSON.stringify(models))
-  })
+  private readonly modelSettings = new BrowserAgentModelSettingsStore()
+  private readonly modelPool = new ProviderModelPool(
+    () => this.modelSettings.modelPool(),
+    (models) => this.modelSettings.setModelPool(models),
+  )
   private readonly contextItemsListeners = new Set<
     (items: ReadonlyArray<AgentContextItem>) => void
   >()
   private readonly profiles: BrowserProviderProfiles
-  private readonly enabledTools = new BrowserEnabledTools()
+  private readonly enabledTools = new BrowserEnabledTools(this.modelSettings)
   private readonly toolCatalog = new RuntimeToolCatalog<BrowserToolContext>()
   private readonly credentials: ProviderCredentialStore
   private readonly settings: BrowserProviderSettingsStore
@@ -454,10 +489,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private unsubscribeChartContextSource: (() => void) | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
-    this.profiles = new BrowserProviderProfiles(options.credentials === undefined)
+    this.profiles = new BrowserProviderProfiles(this.modelSettings)
     this.credentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
     this.settings = new BrowserProviderSettingsStore(this.profiles)
-    if (options.credentials) void this.adoptLegacyPlaintextApiKey(options.credentials)
     this.getChartAgent = options.getChartAgent ?? (() => null)
     this.registerTools()
     this.support = createOpenAiCompatibleRuntimeSupport({
@@ -1111,26 +1145,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     }
     this.profiles.updateActive({ settings: { ...settings, reasoningEffort: effort } })
     await this.emitProviderStatus()
-  }
-
-  /**
-   * 一次性处理 localStorage 中的历史明文 apiKey：迁移进注入的加密存储后清除。
-   *
-   * 判断：迁移而非只清除。Key 已经泄露在 localStorage 里，清除是必须的；但直接丢弃会让
-   * 已配置好的用户在升级后莫名不可用，而重新输入同一个 Key 并不会让它变得更安全。
-   * 仅在加密存储当前为空时迁移，避免覆盖用户已在 Electron 侧保存的新 Key。
-   * 若加密存储不可用（write 抛错），明文**保持原样不清除**——此时清除只会丢失凭据而
-   * 换不来任何安全收益，状态与本特性上线前相同，且下一次成功保存会立刻清理干净。
-   */
-  private async adoptLegacyPlaintextApiKey(credentials: ProviderCredentialStore): Promise<void> {
-    if (!this.profiles.hasStoredApiKey()) return
-    const legacyKey = this.profiles.active()?.apiKey?.trim()
-    try {
-      if (legacyKey && !(await credentials.read())) await credentials.write(legacyKey)
-    } catch {
-      return
-    }
-    this.profiles.clearApiKeys()
   }
 
   async deleteProviderCredential(): Promise<void> {

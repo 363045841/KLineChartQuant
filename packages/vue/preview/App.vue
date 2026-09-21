@@ -73,7 +73,7 @@
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
   import { useChartDocumentTitle } from './useChartDocumentTitle'
-  import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../src/index'
+  import { AgentWorkbenchShell, createAgentPanelWidthStorage, KlineChart } from '../src/index'
   import { BrowserAgentBridge } from '../src/features/agent/browser-agent-bridge'
   import {
     type KLineData,
@@ -525,15 +525,7 @@
   const agentBridge = new BrowserAgentBridge({
     getChartAgent: () => chartRef.value?.getController?.()?.agent,
   })
-  const webPanelWidthStorage: AgentPanelWidthStorage = {
-    load() {
-      const value = window.localStorage.getItem('agent.panelWidth')
-      return value === null ? undefined : Number(value)
-    },
-    save(width) {
-      window.localStorage.setItem('agent.panelWidth', String(width))
-    },
-  }
+  const webPanelWidthStorage = createAgentPanelWidthStorage()
   const showModal = ref(false)
 
   const sizeIndex = ref(0)

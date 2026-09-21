@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildPaneScaleTypesFromSetting,
-  migrateAxisSettings,
   resolveEffectiveAxisDisplay,
   resolvePriceScaleTypeSetting,
 } from '../axisSettings'
@@ -55,21 +54,6 @@ describe('axisSettings', () => {
     )
     expect(types.get('main')).toBe('percent')
     expect(types.get('MACD_0')).toBe('linear')
-  })
-
-  it('migrates legacy rightAxisType without overwriting new keys', () => {
-    expect(migrateAxisSettings({ rightAxisType: 'log', leftAxisType: 'percent' })).toEqual({
-      mainRightAxisTypeSetting: 'log',
-      mainLeftAxisDisplaySetting: 'percent',
-    })
-    expect(
-      migrateAxisSettings({
-        rightAxisType: 'log',
-        mainRightAxisTypeSetting: 'none',
-      }),
-    ).toEqual({
-      mainRightAxisTypeSetting: 'none',
-    })
   })
 
   it('defaults unknown scale values to linear', () => {

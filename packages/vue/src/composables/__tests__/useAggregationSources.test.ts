@@ -14,7 +14,6 @@ import { createOnlineProbe, registerProvider, source } from './_aggregationSourc
 
 describe('useAggregationSources', () => {
   beforeEach(() => {
-    window.localStorage.clear()
     marketDataProviderRegistry.setConfig('gotdx', { baseUrl: undefined })
   })
 

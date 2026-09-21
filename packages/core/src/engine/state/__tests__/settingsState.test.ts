@@ -46,13 +46,6 @@ describe('settingsState', () => {
     }).toThrow()
   })
 
-  it('migrates a legacy rightAxisType patch onto the new setting key', () => {
-    const s = createSettingsState()
-    s.actions.patch({ rightAxisType: 'log' } as ChartSettings)
-    expect(s.readonly.settings.peek().mainRightAxisTypeSetting).toBe('log')
-    expect(s.readonly.settings.peek().rightAxisType).toBeUndefined()
-  })
-
   it('preserves extension keys like preClose through resolve/patch', () => {
     expect(normalizeSettings({ preClose: 12.34 }).preClose).toBe(12.34)
     const s = createSettingsState({ preClose: 12.34 })
