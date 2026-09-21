@@ -63,4 +63,4 @@ interface IndicatorRenderStateReader {
 
 - 不保留按 `stateKey` 读取的兼容分支。
 - `instanceId -> stateKey` 的反向映射不作为过渡手段。
-- 旧 `indicatorState`、旧 `scheduler`、`stateComposer`、`visibleStateComposers` 在迁移完成后删除。
+- 旧 `indicatorState`、旧 `scheduler`、旧 Worker 协议、`indicatorResultState` 已删除；`stateComposer.ts` 与 `visibleStateComposers.ts` 保留，前者提供 `composeInstanceRenderState` 投影入口，后者是指标定义的可见区投影实现。

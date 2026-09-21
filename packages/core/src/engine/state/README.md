@@ -30,9 +30,9 @@ Chart（engine/chart.ts）
 - 定义 `StateKernel` 抽象基类与 `SubStateModule` 组合契约。
 - 为每一类图表状态提供 `createXxxState()` 子状态工厂：options、zoom、data、viewport、pane、
   systemTheme、settings、mode、drawing、interaction、dataManager、comparison、indicator、
-  indicatorResult、marker、renderer、theme。
+  marker、renderer。
 - 在 `ChartStateKernel` 中组合上述子状态，并暴露跨子状态的派生信号
-  （如 `effectiveTheme$`、`dataLength$`、`indicatorResultAvailability$`）。
+  （如 `effectiveTheme$`、`dataLength$`、`activeRenderers$`）。
 - 提供 `immutable.ts` 快照冻结工具，保证提交后对象图不可变。
 
 本目录不负责：
@@ -53,18 +53,20 @@ state/
 ├── dataState.ts               # 主图数据 buffer、周期、复权、可见数据版本
 ├── dataManagerState.ts        # 数据协调层：当前 spec、session slots 等
 ├── viewportState.ts           # 视口几何、DPR clamp 与尺寸
+├── contentGeometry.ts         # 视口内容的纯几何计算（leftBuffer / contentWidth / maxScroll）
 ├── paneState.ts               # 主图/副图布局
 ├── modeState.ts               # kline / timeshare / fiveDayTimeShare / comparison 模式
-├── systemTheme / themeState.ts # 主题偏好与生效主题推导
+├── themeState.ts              # 系统主题注入点（用户偏好在 settings.theme）
 ├── settingsState.ts           # 用户偏好设置快照
 ├── drawingState.ts            # 绘图工具、图元与选中 id
 ├── interactionState.ts        # 十字线、悬停、拖拽、区间选择
 ├── indicatorState.ts          # 指标实例与副图配置
-├── indicatorResultState.ts    # 指标计算结果池与版本
 ├── markerState.ts             # 自定义 marker 业务状态
 ├── comparisonState.ts         # 对比序列状态
 ├── rendererState.ts           # renderer backend 运行时状态
+├── viewWorkspace.ts           # 视图工作区可恢复快照类型与持久化契约
 ├── immutable.ts               # 快照深度冻结工具
+├── index.ts                   # 统一导出入口
 └── __tests__/                 # 各子状态与派生信号测试
 ```
 
@@ -84,15 +86,15 @@ state/
 
 `ChartStateKernel` 在构造时组合多个只读派生信号，消费方不关心依赖链：
 
-| 信号                           | 含义                                              |
-| ------------------------------ | ------------------------------------------------- |
-| `zoomLevel$`                   | 当前缩放级别                                        |
-| `dataLength$`                  | 当前主图数据条数                                    |
-| `effectiveTheme$`              | 由偏好主题 + 系统主题推导的生效主题                  |
-| `activeRenderers$`             | 当前状态要求启用的受管 renderer layer                |
-| `optionsForViewport$`          | 视口几何依赖的选项投影                               |
-| `sessionSlots$`                | 由品种 market 派生的分时交易时段槽位数                |
-| `indicatorResultAvailability$` | 指标结果相对数据/配置快照的可用性                    |
+| 信号                       | 含义                                              |
+| -------------------------- | ------------------------------------------------- |
+| `zoomLevel$`               | 当前缩放级别                                        |
+| `dataLength$`              | 当前主图数据条数                                    |
+| `effectiveTheme$`          | 由偏好主题 + 系统主题推导的生效主题                  |
+| `activeRenderers$`         | 当前状态要求启用的受管 renderer layer                |
+| `visibleMainIndicatorIds$` | 当前数据视图中应显示在主图图例的用户指标 ID          |
+| `optionsForViewport$`      | 视口几何依赖的选项投影                               |
+| `sessionSlots$`            | 由品种 market 派生的分时交易时段槽位数                |
 
 ## 新增一个子状态
 
@@ -103,8 +105,7 @@ state/
 
 ## 测试
 
-核心测试位于本目录 `__tests__/`，覆盖主题推导、对比状态、指标结果可用性、
-指标实例副图、视图快照等派生关系。运行 Core 全量测试：
+核心测试位于本目录 `__tests__/`，覆盖主题推导、对比状态、指标实例副图、视图快照等派生关系。运行 Core 全量测试：
 
 ```bash
 pnpm --filter @363045841yyt/klinechart-core test
