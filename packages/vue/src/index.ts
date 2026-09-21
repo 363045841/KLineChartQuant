@@ -76,6 +76,7 @@ export {
 
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
 export * from './features/agent/agent-contracts.js'
+export { createAgentPanelWidthStorage } from './features/agent/agent-panel-width-storage.js'
 export {
   type AgentWorkspaceState,
   createInitialAgentState,
