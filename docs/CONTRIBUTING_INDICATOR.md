@@ -1,187 +1,119 @@
 # 贡献新指标：作者模板
 
-本文档定义在当前 stateless + SoA + Worker 指标管线下，**新增一个指标必须修改的文件 + 1 套测试基础设施**。以 ATR（PR #0 落地的样板指标）为参考。
+本文档定义在**实例结果链路**（`packages/core/src/engine/indicators/instances/`）下新增一个指标需要改动的文件与测试要求。
 
-> **架构更新（`@Indicator` 装饰器注册）**：原先的「7 文件清单」第 6 步——手动编辑 `scheduler.ts` 把指标接进调度器——**已被 `@Indicator(...)` 类装饰器取代**。指标现在通过装饰器在模块加载时声明元数据（`IndicatorMetadata`），由 `Chart` 构造时遍历 `getRegisteredIndicatorDefinitions()` 自动 `registerIndicator(...)` 进 `IndicatorScheduler`。`scheduler.ts` 已重构为**完全泛型**：`applyResults` / `updateVisibleStatesOnly` / `buildActiveSubIndicatorMask` / `buildActiveConfig` 全部遍历 `registry.getAll()` 并通过 `meta.applyResult` / `meta.paneIdField` / `meta.category` 驱动，**新增指标时不再需要改 `scheduler.ts`**。详见下表第 6 步。
+适用范围：per-bar scalar / multi-line / point-array 类指标。结构类（HH/HL/BOS/FVG/OB 等）走 marker/overlay 路径，不适用本文。
 
-> 适用范围：per-bar scalar / multi-line / point-array 类指标。**结构类（HH/HL/BOS/FVG/OB 等）走另一条 marker/overlay 路径，见后续 PR 的子系统文档。**
+## 架构前提
 
----
+- 指标定义由 `@Indicator` 装饰器在模块加载时登记进 `indicatorDefinitionRegistry`；`loadBuiltinIndicators()` 负责 import 内置定义。
+- 计算结果按 `instanceId` 保存在结果池。`calculationKey = definitionId + 计算参数 + 计算上下文`，只用于跨实例去重，不含 pane 与样式。
+- renderer / scale renderer 在创建时绑定自己的 `instanceId`，绘制时从 `context.indicatorStateReader.get(instanceId)` 读取该实例的渲染投影。**没有**按指标类型索引的结果包，**没有** stateKey，也不写 PluginHost StateStore。
+- 展示配置（`presentation.defaultOptions`）不进入计算，由投影阶段合入 renderer 读取的 `params`。
 
-## 指标命名约定（MA 家族）
-
-均线家族 `name` 一律用标准英文缩写、全小写；`displayName` 用全大写。已占用名称：
-
-| name | 全称 | 说明 |
-|------|------|------|
-| `ma` | Simple Moving Average | 已有 |
-| `expma` | EXPMA | 已有；国内双线平滑（快/慢两条 EMA），**不是**标准单线 EMA |
-| `wma` | Weighted Moving Average | 已有 |
-| `dema` | Double Exponential Moving Average | 已有 |
-| `tema` | Triple Exponential Moving Average | 已有；**恒为 Triple EMA，保持国际标准不改** |
-| `hma` | Hull Moving Average | 已有 |
-| `kama` | Kaufman Adaptive Moving Average | 已有 |
-| `vma` | Volume Moving Average（量的 MA） | 已有；区别于 `vwap` |
-| `trix` | Triple Exponential Average | 已有 |
-
-待新增指标使用以下保留名，避免歧义：
-
-- 三角均线（Triangular）→ **`trima`**（Pine 标准名，与 `tema` 无歧义；不用 `tma`）
-- Wilder 平滑（Smoothed MA）→ `smma` / `rma`
-- 成交量加权均线 → `vwma`（区别于已有 `vma` 与 `vwap`）
-- 零滞后 EMA → `zlema`
-- Arnaud Legoux → `alma`
-- 线性回归均线 → `lsma`
-- 平行线差（通达信 DMA）→ `dma`
-- 顾比均线（Guppy）→ `gmma`
-
-新增前先确认 `indicatorCatalog.ts` 的 `uiMeta` 与 `@Indicator` 注册名是否已占用。
-
----
+设计决策见 `docs/design/indicator-instance-render-binding.md` 与 `docs/design/indicator-instance-calculation-migration.md`。
 
 ## 文件改动清单（按依赖顺序）
 
-下表以新指标 `XXX` 为例（小写 `xxx`、大写 `XXX`，对应实例：`ATR` / `atr`）。
+以新指标 `XXX` 为例（内部 `name: 'xxx'`，对外 `displayName: 'XXX'`）。
 
-| # | 文件 | 改动 | 难度 |
-|---|---|---|---|
-| 1 | `src/core/indicators/xxxState.ts`（**新**） | 定义 `XXXRenderState extends BaseIndicatorState`、`createXXXStateKey(paneId)`、`EMPTY_XXX_STATE`、`DEFAULT_XXX_PERIOD` | 低 |
-| 2 | `src/core/indicators/calculators.ts`（**改**） | 加 `calcXXXData(data: KLineData[], params): SeriesShape` 纯函数，附 `calcXXXDataSoA(layout, params)` 包装 | 低-中 |
-| 3 | `src/core/indicators/workerProtocol.ts`（**改**） | 加 `XXXSchedulerConfig`；在 `IndicatorConfigSnapshot` 加 `xxx` 字段 + `xxxPaneId`；在 `IndicatorSeriesBundle` 加 `xxx: { series, params }` | 低 |
-| 4 | `src/core/indicators/indicatorRuntime.ts`（**改**） | 加 `cachedXxxSeries` + `dirtyXxxConfig`；`getDefaultConfig` 加默认；`setConfig` 加 shallow-equal 分支；`forceDirty` 加；`computeSeries` 加 ATR-block；两处 bundle 返回加 `xxx` | 中 |
-| 5 | `src/core/indicators/stateComposer.ts`（**改**） | 加 `XXXRenderState` import 和 `EMPTY_XXX_STATE`；在 `VisibleSubIndicatorStates`/`VisibleSubIndicatorMask` 加 `xxx`；加 `calcXXXExtremes(...)`；`composeVisibleSubIndicatorStates` 内组装 state | 中 |
-| 6 | `src/core/renderers/Indicator/xxx.ts`（**新**） | RendererPlugin，参考 `atr.ts`：WebGL 优先 + Canvas2D 回退，从 `pluginHost.getSharedState<XXXRenderState>(STATE_KEY)` 读，带 cache-key 防 redraw。**同文件内**用 `@Indicator({...})` 装饰一个 `class XXXIndicatorDefinition`（`static rendererFactory = createXXXRendererPlugin`）声明元数据 → 取代旧的 `scheduler.ts` 手动注册（见下方「`@Indicator` 装饰器注册」） | 中 |
-| 7 | `src/semantic/types.ts`（**改**） | 在 `SubIndicatorParams`（副图）或 `MainIndicatorConfig`（主图叠加）加 `XXX?: {...}` | 低 |
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `packages/core/src/engine/indicators/state/xxxState.ts`（**新**） | 定义 `XXXRenderState extends BaseIndicatorState`、`EMPTY_XXX_STATE`，以及需要的 `DEFAULT_*` 常量 |
+| 2 | `packages/core/src/engine/indicators/calculators/xxx.ts`（**新**）+ `calculators/index.ts`（**改**） | 纯计算函数 `calcXXXData(...)`，并从 `calculators/index.ts` 导出 |
+| 3 | `packages/core/src/engine/indicators/indicatorContracts.ts`（**改**） | 副图登记进 `VisibleIndicatorStateContracts`，主图登记进 `MainIndicatorStateContracts`（`xxx: XXXRenderState`） |
+| 4 | `packages/core/src/engine/renderers/Indicator/xxx.ts`（**新**） | renderer plugin（读 `instanceId` 投影）+ 同文件 `@Indicator({...})` + `static rendererFactory` |
+| 5 | `packages/core/src/engine/indicators/registerBuiltins.ts`（**改**） | 把 `../renderers/Indicator/xxx.js` 加进 `loadBuiltinIndicators()` 的 import 列表 |
+| 6 | `packages/core/src/features/semantic/types.ts`（**改**，可选） | 需要语义配置映射时加字段 |
 
-**`scheduler.ts` 不再需要改**——旧清单第 6 步（手动接进调度器）已由 `@Indicator` 装饰器接管，`IndicatorScheduler` 现已是泛型实现，遍历注册表自动处理 `applyResults` / 可见极值 / active mask / active config。
-**worker 入口 `indicator.worker.ts` 不需要改**——它只 dispatch 到 `IndicatorRuntime.computeSeries()`，新指标自动随 runtime 升级。
+第 3 步是编译期约束：`@Indicator` 的 `name` 类型为 `IndicatorName`，必须是契约表登记的键，漏登记无法通过类型检查。
 
-> **注意**：步骤 2/3/4/5（`calculators.ts`、`workerProtocol.ts`、`indicatorRuntime.ts`、`stateComposer.ts`）**仍需手动修改**——`@Indicator` 装饰器只负责「注册与渲染分发」，**不负责计算管线与 worker 协议**。指标的纯函数计算、SoA 包装、worker 协议字段、runtime 缓存/脏标记、state 组装这一整条数据链路依旧由作者按上表手工接入。
+`state/xxxState.ts` 只保留渲染状态类型与 `EMPTY_*` 常量，不定义 state key。
 
----
-
-## `@Indicator` 装饰器注册（取代旧 scheduler.ts 手动注册）
-
-在渲染器文件（`src/core/renderers/Indicator/xxx.ts`）末尾，用 `@Indicator({...})` 装饰一个 definition 类，并在该类上挂 `static rendererFactory`。模块加载时装饰器把元数据写入 `indicatorDefinitionRegistry`，`Chart` 构造时调 `getRegisteredIndicatorDefinitions()` 自动注册进 `IndicatorScheduler`。
+## renderer 读取契约
 
 ```ts
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+const state = context.indicatorStateReader?.get<XXXRenderState>(instanceId)
+```
 
-// 副图振荡器（如 ATR）：
+`instanceId` 由挂载路径通过 `IndicatorRendererOptions.instanceId` 注入（必填），renderer 不推导 state key，也不向 PluginHost 查询业务状态。
+
+## `@Indicator` 配置
+
+以 ATR 为样板（`packages/core/src/engine/renderers/Indicator/atr.ts`）：
+
+```ts
 @Indicator({
-    name: 'atr',                 // 指标唯一标识（小写），scheduler/渲染器用它查 metadata
-    displayName: 'ATR',          // 显示名（日志/调试用）
-    category: 'oscillator',      // 'main' | 'sub' | 'oscillator' | 'volume'
-    stateKey: createATRStateKey, // string（主图常量）或 (paneId) => string（副图函数）
-    defaultPaneId: 'sub_ATR',    // 默认 pane
-    paneIdField: 'atrPaneId',    // 可选：configSnapshot 中存放当前 paneId 的字段名（副图需要）
-    applyResult: (host, state, paneId) => {  // 可选：把计算结果写入 StateStore
-        host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+  name: 'xxx',
+  displayName: 'XXX',
+  category: 'oscillator',
+  indicatorType: 'volatility',
+  defaultPaneId: 'sub_XXX',
+  scaleRendererFactory: createXxxScaleRendererPlugin,
+  visibleState: { compose: createNonNegativeSparseVisibleStateComposer('xxx', EMPTY_XXX_STATE) },
+  getTitleInfo: getXXXTitleInfo,
+  presentation: { defaultOptions: { showXXX: true } },
+  runtime: {
+    defaultParams: { period: 14 },
+    computeKey: 'calcXXXData',
+    compute: (data, c) => calcXXXData(data, c.period),
+  },
 })
-class ATRIndicatorDefinition {
-    static rendererFactory = createATRRendererPlugin  // 必填：渲染器工厂（() => RendererPluginWithHost）
+export class XXXIndicatorDefinition {
+  static rendererFactory = createXXXRendererPlugin
 }
 ```
 
-主图叠加类指标（如 MA）`stateKey` 用常量、省略 `paneIdField`、`defaultPaneId: 'main'`；可切换到主图的副图指标（如 SAR）额外加 `allowMainPane: true`。
-
-**`@Indicator` 装饰器可用 option 字段（即 `IndicatorDefinitionConfig`）——请勿臆造其它字段：**
+可用字段（即 `IndicatorDefinitionConfig`），请勿臆造其它字段：
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
-| `name` | 是 | 指标唯一标识（小写，如 `'atr'` / `'ma'`） |
-| `displayName` | 是 | 显示名（如 `'ATR'`） |
+| `name` | 是 | 内部 name，必须是 `indicatorContracts.ts` 登记的键 |
+| `displayName` | 是 | 对外规范 ID，`resolveIndicatorDefinitionId()` 返回它 |
 | `category` | 是 | `'main' \| 'sub' \| 'oscillator' \| 'volume'` |
-| `stateKey` | 是 | `string` 或 `(paneId: string) => string`，由 `resolveStateKey()` 解析 |
-| `defaultPaneId` | 是 | 默认 pane（主图 `'main'`，副图如 `'sub_ATR'`） |
-| `paneIdField` | 否 | `IndicatorConfigSnapshot` 中当前 paneId 的字段名（如 `'atrPaneId'`） |
-| `allowMainPane` | 否 | 副图指标是否允许切到主图（如 SAR） |
-| `applyResult` | 否 | `(host, state, paneId) => void`，把 state 写入 StateStore |
+| `indicatorType` | 是 | `IndicatorTypeRegistry` 的键，决定指标选择器分组 |
+| `defaultPaneId` | 是 | 默认 pane（主图 `'main'`，副图如 `'sub_XXX'`） |
+| `runtime` | 有 calculator 的指标必填 | `{ defaultParams, compute, computeKey, outputAlignment?, configKey?, paneIdKey? }`；`defaultParams` 的键就是计算参数集合 |
+| `visibleState` | 副图指标需要 | `{ compose }`，复用 `visibleStateComposers.ts` 的 composer 工厂 |
+| `mainPane` | 主图指标需要 | `{ rendererName, toActiveConfig?, computePriceRange?, composeRenderState? }` |
+| `presentation` | 建议 | `{ defaultOptions, selectSeriesKeys? }`；展示配置不进入 `calculationKey` |
+| `getTitleInfo` | 否 | pane 标题 / 主图图例内容 |
+| `scale` / `scaleRendererFactory` | 否 | 副图坐标轴 |
+| `getRendererName` / `getScaleRendererName` / `getPaneTitleRendererName` | 否 | 覆盖默认 plugin 命名规则 |
+| `dataViews` | 否 | 参与渲染的数据视图，未声明时仅 K 线 |
+| `aliases` / `indicatorTypeLabel` / `paneIdField` / `allowMainPane` | 否 | 兼容别名与能力声明 |
 
-外加挂在被装饰类上的 `static rendererFactory: () => RendererPluginWithHost`（**必填**，装饰器初始化时校验，缺失会抛错）。
+外加挂在被装饰类上的 `static rendererFactory: RendererFactory`（**必填**，缺失会在模块加载时抛 `KLineChartError`）。
 
-> 渲染器内部不再硬编码 state key：通过 `host.getService<IndicatorScheduler>('indicatorScheduler').getIndicatorMetadata('atr')` 拿到 metadata，再 `resolveStateKey(meta.stateKey, paneId)` 解析——参考 `atr.ts` / `ma.ts` 的 `getXXXStateKey(...)`。
+**参数分层**：影响 calculator 输出的参数放 `runtime.defaultParams`；`show*` 一类显隐开关放 `presentation.defaultOptions`。两者混放会导致切换显隐时触发重新计算。多周期指标可用 `presentation.selectSeriesKeys(params, options)` 过滤可见序列（参考 `ma.ts` / `rsi.ts`）。
 
-**旧 vs 新——自动化对照：**
+## 测试
 
-| 旧的手动步骤（scheduler.ts 第 6 步） | 现状 |
-|---|---|
-| `registerIndicator(...)` 注册 | **自动**：`Chart` 遍历 `getRegisteredIndicatorDefinitions()` |
-| `applyResults` 内 `if (changed.has('xxx'))` 块 | **自动**：泛型 `applyResults` 遍历 `registry.getAll()` 调 `meta.applyResult` |
-| `updateVisibleStatesOnly` 加分支 | **自动**：泛型遍历注册表 |
-| `buildActiveSubIndicatorMask` 加 `xxx` | **自动**：靠 `meta.paneIdField` / `meta.allowMainPane` |
-| `buildActiveConfig.subKeys` 加 `'xxx'` | **自动**：遍历有 `paneIdField` 的 meta，关闭非活跃 `show*` |
-| public 方法 `updateXXXConfig` | 不再需要（如需运行时改配置，走通用配置入口） |
-| 计算 / worker 协议 / runtime / state 组装（步骤 2-5） | **仍需手动**（装饰器不覆盖数据管线） |
-
----
-
-## 测试基础设施（一次性，PR #0 落地，后续 PR 直接复用）
+复用 `packages/core/src/engine/indicators/__tests__/` 的基础设施：
 
 | 路径 | 用途 |
 |---|---|
-| `src/core/indicators/__tests__/__fixtures__/synthetic.ts` | 合成 OHLC 场景：`empty`、`singleBar`、`shortSequence`、`constantPrice`、`pureUptrend`、`pureDowntrend`、`sideways`、`spikeAtBar19`、`gapUp` |
-| `src/core/indicators/__tests__/__fixtures__/golden/*.json` | 离线生成的金标值（pandas-ta / TA-Lib），运行时 `import jsonValues from '...'`，**不引入 Python 运行时依赖** |
-| `src/core/indicators/__tests__/__fixtures__/golden/index.ts` | JSON 加载工具 + `assertSeriesClose(actual, expected, tolerance)` |
-| `src/core/indicators/__tests__/_propertyAssertions.ts` | 跨指标可复用的数学不变量断言（`assertNonNegative`、`assertBounded`、`assertWarmupThenDefined`、`assertFiniteOrUndefined`） |
+| `__fixtures__/synthetic.ts` | 合成 OHLC 场景（`empty`、`singleBar`、`pureUptrend`、`spikeAtBar19` 等） |
+| `__fixtures__/golden/*.json` + `golden/index.ts` | 离线金标值与 `assertSeriesClose(actual, expected, tolerance)` |
+| `_propertyAssertions.ts` | 跨指标可复用的数学不变量断言 |
+| `helpers/instanceTestKit.ts` | 实例快照、计算计划、可控执行器与输出构造 |
+| `helpers/metadataTestKit.ts` | 最小 `IndicatorMetadata` |
 
----
-
-## 每个新指标必须覆盖的 5 类测试
+每个新指标必须覆盖：
 
 1. **Edge cases**：empty / single bar / shorter-than-period / period ≤ 0 / period = 1
-2. **Golden values**：≥ 3 个合成 fixture 跟离线金标对照
-3. **数学不变量**（typical examples）：
-   - 取值范围（RSI ∈ [0,100]、ATR ≥ 0、Williams %R ∈ [-100,0]）
-   - 单调性（OBV 随 sign(Δclose)）
-   - 对称性（对称数据产生对称结果）
-4. **Warm-up 边界**：indices `[0, period-1)` 是 undefined，自 `period-1` 起有定义
-5. **Incremental ≡ batch**：`calc(slice(0, n)) ≡ calc(full).slice(0, n)`——live 数据和历史回看一致
+2. **Golden values**：≥ 3 个合成 fixture 与离线金标对照
+3. **数学不变量**：取值范围（RSI ∈ [0,100]、ATR ≥ 0 等）、单调性、对称性
+4. **Warm-up 边界**：indices `[0, period-1)` 为 undefined，自 `period-1` 起有定义
+5. **Incremental ≡ batch**：`calc(slice(0, n)) ≡ calc(full).slice(0, n)`
 
----
+renderer 侧用 `renderers/__tests__/` 的 `renderTestKit` 构造 `RenderContext` 与按 `instanceId` 命中的 reader；投影侧在 `indicators/__tests__/stateComposer.test.ts` 验证展示配置合入与 `selectSeriesKeys` 过滤。
 
 ## Golden values 生成
 
-未来 PR 引入 `scripts/gen-golden.py`：
-- 读 `__fixtures__/synthetic.ts` 的合成数据（导出为可被 Python 读取的 JSON）
-- 调用 `pandas-ta` 或 `TA-Lib` 计算
-- 写出 `__fixtures__/golden/{indicator}.json`
-- CI 不跑该脚本——金标是 commit 进仓库的二进制（JSON）
-
-PR #0 的 ATR golden 由手算 + 公式推导生成，并标注：当 `scripts/gen-golden.py` 落地后应该替换。
-
----
+金标是 commit 进仓库的 JSON，CI 不跑生成脚本。当前已提交 `atr` / `dema` / `hma` / `kama` / `tema` / `wma` 的 golden，由手算 + 公式推导生成；引入离线生成脚本后应替换。
 
 ## 提交节奏建议
 
-- 单个指标 = 单个 PR
-- 一个 PR 内多个互不依赖的简单指标（如 WMA + DEMA + TEMA + HMA 同属 MA 家族）可合并
+- 单个指标 = 单个 PR；互不依赖的简单指标（如 WMA + DEMA + TEMA + HMA 同属 MA 家族）可合并
 - 强依赖的指标拆成 PR 链（如 ATR → Keltner → SuperTrend，前者合并后才开后者）
-
----
-
-## PR 0 (ATR) 作为蓝本
-
-完整改动清单参见 PR #0 的 diff。摘要：
-
-```
-NEW   src/core/indicators/atrState.ts                                    25 行
-NEW   src/core/indicators/__tests__/atr.test.ts                         150 行
-NEW   src/core/indicators/__tests__/__fixtures__/synthetic.ts            55 行
-NEW   src/core/indicators/__tests__/__fixtures__/golden/atr.json          ~40 行
-NEW   src/core/indicators/__tests__/__fixtures__/golden/index.ts          45 行
-NEW   src/core/indicators/__tests__/_propertyAssertions.ts                75 行
-NEW   src/core/renderers/Indicator/atr.ts                                180 行  （含末尾 @Indicator 装饰器声明）
-NEW   docs/CONTRIBUTING_INDICATOR.md                                  （本文档）
-EDIT  src/core/indicators/calculators.ts                          + ~85 行
-EDIT  src/core/indicators/workerProtocol.ts                       + 12 行
-EDIT  src/core/indicators/indicatorRuntime.ts                     + 30 行
-EDIT  src/core/indicators/stateComposer.ts                        + 40 行
-EDIT  src/semantic/types.ts                                       + 1 行
-EDIT  src/core/indicators/__tests__/scheduler.test.ts             （断言更新 + 1 测试修复）
-# 注：原 `EDIT src/core/indicators/scheduler.ts +35 行` 已被 atr.ts 末尾的 @Indicator 装饰器取代，scheduler 现为泛型实现
-```
-
-PR 0 完成后，新指标的预估改动量从 ~900 行（含模板/基础设施）降到 ~300-500 行 per indicator（视复杂度）。

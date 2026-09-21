@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface TRIXRenderState extends BaseIndicatorState {
   timestamp: number
@@ -11,8 +10,6 @@ export interface TRIXRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createTRIXStateKey = (paneId: string) => createIndicatorStateKey('trix', paneId)
 
 export const DEFAULT_TRIX_PERIOD = 15
 export const DEFAULT_TRIX_SIGNAL_PERIOD = 9

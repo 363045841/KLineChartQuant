@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface KAMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface KAMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createKAMAStateKey = (paneId: string) => createIndicatorStateKey('kama', paneId)
 
 export const DEFAULT_KAMA_PERIOD = 10
 export const DEFAULT_KAMA_FAST_PERIOD = 2

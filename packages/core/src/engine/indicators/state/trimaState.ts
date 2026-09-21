@@ -1,6 +1,5 @@
 // TRIMA 指标渲染状态的键创建与空状态定义（供渲染器与 titleInfo 复用）
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface TRIMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -11,8 +10,6 @@ export interface TRIMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createTRIMAStateKey = (paneId: string) => createIndicatorStateKey('trima', paneId)
 
 export const DEFAULT_TRIMA_PERIOD = 20
 

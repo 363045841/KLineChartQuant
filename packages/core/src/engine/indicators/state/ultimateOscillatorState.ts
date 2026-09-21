@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface UltimateOscillatorRenderState extends BaseIndicatorState {
   timestamp: number
@@ -24,8 +23,6 @@ export const DEFAULT_UO_P3 = 28
  * @param paneId 目标副图 ID。
  * @returns UO 状态命名空间键。
  */
-export const createUltimateOscillatorStateKey = (paneId: string) =>
-  createIndicatorStateKey('ultimateOscillator', paneId)
 
 export const EMPTY_UO_STATE: UltimateOscillatorRenderState = {
   timestamp: 0,

@@ -10,10 +10,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcSTOCHData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { STOCHRenderState } from '../../indicators/state/stochState.js'
-import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState.js'
+import { EMPTY_STOCH_STATE } from '../../indicators/state/stochState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -25,32 +24,16 @@ type LinePoint = { x: number; y: number }
 interface STOCHRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getSTOCHStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[STOCHRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('stoch')
-  if (!meta) {
-    console.warn("[STOCHRenderer] Indicator metadata for 'stoch' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 KDJ 渲染器插件
  */
 function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getSTOCHStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -109,8 +92,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -121,9 +103,8 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<STOCHRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<STOCHRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -227,17 +208,15 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<STOCHRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<STOCHRenderState>(instanceId)
       return state?.params ?? {}
     },
 
     setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
+      // no-op：配置由外部统一更新
     },
   }
 }
@@ -304,7 +283,8 @@ function getSTOCHTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): {
   name: string
@@ -320,7 +300,7 @@ function getSTOCHTitleInfo(
   } = { name: '随机指标', params: [n, m], values: [] }
   if (index === null) return title
 
-  const state = stateReader.get<STOCHRenderState>(createSTOCHStateKey(paneId))
+  const state = stateReader.get<STOCHRenderState>(instanceId)
   if (!state) return title
 
   const point = state.series[index]

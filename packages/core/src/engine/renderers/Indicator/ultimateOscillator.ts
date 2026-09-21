@@ -3,6 +3,7 @@
  */
 
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -13,11 +14,9 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcUltimateOscillatorData } from '../../indicators/calculators/ultimateOscillator.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { UltimateOscillatorRenderState } from '../../indicators/state/ultimateOscillatorState.js'
 import {
-  createUltimateOscillatorStateKey,
   DEFAULT_UO_P1,
   DEFAULT_UO_P2,
   DEFAULT_UO_P3,
@@ -35,28 +34,8 @@ type LinePoint = { x: number; y: number }
 interface UltimateOscillatorRendererOptions {
   /** 目标 pane ID。 */
   paneId?: string
-}
-
-/**
- * 获取 UO 在指定 pane 上的状态键。
- * @param host 插件宿主。
- * @param paneId 目标副图 ID。
- * @returns 状态键，服务不可用时返回 null。
- */
-function getUltimateOscillatorStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[UltimateOscillatorRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('ultimateOscillator')
-  if (!meta) {
-    console.warn(
-      "[UltimateOscillatorRenderer] Indicator metadata for 'ultimateOscillator' not found, skip rendering",
-    )
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -67,13 +46,8 @@ function getUltimateOscillatorStateKey(host: PluginHost | null, paneId: string):
 function createUltimateOscillatorRendererPlugin(
   options: UltimateOscillatorRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_UO' } = options
+  const { paneId = 'sub_UO', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 解析当前指标状态键。 */
-  function resolveKey(): string | null {
-    return getUltimateOscillatorStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedUOPoints: LinePoint[] = []
@@ -198,8 +172,7 @@ function createUltimateOscillatorRendererPlugin(
 
     /** 声明此渲染器拥有的状态命名空间。 */
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /** 绘制 UO 零轴和主折线。 */
@@ -211,9 +184,8 @@ function createUltimateOscillatorRendererPlugin(
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<UltimateOscillatorRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<UltimateOscillatorRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -285,16 +257,14 @@ function createUltimateOscillatorRendererPlugin(
 
     /** 返回当前 UO 配置。 */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<UltimateOscillatorRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<UltimateOscillatorRenderState>(instanceId)
       return state?.params ?? {}
     },
 
-    /** 配置由 IndicatorScheduler 统一更新。 */
+    /** 配置由外部统一更新。 */
     setConfig() {},
   }
 }
@@ -330,7 +300,6 @@ function drawUltimateOscillatorLineWithCanvas2D(
 }
 
 const getUltimateOscillatorTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createUltimateOscillatorStateKey,
   name: 'UO',
   label: 'UO',
   getParams: (params) => [

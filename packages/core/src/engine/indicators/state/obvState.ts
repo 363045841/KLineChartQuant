@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface OBVRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface OBVRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createOBVStateKey = (paneId: string) => createIndicatorStateKey('obv', paneId)
 
 export const EMPTY_OBV_STATE: OBVRenderState = {
   timestamp: 0,

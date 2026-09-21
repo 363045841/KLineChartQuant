@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -10,13 +11,12 @@ import { calcFibData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
-  resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FibRenderState } from '../../indicators/state/fibState.js'
-import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState.js'
+import { EMPTY_FIB_STATE } from '../../indicators/state/fibState.js'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -35,27 +35,13 @@ function getFibColors(colors: ColorTokens) {
 
 type Point = { x: number; y: number }
 
-function getFibStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[FibRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('fib')
-  if (!meta) {
-    console.warn("[FibRenderer] Indicator metadata for 'fib' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+function createFibRendererPlugin(options: {
+  paneId?: string
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
+} = {}): RendererPluginWithHost {
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getFibStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `fib_${paneId}`,
@@ -68,8 +54,7 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -78,9 +63,8 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<FibRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<FibRenderState>(instanceId)
       if (!state || !state.params.showLevels || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -134,13 +118,11 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       return (
         pluginHost
-          ?.getService<IndicatorScheduler>('indicatorScheduler')
-          ?.createRenderStateReader()
-          .get<FibRenderState>(stateKey)?.params ?? {}
+          ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+          ?.get<FibRenderState>(instanceId)?.params ?? {}
       )
     },
     setConfig() {},
@@ -156,11 +138,18 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
+const getFibTitleInfo: GetTitleInfoFn = (
+  _data,
+  index,
+  _params,
+  stateReader,
+  instanceId,
+  _paneId,
+  colors,
+) => {
   if (index === null || index < 0) return null
 
-  const stateKey = createFibStateKey(paneId)
-  const state = stateReader.get<FibRenderState>(stateKey)
+  const state = stateReader.get<FibRenderState>(instanceId)
   if (!state) return null
 
   const p = state.series[index]

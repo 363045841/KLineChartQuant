@@ -11,38 +11,19 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcStructureData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { StructureRenderState } from '../../indicators/state/structureState.js'
-import {
-  createStructureStateKey,
-  EMPTY_STRUCTURE_STATE,
-} from '../../indicators/state/structureState.js'
+import { EMPTY_STRUCTURE_STATE } from '../../indicators/state/structureState.js'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 const LABEL_FONT = '11px sans-serif'
 
-function getStructureStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[StructureRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('structure')
-  if (!meta) {
-    console.warn(`[StructureRenderer] Indicator metadata for 'structure' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createStructureRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_Structure' } = options
+function createStructureRendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'sub_Structure', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getStructureStateKey(pluginHost, paneId)
-  }
   return {
     name: `structure_${paneId}`,
     version: '1.0.0',
@@ -54,8 +35,7 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -64,9 +44,8 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<StructureRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<StructureRenderState>(instanceId)
       if (!state) return
       const params = state.params
       const { swings, events } = state.series
@@ -129,12 +108,10 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<StructureRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<StructureRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -146,13 +123,14 @@ function getStructureTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const leftWindow = (params.leftWindow as number) ?? 5
   const rightWindow = (params.rightWindow as number) ?? 2
-  const state = stateReader.get<StructureRenderState>(createStructureStateKey(paneId))
+  const state = stateReader.get<StructureRenderState>(instanceId)
 
   const values: Array<{ label: string; value: number; color: string }> = []
   if (state && state.series.swings.length > 0) {

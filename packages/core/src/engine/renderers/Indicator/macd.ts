@@ -12,10 +12,9 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import type { MACDPoint } from '../../indicators/calculators/index.js'
 import { calcMACDData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MACDRenderState } from '../../indicators/state/macdState.js'
-import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState.js'
+import { EMPTY_MACD_STATE } from '../../indicators/state/macdState.js'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 
@@ -44,36 +43,20 @@ interface MACDConfig {
 interface MACDRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
   /** 初始配置 */
   config?: MACDConfig
 }
 
-function getMACDStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[MACDRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('macd')
-  if (!meta) {
-    console.warn("[MACDRenderer] Indicator metadata for 'macd' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
 /**
  * 创建 MACD 渲染器插件
- * 从 StateStore 读取 MACD 状态，不再内联计算
+ * 从指标实例投影读取 MACD 状态，不再内联计算
  */
 function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub', config: initialConfig = {} } = options
+  const { paneId = 'sub', instanceId, config: initialConfig = {} } = options
 
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getMACDStateKey(pluginHost, paneId)
-  }
 
   const config: Required<MACDConfig> = {
     fastPeriod: 12,
@@ -136,8 +119,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -149,10 +131,8 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      // 从 StateStore 读取 MACD 状态
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<MACDRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<MACDRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) return
       if (klineData.length < config.slowPeriod) return
 
@@ -335,7 +315,11 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      return { ...config }
+      if (!instanceId) return {}
+      const state = pluginHost
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<MACDRenderState>(instanceId)
+      return state?.params ?? {}
     },
 
     setConfig(newConfig: Record<string, unknown>) {
@@ -468,7 +452,8 @@ function getMACDTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): {
   name: string
@@ -479,7 +464,7 @@ function getMACDTitleInfo(
   const fastPeriod = (params.fastPeriod as number) ?? 12
   const slowPeriod = (params.slowPeriod as number) ?? 26
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const state = stateReader.get<MACDRenderState>(createMACDStateKey(paneId))
+  const state = stateReader.get<MACDRenderState>(instanceId)
   if (!state) return null
 
   const point = state.series[index]

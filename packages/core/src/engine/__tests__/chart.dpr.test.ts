@@ -72,6 +72,7 @@ describe('Chart DPR pipeline', () => {
     const rsiRendererName = getRegisteredIndicatorDefinition('RSI')?.rendererFactory({
       paneId: 'RSI_0',
       indicatorId: 'RSI',
+      instanceId: 'rsi-instance',
     }).name
     expect(rsiRendererName).toBeDefined()
     expect(chart.getRenderer(rsiRendererName!)).toBeDefined()

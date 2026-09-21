@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcHMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { HMARenderState } from '../../indicators/state/hmaState.js'
-import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/state/hmaState.js'
+import { EMPTY_HMA_STATE } from '../../indicators/state/hmaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -20,29 +20,13 @@ type Point = { x: number; y: number }
 
 interface HMARendererOptions {
   paneId?: string
-}
-
-function getHMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[HMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('hma')
-  if (!meta) {
-    console.warn("[HMARenderer] Indicator metadata for 'hma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getHMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `hma_${paneId}`,
@@ -57,8 +41,7 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -69,9 +52,8 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<HMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<HMARenderState>(instanceId)
       if (!state || !state.params.showHMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -108,12 +90,10 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<HMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<HMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -124,7 +104,6 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
 }
 
 const getHMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createHMAStateKey,
   name: 'HMA',
   getParams: (p) => [p.period as number],
   getColor: (colors) => colors.palette.i4,

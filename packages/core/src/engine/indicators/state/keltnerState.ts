@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface KeltnerPoint {
   upper: number
@@ -23,8 +22,6 @@ export interface KeltnerRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createKeltnerStateKey = (paneId: string) => createIndicatorStateKey('keltner', paneId)
 
 export const DEFAULT_KELTNER_EMA_PERIOD = 20
 export const DEFAULT_KELTNER_ATR_PERIOD = 10

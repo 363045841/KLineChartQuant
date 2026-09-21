@@ -3,6 +3,7 @@
  */
 
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -12,13 +13,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcSchaffTrendCycleData } from '../../indicators/calculators/schaffTrendCycle.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SchaffTrendCycleRenderState } from '../../indicators/state/schaffTrendCycleState.js'
-import {
-  createSchaffTrendCycleStateKey,
-  EMPTY_SCHAFF_TREND_CYCLE_STATE,
-} from '../../indicators/state/schaffTrendCycleState.js'
+import { EMPTY_SCHAFF_TREND_CYCLE_STATE } from '../../indicators/state/schaffTrendCycleState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -31,28 +28,8 @@ type LinePoint = { x: number; y: number }
 interface SchaffTrendCycleRendererOptions {
   /** 目标 pane ID。 */
   paneId?: string
-}
-
-/**
- * 获取 STC 在指定 pane 上的状态键。
- * @param host 插件宿主。
- * @param paneId 目标副图 ID。
- * @returns 状态键，服务不可用时返回 null。
- */
-function getSchaffTrendCycleStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[SchaffTrendCycleRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('schaffTrendCycle')
-  if (!meta) {
-    console.warn(
-      "[SchaffTrendCycleRenderer] Indicator metadata for 'schaffTrendCycle' not found, skip rendering",
-    )
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -63,13 +40,8 @@ function getSchaffTrendCycleStateKey(host: PluginHost | null, paneId: string): s
 function createSchaffTrendCycleRendererPlugin(
   options: SchaffTrendCycleRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_STC' } = options
+  const { paneId = 'sub_STC', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 解析当前指标状态键。 */
-  function resolveKey(): string | null {
-    return getSchaffTrendCycleStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedSTCPoints: LinePoint[] = []
@@ -213,8 +185,7 @@ function createSchaffTrendCycleRendererPlugin(
 
     /** 声明此渲染器拥有的状态命名空间。 */
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /** 绘制 STC 零轴和主折线。 */
@@ -228,9 +199,8 @@ function createSchaffTrendCycleRendererPlugin(
       const lineColor = colors.palette.i2
       const zeroLineColor = colors.referenceLine.neutral
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<SchaffTrendCycleRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<SchaffTrendCycleRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -317,16 +287,14 @@ function createSchaffTrendCycleRendererPlugin(
 
     /** 返回当前 STC 配置。 */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<SchaffTrendCycleRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<SchaffTrendCycleRenderState>(instanceId)
       return state?.params ?? {}
     },
 
-    /** 配置由 IndicatorScheduler 统一更新。 */
+    /** 配置由外部统一更新。 */
     setConfig() {},
   }
 }
@@ -365,7 +333,6 @@ function drawSchaffTrendCycleLineWithCanvas2D(
 }
 
 const getSchaffTrendCycleTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createSchaffTrendCycleStateKey,
   name: 'STC',
   label: 'STC',
   getParams: (params) => [

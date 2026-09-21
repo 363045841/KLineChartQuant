@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcATRData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ATRRenderState } from '../../indicators/state/atrState.js'
-import { createATRStateKey, EMPTY_ATR_STATE } from '../../indicators/state/atrState.js'
+import { EMPTY_ATR_STATE } from '../../indicators/state/atrState.js'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createAtrScaleRendererPlugin } from './scale/atr_scale.js'
@@ -20,29 +20,13 @@ type LinePoint = { x: number; y: number }
 
 interface ATRRendererOptions {
   paneId?: string
-}
-
-function getATRStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[ATRRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('atr')
-  if (!meta) {
-    console.warn(`[ATRRenderer] Indicator metadata for 'atr' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub_ATR' } = options
+  const { paneId = 'sub_ATR', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getATRStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedPoints: LinePoint[] = []
@@ -90,8 +74,7 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -103,9 +86,8 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
       )
       const atrColor = colors.palette.indicatorAtr
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<ATRRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<ATRRenderState>(instanceId)
       if (!state || !state.params.showATR || state.visibleMin > state.visibleMax) {
         clearCache()
         return
@@ -165,17 +147,15 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<ATRRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<ATRRenderState>(instanceId)
       return state?.params ?? {}
     },
 
     setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
+      // no-op: 配置由指标实例链路按 instanceId 投影更新
     },
   }
 }
@@ -204,7 +184,6 @@ function drawWithCanvas2D(
 }
 
 const getATRTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createATRStateKey,
   name: 'ATR',
   defaultPeriod: 14,
   getColor: (colors) => colors.palette.indicatorAtr,

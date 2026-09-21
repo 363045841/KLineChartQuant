@@ -1,47 +1,28 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../indicators/scheduler'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import type { SubPaneSpec } from '../state/indicatorState'
 import { type SubPaneContext, SubPaneManager } from '../subPaneManager'
 
-function createMockScheduler(): Partial<IndicatorScheduler> {
-  return {
-    getIndicatorMetadata: vi.fn(
-      (id: string): IndicatorMetadata => ({
-        name: id,
-        displayName: 'Test',
-        category: 'sub' as const,
-        indicatorType: 'other',
-        stateKey: id,
-        defaultPaneId: 'sub',
-        rendererFactory: vi.fn(({ paneId } = { paneId: '', indicatorId: '' }) => ({
-          name: `${id.toLowerCase()}_${paneId}`,
-          paneId,
-          priority: 0,
-          draw: vi.fn(),
-        })),
-        getRendererName: ({ paneId }) => `${id.toLowerCase()}_${paneId}`,
-        getScaleRendererName: ({ paneId }) => `${id.toLowerCase()}Scale_${paneId}`,
-        getPaneTitleRendererName: ({ paneId }) => `paneTitle_${paneId}`,
-        updateConfig: vi.fn(),
-        scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
-      }),
-    ),
-    onSubPaneChanged: vi.fn(),
-  }
-}
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
 
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+/** 构造副图管理器的最小运行时上下文；metadata 由静态定义注册表提供。 */
 function createMockContext(): SubPaneContext & {
   renderers: Map<string, unknown>
   layers: Set<string>
 } {
-  const scheduler = createMockScheduler()
   const renderers = new Map<string, unknown>()
   const layers = new Set<string>()
   return {
     renderers,
     layers,
-    getIndicatorScheduler: () => scheduler as IndicatorScheduler,
+    onPaneProjectionChanged: vi.fn(),
     getRenderer: vi.fn((name) => renderers.get(name) as never),
     useRenderer: vi.fn((renderer) => renderers.set(renderer.name, renderer)),
     removeRenderer: vi.fn((name) => renderers.delete(name)),
@@ -120,16 +101,11 @@ describe('SubPaneManager runtime projection', () => {
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
   })
 
-  it('does not record a mount when scheduler configuration throws', () => {
-    const scheduler = ctx.getIndicatorScheduler()
-    vi.mocked(scheduler.getIndicatorMetadata).mockReturnValue({
-      ...scheduler.getIndicatorMetadata('RSI')!,
-      updateConfig: vi.fn(() => {
-        throw new Error('config failed')
-      }),
-    })
+  it('does not record a mount when the indicator definition is unknown', () => {
+    const unknown: SubPaneSpec = { ...rsi, indicatorId: 'NOT_REGISTERED' }
 
-    expect(() => manager.reconcile(ctx, [rsi])).not.toThrow()
+    expect(() => manager.reconcile(ctx, [unknown])).not.toThrow()
+    expect(ctx.useRenderer).not.toHaveBeenCalled()
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
   })
 
@@ -159,19 +135,11 @@ describe('SubPaneManager runtime projection', () => {
 
   it('removes the old projection when the replacement factory throws', () => {
     manager.reconcile(ctx, [rsi])
-    const scheduler = ctx.getIndicatorScheduler()
-    vi.mocked(scheduler.getIndicatorMetadata).mockImplementation((id: string) => {
-      const definition = createMockScheduler().getIndicatorMetadata?.(id)
-      if (id === 'MACD' && definition) {
-        return {
-          ...definition,
-          rendererFactory: () => {
-            throw new Error('factory failed')
-          },
-        }
-      }
-      return definition
-    })
+    vi.spyOn(getRegisteredIndicatorDefinition('macd')!, 'rendererFactory').mockImplementation(
+      () => {
+        throw new Error('factory failed')
+      },
+    )
 
     manager.reconcile(ctx, [
       { instanceId: 'user:macd:0', paneId: 'RSI_0', indicatorId: 'MACD', ordinal: 0, params: {} },

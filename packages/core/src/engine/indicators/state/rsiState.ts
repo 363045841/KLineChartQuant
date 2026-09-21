@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export const DEFAULT_RSI_PERIOD1 = 6
 export const DEFAULT_RSI_PERIOD2 = 12
@@ -33,17 +32,6 @@ export interface RSIRenderState extends BaseIndicatorState {
   /** 视口内所有 RSI 线的最大值 */
   visibleMax: number
 }
-
-/**
- * RSI 状态的基础 StateStore 键名
- */
-const RSI_STATE_KEY = 'indicator:rsi'
-
-/**
- * 创建 RSI 状态的 StateStore 键名
- * 格式：indicator:rsi:{paneId}
- */
-export const createRSIStateKey = (paneId: string) => createIndicatorStateKey('rsi', paneId)
 
 /**
  * 空数据占位状态

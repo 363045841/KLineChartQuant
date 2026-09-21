@@ -57,6 +57,9 @@ export class InteractionController {
   private _cachedMaxScrollLeft = -1
   private activePaneIdOnDrag: string | null = null
   private activeSeparatorUpperPaneId: string | null = null
+  /** 当前由本控制器拥有的拖拽指针。手势结束不能依赖元素边界事件。 */
+  private activePointerId: number | null = null
+  private pointerCaptureElement: HTMLElement | null = null
   private isTouchSession = false
   private exploreMode = true
   private touchStartTime = 0
@@ -190,7 +193,7 @@ export class InteractionController {
   onPointerDown(e: PointerEvent) {
     this.isTouchSession = e.pointerType === 'touch'
     if (this.pinchTracker.handlePointerDown(e, this.isTouchSession)) {
-      this._state.actions.endDrag()
+      this.endDragSession()
       return
     }
 
@@ -216,6 +219,7 @@ export class InteractionController {
     const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)
     if (separatorUpperPaneId) {
       this._state.actions.startDrag('resize-separator')
+      this.capturePointer(e, this.chart.getDom().container)
       this.dragStartY = e.clientY
       this.activeSeparatorUpperPaneId = separatorUpperPaneId
       this._state.actions.setSeparatorHover(separatorUpperPaneId)
@@ -241,8 +245,7 @@ export class InteractionController {
     this.dragStartY = e.clientY
     this.scrollStartX = this.chart.kernel.viewport.readonly.scrollLeft.peek()
     this._cachedMaxScrollLeft = -1
-    const captureContainer = this.chart.getDom().container
-    captureContainer?.setPointerCapture(e.pointerId)
+    this.capturePointer(e, this.chart.getDom().container)
     this.activePaneIdOnDrag = pane?.id || null
 
     this.chart.scheduleDraw()
@@ -268,6 +271,7 @@ export class InteractionController {
     this.pinchTracker.handlePointerUp(e)
 
     if (e.isPrimary === false) return
+    if (!this.isActivePointer(e)) return
     const wasPanning = this._state.readonly.dragMode.peek() === 'pan'
     const wasExploring = this._state.readonly.dragMode.peek() === 'explore'
 
@@ -305,10 +309,7 @@ export class InteractionController {
       this.chart.checkVisibleRangeGap()
     }
 
-    this._state.actions.endDrag()
-    this.activePaneIdOnDrag = null
-    this.activeSeparatorUpperPaneId = null
-    this._cachedMaxScrollLeft = -1
+    this.endDragSession()
     // 鼠标平移结束后按当前指针位置恢复 hover；触屏由 explore 模式单独控制。
     if (wasPanning && !this.isTouchSession) {
       this.queueHoverFlush()
@@ -324,9 +325,11 @@ export class InteractionController {
 
     if (e.isPrimary === false) return
 
+    // 容器尺寸或相邻轴宽度变化也可能触发 pointerleave。拖拽会话由
+    // pointerup / pointercancel / lostpointercapture 终止，不能由边界事件终止。
+    if (this._state.readonly.isDragging.peek()) return
+
     this.tooltipAdaptiveLock = null
-    this._state.actions.endDrag()
-    this.activePaneIdOnDrag = null
     this.clearSeparatorState()
     if (!this.isTouchSession) {
       // 取消已排队 hover，避免后续帧用 lastClientPos 把十字线刷回来
@@ -335,6 +338,25 @@ export class InteractionController {
       this.clearHover()
       this.chart.scheduleDraw()
     }
+    this.isTouchSession = false
+  }
+
+  /** 浏览器取消指针流（例如系统手势接管）时，明确终止当前拖拽。 */
+  onPointerCancel(e: PointerEvent) {
+    this.pinchTracker.handlePointerUp(e)
+    if (e.isPrimary === false || !this.isActivePointer(e)) return
+    this.endDragSession()
+    this.clearHover()
+    this.chart.scheduleDraw()
+    this.isTouchSession = false
+  }
+
+  /** capture 被浏览器或宿主释放时，不能再继续依据后续 move 推导拖拽。 */
+  onLostPointerCapture(e: PointerEvent) {
+    if (!this.isActivePointer(e)) return
+    this.endDragSession(false)
+    this.clearHover()
+    this.chart.scheduleDraw()
     this.isTouchSession = false
   }
 
@@ -576,6 +598,7 @@ export class InteractionController {
     const location = this.getRightAxisPointerLocation(e.clientX, e.clientY)
     if (!location) return
     if (this.beginScalePriceDrag(e.clientY, location.mouseY)) {
+      this.capturePointer(e, this.chart.getDom().rightAxisLayer)
       this.chart.scheduleDraw()
     }
   }
@@ -696,6 +719,36 @@ export class InteractionController {
     this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, pane.id)
     return true
+  }
+
+  private capturePointer(e: PointerEvent, element: HTMLElement | null | undefined): void {
+    if (!element) return
+    this.activePointerId = e.pointerId
+    this.pointerCaptureElement = element
+    try {
+      element.setPointerCapture(e.pointerId)
+    } catch {
+      // 某些嵌入式宿主不支持 capture；仍以明确的结束事件维护会话。
+    }
+  }
+
+  private isActivePointer(e: PointerEvent): boolean {
+    return this.activePointerId === null || this.activePointerId === e.pointerId
+  }
+
+  /** 统一收束拖拽会话；先清指针字段，避免 release 触发 lostpointercapture 时重入。 */
+  private endDragSession(releaseCapture = true): void {
+    const pointerId = this.activePointerId
+    const captureElement = this.pointerCaptureElement
+    this.activePointerId = null
+    this.pointerCaptureElement = null
+    this._state.actions.endDrag()
+    this.activePaneIdOnDrag = null
+    this.activeSeparatorUpperPaneId = null
+    this._cachedMaxScrollLeft = -1
+    if (releaseCapture && pointerId !== null && captureElement?.hasPointerCapture(pointerId)) {
+      captureElement.releasePointerCapture(pointerId)
+    }
   }
 
   clearHover() {
@@ -1077,7 +1130,7 @@ export class InteractionController {
    * 重置所有交互状态（数据更新时调用）
    */
   reset(): void {
-    this._state.actions.endDrag()
+    this.endDragSession()
     this.dragStartX = 0
     this.dragStartY = 0
     this.scrollStartX = 0

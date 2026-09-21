@@ -11,10 +11,8 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcGMMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import {
-  createGMMAStateKey,
   EMPTY_GMMA_STATE,
   GMMA_LONG_PERIODS,
   GMMA_SHORT_PERIODS,
@@ -71,21 +69,6 @@ function buildGMMACacheKey(
   ].join('|')
 }
 
-/** 通过调度器获取 GMMA 状态的 StateStore 键名 */
-function getGMMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[GMMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('gmma')
-  if (!meta) {
-    console.warn("[GMMARenderer] Indicator metadata for 'gmma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
 /**
  * GMMA 标题信息：按启用周期取对应 EMA 值
  * 短组用 G{period} 标签、长组用 L{period} 标签，颜色沿用 getGMMAColors 映射
@@ -95,12 +78,13 @@ function getGMMATitleInfo(
   index: number | null,
   _params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
 
-  const state = stateReader.get<GMMARenderState>(createGMMAStateKey(paneId))
+  const state = stateReader.get<GMMARenderState>(instanceId)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const gmmaColors = getGMMAColors(colors)
@@ -149,9 +133,9 @@ export class GMMADefinition {
 
 /** 创建 GMMA 多线渲染器插件（WebGL 优先，失败回退 Canvas2D） */
 export function createGMMARendererPlugin(
-  options: { paneId?: string } = {},
+  options: { paneId?: string; instanceId?: string } = {},
 ): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
   let cachedKey = ''
   let cachedLines = new Map<number, LinePoint[]>()
@@ -159,10 +143,6 @@ export function createGMMARendererPlugin(
   function clearCache() {
     cachedKey = ''
     cachedLines = new Map()
-  }
-
-  function resolveKey(): string | null {
-    return getGMMAStateKey(pluginHost, paneId)
   }
 
   return {
@@ -178,8 +158,7 @@ export function createGMMARendererPlugin(
     },
 
     getDeclaredNamespaces(): string[] {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -190,9 +169,8 @@ export function createGMMARendererPlugin(
         context.colorPresetSettings,
       )
       const gmmaColors = getGMMAColors(colors)
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<GMMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<GMMARenderState>(instanceId)
 
       if (!state || !state.params.showGMMA || state.visibleMin > state.visibleMax) {
         clearCache()
@@ -268,12 +246,10 @@ export function createGMMARendererPlugin(
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<GMMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<GMMARenderState>(instanceId)
       return state?.params ?? {}
     },
 

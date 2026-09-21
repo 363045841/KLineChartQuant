@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface CMFRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface CMFRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createCMFStateKey = (paneId: string) => createIndicatorStateKey('cmf', paneId)
 
 export const DEFAULT_CMF_PERIOD = 20
 

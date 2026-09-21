@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,10 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcDMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { type GetTitleInfoFn, resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { GetTitleInfoFn } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DMARenderState } from '../../indicators/state/dmaState.js'
-import { createDMAStateKey, EMPTY_DMA_STATE } from '../../indicators/state/dmaState.js'
+import { EMPTY_DMA_STATE } from '../../indicators/state/dmaState.js'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,29 +19,13 @@ type LinePoint = { x: number; y: number }
 
 interface DMARendererOptions {
   paneId?: string
-}
-
-function getDMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[DMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('dma')
-  if (!meta) {
-    console.warn("[DMARenderer] Indicator metadata for 'dma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getDMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `dma_${paneId}`,
@@ -55,8 +40,7 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -67,9 +51,8 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<DMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<DMARenderState>(instanceId)
       if (!state || !state.params.showDMA || state.visibleMin > state.visibleMax) return
 
       // 从稀疏点数组逐点收集 DIF/AMA 折线
@@ -132,12 +115,10 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<DMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<DMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -147,10 +128,17 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
   }
 }
 
-const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
+const getDMATitleInfo: GetTitleInfoFn = (
+  _data,
+  index,
+  _params,
+  stateReader,
+  instanceId,
+  _paneId,
+  colors,
+) => {
   if (index === null) return null
-  const key = createDMAStateKey(paneId)
-  const state = stateReader.get<DMARenderState>(key)
+  const state = stateReader.get<DMARenderState>(instanceId)
   if (!state) return null
   const p = state.series[index]
   if (!p) return null

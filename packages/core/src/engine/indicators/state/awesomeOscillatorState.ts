@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface AwesomeOscillatorRenderState extends BaseIndicatorState {
   timestamp: number
@@ -23,8 +22,6 @@ export const DEFAULT_AO_SLOW_PERIOD = 34
  * @param paneId 目标副图 ID。
  * @returns AO 状态命名空间键。
  */
-export const createAwesomeOscillatorStateKey = (paneId: string) =>
-  createIndicatorStateKey('awesomeOscillator', paneId)
 
 export const EMPTY_AO_STATE: AwesomeOscillatorRenderState = {
   timestamp: 0,

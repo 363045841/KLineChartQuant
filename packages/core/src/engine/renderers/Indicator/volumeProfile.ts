@@ -10,42 +10,19 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcVolumeProfileData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState.js'
-import {
-  createVolumeProfileStateKey,
-  EMPTY_VOLUME_PROFILE_STATE,
-} from '../../indicators/state/volumeProfileState.js'
+import { EMPTY_VOLUME_PROFILE_STATE } from '../../indicators/state/volumeProfileState.js'
 import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 const PROFILE_WIDTH_PX = 80
 
-function getVolumeProfileStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[VolumeProfileRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('volumeProfile')
-  if (!meta) {
-    console.warn(
-      `[VolumeProfileRenderer] Indicator metadata for 'volumeProfile' not found, skip rendering`,
-    )
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
 function createVolumeProfileRendererPlugin(
-  options: { paneId?: string } = {},
+  options: { paneId?: string; instanceId?: string } = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_VolumeProfile' } = options
+  const { paneId = 'sub_VolumeProfile', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getVolumeProfileStateKey(pluginHost, paneId)
-  }
   return {
     name: `volumeProfile_${paneId}`,
     version: '1.0.0',
@@ -57,8 +34,7 @@ function createVolumeProfileRendererPlugin(
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, scrollLeft } = context
@@ -68,9 +44,8 @@ function createVolumeProfileRendererPlugin(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<VolumeProfileRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<VolumeProfileRenderState>(instanceId)
       if (!state) return
       const { bins, poc, vah, val, totalVolume } = state.series
       if (bins.length === 0 || totalVolume <= 0) return
@@ -124,12 +99,10 @@ function createVolumeProfileRendererPlugin(
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<VolumeProfileRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<VolumeProfileRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -141,12 +114,13 @@ function getVolumeProfileTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const bins = (params.bins as number) ?? 24
-  const state = stateReader.get<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
+  const state = stateReader.get<VolumeProfileRenderState>(instanceId)
   const vp = state?.series
 
   const values: Array<{ label: string; value: number; color: string }> = []

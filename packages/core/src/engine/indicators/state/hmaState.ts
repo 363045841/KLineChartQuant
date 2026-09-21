@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface HMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface HMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createHMAStateKey = (paneId: string) => createIndicatorStateKey('hma', paneId)
 
 export const DEFAULT_HMA_PERIOD = 9
 

@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface HVRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface HVRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createHVStateKey = (paneId: string) => createIndicatorStateKey('hv', paneId)
 
 export const DEFAULT_HV_PERIOD = 20
 export const DEFAULT_HV_ANNUALIZATION = 252

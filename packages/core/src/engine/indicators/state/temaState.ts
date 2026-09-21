@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface TEMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface TEMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createTEMAStateKey = (paneId: string) => createIndicatorStateKey('tema', paneId)
 
 export const DEFAULT_TEMA_PERIOD = 20
 

@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface ChaikinVolRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,9 +9,6 @@ export interface ChaikinVolRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createChaikinVolStateKey = (paneId: string) =>
-  createIndicatorStateKey('chaikinVol', paneId)
 
 export const DEFAULT_CHAIKIN_VOL_EMA_PERIOD = 10
 export const DEFAULT_CHAIKIN_VOL_ROC_PERIOD = 10

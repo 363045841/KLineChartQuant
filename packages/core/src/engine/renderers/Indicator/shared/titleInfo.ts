@@ -10,7 +10,6 @@ interface SingleSeriesState {
 }
 
 interface SingleLineTitleInfoConfig {
-  createStateKey: (paneId: string) => string
   name: string
   label?: string
   defaultPeriod?: number
@@ -19,21 +18,22 @@ interface SingleLineTitleInfoConfig {
   getParams?: (stateParams: Record<string, unknown>) => number[]
 }
 
+/** 构造单线指标标题；状态按调用方提供的实例 ID 读取。 */
 export function createSingleLineTitleInfo(config: SingleLineTitleInfoConfig): GetTitleInfoFn {
-  const { createStateKey, name, label = name, defaultPeriod, getColor, color, getParams } = config
+  const { name, label = name, defaultPeriod, getColor, color, getParams } = config
 
   return (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,
     stateReader: IndicatorRenderStateReader,
-    paneId: string,
+    instanceId: string,
+    _paneId: string,
     colors: ColorTokens,
   ): TitleInfo | null => {
     if (index === null) return null
 
-    const stateKey = createStateKey(paneId)
-    const state = stateReader.get<SingleSeriesState>(stateKey)
+    const state = stateReader.get<SingleSeriesState>(instanceId)
     if (!state) return null
 
     const val = state.series[index]

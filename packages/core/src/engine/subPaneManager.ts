@@ -5,8 +5,7 @@ import type {
   RendererPluginWithHost,
 } from '../foundation/plugin/index.js'
 import { makePluginLayerId } from '../foundation/plugin/rendererLayerId.js'
-import { resolveStateKey } from './indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from './indicators/scheduler.js'
+import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
 import { createSubIndicatorRenderer } from './renderers/Indicator/index.js'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog.js'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale.js'
@@ -54,7 +53,8 @@ export function hasSubPaneRendererMetadata(
 }
 
 export interface SubPaneContext {
-  getIndicatorScheduler: () => IndicatorScheduler
+  /** 副图增删改后通知实例链路重建渲染投影。 */
+  onPaneProjectionChanged: () => void
   getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) => T | undefined
   useRenderer: (
     plugin: RendererPlugin | RendererPluginWithHost,
@@ -134,7 +134,6 @@ export class SubPaneManager {
         } else {
           this.mount(ctx, candidate)
           this.mountPaneTitleRenderer(ctx, candidate)
-          this.syncSchedulerConfig(ctx, spec.paneId, spec.indicatorId, spec.params)
           if (current) this.unmount(ctx, current, true)
         }
         this.mounted.set(spec.paneId, {
@@ -153,7 +152,7 @@ export class SubPaneManager {
       }
     }
 
-    if (changed) ctx.getIndicatorScheduler().onSubPaneChanged()
+    if (changed) ctx.onPaneProjectionChanged()
     return changed
   }
 
@@ -168,11 +167,11 @@ export class SubPaneManager {
     if (this.mounted.size === 0) return
     for (const entry of this.mounted.values()) this.unmount(ctx, entry)
     this.mounted.clear()
-    ctx.getIndicatorScheduler().onSubPaneChanged()
+    ctx.onPaneProjectionChanged()
   }
 
   private describeEntry(ctx: SubPaneContext, spec: SubPaneSpec): ProjectedSubPaneEntry {
-    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(spec.indicatorId)
+    const definition = getRegisteredIndicatorDefinition(spec.indicatorId)
     if (!definition) {
       throw new KLineChartError(
         SUBPANE_ERROR_CODES.UNKNOWN_INDICATOR,
@@ -188,6 +187,7 @@ export class SubPaneManager {
     const renderer = createSubIndicatorRenderer({
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
+      instanceId: spec.instanceId,
       definition,
       params: { ...spec.params },
     })
@@ -212,11 +212,12 @@ export class SubPaneManager {
   }
 
   private mount(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
-    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)!
+    const definition = getRegisteredIndicatorDefinition(entry.indicatorId)!
     if (!ctx.getRenderer(entry.rendererName)) {
       const renderer = createSubIndicatorRenderer({
         paneId: entry.paneId,
         indicatorId: entry.indicatorId,
+        instanceId: entry.instanceId,
         definition,
         params: { ...entry.params },
       })
@@ -230,7 +231,7 @@ export class SubPaneManager {
     if (ctx.getRenderer(entry.scaleRendererName)) {
       return
     }
-    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)
+    const definition = getRegisteredIndicatorDefinition(entry.indicatorId)
     const opt = ctx.getOption()
     const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 60)
     const getCrosshair = () => {
@@ -242,6 +243,7 @@ export class SubPaneManager {
     const options = {
       axisWidth,
       paneId: entry.paneId,
+      instanceId: entry.instanceId,
       yPaddingPx: opt.yPaddingPx,
       getCrosshair,
     }
@@ -253,7 +255,6 @@ export class SubPaneManager {
             indicatorKey: definition.scale.indicatorKey ?? definition.name,
             label: definition.scale.label ?? definition.displayName,
             decimals: definition.scale.decimals,
-            stateKey: resolveStateKey(definition.stateKey, entry.paneId),
           })
         : null
     if (!plugin) return
@@ -272,6 +273,7 @@ export class SubPaneManager {
       paneId: entry.paneId,
       title: findIndicator(entry.indicatorId)?.label ?? entry.indicatorId,
       indicatorId: entry.indicatorId,
+      instanceId: entry.instanceId,
       params: { ...entry.params },
     })
     ctx.useRenderer(renderer)
@@ -284,7 +286,6 @@ export class SubPaneManager {
       params: snapshot,
       indicatorId: spec.indicatorId,
     })
-    this.syncSchedulerConfig(ctx, spec.paneId, spec.indicatorId, snapshot)
   }
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {
@@ -293,10 +294,6 @@ export class SubPaneManager {
     ctx.removeRenderer(entry.scaleRendererName)
     if (!preserveTitle) {
       ctx.removeRenderer(entry.paneTitleRendererName)
-    }
-    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)
-    if (definition?.category === 'main') {
-      definition.updateConfig?.(ctx.getIndicatorScheduler(), {}, 'main')
     }
   }
 
@@ -307,15 +304,5 @@ export class SubPaneManager {
   ): void {
     this.unmount(ctx, toResources(candidate))
     if (current && current.rendererName !== candidate.rendererName) this.unmount(ctx, current)
-  }
-
-  private syncSchedulerConfig(
-    ctx: SubPaneContext,
-    paneId: string,
-    indicatorId: string,
-    params: Readonly<Record<string, unknown>>,
-  ): void {
-    const scheduler = ctx.getIndicatorScheduler()
-    scheduler.getIndicatorMetadata(indicatorId)?.updateConfig?.(scheduler, { ...params }, paneId)
   }
 }

@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcCCIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { CCIRenderState } from '../../indicators/state/cciState.js'
-import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState.js'
+import { EMPTY_CCI_STATE } from '../../indicators/state/cciState.js'
 import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createCciScaleRendererPlugin } from './scale/cci_scale.js'
@@ -21,32 +21,16 @@ type LinePoint = { x: number; y: number }
 interface CCIRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getCCIStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[CCIRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('cci')
-  if (!meta) {
-    console.warn("[CCIRenderer] Indicator metadata for 'cci' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 CCI 渲染器插件
  */
 function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getCCIStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -95,8 +79,7 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -107,9 +90,8 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<CCIRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<CCIRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -195,17 +177,15 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<CCIRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<CCIRenderState>(instanceId)
       return state?.params ?? {}
     },
 
     setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
+      // no-op: 配置由指标实例链路按 instanceId 投影更新
     },
   }
 }
@@ -242,7 +222,6 @@ function drawCCILineWithCanvas2D(
  * 获取 CCI 标题信息（供 paneTitle 使用）
  */
 const getCCITitleInfo = createSingleLineTitleInfo({
-  createStateKey: createCCIStateKey,
   name: 'CCI',
   defaultPeriod: 14,
   getColor: (colors) => colors.cci.cci,

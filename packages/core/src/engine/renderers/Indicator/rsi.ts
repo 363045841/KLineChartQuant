@@ -11,10 +11,9 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcRSIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { RSIRenderState } from '../../indicators/state/rsiState.js'
-import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState.js'
+import { EMPTY_RSI_STATE } from '../../indicators/state/rsiState.js'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -25,32 +24,16 @@ type LinePoint = { x: number; y: number }
 interface RSIRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getRSIStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[RSIRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('rsi')
-  if (!meta) {
-    console.warn("[RSIRenderer] Indicator metadata for 'rsi' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 RSI 渲染器插件
  */
 function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getRSIStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -188,8 +171,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -200,10 +182,8 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      // 从 StateStore 读取 RSI 状态
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<RSIRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<RSIRenderState>(instanceId)
 
       // 无有效数据时跳过渲染
       if (!state || state.visibleMin > state.visibleMax) {
@@ -318,17 +298,15 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<RSIRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<RSIRenderState>(instanceId)
       return state ? { ...state.params } : {}
     },
 
     setConfig(_newConfig: Record<string, unknown>) {
-      // 无状态渲染器：配置变更请使用 chart.getIndicatorScheduler().updateIndicatorConfig()
+      // 无状态渲染器：配置变更由指标实例链路更新实例参数
     },
   }
 }
@@ -395,7 +373,8 @@ function getRSITitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): {
   name: string
@@ -406,8 +385,7 @@ function getRSITitleInfo(
   const period1 = (params.period1 as number) ?? 6
   const period2 = (params.period2 as number) ?? 12
   const period3 = (params.period3 as number) ?? 24
-  const stateKey = createRSIStateKey(paneId)
-  const state = stateReader.get<RSIRenderState>(stateKey)
+  const state = stateReader.get<RSIRenderState>(instanceId)
 
   if (!state) return null
 

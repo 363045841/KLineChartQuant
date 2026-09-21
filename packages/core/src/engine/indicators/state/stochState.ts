@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { STOCHPoint } from '../calculators/index.js'
 
 export interface STOCHRenderState extends BaseIndicatorState {
@@ -11,8 +10,6 @@ export interface STOCHRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createSTOCHStateKey = (paneId: string) => createIndicatorStateKey('stoch', paneId)
 
 export const EMPTY_STOCH_STATE: STOCHRenderState = {
   timestamp: 0,

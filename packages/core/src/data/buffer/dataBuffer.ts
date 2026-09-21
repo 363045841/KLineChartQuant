@@ -92,8 +92,13 @@ export class DataBuffer implements KLineBuffer {
     this.loadingSignal.set(false)
   }
 
-  /** 实时帧写入：末尾窗口 replace-on-conflict 合并（SSE forming/closed 链路）。 */
-  updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
+  /**
+   * 原子应用实时 K 线批次，统一处理 forming 覆盖与 closed 后的新根追加。
+   *
+   * @param bars 服务端按时间顺序提供的实时 K 线；允许同一时间戳的后值覆盖前值。
+   * @returns 本次追加、替换及拒绝的统计结果。
+   */
+  applyRealtimeBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
     if (this.disposed) return { appendedCount: 0, replacedCount: 0, rejected: [...bars] }
     const result = this.store.updateBars(bars)
     if (result.appendedCount > 0 || result.replacedCount > 0) {

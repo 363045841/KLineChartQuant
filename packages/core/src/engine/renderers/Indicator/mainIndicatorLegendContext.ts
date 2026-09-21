@@ -3,8 +3,12 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '../../../foundation/types/chartView.js'
 import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import {
+  INDICATOR_INSTANCE_CATALOG_SERVICE,
+  type IndicatorInstanceCatalog,
+} from '../../indicators/instances/api/indicatorRenderBinding.js'
 
 /** 图例渲染模式：canvas 默认绘制；external 仅发布上下文，不画 Canvas 文字 */
 export type LegendRenderMode = 'canvas' | 'external'
@@ -211,23 +215,21 @@ function collectIndicatorRows(
   visibleIndicatorIds: ReadonlySet<string> | null | undefined,
 ): LegendIndicatorRow[] {
   if (!host || !stateReader || typeof host.getService !== 'function') return []
-  const scheduler = host.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) return []
+  const catalog = host.getService<IndicatorInstanceCatalog>(INDICATOR_INSTANCE_CATALOG_SERVICE)
+  if (!catalog) return []
 
   const rows: LegendIndicatorRow[] = []
-  for (const meta of scheduler.getMainIndicators()) {
-    if (visibleIndicatorIds !== null && visibleIndicatorIds !== undefined) {
-      if (!visibleIndicatorIds.has(meta.name)) continue
-    }
-    if (!meta.getTitleInfo) continue
-    if (!scheduler.isMainIndicatorActive(meta.name)) continue
-    const params = scheduler.getMainIndicatorParams(meta.name) ?? {}
+  for (const instance of catalog.listMainInstances()) {
+    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
+    const meta = getRegisteredIndicatorDefinition(instance.definitionId)
+    if (!meta?.getTitleInfo) continue
     const titleInfo: TitleInfo | null = meta.getTitleInfo(
       klineData,
       targetIndex,
-      params as Record<string, number | boolean | string>,
+      instance.params as Record<string, number | boolean | string>,
       stateReader,
-      'main',
+      instance.instanceId,
+      instance.paneId,
       colors,
     )
     if (!titleInfo) continue

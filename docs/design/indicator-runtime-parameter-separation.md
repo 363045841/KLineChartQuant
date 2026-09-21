@@ -33,8 +33,8 @@ Chart instance / Agent request
 变化仍会发布新的实例快照，但只重建 renderer 投影，不执行 calculator，也不增加结果版本。
 
 Scheduler 为兼容现有 UI 输入暂时保留一份合并配置快照，但边界明确：发送给 Runtime/Worker 前只
-提取 `defaultParams` 声明的字段；生成渲染投影时才把 `defaultOptions` 合入临时 render bundle。
-业务结果 bundle 和实例结果不保存展示配置。
+提取 `defaultParams` 声明的字段；生成渲染投影时才把 `defaultOptions` 合入临时渲染条目。
+业务结果池不保存展示配置。
 
 Worker 描述符字段由 `defaultConfig` 改为 `defaultParams`，协议版本同步升级为 4，避免新旧主线程与
 Worker 对配置边界产生不同解释。

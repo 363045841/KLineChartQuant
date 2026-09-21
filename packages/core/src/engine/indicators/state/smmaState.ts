@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface SMMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -16,7 +15,6 @@ export interface SMMARenderState extends BaseIndicatorState {
 }
 
 /** 生成指定 pane 的 SMMA 状态 key */
-export const createSMMAStateKey = (paneId: string) => createIndicatorStateKey('smma', paneId)
 
 export const DEFAULT_SMMA_PERIOD = 14
 

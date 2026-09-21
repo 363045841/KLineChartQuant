@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcKAMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { KAMARenderState } from '../../indicators/state/kamaState.js'
-import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/state/kamaState.js'
+import { EMPTY_KAMA_STATE } from '../../indicators/state/kamaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -20,29 +20,13 @@ type Point = { x: number; y: number }
 
 interface KAMARendererOptions {
   paneId?: string
-}
-
-function getKAMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[KAMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('kama')
-  if (!meta) {
-    console.warn("[KAMARenderer] Indicator metadata for 'kama' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getKAMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `kama_${paneId}`,
@@ -57,8 +41,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -69,9 +52,8 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<KAMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<KAMARenderState>(instanceId)
       if (!state || !state.params.showKAMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -108,12 +90,10 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<KAMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<KAMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -124,7 +104,6 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
 }
 
 const getKAMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createKAMAStateKey,
   name: 'KAMA',
   getParams: (p) => [p.period as number, p.fastPeriod as number, p.slowPeriod as number],
   getColor: (colors) => colors.palette.i6,

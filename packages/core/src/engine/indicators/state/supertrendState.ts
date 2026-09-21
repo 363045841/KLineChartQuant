@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface SuperTrendPoint {
   value: number
@@ -15,9 +14,6 @@ export interface SuperTrendRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createSuperTrendStateKey = (paneId: string) =>
-  createIndicatorStateKey('supertrend', paneId)
 
 export const DEFAULT_SUPERTREND_ATR_PERIOD = 10
 export const DEFAULT_SUPERTREND_MULTIPLIER = 3

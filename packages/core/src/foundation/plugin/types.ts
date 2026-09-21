@@ -306,8 +306,8 @@ export interface MarkerManagerLike {
 
 /** 当前帧读取指标渲染投影的只读接口。 */
 export interface IndicatorRenderStateReader {
-  /** 按 renderer state key 读取当前帧已提交的指标状态。 */
-  get<T = unknown>(stateKey: string): T | undefined
+  /** 按指标实例 ID 读取当前帧已提交的指标状态。 */
+  get<T = unknown>(instanceId: string): T | undefined
 }
 
 /** 渲染数据子契约：序列数据、数据视图与时间解析。 */
@@ -347,6 +347,8 @@ export interface RenderGeometryContext {
   kLineCenters: number[]
   /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
   kBarRects: Array<{ x: number; width: number }>
+  /** 本帧 K 线实体宽度（物理像素），由帧准备阶段统一计算。 */
+  kWidthPx: number
   /** K 线真正可视区的 high/low 及其索引；由帧准备阶段计算，供多个 renderer 共享。 */
   visiblePriceExtrema?:
     | import('../../engine/utils/visiblePriceExtrema.js').VisiblePriceExtrema

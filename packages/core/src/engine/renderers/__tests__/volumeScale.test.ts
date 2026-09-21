@@ -11,6 +11,9 @@ import {
   formatVolumeScaleLabel,
 } from '../Indicator/scale/volume_scale'
 
+/** 坐标轴按实例身份寻址。 */
+const VOLUME_INSTANCE_ID = 'inst-volume-dynamic'
+
 describe('formatVolumeScaleLabel', () => {
   it('keeps small timeshare volumes in their original unit', () => {
     expect(formatVolumeScaleLabel(9_999)).toBe('9999.00')
@@ -26,6 +29,7 @@ describe('formatVolumeScaleLabel', () => {
     const renderer = createVolumeScaleRendererPlugin({
       axisWidth: 60,
       paneId: 'sub_Volume_dynamic',
+      instanceId: VOLUME_INSTANCE_ID,
     })
     renderer.onInstall?.(createMockPluginHost())
 
@@ -43,7 +47,7 @@ describe('formatVolumeScaleLabel', () => {
             getPaddingBottom: () => 0,
           },
         },
-        indicatorStateReader: createMockStateReader('indicator:volume:sub_Volume_dynamic', {
+        indicatorStateReader: createMockStateReader(VOLUME_INSTANCE_ID, {
           timestamp: 1,
           valueMin: 990,
           valueMax: 1_110,

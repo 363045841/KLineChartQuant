@@ -2,7 +2,7 @@
 import { marketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import type { MarketDataProvider } from '../types.js'
-import { fetchMockBars, searchMockInstruments } from './mockData.js'
+import { createMockLiveBarsStream, fetchMockBars, searchMockInstruments } from './mockData.js'
 
 const MOCK_SOURCE = dataSourceRegistry.mock
 
@@ -15,6 +15,7 @@ export const mockMarketDataProvider: MarketDataProvider = {
     capabilities: {
       assetClasses: ['index'],
       bars: { periods: ['daily'], adjustments: ['none'] },
+      liveBars: true,
     },
   },
 
@@ -44,6 +45,11 @@ export const mockMarketDataProvider: MarketDataProvider = {
         olderData: 'unknown',
         data,
       }
+    },
+  },
+  liveBars: {
+    createStream(request) {
+      return createMockLiveBarsStream(request)
     },
   },
 }

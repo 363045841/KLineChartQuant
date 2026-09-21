@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface ATRRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface ATRRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createATRStateKey = (paneId: string) => createIndicatorStateKey('atr', paneId)
 
 export const DEFAULT_ATR_PERIOD = 14
 

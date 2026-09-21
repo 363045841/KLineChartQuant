@@ -3,6 +3,7 @@
  * 复用 WMA 渲染器骨架，多参数（period/offset/sigma），支持 WebGL + Canvas2D 回退
  */
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -11,10 +12,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcALMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ALMARenderState } from '../../indicators/state/almaState.js'
-import { createALMAStateKey, EMPTY_ALMA_STATE } from '../../indicators/state/almaState.js'
+import { EMPTY_ALMA_STATE } from '../../indicators/state/almaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -24,29 +24,13 @@ type Point = { x: number; y: number }
 
 interface ALMARendererOptions {
   paneId?: string
-}
-
-function getALMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[ALMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('alma')
-  if (!meta) {
-    console.warn("[ALMARenderer] Indicator metadata for 'alma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getALMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `alma_${paneId}`,
@@ -61,8 +45,7 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -73,9 +56,8 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<ALMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<ALMARenderState>(instanceId)
       if (!state || !state.params.showALMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -112,12 +94,10 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<ALMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<ALMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -128,7 +108,6 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
 }
 
 const getALMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createALMAStateKey,
   name: 'ALMA',
   getParams: (p) => [p.period as number, p.offset as number, p.sigma as number],
   getColor: (colors) => colors.palette.i3,

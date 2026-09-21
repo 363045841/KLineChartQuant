@@ -33,20 +33,6 @@ export interface MACDRenderState extends BaseIndicatorState {
 }
 
 /**
- * MACD State 的命名空间 key
- * 格式: indicator:macd:{paneId}
- */
-const MACD_STATE_KEY = 'indicator:macd'
-
-/**
- * 创建 MACD State Key
- * @param paneId pane ID，如 'sub_MACD'
- */
-export function createMACDStateKey(paneId: string): string {
-  return `${MACD_STATE_KEY}:${paneId}`
-}
-
-/**
  * 空 MACD State（哨兵值）
  * visibleMin > visibleMax 表示无有效数据
  */

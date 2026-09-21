@@ -8,12 +8,14 @@ import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 export function createMacdScaleRendererPlugin(options: {
   axisWidth: number
   paneId: string
+  instanceId: string
   yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }): RendererPluginWithHost {
   return createIndicatorScaleRendererPlugin({
     axisWidth: options.axisWidth,
     paneId: options.paneId,
+    instanceId: options.instanceId,
     indicatorKey: 'macd',
     label: 'MACD',
     decimals: 2,

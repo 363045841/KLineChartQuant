@@ -2,21 +2,21 @@
  * IndicatorMetadata - 指标元数据定义
  *
  * 支持动态注册指标的核心数据结构
- * 每个指标通过 metadata 描述其状态 key、渲染器工厂等元信息
+ * 每个指标通过 metadata 描述其渲染器工厂、计算描述与展示配置等元信息
  */
 
-import { KLineChartError } from '../../errors.js'
 import type {
   IndicatorRenderStateReader,
-  PluginHost,
   RendererPluginWithHost,
 } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { ChartDataView } from '../state/modeState.js'
 
-import type { IndicatorSeriesResultOf, IndicatorStateName } from './indicatorContracts.js'
-import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol.js'
+import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorContracts.js'
+
+/** 单个指标的计算参数。 */
+export type IndicatorConfig = Readonly<Record<string, unknown>>
 
 export type IndicatorId = string
 
@@ -64,12 +64,16 @@ export function getBuiltinIndicatorTypeOrder(type: IndicatorType): number {
 export interface IndicatorRendererOptions {
   paneId: string
   indicatorId: IndicatorId
+  /** 渲染器绑定的实例身份；结果与投影都按该 ID 寻址。 */
+  instanceId: string
   params?: Record<string, unknown>
 }
 
 export interface IndicatorScaleRendererOptions {
   paneId: string
   indicatorId: IndicatorId
+  /** 坐标轴绑定的实例身份。 */
+  instanceId: string
   axisWidth: number
   yPaddingPx: number
   getCrosshair: () => { y: number; price: number; activePaneId: string | null } | null
@@ -79,13 +83,6 @@ export interface IndicatorScaleRendererOptions {
  * 指标分类：主图/副图
  */
 export type IndicatorCategory = 'main' | 'sub' | 'oscillator' | 'volume'
-
-/**
- * State key 生成器类型
- * - 主图指标：常量字符串
- * - 副图指标：函数，接收 paneId 返回 key
- */
-export type StateKey = string | ((paneId: string) => string)
 
 /**
  * 渲染器工厂函数
@@ -110,12 +107,6 @@ export type ScaleRendererFactory = (
   options: IndicatorScaleRendererOptions,
 ) => RendererPluginWithHost
 
-export type IndicatorConfigUpdater = (
-  scheduler: unknown,
-  params: Record<string, unknown>,
-  paneId: string,
-) => void
-
 export interface IndicatorVisibleRange {
   start: number
   end: number
@@ -127,35 +118,33 @@ export interface IndicatorPriceRange {
 }
 
 /**
- * 结果包读取入口。Worker 动态产出 `IndicatorSeriesBundle`，这里是动态结果与静态契约之间
- * 唯一的转换边界：传入指标内部 name 时形状由 `indicatorContracts` 推导。
+ * 单个实例渲染条目读取入口。第二个参数是类型选择键（`IndicatorStateName`），
+ * 只用于从渲染状态契约派生条目类型，不参与运行时查找。
  */
 export function readIndicatorSeriesEntry<K extends IndicatorStateName>(
-  bundle: IndicatorSeriesBundle,
-  configKey: K,
-): IndicatorSeriesResultOf<K>
-/** 读取调用方工厂自行约束结构的结果项（泛型 visibleState composer）。 */
-export function readIndicatorSeriesEntry<T>(bundle: IndicatorSeriesBundle, configKey: string): T
-export function readIndicatorSeriesEntry(
-  bundle: IndicatorSeriesBundle,
-  configKey: string,
-): unknown {
-  return bundle[configKey]
+  entry: unknown,
+  _configKey: K,
+): IndicatorRenderEntryOf<K>
+/** 读取调用方自行约束结构的条目（泛型 visibleState composer）。 */
+export function readIndicatorSeriesEntry<T>(entry: unknown, _configKey: string): T
+export function readIndicatorSeriesEntry(entry: unknown, _configKey: string): unknown {
+  return entry
 }
 
 export type IndicatorPriceRangeComputer = (
-  bundle: IndicatorSeriesBundle,
+  entry: unknown,
   visibleRange: IndicatorVisibleRange,
 ) => IndicatorPriceRange | null
 
 export type IndicatorRenderStateComposer = (
-  bundle: IndicatorSeriesBundle,
+  entry: unknown,
   visibleRange: IndicatorVisibleRange,
   timestamp: number,
 ) => unknown
 
 export interface IndicatorVisibleStateComposeContext {
-  bundle: IndicatorSeriesBundle
+  /** 已规范化的单个实例结果条目，不是类型结果包。 */
+  entry: unknown
   visibleRange: IndicatorVisibleRange
   timestamp: number
   active: boolean
@@ -191,6 +180,7 @@ export type GetTitleInfoFn = (
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
+  instanceId: string,
   paneId: string,
   colors: ColorTokens,
 ) => TitleInfo | null
@@ -260,13 +250,6 @@ export interface IndicatorMetadata<T = unknown> {
   indicatorTypeLabel?: string
 
   /**
-   * StateStore key
-   * - 主图指标：常量字符串（如 'indicator:ma:main'）
-   * - 副图指标：函数 (paneId) => string
-   */
-  stateKey: StateKey
-
-  /**
    * 在 configSnapshot 中的 paneId 字段名
    * 用于从配置中获取当前 pane ID
    */
@@ -306,20 +289,7 @@ export interface IndicatorMetadata<T = unknown> {
    * 是否启用（可选条件判断）
    * 用于副图指标根据配置决定是否参与计算
    */
-  isEnabled?: (config: IndicatorConfigSnapshot) => boolean
-
-  /**
-   * 指标配置更新入口。内置和用户自定义指标都应通过 metadata 分发。
-   */
-  updateConfig?: IndicatorConfigUpdater
-
-  /**
-   * 将指标计算结果写入 StateStore
-   * @param host - PluginHost
-   * @param state - 计算结果（由 composeRenderStates 或 composeVisibleSubIndicatorStates 产出）
-   * @param paneId - 目标 pane ID（从 configSnapshot 读取）
-   */
-  applyResult?: (host: PluginHost, state: unknown, paneId: string) => void
+  isEnabled?: (config: IndicatorConfig) => boolean
 
   /**
    * 是否允许在主图显示（部分副图指标可切换至主图）
@@ -370,23 +340,4 @@ export interface IndicatorMetadata<T = unknown> {
    * 未提供时 fallback 到 displayName
    */
   getTitleInfo?: GetTitleInfoFn
-}
-
-/**
- * 提取 stateKey 对应的实际 key 值
- * @param stateKey - 可以是字符串或函数
- * @param paneId - pane ID（副图指标需要）
- * @returns 实际的 state key 字符串
- */
-export function resolveStateKey(stateKey: StateKey, paneId?: string): string {
-  if (typeof stateKey === 'function') {
-    if (!paneId) {
-      throw new KLineChartError(
-        'INVALID_PARAM',
-        '[IndicatorMetadata] Pane ID required for dynamic state key',
-      )
-    }
-    return stateKey(paneId)
-  }
-  return stateKey
 }

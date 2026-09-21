@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface MFIRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface MFIRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createMFIStateKey = (paneId: string) => createIndicatorStateKey('mfi', paneId)
 
 export const DEFAULT_MFI_PERIOD = 14
 

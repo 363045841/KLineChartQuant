@@ -6,7 +6,12 @@ import {
   type WritableSignal,
 } from '../../foundation/reactivity/signal.js'
 
-import type { DataChange, LoadedTimeRange } from './dataBufferTypes.js'
+import {
+  DATA_CHANGE_KINDS,
+  type DataChange,
+  type DataChangeKind,
+  type LoadedTimeRange,
+} from './dataBufferTypes.js'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
 export interface MergeResult {
@@ -41,6 +46,16 @@ function mergeSortedData(existing: KLineData[], incoming: KLineData[]): KLineDat
   return merged
 }
 
+/**
+ * 判定合并结果的变更种类。
+ *
+ * 空存储的合并视为建立序列（整体替换）；头部插入历史时既有下标整体后移；其余仅在尾部增补。
+ */
+function resolveMergeKind(oldLength: number, prependedCount: number): DataChangeKind {
+  if (oldLength === 0) return DATA_CHANGE_KINDS.replace
+  return prependedCount > 0 ? DATA_CHANGE_KINDS.prepend : DATA_CHANGE_KINDS.tail
+}
+
 export class KLineDataStore {
   private _data: KLineData[] = []
   private _dataSignal: WritableSignal<DataChange<KLineData>>
@@ -49,7 +64,11 @@ export class KLineDataStore {
 
   /** 创建空数据存储和初始变更信号。 */
   constructor() {
-    this._dataSignal = createSignal<DataChange<KLineData>>({ data: [], prependedCount: 0 })
+    this._dataSignal = createSignal<DataChange<KLineData>>({
+      data: [],
+      kind: DATA_CHANGE_KINDS.replace,
+      prependedCount: 0,
+    })
   }
 
   get data(): ReadonlySignal<DataChange<KLineData>> {
@@ -90,7 +109,11 @@ export class KLineDataStore {
     this._data = merged
     this.timestampIndex.rebuild(this._data)
     this._updateWindow()
-    this._dataSignal.set({ data: [...merged], prependedCount })
+    this._dataSignal.set({
+      data: [...merged],
+      kind: resolveMergeKind(oldLength, prependedCount),
+      prependedCount,
+    })
 
     return { prependedCount, advancedEarliest }
   }
@@ -99,7 +122,7 @@ export class KLineDataStore {
   setInlineData(data: KLineData[]): void {
     this._data = [...data]
     this.timestampIndex.rebuild(this._data)
-    this._dataSignal.set({ data: [...data], prependedCount: 0 })
+    this._dataSignal.set({ data: [...data], kind: DATA_CHANGE_KINDS.replace, prependedCount: 0 })
     this._loadedTimeRange =
       data.length > 0
         ? { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
@@ -166,7 +189,8 @@ export class KLineDataStore {
     this._data = next
     this.timestampIndex.rebuild(this._data)
     this._updateWindow()
-    this._dataSignal.set({ data: [...next], prependedCount: 0 })
+    // 实时写入只改末尾，既有 K 线下标不变，故不使下标型交互态失效。
+    this._dataSignal.set({ data: [...next], kind: DATA_CHANGE_KINDS.tail, prependedCount: 0 })
     return { appendedCount, replacedCount, rejected }
   }
 
@@ -175,7 +199,7 @@ export class KLineDataStore {
     this._data = []
     this.timestampIndex.rebuild(this._data)
     this._loadedTimeRange = null
-    this._dataSignal.set({ data: [], prependedCount: 0 })
+    this._dataSignal.set({ data: [], kind: DATA_CHANGE_KINDS.replace, prependedCount: 0 })
   }
 
   /** 根据当前缓存更新已加载的时间窗口。 */

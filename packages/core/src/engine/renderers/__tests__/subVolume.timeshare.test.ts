@@ -46,11 +46,7 @@ describe('timeshare volume renderer', () => {
     const renderer = VolumeIndicatorDefinition.rendererFactory({ paneId: 'sub' })
     const { onInstall } = renderer
     if (!onInstall) throw new Error('Volume renderer must expose an install hook')
-    onInstall(
-      createMockServiceHost({
-        indicatorScheduler: { getIndicatorMetadata: () => ({ stateKey: 'volume' }) },
-      }),
-    )
+    onInstall(createMockServiceHost({}))
     const { context, fills } = createContext()
 
     renderer.draw(context)

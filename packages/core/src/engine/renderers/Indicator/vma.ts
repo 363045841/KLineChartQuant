@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcVMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VMARenderState } from '../../indicators/state/vmaState.js'
-import { createVMAStateKey, EMPTY_VMA_STATE } from '../../indicators/state/vmaState.js'
+import { EMPTY_VMA_STATE } from '../../indicators/state/vmaState.js'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,27 +18,12 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function getVMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[VMARenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('vma')
-  if (!meta) {
-    console.warn(`[VMARenderer] Indicator metadata for 'vma' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_VMA' } = options
+function createVMARendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'sub_VMA', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getVMAStateKey(pluginHost, paneId)
-  }
   return {
     name: `vma_${paneId}`,
     version: '1.1.0',
@@ -50,8 +35,7 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -60,9 +44,8 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<VMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<VMARenderState>(instanceId)
       if (!state || !state.params.showVMA || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -105,12 +88,10 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<VMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<VMARenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -118,7 +99,6 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
 }
 
 const getVMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createVMAStateKey,
   name: 'VMA',
   defaultPeriod: 5,
   getColor: (colors) => colors.palette.i6,

@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface LSMARenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface LSMARenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createLSMAStateKey = (paneId: string) => createIndicatorStateKey('lsma', paneId)
 
 export const DEFAULT_LSMA_PERIOD = 25
 

@@ -14,13 +14,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcStochRSIData } from '../../indicators/calculators/stochRSI.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { StochRSIRenderState } from '../../indicators/state/stochRSIState.js'
-import {
-  createStochRSIStateKey,
-  EMPTY_STOCH_RSI_STATE,
-} from '../../indicators/state/stochRSIState.js'
+import { EMPTY_STOCH_RSI_STATE } from '../../indicators/state/stochRSIState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -32,26 +28,8 @@ type LinePoint = { x: number; y: number }
 interface StochRSIRendererOptions {
   /** 目标 pane ID。 */
   paneId?: string
-}
-
-/**
- * 获取 StochRSI 在指定 pane 上的状态键。
- * @param host 插件宿主。
- * @param paneId 目标副图 ID。
- * @returns 状态键，服务不可用时返回 null。
- */
-function getStochRSIStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[StochRSIRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('stochRSI')
-  if (!meta) {
-    console.warn("[StochRSIRenderer] Indicator metadata for 'stochRSI' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -62,13 +40,8 @@ function getStochRSIStateKey(host: PluginHost | null, paneId: string): string | 
 function createStochRSIRendererPlugin(
   options: StochRSIRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_StochRSI' } = options
+  const { paneId = 'sub_StochRSI', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 解析当前指标状态键。 */
-  function resolveKey(): string | null {
-    return getStochRSIStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedKPoints: LinePoint[] = []
@@ -133,8 +106,7 @@ function createStochRSIRendererPlugin(
 
     /** 声明此渲染器拥有的状态命名空间。 */
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /** 绘制 StochRSI 零轴和 K/D 折线。 */
@@ -148,9 +120,8 @@ function createStochRSIRendererPlugin(
       const kColor = colors.palette.i2
       const dColor = colors.palette.i3
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<StochRSIRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<StochRSIRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -233,16 +204,14 @@ function createStochRSIRendererPlugin(
 
     /** 返回当前 StochRSI 配置。 */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<StochRSIRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<StochRSIRenderState>(instanceId)
       return state?.params ?? {}
     },
 
-    /** 配置由 IndicatorScheduler 统一更新。 */
+    /** 配置由外部统一更新。 */
     setConfig() {},
   }
 }
@@ -302,8 +271,8 @@ function drawStochRSILinesWithCanvas2D(
  * @param data 当前 K 线数据。
  * @param index 十字线数据索引。
  * @param params 指标配置。
- * @param pluginHost 插件宿主。
- * @param paneId 目标副图 ID。
+ * @param stateReader 当前帧指标状态读取器。
+ * @param instanceId 指标实例 ID。
  * @param colors 当前主题颜色。
  * @returns 标题信息，无有效值时返回 null。
  */
@@ -312,7 +281,8 @@ function getStochRSITitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): {
   name: string
@@ -321,7 +291,7 @@ function getStochRSITitleInfo(
 } | null {
   if (index === null) return null
 
-  const state = stateReader.get<StochRSIRenderState>(createStochRSIStateKey(paneId))
+  const state = stateReader.get<StochRSIRenderState>(instanceId)
   if (!state) return null
   const point = state.series[index]
   if (!point) return null

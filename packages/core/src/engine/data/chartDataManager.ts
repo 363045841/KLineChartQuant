@@ -7,7 +7,13 @@ import {
   type SymbolSpec,
 } from '../../controllers/types.js'
 import { DataBuffer } from '../../data/buffer/dataBuffer.js'
-import type { DataChange, KLineBuffer, TimeShareBuffer } from '../../data/buffer/dataBufferTypes.js'
+import {
+  DATA_CHANGE_KINDS,
+  type DataChange,
+  type DataChangeKind,
+  type KLineBuffer,
+  type TimeShareBuffer,
+} from '../../data/buffer/dataBufferTypes.js'
 import { MarketDataCache } from '../../data/buffer/marketDataCache.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy.js'
 import {
@@ -64,19 +70,15 @@ export interface DataDependencies {
   comparison: ComparisonStateModule
   scheduleDraw: (level?: UpdateLevel) => void
   resetInteraction: () => void
-  getIndicatorScheduler: () => {
-    update: (data: KLineData[], range: VisibleRange, dataRevision?: number) => boolean
-    updateWithDisplayTimestamps?: (
-      data: KLineData[],
-      range: VisibleRange,
-      dataRevision?: number,
-      displayTimestamps?: readonly number[] | null,
-    ) => boolean
-    busySignal: ReadonlySignal<boolean>
-  }
+  /** 指标数据更新入口：K 线计算 + 可选展示时间戳投影。 */
+  updateIndicatorData: (
+    data: KLineData[],
+    range: VisibleRange,
+    dataRevision?: number,
+    displayTimestamps?: readonly number[] | null,
+  ) => void
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void
-  onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
   /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
 }
@@ -258,13 +260,13 @@ export class ChartDataManager {
     })
 
     // 初始同步：key/data/loading 同批；subscribe 不回放当前值
-    const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
+    const { dataChanged, kind, prependedCount, prevDataLength } = this.publishBufferSnapshot(
       selection,
       buf,
       true,
     )
     if (dataChanged) {
-      this.onBufferDataChanged(selection, prevDataLength, prependedCount)
+      this.onBufferDataChanged(selection, kind, prevDataLength, prependedCount)
     }
     if (!buf.loading.peek()) {
       this.scheduleIncrementalLoadHintFlush(selection)
@@ -306,7 +308,12 @@ export class ChartDataManager {
     selection: SeriesSelection,
     buf: KLineBuffer | TimeShareBuffer,
     forceData: boolean,
-  ): { dataChanged: boolean; prependedCount: number; prevDataLength: number } {
+  ): {
+    dataChanged: boolean
+    kind: DataChangeKind
+    prependedCount: number
+    prevDataLength: number
+  } {
     const dataChange = buf.data.peek()
     const dataChanged = forceData || dataChange !== this._lastDataChange
     const prevDataLength = this._dataState.readonly.dataLength.peek()
@@ -343,20 +350,20 @@ export class ChartDataManager {
       })
     }
 
-    return { dataChanged, prependedCount, prevDataLength }
+    return { dataChanged, kind: dataChange.kind, prependedCount, prevDataLength }
   }
 
   private handleBufferDataEvent(selection: SeriesSelection): void {
     if (!this.isActiveSelection(selection)) return
     const buf = this.lookupBuffer(selection)
     if (!buf) return
-    const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
+    const { dataChanged, kind, prependedCount, prevDataLength } = this.publishBufferSnapshot(
       selection,
       buf,
       false,
     )
     if (!dataChanged) return
-    this.onBufferDataChanged(selection, prevDataLength, prependedCount)
+    this.onBufferDataChanged(selection, kind, prevDataLength, prependedCount)
   }
 
   private handleBufferLoadingEvent(selection: SeriesSelection): void {
@@ -563,6 +570,7 @@ export class ChartDataManager {
 
   private onBufferDataChanged(
     selection: SeriesSelection,
+    kind: DataChangeKind,
     prevDataLength?: number,
     prependedCount?: number,
   ): void {
@@ -572,11 +580,12 @@ export class ChartDataManager {
     }
     const buf = this._repository.getBars(selection)
     if (!buf) return
-    this.onKLineBufferChanged(buf, prevDataLength, prependedCount ?? 0)
+    this.onKLineBufferChanged(buf, kind, prevDataLength, prependedCount ?? 0)
   }
 
   private onKLineBufferChanged(
     buf: KLineBuffer,
+    kind: DataChangeKind,
     prevDataLength?: number,
     prependedCount: number = 0,
   ): void {
@@ -594,7 +603,11 @@ export class ChartDataManager {
       this.scrollToRight()
     }
 
-    this.deps.resetInteraction()
+    // 只有让既有下标失效的变更才作废交互态；实时尾部写入不改变既有 K 线下标，
+    // 若一并重置会打断用户正在进行的手势。
+    if (kind !== DATA_CHANGE_KINDS.tail) {
+      this.deps.resetInteraction()
+    }
 
     if (!this._dmState.readonly.rangeInitialized.peek() && bufferData.length > 0) {
       this._dmState.actions.setRangeInitialized(true)
@@ -605,16 +618,12 @@ export class ChartDataManager {
       currentRange = { start: 0, end: bufferData.length }
     }
     if (currentRange) {
-      const scheduler = this.deps.getIndicatorScheduler()
-      const indicatorsReady = scheduler.update(
+      // 指标计算异步提交，提交后由结果链路回调 scheduleDraw / 预警。
+      this.deps.updateIndicatorData(
         bufferData,
         currentRange,
         this._dataState.readonly.dataRevision.peek(),
       )
-      if (indicatorsReady) {
-        this.deps.scheduleDraw()
-        this.deps.onDataProcessed?.(bufferData, currentRange)
-      }
     }
 
     if (prependedCount > 0) {
@@ -690,16 +699,13 @@ export class ChartDataManager {
         limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
       })
       if (requestId !== this._timeShareIndicatorRequestId) return
-      const updateWithDisplayTimestamps =
-        this.deps.getIndicatorScheduler().updateWithDisplayTimestamps
-      if (!updateWithDisplayTimestamps) return
-      const indicatorsReady = updateWithDisplayTimestamps(
+      // 1min K 线计算，结果投影到分时展示时间戳；提交后由结果链路回调重绘。
+      this.deps.updateIndicatorData(
         [...result.series.data],
         range,
         this._dataState.readonly.dataRevision.peek(),
         data.map((item) => item.timestamp),
       )
-      if (indicatorsReady) this.deps.scheduleDraw()
     } catch {
       // 1min K 线不可用时保持分时主图与 VOL 正常工作。
     }
@@ -881,7 +887,7 @@ export class ChartDataManager {
   /** 实时帧写入活动 K 线 Buffer（末尾窗口 replace-on-conflict）；分时视图或无活动序列时忽略。 */
   updateBars(bars: KLineData[]): void {
     if (isTimeSharePeriod(this.currentPeriod)) return
-    this.getActiveDataBuffer()?.updateBars(bars)
+    this.getActiveDataBuffer()?.applyRealtimeBars(bars)
   }
 
   appendData(newData: KLineData[]): void {

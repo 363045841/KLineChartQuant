@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /**
  * 一目均衡表数据点：5 条线在同一根 K 线槽位
@@ -41,9 +40,6 @@ export interface IchimokuRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createIchimokuStateKey = (paneId: string) =>
-  createIndicatorStateKey('ichimoku', paneId)
 
 export const DEFAULT_ICHIMOKU_TENKAN = 9
 export const DEFAULT_ICHIMOKU_KIJUN = 26

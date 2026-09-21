@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /**
  * MA 渲染器状态（共享给渲染器和图例）
@@ -21,7 +20,6 @@ export interface MARenderState extends BaseIndicatorState {
  * MA 状态的 StateStore 键名
  * 格式：indicator:ma:main
  */
-export const MA_STATE_KEY = createIndicatorStateKey('ma', 'main')
 
 /**
  * 空数据占位状态

@@ -13,6 +13,8 @@
  */
 
 import { marketDataProviderRegistry } from '../data/provider/registry.js'
+import { BarsLiveSubscription } from '../data/live/barsLive.js'
+import { ORIGINAL_BAR_AGGREGATION } from '../data/provider/types.js'
 import { Chart } from '../engine/chart.js'
 import type {
   ChartOptions,
@@ -22,6 +24,7 @@ import type {
 } from '../engine/chartTypes.js'
 import { DrawingCommands } from '../engine/drawing/DrawingCommands.js'
 import { DrawingDocument } from '../engine/drawing/DrawingDocument.js'
+import { getRegisteredIndicatorDefinition } from '../engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
 import { hasSubPaneRendererMetadata } from '../engine/subPaneManager.js'
@@ -442,14 +445,27 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
     resolveSubPaneIndicatorId: (indicatorId) =>
-      chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.displayName ?? null,
+      getRegisteredIndicatorDefinition(indicatorId)?.displayName ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
-      const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+      const definition = getRegisteredIndicatorDefinition(indicatorId)
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
     },
   })
 
   let disposed = false
+  const liveBars = new BarsLiveSubscription({ updateBars })
+
+  /** 按当前活动品种协调 MT5 K 线实时订阅。 */
+  function reconcileLiveBars(): void {
+    const selection = chart.kernel.data.readonly.activeSelection.peek()
+    const barAggregation =
+      selection?.kind === 'bars' ? selection.barAggregation : ORIGINAL_BAR_AGGREGATION
+    liveBars.reconcile(chart.kernel.dataManager.readonly.currentSpec.peek(), barAggregation)
+  }
+
+  // 当前品种的 Provider 在自动路由完成后会写回 currentSpec，此时重新检查实时能力。
+  const unsubscribeLiveBars = chart.kernel.dataManager.readonly.currentSpec.subscribe(reconcileLiveBars)
+  reconcileLiveBars()
 
   // -------------------------------------------------------------------
   // Public methods — delegate to Chart facade
@@ -470,6 +486,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposed) return
     chart.clearRangeSelection()
     chart.setSymbols(next)
+    reconcileLiveBars()
   }
 
   function setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void {
@@ -496,12 +513,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposed) return
     chart.clearRangeSelection()
     chart.setCurrentSymbol(symbol)
+    reconcileLiveBars()
   }
 
   function setCurrentPeriod(period: string): void {
     if (disposed) return
     chart.clearRangeSelection()
     chart.setCurrentPeriod(period)
+    reconcileLiveBars()
   }
 
   function switchToTimeShareForDate(dateYYYYMMDD: number): void {
@@ -901,7 +920,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params: Record<string, unknown>,
   ): boolean {
     if (disposed) return false
-    const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+    const definition = getRegisteredIndicatorDefinition(indicatorId)
     if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.displayName))
       return false
     return chart.panes.replaceContent(paneId, definition.displayName, params)
@@ -953,6 +972,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function dispose(): void {
     if (disposed) return
     disposed = true
+    unsubscribeLiveBars()
+    liveBars.stop()
     try {
       void chart.destroy()
     } catch {

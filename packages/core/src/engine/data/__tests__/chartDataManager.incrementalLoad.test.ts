@@ -1,97 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { KLineData, SymbolSpec } from '../../../controllers/types'
-import { marketDataProviderRegistry } from '../../../data/provider/registry'
-import type { BarAggregation, BarSeries, MarketDataProvider } from '../../../data/provider/types'
-import { createSignal } from '../../../foundation/reactivity/signal'
-import { createDataManagerState } from '../../state/dataManagerState'
-import { createDataState } from '../../state/dataState'
-import { ChartDataManager } from '../chartDataManager'
+import type { ChartDataManager } from '../chartDataManager'
 import {
-  createChartDom,
-  createMockDataDependencies,
+  createTestChartDataManager,
   createTestDocument,
+  createTestProvider,
+  instrumentFor,
+  MS_PER_DAY,
+  makeBarsPage,
+  makeKLine,
+  makeTestSymbolSpec,
+  registerTestProvider,
+  type TestBarSeries,
+  unregisterTestProvider,
 } from './helpers/chartDataManagerTestKit'
-
-const MS_PER_DAY = 86_400_000
-
-function makeKLine(timestamp: number): KLineData {
-  return {
-    timestamp,
-    open: 100,
-    high: 110,
-    low: 90,
-    close: 105,
-    volume: 1_000,
-  }
-}
-
-function instrumentFor(symbol: string) {
-  return {
-    id: `test:${symbol}`,
-    sourceId: 'test',
-    symbol,
-    name: symbol,
-    assetClass: 'stock' as const,
-    exchange: 'SZ',
-    sessionId: 'CN',
-    capabilities: {
-      bars: { periods: ['daily'] as const, adjustments: ['none'] as const },
-      timeShare: true,
-    },
-  }
-}
-
-function registerTestProvider(provider: MarketDataProvider): void {
-  if (marketDataProviderRegistry.get('test')) marketDataProviderRegistry.unregister('test')
-  marketDataProviderRegistry.register(provider)
-}
-
-type TestBarSeries = Omit<BarSeries, 'barAggregation'> & { barAggregation?: BarAggregation }
-type TestBarsSource = {
-  fetch: (
-    query: Parameters<NonNullable<MarketDataProvider['bars']>['fetch']>[0],
-  ) => Promise<TestBarSeries>
-}
-
-function createTestProvider(options: {
-  fetchBars?: TestBarsSource
-  fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
-  fetchTimeShareRange?: NonNullable<MarketDataProvider['timeShareRange']>['fetch']
-}): MarketDataProvider {
-  return {
-    source: {
-      id: 'test',
-      displayName: 'Test',
-      capabilities: {
-        assetClasses: ['stock'],
-        bars: { periods: ['daily'], adjustments: ['none'] },
-        timeShare: true,
-        ...(options.fetchTimeShareRange ? { timeShareRange: { maxTradingDays: 5 } } : {}),
-      },
-    },
-    async probe() {
-      return { status: 'online', checkedAt: 1 }
-    },
-    catalog: {
-      async search(query) {
-        return [instrumentFor(query.keyword)]
-      },
-    },
-    bars: options.fetchBars
-      ? {
-          fetch: async (query) => ({
-            ...(await options.fetchBars!.fetch(query)),
-            barAggregation: 'original',
-          }),
-        }
-      : undefined,
-    timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
-    timeShareRange: options.fetchTimeShareRange
-      ? { fetch: options.fetchTimeShareRange }
-      : undefined,
-  }
-}
 
 describe('ChartDataManager incremental load', () => {
   let manager: ChartDataManager | null = null
@@ -104,7 +26,7 @@ describe('ChartDataManager incremental load', () => {
   afterEach(() => {
     manager?.destroy()
     manager = null
-    marketDataProviderRegistry.unregister('test')
+    unregisterTestProvider()
     vi.unstubAllGlobals()
   })
 
@@ -119,55 +41,29 @@ describe('ChartDataManager incremental load', () => {
           async fetch(query) {
             fetchCount++
             if (fetchCount === 2) olderPageCursor = query.beforeTimestamp
-            return {
-              instrumentId: 'test:sh.600000',
-              period: 'daily',
-              adjustment: 'none',
-              timezone: 'Asia/Shanghai',
-              olderData: fetchCount === 1 ? 'available' : 'exhausted',
-              data:
-                fetchCount === 1
-                  ? [makeKLine(initialStart), makeKLine(now)]
-                  : [makeKLine(initialStart - 90 * MS_PER_DAY)],
-            }
+            return makeBarsPage(
+              fetchCount === 1
+                ? [makeKLine(initialStart), makeKLine(now)]
+                : [makeKLine(initialStart - 90 * MS_PER_DAY)],
+              { olderData: fetchCount === 1 ? 'available' : 'exhausted' },
+            )
           },
         },
       }),
     )
-    const spec: SymbolSpec = {
-      symbol: 'sh.600000',
-      market: 'CN',
-      period: 'daily',
-      adjust: 'none',
-      source: 'test',
-      instrument: instrumentFor('sh.600000'),
-    }
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
-    )
-    manager.setSymbols([spec])
+    const harness = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } })
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
 
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
-    expect(dataState.readonly.loading.peek()).toBe(false)
+    expect(harness.dataState.readonly.loading.peek()).toBe(false)
 
     manager.ensureDataRange(initialStart - 30 * MS_PER_DAY)
 
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
     await vi.waitFor(() => {
-      expect(dataState.readonly.loading.peek()).toBe(false)
-      expect(dataManagerState.readonly.pendingIncrementalLoad.peek().count).toBe(0)
+      expect(harness.dataState.readonly.loading.peek()).toBe(false)
+      expect(harness.dataManagerState.readonly.pendingIncrementalLoad.peek().count).toBe(0)
     })
     expect(fetchCount).toBe(2)
     expect(olderPageCursor).toBe(initialStart)
@@ -178,28 +74,16 @@ describe('ChartDataManager incremental load', () => {
     const now = Date.now()
     const initialStart = now - 365 * MS_PER_DAY
     let fetchCount = 0
-    let resolveOlder!: (value: {
-      instrumentId: string
-      period: 'daily'
-      adjustment: 'none'
-      timezone: string
-      olderData: 'exhausted'
-      data: KLineData[]
-    }) => void
+    let resolveOlder!: (value: TestBarSeries) => void
     registerTestProvider(
       createTestProvider({
         fetchBars: {
           async fetch() {
             fetchCount++
             if (fetchCount === 1) {
-              return {
-                instrumentId: 'test:sh.600000',
-                period: 'daily',
-                adjustment: 'none',
-                timezone: 'Asia/Shanghai',
+              return makeBarsPage([makeKLine(initialStart), makeKLine(now)], {
                 olderData: 'available',
-                data: [makeKLine(initialStart), makeKLine(now)],
-              }
+              })
             }
             return new Promise((resolve) => {
               resolveOlder = resolve
@@ -208,30 +92,8 @@ describe('ChartDataManager incremental load', () => {
         },
       }),
     )
-    const spec: SymbolSpec = {
-      symbol: 'sh.600000',
-      market: 'CN',
-      period: 'daily',
-      adjust: 'none',
-      source: 'test',
-      instrument: instrumentFor('sh.600000'),
-    }
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
-    )
-    manager.setSymbols([spec])
+    manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     let dataEvents = 0
@@ -239,14 +101,7 @@ describe('ChartDataManager incremental load', () => {
     manager.ensureDataRange(initialStart - MS_PER_DAY)
     manager.ensureDataRange(initialStart - MS_PER_DAY)
     await vi.waitFor(() => expect(fetchCount).toBe(2))
-    resolveOlder({
-      instrumentId: 'test:sh.600000',
-      period: 'daily',
-      adjustment: 'none',
-      timezone: 'Asia/Shanghai',
-      olderData: 'exhausted',
-      data: [makeKLine(initialStart - 90 * MS_PER_DAY)],
-    })
+    resolveOlder(makeBarsPage([makeKLine(initialStart - 90 * MS_PER_DAY)]))
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
     unsubscribe()
 
@@ -261,33 +116,15 @@ describe('ChartDataManager incremental load', () => {
         fetchBars: {
           async fetch() {
             fetchCount++
-            return {
+            return makeBarsPage([makeKLine(Date.now())], {
               instrumentId: 'test:000001',
-              period: 'daily',
-              adjustment: 'none',
-              timezone: 'Asia/Shanghai',
               olderData: 'unknown',
-              data: [makeKLine(Date.now())],
-            }
+            })
           },
         },
       }),
     )
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
-    )
+    manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
     manager.setSymbols([
       {
         symbol: '000001',
@@ -314,22 +151,12 @@ describe('ChartDataManager incremental load', () => {
   })
 
   it('schedules a draw after timeshare data finishes loading', async () => {
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
     const scheduleDraw = vi.fn()
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 }, scheduleDraw },
-      ),
-      dataState,
-      dataManagerState,
-    )
+    const harness = createTestChartDataManager(document, {
+      viewport: { scrollLeft: 800 },
+      scheduleDraw,
+    })
+    manager = harness.manager
     registerTestProvider(
       createTestProvider({
         fetchTimeShare: async () => ({
@@ -352,14 +179,13 @@ describe('ChartDataManager incremental load', () => {
       },
     ])
 
-    await vi.waitFor(() => expect(dataState.readonly.data.peek()).toHaveLength(1))
+    await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()).toHaveLength(1))
     expect(scheduleDraw).toHaveBeenCalled()
   })
 
   it('requests and displays a distinct cache entry for each selected timeshare date', async () => {
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
+    const harness = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } })
+    manager = harness.manager
     const fetchTimeShare = vi.fn(async ({ tradingDate }: { tradingDate: string }) => ({
       instrumentId: 'test:000001',
       tradingDate: tradingDate as '2026-08-05' | '2026-08-06',
@@ -373,50 +199,24 @@ describe('ChartDataManager incremental load', () => {
         },
       ],
     }))
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
-    )
     registerTestProvider(
       createTestProvider({
         fetchBars: {
-          fetch: async () => ({
-            instrumentId: 'test:000001',
-            period: 'daily',
-            adjustment: 'none',
-            timezone: 'Asia/Shanghai',
-            olderData: 'exhausted',
-            data: [makeKLine(0)],
-          }),
+          fetch: async () => makeBarsPage([makeKLine(0)], { instrumentId: 'test:000001' }),
         },
         fetchTimeShare,
       }),
     )
-    const spec: SymbolSpec = {
-      symbol: '000001',
-      market: 'CN',
-      period: 'daily',
-      source: 'test',
-      instrument: instrumentFor('000001'),
-    }
-    manager.setSymbols([spec])
+    manager.setSymbols([makeTestSymbolSpec('000001')])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     manager.setTimeShareQueryDate(20260805)
     manager.setCurrentPeriod('timeshare')
-    await vi.waitFor(() => expect(dataState.readonly.data.peek()[0]?.timestamp).toBe(1))
+    await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()[0]?.timestamp).toBe(1))
 
     manager.setTimeShareQueryDate(20260806)
     manager.setCurrentPeriod('timeshare')
-    await vi.waitFor(() => expect(dataState.readonly.data.peek()[0]?.timestamp).toBe(2))
+    await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()[0]?.timestamp).toBe(2))
 
     expect(fetchTimeShare).toHaveBeenCalledTimes(2)
     expect(fetchTimeShare).toHaveBeenNthCalledWith(
@@ -430,9 +230,8 @@ describe('ChartDataManager incremental load', () => {
   })
 
   it('loads five-day timeshare through the range Provider and stores the grouped snapshot', async () => {
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
+    const harness = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } })
+    manager = harness.manager
     const fetchTimeShareRange = vi.fn(async () => ({
       instrumentId: 'test:000001',
       timezone: 'Asia/Shanghai',
@@ -451,67 +250,35 @@ describe('ChartDataManager incremental load', () => {
         },
       ],
     }))
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
-    )
     registerTestProvider(createTestProvider({ fetchTimeShareRange }))
 
     manager.setSymbols([
-      {
-        symbol: '000001',
-        market: 'CN',
+      makeTestSymbolSpec('000001', {
         period: '5daytimeshare',
-        source: 'test',
         instrument: {
           ...instrumentFor('000001'),
           capabilities: { timeShare: true, timeShareRange: { maxTradingDays: 5 } },
         },
-      },
+      }),
     ])
 
-    await vi.waitFor(() => expect(dataState.readonly.timeShareRange.peek()?.days).toHaveLength(2))
+    await vi.waitFor(() =>
+      expect(harness.dataState.readonly.timeShareRange.peek()?.days).toHaveLength(2),
+    )
     expect(fetchTimeShareRange).toHaveBeenCalledWith(
       expect.objectContaining({ endTradingDate: expect.any(String), days: 5 }),
     )
-    expect(dataState.readonly.data.peek()).toHaveLength(2)
-    expect(dataState.readonly.timeShareRange.peek()?.days[1]?.preClose).toBe(10)
+    expect(harness.dataState.readonly.data.peek()).toHaveLength(2)
+    expect(harness.dataState.readonly.timeShareRange.peek()?.days[1]?.preClose).toBe(10)
   })
 
   it('keeps custom source data isolated from a Provider with the same label', async () => {
     const providerData = makeKLine(2)
-    const fetchBars = vi.fn(async () => ({
-      instrumentId: 'test:000001',
-      period: 'daily' as const,
-      adjustment: 'none' as const,
-      timezone: 'Asia/Shanghai',
-      olderData: 'exhausted' as const,
-      data: [providerData],
-    }))
-    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
+    const fetchBars = vi.fn(async () =>
+      makeBarsPage([providerData], { instrumentId: 'test:000001' }),
     )
+    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
+    manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
 
     manager.applyCustomData({
       market: 'CN',
@@ -544,30 +311,8 @@ describe('ChartDataManager incremental load', () => {
         },
       }),
     )
-    const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-    const dataManagerState = createDataManagerState()
-    manager = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          symbols$.set(symbols)
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { scrollLeft: 800 } },
-      ),
-      dataState,
-      dataManagerState,
-    )
-    manager.setSymbols([
-      {
-        symbol: '158017',
-        market: 'CN',
-        period: 'daily',
-        source: 'test',
-        instrument: instrumentFor('158017'),
-      },
-    ])
+    manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
+    manager.setSymbols([makeTestSymbolSpec('158017')])
 
     await vi.waitFor(
       () =>

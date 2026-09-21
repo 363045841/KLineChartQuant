@@ -45,6 +45,8 @@ function createChartStub(args: {
     value: () => ({ left: 0, top: 0, width: 320, height: 200 }),
   })
   container.setPointerCapture = () => undefined
+  container.hasPointerCapture = () => false
+  container.releasePointerCapture = () => undefined
 
   const data: KLineData[] = [
     {
@@ -303,6 +305,44 @@ describe('InteractionController DPR consumption', () => {
 
     expect(interaction.crosshairPos).toBeNull()
     expect(interaction.crosshairIndex).toBeNull()
+  })
+
+  it('keeps an active pan through pointerleave caused by a layout change', () => {
+    const scrollTo = vi.fn(() => true)
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollTo })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+
+    interaction.onPointerDown({
+      clientX: 100,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 7,
+    } as PointerEvent)
+    interaction.onPointerLeave({ isPrimary: true, pointerId: 7 } as PointerEvent)
+    interaction.onPointerMove({
+      clientX: 80,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 7,
+    } as PointerEvent)
+
+    expect(interaction.isDraggingState()).toBe(true)
+    expect(scrollTo).toHaveBeenCalledWith(20)
+  })
+
+  it('ends an active pan when the browser cancels its pointer stream', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+
+    interaction.onPointerDown({
+      clientX: 100,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 7,
+    } as PointerEvent)
+    interaction.onPointerCancel({ isPrimary: true, pointerId: 7 } as PointerEvent)
+
+    expect(interaction.isDraggingState()).toBe(false)
   })
 
   it('indexes bars from sealed frameVisibleRange, not stale viewport.visibleFrom', () => {

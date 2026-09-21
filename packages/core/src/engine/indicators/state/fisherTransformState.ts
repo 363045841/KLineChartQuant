@@ -3,7 +3,6 @@
  */
 
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { FisherPoint } from '../calculators/fisherTransform.js'
 
 export interface FisherTransformRenderState extends BaseIndicatorState {
@@ -21,8 +20,6 @@ export interface FisherTransformRenderState extends BaseIndicatorState {
  * @param paneId 目标副图 ID。
  * @returns Fisher Transform 状态命名空间键。
  */
-export const createFisherTransformStateKey = (paneId: string) =>
-  createIndicatorStateKey('fisherTransform', paneId)
 
 export const EMPTY_FISHER_TRANSFORM_STATE: FisherTransformRenderState = {
   timestamp: 0,

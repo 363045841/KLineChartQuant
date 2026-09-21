@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface WMSRRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface WMSRRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createWMSRStateKey = (paneId: string) => createIndicatorStateKey('wmsr', paneId)
 
 export const EMPTY_WMSR_STATE: WMSRRenderState = {
   timestamp: 0,

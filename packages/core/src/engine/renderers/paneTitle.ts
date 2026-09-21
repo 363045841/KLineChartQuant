@@ -1,5 +1,4 @@
 import type {
-  PluginHost,
   RenderContext,
   RendererPluginWithHost,
 } from '../../foundation/plugin/index.js'
@@ -9,8 +8,8 @@ import type { ColorTokens } from '../../foundation/tokens/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { PANE_HEADER_INSET_PX } from '../chartTypes.js'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../indicators/scheduler.js'
 
 import type { SubIndicatorType } from './Indicator/index.js'
 
@@ -59,12 +58,13 @@ export interface PaneTitleOptions {
   description?: string
   yOffset?: number
   indicatorId: SubIndicatorType
+  /** 该 pane 绑定的实例身份，标题值从该实例的投影读取。 */
+  instanceId: string
   params: Record<string, unknown>
 }
 
 export function createPaneTitleRendererPlugin(options: PaneTitleOptions): RendererPluginWithHost {
   let currentOptions = { ...options }
-  let pluginHost: PluginHost | null = null
 
   return {
     name: `paneTitle_${options.paneId}`,
@@ -74,10 +74,6 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
     paneId: options.paneId,
     priority: RENDERER_PRIORITY.FOREGROUND,
     layer: 'overlay',
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
 
     draw(context: RenderContext) {
       const { overlayCtx, pane, paneWidth } = context
@@ -102,16 +98,16 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
       const castParams = currentOptions.params as Record<string, number | boolean | string>
       const klineData = context.data as KLineData[]
 
-      // 优先从 indicator metadata registry 获取 getTitleInfo
+      // 指标 metadata 来自静态定义注册表；标题值读取该实例自己的投影
       let titleInfo: TitleInfo | null = null
-      const scheduler = pluginHost?.getService<IndicatorScheduler>('indicatorScheduler')
-      const meta = scheduler?.getIndicatorMetadata(currentOptions.indicatorId)
+      const meta = getRegisteredIndicatorDefinition(currentOptions.indicatorId)
       if (meta?.getTitleInfo && context.indicatorStateReader) {
         titleInfo = meta.getTitleInfo(
           klineData,
           crosshairIndex,
           castParams,
           context.indicatorStateReader,
+          currentOptions.instanceId,
           currentOptions.paneId,
           colors,
         )

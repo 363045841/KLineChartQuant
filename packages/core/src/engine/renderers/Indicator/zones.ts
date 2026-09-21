@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -9,36 +10,20 @@ import { calcZonesData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
-  resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ZonesRenderState } from '../../indicators/state/zonesState.js'
-import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState.js'
+import { EMPTY_ZONES_STATE } from '../../indicators/state/zonesState.js'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[ZonesRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('zones')
-  if (!meta) {
-    console.warn("[ZonesRenderer] Indicator metadata for 'zones' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+function createZonesRendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getZonesStateKey(pluginHost, paneId)
-  }
   return {
     name: `zones_${paneId}`,
     version: '1.0.0',
@@ -50,8 +35,7 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -60,9 +44,8 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<ZonesRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<ZonesRenderState>(instanceId)
       if (!state) return
       const { showFVG, showOB, showFilledZones } = state.params
       if (!showFVG && !showOB) return
@@ -104,24 +87,29 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       return (
         pluginHost
-          ?.getService<IndicatorScheduler>('indicatorScheduler')
-          ?.createRenderStateReader()
-          .get<ZonesRenderState>(stateKey)?.params ?? {}
+          ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+          ?.get<ZonesRenderState>(instanceId)?.params ?? {}
       )
     },
     setConfig() {},
   }
 }
 
-const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
+const getZonesTitleInfo: GetTitleInfoFn = (
+  _data,
+  index,
+  _params,
+  stateReader,
+  instanceId,
+  _paneId,
+  colors,
+) => {
   if (index === null) return null
 
-  const stateKey = createZonesStateKey(paneId)
-  const state = stateReader.get<ZonesRenderState>(stateKey)
+  const state = stateReader.get<ZonesRenderState>(instanceId)
   if (!state) return null
 
   const activeZones = state.series.filter(

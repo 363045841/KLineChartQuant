@@ -3,6 +3,7 @@
  * 使用 GPU 折线渲染并在不可用时回退到 Canvas2D。
  */
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -12,10 +13,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcVIDYAData } from '../../indicators/calculators/vidya.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VIDYARenderState } from '../../indicators/state/vidyaState.js'
-import { createVIDYAStateKey, EMPTY_VIDYA_STATE } from '../../indicators/state/vidyaState.js'
+import { EMPTY_VIDYA_STATE } from '../../indicators/state/vidyaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -25,32 +25,14 @@ type Point = { x: number; y: number }
 
 interface VIDYARendererOptions {
   paneId?: string
-}
-
-/** 解析当前 pane 的 VIDYA 共享状态 key。 */
-function getVIDYAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[VIDYARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('vidya')
-  if (!meta) {
-    console.warn("[VIDYARenderer] Indicator metadata for 'vidya' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /** 创建 VIDYA 主图单线渲染插件。 */
 function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 获取当前渲染实例对应的状态 key。 */
-  function resolveKey(): string | null {
-    return getVIDYAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `vidya_${paneId}`,
@@ -67,8 +49,7 @@ function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): Renderer
 
     // 声明本渲染器会读取的共享状态命名空间。
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     // 将可见 VIDYA 序列转换为屏幕折线并优先提交给 GPU。
@@ -80,9 +61,8 @@ function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): Renderer
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<VIDYARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<VIDYARenderState>(instanceId)
       if (!state || !state.params.showVIDYA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -120,12 +100,10 @@ function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): Renderer
 
     // 返回当前指标参数供配置系统读取。
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<VIDYARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<VIDYARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -137,7 +115,6 @@ function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): Renderer
 }
 
 const getVIDYATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createVIDYAStateKey,
   name: 'VIDYA',
   getParams: (p) => [p.period as number, p.cmoPeriod as number],
   getColor: (colors) => colors.palette.i4,

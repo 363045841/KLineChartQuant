@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface VWAPRenderState extends BaseIndicatorState {
   timestamp: number
@@ -10,8 +9,6 @@ export interface VWAPRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createVWAPStateKey = (paneId: string) => createIndicatorStateKey('vwap', paneId)
 
 // 0 = never reset (entire data is one session)
 // > 0 = reset session when consecutive bars' timestamps differ by more than this

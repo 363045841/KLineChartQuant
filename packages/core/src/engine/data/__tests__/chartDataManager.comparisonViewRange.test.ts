@@ -1,14 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { KLineData } from '../../../controllers/types'
-import { createDataManagerState } from '../../state/dataManagerState'
-import { createDataState } from '../../state/dataState'
-import { ChartDataManager } from '../chartDataManager'
-import {
-  createChartDom,
-  createMockDataDependencies,
-  createTestDocument,
-} from './helpers/chartDataManagerTestKit'
+import type { ChartDataManager } from '../chartDataManager'
+import { createTestChartDataManager, createTestDocument } from './helpers/chartDataManagerTestKit'
 
 const mainData: KLineData[] = [
   { timestamp: 1743318000000, date: '2026-01-01', open: 100, high: 110, low: 90, close: 100 },
@@ -37,19 +31,9 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   })
 
   function makeManager(): ChartDataManager {
-    const dataState = createDataState()
-    const dataManagerState = createDataManagerState()
-    const m = new ChartDataManager(
-      createMockDataDependencies(
-        createChartDom(document),
-        (symbols) => {
-          dataState.actions.setSymbols(symbols)
-        },
-        { viewport: { visibleRange: { start: 0, end: 3 } } },
-      ),
-      dataState,
-      dataManagerState,
-    )
+    const m = createTestChartDataManager(document, {
+      viewport: { visibleRange: { start: 0, end: 3 } },
+    }).manager
     manager = m
     return m
   }

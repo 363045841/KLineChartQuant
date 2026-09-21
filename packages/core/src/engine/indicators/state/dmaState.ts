@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /**
  * DMA 单点：DIF = MA(close,p1) - MA(close,p2)，AMA = MA(DIF,p3)
@@ -35,7 +34,6 @@ export interface DMARenderState extends BaseIndicatorState {
 /**
  * DMA 状态键：indicator:dma:{paneId}
  */
-export const createDMAStateKey = (paneId: string) => createIndicatorStateKey('dma', paneId)
 
 export const DEFAULT_DMA_P1 = 10
 export const DEFAULT_DMA_P2 = 50

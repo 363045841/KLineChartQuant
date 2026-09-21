@@ -1,48 +1,32 @@
+/**
+ * createSubIndicatorRenderer 测试：rendererFactory 装配与实例身份透传。
+ */
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-
-import type { RendererPluginWithHost } from '../../../../foundation/plugin'
-import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
-import { IndicatorRegistry } from '../../../indicators/indicatorRegistry'
 import {
-  getBuiltinIndicatorDefinitions,
-  loadBuiltinIndicators,
-} from '../../../indicators/registerBuiltins'
+  createTestIndicatorMetadata,
+  createTestRendererPlugin,
+} from '../../../indicators/__tests__/helpers/metadataTestKit'
+import { getRegisteredIndicatorDefinition } from '../../../indicators/indicatorDefinitionRegistry'
+import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
+import { loadBuiltinIndicators } from '../../../indicators/registerBuiltins'
 import { createSubIndicatorRenderer } from '../index'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
 })
 
-function createRenderer(name: string): RendererPluginWithHost {
-  return {
-    name,
-    version: '1.0.0',
-    description: 'test renderer',
-    paneId: 'test',
-    priority: 0,
-    draw: vi.fn(),
-  }
-}
-
 describe('createSubIndicatorRenderer', () => {
-  it('creates renderers through registered indicator metadata', () => {
-    const rendererFactory = vi.fn(() => createRenderer('custom_renderer'))
-    const definition: IndicatorMetadata = {
-      name: 'customIndicator',
-      displayName: 'CUSTOM',
-      category: 'sub',
-      indicatorType: 'other',
-      stateKey: (paneId: string) => `indicator:custom:${paneId}`,
-      defaultPaneId: 'sub_CUSTOM',
-      rendererFactory,
-      getRendererName: ({ paneId }) => `custom_${paneId}`,
-      getScaleRendererName: () => null,
-      getPaneTitleRendererName: () => null,
-    }
+  it('通过定义工厂创建渲染器并透传 instanceId', () => {
+    const rendererFactory = vi.fn(() => createTestRendererPlugin('custom_renderer'))
+    const definition: IndicatorMetadata = createTestIndicatorMetadata(
+      { name: 'customIndicator', displayName: 'CUSTOM', category: 'sub', indicatorType: 'other' },
+      { defaultPaneId: 'sub_CUSTOM', rendererFactory },
+    )
 
     const renderer = createSubIndicatorRenderer({
       indicatorId: 'CUSTOM',
       paneId: 'sub_CUSTOM',
+      instanceId: 'instance-1',
       definition,
       params: { period: 12 },
     })
@@ -51,20 +35,19 @@ describe('createSubIndicatorRenderer', () => {
     expect(rendererFactory).toHaveBeenCalledWith({
       indicatorId: 'CUSTOM',
       paneId: 'sub_CUSTOM',
+      instanceId: 'instance-1',
       params: { period: 12 },
     })
   })
 
-  it('supports legacy uppercase ids through registry normalization', () => {
-    const registry = new IndicatorRegistry(false)
-    for (const definition of getBuiltinIndicatorDefinitions()) {
-      registry.register(definition)
-    }
+  it('通过注册表解析内置定义并创建对应渲染器', () => {
+    const definition = getRegisteredIndicatorDefinition('VOLUME_PROFILE')
+    if (!definition) throw new Error('Missing builtin indicator definition: volumeProfile')
 
-    const definition = registry.getRequired('VOLUME_PROFILE')
     const renderer = createSubIndicatorRenderer({
-      indicatorId: 'VOLUME_PROFILE',
+      indicatorId: definition.name,
       paneId: 'VOLUME_PROFILE_0',
+      instanceId: 'instance-2',
       definition,
     })
 

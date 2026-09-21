@@ -10,14 +10,10 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcKeltnerData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import {
-  type GetTitleInfoFn,
-  resolveStateKey,
-  type TitleInfo,
-} from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { KeltnerRenderState } from '../../indicators/state/keltnerState.js'
-import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState.js'
+import { EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState.js'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -25,29 +21,13 @@ type Point = { x: number; y: number }
 
 interface KeltnerRendererOptions {
   paneId?: string
-}
-
-function getKeltnerStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[KeltnerRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('keltner')
-  if (!meta) {
-    console.warn(`[KeltnerRenderer] Indicator metadata for 'keltner' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getKeltnerStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `keltner_${paneId}`,
@@ -61,8 +41,7 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -72,9 +51,8 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<KeltnerRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<KeltnerRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) return
       const { showUpper, showMiddle, showLower } = state.params
       if (!showUpper && !showMiddle && !showLower) return
@@ -117,12 +95,10 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<KeltnerRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<KeltnerRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -143,11 +119,12 @@ function getKeltnerTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = stateReader.get<KeltnerRenderState>(createKeltnerStateKey(paneId))
+  const state = stateReader.get<KeltnerRenderState>(instanceId)
   const p = state?.series[index]
   if (!p) return null
 

@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import type { KSTPoint } from '../calculators/index.js'
 
 export interface KSTRenderState extends BaseIndicatorState {
@@ -19,8 +18,6 @@ export interface KSTRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createKSTStateKey = (paneId: string) => createIndicatorStateKey('kst', paneId)
 
 export const EMPTY_KST_STATE: KSTRenderState = {
   timestamp: 0,

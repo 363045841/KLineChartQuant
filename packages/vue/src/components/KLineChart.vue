@@ -78,6 +78,8 @@
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
             @pointerleave="onPointerLeave"
+            @pointercancel="onPointerCancel"
+            @lostpointercapture="onLostPointerCapture"
             @dblclick="onDoubleClick"
             @contextmenu.prevent
           >
@@ -249,6 +251,8 @@
             @pointermove="onRightAxisPointerMove"
             @pointerup="onRightAxisPointerUp"
             @pointerleave="onRightAxisPointerLeave"
+            @pointercancel="onRightAxisPointerCancel"
+            @lostpointercapture="onRightAxisLostPointerCapture"
             @contextmenu.prevent
           ></div>
         </div>
@@ -1530,6 +1534,16 @@
     controller.value?.handlePointerEvent(e)
   }
 
+  function onPointerCancel(e: PointerEvent) {
+    drawingDragCursor = null
+    controller.value?.handlePointerEvent(e)
+  }
+
+  function onLostPointerCapture(e: PointerEvent) {
+    drawingDragCursor = null
+    controller.value?.handlePointerEvent(e)
+  }
+
   function onDoubleClick(e: MouseEvent) {
     if (kLineLevel.value !== 'daily' || !controller.value) return
 
@@ -1565,6 +1579,14 @@
   }
 
   function onRightAxisPointerLeave(e: PointerEvent) {
+    controller.value?.handlePointerEvent(e)
+  }
+
+  function onRightAxisPointerCancel(e: PointerEvent) {
+    controller.value?.handlePointerEvent(e)
+  }
+
+  function onRightAxisLostPointerCapture(e: PointerEvent) {
     controller.value?.handlePointerEvent(e)
   }
 

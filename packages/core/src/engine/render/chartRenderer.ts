@@ -58,7 +58,6 @@ import {
 import { createDrawingRendererPlugin } from '../drawing/plugin.js'
 import type { DrawingSelectionMarquee } from '../drawing/selectionMarquee.js'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
-import { resolveStateKey } from '../indicators/indicatorMetadata.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { UpdateLevel } from '../layout/pane.js'
 import {
@@ -272,9 +271,7 @@ export class ChartRenderer {
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame && !snapshot.frame.useCachedFrame) {
-          this.deps
-            .getIndicatorManager()
-            .indicatorSchedulerAccessor.updateVisibleRangeForFrame(snapshot.frame.range)
+          this.deps.getIndicatorManager().updateVisibleRangeForFrame(snapshot.frame.range)
         }
         // 把本帧 K 线信息(kLinePositions,range,kWidthPx,kLineCenters)写入 InteractionController，保证 hover 命中与本帧一致
         if (snapshot.frame) {
@@ -574,22 +571,9 @@ export class ChartRenderer {
     const mode = this.deps.getActiveMode()
     const { visiblePriceExtrema, rightAxisWidthMeasurement } = frame
     const requiresRightAxisWidthMeasurement = rightAxisWidthMeasurement !== null
-    const indicatorManager = this.deps.getIndicatorManager()
-    if (mode.useIndicatorScheduler) {
-      // 获取指标管理器实例（持有 scheduler、状态、reconcile 逻辑）
-      // 将主图指标列表（含参数）同步给 scheduler，使其在本帧预计算价格区间
-      indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
-        indicatorManager.indicatorInstancesSignalPeek
-          .filter((instance) => instance.role === 'main' && instance.source !== 'mode')
-          .map((instance) => ({
-            id: instance.indicatorId,
-            params: { ...(instance.params as Record<string, string | number | boolean>) },
-          })),
-      )
-    }
     const mainIndicatorRange = useCachedFrame
       ? null
-      : this.deps.getIndicatorManager().indicatorSchedulerAccessor.getMainIndicatorPriceRange()
+      : this.deps.getIndicatorManager().getMainIndicatorPriceRange()
 
     // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paintPane
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
@@ -598,6 +582,7 @@ export class ChartRenderer {
       kLinePositions,
       kLineCenters,
       kBarRects,
+      kWidthPx,
       mainIndicatorRange,
       useCachedFrame,
       level,
@@ -861,6 +846,7 @@ export class ChartRenderer {
     kLinePositions: KLinePositions,
     kLineCenters: number[],
     kBarRects: Array<{ x: number; width: number }>,
+    kWidthPx: number,
     mainIndicatorRange: { min: number; max: number } | null,
     useCachedFrame: boolean,
     level: UpdateLevel,
@@ -931,14 +917,7 @@ export class ChartRenderer {
                 valueMax?: number
                 visibleMin?: number
                 visibleMax?: number
-              }>(
-                resolveStateKey(
-                  indicatorManager.indicatorSchedulerAccessor.getIndicatorMetadata(
-                    subPaneEntry.indicatorId,
-                  )?.stateKey ?? '',
-                  pane.id,
-                ),
-              )
+              }>(subPaneEntry.instanceId)
             : undefined
           const subIndicatorRange =
             subIndicatorState &&
@@ -1033,6 +1012,7 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
+        kWidthPx,
         visiblePriceExtrema,
         requiresRightAxisWidthMeasurement,
         getLogicalIndexAtTimestamp: (timestamp) =>
@@ -1214,6 +1194,7 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
+        kWidthPx,
         xAxisCtx,
         viewport: {
           scrollLeft: vp.scrollLeft,

@@ -1,15 +1,25 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
+  createMockIndicatorInstanceHost,
   createMockRenderContext,
-  createMockServiceHost,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
+import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 
 import type { SymbolSpec } from '../../../../controllers/types'
 import { ChartDataViewId } from '../../../../foundation/types/chartView'
 import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
 import { symbolSpecIdentityKey } from '../../../data/symbolIdentity'
 import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function point(timestamp: number, price: number): TimeShareData {
   return { timestamp, price, average: price, volume: 100, amount: price * 100 }
@@ -77,20 +87,11 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
 
 describe('buildLegendTemplateContext indicator rows', () => {
   it('uses the view-projected indicator IDs instead of evaluating view support while drawing', () => {
-    const scheduler = {
-      getMainIndicators: () => [
-        {
-          name: 'ma',
-          getTitleInfo: () => ({ name: 'MA', values: [] }),
-        },
-        {
-          name: 'boll',
-          getTitleInfo: () => ({ name: 'BOLL', values: [] }),
-        },
-      ],
-      isMainIndicatorActive: () => true,
-      getMainIndicatorParams: () => ({}),
-    }
+    // 图例通过实例清单服务枚举主图实例，metadata 从静态定义注册表获取
+    vi.spyOn(getRegisteredIndicatorDefinition('ma')!, 'getTitleInfo').mockReturnValue({
+      name: 'MA',
+      values: [],
+    })
     const context = createMockRenderContext({
       data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
       period: 'timeshare',
@@ -103,7 +104,10 @@ describe('buildLegendTemplateContext indicator rows', () => {
 
     const result = buildLegendTemplateContext({
       context,
-      host: createMockServiceHost({ indicatorScheduler: scheduler }),
+      host: createMockIndicatorInstanceHost([
+        { instanceId: 'main:ma', definitionId: 'ma', paneId: 'main', params: {} },
+        { instanceId: 'main:boll', definitionId: 'boll', paneId: 'main', params: {} },
+      ]),
       yPaddingPx: 0,
       visibleIndicatorIds: new Set(['ma']),
     })

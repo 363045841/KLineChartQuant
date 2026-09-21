@@ -3,6 +3,7 @@
  */
 
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -13,11 +14,9 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcAwesomeOscillatorData } from '../../indicators/calculators/awesomeOscillator.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { AwesomeOscillatorRenderState } from '../../indicators/state/awesomeOscillatorState.js'
 import {
-  createAwesomeOscillatorStateKey,
   DEFAULT_AO_FAST_PERIOD,
   DEFAULT_AO_SLOW_PERIOD,
   EMPTY_AO_STATE,
@@ -34,28 +33,8 @@ type LinePoint = { x: number; y: number }
 interface AwesomeOscillatorRendererOptions {
   /** 目标 pane ID。 */
   paneId?: string
-}
-
-/**
- * 获取 AO 在指定 pane 上的状态键。
- * @param host 插件宿主。
- * @param paneId 目标副图 ID。
- * @returns 状态键，服务不可用时返回 null。
- */
-function getAwesomeOscillatorStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[AwesomeOscillatorRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('awesomeOscillator')
-  if (!meta) {
-    console.warn(
-      "[AwesomeOscillatorRenderer] Indicator metadata for 'awesomeOscillator' not found, skip rendering",
-    )
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -66,13 +45,8 @@ function getAwesomeOscillatorStateKey(host: PluginHost | null, paneId: string): 
 function createAwesomeOscillatorRendererPlugin(
   options: AwesomeOscillatorRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_AO' } = options
+  const { paneId = 'sub_AO', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 解析当前指标状态键。 */
-  function resolveKey(): string | null {
-    return getAwesomeOscillatorStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedAOPoints: LinePoint[] = []
@@ -196,8 +170,7 @@ function createAwesomeOscillatorRendererPlugin(
 
     /** 声明此渲染器拥有的状态命名空间。 */
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /** 绘制 AO 零轴和主折线。 */
@@ -209,9 +182,8 @@ function createAwesomeOscillatorRendererPlugin(
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<AwesomeOscillatorRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<AwesomeOscillatorRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -283,16 +255,14 @@ function createAwesomeOscillatorRendererPlugin(
 
     /** 返回当前 AO 配置。 */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<AwesomeOscillatorRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<AwesomeOscillatorRenderState>(instanceId)
       return state?.params ?? {}
     },
 
-    /** 配置由 IndicatorScheduler 统一更新。 */
+    /** 配置由指标实例链路统一更新。 */
     setConfig() {},
   }
 }
@@ -328,7 +298,6 @@ function drawAwesomeOscillatorLineWithCanvas2D(
 }
 
 const getAwesomeOscillatorTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createAwesomeOscillatorStateKey,
   name: 'AO',
   label: 'AO',
   getParams: (params) => [

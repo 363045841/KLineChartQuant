@@ -1,5 +1,4 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface VolumeProfileBin {
   priceLow: number
@@ -30,9 +29,6 @@ export interface VolumeProfileRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-export const createVolumeProfileStateKey = (paneId: string) =>
-  createIndicatorStateKey('volumeProfile', paneId)
 
 export const DEFAULT_VP_BINS = 24
 export const DEFAULT_VP_LOOKBACK = 0 // 0 = use entire data

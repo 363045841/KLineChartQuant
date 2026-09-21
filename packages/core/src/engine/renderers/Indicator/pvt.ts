@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcPVTData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { PVTRenderState } from '../../indicators/state/pvtState.js'
-import { createPVTStateKey, EMPTY_PVT_STATE } from '../../indicators/state/pvtState.js'
+import { EMPTY_PVT_STATE } from '../../indicators/state/pvtState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,27 +18,12 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function getPVTStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[PVTRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('pvt')
-  if (!meta) {
-    console.warn(`[PVTRenderer] Indicator metadata for 'pvt' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_PVT' } = options
+function createPVTRendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'sub_PVT', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getPVTStateKey(pluginHost, paneId)
-  }
   return {
     name: `pvt_${paneId}`,
     version: '1.1.0',
@@ -50,8 +35,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -60,9 +44,8 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<PVTRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<PVTRenderState>(instanceId)
       if (!state || !state.params.showPVT || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -104,12 +87,10 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<PVTRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<PVTRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -117,7 +98,6 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 }
 
 const getPVTTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createPVTStateKey,
   name: 'PVT',
   getColor: (colors) => colors.palette.i8,
 })

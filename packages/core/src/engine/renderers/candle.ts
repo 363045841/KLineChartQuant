@@ -5,12 +5,12 @@ import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { VolumePriceRelation } from '../../foundation/types/volumePrice.js'
+import { projectWorldRectToScreen } from '../../foundation/utils/pixelAlign.js'
 import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
 } from '../../foundation/utils/volumePrice.js'
 import type { MarkerManager } from '../marker/registry.js'
-import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
 // --- Float32Array buffer pool (reduces per-frame GC pressure) ---
@@ -86,8 +86,7 @@ export function createCandleRenderer(): RendererPlugin {
         data,
         range,
         scrollLeft,
-        kWidth,
-        kGap,
+        kWidthPx,
         dpr,
         kLineCenters,
         markerManager,
@@ -105,8 +104,7 @@ export function createCandleRenderer(): RendererPlugin {
         pane,
         data: klineData,
         range,
-        kWidth,
-        kGap,
+        kWidthPx,
         dpr,
         kLineCenters,
         settings,
@@ -126,7 +124,7 @@ export function createCandleRenderer(): RendererPlugin {
         )
       }
       if (!usedGpu) {
-        drawCandlesWithCanvas2D(ctx, scrollLeft, prepared, upColor, downColor)
+        drawCandlesWithCanvas2D(ctx, scrollLeft, dpr, prepared, upColor, downColor)
       }
 
       drawVolumePriceMarkers(context, prepared, markerManager as MarkerManager | undefined)
@@ -138,14 +136,12 @@ function prepareCandles(args: {
   pane: RenderContext['pane']
   data: KLineData[]
   range: { start: number; end: number }
-  kWidth: number
-  kGap: number
+  kWidthPx: number
   dpr: number
   kLineCenters: number[]
   settings?: RenderContext['settings']
 }): PreparedCandles {
-  const { pane, data, range, kWidth, kGap, dpr, kLineCenters, settings } = args
-  const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+  const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = args
   const showVolumePriceMarkers = settings?.showVolumePriceMarkers !== false
   const relations = showVolumePriceMarkers
     ? analyzeVolumePriceRelationBatch(data, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
@@ -319,20 +315,24 @@ function prepareCandles(args: {
 function drawCandlesWithCanvas2D(
   ctx: CanvasRenderingContext2D,
   scrollLeft: number,
+  dpr: number,
   prepared: PreparedCandles,
   upColor: string,
   downColor: string,
 ): void {
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-
   ctx.fillStyle = upColor
   for (let i = 0; i < prepared.upBodyCount; i++) {
     const off = i * 4
-    ctx.fillRect(
+    const projected = projectWorldRectToScreen(
       prepared.upBodyBuf[off],
-      prepared.upBodyBuf[off + 1],
       prepared.upBodyBuf[off + 2],
+      scrollLeft,
+      dpr,
+    )
+    ctx.fillRect(
+      projected.x,
+      prepared.upBodyBuf[off + 1],
+      projected.width,
       prepared.upBodyBuf[off + 3],
     )
   }
@@ -340,10 +340,16 @@ function drawCandlesWithCanvas2D(
   ctx.fillStyle = downColor
   for (let i = 0; i < prepared.downBodyCount; i++) {
     const off = i * 4
-    ctx.fillRect(
+    const projected = projectWorldRectToScreen(
       prepared.downBodyBuf[off],
-      prepared.downBodyBuf[off + 1],
       prepared.downBodyBuf[off + 2],
+      scrollLeft,
+      dpr,
+    )
+    ctx.fillRect(
+      projected.x,
+      prepared.downBodyBuf[off + 1],
+      projected.width,
       prepared.downBodyBuf[off + 3],
     )
   }
@@ -351,10 +357,16 @@ function drawCandlesWithCanvas2D(
   ctx.fillStyle = upColor
   for (let i = 0; i < prepared.upWickCount; i++) {
     const off = i * 4
-    ctx.fillRect(
+    const projected = projectWorldRectToScreen(
       prepared.upWickBuf[off],
-      prepared.upWickBuf[off + 1],
       prepared.wickWidth,
+      scrollLeft,
+      dpr,
+    )
+    ctx.fillRect(
+      projected.x,
+      prepared.upWickBuf[off + 1],
+      projected.width,
       prepared.upWickBuf[off + 3],
     )
   }
@@ -362,15 +374,19 @@ function drawCandlesWithCanvas2D(
   ctx.fillStyle = downColor
   for (let i = 0; i < prepared.downWickCount; i++) {
     const off = i * 4
-    ctx.fillRect(
+    const projected = projectWorldRectToScreen(
       prepared.downWickBuf[off],
-      prepared.downWickBuf[off + 1],
       prepared.wickWidth,
+      scrollLeft,
+      dpr,
+    )
+    ctx.fillRect(
+      projected.x,
+      prepared.downWickBuf[off + 1],
+      projected.width,
       prepared.downWickBuf[off + 3],
     )
   }
-
-  ctx.restore()
 }
 
 function drawVolumePriceMarkers(

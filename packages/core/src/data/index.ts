@@ -29,13 +29,13 @@ export { gotdxMarketDataProvider } from './provider/sources/gotdx.js'
 export { mockMarketDataProvider } from './provider/sources/mock.js'
 export { tradingviewMarketDataProvider } from './provider/sources/tradingview.js'
 export { mt5MarketDataProvider } from './provider/sources/mt5.js'
-export { Mt5LiveSource, RealtimeBarsConnector, DEFAULT_MT5_SSE_URL } from './live/mt5BarsLive.js'
+export { BarsLiveSource, BarsLiveSubscription, RealtimeBarsConnector } from './live/barsLive.js'
 export type {
-  Mt5LiveFrame,
-  Mt5LiveBar,
-  Mt5LiveStatus,
+  LiveBarsFrame,
+  LiveBar,
+  LiveBarsStatus,
   RealtimeBarsSink,
-} from './live/mt5BarsLive.js'
+} from './live/barsLive.js'
 
 import './provider/sources/gotdx.js'
 import './provider/sources/baostock.js'
