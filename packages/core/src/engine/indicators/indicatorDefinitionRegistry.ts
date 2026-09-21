@@ -5,7 +5,6 @@ import type {
   GetTitleInfoFn,
   IndicatorAuxiliaryRendererNameResolver,
   IndicatorCategory,
-  IndicatorConfigUpdater,
   IndicatorMetadata,
   IndicatorPresentationDescriptor,
   IndicatorRendererNameResolver,
@@ -30,7 +29,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   allowMainPane?: boolean
   scaleRendererFactory?: ScaleRendererFactory
   scale?: IndicatorMetadata['scale']
-  updateConfig?: IndicatorConfigUpdater
   mainPane?: IndicatorMetadata['mainPane']
   /** 覆盖默认的 renderer plugin 命名规则。 */
   getRendererName?: IndicatorRendererNameResolver
@@ -117,21 +115,12 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         configKey: config.runtime.configKey ?? config.name,
       }
 
-      // 有 runtime 时自动生成 updateConfig
-      const updateConfig = runtime
-        ? (config.updateConfig ??
-          ((scheduler: any, params: any, paneId?: string) => {
-            scheduler.updateIndicatorConfig(config.name, params, paneId)
-          }))
-        : config.updateConfig
-
       indicatorDefinitions.set(normalizedName, {
         ...config,
         getRendererName,
         getScaleRendererName,
         getPaneTitleRendererName,
         runtime,
-        updateConfig,
         rendererFactory,
         paneIdField: config.paneIdField,
         allowMainPane: config.allowMainPane,

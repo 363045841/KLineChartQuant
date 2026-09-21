@@ -107,12 +107,6 @@ export type ScaleRendererFactory = (
   options: IndicatorScaleRendererOptions,
 ) => RendererPluginWithHost
 
-export type IndicatorConfigUpdater = (
-  scheduler: unknown,
-  params: Record<string, unknown>,
-  paneId: string,
-) => void
-
 export interface IndicatorVisibleRange {
   start: number
   end: number
@@ -296,11 +290,6 @@ export interface IndicatorMetadata<T = unknown> {
    * 用于副图指标根据配置决定是否参与计算
    */
   isEnabled?: (config: IndicatorConfig) => boolean
-
-  /**
-   * 指标配置更新入口。内置和用户自定义指标都应通过 metadata 分发。
-   */
-  updateConfig?: IndicatorConfigUpdater
 
   /**
    * 是否允许在主图显示（部分副图指标可切换至主图）
