@@ -16,7 +16,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { ChartDataView } from '../state/modeState.js'
 
 import type { IndicatorSeriesResultOf, IndicatorStateName } from './indicatorContracts.js'
-import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol.js'
+import type { IndicatorConfig } from './workerProtocol.js'
 
 export type IndicatorId = string
 
@@ -127,35 +127,36 @@ export interface IndicatorPriceRange {
 }
 
 /**
- * 结果包读取入口。Worker 动态产出 `IndicatorSeriesBundle`，这里是动态结果与静态契约之间
- * 唯一的转换边界：传入指标内部 name 时形状由 `indicatorContracts` 推导。
+ * 单个实例结果的渲染条目读取入口。第二个参数仅保留以兼容各指标定义的调用签名；
+ * 结果已由调度器按实例选择，不再存在按指标类型索引的结果包。
  */
 export function readIndicatorSeriesEntry<K extends IndicatorStateName>(
-  bundle: IndicatorSeriesBundle,
-  configKey: K,
+  entry: unknown,
+  _configKey: K,
 ): IndicatorSeriesResultOf<K>
 /** 读取调用方工厂自行约束结构的结果项（泛型 visibleState composer）。 */
-export function readIndicatorSeriesEntry<T>(bundle: IndicatorSeriesBundle, configKey: string): T
+export function readIndicatorSeriesEntry<T>(entry: unknown, _configKey: string): T
 export function readIndicatorSeriesEntry(
-  bundle: IndicatorSeriesBundle,
-  configKey: string,
+  entry: unknown,
+  _configKey: string,
 ): unknown {
-  return bundle[configKey]
+  return entry
 }
 
 export type IndicatorPriceRangeComputer = (
-  bundle: IndicatorSeriesBundle,
+  entry: unknown,
   visibleRange: IndicatorVisibleRange,
 ) => IndicatorPriceRange | null
 
 export type IndicatorRenderStateComposer = (
-  bundle: IndicatorSeriesBundle,
+  entry: unknown,
   visibleRange: IndicatorVisibleRange,
   timestamp: number,
 ) => unknown
 
 export interface IndicatorVisibleStateComposeContext {
-  bundle: IndicatorSeriesBundle
+  /** 已规范化的单个实例结果条目，不是类型结果包。 */
+  bundle: unknown
   visibleRange: IndicatorVisibleRange
   timestamp: number
   active: boolean
@@ -306,7 +307,7 @@ export interface IndicatorMetadata<T = unknown> {
    * 是否启用（可选条件判断）
    * 用于副图指标根据配置决定是否参与计算
    */
-  isEnabled?: (config: IndicatorConfigSnapshot) => boolean
+  isEnabled?: (config: IndicatorConfig) => boolean
 
   /**
    * 指标配置更新入口。内置和用户自定义指标都应通过 metadata 分发。

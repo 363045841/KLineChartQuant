@@ -5,17 +5,8 @@
 
 import type { KLineData } from '../../foundation/types/price.js'
 
-/** 单个指标的动态配置，由指标注册描述符定义具体字段。 */
+/** 单个指标的计算参数。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>
-
-/** 按注册表 configKey 索引的指标配置快照。 */
-export type IndicatorConfigSnapshot = Readonly<Record<string, IndicatorConfig>>
-
-/** 按注册表 configKey 索引的计算结果包。 */
-export interface IndicatorSeriesBundle extends Readonly<Record<string, unknown>> {
-  /** 本次计算中实际变更的指标 configKey。 */
-  readonly _changed: ReadonlyArray<string>
-}
 
 /** 可跨 Worker 传输的指标运行时描述符。 */
 export interface SerializedRuntimeDescriptor {
@@ -66,14 +57,7 @@ export interface SetDataRequest {
   readonly data: KLineData[]
 }
 
-/** 更新 Worker 使用的指标配置。 */
-export interface SetConfigRequest {
-  readonly type: 'setConfig'
-  readonly configVersion: number
-  readonly configs: IndicatorConfigSnapshot
-}
-
-/** 请求 Worker 计算兼容结果包和实例结果。 */
+/** 请求 Worker 计算当前启用指标实例。 */
 export interface ComputeSeriesRequest {
   readonly type: 'computeSeries'
   readonly requestId: number
@@ -92,7 +76,6 @@ export type IndicatorWorkerRequest =
   | InitRequest
   | AddDescriptorRequest
   | SetDataRequest
-  | SetConfigRequest
   | ComputeSeriesRequest
   | DisposeRequest
 
@@ -108,7 +91,6 @@ export interface SeriesResultResponse {
   readonly requestId: number
   readonly dataVersion: number
   readonly configVersion: number
-  readonly results: IndicatorSeriesBundle
   readonly instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
   readonly metrics?: {
     readonly computeMs: number
@@ -128,7 +110,7 @@ export interface ErrorResponse {
 export type IndicatorWorkerResponse = ReadyResponse | SeriesResultResponse | ErrorResponse
 
 /** 当前 Indicator Worker 协议版本。 */
-export const PROTOCOL_VERSION = 4
+export const PROTOCOL_VERSION = 5
 
 /** 判断未知消息是否具有 Worker 响应的基础结构。 */
 export function isWorkerResponse(msg: unknown): msg is IndicatorWorkerResponse {

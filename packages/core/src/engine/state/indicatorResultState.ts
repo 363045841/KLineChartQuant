@@ -5,7 +5,6 @@
 import { createSubState } from '../../foundation/reactivity/signal.js'
 import type {
   IndicatorInstanceCalculationResult,
-  IndicatorSeriesBundle,
 } from '../indicators/workerProtocol.js'
 import { deepFreezeOwned, immutableMap } from './immutable.js'
 
@@ -21,13 +20,12 @@ export interface IndicatorCalculationAttempt {
   readonly error: string | null
 }
 
-/** 最近一次成功提交的图表计算和渲染结果。 */
+/** 最近一次成功提交的实例结果版本及其渲染投影。 */
 export interface CommittedIndicatorResult {
   readonly dataRevision: number
   readonly configRevision: number
   readonly resultVersion: number
   readonly projectionVersion: number
-  readonly bundle: IndicatorSeriesBundle
   readonly renderStates: ReadonlyMap<string, unknown>
 }
 
@@ -52,7 +50,6 @@ export interface ChartIndicatorResultsCommitInput {
   readonly requestId: number
   readonly dataRevision: number
   readonly configRevision: number
-  readonly bundle: IndicatorSeriesBundle
   readonly timestamps: ReadonlyArray<number>
   readonly instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
   readonly renderStates: ReadonlyMap<string, unknown>
@@ -165,7 +162,6 @@ export function createIndicatorResultState() {
             configRevision: input.configRevision,
             resultVersion: previousVersion + 1,
             projectionVersion: previousProjection + 1,
-            bundle: deepFreezeOwned(input.bundle),
             renderStates: immutableMap(input.renderStates),
           }),
           pool: Object.freeze({

@@ -2,7 +2,6 @@ import {
   type IndicatorVisibleStateComposer,
   readIndicatorSeriesEntry,
 } from './indicatorMetadata.js'
-import type { IndicatorSeriesBundle } from './workerProtocol.js'
 
 type SparseIndicatorSeries = {
   series: (number | undefined)[]
@@ -20,7 +19,7 @@ type SparseState = {
 }
 
 function getSparseSeriesBundle(
-  bundle: IndicatorSeriesBundle,
+  bundle: unknown,
   bundleKey: string,
 ): SparseIndicatorSeries {
   return readIndicatorSeriesEntry<SparseIndicatorSeries>(bundle, bundleKey)
@@ -95,7 +94,7 @@ type RecordIndicatorSeries = {
 }
 
 function getRecordSeriesBundle(
-  bundle: IndicatorSeriesBundle,
+  bundle: unknown,
   bundleKey: string,
 ): RecordIndicatorSeries {
   return readIndicatorSeriesEntry<RecordIndicatorSeries>(bundle, bundleKey)
@@ -242,14 +241,14 @@ type DualSparseIndicatorSeries = {
 }
 
 function getDualSparseSeriesBundle(
-  bundle: IndicatorSeriesBundle,
+  bundle: unknown,
   bundleKey: string,
 ): DualSparseIndicatorSeries {
   return readIndicatorSeriesEntry<DualSparseIndicatorSeries>(bundle, bundleKey)
 }
 
 function getPointArraySeriesBundle<T extends object>(
-  bundle: IndicatorSeriesBundle,
+  bundle: unknown,
   bundleKey: string,
 ): { series: (T | undefined)[]; params: unknown } {
   return readIndicatorSeriesEntry<{ series: (T | undefined)[]; params: unknown }>(bundle, bundleKey)

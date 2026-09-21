@@ -62,10 +62,8 @@ import {
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata.js'
 import type {
   IndicatorConfig,
-  IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
   IndicatorInstanceCalculationResult,
-  IndicatorSeriesBundle,
 } from './workerProtocol.js'
 
 export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
@@ -181,10 +179,6 @@ export class IndicatorRuntime {
   private currentData: KLineData[] = []
   private dataVersion = 0
   private configVersion = 0
-  private dataDirty = true
-  private configMap = new Map<string, IndicatorConfig>()
-  private seriesMap = new Map<string, unknown>()
-  private dirtyFlags = new Map<string, boolean>()
   private descriptorMap = new Map<string, IndicatorRuntimeDescriptor>()
 
   constructor(descriptors: IndicatorRuntimeDescriptor[] = []) {
@@ -197,50 +191,12 @@ export class IndicatorRuntime {
     const configKey = d.configKey ?? 'unknown'
     if (this.descriptorMap.has(configKey)) return
     this.descriptorMap.set(configKey, d)
-    const defaultParams =
-      typeof d.defaultParams === 'function' ? (d.defaultParams as () => any)() : d.defaultParams
-    this.configMap.set(configKey, { ...(defaultParams as IndicatorConfig) })
-    this.dirtyFlags.set(configKey, true)
   }
 
   setData(data: KLineData[], version: number): void {
-    if (this.dataVersion === version && !this.dataDirty) return
+    if (this.dataVersion === version) return
     this.currentData = data
     this.dataVersion = version
-    this.dataDirty = true
-  }
-
-  private shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
-    const keysA = Object.keys(a)
-    const keysB = Object.keys(b)
-    if (keysA.length !== keysB.length) return false
-    for (const key of keysA) {
-      if (a[key] !== b[key]) return false
-    }
-    return true
-  }
-
-  setConfig(config: IndicatorConfigSnapshot, version: number): void {
-    for (const [key, value] of Object.entries(config)) {
-      if (value === undefined) continue
-      const desc = this.descriptorMap.get(key)
-      if (desc) {
-        const current = this.configMap.get(key)
-        if (!current || !this.shallowEqual(value, current)) {
-          this.configMap.set(key, { ...(current ?? {}), ...value })
-          this.dirtyFlags.set(key, true)
-        }
-        continue
-      }
-    }
-    this.configVersion = version
-  }
-
-  forceDirty(): void {
-    this.dataDirty = true
-    for (const key of this.dirtyFlags.keys()) {
-      this.dirtyFlags.set(key, true)
-    }
   }
 
   getDataVersion(): number {
@@ -276,41 +232,4 @@ export class IndicatorRuntime {
     return results
   }
 
-  computeSeries(): IndicatorSeriesBundle {
-    const data = this.currentData
-    const changed: string[] = []
-
-    for (const [configKey, desc] of this.descriptorMap) {
-      if (this.dataDirty || this.dirtyFlags.get(configKey)) {
-        const config = this.configMap.get(configKey)
-        this.seriesMap.set(configKey, desc.compute(data, config))
-        changed.push(configKey)
-      }
-    }
-
-    this.dataDirty = false
-    for (const key of this.dirtyFlags.keys()) {
-      this.dirtyFlags.set(key, false)
-    }
-
-    const bundle: Record<string, unknown> & { _changed: string[] } = { _changed: changed }
-    for (const [configKey] of this.descriptorMap) {
-      const raw = this.seriesMap.get(configKey)
-      const params = { ...(this.configMap.get(configKey) ?? {}) }
-      const entry: Record<string, unknown> = {}
-
-      if (raw && typeof raw === 'object' && 'series' in (raw as Record<string, unknown>)) {
-        Object.assign(entry, raw as Record<string, unknown>)
-      } else {
-        entry.series = raw
-        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-          entry.enabledPeriods = Object.keys(raw).map(Number)
-        }
-      }
-      entry.params = params
-      bundle[configKey] = entry
-    }
-
-    return bundle
-  }
 }

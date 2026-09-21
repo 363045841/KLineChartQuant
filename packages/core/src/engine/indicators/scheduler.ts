@@ -75,16 +75,14 @@ import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState.js'
 import { DEFAULT_WMA_PERIOD } from './state/wmaState.js'
 import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState.js'
 import {
-  composeRenderStates,
+  composeInstanceRenderState,
   composeVolumeRenderState,
-  computeMainIndicatorPriceRange,
+  computeInstanceMainIndicatorPriceRange,
 } from './stateComposer.js'
 import type {
   IndicatorConfig,
-  IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
   IndicatorInstanceCalculationResult,
-  IndicatorSeriesBundle,
   IndicatorWorkerResponse,
   SerializedRuntimeDescriptor,
 } from './workerProtocol.js'
@@ -122,37 +120,21 @@ function projectSeriesByTimestamp<T>(
   })
 }
 
-/** 投影 bundle 中各指标的 series，保留参数及非序列结果。 */
-function projectBundleByTimestamp(
-  bundle: IndicatorSeriesBundle,
+/** 将一个实例结果投影到展示时间轴。 */
+function projectInstanceResultByTimestamp(
+  result: IndicatorInstanceCalculationResult,
   sourceTimestamps: readonly number[],
   displayTimestamps: readonly number[] | null,
-): IndicatorSeriesBundle {
-  if (!displayTimestamps) return bundle
-  const projected: Record<string, unknown> = { ...bundle }
-  for (const [key, entry] of Object.entries(bundle)) {
-    if (!entry || typeof entry !== 'object' || key === '_changed') continue
-    const value = entry as { series?: unknown }
-    if (Array.isArray(value.series)) {
-      projected[key] = {
-        ...value,
-        series: projectSeriesByTimestamp(value.series, sourceTimestamps, displayTimestamps),
-      }
-      continue
+): IndicatorInstanceCalculationResult {
+  if (!displayTimestamps) return result
+  const project = (value: unknown): unknown => {
+    if (Array.isArray(value)) return projectSeriesByTimestamp(value, sourceTimestamps, displayTimestamps)
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, project(nested)]))
     }
-    if (value.series && typeof value.series === 'object') {
-      const series = Object.fromEntries(
-        Object.entries(value.series as Record<string, unknown>).map(([seriesKey, seriesValue]) => [
-          seriesKey,
-          Array.isArray(seriesValue)
-            ? projectSeriesByTimestamp(seriesValue, sourceTimestamps, displayTimestamps)
-            : seriesValue,
-        ]),
-      )
-      projected[key] = { ...value, series }
-    }
+    return value
   }
-  return projected as IndicatorSeriesBundle
+  return { ...result, series: project(result.series) }
 }
 
 /**
@@ -315,7 +297,7 @@ export class IndicatorScheduler {
    * 副图增删后通知 scheduler 刷新 active mask
    */
   onSubPaneChanged(): void {
-    if (this.getLatestBundle()) this.updateVisibleStatesOnly()
+    if (this.resultState.readonly.snapshot.peek().pool) this.updateVisibleStatesOnly()
   }
 
   /** 注入指标实例快照，作为实例级计算输入的唯一来源。 */
@@ -557,7 +539,6 @@ export class IndicatorScheduler {
     try {
       // 组装并原子提交 Kernel 状态（内部触发重绘和结果回调）。
       this.applyResults(
-        msg.results,
         msg.instanceResults,
         msg.requestId,
         msg.dataVersion,
@@ -580,24 +561,22 @@ export class IndicatorScheduler {
     _indicatorName: string,
   ): void {}
 
-  /** 将完整 bundle 投影为按 renderer stateKey 索引的不可变状态集合。 */
-  private composeRenderStateMap(bundle: IndicatorSeriesBundle): ReadonlyMap<string, unknown> {
+  /** 将当前启用实例逐个投影为 renderer states。 */
+  private composeRenderStateMap(
+    instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>,
+  ): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
-    const renderBundle = this.createRenderBundle(bundle)
-    const states = composeRenderStates(renderBundle, this.visibleRange, timestamp, (indicatorId) =>
-      this.registry.get(indicatorId),
-    ) as Record<string, unknown>
     const result = new Map<string, unknown>()
-
-    for (const meta of this.registry.getAll()) {
-      const state = states[meta.name]
+    for (const instanceResult of instanceResults) {
+      const meta = this.registry.get(instanceResult.definitionId)
+      if (!meta) continue
+      const state = composeInstanceRenderState(meta, instanceResult, this.visibleRange, timestamp)
       if (state === undefined) continue
-      const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
       this.checkVisibleExtremes(
         state as { visibleMin: number; visibleMax: number },
         meta.displayName,
       )
-      result.set(resolveStateKey(meta.stateKey, paneId), state)
+      result.set(resolveStateKey(meta.stateKey, instanceResult.paneId), state)
     }
     const volume = composeVolumeRenderState(this.currentData, this.visibleRange, timestamp)
     const volumeMetadata = this.registry.get('volume')
@@ -614,47 +593,6 @@ export class IndicatorScheduler {
       }
     }
     return result
-  }
-
-  /** 把展示配置合入临时 renderer 投影，不修改业务结果 bundle。 */
-  private createRenderBundle(bundle: IndicatorSeriesBundle): IndicatorSeriesBundle {
-    const renderBundle: Record<string, unknown> = { ...bundle }
-    for (const metadata of this.registry.getAll()) {
-      const configKey = metadata.runtime?.configKey ?? metadata.name
-      const source = bundle[configKey]
-      if (!source || typeof source !== 'object') continue
-      const presentation = metadata.presentation
-      if (!presentation) continue
-      const currentConfig = this.configSnapshot[configKey] ?? {}
-      const options: Record<string, unknown> = { ...presentation.defaultOptions }
-      for (const optionName of Object.keys(presentation.defaultOptions)) {
-        if (currentConfig[optionName] !== undefined) options[optionName] = currentConfig[optionName]
-      }
-
-      const sourceEntry = source as Record<string, unknown>
-      const renderEntry: Record<string, unknown> = {
-        ...sourceEntry,
-        params: { ...((sourceEntry.params as Record<string, unknown>) ?? {}), ...options },
-      }
-      if (presentation.selectSeriesKeys && sourceEntry.series) {
-        const selectedKeys = new Set(
-          presentation.selectSeriesKeys(
-            (sourceEntry.params as Record<string, unknown>) ?? {},
-            options,
-          ),
-        )
-        if (typeof sourceEntry.series === 'object' && !Array.isArray(sourceEntry.series)) {
-          renderEntry.series = Object.fromEntries(
-            Object.entries(sourceEntry.series as Record<string, unknown>).filter(([key]) =>
-              selectedKeys.has(key),
-            ),
-          )
-          renderEntry.enabledPeriods = [...selectedKeys].map(Number).filter(Number.isFinite)
-        }
-      }
-      renderBundle[configKey] = renderEntry
-    }
-    return renderBundle as IndicatorSeriesBundle
   }
 
   /** 将调度器注册为插件服务；指标结果不再写入 PluginHost StateStore。 */
@@ -690,39 +628,36 @@ export class IndicatorScheduler {
 
   /** 提交最新完整计算结果，并在提交后安排下一帧绘制。 */
   private applyResults(
-    bundle: IndicatorSeriesBundle,
     instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>,
     requestId: number,
     dataVersion: number,
     configVersion: number,
   ): void {
-    const projectedBundle = projectBundleByTimestamp(
-      bundle,
+    const projectedResults = instanceResults.map((result) => projectInstanceResultByTimestamp(
+      result,
       this.currentData.map((item) => item.timestamp),
       this.displayTimestamps,
-    )
-    const renderStates = this.composeRenderStateMap(projectedBundle)
+    ))
+    const renderStates = this.composeRenderStateMap(projectedResults)
     const committed = this.resultState.actions.commitResults({
       requestId,
       dataRevision: dataVersion,
       configRevision: configVersion,
-      bundle: projectedBundle,
       timestamps: this.displayTimestamps ?? this.currentData.map((item) => item.timestamp),
-      instanceResults,
+      instanceResults: projectedResults,
       renderStates,
     })
     if (!committed) return
-    const changed = new Set(bundle._changed)
-    this.projectStandaloneRenderStates(renderStates, (meta) => changed.has(meta.name))
+    this.projectStandaloneRenderStates(renderStates, () => true)
     this.invalidateCallback?.()
     this.onResultsAppliedCallback?.()
   }
 
   /** 重算可见范围极值并回调 applyResult（视口变更时同步更新，不走 Worker） */
   private updateVisibleStatesOnly(forceProjection = false): boolean {
-    const bundle = this.getLatestBundle()
-    if (!bundle) return false
-    const renderStates = this.composeRenderStateMap(bundle)
+    const pool = this.resultState.readonly.snapshot.peek().pool
+    if (!pool) return false
+    const renderStates = this.composeRenderStateMap([...pool.results.values()])
     const committed = this.resultState.readonly.snapshot.peek().committed
     if (!committed) return false
     if (
@@ -751,29 +686,6 @@ export class IndicatorScheduler {
     return true
   }
 
-  /** 从 Kernel 读取最近一次成功计算的完整 bundle。 */
-  private getLatestBundle(): IndicatorSeriesBundle | null {
-    return this.resultState.readonly.snapshot.peek().committed?.bundle ?? null
-  }
-
-  /** 只提取 calculator 参数，展示配置不进入 Runtime 或 Worker。 */
-  private buildActiveConfig(): IndicatorConfigSnapshot {
-    const calculationConfig: Record<string, IndicatorConfig> = {}
-    for (const metadata of this.registry.getAll()) {
-      const runtime = metadata.runtime
-      if (!runtime) continue
-      const configKey = runtime.configKey ?? metadata.name
-      const defaults =
-        typeof runtime.defaultParams === 'function'
-          ? (runtime.defaultParams as () => Record<string, unknown>)()
-          : (runtime.defaultParams as Record<string, unknown>)
-      const current = this.configSnapshot[configKey] ?? {}
-      calculationConfig[configKey] = Object.fromEntries(
-        Object.keys(defaults).map((name) => [name, current[name] ?? defaults[name]]),
-      )
-    }
-    return calculationConfig
-  }
 
   /** 合并定义默认参数与实例参数，生成可跨 Worker 传输的计算输入。 */
   private buildInstanceCalculationInputs(): IndicatorInstanceCalculationInput[] {
@@ -855,7 +767,7 @@ export class IndicatorScheduler {
       return false
     }
     this.visibleRange = visibleRange
-    return this.getLatestBundle() ? this.updateVisibleStatesOnly() : false
+    return this.resultState.readonly.snapshot.peek().pool ? this.updateVisibleStatesOnly() : false
   }
 
   /**
@@ -915,15 +827,21 @@ export class IndicatorScheduler {
    * 获取主图指标价格范围
    */
   getMainIndicatorPriceRange(): { min: number; max: number } | null {
-    const bundle = this.getLatestBundle()
-    if (!bundle) return null
-    const result = computeMainIndicatorPriceRange(
-      bundle,
-      this.visibleRange,
-      new Set(this.activeMainIndicators.keys()),
-      (indicatorId) => this.registry.get(indicatorId),
-    )
-    return result
+    const results = this.resultState.readonly.snapshot.peek().pool?.results
+    if (!results) return null
+    let min = Infinity
+    let max = -Infinity
+    for (const instance of this.buildInstanceCalculationInputs()) {
+      if (!this.activeMainIndicators.has(instance.definitionId.toLowerCase())) continue
+      const metadata = this.registry.get(instance.definitionId)
+      const result = results.get(instance.instanceId)
+      if (!metadata || !result) continue
+      const range = computeInstanceMainIndicatorPriceRange(metadata, result, this.visibleRange)
+      if (!range) continue
+      min = Math.min(min, range.min)
+      max = Math.max(max, range.max)
+    }
+    return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
   }
 
   /**
@@ -951,10 +869,6 @@ export class IndicatorScheduler {
    * 强制全部重算
    */
   recompute(): void {
-    // 强制 inline runtime 重新计算（无视脏标记）
-    if (this.inlineRuntime) {
-      this.inlineRuntime.forceDirty()
-    }
     // 递增版本号，确保 worker 端也会重新计算
     this.dataVersion++
     this.triggerRecompute()
@@ -995,13 +909,6 @@ export class IndicatorScheduler {
       data: this.currentData,
     })
 
-    // 发送配置（仅活跃副图）
-    this.worker.postMessage({
-      type: 'setConfig',
-      configVersion: this.configVersion,
-      configs: this.buildActiveConfig(),
-    })
-
     // 请求计算
     this.worker.postMessage({
       type: 'computeSeries',
@@ -1027,18 +934,16 @@ export class IndicatorScheduler {
       `[IndicatorScheduler] >> INLINE compute: dataV=${this.dataVersion} configV=${this.configVersion}`,
     )
 
-    // 设置数据和配置（仅活跃副图）
+    // 设置数据；计算参数由本次实例请求携带。
     this.inlineRuntime.setData(this.currentData, this.dataVersion)
-    this.inlineRuntime.setConfig(this.buildActiveConfig(), this.configVersion)
 
     // 同步计算
     try {
-      const results = this.inlineRuntime.computeSeries()
       const instanceResults = this.inlineRuntime.computeInstanceSeries(
         this.buildInstanceCalculationInputs(),
       )
       // 组装并原子提交 Kernel 状态（内部触发重绘和结果回调）。
-      this.applyResults(results, instanceResults, requestId, this.dataVersion, this.configVersion)
+      this.applyResults(instanceResults, requestId, this.dataVersion, this.configVersion)
     } catch (error) {
       this.failCalculation(requestId, this.dataVersion, this.configVersion, error)
     }

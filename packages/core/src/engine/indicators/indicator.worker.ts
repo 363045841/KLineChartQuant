@@ -8,7 +8,6 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata.js'
 import { CALCULATOR_MAP, createWorkerCompute, IndicatorRuntime } from './indicatorRuntime.js'
 import type {
-  IndicatorConfigSnapshot,
   IndicatorWorkerRequest,
   IndicatorWorkerResponse,
   SerializedRuntimeDescriptor,
@@ -83,21 +82,6 @@ function handleSetData(data: KLineData[], version: number): void {
 }
 
 /**
- * 处理设置配置
- */
-function handleSetConfig(config: IndicatorConfigSnapshot, version: number): void {
-  if (!runtime) {
-    postResponse({
-      type: 'error',
-      stage: 'setConfig',
-      message: 'Runtime not initialized',
-    })
-    return
-  }
-  runtime.setConfig(config, version)
-}
-
-/**
  * 处理计算 series
  */
 function handleComputeSeries(
@@ -120,11 +104,10 @@ function handleComputeSeries(
 
   try {
     console.log(`[IndicatorWorker] computeSeries START reqId=${requestId}`)
-    const results = runtime.computeSeries()
     const instanceResults = runtime.computeInstanceSeries(instances)
     const computeMs = performance.now() - startTime
     console.log(
-      `[IndicatorWorker] computeSeries DONE in ${computeMs.toFixed(1)}ms, changed=[${results._changed.join(',')}]`,
+      `[IndicatorWorker] computeSeries DONE in ${computeMs.toFixed(1)}ms, instances=[${instanceResults.map((result) => result.instanceId).join(',')}]`,
     )
 
     postResponse({
@@ -132,7 +115,6 @@ function handleComputeSeries(
       requestId,
       dataVersion,
       configVersion,
-      results,
       instanceResults,
       metrics: {
         computeMs,
@@ -187,11 +169,6 @@ ctx.onmessage = (event: MessageEvent<IndicatorWorkerRequest>) => {
     case 'setData':
       // 缓存当前完整行情快照及其版本，计算请求只引用该 Worker 内部快照。
       handleSetData(msg.data, msg.dataVersion)
-      break
-
-    case 'setConfig':
-      // 缓存按 configKey 索引的计算参数快照及其版本，不包含展示配置。
-      handleSetConfig(msg.configs, msg.configVersion)
       break
 
     case 'computeSeries':

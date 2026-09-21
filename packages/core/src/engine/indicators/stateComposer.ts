@@ -1,100 +1,55 @@
 /**
- * State Composer
- * 把 Worker/Runtime 返回的 series bundle 组装成与现有兼容的 render states
+ * Instance render-state projection.
+ *
+ * Calculation results are addressed only by chart instance.  This module deliberately
+ * accepts one result entry at a time: it must never reconstruct a type-indexed bundle.
  */
-
-import { KLineChartError } from '../../errors.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import type {
-  ComposedRenderStates,
-  MainIndicatorName,
-  MainRenderStates,
-  VisibleIndicatorName,
-  VisibleSubIndicatorMask,
-  VisibleSubIndicatorStates,
-} from './indicatorContracts.js'
-import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
-import type { IndicatorSeriesBundle } from './workerProtocol.js'
+import type { IndicatorInstanceCalculationResult } from './workerProtocol.js'
 
-/**
- * 可见范围
- */
-interface VisibleRange {
+export interface VisibleRange {
   start: number
   end: number
 }
 
-/** 按契约键写入副图状态，保持键与状态类型的对应关系。 */
-function setVisibleSubIndicatorState<K extends VisibleIndicatorName>(
-  states: Partial<VisibleSubIndicatorStates>,
-  indicatorId: K,
-  state: VisibleSubIndicatorStates[K] | undefined,
-): void {
-  states[indicatorId] = state
-}
-
-/** 当前注册表中拥有 visibleState.compose 的指标内部 name。 */
-function getVisibleStateIndicatorIds(): VisibleIndicatorName[] {
-  return getRegisteredIndicatorDefinitions()
-    .filter((definition) => !!definition.visibleState?.compose)
-    .map((definition) => definition.name as VisibleIndicatorName)
-}
-
-/**
- * 仅计算副图指标的 visible-only states
- * 用于滚动时的轻量更新，避免重复计算主图指标
- */
-export function composeVisibleSubIndicatorStates(
-  bundle: IndicatorSeriesBundle,
-  visibleRange: VisibleRange,
-  timestamp: number,
-  activeMask: VisibleSubIndicatorMask = {},
-  getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
-): VisibleSubIndicatorStates {
-  const states: Partial<VisibleSubIndicatorStates> = {}
-
-  for (const indicatorId of getVisibleStateIndicatorIds()) {
-    setVisibleSubIndicatorState(
-      states,
-      indicatorId,
-      composeRequiredMetadataVisibleState(
-        indicatorId,
-        bundle,
-        visibleRange,
-        timestamp,
-        activeMask,
-        getIndicatorMetadata,
-      ),
-    )
+/** Renderer-compatible view of one instance calculation result. */
+export function createInstanceSeriesEntry(
+  result: IndicatorInstanceCalculationResult,
+): Record<string, unknown> {
+  const raw = result.series
+  if (raw && typeof raw === 'object' && 'series' in (raw as Record<string, unknown>)) {
+    return { ...(raw as Record<string, unknown>), params: result.params }
   }
-
-  return states as VisibleSubIndicatorStates
-}
-
-/**
- * 从 series bundle 组装所有 render states
- * 同时计算 visibleMin/visibleMax 等派生字段
- */
-export function composeRenderStates(
-  bundle: IndicatorSeriesBundle,
-  visibleRange: VisibleRange,
-  timestamp: number,
-  getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
-): ComposedRenderStates {
-  const mainStates = composeMainRenderStates(bundle, visibleRange, timestamp, getIndicatorMetadata)
-  const subStates = composeVisibleSubIndicatorStates(
-    bundle,
-    visibleRange,
-    timestamp,
-    {},
-    getIndicatorMetadata,
-  )
-
   return {
-    ...mainStates,
-    ...subStates,
+    series: raw,
+    params: result.params,
+    ...(raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? { enabledPeriods: Object.keys(raw).map(Number) }
+      : {}),
   }
+}
+
+/** Project one enabled indicator instance into its renderer state. */
+export function composeInstanceRenderState(
+  metadata: IndicatorMetadata,
+  result: IndicatorInstanceCalculationResult,
+  visibleRange: VisibleRange,
+  timestamp: number,
+): unknown {
+  const entry = createInstanceSeriesEntry(result)
+  if (metadata.mainPane?.composeRenderState) {
+    return metadata.mainPane.composeRenderState(entry, visibleRange, timestamp)
+  }
+  if (metadata.visibleState?.compose) {
+    return metadata.visibleState.compose({
+      bundle: entry,
+      visibleRange,
+      timestamp,
+      active: true,
+    })
+  }
+  return undefined
 }
 
 /** 成交量副图的帧级渲染状态。 */
@@ -104,7 +59,6 @@ export interface VolumeRenderState {
   readonly valueMax: number
 }
 
-/** 根据当前可见 K 线计算成交量坐标轴范围。 */
 export function composeVolumeRenderState(
   data: ReadonlyArray<KLineData>,
   visibleRange: VisibleRange,
@@ -120,102 +74,16 @@ export function composeVolumeRenderState(
     minVolume = Math.min(minVolume, volume)
   }
   if (maxVolume === 0 || !Number.isFinite(minVolume)) return null
-
   const padding = Math.max(0.05, (maxVolume - minVolume) * 0.1)
-  return {
-    timestamp,
-    valueMin: Math.max(0, minVolume - padding),
-    valueMax: maxVolume + padding,
-  }
+  return { timestamp, valueMin: Math.max(0, minVolume - padding), valueMax: maxVolume + padding }
 }
 
-function composeRequiredMetadataVisibleState<K extends VisibleIndicatorName>(
-  indicatorId: K,
-  bundle: IndicatorSeriesBundle,
+/** Compute a price range from one enabled main-pane instance. */
+export function computeInstanceMainIndicatorPriceRange(
+  metadata: IndicatorMetadata,
+  result: IndicatorInstanceCalculationResult,
   visibleRange: VisibleRange,
-  timestamp: number,
-  activeMask: VisibleSubIndicatorMask,
-  getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
-): VisibleSubIndicatorStates[K] | undefined {
-  const meta = getIndicatorMetadata(indicatorId)
-  if (!meta) return undefined
-
-  const compose = meta.visibleState?.compose
-  if (!compose) {
-    throw new KLineChartError(
-      'NOT_REGISTERED',
-      `[StateComposer] Missing visibleState.compose for ${indicatorId}`,
-    )
-  }
-
-  // 元数据以 unknown 持有异构状态，契约注册表给出该键对应的状态类型。
-  return compose({
-    bundle,
-    visibleRange,
-    timestamp,
-    active: activeMask[indicatorId] ?? true,
-  }) as VisibleSubIndicatorStates[K]
-}
-
-/** 按契约键写入主图状态。 */
-function setMainRenderState<K extends MainIndicatorName>(
-  states: Partial<MainRenderStates>,
-  indicatorId: K,
-  state: MainRenderStates[K],
-): void {
-  states[indicatorId] = state
-}
-
-function composeMainRenderStates(
-  bundle: IndicatorSeriesBundle,
-  visibleRange: VisibleRange,
-  timestamp: number,
-  getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
-): MainRenderStates {
-  const states: Partial<MainRenderStates> = {}
-
-  for (const def of getRegisteredIndicatorDefinitions()) {
-    if (!def.mainPane?.composeRenderState) continue
-    const indicatorId = def.name as MainIndicatorName
-    const meta = getIndicatorMetadata(indicatorId)
-    const compose = meta?.mainPane?.composeRenderState ?? def.mainPane.composeRenderState
-    if (!compose) continue
-    setMainRenderState(
-      states,
-      indicatorId,
-      compose(bundle, visibleRange, timestamp) as MainRenderStates[MainIndicatorName],
-    )
-  }
-
-  return states as MainRenderStates
-}
-
-/**
- * 计算主图指标价格范围
- * 用于 Chart.draw() 中的 pane.updateRange
- */
-export function computeMainIndicatorPriceRange(
-  bundle: IndicatorSeriesBundle,
-  visibleRange: VisibleRange,
-  activeMainIndicators: Set<string>,
-  getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
 ): { min: number; max: number } | null {
-  let min = Infinity
-  let max = -Infinity
-
-  for (const indicatorId of activeMainIndicators) {
-    const range = getIndicatorMetadata(indicatorId)?.mainPane?.computePriceRange?.(
-      bundle,
-      visibleRange,
-    )
-    if (!range) continue
-    min = Math.min(min, range.min)
-    max = Math.max(max, range.max)
-  }
-
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return null
-  }
-
-  return { min, max }
+  const compute = metadata.mainPane?.computePriceRange
+  return compute ? compute(createInstanceSeriesEntry(result), visibleRange) : null
 }
