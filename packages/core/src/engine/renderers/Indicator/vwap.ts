@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcVWAPData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VWAPRenderState } from '../../indicators/state/vwapState.js'
-import { createVWAPStateKey, EMPTY_VWAP_STATE } from '../../indicators/state/vwapState.js'
+import { EMPTY_VWAP_STATE } from '../../indicators/state/vwapState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,27 +18,12 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function getVWAPStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[VWAPRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('vwap')
-  if (!meta) {
-    console.warn(`[VWAPRenderer] Indicator metadata for 'vwap' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_VWAP' } = options
+function createVWAPRendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'sub_VWAP', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getVWAPStateKey(pluginHost, paneId)
-  }
   return {
     name: `vwap_${paneId}`,
     version: '1.1.0',
@@ -50,8 +35,7 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -60,9 +44,8 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<VWAPRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<VWAPRenderState>(instanceId)
       if (!state || !state.params.showVWAP || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -104,12 +87,10 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<VWAPRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<VWAPRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -117,7 +98,6 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
 }
 
 const getVWAPTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createVWAPStateKey,
   name: 'VWAP',
   getColor: (colors) => colors.palette.i4,
 })

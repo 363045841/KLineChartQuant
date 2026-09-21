@@ -3,6 +3,7 @@
  * 完整骨架与 wma.ts 一致：优先走 WebGL 线段绘制，失败回退 Canvas2D
  */
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -11,10 +12,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcZLEMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ZLEMARenderState } from '../../indicators/state/zlemaState.js'
-import { createZLEMAStateKey, EMPTY_ZLEMA_STATE } from '../../indicators/state/zlemaState.js'
+import { EMPTY_ZLEMA_STATE } from '../../indicators/state/zlemaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -24,34 +24,14 @@ type Point = { x: number; y: number }
 
 interface ZLEMARendererOptions {
   paneId?: string
-}
-
-/**
- * 解析 ZLEMA 渲染状态键
- * 通过服务定位器取 scheduler，再按其元数据解析主图 paneId 对应的 stateKey
- */
-function getZLEMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[ZLEMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('zlema')
-  if (!meta) {
-    console.warn("[ZLEMARenderer] Indicator metadata for 'zlema' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /** 创建 ZLEMA 渲染器插件，draw 时按状态中 showZLEMA 决定是否绘制 */
 function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getZLEMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `zlema_${paneId}`,
@@ -66,8 +46,7 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -78,9 +57,8 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<ZLEMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<ZLEMARenderState>(instanceId)
       if (!state || !state.params.showZLEMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -117,12 +95,10 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<ZLEMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<ZLEMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -133,7 +109,6 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
 }
 
 const getZLEMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createZLEMAStateKey,
   name: 'ZLEMA',
   getParams: (p) => [p.period as number],
   getColor: (colors) => colors.palette.i6,

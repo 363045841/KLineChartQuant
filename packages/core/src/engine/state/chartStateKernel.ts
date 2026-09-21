@@ -21,12 +21,6 @@ import { createDataManagerState, type DataManagerStateModule } from './dataManag
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
 import {
-  createIndicatorResultState,
-  type IndicatorResultAvailability,
-  type IndicatorResultStateModule,
-  resolveIndicatorResultAvailability,
-} from './indicatorResultState.js'
-import {
   createIndicatorState,
   type IndicatorInstanceSpec,
   type IndicatorStateModule,
@@ -203,7 +197,6 @@ export class ChartStateKernel extends StateKernel {
   readonly dataManager: DataManagerStateModule
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
-  readonly indicatorResult: IndicatorResultStateModule
   readonly marker: MarkerStateModule
   readonly renderer: RendererStateModule
 
@@ -221,8 +214,6 @@ export class ChartStateKernel extends StateKernel {
   }>
   /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
   readonly sessionSlots$: ReadonlySignal<number>
-  /** 指标结果相对于当前数据和配置快照的可用性。 */
-  readonly indicatorResultAvailability$: ReadonlySignal<IndicatorResultAvailability>
 
   readonly signals: Record<string, ReadonlySignal<unknown>>
   readonly actions: Record<string, (...args: any[]) => void>
@@ -281,14 +272,6 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Indicator state ──
     this.indicator = createIndicatorState()
-    this.indicatorResult = createIndicatorResultState()
-    this.indicatorResultAvailability$ = computed(() =>
-      resolveIndicatorResultAvailability(
-        this.indicatorResult.readonly.snapshot(),
-        this.data.readonly.dataRevision(),
-        this.indicator.readonly.configRevision(),
-      ),
-    )
 
     // ── Marker business state ──
     this.marker = createMarkerState()
@@ -426,8 +409,6 @@ export class ChartStateKernel extends StateKernel {
       comparisonActive: this.comparison.readonly.active,
       // Indicator
       subPanes: this.indicator.readonly.subPanes,
-      indicatorResult: this.indicatorResult.readonly.snapshot,
-      indicatorResultAvailability: this.indicatorResultAvailability$,
       // Marker
       customMarkers: this.marker.readonly.customMarkers,
     }
@@ -640,7 +621,6 @@ export class ChartStateKernel extends StateKernel {
     this.dataManager.dispose()
     this.comparison.dispose()
     this.indicator.dispose()
-    this.indicatorResult.dispose()
     this.marker.dispose()
     this.renderer.dispose()
   }

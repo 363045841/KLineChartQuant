@@ -10,18 +10,10 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import {
-  type GetTitleInfoFn,
-  resolveStateKey,
-  type TitleInfo,
-  type TitleValueItem,
-} from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
-import {
-  createIchimokuStateKey,
-  EMPTY_ICHIMOKU_STATE,
-} from '../../indicators/state/ichimokuState.js'
+import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -135,31 +127,15 @@ function renderIchimokuLines(
 
 interface IchimokuRendererOptions {
   paneId?: string
-}
-
-function getIchimokuStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[IchimokuRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('ichimoku')
-  if (!meta) {
-    console.warn("[IchimokuRenderer] Indicator metadata for 'ichimoku' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createIchimokuRendererPlugin(
   options: IchimokuRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getIchimokuStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `ichimoku_${paneId}`,
@@ -173,8 +149,7 @@ function createIchimokuRendererPlugin(
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -184,9 +159,8 @@ function createIchimokuRendererPlugin(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<IchimokuRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<IchimokuRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) return
 
       const { params, series } = state
@@ -207,12 +181,10 @@ function createIchimokuRendererPlugin(
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<IchimokuRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<IchimokuRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -265,11 +237,12 @@ function getIchimokuTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = stateReader.get<IchimokuRenderState>(createIchimokuStateKey(paneId))
+  const state = stateReader.get<IchimokuRenderState>(instanceId)
   const p = state?.series[index]
   if (!p) return null
 

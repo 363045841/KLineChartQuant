@@ -69,6 +69,7 @@ export class BarsLiveSource implements LiveBarsStream {
     const url = `${this.baseUrl}/api/v1/market-data/sources/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
+    console.log(`[BarsLiveSource] 已订阅 SSE ${url}`)
 
     this.es.onopen = () => {
       if (!this.destroyed) this.emitStatus('connected')

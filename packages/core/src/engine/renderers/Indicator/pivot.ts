@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -8,40 +9,23 @@ import type { ColorTokens } from '../../../foundation/tokens/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcPivotData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import {
-  type GetTitleInfoFn,
-  resolveStateKey,
-  type TitleInfo,
-  type TitleValueItem,
+import type {
+  GetTitleInfoFn,
+  TitleInfo,
+  TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { PivotRenderState } from '../../indicators/state/pivotState.js'
-import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState.js'
+import { EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState.js'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 type Point = { x: number; y: number }
 
-function getPivotStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[PivotRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('pivot')
-  if (!meta) {
-    console.warn("[PivotRenderer] Indicator metadata for 'pivot' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+function createPivotRendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getPivotStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `pivot_${paneId}`,
@@ -54,8 +38,7 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -64,9 +47,8 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<PivotRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<PivotRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) return
       const p = state.params
       if (!(p.showPP || p.showR1 || p.showR2 || p.showR3 || p.showS1 || p.showS2 || p.showS3))
@@ -110,13 +92,11 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       return (
         pluginHost
-          ?.getService<IndicatorScheduler>('indicatorScheduler')
-          ?.createRenderStateReader()
-          .get<PivotRenderState>(stateKey)?.params ?? {}
+          ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+          ?.get<PivotRenderState>(instanceId)?.params ?? {}
       )
     },
     setConfig() {},
@@ -136,11 +116,18 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
+const getPivotTitleInfo: GetTitleInfoFn = (
+  _data,
+  index,
+  _params,
+  stateReader,
+  instanceId,
+  _paneId,
+  colors,
+) => {
   if (index === null || index < 0) return null
 
-  const stateKey = createPivotStateKey(paneId)
-  const state = stateReader.get<PivotRenderState>(stateKey)
+  const state = stateReader.get<PivotRenderState>(instanceId)
   if (!state) return null
 
   const p = state.series[index]

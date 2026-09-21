@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcROCData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ROCRenderState } from '../../indicators/state/rocState.js'
-import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/state/rocState.js'
+import { EMPTY_ROC_STATE } from '../../indicators/state/rocState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -20,29 +20,13 @@ type LinePoint = { x: number; y: number }
 
 interface ROCRendererOptions {
   paneId?: string
-}
-
-function getROCStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[ROCRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('roc')
-  if (!meta) {
-    console.warn(`[ROCRenderer] Indicator metadata for 'roc' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub_ROC' } = options
+  const { paneId = 'sub_ROC', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getROCStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `roc_${paneId}`,
@@ -56,8 +40,7 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -67,9 +50,8 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<ROCRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<ROCRenderState>(instanceId)
       if (!state || !state.params.showROC || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -126,12 +108,10 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<ROCRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<ROCRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -139,7 +119,6 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
 }
 
 const getROCTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createROCStateKey,
   name: 'ROC',
   defaultPeriod: 12,
   getColor: (colors) => colors.palette.i6,

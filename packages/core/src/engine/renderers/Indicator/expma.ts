@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -16,9 +17,9 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
-import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/state/expmaState.js'
+import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
+import type { EXPMARenderState } from '../../indicators/state/expmaState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type LinePoint = { x: number; y: number }
@@ -45,18 +46,9 @@ function buildEXPMACacheKey(
   ].join('|')
 }
 
-function getEXPMAStateKey(host: PluginHost | null): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[EXPMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('expma')
-  if (!meta) {
-    console.warn("[EXPMARenderer] Indicator metadata for 'expma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey)
+interface EXPMARendererOptions {
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 const computeEXPMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
@@ -95,7 +87,10 @@ const composeEXPMARenderState: IndicatorRenderStateComposer = (
   }
 }
 
-export function createEXPMARendererPlugin(): RendererPluginWithHost {
+export function createEXPMARendererPlugin(
+  options: EXPMARendererOptions = {},
+): RendererPluginWithHost {
+  const { instanceId } = options
   let pluginHost: PluginHost | null = null
   let cachedKey = ''
   let cachedFastPoints: LinePoint[] = []
@@ -105,10 +100,6 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     cachedKey = ''
     cachedFastPoints = []
     cachedSlowPoints = []
-  }
-
-  function resolveKey(): string | null {
-    return getEXPMAStateKey(pluginHost)
   }
 
   return {
@@ -124,8 +115,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     },
 
     getDeclaredNamespaces(): string[] {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -136,9 +126,8 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<EXPMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<EXPMARenderState>(instanceId)
 
       if (!state || state.visibleMin > state.visibleMax) {
         clearCache()
@@ -214,12 +203,10 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<EXPMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<EXPMARenderState>(instanceId)
       return state ? { ...state.params } : {}
     },
 
@@ -232,12 +219,13 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   index: number | null,
   _params: Record<string, number | boolean | string>,
   stateReader,
+  instanceId,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const state = stateReader.get<EXPMARenderState>(EXPMA_STATE_KEY)
+  const state = stateReader.get<EXPMARenderState>(instanceId)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const expmaPoint = state.series[index]

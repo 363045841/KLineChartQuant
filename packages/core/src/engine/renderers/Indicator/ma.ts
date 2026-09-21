@@ -12,15 +12,14 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
-  GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
-import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState.js'
+import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
+import type { MARenderState } from '../../indicators/state/maState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 // Re-export MAFlags from calculators for backward compatibility
@@ -91,31 +90,18 @@ function buildMACacheKey(
   ].join('|')
 }
 
-function getMAStateKey(host: PluginHost | null): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[MARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('ma')
-  if (!meta) {
-    console.warn("[MARenderer] Indicator metadata for 'ma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey)
-}
-
 function getMATitleInfo(
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
+  instanceId: string,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
 
-  const state = stateReader.get<MARenderState>(MA_STATE_KEY)
+  const state = stateReader.get<MARenderState>(instanceId)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const maColors: Record<number, string> = {
@@ -183,7 +169,10 @@ export class MADefinition {
   static rendererFactory = createMARendererPlugin
 }
 
-export function createMARendererPlugin(): RendererPluginWithHost {
+export function createMARendererPlugin(
+  options: { instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { instanceId } = options
   let pluginHost: PluginHost | null = null
   let cachedKey = ''
   let cachedLines = new Map<number, LinePoint[]>()
@@ -191,10 +180,6 @@ export function createMARendererPlugin(): RendererPluginWithHost {
   function clearCache() {
     cachedKey = ''
     cachedLines = new Map()
-  }
-
-  function resolveKey(): string | null {
-    return getMAStateKey(pluginHost)
   }
 
   return {
@@ -210,8 +195,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
     },
 
     getDeclaredNamespaces(): string[] {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -228,9 +212,8 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         30: colors.ma.ma30,
         60: colors.ma.ma60,
       }
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<MARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<MARenderState>(instanceId)
 
       if (!state || state.visibleMin > state.visibleMax) {
         clearCache()
@@ -306,12 +289,10 @@ export function createMARendererPlugin(): RendererPluginWithHost {
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<MARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<MARenderState>(instanceId)
       const config: Record<string, boolean> = {}
       state?.enabledPeriods.forEach((period) => {
         config[`ma${period}`] = true

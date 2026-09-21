@@ -1,5 +1,6 @@
 // TRIMA 三角移动均线渲染器插件与指标定义（WebGL + Canvas2D 回退）
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -8,10 +9,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcTRIMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TRIMARenderState } from '../../indicators/state/trimaState.js'
-import { createTRIMAStateKey, EMPTY_TRIMA_STATE } from '../../indicators/state/trimaState.js'
+import { EMPTY_TRIMA_STATE } from '../../indicators/state/trimaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -21,29 +21,13 @@ type Point = { x: number; y: number }
 
 interface TRIMARendererOptions {
   paneId?: string
-}
-
-function getTRIMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[TRIMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('trima')
-  if (!meta) {
-    console.warn("[TRIMARenderer] Indicator metadata for 'trima' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getTRIMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `trima_${paneId}`,
@@ -58,8 +42,7 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -70,9 +53,8 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<TRIMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<TRIMARenderState>(instanceId)
       if (!state || !state.params.showTRIMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -109,12 +91,10 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<TRIMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<TRIMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -125,7 +105,6 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
 }
 
 const getTRIMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createTRIMAStateKey,
   name: 'TRIMA',
   getParams: (p) => [p.period as number],
   getColor: (colors) => colors.palette.i5,

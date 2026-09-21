@@ -306,8 +306,8 @@ export interface MarkerManagerLike {
 
 /** 当前帧读取指标渲染投影的只读接口。 */
 export interface IndicatorRenderStateReader {
-  /** 按 renderer state key 读取当前帧已提交的指标状态。 */
-  get<T = unknown>(stateKey: string): T | undefined
+  /** 按指标实例 ID 读取当前帧已提交的指标状态。 */
+  get<T = unknown>(instanceId: string): T | undefined
 }
 
 /** 渲染数据子契约：序列数据、数据视图与时间解析。 */

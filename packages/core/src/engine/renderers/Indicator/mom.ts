@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -8,10 +9,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcMOMData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MOMRenderState } from '../../indicators/state/momState.js'
-import { createMOMStateKey, EMPTY_MOM_STATE } from '../../indicators/state/momState.js'
+import { EMPTY_MOM_STATE } from '../../indicators/state/momState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createMomScaleRendererPlugin } from './scale/mom_scale.js'
@@ -22,32 +22,16 @@ type LinePoint = { x: number; y: number }
 interface MOMRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getMOMStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[MOMRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('mom')
-  if (!meta) {
-    console.warn("[MOMRenderer] Indicator metadata for 'mom' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 MOM 渲染器插件
  */
 function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getMOMStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -152,8 +136,7 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -164,9 +147,8 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<MOMRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<MOMRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -245,12 +227,10 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<MOMRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<MOMRenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -289,7 +269,6 @@ function drawMOMLineWithCanvas2D(
 }
 
 const getMOMTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createMOMStateKey,
   name: 'MOM',
   defaultPeriod: 10,
   getColor: (colors) => colors.mom.mom,

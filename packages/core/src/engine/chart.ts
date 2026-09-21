@@ -84,8 +84,7 @@ import { ChartPaneFacade } from './facade/chartPaneFacade.js'
 import { ChartThemeFacade } from './facade/chartThemeFacade.js'
 import { ChartZoomFacade } from './facade/chartZoomFacade.js'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager.js'
-import { resolveStateKey } from './indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from './indicators/scheduler.js'
+import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
 import { ChartPaneLayout } from './layout/chartPaneLayout.js'
 import { UpdateLevel, type VisibleRange } from './layout/pane.js'
 import type { CustomMarkerEntity, MarkerManager } from './marker/registry.js'
@@ -132,6 +131,20 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'>
 
 const RIGHT_AXIS_FONT = getFont(12)
 const RIGHT_AXIS_TEXT_PADDING = 12
+
+/** 取指标投影序列的最后一个有限数值；支持数组与按周期/字段分组的对象。 */
+function lastSeriesValue(series: unknown): number | null {
+  if (Array.isArray(series)) {
+    const value = series[series.length - 1]
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+  }
+  if (series && typeof series === 'object') {
+    const keys = Object.keys(series as Record<string, unknown>)
+    if (keys.length === 0) return null
+    return lastSeriesValue((series as Record<string, unknown>)[keys[keys.length - 1]!])
+  }
+  return null
+}
 
 export class Chart {
   private dom: ChartDom
@@ -348,7 +361,8 @@ export class Chart {
         comparison: this.kernel.comparison,
         scheduleDraw: (level) => this.scheduleDraw(level),
         resetInteraction: () => this.interaction.reset(),
-        getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
+        updateIndicatorData: (data, range, dataRevision, displayTimestamps) =>
+          this.indicatorManager.updateIndicatorData(data, range, dataRevision, displayTimestamps),
         isPointerDown: () => this.interaction.isPointerDown(),
         onTimeShareDataReady: (dataLength) => {
           const vp = this.getViewport()
@@ -360,7 +374,6 @@ export class Chart {
             this.kernel.viewport.actions.scrollTo(leftBuffer)
           }
         },
-        onDataProcessed: (data, range) => this.evaluateAlerts(data, range),
         setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
       this.kernel.data,
@@ -524,7 +537,6 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       getRenderContext: (paneId) => this.renderer.getPaneCtxMap().get(paneId) ?? null,
       indicator: this.kernel.indicator,
-      indicatorResult: this.kernel.indicatorResult,
       subPaneOps: {
         create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
         remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
@@ -541,8 +553,8 @@ export class Chart {
       schedulePersistence: () => this.scheduleWorkspacePersistence(),
     })
 
-    // Worker 异步结果就绪后串联 Alert 管线
-    this.indicatorManager.indicatorSchedulerAccessor.setOnResultsApplied(() => {
+    // 异步计算结果就绪后串联 Alert 管线
+    this.indicatorManager.setOnResultsApplied(() => {
       const data = this.dataManager.getInternalData()
       this.evaluateAlerts(data, this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 })
     })
@@ -1043,11 +1055,6 @@ export class Chart {
     return this.dataManager.getInternalData()
   }
 
-  /** 获取指标调度器（供外部控制器更新指标配置） */
-  getIndicatorScheduler(): IndicatorScheduler {
-    return this.indicatorManager.indicatorSchedulerAccessor
-  }
-
   /** 获取预警控制器 */
   getAlertController(): AlertController {
     return this.alertController
@@ -1094,32 +1101,13 @@ export class Chart {
     }
 
     const indicators: Record<string, number> = {}
-    const scheduler = this.getIndicatorScheduler()
-    const indicatorStateReader = scheduler.createRenderStateReader()
-    for (const meta of scheduler.getAllIndicators()) {
-      const paneId = meta.defaultPaneId === 'main' ? 'main' : meta.defaultPaneId
-      const stateKey = resolveStateKey(meta.stateKey, paneId)
-      const state = indicatorStateReader.get<any>(stateKey)
-      if (!state?.series) continue
-      const series = state.series
-      if (Array.isArray(series)) {
-        const val = series[series.length - 1]
-        if (typeof val === 'number' && Number.isFinite(val)) {
-          indicators[meta.name] = val
-        }
-      } else if (typeof series === 'object') {
-        const keys = Object.keys(series)
-        if (keys.length > 0) {
-          const lastKey = keys[keys.length - 1]!
-          const arr = series[lastKey]
-          if (Array.isArray(arr)) {
-            const val = arr[arr.length - 1]
-            if (typeof val === 'number' && Number.isFinite(val)) {
-              indicators[meta.name] = val
-            }
-          }
-        }
-      }
+    const indicatorStateReader = this.indicatorManager.createRenderStateReader()
+    for (const instance of this.kernel.indicator.readonly.instances.peek()) {
+      const meta = getRegisteredIndicatorDefinition(instance.indicatorId)
+      const state = indicatorStateReader.get<{ series?: unknown }>(instance.instanceId)
+      if (!meta || !state?.series) continue
+      const value = lastSeriesValue(state.series)
+      if (value !== null) indicators[meta.name] = value
     }
 
     // 只读滚动量（由 evaluateAlerts 推进滑窗）

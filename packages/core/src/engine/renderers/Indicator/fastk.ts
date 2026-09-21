@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcFASTKData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FASTKRenderState } from '../../indicators/state/fastkState.js'
-import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState.js'
+import { EMPTY_FASTK_STATE } from '../../indicators/state/fastkState.js'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale.js'
@@ -22,32 +22,16 @@ type LinePoint = { x: number; y: number }
 interface FASTKRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getFASTKStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[FASTKRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('fastk')
-  if (!meta) {
-    console.warn("[FASTKRenderer] Indicator metadata for 'fastk' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 FASTK 渲染器插件
  */
 function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getFASTKStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -99,8 +83,7 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -111,9 +94,8 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<FASTKRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<FASTKRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -171,12 +153,10 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<FASTKRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<FASTKRenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -218,7 +198,6 @@ function drawFASTKLineWithCanvas2D(
  * 获取 FASTK 标题信息（供 paneTitle 使用）
  */
 const getFASTKTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createFASTKStateKey,
   name: 'FASTK',
   defaultPeriod: 9,
   getColor: (colors) => colors.kdj.k,

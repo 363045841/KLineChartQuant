@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcCMFData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { CMFRenderState } from '../../indicators/state/cmfState.js'
-import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/state/cmfState.js'
+import { EMPTY_CMF_STATE } from '../../indicators/state/cmfState.js'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,27 +18,14 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function getCMFStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[CMFRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('cmf')
-  if (!meta) {
-    console.warn(`[CMFRenderer] Indicator metadata for 'cmf' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_CMF' } = options
+function createCMFRendererPlugin(options: {
+  paneId?: string
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
+} = {}): RendererPluginWithHost {
+  const { paneId = 'sub_CMF', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getCMFStateKey(pluginHost, paneId)
-  }
   return {
     name: `cmf_${paneId}`,
     version: '1.1.0',
@@ -50,8 +37,7 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -60,9 +46,8 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<CMFRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<CMFRenderState>(instanceId)
       if (!state || !state.params.showCMF || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -118,12 +103,10 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<CMFRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<CMFRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -131,7 +114,6 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 }
 
 const getCMFTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createCMFStateKey,
   name: 'CMF',
   defaultPeriod: 20,
   getColor: (colors) => colors.palette.i6,

@@ -1,15 +1,15 @@
 /** 新实例计算链路的 inline 与 Worker 执行器适配。 */
 import type { KLineData } from '../../../../foundation/types/price.js'
 import type { IndicatorCalculationOutput } from '../domain/instanceCalculationPlan.js'
-import { IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
-import type { IndicatorCalculationDefinition } from './instanceCalculationRuntime.js'
-import type { IndicatorCalculationExecutor } from './instanceCalculationScheduler.js'
 import {
   INSTANCE_WORKER_PROTOCOL_VERSION,
-  isInstanceWorkerResponse,
   type InstanceWorkerResponse,
+  isInstanceWorkerResponse,
   type SerializedIndicatorCalculationDefinition,
 } from '../worker/instanceWorkerProtocol.js'
+import type { IndicatorCalculationDefinition } from './instanceCalculationRuntime.js'
+import type { IndicatorCalculationExecutor } from './instanceCalculationScheduler.js'
+import { IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
 
 /** 不依赖 Worker 的直接执行器；测试、SSR 和降级路径使用同一执行语义。 */
 export function createInlineIndicatorCalculationExecutor(
@@ -35,7 +35,13 @@ export function createWorkerIndicatorCalculationExecutor(input: {
   let nextRequestId = 0
   let ready = false
   let disposed = false
-  const pending = new Map<number, { resolve: (outputs: readonly IndicatorCalculationOutput[]) => void; reject: (error: Error) => void }>()
+  const pending = new Map<
+    number,
+    {
+      resolve: (outputs: readonly IndicatorCalculationOutput[]) => void
+      reject: (error: Error) => void
+    }
+  >()
   let readyResolve: (() => void) | null = null
   let readyReject: ((error: Error) => void) | null = null
   const readyPromise = new Promise<void>((resolve, reject) => {

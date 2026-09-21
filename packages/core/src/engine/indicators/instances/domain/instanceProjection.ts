@@ -44,7 +44,11 @@ export function projectIndicatorInstances<RenderState>(input: {
   for (const instance of input.instances.instances.values()) {
     const result = input.results.results.get(instance.instanceId)
     if (!result) continue
-    entries.push([instance.paneId, instance.instanceId, input.project(instance, result, input.context)])
+    entries.push([
+      instance.paneId,
+      instance.instanceId,
+      input.project(instance, result, input.context),
+    ])
   }
   return createIndicatorPaneProjection(entries, input.resultRevision, input.viewportRevision)
 }

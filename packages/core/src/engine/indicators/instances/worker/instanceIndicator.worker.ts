@@ -1,7 +1,7 @@
 /** 实例计算 Worker 入口；只执行去重任务计划。 */
 import { createWorkerCompute } from '../../indicatorRuntime.js'
-import { IndicatorInstanceExecutionRuntime } from '../execution/instanceExecutionRuntime.js'
 import type { IndicatorCalculationDefinition } from '../execution/instanceCalculationRuntime.js'
+import { IndicatorInstanceExecutionRuntime } from '../execution/instanceExecutionRuntime.js'
 import {
   INSTANCE_WORKER_PROTOCOL_VERSION,
   type InstanceWorkerRequest,
@@ -62,11 +62,7 @@ worker.onmessage = (event: MessageEvent<InstanceWorkerRequest>): void => {
       type: 'error',
       requestId: message.type === 'execute' ? message.requestId : undefined,
       stage:
-        message.type === 'execute'
-          ? 'execute'
-          : message.type === 'setData'
-            ? 'setData'
-            : 'init',
+        message.type === 'execute' ? 'execute' : message.type === 'setData' ? 'setData' : 'init',
       message: messageText,
     })
   }

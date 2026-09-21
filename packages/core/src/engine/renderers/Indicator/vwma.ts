@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcVWMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VWMARenderState } from '../../indicators/state/vwmaState.js'
-import { createVWMAStateKey, EMPTY_VWMA_STATE } from '../../indicators/state/vwmaState.js'
+import { EMPTY_VWMA_STATE } from '../../indicators/state/vwmaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -20,29 +20,13 @@ type Point = { x: number; y: number }
 
 interface VWMARendererOptions {
   paneId?: string
-}
-
-function getVWMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[VWMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('vwma')
-  if (!meta) {
-    console.warn("[VWMARenderer] Indicator metadata for 'vwma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getVWMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `vwma_${paneId}`,
@@ -57,8 +41,7 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -69,9 +52,8 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<VWMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<VWMARenderState>(instanceId)
       if (!state || !state.params.showVWMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -108,12 +90,10 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<VWMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<VWMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -124,7 +104,6 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
 }
 
 const getVWMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createVWMAStateKey,
   name: 'VWMA',
   getParams: (p) => [p.period as number],
   getColor: (colors) => colors.palette.i8,

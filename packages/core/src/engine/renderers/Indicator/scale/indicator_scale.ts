@@ -5,7 +5,6 @@ import type {
   RendererPluginWithHost,
 } from '../../../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../../foundation/plugin/stateKeys.js'
 import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../../../foundation/tokens/index.js'
 import { drawCrosshairPriceLabel } from '../../../../foundation/utils/kLineDraw/axis.js'
@@ -52,8 +51,8 @@ export interface IndicatorScaleRendererOptions {
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
   formatTickLabel?: (value: number) => string
   formatCrosshairLabel?: (value: number) => string
-  /** 指标 state key；主图指标投影为副图时可覆盖默认 pane key。 */
-  stateKey?: string
+  /** 该坐标轴绑定的指标实例身份。 */
+  instanceId: string
 }
 
 export interface DrawScaleTicksOptions {
@@ -145,8 +144,8 @@ export function createIndicatorScaleRendererPlugin(
     getCrosshair,
     formatTickLabel,
     formatCrosshairLabel,
+    instanceId,
   } = options
-  const stateKey = options.stateKey ?? createIndicatorStateKey(indicatorKey, paneId)
   let pluginHost: PluginHost | null = null
 
   return {
@@ -166,7 +165,7 @@ export function createIndicatorScaleRendererPlugin(
       const { yAxisCtx, pane, dpr } = context
       if (!yAxisCtx || !pluginHost) return
 
-      const state = context.indicatorStateReader?.get<IndicatorScaleRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<IndicatorScaleRenderState>(instanceId)
       if (!state) return
 
       const valueMin = state.valueMin ?? state.visibleMin

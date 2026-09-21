@@ -71,7 +71,11 @@ export interface IndicatorInstanceSnapshot {
 
 export type IndicatorInstanceCommand =
   | { readonly type: 'create'; readonly instance: IndicatorInstance }
-  | { readonly type: 'update'; readonly instanceId: IndicatorInstanceId; readonly change: UpdateIndicatorInstance }
+  | {
+      readonly type: 'update'
+      readonly instanceId: IndicatorInstanceId
+      readonly change: UpdateIndicatorInstance
+    }
   | { readonly type: 'remove'; readonly instanceId: IndicatorInstanceId }
 
 export interface IndicatorSeriesResult {
@@ -233,7 +237,8 @@ export function createIndicatorPaneProjection<RenderState>(
   const panes = new Map<IndicatorPaneId, Map<IndicatorInstanceId, RenderState>>()
   for (const [paneId, instanceId, state] of entries) {
     const pane = panes.get(paneId) ?? new Map<IndicatorInstanceId, RenderState>()
-    if (pane.has(instanceId)) throw new TypeError(`Duplicate pane projection: ${paneId}/${instanceId}`)
+    if (pane.has(instanceId))
+      throw new TypeError(`Duplicate pane projection: ${paneId}/${instanceId}`)
     pane.set(instanceId, state)
     panes.set(paneId, pane)
   }

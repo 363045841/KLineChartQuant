@@ -6,7 +6,7 @@
  */
 import type { KLineData } from '../../foundation/types/price.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
-import type { IndicatorInstanceCalculationResult } from './workerProtocol.js'
+import type { IndicatorSeriesResult } from './instances/domain/instanceModel.js'
 
 export interface VisibleRange {
   start: number
@@ -14,9 +14,7 @@ export interface VisibleRange {
 }
 
 /** Renderer-compatible view of one instance calculation result. */
-export function createInstanceSeriesEntry(
-  result: IndicatorInstanceCalculationResult,
-): Record<string, unknown> {
+export function createInstanceSeriesEntry(result: IndicatorSeriesResult): Record<string, unknown> {
   const raw = result.series
   if (raw && typeof raw === 'object' && 'series' in (raw as Record<string, unknown>)) {
     return { ...(raw as Record<string, unknown>), params: result.params }
@@ -33,7 +31,7 @@ export function createInstanceSeriesEntry(
 /** Project one enabled indicator instance into its renderer state. */
 export function composeInstanceRenderState(
   metadata: IndicatorMetadata,
-  result: IndicatorInstanceCalculationResult,
+  result: IndicatorSeriesResult,
   visibleRange: VisibleRange,
   timestamp: number,
 ): unknown {
@@ -81,7 +79,7 @@ export function composeVolumeRenderState(
 /** Compute a price range from one enabled main-pane instance. */
 export function computeInstanceMainIndicatorPriceRange(
   metadata: IndicatorMetadata,
-  result: IndicatorInstanceCalculationResult,
+  result: IndicatorSeriesResult,
   visibleRange: VisibleRange,
 ): { min: number; max: number } | null {
   const compute = metadata.mainPane?.computePriceRange

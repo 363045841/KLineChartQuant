@@ -14,13 +14,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcFisherTransformData } from '../../indicators/calculators/fisherTransform.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FisherTransformRenderState } from '../../indicators/state/fisherTransformState.js'
-import {
-  createFisherTransformStateKey,
-  EMPTY_FISHER_TRANSFORM_STATE,
-} from '../../indicators/state/fisherTransformState.js'
+import { EMPTY_FISHER_TRANSFORM_STATE } from '../../indicators/state/fisherTransformState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -32,28 +28,8 @@ type LinePoint = { x: number; y: number }
 interface FisherTransformRendererOptions {
   /** 目标 pane ID。 */
   paneId?: string
-}
-
-/**
- * 获取 Fisher Transform 在指定 pane 上的状态键。
- * @param host 插件宿主。
- * @param paneId 目标副图 ID。
- * @returns 状态键，服务不可用时返回 null。
- */
-function getFisherTransformStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[FisherTransformRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('fisherTransform')
-  if (!meta) {
-    console.warn(
-      "[FisherTransformRenderer] Indicator metadata for 'fisherTransform' not found, skip rendering",
-    )
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -64,13 +40,8 @@ function getFisherTransformStateKey(host: PluginHost | null, paneId: string): st
 function createFisherTransformRendererPlugin(
   options: FisherTransformRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_Fisher' } = options
+  const { paneId = 'sub_Fisher', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 解析当前指标状态键。 */
-  function resolveKey(): string | null {
-    return getFisherTransformStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedFisherPoints: LinePoint[] = []
@@ -133,8 +104,7 @@ function createFisherTransformRendererPlugin(
 
     /** 声明此渲染器拥有的状态命名空间。 */
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /** 绘制 Fisher Transform 零轴和 Fisher/Signal 折线。 */
@@ -148,9 +118,8 @@ function createFisherTransformRendererPlugin(
       const fisherColor = colors.palette.i2
       const signalColor = colors.palette.i3
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<FisherTransformRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<FisherTransformRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -238,16 +207,14 @@ function createFisherTransformRendererPlugin(
 
     /** 返回当前 Fisher Transform 配置。 */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<FisherTransformRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<FisherTransformRenderState>(instanceId)
       return state?.params ?? {}
     },
 
-    /** 配置由 IndicatorScheduler 统一更新。 */
+    /** 配置由指标实例链路统一更新。 */
     setConfig() {},
   }
 }
@@ -304,11 +271,12 @@ function drawFisherTransformLinesWithCanvas2D(
 
 /**
  * 获取 Fisher Transform 标题信息。
- * @param data 当前 K 线数据。
+ * @param _data 当前 K 线数据。
  * @param index 十字线数据索引。
  * @param params 指标配置。
- * @param pluginHost 插件宿主。
- * @param paneId 目标副图 ID。
+ * @param stateReader 帧级指标状态读取器。
+ * @param instanceId 指标实例 ID。
+ * @param _paneId 目标副图 ID。
  * @param colors 当前主题颜色。
  * @returns 标题信息，无有效值时返回 null。
  */
@@ -317,7 +285,8 @@ function getFisherTransformTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): {
   name: string
@@ -326,7 +295,7 @@ function getFisherTransformTitleInfo(
 } | null {
   if (index === null) return null
 
-  const state = stateReader.get<FisherTransformRenderState>(createFisherTransformStateKey(paneId))
+  const state = stateReader.get<FisherTransformRenderState>(instanceId)
   if (!state) return null
   const point = state.series[index]
   if (!point) return null

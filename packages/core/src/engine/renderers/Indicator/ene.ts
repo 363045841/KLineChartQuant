@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -16,9 +17,9 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
-import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState.js'
+import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
+import type { ENERenderState } from '../../indicators/state/eneState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type LinePoint = { x: number; y: number }
@@ -56,26 +57,9 @@ function drawENEWithWebGL(
   return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
 }
 
-/** 创建 ENE（轨道线）渲染器插件（无状态版本）
- *
- * 设计原则：
- * 1. 不持有任何计算缓存或配置状态
- * 2. 所有数据从 StateStore 读取（通过 ENE_STATE_KEY）
- * 3. 配置变更通过外部 IndicatorScheduler 处理
- * 4. 纯绘制函数，无副作用
- */
-function getENEStateKey(host: PluginHost | null): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[ENERenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('ene')
-  if (!meta) {
-    console.warn("[ENERenderer] Indicator metadata for 'ene' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey)
+interface ENERendererOptions {
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 const computeENEPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
@@ -114,12 +98,9 @@ const composeENERenderState: IndicatorRenderStateComposer = (
   }
 }
 
-export function createENERendererPlugin(): RendererPluginWithHost {
+export function createENERendererPlugin(options: ENERendererOptions = {}): RendererPluginWithHost {
+  const { instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getENEStateKey(pluginHost)
-  }
 
   return {
     name: 'ene',
@@ -140,8 +121,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
      * 声明使用的 StateStore 命名空间
      */
     getDeclaredNamespaces(): string[] {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /**
@@ -157,10 +137,9 @@ export function createENERendererPlugin(): RendererPluginWithHost {
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      // 从 StateStore 读取 ENE 状态
-      const state = context.indicatorStateReader?.get<ENERenderState>(stateKey)
+      if (!instanceId) return
+      // 从该实例的帧投影读取 ENE 状态
+      const state = context.indicatorStateReader?.get<ENERenderState>(instanceId)
 
       // 无有效数据时提前返回
       if (!state || state.visibleMin > state.visibleMax) return
@@ -233,12 +212,10 @@ export function createENERendererPlugin(): RendererPluginWithHost {
      * 从 StateStore 读取实际配置
      */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<ENERenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<ENERenderState>(instanceId)
       return state ? { ...state.params } : {}
     },
 
@@ -246,11 +223,10 @@ export function createENERendererPlugin(): RendererPluginWithHost {
      * 设置配置（兼容性接口，无实际操作）
      *
      * 重要：本渲染器为无状态设计，不持有配置。
-     * 配置变更应通过外部控制器调用 IndicatorScheduler.updateIndicatorConfig() 完成。
+     * 配置变更由指标实例链路更新对应实例参数后重新投影。
      */
     setConfig(_newConfig: Record<string, unknown>) {
-      // 无状态渲染器不存储配置
-      // 外部控制器应调用 chart.getIndicatorScheduler().updateIndicatorConfig()
+      // 无状态渲染器不存储配置，配置变更由指标实例链路更新实例参数
     },
   }
 }
@@ -260,12 +236,13 @@ const getENETitleInfo: GetTitleInfoFn = (
   index: number | null,
   _params: Record<string, number | boolean | string>,
   stateReader,
+  instanceId,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const state = stateReader.get<ENERenderState>(ENE_STATE_KEY)
+  const state = stateReader.get<ENERenderState>(instanceId)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const enePoint = state.series[index]

@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcOBVData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { OBVRenderState } from '../../indicators/state/obvState.js'
-import { createOBVStateKey, EMPTY_OBV_STATE } from '../../indicators/state/obvState.js'
+import { EMPTY_OBV_STATE } from '../../indicators/state/obvState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,27 +18,12 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function getOBVStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[OBVRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('obv')
-  if (!meta) {
-    console.warn(`[OBVRenderer] Indicator metadata for 'obv' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_OBV' } = options
+function createOBVRendererPlugin(
+  options: { paneId?: string; instanceId?: string } = {},
+): RendererPluginWithHost {
+  const { paneId = 'sub_OBV', instanceId } = options
   let pluginHost: PluginHost | null = null
 
-  function resolveKey(): string | null {
-    return getOBVStateKey(pluginHost, paneId)
-  }
   return {
     name: `obv_${paneId}`,
     version: '1.1.0',
@@ -50,8 +35,7 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -60,9 +44,8 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<OBVRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<OBVRenderState>(instanceId)
       if (!state || !state.params.showOBV || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -104,12 +87,10 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<OBVRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<OBVRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -117,7 +98,6 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 }
 
 const getOBVTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createOBVStateKey,
   name: 'OBV',
   getColor: (colors) => colors.palette.i3,
 })

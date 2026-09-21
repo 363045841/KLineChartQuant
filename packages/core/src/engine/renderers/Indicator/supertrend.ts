@@ -9,48 +9,23 @@ import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcSuperTrendData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import {
-  type GetTitleInfoFn,
-  resolveStateKey,
-  type TitleInfo,
-} from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { type GetTitleInfoFn, type TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SuperTrendRenderState } from '../../indicators/state/supertrendState.js'
-import {
-  createSuperTrendStateKey,
-  EMPTY_SUPERTREND_STATE,
-} from '../../indicators/state/supertrendState.js'
+import { EMPTY_SUPERTREND_STATE } from '../../indicators/state/supertrendState.js'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 interface SuperTrendRendererOptions {
   paneId?: string
-}
-
-function getSuperTrendStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[SuperTrendRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('supertrend')
-  if (!meta) {
-    console.warn(
-      `[SuperTrendRenderer] Indicator metadata for 'supertrend' not found, skip rendering`,
-    )
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createSuperTrendRendererPlugin(
   options: SuperTrendRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'sub_SuperTrend' } = options
+  const { paneId = 'sub_SuperTrend', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getSuperTrendStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `supertrend_${paneId}`,
@@ -64,8 +39,7 @@ function createSuperTrendRendererPlugin(
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -75,9 +49,8 @@ function createSuperTrendRendererPlugin(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<SuperTrendRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<SuperTrendRenderState>(instanceId)
       if (!state || !state.params.showSuperTrend || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -116,12 +89,10 @@ function createSuperTrendRendererPlugin(
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<SuperTrendRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<SuperTrendRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -133,11 +104,12 @@ function getSuperTrendTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = stateReader.get<SuperTrendRenderState>(createSuperTrendStateKey(paneId))
+  const state = stateReader.get<SuperTrendRenderState>(instanceId)
   const p = state?.series[index]
   if (!p) return null
 

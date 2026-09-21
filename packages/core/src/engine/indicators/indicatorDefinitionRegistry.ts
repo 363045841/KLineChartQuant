@@ -1,6 +1,4 @@
 import { KLineChartError } from '../../errors.js'
-import type { PluginHost } from '../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys.js'
 import type { ChartDataView } from '../state/modeState.js'
 import type { IndicatorName } from './indicatorContracts.js'
 import type {
@@ -15,9 +13,7 @@ import type {
   IndicatorType,
   RendererFactory,
   ScaleRendererFactory,
-  StateKey,
 } from './indicatorMetadata.js'
-import { resolveStateKey } from './indicatorMetadata.js'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
   /** 指标内部 name，必须是契约注册表（`indicatorContracts.ts`）登记的键。 */
@@ -27,7 +23,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   category: IndicatorCategory
   indicatorType: IndicatorType
   indicatorTypeLabel?: string
-  stateKey?: StateKey
   defaultPaneId: string
   /** 指标可参与渲染的数据视图；未声明时仅支持 K 线。 */
   dataViews?: readonly ChartDataView[]
@@ -36,7 +31,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   scaleRendererFactory?: ScaleRendererFactory
   scale?: IndicatorMetadata['scale']
   updateConfig?: IndicatorConfigUpdater
-  applyResult?: (host: PluginHost, state: unknown, paneId: string) => void
   mainPane?: IndicatorMetadata['mainPane']
   /** 覆盖默认的 renderer plugin 命名规则。 */
   getRendererName?: IndicatorRendererNameResolver
@@ -117,20 +111,13 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
       removeAliasesFor(normalizedName)
 
-      // 自动生成 stateKey
-      const stateKey: StateKey =
-        config.stateKey ??
-        (config.category === 'main'
-          ? createIndicatorStateKey(config.name, 'main')
-          : (paneId: string) => createIndicatorStateKey(config.name, paneId))
-
       // runtime.configKey 默认等于 name
       const runtime = config.runtime && {
         ...config.runtime,
         configKey: config.runtime.configKey ?? config.name,
       }
 
-      // 有 runtime 时自动生成 updateConfig / applyResult
+      // 有 runtime 时自动生成 updateConfig
       const updateConfig = runtime
         ? (config.updateConfig ??
           ((scheduler: any, params: any, paneId?: string) => {
@@ -138,26 +125,13 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
           }))
         : config.updateConfig
 
-      const applyResult = runtime
-        ? (config.applyResult ??
-          ((host: any, state: any, paneId: string) => {
-            host.setSharedState(
-              resolveStateKey(stateKey, paneId),
-              state as any,
-              'indicator_scheduler',
-            )
-          }))
-        : config.applyResult
-
       indicatorDefinitions.set(normalizedName, {
         ...config,
         getRendererName,
         getScaleRendererName,
         getPaneTitleRendererName,
-        stateKey,
         runtime,
         updateConfig,
-        applyResult,
         rendererFactory,
         paneIdField: config.paneIdField,
         allowMainPane: config.allowMainPane,
@@ -186,8 +160,8 @@ export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadat
 /**
  * 将指标的 name / displayName / 别名解析为对外规范 ID（即 displayName）。
  *
- * 规范 ID 是 Core、UI、Agent 共用的唯一指标身份；内部 name 仅用于 state key、
- * renderer 命名与计算配置，不再作为对外标识。未注册时返回 undefined。
+ * 规范 ID 是 Core、UI、Agent 共用的唯一指标身份；内部 name 仅用于 renderer 命名与
+ * 计算定义解析，不再作为对外标识。未注册时返回 undefined。
  */
 export function resolveIndicatorDefinitionId(nameOrAlias: string): string | undefined {
   return getRegisteredIndicatorDefinition(nameOrAlias)?.displayName

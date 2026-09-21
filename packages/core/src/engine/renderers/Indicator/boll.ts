@@ -1,10 +1,10 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
 } from '../../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
@@ -17,8 +17,8 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { BOLLRenderState } from '../../indicators/state/bollState.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 
@@ -28,14 +28,10 @@ type LinePoint = { x: number; y: number }
 
 const BOLL_LINE_WIDTH = 1
 
-interface PriceData {
-  upper: number
-  middle: number
-  lower: number
-}
-
 interface BOLLRendererOptions {
   paneId?: string
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -75,29 +71,6 @@ function drawBOLLWithWebGL(
 
   if (lineStrips.length === 0) return false
   return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
-}
-
-function buildPriceCacheKey(
-  range: { start: number; end: number },
-  dataLength: number,
-  lastTimestamp: number,
-  period: number,
-): string {
-  return `${range.start}|${range.end}|${dataLength}|${lastTimestamp}|${period}`
-}
-
-function getBOLLStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[BOLLRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('boll')
-  if (!meta) {
-    console.warn("[BOLLRenderer] Indicator metadata for 'boll' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
 }
 
 const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
@@ -141,12 +114,13 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   index: number | null,
   _params: Record<string, number | boolean | string>,
   stateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const state = stateReader.get<BOLLRenderState>(createIndicatorStateKey('boll', paneId))
+  const state = stateReader.get<BOLLRenderState>(instanceId)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const bollPoint = state.series[index]
@@ -167,7 +141,6 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   category: 'main',
   indicatorType: 'channel',
   defaultPaneId: 'main',
-  stateKey: (paneId) => createIndicatorStateKey('boll', paneId),
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
   scale: { indicatorKey: 'boll', label: 'BOLL', decimals: 2 },
   getRendererName: ({ paneId }) => (paneId === 'main' ? 'boll' : `boll_${paneId}`),
@@ -193,7 +166,7 @@ export class BOLLDefinition {
 export function createBOLLRendererPlugin(
   options: BOLLRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
 
   // 对象池：复用 {x,y} 对象，消除每帧 GC 压力
@@ -212,10 +185,6 @@ export function createBOLLRendererPlugin(
     _poolSize = size
   }
 
-  function resolveKey(): string | null {
-    return getBOLLStateKey(pluginHost, paneId)
-  }
-
   return {
     name: paneId === 'main' ? 'boll' : `boll_${paneId}`,
     version: '2.2.0',
@@ -229,8 +198,7 @@ export function createBOLLRendererPlugin(
     },
 
     getDeclaredNamespaces(): string[] {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -242,9 +210,8 @@ export function createBOLLRendererPlugin(
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<BOLLRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<BOLLRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax || state.series.length === 0) {
         return
       }
@@ -346,17 +313,15 @@ export function createBOLLRendererPlugin(
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<BOLLRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<BOLLRenderState>(instanceId)
       return state ? { ...state.params } : {}
     },
 
     setConfig(_newConfig: Record<string, unknown>) {
-      // 外部控制器应调用 chart.getIndicatorScheduler().updateIndicatorConfig()
+      // 外部控制器应更新对应指标实例参数
     },
   }
 }

@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcLSMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { LSMARenderState } from '../../indicators/state/lsmaState.js'
-import { createLSMAStateKey, EMPTY_LSMA_STATE } from '../../indicators/state/lsmaState.js'
+import { EMPTY_LSMA_STATE } from '../../indicators/state/lsmaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -20,29 +20,13 @@ type Point = { x: number; y: number }
 
 interface LSMARendererOptions {
   paneId?: string
-}
-
-function getLSMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[LSMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('lsma')
-  if (!meta) {
-    console.warn("[LSMARenderer] Indicator metadata for 'lsma' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getLSMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `lsma_${paneId}`,
@@ -57,8 +41,7 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -69,9 +52,8 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<LSMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<LSMARenderState>(instanceId)
       if (!state || !state.params.showLSMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -108,12 +90,10 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<LSMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<LSMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -124,7 +104,6 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
 }
 
 const getLSMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createLSMAStateKey,
   name: 'LSMA',
   getParams: (p) => [p.period as number],
   getColor: (colors) => colors.palette.i7,

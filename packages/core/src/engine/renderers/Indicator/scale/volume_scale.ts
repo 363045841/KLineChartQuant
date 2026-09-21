@@ -18,12 +18,14 @@ export function formatVolumeScaleLabel(value: number): string {
 export function createVolumeScaleRendererPlugin(options: {
   axisWidth: number
   paneId: string
+  instanceId: string
   yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }): RendererPluginWithHost {
   return createIndicatorScaleRendererPlugin({
     axisWidth: options.axisWidth,
     paneId: options.paneId,
+    instanceId: options.instanceId,
     indicatorKey: 'volume',
     label: 'VOL',
     decimals: 2,

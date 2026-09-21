@@ -18,10 +18,7 @@ type SparseState = {
   visibleMax: number
 }
 
-function getSparseSeriesBundle(
-  bundle: unknown,
-  bundleKey: string,
-): SparseIndicatorSeries {
+function getSparseSeriesBundle(bundle: unknown, bundleKey: string): SparseIndicatorSeries {
   return readIndicatorSeriesEntry<SparseIndicatorSeries>(bundle, bundleKey)
 }
 
@@ -93,10 +90,7 @@ type RecordIndicatorSeries = {
   params: unknown
 }
 
-function getRecordSeriesBundle(
-  bundle: unknown,
-  bundleKey: string,
-): RecordIndicatorSeries {
+function getRecordSeriesBundle(bundle: unknown, bundleKey: string): RecordIndicatorSeries {
   return readIndicatorSeriesEntry<RecordIndicatorSeries>(bundle, bundleKey)
 }
 
@@ -240,10 +234,7 @@ type DualSparseIndicatorSeries = {
   params: unknown
 }
 
-function getDualSparseSeriesBundle(
-  bundle: unknown,
-  bundleKey: string,
-): DualSparseIndicatorSeries {
+function getDualSparseSeriesBundle(bundle: unknown, bundleKey: string): DualSparseIndicatorSeries {
   return readIndicatorSeriesEntry<DualSparseIndicatorSeries>(bundle, bundleKey)
 }
 

@@ -4,14 +4,14 @@
  * 这是实例配置的唯一写入口，不读取或写入计算结果、pane 渲染状态或旧调度器状态。
  */
 import {
-  createIndicatorInstanceSnapshot,
-  reduceIndicatorInstances,
   type CreateIndicatorInstance,
+  createIndicatorInstanceSnapshot,
   type IndicatorDefinitionId,
   type IndicatorInstance,
   type IndicatorInstanceId,
   type IndicatorInstanceSnapshot,
   type IndicatorPaneId,
+  reduceIndicatorInstances,
   type UpdateIndicatorInstance,
 } from '../domain/instanceModel.js'
 
@@ -76,11 +76,15 @@ export function createIndicatorInstanceApi(
     list: () => Object.freeze([...current.instances.values()]),
 
     listByPane: (paneId) =>
-      Object.freeze([...current.instances.values()].filter((instance) => instance.paneId === paneId)),
+      Object.freeze(
+        [...current.instances.values()].filter((instance) => instance.paneId === paneId),
+      ),
 
     listByDefinition: (definitionId) =>
       Object.freeze(
-        [...current.instances.values()].filter((instance) => instance.definitionId === definitionId),
+        [...current.instances.values()].filter(
+          (instance) => instance.definitionId === definitionId,
+        ),
       ),
 
     create: (input) => {

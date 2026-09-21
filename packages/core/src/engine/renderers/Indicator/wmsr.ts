@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -8,10 +9,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcWMSRData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { WMSRRenderState } from '../../indicators/state/wmsrState.js'
-import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState.js'
+import { EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState.js'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale.js'
@@ -22,32 +22,16 @@ type LinePoint = { x: number; y: number }
 interface WMSRRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getWMSRStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[WMSRRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('wmsr')
-  if (!meta) {
-    console.warn("[WMSRRenderer] Indicator metadata for 'wmsr' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 WMSR 渲染器插件
  */
 function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getWMSRStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -175,8 +159,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -187,9 +170,8 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<WMSRRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<WMSRRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -268,17 +250,15 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<WMSRRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<WMSRRenderState>(instanceId)
       return state?.params ?? {}
     },
 
     setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
+      // no-op：配置由外部统一更新
     },
   }
 }
@@ -312,7 +292,6 @@ function drawWMSRLineWithCanvas2D(
 }
 
 const getWMSRTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createWMSRStateKey,
   name: 'WMSR',
   defaultPeriod: 14,
   getColor: (colors) => colors.wmsr.wmsr,

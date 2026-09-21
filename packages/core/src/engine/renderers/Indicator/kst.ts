@@ -10,10 +10,9 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcKSTData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { KSTRenderState } from '../../indicators/state/kstState.js'
-import { createKSTStateKey, EMPTY_KST_STATE } from '../../indicators/state/kstState.js'
+import { EMPTY_KST_STATE } from '../../indicators/state/kstState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createKstScaleRendererPlugin } from './scale/kst_scale.js'
@@ -23,32 +22,16 @@ type LinePoint = { x: number; y: number }
 interface KSTRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
-}
-
-function getKSTStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[KSTRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('kst')
-  if (!meta) {
-    console.warn("[KSTRenderer] Indicator metadata for 'kst' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
  * 创建 KST 渲染器插件
  */
 function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub' } = options
+  const { paneId = 'sub', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getKSTStateKey(pluginHost, paneId)
-  }
 
   // 线条点缓存
   let cachedKey = ''
@@ -104,8 +87,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -116,9 +98,8 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<KSTRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<KSTRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -210,12 +191,10 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<KSTRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<KSTRenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -275,7 +254,8 @@ function getKSTTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): {
   name: string
@@ -288,7 +268,7 @@ function getKSTTitleInfo(
   const roc3 = (params.roc3 as number) ?? 20
   const roc4 = (params.roc4 as number) ?? 30
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const state = stateReader.get<KSTRenderState>(createKSTStateKey(paneId))
+  const state = stateReader.get<KSTRenderState>(instanceId)
   if (!state) return null
 
   const point = state.series[index]

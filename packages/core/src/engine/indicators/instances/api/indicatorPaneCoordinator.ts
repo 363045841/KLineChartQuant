@@ -7,13 +7,13 @@
 import { batch } from '../../../../foundation/reactivity/signal.js'
 import type { PaneSpec } from '../../../chartTypes.js'
 import type { PaneStateModule } from '../../../state/paneState.js'
-import type { IndicatorInstanceApi } from './indicatorInstanceApi.js'
 import type {
   CreateIndicatorInstance,
   IndicatorInstance,
   IndicatorPaneId,
   UpdateIndicatorInstance,
 } from '../domain/instanceModel.js'
+import type { IndicatorInstanceApi } from './indicatorInstanceApi.js'
 
 export interface IndicatorPaneCoordinatorDependencies {
   readonly pane: PaneStateModule
@@ -68,7 +68,9 @@ export class IndicatorPaneCoordinator {
       for (const instance of this.instancesInPane(paneId)) {
         this.dependencies.instances.remove(instance.instanceId)
       }
-      this.commitLayout(this.dependencies.pane.readonly.paneSpecs.peek().filter((item) => item.id !== paneId))
+      this.commitLayout(
+        this.dependencies.pane.readonly.paneSpecs.peek().filter((item) => item.id !== paneId),
+      )
     })
     return true
   }

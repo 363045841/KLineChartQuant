@@ -5,15 +5,15 @@
  * calculator 定义，执行时只接收 instanceCalculationPlan。
  */
 import type { KLineData } from '../../../../foundation/types/price.js'
+import type {
+  IndicatorCalculationOutput,
+  IndicatorCalculationPlan,
+} from '../domain/instanceCalculationPlan.js'
 import {
   executeIndicatorCalculationPlan,
   type IndicatorCalculationDefinition,
   type IndicatorCalculationDefinitionResolver,
 } from './instanceCalculationRuntime.js'
-import type {
-  IndicatorCalculationOutput,
-  IndicatorCalculationPlan,
-} from '../domain/instanceCalculationPlan.js'
 
 export class IndicatorInstanceExecutionRuntime {
   private data: KLineData[] = []

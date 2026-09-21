@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcTEMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TEMARenderState } from '../../indicators/state/temaState.js'
-import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/state/temaState.js'
+import { EMPTY_TEMA_STATE } from '../../indicators/state/temaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -20,29 +20,13 @@ type Point = { x: number; y: number }
 
 interface TEMARendererOptions {
   paneId?: string
-}
-
-function getTEMAStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[TEMARenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('tema')
-  if (!meta) {
-    console.warn("[TEMARenderer] Indicator metadata for 'tema' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getTEMAStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `tema_${paneId}`,
@@ -57,8 +41,7 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -69,9 +52,8 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<TEMARenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<TEMARenderState>(instanceId)
       if (!state || !state.params.showTEMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -108,12 +90,10 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<TEMARenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<TEMARenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -124,7 +104,6 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
 }
 
 const getTEMATitleInfo = createSingleLineTitleInfo({
-  createStateKey: createTEMAStateKey,
   name: 'TEMA',
   getParams: (p) => [p.period as number],
   getColor: (colors) => colors.palette.i4,

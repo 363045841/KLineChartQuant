@@ -9,14 +9,10 @@ import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcSARData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import {
-  type GetTitleInfoFn,
-  resolveStateKey,
-  type TitleInfo,
-} from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { type GetTitleInfoFn, type TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SARRenderState } from '../../indicators/state/sarState.js'
-import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState.js'
+import { EMPTY_SAR_STATE } from '../../indicators/state/sarState.js'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 const DOT_RADIUS = 1.5
@@ -24,29 +20,13 @@ const TAU = Math.PI * 2
 
 interface SARRendererOptions {
   paneId?: string
-}
-
-function getSARStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[SARRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('sar')
-  if (!meta) {
-    console.warn("[SARRenderer] Indicator metadata for 'sar' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getSARStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `sar_${paneId}`,
@@ -61,8 +41,7 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
     },
 
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -73,9 +52,8 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<SARRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<SARRenderState>(instanceId)
       if (!state || !state.params.showSAR || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -100,12 +78,10 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<SARRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<SARRenderState>(instanceId)
       return state?.params ?? {}
     },
 
@@ -120,11 +96,12 @@ function getSARTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = stateReader.get<SARRenderState>(createSARStateKey(paneId))
+  const state = stateReader.get<SARRenderState>(instanceId)
   const p = state?.series[index]
   if (!p) return null
 

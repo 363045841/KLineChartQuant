@@ -5,8 +5,8 @@
  * 执行层通过 domain 的 IndicatorCalculationSource 契约消费它。
  */
 import {
-  createIndicatorInstanceApi,
   type CreateIndicatorInstanceApiOptions,
+  createIndicatorInstanceApi,
   type IndicatorInstanceApi,
 } from '../api/indicatorInstanceApi.js'
 import {

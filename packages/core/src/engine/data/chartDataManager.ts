@@ -64,19 +64,15 @@ export interface DataDependencies {
   comparison: ComparisonStateModule
   scheduleDraw: (level?: UpdateLevel) => void
   resetInteraction: () => void
-  getIndicatorScheduler: () => {
-    update: (data: KLineData[], range: VisibleRange, dataRevision?: number) => boolean
-    updateWithDisplayTimestamps?: (
-      data: KLineData[],
-      range: VisibleRange,
-      dataRevision?: number,
-      displayTimestamps?: readonly number[] | null,
-    ) => boolean
-    busySignal: ReadonlySignal<boolean>
-  }
+  /** 指标数据更新入口：K 线计算 + 可选展示时间戳投影。 */
+  updateIndicatorData: (
+    data: KLineData[],
+    range: VisibleRange,
+    dataRevision?: number,
+    displayTimestamps?: readonly number[] | null,
+  ) => void
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void
-  onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
   /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
 }
@@ -605,16 +601,12 @@ export class ChartDataManager {
       currentRange = { start: 0, end: bufferData.length }
     }
     if (currentRange) {
-      const scheduler = this.deps.getIndicatorScheduler()
-      const indicatorsReady = scheduler.update(
+      // 指标计算异步提交，提交后由结果链路回调 scheduleDraw / 预警。
+      this.deps.updateIndicatorData(
         bufferData,
         currentRange,
         this._dataState.readonly.dataRevision.peek(),
       )
-      if (indicatorsReady) {
-        this.deps.scheduleDraw()
-        this.deps.onDataProcessed?.(bufferData, currentRange)
-      }
     }
 
     if (prependedCount > 0) {
@@ -690,16 +682,13 @@ export class ChartDataManager {
         limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
       })
       if (requestId !== this._timeShareIndicatorRequestId) return
-      const updateWithDisplayTimestamps =
-        this.deps.getIndicatorScheduler().updateWithDisplayTimestamps
-      if (!updateWithDisplayTimestamps) return
-      const indicatorsReady = updateWithDisplayTimestamps(
+      // 1min K 线计算，结果投影到分时展示时间戳；提交后由结果链路回调重绘。
+      this.deps.updateIndicatorData(
         [...result.series.data],
         range,
         this._dataState.readonly.dataRevision.peek(),
         data.map((item) => item.timestamp),
       )
-      if (indicatorsReady) this.deps.scheduleDraw()
     } catch {
       // 1min K 线不可用时保持分时主图与 VOL 正常工作。
     }

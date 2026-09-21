@@ -24,6 +24,7 @@ import type {
 } from '../engine/chartTypes.js'
 import { DrawingCommands } from '../engine/drawing/DrawingCommands.js'
 import { DrawingDocument } from '../engine/drawing/DrawingDocument.js'
+import { getRegisteredIndicatorDefinition } from '../engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
 import { hasSubPaneRendererMetadata } from '../engine/subPaneManager.js'
@@ -444,9 +445,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
     resolveSubPaneIndicatorId: (indicatorId) =>
-      chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.displayName ?? null,
+      getRegisteredIndicatorDefinition(indicatorId)?.displayName ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
-      const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+      const definition = getRegisteredIndicatorDefinition(indicatorId)
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
     },
   })
@@ -919,7 +920,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params: Record<string, unknown>,
   ): boolean {
     if (disposed) return false
-    const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+    const definition = getRegisteredIndicatorDefinition(indicatorId)
     if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.displayName))
       return false
     return chart.panes.replaceContent(paneId, definition.displayName, params)

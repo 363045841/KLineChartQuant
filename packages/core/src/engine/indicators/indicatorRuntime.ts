@@ -1,3 +1,9 @@
+/**
+ * 指标计算函数映射。
+ *
+ * Worker 通过 computeKey 解析到具体 calculator；inline 路径直接使用各指标
+ * metadata 的 runtime.compute，不经过本模块。
+ */
 import type { KLineData } from '../../foundation/types/price.js'
 
 import {
@@ -59,13 +65,8 @@ import {
   calcZonesData,
   DEFAULT_MA_PERIODS,
 } from './calculators/index.js'
-import type { IndicatorRuntimeDescriptor } from './indicatorMetadata.js'
-import type {
-  IndicatorConfig,
-  IndicatorInstanceCalculationInput,
-  IndicatorInstanceCalculationResult,
-} from './workerProtocol.js'
 
+/** Worker 端 computeKey → calculator 的映射。 */
 export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
   calcCCIData: (data, c) => calcCCIData(data, c.period),
   calcMACDData: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
@@ -153,83 +154,4 @@ export function createWorkerCompute(descriptor: {
       return []
     })
   )
-}
-
-/** 查找按 K 线对齐的嵌套序列中第一个有效值(非空非 null )下标。 */
-export function findFirstReadyIndex(value: unknown, dataLength: number): number | null {
-  if (Array.isArray(value)) {
-    if (value.length !== dataLength) return null
-    for (let index = 0; index < value.length; index++) {
-      if (value[index] !== undefined && value[index] !== null) return index
-    }
-    return null
-  }
-  if (value !== null && typeof value === 'object') {
-    let first: number | null = null
-    for (const nested of Object.values(value as Record<string, unknown>)) {
-      const index = findFirstReadyIndex(nested, dataLength)
-      if (index !== null && (first === null || index < first)) first = index
-    }
-    return first
-  }
-  return null
-}
-
-export class IndicatorRuntime {
-  private currentData: KLineData[] = []
-  private dataVersion = 0
-  private configVersion = 0
-  private descriptorMap = new Map<string, IndicatorRuntimeDescriptor>()
-
-  constructor(descriptors: IndicatorRuntimeDescriptor[] = []) {
-    for (const d of descriptors) {
-      this.addDescriptor(d)
-    }
-  }
-
-  addDescriptor(d: IndicatorRuntimeDescriptor): void {
-    const configKey = d.configKey ?? 'unknown'
-    if (this.descriptorMap.has(configKey)) return
-    this.descriptorMap.set(configKey, d)
-  }
-
-  setData(data: KLineData[], version: number): void {
-    if (this.dataVersion === version) return
-    this.currentData = data
-    this.dataVersion = version
-  }
-
-  getDataVersion(): number {
-    return this.dataVersion
-  }
-
-  getConfigVersion(): number {
-    return this.configVersion
-  }
-
-  /** 按实例参数独立计算结果，不复用按指标类型保存的配置槽位。 */
-  computeInstanceSeries(
-    instances: ReadonlyArray<IndicatorInstanceCalculationInput>,
-  ): IndicatorInstanceCalculationResult[] {
-    const results: IndicatorInstanceCalculationResult[] = []
-    for (const instance of instances) {
-      const descriptor = this.descriptorMap.get(instance.configKey)
-      if (!descriptor) continue
-      const params = { ...instance.params }
-      const series = descriptor.compute(this.currentData, params)
-      results.push({
-        instanceId: instance.instanceId,
-        definitionId: instance.definitionId,
-        paneId: instance.paneId,
-        params,
-        series,
-        firstReadyIndex:
-          descriptor.outputAlignment === 'aggregate'
-            ? null
-            : findFirstReadyIndex(series, this.currentData.length),
-      })
-    }
-    return results
-  }
-
 }

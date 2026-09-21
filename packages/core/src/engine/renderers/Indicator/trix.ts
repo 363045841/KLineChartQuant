@@ -11,10 +11,9 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcTRIXData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TRIXRenderState } from '../../indicators/state/trixState.js'
-import { createTRIXStateKey, EMPTY_TRIX_STATE } from '../../indicators/state/trixState.js'
+import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState.js'
 import { createDualSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -22,29 +21,13 @@ type Point = { x: number; y: number }
 
 interface TRIXRendererOptions {
   paneId?: string
-}
-
-function getTRIXStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[TRIXRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('trix')
-  if (!meta) {
-    console.warn(`[TRIXRenderer] Indicator metadata for 'trix' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub_TRIX' } = options
+  const { paneId = 'sub_TRIX', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getTRIXStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `trix_${paneId}`,
@@ -58,8 +41,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -71,9 +53,8 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       )
       const trixColor = colors.palette.i4
       const signalColor = colors.palette.i2
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<TRIXRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<TRIXRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) return
       const { showTRIX, showSignal } = state.params
       if (!showTRIX && !showSignal) return
@@ -137,12 +118,10 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<TRIXRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<TRIXRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -163,13 +142,14 @@ function getTRIXTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const period = (params.period as number) ?? 15
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const state = stateReader.get<TRIXRenderState>(createTRIXStateKey(paneId))
+  const state = stateReader.get<TRIXRenderState>(instanceId)
   if (!state) return null
 
   const values: Array<{ label: string; value: number; color: string }> = []

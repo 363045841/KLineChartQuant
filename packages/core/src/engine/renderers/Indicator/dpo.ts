@@ -3,6 +3,7 @@
  */
 
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -13,10 +14,9 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcDPOData } from '../../indicators/calculators/dpo.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DPORenderState } from '../../indicators/state/dpoState.js'
-import { createDPOStateKey, EMPTY_DPO_STATE } from '../../indicators/state/dpoState.js'
+import { EMPTY_DPO_STATE } from '../../indicators/state/dpoState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -29,26 +29,8 @@ type LinePoint = { x: number; y: number }
 interface DPORendererOptions {
   /** 目标 pane ID。 */
   paneId?: string
-}
-
-/**
- * 获取 DPO 在指定 pane 上的状态键。
- * @param host 插件宿主。
- * @param paneId 目标副图 ID。
- * @returns 状态键，服务不可用时返回 null。
- */
-function getDPOStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[DPORenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('dpo')
-  if (!meta) {
-    console.warn("[DPORenderer] Indicator metadata for 'dpo' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 /**
@@ -57,13 +39,8 @@ function getDPOStateKey(host: PluginHost | null, paneId: string): string | null 
  * @returns DPO 渲染器插件。
  */
 function createDPORendererPlugin(options: DPORendererOptions = {}): RendererPluginWithHost {
-  const { paneId = 'sub_DPO' } = options
+  const { paneId = 'sub_DPO', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  /** 解析当前指标状态键。 */
-  function resolveKey(): string | null {
-    return getDPOStateKey(pluginHost, paneId)
-  }
 
   let cachedKey = ''
   let cachedDPOPoints: LinePoint[] = []
@@ -186,8 +163,7 @@ function createDPORendererPlugin(options: DPORendererOptions = {}): RendererPlug
 
     /** 声明此渲染器拥有的状态命名空间。 */
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     /** 绘制 DPO 零轴和主折线。 */
@@ -199,9 +175,8 @@ function createDPORendererPlugin(options: DPORendererOptions = {}): RendererPlug
         context.colorPresetSettings,
       )
 
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<DPORenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<DPORenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -267,16 +242,14 @@ function createDPORendererPlugin(options: DPORendererOptions = {}): RendererPlug
 
     /** 返回当前 DPO 配置。 */
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<DPORenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<DPORenderState>(instanceId)
       return state?.params ?? {}
     },
 
-    /** 配置由 IndicatorScheduler 统一更新。 */
+    /** 配置由指标实例链路统一更新。 */
     setConfig() {},
   }
 }
@@ -312,7 +285,6 @@ function drawDPOLineWithCanvas2D(
 }
 
 const getDPOTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createDPOStateKey,
   name: 'DPO',
   defaultPeriod: 20,
   getColor: (colors) => colors.palette.i5,

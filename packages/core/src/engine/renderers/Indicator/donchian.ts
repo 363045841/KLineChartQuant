@@ -12,15 +12,11 @@ import { calcDonchianData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
-  resolveStateKey,
   type TitleInfo,
 } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DonchianRenderState } from '../../indicators/state/donchianState.js'
-import {
-  createDonchianStateKey,
-  EMPTY_DONCHIAN_STATE,
-} from '../../indicators/state/donchianState.js'
+import { EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState.js'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -28,31 +24,15 @@ type Point = { x: number; y: number }
 
 interface DonchianRendererOptions {
   paneId?: string
-}
-
-function getDonchianStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[DonchianRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('donchian')
-  if (!meta) {
-    console.warn("[DonchianRenderer] Indicator metadata for 'donchian' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
 }
 
 function createDonchianRendererPlugin(
   options: DonchianRendererOptions = {},
 ): RendererPluginWithHost {
-  const { paneId = 'main' } = options
+  const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getDonchianStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `donchian_${paneId}`,
@@ -66,8 +46,7 @@ function createDonchianRendererPlugin(
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
 
     draw(context: RenderContext) {
@@ -77,9 +56,8 @@ function createDonchianRendererPlugin(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<DonchianRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<DonchianRenderState>(instanceId)
       if (!state || state.visibleMin > state.visibleMax) return
       const { showUpper, showMiddle, showLower } = state.params
       if (!showUpper && !showMiddle && !showLower) return
@@ -122,12 +100,10 @@ function createDonchianRendererPlugin(
     },
 
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<DonchianRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<DonchianRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -148,11 +124,12 @@ function getDonchianTitleInfo(
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
-  paneId: string,
+  instanceId: string,
+  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = stateReader.get<DonchianRenderState>(createDonchianStateKey(paneId))
+  const state = stateReader.get<DonchianRenderState>(instanceId)
   const p = state?.series[index]
   if (!p) return null
 

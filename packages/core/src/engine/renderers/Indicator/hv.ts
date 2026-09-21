@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
@@ -7,10 +8,9 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcHVData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
-import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { HVRenderState } from '../../indicators/state/hvState.js'
-import { createHVStateKey, EMPTY_HV_STATE } from '../../indicators/state/hvState.js'
+import { EMPTY_HV_STATE } from '../../indicators/state/hvState.js'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
@@ -18,27 +18,13 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function getHVStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn(`[HVRenderer] Scheduler not available via service locator`)
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('hv')
-  if (!meta) {
-    console.warn(`[HVRenderer] Indicator metadata for 'hv' not found, skip rendering`)
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
-function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-  const { paneId = 'sub_HV' } = options
+function createHVRendererPlugin(options: {
+  paneId?: string
+  /** 指标实例 ID，渲染状态寻址唯一键。 */
+  instanceId?: string
+} = {}): RendererPluginWithHost {
+  const { paneId = 'sub_HV', instanceId } = options
   let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getHVStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `hv_${paneId}`,
@@ -51,8 +37,7 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
       pluginHost = host
     },
     getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
+      return instanceId ? [instanceId] : []
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
@@ -61,9 +46,8 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      const state = context.indicatorStateReader?.get<HVRenderState>(stateKey)
+      if (!instanceId) return
+      const state = context.indicatorStateReader?.get<HVRenderState>(instanceId)
       if (!state || !state.params.showHV || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -105,12 +89,10 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
       ctx.restore()
     },
     getConfig() {
-      const stateKey = resolveKey()
-      if (!stateKey) return {}
+      if (!instanceId) return {}
       const state = pluginHost
-        ?.getService<IndicatorScheduler>('indicatorScheduler')
-        ?.createRenderStateReader()
-        .get<HVRenderState>(stateKey)
+        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
+        ?.get<HVRenderState>(instanceId)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -118,7 +100,6 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
 }
 
 const getHVTitleInfo = createSingleLineTitleInfo({
-  createStateKey: createHVStateKey,
   name: 'HV',
   getParams: (p) => [(p.period as number) ?? 20, (p.annualizationFactor as number) ?? 252],
   getColor: (colors) => colors.palette.i8,

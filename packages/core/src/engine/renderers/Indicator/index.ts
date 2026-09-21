@@ -19,6 +19,8 @@ export type SubIndicatorType = string
 export interface IndicatorRendererOptions {
   /** 指标类型 */
   indicatorId: string
+  /** 实例身份，渲染投影按该 ID 寻址。 */
+  instanceId: string
   /** 目标 pane ID */
   paneId: string
   /** 指标元数据 */
@@ -31,6 +33,6 @@ export interface IndicatorRendererOptions {
  * 创建副图指标渲染器（统一工厂函数）
  */
 export function createSubIndicatorRenderer(options: IndicatorRendererOptions): RendererPlugin {
-  const { indicatorId, paneId, definition, params } = options
-  return definition.rendererFactory({ paneId, indicatorId, params })
+  const { indicatorId, instanceId, paneId, definition, params } = options
+  return definition.rendererFactory({ paneId, indicatorId, instanceId, params })
 }
