@@ -1735,6 +1735,12 @@ export class Chart {
           this.interaction.onPointerLeave(e)
         }
         return false
+      case 'pointercancel':
+        this.interaction.onPointerCancel(e)
+        return false
+      case 'lostpointercapture':
+        this.interaction.onLostPointerCapture(e)
+        return false
       default:
         return false
     }
