@@ -30,7 +30,7 @@ try {
     Write-Host "✓ Baostock 服务运行正常" -ForegroundColor Green
 } catch {
     Write-Host "⚠ 警告: Baostock 服务未在端口 $LocalBaostockPort 运行" -ForegroundColor Yellow
-    Write-Host "  请先启动 Baostock 服务: pnpm connecter baostock" -ForegroundColor Gray
+    Write-Host "  请先启动 Baostock 服务: pnpm connector baostock" -ForegroundColor Gray
 }
 
 try {

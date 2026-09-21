@@ -31,7 +31,7 @@ pnpm setup   # 幂等：目录已存在则跳过
 
 ```bash
 # 仅后端（在本仓库根目录执行，等价于 cd ../KCQ-MT5-connector && uv run python ./server.py）
-pnpm connecter mt5
+pnpm connector mt5
 
 # 或连同前端一起启动
 pnpm dev -c mt5

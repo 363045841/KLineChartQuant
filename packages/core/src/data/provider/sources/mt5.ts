@@ -12,7 +12,7 @@ const transport = createHttpMarketDataTransport({
   sourceLabel: 'mt5',
 })
 
-/** MT5 V1 Provider：访问 MT5-Connecter（本机终端网关，含 SSE 实时流）。 */
+/** MT5 V1 Provider：访问 KCQ-MT5-connector（本机终端网关，含 SSE 实时流）。 */
 export const mt5MarketDataProvider = createMarketDataProvider({
   source: {
     id: MT5.id,

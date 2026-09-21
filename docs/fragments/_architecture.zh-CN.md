@@ -28,9 +28,9 @@ flowchart TB
     end
 
     subgraph conn["行情后端（仓库外平级目录）"]
-        Go["GoTDX-Connecter<br/>gotdx :8080"]
-        Bn["GoTDX-Connecter<br/>币安深度 :8081"]
-        Bs["Baostock-Tradingview-Connecter<br/>BaoStock / TradingView :8000"]
+        Go["GoTDX-Connector<br/>gotdx :8080"]
+        Bn["GoTDX-Connector<br/>币安深度 :8081"]
+        Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
     end
 

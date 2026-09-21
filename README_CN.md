@@ -95,9 +95,9 @@ flowchart TB
     end
 
     subgraph conn["行情后端（仓库外平级目录）"]
-        Go["GoTDX-Connecter<br/>gotdx :8080"]
-        Bn["GoTDX-Connecter<br/>币安深度 :8081"]
-        Bs["Baostock-Tradingview-Connecter<br/>BaoStock / TradingView :8000"]
+        Go["GoTDX-Connector<br/>gotdx :8080"]
+        Bn["GoTDX-Connector<br/>币安深度 :8081"]
+        Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
     end
 
@@ -194,9 +194,9 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 
 | 数据源 | 说明 | 文档 |
 |---|---|---|
-| `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `GoTDX-Connecter` 提供 | [GoTDX-Connecter](docs/data-sources/klinechartquantgo.zh-CN.md) |
-| `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connecter` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
-| `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connecter` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `GoTDX-Connector` 提供 | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](docs/data-sources/mt5.zh-CN.md) |
 | `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
 
@@ -237,13 +237,13 @@ pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 仅启动后端（不带前端）：
 
 ```bash
-pnpm connecter                # 全部后端（不含 mt5）
-pnpm connecter gotdx          # gotdx 通达信（:8080）
-pnpm connecter baostock       # BaoStock / TradingView（:8000）
-pnpm connecter mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 终端）
+pnpm connector                # 全部后端（不含 mt5）
+pnpm connector gotdx          # gotdx 通达信（:8080）
+pnpm connector baostock       # BaoStock / TradingView（:8000）
+pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 终端）
 ```
 
-执行 `pnpm setup` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connecter）、`/api/public` → `:8080`（GoTDX-Connecter）。
+执行 `pnpm setup` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。
 
 
 ## 🚀 快速开始

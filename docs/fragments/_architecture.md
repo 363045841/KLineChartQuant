@@ -28,9 +28,9 @@ flowchart TB
     end
 
     subgraph conn["Market Data Backends"]
-        Go["GoTDX-Connecter<br/>gotdx :8080"]
-        Bn["GoTDX-Connecter<br/>Binance depth :8081"]
-        Bs["Baostock-Tradingview-Connecter<br/>BaoStock / TradingView :8000"]
+        Go["GoTDX-Connector<br/>gotdx :8080"]
+        Bn["GoTDX-Connector<br/>Binance depth :8081"]
+        Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5 (Exness) :8090"]
     end
 

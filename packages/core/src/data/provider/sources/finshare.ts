@@ -1,4 +1,4 @@
-/** FinShare V1 Provider：通过 Baostock-Connecter 提供国内期货行情。 */
+/** FinShare V1 Provider：通过 Baostock-Tradingview-Connector 提供国内期货行情。 */
 
 import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol/index.js'
 import { marketDataProviderRegistry } from '../registry.js'

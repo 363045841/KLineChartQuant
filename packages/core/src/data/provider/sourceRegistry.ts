@@ -21,7 +21,7 @@ export const dataSourceRegistry = {
   gotdx: {
     id: 'gotdx',
     displayName: 'GOTDX',
-    description: 'TDX data connector, source: https://github.com/363045841/GoTDX-Connecter',
+    description: 'TDX data connector, source: https://github.com/363045841/GoTDX-Connector',
     defaultBaseUrl: DEFAULT_V1_BASE_URL,
   },
   mock: {
@@ -32,27 +32,28 @@ export const dataSourceRegistry = {
   baostock: {
     id: 'baostock',
     displayName: 'BaoStock',
-    description: 'BaoStock data connector, source: https://github.com/363045841/Baostock-Connecter',
+    description:
+      'BaoStock data connector, source: https://github.com/363045841/Baostock-Tradingview-Connector',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
   finshare: {
     id: 'finshare',
     displayName: 'FinShare Futures',
-    description: 'China futures data via FinShare SDK and Baostock-Connecter',
+    description: 'China futures data via FinShare SDK and Baostock-Tradingview-Connector',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
   tradingview: {
     id: 'tradingview',
     displayName: 'TradingView',
     description:
-      'Tradingview data connector, source: https://github.com/363045841/Baostock-Tradingview-Connecter',
+      'Tradingview data connector, source: https://github.com/363045841/Baostock-Tradingview-Connector',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
   mt5: {
     id: 'mt5',
     displayName: 'MT5 (Exness)',
     description:
-      'MT5 local terminal connector (Exness), source: https://github.com/363045841/MT5-Connecter',
+      'MT5 local terminal connector (Exness), source: https://github.com/EliteOtaku/KCQ-MT5-connector',
     defaultBaseUrl: 'http://127.0.0.1:8090',
     // MT5 品种（外汇/加密/金属 CFD）近似 7x24：会话仅供时区解析（UTC），不裁剪 K 线
     marketSessions: {

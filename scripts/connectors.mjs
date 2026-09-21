@@ -1,7 +1,7 @@
 /**
- * connecters.mjs
+ * connectors.mjs
  *
- * 数据源后端（connecter）的启动逻辑，供 `scripts/dev.mjs` 与 `scripts/start-connecter.mjs` 复用。
+ * 数据源后端（connector）的启动逻辑，供 `scripts/dev.mjs` 与 `scripts/start-connector.mjs` 复用。
  * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、mt5（别名 m）、all（全部）。
  * `all` 不含 mt5：它依赖 Windows + 已登录的 MT5 终端，仅显式启动。
  */
@@ -15,13 +15,13 @@ import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const PARENT = path.resolve(__dirname, '..', '..')
 
-// 各 connecter 的启动命令
-const CONNECTERS = {
+// 各 connector 的启动命令
+const CONNECTORS = {
   gotdx: {
     label: 'gotdx（通达信，:8080）',
     logLabel: 'gotdx',
     logColor: LOG_COLORS.gotdx,
-    dir: 'GoTDX-Connecter',
+    dir: 'GoTDX-Connector',
     cmd: 'go',
     args: ['run', '.', 'tdx'],
   },
@@ -29,7 +29,7 @@ const CONNECTERS = {
     label: 'binance（币安深度，:8081）',
     logLabel: 'binance',
     logColor: LOG_COLORS.binance,
-    dir: 'GoTDX-Connecter',
+    dir: 'GoTDX-Connector',
     cmd: 'go',
     args: ['run', '.', 'binance'],
   },
@@ -37,7 +37,7 @@ const CONNECTERS = {
     label: 'baostock / tradingview（:8000）',
     logLabel: 'baostock',
     logColor: LOG_COLORS.baostock,
-    dir: 'Baostock-Tradingview-Connecter',
+    dir: 'Baostock-Tradingview-Connector',
     cmd: 'uv',
     args: ['run', 'python', './server.py'],
   },
@@ -53,11 +53,11 @@ const CONNECTERS = {
   },
 }
 
-export const CONNECTER_NAMES = Object.keys(CONNECTERS)
+export const CONNECTOR_NAMES = Object.keys(CONNECTORS)
 
-// `all` 展开的集合：跳过 includeInAll === false 的 connecter（如 mt5）
-const ALL_CONNECTER_NAMES = CONNECTER_NAMES.filter(
-  (name) => CONNECTERS[name].includeInAll !== false,
+// `all` 展开的集合：跳过 includeInAll === false 的 connector（如 mt5）
+const ALL_CONNECTOR_NAMES = CONNECTOR_NAMES.filter(
+  (name) => CONNECTORS[name].includeInAll !== false,
 )
 
 // 名称 → 标准名；`all` 展开为全部
@@ -73,18 +73,18 @@ const ALIASES = {
   m: 'mt5',
 }
 
-// 解析用户输入的名称列表，返回去重后的标准 connecter 名称数组
-export function resolveConnecters(names) {
+// 解析用户输入的名称列表，返回去重后的标准 connector 名称数组
+export function resolveConnectors(names) {
   const resolved = new Set()
   for (const raw of names) {
     const key = String(raw).toLowerCase().trim()
     if (key === 'all') {
-      for (const n of ALL_CONNECTER_NAMES) resolved.add(n)
+      for (const n of ALL_CONNECTOR_NAMES) resolved.add(n)
       continue
     }
     const target = ALIASES[key]
     if (!target) {
-      console.error(`  ✗ 未知 connecter：${raw}（可用：gotdx / binance / baostock / mt5 / all）`)
+      console.error(`  ✗ 未知 connector：${raw}（可用：gotdx / binance / baostock / mt5 / all）`)
       continue
     }
     resolved.add(target)
@@ -92,11 +92,11 @@ export function resolveConnecters(names) {
   return [...resolved]
 }
 
-// 启动解析后的 connecter，返回子进程列表（已跳过未安装的目录）
-export function startConnecters(names) {
+// 启动解析后的 connector，返回子进程列表（已跳过未安装的目录）
+export function startConnectors(names) {
   const children = []
-  for (const name of resolveConnecters(names)) {
-    const conn = CONNECTERS[name]
+  for (const name of resolveConnectors(names)) {
+    const conn = CONNECTORS[name]
     const cwd = path.join(PARENT, conn.dir)
     if (!fs.existsSync(cwd)) {
       console.error(`  ✗ 未找到 ${conn.dir}，请先运行 pnpm setup 克隆数据源后端`)
