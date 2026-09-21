@@ -1,9 +1,6 @@
 /** 用户偏好设置状态模块：解析与冻结快照。 */
 
-import {
-  type ChartSettings,
-  normalizeSettings,
-} from '../../foundation/config/chartSettings.js'
+import { type ChartSettings, normalizeSettings } from '../../foundation/config/chartSettings.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import { deepFreezeSnapshot } from './immutable.js'
 

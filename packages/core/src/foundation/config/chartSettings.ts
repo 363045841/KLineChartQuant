@@ -305,16 +305,12 @@ export function resolveSettings(
   return normalizeSettings(merged as Partial<ChartSettings>)
 }
 
+import { createLocalStoragePersistence, type PersistenceCodec } from '../persistence/index.js'
 import {
   type ColorPresetSettings,
   normalizeColorPresetSettings,
 } from '../tokens/colorPresetSettings.js'
 import { detectRendererTier, type RendererTier } from '../utils/rendererCapability.js'
-
-import {
-  createLocalStoragePersistence,
-  type PersistenceCodec,
-} from '../persistence/index.js'
 
 export type {
   AxisDisplaySetting,

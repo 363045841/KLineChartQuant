@@ -45,7 +45,6 @@ describe('normalizeSettings', () => {
   it('defaults to WebGL', () => {
     expect(normalizeSettings().rendererBackend).toBe('webgl')
   })
-
 })
 
 describe('resolveSettings', () => {

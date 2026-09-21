@@ -1,7 +1,4 @@
-import {
-  createLocalStoragePersistence,
-  type PersistenceCodec,
-} from '@363045841yyt/klinechart-core'
+import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 
 export interface AgentWorkspacePreferences {
   readonly locale: 'en' | 'zh-CN'
@@ -39,7 +36,8 @@ export const agentWorkspacePreferencesPersistence = createLocalStoragePersistenc
 
 export function defaultAgentWorkspacePreferences(): AgentWorkspacePreferences {
   return {
-    locale: typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
+    locale:
+      typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
     readOnly: false,
     collapseReasoning: false,
   }

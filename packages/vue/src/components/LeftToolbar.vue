@@ -189,8 +189,8 @@
 <script setup lang="ts">
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
-    chartSettingsPersistence,
     type ChartSettings,
+    chartSettingsPersistence,
     resolveSettings,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
