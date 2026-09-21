@@ -12,6 +12,7 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding'
+import { getPhysicalKLineConfig } from '@/engine/utils/klineConfig'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } from '@/plugin'
@@ -180,6 +181,11 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
   const { pane, ...rest } = overrides
   const data = rest.data ?? createKLineData()
   const count = data.length
+  // 帧级物理宽度与帧准备阶段同源，避免夹具硬编码出与 kWidth/dpr 组合不一致的值。
+  const kWidth = rest.kWidth ?? 6
+  const kGap = rest.kGap ?? 2
+  const dpr = rest.dpr ?? 1
+  const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
   const defaults = {
     ctx: createMockCanvasContext(),
     data,
@@ -192,9 +198,10 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     pane: createMockPaneInfo(pane),
     range: { start: 0, end: count },
     scrollLeft: 0,
-    kWidth: 6,
-    kGap: 2,
-    dpr: 1,
+    kWidth,
+    kGap,
+    dpr,
+    kWidthPx,
     paneWidth: 800,
     kLinePositions: data.map((_, i) => i * 8),
     kLineCenters: data.map((_, i) => i * 8 + 4),
