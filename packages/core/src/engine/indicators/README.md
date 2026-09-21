@@ -54,6 +54,7 @@ indicators/
 ├── stateComposer.ts             # 完整计算结果到 renderer 状态的投影
 ├── visibleStateComposers.ts     # 可见区极值、padding、latestValues 等派生投影
 ├── soa.ts                       # Worker 传输使用的行情 Structure of Arrays 编码
+├── instances/                   # 实例优先指标链路（CRUD、计算计划、执行、投影），分层见其 README
 ├── calculators/                 # 纯计算函数，不读取 Chart、DOM 或 PluginHost
 ├── state/                       # 各指标 renderer 所需的状态类型和 state key
 └── __tests__/                   # 调度、注册、运行时、投影和 calculator 测试
