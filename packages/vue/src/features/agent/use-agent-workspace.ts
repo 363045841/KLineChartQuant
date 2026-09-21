@@ -223,11 +223,11 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     { immediate: true },
   )
   watch([locale, readOnly, collapseReasoning], () => {
-    agentWorkspacePreferencesPersistence.schedule({
+    agentWorkspacePreferencesPersistence.schedule(() => ({
       locale: locale.value,
       readOnly: readOnly.value,
       collapseReasoning: collapseReasoning.value,
-    })
+    }))
   })
   onUnmounted(() => {
     unsubscribe?.()
