@@ -211,6 +211,47 @@ describe('ChartIndicatorManager', () => {
       expect(deps.scheduleDraw).not.toHaveBeenCalled()
       expect(manager.updateVisibleRangeForFrame({ start: 10, end: 30 })).toBe(false)
     })
+
+    it('把主图展示配置合入实例投影供 renderer 读取', async () => {
+      manager.enableMainIndicator('BOLL')
+      const data = createTestData(80)
+
+      manager.updateIndicatorData(data, { start: 0, end: data.length })
+
+      await vi.waitFor(() => {
+        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+      })
+      const state = manager.createRenderStateReader().get<{
+        params: Record<string, unknown>
+        visibleMin: number
+        visibleMax: number
+      }>('main:BOLL')!
+
+      expect(state.params.period).toBe(20)
+      expect(state.params.multiplier).toBe(2)
+      expect(state.params.showUpper).toBe(true)
+      expect(state.params.showMiddle).toBe(true)
+      expect(state.params.showLower).toBe(true)
+      expect(state.visibleMin).toBeLessThan(state.visibleMax)
+    })
+
+    it('展示配置变化只重建投影', async () => {
+      manager.enableMainIndicator('BOLL')
+      const data = createTestData(80)
+      manager.updateIndicatorData(data, { start: 0, end: data.length })
+      await vi.waitFor(() => {
+        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+      })
+
+      manager.updateMainIndicatorParams('BOLL', { showUpper: false })
+
+      const state = manager.createRenderStateReader().get<{
+        params: Record<string, unknown>
+      }>('main:BOLL')!
+      expect(state.params.showUpper).toBe(false)
+      expect(state.params.showMiddle).toBe(true)
+      expect(state.params.showLower).toBe(true)
+    })
   })
 
   describe('生命周期', () => {

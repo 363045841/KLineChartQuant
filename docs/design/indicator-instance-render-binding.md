@@ -59,6 +59,17 @@ interface IndicatorRenderStateReader {
 投影中同一 pane 的多个实例各自拥有独立条目；相同参数、不同 pane 的实例共享同一份计算结果引用，
 但各自投影。
 
+## 展示配置投影
+
+`IndicatorInstance.presentation` 保存定义声明的展示配置（`presentation.defaultOptions` 的键），由
+`ChartIndicatorManager` 从 Kernel 实例参数单向提取，不进入 `calculationKey`。
+
+投影时 `createInstanceSeriesEntry` 把展示配置合入 renderer 读取的 `params`，并按
+`presentation.selectSeriesKeys` 过滤可见序列、生成 `enabledPeriods`；`computePriceRange` 仍使用只含
+计算参数的条目，保证主图价格范围不受可见性切换影响。
+
+`presentationRevision` 变化只重建投影，不触发计算。
+
 ## 迁移约束
 
 - 不保留按 `stateKey` 读取的兼容分支。

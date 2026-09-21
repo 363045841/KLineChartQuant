@@ -13,7 +13,7 @@ import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { ChartDataView } from '../state/modeState.js'
 
-import type { IndicatorSeriesResultOf, IndicatorStateName } from './indicatorContracts.js'
+import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorContracts.js'
 
 /** 单个指标的计算参数。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>
@@ -118,14 +118,14 @@ export interface IndicatorPriceRange {
 }
 
 /**
- * 单个实例结果的渲染条目读取入口。第二个参数仅保留以兼容各指标定义的调用签名；
- * 结果已由调度器按实例选择，不再存在按指标类型索引的结果包。
+ * 单个实例渲染条目读取入口。第二个参数是类型选择键（`IndicatorStateName`），
+ * 只用于从渲染状态契约派生条目类型，不参与运行时查找。
  */
 export function readIndicatorSeriesEntry<K extends IndicatorStateName>(
   entry: unknown,
   _configKey: K,
-): IndicatorSeriesResultOf<K>
-/** 读取调用方工厂自行约束结构的结果项（泛型 visibleState composer）。 */
+): IndicatorRenderEntryOf<K>
+/** 读取调用方自行约束结构的条目（泛型 visibleState composer）。 */
 export function readIndicatorSeriesEntry<T>(entry: unknown, _configKey: string): T
 export function readIndicatorSeriesEntry(entry: unknown, _configKey: string): unknown {
   return entry
@@ -144,7 +144,7 @@ export type IndicatorRenderStateComposer = (
 
 export interface IndicatorVisibleStateComposeContext {
   /** 已规范化的单个实例结果条目，不是类型结果包。 */
-  bundle: unknown
+  entry: unknown
   visibleRange: IndicatorVisibleRange
   timestamp: number
   active: boolean

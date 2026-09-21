@@ -18,8 +18,8 @@ type SparseState = {
   visibleMax: number
 }
 
-function getSparseSeriesBundle(bundle: unknown, bundleKey: string): SparseIndicatorSeries {
-  return readIndicatorSeriesEntry<SparseIndicatorSeries>(bundle, bundleKey)
+function getSparseSeriesEntry(entry: unknown, stateName: string): SparseIndicatorSeries {
+  return readIndicatorSeriesEntry<SparseIndicatorSeries>(entry, stateName)
 }
 
 function calcSparseExtremes(
@@ -56,11 +56,11 @@ function computePaddedBounds(
 }
 
 export function createSparseVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: SparseState,
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getSparseSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getSparseSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -90,8 +90,8 @@ type RecordIndicatorSeries = {
   params: unknown
 }
 
-function getRecordSeriesBundle(bundle: unknown, bundleKey: string): RecordIndicatorSeries {
-  return readIndicatorSeriesEntry<RecordIndicatorSeries>(bundle, bundleKey)
+function getRecordSeriesEntry(entry: unknown, stateName: string): RecordIndicatorSeries {
+  return readIndicatorSeriesEntry<RecordIndicatorSeries>(entry, stateName)
 }
 
 function calcRecordExtremes(
@@ -117,7 +117,7 @@ function calcRecordExtremes(
 }
 
 export function createFixedRangeSparseVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (number | undefined)[]
@@ -128,8 +128,8 @@ export function createFixedRangeSparseVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getSparseSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getSparseSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -153,7 +153,7 @@ export function createFixedRangeSparseVisibleStateComposer(
 }
 
 export function createFixedRangeRecordVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: Record<number, (number | undefined)[]>
@@ -165,8 +165,8 @@ export function createFixedRangeRecordVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getRecordSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getRecordSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -192,7 +192,7 @@ export function createFixedRangeRecordVisibleStateComposer(
 }
 
 export function createFixedRangePointVisibleStateComposer<T extends object>(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (T | undefined)[]
@@ -204,8 +204,8 @@ export function createFixedRangePointVisibleStateComposer<T extends object>(
   },
   fields: readonly (keyof T)[],
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<T>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -234,15 +234,15 @@ type DualSparseIndicatorSeries = {
   params: unknown
 }
 
-function getDualSparseSeriesBundle(bundle: unknown, bundleKey: string): DualSparseIndicatorSeries {
-  return readIndicatorSeriesEntry<DualSparseIndicatorSeries>(bundle, bundleKey)
+function getDualSparseSeriesEntry(entry: unknown, stateName: string): DualSparseIndicatorSeries {
+  return readIndicatorSeriesEntry<DualSparseIndicatorSeries>(entry, stateName)
 }
 
-function getPointArraySeriesBundle<T extends object>(
-  bundle: unknown,
-  bundleKey: string,
+function getPointArraySeriesEntry<T extends object>(
+  entry: unknown,
+  stateName: string,
 ): { series: (T | undefined)[]; params: unknown } {
-  return readIndicatorSeriesEntry<{ series: (T | undefined)[]; params: unknown }>(bundle, bundleKey)
+  return readIndicatorSeriesEntry<{ series: (T | undefined)[]; params: unknown }>(entry, stateName)
 }
 
 function calc1<T extends object>(
@@ -437,7 +437,7 @@ function computeMAFamilyBounds(
 }
 
 export function createPaddedSparseVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (number | undefined)[]
@@ -448,8 +448,8 @@ export function createPaddedSparseVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getSparseSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getSparseSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -477,7 +477,7 @@ export function createPaddedSparseVisibleStateComposer(
 }
 
 export function createPaddedPointVisibleStateComposer<T extends object>(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (T | undefined)[]
@@ -489,8 +489,8 @@ export function createPaddedPointVisibleStateComposer<T extends object>(
   },
   fields: readonly (keyof T)[],
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<T>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -516,7 +516,7 @@ export function createPaddedPointVisibleStateComposer<T extends object>(
 }
 
 export function createNonNegativeSparseVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (number | undefined)[]
@@ -527,8 +527,8 @@ export function createNonNegativeSparseVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getSparseSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getSparseSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -553,7 +553,7 @@ export function createNonNegativeSparseVisibleStateComposer(
 }
 
 export function createMACDVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: { dif: number; dea: number; macd: number }[]
@@ -564,10 +564,10 @@ export function createMACDVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<{ dif: number; dea: number; macd: number }>(
-      bundle,
-      bundleKey,
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<{ dif: number; dea: number; macd: number }>(
+      entry,
+      stateName,
     )
     if (!active) {
       return {
@@ -628,7 +628,7 @@ export function createMACDVisibleStateComposer(
 }
 
 export function createDualSparseVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (number | undefined)[]
@@ -640,8 +640,8 @@ export function createDualSparseVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getDualSparseSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getDualSparseSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -681,7 +681,7 @@ export function createDualSparseVisibleStateComposer(
 }
 
 export function createValuePointVisibleStateComposer<T extends object>(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (T | undefined)[]
@@ -693,8 +693,8 @@ export function createValuePointVisibleStateComposer<T extends object>(
   },
   fields: readonly (keyof T)[],
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<T>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -727,7 +727,7 @@ export function createValuePointVisibleStateComposer<T extends object>(
  * - 将 visibleRange 向后扩展 displacement 根，以确保未来云的极值计入 valueMin/valueMax
  */
 export function createIchimokuVisibleStateComposer<T extends object>(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (T | undefined)[]
@@ -739,8 +739,8 @@ export function createIchimokuVisibleStateComposer<T extends object>(
   },
   fields: readonly (keyof T)[],
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<T>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -773,7 +773,7 @@ export function createIchimokuVisibleStateComposer<T extends object>(
 }
 
 export function createBandVisibleStateComposer<T extends object>(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (T | undefined)[]
@@ -786,8 +786,8 @@ export function createBandVisibleStateComposer<T extends object>(
   minField: keyof T,
   maxField: keyof T,
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<T>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -827,7 +827,7 @@ export function createBandVisibleStateComposer<T extends object>(
 }
 
 export function createExactRangePointVisibleStateComposer<T extends object>(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (T | undefined)[]
@@ -839,8 +839,8 @@ export function createExactRangePointVisibleStateComposer<T extends object>(
   },
   fields: readonly (keyof T)[],
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getPointArraySeriesEntry<T>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -864,7 +864,7 @@ export function createExactRangePointVisibleStateComposer<T extends object>(
 }
 
 export function createFixedUnitVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: unknown
@@ -875,8 +875,8 @@ export function createFixedUnitVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, timestamp, active }) => {
-    const source = readIndicatorSeriesEntry<{ series: unknown; params: unknown }>(bundle, bundleKey)
+  return ({ entry, timestamp, active }) => {
+    const source = readIndicatorSeriesEntry<{ series: unknown; params: unknown }>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -899,7 +899,7 @@ export function createFixedUnitVisibleStateComposer(
 }
 
 export function createCCIVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: (number | undefined)[]
@@ -910,8 +910,8 @@ export function createCCIVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, visibleRange, timestamp, active }) => {
-    const source = getSparseSeriesBundle(bundle, bundleKey)
+  return ({ entry, visibleRange, timestamp, active }) => {
+    const source = getSparseSeriesEntry(entry, stateName)
     if (!active) {
       return {
         ...emptyState,
@@ -935,7 +935,7 @@ export function createCCIVisibleStateComposer(
 }
 
 export function createVolumeProfileVisibleStateComposer(
-  bundleKey: string,
+  stateName: string,
   emptyState: {
     timestamp: number
     series: unknown
@@ -946,7 +946,7 @@ export function createVolumeProfileVisibleStateComposer(
     visibleMax: number
   },
 ): IndicatorVisibleStateComposer {
-  return ({ bundle, timestamp, active }) => {
+  return ({ entry, timestamp, active }) => {
     const source = readIndicatorSeriesEntry<{
       series: {
         bins: { priceLow: number; priceHigh: number }[]
@@ -955,7 +955,7 @@ export function createVolumeProfileVisibleStateComposer(
         poc: number
       }
       params: unknown
-    }>(bundle, bundleKey)
+    }>(entry, stateName)
     if (!active) {
       return {
         ...emptyState,

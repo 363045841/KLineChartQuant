@@ -1,8 +1,8 @@
 /**
- * Instance render-state projection.
+ * 实例渲染状态投影。
  *
- * Calculation results are addressed only by chart instance.  This module deliberately
- * accepts one result entry at a time: it must never reconstruct a type-indexed bundle.
+ * 计算结果只按图表实例寻址；本模块刻意一次只接收一个实例结果，禁止重建按指标类型索引的结果包。
+ * 展示配置不参与计算，只在投影时合入 renderer 读取的参数。
  */
 import type { KLineData } from '../../foundation/types/price.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
@@ -13,8 +13,8 @@ export interface VisibleRange {
   end: number
 }
 
-/** Renderer-compatible view of one instance calculation result. */
-export function createInstanceSeriesEntry(result: IndicatorSeriesResult): Record<string, unknown> {
+/** 计算结果条目：只含计算参数；价格范围等计算语义使用它，不受展示配置影响。 */
+function toCalculationEntry(result: IndicatorSeriesResult): Record<string, unknown> {
   const raw = result.series
   if (raw && typeof raw === 'object' && 'series' in (raw as Record<string, unknown>)) {
     return { ...(raw as Record<string, unknown>), params: result.params }
@@ -28,20 +28,51 @@ export function createInstanceSeriesEntry(result: IndicatorSeriesResult): Record
   }
 }
 
+/**
+ * Renderer-compatible view of one instance calculation result.
+ *
+ * 展示配置合入 `params` 供 renderer 读取；声明了 `presentation.selectSeriesKeys` 的指标
+ * 按展示配置过滤可见序列，并据此生成 `enabledPeriods`。
+ */
+export function createInstanceSeriesEntry(
+  metadata: IndicatorMetadata,
+  result: IndicatorSeriesResult,
+  presentation: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const entry: Record<string, unknown> = {
+    ...toCalculationEntry(result),
+    params: { ...result.params, ...presentation },
+  }
+  const selectSeriesKeys = metadata.presentation?.selectSeriesKeys
+  const series = entry.series
+  if (!selectSeriesKeys || !series || typeof series !== 'object' || Array.isArray(series)) {
+    return entry
+  }
+  const selectedKeys = new Set(selectSeriesKeys(result.params, presentation))
+  return {
+    ...entry,
+    series: Object.fromEntries(
+      Object.entries(series as Record<string, unknown>).filter(([key]) => selectedKeys.has(key)),
+    ),
+    enabledPeriods: [...selectedKeys].map(Number).filter(Number.isFinite),
+  }
+}
+
 /** Project one enabled indicator instance into its renderer state. */
 export function composeInstanceRenderState(
   metadata: IndicatorMetadata,
   result: IndicatorSeriesResult,
+  presentation: Readonly<Record<string, unknown>>,
   visibleRange: VisibleRange,
   timestamp: number,
 ): unknown {
-  const entry = createInstanceSeriesEntry(result)
+  const entry = createInstanceSeriesEntry(metadata, result, presentation)
   if (metadata.mainPane?.composeRenderState) {
     return metadata.mainPane.composeRenderState(entry, visibleRange, timestamp)
   }
   if (metadata.visibleState?.compose) {
     return metadata.visibleState.compose({
-      bundle: entry,
+      entry,
       visibleRange,
       timestamp,
       active: true,
@@ -83,5 +114,5 @@ export function computeInstanceMainIndicatorPriceRange(
   visibleRange: VisibleRange,
 ): { min: number; max: number } | null {
   const compute = metadata.mainPane?.computePriceRange
-  return compute ? compute(createInstanceSeriesEntry(result), visibleRange) : null
+  return compute ? compute(toCalculationEntry(result), visibleRange) : null
 }

@@ -102,8 +102,10 @@ indicators/
 - `results`：`Map<instanceId, IndicatorSeriesResult>`，图表与 Agent 共享的业务结果事实源。
 - `dataRevision` / `instanceRevision`：结果对应的行情版本与实例计算版本。
 
-`stateComposer.ts` 的 `composeInstanceRenderState(metadata, result, visibleRange, timestamp)` 逐实例把结果
-投影为 renderer 状态：优先使用 `mainPane.composeRenderState`，否则使用 `visibleState.compose`。
+`stateComposer.ts` 的 `composeInstanceRenderState(metadata, result, presentation, visibleRange, timestamp)`
+逐实例把结果投影为 renderer 状态：展示配置合入 renderer 读取的 `params`，并按
+`presentation.selectSeriesKeys` 过滤可见序列；随后优先使用 `mainPane.composeRenderState`，否则使用
+`visibleState.compose`。
 `visibleStateComposers.ts` 提供基于当前可见范围的极值、padding 等通用 composer。成交量没有 calculator，
 其渲染状态由 `composeVolumeRenderState` 直接合成，按 Kernel 成交量实例的 `instanceId` 写入投影。
 

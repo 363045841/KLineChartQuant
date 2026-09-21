@@ -2,7 +2,7 @@
  * 指标类型契约注册表。
  *
  * 这是指标身份与渲染形状的类型单一事实来源：每个指标在此登记一处内部 name → 渲染状态。
- * 结果读取形状、副图状态集合与可见性掩码均由本表派生，不再各自手写镜像。
+ * 计算结果条目形状由本表派生，不再各自手写镜像。
  *
  * 新增内置指标：在对应分组登记 state 类型，并在定义文件注册 @Indicator。
  * 第三方指标可用 declaration merging 扩展对应接口登记内部 name；接口扩展后 @Indicator 即接受该 name。
@@ -156,38 +156,16 @@ export type IndicatorStateName = keyof IndicatorStateContracts
 /** 可通过 @Indicator 注册的全部内部 name。 */
 export type IndicatorName = IndicatorStateName | keyof AuxiliaryIndicatorContracts
 
-/** 副图指标内部 name。 */
-export type VisibleIndicatorName = keyof VisibleIndicatorStateContracts
-
-/** 主图指标内部 name。 */
-export type MainIndicatorName = keyof MainIndicatorStateContracts
-
-/** 副图可见性掩码，由副图契约派生。 */
-export type VisibleSubIndicatorMask = Partial<Record<VisibleIndicatorName, boolean>>
-
-/** 副图渲染状态集合，由副图契约派生。 */
-export type VisibleSubIndicatorStates = {
-  [K in VisibleIndicatorName]: VisibleIndicatorStateContracts[K]
-}
-
-/** 主图渲染状态集合，由主图契约派生。 */
-export type MainRenderStates = {
-  [K in MainIndicatorName]: MainIndicatorStateContracts[K]
-}
-
-/** 主图 + 副图渲染状态全集。 */
-export type ComposedRenderStates = VisibleSubIndicatorStates & MainRenderStates
-
 /**
- * 指标结果条目形状：由渲染状态派生 Worker 结果实际携带的字段。
- * 结果包由 Worker 动态产出，这里给出每个指标条目应有的结构。
+ * 指标渲染条目形状：由渲染状态派生计算结果实际携带的字段。
+ * 这里给出每个指标条目应有的结构。
  */
-export type IndicatorSeriesResult<S> = Pick<
+export type IndicatorRenderEntry<S> = Pick<
   S,
   Extract<keyof S, 'series' | 'params' | 'enabledPeriods' | 'signalSeries'>
 >
 
-/** 指定指标的结果条目形状。 */
-export type IndicatorSeriesResultOf<K extends IndicatorStateName> = IndicatorSeriesResult<
+/** 指定指标的渲染条目形状。 */
+export type IndicatorRenderEntryOf<K extends IndicatorStateName> = IndicatorRenderEntry<
   IndicatorStateContracts[K]
 >

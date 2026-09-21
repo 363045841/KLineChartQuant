@@ -1,9 +1,11 @@
 /**
- * 实例渲染投影测试：单实例结果到 renderer state 的投影、主图价格范围与成交量状态。
+ * 实例渲染投影测试：单实例结果到 renderer state 的投影、展示配置合入、主图价格范围与成交量状态。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
+import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import type { IndicatorParameters, IndicatorSeriesResult } from '../instances/domain/instanceModel'
+import { loadBuiltinIndicators } from '../registerBuiltins'
 import {
   composeInstanceRenderState,
   composeVolumeRenderState,
@@ -13,6 +15,18 @@ import {
 } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 import { createTestIndicatorMetadata } from './helpers/metadataTestKit'
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
+
+/** 无展示配置的最小 metadata，用于只关心结果包形状的用例。 */
+const plainMetadata = createTestIndicatorMetadata({
+  name: 'plain',
+  displayName: 'PLAIN',
+  category: 'main',
+  indicatorType: 'other',
+})
 
 /** 构造单个实例的计算结果条目。 */
 function createResult(series: unknown, params: IndicatorParameters = {}): IndicatorSeriesResult {
@@ -33,7 +47,7 @@ describe('createInstanceSeriesEntry', () => {
     const params = { period: 20 }
     const raw = { series: [{ upper: 1 }], signalSeries: [1] }
 
-    expect(createInstanceSeriesEntry(createResult(raw, params))).toEqual({
+    expect(createInstanceSeriesEntry(plainMetadata, createResult(raw, params), {})).toEqual({
       series: [{ upper: 1 }],
       signalSeries: [1],
       params,
@@ -43,7 +57,7 @@ describe('createInstanceSeriesEntry', () => {
   it('把按周期索引的对象规范化为 enabledPeriods', () => {
     const raw = { 5: [1, 2], 10: [3, 4] }
 
-    expect(createInstanceSeriesEntry(createResult(raw))).toEqual({
+    expect(createInstanceSeriesEntry(plainMetadata, createResult(raw), {})).toEqual({
       series: raw,
       params: {},
       enabledPeriods: [5, 10],
@@ -51,8 +65,46 @@ describe('createInstanceSeriesEntry', () => {
   })
 
   it('数组与标量结果直通且不推导 enabledPeriods', () => {
-    expect(createInstanceSeriesEntry(createResult([1, 2]))).toEqual({ series: [1, 2], params: {} })
-    expect(createInstanceSeriesEntry(createResult(42))).toEqual({ series: 42, params: {} })
+    expect(createInstanceSeriesEntry(plainMetadata, createResult([1, 2]), {})).toEqual({
+      series: [1, 2],
+      params: {},
+    })
+    expect(createInstanceSeriesEntry(plainMetadata, createResult(42), {})).toEqual({
+      series: 42,
+      params: {},
+    })
+  })
+
+  it('把展示配置合入 renderer 读取的参数', () => {
+    const boll = getRegisteredIndicatorDefinition('boll')!
+    const series = [{ upper: 1, middle: 2, lower: 3 }]
+
+    expect(
+      createInstanceSeriesEntry(boll, createResult(series, { period: 20, multiplier: 2 }), {
+        showUpper: false,
+        showMiddle: true,
+        showLower: true,
+      }),
+    ).toEqual({
+      series,
+      params: { period: 20, multiplier: 2, showUpper: false, showMiddle: true, showLower: true },
+    })
+  })
+
+  it('按 selectSeriesKeys 过滤可见序列', () => {
+    const ma = getRegisteredIndicatorDefinition('ma')!
+    const raw = { 5: [1], 10: [2] }
+
+    expect(
+      createInstanceSeriesEntry(ma, createResult(raw, { period1: 5, period2: 10 }), {
+        ma5: true,
+        ma10: false,
+      }),
+    ).toEqual({
+      series: { 5: [1] },
+      params: { period1: 5, period2: 10, ma5: true, ma10: false },
+      enabledPeriods: [5],
+    })
   })
 })
 
@@ -67,9 +119,11 @@ describe('composeInstanceRenderState', () => {
     )
     const result = createResult({ series: [1, 2, 3] }, params)
 
-    expect(composeInstanceRenderState(metadata, result, visibleRange, 1234)).toBe(state)
+    expect(
+      composeInstanceRenderState(metadata, result, { showUpper: true }, visibleRange, 1234),
+    ).toBe(state)
     expect(composeRenderState).toHaveBeenCalledWith(
-      { series: [1, 2, 3], params },
+      { series: [1, 2, 3], params: { period: 20, showUpper: true } },
       visibleRange,
       1234,
     )
@@ -84,9 +138,9 @@ describe('composeInstanceRenderState', () => {
     )
     const result = createResult([undefined, 55])
 
-    expect(composeInstanceRenderState(metadata, result, visibleRange, 4321)).toBe(state)
+    expect(composeInstanceRenderState(metadata, result, {}, visibleRange, 4321)).toBe(state)
     expect(compose).toHaveBeenCalledWith({
-      bundle: { series: [undefined, 55], params: {} },
+      entry: { series: [undefined, 55], params: {} },
       visibleRange,
       timestamp: 4321,
       active: true,
@@ -106,7 +160,9 @@ describe('composeInstanceRenderState', () => {
       },
     )
 
-    expect(composeInstanceRenderState(metadata, createResult([]), visibleRange, 1)).toBe(mainState)
+    expect(composeInstanceRenderState(metadata, createResult([]), {}, visibleRange, 1)).toBe(
+      mainState,
+    )
     expect(compose).not.toHaveBeenCalled()
   })
 
@@ -118,7 +174,9 @@ describe('composeInstanceRenderState', () => {
       indicatorType: 'other',
     })
 
-    expect(composeInstanceRenderState(metadata, createResult([]), visibleRange, 1)).toBeUndefined()
+    expect(
+      composeInstanceRenderState(metadata, createResult([]), {}, visibleRange, 1),
+    ).toBeUndefined()
   })
 })
 

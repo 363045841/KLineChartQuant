@@ -41,6 +41,7 @@ import {
   getRegisteredIndicatorDefinitions,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry.js'
+import type { IndicatorMetadata } from './indicatorMetadata.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   INDICATOR_INSTANCE_STATE_SERVICE,
@@ -174,6 +175,8 @@ export class ChartIndicatorManager {
   private appliedMainIndicators = new Map<string, string>()
   private projectedPaneSpecs: ReadonlyArray<PaneSpec> | null = null
   private projectedPaneRatios: Readonly<Record<string, number>> | null = null
+  /** 已投影到 renderStates 的展示版本；展示变化只重建投影。 */
+  private projectedPresentationRevision = -1
 
   // ========== 计算与投影运行时 ==========
   private currentData: KLineData[] = []
@@ -327,11 +330,14 @@ export class ChartIndicatorManager {
         paneChanged = true
       }
       this.syncPipeline(instances)
+      const presentationChanged = this.syncPresentationProjection()
       const mainChanged = this.reconcileMainIndicators(
         instances.filter((instance) => instance.source !== 'mode'),
       )
       const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
-      if (paneChanged || mainChanged || subChanged) this.deps.scheduleDraw()
+      if (paneChanged || presentationChanged || mainChanged || subChanged) {
+        this.deps.scheduleDraw()
+      }
     })
   }
 
@@ -365,13 +371,35 @@ export class ChartIndicatorManager {
           context: next.calculation.context,
         })
       }
-      if (current.paneId !== next.paneId) {
+      if (
+        current.paneId !== next.paneId ||
+        !ChartIndicatorManager.samePresentation(current.presentation, next.presentation)
+      ) {
         this.pipeline.instances.update(next.instanceId, {
           kind: 'presentation',
           paneId: next.paneId,
+          presentation: next.presentation,
         })
       }
     }
+  }
+
+  /** 展示配置是扁平原始值记录，逐键比较即可判定是否变化。 */
+  private static samePresentation(
+    left: Readonly<Record<string, unknown>>,
+    right: Readonly<Record<string, unknown>>,
+  ): boolean {
+    const leftKeys = Object.keys(left)
+    if (leftKeys.length !== Object.keys(right).length) return false
+    return leftKeys.every((key) => Object.is(left[key], right[key]))
+  }
+
+  /** 展示版本变化只重建渲染投影，不触发重新计算。 */
+  private syncPresentationProjection(): boolean {
+    const revision = this.pipeline.snapshot().presentationRevision
+    if (revision === this.projectedPresentationRevision) return false
+    this.projectedPresentationRevision = revision
+    return this.reprojectRenderStates()
   }
 
   /**
@@ -398,7 +426,7 @@ export class ChartIndicatorManager {
         params,
         context: {},
       },
-      presentation: {},
+      presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
     }
   }
 
@@ -419,6 +447,25 @@ export class ChartIndicatorManager {
     if (typeof value === 'function') return (value as () => Record<string, unknown>)()
     if (value && typeof value === 'object') return value as Record<string, unknown>
     return {}
+  }
+
+  /**
+   * 从 Kernel 实例参数中提取展示配置。
+   * 只认定义声明的展示键，保证展示值不会混入计算身份。
+   */
+  private static resolvePresentation(
+    metadata: IndicatorMetadata,
+    params: Readonly<Record<string, unknown>>,
+  ): Readonly<Record<string, unknown>> {
+    const defaults = metadata.presentation?.defaultOptions
+    if (!defaults) return {}
+    const presentation: Record<string, unknown> = {}
+    for (const name of Object.keys(defaults)) {
+      const value = params[name] ?? defaults[name]
+      if (value === undefined) continue
+      presentation[name] = value
+    }
+    return presentation
   }
 
   /** 尝试创建 Worker 执行器；环境不支持时返回 null 交给 inline。 */
@@ -576,7 +623,13 @@ export class ChartIndicatorManager {
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
-      const state = composeInstanceRenderState(metadata, result, this.visibleRange, timestamp)
+      const state = composeInstanceRenderState(
+        metadata,
+        result,
+        instance.presentation,
+        this.visibleRange,
+        timestamp,
+      )
       if (state === undefined) continue
       renderStates.set(instance.instanceId, state)
     }
