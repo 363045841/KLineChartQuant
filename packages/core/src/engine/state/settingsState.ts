@@ -1,20 +1,14 @@
-/** 用户偏好设置状态模块：解析、迁移与冻结快照。 */
+/** 用户偏好设置状态模块：解析与冻结快照。 */
 
 import {
   type ChartSettings,
-  migrateStoredSettings,
   normalizeSettings,
 } from '../../foundation/config/chartSettings.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
-function normalizePartial(partial?: Partial<ChartSettings>): Partial<ChartSettings> {
-  if (!partial) return {}
-  return migrateStoredSettings(partial as Record<string, unknown>)
-}
-
 function snapshotSettings(partial?: Partial<ChartSettings>): Readonly<ChartSettings> {
-  return deepFreezeSnapshot(normalizeSettings(normalizePartial(partial))) as Readonly<ChartSettings>
+  return deepFreezeSnapshot(normalizeSettings(partial)) as Readonly<ChartSettings>
 }
 
 function settingsEqual(a: Readonly<ChartSettings>, b: Readonly<ChartSettings>): boolean {
@@ -48,7 +42,7 @@ export function createSettingsState(initial?: Partial<ChartSettings>) {
         write(snapshotSettings(partial))
       },
       patch(partial: Partial<ChartSettings>) {
-        const merged = { ...signals.settings.peek(), ...normalizePartial(partial) }
+        const merged = { ...signals.settings.peek(), ...partial }
         write(snapshotSettings(merged))
       },
     },

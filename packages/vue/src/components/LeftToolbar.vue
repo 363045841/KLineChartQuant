@@ -189,9 +189,9 @@
 <script setup lang="ts">
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
+    chartSettingsPersistence,
     type ChartSettings,
     resolveSettings,
-    SETTINGS_STORAGE_KEY,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -326,9 +326,7 @@
   }
 
   function saveSettings(settings: ChartSettings) {
-    try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-    } catch {}
+    chartSettingsPersistence.save(settings)
   }
 
   // 父组件已 seed 的 effectiveSettings 优先；否则读 localStorage

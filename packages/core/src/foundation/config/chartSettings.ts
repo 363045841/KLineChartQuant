@@ -222,15 +222,38 @@ const KNOWN_SETTING_KEYS = new Set<string>([
   'colorPresetSettings',
 ])
 
+/** 图表设置在 LocalStorage 中的键名。 */
+export const CHART_SETTINGS_STORAGE_KEY = 'kline-chart-settings'
+
+function isStoredChartSettings(value: unknown): value is Partial<ChartSettings> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+/** 图表设置的 JSON 编解码边界。 */
+const chartSettingsCodec: PersistenceCodec<Partial<ChartSettings>> = {
+  decode(value): Partial<ChartSettings> | null {
+    return isStoredChartSettings(value) ? value : null
+  },
+  encode(value): unknown {
+    return value
+  },
+}
+
+/** 图表设置的唯一持久化入口。 */
+export const chartSettingsPersistence = createLocalStoragePersistence({
+  key: CHART_SETTINGS_STORAGE_KEY,
+  codec: chartSettingsCodec,
+})
+
 /**
- * 归一化设置：迁移旧字段、用 DEFAULT_SETTINGS 补齐缺失 key、保留业务扩展字段。
+ * 归一化设置：用 DEFAULT_SETTINGS 补齐缺失 key、保留业务扩展字段。
  * 不做分层合并，输入缺什么就回默认值；分层取值由 resolveSettings 负责。
  *
  * @param partial - 设置片段
  * @returns 补齐后的完整 ChartSettings
  */
 export function normalizeSettings(partial?: Partial<ChartSettings>): ChartSettings {
-  const source = partial ? migrateStoredSettings(partial as Record<string, unknown>) : undefined
+  const source = partial
   // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
   const result: Partial<_SettingByKey> = {}
   DEFAULT_SETTINGS.forEach((item) => {
@@ -254,61 +277,21 @@ export function normalizeSettings(partial?: Partial<ChartSettings>): ChartSettin
   return result as ChartSettings
 }
 
-/** 将旧版持久设置迁移为 rendererBackend 与轴 Setting 字段，返回结果不保留旧字段。 */
-export function migrateStoredSettings(stored: Record<string, unknown>): Partial<ChartSettings> {
-  const { enableWebGLRendering, rendererBackend, ...rest } = stored
-  const validBackend =
-    rendererBackend === 'webgpu' || rendererBackend === 'webgl' || rendererBackend === 'canvas'
-      ? rendererBackend
-      : typeof enableWebGLRendering === 'boolean'
-        ? enableWebGLRendering
-          ? 'webgl'
-          : 'canvas'
-        : undefined
-
-  const afterBackend = validBackend ? { ...rest, rendererBackend: validBackend } : rest
-  return migrateAxisSettings(afterBackend) as Partial<ChartSettings>
-}
-
-/** localStorage 存储键名 */
-export const SETTINGS_STORAGE_KEY = 'kline-chart-settings'
-
-/**
- * 从 storage 读取并迁移持久设置；无数据或解析失败时返回 null。
- *
- * @param storage - 可读 Storage；省略时尝试使用全局 localStorage
- */
-export function loadStoredSettings(
-  storage: Pick<Storage, 'getItem'> | null | undefined = typeof globalThis !== 'undefined' &&
-  'localStorage' in globalThis
-    ? globalThis.localStorage
-    : null,
-): Partial<ChartSettings> | null {
-  if (!storage) return null
-  try {
-    const saved = storage.getItem(SETTINGS_STORAGE_KEY)
-    if (!saved) return null
-    return migrateStoredSettings(JSON.parse(saved) as Record<string, unknown>)
-  } catch {
-    return null
-  }
-}
-
 /**
  * 解析生效设置，逐 key 取值优先级：显式覆盖 > 存量偏好 > DEFAULT_SETTINGS 默认值。
  *
  * @remarks
  * - overrides 为组件 settings prop：仅其显式声明的 key 覆盖存量，未声明的 key 回落到存量。
- * - stored 省略时读取 localStorage 存量；需要纯默认解析（如内核内部状态归一化）时传 {}。
+ * - stored 省略时从 chartSettingsPersistence 读取存量；需要纯默认解析（如内核内部状态归一化）时传 {}。
  * - 缺失 key 一律由 DEFAULT_SETTINGS 补齐，返回值始终是完整设置。
  *
  * @param overrides - 显式覆盖项（组件 settings prop）
- * @param stored - 存量偏好；省略时由 loadStoredSettings 读取
+ * @param stored - 存量偏好；省略时由 chartSettingsPersistence 读取
  * @returns 分层合并后的完整 ChartSettings
  */
 export function resolveSettings(
   overrides?: Partial<ChartSettings> | null,
-  stored: Partial<ChartSettings> | null = loadStoredSettings(),
+  stored: Partial<ChartSettings> | null = chartSettingsPersistence.load(),
 ): ChartSettings {
   // 逐 key 合并：overrides 显式声明的 key 覆盖存量，undefined 视为未声明
   const merged: Record<string, unknown> = { ...(stored ?? {}) }
@@ -318,7 +301,7 @@ export function resolveSettings(
       merged[key] = value
     }
   }
-  // 迁移、默认值补齐与扩展字段保留统一交给 normalizeSettings
+  // 默认值补齐与扩展字段保留统一交给 normalizeSettings
   return normalizeSettings(merged as Partial<ChartSettings>)
 }
 
@@ -328,7 +311,10 @@ import {
 } from '../tokens/colorPresetSettings.js'
 import { detectRendererTier, type RendererTier } from '../utils/rendererCapability.js'
 
-import { migrateAxisSettings } from './axisSettings.js'
+import {
+  createLocalStoragePersistence,
+  type PersistenceCodec,
+} from '../persistence/index.js'
 
 export type {
   AxisDisplaySetting,
@@ -337,7 +323,6 @@ export type {
 } from './axisSettings.js'
 export {
   buildPaneScaleTypesFromSetting,
-  migrateAxisSettings,
   resolveAxisDisplaySetting,
   resolveEffectiveAxisDisplay,
   resolvePriceScaleTypeSetting,
