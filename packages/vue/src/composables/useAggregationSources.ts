@@ -1,3 +1,4 @@
+import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
 import { computed, ref, watch } from 'vue'
 
@@ -16,6 +17,34 @@ interface StoredAggregationSources {
   /** source name -> 完整 Base URL */
   baseUrls?: Record<string, string>
 }
+
+function isStoredAggregationSources(value: unknown): value is StoredAggregationSources {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const known = Object.getOwnPropertyDescriptor(value, 'known')?.value
+  const enabled = Object.getOwnPropertyDescriptor(value, 'enabled')?.value
+  const baseUrls = Object.getOwnPropertyDescriptor(value, 'baseUrls')?.value
+  return (
+    Array.isArray(known) &&
+    known.every((name) => typeof name === 'string') &&
+    Array.isArray(enabled) &&
+    enabled.every((name) => typeof name === 'string') &&
+    (baseUrls === undefined || (typeof baseUrls === 'object' && baseUrls !== null))
+  )
+}
+
+const aggregationSourcesCodec: PersistenceCodec<StoredAggregationSources> = {
+  decode(value): StoredAggregationSources | null {
+    return isStoredAggregationSources(value) ? value : null
+  },
+  encode(value): unknown {
+    return value
+  },
+}
+
+const aggregationSourcesPersistence = createLocalStoragePersistence({
+  key: AGGREGATION_SOURCES_STORAGE_KEY,
+  codec: aggregationSourcesCodec,
+})
 
 export type AggregationSourceStatus = 'checking' | 'online' | 'offline'
 
@@ -83,14 +112,7 @@ export function supportsAggregationSourceSearch(source: AggregationSourceDefinit
 }
 
 function readStoredSources(): StoredAggregationSources | undefined {
-  if (typeof window === 'undefined') return undefined
-  try {
-    const value = JSON.parse(window.localStorage.getItem(AGGREGATION_SOURCES_STORAGE_KEY) ?? '')
-    if (!Array.isArray(value?.known) || !Array.isArray(value?.enabled)) return undefined
-    return value
-  } catch {
-    return undefined
-  }
+  return aggregationSourcesPersistence.load() ?? undefined
 }
 
 /**
@@ -212,7 +234,6 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
   watch(
     [enabledNames, endpoints],
     () => {
-      if (typeof window === 'undefined') return
       const baseUrls: Record<string, string> = {}
       for (const source of sources) {
         if (!source.defaultBaseUrl) continue
@@ -225,11 +246,7 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
         enabled: enabledNames.value,
         baseUrls,
       }
-      try {
-        window.localStorage.setItem(AGGREGATION_SOURCES_STORAGE_KEY, JSON.stringify(value))
-      } catch {
-        // localStorage 不可用时保留当前会话状态
-      }
+      aggregationSourcesPersistence.save(value)
     },
     { deep: true, immediate: true },
   )
