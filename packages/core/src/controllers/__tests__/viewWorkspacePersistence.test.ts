@@ -44,6 +44,9 @@ function createStorage(initial: string | null = null) {
     setItem: vi.fn((_key: string, next: string) => {
       value = next
     }),
+    removeItem: vi.fn(() => {
+      value = null
+    }),
   }
 }
 
