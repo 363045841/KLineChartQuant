@@ -56,7 +56,8 @@ import type {
 } from './agent-contracts.js'
 import { ProviderModelPool } from './provider-model-pool.js'
 
-const AGENT_MODEL_SETTINGS_STORAGE_KEY = 'agent.model-settings'
+/** LocalStorage 中 Agent 模型设置的键名；测试据此断言持久化文档。 */
+export const AGENT_MODEL_SETTINGS_STORAGE_KEY = 'agent.model-settings'
 
 type DrawingCreateError = Error & {
   readonly code?: string

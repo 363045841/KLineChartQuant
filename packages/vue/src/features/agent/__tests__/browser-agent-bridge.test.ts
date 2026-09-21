@@ -8,12 +8,12 @@ import type { ChartAgentController } from '@363045841yyt/klinechart-core/control
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge } from '../browser-agent-bridge'
 import { createOpenAiCompatibleFetchStub } from './_agentProviderFixtures'
+import { readStoredAgentModelSettings } from './_agentSettingsFixtures'
 import { createTestChartAgent, createTestChartAgentContext } from './_testChartAgent'
 
-/** 清理每个测试写入的浏览器全局状态。 */
+/** 清理每个测试写入的浏览器全局状态；LocalStorage 由全局 test-setup 统一清理。 */
 afterEach(() => {
   vi.unstubAllGlobals()
-  window.localStorage.clear()
 })
 
 describe('BrowserAgentBridge', () => {
@@ -242,11 +242,7 @@ describe('BrowserAgentBridge', () => {
         reasoningEfforts: undefined,
       },
     ])
-    const storedProfiles = JSON.parse(window.localStorage.getItem('agent.model-settings')!)
-      .profiles as Array<{
-      settings?: Record<string, unknown>
-    }>
-    expect(storedProfiles[0]!.settings).toBeUndefined()
+    expect(readStoredAgentModelSettings()).not.toHaveProperty('profiles.0.settings')
   })
 
   it('adds a named configuration to the group before its connection details are saved', async () => {

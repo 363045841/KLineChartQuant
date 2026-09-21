@@ -1,5 +1,5 @@
 import { redactString } from '@363045841yyt/klinechart-agent-runtime'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { BrowserAgentBridge } from '../browser-agent-bridge'
 
@@ -8,10 +8,6 @@ import { BrowserAgentBridge } from '../browser-agent-bridge'
  * 必须经 `secretValues` 逐字剔除，否则非 `sk-` 形态的凭据会原样出现在事件流里。
  */
 describe('BrowserAgentBridge secret redaction', () => {
-  beforeEach(() => {
-    window.localStorage.clear()
-  })
-
   const secretsOf = async (bridge: BrowserAgentBridge): Promise<readonly string[]> => {
     // 读取私有方法：private 无法静态访问，这里断言的是它的产物，而不是它的存在。
     const secretValues: () => Promise<readonly string[]> = Reflect.get(bridge, 'secretValues')

@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ViewWorkspacesSnapshot } from '../../engine/state/viewWorkspace'
+import { createMemoryKeyValueStorage } from '../../foundation/persistence/__tests__/_memoryKeyValueStorage'
 import {
   createViewWorkspacePersistence,
   loadStoredViewWorkspaces,
@@ -37,19 +38,6 @@ function createSnapshot(): ViewWorkspacesSnapshot {
   }
 }
 
-function createStorage(initial: string | null = null) {
-  let value = initial
-  return {
-    getItem: vi.fn(() => value),
-    setItem: vi.fn((_key: string, next: string) => {
-      value = next
-    }),
-    removeItem: vi.fn(() => {
-      value = null
-    }),
-  }
-}
-
 describe('view workspace persistence', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -61,7 +49,7 @@ describe('view workspace persistence', () => {
 
   it('loads a workspace snapshot', () => {
     const snapshot = createSnapshot()
-    const storage = createStorage(JSON.stringify(snapshot))
+    const storage = createMemoryKeyValueStorage(JSON.stringify(snapshot))
 
     expect(loadStoredViewWorkspaces(storage)).toEqual(snapshot)
 
@@ -70,7 +58,7 @@ describe('view workspace persistence', () => {
   })
 
   it('coalesces writes for one second and flushes pending work on dispose', () => {
-    const storage = createStorage()
+    const storage = createMemoryKeyValueStorage()
     let snapshot = createSnapshot()
     const persistence = createViewWorkspacePersistence(() => snapshot, storage)
 

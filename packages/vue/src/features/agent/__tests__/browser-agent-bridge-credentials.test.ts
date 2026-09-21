@@ -1,39 +1,16 @@
 // 验证注入外部凭据存储后 API Key 不会进入 Agent 模型设置文档。
 
-import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
-import { afterEach, describe, expect, it } from 'vitest'
+import { InMemoryProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
+import { describe, expect, it } from 'vitest'
 import { BrowserAgentBridge } from '../browser-agent-bridge'
-
-const AGENT_MODEL_SETTINGS_KEY = 'agent.model-settings'
-
-afterEach(() => {
-  window.localStorage.clear()
-})
-
-/** 内存凭据存储，代替 Electron safeStorage。 */
-function createFakeStore(initial?: string): ProviderCredentialStore & { value?: string } {
-  return {
-    value: initial,
-    async read() {
-      return this.value
-    },
-    async write(apiKey: string) {
-      this.value = apiKey
-    },
-    async delete() {
-      this.value = undefined
-    },
-  }
-}
-
-/** 返回 LocalStorage 中持久化的 Agent 模型设置 JSON 原文。 */
-function storedAgentModelSettingsJson(): string {
-  return window.localStorage.getItem(AGENT_MODEL_SETTINGS_KEY) ?? ''
-}
+import {
+  readStoredAgentModelSettings,
+  storedAgentModelSettingsJson,
+} from './_agentSettingsFixtures'
 
 describe('BrowserAgentBridge credential injection', () => {
   it('keeps the API key out of localStorage and routes it to the injected store', async () => {
-    const credentials = createFakeStore()
+    const credentials = new InMemoryProviderCredentialStore()
     const bridge = new BrowserAgentBridge({ credentials })
 
     await bridge.saveProvider({
@@ -44,9 +21,9 @@ describe('BrowserAgentBridge credential injection', () => {
     })
 
     expect(storedAgentModelSettingsJson()).not.toContain('sk-secret-value')
-    expect(credentials.value).toBe('sk-secret-value')
+    await expect(credentials.read()).resolves.toBe('sk-secret-value')
     // Profile 本身仍然持久化，只是 apiKey 字段为空。
-    expect(JSON.parse(storedAgentModelSettingsJson())).toMatchObject({
+    expect(readStoredAgentModelSettings()).toMatchObject({
       profiles: [{ name: 'Provider example', apiKey: '' }],
     })
   })
