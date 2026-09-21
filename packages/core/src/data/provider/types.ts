@@ -51,8 +51,18 @@ export const ORIGINAL_BAR_AGGREGATION = 'original'
 /** 按数据源统一边界重采样的聚合方式。 */
 export const ALIGNED_BAR_AGGREGATION = 'aligned'
 
-/** K 线聚合方式：original 保留上游周期边界；aligned 由数据源按统一边界重采样。 */
-export const BAR_AGGREGATIONS = [ORIGINAL_BAR_AGGREGATION, ALIGNED_BAR_AGGREGATION] as const
+/** 传统欧洲券商口径（EET 日界，UTC 周日短棒并入周一首根）。 */
+export const EUROPE_TRADITIONAL_BAR_AGGREGATION = 'europe-traditional'
+
+/**
+ * K 线聚合方式：original 保留上游周期边界；aligned 由数据源按统一边界重采样；
+ * europe-traditional 按传统欧洲券商口径合并 Exness 周日短棒（数据源侧口径）。
+ */
+export const BAR_AGGREGATIONS = [
+  ORIGINAL_BAR_AGGREGATION,
+  ALIGNED_BAR_AGGREGATION,
+  EUROPE_TRADITIONAL_BAR_AGGREGATION,
+] as const
 
 export type BarAggregation = (typeof BAR_AGGREGATIONS)[number]
 

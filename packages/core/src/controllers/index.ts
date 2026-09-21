@@ -125,6 +125,7 @@ export {
   DEFAULT_BINANCE_SSE_URL,
   DepthConnector,
   dataSourceRegistry,
+  EUROPE_TRADITIONAL_BAR_AGGREGATION,
   finshareMarketDataProvider,
   gotdxMarketDataProvider,
   MarketDataProviderRegistry,
