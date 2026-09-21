@@ -29,6 +29,10 @@
       "types": "./dist/foundation/reactivity/index.d.ts",
       "import": "./dist/foundation/reactivity/index.js"
     },
+    "./persistence": {
+      "types": "./dist/foundation/persistence/index.d.ts",
+      "import": "./dist/foundation/persistence/index.js"
+    },
     "./controllers": {
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
