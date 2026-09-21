@@ -1,5 +1,6 @@
 /** 自选股状态与 IndexedDB 持久化。 */
 
+import { createIndexedDbPersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 import { computed, shallowRef, toRaw } from 'vue'
 
 import type { SearchableSymbol } from './useSymbolSearch.js'
@@ -9,25 +10,6 @@ export const WATCHLIST_DATABASE_NAME = '@363045841yyt/klinechart'
 const WATCHLIST_DATABASE_VERSION = 1
 const WATCHLIST_STORE_NAME = 'watchlist'
 const WATCHLIST_ITEMS_KEY = 'items'
-
-/** 打开自选股数据库，并在首次使用时创建 object store。 */
-function openWatchlistDatabase(): Promise<IDBDatabase> {
-  if (typeof indexedDB === 'undefined') {
-    return Promise.reject(new Error('IndexedDB is unavailable'))
-  }
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(WATCHLIST_DATABASE_NAME, WATCHLIST_DATABASE_VERSION)
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(WATCHLIST_STORE_NAME)) {
-        request.result.createObjectStore(WATCHLIST_STORE_NAME)
-      }
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('Failed to open watchlist database'))
-    request.onblocked = () => reject(new Error('Watchlist database upgrade was blocked'))
-  })
-}
 
 /** 判断 IndexedDB 中的值是否为可用的统一品种描述。 */
 function isWatchlistItem(value: unknown): value is SearchableSymbol {
@@ -45,47 +27,31 @@ function isWatchlistItem(value: unknown): value is SearchableSymbol {
   )
 }
 
+const watchlistCodec: PersistenceCodec<SearchableSymbol[]> = {
+  decode(value): SearchableSymbol[] | null {
+    return Array.isArray(value) ? value.filter(isWatchlistItem) : null
+  },
+  encode(value): unknown {
+    return value
+  },
+}
+
+const watchlistPersistence = createIndexedDbPersistence({
+  databaseName: WATCHLIST_DATABASE_NAME,
+  databaseVersion: WATCHLIST_DATABASE_VERSION,
+  storeName: WATCHLIST_STORE_NAME,
+  key: WATCHLIST_ITEMS_KEY,
+  codec: watchlistCodec,
+})
+
 /** 从 IndexedDB 读取并校验自选股列表。 */
 export async function loadWatchlist(): Promise<SearchableSymbol[]> {
-  const database = await openWatchlistDatabase()
-  try {
-    const stored = await new Promise<unknown>((resolve, reject) => {
-      const transaction = database.transaction(WATCHLIST_STORE_NAME, 'readonly')
-      const request = transaction.objectStore(WATCHLIST_STORE_NAME).get(WATCHLIST_ITEMS_KEY)
-      let result: unknown
-
-      request.onsuccess = () => {
-        result = request.result
-      }
-      transaction.oncomplete = () => resolve(result)
-      transaction.onerror = () =>
-        reject(transaction.error ?? new Error('Failed to read watchlist database'))
-      transaction.onabort = () =>
-        reject(transaction.error ?? new Error('Watchlist read transaction was aborted'))
-    })
-    return Array.isArray(stored) ? stored.filter(isWatchlistItem) : []
-  } finally {
-    database.close()
-  }
+  return (await watchlistPersistence.load()) ?? []
 }
 
 /** 将当前自选股快照写入 IndexedDB。 */
 export async function saveWatchlist(items: ReadonlyArray<SearchableSymbol>): Promise<void> {
-  const database = await openWatchlistDatabase()
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(WATCHLIST_STORE_NAME, 'readwrite')
-      const cloneableItems = items.map((item) => toRaw(item))
-      transaction.objectStore(WATCHLIST_STORE_NAME).put(cloneableItems, WATCHLIST_ITEMS_KEY)
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () =>
-        reject(transaction.error ?? new Error('Failed to write watchlist database'))
-      transaction.onabort = () =>
-        reject(transaction.error ?? new Error('Watchlist write transaction was aborted'))
-    })
-  } finally {
-    database.close()
-  }
+  await watchlistPersistence.save(items.map((item) => toRaw(item)))
 }
 
 /** 管理自选股内存状态，并按操作顺序持久化最新快照。 */
