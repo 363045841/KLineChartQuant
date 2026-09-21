@@ -1,6 +1,7 @@
 /** KLineDataStore.updateBars 语义测试：replace-on-conflict 末尾窗口合并，拒绝陈旧帧。 */
 import { describe, expect, it } from 'vitest'
 
+import { DATA_CHANGE_KINDS } from '../buffer/dataBufferTypes'
 import { KLineDataStore } from '../buffer/kLineDataStore'
 
 function bar(timestamp: number, close = 1, volume = 10) {
@@ -67,7 +68,12 @@ describe('KLineDataStore.updateBars', () => {
     store.setInlineData([bar(10), bar(20, 1)])
     const changes: string[] = []
     const unsubscribe = store.data.subscribe(() =>
-      changes.push(store.data().data.map((item) => item.close).join(',')),
+      changes.push(
+        store
+          .data()
+          .data.map((item) => item.close)
+          .join(','),
+      ),
     )
 
     // 收线 + 新 forming 一次写入（SSE 帧序列的典型批）
@@ -108,5 +114,55 @@ describe('KLineDataStore.updateBars', () => {
     store.updateBars([bar(30)])
 
     expect(store.loadedTimeRange).toEqual({ earliestTs: 10, latestTs: 30 })
+  })
+})
+
+describe('KLineDataStore 数据变更种类', () => {
+  it('整体替换与清空发布 replace', () => {
+    const store = new KLineDataStore()
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
+
+    store.setInlineData([bar(10), bar(20)])
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
+
+    store.reset()
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
+  })
+
+  it('空存储首次合并视为整体替换', () => {
+    const store = new KLineDataStore()
+
+    store.merge([bar(10), bar(20)])
+
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
+  })
+
+  it('头部插入历史发布 prepend', () => {
+    const store = new KLineDataStore()
+    store.setInlineData([bar(20), bar(30)])
+
+    store.merge([bar(10)])
+
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.prepend)
+  })
+
+  it('尾部增补发布 tail', () => {
+    const store = new KLineDataStore()
+    store.setInlineData([bar(10), bar(20)])
+
+    store.merge([bar(30)])
+
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.tail)
+  })
+
+  it('实时写入发布 tail 且既有下标不后移', () => {
+    const store = new KLineDataStore()
+    store.setInlineData([bar(10), bar(20)])
+    const indexBefore = store.getLogicalIndexAtTimestamp(20)
+
+    store.updateBars([bar(20, 9), bar(30, 5)])
+
+    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.tail)
+    expect(store.getLogicalIndexAtTimestamp(20)).toBe(indexBefore)
   })
 })

@@ -11,9 +11,29 @@ export interface LoadedTimeRange {
   earliestTs: number
   latestTs: number
 }
+/**
+ * 数据变更种类的取名字面量；类型与取值同源，业务代码只引用常量，禁止散落字符串。
+ */
+export const DATA_CHANGE_KINDS = Object.freeze({
+  replace: 'replace',
+  prepend: 'prepend',
+  tail: 'tail',
+} as const)
+
+/**
+ * 数据变更种类，表达本次变更是否让既有的下标型定位失效。
+ *
+ * - replace：整体替换，全部旧下标失效
+ * - prepend：头部插入历史数据，既有下标整体后移
+ * - tail：尾部新增或修订当前 K 线，既有下标不变
+ */
+export type DataChangeKind = (typeof DATA_CHANGE_KINDS)[keyof typeof DATA_CHANGE_KINDS]
+
 /** 数据变更描述：在一次数据更新中携带数据本身和变更元数据 */
 export interface DataChange<T> {
   readonly data: ReadonlyArray<T>
+  /** 本次变更种类，决定下标型交互态是否需要作废 */
+  readonly kind: DataChangeKind
   /** 本次新增了多少根 K 线到头部（向左滚动加载的历史数据） */
   readonly prependedCount: number
 }

@@ -9,11 +9,12 @@ import {
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { TimeShareRange } from '../provider/types.js'
 
-import type {
-  DataBufferLike,
-  DataChange,
-  LoadedTimeRange,
-  TimeShareBuffer as TimeShareBufferType,
+import {
+  DATA_CHANGE_KINDS,
+  type DataBufferLike,
+  type DataChange,
+  type LoadedTimeRange,
+  type TimeShareBuffer as TimeShareBufferType,
 } from './dataBufferTypes.js'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
@@ -56,8 +57,10 @@ function flatten(content: Content): ReadonlyArray<TimeShareData> {
 export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<TimeShareData> {
   private readonly content = createSignal<Content>(EMPTY_CONTENT)
   private readonly flatData = computed(() => flatten(this.content()))
+  // 分时每次写入都是整段快照替换，点列下标不具备跨快照含义。
   private readonly dataSignal = computed<DataChange<TimeShareData>>(() => ({
     data: this.flatData(),
+    kind: DATA_CHANGE_KINDS.replace,
     prependedCount: 0,
   }))
   private readonly rangeSignal = computed<TimeShareRange | null>(() => {
