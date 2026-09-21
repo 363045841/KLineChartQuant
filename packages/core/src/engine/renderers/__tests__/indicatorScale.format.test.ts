@@ -30,12 +30,16 @@ describe('formatScaleValue', () => {
   })
 })
 
+/** 坐标轴按实例身份寻址，不再按指标类型 state key 读取。 */
+const MACD_INSTANCE_ID = 'inst-macd'
+
 describe('indicator scale plugin formatting', () => {
   it('renders small-magnitude ticks with adaptive decimals and no negative zero', () => {
     const yAxisCtx = createMockCanvasContext()
     const renderer = createIndicatorScaleRendererPlugin({
       axisWidth: 60,
       paneId: 'sub_MACD_test',
+      instanceId: MACD_INSTANCE_ID,
       indicatorKey: 'macd',
       label: 'MACD',
       decimals: 2,
@@ -56,7 +60,7 @@ describe('indicator scale plugin formatting', () => {
             getPaddingBottom: () => 0,
           },
         },
-        indicatorStateReader: createMockStateReader('indicator:macd:sub_MACD_test', {
+        indicatorStateReader: createMockStateReader(MACD_INSTANCE_ID, {
           timestamp: 1,
           valueMin: -0.002,
           valueMax: 0.002,

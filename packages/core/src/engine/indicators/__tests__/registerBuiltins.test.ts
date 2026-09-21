@@ -167,6 +167,7 @@ describe('builtin indicator registration', () => {
     const rsiScaleRenderer = getRegisteredIndicatorDefinition('RSI')?.scaleRendererFactory?.({
       indicatorId: 'RSI',
       paneId: 'RSI_0',
+      instanceId: 'rsi-instance',
       axisWidth: 80,
       yPaddingPx: 4,
       getCrosshair: () => null,
@@ -174,6 +175,7 @@ describe('builtin indicator registration', () => {
     const volumeScaleRenderer = getRegisteredIndicatorDefinition('VOL')?.scaleRendererFactory?.({
       indicatorId: 'VOLUME',
       paneId: 'VOLUME_0',
+      instanceId: 'volume-instance',
       axisWidth: 80,
       yPaddingPx: 4,
       getCrosshair: () => null,
@@ -240,10 +242,12 @@ describe('builtin indicator registration', () => {
     const maRenderer = getRegisteredIndicatorDefinition('MA')?.rendererFactory({
       paneId: 'main',
       indicatorId: 'MA',
+      instanceId: 'main:MA',
     })
     const bollRenderer = getRegisteredIndicatorDefinition('BOLL')?.rendererFactory({
       paneId: 'main',
       indicatorId: 'BOLL',
+      instanceId: 'main:BOLL',
     })
 
     expect(maRenderer?.name).toBe('ma')
@@ -253,7 +257,11 @@ describe('builtin indicator registration', () => {
   it('resolves renderer names without creating renderer instances', () => {
     for (const definition of getBuiltinIndicatorDefinitions()) {
       const paneId = definition.category === 'main' ? 'main' : `sub_${definition.name}`
-      const options = { paneId, indicatorId: definition.name }
+      const options = {
+        paneId,
+        indicatorId: definition.name,
+        instanceId: `${definition.name}-instance`,
+      }
 
       expect(definition.getRendererName(options)).toBe(definition.rendererFactory(options).name)
     }
@@ -286,10 +294,12 @@ describe('builtin indicator registration', () => {
     const wma = getRegisteredIndicatorDefinition('WMA')?.rendererFactory({
       paneId: 'main',
       indicatorId: 'WMA',
+      instanceId: 'main:WMA',
     })
     const zones = getRegisteredIndicatorDefinition('ZONES')?.rendererFactory({
       paneId: 'main',
       indicatorId: 'ZONES',
+      instanceId: 'main:ZONES',
     })
 
     expect(wma?.name).toBe('wma_main')

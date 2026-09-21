@@ -27,7 +27,6 @@ describe('Indicator definition registry', () => {
       displayName: 'Custom RSI',
       category: 'oscillator',
       indicatorType: 'momentum',
-      stateKey: (paneId: string) => `indicator:customRsi:${paneId}`,
       defaultPaneId: 'sub_CUSTOM_RSI',
     })
     class CustomRsiDefinition {
@@ -51,7 +50,6 @@ describe('Indicator definition registry', () => {
       displayName: 'Custom MACD',
       category: 'oscillator',
       indicatorType: 'momentum',
-      stateKey: (paneId: string) => `indicator:customMacd:${paneId}`,
       defaultPaneId: 'sub_CUSTOM_MACD',
     })
     class CustomMacdDefinition {

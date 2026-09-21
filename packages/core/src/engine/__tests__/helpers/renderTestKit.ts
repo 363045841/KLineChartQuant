@@ -7,6 +7,11 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
+import {
+  INDICATOR_INSTANCE_CATALOG_SERVICE,
+  type IndicatorInstanceCatalog,
+  type IndicatorInstanceDescriptor,
+} from '@/engine/indicators/instances/api/indicatorRenderBinding'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } from '@/plugin'
@@ -244,13 +249,13 @@ export function createMockPluginHost(overrides: Partial<PluginHost> = {}): Plugi
   } satisfies PluginHost
 }
 
-/** 构造只按 stateKey 命中返回的帧状态读取 stub。 */
+/** 构造只按 instanceId 命中返回的帧状态读取 stub。 */
 export function createMockStateReader(
-  stateKey: string,
+  instanceId: string,
   state?: unknown,
 ): IndicatorRenderStateReader {
   // biome-ignore lint/suspicious/noExplicitAny: vitest 无法把泛型 spy 赋给泛型方法，any 返回可保持可间谍性
-  const get = vi.fn((key: string): any => (key === stateKey ? state : undefined))
+  const get = vi.fn((key: string): any => (key === instanceId ? state : undefined))
   return { get } satisfies IndicatorRenderStateReader
 }
 
@@ -262,31 +267,13 @@ export function createMockServiceHost(services: Record<string, unknown>): Plugin
   })
 }
 
-/** 指标 renderer 夹具入参。 */
-export interface MockIndicatorHostOptions {
-  /** 指标名（小写），用于 getIndicatorMetadata 匹配。 */
-  indicatorName: string
-  /** 该指标在 StateStore 中的 state key。 */
-  stateKey: string
-  /** createRenderStateReader 按 stateKey 返回的帧状态。 */
-  state?: unknown
-}
-
-/** 构造只提供指标元数据与帧状态读取的 PluginHost，供指标 renderer 用例复用。 */
-export function createMockIndicatorHost(options: MockIndicatorHostOptions): PluginHost {
-  const { indicatorName, stateKey, state } = options
-  const scheduler = {
-    getIndicatorMetadata: (name: string) =>
-      name === indicatorName ? { name: indicatorName, stateKey } : undefined,
-    getAllIndicators: () => [],
-    createRenderStateReader: () => ({
-      get: (key: string) => (key === stateKey ? state : undefined),
-    }),
+/** 构造只提供主图实例清单服务的 PluginHost，图例等消费者据此枚举实例。 */
+export function createMockIndicatorInstanceHost(
+  mainInstances: ReadonlyArray<IndicatorInstanceDescriptor>,
+): PluginHost {
+  const catalog: IndicatorInstanceCatalog = {
+    listMainInstances: () => mainInstances,
+    listPaneInstances: () => [],
   }
-  return createMockPluginHost({
-    // biome-ignore lint/suspicious/noExplicitAny: 见 createMockStateReader，泛型 getService 需要 any 返回
-    getService: vi.fn((name: string): any =>
-      name === 'indicatorScheduler' ? scheduler : undefined,
-    ),
-  })
+  return createMockServiceHost({ [INDICATOR_INSTANCE_CATALOG_SERVICE]: catalog })
 }

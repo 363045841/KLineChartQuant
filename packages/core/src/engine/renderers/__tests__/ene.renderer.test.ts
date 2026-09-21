@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/state/eneState'
+import type { ENERenderState } from '@/core/indicators/state/eneState'
 import {
   createMockCanvasContext,
-  createMockIndicatorHost,
   createMockRenderContext,
+  createMockServiceHost,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '@/engine/indicators/instances/api/indicatorRenderBinding'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import { resolveThemeColors } from '../../../foundation/tokens'
 import { createENERendererPlugin } from '../Indicator/ene'
+
+/** 固定实例身份：renderer 只按 instanceId 寻址，不再依赖指标类型 state key。 */
+const ENE_INSTANCE_ID = 'inst-ene'
 
 // Type helper for tests
 interface TestableENERenderer extends RendererPluginWithHost {
@@ -35,9 +39,21 @@ function createTestENERenderState(overrides: Partial<ENERenderState> = {}): ENER
   }
 }
 
+/** 构造按 instanceId 命中返回实例投影的 PluginHost stub。 */
+function createENEHost(state?: ENERenderState): PluginHost {
+  return createMockServiceHost({
+    [INDICATOR_INSTANCE_STATE_SERVICE]: createMockStateReader(ENE_INSTANCE_ID, state),
+  })
+}
+
+/** 构造绑定固定实例身份的 ENE renderer。 */
+function createTestENERenderer(): TestableENERenderer {
+  return createENERendererPlugin({ instanceId: ENE_INSTANCE_ID }) as TestableENERenderer
+}
+
 describe('createENERendererPlugin', () => {
   it('should create a renderer plugin with correct metadata', () => {
-    const plugin = createENERendererPlugin() as TestableENERenderer
+    const plugin = createTestENERenderer()
 
     expect(plugin.name).toBe('ene')
     expect(plugin.version).toBe('2.1.0')
@@ -45,14 +61,14 @@ describe('createENERendererPlugin', () => {
   })
 
   it('should have onInstall method', () => {
-    const plugin = createENERendererPlugin() as TestableENERenderer
+    const plugin = createTestENERenderer()
     expect(typeof plugin.onInstall).toBe('function')
   })
 
-  it('should declare ENE_STATE_KEY namespace', () => {
-    const plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(createMockIndicatorHost({ indicatorName: 'ene', stateKey: ENE_STATE_KEY }))
-    expect(plugin.getDeclaredNamespaces()).toEqual([ENE_STATE_KEY])
+  it('should declare the bound instance namespace', () => {
+    const plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost())
+    expect(plugin.getDeclaredNamespaces()).toEqual([ENE_INSTANCE_ID])
   })
 })
 
@@ -64,14 +80,13 @@ describe('ENE renderer draw', () => {
     ctx = createMockCanvasContext()
   })
 
-  it('should not draw when StateStore has no ENE state', () => {
-    const mockHost = createMockIndicatorHost({ indicatorName: 'ene', stateKey: ENE_STATE_KEY })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+  it('should not draw when the instance projection is missing', () => {
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost())
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID),
     })
     plugin.draw(context)
 
@@ -84,17 +99,12 @@ describe('ENE renderer draw', () => {
       visibleMin: Infinity,
       visibleMax: -Infinity,
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -104,17 +114,12 @@ describe('ENE renderer draw', () => {
 
   it('should save and restore context', () => {
     const state = createTestENERenderState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -124,17 +129,12 @@ describe('ENE renderer draw', () => {
 
   it('should not draw band fill', () => {
     const state = createTestENERenderState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -144,17 +144,12 @@ describe('ENE renderer draw', () => {
 
   it('should draw all three lines (upper, middle, lower)', () => {
     const state = createTestENERenderState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -164,17 +159,12 @@ describe('ENE renderer draw', () => {
 
   it('should use correct line styles', () => {
     const state = createTestENERenderState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -185,17 +175,12 @@ describe('ENE renderer draw', () => {
 
   it('should use theme colors', () => {
     const state = createTestENERenderState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -209,18 +194,13 @@ describe('ENE renderer draw', () => {
         i < 9 ? undefined : { upper: 111, middle: 100, lower: 89 },
       ),
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    plugin = createENERendererPlugin() as TestableENERenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const context = createMockRenderContext({
       ctx,
       range: { start: 0, end: 15 },
-      indicatorStateReader: createMockStateReader(ENE_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
 
     expect(() => plugin.draw(context)).not.toThrow()
@@ -229,17 +209,12 @@ describe('ENE renderer draw', () => {
 })
 
 describe('ENE renderer config', () => {
-  it('getConfig should return current params from StateStore', () => {
+  it('getConfig should return current params from the instance projection', () => {
     const state = createTestENERenderState({
       params: { period: 15, deviation: 15 },
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state,
-    })
-    const plugin = createENERendererPlugin() as TestableENERenderer as TestableENERenderer
-    plugin.onInstall(mockHost)
+    const plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(state))
 
     const config = plugin.getConfig()
 
@@ -248,9 +223,8 @@ describe('ENE renderer config', () => {
   })
 
   it('getConfig should return empty object when no state', () => {
-    const mockHost = createMockIndicatorHost({ indicatorName: 'ene', stateKey: ENE_STATE_KEY })
-    const plugin = createENERendererPlugin() as TestableENERenderer as TestableENERenderer
-    plugin.onInstall(mockHost)
+    const plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost())
 
     const config = plugin.getConfig()
 
@@ -258,13 +232,8 @@ describe('ENE renderer config', () => {
   })
 
   it('setConfig should be a no-op', () => {
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'ene',
-      stateKey: ENE_STATE_KEY,
-      state: createTestENERenderState(),
-    })
-    const plugin = createENERendererPlugin() as TestableENERenderer as TestableENERenderer
-    plugin.onInstall(mockHost)
+    const plugin = createTestENERenderer()
+    plugin.onInstall(createENEHost(createTestENERenderState()))
 
     expect(() => plugin.setConfig({ period: 25 })).not.toThrow()
 

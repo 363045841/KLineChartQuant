@@ -15,7 +15,6 @@ import type { ChartDom } from '@/engine/chartTypes'
 import type { ChartDataManager, DataDependencies } from '@/engine/data/chartDataManager'
 import { createComparisonState } from '@/engine/state/comparisonState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
-import { createSignal } from '@/foundation/reactivity/signal'
 import type { TimeShareData } from '@/foundation/types/price'
 
 /** ViewportStateModule 替身入参。 */
@@ -104,10 +103,7 @@ export function createMockDataDependencies(
     comparison: createComparisonState(),
     scheduleDraw,
     resetInteraction: () => {},
-    getIndicatorScheduler: () => ({
-      update: () => true,
-      busySignal: createSignal(false),
-    }),
+    updateIndicatorData: () => {},
     isPointerDown: () => false,
     onTimeShareDataReady: () => {},
     setSymbols,

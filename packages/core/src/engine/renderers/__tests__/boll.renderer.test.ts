@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/state/bollState'
+import type { BOLLRenderState } from '@/core/indicators/state/bollState'
 import {
   createMockCanvasContext,
-  createMockIndicatorHost,
   createMockRenderContext,
+  createMockServiceHost,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { INDICATOR_INSTANCE_STATE_SERVICE } from '@/engine/indicators/instances/api/indicatorRenderBinding'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import { createBOLLRendererPlugin } from '../Indicator/boll'
 
@@ -17,6 +18,9 @@ if (typeof globalThis.Path2D === 'undefined') {
   }
   globalThis.Path2D = Path2DMock as unknown as typeof Path2D
 }
+
+/** 固定实例身份：renderer 只按 instanceId 寻址，不再依赖指标类型 state key。 */
+const BOLL_INSTANCE_ID = 'inst-boll'
 
 // Type helper for tests
 interface TestableBOLLRenderer extends RendererPluginWithHost {
@@ -46,9 +50,24 @@ function createTestBOLLState(overrides: Partial<BOLLRenderState> = {}): BOLLRend
   }
 }
 
+/** 构造按 instanceId 命中返回实例投影的 PluginHost stub。 */
+function createBOLLHost(state?: BOLLRenderState): PluginHost {
+  return createMockServiceHost({
+    [INDICATOR_INSTANCE_STATE_SERVICE]: createMockStateReader(BOLL_INSTANCE_ID, state),
+  })
+}
+
+/** 构造绑定固定实例身份的 BOLL renderer。 */
+function createTestBOLLRenderer(): TestableBOLLRenderer {
+  return createBOLLRendererPlugin({
+    paneId: 'main',
+    instanceId: BOLL_INSTANCE_ID,
+  }) as TestableBOLLRenderer
+}
+
 describe('createBOLLRendererPlugin', () => {
   it('should create a renderer plugin with correct metadata', () => {
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
+    const plugin = createTestBOLLRenderer()
 
     expect(plugin.name).toBe('boll')
     expect(plugin.version).toBe('2.2.0')
@@ -56,14 +75,14 @@ describe('createBOLLRendererPlugin', () => {
   })
 
   it('should have onInstall method', () => {
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
+    const plugin = createTestBOLLRenderer()
     expect(typeof plugin.onInstall).toBe('function')
   })
 
-  it('should declare BOLL_STATE_KEY namespace', () => {
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY }))
-    expect(plugin.getDeclaredNamespaces()).toEqual([BOLL_STATE_KEY])
+  it('should declare the bound instance namespace', () => {
+    const plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost())
+    expect(plugin.getDeclaredNamespaces()).toEqual([BOLL_INSTANCE_ID])
   })
 })
 
@@ -75,10 +94,9 @@ describe('BOLL renderer draw', () => {
     ctx = createMockCanvasContext()
   })
 
-  it('should not draw when StateStore has no BOLL state', () => {
-    const mockHost = createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY })
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+  it('should not draw when the instance projection is missing', () => {
+    plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost())
 
     const context = createMockRenderContext({ ctx })
     plugin.draw(context)
@@ -93,17 +111,12 @@ describe('BOLL renderer draw', () => {
       visibleMin: Infinity,
       visibleMax: -Infinity,
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state,
-    })
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(BOLL_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -113,21 +126,17 @@ describe('BOLL renderer draw', () => {
 
   it('should save and restore context', () => {
     const state = createTestBOLLState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state,
-    })
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
+    const mockHost = createBOLLHost(state)
+    plugin = createTestBOLLRenderer()
     plugin.onInstall(mockHost)
 
-    const reader = createMockStateReader(BOLL_STATE_KEY, state)
+    const reader = createMockStateReader(BOLL_INSTANCE_ID, state)
     const context = createMockRenderContext({ ctx, indicatorStateReader: reader })
     plugin.draw(context)
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
-    expect(reader.get).toHaveBeenCalledWith(BOLL_STATE_KEY)
+    expect(reader.get).toHaveBeenCalledWith(BOLL_INSTANCE_ID)
     expect(mockHost.getSharedState).not.toHaveBeenCalled()
   })
 
@@ -135,17 +144,12 @@ describe('BOLL renderer draw', () => {
     const state = createTestBOLLState({
       params: { ...createTestBOLLState().params, showUpper: true },
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state,
-    })
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(BOLL_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -155,17 +159,12 @@ describe('BOLL renderer draw', () => {
 
   it('should use correct colors for BOLL lines', () => {
     const state = createTestBOLLState()
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state,
-    })
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost(state))
 
     const context = createMockRenderContext({
       ctx,
-      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(BOLL_INSTANCE_ID, state),
     })
     plugin.draw(context)
 
@@ -179,18 +178,13 @@ describe('BOLL renderer draw', () => {
         i < 19 ? undefined : { upper: 110, middle: 100, lower: 90 },
       ),
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state,
-    })
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost(state))
 
     const context = createMockRenderContext({
       ctx,
       range: { start: 0, end: 25 },
-      indicatorStateReader: createMockStateReader(BOLL_STATE_KEY, state),
+      indicatorStateReader: createMockStateReader(BOLL_INSTANCE_ID, state),
     })
 
     expect(() => plugin.draw(context)).not.toThrow()
@@ -198,7 +192,7 @@ describe('BOLL renderer draw', () => {
 })
 
 describe('BOLL renderer config', () => {
-  it('getConfig should return current params from StateStore', () => {
+  it('getConfig should return current params from the instance projection', () => {
     const state = createTestBOLLState({
       params: {
         period: 25,
@@ -208,13 +202,8 @@ describe('BOLL renderer config', () => {
         showLower: false,
       },
     })
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state,
-    })
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    const plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost(state))
 
     const config = plugin.getConfig()
 
@@ -224,9 +213,8 @@ describe('BOLL renderer config', () => {
   })
 
   it('getConfig should return empty object when no state', () => {
-    const mockHost = createMockIndicatorHost({ indicatorName: 'boll', stateKey: BOLL_STATE_KEY })
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    const plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost())
 
     const config = plugin.getConfig()
 
@@ -234,18 +222,13 @@ describe('BOLL renderer config', () => {
   })
 
   it('setConfig should be a no-op', () => {
-    const mockHost = createMockIndicatorHost({
-      indicatorName: 'boll',
-      stateKey: BOLL_STATE_KEY,
-      state: createTestBOLLState(),
-    })
-    const plugin = createBOLLRendererPlugin() as TestableBOLLRenderer as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
+    const plugin = createTestBOLLRenderer()
+    plugin.onInstall(createBOLLHost(createTestBOLLState()))
 
     // setConfig should not throw
     expect(() => plugin.setConfig({ period: 50 })).not.toThrow()
 
-    // Config should still come from StateStore, not the setConfig call
+    // Config should still come from the instance projection, not the setConfig call
     const config = plugin.getConfig()
     expect(config.period).toBe(20) // Original value from state
   })

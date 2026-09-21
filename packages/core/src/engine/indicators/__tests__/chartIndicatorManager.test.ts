@@ -1,118 +1,100 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+/**
+ * ChartIndicatorManager 测试：实例 CRUD、主图增删改、副图 pane 联动、读者寻址与主图价格范围。
+ */
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { RendererPlugin, RendererPluginWithHost } from '../../../foundation/plugin'
 import { createPluginHost } from '../../../foundation/plugin/PluginHost'
 import { createSignal } from '../../../foundation/reactivity/signal'
-import type { VisibleRange } from '../../layout/pane'
-import { UpdateLevel } from '../../layout/pane'
-import { createIndicatorResultState } from '../../state/indicatorResultState'
+import type { PaneSpec } from '../../chartTypes'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { loadBuiltinIndicators } from '../registerBuiltins'
+import { createTestData } from './helpers/instanceTestKit'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
 })
 
+/** 构造满足 IndicatorDependencies 的最小依赖，并暴露可断言的 renderer 记录。 */
 function createMockDeps() {
-  const rendererMap = new Map<string, any>()
-  const useRenderer = vi.fn((plugin: any, _config?: any) => {
-    if (plugin?.name) rendererMap.set(plugin.name, plugin)
+  const renderers = new Map<string, RendererPluginWithHost>()
+  const paneRatios$ = createSignal<Readonly<Record<string, number>>>({})
+  const paneSpecs$ = createSignal<ReadonlyArray<PaneSpec>>([])
+  const indicator = createIndicatorState()
+  const useRenderer = vi.fn((plugin: RendererPlugin | RendererPluginWithHost) => {
+    renderers.set(plugin.name, plugin)
   })
-  const paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
-  const paneSpecsSignal = createSignal<ReadonlyArray<any>>([])
-  const indicatorState = createIndicatorState()
-  const indicatorResultState = createIndicatorResultState()
-  const createSubPane = vi.fn((entry) => indicatorState.actions.upsertSub(entry))
+  const subPaneOps: IndicatorDependencies['subPaneOps'] = {
+    create: (entry) => indicator.actions.upsertSub(entry),
+    remove: (paneId) => indicator.actions.removeSub(paneId),
+    replace: (paneId, indicatorId, params) =>
+      indicator.actions.replaceSub({ paneId, indicatorId, params }),
+    setParams: (paneId, params) => indicator.actions.setSubParams(paneId, params),
+    clear: () => indicator.actions.clearSub(),
+  }
 
-  return {
-    rendererMap,
+  const deps = {
     getOption: () => ({
+      yPaddingPx: 4,
       rightAxisWidth: 60,
       leftAxisWidth: 60,
-      priceLabelWidth: 60,
-      yPaddingPx: 4,
-      paneGap: 1,
-      defaultPaneMinHeightPx: 40,
-      panes: [],
       bottomAxisHeight: 20,
-      kWidth: 8,
-      kGap: 2,
       minKWidth: 4,
       maxKWidth: 16,
+      panes: [] as PaneSpec[],
+      kWidth: 8,
+      kGap: 2,
     }),
     getPluginHost: () => createPluginHost(),
-    getRenderer: vi.fn((name: string) => rendererMap.get(name)),
+    getRenderer: () => undefined,
     useRenderer,
-    removeRenderer: vi.fn((name: string) => {
-      rendererMap.delete(name)
-    }),
-    updateRendererConfig: vi.fn((name: string, config: Record<string, unknown>) => {
-      rendererMap.get(name)?.setConfig?.(config)
-    }),
-    setRendererEnabled: vi.fn(),
-    hasPane: vi.fn(() => false),
-    upsertPane: vi.fn(),
-    removePaneDefinition: vi.fn(),
-    getPaneSpecs: vi.fn(() => []),
-    paneRatios$: paneRatiosSignal,
-    paneSpecs$: paneSpecsSignal,
-    getInternalPaneRatios: vi.fn(() => new Map()),
-    setInternalPaneRatio: vi.fn(),
-    deleteInternalPaneRatio: vi.fn(),
-    applyPaneLayoutSpecs: vi.fn(),
-    getLastVisibleRange: vi.fn(() => ({ start: 0, end: 0 }) as VisibleRange),
-    getCrosshairPos: vi.fn(() => null),
-    getCrosshairPrice: vi.fn(() => null),
-    getActivePaneId: vi.fn(() => null),
-    scheduleDraw: vi.fn(),
-    getRenderContext: vi.fn(() => null),
-    addLayer: vi.fn(),
-    removeLayer: vi.fn(() => false),
-    getLayer: vi.fn(() => null),
-    setLayerVisibility: vi.fn(),
-    indicator: indicatorState,
-    indicatorResult: indicatorResultState,
-    subPaneOps: {
-      create: createSubPane,
-      remove: vi.fn((paneId) => indicatorState.actions.removeSub(paneId)),
-      replace: vi.fn((paneId, indicatorId, params) =>
-        indicatorState.actions.replaceSub({ paneId, indicatorId, params }),
-      ),
-      setParams: vi.fn((paneId, params) => indicatorState.actions.setSubParams(paneId, params)),
-      clear: vi.fn(() => indicatorState.actions.clearSub()),
+    removeRenderer: (name: string) => {
+      renderers.delete(name)
     },
+    updateRendererConfig: vi.fn((_name: string, _config: Record<string, unknown>) => {}),
+    paneRatios$,
+    paneSpecs$,
     projectPaneLayout: vi.fn(),
-    runRendererTransaction: (run) => run(),
-    getIndicatorScheduler: vi.fn(),
-  } as IndicatorDependencies & {
-    rendererMap: Map<string, any>
-    useRenderer: typeof useRenderer
-    subPaneOps: IndicatorDependencies['subPaneOps'] & { create: typeof createSubPane }
-  }
+    getLastVisibleRange: () => ({ start: 0, end: 0 }),
+    getCrosshairPos: () => null,
+    getCrosshairPrice: () => null,
+    getActivePaneId: () => null,
+    scheduleDraw: vi.fn(),
+    getRenderContext: () => null,
+    getLayer: () => null,
+    indicator,
+    subPaneOps,
+    runRendererTransaction: (run: () => void) => run(),
+  } satisfies IndicatorDependencies
+
+  return { deps, renderers, useRenderer, indicator }
 }
 
 describe('ChartIndicatorManager', () => {
   let manager: ChartIndicatorManager
-  let deps: ReturnType<typeof createMockDeps>
+  let harness: ReturnType<typeof createMockDeps>
+  let deps: IndicatorDependencies
 
   beforeEach(() => {
-    deps = createMockDeps()
+    harness = createMockDeps()
+    deps = harness.deps
     manager = new ChartIndicatorManager(deps)
     manager.start()
     vi.clearAllMocks()
   })
 
-  describe('updateMainIndicatorParams', () => {
-    it('should call renderer setConfig with merged params', () => {
-      manager.enableMainIndicator('MA')
+  afterEach(() => {
+    manager.destroy()
+  })
 
-      const maRenderer = deps.rendererMap.get('ma')
-      const setConfigSpy = vi.spyOn(maRenderer, 'setConfig')
+  describe('main indicator params', () => {
+    it('更新主图参数时以合并后的完整参数配置渲染器', () => {
+      manager.enableMainIndicator('MA')
 
       manager.updateMainIndicatorParams('MA', { ma5: false })
 
-      expect(setConfigSpy).toHaveBeenCalledTimes(1)
-      expect(setConfigSpy).toHaveBeenCalledWith({
+      expect(deps.updateRendererConfig).toHaveBeenCalledWith('ma', {
         ma5: false,
         ma10: true,
         ma20: true,
@@ -121,16 +103,24 @@ describe('ChartIndicatorManager', () => {
       })
     })
 
-    it('should merge params instead of replacing', () => {
+    it('参数按合并而非替换写回，并且读取返回副本', () => {
       manager.enableMainIndicator('MA')
 
       manager.updateMainIndicatorParams('MA', { ma5: false })
 
-      const params = manager.getMainIndicatorParams('MA')
-      expect(params).toEqual({ ma5: false, ma10: true, ma20: true, ma30: true, ma60: true })
+      expect(manager.getMainIndicatorParams('MA')).toEqual({
+        ma5: false,
+        ma10: true,
+        ma20: true,
+        ma30: true,
+        ma60: true,
+      })
+      const params = manager.getMainIndicatorParams('MA')!
+      params.ma5 = true
+      expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(false)
     })
 
-    it('should schedule a redraw after params update', () => {
+    it('参数更新触发一次重绘', () => {
       manager.enableMainIndicator('MA')
       vi.clearAllMocks()
 
@@ -139,30 +129,35 @@ describe('ChartIndicatorManager', () => {
       expect(deps.scheduleDraw).toHaveBeenCalledTimes(1)
     })
 
-    it('should be no-op when indicator is not active', () => {
+    it('未启用时参数更新为空操作', () => {
       manager.updateMainIndicatorParams('MA', { ma5: false })
 
       expect(deps.scheduleDraw).not.toHaveBeenCalled()
       expect(manager.getMainIndicatorParams('MA')).toBeNull()
     })
+  })
 
-    it('getMainIndicatorParams returns a copy', () => {
+  describe('主图实例增删', () => {
+    it('重复启用只注册一次 renderer 资源', () => {
+      expect(manager.enableMainIndicator('MA')).toBe(true)
+      expect(manager.enableMainIndicator('MA')).toBe(true)
+
+      expect(harness.useRenderer).toHaveBeenCalledTimes(2)
+      expect(manager.isMainIndicatorActive('MA')).toBe(true)
+      expect(manager.getActiveMainIndicators()).toEqual(['MA'])
+    })
+
+    it('禁用主图指标后不再处于启用状态', () => {
       manager.enableMainIndicator('MA')
-      const params = manager.getMainIndicatorParams('MA')!
-      params.ma5 = false
-      expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(true)
+
+      expect(manager.disableMainIndicator('MA')).toBe(true)
+      expect(manager.isMainIndicatorActive('MA')).toBe(false)
+      expect(manager.disableMainIndicator('MA')).toBe(false)
     })
   })
 
-  describe('state-driven projection', () => {
-    it('starts runtime projection only once', () => {
-      manager.start()
-      manager.enableMainIndicator('MA')
-
-      expect(deps.useRenderer).toHaveBeenCalledTimes(2)
-    })
-
-    it('separates sub-indicator instance identity from pane identity and capability', () => {
+  describe('副图实例 CRUD', () => {
+    it('为副图指标生成独立实例身份并支持增改删', () => {
       const instanceId = manager.addIndicator('VOL', 'sub')
       expect(instanceId).not.toBeNull()
 
@@ -177,30 +172,55 @@ describe('ChartIndicatorManager', () => {
       expect(manager.getSubPaneEntries()).toEqual([])
     })
 
-    it('registers main indicator resources once across duplicate enable calls', () => {
-      expect(manager.enableMainIndicator('MA')).toBe(true)
-      expect(manager.enableMainIndicator('MA')).toBe(true)
+    it('未知实例的改动操作返回 false', () => {
+      expect(manager.updateIndicatorParams('missing', { opacity: 0.5 })).toBe(false)
+      expect(manager.removeIndicator('missing')).toBe(false)
+    })
+  })
 
-      expect(deps.useRenderer).toHaveBeenCalledTimes(2)
-      expect(manager.isMainIndicatorActive('MA')).toBe(true)
+  describe('实例结果投影', () => {
+    it('按 instanceId 提供计算结果并计算主图价格范围', async () => {
+      manager.enableMainIndicator('MA')
+      const data = createTestData(80)
+
+      manager.updateIndicatorData(data, { start: 0, end: data.length })
+
+      await vi.waitFor(() => {
+        expect(manager.createRenderStateReader().get('main:MA')).toBeDefined()
+      })
+      const reader = manager.createRenderStateReader()
+      const state = reader.get<{ visibleMin: number; visibleMax: number }>('main:MA')!
+      expect(state.visibleMin).toBeLessThan(state.visibleMax)
+      expect(reader.get('unknown-instance')).toBeUndefined()
+
+      const range = manager.getMainIndicatorPriceRange()
+      expect(range).not.toBeNull()
+      expect(range!.min).toBeLessThan(range!.max)
     })
 
-    it('projects distinct non-finite main-indicator parameter values', () => {
-      manager.enableMainIndicator('MA', { threshold: Number.NaN })
+    it('可见区间变化只重建投影且不触发新帧', async () => {
+      manager.enableMainIndicator('MA')
+      const data = createTestData(80)
+      manager.updateIndicatorData(data, { start: 0, end: data.length })
+      await vi.waitFor(() => {
+        expect(manager.createRenderStateReader().get('main:MA')).toBeDefined()
+      })
       vi.clearAllMocks()
 
-      manager.updateMainIndicatorParams('MA', { threshold: Number.POSITIVE_INFINITY })
-
-      expect(deps.updateRendererConfig).toHaveBeenCalled()
+      expect(manager.updateVisibleRangeForFrame({ start: 10, end: 30 })).toBe(true)
+      expect(deps.scheduleDraw).not.toHaveBeenCalled()
+      expect(manager.updateVisibleRangeForFrame({ start: 10, end: 30 })).toBe(false)
     })
+  })
 
-    it('stops projection before runtime resources are destroyed', () => {
+  describe('生命周期', () => {
+    it('销毁后停止状态投影', () => {
       manager.destroy()
       vi.clearAllMocks()
 
-      deps.indicator.actions.upsertMain('MA', { ma5: true })
+      harness.indicator.actions.upsertMain('MA', { ma5: true })
 
-      expect(deps.useRenderer).not.toHaveBeenCalled()
+      expect(harness.useRenderer).not.toHaveBeenCalled()
       expect(deps.scheduleDraw).not.toHaveBeenCalled()
     })
   })
