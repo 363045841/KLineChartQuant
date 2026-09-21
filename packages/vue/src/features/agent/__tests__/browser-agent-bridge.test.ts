@@ -243,8 +243,8 @@ describe('BrowserAgentBridge', () => {
       },
     ])
     const storedProfiles = JSON.parse(
-      window.localStorage.getItem('agent.provider.profiles')!,
-    ) as Array<{
+      window.localStorage.getItem('agent.model-settings')!,
+    ).profiles as Array<{
       settings?: Record<string, unknown>
     }>
     expect(storedProfiles[0]!.settings).toBeUndefined()
