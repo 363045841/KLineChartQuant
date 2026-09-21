@@ -17,8 +17,8 @@ export interface Persistence<T> {
   load(): T | null
   /** 立即写入 value，并取消尚未完成的延迟写入。 */
   save(value: T): boolean
-  /** 将 value 作为最新快照安排为延迟写入。 */
-  schedule(value: T): void
+  /** 安排一次延迟写入；实际写入时才调用 createValue 取值。 */
+  schedule(createValue: () => T): void
   /** 立即提交最新的待写快照；没有待写快照时返回 true。 */
   flush(): boolean
   /** 删除该 key 的值，并取消尚未完成的延迟写入。 */
@@ -64,7 +64,7 @@ export function createLocalStoragePersistence<T>(
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
   const flushOnPageHide = options.flushOnPageHide ?? true
   let timer: ReturnType<typeof setTimeout> | null = null
-  let pending: { readonly value: T } | null = null
+  let pending: { readonly createValue: () => T } | null = null
   let disposed = false
 
   function cancelScheduledWrite(): void {
@@ -89,7 +89,7 @@ export function createLocalStoragePersistence<T>(
     if (!pending) return true
     const next = pending
     pending = null
-    return write(next.value)
+    return write(next.createValue())
   }
 
   function onPageHide(): void {
@@ -116,9 +116,9 @@ export function createLocalStoragePersistence<T>(
       pending = null
       return write(value)
     },
-    schedule(value: T): void {
+    schedule(createValue: () => T): void {
       if (disposed || !storage) return
-      pending = { value }
+      pending = { createValue }
       cancelScheduledWrite()
       timer = setTimeout(flush, debounceMs)
     },
