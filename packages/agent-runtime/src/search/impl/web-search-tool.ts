@@ -1,8 +1,8 @@
 // 本文件将网络搜索供应商适配为 Pi Agent 可调用的只读工具。
 import { type Static, Type } from 'typebox'
 
-import type { RuntimeToolDefinition } from '../pi/types.js'
-import type { WebSearchProvider } from './types.js'
+import type { RuntimeToolDefinition } from '../../pi/types.js'
+import type { WebSearchProvider } from '../types.js'
 import { formatWebSearchResult } from './web-search-formatter.js'
 
 export const WEB_SEARCH_TOOL_NAME = 'web_search'

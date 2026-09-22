@@ -1,5 +1,5 @@
 // 本文件将 Exa Search API 响应转换为运行时统一的网络搜索来源。
-import type { WebSearchProvider, WebSearchRequest, WebSearchSource } from './types.js'
+import type { WebSearchProvider, WebSearchRequest, WebSearchSource } from '../types.js'
 
 const EXA_SEARCH_URL = 'https://api.exa.ai/search'
 

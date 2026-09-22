@@ -1,9 +1,9 @@
 // 验证网络搜索供应商适配与运行时工具的标准契约。
 import { describe, expect, it, vi } from 'vitest'
 
-import { createExaWebSearchProvider } from '../search/exa.js'
-import { createWebSearchTool } from '../search/web-search-tool.js'
-import { RuntimeToolCatalog } from '../tools/runtime-tool-registry.js'
+import { RuntimeToolCatalog } from '../../tools/runtime-tool-registry.js'
+import { createExaWebSearchProvider } from '../impl/exa-web-search-provider.js'
+import { createWebSearchTool } from '../impl/web-search-tool.js'
 
 describe('web search', () => {
   it('maps an Exa response to standard sources', async () => {

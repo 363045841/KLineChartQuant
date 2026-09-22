@@ -1,8 +1,8 @@
 // 本文件将网络搜索结果转换为模型可引用的文本与结构化来源。
 
-import { formatAgentCitation, type SourceCitation } from '../contracts/ui.js'
+import { formatAgentCitation, type SourceCitation } from '../../contracts/ui.js'
 
-import type { WebSearchSource } from './types.js'
+import type { WebSearchSource } from '../types.js'
 
 /** 判断搜索来源是否可安全作为浏览器外链打开。 */
 function isHttpUrl(value: string): boolean {
