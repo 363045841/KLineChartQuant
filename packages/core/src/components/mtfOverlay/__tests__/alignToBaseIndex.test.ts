@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { alignToBaseIndex } from '../alignToBaseIndex'
+import { alignToBaseIndex } from '../impl/alignToBaseIndex'
 
 const HOUR = 60 * 60_000
 const MIN_5 = 5 * 60_000

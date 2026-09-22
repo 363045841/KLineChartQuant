@@ -182,3 +182,9 @@ export interface AnchoredVwapController {
    */
   dispose(): void
 }
+
+/** `createAnchoredVwapController` 的可选初始化参数。 */
+export interface AnchoredVwapControllerInit {
+  /** 预置的 bar 序列；省略时从空序列开始。 */
+  initialBars?: ReadonlyArray<AVWAPBar>
+}

@@ -143,3 +143,11 @@ export interface MtfController {
   /** Tear down. After this, all mutators are no-ops; the signal stops. */
   dispose(): void
 }
+
+/** `createMtfController` 的可选初始化参数。 */
+export interface CreateMtfControllerInit {
+  /** 预置的 base bar 序列；省略时从空序列开始。 */
+  initialBars?: ReadonlyArray<BaseBar>
+  /** base timeframe 的毫秒宽度；省略时在 `setData` 时提供。 */
+  baseIntervalMs?: number
+}

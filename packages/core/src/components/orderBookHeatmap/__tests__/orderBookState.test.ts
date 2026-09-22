@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createOrderBookState } from '../createOrderBookState'
+import { createOrderBookState } from '../impl/createOrderBookState'
 import { createOrderBookDelta } from './helpers/createOrderBookDelta'
 
 describe('createOrderBookState', () => {

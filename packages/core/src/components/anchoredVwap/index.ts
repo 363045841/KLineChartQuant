@@ -6,8 +6,8 @@
  * import line.
  */
 
-export { computeAnchoredVwap } from './computeAnchoredVwap.js'
-export { createAnchoredVwapController } from './createAnchoredVwapController.js'
+export { computeAnchoredVwap } from './impl/computeAnchoredVwap.js'
+export { createAnchoredVwapController } from './impl/createAnchoredVwapController.js'
 export type {
   ActiveAnchor,
   AnchorDefinition,

@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { isKLineChartError } from '../../../errors'
-import { computeAnchoredVwap } from '../computeAnchoredVwap'
+import { computeAnchoredVwap } from '../impl/computeAnchoredVwap'
 import type { AVWAPBar } from '../types'
 import { createAvwapBar } from './helpers/createAvwapBar'
 

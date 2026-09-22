@@ -21,16 +21,16 @@
  *   `appendBar incrementally matches full recompute` pins this.
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
-
-import { computeAnchoredVwap } from './computeAnchoredVwap.js'
+import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
 import type {
   ActiveAnchor,
   AnchorDefinition,
   AnchoredVwapController,
+  AnchoredVwapControllerInit,
   AVWAPBar,
   AVWAPPoint,
-} from './types.js'
+} from '../types.js'
+import { computeAnchoredVwap } from './computeAnchoredVwap.js'
 
 // ---------------------------------------------------------------------------
 // Internal state per anchor
@@ -51,10 +51,6 @@ interface AnchorState {
   // The series produced so far. Each `appendBar` pushes one new point.
   // Held mutable internally; surfaced as ReadonlyArray.
   series: AVWAPPoint[]
-}
-
-export interface AnchoredVwapControllerInit {
-  initialBars?: ReadonlyArray<AVWAPBar>
 }
 
 export function createAnchoredVwapController(

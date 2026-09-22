@@ -2,7 +2,7 @@
  * orderBookHeatmap 控制器测试夹具。
  */
 
-import { createHeatmapController } from '../../createHeatmapController'
+import { createHeatmapController } from '../../impl/createHeatmapController'
 import type { HeatmapController, HeatmapControllerConfig } from '../../types'
 
 /** 测试默认配置：小容量 ring / archive，便于断言。 */

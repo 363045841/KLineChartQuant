@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { findPOCIndex } from '../poc'
+import { findPOCIndex } from '../impl/poc'
 
 function f(arr: number[]): Float64Array {
   return Float64Array.from(arr)

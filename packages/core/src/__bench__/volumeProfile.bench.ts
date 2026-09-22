@@ -12,7 +12,7 @@
 
 import { describe, test } from 'vitest'
 
-import { binBarToBuckets } from '../components/volumeProfile/binning'
+import { binBarToBuckets } from '../components/volumeProfile/impl/binning'
 
 // Realistic OHLCV stream: random walk around 100, ATR ≈ 2.
 function makeBars(n: number): Array<{ high: number; low: number; close: number; volume: number }> {

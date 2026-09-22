@@ -15,9 +15,9 @@
  * for how this controller fits the seven-module core layering.
  *
  * Cross-references:
- *   - `aggressor.ts`   — buy/sell classification (explicit, tick rule, Lee-Ready)
- *   - `perBarStats.ts` — delta, cumulative delta, diagonal imbalance
- *   - `createFootprintController.ts` — streaming controller (Signal<bars>)
+ *   - `impl/aggressor.ts`   — buy/sell classification (explicit, tick rule, Lee-Ready)
+ *   - `impl/perBarStats.ts` — delta, cumulative delta, diagonal imbalance
+ *   - `impl/createFootprintController.ts` — streaming controller (Signal<bars>)
  */
 
 import type { Signal } from '../../foundation/reactivity/index.js'
@@ -55,6 +55,35 @@ export interface AggressorWithConfidence {
   side: AggressorSide
   inferred: boolean
 }
+
+/**
+ * 分类器的输出。
+ *
+ * `side` 为 `'unknown'` 仅表示确实没有可判断的依据（例如 tick rule 序列的第一笔）；
+ * controller 应把 `'unknown'` 视为“丢弃该笔成交”，不能默认成 'buy' 或 'sell'。
+ *
+ * `inferred=false` 表示 side 来自交易所标志（零误差）；
+ * `inferred=true` 表示来自启发式估计，下游 UI 应标注为近似。
+ */
+export interface AggressorResult {
+  side: AggressorSide | 'unknown'
+  inferred: boolean
+}
+
+/**
+ * tick rule 在连续成交间携带的状态。分类器会**原地修改**它，
+ * 因此每条流（多品种时每品种）应各自持有一份实例。
+ */
+export interface TickRuleState {
+  prevPrice: number | null
+  prevSide: AggressorSide | null
+}
+
+/**
+ * Lee-Ready 复用 tick rule 的状态字段——两种启发式共用一个状态记录，
+ * 因为 Lee-Ready 命中中间价时会回退到 tick rule。
+ */
+export interface LeeReadyState extends TickRuleState {}
 
 // ---------------------------------------------------------------------------
 // Trade inputs

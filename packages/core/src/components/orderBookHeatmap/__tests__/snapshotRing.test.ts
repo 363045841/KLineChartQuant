@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createSnapshotRing } from '../snapshotRing'
+import { createSnapshotRing } from '../impl/snapshotRing'
 import type { BookSnapshot } from '../types'
 
 function makeSnap(ts: number): BookSnapshot {

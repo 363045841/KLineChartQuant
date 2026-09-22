@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { binBarToBuckets } from '../binning'
+import { binBarToBuckets } from '../impl/binning'
 import type { VolumeProfileBar } from '../types'
 
 function makeBuckets(n: number): Float64Array {

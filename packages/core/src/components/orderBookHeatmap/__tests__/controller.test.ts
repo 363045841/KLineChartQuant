@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { createHeatmapController } from '../createHeatmapController'
-import { createOrderBookState } from '../createOrderBookState'
+import { createHeatmapController } from '../impl/createHeatmapController'
+import { createOrderBookState } from '../impl/createOrderBookState'
 import type { BookSnapshot, OrderBookDelta } from '../types'
 import { createOrderBookDelta } from './helpers/createOrderBookDelta'
 import { createTestHeatmapController } from './helpers/createTestHeatmapController'

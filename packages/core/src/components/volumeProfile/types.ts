@@ -146,3 +146,9 @@ export interface ValueAreaResult {
   /** `vaVolume / totalVolume`. 0 when `totalVolume` is 0. */
   vaPercent: number
 }
+
+/** `createVolumeProfileController` 的可选初始化参数。 */
+export interface VolumeProfileControllerInit {
+  /** 覆盖默认配置的字段。 */
+  config?: Partial<VolumeProfileConfig>
+}

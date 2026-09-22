@@ -13,12 +13,13 @@
  * resampled bars and returns one number per bar.
  */
 
-export { alignToBaseIndex } from './alignToBaseIndex.js'
-export { type CreateMtfControllerInit, createMtfController } from './createMtfController.js'
-export { resampleBars } from './resampleBars.js'
+export { alignToBaseIndex } from './impl/alignToBaseIndex.js'
+export { createMtfController } from './impl/createMtfController.js'
+export { resampleBars } from './impl/resampleBars.js'
 export type {
   ActiveMtfSeries,
   BaseBar,
+  CreateMtfControllerInit,
   MtfController,
   MtfSeriesDefinition,
   ResampledBar,

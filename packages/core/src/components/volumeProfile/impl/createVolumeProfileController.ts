@@ -24,16 +24,16 @@
  *     adequate for visual profiles; tick-snapped binning is a future option.
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
-
-import { binBarToBuckets } from './binning.js'
-import { findPOCIndex } from './poc.js'
+import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
 import type {
   VolumeProfileBar,
   VolumeProfileConfig,
   VolumeProfileController,
+  VolumeProfileControllerInit,
   VolumeProfileState,
-} from './types.js'
+} from '../types.js'
+import { binBarToBuckets } from './binning.js'
+import { findPOCIndex } from './poc.js'
 import { computeValueArea } from './valueArea.js'
 
 const DEFAULT_CONFIG: VolumeProfileConfig = {
@@ -46,10 +46,6 @@ const DEFAULT_CONFIG: VolumeProfileConfig = {
 // input from producing a division-by-zero. The value is arbitrary but small
 // enough that real markets never hit it.
 const MIN_BIN_SIZE = 1e-12
-
-export interface VolumeProfileControllerInit {
-  config?: Partial<VolumeProfileConfig>
-}
 
 export function createVolumeProfileController(
   init?: VolumeProfileControllerInit,

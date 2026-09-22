@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { resampleBars } from '../resampleBars'
+import { resampleBars } from '../impl/resampleBars'
 import type { BaseBar } from '../types'
 import { createBaseBar } from './helpers/createBaseBar'
 

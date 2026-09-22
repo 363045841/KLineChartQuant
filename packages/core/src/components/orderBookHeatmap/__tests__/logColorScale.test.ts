@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createLogColorScale } from '../logColorScale'
+import { createLogColorScale } from '../impl/logColorScale'
 
 describe('createLogColorScale', () => {
   it('maps size = 0 to intensity 0', () => {

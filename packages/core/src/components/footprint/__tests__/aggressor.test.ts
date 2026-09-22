@@ -7,13 +7,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import {
-  classifyExplicit,
-  classifyLeeReady,
-  classifyTickRule,
-  type LeeReadyState,
-  type TickRuleState,
-} from '../aggressor'
+import { classifyExplicit, classifyLeeReady, classifyTickRule } from '../impl/aggressor'
+import type { LeeReadyState, TickRuleState } from '../types'
 
 const trade = (
   price: number,

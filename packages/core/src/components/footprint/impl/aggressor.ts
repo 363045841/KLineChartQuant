@@ -16,25 +16,14 @@
  * always explicit > Lee-Ready > tick rule.
  */
 
-import type { AggressorSide, Trade, TradeWithFlag } from './types.js'
-
-/**
- * Output of every classifier.
- *
- * `side` is `'unknown'` only when there is genuinely no information to act
- * on (e.g. the first trade in a tick-rule sequence). The controller should
- * treat `'unknown'` as "drop this trade from the aggregate", NOT as a
- * silent default to 'buy' or 'sell'.
- *
- * `inferred=false` means the side came from an exchange flag (zero error).
- * `inferred=true` means it was estimated; downstream UI should mark such
- * bars as approximate.
- */
-export type { AggressorSide, Trade, TradeWithFlag }
-export interface AggressorResult {
-  side: AggressorSide | 'unknown'
-  inferred: boolean
-}
+import type {
+  AggressorResult,
+  AggressorSide,
+  LeeReadyState,
+  TickRuleState,
+  Trade,
+  TradeWithFlag,
+} from '../types.js'
 
 // ---------------------------------------------------------------------------
 // 1. Explicit (exchange-provided flag)
@@ -61,16 +50,6 @@ export function classifyExplicit(trade: TradeWithFlag): AggressorResult | null {
 // ---------------------------------------------------------------------------
 // 2. Tick rule
 // ---------------------------------------------------------------------------
-
-/**
- * State carried across consecutive trades for the tick rule. The classifier
- * MUTATES this in place — callers should keep one instance per stream
- * (per-symbol if multiplexing).
- */
-export interface TickRuleState {
-  prevPrice: number | null
-  prevSide: AggressorSide | null
-}
 
 /**
  * Classic tick test (Lee & Ready 1991 §2):
@@ -109,13 +88,6 @@ export function classifyTickRule(state: TickRuleState, trade: Trade): AggressorR
 // ---------------------------------------------------------------------------
 // 3. Lee-Ready (quote-rule with tick-rule tiebreak)
 // ---------------------------------------------------------------------------
-
-/**
- * Lee-Ready uses the same carry-over fields as the tick rule — the two
- * heuristics can share a single state record because Lee-Ready falls back
- * to the tick rule on a quote-mid hit.
- */
-export interface LeeReadyState extends TickRuleState {}
 
 /**
  * Lee-Ready (1991) quote test:

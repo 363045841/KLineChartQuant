@@ -14,14 +14,14 @@
  * is purely a snapshot-time concern.
  */
 
-import { KLineChartError } from '../../errors.js'
+import { KLineChartError } from '../../../errors.js'
 
 import type {
   BookSnapshot,
   OrderBookDelta,
   OrderBookState,
   OrderBookStateOptions,
-} from './types.js'
+} from '../types.js'
 
 const EMPTY: ReadonlyArray<readonly [number, number]> = []
 

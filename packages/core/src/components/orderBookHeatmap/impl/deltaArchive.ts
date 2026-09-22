@@ -21,7 +21,7 @@
  * by the chunk index alone.
  */
 
-import type { DeltaArchive, DeltaArchiveOptions, OrderBookDelta } from './types.js'
+import type { DeltaArchive, DeltaArchiveOptions, OrderBookDelta } from '../types.js'
 
 const CHUNK_SIZE = 10_000
 

@@ -5,7 +5,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { createFootprintController } from '../createFootprintController'
+import { createFootprintController } from '../impl/createFootprintController'
 import type { FootprintConfig, FootprintController } from '../types'
 
 const baseConfig: FootprintConfig = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createDeltaArchive } from '../deltaArchive'
+import { createDeltaArchive } from '../impl/deltaArchive'
 import { createOrderBookDelta } from './helpers/createOrderBookDelta'
 
 describe('createDeltaArchive', () => {

@@ -5,11 +5,11 @@
  * `packages/core/src/index.ts` yet (the renderer integration lands in P1).
  */
 
-export { createHeatmapController } from './createHeatmapController.js'
-export { createOrderBookState } from './createOrderBookState.js'
-export { createDeltaArchive } from './deltaArchive.js'
-export { createLogColorScale } from './logColorScale.js'
-export { createSnapshotRing } from './snapshotRing.js'
+export { createHeatmapController } from './impl/createHeatmapController.js'
+export { createOrderBookState } from './impl/createOrderBookState.js'
+export { createDeltaArchive } from './impl/deltaArchive.js'
+export { createLogColorScale } from './impl/logColorScale.js'
+export { createSnapshotRing } from './impl/snapshotRing.js'
 export type {
   BookSnapshot,
   DeltaArchive,

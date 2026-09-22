@@ -17,13 +17,8 @@
  * snapshot / delta counts so adapters can use it as a render trigger.
  */
 
-import { KLineChartError } from '../../errors.js'
-import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
-
-import { createOrderBookState } from './createOrderBookState.js'
-import { createDeltaArchive } from './deltaArchive.js'
-import { createLogColorScale } from './logColorScale.js'
-import { createSnapshotRing } from './snapshotRing.js'
+import { KLineChartError } from '../../../errors.js'
+import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
 import type {
   BookSnapshot,
   DeltaArchive,
@@ -34,7 +29,11 @@ import type {
   OrderBookDelta,
   OrderBookState,
   SnapshotRing,
-} from './types.js'
+} from '../types.js'
+import { createOrderBookState } from './createOrderBookState.js'
+import { createDeltaArchive } from './deltaArchive.js'
+import { createLogColorScale } from './logColorScale.js'
+import { createSnapshotRing } from './snapshotRing.js'
 
 const DEFAULT_CONFIG: HeatmapControllerConfig = {
   tickSize: 0.01,

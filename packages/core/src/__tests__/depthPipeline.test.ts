@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createHeatmapController } from '../components/orderBookHeatmap/createHeatmapController'
+import { createHeatmapController } from '../components/orderBookHeatmap/impl/createHeatmapController'
 import type { HeatmapController } from '../components/orderBookHeatmap/types'
 import {
   createEventSourceFactory,

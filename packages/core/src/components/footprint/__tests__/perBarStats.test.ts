@@ -8,8 +8,8 @@ import {
   computeCumulativeDelta,
   computeDelta,
   computeDiagonalImbalances,
-  type FootprintBarCell,
-} from '../perBarStats'
+} from '../impl/perBarStats'
+import type { FootprintBarCell } from '../types'
 
 const cell = (price: number, askVol: number, bidVol: number): FootprintBarCell => ({
   price,
