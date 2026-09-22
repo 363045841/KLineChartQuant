@@ -229,6 +229,8 @@
   }
 
   .tool-card__result-content dd {
+    max-height: 220px;
+    overflow-y: auto;
     white-space: pre-wrap;
   }
 
