@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createAlertController } from '../createAlertController'
+import { createAlertController } from '../impl/createAlertController'
 import type { AlertRule } from '../types'
 import { createMarketSnapshot } from './helpers/marketSnapshot'
 

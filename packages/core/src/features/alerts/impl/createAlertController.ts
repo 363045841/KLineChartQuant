@@ -26,16 +26,16 @@
  *   addition (`onError` listener on the controller).
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/signal.js'
+import { createSignal, type Signal } from '../../../foundation/reactivity/signal.js'
 
-import { evaluatePredicate } from './predicates.js'
 import type {
   AlertController,
   AlertControllerOptions,
   AlertEvent,
   AlertRule,
   MarketSnapshot,
-} from './types.js'
+} from '../types.js'
+import { evaluatePredicate } from './predicates.js'
 
 const DEFAULT_MAX_EVENTS = 100
 

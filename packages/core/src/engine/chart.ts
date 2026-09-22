@@ -22,12 +22,12 @@ import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy.
 import { AUTO_SOURCE_ID } from '../data/buffer/seriesRepository.js'
 import { lookupInstrumentsBySymbol } from '../data/provider/instrumentSearch.js'
 import { marketDataProviderRegistry } from '../data/provider/registry.js'
-import { createAlertController } from '../features/alerts/index.js'
+import { createAlertController } from '../features/alerts/impl/createAlertController.js'
 import {
   createVolumeLookbacks,
   pushToVolumeLookbacks,
   type VolumeLookbacks,
-} from '../features/alerts/rollingVolume.js'
+} from '../features/alerts/impl/rollingVolume.js'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types.js'
 import {
   buildPaneScaleTypesFromSetting,

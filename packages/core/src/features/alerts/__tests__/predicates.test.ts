@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { evaluatePredicate } from '../predicates'
+import { evaluatePredicate } from '../impl/predicates'
 import type { AlertPredicate, MarketSnapshot } from '../types'
 import { createMarketSnapshot } from './helpers/marketSnapshot'
 

@@ -10,7 +10,7 @@
  *
  * Engine shape:
  *   - Predicate-based (discriminated union, schema-driven).
- *   - Rules are pure data and serialisable (see `ruleSchema.ts`) so they
+ *   - Rules are pure data and serialisable (see `impl/ruleSchema.ts`) so they
  *     survive page reloads and can be shared between users/agents/servers.
  *   - The controller is a tiny state machine over rules + recent events;
  *     evaluation is O(rules) per call, O(1) per rule, safe to run in a
@@ -18,7 +18,7 @@
  *
  * The `custom` predicate is an escape hatch for callers that need ad-hoc
  * logic without forking the schema. It carries an in-memory function that
- * is intentionally NOT serialisable — see `ruleSchema.ts` for the reasoning.
+ * is intentionally NOT serialisable — see `impl/ruleSchema.ts` for the reasoning.
  */
 
 import type { Signal } from '../../foundation/reactivity/signal.js'
@@ -75,7 +75,7 @@ export type IndicatorCrossPairDirection = 'a-above-b' | 'a-below-b' | 'any'
 
 /**
  * Predicate kinds. Add new kinds by extending the union — the controller's
- * switch in `predicates.ts` will give a TS exhaustiveness error if you forget
+ * switch in `impl/predicates.ts` will give a TS exhaustiveness error if you forget
  * to handle it.
  */
 export type AlertPredicate =

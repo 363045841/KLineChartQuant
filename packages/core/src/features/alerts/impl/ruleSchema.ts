@@ -28,7 +28,7 @@ import type {
   AlertRule,
   CrossDirection,
   IndicatorCrossPairDirection,
-} from './types.js'
+} from '../types.js'
 
 // ---------------------------------------------------------------------------
 // Error type — callers can catch and report cleanly.

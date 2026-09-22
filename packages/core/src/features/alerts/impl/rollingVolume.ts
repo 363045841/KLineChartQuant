@@ -1,4 +1,8 @@
-import type { MarketSnapshot } from './types.js'
+/**
+ * 滚动成交量均值计算：为 `volume-spike` 谓词提供 O(1) 的平均量基准。
+ */
+
+import type { MarketSnapshot } from '../types.js'
 
 export class RollingVolumeCalculator {
   private buffer: number[]

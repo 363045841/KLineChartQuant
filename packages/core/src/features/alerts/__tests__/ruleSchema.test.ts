@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { AlertRuleSchemaError, deserializeRule, serializeRule } from '../ruleSchema'
+import { AlertRuleSchemaError, deserializeRule, serializeRule } from '../impl/ruleSchema'
 import type { AlertRule } from '../types'
 
 const baseRule = (predicateOverride: AlertRule['predicate']): AlertRule => ({
