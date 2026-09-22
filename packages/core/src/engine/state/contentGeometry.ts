@@ -2,7 +2,7 @@
 
 import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types.js'
 import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator.js'
-import { computeFiveDayTimeShareContentWidth } from '../modes/fiveDayTimeShareGeometry.js'
+import { computeFiveDayTimeShareContentWidth } from '../modes/index.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
 export type ContentGeometryInput = {

@@ -16,7 +16,7 @@ import {
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
   resolveTimeShareSessionSlots,
-} from '../timeShareMath'
+} from '../impl/timeShareMath'
 
 describe('resolveTimeShareBaseline', () => {
   it('prefers finite non-zero preClose over first trade price', () => {

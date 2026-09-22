@@ -65,9 +65,11 @@ import {
   MarkerManager,
   type MarkerManagerDeps,
 } from '../marker/registry.js'
-import { computeFiveDayTimeShareGeometry } from '../modes/fiveDayTimeShareGeometry.js'
-import { computeTimeShareXLayout } from '../modes/timeShareMath.js'
-import type { ChartModeHandler } from '../modes/types.js'
+import {
+  type ChartModeHandler,
+  computeFiveDayTimeShareGeometry,
+  computeTimeShareXLayout,
+} from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
 import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare.js'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis.js'

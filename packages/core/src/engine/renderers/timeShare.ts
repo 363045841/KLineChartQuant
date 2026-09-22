@@ -9,7 +9,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
-import { resolveTimeShareBaseline } from '../modes/timeShareMath.js'
+import { resolveTimeShareBaseline } from '../modes/index.js'
 
 export function createTimeShareRendererPlugin(): RendererPluginWithHost {
   return {

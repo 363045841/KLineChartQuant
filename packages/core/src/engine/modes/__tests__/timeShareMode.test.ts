@@ -4,7 +4,7 @@ import type { TimeShareRange } from '../../../data/provider/types'
 import type { TimeShareData } from '../../../foundation/types/price'
 import { createMockChartDataManager } from '../../data/__tests__/helpers/chartDataManagerTestKit'
 import { Pane } from '../../layout/pane'
-import { TimeShareMode } from '../timeShareMode'
+import { TimeShareMode } from '../impl/timeShareMode'
 
 function ts(price: number, i = 0, average = price): TimeShareData {
   return { timestamp: i, price, average, volume: 1, amount: price }

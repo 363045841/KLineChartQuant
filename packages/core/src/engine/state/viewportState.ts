@@ -10,7 +10,7 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { Viewport, ViewportState } from '../chartTypes.js'
 import type { VisibleRange } from '../layout/pane.js'
-import { computeTimeShareVisibleRange } from '../modes/timeShareMath.js'
+import { computeTimeShareVisibleRange } from '../modes/index.js'
 import { deriveKGap } from '../utils/zoom.js'
 import {
   clampVisibleRange,

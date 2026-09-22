@@ -5,7 +5,7 @@ import { ASHARE_MARKET_SESSION } from '../../../foundation/utils/timeShareAxisLa
 import {
   computeFiveDayTimeShareContentWidth,
   computeFiveDayTimeShareGeometry,
-} from '../fiveDayTimeShareGeometry'
+} from '../impl/fiveDayTimeShareGeometry'
 
 /** 创建位于 A 股上午 session 的测试时间戳。 */
 function timestampAt(tradingDate: string, minuteOffset: number): number {

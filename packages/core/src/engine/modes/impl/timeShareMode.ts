@@ -1,15 +1,16 @@
-import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types.js'
-import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
-import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels.js'
-import type { ChartDataManager } from '../data/chartDataManager.js'
-import type { Pane, VisibleRange } from '../layout/pane.js'
+/** 分时图表模式：固定整物理网格柱宽与以昨收为基准的对称价格轴。 */
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../../controllers/types.js'
+import type { MarketSessionConfig } from '../../../foundation/utils/timeShareAxisLabels.js'
+import { ASHARE_MARKET_SESSION } from '../../../foundation/utils/timeShareAxisLabels.js'
+import type { ChartDataManager } from '../../data/chartDataManager.js'
+import type { Pane, VisibleRange } from '../../layout/pane.js'
+import type { ChartModeHandler } from '../types.js'
 import {
   computeTimeShareBarMetrics,
   computeTimeSharePriceRange,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
 } from './timeShareMath.js'
-import type { ChartModeHandler } from './types.js'
 
 export class TimeShareMode implements ChartModeHandler {
   readonly debugName = 'TimeShare'

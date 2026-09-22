@@ -1,11 +1,12 @@
-import type { TimeShareRange } from '../../data/provider/types.js'
+/** 分时几何与价格轴计算的纯函数集合。 */
+import type { TimeShareRange } from '../../../data/provider/types.js'
 import {
   ASHARE_MARKET_SESSION,
   type MarketSessionConfig,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
-} from '../../foundation/utils/timeShareAxisLabels.js'
-import { calcKBarWidthPx } from '../utils/klineConfig.js'
+} from '../../../foundation/utils/timeShareAxisLabels.js'
+import { calcKBarWidthPx } from '../../utils/klineConfig.js'
 
 export type TimeShareBaselineInput = {
   preClose?: number | null
@@ -199,4 +200,4 @@ export {
   computeTimeShareTimeLabelIndices,
   TIMESHARE_MIN_LABEL_SPACING_PX,
   type TimeShareTimeLabelInput,
-} from '../../foundation/utils/timeShareAxisLabels.js'
+} from '../../../foundation/utils/timeShareAxisLabels.js'

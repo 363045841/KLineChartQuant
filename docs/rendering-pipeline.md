@@ -685,7 +685,7 @@ WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upl
 - `engine/layout/chartPaneLayout.ts`
 - `engine/paneRenderer.ts`
 - `engine/utils/klineConfig.ts`
-- `engine/modes/timeShareMath.ts`
+- `engine/modes/impl/timeShareMath.ts`
 
 **Scene 与 Layer**
 
