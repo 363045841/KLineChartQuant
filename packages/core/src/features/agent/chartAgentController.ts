@@ -11,6 +11,7 @@ import type {
   DrawingAnchorCommandInput,
   DrawingDocument,
 } from '../../engine/drawing/DrawingDocument.js'
+import { DRAWING_LABEL_INDEX_PATTERN } from '../../engine/drawing/drawingLabels.js'
 import { getDrawingInputAnchorCount } from '../../engine/drawing/materializeAnchors.js'
 import { KLineChartError } from '../../errors.js'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
@@ -30,7 +31,7 @@ import {
   getRegisteredChartTools,
   Tool,
 } from '../../foundation/agent/chartToolRegistry.js'
-import type { DrawingObject } from '../../foundation/plugin/index.js'
+import type { DrawingKind, DrawingObject } from '../../foundation/plugin/index.js'
 import { CHART_AGENT_ERROR_CODES } from './errors.js'
 import type { IndicatorQuery } from './indicator/indicatorQuery.js'
 import {
@@ -171,7 +172,7 @@ const DRAWING_KIND_VALUES = [
   'regression-channel',
   'flat-line',
   'disjoint-channel',
-] as const
+] as const satisfies ReadonlyArray<DrawingKind>
 
 /** 按输入锚点数量分组图元种类，供工具说明声明每种图元需要的锚点数。 */
 function groupDrawingKindsByAnchorCount(): string {
@@ -224,7 +225,7 @@ const DrawingLabelToolParameters = Type.Object(
 )
 // 标签以渲染输出的线段 / 区域序号为键；additionalProperties:false 拒绝序号以外的键，避免畸形形状通过校验。
 const DrawingLabelRecordToolParameter = Type.Record(
-  Type.String({ pattern: '^\\d+$' }),
+  Type.String({ pattern: DRAWING_LABEL_INDEX_PATTERN }),
   DrawingLabelToolParameters,
   {
     additionalProperties: false,

@@ -17,6 +17,7 @@ import { resolveChartWorkspaceId } from '../state/modeState.js'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
 
 import { midpoint } from './coordinateUtils.js'
+import { drawingLabelIndexKey } from './drawingLabels.js'
 import { PREVIEW_ID } from './DrawingState.js'
 import { DrawingDefinitionRegistry, DrawingStore } from './index.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
@@ -153,7 +154,7 @@ function attachLineLabels(
     if (primitive.kind !== PRIMITIVE_KIND.line && primitive.kind !== PRIMITIVE_KIND.arrow) {
       return primitive
     }
-    const label = drawing.labels?.line[String(lineIndex++)]
+    const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex++)]
     return label === undefined
       ? primitive
       : {
@@ -171,7 +172,7 @@ function attachAreaLabels(
   let areaIndex = 0
   return primitives.map((primitive) => {
     if (primitive.kind !== PRIMITIVE_KIND.area) return primitive
-    const label = drawing.labels?.area[String(areaIndex++)]
+    const label = drawing.labels?.area[drawingLabelIndexKey(areaIndex++)]
     return label === undefined
       ? primitive
       : { ...primitive, text: { text: label.text, position: label.position } }

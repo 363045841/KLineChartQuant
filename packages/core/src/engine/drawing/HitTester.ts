@@ -8,6 +8,7 @@ import {
   pointInPolygon,
   pointToSegmentDistanceSq,
 } from './coordinateUtils.js'
+import { drawingLabelIndexKey } from './drawingLabels.js'
 import { buildFillPolygon } from './fillRegions.js'
 import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 import { computeLinearRegression } from './linearRegression.js'
@@ -365,7 +366,7 @@ export class HitTester {
       const segments = this.getDrawingLabelSegments(drawing, adapter)
 
       for (const [lineIndex, segment] of segments.entries()) {
-        const label = drawing.labels?.line[String(lineIndex)]
+        const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
         const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
         const dx = mouseX - layout.x
         const dy = mouseY - layout.y

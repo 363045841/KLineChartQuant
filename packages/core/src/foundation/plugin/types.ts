@@ -499,10 +499,13 @@ export type DrawingLabel = {
   position: DrawingLabelPosition
 }
 
+/** 绘图标签的键：图元定义输出的线段或填充区域序号。 */
+export type DrawingLabelIndex = `${number}`
+
 /** 绘图附属文本；键为图元定义输出的线段或填充区域序号。 */
 export type DrawingLabels = {
-  line: Record<string, DrawingLabel>
-  area: Record<string, DrawingLabel>
+  line: Record<DrawingLabelIndex, DrawingLabel>
+  area: Record<DrawingLabelIndex, DrawingLabel>
 }
 
 /** 绘图所属的数据工作区。 */

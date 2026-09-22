@@ -11,6 +11,7 @@ import type {
   TimeShareSeries,
 } from '../../data/provider/types.js'
 import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry.js'
+import type { DrawingLabels } from '../../foundation/plugin/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 
 /** Inclusive timestamp range exposed to Agent consumers. */
@@ -60,8 +61,8 @@ export interface ChartAgentDrawingAnchor {
 
 /** Agent 可读写的绘图附属文本完整快照。 */
 export interface ChartAgentDrawingLabels {
-  readonly line: Readonly<Record<string, import('../../foundation/plugin/index.js').DrawingLabel>>
-  readonly area: Readonly<Record<string, import('../../foundation/plugin/index.js').DrawingLabel>>
+  readonly line: Readonly<DrawingLabels['line']>
+  readonly area: Readonly<DrawingLabels['area']>
 }
 
 /** Agent 可读取的已确认图元快照。 */

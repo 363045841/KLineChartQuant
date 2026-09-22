@@ -15,6 +15,7 @@ import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { DrawingStateModule } from '../state/drawingState.js'
 import { PREVIEW_ID } from './DrawingState.js'
 import { isDrawingLocked } from './drawingAccess.js'
+import { normalizeDrawingLabels } from './drawingLabels.js'
 import {
   getDrawingAnchorCount,
   getDrawingInputAnchorCount,
@@ -120,22 +121,6 @@ const DEFAULT_DRAWING_STYLE: Readonly<DrawingStyle> = {
   strokeStyle: 'solid',
 }
 
-/** 将用户 Enter 与外部输入统一为绘图文档的字面量换行控制码。 */
-function normalizeDrawingLabels(labels: DrawingLabels): DrawingLabels {
-  const normalizeText = (text: string) => text.replace(/\r\n?|\n/g, '\\n')
-  const normalizeGroup = (group: DrawingLabels['line']) =>
-    Object.fromEntries(
-      Object.entries(group).map(([key, label]) => [
-        key,
-        { ...label, text: normalizeText(label.text) },
-      ]),
-    )
-  return {
-    line: normalizeGroup(labels.line),
-    area: normalizeGroup(labels.area),
-  }
-}
-
 /** 判断图元是否需要默认半透明填充。 */
 function isChannel(kind: DrawingKind): boolean {
   return [
@@ -201,7 +186,7 @@ export class DrawingDocument {
       anchors,
       params:
         input.params ?? (input.kind === 'regression-channel' ? { sigma: 2 } : Object.freeze({})),
-      labels: normalizeDrawingLabels(input.labels ?? { line: {}, area: {} }),
+      labels: normalizeDrawingLabels(input.labels),
       style: {
         ...DEFAULT_DRAWING_STYLE,
         ...(isChannel(input.kind) ? { fillOpacity: 0.1 } : {}),
@@ -244,7 +229,7 @@ export class DrawingDocument {
     if (!current || drawing.kind !== current.kind || drawing.paneId !== current.paneId) return null
     return this.dependencies.drawingState.actions.updateDrawing(drawing.id, {
       ...drawing,
-      labels: normalizeDrawingLabels(drawing.labels ?? { line: {}, area: {} }),
+      labels: normalizeDrawingLabels(drawing.labels),
     })
   }
 
@@ -384,7 +369,7 @@ export class DrawingDocument {
             drawing.anchors,
             () => `anchor-${generateUUID()}`,
           ),
-          labels: normalizeDrawingLabels(drawing.labels ?? { line: {}, area: {} }),
+          labels: normalizeDrawingLabels(drawing.labels),
         })),
     )
   }
