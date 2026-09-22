@@ -215,22 +215,26 @@ const DrawingStyleToolParameters = Type.Partial(
     fontSize: Type.Number({ exclusiveMinimum: 0 }),
   }),
 )
-const DrawingLabelsToolParameters = Type.Object({
-  line: Type.Record(
-    Type.String({ pattern: '^\\d+$' }),
-    Type.Object({
-      text: Type.String({ description: '标签文本。使用字面量 \\n 作为唯一换行控制码。' }),
-      position: Type.Union([Type.Literal('start'), Type.Literal('center'), Type.Literal('end')]),
-    }),
-  ),
-  area: Type.Record(
-    Type.String({ pattern: '^\\d+$' }),
-    Type.Object({
-      text: Type.String({ description: '标签文本。使用字面量 \\n 作为唯一换行控制码。' }),
-      position: Type.Union([Type.Literal('start'), Type.Literal('center'), Type.Literal('end')]),
-    }),
-  ),
-})
+const DrawingLabelToolParameters = Type.Object(
+  {
+    text: Type.String({ description: '标签文本。使用字面量 \\n 作为唯一换行控制码。' }),
+    position: Type.Union([Type.Literal('start'), Type.Literal('center'), Type.Literal('end')]),
+  },
+  { additionalProperties: false },
+)
+// 标签以渲染输出的线段 / 区域序号为键；additionalProperties:false 拒绝序号以外的键，避免畸形形状通过校验。
+const DrawingLabelRecordToolParameter = Type.Record(
+  Type.String({ pattern: '^\\d+$' }),
+  DrawingLabelToolParameters,
+  {
+    additionalProperties: false,
+    description: '键为渲染输出的线段或区域序号，从 "0" 起的字符串数字。',
+  },
+)
+const DrawingLabelsToolParameters = Type.Object(
+  { line: DrawingLabelRecordToolParameter, area: DrawingLabelRecordToolParameter },
+  { additionalProperties: false },
+)
 const DrawingCreateToolParameters = Type.Object({
   kind: DrawingKindToolParameter,
   paneId: Type.String({ minLength: 1 }),

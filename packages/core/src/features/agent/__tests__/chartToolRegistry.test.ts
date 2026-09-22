@@ -61,6 +61,35 @@ describe('Chart Agent @Tool registry', () => {
     ).rejects.toThrow('/anchors/0/tradingDate: must be string')
   })
 
+  it('rejects label maps whose keys are not rendered indices', () => {
+    const create = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_create')!
+
+    const base = { kind: 'horizontal-line', paneId: 'main', anchors: [{ price: 222.02 }] } as const
+
+    // 序号以外的键必须在校验层被拒，不能再让畸形标签进入领域层。
+    expect(() =>
+      create.summarizeInput({
+        ...base,
+        labels: { line: { text: '阶段低点', position: 'end' }, area: {} },
+      }),
+    ).toThrow('/labels/line')
+
+    expect(() =>
+      create.summarizeInput({
+        ...base,
+        labels: { line: {}, area: {}, extra: {} },
+      }),
+    ).toThrow('/labels: must not have additional properties')
+
+    // 按渲染序号做键的合法形状继续通过校验。
+    expect(
+      create.summarizeInput({
+        ...base,
+        labels: { line: { 0: { text: '阶段低点', position: 'end' } }, area: {} },
+      }),
+    ).toContain('"line":{"0"')
+  })
+
   it('registers comparison CRUD with matching safety levels', () => {
     const tools = getRegisteredChartTools()
 
