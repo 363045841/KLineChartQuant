@@ -13,10 +13,11 @@ export interface BrowserProviderConnection {
   protocol: ProviderApiProtocol
 }
 
-/** 浏览器端 Provider 配置档案；apiKey 实际由凭据存储持有，此字段仅为旧设置文档兼容。 */
+/** 浏览器端 Provider 配置档案；apiKey 实际由凭据存储持有。 */
 export interface BrowserProviderProfile {
   name: string
   apiKey: string
+  /** 仅用于读取旧设置文档；Exa Key 已迁移到全局 Agent 设置。 */
   exaApiKey?: string
   settings?: OpenAiCompatibleProviderSettings
   connection?: BrowserProviderConnection
@@ -28,4 +29,6 @@ export interface BrowserAgentModelSettings {
   profiles: BrowserProviderProfile[]
   modelPool: ProviderModelPoolEntry[]
   enabledTools: string[]
+  /** 全局 Web Search 凭据，不随 Provider Profile 切换。 */
+  exaApiKey?: string
 }

@@ -281,6 +281,8 @@ export interface ProviderStatusView {
   state: ProviderConnectionState
   providerLabel: string
   configured?: boolean
+  /** Whether a global external-service (Exa) key is saved; never carries the key itself. */
+  exaConfigured?: boolean
   baseUrl?: string
   modelId?: string
   modelLabel?: string
@@ -433,7 +435,6 @@ export interface ProviderSaveInput {
   headers?: Record<string, string>
   protocol: ProviderApiProtocol
   profileName: string
-  exaApiKey?: string
 }
 export interface ProviderProfileView {
   name: string
@@ -500,6 +501,7 @@ export interface AgentBridgeClient {
   deleteProviderProfile(profileName: string): Promise<void>
   selectProviderProfile(profileName: string): Promise<void>
   saveProvider(input: ProviderSaveInput): Promise<void>
+  saveWebSearchApiKey(apiKey: string): Promise<void>
   setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void

@@ -89,6 +89,7 @@ const copy = {
     apiKey: 'API key',
     exaApiKey: 'Exa API key',
     exaApiKeyPlaceholder: 'Leave blank to keep the saved key',
+    save: 'Save',
     additionalHeaders: 'Additional headers (JSON)',
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "My app"\n}',
@@ -214,6 +215,7 @@ const copy = {
     apiKey: 'API key',
     exaApiKey: 'Exa API key',
     exaApiKeyPlaceholder: '留空则保留已保存的 Key',
+    save: '保存',
     additionalHeaders: '附加请求头（JSON）',
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "我的应用"\n}',

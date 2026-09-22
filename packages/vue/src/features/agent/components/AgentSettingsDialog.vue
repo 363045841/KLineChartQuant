@@ -121,7 +121,9 @@
                   v-model="providerSettings.apiKey"
                   type="password"
                   autocomplete="new-password"
-                  :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
+                  :placeholder="
+                    status.configured ? MASKED_SECRET_PLACEHOLDER : text.apiKeyPlaceholder
+                  "
                   @blur="providerSettings.persistConnection()"
                 />
               </label>
@@ -151,7 +153,7 @@
                   class="provider-settings-models__refresh"
                   :title="text.refreshModels"
                   :aria-label="text.refreshModels"
-                  :disabled="providerSettings.modelsLoading || !canRefreshModels"
+                  :disabled="providerSettings.modelsLoading || !hasProviderConnection"
                   @click="providerSettings.refreshModelCatalog()"
                 >
                   <IconRefresh aria-hidden="true" />
@@ -203,15 +205,28 @@
               <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
                 {{ tool.unavailableReason }}
               </p>
-              <label v-if="tool.name === 'web_search'" class="provider-field">
+              <div v-if="tool.name === 'web_search'" class="provider-field">
                 <span class="provider-field__label">{{ text.exaApiKey }}</span>
-                <input
-                  v-model="providerSettings.exaApiKey"
-                  type="password"
-                  autocomplete="new-password"
-                />
+                <div class="provider-field__control">
+                  <input
+                    v-model="providerSettings.exaApiKey"
+                    type="password"
+                    autocomplete="new-password"
+                    :placeholder="
+                      status.exaConfigured ? MASKED_SECRET_PLACEHOLDER : text.exaApiKeyPlaceholder
+                    "
+                  />
+                  <BaseButton
+                    size="sm"
+                    class="provider-field__save"
+                    :disabled="!providerSettings.exaApiKey.trim()"
+                    @click="providerSettings.persistWebSearchApiKey()"
+                  >
+                    {{ text.save }}
+                  </BaseButton>
+                </div>
                 <small class="provider-field__help">{{ text.exaApiKeyPlaceholder }}</small>
-              </label>
+              </div>
               <details class="agent-tool__parameters">
                 <summary>{{ text.toolParameters }}</summary>
                 <textarea
@@ -325,6 +340,9 @@
     'update:collapseReasoning': [value: boolean]
   }>()
 
+  /** 密码型凭据已保存时的掩码占位符；只提示已保存，不承载真实 Key。 */
+  const MASKED_SECRET_PLACEHOLDER = '••••••••'
+
   const profileNameInput = ref<HTMLInputElement | null>(null)
   const profileNameDialog = ref<'create' | 'rename' | null>(null)
   const profileNameDraft = ref('')
@@ -380,7 +398,8 @@
       model.name.toLowerCase().includes(query),
     )
   })
-  const canRefreshModels = computed(() =>
+  /** 当前是否具备可写入/可刷新的 Provider 连接（配置名与 Base URL 均存在）。 */
+  const hasProviderConnection = computed(() =>
     Boolean(props.providerSettings.profileName && props.providerSettings.baseUrl.trim()),
   )
 
@@ -884,6 +903,22 @@
   .provider-field__help {
     color: var(--klc-color-ui-muted);
     font-size: 11px;
+  }
+
+  .provider-field__control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .provider-field__control input {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .provider-field__save {
+    flex: 0 0 auto;
+    font-size: 12px;
   }
 
   .provider-field input,

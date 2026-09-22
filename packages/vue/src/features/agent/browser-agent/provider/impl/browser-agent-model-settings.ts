@@ -52,6 +52,23 @@ export class BrowserAgentModelSettingsStore {
     return [...this.cache.enabledTools]
   }
 
+  /** 读取全局 Exa Key，并将旧 Profile 内的 Key 一次性迁移到全局设置。 */
+  webSearchApiKey(): string | undefined {
+    const saved = this.cache.exaApiKey?.trim()
+    if (saved) return saved
+    const legacy =
+      this.cache.profiles.find((profile) => profile.active)?.exaApiKey?.trim() ||
+      this.cache.profiles.find((profile) => profile.exaApiKey?.trim())?.exaApiKey?.trim()
+    if (!legacy) return undefined
+    this.cache = {
+      ...this.cache,
+      exaApiKey: legacy,
+      profiles: this.removeLegacyWebSearchKeys(this.cache.profiles),
+    }
+    this.persist()
+    return legacy
+  }
+
   setProfiles(profiles: BrowserProviderProfile[]): void {
     this.cache = { ...this.cache, profiles: profiles.map((profile) => ({ ...profile })) }
     this.persist()
@@ -65,6 +82,23 @@ export class BrowserAgentModelSettingsStore {
   setEnabledTools(enabledTools: ReadonlySet<string>): void {
     this.cache = { ...this.cache, enabledTools: [...enabledTools] }
     this.persist()
+  }
+
+  /** 保存全局 Exa Key，并在写入时清理旧 Profile 内的重复凭据。 */
+  setWebSearchApiKey(apiKey: string): void {
+    const normalized = apiKey.trim()
+    if (!normalized) return
+    this.cache = {
+      ...this.cache,
+      exaApiKey: normalized,
+      profiles: this.removeLegacyWebSearchKeys(this.cache.profiles),
+    }
+    this.persist()
+  }
+
+  /** 从 Provider Profile 文档中移除已废弃的 Exa Key 字段。 */
+  private removeLegacyWebSearchKeys(profiles: BrowserProviderProfile[]): BrowserProviderProfile[] {
+    return profiles.map(({ exaApiKey: _legacyApiKey, ...profile }) => profile)
   }
 
   /** 把内存文档写回 LocalStorage。 */

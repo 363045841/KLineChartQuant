@@ -352,10 +352,11 @@ describe('BrowserAgentBridge', () => {
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
       state: 'not-configured',
       baseUrl: 'https://provider.example/v1',
+      exaConfigured: false,
     })
   })
 
-  it('persists the Exa key locally and exposes the web search tool', async () => {
+  it('persists one global Exa key and exposes the web search tool without a Provider Profile', async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
@@ -370,21 +371,38 @@ describe('BrowserAgentBridge', () => {
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
 
-    await bridge.saveProvider({
-      baseUrl: 'https://provider.example/v1',
-      apiKey: 'model-key',
-      exaApiKey: 'exa-key',
-      profileName: 'Provider example',
-      protocol: 'openai-completions',
-    })
+    await bridge.saveWebSearchApiKey('exa-key')
+    await bridge.createProviderProfile('Provider one')
+    await bridge.createProviderProfile('Provider two')
+    await bridge.selectProviderProfile('Provider one')
+    expect(readStoredAgentModelSettings()).toMatchObject({ exaApiKey: 'exa-key' })
     await expect(bridge.listTools()).resolves.toContainEqual(
       expect.objectContaining({ name: 'web_search', enabled: true, available: true }),
     )
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({ exaConfigured: true })
     await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
       summary: 'Found 1 web results.',
     })
     expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).get('x-api-key')).toBe('exa-key')
     expect(JSON.stringify(await bridge.listProviderProfiles())).not.toContain('exa-key')
+  })
+
+  it('migrates a legacy Profile Exa key into the global Agent settings', async () => {
+    window.localStorage.setItem(
+      'agent.model-settings',
+      JSON.stringify({
+        profiles: [
+          { name: 'Legacy provider', apiKey: '', exaApiKey: 'legacy-exa-key', active: true },
+        ],
+        modelPool: [],
+        enabledTools: [],
+      }),
+    )
+    const bridge = new BrowserAgentBridge()
+
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({ exaConfigured: true })
+    expect(readStoredAgentModelSettings()).toMatchObject({ exaApiKey: 'legacy-exa-key' })
+    expect(readStoredAgentModelSettings()).not.toHaveProperty('profiles.0.exaApiKey')
   })
 
   it('keeps an opened message snapshot isolated from a new run', async () => {

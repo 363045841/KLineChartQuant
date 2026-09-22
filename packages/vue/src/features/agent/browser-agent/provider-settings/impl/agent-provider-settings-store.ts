@@ -322,7 +322,6 @@ function setupAgentProviderSettingsStore() {
       await bridge.saveProvider({
         baseUrl: baseUrl.value,
         apiKey: apiKey.value || undefined,
-        exaApiKey: exaApiKey.value || undefined,
         headers: customHeaders,
         protocol: protocol.value,
         profileName: profileName.value,
@@ -336,6 +335,21 @@ function setupAgentProviderSettingsStore() {
         modelPool.value = []
       }
       savedConnectionIdentity = nextIdentity
+      return true
+    } catch (error) {
+      operationError.value = toOperationError(error)
+      return false
+    }
+  }
+
+  /** 保存全局 Web Search Key，不要求 Provider Profile 或 Base URL 已配置。 */
+  async function persistWebSearchApiKey(): Promise<boolean> {
+    const apiKey = exaApiKey.value.trim()
+    if (!bridge || !apiKey) return false
+    operationError.value = null
+    try {
+      await bridge.saveWebSearchApiKey(apiKey)
+      exaApiKey.value = ''
       return true
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -407,6 +421,7 @@ function setupAgentProviderSettingsStore() {
     show,
     refreshModelCatalog,
     persistConnection,
+    persistWebSearchApiKey,
     setModelPoolMembership,
     setToolEnabled,
     setToolInput,

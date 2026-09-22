@@ -70,6 +70,8 @@ export interface AgentProviderSettingsStore {
   refreshModelCatalog(): Promise<void>
   /** 持久化当前 Profile 连接；成功返回 true。 */
   persistConnection(): Promise<boolean>
+  /** 持久化全局 Web Search Key；不依赖当前 Provider Profile。 */
+  persistWebSearchApiKey(): Promise<boolean>
   /** 更新指定目录模型的模型池成员状态。 */
   setModelPoolMembership(modelId: string, enabled: boolean): Promise<void>
   /** 更新工具启用状态。 */

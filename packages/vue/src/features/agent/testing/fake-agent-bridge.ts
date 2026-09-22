@@ -419,6 +419,12 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 
+  async saveWebSearchApiKey(apiKey: string): Promise<void> {
+    if (!apiKey.trim()) return
+    this.provider = { ...this.provider, exaConfigured: true }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
+  }
+
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
     return {
       compatible: true,

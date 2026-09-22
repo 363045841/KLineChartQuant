@@ -130,10 +130,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   async getProviderStatus(): Promise<ProviderStatusView> {
     const status = await this.support.provider.getStatus()
     const profile = this.profiles.active()
-    if (!profile) return status
+    const exaConfigured = Boolean(this.webSearchApiKey())
+    if (!profile) return { ...status, exaConfigured }
     const connection = profile.connection
-    if (!connection) return { ...status, profileName: profile.name }
-    if (profile.settings) return { ...status, profileName: profile.name }
+    if (!connection) return { ...status, profileName: profile.name, exaConfigured }
+    if (profile.settings) return { ...status, profileName: profile.name, exaConfigured }
     return {
       state: 'not-configured',
       providerLabel: 'OpenAI-compatible',
@@ -142,6 +143,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       headers: connection.headers,
       protocol: connection.protocol,
       profileName: profile.name,
+      exaConfigured,
       compatibility: 'unknown',
     }
   }
@@ -272,9 +274,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     })
   }
 
-  /** 返回当前 Profile 中保存的 Web search 凭据。 */
+  /** 返回全局保存的 Web Search 凭据。 */
   private webSearchApiKey(): string | undefined {
-    return this.profiles.active()?.exaApiKey?.trim() || undefined
+    return this.modelSettings.webSearchApiKey()
   }
 
   /** 当前生效的全部真实凭据，供 PiRunDriver 在事件投影前逐字剔除。 */
@@ -577,7 +579,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const profile: BrowserProviderProfile = {
       name: profileName,
       apiKey: '',
-      exaApiKey: input.exaApiKey?.trim() || profiles[existingIndex]?.exaApiKey,
       settings,
       connection,
       active: true,
@@ -592,6 +593,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       ).map((item) => ({ ...item, active: item.name === profileName })),
     )
     if (apiKey) await this.credentials.write(apiKey)
+    await this.emitProviderStatus()
+  }
+
+  /** 保存独立于 Provider Profile 的全局 Web Search 凭据。 */
+  async saveWebSearchApiKey(apiKey: string): Promise<void> {
+    this.modelSettings.setWebSearchApiKey(apiKey)
     await this.emitProviderStatus()
   }
 
