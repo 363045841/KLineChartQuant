@@ -154,7 +154,7 @@ export class DrawingInteractionController {
     return this.drawingState.getSelectedDrawings()
   }
 
-  /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑。 */
+  /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑，锁定图元同样可编辑文本。 */
   getLineLabelTarget(e: PointerEvent, container: HTMLElement): DrawingLineLabelTarget | null {
     if (this.getActiveTool() !== 'cursor' || this.dragHandler.isDragging()) return null
     const pointer = resolveDrawingPointer(e, container, this.adapter)
@@ -162,7 +162,7 @@ export class DrawingInteractionController {
     return this.hitTester.findLabelTarget(
       pointer.x,
       pointer.y,
-      this.getEditableDrawings(pointer.paneId),
+      this.getSelectableDrawings(pointer.paneId),
       this.adapter,
     )
   }
@@ -398,11 +398,6 @@ export class DrawingInteractionController {
           drawing.paneId === paneId &&
           (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )
-  }
-
-  /** 可编辑图元：选中候选剔除锁定项，用于标签就地编辑等编辑入口。 */
-  private getEditableDrawings(paneId: string): DrawingObject[] {
-    return this.getSelectableDrawings(paneId).filter((drawing) => !isDrawingLocked(drawing))
   }
 
   /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */

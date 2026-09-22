@@ -168,6 +168,7 @@ export interface DrawingControllerInternals {
   hitTester: {
     hitTest: ReturnType<typeof vi.fn>
     getDrawingLineSegments: ReturnType<typeof vi.fn>
+    findLabelTarget: ReturnType<typeof vi.fn>
   }
   dragHandler: {
     isDragging: ReturnType<typeof vi.fn>
@@ -188,6 +189,8 @@ export interface DragHandlerStubOptions {
   movedDrawings?: ReadonlyArray<DrawingObject>
   /** 覆盖 startDrag；用于断言入参。 */
   startDrag?: ReturnType<typeof vi.fn>
+  /** 覆盖标签热点命中；用于断言就地编辑候选集合。 */
+  findLabelTarget?: ReturnType<typeof vi.fn>
 }
 
 /**
@@ -205,6 +208,7 @@ export function stubDrawingControllerInternals(
   internals.hitTester = {
     hitTest: vi.fn(() => options.hit),
     getDrawingLineSegments: vi.fn(() => []),
+    findLabelTarget: options.findLabelTarget ?? vi.fn(() => null),
   }
   internals.dragHandler = {
     isDragging: vi.fn(() => draggingIds.length > 0),

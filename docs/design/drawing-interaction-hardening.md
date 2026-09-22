@@ -2,6 +2,7 @@
 
 > 2026-09-13 · 引擎侧下沉批次（pr/engine-drawing-hardening）。覆盖 G-01（磁吸）、G-04（locked），连带 G-03/G-06/G-07/G-08 的小项。
 > locked 语义于 2026-09-16 修订：锁定由"不可选中"改为"可选中、不可拖动与编辑"。
+> locked 语义于 2026-09-22 再修订：锁定只冻结**几何拖动与删除**，样式/参数/标签/显隐/zIndex 等编辑一律放行（详见第二节）。
 
 ## 背景
 
@@ -37,13 +38,14 @@
 
 ## 二、locked 语义（G-04）
 
-`DrawingObject.locked === true` 的图元**可选中、可命中，但不可拖动、不可编辑**：
+`DrawingObject.locked === true` 的图元**可选中、可命中、可编辑属性，但不可拖动、不可删除**：
 
 1. **可选中**：进入 `findDrawingHit` 与 `commitSelectionMarquee` 的候选（`getSelectableDrawings`），使工具栏得以展示解锁按钮。
 2. **可命中**：公开命中查询 `hitTestAt` 同口径返回锁定图元。命中查询只回答"光标下是什么"，编辑/删除策略由调用方决定。
-3. **不可拖**：`startDrag` 统一剔除锁定目标；锚点命中同样受此约束，直接点中锁定图元只选中、不开拖。
-4. **不可编辑**：写命令在 `DrawingDocument` 层强制。锁定图元只接受 `locked` 字段写入（解锁），其余字段（`anchors`/`style`/`params`/`labels`/`visible`/`zIndex`）一律拒绝；`updateBatch`/`removeBatch` 对混合选择跳过锁定目标，`updateDrawing`（全量快照）、`remove*`、`commitDrawingDrag*` 直接拒绝锁定目标。
-5. **唯一判定**：`isDrawingLocked`（`drawingAccess.ts`）是锁定语义的单一来源，交互层与文档层共用。
+3. **不可拖**：`startDrag` 统一剔除锁定目标；锚点命中同样受此约束，直接点中锁定图元只选中、不开拖。`commitDrawingDrag*` 在文档层再次拒绝，交互层绕过也写不进去。
+4. **不可删**：`removeDrawing` 拒绝锁定目标；`removeBatch` 对混合选择只移除未锁定项。
+5. **其余字段照常可写**：`style`/`params`/`labels`/`visible`/`zIndex`/`locked` 一律放行。`updateBatch` 不再按锁定状态过滤目标；标签就地编辑（`getLineLabelTarget`）把锁定图元计入候选。全量快照 `updateDrawing` 只在锚点未变时接受——锚点是唯一的几何状态，锚点一变即视为拖动，故用 `areAnchorsIdentical` 比对而非整体拒绝。
+6. **唯一判定**：`isDrawingLocked`（`drawingAccess.ts`）是锁定语义的单一来源，交互层与文档层共用；`areAnchorsIdentical` 同文件，供全量快照做几何比对。
 
 ## 三、连带小项
 
@@ -57,4 +59,4 @@
 
 ## 测试与验收
 
-- 单测：`magnetSnapper.test.ts`（档位/半径边界/夹取/pane 偏移）、`interaction.magnet.test.ts`（锚点收敛/Ctrl 取反三态/Shift 互斥/cursor 路径不受影响/锚点拖拽编辑路径）、`dragHandler.magnet.test.ts`（锚点拖拽吸附/整线拖拽不受磁吸影响）、`interaction.locked.test.ts`（可选中/不可拖）、`interaction.hitTestAt.test.ts`、`toolConfig.exports.test.ts`、DrawingDocument fill 与 locked 写入用例、selection Shift 用例。
+- 单测：`magnetSnapper.test.ts`（档位/半径边界/夹取/pane 偏移）、`interaction.magnet.test.ts`（锚点收敛/Ctrl 取反三态/Shift 互斥/cursor 路径不受影响/锚点拖拽编辑路径）、`dragHandler.magnet.test.ts`（锚点拖拽吸附/整线拖拽不受磁吸影响）、`interaction.locked.test.ts`（可选中/不可拖/标签就地编辑候选）、`interaction.hitTestAt.test.ts`、`toolConfig.exports.test.ts`、DrawingDocument fill 与 locked 写入用例（锚点/拖动/删除冻结，其余字段放行）、`DrawingStyleToolbar.test.ts`（锁定后样式可用、删除禁用）、selection Shift 用例。

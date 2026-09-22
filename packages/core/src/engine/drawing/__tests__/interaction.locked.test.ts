@@ -47,6 +47,18 @@ describe('DrawingInteractionController locked drawings', () => {
     expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['locked', 'free'])
   })
 
+  it('锁定图元仍进入标签就地编辑候选', () => {
+    const locked = createDrawingObject({ id: 'locked', locked: true })
+    const { adapter } = createSelectionAdapter([locked])
+    const controller = new DrawingInteractionController(adapter)
+    const findLabelTarget = vi.fn(() => null)
+    stubDrawingControllerInternals(controller, { hit: null, findLabelTarget })
+
+    expect(controller.getLineLabelTarget(pointerDown(10, 10), CONTAINER)).toBeNull()
+    // 锁定只冻结拖动，文本编辑照常；锁定图元不再被候选集合剔除。
+    expect(findLabelTarget).toHaveBeenCalledWith(10, 10, [locked], adapter)
+  })
+
   it('拖拽连带组不携带锁定的已选图元', () => {
     const free = createDrawingObject({ id: 'free' })
     const locked = createDrawingObject({ id: 'locked', locked: true })

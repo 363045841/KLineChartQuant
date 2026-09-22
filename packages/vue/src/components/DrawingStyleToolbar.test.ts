@@ -49,4 +49,15 @@ describe('DrawingStyleToolbar 锁定按钮', () => {
 
     wrapper.unmount()
   })
+
+  it('锁定后样式控件保持可用，仅删除被禁用', () => {
+    const wrapper = mount(DrawingStyleToolbar, {
+      props: { drawings: [createDrawing('a', true)], editableStyleKeys: ['stroke'] },
+    })
+
+    expect(wrapper.get('input[type="color"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('.toolbar-btn--delete').attributes('disabled')).toBeDefined()
+
+    wrapper.unmount()
+  })
 })

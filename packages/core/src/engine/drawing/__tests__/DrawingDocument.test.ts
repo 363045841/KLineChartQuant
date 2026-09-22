@@ -413,7 +413,7 @@ describe('DrawingDocument', () => {
     expect(document.commitDrawingDrag(drawing.id, anchors)?.anchors).toEqual(anchors)
   })
 
-  it('freezes locked drawings against edits but still allows unlocking', () => {
+  it('locks only anchor changes, drag and removal while keeping every other edit writable', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
       kind: 'horizontal-line',
@@ -422,17 +422,37 @@ describe('DrawingDocument', () => {
     })
     document.updateDrawingFromInput(drawing.id, { locked: true })
 
-    expect(document.updateDrawing({ ...drawing, style: { stroke: '#f00' } })).toBeNull()
-    expect(document.updateDrawingFromInput(drawing.id, { style: { stroke: '#f00' } })).toBeNull()
-    expect(document.updateBatch([drawing.id], { style: { stroke: '#f00' } })).toEqual([])
+    // 样式/显隐/zIndex/解锁均照常写入。
+    expect(
+      document.updateDrawingFromInput(drawing.id, { style: { stroke: '#f00' } }),
+    ).not.toBeNull()
+    expect(document.updateBatch([drawing.id], { visible: false })[0]?.visible).toBe(false)
+    expect(document.updateBatch([drawing.id], { zIndex: 3 })[0]?.zIndex).toBe(3)
+
+    // 锚点未变时全量快照可写（标签编辑走该路径），锚点一变即拒绝。
+    const current = document.getDrawing(drawing.id)!
+    expect(
+      document.updateDrawing({ ...current, style: { ...current.style, strokeWidth: 2 } }),
+    ).not.toBeNull()
+    expect(
+      document.updateDrawing({
+        ...current,
+        anchors: [{ ...current.anchors[0]!, price: 11 }],
+      }),
+    ).toBeNull()
+    expect(document.updateDrawingFromInput(drawing.id, { anchors: [{ price: 11 }] })).toBeNull()
+
+    // 拖动与删除仍然被冻结。
+    expect(
+      document.commitDrawingDrag(drawing.id, [{ ...current.anchors[0]!, price: 11 }]),
+    ).toBeNull()
     expect(document.removeDrawing(drawing.id)).toBe(false)
-    expect(document.commitDrawingDrag(drawing.id, drawing.anchors)).toBeNull()
 
     expect(document.updateBatch([drawing.id], { locked: false })).toHaveLength(1)
     expect(document.getDrawing(drawing.id)?.locked).toBe(false)
   })
 
-  it('skips locked targets in a mixed batch while updating the rest', () => {
+  it('updates locked targets together with the rest in a batch', () => {
     const { document } = createDocument()
     const locked = document.createDrawing({
       kind: 'horizontal-line',
@@ -447,9 +467,9 @@ describe('DrawingDocument', () => {
     document.updateBatch([locked.id], { locked: true })
 
     expect(document.updateBatch([locked.id, free.id], { style: { stroke: '#f00' } })).toHaveLength(
-      1,
+      2,
     )
-    expect(document.getDrawing(locked.id)?.style.stroke).not.toBe('#f00')
+    expect(document.getDrawing(locked.id)?.style.stroke).toBe('#f00')
     expect(document.getDrawing(free.id)?.style.stroke).toBe('#f00')
   })
 
