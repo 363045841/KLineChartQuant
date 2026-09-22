@@ -1,6 +1,7 @@
 // 交互控制中心
 
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { batch } from '../../foundation/reactivity/signal.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -144,8 +145,10 @@ export class InteractionController {
     const nextMode = (next.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
     if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
     this.tooltipPositionMode = nextMode
-    if (!prev.disableMainPaneVerticalScroll && next.disableMainPaneVerticalScroll) {
-      this.chart.resetPriceTransform('main')
+    if (prev.mainPriceAxisRangeMode !== next.mainPriceAxisRangeMode) {
+      this.chart.setMainPriceAxisRangeMode(
+        next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+      )
     }
   }
 
@@ -448,7 +451,7 @@ export class InteractionController {
         const deltaY = e.clientY - this.dragStartY
         this.dragStartY = e.clientY
         if (deltaY !== 0 && this.activePaneIdOnDrag === 'main') {
-          if (!this.settings.disableMainPaneVerticalScroll) {
+          if (this.settings.mainPriceAxisRangeMode === PRICE_AXIS_RANGE_MODE.HAND) {
             // 主图纵向平移同样属于滚动交互，隐藏十字线直到鼠标松开。
             this.clearHover()
             this.chart.translatePrice(this.activePaneIdOnDrag, deltaY)
@@ -708,7 +711,7 @@ export class InteractionController {
   private beginScalePriceDrag(clientY: number, mouseY: number) {
     const pane = this.getPaneByY(mouseY)
     if (!pane) return false
-    if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
+    if (pane.id === 'main' && this.settings.mainPriceAxisRangeMode !== PRICE_AXIS_RANGE_MODE.HAND) {
       return false
     }
     this._state.actions.startDrag('scale-price')

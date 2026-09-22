@@ -2,6 +2,7 @@
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingObject } from '../../foundation/plugin/index.js'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
@@ -32,6 +33,10 @@ import {
   type InteractionStateModule,
 } from './interactionState.js'
 import { createMarkerState, type MarkerStateModule } from './markerState.js'
+import {
+  createMainPriceAxisState,
+  type MainPriceAxisStateModule,
+} from './mainPriceAxisState.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -191,6 +196,7 @@ export class ChartStateKernel extends StateKernel {
   /** 系统主题注入（非用户偏好）；用户偏好在 settings.theme */
   readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
+  readonly mainPriceAxis: MainPriceAxisStateModule
   readonly mode: ModeStateModule
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
@@ -307,6 +313,9 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     this.settings = createSettingsState(deps.initialSettings)
+    this.mainPriceAxis = createMainPriceAxisState(
+      this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+    )
     this.renderer = createRendererState(
       deps.initialRendererRuntime ?? { effective: 'webgl', status: 'ready', error: null },
     )
@@ -383,6 +392,8 @@ export class ChartStateKernel extends StateKernel {
       theme: this.effectiveTheme$,
       // Settings
       settings: this.settings.readonly.settings,
+      mainPriceAxisRangeMode: this.mainPriceAxis.readonly.rangeMode,
+      mainPriceAxisHandRange: this.mainPriceAxis.readonly.handRange,
       rendererRuntime: this.renderer.readonly.runtime,
       // Mode
       chartMode: this.mode.readonly.chartMode,

@@ -90,20 +90,20 @@ export class PriceScale {
     return this.toNative(this.range.maxPrice) - this.toNative(this.range.minPrice)
   }
 
-  setRange(r: PriceRange) {
-    this.range = r
-    if (this.scaleType === 'log' && r.minPrice > 0) {
-      const newFormula = logFormulaForPriceRange(r)
+  setRange(range: PriceRange): void {
+    this.range = range
+    if (this.scaleType === 'log' && range.minPrice > 0) {
+      const newFormula = logFormulaForPriceRange(range)
       if (!logFormulasAreSame(newFormula, this.logFormula)) {
         // 将旧公式的 log 偏移量转换到新公式空间
-        const oldLogMin = toLog(r.minPrice, this.logFormula)
-        const oldLogMax = toLog(r.maxPrice, this.logFormula)
+        const oldLogMin = toLog(range.minPrice, this.logFormula)
+        const oldLogMax = toLog(range.maxPrice, this.logFormula)
         const oldCenter = (oldLogMax + oldLogMin) / 2 + this.priceOffset
 
         this.logFormula = newFormula
 
-        const newLogMin = toLog(r.minPrice, this.logFormula)
-        const newLogMax = toLog(r.maxPrice, this.logFormula)
+        const newLogMin = toLog(range.minPrice, this.logFormula)
+        const newLogMax = toLog(range.maxPrice, this.logFormula)
         const newBaseCenter = (newLogMax + newLogMin) / 2
         this.priceOffset = this.clampOffset(oldCenter - newBaseCenter)
       }

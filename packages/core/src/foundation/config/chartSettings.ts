@@ -2,6 +2,8 @@
  * 图表设置配置
  */
 
+import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
+
 export interface SettingItem {
   key: string
   label: string
@@ -130,11 +132,15 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
-    key: 'disableMainPaneVerticalScroll',
-    label: '主图纵轴刻度自适应调整',
-    type: 'boolean',
-    default: true,
+    key: 'mainPriceAxisRangeMode',
+    label: '纵轴刻度',
+    type: 'select',
+    default: PRICE_AXIS_RANGE_MODE.AUTO,
     group: 'main',
+    options: [
+      { value: PRICE_AXIS_RANGE_MODE.AUTO, label: '自动适应' },
+      { value: PRICE_AXIS_RANGE_MODE.HAND, label: '锁定价格对 K 线比例' },
+    ],
   },
   {
     key: 'isAsiaMarket',

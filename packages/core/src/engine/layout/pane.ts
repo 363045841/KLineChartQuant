@@ -58,11 +58,13 @@ export class Pane {
   top = 0
   height = 0
 
-  /** 当前 pane 的可视价格范围（用于右侧轴、以及渲染器内部） */
-  priceRange: PriceRange = { maxPrice: 100, minPrice: 0 }
-
   /** pane 独立 Y 轴 */
   readonly yAxis = new PriceScale()
+
+  /** 当前 pane 的有效基础价格范围。 */
+  get priceRange(): PriceRange {
+    return this.yAxis.getRange()
+  }
 
   /**
    * 创建 pane 实例
@@ -108,7 +110,7 @@ export class Pane {
     range: VisibleRange,
     indicatorRange?: { min: number; max: number } | null,
   ) {
-    this.priceRange = getVisiblePriceRange(data, range.start, range.end)
+    const priceRange = getVisiblePriceRange(data, range.start, range.end)
 
     // 如果有指标极值，合并到价格范围
     if (
@@ -116,11 +118,11 @@ export class Pane {
       Number.isFinite(indicatorRange.min) &&
       Number.isFinite(indicatorRange.max)
     ) {
-      this.priceRange.minPrice = Math.min(this.priceRange.minPrice, indicatorRange.min)
-      this.priceRange.maxPrice = Math.max(this.priceRange.maxPrice, indicatorRange.max)
+      priceRange.minPrice = Math.min(priceRange.minPrice, indicatorRange.min)
+      priceRange.maxPrice = Math.max(priceRange.maxPrice, indicatorRange.max)
     }
 
-    this.yAxis.setRange(this.priceRange)
+    this.yAxis.setRange(priceRange)
 
     // 百分比轴（左/右）需要基准价；始终为 price pane 设置，由 leftYAxis/yAxis 按需调用 toPercent
     if (this.role === 'price' && data.length > 0 && range.start < data.length) {

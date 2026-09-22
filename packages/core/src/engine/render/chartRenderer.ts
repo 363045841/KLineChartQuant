@@ -1,5 +1,6 @@
 import type { SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import type {
   FiveDayTimeShareGeometry,
   PluginHostImpl,
@@ -76,6 +77,7 @@ import { createTimeAxisRendererPlugin } from '../renderers/timeAxis.js'
 import { createTimeShareRendererPlugin } from '../renderers/timeShare.js'
 import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
+import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
@@ -184,6 +186,7 @@ export interface RendererDependencies {
   getActiveMode: () => ChartModeHandler
   dataView$: ReadonlySignal<ChartDataView>
   settings$: ReadonlySignal<ChartSettings>
+  mainPriceAxis: MainPriceAxisStateModule
   customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
@@ -896,7 +899,6 @@ export class ChartRenderer {
           )
           if (lineRange) {
             const linePriceRange = { maxPrice: lineRange.max, minPrice: lineRange.min }
-            pane.priceRange = linePriceRange
             pane.yAxis.setRange(linePriceRange)
           } else {
             mode.updatePaneRange(pane as any, range, dataManager, null)
@@ -933,11 +935,10 @@ export class ChartRenderer {
           if (pane.role === 'indicator') {
             // 副图坐标轴只由对应指标 state 驱动，与 K 线/分时主图模式无关。
             if (subIndicatorRange) {
-              pane.priceRange = {
+              pane.yAxis.setRange({
                 minPrice: subIndicatorRange.min,
                 maxPrice: subIndicatorRange.max,
-              }
-              pane.yAxis.setRange(pane.priceRange)
+              })
             }
           } else {
             const indicatorRange = mode.useIndicatorScheduler ? mainIndicatorRange : null
@@ -945,8 +946,15 @@ export class ChartRenderer {
           }
         }
 
-        if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
-          pane.yAxis.resetTransform()
+        if (pane.id === 'main') {
+          const handRange = this.deps.mainPriceAxis.readonly.handRange.peek()
+          if (this.deps.mainPriceAxis.readonly.rangeMode.peek() === PRICE_AXIS_RANGE_MODE.HAND) {
+            if (!handRange) {
+              this.deps.mainPriceAxis.actions.initializeHandRange(pane.yAxis.getDisplayRange())
+            } else {
+              pane.yAxis.setRange(handRange)
+            }
+          }
         }
       }
 

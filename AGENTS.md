@@ -18,7 +18,8 @@
 
 ## Quick Search
 
-- 修改或理解代码前，优先使用 CodeGraph MCP 的 `codegraph_codegraph_explore` 分析调用链和影响范围；未索引内容再使用 grep/read。
+- 修改或理解代码前，优先使用 CodeGraph MCP 的 `tools.codegraph.codegraph_explore` 分析调用链和影响范围；未索引内容再使用 grep/read。
+- 若初始工具列表未显示 CodeGraph，先通过运行时 `search({ query: 'CodeGraph' })` 发现工具，再调用它。
 - 启动子代理探索代码时，也要求其优先使用 CodeGraph MCP。
 
 ## Committing

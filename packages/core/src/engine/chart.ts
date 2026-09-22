@@ -34,6 +34,7 @@ import {
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../foundation/config/chartSettings.js'
+import { PRICE_AXIS_RANGE_MODE } from '../foundation/config/priceAxisRangeMode.js'
 import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
 import {
   createPluginHost,
@@ -478,6 +479,7 @@ export class Chart {
       getActiveMode: () => this.activeMode,
       dataView$: this.kernel.mode.readonly.dataView,
       settings$: this.kernel.settings.readonly.settings,
+      mainPriceAxis: this.kernel.mainPriceAxis,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
@@ -980,10 +982,20 @@ export class Chart {
 
     const pane = renderer.getPane()
     if (!pane.capabilities.supportsPriceTranslate) return
+    if (
+      paneId === 'main' &&
+      this.kernel.mainPriceAxis.readonly.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND
+    ) {
+      return
+    }
 
     const priceOffset = pane.yAxis.deltaYToPriceOffset(deltaY)
     const currentOffset = pane.yAxis.getPriceOffset()
     pane.yAxis.setPriceOffset(currentOffset + priceOffset)
+    if (paneId === 'main') {
+      this.kernel.mainPriceAxis.actions.setHandRange(pane.yAxis.getDisplayRange())
+      pane.yAxis.resetTransform()
+    }
     this.scheduleDraw()
   }
 
@@ -1005,6 +1017,21 @@ export class Chart {
     this.scheduleDraw()
   }
 
+  /** 切换主图价格轴范围来源模式。 */
+  setMainPriceAxisRangeMode(
+    mode: import('../foundation/config/priceAxisRangeMode.js').PriceAxisRangeMode,
+  ): void {
+    const renderer = this.paneRenderers.find((item) => item.getPane().id === 'main')
+    if (!renderer) return
+    if (mode === PRICE_AXIS_RANGE_MODE.HAND) {
+      this.kernel.mainPriceAxis.actions.useHandRange(renderer.getPane().yAxis.getDisplayRange())
+    } else {
+      this.kernel.mainPriceAxis.actions.useAutoRange()
+      renderer.getPane().yAxis.resetTransform()
+    }
+    this.scheduleDraw()
+  }
+
   /**
    * 缩放价格轴（用于右侧刻度栏上下拖动）
    * @param paneId 目标 pane ID
@@ -1016,8 +1043,18 @@ export class Chart {
 
     const pane = renderer.getPane()
     if (!pane.capabilities.supportsPriceTranslate) return
+    if (
+      paneId === 'main' &&
+      this.kernel.mainPriceAxis.readonly.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND
+    ) {
+      return
+    }
 
     pane.yAxis.scaleByDelta(deltaY)
+    if (paneId === 'main') {
+      this.kernel.mainPriceAxis.actions.setHandRange(pane.yAxis.getDisplayRange())
+      pane.yAxis.resetTransform()
+    }
     this.scheduleDraw()
   }
   /**

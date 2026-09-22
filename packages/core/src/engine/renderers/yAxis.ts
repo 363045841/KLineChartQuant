@@ -109,7 +109,7 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       const axisWidth = targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth
       targetCtx.clearRect(0, 0, axisWidth, pane.height)
 
-      const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
+      const displayRange = pane.yAxis.getDisplayRange()
       const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
       // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。

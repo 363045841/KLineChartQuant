@@ -11,7 +11,7 @@ function getLastPriceInfo(context: RenderContext) {
   const last = klineData[klineData.length - 1]
   if (!last) return null
 
-  const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
+  const displayRange = pane.yAxis.getDisplayRange()
   if (last.close < displayRange.minPrice || last.close > displayRange.maxPrice) {
     return null
   }
