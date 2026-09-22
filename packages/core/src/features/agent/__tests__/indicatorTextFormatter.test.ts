@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { createIndicatorTextFormatter } from '../indicatorTextFormatter'
+import { createIndicatorTextFormatter } from '../impl/indicator/indicatorTextFormatter'
 
 const TIMESTAMPS = [1000, 2000, 3000]
 

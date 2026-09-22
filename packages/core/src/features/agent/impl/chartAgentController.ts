@@ -1,82 +1,46 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
 import { type Static, Type } from 'typebox'
-import { MarketDataCache } from '../../data/buffer/marketDataCache.js'
+import type { IndicatorInstance } from '../../../controllers/types.js'
 import {
   lookupInstrumentsBySymbol,
   searchInstruments,
-} from '../../data/provider/instrumentSearch.js'
-import type { MarketDataProviderRegistry } from '../../data/provider/registry.js'
-import type { DrawingCommands } from '../../engine/drawing/DrawingCommands.js'
-import type {
-  DrawingAnchorCommandInput,
-  DrawingDocument,
-} from '../../engine/drawing/DrawingDocument.js'
-import { DRAWING_LABEL_INDEX_PATTERN } from '../../engine/drawing/drawingLabels.js'
-import { getDrawingInputAnchorCount } from '../../engine/drawing/materializeAnchors.js'
-import { KLineChartError } from '../../errors.js'
-import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import { AGENT_DRAWING_COLOR_VALUES } from '../../foundation/tokens/agentDrawingColors.js'
-import type { ChartDataView } from '../../foundation/types/chartView.js'
+} from '../../../data/provider/instrumentSearch.js'
+import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../../data/provider/types.js'
+import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '../../../data/provider/types.js'
+import type { PaneSpec } from '../../../engine/chartTypes.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
-import '../../engine/data/comparisonCommands.js'
-import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
-import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types.js'
-import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types.js'
-import type { PaneSpec } from '../../engine/chartTypes.js'
-import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
-import type { PaneManager } from '../../engine/paneManager.js'
-import type { DataStateModule } from '../../engine/state/dataState.js'
+import '../../../engine/data/comparisonCommands.js'
+import type { DrawingAnchorCommandInput } from '../../../engine/drawing/DrawingDocument.js'
+import { DRAWING_LABEL_INDEX_PATTERN } from '../../../engine/drawing/drawingLabels.js'
+import { getDrawingInputAnchorCount } from '../../../engine/drawing/materializeAnchors.js'
+import type { DataStateModule } from '../../../engine/state/dataState.js'
+import { CHART_AGENT_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import {
   type ChartToolExecutionContext,
   getRegisteredChartTools,
   Tool,
-} from '../../foundation/agent/chartToolRegistry.js'
-import type { DrawingKind, DrawingObject } from '../../foundation/plugin/index.js'
-import { CHART_AGENT_ERROR_CODES } from './errors.js'
-import type { IndicatorQuery } from './indicator/indicatorQuery.js'
-import {
-  createMarketDataTextFormatter,
-  type MarketDataTextFormatter,
-} from './marketDataTextFormatter.js'
+} from '../../../foundation/agent/chartToolRegistry.js'
+import type { DrawingKind, DrawingObject } from '../../../foundation/plugin/index.js'
+import { computed, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import { AGENT_DRAWING_COLOR_VALUES } from '../../../foundation/tokens/agentDrawingColors.js'
 import type {
   BarsQueryInput,
   BarsQueryResult,
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
+  ChartAgentControllerDependencies,
   ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
   IndicatorQueryInput,
+  MarketDataTextFormatter,
   TimeShareQueryInput,
   TimeShareQueryResult,
   TimeShareRangeQueryInput,
   TimeShareRangeQueryResult,
-} from './types.js'
-
-interface ChartAgentControllerDependencies {
-  readonly chartId: string
-  readonly dataState: DataStateModule
-  readonly currentSpec: ReadonlySignal<SymbolSpec | null>
-  readonly chartMode: ReadonlySignal<ChartDataView>
-  readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
-  readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
-  readonly indicatorQuery: IndicatorQuery
-  readonly marketDataProviderRegistry: MarketDataProviderRegistry
-  readonly marketDataCache: MarketDataCache
-  readonly drawingDocument: DrawingDocument
-  readonly drawingCommands: DrawingCommands
-  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
-  readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
-  readonly getDrawingPaneIds: () => ReadonlyArray<string>
-  readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
-  /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
-  readonly comparisonCommands: ComparisonCommands
-  /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
-  readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
-  readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
-  readonly marketDataTextFormatter?: MarketDataTextFormatter
-}
+} from '../types.js'
+import { createMarketDataTextFormatter } from './marketDataTextFormatter.js'
 
 const InstrumentLookupToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { InstrumentDescriptor } from '../../../data/provider/types'
-import { createMarketDataTextFormatter } from '../marketDataTextFormatter'
+import { createMarketDataTextFormatter } from '../impl/marketDataTextFormatter'
 
 /** 构造带嵌套能力与路由字段的精确匹配品种。 */
 function createInstrument(overrides: Partial<InstrumentDescriptor> = {}): InstrumentDescriptor {

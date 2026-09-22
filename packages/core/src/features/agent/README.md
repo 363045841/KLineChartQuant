@@ -1,6 +1,6 @@
-# Agent 指标查询模块
+# Agent 查询模块
 
-`packages/core/src/features/agent/` 为 Agent 提供指标信息访问边界。它保留现有的
+`packages/core/src/features/agent/` 为 Agent 提供图表、指标与行情信息访问边界。它保留现有的
 `definitionId + params + from/to/limit` 查询入参，复用既有计算 Runtime；计算完成后直接转义为紧凑
 文本而非 JSON，以减少 Agent 的 token 输入。它不读取或写入图表的渲染结果池。
 
@@ -13,9 +13,9 @@
 
 ```text
 Agent tool
-  -> indicator/indicatorQuery
+  -> impl/indicator/indicatorQuery
   -> 注册的 IndicatorMetadata.runtime.compute
-  -> indicator/indicatorTextFormatter
+  -> impl/indicator/indicatorTextFormatter
   -> 紧凑文本
   -> Agent
 ```
@@ -38,13 +38,19 @@ Agent tool
 
 ```text
 agent/
-├── indicatorQuery.ts                 # 保留既有入参的查询编排与纯计算调用
-├── indicatorTextFormatter.ts         # 专用转义器注册与 Markdown 降级选择
-├── indicatorSemanticFormatters.ts    # Structure、Zones、Volume Profile 专用文本
-├── indicatorMarkdownFormatter.ts     # 未注册结果的通用 Markdown 表格
-└── __tests__/
-    ├── indicatorQuery.test.ts        # 查询与文本出口测试
-    └── indicatorTextFormatter.test.ts # 专用和降级转义测试
+├── types.ts                               # 对外契约、数据类型与依赖接口
+├── index.ts                               # 公共出口
+├── impl/
+│   ├── chartAgentController.ts            # Chart Agent facade 与 @Tool 注册
+│   ├── marketDataTextFormatter.ts         # 行情查询结果的紧凑文本转义
+│   ├── markdownTable.ts                   # 共用 Markdown 表格渲染
+│   └── indicator/
+│       ├── indicatorQuery.ts              # 保留既有入参的查询编排与纯计算调用
+│       ├── indicatorTextFormatter.ts      # 专用转义器注册与 Markdown 降级选择
+│       ├── indicatorSemanticFormatters.ts # Structure、Zones、Volume Profile 专用文本
+│       └── indicatorMarkdownFormatter.ts  # 未注册结果的通用 Markdown 表格
+├── __tests__/                             # agent 模块测试
+└── README.md
 ```
 
 ## 查询规则
@@ -55,7 +61,7 @@ agent/
 
 ## 文本转义
 
-`series` 是 Runtime 返回的 `unknown` 原始结果。`indicatorTextFormatter.ts` 根据 `definitionId` 选择转义器：
+`series` 是 Runtime 返回的 `unknown` 原始结果。`impl/indicator/indicatorTextFormatter.ts` 根据 `definitionId` 选择转义器：
 
 - `structure`：趋势与近期 BOS/CHOCH 事件。
 - `zones`：价格区间、状态和发生时间。

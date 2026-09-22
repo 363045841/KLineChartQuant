@@ -1,41 +1,17 @@
 // 本文件将市场查询的领域结果转义为紧凑 Markdown 表格，降低 Agent 上下文 token 消耗。
 
+import type { InstrumentDescriptor } from '../../../data/provider/types.js'
+import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
+import { formatDateTimeInTimeZone } from '../../../foundation/utils/dateFormat.js'
 import type {
-  InstrumentDescriptor,
-  KLineAdjustment,
-  KLinePeriod,
-  OlderDataStatus,
-} from '../../data/provider/types.js'
-import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
-import { formatDateTimeInTimeZone } from '../../foundation/utils/dateFormat.js'
+  BarsQueryResult,
+  ChartBarsTextFormatInput,
+  InstrumentLookupTextFormatInput,
+  MarketDataTextFormatter,
+  TimeShareQueryResult,
+  TimeShareRangeQueryResult,
+} from '../types.js'
 import { createMarkdownTable, escapeMarkdownCell } from './markdownTable.js'
-import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types.js'
-
-/** 市场查询文本转义服务。 */
-export interface MarketDataTextFormatter {
-  formatBars(result: BarsQueryResult): string
-  formatChartBars(input: ChartBarsTextFormatInput): string
-  formatInstrumentLookup(input: InstrumentLookupTextFormatInput): string
-  formatTimeShare(result: TimeShareQueryResult): string
-  formatTimeShareRange(result: TimeShareRangeQueryResult): string
-}
-
-/** 当前图表 K 线投影为 Agent 文本时所需的最小行情元数据。 */
-export interface ChartBarsTextFormatInput {
-  readonly sourceId: string
-  readonly symbol: string
-  readonly period: KLinePeriod
-  readonly adjustment: KLineAdjustment
-  readonly timezone: string | null
-  readonly data: ReadonlyArray<KLineData>
-  readonly olderData: OlderDataStatus | null
-}
-
-/** 精确品种查询投影为 Agent 文本时的输入。 */
-export interface InstrumentLookupTextFormatInput {
-  readonly symbol: string
-  readonly instruments: ReadonlyArray<InstrumentDescriptor>
-}
 
 /** 构造只含品种、来源和时区的紧凑行情标题。 */
 function createTitle(

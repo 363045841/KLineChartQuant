@@ -1,4 +1,7 @@
-/** Agent 查询品种目录与行情数据的输入。 */
+/** Agent 功能模块的对外契约：查询输入输出、facade 接口与依赖接口；实现位于 impl/。 */
+import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
+import type { MarketDataCache } from '../../data/buffer/marketDataCache.js'
+import type { MarketDataProviderRegistry } from '../../data/provider/registry.js'
 import type {
   AssetClass,
   BarAggregation,
@@ -10,9 +13,17 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../../data/provider/types.js'
+import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
+import type { DrawingCommands } from '../../engine/drawing/DrawingCommands.js'
+import type { DrawingDocument } from '../../engine/drawing/DrawingDocument.js'
+import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata.js'
+import type { PaneManager } from '../../engine/paneManager.js'
+import type { DataStateModule } from '../../engine/state/dataState.js'
 import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry.js'
-import type { DrawingLabels } from '../../foundation/plugin/index.js'
+import type { DrawingLabels, DrawingObject } from '../../foundation/plugin/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { ChartDataView } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
 
 /** Inclusive timestamp range exposed to Agent consumers. */
 export interface ChartAgentTimeRange {
@@ -183,4 +194,94 @@ export interface ChartAgentController {
     context?: ChartToolExecutionContext,
   ): Promise<string>
   listDrawings(): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>>
+}
+
+/** Chart Agent facade 的构造依赖；由宿主组装后注入。 */
+export interface ChartAgentControllerDependencies {
+  readonly chartId: string
+  readonly dataState: DataStateModule
+  readonly currentSpec: ReadonlySignal<SymbolSpec | null>
+  readonly chartMode: ReadonlySignal<ChartDataView>
+  readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
+  readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  readonly indicatorQuery: IndicatorQuery
+  readonly marketDataProviderRegistry: MarketDataProviderRegistry
+  readonly marketDataCache: MarketDataCache
+  readonly drawingDocument: DrawingDocument
+  readonly drawingCommands: DrawingCommands
+  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
+  readonly getDrawingPaneIds: () => ReadonlyArray<string>
+  readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
+  readonly comparisonCommands: ComparisonCommands
+  /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
+  readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
+  readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
+  readonly marketDataTextFormatter?: MarketDataTextFormatter
+}
+
+/** 市场查询文本转义服务。 */
+export interface MarketDataTextFormatter {
+  formatBars(result: BarsQueryResult): string
+  formatChartBars(input: ChartBarsTextFormatInput): string
+  formatInstrumentLookup(input: InstrumentLookupTextFormatInput): string
+  formatTimeShare(result: TimeShareQueryResult): string
+  formatTimeShareRange(result: TimeShareRangeQueryResult): string
+}
+
+/** 当前图表 K 线投影为 Agent 文本时所需的最小行情元数据。 */
+export interface ChartBarsTextFormatInput {
+  readonly sourceId: string
+  readonly symbol: string
+  readonly period: KLinePeriod
+  readonly adjustment: KLineAdjustment
+  readonly timezone: string | null
+  readonly data: ReadonlyArray<KLineData>
+  readonly olderData: OlderDataStatus | null
+}
+
+/** 精确品种查询投影为 Agent 文本时的输入。 */
+export interface InstrumentLookupTextFormatInput {
+  readonly symbol: string
+  readonly instruments: ReadonlyArray<InstrumentDescriptor>
+}
+
+/** 指标计算的内部输入，可按时间范围筛选结果；不作为 Agent 工具契约暴露。 */
+export type IndicatorCalculationQueryInput = IndicatorQueryInput & {
+  readonly from?: number
+  readonly to?: number
+}
+
+/** 调用既有指标计算链路并返回紧凑文本的查询服务。 */
+export interface IndicatorQuery {
+  queryIndicator(input: IndicatorCalculationQueryInput): Promise<string>
+}
+
+/** 指标查询服务依赖，允许测试或宿主替换指标定义解析器和文本转义器。 */
+export interface IndicatorQueryDependencies {
+  readonly dataState: DataStateModule
+  readonly resolveDefinition?: (
+    definitionId: string,
+  ) => Pick<IndicatorMetadata, 'name' | 'runtime'> | undefined
+  readonly textFormatter?: IndicatorTextFormatter
+}
+
+/** 指标文本转义器的输入，不属于 Agent 公开返回契约。 */
+export interface IndicatorTextFormatContext {
+  readonly definitionId: string
+  readonly params: Readonly<Record<string, unknown>>
+  readonly timestamps: ReadonlyArray<number>
+  readonly series: unknown
+  readonly from: number
+  readonly to: number
+  readonly limit: number
+}
+
+/** 单个指标结果的文本转义函数。 */
+export type IndicatorResultFormatter = (context: IndicatorTextFormatContext) => string
+
+/** 指标文本转义服务。 */
+export interface IndicatorTextFormatter {
+  format(context: IndicatorTextFormatContext): string
 }

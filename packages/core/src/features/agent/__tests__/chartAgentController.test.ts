@@ -14,11 +14,11 @@ import { DrawingCommands } from '../../../engine/drawing/DrawingCommands'
 import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
 import { createDataState } from '../../../engine/state/dataState'
 import { createDrawingState } from '../../../engine/state/drawingState'
+import { CHART_AGENT_ERROR_CODES } from '../../../errors'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { AGENT_DRAWING_COLOR_VALUES } from '../../../foundation/tokens/agentDrawingColors'
 import type { KLineData } from '../../../foundation/types/price'
-import { createChartAgentController, getRegisteredChartTools } from '../chartAgentController'
-import { CHART_AGENT_ERROR_CODES } from '../errors'
+import { createChartAgentController, getRegisteredChartTools } from '../impl/chartAgentController'
 
 const BAR_SELECTION = {
   kind: 'bars' as const,

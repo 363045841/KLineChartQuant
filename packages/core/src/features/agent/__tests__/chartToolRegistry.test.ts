@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '../../../controllers/types'
 import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
 import { ToolInputValidationError } from '../../../foundation/agent/chartToolRegistry'
-import { getRegisteredChartTools } from '../chartAgentController'
+import { getRegisteredChartTools } from '../impl/chartAgentController'
 
 describe('Chart Agent @Tool registry', () => {
   it('registers the exact instrument lookup directly on the Core API', async () => {
