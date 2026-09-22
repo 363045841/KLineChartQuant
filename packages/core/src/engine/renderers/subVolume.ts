@@ -46,9 +46,13 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
       if (!chartData.length) return
 
       const { start, end } = range
+      const isTimeShare = chartData.some((item) => item && 'price' in item)
 
       let maxVolume = 0
       let minVolume = Infinity
+      let missingVolumeCount = 0
+      let zeroVolumeCount = 0
+      let validVolumeCount = 0
       for (let i = start; i < end && i < chartData.length; i++) {
         const item = chartData[i]
         if (!item) continue
@@ -56,10 +60,45 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
         if (volume !== undefined && volume !== null) {
           maxVolume = Math.max(maxVolume, volume)
           minVolume = Math.min(minVolume, volume)
+          if (volume === 0) {
+            zeroVolumeCount++
+          } else {
+            validVolumeCount++
+          }
+        } else {
+          missingVolumeCount++
         }
       }
 
+      if (isTimeShare) {
+        // biome-ignore lint/suspicious/noConsole: 临时诊断分时成交量数据与绘制前置条件。
+        console.debug('[VolumeRenderer][TimeShare] render diagnostics', {
+          paneId,
+          range: { start, end },
+          visiblePointCount: Math.max(0, Math.min(end, chartData.length) - start),
+          validVolumeCount,
+          zeroVolumeCount,
+          missingVolumeCount,
+          minVolume: Number.isFinite(minVolume) ? minVolume : undefined,
+          maxVolume,
+          kBarRectCount: context.kBarRects.length,
+        })
+      }
+
       if (maxVolume === 0 || !Number.isFinite(minVolume)) {
+        if (isTimeShare) {
+          // biome-ignore lint/suspicious/noConsole: 临时诊断分时成交量未绘制的直接原因。
+          console.warn(
+            '[VolumeRenderer][TimeShare] skip drawing: no positive usable volume in visible range',
+            {
+              paneId,
+              range: { start, end },
+              validVolumeCount,
+              zeroVolumeCount,
+              missingVolumeCount,
+            },
+          )
+        }
         return
       }
 

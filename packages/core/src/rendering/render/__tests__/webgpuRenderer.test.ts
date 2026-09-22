@@ -81,6 +81,41 @@ describe('createWebGPURenderer', () => {
     )
   })
 
+  it('submits a transparent clear for a main frame with no GPU draws', async () => {
+    const fake = createMockWebGPU()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu,
+      canvas: fake.canvas,
+    })
+    renderer.surface.resize(100, 50, 1)
+
+    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 50, dpr: 1 })
+    renderer.endFrame()
+
+    expect(fake.queue.submit).toHaveBeenCalledOnce()
+    expect(fake.renderPassDescriptors).toHaveLength(1)
+    expect(fake.renderPassDescriptors[0]?.colorAttachments[0]).toMatchObject({
+      clearValue: { r: 0, g: 0, b: 0, a: 0 },
+      loadOp: 'clear',
+      storeOp: 'store',
+    })
+    expect(fake.passes[0]?.draw).not.toHaveBeenCalled()
+  })
+
+  it('does not clear an overlay-only frame with no GPU draws', async () => {
+    const fake = createMockWebGPU()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu,
+      canvas: fake.canvas,
+    })
+    renderer.surface.resize(100, 50, 1)
+
+    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 50, dpr: 1 }, { clear: false })
+    renderer.endFrame()
+
+    expect(fake.queue.submit).not.toHaveBeenCalled()
+  })
+
   it('draws rectangle instances with an alpha hex color', async () => {
     const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({

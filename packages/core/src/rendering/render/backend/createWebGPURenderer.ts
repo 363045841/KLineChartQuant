@@ -229,6 +229,8 @@ export async function createWebGPURenderer(
   let msaaHeight = 0
   let currentRegion: import('../SurfaceBackend.js').SurfaceRegion | null = null
   let pendingDraws: PendingDraw[] = []
+  /** 本帧任一主层请求过 clear；即使没有 GPU 图元也必须提交透明清屏。 */
+  let frameClearRequested = false
   let metricsFrameOpen = false
   let stripSeq = 0
   /** 本帧 touch 的 strip ResourceTable key；flush 后 prune 未 touch 的 */
@@ -422,7 +424,8 @@ export async function createWebGPURenderer(
 
   function flushPendingDraws(options?: { composite?: boolean }): void {
     const hadDraws = pendingDraws.length > 0
-    if (hadDraws) {
+    const shouldSubmit = hadDraws || frameClearRequested
+    if (shouldSubmit) {
       openMetricsFrame()
       const encoder = device.createCommandEncoder()
       const groups = new Map<string, PendingDraw[]>()
@@ -485,6 +488,7 @@ export async function createWebGPURenderer(
       metrics.recordSubmit()
       pendingDraws = []
     }
+    frameClearRequested = false
 
     if (options?.composite) {
       if (metricsFrameOpen || hadDraws) {
@@ -559,9 +563,10 @@ export async function createWebGPURenderer(
       throw new Error('compute not supported on WebGPU MVP backend (caps.compute === false)')
     },
     destroyComputePipeline(_handle): void {},
-    beginFrame(region): void {
+    beginFrame(region, options): void {
       if (!disposed) {
         openMetricsFrame()
+        if (options?.clear !== false) frameClearRequested = true
         currentRegion = { ...region }
         rawSurface.bindRegion(region)
       }
