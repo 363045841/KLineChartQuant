@@ -160,3 +160,6 @@ Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/s
 
 ## Github CLI
 - 不要使用 \ 来转义
+
+## 包管理
+- 使用pnpm,不许使用npm
