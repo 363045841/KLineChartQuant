@@ -10,6 +10,7 @@ import {
   type DrawingToolId,
 } from '@363045841yyt/klinechart-core/controllers'
 import {
+  type DrawingLabelIndex,
   type DrawingLabelPosition,
   type DrawingObject,
   type DrawingStyle,
@@ -60,7 +61,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
       area: { ...(drawing.labels?.area ?? {}) },
     }
     const target = targetKind === 'line' ? labels.line : labels.area
-    const key = String(targetIndex)
+    // 标签键是 DrawingLabelIndex 契约（`${number}`），用模板字面量构造而非 String()。
+    const key: DrawingLabelIndex = `${targetIndex}`
     if (label.trim() === '') delete target[key]
     else target[key] = { text: label, position }
     ctrl.value?.updateDrawing({ ...drawing, labels })
