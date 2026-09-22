@@ -1,4 +1,5 @@
 // Pi Agent 驱动器：执行运行计划、投影 UI 事件并隔离敏感内容。
+import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
 import { Agent, type AgentEvent, type AgentTool } from '@earendil-works/pi-agent-core'
 import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
@@ -113,15 +114,22 @@ function recoverableToolFailure(error: unknown): RuntimeToolResult {
   const failure =
     error instanceof AgentRuntimeError
       ? error.toView()
-      : {
-          code: 'TOOL_ERROR',
-          message:
-            error instanceof Error && error.message
-              ? error.message
-              : 'The chart tool could not complete the request.',
-          retryable: true,
-          recommendedAction: 'Correct the tool input and retry the request.',
-        }
+      : error instanceof ToolInputValidationError
+        ? {
+            code: 'TOOL_INPUT_INVALID',
+            message: error.message,
+            retryable: true,
+            recommendedAction: 'Correct the invalid field and retry the request.',
+          }
+        : {
+            code: 'INTERNAL_ERROR',
+            message:
+              error instanceof Error && error.message
+                ? error.message
+                : 'The chart tool could not complete the request.',
+            retryable: false,
+            recommendedAction: 'Do not retry with different input; report this tool failure.',
+          }
   return {
     content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
     summary: failure.message,
@@ -476,16 +484,19 @@ export class PiRunDriver {
       if (!definition) return
       const id = publicToolCallId(plan.runId, event.toolCallId)
       // 输入摘要在发往 UI 前脱敏，工具原始参数不会进入事件流。
+      let inputSummary = 'Validated tool input'
+      try {
+        inputSummary = definition.summarizeInput?.(event.args) ?? inputSummary
+      } catch {
+        // Pi 已完成 schema 校验；摘要投影不得因二次校验失败而中止整轮运行。
+      }
       const call: ToolCallView = {
         id,
         runId: plan.runId,
         name: definition.name,
         label: definition.label,
         status: 'running',
-        inputSummary: redactString(
-          definition.summarizeInput?.(event.args) ?? 'Validated tool input',
-          this.redaction,
-        ),
+        inputSummary: redactString(inputSummary, this.redaction),
         safety: definition.safety,
         reversible: definition.reversible,
         startedAt: this.now(),

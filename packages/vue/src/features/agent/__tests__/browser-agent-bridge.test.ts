@@ -4,6 +4,7 @@ import type {
   AgentChartSymbolContextItem,
   RuntimeToolDefinition,
 } from '@363045841yyt/klinechart-agent-runtime'
+import { KLineChartError } from '@363045841yyt/klinechart-core'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge } from '../browser-agent-bridge'
@@ -573,6 +574,27 @@ describe('BrowserAgentBridge', () => {
       }),
     ).resolves.toMatchObject({ summary: 'Tool completed.' })
     expect(drawingCommands.create).toHaveBeenCalledOnce()
+  })
+
+  it('preserves non-drawing chart tool contract errors for the model', async () => {
+    const agent = createTestChartAgent({
+      queryBars: () => {
+        throw new KLineChartError('INVALID_ARGUMENTS', 'The requested period is unavailable.')
+      },
+    })
+    const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
+
+    await expect(
+      bridge.debugTool('market_bars_query', {
+        symbol: 'BTCUSDT',
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 1,
+      }),
+    ).resolves.toMatchObject({
+      content: expect.stringContaining('INVALID_ARGUMENTS'),
+    })
   })
 
   it('routes a chart tool to the primitive host that owns it, falling back to the facade', () => {

@@ -1,6 +1,9 @@
 // 本文件注册可由 UI 与 Agent 共同调用的 Core 领域方法，并提供统一参数校验。
 import { type Static, type TSchema } from 'typebox'
 import { Value } from 'typebox/value'
+import { ToolInputValidationError } from './errors.js'
+
+export { ToolInputValidationError } from './errors.js'
 
 const TOOL_INPUT_ERROR_LIMIT = 5
 
@@ -69,7 +72,7 @@ function requireToolInput<TParameters extends TSchema>(
     errors.push(`${error.instancePath || '/'}: ${error.message}`)
     if (errors.length === TOOL_INPUT_ERROR_LIMIT) break
   }
-  throw new TypeError(
+  throw new ToolInputValidationError(
     `The tool input is invalid: ${errors.join('; ') || 'Schema validation failed.'}`,
   )
 }

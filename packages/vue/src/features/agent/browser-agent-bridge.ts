@@ -8,6 +8,7 @@ import type {
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  type AgentErrorView,
   AgentRuntimeError,
   ASK_USER_TOOL_METADATA,
   type AskUserRequest,
@@ -21,13 +22,17 @@ import {
   type PiRunPlan,
   PROVIDER_SETTINGS_VERSION,
   RuntimeToolCatalog,
+  toAgentRuntimeError,
   WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   createLocalStoragePersistence,
   formatDateTimeInTimeZone,
+  getRecoveryHint,
+  isKLineChartError,
   type PersistenceCodec,
 } from '@363045841yyt/klinechart-core'
+import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
 import {
   type ChartAgentController,
   getRegisteredChartTools,
@@ -138,7 +143,8 @@ function drawingCreateFailure(
         message: error.message,
         field: 'anchors',
         expected: 'loaded chart data that carries a per-bar date',
-        recovery: 'This dataset exposes no per-bar date; anchor by bar position instead of trading date.',
+        recovery:
+          'This dataset exposes no per-bar date; anchor by bar position instead of trading date.',
       }
       break
     case 'DRAWING_INVALID_ANCHOR':
@@ -151,7 +157,7 @@ function drawingCreateFailure(
       }
       break
     default:
-      if (!(error instanceof TypeError)) return null
+      if (!(error instanceof ToolInputValidationError)) return null
       detail = {
         code: 'INVALID_TOOL_INPUT',
         message: error.message,
@@ -168,6 +174,39 @@ function drawingCreateFailure(
   }
   return {
     content: JSON.stringify({ success: false, error: detail, stateChanged: false }),
+    summary: failure.message,
+    failure,
+  }
+}
+
+/** 将所有已知图表工具契约失败投影为模型可行动的结果。 */
+function chartToolFailure(error: unknown): {
+  content: string
+  summary: string
+  failure: AgentErrorView
+} | null {
+  if (error instanceof ToolInputValidationError) {
+    const failure = {
+      code: error.code,
+      message: error.message,
+      retryable: true,
+      recommendedAction: 'Correct the invalid field and retry the request.',
+    }
+    return {
+      content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
+      summary: failure.message,
+      failure,
+    }
+  }
+  if (!isKLineChartError(error)) return null
+  const failure = {
+    code: error.code,
+    message: error.message,
+    retryable: true,
+    recommendedAction: getRecoveryHint(error.code),
+  }
+  return {
+    content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
     summary: failure.message,
     failure,
   }
@@ -808,8 +847,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
             progress: context.progress,
           })
         } catch (error) {
-          if (tool.config.name !== 'drawing_create') throw error
-          const failure = drawingCreateFailure(error, agent)
+          const failure =
+            (tool.config.name === 'drawing_create' ? drawingCreateFailure(error, agent) : null) ??
+            chartToolFailure(error)
           if (!failure) throw error
           return failure
         }
@@ -1266,10 +1306,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       })
     } catch (error) {
       const endedAt = Date.now()
-      const agentError =
-        error instanceof AgentRuntimeError
-          ? error
-          : new AgentRuntimeError('PROVIDER_ERROR', 'The Provider request failed.')
+      const agentError = toAgentRuntimeError(error)
       const cancelled = agentError.code === 'ABORTED'
       this.finish(session, runId, cancelled ? 'cancelled' : 'failed', endedAt)
       this.emit(

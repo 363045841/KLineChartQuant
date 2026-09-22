@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SymbolSpec } from '../../../controllers/types'
 import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
+import { ToolInputValidationError } from '../../../foundation/agent/chartToolRegistry'
 import { getRegisteredChartTools } from '../chartAgentController'
 
 describe('Chart Agent @Tool registry', () => {
@@ -25,6 +26,16 @@ describe('Chart Agent @Tool registry', () => {
         },
       ),
     ).rejects.toThrow('/symbol: must be string')
+    await expect(
+      tool?.execute(
+        {},
+        { symbol: 600519 },
+        {
+          signal: new AbortController().signal,
+          progress: () => undefined,
+        },
+      ),
+    ).rejects.toBeInstanceOf(ToolInputValidationError)
   })
 
   it('registers drawing mutations as destructive tools with complete schemas', async () => {

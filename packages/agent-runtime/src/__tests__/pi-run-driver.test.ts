@@ -1,3 +1,4 @@
+import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
 import {
   createModels,
   fauxAssistantMessage,
@@ -193,7 +194,7 @@ describe('PiRunDriver', () => {
     })
   })
 
-  it('converts a thrown tool error into feedback the model can use', async () => {
+  it('reports an unexpected tool exception as an internal error without suggesting input retries', async () => {
     const tool: RuntimeToolDefinition = {
       name: 'market_bars_query',
       label: 'Query market bars',
@@ -210,7 +211,7 @@ describe('PiRunDriver', () => {
         fauxAssistantMessage(fauxToolCall('market_bars_query', {}, { id: 'bars-1' }), {
           stopReason: 'toolUse',
         }),
-        fauxAssistantMessage('I will retry with an available source.'),
+        fauxAssistantMessage('I will report the tool failure.'),
       ],
       [tool],
     )
@@ -221,17 +222,48 @@ describe('PiRunDriver', () => {
         events.push(event)
       }),
     ).resolves.toMatchObject({
-      text: 'I will retry with an available source.',
+      text: 'I will report the tool failure.',
       completedToolCount: 0,
     })
     expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
       result: {
         status: 'failed',
         error: {
-          code: 'TOOL_ERROR',
+          code: 'INTERNAL_ERROR',
           message: 'Unknown sourceId. Available sourceIds: gotdx, baostock.',
+          retryable: false,
         },
       },
+    })
+  })
+
+  it('keeps schema validation failures distinguishable from tool exceptions', async () => {
+    const tool: RuntimeToolDefinition = {
+      name: 'market_bars_query',
+      label: 'Query market bars',
+      description: 'Query market bars',
+      parameters: Type.Object({}),
+      safety: 'read-only',
+      reversible: false,
+      execute: async () => {
+        throw new ToolInputValidationError('The tool input is invalid: /symbol: must be string.')
+      },
+    }
+    const { plan } = fixture(
+      [
+        fauxAssistantMessage(fauxToolCall('market_bars_query', {}, { id: 'bars-1' })),
+        fauxAssistantMessage('I will correct the field.'),
+      ],
+      [tool],
+    )
+    const events: AgentRunUiEventInput[] = []
+
+    await new PiRunDriver().run(plan, (event) => {
+      events.push(event)
+    })
+
+    expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
+      result: { status: 'failed', error: { code: 'TOOL_INPUT_INVALID', retryable: true } },
     })
   })
 

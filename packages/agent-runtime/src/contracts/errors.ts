@@ -27,6 +27,7 @@ export type AgentRuntimeErrorCode =
   | 'TARGET_LOST'
   | 'TARGET_MISMATCH'
   | 'TOOL_ERROR'
+  | 'TOOL_INPUT_INVALID'
   | 'TOOL_NOT_ALLOWED'
 
 export class AgentRuntimeError extends Error {
