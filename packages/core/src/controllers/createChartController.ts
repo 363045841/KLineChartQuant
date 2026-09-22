@@ -325,8 +325,23 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return chart.drawing.getData()
     },
     findAnchorAtTradingDate(tradingDate) {
-      const bar = chart.getData().find((item) => item.date === tradingDate)
-      return bar === undefined ? null : { timestamp: bar.timestamp }
+      const dated = chart.getData().flatMap((item) =>
+        item.date === undefined ? [] : [{ date: item.date, timestamp: item.timestamp }],
+      )
+      if (dated.length === 0) return { kind: 'date-unavailable' }
+      let earliest = dated[0]!.date
+      let latest = dated[0]!.date
+      for (const bar of dated) {
+        if (bar.date < earliest) earliest = bar.date
+        if (bar.date > latest) latest = bar.date
+      }
+      if (tradingDate < earliest || tradingDate > latest) {
+        return { kind: 'out-of-range', earliest, latest }
+      }
+      const bar = dated.find((item) => item.date === tradingDate)
+      return bar === undefined
+        ? { kind: 'not-trading' }
+        : { kind: 'resolved', timestamp: bar.timestamp }
     },
     hasPaneId(paneId) {
       return chart.panes.getLayoutSpecs().some((pane) => pane.id === paneId)

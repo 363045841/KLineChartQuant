@@ -18,7 +18,9 @@ function createDocument() {
     getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
     getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
     findAnchorAtTradingDate: (tradingDate) =>
-      tradingDate === '2026-04-10' ? { timestamp: 1_000 } : null,
+      tradingDate === '2026-04-10'
+        ? { kind: 'resolved', timestamp: 1_000 }
+        : { kind: 'not-trading' },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
   })

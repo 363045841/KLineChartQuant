@@ -93,15 +93,23 @@ const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
   'fontSize',
 ]
 
+/**
+ * 交易日锚点的解析结果；把“找不到”拆成互相排斥的原因，
+ * 让上层按语义抛不同错误码，而不是用一个错误码覆盖多种失败。
+ */
+export type AnchorTradingDateResolution =
+  | { readonly kind: 'resolved'; readonly timestamp: number }
+  | { readonly kind: 'out-of-range'; readonly earliest: string; readonly latest: string }
+  | { readonly kind: 'not-trading' }
+  | { readonly kind: 'date-unavailable' }
+
 /** 绘图文档解析锚点坐标所需的最小数据访问能力。 */
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
   readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   readonly getDrawingTimestampAtLogicalIndex: (index: number) => number | null
   readonly getDrawingData: () => ReadonlyArray<{ timestamp: number }>
-  readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => {
-    readonly timestamp: number
-  } | null
+  readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => AnchorTradingDateResolution
   readonly hasPaneId: (paneId: string) => boolean
   readonly getWorkspaceId: () => DrawingWorkspaceId
 }
@@ -401,6 +409,33 @@ export class DrawingDocument {
     )
   }
 
+  /** 解析交易日锚点；按互相排斥的失败原因抛出语义明确的错误码。 */
+  private resolveAnchorTradingDate(tradingDate: TradingDate): number {
+    const resolution = this.dependencies.findAnchorAtTradingDate(tradingDate)
+    switch (resolution.kind) {
+      case 'resolved':
+        return resolution.timestamp
+      case 'out-of-range':
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.ANCHOR_DATE_OUT_OF_RANGE,
+          `Drawing anchor date ${tradingDate} is outside the loaded range ${resolution.earliest}..${resolution.latest}.`,
+          { details: { tradingDate, earliest: resolution.earliest, latest: resolution.latest } },
+        )
+      case 'not-trading':
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.ANCHOR_DATE_NOT_TRADING,
+          `No bar exists on ${tradingDate} in the loaded chart data.`,
+          { details: { tradingDate } },
+        )
+      case 'date-unavailable':
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.ANCHOR_DATE_UNAVAILABLE,
+          'The loaded chart data exposes no per-bar date to resolve a trading-date anchor.',
+          { details: { tradingDate } },
+        )
+    }
+  }
+
   /** 按输入顺序读取唯一图元；任一 id 不存在时返回空数组。 */
   private getDrawingsByIds(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
     const uniqueIds = [...new Set(ids)]
@@ -456,22 +491,15 @@ export class DrawingDocument {
       )
     }
     if (input.tradingDate !== undefined) {
-      const resolved = this.dependencies.findAnchorAtTradingDate(input.tradingDate)
-      if (resolved === null) {
-        throw new KLineChartError(
-          DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
-          `No chart data exists for drawing anchor trading date ${input.tradingDate}.`,
-          { details: { tradingDate: input.tradingDate } },
-        )
-      }
+      const timestamp = this.resolveAnchorTradingDate(input.tradingDate)
       return kind === 'vertical-line'
         ? {
             id: `anchor-${generateUUID()}`,
             type: 'vertical',
-            time: resolved.timestamp,
+            time: timestamp,
             price: input.price,
           }
-        : this.createPointAnchor(resolved.timestamp, undefined, input.price)
+        : this.createPointAnchor(timestamp, undefined, input.price)
     }
     const timestamp = input.timestamp
     if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {

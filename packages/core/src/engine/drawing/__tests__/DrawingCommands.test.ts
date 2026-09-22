@@ -12,7 +12,7 @@ function createFixture() {
     getLogicalIndexAtTimestamp: () => 0,
     getDrawingTimestampAtLogicalIndex: () => 1_000,
     getDrawingData: () => [{ timestamp: 1_000 }],
-    findAnchorAtTradingDate: () => ({ timestamp: 1_000 }),
+    findAnchorAtTradingDate: () => ({ kind: 'resolved', timestamp: 1_000 }),
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
   })

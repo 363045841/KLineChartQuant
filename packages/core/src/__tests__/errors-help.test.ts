@@ -49,6 +49,9 @@ const ALL_CODES: ReadonlyArray<KLineChartErrorCode> = [
   'NOT_OBJECT',
   'INVALID_TIMESTAMP',
   'MISSING_CONTROLLERS',
+  'DRAWING_ANCHOR_DATE_OUT_OF_RANGE',
+  'DRAWING_ANCHOR_DATE_NOT_TRADING',
+  'DRAWING_ANCHOR_DATE_UNAVAILABLE',
 ]
 
 // ---------------------------------------------------------------------------

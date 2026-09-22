@@ -75,9 +75,10 @@ function createFixture() {
     getDrawingTimestampAtLogicalIndex: (index) => bars[index]?.timestamp ?? null,
     getDrawingData: () => bars,
     findAnchorAtTradingDate: (tradingDate) => {
-      const index = bars.findIndex((bar) => bar.date === tradingDate)
-      const bar = index === -1 ? undefined : bars[index]
-      return bar === undefined ? null : { index, timestamp: bar.timestamp }
+      const bar = bars.find((item) => item.date === tradingDate)
+      return bar === undefined
+        ? { kind: 'not-trading' }
+        : { kind: 'resolved', timestamp: bar.timestamp }
     },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',

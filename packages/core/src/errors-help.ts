@@ -142,7 +142,13 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   DRAWING_INVALID_ANCHOR_COUNT:
     'Provide exactly the number of anchors required by the selected drawing kind.',
   DRAWING_ANCHOR_NOT_FOUND:
-    'Use an anchor date represented by a bar in the currently loaded chart data.',
+    'The anchor timestamp is not a bar in the loaded chart data. Anchor to a timestamp that is already loaded.',
+  DRAWING_ANCHOR_DATE_OUT_OF_RANGE:
+    'The anchor trading date is outside the loaded range. Use a date between the earliest and latest loaded trading dates reported in the error details.',
+  DRAWING_ANCHOR_DATE_NOT_TRADING:
+    'The anchor trading date has no bar in the loaded data (holiday, suspension, or a non-trading day). Pick a date that actually has a bar.',
+  DRAWING_ANCHOR_DATE_UNAVAILABLE:
+    'The loaded chart data exposes no per-bar date field, so anchoring by trading date is impossible here. Anchor by timestamp or bar position instead.',
   DRAWING_INVALID_ANCHOR: 'Each drawing anchor requires a finite price and a valid timestamp.',
 }
 

@@ -107,11 +107,38 @@ function drawingCreateFailure(
       break
     case 'DRAWING_ANCHOR_NOT_FOUND':
       detail = {
-        code: 'ANCHOR_DATE_NOT_FOUND',
+        code: 'ANCHOR_TIME_NOT_FOUND',
         message: error.message,
         field: 'anchors',
-        expected: 'a date present in the loaded chart data',
-        recovery: 'Replace the anchor date with a date present in the loaded chart data.',
+        expected: 'a timestamp present in the loaded chart data',
+        recovery: 'Use an anchor timestamp that is present in the loaded chart data.',
+      }
+      break
+    case 'DRAWING_ANCHOR_DATE_OUT_OF_RANGE':
+      detail = {
+        code: 'ANCHOR_DATE_OUT_OF_RANGE',
+        message: error.message,
+        field: 'anchors',
+        expected: `a trading date between ${details?.earliest} and ${details?.latest}`,
+        recovery: `Use a trading date between ${details?.earliest} and ${details?.latest}.`,
+      }
+      break
+    case 'DRAWING_ANCHOR_DATE_NOT_TRADING':
+      detail = {
+        code: 'ANCHOR_DATE_NOT_TRADING',
+        message: error.message,
+        field: 'anchors',
+        expected: 'a date that has a bar in the loaded chart data',
+        recovery: 'Pick a trading date that has a bar in the loaded chart data.',
+      }
+      break
+    case 'DRAWING_ANCHOR_DATE_UNAVAILABLE':
+      detail = {
+        code: 'ANCHOR_DATE_UNAVAILABLE',
+        message: error.message,
+        field: 'anchors',
+        expected: 'loaded chart data that carries a per-bar date',
+        recovery: 'This dataset exposes no per-bar date; anchor by bar position instead of trading date.',
       }
       break
     case 'DRAWING_INVALID_ANCHOR':
