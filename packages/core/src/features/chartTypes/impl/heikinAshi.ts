@@ -35,10 +35,7 @@
  * series. The `reset()` method clears that carry.
  */
 
-import type { ChartTypeTransform, OHLCV, TransformedBar } from './types.js'
-
-/** Heikin Ashi has no configuration. The empty type makes the contract explicit. */
-export type HeikinAshiConfig = Record<string, never>
+import type { ChartTypeTransform, HeikinAshiConfig, OHLCV, TransformedBar } from '../types.js'
 
 interface HAState {
   /** Previous HA_open. */

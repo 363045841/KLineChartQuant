@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  type BarCalendar,
-  barIndexToTimestamp,
-  inferBarIntervalMs,
-  timestampToBarIndex,
-} from '../timeline'
+import { barIndexToTimestamp, inferBarIntervalMs, timestampToBarIndex } from '../impl/timeline'
+import type { BarCalendar } from '../types'
 
 // 1-minute bars covering 10 bars starting at an arbitrary epoch.
 const MINUTE_MS = 60_000

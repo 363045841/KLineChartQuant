@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createHeikinAshi } from '../heikinAshi'
+import { createHeikinAshi } from '../impl/heikinAshi'
 import type { OHLCV } from '../types'
 import { createOhlcvBar } from './helpers/createOhlcvBar'
 

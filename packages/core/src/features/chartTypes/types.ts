@@ -97,3 +97,37 @@ export interface ChartTypeTransform<TConfig = unknown> {
   /** Drop internal state. Idempotent. Safe to call on stateless transforms. */
   reset?(): void
 }
+
+// ---------------------------------------------------------------------------
+// Per-transform configuration contracts
+// ---------------------------------------------------------------------------
+
+/** Heikin Ashi has no configuration. The empty type makes the contract explicit. */
+export type HeikinAshiConfig = Record<string, never>
+
+/** Point & Figure configuration. */
+export interface PointAndFigureConfig {
+  /** Box height in price units. Must be > 0. */
+  boxSize: number
+  /** Reversal in number of boxes. Classic value is 3. Must be >= 1. */
+  reversal: number
+}
+
+/** Range Bars configuration. */
+export interface RangeBarsConfig {
+  /** Range height in price units. Must be > 0. */
+  range: number
+}
+
+/**
+ * Renko configuration.
+ *
+ * Exactly one of `brickSize` or `useATR` must be supplied. If both are present
+ * `useATR` wins (so callers can store both and toggle a flag).
+ */
+export interface RenkoConfig {
+  /** Fixed brick height in price units. Must be > 0. */
+  brickSize?: number
+  /** ATR-adaptive mode. `period` is the ATR lookback. */
+  useATR?: { period: number }
+}

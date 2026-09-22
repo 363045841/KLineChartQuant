@@ -20,6 +20,10 @@
 
 import type { Signal } from '../../foundation/reactivity/signal.js'
 
+/** A monotonically-increasing list of bar open timestamps (ms since epoch).
+ *  By convention `calendar[i]` is the open time of bar `i`. */
+export type BarCalendar = ReadonlyArray<number>
+
 export type ReplayMode = 'paused' | 'playing'
 export type ReplayPacing = 'bar' | 'wallclock' | 'tick'
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createRangeBars } from '../rangeBars'
+import { createRangeBars } from '../impl/rangeBars'
 import type { OHLCV, TransformedBar } from '../types'
 import { createOhlcvBar } from './helpers/createOhlcvBar'
 

@@ -1,4 +1,3 @@
-import { KLineChartError } from '../../errors.js'
 /**
  * createReplayController — framework-agnostic Bar Replay state machine.
  *
@@ -22,7 +21,8 @@ import { KLineChartError } from '../../errors.js'
  *   assumption is a larger cross-package change than this PR.
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/signal.js'
+import { KLineChartError } from '../../../errors.js'
+import { createSignal, type Signal } from '../../../foundation/reactivity/signal.js'
 
 import type {
   ReplayController,
@@ -30,7 +30,7 @@ import type {
   ReplayMode,
   ReplayPacing,
   ReplayState,
-} from './types.js'
+} from '../types.js'
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -1,4 +1,3 @@
-import { KLineChartError } from '../../errors.js'
 /**
  * Renko bricks — price-based bars that ignore time.
  *
@@ -65,20 +64,9 @@ import { KLineChartError } from '../../errors.js'
  * meaningful in ATR mode).
  */
 
-import type { ChartTypeTransform, OHLCV, TransformedBar } from './types.js'
+import { KLineChartError } from '../../../errors.js'
 
-/**
- * Renko configuration.
- *
- * Exactly one of `brickSize` or `useATR` must be supplied. If both are present
- * `useATR` wins (so callers can store both and toggle a flag).
- */
-export interface RenkoConfig {
-  /** Fixed brick height in price units. Must be > 0. */
-  brickSize?: number
-  /** ATR-adaptive mode. `period` is the ATR lookback. */
-  useATR?: { period: number }
-}
+import type { ChartTypeTransform, OHLCV, RenkoConfig, TransformedBar } from '../types.js'
 
 interface RenkoState {
   /** Close of the most recently emitted brick. `null` until the first brick. */

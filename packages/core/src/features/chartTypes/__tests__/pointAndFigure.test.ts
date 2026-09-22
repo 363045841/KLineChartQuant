@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createPointAndFigure } from '../pointAndFigure'
+import { createPointAndFigure } from '../impl/pointAndFigure'
 import type { OHLCV, TransformedBar } from '../types'
 import { createOhlcvBar } from './helpers/createOhlcvBar'
 

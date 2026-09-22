@@ -12,9 +12,7 @@
  * tooltip) should treat `null` as "no data at that position".
  */
 
-/** A monotonically-increasing list of bar open timestamps (ms since epoch).
- *  By convention `calendar[i]` is the open time of bar `i`. */
-export type BarCalendar = ReadonlyArray<number>
+import type { BarCalendar } from '../types.js'
 
 /**
  * Look up the timestamp for an integer bar index.

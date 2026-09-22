@@ -1,4 +1,3 @@
-import { KLineChartError } from '../../errors.js'
 /**
  * Point & Figure (P&F) — classic three-box-reversal column chart.
  *
@@ -74,14 +73,9 @@ import { KLineChartError } from '../../errors.js'
  * Tests assert that *closed* columns match between modes.
  */
 
-import type { ChartTypeTransform, OHLCV, TransformedBar } from './types.js'
+import { KLineChartError } from '../../../errors.js'
 
-export interface PointAndFigureConfig {
-  /** Box height in price units. Must be > 0. */
-  boxSize: number
-  /** Reversal in number of boxes. Classic value is 3. Must be >= 1. */
-  reversal: number
-}
+import type { ChartTypeTransform, OHLCV, PointAndFigureConfig, TransformedBar } from '../types.js'
 
 interface PFColumn {
   direction: 'up' | 'down'

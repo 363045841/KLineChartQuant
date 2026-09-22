@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createReplayController } from '../createReplayController'
+import { createReplayController } from '../impl/createReplayController'
 import type { ReplayState } from '../types'
 
 // A 1-minute bar interval so wall-clock math is easy to reason about:

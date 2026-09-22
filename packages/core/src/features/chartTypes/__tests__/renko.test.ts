@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createRenko } from '../renko'
+import { createRenko } from '../impl/renko'
 import type { OHLCV, TransformedBar } from '../types'
 import { createOhlcvBar } from './helpers/createOhlcvBar'
 
