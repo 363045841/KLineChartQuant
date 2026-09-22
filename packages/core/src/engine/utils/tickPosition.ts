@@ -1,3 +1,4 @@
+import { ScaleType } from '../../foundation/types/scaleType.js'
 import { fromLog, logFormulaForPriceRange, toLog } from '../scale/logFormula.js'
 
 import { calculateTickCount } from './tickCount.js'
@@ -7,8 +8,6 @@ export interface TickPosition {
   t: number
   y: number
 }
-
-export type ScaleType = 'linear' | 'log' | 'percent'
 
 export interface CalculateTickPositionsOptions {
   height: number
@@ -229,7 +228,7 @@ export function priceAtYForScaleType(
   const viewH = Math.max(1, height - paddingTop - paddingBottom)
   const ratio = 1 - (y - paddingTop) / viewH
 
-  if (scaleType === 'log') {
+  if (scaleType === ScaleType.Log) {
     if (valueMin <= 0 || valueMax <= 0) return valueMin + ratio * (valueMax - valueMin)
     const logMin = Math.log(valueMin)
     const logMax = Math.log(valueMax)
@@ -244,7 +243,7 @@ let _cvtpCacheKey = ''
 let _cvtpCacheResult: TickPositionWithValue[] = []
 
 function buildCvtpCacheKey(options: CalculateValueTickPositionsOptions): string {
-  return `${options.valueMin}:${options.valueMax}:${options.height}:${options.paddingTop}:${options.paddingBottom}:${options.isMain}:${options.scaleType ?? 'linear'}:${options.hideEdgeTicks ?? false}`
+  return `${options.valueMin}:${options.valueMax}:${options.height}:${options.paddingTop}:${options.paddingBottom}:${options.isMain}:${options.scaleType ?? ScaleType.Linear}:${options.hideEdgeTicks ?? false}`
 }
 
 export function calculateValueTickPositions(
@@ -254,12 +253,12 @@ export function calculateValueTickPositions(
   const key = buildCvtpCacheKey(options)
   if (key === _cvtpCacheKey) return _cvtpCacheResult
 
-  const { valueMin, valueMax, scaleType = 'linear' } = options
+  const { valueMin, valueMax, scaleType = ScaleType.Linear } = options
 
-  if (scaleType === 'log') {
+  if (scaleType === ScaleType.Log) {
     if (valueMin <= 0) {
       // 递归调用走线性路径，线性路径会更新缓存
-      return calculateValueTickPositions({ ...options, scaleType: 'linear' })
+      return calculateValueTickPositions({ ...options, scaleType: ScaleType.Linear })
     }
 
     const effectiveMin = Math.max(valueMin, LOG_EPSILON)
@@ -286,7 +285,7 @@ export function calculateValueTickPositions(
     return result
   }
 
-  if (scaleType === 'percent') {
+  if (scaleType === ScaleType.Percent) {
     const { height, paddingTop, paddingBottom, isMain, hideEdgeTicks } = options
     const targetCount = Math.max(2, calculateTickCount(height, isMain))
 

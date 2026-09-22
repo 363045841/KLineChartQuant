@@ -1,9 +1,9 @@
 import type { PaneRole } from '../../foundation/plugin/index.js'
+import { ScaleType } from '../../foundation/types/scaleType.js'
 import type { ChartDom, PaneSpec, Viewport } from '../chartTypes.js'
 import { PaneRenderer } from '../paneRenderer.js'
 import type { PaneStateModule } from '../state/paneState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
-import type { ScaleType } from '../utils/tickPosition.js'
 
 import { Pane, UpdateLevel } from './pane.js'
 import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath.js'
@@ -133,7 +133,8 @@ export class ChartPaneLayout {
       })
 
       // 优先 kernel SSOT，其次重建前 runtime，最后 linear
-      const scaleType = kernelScaleTypes.get(spec.id) ?? prevScaleTypes.get(spec.id) ?? 'linear'
+      const scaleType =
+        kernelScaleTypes.get(spec.id) ?? prevScaleTypes.get(spec.id) ?? ScaleType.Linear
       pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')

@@ -4,6 +4,7 @@
 
 import type { ChartDataView, ChartWorkspaceId } from '../types/chartView.js'
 import type { ChartSeriesDatum, KLineData } from '../types/price.js'
+import type { ScaleType } from '../types/scaleType.js'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -156,7 +157,7 @@ export interface PaneInfo {
       maxPrice: number
       minPrice: number
     }
-    getScaleType(): 'linear' | 'log' | 'percent'
+    getScaleType(): ScaleType
     getBasePrice(): number | null
     toPercent(price: number): number
     fromPercent(pct: number): number

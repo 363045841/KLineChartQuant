@@ -1,8 +1,8 @@
 /** 按视图工作区保存主图/副图布局、比例与坐标轴状态。 */
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
+import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { PaneSpec } from '../chartTypes.js'
-import type { ScaleType } from '../utils/tickPosition.js'
 import { immutableMap } from './immutable.js'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 

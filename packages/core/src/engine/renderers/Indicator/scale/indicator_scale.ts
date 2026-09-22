@@ -7,12 +7,13 @@ import type {
 import { RENDERER_PRIORITY } from '../../../../foundation/plugin/index.js'
 import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../../../foundation/tokens/index.js'
+import { ScaleType } from '../../../../foundation/types/scaleType.js'
 import { drawCrosshairPriceLabel } from '../../../../foundation/utils/kLineDraw/axis.js'
 import {
   alignToPhysicalPixelCenter,
   roundToPhysicalPixel,
 } from '../../../../foundation/utils/pixelAlign.js'
-import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition.js'
+import { calculateValueTickPositions } from '../../../utils/tickPosition.js'
 import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat.js'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
@@ -89,7 +90,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions & { tickColor: str
     isMain,
     decimals = 2,
     hideEdgeTicks = true,
-    scaleType = 'linear',
+    scaleType = ScaleType.Linear,
     formatLabel,
     textAlign = 'center',
   } = options
@@ -140,7 +141,7 @@ export function createIndicatorScaleRendererPlugin(
     label,
     decimals = 2,
     yPaddingPx = 0,
-    scaleType = 'linear',
+    scaleType = ScaleType.Linear,
     getCrosshair,
     formatTickLabel,
     formatCrosshairLabel,

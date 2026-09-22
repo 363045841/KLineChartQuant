@@ -2,6 +2,8 @@
  * 图表设置配置
  */
 
+import { AXIS_TYPE_NONE, ScaleType } from '../types/scaleType.js'
+
 import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
 
 export interface SettingItem {
@@ -110,13 +112,13 @@ export const DEFAULT_SETTINGS = [
     key: 'mainRightAxisTypeSetting',
     label: '主图右轴类型',
     type: 'select',
-    default: 'linear',
+    default: ScaleType.Linear,
     group: 'main',
     options: [
-      { value: 'none', label: '不显示' },
-      { value: 'linear', label: '常规轴' },
-      { value: 'log', label: '对数轴' },
-      { value: 'percent', label: '百分比轴' },
+      { value: AXIS_TYPE_NONE, label: '不显示' },
+      { value: ScaleType.Linear, label: '常规轴' },
+      { value: ScaleType.Log, label: '对数轴' },
+      { value: ScaleType.Percent, label: '百分比轴' },
     ],
   },
   {

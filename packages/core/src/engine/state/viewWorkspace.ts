@@ -1,6 +1,7 @@
 /** 视图工作区可恢复快照的领域类型。 */
+
+import { ScaleType } from '../../foundation/types/scaleType.js'
 import type { PaneSpec } from '../chartTypes.js'
-import type { ScaleType } from '../utils/tickPosition.js'
 import type { IndicatorInstanceInput } from './indicatorState.js'
 import type { ChartWorkspaceId } from './modeState.js'
 

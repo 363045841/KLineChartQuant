@@ -4,6 +4,7 @@ import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tok
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import { ScaleType } from '../../foundation/types/scaleType.js'
 import { VolumePriceRelation } from '../../foundation/types/volumePrice.js'
 import { projectWorldRectToScreen } from '../../foundation/utils/pixelAlign.js'
 import {
@@ -168,7 +169,7 @@ function prepareCandles(args: {
   const paddingTop = pane.yAxis.getPaddingTop()
   const paddingBottom = pane.yAxis.getPaddingBottom()
   const viewHeight = Math.max(1, pane.height - paddingTop - paddingBottom)
-  const isLinear = pane.yAxis.getScaleType() === 'linear'
+  const isLinear = pane.yAxis.getScaleType() === ScaleType.Linear
   let fastPriceToY: (price: number) => number
   if (isLinear) {
     const priceRange = maxPrice - minPrice || 1

@@ -18,9 +18,10 @@
  */
 
 import type { Signal } from '../foundation/reactivity/signal.js'
+import { ScaleType } from '../foundation/types/scaleType.js'
 
-/** Linear (arithmetic) or logarithmic Y mapping. */
-export type ScaleMode = 'linear' | 'log'
+/** Headless PriceScale 支持的 Y 映射模式；percent 不属于该契约。 */
+export type ScaleMode = Exclude<ScaleType, typeof ScaleType.Percent>
 
 /**
  * Discrete bar-index ↔ screen X mapping (ROADMAP §1.1).

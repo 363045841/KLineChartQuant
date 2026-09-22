@@ -55,6 +55,7 @@ import {
 } from '../foundation/reactivity/signal.js'
 import { getFont } from '../foundation/tokens/fonts.js'
 import type { KLineData } from '../foundation/types/price.js'
+import { AXIS_TYPE_NONE, ScaleType } from '../foundation/types/scaleType.js'
 import {
   createDefaultRendererHostSync,
   getVisibleCanvas,
@@ -106,7 +107,6 @@ import {
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
 import { ChartZoomController } from './utils/chartZoomController.js'
 import { getPhysicalKLineConfig } from './utils/klineConfig.js'
-import type { ScaleType } from './utils/tickPosition.js'
 import { ChartViewportManager } from './viewport/chartViewportManager.js'
 import { ViewportScrollBridge } from './viewport/viewportScrollBridge.js'
 
@@ -625,7 +625,7 @@ export class Chart {
       const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
       for (const renderer of this.paneRenderers) {
         const pane = renderer.getPane()
-        if (pane.role === 'price') percentMap.set(pane.id, 'percent')
+        if (pane.role === 'price') percentMap.set(pane.id, ScaleType.Percent)
       }
       this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
       this.projectPaneScaleTypes()
@@ -773,7 +773,7 @@ export class Chart {
     const types = this.kernel.pane.readonly.paneScaleTypes.peek()
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
-      const t = types.get(pane.id) ?? 'linear'
+      const t = types.get(pane.id) ?? ScaleType.Linear
       if (pane.yAxis.getScaleType() !== t) pane.yAxis.setScaleType(t)
     }
   }
@@ -803,7 +803,7 @@ export class Chart {
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       if (next.has(pane.id)) continue
-      next.set(pane.id, seeded.get(pane.id) ?? 'linear')
+      next.set(pane.id, seeded.get(pane.id) ?? ScaleType.Linear)
       changed = true
     }
     if (changed) this.kernel.pane.actions.replacePaneScaleTypes(next)
@@ -845,8 +845,8 @@ export class Chart {
     const mainPane = this.paneRenderers
       .find((renderer) => renderer.getPane().role === 'price')
       ?.getPane()
-    if (!mainPane || next.get(mainPane.id) === 'percent') return
-    next.set(mainPane.id, 'percent')
+    if (!mainPane || next.get(mainPane.id) === ScaleType.Percent) return
+    next.set(mainPane.id, ScaleType.Percent)
     this.kernel.pane.actions.replacePaneScaleTypes(next)
     this.projectPaneScaleTypes()
   }
@@ -868,7 +868,7 @@ export class Chart {
 
     if (
       prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&
-      next.mainRightAxisTypeSetting !== 'none'
+      next.mainRightAxisTypeSetting !== AXIS_TYPE_NONE
     ) {
       this.applyPriceScaleSettingToKernel(
         resolvePriceScaleTypeSetting(next.mainRightAxisTypeSetting),

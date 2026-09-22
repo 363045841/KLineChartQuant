@@ -4,12 +4,13 @@
  */
 
 import { isTimeSharePeriod } from '../types/chartPeriod.js'
+import { AXIS_TYPE_NONE, type AxisType, ScaleType } from '../types/scaleType.js'
 
 /** 主图右轴类型偏好，同时决定坐标怎么算、右轴标签怎么显示 */
-export type RightAxisTypeSetting = 'none' | 'linear' | 'log' | 'percent'
+export type RightAxisTypeSetting = AxisType
 
 /** 从右轴类型推导出的坐标类型；none 时坐标仍用 linear */
-export type PriceScaleTypeSetting = 'linear' | 'log' | 'percent'
+export type PriceScaleTypeSetting = ScaleType
 
 /** 轴标签展示 */
 export type AxisDisplaySetting = 'none' | 'price' | 'percent'
@@ -23,14 +24,20 @@ export type EffectiveAxisDisplayInput = {
 
 /** 将右轴类型收敛为坐标类型；none / 未知值回退 linear */
 export function resolvePriceScaleTypeSetting(value: unknown): PriceScaleTypeSetting {
-  if (value === 'log' || value === 'percent') return value
-  return 'linear'
+  if (value === ScaleType.Log || value === ScaleType.Percent) return value
+  return ScaleType.Linear
 }
 
 /** 将未知值收敛为右轴类型偏好 */
 export function resolveRightAxisTypeSetting(value: unknown): RightAxisTypeSetting {
-  if (value === 'none' || value === 'linear' || value === 'log' || value === 'percent') return value
-  return 'linear'
+  if (
+    value === AXIS_TYPE_NONE ||
+    value === ScaleType.Linear ||
+    value === ScaleType.Log ||
+    value === ScaleType.Percent
+  )
+    return value
+  return ScaleType.Linear
 }
 
 /** 将未知值收敛为轴展示偏好 */
@@ -44,8 +51,8 @@ export function resolveAxisDisplaySetting(
 
 /** 右轴类型对应的标签语义：none 隐藏，percent 显示涨跌幅，linear/log 显示价格 */
 export function resolveRightAxisDisplayFromType(type: unknown): AxisDisplaySetting {
-  if (type === 'none') return 'none'
-  if (type === 'percent') return 'percent'
+  if (type === AXIS_TYPE_NONE) return 'none'
+  if (type === ScaleType.Percent) return 'percent'
   return 'price'
 }
 
@@ -72,7 +79,10 @@ export function buildPaneScaleTypesFromSetting(
 ): Map<string, PriceScaleTypeSetting> {
   const next = new Map<string, PriceScaleTypeSetting>()
   for (const pane of paneRoles) {
-    next.set(pane.id, setting === 'percent' && pane.role !== 'price' ? 'linear' : setting)
+    next.set(
+      pane.id,
+      setting === ScaleType.Percent && pane.role !== 'price' ? ScaleType.Linear : setting,
+    )
   }
   return next
 }

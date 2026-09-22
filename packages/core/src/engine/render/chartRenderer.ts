@@ -18,6 +18,7 @@ import {
 } from '../../foundation/reactivity/frameTransaction.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
+import { ScaleType } from '../../foundation/types/scaleType.js'
 import {
   createDisplayTimeFormatter,
   type DisplayTimeFormatter,
@@ -75,9 +76,9 @@ import { PaneRenderer } from '../paneRenderer.js'
 import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare.js'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis.js'
 import { createTimeShareRendererPlugin } from '../renderers/timeShare.js'
+import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
-import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
@@ -1178,7 +1179,7 @@ export class ChartRenderer {
             getPaddingBottom: () => 0,
             getPriceOffset: () => 0,
             getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
-            getScaleType: () => 'linear' as const,
+            getScaleType: () => ScaleType.Linear,
             getBasePrice: () => null,
             toPercent: () => 0,
             fromPercent: () => 0,
