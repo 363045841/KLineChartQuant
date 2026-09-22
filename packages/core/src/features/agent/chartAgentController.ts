@@ -11,6 +11,7 @@ import type {
   DrawingAnchorCommandInput,
   DrawingDocument,
 } from '../../engine/drawing/DrawingDocument.js'
+import { getDrawingInputAnchorCount } from '../../engine/drawing/materializeAnchors.js'
 import { KLineChartError } from '../../errors.js'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import { AGENT_DRAWING_COLOR_VALUES } from '../../foundation/tokens/agentDrawingColors.js'
@@ -171,6 +172,26 @@ const DRAWING_KIND_VALUES = [
   'flat-line',
   'disjoint-channel',
 ] as const
+
+/** 按输入锚点数量分组图元种类，供工具说明声明每种图元需要的锚点数。 */
+function groupDrawingKindsByAnchorCount(): string {
+  const byCount = new Map<number, string[]>()
+  for (const kind of DRAWING_KIND_VALUES) {
+    const count = getDrawingInputAnchorCount(kind)
+    const kinds = byCount.get(count)
+    if (kinds) kinds.push(kind)
+    else byCount.set(count, [kind])
+  }
+  return [...byCount.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([count, kinds]) => `${count}: ${kinds.join(', ')}`)
+    .join('; ')
+}
+
+// 锚点数量按图元种类不同，说明从领域实现派生，避免说明与实现漂移。
+const DRAWING_ANCHOR_TOOL_RULE =
+  `Required anchor count by kind — ${groupDrawingKindsByAnchorCount()}. ` +
+  'horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.'
 
 const DrawingKindToolParameter = Type.Enum(DRAWING_KIND_VALUES)
 const AgentDrawingColorToolParameter = Type.Enum(AGENT_DRAWING_COLOR_VALUES)
@@ -789,7 +810,9 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_create',
     label: 'Create drawing',
     description:
-      'Create a committed chart drawing using a supported kind and an existing paneId. labels is the complete text model keyed by rendered line or area index. horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.',
+      'Create a committed chart drawing using a supported kind and an existing paneId. ' +
+      `${DRAWING_ANCHOR_TOOL_RULE} ` +
+      'labels is the complete text model keyed by the rendered line or area index.',
     parameters: DrawingCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -810,7 +833,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_update',
     label: 'Update drawing',
     description:
-      'Update a committed chart drawing by id. labels replaces the complete text model; obtain it from drawings_list before changing it. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require tradingDate in YYYY-MM-DD format and price.',
+      'Update a committed chart drawing by id. labels replaces the complete text model; obtain it from drawings_list before changing it. ' +
+      `Supply at least one patch field. ${DRAWING_ANCHOR_TOOL_RULE}`,
     parameters: DrawingUpdateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
