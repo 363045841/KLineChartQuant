@@ -555,10 +555,17 @@
   }
 
   function onSymbolChange(item: SymbolItem) {
-    symbolStatus.value = 'loading'
-    symbolErrorMessage.value = null
     const ctrl = controller.value
     if (!ctrl) return
+    // 同一主品种已由 core 缓存并短路，不会产生加载完成事件，不能进入 loading 状态。
+    if (
+      currentSymbolItem.value &&
+      symbolIdentityKey(item) === symbolIdentityKey(currentSymbolItem.value)
+    ) {
+      return
+    }
+    symbolStatus.value = 'loading'
+    symbolErrorMessage.value = null
     try {
       applyInstrumentCapabilities(item)
       ctrl.registerSymbols([toLegacySymbolInfo(item)])

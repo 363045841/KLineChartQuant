@@ -101,4 +101,24 @@ describe('SymbolSelector error hint', () => {
     expect(hint.get('.symbol-chip__error-text').text()).toBe('加载失败')
     expect(hint.attributes('title')).toBe('加载失败')
   })
+
+  it('does not emit a change when selecting the current symbol again', async () => {
+    const wrapper = mount(SymbolSelector, {
+      props: {
+        symbol: '158017',
+        selectedItem: symbols[0],
+        symbols,
+      },
+      global: {
+        stubs: {
+          teleport: true,
+        },
+      },
+    })
+
+    await wrapper.get('button.symbol-chip').trigger('click')
+    await wrapper.get('.symbol-list__select').trigger('click')
+
+    expect(wrapper.emitted('change')).toBeUndefined()
+  })
 })

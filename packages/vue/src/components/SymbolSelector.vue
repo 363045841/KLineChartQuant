@@ -239,6 +239,10 @@
   })
 
   function selectSymbol(item: SymbolItem) {
+    if (symbolIdentityKey(item) === selectedKey.value) {
+      closePopup()
+      return
+    }
     emit('change', item)
     closePopup()
   }
