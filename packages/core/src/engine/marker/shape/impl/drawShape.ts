@@ -1,12 +1,12 @@
 /**
- * 标记形状绘制函数
+ * 标记形状绘制与命中测试函数
  * 支持 6 种预设形状：arrow_up, arrow_down, flag, circle, rectangle, diamond
  */
 
-import type { MarkerLabel, MarkerShapeType, MarkerStyle } from './types.js'
+import type { CustomMarkerLabel, CustomMarkerShape, CustomMarkerStyle } from '../types.js'
 
 /** 默认尺寸映射 */
-const DEFAULT_SIZES: Record<MarkerShapeType, number> = {
+const DEFAULT_SIZES: Record<CustomMarkerShape, number> = {
   arrow_up: 16,
   arrow_down: 16,
   flag: 14,
@@ -20,11 +20,11 @@ const DEFAULT_SIZES: Record<MarkerShapeType, number> = {
  */
 export function drawShape(
   ctx: CanvasRenderingContext2D,
-  shape: MarkerShapeType,
+  shape: CustomMarkerShape,
   x: number,
   y: number,
   size: number,
-  style: MarkerStyle,
+  style: CustomMarkerStyle,
 ): void {
   const fillColor = style.fillColor || '#000000'
   const strokeColor = style.strokeColor || fillColor
@@ -73,11 +73,11 @@ const LABEL_GAP = 4
  */
 export function drawLabel(
   ctx: CanvasRenderingContext2D,
-  label: MarkerLabel,
+  label: CustomMarkerLabel,
   x: number,
   y: number,
   markerSize: number,
-  style: MarkerStyle,
+  style: CustomMarkerStyle,
   isAboveMarker: boolean = false,
 ): void {
   const fontSize = label.fontSize || 12
@@ -235,7 +235,7 @@ function drawFlag(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
 export function hitTestShape(
   mx: number,
   my: number,
-  shape: MarkerShapeType,
+  shape: CustomMarkerShape,
   x: number,
   y: number,
   size: number,

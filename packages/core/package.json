@@ -49,10 +49,6 @@
       "types": "./dist/data/provider/index.d.ts",
       "import": "./dist/data/provider/index.js"
     },
-    "./semantic": {
-      "types": "./dist/features/semantic/index.d.ts",
-      "import": "./dist/features/semantic/index.js"
-    },
     "./plugin": {
       "types": "./dist/foundation/plugin/index.d.ts",
       "import": "./dist/foundation/plugin/index.js"

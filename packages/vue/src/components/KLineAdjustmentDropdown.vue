@@ -10,12 +10,12 @@
 </template>
 
 <script setup lang="ts">
-  import type { AdjustType } from '@363045841yyt/klinechart-core/semantic'
+  import type { KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
   import { computed } from 'vue'
 
   import Dropdown from './Dropdown.vue'
 
-  export type KLineAdjustment = AdjustType
+  export type { KLineAdjustment }
 
   const adjustmentOptions: Array<{ label: string; value: KLineAdjustment }> = [
     { label: '前复权', value: 'qfq' },

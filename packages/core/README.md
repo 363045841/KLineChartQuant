@@ -231,44 +231,11 @@ For the runtime contract, extension rules, backend behavior, and diagnostics, se
 | `@363045841yyt/klinechart-core/controllers` | Recommended application-facing chart controller, data/provider facade, indicator catalog, drawing controller |
 | `@363045841yyt/klinechart-core/reactivity` | Signal primitives and frame transaction contracts |
 | `@363045841yyt/klinechart-core/market-data` | Market-data providers, registry, source contracts, and query types |
-| `@363045841yyt/klinechart-core/semantic` | Validated semantic chart configuration types and pure `toKLineChartProps()` mapping |
 | `@363045841yyt/klinechart-core/plugin` | Plugin host, events, and plugin contracts for extensions |
 | `@363045841yyt/klinechart-core/config` | Chart settings definitions and defaults |
 | `@363045841yyt/klinechart-core/version` | Package `VERSION` |
 
-Engine-prefixed subpaths are available for advanced integrations, but they expose lower-level contracts. Prefer the controller, market-data, semantic, plugin, and reactivity entry points for application code.
-
-## Semantic Configuration
-
-The semantic module converts a validated, declarative configuration into props suitable for a chart host. It does not create a chart or mutate a controller.
-
-```typescript
-import {
-  toKLineChartProps,
-  type SemanticChartConfig,
-} from '@363045841yyt/klinechart-core/semantic'
-
-const config: SemanticChartConfig = {
-  version: '1.0.0',
-  data: {
-    source: 'baostock',
-    market: 'CN',
-    symbol: '000001',
-    startDate: '2024-01-01',
-    endDate: '2024-06-01',
-    period: 'daily',
-    adjust: 'qfq',
-  },
-  indicators: {
-    main: [{ type: 'MA', enabled: true, params: { periods: [5, 10, 20] } }],
-    sub: [{ type: 'MACD', enabled: true }],
-  },
-}
-
-const { symbols, indicators, customMarkers } = toKLineChartProps(config)
-```
-
-Apply the returned values through a framework binding's props, or through the controller APIs appropriate to the host. Validate externally supplied input first with `SemanticConfigValidator`.
+Engine-prefixed subpaths are available for advanced integrations, but they expose lower-level contracts. Prefer the controller, market-data, plugin, and reactivity entry points for application code.
 
 ## Browser Requirements
 

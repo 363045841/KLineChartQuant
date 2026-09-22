@@ -231,44 +231,11 @@ Chart
 | `@363045841yyt/klinechart-core/controllers` | 推荐的应用层 ChartController、数据/Provider facade、指标目录、绘图控制器 |
 | `@363045841yyt/klinechart-core/reactivity` | Signal 原语和 FrameTransaction 契约 |
 | `@363045841yyt/klinechart-core/market-data` | 行情 Provider、registry、source 契约和 query 类型 |
-| `@363045841yyt/klinechart-core/semantic` | 校验后的语义图表配置类型与纯函数 `toKLineChartProps()` |
 | `@363045841yyt/klinechart-core/plugin` | 扩展用 PluginHost、事件和 plugin 契约 |
 | `@363045841yyt/klinechart-core/config` | 图表 settings 定义和默认值 |
 | `@363045841yyt/klinechart-core/version` | 包 `VERSION` |
 
-`engine/*` 子路径供高级集成使用，暴露更低层的契约。应用代码优先使用 controller、market-data、semantic、plugin 和 reactivity 入口。
-
-## 语义配置
-
-语义模块将已校验的声明式配置转换为可交给图表宿主的 props。它不会创建图表，也不会修改 Controller。
-
-```typescript
-import {
-  toKLineChartProps,
-  type SemanticChartConfig,
-} from '@363045841yyt/klinechart-core/semantic'
-
-const config: SemanticChartConfig = {
-  version: '1.0.0',
-  data: {
-    source: 'baostock',
-    market: 'CN',
-    symbol: '000001',
-    startDate: '2024-01-01',
-    endDate: '2024-06-01',
-    period: 'daily',
-    adjust: 'qfq',
-  },
-  indicators: {
-    main: [{ type: 'MA', enabled: true, params: { periods: [5, 10, 20] } }],
-    sub: [{ type: 'MACD', enabled: true }],
-  },
-}
-
-const { symbols, indicators, customMarkers } = toKLineChartProps(config)
-```
-
-将返回值交给框架绑定的 props，或按宿主情况调用对应的 Controller API。外部输入应先通过 `SemanticConfigValidator` 校验。
+`engine/*` 子路径供高级集成使用，暴露更低层的契约。应用代码优先使用 controller、market-data、plugin 和 reactivity 入口。
 
 ## 浏览器要求
 

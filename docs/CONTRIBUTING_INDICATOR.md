@@ -24,7 +24,6 @@
 | 3 | `packages/core/src/engine/indicators/indicatorContracts.ts`（**改**） | 副图登记进 `VisibleIndicatorStateContracts`，主图登记进 `MainIndicatorStateContracts`（`xxx: XXXRenderState`） |
 | 4 | `packages/core/src/engine/renderers/Indicator/xxx.ts`（**新**） | renderer plugin（读 `instanceId` 投影）+ 同文件 `@Indicator({...})` + `static rendererFactory` |
 | 5 | `packages/core/src/engine/indicators/registerBuiltins.ts`（**改**） | 把 `../renderers/Indicator/xxx.js` 加进 `loadBuiltinIndicators()` 的 import 列表 |
-| 6 | `packages/core/src/features/semantic/types.ts`（**改**，可选） | 需要语义配置映射时加字段 |
 
 第 3 步是编译期约束：`@Indicator` 的 `name` 类型为 `IndicatorName`，必须是契约表登记的键，漏登记无法通过类型检查。
 

@@ -1,4 +1,3 @@
-import { drawLabel, drawShape, hitTestShape } from '../../features/semantic/drawShape.js'
 import type {
   MarkerManagerLike,
   RenderContext,
@@ -6,8 +5,9 @@ import type {
 } from '../../foundation/plugin/index.js'
 import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign.js'
-import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry.js'
+import type { CustomMarkerEntity } from '../marker/registry.js'
+import { drawLabel, drawShape } from '../marker/shape/impl/drawShape.js'
+import type { CustomMarkerShape } from '../marker/shape/types.js'
 
 /** 默认标记尺寸（相对于 K 线宽度的缩放因子） */
 const DEFAULT_SIZE_SCALE = 1.2

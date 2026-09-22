@@ -1,5 +1,6 @@
-import { hitTestShape } from '../../features/semantic/drawShape.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { hitTestShape } from './shape/impl/drawShape.js'
+import type { CustomMarkerLabel, CustomMarkerShape, CustomMarkerStyle } from './shape/types.js'
 
 /**
  * 标记类型
@@ -52,35 +53,7 @@ export interface MarkerEntity {
   metadata: Record<string, any>
 }
 
-// ============ 自定义标记类型（语义化配置） ============
-
-/** 自定义标记形状 */
-export type CustomMarkerShape =
-  | 'arrow_up'
-  | 'arrow_down'
-  | 'flag'
-  | 'circle'
-  | 'rectangle'
-  | 'diamond'
-
-/** 自定义标记样式 */
-export interface CustomMarkerStyle {
-  fillColor?: string
-  strokeColor?: string
-  textColor?: string
-  size?: number
-  lineWidth?: number
-  opacity?: number
-}
-
-/** 自定义标记标签 */
-export interface CustomMarkerLabel {
-  text: string
-  position?: 'left' | 'right' | 'top' | 'bottom' | 'inside'
-  align?: 'start' | 'center' | 'end'
-  fontSize?: number
-  offset?: { x?: number; y?: number }
-}
+// ============ 自定义标记类型 ============
 
 /** 自定义标记实体 */
 export interface CustomMarkerEntity {
