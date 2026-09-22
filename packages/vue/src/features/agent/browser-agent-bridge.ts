@@ -1,42 +1,22 @@
-// 浏览器 Agent bridge：Pi、会话和 Provider 请求全部运行在 Renderer。
+// 浏览器 Agent bridge：组合图表上下文、Provider 持久化、会话与运行状态，对外暴露 AgentBridgeClient。
 
 import type {
   OpenAiCompatibleProviderSettings,
   ProviderCredentialStore,
-  ProviderSettingsStore,
-  RuntimeToolDefinition,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   AGENT_UI_PROTOCOL_VERSION,
-  type AgentErrorView,
   AgentRuntimeError,
-  ASK_USER_TOOL_METADATA,
   type AskUserRequest,
-  createAskUserTool,
-  createExaWebSearchProvider,
   createOpenAiCompatibleRuntimeSupport,
-  createWebSearchTool,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
   PiRunDriver,
   type PiRunPlan,
   PROVIDER_SETTINGS_VERSION,
-  RuntimeToolCatalog,
   toAgentRuntimeError,
-  WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
-import {
-  createLocalStoragePersistence,
-  formatDateTimeInTimeZone,
-  getRecoveryHint,
-  isKLineChartError,
-  type PersistenceCodec,
-} from '@363045841yyt/klinechart-core'
-import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
-import {
-  type ChartAgentController,
-  getRegisteredChartTools,
-} from '@363045841yyt/klinechart-core/controllers'
+import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentBridgeClient,
   AgentContextItem,
@@ -45,7 +25,6 @@ import type {
   AgentSessionView,
   AgentUiEvent,
   AgentUiEventInput,
-  ProviderApiProtocol,
   ProviderModelPoolEntry,
   ProviderModelsResult,
   ProviderModelView,
@@ -59,408 +38,28 @@ import type {
   QuestionView,
   StartRunInput,
 } from './agent-contracts.js'
-import { ProviderModelPool } from './provider-model-pool.js'
+import { BrowserChartContextSource } from './browser-agent/chart-context/impl/browser-chart-context-source.js'
+import type { ChartContextSource } from './browser-agent/chart-context/types.js'
+import { BrowserAgentModelSettingsStore } from './browser-agent/provider/impl/browser-agent-model-settings.js'
+import { BrowserEnabledTools } from './browser-agent/provider/impl/browser-enabled-tools.js'
+import { fetchBrowserProvider } from './browser-agent/provider/impl/browser-provider-fetch.js'
+import { BrowserProviderProfiles } from './browser-agent/provider/impl/browser-provider-profiles.js'
+import {
+  BrowserProviderCredentialStore,
+  BrowserProviderSettingsStore,
+} from './browser-agent/provider/impl/browser-provider-stores.js'
+import { ProviderModelPool } from './browser-agent/provider/impl/provider-model-pool.js'
+import type {
+  BrowserProviderConnection,
+  BrowserProviderProfile,
+} from './browser-agent/provider/types.js'
+import { BrowserRunRegistry } from './browser-agent/session/impl/browser-run-registry.js'
+import { BrowserSessionStore } from './browser-agent/session/impl/browser-session-store.js'
+import type { BrowserSession } from './browser-agent/session/types.js'
+import { BrowserToolRegistry } from './browser-agent/tools/impl/browser-tool-registry.js'
+import type { BrowserToolContext } from './browser-agent/tools/types.js'
 
-/** LocalStorage 中 Agent 模型设置的键名；测试据此断言持久化文档。 */
-export const AGENT_MODEL_SETTINGS_STORAGE_KEY = 'agent.model-settings'
-
-type DrawingCreateError = Error & {
-  readonly code?: string
-  readonly details?: Readonly<Record<string, unknown>>
-}
-
-interface DrawingCreateFailureDetail {
-  readonly code: string
-  readonly message: string
-  readonly field: string
-  readonly expected: string
-  readonly recovery: string
-}
-
-/** 将可预期的绘图创建失败压缩为 Agent 可据此重试的结果。 */
-function drawingCreateFailure(
-  error: unknown,
-  agent: ChartAgentController,
-): {
-  content: string
-  summary: string
-  failure: { code: string; message: string; retryable: boolean; recommendedAction: string }
-} | null {
-  if (!(error instanceof Error)) return null
-  const drawingError = error as DrawingCreateError
-  const details = drawingError.details
-  let detail: DrawingCreateFailureDetail
-
-  switch (drawingError.code) {
-    case 'DRAWING_UNKNOWN_PANE':
-      detail = {
-        code: 'UNKNOWN_PANE_ID',
-        message: error.message,
-        field: 'paneId',
-        expected: agent.getAvailableDrawingPaneIds().join(', '),
-        recovery: `Use paneId: ${agent.getAvailableDrawingPaneIds().join(', ')}.`,
-      }
-      break
-    case 'DRAWING_INVALID_ANCHOR_COUNT':
-      detail = {
-        code: 'INVALID_ANCHOR_COUNT',
-        message: error.message,
-        field: 'anchors',
-        expected: `${details?.expected} anchors for ${details?.kind}`,
-        recovery: `Use exactly ${details?.expected} anchors for ${details?.kind}.`,
-      }
-      break
-    case 'DRAWING_ANCHOR_NOT_FOUND':
-      detail = {
-        code: 'ANCHOR_TIME_NOT_FOUND',
-        message: error.message,
-        field: 'anchors',
-        expected: 'a timestamp present in the loaded chart data',
-        recovery: 'Use an anchor timestamp that is present in the loaded chart data.',
-      }
-      break
-    case 'DRAWING_ANCHOR_DATE_OUT_OF_RANGE':
-      detail = {
-        code: 'ANCHOR_DATE_OUT_OF_RANGE',
-        message: error.message,
-        field: 'anchors',
-        expected: `a trading date between ${details?.earliest} and ${details?.latest}`,
-        recovery: `Use a trading date between ${details?.earliest} and ${details?.latest}.`,
-      }
-      break
-    case 'DRAWING_ANCHOR_DATE_NOT_TRADING':
-      detail = {
-        code: 'ANCHOR_DATE_NOT_TRADING',
-        message: error.message,
-        field: 'anchors',
-        expected: 'a date that has a bar in the loaded chart data',
-        recovery: 'Pick a trading date that has a bar in the loaded chart data.',
-      }
-      break
-    case 'DRAWING_ANCHOR_DATE_UNAVAILABLE':
-      detail = {
-        code: 'ANCHOR_DATE_UNAVAILABLE',
-        message: error.message,
-        field: 'anchors',
-        expected: 'loaded chart data that carries a per-bar date',
-        recovery:
-          'This dataset exposes no per-bar date; anchor by bar position instead of trading date.',
-      }
-      break
-    case 'DRAWING_INVALID_ANCHOR':
-      detail = {
-        code: 'INVALID_ANCHOR_VALUE',
-        message: error.message,
-        field: 'anchors',
-        expected: 'a finite price and a valid UTC date',
-        recovery: 'Use a finite price and a valid UTC date.',
-      }
-      break
-    default:
-      if (!(error instanceof ToolInputValidationError)) return null
-      detail = {
-        code: 'INVALID_TOOL_INPUT',
-        message: error.message,
-        field: 'input',
-        expected: 'valid drawing_create parameters',
-        recovery: 'Correct the invalid field and retry drawing_create.',
-      }
-  }
-  const failure = {
-    code: detail.code,
-    message: detail.message,
-    retryable: true,
-    recommendedAction: detail.recovery,
-  }
-  return {
-    content: JSON.stringify({ success: false, error: detail, stateChanged: false }),
-    summary: failure.message,
-    failure,
-  }
-}
-
-/** 将所有已知图表工具契约失败投影为模型可行动的结果。 */
-function chartToolFailure(error: unknown): {
-  content: string
-  summary: string
-  failure: AgentErrorView
-} | null {
-  if (error instanceof ToolInputValidationError) {
-    const failure = {
-      code: error.code,
-      message: error.message,
-      retryable: true,
-      recommendedAction: 'Correct the invalid field and retry the request.',
-    }
-    return {
-      content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
-      summary: failure.message,
-      failure,
-    }
-  }
-  if (!isKLineChartError(error)) return null
-  const failure = {
-    code: error.code,
-    message: error.message,
-    retryable: true,
-    recommendedAction: getRecoveryHint(error.code),
-  }
-  return {
-    content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
-    summary: failure.message,
-    failure,
-  }
-}
-
-interface BrowserProviderProfile {
-  name: string
-  apiKey: string
-  exaApiKey?: string
-  settings?: OpenAiCompatibleProviderSettings
-  connection?: BrowserProviderConnection
-  active: boolean
-}
-
-/** Provider 连接配置独立于运行模型保存，便于在 Composer 中切换模型。 */
-interface BrowserProviderConnection {
-  baseUrl: string
-  headers: Record<string, string>
-  protocol: ProviderApiProtocol
-}
-
-interface BrowserAgentModelSettings {
-  profiles: BrowserProviderProfile[]
-  modelPool: ProviderModelPoolEntry[]
-  enabledTools: string[]
-}
-
-function isBrowserAgentModelSettings(value: unknown): value is BrowserAgentModelSettings {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  return (
-    Array.isArray(Object.getOwnPropertyDescriptor(value, 'profiles')?.value) &&
-    Array.isArray(Object.getOwnPropertyDescriptor(value, 'modelPool')?.value) &&
-    Array.isArray(Object.getOwnPropertyDescriptor(value, 'enabledTools')?.value)
-  )
-}
-
-const browserAgentModelSettingsCodec: PersistenceCodec<BrowserAgentModelSettings> = {
-  decode(value): BrowserAgentModelSettings | null {
-    return isBrowserAgentModelSettings(value) ? value : null
-  },
-  encode(value): unknown {
-    return value
-  },
-}
-
-/** Agent 模型设置的唯一持久化入口。 */
-const browserAgentModelSettingsPersistence = createLocalStoragePersistence({
-  key: AGENT_MODEL_SETTINGS_STORAGE_KEY,
-  codec: browserAgentModelSettingsCodec,
-})
-
-/** 管理 Agent 模型设置文档，领域集合共享一次持久化写入。 */
-class BrowserAgentModelSettingsStore {
-  private cache = browserAgentModelSettingsPersistence.load() ?? {
-    profiles: [],
-    modelPool: [],
-    enabledTools: [],
-  }
-
-  profiles(): BrowserProviderProfile[] {
-    return this.cache.profiles.map((profile) => ({ ...profile }))
-  }
-
-  modelPool(): ProviderModelPoolEntry[] {
-    return [...this.cache.modelPool]
-  }
-
-  enabledTools(): string[] {
-    return [...this.cache.enabledTools]
-  }
-
-  setProfiles(profiles: BrowserProviderProfile[]): void {
-    this.cache = { ...this.cache, profiles: profiles.map((profile) => ({ ...profile })) }
-    this.persist()
-  }
-
-  setModelPool(modelPool: readonly ProviderModelPoolEntry[]): void {
-    this.cache = { ...this.cache, modelPool: [...modelPool] }
-    this.persist()
-  }
-
-  setEnabledTools(enabledTools: ReadonlySet<string>): void {
-    this.cache = { ...this.cache, enabledTools: [...enabledTools] }
-    this.persist()
-  }
-
-  private persist(): void {
-    browserAgentModelSettingsPersistence.save(this.cache)
-  }
-}
-
-/** Browser 宿主解析运行时工具所需的最小上下文。 */
-interface BrowserToolContext {
-  readonly agent: ChartAgentController | null | undefined
-  readonly readOnly: boolean
-}
-
-type RegisteredChartTool = ReturnType<typeof getRegisteredChartTools>[number]
-
-// 移除 Pi SDK 的浏览器诊断头，避免不支持这些头的 OpenAI-compatible Provider 拒绝 CORS 预检。
-async function fetchBrowserProvider(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<Response> {
-  const headers = new Headers(init?.headers)
-  for (const name of [...headers.keys()]) {
-    if (name.startsWith('x-stainless-')) headers.delete(name)
-  }
-  return fetch(input, { ...init, headers })
-}
-
-/** 管理浏览器端唯一的 Provider 配置数组；内存优先，写入时同步持久化。 */
-class BrowserProviderProfiles {
-  private cache: BrowserProviderProfile[] | undefined
-
-  constructor(private readonly modelSettings: BrowserAgentModelSettingsStore) {}
-
-  read(): BrowserProviderProfile[] {
-    return this.models().map((profile) => ({ ...profile }))
-  }
-
-  write(profiles: BrowserProviderProfile[]): void {
-    this.cache = profiles.map((profile) => ({ ...profile }))
-    this.modelSettings.setProfiles(this.cache)
-  }
-
-  active(): BrowserProviderProfile | undefined {
-    return this.models().find((profile) => profile.active)
-  }
-
-  select(name: string): void {
-    this.write(this.models().map((profile) => ({ ...profile, active: profile.name === name })))
-  }
-
-  /** 重命名配置，保持其激活状态与其余配置不变。 */
-  rename(previousName: string, nextName: string): void {
-    this.write(
-      this.models().map((profile) =>
-        profile.name === previousName ? { ...profile, name: nextName } : profile,
-      ),
-    )
-  }
-
-  /** 移除配置；若移除的是激活配置，则将剩余配置中的第一个设为激活。 */
-  remove(name: string): void {
-    const remaining = this.models().filter((profile) => profile.name !== name)
-    const keepsActive = remaining.some((profile) => profile.active)
-    this.write(
-      keepsActive
-        ? remaining
-        : remaining.map((profile, index) => ({ ...profile, active: index === 0 })),
-    )
-  }
-
-  updateActive(patch: Partial<Omit<BrowserProviderProfile, 'name' | 'active'>>): void {
-    this.write(
-      this.models().map((profile) => (profile.active ? { ...profile, ...patch } : profile)),
-    )
-  }
-
-  /** 惰性载入持久化的配置数组，之后作为唯一内存真相源。 */
-  private models(): readonly BrowserProviderProfile[] {
-    this.cache ??= this.load()
-    return this.cache
-  }
-
-  private load(): BrowserProviderProfile[] {
-    return this.modelSettings.profiles()
-  }
-}
-
-/** 保存用户选择的已启用工具；首次使用时保持所有已注册工具启用，内存缓存避免重复读盘。 */
-class BrowserEnabledTools {
-  private cache: Set<string> | undefined
-
-  constructor(private readonly modelSettings: BrowserAgentModelSettingsStore) {}
-
-  read(defaultNames: readonly string[]): Set<string> {
-    this.cache ??= this.parse(defaultNames)
-    return new Set(this.cache)
-  }
-
-  write(names: ReadonlySet<string>): void {
-    this.cache = new Set(names)
-    this.modelSettings.setEnabledTools(this.cache)
-  }
-
-  /** 解析持久化的工具名称；缺失或损坏时回退到全部注册名。 */
-  private parse(defaultNames: readonly string[]): Set<string> {
-    const names = this.modelSettings.enabledTools()
-    return names.length > 0 && names.every((name) => typeof name === 'string')
-      ? new Set(names)
-      : new Set(defaultNames)
-  }
-}
-
-class BrowserProviderCredentialStore implements ProviderCredentialStore {
-  constructor(private readonly profiles: BrowserProviderProfiles) {}
-
-  async read(signal?: AbortSignal): Promise<string | undefined> {
-    signal?.throwIfAborted()
-    return this.profiles.active()?.apiKey || undefined
-  }
-
-  async write(apiKey: string, signal?: AbortSignal): Promise<void> {
-    signal?.throwIfAborted()
-    this.profiles.updateActive({ apiKey })
-  }
-
-  async delete(signal?: AbortSignal): Promise<void> {
-    signal?.throwIfAborted()
-    this.profiles.updateActive({ apiKey: '' })
-  }
-}
-
-class BrowserProviderSettingsStore implements ProviderSettingsStore {
-  constructor(private readonly profiles: BrowserProviderProfiles) {}
-
-  async read(signal?: AbortSignal): Promise<OpenAiCompatibleProviderSettings | undefined> {
-    signal?.throwIfAborted()
-    return this.profiles.active()?.settings
-  }
-
-  async write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void> {
-    signal?.throwIfAborted()
-    this.profiles.updateActive({
-      settings,
-      connection: {
-        baseUrl: settings.baseUrl,
-        headers: settings.headers,
-        protocol: settings.protocol,
-      },
-    })
-  }
-}
-
-interface BrowserSession {
-  view: AgentSessionView
-  messages: AgentSessionSnapshot['messages']
-  runs: AgentSessionSnapshot['runs']
-  transcript: Array<NonNullable<PiRunPlan['transcript']>[number]>
-}
-
-interface ActiveRun {
-  driver: PiRunDriver
-  input: StartRunInput
-}
-
-/** 一次挂起等待用户答复的提问；signal 中止路径由发起方自行收尾。 */
-interface PendingQuestion {
-  runId: string
-  sessionId: string
-  resolve(answer: QuestionAnswerView): void
-}
+export { AGENT_MODEL_SETTINGS_STORAGE_KEY } from './browser-agent/provider/impl/browser-agent-model-settings.js'
 
 interface BrowserAgentBridgeOptions {
   readonly getChartAgent?: () => ChartAgentController | null | undefined
@@ -471,61 +70,6 @@ interface BrowserAgentBridgeOptions {
   readonly credentials?: ProviderCredentialStore
 }
 
-/** 从 Core 快照投影 UI 与模型共享的最小上下文。 */
-function projectContextItems(
-  agent: ChartAgentController | null | undefined,
-): ReadonlyArray<AgentContextItem> {
-  const context = agent?.context()
-  if (!context) return Object.freeze([])
-  const items: AgentContextItem[] = []
-  if (context.symbol) {
-    items.push({
-      kind: 'chart-symbol',
-      value: { symbol: context.symbol, name: context.symbolName },
-    })
-  }
-  if (context.visibleRange) {
-    items.push({
-      kind: 'selected-time-range',
-      value: {
-        from: formatDateTimeInTimeZone(context.visibleRange.from, context.timezone ?? 'UTC'),
-        to: formatDateTimeInTimeZone(context.visibleRange.to, context.timezone ?? 'UTC'),
-      },
-    })
-  }
-  if (context.selectedKLineBars) {
-    items.push({
-      kind: 'selected-kline-bars',
-      value: { content: context.selectedKLineBars },
-    })
-  }
-  if (context.drawingSelection) {
-    items.push({
-      kind: 'drawing-selection',
-      value: {
-        selectedIds: [...context.drawingSelection.selectedIds],
-        drawings: context.drawingSelection.drawings.map((drawing) => ({
-          id: drawing.id,
-          kind: drawing.kind,
-          paneId: drawing.paneId,
-          visible: drawing.visible,
-          locked: drawing.locked,
-          zIndex: drawing.zIndex,
-          anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
-          style: Object.fromEntries(
-            Object.entries(drawing.style).filter(
-              (entry): entry is [string, string | number] => entry[1] !== undefined,
-            ),
-          ),
-        })),
-      },
-    })
-  }
-  return Object.freeze(
-    items.map((item) => Object.freeze({ ...item, value: Object.freeze(item.value) })),
-  )
-}
-
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
   private readonly modelSettings = new BrowserAgentModelSettingsStore()
@@ -533,80 +77,59 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     () => this.modelSettings.modelPool(),
     (models) => this.modelSettings.setModelPool(models),
   )
-  private readonly contextItemsListeners = new Set<
-    (items: ReadonlyArray<AgentContextItem>) => void
-  >()
-  private readonly profiles: BrowserProviderProfiles
+  private readonly profiles = new BrowserProviderProfiles(this.modelSettings)
   private readonly enabledTools = new BrowserEnabledTools(this.modelSettings)
-  private readonly toolCatalog = new RuntimeToolCatalog<BrowserToolContext>()
+  private readonly sessions = new BrowserSessionStore()
+  private readonly runs = new BrowserRunRegistry()
+  private readonly context: ChartContextSource
+  private readonly tools: BrowserToolRegistry
   private readonly credentials: ProviderCredentialStore
   private readonly settings: BrowserProviderSettingsStore
   private readonly support
-  private readonly sessions = new Map<string, BrowserSession>()
-  private readonly activeRuns = new Map<string, ActiveRun>()
-  private readonly pendingQuestions = new Map<string, PendingQuestion>()
-  // 每个会话只保留最近一次运行的输入用于重试，随运行次数不会增长，会话删除时清除。
-  private readonly sessionRunInputs = new Map<string, StartRunInput>()
-  private nextSession = 1
-  private nextRun = 1
-  private nextQuestion = 1
   private readonly getChartAgent: () => ChartAgentController | null | undefined
-  private chartAgent: ChartAgentController | null = null
-  private unsubscribeChartContextSource: (() => void) | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
-    this.profiles = new BrowserProviderProfiles(this.modelSettings)
+    this.getChartAgent = options.getChartAgent ?? (() => null)
     this.credentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
     this.settings = new BrowserProviderSettingsStore(this.profiles)
-    this.getChartAgent = options.getChartAgent ?? (() => null)
-    this.registerTools()
+    this.context = new BrowserChartContextSource({ getChartAgent: this.getChartAgent })
+    this.tools = new BrowserToolRegistry({
+      fetch: fetchBrowserProvider,
+      getWebSearchApiKey: () => this.webSearchApiKey(),
+      requestQuestion: (request, context) => this.requestQuestion(request, context),
+    })
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
       settings: this.settings,
       fetch: fetchBrowserProvider,
       tools: (context) => {
         const enabledNames = this.enabledToolNames()
-        return this.toolCatalog
+        return this.tools.catalog
           .resolve(this.toolContext(context.readOnly))
           .filter((tool) => enabledNames.has(tool.name))
       },
     })
-    const session = this.createSessionRecord()
-    this.sessions.set(session.view.id, session)
   }
 
   getContextItems(): ReadonlyArray<AgentContextItem> {
-    return projectContextItems(this.chartAgent ?? this.getChartAgent())
+    return this.context.getItems()
   }
 
   subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void {
-    this.bindChartAgent(this.getChartAgent())
-    this.contextItemsListeners.add(listener)
-    listener(this.getContextItems())
-    return () => this.contextItemsListeners.delete(listener)
+    return this.context.subscribe(listener)
   }
 
   /** 绑定图表 controller；支持 Agent 面板先于图表完成挂载。 */
   bindChartAgent(agent: ChartAgentController | null | undefined): void {
-    const next = agent ?? null
-    if (this.chartAgent === next) return
-    this.unsubscribeChartContextSource?.()
-    this.chartAgent = next
-    this.unsubscribeChartContextSource = next?.context.subscribe(() => this.publishContextItems())
-    this.publishContextItems()
-  }
-
-  private publishContextItems(): void {
-    const items = this.getContextItems()
-    for (const listener of this.contextItemsListeners) listener(items)
+    this.context.bind(agent)
   }
 
   async listSessions(): Promise<AgentSessionView[]> {
-    return [...this.sessions.values()].map(({ view }) => view)
+    return this.sessions.list()
   }
 
   async openSession(sessionId: string): Promise<AgentSessionSnapshot> {
-    const session = this.requireSession(sessionId)
+    const session = this.sessions.require(sessionId)
     return {
       session: session.view,
       // 快照不能暴露内部会话数组，否则 UI reducer 的追加会与存储层写入重复。
@@ -644,14 +167,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回当前 Browser 宿主中可管理的图表与网络工具。 */
   async listTools() {
     const enabledNames = this.enabledToolNames()
-    return this.toolCatalog
+    return this.tools.catalog
       .list(this.toolContext(false))
       .map((tool) => ({ ...tool, enabled: tool.available && enabledNames.has(tool.name) }))
   }
 
   /** 保存用户对当前可用工具的启用选择。 */
   async setToolEnabled(name: string, enabled: boolean): Promise<void> {
-    const availability = this.toolCatalog.check(name, this.toolContext(false))
+    const availability = this.tools.catalog.check(name, this.toolContext(false))
     if (!availability) {
       throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown Agent tool '${name}'.`)
     }
@@ -669,7 +192,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 手动执行一个当前可用工具，复用 Agent 调用的 schema 与宿主绑定。 */
   async debugTool(name: string, input: unknown) {
-    const tool = this.toolCatalog
+    const tool = this.tools.catalog
       .resolve(this.toolContext(false))
       .find((item) => item.name === name)
     if (!tool) {
@@ -693,36 +216,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 返回当前配置可用的图表与网络工具名称。 */
   private availableToolNames(): readonly string[] {
-    return this.toolCatalog.list(this.toolContext(false)).map((tool) => tool.name)
+    return this.tools.catalog.list(this.toolContext(false)).map((tool) => tool.name)
   }
 
   /** 返回当前 Browser 宿主中的运行时工具解析上下文。 */
   private toolContext(readOnly: boolean): BrowserToolContext {
     return { agent: this.getChartAgent(), readOnly }
-  }
-
-  /** 将图表与网络工具注册到同一个 Runtime 工具注册表。 */
-  private registerTools(): void {
-    for (const chartTool of getRegisteredChartTools()) {
-      this.toolCatalog.register({
-        ...chartTool.config,
-        create: ({ agent, readOnly }) => {
-          if (!agent || (readOnly && chartTool.config.safety !== 'read-only')) return undefined
-          return this.createRegisteredTool(chartTool, agent)
-        },
-      })
-    }
-    this.toolCatalog.register({
-      ...WEB_SEARCH_TOOL_METADATA,
-      create: () => this.createWebSearchTool(),
-    })
-    this.toolCatalog.register({
-      ...ASK_USER_TOOL_METADATA,
-      create: () =>
-        createAskUserTool({
-          request: (request, context) => this.requestQuestion(request, context),
-        }),
-    })
   }
 
   /**
@@ -735,17 +234,17 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     request: AskUserRequest,
     context: { runId: string; toolCallId: string; signal: AbortSignal },
   ): Promise<QuestionAnswerView> {
-    const run = this.activeRuns.get(context.runId)
+    const run = this.runs.find(context.runId)
     if (!run) {
       return Promise.reject(
         new AgentRuntimeError('RUN_NOT_ACTIVE', 'Ask question requires an active Agent run.'),
       )
     }
     const sessionId = run.input.sessionId
-    const id = `question-${this.nextQuestion++}`
+    const id = this.runs.nextQuestionId()
     return new Promise<QuestionAnswerView>((resolve, reject) => {
       const settle = () => {
-        this.pendingQuestions.delete(id)
+        this.runs.removeQuestion(id)
         context.signal.removeEventListener('abort', onAbort)
       }
       const onAbort = () => {
@@ -762,7 +261,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         )
       }
       context.signal.addEventListener('abort', onAbort, { once: true })
-      this.pendingQuestions.set(id, {
+      this.runs.addQuestion(id, {
         runId: context.runId,
         sessionId,
         resolve: (answer) => {
@@ -786,14 +285,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     })
   }
 
-  /** 为本次运行创建网络搜索工具；缺少 Key 时由同一工具在调用结果中说明配置路径。 */
-  private createWebSearchTool(): RuntimeToolDefinition {
-    const apiKey = this.webSearchApiKey()
-    return createWebSearchTool(
-      apiKey ? createExaWebSearchProvider({ apiKey, fetch: fetchBrowserProvider }) : undefined,
-    )
-  }
-
   /** 返回当前 Profile 中保存的 Web search 凭据。 */
   private webSearchApiKey(): string | undefined {
     return this.profiles.active()?.exaApiKey?.trim() || undefined
@@ -811,84 +302,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const exaApiKey = this.webSearchApiKey()
     if (exaApiKey) values.push(exaApiKey)
     return values
-  }
-
-  /** 解析工具执行目标：命中原语宿主则用宿主，否则归属 Agent facade 自身工具。 */
-  private chartToolTarget(tool: RegisteredChartTool, agent: ChartAgentController): object {
-    const host = agent.toolHosts.find((candidate) => tool.owns(candidate))
-    return host ?? agent
-  }
-
-  /** 将单个 Core 图表 API 适配为 Agent Runtime 工具，不复制领域能力。 */
-  private createRegisteredTool(
-    tool: RegisteredChartTool,
-    agent: ChartAgentController,
-  ): RuntimeToolDefinition {
-    const sourceIds = agent.getAvailableMarketDataSourceIds()
-    const drawingPaneIds = agent.getAvailableDrawingPaneIds()
-    const target = this.chartToolTarget(tool, agent)
-    return {
-      ...tool.config,
-      description: this.toolDescription(
-        tool.config.name,
-        tool.config.description,
-        sourceIds,
-        drawingPaneIds,
-      ),
-      reversible: false,
-      summarizeInput: tool.summarizeInput,
-      execute: async (input, context) => {
-        context.signal.throwIfAborted()
-        context.progress({ label: `Running ${tool.config.label}`, current: 1, total: 1 })
-        let value: unknown
-        try {
-          value = await tool.execute(target, input, {
-            signal: context.signal,
-            progress: context.progress,
-          })
-        } catch (error) {
-          const failure =
-            (tool.config.name === 'drawing_create' ? drawingCreateFailure(error, agent) : null) ??
-            chartToolFailure(error)
-          if (!failure) throw error
-          return failure
-        }
-        context.signal.throwIfAborted()
-        return {
-          content: typeof value === 'string' ? value : JSON.stringify(value),
-          summary: Array.isArray(value) ? `Returned ${value.length} items.` : 'Tool completed.',
-        }
-      },
-    }
-  }
-
-  /** 为依赖运行时资源的工具追加可用的精确标识。 */
-  private toolDescription(
-    name: string,
-    description: string,
-    sourceIds: ReadonlyArray<string>,
-    drawingPaneIds: ReadonlyArray<string>,
-  ): string {
-    if (name === 'drawing_create') {
-      const available = drawingPaneIds.length ? drawingPaneIds.join(', ') : 'none'
-      return `${description} Available runtime paneIds: ${available}. Use only one of these exact values for paneId.`
-    }
-    if (name === 'comparison_create') {
-      const available = sourceIds.length ? sourceIds.join(', ') : 'none'
-      return `${description} Available runtime sourceIds: ${available}. Set source to one of these exact values when the compared instrument comes from a specific source; omit it to resolve the code across every enabled source. Pass the chart main symbol in primary only to fill omitted routing fields; it never overrides the resolved instrument.`
-    }
-    if (
-      ![
-        'instruments_query_name',
-        'market_bars_query',
-        'market_timeshare_query',
-        'market_timeshare_range_query',
-      ].includes(name)
-    ) {
-      return description
-    }
-    const available = sourceIds.length ? sourceIds.join(', ') : 'none'
-    return `${description} Available runtime sourceIds: ${available}. When providing sourceId or sourceIds, use only these exact values; omit the field to allow automatic routing across every enabled source.`
   }
 
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */
@@ -958,7 +371,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (!profile) {
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
     }
-    if (profile.active && this.activeRuns.size) {
+    if (profile.active && this.runs.activeCount) {
       throw new AgentRuntimeError(
         'RUN_ACTIVE',
         'Stop the active Agent run before deleting Provider.',
@@ -971,7 +384,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 原子切换当前运行时使用的 Provider 配置。 */
   async selectProviderProfile(profileName: string): Promise<void> {
-    if (this.activeRuns.size) {
+    if (this.runs.activeCount) {
       throw new AgentRuntimeError(
         'RUN_ACTIVE',
         'Stop the active Agent run before switching Provider.',
@@ -1049,29 +462,26 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async createSession(): Promise<AgentSessionView> {
-    const session = this.createSessionRecord()
-    this.sessions.set(session.view.id, session)
+    const session = this.sessions.create()
     this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
     return session.view
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
-    const session = this.requireSession(sessionId)
-    session.view = { ...session.view, title, updatedAt: Date.now() }
+    this.sessions.rename(sessionId, title)
     this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    if (this.activeRuns.size)
+    if (this.runs.activeCount)
       throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run first.')
     this.sessions.delete(sessionId)
-    this.sessionRunInputs.delete(sessionId)
     this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
   }
 
   async startRun(input: StartRunInput): Promise<{ runId: string }> {
-    const session = this.requireSession(input.sessionId)
-    const runId = `run-${this.nextRun++}`
+    const session = this.sessions.require(input.sessionId)
+    const runId = this.runs.nextRunId()
     const startedAt = Date.now()
     // 真实凭据必须进脱敏名单：内置正则只覆盖 Bearer/Basic、`sk-` 前缀与本地路径，
     // 非该形态的 Provider Key（自建网关、非 OpenAI 厂商）否则会原样出现在事件流里。
@@ -1080,8 +490,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       ...input,
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
     }
-    this.activeRuns.set(runId, { driver, input: runInput })
-    this.sessionRunInputs.set(input.sessionId, runInput)
+    this.runs.register(runId, { driver, input: runInput })
+    this.sessions.rememberRunInput(input.sessionId, runInput)
     const transcript = [...session.transcript]
     session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
     session.messages.push({
@@ -1103,12 +513,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async cancelRun(runId: string): Promise<void> {
-    this.activeRuns.get(runId)?.driver.abort()
+    this.runs.abort(runId)
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
-    const session = this.sessionOfRun(runId)
-    const input = session ? this.sessionRunInputs.get(session.view.id) : undefined
+    const session = this.sessions.findSessionByRun(runId)
+    const input = session ? this.sessions.runInput(session.view.id) : undefined
     if (!input) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is unavailable.')
     return this.startRun(input)
   }
@@ -1119,7 +529,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 把用户的回答投递给挂起中的提问，使 ask_user 工具继续执行；未知问题直接忽略。 */
   async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
-    const pending = this.pendingQuestions.get(questionId)
+    const pending = this.runs.findQuestion(questionId)
     if (!pending) return
     this.emit({
       type: 'tool.question.resolved',
@@ -1223,31 +633,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return () => this.listeners.delete(listener)
   }
 
-  private createSessionRecord(): BrowserSession {
-    const id = `session-${this.nextSession++}`
-    return {
-      view: { id, title: 'New analysis', updatedAt: Date.now() },
-      messages: [],
-      runs: [],
-      transcript: [],
-    }
-  }
-
-  private requireSession(sessionId: string): BrowserSession {
-    const session = this.sessions.get(sessionId)
-    if (!session)
-      throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Agent session was not found.')
-    return session
-  }
-
-  /** 按 runId 反查所属会话，供重试恢复该会话最近一次运行的输入。 */
-  private sessionOfRun(runId: string): BrowserSession | undefined {
-    for (const session of this.sessions.values()) {
-      if (session.runs.some((run) => run.id === runId)) return session
-    }
-    return undefined
-  }
-
+  /** 按 runId 驱动一次运行，把 Pi 事件投影为 UI 事件并回填会话 transcript/消息。 */
   private async run(
     driver: PiRunDriver,
     runId: string,
@@ -1321,10 +707,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
             },
       )
     } finally {
-      this.activeRuns.delete(runId)
+      this.runs.complete(runId)
     }
   }
 
+  /** 把运行终态写回会话记录。 */
   private finish(
     session: BrowserSession,
     runId: string,
@@ -1335,6 +722,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (run) Object.assign(run, { status, endedAt })
   }
 
+  /** 向所有 UI 事件订阅者广播，并统一补上协议版本。 */
   private emit(event: AgentUiEventInput): void {
     for (const listener of this.listeners)
       listener({ ...event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })

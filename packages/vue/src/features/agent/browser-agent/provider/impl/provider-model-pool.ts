@@ -1,5 +1,5 @@
 /** Provider 模型池的分组 CRUD；持久化由注入的 read/write 提供，内存优先写入。 */
-import type { ProviderModelPoolEntry, ProviderModelView } from './agent-contracts.js'
+import type { ProviderModelPoolEntry, ProviderModelView } from '../../../agent-contracts.js'
 
 /** 对模型池数组做增删改查，并按 Provider Profile 名称分组。 */
 export class ProviderModelPool {
