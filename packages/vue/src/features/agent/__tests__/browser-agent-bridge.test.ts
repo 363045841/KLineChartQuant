@@ -38,19 +38,19 @@ describe('BrowserAgentBridge', () => {
     )
   })
 
-  it('marks web search unavailable before an Exa key is configured', async () => {
+  it('keeps web search enabled before an Exa key is configured and returns setup guidance', async () => {
     const bridge = new BrowserAgentBridge()
 
     await expect(bridge.listTools()).resolves.toContainEqual(
       expect.objectContaining({
         name: 'web_search',
-        enabled: false,
-        available: false,
-        unavailableReason: 'Enter an Exa API key to enable Web search.',
+        enabled: true,
+        available: true,
       }),
     )
-    await expect(bridge.setToolEnabled('web_search', true)).rejects.toMatchObject({
-      code: 'TOOL_NOT_ALLOWED',
+    await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
+      summary: 'Web search requires an Exa API key.',
+      content: expect.stringContaining('open Agent settings and enter an Exa API key'),
     })
   })
 

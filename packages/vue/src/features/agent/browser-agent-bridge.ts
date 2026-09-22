@@ -675,8 +675,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     }
     this.toolCatalog.register({
       ...WEB_SEARCH_TOOL_METADATA,
-      check: () =>
-        this.webSearchApiKey() ? undefined : 'Enter an Exa API key to enable Web search.',
       create: () => this.createWebSearchTool(),
     })
     this.toolCatalog.register({
@@ -749,11 +747,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     })
   }
 
-  /** 为已保存的 Exa Key 创建本次运行可用的网络搜索工具。 */
+  /** 为本次运行创建网络搜索工具；缺少 Key 时由同一工具在调用结果中说明配置路径。 */
   private createWebSearchTool(): RuntimeToolDefinition {
     const apiKey = this.webSearchApiKey()
-    if (!apiKey) throw new AgentRuntimeError('TOOL_NOT_ALLOWED', 'Web search is not configured.')
-    return createWebSearchTool(createExaWebSearchProvider({ apiKey, fetch: fetchBrowserProvider }))
+    return createWebSearchTool(
+      apiKey ? createExaWebSearchProvider({ apiKey, fetch: fetchBrowserProvider }) : undefined,
+    )
   }
 
   /** 返回当前 Profile 中保存的 Web search 凭据。 */

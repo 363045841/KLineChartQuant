@@ -90,6 +90,25 @@ describe('web search', () => {
     })
   })
 
+  it('returns actionable setup guidance when Web search has no configured credential', async () => {
+    const tool = createWebSearchTool()
+
+    const result = await tool.execute(
+      { query: 'example' },
+      {
+        runId: 'run-1',
+        toolCallId: 'tool-1',
+        signal: new AbortController().signal,
+        progress: () => undefined,
+      },
+    )
+
+    expect(result).toMatchObject({
+      summary: 'Web search requires an Exa API key.',
+      content: expect.stringContaining('open Agent settings and enter an Exa API key'),
+    })
+  })
+
   it('reports when a registered tool cannot be enabled', () => {
     const registry = new RuntimeToolCatalog<{ enabled: boolean }>()
     registry.register({

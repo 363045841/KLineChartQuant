@@ -209,8 +209,8 @@
                   v-model="providerSettings.exaApiKey"
                   type="password"
                   autocomplete="new-password"
-                  :placeholder="tool.available ? '••••••••' : text.exaApiKeyPlaceholder"
                 />
+                <small class="provider-field__help">{{ text.exaApiKeyPlaceholder }}</small>
               </label>
               <details class="agent-tool__parameters">
                 <summary>{{ text.toolParameters }}</summary>
@@ -879,6 +879,11 @@
     color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
+  }
+
+  .provider-field__help {
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
   }
 
   .provider-field input,
