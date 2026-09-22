@@ -38,10 +38,11 @@ describe('BrowserAgentBridge secret redaction', () => {
     await bridge.saveProvider({
       baseUrl: 'https://provider.example/v1',
       apiKey: 'provider-secret',
-      exaApiKey: 'exa-secret',
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
+    // Web Search 凭据是独立于 Provider Profile 的全局 Key，走专属入口保存。
+    await bridge.saveWebSearchApiKey('exa-secret')
 
     const secrets = await secretsOf(bridge)
     expect(secrets).toContain('provider-secret')
