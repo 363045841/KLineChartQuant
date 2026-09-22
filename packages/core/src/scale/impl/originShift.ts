@@ -1,4 +1,3 @@
-import { KLineChartError } from '../errors.js'
 /**
  * Origin-shift policy — ROADMAP §2.5, refined per the upstream PR feedback
  * about *rebaseline drift*.
@@ -46,20 +45,9 @@ import { KLineChartError } from '../errors.js'
  *    degenerate range elsewhere.
  */
 
-export interface OriginShiftPolicy {
-  /** Current reference value. Subtract this from any price before upload. */
-  readonly ref: number
-  /** Subtract `ref` from `value`. The fp32-safe number to upload. */
-  shift(value: number): number
-  /**
-   * Maybe rebaseline. Returns `true` iff `ref` was updated.
-   *
-   * Policy: rebaseline only when
-   *   `|currentMid - ref| / currentRange > threshold`.
-   * On rebaseline, `ref` becomes `currentMid`.
-   */
-  maybeRebaseline(currentMid: number, currentRange: number): boolean
-}
+import { KLineChartError } from '../../errors.js'
+
+import type { OriginShiftPolicy } from '../types.js'
 
 const DEFAULT_THRESHOLD = 0.01
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createTimeScale } from '../createTimeScale'
+import { createTimeScale } from '../impl/createTimeScale'
 
 describe('createTimeScale', () => {
   it('barIndexToX and xToBarIndex are exact inverses', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeAnchoredZoom } from '../anchoredZoom'
+import { computeAnchoredZoom } from '../impl/anchoredZoom'
 
 /**
  * Helper: project a bar index to screen X using the same formula the scale

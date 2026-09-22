@@ -15,19 +15,10 @@
  * extrapolate, or display a "—" label.
  */
 
-import { KLineChartError } from '../errors.js'
-import { createSignal } from '../foundation/reactivity/signal.js'
+import { KLineChartError } from '../../errors.js'
+import { createSignal } from '../../foundation/reactivity/signal.js'
 
-import type { TimeScale } from './types.js'
-
-export interface TimeScaleConfig {
-  /** Default firstVisibleIndex. Fractional/negative allowed. Default 0. */
-  initialFirstVisibleIndex?: number
-  /** Default barWidth in logical px. Must be > 0. Default 8. */
-  initialBarWidth?: number
-  /** Default leftPadding in logical px. Default 0. */
-  initialLeftPadding?: number
-}
+import type { TimeScale, TimeScaleConfig } from '../types.js'
 
 export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
   const initialFirstVisibleIndex = config.initialFirstVisibleIndex ?? 0

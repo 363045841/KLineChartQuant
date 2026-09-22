@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createOriginShiftPolicy } from '../originShift'
+import { createOriginShiftPolicy } from '../impl/originShift'
 
 describe('createOriginShiftPolicy', () => {
   it('starts with ref equal to initialRef', () => {

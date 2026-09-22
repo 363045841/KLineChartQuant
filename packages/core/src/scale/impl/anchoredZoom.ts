@@ -34,27 +34,7 @@
  *     watching the wheel become a silent dead-zone.
  */
 
-export interface AnchoredZoomOptions {
-  /** Screen X (logical px) where the wheel event fired. */
-  mouseX: number
-  /** Logical px on the left edge before bar 0. */
-  leftPadding: number
-  /** Current `firstVisibleIndex` (fractional). */
-  firstVisibleIndex: number
-  /** Current `barWidth` in logical px. */
-  barWidth: number
-  /** > 1 zoom in (wheel up), < 1 zoom out, === 1 no-op. */
-  zoomFactor: number
-  /** Lower clamp for the resulting bar width. Default 0.5 logical px. */
-  minBarWidth?: number
-  /** Upper clamp for the resulting bar width. Default 200 logical px. */
-  maxBarWidth?: number
-}
-
-export interface AnchoredZoomResult {
-  firstVisibleIndex: number
-  barWidth: number
-}
+import type { AnchoredZoomOptions, AnchoredZoomResult } from '../types.js'
 
 const DEFAULT_MIN_BAR_WIDTH = 0.5
 const DEFAULT_MAX_BAR_WIDTH = 200

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createPriceScale } from '../createPriceScale'
+import { createPriceScale } from '../impl/createPriceScale'
 
 describe('createPriceScale — linear mode', () => {
   it('forward & inverse linear round-trip', () => {

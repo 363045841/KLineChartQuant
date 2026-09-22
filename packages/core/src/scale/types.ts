@@ -1,5 +1,5 @@
 /**
- * Coordinate-system interfaces for the headless core.
+ * Coordinate-system contracts for the headless core.
  *
  * The `TimeScale` maps **bar index** (a discrete-but-fractional sequence number)
  * to a screen X position, per ROADMAP §1.1. Wall-clock time is a secondary
@@ -12,6 +12,9 @@
  * Both scales are **reactive**: their core state is exposed as signals so the
  * React/Vue/Angular adapter layer can subscribe without re-implementing the
  * change-detection plumbing.
+ *
+ * This file holds pure contracts only — the executable factories and the
+ * anchored-zoom / origin-shift math live in `impl/`.
  */
 
 import type { Signal } from '../foundation/reactivity/signal.js'
@@ -97,4 +100,83 @@ export interface PriceScale {
   toShiftedFp32(p: number): number
 
   dispose(): void
+}
+
+/**
+ * Initialisation contract for `createTimeScale` (implementation in
+ * `impl/createTimeScale.ts`).
+ */
+export interface TimeScaleConfig {
+  /** Default firstVisibleIndex. Fractional/negative allowed. Default 0. */
+  initialFirstVisibleIndex?: number
+  /** Default barWidth in logical px. Must be > 0. Default 8. */
+  initialBarWidth?: number
+  /** Default leftPadding in logical px. Default 0. */
+  initialLeftPadding?: number
+}
+
+/**
+ * Initialisation contract for `createPriceScale` (implementation in
+ * `impl/createPriceScale.ts`).
+ */
+export interface PriceScaleConfig {
+  /** Initial mode. Default `'linear'`. */
+  initialMode?: ScaleMode
+  /** Initial visibleMin. Default 0. (Must be > 0 if initialMode === 'log'.) */
+  initialVisibleMin?: number
+  /** Initial visibleMax. Default 100. */
+  initialVisibleMax?: number
+  /** Initial canvas height in logical px. Default 480. */
+  initialHeight?: number
+  /**
+   * Threshold for the origin-shift rebaseline policy. Default 0.01 (1% of
+   * visible range). See `impl/originShift.ts` for the rationale.
+   */
+  originShiftThreshold?: number
+}
+
+/**
+ * Input contract for `computeAnchoredZoom` (implementation in
+ * `impl/anchoredZoom.ts`).
+ */
+export interface AnchoredZoomOptions {
+  /** Screen X (logical px) where the wheel event fired. */
+  mouseX: number
+  /** Logical px on the left edge before bar 0. */
+  leftPadding: number
+  /** Current `firstVisibleIndex` (fractional). */
+  firstVisibleIndex: number
+  /** Current `barWidth` in logical px. */
+  barWidth: number
+  /** > 1 zoom in (wheel up), < 1 zoom out, === 1 no-op. */
+  zoomFactor: number
+  /** Lower clamp for the resulting bar width. Default 0.5 logical px. */
+  minBarWidth?: number
+  /** Upper clamp for the resulting bar width. Default 200 logical px. */
+  maxBarWidth?: number
+}
+
+/** Output contract for `computeAnchoredZoom`. */
+export interface AnchoredZoomResult {
+  firstVisibleIndex: number
+  barWidth: number
+}
+
+/**
+ * Origin-shift policy contract (implementation in `impl/originShift.ts`).
+ * Keeps GPU uploads in safe fp32 territory by subtracting a stable reference.
+ */
+export interface OriginShiftPolicy {
+  /** Current reference value. Subtract this from any price before upload. */
+  readonly ref: number
+  /** Subtract `ref` from `value`. The fp32-safe number to upload. */
+  shift(value: number): number
+  /**
+   * Maybe rebaseline. Returns `true` iff `ref` was updated.
+   *
+   * Policy: rebaseline only when
+   *   `|currentMid - ref| / currentRange > threshold`.
+   * On rebaseline, `ref` becomes `currentMid`.
+   */
+  maybeRebaseline(currentMid: number, currentRange: number): boolean
 }

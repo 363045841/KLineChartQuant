@@ -30,28 +30,12 @@
  * we don't want one bad row to crash the chart.
  */
 
-import { KLineChartError } from '../errors.js'
-import type { Signal } from '../foundation/reactivity/signal.js'
-import { createSignal } from '../foundation/reactivity/signal.js'
+import { KLineChartError } from '../../errors.js'
+import type { Signal } from '../../foundation/reactivity/signal.js'
+import { createSignal } from '../../foundation/reactivity/signal.js'
 
-import { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift.js'
-import type { PriceScale, ScaleMode } from './types.js'
-
-export interface PriceScaleConfig {
-  /** Initial mode. Default `'linear'`. */
-  initialMode?: ScaleMode
-  /** Initial visibleMin. Default 0. (Must be > 0 if initialMode === 'log'.) */
-  initialVisibleMin?: number
-  /** Initial visibleMax. Default 100. */
-  initialVisibleMax?: number
-  /** Initial canvas height in logical px. Default 480. */
-  initialHeight?: number
-  /**
-   * Threshold for the origin-shift rebaseline policy. Default 0.01 (1% of
-   * visible range). See `originShift.ts` for the rationale.
-   */
-  originShiftThreshold?: number
-}
+import type { OriginShiftPolicy, PriceScale, PriceScaleConfig, ScaleMode } from '../types.js'
+import { createOriginShiftPolicy } from './originShift.js'
 
 export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
   const initialMode: ScaleMode = config.initialMode ?? 'linear'

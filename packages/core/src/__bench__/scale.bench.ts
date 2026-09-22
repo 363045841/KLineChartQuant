@@ -12,8 +12,8 @@
 
 import { describe, test } from 'vitest'
 
-import { computeAnchoredZoom } from '../scale/anchoredZoom'
-import { createOriginShiftPolicy } from '../scale/originShift'
+import { computeAnchoredZoom } from '../scale/impl/anchoredZoom'
+import { createOriginShiftPolicy } from '../scale/impl/originShift'
 
 describe('Anchored zoom — 100k operations', () => {
   test('compares zoom-in, zoom-out and clamped paths', async ({ bench }) => {
