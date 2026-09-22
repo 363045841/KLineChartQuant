@@ -1,5 +1,5 @@
 /** 管理 Agent Provider 设置弹窗的临时表单状态与异步操作。 */
-import { createPinia, defineStore } from 'pinia'
+import { createPinia, defineStore, type Pinia } from 'pinia'
 import { ref } from 'vue'
 import type {
   AgentBridgeClient,
@@ -12,6 +12,7 @@ import type {
   ProviderStatusView,
 } from '../../../agent-contracts.js'
 import { PROVIDER_API_PROTOCOLS } from '../../../agent-contracts.js'
+import type { AgentProviderSettingsStore } from '../types.js'
 
 /** 将 bridge 错误收敛为 UI 可直接展示的错误视图。 */
 function toOperationError(error: unknown): AgentErrorView {
@@ -37,12 +38,12 @@ function toOperationError(error: unknown): AgentErrorView {
 }
 
 /** 创建独立 Pinia 容器，防止多个图表实例共享 Provider 弹窗草稿。 */
-export function createAgentProviderSettingsPinia() {
+export function createAgentProviderSettingsPinia(): Pinia {
   return createPinia()
 }
 
 /** 管理单个 Agent Workspace 的 Provider 设置草稿与请求状态。 */
-export const useAgentProviderSettingsStore = defineStore('agent-provider-settings', () => {
+function setupAgentProviderSettingsStore() {
   const open = ref(false)
   const baseUrl = ref('')
   const apiKey = ref('')
@@ -413,4 +414,8 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     close,
     saveProvider,
   }
-})
+}
+
+/** 管理单个 Agent Workspace 的 Provider 设置草稿与请求状态；返回类型受公共契约约束。 */
+export const useAgentProviderSettingsStore: (pinia?: Pinia) => AgentProviderSettingsStore =
+  defineStore('agent-provider-settings', setupAgentProviderSettingsStore)

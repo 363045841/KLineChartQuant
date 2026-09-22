@@ -12,7 +12,7 @@ import type {
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
-} from '../../agent-provider-settings-store.js'
+} from '../../browser-agent/provider-settings/impl/agent-provider-settings-store.js'
 import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer.js'
 import {
   agentWorkspacePreferencesPersistence,

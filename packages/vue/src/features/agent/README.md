@@ -55,7 +55,6 @@ core controllers + agent-runtime
 以下根文件是过渡/兼容入口，内部实现已经迁入语义模块。新的代码应从目标模块导入；只有需要保持既有公共路径时才保留或新增 facade。
 
 - `agent-copy.ts` → `agent-copy/`
-- `agent-provider-settings-store.ts` → `browser-agent/provider-settings/`
 - `render-agent-markdown.ts` → `render-agent-markdown/`
 
 ## Placement guide

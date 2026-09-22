@@ -311,7 +311,7 @@
     type ProviderStatusView,
   } from '../agent-contracts.js'
   import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy.js'
-  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store.js'
+  import type { AgentProviderSettingsStore } from '../browser-agent/provider-settings/types.js'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
