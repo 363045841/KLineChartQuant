@@ -23,5 +23,5 @@
 
 - `packages/core/src/engine/chart.ts`、`engine/data/comparisonCommands.ts`（歧义返回与过滤）
 - `packages/core/src/data/provider/types.ts`（`ASSET_CLASS_VALUES` 单一来源）
-- `packages/agent-runtime/src/tools/ask-user-tool.ts`、`pi/pi-run-driver.ts`、`pi/types.ts`、`contracts/ui.ts`、`provider-openai-compatible/runtime.ts`
+- `packages/agent-runtime/src/tools/ask-user-tool.ts`、`pi/impl/pi-run-driver.ts`、`pi/types.ts`、`contracts/ui.ts`、`provider-openai-compatible/runtime.ts`
 - `packages/vue/src/features/agent/`（bridge 挂起/应答、`QuestionCard.vue`、reducer、fake bridge 脚本）

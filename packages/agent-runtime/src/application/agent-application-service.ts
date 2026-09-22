@@ -10,7 +10,7 @@ import {
   type ProviderTestResult,
   type StartRunInput,
 } from '../contracts/ui.js'
-import { PiRunDriver } from '../pi/pi-run-driver.js'
+import { PiRunDriver } from '../pi/impl/pi-run-driver.js'
 import type { RunPersistenceContext } from '../sessions/types.js'
 import type { AgentApplicationApi, AgentApplicationServiceOptions, RunDriver } from './types.js'
 

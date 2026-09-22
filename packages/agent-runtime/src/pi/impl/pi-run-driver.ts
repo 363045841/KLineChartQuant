@@ -2,21 +2,21 @@
 import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
 import { Agent, type AgentEvent, type AgentTool } from '@earendil-works/pi-agent-core'
 import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
-import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
+import { AgentRuntimeError, toAgentRuntimeError } from '../../contracts/errors.js'
 import type {
   AgentUsageView,
   SourceCitation,
   ToolCallView,
   ToolProgressView,
-} from '../contracts/ui.js'
-import { type RedactionOptions, redactString, redactValue } from '../security/redaction.js'
+} from '../../contracts/ui.js'
+import { type RedactionOptions, redactString, redactValue } from '../../security/redaction.js'
 import type {
   PiRunEventSink,
   PiRunPlan,
   PiRunResult,
   RuntimeToolDefinition,
   RuntimeToolResult,
-} from './types.js'
+} from '../types.js'
 
 // Run deadline 是无活动计时：任何 Pi 事件或工具 progress 心跳都会重置；等待用户回答由 ask_user 心跳维持。
 const DEFAULT_TIMEOUT_MS = 10 * 60_000
