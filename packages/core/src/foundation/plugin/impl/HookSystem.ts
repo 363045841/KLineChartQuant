@@ -1,7 +1,7 @@
 /**
  * Hook 钩子系统实现
  */
-import type { HookCallOptions, HookDescriptor, HookFn } from './types.js'
+import type { HookCallOptions, HookDescriptor, HookFn } from '../types.js'
 
 export class HookSystem {
   private hooks: Map<string, HookDescriptor[]> = new Map()

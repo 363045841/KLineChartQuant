@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RendererPlugin } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { RendererPluginManager } from '../../foundation/plugin/rendererPluginManager'
+import { RENDERER_PRIORITY, RendererPluginManager } from '../../foundation/plugin/index'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import { createScene } from '../../rendering/scene/createScene'
 import { createMockRenderContext } from './helpers/renderTestKit'

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { RendererPluginManager } from './rendererPluginManager.js'
+import { RendererPluginManager } from '../impl/rendererPluginManager.js'
 
 describe('RendererPluginManager lifecycle', () => {
   it('installs a renderer plugin exactly once', () => {

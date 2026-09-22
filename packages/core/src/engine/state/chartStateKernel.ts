@@ -2,8 +2,8 @@
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingObject } from '../../foundation/plugin/index.js'
-import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId.js'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'

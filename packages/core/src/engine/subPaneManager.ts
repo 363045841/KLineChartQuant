@@ -1,10 +1,10 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors.js'
+import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
 import type {
   RenderContext,
   RendererPlugin,
   RendererPluginWithHost,
 } from '../foundation/plugin/index.js'
-import { makePluginLayerId } from '../foundation/plugin/rendererLayerId.js'
 import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
 import { createSubIndicatorRenderer } from './renderers/Indicator/index.js'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog.js'

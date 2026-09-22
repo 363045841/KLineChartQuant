@@ -34,6 +34,7 @@ import {
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../foundation/config/chartSettings.js'
+import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
 import {
   createPluginHost,
   type PluginHostImpl,
@@ -42,7 +43,6 @@ import {
   type RendererPluginWithHost,
   wrapPaneInfo,
 } from '../foundation/plugin/index.js'
-import { makePluginLayerId } from '../foundation/plugin/rendererLayerId.js'
 import {
   type Computed,
   computed,

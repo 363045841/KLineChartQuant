@@ -7,6 +7,8 @@
  * 3. 逐实例生成渲染投影，按 instanceId 提供给 renderer / scale renderer / 图例；
  * 4. 协调副图 renderer 与主图 legend，并注册实例状态与目录服务。
  */
+
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type {
   IndicatorRenderStateReader,
   PluginHostImpl,
@@ -14,7 +16,6 @@ import type {
   RendererPlugin,
   RendererPluginWithHost,
 } from '../../foundation/plugin/index.js'
-import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId.js'
 import {
   type Computed,
   computed,

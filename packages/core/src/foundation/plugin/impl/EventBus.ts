@@ -1,7 +1,7 @@
 /**
  * 事件总线实现
  */
-import type { EventHandler } from './types.js'
+import type { EventHandler } from '../types.js'
 
 type EventMap = Map<string, Set<EventHandler>>
 

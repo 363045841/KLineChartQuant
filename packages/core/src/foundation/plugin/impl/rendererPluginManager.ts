@@ -2,7 +2,7 @@
  * 渲染器插件管理器
  */
 
-import type { PaneInfo, PluginHost, RendererPlugin, RendererPluginWithHost } from './types.js'
+import type { PaneInfo, PluginHost, RendererPlugin, RendererPluginWithHost } from '../types.js'
 
 /** 内部缓存 key（模块私有，避免与外部 paneId 冲突） */
 const GLOBAL_CACHE_KEY = Symbol('renderer:global-cache')

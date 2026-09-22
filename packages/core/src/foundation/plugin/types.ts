@@ -168,46 +168,6 @@ export interface PaneInfo {
   }
 }
 
-/**
- * 创建 PaneInfo 的只读包装
- *
- * 设计决策：
- * - 使用 Readonly<T> 类型标注而非 Object.freeze，避免热路径上的运行时开销
- * - yAxis 方法通过闭包包装，隔离原始函数引用
- * - 依赖团队代码规范约束插件行为，而非运行时强制
- */
-export function wrapPaneInfo(pane: {
-  id: string
-  role: PaneRole
-  capabilities: PaneCapabilities
-  top: number
-  height: number
-  yAxis: PaneInfo['yAxis']
-  priceRange: PaneInfo['priceRange']
-}): Readonly<PaneInfo> {
-  return {
-    id: pane.id,
-    role: pane.role,
-    capabilities: { ...pane.capabilities },
-    top: pane.top,
-    height: pane.height,
-    yAxis: {
-      priceToY: (price) => pane.yAxis.priceToY(price),
-      yToPrice: (y) => pane.yAxis.yToPrice(y),
-      getPaddingTop: () => pane.yAxis.getPaddingTop(),
-      getPaddingBottom: () => pane.yAxis.getPaddingBottom(),
-      getPriceOffset: () => pane.yAxis.getPriceOffset(),
-      getDisplayRange: (baseRange) => pane.yAxis.getDisplayRange(baseRange),
-      getScaleType: () => pane.yAxis.getScaleType(),
-      getBasePrice: () => pane.yAxis.getBasePrice(),
-      toPercent: (price) => pane.yAxis.toPercent(price),
-      fromPercent: (pct) => pane.yAxis.fromPercent(pct),
-      getDisplayPercentRange: () => pane.yAxis.getDisplayPercentRange(),
-    },
-    priceRange: pane.priceRange,
-  }
-}
-
 /** Y轴标签（价格标签） */
 export interface YAxisLabel {
   /** 价格值 */
@@ -563,21 +523,6 @@ export type DrawingPrimitiveKind = 'point' | 'line' | 'area' | 'text' | 'arrow'
 /** 点图元角色：锚点、平移手柄。 */
 export type PointRole = 'anchor' | 'translate-handle'
 
-/** 图元种类字面量；判别图元种类时引用它，不在业务代码里散落字符串。 */
-export const PRIMITIVE_KIND = {
-  point: 'point',
-  line: 'line',
-  area: 'area',
-  text: 'text',
-  arrow: 'arrow',
-} as const satisfies Record<DrawingPrimitiveKind, DrawingPrimitiveKind>
-
-/** 点图元角色字面量；判别角色时引用它，不在业务代码里散落字符串。 */
-export const POINT_ROLE = {
-  anchor: 'anchor',
-  'translate-handle': 'translate-handle',
-} as const satisfies Record<PointRole, PointRole>
-
 /** 点图元：锚点圆点统一填白底、描图元色环，没有填充色开关。 */
 export type PointPrimitive = {
   kind: 'point'
@@ -665,33 +610,6 @@ export interface DrawingDefinition<TParams = Record<string, unknown>> {
   maxAnchors: number
   compute(drawing: ResolvedDrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry
 }
-
-/** 全局 Pane ID（渲染到所有 pane） */
-export const GLOBAL_PANE_ID = Symbol('global-pane')
-
-/** 优先级推荐范围 */
-export const RENDERER_PRIORITY = {
-  LAST_PRICE_LABEL: -25, // 最新价格 label 注册（必须在 SYSTEM_YAXIS 之前）
-  SYSTEM_YAXIS: -20, // Y轴（系统级）
-  SYSTEM_XAXIS: -20, // X轴（系统级）
-  BACKGROUND: 0, // 背景层
-  GRID: 10, // 网格线
-  /**
-   * 指标渲染器（MACD, RSI 等）
-   * 所有指标渲染器必须使用此优先级或 ≤30 的值
-   */
-  INDICATOR: 30,
-  MAIN: 50, // 主图（K线）
-  /**
-   * 指标刻度渲染器（依赖于前方指标写入的共享状态）
-   * 必须晚于 INDICATOR 和 MAIN，确保每次绘制时先更新指标状态再绘制刻度。
-   */
-  INDICATOR_SCALE: 55,
-  OVERLAY: 80, // 叠加层（标记点）
-  FOREGROUND: 100, // 前景层（价格线）
-  SYSTEM_BORDER: 120, // 边框（系统级）
-  SYSTEM_CROSSHAIR: 150, // 十字线（系统级）
-} as const
 
 /** 渲染器插件接口（独立定义，不继承 Plugin） */
 export interface RendererPlugin {
