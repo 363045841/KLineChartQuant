@@ -40,6 +40,11 @@ export function applyAgentCitationPlugin(markdown: MarkdownIt): void {
     if (!isAgentCitationToken(token.meta)) return ''
     const { citation, number } = token.meta
     const escapeHtml = markdown.utils.escapeHtml
-    return `<button type="button" class="agent-citation" data-agent-citation-id="${escapeHtml(citation.id)}" title="${escapeHtml(citation.title)}" aria-label="Source ${escapeHtml(citation.title)}">[${number}]</button>`
+    // 紧邻的引用按钮共享一条灰色胶囊，这里标出需要拼接的方向，被空格等文本隔开的不拼接。
+    const joinedLeft =
+      tokens[index - 1]?.type === 'agent_citation' ? ' agent-citation--joined-left' : ''
+    const joinedRight =
+      tokens[index + 1]?.type === 'agent_citation' ? ' agent-citation--joined-right' : ''
+    return `<button type="button" class="agent-citation${joinedLeft}${joinedRight}" data-agent-citation-id="${escapeHtml(citation.id)}" title="${escapeHtml(citation.title)}" aria-label="Source ${escapeHtml(citation.title)}">${number}</button>`
   }
 }

@@ -39,7 +39,29 @@ describe('renderAgentMarkdown', () => {
     ])
 
     expect(html).toContain('data-agent-citation-id="web:tool-1:1"')
-    expect(html).toContain('>[1]</button>')
+    expect(html).toContain('>1</button>')
     expect(renderAgentMarkdown('[[cite:web:unknown:1]]')).toContain('[[cite:web:unknown:1]]')
+  })
+
+  /** 验证紧邻的引用按钮会标记拼接方向，被空格隔开的引用各自独立。 */
+  it('marks adjacent citation markers as a joined pill', () => {
+    const citations = [
+      { id: 'web:tool-1:1', title: 'A', url: 'https://example.com/a', snippet: 'a' },
+      { id: 'web:tool-1:2', title: 'B', url: 'https://example.com/b', snippet: 'b' },
+    ]
+
+    const joined = renderAgentMarkdown(
+      'Rising. [[cite:web:tool-1:1]][[cite:web:tool-1:2]]',
+      citations,
+    )
+    expect(joined).toContain('class="agent-citation agent-citation--joined-right"')
+    expect(joined).toContain('class="agent-citation agent-citation--joined-left"')
+
+    const separated = renderAgentMarkdown(
+      'Rising. [[cite:web:tool-1:1]] [[cite:web:tool-1:2]]',
+      citations,
+    )
+    expect(separated).toContain('class="agent-citation"')
+    expect(separated).not.toContain('agent-citation--joined')
   })
 })

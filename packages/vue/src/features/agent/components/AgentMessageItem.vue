@@ -199,20 +199,44 @@
   .message__content--markdown :deep(.agent-citation) {
     display: inline-flex;
     align-items: center;
-    min-height: 18px;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 15px;
+    min-height: 15px;
     margin: 0 2px;
     padding: 0 4px;
-    border: 1px solid var(--agent-border);
-    border-radius: 3px;
-    color: var(--agent-accent);
-    background: var(--agent-card);
+    border: none;
+    border-radius: 999px;
+    color: var(--agent-text);
+    background: var(--agent-control);
     font: inherit;
-    font-size: 0.85em;
+    font-size: 0.75em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    vertical-align: middle;
     cursor: pointer;
   }
 
+  /* 相邻引用拼成一条灰色胶囊：仅最左/最右保留外侧圆角，中间为直角。 */
+  .message__content--markdown :deep(.agent-citation--joined-left) {
+    margin-left: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .message__content--markdown :deep(.agent-citation--joined-right) {
+    margin-right: 1px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
   .message__content--markdown :deep(.agent-citation:hover) {
-    border-color: var(--agent-accent);
+    box-shadow: inset 0 0 0 1px var(--agent-border-strong);
+  }
+
+  .message__content--markdown :deep(.agent-citation:focus-visible) {
+    outline: 2px solid var(--agent-focus);
+    outline-offset: 1px;
   }
 
   .message__content--markdown :deep(code) {

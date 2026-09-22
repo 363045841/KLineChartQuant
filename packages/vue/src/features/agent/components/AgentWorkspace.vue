@@ -164,6 +164,7 @@
     --agent-bg: var(--klc-color-ui-background);
     --agent-surface: var(--klc-color-ui-surface);
     --agent-card: var(--klc-color-ui-card);
+    --agent-control: var(--klc-color-ui-control-background);
     --agent-input: var(--klc-color-ui-input);
     --agent-hover: var(--klc-color-ui-hover);
     --agent-user-message: var(--klc-color-agent-user-message);
