@@ -74,7 +74,7 @@
   import DebugControls from './DebugControls.vue'
   import { useChartDocumentTitle } from './useChartDocumentTitle'
   import { AgentWorkbenchShell, createAgentPanelWidthStorage, KlineChart } from '../src/index'
-  import { BrowserAgentBridge } from '../src/features/agent/browser-agent-bridge'
+  import { BrowserAgentBridge } from '../src/features/agent/browser-agent/bridge/impl/browser-agent-bridge'
   import {
     type KLineData,
     type CustomDataSource,

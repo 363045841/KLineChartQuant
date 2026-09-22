@@ -1,7 +1,7 @@
 import { redactString } from '@363045841yyt/klinechart-agent-runtime'
 import { describe, expect, it } from 'vitest'
 
-import { BrowserAgentBridge } from '../browser-agent-bridge'
+import { BrowserAgentBridge } from '../browser-agent/bridge/impl/browser-agent-bridge'
 
 /**
  * `PiRunDriver` 的内置正则只覆盖 Bearer/Basic、`sk-` 前缀与本地路径。真实 Provider Key

@@ -2,7 +2,7 @@
 
 import { InMemoryProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
 import { describe, expect, it } from 'vitest'
-import { BrowserAgentBridge } from '../browser-agent-bridge'
+import { BrowserAgentBridge } from '../browser-agent/bridge/impl/browser-agent-bridge'
 import {
   readStoredAgentModelSettings,
   storedAgentModelSettingsJson,

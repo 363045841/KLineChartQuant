@@ -37,38 +37,25 @@ import type {
   QuestionAnswerView,
   QuestionView,
   StartRunInput,
-} from './agent-contracts.js'
-import { BrowserChartContextSource } from './browser-agent/chart-context/impl/browser-chart-context-source.js'
-import type { ChartContextSource } from './browser-agent/chart-context/types.js'
-import { BrowserAgentModelSettingsStore } from './browser-agent/provider/impl/browser-agent-model-settings.js'
-import { BrowserEnabledTools } from './browser-agent/provider/impl/browser-enabled-tools.js'
-import { fetchBrowserProvider } from './browser-agent/provider/impl/browser-provider-fetch.js'
-import { BrowserProviderProfiles } from './browser-agent/provider/impl/browser-provider-profiles.js'
+} from '../../../agent-contracts.js'
+import { BrowserChartContextSource } from '../../chart-context/impl/browser-chart-context-source.js'
+import type { ChartContextSource } from '../../chart-context/types.js'
+import { BrowserAgentModelSettingsStore } from '../../provider/impl/browser-agent-model-settings.js'
+import { BrowserEnabledTools } from '../../provider/impl/browser-enabled-tools.js'
+import { fetchBrowserProvider } from '../../provider/impl/browser-provider-fetch.js'
+import { BrowserProviderProfiles } from '../../provider/impl/browser-provider-profiles.js'
 import {
   BrowserProviderCredentialStore,
   BrowserProviderSettingsStore,
-} from './browser-agent/provider/impl/browser-provider-stores.js'
-import { ProviderModelPool } from './browser-agent/provider/impl/provider-model-pool.js'
-import type {
-  BrowserProviderConnection,
-  BrowserProviderProfile,
-} from './browser-agent/provider/types.js'
-import { BrowserRunRegistry } from './browser-agent/session/impl/browser-run-registry.js'
-import { BrowserSessionStore } from './browser-agent/session/impl/browser-session-store.js'
-import type { BrowserSession } from './browser-agent/session/types.js'
-import { BrowserToolRegistry } from './browser-agent/tools/impl/browser-tool-registry.js'
-import type { BrowserToolContext } from './browser-agent/tools/types.js'
-
-export { AGENT_MODEL_SETTINGS_STORAGE_KEY } from './browser-agent/provider/impl/browser-agent-model-settings.js'
-
-interface BrowserAgentBridgeOptions {
-  readonly getChartAgent?: () => ChartAgentController | null | undefined
-  /**
-   * 替换默认的 localStorage 凭据存储。Electron 宿主注入 safeStorage 实现；
-   * 不传时行为与 Web 端完全一致。注入后 apiKey 不再写入 localStorage。
-   */
-  readonly credentials?: ProviderCredentialStore
-}
+} from '../../provider/impl/browser-provider-stores.js'
+import { ProviderModelPool } from '../../provider/impl/provider-model-pool.js'
+import type { BrowserProviderConnection, BrowserProviderProfile } from '../../provider/types.js'
+import { BrowserRunRegistry } from '../../session/impl/browser-run-registry.js'
+import { BrowserSessionStore } from '../../session/impl/browser-session-store.js'
+import type { BrowserSession } from '../../session/types.js'
+import { BrowserToolRegistry } from '../../tools/impl/browser-tool-registry.js'
+import type { BrowserToolContext } from '../../tools/types.js'
+import type { BrowserAgentBridgeOptions } from '../types.js'
 
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()

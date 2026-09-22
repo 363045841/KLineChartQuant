@@ -7,9 +7,9 @@
 ```text
 agent/
 ├── agent-contracts.ts              # Vue Agent UI 边界契约
-├── browser-agent-bridge.ts         # AgentBridgeClient 编排门面
 ├── AgentWorkbenchShell.vue          # 工作台壳层
 ├── browser-agent/                   # 浏览器宿主能力
+│   ├── bridge/                      # AgentBridgeClient 编排门面
 │   ├── chart-context/               # 图表上下文投影与订阅
 │   ├── provider/                    # Provider profile、凭据、模型池
 │   ├── provider-settings/           # Provider 设置面板状态
@@ -41,14 +41,14 @@ agent/
 ```text
 components / workspace
         ↓
-browser-agent-bridge (composition facade)
+browser-agent/bridge (composition facade)
         ↓
 browser-agent/*
         ↓
 core controllers + agent-runtime
 ```
 
-`browser-agent-bridge.ts` 只做浏览器依赖装配、跨模块协调和 `AgentBridgeClient` 委托。Provider、会话、图表上下文或工具适配的新逻辑应进入对应的 `browser-agent/<module>/impl/`，不要继续扩充 bridge。
+`browser-agent/bridge/impl/browser-agent-bridge.ts` 只做浏览器依赖装配、跨模块协调和 `AgentBridgeClient` 委托，其宿主依赖契约定义在 `browser-agent/bridge/types.ts`。Provider、会话、图表上下文或工具适配的新逻辑应进入对应的 `browser-agent/<module>/impl/`，不要继续扩充 bridge。
 
 ## Compatibility facades
 
