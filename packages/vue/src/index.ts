@@ -76,15 +76,17 @@ export {
 
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
 export * from './features/agent/agent-contracts.js'
-export { createAgentPanelWidthStorage } from './features/agent/agent-panel-width-storage.js'
+export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
+export { createAgentPanelWidthStorage } from './features/agent/workspace/impl/agent-panel-width-storage.js'
 export {
-  type AgentWorkspaceState,
   createInitialAgentState,
   reduceAgentUiEvent,
-} from './features/agent/agent-reducer.js'
-export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
-export { useAgentWorkspace } from './features/agent/use-agent-workspace.js'
-export type { AgentPanelWidthStorage } from './features/agent/workbench-shell.js'
+} from './features/agent/workspace/impl/agent-reducer.js'
+export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'
+export type {
+  AgentPanelWidthStorage,
+  AgentWorkspaceState,
+} from './features/agent/workspace/types.js'
 
 // ---------------------------------------------------------------------------
 // Controller factory injection

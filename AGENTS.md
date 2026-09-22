@@ -86,6 +86,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - **Generated files**: `components.d.ts` (by `unplugin-vue-components` + `unplugin-icons`) — regenerated on dev server start.
 - **`vue-tsc` for type-checking**: not `tsc`。逐个检查 `tsconfig.app.json` / `tsconfig.node.json` / `tsconfig.vitest.json`；不使用 `--build`。增量缓存由各 config 的 `incremental` + `tsBuildInfoFile`（`node_modules/.tmp/`）提供。
 - **Vue SFC composable extraction**: always extract logic into composables (`useXxx`); avoid coupling logic inside `<script setup>` blocks.
+- **Semantic module layout**: 对有独立职责的功能模块，采用类似 Java 的分层目录：`<module>/types.ts` 放对外契约、数据类型与依赖接口；`<module>/impl/` 放实现；仅测试该模块时使用 `<module>/__tests__/`。`types.ts` 不得依赖同模块 `impl/`；调用方优先依赖契约，实现只能从 `impl/` 导入。避免继续在 feature 根目录堆叠实现文件。
 - **Error codes**: `KLineChartError` 的错误码必须从 `packages/core/src/errors.ts` 中的具名常量引用，禁止在业务代码里散落字符串字面量。新增错误码时在 `errors.ts` 追加常量并保持 append-only
 - **Colors**: 颜色必须收归 `packages/core/src/foundation/tokens` 管理,业务组件仅消费 Token 输出的 CSS 变量,禁止局部硬编码颜色。
 - 不要硬编码字符串

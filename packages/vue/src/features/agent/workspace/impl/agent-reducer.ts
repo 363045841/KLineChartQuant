@@ -1,32 +1,13 @@
-/** Project replayed and live Agent events into the single Renderer view state. */
+// 将回放与实时 Agent 事件投影为唯一的 Renderer 视图状态。
+
 import {
   AGENT_UI_PROTOCOL_VERSION,
-  type AgentErrorView,
   type AgentMessageView,
   type AgentRunView,
-  type AgentSessionView,
   type AgentUiEvent,
-  type ConfirmationView,
-  type ProviderStatusView,
-  type QuestionView,
   type ToolCallView,
-} from './agent-contracts.js'
-
-export interface AgentWorkspaceState {
-  lastSequence: number
-  sessions: AgentSessionView[]
-  activeSessionId: string | null
-  messages: AgentMessageView[]
-  toolCalls: ToolCallView[]
-  confirmations: ConfirmationView[]
-  questions: QuestionView[]
-  run: AgentRunView
-  previousRuns: AgentRunView[]
-  provider: ProviderStatusView
-  error: AgentErrorView | null
-  canUndoTurn: boolean
-  announcement: string
-}
+} from '../../agent-contracts.js'
+import type { AgentWorkspaceState } from '../types.js'
 
 const IDLE_RUN: AgentRunView = {
   id: null,
@@ -34,6 +15,7 @@ const IDLE_RUN: AgentRunView = {
   status: 'idle',
 }
 
+/** 创建空的 Agent 工作区初始状态。 */
 export function createInitialAgentState(): AgentWorkspaceState {
   return {
     lastSequence: 0,
@@ -346,6 +328,7 @@ function reduceCurrentAgentUiEvent(
   }
 }
 
+/** 按协议版本与序号过滤事件，并返回投影后的下一个工作区状态。 */
 export function reduceAgentUiEvent(
   state: AgentWorkspaceState,
   event: AgentUiEvent,

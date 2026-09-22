@@ -66,7 +66,7 @@
 <script setup lang="ts">
   import { nextTick, onUnmounted, ref, watch } from 'vue'
   import type { AgentBridgeClient } from '../agent-contracts.js'
-  import { useAgentWorkspace } from '../use-agent-workspace.js'
+  import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
   import AgentContextInjectionCard from './AgentContextInjectionCard.vue'

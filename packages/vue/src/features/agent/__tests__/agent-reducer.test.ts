@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { AGENT_UI_PROTOCOL_VERSION, type AgentUiEvent, type ToolCallView } from '../agent-contracts'
-import { createInitialAgentState, reduceAgentUiEvent } from '../agent-reducer'
+import { createInitialAgentState, reduceAgentUiEvent } from '../workspace/impl/agent-reducer'
 
 const RUN_ID = 'run-1'
 const SESSION_ID = 'session-1'

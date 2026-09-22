@@ -55,7 +55,7 @@
 
   import type { AgentBridgeClient } from './agent-contracts.js'
   import AgentWorkspace from './components/AgentWorkspace.vue'
-  import type { AgentPanelWidthStorage } from './workbench-shell.js'
+  import type { AgentPanelWidthStorage } from './workspace/types.js'
 
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640

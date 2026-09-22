@@ -1,10 +1,7 @@
-import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+// Agent 工作区偏好的 LocalStorage 持久化与默认值。
 
-export interface AgentWorkspacePreferences {
-  readonly locale: 'en' | 'zh-CN'
-  readonly readOnly: boolean
-  readonly collapseReasoning: boolean
-}
+import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+import type { AgentWorkspacePreferences } from '../types.js'
 
 const AGENT_WORKSPACE_PREFERENCES_STORAGE_KEY = 'agent.workspace-preferences'
 
@@ -34,6 +31,7 @@ export const agentWorkspacePreferencesPersistence = createLocalStoragePersistenc
   codec: agentWorkspacePreferencesCodec,
 })
 
+/** 按浏览器语言返回 Agent 工作区的默认偏好。 */
 export function defaultAgentWorkspacePreferences(): AgentWorkspacePreferences {
   return {
     locale:

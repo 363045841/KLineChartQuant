@@ -2,12 +2,11 @@
 
 import { setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
+import { FakeAgentBridge } from '../../../testing/fake-agent-bridge'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
-} from '../agent-provider-settings-store'
-import { FakeAgentBridge } from '../testing/fake-agent-bridge'
+} from '../impl/agent-provider-settings-store'
 
 describe('AgentProviderSettingsStore', () => {
   beforeEach(() => {

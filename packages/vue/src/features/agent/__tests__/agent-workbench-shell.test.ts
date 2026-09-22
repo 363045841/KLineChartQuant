@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import AgentWorkbenchShell from '../AgentWorkbenchShell.vue'
 import { FakeAgentBridge } from '../testing/fake-agent-bridge'
 
-import type { AgentPanelWidthStorage } from '../workbench-shell'
+import type { AgentPanelWidthStorage } from '../workspace/types'
 
 describe('AgentWorkbenchShell', () => {
   afterEach(() => {

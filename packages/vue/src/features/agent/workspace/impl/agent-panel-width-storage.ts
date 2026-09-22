@@ -1,5 +1,7 @@
+// Agent 面板宽度的 LocalStorage 持久化适配器。
+
 import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
-import type { AgentPanelWidthStorage } from './workbench-shell.js'
+import type { AgentPanelWidthStorage } from '../types.js'
 
 /** LocalStorage 中用于定位 Agent 面板宽度的键名。 */
 export const AGENT_PANEL_WIDTH_STORAGE_KEY = 'agent.panelWidth'

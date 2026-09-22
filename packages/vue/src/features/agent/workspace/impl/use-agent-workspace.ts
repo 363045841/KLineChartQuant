@@ -1,4 +1,5 @@
-/** Connect the stable bridge, event reducer, and Vue interaction state. */
+// 连接稳定的 Bridge、事件 reducer 与 Vue 交互状态。
+
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
   AgentBridgeClient,
@@ -7,17 +8,18 @@ import type {
   ProviderModelView,
   ProviderReasoningEffort,
   QuestionAnswerView,
-} from './agent-contracts.js'
+} from '../../agent-contracts.js'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
-} from './agent-provider-settings-store.js'
+} from '../../agent-provider-settings-store.js'
 import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer.js'
 import {
   agentWorkspacePreferencesPersistence,
   defaultAgentWorkspacePreferences,
 } from './agent-workspace-preferences.js'
 
+/** 组装 Agent 工作区的响应式状态与操作，并挂载 Bridge 事件订阅。 */
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const preferences =
     agentWorkspacePreferencesPersistence.load() ?? defaultAgentWorkspacePreferences()
