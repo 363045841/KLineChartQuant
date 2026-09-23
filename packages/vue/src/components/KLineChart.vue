@@ -276,6 +276,14 @@
       @close="showBatchStockDialog = false"
       @apply="onBatchApply"
     />
+    <DrawingSettingsDialog
+      v-if="editingDrawing"
+      :show="showDrawingSettingsDialog"
+      :drawing="editingDrawing"
+      :editable-style-keys="editingDrawingStyleKeys"
+      @update-style="onUpdateEditingDrawingStyle"
+      @close="showDrawingSettingsDialog = false"
+    />
     <IndicatorSelector
       ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
@@ -303,6 +311,7 @@
     type CustomDataSource,
     createChartController,
     type DrawingLineLabelTarget,
+    type DrawingStyle,
     type InteractionSnapshot,
     type LegendTemplateContext,
     marketDataProviderRegistry,
@@ -370,6 +379,7 @@
   import CanvasToolbar from './common/CanvasToolbar.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
+  import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
@@ -811,6 +821,8 @@
   }
 
   const showBatchStockDialog = ref(false)
+  const showDrawingSettingsDialog = ref(false)
+  const editingDrawingId = ref<string | null>(null)
   const batchSymbols = ref<string[]>([])
   const replacementPaneId = ref<string | null>(null)
 
@@ -935,6 +947,16 @@
     onToggleDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
+  const editingDrawing = computed(() =>
+    drawings.value.find((drawing) => drawing.id === editingDrawingId.value),
+  )
+  const editingDrawingStyleKeys = computed(() =>
+    editingDrawingId.value ? controller.value?.getBatchStyleKeys([editingDrawingId.value]) ?? [] : [],
+  )
+
+  function onUpdateEditingDrawingStyle(style: Partial<DrawingStyle>) {
+    if (editingDrawing.value) controller.value?.updateBatch([editingDrawing.value.id], { style })
+  }
   const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)
   const lineLabelInput = ref<HTMLInputElement | null>(null)
   const lineLabelDraft = ref('')
@@ -1581,12 +1603,20 @@
   }
 
   function onDoubleClick(e: MouseEvent) {
-    if (kLineLevel.value !== 'daily' || !controller.value) return
-
     const container = containerRef.value
     if (!container) return
     const rect = container.getBoundingClientRect()
     const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+
+    const hitDrawing = drawingController.value?.hitTestAt(mouseX, mouseY)
+    if (hitDrawing) {
+      editingDrawingId.value = hitDrawing.id
+      showDrawingSettingsDialog.value = true
+      return
+    }
+
+    if (kLineLevel.value !== 'daily' || !controller.value) return
 
     const index = controller.value.getLogicalIndexAtX(mouseX)
     if (index == null) return
