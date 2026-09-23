@@ -14,7 +14,7 @@ import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
 import { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry'
 import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
-import { PREVIEW_ID } from '../../session/impl/DrawingState'
+import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingKind, DrawingObject } from '../../types'
 import { projectDrawingsForFrame } from '../impl/frameProjection'
 

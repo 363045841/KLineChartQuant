@@ -4,10 +4,11 @@ import type { DrawingObject } from '../../types.js'
 const PREVIEW_ID = '__preview__'
 
 /**
- * 交互会话层：只持预览与拖拽覆盖，不持完整图元列表。
- * 已确认图元唯一 SSOT 是 kernel.drawing，经 adapter 读写。
+ * 交互会话 overlay：只持预览与拖拽覆盖，不持完整图元列表。
+ * 已确认图元的唯一 SSOT 是 kernel 的 `DrawingStateModule`（`engine/state/drawingState.ts`），经 adapter 读写；
+ * 本类是非持久化的会话层，命名刻意与 kernel 状态区分。
  */
-export class DrawingState {
+export class DrawingSessionOverlay {
   private preview: DrawingObject | null = null
   private dragOverrides: DrawingObject[] = []
 

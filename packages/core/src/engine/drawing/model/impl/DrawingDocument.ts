@@ -5,7 +5,7 @@ import { DRAWING_ERROR_CODES, KLineChartError } from '../../../../errors.js'
 import type { DrawingStyle } from '../../../../foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE } from '../../../../foundation/tokens/index.js'
 import { generateUUID } from '../../../../foundation/utils/uuid.js'
-import { PREVIEW_ID } from '../../session/impl/DrawingState.js'
+import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, DrawingObject, PersistedDrawingAnchor } from '../../types.js'
 import type {
   BatchDrawingPatch,

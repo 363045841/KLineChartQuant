@@ -14,7 +14,7 @@ import {
   clearDrawingSelection,
   toggleDrawingSelection,
 } from '../../session/impl/DrawingSelection.js'
-import { DrawingState, PREVIEW_ID } from '../../session/impl/DrawingState.js'
+import { DrawingSessionOverlay, PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject } from '../../types.js'
 import type {
   DrawingSelectionMarquee,
@@ -46,11 +46,11 @@ type DrawingPointerSession =
 /**
  * 绘图交互控制器 —— 精简事件路由，组合子模块。
  *
- * 已确认图元只写 kernel；预览与拖拽覆盖只在 DrawingState 会话层。
+ * 已确认图元只写 kernel；预览与拖拽覆盖只在 DrawingSessionOverlay 会话层。
  */
 export class DrawingInteractionController {
   private adapter: DrawingChartAdapter
-  private drawingState: DrawingState
+  private sessionOverlay: DrawingSessionOverlay
   private anchorCollector: AnchorCollector
   private previewRenderer: PreviewRenderer
   private hitTester: HitTester
@@ -62,7 +62,7 @@ export class DrawingInteractionController {
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
-    this.drawingState = new DrawingState(adapter)
+    this.sessionOverlay = new DrawingSessionOverlay(adapter)
     this.anchorCollector = new AnchorCollector()
     this.previewRenderer = new PreviewRenderer()
     this.hitTester = new HitTester()
@@ -71,7 +71,7 @@ export class DrawingInteractionController {
 
   /** 渲染合成用：拖拽覆盖 + 预览 */
   getPaintOverlay(): DrawingObject[] {
-    return this.drawingState.getPaintOverlay()
+    return this.sessionOverlay.getPaintOverlay()
   }
 
   /** 返回当前框选会话，供渲染期投影为临时 primitive。 */
@@ -92,7 +92,7 @@ export class DrawingInteractionController {
     this.anchorCollector.reset()
     this.pendingPaneId = null
     this.resetPointerSession()
-    this.drawingState.removePreview()
+    this.sessionOverlay.removePreview()
     this.setSelected([])
   }
 
@@ -116,11 +116,11 @@ export class DrawingInteractionController {
   // ============ 图元 CRUD ============
 
   getDrawings(): DrawingObject[] {
-    return this.drawingState.getAll()
+    return this.sessionOverlay.getAll()
   }
 
   setDrawings(drawings: DrawingObject[]) {
-    this.drawingState.clearSession()
+    this.sessionOverlay.clearSession()
     this.adapter.replaceDrawings(drawings)
   }
 
@@ -128,8 +128,8 @@ export class DrawingInteractionController {
     this.anchorCollector.reset()
     this.pendingPaneId = null
     this.resetPointerSession()
-    this.drawingState.removePreview()
-    this.drawingState.clearSession()
+    this.sessionOverlay.removePreview()
+    this.sessionOverlay.clearSession()
     this.adapter.clearDrawings()
   }
 
@@ -155,7 +155,7 @@ export class DrawingInteractionController {
   // ============ 选中状态 ============
 
   getSelectedDrawings(): DrawingObject[] {
-    return this.drawingState.getSelectedDrawings()
+    return this.sessionOverlay.getSelectedDrawings()
   }
 
   /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑，锁定图元同样可编辑文本。 */
@@ -191,7 +191,7 @@ export class DrawingInteractionController {
         this.resolvePlacementOptions(e),
       )
       if (!pointer) {
-        this.drawingState.removePreview()
+        this.sessionOverlay.removePreview()
         return false
       }
 
@@ -203,11 +203,11 @@ export class DrawingInteractionController {
         this.adapter.getDrawingWorkspaceId(),
       )
       if (!preview) {
-        this.drawingState.removePreview()
+        this.sessionOverlay.removePreview()
         return false
       }
 
-      this.drawingState.setPreview(preview)
+      this.sessionOverlay.setPreview(preview)
       return true
     }
 
@@ -269,7 +269,7 @@ export class DrawingInteractionController {
       return true
     }
     if (session.kind !== 'drag') return false
-    this.drawingState.commitDrags()
+    this.sessionOverlay.commitDrags()
     this.dragHandler.endDrag()
     // 解冻悬停目标：下一次 hover flush 重新按当前位置命中。
     this.adapter.unfreezeHoverTarget?.()
@@ -317,7 +317,7 @@ export class DrawingInteractionController {
       return true
     }
 
-    const selectedDrawings = this.drawingState.getSelectedDrawings()
+    const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
     const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
     if (!isSelected) this.setSelected([hit.drawing])
 
@@ -329,7 +329,7 @@ export class DrawingInteractionController {
   private handleBoxSelectDown(e: PointerEvent, container: HTMLElement): boolean {
     const result = this.findDrawingHit(e, container)
     if (result && this.adapter.getSelectedDrawingIds().includes(result.hit.drawing.id)) {
-      this.startDrag(result.pointer, result.hit, this.drawingState.getSelectedDrawings())
+      this.startDrag(result.pointer, result.hit, this.sessionOverlay.getSelectedDrawings())
       return true
     }
     return this.startSelectionMarquee(e, container)
@@ -394,7 +394,7 @@ export class DrawingInteractionController {
 
   /** 当前 Pane 与工作区内可被选中/命中的图元（可见且非预览；锁定图元也在内）。 */
   private getSelectableDrawings(paneId: string): DrawingObject[] {
-    return this.drawingState
+    return this.sessionOverlay
       .getNonPreview()
       .filter(
         (drawing) =>
@@ -469,7 +469,7 @@ export class DrawingInteractionController {
     const session = this.pointerSession
     this.pointerSession = { kind: 'idle' }
     if (session.kind === 'drag') {
-      this.drawingState.clearDragOverride()
+      this.sessionOverlay.clearDragOverride()
       this.dragHandler.endDrag()
     }
     this.adapter.requestDraw?.()
@@ -478,7 +478,7 @@ export class DrawingInteractionController {
   /** 更新拖拽会话的整组临时覆盖；磁吸配置与绘制路径同源（Shift 互斥、Ctrl 取反），仅锚点拖拽生效。 */
   private handleDragMove(e: PointerEvent, container: HTMLElement): boolean {
     const draggingIds = this.dragHandler.getDraggingDrawingIds()
-    if (draggingIds.some((id) => this.drawingState.getById(id) === undefined)) {
+    if (draggingIds.some((id) => this.sessionOverlay.getById(id) === undefined)) {
       this.resetPointerSession()
       return false
     }
@@ -489,7 +489,7 @@ export class DrawingInteractionController {
       this.resolveMagnetOptions(e),
     )
     if (!updated) return false
-    this.drawingState.setDragOverrides(updated)
+    this.sessionOverlay.setDragOverrides(updated)
     return true
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDrawingState } from '../../../state/drawingState'
 import { createTrendLine } from '../../__tests__/helpers/drawingTestKit'
-import { PREVIEW_ID } from '../../session/impl/DrawingState'
+import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingObject } from '../../types'
 import { DrawingStore } from '../impl/DrawingStore'
 

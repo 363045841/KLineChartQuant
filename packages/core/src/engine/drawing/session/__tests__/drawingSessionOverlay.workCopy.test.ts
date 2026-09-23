@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { DrawingChartAdapter } from '../../../../controllers/types'
 import { createTrendLine } from '../../__tests__/helpers/drawingTestKit'
 import type { DrawingObject } from '../../types'
-import { DrawingState, mergePaint, PREVIEW_ID } from '../impl/DrawingState'
+import { DrawingSessionOverlay, mergePaint, PREVIEW_ID } from '../impl/DrawingSessionOverlay'
 
 /** 构造由内存 kernel 列表承载文档状态的完整适配器。 */
 function mockAdapter(
@@ -54,10 +54,10 @@ function mockAdapter(
   }
 }
 
-describe('DrawingState session SSOT', () => {
+describe('DrawingSessionOverlay session SSOT', () => {
   it('setPreview does not write kernel; only requestDraw', () => {
     const adapter = mockAdapter([createTrendLine('a')])
-    const state = new DrawingState(adapter)
+    const state = new DrawingSessionOverlay(adapter)
     vi.mocked(adapter.replaceDrawings).mockClear()
     state.setPreview({ ...createTrendLine(PREVIEW_ID), id: PREVIEW_ID })
     expect(adapter.replaceDrawings).not.toHaveBeenCalled()
@@ -69,7 +69,7 @@ describe('DrawingState session SSOT', () => {
 
   it('getAll returns merge of kernel + overlay without mutating kernel', () => {
     const adapter = mockAdapter([createTrendLine('a')])
-    const state = new DrawingState(adapter)
+    const state = new DrawingSessionOverlay(adapter)
     state.setPreview({ ...createTrendLine(PREVIEW_ID), id: PREVIEW_ID })
     const all = state.getAll()
     all.push(createTrendLine('hack'))
@@ -78,7 +78,7 @@ describe('DrawingState session SSOT', () => {
 
   it('setSelected only writes adapter; getSelectedDrawings reads adapter', () => {
     const adapter = mockAdapter([createTrendLine('a')])
-    const state = new DrawingState(adapter)
+    const state = new DrawingSessionOverlay(adapter)
     state.setSelected([createTrendLine('a')])
     expect(adapter.setSelectedDrawingIds).toHaveBeenCalledWith(['a'])
     expect(state.getSelectedDrawings().map((drawing) => drawing.id)).toEqual(['a'])
@@ -86,7 +86,7 @@ describe('DrawingState session SSOT', () => {
 
   it('setDragOverride does not write kernel; commitDrag delegates resolved anchors once', () => {
     const adapter = mockAdapter([createTrendLine('a')])
-    const state = new DrawingState(adapter)
+    const state = new DrawingSessionOverlay(adapter)
     vi.mocked(adapter.commitDrawingDrag).mockClear()
     const moved = { ...createTrendLine('a'), anchors: [{ id: 'p', time: 1, price: 99 }] }
     state.setDragOverride(moved)

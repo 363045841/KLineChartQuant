@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createDrawingState } from '../../../state/drawingState'
-import { PREVIEW_ID } from '../../session/impl/DrawingState'
+import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import { DrawingDocument } from '../impl/DrawingDocument'
 
 function createDocument() {

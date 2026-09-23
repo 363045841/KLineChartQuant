@@ -1,7 +1,7 @@
 import { DEFAULT_DRAWING_STROKE } from '../../../../foundation/tokens/index.js'
 import type { InteractionDrawingAnchor } from '../../geometry/types.js'
 import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.js'
-import { PREVIEW_ID } from '../../session/impl/DrawingState.js'
+import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
 import {

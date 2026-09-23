@@ -3,7 +3,7 @@
  */
 
 import { ChartWorkspaceId } from '../../../../foundation/types/chartView.js'
-import { mergePaint } from '../../session/impl/DrawingState.js'
+import { mergePaint } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingStoreDeps } from '../types.js'
 
