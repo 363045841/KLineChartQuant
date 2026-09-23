@@ -1,8 +1,8 @@
 /** 绘图状态模块：工具、图元与选中图元集合的 SSOT。 */
 
-import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
+import type { DrawingStyle } from '../../foundation/plugin/index.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
-import type { DrawingToolId } from '../drawing/toolConfig.js'
+import type { DrawingObject, DrawingToolId } from '../drawing/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
 function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
@@ -57,6 +57,19 @@ export function createDrawingState() {
           }
         })
         return next
+      },
+
+      /** 历史回放：在同一次通知中恢复图元与选中集合。 */
+      restoreDocument(
+        drawings: ReadonlyArray<DrawingObject>,
+        selectedIds: ReadonlyArray<string>,
+      ): void {
+        const next = snapshotDrawings(drawings)
+        const selected = snapshotSelectedDrawingIds(selectedIds, next)
+        batch(() => {
+          signals.drawings.set(next)
+          signals.selectedDrawingIds.set(selected)
+        })
       },
 
       /** 新增图元并在同一次通知内将其设为唯一选中，创建与选中不可分割。 */

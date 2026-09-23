@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DrawingObject } from '../../../foundation/plugin/index'
+import type { DrawingObject } from '../../../engine/drawing/index'
 import { createDrawingState } from '../drawingState'
 
 function mk(id: string, overrides: Partial<DrawingObject> = {}): DrawingObject {

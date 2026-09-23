@@ -1,0 +1,218 @@
+import { DEFAULT_DRAWING_STROKE } from '../../../../foundation/tokens/index.js'
+import type { InteractionDrawingAnchor } from '../../geometry/types.js'
+import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.js'
+import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
+import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
+import type { DrawingToolId } from '../types.js'
+import {
+  CHANNEL_KINDS,
+  DOUBLE_ANCHOR_TOOLS,
+  getDrawingKind,
+  SINGLE_ANCHOR_TOOLS,
+  TRIPLE_ANCHOR_TOOLS,
+} from './toolConfig.js'
+
+/**
+ * Constructs preview DrawingObject instances for various tool types.
+ * Pure construction — no side effects, no adapter calls.
+ */
+export class PreviewRenderer {
+  /**
+   * Build a preview drawing from the current tool state and pointer anchor.
+   * @returns a preview DrawingObject, or null if the state is insufficient for a preview.
+   */
+  buildPreview(
+    activeTool: DrawingToolId,
+    pendingAnchors: InteractionDrawingAnchor[],
+    currentAnchor: InteractionDrawingAnchor,
+    paneId: string,
+    workspaceId: DrawingWorkspaceId,
+  ): DrawingObject | null {
+    const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
+    const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
+    const isTriple = TRIPLE_ANCHOR_TOOLS.includes(activeTool as any)
+
+    if (!isSingle && !isDouble && !isTriple) return null
+
+    if (isSingle) {
+      return { ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId), workspaceId }
+    }
+
+    if (isDouble) {
+      if (pendingAnchors.length < 1) return null
+      return {
+        ...this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor, paneId),
+        workspaceId,
+      }
+    }
+
+    // Triple anchor tools
+    const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
+    return preview ? { ...preview, workspaceId } : null
+  }
+
+  /** 单锚点工具预览：虚线样式 */
+  private buildSingleAnchorPreview(
+    activeTool: DrawingToolId,
+    anchor: InteractionDrawingAnchor,
+    paneId: string,
+  ): DrawingObject {
+    return {
+      id: PREVIEW_ID,
+      kind: getDrawingKind(activeTool),
+      paneId,
+      visible: true,
+      anchors: [
+        activeTool === 'h-line'
+          ? { id: `${PREVIEW_ID}-a`, type: 'horizontal', price: anchor.price }
+          : activeTool === 'v-line'
+            ? {
+                id: `${PREVIEW_ID}-a`,
+                type: 'vertical',
+                time: anchor.time!,
+                futureOffset: anchor.futureOffset,
+                price: anchor.price,
+              }
+            : {
+                id: `${PREVIEW_ID}-a`,
+                type: 'point',
+                time: anchor.time,
+                futureOffset: anchor.futureOffset,
+                price: anchor.price,
+              },
+      ],
+      params: {},
+      style: {
+        stroke: DEFAULT_DRAWING_STROKE,
+        strokeWidth: 1,
+        strokeStyle: 'dashed',
+      },
+    }
+  }
+
+  /** 双锚点工具预览：两个锚点之间的虚线，回归通道附带填充区域 */
+  private buildDoubleAnchorPreview(
+    activeTool: DrawingToolId,
+    first: InteractionDrawingAnchor,
+    second: InteractionDrawingAnchor,
+    paneId: string,
+  ): DrawingObject {
+    return {
+      id: PREVIEW_ID,
+      kind: getDrawingKind(activeTool),
+      paneId,
+      visible: true,
+      anchors: [
+        {
+          id: `${PREVIEW_ID}-a`,
+          time: first.time,
+          futureOffset: first.futureOffset,
+          price: first.price,
+        },
+        {
+          id: `${PREVIEW_ID}-b`,
+          time: second.time,
+          futureOffset: second.futureOffset,
+          price: second.price,
+        },
+      ],
+      params: activeTool === 'regression-channel' ? { sigma: 2 } : {},
+      style: {
+        stroke: DEFAULT_DRAWING_STROKE,
+        strokeWidth: 1,
+        strokeStyle: 'dashed',
+        ...(activeTool === 'regression-channel' ? { fillOpacity: 0.1 } : {}),
+      },
+    }
+  }
+
+  /**
+   * 三锚点工具预览：
+   * - pending 数 = 0 → 无法预览，返回 null
+   * - pending 数 = 1 → 暂以趋势线（双锚点）形式显示前两个点
+   * - pending 数 ≥ 2 → 物化出全部持久化锚点后预览
+   */
+  private buildTripleAnchorPreview(
+    activeTool: DrawingToolId,
+    pendingAnchors: InteractionDrawingAnchor[],
+    currentAnchor: InteractionDrawingAnchor,
+    paneId: string,
+  ): DrawingObject | null {
+    if (pendingAnchors.length === 0) return null
+
+    if (pendingAnchors.length === 1) {
+      // Need 3 anchors but only have 1 pending — render as a trend-line segment (2 anchors)
+      // so the user can see what they're drawing before placing the 3rd point
+      return {
+        id: PREVIEW_ID,
+        kind: 'trend-line',
+        paneId,
+        visible: true,
+        anchors: [
+          {
+            id: `${PREVIEW_ID}-a`,
+            time: pendingAnchors[0]!.time,
+            futureOffset: pendingAnchors[0]!.futureOffset,
+            price: pendingAnchors[0]!.price,
+          },
+          {
+            id: `${PREVIEW_ID}-b`,
+            time: currentAnchor.time,
+            futureOffset: currentAnchor.futureOffset,
+            price: currentAnchor.price,
+          },
+        ],
+        params: {},
+        style: {
+          stroke: DEFAULT_DRAWING_STROKE,
+          strokeWidth: 1,
+          strokeStyle: 'dashed',
+        },
+      }
+    }
+
+    // pendingAnchors.length >= 2 — materialize the full persisted anchors for preview
+    const kind = getDrawingKind(activeTool)
+    const isChannel = CHANNEL_KINDS.includes(kind)
+    let derivedId = 0
+    const anchors = materializeDrawingAnchors(
+      kind,
+      [
+        {
+          id: `${PREVIEW_ID}-a`,
+          time: pendingAnchors[0]!.time,
+          futureOffset: pendingAnchors[0]!.futureOffset,
+          price: pendingAnchors[0]!.price,
+        },
+        {
+          id: `${PREVIEW_ID}-b`,
+          time: pendingAnchors[1]!.time,
+          futureOffset: pendingAnchors[1]!.futureOffset,
+          price: pendingAnchors[1]!.price,
+        },
+        {
+          id: `${PREVIEW_ID}-c`,
+          time: currentAnchor.time,
+          futureOffset: currentAnchor.futureOffset,
+          price: currentAnchor.price,
+        },
+      ],
+      () => `${PREVIEW_ID}-x${derivedId++}`,
+    )
+
+    return {
+      id: PREVIEW_ID,
+      kind,
+      paneId,
+      visible: true,
+      anchors,
+      params: {},
+      style: {
+        stroke: DEFAULT_DRAWING_STROKE,
+        strokeWidth: 1,
+        strokeStyle: 'dashed',
+        ...(isChannel ? { fillOpacity: 0.1 } : {}),
+      },
+    }
+  }
+}

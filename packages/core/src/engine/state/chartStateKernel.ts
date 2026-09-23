@@ -4,13 +4,12 @@ import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
-import type { DrawingObject } from '../../foundation/plugin/index.js'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost.js'
 import type { PaneSpec } from '../chartTypes.js'
-import type { DrawingToolId } from '../drawing/toolConfig.js'
+import type { DrawingToolId } from '../drawing/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
@@ -32,11 +31,8 @@ import {
   type InteractionDeps,
   type InteractionStateModule,
 } from './interactionState.js'
+import { createMainPriceAxisState, type MainPriceAxisStateModule } from './mainPriceAxisState.js'
 import { createMarkerState, type MarkerStateModule } from './markerState.js'
-import {
-  createMainPriceAxisState,
-  type MainPriceAxisStateModule,
-} from './mainPriceAxisState.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -539,9 +535,6 @@ export class ChartStateKernel extends StateKernel {
         renderer: 'candlestick' | 'ohlc-bar' | 'line' | 'area',
       ) => this.mode.actions.setPrimaryRenderer(view, renderer),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
-      setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
-        this.drawing.actions.setDrawings(drawings),
-      clearDrawings: () => this.drawing.actions.clearDrawings(),
       updateCrosshair: (
         pos: { x: number; y: number } | null,
         price: number | null,

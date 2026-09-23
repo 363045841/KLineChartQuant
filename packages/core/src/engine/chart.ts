@@ -77,8 +77,13 @@ import { InteractionController, type InteractionSnapshot } from './controller/in
 import { ChartDataManager } from './data/chartDataManager.js'
 import { ComparisonCommands } from './data/comparisonCommands.js'
 import { symbolInfoFromSpec } from './data/symbolInfo.js'
-import type { DrawingInteractionController } from './drawing/interaction.js'
-import type { DrawingToolId } from './drawing/toolConfig.js'
+import {
+  DrawingCommands,
+  DrawingDocument,
+  type DrawingInteractionController,
+  type DrawingToolId,
+  resolveDrawingTradingDate,
+} from './drawing/index.js'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
 import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
@@ -181,6 +186,20 @@ export class Chart {
 
   /** 绘图领域公开 API。 */
   readonly drawing: ChartDrawingFacade
+  readonly drawingDocument: DrawingDocument
+  readonly drawingCommands: DrawingCommands
+
+  cancelDrawingSession(): void {
+    this.drawingSession?.cancelPendingChanges()
+  }
+
+  undoDrawing(): boolean {
+    return this.drawingCommands.history.undo()
+  }
+
+  redoDrawing(): boolean {
+    return this.drawingCommands.history.redo()
+  }
 
   /** 标记领域公开 API。 */
   readonly markers: ChartMarkerFacade
@@ -339,6 +358,7 @@ export class Chart {
       layoutManager: this.layoutManager,
       ensureScaleTypes: () => this.ensurePaneScaleTypesFromSettings(),
       schedulePersistence: () => this.scheduleWorkspacePersistence(),
+      invalidateDrawingHistory: () => this.drawingCommands.history.reset(),
     })
 
     this.alertController = createAlertController()
@@ -502,6 +522,24 @@ export class Chart {
       renderer: this.renderer,
       getSession: () => this.drawingSession,
       scheduleDraw: () => this.scheduleDraw(),
+      getCommands: () => this.drawingCommands,
+    })
+    this.drawingDocument = new DrawingDocument({
+      drawingState: this.kernel.drawing,
+      getLogicalIndexAtTimestamp: (timestamp) => this.getLogicalIndexAtTimestamp(timestamp),
+      getDrawingTimestampAtLogicalIndex: (index) => this.drawing.getTimestampAtLogicalIndex(index),
+      getDrawingData: () => this.drawing.getData(),
+      findAnchorAtTradingDate: (tradingDate) =>
+        resolveDrawingTradingDate(this.getData(), tradingDate),
+      hasPaneId: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
+      getWorkspaceId: () => this.drawing.getWorkspaceId(),
+    })
+    this.drawingCommands = new DrawingCommands({
+      document: this.drawingDocument,
+      requestDraw: () => {
+        this.cancelDrawingSession()
+        this.scheduleDraw()
+      },
     })
     this.markers = new ChartMarkerFacade({
       kernel: this.kernel,
@@ -1380,6 +1418,7 @@ export class Chart {
     this.layoutManager.destroy()
     this.dom.canvasLayer?.querySelector('canvas.gpu-scene-canvas')?.remove()
     this.rendererHost.dispose()
+    this.drawingCommands.dispose()
     this.kernel.dispose()
     this.alertController.dispose()
     await this.pluginHost.destroy()

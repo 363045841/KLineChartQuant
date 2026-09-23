@@ -12,8 +12,8 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { marketDataProviderRegistry } from '../data/provider/registry.js'
 import { BarsLiveSubscription } from '../data/live/barsLive.js'
+import { marketDataProviderRegistry } from '../data/provider/registry.js'
 import { ORIGINAL_BAR_AGGREGATION } from '../data/provider/types.js'
 import { Chart } from '../engine/chart.js'
 import type {
@@ -22,8 +22,6 @@ import type {
   SubPaneInfo as LegacySubPaneInfo,
   ViewportState as LegacyViewportState,
 } from '../engine/chartTypes.js'
-import { DrawingCommands } from '../engine/drawing/DrawingCommands.js'
-import { DrawingDocument } from '../engine/drawing/DrawingDocument.js'
 import { getRegisteredIndicatorDefinition } from '../engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
@@ -313,47 +311,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   chart.setViewWorkspacePersistence(
     createViewWorkspacePersistence(() => chart.kernel.snapshotViewWorkspaces()),
   )
-  const drawingDocument = new DrawingDocument({
-    drawingState: chart.kernel.drawing,
-    getLogicalIndexAtTimestamp(timestamp) {
-      return chart.getLogicalIndexAtTimestamp(timestamp)
-    },
-    getDrawingTimestampAtLogicalIndex(index) {
-      return chart.drawing.getTimestampAtLogicalIndex(index)
-    },
-    getDrawingData() {
-      return chart.drawing.getData()
-    },
-    findAnchorAtTradingDate(tradingDate) {
-      const dated = chart.getData().flatMap((item) =>
-        item.date === undefined ? [] : [{ date: item.date, timestamp: item.timestamp }],
-      )
-      if (dated.length === 0) return { kind: 'date-unavailable' }
-      let earliest = dated[0]!.date
-      let latest = dated[0]!.date
-      for (const bar of dated) {
-        if (bar.date < earliest) earliest = bar.date
-        if (bar.date > latest) latest = bar.date
-      }
-      if (tradingDate < earliest || tradingDate > latest) {
-        return { kind: 'out-of-range', earliest, latest }
-      }
-      const bar = dated.find((item) => item.date === tradingDate)
-      return bar === undefined
-        ? { kind: 'not-trading' }
-        : { kind: 'resolved', timestamp: bar.timestamp }
-    },
-    hasPaneId(paneId) {
-      return chart.panes.getLayoutSpecs().some((pane) => pane.id === paneId)
-    },
-    getWorkspaceId() {
-      return chart.drawing.getWorkspaceId()
-    },
-  })
-  const drawingCommands = new DrawingCommands({
-    document: drawingDocument,
-    requestDraw: () => chart.scheduleDraw(),
-  })
+  const drawingDocument = chart.drawingDocument
+  const drawingCommands = chart.drawingCommands
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
     ;(window as any).__chart = chart
@@ -479,7 +438,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // 当前品种的 Provider 在自动路由完成后会写回 currentSpec，此时重新检查实时能力。
-  const unsubscribeLiveBars = chart.kernel.dataManager.readonly.currentSpec.subscribe(reconcileLiveBars)
+  const unsubscribeLiveBars =
+    chart.kernel.dataManager.readonly.currentSpec.subscribe(reconcileLiveBars)
   reconcileLiveBars()
 
   // -------------------------------------------------------------------
@@ -719,19 +679,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return match?.label
   }
 
-  function setDrawingTool(
-    tool: import('../engine/drawing/toolConfig.js').DrawingToolId | null,
-  ): void {
+  function setDrawingTool(tool: import('../engine/drawing/index.js').DrawingToolId | null): void {
     if (disposed) return
     chart.drawing.setTool(tool)
   }
 
-  function setDrawingToolId(toolId: import('../engine/drawing/toolConfig.js').DrawingToolId): void {
+  function setDrawingToolId(toolId: import('../engine/drawing/index.js').DrawingToolId): void {
     if (disposed) return
     chart.drawing.setTool(toolId)
   }
 
-  function getDrawingToolId(): import('../engine/drawing/toolConfig.js').DrawingToolId {
+  function getDrawingToolId(): import('../engine/drawing/index.js').DrawingToolId {
     if (disposed) return 'cursor'
     return chart.drawing.tool.peek()
   }
@@ -739,13 +697,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function registerDrawingSession(session: unknown | null): void {
     if (disposed) return
     chart.registerDrawingSession(
-      session as import('../engine/drawing/interaction.js').DrawingInteractionController | null,
+      session as import('../engine/drawing/index.js').DrawingInteractionController | null,
     )
   }
 
   function clearDrawings(): void {
     if (disposed) return
-    drawingCommands.clear()
+    chart.drawing.clear()
   }
 
   function createDrawing(input: CreateDrawingInput): DrawingObject {
@@ -760,7 +718,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function commitDrawingDrag(
     id: string,
-    anchors: ReadonlyArray<import('../foundation/plugin/index.js').PersistedDrawingAnchor>,
+    anchors: ReadonlyArray<import('../engine/drawing/index.js').PersistedDrawingAnchor>,
   ): DrawingObject | null {
     if (disposed) return null
     return drawingCommands.commitDrag(id, anchors)
@@ -769,7 +727,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function commitDrawingDrags(
     updates: ReadonlyArray<{
       id: string
-      anchors: ReadonlyArray<import('../foundation/plugin/index.js').PersistedDrawingAnchor>
+      anchors: ReadonlyArray<import('../engine/drawing/index.js').PersistedDrawingAnchor>
     }>,
   ): ReadonlyArray<DrawingObject> {
     if (disposed) return []
@@ -801,7 +759,21 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
     if (disposed) return
-    drawingCommands.replace(drawings)
+    chart.drawing.setDrawings(drawings)
+  }
+
+  function importDrawings(drawings: ReadonlyArray<DrawingObject>): void {
+    if (disposed) return
+    chart.cancelDrawingSession()
+    drawingCommands.importDrawings(drawings)
+  }
+
+  function undoDrawing(): boolean {
+    return !disposed && chart.undoDrawing()
+  }
+
+  function redoDrawing(): boolean {
+    return !disposed && chart.redoDrawing()
   }
 
   // ---- DrawingChartAdapter methods ----
@@ -885,7 +857,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.getLogicalIndexAtTimestamp(timestamp)
   }
 
-  function getDrawingWorkspaceId(): import('../foundation/plugin/index.js').DrawingWorkspaceId {
+  function getDrawingWorkspaceId(): import('../engine/drawing/index.js').DrawingWorkspaceId {
     if (disposed) return 'kline'
     return chart.drawing.getWorkspaceId()
   }
@@ -1019,6 +991,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     subPanes,
     drawingTool,
     drawings,
+    canUndoDrawing: drawingCommands.history.canUndo,
+    canRedoDrawing: drawingCommands.history.canRedo,
     selectedDrawingIds,
     paneRatios,
     paneLayout,
@@ -1089,6 +1063,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     removeDrawing,
     removeBatch,
     replaceDrawings,
+    importDrawings,
+    undoDrawing,
+    redoDrawing,
     getFullDrawings,
     requestDraw,
     freezeHoverTarget,

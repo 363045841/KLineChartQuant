@@ -20,25 +20,32 @@
 
     <div class="left-toolbar__group">
       <div v-for="tool in primaryTools" :key="tool.id" class="tool-item">
-        <BaseTooltip :content="tool.title" :disabled="openGroupId !== null">
+        <BaseTooltip :content="tool.children?.length ? groupTool(tool).title : tool.title" :disabled="openGroupId !== null">
           <button
             type="button"
             class="left-toolbar__button"
             :class="{ active: isActive(tool) }"
-            :aria-label="tool.title"
+            :aria-label="tool.children?.length ? groupTool(tool).title : tool.title"
             @click="selectTool(tool)"
             @pointerdown.stop
             @pointermove.stop
             @pointerup.stop
           >
-            <component :is="tool.icon" class="tool-icon" aria-hidden="true" />
-            <span
-              v-if="tool.children && tool.children.length"
-              class="corner-indicator"
-              :class="{ open: openGroupId === tool.id }"
-              aria-label="展开子菜单"
-              @click.stop="toggleExpand(tool.id)"
-            ></span>
+            <component :is="tool.children?.length ? groupTool(tool).icon : tool.icon" class="tool-icon" aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip v-if="tool.children?.length" :content="`${tool.title}工具`" :disabled="openGroupId !== null">
+          <button
+            type="button"
+            class="tool-item__expand"
+            :aria-label="`${tool.title}工具`"
+            :aria-expanded="openGroupId === tool.id"
+            @click="toggleExpand(tool.id)"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <IconTablerChevronRight class="tool-item__expand-icon" aria-hidden="true" />
           </button>
         </BaseTooltip>
 
@@ -69,6 +76,39 @@
           </div>
         </Transition>
       </div>
+    </div>
+
+    <span class="left-toolbar__divider"></span>
+
+    <div class="left-toolbar__group">
+      <BaseTooltip content="撤回">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="撤回"
+          :disabled="!canUndoDrawing"
+          @click="$emit('undoDrawing')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerArrowBackUp class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip content="重做">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="重做"
+          :disabled="!canRedoDrawing"
+          @click="$emit('redoDrawing')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerArrowForwardUp class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <template v-if="alertController">
@@ -197,12 +237,15 @@
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
+  import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
+  import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
   import IconTablerBell from '~icons/tabler/bell'
   import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
   import IconTablerChartLine from '~icons/tabler/chart-line'
+  import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerEqual from '~icons/tabler/equal'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
@@ -278,6 +321,8 @@
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
+    (e: 'undoDrawing'): void
+    (e: 'redoDrawing'): void
     (e: 'settingsChange', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
@@ -293,6 +338,8 @@
       marketDataCacheStats?: MarketDataCacheStats
       /** kernel drawingTool 镜像；高亮以它为准 */
       drawingToolId?: string
+      canUndoDrawing?: boolean
+      canRedoDrawing?: boolean
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
       aggregationSources?: ReadonlyArray<
@@ -311,6 +358,7 @@
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
   const selectedToolId = ref('cursor')
+  const groupSelections = ref<Record<string, string>>({})
   const openGroupId = ref<string | null>(null)
   const showSettings = ref(false)
   const showAlerts = ref(false)
@@ -353,15 +401,33 @@
     return false
   }
 
+  function groupTool(tool: ToolDef): ToolDef {
+    return (
+      tool.children?.find((child) => child.id === groupSelections.value[tool.id]) ??
+      tool.children![0]!
+    )
+  }
+
+  watch(
+    () => props.drawingToolId,
+    (id) => {
+      if (!id) return
+      for (const tool of primaryTools) {
+        if (tool.children?.some((child) => child.id === id)) {
+          groupSelections.value[tool.id] = id
+          break
+        }
+      }
+    },
+    { immediate: true },
+  )
+
   function selectTool(tool: ToolDef) {
     if (tool.children?.length) {
-      const hasActiveChild = tool.children.some((c) => c.id === selectedToolId.value)
-      if (!hasActiveChild) {
-        const first = tool.children[0]!
-        selectedToolId.value = first.id
-        emit('selectTool', first.id)
-      }
-      toggleExpand(tool.id)
+      const child = groupTool(tool)
+      selectedToolId.value = child.id
+      emit('selectTool', child.id)
+      openGroupId.value = null
       return
     }
     selectedToolId.value = tool.id
@@ -371,6 +437,12 @@
 
   function selectChild(child: ToolDef) {
     selectedToolId.value = child.id
+    for (const tool of primaryTools) {
+      if (tool.children?.some((item) => item.id === child.id)) {
+        groupSelections.value[tool.id] = child.id
+        break
+      }
+    }
     emit('selectTool', child.id)
     openGroupId.value = null
   }
@@ -419,12 +491,12 @@
 
 <style scoped>
   .left-toolbar {
-    flex: 0 0 40px;
+    flex: 0 0 52px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding: 8px 5px;
+    padding: 8px 0;
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
     background: var(--klc-color-ui-surface);
@@ -438,6 +510,7 @@
   .left-toolbar__group {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 4px;
   }
 
@@ -473,6 +546,15 @@
     color: var(--klc-color-ui-text);
   }
 
+  .left-toolbar__button:disabled,
+  .left-toolbar__button:disabled:hover {
+    border-color: transparent;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    opacity: 0.5;
+    cursor: default;
+  }
+
   .left-toolbar__button.active {
     border-color: var(--klc-color-ui-border);
     background: var(--klc-color-ui-hover);
@@ -489,46 +571,52 @@
     height: 16px;
   }
 
-  /* --- 角标三角（TradingView 风格） --- */
-  .corner-indicator {
+  .tool-item__expand {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 8px;
-    height: 8px;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
-    overflow: hidden;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 
-  .corner-indicator::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 0;
-    height: 0;
-    border-left: 5px solid transparent;
-    border-bottom: 5px solid currentColor;
-    opacity: 0.45;
-    transition: opacity 0.15s ease;
+  .tool-item:hover .tool-item__expand,
+  .tool-item:focus-within .tool-item__expand {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
   }
 
-  .left-toolbar__button:hover .corner-indicator::after {
-    opacity: 0.7;
+  .tool-item__expand-icon {
+    width: 10px;
+    height: 10px;
   }
 
-  .left-toolbar__button.active .corner-indicator::after {
-    opacity: 0.7;
+  .tool-item__expand:hover,
+  .tool-item__expand[aria-expanded='true'] {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
-  .corner-indicator.open::after {
-    opacity: 0.8;
+  .tool-item__expand:focus-visible {
+    outline: 1px solid var(--klc-color-ui-muted);
   }
 
   /* --- 下拉菜单（与工具栏同配色、同按钮样式，高度对齐工具栏宽度） --- */
   .tool-dropdown {
     position: absolute;
-    left: calc(100% + 13px);
+    left: calc(100% + 16px);
     top: 50%;
     transform: translateY(-50%);
     display: flex;
@@ -550,6 +638,8 @@
   /* --- 工具项容器 --- */
   .tool-item {
     position: relative;
+    display: flex;
+    align-items: center;
   }
 
   /* --- 下拉动画 --- */
@@ -590,8 +680,8 @@
   /* --- 响应式 --- */
   @media (max-width: 768px), (max-height: 640px) {
     .left-toolbar {
-      flex-basis: 36px;
-      padding: 6px 4px;
+      flex-basis: 50px;
+      padding: 6px 0;
       gap: 5px;
       border-radius: 3px;
     }
@@ -610,14 +700,8 @@
       width: 16px;
     }
 
-    .corner-indicator {
-      width: 7px;
-      height: 7px;
-    }
-
-    .corner-indicator::after {
-      border-left-width: 4px;
-      border-bottom-width: 4px;
+    .tool-item__expand {
+      height: 20px;
     }
 
     .tool-dropdown {

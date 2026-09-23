@@ -6,11 +6,10 @@
       <div class="color-grid">
         <label v-for="item in group.items" :key="item.key" class="color-item">
           <span class="color-item-text">{{ item.label }}</span>
-          <input
-            type="color"
-            class="color-input"
+          <ColorInput
             :value="getColorValue(item.key)"
-            @input="setColorValue(item.key, ($event.target as HTMLInputElement).value)"
+            :label="item.label"
+            @change="setColorValue(item.key, $event)"
           />
         </label>
       </div>
@@ -29,6 +28,7 @@
     normalizeColorPresetSettings,
   } from '@363045841yyt/klinechart-core'
   import { computed } from 'vue'
+  import ColorInput from './ColorInput.vue'
 
   const props = defineProps<{
     colorPresetSettings: ColorPresetSettings | undefined
@@ -140,38 +140,6 @@
     white-space: nowrap;
     user-select: none;
     line-height: 1.4;
-  }
-
-  /* ── 颜色输入 (无边框圆角矩形) ── */
-  .color-input {
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
-    background: transparent;
-    cursor: pointer;
-    transition: transform 0.15s ease;
-    overflow: hidden;
-  }
-
-  .color-input:hover {
-    transform: scale(1.1);
-  }
-
-  .color-input::-webkit-color-swatch-wrapper {
-    padding: 0;
-  }
-
-  .color-input::-webkit-color-swatch {
-    border: none;
-    border-radius: 6px;
-  }
-
-  .color-input::-moz-color-swatch {
-    border: none;
-    border-radius: 6px;
   }
 
   /* ── 响应式 ── */

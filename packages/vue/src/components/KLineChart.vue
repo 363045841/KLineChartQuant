@@ -39,6 +39,8 @@
           :renderer-runtime="rendererRuntime"
           :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
+          :can-undo-drawing="canUndoDrawing"
+          :can-redo-drawing="canRedoDrawing"
           :is-range-select-mode="isRangeSelectMode"
           :aggregation-sources="aggregationSources"
           :enabled-source-names="enabledSourceNameSet"
@@ -48,6 +50,8 @@
           @toggle-fullscreen="handleToggleFullscreen"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
+          @undo-drawing="controller?.undoDrawing()"
+          @redo-drawing="controller?.redoDrawing()"
           @settings-change="handleSettingsChange"
           @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -72,6 +76,8 @@
           ></div>
           <div
             ref="containerRef"
+            tabindex="0"
+            @keydown="onDrawingHistoryKeydown"
             class="chart-container"
             :style="chartContainerStyle"
             @pointerdown="onPointerDown"
@@ -270,6 +276,14 @@
       @close="showBatchStockDialog = false"
       @apply="onBatchApply"
     />
+    <DrawingSettingsDialog
+      v-if="editingDrawing"
+      :show="showDrawingSettingsDialog"
+      :drawing="editingDrawing"
+      :editable-style-keys="editingDrawingStyleKeys"
+      @update-style="onUpdateEditingDrawingStyle"
+      @close="showDrawingSettingsDialog = false"
+    />
     <IndicatorSelector
       ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
@@ -297,6 +311,7 @@
     type CustomDataSource,
     createChartController,
     type DrawingLineLabelTarget,
+    type DrawingStyle,
     type InteractionSnapshot,
     type LegendTemplateContext,
     marketDataProviderRegistry,
@@ -364,6 +379,7 @@
   import CanvasToolbar from './common/CanvasToolbar.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
+  import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
@@ -805,6 +821,8 @@
   }
 
   const showBatchStockDialog = ref(false)
+  const showDrawingSettingsDialog = ref(false)
+  const editingDrawingId = ref<string | null>(null)
   const batchSymbols = ref<string[]>([])
   const replacementPaneId = ref<string | null>(null)
 
@@ -822,6 +840,28 @@
 
   /** 镜像 kernel.drawingTool，供工具栏高亮 */
   const drawingToolId = shallowRef('cursor')
+  const canUndoDrawing = shallowRef(false)
+  const canRedoDrawing = shallowRef(false)
+
+  function onDrawingHistoryKeydown(event: KeyboardEvent) {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target.closest('input, textarea, select, [contenteditable], [role="textbox"]')
+    )
+      return
+    const redo =
+      event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z')
+    const undo = !event.shiftKey && event.key.toLowerCase() === 'z'
+    if (redo && canRedoDrawing.value) {
+      event.preventDefault()
+      controller.value?.redoDrawing()
+    } else if (undo && canUndoDrawing.value) {
+      event.preventDefault()
+      controller.value?.undoDrawing()
+    }
+  }
   /** 镜像 kernel.rendererRuntime，供设置页显示有效后端 */
   const rendererRuntime = shallowRef<RendererBackendRuntime | null>(null)
 
@@ -907,6 +947,16 @@
     onToggleDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
+  const editingDrawing = computed(() =>
+    drawings.value.find((drawing) => drawing.id === editingDrawingId.value),
+  )
+  const editingDrawingStyleKeys = computed(() =>
+    editingDrawingId.value ? controller.value?.getBatchStyleKeys([editingDrawingId.value]) ?? [] : [],
+  )
+
+  function onUpdateEditingDrawingStyle(style: Partial<DrawingStyle>) {
+    if (editingDrawing.value) controller.value?.updateBatch([editingDrawing.value.id], { style })
+  }
   const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)
   const lineLabelInput = ref<HTMLInputElement | null>(null)
   const lineLabelDraft = ref('')
@@ -1146,7 +1196,7 @@
     const closeC = closeDiff > 0 ? upColor : closeDiff < 0 ? downColor : NEUTRAL_COLOR
     const changeC = changePct > 0 ? upColor : changePct < 0 ? downColor : NEUTRAL_COLOR
 
-     slots.date.textContent = formatTimeInTimeZone(kline.timestamp, { timeZone: timezone, showTime })
+    slots.date.textContent = formatTimeInTimeZone(kline.timestamp, { timeZone: timezone, showTime })
     if (slots.symbol) slots.symbol.textContent = kline.symbol ?? ''
 
     slots.open.textContent = kline.open.toFixed(2)
@@ -1469,6 +1519,7 @@
   }
 
   function onPointerDown(e: PointerEvent) {
+    if (e.target instanceof HTMLCanvasElement) containerRef.value?.focus({ preventScroll: true })
     // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
     drawingDragCursor =
       e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
@@ -1552,12 +1603,20 @@
   }
 
   function onDoubleClick(e: MouseEvent) {
-    if (kLineLevel.value !== 'daily' || !controller.value) return
-
     const container = containerRef.value
     if (!container) return
     const rect = container.getBoundingClientRect()
     const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+
+    const hitDrawing = drawingController.value?.hitTestAt(mouseX, mouseY)
+    if (hitDrawing) {
+      editingDrawingId.value = hitDrawing.id
+      showDrawingSettingsDialog.value = true
+      return
+    }
+
+    if (kLineLevel.value !== 'daily' || !controller.value) return
 
     const index = controller.value.getLogicalIndexAtX(mouseX)
     if (index == null) return
@@ -1776,6 +1835,14 @@
     const unsubscribeDrawingTool = ctrl.drawingTool.subscribe(() => {
       drawingToolId.value = ctrl.drawingTool.peek()
     })
+    canUndoDrawing.value = ctrl.canUndoDrawing.peek()
+    canRedoDrawing.value = ctrl.canRedoDrawing.peek()
+    const unsubscribeUndo = ctrl.canUndoDrawing.subscribe(() => {
+      canUndoDrawing.value = ctrl.canUndoDrawing.peek()
+    })
+    const unsubscribeRedo = ctrl.canRedoDrawing.subscribe(() => {
+      canRedoDrawing.value = ctrl.canRedoDrawing.peek()
+    })
 
     rendererRuntime.value = ctrl.rendererRuntime.peek()
     const unsubscribeRendererRuntime = ctrl.rendererRuntime.subscribe(() => {
@@ -1873,6 +1940,8 @@
       unsubscribePaneLayout()
       unsubscribeTheme()
       unsubscribeDrawingTool()
+      unsubscribeUndo()
+      unsubscribeRedo()
       unsubscribeRendererRuntime()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()
@@ -2333,6 +2402,7 @@
     display: flex;
     gap: 2px;
   }
+
 
   .drawing-label-position-toolbar__button {
     height: 26px;

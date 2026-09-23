@@ -73,7 +73,7 @@
 
 <script setup lang="ts">
   import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
-  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, onUnmounted } from 'vue'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'

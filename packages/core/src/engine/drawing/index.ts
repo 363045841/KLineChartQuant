@@ -1,995 +1,114 @@
-import {
-  type AreaPrimitive,
-  type ArrowPrimitive,
-  type DrawingComputeContext,
-  type DrawingDefinition,
-  type DrawingGeometry,
-  type DrawingKind,
-  type DrawingObject,
-  type DrawingStyle,
-  type DrawingWorkspaceId,
-  type LinePrimitive,
-  POINT_ROLE,
-  type PointPrimitive,
-  PRIMITIVE_KIND,
-  type ScreenPoint,
-  type TextPrimitive,
-} from '../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '../../foundation/tokens/index.js'
-import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
-import type { KLineData } from '../../foundation/types/price.js'
+/**
+ * 绘图模块唯一公开入口。
+ *
+ * 只做重导出：模块契约在 `./types.ts`，实现按职责分散在
+ * `model/`、`session/`、`geometry/`、`interaction/`、`render/` 的 `impl/` 下。
+ * 模块外调用方依赖本文件，禁止指向内部实现路径。
+ */
 
+/** foundation 拥有的渲染 primitive 契约，按模块公开面重导出。 */
 export type {
   AreaPrimitive,
   ArrowPrimitive,
-  DrawingComputeContext,
-  DrawingDefinition,
-  DrawingGeometry,
-  DrawingKind,
-  DrawingObject,
+  DrawingLabelPosition,
+  DrawingPrimitive,
   DrawingStyle,
   LinePrimitive,
   PointPrimitive,
+  ScreenPoint,
   TextPrimitive,
-}
+} from '../../foundation/plugin/index.js'
 
-import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import { midpoint } from './coordinateUtils.js'
-import { mergePaint } from './DrawingState.js'
-import { buildFillPolygon } from './fillRegions.js'
-import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
-
-export type { DrawingCommandsDependencies } from './DrawingCommands.js'
-export { DrawingCommands } from './DrawingCommands.js'
+export { projectDrawingsForFrame } from './geometry/impl/frameProjection.js'
+export { computeLinearRegression } from './geometry/impl/linearRegression.js'
 export type {
-  CreateDrawingInput,
-  DrawingAnchorCommandInput,
-  DrawingDocumentDependencies,
-  UpdateDrawingPatch,
-} from './DrawingDocument.js'
-export { DrawingDocument } from './DrawingDocument.js'
-export { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
-
-export interface DrawingStoreDeps {
-  drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
-  selectedDrawingIds$: ReadonlySignal<ReadonlyArray<string>>
-  /** 会话层覆盖（拖拽/预览）；缺省为空 */
-  getOverlay?: () => ReadonlyArray<DrawingObject>
-}
-
-/**
- * 绘图投影器 —— kernel 业务 SSOT ⊕ 会话 overlay，供渲染插件读取。
- */
-export class DrawingStore {
-  constructor(private readonly deps: DrawingStoreDeps) {}
-
-  getSelectedIds(): ReadonlyArray<string> {
-    return this.deps.selectedDrawingIds$.peek()
-  }
-
-  private paintList(): DrawingObject[] {
-    const committed = this.deps.drawings$.peek()
-    const overlay = this.deps.getOverlay?.() ?? []
-    return mergePaint(committed, overlay)
-  }
-
-  getAll(): DrawingObject[] {
-    return this.paintList()
-  }
-
-  getVisibleByPane(paneId: string, workspaceId: DrawingWorkspaceId): DrawingObject[] {
-    return this.paintList()
-      .filter(
-        (drawing) =>
-          drawing.visible &&
-          drawing.paneId === paneId &&
-          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === workspaceId,
-      )
-      .slice()
-      .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
-  }
-}
-
-export class DrawingDefinitionRegistry {
-  private definitions = new Map<DrawingKind, DrawingDefinition>()
-
-  register<TParams = Record<string, unknown>>(definition: DrawingDefinition<TParams>): void {
-    this.definitions.set(definition.kind, definition as DrawingDefinition)
-  }
-
-  get(kind: DrawingKind): DrawingDefinition | undefined {
-    return this.definitions.get(kind)
-  }
-
-  compute(
-    drawing: import('../../foundation/plugin/index.js').ResolvedDrawingObject,
-    context: DrawingComputeContext,
-  ): DrawingGeometry | null {
-    const definition = this.get(drawing.kind)
-    if (!definition) return null
-    return definition.compute(drawing, context)
-  }
-}
-
-export type PrimitiveRendererSet = {
-  point: (ctx: CanvasRenderingContext2D, primitive: PointPrimitive, dpr: number) => void
-  line: (
-    ctx: CanvasRenderingContext2D,
-    primitive: LinePrimitive,
-    viewportClip: { left: number; top: number; right: number; bottom: number },
-    dpr: number,
-  ) => void
-  area: (ctx: CanvasRenderingContext2D, primitive: AreaPrimitive, dpr: number) => void
-  text: (ctx: CanvasRenderingContext2D, primitive: TextPrimitive, dpr: number) => void
-  arrow: (ctx: CanvasRenderingContext2D, primitive: ArrowPrimitive, dpr: number) => void
-}
-
-function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
-  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.lineWidth = style?.strokeWidth ?? 1
-  if (style?.strokeStyle === 'dashed') {
-    ctx.setLineDash([6, 4])
-    return
-  }
-  if (style?.strokeStyle === 'dotted') {
-    ctx.setLineDash([2, 3])
-    return
-  }
-  ctx.setLineDash([])
-}
-
-function applyFillStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
-  ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.globalAlpha = style?.fillOpacity ?? 1
-}
-
-/** 锚点与中点手柄的描边宽度（px）。 */
-const ANCHOR_STROKE_WIDTH = 1
-/** 线段中点垂直手柄的圆角半径（px）。 */
-const HANDLE_CORNER_RADIUS = 2
-
-/**
- * 绘制线段中点垂直手柄：以中点为心的圆角矩形，填白底、描图元颜色，指示这条线可沿价格轴平移。
- * 圆角只是让方块不显得生硬，整体仍是方形轮廓，与圆形锚点区分；描边宽度与锚点一致。
- */
-function drawVerticalHandle(
-  ctx: CanvasRenderingContext2D,
-  point: ScreenPoint,
-  halfSize: number,
-  style?: DrawingStyle,
-): void {
-  const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
-  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.lineWidth = ANCHOR_STROKE_WIDTH
-  // 手柄是交互提示，描边始终实线；图元的 strokeStyle 只作用于线身。
-  ctx.setLineDash([])
-  ctx.beginPath()
-  ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
-  ctx.fillStyle = DRAWING_ANCHOR_FILL
-  ctx.fill()
-  ctx.stroke()
-}
-
-/** 判断屏幕点是否落在视口裁剪矩形内（含边界），线段端点据此决定是否绘制。 */
-function isInsideViewport(
-  point: ScreenPoint,
-  clip: { left: number; top: number; right: number; bottom: number },
-): boolean {
-  return (
-    point.x >= clip.left && point.x <= clip.right && point.y >= clip.top && point.y <= clip.bottom
-  )
-}
-
-/**
- * 绘制锚点：白底实心 + 图元色描边环，圆形，圆心即锚点。
- * 描边环是交互提示，始终实线，图元的 strokeStyle 只作用于线身。
- */
-function drawAnchor(
-  ctx: CanvasRenderingContext2D,
-  point: ScreenPoint,
-  radius: number,
-  style?: DrawingStyle,
-): void {
-  ctx.beginPath()
-  ctx.arc(point.x, point.y, radius, 0, Math.PI * 2)
-  ctx.fillStyle = DRAWING_ANCHOR_FILL
-  ctx.fill()
-  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.lineWidth = ANCHOR_STROKE_WIDTH
-  ctx.setLineDash([])
-  ctx.stroke()
-}
-
-function clipLineToRect(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  rect: { left: number; top: number; right: number; bottom: number },
-): { a: { x: number; y: number }; b: { x: number; y: number } } | null {
-  const INSIDE = 0
-  const LEFT = 1
-  const RIGHT = 2
-  const BOTTOM = 4
-  const TOP = 8
-
-  const computeCode = (x: number, y: number) => {
-    let code = INSIDE
-    if (x < rect.left) code |= LEFT
-    else if (x > rect.right) code |= RIGHT
-    if (y < rect.top) code |= TOP
-    else if (y > rect.bottom) code |= BOTTOM
-    return code
-  }
-
-  let ax = x1
-  let ay = y1
-  let bx = x2
-  let by = y2
-
-  while (true) {
-    const codeA = computeCode(ax, ay)
-    const codeB = computeCode(bx, by)
-
-    if (!(codeA | codeB)) {
-      return { a: { x: ax, y: ay }, b: { x: bx, y: by } }
-    }
-
-    if (codeA & codeB) {
-      return null
-    }
-
-    const codeOut = codeA || codeB
-    let x = 0
-    let y = 0
-
-    if (codeOut & TOP) {
-      x = ax + ((bx - ax) * (rect.top - ay)) / (by - ay)
-      y = rect.top
-    } else if (codeOut & BOTTOM) {
-      x = ax + ((bx - ax) * (rect.bottom - ay)) / (by - ay)
-      y = rect.bottom
-    } else if (codeOut & RIGHT) {
-      y = ay + ((by - ay) * (rect.right - ax)) / (bx - ax)
-      x = rect.right
-    } else {
-      y = ay + ((by - ay) * (rect.left - ax)) / (bx - ax)
-      x = rect.left
-    }
-
-    if (codeOut === codeA) {
-      ax = x
-      ay = y
-    } else {
-      bx = x
-      by = y
-    }
-  }
-}
-
-function extendLineToViewport(
-  primitive: LinePrimitive,
-  viewportClip: { left: number; top: number; right: number; bottom: number },
-): { a: { x: number; y: number }; b: { x: number; y: number } } | null {
-  const { a, b, extend = 'none' } = primitive
-  if (extend === 'none') {
-    return clipLineToRect(a.x, a.y, b.x, b.y, viewportClip)
-  }
-
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  if (dx === 0 && dy === 0) return null
-
-  const distance =
-    Math.max(viewportClip.right - viewportClip.left, viewportClip.bottom - viewportClip.top) * 4
-  let start = a
-  let end = b
-
-  if (extend === 'left' || extend === 'both') {
-    start = { x: a.x - dx * distance, y: a.y - dy * distance }
-  }
-  if (extend === 'right' || extend === 'both') {
-    end = { x: b.x + dx * distance, y: b.y + dy * distance }
-  }
-
-  return clipLineToRect(start.x, start.y, end.x, end.y, viewportClip)
-}
-
-function getAnchorDataIndex(
-  anchor: import('../../foundation/plugin/index.js').ResolvedDrawingAnchor,
-  data: KLineData[],
-): number {
-  if (!Number.isFinite(anchor.index)) return -1
-  const index = Math.round(anchor.index)
-  if (index < 0 || index >= data.length) return -1
-  return index
-}
-
-function formatSigned(value: number, digits = 2): string {
-  if (!Number.isFinite(value)) return '0'
-  const fixed = value.toFixed(digits)
-  return value > 0 ? `+${fixed}` : fixed
-}
-
-import { computeLinearRegression } from './linearRegression.js'
-
-export { computeLinearRegression }
-
-/** 将绘图文档中的字面量换行控制码拆为逻辑文本行。 */
-function splitDrawingTextLines(text: string): string[] {
-  return text.split('\\n')
-}
-
-/** 在当前坐标系绘制由字面量换行控制码分隔的多行文本，并保持原始基线语义。 */
-function drawMultilineText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  fontSize: number,
-  baseline: CanvasTextBaseline,
-): void {
-  const lines = splitDrawingTextLines(text)
-  const lineHeight = fontSize * 1.2
-  const height = lines.length * lineHeight
-  const top = baseline === 'top' ? y : baseline === 'middle' ? y - height / 2 : y - height
-  ctx.textBaseline = 'top'
-  for (const [index, line] of lines.entries()) {
-    ctx.fillText(line, x, top + index * lineHeight)
-  }
-}
-
-export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
-  return {
-    point(ctx, primitive, dpr) {
-      const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
-      ctx.save()
-      if (primitive.role === POINT_ROLE['translate-handle']) {
-        drawVerticalHandle(ctx, primitive.point, radius, primitive.style)
-        ctx.restore()
-        return
-      }
-      drawAnchor(ctx, primitive.point, radius, primitive.style)
-      if (primitive.text) {
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        const align = primitive.text.align ?? 'center'
-        ctx.textAlign = align
-        drawMultilineText(
-          ctx,
-          primitive.text.text,
-          primitive.point.x,
-          primitive.point.y,
-          primitive.style?.fontSize ?? 12,
-          primitive.text.baseline ?? 'middle',
-        )
-      }
-      ctx.restore()
-    },
-
-    line(ctx, primitive, viewportClip, dpr) {
-      const clipped = extendLineToViewport(primitive, viewportClip)
-      if (!clipped) return
-
-      ctx.save()
-      applyLineStyle(ctx, primitive.style)
-      const lineWidth = primitive.style?.strokeWidth ?? 1
-      const align = lineWidth <= 1 ? 0.5 / dpr : 0
-      ctx.beginPath()
-      ctx.moveTo(clipped.a.x + align, clipped.a.y + align)
-      ctx.lineTo(clipped.b.x + align, clipped.b.y + align)
-      ctx.stroke()
-
-      if (primitive.text) {
-        // 标签基于原始锚点，不随延长线或视口裁剪漂移。
-        const textLayout = resolveLineLabelLayout(primitive.a, primitive.b, primitive.text.position)
-        ctx.save()
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? textLayout.align
-        const baseline = primitive.text.baseline ?? 'middle'
-        ctx.translate(textLayout.x, textLayout.y)
-        ctx.rotate(textLayout.rotation)
-        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
-        ctx.restore()
-      }
-
-      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
-      if (primitive.showEndpoints !== false) {
-        const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
-        for (const endpoint of [primitive.a, primitive.b]) {
-          if (!isInsideViewport(endpoint, viewportClip)) continue
-          drawAnchor(ctx, endpoint, pointRadius, primitive.style)
-        }
-      }
-
-      ctx.restore()
-    },
-
-    area(ctx, primitive) {
-      if (primitive.points.length === 0) return
-      ctx.save()
-      applyFillStyle(ctx, primitive.style)
-      ctx.beginPath()
-      ctx.moveTo(primitive.points[0]!.x, primitive.points[0]!.y)
-      for (let i = 1; i < primitive.points.length; i++) {
-        const point = primitive.points[i]!
-        ctx.lineTo(point.x, point.y)
-      }
-      if (primitive.closed) {
-        ctx.closePath()
-      }
-      ctx.fill()
-      if (primitive.text) {
-        const xs = primitive.points.map((point) => point.x)
-        const ys = primitive.points.map((point) => point.y)
-        // 文字在填充后绘制，始终位于填充带上层。
-        ctx.globalAlpha = 1
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? 'center'
-        const x = (Math.min(...xs) + Math.max(...xs)) / 2
-        const y = (Math.min(...ys) + Math.max(...ys)) / 2
-        drawMultilineText(
-          ctx,
-          primitive.text.text,
-          x,
-          y,
-          primitive.style?.fontSize ?? 12,
-          primitive.text.baseline ?? 'middle',
-        )
-      }
-      ctx.restore()
-    },
-
-    text(ctx, primitive) {
-      ctx.save()
-      ctx.fillStyle =
-        primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-      ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-      const align = primitive.align ?? 'left'
-      ctx.textAlign = align
-      drawMultilineText(
-        ctx,
-        primitive.text,
-        primitive.point.x,
-        primitive.point.y,
-        primitive.style?.fontSize ?? 12,
-        primitive.baseline ?? 'bottom',
-      )
-      ctx.restore()
-    },
-
-    arrow(ctx, primitive, dpr) {
-      const angle = Math.atan2(
-        primitive.end.y - primitive.start.y,
-        primitive.end.x - primitive.start.x,
-      )
-      const headLength = primitive.headLength ?? 10
-      const headAngle = primitive.headAngle ?? Math.PI / 6
-      const left = {
-        x: primitive.end.x - headLength * Math.cos(angle - headAngle),
-        y: primitive.end.y - headLength * Math.sin(angle - headAngle),
-      }
-      const right = {
-        x: primitive.end.x - headLength * Math.cos(angle + headAngle),
-        y: primitive.end.y - headLength * Math.sin(angle + headAngle),
-      }
-
-      ctx.save()
-      applyLineStyle(ctx, primitive.style)
-      const lineWidth = primitive.style?.strokeWidth ?? 1
-      const align = lineWidth <= 1 ? 0.5 / dpr : 0
-      ctx.beginPath()
-      ctx.moveTo(primitive.start.x + align, primitive.start.y + align)
-      ctx.lineTo(primitive.end.x + align, primitive.end.y + align)
-      ctx.stroke()
-
-      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-      ctx.beginPath()
-      ctx.moveTo(primitive.end.x, primitive.end.y)
-      ctx.lineTo(left.x, left.y)
-      ctx.lineTo(right.x, right.y)
-      ctx.closePath()
-      ctx.fill()
-      if (primitive.text) {
-        const textLayout = resolveLineLabelLayout(
-          primitive.start,
-          primitive.end,
-          primitive.text.position,
-        )
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? textLayout.align
-        const baseline = primitive.text.baseline ?? 'middle'
-        ctx.save()
-        ctx.translate(textLayout.x, textLayout.y)
-        ctx.rotate(textLayout.rotation)
-        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
-        ctx.restore()
-      }
-      ctx.restore()
-    },
-  }
-}
-
-export function createTwoPointLineDefinition(
-  kind: DrawingKind,
-  extend: LinePrimitive['extend'],
-): DrawingDefinition {
-  return {
-    kind,
-    minAnchors: 2,
-    maxAnchors: 2,
-    compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      return {
-        primitives: [
-          {
-            kind: 'line',
-            a: context.toScreen(first),
-            b: context.toScreen(second),
-            extend,
-            style: drawing.style,
-          },
-        ],
-      }
-    },
-  }
-}
-
-/** 创建斐波那契回撤图形：两个锚点定义区间，水平线覆盖区间的时间范围。 */
-export function createFibRetracementDefinition(): DrawingDefinition {
-  const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
-  return {
-    kind: 'fib-retracement',
-    minAnchors: 2,
-    maxAnchors: 2,
-    compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      const a = context.toScreen(first)
-      const b = context.toScreen(second)
-      const left = Math.min(a.x, b.x)
-      const right = Math.max(a.x, b.x)
-      const configured = (drawing.params as { levels?: number[] } | undefined)?.levels
-      const ratios = configured?.length ? configured : levels
-      return {
-        primitives: ratios.flatMap((ratio) => {
-          const y = a.y + (b.y - a.y) * ratio
-          return [
-            { kind: 'line' as const, a: { x: left, y }, b: { x: right, y }, style: drawing.style },
-            {
-              kind: 'text' as const,
-              point: { x: right + 4, y },
-              text: `${(ratio * 100).toFixed(1)}%`,
-              baseline: 'middle' as const,
-              style: drawing.style,
-            },
-          ]
-        }),
-      }
-    },
-  }
-}
-
-/** 创建矩形图形：两个锚点分别代表矩形的对角点。 */
-export function createRectangleDefinition(): DrawingDefinition {
-  return {
-    kind: 'rectangle',
-    minAnchors: 2,
-    maxAnchors: 2,
-    compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      const a = context.toScreen(first)
-      const b = context.toScreen(second)
-      const left = Math.min(a.x, b.x)
-      const right = Math.max(a.x, b.x)
-      const top = Math.min(a.y, b.y)
-      const bottom = Math.max(a.y, b.y)
-      const topLeft = { x: left, y: top }
-      const topRight = { x: right, y: top }
-      const bottomRight = { x: right, y: bottom }
-      const bottomLeft = { x: left, y: bottom }
-      return {
-        primitives: [
-          {
-            kind: 'area',
-            points: [topLeft, topRight, bottomRight, bottomLeft],
-            closed: true,
-            style: { ...drawing.style, fillOpacity: drawing.style.fillOpacity ?? 0.1 },
-          },
-          { kind: 'line', a: topLeft, b: topRight, style: drawing.style },
-          { kind: 'line', a: topRight, b: bottomRight, style: drawing.style },
-          { kind: 'line', a: bottomRight, b: bottomLeft, style: drawing.style },
-          { kind: 'line', a: bottomLeft, b: topLeft, style: drawing.style },
-        ],
-      }
-    },
-  }
-}
-
-/** 创建箭头图形：第二个锚点是箭头尖端。 */
-export function createArrowDefinition(): DrawingDefinition {
-  return {
-    kind: 'arrow',
-    minAnchors: 2,
-    maxAnchors: 2,
-    compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      const a = context.toScreen(first)
-      const b = context.toScreen(second)
-      return {
-        primitives: [{ kind: 'arrow', start: a, end: b, style: drawing.style }],
-      }
-    },
-  }
-}
-
-export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefinition {
-  return {
-    kind,
-    minAnchors: 1,
-    maxAnchors: 1,
-    compute(drawing, context) {
-      const [anchor] = drawing.anchors
-      if (!anchor) return { primitives: [] }
-      const bottom = context.pane.height
-      const right = context.viewport.plotWidth
-
-      if (kind === 'horizontal-line') {
-        if (anchor.type === 'vertical') return { primitives: [] }
-        const y = context.pane.yAxis.priceToY(anchor.price)
-        return {
-          primitives: [
-            {
-              kind: 'line',
-              a: { x: 0, y },
-              b: { x: right, y },
-              showEndpoints: false,
-              style: drawing.style,
-            },
-          ],
-        }
-      }
-
-      const point = context.toScreen(anchor)
-
-      if (kind === 'horizontal-ray') {
-        return {
-          primitives: [
-            {
-              kind: 'line',
-              a: point,
-              b: { x: right, y: point.y },
-              showEndpoints: false,
-              style: drawing.style,
-            },
-            { kind: PRIMITIVE_KIND.point, role: POINT_ROLE.anchor, point, style: drawing.style },
-          ],
-        }
-      }
-
-      if (kind === 'vertical-line') {
-        if (anchor.type === 'horizontal') return { primitives: [] }
-        return {
-          primitives: [
-            {
-              kind: 'line',
-              a: { x: point.x, y: 0 },
-              b: { x: point.x, y: bottom },
-              showEndpoints: false,
-              style: drawing.style,
-            },
-          ],
-        }
-      }
-
-      // cross-line: 十字线，显示水平和垂直线，锚点显示一个点，边缘不显示端点
-      return {
-        primitives: [
-          {
-            kind: 'line',
-            a: { x: 0, y: point.y },
-            b: { x: right, y: point.y },
-            showEndpoints: false,
-            style: drawing.style,
-          },
-          {
-            kind: 'line',
-            a: { x: point.x, y: 0 },
-            b: { x: point.x, y: bottom },
-            showEndpoints: false,
-            style: drawing.style,
-          },
-          { kind: PRIMITIVE_KIND.point, role: POINT_ROLE.anchor, point, style: drawing.style },
-        ],
-      }
-    },
-  }
-}
-
-export function createInfoLineDefinition(): DrawingDefinition {
-  return {
-    kind: 'info-line',
-    minAnchors: 2,
-    maxAnchors: 2,
-    compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      const a = context.toScreen(first)
-      const b = context.toScreen(second)
-      const firstIndex = Math.round(first.index)
-      const secondIndex = Math.round(second.index)
-      const bars = secondIndex - firstIndex
-      const delta = second.price - first.price
-      const percent = first.price !== 0 ? (delta / first.price) * 100 : 0
-      const angle = Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI)
-      const text = `${formatSigned(delta)} (${formatSigned(percent)}%)  ${bars} bars  ${formatSigned(angle)}°`
-
-      return {
-        primitives: [
-          {
-            kind: 'line',
-            a,
-            b,
-            text: { text, baseline: LINE_LABEL_BASELINE },
-            style: drawing.style,
-          },
-        ],
-        meta: { delta, percent, bars, angle },
-      }
-    },
-  }
-}
-
-export function createParallelChannelDefinition(): DrawingDefinition {
-  return {
-    kind: 'parallel-channel',
-    minAnchors: 4,
-    maxAnchors: 4,
-    compute(drawing, context) {
-      const [first, second, third, fourth] = drawing.anchors
-      if (!first || !second || !third || !fourth) return { primitives: [] }
-      const p1 = context.toScreen(first)
-      const p2 = context.toScreen(second)
-      const p3 = context.toScreen(third)
-      const p4 = context.toScreen(fourth)
-      const extend =
-        (drawing.params as { extend?: LinePrimitive['extend'] } | undefined)?.extend ?? 'none'
-
-      return {
-        primitives: [
-          {
-            kind: 'area',
-            points: buildFillPolygon('parallel-channel', [p1, p2, p3, p4]),
-            closed: true,
-            style: drawing.style,
-          },
-          { kind: 'line', a: p1, b: p2, extend, style: drawing.style },
-          { kind: 'line', a: p3, b: p4, extend, style: drawing.style },
-          // 中线：两条平行线的中间虚线，端点不是锚点，选中态也不画锚点圆。
-          {
-            kind: 'line',
-            a: midpoint(p1, p3),
-            b: midpoint(p2, p4),
-            extend,
-            showEndpoints: false,
-            style: { ...drawing.style, strokeStyle: 'dashed' },
-          },
-        ],
-      }
-    },
-  }
-}
-
-export function createFlatLineDefinition(): DrawingDefinition {
-  return {
-    kind: 'flat-line',
-    minAnchors: 4,
-    maxAnchors: 4,
-    compute(drawing, context) {
-      const [first, second, third, fourth] = drawing.anchors
-      if (!first || !second || !third || !fourth) return { primitives: [] }
-
-      const p1 = context.toScreen(first)
-      const p2 = context.toScreen(second)
-      const h1 = context.toScreen(third)
-      const h2 = context.toScreen(fourth)
-
-      return {
-        primitives: [
-          {
-            kind: 'area',
-            points: buildFillPolygon('flat-line', [p1, p2, h1, h2]),
-            closed: true,
-            style: drawing.style,
-          },
-          { kind: 'line', a: p1, b: p2, style: drawing.style },
-          { kind: 'line', a: h1, b: h2, style: drawing.style },
-        ],
-      }
-    },
-  }
-}
-
-export function createDisjointChannelDefinition(): DrawingDefinition {
-  return {
-    kind: 'disjoint-channel',
-    minAnchors: 4,
-    maxAnchors: 4,
-    compute(drawing, context) {
-      const [firstStart, firstEnd, secondEnd, secondStart] = drawing.anchors
-      if (!firstStart || !firstEnd || !secondEnd || !secondStart) return { primitives: [] }
-
-      // 锚点顺序：0 第一条线起点、1 第一条线终点、2 第二条线终点、3 第二条线起点。
-      const a0 = context.toScreen(firstStart)
-      const a1 = context.toScreen(firstEnd)
-      const a2 = context.toScreen(secondEnd)
-      const a3 = context.toScreen(secondStart)
-
-      return {
-        primitives: [
-          // 填充按 0 → 1 → 2 → 3 环绕，与两条线的方向一致，避免自交。
-          {
-            kind: 'area',
-            points: buildFillPolygon('disjoint-channel', [a0, a1, a2, a3]),
-            closed: true,
-            style: drawing.style,
-          },
-          { kind: 'line', a: a0, b: a1, style: drawing.style },
-          { kind: 'line', a: a2, b: a3, style: drawing.style },
-        ],
-      }
-    },
-  }
-}
-
-export function createRegressionChannelDefinition(): DrawingDefinition {
-  return {
-    kind: 'regression-channel',
-    minAnchors: 2,
-    maxAnchors: 2,
-    compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      const firstIndex = getAnchorDataIndex(first, context.seriesData)
-      const secondIndex = getAnchorDataIndex(second, context.seriesData)
-      if (firstIndex < 0 && secondIndex < 0) return { primitives: [] }
-
-      const clampedFirstIndex = Math.min(
-        Math.max(Math.round(first.index), 0),
-        context.seriesData.length - 1,
-      )
-      const clampedSecondIndex = Math.min(
-        Math.max(Math.round(second.index), 0),
-        context.seriesData.length - 1,
-      )
-      const startIndex = Math.min(clampedFirstIndex, clampedSecondIndex)
-      const endIndex = Math.max(clampedFirstIndex, clampedSecondIndex)
-      const slice = context.seriesData.slice(startIndex, endIndex + 1)
-      const regression = computeLinearRegression(slice.map((item) => item.close))
-      if (!regression) return { primitives: [] }
-
-      const sigma = (drawing.params as { sigma?: number } | undefined)?.sigma ?? 2
-      const offset = regression.stdDev * sigma
-      const firstValue = regression.intercept
-      const lastValue = regression.intercept + regression.slope * (slice.length - 1)
-
-      const startAnchor = {
-        id: `${drawing.id}-reg-start`,
-        index: Math.round(first.index),
-        time: context.seriesData[startIndex]!.timestamp,
-        price: firstValue,
-      }
-      const endAnchor = {
-        id: `${drawing.id}-reg-end`,
-        index: Math.round(second.index),
-        time: context.seriesData[endIndex]!.timestamp,
-        price: lastValue,
-      }
-      const upperStartAnchor = {
-        ...startAnchor,
-        id: `${drawing.id}-reg-upper-start`,
-        price: firstValue + offset,
-      }
-      const upperEndAnchor = {
-        ...endAnchor,
-        id: `${drawing.id}-reg-upper-end`,
-        price: lastValue + offset,
-      }
-      const lowerStartAnchor = {
-        ...startAnchor,
-        id: `${drawing.id}-reg-lower-start`,
-        price: firstValue - offset,
-      }
-      const lowerEndAnchor = {
-        ...endAnchor,
-        id: `${drawing.id}-reg-lower-end`,
-        price: lastValue - offset,
-      }
-
-      const middleA = context.toScreen(startAnchor)
-      const middleB = context.toScreen(endAnchor)
-      const upperA = context.toScreen(upperStartAnchor)
-      const upperB = context.toScreen(upperEndAnchor)
-      const lowerA = context.toScreen(lowerStartAnchor)
-      const lowerB = context.toScreen(lowerEndAnchor)
-
-      return {
-        primitives: [
-          {
-            kind: 'area',
-            points: [upperA, upperB, lowerB, lowerA],
-            closed: true,
-            style: drawing.style,
-          },
-          // 中间回归线使用虚线
-          {
-            kind: 'line',
-            a: middleA,
-            b: middleB,
-            style: { ...drawing.style, strokeStyle: 'dashed' },
-          },
-          { kind: 'line', a: upperA, b: upperB, style: drawing.style },
-          { kind: 'line', a: lowerA, b: lowerB, style: drawing.style },
-        ],
-        computedAnchors: [startAnchor, endAnchor],
-        meta: { sigma, stdDev: regression.stdDev, slope: regression.slope },
-      }
-    },
-  }
-}
-
-export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionRegistry): void {
-  registry.register(createTwoPointLineDefinition('trend-line', 'none'))
-  registry.register(createTwoPointLineDefinition('ray', 'right'))
-  registry.register(createTwoPointLineDefinition('extended-line', 'both'))
-  registry.register(createFibRetracementDefinition())
-  registry.register(createRectangleDefinition())
-  registry.register(createArrowDefinition())
-  registry.register(createSingleAnchorLineDefinition('horizontal-line'))
-  registry.register(createSingleAnchorLineDefinition('horizontal-ray'))
-  registry.register(createSingleAnchorLineDefinition('vertical-line'))
-  registry.register(createSingleAnchorLineDefinition('cross-line'))
-  registry.register(createInfoLineDefinition())
-  registry.register(createParallelChannelDefinition())
-  registry.register(createRegressionChannelDefinition())
-  registry.register(createFlatLineDefinition())
-  registry.register(createDisjointChannelDefinition())
-}
-
-export type {
-  DrawingLineLabelTarget,
-  DrawingToolId,
+  DrawingLine,
+  DrawingPointerAnchor,
   InteractionDrawingAnchor,
-} from './interaction.js'
-// 导出交互控制器
-export { DrawingInteractionController } from './interaction.js'
-export type {
-  ActiveMagnetMode,
-  MagnetMode,
-  MagnetSnapConfig,
-  SnappedPoint,
-} from './magnetSnapper.js'
+  PointerCoordinates,
+  ResolveDrawingPointerOptions,
+  ResolvedInteractionAnchor,
+  VerticalHandleLine,
+} from './geometry/types.js'
 
-// 导出磁吸模块（setMagnetMode 的档位类型与吸附纯函数）
+export type { DrawingLineLabelTarget } from './interaction/impl/interaction.js'
+export { DrawingInteractionController } from './interaction/impl/interaction.js'
 export {
   MAGNET_RADIUS_STRONG,
   MAGNET_RADIUS_WEAK,
   snapPointerToOhlc,
-} from './magnetSnapper.js'
-// 导出工具锚点数表（宿主 UI 借此渲染分步提示与完成状态）
+} from './interaction/impl/magnetSnapper.js'
 export {
   DOUBLE_ANCHOR_TOOLS,
   getAnchorCountForTool,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
-} from './toolConfig.js'
+} from './interaction/impl/toolConfig.js'
+export type {
+  ActiveMagnetMode,
+  DragFollow,
+  DrawingDragTarget,
+  DrawingSelectionMarquee,
+  DrawingToolId,
+  HitResult,
+  LineLabelTarget,
+  MagnetMode,
+  MagnetSnapConfig,
+  MovingAnchor,
+  SnappedPoint,
+} from './interaction/types.js'
+
+export { DrawingCommands } from './model/impl/DrawingCommands.js'
+export { DrawingDocument } from './model/impl/DrawingDocument.js'
+export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/impl/drawingLabels.js'
+export { getDrawingInputAnchorCount } from './model/impl/materializeAnchors.js'
+export { resolveDrawingTradingDate } from './model/impl/resolveTradingDate.js'
+export type {
+  AnchorTradingDateResolution,
+  BatchDrawingPatch,
+  CreateDrawingInput,
+  DrawingAnchorCommandInput,
+  DrawingCommandsDependencies,
+  DrawingCommandsDocumentPort,
+  DrawingDocumentDependencies,
+  DrawingStyleKey,
+  UpdateDrawingPatch,
+} from './model/types.js'
+
+export { DrawingDefinitionRegistry } from './render/impl/DrawingDefinitionRegistry.js'
+export { DrawingStore } from './render/impl/DrawingStore.js'
+export { createArrowDefinition } from './render/impl/definitions/arrow.js'
+export {
+  createDisjointChannelDefinition,
+  createFlatLineDefinition,
+  createParallelChannelDefinition,
+  createRegressionChannelDefinition,
+} from './render/impl/definitions/channels.js'
+export { createFibRetracementDefinition } from './render/impl/definitions/fibRetracement.js'
+export { registerDefaultDrawingDefinitions } from './render/impl/definitions/index.js'
+export { createInfoLineDefinition } from './render/impl/definitions/infoLine.js'
+export { createRectangleDefinition } from './render/impl/definitions/rectangle.js'
+export { createSingleAnchorLineDefinition } from './render/impl/definitions/singleAnchorLine.js'
+export { createTwoPointLineDefinition } from './render/impl/definitions/twoPointLine.js'
+export { createDrawingRendererPlugin } from './render/impl/plugin.js'
+export { createDefaultPrimitiveRendererSet } from './render/impl/primitiveRendererSet.js'
+export type { DrawingStoreDeps, PrimitiveRendererSet } from './render/types.js'
+
+export { clearDrawingSelection, toggleDrawingSelection } from './session/impl/DrawingSelection.js'
+
+/** 图元领域模型契约。 */
+export type {
+  DrawingAnchorType,
+  DrawingComputeContext,
+  DrawingDefinition,
+  DrawingGeometry,
+  DrawingKind,
+  DrawingLabel,
+  DrawingLabelIndex,
+  DrawingLabels,
+  DrawingObject,
+  DrawingWorkspaceId,
+  PersistedDrawingAnchor,
+  ResolvedDrawingAnchor,
+  ResolvedDrawingObject,
+} from './types.js'

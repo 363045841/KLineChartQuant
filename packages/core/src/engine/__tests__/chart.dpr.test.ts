@@ -668,11 +668,16 @@ describe('Chart pane layout regressions', () => {
     chart.drawing.remove('d1')
     expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
     expect(chart.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
+    expect(chart.undoDrawing()).toBe(true)
+    expect(chart.drawing.drawings.peek().map((d) => d.id)).toEqual(['d1', 'd2'])
+    expect(chart.drawing.selectedIds.peek()).toEqual(['d1'])
+    expect(chart.redoDrawing()).toBe(true)
+    expect(chart.drawing.drawings.peek().map((d) => d.id)).toEqual(['d2'])
     await chart.destroy()
   })
 
   it('removeDrawing with registered session updates kernel only', async () => {
-    const { DrawingInteractionController } = await import('../drawing/interaction')
+    const { DrawingInteractionController } = await import('../drawing/index')
     const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const d1 = {
       id: 'd1',
@@ -692,11 +697,7 @@ describe('Chart pane layout regressions', () => {
         replaceDrawings: (list) => chart.drawing.setDrawings([...list]),
         getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
         createDrawing: () => d1,
-        removeDrawing: (id) => {
-          const removed = chart.kernel.drawing.actions.removeDrawing(id)
-          if (removed) chart.scheduleDraw()
-          return removed
-        },
+        removeDrawing: (id) => chart.drawingCommands.remove(id),
         clearDrawings: () => chart.drawing.clear(),
         setSelectedDrawingIds: (ids) => chart.drawing.setSelectedIds(ids),
         getSelectedDrawingIds: () => chart.kernel.drawing.readonly.selectedDrawingIds.peek(),

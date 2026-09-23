@@ -15,10 +15,10 @@ import type {
   DrawingViewportPort,
   PaneLayoutInfo,
 } from '../../../../controllers/types'
-import type { DrawingObject } from '../../../../foundation/plugin'
 import type { KLineData } from '../../../../foundation/types/price'
-import type { HitResult } from '../../HitTester'
-import type { DrawingToolId } from '../../toolConfig'
+import type { HitResult } from '../../interaction/impl/HitTester'
+import type { DrawingToolId } from '../../interaction/impl/toolConfig'
+import type { DrawingObject } from '../../types'
 
 /** 测试图元默认描边色。 */
 export const TEST_STROKE = '#2962ff'

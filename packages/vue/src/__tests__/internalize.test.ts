@@ -249,6 +249,32 @@ describe('KLineChart internalization — theme prop', () => {
   })
 })
 
+describe('KLineChart drawing history toolbar', () => {
+  it('shows disabled actions until history is available and routes clicks to the controller', async () => {
+    const wrapper = mount(KlineChart, { attachTo: document.body })
+    await flushMount()
+
+    const undo = wrapper.get('.left-toolbar [aria-label="撤回"]')
+    const redo = wrapper.get('.left-toolbar [aria-label="重做"]')
+    expect(undo.attributes('disabled')).toBeDefined()
+    expect(redo.attributes('disabled')).toBeDefined()
+
+    const undoSpy = vi.spyOn(mockController, 'undoDrawing')
+    const redoSpy = vi.spyOn(mockController, 'redoDrawing')
+    mockController._setDrawingHistory(true, true)
+    await nextTick()
+    expect(undo.attributes('disabled')).toBeUndefined()
+    expect(redo.attributes('disabled')).toBeUndefined()
+
+    await undo.trigger('click')
+    await redo.trigger('click')
+    expect(undoSpy).toHaveBeenCalledOnce()
+    expect(redoSpy).toHaveBeenCalledOnce()
+
+    wrapper.unmount()
+  })
+})
+
 describe('KLineChart internalization — fullscreen (uncontrolled)', () => {
   it('requests fullscreen on the wrapper when toggled with no isFullscreen prop', async () => {
     const wrapper = mount(KlineChart, { attachTo: document.body })

@@ -4,13 +4,13 @@ import type { PersistenceCodec } from './localStoragePersistence.js'
 export interface IndexedDbPersistence<T> {
   /** 读取、校验持久化值；无值、损坏或 IndexedDB 不可用时返回 null。 */
   load(): Promise<T | null>
-  /** 立即写入 value，并取消尚未完成的延迟写入。 */
+  /** 立即写入 value，并取消尚未完成的延迟写入；失败时抛出原始错误。 */
   save(value: T): Promise<boolean>
   /** 安排一次延迟写入；实际写入时才调用 createValue 取值。 */
   schedule(createValue: () => T): void
   /** 立即提交最新的待写快照；没有待写快照时返回 true。 */
   flush(): Promise<boolean>
-  /** 删除该 record 的值，并取消尚未完成的延迟写入。 */
+  /** 删除该 record 的值，并取消尚未完成的延迟写入；失败时抛出原始错误。 */
   clear(): Promise<boolean>
   /** 释放监听页面生命周期的资源，并补写最新待写快照。 */
   dispose(): Promise<void>
@@ -77,7 +77,7 @@ export function createIndexedDbPersistence<T>(
       return await new Promise<R>((resolve, reject) => {
         const transaction = database.transaction(options.storeName, mode)
         const request = run(transaction.objectStore(options.storeName))
-        request.onsuccess = () => resolve(request.result)
+        transaction.oncomplete = () => resolve(request.result)
         request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed'))
         transaction.onerror = () =>
           reject(transaction.error ?? new Error('IndexedDB transaction failed'))
@@ -90,12 +90,8 @@ export function createIndexedDbPersistence<T>(
   }
 
   async function write(value: T): Promise<boolean> {
-    try {
-      await transact('readwrite', (store) => store.put(options.codec.encode(value), options.key))
-      return true
-    } catch {
-      return false
-    }
+    await transact('readwrite', (store) => store.put(options.codec.encode(value), options.key))
+    return true
   }
 
   async function flush(): Promise<boolean> {
@@ -107,7 +103,7 @@ export function createIndexedDbPersistence<T>(
   }
 
   function onPageHide(): void {
-    void flush()
+    void flush().catch((error: unknown) => console.error('IndexedDB pagehide flush failed', error))
   }
 
   if (flushOnPageHide) globalThis.addEventListener?.('pagehide', onPageHide)
@@ -122,7 +118,7 @@ export function createIndexedDbPersistence<T>(
       }
     },
     async save(value: T): Promise<boolean> {
-      if (disposed) return false
+      if (disposed) throw new Error('IndexedDB persistence is disposed')
       cancelScheduledWrite()
       pending = null
       return await write(value)
@@ -131,22 +127,20 @@ export function createIndexedDbPersistence<T>(
       if (disposed) return
       pending = { createValue }
       cancelScheduledWrite()
-      timer = setTimeout(() => void flush(), debounceMs)
+      timer = setTimeout(() => {
+        void flush().catch((error: unknown) => console.error('IndexedDB scheduled flush failed', error))
+      }, debounceMs)
     },
     async flush(): Promise<boolean> {
-      if (disposed) return false
+      if (disposed) throw new Error('IndexedDB persistence is disposed')
       return await flush()
     },
     async clear(): Promise<boolean> {
-      if (disposed) return false
+      if (disposed) throw new Error('IndexedDB persistence is disposed')
       cancelScheduledWrite()
       pending = null
-      try {
-        await transact('readwrite', (store) => store.delete(options.key))
-        return true
-      } catch {
-        return false
-      }
+      await transact('readwrite', (store) => store.delete(options.key))
+      return true
     },
     async dispose(): Promise<void> {
       if (disposed) return
