@@ -8,7 +8,7 @@
           <span class="color-item-text">{{ item.label }}</span>
           <ColorInput
             :value="getColorValue(item.key)"
-            :aria-label="item.label"
+            :label="item.label"
             @change="setColorValue(item.key, $event)"
           />
         </label>

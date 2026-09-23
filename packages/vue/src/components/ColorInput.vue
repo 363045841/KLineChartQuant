@@ -3,13 +3,13 @@
     type="color"
     class="color-input"
     :value="value"
-    :aria-label="ariaLabel"
+    :aria-label="label"
     @input="emit('change', ($event.target as HTMLInputElement).value)"
   />
 </template>
 
 <script setup lang="ts">
-  defineProps<{ value: string; ariaLabel: string }>()
+  defineProps<{ value: string; label: string }>()
   const emit = defineEmits<{ change: [value: string] }>()
 </script>
 
