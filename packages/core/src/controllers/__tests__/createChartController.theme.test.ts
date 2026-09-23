@@ -71,6 +71,53 @@ describe('createChartController mount theme', () => {
     container.remove()
   })
 
+  it('owns generated DOM but leaves caller-provided layers intact', async () => {
+    const container = document.createElement('div')
+    Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
+    Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
+    document.body.appendChild(container)
+
+    const generated = await createChartController({ container })
+    expect(container.querySelector('.klc-scroll-content')).not.toBeNull()
+    generated.dispose()
+    expect(container.querySelector('.klc-scroll-content')).toBeNull()
+
+    const canvasLayer = document.createElement('div')
+    const rightAxisLayer = document.createElement('div')
+    const xAxisCanvas = document.createElement('canvas')
+    container.append(canvasLayer, rightAxisLayer)
+    canvasLayer.appendChild(xAxisCanvas)
+    const provided = await createChartController({
+      container,
+      canvasLayer,
+      rightAxisLayer,
+      xAxisCanvas,
+    })
+    provided.dispose()
+    expect(container.contains(canvasLayer)).toBe(true)
+    expect(container.contains(rightAxisLayer)).toBe(true)
+    container.remove()
+  })
+
+  it('keeps delegated disposed defaults and dispose idempotent', async () => {
+    const container = document.createElement('div')
+    Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
+    Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
+    document.body.appendChild(container)
+    const ctrl = await createChartController({ container })
+
+    ctrl.dispose()
+    ctrl.dispose()
+    ctrl.setData(createBars())
+    expect(ctrl.getData()).toEqual([])
+    expect(ctrl.addIndicator('RSI', 'sub')).toBeNull()
+    expect(ctrl.removeDrawing('missing')).toBe(false)
+    expect(ctrl.getPaneInfo('main')).toBeUndefined()
+    expect(ctrl.getViewport()).toBeNull()
+    expect(ctrl.getZoomLevelCount()).toBe(0)
+    container.remove()
+  })
+
   it('normalizes a VOL alias when replacing sub-pane content', async () => {
     const container = document.createElement('div')
     Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })

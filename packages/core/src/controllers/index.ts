@@ -18,12 +18,12 @@ export type {
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
 
-export { createChartController } from './createChartController.js'
-export { createIndicatorSelectorController } from './createIndicatorSelectorController.js'
+export { createChartController } from './chart/index.js'
 export {
   allIndicatorDefinitions,
   toIndicatorDefinition,
 } from './indicatorDefinitionCatalog.js'
+export { createIndicatorSelectorController } from './indicatorSelector/index.js'
 export type {
   ActiveIndicator,
   ChartController,

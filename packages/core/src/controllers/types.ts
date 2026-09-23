@@ -32,7 +32,7 @@ import type { CreatePaneInput, PanePatch } from '../engine/paneManager.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
-import type { ReadonlySignal, Signal } from '../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
 
 export {
@@ -594,74 +594,17 @@ export interface ChartController extends DrawingChartAdapter {
 /**
  * Factory contract — adapters call this on mount.
  *
- * Implementation lives in packages/core/src/controllers/createChartController.ts
- * (Phase 1 deliverable). It wires the existing Chart engine in src/core/chart.ts.
+ * Implementation lives in controllers/chart/impl/createChartController.ts and wires
+ * the Chart engine behind this framework-agnostic contract.
  */
 export type ChartControllerFactory = (
   opts: ChartMountOptions,
 ) => ChartController | Promise<ChartController>
 
 // ---------------------------------------------------------------------------
-// Legacy type aliases (deprecated — kept for internal sub-controller tests)
+// 旧类型入口：小型控制器的契约现由各自的语义模块维护。
 // ---------------------------------------------------------------------------
 
-export interface ActiveIndicator {
-  id: string
-  definitionId: string
-  label: string
-  name: string
-  role: IndicatorPaneRole
-  params: Readonly<Record<string, number | string | boolean>>
-}
-
-export interface IndicatorSelectorController {
-  readonly catalog: Signal<ReadonlyArray<IndicatorDefinition>>
-  readonly active: Signal<ReadonlyArray<ActiveIndicator>>
-  readonly menuOpen: Signal<boolean>
-  readonly searchQuery: Signal<string>
-  readonly filteredMain: Signal<ReadonlyArray<IndicatorDefinition>>
-  readonly filteredSub: Signal<ReadonlyArray<IndicatorDefinition>>
-  add(definitionId: string): string | null
-  remove(instanceId: string): boolean
-  updateParams(instanceId: string, params: Record<string, number | string | boolean>): boolean
-  reorder(fromInstanceId: string, toInstanceId: string): boolean
-  openMenu(): void
-  closeMenu(): void
-  toggleMenu(): void
-  setSearchQuery(q: string): void
-  isActive(definitionId: string): boolean
-  dispose(): void
-}
-
-export type ToolId = string
-
-export interface ToolDefinition {
-  id: ToolId
-  label: string
-  icon?: string
-  group?: string
-  disabled?: boolean
-}
-
-export interface ToolbarController {
-  readonly tools: Signal<ReadonlyArray<ToolDefinition>>
-  readonly activeTool: Signal<ToolId | null>
-  readonly disabledTools: Signal<ReadonlySet<ToolId>>
-  selectTool(id: ToolId): void
-  clearSelection(): void
-  setDisabled(id: ToolId, disabled: boolean): void
-  dispose(): void
-}
-
-export interface DrawingState {
-  readonly activeTool: DrawingToolId | null
-  readonly drawingCount: number
-}
-
-export interface DrawingController {
-  readonly state: Signal<DrawingState>
-  setActiveTool(tool: DrawingToolId | null): void
-  clearAll(): void
-  deleteLast(): void
-  dispose(): void
-}
+export type { DrawingController, DrawingState } from './drawing/types.js'
+export type { ActiveIndicator, IndicatorSelectorController } from './indicatorSelector/types.js'
+export type { ToolbarController, ToolDefinition, ToolId } from './toolbar/types.js'
