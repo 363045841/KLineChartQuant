@@ -1,3 +1,4 @@
+<!-- 展示 Agent 会话入口，并通过事件向宿主请求会话操作、设置或关闭面板。 -->
 <template>
   <header class="agent-header">
     <div class="agent-header__top">
@@ -93,12 +94,14 @@
   const sessionOptions = computed(() =>
     props.sessions.map((session) => ({ value: session.id, label: session.title })),
   )
+  // 收集当前会话的新名称，确认后通过事件交由宿主处理。
   function rename(): void {
     const session = props.sessions.find((item) => item.id === props.activeSessionId)
     const title = window.prompt(text.value.sessionNamePrompt, session?.title ?? '')
     if (title?.trim()) emit('rename', title)
   }
 
+  // 用户确认后发出删除当前会话的请求。
   function remove(): void {
     if (window.confirm(text.value.deleteSessionConfirm)) emit('delete')
   }
@@ -108,7 +111,7 @@
   .agent-header {
     display: grid;
     gap: 8px;
-    padding: 12px 12px 10px;
+    padding: var(--agent-header-inset, 12px) var(--agent-header-inset, 12px) 10px;
     border-bottom: 1px solid var(--agent-border);
     background: var(--agent-surface);
   }
@@ -143,8 +146,8 @@
   }
 
   button {
-    width: 30px;
-    height: 30px;
+    width: var(--agent-header-button-size, 30px);
+    height: var(--agent-header-button-size, 30px);
     display: inline-grid;
     place-items: center;
     border: 0;
