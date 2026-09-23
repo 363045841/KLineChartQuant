@@ -253,7 +253,7 @@ export interface DrawingChartViewport {
  * 拖拽覆盖与预览等会话态不在本契约内。
  */
 export interface DrawingDocumentPort {
-  /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
+  /** 外部权威文档同步：替换并重设撤回历史基线。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
   /** read the full drawing list (plugin-level DrawingObject) */
   getFullDrawings(): ReadonlyArray<DrawingObject>
@@ -420,6 +420,8 @@ export interface ChartController extends DrawingChartAdapter {
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
   readonly drawingTool: ReadonlySignal<import('../engine/drawing/index.js').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  readonly canUndoDrawing: ReadonlySignal<boolean>
+  readonly canRedoDrawing: ReadonlySignal<boolean>
   /** 当前选中绘图 id 集合（kernel.drawing SSOT） */
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
@@ -542,8 +544,12 @@ export interface ChartController extends DrawingChartAdapter {
   getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey>
   removeDrawing(drawingId: string): boolean
   removeBatch(ids: ReadonlyArray<string>): boolean
-  /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
+  /** 外部权威文档同步：替换并重设撤回历史基线。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
+  /** 用户导入，作为一条可撤回的文档替换事务。 */
+  importDrawings(drawings: ReadonlyArray<DrawingObject>): void
+  undoDrawing(): boolean
+  redoDrawing(): boolean
 
   // ---- Pane ----
   createPane(input: CreatePaneInput): boolean

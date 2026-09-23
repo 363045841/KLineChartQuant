@@ -59,6 +59,19 @@ export function createDrawingState() {
         return next
       },
 
+      /** 历史回放：在同一次通知中恢复图元与选中集合。 */
+      restoreDocument(
+        drawings: ReadonlyArray<DrawingObject>,
+        selectedIds: ReadonlyArray<string>,
+      ): void {
+        const next = snapshotDrawings(drawings)
+        const selected = snapshotSelectedDrawingIds(selectedIds, next)
+        batch(() => {
+          signals.drawings.set(next)
+          signals.selectedDrawingIds.set(selected)
+        })
+      },
+
       /** 新增图元并在同一次通知内将其设为唯一选中，创建与选中不可分割。 */
       addDrawingAndSelect(drawing: DrawingObject): void {
         const next = snapshotDrawings([...signals.drawings.peek(), drawing])

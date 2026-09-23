@@ -239,6 +239,7 @@ function createFixture() {
     fetchTimeShare,
     fetchTimeShareRange,
     drawingDocument,
+    drawingCommands,
     drawingState,
     requestDraw,
     paneActions,
@@ -517,6 +518,12 @@ describe('createChartAgentController', () => {
     ).resolves.toEqual({ removed: true })
     expect(fixture.drawingDocument.listDrawings()).toEqual([])
     expect(fixture.requestDraw).toHaveBeenCalledTimes(3)
+    expect(fixture.drawingCommands.history.undo()).toBe(true)
+    expect(fixture.drawingDocument.getDrawing(created.id)?.labels?.line['0']?.text).toBe('更新趋势')
+    fixture.drawingCommands.updateBatch([created.id], { locked: true })
+    expect(fixture.drawingCommands.history.canRedo.peek()).toBe(false)
+    expect(fixture.drawingCommands.history.undo()).toBe(true)
+    expect(fixture.drawingDocument.getDrawing(created.id)?.locked).toBeUndefined()
   })
 
   it('creates a horizontal line from a price-only Agent anchor', async () => {

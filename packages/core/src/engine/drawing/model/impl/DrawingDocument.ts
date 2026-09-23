@@ -5,6 +5,7 @@ import { DRAWING_ERROR_CODES, KLineChartError } from '../../../../errors.js'
 import type { DrawingStyle } from '../../../../foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE } from '../../../../foundation/tokens/index.js'
 import { generateUUID } from '../../../../foundation/utils/uuid.js'
+import type { DrawingDocumentSnapshot } from '../../history/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, DrawingObject, PersistedDrawingAnchor } from '../../types.js'
 import type {
@@ -55,6 +56,25 @@ function isChannel(kind: DrawingKind): boolean {
 /** 已确认图元的唯一 CRUD 入口。 */
 export class DrawingDocument {
   constructor(private readonly dependencies: DrawingDocumentDependencies) {}
+
+  snapshot(): DrawingDocumentSnapshot {
+    return {
+      drawings: this.listDrawings(),
+      selectedIds: this.dependencies.drawingState.readonly.selectedDrawingIds.peek(),
+    }
+  }
+
+  onDrawingsChanged(listener: () => void): () => void {
+    return this.dependencies.drawingState.readonly.drawings.subscribe(listener)
+  }
+
+  /** 只供历史回放使用；不重新解析锚点，也不重新应用锁定策略。 */
+  restoreSnapshot(
+    drawings: ReadonlyArray<DrawingObject>,
+    selectedIds: ReadonlyArray<string>,
+  ): void {
+    this.dependencies.drawingState.actions.restoreDocument(drawings, selectedIds)
+  }
 
   /** 返回当前已确认图元快照。 */
   listDrawings(): ReadonlyArray<DrawingObject> {
@@ -255,20 +275,22 @@ export class DrawingDocument {
     this.dependencies.drawingState.actions.clearDrawings()
   }
 
-  /** 原子替换整份文档，仅供受控组件与导入导出使用；旧数据的输入锚点在此补齐。 */
+  /** 原子替换整份文档；旧数据的输入锚点在此补齐。调用方决定记录历史或重设基线。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
+    const committed = drawings.filter((drawing) => drawing.id !== PREVIEW_ID)
+    if (new Set(committed.map((drawing) => drawing.id)).size !== committed.length) {
+      throw new TypeError('Duplicate drawing IDs in replacement document')
+    }
     this.dependencies.drawingState.actions.setDrawings(
-      drawings
-        .filter((drawing) => drawing.id !== PREVIEW_ID)
-        .map((drawing) => ({
-          ...drawing,
-          anchors: materializeDrawingAnchors(
-            drawing.kind,
-            drawing.anchors,
-            () => `anchor-${generateUUID()}`,
-          ),
-          labels: normalizeDrawingLabels(drawing.labels),
-        })),
+      committed.map((drawing) => ({
+        ...drawing,
+        anchors: materializeDrawingAnchors(
+          drawing.kind,
+          drawing.anchors,
+          () => `anchor-${generateUUID()}`,
+        ),
+        labels: normalizeDrawingLabels(drawing.labels),
+      })),
     )
   }
 

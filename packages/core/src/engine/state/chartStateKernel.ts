@@ -9,7 +9,7 @@ import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost.js'
 import type { PaneSpec } from '../chartTypes.js'
-import type { DrawingObject, DrawingToolId } from '../drawing/index.js'
+import type { DrawingToolId } from '../drawing/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
@@ -535,9 +535,6 @@ export class ChartStateKernel extends StateKernel {
         renderer: 'candlestick' | 'ohlc-bar' | 'line' | 'area',
       ) => this.mode.actions.setPrimaryRenderer(view, renderer),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
-      setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
-        this.drawing.actions.setDrawings(drawings),
-      clearDrawings: () => this.drawing.actions.clearDrawings(),
       updateCrosshair: (
         pos: { x: number; y: number } | null,
         price: number | null,

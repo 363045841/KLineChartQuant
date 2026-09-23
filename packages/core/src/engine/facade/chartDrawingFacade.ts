@@ -5,6 +5,7 @@
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
 import type {
+  DrawingCommands,
   DrawingInteractionController,
   DrawingObject,
   DrawingToolId,
@@ -21,6 +22,7 @@ export interface ChartDrawingFacadeDependencies {
   renderer: ChartRenderer
   getSession: () => DrawingInteractionController | null
   scheduleDraw: () => void
+  getCommands: () => DrawingCommands
 }
 
 /** 提供绘图领域的公开操作，不管理交互会话生命周期。 */
@@ -43,11 +45,8 @@ export class ChartDrawingFacade {
   }
 
   /** 写入已确认图元并剥离会话预览。 */
-  setDrawings(drawings: DrawingObject[]): void {
-    this.deps.kernel.drawing.actions.setDrawings(
-      drawings.filter((drawing) => drawing.id !== '__preview__'),
-    )
-    this.deps.scheduleDraw()
+  setDrawings(drawings: ReadonlyArray<DrawingObject>): void {
+    this.deps.getCommands().syncExternalDrawings(drawings)
   }
 
   /** 更新选中图元 ID 集合。 */
@@ -87,20 +86,14 @@ export class ChartDrawingFacade {
     this.deps.scheduleDraw()
   }
 
-  /** 删除单个图元；活动会话优先修改其工作副本。 */
+  /** 删除单个已确认图元，统一经过可撤回的命令入口。 */
   remove(drawingId: string): void {
-    const session = this.deps.getSession()
-    if (session) {
-      session.removeDrawing(drawingId)
-      return
-    }
-    this.setDrawings(
-      this.deps.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId),
-    )
+    this.deps.getCommands().remove(drawingId)
   }
 
   /** 清除全部已确认图元。 */
   clear(): void {
-    this.setDrawings([])
+    this.deps.getSession()?.cancelPendingChanges()
+    this.deps.getCommands().clear()
   }
 }

@@ -96,6 +96,15 @@ export class DrawingInteractionController {
     this.setSelected([])
   }
 
+  /** 外部文档恢复后丢弃基于旧文档的预览与拖拽工作副本。 */
+  cancelPendingChanges(): void {
+    this.anchorCollector.reset()
+    this.pendingPaneId = null
+    if (this.pointerSession.kind === 'drag') this.adapter.unfreezeHoverTarget?.()
+    this.resetPointerSession(false)
+    this.sessionOverlay.clearSession()
+  }
+
   setTool(toolId: DrawingToolId) {
     this.adapter.setDrawingToolId(toolId)
   }
@@ -465,14 +474,14 @@ export class DrawingInteractionController {
   }
 
   /** 取消当前指针会话并清理其临时渲染覆盖。 */
-  private resetPointerSession(): void {
+  private resetPointerSession(requestDraw = true): void {
     const session = this.pointerSession
     this.pointerSession = { kind: 'idle' }
     if (session.kind === 'drag') {
       this.sessionOverlay.clearDragOverride()
       this.dragHandler.endDrag()
     }
-    this.adapter.requestDraw?.()
+    if (requestDraw) this.adapter.requestDraw?.()
   }
 
   /** 更新拖拽会话的整组临时覆盖；磁吸配置与绘制路径同源（Shift 互斥、Ctrl 取反），仅锚点拖拽生效。 */

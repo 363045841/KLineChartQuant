@@ -71,6 +71,39 @@
       </div>
     </div>
 
+    <span class="left-toolbar__divider"></span>
+
+    <div class="left-toolbar__group">
+      <BaseTooltip content="撤回">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="撤回"
+          :disabled="!canUndoDrawing"
+          @click="$emit('undoDrawing')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerArrowBackUp class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip content="重做">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="重做"
+          :disabled="!canRedoDrawing"
+          @click="$emit('redoDrawing')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerArrowForwardUp class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+    </div>
+
     <template v-if="alertController">
       <span class="left-toolbar__divider"></span>
 
@@ -197,6 +230,8 @@
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
+  import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
+  import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
@@ -278,6 +313,8 @@
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
+    (e: 'undoDrawing'): void
+    (e: 'redoDrawing'): void
     (e: 'settingsChange', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
@@ -293,6 +330,8 @@
       marketDataCacheStats?: MarketDataCacheStats
       /** kernel drawingTool 镜像；高亮以它为准 */
       drawingToolId?: string
+      canUndoDrawing?: boolean
+      canRedoDrawing?: boolean
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
       aggregationSources?: ReadonlyArray<
@@ -471,6 +510,15 @@
     border-color: var(--klc-color-ui-border);
     background: var(--klc-color-ui-hover);
     color: var(--klc-color-ui-text);
+  }
+
+  .left-toolbar__button:disabled,
+  .left-toolbar__button:disabled:hover {
+    border-color: transparent;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    opacity: 0.5;
+    cursor: default;
   }
 
   .left-toolbar__button.active {

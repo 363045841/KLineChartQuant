@@ -9,6 +9,7 @@
 
 - `DrawingDocument`：图元 CRUD、锚点/标签校验与错误码，用户 UI 与 Agent 的统一入口。
 - `DrawingCommands`：图元唯一写入口，提交状态变更并触发重绘副作用。
+- `DrawingHistory` 位于 `history/`；命令层把一次成功写入交给历史层记录或回放。
 - 锚点数量表与持久化锚点物化、标签键归一化、锁定与锚点一致性判断。
 
 本目录不负责：
@@ -24,7 +25,7 @@ model/
 ├── types.ts                      # 声明式输入 patch、样式键与依赖接口（不依赖 impl/）
 └── impl/
     ├── DrawingDocument.ts        # 图元 CRUD 领域模型
-    ├── DrawingCommands.ts        # 唯一写入路径 + 请求重绘
+    ├── DrawingCommands.ts        # 唯一写入路径 + 历史 + 请求重绘
     ├── drawingAccess.ts          # 锁定判断与锚点一致性比较
     ├── materializeAnchors.ts     # 锚点数量表与持久化锚点物化
     └── drawingLabels.ts          # 标签键契约与归一化
@@ -36,6 +37,7 @@ model/
 - `foundation/plugin/types.ts`：`DrawingStyle` 等渲染 primitive。
 - `data/provider/types.ts`：`TradingDate`。
 - `engine/state/drawingState`：kernel 绘图状态模块，作为 `DrawingDocumentDependencies` 注入。
+- `history/types.ts`：命令层依赖的历史文档结构契约。
 
 ## 约定
 

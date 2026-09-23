@@ -62,6 +62,7 @@ export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'
 export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/impl/drawingLabels.js'
 export { getDrawingInputAnchorCount } from './model/impl/materializeAnchors.js'
+export { resolveDrawingTradingDate } from './model/impl/resolveTradingDate.js'
 export type {
   AnchorTradingDateResolution,
   BatchDrawingPatch,

@@ -13,6 +13,7 @@ engine/drawing/
 ├── index.ts            # 唯一公开入口：重导出各子模块契约与实现
 ├── types.ts            # 图元领域模型契约（DrawingObject / DrawingKind / 锚点 / 标签 / 定义）
 ├── model/              # 持久化领域模型：types.ts + impl/（文档、命令、锚点、标签）
+├── history/            # 图元事务历史：types.ts + impl/（增量快照、撤回、重做）
 ├── session/            # 会话 overlay 与选择：impl/
 ├── geometry/           # 坐标、帧投影、线表、填充、标签布局、回归、视口裁剪：types.ts + impl/
 ├── interaction/        # 落点收集、预览、拖拽、命中选择、磁吸、工具表：types.ts + impl/
@@ -20,7 +21,7 @@ engine/drawing/
 └── __tests__/helpers/  # 跨子模块共享测试夹具
 ```
 
-各子模块的模块级文档：[`model/README.md`](./model/README.md)、[`session/README.md`](./session/README.md)、[`geometry/README.md`](./geometry/README.md)、[`interaction/README.md`](./interaction/README.md)、[`render/README.md`](./render/README.md)。
+各子模块的模块级文档：[`model/README.md`](./model/README.md)、[`history/README.md`](./history/README.md)、[`session/README.md`](./session/README.md)、[`geometry/README.md`](./geometry/README.md)、[`interaction/README.md`](./interaction/README.md)、[`render/README.md`](./render/README.md)。
 
 ## 分层与边界
 
@@ -29,12 +30,14 @@ engine/drawing/
 | 业务 SSOT | `engine/state/drawingState.ts` 的 `drawings` / `selectedDrawingIds` | 是 | 已确认图元与选中的唯一真相，只经由 adapter 读写 |
 | 文档层 | `model/impl/DrawingDocument.ts` | 是 | 图元 CRUD 的领域模型，用户 UI 与 Agent 共用同一入口 |
 | 命令层 | `model/impl/DrawingCommands.ts` | 是 | 图元唯一写入口，统一提交状态并触发重绘副作用 |
+| 历史层 | `history/impl/DrawingHistory.ts` | 否 | 每张图表一条图元事务历史；只记录已提交的变化 |
 | 会话 overlay | `session/impl/DrawingSessionOverlay.ts` | 否 | 仅预览与拖拽覆盖，渲染时与 kernel 合并，不进 kernel |
 | 交互会话 | `interaction/impl/interaction.ts` 的 `DrawingInteractionController` | 否 | 锚点收集、指针会话、磁吸档位等临时状态 |
 
 约定：
 
 - 已确认图元的写入必须走 `DrawingCommands` → `DrawingDocument` → adapter，禁止绕过命令层直写 kernel。
+- `Chart` 拥有文档、命令与历史实例；Controller、Agent 和 facade 共享实例。外部权威替换重设基线，用户导入作为一条可撤回事务。撤回/重做原子恢复原模型与选中集合，不重新运行输入校验。
 - `session/impl/DrawingSessionOverlay.ts` 只管预览/拖拽覆盖，绝不持有已确认图元列表。
 - 磁吸仅作用于落点与预览路径；命中、框选、标签等只读路径不得开启磁吸，否则命中范围会随吸附漂移。
 - 线段标签的锚点、对齐、基线与字号必须同源于 `geometry/impl/labelLayout.ts`，宿主输入框只镜像热点返回值，禁止各算一套。
@@ -51,6 +54,7 @@ engine/drawing/
 | `model/types.ts` | 文档/命令的声明式输入 patch、样式键与依赖接口 |
 | `model/impl/DrawingDocument.ts` | 绘图文档：图元 CRUD、校验与错误码，用户与 Agent 的统一契约 |
 | `model/impl/DrawingCommands.ts` | 命令层：唯一写入路径，提交状态变更并触发 canvas 失效 |
+| `history/impl/DrawingHistory.ts` | 对已提交变更记录前后快照与 ID 顺序；撤回、重做和外部同步失效 |
 | `model/impl/materializeAnchors.ts` | 锚点数量表与持久化锚点物化 |
 | `model/impl/drawingLabels.ts` | 标签键契约与归一化 |
 | `model/impl/drawingAccess.ts` | 锁定判断与锚点一致性比较 |

@@ -13,6 +13,7 @@ export interface ChartPaneFacadeDependencies {
   layoutManager: ChartPaneLayout
   ensureScaleTypes: () => void
   schedulePersistence: () => void
+  invalidateDrawingHistory: () => void
 }
 
 /** 提供 Pane 的公开业务操作，不管理 DOM 生命周期。 */
@@ -22,6 +23,7 @@ export class ChartPaneFacade {
   /** 从受控导入路径替换完整布局。 */
   importLayout(panes: ReadonlyArray<PaneSpec>): void {
     this.deps.kernel.paneManager.replaceLayoutForImport(panes)
+    this.deps.invalidateDrawingHistory()
     this.deps.ensureScaleTypes()
     this.deps.schedulePersistence()
   }
@@ -38,7 +40,9 @@ export class ChartPaneFacade {
 
   /** 删除 Pane 及其用户副图内容。 */
   remove(paneId: string): boolean {
-    return this.persistIfChanged(this.deps.kernel.paneManager.actions.remove(paneId))
+    const removed = this.persistIfChanged(this.deps.kernel.paneManager.actions.remove(paneId))
+    if (removed) this.deps.invalidateDrawingHistory()
+    return removed
   }
 
   /** 调整 Pane 显示顺序。 */
@@ -61,6 +65,7 @@ export class ChartPaneFacade {
   /** 删除全部用户创建的副图 Pane。 */
   clear(): void {
     this.deps.kernel.paneManager.actions.clear()
+    this.deps.invalidateDrawingHistory()
     this.deps.schedulePersistence()
   }
 

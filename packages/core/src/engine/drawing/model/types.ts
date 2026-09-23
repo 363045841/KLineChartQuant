@@ -8,6 +8,7 @@
 import type { TradingDate } from '../../../data/provider/types.js'
 import type { DrawingStyle } from '../../../foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
+import type { DrawingHistoryDocumentPort } from '../history/types.js'
 import type {
   DrawingKind,
   DrawingLabels,
@@ -101,7 +102,7 @@ export interface DrawingDocumentDependencies {
  * 命令层所需的文档写能力；由 `DrawingDocument` 实现。
  * 契约层只声明命令实际调用的方法，不反向依赖 impl/。
  */
-export interface DrawingCommandsDocumentPort {
+export interface DrawingCommandsDocumentPort extends DrawingHistoryDocumentPort {
   createDrawing(input: CreateDrawingInput): DrawingObject
   updateDrawing(drawing: DrawingObject): DrawingObject | null
   updateDrawingFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null

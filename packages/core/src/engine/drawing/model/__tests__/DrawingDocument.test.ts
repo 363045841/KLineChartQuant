@@ -1,31 +1,8 @@
 // 本文件验证绘图文档将声明式 CRUD 原子提交到 drawingState。
 import { describe, expect, it } from 'vitest'
 
-import { createDrawingState } from '../../../state/drawingState'
+import { createDrawingDocumentFixture as createDocument } from '../../__tests__/helpers/drawingDocumentFixture'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
-import { DrawingDocument } from '../impl/DrawingDocument'
-
-function createDocument() {
-  const state = createDrawingState()
-  // 五个 Bar 的时间轴：锚点 1_000 落在索引 4，派生锚点仍可落在数据范围内。
-  const timestamps = [0, 250, 500, 750, 1_000]
-  const document = new DrawingDocument({
-    drawingState: state,
-    getLogicalIndexAtTimestamp: (timestamp) => {
-      const index = timestamps.indexOf(timestamp)
-      return index === -1 ? null : index
-    },
-    getDrawingTimestampAtLogicalIndex: (index) => timestamps[index] ?? null,
-    getDrawingData: () => timestamps.map((timestamp) => ({ timestamp })),
-    findAnchorAtTradingDate: (tradingDate) =>
-      tradingDate === '2026-04-10'
-        ? { kind: 'resolved', timestamp: 1_000 }
-        : { kind: 'not-trading' },
-    hasPaneId: (paneId) => paneId === 'main',
-    getWorkspaceId: () => 'kline',
-  })
-  return { state, document }
-}
 
 describe('DrawingDocument', () => {
   it('creates a horizontal line from price without requiring chart data at an anchor time', () => {

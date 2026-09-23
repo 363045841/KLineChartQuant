@@ -1,23 +1,12 @@
 /** 验证绘图命令原语在成功写入后统一请求重绘。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import { createDrawingState } from '../../../state/drawingState'
-import { DrawingCommands } from '../impl/DrawingCommands'
-import { DrawingDocument } from '../impl/DrawingDocument'
+import { createDrawingCommandsFixture } from '../../__tests__/helpers/drawingDocumentFixture'
 
 /** 创建带重绘探针的绘图命令夹具。 */
 function createFixture() {
-  const document = new DrawingDocument({
-    drawingState: createDrawingState(),
-    getLogicalIndexAtTimestamp: () => 0,
-    getDrawingTimestampAtLogicalIndex: () => 1_000,
-    getDrawingData: () => [{ timestamp: 1_000 }],
-    findAnchorAtTradingDate: () => ({ kind: 'resolved', timestamp: 1_000 }),
-    hasPaneId: (paneId) => paneId === 'main',
-    getWorkspaceId: () => 'kline',
-  })
   const requestDraw = vi.fn()
-  return { commands: new DrawingCommands({ document, requestDraw }), requestDraw }
+  return { ...createDrawingCommandsFixture(requestDraw), requestDraw }
 }
 
 describe('DrawingCommands', () => {
@@ -33,9 +22,9 @@ describe('DrawingCommands', () => {
     commands.updateBatch([drawing.id], { style: { stroke: '#f00' } })
     commands.removeBatch([drawing.id])
     commands.clear()
-    commands.replace([])
+    commands.syncExternalDrawings([])
 
-    expect(requestDraw).toHaveBeenCalledTimes(6)
+    expect(requestDraw).toHaveBeenCalledTimes(5)
   })
 
   it('does not request a draw when update or remove changes nothing', () => {

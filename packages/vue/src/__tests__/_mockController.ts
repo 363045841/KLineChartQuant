@@ -73,6 +73,7 @@ export interface MockChartController extends ChartController {
   _emitTheme: (next: 'light' | 'dark') => void
   /** test-only: 写入主图图例上下文 */
   _setLegendTemplateContext: (next: LegendTemplateContext | null) => void
+  _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
 }
 
 export function createMockChartController(
@@ -80,6 +81,8 @@ export function createMockChartController(
 ): MockChartController {
   let disposeCalls = 0
   const setThemeCalls: Array<'light' | 'dark'> = []
+  const canUndoDrawing = createSignal(false)
+  const canRedoDrawing = createSignal(false)
 
   const viewport = createSignal<ChartViewport>({
     zoomLevel: opts.initialZoomLevel ?? 3,
@@ -137,6 +140,8 @@ export function createMockChartController(
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal('cursor' as const),
     drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+    canUndoDrawing,
+    canRedoDrawing,
     selectedDrawingIds: createSignal<ReadonlyArray<string>>([]),
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
@@ -230,6 +235,9 @@ export function createMockChartController(
     removeDrawing: () => false,
     removeBatch: () => false,
     replaceDrawings: () => {},
+    importDrawings: () => {},
+    undoDrawing: () => false,
+    redoDrawing: () => false,
     getFullDrawings: () => [],
     setSelectedDrawingIds: () => {},
     getSelectedDrawingIds: () => [],
@@ -267,6 +275,10 @@ export function createMockChartController(
 
   return {
     ...(controller as ChartController),
+    _setDrawingHistory: (undo, redo) => {
+      canUndoDrawing.set(undo)
+      canRedoDrawing.set(redo)
+    },
     disposeCalls: () => disposeCalls,
     setThemeCalls: () => setThemeCalls,
     rendererConfigCalls: () => rendererConfigCalls,
