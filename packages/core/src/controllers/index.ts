@@ -66,7 +66,7 @@ export type {
 } from './types.js'
 
 // -- Interaction snapshot factory (value export; the type-only block above drops it) --
-export { createIdleInteractionSnapshot } from './types.js'
+export { createIdleInteractionSnapshot, INDICATOR_ROLE } from './types.js'
 
 // -- Engine sub-path re-exports (Phase 9: facade for Vue adapter) --
 

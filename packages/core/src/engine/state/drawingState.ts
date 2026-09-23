@@ -2,7 +2,7 @@
 
 import type { DrawingStyle } from '../../foundation/plugin/index.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
-import type { DrawingObject, DrawingToolId } from '../drawing/index.js'
+import { CURSOR_DRAWING_TOOL_ID, type DrawingObject, type DrawingToolId } from '../drawing/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
 function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
@@ -33,7 +33,7 @@ function hasSameIds(left: ReadonlyArray<string>, right: ReadonlyArray<string>): 
 
 export function createDrawingState() {
   const { signals, readonly } = createSubState({
-    drawingTool: 'cursor' as DrawingToolId,
+    drawingTool: CURSOR_DRAWING_TOOL_ID,
     drawings: Object.freeze([]) as ReadonlyArray<DrawingObject>,
     selectedDrawingIds: Object.freeze([]) as ReadonlyArray<string>,
     globalDrawingLock: false,
@@ -182,7 +182,7 @@ export function createDrawingState() {
 
     dispose() {
       batch(() => {
-        signals.drawingTool.set('cursor')
+        signals.drawingTool.set(CURSOR_DRAWING_TOOL_ID)
         signals.drawings.set(Object.freeze([]))
         signals.selectedDrawingIds.set(Object.freeze([]))
         signals.globalDrawingLock.set(false)

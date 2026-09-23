@@ -30,6 +30,9 @@ export type DrawingToolId =
   | 'flat-line'
   | 'disjoint-channel'
 
+/** 选择/交互模式的绘图工具 ID，也是未指定工具时的默认值。 */
+export const CURSOR_DRAWING_TOOL_ID: DrawingToolId = 'cursor'
+
 /** 磁吸三态：off 关闭，weak 吸高低点，strong 吸 OHLC 四值。 */
 export type MagnetMode = 'off' | 'weak' | 'strong'
 

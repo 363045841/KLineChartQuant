@@ -12,6 +12,7 @@
  */
 
 import { computed, createSignal, type Signal } from '../../../foundation/reactivity/index.js'
+import { INDICATOR_ROLE } from '../../types.js'
 
 import type {
   ActiveIndicator,
@@ -111,14 +112,14 @@ export function createIndicatorSelectorController(
   const filteredMain: Signal<ReadonlyArray<IndicatorDefinition>> = toReadonlySignal(
     computed<ReadonlyArray<IndicatorDefinition>>(() => {
       const q = searchQuery()
-      return catalog().filter((d) => d.role === 'main' && matchesQuery(d, q))
+      return catalog().filter((d) => d.role === INDICATOR_ROLE.MAIN && matchesQuery(d, q))
     }),
   )
 
   const filteredSub: Signal<ReadonlyArray<IndicatorDefinition>> = toReadonlySignal(
     computed<ReadonlyArray<IndicatorDefinition>>(() => {
       const q = searchQuery()
-      return catalog().filter((d) => d.role === 'sub' && matchesQuery(d, q))
+      return catalog().filter((d) => d.role === INDICATOR_ROLE.SUB && matchesQuery(d, q))
     }),
   )
 
@@ -161,9 +162,9 @@ export function createIndicatorSelectorController(
 
     // Mains first in insertion order, then subs in insertion order.
     const current = active.peek()
-    if (def.role === 'main') {
-      const mains = current.filter((a) => a.role === 'main')
-      const subs = current.filter((a) => a.role !== 'main')
+    if (def.role === INDICATOR_ROLE.MAIN) {
+      const mains = current.filter((a) => a.role === INDICATOR_ROLE.MAIN)
+      const subs = current.filter((a) => a.role !== INDICATOR_ROLE.MAIN)
       active.set([...mains, newInstance, ...subs])
     } else {
       active.set([...current, newInstance])
@@ -208,7 +209,7 @@ export function createIndicatorSelectorController(
 
     // Reordering is only allowed within the sub-pane indicators.
     // Main indicators are pinned to the front and cannot be reordered.
-    if (fromItem.role !== 'sub' || toItem.role !== 'sub') return false
+    if (fromItem.role !== INDICATOR_ROLE.SUB || toItem.role !== INDICATOR_ROLE.SUB) return false
 
     const next = [...current]
     next.splice(fromIdx, 1)

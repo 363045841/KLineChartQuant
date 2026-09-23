@@ -10,7 +10,7 @@ import { getRegisteredIndicatorDefinition } from '../../../engine/indicators/ind
 import type { CustomMarkerEntity } from '../../../engine/marker/registry.js'
 import type { CreatePaneInput, PanePatch } from '../../../engine/paneManager.js'
 import { hasSubPaneRendererMetadata } from '../../../engine/subPaneManager.js'
-import type { DrawingControllerCallbacks } from '../types.js'
+import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
 
 /**
  * 构造一组轻量图表操作方法。
@@ -86,7 +86,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   /** 添加指标实例，返回实例 id；失败返回 null。 */
   function addIndicator(
     definitionId: string,
-    role: 'main' | 'sub',
+    role: IndicatorRole,
     params?: Record<string, unknown>,
   ): string | null {
     if (isDisposed()) return null

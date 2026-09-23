@@ -57,6 +57,7 @@ export type {
   MovingAnchor,
   SnappedPoint,
 } from './interaction/types.js'
+export { CURSOR_DRAWING_TOOL_ID } from './interaction/types.js'
 
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'

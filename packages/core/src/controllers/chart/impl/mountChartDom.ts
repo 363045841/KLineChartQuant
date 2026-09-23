@@ -1,5 +1,5 @@
 // 本文件负责创建 Chart 所需的 DOM 骨架，或复用调用方已提供的现成 DOM。
-import { KLineChartError } from '../../../errors.js'
+import { CONTROLLER_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartMountOptions } from '../types.js'
 import { DEFAULT_OPTS } from './controllerDefaults.js'
 
@@ -23,7 +23,7 @@ function buildDom(container: HTMLElement): MountedDom {
   const ownerDoc = container.ownerDocument
   if (!ownerDoc) {
     throw new KLineChartError(
-      'CONTROLLER_CONFIG_INVALID',
+      CONTROLLER_ERROR_CODES.CONFIG_INVALID,
       '[createChartController] container has no ownerDocument; cannot build DOM scaffold',
     )
   }

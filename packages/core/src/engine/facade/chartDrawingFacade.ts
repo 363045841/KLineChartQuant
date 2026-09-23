@@ -4,12 +4,13 @@
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
-import type {
-  DrawingCommands,
-  DrawingInteractionController,
-  DrawingObject,
-  DrawingToolId,
-  DrawingWorkspaceId,
+import {
+  CURSOR_DRAWING_TOOL_ID,
+  type DrawingCommands,
+  type DrawingInteractionController,
+  type DrawingObject,
+  type DrawingToolId,
+  type DrawingWorkspaceId,
 } from '../drawing/index.js'
 import type { ChartRenderer } from '../render/chartRenderer.js'
 import type { ChartStateKernel } from '../state/chartStateKernel.js'
@@ -88,7 +89,7 @@ export class ChartDrawingFacade {
 
   /** 设置绘图工具，并同步清理会话副作用。 */
   setTool(tool: DrawingToolId | null): void {
-    const toolId = tool ?? 'cursor'
+    const toolId = tool ?? CURSOR_DRAWING_TOOL_ID
     this.deps.kernel.drawing.actions.setDrawingTool(toolId)
     this.deps.getSession()?.applyToolSession()
     // 悬停目标只对 cursor/box-select 有效；换工具后由下一个 hover flush 重算

@@ -7,12 +7,14 @@
  */
 
 import type { Chart } from '../../../engine/chart.js'
-import type {
-  DrawingInteractionController,
-  DrawingToolId,
-  DrawingWorkspaceId,
-  PersistedDrawingAnchor,
+import {
+  CURSOR_DRAWING_TOOL_ID,
+  type DrawingInteractionController,
+  type DrawingToolId,
+  type DrawingWorkspaceId,
+  type PersistedDrawingAnchor,
 } from '../../../engine/drawing/index.js'
+import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
@@ -46,7 +48,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 读取当前绘图工具 id，销毁后回退 cursor。 */
   function getDrawingToolId(): DrawingToolId {
-    if (isDisposed()) return 'cursor'
+    if (isDisposed()) return CURSOR_DRAWING_TOOL_ID
     return chart.drawing.tool.peek()
   }
 
@@ -250,7 +252,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 读取当前绘图所属的数据工作区。 */
   function getDrawingWorkspaceId(): DrawingWorkspaceId {
-    if (isDisposed()) return 'kline' // 应当消除硬编码
+    if (isDisposed()) return ChartWorkspaceId.KLine
     return chart.drawing.getWorkspaceId()
   }
 

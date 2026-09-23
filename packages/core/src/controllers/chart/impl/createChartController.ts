@@ -8,9 +8,10 @@ import type {
 } from '../../../engine/chartTypes.js'
 import { getRegisteredIndicatorDefinition } from '../../../engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '../../../engine/indicators/registerBuiltins.js'
+import { MAIN_PANE_ID } from '../../../engine/paneIds.js'
 import { hasSubPaneRendererMetadata } from '../../../engine/subPaneManager.js'
 import { kGapFromKWidth, zoomLevelToKWidth } from '../../../engine/utils/zoom.js'
-import { KLineChartError } from '../../../errors.js'
+import { CONTROLLER_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createChartAgentController } from '../../../features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '../../../features/agent/impl/indicator/indicatorQuery.js'
 import { resolveSettings } from '../../../foundation/config/chartSettings.js'
@@ -77,13 +78,13 @@ function mapSubPaneInfo(subPane: LegacySubPaneInfo): SubPaneInfo {
 export async function createChartController(opts: ChartMountOptions): Promise<ChartController> {
   if (!opts) {
     throw new KLineChartError(
-      'CONTROLLER_CONFIG_INVALID',
+      CONTROLLER_ERROR_CODES.CONFIG_INVALID,
       '[createChartController] opts is required',
     )
   }
   if (!opts.container) {
     throw new KLineChartError(
-      'CONTROLLER_CONFIG_INVALID',
+      CONTROLLER_ERROR_CODES.CONFIG_INVALID,
       '[createChartController] opts.container must be a non-null HTMLElement',
     )
   }
@@ -102,7 +103,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     minKWidth: opts.minKWidth ?? DEFAULT_OPTS.minKWidth,
     maxKWidth: opts.maxKWidth ?? DEFAULT_OPTS.maxKWidth,
     priceLabelWidth: opts.priceLabelWidth ?? DEFAULT_OPTS.priceLabelWidth,
-    panes: [{ id: 'main', ratio: 1 }],
+    panes: [{ id: MAIN_PANE_ID, ratio: 1 }],
     paneGap: 0,
     zoomLevels: zoomLevelCount,
     initialZoomLevel,

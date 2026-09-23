@@ -57,7 +57,13 @@ export interface ChartViewport {
   kGap: number
 }
 
-export type IndicatorRole = 'main' | 'sub'
+/** 指标角色运行时取值，作为 IndicatorRole 的单一事实来源。 */
+export const INDICATOR_ROLE = {
+  MAIN: 'main',
+  SUB: 'sub',
+} as const
+
+export type IndicatorRole = (typeof INDICATOR_ROLE)[keyof typeof INDICATOR_ROLE]
 
 /** 组件受控指标实例配置。 */
 export interface ChartIndicatorConfig {
@@ -525,7 +531,7 @@ export interface ChartController extends DrawingChartAdapter {
   // ---- Indicators ----
   addIndicator(
     definitionId: string,
-    role: 'main' | 'sub',
+    role: IndicatorRole,
     params?: Record<string, unknown>,
   ): string | null
   removeIndicator(instanceId: string): boolean
