@@ -356,6 +356,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const drawingTool = chart.drawing.tool
   const drawings = chart.drawing.drawings
   const selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>> = chart.drawing.selectedIds
+  const globalDrawingLock: ReadonlySignal<boolean> = chart.drawing.globalLock
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
@@ -694,6 +695,15 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.drawing.tool.peek()
   }
 
+  function setGlobalDrawingLock(locked: boolean): void {
+    if (disposed) return
+    chart.drawing.setGlobalDrawingLock(locked)
+  }
+
+  function isGlobalDrawingLocked(): boolean {
+    return !disposed && chart.drawing.globalLock.peek()
+  }
+
   function registerDrawingSession(session: unknown | null): void {
     if (disposed) return
     chart.registerDrawingSession(
@@ -994,6 +1004,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     canUndoDrawing: drawingCommands.history.canUndo,
     canRedoDrawing: drawingCommands.history.canRedo,
     selectedDrawingIds,
+    globalDrawingLock,
     paneRatios,
     paneLayout,
     interactionState,
@@ -1052,6 +1063,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setDrawingTool,
     setDrawingToolId,
     getDrawingToolId,
+    setGlobalDrawingLock,
+    isGlobalDrawingLocked,
     registerDrawingSession,
     clearDrawings,
     createDrawing,

@@ -44,6 +44,16 @@ export class ChartDrawingFacade {
     return this.deps.kernel.drawing.readonly.selectedDrawingIds
   }
 
+  /** 全局绘图锁定信号。 */
+  get globalLock(): ReadonlySignal<boolean> {
+    return this.deps.kernel.drawing.readonly.globalDrawingLock
+  }
+
+  /** 设置全局绘图锁定；只冻结移动，不改写各图元自身 locked。 */
+  setGlobalDrawingLock(locked: boolean): void {
+    this.deps.kernel.drawing.actions.setGlobalDrawingLock(locked)
+  }
+
   /** 写入已确认图元并剥离会话预览。 */
   setDrawings(drawings: ReadonlyArray<DrawingObject>): void {
     this.deps.getCommands().syncExternalDrawings(drawings)

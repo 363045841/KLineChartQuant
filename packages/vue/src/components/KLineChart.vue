@@ -41,6 +41,8 @@
           :drawing-tool-id="drawingToolId"
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
+          :has-drawings="drawings.length > 0"
+          :global-drawing-locked="globalDrawingLock"
           :is-range-select-mode="isRangeSelectMode"
           :aggregation-sources="aggregationSources"
           :enabled-source-names="enabledSourceNameSet"
@@ -52,6 +54,7 @@
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @undo-drawing="controller?.undoDrawing()"
           @redo-drawing="controller?.redoDrawing()"
+          @set-global-drawing-lock="onSetGlobalDrawingLock"
           @settings-change="handleSettingsChange"
           @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -933,6 +936,8 @@
     updateDrawingLabel,
     onDeleteDrawing,
     onToggleDrawingLock,
+    globalDrawingLock,
+    onSetGlobalDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
   const editingDrawing = computed(() =>

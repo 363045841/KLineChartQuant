@@ -8,6 +8,20 @@ export function isDrawingLocked(drawing: Pick<DrawingObject, 'locked'>): boolean
 }
 
 /**
+ * 判断图元移动是否被禁止：图元自身锁定或全局锁均冻结几何移动。
+ * 全局锁只冻结移动，不参与删除门禁，也不改写图元自身 locked。
+ * @param drawing 目标图元
+ * @param globalLocked 全局绘图锁定状态
+ * @returns 任一锁定生效时为 true
+ */
+export function isDrawingMovementLocked(
+  drawing: Pick<DrawingObject, 'locked'>,
+  globalLocked: boolean,
+): boolean {
+  return globalLocked || isDrawingLocked(drawing)
+}
+
+/**
  * 判断两份锚点是否逐点相同；用于识别全量快照是否改动了锁定图元的几何。
  * 新增锚点字段时需同步扩展字段比较，否则锁定图元可能被新字段绕过拖动门控。
  * @param current 当前锚点

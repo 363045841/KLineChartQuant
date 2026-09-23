@@ -26,6 +26,7 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
   }
 })
 
+import type { DrawingObject } from '@363045841yyt/klinechart-core/controllers'
 import { loadBuiltinIndicators } from '@363045841yyt/klinechart-core/controllers'
 import { KlineChart } from '../components/index'
 import type { LegendSlotProps } from '../index'
@@ -270,6 +271,52 @@ describe('KLineChart drawing history toolbar', () => {
     await redo.trigger('click')
     expect(undoSpy).toHaveBeenCalledOnce()
     expect(redoSpy).toHaveBeenCalledOnce()
+
+    wrapper.unmount()
+  })
+})
+
+describe('KLineChart drawing lock toolbar', () => {
+  /** 构造最小图元；locked 缺省表示未锁定。 */
+  function createDrawing(id: string, locked?: boolean): DrawingObject {
+    return {
+      id,
+      kind: 'trend-line',
+      paneId: 'main',
+      visible: true,
+      ...(locked === undefined ? {} : { locked }),
+      anchors: [],
+      params: {},
+      style: {},
+    }
+  }
+
+  it('无图元时禁用，点击切换全局锁定且不改写各图元自身 locked', async () => {
+    const wrapper = mount(KlineChart, { attachTo: document.body })
+    await flushMount()
+
+    expect(
+      wrapper.get('.left-toolbar [aria-label="锁定全部图元"]').attributes('disabled'),
+    ).toBeDefined()
+
+    mockController._setDrawings([createDrawing('a'), createDrawing('b')])
+    await nextTick()
+
+    const setLockSpy = vi.spyOn(mockController, 'setGlobalDrawingLock')
+    await wrapper.get('.left-toolbar [aria-label="锁定全部图元"]').trigger('click')
+    expect(setLockSpy).toHaveBeenCalledWith(true)
+
+    // 全局锁生效后按钮切换为「解锁全部图元」并保持可用
+    await nextTick()
+    const unlock = wrapper.get('.left-toolbar [aria-label="解锁全部图元"]')
+    expect(unlock.attributes('disabled')).toBeUndefined()
+    await unlock.trigger('click')
+    expect(setLockSpy).toHaveBeenLastCalledWith(false)
+
+    // 全局锁不落库到图元自身 locked
+    expect(mockController.drawings.peek().every((drawing) => drawing.locked === undefined)).toBe(
+      true,
+    )
 
     wrapper.unmount()
   })

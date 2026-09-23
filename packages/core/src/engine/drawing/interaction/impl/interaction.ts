@@ -9,7 +9,7 @@ import type {
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from '../../geometry/types.js'
-import { isDrawingLocked } from '../../model/impl/drawingAccess.js'
+import { isDrawingMovementLocked } from '../../model/impl/drawingAccess.js'
 import {
   clearDrawingSelection,
   toggleDrawingSelection,
@@ -413,15 +413,16 @@ export class DrawingInteractionController {
       )
   }
 
-  /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；锁定图元一律不参与。 */
+  /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；移动被锁的图元一律不参与。 */
   private startDrag(
     pointer: DrawingPointerAnchor,
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
     const target = hit.target
+    const globalLocked = this.adapter.isGlobalDrawingLocked()
     const targets = (target.type === 'all' ? selectedDrawings : [hit.drawing]).filter(
-      (drawing) => !isDrawingLocked(drawing),
+      (drawing) => !isDrawingMovementLocked(drawing, globalLocked),
     )
     if (targets.length === 0) return
     this.dragHandler.startDrag(targets, target, pointer.x, pointer.y)

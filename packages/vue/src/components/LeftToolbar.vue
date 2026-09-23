@@ -109,6 +109,22 @@
           <IconTablerArrowForwardUp class="tool-icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
+      <BaseTooltip :content="globalDrawingLocked ? '解锁全部图元' : '锁定全部图元'">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :class="{ active: globalDrawingLocked }"
+          :aria-label="globalDrawingLocked ? '解锁全部图元' : '锁定全部图元'"
+          :disabled="!hasDrawings && !globalDrawingLocked"
+          @click="toggleGlobalDrawingLock"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerLock v-if="globalDrawingLocked" class="tool-icon" aria-hidden="true" />
+          <IconTablerLockOpen v-else class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <template v-if="alertController">
@@ -248,6 +264,8 @@
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerEqual from '~icons/tabler/equal'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerLock from '~icons/tabler/lock'
+  import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerMaximize from '~icons/tabler/maximize'
   import IconTablerMinimize from '~icons/tabler/minimize'
@@ -323,6 +341,7 @@
     (e: 'zoomOut'): void
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
+    (e: 'setGlobalDrawingLock', locked: boolean): void
     (e: 'settingsChange', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
@@ -340,6 +359,10 @@
       drawingToolId?: string
       canUndoDrawing?: boolean
       canRedoDrawing?: boolean
+      /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */
+      hasDrawings?: boolean
+      /** 全局绘图锁定状态：为 true 时全部图元不可移动 */
+      globalDrawingLocked?: boolean
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
       aggregationSources?: ReadonlyArray<
@@ -449,6 +472,11 @@
 
   function toggleExpand(groupId: string) {
     openGroupId.value = openGroupId.value === groupId ? null : groupId
+  }
+
+  /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
+  function toggleGlobalDrawingLock() {
+    emit('setGlobalDrawingLock', !props.globalDrawingLocked)
   }
 
   function openSettings() {

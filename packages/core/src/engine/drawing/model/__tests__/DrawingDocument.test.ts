@@ -450,6 +450,43 @@ describe('DrawingDocument', () => {
     expect(document.getDrawing(free.id)?.style.stroke).toBe('#f00')
   })
 
+  it('global lock freezes movement without touching each drawing own locked or blocking removal', () => {
+    const { state, document } = createDocument()
+    const drawing = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+
+    state.actions.setGlobalDrawingLock(true)
+
+    // 样式/显隐与锚点未变的全量快照照常可写。
+    const current = document.getDrawing(drawing.id)!
+    expect(
+      document.updateDrawingFromInput(drawing.id, { style: { stroke: '#f00' } }),
+    ).not.toBeNull()
+    expect(document.updateBatch([drawing.id], { visible: false })[0]?.visible).toBe(false)
+    expect(
+      document.updateDrawing({ ...current, style: { ...current.style, strokeWidth: 2 } }),
+    ).not.toBeNull()
+
+    // 移动被冻结：锚点更新与拖拽提交均拒绝。
+    expect(document.updateDrawingFromInput(drawing.id, { anchors: [{ price: 11 }] })).toBeNull()
+    expect(
+      document.updateDrawing({
+        ...current,
+        anchors: [{ ...current.anchors[0]!, price: 11 }],
+      }),
+    ).toBeNull()
+    expect(
+      document.commitDrawingDrag(drawing.id, [{ ...current.anchors[0]!, price: 11 }]),
+    ).toBeNull()
+
+    // 全局锁不改写图元自身 locked，也不阻止删除。
+    expect(document.getDrawing(drawing.id)?.locked).toBeUndefined()
+    expect(document.removeDrawing(drawing.id)).toBe(true)
+  })
+
   it('does not persist session preview objects through document replacement', () => {
     const { document } = createDocument()
 

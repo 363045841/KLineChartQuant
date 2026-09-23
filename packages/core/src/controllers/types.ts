@@ -288,6 +288,8 @@ export interface DrawingDocumentPort {
   setDrawingToolId(toolId: import('../engine/drawing/index.js').DrawingToolId): void
   /** read current drawing tool id from kernel */
   getDrawingToolId(): import('../engine/drawing/index.js').DrawingToolId
+  /** 读取全局绘图锁定：全局锁只冻结移动，不阻止删除。 */
+  isGlobalDrawingLocked(): boolean
 }
 
 /**
@@ -424,6 +426,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly canRedoDrawing: ReadonlySignal<boolean>
   /** 当前选中绘图 id 集合（kernel.drawing SSOT） */
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
+  /** 全局绘图锁定信号：为 true 时冻结全部图元的几何移动。 */
+  readonly globalDrawingLock: ReadonlySignal<boolean>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
@@ -535,6 +539,8 @@ export interface ChartController extends DrawingChartAdapter {
   setDrawingTool(tool: DrawingToolId | null): void
   setDrawingToolId(toolId: import('../engine/drawing/index.js').DrawingToolId): void
   getDrawingToolId(): import('../engine/drawing/index.js').DrawingToolId
+  /** 设置全局绘图锁定；只冻结移动，不改写各图元自身 locked。 */
+  setGlobalDrawingLock(locked: boolean): void
   /** 注册绘图交互会话到 Chart，使工具切换能清会话副作用 */
   registerDrawingSession(session: unknown | null): void
   clearDrawings(): void

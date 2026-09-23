@@ -36,6 +36,7 @@ export function createDrawingState() {
     drawingTool: 'cursor' as DrawingToolId,
     drawings: Object.freeze([]) as ReadonlyArray<DrawingObject>,
     selectedDrawingIds: Object.freeze([]) as ReadonlyArray<string>,
+    globalDrawingLock: false,
   })
 
   return {
@@ -45,6 +46,12 @@ export function createDrawingState() {
       setDrawingTool(tool: DrawingToolId) {
         if (signals.drawingTool.peek() === tool) return
         signals.drawingTool.set(tool)
+      },
+
+      /** 设置全局绘图锁定；全局锁只冻结图元移动，不改写各图元自身 locked。 */
+      setGlobalDrawingLock(locked: boolean) {
+        if (signals.globalDrawingLock.peek() === locked) return
+        signals.globalDrawingLock.set(locked)
       },
 
       setDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
@@ -178,6 +185,7 @@ export function createDrawingState() {
         signals.drawingTool.set('cursor')
         signals.drawings.set(Object.freeze([]))
         signals.selectedDrawingIds.set(Object.freeze([]))
+        signals.globalDrawingLock.set(false)
       })
     },
   }
