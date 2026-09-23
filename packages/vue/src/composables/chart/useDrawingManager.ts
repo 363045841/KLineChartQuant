@@ -7,14 +7,12 @@
 import {
   type ChartController,
   DrawingInteractionController,
-  type DrawingToolId,
-} from '@363045841yyt/klinechart-core/controllers'
-import {
   type DrawingLabelIndex,
   type DrawingLabelPosition,
   type DrawingObject,
   type DrawingStyle,
-} from '@363045841yyt/klinechart-core/plugin'
+  type DrawingToolId,
+} from '@363045841yyt/klinechart-core/controllers'
 import { computed, onUnmounted, type Ref, shallowRef } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {

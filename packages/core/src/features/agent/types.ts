@@ -14,13 +14,16 @@ import type {
   TimeShareSeries,
 } from '../../data/provider/types.js'
 import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
-import type { DrawingCommands } from '../../engine/drawing/DrawingCommands.js'
-import type { DrawingDocument } from '../../engine/drawing/DrawingDocument.js'
+import type {
+  DrawingCommands,
+  DrawingDocument,
+  DrawingLabels,
+  DrawingObject,
+} from '../../engine/drawing/index.js'
 import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata.js'
 import type { PaneManager } from '../../engine/paneManager.js'
 import type { DataStateModule } from '../../engine/state/dataState.js'
 import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry.js'
-import type { DrawingLabels, DrawingObject } from '../../foundation/plugin/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'

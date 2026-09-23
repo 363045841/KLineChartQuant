@@ -50,15 +50,15 @@ import type {
 } from '../chartTypes.js'
 import { InteractionController } from '../controller/interaction.js'
 import { ChartDataManager } from '../data/chartDataManager.js'
-import { projectDrawingsForFrame } from '../drawing/frameProjection.js'
 import {
+  createDrawingRendererPlugin,
   DrawingDefinitionRegistry,
+  type DrawingSelectionMarquee,
   DrawingStore,
   type DrawingStoreDeps,
+  projectDrawingsForFrame,
   registerDefaultDrawingDefinitions,
 } from '../drawing/index.js'
-import { createDrawingRendererPlugin } from '../drawing/plugin.js'
-import type { DrawingSelectionMarquee } from '../drawing/selectionMarquee.js'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { UpdateLevel } from '../layout/pane.js'

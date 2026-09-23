@@ -10,9 +10,13 @@ import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '../../../data/provid
 import type { PaneSpec } from '../../../engine/chartTypes.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
 import '../../../engine/data/comparisonCommands.js'
-import type { DrawingAnchorCommandInput } from '../../../engine/drawing/DrawingDocument.js'
-import { DRAWING_LABEL_INDEX_PATTERN } from '../../../engine/drawing/drawingLabels.js'
-import { getDrawingInputAnchorCount } from '../../../engine/drawing/materializeAnchors.js'
+import {
+  DRAWING_LABEL_INDEX_PATTERN,
+  type DrawingAnchorCommandInput,
+  type DrawingKind,
+  type DrawingObject,
+  getDrawingInputAnchorCount,
+} from '../../../engine/drawing/index.js'
 import type { DataStateModule } from '../../../engine/state/dataState.js'
 import { CHART_AGENT_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import {
@@ -20,7 +24,6 @@ import {
   getRegisteredChartTools,
   Tool,
 } from '../../../foundation/agent/chartToolRegistry.js'
-import type { DrawingKind, DrawingObject } from '../../../foundation/plugin/index.js'
 import { computed, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
 import { AGENT_DRAWING_COLOR_VALUES } from '../../../foundation/tokens/agentDrawingColors.js'
 import type {

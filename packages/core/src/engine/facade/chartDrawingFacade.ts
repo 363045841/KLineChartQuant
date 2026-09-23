@@ -1,11 +1,15 @@
 /**
  * ChartDrawingFacade —— 绘图状态、查询与工具操作。
  */
-import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index.js'
+
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
-import type { DrawingInteractionController } from '../drawing/interaction.js'
-import type { DrawingToolId } from '../drawing/toolConfig.js'
+import type {
+  DrawingInteractionController,
+  DrawingObject,
+  DrawingToolId,
+  DrawingWorkspaceId,
+} from '../drawing/index.js'
 import type { ChartRenderer } from '../render/chartRenderer.js'
 import type { ChartStateKernel } from '../state/chartStateKernel.js'
 import { resolveChartWorkspaceId } from '../state/modeState.js'

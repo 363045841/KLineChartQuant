@@ -1,6 +1,6 @@
 /** 绘图工具栏锁定/解锁按钮行为测试。 */
 
-import type { DrawingObject } from '@363045841yyt/klinechart-core/plugin'
+import type { DrawingObject } from '@363045841yyt/klinechart-core/controllers'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'

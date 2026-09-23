@@ -10,8 +10,7 @@ import type {
   TimeShareSeries,
 } from '../../../data/provider/types'
 import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
-import { DrawingCommands } from '../../../engine/drawing/DrawingCommands'
-import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
+import { DrawingCommands, DrawingDocument } from '../../../engine/drawing/index'
 import { createDataState } from '../../../engine/state/dataState'
 import { createDrawingState } from '../../../engine/state/drawingState'
 import { CHART_AGENT_ERROR_CODES } from '../../../errors'

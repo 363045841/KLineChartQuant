@@ -672,7 +672,7 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('removeDrawing with registered session updates kernel only', async () => {
-    const { DrawingInteractionController } = await import('../drawing/interaction')
+    const { DrawingInteractionController } = await import('../drawing/index')
     const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const d1 = {
       id: 'd1',
