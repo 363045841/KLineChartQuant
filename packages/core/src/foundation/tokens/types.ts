@@ -301,11 +301,9 @@ export interface UiColors {
   readonly controlBackground: ColorValue
 }
 
-/** Agent 专属颜色：对话气泡、启动器、遮罩与面板阴影。 */
+/** Agent 专属颜色：对话气泡、遮罩与面板阴影。 */
 export interface AgentColors {
   readonly userMessage: ColorValue
-  readonly launcherBorder: ColorValue
-  readonly launcherBackground: ColorValue
   readonly backdrop: ColorValue
   readonly panelShadow: ColorValue
 }

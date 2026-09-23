@@ -286,8 +286,6 @@ export const lightTheme: Theme = {
     },
     agent: {
       userMessage: '#E7F2EF',
-      launcherBorder: '#AEB8BC',
-      launcherBackground: 'rgba(255, 255, 255, 0.94)',
       backdrop: 'rgba(15, 20, 25, 0.35)',
       panelShadow: 'rgba(0, 0, 0, 0.2)',
     },

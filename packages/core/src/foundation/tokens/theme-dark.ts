@@ -280,8 +280,6 @@ export const darkTheme: Theme = {
     },
     agent: {
       userMessage: '#17312E',
-      launcherBorder: '#526169',
-      launcherBackground: 'rgba(27, 33, 37, 0.94)',
       backdrop: 'rgba(15, 20, 25, 0.35)',
       panelShadow: 'rgba(0, 0, 0, 0.2)',
     },

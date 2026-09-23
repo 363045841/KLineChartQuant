@@ -15,18 +15,23 @@
       <slot name="chart"></slot>
     </div>
 
-    <button
+    <BaseTooltip
       v-if="!panelOpen"
-      type="button"
-      class="agent-launcher"
-      data-testid="agent-panel-open"
-      aria-label="Open Agent panel"
-      title="Open Agent panel"
-      aria-expanded="false"
-      @click="panelOpen = true"
+      :content="text.openPanel"
+      placement="left"
+      trigger-display="contents"
     >
-      <IconSparkles aria-hidden="true" />
-    </button>
+      <button
+        type="button"
+        class="agent-launcher"
+        data-testid="agent-panel-open"
+        :aria-label="text.openPanel"
+        aria-expanded="false"
+        @click="panelOpen = true"
+      >
+        <IconChevronLeft aria-hidden="true" />
+      </button>
+    </BaseTooltip>
 
     <button
       v-if="panelOpen"
@@ -52,9 +57,11 @@
 
 <script setup lang="ts">
   import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-  import IconSparkles from '~icons/tabler/sparkles'
+  import IconChevronLeft from '~icons/tabler/chevron-left'
 
+  import BaseTooltip from '../../components/common/BaseTooltip.vue'
   import type { AgentBridgeClient } from './agent-contracts.js'
+  import { getAgentCopy } from './agent-copy.js'
   import AgentWorkspace from './components/AgentWorkspace.vue'
   import type { AgentPanelWidthStorage } from './workspace/types.js'
 
@@ -79,6 +86,9 @@
   const panelResizeReady = ref(false)
   const compact = ref(false)
   let shellObserver: ResizeObserver | undefined
+
+  // 启动器文案暂只支持中文；统一国际化后改由宿主注入 locale。
+  const text = getAgentCopy('zh-CN')
 
   const shellStyle = computed(() => ({
     '--agent-panel-width': `${panelWidth.value}px`,
@@ -165,12 +175,13 @@
 <style scoped>
   .agent-workbench-shell {
     --agent-bg: var(--klc-color-ui-background);
+    --agent-surface: var(--klc-color-ui-surface);
     --agent-text: var(--klc-color-ui-text);
     --agent-focus: var(--klc-color-ui-focus);
     --agent-header-inset: 12px;
     --agent-header-button-size: 30px;
     --chart-surface-padding: 16px;
-    --chart-surface-end-padding: calc(2 * var(--agent-header-inset) + var(--agent-header-button-size));
+    --chart-surface-end-padding: calc(var(--agent-header-inset) + var(--agent-header-button-size));
 
     width: 100%;
     height: 100%;
@@ -240,22 +251,22 @@
     cursor: col-resize;
   }
 
-  /* 与 AgentHeader 的收起按钮共用尺寸和边距，开合时鼠标无需换位置。 */
+  /* 宽度与 AgentHeader 的收起按钮一致；高度撑满 chart-surface，右侧贴屏幕边缘。 */
   .agent-launcher {
     width: var(--agent-header-button-size);
-    height: var(--agent-header-button-size);
+    height: auto;
     position: absolute;
-    top: var(--agent-header-inset);
-    right: var(--agent-header-inset);
+    top: 0;
+    bottom: 0;
+    right: 0;
     z-index: 20;
     display: inline-grid;
     place-items: center;
     padding: 0;
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
     box-sizing: border-box;
     color: var(--agent-text);
-    background: var(--klc-color-agent-launcher-background);
+    background: var(--agent-surface);
     cursor: pointer;
   }
 

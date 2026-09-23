@@ -640,7 +640,6 @@
     width: 95%;
     flex: 1;
     min-height: 0;
-    border-radius: 8px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -653,7 +652,6 @@
   .embed-container.is-fullscreen {
     border: none;
     margin: 0;
-    border-radius: 0;
     width: 100vw !important;
     height: 100dvh !important;
     background: #fff;

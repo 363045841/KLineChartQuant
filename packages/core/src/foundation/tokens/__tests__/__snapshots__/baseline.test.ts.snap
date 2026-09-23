@@ -182,8 +182,6 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-secondary-button-text: #9AA0A6;
   --klc-color-ui-control-background: #2A3338;
   --klc-color-agent-user-message: #17312E;
-  --klc-color-agent-launcher-border: #526169;
-  --klc-color-agent-launcher-background: rgba(27, 33, 37, 0.94);
   --klc-color-agent-backdrop: rgba(15, 20, 25, 0.35);
   --klc-color-agent-panel-shadow: rgba(0, 0, 0, 0.2);
   --klc-spacing-none: 0;
@@ -436,8 +434,6 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-secondary-button-text: #5A5A5A;
   --klc-color-ui-control-background: #EDF1F2;
   --klc-color-agent-user-message: #E7F2EF;
-  --klc-color-agent-launcher-border: #AEB8BC;
-  --klc-color-agent-launcher-background: rgba(255, 255, 255, 0.94);
   --klc-color-agent-backdrop: rgba(15, 20, 25, 0.35);
   --klc-color-agent-panel-shadow: rgba(0, 0, 0, 0.2);
   --klc-spacing-none: 0;
