@@ -20,6 +20,8 @@ engine/drawing/
 └── __tests__/helpers/  # 跨子模块共享测试夹具
 ```
 
+各子模块的模块级文档：[`model/README.md`](./model/README.md)、[`session/README.md`](./session/README.md)、[`geometry/README.md`](./geometry/README.md)、[`interaction/README.md`](./interaction/README.md)、[`render/README.md`](./render/README.md)。
+
 ## 分层与边界
 
 | 层 | 载体 | 是否持久化 | 说明 |
@@ -27,13 +29,13 @@ engine/drawing/
 | 业务 SSOT | `engine/state/drawingState.ts` 的 `drawings` / `selectedDrawingIds` | 是 | 已确认图元与选中的唯一真相，只经由 adapter 读写 |
 | 文档层 | `model/impl/DrawingDocument.ts` | 是 | 图元 CRUD 的领域模型，用户 UI 与 Agent 共用同一入口 |
 | 命令层 | `model/impl/DrawingCommands.ts` | 是 | 图元唯一写入口，统一提交状态并触发重绘副作用 |
-| 会话 overlay | `session/impl/DrawingState.ts` | 否 | 仅预览与拖拽覆盖，渲染时与 kernel 合并，不进 kernel |
+| 会话 overlay | `session/impl/DrawingSessionOverlay.ts` | 否 | 仅预览与拖拽覆盖，渲染时与 kernel 合并，不进 kernel |
 | 交互会话 | `interaction/impl/interaction.ts` 的 `DrawingInteractionController` | 否 | 锚点收集、指针会话、磁吸档位等临时状态 |
 
 约定：
 
 - 已确认图元的写入必须走 `DrawingCommands` → `DrawingDocument` → adapter，禁止绕过命令层直写 kernel。
-- `session/impl/DrawingState.ts` 只管预览/拖拽覆盖，绝不持有已确认图元列表。
+- `session/impl/DrawingSessionOverlay.ts` 只管预览/拖拽覆盖，绝不持有已确认图元列表。
 - 磁吸仅作用于落点与预览路径；命中、框选、标签等只读路径不得开启磁吸，否则命中范围会随吸附漂移。
 - 线段标签的锚点、对齐、基线与字号必须同源于 `geometry/impl/labelLayout.ts`，宿主输入框只镜像热点返回值，禁止各算一套。
 - 图元的线段构成与手柄开启只声明在 `geometry/impl/lines.ts`：绘制、命中、拖拽不得各自推导锚点对。
@@ -52,7 +54,7 @@ engine/drawing/
 | `model/impl/materializeAnchors.ts` | 锚点数量表与持久化锚点物化 |
 | `model/impl/drawingLabels.ts` | 标签键契约与归一化 |
 | `model/impl/drawingAccess.ts` | 锁定判断与锚点一致性比较 |
-| `session/impl/DrawingState.ts` | 会话 overlay：预览图元与拖拽覆盖的存取 |
+| `session/impl/DrawingSessionOverlay.ts` | 会话 overlay：预览图元与拖拽覆盖的存取 |
 | `session/impl/DrawingSelection.ts` | 选中集合的纯函数操作（清空、Ctrl 多选切换） |
 | `interaction/impl/interaction.ts` | `DrawingInteractionController`：组合 AnchorCollector/PreviewRenderer/HitTester/DragHandler，处理工具切换、指针会话、选中与磁吸 |
 | `interaction/impl/AnchorCollector.ts` | 多锚点工具的分步锚点累积（单锚点工具首次点击即创建） |
@@ -79,7 +81,7 @@ engine/drawing/
 ## 数据流
 
 ```
-落点        resolveDrawingPointer ──▶ AnchorCollector ──▶ PreviewRenderer ──▶ DrawingState(overlay)
+落点        resolveDrawingPointer ──▶ AnchorCollector ──▶ PreviewRenderer ──▶ DrawingSessionOverlay(overlay)
 确认        DrawingInteractionController ──▶ DrawingCommands ──▶ DrawingDocument ──▶ kernel.drawingState
 渲染        kernel ⊕ overlay ──▶ DrawingStore ──▶ frameProjection ──▶ plugin(绘制原语渲染)
 交互        指针事件 ──▶ HitTester / selectionMarquee / DragHandler ──▶ DrawingCommands
