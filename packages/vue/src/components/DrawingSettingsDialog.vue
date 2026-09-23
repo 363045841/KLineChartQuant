@@ -3,7 +3,7 @@
     <template #tabs>
       <BaseTabs v-model="activeTab" :tabs="tabs" aria-label="图元设置" />
     </template>
-    <div class="drawing-settings-body" role="tabpanel" :aria-label="activeTab === 'style' ? '样式' : '文字'">
+    <div class="drawing-settings-body" role="tabpanel" :aria-label="activeTab === 'style' ? '样式' : '文本'">
       <template v-if="activeTab === 'style'">
         <label v-if="config.style.includes('fill') && editableStyleKeys.includes('fill')" class="color-row">
           <span>背景颜色</span>
@@ -22,6 +22,35 @@
           />
         </label>
       </template>
+      <div v-else-if="textTarget" class="text-settings">
+        <label class="text-row">
+          <span>文本</span>
+          <textarea
+            v-model="textDraft"
+            rows="4"
+            maxlength="200"
+            aria-label="图元文本"
+            @change="updateText"
+          />
+        </label>
+        <div class="text-alignment">
+          <span>位置</span>
+          <div class="text-alignment__options" role="group" aria-label="文本位置">
+            <button
+              v-for="option in alignmentOptions"
+              :key="option.position"
+              type="button"
+              :title="option.label"
+              :aria-label="option.label"
+              :aria-pressed="textPosition === option.position"
+              :class="{ 'is-active': textPosition === option.position }"
+              @click="setTextPosition(option.position)"
+            >
+              <component :is="option.icon" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
     <template #footer>
       <div class="template-actions">
@@ -77,8 +106,11 @@
 
 <script setup lang="ts">
   import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
-  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
+  import type { DrawingLabelPosition, DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, ref, useId, watch } from 'vue'
+  import IconTablerAlignLeft from '~icons/tabler/align-left'
+  import IconTablerAlignCenter from '~icons/tabler/align-center'
+  import IconTablerAlignRight from '~icons/tabler/align-right'
 
   import { useClickOutside } from '../composables/useClickOutside.js'
   import { drawingSettingsConfigs } from './drawing-settings/config.js'
@@ -97,14 +129,39 @@
   const emit = defineEmits<{
     close: []
     updateStyle: [style: Partial<DrawingStyle>]
+    updateText: [target: 'line' | 'area', text: string, position: DrawingLabelPosition]
   }>()
-  const tabs = [
-    { id: 'style', label: '样式' },
-    { id: 'text', label: '文字' },
-  ] as const
   const activeTab = ref<'style' | 'text'>('style')
   const templateFormId = useId()
   const config = computed(() => drawingSettingsConfigs[props.drawing.kind])
+  const textTarget = computed<'line' | 'area' | null>(() => {
+    const target = config.value.text[0]
+    return target === 'line' || target === 'area' ? target : null
+  })
+  const tabs = computed(() => [
+    { id: 'style' as const, label: '样式' },
+    ...(textTarget.value ? [{ id: 'text' as const, label: '文本' }] : []),
+  ])
+  const textDraft = ref('')
+  const textPosition = ref<DrawingLabelPosition>('center')
+  const alignmentOptions = [
+    { position: 'start', label: '靠左', icon: IconTablerAlignLeft },
+    { position: 'center', label: '居中', icon: IconTablerAlignCenter },
+    { position: 'end', label: '靠右', icon: IconTablerAlignRight },
+  ] as const
+  function syncTextDraft() {
+    const label = textTarget.value ? props.drawing.labels?.[textTarget.value]['0'] : undefined
+    textDraft.value = label?.text ?? ''
+    textPosition.value = label?.position ?? 'center'
+  }
+  function updateText() {
+    if (textTarget.value) emit('updateText', textTarget.value, textDraft.value, textPosition.value)
+  }
+  function setTextPosition(position: DrawingLabelPosition) {
+    if (textPosition.value === position) return
+    textPosition.value = position
+    if (textDraft.value.trim()) updateText()
+  }
   const templates = ref<DrawingTemplate[]>([])
   const savingTemplate = ref(false)
   const templateName = ref('')
@@ -176,6 +233,7 @@
   watch(() => props.show, (show) => {
     if (show) {
       activeTab.value = 'style'
+      syncTextDraft()
       applyMenuOpen.value = false
       savingTemplate.value = false
       templateError.value = ''
@@ -183,6 +241,8 @@
     }
   })
   watch(() => props.drawing.kind, () => {
+    activeTab.value = 'style'
+    syncTextDraft()
     applyMenuOpen.value = false
     savingTemplate.value = false
     templates.value = []
@@ -190,8 +250,12 @@
     void reloadTemplates()
   })
   onMounted(() => {
-    if (props.show) void reloadTemplates()
+    if (props.show) {
+      syncTextDraft()
+      void reloadTemplates()
+    }
   })
+  watch(() => props.drawing.id, syncTextDraft)
 </script>
 
 <style scoped>
@@ -207,6 +271,74 @@
     padding: 8px 0;
     font-size: 13px;
     cursor: pointer;
+  }
+
+  .text-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .text-row textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 4px;
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-text);
+    font: inherit;
+    resize: vertical;
+  }
+
+  .text-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .text-alignment {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 13px;
+  }
+
+  .text-alignment__options {
+    display: flex;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .text-alignment__options button {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-right: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
+  }
+
+  .text-alignment__options button:last-child {
+    border-right: 0;
+  }
+
+  .text-alignment__options button:hover,
+  .text-alignment__options button.is-active {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+  }
+
+  .text-alignment__options svg {
+    width: 16px;
+    height: 16px;
   }
 
   .template-actions {

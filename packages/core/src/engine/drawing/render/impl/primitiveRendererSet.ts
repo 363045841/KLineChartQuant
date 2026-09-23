@@ -10,7 +10,7 @@ import {
   type ScreenPoint,
 } from '../../../../foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '../../../../foundation/tokens/index.js'
-import { resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
+import { resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
 import { extendLineToViewport } from '../../geometry/impl/lineClipping.js'
 import type { PrimitiveRendererSet } from '../types.js'
 
@@ -203,13 +203,14 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       if (primitive.text) {
         const xs = primitive.points.map((point) => point.x)
         const ys = primitive.points.map((point) => point.y)
+        const layout = resolveAreaLabelLayout(Math.min(...xs), Math.max(...xs), primitive.text.position)
         // 文字在填充后绘制，始终位于填充带上层。
         ctx.globalAlpha = 1
         ctx.fillStyle =
           primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
         ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? 'center'
-        const x = (Math.min(...xs) + Math.max(...xs)) / 2
+        ctx.textAlign = primitive.text.align ?? layout.align
+        const x = layout.x
         const y = (Math.min(...ys) + Math.max(...ys)) / 2
         drawMultilineText(
           ctx,

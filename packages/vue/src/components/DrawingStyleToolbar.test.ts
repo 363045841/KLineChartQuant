@@ -60,4 +60,29 @@ describe('DrawingStyleToolbar 锁定按钮', () => {
 
     wrapper.unmount()
   })
+
+  it('shows icon positions in the canvas toolbar while editing text', async () => {
+    const wrapper = mount(DrawingStyleToolbar, {
+      props: { drawings: [], editableStyleKeys: [], lineLabelPosition: 'center' },
+    })
+
+    expect(wrapper.findAll('.label-position__button')).toHaveLength(3)
+    expect(wrapper.get('[aria-label="居中"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.find('.toolbar-btn--delete').exists()).toBe(false)
+    await wrapper.get('[aria-label="起点"]').trigger('click')
+    expect(wrapper.emitted('updateLineLabelPosition')).toEqual([['start']])
+    wrapper.unmount()
+  })
+
+  it('opens settings for the single selected drawing only', async () => {
+    const drawing = createDrawing('a')
+    const wrapper = mount(DrawingStyleToolbar, {
+      props: { drawings: [drawing], editableStyleKeys: [] },
+    })
+    await wrapper.get('.toolbar-btn--settings').trigger('click')
+    expect(wrapper.emitted('openSettings')).toEqual([['a']])
+    await wrapper.setProps({ drawings: [drawing, createDrawing('b')] })
+    expect(wrapper.find('.toolbar-btn--settings').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

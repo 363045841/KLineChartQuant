@@ -32,3 +32,15 @@ export function resolveLineLabelLayout(
     align,
   }
 }
+
+/** 填充区域标签按包围盒水平对齐，绘制和热点使用同一个锚点。 */
+export function resolveAreaLabelLayout(
+  left: number,
+  right: number,
+  position: DrawingLabelPosition | undefined,
+): { x: number; align: CanvasTextAlign } {
+  const inset = Math.min(6, (right - left) / 2)
+  if (position === 'start') return { x: left + inset, align: 'left' }
+  if (position === 'end') return { x: right - inset, align: 'right' }
+  return { x: (left + right) / 2, align: 'center' }
+}

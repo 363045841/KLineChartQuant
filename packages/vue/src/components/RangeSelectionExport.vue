@@ -16,7 +16,7 @@
     />
     <span class="range-count">共 {{ count }} 条</span>
     <span
-      class="range-return"
+      class="range-return toolbar-separated"
       :class="`range-return--${returnDirection}`"
       title="按区间首尾收盘价计算"
     >
@@ -140,12 +140,6 @@
   }
 
   .range-return {
-    display: flex;
-    align-items: center;
-    height: 18px;
-    padding: 0 10px;
-    border-left: 1px solid var(--klc-color-ui-border);
-    border-right: 1px solid var(--klc-color-ui-border);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
