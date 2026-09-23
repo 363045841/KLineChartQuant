@@ -18,12 +18,12 @@ export type {
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
 
-export { createChartController } from './createChartController.js'
-export { createIndicatorSelectorController } from './createIndicatorSelectorController.js'
+export { createChartController } from './chart/index.js'
 export {
   allIndicatorDefinitions,
   toIndicatorDefinition,
 } from './indicatorDefinitionCatalog.js'
+export { createIndicatorSelectorController } from './indicatorSelector/index.js'
 export type {
   ActiveIndicator,
   ChartController,
@@ -66,7 +66,7 @@ export type {
 } from './types.js'
 
 // -- Interaction snapshot factory (value export; the type-only block above drops it) --
-export { createIdleInteractionSnapshot } from './types.js'
+export { createIdleInteractionSnapshot, INDICATOR_ROLE } from './types.js'
 
 // -- Engine sub-path re-exports (Phase 9: facade for Vue adapter) --
 

@@ -248,3 +248,8 @@ export function createMissingSessionError(sourceId: string, instrumentId: string
     `[${sourceId}] sessionId is required for instrument ${instrumentId}`,
   )
 }
+
+/** Controller 挂载配置错误码；追加定义以保持现有错误码表稳定。 */
+export const CONTROLLER_ERROR_CODES = Object.freeze({
+  CONFIG_INVALID: 'CONTROLLER_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)

@@ -8,7 +8,7 @@ import {
   pointToSegmentDistanceSq,
 } from '../../geometry/impl/coordinateUtils.js'
 import { buildFillPolygon } from '../../geometry/impl/fillRegions.js'
-import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
+import { LINE_LABEL_BASELINE, resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
 import { computeLinearRegression } from '../../geometry/impl/linearRegression.js'
 import { getLines, getVerticalHandleLines } from '../../geometry/impl/lines.js'
 import type { DrawingLine, VerticalHandleLine } from '../../geometry/types.js'
@@ -45,6 +45,52 @@ const LINE_HIT_RADIUS_SQ = LINE_HIT_RADIUS * LINE_HIT_RADIUS
 /** 线段中心文本热点半径（px）。 */
 const LINE_LABEL_TARGET_RADIUS = 18
 const LINE_LABEL_TARGET_RADIUS_SQ = LINE_LABEL_TARGET_RADIUS * LINE_LABEL_TARGET_RADIUS
+let labelMeasureContext: CanvasRenderingContext2D | null | undefined
+
+function labelTextWidth(text: string, fontSize: number): number {
+  if (labelMeasureContext === undefined) {
+    labelMeasureContext = typeof document === 'undefined'
+      ? null
+      : document.createElement('canvas').getContext('2d')
+  }
+  if (labelMeasureContext) {
+    labelMeasureContext.font = `${fontSize}px sans-serif`
+    return labelMeasureContext.measureText(text).width
+  }
+  return [...text].reduce((sum, char) => sum + fontSize * (char.charCodeAt(0) > 255 ? 1 : 0.65), 0)
+}
+
+/** Existing text is clickable across its rendered footprint, not just near its anchor. */
+function labelHitDistanceSq(
+  mouseX: number,
+  mouseY: number,
+  x: number,
+  y: number,
+  text: string | undefined,
+  fontSize: number,
+  align: CanvasTextAlign,
+  baseline: 'bottom' | 'middle',
+  rotation = 0,
+): number {
+  const dx = mouseX - x
+  const dy = mouseY - y
+  const anchorDistanceSq = dx * dx + dy * dy
+  if (!text || anchorDistanceSq <= LINE_LABEL_TARGET_RADIUS_SQ) return anchorDistanceSq
+
+  const lines = text.split('\\n')
+  const width = Math.max(...lines.map((line) => labelTextWidth(line, fontSize)))
+  const height = lines.length * fontSize * 1.2
+  const localX = dx * Math.cos(rotation) + dy * Math.sin(rotation)
+  const localY = -dx * Math.sin(rotation) + dy * Math.cos(rotation)
+  const left = align === 'left' ? 0 : align === 'right' ? -width : -width / 2
+  const top = baseline === 'bottom' ? -height : -height / 2
+  const padding = 5
+  if (
+    localX >= left - padding && localX <= left + width + padding &&
+    localY >= top - padding && localY <= top + height + padding
+  ) return 0
+  return anchorDistanceSq
+}
 
 /** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
 const NO_SELECTION: ReadonlySet<string> = new Set()
@@ -340,9 +386,10 @@ export class HitTester {
       for (const [lineIndex, segment] of segments.entries()) {
         const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
         const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
-        const dx = mouseX - layout.x
-        const dy = mouseY - layout.y
-        const distanceSq = dx * dx + dy * dy
+        const distanceSq = labelHitDistanceSq(
+          mouseX, mouseY, layout.x, layout.y, label?.text,
+          drawing.style.fontSize ?? 12, layout.align, 'bottom', layout.rotation,
+        )
         if (distanceSq > closestLineDistanceSq) continue
         closestLineDistanceSq = distanceSq
         closestLine = {
@@ -364,17 +411,21 @@ export class HitTester {
       // 故 getDrawingLabelSegments 与其延长线段一致。已找到首个 area 热点便不再重算。
       if (areaTarget || segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) continue
       const points = segments.flatMap((segment) => [segment.a, segment.b])
-      const x =
-        (Math.min(...points.map((point) => point.x)) +
-          Math.max(...points.map((point) => point.x))) /
-        2
+      const areaPosition = drawing.labels?.area['0']?.position ?? 'center'
+      const areaLayout = resolveAreaLabelLayout(
+        Math.min(...points.map((point) => point.x)),
+        Math.max(...points.map((point) => point.x)),
+        areaPosition,
+      )
+      const x = areaLayout.x
       const y =
         (Math.min(...points.map((point) => point.y)) +
           Math.max(...points.map((point) => point.y))) /
         2
-      const dx = mouseX - x
-      const dy = mouseY - y
-      if (dx * dx + dy * dy > LINE_LABEL_TARGET_RADIUS_SQ) continue
+      if (labelHitDistanceSq(
+        mouseX, mouseY, x, y, drawing.labels?.area['0']?.text,
+        drawing.style.fontSize ?? 12, areaLayout.align, 'middle',
+      ) > LINE_LABEL_TARGET_RADIUS_SQ) continue
       areaTarget = {
         drawingId: drawing.id,
         targetKind: 'area',
@@ -383,8 +434,8 @@ export class HitTester {
         y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
         rotation: 0,
         text: drawing.labels?.area['0']?.text ?? '',
-        position: drawing.labels?.area['0']?.position ?? 'center',
-        align: 'center',
+        position: areaPosition,
+        align: areaLayout.align,
         baseline: 'middle',
         fontSize: drawing.style.fontSize ?? 12,
       }

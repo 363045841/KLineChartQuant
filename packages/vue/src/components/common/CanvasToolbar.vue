@@ -76,7 +76,8 @@
     height: 14px;
   }
 
-  .canvas-toolbar :deep(.toolbar-btn--lock) {
+  .canvas-toolbar :deep(.toolbar-btn--lock),
+  .canvas-toolbar :deep(.toolbar-btn--settings) {
     width: 26px;
     padding: 0;
   }
@@ -85,7 +86,19 @@
     color: var(--klc-color-ui-text);
   }
 
-  .canvas-toolbar :deep(.lock-icon) {
+  .canvas-toolbar :deep(.toolbar-separated) {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    height: 18px;
+    margin-inline: 6px;
+    padding: 0 10px;
+    border-left: 1px solid var(--klc-color-ui-border);
+    border-right: 1px solid var(--klc-color-ui-border);
+  }
+
+  .canvas-toolbar :deep(.lock-icon),
+  .canvas-toolbar :deep(.settings-icon) {
     width: 14px;
     height: 14px;
   }

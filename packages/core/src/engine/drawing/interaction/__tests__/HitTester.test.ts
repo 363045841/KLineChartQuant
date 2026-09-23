@@ -183,6 +183,46 @@ describe('HitTester', () => {
     })
   })
 
+  it('opens the inline editor when hovering over text entered in the settings dialog', () => {
+    const drawing: DrawingObject = {
+      id: 'line-text',
+      kind: 'trend-line',
+      paneId: 'main',
+      visible: true,
+      anchors: [
+        { id: 'a', type: 'point', time: 1_000, price: 100 },
+        { id: 'b', type: 'point', time: 2_000, price: 100 },
+      ],
+      labels: { line: { 0: { text: 'Settings dialog label', position: 'start' } }, area: {} },
+      params: {},
+      style: {},
+    }
+    const tester = new HitTester()
+    // More than 18px from the start anchor, but inside the drawn text.
+    expect(tester.findLabelTarget(70, 80, [drawing], createLineAdapter())).toMatchObject({
+      drawingId: 'line-text', text: 'Settings dialog label', position: 'start',
+    })
+  })
+
+  it('hits text near the edge of a filled drawing', () => {
+    const drawing: DrawingObject = {
+      id: 'area-text',
+      kind: 'rectangle',
+      paneId: 'main',
+      visible: true,
+      anchors: [
+        { id: 'a', type: 'point', time: 1_000, price: 40 },
+        { id: 'b', type: 'point', time: 2_000, price: 140 },
+      ],
+      labels: { line: {}, area: { 0: { text: 'Long rectangle label', position: 'end' } } },
+      params: {},
+      style: {},
+    }
+    expect(new HitTester().findLabelTarget(60, 90, [drawing], createLineAdapter())).toMatchObject({
+      drawingId: 'area-text', targetKind: 'area', text: 'Long rectangle label',
+    })
+  })
+
   it('hits every persisted anchor of a parallel channel, including the derived fourth', () => {
     const { drawing, adapter } = createChannelFixture()
 

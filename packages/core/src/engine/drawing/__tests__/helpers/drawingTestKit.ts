@@ -270,6 +270,7 @@ export function createDrawingDocumentPort(
       toolId = next
     }),
     getDrawingToolId: () => toolId,
+    isGlobalDrawingLocked: () => false,
     ...overrides,
   } satisfies DrawingDocumentPort
 }
@@ -370,6 +371,8 @@ export interface SelectionAdapterOptions {
   paneTop?: number
   paneHeight?: number
   plotHeight?: number
+  /** 全局绘图锁定状态；为 true 时冻结全部图元移动。 */
+  globalLocked?: boolean
 }
 
 /** 构造选择与命中路径最小 adapter，返回选择写入探针。 */
@@ -377,9 +380,18 @@ export function createSelectionAdapter(
   drawings: ReadonlyArray<DrawingObject>,
   options: SelectionAdapterOptions = {},
 ) {
-  const { tool = 'cursor', paneTop = 0, paneHeight = 100, plotHeight = 100 } = options
+  const {
+    tool = 'cursor',
+    paneTop = 0,
+    paneHeight = 100,
+    plotHeight = 100,
+    globalLocked = false,
+  } = options
   const pane = { paneId: 'main', top: paneTop, height: paneHeight }
-  const documentPort = createDrawingDocumentPort(drawings, { getDrawingToolId: () => tool })
+  const documentPort = createDrawingDocumentPort(drawings, {
+    getDrawingToolId: () => tool,
+    isGlobalDrawingLocked: () => globalLocked,
+  })
   const adapter = {
     ...documentPort,
     ...createDrawingViewportPort({

@@ -72,4 +72,16 @@ describe('DrawingInteractionController locked drawings', () => {
     expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
     expect(internal.dragHandler.startDrag).toHaveBeenCalledWith([free], { type: 'all' }, 10, 10)
   })
+
+  it('全局锁定时未锁定图元也不开始拖拽', () => {
+    const free = createDrawingObject({ id: 'free' })
+    const { adapter } = createSelectionAdapter([free], { globalLocked: true })
+    const controller = new DrawingInteractionController(adapter)
+    const internal = stubDrawingControllerInternals(controller, {
+      hit: { drawing: free, target: { type: 'all' } },
+    })
+
+    expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
+    expect(internal.dragHandler.startDrag).not.toHaveBeenCalled()
+  })
 })

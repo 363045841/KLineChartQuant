@@ -1,5 +1,6 @@
 import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import { MAIN_PANE_ID } from '../paneIds.js'
 import type { PriceRange } from '../scale/price.js'
 import { PriceScale } from '../scale/priceScale.js'
 import { getVisiblePriceRange } from '../viewport/viewport.js'
@@ -72,7 +73,7 @@ export class Pane {
    */
   constructor(id: string, options: PaneInitOptions = {}) {
     this.id = id
-    this.role = options.role ?? (id === 'main' ? 'price' : 'indicator')
+    this.role = options.role ?? (id === MAIN_PANE_ID ? 'price' : 'indicator')
     this.capabilities = {
       ...defaultCapabilitiesByRole(this.role),
       ...(options.capabilities ?? {}),

@@ -41,6 +41,8 @@
           :drawing-tool-id="drawingToolId"
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
+          :has-drawings="drawings.length > 0"
+          :global-drawing-locked="globalDrawingLock"
           :is-range-select-mode="isRangeSelectMode"
           :aggregation-sources="aggregationSources"
           :enabled-source-names="enabledSourceNameSet"
@@ -52,6 +54,7 @@
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @undo-drawing="controller?.undoDrawing()"
           @redo-drawing="controller?.redoDrawing()"
+          @set-global-drawing-lock="onSetGlobalDrawingLock"
           @settings-change="handleSettingsChange"
           @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -123,28 +126,16 @@
                     @batch-setting="showBatchStockDialog = true"
                   />
                   <DrawingStyleToolbar
-                    v-if="selectedDrawings.length > 0"
+                    v-if="selectedDrawings.length > 0 || isEditingLineLabel"
                     :drawings="selectedDrawings"
                     :editable-style-keys="selectedDrawingStyleKeys"
+                    :line-label-position="isEditingLineLabel ? lineLabelPosition : undefined"
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
                     @toggle-lock="onToggleDrawingLock"
+                    @update-line-label-position="setLineLabelPosition"
+                    @open-settings="openDrawingSettings"
                   />
-                  <CanvasToolbar v-if="isEditingLineLabel" class="drawing-label-position-toolbar">
-                    <button
-                      v-for="position in lineLabelPositionOptions"
-                      :key="position.value"
-                      type="button"
-                      class="drawing-label-position-toolbar__button"
-                      :class="{ 'is-active': lineLabelPosition === position.value }"
-                      :title="position.label"
-                      :aria-label="position.label"
-                      @mousedown.prevent
-                      @click="setLineLabelPosition(position.value)"
-                    >
-                      {{ position.label }}
-                    </button>
-                  </CanvasToolbar>
                 </CanvasToolbarStack>
                 <div
                   v-if="lineLabelTarget"
@@ -282,6 +273,7 @@
       :drawing="editingDrawing"
       :editable-style-keys="editingDrawingStyleKeys"
       @update-style="onUpdateEditingDrawingStyle"
+      @update-text="onUpdateEditingDrawingText"
       @close="showDrawingSettingsDialog = false"
     />
     <IndicatorSelector
@@ -376,7 +368,6 @@
   import { useWatchlist } from '../composables/useWatchlist.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
-  import CanvasToolbar from './common/CanvasToolbar.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
@@ -945,6 +936,8 @@
     updateDrawingLabel,
     onDeleteDrawing,
     onToggleDrawingLock,
+    globalDrawingLock,
+    onSetGlobalDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
   const editingDrawing = computed(() =>
@@ -957,16 +950,24 @@
   function onUpdateEditingDrawingStyle(style: Partial<DrawingStyle>) {
     if (editingDrawing.value) controller.value?.updateBatch([editingDrawing.value.id], { style })
   }
+  function openDrawingSettings(drawingId: string) {
+    editingDrawingId.value = drawingId
+    showDrawingSettingsDialog.value = true
+  }
+  function onUpdateEditingDrawingText(
+    target: 'line' | 'area',
+    text: string,
+    position: 'start' | 'center' | 'end',
+  ) {
+    const drawing = editingDrawing.value
+    if (!drawing) return
+    updateDrawingLabel(drawing.id, target, 0, text, position)
+  }
   const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)
   const lineLabelInput = ref<HTMLInputElement | null>(null)
   const lineLabelDraft = ref('')
   const lineLabelPosition = ref<'start' | 'center' | 'end'>('center')
   const isEditingLineLabel = ref(false)
-  const lineLabelPositionOptions = [
-    { label: '起点', value: 'start' },
-    { label: '居中', value: 'center' },
-    { label: '终点', value: 'end' },
-  ] as const
 
   /**
    * 命中框按被命中标签的绘制参数摆放：锚点贴文本块的对应边（基线定纵向、对齐定横向），
@@ -1611,8 +1612,7 @@
 
     const hitDrawing = drawingController.value?.hitTestAt(mouseX, mouseY)
     if (hitDrawing) {
-      editingDrawingId.value = hitDrawing.id
-      showDrawingSettingsDialog.value = true
+      openDrawingSettings(hitDrawing.id)
       return
     }
 
@@ -2396,37 +2396,6 @@
 
   .drawing-line-label-editor__input::placeholder {
     color: var(--klc-color-ui-muted);
-  }
-
-  .drawing-label-position-toolbar {
-    display: flex;
-    gap: 2px;
-  }
-
-
-  .drawing-label-position-toolbar__button {
-    height: 26px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 4px;
-    color: var(--klc-color-ui-muted);
-    background: transparent;
-    font: inherit;
-    font-size: var(--klc-typography-font-size-md);
-    cursor: pointer;
-    transition:
-      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
-      color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
-  }
-
-  .drawing-label-position-toolbar__button:hover {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .drawing-label-position-toolbar__button.is-active {
-    color: var(--klc-color-ui-accent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
   }
 
   .chart-container::-webkit-scrollbar {

@@ -16,7 +16,7 @@ import type {
   DrawingStyleKey,
   UpdateDrawingPatch,
 } from '../types.js'
-import { areAnchorsIdentical, isDrawingLocked } from './drawingAccess.js'
+import { areAnchorsIdentical, isDrawingLocked, isDrawingMovementLocked } from './drawingAccess.js'
 import { normalizeDrawingLabels } from './drawingLabels.js'
 import {
   getDrawingAnchorCount,
@@ -118,20 +118,25 @@ export class DrawingDocument {
     return this.getDrawing(drawing.id)!
   }
 
-  /** 以完整模型快照替换一个已确认图元；锁定图元仅在锚点未变时接受。 */
+  /** 以完整模型快照替换一个已确认图元；移动被锁时仅在锚点未变时接受。 */
   updateDrawing(drawing: DrawingObject): DrawingObject | null {
     const current = this.getDrawing(drawing.id)
     if (!current) return null
-    if (isDrawingLocked(current) && !areAnchorsIdentical(current.anchors, drawing.anchors))
+    const globalLocked = this.dependencies.drawingState.readonly.globalDrawingLock.peek()
+    if (
+      isDrawingMovementLocked(current, globalLocked) &&
+      !areAnchorsIdentical(current.anchors, drawing.anchors)
+    )
       return null
     return this.writeDrawing(drawing)
   }
 
-  /** 将外部声明式 patch 转换为完整模型快照后提交；锁定图元只拒绝锚点 patch。 */
+  /** 将外部声明式 patch 转换为完整模型快照后提交；移动被锁时只拒绝锚点 patch。 */
   updateDrawingFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
     const current = this.getDrawing(id)
     if (!current) return null
-    if (isDrawingLocked(current) && patch.anchors !== undefined) return null
+    const globalLocked = this.dependencies.drawingState.readonly.globalDrawingLock.peek()
+    if (isDrawingMovementLocked(current, globalLocked) && patch.anchors !== undefined) return null
     const anchors =
       patch.anchors === undefined ? undefined : this.resolveAnchorsForUpdate(id, patch.anchors)
     return this.writeDrawing({
@@ -172,8 +177,10 @@ export class DrawingDocument {
     if (ids.length === 0 || new Set(ids).size !== ids.length) return Object.freeze([])
     const drawings = this.getDrawingsByIds(ids)
     if (drawings.length !== updates.length) return Object.freeze([])
-    // 锁定图元不可拖拽。
-    if (drawings.some((drawing) => isDrawingLocked(drawing))) return Object.freeze([])
+    // 移动被锁的图元不可拖拽（自身锁定或全局锁）。
+    const globalLocked = this.dependencies.drawingState.readonly.globalDrawingLock.peek()
+    if (drawings.some((drawing) => isDrawingMovementLocked(drawing, globalLocked)))
+      return Object.freeze([])
 
     const updatedById = new Map<string, DrawingObject>()
     for (const update of updates) {

@@ -36,6 +36,7 @@ function mockAdapter(
     getSelectedDrawingIds: () => selected,
     setDrawingToolId: vi.fn(),
     getDrawingToolId: () => 'cursor',
+    isGlobalDrawingLocked: () => false,
     requestDraw: vi.fn(),
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
