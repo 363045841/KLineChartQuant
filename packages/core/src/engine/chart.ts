@@ -359,6 +359,7 @@ export class Chart {
         viewport: this.kernel.viewport,
         comparison: this.kernel.comparison,
         scheduleDraw: (level) => this.scheduleDraw(level),
+        onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
         resetInteraction: () => this.interaction.reset(),
         updateIndicatorData: (data, range, dataRevision, displayTimestamps) =>
           this.indicatorManager.updateIndicatorData(data, range, dataRevision, displayTimestamps),
@@ -439,6 +440,7 @@ export class Chart {
         getPlotWidth: () => this.getLeftLoadBufferWidth(),
         onChange: () => {
           this.scheduleDraw()
+          this.checkVisibleRangeGapWhenIdle()
         },
       },
       this.kernel.zoom,
@@ -1199,6 +1201,7 @@ export class Chart {
   /** 滚动到最右侧（最新数据位置） */
   scrollToRight(): void {
     this.dataManager.scrollToRight()
+    this.checkVisibleRangeGapWhenIdle()
   }
 
   /**
@@ -1268,6 +1271,7 @@ export class Chart {
     this.layoutManager.layoutPanes()
     this.interaction.invalidateHover()
     this.scheduleDraw()
+    this.checkVisibleRangeGapWhenIdle()
   }
 
   /**
@@ -1566,6 +1570,10 @@ export class Chart {
     this.dataManager.checkVisibleRangeGap()
   }
 
+  private checkVisibleRangeGapWhenIdle(): void {
+    if (!this.interaction.isPointerDown()) this.checkVisibleRangeGap()
+  }
+
   /**
    * 设置 kline 主品种/周期。对比集合独立于主品种，由 setComparisonSpecs 管理。
    * 兼容旧入参 [primary, ...comparisons]：仅首项作为 kline 主品种，其余项不再隐式写入对比集合。
@@ -1749,7 +1757,8 @@ export class Chart {
           this.interaction.onPointerMove(e)
         }
         return false
-      case 'pointerup':
+      case 'pointerup': {
+        const hadPointer = this.interaction.isPointerDown()
         // 优先让绘图控制器处理
         if (drawingController?.onPointerUp) {
           const handled = drawingController.onPointerUp(e, this.dom.container)
@@ -1760,7 +1769,9 @@ export class Chart {
         } else {
           this.interaction.onPointerUp(e)
         }
+        if (hadPointer) this.checkVisibleRangeGapWhenIdle()
         return false
+      }
       case 'pointerleave':
         // 指针离开画布：先清绘图悬停，再交给 interaction 处理
         this.clearDrawingHover()
@@ -1800,6 +1811,7 @@ export class Chart {
     if (!container || !this.viewportScrollBridge.isExternalScroll(container.scrollLeft)) return
     if (this.kernel.viewport.actions.syncFromDomScroll()) {
       this.interaction.onScroll()
+      this.checkVisibleRangeGapWhenIdle()
     }
   }
 

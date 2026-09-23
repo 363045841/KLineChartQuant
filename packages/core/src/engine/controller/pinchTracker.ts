@@ -40,14 +40,6 @@ export class PinchTracker {
     }
   }
 
-  handlePointerLeave(e: PointerEvent): void {
-    this.activePointers.delete(e.pointerId)
-    if (this.activePointers.size < 2) {
-      this.isPinching = false
-      this.lastPinchDistance = 0
-    }
-  }
-
   /** Returns true if pinch zoom was processed (caller should skip further pointer-move handling). */
   handlePointerMove(e: PointerEvent): boolean {
     if (this.activePointers.has(e.pointerId)) {

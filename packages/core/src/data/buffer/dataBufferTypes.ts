@@ -51,6 +51,7 @@ export interface DataBufferLike<T = KLineData | TimeShareData> {
 
 export interface KLineBuffer extends DataBufferLike<KLineData> {
   readonly currentSpec: SymbolSpec | null
+  readonly olderData: OlderDataStatus
   /** 服务端返回的当前 K 线序列时区。 */
   readonly timezone: string | null
   getRawData(): KLineData[]

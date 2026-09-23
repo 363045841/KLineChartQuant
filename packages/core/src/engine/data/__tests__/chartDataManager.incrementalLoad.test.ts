@@ -30,6 +30,66 @@ describe('ChartDataManager incremental load', () => {
     vi.unstubAllGlobals()
   })
 
+  it('loads history when the left buffer is visible, regardless of the raw index range', async () => {
+    const start = Date.now() - 100 * MS_PER_DAY
+    const fetchBars = vi.fn(async (query: { beforeTimestamp?: number }) =>
+      makeBarsPage(
+        query.beforeTimestamp === undefined
+          ? Array.from({ length: 100 }, (_, index) => makeKLine(start + index * MS_PER_DAY))
+          : [makeKLine(start - MS_PER_DAY)],
+        { olderData: query.beforeTimestamp === undefined ? 'available' : 'exhausted' },
+      ),
+    )
+    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
+    const harness = createTestChartDataManager(document, {
+      viewport: { scrollLeft: 800, visibleRange: { start: 10, end: 30 } },
+    })
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    harness.scrollTo(799)
+    manager.checkVisibleRangeGap()
+    manager.checkVisibleRangeGap()
+
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    expect(fetchBars).toHaveBeenCalledTimes(2)
+    expect(fetchBars).toHaveBeenLastCalledWith(expect.objectContaining({ beforeTimestamp: start }))
+    manager.checkVisibleRangeGap()
+    expect(fetchBars).toHaveBeenCalledTimes(2)
+  })
+
+  it('continues from a progressed page until the provider reports exhaustion', async () => {
+    const start = Date.now() - 100 * MS_PER_DAY
+    const fetchBars = vi.fn(async (query: { beforeTimestamp?: number }) =>
+      makeBarsPage(
+        query.beforeTimestamp === undefined
+          ? [makeKLine(start), makeKLine(start + MS_PER_DAY)]
+          : [makeKLine(query.beforeTimestamp - MS_PER_DAY)],
+        {
+          olderData:
+            query.beforeTimestamp === start
+              ? 'available'
+              : query.beforeTimestamp === undefined
+                ? 'available'
+                : 'exhausted',
+        },
+      ),
+    )
+    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
+    const harness = createTestChartDataManager(document, {
+      viewport: { scrollLeft: 0, visibleRange: { start: 0, end: 2 } },
+      onBarsReady: () => manager?.checkVisibleRangeGap(),
+    })
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+
+    await vi.waitFor(() => expect(fetchBars).toHaveBeenCalledTimes(3))
+    expect(manager.dataBuffer.olderData).toBe('exhausted')
+    manager.checkVisibleRangeGap()
+    expect(fetchBars).toHaveBeenCalledTimes(3)
+  })
+
   it('flushes the first prepend hint when loading becomes idle', async () => {
     const now = Date.now()
     const initialStart = now - 365 * MS_PER_DAY

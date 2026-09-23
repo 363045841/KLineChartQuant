@@ -5,7 +5,7 @@ import {
   type ReadonlySignal,
   type WritableSignal,
 } from '../../foundation/reactivity/signal.js'
-import type { OlderDataStatus } from '../provider/types.js'
+import { OLDER_DATA_STATUS, type OlderDataStatus } from '../provider/types.js'
 
 import type { DataChange, KLineBuffer, LoadedTimeRange } from './dataBufferTypes.js'
 import { KLineDataStore, type UpdateBarsResult } from './kLineDataStore.js'
@@ -16,6 +16,7 @@ export class DataBuffer implements KLineBuffer {
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
   private current: SymbolSpec | null = null
+  private olderDataStatus: OlderDataStatus = OLDER_DATA_STATUS.UNKNOWN
   private currentTimezone: string | null = null
   private disposed = false
 
@@ -37,6 +38,10 @@ export class DataBuffer implements KLineBuffer {
   /** 返回当前图表选择的品种描述。 */
   get currentSpec(): SymbolSpec | null {
     return this.current
+  }
+
+  get olderData(): OlderDataStatus {
+    return this.olderDataStatus
   }
 
   /** 返回服务端声明的当前 K 线序列时区。 */
@@ -63,6 +68,7 @@ export class DataBuffer implements KLineBuffer {
   setSymbol(spec: SymbolSpec): void {
     if (this.disposed) return
     this.current = spec
+    this.olderDataStatus = OLDER_DATA_STATUS.UNKNOWN
     this.currentTimezone = null
     this.store.reset()
     this.errorSignal.set(null)
@@ -77,6 +83,7 @@ export class DataBuffer implements KLineBuffer {
   /** 写入调用方提供的完整静态数据。 */
   setInlineData(data: ReadonlyArray<KLineData>): void {
     if (this.disposed) return
+    this.olderDataStatus = OLDER_DATA_STATUS.EXHAUSTED
     this.currentTimezone = null
     this.store.setInlineData([...data])
     this.errorSignal.set(null)
@@ -84,8 +91,9 @@ export class DataBuffer implements KLineBuffer {
   }
 
   /** 合并缓存层返回的分页结果并发布增量变更。 */
-  mergeData(data: ReadonlyArray<KLineData>, _olderData: OlderDataStatus, timezone: string): void {
+  mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void {
     if (this.disposed) return
+    this.olderDataStatus = olderData
     this.currentTimezone = timezone
     this.store.merge(data)
     this.errorSignal.set(null)
@@ -124,6 +132,7 @@ export class DataBuffer implements KLineBuffer {
   dispose(): void {
     this.disposed = true
     this.current = null
+    this.olderDataStatus = OLDER_DATA_STATUS.UNKNOWN
     this.currentTimezone = null
     this.store.reset()
     this.loadingSignal.set(false)

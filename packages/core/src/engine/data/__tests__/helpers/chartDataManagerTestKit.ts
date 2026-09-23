@@ -97,6 +97,7 @@ export interface MockDataDependenciesOptions {
   viewport?: MockViewportOptions
   /** 加载完成后的重绘回调。 */
   scheduleDraw?: () => void
+  onBarsReady?: () => void
   /** 数据变更后的交互重置回调；用例用它断言重置时机。 */
   resetInteraction?: () => void
 }
@@ -107,7 +108,12 @@ export function createMockDataDependencies(
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
   options: MockDataDependenciesOptions = {},
 ): DataDependencies {
-  const { viewport, scheduleDraw = () => {}, resetInteraction = () => {} } = options
+  const {
+    viewport,
+    scheduleDraw = () => {},
+    onBarsReady = () => {},
+    resetInteraction = () => {},
+  } = options
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
     getZoomLevel: () => 1,
@@ -116,6 +122,7 @@ export function createMockDataDependencies(
     viewport: createMockViewport(viewport).viewport,
     comparison: createComparisonState(),
     scheduleDraw,
+    onBarsReady,
     resetInteraction,
     updateIndicatorData: () => {},
     isPointerDown: () => false,
@@ -176,6 +183,7 @@ export interface TestChartDataManagerHarness {
   manager: ChartDataManager
   dataState: DataStateModule
   dataManagerState: DataManagerStateModule
+  scrollTo: (value: number) => void
 }
 
 /**
@@ -188,18 +196,18 @@ export function createTestChartDataManager(
 ): TestChartDataManagerHarness {
   const dataState = createDataState()
   const dataManagerState = createDataManagerState()
-  const manager = new ChartDataManager(
-    createMockDataDependencies(
-      createChartDom(document),
-      (symbols) => {
-        dataState.actions.setSymbols(symbols)
-      },
-      options,
-    ),
+  const deps = createMockDataDependencies(
+    createChartDom(document),
+    (symbols) => dataState.actions.setSymbols(symbols),
+    options,
+  )
+  const manager = new ChartDataManager(deps, dataState, dataManagerState)
+  return {
+    manager,
     dataState,
     dataManagerState,
-  )
-  return { manager, dataState, dataManagerState }
+    scrollTo: (value) => deps.viewport.actions.scrollTo(value),
+  }
 }
 
 /** 构造接入测试 Provider 的日线品种描述；用例只声明差异。 */

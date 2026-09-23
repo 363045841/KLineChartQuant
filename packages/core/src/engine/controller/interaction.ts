@@ -196,7 +196,13 @@ export class InteractionController {
   onPointerDown(e: PointerEvent) {
     this.isTouchSession = e.pointerType === 'touch'
     if (this.pinchTracker.handlePointerDown(e, this.isTouchSession)) {
-      this.endDragSession()
+      // 保留首指的 capture；第二指也需 capture，离开容器后仍能收到最后的 pointerup。
+      this.endDragSession(false)
+      try {
+        this.chart.getDom().container?.setPointerCapture(e.pointerId)
+      } catch {
+        // 不支持 capture 的宿主继续依赖 pointerup / pointercancel。
+      }
       return
     }
 
@@ -272,9 +278,7 @@ export class InteractionController {
    */
   onPointerUp(e: PointerEvent) {
     this.pinchTracker.handlePointerUp(e)
-
-    if (e.isPrimary === false) return
-    if (!this.isActivePointer(e)) return
+    if (e.isPrimary === false || !this.isActivePointer(e)) return
     const wasPanning = this._state.readonly.dragMode.peek() === 'pan'
     const wasExploring = this._state.readonly.dragMode.peek() === 'explore'
 
@@ -307,11 +311,6 @@ export class InteractionController {
       }
     }
 
-    // 鼠标和触屏拖拽结束后都检查左侧缺口 → 触发增量加载
-    if (wasPanning) {
-      this.chart.checkVisibleRangeGap()
-    }
-
     this.endDragSession()
     // 鼠标平移结束后按当前指针位置恢复 hover；触屏由 explore 模式单独控制。
     if (wasPanning && !this.isTouchSession) {
@@ -324,8 +323,6 @@ export class InteractionController {
    * @param e PointerEvent
    */
   onPointerLeave(e: PointerEvent) {
-    this.pinchTracker.handlePointerLeave(e)
-
     if (e.isPrimary === false) return
 
     // 容器尺寸或相邻轴宽度变化也可能触发 pointerleave。拖拽会话由

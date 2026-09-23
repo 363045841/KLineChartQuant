@@ -151,7 +151,7 @@ function createChartStub(args: {
     getRenderData: () => data,
     getInternalData: () => data,
     currentPeriod: 'daily',
-    checkVisibleRangeGap: () => undefined,
+    handlePinchZoom: () => undefined,
     translatePrice: () => undefined,
     updateDrawingHover: () => undefined,
     clearDrawingHover: () => undefined,

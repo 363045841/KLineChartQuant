@@ -23,7 +23,99 @@ const defaultOptions: ChartOptions = {
   priceLabelWidth: 60,
 }
 
+function pointerEvent(
+  type: string,
+  target: HTMLElement,
+  overrides: Partial<PointerEvent> = {},
+): PointerEvent {
+  return {
+    type,
+    clientX: 100,
+    clientY: 40,
+    isPrimary: true,
+    pointerType: 'touch',
+    pointerId: 1,
+    target,
+    ...overrides,
+  } as PointerEvent
+}
+
 describe('Chart DPR pipeline', () => {
+  it('checks history only after the last pinch pointer is lifted, not on leave or render', async () => {
+    const dom = createChartDom(1000, 600)
+    dom.container.setPointerCapture = () => {}
+    dom.container.hasPointerCapture = () => false
+    dom.container.releasePointerCapture = () => {}
+    const chart = new Chart(dom, defaultOptions)
+    chart.resize()
+    const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
+    const first = pointerEvent('pointerdown', dom.container)
+    const second = pointerEvent('pointerdown', dom.container, {
+      clientX: 200,
+      isPrimary: false,
+      pointerId: 2,
+    })
+
+    chart.handlePointerEvent(first)
+    chart.handlePointerEvent(second)
+    chart.handlePointerEvent(pointerEvent('pointerleave', dom.container))
+    chart.draw()
+    expect(check).not.toHaveBeenCalled()
+
+    chart.handlePointerEvent(pointerEvent('pointerup', dom.container))
+    expect(check).not.toHaveBeenCalled()
+    chart.handlePointerEvent(
+      pointerEvent('pointerup', dom.container, {
+        isPrimary: false,
+        pointerId: 2,
+      }),
+    )
+    expect(check).toHaveBeenCalledOnce()
+    await chart.destroy()
+  })
+
+  it('checks after mouse pointerup and wheel zoom, but never during a held pointer', async () => {
+    const dom = createChartDom(1000, 600)
+    dom.container.setPointerCapture = () => {}
+    dom.container.hasPointerCapture = () => false
+    dom.container.releasePointerCapture = () => {}
+    const chart = new Chart(dom, defaultOptions)
+    chart.resize()
+    const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
+    const mouse = { pointerType: 'mouse' }
+
+    chart.handlePointerEvent(pointerEvent('pointerdown', dom.container, mouse))
+    chart.handleWheelEvent({ deltaY: -1, clientX: 100 } as WheelEvent)
+    chart.draw()
+    expect(check).not.toHaveBeenCalled()
+
+    chart.handlePointerEvent(pointerEvent('pointerup', dom.container, mouse))
+    expect(check).toHaveBeenCalledOnce()
+    chart.handleWheelEvent({ deltaY: -1, clientX: 100 } as WheelEvent)
+    expect(check).toHaveBeenCalledTimes(2)
+    await chart.destroy()
+  })
+
+  it('checks the viewport after an external DOM scroll while idle', async () => {
+    const dom = createChartDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    chart.resize()
+    chart.setData(
+      Array.from({ length: 200 }, (_, timestamp) => ({
+        timestamp,
+        open: 10,
+        high: 11,
+        low: 9,
+        close: 10,
+      })),
+    )
+    const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
+    dom.container.scrollLeft = 900
+    chart.handleScrollEvent()
+    expect(check).toHaveBeenCalledOnce()
+    await chart.destroy()
+  })
+
   let restoreChartDomStubs: () => void
 
   beforeAll(async () => {

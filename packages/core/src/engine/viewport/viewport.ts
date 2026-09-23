@@ -2,6 +2,11 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { PriceRange } from '../scale/price.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
+/** 左侧加载缓冲进入视口，意味着首根已加载 K 线之前出现空白。 */
+export function hasLeftDataGap(scrollLeft: number, leftLoadBufferWidth: number): boolean {
+  return scrollLeft < leftLoadBufferWidth
+}
+
 /**
  * 计算当前视口可见的 K 线索引范围（使用物理像素对齐）。
  *

@@ -39,6 +39,7 @@ import {
   ALIGNED_BAR_AGGREGATION,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
+  OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
@@ -53,6 +54,7 @@ import { ChartDataViewId } from '../state/modeState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
+import { hasLeftDataGap } from '../viewport/viewport.js'
 
 import { ComparisonManager } from './comparisonManager.js'
 import { IncrementalLoadHint } from './incrementalLoadHint.js'
@@ -69,6 +71,8 @@ export interface DataDependencies {
   /** 对比叠加状态 SSOT */
   comparison: ComparisonStateModule
   scheduleDraw: (level?: UpdateLevel) => void
+  /** 行情页确实向左推进后，由 Chart 决定是否继续补齐左缘。 */
+  onBarsReady: () => void
   resetInteraction: () => void
   /** 指标数据更新入口：K 线计算 + 可选展示时间戳投影。 */
   updateIndicatorData: (
@@ -434,7 +438,14 @@ export class ChartDataManager {
         if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
           return
       }
+      const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+      if (
+        this.isActiveSelection(selection) &&
+        buffer.loadedTimeRange?.earliestTs !== previousEarliest
+      ) {
+        this.deps.onBarsReady()
+      }
     } catch (error) {
       buffer.setError(error instanceof Error ? error.message : String(error))
     }
@@ -628,7 +639,6 @@ export class ChartDataManager {
 
     if (prependedCount > 0) {
       this.recordIncrementalLoad(prependedCount)
-      this.checkVisibleRangeGap()
     }
   }
 
@@ -912,18 +922,21 @@ export class ChartDataManager {
     if (data.length === 0) return
     const loadedTimeRange = buf.loadedTimeRange
     if (!loadedTimeRange) return
-    // 左缘扩窗检测必须用 raw（start 可为 -1）；数据下标用 clamped
+    // 比较序列用可见数据的时间戳独立检查历史覆盖。
     const rawRange = this.getRawVisibleRangeOrNull()
     const range = this.getVisibleRangeOrNull()
     if (!rawRange || !range) return
 
     const firstVisibleTs = rawRange.start < 0 ? data[0]?.timestamp : data[range.start]?.timestamp
-    const needsOlder =
-      rawRange.start < 0 ||
-      (range.start < data.length &&
-        (data[range.start]?.timestamp ?? 0) < loadedTimeRange.earliestTs)
-
-    if (needsOlder && !buf.loading.peek()) {
+    if (
+      hasLeftDataGap(
+        this.deps.viewport.readonly.scrollLeft.peek(),
+        this.deps.viewport.readonly.leftLoadBufferWidth.peek(),
+      ) &&
+      !buf.loading.peek() &&
+      buf.olderData !== OLDER_DATA_STATUS.EXHAUSTED &&
+      buf.currentSpec?.incremental !== false
+    ) {
       const spec = buf.currentSpec
       const selection = this._activeSelection
       if (spec && selection?.kind === 'bars') {

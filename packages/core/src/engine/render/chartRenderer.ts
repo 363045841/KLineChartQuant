@@ -289,7 +289,6 @@ export class ChartRenderer {
         this.drawWithFrame(snapshot.level, snapshot.frame)
         if (snapshot.frame) {
           this.cacheDrawFrame(snapshot.frame)
-          this.checkVisibleRangeGapAfterRender(snapshot.frame)
         }
       },
       schedule: (run) => {
@@ -617,7 +616,7 @@ export class ChartRenderer {
    * 计算一帧的 viewport、可见区间、K 线位置。
    *
    * Overlay 时复用 cachedDrawFrame 跳过重算，Main/All 强制刷新缓存。
-   * range 变化时调 checkVisibleRangeGapWhenIdle 触发空闲补数据。
+   * 帧缓存用于复用当前可见区几何。
    * TimeShare 模式按 plotWidth 平分 bar，覆盖 K 线位置。
    */
   /** viewWidth 为 0 表示尚未完成首帧尺寸 */
@@ -1255,33 +1254,13 @@ export class ChartRenderer {
     return centers
   }
 
-  private checkVisibleRangeGapWhenIdle(): void {
-    if (this.deps.getInteraction().isPointerDown()) return
-    this.deps.getDataManager().checkVisibleRangeGap()
-  }
-
-  /** 在成功绘制后记录本帧可见区，并按需触发缺口加载。 */
-  private checkVisibleRangeGapAfterRender(frame: FrameContext): void {
+  /** 在成功绘制后缓存主层几何，供下一帧 Overlay 复用。 */
+  private cacheDrawFrame(frame: FrameContext): void {
     if (frame.useCachedFrame) return
-    const previous = this._prevFrameRange
-    const changed =
-      !previous ||
-      frame.range.start !== previous.visible.start ||
-      frame.range.end !== previous.visible.end ||
-      frame.rawRange.start !== previous.raw.start ||
-      frame.rawRange.end !== previous.raw.end
-    if (!changed) return
-
     this._prevFrameRange = {
       visible: { ...frame.range },
       raw: { ...frame.rawRange },
     }
-    this.checkVisibleRangeGapWhenIdle()
-  }
-
-  /** 在成功绘制后缓存主层几何，供下一帧 Overlay 复用。 */
-  private cacheDrawFrame(frame: FrameContext): void {
-    if (frame.useCachedFrame) return
     this.cachedDrawFrame = {
       viewport: { ...frame.vp },
       range: { ...frame.range },
