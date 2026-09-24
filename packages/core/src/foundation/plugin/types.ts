@@ -327,6 +327,14 @@ export interface RenderGeometryContext {
   zoomLevelCount?: number
 }
 
+/** 坐标轴标签的注册入口：轴标签生产者（标记渲染器等）只依赖该契约，不直接操作数组。 */
+export interface AxisLabelRegistrar<TLabel> {
+  /** 追加一条标签。 */
+  register(label: TLabel): void
+  /** 批量追加标签。 */
+  registerAll(labels: ReadonlyArray<TLabel>): void
+}
+
 /** 坐标轴子契约：本帧待绘制的轴标签、范围带与刻度。 */
 export interface RenderAxisContext {
   /** 需要在Y轴上绘制的标签列表（由各类标记渲染器填充） */
@@ -339,6 +347,11 @@ export interface RenderAxisContext {
   xAxisRanges: XAxisRange[]
   /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
+  /**
+   * Y 轴标签注册入口。帧构建时由轴标签模块注入；生产者优先经此注册，
+   * 未注入时（如手工构造的测试上下文）回退到直接写入 `yAxisLabels`。
+   */
+  yAxisLabelRegistrar?: AxisLabelRegistrar<YAxisLabel>
 }
 
 /** 覆盖层子契约：十字线、标记器与绘图帧投影。 */

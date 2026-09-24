@@ -7,9 +7,12 @@ import {
   PRIMITIVE_KIND,
   type RenderContext,
   type ScreenPoint,
+  type XAxisLabel,
+  type YAxisLabel,
 } from '../../../../foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../../foundation/types/price.js'
+import type { AxisLabelRegistrars } from '../../../axisLabels/index.js'
 import { resolveChartWorkspaceId } from '../../../state/modeState.js'
 import { logicalIndexToScreenX } from '../../../viewport/logicalIndexToScreenX.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
@@ -193,6 +196,7 @@ function projectAxisDecorations(
   context: RenderContext,
   toScreen: (anchor: ResolvedDrawingAnchor) => ScreenPoint,
   output: MutableDrawingFrameProjection,
+  axisLabels: AxisLabelRegistrars,
 ): void {
   if (context.pane.role !== 'price') return
   const color = style.stroke ?? DEFAULT_DRAWING_STROKE
@@ -213,14 +217,14 @@ function projectAxisDecorations(
 
     const point = toScreen(anchor)
     if (wantsPrice && point.y >= 0 && point.y <= context.pane.height) {
-      output.yAxisLabels.push({
+      axisLabels.y.register({
         price: anchor.price,
         y: point.y,
         style: { bgColor: color, borderColor: color, textColor: labelTextColor },
       })
     }
     if (wantsTime && point.x >= -context.kWidth && point.x <= context.paneWidth + context.kWidth) {
-      output.xAxisLabels.push({
+      axisLabels.x.register({
         timestamp: timestamp!,
         x: point.x + context.scrollLeft,
         style: { bgColor: color, textColor: labelTextColor },
@@ -260,6 +264,7 @@ export function projectDrawingsForFrame(
   definitions: DrawingDefinitionRegistry,
   context: RenderContext,
   selectionMarquee: DrawingSelectionMarquee | null = null,
+  axisLabelRegistrars?: AxisLabelRegistrars,
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
@@ -267,6 +272,11 @@ export function projectDrawingsForFrame(
     yAxisRanges: [],
     xAxisLabels: [],
     xAxisRanges: [],
+  }
+  // 未传入收集器时保留返回值，供独立投影调用方读取；渲染帧直接注册。
+  const axisLabels = axisLabelRegistrars ?? {
+    y: { register: (label: YAxisLabel) => output.yAxisLabels.push(label) },
+    x: { register: (label: XAxisLabel) => output.xAxisLabels.push(label) },
   }
   const selectedIds = new Set(store.getSelectedIds())
   // 手柄统一在所有图元之后压入，保证不被后画的图元遮住。
@@ -314,6 +324,7 @@ export function projectDrawingsForFrame(
         context,
         toScreen,
         output,
+        axisLabels,
       )
     }
   }

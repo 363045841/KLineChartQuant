@@ -10,6 +10,7 @@ import {
   type RenderContext,
 } from '../../../../foundation/plugin'
 import { createSignal } from '../../../../foundation/reactivity/signal'
+import { createAxisLabelsFrame } from '../../../axisLabels/index'
 import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
 import { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry'
 import { DrawingStore } from '../../render/impl/DrawingStore'
@@ -115,6 +116,27 @@ describe('projectDrawingsForFrame', () => {
     expect(projection.xAxisLabels).toHaveLength(2)
     expect(context.yAxisLabels).toHaveLength(0)
     expect(context.yAxisRanges).toHaveLength(0)
+  })
+
+  it('registers selected drawing axis labels directly into the frame collectors', () => {
+    const drawing = createTrendDrawing()
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const labels = createAxisLabelsFrame()
+
+    const projection = projectDrawingsForFrame(store, definitions, createContext(), null, {
+      y: labels.yForPane('main'),
+      x: labels.x,
+    })
+
+    expect(labels.yForPane('main').labels.map((label) => label.price)).toEqual([10, 20])
+    expect(labels.x.labels.map((label) => label.timestamp)).toEqual([1_000, 2_000])
+    expect(projection.yAxisLabels).toEqual([])
+    expect(projection.xAxisLabels).toEqual([])
   })
 
   it('keeps the line body stroke width unchanged when selected', () => {

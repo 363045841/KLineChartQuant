@@ -40,6 +40,7 @@ import type {
   PaneRole,
   Scene,
 } from '../../rendering/scene/types.js'
+import { createAxisLabelsFrame } from '../axisLabels/index.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -861,7 +862,9 @@ export class ChartRenderer {
     requiresRightAxisWidthMeasurement: boolean,
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
-    const sharedXAxisLabels: XAxisLabel[] = []
+    // 轴标签收集统一走 axisLabels 模块的单帧聚合：共享 X 轴 + 每 Pane 独立 Y 轴。
+    const axisLabelsFrame = createAxisLabelsFrame()
+    const sharedXAxisLabels = axisLabelsFrame.x.labels
     const sharedXAxisRanges: XAxisRange[] = []
     const indicatorManager = this.deps.getIndicatorManager()
     const indicatorStateReader = indicatorManager.createRenderStateReader()
@@ -881,6 +884,8 @@ export class ChartRenderer {
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
+      // 每个 Pane 持有独立的 Y 轴标签收集器，跨帧重绘不残留上一帧标签。
+      const yAxisLabelCollector = axisLabelsFrame.yForPane(pane.id)
       const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
         renderer.getContexts()
 
@@ -1047,10 +1052,11 @@ export class ChartRenderer {
           preClose:
             dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
         },
-        yAxisLabels: [],
+        yAxisLabels: yAxisLabelCollector.labels,
         xAxisLabels: sharedXAxisLabels,
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
+        yAxisLabelRegistrar: yAxisLabelCollector,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
@@ -1062,10 +1068,9 @@ export class ChartRenderer {
         this.drawingDefinitions,
         context,
         this.deps.getSelectionMarquee?.() ?? null,
+        { y: yAxisLabelCollector, x: axisLabelsFrame.x },
       )
-      context.yAxisLabels.push(...context.drawingProjection.yAxisLabels)
       context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)
-      sharedXAxisLabels.push(...context.drawingProjection.xAxisLabels)
       sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
 
       // 计算本 pane 的 Y 轴刻度（等分 + yToPrice 映射）

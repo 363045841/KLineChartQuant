@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import { registerYAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
@@ -51,7 +52,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
       const info = getLastPriceInfo(context)
       if (!info) return
 
-      context.yAxisLabels.push({
+      registerYAxisLabel(context, {
         price: info.price,
         y: info.y,
         type: 'lastPrice',
