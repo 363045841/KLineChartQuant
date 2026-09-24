@@ -78,6 +78,20 @@ describe('paintAxisLabels', () => {
     expect(ctx.fillText).toHaveBeenCalledWith('100.00', 40, 55.5)
   })
 
+  it('shows the remaining time centered below a last price label only', () => {
+    const ctx = createMockCanvasContext()
+
+    paintAxisLabels(ctx, [tag({ type: 'lastPrice', countdown: '04:59' })], 'yRightOverlay', {
+      dpr: 1,
+      axisWidth: 80,
+      axisHeight: 200,
+    })
+
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 37, 80, 36)
+    expect(ctx.fillText).toHaveBeenCalledWith('100.00', 40, 47)
+    expect(ctx.fillText).toHaveBeenCalledWith('04:59', 40, 63)
+  })
+
   it('lays out an X tag as a full-height vertical block', () => {
     const ctx = createMockCanvasContext()
     vi.mocked(ctx.measureText).mockReturnValue({ width: 30 } as TextMetrics)

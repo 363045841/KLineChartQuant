@@ -39,7 +39,7 @@ import type {
   PaneRole,
   Scene,
 } from '../../rendering/scene/types.js'
-import { createAxisLabelsFrame } from '../axisLabels/index.js'
+import { createAxisLabelsFrame, getLastPriceRemainingMs } from '../axisLabels/index.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -219,6 +219,8 @@ export class ChartRenderer {
 
   /** 已排队的 rAF 句柄；null 表示当前没有挂起的帧调度 */
   private raf: number | null = null
+  /** 最新价签的秒级倒计时计时器；只请求 overlay 重绘。 */
+  private lastPriceCountdownTimer: ReturnType<typeof setTimeout> | null = null
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
@@ -557,6 +559,7 @@ export class ChartRenderer {
 
     // 当前视图无可绘制数据时必须清空所有 canvas，不能保留前一视图的像素。
     if (!frame) {
+      this.clearLastPriceCountdownTimer()
       this.clearAllCanvases()
       return
     }
@@ -610,6 +613,34 @@ export class ChartRenderer {
       renderData,
       fiveDayTimeShareGeometry,
     )
+    this.scheduleLastPriceCountdown(renderData)
+  }
+
+  /** 停止本根 K 线倒计时的刷新计时器。 */
+  private clearLastPriceCountdownTimer(): void {
+    if (this.lastPriceCountdownTimer !== null) {
+      clearTimeout(this.lastPriceCountdownTimer)
+      this.lastPriceCountdownTimer = null
+    }
+  }
+
+  /** 有效的最新 K 线只在秒边界申请 overlay 帧；切换周期或收线时停止。 */
+  private scheduleLastPriceCountdown(data: ChartSeriesDatum[]): void {
+    this.clearLastPriceCountdownTimer()
+    const last = data[data.length - 1]
+    if (!last || this.deps.dataView$.peek() !== ChartDataViewId.KLine) return
+    const now = Date.now()
+    const remaining = getLastPriceRemainingMs(
+      this.deps.getDataManager().currentPeriod,
+      last.timestamp,
+      now,
+    )
+    if (remaining === null) return
+    const delay = Math.min(remaining, 1_000 - (now % 1_000) + 1)
+    this.lastPriceCountdownTimer = setTimeout(() => {
+      this.lastPriceCountdownTimer = null
+      this.scheduleDraw(UpdateLevel.Overlay)
+    }, delay)
   }
 
   /**
@@ -1275,6 +1306,7 @@ export class ChartRenderer {
   }
 
   destroy(): void {
+    this.clearLastPriceCountdownTimer()
     if (this.raf !== null) {
       cancelAnimationFrame(this.raf)
       this.raf = null

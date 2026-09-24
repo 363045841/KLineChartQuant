@@ -6,6 +6,10 @@
  */
 
 export { createAxisLabelsFrame } from './impl/axisLabelCollector.js'
+export {
+  formatLastPriceCountdown,
+  getLastPriceRemainingMs,
+} from './impl/lastPriceCountdown.js'
 export { paintAxisLabels } from './impl/paintAxisLabels.js'
 export { registerAxisLabel } from './impl/registerAxisLabel.js'
 export type {

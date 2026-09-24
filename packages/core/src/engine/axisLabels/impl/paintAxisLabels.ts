@@ -13,6 +13,7 @@ import type {
 import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '@/foundation/utils/pixelAlign.js'
 import type { AxisLabelMetrics } from '../types.js'
+import { getLastPriceLabelHeight, paintLastPriceLabelText } from './lastPriceLabel.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512
@@ -106,7 +107,8 @@ function paintTag(
     return
   }
 
-  const rectH = fontSize + 4
+  const countdown = label.type === 'lastPrice' ? label.countdown : null
+  const rectH = countdown ? getLastPriceLabelHeight(fontSize) : fontSize + 4
   const yy = Math.min(
     Math.max(label.pos, origin + rectH / 2),
     origin + metrics.axisHeight - rectH / 2,
@@ -128,7 +130,9 @@ function paintTag(
   }
   const centerX = rw / 2
   ctx.fillStyle = label.textColor
-  if (label.variant === 'crosshair') {
+  if (countdown) {
+    paintLastPriceLabelText(ctx, label.text, countdown, centerX, yy, fontSize, dpr)
+  } else if (label.variant === 'crosshair') {
     ctx.fillText(
       label.text,
       roundToPhysicalPixel(centerX, dpr),

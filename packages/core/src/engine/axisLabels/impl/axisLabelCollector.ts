@@ -7,17 +7,13 @@ import type {
   AxisLabelsFrame,
 } from '@/foundation/plugin/types.js'
 
-/** 构造内部可变数组 + register/registerAll 的通用收集器核心。 */
+/** 构造内部可变数组 + register 的通用收集器核心。 */
 function createLabelCollector(): AxisLabelCollector {
   const labels: AxisLabel[] = []
   return {
     labels,
     register(label: AxisLabel): void {
       labels.push(label)
-    },
-    registerAll(next: ReadonlyArray<AxisLabel>): void {
-      if (next.length === 0) return
-      labels.push(...next)
     },
   }
 }

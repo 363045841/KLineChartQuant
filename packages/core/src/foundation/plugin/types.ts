@@ -201,8 +201,12 @@ export interface AxisTickLabel {
 /** 轴色块标签：底矩形 + 居中文字（价格签 / 时间签）。 */
 export interface AxisTagLabel {
   kind: 'tag'
+  /** 业务类型；最新价签可按此选择专属布局。 */
+  type?: 'lastPrice'
   /** 已格式化好的文本。 */
   text: string
+  /** 最新价签的本根 K 线收线倒计时；无有效倒计时时不显示。 */
+  countdown?: string
   /** X 表面为屏幕 x（逻辑像素）；Y 表面为标签的 pane 内 y。 */
   pos: number
   /**
@@ -228,7 +232,6 @@ export interface AxisLabelCollector {
   /** 渲染器直接消费的可变标签缓冲区；“当前帧”语义由每帧重建保证。 */
   readonly labels: AxisLabel[]
   register(label: AxisLabel): void
-  registerAll(labels: ReadonlyArray<AxisLabel>): void
 }
 
 /**

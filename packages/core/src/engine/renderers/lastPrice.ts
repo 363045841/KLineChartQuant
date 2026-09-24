@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import { registerAxisLabel } from '../axisLabels/index.js'
+import { formatLastPriceCountdown, registerAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
@@ -24,6 +24,7 @@ function getLastPriceInfo(context: RenderContext) {
 
   return {
     price: last.close,
+    timestamp: last.timestamp,
     y: Math.round(pane.yAxis.priceToY(last.close)),
     isUp: last.close >= baseline,
   }
@@ -54,7 +55,9 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
 
       registerAxisLabel(context, 'yRightOverlay', {
         kind: 'tag',
+        type: 'lastPrice',
         text: info.price.toFixed(2),
+        countdown: formatLastPriceCountdown(context.period, info.timestamp) ?? undefined,
         pos: info.y + context.pane.top,
         origin: context.pane.top,
         variant: 'label',
@@ -117,7 +120,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
       const startX = scrollLeft
       const endX = paneWidth + scrollLeft
 
-      ctx.strokeStyle = colors.price.lastPrice
+      ctx.strokeStyle = info.isUp ? colors.candleUpBorder : colors.candleDownBorder
       ctx.lineWidth = 1
       ctx.setLineDash([4, 3])
       ctx.beginPath()

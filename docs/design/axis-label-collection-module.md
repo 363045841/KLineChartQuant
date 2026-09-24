@@ -21,6 +21,9 @@
 - **ready-to-draw 标签**：`AxisTickLabel`（纯文本刻度）与 `AxisTagLabel`（色块 + 文本，
   含 `variant: 'label' | 'crosshair'` 基线微调、`origin` 复现各轴 clamp 原点）。
   生产者只提供“文字 + 锚点 + 样式”，不接触 canvas；文本按所在轴显示语义预先格式化。
+- **最新价业务类型**：`AxisTagLabel.type = 'lastPrice'`，仅在限定周期的最新 K 线尚未结束时
+  携带 `countdown`。`impl/lastPriceCountdown.ts` 按 K 线开盘时间戳和周期固定时长计算剩余时间，
+  `paintAxisLabels` 在同一色块内以两行显示价格与倒计时；其他标签沿用单行布局。
 - **统一写入入口**：`registerAxisLabel(context, surface, label, paneId?)`。
   刻度、十字线价签、最新价、绘图锚点全部经此写入本帧表面，不再直接操作数组。
 - **统一读取/绘制入口**：`paintAxisLabels(ctx, labels, surface, metrics)` 集中布局与物理像素对齐
@@ -54,6 +57,9 @@
 - 不改变 Pane 隔离 Y / 共享 X 的既有行为；外观（尺寸、clamp、像素对齐、百分比/指标格式化、
   分时/五日分时表现）与刷新级别不变。
 - 不引入跨帧状态：聚合对象每帧重建，帧结束随对象释放。
+- 最新价倒计时通过 ChartRenderer 的秒边界计时器请求 Overlay 重绘；无可绘制帧、收线、
+  周期不支持以及销毁时停止。支持 1/5/15/30/60 分钟、4 小时与日线；日线按时间戳
+  加 24 小时计算，不推断交易所收盘时间、休市或节假日。
 - 不涉及绘图内部文字标签（`DrawingLabel` 等），仅覆盖轴标签。
 - 范围带（`yAxisRanges`/`xAxisRanges`）语义与绘制归属不变，仍由投影返回、在轴渲染器中
   先于对应标签绘制。
@@ -72,4 +78,5 @@
   - `yAxis.renderer.test.ts`：左右轴刻度、overlay 装饰标签与十字线价签注册/绘制；
   - `frameProjection.test.ts`：图元锚点标签经统一入口写入 `xLabels`/`yRightOverlay`；
   - `timeAxis.marketSession.test.ts` / `indicatorScale.format.test.ts`：分时时段与指标自适应小数位。
+- `lastPriceCountdown.test.ts`：限定周期、开收线边界、无效时间戳与时间格式。
 - 验证：`pnpm type-check`；`@363045841yyt/klinechart-core` 全量单测通过。
