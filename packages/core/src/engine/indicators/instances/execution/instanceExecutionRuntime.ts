@@ -4,7 +4,7 @@
  * 这是 Worker 与 inline fallback 共用的状态极小的运行时：缓存当前行情与已注册的
  * calculator 定义，执行时只接收 instanceCalculationPlan。
  */
-import type { KLineData } from '../../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,

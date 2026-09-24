@@ -2,7 +2,7 @@
  * StochRSI 渲染状态定义及默认配置。
  */
 
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 import type { StochRSIPoint } from '../calculators/stochRSI.js'
 
 export interface StochRSIRenderState extends BaseIndicatorState {

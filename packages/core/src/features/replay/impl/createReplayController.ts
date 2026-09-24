@@ -21,8 +21,8 @@
  *   assumption is a larger cross-package change than this PR.
  */
 
-import { KLineChartError } from '../../../errors.js'
-import { createSignal, type Signal } from '../../../foundation/reactivity/signal.js'
+import { KLineChartError } from '@/errors.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/signal.js'
 
 import type {
   ReplayController,

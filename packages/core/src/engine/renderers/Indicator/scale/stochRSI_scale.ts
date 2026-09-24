@@ -2,7 +2,7 @@
  * StochRSI 副图坐标轴渲染器工厂。
  */
 
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
+import type { RendererPluginWithHost } from '@/foundation/plugin/index.js'
 
 import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 

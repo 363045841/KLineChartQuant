@@ -1,4 +1,4 @@
-import type { DrawingViewportPort } from '../../../../controllers/types.js'
+import type { DrawingViewportPort } from '@/controllers/types.js'
 import {
   anchorToScreen,
   isScreenPoint,

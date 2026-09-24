@@ -1,7 +1,7 @@
-import type { DrawingChartAdapter } from '../../../../controllers/types.js'
-import type { DrawingStyle } from '../../../../foundation/plugin/index.js'
-import { ChartWorkspaceId } from '../../../../foundation/types/chartView.js'
-import type { DrawingHoverTarget } from '../../../state/interactionState.js'
+import type { DrawingChartAdapter } from '@/controllers/types.js'
+import type { DrawingHoverTarget } from '@/engine/state/interactionState.js'
+import type { DrawingStyle } from '@/foundation/plugin/index.js'
+import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import { resolveDrawingPointer } from '../../geometry/impl/coordinateUtils.js'
 import type {
   DrawingPointerAnchor,

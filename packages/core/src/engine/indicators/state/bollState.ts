@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 import type { BOLLPoint } from '../calculators/index.js'
 
 export const DEFAULT_BOLL_PERIOD = 20

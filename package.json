@@ -92,6 +92,7 @@
     "npm-run-all2": "^8.0.4",
     "pdf-lib": "^1.17.1",
     "ts-morph": "^28.0.0",
+    "tsc-alias": "^1.9.5",
     "tsx": "^4.23.13",
     "typedoc": "^0.28.20",
     "typescript": "~6.0.3",

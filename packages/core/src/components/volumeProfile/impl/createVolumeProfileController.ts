@@ -24,7 +24,7 @@
  *     adequate for visual profiles; tick-snapped binning is a future option.
  */
 
-import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   VolumeProfileBar,
   VolumeProfileConfig,

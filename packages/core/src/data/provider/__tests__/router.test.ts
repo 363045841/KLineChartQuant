@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { KLineChartError } from '../../../errors'
+import { KLineChartError } from '@/errors'
 import { marketDataProviderRegistry } from '../registry'
 import { SourceRouter, SourceRoutingError } from '../router'
 import type { InstrumentDescriptor, MarketDataProvider } from '../types'

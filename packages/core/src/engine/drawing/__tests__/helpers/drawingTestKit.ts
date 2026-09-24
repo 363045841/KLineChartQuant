@@ -14,8 +14,8 @@ import type {
   DrawingSessionPort,
   DrawingViewportPort,
   PaneLayoutInfo,
-} from '../../../../controllers/types'
-import type { KLineData } from '../../../../foundation/types/price'
+} from '@/controllers/types'
+import type { KLineData } from '@/foundation/types/price'
 import type { HitResult } from '../../interaction/impl/HitTester'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
 import type { DrawingObject } from '../../types'

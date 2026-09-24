@@ -2,12 +2,11 @@ import type { SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import type {
+  AxisLabelsFrame,
   FiveDayTimeShareGeometry,
   PluginHostImpl,
   RenderContext,
-  XAxisLabel,
   XAxisRange,
-  YAxisLabel,
   YAxisRange,
   YAxisTick,
 } from '../../foundation/plugin/index.js'
@@ -40,6 +39,7 @@ import type {
   PaneRole,
   Scene,
 } from '../../rendering/scene/types.js'
+import { createAxisLabelsFrame, getLastPriceRemainingMs } from '../axisLabels/index.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -219,6 +219,8 @@ export class ChartRenderer {
 
   /** 已排队的 rAF 句柄；null 表示当前没有挂起的帧调度 */
   private raf: number | null = null
+  /** 最新价签的秒级倒计时计时器；只请求 overlay 重绘。 */
+  private lastPriceCountdownTimer: ReturnType<typeof setTimeout> | null = null
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
@@ -557,6 +559,7 @@ export class ChartRenderer {
 
     // 当前视图无可绘制数据时必须清空所有 canvas，不能保留前一视图的像素。
     if (!frame) {
+      this.clearLastPriceCountdownTimer()
       this.clearAllCanvases()
       return
     }
@@ -581,7 +584,7 @@ export class ChartRenderer {
       : this.deps.getIndicatorManager().getMainIndicatorPriceRange()
 
     // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paintPane
-    const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
+    const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
       kLinePositions,
@@ -605,11 +608,39 @@ export class ChartRenderer {
       kLineCenters,
       kBarRects,
       kWidthPx,
-      sharedXAxisLabels,
+      axisLabelsFrame,
       sharedXAxisRanges,
       renderData,
       fiveDayTimeShareGeometry,
     )
+    this.scheduleLastPriceCountdown(renderData)
+  }
+
+  /** 停止本根 K 线倒计时的刷新计时器。 */
+  private clearLastPriceCountdownTimer(): void {
+    if (this.lastPriceCountdownTimer !== null) {
+      clearTimeout(this.lastPriceCountdownTimer)
+      this.lastPriceCountdownTimer = null
+    }
+  }
+
+  /** 有效的最新 K 线只在秒边界申请 overlay 帧；切换周期或收线时停止。 */
+  private scheduleLastPriceCountdown(data: ChartSeriesDatum[]): void {
+    this.clearLastPriceCountdownTimer()
+    const last = data[data.length - 1]
+    if (!last || this.deps.dataView$.peek() !== ChartDataViewId.KLine) return
+    const now = Date.now()
+    const remaining = getLastPriceRemainingMs(
+      this.deps.getDataManager().currentPeriod,
+      last.timestamp,
+      now,
+    )
+    if (remaining === null) return
+    const delay = Math.min(remaining, 1_000 - (now % 1_000) + 1)
+    this.lastPriceCountdownTimer = setTimeout(() => {
+      this.lastPriceCountdownTimer = null
+      this.scheduleDraw(UpdateLevel.Overlay)
+    }, delay)
   }
 
   /**
@@ -859,9 +890,10 @@ export class ChartRenderer {
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
     visiblePriceExtrema: VisiblePriceExtrema | null,
     requiresRightAxisWidthMeasurement: boolean,
-  ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
+  ): { axisLabelsFrame: AxisLabelsFrame; sharedXAxisRanges: XAxisRange[] } {
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
-    const sharedXAxisLabels: XAxisLabel[] = []
+    // 轴标签收集统一走 axisLabels 模块的单帧聚合：X 表面共享 + 每 Pane 独立 Y 表面。
+    const axisLabelsFrame = createAxisLabelsFrame()
     const sharedXAxisRanges: XAxisRange[] = []
     const indicatorManager = this.deps.getIndicatorManager()
     const indicatorStateReader = indicatorManager.createRenderStateReader()
@@ -1047,10 +1079,9 @@ export class ChartRenderer {
           preClose:
             dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
         },
-        yAxisLabels: [],
-        xAxisLabels: sharedXAxisLabels,
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
+        axisLabels: axisLabelsFrame,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
@@ -1063,9 +1094,7 @@ export class ChartRenderer {
         context,
         this.deps.getSelectionMarquee?.() ?? null,
       )
-      context.yAxisLabels.push(...context.drawingProjection.yAxisLabels)
       context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)
-      sharedXAxisLabels.push(...context.drawingProjection.xAxisLabels)
       sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
 
       // 计算本 pane 的 Y 轴刻度（等分 + yToPrice 映射）
@@ -1130,7 +1159,7 @@ export class ChartRenderer {
     // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()
 
-    return { sharedXAxisLabels, sharedXAxisRanges }
+    return { axisLabelsFrame, sharedXAxisRanges }
   }
 
   private renderXAxis(
@@ -1140,7 +1169,7 @@ export class ChartRenderer {
     kLineCenters: number[],
     kBarRects: Array<{ x: number; width: number }>,
     kWidthPx: number,
-    sharedXAxisLabels: XAxisLabel[],
+    axisLabelsFrame: AxisLabelsFrame,
     sharedXAxisRanges: XAxisRange[],
     renderData: ChartSeriesDatum[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
@@ -1211,10 +1240,9 @@ export class ChartRenderer {
           plotWidth: vp.plotWidth,
           plotHeight: vp.plotHeight,
         },
-        yAxisLabels: [],
-        xAxisLabels: sharedXAxisLabels,
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
+        axisLabels: axisLabelsFrame,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
@@ -1278,6 +1306,7 @@ export class ChartRenderer {
   }
 
   destroy(): void {
+    this.clearLastPriceCountdownTimer()
     if (this.raf !== null) {
       cancelAnimationFrame(this.raf)
       this.raf = null

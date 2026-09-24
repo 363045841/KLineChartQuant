@@ -2,7 +2,7 @@
  * Awesome Oscillator 计算器：使用 K 线中位价比较快慢 SMA。
  */
 
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 /**
  * 计算 Awesome Oscillator 序列。

@@ -73,7 +73,7 @@
  * Tests assert that *closed* columns match between modes.
  */
 
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 
 import type { ChartTypeTransform, OHLCV, PointAndFigureConfig, TransformedBar } from '../types.js'
 

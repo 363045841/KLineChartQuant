@@ -2,7 +2,7 @@
  * VIDYA 指标计算器
  * 基于收盘价的 CMO 自适应 EMA 计算单线 VIDYA，并以 undefined 表示预热区间。
  */
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 /**
  * 计算 VIDYA 单线序列。

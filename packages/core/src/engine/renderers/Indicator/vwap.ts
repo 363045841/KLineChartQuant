@@ -3,9 +3,9 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { calcVWAPData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'

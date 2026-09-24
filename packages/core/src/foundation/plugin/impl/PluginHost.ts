@@ -1,7 +1,7 @@
 /**
  * 插件宿主 - 核心管理类
  */
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 import type {
   BaseIndicatorState,
   HookCallOptions,

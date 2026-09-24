@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 import type { ENEPoint } from '../calculators/index.js'
 
 export const DEFAULT_ENE_PERIOD = 10

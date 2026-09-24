@@ -6,7 +6,7 @@ import {
   getAnchorCountForTool,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
-} from '../../../../controllers/index'
+} from '@/controllers/index'
 
 describe('toolConfig anchor tables public exports', () => {
   it('getAnchorCountForTool 按锚点数分组返回 1/2/3，非绘图工具返回 null', () => {

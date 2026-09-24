@@ -1,7 +1,7 @@
 /** 验证渲染、命中和拖拽共用的逻辑索引屏幕投影。 */
 import { describe, expect, it } from 'vitest'
 
-import { worldXToScreenX } from '../../../foundation/utils/pixelAlign'
+import { worldXToScreenX } from '@/foundation/utils/pixelAlign'
 import { logicalIndexToScreenX } from '../logicalIndexToScreenX'
 
 describe('worldXToScreenX', () => {

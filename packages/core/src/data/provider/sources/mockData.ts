@@ -1,5 +1,5 @@
 /** 本地 MOCK Provider 的品种目录和 K 线生成器。 */
-import type { KLineData } from '../../../controllers/types.js'
+import type { KLineData } from '@/controllers/types.js'
 import type {
   LiveBarsFrame,
   LiveBarsRequest,
@@ -102,9 +102,7 @@ export function searchMockInstruments(
 export function fetchMockBars(query: BarQuery): ReadonlyArray<KLineData> {
   if (query.instrument.symbol === MOCK_10000_SYMBOL) return generateTenThousandBars()
   const end =
-    query.beforeTimestamp === undefined
-      ? startOfUtcDay(Date.now())
-      : query.beforeTimestamp - 1
+    query.beforeTimestamp === undefined ? startOfUtcDay(Date.now()) : query.beforeTimestamp - 1
   return generateDateRangeBars(end - query.limit * 2 * 86_400_000, end)
     .filter((item) => query.beforeTimestamp === undefined || item.timestamp < query.beforeTimestamp)
     .slice(-query.limit)
@@ -163,7 +161,12 @@ export function createMockLiveBarsStream(request: LiveBarsRequest): LiveBarsStre
       emitStatus('connected')
       emitFrame({ type: 'forming', symbol: request.symbol, period: request.period, bar: nextBar() })
       timer = setInterval(() => {
-        emitFrame({ type: 'forming', symbol: request.symbol, period: request.period, bar: nextBar() })
+        emitFrame({
+          type: 'forming',
+          symbol: request.symbol,
+          period: request.period,
+          bar: nextBar(),
+        })
       }, 1_000)
     },
     disconnect() {

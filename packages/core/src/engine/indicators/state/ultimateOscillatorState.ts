@@ -2,7 +2,7 @@
  * Ultimate Oscillator 渲染状态定义及默认值。
  */
 
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 export interface UltimateOscillatorRenderState extends BaseIndicatorState {
   timestamp: number

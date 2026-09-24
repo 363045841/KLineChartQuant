@@ -77,5 +77,8 @@ export function createCoreSourceAliases(coreSrc) {
     replacement: `${coreSrc}/engine/renderers/Indicator$1`,
   })
 
+  // 消费方直接加载 core 源码时，解析 core 内部从 src 根定位的导入。
+  aliases.push({ find: /^@\/(.+)$/, replacement: `${coreSrc}/$1` })
+
   return aliases
 }

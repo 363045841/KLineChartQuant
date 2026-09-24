@@ -20,7 +20,8 @@
       "@/engine/*": ["packages/core/src/engine/*"],
       "@/types/*": ["packages/core/src/foundation/types/*"],
       "@/plugin": ["packages/core/src/foundation/plugin"],
-      "@/utils/*": ["packages/core/src/foundation/utils/*"]
+      "@/utils/*": ["packages/core/src/foundation/utils/*"],
+      "@/*": ["packages/core/src/*"]
     },
     "outDir": "dist",
     "rootDir": "../.."

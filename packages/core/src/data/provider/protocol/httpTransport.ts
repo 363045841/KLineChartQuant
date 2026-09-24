@@ -3,8 +3,8 @@
  * 任意后端只要实现该契约即可复用本 Transport，测试可注入 fetchImpl
  */
 
-import type { KLineChartErrorCode } from '../../../errors.js'
-import { ERROR_CODES, KLineChartError } from '../../../errors.js'
+import type { KLineChartErrorCode } from '@/errors.js'
+import { ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
 

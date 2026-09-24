@@ -4,9 +4,9 @@ import {
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
-import type { ChartDataView } from '../../../foundation/types/chartView'
-import { ChartDataViewId } from '../../../foundation/types/chartView'
-import { createDisplayTimeFormatter } from '../../../foundation/utils/dateFormat'
+import type { ChartDataView } from '@/foundation/types/chartView'
+import { ChartDataViewId } from '@/foundation/types/chartView'
+import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import { createGridLinesRendererPlugin } from '../gridLines'
 
 /** 构造记录 fillRect 矩形的画布。 */

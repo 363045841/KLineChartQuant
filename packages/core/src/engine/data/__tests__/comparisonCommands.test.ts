@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { SymbolSpec } from '../../../controllers/types'
+import type { SymbolSpec } from '@/controllers/types'
 import {
   ComparisonCommands,
   type ComparisonCommandsDependencies,

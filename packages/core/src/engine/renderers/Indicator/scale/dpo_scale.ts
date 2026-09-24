@@ -2,7 +2,7 @@
  * DPO 坐标轴渲染器薄包装。
  */
 
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
+import type { RendererPluginWithHost } from '@/foundation/plugin/index.js'
 
 import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 

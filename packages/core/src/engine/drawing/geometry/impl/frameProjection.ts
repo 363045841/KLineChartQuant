@@ -1,4 +1,8 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
+
+import { registerAxisLabel } from '@/engine/axisLabels/index.js'
+import { resolveChartWorkspaceId } from '@/engine/state/modeState.js'
+import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -7,11 +11,11 @@ import {
   PRIMITIVE_KIND,
   type RenderContext,
   type ScreenPoint,
-} from '../../../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../../../foundation/tokens/index.js'
-import type { KLineData } from '../../../../foundation/types/price.js'
-import { resolveChartWorkspaceId } from '../../../state/modeState.js'
-import { logicalIndexToScreenX } from '../../../viewport/logicalIndexToScreenX.js'
+  type XAxisRange,
+  type YAxisRange,
+} from '@/foundation/plugin/index.js'
+import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
@@ -25,10 +29,8 @@ import { getVerticalHandleLines } from './lines.js'
 
 type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
-  yAxisLabels: DrawingFrameProjection['yAxisLabels'] extends ReadonlyArray<infer T> ? T[] : never
-  yAxisRanges: DrawingFrameProjection['yAxisRanges'] extends ReadonlyArray<infer T> ? T[] : never
-  xAxisLabels: DrawingFrameProjection['xAxisLabels'] extends ReadonlyArray<infer T> ? T[] : never
-  xAxisRanges: DrawingFrameProjection['xAxisRanges'] extends ReadonlyArray<infer T> ? T[] : never
+  yAxisRanges: YAxisRange[]
+  xAxisRanges: XAxisRange[]
 }
 
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
@@ -213,17 +215,26 @@ function projectAxisDecorations(
 
     const point = toScreen(anchor)
     if (wantsPrice && point.y >= 0 && point.y <= context.pane.height) {
-      output.yAxisLabels.push({
-        price: anchor.price,
-        y: point.y,
-        style: { bgColor: color, borderColor: color, textColor: labelTextColor },
+      registerAxisLabel(context, 'yRightOverlay', {
+        kind: 'tag',
+        text: anchor.price.toFixed(2),
+        pos: point.y + context.pane.top,
+        origin: context.pane.top,
+        variant: 'label',
+        bgColor: color,
+        borderColor: color,
+        textColor: labelTextColor,
+        fontSize: 11,
       })
     }
-    if (wantsTime && point.x >= -context.kWidth && point.x <= context.paneWidth + context.kWidth) {
-      output.xAxisLabels.push({
-        timestamp: timestamp!,
-        x: point.x + context.scrollLeft,
-        style: { bgColor: color, textColor: labelTextColor },
+    if (wantsTime && point.x >= 0 && point.x <= context.paneWidth) {
+      registerAxisLabel(context, 'xLabels', {
+        kind: 'tag',
+        text: context.displayTimeFormatter.formatDate(timestamp!),
+        pos: point.x,
+        bgColor: color,
+        textColor: labelTextColor,
+        fontSize: 12,
       })
     }
   }
@@ -263,9 +274,7 @@ export function projectDrawingsForFrame(
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
-    yAxisLabels: [],
     yAxisRanges: [],
-    xAxisLabels: [],
     xAxisRanges: [],
   }
   const selectedIds = new Set(store.getSelectedIds())

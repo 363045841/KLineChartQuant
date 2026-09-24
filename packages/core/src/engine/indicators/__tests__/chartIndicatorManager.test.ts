@@ -3,9 +3,9 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { RendererPlugin, RendererPluginWithHost } from '../../../foundation/plugin'
-import { createPluginHost } from '../../../foundation/plugin'
-import { createSignal } from '../../../foundation/reactivity/signal'
+import type { RendererPlugin, RendererPluginWithHost } from '@/foundation/plugin'
+import { createPluginHost } from '@/foundation/plugin'
+import { createSignal } from '@/foundation/reactivity/signal'
 import type { PaneSpec } from '../../chartTypes'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'

@@ -5,8 +5,8 @@
  * 调用方依赖本文件，不反向依赖 impl/。
  */
 
-import type { TradingDate } from '../../../data/provider/types.js'
-import type { DrawingStyle } from '../../../foundation/plugin/index.js'
+import type { TradingDate } from '@/data/provider/types.js'
+import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
 import type { DrawingHistoryDocumentPort } from '../history/types.js'
 import type {

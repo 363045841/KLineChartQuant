@@ -2,7 +2,7 @@
  * Schaff Trend Cycle 计算器：对 MACD 依次进行两次随机化和因子平滑。
  */
 
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 /**
  * 计算 Schaff Trend Cycle 序列。

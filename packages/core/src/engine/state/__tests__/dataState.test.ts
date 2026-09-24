@@ -1,7 +1,7 @@
 /** dataState 单元测试：验证活动选择和强类型业务快照原子发布。 */
 import { describe, expect, it } from 'vitest'
 
-import type { SeriesSelection } from '../../../data/buffer/seriesRepository'
+import type { SeriesSelection } from '@/data/buffer/seriesRepository'
 import { createDataState } from '../dataState'
 
 const barsSelection: Extract<SeriesSelection, { kind: 'bars' }> = {

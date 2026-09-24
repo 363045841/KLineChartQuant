@@ -1,17 +1,20 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import type {
+  AxisLabelCollector,
+  RenderContext,
+  RendererPlugin,
+} from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
-  drawAxisTimeLabel,
-  drawCrosshairTimeLabel,
-  drawTimeAxis,
-} from '../../foundation/utils/kLineDraw/axis.js'
-import {
-  alignToPhysicalPixelCenter,
-  roundToPhysicalPixel,
-} from '../../foundation/utils/pixelAlign.js'
+  ASHARE_MARKET_SESSION,
+  computeTimeShareTimeLabels,
+  minuteOfDayToTimestamp,
+  resolveTimestampSessionSlot,
+} from '../../foundation/utils/timeShareAxisLabels.js'
+import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
 
 /** 时间轴面板 ID（特殊标识，用于单独渲染） */
 const TIME_AXIS_PANE_ID = Symbol('time-axis')
@@ -21,23 +24,118 @@ function formatTradingDateLabel(tradingDate: string): string {
   return tradingDate.slice(5)
 }
 
-/** 使用共享日几何绘制五日分时日期标签。 */
-function drawFiveDayTimeShareAxis(context: RenderContext, height: number, textColor: string): void {
-  const geometry = context.fiveDayTimeShareGeometry
-  if (!geometry) return
-  const { ctx, scrollLeft, paneWidth, dpr } = context
-  ctx.save()
-  setCanvasFont(ctx, getFont(12))
-  ctx.fillStyle = textColor
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  const textY = alignToPhysicalPixelCenter(height / 2, dpr)
-  for (const day of geometry.days) {
-    const screenX = day.labelX - scrollLeft
-    if (screenX < 0 || screenX > paneWidth) continue
-    ctx.fillText(formatTradingDateLabel(day.tradingDate), roundToPhysicalPixel(screenX, dpr), textY)
+/** 分时/普通 K 线共用的十字线时间文本：分时走市场时段 HH:mm。 */
+function formatCrosshairTime(context: RenderContext, timestamp: number): string {
+  return isTimeSharePeriod(context.period)
+    ? getMarketSessionTimeFormatter(
+        context.marketSession?.timeZone ?? ASHARE_MARKET_SESSION.timeZone,
+      ).formatAxisTime(timestamp)
+    : context.displayTimeFormatter.formatDate(timestamp)
+}
+
+/**
+ * 生产底部时间轴刻度文字标签（普通 K 线 / 分时 / 五日分时）并注册到 xTicks 表面。
+ *
+ * @param context - 当前时间轴渲染上下文
+ * @param surface - xTicks 表面收集器
+ * @param width - 时间轴逻辑宽度
+ */
+function collectTimeAxisTicks(
+  context: RenderContext,
+  surface: AxisLabelCollector,
+  width: number,
+): void {
+  const { data, range, scrollLeft, period } = context
+  const klineData = data as KLineData[]
+  const colors = resolveThemeColors(
+    context.theme,
+    context.isAsiaMarket,
+    context.colorPresetSettings,
+  )
+  const textColor = colors.text.secondary
+  const fontSize = 12
+
+  if (context.fiveDayTimeShareGeometry) {
+    for (const day of context.fiveDayTimeShareGeometry.days) {
+      const screenX = day.labelX - scrollLeft
+      if (screenX < 0 || screenX > width) continue
+      surface.register({
+        kind: 'tick',
+        text: formatTradingDateLabel(day.tradingDate),
+        pos: screenX,
+        color: textColor,
+        fontSize,
+      })
+    }
+    return
   }
-  ctx.restore()
+
+  if (isTimeSharePeriod(period)) {
+    const market = context.marketSession ?? ASHARE_MARKET_SESSION
+    const labels = computeTimeShareTimeLabels({
+      axisWidth: width,
+      marketSession: market,
+      minLabelSpacingPx: 56,
+    })
+    const baseTs = klineData[0]?.timestamp ?? Date.now()
+    const centerBySlot = new Map<number, number>()
+    for (let index = range.start; index < range.end; index++) {
+      const item = klineData[index]
+      const centerX = context.kLineCenters[index - range.start]
+      if (!item || centerX === undefined) continue
+      const slotIndex = resolveTimestampSessionSlot(item.timestamp, market)
+      if (slotIndex !== null) centerBySlot.set(slotIndex, centerX)
+    }
+    const formatter = getMarketSessionTimeFormatter(market.timeZone)
+    for (const label of labels) {
+      const centerX = centerBySlot.get(label.slotIndex)
+      if (centerX === undefined) continue
+      const drawX = centerX - scrollLeft
+      if (drawX < 0 || drawX > width) continue
+      const ts = minuteOfDayToTimestamp(baseTs, label.minuteOfDay, market.timeZone)
+      surface.register({
+        kind: 'tick',
+        text: formatter.formatAxisTime(ts),
+        pos: drawX,
+        color: textColor,
+        fontSize,
+      })
+    }
+    return
+  }
+
+  const isMinuteData = period.includes('min')
+  const showOnlyYear = !isMinuteData && period !== 'daily'
+  const displayTimeFormatter = context.displayTimeFormatter
+  const boundaries = isMinuteData
+    ? displayTimeFormatter.getDayBoundaries(klineData)
+    : displayTimeFormatter.getMonthBoundaries(klineData)
+  const labelFn = isMinuteData
+    ? displayTimeFormatter.formatAxisDay
+    : displayTimeFormatter.formatAxisMonthOrYear
+  const paddingX = 8
+  const minX = paddingX
+  const maxX = Math.max(paddingX, width - paddingX)
+
+  for (const idx of boundaries) {
+    if (idx < range.start || idx >= range.end) continue
+    const k = klineData[idx]
+    if (!k) continue
+    const { text, isYear } = labelFn(k.timestamp)
+    if (showOnlyYear && !isYear) continue
+    const centerX = context.kLineCenters[idx - range.start]
+    if (centerX === undefined) continue
+    const screenX = centerX - scrollLeft
+    if (screenX < minX || screenX > maxX) continue
+    surface.register({
+      kind: 'tick',
+      text,
+      pos: Math.min(Math.max(screenX, minX), maxX),
+      color: textColor,
+      fontSize,
+      bold: isYear,
+    })
+  }
 }
 
 /**
@@ -58,128 +156,64 @@ export function createTimeAxisRendererPlugin(options: {
     isSystem: true, // 系统渲染器：由 Scene Layer 调度
 
     draw(context: RenderContext) {
-      const { ctx, data, range, scrollLeft, kWidth, kGap, dpr, paneWidth } = context
+      const { ctx, paneWidth, dpr } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const klineData = data as KLineData[]
 
-      // 时间轴绘制到传入的 ctx
-      const targetCtx = ctx
+      // 时间轴绘制到传入的 ctx，使用 paneWidth 作为宽度确保与视口一致
+      const width = paneWidth
+      const height = options.height
+      const metrics = { dpr, axisWidth: width, axisHeight: height }
 
-      // 使用 paneWidth 作为时间轴宽度，确保与视口一致
-      const w = paneWidth
-      const h = options.height
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.scale(dpr, dpr)
+      ctx.clearRect(0, 0, width, height)
 
-      targetCtx.setTransform(1, 0, 0, 1, 0, 0)
-      targetCtx.scale(dpr, dpr)
-      targetCtx.clearRect(0, 0, w, h)
+      // 刻度文字：经 axisLabels 模块生产并绘制
+      const tickSurface = context.axisLabels.forSurface('xTicks')
+      collectTimeAxisTicks(context, tickSurface, width)
+      paintAxisLabels(ctx, tickSurface.labels, 'xTicks', metrics)
 
-      if (context.fiveDayTimeShareGeometry) {
-        drawFiveDayTimeShareAxis(context, h, colors.text.secondary)
-      } else {
-        drawTimeAxis(
-          targetCtx,
-          {
-            x: 0,
-            y: 0,
-            width: w,
-            height: h,
-            data: klineData,
-            scrollLeft,
-            kWidth,
-            kGap,
-            startIndex: range.start,
-            endIndex: range.end,
-            dpr,
-            kLineCenters: context.kLineCenters,
-            visibleRange: range,
-            textColor: colors.text.secondary,
-            lineColor: colors.border.dark,
-            drawTopBorder: false,
-            drawBottomBorder: false,
-            period: context.period,
-            marketSession: context.marketSession,
-            displayTimeFormatter: context.displayTimeFormatter,
-          },
-          context.theme,
-          context.isAsiaMarket,
-          context.colorPresetSettings,
-        )
-      }
-
-      // 绘制来自 xAxisRanges 的时间范围带（先于标签绘制）
+      // 绘制来自 xAxisRanges 的时间范围带（先于十字线与装饰标签）
       for (const range of context.xAxisRanges) {
-        const screenLeftX = range.leftX - scrollLeft
-        const screenRightX = range.rightX - scrollLeft
+        const screenLeftX = range.leftX - context.scrollLeft
+        const screenRightX = range.rightX - context.scrollLeft
         const bandWidth = screenRightX - screenLeftX
         if (bandWidth <= 0) continue
-        targetCtx.save()
-        targetCtx.globalAlpha = range.opacity
-        targetCtx.fillStyle = range.color
-        targetCtx.fillRect(screenLeftX, 0, bandWidth, h)
-        targetCtx.restore()
+        ctx.save()
+        ctx.globalAlpha = range.opacity
+        ctx.fillStyle = range.color
+        ctx.fillRect(screenLeftX, 0, bandWidth, height)
+        ctx.restore()
       }
 
-      // 绘制十字线时间标签
+      // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）
       const crosshair = options.getCrosshair?.()
       if (crosshair && typeof crosshair.index === 'number') {
-        const k = klineData[crosshair.index]
+        const k = (context.data as KLineData[])[crosshair.index]
         if (k) {
-          drawCrosshairTimeLabel(
-            targetCtx,
-            {
-              x: 0,
-              y: 0,
-              width: w,
-              height: h,
-              crosshairX: crosshair.x,
-              timestamp: k.timestamp,
-              dpr,
-              fontSize: 12,
-              bgColor: colors.crosshairLabelBg,
-              textColor: colors.crosshairLabelText,
-              period: context.period,
-              displayTimeFormatter: context.displayTimeFormatter,
-              marketSessionTimeZone: context.marketSession?.timeZone,
-            },
-            context.theme,
-            context.isAsiaMarket,
-            context.colorPresetSettings,
-          )
+          registerAxisLabel(context, 'xCrosshair', {
+            kind: 'tag',
+            text: formatCrosshairTime(context, k.timestamp),
+            pos: crosshair.x,
+            bgColor: colors.label.bg,
+            textColor: colors.label.text,
+            fontSize: 12,
+          })
         }
       }
+      paintAxisLabels(
+        ctx,
+        context.axisLabels.forSurface('xCrosshair').labels,
+        'xCrosshair',
+        metrics,
+      )
 
-      // 绘制来自 xAxisLabels 的标签（极值点、绘图锚点等）
-      for (const label of context.xAxisLabels) {
-        // 将世界坐标X转换为屏幕坐标
-        const screenX = label.x - scrollLeft
-
-        // 检查是否在可视范围内
-        if (screenX >= 0 && screenX <= w) {
-          drawAxisTimeLabel(
-            targetCtx,
-            {
-              x: 0,
-              y: 0,
-              width: w,
-              height: h,
-              labelX: screenX,
-              timestamp: label.timestamp,
-              dpr,
-              fontSize: 12,
-              bgColor: label.style?.bgColor,
-              textColor: label.style?.textColor,
-              displayTimeFormatter: context.displayTimeFormatter,
-            },
-            context.theme,
-            context.isAsiaMarket,
-            context.colorPresetSettings,
-          )
-        }
-      }
+      // 图元装饰标签（帧准备阶段注册）最后绘制
+      paintAxisLabels(ctx, context.axisLabels.forSurface('xLabels').labels, 'xLabels', metrics)
     },
   }
 }

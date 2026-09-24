@@ -5,7 +5,7 @@
  * 让依赖形状在编译期受 `ViewportSignalDeps` 约束。
  */
 
-import { createSignal } from '../../../../foundation/reactivity/signal'
+import { createSignal } from '@/foundation/reactivity/signal'
 
 /** 测试用 viewport options（kGap 为历史字段，当前由 kWidth 推导，仅保留形状）。 */
 export interface TestViewportOptions {

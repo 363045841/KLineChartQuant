@@ -1,23 +1,23 @@
-import { marketDataProviderRegistry } from '../../../data/provider/registry.js'
-import { Chart } from '../../../engine/chart.js'
+import { marketDataProviderRegistry } from '@/data/provider/registry.js'
+import { Chart } from '@/engine/chart.js'
 import type {
   ChartOptions,
   IndicatorInstance as LegacyIndicatorInstance,
   SubPaneInfo as LegacySubPaneInfo,
   ViewportState as LegacyViewportState,
-} from '../../../engine/chartTypes.js'
-import { getRegisteredIndicatorDefinition } from '../../../engine/indicators/indicatorDefinitionRegistry.js'
-import { loadBuiltinIndicators } from '../../../engine/indicators/registerBuiltins.js'
-import { MAIN_PANE_ID } from '../../../engine/paneIds.js'
-import { hasSubPaneRendererMetadata } from '../../../engine/subPaneManager.js'
-import { kGapFromKWidth, zoomLevelToKWidth } from '../../../engine/utils/zoom.js'
-import { CONTROLLER_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import { createChartAgentController } from '../../../features/agent/impl/chartAgentController.js'
-import { createIndicatorQuery } from '../../../features/agent/impl/indicator/indicatorQuery.js'
-import { resolveSettings } from '../../../foundation/config/chartSettings.js'
-import { computed, type ReadonlySignal } from '../../../foundation/reactivity/index.js'
-import { generateUUID } from '../../../foundation/utils/uuid.js'
-import { createDefaultRendererHost, type RendererBackend } from '../../../rendering/render/index.js'
+} from '@/engine/chartTypes.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
+import { MAIN_PANE_ID } from '@/engine/paneIds.js'
+import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
+import { kGapFromKWidth, zoomLevelToKWidth } from '@/engine/utils/zoom.js'
+import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
+import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
+import { resolveSettings } from '@/foundation/config/chartSettings.js'
+import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+import { generateUUID } from '@/foundation/utils/uuid.js'
+import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
 import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
 import {
   createViewWorkspacePersistence,

@@ -1,31 +1,28 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
 import { type Static, Type } from 'typebox'
-import type { IndicatorInstance } from '../../../controllers/types.js'
-import {
-  lookupInstrumentsBySymbol,
-  searchInstruments,
-} from '../../../data/provider/instrumentSearch.js'
-import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../../data/provider/types.js'
-import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '../../../data/provider/types.js'
-import type { PaneSpec } from '../../../engine/chartTypes.js'
+import type { IndicatorInstance } from '@/controllers/types.js'
+import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/instrumentSearch.js'
+import type { KLineAdjustment, KLinePeriod, TradingDate } from '@/data/provider/types.js'
+import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '@/data/provider/types.js'
+import type { PaneSpec } from '@/engine/chartTypes.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
-import '../../../engine/data/comparisonCommands.js'
+import '@/engine/data/comparisonCommands.js'
 import {
   DRAWING_LABEL_INDEX_PATTERN,
   type DrawingAnchorCommandInput,
   type DrawingKind,
   type DrawingObject,
   getDrawingInputAnchorCount,
-} from '../../../engine/drawing/index.js'
-import type { DataStateModule } from '../../../engine/state/dataState.js'
-import { CHART_AGENT_ERROR_CODES, KLineChartError } from '../../../errors.js'
+} from '@/engine/drawing/index.js'
+import type { DataStateModule } from '@/engine/state/dataState.js'
+import { CHART_AGENT_ERROR_CODES, KLineChartError } from '@/errors.js'
 import {
   type ChartToolExecutionContext,
   getRegisteredChartTools,
   Tool,
-} from '../../../foundation/agent/chartToolRegistry.js'
-import { computed, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
-import { AGENT_DRAWING_COLOR_VALUES } from '../../../foundation/tokens/agentDrawingColors.js'
+} from '@/foundation/agent/chartToolRegistry.js'
+import { computed, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { AGENT_DRAWING_COLOR_VALUES } from '@/foundation/tokens/agentDrawingColors.js'
 import type {
   BarsQueryInput,
   BarsQueryResult,

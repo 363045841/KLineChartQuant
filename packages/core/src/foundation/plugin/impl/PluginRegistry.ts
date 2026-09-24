@@ -1,7 +1,7 @@
 /**
  * 插件注册表
  */
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 
 import type { Plugin, PluginDescriptor, PluginState } from '../types.js'
 

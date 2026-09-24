@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DrawingChartAdapter } from '../../../../controllers/types'
+import type { DrawingChartAdapter } from '@/controllers/types'
 import { createTrendLine } from '../../__tests__/helpers/drawingTestKit'
 import type { DrawingObject } from '../../types'
 import { DrawingSessionOverlay, mergePaint, PREVIEW_ID } from '../impl/DrawingSessionOverlay'

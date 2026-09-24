@@ -1,4 +1,4 @@
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 export interface PivotPoint {
   pp: number

@@ -25,8 +25,8 @@
  * Dispose-guard pattern mirrors `createIndicatorSelectorController.ts`.
  */
 
-import { KLineChartError } from '../../../errors.js'
-import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
+import { KLineChartError } from '@/errors.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   AggressorResult,
   FootprintBar,

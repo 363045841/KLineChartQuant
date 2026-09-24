@@ -2,7 +2,7 @@
  * Fisher Transform 计算器：使用 K 线中位价将价格波动映射为 Fisher 与信号线。
  */
 
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 export interface FisherPoint {
   fisher: number

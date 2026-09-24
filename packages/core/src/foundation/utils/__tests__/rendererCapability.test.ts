@@ -18,7 +18,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { isKLineChartError } from '../../../errors'
+import { isKLineChartError } from '@/errors'
 import {
   compareRendererTier,
   detectRendererTier,

@@ -4,7 +4,7 @@
  * 纯几何函数，不依赖 Canvas，供 primitive 渲染器在绘制前调用。
  */
 
-import type { LinePrimitive } from '../../../../foundation/plugin/index.js'
+import type { LinePrimitive } from '@/foundation/plugin/index.js'
 
 /** 视口裁剪矩形（屏幕坐标，含边界）。 */
 type ClipRect = { left: number; top: number; right: number; bottom: number }

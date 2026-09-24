@@ -1,5 +1,5 @@
 /** 新实例计算链路的 inline 与 Worker 执行器适配。 */
-import type { KLineData } from '../../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type { IndicatorCalculationOutput } from '../domain/instanceCalculationPlan.js'
 import {
   INSTANCE_WORKER_PROTOCOL_VERSION,

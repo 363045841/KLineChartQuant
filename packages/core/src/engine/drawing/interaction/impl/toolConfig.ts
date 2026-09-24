@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 import type { DrawingKind } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
 

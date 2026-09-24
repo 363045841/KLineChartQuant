@@ -21,7 +21,7 @@
  *   `appendBar incrementally matches full recompute` pins this.
  */
 
-import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   ActiveAnchor,
   AnchorDefinition,

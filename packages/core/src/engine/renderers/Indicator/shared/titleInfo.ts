@@ -1,7 +1,7 @@
-import type { IndicatorRenderStateReader } from '../../../../foundation/plugin/index.js'
-import type { ColorTokens } from '../../../../foundation/tokens/index.js'
-import type { KLineData } from '../../../../foundation/types/price.js'
-import type { GetTitleInfoFn, TitleInfo } from '../../../indicators/indicatorMetadata.js'
+import type { GetTitleInfoFn, TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
+import type { IndicatorRenderStateReader } from '@/foundation/plugin/index.js'
+import type { ColorTokens } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 interface SingleSeriesState {
   timestamp: number

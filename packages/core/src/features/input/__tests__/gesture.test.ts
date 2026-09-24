@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { isKLineChartError } from '../../../errors'
+import { isKLineChartError } from '@/errors'
 import { createGestureRecognizer, type GestureEvent, type PointerEventLike } from '..'
 
 function pt(id: number, x: number, y: number, ts: number): PointerEventLike {

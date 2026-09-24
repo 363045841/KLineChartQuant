@@ -5,7 +5,7 @@
  * Worker adapter 与 inline adapter 实现相同的 execute 契约，调度器不感知二者差异。
  */
 
-import type { KLineData } from '../../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import {
   expandIndicatorCalculationOutputs,
   type IndicatorCalculationOutput,

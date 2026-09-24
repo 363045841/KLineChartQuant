@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 /**
  * Resample a base-timeframe bar series to a higher timeframe.
  *

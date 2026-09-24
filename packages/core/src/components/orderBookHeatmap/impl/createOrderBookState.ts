@@ -14,7 +14,7 @@
  * is purely a snapshot-time concern.
  */
 
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 
 import type {
   BookSnapshot,

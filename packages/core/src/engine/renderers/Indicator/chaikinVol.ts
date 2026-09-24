@@ -3,9 +3,9 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { calcChaikinVolData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
@@ -19,11 +19,13 @@ import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function createChaikinVolRendererPlugin(options: {
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-} = {}): RendererPluginWithHost {
+function createChaikinVolRendererPlugin(
+  options: {
+    paneId?: string
+    /** 指标实例 ID，渲染状态寻址唯一键。 */
+    instanceId?: string
+  } = {},
+): RendererPluginWithHost {
   const { paneId = 'sub_ChaikinVol', instanceId } = options
   let pluginHost: PluginHost | null = null
 

@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 import type { STOCHPoint } from '../calculators/index.js'
 
 export interface STOCHRenderState extends BaseIndicatorState {

@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 import type { EXPMAPoint } from '../calculators/index.js'
 
 export const DEFAULT_EXPMA_FAST_PERIOD = 12

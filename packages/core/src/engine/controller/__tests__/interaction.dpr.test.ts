@@ -2,9 +2,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { InteractionController } from '@/core/controller/interaction'
+import { writableRef } from '@/foundation/reactivity/signal'
+import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData } from '@/types/price'
-import { writableRef } from '../../../foundation/reactivity/signal'
-import { type ChartDataView, ChartDataViewId } from '../../../foundation/types/chartView'
 import { createInteractionState } from '../../state/interactionState'
 
 /** 交互内核替身：直接复用生产实现，测试不再手抄 snapshot 字段。 */

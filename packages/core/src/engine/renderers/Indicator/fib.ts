@@ -3,18 +3,18 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import type { ColorTokens } from '../../../foundation/tokens/index.js'
-import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import type { ColorTokens } from '@/foundation/tokens/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { calcFibData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
+  IndicatorKind,
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FibRenderState } from '../../indicators/state/fibState.js'
 import { EMPTY_FIB_STATE } from '../../indicators/state/fibState.js'
@@ -36,11 +36,13 @@ function getFibColors(colors: ColorTokens) {
 
 type Point = { x: number; y: number }
 
-function createFibRendererPlugin(options: {
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-} = {}): RendererPluginWithHost {
+function createFibRendererPlugin(
+  options: {
+    paneId?: string
+    /** 指标实例 ID，渲染状态寻址唯一键。 */
+    instanceId?: string
+  } = {},
+): RendererPluginWithHost {
   const { paneId = 'main', instanceId } = options
   let pluginHost: PluginHost | null = null
 

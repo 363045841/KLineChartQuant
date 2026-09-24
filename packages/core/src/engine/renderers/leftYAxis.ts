@@ -1,14 +1,14 @@
 import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
 import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { drawCrosshairPriceLabel } from '../../foundation/utils/kLineDraw/axis.js'
-import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign.js'
+import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
+import { formatAxisPriceValue } from './axisValueFormat.js'
 
 type LeftYAxisOptions = {
   axisWidth: number
-  yPaddingPx: number
+  /** 与 pane 一致的 Y 轴内边距；保留以兼容既有插件选项形状。 */
+  yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }
 
@@ -53,26 +53,23 @@ export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): 
 
       leftAxisCtx.clearRect(0, 0, axisWidth, pane.height)
 
-      const font = getFont(12)
-      setCanvasFont(leftAxisCtx, font)
-      leftAxisCtx.textBaseline = 'middle'
-      leftAxisCtx.textAlign = 'center'
-      leftAxisCtx.fillStyle = tokenColors.text.secondary
-
-      const textX = roundToPhysicalPixel(axisWidth / 2, dpr)
       const isPercent = axisDisplay === 'percent' && pane.role === 'price'
-
-      const formatTick = isPercent
-        ? (v: number) => {
-            const sign = v >= 0 ? '+' : ''
-            return sign + v.toFixed(2) + '%'
-          }
-        : (v: number) => v.toFixed(2)
-
+      const labels = context.axisLabels.forSurface('yLeftStatic', pane.id)
       for (const tick of context.yAxisTicks) {
         const displayValue = isPercent ? pane.yAxis.toPercent(tick.value) : tick.value
-        leftAxisCtx.fillText(formatTick(displayValue), textX, tick.y)
+        labels.register({
+          kind: 'tick',
+          text: formatAxisPriceValue(displayValue, isPercent),
+          pos: tick.y,
+          color: tokenColors.text.secondary,
+          fontSize: 12,
+        })
       }
+      paintAxisLabels(leftAxisCtx, labels.labels, 'yLeftStatic', {
+        dpr,
+        axisWidth,
+        axisHeight: pane.height,
+      })
     },
   }
 }
@@ -106,43 +103,29 @@ export function createLeftYAxisOverlayRendererPlugin(options: LeftYAxisOptions):
       const crosshair = options.getCrosshair?.()
       if (!crosshair || crosshair.activePaneId !== pane.id || crosshair.price === null) return
 
-      const isCrosshairPercent = axisDisplay === 'percent'
-      const crosshairPrice = isCrosshairPercent
-        ? pane.yAxis.toPercent(crosshair.price)
-        : crosshair.price
-      const crosshairPriceRange = pane.yAxis.getDisplayRange()
-      const crosshairLabelRange: { minPrice: number; maxPrice: number } = isCrosshairPercent
-        ? (() => {
-            const p = pane.yAxis.getDisplayPercentRange()
-            return { minPrice: p.minPct, maxPrice: p.maxPct }
-          })()
-        : crosshairPriceRange
-      const formatCrosshairPrice = isCrosshairPercent
-        ? (v: number) => {
-            const sign = v >= 0 ? '+' : ''
-            return sign + v.toFixed(2) + '%'
-          }
-        : undefined
-
-      drawCrosshairPriceLabel(
-        targetCtx,
-        {
-          x: 0,
-          y: pane.top,
-          width: axisWidth,
-          height: pane.height,
-          crosshairY: crosshair.y,
-          priceRange: crosshairLabelRange,
-          yPaddingPx: options.yPaddingPx,
-          dpr,
-          fontSize: 12,
-          priceOffset: 0,
-          price: crosshairPrice,
-          formatPrice: formatCrosshairPrice,
-        },
+      const tokenColors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
+      )
+      const isPercent = axisDisplay === 'percent'
+      const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
+
+      registerAxisLabel(context, 'yLeftOverlay', {
+        kind: 'tag',
+        text: formatAxisPriceValue(crosshairPrice, isPercent),
+        pos: crosshair.y,
+        origin: pane.top,
+        variant: 'crosshair',
+        bgColor: tokenColors.label.bg,
+        textColor: tokenColors.label.text,
+        fontSize: 12,
+      })
+      paintAxisLabels(
+        targetCtx,
+        context.axisLabels.forSurface('yLeftOverlay', pane.id).labels,
+        'yLeftOverlay',
+        { dpr, axisWidth, axisHeight: pane.height },
       )
     },
   }

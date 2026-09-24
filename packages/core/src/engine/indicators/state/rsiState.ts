@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 export const DEFAULT_RSI_PERIOD1 = 6
 export const DEFAULT_RSI_PERIOD2 = 12

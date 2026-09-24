@@ -1,17 +1,14 @@
 import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
 import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import {
-  drawAxisPriceLabel,
-  drawCrosshairPriceLabel,
-} from '../../foundation/utils/kLineDraw/axis.js'
-import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign.js'
+import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
+import { formatAxisPriceValue } from './axisValueFormat.js'
 
 type YAxisOptions = {
   axisWidth: number
-  yPaddingPx: number
+  /** 与 pane 一致的 Y 轴内边距；保留以兼容既有插件选项形状。 */
+  yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }
 
@@ -54,32 +51,29 @@ export function createYAxisStaticRendererPlugin(options: YAxisOptions): Renderer
       if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
         targetCtx.clearRect(0, 0, axisWidth, pane.height)
 
-        const font = getFont(12)
-        setCanvasFont(targetCtx, font)
-        targetCtx.textBaseline = 'middle'
-        targetCtx.textAlign = 'center'
-        targetCtx.fillStyle = tokenColors.text.secondary
-
-        const format = isPercent
-          ? (v: number) => {
-              const sign = v >= 0 ? '+' : ''
-              return sign + v.toFixed(2) + '%'
-            }
-          : (v: number) => v.toFixed(2)
-
-        const textX = roundToPhysicalPixel(axisWidth / 2, dpr)
-
+        const labels = context.axisLabels.forSurface('yRightStatic', pane.id)
         for (const tick of context.yAxisTicks) {
           const displayValue = isPercent ? pane.yAxis.toPercent(tick.value) : tick.value
-          targetCtx.fillText(format(displayValue), textX, tick.y)
+          labels.register({
+            kind: 'tick',
+            text: formatAxisPriceValue(displayValue, isPercent),
+            pos: tick.y,
+            color: tokenColors.text.secondary,
+            fontSize: 12,
+          })
         }
+        paintAxisLabels(targetCtx, labels.labels, 'yRightStatic', {
+          dpr,
+          axisWidth,
+          axisHeight: pane.height,
+        })
       }
     },
   }
 }
 
 /**
- * Y 轴动态层：价格范围带、yAxisLabels 与十字线价签，画到 yAxisOverlayCtx（overlay 级刷新）
+ * Y 轴动态层：价格范围带、装饰标签与十字线价签，画到 yAxisOverlayCtx（overlay 级刷新）
  */
 export function createYAxisOverlayRendererPlugin(options: YAxisOptions): RendererPlugin {
   return {
@@ -109,7 +103,6 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       const axisWidth = targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth
       targetCtx.clearRect(0, 0, axisWidth, pane.height)
 
-      const displayRange = pane.yAxis.getDisplayRange()
       const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
       // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。
@@ -126,70 +119,28 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
         }
       }
 
-      // 绘制来自 yAxisLabels 的标签（最新价格、极值点、绘图锚点等）
-      if (pane.role === 'price') {
-        for (const label of context.yAxisLabels) {
-          if (label.price == null || !Number.isFinite(label.price)) continue
-          const isLastPrice = label.type === 'lastPrice'
-          drawAxisPriceLabel(
-            targetCtx,
-            {
-              x: 0,
-              y: pane.top,
-              width: axisWidth,
-              height: pane.height,
-              priceY: label.y + pane.top,
-              price: label.price,
-              dpr,
-              bgColor: label.style?.bgColor ?? tokenColors.label.bg,
-              borderColor: label.style?.borderColor,
-              textColor: label.style?.textColor ?? tokenColors.label.text,
-              fontSize: isLastPrice ? 12 : 11,
-            },
-            context.theme,
-            context.isAsiaMarket,
-            context.colorPresetSettings,
-          )
-        }
-      }
-
+      // 十字线价签：在装饰标签之后注册，保证绘制顺序与既有 overlay 语义一致。
       const crosshair = options.getCrosshair?.()
       if (crosshair && crosshair.activePaneId === pane.id && crosshair.price !== null) {
         const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
-        const crosshairPriceRange: { minPrice: number; maxPrice: number } = isPercent
-          ? (() => {
-              const p = pane.yAxis.getDisplayPercentRange()
-              return { minPrice: p.minPct, maxPrice: p.maxPct }
-            })()
-          : displayRange
-        const formatPrice = isPercent
-          ? (v: number) => {
-              const sign = v >= 0 ? '+' : ''
-              return sign + v.toFixed(2) + '%'
-            }
-          : undefined
-
-        drawCrosshairPriceLabel(
-          targetCtx,
-          {
-            x: 0,
-            y: pane.top,
-            width: axisWidth,
-            height: pane.height,
-            crosshairY: crosshair.y,
-            priceRange: crosshairPriceRange,
-            yPaddingPx: options.yPaddingPx,
-            dpr,
-            fontSize: 12,
-            priceOffset: 0,
-            price: crosshairPrice,
-            formatPrice,
-          },
-          context.theme,
-          context.isAsiaMarket,
-          context.colorPresetSettings,
-        )
+        registerAxisLabel(context, 'yRightOverlay', {
+          kind: 'tag',
+          text: formatAxisPriceValue(crosshairPrice, isPercent),
+          pos: crosshair.y,
+          origin: pane.top,
+          variant: 'crosshair',
+          bgColor: tokenColors.label.bg,
+          textColor: tokenColors.label.text,
+          fontSize: 12,
+        })
       }
+
+      paintAxisLabels(
+        targetCtx,
+        context.axisLabels.forSurface('yRightOverlay', pane.id).labels,
+        'yRightOverlay',
+        { dpr, axisWidth, axisHeight: pane.height },
+      )
     },
   }
 }

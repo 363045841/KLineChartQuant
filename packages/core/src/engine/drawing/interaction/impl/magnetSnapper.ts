@@ -4,7 +4,7 @@
 // X 坐标在 Bar 中心可解析时始终吸附到该中心（与档位无关）。
 // 纯函数、无副作用，仅经 resolveDrawingPointer 的可选参数在绘图模式路径生效。
 
-import type { DrawingViewportPort, PaneLayoutInfo } from '../../../../controllers/types.js'
+import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
 import type { MagnetSnapConfig, SnappedPoint } from '../types.js'
 
 export type { ActiveMagnetMode, MagnetMode, MagnetSnapConfig, SnappedPoint } from '../types.js'

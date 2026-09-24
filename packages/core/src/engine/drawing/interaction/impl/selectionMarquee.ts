@@ -1,7 +1,7 @@
 /** 绘图框选会话的几何命中与临时 primitive 投影。 */
-import type { DrawingViewportPort } from '../../../../controllers/types.js'
-import type { DrawingPrimitive, ScreenPoint } from '../../../../foundation/plugin/index.js'
-import type { ColorTokens } from '../../../../foundation/tokens/index.js'
+import type { DrawingViewportPort } from '@/controllers/types.js'
+import type { DrawingPrimitive, ScreenPoint } from '@/foundation/plugin/index.js'
+import type { ColorTokens } from '@/foundation/tokens/index.js'
 import type { DrawingObject } from '../../types.js'
 import type { DrawingSelectionMarquee } from '../types.js'
 import type { HitTester } from './HitTester.js'

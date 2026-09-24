@@ -5,10 +5,9 @@ import {
   type MockPaneInfoOverrides,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import type { RenderContext } from '@/foundation/plugin/index'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
-
-import type { RenderContext } from '../../../foundation/plugin/index'
-import type { Renderer } from '../../../rendering/render/Renderer'
+import type { Renderer } from '@/rendering/render/Renderer'
 import { createCandleRenderer } from '../candle'
 
 /** 构造蜡烛图 renderer 关心的 pane 差异项。 */

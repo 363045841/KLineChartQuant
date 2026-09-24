@@ -1,7 +1,7 @@
 // 本文件验证精确品种查询结果转义为完整字段的 Markdown 表格。
 
 import { describe, expect, it } from 'vitest'
-import type { InstrumentDescriptor } from '../../../data/provider/types'
+import type { InstrumentDescriptor } from '@/data/provider/types'
 import { createMarketDataTextFormatter } from '../impl/marketDataTextFormatter'
 
 /** 构造带嵌套能力与路由字段的精确匹配品种。 */

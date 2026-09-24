@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { KLineData } from '../../../controllers/types'
+import type { KLineData } from '@/controllers/types'
 import type { ChartDataManager } from '../chartDataManager'
 import { createTestChartDataManager, createTestDocument } from './helpers/chartDataManagerTestKit'
 

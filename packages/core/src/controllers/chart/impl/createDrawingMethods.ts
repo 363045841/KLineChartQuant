@@ -6,15 +6,15 @@
  * 每个方法保留原有的 disposed 守卫语义，由调用方展开进 ChartController 返回对象。
  */
 
-import type { Chart } from '../../../engine/chart.js'
+import type { Chart } from '@/engine/chart.js'
 import {
   CURSOR_DRAWING_TOOL_ID,
   type DrawingInteractionController,
   type DrawingToolId,
   type DrawingWorkspaceId,
   type PersistedDrawingAnchor,
-} from '../../../engine/drawing/index.js'
-import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
+} from '@/engine/drawing/index.js'
+import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,

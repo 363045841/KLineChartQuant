@@ -7,8 +7,8 @@ import {
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '@/engine/indicators/instances/api/indicatorRenderBinding'
+import { resolveThemeColors } from '@/foundation/tokens'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
-import { resolveThemeColors } from '../../../foundation/tokens'
 import { createENERendererPlugin } from '../Indicator/ene'
 
 /** 固定实例身份：renderer 只按 instanceId 寻址，不再依赖指标类型 state key。 */

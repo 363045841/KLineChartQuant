@@ -1,5 +1,5 @@
-import type { TradingDate } from '../../../../data/provider/types.js'
-import type { KLineData } from '../../../../foundation/types/price.js'
+import type { TradingDate } from '@/data/provider/types.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type { AnchorTradingDateResolution } from '../types.js'
 
 export function resolveDrawingTradingDate(

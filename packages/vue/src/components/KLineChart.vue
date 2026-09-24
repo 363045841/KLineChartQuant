@@ -519,15 +519,19 @@
   const { watchlistItems, watchlistKeys, restoreWatchlist, addWatchlistItem, removeWatchlistItem } =
     useWatchlist()
 
-  function onKLineLevelChange(level: string) {
-    if (level === 'timeshare') {
-      const item = currentSymbolItem.value
-      if (item?.capabilities && (item.capabilities.timeShare !== true || !item.sessionId)) {
-        symbolStatus.value = 'error'
-        symbolErrorMessage.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
-        return
-      }
+  /** 分时入口统一校验：品种未声明分时能力或缺会话时写入错误态，返回是否允许进入。 */
+  function ensureTimeShareSupported(): boolean {
+    const item = currentSymbolItem.value
+    if (item?.capabilities && (item.capabilities.timeShare !== true || !item.sessionId)) {
+      symbolStatus.value = 'error'
+      symbolErrorMessage.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
+      return false
     }
+    return true
+  }
+
+  function onKLineLevelChange(level: string) {
+    if (level === 'timeshare' && !ensureTimeShareSupported()) return
     emit('kLineLevelChange', level)
     try {
       controller.value?.setCurrentPeriod(level)
@@ -1624,11 +1628,22 @@
     const timestamp = controller.value.getTimestampAtLogicalIndex(index)
     if (timestamp == null) return
 
+    // 双击进入分时前复用与分时下拉一致的品种能力校验；无会话的数据源（如 MT5）直接忽略，避免触发未注册会话异常。
+    if (!ensureTimeShareSupported()) return
+
     const d = new Date(timestamp)
     const shD = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
     const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
 
-    controller.value.switchToTimeShareForDate(yyyymmdd)
+    try {
+      controller.value.switchToTimeShareForDate(yyyymmdd)
+    } catch (error) {
+      symbolStatus.value = 'error'
+      if (currentSymbolItem.value) {
+        symbolErrorMessage.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
+      }
+      return
+    }
     emit('kLineLevelChange', 'timeshare')
   }
 
