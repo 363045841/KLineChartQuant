@@ -1,14 +1,17 @@
 import { createIndexedDbPersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
 
+import { drawingColorFields, type DrawingColorField } from './config.js'
+
 type DrawingKind = DrawingObject['kind']
 
 export type DrawingTemplate = {
   name: string
-  style: Partial<Pick<DrawingStyle, 'fill' | 'stroke'>>
+  style: Partial<Pick<DrawingStyle, DrawingColorField>>
 }
 
 const colorPattern = /^#[0-9a-fA-F]{6}$/
+const colorKeys = Object.keys(drawingColorFields) as DrawingColorField[]
 
 const codec: PersistenceCodec<DrawingTemplate[]> = {
   decode(value) {
@@ -19,22 +22,22 @@ const codec: PersistenceCodec<DrawingTemplate[]> = {
       if (typeof record.name !== 'string' || !record.name.trim()) return false
       if (!record.style || typeof record.style !== 'object') return false
       const style = record.style as Record<string, unknown>
-      return (
-        (style.fill === undefined || (typeof style.fill === 'string' && colorPattern.test(style.fill))) &&
-        (style.stroke === undefined || (typeof style.stroke === 'string' && colorPattern.test(style.stroke))) &&
-        (style.fill !== undefined || style.stroke !== undefined)
+      return Object.keys(style).length > 0 && Object.entries(style).every(
+        ([key, color]) => Object.hasOwn(drawingColorFields, key) &&
+          typeof color === 'string' && colorPattern.test(color),
       )
     })
   },
   encode(value) {
     // IndexedDB cannot clone Vue proxies. Copy only the persisted fields into plain records.
-    return value.map((template) => ({
-      name: template.name,
-      style: {
-        ...(template.style.fill !== undefined ? { fill: template.style.fill } : {}),
-        ...(template.style.stroke !== undefined ? { stroke: template.style.stroke } : {}),
-      },
-    }))
+    return value.map((template) => {
+      const style: DrawingTemplate['style'] = {}
+      for (const key of colorKeys) {
+        const color = template.style[key]
+        if (color !== undefined) style[key] = color
+      }
+      return { name: template.name, style }
+    })
   },
 }
 

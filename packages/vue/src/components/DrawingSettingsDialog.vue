@@ -5,20 +5,12 @@
     </template>
     <div class="drawing-settings-body" role="tabpanel" :aria-label="activeTab === 'style' ? '样式' : '文本'">
       <template v-if="activeTab === 'style'">
-        <label v-if="config.style.includes('fill') && editableStyleKeys.includes('fill')" class="color-row">
-          <span>背景颜色</span>
+        <label v-for="field in visibleStyleFields" :key="field" class="color-row">
+          <span>{{ drawingColorFields[field].label }}</span>
           <ColorInput
-            :value="drawing.style.fill ?? drawing.style.stroke ?? DEFAULT_DRAWING_STROKE"
-            label="背景颜色"
-            @change="emit('updateStyle', { fill: $event })"
-          />
-        </label>
-        <label v-if="config.style.includes('stroke') && editableStyleKeys.includes('stroke')" class="color-row">
-          <span>线条颜色</span>
-          <ColorInput
-            :value="drawing.style.stroke ?? DEFAULT_DRAWING_STROKE"
-            label="线条颜色"
-            @change="emit('updateStyle', { stroke: $event })"
+            :value="drawingColorValue(field)"
+            :label="drawingColorFields[field].label"
+            @change="emit('updateStyle', { [field]: $event })"
           />
         </label>
       </template>
@@ -113,7 +105,11 @@
   import IconTablerAlignRight from '~icons/tabler/align-right'
 
   import { useClickOutside } from '../composables/useClickOutside.js'
-  import { drawingSettingsConfigs } from './drawing-settings/config.js'
+  import {
+    drawingColorFields,
+    drawingSettingsConfigs,
+    type DrawingColorField,
+  } from './drawing-settings/config.js'
   import { loadDrawingTemplates, saveDrawingTemplates, type DrawingTemplate } from './drawing-settings/templates.js'
 
   import BaseModal from './BaseModal.vue'
@@ -134,10 +130,13 @@
   const activeTab = ref<'style' | 'text'>('style')
   const templateFormId = useId()
   const config = computed(() => drawingSettingsConfigs[props.drawing.kind])
-  const textTarget = computed<'line' | 'area' | null>(() => {
-    const target = config.value.text[0]
-    return target === 'line' || target === 'area' ? target : null
-  })
+  const visibleStyleFields = computed(() =>
+    config.value.style.filter((field) => props.editableStyleKeys.includes(field)),
+  )
+  const textTarget = computed(() => config.value.text[0] ?? null)
+  function drawingColorValue(field: DrawingColorField): string {
+    return props.drawing.style[field] ?? props.drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
+  }
   const tabs = computed(() => [
     { id: 'style' as const, label: '样式' },
     ...(textTarget.value ? [{ id: 'text' as const, label: '文本' }] : []),
@@ -193,11 +192,8 @@
     const template = templates.value[index]
     if (!template) return
     const style: Partial<DrawingStyle> = {}
-    if (config.value.style.includes('fill') && props.editableStyleKeys.includes('fill')) {
-      style.fill = template.style.fill
-    }
-    if (config.value.style.includes('stroke') && props.editableStyleKeys.includes('stroke')) {
-      style.stroke = template.style.stroke
+    for (const field of visibleStyleFields.value) {
+      if (template.style[field] !== undefined) style[field] = template.style[field]
     }
     if (style.fill !== undefined || style.stroke !== undefined) emit('updateStyle', style)
   }
@@ -207,12 +203,7 @@
     if (!name || busy.value) return
     const kind = props.drawing.kind
     const style: DrawingTemplate['style'] = {}
-    if (config.value.style.includes('fill') && props.editableStyleKeys.includes('fill')) {
-      style.fill = props.drawing.style.fill ?? props.drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
-    }
-    if (config.value.style.includes('stroke') && props.editableStyleKeys.includes('stroke')) {
-      style.stroke = props.drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
-    }
+    for (const field of visibleStyleFields.value) style[field] = drawingColorValue(field)
     if (!style.fill && !style.stroke) return
     const next = [...templates.value.filter((template) => template.name !== name), { name, style }]
     busy.value = true
