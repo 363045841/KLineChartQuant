@@ -6,12 +6,12 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-foreground: #E8EAED;
   --klc-color-chart-background: #111827;
   --klc-color-floating-surface: #1B2533;
-  --klc-color-candle-up-body: #22D69B;
-  --klc-color-candle-up-border: #22D69B;
-  --klc-color-candle-up-wick: #22D69B;
-  --klc-color-candle-down-body: #FF6464;
-  --klc-color-candle-down-border: #FF6464;
-  --klc-color-candle-down-wick: #FF6464;
+  --klc-color-candle-up-body: #089981;
+  --klc-color-candle-up-border: #089981;
+  --klc-color-candle-up-wick: #089981;
+  --klc-color-candle-down-body: #f23645;
+  --klc-color-candle-down-border: #f23645;
+  --klc-color-candle-down-wick: #f23645;
   --klc-color-candle-doji-border: #8A8F98;
   --klc-color-performance-positive: #22D69B;
   --klc-color-performance-negative: #FF6464;
@@ -222,8 +222,8 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | axisText | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
 | crosshairLabelText | #0E1116 | crosshairLabelBg | 15.69 | 4.5:1 | ✅ |
 | tooltipText | #E8EAED | tooltipBg | 13.71 | 4.5:1 | ✅ |
-| candleUpBody | #22D69B | background | 9.43 | 3.0:1 | ✅ |
-| candleDownBody | #FF6464 | background | 6.13 | 3.0:1 | ✅ |
+| candleUpBody | #089981 | background | 4.97 | 3.0:1 | ✅ |
+| candleDownBody | #f23645 | background | 4.55 | 3.0:1 | ✅ |
 | performancePositive | #22D69B | background | 9.43 | 4.5:1 | ✅ |
 | performanceNegative | #FF6464 | background | 6.13 | 4.5:1 | ✅ |
 | performanceNeutral | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
@@ -258,12 +258,12 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-foreground: #1F1F1F;
   --klc-color-chart-background: #FFFFFF;
   --klc-color-floating-surface: #FFFFFF;
-  --klc-color-candle-up-body: #0F8B5C;
-  --klc-color-candle-up-border: #0F8B5C;
-  --klc-color-candle-up-wick: #0F8B5C;
-  --klc-color-candle-down-body: #C2363B;
-  --klc-color-candle-down-border: #C2363B;
-  --klc-color-candle-down-wick: #C2363B;
+  --klc-color-candle-up-body: #089981;
+  --klc-color-candle-up-border: #089981;
+  --klc-color-candle-up-wick: #089981;
+  --klc-color-candle-down-body: #f23645;
+  --klc-color-candle-down-border: #f23645;
+  --klc-color-candle-down-wick: #f23645;
   --klc-color-candle-doji-border: #6E6E6E;
   --klc-color-performance-positive: #0B7A50;
   --klc-color-performance-negative: #C2363B;
@@ -474,8 +474,8 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | axisText | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
 | crosshairLabelText | #FAFAFA | crosshairLabelBg | 15.79 | 4.5:1 | ✅ |
 | tooltipText | #1F1F1F | tooltipBg | 16.48 | 4.5:1 | ✅ |
-| candleUpBody | #0F8B5C | background | 4.13 | 3.0:1 | ✅ |
-| candleDownBody | #C2363B | background | 5.18 | 3.0:1 | ✅ |
+| candleUpBody | #089981 | background | 3.42 | 3.0:1 | ✅ |
+| candleDownBody | #f23645 | background | 3.73 | 3.0:1 | ✅ |
 | performancePositive | #0B7A50 | background | 5.14 | 4.5:1 | ✅ |
 | performanceNegative | #C2363B | background | 5.18 | 4.5:1 | ✅ |
 | performanceNeutral | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
