@@ -1,4 +1,10 @@
-# Library CI — runs on every push and PR to main.
+# Library CI — runs on PRs targeting main and on pushes to main.
+#
+# Trigger scope is deliberately non-overlapping: feature-branch work is
+# validated by the pull_request event only, and main gets a post-merge push
+# run. Using `push: ['**']` here would double-run every same-repo PR branch
+# (push + pull_request fire for the same commit under different github.ref
+# values, so the concurrency group cannot cancel them).
 #
 # Gate state:
 #   - REQUIRED  : type-check:src, type-check:tests, package tests, lint:types (attw)
@@ -14,7 +20,7 @@ name: library-ci
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: [main]
 
