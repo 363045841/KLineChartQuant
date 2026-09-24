@@ -17,9 +17,14 @@ function getLastPriceInfo(context: RenderContext) {
     return null
   }
 
+  // 涨跌以前收为基准；无前收（仅一根 K 线）时回退到当根开盘价。
+  const previous = klineData[klineData.length - 2]
+  const baseline = previous ? previous.close : last.open
+
   return {
     price: last.close,
     y: Math.round(pane.yAxis.priceToY(last.close)),
+    isUp: last.close >= baseline,
   }
 }
 
@@ -51,9 +56,10 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
         y: info.y,
         type: 'lastPrice',
         style: {
-          bgColor: colors.lastPriceLabel.bg,
-          borderColor: colors.price.lastPrice,
-          textColor: colors.price.lastPrice,
+          // 价格标签色块跟随涨跌，文字取通用标签文字色保证对比度。
+          bgColor: info.isUp ? colors.candleUpBody : colors.candleDownBody,
+          borderColor: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
+          textColor: colors.label.text,
         },
       })
     },

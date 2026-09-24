@@ -5,9 +5,9 @@
  *
  *   - Background = #0E1116 (deep but not pure black — pure black creates
  *     halation around bright lines on OLED).
- *   - Bull = brighter green (#22D69B) — needed on dark background for
- *     7.5:1 contrast (passes WCAG AAA for non-text).
- *   - Bear = brighter red (#FF6464) — 6.2:1 contrast.
+ *   - Bull = green (#089981) — 4.97:1 contrast on the dark background
+ *     (passes WCAG AA for non-text).
+ *   - Bear = red (#f23645) — 4.55:1 contrast.
  *   - Grid is barely visible (1.2:1 over background) so it never competes
  *     with the data.
  *   - Indicator palette is the same Okabe-Ito set but with the few hues
@@ -31,12 +31,12 @@ export const darkTheme: Theme = {
     chartBackground: '#111827',
     floatingSurface: '#1B2533',
 
-    candleUpBody: '#22D69B',
-    candleUpBorder: '#22D69B',
-    candleUpWick: '#22D69B',
-    candleDownBody: '#FF6464',
-    candleDownBorder: '#FF6464',
-    candleDownWick: '#FF6464',
+    candleUpBody: '#089981',
+    candleUpBorder: '#089981',
+    candleUpWick: '#089981',
+    candleDownBody: '#f23645',
+    candleDownBorder: '#f23645',
+    candleDownWick: '#f23645',
     candleDojiBorder: '#8A8F98',
 
     performancePositive: '#22D69B',

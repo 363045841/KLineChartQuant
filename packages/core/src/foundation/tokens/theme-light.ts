@@ -3,11 +3,10 @@
  *
  * Color choices:
  *
- *   - Bull (up) = a dark saturated green (#0F8B5C). Picked to clear the
- *     WCAG AA non-text threshold (≥ 3:1) against #FAFAFA. The lighter
- *     industry-standard greens like #26A69A fail that bar by ~25 %.
- *   - Bear (down) = a dark saturated red (#C2363B). Same rationale —
- *     the common #EE4D4D fails AA at ~2.6:1.
+ *   - Bull (up) = a saturated green (#089981). Clears the WCAG AA non-text
+ *     threshold (≥ 3:1) against #FAFAFA at 3.42:1.
+ *   - Bear (down) = a saturated red (#f23645). Clears the same threshold at
+ *     3.73:1.
  *   - Background = #FAFAFA (slightly off-white, kinder to eyes than pure
  *     #FFFFFF for long sessions).
  *   - Grid major / minor split: major lines for round-number price tiers,
@@ -33,12 +32,12 @@ export const lightTheme: Theme = {
     chartBackground: '#FFFFFF',
     floatingSurface: '#FFFFFF',
 
-    candleUpBody: '#0F8B5C',
-    candleUpBorder: '#0F8B5C',
-    candleUpWick: '#0F8B5C',
-    candleDownBody: '#C2363B',
-    candleDownBorder: '#C2363B',
-    candleDownWick: '#C2363B',
+    candleUpBody: '#089981',
+    candleUpBorder: '#089981',
+    candleUpWick: '#089981',
+    candleDownBody: '#f23645',
+    candleDownBorder: '#f23645',
+    candleDownWick: '#f23645',
     candleDojiBorder: '#6E6E6E',
 
     performancePositive: '#0B7A50',
