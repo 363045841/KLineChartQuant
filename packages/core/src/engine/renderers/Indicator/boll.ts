@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { BOLLRenderState } from '../../indicators/state/bollState.js'
 import { ChartDataViewId } from '../../state/modeState.js'
@@ -138,6 +138,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
 @Indicator({
   name: 'boll',
   displayName: 'BOLL',
+  kind: IndicatorKind.Indicator,
   category: 'main',
   indicatorType: 'channel',
   defaultPaneId: 'main',

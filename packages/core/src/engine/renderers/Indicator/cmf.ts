@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcCMFData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { CMFRenderState } from '../../indicators/state/cmfState.js'
 import { EMPTY_CMF_STATE } from '../../indicators/state/cmfState.js'
@@ -122,6 +123,7 @@ const getCMFTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'cmf',
   displayName: 'CMF',
+  kind: IndicatorKind.Indicator,
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub_CMF',

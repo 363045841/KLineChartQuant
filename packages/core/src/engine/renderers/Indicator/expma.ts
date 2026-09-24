@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { EXPMARenderState } from '../../indicators/state/expmaState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -242,6 +242,7 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
 @Indicator({
   name: 'expma',
   displayName: 'EXPMA',
+  kind: IndicatorKind.Indicator,
   category: 'main',
   indicatorType: 'moving-average',
   defaultPaneId: 'main',

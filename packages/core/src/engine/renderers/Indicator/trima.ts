@@ -9,6 +9,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcTRIMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TRIMARenderState } from '../../indicators/state/trimaState.js'
 import { EMPTY_TRIMA_STATE } from '../../indicators/state/trimaState.js'
@@ -113,6 +114,7 @@ const getTRIMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'trima',
   displayName: 'TRIMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getTRIMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

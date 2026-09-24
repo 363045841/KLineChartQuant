@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcDEMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DEMARenderState } from '../../indicators/state/demaState.js'
 import { EMPTY_DEMA_STATE } from '../../indicators/state/demaState.js'
@@ -112,6 +113,7 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'dema',
   displayName: 'DEMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getDEMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

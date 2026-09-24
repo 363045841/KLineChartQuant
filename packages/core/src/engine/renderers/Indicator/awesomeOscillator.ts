@@ -14,6 +14,7 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcAwesomeOscillatorData } from '../../indicators/calculators/awesomeOscillator.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { AwesomeOscillatorRenderState } from '../../indicators/state/awesomeOscillatorState.js'
 import {
@@ -310,6 +311,7 @@ const getAwesomeOscillatorTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'awesomeOscillator',
   displayName: 'AO',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_AO',

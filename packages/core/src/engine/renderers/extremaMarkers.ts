@@ -11,6 +11,7 @@ import {
 } from '../../foundation/utils/pixelAlign.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
@@ -159,6 +160,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
   indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
+  kind: IndicatorKind.System,
   mainPane: { rendererName: 'extremaMarkers' },
 })
 export class ExtremaMarkersIndicatorDefinition {

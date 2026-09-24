@@ -7,7 +7,7 @@ import {
   createTestRendererPlugin,
 } from '../../../indicators/__tests__/helpers/metadataTestKit'
 import { getRegisteredIndicatorDefinition } from '../../../indicators/indicatorDefinitionRegistry'
-import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
+import { IndicatorKind, type IndicatorMetadata } from '../../../indicators/indicatorMetadata'
 import { loadBuiltinIndicators } from '../../../indicators/registerBuiltins'
 import { createSubIndicatorRenderer } from '../index'
 
@@ -19,7 +19,13 @@ describe('createSubIndicatorRenderer', () => {
   it('通过定义工厂创建渲染器并透传 instanceId', () => {
     const rendererFactory = vi.fn(() => createTestRendererPlugin('custom_renderer'))
     const definition: IndicatorMetadata = createTestIndicatorMetadata(
-      { name: 'customIndicator', displayName: 'CUSTOM', category: 'sub', indicatorType: 'other' },
+      {
+        name: 'customIndicator',
+        displayName: 'CUSTOM',
+        kind: IndicatorKind.Indicator,
+        category: 'sub',
+        indicatorType: 'other',
+      },
       { defaultPaneId: 'sub_CUSTOM', rendererFactory },
     )
 

@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MARenderState } from '../../indicators/state/maState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -131,6 +131,7 @@ function getMATitleInfo(
 @Indicator({
   name: 'ma',
   displayName: 'MA',
+  kind: IndicatorKind.Indicator,
   category: 'main',
   indicatorType: 'moving-average',
   defaultPaneId: 'main',

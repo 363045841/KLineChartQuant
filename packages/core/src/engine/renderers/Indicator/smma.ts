@@ -12,6 +12,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcSMMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SMMARenderState } from '../../indicators/state/smmaState.js'
 import { EMPTY_SMMA_STATE } from '../../indicators/state/smmaState.js'
@@ -123,6 +124,7 @@ const getSMMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'smma',
   displayName: 'SMMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getSMMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

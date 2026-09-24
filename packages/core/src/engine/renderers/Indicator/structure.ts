@@ -11,6 +11,7 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcStructureData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { StructureRenderState } from '../../indicators/state/structureState.js'
 import { EMPTY_STRUCTURE_STATE } from '../../indicators/state/structureState.js'
@@ -152,6 +153,7 @@ function getStructureTitleInfo(
 @Indicator({
   name: 'structure',
   displayName: 'Structure',
+  kind: IndicatorKind.Indicator,
   category: 'main',
   indicatorType: 'structure',
   defaultPaneId: 'sub_Structure',

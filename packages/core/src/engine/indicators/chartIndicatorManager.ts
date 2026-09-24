@@ -332,9 +332,7 @@ export class ChartIndicatorManager {
       }
       this.syncPipeline(instances)
       const presentationChanged = this.syncPresentationProjection()
-      const mainChanged = this.reconcileMainIndicators(
-        instances.filter((instance) => instance.source !== 'mode'),
-      )
+      const mainChanged = this.reconcileMainIndicators(instances)
       const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
       if (paneChanged || presentationChanged || mainChanged || subChanged) {
         this.deps.scheduleDraw()
@@ -795,12 +793,14 @@ export class ChartIndicatorManager {
     for (const entry of desired) {
       if (entry.role !== 'main') continue
       const id = entry.indicatorId
+      // 模式主序列（如 candle）由 core 挂载；有 @Indicator 主图定义的模式图层由此投影。
+      if (entry.source === 'mode' && !getRegisteredIndicatorDefinition(id)?.mainPane) continue
       const hasApplied = this.appliedMainIndicators.has(id)
       const params = entry.params as Readonly<Record<string, number | boolean | string>>
       const projectionKey = mainIndicatorProjectionKey(params)
       if (this.appliedMainIndicators.get(id) === projectionKey) continue
       try {
-        if (!hasApplied) this.enableMainIndicatorRenderer(id)
+        if (!hasApplied) this.enableMainIndicatorRenderer(id, entry.source === 'mode')
         const rendererName = getRegisteredIndicatorDefinition(id)?.mainPane?.rendererName
         if (rendererName) this.deps.updateRendererConfig(rendererName, { ...params })
         this.appliedMainIndicators.set(id, projectionKey)
@@ -812,7 +812,7 @@ export class ChartIndicatorManager {
     return changed
   }
 
-  private enableMainIndicatorRenderer(indicatorId: string): void {
+  private enableMainIndicatorRenderer(indicatorId: string, isMode = false): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     const mainPane = definition?.mainPane
     if (!definition || !mainPane) return
@@ -832,6 +832,7 @@ export class ChartIndicatorManager {
 
     // core 可能已挂 legend Layer 且未进 Manager；两者任一存在都不再注册第二实例
     if (
+      !isMode &&
       !this.deps.getLayer(makePluginLayerId('mainIndicatorLegend')) &&
       !this.deps.getRenderer('mainIndicatorLegend')
     ) {

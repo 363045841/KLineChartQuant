@@ -12,6 +12,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcZLEMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ZLEMARenderState } from '../../indicators/state/zlemaState.js'
 import { EMPTY_ZLEMA_STATE } from '../../indicators/state/zlemaState.js'
@@ -117,6 +118,7 @@ const getZLEMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'zlema',
   displayName: 'ZLEMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getZLEMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

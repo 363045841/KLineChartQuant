@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcPVTData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { PVTRenderState } from '../../indicators/state/pvtState.js'
 import { EMPTY_PVT_STATE } from '../../indicators/state/pvtState.js'
@@ -105,6 +106,7 @@ const getPVTTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'pvt',
   displayName: 'PVT',
+  kind: IndicatorKind.Indicator,
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub_PVT',

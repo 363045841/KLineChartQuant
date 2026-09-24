@@ -20,6 +20,14 @@ export type IndicatorConfig = Readonly<Record<string, unknown>>
 
 export type IndicatorId = string
 
+/** 指标定义身份：系统渲染器或用户可添加的指标。 */
+export const IndicatorKind = Object.freeze({
+  System: 'system',
+  Indicator: 'indicator',
+} as const)
+
+export type IndicatorKind = (typeof IndicatorKind)[keyof typeof IndicatorKind]
+
 /**
  * 可扩展的指标业务类型注册表，第三方可通过 TypeScript declaration merging 增加类型。
  */
@@ -237,6 +245,9 @@ export interface IndicatorMetadata<T = unknown> {
    * 显示名称（用于日志和调试）
    */
   displayName: string
+
+  /** 定义身份：系统渲染器或用户可添加的指标。 */
+  kind: IndicatorKind
 
   /**
    * 分类：主图/副图

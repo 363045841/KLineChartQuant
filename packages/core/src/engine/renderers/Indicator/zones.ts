@@ -13,6 +13,7 @@ import {
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ZonesRenderState } from '../../indicators/state/zonesState.js'
 import { EMPTY_ZONES_STATE } from '../../indicators/state/zonesState.js'
@@ -140,6 +141,7 @@ const getZonesTitleInfo: GetTitleInfoFn = (
 @Indicator({
   name: 'zones',
   displayName: 'Zones',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getZonesTitleInfo,
   category: 'main',
   indicatorType: 'structure',

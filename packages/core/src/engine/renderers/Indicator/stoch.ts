@@ -10,6 +10,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcSTOCHData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { STOCHRenderState } from '../../indicators/state/stochState.js'
 import { EMPTY_STOCH_STATE } from '../../indicators/state/stochState.js'
@@ -320,6 +321,7 @@ function getSTOCHTitleInfo(
 @Indicator({
   name: 'stoch',
   displayName: 'KDJ',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_STOCH',

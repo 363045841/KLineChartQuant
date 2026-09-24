@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcVMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VMARenderState } from '../../indicators/state/vmaState.js'
 import { EMPTY_VMA_STATE } from '../../indicators/state/vmaState.js'
@@ -107,6 +108,7 @@ const getVMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'vma',
   displayName: 'VMA',
+  kind: IndicatorKind.Indicator,
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub_VMA',

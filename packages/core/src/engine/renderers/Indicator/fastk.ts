@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcFASTKData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FASTKRenderState } from '../../indicators/state/fastkState.js'
 import { EMPTY_FASTK_STATE } from '../../indicators/state/fastkState.js'
@@ -206,6 +207,7 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'fastk',
   displayName: 'FASTK',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_FASTK',

@@ -10,6 +10,7 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcVolumeProfileData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState.js'
 import { EMPTY_VOLUME_PROFILE_STATE } from '../../indicators/state/volumeProfileState.js'
@@ -144,6 +145,7 @@ function getVolumeProfileTitleInfo(
 @Indicator({
   name: 'volumeProfile',
   displayName: 'VP',
+  kind: IndicatorKind.Indicator,
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub_VolumeProfile',

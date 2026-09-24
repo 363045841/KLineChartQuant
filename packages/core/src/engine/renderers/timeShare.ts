@@ -9,6 +9,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { resolveTimeShareBaseline } from '../modes/index.js'
 
 export function createTimeShareRendererPlugin(): RendererPluginWithHost {
@@ -229,6 +230,7 @@ export function drawSegmentLine(
   indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.TimeShare],
+  kind: IndicatorKind.System,
   mainPane: { rendererName: 'timeShare' },
 })
 export class TimeShareIndicatorDefinition {

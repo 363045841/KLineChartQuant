@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ENERenderState } from '../../indicators/state/eneState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
@@ -260,6 +260,7 @@ const getENETitleInfo: GetTitleInfoFn = (
 @Indicator({
   name: 'ene',
   displayName: 'ENE',
+  kind: IndicatorKind.Indicator,
   category: 'main',
   indicatorType: 'channel',
   defaultPaneId: 'main',

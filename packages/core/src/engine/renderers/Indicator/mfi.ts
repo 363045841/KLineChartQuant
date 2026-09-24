@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcMFIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MFIRenderState } from '../../indicators/state/mfiState.js'
 import { EMPTY_MFI_STATE } from '../../indicators/state/mfiState.js'
@@ -125,6 +126,7 @@ const getMFITitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'mfi',
   displayName: 'MFI',
+  kind: IndicatorKind.Indicator,
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub_MFI',

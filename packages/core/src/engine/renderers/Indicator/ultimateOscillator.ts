@@ -14,6 +14,7 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcUltimateOscillatorData } from '../../indicators/calculators/ultimateOscillator.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { UltimateOscillatorRenderState } from '../../indicators/state/ultimateOscillatorState.js'
 import {
@@ -313,6 +314,7 @@ const getUltimateOscillatorTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'ultimateOscillator',
   displayName: 'UO',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_UO',

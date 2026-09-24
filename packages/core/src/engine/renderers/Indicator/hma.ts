@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcHMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { HMARenderState } from '../../indicators/state/hmaState.js'
 import { EMPTY_HMA_STATE } from '../../indicators/state/hmaState.js'
@@ -112,6 +113,7 @@ const getHMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'hma',
   displayName: 'HMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getHMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

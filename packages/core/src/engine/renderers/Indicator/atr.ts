@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcATRData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ATRRenderState } from '../../indicators/state/atrState.js'
 import { EMPTY_ATR_STATE } from '../../indicators/state/atrState.js'
@@ -192,6 +193,7 @@ const getATRTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'atr',
   displayName: 'ATR',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'volatility',
   defaultPaneId: 'sub_ATR',

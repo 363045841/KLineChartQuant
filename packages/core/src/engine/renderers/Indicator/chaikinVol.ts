@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcChaikinVolData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ChaikinVolRenderState } from '../../indicators/state/chaikinVolState.js'
 import { EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/state/chaikinVolState.js'
@@ -122,6 +123,7 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'chaikinVol',
   displayName: 'ChaikinVol',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'volatility',
   defaultPaneId: 'sub_ChaikinVol',

@@ -6,6 +6,7 @@ import {
   getRegisteredIndicatorDefinitions,
   Indicator,
 } from '../indicatorDefinitionRegistry'
+import { IndicatorKind } from '../indicatorMetadata'
 
 // 用例自定义指标：通过 declaration merging 登记内部 name，与第三方扩展方式一致。
 declare module '../indicatorContracts.js' {
@@ -25,6 +26,7 @@ describe('Indicator definition registry', () => {
       name: 'customRsi',
       aliases: ['CUSTOM_RSI'],
       displayName: 'Custom RSI',
+      kind: IndicatorKind.Indicator,
       category: 'oscillator',
       indicatorType: 'momentum',
       defaultPaneId: 'sub_CUSTOM_RSI',
@@ -48,6 +50,7 @@ describe('Indicator definition registry', () => {
       name: 'customMacd',
       aliases: ['CUSTOM_MACD'],
       displayName: 'Custom MACD',
+      kind: IndicatorKind.Indicator,
       category: 'oscillator',
       indicatorType: 'momentum',
       defaultPaneId: 'sub_CUSTOM_MACD',

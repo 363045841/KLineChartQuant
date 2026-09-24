@@ -9,6 +9,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
 import { calcMOMData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MOMRenderState } from '../../indicators/state/momState.js'
 import { EMPTY_MOM_STATE } from '../../indicators/state/momState.js'
@@ -277,6 +278,7 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'mom',
   displayName: 'MOM',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_MOM',

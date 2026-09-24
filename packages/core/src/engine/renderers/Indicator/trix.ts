@@ -11,6 +11,7 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcTRIXData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TRIXRenderState } from '../../indicators/state/trixState.js'
 import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState.js'
@@ -175,6 +176,7 @@ function getTRIXTitleInfo(
 @Indicator({
   name: 'trix',
   displayName: 'TRIX',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_TRIX',

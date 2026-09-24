@@ -12,6 +12,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcALMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ALMARenderState } from '../../indicators/state/almaState.js'
 import { EMPTY_ALMA_STATE } from '../../indicators/state/almaState.js'
@@ -116,6 +117,7 @@ const getALMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'alma',
   displayName: 'ALMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getALMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

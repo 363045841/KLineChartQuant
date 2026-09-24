@@ -4,6 +4,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
+import { IndicatorKind } from '../indicatorMetadata'
 import type { IndicatorParameters, IndicatorSeriesResult } from '../instances/domain/instanceModel'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 import {
@@ -24,6 +25,7 @@ beforeAll(async () => {
 const plainMetadata = createTestIndicatorMetadata({
   name: 'plain',
   displayName: 'PLAIN',
+  kind: IndicatorKind.Indicator,
   category: 'main',
   indicatorType: 'other',
 })
@@ -114,7 +116,13 @@ describe('composeInstanceRenderState', () => {
     const state = { timestamp: 1, visibleMin: 1, visibleMax: 2 }
     const composeRenderState = vi.fn(() => state)
     const metadata = createTestIndicatorMetadata(
-      { name: 'ma', displayName: 'MA', category: 'main', indicatorType: 'moving-average' },
+      {
+        name: 'ma',
+        displayName: 'MA',
+        kind: IndicatorKind.Indicator,
+        category: 'main',
+        indicatorType: 'moving-average',
+      },
       { mainPane: { rendererName: 'ma', composeRenderState } },
     )
     const result = createResult({ series: [1, 2, 3] }, params)
@@ -133,7 +141,13 @@ describe('composeInstanceRenderState', () => {
     const state = { timestamp: 1, valueMin: 0, valueMax: 100 }
     const compose = vi.fn(() => state)
     const metadata = createTestIndicatorMetadata(
-      { name: 'rsi', displayName: 'RSI', category: 'oscillator', indicatorType: 'momentum' },
+      {
+        name: 'rsi',
+        displayName: 'RSI',
+        kind: IndicatorKind.Indicator,
+        category: 'oscillator',
+        indicatorType: 'momentum',
+      },
       { visibleState: { compose } },
     )
     const result = createResult([undefined, 55])
@@ -153,7 +167,13 @@ describe('composeInstanceRenderState', () => {
     const composeRenderState = vi.fn(() => mainState)
     const compose = vi.fn(() => visibleState)
     const metadata = createTestIndicatorMetadata(
-      { name: 'mix', displayName: 'MIX', category: 'main', indicatorType: 'other' },
+      {
+        name: 'mix',
+        displayName: 'MIX',
+        kind: IndicatorKind.Indicator,
+        category: 'main',
+        indicatorType: 'other',
+      },
       {
         mainPane: { rendererName: 'mix', composeRenderState },
         visibleState: { compose },
@@ -170,6 +190,7 @@ describe('composeInstanceRenderState', () => {
     const metadata = createTestIndicatorMetadata({
       name: 'plain',
       displayName: 'PLAIN',
+      kind: IndicatorKind.Indicator,
       category: 'main',
       indicatorType: 'other',
     })
@@ -184,7 +205,13 @@ describe('computeInstanceMainIndicatorPriceRange', () => {
   it('委托 metadata.mainPane.computePriceRange 并传入实例条目', () => {
     const computePriceRange = vi.fn(() => ({ min: 10, max: 20 }))
     const metadata = createTestIndicatorMetadata(
-      { name: 'boll', displayName: 'BOLL', category: 'main', indicatorType: 'channel' },
+      {
+        name: 'boll',
+        displayName: 'BOLL',
+        kind: IndicatorKind.Indicator,
+        category: 'main',
+        indicatorType: 'channel',
+      },
       { mainPane: { rendererName: 'boll', computePriceRange } },
     )
     const result = createResult({ series: [1] }, { period: 20 })
@@ -201,12 +228,19 @@ describe('computeInstanceMainIndicatorPriceRange', () => {
 
   it('缺少主图价格范围计算器时返回 null', () => {
     const withoutComputer = createTestIndicatorMetadata(
-      { name: 'ma', displayName: 'MA', category: 'main', indicatorType: 'moving-average' },
+      {
+        name: 'ma',
+        displayName: 'MA',
+        kind: IndicatorKind.Indicator,
+        category: 'main',
+        indicatorType: 'moving-average',
+      },
       { mainPane: { rendererName: 'ma' } },
     )
     const withoutMainPane = createTestIndicatorMetadata({
       name: 'rsi',
       displayName: 'RSI',
+      kind: IndicatorKind.Indicator,
       category: 'oscillator',
       indicatorType: 'momentum',
     })

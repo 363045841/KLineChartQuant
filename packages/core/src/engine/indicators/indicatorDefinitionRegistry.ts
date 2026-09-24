@@ -5,6 +5,7 @@ import type {
   GetTitleInfoFn,
   IndicatorAuxiliaryRendererNameResolver,
   IndicatorCategory,
+  IndicatorKind,
   IndicatorMetadata,
   IndicatorPresentationDescriptor,
   IndicatorRendererNameResolver,
@@ -19,6 +20,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   name: IndicatorName
   aliases?: readonly string[]
   displayName: string
+  /** 定义身份：系统渲染器或用户可添加的指标。所有定义必须显式声明。 */
+  kind: IndicatorKind
   category: IndicatorCategory
   indicatorType: IndicatorType
   indicatorTypeLabel?: string

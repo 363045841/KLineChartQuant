@@ -12,6 +12,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import type { MACDPoint } from '../../indicators/calculators/index.js'
 import { calcMACDData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MACDRenderState } from '../../indicators/state/macdState.js'
 import { EMPTY_MACD_STATE } from '../../indicators/state/macdState.js'
@@ -488,6 +489,7 @@ function getMACDTitleInfo(
 @Indicator({
   name: 'macd',
   displayName: 'MACD',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_MACD',

@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { resolveFiveDayTimeShareBaseline } from '../modes/index.js'
 import { ChartDataViewId } from '../state/modeState.js'
 import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShare.js'
@@ -101,6 +102,7 @@ export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
   indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.FiveDayTimeShare],
+  kind: IndicatorKind.System,
   mainPane: { rendererName: ChartDataViewId.FiveDayTimeShare },
 })
 export class FiveDayTimeShareIndicatorDefinition {

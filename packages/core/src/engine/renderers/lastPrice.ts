@@ -4,6 +4,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
 function getLastPriceInfo(context: RenderContext) {
   const { pane, data } = context
@@ -66,6 +67,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
   indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
+  kind: IndicatorKind.System,
   mainPane: { rendererName: 'lastPriceLabelRegistrar' },
 })
 export class LastPriceLabelRegistrarIndicatorDefinition {
@@ -129,6 +131,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
   indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
+  kind: IndicatorKind.System,
   mainPane: { rendererName: 'lastPriceLine' },
 })
 export class LastPriceLineIndicatorDefinition {

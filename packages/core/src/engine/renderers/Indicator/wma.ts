@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcWMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { WMARenderState } from '../../indicators/state/wmaState.js'
 import { EMPTY_WMA_STATE } from '../../indicators/state/wmaState.js'
@@ -112,6 +113,7 @@ const getWMATitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'wma',
   displayName: 'WMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getWMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

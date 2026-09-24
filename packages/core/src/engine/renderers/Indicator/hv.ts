@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcHVData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { HVRenderState } from '../../indicators/state/hvState.js'
 import { EMPTY_HV_STATE } from '../../indicators/state/hvState.js'
@@ -108,6 +109,7 @@ const getHVTitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'hv',
   displayName: 'HV',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'volatility',
   defaultPaneId: 'sub_HV',

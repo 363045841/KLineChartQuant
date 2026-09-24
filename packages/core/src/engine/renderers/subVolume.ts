@@ -5,6 +5,7 @@ import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale.js'
 import { tryDrawRectsGpu } from './rectsViaRenderer.js'
@@ -248,6 +249,7 @@ function judgeVolumeColor(
 @Indicator({
   name: 'volume',
   displayName: 'VOL',
+  kind: IndicatorKind.Indicator,
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub',

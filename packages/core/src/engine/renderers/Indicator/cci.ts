@@ -8,6 +8,7 @@ import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcCCIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { CCIRenderState } from '../../indicators/state/cciState.js'
 import { EMPTY_CCI_STATE } from '../../indicators/state/cciState.js'
@@ -230,6 +231,7 @@ const getCCITitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 'cci',
   displayName: 'CCI',
+  kind: IndicatorKind.Indicator,
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_CCI',

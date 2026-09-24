@@ -9,6 +9,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { calcDMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { GetTitleInfoFn } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DMARenderState } from '../../indicators/state/dmaState.js'
 import { EMPTY_DMA_STATE } from '../../indicators/state/dmaState.js'
@@ -155,6 +156,7 @@ const getDMATitleInfo: GetTitleInfoFn = (
 @Indicator({
   name: 'dma',
   displayName: 'DMA',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getDMATitleInfo,
   category: 'oscillator',
   indicatorType: 'trend',

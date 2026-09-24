@@ -5,6 +5,7 @@ import {
 import {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
+  IndicatorKind,
   type IndicatorType,
 } from '../../indicators/indicatorMetadata.js'
 
@@ -1336,13 +1337,14 @@ const uiMeta: Record<
 }
 
 let _allIndicators: Indicator[] | null = null
+let _definitionCount = -1
 
 function rebuildIfStale(): Indicator[] {
-  if (
-    _allIndicators === null ||
-    getRegisteredIndicatorDefinitions().length !== _allIndicators.length
-  ) {
-    _allIndicators = getRegisteredIndicatorDefinitions()
+  const definitions = getRegisteredIndicatorDefinitions()
+  if (_allIndicators === null || definitions.length !== _definitionCount) {
+    _definitionCount = definitions.length
+    _allIndicators = definitions
+      .filter((def) => def.kind === IndicatorKind.Indicator)
       .map((def) => {
         const key = normalizeId(def.name)
         const ui = uiMeta[key]

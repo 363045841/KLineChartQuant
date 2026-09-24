@@ -171,6 +171,24 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
+  it('registers the latest price line and label layers and follows the data view', async () => {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+    const scene = chart['renderer'].getScene()
+    for (const name of ['lastPriceLine', 'lastPriceLabelRegistrar']) {
+      expect(chart.getRenderer(name)).toBeDefined()
+      expect(scene.getLayer(`plugin:${name}`)).toBeDefined()
+    }
+
+    chart['kernel'].actions.setDataView('timeshare')
+    expect(scene.getLayer('plugin:lastPriceLine')?.visible).toBe(false)
+    expect(scene.getLayer('plugin:lastPriceLabelRegistrar')?.visible).toBe(false)
+
+    chart['kernel'].actions.setDataView('kline')
+    expect(scene.getLayer('plugin:lastPriceLine')?.visible).toBe(true)
+    expect(scene.getLayer('plugin:lastPriceLabelRegistrar')?.visible).toBe(true)
+    await chart.destroy()
+  })
+
   it('falls back to default observe when device-pixel-content-box observe fails', async () => {
     ResizeObserverMock.failWithDevicePixelBox = true
     const chart = new Chart(createChartDom(1000, 600), defaultOptions)

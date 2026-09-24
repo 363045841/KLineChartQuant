@@ -22,6 +22,7 @@ export function createTestRendererPlugin(name: string): RendererPluginWithHost {
 export interface TestIndicatorMetadataInput {
   name: string
   displayName: string
+  kind: IndicatorMetadata['kind']
   category: IndicatorCategory
   indicatorType: IndicatorType
 }
@@ -34,6 +35,7 @@ export function createTestIndicatorMetadata(
   return {
     name: input.name,
     displayName: input.displayName,
+    kind: input.kind,
     category: input.category,
     indicatorType: input.indicatorType,
     defaultPaneId: 'sub_test',

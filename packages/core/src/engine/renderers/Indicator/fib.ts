@@ -14,6 +14,7 @@ import {
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FibRenderState } from '../../indicators/state/fibState.js'
 import { EMPTY_FIB_STATE } from '../../indicators/state/fibState.js'
@@ -174,6 +175,7 @@ const getFibTitleInfo: GetTitleInfoFn = (
 @Indicator({
   name: 'fib',
   displayName: 'Fib',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getFibTitleInfo,
   category: 'main',
   indicatorType: 'support-resistance',

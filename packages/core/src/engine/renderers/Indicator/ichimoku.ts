@@ -11,6 +11,7 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
 import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
@@ -273,6 +274,7 @@ function getIchimokuTitleInfo(
 @Indicator({
   name: 'ichimoku',
   displayName: 'Ichimoku',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getIchimokuTitleInfo,
   category: 'main',
   indicatorType: 'trend',

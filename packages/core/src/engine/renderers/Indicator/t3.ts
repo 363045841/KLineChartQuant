@@ -13,6 +13,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { calcT3Data } from '../../indicators/calculators/t3.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { T3RenderState } from '../../indicators/state/t3State.js'
 import { EMPTY_T3_STATE } from '../../indicators/state/t3State.js'
@@ -123,6 +124,7 @@ const getT3TitleInfo = createSingleLineTitleInfo({
 @Indicator({
   name: 't3',
   displayName: 't3',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getT3TitleInfo,
   category: 'main',
   indicatorType: 'moving-average',

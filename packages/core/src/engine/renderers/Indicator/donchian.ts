@@ -14,6 +14,7 @@ import {
   type GetTitleInfoFn,
   type TitleInfo,
 } from '../../indicators/indicatorMetadata.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DonchianRenderState } from '../../indicators/state/donchianState.js'
 import { EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState.js'
@@ -147,6 +148,7 @@ function getDonchianTitleInfo(
 @Indicator({
   name: 'donchian',
   displayName: 'Donchian',
+  kind: IndicatorKind.Indicator,
   getTitleInfo: getDonchianTitleInfo,
   category: 'main',
   indicatorType: 'channel',
