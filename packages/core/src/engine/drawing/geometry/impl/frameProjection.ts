@@ -1,4 +1,8 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
+
+import type { AxisLabelRegistrars } from '@/engine/axisLabels/index.js'
+import { resolveChartWorkspaceId } from '@/engine/state/modeState.js'
+import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -9,12 +13,9 @@ import {
   type ScreenPoint,
   type XAxisLabel,
   type YAxisLabel,
-} from '../../../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../../../foundation/tokens/index.js'
-import type { KLineData } from '../../../../foundation/types/price.js'
-import type { AxisLabelRegistrars } from '../../../axisLabels/index.js'
-import { resolveChartWorkspaceId } from '../../../state/modeState.js'
-import { logicalIndexToScreenX } from '../../../viewport/logicalIndexToScreenX.js'
+} from '@/foundation/plugin/index.js'
+import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'

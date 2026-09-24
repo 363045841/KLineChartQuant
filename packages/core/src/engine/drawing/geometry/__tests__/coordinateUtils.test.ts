@@ -1,7 +1,7 @@
 /** 验证绘图交互坐标使用当前帧中心点并保留 Pane 局部坐标。 */
 import { describe, expect, it } from 'vitest'
 
-import type { DrawingViewportPort } from '../../../../controllers/types'
+import type { DrawingViewportPort } from '@/controllers/types'
 import {
   CONTAINER,
   createDrawingAdapter,

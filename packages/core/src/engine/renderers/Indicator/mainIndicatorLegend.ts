@@ -2,9 +2,9 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '../../../foundation/tokens/fonts.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
 
 import {
   buildLegendTemplateContext,

@@ -1,8 +1,8 @@
 // 本文件将市场查询的领域结果转义为紧凑 Markdown 表格，降低 Agent 上下文 token 消耗。
 
-import type { InstrumentDescriptor } from '../../../data/provider/types.js'
-import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
-import { formatDateTimeInTimeZone } from '../../../foundation/utils/dateFormat.js'
+import type { InstrumentDescriptor } from '@/data/provider/types.js'
+import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
+import { formatDateTimeInTimeZone } from '@/foundation/utils/dateFormat.js'
 import type {
   BarsQueryResult,
   ChartBarsTextFormatInput,

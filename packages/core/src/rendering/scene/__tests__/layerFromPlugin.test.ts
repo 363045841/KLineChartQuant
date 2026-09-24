@@ -2,8 +2,8 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import type { RenderContext, RendererPlugin } from '../../../foundation/plugin'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin'
+import type { RenderContext, RendererPlugin } from '@/foundation/plugin'
+import { RENDERER_PRIORITY } from '@/foundation/plugin'
 import { createLayerFromPlugin } from '../createLayerFromPlugin'
 import type { PaintContext } from '../types'
 

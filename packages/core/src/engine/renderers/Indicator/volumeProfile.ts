@@ -3,10 +3,10 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
-import type { KLineData } from '../../../foundation/types/price.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import { calcVolumeProfileData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'

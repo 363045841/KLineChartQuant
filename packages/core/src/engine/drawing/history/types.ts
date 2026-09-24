@@ -1,4 +1,4 @@
-import type { ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { DrawingObject } from '../types.js'
 
 export interface DrawingDocumentSnapshot {

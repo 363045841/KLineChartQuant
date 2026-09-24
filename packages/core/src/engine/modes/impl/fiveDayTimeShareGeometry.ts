@@ -1,11 +1,11 @@
 /** 五日分时帧级共享几何计算。 */
-import type { TimeShareRange } from '../../../data/provider/types.js'
-import type { FiveDayTimeShareGeometry } from '../../../foundation/plugin/index.js'
+import type { TimeShareRange } from '@/data/provider/types.js'
+import type { FiveDayTimeShareGeometry } from '@/foundation/plugin/index.js'
 import {
   type MarketSessionConfig,
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
-} from '../../../foundation/utils/timeShareAxisLabels.js'
+} from '@/foundation/utils/timeShareAxisLabels.js'
 import { computeTimeShareXLayout } from './timeShareMath.js'
 
 export interface FiveDayTimeShareGeometryInput {

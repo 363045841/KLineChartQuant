@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 /**
  * DMA 单点：DIF = MA(close,p1) - MA(close,p2)，AMA = MA(DIF,p3)

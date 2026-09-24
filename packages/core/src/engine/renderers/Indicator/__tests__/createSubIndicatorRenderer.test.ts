@@ -5,10 +5,10 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   createTestIndicatorMetadata,
   createTestRendererPlugin,
-} from '../../../indicators/__tests__/helpers/metadataTestKit'
-import { getRegisteredIndicatorDefinition } from '../../../indicators/indicatorDefinitionRegistry'
-import { IndicatorKind, type IndicatorMetadata } from '../../../indicators/indicatorMetadata'
-import { loadBuiltinIndicators } from '../../../indicators/registerBuiltins'
+} from '@/engine/indicators/__tests__/helpers/metadataTestKit'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
+import { IndicatorKind, type IndicatorMetadata } from '@/engine/indicators/indicatorMetadata'
+import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { createSubIndicatorRenderer } from '../index'
 
 beforeAll(async () => {

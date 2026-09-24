@@ -1,6 +1,7 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
+import { createAxisLabelsFrame } from '@/engine/axisLabels/index'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -8,9 +9,8 @@ import {
   POINT_ROLE,
   type PointPrimitive,
   type RenderContext,
-} from '../../../../foundation/plugin'
-import { createSignal } from '../../../../foundation/reactivity/signal'
-import { createAxisLabelsFrame } from '../../../axisLabels/index'
+} from '@/foundation/plugin'
+import { createSignal } from '@/foundation/reactivity/signal'
 import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
 import { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry'
 import { DrawingStore } from '../../render/impl/DrawingStore'

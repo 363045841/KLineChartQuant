@@ -2,7 +2,7 @@
  * T3 指标计算器
  * 基于收盘价执行 Tim Tillson 六层 EMA 平滑，并以 undefined 表示预热区间。
  */
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 /**
  * 计算 T3 单线序列。

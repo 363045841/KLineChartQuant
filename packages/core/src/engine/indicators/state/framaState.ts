@@ -2,7 +2,7 @@
  * FRAMA 指标渲染状态定义
  * 定义单线序列、状态 key 工厂与主图默认参数。
  */
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 export interface FRAMARenderState extends BaseIndicatorState {
   timestamp: number

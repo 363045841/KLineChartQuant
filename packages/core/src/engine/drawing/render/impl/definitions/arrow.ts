@@ -2,7 +2,7 @@
  * 箭头图形定义：第二个锚点是箭头尖端。
  */
 
-import type { DrawingDefinition } from '../../../types.js'
+import type { DrawingDefinition } from '@/engine/drawing/types.js'
 
 /** 创建箭头图形：第二个锚点是箭头尖端。 */
 export function createArrowDefinition(): DrawingDefinition {

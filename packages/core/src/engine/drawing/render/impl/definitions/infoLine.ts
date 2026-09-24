@@ -2,8 +2,8 @@
  * 信息线图形定义：两个锚点间绘制线段并附带涨跌/斜率文本。
  */
 
-import { LINE_LABEL_BASELINE } from '../../../geometry/impl/labelLayout.js'
-import type { DrawingDefinition } from '../../../types.js'
+import { LINE_LABEL_BASELINE } from '@/engine/drawing/geometry/impl/labelLayout.js'
+import type { DrawingDefinition } from '@/engine/drawing/types.js'
 
 /** 格式化带符号数值，正数显式加 `+`；非有限值回退为 0。 */
 function formatSigned(value: number, digits = 2): string {

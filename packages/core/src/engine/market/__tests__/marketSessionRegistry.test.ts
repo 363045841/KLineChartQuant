@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { HK_MARKET_SESSION, KR_MARKET_SESSION } from '../../../foundation/utils/sessionTimeLabels'
+import { HK_MARKET_SESSION, KR_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
 import { MarketSessionRegistry } from '../marketSessionRegistry'
 
 describe('MarketSessionRegistry', () => {

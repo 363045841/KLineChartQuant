@@ -1,9 +1,9 @@
 // 本文件验证 Core 图表 API 的 @Tool 注册与参数校验边界。
 import { describe, expect, it } from 'vitest'
 
-import type { SymbolSpec } from '../../../controllers/types'
-import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
-import { ToolInputValidationError } from '../../../foundation/agent/chartToolRegistry'
+import type { SymbolSpec } from '@/controllers/types'
+import { ComparisonCommands } from '@/engine/data/comparisonCommands'
+import { ToolInputValidationError } from '@/foundation/agent/chartToolRegistry'
 import { getRegisteredChartTools } from '../impl/chartAgentController'
 
 describe('Chart Agent @Tool registry', () => {

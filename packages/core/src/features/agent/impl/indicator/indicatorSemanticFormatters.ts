@@ -1,6 +1,6 @@
 // 本文件为已知指标结果提供比通用表格更紧凑的语义化文本转义器。
 
-import { formatDateTimeInTimeZone } from '../../../../foundation/utils/dateFormat.js'
+import { formatDateTimeInTimeZone } from '@/foundation/utils/dateFormat.js'
 import type { IndicatorResultFormatter, IndicatorTextFormatContext } from '../../types.js'
 import { MARKDOWN_EMPTY_TEXT } from '../markdownTable.js'
 

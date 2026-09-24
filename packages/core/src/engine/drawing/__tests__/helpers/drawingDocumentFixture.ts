@@ -1,4 +1,4 @@
-import { createDrawingState } from '../../../state/drawingState.js'
+import { createDrawingState } from '@/engine/state/drawingState.js'
 import { DrawingCommands } from '../../model/impl/DrawingCommands.js'
 import { DrawingDocument } from '../../model/impl/DrawingDocument.js'
 

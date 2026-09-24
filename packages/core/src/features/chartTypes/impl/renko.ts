@@ -64,7 +64,7 @@
  * meaningful in ATR mode).
  */
 
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 
 import type { ChartTypeTransform, OHLCV, RenkoConfig, TransformedBar } from '../types.js'
 

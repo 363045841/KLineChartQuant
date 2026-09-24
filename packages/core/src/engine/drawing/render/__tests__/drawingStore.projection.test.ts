@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDrawingState } from '../../../state/drawingState'
+import { createDrawingState } from '@/engine/state/drawingState'
 import { createTrendLine } from '../../__tests__/helpers/drawingTestKit'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingObject } from '../../types'

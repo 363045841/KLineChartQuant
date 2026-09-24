@@ -3,7 +3,7 @@
  *
  * 协议只表达行情快照、去重计算任务与任务输出；实例到 pane 的关系留在主线程投影层。
  */
-import type { KLineData } from '../../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,

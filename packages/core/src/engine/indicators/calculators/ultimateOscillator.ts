@@ -2,7 +2,7 @@
  * Ultimate Oscillator 计算器：按多周期买压与真实波幅比率加权计算 UO。
  */
 
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 /**
  * 计算 Ultimate Oscillator 序列。

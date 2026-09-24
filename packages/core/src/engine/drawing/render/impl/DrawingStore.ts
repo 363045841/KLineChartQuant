@@ -2,7 +2,7 @@
  * 绘图投影器：合并 kernel 业务 SSOT 与会话层 overlay，供渲染插件读取。
  */
 
-import { ChartWorkspaceId } from '../../../../foundation/types/chartView.js'
+import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import { mergePaint } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingStoreDeps } from '../types.js'

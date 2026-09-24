@@ -4,7 +4,7 @@
  * Worker 入口与 inline fallback 都只能通过此模块执行任务，从而保证二者的去重、
  * 参数和 firstReadyIndex 语义完全一致。
  */
-import type { KLineData } from '../../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,

@@ -1,11 +1,8 @@
 /** WebGL2 后端实现，将通用 Renderer 原语适配到既有 WebGL 绘制表面。 */
 
-import {
-  CandleWebGLSurface,
-  LineWebGLSurface,
-} from '../../../engine/renderers/webgl/candleSurface.js'
-import { SharedWebGLSurface } from '../../../engine/renderers/webgl/sharedWebGLSurface.js'
-import { projectWorldRectToScreen } from '../../../foundation/utils/pixelAlign.js'
+import { CandleWebGLSurface, LineWebGLSurface } from '@/engine/renderers/webgl/candleSurface.js'
+import { SharedWebGLSurface } from '@/engine/renderers/webgl/sharedWebGLSurface.js'
+import { projectWorldRectToScreen } from '@/foundation/utils/pixelAlign.js'
 import { prepareLineStripForPhysicalPixels } from '../physicalLine.js'
 import type {
   BufferHandle,

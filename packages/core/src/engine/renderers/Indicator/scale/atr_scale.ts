@@ -1,4 +1,4 @@
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
+import type { RendererPluginWithHost } from '@/foundation/plugin/index.js'
 
 import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 

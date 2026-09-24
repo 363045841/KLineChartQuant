@@ -2,8 +2,8 @@
  * 单锚点线图形定义：水平线 / 水平射线 / 垂直线 / 十字线。
  */
 
-import { POINT_ROLE, PRIMITIVE_KIND } from '../../../../../foundation/plugin/index.js'
-import type { DrawingDefinition, DrawingKind } from '../../../types.js'
+import type { DrawingDefinition, DrawingKind } from '@/engine/drawing/types.js'
+import { POINT_ROLE, PRIMITIVE_KIND } from '@/foundation/plugin/index.js'
 
 /** 创建单锚点线定义：按 kind 输出水平线、射线、垂直线或十字线。 */
 export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefinition {

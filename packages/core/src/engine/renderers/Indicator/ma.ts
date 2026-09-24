@@ -3,12 +3,12 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import type { ColorTokens } from '../../../foundation/tokens/index.js'
-import { resolveThemeColors } from '../../../foundation/tokens/index.js'
-import type { KLineData } from '../../../foundation/types/price.js'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import type { ColorTokens } from '@/foundation/tokens/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
 import { calcMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {

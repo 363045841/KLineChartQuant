@@ -4,9 +4,9 @@ import {
   createMockRenderContext,
   type MockCanvasContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { RenderContext } from '@/plugin'
 import type { TimeShareData } from '@/types/price'
-import { ChartDataViewId } from '../../../foundation/types/chartView'
 import { createTimeShareRendererPlugin } from '../timeShare'
 
 function createTsData(n = 4): TimeShareData[] {

@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 export interface FASTKRenderState extends BaseIndicatorState {
   timestamp: number

@@ -4,9 +4,10 @@
  * 它只依赖新实例 CRUD API 和 pane 布局状态，不依赖旧 IndicatorState/Panemanager。
  * pane 是布局资源；指标实例是内容资源；两者的创建、移动和删除必须同一事务发布。
  */
-import { batch } from '../../../../foundation/reactivity/signal.js'
-import type { PaneSpec } from '../../../chartTypes.js'
-import type { PaneStateModule } from '../../../state/paneState.js'
+
+import type { PaneSpec } from '@/engine/chartTypes.js'
+import type { PaneStateModule } from '@/engine/state/paneState.js'
+import { batch } from '@/foundation/reactivity/signal.js'
 import type {
   CreateIndicatorInstance,
   IndicatorInstance,

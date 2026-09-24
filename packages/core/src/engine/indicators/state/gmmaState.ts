@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 /**
  * GMMA（顾比均线）渲染器状态

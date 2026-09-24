@@ -1,4 +1,4 @@
-import { buildWideLineGeometry } from '../../../rendering/render/wideLineGeometry.js'
+import { buildWideLineGeometry } from '@/rendering/render/wideLineGeometry.js'
 import { SharedWebGLSurface, type WebGLRegion } from './sharedWebGLSurface.js'
 
 type Rect = {

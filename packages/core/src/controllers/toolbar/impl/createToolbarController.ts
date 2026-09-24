@@ -20,7 +20,7 @@
  * only with the data layer.
  */
 
-import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 
 import type { ToolbarController, ToolbarInit, ToolDefinition, ToolId } from '../types.js'
 

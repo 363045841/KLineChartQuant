@@ -11,8 +11,8 @@ import type {
   LinePrimitive,
   PointPrimitive,
   TextPrimitive,
-} from '../../../foundation/plugin/index.js'
-import type { ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+} from '@/foundation/plugin/index.js'
+import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { DrawingObject } from '../types.js'
 
 /** DrawingStore 的依赖：kernel 业务信号与可选会话层 overlay。 */

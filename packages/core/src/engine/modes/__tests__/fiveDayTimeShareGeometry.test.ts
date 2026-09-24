@@ -1,7 +1,7 @@
 /** 五日分时共享几何测试。 */
 import { describe, expect, it } from 'vitest'
-import type { TimeShareRange, TradingDate } from '../../../data/provider/types'
-import { ASHARE_MARKET_SESSION } from '../../../foundation/utils/timeShareAxisLabels'
+import type { TimeShareRange, TradingDate } from '@/data/provider/types'
+import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
 import {
   computeFiveDayTimeShareContentWidth,
   computeFiveDayTimeShareGeometry,

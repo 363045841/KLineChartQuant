@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createSignal } from '../../../foundation/reactivity/signal'
+import { createSignal } from '@/foundation/reactivity/signal'
 import { createZoomState } from '../zoomState'
 
 function createState() {

@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 export interface VWAPRenderState extends BaseIndicatorState {
   timestamp: number

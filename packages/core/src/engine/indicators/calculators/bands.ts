@@ -1,4 +1,4 @@
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 import { _computeEMASeries } from './_shared.js'
 import { calcATRData } from './volatility.js'

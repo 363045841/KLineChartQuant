@@ -1,8 +1,8 @@
 // 本文件执行指标计算，并将纯计算结果直接转义为紧凑文本。
 
-import { getRegisteredIndicatorDefinition } from '../../../../engine/indicators/indicatorDefinitionRegistry.js'
-import type { IndicatorMetadata } from '../../../../engine/indicators/indicatorMetadata.js'
-import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '../../../../errors.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
+import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type {
   IndicatorCalculationQueryInput,
   IndicatorQuery,

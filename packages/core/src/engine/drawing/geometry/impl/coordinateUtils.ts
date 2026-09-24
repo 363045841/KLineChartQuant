@@ -3,8 +3,8 @@
 // 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
 // 另含点线距离等几何工具。
 
-import type { DrawingViewportPort, PaneLayoutInfo } from '../../../../controllers/types.js'
-import type { ScreenDrawingAnchor, ScreenPoint } from '../../../../foundation/plugin/index.js'
+import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
+import type { ScreenDrawingAnchor, ScreenPoint } from '@/foundation/plugin/index.js'
 import { snapPointerToOhlc } from '../../interaction/impl/magnetSnapper.js'
 import type { PersistedDrawingAnchor } from '../../types.js'
 import type {

@@ -4,7 +4,7 @@ import {
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
-import { HK_MARKET_SESSION } from '../../../foundation/utils/sessionTimeLabels'
+import { HK_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
 import { createTimeAxisRendererPlugin } from '../timeAxis'
 
 describe('time axis market session', () => {

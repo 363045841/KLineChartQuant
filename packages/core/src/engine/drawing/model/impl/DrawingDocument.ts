@@ -1,10 +1,10 @@
 /** 绘图文档领域服务：为用户交互与 Agent 提供统一的已确认图元 CRUD。 */
 
-import type { TradingDate } from '../../../../data/provider/types.js'
-import { DRAWING_ERROR_CODES, KLineChartError } from '../../../../errors.js'
-import type { DrawingStyle } from '../../../../foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE } from '../../../../foundation/tokens/index.js'
-import { generateUUID } from '../../../../foundation/utils/uuid.js'
+import type { TradingDate } from '@/data/provider/types.js'
+import { DRAWING_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { DrawingStyle } from '@/foundation/plugin/index.js'
+import { DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
+import { generateUUID } from '@/foundation/utils/uuid.js'
 import type { DrawingDocumentSnapshot } from '../../history/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, DrawingObject, PersistedDrawingAnchor } from '../../types.js'

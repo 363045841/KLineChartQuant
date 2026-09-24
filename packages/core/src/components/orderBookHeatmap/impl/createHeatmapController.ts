@@ -17,8 +17,8 @@
  * snapshot / delta counts so adapters can use it as a render trigger.
  */
 
-import { KLineChartError } from '../../../errors.js'
-import { createSignal, type Signal } from '../../../foundation/reactivity/index.js'
+import { KLineChartError } from '@/errors.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   BookSnapshot,
   DeltaArchive,

@@ -1,4 +1,4 @@
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 import { GMMA_LONG_PERIODS, GMMA_SHORT_PERIODS } from '../state/gmmaState.js'
 

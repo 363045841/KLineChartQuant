@@ -1,5 +1,5 @@
-import type { DrawingViewportPort } from '../../../../controllers/types.js'
-import type { ScreenPoint } from '../../../../foundation/plugin/index.js'
+import type { DrawingViewportPort } from '@/controllers/types.js'
+import type { ScreenPoint } from '@/foundation/plugin/index.js'
 import {
   anchorToScreen,
   isScreenPoint,
@@ -8,7 +8,11 @@ import {
   pointToSegmentDistanceSq,
 } from '../../geometry/impl/coordinateUtils.js'
 import { buildFillPolygon } from '../../geometry/impl/fillRegions.js'
-import { LINE_LABEL_BASELINE, resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
+import {
+  LINE_LABEL_BASELINE,
+  resolveAreaLabelLayout,
+  resolveLineLabelLayout,
+} from '../../geometry/impl/labelLayout.js'
 import { computeLinearRegression } from '../../geometry/impl/linearRegression.js'
 import { getLines, getVerticalHandleLines } from '../../geometry/impl/lines.js'
 import type { DrawingLine, VerticalHandleLine } from '../../geometry/types.js'
@@ -49,9 +53,8 @@ let labelMeasureContext: CanvasRenderingContext2D | null | undefined
 
 function labelTextWidth(text: string, fontSize: number): number {
   if (labelMeasureContext === undefined) {
-    labelMeasureContext = typeof document === 'undefined'
-      ? null
-      : document.createElement('canvas').getContext('2d')
+    labelMeasureContext =
+      typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
   }
   if (labelMeasureContext) {
     labelMeasureContext.font = `${fontSize}px sans-serif`
@@ -86,9 +89,12 @@ function labelHitDistanceSq(
   const top = baseline === 'bottom' ? -height : -height / 2
   const padding = 5
   if (
-    localX >= left - padding && localX <= left + width + padding &&
-    localY >= top - padding && localY <= top + height + padding
-  ) return 0
+    localX >= left - padding &&
+    localX <= left + width + padding &&
+    localY >= top - padding &&
+    localY <= top + height + padding
+  )
+    return 0
   return anchorDistanceSq
 }
 
@@ -387,8 +393,15 @@ export class HitTester {
         const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
         const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
         const distanceSq = labelHitDistanceSq(
-          mouseX, mouseY, layout.x, layout.y, label?.text,
-          drawing.style.fontSize ?? 12, layout.align, 'bottom', layout.rotation,
+          mouseX,
+          mouseY,
+          layout.x,
+          layout.y,
+          label?.text,
+          drawing.style.fontSize ?? 12,
+          layout.align,
+          'bottom',
+          layout.rotation,
         )
         if (distanceSq > closestLineDistanceSq) continue
         closestLineDistanceSq = distanceSq
@@ -422,10 +435,19 @@ export class HitTester {
         (Math.min(...points.map((point) => point.y)) +
           Math.max(...points.map((point) => point.y))) /
         2
-      if (labelHitDistanceSq(
-        mouseX, mouseY, x, y, drawing.labels?.area['0']?.text,
-        drawing.style.fontSize ?? 12, areaLayout.align, 'middle',
-      ) > LINE_LABEL_TARGET_RADIUS_SQ) continue
+      if (
+        labelHitDistanceSq(
+          mouseX,
+          mouseY,
+          x,
+          y,
+          drawing.labels?.area['0']?.text,
+          drawing.style.fontSize ?? 12,
+          areaLayout.align,
+          'middle',
+        ) > LINE_LABEL_TARGET_RADIUS_SQ
+      )
+        continue
       areaTarget = {
         drawingId: drawing.id,
         targetKind: 'area',

@@ -46,7 +46,7 @@
  *     entry for the bar — `barIndex` and `cumulativeVolume` are filled in.
  */
 
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 
 import type { AVWAPBar, AVWAPPoint } from '../types.js'
 

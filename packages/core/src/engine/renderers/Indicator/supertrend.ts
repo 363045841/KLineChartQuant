@@ -3,14 +3,17 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
-import type { KLineData } from '../../../foundation/types/price.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import { calcSuperTrendData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { type GetTitleInfoFn, type TitleInfo } from '../../indicators/indicatorMetadata.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
+import {
+  type GetTitleInfoFn,
+  IndicatorKind,
+  type TitleInfo,
+} from '../../indicators/indicatorMetadata.js'
 import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SuperTrendRenderState } from '../../indicators/state/supertrendState.js'
 import { EMPTY_SUPERTREND_STATE } from '../../indicators/state/supertrendState.js'

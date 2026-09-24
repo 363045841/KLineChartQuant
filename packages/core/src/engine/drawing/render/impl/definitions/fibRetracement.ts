@@ -2,7 +2,7 @@
  * 斐波那契回撤图形定义：两个锚点定义区间，水平线覆盖区间的时间范围。
  */
 
-import type { DrawingDefinition } from '../../../types.js'
+import type { DrawingDefinition } from '@/engine/drawing/types.js'
 
 /** 创建斐波那契回撤图形：两个锚点定义区间，水平线覆盖区间的时间范围。 */
 export function createFibRetracementDefinition(): DrawingDefinition {

@@ -6,7 +6,7 @@ import {
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
-import type { DrawingPrimitive } from '../../../../foundation/plugin/index'
+import type { DrawingPrimitive } from '@/foundation/plugin/index'
 import { LINE_LABEL_NORMAL_OFFSET } from '../../geometry/impl/labelLayout'
 import { createDrawingRendererPlugin } from '../impl/plugin'
 import { createDefaultPrimitiveRendererSet } from '../impl/primitiveRendererSet'

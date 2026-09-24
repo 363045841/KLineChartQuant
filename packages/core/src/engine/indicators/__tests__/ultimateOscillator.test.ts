@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { KLineData } from '../../../foundation/types/price'
+import type { KLineData } from '@/foundation/types/price'
 
 import { calcUltimateOscillatorData } from '../calculators/ultimateOscillator'
 

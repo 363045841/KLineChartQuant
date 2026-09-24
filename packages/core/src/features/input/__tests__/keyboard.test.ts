@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { isKLineChartError } from '../../../errors'
+import { isKLineChartError } from '@/errors'
 import { canonicalCombo, createShortcutRegistry, type KeyboardEventLike, parseCombo } from '..'
 
 function evt(over: Partial<KeyboardEventLike>): KeyboardEventLike {

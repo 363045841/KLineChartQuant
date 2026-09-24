@@ -6,8 +6,8 @@ import {
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
-import type { RenderContext } from '../../../foundation/plugin/index'
-import type { KLineData } from '../../../foundation/types/price'
+import type { RenderContext } from '@/foundation/plugin/index'
+import type { KLineData } from '@/foundation/types/price'
 import {
   buildComparisonLinePoints,
   createComparisonLineRenderer,

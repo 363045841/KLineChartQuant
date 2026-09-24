@@ -26,7 +26,7 @@
  *   addition (`onError` listener on the controller).
  */
 
-import { createSignal, type Signal } from '../../../foundation/reactivity/signal.js'
+import { createSignal, type Signal } from '@/foundation/reactivity/signal.js'
 
 import type {
   AlertController,

@@ -1,7 +1,7 @@
 // 验证 HTTP Transport 的 URL 拼装、envelope 解包与错误解析行为
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { KLineChartError } from '../../../../errors'
+import { KLineChartError } from '@/errors'
 import { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from '../httpTransport'
 
 const fetchMock = vi.fn<typeof fetch>()

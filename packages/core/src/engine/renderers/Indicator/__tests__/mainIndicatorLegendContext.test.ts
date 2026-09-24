@@ -1,16 +1,15 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { SymbolSpec } from '@/controllers/types'
 import {
   createMockIndicatorInstanceHost,
   createMockRenderContext,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
-
-import type { SymbolSpec } from '../../../../controllers/types'
-import { ChartDataViewId } from '../../../../foundation/types/chartView'
-import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
-import { symbolSpecIdentityKey } from '../../../data/symbolIdentity'
+import { ChartDataViewId } from '@/foundation/types/chartView'
+import type { KLineData, TimeShareData } from '@/foundation/types/price'
 import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
 
 beforeAll(async () => {

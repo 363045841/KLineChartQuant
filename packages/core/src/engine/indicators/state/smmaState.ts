@@ -2,7 +2,7 @@
  * SMMA 指标渲染状态定义（Wilder 平滑移动平均）
  */
 
-import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { BaseIndicatorState } from '@/foundation/plugin/index.js'
 
 export interface SMMARenderState extends BaseIndicatorState {
   timestamp: number

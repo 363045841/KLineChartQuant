@@ -1,6 +1,6 @@
 /** 轴标签管理模块实现：单帧标签收集器与按 Pane 隔离的帧级聚合工厂。 */
 
-import type { XAxisLabel, YAxisLabel } from '../../../foundation/plugin/types.js'
+import type { XAxisLabel, YAxisLabel } from '@/foundation/plugin/types.js'
 import type { AxisLabelsFrame, XAxisLabelCollector, YAxisLabelCollector } from '../types.js'
 
 /** 构造内部可变数组 + register/registerAll 的通用收集器核心。 */

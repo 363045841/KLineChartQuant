@@ -53,7 +53,7 @@
  * matches between modes.
  */
 
-import { KLineChartError } from '../../../errors.js'
+import { KLineChartError } from '@/errors.js'
 
 import type { ChartTypeTransform, OHLCV, RangeBarsConfig, TransformedBar } from '../types.js'
 

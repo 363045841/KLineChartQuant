@@ -1,4 +1,4 @@
-import type { DrawingDocumentPort, DrawingSessionPort } from '../../../../controllers/types.js'
+import type { DrawingDocumentPort, DrawingSessionPort } from '@/controllers/types.js'
 import type { DrawingObject } from '../../types.js'
 
 const PREVIEW_ID = '__preview__'

@@ -2,7 +2,7 @@
  * 矩形图形定义：两个锚点分别代表矩形的对角点。
  */
 
-import type { DrawingDefinition } from '../../../types.js'
+import type { DrawingDefinition } from '@/engine/drawing/types.js'
 
 /** 创建矩形图形：两个锚点分别代表矩形的对角点。 */
 export function createRectangleDefinition(): DrawingDefinition {

@@ -4,7 +4,7 @@ import {
   resolveTimeShareSlotTimestamp,
   resolveTimestampSessionSlot,
   timeShareSlotCenterX,
-} from '../../../foundation/utils/timeShareAxisLabels'
+} from '@/foundation/utils/timeShareAxisLabels'
 import {
   ASHARE_TIMESHARE_SESSION_SLOTS,
   computeTimeShareBarMetrics,

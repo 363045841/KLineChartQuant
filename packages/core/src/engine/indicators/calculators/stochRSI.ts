@@ -2,7 +2,7 @@
  * StochRSI 计算器：基于收盘价先计算 RSI，再计算随机指标的 K/D 平滑线。
  */
 
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 export interface StochRSIPoint {
   k: number

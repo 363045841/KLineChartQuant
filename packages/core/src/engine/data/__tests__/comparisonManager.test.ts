@@ -1,14 +1,14 @@
 /** ComparisonManager 单元测试：验证比较视图只投影 Repository 中的共享序列。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import type { SymbolSpec } from '../../../controllers/types'
-import { DataBuffer } from '../../../data/buffer/dataBuffer'
+import type { SymbolSpec } from '@/controllers/types'
+import { DataBuffer } from '@/data/buffer/dataBuffer'
 import {
   instrumentKeyFromSpec,
   SeriesRepository,
   type SeriesSelection,
   sourceIdFromSpec,
-} from '../../../data/buffer/seriesRepository'
+} from '@/data/buffer/seriesRepository'
 import { ComparisonManager } from '../comparisonManager'
 
 type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>

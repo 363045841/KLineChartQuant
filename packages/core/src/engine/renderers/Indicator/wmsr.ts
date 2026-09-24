@@ -3,10 +3,10 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { resolveThemeColors } from '../../../foundation/tokens/index.js'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+} from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
 import { calcWMSRData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'

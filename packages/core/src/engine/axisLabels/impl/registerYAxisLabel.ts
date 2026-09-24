@@ -1,6 +1,6 @@
 /** Y 轴标签写入的统一入口：优先走帧注入的注册器，未注入时回退到上下文数组。 */
 
-import type { RenderAxisContext, YAxisLabel } from '../../../foundation/plugin/types.js'
+import type { RenderAxisContext, YAxisLabel } from '@/foundation/plugin/types.js'
 
 /**
  * 向当前帧注册一条 Y 轴标签。

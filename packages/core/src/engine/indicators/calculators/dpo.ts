@@ -2,7 +2,7 @@
  * DPO 计算器：把收盘价转换为去趋势价格振荡器序列。
  */
 
-import type { KLineData } from '../../../foundation/types/price.js'
+import type { KLineData } from '@/foundation/types/price.js'
 
 /**
  * 计算 DPO 序列。
