@@ -21,6 +21,7 @@ const PERIOD_INITIAL_DAYS: Record<string, number> = {
   '15min': 60,
   '30min': 90,
   '60min': 180,
+  '4h': 90,
   daily: 365,
   weekly: 365,
   monthly: 365,
