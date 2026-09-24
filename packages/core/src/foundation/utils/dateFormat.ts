@@ -55,7 +55,8 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
     const first = data[0]?.timestamp ?? 0
     const last = data[data.length - 1]?.timestamp ?? 0
     const cached = keyIndexes.get(data)
-    if (cached && cached.length === data.length && cached.first === first && cached.last === last) return cached
+    if (cached && cached.length === data.length && cached.first === first && cached.last === last)
+      return cached
 
     const month = new Int32Array(data.length)
     const day = new Int32Array(data.length)
@@ -71,7 +72,10 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
     return next
   }
 
-  const boundariesFor = (data: ReadonlyArray<Timestamped>, kind: 'month' | 'day'): ReadonlyArray<number> => {
+  const boundariesFor = (
+    data: ReadonlyArray<Timestamped>,
+    kind: 'month' | 'day',
+  ): ReadonlyArray<number> => {
     if (data.length === 0) return []
     const keys = indexFor(data)[kind]
     const boundaries = [0]
@@ -102,7 +106,9 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
     formatAxisMonthOrYear(timestamp) {
       return getOrCreate(monthAxisCache, timestamp, AXIS_CACHE_LIMIT, () => {
         const { year, month } = partsAt(timestamp)
-        return month === '01' ? { text: year, isYear: true } : { text: `${Number(month)}月`, isYear: false }
+        return month === '01'
+          ? { text: year, isYear: true }
+          : { text: `${Number(month)}月`, isYear: false }
       })
     },
     formatAxisDay(timestamp) {
@@ -157,6 +163,17 @@ export function createMarketSessionTimeFormatter(timeZone: string): MarketSessio
       })
     },
   }
+}
+
+const marketSessionFormatters = new Map<string, MarketSessionTimeFormatter>()
+
+/** 按 IANA 时区复用市场时段 formatter，避免按标签重复初始化 Intl。 */
+export function getMarketSessionTimeFormatter(timeZone: string): MarketSessionTimeFormatter {
+  const existing = marketSessionFormatters.get(timeZone)
+  if (existing) return existing
+  const formatter = createMarketSessionTimeFormatter(timeZone)
+  marketSessionFormatters.set(timeZone, formatter)
+  return formatter
 }
 
 function createPartsFormatter(timeZone: string, withTime = false): Intl.DateTimeFormat {

@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import { registerYAxisLabel } from '../axisLabels/index.js'
+import { registerAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
@@ -30,7 +30,7 @@ function getLastPriceInfo(context: RenderContext) {
 }
 
 /**
- * 最新价 label 注册渲染器（overlay 层，确保悬停时 label 也注册到 yAxisLabels）
+ * 最新价 label 注册渲染器（overlay 层，确保悬停时 label 也注册到右轴 overlay 表面）
  */
 export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
   return {
@@ -52,16 +52,17 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
       const info = getLastPriceInfo(context)
       if (!info) return
 
-      registerYAxisLabel(context, {
-        price: info.price,
-        y: info.y,
-        type: 'lastPrice',
-        style: {
-          // 价格标签色块跟随涨跌，文字取通用标签文字色保证对比度。
-          bgColor: info.isUp ? colors.candleUpBody : colors.candleDownBody,
-          borderColor: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
-          textColor: colors.label.text,
-        },
+      registerAxisLabel(context, 'yRightOverlay', {
+        kind: 'tag',
+        text: info.price.toFixed(2),
+        pos: info.y + context.pane.top,
+        origin: context.pane.top,
+        variant: 'label',
+        // 价格标签色块跟随涨跌，文字取通用标签文字色保证对比度。
+        bgColor: info.isUp ? colors.candleUpBody : colors.candleDownBody,
+        borderColor: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
+        textColor: colors.label.text,
+        fontSize: 12,
       })
     },
   }

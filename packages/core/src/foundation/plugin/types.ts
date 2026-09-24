@@ -169,33 +169,82 @@ export interface PaneInfo {
   }
 }
 
-/** Y轴标签（价格标签） */
-export interface YAxisLabel {
-  /** 价格值 */
-  price: number
-  /** 标签在轴上的Y坐标（世界坐标，相对pane） */
-  y: number
-  /** 标签类型，用于区分不同渲染外观 */
-  type?: 'lastPrice' | 'extrema' | 'anchor' | string
-  /** 标签样式覆盖 */
-  style?: {
-    bgColor?: string
-    borderColor?: string
-    textColor?: string
-  }
+/**
+ * 轴标签目标表面：决定绘制到哪块轴 canvas 以及在该 canvas 内的绘制相位。
+ *
+ * X 表面跨 Pane 共享（底部时间轴唯一）；Y 表面按 Pane 隔离。
+ */
+export type AxisLabelSurface =
+  | 'xTicks' // 底部时间轴刻度文字
+  | 'xCrosshair' // 底部时间轴十字线时间签
+  | 'xLabels' // 底部时间轴图元装饰标签
+  | 'yRightStatic' // 右 Y 轴静态 canvas 内容（主图刻度 / 副图指标刻度与十字线）
+  | 'yRightOverlay' // 右 Y 轴 overlay canvas 内容（装饰标签、十字线价签）
+  | 'yLeftStatic' // 左 Y 轴静态 canvas 内容（主图刻度）
+  | 'yLeftOverlay' // 左 Y 轴 overlay canvas 内容（十字线价签）
+
+/** 轴刻度文字标签：纯文本，无底色。 */
+export interface AxisTickLabel {
+  kind: 'tick'
+  /** 已按所在轴显示语义格式化好的文本。 */
+  text: string
+  /** X 表面为屏幕 x（逻辑像素）；Y 表面为 pane 内 y。 */
+  pos: number
+  color: string
+  fontSize?: number
+  /** 年份等需要加粗的刻度。 */
+  bold?: boolean
+  /** Y 表面文本水平对齐；默认 center。 */
+  align?: 'left' | 'center' | 'right'
 }
 
-/** X轴标签（时间标签） */
-export interface XAxisLabel {
-  /** 时间戳（毫秒） */
-  timestamp: number
-  /** 标签在轴上的X坐标（世界坐标，未减去scrollLeft） */
-  x: number
-  /** 标签样式覆盖 */
-  style?: {
-    bgColor?: string
-    textColor?: string
-  }
+/** 轴色块标签：底矩形 + 居中文字（价格签 / 时间签）。 */
+export interface AxisTagLabel {
+  kind: 'tag'
+  /** 已格式化好的文本。 */
+  text: string
+  /** X 表面为屏幕 x（逻辑像素）；Y 表面为标签的 pane 内 y。 */
+  pos: number
+  /**
+   * 锚点坐标的画布原点偏移（逻辑像素），用于复现各轴 renderer 既有的 clamp 原点
+   * （价格签沿用 pane.top）；默认 0。
+   */
+  origin?: number
+  /** 价格签基线微调：'label' 文本下移 1px，'crosshair' 物理像素中心对齐；默认 'label'。 */
+  variant?: 'label' | 'crosshair'
+  bgColor: string
+  borderColor?: string
+  textColor: string
+  fontSize?: number
+  /** X 时间签左右内边距，默认 8。 */
+  paddingX?: number
+}
+
+/** 单条轴标签：生产者计算好的 ready-to-draw 数据，由轴标签模块统一布局绘制。 */
+export type AxisLabel = AxisTickLabel | AxisTagLabel
+
+/** 单表面轴标签收集器：生产者经 register 写入，渲染器直接消费 labels。 */
+export interface AxisLabelCollector {
+  /** 渲染器直接消费的可变标签缓冲区；“当前帧”语义由每帧重建保证。 */
+  readonly labels: AxisLabel[]
+  register(label: AxisLabel): void
+  registerAll(labels: ReadonlyArray<AxisLabel>): void
+}
+
+/**
+ * 帧级轴标签聚合：按表面取收集器。
+ *
+ * X 表面跨 Pane 共享；Y 表面按 paneId 隔离。每帧由渲染器新建，
+ * 帧内累积、帧结束后随对象释放，不持有跨帧状态。
+ */
+export interface AxisLabelsFrame {
+  /**
+   * 取指定表面的收集器；X 表面忽略 paneId，同一 (surface, paneId) 稳定返回同一实例。
+   *
+   * @param surface - 目标轴表面
+   * @param paneId - Y 表面的 Pane 隔离键；X 表面忽略
+   */
+  forSurface(surface: AxisLabelSurface, paneId?: string): AxisLabelCollector
 }
 
 /** Y轴范围带（半透明填充区域） */
@@ -222,12 +271,15 @@ export interface XAxisRange {
   opacity: number
 }
 
-/** 单个 Pane 内绘图在当前帧的纯投影结果。 */
+/**
+ * 单个 Pane 内绘图在当前帧的纯投影结果。
+ *
+ * 轴标签不经返回值传递：投影时通过帧级 axisLabels 模块的注册入口注册到本帧表面，
+ * 此处只保留范围带。
+ */
 export interface DrawingFrameProjection {
   primitives: ReadonlyArray<DrawingPrimitive>
-  yAxisLabels: ReadonlyArray<YAxisLabel>
   yAxisRanges: ReadonlyArray<YAxisRange>
-  xAxisLabels: ReadonlyArray<XAxisLabel>
   xAxisRanges: ReadonlyArray<XAxisRange>
 }
 
@@ -327,31 +379,19 @@ export interface RenderGeometryContext {
   zoomLevelCount?: number
 }
 
-/** 坐标轴标签的注册入口：轴标签生产者（标记渲染器等）只依赖该契约，不直接操作数组。 */
-export interface AxisLabelRegistrar<TLabel> {
-  /** 追加一条标签。 */
-  register(label: TLabel): void
-  /** 批量追加标签。 */
-  registerAll(labels: ReadonlyArray<TLabel>): void
-}
-
 /** 坐标轴子契约：本帧待绘制的轴标签、范围带与刻度。 */
 export interface RenderAxisContext {
-  /** 需要在Y轴上绘制的标签列表（由各类标记渲染器填充） */
-  yAxisLabels: YAxisLabel[]
-  /** 需要在X轴上绘制的标签列表（由各类标记渲染器填充） */
-  xAxisLabels: XAxisLabel[]
+  /**
+   * 帧级轴标签收集器。生产者经 `registerAxisLabel` 写入本帧表面；
+   * 轴渲染器按表面读取并由轴标签模块统一绘制，不再直接操作标签数组。
+   */
+  axisLabels: AxisLabelsFrame
   /** 需要在Y轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
   yAxisRanges: YAxisRange[]
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
   xAxisRanges: XAxisRange[]
   /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
-  /**
-   * Y 轴标签注册入口。帧构建时由轴标签模块注入；生产者优先经此注册，
-   * 未注入时（如手工构造的测试上下文）回退到直接写入 `yAxisLabels`。
-   */
-  yAxisLabelRegistrar?: AxisLabelRegistrar<YAxisLabel>
 }
 
 /** 覆盖层子契约：十字线、标记器与绘图帧投影。 */

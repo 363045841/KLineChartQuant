@@ -1,29 +1,27 @@
-/** 验证最新价标签注册器经轴标签收集器注册，且不依赖直接写入上下文数组。 */
+/** 验证最新价标签经轴标签模块注册到右轴 overlay 表面。 */
 import { describe, expect, it } from 'vitest'
 import { createLastPriceLabelRegistrarPlugin } from '@/core/renderers/lastPrice'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import { createYAxisLabelCollector } from '@/engine/axisLabels/index'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 
 describe('createLastPriceLabelRegistrarPlugin', () => {
-  it('registers the last price label through the injected collector', () => {
-    const collector = createYAxisLabelCollector()
+  it('registers the last price label on the right overlay surface', () => {
     const context = createMockRenderContext({
       dataView: ChartDataViewId.KLine,
       data: [
         { timestamp: 1_000, open: 90, high: 95, low: 88, close: 90 },
         { timestamp: 2_000, open: 90, high: 96, low: 89, close: 95 },
       ],
-      yAxisLabelRegistrar: collector,
     })
 
     createLastPriceLabelRegistrarPlugin().draw(context)
 
-    expect(collector.labels).toEqual([expect.objectContaining({ type: 'lastPrice', price: 95 })])
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+      expect.objectContaining({ kind: 'tag', text: '95.00' }),
+    ])
   })
 
   it('does not register when the last close is outside the display range', () => {
-    const collector = createYAxisLabelCollector()
     const context = createMockRenderContext({
       dataView: ChartDataViewId.KLine,
       data: [
@@ -31,11 +29,10 @@ describe('createLastPriceLabelRegistrarPlugin', () => {
         { timestamp: 2_000, open: 190, high: 196, low: 189, close: 195 },
       ],
       pane: { yAxis: { getDisplayRange: () => ({ minPrice: 0, maxPrice: 100 }) } },
-      yAxisLabelRegistrar: collector,
     })
 
     createLastPriceLabelRegistrarPlugin().draw(context)
 
-    expect(collector.labels).toEqual([])
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([])
   })
 })

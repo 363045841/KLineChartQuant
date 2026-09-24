@@ -7,6 +7,7 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
+import { createAxisLabelsFrame } from '@/engine/axisLabels/index'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
@@ -207,10 +208,9 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     kLineCenters: data.map((_, i) => i * 8 + 4),
     kBarRects: data.map((_, i) => ({ x: i * 8, width: 6 })),
     viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 200 },
-    yAxisLabels: [],
-    xAxisLabels: [],
     yAxisRanges: [],
     xAxisRanges: [],
+    axisLabels: createAxisLabelsFrame(),
     displayTimeFormatter: createDisplayTimeFormatter('UTC'),
     theme: 'light',
   } satisfies RenderContext

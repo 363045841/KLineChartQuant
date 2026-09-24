@@ -1,7 +1,6 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import { createAxisLabelsFrame } from '@/engine/axisLabels/index'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -98,7 +97,7 @@ function projectSingleDrawing(drawing: DrawingObject, selected: boolean): Drawin
 }
 
 describe('projectDrawingsForFrame', () => {
-  it('returns selected drawing primitives and axis decorations without mutating context', () => {
+  it('registers selected drawing axis labels into the frame collectors without mutating ranges', () => {
     const drawing = createTrendDrawing({ style: { stroke: '#2962ff', strokeWidth: 1 } })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
@@ -111,14 +110,13 @@ describe('projectDrawingsForFrame', () => {
     const projection = projectDrawingsForFrame(store, definitions, context)
 
     expect(projection.primitives).not.toEqual([])
-    expect(projection.yAxisLabels).toHaveLength(2)
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toHaveLength(2)
     expect(projection.yAxisRanges).toHaveLength(1)
-    expect(projection.xAxisLabels).toHaveLength(2)
-    expect(context.yAxisLabels).toHaveLength(0)
+    expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(2)
     expect(context.yAxisRanges).toHaveLength(0)
   })
 
-  it('registers selected drawing axis labels directly into the frame collectors', () => {
+  it('registers selected drawing axis labels through the frame collector on the context', () => {
     const drawing = createTrendDrawing()
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
@@ -126,17 +124,18 @@ describe('projectDrawingsForFrame', () => {
     })
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
-    const labels = createAxisLabelsFrame()
+    const context = createContext()
 
-    const projection = projectDrawingsForFrame(store, definitions, createContext(), null, {
-      y: labels.yForPane('main'),
-      x: labels.x,
-    })
+    projectDrawingsForFrame(store, definitions, context)
 
-    expect(labels.yForPane('main').labels.map((label) => label.price)).toEqual([10, 20])
-    expect(labels.x.labels.map((label) => label.timestamp)).toEqual([1_000, 2_000])
-    expect(projection.yAxisLabels).toEqual([])
-    expect(projection.xAxisLabels).toEqual([])
+    expect(
+      context.axisLabels
+        .forSurface('yRightOverlay', 'main')
+        .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
+    ).toEqual(['10.00', '20.00'])
+    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
+      10, 30,
+    ])
   })
 
   it('keeps the line body stroke width unchanged when selected', () => {
@@ -312,10 +311,16 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    const projection = projectDrawingsForFrame(store, definitions, context)
+    projectDrawingsForFrame(store, definitions, context)
 
-    expect(projection.yAxisLabels.map((label) => label.price)).toEqual([10, 20])
-    expect(projection.xAxisLabels.map((label) => label.x)).toEqual([10, 30])
+    expect(
+      context.axisLabels
+        .forSurface('yRightOverlay', 'main')
+        .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
+    ).toEqual(['10.00', '20.00'])
+    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
+      10, 30,
+    ])
   })
 
   it('does not resolve an ambiguous timestamp to an arbitrary bar', () => {
@@ -332,7 +337,7 @@ describe('projectDrawingsForFrame', () => {
     const projection = projectDrawingsForFrame(store, definitions, context)
 
     expect(projection.primitives).toEqual([])
-    expect(projection.yAxisLabels).toEqual([])
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([])
   })
 
   it('keeps the line geometry when an endpoint is after the visible range without registering it', () => {
@@ -362,8 +367,12 @@ describe('projectDrawingsForFrame', () => {
       a: { x: 10 },
       b: { x: 50 },
     })
-    expect(projection.xAxisLabels.map((label) => label.timestamp)).toEqual([1_000])
-    expect(projection.yAxisLabels.map((label) => label.price)).toEqual([10])
+    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([10])
+    expect(
+      context.axisLabels
+        .forSurface('yRightOverlay', 'main')
+        .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0)),
+    ).toEqual([10])
   })
 
   it('projects a future-slot anchor from its creation-time base bar', () => {
@@ -398,7 +407,9 @@ describe('projectDrawingsForFrame', () => {
     })
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
-    return projectDrawingsForFrame(store, definitions, createContext())
+    const context = createContext()
+    const projection = projectDrawingsForFrame(store, definitions, context)
+    return { projection, context }
   }
 
   const singleAnchorLabelCases: ReadonlyArray<{
@@ -406,7 +417,7 @@ describe('projectDrawingsForFrame', () => {
     kind: DrawingKind
     anchors: DrawingObject['anchors']
     yAxisPrices: ReadonlyArray<number>
-    xAxisTimestamps: ReadonlyArray<number>
+    xAxisLabelCount: number
   }> = [
     {
       label: 'horizontal line',
@@ -414,30 +425,33 @@ describe('projectDrawingsForFrame', () => {
       // 无时间锚点：index 为 -1，价格轴标签仍须投影。
       anchors: [{ id: 'a', type: 'horizontal', price: 30 }],
       yAxisPrices: [30],
-      xAxisTimestamps: [],
+      xAxisLabelCount: 0,
     },
     {
       label: 'horizontal ray',
       kind: 'horizontal-ray',
       anchors: [{ id: 'a', type: 'point', time: 1_000, price: 25 }],
       yAxisPrices: [25],
-      xAxisTimestamps: [],
+      xAxisLabelCount: 0,
     },
     {
       label: 'vertical line',
       kind: 'vertical-line',
       anchors: [{ id: 'a', type: 'vertical', time: 1_000, price: 40 }],
       yAxisPrices: [],
-      xAxisTimestamps: [1_000],
+      xAxisLabelCount: 1,
     },
   ]
 
   it.each(singleAnchorLabelCases)(
     'projects only the required axis label for a $label',
-    ({ kind, anchors, yAxisPrices, xAxisTimestamps }) => {
-      const projection = projectSingleAnchor(kind, anchors)
-      expect(projection.yAxisLabels.map((label) => label.price)).toEqual(yAxisPrices)
-      expect(projection.xAxisLabels.map((label) => label.timestamp)).toEqual(xAxisTimestamps)
+    ({ kind, anchors, yAxisPrices, xAxisLabelCount }) => {
+      const { context } = projectSingleAnchor(kind, anchors)
+      const yLabels = context.axisLabels
+        .forSurface('yRightOverlay', 'main')
+        .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0))
+      expect(yLabels).toEqual(yAxisPrices)
+      expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)
     },
   )
 })

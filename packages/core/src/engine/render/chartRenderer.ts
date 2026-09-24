@@ -2,12 +2,11 @@ import type { SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import type {
+  AxisLabelsFrame,
   FiveDayTimeShareGeometry,
   PluginHostImpl,
   RenderContext,
-  XAxisLabel,
   XAxisRange,
-  YAxisLabel,
   YAxisRange,
   YAxisTick,
 } from '../../foundation/plugin/index.js'
@@ -582,7 +581,7 @@ export class ChartRenderer {
       : this.deps.getIndicatorManager().getMainIndicatorPriceRange()
 
     // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paintPane
-    const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
+    const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
       kLinePositions,
@@ -606,7 +605,7 @@ export class ChartRenderer {
       kLineCenters,
       kBarRects,
       kWidthPx,
-      sharedXAxisLabels,
+      axisLabelsFrame,
       sharedXAxisRanges,
       renderData,
       fiveDayTimeShareGeometry,
@@ -860,11 +859,10 @@ export class ChartRenderer {
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
     visiblePriceExtrema: VisiblePriceExtrema | null,
     requiresRightAxisWidthMeasurement: boolean,
-  ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
+  ): { axisLabelsFrame: AxisLabelsFrame; sharedXAxisRanges: XAxisRange[] } {
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
-    // 轴标签收集统一走 axisLabels 模块的单帧聚合：共享 X 轴 + 每 Pane 独立 Y 轴。
+    // 轴标签收集统一走 axisLabels 模块的单帧聚合：X 表面共享 + 每 Pane 独立 Y 表面。
     const axisLabelsFrame = createAxisLabelsFrame()
-    const sharedXAxisLabels = axisLabelsFrame.x.labels
     const sharedXAxisRanges: XAxisRange[] = []
     const indicatorManager = this.deps.getIndicatorManager()
     const indicatorStateReader = indicatorManager.createRenderStateReader()
@@ -884,8 +882,6 @@ export class ChartRenderer {
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      // 每个 Pane 持有独立的 Y 轴标签收集器，跨帧重绘不残留上一帧标签。
-      const yAxisLabelCollector = axisLabelsFrame.yForPane(pane.id)
       const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
         renderer.getContexts()
 
@@ -1052,11 +1048,9 @@ export class ChartRenderer {
           preClose:
             dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
         },
-        yAxisLabels: yAxisLabelCollector.labels,
-        xAxisLabels: sharedXAxisLabels,
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
-        yAxisLabelRegistrar: yAxisLabelCollector,
+        axisLabels: axisLabelsFrame,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
@@ -1068,7 +1062,6 @@ export class ChartRenderer {
         this.drawingDefinitions,
         context,
         this.deps.getSelectionMarquee?.() ?? null,
-        { y: yAxisLabelCollector, x: axisLabelsFrame.x },
       )
       context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)
       sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
@@ -1135,7 +1128,7 @@ export class ChartRenderer {
     // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()
 
-    return { sharedXAxisLabels, sharedXAxisRanges }
+    return { axisLabelsFrame, sharedXAxisRanges }
   }
 
   private renderXAxis(
@@ -1145,7 +1138,7 @@ export class ChartRenderer {
     kLineCenters: number[],
     kBarRects: Array<{ x: number; width: number }>,
     kWidthPx: number,
-    sharedXAxisLabels: XAxisLabel[],
+    axisLabelsFrame: AxisLabelsFrame,
     sharedXAxisRanges: XAxisRange[],
     renderData: ChartSeriesDatum[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
@@ -1216,10 +1209,9 @@ export class ChartRenderer {
           plotWidth: vp.plotWidth,
           plotHeight: vp.plotHeight,
         },
-        yAxisLabels: [],
-        xAxisLabels: sharedXAxisLabels,
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
+        axisLabels: axisLabelsFrame,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,

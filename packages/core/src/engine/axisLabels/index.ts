@@ -5,15 +5,15 @@
  * 模块外调用方依赖本文件，禁止指向内部实现路径。
  */
 
-export {
-  createAxisLabelsFrame,
-  createXAxisLabelCollector,
-  createYAxisLabelCollector,
-} from './impl/axisLabelCollector.js'
-export { registerYAxisLabel } from './impl/registerYAxisLabel.js'
+export { createAxisLabelsFrame } from './impl/axisLabelCollector.js'
+export { paintAxisLabels } from './impl/paintAxisLabels.js'
+export { registerAxisLabel } from './impl/registerAxisLabel.js'
 export type {
-  AxisLabelRegistrars,
+  AxisLabel,
+  AxisLabelCollector,
+  AxisLabelMetrics,
+  AxisLabelSurface,
   AxisLabelsFrame,
-  XAxisLabelCollector,
-  YAxisLabelCollector,
+  AxisTagLabel,
+  AxisTickLabel,
 } from './types.js'

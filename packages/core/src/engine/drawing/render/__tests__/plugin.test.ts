@@ -37,9 +37,7 @@ describe('createDrawingRendererPlugin', () => {
         overlayCtx,
         drawingProjection: {
           primitives: [primitive],
-          yAxisLabels: [],
           yAxisRanges: [],
-          xAxisLabels: [],
           xAxisRanges: [],
         },
         viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },

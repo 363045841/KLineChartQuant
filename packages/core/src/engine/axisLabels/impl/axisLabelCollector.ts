@@ -1,51 +1,48 @@
-/** 轴标签管理模块实现：单帧标签收集器与按 Pane 隔离的帧级聚合工厂。 */
+/** 轴标签管理模块实现：单帧标签收集器与按表面聚合的帧工厂。 */
 
-import type { XAxisLabel, YAxisLabel } from '@/foundation/plugin/types.js'
-import type { AxisLabelsFrame, XAxisLabelCollector, YAxisLabelCollector } from '../types.js'
+import type {
+  AxisLabel,
+  AxisLabelCollector,
+  AxisLabelSurface,
+  AxisLabelsFrame,
+} from '@/foundation/plugin/types.js'
 
 /** 构造内部可变数组 + register/registerAll 的通用收集器核心。 */
-function createLabelCollector<T>(): {
-  labels: T[]
-  register(label: T): void
-  registerAll(labels: ReadonlyArray<T>): void
-} {
-  const labels: T[] = []
+function createLabelCollector(): AxisLabelCollector {
+  const labels: AxisLabel[] = []
   return {
     labels,
-    register(label: T): void {
+    register(label: AxisLabel): void {
       labels.push(label)
     },
-    registerAll(next: ReadonlyArray<T>): void {
+    registerAll(next: ReadonlyArray<AxisLabel>): void {
       if (next.length === 0) return
       labels.push(...next)
     },
   }
 }
 
-/** 创建单个 Pane 的 Y 轴标签收集器（pane 隔离）。 */
-export function createYAxisLabelCollector(): YAxisLabelCollector {
-  return createLabelCollector<YAxisLabel>()
-}
-
-/** 创建所有 Pane 共享的 X 轴标签收集器。 */
-export function createXAxisLabelCollector(): XAxisLabelCollector {
-  return createLabelCollector<XAxisLabel>()
+/** X 表面跨 Pane 共享，忽略 paneId；其余表面按 paneId 隔离。 */
+function isSharedSurface(surface: AxisLabelSurface): boolean {
+  return surface === 'xTicks' || surface === 'xCrosshair' || surface === 'xLabels'
 }
 
 /**
- * 创建单帧轴标签聚合：X 轴一份共享收集器，Y 轴按 paneId 惰性创建。
+ * 创建单帧轴标签聚合：按表面惰性创建收集器。
+ *
+ * X 表面调用时忽略 paneId，跨 Pane 共享同一实例；Y 表面以 paneId 隔离。
  *
  * @returns 当前帧的轴标签聚合，帧内累积、帧后释放
  */
 export function createAxisLabelsFrame(): AxisLabelsFrame {
-  const yAxisByPane = new Map<string, YAxisLabelCollector>()
+  const bySurface = new Map<string, AxisLabelCollector>()
   return {
-    x: createXAxisLabelCollector(),
-    yForPane(paneId: string): YAxisLabelCollector {
-      const existing = yAxisByPane.get(paneId)
+    forSurface(surface: AxisLabelSurface, paneId?: string): AxisLabelCollector {
+      const key = isSharedSurface(surface) ? surface : `${surface}\n${paneId ?? ''}`
+      const existing = bySurface.get(key)
       if (existing) return existing
-      const collector = createYAxisLabelCollector()
-      yAxisByPane.set(paneId, collector)
+      const collector = createLabelCollector()
+      bySurface.set(key, collector)
       return collector
     },
   }

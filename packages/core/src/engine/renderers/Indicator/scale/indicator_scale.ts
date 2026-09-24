@@ -1,3 +1,4 @@
+import { paintAxisLabels, registerAxisLabel } from '@/engine/axisLabels/index.js'
 import { calculateValueTickPositions } from '@/engine/utils/tickPosition.js'
 import type {
   BaseIndicatorState,
@@ -6,11 +7,8 @@ import type {
   RendererPluginWithHost,
 } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
-import { drawCrosshairPriceLabel } from '@/foundation/utils/kLineDraw/axis.js'
-import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '@/foundation/utils/pixelAlign.js'
 import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat.js'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
@@ -20,30 +18,13 @@ interface IndicatorScaleRenderState extends BaseIndicatorState {
   visibleMax?: number
 }
 
-// Canvas 状态缓存，避免读取 ctx 属性（读取会触发颜色序列化，很慢）
-interface CanvasState {
-  font?: string
-  fillStyle?: string
-  textAlign?: string
-  textBaseline?: string
-}
-const ctxState = new WeakMap<CanvasRenderingContext2D, CanvasState>()
-
-function getCanvasState(ctx: CanvasRenderingContext2D): CanvasState {
-  let s = ctxState.get(ctx)
-  if (!s) {
-    s = {}
-    ctxState.set(ctx, s)
-  }
-  return s
-}
-
 export interface IndicatorScaleRendererOptions {
   axisWidth: number
   paneId: string
   indicatorKey: string
   label: string
   decimals?: number
+  /** 与 pane 一致的 Y 轴内边距；保留以兼容既有插件选项形状。 */
   yPaddingPx?: number
   scaleType?: ScaleType
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
@@ -51,81 +32,6 @@ export interface IndicatorScaleRendererOptions {
   formatCrosshairLabel?: (value: number) => string
   /** 该坐标轴绑定的指标实例身份。 */
   instanceId: string
-}
-
-export interface DrawScaleTicksOptions {
-  ctx: CanvasRenderingContext2D
-  dpr: number
-  axisWidth: number
-  height: number
-  paddingTop: number
-  paddingBottom: number
-  valueMin: number
-  valueMax: number
-  isMain: boolean
-  decimals?: number
-  hideEdgeTicks?: boolean
-  scaleType?: ScaleType
-  formatLabel?: (value: number) => string
-  /** 文字对齐方式，默认 'center'。左侧轴应使用 'right' */
-  textAlign?: CanvasTextAlign
-}
-
-const BASELINE_MIDDLE = 'middle' as const
-const ALIGN_CENTER = 'center' as const
-
-export function drawScaleTicks(options: DrawScaleTicksOptions & { tickColor: string }): void {
-  const {
-    ctx,
-    dpr,
-    axisWidth,
-    height,
-    paddingTop,
-    paddingBottom,
-    valueMin,
-    valueMax,
-    isMain,
-    decimals = 2,
-    hideEdgeTicks = true,
-    scaleType = ScaleType.Linear,
-    formatLabel,
-    textAlign = 'center',
-  } = options
-
-  ctx.clearRect(0, 0, axisWidth, height)
-
-  const font = getFont(12)
-  setCanvasFont(ctx, font)
-  ctx.textBaseline = BASELINE_MIDDLE
-  ctx.textAlign = textAlign as CanvasTextAlign
-  ctx.fillStyle = options.tickColor
-
-  const alignTo =
-    textAlign === 'center'
-      ? roundToPhysicalPixel(axisWidth / 2, dpr)
-      : textAlign === 'right'
-        ? roundToPhysicalPixel(axisWidth - 4, dpr)
-        : roundToPhysicalPixel(4, dpr)
-  const textX = alignTo
-
-  const positions = calculateValueTickPositions({
-    height,
-    paddingTop,
-    paddingBottom,
-    isMain,
-    hideEdgeTicks,
-    valueMin,
-    valueMax,
-    scaleType,
-  })
-
-  // 提前提取 format 函数，避免循环内重复判断
-  const format = formatLabel ?? ((v: number) => v.toFixed(decimals))
-
-  for (let i = 0; i < positions.length; i++) {
-    const { y, value } = positions[i]!
-    ctx.fillText(format(value), textX, y)
-  }
 }
 
 export function createIndicatorScaleRendererPlugin(
@@ -137,7 +43,6 @@ export function createIndicatorScaleRendererPlugin(
     indicatorKey,
     label,
     decimals = 2,
-    yPaddingPx = 0,
     scaleType = ScaleType.Linear,
     getCrosshair,
     formatTickLabel,
@@ -196,57 +101,60 @@ export function createIndicatorScaleRendererPlugin(
       const formatValue =
         formatTickLabel ?? ((value: number) => formatScaleValue(value, effectiveDecimals))
 
-      drawScaleTicks({
-        tickColor: tokenColors.text.secondary,
-        ctx: yAxisCtx,
-        dpr,
-        axisWidth: effectiveAxisWidth,
+      yAxisCtx.clearRect(0, 0, effectiveAxisWidth, pane.height)
+      const labels = context.axisLabels.forSurface('yRightStatic', pane.id)
+
+      const positions = calculateValueTickPositions({
         height: pane.height,
         paddingTop: pane.yAxis.getPaddingTop(),
         paddingBottom: pane.yAxis.getPaddingBottom(),
+        isMain: false,
+        hideEdgeTicks: false,
         valueMin: displayRange.minPrice,
         valueMax: displayRange.maxPrice,
-        isMain: false,
-        decimals: effectiveDecimals,
-        hideEdgeTicks: false,
         scaleType: effectiveScaleType,
-        formatLabel: formatValue,
       })
+      for (const { y, value } of positions) {
+        labels.register({
+          kind: 'tick',
+          text: formatValue(value),
+          pos: y,
+          color: tokenColors.text.secondary,
+          fontSize: 12,
+        })
+      }
 
       const crosshair = getCrosshair?.()
-      if (!crosshair || crosshair.activePaneId !== pane.id) return
+      if (crosshair && crosshair.activePaneId === pane.id) {
+        const localY = crosshair.y - pane.top
+        const paddingTop = pane.yAxis.getPaddingTop()
+        const paddingBottom = pane.yAxis.getPaddingBottom()
+        const yStart = paddingTop
+        const yEnd = Math.max(paddingTop, pane.height - paddingBottom)
+        const viewH = Math.max(1, yEnd - yStart)
+        const clampedY = Math.min(Math.max(localY, yStart), yEnd)
+        const t = (clampedY - yStart) / viewH
+        const displayPrice =
+          displayRange.maxPrice - t * (displayRange.maxPrice - displayRange.minPrice)
+        const formatCrosshair = formatCrosshairLabel ?? formatValue
 
-      const localY = crosshair.y - pane.top
-      const paddingTop = pane.yAxis.getPaddingTop()
-      const paddingBottom = pane.yAxis.getPaddingBottom()
-      const yStart = paddingTop
-      const yEnd = Math.max(paddingTop, pane.height - paddingBottom)
-      const viewH = Math.max(1, yEnd - yStart)
-      const clampedY = Math.min(Math.max(localY, yStart), yEnd)
-      const t = (clampedY - yStart) / viewH
-      const displayPrice =
-        displayRange.maxPrice - t * (displayRange.maxPrice - displayRange.minPrice)
-
-      drawCrosshairPriceLabel(
-        yAxisCtx,
-        {
-          x: 0,
-          y: 0,
-          width: effectiveAxisWidth,
-          height: pane.height,
-          crosshairY: localY,
-          priceRange: displayRange,
-          yPaddingPx,
-          dpr,
+        registerAxisLabel(context, 'yRightStatic', {
+          kind: 'tag',
+          text: formatCrosshair(displayPrice),
+          pos: localY,
+          origin: 0,
+          variant: 'crosshair',
+          bgColor: tokenColors.label.bg,
+          textColor: tokenColors.label.text,
           fontSize: 12,
-          priceOffset: 0,
-          price: displayPrice,
-          formatPrice: formatCrosshairLabel ?? formatValue,
-        },
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
+        })
+      }
+
+      paintAxisLabels(yAxisCtx, labels.labels, 'yRightStatic', {
+        dpr,
+        axisWidth: effectiveAxisWidth,
+        axisHeight: pane.height,
+      })
     },
   }
 }

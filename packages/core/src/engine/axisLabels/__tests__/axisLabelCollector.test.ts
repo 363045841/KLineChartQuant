@@ -1,74 +1,63 @@
-/** 验证轴标签单帧聚合的 Pane 隔离、共享 X 轴与注册 API。 */
+/** 验证轴标签单帧聚合的表面隔离、共享与统一注册入口。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import {
-  createAxisLabelsFrame,
-  createXAxisLabelCollector,
-  createYAxisLabelCollector,
-  registerYAxisLabel,
-} from '../index'
+import type { AxisTickLabel } from '@/foundation/plugin'
+import { createAxisLabelsFrame, registerAxisLabel } from '../index'
+
+/** 最小刻度标签素材。 */
+function tick(text: string): AxisTickLabel {
+  return { kind: 'tick', text, pos: 0, color: '#000' }
+}
 
 describe('createAxisLabelsFrame', () => {
-  it('keeps Y axis labels isolated per pane', () => {
+  it('keeps Y surfaces isolated per pane', () => {
     const frame = createAxisLabelsFrame()
-    frame.yForPane('main').register({ price: 10, y: 100 })
-    frame.yForPane('volume').register({ price: 2, y: 40 })
+    frame.forSurface('yRightStatic', 'main').register(tick('10'))
+    frame.forSurface('yRightStatic', 'volume').register(tick('2'))
 
-    expect(frame.yForPane('main').labels).toEqual([{ price: 10, y: 100 }])
-    expect(frame.yForPane('volume').labels).toEqual([{ price: 2, y: 40 }])
+    expect(frame.forSurface('yRightStatic', 'main').labels).toEqual([tick('10')])
+    expect(frame.forSurface('yRightStatic', 'volume').labels).toEqual([tick('2')])
   })
 
-  it('returns the same Y collector for a repeated paneId', () => {
+  it('returns the same collector for a repeated (surface, paneId)', () => {
     const frame = createAxisLabelsFrame()
-    expect(frame.yForPane('main')).toBe(frame.yForPane('main'))
+    expect(frame.forSurface('yRightOverlay', 'main')).toBe(
+      frame.forSurface('yRightOverlay', 'main'),
+    )
   })
 
-  it('shares a single X axis collector across panes', () => {
+  it('shares X surfaces across panes regardless of paneId', () => {
     const frame = createAxisLabelsFrame()
-    frame.x.register({ timestamp: 1_000, x: 10 })
+    expect(frame.forSurface('xTicks', 'main')).toBe(frame.forSurface('xTicks', 'volume'))
 
-    expect(frame.x.labels).toEqual([{ timestamp: 1_000, x: 10 }])
+    frame.forSurface('xTicks', 'main').register(tick('09:30'))
+    expect(frame.forSurface('xTicks', 'volume').labels).toEqual([tick('09:30')])
   })
 })
 
-describe('label collectors', () => {
-  it('registers labels in order and ignores empty batches', () => {
-    const collector = createYAxisLabelCollector()
-    collector.register({ price: 1, y: 1 })
-    collector.registerAll([])
-    collector.registerAll([
-      { price: 2, y: 2 },
-      { price: 3, y: 3 },
-    ])
-
-    expect(collector.labels.map((label) => label.price)).toEqual([1, 2, 3])
-  })
-
-  it('exposes the mutable buffer consumed by renderers', () => {
-    const collector = createXAxisLabelCollector()
-    collector.register({ timestamp: 1, x: 1 })
-
-    // 渲染器直接消费同一数组引用，注册后立即可见。
-    expect(collector.labels).toHaveLength(1)
-  })
-})
-
-describe('registerYAxisLabel', () => {
-  it('routes through the injected registrar when present', () => {
-    const collector = createYAxisLabelCollector()
-    const context = createMockRenderContext({ yAxisLabelRegistrar: collector })
-
-    registerYAxisLabel(context, { price: 10, y: 100 })
-
-    // 注册器持有独立缓冲，注册后立即可见。
-    expect(collector.labels).toEqual([{ price: 10, y: 100 }])
-  })
-
-  it('falls back to the context array when no registrar is injected', () => {
+describe('registerAxisLabel', () => {
+  it('writes X labels to the shared surface', () => {
     const context = createMockRenderContext()
 
-    registerYAxisLabel(context, { price: 20, y: 200 })
+    registerAxisLabel(context, 'xTicks', tick('09:30'))
 
-    expect(context.yAxisLabels).toEqual([{ price: 20, y: 200 }])
+    expect(context.axisLabels.forSurface('xTicks').labels).toEqual([tick('09:30')])
+  })
+
+  it('writes Y labels to the current pane surface', () => {
+    const context = createMockRenderContext({ pane: { id: 'sub' } })
+
+    registerAxisLabel(context, 'yRightStatic', tick('5'))
+
+    expect(context.axisLabels.forSurface('yRightStatic', 'sub').labels).toEqual([tick('5')])
+    expect(context.axisLabels.forSurface('yRightStatic', 'main').labels).toEqual([])
+  })
+
+  it('honors an explicit paneId override', () => {
+    const context = createMockRenderContext({ pane: { id: 'sub' } })
+
+    registerAxisLabel(context, 'yLeftOverlay', tick('1'), 'main')
+
+    expect(context.axisLabels.forSurface('yLeftOverlay', 'main').labels).toEqual([tick('1')])
   })
 })

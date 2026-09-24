@@ -9,13 +9,6 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 import type { RenderContext, YAxisTick } from '@/plugin'
 
-vi.mock('@/utils/kLineDraw/axis', () => ({
-  drawCrosshairPriceLabel: vi.fn(),
-  drawAxisPriceLabel: vi.fn(),
-}))
-
-import { drawAxisPriceLabel, drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
-
 /** yAxis 用例的 Pane 差异：价格区间 80~120、坐标恒等映射与价格偏移。 */
 function createPane(overrides: MockPaneInfoOverrides = {}): MockPaneInfoOverrides {
   return {
@@ -60,7 +53,7 @@ describe('yAxis renderer', () => {
   })
 
   it('draws ticks when pane capability showPriceAxisTicks is true', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
     const context = createContext()
 
     plugin.draw(context)
@@ -71,7 +64,7 @@ describe('yAxis renderer', () => {
   })
 
   it('does not draw ticks when pane capability showPriceAxisTicks is false', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
     const context = createContext({
       pane: createPane({
         capabilities: {
@@ -90,7 +83,7 @@ describe('yAxis renderer', () => {
   })
 
   it('uses the percent scale for timeshare left-axis ticks', () => {
-    const plugin = createLeftYAxisStaticRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const plugin = createLeftYAxisStaticRendererPlugin({ axisWidth: 80 })
     const leftAxisCtx = createMockCanvasContext()
     const context = createContext({
       period: 'timeshare',
@@ -110,7 +103,7 @@ describe('yAxis renderer', () => {
   })
 
   it('uses price values for timeshare right-axis ticks', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
     const context = createContext({
       period: 'timeshare',
       pane: createPane({
@@ -128,7 +121,7 @@ describe('yAxis renderer', () => {
   })
 
   it('uses ctx when yAxisCtx is not provided', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
     const fallbackCtx = createMockCanvasContext()
     const context = createContext({ ctx: fallbackCtx, yAxisCtx: undefined })
 
@@ -138,40 +131,30 @@ describe('yAxis renderer', () => {
     expect(fallbackCtx.fillText).toHaveBeenCalled()
   })
 
-  it('draws last price label via drawAxisPriceLabel for main pane when yAxisLabels contains lastPrice', () => {
-    const plugin = createYAxisOverlayRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+  it('paints registered decoration labels on the right overlay canvas', () => {
+    const plugin = createYAxisOverlayRendererPlugin({ axisWidth: 80 })
     const context = createContext({
       pane: createPane({ id: 'main' }),
       yAxisOverlayCtx: createMockCanvasContext(),
-      yAxisLabels: [
-        {
-          type: 'lastPrice',
-          y: 50,
-          price: 101,
-          style: { borderColor: '#f00', bgColor: '#fff', textColor: '#000' },
-        },
-      ],
+    })
+    context.axisLabels.forSurface('yRightOverlay', 'main').register({
+      kind: 'tag',
+      text: '101.00',
+      pos: 50,
+      bgColor: '#fff',
+      borderColor: '#f00',
+      textColor: '#000',
     })
 
     plugin.draw(context)
 
-    expect(drawAxisPriceLabel).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        price: 101,
-        borderColor: '#f00',
-        bgColor: '#fff',
-      }),
-      expect.any(String),
-      undefined,
-      undefined,
-    )
+    // label 变体文本下移 1px：round(50) + 1 = 51
+    expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledWith('101.00', expect.any(Number), 51)
   })
 
-  it('draws crosshair price label exactly once for active pane', () => {
+  it('registers and paints the crosshair price tag for the active pane', () => {
     const plugin = createYAxisOverlayRendererPlugin({
       axisWidth: 80,
-      yPaddingPx: 0,
       getCrosshair: () => ({ y: 55, price: 95, activePaneId: 'main' }),
     })
     const context = createContext({
@@ -181,19 +164,21 @@ describe('yAxis renderer', () => {
 
     plugin.draw(context)
 
-    expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(1)
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+      expect.objectContaining({ kind: 'tag', text: '95.00', variant: 'crosshair' }),
+    ])
+    expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalled()
   })
 
-  it('does not draw crosshair price label when getCrosshair returns null', () => {
+  it('does not draw a crosshair tag when getCrosshair returns null', () => {
     const plugin = createYAxisOverlayRendererPlugin({
       axisWidth: 80,
-      yPaddingPx: 0,
       getCrosshair: () => null,
     })
     const context = createContext({ yAxisOverlayCtx: createMockCanvasContext() })
 
     plugin.draw(context)
 
-    expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(0)
+    expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledTimes(0)
   })
 })
