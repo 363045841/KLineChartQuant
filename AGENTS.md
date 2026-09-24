@@ -18,9 +18,9 @@
 
 ## Quick Search
 
-- 修改或理解代码前，优先使用 CodeGraph MCP 的 `tools.codegraph.codegraph_explore` 分析调用链和影响范围；未索引内容再使用 grep/read。
-- 若初始工具列表未显示 CodeGraph，先通过运行时 `search({ query: 'CodeGraph' })` 发现工具，再调用它。
-- 启动子代理探索代码时，也要求其优先使用 CodeGraph MCP。
+- **理解或修改代码前必须先查 CodeGraph**：用 `codegraph_explore` 分析调用链、影响范围和现有实现；只有它未索引的内容才退回 grep/read。禁止因为初始工具列表里没看到它就跳过。
+- CodeGraph 工具可能在也可能不在初始工具列表。未出现时，必须先通过运行时 `search({ query: 'CodeGraph' })` 取得准确工具路径再调用（Code Mode 下为 `tools.codegraph.codegraph_explore`，直连时为 `codegraph_codegraph_explore`）。禁止臆测或自行拼装工具名，禁止以“工具不存在”为由放弃。
+- 启动子代理探索代码时，必须在提示词中要求其优先使用 CodeGraph MCP。
 
 ## Committing
 
