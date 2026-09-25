@@ -247,7 +247,7 @@ export class LocalProvider implements RuntimeProvider {
     const reason =
       process.platform === 'linux' ? 'unshare -rn is not usable' : 'no isolation mechanism'
     // 隔离缺失必须让开发者看见，不能沉默。
-    // eslint-disable-next-line no-console
+    // biome-ignore lint/suspicious/noConsole: 隔离缺失属于必须暴露给开发者的告警
     console.warn(
       '[code_interpreter] LocalProvider is running without network isolation ' +
         `(platform: ${process.platform}; ${reason}). It is intended for unit tests ` +
