@@ -2,7 +2,7 @@ import type { RenderContext, RendererPlugin } from '../../foundation/plugin/inde
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
-import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine.js'
+import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
 import { VolumePriceRelation } from '../../foundation/types/volumePrice.js'
@@ -26,33 +26,16 @@ function ensureBufferCapacity(pool: Float32Array | null, requiredFloats: number)
   return new Float32Array(newLen)
 }
 
-type AlignedKLineResult = {
-  bodyRect: { x: number; y: number; width: number; height: number }
-  physBodyLeft: number
-  physBodyRight: number
-  physBodyWidth: number
-  physBodyCenter: number
-  physWickX: number
-  wickRect: { x: number; width: number }
-  isPerfectlyAligned: boolean
-}
-
-type CandleRenderData = {
+type CandleMarker = {
   i: number
-  aligned: AlignedKLineResult
-  trend: kLineTrend
-  openY: number
-  closeY: number
-  highY: number
-  lowY: number
+  relation: VolumePriceRelation
   alignedHighY: number
   alignedLowY: number
-  e: KLineData
 }
 
 type PreparedCandles = {
-  upKLines: CandleRenderData[]
-  downKLines: CandleRenderData[]
+  upMarkers: CandleMarker[]
+  downMarkers: CandleMarker[]
   upBodyBuf: Float32Array
   upBodyCount: number
   downBodyBuf: Float32Array
@@ -62,8 +45,6 @@ type PreparedCandles = {
   downWickBuf: Float32Array
   downWickCount: number
   wickWidth: number
-  relations: VolumePriceRelation[] | null
-  showVolumePriceMarkers: boolean
 }
 
 /**
@@ -100,6 +81,11 @@ export function createCandleRenderer(): RendererPlugin {
       )
       const klineData = data as KLineData[]
       if (!klineData.length) return
+      const volumePriceMarkerManager = markerManager as MarkerManager | undefined
+      const showVolumePriceMarkers =
+        settings?.showVolumePriceMarkers !== false &&
+        !!volumePriceMarkerManager &&
+        (context.zoomLevel ?? 1) >= 2
 
       const prepared = prepareCandles({
         pane,
@@ -108,7 +94,7 @@ export function createCandleRenderer(): RendererPlugin {
         kWidthPx,
         dpr,
         kLineCenters,
-        settings,
+        showVolumePriceMarkers,
       })
 
       const upColor = colors.candleUpBody
@@ -128,7 +114,9 @@ export function createCandleRenderer(): RendererPlugin {
         drawCandlesWithCanvas2D(ctx, scrollLeft, dpr, prepared, upColor, downColor)
       }
 
-      drawVolumePriceMarkers(context, prepared, markerManager as MarkerManager | undefined)
+      if (showVolumePriceMarkers) {
+        drawVolumePriceMarkers(context, prepared, volumePriceMarkerManager!, colors.volumePrice)
+      }
     },
   }
 }
@@ -140,16 +128,15 @@ function prepareCandles(args: {
   kWidthPx: number
   dpr: number
   kLineCenters: number[]
-  settings?: RenderContext['settings']
+  showVolumePriceMarkers: boolean
 }): PreparedCandles {
-  const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = args
-  const showVolumePriceMarkers = settings?.showVolumePriceMarkers !== false
+  const { pane, data, range, kWidthPx, dpr, kLineCenters, showVolumePriceMarkers } = args
   const relations = showVolumePriceMarkers
     ? analyzeVolumePriceRelationBatch(data, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
     : null
 
-  const upKLines: CandleRenderData[] = []
-  const downKLines: CandleRenderData[] = []
+  const upMarkers: CandleMarker[] = []
+  const downMarkers: CandleMarker[] = []
   const maxRects = Math.max(1, range.end - range.start)
   const upBodyBuf = ensureBufferCapacity(poolUpBody, maxRects * 4)
   poolUpBody = upBodyBuf
@@ -181,25 +168,25 @@ function prepareCandles(args: {
   }
 
   const invDpr = 1 / dpr
-  const wickWidth = 1 / dpr
-  const alignY = (logical: number) => Math.round(logical * dpr) * invDpr
+  const wickWidth = invDpr
+  // 对 1x / 2x 设备，整像素到逻辑坐标的往返是精确的；其余 DPR 保留原有二次取整路径。
+  const exactPixelRoundTrip = dpr === 1 || dpr === 2
 
   for (let i = range.start; i < range.end && i < data.length; i++) {
     const e = data[i]
     if (!e) continue
 
-    const openY = fastPriceToY(e.open)
-    const closeY = fastPriceToY(e.close)
-    const highY = fastPriceToY(e.high)
-    const lowY = fastPriceToY(e.low)
-
     const centerLogical = kLineCenters[i - range.start]
     if (centerLogical === undefined) continue
 
-    const alignedOpenY = alignY(openY)
-    const alignedCloseY = alignY(closeY)
-    const alignedHighY = alignY(highY)
-    const alignedLowY = alignY(lowY)
+    const openPx = Math.round(fastPriceToY(e.open) * dpr)
+    const closePx = Math.round(fastPriceToY(e.close) * dpr)
+    const highPx = Math.round(fastPriceToY(e.high) * dpr)
+    const lowPx = Math.round(fastPriceToY(e.low) * dpr)
+    const alignedOpenY = openPx * invDpr
+    const alignedCloseY = closePx * invDpr
+    const alignedHighY = highPx * invDpr
+    const alignedLowY = lowPx * invDpr
     const alignedRawRectY = Math.min(alignedOpenY, alignedCloseY)
     const alignedRawRectH = Math.max(Math.abs(alignedOpenY - alignedCloseY), 1)
 
@@ -207,8 +194,12 @@ function prepareCandles(args: {
     const roundedLeftPx = centerPx - (kWidthPx - 1) / 2
 
     // Inlined createAlignedKLineFromPx — no object allocation
-    const topPx = Math.round(alignedRawRectY * dpr)
-    const bottomPx = Math.round((alignedRawRectY + alignedRawRectH) * dpr)
+    const topPx = exactPixelRoundTrip
+      ? Math.min(openPx, closePx)
+      : Math.round(alignedRawRectY * dpr)
+    const bottomPx = exactPixelRoundTrip
+      ? topPx + Math.max(Math.abs(openPx - closePx), dpr)
+      : Math.round((alignedRawRectY + alignedRawRectH) * dpr)
     const bodyHPx = Math.max(1, bottomPx - topPx)
 
     const bodyX = roundedLeftPx * invDpr
@@ -221,29 +212,10 @@ function prepareCandles(args: {
     const trend = getKLineTrend(e, preClose)
     const isUp = trend === 'up'
 
-    if (showVolumePriceMarkers) {
-      const targetKLines = isUp ? upKLines : downKLines
-      targetKLines.push({
-        i,
-        aligned: {
-          bodyRect: { x: bodyX, y: bodyY, width: bodyW, height: bodyH },
-          physBodyLeft: roundedLeftPx,
-          physBodyRight: roundedLeftPx + kWidthPx,
-          physBodyWidth: kWidthPx,
-          physBodyCenter: wickCenterX,
-          physWickX: wickCenterX,
-          wickRect: { x: wickCenterX, width: 1 / dpr },
-          isPerfectlyAligned: kWidthPx % 2 === 1,
-        },
-        trend,
-        openY,
-        closeY,
-        highY,
-        lowY,
-        alignedHighY,
-        alignedLowY,
-        e,
-      })
+    const relation = relations?.[i - range.start]
+    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
+      const targetMarkers = isUp ? upMarkers : downMarkers
+      targetMarkers.push({ i, relation, alignedHighY, alignedLowY })
     }
 
     if (isUp) {
@@ -267,8 +239,8 @@ function prepareCandles(args: {
     if (e.high > bodyHigh) {
       const top = Math.min(alignedHighY, bodyY)
       const bottom = Math.max(alignedHighY, bodyY)
-      const physTop = Math.round(top * dpr)
-      const physBottom = Math.round(bottom * dpr)
+      const physTop = exactPixelRoundTrip ? Math.min(highPx, topPx) : Math.round(top * dpr)
+      const physBottom = exactPixelRoundTrip ? Math.max(highPx, topPx) : Math.round(bottom * dpr)
       const wickH = Math.max(1, physBottom - physTop) * invDpr
       const buf = isUp ? upWickBuf : downWickBuf
       const idx = isUp ? upWickCount++ : downWickCount++
@@ -283,8 +255,8 @@ function prepareCandles(args: {
       const bodyBottom = bodyY + bodyH
       const top = Math.min(bodyBottom, alignedLowY)
       const bottom = Math.max(bodyBottom, alignedLowY)
-      const physTop = Math.round(top * dpr)
-      const physBottom = Math.round(bottom * dpr)
+      const physTop = exactPixelRoundTrip ? Math.min(bottomPx, lowPx) : Math.round(top * dpr)
+      const physBottom = exactPixelRoundTrip ? Math.max(bottomPx, lowPx) : Math.round(bottom * dpr)
       const wickH = Math.max(1, physBottom - physTop) * invDpr
       const buf = isUp ? upWickBuf : downWickBuf
       const idx = isUp ? upWickCount++ : downWickCount++
@@ -297,8 +269,8 @@ function prepareCandles(args: {
   }
 
   return {
-    upKLines,
-    downKLines,
+    upMarkers,
+    downMarkers,
     upBodyBuf,
     upBodyCount,
     downBodyBuf,
@@ -308,8 +280,6 @@ function prepareCandles(args: {
     downWickBuf,
     downWickCount,
     wickWidth,
-    relations,
-    showVolumePriceMarkers,
   }
 }
 
@@ -325,16 +295,16 @@ function drawCandlesWithCanvas2D(
   for (let i = 0; i < prepared.upBodyCount; i++) {
     const off = i * 4
     const projected = projectWorldRectToScreen(
-      prepared.upBodyBuf[off],
-      prepared.upBodyBuf[off + 2],
+      prepared.upBodyBuf[off]!,
+      prepared.upBodyBuf[off + 2]!,
       scrollLeft,
       dpr,
     )
     ctx.fillRect(
       projected.x,
-      prepared.upBodyBuf[off + 1],
+      prepared.upBodyBuf[off + 1]!,
       projected.width,
-      prepared.upBodyBuf[off + 3],
+      prepared.upBodyBuf[off + 3]!,
     )
   }
 
@@ -342,16 +312,16 @@ function drawCandlesWithCanvas2D(
   for (let i = 0; i < prepared.downBodyCount; i++) {
     const off = i * 4
     const projected = projectWorldRectToScreen(
-      prepared.downBodyBuf[off],
-      prepared.downBodyBuf[off + 2],
+      prepared.downBodyBuf[off]!,
+      prepared.downBodyBuf[off + 2]!,
       scrollLeft,
       dpr,
     )
     ctx.fillRect(
       projected.x,
-      prepared.downBodyBuf[off + 1],
+      prepared.downBodyBuf[off + 1]!,
       projected.width,
-      prepared.downBodyBuf[off + 3],
+      prepared.downBodyBuf[off + 3]!,
     )
   }
 
@@ -359,16 +329,16 @@ function drawCandlesWithCanvas2D(
   for (let i = 0; i < prepared.upWickCount; i++) {
     const off = i * 4
     const projected = projectWorldRectToScreen(
-      prepared.upWickBuf[off],
+      prepared.upWickBuf[off]!,
       prepared.wickWidth,
       scrollLeft,
       dpr,
     )
     ctx.fillRect(
       projected.x,
-      prepared.upWickBuf[off + 1],
+      prepared.upWickBuf[off + 1]!,
       projected.width,
-      prepared.upWickBuf[off + 3],
+      prepared.upWickBuf[off + 3]!,
     )
   }
 
@@ -376,16 +346,16 @@ function drawCandlesWithCanvas2D(
   for (let i = 0; i < prepared.downWickCount; i++) {
     const off = i * 4
     const projected = projectWorldRectToScreen(
-      prepared.downWickBuf[off],
+      prepared.downWickBuf[off]!,
       prepared.wickWidth,
       scrollLeft,
       dpr,
     )
     ctx.fillRect(
       projected.x,
-      prepared.downWickBuf[off + 1],
+      prepared.downWickBuf[off + 1]!,
       projected.width,
-      prepared.downWickBuf[off + 3],
+      prepared.downWickBuf[off + 3]!,
     )
   }
 }
@@ -393,67 +363,56 @@ function drawCandlesWithCanvas2D(
 function drawVolumePriceMarkers(
   context: RenderContext,
   prepared: PreparedCandles,
-  markerManager: MarkerManager | undefined,
+  markerManager: MarkerManager,
+  volumePriceColors: VolumePriceColors,
 ): void {
   const { ctx, range, kWidth, dpr } = context
-  const colors = resolveThemeColors(
-    context.theme,
-    context.isAsiaMarket,
-    context.colorPresetSettings,
-  )
-  if (!prepared.showVolumePriceMarkers || !markerManager || (context.zoomLevel ?? 1) < 2) {
-    return
-  }
 
   ctx.save()
   ctx.translate(-context.scrollLeft, 0)
 
-  for (const k of prepared.upKLines) {
-    const relation = prepared.relations?.[k.i - range.start]
-    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
-      const isRising =
-        relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-        relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-      const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
-      const posIndex = k.i - range.start
-      const markerX = context.kLineCenters[posIndex]!
-      drawVolumePriceMarker(
-        ctx,
-        markerX,
-        markerY,
-        relation,
-        k.i,
-        kWidth,
-        4,
-        markerManager,
-        dpr,
-        colors.volumePrice,
-      )
-    }
+  for (const k of prepared.upMarkers) {
+    const relation = k.relation
+    const isRising =
+      relation === VolumePriceRelation.RISE_WITH_VOLUME ||
+      relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
+    const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
+    const posIndex = k.i - range.start
+    const markerX = context.kLineCenters[posIndex]!
+    drawVolumePriceMarker(
+      ctx,
+      markerX,
+      markerY,
+      relation,
+      k.i,
+      kWidth,
+      4,
+      markerManager,
+      dpr,
+      volumePriceColors,
+    )
   }
 
-  for (const k of prepared.downKLines) {
-    const relation = prepared.relations?.[k.i - range.start]
-    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
-      const isRising =
-        relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-        relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-      const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
-      const posIndex = k.i - range.start
-      const markerX = context.kLineCenters[posIndex]!
-      drawVolumePriceMarker(
-        ctx,
-        markerX,
-        markerY,
-        relation,
-        k.i,
-        kWidth,
-        4,
-        markerManager,
-        dpr,
-        colors.volumePrice,
-      )
-    }
+  for (const k of prepared.downMarkers) {
+    const relation = k.relation
+    const isRising =
+      relation === VolumePriceRelation.RISE_WITH_VOLUME ||
+      relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
+    const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
+    const posIndex = k.i - range.start
+    const markerX = context.kLineCenters[posIndex]!
+    drawVolumePriceMarker(
+      ctx,
+      markerX,
+      markerY,
+      relation,
+      k.i,
+      kWidth,
+      4,
+      markerManager,
+      dpr,
+      volumePriceColors,
+    )
   }
 
   ctx.restore()
