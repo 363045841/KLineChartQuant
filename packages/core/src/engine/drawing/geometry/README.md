@@ -7,7 +7,7 @@
 
 本目录负责：
 
-- 锚点逻辑坐标（时间戳 + 价格）↔ 屏幕坐标换算、`resolveDrawingPointer`、点线距离几何。
+- 锚点逻辑坐标（时间戳 + 价格）↔ 屏幕坐标换算、`resolveDrawingPointer`。
 - 把当前 Pane 的图元投影为帧数据（`ResolvedDrawingObject` + 绘制原语列表）。
 - 图元的线段构成与手柄声明、通道填充多边形装配、标签布局、回归计算、线段裁剪。
 
@@ -16,6 +16,7 @@
 - 指针事件会话与命中：属 `interaction/`。
 - 绘制到 canvas：属 `render/`。
 - 持久化：属 `model/`。
+- 通用的点/矩形/线段几何谓词（`pointInCircle`、`pointInRect`、`pointInPolygon`、`pointToSegmentDistanceSq`、`segmentIntersectsRect` 等）：属 `foundation/geometry`。
 
 ## 目录结构
 
@@ -23,7 +24,7 @@
 geometry/
 ├── types.ts            # 跨子模块契约（锚点/指针/线表/标签布局）
 └── impl/
-    ├── coordinateUtils.ts    # 坐标换算、指针解析、点线距离
+    ├── coordinateUtils.ts    # 坐标换算、指针解析
     ├── frameProjection.ts    # 图元 → 帧数据投影
     ├── linearRegression.ts   # 回归通道线性回归
     ├── lines.ts              # 线段构成与中点手柄声明
@@ -34,7 +35,7 @@ geometry/
 
 ## 依赖
 
-- `foundation/plugin/types.ts`：`ScreenPoint`、`DrawingPrimitive` 等渲染 primitive；`foundation/tokens`。
+- `foundation/plugin/types.ts`：`DrawingPrimitive` 等渲染 primitive；`Point` 来自 `foundation/geometry`；`foundation/tokens`。
 - `engine/drawing/types.ts`：图元领域模型契约。
 - `render/impl/`：`frameProjection` 消费 `DrawingStore` / `DrawingDefinitionRegistry`。
 - `interaction/impl/magnetSnapper.ts`：`coordinateUtils` 在落点解析时应用磁吸。

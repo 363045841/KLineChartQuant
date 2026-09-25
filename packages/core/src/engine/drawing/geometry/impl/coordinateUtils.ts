@@ -1,10 +1,10 @@
 // 绘图坐标换算模块：负责锚点逻辑坐标（时间戳 + 价格）与屏幕坐标（px）的双向换算，
 // 并提供从 PointerEvent 解析落点锚点的 resolveDrawingPointer（可选 OHLC 磁吸）。
 // 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
-// 另含点线距离等几何工具。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
-import type { ScreenDrawingAnchor, ScreenPoint } from '@/foundation/plugin/index.js'
+import type { Point } from '@/foundation/geometry/index.js'
+import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
 import { snapPointerToOhlc } from '../../interaction/impl/magnetSnapper.js'
 import type { PersistedDrawingAnchor } from '../../types.js'
 import type {
@@ -53,7 +53,7 @@ export function anchorToScreen(
 /** 判断投影是否为同时具有 X/Y 的普通点。 */
 export function isScreenPoint(
   anchor: ScreenDrawingAnchor | null,
-): anchor is { type: 'point' } & ScreenPoint {
+): anchor is { type: 'point' } & Point {
   return anchor?.type === 'point'
 }
 
@@ -187,54 +187,4 @@ function clampRange(value: number, min: number, max: number): number {
   if (value < min) return min
   if (value > max) return max
   return value
-}
-
-// ---- Geometry ----
-
-/** 两点连线的中点。 */
-export function midpoint(a: ScreenPoint, b: ScreenPoint): ScreenPoint {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-}
-
-/**
- * 判断点是否落在简单多边形内部（射线法）。
- * 边界上的结果不做保证；调用方命中判定会先看线段，不依赖边界语义。
- * @param point 待测点
- * @param polygon 多边形顶点，按环绕顺序给出
- * @returns 点在多边形内部时为 true
- */
-export function pointInPolygon(point: ScreenPoint, polygon: ReadonlyArray<ScreenPoint>): boolean {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i]!
-    const b = polygon[j]!
-    if (a.y > point.y === b.y > point.y) continue
-    const x = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
-    if (point.x < x) inside = !inside
-  }
-  return inside
-}
-
-/**
- * 计算点 P 到线段 AB 的最短距离平方。
- * 投影点在 AB 线段外时取最近端点距离。
- */
-export function pointToSegmentDistanceSq(
-  px: number,
-  py: number,
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const lenSq = dx * dx + dy * dy
-  const pointDx = px - a.x
-  const pointDy = py - a.y
-  if (lenSq === 0) return pointDx * pointDx + pointDy * pointDy
-
-  let t = (pointDx * dx + pointDy * dy) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  const nearestDx = px - (a.x + t * dx)
-  const nearestDy = py - (a.y + t * dy)
-  return nearestDx * nearestDx + nearestDy * nearestDy
 }

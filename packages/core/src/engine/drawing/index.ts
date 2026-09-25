@@ -7,6 +7,7 @@
  */
 
 /** foundation 拥有的渲染 primitive 契约，按模块公开面重导出。 */
+export type { Point } from '../../foundation/geometry/index.js'
 export type {
   AreaPrimitive,
   ArrowPrimitive,
@@ -15,7 +16,6 @@ export type {
   DrawingStyle,
   LinePrimitive,
   PointPrimitive,
-  ScreenPoint,
   TextPrimitive,
 } from '../../foundation/plugin/index.js'
 

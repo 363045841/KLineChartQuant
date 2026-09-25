@@ -3,6 +3,7 @@
  */
 
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
+import { rectFromPoints } from '@/foundation/geometry/index.js'
 
 /** 创建斐波那契回撤图形：两个锚点定义区间，水平线覆盖区间的时间范围。 */
 export function createFibRetracementDefinition(): DrawingDefinition {
@@ -16,8 +17,7 @@ export function createFibRetracementDefinition(): DrawingDefinition {
       if (!first || !second) return { primitives: [] }
       const a = context.toScreen(first)
       const b = context.toScreen(second)
-      const left = Math.min(a.x, b.x)
-      const right = Math.max(a.x, b.x)
+      const { left, right } = rectFromPoints(a, b)
       const configured = (drawing.params as { levels?: number[] } | undefined)?.levels
       const ratios = configured?.length ? configured : levels
       return {

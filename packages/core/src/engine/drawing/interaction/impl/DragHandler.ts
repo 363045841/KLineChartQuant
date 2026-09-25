@@ -1,8 +1,8 @@
 import type { DrawingViewportPort } from '@/controllers/types.js'
+import { midpoint } from '@/foundation/geometry/index.js'
 import {
   anchorToScreen,
   isScreenPoint,
-  midpoint,
   resolveDrawingPointer,
   screenToAnchor,
 } from '../../geometry/impl/coordinateUtils.js'

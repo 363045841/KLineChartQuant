@@ -2,6 +2,7 @@
 
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
+import { pointInRect, rectFromPoints } from '../../foundation/geometry/index.js'
 import { batch } from '../../foundation/reactivity/signal.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -1037,7 +1038,7 @@ export class InteractionController {
    * 未命中时返回 false。
    */
   private hitTestCandle(ctx: HoverContext, bar: NearestBar): boolean {
-    const { mouseY, worldX, dpr } = ctx
+    const { mouseY, worldX } = ctx
     const data = this.chart.getInternalData()
     const k =
       typeof this.crosshairIndex === 'number'
@@ -1082,17 +1083,17 @@ export class InteractionController {
 
     const HIT_WICK_HALF_EXTENDED = 3
 
-    const hitBody =
-      localY >= effectiveBodyTop &&
-      localY <= effectiveBodyBottom &&
-      inUnitX >= 0 &&
-      inUnitX <= bar.widthLogical
-    const hitWick =
-      Math.abs(inUnitX - cxLogical) <= HIT_WICK_HALF_EXTENDED &&
-      localY >= effectiveWickTop &&
-      localY <= effectiveWickBottom
+    const point = { x: inUnitX, y: localY }
+    const bodyRect = rectFromPoints(
+      { x: 0, y: effectiveBodyTop },
+      { x: bar.widthLogical, y: effectiveBodyBottom },
+    )
+    const wickRect = rectFromPoints(
+      { x: cxLogical - HIT_WICK_HALF_EXTENDED, y: effectiveWickTop },
+      { x: cxLogical + HIT_WICK_HALF_EXTENDED, y: effectiveWickBottom },
+    )
 
-    return hitBody || hitWick
+    return pointInRect(point, bodyRect) || pointInRect(point, wickRect)
   }
 
   /**

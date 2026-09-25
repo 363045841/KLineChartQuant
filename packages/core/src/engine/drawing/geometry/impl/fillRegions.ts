@@ -1,7 +1,7 @@
 // 组合图元的填充区域：按持久化锚点下标声明多边形环绕顺序，绘制与命中共用同一份顺序。
 // 只有由四个持久化锚点直接围成填充的通道图元在此登记；矩形与回归通道的填充另有推导。
 
-import type { ScreenPoint } from '@/foundation/plugin/index.js'
+import type { Point } from '@/foundation/geometry/index.js'
 import type { DrawingKind } from '../../types.js'
 
 /**
@@ -23,11 +23,11 @@ const FILL_ANCHOR_ORDERS: Partial<Record<DrawingKind, readonly number[]>> = {
  */
 export function buildFillPolygon(
   kind: DrawingKind,
-  anchorsOnScreen: ReadonlyArray<ScreenPoint>,
-): ScreenPoint[] {
+  anchorsOnScreen: ReadonlyArray<Point>,
+): Point[] {
   const order = FILL_ANCHOR_ORDERS[kind]
   if (!order) return []
-  const points: ScreenPoint[] = []
+  const points: Point[] = []
   for (const index of order) {
     const point = anchorsOnScreen[index]
     if (!point) return []

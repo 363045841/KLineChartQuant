@@ -5,7 +5,8 @@
  * 本文件不得 import 同子模块 impl/。
  */
 
-import type { DrawingLabelPosition, ScreenPoint } from '@/foundation/plugin/types.js'
+import type { DrawingLabelPosition } from '@/foundation/plugin/types.js'
+import type { Point } from '../../../foundation/geometry/types.js'
 import type { DrawingObject } from '../types.js'
 
 /**
@@ -69,8 +70,8 @@ export interface MovingAnchor {
 /** 框选状态使用 Pane 内逻辑像素，不进入 kernel 或持久化图元。 */
 export type DrawingSelectionMarquee = {
   paneId: string
-  start: ScreenPoint
-  end: ScreenPoint
+  start: Point
+  end: Point
 }
 
 /** 命中的拖拽目标：锚点、线段中点垂直手柄，或图元主体（整体拖拽）。命中与拖拽会话共用。 */

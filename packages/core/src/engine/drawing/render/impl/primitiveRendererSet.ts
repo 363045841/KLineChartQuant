@@ -4,7 +4,8 @@
  * 线段/箭头裁剪依赖 geometry/impl/lineClipping 的纯几何函数。
  */
 
-import { type DrawingStyle, POINT_ROLE, type ScreenPoint } from '@/foundation/plugin/index.js'
+import { type Point, pointInRect, type Rect } from '@/foundation/geometry/index.js'
+import { type DrawingStyle, POINT_ROLE } from '@/foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '@/foundation/tokens/index.js'
 import { resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
 import { extendLineToViewport } from '../../geometry/impl/lineClipping.js'
@@ -42,7 +43,7 @@ const HANDLE_CORNER_RADIUS = 2
  */
 function drawVerticalHandle(
   ctx: CanvasRenderingContext2D,
-  point: ScreenPoint,
+  point: Point,
   halfSize: number,
   style?: DrawingStyle,
 ): void {
@@ -59,13 +60,8 @@ function drawVerticalHandle(
 }
 
 /** 判断屏幕点是否落在视口裁剪矩形内（含边界），线段端点据此决定是否绘制。 */
-function isInsideViewport(
-  point: ScreenPoint,
-  clip: { left: number; top: number; right: number; bottom: number },
-): boolean {
-  return (
-    point.x >= clip.left && point.x <= clip.right && point.y >= clip.top && point.y <= clip.bottom
-  )
+function isInsideViewport(point: Point, clip: Rect): boolean {
+  return pointInRect(point, clip)
 }
 
 /**
@@ -74,7 +70,7 @@ function isInsideViewport(
  */
 function drawAnchor(
   ctx: CanvasRenderingContext2D,
-  point: ScreenPoint,
+  point: Point,
   radius: number,
   style?: DrawingStyle,
 ): void {

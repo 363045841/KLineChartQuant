@@ -2,6 +2,7 @@
  * 插件系统核心类型定义
  */
 
+import type { Point } from '../geometry/types.js'
 import type { ChartDataView } from '../types/chartView.js'
 import type { ChartSeriesDatum, KLineData } from '../types/price.js'
 import type { ScaleType } from '../types/scaleType.js'
@@ -477,8 +478,6 @@ export type DrawingStyle = {
 /** 绘图线段文字在线段语义方向上的位置。 */
 export type DrawingLabelPosition = 'start' | 'center' | 'end'
 
-export type ScreenPoint = { x: number; y: number }
-
 /** 图元附属文字；位置由所属图元在渲染期计算。 */
 export type PrimitiveTextAttachment = {
   text: string
@@ -495,7 +494,7 @@ export type ScreenVerticalAnchor = { type: 'vertical'; x: number }
 
 /** 锚点的屏幕投影，按锚点语义保留缺失的坐标轴。 */
 export type ScreenDrawingAnchor =
-  | ({ type: 'point' } & ScreenPoint)
+  | ({ type: 'point' } & Point)
   | ScreenHorizontalAnchor
   | ScreenVerticalAnchor
 
@@ -508,7 +507,7 @@ export type PointRole = 'anchor' | 'translate-handle'
 /** 点图元：锚点圆点统一填白底、描图元色环，没有填充色开关。 */
 export type PointPrimitive = {
   kind: 'point'
-  point: ScreenPoint
+  point: Point
   role?: PointRole
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
@@ -516,8 +515,8 @@ export type PointPrimitive = {
 
 export type LinePrimitive = {
   kind: 'line'
-  a: ScreenPoint
-  b: ScreenPoint
+  a: Point
+  b: Point
   extend?: 'none' | 'left' | 'right' | 'both'
   showEndpoints?: boolean
   text?: PrimitiveTextAttachment
@@ -526,7 +525,7 @@ export type LinePrimitive = {
 
 export type AreaPrimitive = {
   kind: 'area'
-  points: ScreenPoint[]
+  points: Point[]
   closed: boolean
   text?: PrimitiveTextAttachment
   style?: DrawingStyle
@@ -534,7 +533,7 @@ export type AreaPrimitive = {
 
 export type TextPrimitive = {
   kind: 'text'
-  point: ScreenPoint
+  point: Point
   text: string
   align?: 'left' | 'center' | 'right'
   baseline?: 'top' | 'middle' | 'bottom'
@@ -544,8 +543,8 @@ export type TextPrimitive = {
 /** 箭头图元：由渲染器作为一个整体绘制轴线和实心箭头头部。 */
 export type ArrowPrimitive = {
   kind: 'arrow'
-  start: ScreenPoint
-  end: ScreenPoint
+  start: Point
+  end: Point
   headLength?: number
   headAngle?: number
   text?: PrimitiveTextAttachment

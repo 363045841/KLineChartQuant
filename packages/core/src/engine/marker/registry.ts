@@ -1,3 +1,4 @@
+import { pointInRect, rectFromPoints } from '../../foundation/geometry/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import { hitTestShape } from './shape/impl/drawShape.js'
 import type { CustomMarkerLabel, CustomMarkerShape, CustomMarkerStyle } from './shape/types.js'
@@ -137,13 +138,13 @@ export class MarkerManager {
    * @returns 命中的标记，未命中返回 null
    */
   hitTest(x: number, y: number, padding: number = 3): MarkerEntity | null {
+    const point = { x, y }
     for (const marker of this.markers.values()) {
-      if (
-        x >= marker.x - padding &&
-        x <= marker.x + marker.width + padding &&
-        y >= marker.y - padding &&
-        y <= marker.y + marker.height + padding
-      ) {
+      const bounds = rectFromPoints(
+        { x: marker.x - padding, y: marker.y - padding },
+        { x: marker.x + marker.width + padding, y: marker.y + marker.height + padding },
+      )
+      if (pointInRect(point, bounds)) {
         return marker
       }
     }

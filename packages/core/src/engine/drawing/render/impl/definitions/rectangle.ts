@@ -3,6 +3,7 @@
  */
 
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
+import { rectFromPoints } from '@/foundation/geometry/index.js'
 
 /** 创建矩形图形：两个锚点分别代表矩形的对角点。 */
 export function createRectangleDefinition(): DrawingDefinition {
@@ -15,10 +16,7 @@ export function createRectangleDefinition(): DrawingDefinition {
       if (!first || !second) return { primitives: [] }
       const a = context.toScreen(first)
       const b = context.toScreen(second)
-      const left = Math.min(a.x, b.x)
-      const right = Math.max(a.x, b.x)
-      const top = Math.min(a.y, b.y)
-      const bottom = Math.max(a.y, b.y)
+      const { left, top, right, bottom } = rectFromPoints(a, b)
       const topLeft = { x: left, y: top }
       const topRight = { x: right, y: top }
       const bottomRight = { x: right, y: bottom }

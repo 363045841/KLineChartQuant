@@ -2,10 +2,10 @@
  * 通道类图形定义：平行通道、平滑顶底、不相交通道与回归通道。
  */
 
-import { midpoint } from '@/engine/drawing/geometry/impl/coordinateUtils.js'
 import { buildFillPolygon } from '@/engine/drawing/geometry/impl/fillRegions.js'
 import { computeLinearRegression } from '@/engine/drawing/geometry/impl/linearRegression.js'
 import type { DrawingDefinition, ResolvedDrawingAnchor } from '@/engine/drawing/types.js'
+import { midpoint } from '@/foundation/geometry/index.js'
 import type { LinePrimitive } from '@/foundation/plugin/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 

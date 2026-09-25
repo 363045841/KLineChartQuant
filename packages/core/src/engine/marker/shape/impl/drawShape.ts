@@ -3,6 +3,7 @@
  * 支持 6 种预设形状：arrow_up, arrow_down, flag, circle, rectangle, diamond
  */
 
+import { pointInCircle, pointInRect, rectFromPoints } from '@/foundation/geometry/index.js'
 import type { CustomMarkerLabel, CustomMarkerShape, CustomMarkerStyle } from '../types.js'
 
 /** 默认尺寸映射 */
@@ -243,11 +244,8 @@ export function hitTestShape(
   const half = size / 2
 
   switch (shape) {
-    case 'circle': {
-      const dx = mx - x
-      const dy = my - y
-      return dx * dx + dy * dy <= half * half
-    }
+    case 'circle':
+      return pointInCircle({ x: mx, y: my }, { x, y }, half)
 
     case 'rectangle':
     case 'diamond':
@@ -256,6 +254,9 @@ export function hitTestShape(
     case 'flag':
     default:
       // 使用包围盒测试
-      return mx >= x - half && mx <= x + half && my >= y - half && my <= y + half
+      return pointInRect(
+        { x: mx, y: my },
+        rectFromPoints({ x: x - half, y: y - half }, { x: x + half, y: y + half }),
+      )
   }
 }

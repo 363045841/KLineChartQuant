@@ -1,12 +1,13 @@
 import type { DrawingViewportPort } from '@/controllers/types.js'
-import type { ScreenPoint } from '@/foundation/plugin/index.js'
 import {
-  anchorToScreen,
-  isScreenPoint,
   midpoint,
+  type Point,
+  pointInCircle,
   pointInPolygon,
   pointToSegmentDistanceSq,
-} from '../../geometry/impl/coordinateUtils.js'
+  rectFromPoints,
+} from '@/foundation/geometry/index.js'
+import { anchorToScreen, isScreenPoint } from '../../geometry/impl/coordinateUtils.js'
 import { buildFillPolygon } from '../../geometry/impl/fillRegions.js'
 import {
   LINE_LABEL_BASELINE,
@@ -27,8 +28,8 @@ export type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
 
 /** 二维线段，两端点为屏幕坐标（px）。 */
 export interface LineSegment {
-  a: { x: number; y: number }
-  b: { x: number; y: number }
+  a: Point
+  b: Point
 }
 
 /**
@@ -42,7 +43,6 @@ export interface RegressionChannelGeometry {
 
 /** 可拖拽点（锚点、线段中点手柄）的点击命中半径（px） */
 const DRAG_POINT_HIT_RADIUS = 8
-const DRAG_POINT_HIT_RADIUS_SQ = DRAG_POINT_HIT_RADIUS * DRAG_POINT_HIT_RADIUS
 /** 线段点击命中半径（px） */
 const LINE_HIT_RADIUS = 6
 const LINE_HIT_RADIUS_SQ = LINE_HIT_RADIUS * LINE_HIT_RADIUS
@@ -120,6 +120,7 @@ export class HitTester {
   ): HitResult | null {
     const visibleDrawings = drawings.filter((d) => d.visible)
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
+    const pointer: Point = { x: mouseX, y: mouseY }
 
     // Check anchor and vertical-handle hits first
     for (const drawing of visibleDrawings) {
@@ -138,9 +139,7 @@ export class HitTester {
       for (let i = 0; i < drawing.anchors.length; i++) {
         const screen = anchorToScreen(drawing.anchors[i]!, drawing.paneId, adapter)
         if (!isScreenPoint(screen)) continue
-        const dx = mouseX - screen.x
-        const dy = mouseY - screen.y
-        if (dx * dx + dy * dy <= DRAG_POINT_HIT_RADIUS_SQ) {
+        if (pointInCircle(pointer, screen, DRAG_POINT_HIT_RADIUS)) {
           return { drawing, target: { type: 'anchor', index: i } }
         }
       }
@@ -164,7 +163,7 @@ export class HitTester {
     // Check fill region hits：通道类组合图元的填充与线身同属「图元主体」，落在内部也整体拖拽。
     for (const drawing of visibleDrawings) {
       const polygon = this.getDrawingFillPolygon(drawing, adapter)
-      if (polygon.length >= 3 && pointInPolygon({ x: mouseX, y: mouseY }, polygon)) {
+      if (polygon.length >= 3 && pointInPolygon(pointer, polygon)) {
         return { drawing, target: { type: 'all' } }
       }
     }
@@ -179,12 +178,11 @@ export class HitTester {
     mouseY: number,
     adapter: DrawingViewportPort,
   ): HitResult | null {
+    const pointer: Point = { x: mouseX, y: mouseY }
     for (const line of getVerticalHandleLines(drawing.kind)) {
       const point = this.getVerticalHandlePoint(drawing, line, adapter)
       if (!point) continue
-      const dx = mouseX - point.x
-      const dy = mouseY - point.y
-      if (dx * dx + dy * dy <= DRAG_POINT_HIT_RADIUS_SQ) {
+      if (pointInCircle(pointer, point, DRAG_POINT_HIT_RADIUS)) {
         return { drawing, target: { type: 'vertical-handle', lineIndex: line.index } }
       }
     }
@@ -196,7 +194,7 @@ export class HitTester {
     drawing: DrawingObject,
     line: VerticalHandleLine,
     adapter: DrawingViewportPort,
-  ): ScreenPoint | null {
+  ): Point | null {
     const from = drawing.anchors[line.from]
     const to = drawing.anchors[line.to]
     if (!from || !to) return null
@@ -269,10 +267,7 @@ export class HitTester {
     const b = points[1]!
 
     if (drawing.kind === 'rectangle') {
-      const left = Math.min(a.x, b.x)
-      const right = Math.max(a.x, b.x)
-      const top = Math.min(a.y, b.y)
-      const bottom = Math.max(a.y, b.y)
+      const { left, top, right, bottom } = rectFromPoints(a, b)
       const topLeft = { x: left, y: top }
       const topRight = { x: right, y: top }
       const bottomRight = { x: right, y: bottom }
@@ -289,8 +284,7 @@ export class HitTester {
       const ratios = (drawing.params as { levels?: number[] } | undefined)?.levels ?? [
         0, 0.236, 0.382, 0.5, 0.618, 0.786, 1,
       ]
-      const left = Math.min(a.x, b.x)
-      const right = Math.max(a.x, b.x)
+      const { left, right } = rectFromPoints(a, b)
       return ratios.map((ratio) => {
         const y = a.y + (b.y - a.y) * ratio
         return { a: { x: left, y }, b: { x: right, y } }
@@ -355,11 +349,8 @@ export class HitTester {
   }
 
   /** 组合图元的填充多边形：所有锚点可投影时按登记的环绕顺序成环，否则不参与命中。 */
-  private getDrawingFillPolygon(
-    drawing: DrawingObject,
-    adapter: DrawingViewportPort,
-  ): ScreenPoint[] {
-    const anchorsOnScreen: ScreenPoint[] = []
+  private getDrawingFillPolygon(drawing: DrawingObject, adapter: DrawingViewportPort): Point[] {
+    const anchorsOnScreen: Point[] = []
     for (const anchor of drawing.anchors) {
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
       if (!isScreenPoint(screen)) return []
@@ -593,10 +584,9 @@ export class HitTester {
     const geometry = this.getRegressionChannelGeometry(drawing, adapter, cache)
     if (!geometry) return null
 
+    const pointer: Point = { x: mouseX, y: mouseY }
     for (const endpoint of geometry.endpoints) {
-      const dx = mouseX - endpoint.point.x
-      const dy = mouseY - endpoint.point.y
-      if (dx * dx + dy * dy <= DRAG_POINT_HIT_RADIUS_SQ) {
+      if (pointInCircle(pointer, endpoint.point, DRAG_POINT_HIT_RADIUS)) {
         return { drawing, target: { type: 'anchor', index: endpoint.anchorIndex } }
       }
     }

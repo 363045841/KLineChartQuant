@@ -3,6 +3,7 @@
 import { registerAxisLabel } from '@/engine/axisLabels/index.js'
 import { resolveChartWorkspaceId } from '@/engine/state/modeState.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
+import { midpoint, type Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
   type DrawingFrameProjection,
@@ -11,7 +12,6 @@ import {
   POINT_ROLE,
   PRIMITIVE_KIND,
   type RenderContext,
-  type ScreenPoint,
   type XAxisRange,
   type YAxisRange,
 } from '@/foundation/plugin/index.js'
@@ -24,7 +24,6 @@ import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinit
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
-import { midpoint } from './coordinateUtils.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
 import { getVerticalHandleLines } from './lines.js'
 
@@ -35,7 +34,7 @@ type MutableDrawingFrameProjection = {
 }
 
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
-function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => ScreenPoint {
+function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
   const { pane, range, kLineCenters, scrollLeft, kWidth } = context
   return (anchor) => {
     if (!Number.isFinite(anchor.index) || anchor.index < 0) {
@@ -125,7 +124,7 @@ function applySelectedStyle(
  */
 function projectVerticalHandles(
   drawing: ResolvedDrawingObject,
-  toScreen: (anchor: ResolvedDrawingAnchor) => ScreenPoint,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
 ): DrawingPrimitive[] {
   const handles: DrawingPrimitive[] = []
   for (const line of getVerticalHandleLines(drawing.kind)) {
@@ -194,7 +193,7 @@ function projectAxisDecorations(
   style: DrawingStyle,
   labelTextColor: string,
   context: RenderContext,
-  toScreen: (anchor: ResolvedDrawingAnchor) => ScreenPoint,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
   output: MutableDrawingFrameProjection,
 ): void {
   if (context.pane.role !== 'price') return

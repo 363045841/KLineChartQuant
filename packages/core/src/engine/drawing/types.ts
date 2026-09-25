@@ -1,17 +1,17 @@
 /**
  * 绘图模块对外契约：图元领域模型、锚点/标签与图形定义接口。
  *
- * 渲染 primitive（`DrawingStyle` / `ScreenPoint` / `DrawingPrimitive` 等）是
+ * 渲染 primitive（`DrawingStyle` / `Point` / `DrawingPrimitive` 等）是
  * foundation 的渲染契约（`RenderContext` 依赖它），由 foundation/plugin 拥有，
  * 这里只引用不重复定义。
  */
 
+import type { Point } from '../../foundation/geometry/types.js'
 import type {
   DrawingLabelPosition,
   DrawingPrimitive,
   DrawingStyle,
   PaneInfo,
-  ScreenPoint,
 } from '../../foundation/plugin/types.js'
 import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -122,7 +122,7 @@ export type DrawingComputeContext = {
     plotWidth: number
     plotHeight: number
   }
-  toScreen(anchor: ResolvedDrawingAnchor): ScreenPoint
+  toScreen(anchor: ResolvedDrawingAnchor): Point
 }
 
 export interface DrawingDefinition<TParams = Record<string, unknown>> {
