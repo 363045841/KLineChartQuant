@@ -132,14 +132,16 @@
     el.style.userSelect = ''
   }
 
-  /** 将滚轮增量映射到 scrollLeft，支持鼠标滚轮与触控板横向手势浏览工具栏。 */
+  /** 横向手势由浏览器原生处理；仅将纵向滚轮映射到可滚动的横向空间。 */
   function onWheel(event: WheelEvent) {
-    if (event.ctrlKey) return
+    if (event.ctrlKey || event.deltaX !== 0 || event.deltaY === 0) return
     const el = toolbarRef.value
-    const delta = event.deltaX || event.deltaY
-    if (!el || delta === 0) return
+    if (!el) return
+    const maxScroll = el.scrollWidth - el.clientWidth
+    if (maxScroll <= 0 || (event.deltaY < 0 && el.scrollLeft <= 0) ||
+      (event.deltaY > 0 && el.scrollLeft >= maxScroll)) return
     event.preventDefault()
-    el.scrollLeft += delta
+    el.scrollLeft += event.deltaY
   }
 
   const props = withDefaults(
@@ -228,7 +230,6 @@
     position: relative;
     height: 40px;
     display: flex;
-    flex-direction: row;
     align-items: center;
     gap: 6px;
     padding: 0 8px;
@@ -241,7 +242,6 @@
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
-    -ms-overflow-style: none;
   }
 
   .top-toolbar::-webkit-scrollbar {

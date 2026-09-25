@@ -34,13 +34,13 @@
             <component :is="tool.children?.length ? groupTool(tool).icon : tool.icon" class="tool-icon" aria-hidden="true" />
           </button>
         </BaseTooltip>
-        <BaseTooltip v-if="tool.children?.length" :content="`${tool.title}工具`" :disabled="openGroupId !== null">
+        <BaseTooltip v-if="tool.children?.length" :content="`${tool.title}工具`" placement="top" :disabled="openGroupId !== null">
           <button
             type="button"
             class="tool-item__expand"
             :aria-label="`${tool.title}工具`"
             :aria-expanded="openGroupId === tool.id"
-            @click="toggleExpand(tool.id)"
+            @click="openGroupMenu(tool, $event)"
             @pointerdown.stop
             @pointermove.stop
             @pointerup.stop
@@ -48,33 +48,6 @@
             <IconTablerChevronRight class="tool-item__expand-icon" aria-hidden="true" />
           </button>
         </BaseTooltip>
-
-        <Transition name="dropdown">
-          <div
-            v-if="openGroupId === tool.id && tool.children && tool.children.length"
-            class="tool-dropdown"
-            @pointerdown.stop
-            @pointermove.stop
-            @pointerup.stop
-          >
-            <BaseTooltip
-              v-for="child in tool.children"
-              :key="child.id"
-              :content="child.title"
-              placement="top"
-            >
-              <button
-                type="button"
-                class="left-toolbar__button"
-                :class="{ active: highlightToolId === child.id }"
-                :aria-label="child.title"
-                @click="selectChild(child)"
-              >
-                <component :is="child.icon" class="tool-icon" aria-hidden="true" />
-              </button>
-            </BaseTooltip>
-          </div>
-        </Transition>
       </div>
     </div>
 
@@ -220,6 +193,35 @@
     </div>
   </nav>
 
+  <Teleport :to="teleportTarget">
+    <div
+      v-if="openGroup"
+      ref="menuRef"
+      class="tool-dropdown"
+      :style="dropdownPosition"
+      @pointerdown.stop
+      @pointermove.stop
+      @pointerup.stop
+    >
+      <BaseTooltip
+        v-for="child in openGroup.children"
+        :key="child.id"
+        :content="child.title"
+        placement="top"
+      >
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :class="{ active: highlightToolId === child.id }"
+          :aria-label="child.title"
+          @click="selectChild(openGroup, child)"
+        >
+          <component :is="child.icon" class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+    </div>
+  </Teleport>
+
   <ChartSettingsDialog
     :show="showSettings"
     :initial-settings="appliedSettings"
@@ -250,7 +252,7 @@
     resolveSettings,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+  import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
   import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
@@ -281,6 +283,8 @@
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
   import { useAlerts } from '../composables/useAlerts.js'
+  import { useClickOutside } from '../composables/useClickOutside.js'
+  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
   import AlertDialog from './alert/AlertDialog.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
@@ -383,6 +387,11 @@
   const selectedToolId = ref('cursor')
   const groupSelections = ref<Record<string, string>>({})
   const openGroupId = ref<string | null>(null)
+  const openGroup = computed(() => primaryTools.find((tool) => tool.id === openGroupId.value))
+  const triggerRef = ref<HTMLElement | null>(null)
+  const menuRef = ref<HTMLElement | null>(null)
+  const teleportTarget = useFullscreenTeleportTarget()
+  const dropdownPosition = ref({ '--menu-anchor-left': '0px', '--menu-anchor-top': '0px' })
   const showSettings = ref(false)
   const showAlerts = ref(false)
 
@@ -458,21 +467,50 @@
     openGroupId.value = null
   }
 
-  function selectChild(child: ToolDef) {
+  function selectChild(group: ToolDef, child: ToolDef) {
     selectedToolId.value = child.id
-    for (const tool of primaryTools) {
-      if (tool.children?.some((item) => item.id === child.id)) {
-        groupSelections.value[tool.id] = child.id
-        break
-      }
-    }
+    groupSelections.value[group.id] = child.id
     emit('selectTool', child.id)
     openGroupId.value = null
   }
 
-  function toggleExpand(groupId: string) {
-    openGroupId.value = openGroupId.value === groupId ? null : groupId
+  function openGroupMenu(group: ToolDef, event: MouseEvent) {
+    if (openGroupId.value === group.id) return
+    const trigger = event.currentTarget as HTMLElement
+    const bounds = trigger.getBoundingClientRect()
+    triggerRef.value = trigger
+    dropdownPosition.value = {
+      '--menu-anchor-left': `${bounds.right}px`,
+      '--menu-anchor-top': `${bounds.top + bounds.height / 2}px`,
+    }
+    openGroupId.value = group.id
   }
+
+  useClickOutside(
+    () => [triggerRef.value, menuRef.value],
+    () => { openGroupId.value = null },
+    { enabled: () => openGroupId.value !== null },
+  )
+
+  watch(openGroupId, (id, _previous, onCleanup) => {
+    if (!id) return
+    const close = () => { openGroupId.value = null }
+    const onScroll = (event: Event) => {
+      if (menuRef.value?.contains(event.target as Node)) return
+      close()
+    }
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('scroll', onScroll, true)
+    document.addEventListener('keydown', onKeydown)
+    window.addEventListener('resize', close)
+    onCleanup(() => {
+      document.removeEventListener('scroll', onScroll, true)
+      document.removeEventListener('keydown', onKeydown)
+      window.removeEventListener('resize', close)
+    })
+  })
 
   /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
   function toggleGlobalDrawingLock() {
@@ -499,25 +537,23 @@
     showSettings.value = false
   }
 
-  function handleClickOutside(e: MouseEvent) {
-    const target = e.target as HTMLElement
-    if (!target.closest('.tool-item')) {
-      openGroupId.value = null
-    }
-  }
-
   onMounted(() => {
-    document.addEventListener('click', handleClickOutside, true)
     emit('settingsChange', { ...appliedSettings.value })
     setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside, true)
   })
 </script>
 
 <style scoped>
+  .left-toolbar,
+  .tool-dropdown {
+    --tool-button-size: 28px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 3px;
+    background: var(--klc-color-ui-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-sizing: border-box;
+  }
+
   .left-toolbar {
     flex: 0 0 52px;
     display: flex;
@@ -525,14 +561,15 @@
     align-items: center;
     gap: 6px;
     padding: 8px 0;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 3px;
-    background: var(--klc-color-ui-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    box-sizing: border-box;
     user-select: none;
-    /* 子工具菜单向右绝对定位，工具栏不能裁剪该浮层。 */
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    overscroll-behavior-y: contain;
+  }
+
+  .left-toolbar::-webkit-scrollbar {
+    display: none;
   }
 
   .left-toolbar__group {
@@ -551,8 +588,8 @@
   /* --- 工具按钮 --- */
   .left-toolbar__button {
     position: relative;
-    width: 28px;
-    height: 28px;
+    width: var(--tool-button-size);
+    height: var(--tool-button-size);
     padding: 0;
     border: 1px solid transparent;
     border-radius: 3px;
@@ -605,7 +642,7 @@
     top: 50%;
     transform: translateY(-50%);
     width: 10px;
-    height: 22px;
+    height: var(--tool-button-size);
     padding: 0;
     border: 0;
     border-radius: 2px;
@@ -615,15 +652,11 @@
     display: grid;
     place-items: center;
     opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
   }
 
   .tool-item:hover .tool-item__expand,
   .tool-item:focus-within .tool-item__expand {
     opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
   }
 
   .tool-item__expand-icon {
@@ -643,24 +676,27 @@
 
   /* --- 下拉菜单（与工具栏同配色、同按钮样式，高度对齐工具栏宽度） --- */
   .tool-dropdown {
-    position: absolute;
-    left: calc(100% + 16px);
-    top: 50%;
+    --menu-padding-y: 5px;
+    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 16px), calc(100vw - var(--tool-button-size) - 16px));
+    --menu-half-height: calc(var(--tool-button-size) / 2 + var(--menu-padding-y) + 1px);
+    position: fixed;
+    left: var(--menu-left);
+    top: clamp(calc(var(--menu-half-height) + 8px), var(--menu-anchor-top), calc(100vh - var(--menu-half-height) - 8px));
     transform: translateY(-50%);
     display: flex;
-    flex-direction: row;
     align-items: center;
     gap: 4px;
-    padding: 0 5px;
-    height: 40px;
-    background: var(--klc-color-ui-surface);
+    width: max-content;
+    max-width: calc(100vw - var(--menu-left) - 8px);
+    padding: var(--menu-padding-y) 5px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 3px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    box-sizing: border-box;
     z-index: 100;
+    overflow-x: auto;
+  }
+
+  .tool-dropdown :deep(.base-tooltip__trigger) {
+    flex-shrink: 0;
   }
 
   /* --- 工具项容器 --- */
@@ -668,20 +704,6 @@
     position: relative;
     display: flex;
     align-items: center;
-  }
-
-  /* --- 下拉动画 --- */
-  .dropdown-enter-active,
-  .dropdown-leave-active {
-    transition:
-      opacity 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .dropdown-enter-from,
-  .dropdown-leave-to {
-    opacity: 0;
-    transform: translateY(-50%) translateX(-6px);
   }
 
   /* --- 预警按钮徽标 --- */
@@ -707,33 +729,27 @@
 
   /* --- 响应式 --- */
   @media (max-width: 768px), (max-height: 640px) {
+    .left-toolbar,
+    .tool-dropdown {
+      --tool-button-size: 26px;
+    }
+
     .left-toolbar {
       flex-basis: 50px;
       padding: 6px 0;
       gap: 5px;
-      border-radius: 3px;
     }
 
     .left-toolbar__group {
       gap: 3px;
     }
 
-    .left-toolbar__button {
-      width: 26px;
-      height: 26px;
-      border-radius: 3px;
-    }
-
     .left-toolbar__divider {
       width: 16px;
     }
 
-    .tool-item__expand {
-      height: 20px;
-    }
-
     .tool-dropdown {
-      height: 36px;
+      --menu-padding-y: 4px;
     }
   }
 </style>
