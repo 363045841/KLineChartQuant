@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { PaneInfo } from '../../../foundation/plugin/types.js'
 import { ScaleType } from '../../../foundation/types/scaleType.js'
+import { createMockPaneInfo } from '../../__tests__/helpers/renderTestKit.js'
 import { PriceScale } from '../../scale/priceScale.js'
 import { createYAxisTicks } from '../axisTicks.js'
 
+/** 用真实 PriceScale 构造 PaneInfo，其余字段复用共享夹具。 */
 function paneFor(scale: PriceScale): PaneInfo {
-  return { height: 400, role: 'price', yAxis: scale } as PaneInfo
+  return { ...createMockPaneInfo({ height: 400, role: 'price' }), yAxis: scale }
 }
 
 describe('value-anchored Y axis ticks', () => {
@@ -35,7 +37,9 @@ describe('value-anchored Y axis ticks', () => {
     const before = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Percent })
     scale.setPriceOffset(1)
     const after = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Percent })
-    expect(before.some((tick) => after.some((next) => next.value === tick.value && next.y !== tick.y))).toBe(true)
+    expect(
+      before.some((tick) => after.some((next) => next.value === tick.value && next.y !== tick.y)),
+    ).toBe(true)
     expect(after.every((tick) => Number.isFinite(tick.y) && Number.isFinite(tick.value))).toBe(true)
   })
 
