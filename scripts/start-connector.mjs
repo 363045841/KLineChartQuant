@@ -14,6 +14,7 @@
  */
 
 import { startConnectors } from './connectors.mjs'
+import { killProcessTree } from './lib/kill-process-tree.mjs'
 
 // 无参时启动 `all`（不含依赖本机 MT5 终端的 mt5）
 const names = process.argv.slice(2)
@@ -28,7 +29,7 @@ if (children.length === 0) {
 
 function shutdown() {
   for (const child of children) {
-    if (child && !child.killed) child.kill()
+    killProcessTree(child)
   }
 }
 process.on('SIGINT', shutdown)

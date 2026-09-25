@@ -17,6 +17,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startConnectors } from './connectors.mjs'
+import { killProcessTree } from './lib/kill-process-tree.mjs'
 import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -43,10 +44,10 @@ const vite = attachPrefixedOutput(
 
 const children = [vite, ...startConnectors(connNames)]
 
-// 收到退出信号时一并结束所有子进程
+// 收到退出信号时一并结束所有子进程及其后代，避免留下占用端口的孤儿进程
 function shutdown() {
   for (const child of children) {
-    if (child && !child.killed) child.kill()
+    killProcessTree(child)
   }
 }
 process.on('SIGINT', shutdown)
