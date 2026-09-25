@@ -1,5 +1,5 @@
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -54,7 +54,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
       if (!info) return
 
       registerAxisLabel(context, 'yRightOverlay', {
-        kind: 'tag',
+        kind: AXIS_LABEL_KIND.TAG,
         type: 'lastPrice',
         text: info.price.toFixed(2),
         countdown: formatLastPriceCountdown(context.period, info.timestamp) ?? undefined,

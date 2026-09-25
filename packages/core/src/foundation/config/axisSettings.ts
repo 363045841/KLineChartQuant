@@ -13,7 +13,12 @@ export type RightAxisTypeSetting = AxisType
 export type PriceScaleTypeSetting = ScaleType
 
 /** 轴标签展示 */
-export type AxisDisplaySetting = 'none' | 'price' | 'percent'
+export const AXIS_DISPLAY = {
+  NONE: 'none',
+  PRICE: 'price',
+  PERCENT: 'percent',
+} as const
+export type AxisDisplaySetting = (typeof AXIS_DISPLAY)[keyof typeof AXIS_DISPLAY]
 
 export type EffectiveAxisDisplayInput = {
   period?: string
@@ -45,15 +50,19 @@ export function resolveAxisDisplaySetting(
   value: unknown,
   fallback: AxisDisplaySetting,
 ): AxisDisplaySetting {
-  if (value === 'none' || value === 'price' || value === 'percent') return value
+  if (
+    value === AXIS_DISPLAY.NONE ||
+    value === AXIS_DISPLAY.PRICE ||
+    value === AXIS_DISPLAY.PERCENT
+  ) return value
   return fallback
 }
 
 /** 右轴类型对应的标签语义：none 隐藏，percent 显示涨跌幅，linear/log 显示价格 */
 export function resolveRightAxisDisplayFromType(type: unknown): AxisDisplaySetting {
-  if (type === AXIS_TYPE_NONE) return 'none'
-  if (type === ScaleType.Percent) return 'percent'
-  return 'price'
+  if (type === AXIS_TYPE_NONE) return AXIS_DISPLAY.NONE
+  if (type === ScaleType.Percent) return AXIS_DISPLAY.PERCENT
+  return AXIS_DISPLAY.PRICE
 }
 
 /**
@@ -64,12 +73,12 @@ export function resolveEffectiveAxisDisplay(
   side: 'left' | 'right',
   input: EffectiveAxisDisplayInput,
 ): AxisDisplaySetting {
-  if (isTimeSharePeriod(input.period)) return side === 'left' ? 'percent' : 'price'
+  if (isTimeSharePeriod(input.period)) return side === 'left' ? AXIS_DISPLAY.PERCENT : AXIS_DISPLAY.PRICE
   const rightDisplay = resolveRightAxisDisplayFromType(input.rightTypeSetting)
   if (input.comparisonActive && side === 'right') {
-    return rightDisplay === 'none' ? 'none' : 'percent'
+    return rightDisplay === AXIS_DISPLAY.NONE ? AXIS_DISPLAY.NONE : AXIS_DISPLAY.PERCENT
   }
-  return side === 'left' ? (input.leftSetting ?? 'none') : rightDisplay
+  return side === 'left' ? (input.leftSetting ?? AXIS_DISPLAY.NONE) : rightDisplay
 }
 
 /** 按坐标偏好生成各 pane 的生效刻度；percent 只作用于价格 pane */

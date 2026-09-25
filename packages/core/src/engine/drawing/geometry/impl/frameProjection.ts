@@ -4,6 +4,7 @@ import { registerAxisLabel } from '@/engine/axisLabels/index.js'
 import { resolveChartWorkspaceId } from '@/engine/state/modeState.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import {
+  AXIS_LABEL_KIND,
   type DrawingFrameProjection,
   type DrawingPrimitive,
   type DrawingStyle,
@@ -216,7 +217,7 @@ function projectAxisDecorations(
     const point = toScreen(anchor)
     if (wantsPrice && point.y >= 0 && point.y <= context.pane.height) {
       registerAxisLabel(context, 'yRightOverlay', {
-        kind: 'tag',
+        kind: AXIS_LABEL_KIND.TAG,
         text: anchor.price.toFixed(2),
         pos: point.y + context.pane.top,
         origin: context.pane.top,
@@ -229,7 +230,7 @@ function projectAxisDecorations(
     }
     if (wantsTime && point.x >= 0 && point.x <= context.paneWidth) {
       registerAxisLabel(context, 'xLabels', {
-        kind: 'tag',
+        kind: AXIS_LABEL_KIND.TAG,
         text: context.displayTimeFormatter.formatDate(timestamp!),
         pos: point.x,
         bgColor: color,

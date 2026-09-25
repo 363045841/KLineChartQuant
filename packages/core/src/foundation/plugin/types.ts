@@ -184,8 +184,13 @@ export type AxisLabelSurface =
   | 'yLeftOverlay' // 左 Y 轴 overlay canvas 内容（十字线价签）
 
 /** 轴刻度文字标签：纯文本，无底色。 */
+export const AXIS_LABEL_KIND = {
+  TICK: 'tick',
+  TAG: 'tag',
+} as const
+
 export interface AxisTickLabel {
-  kind: 'tick'
+  kind: typeof AXIS_LABEL_KIND.TICK
   /** 已按所在轴显示语义格式化好的文本。 */
   text: string
   /** X 表面为屏幕 x（逻辑像素）；Y 表面为 pane 内 y。 */
@@ -200,7 +205,7 @@ export interface AxisTickLabel {
 
 /** 轴色块标签：底矩形 + 居中文字（价格签 / 时间签）。 */
 export interface AxisTagLabel {
-  kind: 'tag'
+  kind: typeof AXIS_LABEL_KIND.TAG
   /** 业务类型；最新价签可按此选择专属布局。 */
   type?: 'lastPrice'
   /** 已格式化好的文本。 */
@@ -290,7 +295,7 @@ export interface DrawingFrameProjection {
 export interface YAxisTick {
   /** Y像素位置（相对 pane 顶部，逻辑像素） */
   y: number
-  /** 该Y位置通过 pane.yAxis.yToPrice 反算的价格值 */
+  /** 刻度锚定的价格值，Y 位置通过 pane.yAxis.priceToY 投影 */
   value: number
 }
 
@@ -393,7 +398,7 @@ export interface RenderAxisContext {
   yAxisRanges: YAxisRange[]
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
   xAxisRanges: XAxisRange[]
-  /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
+  /** 预计算的 Y 轴刻度列表（锚定数值 → priceToY 投影），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
 }
 

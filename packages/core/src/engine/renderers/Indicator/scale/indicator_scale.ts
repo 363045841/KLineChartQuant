@@ -6,7 +6,7 @@ import type {
   RenderContext,
   RendererPluginWithHost,
 } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat.js'
@@ -116,7 +116,7 @@ export function createIndicatorScaleRendererPlugin(
       })
       for (const { y, value } of positions) {
         labels.register({
-          kind: 'tick',
+          kind: AXIS_LABEL_KIND.TICK,
           text: formatValue(value),
           pos: y,
           color: tokenColors.text.secondary,
@@ -139,7 +139,7 @@ export function createIndicatorScaleRendererPlugin(
         const formatCrosshair = formatCrosshairLabel ?? formatValue
 
         registerAxisLabel(context, 'yRightStatic', {
-          kind: 'tag',
+          kind: AXIS_LABEL_KIND.TAG,
           text: formatCrosshair(displayPrice),
           pos: localY,
           origin: 0,
