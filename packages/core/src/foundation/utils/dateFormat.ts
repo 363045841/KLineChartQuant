@@ -19,7 +19,11 @@ export interface MarketSessionTimeFormatter {
 }
 
 type DateParts = { year: string; month: string; day: string; hour?: string; minute?: string }
-type KeyIndex = { length: number; first: number; last: number; month: Int32Array; day: Int32Array }
+type KeyIndex = {
+  timestamps: Float64Array
+  month: Int32Array
+  day: Int32Array
+}
 
 const DATE_CACHE_LIMIT = 1024
 const AXIS_CACHE_LIMIT = 512
@@ -47,28 +51,48 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
   const monthAxisCache = new Map<number, AxisDateLabel>()
   const dayAxisCache = new Map<number, AxisDateLabel>()
   const keyIndexes = new WeakMap<ReadonlyArray<Timestamped>, KeyIndex>()
+  let previousIndex: KeyIndex | undefined
 
   const partsAt = (timestamp: number, withTime = false): DateParts =>
     readParts(withTime ? dateTimeFormatter : dateFormatter, timestamp)
 
   const indexFor = (data: ReadonlyArray<Timestamped>): KeyIndex => {
-    const first = data[0]?.timestamp ?? 0
-    const last = data[data.length - 1]?.timestamp ?? 0
     const cached = keyIndexes.get(data)
-    if (cached && cached.length === data.length && cached.first === first && cached.last === last)
-      return cached
+    const source = cached ?? previousIndex
 
+    // 渲染帧会复制数据数组；按时间戳比较前缀，复用未改变的日历键。
+    let shared = 0
+    if (source) {
+      const previous = source.timestamps
+      const end = Math.min(previous.length, data.length)
+      while (shared < end && previous[shared] === data[shared]!.timestamp) shared++
+      if (shared === data.length && data.length === previous.length) {
+        keyIndexes.set(data, source)
+        previousIndex = source
+        return source
+      }
+    }
+
+    const timestamps = new Float64Array(data.length)
     const month = new Int32Array(data.length)
     const day = new Int32Array(data.length)
-    for (let index = 0; index < data.length; index++) {
-      const parts = partsAt(data[index]!.timestamp)
+    if (shared && source) {
+      timestamps.set(source.timestamps.subarray(0, shared))
+      month.set(source.month.subarray(0, shared))
+      day.set(source.day.subarray(0, shared))
+    }
+    for (let index = shared; index < data.length; index++) {
+      const timestamp = data[index]!.timestamp
+      timestamps[index] = timestamp
+      const parts = partsAt(timestamp)
       const year = Number(parts.year)
       const monthNumber = Number(parts.month)
       month[index] = year * 12 + monthNumber - 1
       day[index] = year * 10_000 + monthNumber * 100 + Number(parts.day)
     }
-    const next = { length: data.length, first, last, month, day }
+    const next = { timestamps, month, day }
     keyIndexes.set(data, next)
+    previousIndex = next
     return next
   }
 
