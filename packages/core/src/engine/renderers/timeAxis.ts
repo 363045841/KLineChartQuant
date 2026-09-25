@@ -3,9 +3,9 @@ import type {
   RenderContext,
   RendererPlugin,
 } from '../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
+import { isDailyPeriod, isMinutePeriod, isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
@@ -60,7 +60,7 @@ function collectTimeAxisTicks(
       const screenX = day.labelX - scrollLeft
       if (screenX < 0 || screenX > width) continue
       surface.register({
-        kind: 'tick',
+        kind: AXIS_LABEL_KIND.TICK,
         text: formatTradingDateLabel(day.tradingDate),
         pos: screenX,
         color: textColor,
@@ -94,7 +94,7 @@ function collectTimeAxisTicks(
       if (drawX < 0 || drawX > width) continue
       const ts = minuteOfDayToTimestamp(baseTs, label.minuteOfDay, market.timeZone)
       surface.register({
-        kind: 'tick',
+        kind: AXIS_LABEL_KIND.TICK,
         text: formatter.formatAxisTime(ts),
         pos: drawX,
         color: textColor,
@@ -104,8 +104,8 @@ function collectTimeAxisTicks(
     return
   }
 
-  const isMinuteData = period.includes('min')
-  const showOnlyYear = !isMinuteData && period !== 'daily'
+  const isMinuteData = isMinutePeriod(period)
+  const showOnlyYear = !isMinuteData && !isDailyPeriod(period)
   const displayTimeFormatter = context.displayTimeFormatter
   const boundaries = isMinuteData
     ? displayTimeFormatter.getDayBoundaries(klineData)
@@ -128,7 +128,7 @@ function collectTimeAxisTicks(
     const screenX = centerX - scrollLeft
     if (screenX < minX || screenX > maxX) continue
     surface.register({
-      kind: 'tick',
+      kind: AXIS_LABEL_KIND.TICK,
       text,
       pos: Math.min(Math.max(screenX, minX), maxX),
       color: textColor,
@@ -196,7 +196,7 @@ export function createTimeAxisRendererPlugin(options: {
         const k = (context.data as KLineData[])[crosshair.index]
         if (k) {
           registerAxisLabel(context, 'xCrosshair', {
-            kind: 'tag',
+            kind: AXIS_LABEL_KIND.TAG,
             text: formatCrosshairTime(context, k.timestamp),
             pos: crosshair.x,
             bgColor: colors.label.bg,

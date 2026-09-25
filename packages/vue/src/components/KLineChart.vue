@@ -1076,6 +1076,8 @@
   let _prevTooltipIdx: number | null = null
   let _unsubTooltip: (() => void) | null = null
   let _tooltipSlots: _TooltipSlots | null = null
+  let _tooltipVisibilityEl: HTMLDivElement | null = null
+  let _tooltipHidden = false
 
   const NEUTRAL_COLOR = '#6b7280'
   interface _KLineData {
@@ -1241,11 +1243,16 @@
       const data = ctrl.getData()
       const kline =
         typeof idx === 'number' && data && idx >= 0 && idx < data.length ? data[idx] : undefined
-      if (!kline || !data || ctrl.chartMode.peek() === 'comparison' || isMobile) {
-        el.style.display = 'none'
-        return
+      const hidden = !kline || !data || ctrl.chartMode.peek() === 'comparison' || isMobile
+      if (_tooltipVisibilityEl !== el) {
+        _tooltipVisibilityEl = el
+        _tooltipHidden = false
       }
-      el.style.display = ''
+      if (_tooltipHidden !== hidden) {
+        el.style.display = hidden ? 'none' : ''
+        _tooltipHidden = hidden
+      }
+      if (hidden) return
       positionDefaultKLineTooltip()
       if (idx !== _prevTooltipIdx) {
         _prevTooltipIdx = idx

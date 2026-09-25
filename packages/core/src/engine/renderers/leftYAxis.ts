@@ -1,6 +1,6 @@
 import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { AXIS_LABEL_KIND, GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
 import { formatAxisPriceValue } from './axisValueFormat.js'
@@ -58,7 +58,7 @@ export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): 
       for (const tick of context.yAxisTicks) {
         const displayValue = isPercent ? pane.yAxis.toPercent(tick.value) : tick.value
         labels.register({
-          kind: 'tick',
+          kind: AXIS_LABEL_KIND.TICK,
           text: formatAxisPriceValue(displayValue, isPercent),
           pos: tick.y,
           color: tokenColors.text.secondary,
@@ -112,7 +112,7 @@ export function createLeftYAxisOverlayRendererPlugin(options: LeftYAxisOptions):
       const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
 
       registerAxisLabel(context, 'yLeftOverlay', {
-        kind: 'tag',
+        kind: AXIS_LABEL_KIND.TAG,
         text: formatAxisPriceValue(crosshairPrice, isPercent),
         pos: crosshair.y,
         origin: pane.top,

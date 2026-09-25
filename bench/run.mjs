@@ -342,6 +342,7 @@ async function main() {
     const chromeArgs = [
       '--headless=new',
       '--enable-gpu',
+      '--force_high_performance_gpu',
       '--enable-unsafe-webgpu',
       '--ignore-gpu-blocklist',
       '--disable-software-rasterizer',

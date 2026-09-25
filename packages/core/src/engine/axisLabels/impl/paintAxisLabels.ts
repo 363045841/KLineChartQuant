@@ -10,6 +10,7 @@ import type {
   AxisTagLabel,
   AxisTickLabel,
 } from '@/foundation/plugin/types.js'
+import { AXIS_LABEL_KIND } from '@/foundation/plugin/types.js'
 import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '@/foundation/utils/pixelAlign.js'
 import type { AxisLabelMetrics } from '../types.js'
@@ -159,7 +160,7 @@ export function paintAxisLabels(
   metrics: AxisLabelMetrics,
 ): void {
   for (const label of labels) {
-    if (label.kind === 'tick') {
+    if (label.kind === AXIS_LABEL_KIND.TICK) {
       paintTick(ctx, label, surface, metrics)
     } else {
       paintTag(ctx, label, surface, metrics)

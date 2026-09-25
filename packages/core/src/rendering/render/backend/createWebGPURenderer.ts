@@ -178,16 +178,6 @@ function linePoints(strip: DrawLineStrip): Float32Array {
   return values
 }
 
-/** 几何 revision：按 float32 位型哈希，避免截断精度导致漏 upload */
-function geometryRevision(values: Float32Array): number {
-  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length)
-  let h = values.length >>> 0
-  for (let i = 0; i < bits.length; i++) {
-    h = Math.imul(h ^ bits[i]!, 16777619) >>> 0
-  }
-  return h
-}
-
 export async function createWebGPURenderer(
   options: CreateWebGPURendererOptions = {},
 ): Promise<Renderer> {
@@ -236,8 +226,22 @@ export async function createWebGPURenderer(
   /** 本帧 touch 的 strip ResourceTable key；flush 后 prune 未 touch 的 */
   const stripKeysThisFrame = new Set<string>()
   const stripKeysKnown = new Set<string>()
+  type CachedStrip = {
+    points: Float64Array
+    width: number
+    dpr: number
+    scrollLeft: number
+    scrollSensitive: boolean
+    wide: boolean
+    vertexCount: number
+    buffer: GPUBuffer
+  }
+  const stripGeometry = new Map<string, CachedStrip>()
   const buffers = new WeakMap<object, BufferRecord>()
   const bufferRecords = new Set<BufferRecord>()
+  const retiredBuffers = new Set<BufferRecord>()
+  const retiringBuffers = new Set<BufferRecord>()
+  let retireScheduled = false
   const pipelines = new WeakMap<object, PipelineRecord>()
   const pipelineCache = new Map<string, GPURenderPipeline>()
   /** 帧内 uniform 环：跨帧复用，flush 后游标归零 */
@@ -261,6 +265,7 @@ export async function createWebGPURenderer(
     for (const key of stripKeysKnown) {
       if (stripKeysThisFrame.has(key)) continue
       resourceTable.destroyKey(key)
+      stripGeometry.delete(key)
       stripKeysKnown.delete(key)
     }
     for (const key of stripKeysThisFrame) stripKeysKnown.add(key)
@@ -279,7 +284,30 @@ export async function createWebGPURenderer(
 
   function deferDestroy(record: BufferRecord): void {
     bufferRecords.delete(record)
-    void device.queue.onSubmittedWorkDone().then(() => record.buffer.destroy())
+    retiredBuffers.add(record)
+    // 等本轮同步绘制结束；若仍有待提交 draw，由 flushPendingDraws 在 submit 后处理。
+    if (!retireScheduled) {
+      retireScheduled = true
+      queueMicrotask(() => {
+        retireScheduled = false
+        if (!disposed && pendingDraws.length === 0) retireBuffers()
+      })
+    }
+  }
+
+  function retireBuffers(): void {
+    if (retiredBuffers.size === 0) return
+    const batch = [...retiredBuffers]
+    retiredBuffers.clear()
+    for (const record of batch) retiringBuffers.add(record)
+    const destroyBatch = () => {
+      for (const record of batch) {
+        if (!retiringBuffers.delete(record)) continue
+        record.buffer.destroy()
+      }
+    }
+    // 每批只等待一次；设备丢失时也释放本地 buffer 引用。
+    void device.queue.onSubmittedWorkDone().then(destroyBatch, destroyBatch)
   }
 
   function acquireUniform(byteLength: number): BufferRecord {
@@ -488,6 +516,7 @@ export async function createWebGPURenderer(
       metrics.recordSubmit()
       pendingDraws = []
     }
+    retireBuffers()
     frameClearRequested = false
 
     if (options?.composite) {
@@ -610,31 +639,71 @@ export async function createWebGPURenderer(
           const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
           for (const strip of params.strips) {
             if (strip.points.length < 2) return false
-            const physicalStrip = prepareLineStripForPhysicalPixels(
-              strip,
-              currentRegion.dpr,
-              scrollLeft,
-            )
-            const wide = (physicalStrip.width ?? 1) * currentRegion.dpr > 1
-            const values = wide
-              ? buildWideLineGeometry(physicalStrip.points, physicalStrip.width ?? 1)
-              : linePoints(physicalStrip)
-            if (!values) return false
-            // 帧内序号作 key：同顺序跨帧复用；revision 未变则不 upload
-            const key = `strip/${stripSeq++}`
+            // 帧内序号作 key：同顺序跨帧复用；输入变化时才生成几何并比较上传内容。
+            const key = `strip/${stripSeq}`
+            const width = strip.width ?? 1
+            const dpr = currentRegion.dpr
+            let cached = stripGeometry.get(key)
+            if (
+              cached &&
+              cached.width === width &&
+              cached.dpr === dpr &&
+              (!cached.scrollSensitive || cached.scrollLeft === scrollLeft) &&
+              cached.points.length === strip.points.length * 2
+            ) {
+              for (let index = 0; index < strip.points.length; index++) {
+                const point = strip.points[index]!
+                if (cached.points[index * 2] !== point.x || cached.points[index * 2 + 1] !== point.y) {
+                  cached = undefined
+                  break
+                }
+              }
+            } else {
+              cached = undefined
+            }
+            if (!cached) {
+              const physicalStrip = prepareLineStripForPhysicalPixels(strip, dpr, scrollLeft)
+              const wide = (physicalStrip.width ?? 1) * dpr > 1
+              const values = wide
+                ? buildWideLineGeometry(physicalStrip.points, physicalStrip.width ?? 1)
+                : linePoints(physicalStrip)
+              if (!values) return false
+              const uploaded = resourceTable.ensureUploadedOwnedExact({
+                key,
+                data: values,
+                usage: 'vertex',
+              })
+              const points = new Float64Array(strip.points.length * 2)
+              const first = strip.points[0]!
+              let horizontal = true
+              let vertical = true
+              for (let index = 0; index < strip.points.length; index++) {
+                const point = strip.points[index]!
+                points[index * 2] = point.x
+                points[index * 2 + 1] = point.y
+                if (point.y !== first.y) horizontal = false
+                if (point.x !== first.x) vertical = false
+              }
+              cached = {
+                points,
+                width,
+                dpr,
+                scrollLeft,
+                scrollSensitive: vertical && !horizontal,
+                wide,
+                vertexCount: values.length / 2,
+                buffer: uploaded.buffer,
+              }
+              stripGeometry.set(key, cached)
+            }
+            stripSeq++
             stripKeysThisFrame.add(key)
-            const uploaded = resourceTable.ensureUploaded({
-              key,
-              revision: geometryRevision(values),
-              data: values,
-              usage: 'vertex',
-            })
             pendingDraws.push({
               kind: 'lines',
               region: { ...currentRegion },
-              pipeline: getPipeline(wide ? 'line-wide' : 'line-strip'),
-              vertexBuffer: uploaded.buffer,
-              vertexCount: values.length / 2,
+              pipeline: getPipeline(cached.wide ? 'line-wide' : 'line-strip'),
+              vertexBuffer: cached.buffer,
+              vertexCount: cached.vertexCount,
               color: strip.color,
               scrollLeft,
             })
@@ -671,9 +740,14 @@ export async function createWebGPURenderer(
       pendingDraws = []
       stripKeysThisFrame.clear()
       stripKeysKnown.clear()
+      stripGeometry.clear()
       msaaTexture?.destroy()
       msaaTexture = null
       resourceTable.destroyAll()
+      for (const record of retiredBuffers) record.buffer.destroy()
+      retiredBuffers.clear()
+      for (const record of retiringBuffers) record.buffer.destroy()
+      retiringBuffers.clear()
       for (const record of uniformPool) record.buffer.destroy()
       uniformPool.length = 0
       for (const record of bufferRecords) record.buffer.destroy()

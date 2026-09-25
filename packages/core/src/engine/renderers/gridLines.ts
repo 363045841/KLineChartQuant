@@ -2,6 +2,7 @@ import type { RenderContext, RendererPlugin } from '../../foundation/plugin/inde
 import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
+import { isDailyPeriod, isMinutePeriod } from '../../foundation/types/chartPeriod.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import {
   createHorizontalLineRect,
@@ -62,10 +63,18 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
           if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
         }
       } else if (!isTimeShareDataView(context.dataView)) {
-        const boundaries = context.displayTimeFormatter.getMonthBoundaries(klineData)
+        const minutePeriod = isMinutePeriod(context.period)
+        const boundaries = minutePeriod
+          ? context.displayTimeFormatter.getDayBoundaries(klineData)
+          : context.displayTimeFormatter.getMonthBoundaries(klineData)
+        const showOnlyYear = !minutePeriod && !isDailyPeriod(context.period)
 
         for (const idx of boundaries) {
           if (idx < range.start || idx >= range.end || idx >= klineData.length) continue
+          if (
+            showOnlyYear &&
+            !context.displayTimeFormatter.formatAxisMonthOrYear(klineData[idx]!.timestamp).isYear
+          ) continue
 
           // 使用帧级中心点，避免 kWidth 物理像素取整后与 K 线实体、十字线偏移。
           const localIdx = idx - range.start

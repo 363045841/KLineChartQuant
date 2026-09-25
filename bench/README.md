@@ -14,7 +14,7 @@ node bench/run.mjs
 
 正式场景之外还会执行 WebGPU 提交 A/B：相同的 7 个命令缓冲分别通过一次 `queue.submit` 集中提交和 7 次 `queue.submit` 拆分提交，只测提交调用边界。每个样本内部重复 100 次，预热 50 个样本后采集 400 个样本；原始数组与 P50/P95 写入 JSON。
 
-运行器会启动新版无头 Chrome，并启用 GPU、禁止软件光栅化。若检测到 SwiftShader、llvmpipe，或 WebGL2/WebGPU 不可用，实验直接失败，不生成可采信结果。
+运行器会启动新版无头 Chrome，并启用 GPU、禁止软件光栅化。默认通过 `--force_high_performance_gpu` 强制使用独显，避免混合显卡机器落到核显上。若检测到 SwiftShader、llvmpipe，或 WebGL2/WebGPU 不可用，实验直接失败，不生成可采信结果。
 
 可通过环境变量覆盖配置：
 

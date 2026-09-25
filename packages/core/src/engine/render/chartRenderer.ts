@@ -8,7 +8,6 @@ import type {
   RenderContext,
   XAxisRange,
   YAxisRange,
-  YAxisTick,
 } from '../../foundation/plugin/index.js'
 import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index.js'
 import {
@@ -82,7 +81,7 @@ import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
-import { calculateTickCount } from '../utils/tickCount.js'
+import { createYAxisTicks } from '../utils/axisTicks.js'
 import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 import {
   computeVisiblePriceExtrema,
@@ -1097,23 +1096,13 @@ export class ChartRenderer {
       context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)
       sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
 
-      // 计算本 pane 的 Y 轴刻度（等分 + yToPrice 映射）
-      {
-        const pt = pane.yAxis.getPaddingTop()
-        const pb = pane.yAxis.getPaddingBottom()
-        const yStart = pt
-        const yEnd = Math.max(pt, pane.height - pb)
-        const viewH = Math.max(0, yEnd - yStart)
-        const tickCount = Math.max(2, calculateTickCount(pane.height, pane.role === 'price'))
-        const yAxisTicks: YAxisTick[] = []
-        for (let i = 0; i < tickCount; i++) {
-          const t = tickCount <= 1 ? 0 : i / (tickCount - 1)
-          const y = yStart + t * viewH
-          const value = pane.yAxis.yToPrice(y)
-          yAxisTicks.push({ y, value })
-        }
-        context.yAxisTicks = yAxisTicks
-      }
+      // 刻度锚定轴数值，再投影到本帧的价格坐标系；网格与左右轴共用。
+      context.yAxisTicks = createYAxisTicks(pane, {
+        period: context.period,
+        comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
+        leftSetting: context.settings?.mainLeftAxisDisplaySetting,
+        rightTypeSetting: context.settings?.mainRightAxisTypeSetting,
+      })
 
       this.paneCtxMap.set(pane.id, context)
       this.currentPaneId = pane.id

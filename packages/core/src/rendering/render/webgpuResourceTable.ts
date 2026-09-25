@@ -18,10 +18,14 @@ export type GpuResourceHandle = {
   buffer: GPUBuffer
   capacity: number
   lastRevision: number
+  uploadedBits?: Uint32Array
 }
 
 export type WebGPUResourceTable = {
   ensureUploaded(params: EnsureUploadedParams): GpuResourceHandle
+  ensureUploadedExact(params: Omit<EnsureUploadedParams, 'revision'>): GpuResourceHandle
+  /** 接管新建的顶点数组；调用后不得再修改该数组或其底层 ArrayBuffer。 */
+  ensureUploadedOwnedExact(params: Omit<EnsureUploadedParams, 'revision'>): GpuResourceHandle
   destroyKey(key: string): void
   destroyAll(): void
 }
@@ -43,6 +47,46 @@ export function createWebGPUResourceTable(options: {
 }): WebGPUResourceTable {
   const { device, metrics } = options
   const resources = new Map<string, GpuResourceHandle>()
+
+  function ensureExact(
+    { key, data, usage }: Omit<EnsureUploadedParams, 'revision'>,
+    takeOwnership: boolean,
+  ): GpuResourceHandle {
+    const byteLength = data.byteLength
+    let resource = resources.get(key)
+    if (!resource || resource.capacity < byteLength) {
+      resource?.buffer.destroy()
+      const capacity = growCapacity(byteLength, resource?.capacity ?? 0)
+      resource = {
+        buffer: device.createBuffer({ size: capacity, usage: gpuUsage(usage) }),
+        capacity,
+        lastRevision: -1,
+      }
+      metrics?.recordBufferCreate()
+      resources.set(key, resource)
+    }
+    const bits = new Uint32Array(data.buffer, data.byteOffset, data.length)
+    const previous = resource.uploadedBits
+    let changed = !previous || previous.length !== bits.length
+    if (!changed && previous) {
+      for (let i = 0; i < bits.length; i++) {
+        if (bits[i] !== previous[i]) {
+          changed = true
+          break
+        }
+      }
+    }
+    if (changed) {
+      device.queue.writeBuffer(resource.buffer, 0, data.buffer as ArrayBuffer, data.byteOffset, byteLength)
+      metrics?.recordUpload(byteLength)
+      // 折线几何由 renderer 每次新建，可直接保存其位型视图，省去第二次全量复制。
+      if (takeOwnership) resource.uploadedBits = bits
+      else if (!previous || previous.length !== bits.length) resource.uploadedBits = new Uint32Array(bits)
+      else previous.set(bits)
+      resource.lastRevision = -1
+    }
+    return resource
+  }
 
   return {
     ensureUploaded({ key, revision, data, usage }): GpuResourceHandle {
@@ -69,8 +113,15 @@ export function createWebGPUResourceTable(options: {
         )
         metrics?.recordUpload(byteLength)
         resource.lastRevision = revision
+        resource.uploadedBits = undefined
       }
       return resource
+    },
+    ensureUploadedExact(params): GpuResourceHandle {
+      return ensureExact(params, false)
+    },
+    ensureUploadedOwnedExact(params): GpuResourceHandle {
+      return ensureExact(params, true)
     },
     destroyKey(key): void {
       const resource = resources.get(key)
