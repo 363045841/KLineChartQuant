@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createWebGPURenderer } from '../backend/createWebGPURenderer'
 import { createFrameMetrics, getFrameMetrics, resetFrameMetrics } from '../frameMetrics'
+import * as wideLineGeometry from '../wideLineGeometry'
 import { createMockWebGPU } from './helpers/webgpuTestKit'
 
 describe('createWebGPURenderer', () => {
@@ -425,6 +426,70 @@ describe('createWebGPURenderer', () => {
       uniformWritesAfterFirst,
     )
     expect(getFrameMetrics().queueSubmitCount).toBe(1)
+  })
+
+  it('skips wide line expansion for equal points and rebuilds after changes', async () => {
+    const fake = createMockWebGPU()
+    const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
+    const expand = vi.spyOn(wideLineGeometry, 'buildWideLineGeometry')
+    renderer.surface.resize(100, 100, 1)
+    const pipeline = renderer.createPipeline({ type: 'line' })
+    const region = { x: 0, y: 0, width: 100, height: 100, dpr: 1 }
+    let points = [{ x: 0, y: 1 }, { x: 10, y: 5 }]
+    const draw = (scrollLeft = 0) => {
+      renderer.beginFrame(region)
+      expect(renderer.drawLines({
+        pipeline,
+        strips: [{ points, color: '#f00', width: 2 }],
+        uniforms: { scrollLeft },
+      })).toBe(true)
+      renderer.endFrame()
+    }
+    try {
+      draw()
+      expect(expand).toHaveBeenCalledTimes(1)
+      points = [{ x: 0, y: 1 }, { x: 10, y: 5 }]
+      draw(12)
+      expect(expand).toHaveBeenCalledTimes(1)
+      expect(fake.passes[1]?.draw).toHaveBeenCalledWith(6, 1)
+      points[1]!.y = 6
+      draw(12)
+      expect(expand).toHaveBeenCalledTimes(2)
+      region.dpr = 1.25
+      draw(12)
+      expect(expand).toHaveBeenCalledTimes(3)
+      renderer.beginFrame(region)
+      renderer.endFrame()
+      draw(12)
+      expect(expand).toHaveBeenCalledTimes(4)
+    } finally {
+      expand.mockRestore()
+      renderer.dispose()
+    }
+  })
+
+  it('rebuilds snapped vertical strips when scrolling changes', async () => {
+    const fake = createMockWebGPU()
+    const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
+    renderer.surface.resize(100, 100, 1)
+    const pipeline = renderer.createPipeline({ type: 'line' })
+    const points = [{ x: 10, y: 0 }, { x: 10, y: 20 }]
+    const draw = (scrollLeft: number) => {
+      renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
+      expect(renderer.drawLines({
+        pipeline,
+        strips: [{ points, color: '#f00', width: 2 }],
+        uniforms: { scrollLeft },
+      })).toBe(true)
+      renderer.endFrame()
+    }
+    draw(0)
+    const firstBuffer = fake.buffers[0]
+    const vertexWrites = () => fake.queue.writeBuffer.mock.calls.filter((call) => call[0] === firstBuffer).length
+    expect(vertexWrites()).toBe(1)
+    draw(0.5)
+    expect(vertexWrites()).toBe(2)
+    renderer.dispose()
   })
 
   it('records submit and draw metrics on endFrame', async () => {
