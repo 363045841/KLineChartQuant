@@ -23,7 +23,7 @@ const CONNECTORS = {
     logColor: LOG_COLORS.gotdx,
     dir: 'GoTDX-Connector',
     cmd: 'go',
-    args: ['run', '.', 'tdx'],
+    args: ['run', './services/tdx-api'],
   },
   binance: {
     label: 'binance（币安深度，:8081）',
@@ -31,7 +31,7 @@ const CONNECTORS = {
     logColor: LOG_COLORS.binance,
     dir: 'GoTDX-Connector',
     cmd: 'go',
-    args: ['run', '.', 'binance'],
+    args: ['run', './services/binance-api'],
   },
   baostock: {
     label: 'baostock / tradingview（:8000）',
@@ -106,6 +106,7 @@ export function startConnectors(names) {
     const child = spawn(conn.cmd, conn.args, {
       cwd,
       stdio: ['inherit', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     })
     children.push(attachPrefixedOutput(child, conn.logLabel, conn.logColor))
   }

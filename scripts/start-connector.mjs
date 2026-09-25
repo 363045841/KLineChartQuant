@@ -14,7 +14,7 @@
  */
 
 import { startConnectors } from './connectors.mjs'
-import { killProcessTree } from './lib/kill-process-tree.mjs'
+import { manageShutdown } from './lib/managed-shutdown.mjs'
 
 // 无参时启动 `all`（不含依赖本机 MT5 终端的 mt5）
 const names = process.argv.slice(2)
@@ -27,10 +27,4 @@ if (children.length === 0) {
   console.log(`\n已启动 ${children.length} 个 connector（按 Ctrl+C 结束）。`)
 }
 
-function shutdown() {
-  for (const child of children) {
-    killProcessTree(child)
-  }
-}
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+manageShutdown(children)

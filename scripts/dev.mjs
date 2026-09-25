@@ -17,7 +17,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startConnectors } from './connectors.mjs'
-import { killProcessTree } from './lib/kill-process-tree.mjs'
+import { manageShutdown } from './lib/managed-shutdown.mjs'
 import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -30,28 +30,26 @@ const lan = args.includes('--lan')
 const cIndex = args.indexOf('-c')
 const connNames = cIndex !== -1 ? args.slice(cIndex + 1).filter((a) => !a.startsWith('-')) : []
 
-// 启动 Vite 开发服务器（vue 包的 preview 配置已绑定 0.0.0.0，--lan 仅透传 --host）
-const viteCommand = `pnpm --filter @363045841yyt/klinechart dev${lan ? ' --host 0.0.0.0' : ''}`
+// 直接启动 Vite，避免嵌套的 pnpm 在 Ctrl+C 后追加 ELIFECYCLE 日志。
+const vueRoot = path.join(ROOT, 'packages', 'vue')
+const viteCli = path.join(vueRoot, 'node_modules', 'vite', 'bin', 'vite.js')
 const vite = attachPrefixedOutput(
-  spawn(viteCommand, {
-    cwd: ROOT,
-    stdio: ['inherit', 'pipe', 'pipe'],
-    shell: true,
-  }),
+  spawn(
+    process.execPath,
+    [viteCli, '--config', 'preview/vite.config.ts', ...(lan ? ['--host', '0.0.0.0'] : [])],
+    {
+      cwd: vueRoot,
+      stdio: ['inherit', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
+    },
+  ),
   'vite',
   LOG_COLORS.vite,
 )
 
 const children = [vite, ...startConnectors(connNames)]
 
-// 收到退出信号时一并结束所有子进程及其后代，避免留下占用端口的孤儿进程
-function shutdown() {
-  for (const child of children) {
-    killProcessTree(child)
-  }
-}
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+manageShutdown(children)
 
 if (connNames.length === 0) {
   console.log('（未指定 -c，仅启动开发服务器。用 `pnpm dev -c all` 同时启动全部 connector。）')
