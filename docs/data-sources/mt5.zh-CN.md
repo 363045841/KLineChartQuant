@@ -2,9 +2,9 @@
 
 ## 简介
 
-`KCQ-MT5-connector` 是 MT5（Exness）的本地终端行情连接器：通过 MetaTrader5 Python 包 IPC 读取本机已登录的 MT5 终端，提供 KCQ market-data V1 协议（probe / instruments/search / bars）与 SSE 实时 K 线流（`snapshot` / `forming` / `closed` / `status`）。依赖 Windows + 已登录的 MT5 终端，不纳入 `pnpm dev -c all`。
+`KCQ-MT5-connector` 是 MT5（Exness）的本地终端行情连接器：通过 MetaTrader5 Python 包 IPC 读取本机已登录的 MT5 终端，提供 KCQ market-data V1 协议（probe / instruments/search / bars）与 SSE 实时 K 线流（`snapshot` / `forming` / `closed` / `status`）。依赖 Windows + 已登录的 MT5 (Exness) 终端，不纳入 `pnpm dev -c all`。
 
-本地仓库与 `KCQ-MT5-connector` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup` 一键克隆：
+本地仓库与 `KCQ-MT5-connector` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup:backends` 一键克隆：
 
 ```
 workspace/
@@ -13,7 +13,7 @@ workspace/
 ```
 
 ```bash
-pnpm setup   # 幂等：目录已存在则跳过
+pnpm setup:backends   # 幂等：目录已存在则跳过
 ```
 
 ## 使用方法
@@ -27,7 +27,7 @@ pnpm setup   # 幂等：目录已存在则跳过
 
 ## 启动方式
 
-前置：Windows + 已安装并登录的 MT5 终端（Exness）、Python 3.12+ 与 [uv](https://docs.astral.sh/uv/)。`KCQ-MT5-connector` 与本仓库同级：
+前置：Windows + 已安装并登录的 MT5 (Exness) 终端、Python 3.12+ 与 [uv](https://docs.astral.sh/uv/)。`KCQ-MT5-connector` 与本仓库同级：
 
 ```bash
 # 仅后端（在本仓库根目录执行，等价于 cd ../KCQ-MT5-connector && uv run python ./server.py）

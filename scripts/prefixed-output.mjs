@@ -4,23 +4,22 @@
  * 为并行开发子进程的 stdout / stderr 逐行添加稳定、可区分的彩色来源前缀。
  */
 
-const RESET = '\u001b[0m'
+import { ANSI, paint } from './lib/ansi.mjs'
+
 const PREFIX_WIDTH = 13
 
 /** 可用的 ANSI 前缀颜色。 */
 export const LOG_COLORS = {
-  vite: '\u001b[35m',
-  gotdx: '\u001b[32m',
-  binance: '\u001b[33m',
-  baostock: '\u001b[36m',
-  mt5: '\u001b[34m',
+  vite: ANSI.magenta,
+  gotdx: ANSI.green,
+  binance: ANSI.yellow,
+  baostock: ANSI.cyan,
+  mt5: ANSI.blue,
 }
 
 /** 根据输出环境生成固定宽度前缀，非 TTY 或 NO_COLOR 环境自动禁用颜色。 */
 function createPrefix(label, color, output) {
-  const text = `[${label}]`.padEnd(PREFIX_WIDTH)
-  const colorEnabled = output.isTTY === true && process.env.NO_COLOR === undefined
-  return colorEnabled ? `${color}${text}${RESET}` : text
+  return paint(`[${label}]`.padEnd(PREFIX_WIDTH), color, output)
 }
 
 /** 把可读流按换行或回车拆分，并将每一行写入带来源前缀的目标流。 */

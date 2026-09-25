@@ -4,7 +4,7 @@
 
 BaoStock 是免费的证券数据平台，提供 A 股日 / 周 / 月及分钟 K 线。前端通过同级仓库 `Baostock-Tradingview-Connector`（FastAPI 服务）作为本地代理访问；该服务还通过 tvDatafeed 提供 TradingView 全球品种数据（`/api/tradingview/kdata`）。
 
-本地仓库与 `Baostock-Tradingview-Connector` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup` 一键克隆：
+本地仓库与 `Baostock-Tradingview-Connector` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup:backends` 一键克隆：
 
 ```
 workspace/
@@ -13,7 +13,7 @@ workspace/
 ```
 
 ```bash
-pnpm setup   # 幂等：目录已存在则跳过
+pnpm setup:backends   # 幂等：目录已存在则跳过
 ```
 
 ## 使用方法

@@ -234,7 +234,7 @@ flowchart TB
 前端对接代码：`packages/core/src/data/provider/sources/gotdx.ts`、
 `packages/core/src/data/provider/sources/mt5.ts`、`packages/core/src/data/live/mt5BarsLive.ts`、
 `packages/core/src/data/depth/binance.ts`。Vite 开发代理 `/api/public` → `:8080`、
-`/api/stock` → `:8000`。`pnpm setup` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
+`/api/stock` → `:8000`。`pnpm setup:backends` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
 （`mt5` 依赖 Windows + 本机 MT5 终端，不纳入 `all`，需显式 `pnpm connector mt5` / `pnpm dev -c mt5`）。
 
 ## 6. 关键文件索引

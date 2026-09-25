@@ -7,7 +7,7 @@
  *   node scripts/start-connector.mjs gotdx      # gotdx 通达信（:8080）
  *   node scripts/start-connector.mjs binance    # 币安深度（:8081）
  *   node scripts/start-connector.mjs baostock   # BaoStock / TradingView（:8000）
- *   node scripts/start-connector.mjs mt5        # MT5 本地终端（:8090，Windows + 已登录 MT5 终端）
+ *   node scripts/start-connector.mjs mt5        # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
  *   node scripts/start-connector.mjs tdx baostock  # 可同时指定多个，也支持别名
  *
  * 需要连同前端一起启动时，使用 `pnpm dev -c <names>`。
@@ -20,7 +20,7 @@ const names = process.argv.slice(2)
 const children = startConnectors(names.length > 0 ? names : ['all'])
 
 if (children.length === 0) {
-  console.error('\n没有可启动的 connector。先运行 pnpm setup 克隆数据源后端，再重试。')
+  console.error('\n没有可启动的 connector。先运行 pnpm setup:backends 克隆数据源后端，再重试。')
   process.exitCode = 1
 } else {
   console.log(`\n已启动 ${children.length} 个 connector（按 Ctrl+C 结束）。`)

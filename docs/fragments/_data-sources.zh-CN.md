@@ -17,7 +17,7 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 先安装数据源后端：
 
 ```bash
-pnpm setup
+pnpm setup:backends
 ```
 
 再 `pnpm dev` 带 `-c` 参数即可同时启动前端与选定的数据源后端：
@@ -26,7 +26,7 @@ pnpm setup
 pnpm dev                      # 仅前端（Vite 开发服务器）
 pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5）
 pnpm dev -c gotdx baostock    # 前端 + 指定的后端
-pnpm dev -c mt5               # 前端 + MT5 本地终端（Windows + 已登录 MT5 终端）
+pnpm dev -c mt5               # 前端 + MT5 本地终端（Windows + 已登录 MT5 (Exness) 终端）
 pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / m / all）
 pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访问）
 ```
@@ -50,7 +50,7 @@ pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 pnpm connector                # 全部后端（不含 mt5）
 pnpm connector gotdx          # gotdx 通达信（:8080）
 pnpm connector baostock       # BaoStock / TradingView（:8000）
-pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 终端）
+pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
 ```
 
-执行 `pnpm setup` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。
+执行 `pnpm setup:backends` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。

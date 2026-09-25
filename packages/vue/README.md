@@ -129,7 +129,7 @@ Backend repos live alongside this one (outside the monorepo).
 Clone the data-source backends first (idempotent: skips directories that already exist):
 
 ```bash
-pnpm setup
+pnpm setup:backends
 ```
 
 Then run `pnpm dev` with a `-c` argument to start the frontend and the selected connectors together:
@@ -165,7 +165,7 @@ pnpm connector baostock       # BaoStock / TradingView :8000
 pnpm connector mt5            # MT5 local terminal :8090 (Windows + logged-in MT5 terminal)
 ```
 
-After `pnpm setup`, no extra setup is needed. The dev server proxies `/api/stock` → `:8000` (Baostock-Tradingview-Connector) and `/api/public` → `:8080` (GoTDX-Connector).
+After `pnpm setup:backends`, no extra setup is needed. The dev server proxies `/api/stock` → `:8000` (Baostock-Tradingview-Connector) and `/api/public` → `:8080` (GoTDX-Connector).
 
 
 ## 🚀 Quick Start

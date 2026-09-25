@@ -7,7 +7,7 @@ GoTDX-Connector 是 Go 实现的多数据源代理，单一 module（`KlineChart
 - **tdx-api**（`:8080`）：通达信协议（gotdx），提供 A 股 / 期货 / MAC K 线、分笔、列表与搜索
 - **binance-api**（`:8081`）：币安 L2 订单簿 + SSE 深度流
 
-本地仓库与 `GoTDX-Connector` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup` 一键克隆：
+本地仓库与 `GoTDX-Connector` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup:backends` 一键克隆：
 
 ```
 workspace/
@@ -16,7 +16,7 @@ workspace/
 ```
 
 ```bash
-pnpm setup   # 幂等：目录已存在则跳过
+pnpm setup:backends   # 幂等：目录已存在则跳过
 ```
 
 ## 使用方法
