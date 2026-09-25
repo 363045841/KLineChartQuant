@@ -39,6 +39,76 @@ describe('createWebGPURenderer', () => {
     expect(fake.buffers[0]?.destroy).toHaveBeenCalledOnce()
   })
 
+  it('retires multiple idle buffers with one queue completion wait', async () => {
+    const fake = createMockWebGPU()
+    let finish!: () => void
+    fake.queue.onSubmittedWorkDone.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        finish = resolve
+      }),
+    )
+    const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
+    const a = renderer.createBuffer('vertex', 16)
+    const b = renderer.createBuffer('vertex', 16)
+    renderer.destroyBuffer(a)
+    renderer.destroyBuffer(b)
+    expect(fake.queue.onSubmittedWorkDone).not.toHaveBeenCalled()
+    await Promise.resolve()
+    expect(fake.queue.onSubmittedWorkDone).toHaveBeenCalledOnce()
+    expect(fake.buffers[0]?.destroy).not.toHaveBeenCalled()
+    expect(fake.buffers[1]?.destroy).not.toHaveBeenCalled()
+    finish()
+    await Promise.resolve()
+    expect(fake.buffers[0]?.destroy).toHaveBeenCalledOnce()
+    expect(fake.buffers[1]?.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('waits for frame submission before retiring a buffer used by pending draws', async () => {
+    const fake = createMockWebGPU()
+    let finish!: () => void
+    fake.queue.onSubmittedWorkDone.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        finish = resolve
+      }),
+    )
+    const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
+    renderer.surface.resize(100, 50, 1)
+    const pipeline = renderer.createPipeline({ type: 'candle' })
+    const vertices = renderer.createBuffer('vertex', 4)
+    const instances = renderer.createBuffer('instance', 16)
+    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 50, dpr: 1 })
+    expect(renderer.drawInstances({ pipeline, vertices, instances, instanceCount: 1, vertexCount: 6 })).toBe(true)
+    renderer.destroyBuffer(instances)
+    await Promise.resolve()
+    expect(fake.queue.onSubmittedWorkDone).not.toHaveBeenCalled()
+    renderer.endFrame()
+    expect(fake.queue.submit).toHaveBeenCalledOnce()
+    expect(fake.queue.onSubmittedWorkDone).toHaveBeenCalledOnce()
+    expect(fake.buffers[1]?.destroy).not.toHaveBeenCalled()
+    finish()
+    await Promise.resolve()
+    expect(fake.buffers[1]?.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('destroys retired buffers once when disposed before queue completion', async () => {
+    const fake = createMockWebGPU()
+    let finish!: () => void
+    fake.queue.onSubmittedWorkDone.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        finish = resolve
+      }),
+    )
+    const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
+    const handle = renderer.createBuffer('vertex', 16)
+    renderer.destroyBuffer(handle)
+    await Promise.resolve()
+    renderer.dispose()
+    expect(fake.buffers[0]?.destroy).toHaveBeenCalledOnce()
+    finish()
+    await Promise.resolve()
+    expect(fake.buffers[0]?.destroy).toHaveBeenCalledOnce()
+  })
+
   it('draws rectangle instances into an MSAA region', async () => {
     const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({

@@ -178,16 +178,6 @@ function linePoints(strip: DrawLineStrip): Float32Array {
   return values
 }
 
-/** 几何 revision：按 float32 位型哈希，避免截断精度导致漏 upload */
-function geometryRevision(values: Float32Array): number {
-  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length)
-  let h = values.length >>> 0
-  for (let i = 0; i < bits.length; i++) {
-    h = Math.imul(h ^ bits[i]!, 16777619) >>> 0
-  }
-  return h
-}
-
 export async function createWebGPURenderer(
   options: CreateWebGPURendererOptions = {},
 ): Promise<Renderer> {
@@ -238,6 +228,9 @@ export async function createWebGPURenderer(
   const stripKeysKnown = new Set<string>()
   const buffers = new WeakMap<object, BufferRecord>()
   const bufferRecords = new Set<BufferRecord>()
+  const retiredBuffers = new Set<BufferRecord>()
+  const retiringBuffers = new Set<BufferRecord>()
+  let retireScheduled = false
   const pipelines = new WeakMap<object, PipelineRecord>()
   const pipelineCache = new Map<string, GPURenderPipeline>()
   /** 帧内 uniform 环：跨帧复用，flush 后游标归零 */
@@ -279,7 +272,30 @@ export async function createWebGPURenderer(
 
   function deferDestroy(record: BufferRecord): void {
     bufferRecords.delete(record)
-    void device.queue.onSubmittedWorkDone().then(() => record.buffer.destroy())
+    retiredBuffers.add(record)
+    // 等本轮同步绘制结束；若仍有待提交 draw，由 flushPendingDraws 在 submit 后处理。
+    if (!retireScheduled) {
+      retireScheduled = true
+      queueMicrotask(() => {
+        retireScheduled = false
+        if (!disposed && pendingDraws.length === 0) retireBuffers()
+      })
+    }
+  }
+
+  function retireBuffers(): void {
+    if (retiredBuffers.size === 0) return
+    const batch = [...retiredBuffers]
+    retiredBuffers.clear()
+    for (const record of batch) retiringBuffers.add(record)
+    const destroyBatch = () => {
+      for (const record of batch) {
+        if (!retiringBuffers.delete(record)) continue
+        record.buffer.destroy()
+      }
+    }
+    // 每批只等待一次；设备丢失时也释放本地 buffer 引用。
+    void device.queue.onSubmittedWorkDone().then(destroyBatch, destroyBatch)
   }
 
   function acquireUniform(byteLength: number): BufferRecord {
@@ -488,6 +504,7 @@ export async function createWebGPURenderer(
       metrics.recordSubmit()
       pendingDraws = []
     }
+    retireBuffers()
     frameClearRequested = false
 
     if (options?.composite) {
@@ -620,12 +637,11 @@ export async function createWebGPURenderer(
               ? buildWideLineGeometry(physicalStrip.points, physicalStrip.width ?? 1)
               : linePoints(physicalStrip)
             if (!values) return false
-            // 帧内序号作 key：同顺序跨帧复用；revision 未变则不 upload
+            // 帧内序号作 key：同顺序跨帧复用；按 float32 位型比较决定是否 upload
             const key = `strip/${stripSeq++}`
             stripKeysThisFrame.add(key)
-            const uploaded = resourceTable.ensureUploaded({
+            const uploaded = resourceTable.ensureUploadedOwnedExact({
               key,
-              revision: geometryRevision(values),
               data: values,
               usage: 'vertex',
             })
@@ -674,6 +690,10 @@ export async function createWebGPURenderer(
       msaaTexture?.destroy()
       msaaTexture = null
       resourceTable.destroyAll()
+      for (const record of retiredBuffers) record.buffer.destroy()
+      retiredBuffers.clear()
+      for (const record of retiringBuffers) record.buffer.destroy()
+      retiringBuffers.clear()
       for (const record of uniformPool) record.buffer.destroy()
       uniformPool.length = 0
       for (const record of bufferRecords) record.buffer.destroy()
