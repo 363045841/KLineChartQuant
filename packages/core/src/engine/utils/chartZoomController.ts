@@ -105,6 +105,7 @@ export class ChartZoomController {
         dataLength: this.deps.getDataLength(),
         plotWidth: this.deps.getPlotWidth(),
         clientWidth: this.deps.getClientWidth(),
+        futureScreens: opt.futureScreens,
       },
     )
 

@@ -1,4 +1,5 @@
 import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
+import { futureBarCount } from '../viewport/viewport.js'
 import { getPhysicalKLineConfig } from './klineConfig.js'
 
 /**
@@ -20,6 +21,8 @@ export interface ZoomConfig extends ZoomConfigBase {
   plotWidth: number
   /** 容器总宽度（用于 maxScroll 裁剪） */
   clientWidth: number
+  /** 未来区屏数：缩放后的 maxScroll 裁剪需含未来区槽位；缺省不加 */
+  futureScreens?: number
 }
 
 export interface ZoomResult {
@@ -33,7 +36,7 @@ export interface ZoomResult {
 
 const PHYS_K_GAP_MAX = 3
 
-/** 尾部预留 K 线槽位数（与 ScrollCompensator 保持一致） */
+/** 尾部预留 K 线槽位数（与 ScrollCompensator 的 SCROLL_TRAILING_SLOTS=30 语义对齐） */
 const TRAILING_SLOTS = 30
 
 /** 将缩放级别转换为 K 线宽度（逻辑像素） */
@@ -95,9 +98,16 @@ export function computeZoom(
   const newAnchorWorldPx = newConfig.startXPx + anchorSlotFloat * newConfig.unitPx
   const newScrollLeft = newAnchorWorldPx / config.dpr - mouseX
 
-  // 用新 kWidth/kGap 计算内容宽度，确保裁剪使用正确的（缩放后）尺寸
+  // 缩放后的内容宽度与 maxScroll 需含未来区槽位，否则拖入未来区后缩放会被拉回数据右缘
+  const futureBars = futureBarCount(
+    config.plotWidth,
+    config.dpr,
+    newConfig.unitPx,
+    config.futureScreens ?? 0,
+  )
+  const trailingSlots = Math.max(TRAILING_SLOTS, futureBars)
   const dataPlotWidth =
-    (newConfig.startXPx + (config.dataLength + TRAILING_SLOTS) * newConfig.unitPx) / config.dpr
+    (newConfig.startXPx + (config.dataLength + trailingSlots) * newConfig.unitPx) / config.dpr
   const newContentWidth = config.plotWidth + Math.max(dataPlotWidth, config.plotWidth)
   const maxScroll = Math.max(0, newContentWidth - config.clientWidth)
 
