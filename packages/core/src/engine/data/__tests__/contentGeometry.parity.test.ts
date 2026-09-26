@@ -118,7 +118,8 @@ describe('contentGeometry parity', () => {
     const rawMaxScrollNeed =
       computeLeftLoadBufferWidth(input) + (startXPx + (100 - 1 + futureBars) * unitPx) / input.dpr
     const width = computeContentWidth(input)
-    expect(width - input.viewWidth).toBeGreaterThanOrEqual(rawMaxScrollNeed - input.viewWidth)
+    // 断言语义与"两侧同减 viewWidth"的旧写法等价：内容宽度覆盖未来滚动所需的 rawMax
+    expect(width).toBeGreaterThanOrEqual(rawMaxScrollNeed)
     expect(width).toBe(input.viewWidth + (startXPx + (100 + futureBars) * unitPx) / input.dpr)
   })
 

@@ -17,6 +17,7 @@ import {
   clampVisibleRange,
   computeMaxScrollLeftWithVisibleData,
   DEFAULT_FUTURE_SCREENS,
+  futureBarCount,
   getVisibleRange,
 } from '../viewport/viewport.js'
 import {
@@ -248,10 +249,11 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     const vp = cachedViewport()
     // 分时：与 computeTimeShareXLayout 共用 slot 网格，避免 kWidth/kGap 取整误差截断右缘数据；
     // K 线：仍按 kWidth/kGap 物理像素网格计算
+    const period = signalDeps.period$()
     let vr: VisibleRange
-    if (signalDeps.period$() === FIVE_DAY_TIME_SHARE_PERIOD) {
+    if (period === FIVE_DAY_TIME_SHARE_PERIOD) {
       vr = { start: 0, end: signalDeps.dataLength$() }
-    } else if (isTimeSharePeriod(signalDeps.period$())) {
+    } else if (isTimeSharePeriod(period)) {
       vr = computeTimeShareVisibleRange({
         scrollLeft: vp.scrollLeft,
         totalWidth: contentWidth(),
@@ -268,10 +270,9 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         signalDeps.dataLength$(),
         vp.dpr,
       )
-      // 未来区：end 上限 = 数据尾 + futureBars + 扩窗 1；槽位与 Task 1 同量纲
-      // （plotWidth 逻辑像素 × dpr 后再除物理 unitPx）
+      // 未来区：end 上限 = 数据尾 + futureBars + 扩窗 1（复用 futureBarCount，物理像素量纲）
       const { unitPx } = getPhysicalKLineConfig(signalDeps.options$().kWidth, kGap(), vp.dpr)
-      const futureBars = Math.ceil((vp.plotWidth * vp.dpr) / unitPx) * readFutureScreens()
+      const futureBars = futureBarCount(vp.plotWidth, vp.dpr, unitPx, readFutureScreens())
       vr = {
         start: raw.start,
         end: Math.min(raw.end, signalDeps.dataLength$() + futureBars + 1),

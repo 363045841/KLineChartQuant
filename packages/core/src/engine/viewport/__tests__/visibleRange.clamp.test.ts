@@ -115,7 +115,7 @@ describe('viewportState futureScreens', () => {
     // plotWidth=400, dpr=1 → kGap 由 deriveKGap(8,1)=3 推导，kWidthPx=7 → unitPx=10
     const unitPx = 10
     const screenSlots = Math.ceil(400 / unitPx)
-    expect(max3 - max0).toBeGreaterThanOrEqual((screenSlots - 1) * (unitPx / 1))
+    expect(max3 - max0).toBeGreaterThanOrEqual((screenSlots - 1) * unitPx)
     expect(max3).toBeGreaterThan(max0)
   })
 

@@ -8,6 +8,24 @@ export type FutureSpaceInput = { plotWidth: number; futureScreens?: number }
 /** 默认未来区屏数：最后一根 K 线可推到绘图区左缘后再留 3 屏。 */
 export const DEFAULT_FUTURE_SCREENS = 3
 
+/**
+ * 将逻辑像素屏宽换算为未来区槽位数（物理像素量纲）。
+ *
+ * @param plotWidth 绘图区宽度（逻辑像素）
+ * @param dpr 设备像素比
+ * @param unitPx 单根 K 线物理像素宽度
+ * @param screens 未来区屏数（负值钳 0）
+ * @returns 未来区 K 线槽位数
+ */
+export function futureBarCount(
+  plotWidth: number,
+  dpr: number,
+  unitPx: number,
+  screens: number,
+): number {
+  return Math.ceil((plotWidth * dpr) / unitPx) * Math.max(0, screens)
+}
+
 /** 左侧加载缓冲进入视口，意味着首根已加载 K 线之前出现空白。 */
 export function hasLeftDataGap(scrollLeft: number, leftLoadBufferWidth: number): boolean {
   return scrollLeft < leftLoadBufferWidth
@@ -79,12 +97,9 @@ export function computeMaxScrollLeftWithVisibleData(
   if (totalDataCount === 0) return contentMaxScrollLeft
 
   const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  // 未来区槽位：允许拖到最后一根 K 线之后再留 futureScreens 屏空白（默认 3 屏）。
-  // plotWidth 是逻辑像素，unitPx 是物理像素：先乘 dpr 换算到物理空间再求槽位数，
-  // 否则 dpr>1 时未来区会少算 dpr 倍；屏数取 max(0,...) 守住负值边界
+  // 未来区槽位：允许拖到最后一根 K 线之后再留 futureScreens 屏空白（默认 3 屏）
   const futureBars = future
-    ? Math.ceil((future.plotWidth * dpr) / unitPx) *
-      Math.max(0, future.futureScreens ?? DEFAULT_FUTURE_SCREENS)
+    ? futureBarCount(future.plotWidth, dpr, unitPx, future.futureScreens ?? DEFAULT_FUTURE_SCREENS)
     : 0
   const lastBarIndex = totalDataCount - 1 + futureBars
   const rawMax = leftLoadBufferWidth + (startXPx + lastBarIndex * unitPx) / dpr

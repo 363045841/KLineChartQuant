@@ -4,6 +4,7 @@ import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers
 import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator.js'
 import { computeFiveDayTimeShareContentWidth } from '../modes/index.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { futureBarCount } from '../viewport/viewport.js'
 
 export type ContentGeometryInput = {
   viewWidth: number
@@ -42,10 +43,8 @@ export function computeContentWidth(input: ContentGeometryInput): number {
     return Math.max(minimumWidth, dayCount * (input.sessionSlots ?? 0) * slotWidth)
   }
   const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-  // 未来区槽位与 Task 1 同量纲：plotWidth 逻辑像素 × dpr 换到物理空间后再除物理 unitPx
-  const futureBars = input.futureScreens
-    ? Math.ceil((input.plotWidth * input.dpr) / unitPx) * Math.max(0, input.futureScreens)
-    : 0
+  // 未来区槽位与 Task 1 同量纲；未传 futureScreens 不加未来区内容，负值由 futureBarCount 钳 0
+  const futureBars = futureBarCount(input.plotWidth, input.dpr, unitPx, input.futureScreens ?? 0)
   const trailingSlots = Math.max(SCROLL_TRAILING_SLOTS, futureBars)
   const dataPlotWidth = (startXPx + (input.dataLength + trailingSlots) * unitPx) / input.dpr
   return left + Math.max(dataPlotWidth, input.viewWidth)
