@@ -183,6 +183,10 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     })
   })
 
+  // 对外暴露已解析的未来区屏数：readFutureScreens 是唯一默认值解析点，
+  // zoom 等跨模块消费方必须读这里，禁止各自 ?? 0 / ?? DEFAULT 二次解析
+  const futureScreens = computed<number>(() => readFutureScreens())
+
   const contentWidth = computed(() => {
     const options = signalDeps.options$()
     return pureContentWidth({
@@ -442,6 +446,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     scrollLeft,
     scrollLeftLogical,
     kGap,
+    futureScreens,
     viewport: cachedViewport,
     /** raw：含左右扩窗，start 可能为 -1（增量加载左缘检测） */
     rawVisibleRange: cachedRawVisibleRange,
