@@ -52,6 +52,7 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
         document.body.style.setProperty(name, value)
       }
       document.body.style.backgroundColor = vars['--klc-color-background'] ?? ''
+      document.documentElement.style.colorScheme = chartTheme.value
     },
     { immediate: true },
   )
@@ -97,6 +98,7 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
       document.body.style.removeProperty(name)
     }
     document.body.style.backgroundColor = ''
+    document.documentElement.style.colorScheme = ''
   })
 
   return {
