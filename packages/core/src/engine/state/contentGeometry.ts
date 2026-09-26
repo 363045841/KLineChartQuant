@@ -16,6 +16,8 @@ export type ContentGeometryInput = {
   timeShareDayCount?: number
   sessionSlots?: number
   timeShareSlotWidth?: number
+  /** 未来区屏数；调用方未传则不加未来区内容，默认值解析在 viewportState 单点完成 */
+  futureScreens?: number
 }
 
 export function computeLeftLoadBufferWidth(input: ContentGeometryInput): number {
@@ -40,7 +42,12 @@ export function computeContentWidth(input: ContentGeometryInput): number {
     return Math.max(minimumWidth, dayCount * (input.sessionSlots ?? 0) * slotWidth)
   }
   const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-  const dataPlotWidth = (startXPx + (input.dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / input.dpr
+  // 未来区槽位与 Task 1 同量纲：plotWidth 逻辑像素 × dpr 换到物理空间后再除物理 unitPx
+  const futureBars = input.futureScreens
+    ? Math.ceil((input.plotWidth * input.dpr) / unitPx) * Math.max(0, input.futureScreens)
+    : 0
+  const trailingSlots = Math.max(SCROLL_TRAILING_SLOTS, futureBars)
+  const dataPlotWidth = (startXPx + (input.dataLength + trailingSlots) * unitPx) / input.dpr
   return left + Math.max(dataPlotWidth, input.viewWidth)
 }
 

@@ -107,4 +107,30 @@ describe('contentGeometry parity', () => {
     expect(computeMaxScrollLeft(500, 800)).toBe(0)
     expect(computeMaxScrollLeft(800, 800)).toBe(0)
   })
+
+  it('内容宽度覆盖 futureScreens 屏未来滚动范围（dpr=1）', () => {
+    const input = baseInput({ viewWidth: 1000, plotWidth: 1000, dataLength: 100, futureScreens: 3 })
+    // baseInput 默认 kWidth=8/kGap=2/dpr=1 → kWidthPx=7, unitPx=9
+    // futureBars = ceil(1000/9) * 3 = 336；内容必须覆盖滚动上限所需的 rawMax：
+    // 左缓冲 1000 + (startXPx + (99 + 336) * 9) = 4917
+    const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
+    const futureBars = Math.ceil((input.plotWidth * input.dpr) / unitPx) * 3
+    const rawMaxScrollNeed =
+      computeLeftLoadBufferWidth(input) + (startXPx + (100 - 1 + futureBars) * unitPx) / input.dpr
+    const width = computeContentWidth(input)
+    expect(width - input.viewWidth).toBeGreaterThanOrEqual(rawMaxScrollNeed - input.viewWidth)
+    expect(width).toBe(input.viewWidth + (startXPx + (100 + futureBars) * unitPx) / input.dpr)
+  })
+
+  it('futureBars 换算按物理像素（dpr=2）', () => {
+    // dpr=2: kWidthPx=15, kGapPx=4 → unitPx=19, startXPx=4
+    // futureBars = ceil(plotWidth*2/19) * 2（futureScreens=2），trailingSlots = max(30, futureBars)
+    const input = baseInput({ dpr: 2, dataLength: 50, futureScreens: 2 })
+    const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
+    const futureBars =
+      Math.ceil((input.plotWidth * input.dpr) / unitPx) * (input.futureScreens ?? 0)
+    const expected =
+      computeLeftLoadBufferWidth(input) + (startXPx + (50 + Math.max(30, futureBars)) * unitPx) / 2
+    expect(computeContentWidth(input)).toBe(expected)
+  })
 })

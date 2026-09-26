@@ -11,10 +11,12 @@ import {
 import type { Viewport, ViewportState } from '../chartTypes.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { computeTimeShareVisibleRange } from '../modes/index.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { deriveKGap } from '../utils/zoom.js'
 import {
   clampVisibleRange,
   computeMaxScrollLeftWithVisibleData,
+  DEFAULT_FUTURE_SCREENS,
   getVisibleRange,
 } from '../viewport/viewport.js'
 import {
@@ -69,6 +71,8 @@ export interface ViewportSignalDeps {
   options$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
+    /** 未来区屏数；未传时 viewportState 用 DEFAULT_FUTURE_SCREENS 解析 */
+    futureScreens?: number
   }>
   dataLength$: ReadonlySignal<number>
   period$: ReadonlySignal<string>
@@ -107,6 +111,11 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const readSessionSlots = (): number => signalDeps.sessionSlots$?.() ?? 0
   const readTimeShareSlotWidth = (): number | undefined =>
     signalDeps.timeShareSlotWidth$?.() ?? undefined
+  // 未来区屏数默认值解析单点（负值钳 0，与 viewport.ts 的 futureBars 边界一致）：
+  // contentWidth / maxScrollLeft / rawVisibleRange end 夹取必须同源，否则内容宽度
+  // 不覆盖默认 3 屏滚动空间（contentMaxScrollLeft 先触顶，拖不出未来区）
+  const readFutureScreens = (): number =>
+    Math.max(0, signalDeps.options$().futureScreens ?? DEFAULT_FUTURE_SCREENS)
 
   const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
   const _resizeSharedWebGLSurface = (w: number, h: number, dpr: number) => {
@@ -186,6 +195,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       timeShareDayCount: readTimeShareDayCount(),
       sessionSlots: readSessionSlots(),
       timeShareSlotWidth: readTimeShareSlotWidth(),
+      futureScreens: readFutureScreens(),
     })
   })
   const maxScrollLeft = computed(() => {
@@ -198,6 +208,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       kGap(),
       signalDeps.dataLength$(),
       readonly.dpr(),
+      { plotWidth: readonly.plotWidth(), futureScreens: readFutureScreens() },
     )
   })
   const scrollLeft = computed(() =>
@@ -237,25 +248,35 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     const vp = cachedViewport()
     // 分时：与 computeTimeShareXLayout 共用 slot 网格，避免 kWidth/kGap 取整误差截断右缘数据；
     // K 线：仍按 kWidth/kGap 物理像素网格计算
-    const vr =
-      signalDeps.period$() === FIVE_DAY_TIME_SHARE_PERIOD
-        ? { start: 0, end: signalDeps.dataLength$() }
-        : isTimeSharePeriod(signalDeps.period$())
-          ? computeTimeShareVisibleRange({
-              scrollLeft: vp.scrollLeft,
-              totalWidth: contentWidth(),
-              viewWidth: vp.plotWidth,
-              dataLength: signalDeps.dataLength$(),
-              sessionSlots: readSessionSlots(),
-            })
-          : getVisibleRange(
-              vp.scrollLeft,
-              vp.plotWidth,
-              signalDeps.options$().kWidth,
-              kGap(),
-              signalDeps.dataLength$(),
-              vp.dpr,
-            )
+    let vr: VisibleRange
+    if (signalDeps.period$() === FIVE_DAY_TIME_SHARE_PERIOD) {
+      vr = { start: 0, end: signalDeps.dataLength$() }
+    } else if (isTimeSharePeriod(signalDeps.period$())) {
+      vr = computeTimeShareVisibleRange({
+        scrollLeft: vp.scrollLeft,
+        totalWidth: contentWidth(),
+        viewWidth: vp.plotWidth,
+        dataLength: signalDeps.dataLength$(),
+        sessionSlots: readSessionSlots(),
+      })
+    } else {
+      const raw = getVisibleRange(
+        vp.scrollLeft,
+        vp.plotWidth,
+        signalDeps.options$().kWidth,
+        kGap(),
+        signalDeps.dataLength$(),
+        vp.dpr,
+      )
+      // 未来区：end 上限 = 数据尾 + futureBars + 扩窗 1；槽位与 Task 1 同量纲
+      // （plotWidth 逻辑像素 × dpr 后再除物理 unitPx）
+      const { unitPx } = getPhysicalKLineConfig(signalDeps.options$().kWidth, kGap(), vp.dpr)
+      const futureBars = Math.ceil((vp.plotWidth * vp.dpr) / unitPx) * readFutureScreens()
+      vr = {
+        start: raw.start,
+        end: Math.min(raw.end, signalDeps.dataLength$() + futureBars + 1),
+      }
+    }
     if (
       _cachedRawVisibleRange &&
       _cachedRawVisibleRange.start === vr.start &&

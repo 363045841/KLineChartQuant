@@ -167,21 +167,22 @@ describe('viewportState template', () => {
     module.actions.resize(200, 150, 2)
 
     // kGap 由 kGapFromKWidth(6,2)=1.5 自动推导。宽度取奇 11px，间隙 3px（物理）。
-    expect((module.readonly as any).contentWidth()).toBe(481.5)
-    // 允许尾部空槽；最大位置吸附到 K 线物理网格，使最后一根 K 线左缘对齐绘图区左缘。
-    expect((module.readonly as any).maxScrollLeft()).toBe(264.5)
+    // 未来时间轴：默认 DEFAULT_FUTURE_SCREENS(3) 屏 → futureBars=ceil(200*2/14)*3=87
+    // 覆盖 trailingSlots=30；内容宽度与滚动上限同步放大（内容覆盖未来区滚动范围）
+    expect((module.readonly as any).contentWidth()).toBe(880.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(677.5)
 
     deps.dataLength$.set(20)
-    expect((module.readonly as any).contentWidth()).toBe(551.5)
-    expect((module.readonly as any).maxScrollLeft()).toBe(334.5)
+    expect((module.readonly as any).contentWidth()).toBe(950.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(747.5)
 
     module.actions.resize(300, 150, 2)
-    expect((module.readonly as any).contentWidth()).toBe(651.5)
-    expect((module.readonly as any).maxScrollLeft()).toBe(350.5)
+    expect((module.readonly as any).contentWidth()).toBe(1344.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(1043.5)
 
     deps.options$.set({ bottomAxisHeight: 30, kWidth: 10, kGap: 2 })
-    expect((module.readonly as any).contentWidth()).toBe(851.5)
-    expect((module.readonly as any).maxScrollLeft()).toBe(510.5)
+    expect((module.readonly as any).contentWidth()).toBe(1445.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(1137.5)
 
     deps.period$.set('timeshare')
     expect((module.readonly as any).contentWidth()).toBe(300)
