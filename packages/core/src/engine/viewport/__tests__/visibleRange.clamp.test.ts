@@ -90,6 +90,8 @@ describe('viewportState visibleRange SSOT', () => {
 
     const range = module.readonly.visibleRange()
     expect(range.start).toBeLessThan(10)
-    expect(range.end).toBe(10)
+    // 未来时间轴：getVisibleRange 的 end 不再被 totalDataCount 钳制（扩窗 +1 后可为
+    // dataLength+1），最后一根 K 线（index 9）仍落在 [start, end) 内即可
+    expect(range.end).toBeGreaterThanOrEqual(10)
   })
 })
