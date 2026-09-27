@@ -202,6 +202,9 @@ function createFixture() {
     getColor: () => undefined,
     scheduleDraw: () => {},
   })
+  const copyDrawings = vi.fn<
+    (ids: ReadonlyArray<string>) => ReturnType<typeof drawingDocument.listDrawings>
+  >(() => [])
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
     dataState,
@@ -214,6 +217,7 @@ function createFixture() {
     marketDataCache: new MarketDataCache(marketDataProviderRegistry),
     drawingDocument,
     drawingCommands,
+    copyDrawings,
     drawings: drawingState.readonly.drawings,
     selectedDrawingIds: drawingState.readonly.selectedDrawingIds,
     getDrawingPaneIds: () => ['main'],
@@ -240,6 +244,7 @@ function createFixture() {
     fetchTimeShareRange,
     drawingDocument,
     drawingCommands,
+    copyDrawings,
     drawingState,
     requestDraw,
     paneActions,
@@ -247,6 +252,20 @@ function createFixture() {
 }
 
 describe('createChartAgentController', () => {
+  it('routes drawing copies through the same operation as the UI', async () => {
+    const { controller, copyDrawings } = createFixture()
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'drawings_copy')!
+    await tool.execute(
+      controller,
+      { drawingIds: ['first', 'second'] },
+      {
+        signal: new AbortController().signal,
+        progress: () => undefined,
+      },
+    )
+    expect(copyDrawings).toHaveBeenCalledWith(['first', 'second'])
+  })
+
   it('returns a detached, deeply immutable, serializable context snapshot', () => {
     const fixture = createFixture()
 

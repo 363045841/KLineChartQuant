@@ -235,6 +235,7 @@ export function createMockChartController(
     registerDrawingSession: () => {},
     clearDrawings: () => {},
     createDrawing: () => ({}) as DrawingObject,
+    copyDrawings: () => [],
     updateDrawing: () => null,
     commitDrawingDrag: () => null,
     updateBatch: () => [],

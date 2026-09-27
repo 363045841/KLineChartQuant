@@ -11,6 +11,74 @@ function addLine(commands: ReturnType<typeof fixture>['commands'], price = 10) {
 }
 
 describe('drawing history', () => {
+  it('copies a selection atomically with fresh IDs and restores the whole group in one undo/redo', () => {
+    const { commands, document, state } = fixture()
+    const a = commands.create({
+      kind: 'parallel-channel',
+      paneId: 'main',
+      locked: true,
+      anchors: [
+        { timestamp: 0, price: 10 },
+        { timestamp: 500, price: 20 },
+        { timestamp: 0, price: 30 },
+      ],
+      labels: { line: { '0': { text: 'channel', position: 'center' } }, area: {} },
+      params: { nested: { value: 2 } },
+      style: { stroke: '#f00' },
+    })
+    const b = addLine(commands, 20)
+    state.actions.setSelectedDrawingIds([a.id, b.id])
+    const before = document.listDrawings()
+    const observed: string[][] = []
+    const unsubscribe = state.readonly.drawings.subscribe(() => {
+      observed.push([...state.readonly.selectedDrawingIds.peek()])
+    })
+    const copies = commands.copy(
+      [a, b].map((drawing) => ({
+        id: drawing.id,
+        anchors: drawing.anchors.map((anchor) => ({ ...anchor, price: anchor.price + 5 })),
+      })),
+    )
+    unsubscribe()
+    expect(copies).toHaveLength(2)
+    expect(observed).toEqual([copies.map((drawing) => drawing.id)])
+    expect(copies[0]!.id).not.toBe(a.id)
+    expect(copies[0]!.anchors.every((anchor, index) => anchor.id !== a.anchors[index]!.id)).toBe(
+      true,
+    )
+    expect(copies[0]!.anchors).toHaveLength(a.anchors.length)
+    expect(copies[0]!).toMatchObject({
+      visible: true,
+      locked: false,
+      labels: a.labels,
+      params: a.params,
+      style: a.style,
+    })
+    expect(copies[0]!.params).not.toBe(a.params)
+    expect(document.listDrawings().slice(0, 2)).toEqual(before)
+    expect(commands.history.undo()).toBe(true)
+    expect(document.listDrawings()).toEqual(before)
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([a.id, b.id])
+    expect(commands.history.redo()).toBe(true)
+    expect(document.listDrawings().slice(2)).toEqual(copies)
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual(copies.map((drawing) => drawing.id))
+  })
+
+  it('rejects the entire copy when a source or placement is invalid', () => {
+    const { commands, document, state } = fixture()
+    const a = addLine(commands)
+    const before = document.snapshot()
+    expect(
+      commands.copy([
+        { id: a.id, anchors: a.anchors },
+        { id: 'missing', anchors: a.anchors },
+      ]),
+    ).toEqual([])
+    expect(commands.copy([{ id: a.id, anchors: [] }])).toEqual([])
+    expect(document.snapshot()).toEqual(before)
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([a.id])
+  })
+
   it('hides individual and all drawings as reversible edits while clearing hidden selection', () => {
     const { commands, document, state } = fixture()
     const a = addLine(commands)

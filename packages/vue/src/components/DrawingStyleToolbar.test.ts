@@ -1,38 +1,40 @@
-/** 绘图工具栏锁定/解锁按钮行为测试。 */
+/** 绘图工具栏按钮（锁定 / 删除 / 复制）行为测试。 */
 
-import type { DrawingObject } from '@363045841yyt/klinechart-core/controllers'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+import { createDrawingObject } from '../__tests__/_drawingFixture'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 
-/** 构造带锁定状态的最小图元；locked 缺省表示未锁定。 */
-function createDrawing(id: string, locked?: boolean): DrawingObject {
-  return {
-    id,
-    kind: 'trend-line',
-    paneId: 'main',
-    visible: true,
-    ...(locked === undefined ? {} : { locked }),
-    anchors: [],
-    params: {},
-    style: {},
-  }
-}
+describe('DrawingStyleToolbar 按钮', () => {
+  it('单选和多选都可复制，空选择不显示复制按钮', async () => {
+    const wrapper = mount(DrawingStyleToolbar, {
+      props: { drawings: [createDrawingObject('a', true)], editableStyleKeys: [] },
+    })
+    try {
+      await wrapper.get('[aria-label="复制所选图元"]').trigger('click')
+      await wrapper.setProps({ drawings: [createDrawingObject('a'), createDrawingObject('b')] })
+      await wrapper.get('[aria-label="复制所选图元"]').trigger('click')
+      expect(wrapper.emitted('copy')).toEqual([[], []])
+      await wrapper.setProps({ drawings: [] })
+      expect(wrapper.find('.toolbar-btn--copy').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
 
-describe('DrawingStyleToolbar 锁定按钮', () => {
   it.each([
-    { name: '单个未锁定', drawings: [createDrawing('a', false)], title: '锁定', next: true },
-    { name: '单个已锁定', drawings: [createDrawing('a', true)], title: '解锁', next: false },
-    { name: '锁定状态缺省', drawings: [createDrawing('a')], title: '锁定', next: true },
+    { name: '单个未锁定', drawings: [createDrawingObject('a', false)], title: '锁定', next: true },
+    { name: '单个已锁定', drawings: [createDrawingObject('a', true)], title: '解锁', next: false },
+    { name: '锁定状态缺省', drawings: [createDrawingObject('a')], title: '锁定', next: true },
     {
       name: '混合选中',
-      drawings: [createDrawing('a', true), createDrawing('b', false)],
+      drawings: [createDrawingObject('a', true), createDrawingObject('b', false)],
       title: '锁定',
       next: true,
     },
     {
       name: '全部已锁定',
-      drawings: [createDrawing('a', true), createDrawing('b', true)],
+      drawings: [createDrawingObject('a', true), createDrawingObject('b', true)],
       title: '解锁',
       next: false,
     },
@@ -52,7 +54,7 @@ describe('DrawingStyleToolbar 锁定按钮', () => {
 
   it('锁定后样式控件保持可用，仅删除被禁用', () => {
     const wrapper = mount(DrawingStyleToolbar, {
-      props: { drawings: [createDrawing('a', true)], editableStyleKeys: ['stroke'] },
+      props: { drawings: [createDrawingObject('a', true)], editableStyleKeys: ['stroke'] },
     })
 
     expect(wrapper.get('input[type="color"]').attributes('disabled')).toBeUndefined()
@@ -75,13 +77,13 @@ describe('DrawingStyleToolbar 锁定按钮', () => {
   })
 
   it('opens settings for the single selected drawing only', async () => {
-    const drawing = createDrawing('a')
+    const drawing = createDrawingObject('a')
     const wrapper = mount(DrawingStyleToolbar, {
       props: { drawings: [drawing], editableStyleKeys: [] },
     })
     await wrapper.get('.toolbar-btn--settings').trigger('click')
     expect(wrapper.emitted('openSettings')).toEqual([['a']])
-    await wrapper.setProps({ drawings: [drawing, createDrawing('b')] })
+    await wrapper.setProps({ drawings: [drawing, createDrawingObject('b')] })
     expect(wrapper.find('.toolbar-btn--settings').exists()).toBe(false)
     wrapper.unmount()
   })

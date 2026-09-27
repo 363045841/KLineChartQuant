@@ -10,7 +10,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
-
+import { createDrawingObject } from './_drawingFixture'
 import { createMockChartController, type MockChartController } from './_mockController'
 
 // ── Shared mock controller (one per mount, reset in beforeEach) ──
@@ -26,7 +26,6 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
   }
 })
 
-import type { DrawingObject } from '@363045841yyt/klinechart-core/controllers'
 import { loadBuiltinIndicators } from '@363045841yyt/klinechart-core/controllers'
 import { KlineChart } from '../components/index'
 import type { LegendSlotProps } from '../index'
@@ -277,20 +276,6 @@ describe('KLineChart drawing history toolbar', () => {
 })
 
 describe('KLineChart drawing lock toolbar', () => {
-  /** 构造最小图元；locked 缺省表示未锁定。 */
-  function createDrawing(id: string, locked?: boolean): DrawingObject {
-    return {
-      id,
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
-      ...(locked === undefined ? {} : { locked }),
-      anchors: [],
-      params: {},
-      style: {},
-    }
-  }
-
   it('无图元时禁用，点击切换全局锁定且不改写各图元自身 locked', async () => {
     const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
@@ -299,7 +284,7 @@ describe('KLineChart drawing lock toolbar', () => {
       wrapper.get('.left-toolbar [aria-label="锁定全部图元"]').attributes('disabled'),
     ).toBeDefined()
 
-    mockController._setDrawings([createDrawing('a'), createDrawing('b')])
+    mockController._setDrawings([createDrawingObject('a'), createDrawingObject('b')])
     await nextTick()
 
     const setLockSpy = vi.spyOn(mockController, 'setGlobalDrawingLock')

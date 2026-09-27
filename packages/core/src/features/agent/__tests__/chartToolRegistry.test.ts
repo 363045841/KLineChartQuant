@@ -43,11 +43,13 @@ describe('Chart Agent @Tool registry', () => {
     const create = tools.find((tool) => tool.config.name === 'drawing_create')
     const update = tools.find((tool) => tool.config.name === 'drawing_update')
     const remove = tools.find((tool) => tool.config.name === 'drawing_delete')
+    const copy = tools.find((tool) => tool.config.name === 'drawings_copy')
     const clear = tools.find((tool) => tool.config.name === 'drawings_clear')
 
     expect(create?.config).toMatchObject({ safety: 'destructive', executionMode: 'sequential' })
     expect(update?.config.safety).toBe('destructive')
     expect(remove?.config.safety).toBe('destructive')
+    expect(copy?.config).toMatchObject({ safety: 'destructive', executionMode: 'sequential' })
     expect(clear?.config.safety).toBe('destructive')
     await expect(
       create?.execute(
