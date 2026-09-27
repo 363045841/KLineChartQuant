@@ -80,14 +80,19 @@ export function createDrawingState() {
         })
       },
 
-      /** 新增图元并在同一次通知内将其设为唯一选中，创建与选中不可分割。 */
-      addDrawingAndSelect(drawing: DrawingObject): void {
-        const next = snapshotDrawings([...signals.drawings.peek(), drawing])
-        const selected = snapshotSelectedDrawingIds([drawing.id], next)
+      /** 原子新增一组图元并选中整组，创建与选中不可分割。 */
+      addDrawingsAndSelect(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
+        if (drawings.length === 0) return Object.freeze([])
+        const next = snapshotDrawings([...signals.drawings.peek(), ...drawings])
+        const selected = snapshotSelectedDrawingIds(
+          drawings.map((drawing) => drawing.id),
+          next,
+        )
         batch(() => {
           signals.drawings.set(next)
           signals.selectedDrawingIds.set(selected)
         })
+        return Object.freeze(next.slice(-drawings.length))
       },
 
       /** 以完整模型快照替换指定图元，并返回更新后的不可变快照。 */

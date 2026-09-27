@@ -89,6 +89,11 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     ctrl.value?.removeBatch(ids)
   }
 
+  /** 复制当前选择，位置与选中状态由 Core 原子处理。 */
+  function onCopyDrawings() {
+    ctrl.value?.copyDrawings(selectedDrawingIds.value)
+  }
+
   /** 批量写入选中图元的锁定状态。 */
   function onToggleDrawingLock(locked: boolean) {
     const ids = selectedDrawingIds.value
@@ -166,6 +171,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     onUpdateDrawingStyle,
     updateDrawingLabel,
     onDeleteDrawing,
+    onCopyDrawings,
     onToggleDrawingLock,
     onHideSelectedDrawings,
     onSetAllDrawingsVisible,

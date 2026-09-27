@@ -22,6 +22,13 @@ export class DrawingCommands {
     return this.history.run(() => this.dependencies.document.createDrawing(input))
   }
 
+  /** 复制整组图元，将新增与选择变化记录为一步历史。 */
+  copy(
+    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject> {
+    return this.history.run(() => this.dependencies.document.copyDrawings(placements))
+  }
+
   /** 以完整模型快照更新存在的图元；无匹配图元时不请求重绘。 */
   update(drawing: DrawingObject): DrawingObject | null {
     return this.history.run(() => this.dependencies.document.updateDrawing(drawing))

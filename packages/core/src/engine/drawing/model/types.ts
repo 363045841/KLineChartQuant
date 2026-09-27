@@ -104,6 +104,9 @@ export interface DrawingDocumentDependencies {
  */
 export interface DrawingCommandsDocumentPort extends DrawingHistoryDocumentPort {
   createDrawing(input: CreateDrawingInput): DrawingObject
+  copyDrawings(
+    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject>
   updateDrawing(drawing: DrawingObject): DrawingObject | null
   updateDrawingFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null
   commitDrawingDrag(

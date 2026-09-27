@@ -395,6 +395,8 @@ export interface ChartMountOptions {
 }
 
 export interface ChartController extends DrawingChartAdapter {
+  /** 按当前视口偏移复制所选图元，一次撤回移除全部副本。 */
+  copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject>
   /** Stable, serializable Agent context and deterministic query facade. */
   readonly agent: ChartAgentController
   // ---- Signals ----

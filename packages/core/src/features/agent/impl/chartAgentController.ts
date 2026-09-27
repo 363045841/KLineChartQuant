@@ -228,6 +228,9 @@ const DrawingUpdateToolParameters = Type.Object({
 const DrawingDeleteToolParameters = Type.Object({
   drawingId: Type.String({ minLength: 1 }),
 })
+const DrawingCopyToolParameters = Type.Object({
+  drawingIds: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, uniqueItems: true }),
+})
 const DrawingsListToolParameters = Type.Object({})
 const DrawingsClearToolParameters = Type.Object({})
 const PaneParamsToolParameter = Type.Record(Type.String(), Type.Unknown())
@@ -795,6 +798,22 @@ class ChartAgentControllerImpl implements ChartAgentController {
         anchors: parseDrawingAnchors(input.anchors),
       }),
     )
+  }
+
+  /** 按当前视口复制指定图元，与 Canvas Toolbar 使用相同入口。 */
+  @Tool({
+    name: 'drawings_copy',
+    label: 'Copy drawings',
+    description:
+      'Copy drawings by ID with a shared screen offset. Selects visible, unlocked copies; the entire group is one undo step.',
+    parameters: DrawingCopyToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async copyDrawings(
+    input: Static<typeof DrawingCopyToolParameters>,
+  ): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>> {
+    return this.dependencies.copyDrawings(input.drawingIds).map(projectDrawing)
   }
 
   /** 更新一个图表已确认图元。 */

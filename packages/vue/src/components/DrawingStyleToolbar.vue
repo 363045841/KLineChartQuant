@@ -70,6 +70,17 @@
     <button
       v-if="drawings.length > 0"
       type="button"
+      class="toolbar-btn toolbar-btn--copy"
+      title="复制所选图元"
+      aria-label="复制所选图元"
+      @click="emit('copy')"
+    >
+      <IconTablerCopy class="lock-icon" aria-hidden="true" />
+    </button>
+
+    <button
+      v-if="drawings.length > 0"
+      type="button"
       class="toolbar-btn toolbar-btn--visibility"
       title="隐藏所选图元"
       aria-label="隐藏所选图元"
@@ -129,6 +140,7 @@
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignRight from '~icons/tabler/align-right'
+  import IconTablerCopy from '~icons/tabler/copy'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
@@ -166,6 +178,7 @@
     (e: 'delete'): void
     (e: 'toggleLock', locked: boolean): void
     (e: 'hide'): void
+    (e: 'copy'): void
     (e: 'updateLineLabelPosition', position: DrawingLabelPosition): void
     (e: 'openSettings', drawingId: string): void
   }>()

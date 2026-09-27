@@ -7,6 +7,7 @@
  */
 
 import type { Chart } from '@/engine/chart.js'
+import { resolveCopyPlacements } from '@/engine/drawing/geometry/impl/copyPlacement.js'
 import {
   CURSOR_DRAWING_TOOL_ID,
   type DrawingInteractionController,
@@ -79,6 +80,40 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   function createDrawing(input: CreateDrawingInput): DrawingObject {
     if (isDisposed()) throw new Error('Chart controller has been disposed.')
     return drawingCommands.create(input)
+  }
+
+  /** 解析当前工作区内的整组复制位置，再以一个命令提交副本。 */
+  function copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
+    if (isDisposed() || ids.length === 0) return []
+    const uniqueIds = [...new Set(ids)]
+    const drawings = uniqueIds.map((id) => drawingDocument.getDrawing(id))
+    if (drawings.some((drawing) => drawing === null)) return []
+    const originals = drawings.filter((drawing) => drawing !== null)
+    if (
+      originals.some(
+        (drawing) => (drawing.workspaceId ?? ChartWorkspaceId.KLine) !== getDrawingWorkspaceId(),
+      )
+    )
+      return []
+    const placements = resolveCopyPlacements(originals, {
+      getViewport,
+      getKWidthKGap,
+      getCurrentDpr,
+      getData: () => chart.getData(),
+      getDrawingData,
+      getLogicalIndexAtX,
+      getScreenXAtLogicalIndex,
+      getDrawingTimestampAtLogicalIndex,
+      getLogicalIndexAtTimestamp,
+      getDrawingWorkspaceId,
+      priceToY,
+      yToPrice,
+      getPaneInfo,
+      getPaneAtY,
+    })
+    if (placements.length === 0) return []
+    chart.cancelDrawingSession()
+    return drawingCommands.copy(placements)
   }
 
   /** 以完整模型快照更新一个已确认图元。 */
@@ -298,6 +333,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     registerDrawingSession,
     clearDrawings,
     createDrawing,
+    copyDrawings,
     updateDrawing,
     commitDrawingDrag,
     commitDrawingDrags,

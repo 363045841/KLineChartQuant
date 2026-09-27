@@ -145,6 +145,7 @@
                     @delete="onDeleteDrawing"
                     @toggle-lock="onToggleDrawingLock"
                     @hide="onHideSelectedDrawings"
+                    @copy="onCopyDrawings"
                     @update-line-label-position="setLineLabelPosition"
                     @open-settings="openDrawingSettings"
                   />
@@ -961,6 +962,7 @@
     onDeleteDrawing,
     onToggleDrawingLock,
     onHideSelectedDrawings,
+    onCopyDrawings,
     onSetAllDrawingsVisible,
     globalDrawingLock,
     onSetGlobalDrawingLock,

@@ -114,8 +114,30 @@ export class DrawingDocument {
         ...input.style,
       },
     }
-    this.dependencies.drawingState.actions.addDrawingAndSelect(drawing)
-    return this.getDrawing(drawing.id)!
+    return this.dependencies.drawingState.actions.addDrawingsAndSelect([drawing])[0]!
+  }
+
+  /** 按已解析的位置复制整组图元；保留配置，生成新 ID，原子选中可见且未锁定的副本。 */
+  copyDrawings(
+    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject> {
+    const ids = placements.map((placement) => placement.id)
+    if (ids.length === 0 || new Set(ids).size !== ids.length) return Object.freeze([])
+    const originals = this.getDrawingsByIds(ids)
+    if (originals.length !== placements.length) return Object.freeze([])
+    const copies: DrawingObject[] = []
+    for (const [index, original] of originals.entries()) {
+      const anchors = placements[index]!.anchors
+      if (!this.hasValidAnchors(original, anchors)) return Object.freeze([])
+      copies.push({
+        ...original,
+        id: `drawing-${generateUUID()}`,
+        visible: true,
+        locked: false,
+        anchors: anchors.map((anchor) => ({ ...anchor, id: `anchor-${generateUUID()}` })),
+      })
+    }
+    return this.dependencies.drawingState.actions.addDrawingsAndSelect(copies)
   }
 
   /** 以完整模型快照替换一个已确认图元；移动被锁时仅在锚点未变时接受。 */
@@ -185,7 +207,7 @@ export class DrawingDocument {
     const updatedById = new Map<string, DrawingObject>()
     for (const update of updates) {
       const drawing = drawings.find((item) => item.id === update.id)
-      if (!drawing || !this.hasValidDragAnchors(drawing, update.anchors)) return Object.freeze([])
+      if (!drawing || !this.hasValidAnchors(drawing, update.anchors)) return Object.freeze([])
       updatedById.set(drawing.id, { ...drawing, anchors: [...update.anchors] })
     }
 
@@ -195,8 +217,8 @@ export class DrawingDocument {
     return Object.freeze(ids.map((id) => snapshot.find((drawing) => drawing.id === id)!))
   }
 
-  /** 校验拖拽提交的锚点是否仍符合原图元的坐标语义。 */
-  private hasValidDragAnchors(
+  /** 校验交互层提交的全部锚点是否符合图元的坐标语义。 */
+  private hasValidAnchors(
     drawing: DrawingObject,
     anchors: ReadonlyArray<PersistedDrawingAnchor>,
   ): boolean {

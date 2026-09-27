@@ -78,6 +78,7 @@
 
   .canvas-toolbar :deep(.toolbar-btn--lock),
   .canvas-toolbar :deep(.toolbar-btn--visibility),
+  .canvas-toolbar :deep(.toolbar-btn--copy),
   .canvas-toolbar :deep(.toolbar-btn--settings) {
     width: 26px;
     padding: 0;

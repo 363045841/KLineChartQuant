@@ -182,6 +182,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     }
   }
 
+  let disposed = false
+  const isDisposed = () => disposed
+  const dataMethods = createDataMethods(chart, isDisposed)
+  const drawingMethods = createDrawingMethods(chart, isDisposed)
+  const chartMethods = createChartMethods(chart, isDisposed)
+
   const agent = createChartAgentController({
     chartId: generateUUID(),
     dataState: chart.kernel.data,
@@ -194,6 +200,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument: chart.drawingDocument,
     drawingCommands: chart.drawingCommands,
+    copyDrawings: drawingMethods.copyDrawings,
     drawings: chart.drawing.drawings,
     selectedDrawingIds: chart.drawing.selectedIds,
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
@@ -206,12 +213,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
     },
   })
-
-  let disposed = false
-  const isDisposed = () => disposed
-  const dataMethods = createDataMethods(chart, isDisposed)
-  const drawingMethods = createDrawingMethods(chart, isDisposed)
-  const chartMethods = createChartMethods(chart, isDisposed)
 
   function dispose(): void {
     if (disposed) return

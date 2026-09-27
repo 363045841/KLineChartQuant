@@ -212,6 +212,8 @@ export interface ChartAgentControllerDependencies {
   readonly marketDataCache: MarketDataCache
   readonly drawingDocument: DrawingDocument
   readonly drawingCommands: DrawingCommands
+  /** 与 UI 共用当前视口的复制入口。 */
+  readonly copyDrawings: (ids: ReadonlyArray<string>) => ReadonlyArray<DrawingObject>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
