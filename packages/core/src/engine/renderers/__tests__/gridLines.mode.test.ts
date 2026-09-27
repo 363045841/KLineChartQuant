@@ -3,11 +3,11 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import { createGridLinesRendererPlugin } from '../gridLines'
+import { createDailyBars, createDailyFutureTimestamp } from './helpers/futureAxisTestKit'
 
 /** 构造记录 fillRect 矩形的画布。 */
 function createMockCtx() {
@@ -93,5 +93,56 @@ describe('gridLines mode', () => {
 
     const verticals = fillRects.filter((r) => r.width < r.height)
     expect(verticals.map((line) => line.x)).toEqual([0, 400, 800])
+  })
+})
+
+describe('gridLines 未来区纵向网格', () => {
+  it('在未来月界槽位画纵向网格线，与历史网格同帧', () => {
+    const dataLength = 100
+    const rangeEnd = 160
+    const { ctx, fillRects } = createMockCtx()
+    const context = createMockRenderContext({
+      ctx,
+      data: createDailyBars(dataLength),
+      period: 'daily',
+      dataView: ChartDataViewId.KLine,
+      isAsiaMarket: true,
+      colorPresetSettings: {},
+      displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+      range: { start: 0, end: rangeEnd },
+      kLineCenters: Array.from({ length: rangeEnd }, (_, i) => 8 * i + 4),
+      getTimestampAtLogicalIndex: createDailyFutureTimestamp(dataLength),
+      pane: { top: 0, height: 400 },
+    })
+
+    createGridLinesRendererPlugin().draw(context)
+
+    // 历史区首根 bar 本身是月界（getMonthBoundaries 以 0 起始）+ 三个月界；
+    // FOREX 外推首个槽位为 2026-02-02（周一，跳周末），center = 8*idx+4：
+    // 未来月界 idx 100（02-02）、120（03-02）、142（04-01）均在 160 槽位视口内
+    const verticals = fillRects.filter((r) => r.width < r.height)
+    expect(verticals.map((line) => line.x)).toEqual([4, 76, 316, 564, 804, 964, 1140])
+  })
+
+  it('无外推回调时不画未来网格线', () => {
+    const dataLength = 100
+    const { ctx, fillRects } = createMockCtx()
+    const context = createMockRenderContext({
+      ctx,
+      data: createDailyBars(dataLength),
+      period: 'daily',
+      dataView: ChartDataViewId.KLine,
+      isAsiaMarket: true,
+      colorPresetSettings: {},
+      displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+      range: { start: 0, end: 160 },
+      kLineCenters: Array.from({ length: 160 }, (_, i) => 8 * i + 4),
+      pane: { top: 0, height: 400 },
+    })
+    createGridLinesRendererPlugin().draw(context)
+
+    const verticals = fillRects.filter((r) => r.width < r.height)
+    // 历史区首根月界 + 三个月界照常绘制（getMonthBoundaries 以 0 起始）；无外推回调 → 未来区零纵线
+    expect(verticals.map((line) => line.x)).toEqual([4, 76, 316, 564])
   })
 })
