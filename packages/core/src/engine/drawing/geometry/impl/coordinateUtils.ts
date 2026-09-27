@@ -5,7 +5,7 @@
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
-import { snapPointerToOhlc } from '../../interaction/impl/magnetSnapper.js'
+import { snapPointerToOhlc } from '../../magnet/impl/magnetSnapper.js'
 import type { PersistedDrawingAnchor } from '../../types.js'
 import type {
   DrawingPointerAnchor,

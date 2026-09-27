@@ -44,12 +44,22 @@ describe('DrawingInteractionController magnet', () => {
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 100 })
   })
 
+  it('strong 档远离 OHLC 时仍收敛到最近价格', () => {
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
+    const controller = new DrawingInteractionController(adapter)
+    controller.setMagnetMode('strong')
+
+    // y=150 距最近的 low(y=120) 30px，仍吸附到 low(price=80)。
+    expect(controller.onPointerDown(pointerDown(12, 150), CONTAINER)).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 80 })
+  })
+
   it('Ctrl 取反：off 档临时开启为 strong 吸附（TV 语义）', () => {
     const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('off')
 
-    // off 档 + Ctrl：距 open 1px，strong 半径内 → 收敛 100（临时开启取 strong）。
+    // off 档 + Ctrl：距 open 1px，临时开启 strong → 收敛 100。
     expect(controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true }), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 100 })
   })

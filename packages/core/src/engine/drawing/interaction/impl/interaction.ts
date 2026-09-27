@@ -9,6 +9,7 @@ import type {
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from '../../geometry/types.js'
+import { MagnetMode } from '../../magnet/types.js'
 import { isDrawingMovementLocked } from '../../model/impl/drawingAccess.js'
 import {
   clearDrawingSelection,
@@ -22,7 +23,7 @@ import type {
   HitResult,
   LineLabelTarget,
 } from '../types.js'
-import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, MagnetMode } from '../types.js'
+import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID } from '../types.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import { DragHandler } from './DragHandler.js'
 import { HitTester } from './HitTester.js'

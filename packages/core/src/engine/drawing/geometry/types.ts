@@ -5,7 +5,7 @@
  * 本文件不得 import 同子模块 impl/。
  */
 
-import type { MagnetSnapConfig } from '../interaction/types.js'
+import type { MagnetSnapConfig } from '../magnet/types.js'
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {

@@ -1,5 +1,5 @@
 /**
- * interaction 子模块对外契约：工具 ID、磁吸档位、拖拽策略与命中结果类型。
+ * interaction 子模块对外契约：工具 ID、拖拽策略与命中结果类型。
  *
  * 仅存放跨子模块引用或被 barrel 公开的类型；交互实现细节留在 impl/。
  * 本文件不得 import 同子模块 impl/。
@@ -51,37 +51,11 @@ export const DrawingTool = {
 /** 所有支持的绘图工具 ID，由 DrawingTool 常量派生。 */
 export type DrawingToolId = (typeof DrawingTool)[keyof typeof DrawingTool]
 
-/** 选择/交互模式的绘图工具 ID，也是未指定工具时的默认值（兼容别名）。 */
-export const CURSOR_DRAWING_TOOL_ID: DrawingToolId = DrawingTool.Cursor
-/** 框选模式的绘图工具 ID（兼容别名）。 */
-export const BOX_SELECT_DRAWING_TOOL_ID: DrawingToolId = DrawingTool.BoxSelect
+/** 选择/交互模式的绘图工具 ID，也是未指定工具时的默认值。 */
+export const CURSOR_DRAWING_TOOL_ID = DrawingTool.Cursor
 
-/** 磁吸档位常量表：off 关闭，weak 吸高低点，strong 吸 OHLC 四值。 */
-export const MagnetMode = {
-  /** 关闭磁吸。 */
-  Off: 'off',
-  /** 吸附 high/low 两值。 */
-  Weak: 'weak',
-  /** 吸附 OHLC 四值。 */
-  Strong: 'strong',
-} as const
-
-/** 磁吸三态，由 MagnetMode 常量派生。 */
-export type MagnetMode = (typeof MagnetMode)[keyof typeof MagnetMode]
-
-/** 生效档位（off 已在调用方过滤，进入磁吸模块的必为吸附档）。 */
-export type ActiveMagnetMode = Exclude<MagnetMode, typeof MagnetMode.Off>
-
-/** 磁吸配置：档位决定候选价格集合与吸附半径。 */
-export interface MagnetSnapConfig {
-  mode: ActiveMagnetMode
-}
-
-/** 吸附后的容器局部坐标。 */
-export interface SnappedPoint {
-  x: number
-  y: number
-}
+/** 框选模式的绘图工具 ID。 */
+export const BOX_SELECT_DRAWING_TOOL_ID = DrawingTool.BoxSelect
 
 /** 锚点跟随位移的分量系数：1 同向、-1 反向、0 不跟随，缺省为 1。 */
 export interface DragFollow {

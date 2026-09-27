@@ -16,12 +16,13 @@ engine/drawing/
 ├── history/            # 图元事务历史：types.ts + impl/（增量快照、撤回、重做）
 ├── session/            # 会话 overlay 与选择：impl/
 ├── geometry/           # 坐标、帧投影、线表、填充、标签布局、回归、视口裁剪：types.ts + impl/
-├── interaction/        # 落点收集、预览、拖拽、命中选择、磁吸、工具表：types.ts + impl/
+├── interaction/        # 落点收集、预览、拖拽、命中选择、工具表：types.ts + impl/
+├── magnet/             # OHLC 磁吸：档位契约与吸附纯函数：types.ts + impl/
 ├── render/             # 投影器、图形定义注册表、绘制原语渲染、图形定义工厂、渲染插件：types.ts + impl/
 └── __tests__/helpers/  # 跨子模块共享测试夹具
 ```
 
-各子模块的模块级文档：[`model/README.md`](./model/README.md)、[`history/README.md`](./history/README.md)、[`session/README.md`](./session/README.md)、[`geometry/README.md`](./geometry/README.md)、[`interaction/README.md`](./interaction/README.md)、[`render/README.md`](./render/README.md)。
+各子模块的模块级文档：[`model/README.md`](./model/README.md)、[`history/README.md`](./history/README.md)、[`session/README.md`](./session/README.md)、[`geometry/README.md`](./geometry/README.md)、[`interaction/README.md`](./interaction/README.md)、[`magnet/README.md`](./magnet/README.md)、[`render/README.md`](./render/README.md)。
 
 ## 分层与边界
 
@@ -67,8 +68,8 @@ engine/drawing/
 | `interaction/impl/DragHandler.ts` | 拖拽会话：单锚点、线段中点手柄与整体平移，编辑路径可应用磁吸 |
 | `interaction/impl/dragPolicy.ts` | 拖拽跟随策略：按图元种类与锚点序号推导联动锚点 |
 | `interaction/impl/selectionMarquee.ts` | 框选会话几何与临时绘制原语投影 |
-| `interaction/impl/magnetSnapper.ts` | OHLC 磁吸纯函数 `snapPointerToOhlc` 与档位（weak=高/低，strong=OHLC 极值） |
 | `interaction/impl/toolConfig.ts` | 工具 ID 类型、单/双/三锚点工具表、工具→图形 kind 与 extend 模式映射 |
+| `magnet/impl/magnetSnapper.ts` | OHLC 磁吸纯函数 `snapPointerToOhlc` 与档位（weak=高/低，strong=OHLC 极值） |
 | `geometry/impl/coordinateUtils.ts` | 锚点逻辑坐标（时间戳 + 价格）↔ 屏幕坐标换算、`resolveDrawingPointer`、点线距离几何 |
 | `geometry/impl/frameProjection.ts` | 将当前 Pane 的图元投影为帧数据（`ResolvedDrawingObject` + 绘制原语列表） |
 | `geometry/impl/lines.ts` | 线表：图元的线段由哪些锚点构成，以及该线段是否开启中点垂直手柄（绘制、命中、拖拽共用） |

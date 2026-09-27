@@ -25,7 +25,7 @@
 
 ### 2. 子模块语义划分
 
-模块内按职责切成 5 个子模块，每个子模块采用 `<sub>/types.ts + <sub>/impl/` 分层（对齐
+模块内按职责切成 6 个子模块，每个子模块采用 `<sub>/types.ts + <sub>/impl/` 分层（对齐
 `engine/marker/shape` 既有先例）；契约类型从 impl 抽出到各层 `types.ts`，
 `types.ts` 不依赖同模块 impl。
 
@@ -34,10 +34,35 @@
 | `model` | 持久化领域模型：文档 CRUD、命令层、锚点物化、标签归一化 |
 | `session` | 会话 overlay 与选择集合（预览/拖拽覆盖，不进 kernel） |
 | `geometry` | 坐标换算、帧投影、线表、填充、标签布局、回归、视口裁剪 |
-| `interaction` | 落点收集、预览、拖拽、命中选择、磁吸、工具表 |
+| `interaction` | 落点收集、预览、拖拽、命中选择、工具表（磁吸档位分发） |
+| `magnet` | OHLC 磁吸档位契约与吸附纯函数 |
 | `render` | `DrawingStore` 投影器、`DrawingDefinitionRegistry`、绘制原语渲染器、图形定义工厂、渲染插件 |
 
-### 3. 公开入口收口
+磁吸吸附（`MagnetMode` / `MagnetSnapConfig` / `snapPointerToOhlc`）独立为 `magnet` 子模块：
+`geometry` 的落点解析与 `interaction` 的档位分发都依赖它，若留在 `interaction/impl`
+会让 `geometry/impl/coordinateUtils.ts` 反向依赖 `interaction` 的磁吸实现。独立后磁吸相关
+依赖为 `geometry → magnet`、`interaction → magnet`；`geometry/impl/frameProjection.ts` 仍因
+框选投影依赖 `interaction/impl/selectionMarquee.ts`，不在本次磁吸模块抽离范围内。
+
+### 3. 工具 ID 与磁吸档位常量收口
+
+绘图工具 ID 与磁吸档位的字面量集中为两张常量表：`interaction/types.ts` 的 `DrawingTool`
+（工具 id）与 `magnet/types.ts` 的 `MagnetMode`（off/weak/strong），`DrawingToolId` /
+`MagnetMode` / `ActiveMagnetMode` 三个类型都由常量派生。新增工具或档位只改常量表，
+运行时比较点（`toolConfig`、`interaction`、`PreviewRenderer`、`magnetSnapper`、
+`drawingState` 与 Vue 工具栏）一律引用常量，避免重命名后各调用点静默失配。
+
+- 常量不带 `: DrawingToolId` 标注，保留字面量类型，`switch` 才能正常收窄；
+  需要完整联合类型的信号（`drawingState.drawingTool`、Vue 的 `drawingToolId`）显式标注。
+  `CURSOR_DRAWING_TOOL_ID` / `BOX_SELECT_DRAWING_TOOL_ID` 保留为 `DrawingTool.Cursor` /
+  `DrawingTool.BoxSelect` 的别名，engine、controllers、features/agent 与 Vue 的运行时比较
+  一律引用常量，禁止散落字面量；仅测试断言与纯类型声明可保留字面量。
+- `DrawingKind`（`engine/drawing/types.ts`）是与 `DrawingToolId` 不同的词汇表（如 `h-line` →
+  `horizontal-line`），其字符串字面量不受本约束影响，两者通过 `getDrawingKind` 单点映射。
+- Vue 侧 `range-select` 是纯 UI 模式 id（不写进 kernel `DrawingToolId`），统一由
+  `packages/vue/src/components/toolbarToolIds.ts` 的 `RANGE_SELECT_UI_TOOL_ID` 提供。
+
+### 4. 公开入口收口
 
 `engine/drawing/index.ts` 收敛为唯一公开 barrel：只做重导出，不再承载实现。
 所有模块外调用点（controllers、features/agent、engine/facade、engine/state、engine/render、
@@ -46,20 +71,6 @@ vue 适配层）统一从该 barrel 或 `engine/drawing/types.ts` 依赖，禁�
 
 适配层（Vue）的绘图类型改从 `@363045841yyt/klinechart-core/controllers` 门面获取，
 不再从 `.../plugin` 子路径取（后者只保留 foundation 渲染原语）。
-
-### 4. 绘图工具 ID 与磁吸档位常量收口
-
-`interaction/types.ts` 的 `DrawingTool` / `MagnetMode` 常量表是工具 ID 与磁吸档位的唯一词汇表：
-`DrawingToolId`、`MagnetMode` 类型均由对应常量派生，`CURSOR_DRAWING_TOOL_ID` /
-`BOX_SELECT_DRAWING_TOOL_ID` 保留为 `DrawingTool.Cursor` / `DrawingTool.BoxSelect` 的兼容别名。
-engine、controllers、features/agent 与 Vue 的运行时比较、工具表与工具栏 id 一律引用这些常量，
-禁止散落字符串字面量；仅测试断言与纯类型声明可保留字面量。
-
-`DrawingKind`（`engine/drawing/types.ts`）是与 `DrawingToolId` 不同的词汇表（如 `h-line` →
-`horizontal-line`），其字符串字面量不受本约束影响，两者通过 `getDrawingKind` 单点映射。
-
-Vue 侧 `range-select` 是纯 UI 模式 id（不写进 kernel `DrawingToolId`），统一由
-`packages/vue/src/components/toolbarToolIds.ts` 的 `RANGE_SELECT_UI_TOOL_ID` 提供。
 
 ## 影响与验证
 

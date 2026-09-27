@@ -1,8 +1,8 @@
-/** 磁吸纯函数单测：验证 weak/strong 档位的候选集合、半径边界与 Bar 中心吸附。 */
+/** 磁吸纯函数单测：验证 weak 半径与 strong 无距离限制的 OHLC 吸附。 */
 import { describe, expect, it } from 'vitest'
 
 import { createMagnetSnapAdapter, OHLC_BARS } from '../../__tests__/helpers/drawingTestKit'
-import { MAGNET_RADIUS_STRONG, MAGNET_RADIUS_WEAK, snapPointerToOhlc } from '../impl/magnetSnapper'
+import { MAGNET_RADIUS_WEAK, snapPointerToOhlc } from '../impl/magnetSnapper'
 
 const PANE = { paneId: 'main', top: 0, height: 200 }
 
@@ -28,7 +28,7 @@ describe('snapPointerToOhlc', () => {
     expect(snapped).toEqual({ x: 15, y: 100 })
   })
 
-  it('strong 档吸附半径内的 open/close', () => {
+  it('strong 档吸附 open/close', () => {
     const adapter = createMagnetSnapAdapter(OHLC_BARS)
     // y=101 距 open(y=100) 1px。
     expect(snapPointerToOhlc(12, 101, PANE, adapter, { mode: 'strong' })).toEqual({
@@ -42,8 +42,7 @@ describe('snapPointerToOhlc', () => {
     })
   })
 
-  it('strong 半径（15px）大于 weak 半径（8px）', () => {
-    expect(MAGNET_RADIUS_STRONG).toBe(15)
+  it('weak 半径为 8px', () => {
     expect(MAGNET_RADIUS_WEAK).toBe(8)
   })
 
@@ -58,12 +57,12 @@ describe('snapPointerToOhlc', () => {
     })
   })
 
-  it('所有候选都超出半径时 Y 保持原始、X 仍吸附 Bar 中心', () => {
+  it('strong 档即使远离所有 OHLC 也吸附最近的 low', () => {
     const adapter = createMagnetSnapAdapter(OHLC_BARS)
-    // y=150 距目标 Bar 所有候选（80/90/100/120）均超过 strong 半径 15px。
+    // y=150 距目标 Bar 所有候选（80/90/100/120）至少 30px。
     expect(snapPointerToOhlc(12, 150, PANE, adapter, { mode: 'strong' })).toEqual({
       x: 15,
-      y: 150,
+      y: 120,
     })
   })
 
@@ -87,13 +86,17 @@ describe('snapPointerToOhlc', () => {
     expect(snapPointerToOhlc(12, 83, PANE, adapter, { mode: 'weak' })).toBeNull()
   })
 
-  it('Bar 中心与 Y 均无吸附点时返回 null', () => {
+  it('weak 档 Bar 中心与 Y 均无吸附点时返回 null', () => {
     const adapter = {
       ...createMagnetSnapAdapter(OHLC_BARS),
       getScreenXAtLogicalIndex: () => null,
     }
-    // Y 距所有候选超半径且 X 中心不可解析 → 整体 null。
-    expect(snapPointerToOhlc(12, 150, PANE, adapter, { mode: 'strong' })).toBeNull()
+    // Y 距 high/low 超过 8px 且 X 中心不可解析 → 整体 null。
+    expect(snapPointerToOhlc(12, 150, PANE, adapter, { mode: 'weak' })).toBeNull()
+    expect(snapPointerToOhlc(12, 150, PANE, adapter, { mode: 'strong' })).toEqual({
+      x: 12,
+      y: 120,
+    })
   })
 
   it('Y 命中但 Bar 中心不可解析时只吸附 Y', () => {

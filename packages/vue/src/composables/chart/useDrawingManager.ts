@@ -12,11 +12,13 @@ import {
   type DrawingObject,
   type DrawingStyle,
   type DrawingToolId,
+  type MagnetMode,
 } from '@363045841yyt/klinechart-core/controllers'
 import { computed, onUnmounted, type Ref, shallowRef } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)
+  const magnetMode = shallowRef<MagnetMode>('off')
   /** 镜像 kernel.selectedDrawingIds（shallowRef 避免 deep proxy 破坏 Object.is）。 */
   const selectedDrawingIds = shallowRef<ReadonlyArray<string>>([])
   const drawings = shallowRef<ReadonlyArray<DrawingObject>>([])
@@ -40,6 +42,11 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   function handleSelectTool(toolId: string) {
     // Chart 单写路径：kernel + session side effects
     ctrl.value?.setDrawingToolId(toolId as DrawingToolId)
+  }
+
+  function setMagnetMode(mode: MagnetMode) {
+    magnetMode.value = mode
+    drawingController.value?.setMagnetMode(mode)
   }
 
   function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
@@ -90,6 +97,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
   function setupDrawing(chartCtrl: ChartController): void {
     drawingController.value = new DrawingInteractionController(chartCtrl)
+    drawingController.value.setMagnetMode(magnetMode.value)
     chartCtrl.registerDrawingSession(drawingController.value)
 
     // UI 只镜像 kernel 已确认列表；预览/拖拽不进 Vue ref
@@ -122,6 +130,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
   return {
     drawingController,
+    magnetMode,
+    setMagnetMode,
     selectedDrawingIds: readonlySelectedDrawingIds,
     selectedDrawings,
     selectedDrawingStyleKeys,

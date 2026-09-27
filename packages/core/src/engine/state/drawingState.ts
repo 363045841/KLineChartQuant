@@ -33,7 +33,8 @@ function hasSameIds(left: ReadonlyArray<string>, right: ReadonlyArray<string>): 
 
 export function createDrawingState() {
   const { signals, readonly } = createSubState({
-    drawingTool: CURSOR_DRAWING_TOOL_ID,
+    // 常量保持字面量类型，此处显式标注让信号类型仍是完整的 DrawingToolId。
+    drawingTool: CURSOR_DRAWING_TOOL_ID as DrawingToolId,
     drawings: Object.freeze([]) as ReadonlyArray<DrawingObject>,
     selectedDrawingIds: Object.freeze([]) as ReadonlyArray<string>,
     globalDrawingLock: false,

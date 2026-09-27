@@ -1,9 +1,9 @@
 /**
- * Vue 工具栏工具 ID 契约。
+ * 左侧工具栏专属的工具 id 契约。
  *
- * 绘图工具 id 一律引用 core 的 DrawingTool 常量；本文件只承载 UI 专属模式 id，
- * 例如 range-select——它是纯 Vue 交互状态，不写进 kernel DrawingToolId。
+ * 区间选择是 Vue 侧的本地交互模式，不进 kernel 的 DrawingToolId，
+ * 因此单独声明，避免与绘图工具 id 混用。
  */
 
-/** 区间选择 UI 模式 id；仅 Vue 本地使用，不作为绘图工具写入 kernel。 */
+/** 区间选择工具 id（Vue 本地模式，不属于绘图工具表）。 */
 export const RANGE_SELECT_UI_TOOL_ID = 'range-select'

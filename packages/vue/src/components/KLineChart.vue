@@ -44,6 +44,7 @@
           :renderer-runtime="rendererRuntime"
           :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
+          :magnet-mode="magnetMode"
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
           :has-drawings="drawings.length > 0"
@@ -53,6 +54,7 @@
           :enabled-source-names="enabledSourceNameSet"
           :source-endpoints="sourceEndpoints"
           @select-tool="handleSelectTool"
+          @set-magnet-mode="setMagnetMode"
           @toggle-indicator="onToggleIndicator"
           @toggle-fullscreen="handleToggleFullscreen"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
@@ -296,12 +298,13 @@
 </template>
 
 <script setup lang="ts">
-  import { CURSOR_DRAWING_TOOL_ID } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
-  import type {
-    CanvasLegendOptions,
-    RendererBackendRuntime,
+  import {
+    type CanvasLegendOptions,
+    CURSOR_DRAWING_TOOL_ID,
+    type DrawingToolId,
+    type RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
   import {
     type ChartController,
@@ -380,11 +383,11 @@
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
+  import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import MarkerTooltip from './MarkerTooltip.vue'
   import PaneHeaderOverlay from './PaneHeaderOverlay.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
-  import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import WatchlistPanel from './WatchlistPanel.vue'
 
   // ── Props & Emits ──
@@ -841,7 +844,8 @@
   } = chartState
 
   /** 镜像 kernel.drawingTool，供工具栏高亮 */
-  const drawingToolId = shallowRef(CURSOR_DRAWING_TOOL_ID)
+  // 标注为完整工具类型，避免被常量字面量收窄成 'cursor'。
+  const drawingToolId = shallowRef<DrawingToolId>(CURSOR_DRAWING_TOOL_ID)
   const canUndoDrawing = shallowRef(false)
   const canRedoDrawing = shallowRef(false)
 
@@ -939,6 +943,8 @@
 
   const {
     drawingController,
+    magnetMode,
+    setMagnetMode,
     selectedDrawings,
     selectedDrawingStyleKeys,
     drawings,
