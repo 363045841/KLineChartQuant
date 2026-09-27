@@ -28,6 +28,7 @@ import {
 import { createDataState, type DataStateModule } from '@/engine/state/dataState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
 import type { TimeShareData } from '@/foundation/types/price'
+import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels'
 
 /** ViewportStateModule 替身入参。 */
 export interface MockViewportOptions {
@@ -100,6 +101,8 @@ export interface MockDataDependenciesOptions {
   onBarsReady?: () => void
   /** 数据变更后的交互重置回调；用例用它断言重置时机。 */
   resetInteraction?: () => void
+  /** 主品种 market session 透传；缺省时 deps 无此字段（未来区外推关闭）。 */
+  futureSession?: () => MarketSessionConfig | null
 }
 
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
@@ -113,6 +116,7 @@ export function createMockDataDependencies(
     scheduleDraw = () => {},
     onBarsReady = () => {},
     resetInteraction = () => {},
+    futureSession,
   } = options
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
@@ -128,6 +132,7 @@ export function createMockDataDependencies(
     isPointerDown: () => false,
     onTimeShareDataReady: () => {},
     setSymbols,
+    ...(futureSession ? { futureSession } : {}),
   }
 }
 

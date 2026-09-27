@@ -44,8 +44,10 @@ import {
 } from '../../data/provider/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { ChartDom } from '../chartTypes.js'
 import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
+import { projectTradingTimestamp } from '../market/futureTimeAxis.js'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
 import type { ComparisonStateModule } from '../state/comparisonState.js'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
@@ -85,6 +87,8 @@ export interface DataDependencies {
   onTimeShareDataReady: (dataLength: number) => void
   /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
+  /** 主品种 market session（未来区时间外推用）；主品种未定或无 market 时返回 null */
+  futureSession?: () => MarketSessionConfig | null
 }
 
 const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
@@ -1368,8 +1372,17 @@ export class ChartDataManager {
   getTimestampAtLogicalIndex(index: number): number | null {
     const buf = this.getActiveDataBuffer()
     const data = buf ? buf.getRawData() : []
-    if (!Number.isInteger(index) || index < 0 || index >= data.length) return null
-    return data[index]?.timestamp ?? null
+    if (!Number.isInteger(index) || index < 0) return null
+    if (index < data.length) return data[index]?.timestamp ?? null
+    // 未来槽位：按主品种交易日历外推（周期步长由末两根 bar 推导，session 由 Chart 注入）；
+    // 日内周期跨休市为"保持时刻"的近似预测（如 A 股周五 15:00 → 预测下周一 15:01），
+    // 真实 bar 到达后同 index 自愈覆盖；数据 < 2 根时周期无法推导，返回 null 属必要边界而非无意义回退
+    const session = this.deps.futureSession?.()
+    if (!session || data.length < 2) return null
+    const last = data[data.length - 1]!.timestamp
+    const prev = data[data.length - 2]!.timestamp
+    const periodMs = Math.max(1, last - prev)
+    return projectTradingTimestamp(session, last, index - data.length + 1, periodMs)
   }
 
   /** 通过当前活动数据 Buffer 的唯一时间索引解析逻辑坐标。 */

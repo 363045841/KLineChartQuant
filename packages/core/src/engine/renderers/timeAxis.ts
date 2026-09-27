@@ -34,6 +34,16 @@ function formatCrosshairTime(context: RenderContext, timestamp: number): string 
 }
 
 /**
+ * 解析十字线索引的时间戳：优先真实 bar，未来槽位走数据层外推回退。
+ * @returns 时间戳；无法解析（负索引、无数据、无 session）返回 null
+ */
+export function resolveCrosshairTimestamp(context: RenderContext, index: number): number | null {
+  const k = (context.data as KLineData[])[index]
+  if (k) return k.timestamp
+  return context.getTimestampAtLogicalIndex?.(index) ?? null
+}
+
+/**
  * 生产底部时间轴刻度文字标签（普通 K 线 / 分时 / 五日分时）并注册到 xTicks 表面。
  *
  * @param context - 当前时间轴渲染上下文
@@ -190,14 +200,15 @@ export function createTimeAxisRendererPlugin(options: {
         ctx.restore()
       }
 
-      // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）
+      // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）；
+      // 未来槽位无真实 bar，经 resolveCrosshairTimestamp 回退到数据层外推时间
       const crosshair = options.getCrosshair?.()
       if (crosshair && typeof crosshair.index === 'number') {
-        const k = (context.data as KLineData[])[crosshair.index]
-        if (k) {
+        const ts = resolveCrosshairTimestamp(context, crosshair.index)
+        if (ts !== null) {
           registerAxisLabel(context, 'xCrosshair', {
             kind: AXIS_LABEL_KIND.TAG,
-            text: formatCrosshairTime(context, k.timestamp),
+            text: formatCrosshairTime(context, ts),
             pos: crosshair.x,
             bgColor: colors.label.bg,
             textColor: colors.label.text,
