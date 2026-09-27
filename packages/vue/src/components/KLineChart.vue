@@ -322,17 +322,13 @@
     createChartController,
     type DrawingLineLabelTarget,
     type DrawingStyle,
-    type InteractionSnapshot,
     type LegendTemplateContext,
     marketDataProviderRegistry,
     PANE_HEADER_INSET_PX,
     type SymbolInfo,
     type SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
-  import type {
-    CustomMarkerEntity,
-    MarkerEntity,
-  } from '@363045841yyt/klinechart-core/engine/marker/registry'
+  import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import {
     type InstrumentDescriptor,
     searchInstruments,
@@ -380,6 +376,7 @@
   import { useControllerSignal } from '../composables/chart/useControllerSignal.js'
   import { useDrawingManager } from '../composables/chart/useDrawingManager.js'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
+  import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
   import { useKLineTooltip } from '../composables/chart/useKLineTooltip.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
@@ -1133,26 +1130,6 @@
   let mousePos = { x: 0, y: 0 }
   /** 绘图拖拽按下瞬间的光标；非空表示正处于图元拖拽会话，期间光标不随 pointermove 变化。 */
   let drawingDragCursor: string | null = null
-  let latestInteractionState: InteractionSnapshot = {
-    crosshairPos: null,
-    crosshairIndex: null,
-    crosshairPrice: null,
-    hoveredIndex: null,
-    activePaneId: null,
-    tooltipPos: { x: 0, y: 0 },
-    tooltipAnchorPlacement: 'right-bottom',
-    hoveredMarkerData: null,
-    hoveredCustomMarker: null,
-    isDragging: false,
-    isResizingPaneBoundary: false,
-    isHoveringPaneBoundary: false,
-    hoveredPaneBoundaryId: null,
-    isHoveringRightAxis: false,
-    drawingHoverTarget: 'none',
-  }
-  const externalInteractionState = shallowRef<InteractionSnapshot>(latestInteractionState)
-  const hoveredMarker = shallowRef<MarkerEntity | null>(null)
-  const hoveredCustomMarker = shallowRef<CustomMarkerEntity | null>(null)
   const markerTooltipInitialPosition = { x: 0, y: 0 }
   const externalMarkerTooltipStyle = shallowRef({
     left: '0px',
@@ -1199,6 +1176,20 @@
       markerTooltipEl.style.top = `${top}px`
     }
   }
+
+  // 交互快照 → 舞台表现 / 外部 tooltip 快照 / marker hover 镜像；订阅随组件生命周期显式退订。
+  const {
+    externalState: externalInteractionState,
+    hoveredMarker,
+    hoveredCustomMarker,
+  } = useInteractionBridge({
+    controller,
+    stageRef: chartStageRef,
+    containerRef,
+    hasExternalSlot: hasKLineTooltipSlot,
+    getDragCursor: () => drawingDragCursor,
+    onMarkerHover: positionDefaultMarkerTooltip,
+  })
 
   /** 主图图例模板上下文（#legend slot 消费） */
   const legendTemplateContext = shallowRef<LegendTemplateContext | null>(null)
@@ -1759,82 +1750,6 @@
     applyThemeFromSettings(resolved.theme as string)
   }
 
-  /**
-   * 光标优先级：图元拖拽会话冻结目标 > 实时绘图悬停 > 通用 hover。
-   * 拖拽中 kernel 的 isDragging 恒为 true（记 `grabbing`），无法区分「平移」与「拖图元」，
-   * 因此图元拖拽沿用按下时认定的 cursor；标尺/平移仍走 grabbing。
-   */
-  function pickCursor(
-    snap: InteractionSnapshot,
-    dragCursor: string | null,
-    fallbackCursor: string,
-  ): string {
-    if (dragCursor !== null && snap.drawingHoverTarget !== 'none') return dragCursor
-    return resolveStageCursor(snap, fallbackCursor)
-  }
-
-  /**
-   * 舞台光标：图表平移/框选 dragging；面板分隔与绘图中点手柄 ns-resize；
-   * 图元线身 move（可整体拖动）；圆形锚点显式 default，避免沿用十字线/指针。
-   */
-  function resolveStageCursor(state: InteractionSnapshot, fallbackCursor: string): string {
-    if (state.isResizingPaneBoundary || state.isHoveringPaneBoundary) return 'ns-resize'
-    if (state.drawingHoverTarget === 'vertical-handle') return 'ns-resize'
-    if (state.drawingHoverTarget === 'all') return 'move'
-    if (state.drawingHoverTarget === 'anchor') return 'default'
-    if (state.isDragging) return 'grabbing'
-    return fallbackCursor
-  }
-
-  function setupInteractionCallbacks(ctrl: ChartController): void {
-    ctrl.setTooltipAnchorPositioning(false)
-    ctrl.interactionState.subscribe(() => {
-      const next = ctrl.interactionState.peek()
-      latestInteractionState = next
-
-      const stage = chartStageRef.value
-      stage?.classList.toggle('is-dragging', next.isDragging)
-      const drawingDragging = drawingDragCursor !== null && next.drawingHoverTarget !== 'none'
-      stage?.classList.toggle('is-dragging-drawing', drawingDragging)
-      if (stage && drawingDragging) {
-        stage.dataset.drawingCursor = next.drawingHoverTarget
-      } else if (stage) {
-        delete stage.dataset.drawingCursor
-      }
-      stage?.classList.toggle('is-resizing-pane', next.isResizingPaneBoundary)
-      stage?.classList.toggle('is-hovering-pane-separator', next.isHoveringPaneBoundary)
-      stage?.classList.toggle('is-hovering-right-axis', next.isHoveringRightAxis)
-      stage?.classList.toggle('is-hovering-kline', next.hoveredIndex !== null)
-      stage?.querySelectorAll<HTMLElement>('.pane-separator-line').forEach((line) => {
-        line.classList.toggle('is-active', line.dataset.paneId === next.hoveredPaneBoundaryId)
-      })
-
-      const container = containerRef.value
-      if (container) {
-        // 下一帧兜底光标：本帧没有绘图会话时按通用 hover 推导。
-        const fallback = next.hoveredIndex !== null ? 'pointer' : 'crosshair'
-        container.style.cursor = pickCursor(next, drawingDragCursor, fallback)
-      }
-
-      // 自定义 K 线 tooltip 是调用方显式选择的 Vue slot；仅该分支保留高频响应式 props。
-      if (hasKLineTooltipSlot.value) externalInteractionState.value = next
-
-      if (hoveredMarker.value !== next.hoveredMarkerData) {
-        hoveredMarker.value = next.hoveredMarkerData
-      }
-      if (hoveredCustomMarker.value !== next.hoveredCustomMarker) {
-        hoveredCustomMarker.value = next.hoveredCustomMarker
-      }
-      if (next.hoveredMarkerData || next.hoveredCustomMarker) positionDefaultMarkerTooltip()
-    })
-
-    latestInteractionState = ctrl.interactionState.peek()
-    syncLegendSubscription(ctrl)
-
-    // #legend 存在时切换为 external，隐藏 Canvas 图例文字
-    applyLegendRenderMode(ctrl, hasLegendSlot.value)
-  }
-
   /** 将受控业务 props 按固定顺序同步到 ChartController。 */
   function applyControlledChartProps(ctrl: ChartController): void {
     if (props.indicators !== undefined) {
@@ -1898,9 +1813,16 @@
       console.error('[KLineChart] initChart failed:', err)
       return
     }
-    if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
+    if (!containerRef.value || !chartMainRef.value) {
+      // 组件在 await 期间已卸载：此时 ctrl 尚未写入 controller.value，需主动释放。
+      ctrl.dispose()
+      return
+    }
     controller.value = ctrl
     emit('controllerReady', ctrl)
+
+    // controllerReady 监听可能同步卸载组件；DOM ref 被清空后继续接线会在已销毁实例上遗留订阅。
+    if (!containerRef.value || !chartMainRef.value) return
 
     // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
     cleanupChartCallbacks = setupChartCallbacks(ctrl)
@@ -1914,8 +1836,10 @@
     // 5) 绘图交互控制器
     setupDrawing(ctrl)
 
-    // 6) 交互信号桥接
-    setupInteractionCallbacks(ctrl)
+    // 6) 交互初始化与图例接线（interactionState 订阅由 useInteractionBridge 管理）
+    ctrl.setTooltipAnchorPositioning(false)
+    syncLegendSubscription(ctrl)
+    applyLegendRenderMode(ctrl, hasLegendSlot.value)
   })
 
   // ── onUnmounted & Watchers ──
