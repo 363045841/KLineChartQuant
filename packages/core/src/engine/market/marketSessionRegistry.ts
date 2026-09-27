@@ -1,4 +1,5 @@
-/** 市场会话注册表：以内置 CN/HK/KR/US 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
+/** 市场会话注册表：以内置 CN/HK/KR/US/MT5 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
+import { FOREX_MARKET_SESSION } from './forexMarketSession.js'
 import {
   ASHARE_MARKET_SESSION,
   HK_MARKET_SESSION,
@@ -12,6 +13,9 @@ const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
   HK: HK_MARKET_SESSION,
   KR: KR_MARKET_SESSION,
   US: US_MARKET_SESSION,
+  // MT5 连接器（symbol-catalog 规格约定 sessionId=MT5）以 forex/CFD 为主，
+  // 缺省按 24/5 交易日历外推；crypto 等全周品种的周末预测由索引制轴自愈覆盖
+  MT5: FOREX_MARKET_SESSION,
 }
 
 function isValidSession(config: MarketSessionConfig): boolean {

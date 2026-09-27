@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { HK_MARKET_SESSION, KR_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
+import { FOREX_MARKET_SESSION } from '../forexMarketSession'
 import { MarketSessionRegistry } from '../marketSessionRegistry'
 
 describe('MarketSessionRegistry', () => {
@@ -9,6 +10,12 @@ describe('MarketSessionRegistry', () => {
 
     expect(registry.getRequired('HK')).toEqual(HK_MARKET_SESSION)
     expect(registry.getRequired('KR')).toEqual(KR_MARKET_SESSION)
+  })
+
+  it('provides the MT5 connector session (24/5 forex calendar) as builtin', () => {
+    const registry = new MarketSessionRegistry()
+
+    expect(registry.getRequired('MT5')).toEqual(FOREX_MARKET_SESSION)
   })
 
   it('throws for an unknown market without falling back', () => {
