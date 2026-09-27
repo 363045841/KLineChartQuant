@@ -49,6 +49,7 @@
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
           :has-drawings="drawings.length > 0"
+          :all-drawings-hidden="drawings.length > 0 && drawings.every((drawing) => !drawing.visible)"
           :global-drawing-locked="globalDrawingLock"
           :is-range-select-mode="isRangeSelectMode"
           :aggregation-sources="aggregationSources"
@@ -64,6 +65,7 @@
           @undo-drawing="controller?.undoDrawing()"
           @redo-drawing="controller?.redoDrawing()"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
+          @set-all-drawings-visible="onSetAllDrawingsVisible"
           @settings-change="handleSettingsChange"
           @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -142,6 +144,7 @@
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
                     @toggle-lock="onToggleDrawingLock"
+                    @hide="onHideSelectedDrawings"
                     @update-line-label-position="setLineLabelPosition"
                     @open-settings="openDrawingSettings"
                   />
@@ -957,6 +960,8 @@
     updateDrawingLabel,
     onDeleteDrawing,
     onToggleDrawingLock,
+    onHideSelectedDrawings,
+    onSetAllDrawingsVisible,
     globalDrawingLock,
     onSetGlobalDrawingLock,
     setupDrawing,

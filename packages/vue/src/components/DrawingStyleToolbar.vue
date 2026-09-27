@@ -70,6 +70,17 @@
     <button
       v-if="drawings.length > 0"
       type="button"
+      class="toolbar-btn"
+      title="隐藏所选图元"
+      aria-label="隐藏所选图元"
+      @click="emit('hide')"
+    >
+      <IconTablerEyeOff class="lock-icon" aria-hidden="true" />
+    </button>
+
+    <button
+      v-if="drawings.length > 0"
+      type="button"
       class="toolbar-btn toolbar-btn--lock"
       :class="{ 'is-locked': allLocked }"
       :title="allLocked ? '解锁' : '锁定'"
@@ -109,11 +120,16 @@
 
 <script setup lang="ts">
   import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
-  import type { DrawingLabelPosition, DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
+  import type {
+    DrawingLabelPosition,
+    DrawingObject,
+    DrawingStyle,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, onUnmounted } from 'vue'
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignRight from '~icons/tabler/align-right'
+  import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerSettings from '~icons/tabler/settings'
@@ -149,6 +165,7 @@
     (e: 'updateStyle', style: Partial<DrawingStyle>): void
     (e: 'delete'): void
     (e: 'toggleLock', locked: boolean): void
+    (e: 'hide'): void
     (e: 'updateLineLabelPosition', position: DrawingLabelPosition): void
     (e: 'openSettings', drawingId: string): void
   }>()

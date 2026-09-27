@@ -129,7 +129,16 @@ export function createDrawingState() {
           }
         })
         const snapshot = snapshotDrawings(next)
-        signals.drawings.set(snapshot)
+        const selected =
+          patch.visible === false
+            ? signals.selectedDrawingIds.peek().filter((id) => !idSet.has(id))
+            : signals.selectedDrawingIds.peek()
+        batch(() => {
+          signals.drawings.set(snapshot)
+          if (!hasSameIds(signals.selectedDrawingIds.peek(), selected)) {
+            signals.selectedDrawingIds.set(Object.freeze(selected))
+          }
+        })
         const snapshotsById = new Map(snapshot.map((drawing) => [drawing.id, drawing]))
         return Object.freeze(targets.map((drawing) => snapshotsById.get(drawing.id)!))
       },

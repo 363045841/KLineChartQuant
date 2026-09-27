@@ -74,3 +74,23 @@ describe('LeftToolbar 连续绘图', () => {
     }
   })
 })
+
+describe('LeftToolbar 图元可见性', () => {
+  it('按图元列表状态隐藏和显示全部图元', async () => {
+    const wrapper = mount(LeftToolbar, {
+      props: { hasDrawings: true, allDrawingsHidden: false },
+      global: { stubs: { ChartSettingsDialog: true, AlertDialog: true } },
+    })
+    try {
+      await wrapper.get('[aria-label="隐藏所有图元"]').trigger('click')
+      expect(wrapper.emitted('setAllDrawingsVisible')).toEqual([[false]])
+      await wrapper.setProps({ allDrawingsHidden: true })
+      const button = wrapper.get('[aria-label="显示所有图元"]')
+      expect(button.attributes('aria-pressed')).toBe('true')
+      await button.trigger('click')
+      expect(wrapper.emitted('setAllDrawingsVisible')).toEqual([[false], [true]])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})

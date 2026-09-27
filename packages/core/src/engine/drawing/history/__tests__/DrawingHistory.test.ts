@@ -11,6 +11,30 @@ function addLine(commands: ReturnType<typeof fixture>['commands'], price = 10) {
 }
 
 describe('drawing history', () => {
+  it('hides individual and all drawings as reversible edits while clearing hidden selection', () => {
+    const { commands, document, state } = fixture()
+    const a = addLine(commands)
+    const b = addLine(commands, 20)
+    state.actions.setSelectedDrawingIds([a.id, b.id])
+
+    commands.updateBatch([a.id], { visible: false })
+    expect(document.listDrawings().map((drawing) => drawing.visible)).toEqual([false, true])
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([b.id])
+    expect(commands.history.undo()).toBe(true)
+    expect(document.listDrawings().map((drawing) => drawing.visible)).toEqual([true, true])
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([a.id, b.id])
+    expect(commands.history.redo()).toBe(true)
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([b.id])
+
+    commands.updateBatch([b.id], { visible: false })
+    expect(document.listDrawings().every((drawing) => !drawing.visible)).toBe(true)
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([])
+    commands.updateBatch([a.id, b.id], { visible: true })
+    expect(document.listDrawings().every((drawing) => drawing.visible)).toBe(true)
+    expect(commands.history.undo()).toBe(true)
+    expect(document.listDrawings().every((drawing) => !drawing.visible)).toBe(true)
+  })
+
   it('restores IDs, order and selection across create, delete, undo and redo', () => {
     const { commands, document, state } = fixture()
     const first = addLine(commands)

@@ -96,6 +96,22 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     ctrl.value?.updateBatch(ids, { locked })
   }
 
+  /** 隐藏选中图元；Core 同步移除其选中状态。 */
+  function onHideSelectedDrawings() {
+    const ids = selectedDrawingIds.value.filter((id) =>
+      drawings.value.some((drawing) => drawing.id === id && drawing.visible),
+    )
+    if (ids.length > 0) ctrl.value?.updateBatch(ids, { visible: false })
+  }
+
+  /** 一次事务设置整张图表的图元可见性。 */
+  function onSetAllDrawingsVisible(visible: boolean) {
+    const ids = drawings.value
+      .filter((drawing) => drawing.visible !== visible)
+      .map((drawing) => drawing.id)
+    if (ids.length > 0) ctrl.value?.updateBatch(ids, { visible })
+  }
+
   /** 切换全局绘图锁定；只冻结移动，不改写各图元自身 locked。 */
   function onSetGlobalDrawingLock(locked: boolean) {
     ctrl.value?.setGlobalDrawingLock(locked)
@@ -151,6 +167,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     updateDrawingLabel,
     onDeleteDrawing,
     onToggleDrawingLock,
+    onHideSelectedDrawings,
+    onSetAllDrawingsVisible,
     onSetGlobalDrawingLock,
     setupDrawing,
   }

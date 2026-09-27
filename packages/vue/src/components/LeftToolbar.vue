@@ -152,6 +152,23 @@
           <IconTablerLockOpen v-else class="tool-icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
+      <BaseTooltip :content="allDrawingsHidden ? '显示所有图元' : '隐藏所有图元'">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :class="{ active: allDrawingsHidden }"
+          :aria-label="allDrawingsHidden ? '显示所有图元' : '隐藏所有图元'"
+          :aria-pressed="allDrawingsHidden"
+          :disabled="!hasDrawings"
+          @click="emit('setAllDrawingsVisible', allDrawingsHidden)"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerEyeOff v-if="allDrawingsHidden" class="tool-icon" aria-hidden="true" />
+          <IconTablerEye v-else class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <template v-if="alertController">
@@ -327,6 +344,8 @@
   import IconTablerChartLine from '~icons/tabler/chart-line'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerEqual from '~icons/tabler/equal'
+  import IconTablerEye from '~icons/tabler/eye'
+  import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
@@ -425,6 +444,7 @@
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
+    (e: 'setAllDrawingsVisible', visible: boolean): void
     (e: 'settingsChange', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
@@ -446,6 +466,7 @@
       canRedoDrawing?: boolean
       /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */
       hasDrawings?: boolean
+      allDrawingsHidden?: boolean
       /** 全局绘图锁定状态：为 true 时全部图元不可移动 */
       globalDrawingLocked?: boolean
       /** range-select 本地模式 */
