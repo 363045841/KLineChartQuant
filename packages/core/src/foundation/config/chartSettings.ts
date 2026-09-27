@@ -167,7 +167,7 @@ export const DEFAULT_SETTINGS = [
     key: 'theme',
     label: '主题',
     type: 'select',
-    default: 'dark',
+    default: 'auto',
     group: 'main',
     options: [
       { value: 'light', label: '浅色' },

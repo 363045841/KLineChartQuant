@@ -45,6 +45,11 @@ describe('normalizeSettings', () => {
   it('defaults to WebGL', () => {
     expect(normalizeSettings().rendererBackend).toBe('webgl')
   })
+
+  it('follows the system theme unless a preference is provided', () => {
+    expect(normalizeSettings().theme).toBe('auto')
+    expect(normalizeSettings({ theme: 'light' }).theme).toBe('light')
+  })
 })
 
 describe('resolveSettings', () => {

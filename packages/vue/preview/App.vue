@@ -84,6 +84,7 @@
     createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
+  import { resolveSettings } from '@363045841yyt/klinechart-core/config'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
   const DEMO_MAIN_DATA: KLineData[] = [
@@ -547,7 +548,14 @@
   const embedContainerRef = ref<HTMLElement | null>(null)
 
   // 产品内不传 settings prop，图表内部以 localStorage 偏好 + 默认值自行接管
-  const currentTheme = ref<'light' | 'dark'>('dark')
+  const themePreference = resolveSettings().theme
+  const currentTheme = ref<'light' | 'dark'>(
+    themePreference === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : (themePreference as 'light' | 'dark'),
+  )
 
   /** 主品种 → 浏览器 Tab 标题同步器，控制器就绪时绑定。 */
   const { bind: bindDocumentTitle } = useChartDocumentTitle()

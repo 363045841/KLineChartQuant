@@ -1,5 +1,10 @@
 <template>
-  <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
+  <div
+    ref="chartWrapperRef"
+    class="chart-wrapper"
+    :data-theme="chartTheme"
+    :style="[themeCssVars, { colorScheme: chartTheme }]"
+  >
     <div class="chart-workspace">
       <TopToolbar
         :symbol="currentSymbol"
