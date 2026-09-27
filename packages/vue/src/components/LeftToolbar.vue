@@ -87,6 +87,24 @@
       </div>
     </div>
 
+    <div class="left-toolbar__group">
+      <BaseTooltip :content="continuousDrawing ? '关闭连续绘图' : '开启连续绘图'">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :class="{ active: continuousDrawing }"
+          aria-label="连续绘图"
+          :aria-pressed="continuousDrawing"
+          @click="emit('setContinuousDrawing', !continuousDrawing)"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerPencil class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+    </div>
+
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
@@ -320,6 +338,7 @@
   import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerMinusVertical from '~icons/tabler/minus-vertical'
+  import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerPlus from '~icons/tabler/plus'
   import IconTablerPointer from '~icons/tabler/pointer'
   import IconTablerSelect from '~icons/tabler/select'
@@ -398,6 +417,7 @@
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
+    (e: 'setContinuousDrawing', enabled: boolean): void
     (e: 'toggleFullscreen'): void
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
@@ -421,6 +441,7 @@
       /** kernel drawingTool 镜像；高亮以它为准 */
       drawingToolId?: string
       magnetMode?: MagnetMode
+      continuousDrawing?: boolean
       canUndoDrawing?: boolean
       canRedoDrawing?: boolean
       /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */

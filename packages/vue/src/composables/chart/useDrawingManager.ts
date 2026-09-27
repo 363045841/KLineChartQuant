@@ -19,6 +19,7 @@ import { computed, onUnmounted, type Ref, shallowRef } from 'vue'
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)
   const magnetMode = shallowRef<MagnetMode>('off')
+  const continuousDrawing = shallowRef(false)
   /** 镜像 kernel.selectedDrawingIds（shallowRef 避免 deep proxy 破坏 Object.is）。 */
   const selectedDrawingIds = shallowRef<ReadonlyArray<string>>([])
   const drawings = shallowRef<ReadonlyArray<DrawingObject>>([])
@@ -47,6 +48,11 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   function setMagnetMode(mode: MagnetMode) {
     magnetMode.value = mode
     drawingController.value?.setMagnetMode(mode)
+  }
+
+  function setContinuousDrawing(enabled: boolean) {
+    continuousDrawing.value = enabled
+    drawingController.value?.setContinuousDrawing(enabled)
   }
 
   function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
@@ -98,6 +104,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   function setupDrawing(chartCtrl: ChartController): void {
     drawingController.value = new DrawingInteractionController(chartCtrl)
     drawingController.value.setMagnetMode(magnetMode.value)
+    drawingController.value.setContinuousDrawing(continuousDrawing.value)
     chartCtrl.registerDrawingSession(drawingController.value)
 
     // UI 只镜像 kernel 已确认列表；预览/拖拽不进 Vue ref
@@ -132,6 +139,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawingController,
     magnetMode,
     setMagnetMode,
+    continuousDrawing,
+    setContinuousDrawing,
     selectedDrawingIds: readonlySelectedDrawingIds,
     selectedDrawings,
     selectedDrawingStyleKeys,

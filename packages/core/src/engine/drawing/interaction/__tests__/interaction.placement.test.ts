@@ -58,6 +58,64 @@ describe('DrawingInteractionController placement', () => {
     expect(calls).toEqual(['setDrawingToolId', 'createDrawing'])
   })
 
+  it('keeps a single-anchor tool active for consecutive drawings', () => {
+    const createDrawing = vi.fn(() => createDrawingObject({ id: 'created' }))
+    const setDrawingToolId = vi.fn()
+    const adapter = createPlacementAdapter({
+      tool: 'v-line',
+      pane: { paneId: 'main', top: 0, height: 100 },
+      plotWidth: 100,
+      plotHeight: 100,
+      logicalIndex: 0,
+      document: { createDrawing, setDrawingToolId },
+    })
+    const controller = new DrawingInteractionController(adapter)
+    controller.setContinuousDrawing(true)
+
+    controller.onPointerMove(pointerMove(10, 10), CONTAINER)
+    expect(controller.getPaintOverlay()).toHaveLength(1)
+    controller.onPointerDown(pointerDown(10, 10), CONTAINER)
+    expect(controller.getPaintOverlay()).toHaveLength(0)
+    controller.onPointerDown(pointerDown(20, 20), CONTAINER)
+    expect(createDrawing).toHaveBeenCalledTimes(2)
+    expect(setDrawingToolId).not.toHaveBeenCalled()
+
+    controller.setContinuousDrawing(false)
+    controller.onPointerDown(pointerDown(30, 30), CONTAINER)
+    expect(setDrawingToolId).toHaveBeenCalledWith('cursor')
+  })
+
+  it('starts a fresh anchor group after completing a drawing in continuous mode', () => {
+    const createDrawing = vi.fn(() => createDrawingObject({ id: 'created' }))
+    const setDrawingToolId = vi.fn()
+    const adapter = createPlacementAdapter({
+      tool: 'trend-line',
+      pane: { paneId: 'main', top: 0, height: 100 },
+      plotWidth: 100,
+      plotHeight: 100,
+      logicalIndex: 0,
+      document: { createDrawing, setDrawingToolId },
+    })
+    const controller = new DrawingInteractionController(adapter)
+    controller.setContinuousDrawing(true)
+
+    controller.onPointerDown(pointerDown(10, 10), CONTAINER)
+    controller.onPointerMove(pointerMove(20, 20), CONTAINER)
+    controller.onPointerDown(pointerDown(20, 20), CONTAINER)
+    expect(controller.getPaintOverlay()).toHaveLength(0)
+    controller.onPointerDown(pointerDown(30, 30), CONTAINER)
+    expect(createDrawing).toHaveBeenCalledTimes(1)
+    controller.onPointerDown(pointerDown(40, 40), CONTAINER)
+    expect(createDrawing).toHaveBeenCalledTimes(2)
+    expect(createDrawing).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        anchors: [expect.objectContaining({ price: 30 }), expect.objectContaining({ price: 40 })],
+      }),
+    )
+    expect(setDrawingToolId).not.toHaveBeenCalled()
+  })
+
   it('keeps the in-progress preview and clamps the next anchor to the pane edge', () => {
     const adapter = createPlacementAdapter({
       tool: 'trend-line',

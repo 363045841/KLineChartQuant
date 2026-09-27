@@ -45,6 +45,7 @@
           :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
           :magnet-mode="magnetMode"
+          :continuous-drawing="continuousDrawing"
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
           :has-drawings="drawings.length > 0"
@@ -55,6 +56,7 @@
           :source-endpoints="sourceEndpoints"
           @select-tool="handleSelectTool"
           @set-magnet-mode="setMagnetMode"
+          @set-continuous-drawing="setContinuousDrawing"
           @toggle-indicator="onToggleIndicator"
           @toggle-fullscreen="handleToggleFullscreen"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
@@ -945,6 +947,8 @@
     drawingController,
     magnetMode,
     setMagnetMode,
+    continuousDrawing,
+    setContinuousDrawing,
     selectedDrawings,
     selectedDrawingStyleKeys,
     drawings,

@@ -60,6 +60,8 @@ export class DrawingInteractionController {
   private pointerSession: DrawingPointerSession = { kind: 'idle' }
   /** 磁吸档位（会话级交互配置，不进 StateKernel；见 docs/design 引擎绘图硬化文档）。 */
   private magnetMode: MagnetMode = MagnetMode.Off
+  /** 完成图元后是否继续使用当前绘图工具。 */
+  private continuousDrawing = false
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
@@ -121,6 +123,10 @@ export class DrawingInteractionController {
   /** 读取当前磁吸档位。 */
   getMagnetMode(): MagnetMode {
     return this.magnetMode
+  }
+
+  setContinuousDrawing(enabled: boolean): void {
+    this.continuousDrawing = enabled
   }
 
   // ============ 图元 CRUD ============
@@ -250,7 +256,7 @@ export class DrawingInteractionController {
     const anchorCount = getAnchorCountForTool(activeTool)
 
     if (anchorCount === 1) {
-      this.createSingleAnchorDrawing(pointer, activeTool)
+      this.completeDrawing(activeTool, pointer.paneId, [pointer])
       return true
     }
 
@@ -258,8 +264,8 @@ export class DrawingInteractionController {
       if (this.pendingPaneId === null) this.pendingPaneId = pointer.paneId
       const result = this.anchorCollector.addAnchor(pointer, activeTool)
       if (result) {
-        this.createMultiAnchorDrawing(result, activeTool, pointer.paneId)
         this.pendingPaneId = null
+        this.completeDrawing(activeTool, pointer.paneId, result)
       }
       return true
     }
@@ -531,29 +537,15 @@ export class DrawingInteractionController {
     )
   }
 
-  private createSingleAnchorDrawing(anchor: DrawingPointerAnchor, activeTool: DrawingToolId): void {
-    // 先复位工具：切回 cursor 会清空选中，必须在创建前完成，创建会原子选中新图元。
-    this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
-    this.adapter.createDrawing({
-      kind: getDrawingKind(activeTool),
-      paneId: anchor.paneId,
-      anchors: [
-        {
-          timestamp: anchor.time,
-          futureOffset: anchor.futureOffset,
-          price: anchor.price,
-        },
-      ],
-    })
-  }
-
-  private createMultiAnchorDrawing(
-    anchors: ResolvedInteractionAnchor[],
+  /** 一笔绘图的统一收尾：移除临时预览，再提交图元并决定是否保留工具。 */
+  private completeDrawing(
     activeTool: DrawingToolId,
     paneId: string,
+    anchors: ReadonlyArray<ResolvedInteractionAnchor>,
   ): void {
-    // 先复位工具：切回 cursor 会清空选中，必须在创建前完成，创建会原子选中新图元。
-    this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
+    this.sessionOverlay.removePreview()
+    // 工具切换会清空选中，必须在创建（原子选中新图元）之前完成。
+    if (!this.continuousDrawing) this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
     this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
       paneId,

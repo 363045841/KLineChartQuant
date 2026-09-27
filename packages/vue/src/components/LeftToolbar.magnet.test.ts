@@ -52,3 +52,25 @@ describe('LeftToolbar 磁吸工具', () => {
     }
   })
 })
+
+describe('LeftToolbar 连续绘图', () => {
+  it('通过受控开关发出状态变更且不切换绘图工具', async () => {
+    const wrapper = mount(LeftToolbar, {
+      props: { drawingToolId: 'trend-line' },
+      global: { stubs: { ChartSettingsDialog: true, AlertDialog: true } },
+    })
+    try {
+      const button = wrapper.get('[aria-label="连续绘图"]')
+      expect(button.attributes('aria-pressed')).toBe('false')
+      await button.trigger('click')
+      expect(wrapper.emitted('setContinuousDrawing')).toEqual([[true]])
+      await wrapper.setProps({ continuousDrawing: true })
+      expect(button.attributes('aria-pressed')).toBe('true')
+      await button.trigger('click')
+      expect(wrapper.emitted('setContinuousDrawing')).toEqual([[true], [false]])
+      expect(wrapper.emitted('selectTool')).toBeUndefined()
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})
