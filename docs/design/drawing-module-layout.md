@@ -25,7 +25,7 @@
 
 ### 2. 子模块语义划分
 
-模块内按职责切成 5 个子模块，每个子模块采用 `<sub>/types.ts + <sub>/impl/` 分层（对齐
+模块内按职责切成 6 个子模块，每个子模块采用 `<sub>/types.ts + <sub>/impl/` 分层（对齐
 `engine/marker/shape` 既有先例）；契约类型从 impl 抽出到各层 `types.ts`，
 `types.ts` 不依赖同模块 impl。
 
@@ -34,8 +34,15 @@
 | `model` | 持久化领域模型：文档 CRUD、命令层、锚点物化、标签归一化 |
 | `session` | 会话 overlay 与选择集合（预览/拖拽覆盖，不进 kernel） |
 | `geometry` | 坐标换算、帧投影、线表、填充、标签布局、回归、视口裁剪 |
-| `interaction` | 落点收集、预览、拖拽、命中选择、磁吸、工具表 |
+| `interaction` | 落点收集、预览、拖拽、命中选择、工具表（磁吸档位分发） |
+| `magnet` | OHLC 磁吸档位契约与吸附纯函数 |
 | `render` | `DrawingStore` 投影器、`DrawingDefinitionRegistry`、绘制原语渲染器、图形定义工厂、渲染插件 |
+
+磁吸吸附（`MagnetMode` / `MagnetSnapConfig` / `snapPointerToOhlc`）独立为 `magnet` 子模块：
+`geometry` 的落点解析与 `interaction` 的档位分发都依赖它，若留在 `interaction/impl`
+会让 `geometry/impl/coordinateUtils.ts` 反向依赖 `interaction` 的磁吸实现。独立后磁吸相关
+依赖为 `geometry → magnet`、`interaction → magnet`；`geometry/impl/frameProjection.ts` 仍因
+框选投影依赖 `interaction/impl/selectionMarquee.ts`，不在本次磁吸模块抽离范围内。
 
 ### 3. 公开入口收口
 

@@ -16,7 +16,7 @@
 |------|----------|-----------|--------|
 | off  | —        | —         | 不吸附 |
 | weak | high/low | 8px       | Bar 中心可解析时吸附到中心 |
-| strong | high/low/open/close | 15px | 同上 |
+| strong | high/low/open/close | 无距离门槛，始终吸最近价格 | 同上 |
 
 - **X 吸附与 Y 是否命中无关**：只要 `getScreenXAtLogicalIndex(barIndex)` 非 null，X 即改写为 Bar 中心。对最终锚点的影响：同一 Bar 内点击解析出同一时间戳，仅在 Bar 边界半个 Bar 宽内有差异。
 - **候选遍历顺序** `[high, low, open, close]`，距离用 `<=` 比较——同距离时后遍历者胜出。
@@ -26,7 +26,7 @@
 
 ### 接入点
 
-- `magnetSnapper.ts`：纯函数 `snapPointerToOhlc(mouseX, mouseY, pane, adapter, config)`，输入输出均为容器局部坐标。
+- `magnet/impl/magnetSnapper.ts`：纯函数 `snapPointerToOhlc(mouseX, mouseY, pane, adapter, config)`，输入输出均为容器局部坐标。
 - `resolveDrawingPointer` 增加第 4 可选参数 `options.magnet`，吸附发生在 `screenToAnchor` 之前（改写局部 x/y）。**不传即不吸附**——cursor 命中（findDrawingHit）、框选（startSelectionMarquee / handleSelectionMarqueeMove / commitSelectionMarquee）、线段标签（getLineLabelTarget）路径一律不传，保证点选命中与框选范围不随吸附漂移。
 - `DrawingInteractionController`：`setMagnetMode('off'|'weak'|'strong')` / `getMagnetMode()`，在 `onPointerDown` 绘制分支、`onPointerMove` 预览分支与拖拽分支（`handleDragMove`）传入磁吸配置——三条路径共用 `resolveMagnetOptions(e)` 单点分发修饰键语义。
 - **编辑路径（2026-09-14 补齐）**：点锚点拖拽（HitTester 以 anchorIndex 命中开拖）时被拖锚点绝对跟随指针，磁吸随指针落点收敛到 OHLC（`DragHandler.handleDragMove` 第 4 可选参数，仅 anchorIndex 分支生效）；整线拖拽是位移增量语义（全体锚点平移），无单一落点基准，不吸附——水平线/垂直线整线拖拽的吸附属后续任务（需先定义 delta→snap 语义）。

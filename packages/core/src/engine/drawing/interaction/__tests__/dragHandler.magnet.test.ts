@@ -25,7 +25,7 @@ describe('DragHandler magnet', () => {
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
 
-    // 指针 (12, 83)：距 high(y=80) 3px，strong 半径内 → 价格收敛 120；X 吸 Bar 中心 15（时间 1000）。
+    // 指针 (12, 83)：strong 吸最近的 high(y=80) → 价格收敛 120；X 吸 Bar 中心 15（时间 1000）。
     const updated = handler.handleDragMove(pointerMove(12, 83), CONTAINER, adapter, {
       magnet: { mode: 'strong' },
     })

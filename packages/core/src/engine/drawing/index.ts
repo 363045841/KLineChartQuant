@@ -2,7 +2,7 @@
  * 绘图模块唯一公开入口。
  *
  * 只做重导出：模块契约在 `./types.ts`，实现按职责分散在
- * `model/`、`session/`、`geometry/`、`interaction/`、`render/` 的 `impl/` 下。
+ * `model/`、`session/`、`geometry/`、`interaction/`、`magnet/`、`render/` 的 `impl/` 下。
  * 模块外调用方依赖本文件，禁止指向内部实现路径。
  */
 
@@ -34,30 +34,32 @@ export type {
 export type { DrawingLineLabelTarget } from './interaction/impl/interaction.js'
 export { DrawingInteractionController } from './interaction/impl/interaction.js'
 export {
-  MAGNET_RADIUS_STRONG,
-  MAGNET_RADIUS_WEAK,
-  snapPointerToOhlc,
-} from './interaction/impl/magnetSnapper.js'
-export {
   DOUBLE_ANCHOR_TOOLS,
   getAnchorCountForTool,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
 } from './interaction/impl/toolConfig.js'
 export type {
-  ActiveMagnetMode,
   DragFollow,
   DrawingDragTarget,
   DrawingSelectionMarquee,
   DrawingToolId,
   HitResult,
   LineLabelTarget,
-  MagnetMode,
-  MagnetSnapConfig,
   MovingAnchor,
-  SnappedPoint,
 } from './interaction/types.js'
 export { CURSOR_DRAWING_TOOL_ID } from './interaction/types.js'
+
+export {
+  MAGNET_RADIUS_WEAK,
+  snapPointerToOhlc,
+} from './magnet/impl/magnetSnapper.js'
+export type {
+  ActiveMagnetMode,
+  MagnetMode,
+  MagnetSnapConfig,
+  SnappedPoint,
+} from './magnet/types.js'
 
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'

@@ -38,10 +38,10 @@ geometry/
 - `foundation/plugin/types.ts`：`DrawingPrimitive` 等渲染 primitive；`Point` 来自 `foundation/geometry`；`foundation/tokens`。
 - `engine/drawing/types.ts`：图元领域模型契约。
 - `render/impl/`：`frameProjection` 消费 `DrawingStore` / `DrawingDefinitionRegistry`。
-- `interaction/impl/magnetSnapper.ts`：`coordinateUtils` 在落点解析时应用磁吸。
+- `magnet/`：`coordinateUtils` 在落点解析时按 `magnet/types.ts` 的配置调用 `snapPointerToOhlc`。
 
 ## 约定
 
 - 几何计算保持纯函数、无状态，便于单测。
 - 图元的线段构成与手柄开启只声明在 `lines.ts`，绘制、命中、拖拽不得各自推导锚点对。
-- 跨子模块依赖是单向的 `geometry → interaction`（仅类型与磁吸函数）。
+- 磁吸相关依赖为 `geometry → magnet`（契约与吸附函数）、`interaction → magnet`；`frameProjection` 仍因框选投影依赖 `interaction/impl/selectionMarquee.ts`。

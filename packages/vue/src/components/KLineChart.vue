@@ -44,6 +44,7 @@
           :renderer-runtime="rendererRuntime"
           :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
+          :magnet-mode="magnetMode"
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
           :has-drawings="drawings.length > 0"
@@ -53,6 +54,7 @@
           :enabled-source-names="enabledSourceNameSet"
           :source-endpoints="sourceEndpoints"
           @select-tool="handleSelectTool"
+          @set-magnet-mode="setMagnetMode"
           @toggle-indicator="onToggleIndicator"
           @toggle-fullscreen="handleToggleFullscreen"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
@@ -937,6 +939,8 @@
 
   const {
     drawingController,
+    magnetMode,
+    setMagnetMode,
     selectedDrawings,
     selectedDrawingStyleKeys,
     drawings,

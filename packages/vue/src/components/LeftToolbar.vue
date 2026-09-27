@@ -54,6 +54,42 @@
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
+      <div class="tool-item">
+        <BaseTooltip :content="`磁吸：${magnetSelection.title}`" :disabled="openGroupId !== null">
+          <button
+            type="button"
+            class="left-toolbar__button"
+            :class="{ active: magnetMode !== 'off' }"
+            :aria-label="`磁吸：${magnetSelection.title}`"
+            :aria-pressed="magnetMode !== 'off'"
+            @click="toggleMagnet"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <component :is="magnetSelection.icon" class="tool-icon" aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip content="磁吸选项" placement="top" :disabled="openGroupId !== null">
+          <button
+            type="button"
+            class="tool-item__expand"
+            aria-label="磁吸选项"
+            :aria-expanded="openGroupId === magnetGroup.id"
+            @click="openGroupMenu(magnetGroup, $event)"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <IconTablerChevronRight class="tool-item__expand-icon" aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+      </div>
+    </div>
+
+    <span class="left-toolbar__divider"></span>
+
+    <div class="left-toolbar__group">
       <BaseTooltip content="撤回">
         <button
           type="button"
@@ -212,8 +248,9 @@
         <button
           type="button"
           class="left-toolbar__button"
-          :class="{ active: highlightToolId === child.id }"
+          :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
           :aria-label="child.title"
+          :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
           @click="selectChild(openGroup, child)"
         >
           <component :is="child.icon" class="tool-icon" aria-hidden="true" />
@@ -251,7 +288,10 @@
     chartSettingsPersistence,
     resolveSettings,
   } from '@363045841yyt/klinechart-core/config'
-  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
+  import type {
+    MagnetMode,
+    RendererBackendRuntime,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
@@ -268,6 +308,9 @@
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
+  import IconTablerMagnet from '~icons/tabler/magnet'
+  import IconTablerMagnetFilled from '~icons/tabler/magnet-filled'
+  import IconTablerMagnetOff from '~icons/tabler/magnet-off'
   import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerMaximize from '~icons/tabler/maximize'
   import IconTablerMinimize from '~icons/tabler/minimize'
@@ -337,8 +380,19 @@
     },
     { id: 'range-select', title: '区间选择', icon: IconTablerArrowsHorizontal },
   ]
+  const magnetGroup: ToolDef = {
+    id: 'magnet',
+    title: '磁吸',
+    icon: IconTablerMagnet,
+    children: [
+      { id: 'strong', title: '强磁铁', icon: IconTablerMagnetFilled },
+      { id: 'weak', title: '弱磁铁', icon: IconTablerMagnet },
+      { id: 'off', title: '关闭磁吸', icon: IconTablerMagnetOff },
+    ],
+  }
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
+    (e: 'setMagnetMode', mode: MagnetMode): void
     (e: 'toggleFullscreen'): void
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
@@ -361,6 +415,7 @@
       marketDataCacheStats?: MarketDataCacheStats
       /** kernel drawingTool 镜像；高亮以它为准 */
       drawingToolId?: string
+      magnetMode?: MagnetMode
       canUndoDrawing?: boolean
       canRedoDrawing?: boolean
       /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */
@@ -379,6 +434,7 @@
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
       sourceEndpoints: () => ({}),
+      magnetMode: 'off',
     },
   )
 
@@ -386,8 +442,25 @@
 
   const selectedToolId = ref('cursor')
   const groupSelections = ref<Record<string, string>>({})
+  const lastActiveMagnetMode = ref<'strong' | 'weak'>('strong')
   const openGroupId = ref<string | null>(null)
-  const openGroup = computed(() => primaryTools.find((tool) => tool.id === openGroupId.value))
+  const openGroup = computed(() =>
+    openGroupId.value === magnetGroup.id
+      ? magnetGroup
+      : primaryTools.find((tool) => tool.id === openGroupId.value),
+  )
+  const magnetSelection = computed(
+    () =>
+      magnetGroup.children!.find((child) => child.id === props.magnetMode) ??
+      magnetGroup.children![2]!,
+  )
+  watch(
+    () => props.magnetMode,
+    (mode) => {
+      if (mode === 'strong' || mode === 'weak') lastActiveMagnetMode.value = mode
+    },
+    { immediate: true },
+  )
   const triggerRef = ref<HTMLElement | null>(null)
   const menuRef = ref<HTMLElement | null>(null)
   const teleportTarget = useFullscreenTeleportTarget()
@@ -468,9 +541,22 @@
   }
 
   function selectChild(group: ToolDef, child: ToolDef) {
+    if (group.id === magnetGroup.id) {
+      if (child.id === 'strong' || child.id === 'weak' || child.id === 'off') {
+        if (child.id !== 'off') lastActiveMagnetMode.value = child.id
+        emit('setMagnetMode', child.id)
+      }
+      openGroupId.value = null
+      return
+    }
     selectedToolId.value = child.id
     groupSelections.value[group.id] = child.id
     emit('selectTool', child.id)
+    openGroupId.value = null
+  }
+
+  function toggleMagnet() {
+    emit('setMagnetMode', props.magnetMode === 'off' ? lastActiveMagnetMode.value : 'off')
     openGroupId.value = null
   }
 
@@ -488,13 +574,17 @@
 
   useClickOutside(
     () => [triggerRef.value, menuRef.value],
-    () => { openGroupId.value = null },
+    () => {
+      openGroupId.value = null
+    },
     { enabled: () => openGroupId.value !== null },
   )
 
   watch(openGroupId, (id, _previous, onCleanup) => {
     if (!id) return
-    const close = () => { openGroupId.value = null }
+    const close = () => {
+      openGroupId.value = null
+    }
     const onScroll = (event: Event) => {
       if (menuRef.value?.contains(event.target as Node)) return
       close()

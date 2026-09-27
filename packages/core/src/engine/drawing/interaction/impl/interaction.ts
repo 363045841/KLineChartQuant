@@ -9,6 +9,7 @@ import type {
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from '../../geometry/types.js'
+import type { MagnetMode } from '../../magnet/types.js'
 import { isDrawingMovementLocked } from '../../model/impl/drawingAccess.js'
 import {
   clearDrawingSelection,
@@ -21,7 +22,6 @@ import type {
   DrawingToolId,
   HitResult,
   LineLabelTarget,
-  MagnetMode,
 } from '../types.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import { DragHandler } from './DragHandler.js'

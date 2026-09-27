@@ -142,7 +142,7 @@ export {
   searchInstruments,
   tradingviewMarketDataProvider,
 } from '../data/index.js'
-export type { DrawingLineLabelTarget, DrawingToolId } from '../engine/drawing/index.js'
+export type { DrawingLineLabelTarget, DrawingToolId, MagnetMode } from '../engine/drawing/index.js'
 // Drawing
 export {
   DOUBLE_ANCHOR_TOOLS,
