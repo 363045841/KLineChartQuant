@@ -252,6 +252,11 @@
     resolveSettings,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
+  import {
+    BOX_SELECT_DRAWING_TOOL_ID,
+    CURSOR_DRAWING_TOOL_ID,
+    DrawingTool,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
@@ -289,6 +294,7 @@
   import AlertDialog from './alert/AlertDialog.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
 
   export interface ToolDef {
     id: string
@@ -298,20 +304,20 @@
   }
 
   const primaryTools: ToolDef[] = [
-    { id: 'cursor', title: '光标', icon: IconTablerPointer },
-    { id: 'box-select', title: '框选', icon: IconTablerSelect },
+    { id: CURSOR_DRAWING_TOOL_ID, title: '光标', icon: IconTablerPointer },
+    { id: BOX_SELECT_DRAWING_TOOL_ID, title: '框选', icon: IconTablerSelect },
     {
       id: 'lines',
       title: '线条',
       icon: IconTablerChartLine,
       children: [
-        { id: 'trend-line', title: '线段', icon: IconTablerChartLine },
-        { id: 'ray', title: '射线', icon: IconTablerArrowUpRight },
-        { id: 'h-line', title: '水平线', icon: IconTablerMinus },
-        { id: 'h-ray', title: '水平射线', icon: IconTablerArrowRight },
-        { id: 'v-line', title: '垂直线', icon: IconTablerMinusVertical },
-        { id: 'crosshair-line', title: '十字线', icon: IconTablerPlus },
-        { id: 'info-line', title: '信息线', icon: IconTablerInfoCircle },
+        { id: DrawingTool.TrendLine, title: '线段', icon: IconTablerChartLine },
+        { id: DrawingTool.Ray, title: '射线', icon: IconTablerArrowUpRight },
+        { id: DrawingTool.HorizontalLine, title: '水平线', icon: IconTablerMinus },
+        { id: DrawingTool.HorizontalRay, title: '水平射线', icon: IconTablerArrowRight },
+        { id: DrawingTool.VerticalLine, title: '垂直线', icon: IconTablerMinusVertical },
+        { id: DrawingTool.CrosshairLine, title: '十字线', icon: IconTablerPlus },
+        { id: DrawingTool.InfoLine, title: '信息线', icon: IconTablerInfoCircle },
       ],
     },
     {
@@ -319,10 +325,10 @@
       title: '通道',
       icon: IconTablerEqual,
       children: [
-        { id: 'parallel-channel', title: '平行通道', icon: IconTablerEqual },
-        { id: 'regression-channel', title: '回归趋势', icon: IconTablerChartDots3 },
-        { id: 'flat-line', title: '平滑顶底', icon: IconTablerAngle },
-        { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerX },
+        { id: DrawingTool.ParallelChannel, title: '平行通道', icon: IconTablerEqual },
+        { id: DrawingTool.RegressionChannel, title: '回归趋势', icon: IconTablerChartDots3 },
+        { id: DrawingTool.FlatLine, title: '平滑顶底', icon: IconTablerAngle },
+        { id: DrawingTool.DisjointChannel, title: '不相交通道', icon: IconTablerX },
       ],
     },
     {
@@ -330,12 +336,12 @@
       title: '标注',
       icon: IconTablerShape,
       children: [
-        { id: 'fib-retracement', title: '斐波那契回撤', icon: IconTablerAlignJustified },
-        { id: 'rectangle', title: '矩形', icon: IconTablerShape },
-        { id: 'arrow', title: '箭头', icon: IconTablerArrowUpRight },
+        { id: DrawingTool.FibRetracement, title: '斐波那契回撤', icon: IconTablerAlignJustified },
+        { id: DrawingTool.Rectangle, title: '矩形', icon: IconTablerShape },
+        { id: DrawingTool.Arrow, title: '箭头', icon: IconTablerArrowUpRight },
       ],
     },
-    { id: 'range-select', title: '区间选择', icon: IconTablerArrowsHorizontal },
+    { id: RANGE_SELECT_UI_TOOL_ID, title: '区间选择', icon: IconTablerArrowsHorizontal },
   ]
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
@@ -384,7 +390,7 @@
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
-  const selectedToolId = ref('cursor')
+  const selectedToolId = ref<string>(CURSOR_DRAWING_TOOL_ID)
   const groupSelections = ref<Record<string, string>>({})
   const openGroupId = ref<string | null>(null)
   const openGroup = computed(() => primaryTools.find((tool) => tool.id === openGroupId.value))
@@ -397,7 +403,7 @@
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
   const highlightToolId = computed(() => {
-    if (props.isRangeSelectMode) return 'range-select'
+    if (props.isRangeSelectMode) return RANGE_SELECT_UI_TOOL_ID
     return props.drawingToolId ?? selectedToolId.value
   })
 

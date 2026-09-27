@@ -21,8 +21,8 @@ import type {
   DrawingToolId,
   HitResult,
   LineLabelTarget,
-  MagnetMode,
 } from '../types.js'
+import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, MagnetMode } from '../types.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import { DragHandler } from './DragHandler.js'
 import { HitTester } from './HitTester.js'
@@ -58,7 +58,7 @@ export class DrawingInteractionController {
   private pendingPaneId: string | null = null
   private pointerSession: DrawingPointerSession = { kind: 'idle' }
   /** 磁吸档位（会话级交互配置，不进 StateKernel；见 docs/design 引擎绘图硬化文档）。 */
-  private magnetMode: MagnetMode = 'off'
+  private magnetMode: MagnetMode = MagnetMode.Off
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
@@ -169,7 +169,8 @@ export class DrawingInteractionController {
 
   /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑，锁定图元同样可编辑文本。 */
   getLineLabelTarget(e: PointerEvent, container: HTMLElement): DrawingLineLabelTarget | null {
-    if (this.getActiveTool() !== 'cursor' || this.dragHandler.isDragging()) return null
+    if (this.getActiveTool() !== CURSOR_DRAWING_TOOL_ID || this.dragHandler.isDragging())
+      return null
     const pointer = resolveDrawingPointer(e, container, this.adapter)
     if (!pointer) return null
     return this.hitTester.findLabelTarget(
@@ -191,8 +192,8 @@ export class DrawingInteractionController {
     if (this.pointerSession.kind === 'marquee') return this.handleSelectionMarqueeMove(e, container)
 
     const activeTool = this.getActiveTool()
-    if (activeTool === 'box-select') return false
-    if (activeTool !== 'cursor') {
+    if (activeTool === BOX_SELECT_DRAWING_TOOL_ID) return false
+    if (activeTool !== CURSOR_DRAWING_TOOL_ID) {
       const pointer = resolveDrawingPointer(
         e,
         container,
@@ -229,11 +230,11 @@ export class DrawingInteractionController {
    */
   onPointerDown(e: PointerEvent, container: HTMLElement): boolean {
     const activeTool = this.getActiveTool()
-    if (activeTool === 'cursor') {
+    if (activeTool === CURSOR_DRAWING_TOOL_ID) {
       return this.handleCursorDown(e, container)
     }
 
-    if (activeTool === 'box-select') {
+    if (activeTool === BOX_SELECT_DRAWING_TOOL_ID) {
       return this.handleBoxSelectDown(e, container)
     }
 
@@ -296,9 +297,11 @@ export class DrawingInteractionController {
   private resolveMagnetOptions(e: PointerEvent): ResolveDrawingPointerOptions | undefined {
     if (e.shiftKey) return undefined
     if (e.ctrlKey || e.metaKey) {
-      return this.magnetMode === 'off' ? { magnet: { mode: 'strong' } } : undefined
+      return this.magnetMode === MagnetMode.Off
+        ? { magnet: { mode: MagnetMode.Strong } }
+        : undefined
     }
-    return this.magnetMode === 'off' ? undefined : { magnet: { mode: this.magnetMode } }
+    return this.magnetMode === MagnetMode.Off ? undefined : { magnet: { mode: this.magnetMode } }
   }
 
   /**
@@ -373,7 +376,7 @@ export class DrawingInteractionController {
    */
   getHoveredTarget(pointer: PointerCoordinates, container: HTMLElement): DrawingHoverTarget {
     const tool = this.getActiveTool()
-    if (tool !== 'cursor' && tool !== 'box-select') return 'none'
+    if (tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID) return 'none'
     if (this.dragHandler.isDragging()) return 'none'
     const resolved = resolveDrawingPointer(pointer, container, this.adapter)
     if (!resolved) return 'none'
@@ -529,7 +532,7 @@ export class DrawingInteractionController {
 
   private createSingleAnchorDrawing(anchor: DrawingPointerAnchor, activeTool: DrawingToolId): void {
     // 先复位工具：切回 cursor 会清空选中，必须在创建前完成，创建会原子选中新图元。
-    this.adapter.setDrawingToolId('cursor')
+    this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
     this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
       paneId: anchor.paneId,
@@ -549,7 +552,7 @@ export class DrawingInteractionController {
     paneId: string,
   ): void {
     // 先复位工具：切回 cursor 会清空选中，必须在创建前完成，创建会原子选中新图元。
-    this.adapter.setDrawingToolId('cursor')
+    this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
     this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
       paneId,

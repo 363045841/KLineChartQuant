@@ -296,6 +296,7 @@
 </template>
 
 <script setup lang="ts">
+  import { CURSOR_DRAWING_TOOL_ID } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
   import type {
@@ -383,6 +384,7 @@
   import PaneHeaderOverlay from './PaneHeaderOverlay.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
+  import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import WatchlistPanel from './WatchlistPanel.vue'
 
   // ── Props & Emits ──
@@ -839,7 +841,7 @@
   } = chartState
 
   /** 镜像 kernel.drawingTool，供工具栏高亮 */
-  const drawingToolId = shallowRef('cursor')
+  const drawingToolId = shallowRef(CURSOR_DRAWING_TOOL_ID)
   const canUndoDrawing = shallowRef(false)
   const canRedoDrawing = shallowRef(false)
 
@@ -1523,9 +1525,9 @@
   }
 
   function handleSelectTool(toolId: string) {
-    if (toolId === 'range-select') {
+    if (toolId === RANGE_SELECT_UI_TOOL_ID) {
       isRangeSelectMode.value = true
-      controller.value?.setDrawingToolId('cursor')
+      controller.value?.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
       controller.value?.setSelectedDrawingIds([])
       return
     }

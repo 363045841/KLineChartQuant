@@ -52,12 +52,16 @@ export type {
   DrawingToolId,
   HitResult,
   LineLabelTarget,
-  MagnetMode,
   MagnetSnapConfig,
   MovingAnchor,
   SnappedPoint,
 } from './interaction/types.js'
-export { CURSOR_DRAWING_TOOL_ID } from './interaction/types.js'
+export {
+  BOX_SELECT_DRAWING_TOOL_ID,
+  CURSOR_DRAWING_TOOL_ID,
+  DrawingTool,
+  MagnetMode,
+} from './interaction/types.js'
 
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'

@@ -10,35 +10,67 @@ import type { Point } from '../../../foundation/geometry/types.js'
 import type { DrawingObject } from '../types.js'
 
 /**
- * 所有支持的绘图工具 ID。
- * UI 层通过 setTool(toolId) 切换工具，cursor 表示选择/交互模式。
+ * 绘图工具 ID 常量表：运行时切换工具、构建工具栏都必须引用这里，
+ * 禁止在业务代码中散落字符串字面量。
  */
-export type DrawingToolId =
-  | 'cursor'
-  | 'box-select'
-  | 'trend-line'
-  | 'ray'
-  | 'h-line'
-  | 'fib-retracement'
-  | 'rectangle'
-  | 'arrow'
-  | 'h-ray'
-  | 'v-line'
-  | 'crosshair-line'
-  | 'info-line'
-  | 'parallel-channel'
-  | 'regression-channel'
-  | 'flat-line'
-  | 'disjoint-channel'
+export const DrawingTool = {
+  /** 选择/交互模式。 */
+  Cursor: 'cursor',
+  /** 框选模式。 */
+  BoxSelect: 'box-select',
+  /** 趋势线段。 */
+  TrendLine: 'trend-line',
+  /** 射线。 */
+  Ray: 'ray',
+  /** 水平线。 */
+  HorizontalLine: 'h-line',
+  /** 斐波那契回撤。 */
+  FibRetracement: 'fib-retracement',
+  /** 矩形。 */
+  Rectangle: 'rectangle',
+  /** 箭头。 */
+  Arrow: 'arrow',
+  /** 水平射线。 */
+  HorizontalRay: 'h-ray',
+  /** 垂直线。 */
+  VerticalLine: 'v-line',
+  /** 十字线。 */
+  CrosshairLine: 'crosshair-line',
+  /** 信息线。 */
+  InfoLine: 'info-line',
+  /** 平行通道。 */
+  ParallelChannel: 'parallel-channel',
+  /** 回归通道。 */
+  RegressionChannel: 'regression-channel',
+  /** 平滑顶底。 */
+  FlatLine: 'flat-line',
+  /** 不相交通道。 */
+  DisjointChannel: 'disjoint-channel',
+} as const
 
-/** 选择/交互模式的绘图工具 ID，也是未指定工具时的默认值。 */
-export const CURSOR_DRAWING_TOOL_ID: DrawingToolId = 'cursor'
+/** 所有支持的绘图工具 ID，由 DrawingTool 常量派生。 */
+export type DrawingToolId = (typeof DrawingTool)[keyof typeof DrawingTool]
 
-/** 磁吸三态：off 关闭，weak 吸高低点，strong 吸 OHLC 四值。 */
-export type MagnetMode = 'off' | 'weak' | 'strong'
+/** 选择/交互模式的绘图工具 ID，也是未指定工具时的默认值（兼容别名）。 */
+export const CURSOR_DRAWING_TOOL_ID: DrawingToolId = DrawingTool.Cursor
+/** 框选模式的绘图工具 ID（兼容别名）。 */
+export const BOX_SELECT_DRAWING_TOOL_ID: DrawingToolId = DrawingTool.BoxSelect
+
+/** 磁吸档位常量表：off 关闭，weak 吸高低点，strong 吸 OHLC 四值。 */
+export const MagnetMode = {
+  /** 关闭磁吸。 */
+  Off: 'off',
+  /** 吸附 high/low 两值。 */
+  Weak: 'weak',
+  /** 吸附 OHLC 四值。 */
+  Strong: 'strong',
+} as const
+
+/** 磁吸三态，由 MagnetMode 常量派生。 */
+export type MagnetMode = (typeof MagnetMode)[keyof typeof MagnetMode]
 
 /** 生效档位（off 已在调用方过滤，进入磁吸模块的必为吸附档）。 */
-export type ActiveMagnetMode = Exclude<MagnetMode, 'off'>
+export type ActiveMagnetMode = Exclude<MagnetMode, typeof MagnetMode.Off>
 
 /** 磁吸配置：档位决定候选价格集合与吸附半径。 */
 export interface MagnetSnapConfig {

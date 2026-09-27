@@ -5,7 +5,7 @@
 // 纯函数、无副作用，仅经 resolveDrawingPointer 的可选参数在绘图模式路径生效。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
-import type { MagnetSnapConfig, SnappedPoint } from '../types.js'
+import { MagnetMode, type MagnetSnapConfig, type SnappedPoint } from '../types.js'
 
 export type { ActiveMagnetMode, MagnetMode, MagnetSnapConfig, SnappedPoint } from '../types.js'
 
@@ -48,8 +48,8 @@ export function snapPointerToOhlc(
 
   // 候选价格按档位展开；遍历顺序保持固定优先级（同距离取先遍历者）。
   const candidates =
-    config.mode === 'weak' ? [bar.high, bar.low] : [bar.high, bar.low, bar.open, bar.close]
-  const radius = config.mode === 'weak' ? MAGNET_RADIUS_WEAK : MAGNET_RADIUS_STRONG
+    config.mode === MagnetMode.Weak ? [bar.high, bar.low] : [bar.high, bar.low, bar.open, bar.close]
+  const radius = config.mode === MagnetMode.Weak ? MAGNET_RADIUS_WEAK : MAGNET_RADIUS_STRONG
   const paneLocalY = mouseY - pane.top
 
   let bestY: number | null = null

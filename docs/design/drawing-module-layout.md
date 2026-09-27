@@ -47,8 +47,23 @@ vue 适配层）统一从该 barrel 或 `engine/drawing/types.ts` 依赖，禁�
 适配层（Vue）的绘图类型改从 `@363045841yyt/klinechart-core/controllers` 门面获取，
 不再从 `.../plugin` 子路径取（后者只保留 foundation 渲染原语）。
 
+### 4. 绘图工具 ID 与磁吸档位常量收口
+
+`interaction/types.ts` 的 `DrawingTool` / `MagnetMode` 常量表是工具 ID 与磁吸档位的唯一词汇表：
+`DrawingToolId`、`MagnetMode` 类型均由对应常量派生，`CURSOR_DRAWING_TOOL_ID` /
+`BOX_SELECT_DRAWING_TOOL_ID` 保留为 `DrawingTool.Cursor` / `DrawingTool.BoxSelect` 的兼容别名。
+engine、controllers、features/agent 与 Vue 的运行时比较、工具表与工具栏 id 一律引用这些常量，
+禁止散落字符串字面量；仅测试断言与纯类型声明可保留字面量。
+
+`DrawingKind`（`engine/drawing/types.ts`）是与 `DrawingToolId` 不同的词汇表（如 `h-line` →
+`horizontal-line`），其字符串字面量不受本约束影响，两者通过 `getDrawingKind` 单点映射。
+
+Vue 侧 `range-select` 是纯 UI 模式 id（不写进 kernel `DrawingToolId`），统一由
+`packages/vue/src/components/toolbarToolIds.ts` 的 `RANGE_SELECT_UI_TOOL_ID` 提供。
+
 ## 影响与验证
 
 - 纯结构搬移 + 契约换位，无行为变更；`DrawingDocument` / `DrawingCommands` / `DrawingStore` /
   `DrawingDefinitionRegistry` 等所有公开导出名保持不变。
+- 常量收口后新增/重命名工具 ID 只需改动 `DrawingTool` 常量表，编译器强制暴露所有消费点。
 - 门禁：`pnpm type-check`、`pnpm test:packages`（core）、`pnpm lint`，并对绘图交互做人工回归。
