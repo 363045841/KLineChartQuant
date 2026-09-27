@@ -16,6 +16,7 @@ import type {
   ChartViewport,
   DrawingObject,
   IndicatorInstance,
+  InteractionSnapshot,
   KLineData,
   PaneSpec,
   SubPaneInfo,
@@ -66,9 +67,15 @@ export interface MockChartController extends ChartController {
   rendererConfigCalls: () => ReadonlyArray<{ name: string; config: Record<string, unknown> }>
   /** 当前 legendTemplateContext Signal 的订阅数量 */
   legendSubscriberCount: () => number
+  /** interactionState Signal 的订阅数量 */
+  interactionSubscriberCount: () => number
+  /** data Signal 的订阅数量 */
+  dataSubscriberCount: () => number
   /** test-only signal mutators */
   _setViewport: (vp: ChartViewport) => void
   _setData: (data: ReadonlyArray<KLineData>) => void
+  /** test-only: 写入交互快照（悬停索引、tooltip 位置） */
+  _setInteractionState: (snapshot: InteractionSnapshot) => void
   /** test-only: emit a theme change as the controller would */
   _emitTheme: (next: 'light' | 'dark') => void
   /** test-only: 写入主图图例上下文 */
@@ -111,6 +118,7 @@ export function createMockChartController(
   const legendTemplateContext = createSignal<LegendTemplateContext | null>(null)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const globalDrawingLock = createSignal(false)
+  const interactionState = createSignal(createIdleInteractionSnapshot())
   const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
   const alertController: AlertController = {
     rules: createSignal<ReadonlyArray<AlertRule>>([]),
@@ -150,7 +158,7 @@ export function createMockChartController(
     globalDrawingLock,
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
-    interactionState: createSignal(createIdleInteractionSnapshot()),
+    interactionState,
     selectedRange: createSignal<{ from: number; to: number } | null>(null),
     rangeSelection,
     rightAxisEffectiveWidth,
@@ -292,8 +300,11 @@ export function createMockChartController(
     setThemeCalls: () => setThemeCalls,
     rendererConfigCalls: () => rendererConfigCalls,
     legendSubscriberCount: () => legendTemplateContext.subscriberCount(),
+    interactionSubscriberCount: () => interactionState.subscriberCount(),
+    dataSubscriberCount: () => data.subscriberCount(),
     _setViewport: (vp) => viewport.set(vp),
     _setData: (next) => data.set(next),
+    _setInteractionState: (snapshot) => interactionState.set(snapshot),
     _emitTheme: (next) => theme.set(next),
     _setLegendTemplateContext: (next) => legendTemplateContext.set(next),
   }
