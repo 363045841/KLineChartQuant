@@ -38,7 +38,7 @@ describe('createChartController mount theme', () => {
     vi.restoreAllMocks()
   })
 
-  it('opts.theme light overrides settings default dark', async () => {
+  it('opts.theme light overrides the auto settings default', async () => {
     const container = document.createElement('div')
     Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
     Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
@@ -56,7 +56,7 @@ describe('createChartController mount theme', () => {
     container.remove()
   })
 
-  it('without opts.theme keeps default dark preference', async () => {
+  it('without opts.theme keeps the auto preference and resolves to the system theme', async () => {
     const container = document.createElement('div')
     Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
     Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
@@ -64,7 +64,12 @@ describe('createChartController mount theme', () => {
 
     const ctrl = await createChartController({ container })
 
-    expect(ctrl.settings.peek().theme).toBe('dark')
+    // 偏好默认跟随系统，生效主题由 systemTheme 推导（其初值为 light）。
+    expect(ctrl.settings.peek().theme).toBe('auto')
+    expect(ctrl.theme.peek()).toBe('light')
+
+    ctrl.setSystemTheme('dark')
+    expect(ctrl.settings.peek().theme).toBe('auto')
     expect(ctrl.theme.peek()).toBe('dark')
 
     ctrl.dispose()
