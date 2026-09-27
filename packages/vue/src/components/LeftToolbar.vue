@@ -171,6 +171,40 @@
       </BaseTooltip>
     </div>
 
+    <div class="left-toolbar__group">
+      <div class="tool-item">
+        <BaseTooltip :content="selectedDeleteTool.title" :disabled="openGroupId !== null">
+          <button
+            type="button"
+            class="left-toolbar__button"
+            :aria-label="selectedDeleteTool.title"
+            :disabled="selectedDeleteTool.id === 'drawings' ? !hasDrawings : !hasIndicators"
+            @click="runDelete(selectedDeleteTool.id)"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <component :is="selectedDeleteTool.icon" class="tool-icon" aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip content="删除选项" placement="top" :disabled="openGroupId !== null">
+          <button
+            type="button"
+            class="tool-item__expand"
+            aria-label="删除选项"
+            :aria-expanded="openGroupId === deleteGroup.id"
+            :disabled="!hasDrawings && !hasIndicators"
+            @click="openGroupMenu(deleteGroup, $event)"
+            @pointerdown.stop
+            @pointermove.stop
+            @pointerup.stop
+          >
+            <IconTablerChevronRight class="tool-item__expand-icon" aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+      </div>
+    </div>
+
     <template v-if="alertController">
       <span class="left-toolbar__divider"></span>
 
@@ -286,6 +320,7 @@
           :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
           :aria-label="child.title"
           :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
+          :disabled="openGroup.id === deleteGroup.id && (child.id === 'drawings' ? !hasDrawings : !hasIndicators)"
           @click="selectChild(openGroup, child)"
         >
           <component :is="child.icon" class="tool-icon" aria-hidden="true" />
@@ -352,6 +387,7 @@
   import IconTablerMagnet from '~icons/tabler/magnet'
   import IconTablerMagnetFilled from '~icons/tabler/magnet-filled'
   import IconTablerMagnetOff from '~icons/tabler/magnet-off'
+  import IconTablerMarquee2 from '~icons/tabler/marquee-2'
   import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerMaximize from '~icons/tabler/maximize'
   import IconTablerMinimize from '~icons/tabler/minimize'
@@ -360,9 +396,9 @@
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerPlus from '~icons/tabler/plus'
   import IconTablerPointer from '~icons/tabler/pointer'
-  import IconTablerSelect from '~icons/tabler/select'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerShape from '~icons/tabler/shape'
+  import IconTablerTrash from '~icons/tabler/trash'
   import IconTablerX from '~icons/tabler/x'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
@@ -385,7 +421,7 @@
 
   const primaryTools: ToolDef[] = [
     { id: CURSOR_DRAWING_TOOL_ID, title: '光标', icon: IconTablerPointer },
-    { id: BOX_SELECT_DRAWING_TOOL_ID, title: '框选', icon: IconTablerSelect },
+    { id: BOX_SELECT_DRAWING_TOOL_ID, title: '框选', icon: IconTablerMarquee2 },
     {
       id: 'lines',
       title: '线条',
@@ -423,6 +459,15 @@
     },
     { id: RANGE_SELECT_UI_TOOL_ID, title: '区间选择', icon: IconTablerArrowsHorizontal },
   ]
+  const deleteGroup: ToolDef = {
+    id: 'delete',
+    title: '删除',
+    icon: IconTablerTrash,
+    children: [
+      { id: 'drawings', title: '删除所有绘图', icon: IconTablerTrash },
+      { id: 'indicators', title: '移除所有指标', icon: IconTablerMathFunction },
+    ],
+  }
   const magnetGroup: ToolDef = {
     id: 'magnet',
     title: '磁吸',
@@ -443,6 +488,8 @@
     (e: 'zoomOut'): void
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
+    (e: 'clearDrawings'): void
+    (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
     (e: 'setAllDrawingsVisible', visible: boolean): void
     (e: 'settingsChange', settings: ChartSettings): void
@@ -466,6 +513,7 @@
       canRedoDrawing?: boolean
       /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */
       hasDrawings?: boolean
+      hasIndicators?: boolean
       allDrawingsHidden?: boolean
       /** 全局绘图锁定状态：为 true 时全部图元不可移动 */
       globalDrawingLocked?: boolean
@@ -489,13 +537,20 @@
 
   const selectedToolId = ref<string>(CURSOR_DRAWING_TOOL_ID)
   const groupSelections = ref<Record<string, string>>({})
+  const selectedDeleteTool = computed(
+    () =>
+      deleteGroup.children!.find((child) => child.id === groupSelections.value[deleteGroup.id]) ??
+      deleteGroup.children![0]!,
+  )
   /** 主按钮下次开启磁吸时恢复的档位（off 不计入）。 */
   const lastActiveMagnetMode = ref<ActiveMagnetMode>(MagnetMode.Strong)
   const openGroupId = ref<string | null>(null)
   const openGroup = computed(() =>
-    openGroupId.value === magnetGroup.id
-      ? magnetGroup
-      : primaryTools.find((tool) => tool.id === openGroupId.value),
+    openGroupId.value === deleteGroup.id
+      ? deleteGroup
+      : openGroupId.value === magnetGroup.id
+        ? magnetGroup
+        : primaryTools.find((tool) => tool.id === openGroupId.value),
   )
   const magnetSelection = computed(
     () =>
@@ -589,6 +644,12 @@
   }
 
   function selectChild(group: ToolDef, child: ToolDef) {
+    if (group.id === deleteGroup.id) {
+      groupSelections.value[group.id] = child.id
+      runDelete(child.id)
+      openGroupId.value = null
+      return
+    }
     if (group.id === magnetGroup.id) {
       // 磁吸子项的 id 就是 MagnetMode 的三个取值。
       setMagnetMode(child.id as MagnetMode)
@@ -599,6 +660,11 @@
     groupSelections.value[group.id] = child.id
     emit('selectTool', child.id)
     openGroupId.value = null
+  }
+
+  function runDelete(id: string) {
+    if (id === 'drawings' && props.hasDrawings) emit('clearDrawings')
+    if (id === 'indicators' && props.hasIndicators) emit('clearIndicators')
   }
 
   /** 切换磁吸开关：关闭时再次点击恢复上次使用的吸附档位。 */
@@ -819,7 +885,7 @@
   /* --- 下拉菜单（与工具栏同配色、同按钮样式，高度对齐工具栏宽度） --- */
   .tool-dropdown {
     --menu-padding-y: 5px;
-    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 16px), calc(100vw - var(--tool-button-size) - 16px));
+    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 4px), calc(100vw - var(--tool-button-size) - 16px));
     --menu-half-height: calc(var(--tool-button-size) / 2 + var(--menu-padding-y) + 1px);
     position: fixed;
     left: var(--menu-left);

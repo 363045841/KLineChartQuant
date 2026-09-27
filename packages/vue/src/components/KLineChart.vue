@@ -49,6 +49,7 @@
           :can-undo-drawing="canUndoDrawing"
           :can-redo-drawing="canRedoDrawing"
           :has-drawings="drawings.length > 0"
+          :has-indicators="activeIndicators.length > 0"
           :all-drawings-hidden="drawings.length > 0 && drawings.every((drawing) => !drawing.visible)"
           :global-drawing-locked="globalDrawingLock"
           :is-range-select-mode="isRangeSelectMode"
@@ -64,6 +65,8 @@
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @undo-drawing="controller?.undoDrawing()"
           @redo-drawing="controller?.redoDrawing()"
+          @clear-drawings="controller?.clearDrawings()"
+          @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
           @set-all-drawings-visible="onSetAllDrawingsVisible"
           @settings-change="handleSettingsChange"
@@ -889,6 +892,7 @@
     addSubPane,
     removeSubPane,
     clearAllSubPanes,
+    clearAllIndicators,
     switchSubIndicator,
     moveSubPane,
     handleIndicatorToggle,

@@ -142,6 +142,13 @@ export function useIndicatorManager(
     }
   }
 
+  function clearAllIndicators(): void {
+    const c = ctrl.value
+    if (!c) return
+    for (const id of mainActiveIndicators.value) c.removeIndicator(id)
+    clearAllSubPanes()
+  }
+
   function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
     const nextParams = getDefaultParams(newIndicatorId)
     ctrl.value?.replacePaneContent(paneId, newIndicatorId, nextParams)
@@ -262,6 +269,7 @@ export function useIndicatorManager(
     addSubPane,
     removeSubPane,
     clearAllSubPanes,
+    clearAllIndicators,
     switchSubIndicator,
     moveSubPane,
     handleIndicatorToggle,
