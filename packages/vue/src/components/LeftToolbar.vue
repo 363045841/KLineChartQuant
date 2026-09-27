@@ -59,9 +59,9 @@
           <button
             type="button"
             class="left-toolbar__button"
-            :class="{ active: magnetMode !== 'off' }"
+            :class="{ active: magnetMode !== MagnetMode.Off }"
             :aria-label="`磁吸：${magnetSelection.title}`"
-            :aria-pressed="magnetMode !== 'off'"
+            :aria-pressed="magnetMode !== MagnetMode.Off"
             @click="toggleMagnet"
             @pointerdown.stop
             @pointermove.stop
@@ -288,9 +288,13 @@
     chartSettingsPersistence,
     resolveSettings,
   } from '@363045841yyt/klinechart-core/config'
-  import type {
+  import {
+    type ActiveMagnetMode,
+    BOX_SELECT_DRAWING_TOOL_ID,
+    CURSOR_DRAWING_TOOL_ID,
+    DrawingTool,
     MagnetMode,
-    RendererBackendRuntime,
+    type RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
@@ -332,6 +336,7 @@
   import AlertDialog from './alert/AlertDialog.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
 
   export interface ToolDef {
     id: string
@@ -341,20 +346,20 @@
   }
 
   const primaryTools: ToolDef[] = [
-    { id: 'cursor', title: '光标', icon: IconTablerPointer },
-    { id: 'box-select', title: '框选', icon: IconTablerSelect },
+    { id: CURSOR_DRAWING_TOOL_ID, title: '光标', icon: IconTablerPointer },
+    { id: BOX_SELECT_DRAWING_TOOL_ID, title: '框选', icon: IconTablerSelect },
     {
       id: 'lines',
       title: '线条',
       icon: IconTablerChartLine,
       children: [
-        { id: 'trend-line', title: '线段', icon: IconTablerChartLine },
-        { id: 'ray', title: '射线', icon: IconTablerArrowUpRight },
-        { id: 'h-line', title: '水平线', icon: IconTablerMinus },
-        { id: 'h-ray', title: '水平射线', icon: IconTablerArrowRight },
-        { id: 'v-line', title: '垂直线', icon: IconTablerMinusVertical },
-        { id: 'crosshair-line', title: '十字线', icon: IconTablerPlus },
-        { id: 'info-line', title: '信息线', icon: IconTablerInfoCircle },
+        { id: DrawingTool.TrendLine, title: '线段', icon: IconTablerChartLine },
+        { id: DrawingTool.Ray, title: '射线', icon: IconTablerArrowUpRight },
+        { id: DrawingTool.HorizontalLine, title: '水平线', icon: IconTablerMinus },
+        { id: DrawingTool.HorizontalRay, title: '水平射线', icon: IconTablerArrowRight },
+        { id: DrawingTool.VerticalLine, title: '垂直线', icon: IconTablerMinusVertical },
+        { id: DrawingTool.CrosshairLine, title: '十字线', icon: IconTablerPlus },
+        { id: DrawingTool.InfoLine, title: '信息线', icon: IconTablerInfoCircle },
       ],
     },
     {
@@ -362,10 +367,10 @@
       title: '通道',
       icon: IconTablerEqual,
       children: [
-        { id: 'parallel-channel', title: '平行通道', icon: IconTablerEqual },
-        { id: 'regression-channel', title: '回归趋势', icon: IconTablerChartDots3 },
-        { id: 'flat-line', title: '平滑顶底', icon: IconTablerAngle },
-        { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerX },
+        { id: DrawingTool.ParallelChannel, title: '平行通道', icon: IconTablerEqual },
+        { id: DrawingTool.RegressionChannel, title: '回归趋势', icon: IconTablerChartDots3 },
+        { id: DrawingTool.FlatLine, title: '平滑顶底', icon: IconTablerAngle },
+        { id: DrawingTool.DisjointChannel, title: '不相交通道', icon: IconTablerX },
       ],
     },
     {
@@ -373,21 +378,21 @@
       title: '标注',
       icon: IconTablerShape,
       children: [
-        { id: 'fib-retracement', title: '斐波那契回撤', icon: IconTablerAlignJustified },
-        { id: 'rectangle', title: '矩形', icon: IconTablerShape },
-        { id: 'arrow', title: '箭头', icon: IconTablerArrowUpRight },
+        { id: DrawingTool.FibRetracement, title: '斐波那契回撤', icon: IconTablerAlignJustified },
+        { id: DrawingTool.Rectangle, title: '矩形', icon: IconTablerShape },
+        { id: DrawingTool.Arrow, title: '箭头', icon: IconTablerArrowUpRight },
       ],
     },
-    { id: 'range-select', title: '区间选择', icon: IconTablerArrowsHorizontal },
+    { id: RANGE_SELECT_UI_TOOL_ID, title: '区间选择', icon: IconTablerArrowsHorizontal },
   ]
   const magnetGroup: ToolDef = {
     id: 'magnet',
     title: '磁吸',
     icon: IconTablerMagnet,
     children: [
-      { id: 'strong', title: '强磁铁', icon: IconTablerMagnetFilled },
-      { id: 'weak', title: '弱磁铁', icon: IconTablerMagnet },
-      { id: 'off', title: '关闭磁吸', icon: IconTablerMagnetOff },
+      { id: MagnetMode.Strong, title: '强磁铁', icon: IconTablerMagnetFilled },
+      { id: MagnetMode.Weak, title: '弱磁铁', icon: IconTablerMagnet },
+      { id: MagnetMode.Off, title: '关闭磁吸', icon: IconTablerMagnetOff },
     ],
   }
   const emit = defineEmits<{
@@ -434,15 +439,16 @@
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
       sourceEndpoints: () => ({}),
-      magnetMode: 'off',
+      magnetMode: MagnetMode.Off,
     },
   )
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
-  const selectedToolId = ref('cursor')
+  const selectedToolId = ref<string>(CURSOR_DRAWING_TOOL_ID)
   const groupSelections = ref<Record<string, string>>({})
-  const lastActiveMagnetMode = ref<'strong' | 'weak'>('strong')
+  /** 主按钮下次开启磁吸时恢复的档位（off 不计入）。 */
+  const lastActiveMagnetMode = ref<ActiveMagnetMode>(MagnetMode.Strong)
   const openGroupId = ref<string | null>(null)
   const openGroup = computed(() =>
     openGroupId.value === magnetGroup.id
@@ -457,7 +463,7 @@
   watch(
     () => props.magnetMode,
     (mode) => {
-      if (mode === 'strong' || mode === 'weak') lastActiveMagnetMode.value = mode
+      if (mode !== MagnetMode.Off) lastActiveMagnetMode.value = mode
     },
     { immediate: true },
   )
@@ -470,7 +476,7 @@
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
   const highlightToolId = computed(() => {
-    if (props.isRangeSelectMode) return 'range-select'
+    if (props.isRangeSelectMode) return RANGE_SELECT_UI_TOOL_ID
     return props.drawingToolId ?? selectedToolId.value
   })
 
@@ -542,10 +548,8 @@
 
   function selectChild(group: ToolDef, child: ToolDef) {
     if (group.id === magnetGroup.id) {
-      if (child.id === 'strong' || child.id === 'weak' || child.id === 'off') {
-        if (child.id !== 'off') lastActiveMagnetMode.value = child.id
-        emit('setMagnetMode', child.id)
-      }
+      // 磁吸子项的 id 就是 MagnetMode 的三个取值。
+      setMagnetMode(child.id as MagnetMode)
       openGroupId.value = null
       return
     }
@@ -555,8 +559,14 @@
     openGroupId.value = null
   }
 
+  /** 切换磁吸开关：关闭时再次点击恢复上次使用的吸附档位。 */
+  function setMagnetMode(mode: MagnetMode): void {
+    if (mode !== MagnetMode.Off) lastActiveMagnetMode.value = mode
+    emit('setMagnetMode', mode)
+  }
+
   function toggleMagnet() {
-    emit('setMagnetMode', props.magnetMode === 'off' ? lastActiveMagnetMode.value : 'off')
+    setMagnetMode(props.magnetMode === MagnetMode.Off ? lastActiveMagnetMode.value : MagnetMode.Off)
     openGroupId.value = null
   }
 

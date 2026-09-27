@@ -48,18 +48,15 @@ export type {
   LineLabelTarget,
   MovingAnchor,
 } from './interaction/types.js'
-export { CURSOR_DRAWING_TOOL_ID } from './interaction/types.js'
-
 export {
-  MAGNET_RADIUS_WEAK,
-  snapPointerToOhlc,
-} from './magnet/impl/magnetSnapper.js'
-export type {
-  ActiveMagnetMode,
-  MagnetMode,
-  MagnetSnapConfig,
-  SnappedPoint,
-} from './magnet/types.js'
+  BOX_SELECT_DRAWING_TOOL_ID,
+  CURSOR_DRAWING_TOOL_ID,
+  DrawingTool,
+} from './interaction/types.js'
+
+export { MAGNET_RADIUS_WEAK, snapPointerToOhlc } from './magnet/impl/magnetSnapper.js'
+export type { ActiveMagnetMode, MagnetSnapConfig, SnappedPoint } from './magnet/types.js'
+export { MagnetMode } from './magnet/types.js'
 
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'

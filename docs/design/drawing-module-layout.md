@@ -44,7 +44,21 @@
 依赖为 `geometry → magnet`、`interaction → magnet`；`geometry/impl/frameProjection.ts` 仍因
 框选投影依赖 `interaction/impl/selectionMarquee.ts`，不在本次磁吸模块抽离范围内。
 
-### 3. 公开入口收口
+### 3. 工具 ID 与磁吸档位常量收口
+
+绘图工具 ID 与磁吸档位的字面量集中为两张常量表：`interaction/types.ts` 的 `DrawingTool`
+（工具 id）与 `magnet/types.ts` 的 `MagnetMode`（off/weak/strong），`DrawingToolId` /
+`MagnetMode` / `ActiveMagnetMode` 三个类型都由常量派生。新增工具或档位只改常量表，
+运行时比较点（`toolConfig`、`interaction`、`PreviewRenderer`、`magnetSnapper`、
+`drawingState` 与 Vue 工具栏）一律引用常量，避免重命名后各调用点静默失配。
+
+- 常量不带 `: DrawingToolId` 标注，保留字面量类型，`switch` 才能正常收窄；
+  需要完整联合类型的信号（`drawingState.drawingTool`、Vue 的 `drawingToolId`）显式标注。
+- `DrawingKind`（`horizontal-line` 等图元类型）不在收口范围：它与工具 id 是不同词汇表，
+  且 `getDrawingKind` 的默认分支依赖二者同名。
+- Vue 的区间选择是本地交互模式、不进 kernel，id 声明在 `vue/src/components/toolbarToolIds.ts`。
+
+### 4. 公开入口收口
 
 `engine/drawing/index.ts` 收敛为唯一公开 barrel：只做重导出，不再承载实现。
 所有模块外调用点（controllers、features/agent、engine/facade、engine/state、engine/render、

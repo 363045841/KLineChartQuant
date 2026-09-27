@@ -4,6 +4,7 @@ import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.j
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
+import { DrawingTool } from '../types.js'
 import {
   CHANNEL_KINDS,
   DOUBLE_ANCHOR_TOOLS,
@@ -63,9 +64,9 @@ export class PreviewRenderer {
       paneId,
       visible: true,
       anchors: [
-        activeTool === 'h-line'
+        activeTool === DrawingTool.HorizontalLine
           ? { id: `${PREVIEW_ID}-a`, type: 'horizontal', price: anchor.price }
-          : activeTool === 'v-line'
+          : activeTool === DrawingTool.VerticalLine
             ? {
                 id: `${PREVIEW_ID}-a`,
                 type: 'vertical',
@@ -116,12 +117,12 @@ export class PreviewRenderer {
           price: second.price,
         },
       ],
-      params: activeTool === 'regression-channel' ? { sigma: 2 } : {},
+      params: activeTool === DrawingTool.RegressionChannel ? { sigma: 2 } : {},
       style: {
         stroke: DEFAULT_DRAWING_STROKE,
         strokeWidth: 1,
         strokeStyle: 'dashed',
-        ...(activeTool === 'regression-channel' ? { fillOpacity: 0.1 } : {}),
+        ...(activeTool === DrawingTool.RegressionChannel ? { fillOpacity: 0.1 } : {}),
       },
     }
   }

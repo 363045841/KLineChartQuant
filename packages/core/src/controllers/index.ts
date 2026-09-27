@@ -142,12 +142,20 @@ export {
   searchInstruments,
   tradingviewMarketDataProvider,
 } from '../data/index.js'
-export type { DrawingLineLabelTarget, DrawingToolId, MagnetMode } from '../engine/drawing/index.js'
+export type {
+  ActiveMagnetMode,
+  DrawingLineLabelTarget,
+  DrawingToolId,
+} from '../engine/drawing/index.js'
 // Drawing
 export {
+  BOX_SELECT_DRAWING_TOOL_ID,
+  CURSOR_DRAWING_TOOL_ID,
   DOUBLE_ANCHOR_TOOLS,
   DrawingInteractionController,
+  DrawingTool,
   getAnchorCountForTool,
+  MagnetMode,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
 } from '../engine/drawing/index.js'

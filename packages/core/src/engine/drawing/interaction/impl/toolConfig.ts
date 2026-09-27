@@ -1,6 +1,7 @@
 import { KLineChartError } from '@/errors.js'
 import type { DrawingKind } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
+import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, DrawingTool } from '../types.js'
 
 export type { DrawingToolId } from '../types.js'
 
@@ -10,28 +11,28 @@ export type { DrawingToolId } from '../types.js'
 
 /** 单锚点工具：点击一次即创建完成 */
 export const SINGLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
-  'h-line',
-  'h-ray',
-  'v-line',
-  'crosshair-line',
+  DrawingTool.HorizontalLine,
+  DrawingTool.HorizontalRay,
+  DrawingTool.VerticalLine,
+  DrawingTool.CrosshairLine,
 ]
 
 /** 双锚点工具：需要两次点击才能完成 */
 export const DOUBLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
-  'trend-line',
-  'ray',
-  'fib-retracement',
-  'rectangle',
-  'arrow',
-  'info-line',
-  'regression-channel',
+  DrawingTool.TrendLine,
+  DrawingTool.Ray,
+  DrawingTool.FibRetracement,
+  DrawingTool.Rectangle,
+  DrawingTool.Arrow,
+  DrawingTool.InfoLine,
+  DrawingTool.RegressionChannel,
 ]
 
 /** 三锚点工具：需要三次点击才能完成 */
 export const TRIPLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
-  'parallel-channel',
-  'flat-line',
-  'disjoint-channel',
+  DrawingTool.ParallelChannel,
+  DrawingTool.FlatLine,
+  DrawingTool.DisjointChannel,
 ]
 
 /** 返回工具所需的锚点数量（cursor 返回 null） */
@@ -49,17 +50,17 @@ export function getAnchorCountForTool(toolId: DrawingToolId): 1 | 2 | 3 | null {
 /** 将 toolId 映射为引擎识别的 DrawingKind */
 export function getDrawingKind(toolId: DrawingToolId): DrawingKind {
   switch (toolId) {
-    case 'cursor':
+    case CURSOR_DRAWING_TOOL_ID:
       throw new KLineChartError('INVALID_PARAM', 'cursor is not a drawing kind')
-    case 'box-select':
+    case BOX_SELECT_DRAWING_TOOL_ID:
       throw new KLineChartError('INVALID_PARAM', 'box-select is not a drawing kind')
-    case 'h-line':
+    case DrawingTool.HorizontalLine:
       return 'horizontal-line'
-    case 'h-ray':
+    case DrawingTool.HorizontalRay:
       return 'horizontal-ray'
-    case 'v-line':
+    case DrawingTool.VerticalLine:
       return 'vertical-line'
-    case 'crosshair-line':
+    case DrawingTool.CrosshairLine:
       return 'cross-line'
     default:
       return toolId

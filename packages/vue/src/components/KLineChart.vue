@@ -300,9 +300,11 @@
 <script setup lang="ts">
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
-  import type {
-    CanvasLegendOptions,
-    RendererBackendRuntime,
+  import {
+    type CanvasLegendOptions,
+    CURSOR_DRAWING_TOOL_ID,
+    type DrawingToolId,
+    type RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
   import {
     type ChartController,
@@ -381,6 +383,7 @@
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
+  import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import MarkerTooltip from './MarkerTooltip.vue'
   import PaneHeaderOverlay from './PaneHeaderOverlay.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
@@ -841,7 +844,8 @@
   } = chartState
 
   /** 镜像 kernel.drawingTool，供工具栏高亮 */
-  const drawingToolId = shallowRef('cursor')
+  // 标注为完整工具类型，避免被常量字面量收窄成 'cursor'。
+  const drawingToolId = shallowRef<DrawingToolId>(CURSOR_DRAWING_TOOL_ID)
   const canUndoDrawing = shallowRef(false)
   const canRedoDrawing = shallowRef(false)
 
@@ -1527,9 +1531,9 @@
   }
 
   function handleSelectTool(toolId: string) {
-    if (toolId === 'range-select') {
+    if (toolId === RANGE_SELECT_UI_TOOL_ID) {
       isRangeSelectMode.value = true
-      controller.value?.setDrawingToolId('cursor')
+      controller.value?.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
       controller.value?.setSelectedDrawingIds([])
       return
     }

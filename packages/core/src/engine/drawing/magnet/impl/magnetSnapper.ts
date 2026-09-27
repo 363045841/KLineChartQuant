@@ -6,6 +6,7 @@
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
 import type { MagnetSnapConfig, SnappedPoint } from '../types.js'
+import { MagnetMode } from '../types.js'
 
 /** weak 档吸附半径（px）：仅 high/low 候选。 */
 export const MAGNET_RADIUS_WEAK = 8
@@ -44,11 +45,11 @@ export function snapPointerToOhlc(
 
   // 候选价格按档位展开；同距离取后遍历者。
   const candidates =
-    config.mode === 'weak' ? [bar.high, bar.low] : [bar.high, bar.low, bar.open, bar.close]
+    config.mode === MagnetMode.Weak ? [bar.high, bar.low] : [bar.high, bar.low, bar.open, bar.close]
   const paneLocalY = mouseY - pane.top
 
   let bestY: number | null = null
-  let bestDistance = config.mode === 'weak' ? MAGNET_RADIUS_WEAK : Infinity
+  let bestDistance = config.mode === MagnetMode.Weak ? MAGNET_RADIUS_WEAK : Infinity
   for (const price of candidates) {
     const candidateY = adapter.priceToY(pane.paneId, price)
     const distance = Math.abs(candidateY - paneLocalY)
