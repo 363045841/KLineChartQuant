@@ -271,7 +271,9 @@
   function optionsFor(item: SettingItem): { value: string; label: string }[] {
     if (item.key !== 'displayTimeZone') return item.options ?? []
     return (item.options ?? []).map((option) =>
-      option.value === 'local' ? { ...option, label: `${option.label}（${localTimeZone}）` } : option,
+      option.value === 'local'
+        ? { ...option, label: `${option.label}（${localTimeZone}）` }
+        : option,
     )
   }
 

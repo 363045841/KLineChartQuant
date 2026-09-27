@@ -5,7 +5,11 @@ import type {
 } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { isDailyPeriod, isMinutePeriod, isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
+import {
+  isDailyPeriod,
+  isMinutePeriod,
+  isTimeSharePeriod,
+} from '../../foundation/types/chartPeriod.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {

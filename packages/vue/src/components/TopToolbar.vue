@@ -138,8 +138,12 @@
     const el = toolbarRef.value
     if (!el) return
     const maxScroll = el.scrollWidth - el.clientWidth
-    if (maxScroll <= 0 || (event.deltaY < 0 && el.scrollLeft <= 0) ||
-      (event.deltaY > 0 && el.scrollLeft >= maxScroll)) return
+    if (
+      maxScroll <= 0 ||
+      (event.deltaY < 0 && el.scrollLeft <= 0) ||
+      (event.deltaY > 0 && el.scrollLeft >= maxScroll)
+    )
+      return
     event.preventDefault()
     el.scrollLeft += event.deltaY
   }

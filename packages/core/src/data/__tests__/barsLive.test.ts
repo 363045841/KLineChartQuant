@@ -38,11 +38,18 @@ class FakeEventSource {
 
 function createSource() {
   const instances: FakeEventSource[] = []
-  const source = new BarsLiveSource('mt5', 'XAUUSD', '4h', 'original', 'http://127.0.0.1:8090', (url) => {
-    const es = new FakeEventSource(url)
-    instances.push(es)
-    return es as unknown as EventSource
-  })
+  const source = new BarsLiveSource(
+    'mt5',
+    'XAUUSD',
+    '4h',
+    'original',
+    'http://127.0.0.1:8090',
+    (url) => {
+      const es = new FakeEventSource(url)
+      instances.push(es)
+      return es as unknown as EventSource
+    },
+  )
   return { source, instances }
 }
 

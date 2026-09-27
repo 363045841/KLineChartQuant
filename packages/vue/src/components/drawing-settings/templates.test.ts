@@ -17,9 +17,11 @@ beforeEach(async () => {
 
 describe('drawing templates', () => {
   it('saves templates per drawing kind', async () => {
-    expect(await saveDrawingTemplates('rectangle', [
-      { name: '红框', style: { fill: '#ff0000', stroke: '#000000' } },
-    ])).toBe(true)
+    expect(
+      await saveDrawingTemplates('rectangle', [
+        { name: '红框', style: { fill: '#ff0000', stroke: '#000000' } },
+      ]),
+    ).toBe(true)
     expect(await loadDrawingTemplates('rectangle')).toEqual([
       { name: '红框', style: { fill: '#ff0000', stroke: '#000000' } },
     ])
@@ -39,10 +41,12 @@ describe('drawing templates', () => {
   })
 
   it('discards invalid stored templates', async () => {
-    expect(await saveDrawingTemplates('trend-line', [
-      { name: '有效', style: { stroke: '#123456' } },
-      { name: '无效', style: { stroke: 'not-a-color' } },
-    ])).toBe(true)
+    expect(
+      await saveDrawingTemplates('trend-line', [
+        { name: '有效', style: { stroke: '#123456' } },
+        { name: '无效', style: { stroke: 'not-a-color' } },
+      ]),
+    ).toBe(true)
     expect(await loadDrawingTemplates('trend-line')).toEqual([
       { name: '有效', style: { stroke: '#123456' } },
     ])

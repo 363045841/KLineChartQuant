@@ -1,7 +1,7 @@
 import { createIndexedDbPersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
 
-import { drawingColorFields, type DrawingColorField } from './config.js'
+import { type DrawingColorField, drawingColorFields } from './config.js'
 
 type DrawingKind = DrawingObject['kind']
 
@@ -22,9 +22,14 @@ const codec: PersistenceCodec<DrawingTemplate[]> = {
       if (typeof record.name !== 'string' || !record.name.trim()) return false
       if (!record.style || typeof record.style !== 'object') return false
       const style = record.style as Record<string, unknown>
-      return Object.keys(style).length > 0 && Object.entries(style).every(
-        ([key, color]) => Object.hasOwn(drawingColorFields, key) &&
-          typeof color === 'string' && colorPattern.test(color),
+      return (
+        Object.keys(style).length > 0 &&
+        Object.entries(style).every(
+          ([key, color]) =>
+            Object.hasOwn(drawingColorFields, key) &&
+            typeof color === 'string' &&
+            colorPattern.test(color),
+        )
       )
     })
   },
@@ -55,6 +60,9 @@ export async function loadDrawingTemplates(kind: DrawingKind): Promise<DrawingTe
   return (await persistence(kind).load()) ?? []
 }
 
-export async function saveDrawingTemplates(kind: DrawingKind, templates: DrawingTemplate[]): Promise<boolean> {
+export async function saveDrawingTemplates(
+  kind: DrawingKind,
+  templates: DrawingTemplate[],
+): Promise<boolean> {
   return persistence(kind).save(templates)
 }
