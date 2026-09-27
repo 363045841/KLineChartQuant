@@ -111,6 +111,11 @@ export class Pane {
     range: VisibleRange,
     indicatorRange?: { min: number; max: number } | null,
   ) {
+    // 纯未来区视口：可见区间无任何真实 bar，冻结最近一次有效价格区间与基准价（TV 行为），
+    // 避免跳变到 {100,0} 兜底；冷启动即未来区（data 为空）仍走原兜底
+    const hasVisibleBar = range.start < data.length && range.end > Math.max(0, range.start)
+    if (!hasVisibleBar && data.length > 0) return
+
     const priceRange = getVisiblePriceRange(data, range.start, range.end)
 
     // 如果有指标极值，合并到价格范围
