@@ -1785,7 +1785,13 @@ export class Chart {
         // 优先让绘图控制器处理
         if (drawingController?.onPointerMove) {
           const handled = drawingController.onPointerMove(e, this.dom.container)
-          if (handled) return true
+          if (handled) {
+            // 绘制预览消费事件后，仍需刷新十字线；图元拖拽（cursor）继续独占事件。
+            if (!isRightAxis && this.drawing.tool.peek() !== 'cursor') {
+              this.interaction.onPointerMove(e)
+            }
+            return true
+          }
         }
         // 绘图悬停目标不在事件里直接写：由 InteractionController 的 hover flush 与本帧几何同代推导
         if (isRightAxis) {

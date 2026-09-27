@@ -57,17 +57,29 @@ export function createCrosshairRendererPlugin(options: {
       ctx.rect(0, 0, paneWidth, pane.height)
       ctx.clip()
 
-      ctx.fillStyle = colors.crosshairLine
+      ctx.strokeStyle = colors.crosshairLine
+      ctx.lineWidth = 1 / dpr
+      ctx.setLineDash([4, 4])
 
       // 绘制垂直线
       const v = createVerticalLineRect(x, 0, pane.height, dpr)
-      if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
+      if (v) {
+        ctx.beginPath()
+        ctx.moveTo(v.x + v.width / 2, v.y)
+        ctx.lineTo(v.x + v.width / 2, v.y + v.height)
+        ctx.stroke()
+      }
 
       // 绘制水平线（仅在活跃面板）
       if (isActive && localY >= 0) {
         const safeY = Math.min(localY, pane.height - 1 / dpr)
         const h = createHorizontalLineRect(0, paneWidth, safeY, dpr)
-        if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
+        if (h) {
+          ctx.beginPath()
+          ctx.moveTo(h.x, h.y + h.height / 2)
+          ctx.lineTo(h.x + h.width, h.y + h.height / 2)
+          ctx.stroke()
+        }
       }
 
       ctx.restore()
