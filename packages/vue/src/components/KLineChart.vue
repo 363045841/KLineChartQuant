@@ -233,6 +233,7 @@
               ref="tooltipContentRef"
               class="kline-tooltip"
               :class="{ 'is-draggable': isTooltipDraggable }"
+              style="display: none"
               @pointerdown="onTooltipPointerDown"
               @dblclick="onTooltipDblClick"
             ></div>
@@ -1103,6 +1104,7 @@
   let _markerTooltipRO: ResizeObserver | null = null
   let _prevTooltipIdx: number | null = null
   let _unsubTooltip: (() => void) | null = null
+  let _unsubTooltipData: (() => void) | null = null
   let _tooltipSlots: _TooltipSlots | null = null
   let _tooltipVisibilityEl: HTMLDivElement | null = null
   let _tooltipHidden = false
@@ -1261,7 +1263,7 @@
   function _setupTooltipSub(): void {
     const ctrl = controller.value
     if (!ctrl) return
-    _unsubTooltip = ctrl.interactionState.subscribe(() => {
+    const updateTooltip = () => {
       if (hasKLineTooltipSlot.value) return
       const el = tooltipContentRef.value
       if (!el) return
@@ -1274,13 +1276,16 @@
       const hidden = !kline || !data || ctrl.chartMode.peek() === 'comparison' || isMobile
       if (_tooltipVisibilityEl !== el) {
         _tooltipVisibilityEl = el
-        _tooltipHidden = false
+        _tooltipHidden = true
       }
       if (_tooltipHidden !== hidden) {
         el.style.display = hidden ? 'none' : ''
         _tooltipHidden = hidden
       }
-      if (hidden) return
+      if (hidden) {
+        _prevTooltipIdx = null
+        return
+      }
       positionDefaultKLineTooltip()
       if (idx !== _prevTooltipIdx) {
         _prevTooltipIdx = idx
@@ -1316,7 +1321,10 @@
         }
         _tooltipRO.observe(el)
       }
-    })
+    }
+    _unsubTooltip = ctrl.interactionState.subscribe(updateTooltip)
+    _unsubTooltipData = ctrl.data.subscribe(updateTooltip)
+    updateTooltip()
   }
 
   function setMarkerTooltipEl(el: HTMLDivElement | null) {
@@ -2183,6 +2191,8 @@
     cleanupChartCallbacks = null
     _unsubTooltip?.()
     _unsubTooltip = null
+    _unsubTooltipData?.()
+    _unsubTooltipData = null
     _unsubLegend?.()
     _unsubLegend = null
     applyLegendRenderMode(controller.value, false)
