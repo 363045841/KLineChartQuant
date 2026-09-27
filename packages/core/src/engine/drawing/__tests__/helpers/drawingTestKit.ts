@@ -17,7 +17,9 @@ import type {
 } from '@/controllers/types'
 import type { KLineData } from '@/foundation/types/price'
 import type { HitResult } from '../../interaction/impl/HitTester'
+import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
+import type { MagnetMode } from '../../magnet/types'
 import type { DrawingObject } from '../../types'
 
 /** 测试图元默认描边色。 */
@@ -234,6 +236,9 @@ export const OHLC_BARS = [
 /** OHLC_BARS 对应的 Bar 时间戳。 */
 export const BAR_TIMESTAMPS = [500, 1000, 1500]
 
+/** 磁吸夹具的目标 Bar 与 Pane 布局（pane 局部坐标）。 */
+export const MAGNET_PANE: PaneLayoutInfo = { paneId: 'main', top: 0, height: 200 }
+
 /** 磁吸夹具的价格→Y 映射。 */
 export const priceToY = (_paneId: string, price: number) => 200 - price
 
@@ -351,18 +356,45 @@ export function createMagnetAdapter(
     ...documentPort,
     ...createDrawingViewportPort({
       getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 200 }),
-      getPaneInfo: () => ({ paneId: 'main', top: 0, height: 200 }),
-      getPaneAtY: () => ({ paneId: 'main', top: 0, height: 200 }),
+      getPaneInfo: () => MAGNET_PANE,
+      getPaneAtY: () => MAGNET_PANE,
     }),
   } satisfies DrawingChartAdapter
   return { adapter, createDrawing, commitDrawingDrag }
 }
 
-/** 构造 snapPointerToOhlc 纯函数最小 adapter。 */
+/** 单锚点趋势线：锚点屏幕位置 (15, 90)（Bar 1 中心、价格 110）。 */
+export function createAnchorDragDrawing(): DrawingObject {
+  return createDrawingObject({
+    id: 'd1',
+    kind: 'trend-line',
+    anchors: [{ id: 'a0', type: 'point', time: 1000, price: 110 }],
+  })
+}
+
+/**
+ * 构造磁吸用例的交互控制器与落图元 / 拖拽提交探针。
+ * @param mode 初始磁吸档位
+ * @param tool 当前绘图工具（默认 h-ray，单锚点便于一次点击成图）
+ * @param drawings 已存在的图元（编辑路径用例传入）
+ */
+export function createMagnetController(
+  mode: MagnetMode,
+  tool: 'h-ray' | 'cursor' = 'h-ray',
+  drawings: DrawingObject[] = [],
+) {
+  const { adapter, createDrawing, commitDrawingDrag } = createMagnetAdapter(tool, drawings)
+  const controller = new DrawingInteractionController(adapter)
+  controller.setMagnetMode(mode)
+  return { controller, adapter, createDrawing, commitDrawingDrag }
+}
+
+/** 构造 snapPointerToOhlc 纯函数最小 adapter；viewport 用于覆盖索引 / 中心解析。 */
 export function createMagnetSnapAdapter(
   bars: ReadonlyArray<KLineData> = OHLC_BARS,
+  viewport: Partial<DrawingViewportPort> = {},
 ): DrawingChartAdapter {
-  return createDrawingAdapter({ viewport: { getData: () => bars } })
+  return createDrawingAdapter({ viewport: { getData: () => bars, ...viewport } })
 }
 
 /** 选择 / 命中路径 adapter 的可选差异。 */

@@ -3,25 +3,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CONTAINER,
-  createDrawingObject,
+  createAnchorDragDrawing,
   createMagnetAdapter,
   pointerMove,
 } from '../../__tests__/helpers/drawingTestKit'
 import { DragHandler } from '../impl/DragHandler'
 
-/** 覆盖拖拽路径坐标换算的最小 adapter（与 interaction.magnet 测试同一坐标系约定）。 */
-const { adapter } = createMagnetAdapter()
-
-/** 单锚点趋势线：锚点屏幕位置 (15, 90)（Bar 1 中心、价格 110）。 */
-const createAnchorDragDrawing = () =>
-  createDrawingObject({
-    id: 'd1',
-    kind: 'trend-line',
-    anchors: [{ id: 'a0', type: 'point', time: 1000, price: 110 }],
-  })
-
 describe('DragHandler magnet', () => {
   it('锚点拖拽：strong 磁吸把被拖锚点收敛到 OHLC 与 Bar 中心', () => {
+    const { adapter } = createMagnetAdapter()
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
 
@@ -34,6 +24,7 @@ describe('DragHandler magnet', () => {
   })
 
   it('锚点拖拽：不传磁吸时锚点保持原始指针落点', () => {
+    const { adapter } = createMagnetAdapter()
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
 
@@ -42,6 +33,7 @@ describe('DragHandler magnet', () => {
   })
 
   it('整线拖拽不受磁吸影响（位移增量语义）', () => {
+    const { adapter } = createMagnetAdapter()
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'all' }, 15, 90)
 

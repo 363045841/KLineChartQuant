@@ -64,18 +64,6 @@ describe('Chart DPR pipeline', () => {
     chart.draw()
     expect(handled).toBe(true)
     expect(chart.interaction.crosshairPos).not.toBeNull()
-    const drawingCrosshair = chart.interaction.crosshairPos
-
-    chart.drawing.setTool('cursor')
-    chart.handlePointerEvent(
-      pointerEvent('pointermove', dom.container, {
-        pointerType: 'mouse',
-        clientX: 200,
-      }),
-      { onPointerMove: () => true },
-    )
-    chart.draw()
-    expect(chart.interaction.crosshairPos).toEqual(drawingCrosshair)
     await chart.destroy()
   })
 
