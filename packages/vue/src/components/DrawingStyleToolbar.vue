@@ -70,7 +70,7 @@
     <button
       v-if="drawings.length > 0"
       type="button"
-      class="toolbar-btn"
+      class="toolbar-btn toolbar-btn--visibility"
       title="隐藏所选图元"
       aria-label="隐藏所选图元"
       @click="emit('hide')"
