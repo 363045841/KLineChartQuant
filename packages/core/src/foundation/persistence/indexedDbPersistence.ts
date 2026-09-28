@@ -128,7 +128,9 @@ export function createIndexedDbPersistence<T>(
       pending = { createValue }
       cancelScheduledWrite()
       timer = setTimeout(() => {
-        void flush().catch((error: unknown) => console.error('IndexedDB scheduled flush failed', error))
+        void flush().catch((error: unknown) =>
+          console.error('IndexedDB scheduled flush failed', error),
+        )
       }, debounceMs)
     },
     async flush(): Promise<boolean> {

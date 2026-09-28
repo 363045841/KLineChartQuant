@@ -3,11 +3,11 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import { createGridLinesRendererPlugin } from '../gridLines'
+import { createDailyBars, createDailyFutureTimestamp } from './helpers/futureAxisTestKit'
 
 /** 构造记录 fillRect 矩形的画布。 */
 function createMockCtx() {
@@ -93,5 +93,54 @@ describe('gridLines mode', () => {
 
     const verticals = fillRects.filter((r) => r.width < r.height)
     expect(verticals.map((line) => line.x)).toEqual([0, 400, 800])
+  })
+})
+
+describe('gridLines 未来区纵向网格', () => {
+  it('未来日期标签不影响网格线几何', () => {
+    const dataLength = 100
+    const rangeEnd = 160
+    const { ctx, fillRects } = createMockCtx()
+    const context = createMockRenderContext({
+      ctx,
+      data: createDailyBars(dataLength),
+      period: 'daily',
+      dataView: ChartDataViewId.KLine,
+      isAsiaMarket: true,
+      colorPresetSettings: {},
+      displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+      range: { start: 0, end: rangeEnd },
+      kLineCenters: Array.from({ length: rangeEnd }, (_, i) => 8 * i + 4),
+      getTimestampAtLogicalIndex: createDailyFutureTimestamp(dataLength),
+      pane: { top: 0, height: 400 },
+    })
+
+    createGridLinesRendererPlugin().draw(context)
+
+    // 只有历史月界产生网格线；未来日期标签不参与网格线定位。
+    const verticals = fillRects.filter((r) => r.width < r.height)
+    expect(verticals.map((line) => line.x)).toEqual([4, 76, 316, 564])
+  })
+
+  it('无外推回调时不画未来网格线', () => {
+    const dataLength = 100
+    const { ctx, fillRects } = createMockCtx()
+    const context = createMockRenderContext({
+      ctx,
+      data: createDailyBars(dataLength),
+      period: 'daily',
+      dataView: ChartDataViewId.KLine,
+      isAsiaMarket: true,
+      colorPresetSettings: {},
+      displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+      range: { start: 0, end: 160 },
+      kLineCenters: Array.from({ length: 160 }, (_, i) => 8 * i + 4),
+      pane: { top: 0, height: 400 },
+    })
+    createGridLinesRendererPlugin().draw(context)
+
+    const verticals = fillRects.filter((r) => r.width < r.height)
+    // 历史区首根月界 + 三个月界照常绘制（getMonthBoundaries 以 0 起始）；无外推回调 → 未来区零纵线
+    expect(verticals.map((line) => line.x)).toEqual([4, 76, 316, 564])
   })
 })

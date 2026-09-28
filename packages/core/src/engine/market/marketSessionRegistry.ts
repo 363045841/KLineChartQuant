@@ -1,4 +1,5 @@
-/** 市场会话注册表：以内置 CN/HK/KR/US 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
+/** 市场会话注册表：以内置 CN/HK/KR/US/MT5 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
+
 import {
   ASHARE_MARKET_SESSION,
   HK_MARKET_SESSION,
@@ -6,12 +7,15 @@ import {
   type MarketSessionConfig,
   US_MARKET_SESSION,
 } from '../../foundation/utils/sessionTimeLabels.js'
+import { FOREX_MARKET_SESSION } from './forexMarketSession.js'
 
 const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
   CN: ASHARE_MARKET_SESSION,
   HK: HK_MARKET_SESSION,
   KR: KR_MARKET_SESSION,
   US: US_MARKET_SESSION,
+  // MT5 连接器（symbol-catalog 规格约定 sessionId=MT5）的交易时段配置。
+  MT5: FOREX_MARKET_SESSION,
 }
 
 function isValidSession(config: MarketSessionConfig): boolean {

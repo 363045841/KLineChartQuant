@@ -110,6 +110,11 @@ type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 type TimeShareSelection = Extract<SeriesSelection, { kind: 'timeShare' }>
 
 export class ChartDataManager {
+  private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
+  private readonly calendarSources = new WeakMap<
+    KLineBuffer,
+    { sourceId: string; instrument: InstrumentDescriptor }
+  >()
   static readonly TRAILING_SLOTS = 30
   static readonly TIME_SHARE_INDICATOR_BAR_LIMIT = 1_500
 
@@ -440,6 +445,7 @@ export class ChartDataManager {
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+      this.calendarSources.set(buffer, { sourceId: result.sourceId, instrument: result.instrument })
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -1368,8 +1374,64 @@ export class ChartDataManager {
   getTimestampAtLogicalIndex(index: number): number | null {
     const buf = this.getActiveDataBuffer()
     const data = buf ? buf.getRawData() : []
-    if (!Number.isInteger(index) || index < 0 || index >= data.length) return null
+    if (!Number.isInteger(index) || index < 0) return null
     return data[index]?.timestamp ?? null
+  }
+
+  /** 仅供 X 轴日期文字使用；未来索引可映射到已知市场交易时段。 */
+  getAxisTimestampAtLogicalIndex(index: number): number | null {
+    const actual = this.getTimestampAtLogicalIndex(index)
+    if (actual !== null) return actual
+    if (!Number.isInteger(index) || index < 0) return null
+    const buf = this.getActiveDataBuffer()
+    const data = buf ? buf.getRawData() : []
+    if (index < data.length) return null
+    if (!buf || !data.length) return null
+    const timestamp = buf.getFutureTimestamp(index)
+    if (timestamp !== null) return timestamp
+    this.requestTradingCalendar(buf, data[data.length - 1]!.timestamp)
+    return null
+  }
+
+  private requestTradingCalendar(buffer: KLineBuffer, anchorTimestamp: number): void {
+    const selection = this._activeSelection
+    const source = this.calendarSources.get(buffer)
+    if (selection?.kind !== 'bars' || !source) return
+    const provider = marketDataProviderRegistry.get(source.sourceId)
+    if (
+      !provider?.source.capabilities?.tradingCalendar ||
+      !source.instrument.capabilities.tradingCalendar ||
+      !provider.tradingCalendar
+    )
+      return
+    const count = Math.max(
+      0,
+      this.deps.viewport.readonly.visibleRange.peek().end - buffer.getRawData().length,
+    )
+    if (!count || buffer.coversTradingCalendar(count)) return
+    const pending = this.calendarRequests.get(buffer)
+    if (pending?.anchor === anchorTimestamp && pending.count >= count) return
+    const request = { anchor: anchorTimestamp, count }
+    this.calendarRequests.set(buffer, request)
+    void provider.tradingCalendar
+      .fetch({
+        instrument: source.instrument,
+        period: selection.period,
+        adjustment: selection.adjustment,
+        barAggregation: selection.barAggregation,
+        anchorTimestamp,
+        count,
+      })
+      .then((calendar) => {
+        if (this.calendarRequests.get(buffer) !== request) return
+        if (calendar.futureTimestamps.length > count) return
+        if (buffer.setTradingCalendar(calendar) && this.getActiveDataBuffer() === buffer)
+          this.deps.scheduleDraw()
+      })
+      .catch(() => {
+        // 请求失败只影响未来标签；下次重绘允许重新请求。
+        if (this.calendarRequests.get(buffer) === request) this.calendarRequests.delete(buffer)
+      })
   }
 
   /** 通过当前活动数据 Buffer 的唯一时间索引解析逻辑坐标。 */

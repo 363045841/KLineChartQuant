@@ -200,7 +200,9 @@ describe('HitTester', () => {
     const tester = new HitTester()
     // More than 18px from the start anchor, but inside the drawn text.
     expect(tester.findLabelTarget(70, 80, [drawing], createLineAdapter())).toMatchObject({
-      drawingId: 'line-text', text: 'Settings dialog label', position: 'start',
+      drawingId: 'line-text',
+      text: 'Settings dialog label',
+      position: 'start',
     })
   })
 
@@ -219,7 +221,9 @@ describe('HitTester', () => {
       style: {},
     }
     expect(new HitTester().findLabelTarget(60, 90, [drawing], createLineAdapter())).toMatchObject({
-      drawingId: 'area-text', targetKind: 'area', text: 'Long rectangle label',
+      drawingId: 'area-text',
+      targetKind: 'area',
+      text: 'Long rectangle label',
     })
   })
 

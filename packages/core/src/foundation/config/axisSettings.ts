@@ -50,11 +50,8 @@ export function resolveAxisDisplaySetting(
   value: unknown,
   fallback: AxisDisplaySetting,
 ): AxisDisplaySetting {
-  if (
-    value === AXIS_DISPLAY.NONE ||
-    value === AXIS_DISPLAY.PRICE ||
-    value === AXIS_DISPLAY.PERCENT
-  ) return value
+  if (value === AXIS_DISPLAY.NONE || value === AXIS_DISPLAY.PRICE || value === AXIS_DISPLAY.PERCENT)
+    return value
   return fallback
 }
 
@@ -73,7 +70,8 @@ export function resolveEffectiveAxisDisplay(
   side: 'left' | 'right',
   input: EffectiveAxisDisplayInput,
 ): AxisDisplaySetting {
-  if (isTimeSharePeriod(input.period)) return side === 'left' ? AXIS_DISPLAY.PERCENT : AXIS_DISPLAY.PRICE
+  if (isTimeSharePeriod(input.period))
+    return side === 'left' ? AXIS_DISPLAY.PERCENT : AXIS_DISPLAY.PRICE
   const rightDisplay = resolveRightAxisDisplayFromType(input.rightTypeSetting)
   if (input.comparisonActive && side === 'right') {
     return rightDisplay === AXIS_DISPLAY.NONE ? AXIS_DISPLAY.NONE : AXIS_DISPLAY.PERCENT

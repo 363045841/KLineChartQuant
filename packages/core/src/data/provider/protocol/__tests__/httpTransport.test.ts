@@ -14,6 +14,28 @@ function jsonResponse(value: unknown, status = 200): Response {
 }
 
 describe('createHttpMarketDataTransport', () => {
+  it('requests future trading slots using the last bar timestamp and requested count', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: { anchorTimestamp: 100, futureTimestamps: [200, 300] },
+        requestId: 'r',
+      }),
+    )
+    const transport = createHttpMarketDataTransport()
+    const calendar = await transport.fetchTradingCalendar!({
+      sourceId: 'test',
+      instrument: { id: 'a', symbol: 'A', exchange: 'X' },
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: 'original',
+      anchorTimestamp: 100,
+      count: 2,
+    })
+    expect(calendar.futureTimestamps).toEqual([200, 300])
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe(`${DEFAULT_V1_BASE_URL}/api/v1/market-data/trading-calendar`)
+    expect(JSON.parse(String(init?.body))).toMatchObject({ anchorTimestamp: 100, count: 2 })
+  })
   beforeEach(() => {
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)

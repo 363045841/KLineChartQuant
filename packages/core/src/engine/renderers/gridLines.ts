@@ -1,8 +1,8 @@
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
 import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import { isDailyPeriod, isMinutePeriod } from '../../foundation/types/chartPeriod.js'
+import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import {
   createHorizontalLineRect,
@@ -74,7 +74,8 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
           if (
             showOnlyYear &&
             !context.displayTimeFormatter.formatAxisMonthOrYear(klineData[idx]!.timestamp).isYear
-          ) continue
+          )
+            continue
 
           // 使用帧级中心点，避免 kWidth 物理像素取整后与 K 线实体、十字线偏移。
           const localIdx = idx - range.start

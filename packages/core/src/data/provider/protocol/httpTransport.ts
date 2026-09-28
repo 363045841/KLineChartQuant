@@ -20,6 +20,8 @@ import type {
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolSourceProbe,
+  ProtocolTradingCalendar,
+  ProtocolTradingCalendarRequest,
   ProtocolTimeShareRangeRequest,
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
@@ -172,6 +174,21 @@ export function createHttpMarketDataTransport(
         baseUrl(),
         '/api/v1/market-data/bars',
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
+        getFetch,
+        label,
+      )
+    },
+
+    async fetchTradingCalendar(req: ProtocolTradingCalendarRequest, signal) {
+      return request<ProtocolTradingCalendar>(
+        baseUrl(),
+        '/api/v1/market-data/trading-calendar',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+          signal,
+        },
         getFetch,
         label,
       )

@@ -5,7 +5,11 @@ import type {
 } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { isDailyPeriod, isMinutePeriod, isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
+import {
+  isDailyPeriod,
+  isMinutePeriod,
+  isTimeSharePeriod,
+} from '../../foundation/types/chartPeriod.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
@@ -31,6 +35,16 @@ function formatCrosshairTime(context: RenderContext, timestamp: number): string 
         context.marketSession?.timeZone ?? ASHARE_MARKET_SESSION.timeZone,
       ).formatAxisTime(timestamp)
     : context.displayTimeFormatter.formatDate(timestamp)
+}
+
+/**
+ * 解析十字线索引的时间戳：优先真实 bar，未来槽位只读取数据源日历。
+ * @returns 时间戳；无法解析（负索引、无数据、无 session）返回 null
+ */
+export function resolveCrosshairTimestamp(context: RenderContext, index: number): number | null {
+  const k = (context.data as KLineData[])[index]
+  if (k) return k.timestamp
+  return context.getTimestampAtLogicalIndex?.(index) ?? null
 }
 
 /**
@@ -136,6 +150,84 @@ function collectTimeAxisTicks(
       bold: isYear,
     })
   }
+
+  // 未来区：仅在数据源提供交易日历时读取未来槽位时间；
+  // 回调缺省（分时）或返回 null 时 collectFutureTimeBoundaries 天然返回空
+  const futureBoundaries = collectFutureTimeBoundaries({
+    dataLength: klineData.length,
+    rangeStart: range.start,
+    rangeEnd: range.end,
+    kind: isMinuteData ? 'day' : 'month',
+    getTimestamp: (idx) => context.getTimestampAtLogicalIndex?.(idx) ?? null,
+    dateKeyOf: (ts) => displayTimeFormatter.formatDate(ts),
+  })
+  for (const boundary of futureBoundaries) {
+    // 对称防御：collect 已保证界内
+    if (boundary.index < range.start || boundary.index >= range.end) continue
+    const { text, isYear } = labelFn(boundary.timestamp)
+    if (showOnlyYear && !isYear) continue
+    const centerX = context.kLineCenters[boundary.index - range.start]
+    if (centerX === undefined) continue
+    const screenX = centerX - scrollLeft
+    if (screenX < minX || screenX > maxX) continue
+    surface.register({
+      kind: AXIS_LABEL_KIND.TICK,
+      text,
+      pos: Math.min(Math.max(screenX, minX), maxX),
+      // 未来日期显示为辅助信息，刻度降级为 tertiary
+      color: colors.text.tertiary,
+      fontSize,
+      bold: isYear,
+    })
+  }
+}
+
+/**
+ * 收集未来槽位的时间边界（月界或日界），与历史边界同帧渲染。
+ *
+ * 纯函数只做 key 变化检测：时间戳经 getTimestamp 回调获取（未来索引读取数据源日历，
+ * null 跳过且 previous 不变），渲染器不推导时间。
+ *
+ * @param params.dataLength 真实数据长度（边界只从 >= dataLength 的槽位起）
+ * @param params.rangeStart 当前可见区间起点
+ * @param params.rangeEnd 当前可见区间终点（开区间）
+ * @param params.kind 边界粒度：'month'（年月 key）| 'day'（年月日 key）
+ * @param params.getTimestamp 逻辑索引 → 时间戳（未来索引无日历值时返回 null）
+ * @param params.dateKeyOf 时间戳 → 时区感知日期 key（YYYY-MM-DD）
+ * @returns 边界列表（升序，含槽位索引与该槽时间戳）
+ */
+export function collectFutureTimeBoundaries(params: {
+  dataLength: number
+  rangeStart: number
+  rangeEnd: number
+  kind: 'month' | 'day'
+  getTimestamp: (index: number) => number | null
+  dateKeyOf: (timestamp: number) => string
+}): Array<{ index: number; timestamp: number }> {
+  const { dataLength, rangeStart, rangeEnd, kind, getTimestamp, dateKeyOf } = params
+  // 无历史数据无法取 previous 初值，且无未来槽位时无边界
+  if (dataLength === 0 || rangeEnd <= dataLength) return []
+
+  const keySize = kind === 'month' ? 7 : 10
+  // previous 取扫描起点前一槽的 key：每槽与自身前一槽比 key 恒正确，纯未来视口
+  // （rangeStart > dataLength）不会误跨末根历史 bar 的 key；
+  // rangeStart <= dataLength 时该槽即末根历史 bar，首个未来槽位跨历史 key 仍成界
+  const start = Math.max(dataLength, rangeStart)
+  const anchorTs = getTimestamp(start - 1)
+  if (anchorTs === null) return []
+  let previous = dateKeyOf(anchorTs).slice(0, keySize)
+
+  const boundaries: Array<{ index: number; timestamp: number }> = []
+  for (let index = start; index < rangeEnd; index++) {
+    const ts = getTimestamp(index)
+    if (ts === null) continue
+    const key = dateKeyOf(ts).slice(0, keySize)
+    if (key !== previous) {
+      boundaries.push({ index, timestamp: ts })
+      previous = key
+    }
+  }
+  return boundaries
 }
 
 /**
@@ -190,14 +282,15 @@ export function createTimeAxisRendererPlugin(options: {
         ctx.restore()
       }
 
-      // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）
+      // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）；
+      // 未来槽位无真实 bar，只从数据源交易日历查询时间
       const crosshair = options.getCrosshair?.()
       if (crosshair && typeof crosshair.index === 'number') {
-        const k = (context.data as KLineData[])[crosshair.index]
-        if (k) {
+        const ts = resolveCrosshairTimestamp(context, crosshair.index)
+        if (ts !== null) {
           registerAxisLabel(context, 'xCrosshair', {
             kind: AXIS_LABEL_KIND.TAG,
-            text: formatCrosshairTime(context, k.timestamp),
+            text: formatCrosshairTime(context, ts),
             pos: crosshair.x,
             bgColor: colors.label.bg,
             textColor: colors.label.text,

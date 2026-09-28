@@ -50,6 +50,9 @@ export interface DataBufferLike<T = KLineData | TimeShareData> {
 }
 
 export interface KLineBuffer extends DataBufferLike<KLineData> {
+  setTradingCalendar(calendar: import('../provider/types.js').TradingCalendar): boolean
+  getFutureTimestamp(index: number): number | null
+  coversTradingCalendar(count: number): boolean
   readonly currentSpec: SymbolSpec | null
   readonly olderData: OlderDataStatus
   /** 服务端返回的当前 K 线序列时区。 */

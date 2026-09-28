@@ -26,6 +26,8 @@ export type {
   ProtocolMarketTicksEvent,
   ProtocolSourceCapabilities,
   ProtocolSourceProbe,
+  ProtocolTradingCalendar,
+  ProtocolTradingCalendarRequest,
   ProtocolSourceRejectionCode,
   ProtocolTimeShareDay,
   ProtocolTimeShareItem,

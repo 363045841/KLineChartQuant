@@ -44,9 +44,10 @@ describe('createWebGPURenderer', () => {
     const fake = createMockWebGPU()
     let finish!: () => void
     fake.queue.onSubmittedWorkDone.mockImplementation(
-      () => new Promise<void>((resolve) => {
-        finish = resolve
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
     )
     const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
     const a = renderer.createBuffer('vertex', 16)
@@ -68,9 +69,10 @@ describe('createWebGPURenderer', () => {
     const fake = createMockWebGPU()
     let finish!: () => void
     fake.queue.onSubmittedWorkDone.mockImplementation(
-      () => new Promise<void>((resolve) => {
-        finish = resolve
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
     )
     const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
     renderer.surface.resize(100, 50, 1)
@@ -78,7 +80,9 @@ describe('createWebGPURenderer', () => {
     const vertices = renderer.createBuffer('vertex', 4)
     const instances = renderer.createBuffer('instance', 16)
     renderer.beginFrame({ x: 0, y: 0, width: 100, height: 50, dpr: 1 })
-    expect(renderer.drawInstances({ pipeline, vertices, instances, instanceCount: 1, vertexCount: 6 })).toBe(true)
+    expect(
+      renderer.drawInstances({ pipeline, vertices, instances, instanceCount: 1, vertexCount: 6 }),
+    ).toBe(true)
     renderer.destroyBuffer(instances)
     await Promise.resolve()
     expect(fake.queue.onSubmittedWorkDone).not.toHaveBeenCalled()
@@ -95,9 +99,10 @@ describe('createWebGPURenderer', () => {
     const fake = createMockWebGPU()
     let finish!: () => void
     fake.queue.onSubmittedWorkDone.mockImplementation(
-      () => new Promise<void>((resolve) => {
-        finish = resolve
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
     )
     const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
     const handle = renderer.createBuffer('vertex', 16)
@@ -435,20 +440,28 @@ describe('createWebGPURenderer', () => {
     renderer.surface.resize(100, 100, 1)
     const pipeline = renderer.createPipeline({ type: 'line' })
     const region = { x: 0, y: 0, width: 100, height: 100, dpr: 1 }
-    let points = [{ x: 0, y: 1 }, { x: 10, y: 5 }]
+    let points = [
+      { x: 0, y: 1 },
+      { x: 10, y: 5 },
+    ]
     const draw = (scrollLeft = 0) => {
       renderer.beginFrame(region)
-      expect(renderer.drawLines({
-        pipeline,
-        strips: [{ points, color: '#f00', width: 2 }],
-        uniforms: { scrollLeft },
-      })).toBe(true)
+      expect(
+        renderer.drawLines({
+          pipeline,
+          strips: [{ points, color: '#f00', width: 2 }],
+          uniforms: { scrollLeft },
+        }),
+      ).toBe(true)
       renderer.endFrame()
     }
     try {
       draw()
       expect(expand).toHaveBeenCalledTimes(1)
-      points = [{ x: 0, y: 1 }, { x: 10, y: 5 }]
+      points = [
+        { x: 0, y: 1 },
+        { x: 10, y: 5 },
+      ]
       draw(12)
       expect(expand).toHaveBeenCalledTimes(1)
       expect(fake.passes[1]?.draw).toHaveBeenCalledWith(6, 1)
@@ -473,19 +486,25 @@ describe('createWebGPURenderer', () => {
     const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
     renderer.surface.resize(100, 100, 1)
     const pipeline = renderer.createPipeline({ type: 'line' })
-    const points = [{ x: 10, y: 0 }, { x: 10, y: 20 }]
+    const points = [
+      { x: 10, y: 0 },
+      { x: 10, y: 20 },
+    ]
     const draw = (scrollLeft: number) => {
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
-      expect(renderer.drawLines({
-        pipeline,
-        strips: [{ points, color: '#f00', width: 2 }],
-        uniforms: { scrollLeft },
-      })).toBe(true)
+      expect(
+        renderer.drawLines({
+          pipeline,
+          strips: [{ points, color: '#f00', width: 2 }],
+          uniforms: { scrollLeft },
+        }),
+      ).toBe(true)
       renderer.endFrame()
     }
     draw(0)
     const firstBuffer = fake.buffers[0]
-    const vertexWrites = () => fake.queue.writeBuffer.mock.calls.filter((call) => call[0] === firstBuffer).length
+    const vertexWrites = () =>
+      fake.queue.writeBuffer.mock.calls.filter((call) => call[0] === firstBuffer).length
     expect(vertexWrites()).toBe(1)
     draw(0.5)
     expect(vertexWrites()).toBe(2)

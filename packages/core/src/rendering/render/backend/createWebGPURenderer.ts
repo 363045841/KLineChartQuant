@@ -653,7 +653,10 @@ export async function createWebGPURenderer(
             ) {
               for (let index = 0; index < strip.points.length; index++) {
                 const point = strip.points[index]!
-                if (cached.points[index * 2] !== point.x || cached.points[index * 2 + 1] !== point.y) {
+                if (
+                  cached.points[index * 2] !== point.x ||
+                  cached.points[index * 2 + 1] !== point.y
+                ) {
                   cached = undefined
                   break
                 }
