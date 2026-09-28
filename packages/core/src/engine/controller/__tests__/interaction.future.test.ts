@@ -48,33 +48,31 @@ function hoverAt(interaction: InteractionController, clientX: number) {
 }
 
 describe('InteractionController future-slot crosshair', () => {
-  it('lets the crosshair snap onto an extrapolated future slot', () => {
+  it('lets the crosshair snap onto an extrapolated future slot but keeps hoveredIndex null', () => {
     const interaction = createFutureScene()
 
     // worldX=150，最后一根中心 95，尾步长 10 → 9 + ceil(55/10) = 15
     hoverAt(interaction, 150)
 
     expect(interaction.crosshairIndex).toBe(15)
-    expect(interaction.crosshairPos).not.toBeNull()
     expect(interaction.crosshairPos?.x).toBe(155)
-  })
-
-  it('keeps hoveredIndex null on a future slot so no tooltip fires', () => {
-    const interaction = createFutureScene()
-
-    hoverAt(interaction, 150)
-
     expect(interaction.hoveredIndex).toBeNull()
   })
 
-  it('still snaps and hovers a real bar inside the data region', () => {
-    const interaction = createFutureScene()
+  it.each([
+    { label: '普通位置', clientX: 55, expectedIndex: 5 },
+    { label: '精确落在末根中心', clientX: 95, expectedIndex: 9 },
+  ])(
+    'snaps and hovers a real bar inside the data region（$label）',
+    ({ clientX, expectedIndex }) => {
+      const interaction = createFutureScene()
 
-    hoverAt(interaction, 55)
+      hoverAt(interaction, clientX)
 
-    expect(interaction.crosshairIndex).toBe(5)
-    expect(interaction.hoveredIndex).toBe(interaction.crosshairIndex)
-  })
+      expect(interaction.crosshairIndex).toBe(expectedIndex)
+      expect(interaction.hoveredIndex).toBe(expectedIndex)
+    },
+  )
 
   it('clamps to the last bar in timeshare view instead of extrapolating', () => {
     const interaction = createFutureScene({ dataView: ChartDataViewId.TimeShare })
@@ -84,21 +82,20 @@ describe('InteractionController future-slot crosshair', () => {
     expect(interaction.crosshairIndex).toBe(9)
   })
 
-  it('snaps to the exact last center through the existing nearest path', () => {
-    const interaction = createFutureScene()
-
-    hoverAt(interaction, 95)
-
-    expect(interaction.crosshairIndex).toBe(9)
-  })
-
-  it('returns null when center tail step is zero instead of falling back', () => {
+  it('clears the crosshair and hit-test on a zero tail step instead of falling back', () => {
     const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    // 尾步长 0：即使 fallback（kWidthPx/dpr=10）有限，也不得落入 fallback
+    // centers=[5,5] → 尾步长 0：数据区内可命中，超出最后一根必须清空而非外推 / fallback
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10, [5, 5])
 
     expect(interaction.getLogicalIndexAtScreenX(30)).toBeNull()
+
+    hoverAt(interaction, 3)
+    expect(interaction.crosshairIndex).toBe(0)
+
+    hoverAt(interaction, 150)
+    expect(interaction.crosshairIndex).toBeNull()
+    expect(interaction.hoveredIndex).toBeNull()
   })
 })
 
@@ -118,21 +115,5 @@ describe('InteractionController future-slot adaptive tooltip guard', () => {
     hoverAt(interaction, 55)
 
     expect(interaction.hoveredIndex).toBe(5)
-  })
-})
-
-describe('InteractionController future-slot extrapolation without tail step', () => {
-  it('clears the crosshair instead of extrapolating when the tail step is zero', () => {
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
-    const interaction = new InteractionController(chart as never, createMockInteractionState())
-    // centers=[5,5] → 尾步长 0：hover 数据区可命中，超出最后一根必须清空而非外推
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10, [5, 5])
-
-    hoverAt(interaction, 3)
-    expect(interaction.crosshairIndex).toBe(0)
-
-    hoverAt(interaction, 150)
-    expect(interaction.crosshairIndex).toBeNull()
-    expect(interaction.hoveredIndex).toBeNull()
   })
 })

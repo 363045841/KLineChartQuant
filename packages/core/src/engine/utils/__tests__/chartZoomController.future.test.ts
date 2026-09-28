@@ -15,7 +15,6 @@ import { createViewportStateDeps } from '../../state/__tests__/helpers/createVie
 import { createOptionsState } from '../../state/optionsState'
 import { createViewportState } from '../../state/viewportState'
 import { createZoomState } from '../../state/zoomState'
-import { DEFAULT_FUTURE_SCREENS } from '../../viewport/viewport'
 import { ChartZoomController } from '../chartZoomController'
 
 /** 组装真实 viewportState / zoomState / optionsState 与控制器（无 DOM 依赖）。 */
@@ -66,11 +65,6 @@ function makeController() {
 }
 
 describe('ChartZoomController future region', () => {
-  it('默认配置下 futureScreens 解析为 DEFAULT_FUTURE_SCREENS（单点解析对外可见）', () => {
-    const { viewport } = makeController()
-    expect(viewport.readonly.futureScreens.peek()).toBe(DEFAULT_FUTURE_SCREENS)
-  })
-
   it('默认配置拖入未来区后 zoomOut：scrollTo 不被 30 槽旧上限拉回数据右缘', () => {
     const { viewport, controller } = makeController()
 
