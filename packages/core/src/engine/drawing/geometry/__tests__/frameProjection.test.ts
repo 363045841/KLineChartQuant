@@ -398,6 +398,52 @@ describe('projectDrawingsForFrame', () => {
     })
   })
 
+  it('选中绘图的未来锚点无日历显示 T+X，日历到达及真实 bar 到达后显示对应日期', () => {
+    const drawing = createTrendDrawing({
+      anchors: [
+        { id: 'a', time: 1_000, price: 10 },
+        { id: 'b', time: 2_000, futureOffset: 2, price: 20 },
+      ],
+    })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const context = createContext()
+    context.range = { start: 0, end: 5 }
+    context.kLineCenters = [10, 30, 50, 70, 90]
+    projectDrawingsForFrame(store, definitions, context)
+    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.text)).toEqual([
+      context.displayTimeFormatter.formatDate(1_000),
+      'T+2',
+    ])
+
+    const calendar = createContext()
+    calendar.range = { start: 0, end: 5 }
+    calendar.kLineCenters = [10, 30, 50, 70, 90]
+    const futureTimestamp = Date.UTC(2026, 1, 24)
+    calendar.getTimestampAtLogicalIndex = (index) => (index === 3 ? futureTimestamp : null)
+    projectDrawingsForFrame(store, definitions, calendar)
+    expect(calendar.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
+      calendar.displayTimeFormatter.formatDate(futureTimestamp),
+    )
+
+    const filled = createContext()
+    filled.data = [
+      ...filled.data,
+      { timestamp: 3_000, open: 1, high: 2, low: 0, close: 1 },
+      { timestamp: 4_000, open: 1, high: 2, low: 0, close: 1 },
+    ]
+    filled.range = { start: 0, end: 5 }
+    filled.kLineCenters = [10, 30, 50, 70, 90]
+    projectDrawingsForFrame(store, definitions, filled)
+    expect(filled.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
+      filled.displayTimeFormatter.formatDate(4_000),
+    )
+  })
+
   /** 用单个已选中图元跑一次帧投影，断言其轴标签语义。 */
   function projectSingleAnchor(kind: DrawingKind, anchors: DrawingObject['anchors']) {
     const drawing = createDrawingObject({ id: 'subject', kind, anchors })

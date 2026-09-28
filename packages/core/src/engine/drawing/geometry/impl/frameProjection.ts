@@ -17,6 +17,7 @@ import {
 } from '@/foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
@@ -200,6 +201,7 @@ function projectAxisDecorations(
   const color = style.stroke ?? DEFAULT_DRAWING_STROKE
   const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
   const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
+  const series = context.data
   for (const anchor of anchors) {
     if (!Number.isFinite(anchor.price)) continue
     // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
@@ -207,11 +209,25 @@ function projectAxisDecorations(
       Number.isFinite(anchor.index) &&
       anchor.index >= context.range.start &&
       anchor.index < context.range.end
-    const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+    const anchorTimestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+    // futureOffset 的 time 是创建时的基准 bar，不是该槽位的日期；
+    // 槽位已变为真实 bar 时取 bar 时间，仍在未来时只取交易日历。
+    const timestamp =
+      anchor.index >= series.length
+        ? (context.getTimestampAtLogicalIndex?.(anchor.index) ?? null)
+        : anchor.futureOffset !== undefined
+          ? (series[anchor.index]?.timestamp ?? null)
+          : anchorTimestamp !== undefined && Number.isFinite(anchorTimestamp)
+            ? anchorTimestamp
+            : null
     const wantsPrice = !timeLabelOnly && (priceLabelOnly || indexVisible)
-    const wantsTime =
-      !priceLabelOnly && indexVisible && timestamp !== undefined && Number.isFinite(timestamp)
-    if (!wantsPrice && !wantsTime) continue
+    const timeText =
+      !priceLabelOnly && indexVisible
+        ? resolveAxisTimeLabel(anchor.index, series.length, timestamp, (ts) =>
+            context.displayTimeFormatter.formatDate(ts),
+          )
+        : null
+    if (!wantsPrice && timeText === null) continue
 
     const point = toScreen(anchor)
     if (wantsPrice && point.y >= 0 && point.y <= context.pane.height) {
@@ -227,10 +243,10 @@ function projectAxisDecorations(
         fontSize: 11,
       })
     }
-    if (wantsTime && point.x >= 0 && point.x <= context.paneWidth) {
+    if (timeText !== null && point.x >= 0 && point.x <= context.paneWidth) {
       registerAxisLabel(context, 'xLabels', {
         kind: AXIS_LABEL_KIND.TAG,
-        text: context.displayTimeFormatter.formatDate(timestamp!),
+        text: timeText,
         pos: point.x,
         bgColor: color,
         textColor: labelTextColor,

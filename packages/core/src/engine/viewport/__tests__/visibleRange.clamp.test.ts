@@ -88,11 +88,8 @@ describe('viewportState visibleRange SSOT', () => {
     module.actions.resize(100, 400, 1)
     module.actions.scrollTo(Number.MAX_SAFE_INTEGER)
 
-    const range = module.readonly.visibleRange()
-    // 未来时间轴：默认 DEFAULT_FUTURE_SCREENS(3) 屏下拖到最右，窗口可整体进入未来槽位
-    // （futureBars = ceil(100/102)*3 = 3），end 被夹在数据尾 + futureBars + 扩窗 1 内
-    expect(range.end).toBeGreaterThanOrEqual(10)
-    expect(range.end).toBeLessThanOrEqual(10 + 3 + 1)
+    // 未来时间轴：默认 DEFAULT_FUTURE_SCREENS(3) 屏下拖到最右，窗口整体进入未来槽位
+    expect(module.readonly.visibleRange()).toEqual({ start: 11, end: 14 })
   })
 })
 
@@ -104,30 +101,28 @@ describe('viewportState futureScreens', () => {
     return module.readonly.maxScrollLeft()
   }
 
-  it('maxScrollLeft：futureScreens=3 显著大于 0 屏（差值 ≈ 3 屏槽位）', () => {
+  it('maxScrollLeft 含 3 屏未来区（比 0 屏多出 (120-30) 个槽位）', () => {
     const base = { dataLength: 50, options: { kWidth: 8, kGap: 2 } as const }
+    // unitPx=10：0 屏走 trailing 30 槽 → 803；3 屏 futureBars=ceil(400/10)*3=120 槽 → 1703
     const max0 = scrollToMax(
       createViewportState(createViewportStateDeps({ ...base, futureScreens: 0 })),
     )
     const max3 = scrollToMax(
       createViewportState(createViewportStateDeps({ ...base, futureScreens: 3 })),
     )
-    // plotWidth=400, dpr=1 → kGap 由 deriveKGap(8,1)=3 推导，kWidthPx=7 → unitPx=10
-    const unitPx = 10
-    const screenSlots = Math.ceil(400 / unitPx)
-    expect(max3 - max0).toBeGreaterThanOrEqual((screenSlots - 1) * unitPx)
-    expect(max3).toBeGreaterThan(max0)
+    expect(max0).toBe(803)
+    expect(max3).toBe(1703)
   })
 
   it('缺省 futureScreens 时使用 DEFAULT_FUTURE_SCREENS（3 屏）', () => {
     const deps = createViewportStateDeps({ dataLength: 50, options: { kWidth: 8, kGap: 2 } })
     const module = createViewportState(deps)
-    const maxDefault = scrollToMax(module)
+    expect(scrollToMax(module)).toBe(1703)
     deps.options$.set({ bottomAxisHeight: 30, kWidth: 8, kGap: 2, futureScreens: 0 })
-    expect(scrollToMax(module)).toBeLessThan(maxDefault)
+    expect(scrollToMax(module)).toBe(803)
   })
 
-  it('rawVisibleRange：滚到最右时 end 被夹在数据尾 + futureBars + 扩窗 1 内', () => {
+  it('rawVisibleRange：滚到最右时 end 停在数据尾 + futureBars', () => {
     const module = createViewportState(
       createViewportStateDeps({
         dataLength: 10,
@@ -138,11 +133,8 @@ describe('viewportState futureScreens', () => {
     module.actions.resize(400, 400, 1)
     module.actions.scrollTo(Number.MAX_SAFE_INTEGER)
 
-    const raw = module.readonly.rawVisibleRange()
-    // dpr=1 → deriveKGap(8,1)=3 → kWidthPx=7 + 3 = unitPx=10；futureBars = ceil(400/10) = 40
-    const futureBars = Math.ceil((400 * 1) / 10)
-    expect(raw.end).toBeLessThanOrEqual(10 + futureBars + 1)
-    expect(raw.end).toBeGreaterThan(10)
+    // unitPx=10，futureBars=ceil(400/10)=40 → end = 10 + 40 + 1 = 51
+    expect(module.readonly.rawVisibleRange()).toEqual({ start: 9, end: 51 })
   })
 
   it('分时（timeshare）分支不受 futureScreens 影响', () => {
@@ -162,7 +154,7 @@ describe('viewportState futureScreens', () => {
     expect(raw.end).toBe(240)
   })
 
-  it('内容一致性：contentWidth - viewWidth >= maxScrollLeft（内容覆盖未来区滚动上限）', () => {
+  it('内容一致性：contentWidth - viewWidth 等于 maxScrollLeft', () => {
     const module = createViewportState(
       createViewportStateDeps({
         dataLength: 20,
@@ -171,7 +163,7 @@ describe('viewportState futureScreens', () => {
       }),
     )
     module.actions.resize(400, 400, 1)
-    expect(module.readonly.contentWidth() - module.readonly.viewWidth()).toBeGreaterThanOrEqual(
+    expect(module.readonly.contentWidth() - module.readonly.viewWidth()).toBe(
       module.readonly.maxScrollLeft(),
     )
   })

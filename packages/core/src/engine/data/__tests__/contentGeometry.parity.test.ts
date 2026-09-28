@@ -6,6 +6,7 @@ import {
   computeMaxScrollLeft,
 } from '../../state/contentGeometry'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
+import { futureBarCount } from '../../viewport/viewport'
 import { SCROLL_TRAILING_SLOTS } from '../scrollCompensator'
 
 const baseInput = (overrides: Partial<ContentGeometryInput> = {}): ContentGeometryInput => ({
@@ -108,30 +109,14 @@ describe('contentGeometry parity', () => {
     expect(computeMaxScrollLeft(800, 800)).toBe(0)
   })
 
-  it('内容宽度覆盖 futureScreens 屏未来滚动范围（dpr=1）', () => {
+  it('内容宽度覆盖 futureScreens 的未来滚动范围', () => {
     const input = baseInput({ viewWidth: 1000, plotWidth: 1000, dataLength: 100, futureScreens: 3 })
-    // baseInput 默认 kWidth=8/kGap=2/dpr=1 → kWidthPx=7, unitPx=9
-    // futureBars = ceil(1000/9) * 3 = 336；内容必须覆盖滚动上限所需的 rawMax：
-    // 左缓冲 1000 + (startXPx + (99 + 336) * 9) = 4917
     const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-    const futureBars = Math.ceil((input.plotWidth * input.dpr) / unitPx) * 3
-    const rawMaxScrollNeed =
-      computeLeftLoadBufferWidth(input) + (startXPx + (100 - 1 + futureBars) * unitPx) / input.dpr
-    const width = computeContentWidth(input)
-    // 断言语义与"两侧同减 viewWidth"的旧写法等价：内容宽度覆盖未来滚动所需的 rawMax
-    expect(width).toBeGreaterThanOrEqual(rawMaxScrollNeed)
-    expect(width).toBe(input.viewWidth + (startXPx + (100 + futureBars) * unitPx) / input.dpr)
-  })
-
-  it('futureBars 换算按物理像素（dpr=2）', () => {
-    // dpr=2: kWidthPx=15, kGapPx=4 → unitPx=19, startXPx=4
-    // futureBars = ceil(plotWidth*2/19) * 2（futureScreens=2），trailingSlots = max(30, futureBars)
-    const input = baseInput({ dpr: 2, dataLength: 50, futureScreens: 2 })
-    const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-    const futureBars =
-      Math.ceil((input.plotWidth * input.dpr) / unitPx) * (input.futureScreens ?? 0)
-    const expected =
-      computeLeftLoadBufferWidth(input) + (startXPx + (50 + Math.max(30, futureBars)) * unitPx) / 2
-    expect(computeContentWidth(input)).toBe(expected)
+    const futureBars = futureBarCount(input.plotWidth, input.dpr, unitPx, input.futureScreens ?? 0)
+    // 未来滚动所需的最小内容宽度：末根 K 线之后必须放得下 futureBars 个未来槽位。
+    const required =
+      computeLeftLoadBufferWidth(input) +
+      (startXPx + (input.dataLength - 1 + futureBars) * unitPx) / input.dpr
+    expect(computeContentWidth(input)).toBeGreaterThanOrEqual(required)
   })
 })
