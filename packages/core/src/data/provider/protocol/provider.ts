@@ -205,6 +205,42 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
       },
     },
 
+    ...(transport.fetchTradingCalendar
+      ? {
+          tradingCalendar: {
+            async fetch(query) {
+              assertCapability(query.instrument, 'bars')
+              if (
+                !query.instrument.capabilities.tradingCalendar ||
+                !runtimeSource.capabilities?.tradingCalendar
+              ) {
+                throw new KLineChartError(
+                  'UNSUPPORTED_CAPABILITY',
+                  `[${source.id}] trading calendar is unavailable`,
+                )
+              }
+              return transport.fetchTradingCalendar!(
+                {
+                  sourceId: source.id,
+                  instrument: {
+                    id: query.instrument.id,
+                    symbol: query.instrument.symbol,
+                    exchange: query.instrument.exchange,
+                    providerRef: query.instrument.providerRef,
+                  },
+                  period: query.period,
+                  adjustment: query.adjustment,
+                  barAggregation: query.barAggregation,
+                  anchorTimestamp: query.anchorTimestamp,
+                  count: query.count,
+                },
+                query.signal,
+              )
+            },
+          },
+        }
+      : {}),
+
     timeShare: {
       // 通过 timeshare endpoint 拉取标准分时
       async fetch(query: TimeShareQuery) {

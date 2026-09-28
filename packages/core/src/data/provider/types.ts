@@ -108,6 +108,8 @@ export interface TimeShareRangeCapability {
 /** 单个品种可被前端启用的行情能力。 */
 export interface InstrumentCapabilities {
   bars?: BarCapability
+  /** 能按末根 K 线时间戳提供后续槽位的真实交易日历。 */
+  tradingCalendar?: boolean
   /** 是否支持实时 K 线流。 */
   liveBars?: boolean
   timeShare?: boolean
@@ -121,6 +123,7 @@ export interface InstrumentCapabilities {
 export interface SourceCapabilities {
   assetClasses: ReadonlyArray<AssetClass>
   bars?: BarCapability
+  tradingCalendar?: boolean
   /** 是否支持实时 K 线流。 */
   liveBars?: boolean
   timeShare?: boolean
@@ -210,6 +213,26 @@ export interface BarSeries {
   olderData: OlderDataStatus
 }
 
+/** 从 anchorTimestamp 后第一个槽位开始，按逻辑 index 连续排列。 */
+export interface TradingCalendar {
+  anchorTimestamp: number
+  futureTimestamps: ReadonlyArray<number>
+}
+
+export interface TradingCalendarQuery {
+  instrument: InstrumentDescriptor
+  period: KLinePeriod
+  adjustment: KLineAdjustment
+  barAggregation: BarAggregation
+  anchorTimestamp: number
+  count: number
+  signal?: AbortSignal
+}
+
+export interface TradingCalendarDataSource {
+  fetch(query: TradingCalendarQuery): Promise<TradingCalendar>
+}
+
 /** 分时查询使用品种所在时区的 YYYY-MM-DD 交易日。 */
 export interface TimeShareQuery {
   instrument: InstrumentDescriptor
@@ -288,6 +311,7 @@ export interface MarketDataProvider {
   probe(signal?: AbortSignal): Promise<SourceProbeResult>
   readonly catalog?: InstrumentCatalog
   readonly bars?: BarDataSource
+  readonly tradingCalendar?: TradingCalendarDataSource
   /** 实时 K 线流；仅在 source.capabilities.liveBars 为 true 时提供。 */
   readonly liveBars?: LiveBarsDataSource
   readonly timeShare?: TimeShareDataSource

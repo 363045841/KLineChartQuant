@@ -97,7 +97,7 @@ describe('gridLines mode', () => {
 })
 
 describe('gridLines 未来区纵向网格', () => {
-  it('在未来月界槽位画纵向网格线，与历史网格同帧', () => {
+  it('未来日期标签不影响网格线几何', () => {
     const dataLength = 100
     const rangeEnd = 160
     const { ctx, fillRects } = createMockCtx()
@@ -117,11 +117,9 @@ describe('gridLines 未来区纵向网格', () => {
 
     createGridLinesRendererPlugin().draw(context)
 
-    // 历史区首根 bar 本身是月界（getMonthBoundaries 以 0 起始）+ 三个月界；
-    // FOREX 外推首个槽位为 2026-02-02（周一，跳周末），center = 8*idx+4：
-    // 未来月界 idx 100（02-02）、120（03-02）、142（04-01）均在 160 槽位视口内
+    // 只有历史月界产生网格线；未来日期标签不参与网格线定位。
     const verticals = fillRects.filter((r) => r.width < r.height)
-    expect(verticals.map((line) => line.x)).toEqual([4, 76, 316, 564, 804, 964, 1140])
+    expect(verticals.map((line) => line.x)).toEqual([4, 76, 316, 564])
   })
 
   it('无外推回调时不画未来网格线', () => {

@@ -126,6 +126,22 @@ export interface ProtocolBarRequest {
   beforeTimestamp?: number
 }
 
+/** 请求最后一根 K 线之后的 count 个交易槽位。 */
+export interface ProtocolTradingCalendarRequest {
+  sourceId: string
+  instrument: ProtocolInstrumentReference
+  period: KLinePeriod
+  adjustment: KLineAdjustment
+  barAggregation: BarAggregation
+  anchorTimestamp: number
+  count: number
+}
+
+export interface ProtocolTradingCalendar {
+  anchorTimestamp: number
+  futureTimestamps: ReadonlyArray<number>
+}
+
 // K 线条目
 export interface ProtocolKLineItem {
   timestamp: number
@@ -264,6 +280,10 @@ export interface MarketDataTransport {
   ): Promise<ProtocolInstrumentSearchResult>
   // 拉取指定品种、周期的游标分页 K 线
   fetchBars(request: ProtocolBarRequest, signal?: AbortSignal): Promise<ProtocolBarSeries>
+  fetchTradingCalendar?(
+    request: ProtocolTradingCalendarRequest,
+    signal?: AbortSignal,
+  ): Promise<ProtocolTradingCalendar>
   // 拉取指定品种在单个交易日内的分时序列
   fetchTimeShare(
     request: ProtocolTimeShareRequest,

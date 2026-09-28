@@ -395,17 +395,6 @@ export class Chart {
           }
         },
         setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
-        // 未来区时间外推：主品种画像与 setSymbols/timeShare 的 session 解析同源（kernel.data.readonly.symbols[0]）；
-        // resolveSymbolMarketSession 对无 market 的 spec 会 throw，catch 后 null 与 chartStateKernel 模式一致
-        futureSession: () => {
-          try {
-            const primary = this.kernel.data.readonly.symbols.peek()[0]
-            if (!primary) return null
-            return resolveSymbolMarketSession(primary, this.marketSessions)
-          } catch {
-            return null
-          }
-        },
       },
       this.kernel.data,
       this.kernel.dataManager,

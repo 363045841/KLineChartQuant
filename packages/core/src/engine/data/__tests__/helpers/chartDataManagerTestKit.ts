@@ -28,7 +28,6 @@ import {
 import { createDataState, type DataStateModule } from '@/engine/state/dataState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
 import type { TimeShareData } from '@/foundation/types/price'
-import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels'
 
 /** ViewportStateModule 替身入参。 */
 export interface MockViewportOptions {
@@ -101,8 +100,6 @@ export interface MockDataDependenciesOptions {
   onBarsReady?: () => void
   /** 数据变更后的交互重置回调；用例用它断言重置时机。 */
   resetInteraction?: () => void
-  /** 主品种 market session 透传；缺省时 deps 无此字段（未来区外推关闭）。 */
-  futureSession?: () => MarketSessionConfig | null
 }
 
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
@@ -116,7 +113,6 @@ export function createMockDataDependencies(
     scheduleDraw = () => {},
     onBarsReady = () => {},
     resetInteraction = () => {},
-    futureSession,
   } = options
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
@@ -132,7 +128,6 @@ export function createMockDataDependencies(
     isPointerDown: () => false,
     onTimeShareDataReady: () => {},
     setSymbols,
-    ...(futureSession ? { futureSession } : {}),
   }
 }
 
@@ -300,6 +295,7 @@ export type TestBarsSource = {
 /** 构造只声明用例关心能力的测试 Provider。 */
 export function createTestProvider(options: {
   fetchBars?: TestBarsSource
+  fetchTradingCalendar?: NonNullable<MarketDataProvider['tradingCalendar']>['fetch']
   fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
   fetchTimeShareRange?: NonNullable<MarketDataProvider['timeShareRange']>['fetch']
 }): MarketDataProvider {
@@ -310,6 +306,7 @@ export function createTestProvider(options: {
       capabilities: {
         assetClasses: ['stock'],
         bars: { periods: ['daily'], adjustments: ['none'] },
+        ...(options.fetchTradingCalendar ? { tradingCalendar: true } : {}),
         timeShare: true,
         ...(options.fetchTimeShareRange ? { timeShareRange: { maxTradingDays: 5 } } : {}),
       },
@@ -329,6 +326,9 @@ export function createTestProvider(options: {
             barAggregation: 'original',
           }),
         }
+      : undefined,
+    tradingCalendar: options.fetchTradingCalendar
+      ? { fetch: options.fetchTradingCalendar }
       : undefined,
     timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
     timeShareRange: options.fetchTimeShareRange

@@ -44,10 +44,8 @@ import {
 } from '../../data/provider/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
-import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { ChartDom } from '../chartTypes.js'
 import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
-import { projectTradingTimestamp } from '../market/futureTimeAxis.js'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
 import type { ComparisonStateModule } from '../state/comparisonState.js'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
@@ -87,8 +85,6 @@ export interface DataDependencies {
   onTimeShareDataReady: (dataLength: number) => void
   /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
-  /** 主品种 market session（未来区时间外推用）；主品种未定或无 market 时返回 null */
-  futureSession?: () => MarketSessionConfig | null
 }
 
 const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
@@ -114,6 +110,11 @@ type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 type TimeShareSelection = Extract<SeriesSelection, { kind: 'timeShare' }>
 
 export class ChartDataManager {
+  private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
+  private readonly calendarSources = new WeakMap<
+    KLineBuffer,
+    { sourceId: string; instrument: InstrumentDescriptor }
+  >()
   static readonly TRAILING_SLOTS = 30
   static readonly TIME_SHARE_INDICATOR_BAR_LIMIT = 1_500
 
@@ -444,6 +445,7 @@ export class ChartDataManager {
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+      this.calendarSources.set(buffer, { sourceId: result.sourceId, instrument: result.instrument })
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -1373,16 +1375,63 @@ export class ChartDataManager {
     const buf = this.getActiveDataBuffer()
     const data = buf ? buf.getRawData() : []
     if (!Number.isInteger(index) || index < 0) return null
-    if (index < data.length) return data[index]?.timestamp ?? null
-    // 未来槽位：按主品种交易日历外推（周期步长由末两根 bar 推导，session 由 Chart 注入）；
-    // 日内周期跨休市为"保持时刻"的近似预测（如 A 股周五 15:00 → 预测下周一 15:01），
-    // 真实 bar 到达后同 index 自愈覆盖；数据 < 2 根时周期无法推导，返回 null 属必要边界而非无意义回退
-    const session = this.deps.futureSession?.()
-    if (!session || data.length < 2) return null
-    const last = data[data.length - 1]!.timestamp
-    const prev = data[data.length - 2]!.timestamp
-    const periodMs = Math.max(1, last - prev)
-    return projectTradingTimestamp(session, last, index - data.length + 1, periodMs)
+    return data[index]?.timestamp ?? null
+  }
+
+  /** 仅供 X 轴日期文字使用；未来索引可映射到已知市场交易时段。 */
+  getAxisTimestampAtLogicalIndex(index: number): number | null {
+    const actual = this.getTimestampAtLogicalIndex(index)
+    if (actual !== null) return actual
+    if (!Number.isInteger(index) || index < 0) return null
+    const buf = this.getActiveDataBuffer()
+    const data = buf ? buf.getRawData() : []
+    if (index < data.length) return null
+    if (!buf || !data.length) return null
+    const timestamp = buf.getFutureTimestamp(index)
+    if (timestamp !== null) return timestamp
+    this.requestTradingCalendar(buf, data[data.length - 1]!.timestamp)
+    return null
+  }
+
+  private requestTradingCalendar(buffer: KLineBuffer, anchorTimestamp: number): void {
+    const selection = this._activeSelection
+    const source = this.calendarSources.get(buffer)
+    if (selection?.kind !== 'bars' || !source) return
+    const provider = marketDataProviderRegistry.get(source.sourceId)
+    if (
+      !provider?.source.capabilities?.tradingCalendar ||
+      !source.instrument.capabilities.tradingCalendar ||
+      !provider.tradingCalendar
+    )
+      return
+    const count = Math.max(
+      0,
+      this.deps.viewport.readonly.visibleRange.peek().end - buffer.getRawData().length,
+    )
+    if (!count || buffer.coversTradingCalendar(count)) return
+    const pending = this.calendarRequests.get(buffer)
+    if (pending?.anchor === anchorTimestamp && pending.count >= count) return
+    const request = { anchor: anchorTimestamp, count }
+    this.calendarRequests.set(buffer, request)
+    void provider.tradingCalendar
+      .fetch({
+        instrument: source.instrument,
+        period: selection.period,
+        adjustment: selection.adjustment,
+        barAggregation: selection.barAggregation,
+        anchorTimestamp,
+        count,
+      })
+      .then((calendar) => {
+        if (this.calendarRequests.get(buffer) !== request) return
+        if (calendar.futureTimestamps.length > count) return
+        if (buffer.setTradingCalendar(calendar) && this.getActiveDataBuffer() === buffer)
+          this.deps.scheduleDraw()
+      })
+      .catch(() => {
+        // 请求失败只影响未来标签；下次重绘允许重新请求。
+        if (this.calendarRequests.get(buffer) === request) this.calendarRequests.delete(buffer)
+      })
   }
 
   /** 通过当前活动数据 Buffer 的唯一时间索引解析逻辑坐标。 */

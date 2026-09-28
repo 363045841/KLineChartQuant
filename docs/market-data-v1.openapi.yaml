@@ -9,7 +9,7 @@ info:
     前端主导的统一行情协议。数据源后端负责将私有上游字段转换为此协议，
     前端通过 InstrumentDescriptor、BarSeries 和 TimeShareSeries 消费数据。
 
-    V1 覆盖数据源探测、品种搜索、历史 K 线和单交易日分时。实时深度使用
+    V1 覆盖数据源探测、品种搜索、历史 K 线、未来交易槽位日历和单交易日分时。实时深度使用
     独立连接 Transport，不包含在本 REST 协议中。实时逐笔 tick 通过独立的
     SSE 连接提供，见 `/sources/{sourceId}/ticks/stream`。
 servers:
@@ -82,6 +82,27 @@ paths:
         '422':
           $ref: '#/components/responses/ErrorResponse'
         '502':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/market-data/trading-calendar:
+    post:
+      operationId: fetchTradingCalendar
+      summary: 获取末根 K 线之后的交易槽位时间戳
+      description: 仅当数据源及品种都声明 tradingCalendar 能力时可请求。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradingCalendarRequest'
+      responses:
+        '200':
+          description: 从 anchor 后第一槽开始的连续时间戳；可返回不足 count 的前缀
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradingCalendarResponse'
+        '400':
           $ref: '#/components/responses/ErrorResponse'
 
   /api/v1/market-data/timeshare:
@@ -251,6 +272,8 @@ components:
       properties:
         bars:
           $ref: '#/components/schemas/BarCapability'
+        tradingCalendar:
+          type: boolean
         timeShare:
           type: boolean
         depth:
@@ -352,6 +375,44 @@ components:
                   type: array
                   items:
                     $ref: '#/components/schemas/InstrumentDescriptor'
+
+    TradingCalendarRequest:
+      type: object
+      required: [sourceId, instrument, period, adjustment, barAggregation, anchorTimestamp, count]
+      properties:
+        sourceId:
+          $ref: '#/components/schemas/SourceId'
+        instrument:
+          $ref: '#/components/schemas/InstrumentReference'
+        period:
+          $ref: '#/components/schemas/KLinePeriod'
+        adjustment:
+          $ref: '#/components/schemas/KLineAdjustment'
+        barAggregation:
+          type: string
+        anchorTimestamp:
+          type: integer
+          format: int64
+        count:
+          type: integer
+          minimum: 1
+    TradingCalendarResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [anchorTimestamp, futureTimestamps]
+              properties:
+                anchorTimestamp:
+                  type: integer
+                  format: int64
+                futureTimestamps:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
 
     BarRequest:
       type: object
@@ -550,6 +611,12 @@ components:
           minimum: 0
         message:
           type: string
+        capabilities:
+          type: object
+          description: 源级能力；tradingCalendar 为 true 才可请求日历
+          properties:
+            tradingCalendar:
+              type: boolean
 
     ProbeResponse:
       allOf:

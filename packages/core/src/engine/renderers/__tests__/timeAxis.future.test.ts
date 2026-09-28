@@ -43,15 +43,9 @@ describe('collectFutureTimeBoundaries 纯函数', () => {
       expect(idx).toBeGreaterThanOrEqual(DATA_LENGTH)
       expect(idx).toBeLessThan(RANGE_END)
     }
-    // 语义锚点：末根 2026-01-30（周五）→ FOREX 24/5 跳过周六周日，首个未来槽位为
-    // 2026-02-02（周一，跨月成界）；此后同月槽位不再记
-    expect(indexesOf(boundaries)).toContain(DATA_LENGTH)
-    expect(indexesOf(boundaries)).not.toContain(DATA_LENGTH + 1)
-    expect(futureKey(0)).toBe('2026-02-02')
-    // 下一个月界：2026-03-02（idx 120，2 月交易日步进后跨月）
-    expect(indexesOf(boundaries)).toContain(DATA_LENGTH + 20)
-    expect(indexesOf(boundaries)).not.toContain(DATA_LENGTH + 21)
-    expect(futureKey(20)).toBe('2026-03-02')
+    // 夹具提供连续槽位时间戳，月界由返回的时间戳决定。
+    expect(indexesOf(boundaries)).toEqual([101, 129])
+    expect(futureKey(1)).toBe('2026-02-01')
   })
 
   it('无未来槽位（rangeEnd <= dataLength）返回空数组', () => {
@@ -113,8 +107,7 @@ describe('collectFutureTimeBoundaries 纯函数', () => {
   })
 
   it('纯未来视口（rangeStart > dataLength）锚点取扫描起点前一槽，不误判首槽月界', () => {
-    // rangeStart=130 对应 2026-03-16（周一）：修复前锚点固定末根历史 bar（2026-01-30），
-    // 首槽跨 key 被误判为月界；修复后每槽与自身前一槽比 key，仅真实月界成界
+    // 每个槽位与前一槽比较日期 key，而不是与最后一根历史 K 线比较。
     const boundaries = collectFutureTimeBoundaries({
       dataLength: DATA_LENGTH,
       rangeStart: 130,
@@ -124,11 +117,8 @@ describe('collectFutureTimeBoundaries 纯函数', () => {
       dateKeyOf: (ts) => formatter.formatDate(ts),
     })
 
-    // 真实 FOREX 日历月界：2026-04-01（idx 142）、2026-05-01（idx 164）、2026-06-01（idx 185）；
-    // idx 130（2026-03-16，3 月中旬）不是月界，必须被排除
-    expect(indexesOf(boundaries)).toEqual([142, 164, 185])
+    expect(indexesOf(boundaries)).toEqual([160])
     expect(indexesOf(boundaries)).not.toContain(130)
-    // 返回值携带外推时间戳：2026-04-01（周三）
     expect(boundaries[0]?.timestamp).toBe(Date.UTC(2026, 3, 1))
   })
 })

@@ -15,7 +15,7 @@ export type MarketSessionConfig = {
   sessions: ReadonlyArray<OpenTimeRange>
   /** 每个 bar 槽对应的分钟数，默认 1 */
   slotMinutes?: number
-  /** 每周交易日（0=周日…6=周六，与 Date.getDay 一致）；缺省视为全周交易（24/7 线性外推） */
+  /** 每周交易日（0=周日…6=周六，与 Date.getDay 一致）；仅供市场时段描述。 */
   tradingDays?: ReadonlyArray<number>
 }
 

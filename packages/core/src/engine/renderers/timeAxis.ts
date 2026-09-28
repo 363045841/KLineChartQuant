@@ -38,7 +38,7 @@ function formatCrosshairTime(context: RenderContext, timestamp: number): string 
 }
 
 /**
- * 解析十字线索引的时间戳：优先真实 bar，未来槽位走数据层外推回退。
+ * 解析十字线索引的时间戳：优先真实 bar，未来槽位只读取数据源日历。
  * @returns 时间戳；无法解析（负索引、无数据、无 session）返回 null
  */
 export function resolveCrosshairTimestamp(context: RenderContext, index: number): number | null {
@@ -151,7 +151,7 @@ function collectTimeAxisTicks(
     })
   }
 
-  // 未来区：经 Task 5 外推 SSOT 取未来槽位时间，key 变化处与历史边界同帧渲染；
+  // 未来区：仅在数据源提供交易日历时读取未来槽位时间；
   // 回调缺省（分时）或返回 null 时 collectFutureTimeBoundaries 天然返回空
   const futureBoundaries = collectFutureTimeBoundaries({
     dataLength: klineData.length,
@@ -174,7 +174,7 @@ function collectTimeAxisTicks(
       kind: AXIS_LABEL_KIND.TICK,
       text,
       pos: Math.min(Math.max(screenX, minX), maxX),
-      // 未来区为预测内容，刻度降级为 tertiary 弱化显示
+      // 未来日期显示为辅助信息，刻度降级为 tertiary
       color: colors.text.tertiary,
       fontSize,
       bold: isYear,
@@ -185,16 +185,16 @@ function collectTimeAxisTicks(
 /**
  * 收集未来槽位的时间边界（月界或日界），与历史边界同帧渲染。
  *
- * 纯函数只做 key 变化检测：时间戳经 getTimestamp 回调获取（未来索引返回外推值，
- * null 跳过且 previous 不变），渲染器不二次推导 session/周期。
+ * 纯函数只做 key 变化检测：时间戳经 getTimestamp 回调获取（未来索引读取数据源日历，
+ * null 跳过且 previous 不变），渲染器不推导时间。
  *
  * @param params.dataLength 真实数据长度（边界只从 >= dataLength 的槽位起）
  * @param params.rangeStart 当前可见区间起点
  * @param params.rangeEnd 当前可见区间终点（开区间）
  * @param params.kind 边界粒度：'month'（年月 key）| 'day'（年月日 key）
- * @param params.getTimestamp 逻辑索引 → 时间戳（未来索引返回外推值，null 跳过）
+ * @param params.getTimestamp 逻辑索引 → 时间戳（未来索引无日历值时返回 null）
  * @param params.dateKeyOf 时间戳 → 时区感知日期 key（YYYY-MM-DD）
- * @returns 边界列表（升序，含槽位索引与该槽时间戳，渲染侧免二次外推）
+ * @returns 边界列表（升序，含槽位索引与该槽时间戳）
  */
 export function collectFutureTimeBoundaries(params: {
   dataLength: number
@@ -283,7 +283,7 @@ export function createTimeAxisRendererPlugin(options: {
       }
 
       // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）；
-      // 未来槽位无真实 bar，经 resolveCrosshairTimestamp 回退到数据层外推时间
+      // 未来槽位无真实 bar，只从数据源交易日历查询时间
       const crosshair = options.getCrosshair?.()
       if (crosshair && typeof crosshair.index === 'number') {
         const ts = resolveCrosshairTimestamp(context, crosshair.index)
