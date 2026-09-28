@@ -1,3 +1,4 @@
+/** X 轴刻度、十字线时间签与绘图轴标签的绘制入口。 */
 import type {
   AxisLabelCollector,
   RenderContext,
@@ -13,6 +14,10 @@ import {
 import type { KLineData } from '../../foundation/types/price.js'
 import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
+  formatFutureSlotLabel,
+  resolveAxisTimeLabel,
+} from '../../foundation/utils/futureSlotLabel.js'
+import {
   ASHARE_MARKET_SESSION,
   computeTimeShareTimeLabels,
   minuteOfDayToTimestamp,
@@ -22,6 +27,9 @@ import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
 
 /** 时间轴面板 ID（特殊标识，用于单独渲染） */
 const TIME_AXIS_PANE_ID = Symbol('time-axis')
+
+/** 未来占位刻度之间的最小逻辑像素间距。 */
+const FUTURE_TICK_MIN_SPACING = 56
 
 /** 将领域交易日格式化为五日轴标签。 */
 function formatTradingDateLabel(tradingDate: string): string {
@@ -151,8 +159,7 @@ function collectTimeAxisTicks(
     })
   }
 
-  // 未来区：仅在数据源提供交易日历时读取未来槽位时间；
-  // 回调缺省（分时）或返回 null 时 collectFutureTimeBoundaries 天然返回空
+  // 已知的未来日期仍按日/月边界生成刻度。
   const futureBoundaries = collectFutureTimeBoundaries({
     dataLength: klineData.length,
     rangeStart: range.start,
@@ -180,6 +187,67 @@ function collectTimeAxisTicks(
       bold: isYear,
     })
   }
+
+  // 日历未覆盖的槽位按整齐的相对索引步长标注；位置始终由槽位 index 决定。
+  if (!klineData.length || range.end <= klineData.length) return
+  const firstFutureIndex = klineData.length
+  const firstText = formatFutureSlotLabel(firstFutureIndex, klineData.length)
+  if (
+    range.start <= firstFutureIndex &&
+    firstText !== null &&
+    context.getTimestampAtLogicalIndex?.(firstFutureIndex) == null
+  ) {
+    const centerX = context.kLineCenters[firstFutureIndex - range.start]
+    const screenX = centerX === undefined ? null : centerX - scrollLeft
+    if (screenX !== null && screenX >= minX && screenX <= maxX) {
+      surface.register({
+        kind: AXIS_LABEL_KIND.TICK,
+        text: firstText,
+        pos: screenX,
+        color: colors.text.tertiary,
+        fontSize,
+      })
+    }
+  }
+  const step = resolveFutureTickStep(context.kWidth + context.kGap, FUTURE_TICK_MIN_SPACING)
+  const firstOffset = Math.max(1, range.start - klineData.length + 1)
+  for (
+    let offset = Math.ceil(firstOffset / step) * step;
+    offset <= range.end - klineData.length;
+    offset += step
+  ) {
+    const index = klineData.length - 1 + offset
+    if (context.getTimestampAtLogicalIndex?.(index) != null) continue
+    const centerX = context.kLineCenters[index - range.start]
+    if (centerX === undefined) continue
+    const screenX = centerX - scrollLeft
+    if (screenX < minX || screenX > maxX) continue
+    // 与已有的历史刻度或日历刻度保持距离，避免文字相互覆盖。
+    if (surface.labels.some((label) => Math.abs(label.pos - screenX) < FUTURE_TICK_MIN_SPACING))
+      continue
+    const text = formatFutureSlotLabel(index, klineData.length)
+    if (text === null) continue
+    surface.register({
+      kind: AXIS_LABEL_KIND.TICK,
+      text,
+      pos: screenX,
+      color: colors.text.tertiary,
+      fontSize,
+    })
+  }
+}
+
+/** 取不小于所需间隔的 1/2/5 × 10^n 槽位步长。 */
+export function resolveFutureTickStep(slotWidth: number, minSpacing: number): number {
+  if (!(slotWidth > 0) || !(minSpacing > 0)) return 1
+  const desired = minSpacing / slotWidth
+  if (desired <= 1) return 1
+  const power = 10 ** Math.floor(Math.log10(desired))
+  for (const factor of [1, 2, 5, 10]) {
+    const step = factor * power
+    if (step >= desired) return step
+  }
+  return 10 * power
 }
 
 /**
@@ -282,15 +350,17 @@ export function createTimeAxisRendererPlugin(options: {
         ctx.restore()
       }
 
-      // 十字线时间签：注册到 xCrosshair 表面后绘制（先于装饰标签）；
-      // 未来槽位无真实 bar，只从数据源交易日历查询时间
+      // 十字线时间签：真实 bar 或日历显示日期；无日历的未来槽显示相对索引。
       const crosshair = options.getCrosshair?.()
       if (crosshair && typeof crosshair.index === 'number') {
         const ts = resolveCrosshairTimestamp(context, crosshair.index)
-        if (ts !== null) {
+        const text = resolveAxisTimeLabel(crosshair.index, context.data.length, ts, (timestamp) =>
+          formatCrosshairTime(context, timestamp),
+        )
+        if (text !== null) {
           registerAxisLabel(context, 'xCrosshair', {
             kind: AXIS_LABEL_KIND.TAG,
-            text: formatCrosshairTime(context, ts),
+            text,
             pos: crosshair.x,
             bgColor: colors.label.bg,
             textColor: colors.label.text,

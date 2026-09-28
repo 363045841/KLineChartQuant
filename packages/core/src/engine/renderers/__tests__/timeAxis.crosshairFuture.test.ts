@@ -82,4 +82,23 @@ describe('timeAxis draw 越界十字签接线', () => {
     expect(labels[0]?.text).toBe(context.displayTimeFormatter.formatDate(last + 60_000))
     expect(labels[0]?.pos).toBe(context.paneWidth)
   })
+
+  it('日历缺失时未来十字线显示相对槽位，历史区仍显示真实日期', () => {
+    const { context, data } = buildContext({ extrapolated: null })
+    const future = createTimeAxisRendererPlugin({
+      height: 24,
+      getCrosshair: () => ({ x: 42, index: data.length + 2 }),
+    })
+    future.draw(context)
+    expect(context.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe('T+3')
+
+    const { context: historical } = buildContext({ extrapolated: null })
+    createTimeAxisRendererPlugin({
+      height: 24,
+      getCrosshair: () => ({ x: 42, index: data.length - 1 }),
+    }).draw(historical)
+    expect(historical.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe(
+      historical.displayTimeFormatter.formatDate(data[data.length - 1]!.timestamp),
+    )
+  })
 })
