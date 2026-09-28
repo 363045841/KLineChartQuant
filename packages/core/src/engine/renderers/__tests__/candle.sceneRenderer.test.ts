@@ -169,8 +169,18 @@ describe('candle preparation', () => {
     const lowerBottom = Math.round(Math.max(rawBodyBottom, lowY) * dpr)
     expect(vi.mocked(ctx2d.fillRect).mock.calls).toEqual([
       [body.x, bodyY, body.width, bodyH],
-      [wick.x, Math.fround(upperTop / dpr), wick.width, Math.fround(Math.max(1, upperBottom - upperTop) / dpr)],
-      [wick.x, Math.fround(lowerTop / dpr), wick.width, Math.fround(Math.max(1, lowerBottom - lowerTop) / dpr)],
+      [
+        wick.x,
+        Math.fround(upperTop / dpr),
+        wick.width,
+        Math.fround(Math.max(1, upperBottom - upperTop) / dpr),
+      ],
+      [
+        wick.x,
+        Math.fround(lowerTop / dpr),
+        wick.width,
+        Math.fround(Math.max(1, lowerBottom - lowerTop) / dpr),
+      ],
     ])
   })
 
@@ -178,7 +188,9 @@ describe('candle preparation', () => {
     const volumeRead = vi.fn(() => 1000)
     const data = makeBars(5).map((bar) => ({
       ...bar,
-      get volume() { return volumeRead() },
+      get volume() {
+        return volumeRead()
+      },
     }))
     const manager = {
       getCustomMarkers: () => [],

@@ -48,7 +48,11 @@ describe('createWebGPUResourceTable', () => {
     const first = table.ensureUploadedExact({ key: 'strip', data: initial, usage: 'vertex' })
     initial[1] = 3 // callers may reuse and mutate their input array
     table.ensureUploadedExact({ key: 'strip', data: initial, usage: 'vertex' })
-    table.ensureUploadedExact({ key: 'strip', data: new Float32Array([1, 3, 0, 4]), usage: 'vertex' })
+    table.ensureUploadedExact({
+      key: 'strip',
+      data: new Float32Array([1, 3, 0, 4]),
+      usage: 'vertex',
+    })
     expect(fake.queue.writeBuffer).toHaveBeenCalledTimes(2)
 
     const signedZero = new Float32Array([1, 3, -0, 4])
@@ -58,7 +62,9 @@ describe('createWebGPUResourceTable', () => {
     table.ensureUploadedExact({ key: 'strip', data: shorter, usage: 'vertex' })
     expect(fake.queue.writeBuffer).toHaveBeenCalledTimes(4)
     expect(fake.device.createBuffer).toHaveBeenCalledTimes(1)
-    expect(first.buffer).toBe(table.ensureUploadedExact({ key: 'strip', data: shorter, usage: 'vertex' }).buffer)
+    expect(first.buffer).toBe(
+      table.ensureUploadedExact({ key: 'strip', data: shorter, usage: 'vertex' }).buffer,
+    )
     expect(fake.queue.writeBuffer).toHaveBeenCalledTimes(4)
   })
 
@@ -79,7 +85,11 @@ describe('createWebGPUResourceTable', () => {
     table.ensureUploadedOwnedExact({ key: 'strip', data: changed, usage: 'vertex' })
     expect(first.uploadedBits?.buffer).toBe(changed.buffer)
     expect(fake.queue.writeBuffer).toHaveBeenCalledTimes(2)
-    table.ensureUploadedOwnedExact({ key: 'strip', data: new Float32Array([1, 2]), usage: 'vertex' })
+    table.ensureUploadedOwnedExact({
+      key: 'strip',
+      data: new Float32Array([1, 2]),
+      usage: 'vertex',
+    })
     expect(fake.queue.writeBuffer).toHaveBeenCalledTimes(3)
   })
 })

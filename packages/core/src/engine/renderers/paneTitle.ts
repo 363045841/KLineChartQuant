@@ -1,7 +1,4 @@
-import type {
-  RenderContext,
-  RendererPluginWithHost,
-} from '../../foundation/plugin/index.js'
+import type { RenderContext, RendererPluginWithHost } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'

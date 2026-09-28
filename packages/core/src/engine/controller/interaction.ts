@@ -561,6 +561,19 @@ export class InteractionController {
     })
   }
 
+  /**
+   * 尾部槽位步长：centers 尾步长 → frameFallbackCenterStep → kWidthPx/dpr（与 getLogicalIndexAtScreenX 同源）。
+   * centers 尾步长存在但为 0/非有限时返回 null（不落 fallback）；无有效步长返回 null。
+   */
+  private tailSlotStep(centers: number[] | null, kWidthPx: number, dpr: number): number | null {
+    const lastCenter = centers?.[centers.length - 1]
+    const prevCenter = centers?.[centers.length - 2]
+    const tailStep =
+      lastCenter !== undefined && prevCenter !== undefined ? lastCenter - prevCenter : null
+    const step = tailStep ?? this.frameFallbackCenterStep ?? kWidthPx / dpr
+    return step > 0 && Number.isFinite(step) ? step : null
+  }
+
   /** 根据本帧已封存的中心点查找最接近视口内 X 坐标的逻辑索引。 */
   getLogicalIndexAtScreenX(screenX: number): number | null {
     const centers = this.frameCenters
@@ -579,11 +592,8 @@ export class InteractionController {
 
     if (low === 0) return range.start
     if (low === centers.length) {
-      const step =
-        centers.length >= 2
-          ? centers[centers.length - 1]! - centers[centers.length - 2]!
-          : (this.frameFallbackCenterStep ?? (this.frameKWidthPx ?? 0) / viewport.dpr)
-      if (!step || !Number.isFinite(step)) return null
+      const step = this.tailSlotStep(centers, this.frameKWidthPx ?? 0, viewport.dpr)
+      if (!step) return null
       const lastIndex = range.end - 1
       const lastCenter = centers[centers.length - 1]!
       return lastIndex + Math.max(1, Math.ceil((worldX - lastCenter) / step))
@@ -824,7 +834,10 @@ export class InteractionController {
     }
 
     if (this.tooltipPositionMode === 'adaptive') {
-      this._state.actions.setHoveredIndex(bar.globalIdx)
+      // 未来槽位无 OHLC：十字线保留，hover/tooltip 不放行
+      this._state.actions.setHoveredIndex(
+        bar.globalIdx < this.chart.getInternalData().length ? bar.globalIdx : null,
+      )
       this.updateTooltip(ctx)
       return
     }
@@ -959,8 +972,24 @@ export class InteractionController {
       if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
         localIdx = lo - 1
       }
-    } else if (lo === positions.length && positions.length > 0) {
-      localIdx = positions.length - 1
+    } else if (lo === positions.length) {
+      if (positions.length === 0) return null
+      if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
+        // 未来槽位：按尾部步长外推索引，允许十字线进入未来区（仅 K 线视图；分时无未来区）
+        const lastLocal = positions.length - 1
+        const lastCenter = centers?.[lastLocal] ?? positions[lastLocal]! + kWidthLogical / 2
+        const step = this.tailSlotStep(centers, kWidthPx, dpr)
+        if (!step) return null
+        const extrapolated = lastLocal + Math.max(1, Math.ceil((worldX - lastCenter) / step))
+        return {
+          localIdx: extrapolated,
+          globalIdx: extrapolated + visibleRange.start,
+          // 槽位推进用尾部步长（含 kGap），与 centers 栅格一致；bar 宽只决定左缘到中心的偏移
+          kLineStartX: positions[lastLocal]! + (extrapolated - lastLocal) * step,
+          widthLogical: kWidthLogical,
+        }
+      }
+      localIdx = positions.length - 1 // 分时保持旧行为：回夹最后一根
     }
 
     // 跳过中心不在可视视口内的 K 线（边缘裁剪），取相邻可见 K 线
@@ -999,7 +1028,8 @@ export class InteractionController {
     const pane = this.getPaneByY(mouseY)
     this._state.actions.setActivePaneId(pane?.id || null)
 
-    if (bar.globalIdx < 0 || bar.globalIdx >= this.chart.getInternalData().length) {
+    // 负索引仍清除；越界（未来槽位）放行，snap X 用外推中心
+    if (bar.globalIdx < 0) {
       this._state.actions.updateCrosshair(null, null, null)
       return
     }
@@ -1040,6 +1070,8 @@ export class InteractionController {
   private hitTestCandle(ctx: HoverContext, bar: NearestBar): boolean {
     const { mouseY, worldX } = ctx
     const data = this.chart.getInternalData()
+    // 未来槽位无 OHLC：显式短路，语义不靠 data[idx] undefined 巧合
+    if (typeof this.crosshairIndex === 'number' && this.crosshairIndex >= data.length) return false
     const k =
       typeof this.crosshairIndex === 'number'
         ? (data?.[this.crosshairIndex] as KLineData | undefined)

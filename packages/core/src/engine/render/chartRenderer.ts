@@ -80,8 +80,8 @@ import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { createYAxisTicks } from '../utils/axisTicks.js'
+import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 import {
   computeVisiblePriceExtrema,
@@ -1058,6 +1058,7 @@ export class ChartRenderer {
         requiresRightAxisWidthMeasurement,
         getLogicalIndexAtTimestamp: (timestamp) =>
           dataManager.getLogicalIndexAtTimestamp(timestamp),
+        getTimestampAtLogicalIndex: (index) => dataManager.getTimestampAtLogicalIndex(index),
         indicatorStateReader,
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
@@ -1211,6 +1212,7 @@ export class ChartRenderer {
         displayTimeFormatter: this.getDisplayTimeFormatter(),
         getLogicalIndexAtTimestamp: (timestamp) =>
           dataManager.getLogicalIndexAtTimestamp(timestamp),
+        getTimestampAtLogicalIndex: (index) => dataManager.getTimestampAtLogicalIndex(index),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         range,

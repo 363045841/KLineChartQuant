@@ -77,11 +77,18 @@ export function createWebGPUResourceTable(options: {
       }
     }
     if (changed) {
-      device.queue.writeBuffer(resource.buffer, 0, data.buffer as ArrayBuffer, data.byteOffset, byteLength)
+      device.queue.writeBuffer(
+        resource.buffer,
+        0,
+        data.buffer as ArrayBuffer,
+        data.byteOffset,
+        byteLength,
+      )
       metrics?.recordUpload(byteLength)
       // 折线几何由 renderer 每次新建，可直接保存其位型视图，省去第二次全量复制。
       if (takeOwnership) resource.uploadedBits = bits
-      else if (!previous || previous.length !== bits.length) resource.uploadedBits = new Uint32Array(bits)
+      else if (!previous || previous.length !== bits.length)
+        resource.uploadedBits = new Uint32Array(bits)
       else previous.set(bits)
       resource.lastRevision = -1
     }

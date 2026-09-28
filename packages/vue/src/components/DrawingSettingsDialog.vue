@@ -98,24 +98,31 @@
 
 <script setup lang="ts">
   import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
-  import type { DrawingLabelPosition, DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
+  import type {
+    DrawingLabelPosition,
+    DrawingObject,
+    DrawingStyle,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, ref, useId, watch } from 'vue'
-  import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
+  import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
 
   import { useClickOutside } from '../composables/useClickOutside.js'
-  import {
-    drawingColorFields,
-    drawingSettingsConfigs,
-    type DrawingColorField,
-  } from './drawing-settings/config.js'
-  import { loadDrawingTemplates, saveDrawingTemplates, type DrawingTemplate } from './drawing-settings/templates.js'
-
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
-  import BaseButton from './BaseButton.vue'
   import ColorInput from './ColorInput.vue'
+  import {
+    type DrawingColorField,
+    drawingColorFields,
+    drawingSettingsConfigs,
+  } from './drawing-settings/config.js'
+  import {
+    type DrawingTemplate,
+    loadDrawingTemplates,
+    saveDrawingTemplates,
+  } from './drawing-settings/templates.js'
 
   const props = defineProps<{
     show: boolean
@@ -168,9 +175,15 @@
   const busy = ref(false)
   const applyMenuOpen = ref(false)
   const applyMenuRef = ref<HTMLElement | null>(null)
-  useClickOutside(() => [applyMenuRef.value], () => { applyMenuOpen.value = false }, {
-    enabled: () => applyMenuOpen.value,
-  })
+  useClickOutside(
+    () => [applyMenuRef.value],
+    () => {
+      applyMenuOpen.value = false
+    },
+    {
+      enabled: () => applyMenuOpen.value,
+    },
+  )
 
   let loadVersion = 0
   async function reloadTemplates() {
@@ -221,25 +234,31 @@
     }
   }
 
-  watch(() => props.show, (show) => {
-    if (show) {
+  watch(
+    () => props.show,
+    (show) => {
+      if (show) {
+        activeTab.value = 'style'
+        syncTextDraft()
+        applyMenuOpen.value = false
+        savingTemplate.value = false
+        templateError.value = ''
+        void reloadTemplates()
+      }
+    },
+  )
+  watch(
+    () => props.drawing.kind,
+    () => {
       activeTab.value = 'style'
       syncTextDraft()
       applyMenuOpen.value = false
       savingTemplate.value = false
+      templates.value = []
       templateError.value = ''
       void reloadTemplates()
-    }
-  })
-  watch(() => props.drawing.kind, () => {
-    activeTab.value = 'style'
-    syncTextDraft()
-    applyMenuOpen.value = false
-    savingTemplate.value = false
-    templates.value = []
-    templateError.value = ''
-    void reloadTemplates()
-  })
+    },
+  )
   onMounted(() => {
     if (props.show) {
       syncTextDraft()

@@ -22,20 +22,20 @@ export type {
   DepthSource,
   DepthSourceStatus,
 } from './depth/depthTypes.js'
+export type {
+  LiveBar,
+  LiveBarsFrame,
+  LiveBarsStatus,
+  RealtimeBarsSink,
+} from './live/barsLive.js'
+export { BarsLiveSource, BarsLiveSubscription, RealtimeBarsConnector } from './live/barsLive.js'
 export * from './provider/index.js'
 export { baostockMarketDataProvider } from './provider/sources/baostock.js'
 export { finshareMarketDataProvider } from './provider/sources/finshare.js'
 export { gotdxMarketDataProvider } from './provider/sources/gotdx.js'
 export { mockMarketDataProvider } from './provider/sources/mock.js'
-export { tradingviewMarketDataProvider } from './provider/sources/tradingview.js'
 export { mt5MarketDataProvider } from './provider/sources/mt5.js'
-export { BarsLiveSource, BarsLiveSubscription, RealtimeBarsConnector } from './live/barsLive.js'
-export type {
-  LiveBarsFrame,
-  LiveBar,
-  LiveBarsStatus,
-  RealtimeBarsSink,
-} from './live/barsLive.js'
+export { tradingviewMarketDataProvider } from './provider/sources/tradingview.js'
 
 import './provider/sources/gotdx.js'
 import './provider/sources/baostock.js'

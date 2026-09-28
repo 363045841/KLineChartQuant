@@ -137,8 +137,8 @@
     DrawingStyle,
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, onUnmounted } from 'vue'
-  import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
+  import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
   import IconTablerCopy from '~icons/tabler/copy'
   import IconTablerEyeOff from '~icons/tabler/eye-off'

@@ -15,6 +15,8 @@ export type MarketSessionConfig = {
   sessions: ReadonlyArray<OpenTimeRange>
   /** 每个 bar 槽对应的分钟数，默认 1 */
   slotMinutes?: number
+  /** 每周交易日（0=周日…6=周六，与 Date.getDay 一致）；缺省视为全周交易（24/7 线性外推） */
+  tradingDays?: ReadonlyArray<number>
 }
 
 export type SessionTimeLabel = {
@@ -58,6 +60,7 @@ export const ASHARE_MARKET_SESSION: MarketSessionConfig = {
   timeZone: 'Asia/Shanghai',
   sessions: ASHARE_OPEN_SESSIONS,
   slotMinutes: 1,
+  tradingDays: [1, 2, 3, 4, 5],
 }
 
 /** 港股 */
@@ -68,6 +71,7 @@ export const HK_MARKET_SESSION: MarketSessionConfig = {
     { open: hm(13, 0), close: hm(16, 0) },
   ],
   slotMinutes: 1,
+  tradingDays: [1, 2, 3, 4, 5],
 }
 
 /** 韩股（常规盘，无午休） */
@@ -75,6 +79,7 @@ export const KR_MARKET_SESSION: MarketSessionConfig = {
   timeZone: 'Asia/Seoul',
   sessions: [{ open: hm(9, 0), close: hm(15, 30) }],
   slotMinutes: 1,
+  tradingDays: [1, 2, 3, 4, 5],
 }
 
 /** 美股（常规盘，无午休） */
@@ -82,6 +87,7 @@ export const US_MARKET_SESSION: MarketSessionConfig = {
   timeZone: 'America/New_York',
   sessions: [{ open: hm(9, 30), close: hm(16, 0) }],
   slotMinutes: 1,
+  tradingDays: [1, 2, 3, 4, 5],
 }
 
 /**

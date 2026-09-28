@@ -46,6 +46,8 @@ export type ChartOptions = {
   defaultPaneMinHeightPx?: number
   zoomLevels?: number
   initialZoomLevel?: number
+  /** 未来区屏数：最后一根 K 线右侧允许的滚动空间（屏宽倍数）；缺省用 DEFAULT_FUTURE_SCREENS(3) */
+  futureScreens?: number
 }
 
 export type KLinePositions = number[]

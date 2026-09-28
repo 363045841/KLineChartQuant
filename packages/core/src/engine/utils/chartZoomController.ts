@@ -89,6 +89,9 @@ export class ChartZoomController {
     const logicalScrollLeft = this.deps.viewport.readonly.scrollLeftLogical.peek()
     const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.options.readonly.options.peek()
+    // 未来区屏数读 viewportState 的已解析值（默认值解析单点）：与滚动上限/内容宽度同源，
+    // 否则默认配置下 zoom 侧按 0 屏裁剪 maxScroll，拖入未来区缩放会被拉回数据右缘
+    const futureScreens = this.deps.viewport.readonly.futureScreens.peek()
 
     const result = computeZoom(
       delta,
@@ -105,6 +108,7 @@ export class ChartZoomController {
         dataLength: this.deps.getDataLength(),
         plotWidth: this.deps.getPlotWidth(),
         clientWidth: this.deps.getClientWidth(),
+        futureScreens,
       },
     )
 

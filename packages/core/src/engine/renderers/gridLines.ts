@@ -1,13 +1,14 @@
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
 import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import { isDailyPeriod, isMinutePeriod } from '../../foundation/types/chartPeriod.js'
+import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import {
   createHorizontalLineRect,
   createVerticalLineRect,
 } from '../../foundation/utils/pixelAlign.js'
+import { collectFutureTimeBoundaries } from './timeAxis.js'
 
 /**
  * 创建网格线渲染器插件
@@ -74,7 +75,8 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
           if (
             showOnlyYear &&
             !context.displayTimeFormatter.formatAxisMonthOrYear(klineData[idx]!.timestamp).isYear
-          ) continue
+          )
+            continue
 
           // 使用帧级中心点，避免 kWidth 物理像素取整后与 K 线实体、十字线偏移。
           const localIdx = idx - range.start
@@ -82,6 +84,29 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
           const worldX = kLineCenters[localIdx]!
 
           const v = createVerticalLineRect(worldX, 0, pane.height, dpr)
+          if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
+        }
+
+        // 未来区：与时间轴共用边界收集（经 getTimestampAtLogicalIndex 外推 SSOT），
+        // 纵向网格线与历史边界同帧同色；回调缺省时收集结果为空，分时分支不受影响
+        const futureBoundaries = collectFutureTimeBoundaries({
+          dataLength: klineData.length,
+          rangeStart: range.start,
+          rangeEnd: range.end,
+          kind: minutePeriod ? 'day' : 'month',
+          getTimestamp: (idx) => context.getTimestampAtLogicalIndex?.(idx) ?? null,
+          dateKeyOf: (ts) => context.displayTimeFormatter.formatDate(ts),
+        })
+        for (const boundary of futureBoundaries) {
+          if (
+            showOnlyYear &&
+            !context.displayTimeFormatter.formatAxisMonthOrYear(boundary.timestamp).isYear
+          )
+            continue
+
+          const localIdx = boundary.index - range.start
+          if (localIdx < 0 || localIdx >= kLineCenters.length) continue
+          const v = createVerticalLineRect(kLineCenters[localIdx]!, 0, pane.height, dpr)
           if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
         }
       }

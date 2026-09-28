@@ -1,6 +1,10 @@
 import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
 import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import { AXIS_LABEL_KIND, GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import {
+  AXIS_LABEL_KIND,
+  GLOBAL_PANE_ID,
+  RENDERER_PRIORITY,
+} from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
 import { formatAxisPriceValue } from './axisValueFormat.js'

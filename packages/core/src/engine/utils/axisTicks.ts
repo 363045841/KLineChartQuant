@@ -1,9 +1,9 @@
 // 计算 Y 轴刻度：按可见价格范围与像素间距选取易读步长，输出刻度坐标和原始价格。
 import {
   AXIS_DISPLAY,
-  resolveEffectiveAxisDisplay,
   type AxisDisplaySetting,
   type EffectiveAxisDisplayInput,
+  resolveEffectiveAxisDisplay,
 } from '../../foundation/config/axisSettings.js'
 import type { PaneInfo, YAxisTick } from '../../foundation/plugin/types.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
@@ -14,8 +14,7 @@ const MIN_TICK_SPACING_PX = 28
 /** 共享网格优先使用右轴的显示单位；右轴隐藏时使用左轴。 */
 function usesPercentAxis(right: AxisDisplaySetting, left: AxisDisplaySetting): boolean {
   return (
-    right === AXIS_DISPLAY.PERCENT ||
-    (right === AXIS_DISPLAY.NONE && left === AXIS_DISPLAY.PERCENT)
+    right === AXIS_DISPLAY.PERCENT || (right === AXIS_DISPLAY.NONE && left === AXIS_DISPLAY.PERCENT)
   )
 }
 
@@ -29,12 +28,11 @@ function niceStep(rough: number, pixelsPerUnit: number): number {
     (step) => Number.isFinite(step) && step * pixelsPerUnit >= MIN_TICK_SPACING_PX,
   )
   if (eligible.length === 0) return NaN
-  return eligible.reduce(
-    (best, step) =>
-      Math.abs(step * pixelsPerUnit - TARGET_TICK_SPACING_PX) <
-      Math.abs(best * pixelsPerUnit - TARGET_TICK_SPACING_PX)
-        ? step
-        : best,
+  return eligible.reduce((best, step) =>
+    Math.abs(step * pixelsPerUnit - TARGET_TICK_SPACING_PX) <
+    Math.abs(best * pixelsPerUnit - TARGET_TICK_SPACING_PX)
+      ? step
+      : best,
   )
 }
 
@@ -49,9 +47,7 @@ export function createYAxisTicks(pane: PaneInfo, display: EffectiveAxisDisplayIn
   const right = resolveEffectiveAxisDisplay('right', display)
   const left = resolveEffectiveAxisDisplay('left', display)
   const percent =
-    pane.role === 'price' &&
-    (yAxis.getBasePrice() ?? 0) > 0 &&
-    usesPercentAxis(right, left)
+    pane.role === 'price' && (yAxis.getBasePrice() ?? 0) > 0 && usesPercentAxis(right, left)
   const log = !percent && scaleType === ScaleType.Log && topPrice > 0 && bottomPrice > 0
   const toAxis = (price: number) =>
     percent ? yAxis.toPercent(price) : log ? Math.log10(price) : price
@@ -59,7 +55,12 @@ export function createYAxisTicks(pane: PaneInfo, display: EffectiveAxisDisplayIn
     percent ? yAxis.fromPercent(value) : log ? 10 ** value : value
   const axisHigh = toAxis(topPrice)
   const axisLow = toAxis(bottomPrice)
-  if (!Number.isFinite(axisHigh) || !Number.isFinite(axisLow) || axisHigh <= axisLow || bottom <= top)
+  if (
+    !Number.isFinite(axisHigh) ||
+    !Number.isFinite(axisLow) ||
+    axisHigh <= axisLow ||
+    bottom <= top
+  )
     return []
 
   const pixelsPerUnit = (bottom - top) / (axisHigh - axisLow)

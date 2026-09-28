@@ -4,9 +4,9 @@
  */
 
 import type { KLineData, TimeShareData } from '../../controllers/types.js'
-import type { LiveBarsDataSource } from '../live/types.js'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { DepthSource } from '../depth/depthTypes.js'
+import type { LiveBarsDataSource } from '../live/types.js'
 
 /** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
 export const ASSET_CLASS_VALUES = [

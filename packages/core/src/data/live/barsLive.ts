@@ -5,16 +5,8 @@
 import type { KLineData } from '../../controllers/types.js'
 import { KLineChartError } from '../../errors.js'
 import { marketDataProviderRegistry } from '../provider/registry.js'
-import {
-  ORIGINAL_BAR_AGGREGATION,
-  type BarAggregation,
-} from '../provider/types.js'
-import type {
-  LiveBar,
-  LiveBarsFrame,
-  LiveBarsStatus,
-  LiveBarsStream,
-} from './types.js'
+import { type BarAggregation, ORIGINAL_BAR_AGGREGATION } from '../provider/types.js'
+import type { LiveBar, LiveBarsFrame, LiveBarsStatus, LiveBarsStream } from './types.js'
 
 export type {
   LiveBar,
@@ -238,7 +230,12 @@ export class BarsLiveSubscription {
    * @param barAggregation 当前活动 K 线序列的聚合方式。
    */
   reconcile(
-    spec: { symbol: string; period?: string; source?: string; instrument?: { sourceId: string } } | null,
+    spec: {
+      symbol: string
+      period?: string
+      source?: string
+      instrument?: { sourceId: string }
+    } | null,
     barAggregation: BarAggregation = ORIGINAL_BAR_AGGREGATION,
   ): void {
     const sourceId = spec?.instrument?.sourceId ?? spec?.source

@@ -65,7 +65,8 @@ export function refreshAggregationSourceHealth(
   const targets = resolveTargets(sources, options.names)
   if (targets.length === 0) return Promise.resolve()
   const covered = targets.every((source) => health.value[source.name] !== undefined)
-  if (!options.force && covered && Date.now() - lastProbeAt < HEALTH_TTL_MS) return Promise.resolve()
+  if (!options.force && covered && Date.now() - lastProbeAt < HEALTH_TTL_MS)
+    return Promise.resolve()
 
   controller?.abort()
   const nextController = new AbortController()
