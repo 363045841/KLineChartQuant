@@ -1,5 +1,6 @@
 import vueLibPkg from 'vue/package.json'
 import piAiPkg from '../../../agent-runtime/node_modules/@earendil-works/pi-ai/package.json'
+import agentRuntimePkg from '../../../agent-runtime/package.json'
 import ajvPkg from '../../../core/node_modules/ajv/package.json'
 import effectPkg from '../../../core/node_modules/effect/package.json'
 import corePkg from '../../../core/package.json'
@@ -23,6 +24,7 @@ export interface CreditSection {
 export const OPEN_SOURCE_WHITELIST = [
   { name: '@363045841yyt/klinechart', section: 'workspace' },
   { name: '@363045841yyt/klinechart-core', section: 'workspace' },
+  { name: '@363045841yyt/klinechart-agent-runtime', section: 'workspace' },
   { name: 'effect', section: 'third-party' },
   { name: 'ajv', section: 'third-party' },
   { name: '@earendil-works/pi-ai', section: 'third-party' },
@@ -45,6 +47,7 @@ const MONOREPO_GITHUB = 'https://github.com/363045841/KLineChartQuant'
 const PACKAGE_META: Record<WhitelistName, PackageMeta> = {
   '@363045841yyt/klinechart': vuePkg,
   '@363045841yyt/klinechart-core': corePkg,
+  '@363045841yyt/klinechart-agent-runtime': agentRuntimePkg,
   effect: effectPkg,
   ajv: ajvPkg,
   '@earendil-works/pi-ai': piAiPkg,
