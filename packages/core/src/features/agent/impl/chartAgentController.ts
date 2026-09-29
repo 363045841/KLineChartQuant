@@ -376,9 +376,9 @@ class ChartAgentControllerImpl implements ChartAgentController {
       dependencies.marketDataTextFormatter ?? createMarketDataTextFormatter()
   }
 
-  /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主。 */
+  /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主（内置对比品种宿主 + 宿主动态注册）。 */
   get toolHosts(): ReadonlyArray<object> {
-    return [this.dependencies.comparisonCommands]
+    return [this.dependencies.comparisonCommands, ...(this.dependencies.extraToolHosts?.() ?? [])]
   }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */

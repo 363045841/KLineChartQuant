@@ -516,6 +516,15 @@ export interface ChartController extends DrawingChartAdapter {
   zoomIn(anchorX?: number): void
   zoomOut(anchorX?: number): void
 
+  // ---- Agent tool hosts ----
+  /**
+   * 注册 Agent 工具宿主：宿主的 @Tool 标注方法会成为 Agent 可调用工具，
+   * 调用时按方法函数身份在已注册宿主中解析执行目标。幂等（同一宿主重复注册只保留一份）。
+   */
+  registerToolHost(host: object): void
+  /** 移除先前注册的 Agent 工具宿主。 */
+  unregisterToolHost(host: object): void
+
   // ---- Interaction ----
   handlePointerEvent(e: PointerEvent, drawingController?: DrawingControllerCallbacks): boolean
   handleWheelEvent(e: WheelEvent): void
