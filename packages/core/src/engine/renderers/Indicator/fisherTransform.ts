@@ -2,27 +2,21 @@
  * Fisher Transform 指标渲染器：负责副图零轴、Fisher/Signal 双线绘制和指标元数据声明。
  */
 
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcFisherTransformData } from '../../indicators/calculators/fisherTransform.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FisherTransformRenderState } from '../../indicators/state/fisherTransformState.js'
 import { EMPTY_FISHER_TRANSFORM_STATE } from '../../indicators/state/fisherTransformState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-
-import { createFisherTransformScaleRendererPlugin } from './scale/fisherTransform_scale.js'
+import { createFisherTransformScaleLayer } from './scale/fisherTransform_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -38,12 +32,10 @@ interface FisherTransformRendererOptions {
  * @param options 渲染器配置。
  * @returns Fisher Transform 渲染器插件。
  */
-function createFisherTransformRendererPlugin(
+function createFisherTransformLayer(
   options: FisherTransformRendererOptions = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_Fisher', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   let cachedKey = ''
   let cachedFisherPoints: LinePoint[] = []
   let cachedSignalPoints: LinePoint[] = []
@@ -90,26 +82,11 @@ function createFisherTransformRendererPlugin(
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `fisherTransform_${paneId}`,
-    version: '2.1.0',
-    description: 'Fisher Transform 费舍尔变换渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'Fisher',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    /** 保存插件宿主，供绘制时读取共享状态。 */
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    /** 声明此渲染器拥有的状态命名空间。 */
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    /** 绘制 Fisher Transform 零轴和 Fisher/Signal 折线。 */
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -205,19 +182,7 @@ function createFisherTransformRendererPlugin(
         )
       }
     },
-
-    /** 返回当前 Fisher Transform 配置。 */
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<FisherTransformRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    /** 配置由指标实例链路统一更新。 */
-    setConfig() {},
-  }
+  })
 }
 
 /**
@@ -324,7 +289,7 @@ function getFisherTransformTitleInfo(
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_Fisher',
-  scaleRendererFactory: createFisherTransformScaleRendererPlugin,
+  scaleRendererFactory: createFisherTransformScaleLayer,
   visibleState: {
     compose: createPaddedPointVisibleStateComposer(
       'fisherTransform',
@@ -341,5 +306,5 @@ function getFisherTransformTitleInfo(
   },
 })
 export class FisherTransformIndicatorDefinition {
-  static rendererFactory = createFisherTransformRendererPlugin
+  static rendererFactory = createFisherTransformLayer
 }

@@ -7,7 +7,7 @@ import {
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { RenderContext } from '@/plugin'
 import type { TimeShareData } from '@/types/price'
-import { createTimeShareRendererPlugin } from '../timeShare'
+import { createTimeShareLayer } from '../timeShare'
 
 function createTsData(n = 4): TimeShareData[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -36,11 +36,15 @@ function createContext(ctx: MockCanvasContext, data: TimeShareData[]): RenderCon
   })
 }
 
+/** 以主图身份调用分时 Layer.paint。 */
+function paint(context: RenderContext): void {
+  createTimeShareLayer().paint({ ...context, paneId: 'main', clear: false })
+}
+
 describe('timeShare renderer line width', () => {
   it('draws price and average lines at 1px logical width', () => {
     const ctx = createMockCanvasContext()
-    const plugin = createTimeShareRendererPlugin()
-    plugin.draw(createContext(ctx, createTsData()))
+    paint(createContext(ctx, createTsData()))
 
     // stroke 顺序：昨收虚线 → 现价折线 → 均价折线
     expect(ctx.strokeLineWidths).toEqual([1, 1, 1])
@@ -50,10 +54,9 @@ describe('timeShare renderer line width', () => {
   // 验证上游未提供成交量时不预留量柱区域，也不绘制量柱。
   it('uses the full pane for price when timeshare data has no volume', () => {
     const ctx = createMockCanvasContext()
-    const plugin = createTimeShareRendererPlugin()
     const amountOnly = createTsData().map(({ volume: _volume, ...item }) => item)
 
-    plugin.draw(createContext(ctx, amountOnly))
+    paint(createContext(ctx, amountOnly))
 
     expect(ctx.fillRect).not.toHaveBeenCalled()
     expect(ctx.moveTo).toHaveBeenCalledWith(5, 200)

@@ -1,24 +1,20 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcSTOCHData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { STOCHRenderState } from '../../indicators/state/stochState.js'
 import { EMPTY_STOCH_STATE } from '../../indicators/state/stochState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createStochScaleRendererPlugin } from './scale/stoch_scale.js'
+import { createStochScaleLayer } from './scale/stoch_scale.js'
 import { createDashedLineRenderer } from './shared/dashedLines.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -32,10 +28,8 @@ interface STOCHRendererOptions {
 /**
  * 创建 KDJ 渲染器插件
  */
-function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): RendererPluginWithHost {
+function createSTOCHLayer(options: STOCHRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedKPoints: LinePoint[] = []
@@ -80,23 +74,11 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `stoch_${paneId}`,
-    version: '2.1.0',
-    description: 'KDJ 指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'KDJ',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -207,19 +189,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
         )
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<STOCHRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op：配置由外部统一更新
-    },
-  }
+  })
 }
 
 /**
@@ -333,7 +303,7 @@ function getSTOCHTitleInfo(
       'j',
     ] as const),
   },
-  scaleRendererFactory: createStochScaleRendererPlugin,
+  scaleRendererFactory: createStochScaleLayer,
   getTitleInfo: getSTOCHTitleInfo,
   presentation: { defaultOptions: { showK: true, showD: true, showJ: true } },
   runtime: {
@@ -343,5 +313,5 @@ function getSTOCHTitleInfo(
   },
 })
 export class STOCHIndicatorDefinition {
-  static rendererFactory = createSTOCHRendererPlugin
+  static rendererFactory = createSTOCHLayer
 }

@@ -1,13 +1,9 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcBOLLData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
@@ -18,11 +14,10 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { BOLLRenderState } from '../../indicators/state/bollState.js'
 import { ChartDataViewId } from '../../state/modeState.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -161,15 +156,11 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   getTitleInfo: getBOLLTitleInfo,
 })
 export class BOLLDefinition {
-  static rendererFactory = createBOLLRendererPlugin
+  static rendererFactory = createBOLLLayer
 }
 
-export function createBOLLRendererPlugin(
-  options: BOLLRendererOptions = {},
-): RendererPluginWithHost {
+export function createBOLLLayer(options: BOLLRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 对象池：复用 {x,y} 对象，消除每帧 GC 压力
   const _upperPool: LinePoint[] = []
   const _middlePool: LinePoint[] = []
@@ -186,23 +177,11 @@ export function createBOLLRendererPlugin(
     _poolSize = size
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: paneId === 'main' ? 'boll' : `boll_${paneId}`,
-    version: '2.2.0',
-    description: '布林带渲染器（无缓存优化）',
-    debugName: 'BOLL布林带',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost): void {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces(): string[] {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
@@ -312,17 +291,5 @@ export function createBOLLRendererPlugin(
 
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<BOLLRenderState>(instanceId)
-      return state ? { ...state.params } : {}
-    },
-
-    setConfig(_newConfig: Record<string, unknown>) {
-      // 外部控制器应更新对应指标实例参数
-    },
-  }
+  })
 }

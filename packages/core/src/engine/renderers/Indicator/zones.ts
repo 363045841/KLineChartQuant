@@ -1,11 +1,7 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcZonesData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
@@ -14,31 +10,20 @@ import {
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ZonesRenderState } from '../../indicators/state/zonesState.js'
 import { EMPTY_ZONES_STATE } from '../../indicators/state/zonesState.js'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
-function createZonesRendererPlugin(
+function createZonesLayer(
   options: { paneId?: string; instanceId?: string } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `zones_${paneId}`,
-    version: '1.0.0',
-    description: 'SMC 区域渲染器（FVG 缺口 + Order Blocks 订单块）',
-    debugName: 'Zones',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -87,16 +72,7 @@ function createZonesRendererPlugin(
 
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      return (
-        pluginHost
-          ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-          ?.get<ZonesRenderState>(instanceId)?.params ?? {}
-      )
-    },
-    setConfig() {},
-  }
+  })
 }
 
 const getZonesTitleInfo: GetTitleInfoFn = (
@@ -167,5 +143,5 @@ const getZonesTitleInfo: GetTitleInfoFn = (
   },
 })
 export class ZonesDefinition {
-  static rendererFactory = createZonesRendererPlugin
+  static rendererFactory = createZonesLayer
 }

@@ -4,12 +4,18 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import { createCandleRenderer } from '../candle'
+import type { RenderContext } from '@/foundation/plugin/index'
+import { createCandleLayer } from '../candle'
+
+/** 以主图身份调用 K 线 Layer.paint。 */
+function paint(context: RenderContext): void {
+  createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
+}
 
 describe('candle renderer in comparison view', () => {
   it('skips drawing candles in comparison mode', () => {
     const ctx = createMockCanvasContext()
-    createCandleRenderer().draw(
+    paint(
       createMockRenderContext({
         ctx,
         dataView: 'comparison',
@@ -22,6 +28,6 @@ describe('candle renderer in comparison view', () => {
 
   it('still draws when no comparison symbols are present', () => {
     const ctx = createMockCanvasContext()
-    expect(() => createCandleRenderer().draw(createMockRenderContext({ ctx }))).not.toThrow()
+    expect(() => paint(createMockRenderContext({ ctx }))).not.toThrow()
   })
 })

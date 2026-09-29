@@ -92,6 +92,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           ...(pane.context as TFrame),
           paneId: pane.paneId,
           clear: pane.clear,
+          // 本帧渲染后端由 Scene 注入，渲染器无需自行获取。
+          sceneRenderer: pane.renderer,
         }
         try {
           layer.paint(ctx)

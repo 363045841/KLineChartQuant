@@ -1,7 +1,7 @@
 /** 绘图层：只消费帧投影并绘制 primitive。 */
 
+import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.js'
-import type { Renderer } from '@/rendering/render/Renderer.js'
 import type { Layer } from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
@@ -34,23 +34,16 @@ export interface DrawingLayerOptions {
  * 创建绘图 Layer；投影由 ChartRenderer 在 paint 前生成。
  * 绘图输出到覆盖层 canvas，保持在所有行情图元之上。
  */
-export function createDrawingLayer(
-  getContext: () => RenderContext | null,
-  getSceneRenderer: () => Renderer,
-  options: DrawingLayerOptions = {},
-): Layer<RenderContext> {
+export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
   const renderers = options.renderers ?? createDefaultPrimitiveRendererSet()
 
   return {
-    id: 'plugin:drawingRenderer',
+    id: makePluginLayerId('drawingRenderer'),
     role: 'drawing',
     pane: 'global',
     z: 55,
     visible: true,
-    paint() {
-      const context = getContext()
-      if (!context) return
-      context.sceneRenderer = getSceneRenderer()
+    paint(context) {
       const projection = context.drawingProjection
       if (!projection || projection.primitives.length === 0) return
       const viewport = context.viewport

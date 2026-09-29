@@ -1,22 +1,18 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcTRIXData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TRIXRenderState } from '../../indicators/state/trixState.js'
 import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState.js'
 import { createDualSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type Point = { x: number; y: number }
 
@@ -26,26 +22,13 @@ interface TRIXRendererOptions {
   instanceId?: string
 }
 
-function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPluginWithHost {
+function createTRIXLayer(options: TRIXRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub_TRIX', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `trix_${paneId}`,
-    version: '1.1.0',
-    description: 'TRIX 三重指数平滑振荡器渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'TRIX',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -117,16 +100,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       drawLine(ctx, sigPts, signalColor)
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<TRIXRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): void {
@@ -191,5 +165,5 @@ function getTRIXTitleInfo(
   },
 })
 export class TRIXIndicatorDefinition {
-  static rendererFactory = createTRIXRendererPlugin
+  static rendererFactory = createTRIXLayer
 }

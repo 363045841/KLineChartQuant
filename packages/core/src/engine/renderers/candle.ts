@@ -1,4 +1,6 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+/** K 线蜡烛图 Layer：按可见范围准备实体/影线，优先 GPU 画笔，失败回退 Canvas2D。 */
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
@@ -11,6 +13,7 @@ import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
 } from '../../foundation/utils/volumePrice.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import type { MarkerManager } from '../marker/registry.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
@@ -47,19 +50,15 @@ type PreparedCandles = {
   wickWidth: number
 }
 
-/**
- * 创建 K 线蜡烛图渲染器插件
- */
-export function createCandleRenderer(): RendererPlugin {
+/** 创建 K 线主体 Layer。 */
+export function createCandleLayer(): Layer<RenderContext> {
   return {
-    name: 'candle',
-    version: '1.0.0',
-    description: 'K线蜡烛图渲染器',
-    debugName: 'K线',
-    paneId: 'main',
-    priority: RENDERER_PRIORITY.MAIN,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('candle'),
+    role: 'primary',
+    pane: 'main',
+    z: RENDERER_PRIORITY.MAIN,
+    visible: true,
+    paint(context) {
       // 比较模式只展示各品种的涨跌幅折线。
       if (context.dataView === ChartDataViewId.Comparison) return
       const {
@@ -118,6 +117,7 @@ export function createCandleRenderer(): RendererPlugin {
         drawVolumePriceMarkers(context, prepared, volumePriceMarkerManager!, colors.volumePrice)
       }
     },
+    dispose() {},
   }
 }
 

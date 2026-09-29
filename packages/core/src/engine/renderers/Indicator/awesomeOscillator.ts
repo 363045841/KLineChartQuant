@@ -2,20 +2,15 @@
  * Awesome Oscillator 指标渲染器：负责副图零轴、单线绘制和指标元数据声明。
  */
 
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcAwesomeOscillatorData } from '../../indicators/calculators/awesomeOscillator.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { AwesomeOscillatorRenderState } from '../../indicators/state/awesomeOscillatorState.js'
 import {
   DEFAULT_AO_FAST_PERIOD,
@@ -23,10 +18,9 @@ import {
   EMPTY_AO_STATE,
 } from '../../indicators/state/awesomeOscillatorState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-
-import { createAwesomeOscillatorScaleRendererPlugin } from './scale/awesomeOscillator_scale.js'
+import { createAwesomeOscillatorScaleLayer } from './scale/awesomeOscillator_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -43,12 +37,10 @@ interface AwesomeOscillatorRendererOptions {
  * @param options 渲染器配置。
  * @returns AO 渲染器插件。
  */
-function createAwesomeOscillatorRendererPlugin(
+function createAwesomeOscillatorLayer(
   options: AwesomeOscillatorRendererOptions = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_AO', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   let cachedKey = ''
   let cachedAOPoints: LinePoint[] = []
   let offscreenCanvas: HTMLCanvasElement | null = null
@@ -156,26 +148,11 @@ function createAwesomeOscillatorRendererPlugin(
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `awesomeOscillator_${paneId}`,
-    version: '2.1.0',
-    description: 'AO 动量振荡器渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'AO',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    /** 保存插件宿主，供绘制时读取共享状态。 */
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    /** 声明此渲染器拥有的状态命名空间。 */
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    /** 绘制 AO 零轴和主折线。 */
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -253,19 +230,7 @@ function createAwesomeOscillatorRendererPlugin(
         )
       }
     },
-
-    /** 返回当前 AO 配置。 */
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<AwesomeOscillatorRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    /** 配置由指标实例链路统一更新。 */
-    setConfig() {},
-  }
+  })
 }
 
 /**
@@ -315,7 +280,7 @@ const getAwesomeOscillatorTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_AO',
-  scaleRendererFactory: createAwesomeOscillatorScaleRendererPlugin,
+  scaleRendererFactory: createAwesomeOscillatorScaleLayer,
   visibleState: {
     compose: createPaddedSparseVisibleStateComposer('awesomeOscillator', EMPTY_AO_STATE),
   },
@@ -328,5 +293,5 @@ const getAwesomeOscillatorTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class AwesomeOscillatorIndicatorDefinition {
-  static rendererFactory = createAwesomeOscillatorRendererPlugin
+  static rendererFactory = createAwesomeOscillatorLayer
 }

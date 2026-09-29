@@ -1,9 +1,11 @@
-import type { RenderContext, RendererPluginWithHost } from '../../foundation/plugin/index.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import { PANE_HEADER_INSET_PX } from '../chartTypes.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../indicators/indicatorMetadata.js'
@@ -60,20 +62,17 @@ export interface PaneTitleOptions {
   params: Record<string, unknown>
 }
 
-export function createPaneTitleRendererPlugin(options: PaneTitleOptions): RendererPluginWithHost {
-  let currentOptions = { ...options }
+export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<RenderContext> {
+  const currentOptions = { ...options }
 
   return {
-    name: `paneTitle_${options.paneId}`,
-    version: '1.0.0',
-    description: '面板标题渲染器',
-    debugName: '面板标题',
-    paneId: options.paneId,
-    priority: RENDERER_PRIORITY.FOREGROUND,
-    layer: 'overlay',
-
-    draw(context: RenderContext) {
-      const { overlayCtx, pane, paneWidth } = context
+    id: makePluginLayerId(`paneTitle_${options.paneId}`),
+    role: 'overlay',
+    pane: options.paneId,
+    z: RENDERER_PRIORITY.FOREGROUND,
+    visible: true,
+    paint(context) {
+      const { overlayCtx, pane } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -154,9 +153,6 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
       overlayCtx.restore()
     },
-
-    setConfig(config: Record<string, unknown>) {
-      currentOptions = { ...currentOptions, ...config }
-    },
+    dispose() {},
   }
 }

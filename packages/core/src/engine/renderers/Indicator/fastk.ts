@@ -1,21 +1,17 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcFASTKData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FASTKRenderState } from '../../indicators/state/fastkState.js'
 import { EMPTY_FASTK_STATE } from '../../indicators/state/fastkState.js'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createFastkScaleRendererPlugin } from './scale/fastk_scale.js'
+import { createFastkScaleLayer } from './scale/fastk_scale.js'
 import { createDashedLineRenderer } from './shared/dashedLines.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -30,10 +26,8 @@ interface FASTKRendererOptions {
 /**
  * 创建 FASTK 渲染器插件
  */
-function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): RendererPluginWithHost {
+function createFASTKLayer(options: FASTKRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedFASTKPoints: LinePoint[] = []
@@ -71,23 +65,11 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `fastk_${paneId}`,
-    version: '2.1.0',
-    description: 'FASTK 快速随机指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'FASTK',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -152,19 +134,7 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
         drawFASTKLineWithCanvas2D(ctx, scrollLeft, cachedFASTKPoints, params, colors)
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<FASTKRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
-    },
-  }
+  })
 }
 
 /**
@@ -212,7 +182,7 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   indicatorType: 'momentum',
   defaultPaneId: 'sub_FASTK',
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
-  scaleRendererFactory: createFastkScaleRendererPlugin,
+  scaleRendererFactory: createFastkScaleLayer,
   getTitleInfo: getFASTKTitleInfo,
   presentation: { defaultOptions: { showFASTK: true } },
   runtime: {
@@ -222,5 +192,5 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class FASTKIndicatorDefinition {
-  static rendererFactory = createFASTKRendererPlugin
+  static rendererFactory = createFASTKLayer
 }

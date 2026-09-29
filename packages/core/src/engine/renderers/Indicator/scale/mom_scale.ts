@@ -1,15 +1,16 @@
-import type { RendererPluginWithHost } from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 
-import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
+import { createIndicatorScaleLayer } from './indicator_scale.js'
 
-export function createMomScaleRendererPlugin(options: {
+export function createMomScaleLayer(options: {
   axisWidth: number
   paneId: string
   instanceId: string
   yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
-}): RendererPluginWithHost {
-  return createIndicatorScaleRendererPlugin({
+}): Layer<RenderContext> {
+  return createIndicatorScaleLayer({
     axisWidth: options.axisWidth,
     paneId: options.paneId,
     instanceId: options.instanceId,

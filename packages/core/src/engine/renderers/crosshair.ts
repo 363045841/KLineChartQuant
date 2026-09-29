@@ -1,16 +1,17 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+/** 十字线 Layer：垂直线绘制到所有 pane，水平线只绘制到活跃 pane。 */
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import {
   createHorizontalLineRect,
   createVerticalLineRect,
 } from '../../foundation/utils/pixelAlign.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 
-/**
- * 创建十字线渲染器插件
- * 垂直线绘制到所有面板，水平线只绘制到活跃面板
- */
-export function createCrosshairRendererPlugin(options: {
+/** 十字线状态读取器：由 ChartRenderer 注入交互控制器。 */
+export interface CrosshairLayerOptions {
   getCrosshairState: () => {
     pos: { x: number; y: number } | null
     activePaneId: string | null
@@ -18,17 +19,20 @@ export function createCrosshairRendererPlugin(options: {
     /** 十字线指向的价格（用于价格轴平移时跟随） */
     price: number | null
   }
-}): RendererPlugin {
-  return {
-    name: 'crosshair',
-    version: '1.0.0',
-    description: '十字线渲染器',
-    debugName: '十字线',
-    paneId: GLOBAL_PANE_ID,
-    priority: RENDERER_PRIORITY.SYSTEM_CROSSHAIR,
-    layer: 'overlay',
+}
 
-    draw(context: RenderContext) {
+/**
+ * 十字线 Layer（绘制到所有面板；垂直线全 pane，水平线只在活跃面板）。
+ * @param options 读取交互控制器的十字线状态
+ */
+export function createCrosshairLayer(options: CrosshairLayerOptions): Layer<RenderContext> {
+  return {
+    id: makePluginLayerId('crosshair'),
+    role: 'overlay',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.SYSTEM_CROSSHAIR,
+    visible: true,
+    paint(context) {
       const { pane, dpr, paneWidth, overlayCtx } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -84,5 +88,6 @@ export function createCrosshairRendererPlugin(options: {
 
       ctx.restore()
     },
+    dispose() {},
   }
 }

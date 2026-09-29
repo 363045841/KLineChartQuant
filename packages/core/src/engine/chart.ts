@@ -543,7 +543,6 @@ export class Chart {
       getRenderer: (name) => this.renderer.getScene().getLayer(makePluginLayerId(name)) as never,
       useRenderer: (layer) => this.useRenderer(layer),
       removeRenderer: (name) => this.removeRenderer(name),
-      getSceneRenderer: () => this.rendererHost.renderer,
       getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
@@ -559,7 +558,6 @@ export class Chart {
       getCrosshairPrice: () => this.interaction.crosshairPrice,
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
-      getRenderContext: (paneId) => this.renderer.getPaneCtxMap().get(paneId) ?? null,
       indicator: this.kernel.indicator,
       subPaneOps: {
         create: (entry) => this.kernel.paneManager.createFromIndicator(entry),

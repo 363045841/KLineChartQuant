@@ -1,33 +1,30 @@
-/** 五日分时主图 renderer，按交易日独立绘制价格、均价、面积和昨收线。 */
-import type {
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '../../foundation/plugin/index.js'
+/** 五日分时主图 Layer，按交易日独立绘制价格、均价、面积和昨收线。 */
+
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { resolveFiveDayTimeShareBaseline } from '../modes/index.js'
+import {
+  drawAreaFill,
+  drawPreCloseLine,
+  drawSegmentLine,
+} from '../render/layers/timeShareCommon.js'
 import { ChartDataViewId } from '../state/modeState.js'
-import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShare.js'
 
-/** 创建仅服务 fiveDayTimeShare dataView 的主序列 renderer。 */
-export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
+/** 五日分时主图 Layer：按共享日边界绘制，避免相邻交易日之间产生连线。 */
+export function createFiveDayTimeShareLayer(): Layer<RenderContext> {
   return {
-    name: ChartDataViewId.FiveDayTimeShare,
-    version: '1.0.0',
-    description: '五日分时图渲染器',
-    debugName: '五日分时图',
-    paneId: 'main',
-    priority: RENDERER_PRIORITY.MAIN,
-
-    /** 保留 renderer plugin 生命周期契约。 */
-    onInstall(_host: PluginHost) {},
-
-    /** 按共享日边界绘制，避免相邻交易日之间产生连线。 */
-    draw(context: RenderContext) {
+    id: makePluginLayerId(ChartDataViewId.FiveDayTimeShare),
+    role: 'primary',
+    pane: 'main',
+    z: RENDERER_PRIORITY.MAIN,
+    visible: true,
+    paint(context) {
       if (context.dataView !== ChartDataViewId.FiveDayTimeShare) return
       const timeShareRange = context.timeShareRange
       const geometry = context.fiveDayTimeShareGeometry
@@ -92,6 +89,7 @@ export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
 
       ctx.restore()
     },
+    dispose() {},
   }
 }
 
@@ -106,5 +104,5 @@ export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
   mainPane: { rendererName: ChartDataViewId.FiveDayTimeShare },
 })
 export class FiveDayTimeShareIndicatorDefinition {
-  static rendererFactory = createFiveDayTimeShareRendererPlugin
+  static rendererFactory = createFiveDayTimeShareLayer
 }

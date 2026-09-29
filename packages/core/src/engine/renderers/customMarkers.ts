@@ -1,10 +1,10 @@
-import type {
-  MarkerManagerLike,
-  RenderContext,
-  RendererPlugin,
-} from '../../foundation/plugin/index.js'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+/** 自定义标记 Layer：渲染组件 props 配置的 customMarkers（绘制到所有 pane）。 */
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import type { CustomMarkerEntity } from '../marker/registry.js'
 import { drawLabel, drawShape } from '../marker/shape/impl/drawShape.js'
 import type { CustomMarkerShape } from '../marker/shape/types.js'
@@ -32,19 +32,17 @@ function isShapeRenderAboveKLine(shape: CustomMarkerShape): boolean {
 }
 
 /**
- * 创建自定义标记渲染器插件
- * 负责渲染组件 props 中配置的 customMarkers
+ * 自定义标记 Layer（绘制到所有 pane）。
+ * 负责渲染组件 props 中配置的 customMarkers。
  */
-export function createCustomMarkersRenderer(): RendererPlugin {
+export function createCustomMarkersLayer(): Layer<RenderContext> {
   return {
-    name: 'customMarkers',
-    version: '1.0.0',
-    description: '自定义标记渲染器',
-    debugName: '自定义标记',
-    paneId: GLOBAL_PANE_ID,
-    priority: RENDERER_PRIORITY.OVERLAY,
-
-    draw(context: RenderContext): void {
+    id: makePluginLayerId('customMarkers'),
+    role: 'overlay',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.OVERLAY,
+    visible: true,
+    paint(context) {
       const {
         ctx,
         pane,
@@ -147,6 +145,7 @@ export function createCustomMarkersRenderer(): RendererPlugin {
 
       ctx.restore()
     },
+    dispose() {},
   }
 }
 

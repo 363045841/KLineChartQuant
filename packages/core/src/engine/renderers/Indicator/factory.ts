@@ -1,26 +1,19 @@
 /**
  * 指标渲染器 Layer 工厂。
  *
- * 指标定义的 `rendererFactory` 目前仍返回旧式 `RendererPlugin`；本工厂把它
- * 桥接为原生 `Layer`，并集中处理「pane 归属 / role / z / 帧上下文注入」。
- * 渲染器工厂迁为直接返回 Layer 后，本桥接即可删除。
+ * 指标定义的 `rendererFactory` 现已直接返回原生 `Layer`；本工厂只承担
+ * 「按显式 role 覆盖渲染器推导的 role」这一处职责。
  */
 
-import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import type { Renderer } from '@/rendering/render/Renderer.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
-import { wrapRendererAsLayer } from '../../render/layers/wrapRendererAsLayer.js'
 import type { IndicatorRendererOptions } from './index.js'
 
-/** createIndicatorLayer 选项：指标渲染器参数 + 帧上下文注入。 */
+/** createIndicatorLayer 选项：指标渲染器参数 + 目标 role。 */
 export interface IndicatorLayerOptions extends IndicatorRendererOptions {
   definition: IndicatorMetadata
-  getContext: () => RenderContext | null
-  getSceneRenderer: () => Renderer
-  /** Layer role，缺省 indicator（主图指标为 primary）。 */
+  /** 显式 Layer role；缺省沿用渲染器按 pane 推导的结果（main → primary）。 */
   role?: Layer['role']
 }
 
@@ -29,21 +22,12 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
  * 主图指标用 `mainPane.rendererName`，副图指标用 `definition.rendererFactory`。
  */
 export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<RenderContext> {
-  const { definition, getContext, getSceneRenderer } = options
-  const plugin = definition.rendererFactory({
+  const { definition, role } = options
+  const layer = definition.rendererFactory({
     paneId: options.paneId,
     indicatorId: options.indicatorId,
     instanceId: options.instanceId,
     params: options.params,
-    getContext,
-    getSceneRenderer,
   })
-  return wrapRendererAsLayer(plugin, {
-    id: makePluginLayerId(plugin.name),
-    role: options.role ?? 'indicator',
-    pane: options.paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    getContext,
-    getSceneRenderer,
-  })
+  return role && role !== layer.role ? { ...layer, role } : layer
 }

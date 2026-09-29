@@ -10,7 +10,7 @@
  *
  * Everything else — anchor maths, primitive computation, hit testing,
  * canvas rendering, axis label pushing, selection IDs — stays in the
- * existing DrawingStore + RendererPlugin. Those run inside the chart engine,
+ * existing DrawingStore + Scene Layer. Those run inside the chart engine,
  * not the public controller surface. Adapters call setActiveTool() in
  * response to LeftToolbar.vue clicks; clearAll() / deleteLast() are wired up
  * to the store mutations by the chart adapter, with this controller serving

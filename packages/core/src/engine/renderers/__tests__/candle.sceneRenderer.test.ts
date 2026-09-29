@@ -9,7 +9,12 @@ import type { RenderContext } from '@/foundation/plugin/index'
 import { projectWorldRectToScreen } from '@/foundation/utils/pixelAlign'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 import type { Renderer } from '@/rendering/render/Renderer'
-import { createCandleRenderer } from '../candle'
+import { createCandleLayer } from '../candle'
+
+/** 以主图身份调用 K 线 Layer.paint；sceneRenderer 由上下文携带。 */
+function paint(context: RenderContext): void {
+  createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
+}
 
 /** 构造蜡烛图 renderer 关心的 pane 差异项。 */
 function makePane(): MockPaneInfoOverrides {
@@ -83,7 +88,7 @@ describe('candle sceneRenderer path', () => {
       settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
     })
 
-    createCandleRenderer().draw(ctx)
+    paint(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
     expect(compositeTo).not.toHaveBeenCalled()
@@ -100,7 +105,7 @@ describe('candle sceneRenderer path', () => {
       settings: { rendererBackend: 'webgpu', showVolumePriceMarkers: false },
     })
 
-    createCandleRenderer().draw(ctx)
+    paint(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
     expect(compositeTo).not.toHaveBeenCalled()
@@ -120,7 +125,7 @@ describe('candle sceneRenderer path', () => {
       settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
     })
 
-    createCandleRenderer().draw(ctx)
+    paint(ctx)
 
     expect(compositeTo).not.toHaveBeenCalled()
     expect(ctx2d.fillRect).toHaveBeenCalled()
@@ -142,7 +147,7 @@ describe('candle preparation', () => {
       kWidthPx: 5,
       settings: { showVolumePriceMarkers: false },
     })
-    createCandleRenderer().draw(context)
+    paint(context)
 
     const toY = (price: number) => 390 - (price - 90) * 19
     const aligned = (price: number) => Math.round(toY(price) * dpr) / dpr
@@ -205,7 +210,7 @@ describe('candle preparation', () => {
       zoomLevel: 1,
       markerManager: manager,
     })
-    createCandleRenderer().draw(context)
+    paint(context)
     expect(volumeRead).not.toHaveBeenCalled()
   })
 
@@ -225,7 +230,7 @@ describe('candle preparation', () => {
       markerManager: manager,
       zoomLevel: 2,
     })
-    createCandleRenderer().draw(context)
+    paint(context)
     expect(manager.register.mock.calls.map(([marker]) => marker.id)).toEqual([
       'mk_price-volume_1',
       'mk_price-volume_2',

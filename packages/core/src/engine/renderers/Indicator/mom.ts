@@ -1,21 +1,17 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcMOMData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MOMRenderState } from '../../indicators/state/momState.js'
 import { EMPTY_MOM_STATE } from '../../indicators/state/momState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createMomScaleRendererPlugin } from './scale/mom_scale.js'
+import { createMomScaleLayer } from './scale/mom_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -30,10 +26,8 @@ interface MOMRendererOptions {
 /**
  * 创建 MOM 渲染器插件
  */
-function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPluginWithHost {
+function createMOMLayer(options: MOMRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedMOMPoints: LinePoint[] = []
@@ -124,23 +118,11 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `mom_${paneId}`,
-    version: '2.1.0',
-    description: 'MOM 动量指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'MOM',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -226,19 +208,7 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
         drawMOMLineWithCanvas2D(ctx, scrollLeft, cachedMOMPoints, params, colors)
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<MOMRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
-    },
-  }
+  })
 }
 
 /**
@@ -282,7 +252,7 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_MOM',
-  scaleRendererFactory: createMomScaleRendererPlugin,
+  scaleRendererFactory: createMomScaleLayer,
   visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
   getTitleInfo: getMOMTitleInfo,
   presentation: { defaultOptions: { showMOM: true } },
@@ -293,5 +263,5 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class MOMIndicatorDefinition {
-  static rendererFactory = createMOMRendererPlugin
+  static rendererFactory = createMOMLayer
 }

@@ -3,7 +3,7 @@
  *
  * `DrawContext<TFrame, TSceneRenderer>` 是框架无关的 Layer 绘制契约；图表业务
  * 把 `TFrame` 实例化为 `RenderContext`、`TSceneRenderer` 实例化为真实 `Renderer`，
- * 得到 `LayerDrawContext`。渲染器只依赖这个别名，不再依赖旧的 RendererPlugin 契约。
+ * 得到 `LayerDrawContext`；渲染器只依赖这个别名。
  */
 
 import type { Renderer } from '@/rendering/render/Renderer.js'

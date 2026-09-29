@@ -71,7 +71,8 @@ import {
   computeTimeShareXLayout,
 } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
-import { createTimeAxisRendererPlugin } from '../renderers/timeAxis.js'
+import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend.js'
+import { createTimeAxisLayer } from '../renderers/timeAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
@@ -92,7 +93,6 @@ import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer.js'
 import { createFiveDayTimeShareLayer } from './layers/fiveDayTimeShareLayer.js'
 import { createGridLinesLayer } from './layers/gridLinesLayer.js'
 import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer.js'
-import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer.js'
 import { createTimeShareLayer } from './layers/timeShareLayer.js'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer.js'
 
@@ -285,7 +285,7 @@ export class ChartRenderer {
         }
         // 用本帧几何将鼠标坐标吸附到最近 K 线，算出十字线位置
         this.deps.getInteraction().flushPendingHover()
-        // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paintPane → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
+        // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paint → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
         this.drawWithFrame(snapshot.level, snapshot.frame)
         if (snapshot.frame) {
           this.cacheDrawFrame(snapshot.frame)
@@ -316,64 +316,61 @@ export class ChartRenderer {
     const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 0)
     const interaction = this.deps.getInteraction()
 
-    const getSceneRenderer = () => this.deps.getSceneRenderer()
-    const getCtx = (paneId: string) => () => this.paneCtxMap.get(paneId) ?? null
-    const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
-
     {
-      const layer = createGridLinesLayer(getCtxForCurrentPane, getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createCandleLayer(getCtx('main'), getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createTimeShareLayer(getCtx('main'), getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createFiveDayTimeShareLayer(getCtx('main'), getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createComparisonLineLayer(getCtx('main'), getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createCustomMarkersLayer(getCtxForCurrentPane, getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createExtremaMarkersLayer(getCtxForCurrentPane, getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createMainIndicatorLegendLayer(
-        {
-          yPaddingPx: opt.yPaddingPx,
-          onContext: this.deps.onLegendContext,
-          getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
+      this.timeAxisLayer = createTimeAxisLayer({
+        height: opt.bottomAxisHeight,
+        getCrosshair: () => {
+          const pos = interaction.crosshairPos
+          const idx = interaction.crosshairIndex
+          if (pos && idx !== null) {
+            return { x: pos.x, index: idx }
+          }
+          return null
         },
-        getCtx('main'),
-        getSceneRenderer,
-        this.deps.getPluginHost,
-      )
-      this.scene.addLayer(layer)
+      })
     }
     {
-      const layer = createCrosshairLayer(
-        {
-          getCrosshairState: () => ({
-            pos: interaction.crosshairPos,
-            activePaneId: interaction.activePaneId,
-            isDragging: interaction.isDraggingState(),
-            price: interaction.crosshairPrice,
-          }),
-        },
-        getCtxForCurrentPane,
-        getSceneRenderer,
+      this.scene.addLayer(createGridLinesLayer())
+    }
+    {
+      this.scene.addLayer(createCandleLayer())
+    }
+    {
+      this.scene.addLayer(createTimeShareLayer())
+    }
+    {
+      this.scene.addLayer(createFiveDayTimeShareLayer())
+    }
+    {
+      this.scene.addLayer(createComparisonLineLayer())
+    }
+    {
+      this.scene.addLayer(createCustomMarkersLayer())
+    }
+    {
+      this.scene.addLayer(createExtremaMarkersLayer())
+    }
+    {
+      this.scene.addLayer(
+        createMainIndicatorLegendLayer(
+          {
+            yPaddingPx: opt.yPaddingPx,
+            onContext: this.deps.onLegendContext,
+            getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
+          },
+          this.deps.getPluginHost,
+        ),
       )
+    }
+    {
+      const layer = createCrosshairLayer({
+        getCrosshairState: () => ({
+          pos: interaction.crosshairPos,
+          activePaneId: interaction.activePaneId,
+          isDragging: interaction.isDraggingState(),
+          price: interaction.crosshairPrice,
+        }),
+      })
       this.scene.addLayer(layer)
     }
     {
@@ -390,10 +387,8 @@ export class ChartRenderer {
           return null
         },
       }
-      this.scene.addLayer(createYAxisStaticLayer(yAxisOpts, getCtxForCurrentPane, getSceneRenderer))
-      this.scene.addLayer(
-        createYAxisOverlayLayer(yAxisOpts, getCtxForCurrentPane, getSceneRenderer),
-      )
+      this.scene.addLayer(createYAxisStaticLayer(yAxisOpts))
+      this.scene.addLayer(createYAxisOverlayLayer(yAxisOpts))
     }
     {
       const leftYAxisOpts = {
@@ -409,23 +404,13 @@ export class ChartRenderer {
           return null
         },
       }
-      this.scene.addLayer(
-        createLeftYAxisStaticLayer(leftYAxisOpts, getCtxForCurrentPane, getSceneRenderer),
-      )
-      this.scene.addLayer(
-        createLeftYAxisOverlayLayer(leftYAxisOpts, getCtxForCurrentPane, getSceneRenderer),
-      )
+      this.scene.addLayer(createLeftYAxisStaticLayer(leftYAxisOpts))
+      this.scene.addLayer(createLeftYAxisOverlayLayer(leftYAxisOpts))
     }
   }
 
   registerDrawingPlugins(): void {
-    const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
-    const getSceneRenderer = () => this.deps.getSceneRenderer()
-
-    {
-      const layer = createDrawingLayer(getCtxForCurrentPane, getSceneRenderer)
-      this.scene.addLayer(layer)
-    }
+    this.scene.addLayer(createDrawingLayer())
   }
 
   getScene(): Scene {
@@ -570,7 +555,7 @@ export class ChartRenderer {
       ? null
       : this.deps.getIndicatorManager().getMainIndicatorPriceRange()
 
-    // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paintPane
+    // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paint
     const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
@@ -862,7 +847,7 @@ export class ChartRenderer {
     }
   }
 
-  /** 遍历所有 pane，逐 pane 清 canvas → 构建 RenderContext → beginFrame → scene.paintPane，所有 pane 结束后 endFrame 统一提交 GPU / 时间轴 */
+  /** 遍历所有 pane，逐 pane 清 canvas → 构建 RenderContext → beginFrame；所有 pane 构建完成后一次 scene.paint，再 endFrame 统一提交 GPU / 时间轴 */
   private renderPanes(
     vp: Viewport,
     range: VisibleRange,
@@ -1226,7 +1211,12 @@ export class ChartRenderer {
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
       }
-      this.timeAxisLayer.paint({ ...timeAxisContext, paneId: 'xAxis', clear: false })
+      this.timeAxisLayer.paint({
+        ...timeAxisContext,
+        paneId: 'xAxis',
+        clear: false,
+        sceneRenderer: this.deps.getSceneRenderer(),
+      })
     }
   }
 

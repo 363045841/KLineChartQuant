@@ -27,9 +27,9 @@ import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, PaneSpec, SubPaneInfo } from '../chartTypes.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { UpdateLevel } from '../layout/pane.js'
-import { createMainIndicatorLegendLayer } from '../render/layers/mainIndicatorLegendLayer.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
+import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend.js'
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,
@@ -151,14 +151,11 @@ export interface IndicatorDependencies {
   getCrosshairPrice: () => number | null
   getActivePaneId: () => string | null
   scheduleDraw: (level?: UpdateLevel) => void
-  getRenderContext: (paneId: string) => RenderContext | null
   getLayer: (id: string) => Layer | null
   /** 主图/副图统一的指标实例配置状态 */
   indicator: IndicatorStateModule
   /** 副图状态 + 联动 pane 布局的复合操作 */
   subPaneOps: SubPaneOps
-  /** 获取本帧渲染后端（副图/主图指标 Layer 注入帧上下文用）。 */
-  getSceneRenderer: () => Renderer
   /** 当前数据视图应显示的主图指标 ID 快照（图例消费）。 */
   getVisibleMainIndicatorIds: () => ReadonlyArray<string>
   runRendererTransaction: (run: () => void) => void
@@ -837,8 +834,6 @@ export class ChartIndicatorManager {
             yPaddingPx: this.deps.getOption().yPaddingPx,
             getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
           },
-          () => this.deps.getRenderContext('main'),
-          this.deps.getSceneRenderer,
           this.deps.getPluginHost,
         ),
       )
@@ -865,8 +860,6 @@ export class ChartIndicatorManager {
       instanceId: `main:${indicatorId}`,
       definition,
       role: 'primary',
-      getContext: () => this.deps.getRenderContext('main'),
-      getSceneRenderer: this.deps.getSceneRenderer,
     })
   }
 

@@ -5,7 +5,7 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import { createFiveDayTimeShareRendererPlugin } from '../fiveDayTimeShare'
+import { createFiveDayTimeShareLayer } from '../fiveDayTimeShare'
 
 describe('fiveDayTimeShare renderer', () => {
   it('starts independent price and average paths for every trading day', () => {
@@ -20,50 +20,49 @@ describe('fiveDayTimeShare renderer', () => {
       { tradingDate: '2026-08-14', preClose: 9.9, data: data.slice(0, 2) },
       { tradingDate: '2026-08-17', preClose: 10.9, data: data.slice(2) },
     ]
-    createFiveDayTimeShareRendererPlugin().draw(
-      createMockRenderContext({
-        ctx,
-        data,
-        dataView: 'fiveDayTimeShare',
-        period: '5daytimeshare',
-        range: { start: 0, end: 4 },
-        paneWidth: 200,
-        kLineCenters: [10, 20, 110, 120],
-        timeShareRange: {
-          instrumentId: 'test',
-          timezone: 'Asia/Shanghai',
-          requestedDays: 2,
-          olderData: 'exhausted',
-          days,
-        },
-        fiveDayTimeShareGeometry: {
-          sessionSlots: 241,
-          contentWidth: 200,
-          days: [
-            {
-              tradingDate: '2026-08-14',
-              dataStartIndex: 0,
-              dataEndIndex: 2,
-              startX: 0,
-              endX: 100,
-              labelX: 50,
-            },
-            {
-              tradingDate: '2026-08-17',
-              dataStartIndex: 2,
-              dataEndIndex: 4,
-              startX: 100,
-              endX: 200,
-              labelX: 150,
-              separatorX: 100,
-            },
-          ],
-          verticalGridLineXs: [],
-        },
-        pane: { height: 300, yAxis: { priceToY: (price) => 200 - price } },
-        isAsiaMarket: true,
-      }),
-    )
+    const context = createMockRenderContext({
+      ctx,
+      data,
+      dataView: 'fiveDayTimeShare',
+      period: '5daytimeshare',
+      range: { start: 0, end: 4 },
+      paneWidth: 200,
+      kLineCenters: [10, 20, 110, 120],
+      timeShareRange: {
+        instrumentId: 'test',
+        timezone: 'Asia/Shanghai',
+        requestedDays: 2,
+        olderData: 'exhausted',
+        days,
+      },
+      fiveDayTimeShareGeometry: {
+        sessionSlots: 241,
+        contentWidth: 200,
+        days: [
+          {
+            tradingDate: '2026-08-14',
+            dataStartIndex: 0,
+            dataEndIndex: 2,
+            startX: 0,
+            endX: 100,
+            labelX: 50,
+          },
+          {
+            tradingDate: '2026-08-17',
+            dataStartIndex: 2,
+            dataEndIndex: 4,
+            startX: 100,
+            endX: 200,
+            labelX: 150,
+            separatorX: 100,
+          },
+        ],
+        verticalGridLineXs: [],
+      },
+      pane: { height: 300, yAxis: { priceToY: (price) => 200 - price } },
+      isAsiaMarket: true,
+    })
+    createFiveDayTimeShareLayer().paint({ ...context, paneId: 'main', clear: false })
 
     const segmentPaths = ctx.strokedPaths
       .filter((path) => path.length === 2)

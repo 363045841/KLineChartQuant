@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createMockCanvasContext,
   createMockRenderContext,
-  createMockServiceHost,
   type MockCanvasContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
@@ -43,13 +42,10 @@ function createContext(): { context: RenderContext; fills: string[] } {
 
 describe('timeshare volume renderer', () => {
   it('uses the dedicated volume palette instead of the timeshare price-line color', () => {
-    const renderer = VolumeIndicatorDefinition.rendererFactory({ paneId: 'sub' })
-    const { onInstall } = renderer
-    if (!onInstall) throw new Error('Volume renderer must expose an install hook')
-    onInstall(createMockServiceHost({}))
+    const layer = VolumeIndicatorDefinition.rendererFactory({ paneId: 'sub' })
     const { context, fills } = createContext()
 
-    renderer.draw(context)
+    layer.paint(context)
 
     expect(fills).toEqual(['#C2363B66', '#00000066'])
   })

@@ -1,22 +1,18 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcKeltnerData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { KeltnerRenderState } from '../../indicators/state/keltnerState.js'
 import { EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState.js'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type Point = { x: number; y: number }
 
@@ -26,26 +22,13 @@ interface KeltnerRendererOptions {
   instanceId?: string
 }
 
-function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): RendererPluginWithHost {
+function createKeltnerLayer(options: KeltnerRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `keltner_${paneId}`,
-    version: '1.1.0',
-    description: 'Keltner Channel 渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'Keltner',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -94,16 +77,7 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
       drawLine(ctx, lowerPts, colors.palette.i8)
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<KeltnerRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): void {
@@ -174,5 +148,5 @@ function getKeltnerTitleInfo(
   },
 })
 export class KeltnerDefinition {
-  static rendererFactory = createKeltnerRendererPlugin
+  static rendererFactory = createKeltnerLayer
 }

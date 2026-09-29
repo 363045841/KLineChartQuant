@@ -28,7 +28,7 @@ describe('createDrawingLayer', () => {
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       pane: { height: 400 },
     })
-    const layer = createDrawingLayer(() => context, (() => ({})) as never, {
+    const layer = createDrawingLayer({
       renderers: {
         point,
         line: vi.fn(),

@@ -1,43 +1,28 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcVolumeProfileData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState.js'
 import { EMPTY_VOLUME_PROFILE_STATE } from '../../indicators/state/volumeProfileState.js'
 import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 const PROFILE_WIDTH_PX = 80
 
-function createVolumeProfileRendererPlugin(
+function createVolumeProfileLayer(
   options: { paneId?: string; instanceId?: string } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_VolumeProfile', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `volumeProfile_${paneId}`,
-    version: '1.0.0',
-    description: 'Volume Profile 渲染器（POC + Value Area + 价格-成交量直方图）',
-    debugName: 'VolumeProfile',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, scrollLeft } = context
       // 颜色统一取自 theme tokens，保证与标题栏一致并支持主题/预设切换
       const colors = resolveThemeColors(
@@ -99,15 +84,7 @@ function createVolumeProfileRendererPlugin(
 
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<VolumeProfileRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function getVolumeProfileTitleInfo(
@@ -163,5 +140,5 @@ function getVolumeProfileTitleInfo(
   },
 })
 export class VolumeProfileIndicatorDefinition {
-  static rendererFactory = createVolumeProfileRendererPlugin
+  static rendererFactory = createVolumeProfileLayer
 }

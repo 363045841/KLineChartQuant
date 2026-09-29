@@ -53,7 +53,6 @@ function createMockDeps() {
     removeRenderer: (name: string) => {
       layers.delete(name)
     },
-    getSceneRenderer: () => ({}) as Renderer,
     getVisibleMainIndicatorIds: () => [] as ReadonlyArray<string>,
     paneRatios$,
     paneSpecs$,
@@ -63,7 +62,6 @@ function createMockDeps() {
     getCrosshairPrice: () => null,
     getActivePaneId: () => null,
     scheduleDraw: vi.fn(),
-    getRenderContext: () => null,
     getLayer: (id: string) => (layers.get(id.replace('plugin:', '')) ?? null) as never,
     indicator,
     subPaneOps,

@@ -31,7 +31,6 @@ function createMockContext(): SubPaneContext & {
       renderers.set(layer.id.replace('plugin:', ''), layer),
     ),
     removeRenderer: vi.fn((name) => renderers.delete(name)),
-    getSceneRenderer: () => ({}) as Renderer,
     getOption: () => ({
       rightAxisWidth: 60,
       priceLabelWidth: 60,
@@ -40,7 +39,6 @@ function createMockContext(): SubPaneContext & {
     getCrosshairPos: () => null,
     getCrosshairPrice: () => null,
     getActivePaneId: () => null,
-    getRenderContext: () => null,
   }
 }
 

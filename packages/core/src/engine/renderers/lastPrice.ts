@@ -1,8 +1,11 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+/** 最新价 label 注册与虚线 Layer 工厂（overlay 层，绘制到主图）。 */
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import { formatLastPriceCountdown, registerAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
@@ -31,19 +34,16 @@ function getLastPriceInfo(context: RenderContext) {
 }
 
 /**
- * 最新价 label 注册渲染器（overlay 层，确保悬停时 label 也注册到右轴 overlay 表面）
+ * 最新价 label 注册 Layer（overlay 层，确保悬停时 label 也注册到右轴 overlay 表面）。
  */
-export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
+export function createLastPriceLabelLayer(): Layer<RenderContext> {
   return {
-    name: 'lastPriceLabelRegistrar',
-    version: '1.0.0',
-    description: '最新价 label 注册',
-    debugName: '最新价标签注册',
-    paneId: 'main',
-    layer: 'overlay',
-    priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('lastPriceLabelRegistrar'),
+    role: 'overlay',
+    pane: 'main',
+    z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
+    visible: true,
+    paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const colors = resolveThemeColors(
         context.theme,
@@ -68,6 +68,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
         fontSize: 12,
       })
     },
+    dispose() {},
   }
 }
 
@@ -82,23 +83,20 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
   mainPane: { rendererName: 'lastPriceLabelRegistrar' },
 })
 export class LastPriceLabelRegistrarIndicatorDefinition {
-  static rendererFactory = createLastPriceLabelRegistrarPlugin
+  static rendererFactory = createLastPriceLabelLayer
 }
 
 /**
- * 创建最新价虚线渲染器插件（绘制虚线）
+ * 最新价虚线 Layer（绘制虚线）。
  */
-export function createLastPriceLineRendererPlugin(): RendererPlugin {
+export function createLastPriceLineLayer(): Layer<RenderContext> {
   return {
-    name: 'lastPriceLine',
-    version: '1.0.0',
-    description: '最新价虚线渲染器',
-    debugName: '最新价线',
-    paneId: 'main',
-    layer: 'overlay',
-    priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('lastPriceLine'),
+    role: 'overlay',
+    pane: 'main',
+    z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
+    visible: true,
+    paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { overlayCtx, scrollLeft, dpr, paneWidth } = context
       const ctx = overlayCtx
@@ -132,6 +130,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
 
       ctx.restore()
     },
+    dispose() {},
   }
 }
 
@@ -146,5 +145,5 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
   mainPane: { rendererName: 'lastPriceLine' },
 })
 export class LastPriceLineIndicatorDefinition {
-  static rendererFactory = createLastPriceLineRendererPlugin
+  static rendererFactory = createLastPriceLineLayer
 }

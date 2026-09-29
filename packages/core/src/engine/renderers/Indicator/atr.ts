@@ -1,20 +1,16 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcATRData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ATRRenderState } from '../../indicators/state/atrState.js'
 import { EMPTY_ATR_STATE } from '../../indicators/state/atrState.js'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createAtrScaleRendererPlugin } from './scale/atr_scale.js'
+import { createAtrScaleLayer } from './scale/atr_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -25,10 +21,8 @@ interface ATRRendererOptions {
   instanceId?: string
 }
 
-function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPluginWithHost {
+function createATRLayer(options: ATRRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub_ATR', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   let cachedKey = ''
   let cachedPoints: LinePoint[] = []
 
@@ -62,23 +56,11 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `atr_${paneId}`,
-    version: '1.0.0',
-    description: 'ATR 平均真实波幅渲染器（Wilder 平滑）',
-    debugName: 'ATR',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -146,19 +128,7 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
         drawWithCanvas2D(ctx, scrollLeft, cachedPoints, atrColor)
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<ATRRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op: 配置由指标实例链路按 instanceId 投影更新
-    },
-  }
+  })
 }
 
 function drawWithCanvas2D(
@@ -197,7 +167,7 @@ const getATRTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'volatility',
   defaultPaneId: 'sub_ATR',
-  scaleRendererFactory: createAtrScaleRendererPlugin,
+  scaleRendererFactory: createAtrScaleLayer,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
   getTitleInfo: getATRTitleInfo,
   presentation: { defaultOptions: { showATR: true } },
@@ -208,5 +178,5 @@ const getATRTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class ATRIndicatorDefinition {
-  static rendererFactory = createATRRendererPlugin
+  static rendererFactory = createATRLayer
 }

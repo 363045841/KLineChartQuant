@@ -15,7 +15,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createScene } from '../createScene'
-import { LAYER_PANE_GLOBAL, type Layer, type LayerRole, type SceneFrame } from '../types'
+import {
+  LAYER_PANE_GLOBAL,
+  type Layer,
+  type LayerPaint,
+  type LayerRole,
+  type SceneFrame,
+} from '../types'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -35,12 +41,12 @@ interface MockLayerOpts {
 }
 
 interface MockLayer extends Layer<FrameStub> {
-  paintCalls: Array<FrameStub & { paneId: string; clear: boolean }>
+  paintCalls: Array<LayerPaint<FrameStub>>
   disposeCalls: number
 }
 
 function makeMockLayer(opts: MockLayerOpts): MockLayer {
-  const paintCalls: Array<FrameStub & { paneId: string; clear: boolean }> = []
+  const paintCalls: Array<LayerPaint<FrameStub>> = []
   let disposeCalls = 0
   const layer: MockLayer = {
     id: opts.id,
@@ -269,7 +275,7 @@ describe('createScene', () => {
 
   it('injects paneId and clear into the layer paint context', () => {
     const scene = createScene<FrameStub>()
-    const seen: Array<FrameStub & { paneId: string; clear: boolean }> = []
+    const seen: Array<LayerPaint<FrameStub>> = []
     scene.addLayer(
       makeMockLayer({
         id: 'a',

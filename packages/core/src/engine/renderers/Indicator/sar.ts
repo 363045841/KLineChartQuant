@@ -1,12 +1,8 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcSARData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
@@ -14,10 +10,10 @@ import {
   IndicatorKind,
   type TitleInfo,
 } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SARRenderState } from '../../indicators/state/sarState.js'
 import { EMPTY_SAR_STATE } from '../../indicators/state/sarState.js'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 const DOT_RADIUS = 1.5
 const TAU = Math.PI * 2
@@ -28,27 +24,13 @@ interface SARRendererOptions {
   instanceId?: string
 }
 
-function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPluginWithHost {
+function createSARLayer(options: SARRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `sar_${paneId}`,
-    version: '1.0.0',
-    description: 'Parabolic SAR 渲染器（绿色 = 多头止损 / 红色 = 空头止损）',
-    debugName: 'SAR',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -80,19 +62,7 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
 
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<SARRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 function getSARTitleInfo(
@@ -147,5 +117,5 @@ function getSARTitleInfo(
   },
 })
 export class SARDefinition {
-  static rendererFactory = createSARRendererPlugin
+  static rendererFactory = createSARLayer
 }

@@ -1,13 +1,9 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcENEData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
@@ -18,9 +14,9 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ENERenderState } from '../../indicators/state/eneState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -98,37 +94,13 @@ const composeENERenderState: IndicatorRenderStateComposer = (
   }
 }
 
-export function createENERendererPlugin(options: ENERendererOptions = {}): RendererPluginWithHost {
+export function createENELayer(options: ENERendererOptions = {}): Layer<RenderContext> {
   const { instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: 'ene',
-    version: '2.1.0',
-    description: 'ENE 轨道线渲染器（无状态）',
-    debugName: 'ENE轨道线',
     paneId: 'main',
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    /**
-     * 安装时捕获 PluginHost 引用
-     */
-    onInstall(host: PluginHost): void {
-      pluginHost = host
-    },
-
-    /**
-     * 声明使用的 StateStore 命名空间
-     */
-    getDeclaredNamespaces(): string[] {
-      return instanceId ? [instanceId] : []
-    },
-
-    /**
-     * 绘制 ENE 线
-     * 从 StateStore 读取预计算数据，仅执行绘制
-     */
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
@@ -206,29 +178,7 @@ export function createENERendererPlugin(options: ENERendererOptions = {}): Rende
 
       ctx.restore()
     },
-
-    /**
-     * 获取配置（兼容性接口）
-     * 从 StateStore 读取实际配置
-     */
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<ENERenderState>(instanceId)
-      return state ? { ...state.params } : {}
-    },
-
-    /**
-     * 设置配置（兼容性接口，无实际操作）
-     *
-     * 重要：本渲染器为无状态设计，不持有配置。
-     * 配置变更由指标实例链路更新对应实例参数后重新投影。
-     */
-    setConfig(_newConfig: Record<string, unknown>) {
-      // 无状态渲染器不存储配置，配置变更由指标实例链路更新实例参数
-    },
-  }
+  })
 }
 
 const getENETitleInfo: GetTitleInfoFn = (
@@ -278,5 +228,5 @@ const getENETitleInfo: GetTitleInfoFn = (
   getTitleInfo: getENETitleInfo,
 })
 export class ENEDefinition {
-  static rendererFactory = createENERendererPlugin
+  static rendererFactory = createENELayer
 }

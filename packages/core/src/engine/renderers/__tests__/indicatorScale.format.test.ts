@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createMockCanvasContext,
-  createMockPluginHost,
   createMockRenderContext,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
-import { createIndicatorScaleRendererPlugin } from '../Indicator/scale/indicator_scale'
+import { createIndicatorScaleLayer } from '../Indicator/scale/indicator_scale'
 import { formatScaleValue, resolveAdaptiveDecimals } from '../Indicator/scale/scaleFormat'
 
 describe('resolveAdaptiveDecimals', () => {
@@ -33,10 +32,10 @@ describe('formatScaleValue', () => {
 /** 坐标轴按实例身份寻址，不再按指标类型 state key 读取。 */
 const MACD_INSTANCE_ID = 'inst-macd'
 
-describe('indicator scale plugin formatting', () => {
+describe('indicator scale layer formatting', () => {
   it('renders small-magnitude ticks with adaptive decimals and no negative zero', () => {
     const yAxisCtx = createMockCanvasContext()
-    const renderer = createIndicatorScaleRendererPlugin({
+    const layer = createIndicatorScaleLayer({
       axisWidth: 60,
       paneId: 'sub_MACD_test',
       instanceId: MACD_INSTANCE_ID,
@@ -44,9 +43,8 @@ describe('indicator scale plugin formatting', () => {
       label: 'MACD',
       decimals: 2,
     })
-    renderer.onInstall?.(createMockPluginHost())
 
-    renderer.draw(
+    layer.paint(
       createMockRenderContext({
         yAxisCtx,
         dpr: 2,

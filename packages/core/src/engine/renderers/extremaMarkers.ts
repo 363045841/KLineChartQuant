@@ -1,5 +1,7 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+/** 可视区最高/最低价标注 Layer（overlay 层，绘制到所有 pane）。 */
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
@@ -10,6 +12,8 @@ import {
   worldXToScreenX,
 } from '../../foundation/utils/pixelAlign.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
@@ -92,20 +96,15 @@ function drawAllMarkers(
   ctx.restore()
 }
 
-/**
- * 创建可视区最高/最低价标注渲染器插件
- */
-export function createExtremaMarkersRendererPlugin(): RendererPlugin {
+/** 可视区最高/最低价标注 Layer（绘制到所有 pane 的 overlay 层）。 */
+export function createExtremaMarkersLayer(): Layer<RenderContext> {
   return {
-    name: 'extremaMarkers',
-    version: '1.0.0',
-    description: '可视区最高/最低价标注渲染器',
-    debugName: '极值标记',
-    paneId: GLOBAL_PANE_ID,
-    layer: 'overlay',
-    priority: RENDERER_PRIORITY.OVERLAY,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('extremaMarkers'),
+    role: 'overlay',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.OVERLAY,
+    visible: true,
+    paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const {
         overlayCtx,
@@ -150,6 +149,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       // 批量绘制所有 markers
       drawAllMarkers(ctx, markers, dpr, colors.text.weak, colors.text.primary)
     },
+    dispose() {},
   }
 }
 
@@ -164,7 +164,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
   mainPane: { rendererName: 'extremaMarkers' },
 })
 export class ExtremaMarkersIndicatorDefinition {
-  static rendererFactory = createExtremaMarkersRendererPlugin
+  static rendererFactory = createExtremaMarkersLayer
 }
 
 /**

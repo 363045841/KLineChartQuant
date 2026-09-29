@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createLeftYAxisStaticRendererPlugin } from '@/core/renderers/leftYAxis'
-import { createYAxisOverlayRendererPlugin, createYAxisRendererPlugin } from '@/core/renderers/yAxis'
+import { createLeftYAxisStaticRendererLayer } from '@/core/renderers/leftYAxis'
+import {
+  createYAxisOverlayRendererLayer,
+  createYAxisStaticRendererLayer,
+} from '@/core/renderers/yAxis'
 import {
   createMockCanvasContext,
   createMockRenderContext,
@@ -53,10 +56,10 @@ describe('yAxis renderer', () => {
   })
 
   it('draws ticks when pane capability showPriceAxisTicks is true', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
+    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
     const context = createContext()
 
-    plugin.draw(context)
+    layer.paint(context)
 
     const targetCtx = context.yAxisCtx!
     expect(targetCtx.clearRect).toHaveBeenCalled()
@@ -64,7 +67,7 @@ describe('yAxis renderer', () => {
   })
 
   it('does not draw ticks when pane capability showPriceAxisTicks is false', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
+    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
     const context = createContext({
       pane: createPane({
         capabilities: {
@@ -76,14 +79,14 @@ describe('yAxis renderer', () => {
       }),
     })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     const targetCtx = context.yAxisCtx!
     expect(targetCtx.fillText).toHaveBeenCalledTimes(0)
   })
 
   it('uses the percent scale for timeshare left-axis ticks', () => {
-    const plugin = createLeftYAxisStaticRendererPlugin({ axisWidth: 80 })
+    const layer = createLeftYAxisStaticRendererLayer({ axisWidth: 80 })
     const leftAxisCtx = createMockCanvasContext()
     const context = createContext({
       period: 'timeshare',
@@ -97,13 +100,13 @@ describe('yAxis renderer', () => {
       }),
     })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     expect(leftAxisCtx.fillText).toHaveBeenCalledWith('+20.00%', expect.any(Number), 10)
   })
 
   it('uses price values for timeshare right-axis ticks', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
+    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
     const context = createContext({
       period: 'timeshare',
       pane: createPane({
@@ -115,24 +118,24 @@ describe('yAxis renderer', () => {
       }),
     })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     expect(context.yAxisCtx?.fillText).toHaveBeenCalledWith('120.00', expect.any(Number), 10)
   })
 
   it('uses ctx when yAxisCtx is not provided', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80 })
+    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
     const fallbackCtx = createMockCanvasContext()
     const context = createContext({ ctx: fallbackCtx, yAxisCtx: undefined })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     expect(fallbackCtx.clearRect).toHaveBeenCalled()
     expect(fallbackCtx.fillText).toHaveBeenCalled()
   })
 
   it('paints registered decoration labels on the right overlay canvas', () => {
-    const plugin = createYAxisOverlayRendererPlugin({ axisWidth: 80 })
+    const layer = createYAxisOverlayRendererLayer({ axisWidth: 80 })
     const context = createContext({
       pane: createPane({ id: 'main' }),
       yAxisOverlayCtx: createMockCanvasContext(),
@@ -146,14 +149,14 @@ describe('yAxis renderer', () => {
       textColor: '#000',
     })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     // label 变体文本下移 1px：round(50) + 1 = 51
     expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledWith('101.00', expect.any(Number), 51)
   })
 
   it('registers and paints the crosshair price tag for the active pane', () => {
-    const plugin = createYAxisOverlayRendererPlugin({
+    const layer = createYAxisOverlayRendererLayer({
       axisWidth: 80,
       getCrosshair: () => ({ y: 55, price: 95, activePaneId: 'main' }),
     })
@@ -162,7 +165,7 @@ describe('yAxis renderer', () => {
       yAxisOverlayCtx: createMockCanvasContext(),
     })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
       expect.objectContaining({ kind: 'tag', text: '95.00', variant: 'crosshair' }),
@@ -171,13 +174,13 @@ describe('yAxis renderer', () => {
   })
 
   it('does not draw a crosshair tag when getCrosshair returns null', () => {
-    const plugin = createYAxisOverlayRendererPlugin({
+    const layer = createYAxisOverlayRendererLayer({
       axisWidth: 80,
       getCrosshair: () => null,
     })
     const context = createContext({ yAxisOverlayCtx: createMockCanvasContext() })
 
-    plugin.draw(context)
+    layer.paint(context)
 
     expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledTimes(0)
   })

@@ -1,21 +1,17 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcWMSRData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { WMSRRenderState } from '../../indicators/state/wmsrState.js'
 import { EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState.js'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale.js'
+import { createWmsrScaleLayer } from './scale/wmsr_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -30,10 +26,8 @@ interface WMSRRendererOptions {
 /**
  * 创建 WMSR 渲染器插件
  */
-function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPluginWithHost {
+function createWMSRLayer(options: WMSRRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedWMSRPoints: LinePoint[] = []
@@ -147,23 +141,11 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `wmsr_${paneId}`,
-    version: '2.1.0',
-    description: 'WMSR 威廉指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'WMSR',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -249,19 +231,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
         drawWMSRLineWithCanvas2D(ctx, scrollLeft, cachedWMSRPoints, params, colors)
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<WMSRRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op：配置由外部统一更新
-    },
-  }
+  })
 }
 
 /**
@@ -306,7 +276,7 @@ const getWMSRTitleInfo = createSingleLineTitleInfo({
   indicatorType: 'momentum',
   defaultPaneId: 'sub_WMSR',
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
-  scaleRendererFactory: createWmsrScaleRendererPlugin,
+  scaleRendererFactory: createWmsrScaleLayer,
   getTitleInfo: getWMSRTitleInfo,
   presentation: { defaultOptions: { showWMSR: true } },
   runtime: {
@@ -316,5 +286,5 @@ const getWMSRTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class WMSRIndicatorDefinition {
-  static rendererFactory = createWMSRRendererPlugin
+  static rendererFactory = createWMSRLayer
 }

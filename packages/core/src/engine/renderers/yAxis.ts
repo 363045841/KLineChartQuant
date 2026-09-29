@@ -1,11 +1,10 @@
 import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import {
-  AXIS_LABEL_KIND,
-  GLOBAL_PANE_ID,
-  RENDERER_PRIORITY,
-} from '../../foundation/plugin/index.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
 import { formatAxisPriceValue } from './axisValueFormat.js'
 
@@ -29,16 +28,14 @@ function resolveRightAxisDisplay(context: RenderContext) {
 /**
  * Y 轴静态层：刻度，画到 yAxisCtx（main 级刷新）
  */
-export function createYAxisStaticRendererPlugin(options: YAxisOptions): RendererPlugin {
+export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<RenderContext> {
   return {
-    name: 'yAxis',
-    version: '2.0.0',
-    description: 'Y轴价格刻度渲染器（静态）',
-    debugName: 'Y轴刻度',
-    paneId: GLOBAL_PANE_ID,
-    priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('yAxis'),
+    role: 'background',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.SYSTEM_YAXIS,
+    visible: true,
+    paint(context) {
       const { ctx, pane, dpr, yAxisCtx } = context
       const axisDisplay = resolveRightAxisDisplay(context)
       if (axisDisplay === 'none') return
@@ -73,23 +70,21 @@ export function createYAxisStaticRendererPlugin(options: YAxisOptions): Renderer
         })
       }
     },
+    dispose() {},
   }
 }
 
 /**
  * Y 轴动态层：价格范围带、装饰标签与十字线价签，画到 yAxisOverlayCtx（overlay 级刷新）
  */
-export function createYAxisOverlayRendererPlugin(options: YAxisOptions): RendererPlugin {
+export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<RenderContext> {
   return {
-    name: 'yAxisOverlay',
-    version: '2.0.0',
-    description: 'Y轴动态标签渲染器',
-    debugName: 'Y轴标签',
-    paneId: GLOBAL_PANE_ID,
-    priority: RENDERER_PRIORITY.SYSTEM_YAXIS + 1,
-    layer: 'overlay',
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('yAxisOverlay'),
+    role: 'overlay',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.SYSTEM_YAXIS + 1,
+    visible: true,
+    paint(context) {
       const { pane, dpr, yAxisOverlayCtx, yAxisCtx } = context
       const axisDisplay = resolveRightAxisDisplay(context)
       if (axisDisplay === 'none') return
@@ -146,13 +141,6 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
         { dpr, axisWidth, axisHeight: pane.height },
       )
     },
+    dispose() {},
   }
-}
-
-/**
- * @deprecated 使用 createYAxisStaticRendererPlugin + createYAxisOverlayRendererPlugin
- * 保留兼容：静态+动态合画到 yAxisCtx
- */
-export function createYAxisRendererPlugin(options: YAxisOptions): RendererPlugin {
-  return createYAxisStaticRendererPlugin(options)
 }

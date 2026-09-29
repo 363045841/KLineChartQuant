@@ -1,23 +1,19 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
 import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type Point = { x: number; y: number }
 /** @internal 对测试暴露 */
@@ -132,28 +128,13 @@ interface IchimokuRendererOptions {
   instanceId?: string
 }
 
-function createIchimokuRendererPlugin(
-  options: IchimokuRendererOptions = {},
-): RendererPluginWithHost {
+function createIchimokuLayer(options: IchimokuRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `ichimoku_${paneId}`,
-    version: '1.1.0',
-    description: '一目均衡表渲染器（WebGL 线 + Canvas2D 云图）',
-    debugName: 'Ichimoku',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -180,16 +161,7 @@ function createIchimokuRendererPlugin(
         colors,
       )
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<IchimokuRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): void {
@@ -320,5 +292,5 @@ function getIchimokuTitleInfo(
   },
 })
 export class IchimokuDefinition {
-  static rendererFactory = createIchimokuRendererPlugin
+  static rendererFactory = createIchimokuLayer
 }

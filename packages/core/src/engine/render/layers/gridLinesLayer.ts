@@ -1,3 +1,4 @@
+import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -5,7 +6,6 @@ import { isDailyPeriod, isMinutePeriod } from '@/foundation/types/chartPeriod.js
 import { isTimeShareDataView } from '@/foundation/types/chartView.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { createHorizontalLineRect, createVerticalLineRect } from '@/foundation/utils/pixelAlign.js'
-import type { Renderer } from '@/rendering/render/Renderer.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '@/rendering/scene/types.js'
 
@@ -13,20 +13,14 @@ import { LAYER_PANE_GLOBAL } from '@/rendering/scene/types.js'
  * 网格线 Layer：横向按像素均分铺满绘图区高度，纵向按月分割
  * （使用预计算的月边界，网格线对齐到 K 线实体中部），绘制到所有 pane。
  */
-export function createGridLinesLayer(
-  getContext: () => RenderContext | null,
-  getSceneRenderer: () => Renderer,
-): Layer<RenderContext> {
+export function createGridLinesLayer(): Layer<RenderContext> {
   return {
-    id: 'plugin:gridLines',
+    id: makePluginLayerId('gridLines'),
     role: 'background',
     pane: LAYER_PANE_GLOBAL,
     z: RENDERER_PRIORITY.GRID,
     visible: true,
-    paint() {
-      const context = getContext()
-      if (!context) return
-      context.sceneRenderer = getSceneRenderer()
+    paint(context) {
       drawGridLines(context)
     },
     dispose() {},

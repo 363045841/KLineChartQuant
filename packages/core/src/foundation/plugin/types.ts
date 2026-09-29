@@ -419,7 +419,7 @@ export interface RenderIndicatorContext {
   /** 当前帧绑定的指标渲染快照，所有指标 renderer 共用同一版本。 */
   indicatorStateReader?: IndicatorRenderStateReader
   /**
-   * Scene 本帧 Renderer（createLayerFromPlugin 注入）。
+   * Scene 本帧 Renderer（Scene.paint 注入）。
    * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
    */
   sceneRenderer?: import('../../rendering/render/Renderer.js').Renderer
@@ -457,8 +457,8 @@ export interface RenderThemeContext {
  * 泛型 `TFrame` 由使用方实例化，Scene 只透传。
  */
 export interface FrameDrawContext {
-  /** 本帧渲染后端；Layer 用它提交 GPU 画笔。 */
-  sceneRenderer: RendererLike
+  /** 本帧渲染后端；Scene 注入，直接绘制（测试）时可缺省。 */
+  sceneRenderer?: RendererLike
 }
 
 /** 渲染器插件可用的最小渲染后端契约（避免 foundation 依赖 rendering 层）。 */
@@ -471,7 +471,7 @@ export interface RendererLike {
  * 泛型实例化后（图表侧 `TFrame = RenderContext`）等价于旧的 RenderContext 形状。
  */
 export type DrawContext<TFrame = RenderContext, TSceneRenderer = RendererLike> = TFrame &
-  FrameDrawContext & { sceneRenderer: TSceneRenderer }
+  FrameDrawContext & { sceneRenderer?: TSceneRenderer }
 
 /**
  * 渲染上下文：由各职责子契约组合而成。
@@ -581,67 +581,6 @@ export type DrawingPrimitive =
   | AreaPrimitive
   | TextPrimitive
   | ArrowPrimitive
-
-/** 渲染器插件接口（独立定义，不继承 Plugin） */
-export interface RendererPlugin {
-  /** 唯一标识 */
-  readonly name: string
-
-  /** 版本号 */
-  readonly version?: string
-
-  /** 描述 */
-  readonly description?: string
-
-  /** 调试用显示名称 */
-  readonly debugName?: string
-
-  /** 渲染目标 pane（'main' | 'sub' | GLOBAL_PANE_ID 表示所有） */
-  paneId: string | symbol
-
-  /** 渲染优先级（数字越大越后渲染） */
-  priority: number
-
-  /** 是否启用（仅作为初始值，运行时状态由 Manager 管理） */
-  enabled?: boolean
-
-  /**
-   * 是否为系统渲染器（时间轴等）。
-   * 调度由 Scene Layer 负责；Manager 仅作注册表。
-   */
-  isSystem?: boolean
-
-  /**
-   * 渲染器所属层，供 Scene role 过滤
-   * - 'main': 低频/静态内容
-   * - 'overlay': 高频/动态内容
-   * 未指定时默认为 'main'
-   */
-  layer?: 'main' | 'overlay'
-
-  /** 渲染方法 */
-  draw(context: RenderContext): void
-
-  /** 容器尺寸变化时回调 */
-  onResize?(pane: PaneInfo): void
-
-  /** 获取配置 */
-  getConfig?(): Record<string, unknown>
-
-  /** 设置配置 */
-  setConfig?(config: Record<string, unknown>): void
-
-  /** 卸载时清理资源 */
-  onUninstall?(): void
-}
-
-/** 带插件系统能力的渲染器（可选） */
-export interface RendererPluginWithHost extends RendererPlugin {
-  /** 安装时获取 PluginHost 访问权限 */
-  onInstall?(host: PluginHost): void
-  /** 声明该渲染器所拥有的状态命名空间，卸载时框架会自动清理 */
-  getDeclaredNamespaces?(): string[]
-}
 
 // ============ 状态存储类型 ============
 

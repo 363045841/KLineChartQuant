@@ -1,15 +1,12 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors.js'
 import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../foundation/plugin/index.js'
-import type { Renderer } from '../rendering/render/Renderer.js'
 import type { Layer } from '../rendering/scene/types.js'
 import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
-import { wrapRendererAsLayer } from './render/layers/wrapRendererAsLayer.js'
 import { createIndicatorLayer } from './renderers/Indicator/factory.js'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog.js'
-import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale.js'
-import { createPaneTitleRendererPlugin } from './renderers/paneTitle.js'
+import { createIndicatorScaleLayer } from './renderers/Indicator/scale/indicator_scale.js'
+import { createPaneTitleRendererLayer } from './renderers/paneTitle.js'
 import type { SubPaneSpec } from './state/indicatorState.js'
 
 export interface SubPaneResources {
@@ -60,7 +57,6 @@ export interface SubPaneContext {
   ) => T | undefined
   useRenderer: (layer: Layer<RenderContext>) => void
   removeRenderer: (name: string) => void
-  getSceneRenderer: () => Renderer
   getOption: () => {
     rightAxisWidth: number
     priceLabelWidth?: number
@@ -69,7 +65,6 @@ export interface SubPaneContext {
   getCrosshairPos: () => { x: number; y: number } | null
   getCrosshairPrice: () => number | null
   getActivePaneId: () => string | null
-  getRenderContext: (paneId: string) => RenderContext | null
 }
 
 function stableConfig(value: unknown): string {
@@ -219,8 +214,6 @@ export class SubPaneManager {
         instanceId: entry.instanceId,
         definition,
         params: { ...entry.params },
-        getContext: () => ctx.getRenderContext(entry.paneId),
-        getSceneRenderer: ctx.getSceneRenderer,
       })
       // useRenderer：唯一 Scene Layer
       ctx.useRenderer(layer)
@@ -247,53 +240,33 @@ export class SubPaneManager {
       instanceId: entry.instanceId,
       yPaddingPx: opt.yPaddingPx,
       getCrosshair,
-      getContext: () => ctx.getRenderContext(entry.paneId),
-      getSceneRenderer: ctx.getSceneRenderer,
     }
-    const plugin = definition?.scaleRendererFactory
+    const layer = definition?.scaleRendererFactory
       ? definition.scaleRendererFactory({ ...baseOptions, indicatorId: entry.indicatorId })
       : definition?.scale
-        ? createIndicatorScaleRendererPlugin({
+        ? createIndicatorScaleLayer({
             ...baseOptions,
             indicatorKey: definition.scale.indicatorKey ?? definition.name,
             label: definition.scale.label ?? definition.displayName,
             decimals: definition.scale.decimals,
           })
         : null
-    if (!plugin) return
-    ctx.useRenderer(
-      wrapRendererAsLayer(plugin, {
-        id: entry.scaleLayerId,
-        role: 'indicator',
-        pane: entry.paneId,
-        z: RENDERER_PRIORITY.INDICATOR_SCALE,
-        getContext: () => ctx.getRenderContext(entry.paneId),
-        getSceneRenderer: ctx.getSceneRenderer,
-      }),
-    )
+    if (!layer) return
+    ctx.useRenderer(layer)
   }
 
   private mountPaneTitleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
     if (ctx.getRenderer(entry.paneTitleRendererName)) {
       return
     }
-    const renderer = createPaneTitleRendererPlugin({
+    const layer = createPaneTitleRendererLayer({
       paneId: entry.paneId,
       title: findIndicator(entry.indicatorId)?.label ?? entry.indicatorId,
       indicatorId: entry.indicatorId,
       instanceId: entry.instanceId,
       params: { ...entry.params },
     })
-    ctx.useRenderer(
-      wrapRendererAsLayer(renderer, {
-        id: entry.paneTitleLayerId,
-        role: 'overlay',
-        pane: entry.paneId,
-        z: RENDERER_PRIORITY.OVERLAY,
-        getContext: () => ctx.getRenderContext(entry.paneId),
-        getSceneRenderer: ctx.getSceneRenderer,
-      }),
-    )
+    ctx.useRenderer(layer)
   }
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {

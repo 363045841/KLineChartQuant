@@ -2,23 +2,19 @@
  * T3 主图单线渲染器
  * 使用 GPU 折线渲染并在不可用时回退到 Canvas2D。
  */
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcT3Data } from '../../indicators/calculators/t3.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { T3RenderState } from '../../indicators/state/t3State.js'
 import { EMPTY_T3_STATE } from '../../indicators/state/t3State.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
@@ -31,30 +27,13 @@ interface T3RendererOptions {
 }
 
 /** 创建 T3 主图单线渲染插件。 */
-function createT3RendererPlugin(options: T3RendererOptions = {}): RendererPluginWithHost {
+function createT3Layer(options: T3RendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `t3_${paneId}`,
-    version: '1.1.0',
-    description: 'T3 Tillson 平滑移动均线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'T3',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    // 安装时保存插件宿主，以读取指标共享状态。
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    // 声明本渲染器会读取的共享状态命名空间。
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    // 将可见 T3 序列转换为屏幕折线并优先提交给 GPU。
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -98,21 +77,7 @@ function createT3RendererPlugin(options: T3RendererOptions = {}): RendererPlugin
       ctx.stroke()
       ctx.restore()
     },
-
-    // 返回当前指标参数供配置系统读取。
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<T3RenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    // 指标配置由调度器统一更新，渲染器不直接写状态。
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 const getT3TitleInfo = createSingleLineTitleInfo({
@@ -144,5 +109,5 @@ const getT3TitleInfo = createSingleLineTitleInfo({
   },
 })
 export class T3Definition {
-  static rendererFactory = createT3RendererPlugin
+  static rendererFactory = createT3Layer
 }

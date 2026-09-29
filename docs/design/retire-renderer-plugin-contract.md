@@ -94,39 +94,36 @@ action + redraw 取代。
 
 ## 公开 API 影响（breaking）
 
-`RendererPlugin` 目前经 `core/plugin` 子路径公开（`package.json` exports → `foundation/plugin/index.ts`）。
-删除属 breaking change：需 semver major，或保留 `@deprecated` 类型转发一个版本，另行决策。
+`RendererPlugin` 曾经 `core/plugin` 子路径公开。本次已按维护者决定 **big-bang 直接删除**，
+属 breaking change，随 major 版本发布，不保留 `@deprecated` 转发（避免留存兼容逻辑）。
 
-## 分阶段计划（每阶段一个 < 5000 行 PR）
+## 落地结果（2026-09，已完成）
 
-- **Stage 0（前期，主代理）✅ 已完成**：本文档 + `Scene`/`Layer` 泛型化 + `Layer.paint` 改为接收帧上下文 +
-  横切关注点上移 Scene + 一条纵切（`gridLines`）迁移 + 测试。
-  门禁：`type-check` + 各包测试。
-- **Stage 1..N（子代理，≤ 3 并行）**：按类别分批迁移渲染器——
-  主图基础层 / 子图指标层（~58 个，含状态注入）/ 分时 / markers。
-  每批门禁：`type-check` + 该批 renderer 测试；每批一个 PR。
-- **Stage N+1（收尾，主代理）**：删 `RendererPlugin` 类型、`RendererPluginManager`、
-  渲染器对 `PluginHost` 的 `onInstall`/`getDeclaredNamespaces` 依赖、`wrapRendererAsLayer` 桥接；
-  更新导出、README、测试。
+分两批完成：
 
-## Stage 0 落地结果（2026-09）
+- **第一批（Stage 0，主代理）**：`Scene`/`Layer` 泛型化 + `Layer.paint` 改为接收帧上下文 +
+  横切关注点上移 Scene + `gridLines` 纵切。
+- **第二批（big-bang，子代理并行 + 主代理收尾）**：一次性迁移全部渲染器为原生 `Layer`，
+  删除 `RendererPlugin` / `RendererPluginWithHost`、`RendererPluginManager`、
+  `createLayerFromPlugin` / `wrapRendererAsLayer` 桥接，并把图例/轴/指标状态改为显式注入。
 
-已完成并全绿：
+门禁：`type-check` 通过；core 245 文件 / 2612 用例、vue 168、react 2、angular 12、
+agent-runtime 97、desktop-electron 19 全绿。
+
+### 关键实现点
 
 - `rendering/scene/types.ts`：`Layer<TFrame>` / `Scene<TFrame>` 泛型化；`Layer.pane`（具体 paneId 或
   `LAYER_PANE_GLOBAL`）取代 `paneRole`；`SceneFrame` + `LayerPaint<TFrame>`；`Scene.paint(frame)` 一次
   画完所有 pane。
 - `rendering/scene/createScene.ts`：横切关注点上移——pane 匹配、可见性、role 过滤、z 排序、
-  **逐 Layer try/catch 异常隔离**。
+  **逐 Layer try/catch 异常隔离**，并把 `sceneRenderer` 注入 `LayerPaint`。
 - `foundation/plugin/types.ts`：新增泛型 `DrawContext<TFrame, TSceneRenderer>` + `FrameDrawContext`；
   `LayerDrawContext`（`impl/layerDrawContext.ts`）把 `TFrame` 实例化为 `RenderContext`。
-- `engine/render/chartRenderer.ts`：累加 `framePanes` 后一次 `scene.paint`；`gridLines` 直连原生 Layer。
-- 迁移期桥接：`engine/render/layers/wrapRendererAsLayer.ts`（旧 RendererPlugin → Layer，供子代理逐批排空）
-  与 `engine/renderers/Indicator/factory.ts`（`createIndicatorLayer`）。
+- `engine/render/chartRenderer.ts`：累加 `framePanes` 后一次 `scene.paint`。
+- 指标渲染器接缝 `Indicator/shared/indicatorRendererLayer.ts`：集中 id/role/pane/z 组装，
+  状态经 `context.indicatorStateReader` 读取，删除 `PluginHost.onInstall`/`getDeclaredNamespaces`。
 - `engine/chart.ts`：渲染器 API 改 Layer 语义（`useRenderer(layer)` / `getRenderer` / `removeRenderer` /
   `setRendererEnabled`），删除 `RendererPluginManager` 字段与 `updateRendererConfig`。
-- 门禁：`pnpm type-check` 通过；core 247 文件 / 2641 用例、vue 168、react 2、angular 12、
-  agent-runtime 97、desktop-electron 19 全绿。
 
 ## 风险与测试
 

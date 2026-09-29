@@ -1,22 +1,18 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcKSTData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { KSTRenderState } from '../../indicators/state/kstState.js'
 import { EMPTY_KST_STATE } from '../../indicators/state/kstState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createKstScaleRendererPlugin } from './scale/kst_scale.js'
+import { createKstScaleLayer } from './scale/kst_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -30,10 +26,8 @@ interface KSTRendererOptions {
 /**
  * 创建 KST 渲染器插件
  */
-function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPluginWithHost {
+function createKSTLayer(options: KSTRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedKSTPoints: LinePoint[] = []
@@ -75,23 +69,11 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `kst_${paneId}`,
-    version: '2.1.0',
-    description: 'KST 确知指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'KST',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -190,19 +172,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
         )
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<KSTRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
-    },
-  }
+  })
 }
 
 /**
@@ -296,7 +266,7 @@ function getKSTTitleInfo(
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_KST',
-  scaleRendererFactory: createKstScaleRendererPlugin,
+  scaleRendererFactory: createKstScaleLayer,
   visibleState: {
     compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, [
       'kst',
@@ -312,5 +282,5 @@ function getKSTTitleInfo(
   },
 })
 export class KSTIndicatorDefinition {
-  static rendererFactory = createKSTRendererPlugin
+  static rendererFactory = createKSTLayer
 }

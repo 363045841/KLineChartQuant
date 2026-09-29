@@ -1,29 +1,30 @@
-import type {
-  PluginHost,
-  RenderContext,
-  RendererPlugin,
-  RendererPluginWithHost,
-} from '../../foundation/plugin/index.js'
+/** 分时主图 Layer：按可见范围绘制价格线、均价线与昨收基线（仅 TimeShare dataView）。 */
+
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { resolveTimeShareBaseline } from '../modes/index.js'
+import {
+  drawAreaFill,
+  drawPreCloseLine,
+  drawSegmentLine,
+} from '../render/layers/timeShareCommon.js'
 
-export function createTimeShareRendererPlugin(): RendererPluginWithHost {
+/** 分时主图 Layer：按可见范围绘制价格线、均价线与昨收基线。 */
+export function createTimeShareLayer(): Layer<RenderContext> {
   return {
-    name: 'timeShare',
-    version: '1.0.0',
-    description: '股票分时图渲染器',
-    debugName: '分时图',
-    paneId: 'main',
-    priority: RENDERER_PRIORITY.MAIN,
-
-    onInstall(_host: PluginHost) {},
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('timeShare'),
+    role: 'primary',
+    pane: 'main',
+    z: RENDERER_PRIORITY.MAIN,
+    visible: true,
+    paint(context) {
       const { ctx, pane, data, range, dpr, kLineCenters, scrollLeft, settings } = context
       if (context.dataView !== ChartDataViewId.TimeShare) return
       const tsData = data as TimeShareData[]
@@ -87,140 +88,8 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       ctx.restore()
     },
+    dispose() {},
   }
-}
-
-/** 绘制一个分时片段的昨收虚线。 */
-export function drawPreCloseLine(
-  ctx: CanvasRenderingContext2D,
-  xPositions: number[],
-  y: number,
-  dpr: number,
-  color: string,
-): void {
-  if (xPositions.length < 2) return
-  const firstX = xPositions[0]!
-  const lastX = xPositions[xPositions.length - 1]!
-
-  ctx.save()
-  ctx.strokeStyle = color
-  ctx.lineWidth = 1
-  ctx.setLineDash([4, 4])
-  ctx.beginPath()
-  ctx.moveTo(firstX, y)
-  ctx.lineTo(lastX, y)
-  ctx.stroke()
-  ctx.setLineDash([])
-  ctx.restore()
-}
-
-/** 按片段基准线分别绘制上涨和下跌面积。 */
-export function drawAreaFill(
-  ctx: CanvasRenderingContext2D,
-  xPositions: number[],
-  yPrices: number[],
-  baselineY: number,
-  dpr: number,
-  upColor: string,
-  downColor: string,
-): void {
-  if (xPositions.length < 2) return
-
-  const n = xPositions.length
-
-  function buildPolygon(isAbove: boolean): Array<{ x: number; y: number }> {
-    const pts: Array<{ x: number; y: number }> = [{ x: xPositions[0]!, y: baselineY }]
-    const firstOnOurSide = isAbove ? yPrices[0]! <= baselineY : yPrices[0]! >= baselineY
-    if (firstOnOurSide) {
-      pts.push({ x: xPositions[0]!, y: yPrices[0]! })
-    }
-
-    for (let i = 0; i < n - 1; i++) {
-      const x1 = xPositions[i]!,
-        y1 = yPrices[i]!
-      const x2 = xPositions[i + 1]!,
-        y2 = yPrices[i + 1]!
-
-      const y1OnOurSide = isAbove ? y1 <= baselineY : y1 >= baselineY
-      const y2OnOurSide = isAbove ? y2 <= baselineY : y2 >= baselineY
-
-      if (y1OnOurSide !== y2OnOurSide) {
-        const t = (baselineY - y1) / (y2 - y1)
-        const cx = x1 + t * (x2 - x1)
-        pts.push({ x: cx, y: baselineY })
-      }
-      if (y2OnOurSide) {
-        pts.push({ x: x2, y: y2 })
-      }
-    }
-
-    pts.push({ x: xPositions[n - 1]!, y: baselineY })
-    return pts
-  }
-
-  const abovePts = buildPolygon(true)
-  if (abovePts.length >= 3) {
-    const topY = Math.min(...abovePts.map((p) => p.y))
-    ctx.save()
-    const grad = ctx.createLinearGradient(0, topY, 0, baselineY)
-    grad.addColorStop(0, upColor)
-    grad.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.beginPath()
-    ctx.moveTo(abovePts[0]!.x, abovePts[0]!.y)
-    for (let i = 1; i < abovePts.length; i++) {
-      ctx.lineTo(abovePts[i]!.x, abovePts[i]!.y)
-    }
-    ctx.closePath()
-    ctx.fillStyle = grad
-    ctx.fill()
-    ctx.restore()
-  }
-
-  const belowPts = buildPolygon(false)
-  if (belowPts.length >= 3) {
-    const botY = Math.max(...belowPts.map((p) => p.y))
-    ctx.save()
-    const grad = ctx.createLinearGradient(0, baselineY, 0, botY)
-    grad.addColorStop(0, 'rgba(0,0,0,0)')
-    grad.addColorStop(1, downColor)
-    ctx.beginPath()
-    ctx.moveTo(belowPts[0]!.x, belowPts[0]!.y)
-    for (let i = 1; i < belowPts.length; i++) {
-      ctx.lineTo(belowPts[i]!.x, belowPts[i]!.y)
-    }
-    ctx.closePath()
-    ctx.fillStyle = grad
-    ctx.fill()
-    ctx.restore()
-  }
-}
-
-/** 绘制单个交易日内连续的分时折线。 */
-export function drawSegmentLine(
-  ctx: CanvasRenderingContext2D,
-  xPositions: number[],
-  yPositions: number[],
-  _dpr: number,
-  color: string,
-  lineWidth: number,
-): void {
-  if (xPositions.length < 2) return
-
-  ctx.save()
-  ctx.strokeStyle = color
-  ctx.lineWidth = lineWidth
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-
-  ctx.beginPath()
-  ctx.moveTo(xPositions[0]!, yPositions[0]!)
-
-  for (let i = 1; i < xPositions.length; i++) {
-    ctx.lineTo(xPositions[i]!, yPositions[i]!)
-  }
-
-  ctx.stroke()
-  ctx.restore()
 }
 
 @Indicator({
@@ -234,5 +103,5 @@ export function drawSegmentLine(
   mainPane: { rendererName: 'timeShare' },
 })
 export class TimeShareIndicatorDefinition {
-  static rendererFactory = createTimeShareRendererPlugin
+  static rendererFactory = createTimeShareLayer
 }

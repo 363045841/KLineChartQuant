@@ -82,7 +82,7 @@ function removeAliasesFor(name: string): void {
  * 使用方式：
  * @Indicator({ name: 'ma', ... })
  * class MADefinition {
- *   static rendererFactory = createMARendererPlugin
+ *   static rendererFactory = createMALayer
  * }
  */
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {

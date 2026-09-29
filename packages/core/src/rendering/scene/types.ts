@@ -76,10 +76,12 @@ export interface SceneFrame {
  * Layer 从 `context` 读取所需能力（数据/几何/主题）。
  */
 export type LayerPaint<TFrame> = TFrame & {
-  /** 当前 pane id。 */
-  paneId: string
-  /** 本帧是否清除该 pane 的 canvas。 */
-  clear: boolean
+  /** 当前 pane id；由 Scene 注入。 */
+  paneId?: string
+  /** 本帧是否清除该 pane 的 canvas；由 Scene 注入。 */
+  clear?: boolean
+  /** 本帧渲染后端；由 Scene 注入，直接绘制（测试）时可缺省。 */
+  sceneRenderer?: unknown
 }
 
 /**

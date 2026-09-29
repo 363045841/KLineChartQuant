@@ -1,20 +1,16 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcCCIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { CCIRenderState } from '../../indicators/state/cciState.js'
 import { EMPTY_CCI_STATE } from '../../indicators/state/cciState.js'
 import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createCciScaleRendererPlugin } from './scale/cci_scale.js'
+import { createCciScaleLayer } from './scale/cci_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -29,10 +25,8 @@ interface CCIRendererOptions {
 /**
  * 创建 CCI 渲染器插件
  */
-function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPluginWithHost {
+function createCCILayer(options: CCIRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedCCIPoints: LinePoint[] = []
@@ -67,23 +61,11 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `cci_${paneId}`,
-    version: '2.1.0',
-    description: 'CCI 顺势指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'CCI',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -176,19 +158,7 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
         drawCCILineWithCanvas2D(ctx, scrollLeft, cachedCCIPoints, params, colors)
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<CCIRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op: 配置由指标实例链路按 instanceId 投影更新
-    },
-  }
+  })
 }
 
 /**
@@ -235,7 +205,7 @@ const getCCITitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_CCI',
-  scaleRendererFactory: createCciScaleRendererPlugin,
+  scaleRendererFactory: createCciScaleLayer,
   visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
   getTitleInfo: getCCITitleInfo,
   presentation: { defaultOptions: { showCCI: true } },
@@ -246,5 +216,5 @@ const getCCITitleInfo = createSingleLineTitleInfo({
   },
 })
 export class CCIIndicatorDefinition {
-  static rendererFactory = createCCIRendererPlugin
+  static rendererFactory = createCCILayer
 }
