@@ -14,6 +14,7 @@ import {
   resetFrameMetrics,
 } from '../../packages/core/src/rendering/render/frameMetrics'
 import type { Renderer } from '../../packages/core/src/rendering/render/Renderer'
+import { createRetainedGeometry } from '../../packages/core/src/rendering/scene/retainedGeometry'
 
 type BackendName = 'canvas2d' | 'webgl2' | 'webgpu'
 type IndicatorProfile = 'ma' | 'ichimoku'
@@ -76,6 +77,7 @@ type ScenarioResult = {
   webglRenderer: string | null
   webgpuAdapter: Record<string, unknown> | null
   timestampQuerySupported: boolean
+  geometryBuildCount: number
 }
 
 type SubmissionBenchmarkResult = {
@@ -266,6 +268,30 @@ function createGeometry(
   }
 }
 
+/** 固定种子、点数和尺寸不变的场景只投影一次，逐帧重放相同几何。 */
+function createGeometrySource(options: ScenarioOptions) {
+  const retained = createRetainedGeometry<Geometry, number>(Object.is)
+  let builds = 0
+  return {
+    prepare() {
+      const startedAt = performance.now()
+      const geometry = retained.read(0, () => {
+        builds += 1
+        return createGeometry(
+          options.visiblePoints,
+          options.width,
+          options.height,
+          options.indicatorProfile,
+        )
+      })
+      return { geometry, preparationMs: performance.now() - startedAt }
+    },
+    get builds() {
+      return builds
+    },
+  }
+}
+
 /** 创建并挂载用于当前场景的物理画布。 */
 function mountCanvas(width: number, height: number, dpr: number): HTMLCanvasElement {
   app.replaceChildren()
@@ -444,6 +470,7 @@ function jsHeapUsed(): number | null {
 
 /** 执行 Canvas2D 场景并采集 CPU 与真实帧间隔。 */
 async function runCanvasScenario(options: ScenarioOptions): Promise<ScenarioResult> {
+  const geometrySource = createGeometrySource(options)
   const initializationStarted = performance.now()
   const canvas = mountCanvas(options.width, options.height, options.dpr)
   const ctx = canvas.getContext('2d', { alpha: true })!
@@ -484,18 +511,13 @@ async function runCanvasScenario(options: ScenarioOptions): Promise<ScenarioResu
 
   for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
     const timestamp = await nextAnimationFrame()
-    const geometry = createGeometry(
-      options.visiblePoints,
-      options.width,
-      options.height,
-      options.indicatorProfile,
-    )
+    const { geometry, preparationMs } = geometrySource.prepare()
     drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
     const startedAt = performance.now()
     draw(geometry)
     const elapsed = performance.now() - startedAt
     if (index >= options.warmupFrames) {
-      cpuFramePreparationMs.push(geometry.geometryMs)
+      cpuFramePreparationMs.push(preparationMs)
       cpuFrameMs.push(elapsed)
       if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
     }
@@ -524,11 +546,13 @@ async function runCanvasScenario(options: ScenarioOptions): Promise<ScenarioResu
     webglRenderer: null,
     webgpuAdapter: null,
     timestampQuerySupported: false,
+    geometryBuildCount: geometrySource.builds,
   }
 }
 
 /** 执行项目 WebGL 后端场景，并用 EXT_disjoint_timer_query_webgl2 读取 GPU 时间。 */
 async function runWebGlScenario(options: ScenarioOptions): Promise<ScenarioResult> {
+  const geometrySource = createGeometrySource(options)
   const initializationStarted = performance.now()
   const canvas = mountCanvas(options.width, options.height, options.dpr)
   const shared = new SharedWebGLSurface(canvas)
@@ -566,12 +590,7 @@ async function runWebGlScenario(options: ScenarioOptions): Promise<ScenarioResul
 
   for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
     const timestamp = await nextAnimationFrame()
-    const geometry = createGeometry(
-      options.visiblePoints,
-      options.width,
-      options.height,
-      options.indicatorProfile,
-    )
+    const { geometry, preparationMs } = geometrySource.prepare()
     drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
     const query = timer ? gl.createQuery() : null
     if (query && timer) gl.beginQuery(timer.TIME_ELAPSED_EXT, query)
@@ -584,7 +603,7 @@ async function runWebGlScenario(options: ScenarioOptions): Promise<ScenarioResul
       else gl.deleteQuery(query)
     }
     if (index >= options.warmupFrames) {
-      cpuFramePreparationMs.push(geometry.geometryMs)
+      cpuFramePreparationMs.push(preparationMs)
       cpuFrameMs.push(elapsed)
       if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
     }
@@ -634,11 +653,13 @@ async function runWebGlScenario(options: ScenarioOptions): Promise<ScenarioResul
     webglRenderer,
     webgpuAdapter: null,
     timestampQuerySupported: timer !== null,
+    geometryBuildCount: geometrySource.builds,
   }
 }
 
 /** 执行项目 WebGPU 后端场景，并读取单次 RenderPass 的真实 GPU 时间。 */
 async function runWebGpuScenario(options: ScenarioOptions): Promise<ScenarioResult> {
+  const geometrySource = createGeometrySource(options)
   const initializationStarted = performance.now()
   const canvas = mountCanvas(options.width, options.height, options.dpr)
   const timedGpu = await createTimestampedGpu()
@@ -672,18 +693,13 @@ async function runWebGpuScenario(options: ScenarioOptions): Promise<ScenarioResu
 
   for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
     const timestamp = await nextAnimationFrame()
-    const geometry = createGeometry(
-      options.visiblePoints,
-      options.width,
-      options.height,
-      options.indicatorProfile,
-    )
+    const { geometry, preparationMs } = geometrySource.prepare()
     drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
     const startedAt = performance.now()
     draw(geometry)
     const elapsed = performance.now() - startedAt
     if (index >= options.warmupFrames) {
-      cpuFramePreparationMs.push(geometry.geometryMs)
+      cpuFramePreparationMs.push(preparationMs)
       cpuFrameMs.push(elapsed)
       if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
     }
@@ -718,6 +734,7 @@ async function runWebGpuScenario(options: ScenarioOptions): Promise<ScenarioResu
     webglRenderer: null,
     webgpuAdapter,
     timestampQuerySupported: timedGpu.timestampSupported,
+    geometryBuildCount: geometrySource.builds,
   }
 }
 

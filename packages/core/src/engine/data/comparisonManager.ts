@@ -41,6 +41,14 @@ type BufferSubscriptions = {
 export class ComparisonManager {
   private readonly subscriptions = new Map<string, BufferSubscriptions>()
 
+  /** 按比较序列捕获原始快照身份，避免 get data 每帧生成新数组。 */
+  getContentInputs(): readonly unknown[] {
+    return [...this.subscriptions.entries()].flatMap(([key, entry]) => [
+      key,
+      entry.buffer.data.peek(),
+    ])
+  }
+
   /** 创建只引用统一 Repository 的比较投影。 */
   constructor(
     private readonly repository: SeriesRepository,

@@ -13,15 +13,23 @@ import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
 } from '../../foundation/utils/volumePrice.js'
+import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import type { MarkerManager } from '../marker/registry.js'
+import {
+  createProjectionRevision,
+  type ProjectionRevision,
+  sameProjectionRevision,
+} from '../render/retainedProjection.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
-// --- Float32Array buffer pool (reduces per-frame GC pressure) ---
-let poolUpBody: Float32Array | null = null
-let poolDownBody: Float32Array | null = null
-let poolUpWick: Float32Array | null = null
-let poolDownWick: Float32Array | null = null
+/** 缓冲池属于 Layer，避免其他图表覆盖已保留的几何。 */
+type CandleBuffers = {
+  upBody: Float32Array | null
+  downBody: Float32Array | null
+  upWick: Float32Array | null
+  downWick: Float32Array | null
+}
 
 function ensureBufferCapacity(pool: Float32Array | null, requiredFloats: number): Float32Array {
   if (pool && pool.length >= requiredFloats) return pool
@@ -52,6 +60,10 @@ type PreparedCandles = {
 
 /** 创建 K 线主体 Layer。 */
 export function createCandleLayer(): Layer<RenderContext> {
+  const buffers: CandleBuffers = { upBody: null, downBody: null, upWick: null, downWick: null }
+  const retained = createRetainedGeometry<PreparedCandles, ProjectionRevision>(
+    sameProjectionRevision,
+  )
   return {
     id: makePluginLayerId('candle'),
     role: 'primary',
@@ -86,15 +98,30 @@ export function createCandleLayer(): Layer<RenderContext> {
         !!volumePriceMarkerManager &&
         (context.zoomLevel ?? 1) >= 2
 
-      const prepared = prepareCandles({
-        pane,
-        data: klineData,
-        range,
-        kWidthPx,
-        dpr,
-        kLineCenters,
-        showVolumePriceMarkers,
-      })
+      const build = () =>
+        prepareCandles({
+          pane,
+          data: klineData,
+          range,
+          kWidthPx,
+          dpr,
+          kLineCenters,
+          showVolumePriceMarkers,
+          buffers,
+        })
+      // 无版本的直接调用不能继续持有旧版本，缓冲将在下面重新写入。
+      if (context.dataRevision === undefined) retained.clear()
+      const prepared =
+        context.dataRevision === undefined
+          ? build()
+          : retained.read(
+              createProjectionRevision(context, [
+                context.dataRevision,
+                context.dataView,
+                showVolumePriceMarkers,
+              ]),
+              build,
+            )
 
       const upColor = colors.candleUpBody
       const downColor = colors.candleDownBody
@@ -117,7 +144,10 @@ export function createCandleLayer(): Layer<RenderContext> {
         drawVolumePriceMarkers(context, prepared, volumePriceMarkerManager!, colors.volumePrice)
       }
     },
-    dispose() {},
+    dispose() {
+      retained.clear()
+      buffers.upBody = buffers.downBody = buffers.upWick = buffers.downWick = null
+    },
   }
 }
 
@@ -129,8 +159,9 @@ function prepareCandles(args: {
   dpr: number
   kLineCenters: number[]
   showVolumePriceMarkers: boolean
+  buffers: CandleBuffers
 }): PreparedCandles {
-  const { pane, data, range, kWidthPx, dpr, kLineCenters, showVolumePriceMarkers } = args
+  const { pane, data, range, kWidthPx, dpr, kLineCenters, showVolumePriceMarkers, buffers } = args
   const relations = showVolumePriceMarkers
     ? analyzeVolumePriceRelationBatch(data, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
     : null
@@ -138,14 +169,14 @@ function prepareCandles(args: {
   const upMarkers: CandleMarker[] = []
   const downMarkers: CandleMarker[] = []
   const maxRects = Math.max(1, range.end - range.start)
-  const upBodyBuf = ensureBufferCapacity(poolUpBody, maxRects * 4)
-  poolUpBody = upBodyBuf
-  const downBodyBuf = ensureBufferCapacity(poolDownBody, maxRects * 4)
-  poolDownBody = downBodyBuf
-  const upWickBuf = ensureBufferCapacity(poolUpWick, maxRects * 2 * 4)
-  poolUpWick = upWickBuf
-  const downWickBuf = ensureBufferCapacity(poolDownWick, maxRects * 2 * 4)
-  poolDownWick = downWickBuf
+  const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * 4)
+  buffers.upBody = upBodyBuf
+  const downBodyBuf = ensureBufferCapacity(buffers.downBody, maxRects * 4)
+  buffers.downBody = downBodyBuf
+  const upWickBuf = ensureBufferCapacity(buffers.upWick, maxRects * 2 * 4)
+  buffers.upWick = upWickBuf
+  const downWickBuf = ensureBufferCapacity(buffers.downWick, maxRects * 2 * 4)
+  buffers.downWick = downWickBuf
   let upBodyCount = 0
   let downBodyCount = 0
   let upWickCount = 0

@@ -41,6 +41,94 @@ function pointerEvent(
 }
 
 describe('Chart DPR pipeline', () => {
+  it('skips unchanged frames and repaints only overlay on pointer movement', async () => {
+    const dom = createChartDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    chart.resize()
+    chart.setData(
+      Array.from({ length: 100 }, (_, timestamp) => ({
+        timestamp,
+        open: 10,
+        high: 11,
+        low: 9,
+        close: 10,
+      })),
+    )
+    const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
+    const instances = vi.spyOn(chart['rendererHost'].renderer, 'drawInstances')
+    const lines = vi.spyOn(chart['rendererHost'].renderer, 'drawLines')
+    chart.draw()
+    paint.mockClear()
+    instances.mockClear()
+    lines.mockClear()
+    chart.draw()
+    expect(paint).not.toHaveBeenCalled()
+    expect(instances).not.toHaveBeenCalled()
+    expect(lines).not.toHaveBeenCalled()
+
+    chart.handlePointerEvent(pointerEvent('pointermove', dom.container, { pointerType: 'mouse' }))
+    chart.draw()
+    expect(paint).toHaveBeenCalled()
+    expect(
+      paint.mock.lastCall?.[0].panes.every((pane) =>
+        pane.roles?.every((role) => role === 'drawing' || role === 'overlay'),
+      ),
+    ).toBe(true)
+    expect(instances).not.toHaveBeenCalled()
+
+    paint.mockClear()
+    chart.kernel.viewport.actions.scrollTo(30)
+    chart.draw()
+    expect(paint.mock.lastCall?.[0].panes.some((pane) => pane.roles?.includes('primary'))).toBe(
+      true,
+    )
+    await chart.destroy()
+  })
+
+  it('invalidates main content for data, zoom, settings, resize and DPR changes', async () => {
+    const dom = createChartDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    const bars = Array.from({ length: 100 }, (_, timestamp) => ({
+      timestamp,
+      open: 10,
+      high: 11,
+      low: 9,
+      close: 10,
+    }))
+    chart.resize()
+    chart.setData(bars)
+    chart.draw()
+    const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
+    const expectMainPaint = (reason: string) => {
+      paint.mockClear()
+      chart.draw()
+      expect(
+        paint.mock.lastCall?.[0].panes.some((pane) => pane.roles?.includes('primary')),
+        reason,
+      ).toBe(true)
+    }
+
+    chart.setData([...bars, { timestamp: 100, open: 11, high: 12, low: 10, close: 11 }])
+    expectMainPaint('data')
+    chart.applyRenderState(12, 2, 2)
+    expectMainPaint('zoom')
+    chart.updateSettings({ showGridLines: false })
+    expectMainPaint('settings')
+    chart.resize()
+    expectMainPaint('resize')
+    Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
+    const observer = ResizeObserverMock.instances[0]
+    observer?.emit({
+      target: dom.container,
+      contentRect: DOMRect.fromRect({ width: 1000, height: 600 }),
+      contentBoxSize: [{ inlineSize: 1000, blockSize: 600 }],
+      devicePixelContentBoxSize: [{ inlineSize: 2000, blockSize: 1200 }],
+    })
+    expect(chart.getCurrentDpr()).toBe(2)
+    expectMainPaint('DPR')
+    await chart.destroy()
+  })
+
   it('keeps the crosshair visible while drawing preview consumes mouse moves', async () => {
     const dom = createChartDom(1000, 600)
     const chart = new Chart(dom, defaultOptions)
@@ -202,6 +290,7 @@ describe('Chart DPR pipeline', () => {
     for (const name of ['lastPriceLine', 'lastPriceLabelRegistrar']) {
       expect(chart.getRenderer(name)).toBeDefined()
       expect(scene.getLayer(`plugin:${name}`)).toBeDefined()
+      expect(chart.getRenderer(name)?.role).toBe('overlay')
     }
 
     chart['kernel'].actions.setDataView('timeshare')

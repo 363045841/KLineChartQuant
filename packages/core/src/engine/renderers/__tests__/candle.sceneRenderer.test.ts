@@ -133,6 +133,83 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it('retains unchanged geometry, replays after another chart, and invalidates on data updates', () => {
+    const closeRead = vi.fn(() => 102)
+    const canvas = createMockCanvasContext()
+    const context = createCtx(undefined, {
+      ctx: canvas,
+      dataRevision: 1,
+      data: [
+        {
+          timestamp: 1,
+          open: 100,
+          high: 105,
+          low: 95,
+          get close() {
+            return closeRead()
+          },
+        },
+      ],
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+      settings: { showVolumePriceMarkers: false },
+    })
+    const layer = createCandleLayer()
+    layer.paint(context)
+    const firstRects = [...vi.mocked(canvas.fillRect).mock.calls]
+    const reads = closeRead.mock.calls.length
+
+    // 另一个图表生成不同几何不能覆盖本 Layer 保留的缓冲。
+    paint(
+      createCtx(undefined, {
+        data: makeBars(1),
+        range: { start: 0, end: 1 },
+        kLineCenters: [200],
+      }),
+    )
+    vi.mocked(canvas.fillRect).mockClear()
+    layer.paint({ ...context, data: [...context.data], kLineCenters: [10] })
+    expect(closeRead).toHaveBeenCalledTimes(reads)
+    expect(vi.mocked(canvas.fillRect).mock.calls).toEqual(firstRects)
+
+    closeRead.mockReturnValue(104)
+    vi.mocked(canvas.fillRect).mockClear()
+    layer.paint({ ...context, dataRevision: 2 })
+    expect(closeRead.mock.calls.length).toBeGreaterThan(reads)
+    expect(vi.mocked(canvas.fillRect).mock.calls).not.toEqual(firstRects)
+    layer.dispose()
+  })
+
+  it.each([
+    { dpr: 2 },
+    { kWidthPx: 9 },
+    { kLineCenters: [30] },
+    { pane: { height: 600 } },
+    { pane: { yAxis: { getDisplayRange: () => ({ minPrice: 80, maxPrice: 120 }) } } },
+  ])('invalidates retained geometry when projection changes: %j', (changes) => {
+    const context = createCtx(undefined, {
+      dataRevision: 1,
+      data: makeBars(1),
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+    })
+    const retainedLayer = createCandleLayer()
+    retainedLayer.paint(context)
+    const changed = createCtx(undefined, {
+      dataRevision: 1,
+      data: makeBars(1),
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+      ...changes,
+    })
+    retainedLayer.paint(changed)
+    const actual = [...vi.mocked(changed.ctx.fillRect).mock.calls]
+    vi.mocked(changed.ctx.fillRect).mockClear()
+    paint(changed)
+    expect(vi.mocked(changed.ctx.fillRect).mock.calls).toEqual(actual)
+    retainedLayer.dispose()
+  })
+
   it.each([1, 1.25, 2])('keeps body and wick pixels at dpr %s', (dpr) => {
     const ctx2d = createMockCanvasContext()
     const bar = { timestamp: 1, open: 100, close: 100.3, high: 100.9, low: 99.6, volume: 1 }

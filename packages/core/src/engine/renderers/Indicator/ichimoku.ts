@@ -1,8 +1,10 @@
+/** 一目均衡表 Layer：按序列及轴投影版本保留折线和云层几何，每帧重放。 */
 import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
@@ -11,6 +13,11 @@ import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
 import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import {
+  createProjectionRevision,
+  type ProjectionRevision,
+  sameProjectionRevision,
+} from '../../render/retainedProjection.js'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
@@ -130,6 +137,10 @@ interface IchimokuRendererOptions {
 
 function createIchimokuLayer(options: IchimokuRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
+  const retained = createRetainedGeometry<
+    ReturnType<typeof collectIchimokuPoints>,
+    ProjectionRevision
+  >(sameProjectionRevision)
   return createIndicatorRendererLayer({
     name: `ichimoku_${paneId}`,
     paneId,
@@ -146,7 +157,20 @@ function createIchimokuLayer(options: IchimokuRendererOptions = {}): Layer<Rende
       if (!state || state.visibleMin > state.visibleMax) return
 
       const { params, series } = state
-      const points = collectIchimokuPoints(context, series, params, pane, kLineCenters, range)
+      const revision = createProjectionRevision(context, [
+        series,
+        state.timestamp,
+        params.displacement,
+        params.showTenkan,
+        params.showKijun,
+        params.showSpanA,
+        params.showSpanB,
+        params.showChikou,
+        params.showCloud,
+      ])
+      const points = retained.read(revision, () =>
+        collectIchimokuPoints(context, series, params, pane, kLineCenters, range),
+      )
 
       if (params.showCloud && points.cloudSegs.length >= 2) {
         renderCloudFill(ctx, points.cloudSegs, colors, scrollLeft)
@@ -161,6 +185,7 @@ function createIchimokuLayer(options: IchimokuRendererOptions = {}): Layer<Rende
         colors,
       )
     },
+    dispose: () => retained.clear(),
   })
 }
 

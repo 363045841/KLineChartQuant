@@ -124,6 +124,8 @@ type FrameContext = {
   useCachedFrame: boolean
   /** 当前模式对应的强类型行情数据。 */
   data: ChartSeriesDatum[]
+  /** 与本帧主序列快照对应的提交版本。 */
+  dataRevision: number
   /** 当前缩放级别索引 */
   zoomLevel: number
   /** 缩放级别总数 */
@@ -146,6 +148,7 @@ type FrameDrawSnapshot = {
   generation: number
   level: UpdateLevel
   frame: FrameContext | null
+  skip: boolean
 }
 
 /** Main 与 Overlay 合并为 All，其余取更全或后者 */
@@ -247,6 +250,90 @@ export class ChartRenderer {
   private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
   /** 上次已测量右轴的可视区绝对值数量级。 */
   private measuredVisiblePriceMagnitudeOrder: number | null = null
+  /** 上一帧已提交的主层与交互层内容输入。 */
+  private paintedMainVersion: readonly unknown[] | null = null
+  private paintedOverlayVersion: readonly unknown[] | null = null
+
+  /** 按值比较帧输入，避免 viewport 每次派生新对象造成无效重绘。 */
+  private sameVersion(previous: readonly unknown[] | null, next: readonly unknown[]): boolean {
+    return (
+      previous !== null &&
+      previous.length === next.length &&
+      previous.every((value, index) => Object.is(value, next[index]))
+    )
+  }
+
+  /** 捕获主画布的绘制输入。 */
+  private mainContentVersion(): readonly unknown[] {
+    const vp = this.peekViewport()
+    const opt = this.deps.getOption()
+    const layers = this.scene.layers.peek()
+    return [
+      this.deps.getSceneRenderer(),
+      this.deps.getDataManager().getRenderDataRevision(),
+      ...this.deps.getDataManager().getComparisonContentInputs(),
+      this.deps.getDataManager().currentPeriod,
+      this.deps.dataView$.peek(),
+      vp?.scrollLeft,
+      vp?.plotWidth,
+      vp?.plotHeight,
+      vp?.viewWidth,
+      vp?.viewHeight,
+      vp?.dpr,
+      opt.kWidth,
+      opt.kGap,
+      opt.rightAxisWidth,
+      opt.leftAxisWidth,
+      opt.bottomAxisHeight,
+      this.deps.options.readonly.options.peek(),
+      this.deps.settings$.peek(),
+      this.deps.theme$.peek(),
+      this.deps.mainPriceAxis.readonly.handRange.peek(),
+      this.deps.mainPriceAxis.readonly.rangeMode.peek(),
+      this.deps.getIndicatorManager().getRenderStatesSnapshot(),
+      this.deps.customMarkers$.peek(),
+      this.deps.getActiveMode(),
+      layers,
+      ...layers.map((layer) => layer.visible),
+      ...this.deps.getPaneRenderers().flatMap((renderer) => {
+        const pane = renderer.getPane()
+        const axis = pane.yAxis
+        return [
+          renderer,
+          pane.id,
+          pane.top,
+          pane.height,
+          pane.role,
+          axis.getScaleType(),
+          axis.getPaddingTop(),
+          axis.getPaddingBottom(),
+          axis.getBasePrice(),
+        ]
+      }),
+    ]
+  }
+
+  /** 捕获交互画布与时间轴的输入；倒计时以秒为单位变化。 */
+  private overlayContentVersion(): readonly unknown[] {
+    const interaction = this.deps.getInteraction()
+    const pos = interaction.crosshairPos
+    return [
+      pos?.x,
+      pos?.y,
+      interaction.crosshairIndex,
+      interaction.crosshairPrice,
+      interaction.activePaneId,
+      interaction.isDraggingState(),
+      interaction.hoveredIndex,
+      interaction.tooltipPos.x,
+      interaction.tooltipPos.y,
+      interaction.tooltipAnchorPlacement,
+      this.deps.drawings$.peek(),
+      this.deps.selectedDrawingIds$.peek(),
+      this.deps.getSelectionMarquee?.(),
+      this.lastPriceCountdownTimer === null ? null : Math.floor(Date.now() / 1_000),
+    ]
+  }
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
@@ -263,17 +350,30 @@ export class ChartRenderer {
       derive: (input, generation) => {
         // generation 0 是 createFrameTransaction 构造占位，禁止 prepare/副作用
         if (generation === 0) {
-          return { generation: 0, level: input.level, frame: null }
+          return { generation: 0, level: input.level, frame: null, skip: true }
         }
+        const mainChanged = !this.sameVersion(this.paintedMainVersion, this.mainContentVersion())
+        const overlayChanged = !this.sameVersion(
+          this.paintedOverlayVersion,
+          this.overlayContentVersion(),
+        )
+        const skip =
+          !mainChanged &&
+          !overlayChanged &&
+          !this.deps.getInteraction().hasPendingHover() &&
+          input.level !== UpdateLevel.Overlay
         return {
           generation,
-          level: input.level,
-          frame: this.prepareFrameData(input.level),
+          level: mainChanged ? UpdateLevel.All : UpdateLevel.Overlay,
+          frame: skip
+            ? null
+            : this.prepareFrameData(mainChanged ? UpdateLevel.All : UpdateLevel.Overlay),
+          skip,
         }
       },
       render: (snapshot) => {
         // generation 0 占位不绘制
-        if (snapshot.generation === 0) return
+        if (snapshot.generation === 0 || snapshot.skip) return
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame && !snapshot.frame.useCachedFrame) {
@@ -287,6 +387,10 @@ export class ChartRenderer {
         this.deps.getInteraction().flushPendingHover()
         // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paint → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
         this.drawWithFrame(snapshot.level, snapshot.frame)
+        if (snapshot.frame) {
+          this.paintedMainVersion = this.mainContentVersion()
+          this.paintedOverlayVersion = this.overlayContentVersion()
+        }
         if (snapshot.frame) {
           this.cacheDrawFrame(snapshot.frame)
         }
@@ -548,7 +652,6 @@ export class ChartRenderer {
     } = frame
     const renderData = frame.data
 
-    const mode = this.deps.getActiveMode()
     const { visiblePriceExtrema, rightAxisWidthMeasurement } = frame
     const requiresRightAxisWidthMeasurement = rightAxisWidthMeasurement !== null
     const mainIndicatorRange = useCachedFrame
@@ -567,6 +670,7 @@ export class ChartRenderer {
       useCachedFrame,
       level,
       renderData,
+      frame.dataRevision,
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
       requiresRightAxisWidthMeasurement,
@@ -779,6 +883,7 @@ export class ChartRenderer {
       kWidthPx,
       useCachedFrame,
       data: internalData,
+      dataRevision: dataManager.getRenderDataRevision(),
       zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
       zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
       fiveDayTimeShareGeometry,
@@ -799,6 +904,8 @@ export class ChartRenderer {
   }
 
   clearAllCanvases(): void {
+    this.paintedMainVersion = null
+    this.paintedOverlayVersion = null
     const vp = this.peekViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
@@ -859,6 +966,7 @@ export class ChartRenderer {
     useCachedFrame: boolean,
     level: UpdateLevel,
     renderData: ChartSeriesDatum[],
+    dataRevision: number,
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
     visiblePriceExtrema: VisiblePriceExtrema | null,
     requiresRightAxisWidthMeasurement: boolean,
@@ -970,7 +1078,7 @@ export class ChartRenderer {
       const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
       // 绘图与十字线共享 overlay canvas。绘图交互仅请求 Overlay 更新，必须每次重画，
       // 否则预览只会在触发主层重绘时出现；主层变化时也要刷新其投影。
-      const shouldUpdateOverlay = true
+      const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
 
       // 清 main canvas
       if (shouldUpdateMain && mainCtx) {
@@ -1013,6 +1121,7 @@ export class ChartRenderer {
         overlayCtx: overlayCtx ?? undefined,
         pane: wrapPaneInfo(pane),
         data: renderData,
+        dataRevision,
         period: dataManager.currentPeriod,
         dataView: this.deps.dataView$(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
@@ -1264,6 +1373,8 @@ export class ChartRenderer {
 
   clearCachedFrame(): void {
     this.cachedDrawFrame = null
+    this.paintedMainVersion = null
+    this.paintedOverlayVersion = null
   }
 
   destroy(): void {

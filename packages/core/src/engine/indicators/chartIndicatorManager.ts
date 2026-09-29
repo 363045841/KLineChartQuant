@@ -188,6 +188,11 @@ export class ChartIndicatorManager {
   private hasData = false
   private resultPool: IndicatorResultPool | null = null
   private renderStates: ReadonlyMap<string, unknown> = new Map()
+
+  /** 返回当前绘制投影的身份，供帧内容版本检测异步指标提交。 */
+  getRenderStatesSnapshot(): ReadonlyMap<string, unknown> {
+    return this.renderStates
+  }
   private onResultsAppliedCallback: (() => void) | null = null
 
   /** 主图指标默认参数（从注册表中懒加载） */
@@ -849,7 +854,7 @@ export class ChartIndicatorManager {
     this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
   }
 
-  /** 构造主图指标 Layer（帧上下文由 manager 注入）。 */
+  /** 构造主图指标 Layer，保留工厂声明的绘制角色，供 Scene 按画布刷新。 */
   private buildMainIndicatorLayer(
     indicatorId: string,
     definition: IndicatorMetadata,
@@ -859,7 +864,6 @@ export class ChartIndicatorManager {
       indicatorId,
       instanceId: `main:${indicatorId}`,
       definition,
-      role: 'primary',
     })
   }
 

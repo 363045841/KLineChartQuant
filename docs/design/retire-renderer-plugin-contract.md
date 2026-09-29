@@ -127,6 +127,15 @@ agent-runtime 97、desktop-electron 19 全绿。
 
 ## 风险与测试
 
+### 主图 Layer 角色归属
+
+主图描述的是 pane 位置，不能据此把 Layer 的 role 统一改为 `primary`。
+role 由渲染器工厂根据绘制表面声明，指标管理器在注册和参数重建时保留该声明。
+最新价虚线与标签绘制到 overlay 表面，必须保持 `overlay`，否则静态倒计时或悬停
+刷新会清空表面，却因 Scene 的角色过滤跳过重绘；拖动触发完整帧时才再次出现。
+回归断言放在已有的 Chart 注册测试中，验证最新价线和标签保持 `overlay` 角色；
+绘制行为复用既有渲染器测试，角色过滤复用 Scene 测试。
+
 - 视觉回归：Scene role/z 变化会影响叠放顺序，必须人工截图比对（子图上/主图 overlay 是重点）。
 - 指标状态：`onInstall` 命名空间迁移期是回归高发区，逐批守住现有 `__tests__/*.renderer.test.ts`。
 - 禁止 add-then-remove 的过渡兼容逻辑（AGENTS 明文），因此每类渲染器必须直接替换成型。

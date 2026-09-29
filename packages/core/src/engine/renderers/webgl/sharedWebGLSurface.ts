@@ -240,7 +240,8 @@ export class SharedWebGLSurface {
         depth: false,
         stencil: false,
         premultipliedAlpha: true,
-        preserveDrawingBuffer: false,
+        // 跳过静态帧时浏览器仍需展示上一帧 resolve 的像素。
+        preserveDrawingBuffer: true,
       })
     } catch {
       return null
