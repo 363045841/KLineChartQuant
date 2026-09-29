@@ -540,7 +540,6 @@ export interface ChartController extends DrawingChartAdapter {
   ): string | null
   removeIndicator(instanceId: string): boolean
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
-  updateRendererConfig(name: string, config: Record<string, unknown>): void
 
   // ---- Drawing ----
   /**

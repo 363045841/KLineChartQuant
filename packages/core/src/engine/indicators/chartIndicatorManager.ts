@@ -13,8 +13,6 @@ import type {
   IndicatorRenderStateReader,
   PluginHostImpl,
   RenderContext,
-  RendererPlugin,
-  RendererPluginWithHost,
 } from '../../foundation/plugin/index.js'
 import {
   type Computed,
@@ -24,12 +22,14 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
+import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, PaneSpec, SubPaneInfo } from '../chartTypes.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { UpdateLevel } from '../layout/pane.js'
+import { createMainIndicatorLegendLayer } from '../render/layers/mainIndicatorLegendLayer.js'
+import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
-import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend.js'
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,
@@ -134,13 +134,11 @@ export interface SubPaneOps {
 export interface IndicatorDependencies {
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
-  getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) => T | undefined
-  useRenderer: (
-    plugin: RendererPlugin | RendererPluginWithHost,
-    config?: Record<string, unknown>,
-  ) => void
+  getRenderer: <T extends Layer<RenderContext> = Layer<RenderContext>>(
+    name: string,
+  ) => T | undefined
+  useRenderer: (layer: Layer<RenderContext>) => void
   removeRenderer: (name: string) => void
-  updateRendererConfig: (name: string, config: Record<string, unknown>) => void
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
@@ -159,6 +157,10 @@ export interface IndicatorDependencies {
   indicator: IndicatorStateModule
   /** 副图状态 + 联动 pane 布局的复合操作 */
   subPaneOps: SubPaneOps
+  /** 获取本帧渲染后端（副图/主图指标 Layer 注入帧上下文用）。 */
+  getSceneRenderer: () => Renderer
+  /** 当前数据视图应显示的主图指标 ID 快照（图例消费）。 */
+  getVisibleMainIndicatorIds: () => ReadonlyArray<string>
   runRendererTransaction: (run: () => void) => void
 }
 
@@ -800,9 +802,12 @@ export class ChartIndicatorManager {
       const projectionKey = mainIndicatorProjectionKey(params)
       if (this.appliedMainIndicators.get(id) === projectionKey) continue
       try {
-        if (!hasApplied) this.enableMainIndicatorRenderer(id, entry.source === 'mode')
-        const rendererName = getRegisteredIndicatorDefinition(id)?.mainPane?.rendererName
-        if (rendererName) this.deps.updateRendererConfig(rendererName, { ...params })
+        if (!hasApplied) {
+          this.enableMainIndicatorRenderer(id, entry.source === 'mode')
+        } else {
+          // 参数变化：原子重建该主图指标 Layer（渲染器不持有 config）
+          this.replaceMainIndicatorLayer(id)
+        }
         this.appliedMainIndicators.set(id, projectionKey)
         changed = true
       } catch (error) {
@@ -821,26 +826,48 @@ export class ChartIndicatorManager {
     const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
 
     if (!existingLayer) {
-      const plugin = definition.rendererFactory({
-        paneId: 'main',
-        indicatorId,
-        instanceId: `main:${indicatorId}`,
-      })
-      // useRenderer：注册表 + 唯一 Scene Layer
-      this.deps.useRenderer(plugin)
+      this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
     }
 
-    // core 可能已挂 legend Layer 且未进 Manager；两者任一存在都不再注册第二实例
-    if (
-      !isMode &&
-      !this.deps.getLayer(makePluginLayerId('mainIndicatorLegend')) &&
-      !this.deps.getRenderer('mainIndicatorLegend')
-    ) {
-      const legend = createMainIndicatorLegendRendererPlugin({
-        yPaddingPx: this.deps.getOption().yPaddingPx,
-      })
-      this.deps.useRenderer(legend)
+    // core 可能已挂 legend Layer；存在则不重复注册
+    if (!isMode && !this.deps.getLayer(makePluginLayerId('mainIndicatorLegend'))) {
+      this.deps.useRenderer(
+        createMainIndicatorLegendLayer(
+          {
+            yPaddingPx: this.deps.getOption().yPaddingPx,
+            getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
+          },
+          () => this.deps.getRenderContext('main'),
+          this.deps.getSceneRenderer,
+          this.deps.getPluginHost,
+        ),
+      )
     }
+  }
+
+  /** 参数变化时原子重建主图指标 Layer。 */
+  private replaceMainIndicatorLayer(indicatorId: string): void {
+    const definition = getRegisteredIndicatorDefinition(indicatorId)
+    const rendererName = definition?.mainPane?.rendererName
+    if (!definition || !rendererName) return
+    this.deps.removeRenderer(rendererName)
+    this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
+  }
+
+  /** 构造主图指标 Layer（帧上下文由 manager 注入）。 */
+  private buildMainIndicatorLayer(
+    indicatorId: string,
+    definition: IndicatorMetadata,
+  ): Layer<RenderContext> {
+    return createIndicatorLayer({
+      paneId: 'main',
+      indicatorId,
+      instanceId: `main:${indicatorId}`,
+      definition,
+      role: 'primary',
+      getContext: () => this.deps.getRenderContext('main'),
+      getSceneRenderer: this.deps.getSceneRenderer,
+    })
   }
 
   /**

@@ -1,35 +1,26 @@
 /**
- * Scene + Layer type definitions.
+ * Scene + Layer 类型契约。
  *
- * The scene is the level above `render` in core's dependency stack
- * (see `docs/ROADMAP.md` §0):
+ * Scene 位于 core 依赖栈中 `render` 之上（见 `docs/ROADMAP.md` §0）：
  *
  *     interaction → store → scene → render
  *
- * A `Layer` is a self-contained drawing module — candles, volume bars,
- * indicator plots, drawings, crosshair, and the P1 component layers
- * (Volume Profile, Order Book Heatmap, Footprint) all conform to the same
- * shape. The scene composes layers, owns ordering, and drives per-frame
- * paint dispatch; it does NOT know which GPU backend is underneath
- * because `paint()` only sees a `Renderer` reference via `PaintContext`.
+ * `Layer` 是自包含的绘制单元——candle、volume、indicator plot、drawing、
+ * crosshair、component 全部遵循同一形状。Scene 组合 Layer、拥有排序、驱动
+ * 每帧绘制分发；它通过泛型 `TFrame` 透传帧上下文，因此不知道 GPU 后端，
+ * 也不依赖业务层的 `RenderContext`（分层由泛型保留）。
  *
- * This file is **pure interface** — `createScene.ts` implements `Scene`,
- * but the types here are zero-runtime so framework adapters and indicator
- * controllers can compile against them without pulling in the implementation.
+ * 本文件是**纯类型**：`createScene.ts` 实现 `Scene`，这里的类型零运行时，
+ * 框架适配层与指标控制器可直接编译而不引入实现。
  */
 
 import type { Signal } from '../../foundation/reactivity/signal.js'
-import type { Renderer } from '../render/Renderer.js'
-import type { SurfaceRegion } from '../render/SurfaceBackend.js'
 
 /**
- * Roles let the scene group layers and let other systems target them
- * (e.g. picking ignores `background`; drawings live above indicators).
+ * 绘制角色。Scene 按角色分组/过滤（例如 overlay 帧只画 overlay），
+ * 也供其它子系统按语义定位 Layer（如命中测试忽略 background）。
  *
- * The ordering here is informational, not enforced — z-order is the
- * authoritative paint order. Roles exist so a follow-up PR can build
- * features like "hit-test only drawing + component layers" without
- * peeking at layer ids.
+ * 顺序是语义性的，不是绘制顺序；z 才是权威叠放顺序。
  */
 export type LayerRole =
   | 'background' // grid, axes
@@ -40,109 +31,107 @@ export type LayerRole =
   | 'overlay' // crosshair, hover, legends
 
 /**
- * Which pane a layer belongs to. The chart has a main pane (candles +
- * primary indicators) and zero-or-more sub panes (volume, RSI, MACD).
- * Layers declare their pane statically; the scene's `paintPane` filters
- * by this field so each pane's region only sees its own layers.
+ * Layer 所属的 pane 身份：
+ * - `LAYER_PANE_GLOBAL`：绘制到每一个 pane（网格线等）；
+ * - 具体 paneId（`'main'` / `'RSI_0'` / ...）：只绘制到该 pane。
  *
- * NOTE for implementations: this PR uses a flat 'main' / 'sub' split.
- * If a future iteration needs to address a specific sub-pane (e.g. the
- * volume pane vs the RSI pane), extend this to a string id (e.g. 'sub:rsi')
- * — the Layer / Scene contract here does not pre-commit a multi-sub-pane
- * scheme on purpose.
+ * 用具体 id 而不是 `main|sub` 角色，使子图 Layer 的归属精确到 pane，
+ * 不再需要绘制期靠比对 paneId 补偿。
  */
-export type PaneRole = 'main' | 'sub' | 'global'
+export type LayerPane = string
+
+/** Layer 声明绘制到所有 pane 时使用的 pane 身份。 */
+export const LAYER_PANE_GLOBAL: LayerPane = 'global'
 
 /**
- * Stateless paint context handed to each layer per frame.
- *
- * The layer reads what it needs from the store via subscriptions
- * (the store reference is held by the layer itself, set up at construction
- * time by its factory); this context is the per-frame state.
- *
- * Invariants:
- * - `renderer` MUST already be inside a `beginFrame` / `endFrame` pair
- *   when paint runs. The scene does not call beginFrame/endFrame itself —
- *   that's the chart engine's responsibility (see `docs/ROADMAP.md` §0
- *   for the layered call chain).
- * - `region` is the surface region for the pane currently being painted.
- *   Layers MUST treat all coordinates as logical pixels relative to this
- *   region's origin (the renderer's surface handles DPR scaling).
- * - `frameNumber` is monotonic across the chart's lifetime; layers can use
- *   it to drive animations or detect skipped frames.
- * - `deltaMs` is the wall-clock delta since the previous paint of any pane,
- *   in milliseconds. May be `0` on the very first frame.
+ * 单个 pane 在一帧内的绘制输入：Scene 透传给每个命中该 pane 的 Layer。
  */
-export interface PaintContext {
-  renderer: Renderer
-  region: SurfaceRegion
-  paneRole: PaneRole
-  /** The pane id being painted (e.g. 'main', 'RSI_0') — used by sub-pane layers */
-  paneId: string
-  /** monotonically increasing frame counter for animation/timing */
+export interface FramePaint {
+  /** 本帧构建的业务帧上下文（含 ctx/几何/主题），由 ChartRenderer 提供。 */
+  context: unknown
+  /** 本帧渲染后端；Layer 用它提交 GPU 画笔。 */
+  renderer: unknown
+  /** 帧计数器，用于动画与跳帧检测。 */
   frameNumber: number
-  /** time elapsed since last frame in ms (for animations) */
+  /** 距离上一次绘制的时间（ms），首帧可能为 0。 */
   deltaMs: number
+  /** 该 pane 本帧要绘制的角色集合；未提供表示画全部角色。 */
+  roles?: ReadonlyArray<LayerRole>
+  /** 是否在绘制该 pane 前清除其 canvas。 */
+  clear: boolean
 }
 
 /**
- * A Layer is a self-contained drawing module.
+ * 一次绘制调用传入的完整帧：覆盖所有可见 pane。
  *
- * The contract:
- * - Pure function `paint()`: given context, produce GPU commands.
- * - `paint()` MUST NOT mutate any shared state visible to other layers.
- *   Layer-private state (cached buffers, last-seen frame number) is fine.
- * - `paint()` runs in scene-defined order; order matters for visual stacking
- *   (lower z paints first, so higher-z layers visually sit on top).
- * - `dispose()` MUST release any renderer resources the layer allocated
- *   (buffers, pipelines). After dispose, the layer is dead — the scene
- *   removes it and will not call paint again.
- * - `visible` is a runtime toggle. Invisible layers are skipped entirely
- *   (no paint() call); the layer keeps its allocated resources so a flip
- *   back to visible is cheap.
+ * Scene 按 `Layer.pane` 与每个 `FramePaint.paneId` 匹配后分发，
+ * 因此一次 `paint()` 即可画完整帧，不需要业务层逐 pane 调用。
  */
-export interface Layer {
+export interface SceneFrame {
+  panes: ReadonlyArray<FramePaint & { paneId: string }>
+}
+
+/**
+ * 一帧绘制时逐 pane 传给 Layer 的上下文：业务帧上下文 + 本 pane 身份。
+ * Layer 从 `context` 读取所需能力（数据/几何/主题）。
+ */
+export type LayerPaint<TFrame> = TFrame & {
+  /** 当前 pane id。 */
+  paneId: string
+  /** 本帧是否清除该 pane 的 canvas。 */
+  clear: boolean
+}
+
+/**
+ * Layer 是自包含绘制单元。
+ *
+ * 契约：
+ * - `paint()` 是纯函数式绘制：给定上下文产出绘制指令，不修改其它 Layer 可见的共享状态；
+ *   Layer 私有状态（缓存 buffer、上次帧号）允许。
+ * - `paint()` 按 Scene 定义的顺序执行；z 小者先画，视觉上被 z 大者覆盖。
+ * - `dispose()` 释放 Layer 申请的资源；dispose 后 Scene 不会再调用 paint。
+ * - `visible` 是运行时开关；不可见的 Layer 被 Scene 跳过（不调用 paint）。
+ * - `pane` 声明绘制目标，`LAYER_PANE_GLOBAL` 表示所有 pane。
+ *
+ * 泛型参数 `TFrame` 由使用方实例化为具体帧上下文类型（图表侧为 `RenderContext`）；
+ * Scene 只透传，不感知其结构。
+ */
+export interface Layer<TFrame = unknown> {
   readonly id: string
   readonly role: LayerRole
-  /** which pane this layer belongs to */
-  readonly paneRole: PaneRole
-  /** lower z first; ties broken by registration order */
+  /** 绘制目标 pane：具体 paneId 或 LAYER_PANE_GLOBAL。 */
+  readonly pane: LayerPane
+  /** z 小者先画；相同 z 按注册顺序。 */
   readonly z: number
-  /** quick toggle without removing the layer from the scene */
+  /** 运行时开关，不改变图层成员关系。 */
   visible: boolean
 
-  paint(ctx: PaintContext): void
+  paint(ctx: LayerPaint<TFrame>): void
   dispose(): void
 }
 
 /**
- * The Scene composes layers and exposes them to subscribers via a Signal.
+ * Scene 组合 Layer，并通过 Signal 暴露给订阅方。
  *
- * Add/remove operations produce a NEW array on the `layers` signal — never
- * mutate the previous value in place. This guarantees framework adapters
- * (React, Vue, Angular) using `Object.is` equality detect changes correctly.
+ * add/remove 都产生**新数组**，绝不原地修改旧值——框架适配层用 `Object.is`
+ * 比较引用，必须保持不可变。
  *
- * `paintPane` is the only entry point that draws anything; it filters layers
- * by `paneRole`, drops invisible layers, and dispatches in z order with ties
- * broken by registration order (FIFO stable sort).
+ * `paint` 是唯一绘制入口：按 paneId 过滤、丢弃不可见 Layer、在 z 上升序稳定排序后
+ * 逐层调用，并对每个 Layer 做异常隔离（单个 Layer 抛错不中断同 pane 其它 Layer）。
  *
- * `dispose` tears down every layer the scene currently owns and freezes the
- * scene — subsequent add/remove/setLayerVisibility/paintPane calls are silent
- * no-ops. This matches the renderer's "dispose freezes the object" semantics.
+ * `dispose` 拆除全部 Layer 并冻结 Scene——之后的 add/remove/setLayerVisibility/paint
+ * 都是静默 no-op。
  */
-export interface Scene {
-  readonly layers: Signal<ReadonlyArray<Layer>>
+export interface Scene<TFrame = unknown> {
+  readonly layers: Signal<ReadonlyArray<Layer<TFrame>>>
 
-  addLayer(layer: Layer): void
+  addLayer(layer: Layer<TFrame>): void
   removeLayer(id: string): boolean
-  getLayer(id: string): Layer | null
+  getLayer(id: string): Layer<TFrame> | null
   setLayerVisibility(id: string, visible: boolean): boolean
 
-  /**
-   * paint layers for one pane in z-order, then by registration order
-   * @param roles - if provided, only paint layers whose role is in this list
-   */
-  paintPane(ctx: PaintContext, roles?: ReadonlyArray<LayerRole>): void
+  /** 绘制一整帧（覆盖所有 pane），逐 Layer 异常隔离。 */
+  paint(frame: SceneFrame): void
 
   dispose(): void
 }

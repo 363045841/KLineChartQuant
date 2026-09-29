@@ -48,6 +48,7 @@ export type IndicatorDefinitionConfig<T = unknown> = {
 type IndicatorDefinitionClass = {
   new (...args: never[]): unknown
   rendererFactory?: RendererFactory
+  scaleRendererFactory?: ScaleRendererFactory
 }
 
 const indicatorDefinitions = new Map<string, IndicatorMetadata>()
@@ -125,6 +126,7 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         getPaneTitleRendererName,
         runtime,
         rendererFactory,
+        scaleRendererFactory: this.scaleRendererFactory ?? config.scaleRendererFactory,
         paneIdField: config.paneIdField,
         allowMainPane: config.allowMainPane,
       })

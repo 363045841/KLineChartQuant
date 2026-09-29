@@ -3,9 +3,10 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { RendererPlugin, RendererPluginWithHost } from '@/foundation/plugin'
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import type { Renderer } from '../../../rendering/render/Renderer.js'
+import type { Layer } from '../../../rendering/scene/types.js'
 import type { PaneSpec } from '../../chartTypes'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -18,12 +19,12 @@ beforeAll(async () => {
 
 /** 构造满足 IndicatorDependencies 的最小依赖，并暴露可断言的 renderer 记录。 */
 function createMockDeps() {
-  const renderers = new Map<string, RendererPluginWithHost>()
+  const layers = new Map<string, Layer<never>>()
   const paneRatios$ = createSignal<Readonly<Record<string, number>>>({})
   const paneSpecs$ = createSignal<ReadonlyArray<PaneSpec>>([])
   const indicator = createIndicatorState()
-  const useRenderer = vi.fn((plugin: RendererPlugin | RendererPluginWithHost) => {
-    renderers.set(plugin.name, plugin)
+  const useRenderer = vi.fn((layer: Layer<never>) => {
+    layers.set(layer.id.replace('plugin:', ''), layer)
   })
   const subPaneOps: IndicatorDependencies['subPaneOps'] = {
     create: (entry) => indicator.actions.upsertSub(entry),
@@ -47,12 +48,13 @@ function createMockDeps() {
       kGap: 2,
     }),
     getPluginHost: () => createPluginHost(),
-    getRenderer: () => undefined,
+    getRenderer: (name: string) => layers.get(name) as never,
     useRenderer,
     removeRenderer: (name: string) => {
-      renderers.delete(name)
+      layers.delete(name)
     },
-    updateRendererConfig: vi.fn((_name: string, _config: Record<string, unknown>) => {}),
+    getSceneRenderer: () => ({}) as Renderer,
+    getVisibleMainIndicatorIds: () => [] as ReadonlyArray<string>,
     paneRatios$,
     paneSpecs$,
     projectPaneLayout: vi.fn(),
@@ -62,13 +64,13 @@ function createMockDeps() {
     getActivePaneId: () => null,
     scheduleDraw: vi.fn(),
     getRenderContext: () => null,
-    getLayer: () => null,
+    getLayer: (id: string) => (layers.get(id.replace('plugin:', '')) ?? null) as never,
     indicator,
     subPaneOps,
     runRendererTransaction: (run: () => void) => run(),
   } satisfies IndicatorDependencies
 
-  return { deps, renderers, useRenderer, indicator }
+  return { deps, layers, useRenderer, indicator }
 }
 
 describe('ChartIndicatorManager', () => {
@@ -89,12 +91,12 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('main indicator params', () => {
-    it('更新主图参数时以合并后的完整参数配置渲染器', () => {
+    it('更新主图参数时以合并后的完整参数写回状态并重建 Layer', () => {
       manager.enableMainIndicator('MA')
 
       manager.updateMainIndicatorParams('MA', { ma5: false })
 
-      expect(deps.updateRendererConfig).toHaveBeenCalledWith('ma', {
+      expect(manager.getMainIndicatorParams('MA')).toEqual({
         ma5: false,
         ma10: true,
         ma20: true,

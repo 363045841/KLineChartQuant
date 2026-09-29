@@ -20,8 +20,6 @@ export interface PaneLayoutDependencies {
   }
   /** scroll / plot 几何 SSOT */
   viewport: ViewportStateModule
-  setKnownPaneIds: (ids: string[]) => void
-  notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
   /** pane ratios / specs / scaleTypes SSOT */
   pane: PaneStateModule
@@ -222,8 +220,6 @@ export class ChartPaneLayout {
       }
     })
 
-    this.deps.setKnownPaneIds(this.paneRenderers.map((renderer) => renderer.getPane().id))
-
     this._paneSpecs = this._paneSpecs.map((spec, index) => ({
       ...spec,
       role: this.paneRenderers[index]?.getPane().role ?? spec.role,
@@ -352,7 +348,6 @@ export class ChartPaneLayout {
       pane.setPadding(opt.yPaddingPx, opt.yPaddingPx)
 
       renderer.resize(vp.plotWidth, h, vp.dpr)
-      this.deps.notifyPaneResize(pane.id, pane)
       const domEls = renderer.getDom()
       domEls.mainCanvas.style.top = `${y}px`
       domEls.overlayCanvas.style.top = `${y}px`

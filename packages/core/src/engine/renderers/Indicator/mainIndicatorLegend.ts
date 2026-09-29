@@ -53,6 +53,8 @@ export type MainIndicatorLegendOptions = {
   yPaddingPx: number
   /** 每帧构建后的图例上下文回调（canvas / external 均触发） */
   onContext?: (ctx: LegendTemplateContext | null) => void
+  /** 读取当前数据视图允许显示的指标 ID；缺省显示全部。 */
+  getVisibleIndicatorIds?: () => ReadonlyArray<string>
 }
 
 /**
@@ -74,6 +76,9 @@ export function createMainIndicatorLegendRendererPlugin(
 
   let pluginHost: PluginHost | null = null
   let visibleIndicatorIdSet: ReadonlySet<string> | null = null
+  const readVisibleIndicatorIds = options.getVisibleIndicatorIds
+  const getVisibleIndicatorIdSet = (): ReadonlySet<string> | null =>
+    readVisibleIndicatorIds ? new Set(readVisibleIndicatorIds()) : visibleIndicatorIdSet
 
   return {
     name: 'mainIndicatorLegend',
@@ -98,7 +103,7 @@ export function createMainIndicatorLegendRendererPlugin(
         context,
         host: pluginHost,
         yPaddingPx: config.yPaddingPx,
-        visibleIndicatorIds: visibleIndicatorIdSet,
+        visibleIndicatorIds: getVisibleIndicatorIdSet(),
       })
       onContext?.(legend)
 

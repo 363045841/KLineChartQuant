@@ -7,10 +7,12 @@
 
 import type {
   IndicatorRenderStateReader,
+  RenderContext,
   RendererPluginWithHost,
 } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { ChartDataView } from '../state/modeState.js'
 
 import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorContracts.js'
@@ -75,6 +77,10 @@ export interface IndicatorRendererOptions {
   /** 渲染器绑定的实例身份；结果与投影都按该 ID 寻址。 */
   instanceId: string
   params?: Record<string, unknown>
+  /** 读取当前 pane 的帧上下文（由框架注入，取业务 RenderContext）。 */
+  getContext?: () => RenderContext | null
+  /** 获取本帧渲染后端（由框架注入）。 */
+  getSceneRenderer?: () => Renderer
 }
 
 export interface IndicatorScaleRendererOptions {
@@ -85,6 +91,10 @@ export interface IndicatorScaleRendererOptions {
   axisWidth: number
   yPaddingPx: number
   getCrosshair: () => { y: number; price: number; activePaneId: string | null } | null
+  /** 读取当前 pane 的帧上下文（由框架注入）。 */
+  getContext?: () => RenderContext | null
+  /** 获取本帧渲染后端（由框架注入）。 */
+  getSceneRenderer?: () => Renderer
 }
 
 /**

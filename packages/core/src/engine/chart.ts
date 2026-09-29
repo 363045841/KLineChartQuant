@@ -36,14 +36,8 @@ import {
 } from '../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../foundation/config/priceAxisRangeMode.js'
 import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
-import {
-  createPluginHost,
-  type PluginHostImpl,
-  type RendererPlugin,
-  RendererPluginManager,
-  type RendererPluginWithHost,
-  wrapPaneInfo,
-} from '../foundation/plugin/index.js'
+import type { RenderContext } from '../foundation/plugin/index.js'
+import { createPluginHost, type PluginHostImpl, wrapPaneInfo } from '../foundation/plugin/index.js'
 import {
   type Computed,
   computed,
@@ -62,7 +56,7 @@ import {
   type RendererBackend,
   type RendererHost,
 } from '../rendering/render/index.js'
-import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin.js'
+import type { Layer, Scene } from '../rendering/scene/types.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -169,9 +163,6 @@ export class Chart {
   /** 插件宿主 */
   private pluginHost: PluginHostImpl
 
-  /** 渲染器插件管理器 */
-  private rendererPluginManager: RendererPluginManager
-
   /** 具体渲染后端及其生命周期所有者 */
   private rendererHost: RendererHost
 
@@ -274,12 +265,7 @@ export class Chart {
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
     this.pluginHost = createPluginHost()
-    this.rendererPluginManager = new RendererPluginManager()
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
-
-    // 注入依赖
-    this.rendererPluginManager.setPluginHost(this.pluginHost)
-    this.rendererPluginManager.setInvalidateCallback(() => this.scheduleDraw())
 
     const initialZoomLevel = opt.initialZoomLevel ?? 1
     const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? 20))
@@ -343,9 +329,6 @@ export class Chart {
         }
       },
       viewport: this.kernel.viewport,
-      setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
-      notifyPaneResize: (paneId, pane) =>
-        this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
       scheduleDraw: (level) => this.scheduleDraw(level),
       pane: this.kernel.pane,
       afterCommitLayout: () => {
@@ -489,7 +472,7 @@ export class Chart {
       getInteraction: () => this.interaction,
       getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
-      getRendererPluginManager: () => this.rendererPluginManager,
+      getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       theme$: this.kernel.effectiveTheme$,
       zoom: this.kernel.zoom,
       options: this.kernel.options,
@@ -557,10 +540,11 @@ export class Chart {
         }
       },
       getPluginHost: () => this.pluginHost,
-      getRenderer: (name) => this.getRenderer(name),
-      useRenderer: (plugin, config) => this.useRenderer(plugin, config),
+      getRenderer: (name) => this.renderer.getScene().getLayer(makePluginLayerId(name)) as never,
+      useRenderer: (layer) => this.useRenderer(layer),
       removeRenderer: (name) => this.removeRenderer(name),
-      updateRendererConfig: (name, config) => this.updateRendererConfig(name, config),
+      getSceneRenderer: () => this.rendererHost.renderer,
+      getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
         Readonly<Record<string, number>>
@@ -703,109 +687,40 @@ export class Chart {
     return this.pluginHost
   }
 
-  // ========== 渲染器插件 API（绘制只走 Scene；Manager 仅作注册表） ==========
+  // ========== 渲染器 API（唯一绘制契约：Layer；Scene 负责过滤与分发） ==========
 
-  private resolvePluginLayerTarget(plugin: RendererPlugin): string {
-    if (typeof plugin.paneId === 'symbol') {
-      return 'global'
-    }
-    return String(plugin.paneId)
-  }
-
-  private getContextForPluginLayer(targetPaneId: string) {
-    return () => {
-      if (!this.renderer) return null
-      const map = this.renderer.getPaneCtxMap()
-      if (targetPaneId === 'global') {
-        return map.get(this.renderer.getCurrentPaneId()) ?? null
-      }
-      return map.get(targetPaneId) ?? null
-    }
-  }
-
-  /** 安装渲染器插件：注册元数据 + 挂 Scene Layer（唯一绘制路径；幂等） */
-  useRenderer(
-    plugin: RendererPlugin | RendererPluginWithHost,
-    config?: Record<string, unknown>,
-  ): void {
-    const layerId = makePluginLayerId(plugin.name)
-    const scene = this.renderer?.getScene()
-    const existingPlugin = this.rendererPluginManager.getPlugin(plugin.name)
-    const alreadyLayer = scene?.getLayer(layerId) != null
-
-    if (existingPlugin && alreadyLayer) {
-      if (config && existingPlugin.setConfig) existingPlugin.setConfig(config)
-      return
-    }
-
-    // 仅有注册表：补挂 Layer（不新建 plugin 实例）
-    if (existingPlugin && !alreadyLayer) {
-      if (config && existingPlugin.setConfig) existingPlugin.setConfig(config)
-      const targetPaneId = this.resolvePluginLayerTarget(existingPlugin)
-      scene?.addLayer(
-        createLayerFromPlugin(
-          existingPlugin,
-          this.getContextForPluginLayer(targetPaneId),
-          targetPaneId,
-        ),
-      )
-      return
-    }
-
-    // 仅有 Layer（core 预挂）：不二次 register，避免 Manager 实例 ≠ 绘制实例
-    if (!existingPlugin && alreadyLayer) {
-      return
-    }
-
-    this.rendererPluginManager.register(plugin)
-    if (config && plugin.setConfig) {
-      plugin.setConfig(config)
-    }
-    const targetPaneId = this.resolvePluginLayerTarget(plugin)
-    const layer = createLayerFromPlugin(
-      plugin,
-      this.getContextForPluginLayer(targetPaneId),
-      targetPaneId,
-    )
-    scene?.addLayer(layer)
+  /** Scene Layer id 生成规则（`plugin:` 前缀），与既有幂等语义一致。 */
+  private getRendererScene(): Scene<RenderContext> | null {
+    return this.renderer?.getScene() ?? null
   }
 
   /**
-   * 移除渲染器插件。
-   * onUninstall 仅由 Manager.unregister 调用；Scene removeLayer 不 dispose，避免双调。
+   * 注册渲染器 Layer（唯一绘制路径；幂等，首个同 id Layer 胜出）。
+   * `options.pane` 声明绘制目标，缺省 `LAYER_PANE_GLOBAL`。
    */
+  useRenderer(layer: Layer<RenderContext>): void {
+    this.getRendererScene()?.addLayer(layer)
+  }
+
+  /** 移除渲染器 Layer。 */
   removeRenderer(name: string): void {
-    this.rendererPluginManager.unregister(name)
-    this.renderer?.getScene()?.removeLayer(makePluginLayerId(name))
+    this.getRendererScene()?.removeLayer(makePluginLayerId(name))
   }
 
-  /** 获取渲染器插件 */
-  getRenderer<T extends RendererPlugin = RendererPlugin>(name: string): T | undefined {
-    return this.rendererPluginManager.getPlugin<T>(name)
+  /** 获取已注册渲染器 Layer。 */
+  getRenderer<T extends Layer<RenderContext> = Layer<RenderContext>>(name: string): T | undefined {
+    return this.getRendererScene()?.getLayer(makePluginLayerId(name)) as T | undefined
   }
 
-  /** 更新渲染器配置（自动重绘） */
-  updateRendererConfig(name: string, config: Record<string, unknown>): void {
-    this.rendererPluginManager.updateConfig(name, config)
-  }
-
-  /** 启用/禁用渲染器（Scene Layer 显隐；Manager enabled 仅同步元数据） */
+  /** 启用/禁用渲染器（Scene Layer 显隐）。 */
   setRendererEnabled(name: string, enabled: boolean): void {
-    const inManager = this.rendererPluginManager.getPlugin(name) != null
-    if (inManager) {
-      // setEnabled → invalidate → scheduleDraw（勿再 schedule 双唤醒）
-      this.rendererPluginManager.setEnabled(name, enabled)
-    }
-    this.renderer?.getScene()?.setLayerVisibility(makePluginLayerId(name), enabled)
-    // core-only Layer（如 candle）不在 Manager：需显式重绘
-    if (!inManager) {
-      this.scheduleDraw()
-    }
+    this.getRendererScene()?.setLayerVisibility(makePluginLayerId(name), enabled)
+    this.scheduleDraw()
   }
 
-  /** 获取所有渲染器 */
-  getAllRenderers(): RendererPlugin[] {
-    return this.rendererPluginManager.getAllPlugins()
+  /** 获取所有渲染器 Layer。 */
+  getAllRenderers(): ReadonlyArray<Layer<RenderContext>> {
+    return this.getRendererScene()?.layers.peek() ?? []
   }
 
   /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */
@@ -1327,11 +1242,11 @@ export class Chart {
     this.renderer.scheduleDraw(level)
   }
 
-  /** 在 RendererPluginManager 事务内执行 run，推迟期间的所有 scheduleDraw 到最外层统一 flush */
+  /** 统一批量投影入口：run 期间的所有 scheduleDraw 推迟到最外层统一 flush */
   private runRuntimeProjection(run: () => void): void {
     this.runtimeProjectionDepth++
     try {
-      this.rendererPluginManager.transaction(run)
+      run()
     } finally {
       this.runtimeProjectionDepth--
       if (this.runtimeProjectionDepth === 0 && this.pendingProjectionLevel !== null) {
@@ -1351,9 +1266,7 @@ export class Chart {
         this.kernel.activeRenderers$().map((descriptor) => descriptor.layerId),
       )
       // 视图切换时投影一次可见指标，图例逐帧仅消费该快照，不重复判断 dataViews。
-      this.updateRendererConfig('mainIndicatorLegend', {
-        visibleIndicatorIds: this.kernel.visibleMainIndicatorIds$(),
-      })
+      // visibleMainIndicatorIds$ 变化由已注册的 effect 触发重绘。
       const scene = this.renderer?.getScene()
       let changed = false
 
@@ -1409,8 +1322,6 @@ export class Chart {
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
     this.indicatorManager.destroy()
-    // onUninstall 由 Manager 单点负责；须在 scene.dispose 之前 clear
-    this.rendererPluginManager.clear()
     this.renderer.destroy()
     this.viewportScrollBridge.dispose()
     this.dataManager.destroy()

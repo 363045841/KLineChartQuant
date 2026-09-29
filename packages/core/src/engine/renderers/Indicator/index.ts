@@ -2,7 +2,8 @@
  * 指标渲染器导出入口
  */
 
-import type { RendererPlugin } from '@/foundation/plugin/index.js'
+import type { RenderContext, RendererPlugin } from '@/foundation/plugin/index.js'
+import type { Renderer } from '@/rendering/render/Renderer.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 
 // 主图指标图例（统一管理 MA、BOLL 等）
@@ -27,12 +28,24 @@ export interface IndicatorRendererOptions {
   definition: IndicatorMetadata
   /** 初始配置 */
   params?: Record<string, unknown>
+  /** 读取当前 pane 的帧上下文（框架注入）。 */
+  getContext?: () => RenderContext | null
+  /** 获取本帧渲染后端（框架注入）。 */
+  getSceneRenderer?: () => Renderer
 }
 
 /**
  * 创建副图指标渲染器（统一工厂函数）
  */
 export function createSubIndicatorRenderer(options: IndicatorRendererOptions): RendererPlugin {
-  const { indicatorId, instanceId, paneId, definition, params } = options
-  return definition.rendererFactory({ paneId, indicatorId, instanceId, params })
+  const { indicatorId, instanceId, paneId, definition, params, getContext, getSceneRenderer } =
+    options
+  return definition.rendererFactory({
+    paneId,
+    indicatorId,
+    instanceId,
+    params,
+    getContext,
+    getSceneRenderer,
+  })
 }

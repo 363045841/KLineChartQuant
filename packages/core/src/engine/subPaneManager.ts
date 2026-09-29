@@ -1,12 +1,12 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors.js'
 import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
-import type {
-  RenderContext,
-  RendererPlugin,
-  RendererPluginWithHost,
-} from '../foundation/plugin/index.js'
+import type { RenderContext } from '../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../foundation/plugin/index.js'
+import type { Renderer } from '../rendering/render/Renderer.js'
+import type { Layer } from '../rendering/scene/types.js'
 import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
-import { createSubIndicatorRenderer } from './renderers/Indicator/index.js'
+import { wrapRendererAsLayer } from './render/layers/wrapRendererAsLayer.js'
+import { createIndicatorLayer } from './renderers/Indicator/factory.js'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog.js'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale.js'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle.js'
@@ -55,13 +55,12 @@ export function hasSubPaneRendererMetadata(
 export interface SubPaneContext {
   /** 副图增删改后通知实例链路重建渲染投影。 */
   onPaneProjectionChanged: () => void
-  getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) => T | undefined
-  useRenderer: (
-    plugin: RendererPlugin | RendererPluginWithHost,
-    config?: Record<string, unknown>,
-  ) => void
+  getRenderer: <T extends Layer<RenderContext> = Layer<RenderContext>>(
+    name: string,
+  ) => T | undefined
+  useRenderer: (layer: Layer<RenderContext>) => void
   removeRenderer: (name: string) => void
-  updateRendererConfig: (name: string, config: Record<string, unknown>) => void
+  getSceneRenderer: () => Renderer
   getOption: () => {
     rightAxisWidth: number
     priceLabelWidth?: number
@@ -130,7 +129,10 @@ export class SubPaneManager {
         if (current?.projectionKey === nextProjectionKey) continue
 
         if (current?.rendererName === candidate.rendererName) {
-          this.updateParams(ctx, current, spec)
+          // params 变化：直接替换 Layer（原子重建），避免渲染器内部持有 config
+          this.unmount(ctx, current, true)
+          this.mount(ctx, candidate)
+          this.mountPaneTitleRenderer(ctx, candidate)
         } else {
           this.mount(ctx, candidate)
           this.mountPaneTitleRenderer(ctx, candidate)
@@ -184,12 +186,9 @@ export class SubPaneManager {
         `[SubPaneManager] Indicator "${spec.indicatorId}" is missing required sub-pane renderer metadata`,
       )
     }
-    const renderer = createSubIndicatorRenderer({
+    const rendererName = definition.getRendererName({
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
-      instanceId: spec.instanceId,
-      definition,
-      params: { ...spec.params },
     })
     const scaleRendererName = definition.getScaleRendererName({
       paneId: spec.paneId,
@@ -202,10 +201,10 @@ export class SubPaneManager {
     return {
       ...spec,
       params: { ...spec.params },
-      rendererName: renderer.name,
+      rendererName,
       scaleRendererName,
       paneTitleRendererName,
-      layerId: makePluginLayerId(renderer.name),
+      layerId: makePluginLayerId(rendererName),
       scaleLayerId: makePluginLayerId(scaleRendererName),
       paneTitleLayerId: makePluginLayerId(paneTitleRendererName),
     }
@@ -214,15 +213,17 @@ export class SubPaneManager {
   private mount(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
     const definition = getRegisteredIndicatorDefinition(entry.indicatorId)!
     if (!ctx.getRenderer(entry.rendererName)) {
-      const renderer = createSubIndicatorRenderer({
+      const layer = createIndicatorLayer({
         paneId: entry.paneId,
         indicatorId: entry.indicatorId,
         instanceId: entry.instanceId,
         definition,
         params: { ...entry.params },
+        getContext: () => ctx.getRenderContext(entry.paneId),
+        getSceneRenderer: ctx.getSceneRenderer,
       })
-      // useRenderer：注册表 + 唯一 Scene Layer
-      ctx.useRenderer(renderer, { ...entry.params })
+      // useRenderer：唯一 Scene Layer
+      ctx.useRenderer(layer)
     }
     this.mountScaleRenderer(ctx, entry)
   }
@@ -240,33 +241,40 @@ export class SubPaneManager {
       if (pos && price !== null) return { y: pos.y, price, activePaneId: ctx.getActivePaneId() }
       return null
     }
-    const options = {
+    const baseOptions = {
       axisWidth,
       paneId: entry.paneId,
       instanceId: entry.instanceId,
       yPaddingPx: opt.yPaddingPx,
       getCrosshair,
+      getContext: () => ctx.getRenderContext(entry.paneId),
+      getSceneRenderer: ctx.getSceneRenderer,
     }
     const plugin = definition?.scaleRendererFactory
-      ? definition.scaleRendererFactory({ ...options, indicatorId: entry.indicatorId })
+      ? definition.scaleRendererFactory({ ...baseOptions, indicatorId: entry.indicatorId })
       : definition?.scale
         ? createIndicatorScaleRendererPlugin({
-            ...options,
+            ...baseOptions,
             indicatorKey: definition.scale.indicatorKey ?? definition.name,
             label: definition.scale.label ?? definition.displayName,
             decimals: definition.scale.decimals,
           })
         : null
     if (!plugin) return
-    ctx.useRenderer(plugin)
+    ctx.useRenderer(
+      wrapRendererAsLayer(plugin, {
+        id: entry.scaleLayerId,
+        role: 'indicator',
+        pane: entry.paneId,
+        z: RENDERER_PRIORITY.INDICATOR_SCALE,
+        getContext: () => ctx.getRenderContext(entry.paneId),
+        getSceneRenderer: ctx.getSceneRenderer,
+      }),
+    )
   }
 
   private mountPaneTitleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
     if (ctx.getRenderer(entry.paneTitleRendererName)) {
-      ctx.updateRendererConfig(entry.paneTitleRendererName, {
-        params: { ...entry.params },
-        indicatorId: entry.indicatorId,
-      })
       return
     }
     const renderer = createPaneTitleRendererPlugin({
@@ -276,20 +284,20 @@ export class SubPaneManager {
       instanceId: entry.instanceId,
       params: { ...entry.params },
     })
-    ctx.useRenderer(renderer)
-  }
-
-  private updateParams(ctx: SubPaneContext, resources: SubPaneResources, spec: SubPaneSpec): void {
-    const snapshot = { ...spec.params }
-    ctx.updateRendererConfig(resources.rendererName, snapshot)
-    ctx.updateRendererConfig(resources.paneTitleRendererName, {
-      params: snapshot,
-      indicatorId: spec.indicatorId,
-    })
+    ctx.useRenderer(
+      wrapRendererAsLayer(renderer, {
+        id: entry.paneTitleLayerId,
+        role: 'overlay',
+        pane: entry.paneId,
+        z: RENDERER_PRIORITY.OVERLAY,
+        getContext: () => ctx.getRenderContext(entry.paneId),
+        getSceneRenderer: ctx.getSceneRenderer,
+      }),
+    )
   }
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {
-    // removeRenderer 已同步卸 Scene Layer + Manager onUninstall，勿再 removeLayer
+    // removeRenderer 同步卸 Scene Layer 并触发 Layer.dispose
     ctx.removeRenderer(entry.rendererName)
     ctx.removeRenderer(entry.scaleRendererName)
     if (!preserveTitle) {

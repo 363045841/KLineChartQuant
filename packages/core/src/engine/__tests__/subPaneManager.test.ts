@@ -1,4 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RenderContext } from '../../foundation/plugin/index'
+import type { Renderer } from '../../rendering/render/Renderer'
+import type { Layer } from '../../rendering/scene/types'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import type { SubPaneSpec } from '../state/indicatorState'
@@ -24,9 +27,11 @@ function createMockContext(): SubPaneContext & {
     layers,
     onPaneProjectionChanged: vi.fn(),
     getRenderer: vi.fn((name) => renderers.get(name) as never),
-    useRenderer: vi.fn((renderer) => renderers.set(renderer.name, renderer)),
+    useRenderer: vi.fn((layer: Layer<RenderContext>) =>
+      renderers.set(layer.id.replace('plugin:', ''), layer),
+    ),
     removeRenderer: vi.fn((name) => renderers.delete(name)),
-    updateRendererConfig: vi.fn(),
+    getSceneRenderer: () => ({}) as Renderer,
     getOption: () => ({
       rightAxisWidth: 60,
       priceLabelWidth: 60,
@@ -68,18 +73,16 @@ describe('SubPaneManager runtime projection', () => {
     expect(manager.getMountedResources('RSI_0')?.scaleRendererName).toBe('rsiScale_RSI_0')
   })
 
-  it('updates configs without recreating resources when only params change', () => {
+  it('rebuilds layers when only params change', () => {
     manager.reconcile(ctx, [rsi])
     vi.clearAllMocks()
 
     manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])
 
-    expect(ctx.useRenderer).not.toHaveBeenCalled()
-    expect(ctx.updateRendererConfig).toHaveBeenCalledWith('rsi_RSI_0', { period1: 12 })
-    expect(ctx.updateRendererConfig).toHaveBeenCalledWith('paneTitle_RSI_0', {
-      params: { period1: 12 },
-      indicatorId: 'RSI',
-    })
+    // 参数变化：原子重建（unmount + mount renderer/scale/title）
+    expect(ctx.removeRenderer).toHaveBeenCalled()
+    expect(ctx.useRenderer).toHaveBeenCalled()
+    expect(manager.getMountedResources('RSI_0')).toBeDefined()
   })
 
   it('unmounts resources absent from desired state', () => {
@@ -109,28 +112,14 @@ describe('SubPaneManager runtime projection', () => {
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
   })
 
-  it('keeps a failed parameter projection retryable', () => {
-    manager.reconcile(ctx, [rsi])
-    ctx.updateRendererConfig = vi.fn().mockImplementationOnce(() => {
-      throw new Error('config failed')
-    })
-
-    expect(() => manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])).not.toThrow()
-    manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])
-
-    expect(ctx.useRenderer).toHaveBeenCalledTimes(6)
-    expect(manager.getMountedResources('RSI_0')).toBeDefined()
-  })
-
   it('distinguishes non-finite and null parameter values in projection keys', () => {
     manager.reconcile(ctx, [{ ...rsi, params: { threshold: Number.NaN } }])
     vi.clearAllMocks()
 
+    // NaN → null 视为参数变化，触发重建
     manager.reconcile(ctx, [{ ...rsi, params: { threshold: null } }])
 
-    expect(ctx.updateRendererConfig).toHaveBeenCalledWith('rsi_RSI_0', {
-      threshold: null,
-    })
+    expect(ctx.useRenderer).toHaveBeenCalled()
   })
 
   it('removes the old projection when the replacement factory throws', () => {

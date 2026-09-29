@@ -105,12 +105,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.indicators.updateParams(instanceId, params)
   }
 
-  /** 更新指定渲染器配置。 */
-  function updateRendererConfig(name: string, config: Record<string, unknown>): void {
-    if (isDisposed()) return
-    chart.updateRendererConfig(name, config)
-  }
-
   /** 设置 tooltip 尺寸。 */
   function setTooltipSize(size: { width: number; height: number }): void {
     if (isDisposed()) return
@@ -236,7 +230,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     addIndicator,
     removeIndicator,
     updateIndicatorParams,
-    updateRendererConfig,
     setTooltipSize,
     setTooltipAnchorPositioning,
     getContentWidth,

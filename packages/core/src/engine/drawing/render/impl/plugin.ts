@@ -1,5 +1,8 @@
 /** 绘图层：只消费帧投影并绘制 primitive。 */
-import type { DrawingPrimitive, RenderContext, RendererPlugin } from '@/foundation/plugin/index.js'
+
+import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.js'
+import type { Renderer } from '@/rendering/render/Renderer.js'
+import type { Layer } from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
 import { createDefaultPrimitiveRendererSet } from './primitiveRendererSet.js'
@@ -21,21 +24,33 @@ function renderPrimitives(
   }
 }
 
-/** 创建绘图 renderer；投影由 ChartRenderer 在 paint 前生成。 */
-export function createDrawingRendererPlugin(options: {
+/** 绘图 Layer 选项。 */
+export interface DrawingLayerOptions {
   paneId?: string
   renderers?: PrimitiveRendererSet
-}): RendererPlugin {
+}
+
+/**
+ * 创建绘图 Layer；投影由 ChartRenderer 在 paint 前生成。
+ * 绘图输出到覆盖层 canvas，保持在所有行情图元之上。
+ */
+export function createDrawingLayer(
+  getContext: () => RenderContext | null,
+  getSceneRenderer: () => Renderer,
+  options: DrawingLayerOptions = {},
+): Layer<RenderContext> {
   const renderers = options.renderers ?? createDefaultPrimitiveRendererSet()
 
   return {
-    name: 'drawingRenderer',
-    version: '0.2.0',
-    description: '绘图渲染器（消费当前帧投影）',
-    debugName: '绘图层',
-    paneId: options.paneId ?? 'main',
-    priority: 55,
-    draw(context: RenderContext) {
+    id: 'plugin:drawingRenderer',
+    role: 'drawing',
+    pane: 'global',
+    z: 55,
+    visible: true,
+    paint() {
+      const context = getContext()
+      if (!context) return
+      context.sceneRenderer = getSceneRenderer()
       const projection = context.drawingProjection
       if (!projection || projection.primitives.length === 0) return
       const viewport = context.viewport
@@ -49,5 +64,6 @@ export function createDrawingRendererPlugin(options: {
         context.dpr,
       )
     },
+    dispose() {},
   }
 }

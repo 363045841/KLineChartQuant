@@ -452,6 +452,28 @@ export interface RenderThemeContext {
 }
 
 /**
+ * 帧级绘制上下文：Scene 在分发每个 Layer 前注入的帧字段。
+ * 与业务 `RenderContext` 是**组装关系而非继承关系**——业务帧即 RenderContext，
+ * 泛型 `TFrame` 由使用方实例化，Scene 只透传。
+ */
+export interface FrameDrawContext {
+  /** 本帧渲染后端；Layer 用它提交 GPU 画笔。 */
+  sceneRenderer: RendererLike
+}
+
+/** 渲染器插件可用的最小渲染后端契约（避免 foundation 依赖 rendering 层）。 */
+export interface RendererLike {
+  readonly caps: { readonly name: string }
+}
+
+/**
+ * Layer.paint 收到的完整上下文：业务帧 `TFrame` + 帧字段。
+ * 泛型实例化后（图表侧 `TFrame = RenderContext`）等价于旧的 RenderContext 形状。
+ */
+export type DrawContext<TFrame = RenderContext, TSceneRenderer = RendererLike> = TFrame &
+  FrameDrawContext & { sceneRenderer: TSceneRenderer }
+
+/**
  * 渲染上下文：由各职责子契约组合而成。
  * 渲染器只需其中部分能力时，参数应声明对应子契约而非本组合类型。
  */

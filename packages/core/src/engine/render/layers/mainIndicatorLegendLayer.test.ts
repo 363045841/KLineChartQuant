@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { PluginHostImpl } from '@/foundation/plugin/index.js'
 
 const plugin = vi.hoisted(() => ({
   name: 'mainIndicatorLegend',
@@ -15,9 +16,15 @@ vi.mock('../../renderers/Indicator/mainIndicatorLegend', () => ({
 import { createMainIndicatorLegendLayer } from './mainIndicatorLegendLayer.js'
 
 describe('createMainIndicatorLegendLayer', () => {
-  it('leaves plugin installation to RendererPluginManager', () => {
-    createMainIndicatorLegendLayer({ yPaddingPx: 20 }, () => null)
+  it('installs the plugin host on the legend renderer at construction', () => {
+    const host = {} as PluginHostImpl
+    createMainIndicatorLegendLayer(
+      { yPaddingPx: 20 },
+      () => null,
+      (() => ({})) as never,
+      () => host,
+    )
 
-    expect(plugin.onInstall).not.toHaveBeenCalled()
+    expect(plugin.onInstall).toHaveBeenCalledWith(host)
   })
 })
