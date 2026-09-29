@@ -145,10 +145,14 @@
                     :editable-style-keys="selectedDrawingStyleKeys"
                     :line-label-position="isEditingLineLabel ? lineLabelPosition : undefined"
                     :template-names="canvasTemplateNames"
+                    :template-error="canvasTemplateError"
+                    :template-saved="canvasTemplateSavedName"
                     :can-use-templates="canUseCanvasTemplates"
                     @open-templates="reloadCanvasTemplates"
                     @save-template="openCanvasTemplateSave"
                     @apply-template="applyCanvasTemplate"
+                    @delete-template="deleteCanvasTemplate"
+                    @save-existing-template="saveCanvasTemplateExisting"
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
                     @toggle-lock="onToggleDrawingLock"
@@ -988,11 +992,19 @@
     showSave: showCanvasTemplateSave,
     busy: canvasTemplateBusy,
     error: canvasTemplateError,
+    savedName: canvasTemplateSavedName,
     reload: reloadCanvasTemplates,
     apply: applyCanvasTemplate,
+    remove: deleteCanvasTemplate,
     openSave: openCanvasTemplateSave,
     save: saveCanvasTemplate,
-  } = useCanvasDrawingTemplates(selectedDrawings, selectedDrawingStyleKeys, onUpdateDrawingStyle)
+    saveExisting: saveCanvasTemplateExisting,
+  } = useCanvasDrawingTemplates(
+    selectedDrawings,
+    selectedDrawingStyleKeys,
+    onUpdateDrawingStyle,
+    updateDrawingLabel,
+  )
   const editingDrawing = computed(() =>
     drawings.value.find((drawing) => drawing.id === editingDrawingId.value),
   )

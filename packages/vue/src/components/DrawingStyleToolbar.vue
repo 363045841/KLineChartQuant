@@ -64,16 +64,25 @@
       </BaseTooltip>
     </div>
 
-    <DropMenu
+    <DrawingTemplateMenu
       v-if="drawings.length > 0"
       label="模板"
-      :groups="templateGroups"
+      :names="templateNames ?? []"
+      :message="templateError"
+      :can-save="drawings.length === 1 && canUseTemplates"
+      :can-apply="canUseTemplates"
+      :saved-name="templateSaved"
+      :disabled="false"
+      :show-save="drawings.length === 1"
       trigger-class="toolbar-btn toolbar-btn--template"
       @open="emit('openTemplates')"
-      @select="onTemplateAction"
+      @save-new="emit('saveTemplate')"
+      @apply="emit('applyTemplate', $event)"
+      @save-existing="emit('saveExistingTemplate', $event)"
+      @remove="emit('deleteTemplate', $event)"
     >
       <template #trigger><IconTablerBookmarks class="toolbar-icon" aria-hidden="true" /></template>
-    </DropMenu>
+    </DrawingTemplateMenu>
 
     <BaseTooltip v-if="drawings.length === 1" content="图元设置" placement="top" trigger-display="contents">
       <button
@@ -160,16 +169,16 @@
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
+  import IconTablerBookmarks from '~icons/tabler/bookmarks'
   import IconTablerCopy from '~icons/tabler/copy'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerSettings from '~icons/tabler/settings'
-  import IconTablerBookmarks from '~icons/tabler/bookmarks'
-  import CanvasToolbar from './common/CanvasToolbar.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import CanvasToolbar from './common/CanvasToolbar.vue'
   import Dropdown from './Dropdown.vue'
-  import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
+  import DrawingTemplateMenu from './DrawingTemplateMenu.vue'
 
   const widthOptions = [
     { label: '1px', value: '1' },
@@ -196,6 +205,8 @@
       editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
       lineLabelPosition?: DrawingLabelPosition
       templateNames?: ReadonlyArray<string>
+      templateError?: string
+      templateSaved?: string | null
       canUseTemplates?: boolean
     }>(),
     { canUseTemplates: true },
@@ -212,33 +223,10 @@
     (e: 'openTemplates'): void
     (e: 'saveTemplate'): void
     (e: 'applyTemplate', name: string): void
+    (e: 'deleteTemplate', name: string): void
+    (e: 'saveExistingTemplate', name: string): void
   }>()
 
-  const templateGroups = computed<DropMenuGroup[]>(() => [
-    ...(props.drawings.length === 1
-      ? [
-          {
-            id: 'save',
-            label: '保存',
-            items: [{ id: 'save', label: '保存为模板', disabled: !props.canUseTemplates }],
-          },
-        ]
-      : []),
-    {
-      id: 'apply',
-      label: '应用模板',
-      items: (props.templateNames ?? []).map((name) => ({
-        id: name,
-        label: name,
-        disabled: !props.canUseTemplates,
-      })),
-    },
-  ])
-
-  function onTemplateAction(group: string, name: string) {
-    if (group === 'save' && props.drawings.length === 1) emit('saveTemplate')
-    else if (group === 'apply') emit('applyTemplate', name)
-  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return

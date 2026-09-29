@@ -96,6 +96,19 @@ export type { DrawingStoreDeps, PrimitiveRendererSet } from './render/types.js'
 
 export { clearDrawingSelection, toggleDrawingSelection } from './session/impl/DrawingSelection.js'
 
+export { createDrawingTemplateStore } from './template/impl/indexedDbTemplateStore.js'
+export {
+  captureDrawingTemplate,
+  resolveTemplateLabel,
+  resolveTemplateStyle,
+  templateStyleFields,
+} from './template/impl/templateMapping.js'
+export type {
+  DrawingTemplate,
+  DrawingTemplateStore,
+  TemplateStyle,
+} from './template/types.js'
+
 /** 图元领域模型契约。 */
 export type {
   DrawingAnchorType,

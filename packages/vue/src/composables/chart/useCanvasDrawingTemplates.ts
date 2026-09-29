@@ -1,103 +1,113 @@
-import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
-import { computed, type Ref, ref, watch } from 'vue'
+// 画布浮条的模板门面：在共享模板 CRUD 之上叠加选区字段交集与样式/文字写入。
 
-import { drawingSettingsConfigs } from '../../components/drawing-settings/config.js'
+import type {
+  DrawingLabelPosition,
+  DrawingObject,
+  DrawingStyle,
+} from '@363045841yyt/klinechart-core/controllers'
+import type { DrawingTemplateStore } from '@363045841yyt/klinechart-core/engine/drawing'
 import {
-  applicableTemplateStyle,
-  captureTemplateStyle,
-  type DrawingTemplate,
-  loadDrawingTemplates,
-  saveDrawingTemplates,
-} from '../../components/drawing-settings/templates.js'
+  captureDrawingTemplate,
+  resolveTemplateLabel,
+  resolveTemplateStyle,
+  templateStyleFields,
+} from '@363045841yyt/klinechart-core/engine/drawing'
+import type { Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-/** Floating toolbar facade over the existing per-kind IndexedDB template contract. */
+import { useDrawingTemplates } from './useDrawingTemplates.js'
+
+/**
+ * 画布浮条的模板能力：模板名列表、保存弹窗状态与保存/应用/删除动作。
+ * @param selectedDrawings 当前选中图元
+ * @param editableStyleKeys Core 对当前选区确认的可编辑样式字段
+ * @param updateStyle 样式写入回调
+ * @param updateLabel 文本位置写入回调
+ * @param store 模板仓库，默认 IndexedDB 实现，测试可注入替身
+ */
 export function useCanvasDrawingTemplates(
   selectedDrawings: Readonly<Ref<ReadonlyArray<DrawingObject>>>,
   editableStyleKeys: Readonly<Ref<ReadonlyArray<keyof DrawingStyle>>>,
   updateStyle: (style: Partial<DrawingStyle>) => void,
+  updateLabel: (
+    id: string,
+    target: 'line' | 'area',
+    index: number,
+    text: string,
+    position: DrawingLabelPosition,
+  ) => void,
+  store?: DrawingTemplateStore,
 ) {
-  const templates = ref<DrawingTemplate[]>([])
-  const names = computed(() => templates.value.map((item) => item.name))
-  const canUse = computed(() => fields.value.length > 0)
+  const scopeKind = computed(() => selectedDrawings.value[0]?.kind)
+  const {
+    templates,
+    names,
+    busy,
+    error,
+    savedName,
+    clearError,
+    reload,
+    save: persist,
+    remove: deleteTemplate,
+  } = useDrawingTemplates(scopeKind, store)
   const showSave = ref(false)
-  const busy = ref(false)
-  const error = ref('')
-  let loadVersion = 0
 
-  const fields = computed(() => {
-    const selection = selectedDrawings.value
-    if (!selection.length) return []
-    return drawingSettingsConfigs[selection[0]!.kind].style.filter(
-      (field) =>
-        editableStyleKeys.value.includes(field) &&
-        selection.every((drawing) => drawingSettingsConfigs[drawing.kind].style.includes(field)),
-    )
-  })
-
-  async function reload() {
-    const kind = selectedDrawings.value[0]?.kind
-    const version = ++loadVersion
-    templates.value = []
-    if (!kind) return
-    try {
-      const loaded = await loadDrawingTemplates(kind)
-      if (version === loadVersion && selectedDrawings.value[0]?.kind === kind)
-        templates.value = loaded
-    } catch {
-      error.value = '加载模板失败'
-    }
-  }
-
-  async function apply(name: string) {
-    const kind = selectedDrawings.value[0]?.kind
-    const ids = selectedDrawings.value.map((drawing) => drawing.id).join('\0')
-    if (!kind || !templates.value.some((template) => template.name === name)) return
-    try {
-      const template = (await loadDrawingTemplates(kind)).find((item) => item.name === name)
-      if (!template || selectedDrawings.value.map((drawing) => drawing.id).join('\0') !== ids)
-        return
-      const style = applicableTemplateStyle(template, fields.value)
-      if (style.fill !== undefined || style.stroke !== undefined) updateStyle(style)
-    } catch {
-      error.value = '加载模板失败'
-    }
-  }
+  /** Core 已按当前选区算好可编辑字段交集，这里只需筛出模板字段。 */
+  const fields = computed(() => templateStyleFields(editableStyleKeys.value))
+  const canUse = computed(() => fields.value.length > 0)
 
   function openSave() {
     if (selectedDrawings.value.length !== 1) return
-    error.value = ''
+    clearError()
     showSave.value = true
+  }
+
+  /** 应用模板：先写已有多段文本的位置，再整体写样式，避免样式被旧快照覆盖。 */
+  function apply(name: string) {
+    const template = templates.value.find((item) => item.name === name)
+    if (!template || selectedDrawings.value.length === 0) return
+    const style = resolveTemplateStyle(template, fields.value)
+    for (const drawing of selectedDrawings.value) {
+      const label = resolveTemplateLabel(template, drawing)
+      if (label) updateLabel(drawing.id, label.target, 0, label.text, label.position)
+    }
+    if (Object.keys(style).length) updateStyle(style)
   }
 
   async function save(name: string) {
     const drawing = selectedDrawings.value[0]
-    if (selectedDrawings.value.length !== 1 || !drawing || busy.value) return
-    const style = captureTemplateStyle(drawing, fields.value)
-    if (!style.fill && !style.stroke) return
-    busy.value = true
-    try {
-      const current = await loadDrawingTemplates(drawing.kind)
-      const next = [...current.filter((item) => item.name !== name), { name, style }]
-      if (!(await saveDrawingTemplates(drawing.kind, next))) throw new Error('save failed')
-      if (selectedDrawings.value.length === 1 && selectedDrawings.value[0]?.id === drawing.id) {
-        templates.value = next
-      }
-      showSave.value = false
-    } catch {
-      error.value = '模板保存失败'
-    } finally {
-      busy.value = false
-    }
+    if (selectedDrawings.value.length !== 1 || !drawing) return
+    const template = captureDrawingTemplate(name, drawing, fields.value)
+    if (await persist(template)) showSave.value = false
   }
 
+  async function saveExisting(name: string) {
+    const drawing = selectedDrawings.value[0]
+    if (selectedDrawings.value.length !== 1 || !drawing) return
+    const template = captureDrawingTemplate(name, drawing, fields.value)
+    await persist(template, true)
+  }
+
+  // 保存针对单个图元，选区变化后按钮语义失效，直接收起保存弹窗。
   watch(
     () => selectedDrawings.value.map((drawing) => drawing.id).join('\0'),
     () => {
-      ++loadVersion
-      templates.value = []
       if (!busy.value) showSave.value = false
     },
   )
 
-  return { names, canUse, showSave, busy, error, reload, apply, openSave, save }
+  return {
+    names,
+    canUse,
+    showSave,
+    busy,
+    error,
+    savedName,
+    reload,
+    apply,
+    openSave,
+    save,
+    saveExisting,
+    remove: deleteTemplate,
+  }
 }

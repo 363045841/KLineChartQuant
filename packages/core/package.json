@@ -146,6 +146,7 @@
     "@size-limit/preset-small-lib": "^12.1.0",
     "@types/jsdom": "^30.0.0",
     "@webgpu/types": "^0.1.72",
+    "fake-indexeddb": "^6.2.5",
     "publint": "^0.3.0",
     "size-limit": "^12.1.0",
     "typescript": "~6.0.3",

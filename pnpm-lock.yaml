@@ -336,6 +336,9 @@ importers:
       '@webgpu/types':
         specifier: ^0.1.72
         version: 0.1.72
+      fake-indexeddb:
+        specifier: ^6.2.5
+        version: 6.2.5
       publint:
         specifier: ^0.3.0
         version: 0.3.24

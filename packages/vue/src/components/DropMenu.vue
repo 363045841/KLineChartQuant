@@ -28,20 +28,28 @@
         @keydown.escape.stop.prevent="hide(true)"
         @keydown.down.prevent="focusItem(1)"
         @keydown.up.prevent="focusItem(-1)"
-        @keydown.tab="hide()"
       >
         <div v-for="group in groups" :key="group.id" class="drop-menu__group">
           <div class="drop-menu__heading">{{ group.label }}</div>
-          <button
+          <div
             v-for="item in group.items"
             :key="item.id"
-            type="button"
-            role="menuitem"
-            :disabled="item.disabled"
-            @click="select(group.id, item.id)"
-          >{{ item.label }}</button>
+            class="drop-menu__item"
+          >
+            <button
+              type="button"
+              class="drop-menu__item-main"
+              role="menuitem"
+              :disabled="item.disabled"
+              @click="select(group.id, item.id)"
+            >{{ item.label }}</button>
+            <span v-if="$slots['item-action']" class="drop-menu__item-action">
+              <slot name="item-action" :group="group" :item="item" />
+            </span>
+          </div>
           <div v-if="group.items.length === 0" class="drop-menu__empty">暂无模板</div>
         </div>
+        <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
       </div>
     </Teleport>
   </div>
@@ -66,6 +74,7 @@
     groups: ReadonlyArray<DropMenuGroup>
     disabled?: boolean
     triggerClass?: string
+    message?: string
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -97,7 +106,9 @@
     startPositionSync()
     if (focus)
       void nextTick(() =>
-        menuRef.value?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(),
+        menuRef.value
+          ?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
+          ?.focus(),
       )
   }
 
@@ -115,7 +126,8 @@
 
   function focusItem(direction: number) {
     const items = [
-      ...(menuRef.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []),
+      ...(menuRef.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ??
+        []),
     ]
     if (!items.length) return
     const index = items.indexOf(document.activeElement as HTMLButtonElement)
@@ -175,12 +187,28 @@
     font-size: 11px;
   }
 
-  .drop-menu__group button {
-    display: block;
-    width: 100%;
+  .drop-menu__message {
+    padding: 6px 8px;
+    color: var(--klc-color-ui-danger-text);
+    font-size: 12px;
+  }
+
+  .drop-menu__item {
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+  }
+
+  .drop-menu__item:hover,
+  .drop-menu__item:focus-within {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .drop-menu__item-main {
+    flex: 1;
+    min-width: 0;
     padding: 6px 8px;
     border: 0;
-    border-radius: 4px;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
@@ -190,12 +218,57 @@
     cursor: pointer;
   }
 
-  .drop-menu__group button:hover:not(:disabled),
-  .drop-menu__group button:focus-visible {
-    background: var(--klc-color-ui-hover);
+  .drop-menu__item-action {
+    display: flex;
+    flex: 0 0 auto;
+    visibility: hidden;
   }
 
-  .drop-menu__group button:disabled {
+  .drop-menu__item:hover .drop-menu__item-action,
+  .drop-menu__item:focus-within .drop-menu__item-action {
+    visibility: visible;
+  }
+
+  .drop-menu__item-action :deep(button) {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
+  }
+
+  .drop-menu__item-action :deep(button:hover),
+  .drop-menu__item-action :deep(button:focus-visible) {
+    color: var(--klc-color-ui-text);
+  }
+
+  .drop-menu__item-action :deep(.drop-menu__action--danger:hover),
+  .drop-menu__item-action :deep(.drop-menu__action--danger:focus-visible) {
+    color: var(--klc-color-ui-danger-text);
+  }
+
+  .drop-menu__item-action :deep(button:disabled) {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* 保存成功后的勾选态：保持实色，不随禁用态变淡。 */
+  .drop-menu__item-action :deep(button.drop-menu__action--success:disabled) {
+    color: var(--klc-color-ui-success);
+    opacity: 1;
+  }
+
+  .drop-menu__item-action :deep(svg) {
+    width: 14px;
+    height: 14px;
+  }
+
+  .drop-menu__item-main:disabled {
     opacity: 0.5;
     cursor: default;
   }
