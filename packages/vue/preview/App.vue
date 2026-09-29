@@ -84,6 +84,8 @@
     createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
+  import type { Layer } from '@363045841yyt/klinechart-core'
+  import type { RenderContext } from '@363045841yyt/klinechart-core/plugin'
   import { resolveSettings } from '@363045841yyt/klinechart-core/config'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
@@ -569,6 +571,101 @@
     agentBridge.bindChartAgent(controller.agent)
     currentTheme.value = controller.theme.peek()
     bindDocumentTitle(controller)
+    void loadExternalRenderers(controller)
+  }
+
+  // ── 外部渲染器插件加载点 ──
+  // 宿主声明外部渲染器插件模块 URL 列表（站点内路径或 http/https）：
+  //   1) localStorage['kcq_external_renderers'] = JSON 数组
+  //   2) URL 查询参数 ?externalRenderers=url1,url2
+  // 模块契约：default / renderers / renderer 命名导出 Layer（upstream #277 新契约）
+  // 或旧 draw 插件（迁移期兼容），均可为单对象或数组。
+  // 动态 import 加载；单模块失败仅告警，不影响工作台与其它插件（互相隔离）。
+  // Demo：?externalRenderers=/external-demo-renderer.js（preview/public 原样服务）。
+
+  /** 旧 RendererPlugin 形态的最小 duck 型（upstream #277 已退役该契约）。 */
+  interface LegacyRendererPlugin {
+    name: string
+    paneId?: string | symbol
+    priority?: number
+    draw(context: RenderContext): void
+    onUninstall?(): void
+  }
+
+  /**
+   * 双形态接受（迁移期兼容；旧 draw 形态退役后移除适配分支）：
+   * - Layer 新契约（有 paint + string id）：视为 Layer 原样注册；
+   * - 旧 RendererPlugin（只有 draw）：包一层 Layer 适配器——role=overlay，
+   *   旧 priority 升序后画与 z 语义一致直接映射，dispose 桥接 onUninstall。
+   * 返回注册后的展示名；不合法返回 null。
+   */
+  function registerExternalRenderer(controller: ChartController, item: unknown): string | null {
+    const layer = item as Partial<Layer<RenderContext>> | null
+    if (layer && typeof layer.id === 'string' && typeof layer.paint === 'function') {
+      controller.useRenderer(layer as Layer<RenderContext>)
+      return layer.id
+    }
+    const legacy = item as LegacyRendererPlugin | null
+    if (legacy && typeof legacy.name === 'string' && typeof legacy.draw === 'function') {
+      controller.useRenderer({
+        id: legacy.name,
+        role: 'overlay',
+        pane:
+          typeof legacy.paneId === 'string' && legacy.paneId.length > 0 ? legacy.paneId : 'main',
+        z: typeof legacy.priority === 'number' ? legacy.priority : 0,
+        visible: true,
+        paint(rc) {
+          legacy.draw(rc)
+        },
+        dispose() {
+          legacy.onUninstall?.()
+        },
+      })
+      return legacy.name
+    }
+    return null
+  }
+
+  async function loadExternalRenderers(controller: ChartController) {
+    const sources: string[] = []
+    try {
+      const raw = localStorage.getItem('kcq_external_renderers')
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          sources.push(...parsed.filter((s): s is string => typeof s === 'string' && s.length > 0))
+        }
+      }
+    } catch {
+      // 声明无效时忽略，仅用查询参数
+    }
+    const fromQuery = new URLSearchParams(window.location.search).get('externalRenderers')
+    if (fromQuery) {
+      for (const item of fromQuery.split(',')) {
+        const trimmed = item.trim()
+        if (trimmed) sources.push(trimmed)
+      }
+    }
+    for (const url of sources) {
+      try {
+        // 归一为绝对 URL：dev 管线只放行外部协议的动态 import（相对路径会被
+        // 重写 ?import 进模块图，public/ 资产不在图内而 404）
+        const href = /^https?:\/\//i.test(url) ? url : new URL(url, window.location.href).href
+        const mod: Record<string, unknown> = await import(/* @vite-ignore */ href)
+        const exported = mod.default ?? mod.renderers ?? mod.renderer
+        const list = Array.isArray(exported) ? exported : exported ? [exported] : []
+        for (const item of list) {
+          const registered = registerExternalRenderer(controller, item)
+          if (registered) {
+            console.info(`[preview] external renderer registered: ${registered} (${url})`)
+          } else {
+            console.warn(`[preview] external renderer module has no valid renderer export: ${url}`)
+          }
+        }
+      } catch (error) {
+        console.warn(`[preview] external renderer load failed: ${url}`, error)
+      }
+    }
   }
 
   provideFullscreenTeleportTarget(embedContainerRef)
