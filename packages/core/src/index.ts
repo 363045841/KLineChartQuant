@@ -32,7 +32,9 @@ export {
   type ChartToolSafety,
   getRegisteredChartTools,
   type RegisteredChartTool,
+  registerChartTool,
   Tool,
+  unregisterChartTool,
 } from './foundation/agent/chartToolRegistry.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/persistence/index.js'

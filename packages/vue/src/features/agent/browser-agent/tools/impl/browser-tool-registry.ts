@@ -42,7 +42,13 @@ export class BrowserToolRegistry {
   }
 
   private registerTools(): void {
-    for (const chartTool of getRegisteredChartTools()) {
+    // 内置 Core 工具 + 宿主声明的外部工具源（惰性求值一次；外部宿主/插件经
+    // core registerChartTool 或自持 RegisteredChartTool 登记均可）
+    const chartTools = [
+      ...getRegisteredChartTools(),
+      ...(this.dependencies.extraChartTools?.() ?? []),
+    ]
+    for (const chartTool of chartTools) {
       this.catalog.register({
         ...chartTool.config,
         create: ({ agent, readOnly }) => {

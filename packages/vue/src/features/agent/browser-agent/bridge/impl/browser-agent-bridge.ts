@@ -84,6 +84,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       fetch: fetchBrowserProvider,
       getWebSearchApiKey: () => this.webSearchApiKey(),
       requestQuestion: (request, context) => this.requestQuestion(request, context),
+      extraChartTools: options.extraChartTools,
     })
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
