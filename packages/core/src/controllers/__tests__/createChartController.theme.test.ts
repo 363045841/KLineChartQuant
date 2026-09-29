@@ -38,7 +38,11 @@ describe('createChartController mount theme', () => {
     vi.restoreAllMocks()
   })
 
-  it('opts.theme light overrides the auto settings default', async () => {
+  // 验证新实例默认深色，且调用方仍可显式指定浅色。
+  it.each([
+    { theme: undefined, expected: 'dark' },
+    { theme: 'light', expected: 'light' },
+  ] as const)('挂载参数 $theme 得到 $expected 主题', async ({ theme, expected }) => {
     const container = document.createElement('div')
     Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
     Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
@@ -46,25 +50,26 @@ describe('createChartController mount theme', () => {
 
     const ctrl = await createChartController({
       container,
-      theme: 'light',
+      theme,
     })
 
-    expect(ctrl.settings.peek().theme).toBe('light')
-    expect(ctrl.theme.peek()).toBe('light')
+    expect(ctrl.settings.peek().theme).toBe(expected)
+    expect(ctrl.theme.peek()).toBe(expected)
 
     ctrl.dispose()
     container.remove()
   })
 
-  it('without opts.theme keeps the auto preference and resolves to the system theme', async () => {
+  // 验证显式 auto 偏好仍跟随系统，不受默认深色影响。
+  it('显式 auto 设置保持跟随系统', async () => {
     const container = document.createElement('div')
     Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
     Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
     document.body.appendChild(container)
 
-    const ctrl = await createChartController({ container })
+    const ctrl = await createChartController({ container, settings: { theme: 'auto' } })
 
-    // 偏好默认跟随系统，生效主题由 systemTheme 推导（其初值为 light）。
+    // 生效主题由 systemTheme 推导，其初值为 light。
     expect(ctrl.settings.peek().theme).toBe('auto')
     expect(ctrl.theme.peek()).toBe('light')
 

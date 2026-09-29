@@ -1905,6 +1905,8 @@
 
 <style scoped>
   .chart-wrapper {
+    font-family: var(--klc-typography-font-family);
+    font-variant-numeric: tabular-nums;
     --kmap-height: var(--kmap-chart-height, 100%);
     --kmap-width: var(--kmap-chart-width, 100%);
 

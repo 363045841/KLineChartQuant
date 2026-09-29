@@ -1,4 +1,7 @@
-import type { ColorTokens, ColorValue } from './types.js'
+// 深浅主题的颜色覆盖契约；图表与 UI 共用归一化和解析入口。
+import { findThemePreset } from './presets/impl/themePresets.js'
+import type { ThemePresetId } from './presets/types.js'
+import type { ColorTokens, ColorValue, UiColors } from './types.js'
 
 export type ColorPresetThemeName = 'light' | 'dark'
 
@@ -49,9 +52,33 @@ export interface ColorPresetItem {
   readonly group: 'canvas' | 'candle' | 'axis' | 'interaction'
 }
 
-export type ColorPresetOverrides = Partial<Record<ColorPresetKey, ColorValue>>
+export type ColorPresetOverrides = Partial<Record<ColorPresetKey, ColorValue>> & {
+  ui?: Partial<Record<UiColorPresetKey, ColorValue>>
+}
+
+/** 主题编辑器的基础界面颜色，key 直接对应现有 UI Token。 */
+export const UI_COLOR_PRESET_ITEMS = [
+  { key: 'background', label: '页面背景', group: 'interface' },
+  { key: 'surface', label: '面板背景', group: 'interface' },
+  { key: 'card', label: '卡片背景', group: 'interface' },
+  { key: 'border', label: '界面边框', group: 'interface' },
+  { key: 'accent', label: '按钮与强调色', group: 'interface' },
+  { key: 'controlBackground', label: '控件背景', group: 'interface' },
+  { key: 'input', label: '输入框背景', group: 'interface' },
+  { key: 'hover', label: '悬停背景', group: 'interface' },
+  { key: 'focus', label: '焦点描边', group: 'interface' },
+  { key: 'text', label: '主要文字', group: 'text' },
+  { key: 'muted', label: '辅助文字', group: 'text' },
+  { key: 'onAccent', label: '按钮文字', group: 'text' },
+] as const satisfies ReadonlyArray<{
+  key: keyof UiColors
+  label: string
+  group: 'interface' | 'text'
+}>
+export type UiColorPresetKey = (typeof UI_COLOR_PRESET_ITEMS)[number]['key']
 
 export interface ColorPresetSettings {
+  preset?: ThemePresetId
   light?: ColorPresetOverrides
   dark?: ColorPresetOverrides
 }
@@ -102,50 +129,39 @@ export const COLOR_PRESET_ITEMS: readonly ColorPresetItem[] = [
   { key: 'mtfOverlay', label: '多周期叠加', group: 'interaction' },
 ]
 
-// 白名单 key 集合
-const COLOR_PRESET_KEYS = new Set<ColorPresetKey>(COLOR_PRESET_ITEMS.map((item) => item.key))
+/** 判断外部配置是否为普通键值集合。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
-/**
- * 将传入的颜色预设值归一化为干净的 ColorPresetSettings。
- * 过滤掉非法 key、非字符串颜色、空字符串，只保留 light/dark 两个主题下的有效色值。
- *
- * 从 JSON.parse（localStorage）路径传入时类型会被擦除，运行时仍会执行过滤；
- * 有 TypeScript 保障的调用路径（组件 prop）则同时获得编译期类型检查。
- *
- * @param value - 待归一化的颜色预设
- * @returns 干净的 ColorPresetSettings 对象
- */
-export function normalizeColorPresetSettings(value?: ColorPresetSettings): ColorPresetSettings {
-  // 非法 / 非对象输入直接返回空对象，避免下游取 .light / .dark 报错
-  if (!value || typeof value !== 'object') return {}
-
-  const source = value as Record<string, unknown>
+/** 过滤未知字段与空值，保持旧的平铺图表覆盖格式，并接纳嵌套 UI Token。 */
+export function normalizeColorPresetSettings(value?: unknown): ColorPresetSettings {
+  if (!isRecord(value)) return {}
   const result: ColorPresetSettings = {}
-
-  // 只扫描 light / dark 两个主题，忽略其他无关顶层 key
+  const preset = findThemePreset(value.preset)
+  if (preset) result.preset = preset.id
   for (const themeName of ['light', 'dark'] as const) {
-    const themeOverrides = source[themeName]
-    if (!themeOverrides || typeof themeOverrides !== 'object') continue
-
+    const source = value[themeName]
+    if (!isRecord(source)) continue
     const clean: ColorPresetOverrides = {}
-    for (const [key, color] of Object.entries(themeOverrides as Record<string, unknown>)) {
-      // 只放行 COLOR_PRESET_ITEMS 中登记过的 key + 非空颜色字符串
-      // 三重过滤：白名单 + 类型检查 + 非空校验
-      if (
-        COLOR_PRESET_KEYS.has(key as ColorPresetKey) &&
-        typeof color === 'string' &&
-        color.trim()
-      ) {
-        clean[key as ColorPresetKey] = color
-      }
+    for (const { key } of COLOR_PRESET_ITEMS) {
+      const color = source[key]
+      if (typeof color === 'string' && color.trim()) clean[key] = color
     }
-    // 没有有效改动的 theme 不写入结果，保持对象精简
-    if (Object.keys(clean).length > 0) result[themeName] = clean
+    if (isRecord(source.ui)) {
+      const ui: NonNullable<ColorPresetOverrides['ui']> = {}
+      for (const { key } of UI_COLOR_PRESET_ITEMS) {
+        const color = source.ui[key]
+        if (typeof color === 'string' && color.trim()) ui[key] = color
+      }
+      if (Object.keys(ui).length) clean.ui = ui
+    }
+    if (Object.keys(clean).length) result[themeName] = clean
   }
-
   return result
 }
 
+/** 生成新的颜色快照，嵌套 UI 按字段合并，不污染默认主题或其他实例。 */
 export function applyColorPresetOverrides(
   colors: ColorTokens,
   themeName: ColorPresetThemeName,
@@ -153,5 +169,6 @@ export function applyColorPresetOverrides(
 ): ColorTokens {
   const overrides = settings?.[themeName]
   if (!overrides || Object.keys(overrides).length === 0) return colors
-  return { ...colors, ...overrides }
+  const { ui, ...flatColors } = overrides
+  return { ...colors, ...flatColors, ui: { ...colors.ui, ...ui } }
 }
