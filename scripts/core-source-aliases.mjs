@@ -53,6 +53,9 @@ export function createCoreSourceAliases(coreSrc) {
   const aliases = []
 
   for (const [key, value] of Object.entries(pkg.exports)) {
+    // 通配 export（如 './market-data/sources/*'）指向一组文件而非单文件，
+    // 无法一一映射到单个源文件，跳过即可（源码态无需该别名）。
+    if (key.includes('*')) continue
     const importPath = getImportPath(value)
     if (!importPath) {
       throw new Error(`[core-source-aliases] export "${key}" 没有 import 目标`)

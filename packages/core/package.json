@@ -49,6 +49,14 @@
       "types": "./dist/data/provider/index.d.ts",
       "import": "./dist/data/provider/index.js"
     },
+    "./market-data/sources": {
+      "types": "./dist/data/provider/sources/index.d.ts",
+      "import": "./dist/data/provider/sources/index.js"
+    },
+    "./market-data/sources/*": {
+      "types": "./dist/data/provider/sources/*.d.ts",
+      "import": "./dist/data/provider/sources/*.js"
+    },
     "./plugin": {
       "types": "./dist/foundation/plugin/index.d.ts",
       "import": "./dist/foundation/plugin/index.js"
