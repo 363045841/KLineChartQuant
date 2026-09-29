@@ -144,6 +144,15 @@
                     :drawings="selectedDrawings"
                     :editable-style-keys="selectedDrawingStyleKeys"
                     :line-label-position="isEditingLineLabel ? lineLabelPosition : undefined"
+                    :template-names="canvasTemplateNames"
+                    :template-error="canvasTemplateError"
+                    :template-saved="canvasTemplateSavedName"
+                    :can-use-templates="canUseCanvasTemplates"
+                    @open-templates="reloadCanvasTemplates"
+                    @save-template="openCanvasTemplateSave"
+                    @apply-template="applyCanvasTemplate"
+                    @delete-template="deleteCanvasTemplate"
+                    @save-existing-template="saveCanvasTemplateExisting"
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
                     @toggle-lock="onToggleDrawingLock"
@@ -293,6 +302,13 @@
       @update-text="onUpdateEditingDrawingText"
       @close="showDrawingSettingsDialog = false"
     />
+    <DrawingTemplateSaveDialog
+      :show="showCanvasTemplateSave"
+      :busy="canvasTemplateBusy"
+      :error="canvasTemplateError"
+      @close="showCanvasTemplateSave = false"
+      @save="saveCanvasTemplate"
+    />
     <IndicatorSelector
       ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
@@ -369,6 +385,7 @@
     setEndpoint: setAggregationSourceEndpoint,
   } = useAggregationSources(aggregationSources)
 
+  import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
   import { useChartState } from '../composables/chart/useChartState.js'
   import { useChartTheme } from '../composables/chart/useChartTheme.js'
   import { useControllerSignal } from '../composables/chart/useControllerSignal.js'
@@ -385,6 +402,7 @@
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
+  import DrawingTemplateSaveDialog from './drawing-settings/DrawingTemplateSaveDialog.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
@@ -968,6 +986,25 @@
     onSetGlobalDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
+  const {
+    names: canvasTemplateNames,
+    canUse: canUseCanvasTemplates,
+    showSave: showCanvasTemplateSave,
+    busy: canvasTemplateBusy,
+    error: canvasTemplateError,
+    savedName: canvasTemplateSavedName,
+    reload: reloadCanvasTemplates,
+    apply: applyCanvasTemplate,
+    remove: deleteCanvasTemplate,
+    openSave: openCanvasTemplateSave,
+    save: saveCanvasTemplate,
+    saveExisting: saveCanvasTemplateExisting,
+  } = useCanvasDrawingTemplates(
+    selectedDrawings,
+    selectedDrawingStyleKeys,
+    onUpdateDrawingStyle,
+    updateDrawingLabel,
+  )
   const editingDrawing = computed(() =>
     drawings.value.find((drawing) => drawing.id === editingDrawingId.value),
   )

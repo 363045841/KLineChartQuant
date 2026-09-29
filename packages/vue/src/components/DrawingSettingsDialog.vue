@@ -47,53 +47,32 @@
     <template #footer>
       <div class="template-actions">
         <BaseButton size="sm" :disabled="busy" @click="openSaveTemplate">保存为模板</BaseButton>
-        <div ref="applyMenuRef" class="apply-template">
-          <BaseButton
-            size="sm"
-            :disabled="busy || templates.length === 0"
-            aria-haspopup="menu"
-            :aria-expanded="applyMenuOpen"
-            @click="applyMenuOpen = !applyMenuOpen"
-            @keydown.escape.stop="applyMenuOpen = false"
-          >应用模板</BaseButton>
-          <div v-if="applyMenuOpen" class="apply-template__menu" role="menu" aria-label="应用模板" @keydown.escape.stop="applyMenuOpen = false">
-            <button
-              v-for="(template, index) in templates"
-              :key="template.name"
-              type="button"
-              role="menuitem"
-              @click="applyTemplate(index)"
-            >{{ template.name }}</button>
-          </div>
-        </div>
+        <DrawingTemplateMenu
+          v-if="show"
+          label="应用模板"
+          trigger-class="drawing-template-menu-trigger"
+          :names="templateNames"
+          :can-save="true"
+          :can-apply="templateFields.length > 0"
+          :saved-name="savedName"
+          :disabled="busy || templates.length === 0"
+          @open="reloadTemplates"
+          @apply="applyTemplate"
+          @save-existing="saveExistingTemplate"
+          @remove="deleteTemplate"
+        >
+        </DrawingTemplateMenu>
+        <span v-if="templateError && !savingTemplate" role="alert">{{ templateError }}</span>
       </div>
     </template>
   </BaseModal>
-  <BaseModal
+  <DrawingTemplateSaveDialog
     :show="savingTemplate && show"
-    title="保存图元模板"
-    width="min(92vw, 360px)"
+    :busy="busy"
+    :error="templateError"
     @close="savingTemplate = false"
-  >
-    <form :id="templateFormId" class="template-form" @submit.prevent="saveTemplate">
-      <label :for="`${templateFormId}-name`">模板名称</label>
-      <input
-        :id="`${templateFormId}-name`"
-        v-model.trim="templateName"
-        type="text"
-        maxlength="40"
-        autocomplete="off"
-        autofocus
-      />
-      <span v-if="templateError" class="template-error" role="alert">{{ templateError }}</span>
-    </form>
-    <template #footer>
-      <BaseButton :disabled="busy" @click="savingTemplate = false">取消</BaseButton>
-      <BaseButton type="submit" :form="templateFormId" :disabled="!templateName || busy">
-        保存
-      </BaseButton>
-    </template>
-  </BaseModal>
+    @save="saveTemplate"
+  />
 </template>
 
 <script setup lang="ts">
@@ -103,26 +82,29 @@
     DrawingObject,
     DrawingStyle,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, ref, useId, watch } from 'vue'
+  import {
+    captureDrawingTemplate,
+    resolveTemplateLabel,
+    resolveTemplateStyle,
+    templateStyleFields,
+  } from '@363045841yyt/klinechart-core/engine/drawing'
+  import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
 
-  import { useClickOutside } from '../composables/useClickOutside.js'
+  import { useDrawingTemplates } from '../composables/chart/useDrawingTemplates.js'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
   import ColorInput from './ColorInput.vue'
+  import DrawingTemplateMenu from './DrawingTemplateMenu.vue'
   import {
     type DrawingColorField,
     drawingColorFields,
     drawingSettingsConfigs,
   } from './drawing-settings/config.js'
-  import {
-    type DrawingTemplate,
-    loadDrawingTemplates,
-    saveDrawingTemplates,
-  } from './drawing-settings/templates.js'
+  import DrawingTemplateSaveDialog from './drawing-settings/DrawingTemplateSaveDialog.vue'
 
   const props = defineProps<{
     show: boolean
@@ -135,11 +117,11 @@
     updateText: [target: 'line' | 'area', text: string, position: DrawingLabelPosition]
   }>()
   const activeTab = ref<'style' | 'text'>('style')
-  const templateFormId = useId()
   const config = computed(() => drawingSettingsConfigs[props.drawing.kind])
   const visibleStyleFields = computed(() =>
     config.value.style.filter((field) => props.editableStyleKeys.includes(field)),
   )
+  const templateFields = computed(() => templateStyleFields(props.editableStyleKeys))
   const textTarget = computed(() => config.value.text[0] ?? null)
   function drawingColorValue(field: DrawingColorField): string {
     return props.drawing.style[field] ?? props.drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
@@ -168,70 +150,49 @@
     textPosition.value = position
     if (textDraft.value.trim()) updateText()
   }
-  const templates = ref<DrawingTemplate[]>([])
+  const {
+    templates,
+    names: templateNames,
+    busy,
+    error: templateError,
+    savedName,
+    clearError,
+    reload: reloadTemplates,
+    save: persistTemplate,
+    remove: removeStoredTemplate,
+  } = useDrawingTemplates(computed(() => props.drawing.kind))
   const savingTemplate = ref(false)
-  const templateName = ref('')
-  const templateError = ref('')
-  const busy = ref(false)
-  const applyMenuOpen = ref(false)
-  const applyMenuRef = ref<HTMLElement | null>(null)
-  useClickOutside(
-    () => [applyMenuRef.value],
-    () => {
-      applyMenuOpen.value = false
-    },
-    {
-      enabled: () => applyMenuOpen.value,
-    },
-  )
-
-  let loadVersion = 0
-  async function reloadTemplates() {
-    const version = ++loadVersion
-    const kind = props.drawing.kind
-    const loaded = await loadDrawingTemplates(kind)
-    if (version === loadVersion && kind === props.drawing.kind) templates.value = loaded
-  }
 
   function openSaveTemplate() {
-    applyMenuOpen.value = false
-    templateError.value = ''
-    templateName.value = ''
+    clearError()
     savingTemplate.value = true
   }
 
-  function applyTemplate(index: number) {
-    applyMenuOpen.value = false
-    const template = templates.value[index]
+  function applyTemplate(name: string) {
+    const template = templates.value.find((item) => item.name === name)
     if (!template) return
-    const style: Partial<DrawingStyle> = {}
-    for (const field of visibleStyleFields.value) {
-      if (template.style[field] !== undefined) style[field] = template.style[field]
+    const style = resolveTemplateStyle(template, templateFields.value)
+    const label = resolveTemplateLabel(template, props.drawing)
+    if (label) {
+      textPosition.value = label.position
+      emit('updateText', label.target, label.text, label.position)
     }
-    if (style.fill !== undefined || style.stroke !== undefined) emit('updateStyle', style)
+    if (Object.keys(style).length) emit('updateStyle', style)
   }
 
-  async function saveTemplate() {
-    const name = templateName.value.trim()
-    if (!name || busy.value) return
-    const kind = props.drawing.kind
-    const style: DrawingTemplate['style'] = {}
-    for (const field of visibleStyleFields.value) style[field] = drawingColorValue(field)
-    if (!style.fill && !style.stroke) return
-    const next = [...templates.value.filter((template) => template.name !== name), { name, style }]
-    busy.value = true
-    ++loadVersion
-    try {
-      await saveDrawingTemplates(kind, next)
-      if (kind === props.drawing.kind) templates.value = next
-      savingTemplate.value = false
-      templateError.value = ''
-    } catch (error) {
-      console.error('保存图元模板失败', error)
-      templateError.value = '模板保存失败'
-    } finally {
-      busy.value = false
-    }
+  async function saveTemplate(name: string) {
+    if (!name) return
+    const template = captureDrawingTemplate(name, props.drawing, templateFields.value)
+    if (await persistTemplate(template)) savingTemplate.value = false
+  }
+
+  async function saveExistingTemplate(name: string) {
+    const template = captureDrawingTemplate(name, props.drawing, templateFields.value)
+    await persistTemplate(template, true)
+  }
+
+  async function deleteTemplate(name: string) {
+    await removeStoredTemplate(name)
   }
 
   watch(
@@ -240,9 +201,8 @@
       if (show) {
         activeTab.value = 'style'
         syncTextDraft()
-        applyMenuOpen.value = false
         savingTemplate.value = false
-        templateError.value = ''
+        clearError()
         void reloadTemplates()
       }
     },
@@ -252,10 +212,7 @@
     () => {
       activeTab.value = 'style'
       syncTextDraft()
-      applyMenuOpen.value = false
       savingTemplate.value = false
-      templates.value = []
-      templateError.value = ''
       void reloadTemplates()
     },
   )
@@ -359,65 +316,10 @@
     width: 100%;
   }
 
-  .apply-template {
-    position: relative;
-  }
-
-  .apply-template__menu {
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 0;
-    z-index: 1;
-    min-width: 160px;
-    max-width: min(280px, calc(100vw - 48px));
-    max-height: 240px;
-    overflow-y: auto;
-    padding: 4px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
-    background: var(--klc-color-ui-surface);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  }
-
-  .apply-template__menu button {
-    display: block;
-    width: 100%;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-ui-text);
-    font-size: 13px;
-    text-align: left;
-    overflow-wrap: anywhere;
-    cursor: pointer;
-  }
-
-  .apply-template__menu button:hover,
-  .apply-template__menu button:focus-visible {
-    background: var(--klc-color-ui-hover);
-  }
-
-  .template-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  .template-actions :deep(.drawing-template-menu-trigger) {
+    height: 28px;
+    padding: 0 10px;
     font-size: 13px;
   }
 
-  .template-form input {
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 8px 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-  }
-
-  .template-error {
-    color: var(--klc-color-down, #d33);
-    font-size: 12px;
-  }
 </style>
