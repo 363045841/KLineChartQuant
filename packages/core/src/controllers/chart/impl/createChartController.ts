@@ -263,6 +263,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     // 归一为 undefined：核心 Chart.getRenderer 底层 Scene.getLayer 缺层时返回 null，
     // 与本接口声明的 `T | undefined` 不符，透传处归一防 null 漏进宿主
     getRenderer: (name) => chart.getRenderer(name) ?? undefined,
+    scheduleDraw: (level) => chart.scheduleDraw(level),
     dispose,
   }
 }
