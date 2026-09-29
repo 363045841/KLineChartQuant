@@ -53,8 +53,8 @@ export function createCoreSourceAliases(coreSrc) {
   const aliases = []
 
   for (const [key, value] of Object.entries(pkg.exports)) {
-    // 通配 export（如 './dist/data/provider/sources/*.js'）是构建产物深路径的
-    // 运行时入口，不存在一一对应的单个源文件，跳过即可（源码态无需该别名）。
+    // 通配 export（如 './market-data/sources/*'）指向一组文件而非单文件，
+    // 无法一一映射到单个源文件，跳过即可（源码态无需该别名）。
     if (key.includes('*')) continue
     const importPath = getImportPath(value)
     if (!importPath) {
