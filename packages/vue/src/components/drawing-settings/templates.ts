@@ -1,4 +1,8 @@
-import { createIndexedDbPersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+import {
+  createIndexedDbPersistence,
+  DEFAULT_DRAWING_STROKE,
+  type PersistenceCodec,
+} from '@363045841yyt/klinechart-core'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
 
 import { type DrawingColorField, drawingColorFields } from './config.js'
@@ -8,6 +12,29 @@ type DrawingKind = DrawingObject['kind']
 export type DrawingTemplate = {
   name: string
   style: Partial<Pick<DrawingStyle, DrawingColorField>>
+}
+
+/** Both the settings dialog and the canvas toolbar use the same color-only template contract. */
+export function captureTemplateStyle(
+  drawing: DrawingObject,
+  fields: ReadonlyArray<DrawingColorField>,
+): DrawingTemplate['style'] {
+  const style: DrawingTemplate['style'] = {}
+  for (const field of fields) {
+    style[field] = drawing.style[field] ?? drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
+  }
+  return style
+}
+
+export function applicableTemplateStyle(
+  template: DrawingTemplate,
+  fields: ReadonlyArray<DrawingColorField>,
+): DrawingTemplate['style'] {
+  const style: DrawingTemplate['style'] = {}
+  for (const field of fields) {
+    if (template.style[field] !== undefined) style[field] = template.style[field]
+  }
+  return style
 }
 
 const colorPattern = /^#[0-9a-fA-F]{6}$/

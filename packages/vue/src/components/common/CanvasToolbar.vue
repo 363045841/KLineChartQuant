@@ -79,6 +79,7 @@
   .canvas-toolbar :deep(.toolbar-btn--lock),
   .canvas-toolbar :deep(.toolbar-btn--visibility),
   .canvas-toolbar :deep(.toolbar-btn--copy),
+  .canvas-toolbar :deep(.toolbar-btn--template),
   .canvas-toolbar :deep(.toolbar-btn--settings) {
     width: 26px;
     padding: 0;
@@ -100,6 +101,7 @@
   }
 
   .canvas-toolbar :deep(.lock-icon),
+  .canvas-toolbar :deep(.toolbar-icon),
   .canvas-toolbar :deep(.settings-icon) {
     width: 14px;
     height: 14px;

@@ -1,35 +1,38 @@
 <template>
   <CanvasToolbar>
-    <div v-if="canEdit('stroke')" class="color-item" title="颜色">
-      <span
-        class="color-swatch"
-        :style="{ background: style.stroke ?? DEFAULT_DRAWING_STROKE }"
-      ></span>
-      <input
-        type="color"
-        class="color-input"
-        :value="style.stroke ?? DEFAULT_DRAWING_STROKE"
-        @input="onColorChange(($event.target as HTMLInputElement).value)"
+    <BaseTooltip v-if="canEdit('stroke')" content="颜色" placement="top" trigger-display="contents">
+      <div class="color-item">
+        <span
+          class="color-swatch"
+          :style="{ background: style.stroke ?? DEFAULT_DRAWING_STROKE }"
+        ></span>
+        <input
+          type="color"
+          class="color-input"
+          aria-label="颜色"
+          :value="style.stroke ?? DEFAULT_DRAWING_STROKE"
+          @input="onColorChange(($event.target as HTMLInputElement).value)"
+        />
+      </div>
+    </BaseTooltip>
+
+    <BaseTooltip v-if="canEdit('strokeWidth')" content="线宽" placement="top" trigger-display="contents">
+      <Dropdown
+        :model-value="String(style.strokeWidth ?? 1)"
+        :options="widthOptions"
+        size="sm"
+        @update:model-value="onWidthChange(Number($event))"
       />
-    </div>
+    </BaseTooltip>
 
-    <Dropdown
-      v-if="canEdit('strokeWidth')"
-      :model-value="String(style.strokeWidth ?? 1)"
-      :options="widthOptions"
-      size="sm"
-      title="线宽"
-      @update:model-value="onWidthChange(Number($event))"
-    />
-
-    <Dropdown
-      v-if="canEdit('strokeStyle')"
-      :model-value="style.strokeStyle ?? 'solid'"
-      :options="styleOptions"
-      size="sm"
-      title="线型"
-      @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
-    />
+    <BaseTooltip v-if="canEdit('strokeStyle')" content="线型" placement="top" trigger-display="contents">
+      <Dropdown
+        :model-value="style.strokeStyle ?? 'solid'"
+        :options="styleOptions"
+        size="sm"
+        @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
+      />
+    </BaseTooltip>
 
     <span v-if="drawings.length > 1" class="selection-count">已选 {{ drawings.length }}</span>
 
@@ -40,92 +43,109 @@
       role="group"
       aria-label="文本位置"
     >
-      <button
+      <BaseTooltip
         v-for="option in positionOptions"
         :key="option.value"
-        type="button"
-        class="toolbar-btn label-position__button"
-        :class="{ 'is-active': lineLabelPosition === option.value }"
-        :title="option.label"
-        :aria-label="option.label"
-        :aria-pressed="lineLabelPosition === option.value"
-        @mousedown.prevent
-        @click="emit('updateLineLabelPosition', option.value)"
+        :content="option.label"
+        placement="top"
+        trigger-display="contents"
       >
-        <component :is="option.icon" aria-hidden="true" />
-      </button>
+        <button
+          type="button"
+          class="toolbar-btn label-position__button"
+          :class="{ 'is-active': lineLabelPosition === option.value }"
+          :aria-label="option.label"
+          :aria-pressed="lineLabelPosition === option.value"
+          @mousedown.prevent
+          @click="emit('updateLineLabelPosition', option.value)"
+        >
+          <component :is="option.icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
-    <button
-      v-if="drawings.length === 1"
-      type="button"
-      class="toolbar-btn toolbar-btn--settings"
-      title="图元设置"
-      aria-label="图元设置"
-      @click="emit('openSettings', drawings[0]!.id)"
-    >
-      <IconTablerSettings class="settings-icon" aria-hidden="true" />
-    </button>
-
-    <button
+    <DropMenu
       v-if="drawings.length > 0"
-      type="button"
-      class="toolbar-btn toolbar-btn--copy"
-      title="复制所选图元"
-      aria-label="复制所选图元"
-      @click="emit('copy')"
+      label="模板"
+      :groups="templateGroups"
+      trigger-class="toolbar-btn toolbar-btn--template"
+      @open="emit('openTemplates')"
+      @select="onTemplateAction"
     >
-      <IconTablerCopy class="lock-icon" aria-hidden="true" />
-    </button>
+      <template #trigger><IconTablerBookmarks class="toolbar-icon" aria-hidden="true" /></template>
+    </DropMenu>
 
-    <button
-      v-if="drawings.length > 0"
-      type="button"
-      class="toolbar-btn toolbar-btn--visibility"
-      title="隐藏所选图元"
-      aria-label="隐藏所选图元"
-      @click="emit('hide')"
-    >
-      <IconTablerEyeOff class="lock-icon" aria-hidden="true" />
-    </button>
+    <BaseTooltip v-if="drawings.length === 1" content="图元设置" placement="top" trigger-display="contents">
+      <button
+        type="button"
+        class="toolbar-btn toolbar-btn--settings"
+        aria-label="图元设置"
+        @click="emit('openSettings', drawings[0]!.id)"
+      >
+        <IconTablerSettings class="settings-icon" aria-hidden="true" />
+      </button>
+    </BaseTooltip>
 
-    <button
-      v-if="drawings.length > 0"
-      type="button"
-      class="toolbar-btn toolbar-btn--lock"
-      :class="{ 'is-locked': allLocked }"
-      :title="allLocked ? '解锁' : '锁定'"
-      :aria-label="allLocked ? '解锁' : '锁定'"
-      @click="onToggleLock"
-    >
-      <IconTablerLock v-if="allLocked" class="lock-icon" aria-hidden="true" />
-      <IconTablerLockOpen v-else class="lock-icon" aria-hidden="true" />
-    </button>
+    <BaseTooltip v-if="drawings.length > 0" content="复制所选图元" placement="top" trigger-display="contents">
+      <button
+        type="button"
+        class="toolbar-btn toolbar-btn--copy"
+        aria-label="复制所选图元"
+        @click="emit('copy')"
+      >
+        <IconTablerCopy class="lock-icon" aria-hidden="true" />
+      </button>
+    </BaseTooltip>
+
+    <BaseTooltip v-if="drawings.length > 0" content="隐藏所选图元" placement="top" trigger-display="contents">
+      <button
+        type="button"
+        class="toolbar-btn toolbar-btn--visibility"
+        aria-label="隐藏所选图元"
+        @click="emit('hide')"
+      >
+        <IconTablerEyeOff class="lock-icon" aria-hidden="true" />
+      </button>
+    </BaseTooltip>
+
+    <BaseTooltip v-if="drawings.length > 0" :content="allLocked ? '解锁' : '锁定'" placement="top" trigger-display="contents">
+      <button
+        type="button"
+        class="toolbar-btn toolbar-btn--lock"
+        :class="{ 'is-locked': allLocked }"
+        :aria-label="allLocked ? '解锁' : '锁定'"
+        @click="onToggleLock"
+      >
+        <IconTablerLock v-if="allLocked" class="lock-icon" aria-hidden="true" />
+        <IconTablerLockOpen v-else class="lock-icon" aria-hidden="true" />
+      </button>
+    </BaseTooltip>
 
     <!-- 锁定只冻结几何拖动与删除；样式等编辑照常可用。 -->
-    <button
-      v-if="drawings.length > 0"
-      type="button"
-      class="toolbar-btn toolbar-btn--delete"
-      title="删除"
-      :disabled="allLocked"
-      @click="$emit('delete')"
-    >
-      <svg
-        class="delete-icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+    <BaseTooltip v-if="drawings.length > 0" content="删除" placement="top" trigger-display="contents">
+      <button
+        type="button"
+        class="toolbar-btn toolbar-btn--delete"
+        aria-label="删除"
+        :disabled="allLocked"
+        @click="$emit('delete')"
       >
-        <path d="M3 6h18" />
-        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      </svg>
-    </button>
+        <svg
+          class="delete-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 6h18" />
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </svg>
+      </button>
+    </BaseTooltip>
   </CanvasToolbar>
 </template>
 
@@ -145,8 +165,11 @@
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerSettings from '~icons/tabler/settings'
+  import IconTablerBookmarks from '~icons/tabler/bookmarks'
   import CanvasToolbar from './common/CanvasToolbar.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import Dropdown from './Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
 
   const widthOptions = [
     { label: '1px', value: '1' },
@@ -167,11 +190,16 @@
     { value: 'end', label: '终点', icon: IconTablerAlignRight },
   ] as const
 
-  const props = defineProps<{
-    drawings: ReadonlyArray<DrawingObject>
-    editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
-    lineLabelPosition?: DrawingLabelPosition
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      drawings: ReadonlyArray<DrawingObject>
+      editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
+      lineLabelPosition?: DrawingLabelPosition
+      templateNames?: ReadonlyArray<string>
+      canUseTemplates?: boolean
+    }>(),
+    { canUseTemplates: true },
+  )
 
   const emit = defineEmits<{
     (e: 'updateStyle', style: Partial<DrawingStyle>): void
@@ -181,7 +209,36 @@
     (e: 'copy'): void
     (e: 'updateLineLabelPosition', position: DrawingLabelPosition): void
     (e: 'openSettings', drawingId: string): void
+    (e: 'openTemplates'): void
+    (e: 'saveTemplate'): void
+    (e: 'applyTemplate', name: string): void
   }>()
+
+  const templateGroups = computed<DropMenuGroup[]>(() => [
+    ...(props.drawings.length === 1
+      ? [
+          {
+            id: 'save',
+            label: '保存',
+            items: [{ id: 'save', label: '保存为模板', disabled: !props.canUseTemplates }],
+          },
+        ]
+      : []),
+    {
+      id: 'apply',
+      label: '应用模板',
+      items: (props.templateNames ?? []).map((name) => ({
+        id: name,
+        label: name,
+        disabled: !props.canUseTemplates,
+      })),
+    },
+  ])
+
+  function onTemplateAction(group: string, name: string) {
+    if (group === 'save' && props.drawings.length === 1) emit('saveTemplate')
+    else if (group === 'apply') emit('applyTemplate', name)
+  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return

@@ -69,31 +69,13 @@
       </div>
     </template>
   </BaseModal>
-  <BaseModal
+  <DrawingTemplateSaveDialog
     :show="savingTemplate && show"
-    title="保存图元模板"
-    width="min(92vw, 360px)"
+    :busy="busy"
+    :error="templateError"
     @close="savingTemplate = false"
-  >
-    <form :id="templateFormId" class="template-form" @submit.prevent="saveTemplate">
-      <label :for="`${templateFormId}-name`">模板名称</label>
-      <input
-        :id="`${templateFormId}-name`"
-        v-model.trim="templateName"
-        type="text"
-        maxlength="40"
-        autocomplete="off"
-        autofocus
-      />
-      <span v-if="templateError" class="template-error" role="alert">{{ templateError }}</span>
-    </form>
-    <template #footer>
-      <BaseButton :disabled="busy" @click="savingTemplate = false">取消</BaseButton>
-      <BaseButton type="submit" :form="templateFormId" :disabled="!templateName || busy">
-        保存
-      </BaseButton>
-    </template>
-  </BaseModal>
+    @save="saveTemplate"
+  />
 </template>
 
 <script setup lang="ts">
@@ -103,7 +85,7 @@
     DrawingObject,
     DrawingStyle,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, ref, useId, watch } from 'vue'
+  import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
@@ -118,7 +100,10 @@
     drawingColorFields,
     drawingSettingsConfigs,
   } from './drawing-settings/config.js'
+  import DrawingTemplateSaveDialog from './drawing-settings/DrawingTemplateSaveDialog.vue'
   import {
+    applicableTemplateStyle,
+    captureTemplateStyle,
     type DrawingTemplate,
     loadDrawingTemplates,
     saveDrawingTemplates,
@@ -135,7 +120,6 @@
     updateText: [target: 'line' | 'area', text: string, position: DrawingLabelPosition]
   }>()
   const activeTab = ref<'style' | 'text'>('style')
-  const templateFormId = useId()
   const config = computed(() => drawingSettingsConfigs[props.drawing.kind])
   const visibleStyleFields = computed(() =>
     config.value.style.filter((field) => props.editableStyleKeys.includes(field)),
@@ -170,7 +154,6 @@
   }
   const templates = ref<DrawingTemplate[]>([])
   const savingTemplate = ref(false)
-  const templateName = ref('')
   const templateError = ref('')
   const busy = ref(false)
   const applyMenuOpen = ref(false)
@@ -196,7 +179,6 @@
   function openSaveTemplate() {
     applyMenuOpen.value = false
     templateError.value = ''
-    templateName.value = ''
     savingTemplate.value = true
   }
 
@@ -204,25 +186,20 @@
     applyMenuOpen.value = false
     const template = templates.value[index]
     if (!template) return
-    const style: Partial<DrawingStyle> = {}
-    for (const field of visibleStyleFields.value) {
-      if (template.style[field] !== undefined) style[field] = template.style[field]
-    }
+    const style = applicableTemplateStyle(template, visibleStyleFields.value)
     if (style.fill !== undefined || style.stroke !== undefined) emit('updateStyle', style)
   }
 
-  async function saveTemplate() {
-    const name = templateName.value.trim()
+  async function saveTemplate(name: string) {
     if (!name || busy.value) return
     const kind = props.drawing.kind
-    const style: DrawingTemplate['style'] = {}
-    for (const field of visibleStyleFields.value) style[field] = drawingColorValue(field)
+    const style = captureTemplateStyle(props.drawing, visibleStyleFields.value)
     if (!style.fill && !style.stroke) return
     const next = [...templates.value.filter((template) => template.name !== name), { name, style }]
     busy.value = true
     ++loadVersion
     try {
-      await saveDrawingTemplates(kind, next)
+      if (!(await saveDrawingTemplates(kind, next))) throw new Error('Template was not saved')
       if (kind === props.drawing.kind) templates.value = next
       savingTemplate.value = false
       templateError.value = ''
@@ -398,26 +375,4 @@
     background: var(--klc-color-ui-hover);
   }
 
-  .template-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    font-size: 13px;
-  }
-
-  .template-form input {
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 8px 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-  }
-
-  .template-error {
-    color: var(--klc-color-down, #d33);
-    font-size: 12px;
-  }
 </style>

@@ -2,10 +2,44 @@
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 import { createDrawingObject } from '../__tests__/_drawingFixture'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 
 describe('DrawingStyleToolbar 按钮', () => {
+  it('空模板也能保存；多选只提供应用，模板名与保存动作同名仍可区分', async () => {
+    const wrapper = mount(DrawingStyleToolbar, {
+      attachTo: document.body,
+      props: {
+        drawings: [createDrawingObject('a')],
+        editableStyleKeys: ['stroke'],
+        templateNames: [],
+      },
+    })
+    const menuItems = () => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+    try {
+      await wrapper.get('[aria-label="模板"]').trigger('click')
+      await nextTick()
+      expect(menuItems().map((item) => item.textContent?.trim())).toEqual(['保存为模板'])
+      menuItems()[0]!.click()
+      await nextTick()
+      expect(wrapper.emitted('saveTemplate')).toHaveLength(1)
+
+      await wrapper.setProps({
+        drawings: [createDrawingObject('a'), createDrawingObject('b')],
+        templateNames: ['save'],
+      })
+      await wrapper.get('[aria-label="模板"]').trigger('click')
+      await nextTick()
+      expect(menuItems().map((item) => item.textContent?.trim())).toEqual(['save'])
+      menuItems()[0]!.click()
+      await nextTick()
+      expect(wrapper.emitted('applyTemplate')).toEqual([['save']])
+      expect(wrapper.emitted('saveTemplate')).toHaveLength(1)
+    } finally {
+      wrapper.unmount()
+    }
+  })
   it('单选和多选都可复制，空选择不显示复制按钮', async () => {
     const wrapper = mount(DrawingStyleToolbar, {
       props: { drawings: [createDrawingObject('a', true)], editableStyleKeys: [] },
@@ -44,7 +78,7 @@ describe('DrawingStyleToolbar 按钮', () => {
     })
 
     const lockButton = wrapper.get('.toolbar-btn--lock')
-    expect(lockButton.attributes('title')).toBe(title)
+    expect(lockButton.attributes('aria-label')).toBe(title)
 
     await lockButton.trigger('click')
     expect(wrapper.emitted('toggleLock')).toEqual([[next]])
