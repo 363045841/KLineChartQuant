@@ -652,7 +652,14 @@
         // 重写 ?import 进模块图，public/ 资产不在图内而 404）
         const href = /^https?:\/\//i.test(url) ? url : new URL(url, window.location.href).href
         const mod: Record<string, unknown> = await import(/* @vite-ignore */ href)
-        const exported = mod.default ?? mod.renderers ?? mod.renderer
+        let exported = mod.default ?? mod.renderers ?? mod.renderer
+        // 工厂形态：default 为 (host: { controller }) => RendererPlugin | RendererPlugin[]，
+        // 供插件读取品种（controller.symbols）/订阅信号等宿主能力
+        if (typeof exported === 'function') {
+          exported = (exported as (host: { controller: ChartController }) => unknown)({
+            controller,
+          })
+        }
         const list = Array.isArray(exported) ? exported : exported ? [exported] : []
         for (const item of list) {
           const registered = registerExternalRenderer(controller, item)
