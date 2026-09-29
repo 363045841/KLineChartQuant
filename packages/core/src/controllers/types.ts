@@ -28,12 +28,15 @@ import type {
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
+import type { UpdateLevel } from '../engine/layout/pane.js'
 import type { CreatePaneInput, PanePatch } from '../engine/paneManager.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
+import type { RenderContext } from '../foundation/plugin/index.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
+import type { Layer } from '../rendering/scene/types.js'
 
 export {
   FIVE_DAY_TIME_SHARE_DAYS,
@@ -513,6 +516,18 @@ export interface ChartController extends DrawingChartAdapter {
   zoomToLevel(level: number, anchorX?: number): void
   zoomIn(anchorX?: number): void
   zoomOut(anchorX?: number): void
+
+  // ---- Renderer layers（唯一绘制契约：Layer，见 rendering/scene/types）----
+  /**
+   * 注册渲染器 Layer（幂等，首个同 id Layer 胜出）；宿主业务 overlay 图层入口。
+   * 需要 getRenderer/removeRenderer 按名称寻址的 Layer，id 用 `plugin:${name}`
+   * （与核心 Chart 的 makePluginLayerId 约定一致）。
+   */
+  useRenderer(layer: Layer<RenderContext>): void
+  /** 按名称移除渲染器 Layer（寻址 `plugin:${name}`）。 */
+  removeRenderer(name: string): void
+  /** 获取已注册渲染器 Layer（寻址 `plugin:${name}`）。 */
+  getRenderer<T extends Layer<RenderContext> = Layer<RenderContext>>(name: string): T | undefined
 
   // ---- Interaction ----
   handlePointerEvent(e: PointerEvent, drawingController?: DrawingControllerCallbacks): boolean
