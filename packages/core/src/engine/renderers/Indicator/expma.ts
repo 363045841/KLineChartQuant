@@ -1,13 +1,9 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcEXPMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
@@ -18,9 +14,9 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { EXPMARenderState } from '../../indicators/state/expmaState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -87,11 +83,8 @@ const composeEXPMARenderState: IndicatorRenderStateComposer = (
   }
 }
 
-export function createEXPMARendererPlugin(
-  options: EXPMARendererOptions = {},
-): RendererPluginWithHost {
+export function createEXPMALayer(options: EXPMARendererOptions = {}): Layer<RenderContext> {
   const { instanceId } = options
-  let pluginHost: PluginHost | null = null
   let cachedKey = ''
   let cachedFastPoints: LinePoint[] = []
   let cachedSlowPoints: LinePoint[] = []
@@ -102,23 +95,11 @@ export function createEXPMARendererPlugin(
     cachedSlowPoints = []
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: 'expma',
-    version: '2.1.0',
-    description: 'EXPMA 指数平滑移动平均线渲染器（带绘制缓存）',
-    debugName: 'EXPMA',
     paneId: 'main',
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost): void {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces(): string[] {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
@@ -201,17 +182,7 @@ export function createEXPMARendererPlugin(
 
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<EXPMARenderState>(instanceId)
-      return state ? { ...state.params } : {}
-    },
-
-    setConfig(_newConfig: Record<string, unknown>) {},
-  }
+  })
 }
 
 const getEXPMATitleInfo: GetTitleInfoFn = (
@@ -260,5 +231,5 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   getTitleInfo: getEXPMATitleInfo,
 })
 export class EXPMADefinition {
-  static rendererFactory = createEXPMARendererPlugin
+  static rendererFactory = createEXPMALayer
 }

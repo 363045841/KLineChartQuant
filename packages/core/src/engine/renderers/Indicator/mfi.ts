@@ -1,44 +1,29 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcMFIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MFIRenderState } from '../../indicators/state/mfiState.js'
 import { EMPTY_MFI_STATE } from '../../indicators/state/mfiState.js'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function createMFIRendererPlugin(
+function createMFILayer(
   options: { paneId?: string; instanceId?: string } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_MFI', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `mfi_${paneId}`,
-    version: '1.1.0',
-    description: 'MFI 资金流强弱渲染器（WebGL + Canvas2D 回退，80/20 超买超卖线）',
-    debugName: 'MFI',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -106,15 +91,7 @@ function createMFIRendererPlugin(
       ctx.stroke()
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<MFIRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 const getMFITitleInfo = createSingleLineTitleInfo({
@@ -141,5 +118,5 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   },
 })
 export class MFIIndicatorDefinition {
-  static rendererFactory = createMFIRendererPlugin
+  static rendererFactory = createMFILayer
 }

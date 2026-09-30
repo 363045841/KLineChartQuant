@@ -1,44 +1,29 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcStructureData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { StructureRenderState } from '../../indicators/state/structureState.js'
 import { EMPTY_STRUCTURE_STATE } from '../../indicators/state/structureState.js'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 const LABEL_FONT = '11px sans-serif'
 
-function createStructureRendererPlugin(
+function createStructureLayer(
   options: { paneId?: string; instanceId?: string } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_Structure', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `structure_${paneId}`,
-    version: '1.0.0',
-    description: 'SMC 结构渲染器（swing 标签 + BOS/CHOCH 触发线）',
-    debugName: 'Structure',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -108,15 +93,7 @@ function createStructureRendererPlugin(
 
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<StructureRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function getStructureTitleInfo(
@@ -188,5 +165,5 @@ function getStructureTitleInfo(
   },
 })
 export class StructureIndicatorDefinition {
-  static rendererFactory = createStructureRendererPlugin
+  static rendererFactory = createStructureLayer
 }

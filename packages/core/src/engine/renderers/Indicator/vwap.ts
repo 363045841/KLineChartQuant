@@ -1,44 +1,29 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcVWAPData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { VWAPRenderState } from '../../indicators/state/vwapState.js'
 import { EMPTY_VWAP_STATE } from '../../indicators/state/vwapState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function createVWAPRendererPlugin(
+function createVWAPLayer(
   options: { paneId?: string; instanceId?: string } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_VWAP', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `vwap_${paneId}`,
-    version: '1.1.0',
-    description: 'VWAP 成交量加权均价渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'VWAP',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -87,15 +72,7 @@ function createVWAPRendererPlugin(
       ctx.stroke()
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<VWAPRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 const getVWAPTitleInfo = createSingleLineTitleInfo({
@@ -121,5 +98,5 @@ const getVWAPTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class VWAPIndicatorDefinition {
-  static rendererFactory = createVWAPRendererPlugin
+  static rendererFactory = createVWAPLayer
 }

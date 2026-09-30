@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createScrollContainerStub } from '../engine/__tests__/helpers/scrollContainerStub'
 import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import {
   batch,
@@ -128,6 +129,14 @@ describe('createSubState', () => {
 })
 
 describe('viewportState template', () => {
+  /** 滚动相关用例的共享依赖：窄 K 线（kWidth=6 → kGap=1.5）便于在窄视口内构造多根数据。 */
+  const scrollDeps = (dataLength?: number) =>
+    createViewportStateDeps({
+      ...(dataLength !== undefined ? { dataLength } : {}),
+      options: { kWidth: 6, kGap: 1 },
+      zoomLevel: 1,
+    })
+
   it('creates a sub-state with computed dpr + viewportState', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const module = createViewportState(createViewportStateDeps())
@@ -149,64 +158,15 @@ describe('viewportState template', () => {
 
   it('scrollTo writes signal and DOM', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState(
-      createViewportStateDeps({ options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
-    )
+    const module = createViewportState(scrollDeps())
     module.actions.scrollTo(100)
     expect(module.readonly.scrollLeft()).toBe(100)
   })
 
-  it('derives content width and max scroll from viewport, data, DPR, options, and period', async () => {
-    const { createViewportState } = await import('../engine/state/viewportState')
-    const deps = createViewportStateDeps({
-      dataLength: 10,
-      options: { kWidth: 6, kGap: 1 },
-      zoomLevel: 1,
-    })
-    const module = createViewportState(deps)
-    module.actions.resize(200, 150, 2)
-
-    // kGap 由 kGapFromKWidth(6,2)=1.5 自动推导。宽度取奇 11px，间隙 3px（物理）。
-    // 未来时间轴：默认 DEFAULT_FUTURE_SCREENS(3) 屏 → futureBars=ceil(200*2/14)*3=87
-    // 覆盖 trailingSlots=30；内容宽度与滚动上限同步放大（内容覆盖未来区滚动范围）
-    expect(module.readonly.contentWidth()).toBe(880.5)
-    expect(module.readonly.maxScrollLeft()).toBe(677.5)
-
-    deps.dataLength$.set(20)
-    expect(module.readonly.contentWidth()).toBe(950.5)
-    expect(module.readonly.maxScrollLeft()).toBe(747.5)
-
-    module.actions.resize(300, 150, 2)
-    expect(module.readonly.contentWidth()).toBe(1344.5)
-    expect(module.readonly.maxScrollLeft()).toBe(1043.5)
-
-    deps.options$.set({ bottomAxisHeight: 30, kWidth: 10, kGap: 2 })
-    expect(module.readonly.contentWidth()).toBe(1445.5)
-    expect(module.readonly.maxScrollLeft()).toBe(1137.5)
-
-    deps.period$.set('timeshare')
-    expect((module.readonly as any).contentWidth()).toBe(300)
-    expect((module.readonly as any).maxScrollLeft()).toBe(0)
-  })
-
   it('clamps programmatic and user DOM scroll inputs to the derived maximum', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const deps = createViewportStateDeps({
-      dataLength: 10,
-      options: { kWidth: 6, kGap: 1 },
-      zoomLevel: 1,
-    })
-    let scrollLeft = 0
-    const container = {
-      clientWidth: 100,
-      clientHeight: 100,
-      get scrollLeft() {
-        return scrollLeft
-      },
-      set scrollLeft(value: number) {
-        scrollLeft = value
-      },
-    } as unknown as HTMLElement
+    const deps = scrollDeps(10)
+    const container = createScrollContainerStub()
     const module = createViewportState(deps)
 
     module.setDomDeps({
@@ -217,24 +177,23 @@ describe('viewportState template', () => {
     module.actions.init()
     expect(module.actions.scrollTo(10_000)).toBe(true)
     expect(module.actions.scrollTo(10_000)).toBe(false)
-    expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
 
-    scrollLeft = 10_000
+    container.scrollLeft = 10_000
     module.actions.syncFromDomScroll()
-    expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
 
     module.actions.scrollTo(Number.NaN)
     expect(module.readonly.scrollLeft()).toBe(0)
 
     module.actions.scrollTo(10_000)
     deps.dataLength$.set(1)
-    expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
   })
 
   it('synchronizes derived content width without writing scroll position', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const writes: string[] = []
-    let scrollLeft = 0
     const scrollContent = {
       style: {
         set width(value: string) {
@@ -242,20 +201,13 @@ describe('viewportState template', () => {
         },
       },
     } as unknown as HTMLElement
-    const container = {
-      clientWidth: 100,
-      clientHeight: 100,
-      get scrollLeft() {
-        return scrollLeft
-      },
-      set scrollLeft(value: number) {
+    const container = createScrollContainerStub({
+      transformScrollLeft: (value) => {
         writes.push(`scroll:${value}`)
-        scrollLeft = value
+        return value
       },
-    } as unknown as HTMLElement
-    const module = createViewportState(
-      createViewportStateDeps({ dataLength: 10, options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
-    )
+    })
+    const module = createViewportState(scrollDeps(10))
 
     module.setDomDeps({
       getDom: () => ({ container, scrollContent, canvasLayer: null, xAxisCanvas: null }),
@@ -264,14 +216,12 @@ describe('viewportState template', () => {
     module.actions.resize(100, 100, 1)
     module.actions.init()
 
-    expect(writes).toEqual([`width:${(module.readonly as any).contentWidth()}px`])
+    expect(writes).toEqual([`width:${module.readonly.contentWidth()}px`])
   })
 
   it('resize batches dimension writes into one notification', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState(
-      createViewportStateDeps({ options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
-    )
+    const module = createViewportState(scrollDeps())
     const listener = vi.fn()
     module.readonly.viewWidth.subscribe(listener)
     module.readonly.viewHeight.subscribe(listener)

@@ -20,6 +20,7 @@ import type {
   TimeShareSeries,
   TradingDate,
 } from './types.js'
+import { isFilterableAssetClass } from './types.js'
 
 /** Router 识别的统一品种身份，不包含任何 Provider 私有路由字段。 */
 export interface SourceRouterInstrumentIdentity {
@@ -156,7 +157,8 @@ async function resolveInstrument(
   const candidates = await provider.catalog.search({
     keyword: identity.symbol,
     limit: 20,
-    assetClasses: identity.assetClass ? [identity.assetClass] : undefined,
+    // unknown 不参与筛选：传 unknown 会误杀已归一化到已知类别的同代码品种。
+    assetClasses: isFilterableAssetClass(identity.assetClass) ? [identity.assetClass] : undefined,
     signal,
   })
   const instrument = candidates.find(

@@ -1,8 +1,3 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { createLayerFromPlugin } from '@/rendering/scene/createLayerFromPlugin.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createCustomMarkersRenderer } from '../../renderers/customMarkers.js'
+/** 自定义标记 Layer：绘制体已迁入 renderers/customMarkers.ts，这里仅保持既有 import 路径。 */
 
-export function createCustomMarkersLayer(getContext: () => RenderContext | null): Layer {
-  return createLayerFromPlugin(createCustomMarkersRenderer(), getContext, 'global')
-}
+export { createCustomMarkersLayer } from '../../renderers/customMarkers.js'

@@ -1,44 +1,29 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcPVTData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { PVTRenderState } from '../../indicators/state/pvtState.js'
 import { EMPTY_PVT_STATE } from '../../indicators/state/pvtState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 
-function createPVTRendererPlugin(
+function createPVTLayer(
   options: { paneId?: string; instanceId?: string } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_PVT', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `pvt_${paneId}`,
-    version: '1.1.0',
-    description: 'PVT 量价趋势渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'PVT',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -87,15 +72,7 @@ function createPVTRendererPlugin(
       ctx.stroke()
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<PVTRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 const getPVTTitleInfo = createSingleLineTitleInfo({
@@ -121,5 +98,5 @@ const getPVTTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class PVTIndicatorDefinition {
-  static rendererFactory = createPVTRendererPlugin
+  static rendererFactory = createPVTLayer
 }

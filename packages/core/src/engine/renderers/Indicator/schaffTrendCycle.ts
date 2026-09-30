@@ -2,26 +2,20 @@
  * Schaff Trend Cycle 指标渲染器：负责副图零轴、单线绘制和指标元数据声明。
  */
 
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcSchaffTrendCycleData } from '../../indicators/calculators/schaffTrendCycle.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SchaffTrendCycleRenderState } from '../../indicators/state/schaffTrendCycleState.js'
 import { EMPTY_SCHAFF_TREND_CYCLE_STATE } from '../../indicators/state/schaffTrendCycleState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-
-import { createSchaffTrendCycleScaleRendererPlugin } from './scale/schaffTrendCycle_scale.js'
+import { createSchaffTrendCycleScaleLayer } from './scale/schaffTrendCycle_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -38,12 +32,10 @@ interface SchaffTrendCycleRendererOptions {
  * @param options 渲染器配置。
  * @returns STC 渲染器插件。
  */
-function createSchaffTrendCycleRendererPlugin(
+function createSchaffTrendCycleLayer(
   options: SchaffTrendCycleRendererOptions = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_STC', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   let cachedKey = ''
   let cachedSTCPoints: LinePoint[] = []
   let offscreenCanvas: HTMLCanvasElement | null = null
@@ -171,26 +163,11 @@ function createSchaffTrendCycleRendererPlugin(
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `schaffTrendCycle_${paneId}`,
-    version: '2.1.0',
-    description: 'STC Schaff 趋势周期渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'STC',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    /** 保存插件宿主，供绘制时读取共享状态。 */
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    /** 声明此渲染器拥有的状态命名空间。 */
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    /** 绘制 STC 零轴和主折线。 */
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -285,19 +262,7 @@ function createSchaffTrendCycleRendererPlugin(
         )
       }
     },
-
-    /** 返回当前 STC 配置。 */
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<SchaffTrendCycleRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    /** 配置由外部统一更新。 */
-    setConfig() {},
-  }
+  })
 }
 
 /**
@@ -352,7 +317,7 @@ const getSchaffTrendCycleTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_STC',
-  scaleRendererFactory: createSchaffTrendCycleScaleRendererPlugin,
+  scaleRendererFactory: createSchaffTrendCycleScaleLayer,
   visibleState: {
     compose: createPaddedSparseVisibleStateComposer(
       'schaffTrendCycle',
@@ -368,5 +333,5 @@ const getSchaffTrendCycleTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class SchaffTrendCycleIndicatorDefinition {
-  static rendererFactory = createSchaffTrendCycleRendererPlugin
+  static rendererFactory = createSchaffTrendCycleLayer
 }

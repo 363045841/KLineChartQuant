@@ -7,6 +7,7 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
+import type { MARenderState } from '@/core/indicators/state/maState'
 import { createAxisLabelsFrame } from '@/engine/axisLabels/index'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
@@ -129,6 +130,19 @@ export function createMockCanvasContext(): MockCanvasContext {
   return ctx as unknown as MockCanvasContext
 }
 
+/** 读取 ctx 上所有 fillText 文本，统一转字符串便于断言。 */
+function getFillTexts(ctx: CanvasRenderingContext2D): string[] {
+  return vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text))
+}
+
+/** 统计 fillText 文本满足给定条件的调用次数。 */
+export function countFillTexts(
+  ctx: CanvasRenderingContext2D,
+  matches: (text: string) => boolean,
+): number {
+  return getFillTexts(ctx).filter(matches).length
+}
+
 /** 默认 PaneInfo 能力开关（price 角色）。 */
 const DEFAULT_PANE_CAPABILITIES: PaneInfo['capabilities'] = {
   showPriceAxisTicks: true,
@@ -217,6 +231,44 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
   return {
     ...defaults,
     ...rest,
+  }
+}
+
+/** 构造只按 instanceId 命中状态的帧上下文，覆盖项声明差异。 */
+export function createContextWithInstanceState<T>(
+  ctx: CanvasRenderingContext2D,
+  instanceId: string,
+  state: T | undefined,
+  overrides: MockRenderContextOverrides = {},
+): RenderContext {
+  return createMockRenderContext({
+    ctx,
+    indicatorStateReader: createMockStateReader(instanceId, state),
+    ...overrides,
+  })
+}
+
+/** 构造测试用 MARenderState：默认 100 根、5 个周期，并保留各周期不同的预热窗口。 */
+export function createMARenderState(overrides: Partial<MARenderState> = {}): MARenderState {
+  const series: Record<number, (number | undefined)[]> = {
+    5: Array.from({ length: DEFAULT_BAR_COUNT }, () => 105),
+    10: Array.from({ length: DEFAULT_BAR_COUNT }, () => 110),
+    20: Array.from({ length: DEFAULT_BAR_COUNT }, () => 120),
+    30: Array.from({ length: DEFAULT_BAR_COUNT }, () => 130),
+    60: Array.from({ length: DEFAULT_BAR_COUNT }, () => 160),
+  }
+  // 起始若干索引置空，覆盖 5/10/20 周期各自的预热窗口。
+  for (let i = 0; i < 4; i++) series[5]![i] = undefined
+  for (let i = 0; i < 9; i++) series[10]![i] = undefined
+  for (let i = 0; i < 19; i++) series[20]![i] = undefined
+
+  return {
+    timestamp: 1_000_000_000_000,
+    series,
+    enabledPeriods: [5, 10, 20, 30, 60],
+    visibleMin: 105,
+    visibleMax: 160,
+    ...overrides,
   }
 }
 

@@ -114,6 +114,15 @@ describe('MarketDataProviderRegistry', () => {
         adjustment: 'none',
       }),
     ).toEqual([gotdxProvider])
+    // unknown 不参与筛选：未归一化的品种不受源声明 assetClasses 限制。
+    expect(
+      registry.getEnabledByCapability({
+        capability: 'bars',
+        assetClass: 'unknown',
+        period: 'daily',
+        adjustment: 'none',
+      }),
+    ).toEqual([mockProvider, gotdxProvider])
     expect(registry.getEnabledByPriority()).toEqual([mockProvider, gotdxProvider])
   })
 

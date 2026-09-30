@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import { makePluginLayerId } from '../../../foundation/plugin/impl/rendererLayerId'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
 
@@ -107,8 +108,8 @@ describe('builtin indicator registration', () => {
       getCrosshair: () => null,
     })
 
-    expect(rsiScaleRenderer?.name).toBe('rsiScale_RSI_0')
-    expect(volumeScaleRenderer?.name).toBe('volumeScale_VOLUME_0')
+    expect(rsiScaleRenderer?.id).toBe(makePluginLayerId('rsiScale_RSI_0'))
+    expect(volumeScaleRenderer?.id).toBe(makePluginLayerId('volumeScale_VOLUME_0'))
   })
 
   it('registers generic scale metadata for stage 5B indicators', () => {
@@ -176,8 +177,8 @@ describe('builtin indicator registration', () => {
       instanceId: 'main:BOLL',
     })
 
-    expect(maRenderer?.name).toBe('ma')
-    expect(bollRenderer?.name).toBe('boll')
+    expect(maRenderer?.id).toBe(makePluginLayerId('ma'))
+    expect(bollRenderer?.id).toBe(makePluginLayerId('boll'))
   })
 
   it('resolves renderer names without creating renderer instances', () => {
@@ -189,7 +190,9 @@ describe('builtin indicator registration', () => {
         instanceId: `${definition.name}-instance`,
       }
 
-      expect(definition.getRendererName(options)).toBe(definition.rendererFactory(options).name)
+      expect(makePluginLayerId(definition.getRendererName(options))).toBe(
+        definition.rendererFactory(options).id,
+      )
     }
   })
 
@@ -228,8 +231,8 @@ describe('builtin indicator registration', () => {
       instanceId: 'main:ZONES',
     })
 
-    expect(wma?.name).toBe('wma_main')
-    expect(zones?.name).toBe('zones_main')
+    expect(wma?.id).toBe(makePluginLayerId('wma_main'))
+    expect(zones?.id).toBe(makePluginLayerId('zones_main'))
   })
 
   it('registers overlay main config metadata for stage 6B-2 indicators', () => {

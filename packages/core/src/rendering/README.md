@@ -31,8 +31,7 @@ render/             Renderer 绘制原语与 Surface 生命周期
   `engine/render/layers`。
 - viewport、缩放、滚动和 DPR 状态；它们由 StateKernel 和 `ChartViewportManager` 维护。
 - 帧几何计算；`ChartRenderer.prepareFrameData` 负责生成同一帧共享的几何快照。
-- RendererPlugin 的注册和配置；这些元数据由 `foundation/plugin` 管理，实际 paint 调度由
-  Scene 负责。
+- Layer 的注册；实际 paint 调度由 Scene 负责。
 
 ## 目录结构
 
@@ -50,9 +49,9 @@ render/             Renderer 绘制原语与 Surface 生命周期
 
 `scene/types.ts` 定义两个核心契约：
 
-- `Layer` 是独立绘制单元，声明 `id`、`role`、`paneRole`、`z` 和 `visible`，并实现
+- `Layer` 是独立绘制单元，声明 `id`、`role`、`pane`、`z` 和 `visible`，并实现
   `paint`、`dispose`。
-- `Scene` 持有 Layer 集合，通过 `paintPane` 完成一次 pane 绘制。
+- `Scene` 持有 Layer 集合，通过 `paint(frame)` 一次完成所有 pane 的绘制。
 
 `createScene()` 的绘制规则如下：
 
@@ -65,8 +64,8 @@ render/             Renderer 绘制原语与 Surface 生命周期
 Layer role 包括 `background`、`primary`、`indicator`、`component`、`drawing` 和 `overlay`。
 role 用于分组和增量绘制，最终叠放顺序仍以 `z` 为准。
 
-旧式 `RendererPlugin` 通过 `createLayerFromPlugin()` 转换为 Layer。桥接层会把当前 Renderer
-注入业务 `RenderContext.sceneRenderer`，因此插件不需要感知具体 GPU 后端。
+旧式 `RendererPlugin` 已退役；渲染器工厂直接返回 `Layer`。`Layer.paint` 接收 Scene 注入的
+帧上下文（业务 `RenderContext` + `sceneRenderer`），因此渲染器不需要感知具体 GPU 后端。
 
 ## Renderer 与 Surface
 
@@ -131,10 +130,10 @@ Chart.scheduleDraw(level)
   -> sealFrameGeometry
   -> for each pane
        Renderer.beginFrame(region)
-       Scene.paintPane(context[, roles])
-         -> Layer.paint
-           -> Renderer.drawInstances/drawLines
-           -> false 时 Canvas2D fallback
+  -> Scene.paint(frame)            // 一次绘制所有 pane；逐 Layer 异常隔离
+       -> Layer.paint(context)     // context = RenderContext + sceneRenderer
+         -> Renderer.drawInstances/drawLines
+         -> false 时 Canvas2D fallback
   -> Renderer.endFrame
   -> timeAxisLayer.paint
 ```
@@ -176,7 +175,7 @@ ChartRenderer 未使用它。
 
 ## 扩展方式
 
-新增业务图形时，优先在 `engine/render/layers` 或 `engine/renderers` 中实现 Layer/Plugin，调用
+新增业务图形时，优先在 `engine/render/layers` 或 `engine/renderers` 中实现 Layer，调用
 已有 Renderer 原语，并提供 Canvas2D fallback。只有现有原语无法表达且多个业务图形都会受益
 时，才扩展 Renderer 契约。
 
@@ -192,7 +191,7 @@ ChartRenderer 未使用它。
 
 测试与实现放在同一子目录的 `__tests__` 中：
 
-- `scene/__tests__`：Layer 注册、排序、过滤、Plugin 桥接和 retained 数据结构。
+- `scene/__tests__`：Layer 注册、排序、过滤、pane 分发和 retained 数据结构。
 - `render/__tests__`：Renderer 契约、Host 降级、三个后端、Surface、物理像素转换和帧指标。
 - `renderer-tier/__tests__`：backend factory 选择。能力探测测试位于 `foundation/utils/__tests__/rendererCapability.test.ts`。
 - `scheduler/__tests__`：优先级、合并、deadline 和队列限制。

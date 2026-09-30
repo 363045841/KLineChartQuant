@@ -807,6 +807,20 @@ export class ChartDataManager {
     return peek.length > 0 ? (peek as KLineData[]) : []
   }
 
+  /** 当前主序列的提交版本，供绘制投影判断行情是否变化。 */
+  getRenderDataRevision(): number {
+    return this._dataState.readonly.dataRevision.peek()
+  }
+
+  /** 比较视图的数据与配置身份，供帧级主层失效。 */
+  getComparisonContentInputs(): readonly unknown[] {
+    return [
+      this.deps.comparison.readonly.specs.peek(),
+      this.deps.comparison.readonly.colors.peek(),
+      ...this._comparisonManager.getContentInputs(),
+    ]
+  }
+
   getRenderData(): ReadonlyArray<KLineData | TimeShareData> {
     // 比较视图只认对比集合：首个序列同时是横轴与百分比的参考序列，与 kline 主品种无关。
     if (this.deps.comparison.readonly.specs.peek().length > 0) {

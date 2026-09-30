@@ -389,7 +389,7 @@ export interface ChartMountOptions {
   priceLabelWidth?: number
   minKWidth?: number
   maxKWidth?: number
-  /** 未来区屏数：最后一根 K 线右侧允许的滚动空间（屏宽倍数）；缺省 3 屏 */
+  /** 未来区屏数：最后一根 K 线右侧允许的滚动空间（屏宽倍数）；缺省用 DEFAULT_FUTURE_SCREENS */
   futureScreens?: number
 
   // Initial chart settings (overrides > stored preferences > DEFAULT_SETTINGS)
@@ -540,7 +540,6 @@ export interface ChartController extends DrawingChartAdapter {
   ): string | null
   removeIndicator(instanceId: string): boolean
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
-  updateRendererConfig(name: string, config: Record<string, unknown>): void
 
   // ---- Drawing ----
   /**

@@ -2,20 +2,15 @@
  * Ultimate Oscillator 指标渲染器：负责副图零轴、单线绘制和指标元数据声明。
  */
 
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcUltimateOscillatorData } from '../../indicators/calculators/ultimateOscillator.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { UltimateOscillatorRenderState } from '../../indicators/state/ultimateOscillatorState.js'
 import {
   DEFAULT_UO_P1,
@@ -24,10 +19,9 @@ import {
   EMPTY_UO_STATE,
 } from '../../indicators/state/ultimateOscillatorState.js'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-
-import { createUltimateOscillatorScaleRendererPlugin } from './scale/ultimateOscillator_scale.js'
+import { createUltimateOscillatorScaleLayer } from './scale/ultimateOscillator_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
@@ -44,12 +38,10 @@ interface UltimateOscillatorRendererOptions {
  * @param options 渲染器配置。
  * @returns UO 渲染器插件。
  */
-function createUltimateOscillatorRendererPlugin(
+function createUltimateOscillatorLayer(
   options: UltimateOscillatorRendererOptions = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'sub_UO', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   let cachedKey = ''
   let cachedUOPoints: LinePoint[] = []
   let offscreenCanvas: HTMLCanvasElement | null = null
@@ -158,26 +150,11 @@ function createUltimateOscillatorRendererPlugin(
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `ultimateOscillator_${paneId}`,
-    version: '2.1.0',
-    description: 'UO 终极振荡器渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'UO',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    /** 保存插件宿主，供绘制时读取共享状态。 */
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    /** 声明此渲染器拥有的状态命名空间。 */
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    /** 绘制 UO 零轴和主折线。 */
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -255,19 +232,7 @@ function createUltimateOscillatorRendererPlugin(
         )
       }
     },
-
-    /** 返回当前 UO 配置。 */
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<UltimateOscillatorRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    /** 配置由外部统一更新。 */
-    setConfig() {},
-  }
+  })
 }
 
 /**
@@ -318,7 +283,7 @@ const getUltimateOscillatorTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_UO',
-  scaleRendererFactory: createUltimateOscillatorScaleRendererPlugin,
+  scaleRendererFactory: createUltimateOscillatorScaleLayer,
   visibleState: {
     compose: createPaddedSparseVisibleStateComposer('ultimateOscillator', EMPTY_UO_STATE),
   },
@@ -331,5 +296,5 @@ const getUltimateOscillatorTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class UltimateOscillatorIndicatorDefinition {
-  static rendererFactory = createUltimateOscillatorRendererPlugin
+  static rendererFactory = createUltimateOscillatorLayer
 }

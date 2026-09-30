@@ -1,9 +1,3 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { createLayerFromPlugin } from '@/rendering/scene/createLayerFromPlugin.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createCandleRenderer } from '../../renderers/candle.js'
+/** K 线主体 Layer：绘制体已迁入 renderers/candle.ts，这里仅保持既有 import 路径。 */
 
-export function createCandleLayer(getContext: () => RenderContext | null): Layer {
-  const plugin = createCandleRenderer()
-  return createLayerFromPlugin(plugin, getContext, 'main')
-}
+export { createCandleLayer } from '../../renderers/candle.js'

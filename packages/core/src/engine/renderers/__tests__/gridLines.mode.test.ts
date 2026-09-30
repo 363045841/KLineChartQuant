@@ -3,10 +3,10 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { createGridLinesLayer } from '@/engine/render/layers/gridLinesLayer'
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
-import { createGridLinesRendererPlugin } from '../gridLines'
 import { createDailyBars, createDailyFutureTimestamp } from './helpers/futureAxisTestKit'
 
 /** 构造记录 fillRect 矩形的画布。 */
@@ -67,7 +67,7 @@ function buildContext(dataView: ChartDataView) {
 describe('gridLines mode', () => {
   it('draws vertical month boundary lines in kline mode', () => {
     const { fillRects, context } = buildContext(ChartDataViewId.KLine)
-    createGridLinesRendererPlugin().draw(context)
+    createGridLinesLayer().paint(context)
     const verticals = fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBeGreaterThan(0)
     expect(verticals[0]?.x).toBe(1)
@@ -75,7 +75,7 @@ describe('gridLines mode', () => {
 
   it('does not draw vertical month boundary lines in timeshare mode', () => {
     const { fillRects, context } = buildContext(ChartDataViewId.TimeShare)
-    createGridLinesRendererPlugin().draw(context)
+    createGridLinesLayer().paint(context)
     const verticals = fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBe(0)
   })
@@ -89,7 +89,7 @@ describe('gridLines mode', () => {
       verticalGridLineXs: [0, 400, 800],
     }
 
-    createGridLinesRendererPlugin().draw(context)
+    createGridLinesLayer().paint(context)
 
     const verticals = fillRects.filter((r) => r.width < r.height)
     expect(verticals.map((line) => line.x)).toEqual([0, 400, 800])
@@ -120,7 +120,7 @@ describe('gridLines 未来区纵向网格', () => {
       pane: { top: 0, height: 400 },
     })
 
-    createGridLinesRendererPlugin().draw(context)
+    createGridLinesLayer().paint(context)
 
     // 只保留历史月界（首根 + 三个月界）；未来槽位不参与网格线定位。
     const verticals = fillRects.filter((r) => r.width < r.height)

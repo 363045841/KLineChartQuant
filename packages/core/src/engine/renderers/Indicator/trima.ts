@@ -1,20 +1,16 @@
 // TRIMA 三角移动均线渲染器插件与指标定义（WebGL + Canvas2D 回退）
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcTRIMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { TRIMARenderState } from '../../indicators/state/trimaState.js'
 import { EMPTY_TRIMA_STATE } from '../../indicators/state/trimaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
@@ -26,27 +22,13 @@ interface TRIMARendererOptions {
   instanceId?: string
 }
 
-function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): RendererPluginWithHost {
+function createTRIMALayer(options: TRIMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `trima_${paneId}`,
-    version: '1.1.0',
-    description: 'TRIMA 三角移动均线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'TRIMA',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -90,19 +72,7 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
       ctx.stroke()
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<TRIMARenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 const getTRIMATitleInfo = createSingleLineTitleInfo({
@@ -134,5 +104,5 @@ const getTRIMATitleInfo = createSingleLineTitleInfo({
   },
 })
 export class TRIMADefinition {
-  static rendererFactory = createTRIMARendererPlugin
+  static rendererFactory = createTRIMALayer
 }

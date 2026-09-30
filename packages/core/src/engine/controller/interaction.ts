@@ -503,6 +503,11 @@ export class InteractionController {
     }
   }
 
+  /** 帧事务在跳帧前检查是否需要推导指针位置。 */
+  hasPendingHover(): boolean {
+    return this.hoverFlushPending
+  }
+
   /**
    * 封存本帧 K 线几何到 controller 私有字段（非 kernel signal）。
    * ChartRenderer 在 paint 前调用；引用未变则跳过 hover 重算。

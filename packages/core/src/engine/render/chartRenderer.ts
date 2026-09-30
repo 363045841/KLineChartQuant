@@ -9,7 +9,7 @@ import type {
   XAxisRange,
   YAxisRange,
 } from '../../foundation/plugin/index.js'
-import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index.js'
+import { wrapPaneInfo } from '../../foundation/plugin/index.js'
 import {
   createFrameTransaction,
   type FrameTransaction,
@@ -29,14 +29,13 @@ import {
   resolveTimestampSessionSlot,
 } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
-import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin.js'
 import { createScene } from '../../rendering/scene/createScene.js'
 import type {
+  FramePaint,
   Layer,
   LayerRole,
-  PaintContext,
-  PaneRole,
   Scene,
+  SceneFrame,
 } from '../../rendering/scene/types.js'
 import { createAxisLabelsFrame, getLastPriceRemainingMs } from '../axisLabels/index.js'
 import type {
@@ -50,7 +49,7 @@ import type {
 import { InteractionController } from '../controller/interaction.js'
 import { ChartDataManager } from '../data/chartDataManager.js'
 import {
-  createDrawingRendererPlugin,
+  createDrawingLayer,
   DrawingDefinitionRegistry,
   type DrawingSelectionMarquee,
   DrawingStore,
@@ -72,9 +71,8 @@ import {
   computeTimeShareXLayout,
 } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
-import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare.js'
-import { createTimeAxisRendererPlugin } from '../renderers/timeAxis.js'
-import { createTimeShareRendererPlugin } from '../renderers/timeShare.js'
+import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend.js'
+import { createTimeAxisLayer } from '../renderers/timeAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
@@ -92,9 +90,10 @@ import { createComparisonLineLayer } from './layers/comparisonLineLayer.js'
 import { createCrosshairLayer } from './layers/crosshairLayer.js'
 import { createCustomMarkersLayer } from './layers/customMarkersLayer.js'
 import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer.js'
+import { createFiveDayTimeShareLayer } from './layers/fiveDayTimeShareLayer.js'
 import { createGridLinesLayer } from './layers/gridLinesLayer.js'
 import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer.js'
-import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer.js'
+import { createTimeShareLayer } from './layers/timeShareLayer.js'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
@@ -125,6 +124,8 @@ type FrameContext = {
   useCachedFrame: boolean
   /** 当前模式对应的强类型行情数据。 */
   data: ChartSeriesDatum[]
+  /** 与本帧主序列快照对应的提交版本。 */
+  dataRevision: number
   /** 当前缩放级别索引 */
   zoomLevel: number
   /** 缩放级别总数 */
@@ -147,6 +148,7 @@ type FrameDrawSnapshot = {
   generation: number
   level: UpdateLevel
   frame: FrameContext | null
+  skip: boolean
 }
 
 /** Main 与 Overlay 合并为 All，其余取更全或后者 */
@@ -164,13 +166,16 @@ export function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): Updat
 
 /** 在绘制帧内提交 viewport 的原生滚动位置，跳过无变化写入。 */
 export interface RendererDependencies {
+  /** 当前主品种的市场时段，倒计时显示与刷新共用。 */
+  getMarketSession: () => typeof ASHARE_MARKET_SESSION | undefined
   getDom: () => ChartDom
   getOption: () => ResolvedChartOptions
   getPaneRenderers: () => PaneRenderer[]
   getInteraction: () => InteractionController
   getSceneRenderer: () => Renderer
   getPluginHost: () => PluginHostImpl
-  getRendererPluginManager: () => RendererPluginManager
+  /** 当前数据视图应显示的主图指标 ID 快照。 */
+  getVisibleMainIndicatorIds: () => ReadonlyArray<string>
   /** 生效主题 SSOT */
   theme$: ReadonlySignal<'light' | 'dark'>
   /** zoomLevel / kWidth SSOT */
@@ -237,17 +242,100 @@ export class ChartRenderer {
     visiblePriceExtrema: VisiblePriceExtrema | null
   } | null = null
 
-  private scene: Scene
+  private scene: Scene<RenderContext>
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
   private currentPaneId = 'main'
-  private timeAxisCtx: RenderContext | null = null
-  private timeAxisLayer: Layer | null = null
+  private timeAxisLayer: Layer<RenderContext> | null = null
   private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
   private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
   private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
   /** 上次已测量右轴的可视区绝对值数量级。 */
   private measuredVisiblePriceMagnitudeOrder: number | null = null
+  /** 上一帧已提交的主层与交互层内容输入。 */
+  private paintedMainVersion: readonly unknown[] | null = null
+  private paintedOverlayVersion: readonly unknown[] | null = null
+
+  /** 按值比较帧输入，避免 viewport 每次派生新对象造成无效重绘。 */
+  private sameVersion(previous: readonly unknown[] | null, next: readonly unknown[]): boolean {
+    return (
+      previous !== null &&
+      previous.length === next.length &&
+      previous.every((value, index) => Object.is(value, next[index]))
+    )
+  }
+
+  /** 捕获主画布的绘制输入。 */
+  private mainContentVersion(): readonly unknown[] {
+    const vp = this.peekViewport()
+    const opt = this.deps.getOption()
+    const layers = this.scene.layers.peek()
+    return [
+      this.deps.getSceneRenderer(),
+      this.deps.getDataManager().getRenderDataRevision(),
+      ...this.deps.getDataManager().getComparisonContentInputs(),
+      this.deps.getDataManager().currentPeriod,
+      this.deps.dataView$.peek(),
+      vp?.scrollLeft,
+      vp?.plotWidth,
+      vp?.plotHeight,
+      vp?.viewWidth,
+      vp?.viewHeight,
+      vp?.dpr,
+      opt.kWidth,
+      opt.kGap,
+      opt.rightAxisWidth,
+      opt.leftAxisWidth,
+      opt.bottomAxisHeight,
+      this.deps.options.readonly.options.peek(),
+      this.deps.settings$.peek(),
+      this.deps.theme$.peek(),
+      this.deps.mainPriceAxis.readonly.handRange.peek(),
+      this.deps.mainPriceAxis.readonly.rangeMode.peek(),
+      this.deps.getIndicatorManager().getRenderStatesSnapshot(),
+      this.deps.customMarkers$.peek(),
+      this.deps.getActiveMode(),
+      layers,
+      ...layers.map((layer) => layer.visible),
+      ...this.deps.getPaneRenderers().flatMap((renderer) => {
+        const pane = renderer.getPane()
+        const axis = pane.yAxis
+        return [
+          renderer,
+          pane.id,
+          pane.top,
+          pane.height,
+          pane.role,
+          axis.getScaleType(),
+          axis.getPaddingTop(),
+          axis.getPaddingBottom(),
+          axis.getBasePrice(),
+        ]
+      }),
+    ]
+  }
+
+  /** 捕获交互画布与时间轴的输入；倒计时以秒为单位变化。 */
+  private overlayContentVersion(): readonly unknown[] {
+    const interaction = this.deps.getInteraction()
+    const pos = interaction.crosshairPos
+    return [
+      pos?.x,
+      pos?.y,
+      interaction.crosshairIndex,
+      interaction.crosshairPrice,
+      interaction.activePaneId,
+      interaction.isDraggingState(),
+      interaction.hoveredIndex,
+      interaction.tooltipPos.x,
+      interaction.tooltipPos.y,
+      interaction.tooltipAnchorPlacement,
+      this.deps.drawings$.peek(),
+      this.deps.selectedDrawingIds$.peek(),
+      this.deps.getSelectionMarquee?.(),
+      this.lastPriceCountdownTimer === null ? null : Math.floor(Date.now() / 1_000),
+    ]
+  }
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
@@ -264,17 +352,30 @@ export class ChartRenderer {
       derive: (input, generation) => {
         // generation 0 是 createFrameTransaction 构造占位，禁止 prepare/副作用
         if (generation === 0) {
-          return { generation: 0, level: input.level, frame: null }
+          return { generation: 0, level: input.level, frame: null, skip: true }
         }
+        const mainChanged = !this.sameVersion(this.paintedMainVersion, this.mainContentVersion())
+        const overlayChanged = !this.sameVersion(
+          this.paintedOverlayVersion,
+          this.overlayContentVersion(),
+        )
+        const skip =
+          !mainChanged &&
+          !overlayChanged &&
+          !this.deps.getInteraction().hasPendingHover() &&
+          input.level !== UpdateLevel.Overlay
         return {
           generation,
-          level: input.level,
-          frame: this.prepareFrameData(input.level),
+          level: mainChanged ? UpdateLevel.All : UpdateLevel.Overlay,
+          frame: skip
+            ? null
+            : this.prepareFrameData(mainChanged ? UpdateLevel.All : UpdateLevel.Overlay),
+          skip,
         }
       },
       render: (snapshot) => {
         // generation 0 占位不绘制
-        if (snapshot.generation === 0) return
+        if (snapshot.generation === 0 || snapshot.skip) return
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame && !snapshot.frame.useCachedFrame) {
@@ -286,8 +387,12 @@ export class ChartRenderer {
         }
         // 用本帧几何将鼠标坐标吸附到最近 K 线，算出十字线位置
         this.deps.getInteraction().flushPendingHover()
-        // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paintPane → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
+        // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paint → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
         this.drawWithFrame(snapshot.level, snapshot.frame)
+        if (snapshot.frame) {
+          this.paintedMainVersion = this.mainContentVersion()
+          this.paintedOverlayVersion = this.overlayContentVersion()
+        }
         if (snapshot.frame) {
           this.cacheDrawFrame(snapshot.frame)
         }
@@ -318,7 +423,7 @@ export class ChartRenderer {
     const interaction = this.deps.getInteraction()
 
     {
-      const plugin = createTimeAxisRendererPlugin({
+      this.timeAxisLayer = createTimeAxisLayer({
         height: opt.bottomAxisHeight,
         getCrosshair: () => {
           const pos = interaction.crosshairPos
@@ -329,68 +434,50 @@ export class ChartRenderer {
           return null
         },
       })
-      this.timeAxisLayer = createLayerFromPlugin(plugin, () => this.timeAxisCtx, 'global')
-    }
-
-    const getCtx = (paneId: string) => () => this.paneCtxMap.get(paneId) ?? null
-    const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
-
-    {
-      const layer = createGridLinesLayer(getCtxForCurrentPane)
-      this.scene.addLayer(layer)
     }
     {
-      const layer = createCandleLayer(getCtx('main'))
-      this.scene.addLayer(layer)
+      this.scene.addLayer(createGridLinesLayer())
     }
     {
-      const layer = createLayerFromPlugin(createTimeShareRendererPlugin(), getCtx('main'), 'main')
-      this.scene.addLayer(layer)
+      this.scene.addLayer(createCandleLayer())
     }
     {
-      const layer = createLayerFromPlugin(
-        createFiveDayTimeShareRendererPlugin(),
-        getCtx('main'),
-        'main',
+      this.scene.addLayer(createTimeShareLayer())
+    }
+    {
+      this.scene.addLayer(createFiveDayTimeShareLayer())
+    }
+    {
+      this.scene.addLayer(createComparisonLineLayer())
+    }
+    {
+      this.scene.addLayer(createCustomMarkersLayer())
+    }
+    {
+      this.scene.addLayer(createExtremaMarkersLayer())
+    }
+    {
+      this.scene.addLayer(
+        createMainIndicatorLegendLayer(
+          {
+            yPaddingPx: opt.yPaddingPx,
+            onContext: this.deps.onLegendContext,
+            getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
+            getLegendOptions: () => this.deps.getOption().legend,
+          },
+          this.deps.getPluginHost,
+        ),
       )
-      this.scene.addLayer(layer)
     }
     {
-      const layer = createComparisonLineLayer(getCtx('main'))
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createCustomMarkersLayer(getCtxForCurrentPane)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createExtremaMarkersLayer(getCtxForCurrentPane)
-      this.scene.addLayer(layer)
-    }
-    {
-      const { layer, plugin } = createMainIndicatorLegendLayer(
-        {
-          yPaddingPx: opt.yPaddingPx,
-          onContext: this.deps.onLegendContext,
-        },
-        getCtx('main'),
-      )
-      // 注册进 Manager，使 updateRendererConfig('mainIndicatorLegend') 可切换 renderMode
-      this.deps.getRendererPluginManager().register(plugin)
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createCrosshairLayer(
-        {
-          getCrosshairState: () => ({
-            pos: interaction.crosshairPos,
-            activePaneId: interaction.activePaneId,
-            isDragging: interaction.isDraggingState(),
-            price: interaction.crosshairPrice,
-          }),
-        },
-        getCtxForCurrentPane,
-      )
+      const layer = createCrosshairLayer({
+        getCrosshairState: () => ({
+          pos: interaction.crosshairPos,
+          activePaneId: interaction.activePaneId,
+          isDragging: interaction.isDraggingState(),
+          price: interaction.crosshairPrice,
+        }),
+      })
       this.scene.addLayer(layer)
     }
     {
@@ -407,8 +494,8 @@ export class ChartRenderer {
           return null
         },
       }
-      this.scene.addLayer(createYAxisStaticLayer(yAxisOpts, getCtxForCurrentPane))
-      this.scene.addLayer(createYAxisOverlayLayer(yAxisOpts, getCtxForCurrentPane))
+      this.scene.addLayer(createYAxisStaticLayer(yAxisOpts))
+      this.scene.addLayer(createYAxisOverlayLayer(yAxisOpts))
     }
     {
       const leftYAxisOpts = {
@@ -424,20 +511,13 @@ export class ChartRenderer {
           return null
         },
       }
-      this.scene.addLayer(createLeftYAxisStaticLayer(leftYAxisOpts, getCtxForCurrentPane))
-      this.scene.addLayer(createLeftYAxisOverlayLayer(leftYAxisOpts, getCtxForCurrentPane))
+      this.scene.addLayer(createLeftYAxisStaticLayer(leftYAxisOpts))
+      this.scene.addLayer(createLeftYAxisOverlayLayer(leftYAxisOpts))
     }
   }
 
   registerDrawingPlugins(): void {
-    const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
-
-    {
-      const plugin = createDrawingRendererPlugin({})
-      this.deps.getRendererPluginManager().register(plugin)
-      const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
-      this.scene.addLayer(layer)
-    }
+    this.scene.addLayer(createDrawingLayer())
   }
 
   getScene(): Scene {
@@ -575,14 +655,13 @@ export class ChartRenderer {
     } = frame
     const renderData = frame.data
 
-    const mode = this.deps.getActiveMode()
     const { visiblePriceExtrema, rightAxisWidthMeasurement } = frame
     const requiresRightAxisWidthMeasurement = rightAxisWidthMeasurement !== null
     const mainIndicatorRange = useCachedFrame
       ? null
       : this.deps.getIndicatorManager().getMainIndicatorPriceRange()
 
-    // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paintPane
+    // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paint
     const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
@@ -594,6 +673,7 @@ export class ChartRenderer {
       useCachedFrame,
       level,
       renderData,
+      frame.dataRevision,
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
       requiresRightAxisWidthMeasurement,
@@ -632,6 +712,7 @@ export class ChartRenderer {
     const remaining = getLastPriceRemainingMs(
       this.deps.getDataManager().currentPeriod,
       last.timestamp,
+      this.deps.getMarketSession(),
       now,
     )
     if (remaining === null) return
@@ -806,6 +887,7 @@ export class ChartRenderer {
       kWidthPx,
       useCachedFrame,
       data: internalData,
+      dataRevision: dataManager.getRenderDataRevision(),
       zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
       zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
       fiveDayTimeShareGeometry,
@@ -826,6 +908,8 @@ export class ChartRenderer {
   }
 
   clearAllCanvases(): void {
+    this.paintedMainVersion = null
+    this.paintedOverlayVersion = null
     const vp = this.peekViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
@@ -874,7 +958,7 @@ export class ChartRenderer {
     }
   }
 
-  /** 遍历所有 pane，逐 pane 清 canvas → 构建 RenderContext → beginFrame → scene.paintPane，所有 pane 结束后 endFrame 统一提交 GPU / 时间轴 */
+  /** 遍历所有 pane，逐 pane 清 canvas → 构建 RenderContext → beginFrame；所有 pane 构建完成后一次 scene.paint，再 endFrame 统一提交 GPU / 时间轴 */
   private renderPanes(
     vp: Viewport,
     range: VisibleRange,
@@ -886,6 +970,7 @@ export class ChartRenderer {
     useCachedFrame: boolean,
     level: UpdateLevel,
     renderData: ChartSeriesDatum[],
+    dataRevision: number,
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
     visiblePriceExtrema: VisiblePriceExtrema | null,
     requiresRightAxisWidthMeasurement: boolean,
@@ -908,6 +993,10 @@ export class ChartRenderer {
       'component',
     ]
     const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
+
+    // 本帧所有 pane 的绘制输入；全部 pane 构建完成后再一次性交给 Scene。
+    const framePanes: Array<FramePaint & { paneId: string }> = []
+    const sceneRenderer = this.deps.getSceneRenderer()
 
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
@@ -993,7 +1082,7 @@ export class ChartRenderer {
       const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
       // 绘图与十字线共享 overlay canvas。绘图交互仅请求 Overlay 更新，必须每次重画，
       // 否则预览只会在触发主层重绘时出现；主层变化时也要刷新其投影。
-      const shouldUpdateOverlay = true
+      const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
 
       // 清 main canvas
       if (shouldUpdateMain && mainCtx) {
@@ -1036,8 +1125,10 @@ export class ChartRenderer {
         overlayCtx: overlayCtx ?? undefined,
         pane: wrapPaneInfo(pane),
         data: renderData,
+        dataRevision,
         period: dataManager.currentPeriod,
         dataView: this.deps.dataView$(),
+        marketSession: this.deps.getMarketSession(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
@@ -1109,42 +1200,38 @@ export class ChartRenderer {
       this.currentPaneId = pane.id
 
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
-      const sceneRenderer = this.deps.getSceneRenderer()
-      const paneRole = (pane.id === 'main' ? 'main' : 'sub') as PaneRole
       // 画 main canvas（非 overlay 角色 layer）
       if (shouldUpdateMain) {
         // 标记后续 GPU 绘制属于此 region
         sceneRenderer.beginFrame(region)
-        // 遍历 Scene 中该 pane 的可见 layer，逐层 paint
-        this.scene.paintPane(
-          {
-            renderer: sceneRenderer,
-            region,
-            paneRole,
-            paneId: pane.id,
-            frameNumber: this.frameCount++,
-            deltaMs: 0,
-          },
-          MAIN_CANVAS_ROLES,
-        )
+        framePanes.push({
+          paneId: pane.id,
+          context,
+          renderer: sceneRenderer,
+          frameNumber: this.frameCount++,
+          deltaMs: 0,
+          roles: MAIN_CANVAS_ROLES,
+          clear: true,
+        })
       }
       // 画 overlay canvas（绘图和动态 overlay 角色 layer）
       if (shouldUpdateOverlay) {
         // GPU 主层在本帧已经清过；overlay 不得清除其可见 GPU 内容。
         sceneRenderer.beginFrame(region, { clear: false })
-        this.scene.paintPane(
-          {
-            renderer: sceneRenderer,
-            region,
-            paneRole,
-            paneId: pane.id,
-            frameNumber: this.frameCount++,
-            deltaMs: 0,
-          },
-          OVERLAY_CANVAS_ROLES,
-        )
+        framePanes.push({
+          paneId: pane.id,
+          context,
+          renderer: sceneRenderer,
+          frameNumber: this.frameCount++,
+          deltaMs: 0,
+          roles: OVERLAY_CANVAS_ROLES,
+          clear: false,
+        })
       }
     }
+
+    // 所有 pane 构建完成后一次性绘制；Scene 逐 pane 过滤、z 排序、逐层隔离分发。
+    this.scene.paint({ panes: framePanes })
 
     // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()
@@ -1177,7 +1264,7 @@ export class ChartRenderer {
         'marketSession' in activeMode
           ? (activeMode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
           : undefined
-      this.timeAxisCtx = {
+      const timeAxisContext: RenderContext = {
         ctx: xAxisCtx,
         pane: {
           id: 'xAxis',
@@ -1238,15 +1325,12 @@ export class ChartRenderer {
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
       }
-      const paintCtx: PaintContext = {
-        renderer: this.deps.getSceneRenderer(),
-        region: { x: 0, y: 0, width: vp.plotWidth, height: opt.bottomAxisHeight, dpr: vp.dpr },
-        paneRole: 'global',
+      this.timeAxisLayer.paint({
+        ...timeAxisContext,
         paneId: 'xAxis',
-        frameNumber: this.frameCount++,
-        deltaMs: 0,
-      }
-      this.timeAxisLayer.paint(paintCtx)
+        clear: false,
+        sceneRenderer: this.deps.getSceneRenderer(),
+      })
     }
   }
 
@@ -1294,6 +1378,8 @@ export class ChartRenderer {
 
   clearCachedFrame(): void {
     this.cachedDrawFrame = null
+    this.paintedMainVersion = null
+    this.paintedOverlayVersion = null
   }
 
   destroy(): void {

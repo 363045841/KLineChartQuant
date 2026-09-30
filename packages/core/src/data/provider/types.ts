@@ -31,6 +31,14 @@ export const KNOWN_ASSET_CLASS_VALUES: readonly KnownAssetClass[] = ASSET_CLASS_
   (value): value is KnownAssetClass => value !== 'unknown',
 )
 
+/**
+ * 判断资产类别是否可作为筛选条件参与匹配。
+ * unknown 与缺省同义，仅表示数据源未完成归一化，返回 false 时调用方必须按“无条件”处理。
+ */
+export function isFilterableAssetClass(value: AssetClass | undefined): value is KnownAssetClass {
+  return value !== undefined && value !== 'unknown'
+}
+
 /** 图表当前支持的标准 K 线周期。 */
 export type KLinePeriod =
   | '1min'

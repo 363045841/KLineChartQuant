@@ -7,15 +7,20 @@
 import { describe, expect, it } from 'vitest'
 
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import { AXIS_LABEL_KIND, type AxisTickLabel } from '@/foundation/plugin/index'
+import { AXIS_LABEL_KIND, type AxisTickLabel, type RenderContext } from '@/foundation/plugin/index'
 import { resolveThemeColors } from '@/foundation/tokens/index'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import {
   collectFutureTimeBoundaries,
-  createTimeAxisRendererPlugin,
+  createTimeAxisLayer,
   resolveFutureTickStep,
 } from '../timeAxis'
 import { createDailyBars, createDailyFutureTimestamp } from './helpers/futureAxisTestKit'
+
+/** 以时间轴身份调用时间轴 Layer.paint。 */
+function paint(context: RenderContext): void {
+  createTimeAxisLayer({ height: 24 }).paint({ ...context, paneId: 'xAxis', clear: false })
+}
 
 const DATA_LENGTH = 100
 const RANGE_END = 160
@@ -147,7 +152,7 @@ describe('collectTimeAxisTicks 未来区接线', () => {
 
   it('未来月界刻度以 text.tertiary 注册，历史刻度保持 secondary', () => {
     const context = buildFutureContext()
-    createTimeAxisRendererPlugin({ height: 24 }).draw(context)
+    paint(context)
 
     // xTicks 表面只注册 TICK 变体，kind 收窄后读取 color/bold
     const labels = context.axisLabels
@@ -174,7 +179,7 @@ describe('collectTimeAxisTicks 未来区接线', () => {
       paneWidth: 1400,
       displayTimeFormatter: formatter,
     })
-    createTimeAxisRendererPlugin({ height: 24 }).draw(context)
+    paint(context)
 
     // 一槽 8px，最小间距 56px → 取 10 槽步长，刻度只落在 T+10 的倍数。
     const labels = context.axisLabels
@@ -192,7 +197,7 @@ describe('collectTimeAxisTicks 未来区接线', () => {
       kLineCenters: Array.from({ length: 40 }, (_, i) => 8 * (120 + i) + 4),
       scrollLeft: 900,
     })
-    createTimeAxisRendererPlugin({ height: 24 }).draw(futureOnly)
+    paint(futureOnly)
     expect(futureOnly.axisLabels.forSurface('xTicks').labels.map((label) => label.text)).toEqual([
       'T+30',
       'T+40',
@@ -212,7 +217,7 @@ describe('collectTimeAxisTicks 未来区接线', () => {
       getTimestampAtLogicalIndex: (index) => (index < 110 ? getTimestamp(index) : null),
       displayTimeFormatter: formatter,
     })
-    createTimeAxisRendererPlugin({ height: 24 }).draw(context)
+    paint(context)
     const future = context.axisLabels
       .forSurface('xTicks')
       .labels.filter((label): label is AxisTickLabel => label.kind === AXIS_LABEL_KIND.TICK)

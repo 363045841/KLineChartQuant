@@ -1,14 +1,19 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FIVE_DAY_TIME_SHARE_PERIOD, type SymbolSpec, TIME_SHARE_PERIOD } from '@/controllers/types'
 import { Chart, type ChartOptions } from '@/core/chart'
 import {
   createChartDom,
   installChartDomStubs,
   ResizeObserverMock,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
+import { ScaleType } from '../../foundation/types/scaleType'
 import { createDrawingAdapter } from '../drawing/__tests__/helpers/drawingTestKit'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
+import { MAIN_PANE_ID } from '../paneIds'
+import { ChartDataViewId } from '../state/modeState'
+import { resolveViewTransition } from '../view/impl/resolveViewTransition'
 
 const defaultOptions: ChartOptions = {
   kWidth: 10,
@@ -41,6 +46,279 @@ function pointerEvent(
 }
 
 describe('Chart DPR pipeline', () => {
+  const comparison: SymbolSpec = {
+    symbol: 'COMPARE',
+    market: 'CN',
+    source: 'chart-custom:default',
+    period: 'daily',
+    incremental: false,
+  }
+
+  /** 通过真实内联数据入口设置主品种，避免依赖外部行情 Provider。 */
+  function setInlinePrimary(chart: Chart): void {
+    chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data: [] })
+  }
+  const viewCases = [
+    { period: 'daily', specs: [], view: ChartDataViewId.KLine, mode: ChartDataViewId.KLine },
+    {
+      period: 'daily',
+      specs: [comparison],
+      view: ChartDataViewId.Comparison,
+      mode: ChartDataViewId.KLine,
+    },
+    {
+      period: TIME_SHARE_PERIOD,
+      specs: [],
+      view: ChartDataViewId.TimeShare,
+      mode: ChartDataViewId.TimeShare,
+    },
+    {
+      period: TIME_SHARE_PERIOD,
+      specs: [comparison],
+      view: ChartDataViewId.TimeShare,
+      mode: ChartDataViewId.TimeShare,
+    },
+    {
+      period: FIVE_DAY_TIME_SHARE_PERIOD,
+      specs: [],
+      view: ChartDataViewId.FiveDayTimeShare,
+      mode: ChartDataViewId.TimeShare,
+    },
+    {
+      period: FIVE_DAY_TIME_SHARE_PERIOD,
+      specs: [comparison],
+      view: ChartDataViewId.FiveDayTimeShare,
+      mode: ChartDataViewId.TimeShare,
+    },
+  ]
+
+  it.each(viewCases)(
+    'resolves $period and comparison specs=$specs consistently across entries',
+    async ({ period, specs, view, mode }) => {
+      const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+      try {
+        const decision = resolveViewTransition({ period, comparisonSpecs: specs })
+        expect(decision.dataView).toBe(view)
+        setInlinePrimary(chart)
+        chart.setComparisonSpecs(specs)
+        const activate = vi.spyOn(chart, 'setActiveMode')
+        chart.setCurrentPeriod(period)
+        expect(activate).toHaveBeenCalledOnce()
+        expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
+        expect(chart.kernel.mode.readonly.chartMode.peek()).toBe(view)
+        expect(chart.activeMode).toBe(
+          mode === ChartDataViewId.TimeShare ? chart['_timeShareMode'] : chart['_kLineMode'],
+        )
+
+        chart.setComparisonSpecs([])
+        if (specs.length > 0) chart.comparisonCommands.add(comparison)
+        expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
+        expect(chart.kernel.mode.readonly.chartMode.peek()).toBe(view)
+        expect(chart.activeMode).toBe(
+          mode === ChartDataViewId.TimeShare ? chart['_timeShareMode'] : chart['_kLineMode'],
+        )
+        expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(
+          decision.timeShare || decision.comparison ? ScaleType.Percent : ScaleType.Linear,
+        )
+        activate.mockClear()
+        chart.setSymbols([{ ...chart.symbols.peek()[0]!, period }])
+        expect(activate).toHaveBeenCalledOnce()
+        expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
+        chart.comparisonCommands.clear()
+        expect(chart.kernel.mode.readonly.dataView.peek()).toBe(
+          decision.timeShare ? view : ChartDataViewId.KLine,
+        )
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
+  it('restores the configured scale after comparison → timeshare → comparison → K-line', async () => {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+    try {
+      setInlinePrimary(chart)
+      chart.updateSettings({ mainRightAxisTypeSetting: ScaleType.Log })
+      chart.comparisonCommands.add(comparison)
+      chart.setCurrentPeriod(TIME_SHARE_PERIOD)
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(
+        ScaleType.Percent,
+      )
+      chart.setCurrentPeriod('daily')
+      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.Comparison)
+      chart.comparisonCommands.clear()
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(ScaleType.Log)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('commits timeshare geometry atomically and repaints slot-only changes', async () => {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+    try {
+      setInlinePrimary(chart)
+      chart.setCurrentPeriod(TIME_SHARE_PERIOD)
+      const zoom = chart.kernel.zoom.readonly
+      const observed: Array<{ width: number; slot: number | null }> = []
+      const unsubscribe = zoom.kWidth.subscribe(() =>
+        observed.push({ width: zoom.kWidth.peek(), slot: zoom.timeShareSlotWidth.peek() }),
+      )
+      const draw = vi.spyOn(chart, 'scheduleDraw')
+      chart.applyRenderState({ kWidth: 4, slotWidth: 5 })
+      expect(observed).toEqual([{ width: 4, slot: 5 }])
+      expect(chart.kernel.viewport.readonly.kGap.peek()).toBe(1 / chart.getCurrentDpr())
+      draw.mockClear()
+      chart.applyRenderState({ kWidth: 4, slotWidth: 6 })
+      expect(zoom.timeShareSlotWidth.peek()).toBe(6)
+      expect(draw).toHaveBeenCalledOnce()
+      draw.mockClear()
+      chart.applyRenderState({ kWidth: 4, slotWidth: 6 })
+      expect(draw).not.toHaveBeenCalled()
+      chart.applyRenderState({ kWidth: 5, slotWidth: 3 })
+      expect(zoom.kWidth.peek()).toBe(4)
+      expect(zoom.timeShareSlotWidth.peek()).toBe(6)
+      unsubscribe()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('rejects multiple primary symbols and clears a timeshare primary explicitly', async () => {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+    try {
+      setInlinePrimary(chart)
+      chart.setCurrentPeriod(TIME_SHARE_PERIOD)
+      const before = chart.symbols.peek()
+      expect(() => chart.setSymbols([...before, comparison])).toThrow(RangeError)
+      expect(chart.symbols.peek()).toBe(before)
+      chart.setSymbols([])
+      expect(chart.symbols.peek()).toEqual([])
+      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('filters options without mutating a frozen caller object', async () => {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+    try {
+      const patch = Object.freeze({ kWidth: 99, kGap: 98, yPaddingPx: 7 })
+      chart.updateOptions(patch)
+      expect(patch).toEqual({ kWidth: 99, kGap: 98, yPaddingPx: 7 })
+      expect(chart.getOption().yPaddingPx).toBe(7)
+      expect(chart.kernel.zoom.readonly.kWidth.peek()).not.toBe(99)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('uses the custom-data comparison snapshot to select its view', async () => {
+    const chart = new Chart(createChartDom(1000, 600), defaultOptions)
+    try {
+      chart.applyCustomData({
+        symbol: 'PRIMARY',
+        market: 'CN',
+        period: 'daily',
+        data: [],
+        comparisons: { COMPARE: [] },
+      })
+      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.Comparison)
+      chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data: [] })
+      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
+      expect(chart.interactionState).toBe(chart.kernel.interaction.readonly.interactionSnapshot)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('skips unchanged frames and repaints only overlay on pointer movement', async () => {
+    const dom = createChartDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    chart.resize()
+    chart.setData(
+      Array.from({ length: 100 }, (_, timestamp) => ({
+        timestamp,
+        open: 10,
+        high: 11,
+        low: 9,
+        close: 10,
+      })),
+    )
+    const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
+    const instances = vi.spyOn(chart['rendererHost'].renderer, 'drawInstances')
+    const lines = vi.spyOn(chart['rendererHost'].renderer, 'drawLines')
+    chart.draw()
+    paint.mockClear()
+    instances.mockClear()
+    lines.mockClear()
+    chart.draw()
+    expect(paint).not.toHaveBeenCalled()
+    expect(instances).not.toHaveBeenCalled()
+    expect(lines).not.toHaveBeenCalled()
+
+    chart.handlePointerEvent(pointerEvent('pointermove', dom.container, { pointerType: 'mouse' }))
+    chart.draw()
+    expect(paint).toHaveBeenCalled()
+    expect(
+      paint.mock.lastCall?.[0].panes.every((pane) =>
+        pane.roles?.every((role) => role === 'drawing' || role === 'overlay'),
+      ),
+    ).toBe(true)
+    expect(instances).not.toHaveBeenCalled()
+
+    paint.mockClear()
+    chart.kernel.viewport.actions.scrollTo(30)
+    chart.draw()
+    expect(paint.mock.lastCall?.[0].panes.some((pane) => pane.roles?.includes('primary'))).toBe(
+      true,
+    )
+    await chart.destroy()
+  })
+
+  it('invalidates main content for data, zoom, settings, resize and DPR changes', async () => {
+    const dom = createChartDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    const bars = Array.from({ length: 100 }, (_, timestamp) => ({
+      timestamp,
+      open: 10,
+      high: 11,
+      low: 9,
+      close: 10,
+    }))
+    chart.resize()
+    chart.setData(bars)
+    chart.draw()
+    const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
+    const expectMainPaint = (reason: string) => {
+      paint.mockClear()
+      chart.draw()
+      expect(
+        paint.mock.lastCall?.[0].panes.some((pane) => pane.roles?.includes('primary')),
+        reason,
+      ).toBe(true)
+    }
+
+    chart.setData([...bars, { timestamp: 100, open: 11, high: 12, low: 10, close: 11 }])
+    expectMainPaint('data')
+    chart.applyRenderState({ zoomLevel: 2 })
+    expectMainPaint('zoom')
+    chart.updateSettings({ showGridLines: false })
+    expectMainPaint('settings')
+    chart.resize()
+    expectMainPaint('resize')
+    Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
+    const observer = ResizeObserverMock.instances[0]
+    observer?.emit({
+      target: dom.container,
+      contentRect: DOMRect.fromRect({ width: 1000, height: 600 }),
+      contentBoxSize: [{ inlineSize: 1000, blockSize: 600 }],
+      devicePixelContentBoxSize: [{ inlineSize: 2000, blockSize: 1200 }],
+    })
+    expect(chart.getCurrentDpr()).toBe(2)
+    expectMainPaint('DPR')
+    await chart.destroy()
+  })
+
   it('keeps the crosshair visible while drawing preview consumes mouse moves', async () => {
     const dom = createChartDom(1000, 600)
     const chart = new Chart(dom, defaultOptions)
@@ -187,11 +465,10 @@ describe('Chart DPR pipeline', () => {
       },
     })
 
-    const rsiRendererName = getRegisteredIndicatorDefinition('RSI')?.rendererFactory({
+    const rsiRendererName = getRegisteredIndicatorDefinition('RSI')?.getRendererName({
       paneId: 'RSI_0',
       indicatorId: 'RSI',
-      instanceId: 'rsi-instance',
-    }).name
+    })
     expect(rsiRendererName).toBeDefined()
     expect(chart.getRenderer(rsiRendererName!)).toBeDefined()
     await chart.destroy()
@@ -203,6 +480,7 @@ describe('Chart DPR pipeline', () => {
     for (const name of ['lastPriceLine', 'lastPriceLabelRegistrar']) {
       expect(chart.getRenderer(name)).toBeDefined()
       expect(scene.getLayer(`plugin:${name}`)).toBeDefined()
+      expect(chart.getRenderer(name)?.role).toBe('overlay')
     }
 
     chart['kernel'].actions.setDataView('timeshare')
@@ -360,8 +638,8 @@ describe('Chart DPR pipeline', () => {
     const chart = new Chart(createChartDom(1000, 600), defaultOptions)
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
 
-    chart.applyRenderState(12, 3, 2)
-    chart.applyRenderState(12, 3, 2)
+    chart.applyRenderState({ zoomLevel: 2 })
+    chart.applyRenderState({ zoomLevel: 2 })
 
     expect(scheduleDrawSpy).toHaveBeenCalledTimes(1)
 

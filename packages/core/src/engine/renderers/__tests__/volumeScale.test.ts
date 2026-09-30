@@ -1,15 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createMockCanvasContext,
-  createMockPluginHost,
   createMockRenderContext,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
 
-import {
-  createVolumeScaleRendererPlugin,
-  formatVolumeScaleLabel,
-} from '../Indicator/scale/volume_scale'
+import { createVolumeScaleLayer, formatVolumeScaleLabel } from '../Indicator/scale/volume_scale'
 
 /** 坐标轴按实例身份寻址。 */
 const VOLUME_INSTANCE_ID = 'inst-volume-dynamic'
@@ -26,14 +22,13 @@ describe('formatVolumeScaleLabel', () => {
 
   it('draws ticks from the frame state for a dynamic volume pane', () => {
     const yAxisCtx = createMockCanvasContext()
-    const renderer = createVolumeScaleRendererPlugin({
+    const layer = createVolumeScaleLayer({
       axisWidth: 60,
       paneId: 'sub_Volume_dynamic',
       instanceId: VOLUME_INSTANCE_ID,
     })
-    renderer.onInstall?.(createMockPluginHost())
 
-    renderer.draw(
+    layer.paint(
       createMockRenderContext({
         yAxisCtx,
         dpr: 2,

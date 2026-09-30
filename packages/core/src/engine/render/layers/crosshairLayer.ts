@@ -1,18 +1,3 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { createLayerFromPlugin } from '@/rendering/scene/createLayerFromPlugin.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createCrosshairRendererPlugin } from '../../renderers/crosshair.js'
+/** 十字线 Layer：绘制体已迁入 renderers/crosshair.ts，这里仅保持既有 import 路径。 */
 
-export function createCrosshairLayer(
-  options: {
-    getCrosshairState: () => {
-      pos: { x: number; y: number } | null
-      activePaneId: string | null
-      isDragging: boolean
-      price: number | null
-    }
-  },
-  getContext: () => RenderContext | null,
-): Layer {
-  return createLayerFromPlugin(createCrosshairRendererPlugin(options), getContext, 'global')
-}
+export { type CrosshairLayerOptions, createCrosshairLayer } from '../../renderers/crosshair.js'

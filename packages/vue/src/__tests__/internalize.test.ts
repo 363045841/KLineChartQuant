@@ -117,8 +117,8 @@ describe('KLineChart legend slot lifecycle', () => {
     await flushMount()
 
     expect(mockController.legendSubscriberCount()).toBe(0)
-    expect(mockController.rendererConfigCalls()).toEqual([
-      { name: 'mainIndicatorLegend', config: { visible: true, visibleIndicatorIds: undefined } },
+    expect(mockController.optionsFacadeCalls()).toEqual([
+      { legend: { visible: true, visibleIndicatorIds: undefined } },
     ])
 
     wrapper.unmount()
@@ -144,9 +144,8 @@ describe('KLineChart legend slot lifecycle', () => {
     await nextTick()
 
     expect(mockController.legendSubscriberCount()).toBe(1)
-    expect(mockController.rendererConfigCalls().at(-1)).toEqual({
-      name: 'mainIndicatorLegend',
-      config: { visible: false, visibleIndicatorIds: undefined },
+    expect(mockController.optionsFacadeCalls().at(-1)).toEqual({
+      legend: { visible: false, visibleIndicatorIds: undefined },
     })
 
     showLegend.value = false
@@ -154,9 +153,8 @@ describe('KLineChart legend slot lifecycle', () => {
     await nextTick()
 
     expect(mockController.legendSubscriberCount()).toBe(0)
-    expect(mockController.rendererConfigCalls().at(-1)).toEqual({
-      name: 'mainIndicatorLegend',
-      config: { visible: true, visibleIndicatorIds: undefined },
+    expect(mockController.optionsFacadeCalls().at(-1)).toEqual({
+      legend: { visible: true, visibleIndicatorIds: undefined },
     })
 
     wrapper.unmount()
@@ -224,9 +222,8 @@ describe('KLineChart legend slot lifecycle', () => {
     await nextTick()
 
     expect(wrapper.get('.legend-contract').text()).toBe(JSON.stringify(context))
-    expect(mockController.rendererConfigCalls().at(-1)).toEqual({
-      name: 'mainIndicatorLegend',
-      config: { visible: false, visibleIndicatorIds: undefined },
+    expect(mockController.optionsFacadeCalls().at(-1)).toEqual({
+      legend: { visible: false, visibleIndicatorIds: undefined },
     })
 
     wrapper.unmount()

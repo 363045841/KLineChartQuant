@@ -1,8 +1,3 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { createLayerFromPlugin } from '@/rendering/scene/createLayerFromPlugin.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createLastPriceLabelRegistrarPlugin } from '../../renderers/lastPrice.js'
+/** 最新价标签 Layer：绘制体已迁入 renderers/lastPrice.ts，这里仅保持既有 import 路径。 */
 
-export function createLastPriceLabelLayer(getContext: () => RenderContext | null): Layer {
-  return createLayerFromPlugin(createLastPriceLabelRegistrarPlugin(), getContext, 'main')
-}
+export { createLastPriceLabelLayer } from '../../renderers/lastPrice.js'

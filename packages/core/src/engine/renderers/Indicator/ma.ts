@@ -1,14 +1,10 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
@@ -18,9 +14,9 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MARenderState } from '../../indicators/state/maState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 // Re-export MAFlags from calculators for backward compatibility
 export type { MAFlags } from '../../indicators/calculators/index.js'
@@ -167,14 +163,11 @@ function getMATitleInfo(
   getTitleInfo: getMATitleInfo,
 })
 export class MADefinition {
-  static rendererFactory = createMARendererPlugin
+  static rendererFactory = createMALayer
 }
 
-export function createMARendererPlugin(
-  options: { instanceId?: string } = {},
-): RendererPluginWithHost {
+export function createMALayer(options: { instanceId?: string } = {}): Layer<RenderContext> {
   const { instanceId } = options
-  let pluginHost: PluginHost | null = null
   let cachedKey = ''
   let cachedLines = new Map<number, LinePoint[]>()
 
@@ -183,23 +176,11 @@ export function createMARendererPlugin(
     cachedLines = new Map()
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: 'ma',
-    version: '2.1.0',
-    description: 'MA均线渲染器',
-    debugName: 'MA均线',
     paneId: 'main',
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost): void {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces(): string[] {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -288,19 +269,5 @@ export function createMARendererPlugin(
 
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<MARenderState>(instanceId)
-      const config: Record<string, boolean> = {}
-      state?.enabledPeriods.forEach((period) => {
-        config[`ma${period}`] = true
-      })
-      return config
-    },
-
-    setConfig(_newConfig: Record<string, unknown>) {},
-  }
+  })
 }

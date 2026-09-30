@@ -2,22 +2,18 @@
  * SMMA（Wilder 平滑移动平均）单线渲染器，WebGL 优先，Canvas2D 回退
  */
 
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcSMMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SMMARenderState } from '../../indicators/state/smmaState.js'
 import { EMPTY_SMMA_STATE } from '../../indicators/state/smmaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
@@ -34,27 +30,13 @@ interface SMMARendererOptions {
  * @param options 渲染器选项
  * @returns 渲染器插件
  */
-function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPluginWithHost {
+function createSMMALayer(options: SMMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `smma_${paneId}`,
-    version: '1.1.0',
-    description: 'SMMA Wilder 平滑移动均线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'SMMA',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -100,19 +82,7 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
       ctx.stroke()
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<SMMARenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 const getSMMATitleInfo = createSingleLineTitleInfo({
@@ -144,5 +114,5 @@ const getSMMATitleInfo = createSingleLineTitleInfo({
   },
 })
 export class SMMADefinition {
-  static rendererFactory = createSMMARendererPlugin
+  static rendererFactory = createSMMALayer
 }

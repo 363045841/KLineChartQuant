@@ -1,24 +1,20 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcRSIData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { RSIRenderState } from '../../indicators/state/rsiState.js'
 import { EMPTY_RSI_STATE } from '../../indicators/state/rsiState.js'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createRsiScaleRendererPlugin } from './scale/rsi_scale.js'
+import { createRsiScaleLayer } from './scale/rsi_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -32,10 +28,8 @@ interface RSIRendererOptions {
 /**
  * 创建 RSI 渲染器插件
  */
-function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPluginWithHost {
+function createRSILayer(options: RSIRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   // 线条点缓存
   let cachedKey = ''
   let cachedRSI1Points: LinePoint[] = []
@@ -159,23 +153,11 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `rsi_${paneId}`,
-    version: '2.1.0',
-    description: 'RSI 相对强弱指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'RSI',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -297,19 +279,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
         )
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<RSIRenderState>(instanceId)
-      return state ? { ...state.params } : {}
-    },
-
-    setConfig(_newConfig: Record<string, unknown>) {
-      // 无状态渲染器：配置变更由指标实例链路更新实例参数
-    },
-  }
+  })
 }
 
 /**
@@ -420,7 +390,7 @@ function getRSITitleInfo(
   defaultPaneId: 'sub_RSI',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
   visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
-  scaleRendererFactory: createRsiScaleRendererPlugin,
+  scaleRendererFactory: createRsiScaleLayer,
   getTitleInfo: getRSITitleInfo,
   presentation: {
     defaultOptions: { showRSI1: true, showRSI2: true, showRSI3: true },
@@ -441,5 +411,5 @@ function getRSITitleInfo(
   },
 })
 export class RSIIndicatorDefinition {
-  static rendererFactory = createRSIRendererPlugin
+  static rendererFactory = createRSILayer
 }

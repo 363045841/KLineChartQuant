@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createKLineData, createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 
-import { createTimeAxisRendererPlugin, resolveCrosshairTimestamp } from '../timeAxis'
+import { createTimeAxisLayer, resolveCrosshairTimestamp } from '../timeAxis'
 
 /** 构造带外推回调与自定义数据量的 RenderContext；extrapolated 为任意越界索引的返回值。 */
 function buildContext(options: {
@@ -67,12 +67,10 @@ describe('timeAxis draw 越界十字签接线', () => {
     const data = createKLineData(5)
     const last = data[data.length - 1]!.timestamp
     const { context } = buildContext({ extrapolated: last + 60_000 })
-    const plugin = createTimeAxisRendererPlugin({
+    createTimeAxisLayer({
       height: 24,
       getCrosshair: () => ({ x: context.paneWidth, index: data.length }),
-    })
-
-    plugin.draw(context)
+    }).paint({ ...context, paneId: 'xAxis', clear: false })
 
     const labels = context.axisLabels.forSurface('xCrosshair').labels
     expect(labels).toHaveLength(1)
@@ -85,10 +83,10 @@ describe('timeAxis draw 越界十字签接线', () => {
     { label: '历史区显示真实日期', indexOffset: -1, expected: 'real' as const },
   ])('十字线索引 $label', ({ indexOffset, expected }) => {
     const { context, data } = buildContext({ extrapolated: null })
-    createTimeAxisRendererPlugin({
+    createTimeAxisLayer({
       height: 24,
       getCrosshair: () => ({ x: 42, index: data.length + indexOffset }),
-    }).draw(context)
+    }).paint({ ...context, paneId: 'xAxis', clear: false })
 
     const text = context.axisLabels.forSurface('xCrosshair').labels[0]?.text
     expect(text).toBe(

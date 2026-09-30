@@ -2,27 +2,21 @@
  * StochRSI 指标渲染器：负责副图零轴、K/D 双线绘制和指标元数据声明。
  */
 
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcStochRSIData } from '../../indicators/calculators/stochRSI.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { StochRSIRenderState } from '../../indicators/state/stochRSIState.js'
 import { EMPTY_STOCH_RSI_STATE } from '../../indicators/state/stochRSIState.js'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-
-import { createStochRSIScaleRendererPlugin } from './scale/stochRSI_scale.js'
+import { createStochRSIScaleLayer } from './scale/stochRSI_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -38,12 +32,8 @@ interface StochRSIRendererOptions {
  * @param options 渲染器配置。
  * @returns StochRSI 渲染器插件。
  */
-function createStochRSIRendererPlugin(
-  options: StochRSIRendererOptions = {},
-): RendererPluginWithHost {
+function createStochRSILayer(options: StochRSIRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub_StochRSI', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
   let cachedKey = ''
   let cachedKPoints: LinePoint[] = []
   let cachedDPoints: LinePoint[] = []
@@ -92,26 +82,11 @@ function createStochRSIRendererPlugin(
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `stochRSI_${paneId}`,
-    version: '2.1.0',
-    description: 'StochRSI 随机相对强弱指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'StochRSI',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    /** 保存插件宿主，供绘制时读取共享状态。 */
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    /** 声明此渲染器拥有的状态命名空间。 */
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    /** 绘制 StochRSI 零轴和 K/D 折线。 */
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -202,19 +177,7 @@ function createStochRSIRendererPlugin(
         )
       }
     },
-
-    /** 返回当前 StochRSI 配置。 */
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<StochRSIRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    /** 配置由外部统一更新。 */
-    setConfig() {},
-  }
+  })
 }
 
 /**
@@ -320,7 +283,7 @@ function getStochRSITitleInfo(
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_StochRSI',
-  scaleRendererFactory: createStochRSIScaleRendererPlugin,
+  scaleRendererFactory: createStochRSIScaleLayer,
   visibleState: {
     compose: createPaddedPointVisibleStateComposer('stochRSI', EMPTY_STOCH_RSI_STATE, [
       'k',
@@ -336,5 +299,5 @@ function getStochRSITitleInfo(
   },
 })
 export class StochRSIIndicatorDefinition {
-  static rendererFactory = createStochRSIRendererPlugin
+  static rendererFactory = createStochRSILayer
 }

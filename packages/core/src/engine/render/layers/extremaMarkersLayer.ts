@@ -1,8 +1,3 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { createLayerFromPlugin } from '@/rendering/scene/createLayerFromPlugin.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createExtremaMarkersRendererPlugin } from '../../renderers/extremaMarkers.js'
+/** 极值标记 Layer：绘制体已迁入 renderers/extremaMarkers.ts，这里仅保持既有 import 路径。 */
 
-export function createExtremaMarkersLayer(getContext: () => RenderContext | null): Layer {
-  return createLayerFromPlugin(createExtremaMarkersRendererPlugin(), getContext, 'global')
-}
+export { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'

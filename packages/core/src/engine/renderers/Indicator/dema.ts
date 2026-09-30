@@ -1,19 +1,15 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcDEMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { DEMARenderState } from '../../indicators/state/demaState.js'
 import { EMPTY_DEMA_STATE } from '../../indicators/state/demaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
@@ -25,27 +21,13 @@ interface DEMARendererOptions {
   instanceId?: string
 }
 
-function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPluginWithHost {
+function createDEMALayer(options: DEMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `dema_${paneId}`,
-    version: '1.1.0',
-    description: 'DEMA 双重指数移动均线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'DEMA',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -89,19 +71,7 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
       ctx.stroke()
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<DEMARenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 const getDEMATitleInfo = createSingleLineTitleInfo({
@@ -133,5 +103,5 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
   },
 })
 export class DEMADefinition {
-  static rendererFactory = createDEMARendererPlugin
+  static rendererFactory = createDEMALayer
 }

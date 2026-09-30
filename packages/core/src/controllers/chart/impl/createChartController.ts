@@ -10,7 +10,6 @@ import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorD
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { MAIN_PANE_ID } from '@/engine/paneIds.js'
 import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
-import { kGapFromKWidth, zoomLevelToKWidth } from '@/engine/utils/zoom.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
@@ -139,15 +138,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     ;(window as Window & { __chart?: Chart }).__chart = chart
   }
 
-  const currentDpr =
-    typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1
-  const currentKWidth = zoomLevelToKWidth(initialZoomLevel, {
-    minKWidth: DEFAULT_OPTS.minKWidth,
-    maxKWidth: DEFAULT_OPTS.maxKWidth,
-    zoomLevelCount,
-  })
-  const currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
-
   const viewport = computed(() => mapViewportState(chart.viewport()))
   const indicators = computed(() => chart.indicators.instances().map(mapIndicatorInstance))
   const subPanes = computed(() => chart.indicators.subPanes().map(mapSubPaneInfo))
@@ -160,7 +150,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
 
   try {
-    chart.applyRenderState(currentKWidth, currentKGap, initialZoomLevel)
+    chart.applyRenderState({ zoomLevel: initialZoomLevel })
   } catch {
     /* tolerate jsdom */
   }

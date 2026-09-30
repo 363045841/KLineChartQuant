@@ -1,6 +1,7 @@
-import type { RendererPluginWithHost } from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 
-import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
+import { createIndicatorScaleLayer } from './indicator_scale.js'
 
 const YI = 1e8
 const WAN = 1e4
@@ -15,14 +16,14 @@ export function formatVolumeScaleLabel(value: number): string {
 /**
  * 创建成交量刻度渲染器插件
  */
-export function createVolumeScaleRendererPlugin(options: {
+export function createVolumeScaleLayer(options: {
   axisWidth: number
   paneId: string
   instanceId: string
   yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
-}): RendererPluginWithHost {
-  return createIndicatorScaleRendererPlugin({
+}): Layer<RenderContext> {
+  return createIndicatorScaleLayer({
     axisWidth: options.axisWidth,
     paneId: options.paneId,
     instanceId: options.instanceId,

@@ -1,19 +1,15 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcWMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { WMARenderState } from '../../indicators/state/wmaState.js'
 import { EMPTY_WMA_STATE } from '../../indicators/state/wmaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
@@ -25,27 +21,13 @@ interface WMARendererOptions {
   instanceId?: string
 }
 
-function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPluginWithHost {
+function createWMALayer(options: WMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `wma_${paneId}`,
-    version: '1.1.0',
-    description: 'WMA 线性加权移动均线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'WMA',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -89,19 +71,7 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
       ctx.stroke()
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<WMARenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 const getWMATitleInfo = createSingleLineTitleInfo({
@@ -133,5 +103,5 @@ const getWMATitleInfo = createSingleLineTitleInfo({
   },
 })
 export class WMADefinition {
-  static rendererFactory = createWMARendererPlugin
+  static rendererFactory = createWMALayer
 }

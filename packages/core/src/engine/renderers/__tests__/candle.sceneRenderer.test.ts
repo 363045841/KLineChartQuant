@@ -9,7 +9,12 @@ import type { RenderContext } from '@/foundation/plugin/index'
 import { projectWorldRectToScreen } from '@/foundation/utils/pixelAlign'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 import type { Renderer } from '@/rendering/render/Renderer'
-import { createCandleRenderer } from '../candle'
+import { createCandleLayer } from '../candle'
+
+/** 以主图身份调用 K 线 Layer.paint；sceneRenderer 由上下文携带。 */
+function paint(context: RenderContext): void {
+  createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
+}
 
 /** 构造蜡烛图 renderer 关心的 pane 差异项。 */
 function makePane(): MockPaneInfoOverrides {
@@ -83,7 +88,7 @@ describe('candle sceneRenderer path', () => {
       settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
     })
 
-    createCandleRenderer().draw(ctx)
+    paint(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
     expect(compositeTo).not.toHaveBeenCalled()
@@ -100,7 +105,7 @@ describe('candle sceneRenderer path', () => {
       settings: { rendererBackend: 'webgpu', showVolumePriceMarkers: false },
     })
 
-    createCandleRenderer().draw(ctx)
+    paint(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
     expect(compositeTo).not.toHaveBeenCalled()
@@ -120,7 +125,7 @@ describe('candle sceneRenderer path', () => {
       settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
     })
 
-    createCandleRenderer().draw(ctx)
+    paint(ctx)
 
     expect(compositeTo).not.toHaveBeenCalled()
     expect(ctx2d.fillRect).toHaveBeenCalled()
@@ -128,6 +133,83 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it('retains unchanged geometry, replays after another chart, and invalidates on data updates', () => {
+    const closeRead = vi.fn(() => 102)
+    const canvas = createMockCanvasContext()
+    const context = createCtx(undefined, {
+      ctx: canvas,
+      dataRevision: 1,
+      data: [
+        {
+          timestamp: 1,
+          open: 100,
+          high: 105,
+          low: 95,
+          get close() {
+            return closeRead()
+          },
+        },
+      ],
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+      settings: { showVolumePriceMarkers: false },
+    })
+    const layer = createCandleLayer()
+    layer.paint(context)
+    const firstRects = [...vi.mocked(canvas.fillRect).mock.calls]
+    const reads = closeRead.mock.calls.length
+
+    // 另一个图表生成不同几何不能覆盖本 Layer 保留的缓冲。
+    paint(
+      createCtx(undefined, {
+        data: makeBars(1),
+        range: { start: 0, end: 1 },
+        kLineCenters: [200],
+      }),
+    )
+    vi.mocked(canvas.fillRect).mockClear()
+    layer.paint({ ...context, data: [...context.data], kLineCenters: [10] })
+    expect(closeRead).toHaveBeenCalledTimes(reads)
+    expect(vi.mocked(canvas.fillRect).mock.calls).toEqual(firstRects)
+
+    closeRead.mockReturnValue(104)
+    vi.mocked(canvas.fillRect).mockClear()
+    layer.paint({ ...context, dataRevision: 2 })
+    expect(closeRead.mock.calls.length).toBeGreaterThan(reads)
+    expect(vi.mocked(canvas.fillRect).mock.calls).not.toEqual(firstRects)
+    layer.dispose()
+  })
+
+  it.each([
+    { dpr: 2 },
+    { kWidthPx: 9 },
+    { kLineCenters: [30] },
+    { pane: { height: 600 } },
+    { pane: { yAxis: { getDisplayRange: () => ({ minPrice: 80, maxPrice: 120 }) } } },
+  ])('invalidates retained geometry when projection changes: %j', (changes) => {
+    const context = createCtx(undefined, {
+      dataRevision: 1,
+      data: makeBars(1),
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+    })
+    const retainedLayer = createCandleLayer()
+    retainedLayer.paint(context)
+    const changed = createCtx(undefined, {
+      dataRevision: 1,
+      data: makeBars(1),
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+      ...changes,
+    })
+    retainedLayer.paint(changed)
+    const actual = [...vi.mocked(changed.ctx.fillRect).mock.calls]
+    vi.mocked(changed.ctx.fillRect).mockClear()
+    paint(changed)
+    expect(vi.mocked(changed.ctx.fillRect).mock.calls).toEqual(actual)
+    retainedLayer.dispose()
+  })
+
   it.each([1, 1.25, 2])('keeps body and wick pixels at dpr %s', (dpr) => {
     const ctx2d = createMockCanvasContext()
     const bar = { timestamp: 1, open: 100, close: 100.3, high: 100.9, low: 99.6, volume: 1 }
@@ -142,7 +224,7 @@ describe('candle preparation', () => {
       kWidthPx: 5,
       settings: { showVolumePriceMarkers: false },
     })
-    createCandleRenderer().draw(context)
+    paint(context)
 
     const toY = (price: number) => 390 - (price - 90) * 19
     const aligned = (price: number) => Math.round(toY(price) * dpr) / dpr
@@ -205,7 +287,7 @@ describe('candle preparation', () => {
       zoomLevel: 1,
       markerManager: manager,
     })
-    createCandleRenderer().draw(context)
+    paint(context)
     expect(volumeRead).not.toHaveBeenCalled()
   })
 
@@ -225,7 +307,7 @@ describe('candle preparation', () => {
       markerManager: manager,
       zoomLevel: 2,
     })
-    createCandleRenderer().draw(context)
+    paint(context)
     expect(manager.register.mock.calls.map(([marker]) => marker.id)).toEqual([
       'mk_price-volume_1',
       'mk_price-volume_2',

@@ -2,22 +2,18 @@
  * ZLEMA（零滞后指数移动平均）单线渲染器
  * 完整骨架与 wma.ts 一致：优先走 WebGL 线段绘制，失败回退 Canvas2D
  */
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcZLEMAData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { ZLEMARenderState } from '../../indicators/state/zlemaState.js'
 import { EMPTY_ZLEMA_STATE } from '../../indicators/state/zlemaState.js'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
@@ -30,27 +26,13 @@ interface ZLEMARendererOptions {
 }
 
 /** 创建 ZLEMA 渲染器插件，draw 时按状态中 showZLEMA 决定是否绘制 */
-function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): RendererPluginWithHost {
+function createZLEMALayer(options: ZLEMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `zlema_${paneId}`,
-    version: '1.1.0',
-    description: 'ZLEMA 零滞后指数移动均线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'ZLEMA',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -94,19 +76,7 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
       ctx.stroke()
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<ZLEMARenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig() {
-      // no-op
-    },
-  }
+  })
 }
 
 const getZLEMATitleInfo = createSingleLineTitleInfo({
@@ -138,5 +108,5 @@ const getZLEMATitleInfo = createSingleLineTitleInfo({
   },
 })
 export class ZLEMADefinition {
-  static rendererFactory = createZLEMARendererPlugin
+  static rendererFactory = createZLEMALayer
 }

@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { BUILTIN_LAYER_TYPES, createLayerRegistry, type LayerFactory } from '../layerRegistry'
-import type { Layer, PaintContext } from '../types'
+import type { Layer } from '../types'
 
 // ---------------------------------------------------------------------------
 // Test fixture: a no-op Layer factory we can register from many tests.
@@ -32,10 +32,10 @@ function makeFactory(typeId: string): LayerFactory<FixtureConfig> {
       return {
         id: `${typeId}::instance`,
         role: 'indicator',
-        paneRole: 'main',
+        pane: 'main',
         z: config.z ?? 0,
         visible: true,
-        paint: (_ctx: PaintContext): void => {
+        paint: (): void => {
           // no-op
         },
         dispose: (): void => {
@@ -116,7 +116,7 @@ describe('createLayerRegistry', () => {
     // Spot-check every field the Layer interface requires.
     expect(layer.id).toBe('test:create::instance')
     expect(layer.role).toBe('indicator')
-    expect(layer.paneRole).toBe('main')
+    expect(layer.pane).toBe('main')
     expect(layer.z).toBe(7)
     expect(layer.visible).toBe(true)
     expect(typeof layer.paint).toBe('function')
@@ -179,7 +179,7 @@ describe('BUILTIN_LAYER_TYPES', () => {
       create: (_config: unknown): Layer => ({
         id: 'vp-instance',
         role: 'component',
-        paneRole: 'main',
+        pane: 'main',
         z: 10,
         visible: true,
         paint: (): void => {},

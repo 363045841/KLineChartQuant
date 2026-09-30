@@ -1,13 +1,15 @@
-import type { RenderContext, RendererPluginWithHost } from '../../foundation/plugin/index.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
-import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale.js'
+import { createVolumeScaleLayer } from './Indicator/scale/volume_scale.js'
 import { tryDrawRectsGpu } from './rectsViaRenderer.js'
 
 interface VolumeRendererOptions {
@@ -16,173 +18,177 @@ interface VolumeRendererOptions {
 }
 
 /**
- * 创建副图成交量渲染器插件
+ * 创建副图成交量 Layer。
  */
-function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): RendererPluginWithHost {
+function createVolumeLayer(options: VolumeRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub' } = options
+  const name = `volume_${paneId}`
 
   return {
-    name: `volume_${paneId}`,
-    version: '1.0.0',
-    description: '成交量渲染器',
-    debugName: '成交量',
-    paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    id: makePluginLayerId(name),
+    role: 'indicator',
+    pane: paneId,
+    z: RENDERER_PRIORITY.MAIN,
+    visible: true,
+    paint(context) {
+      drawVolume(context)
+    },
+    dispose() {},
+  }
+}
 
-    // 保留插件生命周期契约；成交量范围已由 Scheduler 投影到帧级状态。
-    onInstall() {},
+/** 成交量绘制体：K 线与分时共用，GPU 优先、Canvas2D 兜底。 */
+function drawVolume(context: RenderContext): void {
+  const { ctx, pane, data, range, dpr } = context
+  {
+    const colors = resolveThemeColors(
+      context.theme,
+      context.isAsiaMarket,
+      context.colorPresetSettings,
+    )
+    // K 线与分时量柱统一使用独立的成交量配色，不跟随主图价格线或 K 线实体色。
+    const upVolume = colors.volumeUp
+    const downVolume = colors.volumeDown
+    const neutralVolume = colors.volumeNeutral
+    const chartData = data as Array<KLineData | TimeShareData>
+    if (!chartData.length) return
 
-    draw(context: RenderContext) {
-      const { ctx, pane, data, range, dpr } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      // K 线与分时量柱统一使用独立的成交量配色，不跟随主图价格线或 K 线实体色。
-      const upVolume = colors.volumeUp
-      const downVolume = colors.volumeDown
-      const neutralVolume = colors.volumeNeutral
-      const chartData = data as Array<KLineData | TimeShareData>
-      if (!chartData.length) return
+    const { start, end } = range
+    const isTimeShare = chartData.some((item) => item && 'price' in item)
 
-      const { start, end } = range
-      const isTimeShare = chartData.some((item) => item && 'price' in item)
-
-      let maxVolume = 0
-      let minVolume = Infinity
-      let missingVolumeCount = 0
-      let zeroVolumeCount = 0
-      let validVolumeCount = 0
-      for (let i = start; i < end && i < chartData.length; i++) {
-        const item = chartData[i]
-        if (!item) continue
-        const volume = item.volume
-        if (volume !== undefined && volume !== null) {
-          maxVolume = Math.max(maxVolume, volume)
-          minVolume = Math.min(minVolume, volume)
-          if (volume === 0) {
-            zeroVolumeCount++
-          } else {
-            validVolumeCount++
-          }
+    let maxVolume = 0
+    let minVolume = Infinity
+    let missingVolumeCount = 0
+    let zeroVolumeCount = 0
+    let validVolumeCount = 0
+    for (let i = start; i < end && i < chartData.length; i++) {
+      const item = chartData[i]
+      if (!item) continue
+      const volume = item.volume
+      if (volume !== undefined && volume !== null) {
+        maxVolume = Math.max(maxVolume, volume)
+        minVolume = Math.min(minVolume, volume)
+        if (volume === 0) {
+          zeroVolumeCount++
         } else {
-          missingVolumeCount++
+          validVolumeCount++
         }
+      } else {
+        missingVolumeCount++
       }
+    }
 
+    if (isTimeShare) {
+      // biome-ignore lint/suspicious/noConsole: 临时诊断分时成交量数据与绘制前置条件。
+      console.debug('[VolumeRenderer][TimeShare] render diagnostics', {
+        paneId: pane.id,
+        range: { start, end },
+        visiblePointCount: Math.max(0, Math.min(end, chartData.length) - start),
+        validVolumeCount,
+        zeroVolumeCount,
+        missingVolumeCount,
+        minVolume: Number.isFinite(minVolume) ? minVolume : undefined,
+        maxVolume,
+        kBarRectCount: context.kBarRects.length,
+      })
+    }
+
+    if (maxVolume === 0 || !Number.isFinite(minVolume)) {
       if (isTimeShare) {
-        // biome-ignore lint/suspicious/noConsole: 临时诊断分时成交量数据与绘制前置条件。
-        console.debug('[VolumeRenderer][TimeShare] render diagnostics', {
-          paneId,
-          range: { start, end },
-          visiblePointCount: Math.max(0, Math.min(end, chartData.length) - start),
-          validVolumeCount,
-          zeroVolumeCount,
-          missingVolumeCount,
-          minVolume: Number.isFinite(minVolume) ? minVolume : undefined,
-          maxVolume,
-          kBarRectCount: context.kBarRects.length,
-        })
-      }
-
-      if (maxVolume === 0 || !Number.isFinite(minVolume)) {
-        if (isTimeShare) {
-          // biome-ignore lint/suspicious/noConsole: 临时诊断分时成交量未绘制的直接原因。
-          console.warn(
-            '[VolumeRenderer][TimeShare] skip drawing: no positive usable volume in visible range',
-            {
-              paneId,
-              range: { start, end },
-              validVolumeCount,
-              zeroVolumeCount,
-              missingVolumeCount,
-            },
-          )
-        }
-        return
-      }
-
-      const padding = Math.max(0.05, (maxVolume - minVolume) * 0.1)
-      const valueMin = Math.max(0, minVolume - padding)
-      const valueMax = maxVolume + padding
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-      const displayMin = displayRange.minPrice
-      const displayMax = displayRange.maxPrice
-      const displayValueRange = displayMax - displayMin || 1
-      const baseY = pane.height - ((0 - displayMin) / displayValueRange) * pane.height
-      const alignedBaseY = Math.round(baseY * dpr) / dpr
-
-      const maxRects = Math.max(1, end - start)
-      const upBuf = new Float32Array(maxRects * 4)
-      const downBuf = new Float32Array(maxRects * 4)
-      const neutralBuf = new Float32Array(maxRects * 4)
-      let upCount = 0
-      let downCount = 0
-      let neutralCount = 0
-
-      for (let i = start; i < end; i++) {
-        const item = chartData[i]
-        if (!item) continue
-        const volume = item.volume
-        if (!volume) continue
-        const barRect = context.kBarRects[i - start]
-        if (!barRect || barRect.width <= 0) continue
-
-        const y = pane.height - ((volume - displayMin) / displayValueRange) * pane.height
-        const alignedY = Math.round(y * dpr) / dpr
-        const minBarHPx = 1 / dpr
-        const rawH = alignedBaseY - alignedY
-        const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
-        const finalY = rawH <= 0 ? alignedBaseY - minBarHPx : alignedBaseY - finalH
-
-        const previous = i > 0 ? chartData[i - 1] : undefined
-        const color = judgeVolumeColor(item, previous, upVolume, downVolume, neutralVolume)
-
-        let buf: Float32Array
-        let idx: number
-        if (color === upVolume) {
-          buf = upBuf
-          idx = upCount++
-        } else if (color === downVolume) {
-          buf = downBuf
-          idx = downCount++
-        } else {
-          buf = neutralBuf
-          idx = neutralCount++
-        }
-        const off = idx * 4
-        buf[off] = barRect.x
-        buf[off + 1] = finalY
-        buf[off + 2] = barRect.width
-        buf[off + 3] = finalH
-      }
-
-      const usedGpu = tryDrawRectsGpu(
-        context,
-        [
-          { buf: upBuf, count: upCount, color: upVolume },
-          { buf: downBuf, count: downCount, color: downVolume },
-          { buf: neutralBuf, count: neutralCount, color: neutralVolume },
-        ],
-        context.scrollLeft,
-      )
-      if (!usedGpu) {
-        drawVolumeWithCanvas2D(
-          ctx,
-          context.scrollLeft,
-          upBuf,
-          upCount,
-          downBuf,
-          downCount,
-          neutralBuf,
-          neutralCount,
-          upVolume,
-          downVolume,
-          neutralVolume,
+        // biome-ignore lint/suspicious/noConsole: 临时诊断分时成交量未绘制的直接原因。
+        console.warn(
+          '[VolumeRenderer][TimeShare] skip drawing: no positive usable volume in visible range',
+          {
+            paneId: pane.id,
+            range: { start, end },
+            validVolumeCount,
+            zeroVolumeCount,
+            missingVolumeCount,
+          },
         )
       }
-    },
+      return
+    }
+
+    const padding = Math.max(0.05, (maxVolume - minVolume) * 0.1)
+    const valueMin = Math.max(0, minVolume - padding)
+    const valueMax = maxVolume + padding
+    const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+    const displayMin = displayRange.minPrice
+    const displayMax = displayRange.maxPrice
+    const displayValueRange = displayMax - displayMin || 1
+    const baseY = pane.height - ((0 - displayMin) / displayValueRange) * pane.height
+    const alignedBaseY = Math.round(baseY * dpr) / dpr
+
+    const maxRects = Math.max(1, end - start)
+    const upBuf = new Float32Array(maxRects * 4)
+    const downBuf = new Float32Array(maxRects * 4)
+    const neutralBuf = new Float32Array(maxRects * 4)
+    let upCount = 0
+    let downCount = 0
+    let neutralCount = 0
+
+    for (let i = start; i < end; i++) {
+      const item = chartData[i]
+      if (!item) continue
+      const volume = item.volume
+      if (!volume) continue
+      const barRect = context.kBarRects[i - start]
+      if (!barRect || barRect.width <= 0) continue
+
+      const y = pane.height - ((volume - displayMin) / displayValueRange) * pane.height
+      const alignedY = Math.round(y * dpr) / dpr
+      const minBarHPx = 1 / dpr
+      const rawH = alignedBaseY - alignedY
+      const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
+      const finalY = rawH <= 0 ? alignedBaseY - minBarHPx : alignedBaseY - finalH
+
+      const previous = i > 0 ? chartData[i - 1] : undefined
+      const color = judgeVolumeColor(item, previous, upVolume, downVolume, neutralVolume)
+
+      let buf: Float32Array
+      let idx: number
+      if (color === upVolume) {
+        buf = upBuf
+        idx = upCount++
+      } else if (color === downVolume) {
+        buf = downBuf
+        idx = downCount++
+      } else {
+        buf = neutralBuf
+        idx = neutralCount++
+      }
+      const off = idx * 4
+      buf[off] = barRect.x
+      buf[off + 1] = finalY
+      buf[off + 2] = barRect.width
+      buf[off + 3] = finalH
+    }
+
+    const usedGpu = tryDrawRectsGpu(
+      context,
+      [
+        { buf: upBuf, count: upCount, color: upVolume },
+        { buf: downBuf, count: downCount, color: downVolume },
+        { buf: neutralBuf, count: neutralCount, color: neutralVolume },
+      ],
+      context.scrollLeft,
+    )
+    if (!usedGpu) {
+      drawVolumeWithCanvas2D(
+        ctx,
+        context.scrollLeft,
+        upBuf,
+        upCount,
+        downBuf,
+        downCount,
+        neutralBuf,
+        neutralCount,
+        upVolume,
+        downVolume,
+        neutralVolume,
+      )
+    }
   }
 }
 
@@ -254,8 +260,8 @@ function judgeVolumeColor(
   indicatorType: 'volume',
   defaultPaneId: 'sub',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare],
-  scaleRendererFactory: createVolumeScaleRendererPlugin,
+  scaleRendererFactory: createVolumeScaleLayer,
 })
 export class VolumeIndicatorDefinition {
-  static rendererFactory = createVolumeRendererPlugin
+  static rendererFactory = createVolumeLayer
 }

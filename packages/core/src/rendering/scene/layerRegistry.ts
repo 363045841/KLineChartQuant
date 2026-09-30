@@ -23,6 +23,9 @@ import { KLineChartError } from '../../errors.js'
 
 import type { Layer, LayerRole } from './types.js'
 
+/** 注册表按框架无关的 Layer 形状工作，帧上下文类型在此处不关心。 */
+type AnyLayer = Layer<never>
+
 /**
  * A layer factory turns a typed config into a `Layer`.
  *
@@ -36,7 +39,7 @@ export interface LayerFactory<TConfig = unknown> {
   typeId: string
   role: LayerRole
   /** Create a Layer instance; consumers pass any config + their store ref. */
-  create(config: TConfig): Layer
+  create(config: TConfig): AnyLayer
 }
 
 export interface LayerRegistry {

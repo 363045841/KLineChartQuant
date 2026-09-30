@@ -1251,9 +1251,11 @@
 
   function applyLegendRenderMode(ctrl: ChartController | null, external: boolean): void {
     if (!ctrl) return
-    ctrl.updateRendererConfig('mainIndicatorLegend', {
-      visible: !external && props.legend?.visible !== false,
-      visibleIndicatorIds: props.legend?.visibleIndicatorIds,
+    ctrl.updateOptionsFacade({
+      legend: {
+        visible: !external && props.legend?.visible !== false,
+        visibleIndicatorIds: props.legend?.visibleIndicatorIds,
+      },
     })
   }
 

@@ -1,9 +1,7 @@
 /** X 轴刻度、十字线时间签与绘图轴标签的绘制入口。 */
-import type {
-  AxisLabelCollector,
-  RenderContext,
-  RendererPlugin,
-} from '../../foundation/plugin/index.js'
+
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { AxisLabelCollector, RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import {
@@ -23,10 +21,9 @@ import {
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
 } from '../../foundation/utils/timeShareAxisLabels.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
-
-/** 时间轴面板 ID（特殊标识，用于单独渲染） */
-const TIME_AXIS_PANE_ID = Symbol('time-axis')
 
 /** 未来占位刻度之间的最小逻辑像素间距。 */
 const FUTURE_TICK_MIN_SPACING = 56
@@ -298,24 +295,24 @@ export function collectFutureTimeBoundaries(params: {
   return boundaries
 }
 
-/**
- * 创建时间轴渲染器插件
- * 注意：时间轴渲染到 xAxisCanvas，需要特殊处理
- */
-export function createTimeAxisRendererPlugin(options: {
+/** 时间轴 Layer 选项。 */
+export interface TimeAxisLayerOptions {
   height: number
   getCrosshair?: () => { x: number; index: number } | null
-}): RendererPlugin {
-  return {
-    name: 'timeAxis',
-    version: '1.0.0',
-    description: '时间轴渲染器',
-    debugName: '时间轴',
-    paneId: TIME_AXIS_PANE_ID,
-    priority: RENDERER_PRIORITY.SYSTEM_XAXIS,
-    isSystem: true, // 系统渲染器：由 Scene Layer 调度
+}
 
-    draw(context: RenderContext) {
+/**
+ * 时间轴 Layer。时间轴渲染到 xAxisCanvas，由 ChartRenderer 直接调度。
+ * @param options 时间轴高度与十字线读取器
+ */
+export function createTimeAxisLayer(options: TimeAxisLayerOptions): Layer<RenderContext> {
+  return {
+    id: makePluginLayerId('timeAxis'),
+    role: 'background',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.SYSTEM_XAXIS,
+    visible: true,
+    paint(context) {
       const { ctx, paneWidth, dpr } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -378,5 +375,6 @@ export function createTimeAxisRendererPlugin(options: {
       // 图元装饰标签（帧准备阶段注册）最后绘制
       paintAxisLabels(ctx, context.axisLabels.forSurface('xLabels').labels, 'xLabels', metrics)
     },
+    dispose() {},
   }
 }

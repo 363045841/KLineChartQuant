@@ -1,11 +1,10 @@
 /**
  * ChartZoomController 未来区（future time axis）回归测试。
  *
- * 覆盖：默认配置（用户未传 futureScreens）下，viewportState 已解析 3 屏未来区；
- * zoom 必须消费该已解析值（默认值解析单点），否则拖入未来区后缩放会被
- * 30 槽旧上限拉回数据右缘。
+ * 覆盖：拖入未来区后缩放，锚点为指针所在槽位（无指针手势取视口左缘）；
+ * 滚动量由 viewportState 的 maxScrollLeft 统一夹取（显式 3 屏未来区），不被拉回数据右缘。
  *
- * 数值基准：dpr=1，viewWidth=plotWidth=clientWidth=1000，dataLength=10，
+ * 数值基准：dpr=1，viewWidth=plotWidth=1000，dataLength=10，
  * 级别 6→5 缩小一级（kWidth 21→17.4，kGapPx 均钳 3，旧 unitPx=24 / 新 unitPx=20）。
  */
 import { describe, expect, it } from 'vitest'
@@ -19,7 +18,7 @@ import { ChartZoomController } from '../chartZoomController'
 
 /** 组装真实 viewportState / zoomState / optionsState 与控制器（无 DOM 依赖）。 */
 function makeController() {
-  const deps = createViewportStateDeps({ dataLength: 10 })
+  const deps = createViewportStateDeps({ dataLength: 10, futureScreens: 3 })
   const viewport = createViewportState({
     options$: deps.options$,
     dataLength$: deps.dataLength$,
@@ -54,8 +53,6 @@ function makeController() {
       viewport,
       options,
       period$: deps.period$,
-      getClientWidth: () => 1000,
-      getDataLength: () => 10,
       getPlotWidth: () => 1000,
       onChange: () => {},
     },
@@ -65,18 +62,16 @@ function makeController() {
 }
 
 describe('ChartZoomController future region', () => {
-  it('默认配置拖入未来区后 zoomOut：scrollTo 不被 30 槽旧上限拉回数据右缘', () => {
+  it('拖入未来区后 zoomOut：以指针槽位为锚点，不被拉回数据右缘', () => {
     const { viewport, controller } = makeController()
 
-    // 拖到最右：viewport 滚动上限含未来区（默认 3 屏），scrollLeftLogical 落在未来区深处
+    // 拖到最右：viewport 滚动上限含未来区（3 屏），scrollLeftLogical 落在未来区深处
     viewport.actions.scrollTo(viewport.readonly.maxScrollLeft.peek())
     expect(viewport.readonly.scrollLeftLogical.peek()).toBe(2103)
 
     controller.zoomOut()
 
-    // zoom 侧 maxScroll 若按 30 槽裁剪会给出 1000（回归时的错误值）；
-    // 含未来区（150 槽）后 maxScroll=3203，锚点换算 newScrollLeft=1753 →
-    // newDomScrollLeft=1753+1000=2753，viewport 夹取（上限 3103）不再二次截断
+    // 无指针手势取视口左缘槽位（旧 2103 → 新 1753）；viewport 上限 3103 不截断 1753+1000。
     expect(viewport.readonly.scrollLeft.peek()).toBe(2753)
   })
 })

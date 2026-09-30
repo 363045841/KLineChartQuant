@@ -5,7 +5,7 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 
 import { HK_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
-import { createTimeAxisRendererPlugin } from '../timeAxis'
+import { createTimeAxisLayer } from '../timeAxis'
 
 describe('time axis market session', () => {
   it('uses the active HK session from render context', () => {
@@ -37,7 +37,7 @@ describe('time axis market session', () => {
       marketSession: HK_MARKET_SESSION,
     })
 
-    createTimeAxisRendererPlugin({ height: 24 }).draw(context)
+    createTimeAxisLayer({ height: 24 }).paint({ ...context, paneId: 'xAxis', clear: false })
 
     const fillText = vi.mocked(ctx.fillText)
     const labels = fillText.mock.calls.map(([text]) => text)

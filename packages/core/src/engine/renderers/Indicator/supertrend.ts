@@ -1,12 +1,8 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcSuperTrendData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
@@ -14,10 +10,10 @@ import {
   IndicatorKind,
   type TitleInfo,
 } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { SuperTrendRenderState } from '../../indicators/state/supertrendState.js'
 import { EMPTY_SUPERTREND_STATE } from '../../indicators/state/supertrendState.js'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 interface SuperTrendRendererOptions {
   paneId?: string
@@ -25,28 +21,13 @@ interface SuperTrendRendererOptions {
   instanceId?: string
 }
 
-function createSuperTrendRendererPlugin(
-  options: SuperTrendRendererOptions = {},
-): RendererPluginWithHost {
+function createSuperTrendLayer(options: SuperTrendRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub_SuperTrend', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `supertrend_${paneId}`,
-    version: '1.0.0',
-    description: 'SuperTrend ATR 趋势带渲染器（趋势翻转处颜色切换）',
-    debugName: 'SuperTrend',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -91,16 +72,7 @@ function createSuperTrendRendererPlugin(
       }
       ctx.restore()
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<SuperTrendRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function getSuperTrendTitleInfo(
@@ -155,5 +127,5 @@ function getSuperTrendTitleInfo(
   },
 })
 export class SuperTrendIndicatorDefinition {
-  static rendererFactory = createSuperTrendRendererPlugin
+  static rendererFactory = createSuperTrendLayer
 }

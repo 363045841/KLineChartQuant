@@ -1,16 +1,14 @@
-import type {
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
-
+import type { Layer } from '@/rendering/scene/types.js'
+import { MAIN_PANE_ID } from '../../paneIds.js'
 import {
   buildLegendTemplateContext,
   type LegendRenderMode,
   type LegendTemplateContext,
 } from './mainIndicatorLegendContext.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512
@@ -38,107 +36,62 @@ export interface CanvasLegendOptions {
   visibleIndicatorIds?: ReadonlyArray<string>
 }
 
-/** 渲染器内部配置。 */
-interface MainIndicatorLegendConfig {
-  yPaddingPx: number
-  /** 是否绘制 Canvas 图例。 */
-  visible: boolean
-  /** 兼容外部 DOM 图例模式。 */
-  renderMode: LegendRenderMode
-  /** 当前数据视图允许在图例显示的主图指标。 */
-  visibleIndicatorIds: ReadonlyArray<string> | null
-}
-
 export type MainIndicatorLegendOptions = {
   yPaddingPx: number
   /** 每帧构建后的图例上下文回调（canvas / external 均触发） */
   onContext?: (ctx: LegendTemplateContext | null) => void
+  /** 读取当前数据视图允许显示的指标 ID；缺省显示全部。 */
+  getVisibleIndicatorIds?: () => ReadonlyArray<string>
+  /** 每帧读取 options 状态中的 Canvas 图例配置。 */
+  getLegendOptions?: () => CanvasLegendOptions | undefined
+  /** 是否绘制 Canvas 图例，默认 true。 */
+  visible?: boolean
+  /** 图例渲染模式，默认 canvas；external 仅发布上下文。 */
+  renderMode?: LegendRenderMode
 }
 
 /**
- * 创建主图指标图例渲染器插件
+ * 创建主图指标图例 Layer（覆盖层）。
  *
- * 统一管理 MA、BOLL 等主图指标的图例显示，支持多行排列
- * MA 数据从 StateStore 读取（与 MA 线渲染器共享同一数据源）
+ * 统一管理 MA、BOLL 等主图指标的图例显示，支持多行排列；
+ * 指标数据经 `context.indicatorStateReader` 与注入的 PluginHost 目录服务读取。
  */
-export function createMainIndicatorLegendRendererPlugin(
+export function createMainIndicatorLegendLayer(
   options: MainIndicatorLegendOptions,
-): RendererPluginWithHost {
-  const config: MainIndicatorLegendConfig = {
-    yPaddingPx: options.yPaddingPx,
-    visible: true,
-    renderMode: 'canvas',
-    visibleIndicatorIds: null,
-  }
+  getPluginHost: () => PluginHost | null,
+): Layer<RenderContext> {
+  const visible = options.visible ?? true
+  const renderMode = options.renderMode ?? 'canvas'
   const onContext = options.onContext
+  const readVisibleIndicatorIds = options.getVisibleIndicatorIds
 
-  let pluginHost: PluginHost | null = null
-  let visibleIndicatorIdSet: ReadonlySet<string> | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: 'mainIndicatorLegend',
-    version: '2.2.0',
-    description: '主图指标图例渲染器（MA 数据来自 StateStore）',
-    debugName: '主图指标图例',
-    paneId: 'main',
-    priority: RENDERER_PRIORITY.FOREGROUND,
-    layer: 'overlay',
-    enabled: true,
-
-    onInstall(host: PluginHost): void {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces(): string[] {
-      return []
-    },
-
-    draw(context: RenderContext) {
+    paneId: MAIN_PANE_ID,
+    role: 'overlay',
+    z: RENDERER_PRIORITY.FOREGROUND,
+    draw(context) {
+      const config = options.getLegendOptions?.()
+      const viewIds = readVisibleIndicatorIds?.()
+      const configuredIds = config?.visibleIndicatorIds
+      // 用户筛选与当前视图的指标集合取交集，避免显示其他视图的指标。
+      const visibleIds = configuredIds
+        ? configuredIds.filter((id) => !viewIds || viewIds.includes(id))
+        : viewIds
       const legend = buildLegendTemplateContext({
         context,
-        host: pluginHost,
-        yPaddingPx: config.yPaddingPx,
-        visibleIndicatorIds: visibleIndicatorIdSet,
+        host: getPluginHost(),
+        yPaddingPx: options.yPaddingPx,
+        visibleIndicatorIds: visibleIds ? new Set(visibleIds) : null,
       })
       onContext?.(legend)
 
-      if (!config.visible || config.renderMode === 'external') return
+      if (!(config?.visible ?? visible) || renderMode === 'external') return
       if (!legend || !context.overlayCtx) return
 
       paintLegendOnCanvas(context.overlayCtx, legend)
     },
-
-    getConfig() {
-      return {
-        yPaddingPx: config.yPaddingPx,
-        visible: config.visible,
-        renderMode: config.renderMode,
-        visibleIndicatorIds: config.visibleIndicatorIds,
-      }
-    },
-
-    setConfig(newConfig: Record<string, unknown>) {
-      if (typeof newConfig.yPaddingPx === 'number') {
-        config.yPaddingPx = newConfig.yPaddingPx
-      }
-      if (typeof newConfig.visible === 'boolean') {
-        config.visible = newConfig.visible
-      }
-      if (newConfig.renderMode === 'canvas' || newConfig.renderMode === 'external') {
-        config.renderMode = newConfig.renderMode
-      }
-      if ('visibleIndicatorIds' in newConfig) {
-        config.visibleIndicatorIds = Array.isArray(newConfig.visibleIndicatorIds)
-          ? Object.freeze(
-              newConfig.visibleIndicatorIds.filter((id): id is string => typeof id === 'string'),
-            )
-          : null
-        visibleIndicatorIdSet = config.visibleIndicatorIds
-          ? new Set(config.visibleIndicatorIds)
-          : null
-      }
-    },
-  }
+  })
 }
 
 function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: LegendTemplateContext) {

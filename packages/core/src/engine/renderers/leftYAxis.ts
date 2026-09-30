@@ -1,11 +1,10 @@
 import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
-import {
-  AXIS_LABEL_KIND,
-  GLOBAL_PANE_ID,
-  RENDERER_PRIORITY,
-} from '../../foundation/plugin/index.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
 import { formatAxisPriceValue } from './axisValueFormat.js'
 
@@ -29,16 +28,16 @@ function resolveLeftAxisDisplay(context: RenderContext) {
 /**
  * 左 Y 轴静态层：刻度，画到 leftAxisCtx（main 级刷新）
  */
-export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): RendererPlugin {
+export function createLeftYAxisStaticRendererLayer(
+  options: LeftYAxisOptions,
+): Layer<RenderContext> {
   return {
-    name: 'leftYAxis',
-    version: '2.0.0',
-    description: '左侧Y轴价格刻度渲染器（静态）',
-    debugName: '左侧Y轴刻度',
-    paneId: GLOBAL_PANE_ID,
-    priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('leftYAxis'),
+    role: 'background',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.SYSTEM_YAXIS,
+    visible: true,
+    paint(context) {
       const { leftAxisCtx, pane, dpr } = context
       if (!leftAxisCtx) return
       const axisDisplay = resolveLeftAxisDisplay(context)
@@ -75,23 +74,23 @@ export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): 
         axisHeight: pane.height,
       })
     },
+    dispose() {},
   }
 }
 
 /**
  * 左 Y 轴动态层：十字线价签，画到 leftAxisOverlayCtx（overlay 级刷新）
  */
-export function createLeftYAxisOverlayRendererPlugin(options: LeftYAxisOptions): RendererPlugin {
+export function createLeftYAxisOverlayRendererLayer(
+  options: LeftYAxisOptions,
+): Layer<RenderContext> {
   return {
-    name: 'leftYAxisOverlay',
-    version: '2.0.0',
-    description: '左侧Y轴动态标签渲染器',
-    debugName: '左侧Y轴标签',
-    paneId: GLOBAL_PANE_ID,
-    priority: RENDERER_PRIORITY.SYSTEM_YAXIS + 1,
-    layer: 'overlay',
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('leftYAxisOverlay'),
+    role: 'overlay',
+    pane: LAYER_PANE_GLOBAL,
+    z: RENDERER_PRIORITY.SYSTEM_YAXIS + 1,
+    visible: true,
+    paint(context) {
       const { leftAxisOverlayCtx, leftAxisCtx, pane, dpr } = context
       const axisDisplay = resolveLeftAxisDisplay(context)
       if (axisDisplay === 'none') return
@@ -132,12 +131,6 @@ export function createLeftYAxisOverlayRendererPlugin(options: LeftYAxisOptions):
         { dpr, axisWidth, axisHeight: pane.height },
       )
     },
+    dispose() {},
   }
-}
-
-/**
- * @deprecated 使用 createLeftYAxisStaticRendererPlugin + createLeftYAxisOverlayRendererPlugin
- */
-export function createLeftYAxisRendererPlugin(options: LeftYAxisOptions): RendererPlugin {
-  return createLeftYAxisStaticRendererPlugin(options)
 }

@@ -1,28 +1,22 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import type { MACDPoint } from '../../indicators/calculators/index.js'
 import { calcMACDData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { MACDRenderState } from '../../indicators/state/macdState.js'
 import { EMPTY_MACD_STATE } from '../../indicators/state/macdState.js'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { ChartDataViewId } from '../../state/modeState.js'
-
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { tryDrawRectsGpu } from '../rectsViaRenderer.js'
-
-import { createMacdScaleRendererPlugin } from './scale/macd_scale.js'
+import { createMacdScaleLayer } from './scale/macd_scale.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 type LinePoint = { x: number; y: number }
 
@@ -54,11 +48,8 @@ interface MACDRendererOptions {
  * 创建 MACD 渲染器插件
  * 从指标实例投影读取 MACD 状态，不再内联计算
  */
-function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPluginWithHost {
+function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub', instanceId, config: initialConfig = {} } = options
-
-  let pluginHost: PluginHost | null = null
-
   const config: Required<MACDConfig> = {
     fastPeriod: 12,
     slowPeriod: 26,
@@ -107,23 +98,11 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
     ].join('|')
   }
 
-  return {
+  return createIndicatorRendererLayer({
     name: `macd_${paneId}`,
-    version: '1.0.0',
-    description: 'MACD 指标渲染器',
-    debugName: 'MACD',
-    paneId: paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-
-    draw(context: RenderContext) {
+    paneId,
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
@@ -314,38 +293,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         }
       }
     },
-
-    getConfig() {
-      if (!instanceId) return {}
-      const state = pluginHost
-        ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-        ?.get<MACDRenderState>(instanceId)
-      return state?.params ?? {}
-    },
-
-    setConfig(newConfig: Record<string, unknown>) {
-      let needClearLineCache = false
-      if ('fastPeriod' in newConfig && newConfig.fastPeriod !== config.fastPeriod) {
-        clearLineCache()
-      }
-      if ('slowPeriod' in newConfig && newConfig.slowPeriod !== config.slowPeriod) {
-        clearLineCache()
-      }
-      if ('signalPeriod' in newConfig && newConfig.signalPeriod !== config.signalPeriod) {
-        clearLineCache()
-      }
-      if ('showDIF' in newConfig && newConfig.showDIF !== config.showDIF) {
-        needClearLineCache = true
-      }
-      if ('showDEA' in newConfig && newConfig.showDEA !== config.showDEA) {
-        needClearLineCache = true
-      }
-      Object.assign(config, newConfig)
-      if (needClearLineCache) {
-        clearLineCache()
-      }
-    },
-  }
+  })
 }
 
 function drawMacdBarsWithCanvas2D(
@@ -494,7 +442,7 @@ function getMACDTitleInfo(
   indicatorType: 'momentum',
   defaultPaneId: 'sub_MACD',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
-  scaleRendererFactory: createMacdScaleRendererPlugin,
+  scaleRendererFactory: createMacdScaleLayer,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
   getTitleInfo: getMACDTitleInfo,
   presentation: { defaultOptions: { showDIF: true, showDEA: true, showBAR: true } },
@@ -505,5 +453,5 @@ function getMACDTitleInfo(
   },
 })
 export class MACDIndicatorDefinition {
-  static rendererFactory = createMACDRendererPlugin
+  static rendererFactory = createMACDLayer
 }

@@ -1,28 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ENERenderState } from '@/core/indicators/state/eneState'
 import {
+  createContextWithInstanceState,
   createMockCanvasContext,
-  createMockRenderContext,
-  createMockServiceHost,
-  createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '@/engine/indicators/instances/api/indicatorRenderBinding'
 import { resolveThemeColors } from '@/foundation/tokens'
-import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
-import { createENERendererPlugin } from '../Indicator/ene'
+import { createENELayer } from '../Indicator/ene'
 
 /** 固定实例身份：renderer 只按 instanceId 寻址，不再依赖指标类型 state key。 */
 const ENE_INSTANCE_ID = 'inst-ene'
 
-// Type helper for tests
-interface TestableENERenderer extends RendererPluginWithHost {
-  onInstall: (host: PluginHost) => void
-  draw: (context: RenderContext) => void
-  getDeclaredNamespaces: () => string[]
-  getConfig: () => Record<string, unknown>
-  setConfig: (config: Record<string, unknown>) => void
-}
-
+/** 构造测试用 ENERenderState。 */
 function createTestENERenderState(overrides: Partial<ENERenderState> = {}): ENERenderState {
   return {
     timestamp: Date.now(),
@@ -39,134 +27,75 @@ function createTestENERenderState(overrides: Partial<ENERenderState> = {}): ENER
   }
 }
 
-/** 构造按 instanceId 命中返回实例投影的 PluginHost stub。 */
-function createENEHost(state?: ENERenderState): PluginHost {
-  return createMockServiceHost({
-    [INDICATOR_INSTANCE_STATE_SERVICE]: createMockStateReader(ENE_INSTANCE_ID, state),
-  })
+/** 构造绑定固定实例身份的 ENE Layer。 */
+function createTestENELayer() {
+  return createENELayer({ instanceId: ENE_INSTANCE_ID })
 }
 
-/** 构造绑定固定实例身份的 ENE renderer。 */
-function createTestENERenderer(): TestableENERenderer {
-  return createENERendererPlugin({ instanceId: ENE_INSTANCE_ID }) as TestableENERenderer
-}
+describe('createENELayer', () => {
+  it('should expose the ene layer identity', () => {
+    const layer = createTestENELayer()
 
-describe('createENERendererPlugin', () => {
-  it('should create a renderer plugin with correct metadata', () => {
-    const plugin = createTestENERenderer()
-
-    expect(plugin.name).toBe('ene')
-    expect(plugin.version).toBe('2.1.0')
-    expect(plugin.paneId).toBe('main')
-  })
-
-  it('should have onInstall method', () => {
-    const plugin = createTestENERenderer()
-    expect(typeof plugin.onInstall).toBe('function')
-  })
-
-  it('should declare the bound instance namespace', () => {
-    const plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost())
-    expect(plugin.getDeclaredNamespaces()).toEqual([ENE_INSTANCE_ID])
+    expect(layer.id).toBe('plugin:ene')
+    expect(layer.role).toBe('primary')
+    expect(layer.pane).toBe('main')
+    expect(layer.visible).toBe(true)
   })
 })
 
-describe('ENE renderer draw', () => {
+describe('ENE layer paint', () => {
   let ctx: CanvasRenderingContext2D
-  let plugin: TestableENERenderer
 
   beforeEach(() => {
     ctx = createMockCanvasContext()
   })
 
   it('should not draw when the instance projection is missing', () => {
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost())
-
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID),
-    })
-    plugin.draw(context)
+    createTestENELayer().paint(createContextWithInstanceState(ctx, ENE_INSTANCE_ID, undefined))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
   })
 
   it('should not draw when state has no valid data', () => {
-    const state = createTestENERenderState({
-      visibleMin: Infinity,
-      visibleMax: -Infinity,
-    })
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
+    const state = createTestENERenderState({ visibleMin: Infinity, visibleMax: -Infinity })
 
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
-    })
-    plugin.draw(context)
+    createTestENELayer().paint(createContextWithInstanceState(ctx, ENE_INSTANCE_ID, state))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
   })
 
   it('should save and restore context', () => {
-    const state = createTestENERenderState()
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
-
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
-    })
-    plugin.draw(context)
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
   })
 
   it('should not draw band fill', () => {
-    const state = createTestENERenderState()
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
-
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
-    })
-    plugin.draw(context)
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.fill).not.toHaveBeenCalled()
     expect(ctx.closePath).not.toHaveBeenCalled()
   })
 
   it('should draw all three lines (upper, middle, lower)', () => {
-    const state = createTestENERenderState()
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
-    })
-    plugin.draw(context)
-
-    // Should have stroke calls for the three lines
     expect(ctx.stroke).toHaveBeenCalled()
   })
 
   it('should use correct line styles', () => {
-    const state = createTestENERenderState()
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
-
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
-    })
-    plugin.draw(context)
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.lineWidth).toBe(1)
     expect(ctx.lineJoin).toBe('round')
@@ -174,15 +103,9 @@ describe('ENE renderer draw', () => {
   })
 
   it('should use theme colors', () => {
-    const state = createTestENERenderState()
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
-
-    const context = createMockRenderContext({
-      ctx,
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
-    })
-    plugin.draw(context)
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     // 最后绘制下轨，strokeStyle 应取 light 主题的 ene.lower
     expect(ctx.strokeStyle).toBe(resolveThemeColors('light').ene.lower)
@@ -194,50 +117,12 @@ describe('ENE renderer draw', () => {
         i < 9 ? undefined : { upper: 111, middle: 100, lower: 89 },
       ),
     })
-    plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
 
-    const context = createMockRenderContext({
-      ctx,
+    const context = createContextWithInstanceState(ctx, ENE_INSTANCE_ID, state, {
       range: { start: 0, end: 15 },
-      indicatorStateReader: createMockStateReader(ENE_INSTANCE_ID, state),
     })
 
-    expect(() => plugin.draw(context)).not.toThrow()
+    expect(() => createTestENELayer().paint(context)).not.toThrow()
     expect(ctx.stroke).toHaveBeenCalled()
-  })
-})
-
-describe('ENE renderer config', () => {
-  it('getConfig should return current params from the instance projection', () => {
-    const state = createTestENERenderState({
-      params: { period: 15, deviation: 15 },
-    })
-    const plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(state))
-
-    const config = plugin.getConfig()
-
-    expect(config.period).toBe(15)
-    expect(config.deviation).toBe(15)
-  })
-
-  it('getConfig should return empty object when no state', () => {
-    const plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost())
-
-    const config = plugin.getConfig()
-
-    expect(config).toEqual({})
-  })
-
-  it('setConfig should be a no-op', () => {
-    const plugin = createTestENERenderer()
-    plugin.onInstall(createENEHost(createTestENERenderState()))
-
-    expect(() => plugin.setConfig({ period: 25 })).not.toThrow()
-
-    const config = plugin.getConfig()
-    expect(config.period).toBe(10) // Original value from state
   })
 })

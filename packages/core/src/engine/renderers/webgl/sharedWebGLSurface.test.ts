@@ -47,6 +47,13 @@ describe('SharedWebGLSurface', () => {
     } as unknown as HTMLCanvasElement
     const surface = new SharedWebGLSurface(canvas)
 
+    expect(canvas.getContext).toHaveBeenCalledWith(
+      'webgl2',
+      expect.objectContaining({
+        preserveDrawingBuffer: true,
+      }),
+    )
+
     expect(surface.bindRegion({ x: 0, y: 0, width: 800, height: 300, dpr: 1 })).toBe(false)
     expect(gl.bindFramebuffer).not.toHaveBeenCalled()
   })

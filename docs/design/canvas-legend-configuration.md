@@ -16,6 +16,12 @@
 <KLineChart :legend="{ visible: true, visibleIndicatorIds: ['MA', 'BOLL'] }" />
 ```
 
+## 配置通道
+
+`legend` 写入 chart options，由 `optionsState` 统一持有；主图图例 Layer 每帧读取配置快照，不重建 Layer，也不维护独立配置缓存。
+
+`visibleIndicatorIds` 与当前数据视图投影出的主图指标集合取交集：指标同时属于视图且命中白名单才显示，空数组表示不显示任何指标。`visible` 只控制 Canvas 绘制，图例上下文仍会发布给外部模板。
+
 ## 影响
 
 默认 hover 路径只更新 Canvas，不再因为图例文本触发 Vue `flushJobs`。图例的绘制坐标、主题色和数据仍由 Core 统一管理。

@@ -1,22 +1,24 @@
 // 比较视图折线渲染器：把对比集合每个品种相对自身基准的涨跌幅折算到参考序列基准价后绘制。
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
+import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
+import type { Layer } from '../../rendering/scene/types.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 
-export function createComparisonLineRenderer(): RendererPlugin {
+/** 比较视图折线 Layer（仅 Comparison 视图，绘制到主图）。 */
+export function createComparisonLineLayer(): Layer<RenderContext> {
   return {
-    name: 'comparisonLine',
-    version: '1.0.0',
-    description: '比较视图折线渲染器（对比集合百分比折线）',
-    debugName: '比较折线',
-    paneId: 'main',
-    priority: RENDERER_PRIORITY.MAIN + 2,
-
-    draw(context: RenderContext) {
+    id: makePluginLayerId('comparisonLine'),
+    role: 'primary',
+    pane: 'main',
+    z: RENDERER_PRIORITY.MAIN + 2,
+    visible: true,
+    paint(context) {
       if (context.dataView !== ChartDataViewId.Comparison) return
       // context.data 是对比集合首个序列，仅作为横轴与百分比基准的参考序列，不单独绘制。
       const referenceData = context.data as KLineData[]
@@ -82,6 +84,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
 
       ctx.restore()
     },
+    dispose() {},
   }
 }
 

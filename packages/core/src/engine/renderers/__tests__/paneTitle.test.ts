@@ -6,7 +6,7 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
-import { createPaneTitleRendererPlugin } from '../paneTitle'
+import { createPaneTitleRendererLayer } from '../paneTitle'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -16,7 +16,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('createPaneTitleRendererPlugin', () => {
+describe('createPaneTitleRendererLayer', () => {
   it('passes the bound instance identity and frame state reader to the title callback', () => {
     // paneTitle 通过静态定义注册表取 metadata，spy 其公开的 getTitleInfo 以观察调用契约
     const getTitleInfo = vi
@@ -24,7 +24,7 @@ describe('createPaneTitleRendererPlugin', () => {
       .mockReturnValue({ name: 'RSI' })
     const stateReader = { get: vi.fn() }
     const canvas = createMockCanvasContext()
-    const plugin = createPaneTitleRendererPlugin({
+    const layer = createPaneTitleRendererLayer({
       paneId: 'sub_RSI',
       title: 'RSI',
       indicatorId: 'rsi',
@@ -32,7 +32,7 @@ describe('createPaneTitleRendererPlugin', () => {
       params: {},
     })
 
-    plugin.draw?.(
+    layer.paint(
       createMockRenderContext({
         overlayCtx: canvas,
         pane: { id: 'sub_RSI' },

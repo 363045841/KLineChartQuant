@@ -1,9 +1,3 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { createLayerFromPlugin } from '@/rendering/scene/createLayerFromPlugin.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createComparisonLineRenderer } from '../../renderers/comparisonLine.js'
+/** 比较视图折线 Layer：绘制体已迁入 renderers/comparisonLine.ts，这里仅保持既有 import 路径。 */
 
-export function createComparisonLineLayer(getContext: () => RenderContext | null): Layer {
-  const plugin = createComparisonLineRenderer()
-  return createLayerFromPlugin(plugin, getContext, 'main')
-}
+export { createComparisonLineLayer } from '../../renderers/comparisonLine.js'

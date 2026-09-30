@@ -8,6 +8,7 @@ import { createMissingSessionError, KLineChartError } from '@/errors.js'
 import type { LiveBarsDataSource } from '../../live/types.js'
 
 import type {
+  AssetClass,
   BarQuery,
   BarSeries,
   DataSourceDescriptor,
@@ -19,6 +20,7 @@ import type {
   TimeShareSeries,
   VolumeUnit,
 } from '../types.js'
+import { isFilterableAssetClass } from '../types.js'
 import type {
   MarketDataTransport,
   ProtocolInstrumentDescriptor,
@@ -162,8 +164,11 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
           query.signal,
         )
         const instruments = result.items.map(mapInstrument)
-        if (!query.assetClasses?.length) return instruments
-        const allowed = new Set(query.assetClasses)
+        // unknown 不参与筛选：请求携带 unknown 时按无条件处理，避免误杀已归一化的同代码品种。
+        const allowed = new Set<AssetClass>(
+          (query.assetClasses ?? []).filter(isFilterableAssetClass),
+        )
+        if (allowed.size === 0) return instruments
         return instruments.filter((instrument) => allowed.has(instrument.assetClass))
       },
     },

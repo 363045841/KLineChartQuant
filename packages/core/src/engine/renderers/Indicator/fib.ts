@@ -1,12 +1,8 @@
-import type {
-  IndicatorRenderStateReader,
-  PluginHost,
-  RenderContext,
-  RendererPluginWithHost,
-} from '@/foundation/plugin/index.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { calcFibData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
@@ -15,11 +11,11 @@ import {
   type TitleInfo,
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
-import { INDICATOR_INSTANCE_STATE_SERVICE } from '../../indicators/instances/api/indicatorRenderBinding.js'
 import type { FibRenderState } from '../../indicators/state/fibState.js'
 import { EMPTY_FIB_STATE } from '../../indicators/state/fibState.js'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 /** 构建斐波那契回撤线颜色映射：palette 索引 + token 色组，draw/title 共用同一来源 */
 function getFibColors(colors: ColorTokens) {
@@ -36,30 +32,19 @@ function getFibColors(colors: ColorTokens) {
 
 type Point = { x: number; y: number }
 
-function createFibRendererPlugin(
+function createFibLayer(
   options: {
     paneId?: string
     /** 指标实例 ID，渲染状态寻址唯一键。 */
     instanceId?: string
   } = {},
-): RendererPluginWithHost {
+): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
-  let pluginHost: PluginHost | null = null
-
-  return {
+  return createIndicatorRendererLayer({
     name: `fib_${paneId}`,
-    version: '1.1.0',
-    description: '斐波那契回撤线渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'Fib',
     paneId,
-    priority: RENDERER_PRIORITY.INDICATOR,
-    onInstall(host) {
-      pluginHost = host
-    },
-    getDeclaredNamespaces() {
-      return instanceId ? [instanceId] : []
-    },
-    draw(context: RenderContext) {
+    z: RENDERER_PRIORITY.INDICATOR,
+    draw(context) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -120,16 +105,7 @@ function createFibRendererPlugin(
       }
       ctx.restore()
     },
-    getConfig() {
-      if (!instanceId) return {}
-      return (
-        pluginHost
-          ?.getService<IndicatorRenderStateReader>(INDICATOR_INSTANCE_STATE_SERVICE)
-          ?.get<FibRenderState>(instanceId)?.params ?? {}
-      )
-    },
-    setConfig() {},
-  }
+  })
 }
 
 function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): void {
@@ -199,5 +175,5 @@ const getFibTitleInfo: GetTitleInfoFn = (
   },
 })
 export class FibDefinition {
-  static rendererFactory = createFibRendererPlugin
+  static rendererFactory = createFibLayer
 }

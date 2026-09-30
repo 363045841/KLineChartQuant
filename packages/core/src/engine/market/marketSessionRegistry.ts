@@ -50,4 +50,9 @@ export class MarketSessionRegistry {
     if (!config) throw new Error(`Market session is not registered: ${market}`)
     return config
   }
+
+  /** 查询已注册的市场时段；未注册时返回 undefined，供可选展示功能使用。 */
+  get(market: string): MarketSessionConfig | undefined {
+    return this.sessions.get(market.trim())
+  }
 }
