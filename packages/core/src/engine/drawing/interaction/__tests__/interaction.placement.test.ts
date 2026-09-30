@@ -166,3 +166,28 @@ describe('DrawingInteractionController placement', () => {
     )
   })
 })
+
+describe('DrawingInteractionController horizontal anchors', () => {
+  it('strips futureOffset when creating a horizontal line in the future zone', () => {
+    // 水平图元的命令锚只有价格坐标——未来区落点的 futureOffset 必须剥离，
+    // 否则 DrawingDocument 会以 INVALID_ANCHOR 拒绝该命令（工具已回置，创建无声失败）。
+    const createdDrawing = createDrawingObject({ id: 'h-line' })
+    const createDrawing = vi.fn(() => createdDrawing)
+    const adapter = createPlacementAdapter({
+      tool: 'h-line',
+      pane: { paneId: 'main', top: 0, height: 100 },
+      plotWidth: 100,
+      plotHeight: 100,
+      logicalIndex: 3,
+      document: { createDrawing, setDrawingToolId: vi.fn() },
+    })
+    const controller = new DrawingInteractionController(adapter)
+
+    expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
+    expect(createDrawing).toHaveBeenCalledWith({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+  })
+})

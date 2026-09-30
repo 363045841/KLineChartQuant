@@ -546,14 +546,21 @@ export class DrawingInteractionController {
     this.sessionOverlay.removePreview()
     // 工具切换会清空选中，必须在创建（原子选中新图元）之前完成。
     if (!this.continuousDrawing) this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
+    // 水平图元的命令锚只有价格坐标（类型联合里 futureOffset?: never）——未来区落点
+    // 解析出的 futureOffset 必须剥离，否则 DrawingDocument 拒绝该命令。
+    const kind = getDrawingKind(activeTool)
     this.adapter.createDrawing({
-      kind: getDrawingKind(activeTool),
+      kind,
       paneId,
-      anchors: anchors.map((anchor) => ({
-        timestamp: anchor.time,
-        futureOffset: anchor.futureOffset,
-        price: anchor.price,
-      })),
+      anchors: anchors.map((anchor) =>
+        kind === 'horizontal-line'
+          ? { price: anchor.price }
+          : {
+              timestamp: anchor.time,
+              futureOffset: anchor.futureOffset,
+              price: anchor.price,
+            },
+      ),
     })
   }
 }
