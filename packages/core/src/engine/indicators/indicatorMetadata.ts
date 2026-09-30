@@ -268,6 +268,9 @@ export interface IndicatorMetadata<T = unknown> {
    */
   rendererFactory: RendererFactory
 
+  /** 指标选择器 UI 元数据：内置指标来自静态 uiMeta 表；外部指标随定义携带。 */
+  ui?: { name?: string; description?: string; params?: readonly unknown[] }
+
   /**
    * 专用坐标轴渲染器工厂。未提供时可回退到 scale 通用配置。
    */
