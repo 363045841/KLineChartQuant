@@ -75,6 +75,7 @@
   import { useChartDocumentTitle } from './useChartDocumentTitle'
   import { AgentWorkbenchShell, createAgentPanelWidthStorage, KlineChart } from '../src/index'
   import { BrowserAgentBridge } from '../src/features/agent/browser-agent/bridge/impl/browser-agent-bridge'
+  import type { StartRunInput } from '../src/features/agent/agent-contracts'
   import {
     type KLineData,
     type CustomDataSource,
@@ -626,6 +627,17 @@
     return null
   }
 
+  /** 外部渲染器工厂宿主：controller + 事件→Agent 通知的最小窄面。 */
+  interface ExternalRendererFactoryHost {
+    controller: ChartController
+    agent: {
+      /** 程序化触发一轮模型运行（StartRunInput.sessionId 必填；目标会话经 listSessions 解析）。 */
+      startRun(input: StartRunInput): Promise<{ runId: string }>
+      /** 会话列表（插件解析通知目标会话用）。 */
+      listSessions(): ReturnType<BrowserAgentBridge['listSessions']>
+    }
+  }
+
   async function loadExternalRenderers(controller: ChartController) {
     const sources: string[] = []
     try {
@@ -653,11 +665,18 @@
         const href = /^https?:\/\//i.test(url) ? url : new URL(url, window.location.href).href
         const mod: Record<string, unknown> = await import(/* @vite-ignore */ href)
         let exported = mod.default ?? mod.renderers ?? mod.renderer
-        // 工厂形态：default 为 (host: { controller }) => RendererPlugin | RendererPlugin[]，
-        // 供插件读取品种（controller.symbols）/订阅信号等宿主能力
+        // 工厂形态：default 为 (host: { controller, agent }) => Layer | 旧 draw 插件（或其数组），
+        // 供插件读取品种（controller.symbols）/订阅信号等宿主能力。
+        // agent = 事件→Agent 通知的最小窄面：startRun 触发一轮模型运行（插件侧
+        // 事件如指标确认，经此让 Agent 自动拉数据出解读），listSessions 供插件
+        // 解析目标会话。刻意不暴露整个 bridge（会话/Provider 管理面不外放）。
         if (typeof exported === 'function') {
-          exported = (exported as (host: { controller: ChartController }) => unknown)({
+          exported = (exported as (host: ExternalRendererFactoryHost) => unknown)({
             controller,
+            agent: {
+              startRun: (input: StartRunInput) => agentBridge.startRun(input),
+              listSessions: () => agentBridge.listSessions(),
+            },
           })
         }
         const list = Array.isArray(exported) ? exported : exported ? [exported] : []
