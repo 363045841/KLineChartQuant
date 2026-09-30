@@ -19,7 +19,7 @@
  * the codebase can reference layer types by symbol rather than magic string.
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 
 import type { Layer, LayerRole } from './types.js'
 
@@ -71,7 +71,7 @@ export function createLayerRegistry(): LayerRegistry {
   const register = (factory: LayerFactory): void => {
     if (factories.has(factory.typeId)) {
       throw new KLineChartError(
-        'NOT_REGISTERED',
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
         `LayerRegistry: typeId "${factory.typeId}" is already registered`,
       )
     }

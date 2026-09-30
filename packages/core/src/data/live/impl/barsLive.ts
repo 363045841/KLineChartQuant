@@ -2,11 +2,12 @@
  * 实时 K 线消费器：EventSource 封装（BarsLiveSource）+ 帧驱动的 updateBars 接线
  * （RealtimeBarsConnector）。EventSource 原生重连；断线重连凭 Last-Event-ID 由连接器补帧。
  */
-import type { KLineData } from '../../controllers/types.js'
-import { KLineChartError } from '../../errors.js'
-import { marketDataProviderRegistry } from '../provider/registry.js'
-import { type BarAggregation, ORIGINAL_BAR_AGGREGATION } from '../provider/types.js'
-import type { LiveBar, LiveBarsFrame, LiveBarsStatus, LiveBarsStream } from './types.js'
+import type { KLineData } from '../../../controllers/types.js'
+import { ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { marketDataProviderRegistry } from '../../provider/impl/registry.js'
+import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
+import { type BarAggregation, ORIGINAL_BAR_AGGREGATION } from '../../provider/types.js'
+import type { LiveBar, LiveBarsFrame, LiveBarsStatus, LiveBarsStream } from '../types.js'
 
 export type {
   LiveBar,
@@ -15,7 +16,7 @@ export type {
   LiveBarsRequest,
   LiveBarsStatus,
   LiveBarsStream,
-} from './types.js'
+} from '../types.js'
 
 /** 单连接固定订阅一个数据源的 (symbol, period, barAggregation)；切换任一维度均断开重连。 */
 export class BarsLiveSource implements LiveBarsStream {
@@ -58,7 +59,7 @@ export class BarsLiveSource implements LiveBarsStream {
     this.disconnect()
     this.emitStatus('connecting')
 
-    const url = `${this.baseUrl}/api/v1/market-data/sources/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
+    const url = `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
     console.log(`[BarsLiveSource] 已订阅 SSE ${url}`)
@@ -80,7 +81,7 @@ export class BarsLiveSource implements LiveBarsStream {
         for (const cb of this.frameCbs) cb(frame)
       } catch (e) {
         const err = new KLineChartError(
-          'FETCH_FAILED',
+          ERROR_CODES.FETCH_FAILED,
           `BarsLiveSource parse error: ${(e as Error).message}`,
         )
         for (const cb of this.errorCbs) cb(err)

@@ -73,7 +73,7 @@
  * Tests assert that *closed* columns match between modes.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { CHART_TYPE_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { ChartTypeTransform, OHLCV, PointAndFigureConfig, TransformedBar } from '../types.js'
 
@@ -243,13 +243,13 @@ export function createPointAndFigure(): ChartTypeTransform<PointAndFigureConfig>
     ): ReadonlyArray<TransformedBar> {
       if (config.boxSize <= 0) {
         throw new KLineChartError(
-          'CHART_TYPE_CONFIG_INVALID',
+          CHART_TYPE_ERROR_CODES.CONFIG_INVALID,
           'createPointAndFigure: boxSize must be > 0',
         )
       }
       if (config.reversal < 1 || !Number.isFinite(config.reversal)) {
         throw new KLineChartError(
-          'CHART_TYPE_CONFIG_INVALID',
+          CHART_TYPE_ERROR_CODES.CONFIG_INVALID,
           'createPointAndFigure: reversal must be >= 1',
         )
       }

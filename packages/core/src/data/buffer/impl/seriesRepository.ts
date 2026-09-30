@@ -1,9 +1,10 @@
 /** 图表实例级行情序列仓库：统一管理 K 线与分时 Buffer 的身份、拓扑和生命周期。 */
-import type { SymbolSpec } from '../../controllers/types.js'
-import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { BarAggregation, KLineAdjustment, KLinePeriod } from '../provider/types.js'
+import type { SymbolSpec } from '../../../controllers/types.js'
+import { createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import type { BarAggregation, KLineAdjustment, KLinePeriod } from '../../provider/types.js'
+import { AUTO_SOURCE_ID } from '../../provider/types.js'
 
-import type { KLineBuffer, TimeShareBuffer } from './dataBufferTypes.js'
+import type { KLineBuffer, TimeShareBuffer } from '../types.js'
 
 export type InstrumentKey = string
 export type SourceId = string
@@ -11,7 +12,6 @@ export type BarSeriesKey = string
 export type TradingDateKey = string
 
 export const LATEST_TRADING_DATE: TradingDateKey = 'latest'
-export const AUTO_SOURCE_ID: SourceId = 'auto'
 
 /** 当前图表消费的强类型序列选择。 */
 export type SeriesSelection =

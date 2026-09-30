@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '@/controllers/types'
-import { marketDataProviderRegistry } from '@/data/provider/registry'
+import { marketDataProviderRegistry } from '@/data/provider/impl/registry'
 import type {
   BarAggregation,
   BarSeries,

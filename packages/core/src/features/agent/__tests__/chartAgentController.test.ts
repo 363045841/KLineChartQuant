@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
-import { MarketDataCache } from '@/data/buffer/marketDataCache'
-import { MarketDataProviderRegistry } from '@/data/provider/registry'
+import { MarketDataCache } from '@/data/buffer/impl/marketDataCache'
+import { MarketDataProviderRegistry } from '@/data/provider/impl/registry'
 import type {
   BarSeries,
   InstrumentDescriptor,

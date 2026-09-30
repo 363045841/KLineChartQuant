@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 
 /**
  * Theme → CSS custom-property emitter.
@@ -100,7 +100,7 @@ export function themeToCssVars(theme: Theme, opts?: ThemeToCssVarsOptions): Reco
     // Misuse caught here is much friendlier than the silent no-op CSS
     // would give downstream.
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `themeToCssVars: prefix must start with '--', got ${JSON.stringify(prefix)}`,
     )
   }

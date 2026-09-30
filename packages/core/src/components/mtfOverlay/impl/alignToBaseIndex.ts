@@ -1,4 +1,4 @@
-import { KLineChartError } from '@/errors.js'
+import { KLineChartError, MTF_ERROR_CODES } from '@/errors.js'
 /**
  * Forward-fill a higher-timeframe series onto the base bar index, with strict
  * no-lookahead semantics.
@@ -47,13 +47,13 @@ export function alignToBaseIndex<TValue>(
 ): ReadonlyArray<TValue | null> {
   if (!Number.isFinite(targetIntervalMs) || targetIntervalMs <= 0) {
     throw new KLineChartError(
-      'MTF_CONFIG_INVALID',
+      MTF_ERROR_CODES.CONFIG_INVALID,
       'alignToBaseIndex: targetIntervalMs must be a positive finite number',
     )
   }
   if (higherTfBars.length !== higherTfValues.length) {
     throw new KLineChartError(
-      'MTF_CONFIG_INVALID',
+      MTF_ERROR_CODES.CONFIG_INVALID,
       `alignToBaseIndex: higherTfBars.length (${higherTfBars.length}) must ` +
         `equal higherTfValues.length (${higherTfValues.length})`,
     )

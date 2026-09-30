@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DepthConnector } from '../depth/depthConnector'
-import type { DepthDelta, DepthSnapshot } from '../depth/depthTypes'
+import { DepthConnector } from '../depth/impl/depthConnector'
+import type { DepthDelta, DepthSnapshot } from '../depth/types'
 import { createFakeDepthSource, createFakeHeatmapController } from './helpers/depthTestKit'
 
 describe('DepthConnector', () => {

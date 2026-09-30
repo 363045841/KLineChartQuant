@@ -1,8 +1,8 @@
 /** 验证 MT5 Provider 通过统一 V1 协议访问 :8090 连接器，且 7x24 会话可供时区解析。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { marketDataProviderRegistry } from '../provider/registry'
-import { mt5MarketDataProvider } from '../provider/sources/mt5'
+import { marketDataProviderRegistry } from '../provider/impl/registry'
+import { mt5MarketDataProvider } from '../provider/impl/sources/mt5'
 import type { InstrumentDescriptor } from '../provider/types'
 
 const fetchMock = vi.fn<typeof fetch>()

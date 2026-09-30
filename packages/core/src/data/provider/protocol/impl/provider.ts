@@ -4,8 +4,8 @@
  */
 import type { KLineData, TimeShareData } from '@/controllers/types.js'
 import { MarketSessionRegistry } from '@/engine/market/marketSessionRegistry.js'
-import { createMissingSessionError, KLineChartError } from '@/errors.js'
-import type { LiveBarsDataSource } from '../../live/types.js'
+import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { LiveBarsDataSource } from '../../../live/types.js'
 
 import type {
   AssetClass,
@@ -19,14 +19,14 @@ import type {
   TimeShareRangeQuery,
   TimeShareSeries,
   VolumeUnit,
-} from '../types.js'
-import { isFilterableAssetClass } from '../types.js'
+} from '../../types.js'
+import { isFilterableAssetClass } from '../../types.js'
 import type {
   MarketDataTransport,
   ProtocolInstrumentDescriptor,
   ProtocolKLineItem,
   ProtocolTimeShareItem,
-} from './types.js'
+} from '../types.js'
 
 export interface MarketDataProviderOptions {
   // 数据源元信息；marketSessions 中声明的会话会注册进本地会话表
@@ -39,9 +39,14 @@ export interface MarketDataProviderOptions {
   resolveVolumeUnit?: (instrument: InstrumentDescriptor) => VolumeUnit | undefined
 }
 
+// 命中 A 股会话的品种按手（lot）计量的兜底规则。
+const CN_SESSION_ID = 'CN'
+
 // 默认成交量单位兜底：CN 市场非指数品种按手计，其余保持未知
 function defaultResolveVolumeUnit(instrument: InstrumentDescriptor): VolumeUnit | undefined {
-  return instrument.sessionId === 'CN' && instrument.assetClass !== 'index' ? 'lot' : undefined
+  return instrument.sessionId === CN_SESSION_ID && instrument.assetClass !== 'index'
+    ? 'lot'
+    : undefined
 }
 
 // 将品种响应转换为前端领域模型
@@ -119,7 +124,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
           : instrument.capabilities.timeShareRange !== undefined)
     if (!supported) {
       throw new KLineChartError(
-        'UNSUPPORTED_CAPABILITY',
+        ERROR_CODES.UNSUPPORTED_CAPABILITY,
         `[${source.id}] instrument ${instrument.id} does not support ${capability}`,
       )
     }
@@ -220,7 +225,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
                 !runtimeSource.capabilities?.tradingCalendar
               ) {
                 throw new KLineChartError(
-                  'UNSUPPORTED_CAPABILITY',
+                  ERROR_CODES.UNSUPPORTED_CAPABILITY,
                   `[${source.id}] trading calendar is unavailable`,
                 )
               }
@@ -283,7 +288,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
               const capability = query.instrument.capabilities.timeShareRange
               if (!capability || query.days > capability.maxTradingDays) {
                 throw new KLineChartError(
-                  'UNSUPPORTED_CAPABILITY',
+                  ERROR_CODES.UNSUPPORTED_CAPABILITY,
                   `[${source.id}] instrument ${query.instrument.id} does not support ${query.days} trading days`,
                 )
               }

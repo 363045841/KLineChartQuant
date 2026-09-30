@@ -1,7 +1,8 @@
 /** 统一 MOCK Provider：本地生成数据、不依赖后端，探测恒为在线。 */
+
+import type { MarketDataProvider } from '../../types.js'
 import { marketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
-import type { MarketDataProvider } from '../types.js'
 import { createMockLiveBarsStream, fetchMockBars, searchMockInstruments } from './mockData.js'
 
 const MOCK_SOURCE = dataSourceRegistry.mock

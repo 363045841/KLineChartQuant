@@ -135,7 +135,9 @@ export class KLineChartError extends Error {
       typeof (Error as unknown as { captureStackTrace?: unknown }).captureStackTrace === 'function'
     ) {
       ;(
-        Error as unknown as { captureStackTrace: (e: Error, c: unknown) => void }
+        Error as unknown as {
+          captureStackTrace: (e: Error, c: unknown) => void
+        }
       ).captureStackTrace(this, KLineChartError)
     }
   }
@@ -161,12 +163,13 @@ export function isKLineChartError(value: unknown, code?: KLineChartErrorCode): b
 }
 
 // 数据获取错误码具名常量，供协议与流转层引用，避免散落字符串字面量。
-export const ERROR_CODES: Readonly<Record<FetchErrorCodeName, KLineChartErrorCode>> = {
+// 用 as const satisfies 而非类型注解，保留字面量类型以支持 error.code 的收窄比较。
+export const ERROR_CODES = {
   FETCH_FAILED: 'FETCH_FAILED',
   FETCH_ABORTED: 'FETCH_ABORTED',
   UNSUPPORTED_CAPABILITY: 'UNSUPPORTED_CAPABILITY',
   INSTRUMENT_NOT_FOUND: 'INSTRUMENT_NOT_FOUND',
-}
+} as const satisfies Readonly<Record<FetchErrorCodeName, KLineChartErrorCode>>
 
 // ERROR_CODES 的键名集合，保证键与值一一对应。
 type FetchErrorCodeName =
@@ -174,6 +177,17 @@ type FetchErrorCodeName =
   | 'FETCH_ABORTED'
   | 'UNSUPPORTED_CAPABILITY'
   | 'INSTRUMENT_NOT_FOUND'
+
+// 通用错误码具名常量：生命周期与入参类错误，供各模块统一引用，避免散落字符串字面量。
+export const GENERIC_ERROR_CODES = {
+  INVALID_PARAM: 'INVALID_PARAM',
+  INVALID_STATE: 'INVALID_STATE',
+  DISPOSED: 'DISPOSED',
+  NOT_REGISTERED: 'NOT_REGISTERED',
+} as const satisfies Readonly<Record<GenericErrorCodeName, KLineChartErrorCode>>
+
+// GENERIC_ERROR_CODES 的键名集合，保证键与值一一对应。
+type GenericErrorCodeName = 'INVALID_PARAM' | 'INVALID_STATE' | 'DISPOSED' | 'NOT_REGISTERED'
 
 // 对比写原语错误码，供 Agent 工具层返回可据以自纠正的失败原因。
 export const COMPARISON_ERROR_CODES = Object.freeze({
@@ -184,8 +198,8 @@ export const COMPARISON_ERROR_CODES = Object.freeze({
 
 // 副图/渲染器投影错误码具名常量，供引擎层引用，避免散落字符串字面量。
 export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineChartErrorCode>> = {
-  UNKNOWN_INDICATOR: 'NOT_REGISTERED',
-  MISSING_RENDERER_METADATA: 'INVALID_PARAM',
+  UNKNOWN_INDICATOR: GENERIC_ERROR_CODES.NOT_REGISTERED,
+  MISSING_RENDERER_METADATA: GENERIC_ERROR_CODES.INVALID_PARAM,
 }
 
 // SUBPANE_ERROR_CODES 的键名集合，保证键与值一一对应。
@@ -253,3 +267,55 @@ export function createMissingSessionError(sourceId: string, instrumentId: string
 export const CONTROLLER_ERROR_CODES = Object.freeze({
   CONFIG_INVALID: 'CONTROLLER_CONFIG_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
+
+// ── 领域族错误码具名常量 ──
+
+// scale（TimeScale / PriceScale 构造与 setter）；供 scale/ 引用。
+export const SCALE_ERROR_CODES = {
+  RANGE_INVALID: 'SCALE_RANGE_INVALID',
+  HEIGHT_INVALID: 'SCALE_HEIGHT_INVALID',
+  LOG_REQUIRES_POSITIVE: 'SCALE_LOG_REQUIRES_POSITIVE',
+  BAR_WIDTH_INVALID: 'SCALE_BAR_WIDTH_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// footprint（成交分布）；供 footprint 控制器引用。
+export const FOOTPRINT_ERROR_CODES = {
+  TICKSIZE_INVALID: 'FOOTPRINT_TICKSIZE_INVALID',
+  BAR_INTERVAL_INVALID: 'FOOTPRINT_BAR_INTERVAL_INVALID',
+  RATIO_INVALID: 'FOOTPRINT_RATIO_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// anchoredVwap（锚定 VWAP）；供 anchoredVwap 引用。
+export const AVWAP_ERROR_CODES = {
+  ANCHOR_OUT_OF_RANGE: 'AVWAP_ANCHOR_OUT_OF_RANGE',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// indicators（各指标共享的入参校验失败）；供 features/indicators 引用。
+export const INDICATOR_ERROR_CODES = {
+  INVALID_PARAM: 'INDICATOR_INVALID_PARAM',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// orderBookHeatmap（盘口热力图）；供 orderBookHeatmap 引用。
+export const HEATMAP_ERROR_CODES = {
+  CONFIG_INVALID: 'HEATMAP_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// mtfOverlay（多周期叠加）；供 mtfOverlay 引用。
+export const MTF_ERROR_CODES = {
+  CONFIG_INVALID: 'MTF_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// alternative chart types（renko / rangeBars / pointAndFigure）；供 features/chartTypes 引用。
+export const CHART_TYPE_ERROR_CODES = {
+  CONFIG_INVALID: 'CHART_TYPE_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// replay controller（回放）；供 features/replay 引用。
+export const REPLAY_ERROR_CODES = {
+  CONFIG_INVALID: 'REPLAY_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// depth/SSE source（深度源）；供 data/depth 引用。
+export const DEPTH_ERROR_CODES = {
+  SOURCE_ERROR: 'DEPTH_SOURCE_ERROR',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>

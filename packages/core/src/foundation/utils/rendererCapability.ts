@@ -13,7 +13,7 @@
  * 任何 probe 抛出的异常都会被捕获并折叠进 reason，视为不可用（不触发跳级级联）。
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 
 /** 渲染层级，全序：`'webgpu' > 'webgl2' > 'canvas2d' > 'none'`。 */
 export type RendererTier = 'webgpu' | 'webgl2' | 'canvas2d' | 'none'
@@ -120,7 +120,7 @@ export function detectRendererTier(opts?: DetectRendererTierOptions): RendererTi
 }
 
 /**
- * 严格变体：无任何可渲染层级时抛 `KLineChartError('INVALID_STATE')`。
+ * 严格变体：无任何可渲染层级时抛 `KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE)`。
  *
  * @param opts - 可选的 probe 注入（测试用）
  * @returns 探测结果（tier 保证不是 'none'）
@@ -128,7 +128,10 @@ export function detectRendererTier(opts?: DetectRendererTierOptions): RendererTi
 export function detectRendererTierOrThrow(opts?: DetectRendererTierOptions): RendererTierResult {
   const r = detectRendererTier(opts)
   if (r.tier === 'none') {
-    throw new KLineChartError('INVALID_STATE', `detectRendererTierOrThrow: ${r.reason}`)
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_STATE,
+      `detectRendererTierOrThrow: ${r.reason}`,
+    )
   }
   return r
 }

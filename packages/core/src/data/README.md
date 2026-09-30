@@ -16,14 +16,13 @@
 ```
 data/
 ├── index.ts          # 数据层公共出口：re-export 各子模块，副作用注册内置数据源
-├── buffer/           # 行情缓存：覆盖策略、分页、重试与图表快照适配
-├── depth/            # 深度数据：盘口订单簿（binance SSE + 热力图连接器）
-└── provider/         # 统一行情 Provider 体系：注册表、数据源元数据、wire 协议、各源装配
-    ├── registry.ts       # MarketDataProviderRegistry：Provider 注册 + 运行时配置（enabled/baseUrl）
-    ├── sourceRegistry.ts # dataSourceRegistry：数据源静态元数据（id/displayName/description/defaultBaseUrl）
-    ├── types.ts          # 领域模型：InstrumentDescriptor / BarSeries / MarketDataProvider 等
-    ├── protocol/         # wire 契约：envelope、HTTP transport、通用 Provider 装配器
-    └── sources/          # 各数据源装配：gotdx / baostock / tradingview / mock 的 Provider 实例 + 注册
+├── buffer/           # 行情缓存：契约 types.ts + 实现 impl/
+├── depth/            # 深度数据：契约 types.ts + 实现 impl/（binance SSE + 热力图连接器）
+└── provider/         # 统一行情 Provider 体系：契约 types.ts + 实现 impl/
+    ├── types.ts          # 领域模型 + 注册表 / Router 契约：InstrumentDescriptor / BarSeries / MarketDataProvider / SourceCapabilityQuery 等
+    ├── impl/             # 实现：registry / router / instrumentSearch / sourceRegistry
+    ├── impl/sources/     # 各数据源装配：gotdx / baostock / tradingview / mock 的 Provider 实例 + 注册
+    └── protocol/         # wire 契约：types.ts + 实现 impl/（envelope、HTTP transport、通用 Provider 装配器）
 ```
 
 ## 各子模块职责
@@ -32,10 +31,10 @@ data/
 
 面向 UI、图表和 Agent 的统一行情缓存。`MarketDataCache` 以 `limit`/`before` 游标直接提供 K 线分页、重试和 in-flight 去重；`DataBuffer` / `TimeShareBuffer` 只将查询结果投影为图表响应式快照。
 
-- `marketDataCache.ts`：统一查询、内存缓存、`limit`/`before` 游标分页、重试与请求去重。
-- `dataBuffer.ts` / `timeShareBuffer.ts`：图表数据、loading 和 error 快照适配。
-- `marketDataPolicy.ts`：页大小、初始窗口和重试退避策略。
-- `kLineDataStore.ts` / `timeKeyIndex.ts`：K 线快照合并与时间轴索引。
+- `impl/marketDataCache.ts`：统一查询、内存缓存、`limit`/`before` 游标分页、重试与请求去重。
+- `impl/dataBuffer.ts` / `impl/timeShareBuffer.ts`：图表数据、loading 和 error 快照适配。
+- `impl/marketDataPolicy.ts`：页大小、初始窗口和重试退避策略。
+- `impl/kLineDataStore.ts` / `impl/uniqueTimestampIndex.ts`：K 线快照合并与时间轴索引。
 
 UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓冲对象不接收 fetcher。
 
@@ -43,21 +42,21 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 
 盘口订单簿数据，与 K 线/分时无关的独立领域。
 
-- `binance.ts`：Binance SSE 深度源。
-- `depthConnector.ts`：连接深度源与热力图渲染的控制器。
-- `depthTypes.ts`：深度领域类型。
+- `impl/binance.ts`：Binance SSE 深度源。
+- `impl/depthConnector.ts`：连接深度源与热力图渲染的控制器。
+- `types.ts`：深度领域类型。
 
 ### provider/ — 统一行情 Provider 体系
 
 前端主导的统一行情模型。数据源适配器把私有协议转换为标准类型，图表与 UI 不解析上游字段（`providerRef` 只由创建它的 Provider 消费）。
 
-- `registry.ts`：Provider 注册表 + 运行时配置（`enabled` / `baseUrl`），聚合源面板写入此处的配置。
-- `sourceRegistry.ts`：数据源静态元数据，作为注册表与 UI 展示的单一事实来源。
-- `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`httpTransport.ts`（HTTP 实现）、`provider.ts`（`createMarketDataProvider` 通用装配器）。
-- `sources/`：各数据源 Provider 装配与注册（gotdx / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
+- `impl/registry.ts`：Provider 注册表 + 运行时配置（`enabled` / `baseUrl`），聚合源面板写入此处的配置。
+- `impl/sourceRegistry.ts`：数据源静态元数据，作为注册表与 UI 展示的单一事实来源。
+- `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`impl/httpTransport.ts`（HTTP 实现）、`impl/provider.ts`（`createMarketDataProvider` 通用装配器）。
+- `impl/sources/`：各数据源 Provider 装配与注册（gotdx / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
 #### 协议接口
 
-`provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataTransport`），任何后端实现该契约即可接入。HTTP 实现位于 `httpTransport.ts`，请求统一包装为 `ProtocolEnvelope<T>`，失败时返回 `ProtocolErrorEnvelope`。协议名 `market-data-v1`，版本 1。
+`provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataTransport`），任何后端实现该契约即可接入。HTTP 实现位于 `impl/httpTransport.ts`，请求统一包装为 `ProtocolEnvelope<T>`，失败时返回 `ProtocolErrorEnvelope`。协议名 `market-data-v1`，版本 1。
 
 | Transport 方法 | HTTP 端点 | 方法 | 请求 | 响应 | 作用 |
 |---|---|---|---|---|---|

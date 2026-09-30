@@ -12,9 +12,9 @@
  * ```
  */
 
-import type { HeatmapController } from '../../components/orderBookHeatmap/index.js'
+import type { HeatmapController } from '../../../components/orderBookHeatmap/index.js'
 
-import type { DepthDelta, DepthSnapshot, DepthSource } from './depthTypes.js'
+import type { DepthDelta, DepthSnapshot, DepthSource } from '../types.js'
 
 /**
  * Wires a real-time DepthSource to HeatmapController instances.

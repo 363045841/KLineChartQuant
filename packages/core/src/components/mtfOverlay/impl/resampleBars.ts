@@ -1,4 +1,4 @@
-import { KLineChartError } from '@/errors.js'
+import { KLineChartError, MTF_ERROR_CODES } from '@/errors.js'
 /**
  * Resample a base-timeframe bar series to a higher timeframe.
  *
@@ -43,19 +43,19 @@ export function resampleBars(
 ): ReadonlyArray<ResampledBar> {
   if (!Number.isFinite(baseIntervalMs) || baseIntervalMs <= 0) {
     throw new KLineChartError(
-      'MTF_CONFIG_INVALID',
+      MTF_ERROR_CODES.CONFIG_INVALID,
       'resampleBars: baseIntervalMs must be a positive finite number',
     )
   }
   if (!Number.isFinite(targetIntervalMs) || targetIntervalMs <= 0) {
     throw new KLineChartError(
-      'MTF_CONFIG_INVALID',
+      MTF_ERROR_CODES.CONFIG_INVALID,
       'resampleBars: targetIntervalMs must be a positive finite number',
     )
   }
   if (targetIntervalMs % baseIntervalMs !== 0) {
     throw new KLineChartError(
-      'MTF_CONFIG_INVALID',
+      MTF_ERROR_CODES.CONFIG_INVALID,
       `resampleBars: targetIntervalMs (${targetIntervalMs}) must be an integer ` +
         `multiple of baseIntervalMs (${baseIntervalMs}); got remainder ` +
         `${targetIntervalMs % baseIntervalMs}`,

@@ -36,7 +36,7 @@
  *   })
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ export interface CrosshairSync {
    * position; `paneId` is recorded as `source` for loop prevention.
    *
    * Calling `move` from a pane that has not been registered throws
-   * `KLineChartError('NOT_REGISTERED')` — the wiring contract is
+   * `KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED)` — the wiring contract is
    * easy to mess up and silent ignores would mask bugs.
    */
   move(paneId: string, index: number): void
@@ -118,7 +118,7 @@ export function createCrosshairSync(): CrosshairSync {
     if (disposed) return
     if (paneId === '' || typeof paneId !== 'string') {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `CrosshairSync.register: paneId must be a non-empty string`,
       )
     }
@@ -142,13 +142,13 @@ export function createCrosshairSync(): CrosshairSync {
     if (disposed) return
     if (!panes.has(paneId)) {
       throw new KLineChartError(
-        'NOT_REGISTERED',
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
         `CrosshairSync.move: pane ${JSON.stringify(paneId)} is not registered — call register(${JSON.stringify(paneId)}) before move()`,
       )
     }
     if (!Number.isFinite(index)) {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `CrosshairSync.move: index must be finite, got ${index}`,
       )
     }

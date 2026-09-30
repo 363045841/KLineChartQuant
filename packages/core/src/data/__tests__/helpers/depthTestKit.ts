@@ -10,12 +10,7 @@ import type { Mock } from 'vitest'
 import { vi } from 'vitest'
 
 import type { HeatmapController, HeatmapState } from '@/components/orderBookHeatmap'
-import type {
-  DepthDelta,
-  DepthSnapshot,
-  DepthSource,
-  DepthSourceStatus,
-} from '@/data/depth/depthTypes'
+import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from '@/data/depth/types'
 import { createSignal } from '@/foundation/reactivity/signal'
 
 /** 可手动驱动生命周期的 EventSource 替身。 */

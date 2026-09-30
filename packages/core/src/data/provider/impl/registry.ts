@@ -3,26 +3,18 @@
  * 注册表不负责持久化，应用层可将配置快照同步到 localStorage 或其他存储。
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 
 import type {
-  AssetClass,
   KLineAdjustment,
   KLinePeriod,
   MarketDataProvider,
+  MarketDataSourceConfig,
+  MarketDataSourceConfigPatch,
   SourceCapabilities,
-} from './types.js'
-import { isFilterableAssetClass } from './types.js'
-
-/** 单个行情数据源的运行时配置。 */
-export interface MarketDataSourceConfig {
-  enabled: boolean
-  priority: number
-  baseUrl?: string
-}
-
-/** 数据源配置的局部更新。 */
-export type MarketDataSourceConfigPatch = Partial<MarketDataSourceConfig>
+  SourceCapabilityQuery,
+} from '../types.js'
+import { isFilterableAssetClass } from '../types.js'
 
 /** 规范化可选 Base URL，空值表示清除覆盖。 */
 function normalizeBaseUrl(baseUrl: string | undefined): string | undefined {
@@ -41,15 +33,6 @@ function mergeConfig(
     ? normalizeBaseUrl(patch.baseUrl)
     : current.baseUrl
   return baseUrl === undefined ? { enabled, priority } : { enabled, priority, baseUrl }
-}
-
-/** 源级能力筛选条件。 */
-export interface SourceCapabilityQuery {
-  capability: 'bars' | 'timeShare' | 'timeShareRange' | 'depth'
-  assetClass?: AssetClass
-  period?: KLinePeriod
-  adjustment?: KLineAdjustment
-  days?: number
 }
 
 /** 判断源级能力是否满足一次请求的候选条件。 */
@@ -88,13 +71,13 @@ export class MarketDataProviderRegistry {
     const sourceId = provider.source.id
     if (!sourceId || sourceId !== sourceId.trim()) {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         '[MarketDataProviderRegistry] source.id must be non-empty and trimmed',
       )
     }
     if (this.providers.has(sourceId)) {
       throw new KLineChartError(
-        'INVALID_STATE',
+        GENERIC_ERROR_CODES.INVALID_STATE,
         `[MarketDataProviderRegistry] source "${sourceId}" is already registered`,
       )
     }
@@ -120,7 +103,7 @@ export class MarketDataProviderRegistry {
     const provider = this.providers.get(sourceId)
     if (!provider) {
       throw new KLineChartError(
-        'NOT_REGISTERED',
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
         `[MarketDataProviderRegistry] source "${sourceId}" is not registered`,
       )
     }

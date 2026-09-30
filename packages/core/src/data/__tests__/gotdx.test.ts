@@ -1,7 +1,7 @@
 /** 验证 GOTDX Provider 只通过统一 V1 协议访问行情服务。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { marketDataProviderRegistry } from '../provider/registry'
-import { gotdxMarketDataProvider } from '../provider/sources/gotdx'
+import { marketDataProviderRegistry } from '../provider/impl/registry'
+import { gotdxMarketDataProvider } from '../provider/impl/sources/gotdx'
 
 const fetchMock = vi.fn<typeof fetch>()
 

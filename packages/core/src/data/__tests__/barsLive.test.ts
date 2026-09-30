@@ -1,8 +1,8 @@
 /** BarsLiveSource 与 RealtimeBarsConnector 测试：esFactory 注入假 EventSource，无网络依赖。 */
 import { describe, expect, it } from 'vitest'
 
-import { DataBuffer } from '../buffer/dataBuffer'
-import { BarsLiveSource, type LiveBar, RealtimeBarsConnector } from '../live/barsLive'
+import { DataBuffer } from '../buffer/impl/dataBuffer'
+import { BarsLiveSource, type LiveBar, RealtimeBarsConnector } from '../live/impl/barsLive'
 
 /** K 线 fixture 入参：timestamp/close 必填，确有差异的 OHLCV 字段可按需覆盖。 */
 type BarOverrides = Pick<LiveBar, 'timestamp' | 'close'> &

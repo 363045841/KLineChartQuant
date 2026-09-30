@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * Stochastic RSI (Chande & Kroll, 1994).
  *
@@ -28,7 +28,10 @@ export function computeStochRSI(
   const smoothK = opts.smoothK ?? 3
   const smoothD = opts.smoothD ?? 3
   if (rsiPeriod < 2 || stochPeriod < 2 || smoothK < 1 || smoothD < 1) {
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeStochRSI: invalid period args')
+    throw new KLineChartError(
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
+      'computeStochRSI: invalid period args',
+    )
   }
 
   const n = prices.length

@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * STC — Schaff Trend Cycle (Doug Schaff, 2008).
  *
@@ -32,10 +32,11 @@ export function computeSchaffTrendCycle(
   const cycle = opts.cycle ?? 10
   const factor = opts.factor ?? 0.5
   if (fast < 2 || slow <= fast)
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'STC: require 2 <= fast < slow')
-  if (cycle < 2) throw new KLineChartError('INDICATOR_INVALID_PARAM', 'STC: cycle must be >= 2')
+    throw new KLineChartError(INDICATOR_ERROR_CODES.INVALID_PARAM, 'STC: require 2 <= fast < slow')
+  if (cycle < 2)
+    throw new KLineChartError(INDICATOR_ERROR_CODES.INVALID_PARAM, 'STC: cycle must be >= 2')
   if (!(factor > 0 && factor <= 1))
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'STC: factor must be in (0, 1]')
+    throw new KLineChartError(INDICATOR_ERROR_CODES.INVALID_PARAM, 'STC: factor must be in (0, 1]')
 
   const n = prices.length
   const macd = new Float64Array(n)

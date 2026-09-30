@@ -21,10 +21,10 @@ pnpm setup:backends   # 幂等：目录已存在则跳过
 
 ## 使用方法
 
-- gotdx fetcher：`packages/core/src/data/provider/sources/gotdx.ts`
+- gotdx fetcher：`packages/core/src/data/provider/impl/sources/gotdx.ts`
   - 默认地址 `http://127.0.0.1:8080`，请求 `/api/stock/kline-by-date`、`/api/ex/kline-by-date`、`/api/symbol/search`、`/api/stock/history-tick` 等
   - 支持周期：`1min` ~ `yearly`，以及搜索
-- binance 深度：`packages/core/src/data/depth/binance.ts`
+- binance 深度：`packages/core/src/data/depth/impl/binance.ts`
   - SSE 默认地址 `http://localhost:8081/api/binance/depth-events?symbol=<symbol>`
 - 运行时可通过 `setFetcherBaseUrl('gotdx', ...)` 覆盖默认地址
 

@@ -1,4 +1,4 @@
-import { KLineChartError } from '@/errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { DrawingKind } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
 import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, DrawingTool } from '../types.js'
@@ -51,9 +51,12 @@ export function getAnchorCountForTool(toolId: DrawingToolId): 1 | 2 | 3 | null {
 export function getDrawingKind(toolId: DrawingToolId): DrawingKind {
   switch (toolId) {
     case CURSOR_DRAWING_TOOL_ID:
-      throw new KLineChartError('INVALID_PARAM', 'cursor is not a drawing kind')
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'cursor is not a drawing kind')
     case BOX_SELECT_DRAWING_TOOL_ID:
-      throw new KLineChartError('INVALID_PARAM', 'box-select is not a drawing kind')
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'box-select is not a drawing kind',
+      )
     case DrawingTool.HorizontalLine:
       return 'horizontal-line'
     case DrawingTool.HorizontalRay:

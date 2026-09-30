@@ -1,7 +1,7 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
 import { describe, expect, it } from 'vitest'
 import type { InstrumentDescriptor } from '../../types'
-import { createMarketDataProvider } from '../provider'
+import { createMarketDataProvider } from '../impl/provider'
 import type {
   MarketDataTransport,
   ProtocolBarSeries,

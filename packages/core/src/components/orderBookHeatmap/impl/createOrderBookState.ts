@@ -14,7 +14,7 @@
  * is purely a snapshot-time concern.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { HEATMAP_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type {
   BookSnapshot,
@@ -28,7 +28,7 @@ const EMPTY: ReadonlyArray<readonly [number, number]> = []
 export function createOrderBookState(opts: OrderBookStateOptions): OrderBookState {
   if (!(opts.tickSize > 0) || !Number.isFinite(opts.tickSize)) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'createOrderBookState: tickSize must be a positive finite number',
     )
   }

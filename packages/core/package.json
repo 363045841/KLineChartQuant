@@ -50,12 +50,12 @@
       "import": "./dist/data/provider/index.js"
     },
     "./market-data/sources": {
-      "types": "./dist/data/provider/sources/index.d.ts",
-      "import": "./dist/data/provider/sources/index.js"
+      "types": "./dist/data/provider/impl/sources/index.d.ts",
+      "import": "./dist/data/provider/impl/sources/index.js"
     },
     "./market-data/sources/*": {
-      "types": "./dist/data/provider/sources/*.d.ts",
-      "import": "./dist/data/provider/sources/*.js"
+      "types": "./dist/data/provider/impl/sources/*.d.ts",
+      "import": "./dist/data/provider/impl/sources/*.js"
     },
     "./plugin": {
       "types": "./dist/foundation/plugin/index.d.ts",

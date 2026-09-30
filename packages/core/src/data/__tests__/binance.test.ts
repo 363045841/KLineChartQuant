@@ -1,8 +1,8 @@
 import type { Mock } from 'vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '../depth/binance'
-import type { DepthDelta, DepthSnapshot, DepthSourceStatus } from '../depth/depthTypes'
+import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '../depth/impl/binance'
+import type { DepthDelta, DepthSnapshot, DepthSourceStatus } from '../depth/types'
 import {
   asEventSource,
   createEventSourceFactory,

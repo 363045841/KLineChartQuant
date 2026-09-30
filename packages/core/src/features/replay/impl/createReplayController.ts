@@ -21,7 +21,7 @@
  *   assumption is a larger cross-package change than this PR.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { KLineChartError, REPLAY_ERROR_CODES } from '@/errors.js'
 import { createSignal, type Signal } from '@/foundation/reactivity/signal.js'
 
 import type {
@@ -59,13 +59,13 @@ function clamp(value: number, lo: number, hi: number): number {
 function assertValidRange(start: number, end: number): void {
   if (!Number.isFinite(start) || !Number.isFinite(end)) {
     throw new KLineChartError(
-      'REPLAY_CONFIG_INVALID',
+      REPLAY_ERROR_CODES.CONFIG_INVALID,
       `Replay range must be finite numbers: got start=${String(start)}, end=${String(end)}`,
     )
   }
   if (end < start) {
     throw new KLineChartError(
-      'REPLAY_CONFIG_INVALID',
+      REPLAY_ERROR_CODES.CONFIG_INVALID,
       `Replay range end (${end}) must be >= start (${start})`,
     )
   }
@@ -76,7 +76,7 @@ function assertValidSpeed(speed: number): void {
     // Reverse playback (negative speed) is deliberately rejected in v1.
     // See the header comment for the extension path.
     throw new KLineChartError(
-      'REPLAY_CONFIG_INVALID',
+      REPLAY_ERROR_CODES.CONFIG_INVALID,
       `Replay speed must be a positive finite number; got ${String(speed)}`,
     )
   }
@@ -102,7 +102,7 @@ export function createReplayController(init?: ReplayControllerInit): ReplayContr
   const barIntervalMs = init?.barIntervalMs ?? DEFAULT_BAR_INTERVAL_MS
   if (!Number.isFinite(barIntervalMs) || barIntervalMs <= 0) {
     throw new KLineChartError(
-      'REPLAY_CONFIG_INVALID',
+      REPLAY_ERROR_CODES.CONFIG_INVALID,
       `barIntervalMs must be a positive finite number; got ${String(barIntervalMs)}`,
     )
   }

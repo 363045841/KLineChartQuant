@@ -5,8 +5,8 @@ import type {
   LiveBarsRequest,
   LiveBarsStatus,
   LiveBarsStream,
-} from '../../live/types.js'
-import type { BarQuery, InstrumentDescriptor } from '../types.js'
+} from '../../../live/types.js'
+import type { BarQuery, InstrumentDescriptor } from '../../types.js'
 
 /** 约一百根日 K 的本地测试品种。 */
 export const MOCK_100_SYMBOL = 'MOCK-100'

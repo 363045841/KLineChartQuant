@@ -1,7 +1,7 @@
 /** 主图数据 buffer 业务状态：activeBuffer、数据版本与 symbol 目录。 */
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
-import type { SeriesSelection } from '../../data/buffer/seriesRepository.js'
+import type { SeriesSelection } from '../../data/buffer/impl/seriesRepository.js'
 import type { TimeShareRange } from '../../data/provider/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'

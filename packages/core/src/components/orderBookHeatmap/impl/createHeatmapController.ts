@@ -17,7 +17,7 @@
  * snapshot / delta counts so adapters can use it as a render trigger.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { HEATMAP_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   BookSnapshot,
@@ -151,7 +151,10 @@ export function createHeatmapController(
   ): ReadonlyArray<BookSnapshot> {
     if (disposed) return []
     if (snapshotIntervalMs <= 0) {
-      throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'replay: snapshotIntervalMs must be > 0')
+      throw new KLineChartError(
+        HEATMAP_ERROR_CODES.CONFIG_INVALID,
+        'replay: snapshotIntervalMs must be > 0',
+      )
     }
     if (toTimestamp < fromTimestamp) return []
     // Reconstruct from a brand-new book. We don't reuse `book` because
@@ -265,34 +268,37 @@ export function createHeatmapController(
 
 function validateConfig(c: HeatmapControllerConfig): void {
   if (!(c.tickSize > 0))
-    throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'HeatmapController: tickSize must be > 0')
+    throw new KLineChartError(
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
+      'HeatmapController: tickSize must be > 0',
+    )
   if (!(c.snapshotIntervalMs > 0)) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'HeatmapController: snapshotIntervalMs must be > 0',
     )
   }
   if (!Number.isInteger(c.snapshotRingCapacity) || c.snapshotRingCapacity <= 0) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'HeatmapController: snapshotRingCapacity must be a positive integer',
     )
   }
   if (!(c.deltaArchiveMaxSize >= 0)) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'HeatmapController: deltaArchiveMaxSize must be ≥ 0',
     )
   }
   if (!(c.logColorRange.sizeMin > 0) || !(c.logColorRange.sizeMax > 0)) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'HeatmapController: logColorRange bounds must be positive',
     )
   }
   if (c.logColorRange.sizeMax < c.logColorRange.sizeMin) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'HeatmapController: logColorRange.sizeMax must be ≥ sizeMin',
     )
   }

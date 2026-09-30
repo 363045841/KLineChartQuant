@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DataBuffer } from '../buffer/dataBuffer.js'
+import { DataBuffer } from '../buffer/impl/dataBuffer.js'
 
 const bar = (timestamp: number) => ({ timestamp, open: 1, high: 1, low: 1, close: 1, volume: 1 })
 
