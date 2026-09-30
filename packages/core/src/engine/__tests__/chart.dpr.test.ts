@@ -13,6 +13,7 @@ import {
   installChartDomStubs,
   ResizeObserverMock,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
+import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode'
 import { ScaleType } from '../../foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
@@ -598,6 +599,70 @@ describe('Chart DPR pipeline', () => {
   })
 
   let restoreChartDomStubs: () => void
+
+  it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
+    'fits a fresh price range on every symbol switch after manual scaling (%s)',
+    async (scaleType) => {
+      const chart = mountChart(1000, 600, {
+        initialSettings: {
+          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+          mainRightAxisTypeSetting: scaleType,
+        },
+      })
+      try {
+        chart.resize()
+        chart.applyCustomData({
+          symbol: 'PRIMARY',
+          market: 'CN',
+          period: 'daily',
+          data: makeBars(200),
+        })
+        chart.draw()
+        const primary = chart.symbols.peek()[0]!
+        const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
+        const initialRange = axis.getDisplayRange()
+        chart.scalePrice(MAIN_PANE_ID, -100)
+        chart.translatePrice(MAIN_PANE_ID, 80)
+        chart.draw()
+        expect(axis.getDisplayRange()).not.toEqual(initialRange)
+
+        chart.applyCustomData({
+          symbol: 'SECONDARY',
+          market: 'CN',
+          period: 'daily',
+          data: makeBars(200, 100),
+        })
+        // 新品种尚未绘制时，旧轴上的交互不能提前初始化其锁定范围。
+        chart.scalePrice(MAIN_PANE_ID, -100)
+        chart.translatePrice(MAIN_PANE_ID, 80)
+        expect(chart.kernel.mainPriceAxis.readonly.handRange.peek()).toBeNull()
+        chart.draw()
+        expect(axis.getDisplayRange().minPrice).toBeCloseTo(99)
+        expect(axis.getDisplayRange().maxPrice).toBeCloseTo(101)
+        expect(axis.getVerticalScale()).toBe(1)
+        expect(axis.getPriceOffset()).toBe(0)
+        expect(axis.priceToY(101)).toBeGreaterThanOrEqual(0)
+        expect(axis.priceToY(99)).toBeLessThanOrEqual(chart.getPaneRenderers()[0]!.getPane().height)
+
+        const secondaryRange = axis.getDisplayRange()
+        chart.kernel.viewport.actions.scrollTo(0)
+        chart.draw()
+        expect(axis.getDisplayRange()).toEqual(secondaryRange)
+
+        chart.scalePrice(MAIN_PANE_ID, -100)
+        chart.draw()
+        chart.setSymbols([primary])
+        chart.draw()
+        expect(axis.getDisplayRange().minPrice).toBeCloseTo(initialRange.minPrice)
+        expect(axis.getDisplayRange().maxPrice).toBeCloseTo(initialRange.maxPrice)
+        expect(chart.kernel.mainPriceAxis.readonly.rangeMode.peek()).toBe(
+          PRICE_AXIS_RANGE_MODE.HAND,
+        )
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
 
   beforeAll(async () => {
     await loadBuiltinIndicators()

@@ -33,7 +33,12 @@ export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
         signals.rangeMode.set(PRICE_AXIS_RANGE_MODE.HAND)
       },
       setHandRange(range: PriceRange): void {
-        if (signals.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND) return
+        // null 表示新品种尚未初始化；交互只能修改已有范围，不能代替首帧初始化。
+        if (
+          signals.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND ||
+          signals.handRange.peek() === null
+        )
+          return
         signals.handRange.set(snapshotRange(range))
       },
       initializeHandRange(range: PriceRange): void {

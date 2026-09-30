@@ -913,9 +913,11 @@ export class Chart {
     if (!pane?.capabilities.supportsPriceTranslate) return
     if (
       paneId === MAIN_PANE_ID &&
-      this.kernel.mainPriceAxis.readonly.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND
+      (this.kernel.mainPriceAxis.readonly.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND ||
+        this.kernel.mainPriceAxis.readonly.handRange.peek() === null)
     )
       return
+    // 品种切换后的首屏范围由新行情初始化，不能从仍未投影的旧价格轴接受交互。
     transform(pane)
     if (paneId === MAIN_PANE_ID) {
       this.kernel.mainPriceAxis.actions.setHandRange(pane.yAxis.getDisplayRange())
