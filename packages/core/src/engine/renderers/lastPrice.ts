@@ -57,7 +57,9 @@ export function createLastPriceLabelLayer(): Layer<RenderContext> {
         kind: AXIS_LABEL_KIND.TAG,
         type: 'lastPrice',
         text: info.price.toFixed(2),
-        countdown: formatLastPriceCountdown(context.period, info.timestamp) ?? undefined,
+        countdown:
+          formatLastPriceCountdown(context.period, info.timestamp, context.marketSession) ??
+          undefined,
         pos: info.y + context.pane.top,
         origin: context.pane.top,
         variant: 'label',

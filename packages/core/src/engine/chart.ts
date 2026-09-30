@@ -433,6 +433,11 @@ export class Chart {
 
     // 先创建 Scene，确保恢复的指标首次 projection 能直接挂载 Layer。
     this.renderer = new ChartRenderer({
+      getMarketSession: () => {
+        const spec = this.dataManager.symbols.peek()[0]
+        if (!spec?.market) return undefined
+        return this.marketSessions.get(spec.market)
+      },
       getDom: () => this.dom,
       getOption: () => this.getRenderOptions(),
       getPaneRenderers: () => this.paneRenderers,

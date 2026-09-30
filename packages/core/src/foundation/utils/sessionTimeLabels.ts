@@ -162,9 +162,8 @@ export function resolveTimestampSessionSlot(
   timestamp: number,
   config: MarketSessionConfig = ASHARE_MARKET_SESSION,
 ): number | null {
-  if (!Number.isFinite(timestamp) || Math.abs(timestamp) > MAX_DATE_TIMESTAMP_MS) return null
-
   const minuteOfDay = getMinuteOfDayInTimeZone(timestamp, config.timeZone)
+  if (minuteOfDay === null) return null
   const step = config.slotMinutes && config.slotMinutes > 0 ? config.slotMinutes : 1
   let offset = 0
 
@@ -201,8 +200,9 @@ function getSessionSlotFormatter(timeZone: string): Intl.DateTimeFormat {
   return formatter
 }
 
-/** 仅解析槽位映射所需的交易所墙钟分钟，避免完整日历字段和 Date 分配。 */
-function getMinuteOfDayInTimeZone(timestamp: number, timeZone: string): number {
+/** 读取交易所墙钟的当日分钟数；时间戳无效或超出可表示范围时返回 null。 */
+export function getMinuteOfDayInTimeZone(timestamp: number, timeZone: string): number | null {
+  if (!Number.isFinite(timestamp) || Math.abs(timestamp) > MAX_DATE_TIMESTAMP_MS) return null
   const parts = getSessionSlotFormatter(timeZone).formatToParts(timestamp)
   let hour = 0
   let minute = 0

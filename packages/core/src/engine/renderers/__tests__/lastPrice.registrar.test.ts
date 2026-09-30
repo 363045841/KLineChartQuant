@@ -8,6 +8,7 @@ import {
 import type { RenderContext } from '@/foundation/plugin/index'
 import { resolveThemeColors } from '@/foundation/tokens/index'
 import { ChartDataViewId } from '@/foundation/types/chartView'
+import { ASHARE_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
 
 /** 以主图身份调用最新价标签 Layer.paint。 */
 function paintLabel(context: RenderContext): void {
@@ -37,12 +38,13 @@ describe('createLastPriceLabelLayer', () => {
   })
 
   it('registers the remaining time for a live supported bar', () => {
-    const now = 1_700_000_000_000
+    const now = Date.parse('2026-06-01T09:30:00+08:00')
     vi.setSystemTime(now)
     try {
       const context = createMockRenderContext({
         dataView: ChartDataViewId.KLine,
         period: '5min',
+        marketSession: ASHARE_MARKET_SESSION,
         data: [{ timestamp: now, open: 90, high: 96, low: 89, close: 95 }],
       })
 

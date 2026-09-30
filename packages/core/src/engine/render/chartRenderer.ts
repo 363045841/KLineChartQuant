@@ -166,6 +166,8 @@ export function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): Updat
 
 /** 在绘制帧内提交 viewport 的原生滚动位置，跳过无变化写入。 */
 export interface RendererDependencies {
+  /** 当前主品种的市场时段，倒计时显示与刷新共用。 */
+  getMarketSession: () => typeof ASHARE_MARKET_SESSION | undefined
   getDom: () => ChartDom
   getOption: () => ResolvedChartOptions
   getPaneRenderers: () => PaneRenderer[]
@@ -709,6 +711,7 @@ export class ChartRenderer {
     const remaining = getLastPriceRemainingMs(
       this.deps.getDataManager().currentPeriod,
       last.timestamp,
+      this.deps.getMarketSession(),
       now,
     )
     if (remaining === null) return
@@ -1124,6 +1127,7 @@ export class ChartRenderer {
         dataRevision,
         period: dataManager.currentPeriod,
         dataView: this.deps.dataView$(),
+        marketSession: this.deps.getMarketSession(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
