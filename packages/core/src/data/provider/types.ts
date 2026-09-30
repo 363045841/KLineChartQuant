@@ -351,6 +351,9 @@ export interface MarketDataFailure {
 // 注册表与 Router 契约
 // ---------------------------------------------------------------------------
 
+/** 未指定具体数据源时的路由来源标识。 */
+export const AUTO_SOURCE_ID = 'auto'
+
 /** 单个行情数据源的运行时配置。 */
 export interface MarketDataSourceConfig {
   enabled: boolean

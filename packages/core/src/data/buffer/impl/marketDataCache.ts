@@ -15,12 +15,17 @@ import type {
   TimeShareSeries,
   TradingDate,
 } from '../../provider/types.js'
-import { ORIGINAL_BAR_AGGREGATION } from '../../provider/types.js'
+import {
+  AUTO_SOURCE_ID,
+  OLDER_DATA_STATUS,
+  ORIGINAL_BAR_AGGREGATION,
+} from '../../provider/types.js'
 import {
   DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
   FETCH_TOTAL_ATTEMPTS,
   retryBackoffMs,
 } from './marketDataPolicy.js'
+import { LATEST_TRADING_DATE } from './seriesRepository.js'
 
 export interface BarsCacheQuery {
   readonly symbol: string
@@ -186,7 +191,7 @@ function cacheKey(query: {
   readonly assetClass?: AssetClass
 }): string {
   return [
-    query.sourceId ?? 'auto',
+    query.sourceId ?? AUTO_SOURCE_ID,
     query.instrument?.id ?? '',
     query.assetClass ?? '',
     query.exchange ?? '',
@@ -272,7 +277,7 @@ export class MarketDataCache {
       period: 'daily',
       adjustment: 'none',
       barAggregation: ORIGINAL_BAR_AGGREGATION,
-    })}:${query.tradingDate ?? 'latest'}`
+    })}:${query.tradingDate ?? LATEST_TRADING_DATE}`
     const cached = this.timeShares.get(key)
     if (cached) {
       this.touchEntry('timeShares', key)
@@ -310,7 +315,7 @@ export class MarketDataCache {
       period: 'daily',
       adjustment: 'none',
       barAggregation: ORIGINAL_BAR_AGGREGATION,
-    })}:${query.endTradingDate ?? 'latest'}:${query.days}`
+    })}:${query.endTradingDate ?? LATEST_TRADING_DATE}:${query.days}`
     const cached = this.timeShareRanges.get(key)
     if (cached) {
       this.touchEntry('timeShareRanges', key)
@@ -394,7 +399,7 @@ export class MarketDataCache {
   private coversPage(entry: CacheEntry | undefined, query: BarsCacheQuery): boolean {
     if (!entry || entry.data.length === 0) return false
     // Provider 已声明无更早历史时，任何游标查询都直接返回已有数据。
-    if (entry.olderData === 'exhausted') return true
+    if (entry.olderData === OLDER_DATA_STATUS.EXHAUSTED) return true
     if (query.beforeTimestamp === undefined) return entry.data.length >= query.limit
     let beforeCount = 0
     for (const item of entry.data) {
@@ -427,7 +432,8 @@ export class MarketDataCache {
     }
     this.bars.set(key, value)
     this.recordEntry('bars', key, estimateBytes(value))
-    if (result.series.data.length === 0 || result.series.olderData === 'exhausted') return
+    if (result.series.data.length === 0 || result.series.olderData === OLDER_DATA_STATUS.EXHAUSTED)
+      return
     if (!progressed) {
       throw new Error('[MarketDataCache] Provider cursor page did not advance cached coverage')
     }

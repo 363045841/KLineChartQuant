@@ -37,4 +37,9 @@ export type {
   ProtocolTradingCalendar,
   ProtocolTradingCalendarRequest,
 } from './types.js'
-export { SOURCE_REJECTION_CODES, V1_PROTOCOL_NAME, V1_PROTOCOL_VERSION } from './types.js'
+export {
+  SOURCE_REJECTION_CODES,
+  V1_ENDPOINTS,
+  V1_PROTOCOL_NAME,
+  V1_PROTOCOL_VERSION,
+} from './types.js'

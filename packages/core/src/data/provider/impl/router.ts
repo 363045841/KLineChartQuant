@@ -21,7 +21,7 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../types.js'
-import { isFilterableAssetClass } from '../types.js'
+import { AUTO_SOURCE_ID, isFilterableAssetClass } from '../types.js'
 import { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry.js'
 
 /** 所有候选源都明确拒绝请求时抛出的错误。 */
@@ -165,7 +165,7 @@ export class SourceRouter {
   ): Promise<ReadonlyArray<MarketDataProvider>> {
     const enabled = this.registry.getEnabledByPriority()
     const explicitSource =
-      preferredSourceId !== undefined && preferredSourceId !== 'auto'
+      preferredSourceId !== undefined && preferredSourceId !== AUTO_SOURCE_ID
         ? preferredSourceId
         : undefined
     if (explicitSource) {

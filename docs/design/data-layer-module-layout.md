@@ -67,10 +67,29 @@ data/
 - fetch 族（`FETCH_FAILED` / `FETCH_ABORTED` / `UNSUPPORTED_CAPABILITY` / `INSTRUMENT_NOT_FOUND`）在 `provider/impl/router.ts`、`provider/protocol/impl/provider.ts`、`provider/impl/instrumentSearch.ts`、`live/impl/barsLive.ts` 改为 `ERROR_CODES.*`。
 - 通用码在 17 个生产文件（scale / input / rendering / engine / foundation / data 等）改为 `GENERIC_ERROR_CODES.*`；测试断言保留字面量。
 
+领域族具名常量（`SCALE_ERROR_CODES` / `FOOTPRINT_ERROR_CODES` / `AVWAP_ERROR_CODES` / `INDICATOR_ERROR_CODES` / `HEATMAP_ERROR_CODES` / `MTF_ERROR_CODES` / `CHART_TYPE_ERROR_CODES` / `REPLAY_ERROR_CODES` / `DEPTH_ERROR_CODES`）已补齐，对应调用点全部改为引用常量。
+
 未纳入本次：
 
 - `MarketDataErrorCode`（`errorCode()` 的返回值 `UPSTREAM_UNAVAILABLE` / `ABORTED` / `UNKNOWN` 等）是 data 层独立的领域词汇，不是 `KLineChartError` 码，无对应常量对象。
-- 领域族错误码（`SCALE_*` / `FOOTPRINT_*` / `INDICATOR_INVALID_PARAM` / `HEATMAP_CONFIG_INVALID` / `MTF_CONFIG_INVALID` / `CHART_TYPE_CONFIG_INVALID` / `REPLAY_CONFIG_INVALID` / `DEPTH_SOURCE_ERROR` / 序列化族）仍以字面量书写，尚未建立对应常量对象。
 - `protocol/types.ts` 的 `SOURCE_REJECTION_CODES` 是「可流转错误码集合」的定义本身。
+- `errors-help.ts` 的 `HINTS`（`Record<KLineChartErrorCode, string>`）以错误码为键，是「码 → 恢复提示」定义表，且由类型保证完备，保留字面量键。
+- 测试断言保留字面量。
+
+## 附：data 层硬编码字符串收敛
+
+审计 `data/` 模块后清除的魔法字符串：
+
+| 位置 | 原字面量 | 改为 |
+|------|----------|------|
+| `buffer/impl/marketDataCache.ts`、`provider/impl/router.ts` | `'auto'` | `AUTO_SOURCE_ID`（上提到 `provider/types.ts`，避免 provider → buffer 反向依赖） |
+| `buffer/impl/marketDataCache.ts` | `'latest'` | `LATEST_TRADING_DATE` |
+| `buffer/impl/marketDataCache.ts` | `'exhausted'` | `OLDER_DATA_STATUS.EXHAUSTED` |
+| `provider/protocol/impl/httpTransport.ts`、`live/impl/barsLive.ts` | `/api/v1/market-data/...` 端点路径 | `V1_ENDPOINTS.*` |
+| `provider/protocol/impl/httpTransport.ts` | `{ 'Content-Type': 'application/json' }` | `JSON_HEADERS` |
+| `provider/protocol/impl/provider.ts` | `'CN'` | `CN_SESSION_ID` |
+
+刻意保留：类型化联合的判别值（`'bars'` / `'snapshot'` / `'exhausted'` 之类的内部判别）、wire 协议字段名、数据源注册表数据、mock 夹具、`errors-help` 的码 → 提示表。
+
 
 

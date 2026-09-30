@@ -27,7 +27,10 @@ import type {
   ProtocolTradingCalendar,
   ProtocolTradingCalendarRequest,
 } from '../types.js'
-import { SOURCE_REJECTION_CODES } from '../types.js'
+import { SOURCE_REJECTION_CODES, V1_ENDPOINTS } from '../types.js'
+
+// 统一 JSON 请求头；wire 层共享，避免重复字面量。
+const JSON_HEADERS = { 'Content-Type': 'application/json' } as const
 
 // 判定数据后端错误是否触发能力流转
 function mapServerErrorCode(code: ProtocolErrorCode): KLineChartErrorCode {
@@ -132,7 +135,7 @@ export function createHttpMarketDataTransport(
   return {
     // 通过 probe endpoint 探测数据源可用性
     async probe(sourceId, signal) {
-      const path = `/api/v1/market-data/sources/${encodeURIComponent(sourceId)}/probe`
+      const path = `${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/probe`
       return request<ProtocolSourceProbe>(
         baseUrl(),
         path,
@@ -152,8 +155,8 @@ export function createHttpMarketDataTransport(
       })
       return request<ProtocolInstrumentSearchResult>(
         baseUrl(),
-        '/api/v1/market-data/instruments/search',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
+        V1_ENDPOINTS.instrumentsSearch,
+        { method: 'POST', headers: JSON_HEADERS, body, signal },
         getFetch,
         label,
       )
@@ -172,8 +175,8 @@ export function createHttpMarketDataTransport(
       })
       return request<ProtocolBarSeries>(
         baseUrl(),
-        '/api/v1/market-data/bars',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
+        V1_ENDPOINTS.bars,
+        { method: 'POST', headers: JSON_HEADERS, body, signal },
         getFetch,
         label,
       )
@@ -182,10 +185,10 @@ export function createHttpMarketDataTransport(
     async fetchTradingCalendar(req: ProtocolTradingCalendarRequest, signal) {
       return request<ProtocolTradingCalendar>(
         baseUrl(),
-        '/api/v1/market-data/trading-calendar',
+        V1_ENDPOINTS.tradingCalendar,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: JSON_HEADERS,
           body: JSON.stringify(req),
           signal,
         },
@@ -203,8 +206,8 @@ export function createHttpMarketDataTransport(
       })
       return request<ProtocolTimeShareSeries>(
         baseUrl(),
-        '/api/v1/market-data/timeshare',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
+        V1_ENDPOINTS.timeShare,
+        { method: 'POST', headers: JSON_HEADERS, body, signal },
         getFetch,
         label,
       )
@@ -220,8 +223,8 @@ export function createHttpMarketDataTransport(
       })
       return request<ProtocolTimeShareRangeSeries>(
         baseUrl(),
-        '/api/v1/market-data/timeshare/range',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
+        V1_ENDPOINTS.timeShareRange,
+        { method: 'POST', headers: JSON_HEADERS, body, signal },
         getFetch,
         label,
       )

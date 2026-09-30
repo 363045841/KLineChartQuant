@@ -20,9 +20,9 @@ import {
 import type { DataBuffer } from '../data/buffer/impl/dataBuffer.js'
 import type { MarketDataCache } from '../data/buffer/impl/marketDataCache.js'
 import { resolveMarketDataCacheMaxBytes } from '../data/buffer/impl/marketDataPolicy.js'
-import { AUTO_SOURCE_ID } from '../data/buffer/impl/seriesRepository.js'
 import { lookupInstrumentsBySymbol } from '../data/provider/impl/instrumentSearch.js'
 import { marketDataProviderRegistry } from '../data/provider/impl/registry.js'
+import { AUTO_SOURCE_ID } from '../data/provider/types.js'
 import { createAlertController } from '../features/alerts/impl/createAlertController.js'
 import {
   createVolumeLookbacks,

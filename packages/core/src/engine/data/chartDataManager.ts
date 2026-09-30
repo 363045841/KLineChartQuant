@@ -10,7 +10,6 @@ import { DataBuffer } from '../../data/buffer/impl/dataBuffer.js'
 import { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
 import {
-  AUTO_SOURCE_ID,
   instrumentKeyFromSpec,
   LATEST_TRADING_DATE,
   SeriesRepository,
@@ -37,6 +36,7 @@ import type {
 } from '../../data/provider/types.js'
 import {
   ALIGNED_BAR_AGGREGATION,
+  AUTO_SOURCE_ID,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
   OLDER_DATA_STATUS,

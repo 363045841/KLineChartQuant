@@ -5,6 +5,7 @@
 import type { KLineData } from '../../../controllers/types.js'
 import { ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { marketDataProviderRegistry } from '../../provider/impl/registry.js'
+import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
 import { type BarAggregation, ORIGINAL_BAR_AGGREGATION } from '../../provider/types.js'
 import type { LiveBar, LiveBarsFrame, LiveBarsStatus, LiveBarsStream } from '../types.js'
 
@@ -58,7 +59,7 @@ export class BarsLiveSource implements LiveBarsStream {
     this.disconnect()
     this.emitStatus('connecting')
 
-    const url = `${this.baseUrl}/api/v1/market-data/sources/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
+    const url = `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
     console.log(`[BarsLiveSource] 已订阅 SSE ${url}`)

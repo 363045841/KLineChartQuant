@@ -24,6 +24,20 @@ export const V1_PROTOCOL_NAME = 'market-data-v1' as const
 // 协议版本
 export const V1_PROTOCOL_VERSION = 1 as const
 
+// V1 协议 HTTP 端点基路径
+const V1_API_BASE = '/api/v1/market-data'
+
+/** V1 协议端点路径；wire 契约的单一来源。 */
+export const V1_ENDPOINTS = {
+  /** 数据源相关端点基路径（probe / stream 在其下拼接 sourceId）。 */
+  sources: `${V1_API_BASE}/sources`,
+  instrumentsSearch: `${V1_API_BASE}/instruments/search`,
+  bars: `${V1_API_BASE}/bars`,
+  tradingCalendar: `${V1_API_BASE}/trading-calendar`,
+  timeShare: `${V1_API_BASE}/timeshare`,
+  timeShareRange: `${V1_API_BASE}/timeshare/range`,
+} as const
+
 // 成功 envelope：服务端对每次请求包装的通用外壳
 export interface ProtocolEnvelope<T> {
   data: T

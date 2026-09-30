@@ -39,9 +39,14 @@ export interface MarketDataProviderOptions {
   resolveVolumeUnit?: (instrument: InstrumentDescriptor) => VolumeUnit | undefined
 }
 
+// 命中 A 股会话的品种按手（lot）计量的兜底规则。
+const CN_SESSION_ID = 'CN'
+
 // 默认成交量单位兜底：CN 市场非指数品种按手计，其余保持未知
 function defaultResolveVolumeUnit(instrument: InstrumentDescriptor): VolumeUnit | undefined {
-  return instrument.sessionId === 'CN' && instrument.assetClass !== 'index' ? 'lot' : undefined
+  return instrument.sessionId === CN_SESSION_ID && instrument.assetClass !== 'index'
+    ? 'lot'
+    : undefined
 }
 
 // 将品种响应转换为前端领域模型

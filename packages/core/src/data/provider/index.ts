@@ -42,6 +42,7 @@ export {
   createMarketDataProvider,
   DEFAULT_V1_BASE_URL,
   SOURCE_REJECTION_CODES,
+  V1_ENDPOINTS,
   V1_PROTOCOL_NAME,
   V1_PROTOCOL_VERSION,
 } from './protocol/index.js'
