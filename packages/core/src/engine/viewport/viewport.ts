@@ -5,8 +5,8 @@ import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 /** 未来区输入：plotWidth 用于换算屏宽槽位数，futureScreens 控制未来区屏数。 */
 export type FutureSpaceInput = { plotWidth: number; futureScreens?: number }
 
-/** 默认未来区屏数：最后一根 K 线可推到绘图区左缘后再留 3 屏。 */
-export const DEFAULT_FUTURE_SCREENS = 3
+/** 默认未来区屏数：最后一根 K 线可推到绘图区左缘后再留 1 屏。 */
+export const DEFAULT_FUTURE_SCREENS = 1
 
 /**
  * 将逻辑像素屏宽换算为未来区槽位数（物理像素量纲）。
@@ -97,7 +97,7 @@ export function computeMaxScrollLeftWithVisibleData(
   if (totalDataCount === 0) return contentMaxScrollLeft
 
   const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  // 未来区槽位：允许拖到最后一根 K 线之后再留 futureScreens 屏空白（默认 3 屏）
+  // 未来区槽位：允许拖到最后一根 K 线之后再留 futureScreens 屏空白（默认 DEFAULT_FUTURE_SCREENS 屏）
   const futureBars = future
     ? futureBarCount(future.plotWidth, dpr, unitPx, future.futureScreens ?? DEFAULT_FUTURE_SCREENS)
     : 0

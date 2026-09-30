@@ -2,19 +2,12 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { createScrollContainerStub } from '../../__tests__/helpers/scrollContainerStub'
 import { ViewportScrollBridge } from '../viewportScrollBridge'
 
 describe('ViewportScrollBridge', () => {
   it('consumes the native event caused by a programmatic frame commit', () => {
-    let scrollLeft = 0
-    const container = {
-      get scrollLeft() {
-        return scrollLeft
-      },
-      set scrollLeft(value: number) {
-        scrollLeft = value
-      },
-    } as unknown as HTMLElement
+    const container = createScrollContainerStub()
     const bridge = new ViewportScrollBridge(() => container)
 
     bridge.commit(160)
@@ -24,15 +17,7 @@ describe('ViewportScrollBridge', () => {
   })
 
   it('treats a different native value as user input', () => {
-    let scrollLeft = 0
-    const container = {
-      get scrollLeft() {
-        return scrollLeft
-      },
-      set scrollLeft(value: number) {
-        scrollLeft = value
-      },
-    } as unknown as HTMLElement
+    const container = createScrollContainerStub()
     const bridge = new ViewportScrollBridge(() => container)
 
     bridge.commit(160)
@@ -42,15 +27,7 @@ describe('ViewportScrollBridge', () => {
   })
 
   it('confirms the browser-accepted value when a target is clamped', () => {
-    let scrollLeft = 0
-    const container = {
-      get scrollLeft() {
-        return scrollLeft
-      },
-      set scrollLeft(value: number) {
-        scrollLeft = Math.floor(value)
-      },
-    } as unknown as HTMLElement
+    const container = createScrollContainerStub({ transformScrollLeft: Math.floor })
     const bridge = new ViewportScrollBridge(() => container)
 
     bridge.commit(160.75)

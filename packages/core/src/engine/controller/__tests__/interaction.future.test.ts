@@ -4,9 +4,12 @@ import { describe, expect, it } from 'vitest'
 
 import { InteractionController } from '@/core/controller/interaction'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
-import type { KLineData } from '@/types/price'
 
-import { createChartStub, createMockInteractionState } from './helpers/interactionTestKit'
+import {
+  createChartStub,
+  createInteractionBars,
+  createMockInteractionState,
+} from './helpers/interactionTestKit'
 
 /** 10 根数据、unit 10px、dpr=1 的未来区测试场景。 */
 function createFutureScene(args?: {
@@ -14,14 +17,7 @@ function createFutureScene(args?: {
   /** 通过公开的 onSettingsChanged 入口切换 tooltip 位置模式（如 'adaptive'）。 */
   tooltipPosition?: 'adaptive'
 }) {
-  const data: KLineData[] = Array.from({ length: 10 }, (_, i) => ({
-    timestamp: 20260101 + i,
-    open: 10,
-    high: 12,
-    low: 8,
-    close: 11,
-    volume: 1000,
-  }))
+  const data = createInteractionBars(10)
   const chart = createChartStub({
     dpr: 1,
     plotWidth: 300,

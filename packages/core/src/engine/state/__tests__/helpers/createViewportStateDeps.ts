@@ -28,7 +28,7 @@ export interface ViewportStateDepsOverrides {
   zoomLevel?: number
   /** 分时槽位数，默认 240。 */
   sessionSlots?: number
-  /** 未来区屏数覆盖（undefined = 默认 3 屏）。 */
+  /** 未来区屏数覆盖（undefined = 用 DEFAULT_FUTURE_SCREENS 解析）。 */
   futureScreens?: number
 }
 

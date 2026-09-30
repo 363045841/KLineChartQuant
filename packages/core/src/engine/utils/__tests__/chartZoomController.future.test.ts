@@ -2,7 +2,7 @@
  * ChartZoomController 未来区（future time axis）回归测试。
  *
  * 覆盖：拖入未来区后缩放，锚点为指针所在槽位（无指针手势取视口左缘）；
- * 滚动量由 viewportState 的 maxScrollLeft 统一夹取（默认 3 屏未来区），不被拉回数据右缘。
+ * 滚动量由 viewportState 的 maxScrollLeft 统一夹取（显式 3 屏未来区），不被拉回数据右缘。
  *
  * 数值基准：dpr=1，viewWidth=plotWidth=1000，dataLength=10，
  * 级别 6→5 缩小一级（kWidth 21→17.4，kGapPx 均钳 3，旧 unitPx=24 / 新 unitPx=20）。
@@ -18,7 +18,7 @@ import { ChartZoomController } from '../chartZoomController'
 
 /** 组装真实 viewportState / zoomState / optionsState 与控制器（无 DOM 依赖）。 */
 function makeController() {
-  const deps = createViewportStateDeps({ dataLength: 10 })
+  const deps = createViewportStateDeps({ dataLength: 10, futureScreens: 3 })
   const viewport = createViewportState({
     options$: deps.options$,
     dataLength$: deps.dataLength$,
@@ -65,7 +65,7 @@ describe('ChartZoomController future region', () => {
   it('拖入未来区后 zoomOut：以指针槽位为锚点，不被拉回数据右缘', () => {
     const { viewport, controller } = makeController()
 
-    // 拖到最右：viewport 滚动上限含未来区（默认 3 屏），scrollLeftLogical 落在未来区深处
+    // 拖到最右：viewport 滚动上限含未来区（3 屏），scrollLeftLogical 落在未来区深处
     viewport.actions.scrollTo(viewport.readonly.maxScrollLeft.peek())
     expect(viewport.readonly.scrollLeftLogical.peek()).toBe(2103)
 

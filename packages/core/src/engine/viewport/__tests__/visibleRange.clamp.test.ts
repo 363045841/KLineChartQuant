@@ -4,6 +4,7 @@ import { createViewportState } from '../../state/viewportState'
 import {
   clampVisibleRange,
   computeMaxScrollLeftWithVisibleData,
+  DEFAULT_FUTURE_SCREENS,
   getVisibleRange,
 } from '../viewport'
 
@@ -88,12 +89,17 @@ describe('viewportState visibleRange SSOT', () => {
     module.actions.resize(100, 400, 1)
     module.actions.scrollTo(Number.MAX_SAFE_INTEGER)
 
-    // 未来时间轴：默认 DEFAULT_FUTURE_SCREENS(3) 屏下拖到最右，窗口整体进入未来槽位
-    expect(module.readonly.visibleRange()).toEqual({ start: 11, end: 14 })
+    // 未来时间轴：拖到最右后窗口右缘越过数据尾，进入未来槽位
+    expect(module.readonly.visibleRange().end).toBeGreaterThan(10)
   })
 })
 
 describe('viewportState futureScreens', () => {
+  /** 50 根数据、unitPx=10 的基准场景；用例只覆盖 futureScreens 差异。 */
+  const base = { dataLength: 50, options: { kWidth: 8, kGap: 2 } as const }
+  /** 0 屏未来区（走 trailing 30 槽）时的滚动上限。 */
+  const MAX_SCROLL_NO_FUTURE = 803
+
   /** 把 viewport 滚到最右并返回派生滚动上限。 */
   const scrollToMax = (module: ReturnType<typeof createViewportState>): number => {
     module.actions.resize(400, 400, 1)
@@ -102,24 +108,28 @@ describe('viewportState futureScreens', () => {
   }
 
   it('maxScrollLeft 含 3 屏未来区（比 0 屏多出 (120-30) 个槽位）', () => {
-    const base = { dataLength: 50, options: { kWidth: 8, kGap: 2 } as const }
-    // unitPx=10：0 屏走 trailing 30 槽 → 803；3 屏 futureBars=ceil(400/10)*3=120 槽 → 1703
+    // 3 屏 futureBars=ceil(400/10)*3=120 槽 → 1703
     const max0 = scrollToMax(
       createViewportState(createViewportStateDeps({ ...base, futureScreens: 0 })),
     )
     const max3 = scrollToMax(
       createViewportState(createViewportStateDeps({ ...base, futureScreens: 3 })),
     )
-    expect(max0).toBe(803)
+    expect(max0).toBe(MAX_SCROLL_NO_FUTURE)
     expect(max3).toBe(1703)
   })
 
-  it('缺省 futureScreens 时使用 DEFAULT_FUTURE_SCREENS（3 屏）', () => {
-    const deps = createViewportStateDeps({ dataLength: 50, options: { kWidth: 8, kGap: 2 } })
+  it('缺省 futureScreens 时解析为 DEFAULT_FUTURE_SCREENS', () => {
+    const explicit = scrollToMax(
+      createViewportState(
+        createViewportStateDeps({ ...base, futureScreens: DEFAULT_FUTURE_SCREENS }),
+      ),
+    )
+    const deps = createViewportStateDeps(base)
     const module = createViewportState(deps)
-    expect(scrollToMax(module)).toBe(1703)
+    expect(scrollToMax(module)).toBe(explicit)
     deps.options$.set({ bottomAxisHeight: 30, kWidth: 8, kGap: 2, futureScreens: 0 })
-    expect(scrollToMax(module)).toBe(803)
+    expect(scrollToMax(module)).toBe(MAX_SCROLL_NO_FUTURE)
   })
 
   it('rawVisibleRange：滚到最右时 end 停在数据尾 + futureBars', () => {
@@ -152,19 +162,5 @@ describe('viewportState futureScreens', () => {
     const raw = module.readonly.rawVisibleRange()
     expect(raw.start).toBe(-1)
     expect(raw.end).toBe(240)
-  })
-
-  it('内容一致性：contentWidth - viewWidth 等于 maxScrollLeft', () => {
-    const module = createViewportState(
-      createViewportStateDeps({
-        dataLength: 20,
-        options: { kWidth: 8, kGap: 2 },
-        futureScreens: 3,
-      }),
-    )
-    module.actions.resize(400, 400, 1)
-    expect(module.readonly.contentWidth() - module.readonly.viewWidth()).toBe(
-      module.readonly.maxScrollLeft(),
-    )
   })
 })

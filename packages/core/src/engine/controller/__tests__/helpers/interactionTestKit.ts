@@ -16,6 +16,23 @@ export function createMockInteractionState() {
   })
 }
 
+/** 交互测试用恒价 K 线 OHLC：kit 的 yAxis 替身为恒等映射，价格须落在窄区间才能命中 candle。 */
+const INTERACTION_BAR = { open: 10, high: 12, low: 8, close: 11 } as const
+
+/**
+ * 构造交互测试用的恒价 K 线序列。
+ * @param length K 线根数。
+ * @param volumeStep 成交量步长（0 表示全部 1000）。
+ * @returns 仅时间戳与成交量随索引变化的 K 线数组。
+ */
+export function createInteractionBars(length: number, volumeStep = 0): KLineData[] {
+  return Array.from({ length }, (_, i) => ({
+    timestamp: 20260101 + i,
+    ...INTERACTION_BAR,
+    volume: 1000 + i * volumeStep,
+  }))
+}
+
 /** InteractionController 依赖的 Chart 表面替身；测试只声明与默认值不同的差异项。 */
 export function createChartStub(args: {
   dpr: number
@@ -52,24 +69,7 @@ export function createChartStub(args: {
   container.hasPointerCapture = () => false
   container.releasePointerCapture = () => undefined
 
-  const data: KLineData[] = args.data ?? [
-    {
-      timestamp: 20260101,
-      open: 10,
-      high: 12,
-      low: 8,
-      close: 11,
-      volume: 1000,
-    },
-    {
-      timestamp: 20260102,
-      open: 11,
-      high: 13,
-      low: 9,
-      close: 12,
-      volume: 1200,
-    },
-  ]
+  const data: KLineData[] = args.data ?? createInteractionBars(2, 200)
 
   const paneDefs = args.paneByY ?? [{ id: 'main', top: 0, height: 160, candleHitTest: true }]
   const paneRenderers = paneDefs.map((paneDef) => ({

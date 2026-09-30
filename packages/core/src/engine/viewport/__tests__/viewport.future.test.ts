@@ -8,20 +8,20 @@
  * 数值基准：dpr=1, kWidth=9, kGap=1 → unitPx=10, startXPx=kGapPx=1（无左缓冲时）。
  */
 import { describe, expect, it } from 'vitest'
-import { computeMaxScrollLeftWithVisibleData, getVisibleRange } from '../viewport.js'
+import {
+  computeMaxScrollLeftWithVisibleData,
+  DEFAULT_FUTURE_SCREENS,
+  getVisibleRange,
+} from '../viewport.js'
 
 describe('computeMaxScrollLeftWithVisibleData future space', () => {
   // 公共参数：100 根数据，kWidth=9, kGap=1, dpr=1 → unitPx=10, startXPx=1
   it.each([
     {
-      name: '允许最后一根 K 线拖到左缘：上限含 futureBars',
-      futureScreens: 1,
-      expected: 1991, // futureBars = ceil(1000/10) * 1 = 100 → rawMax = 1 + 199 * 10
-    },
-    {
-      name: '不传 futureScreens 时使用 DEFAULT_FUTURE_SCREENS（3 屏）',
+      name: '不传 futureScreens 时使用 DEFAULT_FUTURE_SCREENS',
       futureScreens: undefined,
-      expected: 3991, // futureBars = 100 * 3 = 300 → rawMax = 1 + 399 * 10
+      // futureBars = 100 * DEFAULT_FUTURE_SCREENS → rawMax = 1 + (99 + futureBars) * 10
+      expected: 1 + (99 + 100 * DEFAULT_FUTURE_SCREENS) * 10,
     },
     {
       name: '不传 future 选项时保持旧行为',

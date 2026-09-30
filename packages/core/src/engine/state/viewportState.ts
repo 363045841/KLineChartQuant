@@ -114,7 +114,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     signalDeps.timeShareSlotWidth$?.() ?? undefined
   // 未来区屏数默认值解析单点（负值钳 0，与 viewport.ts 的 futureBars 边界一致）：
   // contentWidth / maxScrollLeft / rawVisibleRange end 夹取必须同源，否则内容宽度
-  // 不覆盖默认 3 屏滚动空间（contentMaxScrollLeft 先触顶，拖不出未来区）
+  // 不覆盖默认未来区滚动空间（contentMaxScrollLeft 先触顶，拖不出未来区）
   const readFutureScreens = (): number =>
     Math.max(0, signalDeps.options$().futureScreens ?? DEFAULT_FUTURE_SCREENS)
 
