@@ -61,6 +61,7 @@
     gap: var(--klc-spacing-xs);
     min-width: 0;
     padding: var(--klc-spacing-md);
+    /* 卡片边框跟随所选预设的界面边框色，不用强调色描边。 */
     border: 1px solid var(--preset-border);
     border-radius: 8px;
     background: var(--preset-background);
@@ -70,18 +71,10 @@
     font: inherit;
   }
 
-  .theme-preset[aria-pressed='true'] {
-    outline: 2px solid var(--preset-accent);
-    outline-offset: 1px;
-  }
-
+  /* 选中态只靠勾选标记区分；键盘聚焦保留无障碍焦点环。 */
   .theme-preset:focus-visible {
     outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 3px;
-  }
-
-  .theme-preset:hover {
-    border-color: var(--preset-accent);
   }
 
   .theme-preset strong {
