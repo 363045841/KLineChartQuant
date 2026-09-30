@@ -1,7 +1,10 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
 import { type Static, Type } from 'typebox'
 import type { IndicatorInstance } from '@/controllers/types.js'
-import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/instrumentSearch.js'
+import {
+  lookupInstrumentsBySymbol,
+  searchInstruments,
+} from '@/data/provider/impl/instrumentSearch.js'
 import type { KLineAdjustment, KLinePeriod, TradingDate } from '@/data/provider/types.js'
 import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '@/data/provider/types.js'
 import type { PaneSpec } from '@/engine/chartTypes.js'

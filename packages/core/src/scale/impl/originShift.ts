@@ -45,7 +45,7 @@
  *    degenerate range elsewhere.
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 
 import type { OriginShiftPolicy } from '../types.js'
 
@@ -64,13 +64,13 @@ export function createOriginShiftPolicy(
 ): OriginShiftPolicy {
   if (!Number.isFinite(initialRef)) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createOriginShiftPolicy: initialRef must be finite, got ${initialRef}`,
     )
   }
   if (!Number.isFinite(threshold) || threshold < 0) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createOriginShiftPolicy: threshold must be >= 0, got ${threshold}`,
     )
   }

@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * Fisher Transform — John Ehlers (2002).
  *
@@ -26,7 +26,7 @@ export function computeFisherTransform(
   const { period } = opts
   if (period < 2 || !Number.isFinite(period)) {
     throw new KLineChartError(
-      'INDICATOR_INVALID_PARAM',
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
       'computeFisherTransform: period must be >= 2',
     )
   }

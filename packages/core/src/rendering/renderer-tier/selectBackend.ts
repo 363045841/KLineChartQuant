@@ -25,7 +25,7 @@
  * just the function the caller registered.
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import {
   type DetectRendererTierOptions,
   detectRendererTier,
@@ -129,7 +129,7 @@ export function selectBackend<T = unknown>(opts: SelectBackendOptions<T>): Backe
   // Validate the minimum is a known tier; 'none' is the default floor.
   if (!(minimum in RENDERER_TIER_RANK)) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `selectBackend: minimum must be a RendererTier, got ${JSON.stringify(minimum)}`,
     )
   }
@@ -178,7 +178,7 @@ export function selectBackend<T = unknown>(opts: SelectBackendOptions<T>): Backe
 }
 
 /**
- * Strict variant: throws `KLineChartError('INVALID_STATE')` if no factory
+ * Strict variant: throws `KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE)` if no factory
  * could be selected. Use when a renderable backend is mandatory.
  */
 export function selectBackendOrThrow<T = unknown>(
@@ -186,7 +186,10 @@ export function selectBackendOrThrow<T = unknown>(
 ): BackendSelection<T> & { factory: BackendFactory<T> } {
   const sel = selectBackend(opts)
   if (sel.factory === null) {
-    throw new KLineChartError('INVALID_STATE', `selectBackendOrThrow: ${sel.reason}`)
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_STATE,
+      `selectBackendOrThrow: ${sel.reason}`,
+    )
   }
   return sel as BackendSelection<T> & { factory: BackendFactory<T> }
 }

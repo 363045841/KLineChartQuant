@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * ALMA — Arnaud Legoux Moving Average.
  *
@@ -31,11 +31,17 @@ export function computeALMA(prices: ReadonlyArray<number>, opts: AlmaOptions): F
   const offset = opts.offset ?? 0.85
   const sigma = opts.sigma ?? 6
   if (period < 1 || !Number.isFinite(period))
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeALMA: period must be >= 1')
+    throw new KLineChartError(
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
+      'computeALMA: period must be >= 1',
+    )
   if (sigma <= 0 || !Number.isFinite(sigma))
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeALMA: sigma must be > 0')
+    throw new KLineChartError(INDICATOR_ERROR_CODES.INVALID_PARAM, 'computeALMA: sigma must be > 0')
   if (offset < 0 || offset > 1)
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeALMA: offset must be in [0, 1]')
+    throw new KLineChartError(
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
+      'computeALMA: offset must be in [0, 1]',
+    )
 
   const out = new Float64Array(prices.length)
   const m = offset * (period - 1)

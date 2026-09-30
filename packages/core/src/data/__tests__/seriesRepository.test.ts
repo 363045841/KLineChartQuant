@@ -1,14 +1,14 @@
 /** SeriesRepository 单元测试：验证序列身份隔离、拓扑通知和 Buffer 生命周期。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import { DataBuffer } from '../buffer/dataBuffer'
+import { DataBuffer } from '../buffer/impl/dataBuffer'
 import {
   instrumentKeyFromSpec,
   SeriesRepository,
   type SeriesSelection,
   sourceIdFromSpec,
-} from '../buffer/seriesRepository'
-import { TimeShareBuffer } from '../buffer/timeShareBuffer'
+} from '../buffer/impl/seriesRepository'
+import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
 
 /** 创建测试用 K 线选择。 */
 function barsSelection(

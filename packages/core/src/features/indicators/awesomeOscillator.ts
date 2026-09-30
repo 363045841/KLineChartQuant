@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * Awesome Oscillator — Bill Williams.
  *
@@ -23,7 +23,7 @@ export function computeAwesomeOscillator(
   const slow = opts.slow ?? 34
   if (fast < 1 || slow < 1 || fast >= slow) {
     throw new KLineChartError(
-      'INDICATOR_INVALID_PARAM',
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
       'computeAwesomeOscillator: require 1 <= fast < slow',
     )
   }

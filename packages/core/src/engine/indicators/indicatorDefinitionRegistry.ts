@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import type { ChartDataView } from '../state/modeState.js'
 import type { IndicatorName } from './indicatorContracts.js'
 import type {
@@ -94,7 +94,7 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
       const rendererFactory = this.rendererFactory
       if (typeof rendererFactory !== 'function') {
         throw new KLineChartError(
-          'INVALID_PARAM',
+          GENERIC_ERROR_CODES.INVALID_PARAM,
           `[Indicator] '${config.name}' definition must expose static rendererFactory`,
         )
       }

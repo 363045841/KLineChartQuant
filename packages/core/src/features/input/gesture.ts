@@ -31,7 +31,7 @@
  * history, pinch to zoom, swipe to flick-scroll, tap to inspect).
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
@@ -139,13 +139,13 @@ interface ActivePointer {
 export function createGestureRecognizer(opts: GestureRecognizerOptions = {}): GestureRecognizer {
   if (opts.panDeadzone !== undefined && opts.panDeadzone < 0) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createGestureRecognizer: panDeadzone must be >= 0, got ${opts.panDeadzone}`,
     )
   }
   if (opts.swipeMinVelocity !== undefined && opts.swipeMinVelocity < 0) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createGestureRecognizer: swipeMinVelocity must be >= 0, got ${opts.swipeMinVelocity}`,
     )
   }

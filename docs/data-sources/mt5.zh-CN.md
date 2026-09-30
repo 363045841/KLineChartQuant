@@ -18,12 +18,12 @@ pnpm setup:backends   # 幂等：目录已存在则跳过
 
 ## 使用方法
 
-- source id：`mt5`（`packages/core/src/data/provider/sources/mt5.ts`）
+- source id：`mt5`（`packages/core/src/data/provider/impl/sources/mt5.ts`）
 - 默认地址：`http://127.0.0.1:8090`
 - 支持周期：`1min` / `5min` / `15min` / `30min` / `60min` / `4h` / `daily` / `weekly` / `monthly`
 - 复权：`none`
 - 会话：`MT5`（7x24 UTC，仅用于时区解析，不裁剪 K 线）
-- 实时消费：`Mt5LiveSource` + `RealtimeBarsConnector`（`packages/core/src/data/live/mt5BarsLive.ts`）驱动 `controller.updateBars`
+- 实时消费：`Mt5LiveSource` + `RealtimeBarsConnector`（`packages/core/src/data/live/impl/barsLive.ts`）驱动 `controller.updateBars`
 
 ## 启动方式
 

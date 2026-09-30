@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * T3 — Tim Tillson's smoothed-EMA cascade (1998).
  *
@@ -54,10 +54,10 @@ export function computeT3(prices: ReadonlyArray<number>, opts: T3Options): Float
   const { period } = opts
   const a = opts.volumeFactor ?? 0.7
   if (period < 2 || !Number.isFinite(period))
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeT3: period must be >= 2')
+    throw new KLineChartError(INDICATOR_ERROR_CODES.INVALID_PARAM, 'computeT3: period must be >= 2')
   if (a < 0 || a > 1 || !Number.isFinite(a)) {
     throw new KLineChartError(
-      'INDICATOR_INVALID_PARAM',
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
       'computeT3: volumeFactor must be in [0, 1]',
     )
   }

@@ -1,7 +1,7 @@
 /**
  * 插件注册表
  */
-import { KLineChartError } from '@/errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { Plugin, PluginDescriptor, PluginState } from '../types.js'
 
@@ -13,7 +13,10 @@ export class PluginRegistry {
    */
   register(plugin: Plugin, config?: Record<string, unknown>): PluginDescriptor {
     if (this.plugins.has(plugin.name)) {
-      throw new KLineChartError('INVALID_STATE', `Plugin "${plugin.name}" is already registered`)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_STATE,
+        `Plugin "${plugin.name}" is already registered`,
+      )
     }
 
     const descriptor: PluginDescriptor = {

@@ -1,6 +1,6 @@
 /** FinShare V1 Provider：通过 Baostock-Tradingview-Connector 提供国内期货行情。 */
 
-import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol/index.js'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '../../protocol/index.js'
 import { marketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 

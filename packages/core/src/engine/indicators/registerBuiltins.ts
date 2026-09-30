@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry.js'
 
@@ -72,7 +72,7 @@ export async function loadBuiltinIndicators(): Promise<void> {
   for (const module of modules) {
     if (Object.keys(module).length === 0) {
       throw new KLineChartError(
-        'INVALID_STATE',
+        GENERIC_ERROR_CODES.INVALID_STATE,
         'Builtin indicator module has no definition export.',
       )
     }
@@ -83,7 +83,7 @@ export async function loadBuiltinIndicators(): Promise<void> {
 export function getBuiltinIndicatorDefinitions() {
   if (!loaded) {
     throw new KLineChartError(
-      'INVALID_STATE',
+      GENERIC_ERROR_CODES.INVALID_STATE,
       'Builtin indicators not loaded yet. Call await loadBuiltinIndicators() first.',
     )
   }

@@ -39,7 +39,7 @@
  *       })
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
@@ -155,19 +155,22 @@ const MODIFIER_TOKENS = new Set([
 
 /**
  * Parse a combo source string into the normalised {@link ParsedCombo}.
- * Throws `KLineChartError('INVALID_PARAM')` on malformed input — empty,
+ * Throws `KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM)` on malformed input — empty,
  * modifiers without a key, unknown modifier token.
  */
 export function parseCombo(source: string): ParsedCombo {
   if (typeof source !== 'string' || source.trim() === '') {
-    throw new KLineChartError('INVALID_PARAM', `parseCombo: empty combo`)
+    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `parseCombo: empty combo`)
   }
   const tokens = source
     .split('+')
     .map((t) => t.trim())
     .filter((t) => t.length > 0)
   if (tokens.length === 0) {
-    throw new KLineChartError('INVALID_PARAM', `parseCombo: no tokens in ${JSON.stringify(source)}`)
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      `parseCombo: no tokens in ${JSON.stringify(source)}`,
+    )
   }
   let requiresMod = false
   let ctrlKey = false
@@ -203,7 +206,7 @@ export function parseCombo(source: string): ParsedCombo {
       // Non-modifier token — must be the (single) key.
       if (keyToken !== null) {
         throw new KLineChartError(
-          'INVALID_PARAM',
+          GENERIC_ERROR_CODES.INVALID_PARAM,
           `parseCombo: multiple keys in ${JSON.stringify(source)} — combos take exactly one non-modifier`,
         )
       }
@@ -212,7 +215,7 @@ export function parseCombo(source: string): ParsedCombo {
   }
   if (keyToken === null) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `parseCombo: ${JSON.stringify(source)} has only modifiers, no key`,
     )
   }
@@ -274,7 +277,7 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
     if (disposed) return
     if (def.id === '' || typeof def.id !== 'string') {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `ShortcutRegistry.register: def.id must be a non-empty string`,
       )
     }
@@ -282,7 +285,7 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
     const existing = byCanonical.get(canonical)
     if (existing !== undefined && existing.id !== def.id) {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `ShortcutRegistry.register: combo ${JSON.stringify(canonical)} is already bound to id ${JSON.stringify(existing.id)} — unregister it before re-binding to ${JSON.stringify(def.id)}`,
       )
     }

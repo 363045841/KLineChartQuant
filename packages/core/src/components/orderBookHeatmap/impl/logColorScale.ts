@@ -16,7 +16,7 @@
  *   sizeMin or sizeMax not strictly positive  → throw at construction
  */
 
-import { KLineChartError } from '@/errors.js'
+import { HEATMAP_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { LogColorScale } from '../types.js'
 
@@ -65,19 +65,19 @@ export function createLogColorScale(sizeMin: number, sizeMax: number): LogColorS
 function validate(lo: number, hi: number): void {
   if (!(lo > 0) || !Number.isFinite(lo)) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'createLogColorScale: sizeMin must be a positive finite number',
     )
   }
   if (!(hi > 0) || !Number.isFinite(hi)) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'createLogColorScale: sizeMax must be a positive finite number',
     )
   }
   if (hi < lo) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'createLogColorScale: sizeMax must be ≥ sizeMin',
     )
   }

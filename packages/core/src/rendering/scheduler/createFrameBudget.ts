@@ -33,7 +33,7 @@
  *   if (budget.recentFrameMs() > 18) skipLowPriorityWork()
  */
 
-import { KLineChartError } from '../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
@@ -123,19 +123,19 @@ export function createFrameBudget(opts: FrameBudgetOptions = {}): FrameBudget {
 
   if (!(targetMs > 0) || !Number.isFinite(targetMs)) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createFrameBudget: targetMs must be > 0, got ${targetMs}`,
     )
   }
   if (!(historySize > 0) || !Number.isInteger(historySize)) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createFrameBudget: historySize must be a positive integer, got ${historySize}`,
     )
   }
   if (!(maxQueueSize > 0) || !Number.isInteger(maxQueueSize)) {
     throw new KLineChartError(
-      'INVALID_PARAM',
+      GENERIC_ERROR_CODES.INVALID_PARAM,
       `createFrameBudget: maxQueueSize must be a positive integer, got ${maxQueueSize}`,
     )
   }
@@ -186,7 +186,7 @@ export function createFrameBudget(opts: FrameBudgetOptions = {}): FrameBudget {
     if (disposed) return
     if (task.id === '' || typeof task.id !== 'string') {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `FrameBudget.submit: task.id must be a non-empty string`,
       )
     }
@@ -261,7 +261,7 @@ export function createFrameBudget(opts: FrameBudgetOptions = {}): FrameBudget {
     if (disposed) return
     if (!Number.isFinite(t)) {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `FrameBudget.beginFrame: t must be finite, got ${t}`,
       )
     }
@@ -271,7 +271,10 @@ export function createFrameBudget(opts: FrameBudgetOptions = {}): FrameBudget {
   function endFrame(t: number): void {
     if (disposed) return
     if (!Number.isFinite(t)) {
-      throw new KLineChartError('INVALID_PARAM', `FrameBudget.endFrame: t must be finite, got ${t}`)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        `FrameBudget.endFrame: t must be finite, got ${t}`,
+      )
     }
     const dur = Math.max(0, t - frameStart)
     frameTimes.push(dur)

@@ -1,4 +1,4 @@
-import { marketDataProviderRegistry } from '@/data/provider/registry.js'
+import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import { Chart } from '@/engine/chart.js'
 import type {
   ChartOptions,

@@ -64,7 +64,7 @@
  * meaningful in ATR mode).
  */
 
-import { KLineChartError } from '@/errors.js'
+import { CHART_TYPE_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { ChartTypeTransform, OHLCV, RenkoConfig, TransformedBar } from '../types.js'
 
@@ -274,13 +274,13 @@ export function createRenko(): ChartTypeTransform<RenkoConfig> {
       // Validate: at least one mode must be set with sane values.
       if (!config.useATR && (config.brickSize === undefined || config.brickSize <= 0)) {
         throw new KLineChartError(
-          'CHART_TYPE_CONFIG_INVALID',
+          CHART_TYPE_ERROR_CODES.CONFIG_INVALID,
           'createRenko: config requires brickSize > 0 or useATR { period }',
         )
       }
       if (config.useATR && config.useATR.period < 1) {
         throw new KLineChartError(
-          'CHART_TYPE_CONFIG_INVALID',
+          CHART_TYPE_ERROR_CODES.CONFIG_INVALID,
           'createRenko: useATR.period must be >= 1',
         )
       }

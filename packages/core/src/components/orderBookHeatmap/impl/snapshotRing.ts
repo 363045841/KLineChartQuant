@@ -12,14 +12,14 @@
  * GPU buffer.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { HEATMAP_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { BookSnapshot, SnapshotRing } from '../types.js'
 
 export function createSnapshotRing(capacity: number): SnapshotRing {
   if (!Number.isInteger(capacity) || capacity <= 0) {
     throw new KLineChartError(
-      'HEATMAP_CONFIG_INVALID',
+      HEATMAP_ERROR_CODES.CONFIG_INVALID,
       'createSnapshotRing: capacity must be a positive integer',
     )
   }

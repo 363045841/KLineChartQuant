@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { KLineChartError } from '@/errors'
-import { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from '../httpTransport'
+import { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from '../impl/httpTransport'
 
 const fetchMock = vi.fn<typeof fetch>()
 

@@ -231,9 +231,9 @@ flowchart TB
 | Baostock-Tradingview-Connector | 同级 `Baostock-Tradingview-Connector/` | `8000` | BaoStock A 股 + TradingView 全球品种 |
 | KCQ-MT5-connector | 同级 `KCQ-MT5-connector/` | `8090` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD + SSE 实时 K 线（Windows） |
 
-前端对接代码：`packages/core/src/data/provider/sources/gotdx.ts`、
-`packages/core/src/data/provider/sources/mt5.ts`、`packages/core/src/data/live/mt5BarsLive.ts`、
-`packages/core/src/data/depth/binance.ts`。Vite 开发代理 `/api/public` → `:8080`、
+前端对接代码：`packages/core/src/data/provider/impl/sources/gotdx.ts`、
+`packages/core/src/data/provider/impl/sources/mt5.ts`、`packages/core/src/data/live/impl/barsLive.ts`、
+`packages/core/src/data/depth/impl/binance.ts`。Vite 开发代理 `/api/public` → `:8080`、
 `/api/stock` → `:8000`。`pnpm setup:backends` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
 （`mt5` 依赖 Windows + 本机 MT5 终端，不纳入 `all`，需显式 `pnpm connector mt5` / `pnpm dev -c mt5`）。
 
@@ -258,10 +258,10 @@ flowchart TB
 
 **数据层**
 
-- `packages/core/src/data/buffer/seriesRepository.ts`
-- `packages/core/src/data/buffer/dataBuffer.ts`
-- `packages/core/src/data/buffer/fetchScheduler.ts`
-- `packages/core/src/data/provider/registry.ts`
+- `packages/core/src/data/buffer/impl/seriesRepository.ts`
+- `packages/core/src/data/buffer/impl/dataBuffer.ts`
+- `packages/core/src/data/buffer/impl/marketDataCache.ts`
+- `packages/core/src/data/provider/impl/registry.ts`
 
 **渲染**
 

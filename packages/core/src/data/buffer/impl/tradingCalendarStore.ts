@@ -1,4 +1,4 @@
-import type { TradingCalendar } from '../provider/types.js'
+import type { TradingCalendar } from '../../provider/types.js'
 
 /** 与 K 线数组隔离的未来槽位时间戳快照。 */
 export class TradingCalendarStore {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DataBuffer } from '../buffer/dataBuffer'
+import { DataBuffer } from '../buffer/impl/dataBuffer'
 
 function bar(timestamp: number) {
   return { timestamp, open: 1, high: 2, low: 0, close: 1, volume: 10 }

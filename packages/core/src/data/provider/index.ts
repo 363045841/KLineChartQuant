@@ -1,7 +1,11 @@
 /** 统一行情领域模型公共入口。 */
 
-export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch.js'
-export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch.js'
+export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
+export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
+export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'
+export { SourceRouter, SourceRoutingError, sourceRouter } from './impl/router.js'
+export type { DataSourceRegistration } from './impl/sourceRegistry.js'
+export { dataSourceRegistry } from './impl/sourceRegistry.js'
 export type {
   HttpTransportOptions,
   MarketDataProviderOptions,
@@ -22,8 +26,6 @@ export type {
   ProtocolKLineItem,
   ProtocolSourceCapabilities,
   ProtocolSourceProbe,
-  ProtocolTradingCalendar,
-  ProtocolTradingCalendarRequest,
   ProtocolSourceRejectionCode,
   ProtocolTimeShareDay,
   ProtocolTimeShareItem,
@@ -32,6 +34,8 @@ export type {
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
+  ProtocolTradingCalendar,
+  ProtocolTradingCalendarRequest,
 } from './protocol/index.js'
 export {
   createHttpMarketDataTransport,
@@ -42,31 +46,12 @@ export {
   V1_PROTOCOL_VERSION,
 } from './protocol/index.js'
 export type {
-  MarketDataSourceConfig,
-  MarketDataSourceConfigPatch,
-  SourceCapabilityQuery,
-} from './registry.js'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry.js'
-export type {
-  RoutedMarketData,
-  SourceRouteAttempt,
-  SourceRouterBarsRequest,
-  SourceRouterInstrumentIdentity,
-  SourceRouterTimeShareRequest,
-} from './router.js'
-export { SourceRouter, SourceRoutingError, sourceRouter } from './router.js'
-export type { DataSourceRegistration } from './sourceRegistry.js'
-export { dataSourceRegistry } from './sourceRegistry.js'
-export type {
   AssetClass,
   BarAggregation,
   BarCapability,
   BarDataSource,
   BarQuery,
   BarSeries,
-  TradingCalendar,
-  TradingCalendarQuery,
-  TradingCalendarDataSource,
   DataSourceDescriptor,
   DepthDataSource,
   InstrumentCapabilities,
@@ -78,10 +63,19 @@ export type {
   MarketDataErrorCode,
   MarketDataFailure,
   MarketDataProvider,
+  MarketDataSourceConfig,
+  MarketDataSourceConfigPatch,
   MarketDataSourceStatus,
   ProviderRef,
+  RoutedMarketData,
   SourceCapabilities,
+  SourceCapabilityQuery,
   SourceProbeResult,
+  SourceRouteAttempt,
+  SourceRouterBarsRequest,
+  SourceRouterInstrumentIdentity,
+  SourceRouterTimeShareRangeRequest,
+  SourceRouterTimeShareRequest,
   TimeShareDataSource,
   TimeShareDay,
   TimeShareQuery,
@@ -90,6 +84,9 @@ export type {
   TimeShareRangeDataSource,
   TimeShareRangeQuery,
   TimeShareSeries,
+  TradingCalendar,
+  TradingCalendarDataSource,
+  TradingCalendarQuery,
   TradingDate,
   VolumeUnit,
 } from './types.js'

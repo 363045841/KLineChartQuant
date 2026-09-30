@@ -1,7 +1,7 @@
 /** 聚合已启用行情数据源的无状态品种目录查询能力。 */
-import { KLineChartError } from '../../errors.js'
+import { ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import type { InstrumentDescriptor, InstrumentSearchQuery } from '../types.js'
 import type { MarketDataProviderRegistry } from './registry.js'
-import type { InstrumentDescriptor, InstrumentSearchQuery } from './types.js'
 
 /** 跨数据源查询品种目录的输入。 */
 export interface InstrumentSearchRequest extends InstrumentSearchQuery {
@@ -48,7 +48,7 @@ export async function searchInstruments(
     )
     if (unavailableSourceIds.length > 0) {
       throw new KLineChartError(
-        'INVALID_PARAM',
+        GENERIC_ERROR_CODES.INVALID_PARAM,
         `[InstrumentSearch] sourceIds ${unavailableSourceIds.join(', ')} are unavailable for instrument lookup. Available sourceIds: ${availableSourceIds.join(', ') || 'none'}. Omit sourceIds to search every enabled source.`,
       )
     }
@@ -75,7 +75,7 @@ export async function searchInstruments(
   )
   if (successful.length === 0) {
     throw new KLineChartError(
-      'FETCH_FAILED',
+      ERROR_CODES.FETCH_FAILED,
       '[InstrumentSearch] all selected source searches failed',
     )
   }

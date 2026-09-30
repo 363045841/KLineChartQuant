@@ -1,8 +1,7 @@
 /** KLineDataStore.updateBars 语义测试：replace-on-conflict 末尾窗口合并，拒绝陈旧帧。 */
 import { describe, expect, it } from 'vitest'
-
-import { DATA_CHANGE_KINDS } from '../buffer/dataBufferTypes'
-import { KLineDataStore } from '../buffer/kLineDataStore'
+import { KLineDataStore } from '../buffer/impl/kLineDataStore'
+import { DATA_CHANGE_KINDS } from '../buffer/types'
 
 function bar(timestamp: number, close = 1, volume = 10) {
   return { timestamp, open: 1, high: 2, low: 0, close, volume }

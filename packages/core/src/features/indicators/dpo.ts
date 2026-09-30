@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * DPO — Detrended Price Oscillator.
  *
@@ -19,7 +19,10 @@ export interface DpoOptions {
 export function computeDPO(prices: ReadonlyArray<number>, opts: DpoOptions): Float64Array {
   const { period } = opts
   if (period < 2 || !Number.isFinite(period))
-    throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeDPO: period must be >= 2')
+    throw new KLineChartError(
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
+      'computeDPO: period must be >= 2',
+    )
   const n = prices.length
   const out = new Float64Array(n)
   out.fill(Number.NaN)

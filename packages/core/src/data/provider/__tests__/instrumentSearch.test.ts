@@ -1,8 +1,8 @@
 /** 验证跨已启用数据源的无状态品种目录查询。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import { lookupInstrumentsBySymbol, searchInstruments } from '../instrumentSearch'
-import { MarketDataProviderRegistry } from '../registry'
+import { lookupInstrumentsBySymbol, searchInstruments } from '../impl/instrumentSearch'
+import { MarketDataProviderRegistry } from '../impl/registry'
 import type { InstrumentDescriptor } from '../types'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
 

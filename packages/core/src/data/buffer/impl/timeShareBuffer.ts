@@ -5,9 +5,9 @@ import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../../foundation/reactivity/signal.js'
-import type { TimeShareData } from '../../foundation/types/price.js'
-import type { TimeShareRange } from '../provider/types.js'
+} from '../../../foundation/reactivity/signal.js'
+import type { TimeShareData } from '../../../foundation/types/price.js'
+import type { TimeShareRange } from '../../provider/types.js'
 
 import {
   DATA_CHANGE_KINDS,
@@ -15,7 +15,7 @@ import {
   type DataChange,
   type LoadedTimeRange,
   type TimeShareBuffer as TimeShareBufferType,
-} from './dataBufferTypes.js'
+} from '../types.js'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
 type Content =

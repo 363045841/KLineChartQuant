@@ -25,7 +25,7 @@
  * Dispose-guard pattern mirrors `createIndicatorSelectorController.ts`.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { FOOTPRINT_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   AggressorResult,
@@ -55,19 +55,19 @@ const DEFAULT_CONFIG: FootprintConfig = {
 function validateConfig(c: FootprintConfig): void {
   if (!(c.tickSize > 0)) {
     throw new KLineChartError(
-      'FOOTPRINT_TICKSIZE_INVALID',
+      FOOTPRINT_ERROR_CODES.TICKSIZE_INVALID,
       'FootprintController: tickSize must be > 0',
     )
   }
   if (!(c.barIntervalMs > 0) || !Number.isFinite(c.barIntervalMs)) {
     throw new KLineChartError(
-      'FOOTPRINT_BAR_INTERVAL_INVALID',
+      FOOTPRINT_ERROR_CODES.BAR_INTERVAL_INVALID,
       'FootprintController: barIntervalMs must be > 0',
     )
   }
   if (!(c.imbalanceRatio > 0)) {
     throw new KLineChartError(
-      'FOOTPRINT_RATIO_INVALID',
+      FOOTPRINT_ERROR_CODES.RATIO_INVALID,
       'FootprintController: imbalanceRatio must be > 0',
     )
   }

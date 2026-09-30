@@ -53,7 +53,7 @@
  * matches between modes.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { CHART_TYPE_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { ChartTypeTransform, OHLCV, RangeBarsConfig, TransformedBar } from '../types.js'
 
@@ -260,7 +260,10 @@ export function createRangeBars(): ChartTypeTransform<RangeBarsConfig> {
 
     transform(input: ReadonlyArray<OHLCV>, config: RangeBarsConfig): ReadonlyArray<TransformedBar> {
       if (config.range <= 0 || !Number.isFinite(config.range)) {
-        throw new KLineChartError('CHART_TYPE_CONFIG_INVALID', 'createRangeBars: range must be > 0')
+        throw new KLineChartError(
+          CHART_TYPE_ERROR_CODES.CONFIG_INVALID,
+          'createRangeBars: range must be > 0',
+        )
       }
       activeConfig = config
       resetState()

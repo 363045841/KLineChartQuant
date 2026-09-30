@@ -6,9 +6,9 @@
 import type { KLineChartErrorCode } from '@/errors.js'
 import { ERROR_CODES, KLineChartError } from '@/errors.js'
 
-import { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
+import { DEFAULT_V1_BASE_URL } from '../../impl/sourceRegistry.js'
 
-export { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
+export { DEFAULT_V1_BASE_URL } from '../../impl/sourceRegistry.js'
 
 import type {
   MarketDataTransport,
@@ -20,14 +20,14 @@ import type {
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolSourceProbe,
-  ProtocolTradingCalendar,
-  ProtocolTradingCalendarRequest,
   ProtocolTimeShareRangeRequest,
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
-} from './types.js'
-import { SOURCE_REJECTION_CODES } from './types.js'
+  ProtocolTradingCalendar,
+  ProtocolTradingCalendarRequest,
+} from '../types.js'
+import { SOURCE_REJECTION_CODES } from '../types.js'
 
 // 判定数据后端错误是否触发能力流转
 function mapServerErrorCode(code: ProtocolErrorCode): KLineChartErrorCode {

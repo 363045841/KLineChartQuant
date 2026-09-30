@@ -4,8 +4,8 @@
  */
 import type { KLineData, TimeShareData } from '@/controllers/types.js'
 import { MarketSessionRegistry } from '@/engine/market/marketSessionRegistry.js'
-import { createMissingSessionError, KLineChartError } from '@/errors.js'
-import type { LiveBarsDataSource } from '../../live/types.js'
+import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { LiveBarsDataSource } from '../../../live/types.js'
 
 import type {
   AssetClass,
@@ -19,14 +19,14 @@ import type {
   TimeShareRangeQuery,
   TimeShareSeries,
   VolumeUnit,
-} from '../types.js'
-import { isFilterableAssetClass } from '../types.js'
+} from '../../types.js'
+import { isFilterableAssetClass } from '../../types.js'
 import type {
   MarketDataTransport,
   ProtocolInstrumentDescriptor,
   ProtocolKLineItem,
   ProtocolTimeShareItem,
-} from './types.js'
+} from '../types.js'
 
 export interface MarketDataProviderOptions {
   // 数据源元信息；marketSessions 中声明的会话会注册进本地会话表
@@ -119,7 +119,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
           : instrument.capabilities.timeShareRange !== undefined)
     if (!supported) {
       throw new KLineChartError(
-        'UNSUPPORTED_CAPABILITY',
+        ERROR_CODES.UNSUPPORTED_CAPABILITY,
         `[${source.id}] instrument ${instrument.id} does not support ${capability}`,
       )
     }
@@ -220,7 +220,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
                 !runtimeSource.capabilities?.tradingCalendar
               ) {
                 throw new KLineChartError(
-                  'UNSUPPORTED_CAPABILITY',
+                  ERROR_CODES.UNSUPPORTED_CAPABILITY,
                   `[${source.id}] trading calendar is unavailable`,
                 )
               }
@@ -283,7 +283,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
               const capability = query.instrument.capabilities.timeShareRange
               if (!capability || query.days > capability.maxTradingDays) {
                 throw new KLineChartError(
-                  'UNSUPPORTED_CAPABILITY',
+                  ERROR_CODES.UNSUPPORTED_CAPABILITY,
                   `[${source.id}] instrument ${query.instrument.id} does not support ${query.days} trading days`,
                 )
               }

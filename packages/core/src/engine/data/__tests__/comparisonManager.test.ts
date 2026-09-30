@@ -2,13 +2,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { SymbolSpec } from '@/controllers/types'
-import { DataBuffer } from '@/data/buffer/dataBuffer'
+import { DataBuffer } from '@/data/buffer/impl/dataBuffer'
 import {
   instrumentKeyFromSpec,
   SeriesRepository,
   type SeriesSelection,
   sourceIdFromSpec,
-} from '@/data/buffer/seriesRepository'
+} from '@/data/buffer/impl/seriesRepository'
 import { ComparisonManager } from '../comparisonManager'
 
 type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>

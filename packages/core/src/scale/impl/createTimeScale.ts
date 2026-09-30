@@ -15,7 +15,7 @@
  * extrapolate, or display a "—" label.
  */
 
-import { KLineChartError } from '../../errors.js'
+import { KLineChartError, SCALE_ERROR_CODES } from '../../errors.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
 
 import type { TimeScale, TimeScaleConfig } from '../types.js'
@@ -27,7 +27,7 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
 
   if (!(initialBarWidth > 0)) {
     throw new KLineChartError(
-      'SCALE_BAR_WIDTH_INVALID',
+      SCALE_ERROR_CODES.BAR_WIDTH_INVALID,
       `createTimeScale: initialBarWidth must be > 0, got ${initialBarWidth}`,
     )
   }
@@ -83,7 +83,7 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
       if (!guard()) return
       if (!(w > 0)) {
         throw new KLineChartError(
-          'SCALE_BAR_WIDTH_INVALID',
+          SCALE_ERROR_CODES.BAR_WIDTH_INVALID,
           `TimeScale.setBarWidth: barWidth must be > 0, got ${w}`,
         )
       }

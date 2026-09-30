@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * Ultimate Oscillator — Larry Williams (1976).
  *
@@ -30,7 +30,7 @@ export function computeUltimateOscillator(
   const p3 = opts.p3 ?? 28
   if (p1 < 1 || p2 < 1 || p3 < 1) {
     throw new KLineChartError(
-      'INDICATOR_INVALID_PARAM',
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
       'computeUltimateOscillator: all periods must be >= 1',
     )
   }

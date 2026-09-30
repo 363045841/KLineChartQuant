@@ -1,79 +1,28 @@
 /** 行情 Provider 能力流转层：按源级能力选择 Provider，并在确定性拒绝时切换数据源。 */
 
-import { isKLineChartError, KLineChartError } from '../../errors.js'
-
 import {
-  MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-  type SourceCapabilityQuery,
-} from './registry.js'
+  ERROR_CODES,
+  GENERIC_ERROR_CODES,
+  isKLineChartError,
+  KLineChartError,
+} from '../../../errors.js'
 import type {
-  AssetClass,
-  BarAggregation,
   BarSeries,
   InstrumentDescriptor,
-  KLineAdjustment,
-  KLinePeriod,
   MarketDataErrorCode,
   MarketDataProvider,
+  RoutedMarketData,
+  SourceCapabilityQuery,
+  SourceRouteAttempt,
+  SourceRouterBarsRequest,
+  SourceRouterInstrumentIdentity,
+  SourceRouterTimeShareRangeRequest,
+  SourceRouterTimeShareRequest,
   TimeShareRange,
   TimeShareSeries,
-  TradingDate,
-} from './types.js'
-import { isFilterableAssetClass } from './types.js'
-
-/** Router 识别的统一品种身份，不包含任何 Provider 私有路由字段。 */
-export interface SourceRouterInstrumentIdentity {
-  symbol: string
-  exchange?: string
-  assetClass?: AssetClass
-}
-
-/** K 线流转请求。 */
-export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity {
-  preferredSourceId?: string
-  instrument?: InstrumentDescriptor
-  period: KLinePeriod
-  adjustment: KLineAdjustment
-  barAggregation: BarAggregation
-  limit: number
-  beforeTimestamp?: number
-  signal?: AbortSignal
-}
-
-/** 分时流转请求。 */
-export interface SourceRouterTimeShareRequest extends SourceRouterInstrumentIdentity {
-  preferredSourceId?: string
-  instrument?: InstrumentDescriptor
-  tradingDate?: TradingDate
-  resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
-  signal?: AbortSignal
-}
-
-/** 多日分时流转请求。 */
-export interface SourceRouterTimeShareRangeRequest extends SourceRouterInstrumentIdentity {
-  preferredSourceId?: string
-  instrument?: InstrumentDescriptor
-  endTradingDate?: TradingDate
-  resolveEndTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
-  days: number
-  signal?: AbortSignal
-}
-
-/** 单次源尝试的结果，用于链耗尽后的诊断。 */
-export interface SourceRouteAttempt {
-  sourceId: string
-  code: MarketDataErrorCode
-  message: string
-}
-
-/** 成功请求的实际 Provider 与目标源品种。 */
-export interface RoutedMarketData<T> {
-  series: T
-  provider: MarketDataProvider
-  instrument: InstrumentDescriptor
-  attempts: ReadonlyArray<SourceRouteAttempt>
-}
+} from '../types.js'
+import { isFilterableAssetClass } from '../types.js'
+import { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry.js'
 
 /** 所有候选源都明确拒绝请求时抛出的错误。 */
 export class SourceRoutingError extends KLineChartError {
@@ -82,7 +31,7 @@ export class SourceRoutingError extends KLineChartError {
   /** 创建包含完整流转链的统一错误。 */
   constructor(attempts: ReadonlyArray<SourceRouteAttempt>) {
     super(
-      'FETCH_FAILED',
+      ERROR_CODES.FETCH_FAILED,
       attempts.length === 0
         ? '[SourceRouter] no enabled Provider supports the requested capability'
         : `[SourceRouter] all candidate Providers rejected the request: ${attempts
@@ -96,26 +45,28 @@ export class SourceRoutingError extends KLineChartError {
 /** 将未知异常转换为 Router 可分类的错误。 */
 function asProviderError(error: unknown, sourceId: string): KLineChartError {
   if (isKLineChartError(error)) return error
-  return new KLineChartError('FETCH_FAILED', `[${sourceId}] ${String(error)}`, { cause: error })
+  return new KLineChartError(ERROR_CODES.FETCH_FAILED, `[${sourceId}] ${String(error)}`, {
+    cause: error,
+  })
 }
 
 /** 读取 Provider 错误码，未知异常统一视为不可流转故障。 */
 function errorCode(error: unknown): MarketDataErrorCode {
   if (!isKLineChartError(error)) return 'UNKNOWN'
   if (
-    error.code === 'UNSUPPORTED_CAPABILITY' ||
-    error.code === 'INSTRUMENT_NOT_FOUND' ||
-    error.code === 'FETCH_ABORTED'
+    error.code === ERROR_CODES.UNSUPPORTED_CAPABILITY ||
+    error.code === ERROR_CODES.INSTRUMENT_NOT_FOUND ||
+    error.code === ERROR_CODES.FETCH_ABORTED
   ) {
-    return error.code === 'FETCH_ABORTED' ? 'ABORTED' : error.code
+    return error.code === ERROR_CODES.FETCH_ABORTED ? 'ABORTED' : error.code
   }
-  if (error.code === 'FETCH_FAILED') return 'UPSTREAM_UNAVAILABLE'
+  if (error.code === ERROR_CODES.FETCH_FAILED) return 'UPSTREAM_UNAVAILABLE'
   return 'UNKNOWN'
 }
 
 /** 判断错误是否允许请求流转到下一个 Provider。 */
 function isRoutableRejection(code: MarketDataErrorCode): boolean {
-  return code === 'UNSUPPORTED_CAPABILITY' || code === 'INSTRUMENT_NOT_FOUND'
+  return code === ERROR_CODES.UNSUPPORTED_CAPABILITY || code === ERROR_CODES.INSTRUMENT_NOT_FOUND
 }
 
 /** 从候选目录中解析目标源自己的品种描述。 */
@@ -140,7 +91,7 @@ async function resolveInstrument(
           : attached.capabilities.timeShareRange !== undefined
     if (!supported) {
       throw new KLineChartError(
-        'UNSUPPORTED_CAPABILITY',
+        ERROR_CODES.UNSUPPORTED_CAPABILITY,
         `[${provider.source.id}] instrument "${attached.id}" does not support ${capability}`,
       )
     }
@@ -149,7 +100,7 @@ async function resolveInstrument(
 
   if (!provider.catalog) {
     throw new KLineChartError(
-      'INSTRUMENT_NOT_FOUND',
+      ERROR_CODES.INSTRUMENT_NOT_FOUND,
       `[${provider.source.id}] cannot resolve instrument "${identity.symbol}"`,
     )
   }
@@ -169,7 +120,7 @@ async function resolveInstrument(
   )
   if (!instrument) {
     throw new KLineChartError(
-      'INSTRUMENT_NOT_FOUND',
+      ERROR_CODES.INSTRUMENT_NOT_FOUND,
       `[${provider.source.id}] instrument "${identity.symbol}" was not found`,
     )
   }
@@ -182,7 +133,7 @@ async function resolveInstrument(
         : instrument.capabilities.timeShareRange !== undefined
   if (!supported) {
     throw new KLineChartError(
-      'UNSUPPORTED_CAPABILITY',
+      ERROR_CODES.UNSUPPORTED_CAPABILITY,
       `[${provider.source.id}] instrument "${instrument.id}" does not support ${capability}`,
     )
   }
@@ -283,7 +234,7 @@ export class SourceRouter {
       async (provider, instrument) => {
         if (!provider.bars) {
           throw new KLineChartError(
-            'UNSUPPORTED_CAPABILITY',
+            ERROR_CODES.UNSUPPORTED_CAPABILITY,
             `[${provider.source.id}] has no bars source`,
           )
         }
@@ -293,7 +244,7 @@ export class SourceRouter {
           !capability.adjustments.includes(request.adjustment)
         ) {
           throw new KLineChartError(
-            'UNSUPPORTED_CAPABILITY',
+            ERROR_CODES.UNSUPPORTED_CAPABILITY,
             `[${provider.source.id}] instrument "${instrument.id}" does not support ${request.period}/${request.adjustment}`,
           )
         }
@@ -324,14 +275,14 @@ export class SourceRouter {
       async (provider, instrument) => {
         if (!provider.timeShare) {
           throw new KLineChartError(
-            'UNSUPPORTED_CAPABILITY',
+            ERROR_CODES.UNSUPPORTED_CAPABILITY,
             `[${provider.source.id}] has no timeShare source`,
           )
         }
         const tradingDate = request.tradingDate ?? request.resolveTradingDate?.(instrument)
         if (!tradingDate) {
           throw new KLineChartError(
-            'INVALID_PARAM',
+            GENERIC_ERROR_CODES.INVALID_PARAM,
             `[${provider.source.id}] tradingDate is required for timeShare`,
           )
         }
@@ -354,14 +305,14 @@ export class SourceRouter {
       async (provider, instrument) => {
         if (!provider.timeShareRange) {
           throw new KLineChartError(
-            'UNSUPPORTED_CAPABILITY',
+            ERROR_CODES.UNSUPPORTED_CAPABILITY,
             `[${provider.source.id}] has no timeShareRange source`,
           )
         }
         const endTradingDate = request.endTradingDate ?? request.resolveEndTradingDate?.(instrument)
         if (!endTradingDate) {
           throw new KLineChartError(
-            'INVALID_PARAM',
+            GENERIC_ERROR_CODES.INVALID_PARAM,
             `[${provider.source.id}] endTradingDate is required for timeShareRange`,
           )
         }

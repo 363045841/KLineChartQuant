@@ -46,7 +46,7 @@
  *     entry for the bar — `barIndex` and `cumulativeVolume` are filled in.
  */
 
-import { KLineChartError } from '@/errors.js'
+import { AVWAP_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { AVWAPBar, AVWAPPoint } from '../types.js'
 
@@ -85,7 +85,7 @@ export function computeAnchoredVwap(
 
   if (anchorIndex < 0 || anchorIndex >= bars.length) {
     throw new KLineChartError(
-      'AVWAP_ANCHOR_OUT_OF_RANGE',
+      AVWAP_ERROR_CODES.ANCHOR_OUT_OF_RANGE,
       `anchoredVwap: anchorIndex ${anchorIndex} is out of range ` +
         `for bars of length ${bars.length}`,
     )

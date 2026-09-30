@@ -9,8 +9,8 @@ import {
   makeDeltaEvent,
   makeSnapshotEvent,
 } from '../data/__tests__/helpers/depthTestKit'
-import { BinanceSSESource } from '../data/depth/binance'
-import { DepthConnector } from '../data/depth/depthConnector'
+import { BinanceSSESource } from '../data/depth/impl/binance'
+import { DepthConnector } from '../data/depth/impl/depthConnector'
 
 // ---------------------------------------------------------------------------
 // Helpers

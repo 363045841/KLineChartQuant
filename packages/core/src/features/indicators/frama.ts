@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors.js'
+import { INDICATOR_ERROR_CODES, KLineChartError } from '../../errors.js'
 /**
  * FRAMA — Fractal Adaptive Moving Average (John Ehlers, 2005).
  *
@@ -46,7 +46,7 @@ export function computeFRAMA(prices: ReadonlyArray<number>, opts: FramaOptions):
   const { period } = opts
   if (period < 4 || period % 2 !== 0 || !Number.isFinite(period)) {
     throw new KLineChartError(
-      'INDICATOR_INVALID_PARAM',
+      INDICATOR_ERROR_CODES.INVALID_PARAM,
       'computeFRAMA: period must be even and >= 4',
     )
   }

@@ -411,7 +411,7 @@ export interface ChartController extends DrawingChartAdapter {
   readonly dataError: ReadonlySignal<string | null>
   /** 图表实例缓存的近似内存使用量与配置上限。 */
   readonly marketDataCacheStats: ReadonlySignal<
-    import('../data/buffer/marketDataCache.js').MarketDataCacheStats
+    import('../data/buffer/impl/marketDataCache.js').MarketDataCacheStats
   >
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>

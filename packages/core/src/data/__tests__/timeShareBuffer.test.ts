@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { TimeShareBuffer } from '../buffer/timeShareBuffer'
+import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
 
 function point(timestamp: number) {
   return { timestamp, price: 10, average: 10, volume: 1 }
