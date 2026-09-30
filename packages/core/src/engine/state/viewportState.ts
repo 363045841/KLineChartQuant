@@ -11,19 +11,11 @@ import {
 import type { Viewport, ViewportState } from '../chartTypes.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { computeTimeShareVisibleRange } from '../modes/index.js'
-import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { deriveKGap } from '../utils/zoom.js'
+import { clampVisibleRange, getVisibleRange } from '../viewport/viewport.js'
 import {
-  clampVisibleRange,
-  computeMaxScrollLeftWithVisibleData,
-  DEFAULT_FUTURE_SCREENS,
-  futureBarCount,
-  getVisibleRange,
-} from '../viewport/viewport.js'
-import {
-  computeContentWidth as pureContentWidth,
+  computeContentGeometry,
   computeLeftLoadBufferWidth as pureLeftBuffer,
-  computeMaxScrollLeft as pureMaxScrollLeft,
 } from './contentGeometry.js'
 
 /**
@@ -72,8 +64,6 @@ export interface ViewportSignalDeps {
   options$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
-    /** 未来区屏数；未传时 viewportState 用 DEFAULT_FUTURE_SCREENS 解析 */
-    futureScreens?: number
   }>
   dataLength$: ReadonlySignal<number>
   period$: ReadonlySignal<string>
@@ -112,12 +102,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const readSessionSlots = (): number => signalDeps.sessionSlots$?.() ?? 0
   const readTimeShareSlotWidth = (): number | undefined =>
     signalDeps.timeShareSlotWidth$?.() ?? undefined
-  // 未来区屏数默认值解析单点（负值钳 0，与 viewport.ts 的 futureBars 边界一致）：
-  // contentWidth / maxScrollLeft / rawVisibleRange end 夹取必须同源，否则内容宽度
-  // 不覆盖默认未来区滚动空间（contentMaxScrollLeft 先触顶，拖不出未来区）
-  const readFutureScreens = (): number =>
-    Math.max(0, signalDeps.options$().futureScreens ?? DEFAULT_FUTURE_SCREENS)
-
   const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
   const _resizeSharedWebGLSurface = (w: number, h: number, dpr: number) => {
     if (_domDeps) _domDeps.resizeSharedWebGLSurface(w, h, dpr)
@@ -183,14 +167,11 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     })
   })
 
-  // 对外暴露已解析的未来区屏数：readFutureScreens 是唯一默认值解析点，
-  // zoom 等跨模块消费方必须读这里，禁止各自 ?? 0 / ?? DEFAULT 二次解析
-  const futureScreens = computed<number>(() => readFutureScreens())
-
-  const contentWidth = computed(() => {
+  // 内容、滚动边界和未来槽位数量由同一快照派生，缩放与 resize 自动重新计算。
+  const contentGeometry = computed(() => {
     const options = signalDeps.options$()
-    return pureContentWidth({
-      viewWidth: readonly.plotWidth(),
+    return computeContentGeometry({
+      viewWidth: readonly.viewWidth(),
       plotWidth: readonly.plotWidth(),
       dataLength: signalDeps.dataLength$(),
       period: signalDeps.period$(),
@@ -200,22 +181,10 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       timeShareDayCount: readTimeShareDayCount(),
       sessionSlots: readSessionSlots(),
       timeShareSlotWidth: readTimeShareSlotWidth(),
-      futureScreens: readFutureScreens(),
     })
   })
-  const maxScrollLeft = computed(() => {
-    const contentMaxScrollLeft = pureMaxScrollLeft(contentWidth(), readonly.viewWidth())
-    const options = signalDeps.options$()
-    return computeMaxScrollLeftWithVisibleData(
-      contentMaxScrollLeft,
-      readonly.leftLoadBufferWidth(),
-      options.kWidth,
-      kGap(),
-      signalDeps.dataLength$(),
-      readonly.dpr(),
-      { plotWidth: readonly.plotWidth(), futureScreens: readFutureScreens() },
-    )
-  })
+  const contentWidth = computed(() => contentGeometry().contentWidth)
+  const maxScrollLeft = computed(() => contentGeometry().maxScrollLeft)
   const scrollLeft = computed(() =>
     Math.max(0, Math.min(readonly.requestedScrollLeft(), maxScrollLeft())),
   )
@@ -274,12 +243,10 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         signalDeps.dataLength$(),
         vp.dpr,
       )
-      // 未来区：end 上限 = 数据尾 + futureBars + 扩窗 1（复用 futureBarCount，物理像素量纲）
-      const { unitPx } = getPhysicalKLineConfig(signalDeps.options$().kWidth, kGap(), vp.dpr)
-      const futureBars = futureBarCount(vp.plotWidth, vp.dpr, unitPx, readFutureScreens())
+      // 未来索引与内容布局共用槽位数量，额外一根只用于渲染扩窗。
       vr = {
         start: raw.start,
-        end: Math.min(raw.end, signalDeps.dataLength$() + futureBars + 1),
+        end: Math.min(raw.end, signalDeps.dataLength$() + contentGeometry().futureBarCount + 1),
       }
     }
     if (
@@ -446,7 +413,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     scrollLeft,
     scrollLeftLogical,
     kGap,
-    futureScreens,
+    contentGeometry,
     viewport: cachedViewport,
     /** raw：含左右扩窗，start 可能为 -1（增量加载左缘检测） */
     rawVisibleRange: cachedRawVisibleRange,

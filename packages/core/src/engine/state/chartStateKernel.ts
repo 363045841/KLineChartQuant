@@ -213,8 +213,6 @@ export class ChartStateKernel extends StateKernel {
   readonly optionsForViewport$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
-    /** 未来区屏数；未传时 viewportState 用 DEFAULT_FUTURE_SCREENS 解析 */
-    futureScreens?: number
   }>
   /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
   readonly sessionSlots$: ReadonlySignal<number>
@@ -244,7 +242,6 @@ export class ChartStateKernel extends StateKernel {
     this.optionsForViewport$ = computed(() => ({
       bottomAxisHeight: this.options.readonly.options().bottomAxisHeight,
       kWidth: this.zoom.readonly.kWidth(),
-      futureScreens: this.options.readonly.options().futureScreens,
     }))
 
     // ── Data state ──

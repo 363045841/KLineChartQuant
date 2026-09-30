@@ -102,7 +102,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     minKWidth: opts.minKWidth ?? DEFAULT_OPTS.minKWidth,
     maxKWidth: opts.maxKWidth ?? DEFAULT_OPTS.maxKWidth,
     priceLabelWidth: opts.priceLabelWidth ?? DEFAULT_OPTS.priceLabelWidth,
-    futureScreens: opts.futureScreens,
     panes: [{ id: MAIN_PANE_ID, ratio: 1 }],
     paneGap: 0,
     zoomLevels: zoomLevelCount,

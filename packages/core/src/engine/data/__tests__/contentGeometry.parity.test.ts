@@ -1,13 +1,13 @@
+/** 内容几何在 K 线和分时模式下的边界回归。 */
 import { describe, expect, it } from 'vitest'
 import {
   type ContentGeometryInput,
+  computeContentGeometry,
   computeContentWidth,
   computeLeftLoadBufferWidth,
   computeMaxScrollLeft,
 } from '../../state/contentGeometry'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
-import { futureBarCount } from '../../viewport/viewport'
-import { SCROLL_TRAILING_SLOTS } from '../scrollCompensator'
 
 const baseInput = (overrides: Partial<ContentGeometryInput> = {}): ContentGeometryInput => ({
   viewWidth: 800,
@@ -83,9 +83,7 @@ describe('contentGeometry parity', () => {
     expect(computeLeftLoadBufferWidth(input)).toBe(Math.round(800.4))
   })
 
-  it('kline contentWidth uses SCROLL_TRAILING_SLOTS (30) historical formula', () => {
-    expect(SCROLL_TRAILING_SLOTS).toBe(30)
-
+  it('K 线内容宽度恰好在保留两个数据槽位的位置触及原生滚动边界', () => {
     const input = baseInput({
       dataLength: 100,
       period: 'daily',
@@ -95,12 +93,10 @@ describe('contentGeometry parity', () => {
       kGap: 2,
     })
     const left = computeLeftLoadBufferWidth(input)
-    const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-    const dataPlotWidth =
-      (startXPx + (input.dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / input.dpr
-    const expected = left + Math.max(dataPlotWidth, input.viewWidth)
-
-    expect(computeContentWidth(input)).toBe(expected)
+    const { unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
+    const expectedMax = left + ((input.dataLength - 2) * unitPx) / input.dpr
+    expect(computeContentWidth(input)).toBe(expectedMax + input.viewWidth)
+    expect(computeContentGeometry(input).maxScrollLeft).toBe(expectedMax)
   })
 
   it('computeMaxScrollLeft = max(0, contentWidth - viewWidth)', () => {
@@ -109,14 +105,9 @@ describe('contentGeometry parity', () => {
     expect(computeMaxScrollLeft(800, 800)).toBe(0)
   })
 
-  it('内容宽度覆盖 futureScreens 的未来滚动范围', () => {
-    const input = baseInput({ viewWidth: 1000, plotWidth: 1000, dataLength: 100, futureScreens: 3 })
-    const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-    const futureBars = futureBarCount(input.plotWidth, input.dpr, unitPx, input.futureScreens ?? 0)
-    // 未来滚动所需的最小内容宽度：末根 K 线之后必须放得下 futureBars 个未来槽位。
-    const required =
-      computeLeftLoadBufferWidth(input) +
-      (startXPx + (input.dataLength - 1 + futureBars) * unitPx) / input.dpr
-    expect(computeContentWidth(input)).toBeGreaterThanOrEqual(required)
+  it('未来区宽度由屏宽减去两个槽位得到，不足一槽仍保留可索引的部分槽位', () => {
+    const geometry = computeContentGeometry(baseInput({ viewWidth: 101, plotWidth: 101 }))
+    expect(geometry.futureWidth).toBe(83)
+    expect(geometry.futureBarCount).toBe(10)
   })
 })

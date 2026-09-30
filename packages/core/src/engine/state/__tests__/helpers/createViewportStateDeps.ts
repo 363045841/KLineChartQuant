@@ -12,8 +12,6 @@ export interface TestViewportOptions {
   bottomAxisHeight: number
   kWidth: number
   kGap: number
-  /** 未来区屏数；undefined 走 viewportState 默认值解析（DEFAULT_FUTURE_SCREENS）。 */
-  futureScreens?: number
 }
 
 /** `createViewportStateDeps` 的覆盖项。 */
@@ -28,8 +26,6 @@ export interface ViewportStateDepsOverrides {
   zoomLevel?: number
   /** 分时槽位数，默认 240。 */
   sessionSlots?: number
-  /** 未来区屏数覆盖（undefined = 用 DEFAULT_FUTURE_SCREENS 解析）。 */
-  futureScreens?: number
 }
 
 /**
@@ -43,7 +39,6 @@ export function createViewportStateDeps(overrides: ViewportStateDepsOverrides = 
     kWidth: 8,
     kGap: 2,
     ...overrides.options,
-    ...(overrides.futureScreens !== undefined ? { futureScreens: overrides.futureScreens } : {}),
   })
   const dataLength$ = createSignal(overrides.dataLength ?? 100)
   const period$ = createSignal(overrides.period ?? 'daily')

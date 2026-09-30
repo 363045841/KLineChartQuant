@@ -7,8 +7,6 @@ export interface ScrollDeps {
   viewport: ViewportStateModule
 }
 
-export const SCROLL_TRAILING_SLOTS = 30
-
 export class ScrollCompensator {
   constructor(private deps: ScrollDeps) {}
 

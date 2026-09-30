@@ -389,8 +389,6 @@ export interface ChartMountOptions {
   priceLabelWidth?: number
   minKWidth?: number
   maxKWidth?: number
-  /** 未来区屏数：最后一根 K 线右侧允许的滚动空间（屏宽倍数）；缺省用 DEFAULT_FUTURE_SCREENS */
-  futureScreens?: number
 
   // Initial chart settings (overrides > stored preferences > DEFAULT_SETTINGS)
   settings?: Partial<ChartSettings>

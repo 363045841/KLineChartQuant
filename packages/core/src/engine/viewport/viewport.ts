@@ -1,30 +1,7 @@
+/** 可见槽位范围、加载边界与可见数据价格范围的纯计算。 */
 import type { KLineData } from '../../foundation/types/price.js'
 import type { PriceRange } from '../scale/price.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
-
-/** 未来区输入：plotWidth 用于换算屏宽槽位数，futureScreens 控制未来区屏数。 */
-export type FutureSpaceInput = { plotWidth: number; futureScreens?: number }
-
-/** 默认未来区屏数：最后一根 K 线可推到绘图区左缘后再留 1 屏。 */
-export const DEFAULT_FUTURE_SCREENS = 1
-
-/**
- * 将逻辑像素屏宽换算为未来区槽位数（物理像素量纲）。
- *
- * @param plotWidth 绘图区宽度（逻辑像素）
- * @param dpr 设备像素比
- * @param unitPx 单根 K 线物理像素宽度
- * @param screens 未来区屏数（负值钳 0）
- * @returns 未来区 K 线槽位数
- */
-export function futureBarCount(
-  plotWidth: number,
-  dpr: number,
-  unitPx: number,
-  screens: number,
-): number {
-  return Math.ceil((plotWidth * dpr) / unitPx) * Math.max(0, screens)
-}
 
 /** 左侧加载缓冲进入视口，意味着首根已加载 K 线之前出现空白。 */
 export function hasLeftDataGap(scrollLeft: number, leftLoadBufferWidth: number): boolean {
@@ -68,46 +45,6 @@ export function getVisibleRange(
   const end = Math.ceil((scrollLeftPx + viewWidthPx - startXPx) / unitPx) + 1
 
   return { start, end }
-}
-
-/**
- * 计算仍可见有效 K 线的最大横向滚动位置。
- *
- * 尾部空槽属于内容布局，允许展示；但视口不能完全落入空槽，
- * 否则主图与指标轴会失去可用于计算范围的数据。
- *
- * @param contentMaxScrollLeft - 内容宽度允许的最大横向滚动位置（逻辑像素）
- * @param leftLoadBufferWidth - 左侧增量加载缓冲宽度（逻辑像素）
- * @param kWidth - 单根 K 线宽度（逻辑像素）
- * @param kGap - K 线间距（逻辑像素）
- * @param totalDataCount - 数据总条数
- * @param dpr - 设备像素比
- * @param future - 未来区配置（可选）：传入后滚动上限额外放行未来区槽位
- * @returns 同时满足内容边界与可见数据边界的最大横向滚动位置（逻辑像素）
- */
-export function computeMaxScrollLeftWithVisibleData(
-  contentMaxScrollLeft: number,
-  leftLoadBufferWidth: number,
-  kWidth: number,
-  kGap: number,
-  totalDataCount: number,
-  dpr: number = 1,
-  future?: FutureSpaceInput,
-): number {
-  if (totalDataCount === 0) return contentMaxScrollLeft
-
-  const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  // 未来区槽位：允许拖到最后一根 K 线之后再留 futureScreens 屏空白（默认 DEFAULT_FUTURE_SCREENS 屏）
-  const futureBars = future
-    ? futureBarCount(future.plotWidth, dpr, unitPx, future.futureScreens ?? DEFAULT_FUTURE_SCREENS)
-    : 0
-  const lastBarIndex = totalDataCount - 1 + futureBars
-  const rawMax = leftLoadBufferWidth + (startXPx + lastBarIndex * unitPx) / dpr
-  const maxScrollRaw = Math.min(contentMaxScrollLeft, rawMax)
-  // 向下吸附到 K 线网格边界，确保 scrollLeft 对齐物理像素网格
-  const maxScrollPx = (maxScrollRaw - leftLoadBufferWidth) * dpr - startXPx
-  const maxN = Math.floor(maxScrollPx / unitPx)
-  return Math.max(0, leftLoadBufferWidth + (startXPx + maxN * unitPx) / dpr)
 }
 
 /**
