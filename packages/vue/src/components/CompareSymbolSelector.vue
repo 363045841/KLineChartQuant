@@ -30,7 +30,6 @@
           v-model="activeSourceTab"
           :tabs="sourceTabs"
           size="compact"
-          draggable
           aria-label="聚合源"
         />
       </template>
