@@ -1,4 +1,4 @@
-// 覆盖五风格 × 两种明暗 × 两种市场方向，并验证持久化与用户覆盖优先级。
+// 覆盖五风格 × 两种明暗 × 两种市场方向，验证持久化、用户覆盖优先级与“预设只改颜色”。
 import { describe, expect, it } from 'vitest'
 import { normalizeSettings } from '../../../config/chartSettings.js'
 import { normalizeColorPresetSettings } from '../../colorPresetSettings.js'
@@ -42,10 +42,19 @@ describe('独立主题维度', () => {
       const css = themeToCssVars(theme)
       expect(css['--klc-color-ui-accent']).toBe(preset.schemes[mode].colors.ui.accent)
       expect(css['--klc-color-chart-background']).toBe(theme.colors.chartBackground)
-      expect(css['--klc-typography-font-size-md']).toBe(preset.schemes[mode].typography.fontSizeMd)
+      expect(css['--klc-typography-font-size-md']).toBe(base.typography.fontSizeMd)
       expect(theme.colors).not.toHaveProperty('preset')
     },
   )
+
+  it.each(THEME_PRESETS)('$id 只调整配色，间距、字号与动效沿用基础主题', (preset) => {
+    for (const mode of ['light', 'dark'] as const) {
+      const base = mode === 'dark' ? darkTheme : lightTheme
+      expect(preset.schemes[mode].spacing).toEqual(base.spacing)
+      expect(preset.schemes[mode].typography).toEqual(base.typography)
+      expect(preset.schemes[mode].motion).toEqual(base.motion)
+    }
+  })
 
   it('Pro 默认深色完整复用项目原版，浅色保留 Paper 基底', () => {
     expect(normalizeSettings().theme).toBe('dark')

@@ -1,9 +1,9 @@
-// 将风格语义色表映射到既有 Token；保持涨跌颜色和业务能力独立。
+// 将风格语义色表映射到既有 Token；预设只调整颜色，保持涨跌颜色和业务能力独立。
 import { mergeTheme } from '../../mergeTheme.js'
 import type { Theme } from '../../types.js'
 import type { ThemePresetId, VisualPalette } from '../types.js'
 
-/** 基于深浅主题生成风格变体，指标颜色与界面密度按风格集中定义。 */
+/** 基于深浅主题生成风格变体；间距、字号、字族与动效一律沿用基础主题。 */
 export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePresetId): Theme {
   const theme: Theme = {
     ...base,
@@ -53,21 +53,12 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
     },
   }
   if (id === 'terminal')
+    // 选区改用分类色，避免与高对比边界色混淆。
     return mergeTheme(theme, {
-      spacing: { sm: '5px', md: '8px', lg: '12px' },
-      typography: { fontSizeSm: '10px', fontSizeMd: '11px', fontSizeLg: '12px' },
-      motion: { durationFast: '50ms', durationModerate: '100ms' },
       colors: {
         selectionStroke: base.colors.palette.i1,
         selectionFill: `${base.colors.palette.i1}33`,
       },
-    })
-  if (id === 'exchange')
-    return mergeTheme(theme, { spacing: { sm: '6px', md: '10px', lg: '14px' } })
-  if (id === 'zen')
-    return mergeTheme(theme, {
-      spacing: { sm: '10px', md: '16px', lg: '20px' },
-      typography: { fontSizeSm: '11px', fontSizeMd: '14px', fontSizeLg: '16px' },
     })
   if (id === 'quant') {
     // 常用指标消费已有十色分类色盘，避免仅在预览色样体现差异。
@@ -86,7 +77,6 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
         avwapBand: `${palette.i8}26`,
         mtfOverlay: palette.i6,
       },
-      typography: { fontFamily: base.typography.fontFamilyMono },
     })
   }
   return theme

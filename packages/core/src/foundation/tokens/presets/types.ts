@@ -1,4 +1,4 @@
-// 命名主题的契约，颜色仍由统一的语义 Token 表达。
+// 命名主题的契约：预设只调整配色，间距、字号与动效沿用基础主题。
 import type { Theme } from '../types.js'
 
 export type ThemePresetId = 'pro' | 'exchange' | 'terminal' | 'zen' | 'quant'

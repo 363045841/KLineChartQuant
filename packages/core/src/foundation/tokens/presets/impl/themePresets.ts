@@ -1,4 +1,4 @@
-// 五种视觉风格共用原有深浅主题；Pro 保持原始 Token，不复制涨跌规则。
+// 五种视觉风格共用原有深浅主题，仅调整配色；Pro 保持原始 Token，不复制涨跌规则。
 import { darkTheme } from '../../theme-dark.js'
 import { lightTheme } from '../../theme-light.js'
 import { DEFAULT_THEME_PRESET, type ThemePreset } from '../types.js'
@@ -24,7 +24,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
   {
     id: 'terminal',
     label: 'Terminal · 终端',
-    description: '紧凑控件 · 清晰边界',
+    description: '冷灰面板 · 高对比边框',
     schemes: {
       dark: createVisualTheme(darkTheme, terminal.dark, 'terminal'),
       light: createVisualTheme(lightTheme, terminal.light, 'terminal'),
@@ -33,7 +33,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
   {
     id: 'zen',
     label: 'Zen · 极简',
-    description: '柔和网格 · 舒展留白',
+    description: '灰绿表面 · 极弱网格',
     schemes: {
       dark: createVisualTheme(darkTheme, zen.dark, 'zen'),
       light: createVisualTheme(lightTheme, zen.light, 'zen'),
