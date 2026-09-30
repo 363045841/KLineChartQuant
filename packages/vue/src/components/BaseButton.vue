@@ -30,11 +30,12 @@
     justify-content: center;
     gap: 6px;
     min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
+    height: calc(18px + 2 * var(--klc-spacing-sm));
+    padding: 0 var(--klc-spacing-lg);
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    font-size: 13px;
+    font-family: var(--klc-typography-font-family);
+    font-size: calc(var(--klc-typography-font-size-md) + 1px);
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -42,16 +43,16 @@
     color: var(--klc-color-ui-secondary-button-text);
     background: var(--klc-color-ui-input);
     transition:
-      background 0.15s ease,
-      color 0.15s ease,
-      border-color 0.15s ease,
-      opacity 0.15s ease;
+      background var(--klc-motion-duration-fast) ease,
+      color var(--klc-motion-duration-fast) ease,
+      border-color var(--klc-motion-duration-fast) ease,
+      opacity var(--klc-motion-duration-fast) ease;
   }
 
   .base-button--sm {
     min-width: 0;
-    height: var(--base-button-height, 28px);
-    padding: 0 10px;
+    height: var(--base-button-height, calc(12px + 2 * var(--klc-spacing-sm)));
+    padding: 0 calc(var(--klc-spacing-sm) + 2px);
     border-radius: 8px;
   }
 

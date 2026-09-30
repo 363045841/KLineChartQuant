@@ -1,12 +1,13 @@
-<!-- 共享下划线 Tabs：图表设置 / Agent 设置 / 色彩预设 / 商品选择弹层复用，统一 tab 样式与滑动指示器。 -->
+<!-- 共享下划线 Tabs：图表设置 / Agent 设置 / 色彩预设 / 商品选择弹层复用，统一 tab 样式与滑动指示器；标签溢出时支持滚轮与拖拽横向浏览。 -->
 <template>
   <nav
     ref="rootRef"
     class="base-tabs"
-    :class="{ 'base-tabs--compact': size === 'compact', 'base-tabs--draggable': draggable }"
+    :class="{ 'base-tabs--compact': size === 'compact' }"
     role="tablist"
     :aria-label="ariaLabel"
-    v-on="draggable ? dragListeners : {}"
+    @mousedown="onMouseDown"
+    @wheel="onWheel"
   >
     <button
       v-for="tab in tabs"
@@ -25,7 +26,7 @@
 </template>
 
 <script setup lang="ts" generic="T extends string">
-  import { ref } from 'vue'
+  import { onUnmounted, ref } from 'vue'
 
   import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator.js'
 
@@ -39,12 +40,9 @@
       ariaLabel?: string
       /** 紧凑尺寸，用于商品选择弹层等密集布局。 */
       size?: 'default' | 'compact'
-      /** 允许拖拽与滚轮横向滚动溢出的标签。 */
-      draggable?: boolean
     }>(),
     {
       size: 'default',
-      draggable: false,
     },
   )
   const emit = defineEmits<{ 'update:modelValue': [id: T] }>()
@@ -52,59 +50,61 @@
   const rootRef = ref<HTMLElement | null>(null)
   const { indicatorStyle } = useSlidingTabIndicator(rootRef, () => [props.modelValue, props.tabs])
 
-  let isDragging = false
+  let draggingEl: HTMLElement | null = null
   let startX = 0
   let startScrollLeft = 0
 
-  /** 记录拖拽起点，用于横向浏览被遮挡的标签。 */
-  function onMouseDown(event: MouseEvent) {
-    const el = event.currentTarget as HTMLElement
-    isDragging = true
-    startX = event.pageX - el.getBoundingClientRect().left
-    startScrollLeft = el.scrollLeft
-    el.style.cursor = 'grabbing'
-    el.style.userSelect = 'none'
+  /** 标签溢出时容器才有可滚动距离，未溢出时把滚轮让回页面。 */
+  function maxScrollLeft(el: HTMLElement): number {
+    return el.scrollWidth - el.clientWidth
   }
 
-  /** 按住标签条左右拖动时同步其滚动位置。 */
-  function onMouseMove(event: MouseEvent) {
-    if (!isDragging) return
-    const el = event.currentTarget as HTMLElement
+  /** 监听挂在 document 上，指针移出标签条后仍能继续拖动。 */
+  function onDocumentMouseMove(event: MouseEvent) {
+    if (!draggingEl) return
     event.preventDefault()
-    const distance = event.pageX - el.getBoundingClientRect().left - startX
-    el.scrollLeft = startScrollLeft - distance
+    draggingEl.scrollLeft = startScrollLeft - (event.pageX - startX)
   }
 
   /** 结束拖拽并恢复默认光标与文字选择行为。 */
-  function onMouseUp(event: MouseEvent) {
-    if (!isDragging) return
-    isDragging = false
-    const el = event.currentTarget as HTMLElement
-    el.style.cursor = ''
-    el.style.userSelect = ''
+  function stopDrag() {
+    if (!draggingEl) return
+    draggingEl.style.cursor = ''
+    draggingEl.style.userSelect = ''
+    draggingEl = null
+    document.removeEventListener('mousemove', onDocumentMouseMove)
+    document.removeEventListener('mouseup', stopDrag)
   }
 
-  /** 将滚轮增量映射到 scrollLeft，支持滚轮与触控板横向手势浏览标签。 */
+  /** 左键按下时进入拖拽；标签未溢出则不拦截。 */
+  function onMouseDown(event: MouseEvent) {
+    if (event.button !== 0) return
+    const el = event.currentTarget as HTMLElement
+    if (maxScrollLeft(el) <= 0) return
+    draggingEl = el
+    startX = event.pageX
+    startScrollLeft = el.scrollLeft
+    el.style.cursor = 'grabbing'
+    el.style.userSelect = 'none'
+    document.addEventListener('mousemove', onDocumentMouseMove)
+    document.addEventListener('mouseup', stopDrag)
+  }
+
+  /** 把滚轮增量映射到 scrollLeft；已到边界时放行，避免吞掉页面滚动。 */
   function onWheel(event: WheelEvent) {
     if (event.ctrlKey) return
     const el = event.currentTarget as HTMLElement
+    const max = maxScrollLeft(el)
+    if (max <= 0) return
     const delta = event.deltaX || event.deltaY
     if (delta === 0) return
+    const next = Math.max(0, Math.min(max, el.scrollLeft + delta))
+    if (next === el.scrollLeft) return
     event.preventDefault()
-    el.scrollLeft += delta
+    el.scrollLeft = next
   }
 
-  /**
-   * 拖拽与滚轮监听仅在 draggable 时注册。
-   * 非拖拽实例（设置弹窗等）不注册 wheel，避免无意义的 scroll-blocking 非 passive 监听告警。
-   */
-  const dragListeners = {
-    mousedown: onMouseDown,
-    mousemove: onMouseMove,
-    mouseup: onMouseUp,
-    mouseleave: onMouseUp,
-    wheel: onWheel,
-  }
+  onUnmounted(stopDrag)
 </script>
 
 <style scoped>
@@ -123,19 +123,15 @@
     display: none;
   }
 
-  .base-tabs--draggable {
-    cursor: grab;
-  }
-
   .base-tabs__tab {
     flex: 0 0 auto;
-    padding: 8px 10px;
+    padding: var(--klc-spacing-sm) calc(var(--klc-spacing-sm) + 2px);
     border: 0;
     border-bottom: 2px solid transparent;
     color: var(--klc-color-ui-muted);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-typography-font-size-md);
     white-space: nowrap;
     cursor: pointer;
   }
@@ -162,7 +158,7 @@
   .base-tabs--compact .base-tabs__tab {
     padding: 0 12px;
     border-bottom: 0;
-    font-size: 13px;
+    font-size: calc(var(--klc-typography-font-size-md) + 1px);
     line-height: 32px;
   }
 
@@ -173,8 +169,8 @@
     border-radius: 1px;
     background: var(--klc-color-ui-accent);
     transition:
-      left 0.2s ease,
-      width 0.2s ease;
+      left var(--klc-motion-duration-moderate) ease,
+      width var(--klc-motion-duration-moderate) ease;
   }
 
   @media (prefers-reduced-motion: reduce) {

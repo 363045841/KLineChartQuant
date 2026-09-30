@@ -87,6 +87,7 @@
       </template>
 
       <template v-else-if="activeSection === 'style'">
+        <ThemePresetPanel :settings="settings" @update:settings="onThemePresetChange" />
         <template v-for="item in styleSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -204,6 +205,7 @@
       ref="colorPresetPanelRef"
       :color-preset-settings="settings.colorPresetSettings"
       :editing-theme="colorPresetTheme"
+      :is-asia-market="settings.isAsiaMarket"
       @update:color-preset-settings="settings = { ...settings, colorPresetSettings: $event }"
     />
     <template #footer>
@@ -234,6 +236,7 @@
   import ColorPresetPanel from './ColorPresetPanel.vue'
   import ToggleSwitch from './common/ToggleSwitch.vue'
   import Dropdown from './Dropdown.vue'
+  import ThemePresetPanel from './ThemePresetPanel.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -260,6 +263,11 @@
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
+    /** 主题预设点击即生效，无需等“确定”。 */
+    (
+      e: 'applyThemePreset',
+      colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
+    ): void
   }>()
 
   const mainSettings = computed(
@@ -386,6 +394,12 @@
     emit('confirm', { ...settings.value })
   }
 
+  /** 主题预设点击即生效：先写入草稿，再立即提交给上层应用并持久化，不关闭弹窗。 */
+  function onThemePresetChange(next: ChartSettings): void {
+    settings.value = next
+    emit('applyThemePreset', next.colorPresetSettings ?? {})
+  }
+
   function clearCache() {
     emit('clearMarketDataCache')
   }
@@ -414,10 +428,11 @@
     justify-content: space-between;
     gap: 16px;
     min-height: 40px;
-    padding: 8px 12px;
+    padding: var(--klc-spacing-sm) var(--klc-spacing-md);
     border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: calc(var(--klc-typography-font-size-md) + 1px);
+    font-family: var(--klc-typography-font-family);
     color: var(--klc-color-axis-text);
     transition: background 0.15s ease;
   }

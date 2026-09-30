@@ -46,8 +46,9 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings().rendererBackend).toBe('webgl')
   })
 
-  it('follows the system theme unless a preference is provided', () => {
-    expect(normalizeSettings().theme).toBe('auto')
+  it('defaults to the original dark base unless a preference is provided', () => {
+    expect(normalizeSettings().theme).toBe('dark')
+    expect(normalizeSettings({ theme: 'auto' }).theme).toBe('auto')
     expect(normalizeSettings({ theme: 'light' }).theme).toBe('light')
   })
 })
