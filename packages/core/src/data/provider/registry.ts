@@ -12,6 +12,7 @@ import type {
   MarketDataProvider,
   SourceCapabilities,
 } from './types.js'
+import { isFilterableAssetClass } from './types.js'
 
 /** 单个行情数据源的运行时配置。 */
 export interface MarketDataSourceConfig {
@@ -57,7 +58,9 @@ function supportsCapability(
   query: SourceCapabilityQuery,
 ): boolean {
   if (!capabilities) return false
-  if (query.assetClass !== undefined && !capabilities.assetClasses.includes(query.assetClass)) {
+  const assetClass = query.assetClass
+  // unknown 不参与筛选：未归一化的品种不得因 assetClass 与源声明不符而被排除。
+  if (isFilterableAssetClass(assetClass) && !capabilities.assetClasses.includes(assetClass)) {
     return false
   }
   if (query.capability === 'timeShare') return capabilities.timeShare === true

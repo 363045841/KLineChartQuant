@@ -215,4 +215,52 @@ describe('SourceRouter', () => {
       ],
     })
   })
+
+  // 验证 assetClass 为 unknown 的品种不会被源级 assetClasses 声明误杀，仍会发出取数请求。
+  it('routes unknown assetClass instruments instead of filtering the source out', async () => {
+    const unknownInstrument: InstrumentDescriptor = {
+      ...baseInstrument,
+      id: 'gotdx:ex:0:HSI',
+      symbol: 'HSI',
+      assetClass: 'unknown',
+      exchange: 'INDEX',
+    }
+    let fetched = false
+    const provider = createMockMarketDataProvider({
+      sourceId: 'gotdx',
+      // 源声明的 assetClasses 不含 unknown：修复前会因此把 gotdx 整源筛掉。
+      capabilities: {
+        assetClasses: ['index'],
+        bars: { periods: ['daily'], adjustments: ['none'] },
+      },
+      fetchBars: async ({ instrument }) => {
+        fetched = true
+        return {
+          instrumentId: instrument.id,
+          period: 'daily' as const,
+          adjustment: 'none' as const,
+          barAggregation: 'original' as const,
+          timezone: 'Asia/Shanghai',
+          data: [],
+          olderData: 'unknown' as const,
+        }
+      },
+    })
+    marketDataProviderRegistry.register(provider)
+
+    const result = await new SourceRouter().bars({
+      preferredSourceId: 'gotdx',
+      instrument: unknownInstrument,
+      symbol: unknownInstrument.symbol,
+      exchange: unknownInstrument.exchange,
+      assetClass: unknownInstrument.assetClass,
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: 'original',
+      limit: 500,
+    })
+
+    expect(fetched).toBe(true)
+    expect(result.provider.source.id).toBe('gotdx')
+  })
 })
