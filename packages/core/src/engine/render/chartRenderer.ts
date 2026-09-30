@@ -1107,6 +1107,8 @@ export class ChartRenderer {
           const handRange = this.deps.mainPriceAxis.readonly.handRange.peek()
           if (this.deps.mainPriceAxis.readonly.rangeMode.peek() === PRICE_AXIS_RANGE_MODE.HAND) {
             if (!handRange) {
+              // 新品种的首个有效帧只使用自身范围，清除旧品种的平移和缩放。
+              pane.yAxis.resetTransform()
               this.deps.mainPriceAxis.actions.initializeHandRange(pane.yAxis.getDisplayRange())
             } else {
               pane.yAxis.setRange(handRange)

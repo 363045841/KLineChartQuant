@@ -9,6 +9,7 @@ import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost.js'
 import type { PaneSpec } from '../chartTypes.js'
+import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
@@ -427,7 +428,15 @@ export class ChartStateKernel extends StateKernel {
       clearTimeShareKWidth: () => this.zoom.actions.clearTimeShareKWidth(),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
         const snapshot = symbols.map((symbol) => ({ ...symbol }))
-        this.data.actions.setSymbols(snapshot)
+        const previous = this.data.readonly.symbols.peek()[0]
+        const next = snapshot[0]
+        const previousIdentity = previous ? symbolSpecIdentityKey(previous) : null
+        const nextIdentity = next ? symbolSpecIdentityKey(next) : null
+        batch(() => {
+          // 手动价格范围属于本次品种展示，不缓存，也不随品种或数据源继承。
+          if (previousIdentity !== nextIdentity) this.mainPriceAxis.actions.resetForSymbol()
+          this.data.actions.setSymbols(snapshot)
+        })
       },
       setComparisonSpecs: (specs: ReadonlyArray<SymbolSpec>) => {
         const snapshot = specs.map((spec) => ({ ...spec }))
