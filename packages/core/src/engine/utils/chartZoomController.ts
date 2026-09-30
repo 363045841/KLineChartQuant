@@ -3,7 +3,7 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { computeZoom, deriveKGap } from './zoom.js'
+import { clampZoomLevel, computeZoom, deriveKGap } from './zoom.js'
 
 export interface ZoomDependencies {
   /** scroll / dpr 几何，读写走 kernel.viewport */
@@ -12,8 +12,7 @@ export interface ZoomDependencies {
   options: OptionsStateModule
   /** 当前周期（kGap 推导） */
   period$: ReadonlySignal<string>
-  getClientWidth: () => number
-  getDataLength: () => number
+  /** 左侧加载缓冲宽度：逻辑滚动量转 DOM 滚动位置的唯一换算量 */
   getPlotWidth: () => number
   onChange?: () => void
 }
@@ -52,32 +51,28 @@ export class ChartZoomController {
   }
 
   zoomToLevel(level: number, anchorX?: number): void {
-    const clamped = Math.max(1, Math.min(this.zoomLevelCount, Math.round(level)))
-    this.applyZoom(clamped, anchorX)
+    this.applyZoom(level, anchorX)
   }
 
   zoomIn(anchorX?: number): void {
-    this.zoomToLevel(this.currentZoomLevel + 1, anchorX)
+    this.applyZoom(this.currentZoomLevel + 1, anchorX)
   }
 
   zoomOut(anchorX?: number): void {
-    this.zoomToLevel(this.currentZoomLevel - 1, anchorX)
+    this.applyZoom(this.currentZoomLevel - 1, anchorX)
   }
 
   handleWheel(deltaY: number, viewportX: number): void {
-    const delta = deltaY > 0 ? -1 : 1
-    const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
-    if (targetLevel === this.currentZoomLevel) return
-    this.applyZoom(targetLevel, viewportX)
+    this.applyZoom(this.currentZoomLevel + (deltaY > 0 ? -1 : 1), viewportX)
   }
 
   handlePinch(delta: number, centerClientX: number): void {
-    const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
-    if (targetLevel === this.currentZoomLevel) return
-    this.applyZoom(targetLevel, centerClientX)
+    this.applyZoom(this.currentZoomLevel + delta, centerClientX)
   }
 
-  private applyZoom(targetLevel: number, anchorViewportX?: number): void {
+  /** 将级别夹取后分发到 K 线 / 分时缩放路径；级别不变则不动。 */
+  private applyZoom(level: number, anchorViewportX?: number): void {
+    const targetLevel = clampZoomLevel(level, this.zoomLevelCount)
     if (targetLevel === this.currentZoomLevel) return
 
     if (isTimeSharePeriod(this.deps.period$.peek())) {
@@ -85,37 +80,26 @@ export class ChartZoomController {
       return
     }
 
-    const delta = targetLevel - this.currentZoomLevel
-    const logicalScrollLeft = this.deps.viewport.readonly.scrollLeftLogical.peek()
-    const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.options.readonly.options.peek()
-    // 未来区屏数读 viewportState 的已解析值（默认值解析单点）：与滚动上限/内容宽度同源，
-    // 否则默认配置下 zoom 侧按 0 屏裁剪 maxScroll，拖入未来区缩放会被拉回数据右缘
-    const futureScreens = this.deps.viewport.readonly.futureScreens.peek()
-
-    const result = computeZoom(
-      delta,
-      anchorViewportX ?? 0,
-      logicalScrollLeft,
-      this.currentZoomLevel,
-      this.currentKWidth,
-      this.currentKGap,
-      {
+    const result = computeZoom({
+      targetLevel,
+      currentLevel: this.currentZoomLevel,
+      currentKWidth: this.currentKWidth,
+      currentKGap: this.currentKGap,
+      anchorViewportX: anchorViewportX ?? 0,
+      scrollLeftLogical: this.deps.viewport.readonly.scrollLeftLogical.peek(),
+      dpr: this.deps.viewport.readonly.dpr.peek(),
+      config: {
         minKWidth: opt.minKWidth,
         maxKWidth: opt.maxKWidth,
         zoomLevelCount: opt.zoomLevelCount,
-        dpr,
-        dataLength: this.deps.getDataLength(),
-        plotWidth: this.deps.getPlotWidth(),
-        clientWidth: this.deps.getClientWidth(),
-        futureScreens,
       },
-    )
-
+    })
     if (!result) return
 
+    // 先落级别：viewportState 会用新几何同步重算 maxScrollLeft，再由 scrollTo 统一夹取
     this.zoomState.actions.setZoomLevel(result.targetLevel)
-    this.deps.viewport.actions.scrollTo(result.newDomScrollLeft)
+    this.deps.viewport.actions.scrollTo(result.scrollLeftLogical + this.deps.getPlotWidth())
     this.deps.onChange?.()
   }
 
@@ -124,8 +108,7 @@ export class ChartZoomController {
     const dpr = this.deps.viewport.readonly.dpr.peek()
     const currentWidth = this.zoomState.readonly.timeShareSlotWidth.peek() ?? 1 / dpr
     const currentWidthPx = Math.max(1, Math.round(currentWidth * dpr))
-    const delta = targetLevel - this.currentZoomLevel
-    const nextWidthPx = Math.max(1, currentWidthPx + delta)
+    const nextWidthPx = Math.max(1, currentWidthPx + (targetLevel - this.currentZoomLevel))
     if (nextWidthPx === currentWidthPx) return
 
     const anchor = anchorViewportX ?? 0
@@ -134,7 +117,7 @@ export class ChartZoomController {
 
     this.zoomState.actions.setZoomLevel(targetLevel)
     this.zoomState.actions.setTimeShareSlotWidth(nextWidthPx / dpr)
-    this.deps.viewport.actions.scrollTo(nextScrollLeft)
+    this.deps.viewport.actions.scrollTo(nextScrollLeft + this.deps.getPlotWidth())
     this.deps.onChange?.()
   }
 }

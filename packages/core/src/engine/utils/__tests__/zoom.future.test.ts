@@ -1,48 +1,72 @@
 /**
- * computeZoom 未来区（future time axis）测试。
+ * computeZoom 锚点回归测试。
  *
- * 覆盖：
- * - futureScreens 传入时，缩放后的 maxScroll 裁剪含未来区槽位（拖入未来区缩放不被拉回数据右缘）
- * - 不传 futureScreens 时，结果与旧公式（TRAILING_SLOTS=30 路径）完全一致
+ * 唯一行为：缩放以**指针所在的槽位**为中心，该槽位在缩放前后保持同一屏幕位置。
+ * 数据区与未来区共用同一槽位网格，因此三种指针位置（未来区 / 数据区 / 数据左侧空白）
+ * 走同一条公式，不存在按「有无数据」分流的第二种行为。
  *
- * 数值基准：dpr=1，级别 6→5 缩小一级（kWidth 21→17.4，kGapPx 均钳 3），
- * 旧路径 unitPx=24/startXPx=3，新路径 unitPx=20/startXPx=3。
+ * 数值基准：zoomLevelCount=6，[minKWidth, maxKWidth]=[3, 21]，
+ * 级别 6→5 缩小一级：kWidth 21→17.4；dpr=1 时 unitPx 24→20、startXPx 均为 3。
  */
 import { describe, expect, it } from 'vitest'
-import type { ZoomConfig } from '../zoom'
+import type { ZoomConfigBase, ZoomInput } from '../zoom'
 import { computeZoom, kGapFromKWidth } from '../zoom'
 
-/** 构造 ZoomConfig：plotWidth=clientWidth=1000，dataLength=10（数据远窄于一屏） */
-function makeConfig(futureScreens?: number): ZoomConfig {
+/** 缩放映射基准：6 个级别，宽度区间 [3, 21]。 */
+const CONFIG: ZoomConfigBase = { minKWidth: 3, maxKWidth: 21, zoomLevelCount: 6 }
+const FROM_LEVEL = 6
+const TO_LEVEL = 5
+const FROM_KWIDTH = 21
+
+/** 构造一次「级别 6 → 5」缩小的输入，用例只声明差异。 */
+function shrink(overrides: Partial<ZoomInput> = {}): ZoomInput {
+  const dpr = overrides.dpr ?? 1
   return {
-    minKWidth: 3,
-    maxKWidth: 21,
-    zoomLevelCount: 6,
-    dpr: 1,
-    dataLength: 10,
-    plotWidth: 1000,
-    clientWidth: 1000,
-    ...(futureScreens !== undefined ? { futureScreens } : {}),
+    targetLevel: TO_LEVEL,
+    currentLevel: FROM_LEVEL,
+    currentKWidth: FROM_KWIDTH,
+    currentKGap: kGapFromKWidth(FROM_KWIDTH, dpr),
+    anchorViewportX: 0,
+    scrollLeftLogical: 0,
+    dpr,
+    config: CONFIG,
+    ...overrides,
   }
 }
 
-describe('computeZoom future region', () => {
-  it('futureScreens=3：缩放锚点落入未来区时 newDomScrollLeft 不被 30 槽旧上限截断', () => {
-    // 拖入未来区：scrollLeft=2000 已超旧路径 maxScroll(=1000)，锚点 mouseX=900
-    const result = computeZoom(-1, 900, 2000, 6, 21, kGapFromKWidth(21, 1), makeConfig(3))
-    if (!result) throw new Error('computeZoom 应返回结果')
+describe('computeZoom 锚点 = 指针所在槽位', () => {
+  it.each([
+    {
+      label: '未来区',
+      anchorViewportX: 900,
+      scrollLeftLogical: 2000,
+      dpr: 1,
+      expected: 36412 / 24,
+    },
+    { label: '数据区', anchorViewportX: 100, scrollLeftLogical: 0, dpr: 1, expected: -388 / 24 },
+    {
+      label: '数据左侧空白',
+      anchorViewportX: -100,
+      scrollLeftLogical: 0,
+      dpr: 1,
+      expected: 412 / 24,
+    },
+    {
+      label: '高 DPR 未来区',
+      anchorViewportX: 900,
+      scrollLeftLogical: 2000,
+      dpr: 2,
+      expected: 1604.75,
+    },
+  ])(
+    '$label：缩放前后指针槽位停在原屏幕位置',
+    ({ anchorViewportX, scrollLeftLogical, dpr, expected }) => {
+      const result = computeZoom(shrink({ anchorViewportX, scrollLeftLogical, dpr }))
+      expect(result?.scrollLeftLogical).toBeCloseTo(expected, 10)
+    },
+  )
 
-    // 锚点保持：anchorWorldPx=2900 → slotFloat=2897/24 → newScrollLeft=36412/24
-    expect(result.newScrollLeft).toBeCloseTo(36412 / 24, 10)
-    // futureBars=ceil(1000/20)*3=150 → trailingSlots=150 → maxScroll=3203，dom=2517.1667 不截断
-    expect(result.newDomScrollLeft).toBe(2517)
-  })
-
-  it('不传 futureScreens：结果与旧公式（TRAILING_SLOTS=30）完全一致', () => {
-    const result = computeZoom(-1, 900, 2000, 6, 21, kGapFromKWidth(21, 1), makeConfig())
-    if (!result) throw new Error('computeZoom 应返回结果')
-
-    // 旧公式：trailingSlots=30 → dataPlotWidth=803 → maxScroll=1000，dom 被截断为 1000
-    expect(result.newDomScrollLeft).toBe(1000)
+  it('目标级别与当前相同（已到边界）时返回 null', () => {
+    expect(computeZoom(shrink({ targetLevel: FROM_LEVEL }))).toBeNull()
   })
 })

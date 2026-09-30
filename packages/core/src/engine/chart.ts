@@ -438,8 +438,6 @@ export class Chart {
         viewport: this.kernel.viewport,
         options: this.kernel.options,
         period$: this.kernel.dataManager.readonly.currentPeriod,
-        getClientWidth: () => this.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
-        getDataLength: () => this.dataManager.getData().length,
         getPlotWidth: () => this.getLeftLoadBufferWidth(),
         onChange: () => {
           this.scheduleDraw()
