@@ -339,6 +339,7 @@
     :source-endpoints="sourceEndpoints"
     @close="showSettings = false"
     @confirm="handleConfirmSettings"
+    @apply-theme-preset="handleApplyThemePreset"
     @clear-market-data-cache="emit('clearMarketDataCache')"
     @toggle-aggregation-source="onToggleAggregationSource"
     @update-source-endpoint="onUpdateSourceEndpoint"
@@ -743,6 +744,15 @@
     setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
     emit('settingsChange', { ...appliedSettings.value })
     showSettings.value = false
+  }
+
+  /** 主题预设点击即生效：只合并预设字段并持久化，不关闭弹窗，也不丢弃草稿里其他未确定的改动。 */
+  function handleApplyThemePreset(
+    colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
+  ) {
+    appliedSettings.value = { ...appliedSettings.value, colorPresetSettings }
+    saveSettings(appliedSettings.value)
+    emit('settingsChange', { ...appliedSettings.value })
   }
 
   onMounted(() => {

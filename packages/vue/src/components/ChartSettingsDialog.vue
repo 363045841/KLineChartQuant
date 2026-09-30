@@ -87,7 +87,7 @@
       </template>
 
       <template v-else-if="activeSection === 'style'">
-        <ThemePresetPanel v-model:settings="settings" />
+        <ThemePresetPanel :settings="settings" @update:settings="onThemePresetChange" />
         <template v-for="item in styleSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -263,6 +263,11 @@
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
+    /** 主题预设点击即生效，无需等“确定”。 */
+    (
+      e: 'applyThemePreset',
+      colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
+    ): void
   }>()
 
   const mainSettings = computed(
@@ -387,6 +392,12 @@
 
   function confirmSettings() {
     emit('confirm', { ...settings.value })
+  }
+
+  /** 主题预设点击即生效：先写入草稿，再立即提交给上层应用并持久化，不关闭弹窗。 */
+  function onThemePresetChange(next: ChartSettings): void {
+    settings.value = next
+    emit('applyThemePreset', next.colorPresetSettings ?? {})
   }
 
   function clearCache() {

@@ -21,7 +21,7 @@
         <span class="theme-preset__description">{{ preset.description }}</span>
       </button>
     </div>
-    <p class="theme-presets__hint">风格不改变明暗模式与涨跌习惯，已有自定义颜色优先。确定后保存。</p>
+    <p class="theme-presets__hint">风格不改变明暗模式与涨跌习惯，已有自定义颜色优先。点击即生效并保存。</p>
   </section>
 </template>
 
