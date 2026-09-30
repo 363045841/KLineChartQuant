@@ -15,7 +15,10 @@ import type {
 import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { DrawingObject } from '../types.js'
 
-/** DrawingStore 的依赖：kernel 业务信号与可选会话层 overlay。 */
+/** 图元投影范围：合成视图、正式图元或会话覆盖。 */
+export type DrawingPaintScope = 'all' | 'committed' | 'session'
+
+/** 正式图元与会话图元的输入依赖。 */
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
   selectedDrawingIds$: ReadonlySignal<ReadonlyArray<string>>

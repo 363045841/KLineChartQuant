@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDrawingMethods } from '@/controllers/chart/impl/createDrawingMethods'
 import { FIVE_DAY_TIME_SHARE_PERIOD, type SymbolSpec, TIME_SHARE_PERIOD } from '@/controllers/types'
 import { Chart, type ChartOptions } from '@/core/chart'
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { ScaleType } from '../../foundation/types/scaleType'
 import { createDrawingAdapter } from '../drawing/__tests__/helpers/drawingTestKit'
+import { DrawingInteractionController, type DrawingObject, DrawingTool } from '../drawing/index'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { MAIN_PANE_ID } from '../paneIds'
@@ -43,6 +45,15 @@ function pointerEvent(
     target,
     ...overrides,
   } as PointerEvent
+}
+
+/** 用真实 Chart 文档和视口方法构造绘图会话，共享生产适配器而非测试替身。 */
+function createChartDrawingSession(chart: Chart) {
+  const methods = createDrawingMethods(chart, () => false)
+  const adapter = { ...methods, getData: () => chart.getData() }
+  const session = new DrawingInteractionController(adapter)
+  chart.registerDrawingSession(session)
+  return { adapter, session }
 }
 
 describe('Chart DPR pipeline', () => {
@@ -317,6 +328,177 @@ describe('Chart DPR pipeline', () => {
     expect(chart.getCurrentDpr()).toBe(2)
     expectMainPaint('DPR')
     await chart.destroy()
+  })
+
+  /** 真实交互会话逐帧更新临时坐标，正式表面复用，并在提交或取消后恢复图元。 */
+  it.each(['commit', 'cancel'] as const)(
+    'repaints drag frames independently and restores the committed layer on %s',
+    async (finish) => {
+      const dom = createChartDom(1000, 600)
+      const chart = new Chart(dom, defaultOptions)
+      try {
+        chart.resize()
+        chart.setData(
+          Array.from({ length: 100 }, (_, timestamp) => ({
+            timestamp,
+            open: 10,
+            high: 11,
+            low: 9,
+            close: 10,
+          })),
+        )
+        const { adapter, session } = createChartDrawingSession(chart)
+        const drawing: DrawingObject = {
+          id: 'dragged',
+          kind: DrawingTool.TrendLine,
+          paneId: MAIN_PANE_ID,
+          anchors: [
+            { id: 'start', time: 40, price: 10 },
+            { id: 'end', time: 60, price: 10 },
+          ],
+          style: {},
+          params: {},
+          visible: true,
+          locked: false,
+        }
+        chart.drawing.setDrawings([
+          drawing,
+          {
+            ...drawing,
+            id: 'stationary',
+            anchors: drawing.anchors.map((anchor) => ({ ...anchor, price: 9.5 })),
+          },
+          {
+            ...drawing,
+            id: 'fixed',
+            anchors: drawing.anchors.map((anchor) => ({ ...anchor, price: 10.5 })),
+          },
+        ])
+        chart.drawing.setSelectedIds(['dragged', 'stationary'])
+        chart.draw()
+        // 点选线身会维持多选，整组图元进入会话层。
+        const x = adapter.getScreenXAtLogicalIndex(50)
+        if (x === null) throw new Error('Expected a visible drawing midpoint')
+        const y = adapter.priceToY(MAIN_PANE_ID, 10)
+        const event = (type: string, dy = 0) =>
+          pointerEvent(type, dom.container, {
+            pointerType: 'mouse',
+            clientX: x,
+            clientY: y + dy,
+            button: 0,
+          })
+        const scene = chart['renderer'].getScene()
+        const formalLayer = scene.layers.peek().find((layer) => layer.role === 'drawing')
+        if (!formalLayer) throw new Error('Expected the committed drawing layer')
+        const formalPaint = vi.spyOn(formalLayer, 'paint')
+        const instances = vi.spyOn(chart['rendererHost'].renderer, 'drawInstances')
+        const committed = chart.drawing.drawings.peek()
+        expect(session.onPointerDown(event('pointerdown'), dom.container)).toBe(true)
+        expect(session.onPointerMove(event('pointermove', 20), dom.container)).toBe(true)
+        chart.draw()
+        expect(formalPaint).toHaveBeenCalledOnce()
+        const first = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)
+        expect(first?.drawingProjection?.primitives.length).toBeGreaterThan(0)
+        expect(first?.sessionDrawingProjection?.primitives.length).toBeGreaterThan(0)
+        formalPaint.mockClear()
+        instances.mockClear()
+        expect(session.onPointerMove(event('pointermove', 40), dom.container)).toBe(true)
+        chart.draw()
+        const second = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)
+        expect(second?.sessionDrawingProjection).not.toEqual(first?.sessionDrawingProjection)
+        expect(second?.drawingProjection).toBe(first?.drawingProjection)
+        expect(formalPaint).not.toHaveBeenCalled()
+        expect(instances).not.toHaveBeenCalled()
+        expect(chart.drawing.drawings.peek()).toBe(committed)
+
+        if (finish === 'commit') session.onPointerUp(event('pointerup', 40), dom.container)
+        else session.cancelPendingChanges()
+        chart.draw()
+        expect(formalPaint).toHaveBeenCalledOnce()
+        const final = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)
+        expect(final?.sessionDrawingProjection?.primitives).toHaveLength(0)
+        expect(final?.drawingProjection?.primitives.length).toBeGreaterThan(0)
+        expect(chart.drawing.drawings.peek() === committed).toBe(finish === 'cancel')
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
+  /** 正式投影复用时保留选中图元的轴标签，预览变化仍能触发帧提交。 */
+  it('repaints preview changes and retains committed axis decorations', async () => {
+    const dom = createChartDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    try {
+      chart.resize()
+      chart.setData(
+        Array.from({ length: 100 }, (_, timestamp) => ({
+          timestamp,
+          open: 10,
+          high: 11,
+          low: 9,
+          close: 10,
+        })),
+      )
+      const { adapter, session } = createChartDrawingSession(chart)
+      session.setTool(DrawingTool.TrendLine)
+      chart.drawing.setDrawings([
+        {
+          id: 'selected',
+          kind: DrawingTool.TrendLine,
+          paneId: MAIN_PANE_ID,
+          anchors: [
+            { id: 'start', time: 40, price: 10 },
+            { id: 'end', time: 60, price: 10 },
+          ],
+          style: {},
+          params: {},
+          visible: true,
+          locked: false,
+        },
+      ])
+      chart.drawing.setSelectedIds(['selected'])
+      chart.draw()
+      const x = adapter.getScreenXAtLogicalIndex(50)
+      if (x === null) throw new Error('Expected a visible preview position')
+      const y = adapter.priceToY(MAIN_PANE_ID, 10)
+      expect(
+        session.onPointerDown(
+          pointerEvent('pointerdown', dom.container, {
+            pointerType: 'mouse',
+            clientX: x,
+            clientY: y,
+            button: 0,
+          }),
+          dom.container,
+        ),
+      ).toBe(true)
+      const move = (dy: number) =>
+        session.onPointerMove(
+          pointerEvent('pointermove', dom.container, {
+            pointerType: 'mouse',
+            clientX: x,
+            clientY: y + dy,
+          }),
+          dom.container,
+        )
+      expect(move(20)).toBe(true)
+      chart.draw()
+      const first = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)
+      expect(move(40)).toBe(true)
+      chart.draw()
+      const second = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)
+      expect(second?.drawingProjection).toBe(first?.drawingProjection)
+      expect(second?.sessionDrawingProjection).not.toEqual(first?.sessionDrawingProjection)
+      expect(second?.axisLabels.forSurface('yRightOverlay', MAIN_PANE_ID).labels).toEqual(
+        first?.axisLabels.forSurface('yRightOverlay', MAIN_PANE_ID).labels,
+      )
+      expect(second?.axisLabels.forSurface('xLabels').labels).toEqual(
+        first?.axisLabels.forSurface('xLabels').labels,
+      )
+    } finally {
+      await chart.destroy()
+    }
   })
 
   it('keeps the crosshair visible while drawing preview consumes mouse moves', async () => {

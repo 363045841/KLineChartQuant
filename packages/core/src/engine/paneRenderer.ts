@@ -1,9 +1,11 @@
+/** 管理单个 Pane 的画布尺寸、上下文和运行时状态。 */
 import type { PaneRendererDom } from './chartTypes.js'
 
 export type { PaneRendererDom }
 
 export type PaneRendererContexts = {
   mainCtx: CanvasRenderingContext2D | null
+  drawingCtx: CanvasRenderingContext2D | null
   overlayCtx: CanvasRenderingContext2D | null
   yAxisCtx: CanvasRenderingContext2D | null
   yAxisOverlayCtx: CanvasRenderingContext2D | null
@@ -19,7 +21,7 @@ export type PaneRendererOptions = {
 }
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
-   创建并管理 main/overlay/yAxis/yAxisOverlay（及可选 left 轴）canvas
+   管理 main/drawing/overlay/yAxis/yAxisOverlay（及可选 left 轴）canvas
    持有 Pane 实例（布局、Y 轴、价格范围）
    响应 Chart 的 resize / layout 信号
    GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
@@ -56,6 +58,7 @@ export class PaneRenderer {
     if (!this.contexts) {
       this.contexts = {
         mainCtx: this.dom.mainCanvas.getContext('2d'),
+        drawingCtx: this.dom.drawingCanvas.getContext('2d'),
         overlayCtx: this.dom.overlayCanvas.getContext('2d'),
         yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
         yAxisOverlayCtx: this.dom.yAxisOverlayCanvas.getContext('2d'),
@@ -109,6 +112,7 @@ export class PaneRenderer {
     const mainWidth = Math.round(width * dpr)
     const mainHeight = Math.round(height * dpr)
     PaneRenderer.resizeCanvas(mainCanvas, mainWidth, mainHeight, dpr)
+    PaneRenderer.resizeCanvas(this.dom.drawingCanvas, mainWidth, mainHeight, dpr)
 
     // Overlay Canvas - 与 Main Canvas 相同尺寸
     PaneRenderer.resizeCanvas(overlayCanvas, mainWidth, mainHeight, dpr)

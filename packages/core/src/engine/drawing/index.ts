@@ -90,7 +90,7 @@ export { createInfoLineDefinition } from './render/impl/definitions/infoLine.js'
 export { createRectangleDefinition } from './render/impl/definitions/rectangle.js'
 export { createSingleAnchorLineDefinition } from './render/impl/definitions/singleAnchorLine.js'
 export { createTwoPointLineDefinition } from './render/impl/definitions/twoPointLine.js'
-export { createDrawingLayer } from './render/impl/plugin.js'
+export { createDrawingLayer, createDrawingSessionLayer } from './render/impl/plugin.js'
 export { createDefaultPrimitiveRendererSet } from './render/impl/primitiveRendererSet.js'
 export type { DrawingStoreDeps, PrimitiveRendererSet } from './render/types.js'
 

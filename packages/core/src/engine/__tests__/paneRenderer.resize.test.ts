@@ -7,6 +7,7 @@ import { PaneRenderer } from '@/core/paneRenderer'
 function createDom() {
   return {
     mainCanvas: document.createElement('canvas'),
+    drawingCanvas: document.createElement('canvas'),
     overlayCanvas: document.createElement('canvas'),
     yAxisCanvas: document.createElement('canvas'),
     yAxisOverlayCanvas: document.createElement('canvas'),
@@ -33,6 +34,10 @@ describe('PaneRenderer resize DPR mapping', () => {
     // overlayCanvas should match mainCanvas
     expect(dom.overlayCanvas.width).toBe(dom.mainCanvas.width)
     expect(dom.overlayCanvas.height).toBe(dom.mainCanvas.height)
+    expect(dom.drawingCanvas.width).toBe(dom.mainCanvas.width)
+    expect(dom.drawingCanvas.height).toBe(dom.mainCanvas.height)
+    expect(dom.drawingCanvas.style.width).toBe('500px')
+    expect(dom.drawingCanvas.style.height).toBe('240px')
     // yAxis overlay matches yAxis base
     expect(dom.yAxisOverlayCanvas.width).toBe(dom.yAxisCanvas.width)
     expect(dom.yAxisOverlayCanvas.height).toBe(dom.yAxisCanvas.height)

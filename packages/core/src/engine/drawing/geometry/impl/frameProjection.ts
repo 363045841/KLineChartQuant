@@ -23,6 +23,7 @@ import type { DrawingSelectionMarquee } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
+import type { DrawingPaintScope } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
@@ -281,12 +282,13 @@ function projectAxisDecorations(
   if (left !== right) output.xAxisRanges.push({ leftX: left, rightX: right, color, opacity: 0.15 })
 }
 
-/** 生成当前 Pane 的完整绘图帧数据；本函数不修改 RenderContext。 */
+/** 按 scope 投影当前 Pane 图元并收集轴标签；缺省生成正式图元与会话覆盖的合成视图。 */
 export function projectDrawingsForFrame(
   store: DrawingStore,
   definitions: DrawingDefinitionRegistry,
   context: RenderContext,
   selectionMarquee: DrawingSelectionMarquee | null = null,
+  scope: DrawingPaintScope = 'all',
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
@@ -307,7 +309,7 @@ export function projectDrawingsForFrame(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId)) {
+  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
     const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp)
     if (!hasResolvableTimeAnchors(drawing)) continue
     const geometry = definitions.compute(drawing, {

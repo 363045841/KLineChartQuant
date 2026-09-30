@@ -37,7 +37,11 @@ import type {
   Scene,
   SceneFrame,
 } from '../../rendering/scene/types.js'
-import { createAxisLabelsFrame, getLastPriceRemainingMs } from '../axisLabels/index.js'
+import {
+  createAxisLabelsFrame,
+  getLastPriceRemainingMs,
+  registerAxisLabel,
+} from '../axisLabels/index.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -50,6 +54,7 @@ import { InteractionController } from '../controller/interaction.js'
 import { ChartDataManager } from '../data/chartDataManager.js'
 import {
   createDrawingLayer,
+  createDrawingSessionLayer,
   DrawingDefinitionRegistry,
   type DrawingSelectionMarquee,
   DrawingStore,
@@ -255,6 +260,10 @@ export class ChartRenderer {
   /** 上一帧已提交的主层与交互层内容输入。 */
   private paintedMainVersion: readonly unknown[] | null = null
   private paintedOverlayVersion: readonly unknown[] | null = null
+  /** 正式绘图层的输入版本；会话坐标变化仅刷新动态覆盖层。 */
+  private paintedDrawingVersion: readonly unknown[] | null = null
+  /** 保留正式图元的轴标签，动态帧重放到本帧收集器，随 Pane 回收。 */
+  private drawingAxisLabels = new WeakMap<PaneRenderer, AxisLabelsFrame>()
 
   /** 按值比较帧输入，避免 viewport 每次派生新对象造成无效重绘。 */
   private sameVersion(previous: readonly unknown[] | null, next: readonly unknown[]): boolean {
@@ -332,6 +341,8 @@ export class ChartRenderer {
       interaction.tooltipAnchorPlacement,
       this.deps.drawings$.peek(),
       this.deps.selectedDrawingIds$.peek(),
+      // getOverlay 会新建数组，按图元引用比较才能同时捕获移动和避免空数组误失效。
+      ...(this.deps.getOverlay?.() ?? []),
       this.deps.getSelectionMarquee?.(),
       this.lastPriceCountdownTimer === null ? null : Math.floor(Date.now() / 1_000),
     ]
@@ -518,6 +529,7 @@ export class ChartRenderer {
 
   registerDrawingPlugins(): void {
     this.scene.addLayer(createDrawingLayer())
+    this.scene.addLayer(createDrawingSessionLayer())
   }
 
   getScene(): Scene {
@@ -910,13 +922,22 @@ export class ChartRenderer {
   clearAllCanvases(): void {
     this.paintedMainVersion = null
     this.paintedOverlayVersion = null
+    this.paintedDrawingVersion = null
     const vp = this.peekViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
-      const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
-        r.getContexts()
+      const {
+        mainCtx,
+        drawingCtx,
+        overlayCtx,
+        yAxisCtx,
+        yAxisOverlayCtx,
+        leftAxisCtx,
+        leftAxisOverlayCtx,
+      } = r.getContexts()
       const pane = r.getPane()
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      drawingCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       yAxisCtx?.clearRect(
         0,
@@ -985,7 +1006,7 @@ export class ChartRenderer {
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
 
-    // 绘图虽然保留 drawing 语义角色，但输出到 overlay canvas，以保证位于 GPU 行情图元之上。
+    // 正式图元保存到独立 canvas，会话图元与十字线共用动态覆盖 canvas。
     const MAIN_CANVAS_ROLES: readonly LayerRole[] = [
       'background',
       'primary',
@@ -993,6 +1014,9 @@ export class ChartRenderer {
       'component',
     ]
     const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
+    const SESSION_CANVAS_ROLES: readonly LayerRole[] = ['overlay']
+    const drawingVersion = this.drawingStore.getCommittedPaintVersion()
+    const drawingChanged = !this.sameVersion(this.paintedDrawingVersion, drawingVersion)
 
     // 本帧所有 pane 的绘制输入；全部 pane 构建完成后再一次性交给 Scene。
     const framePanes: Array<FramePaint & { paneId: string }> = []
@@ -1001,8 +1025,21 @@ export class ChartRenderer {
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
-        renderer.getContexts()
+      const {
+        mainCtx,
+        drawingCtx,
+        overlayCtx,
+        yAxisCtx,
+        yAxisOverlayCtx,
+        leftAxisCtx,
+        leftAxisOverlayCtx,
+      } = renderer.getContexts()
+      const previousContext = this.paneCtxMap.get(pane.id)
+      const shouldUpdateDrawing =
+        !useCachedFrame ||
+        drawingChanged ||
+        previousContext?.drawingCtx !== drawingCtx ||
+        !previousContext?.drawingProjection
 
       // 非缓存帧：更新 pane Y 轴范围；比较视图下以可见折线极值为准
       if (!useCachedFrame) {
@@ -1080,8 +1117,7 @@ export class ChartRenderer {
 
       // 根据 UpdateLevel 决定清哪些 canvas
       const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
-      // 绘图与十字线共享 overlay canvas。绘图交互仅请求 Overlay 更新，必须每次重画，
-      // 否则预览只会在触发主层重绘时出现；主层变化时也要刷新其投影。
+      // 会话图元与十字线每次重画；正式层只在几何、文档、选中或覆盖成员变化时重画。
       const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
 
       // 清 main canvas
@@ -1091,7 +1127,14 @@ export class ChartRenderer {
         mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       }
 
-      // 清 overlay canvas
+      // 清正式图元 canvas；成员、选中或视口不变时保留其像素。
+      if (shouldUpdateDrawing && drawingCtx) {
+        drawingCtx.setTransform(1, 0, 0, 1, 0, 0)
+        drawingCtx.scale(vp.dpr, vp.dpr)
+        drawingCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      }
+
+      // 清动态覆盖 canvas，不触碰正式图元的像素。
       if (shouldUpdateOverlay && overlayCtx) {
         const overlayWidth = overlayCtx.canvas.width / vp.dpr
         overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
@@ -1123,6 +1166,7 @@ export class ChartRenderer {
       const context: RenderContext = {
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
+        drawingCtx: drawingCtx ?? undefined,
         pane: wrapPaneInfo(pane),
         data: renderData,
         dataRevision,
@@ -1178,15 +1222,39 @@ export class ChartRenderer {
         colorPresetSettings: this.settings.colorPresetSettings,
       }
 
-      // 在任一 layer 绘制前一次性投影，后续 renderer 只读本 Pane 的结果。
-      context.drawingProjection = projectDrawingsForFrame(
+      // 覆盖成员进入会话层时从正式层排除；连续移动复用正式层投影和像素。
+      if (shouldUpdateDrawing) {
+        const labels = createAxisLabelsFrame()
+        context.drawingProjection = projectDrawingsForFrame(
+          this.drawingStore,
+          this.drawingDefinitions,
+          { ...context, axisLabels: labels },
+          null,
+          'committed',
+        )
+        this.drawingAxisLabels.set(renderer, labels)
+      } else {
+        context.drawingProjection = previousContext?.drawingProjection
+      }
+      const retainedLabels = this.drawingAxisLabels.get(renderer)
+      for (const label of retainedLabels?.forSurface('yRightOverlay', pane.id).labels ?? []) {
+        registerAxisLabel(context, 'yRightOverlay', label)
+      }
+      for (const label of retainedLabels?.forSurface('xLabels').labels ?? []) {
+        registerAxisLabel(context, 'xLabels', label)
+      }
+      context.sessionDrawingProjection = projectDrawingsForFrame(
         this.drawingStore,
         this.drawingDefinitions,
         context,
         this.deps.getSelectionMarquee?.() ?? null,
+        'session',
       )
-      context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)
-      sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
+      for (const projection of [context.drawingProjection, context.sessionDrawingProjection]) {
+        if (!projection) continue
+        context.yAxisRanges.push(...projection.yAxisRanges)
+        sharedXAxisRanges.push(...projection.xAxisRanges)
+      }
 
       // 刻度锚定轴数值，再投影到本帧的价格坐标系；网格与左右轴共用。
       context.yAxisTicks = createYAxisTicks(pane, {
@@ -1224,7 +1292,7 @@ export class ChartRenderer {
           renderer: sceneRenderer,
           frameNumber: this.frameCount++,
           deltaMs: 0,
-          roles: OVERLAY_CANVAS_ROLES,
+          roles: shouldUpdateDrawing ? OVERLAY_CANVAS_ROLES : SESSION_CANVAS_ROLES,
           clear: false,
         })
       }
@@ -1232,6 +1300,7 @@ export class ChartRenderer {
 
     // 所有 pane 构建完成后一次性绘制；Scene 逐 pane 过滤、z 排序、逐层隔离分发。
     this.scene.paint({ panes: framePanes })
+    this.paintedDrawingVersion = drawingVersion
 
     // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()

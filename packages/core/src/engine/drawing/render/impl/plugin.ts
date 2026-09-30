@@ -32,7 +32,7 @@ export interface DrawingLayerOptions {
 
 /**
  * 创建绘图 Layer；投影由 ChartRenderer 在 paint 前生成。
- * 绘图输出到覆盖层 canvas，保持在所有行情图元之上。
+ * 正式图元输出到独立 canvas，保持在所有行情图元之上。
  */
 export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
   const renderers = options.renderers ?? createDefaultPrimitiveRendererSet()
@@ -45,15 +45,38 @@ export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<Ren
     visible: true,
     paint(context) {
       const projection = context.drawingProjection
-      if (!projection || projection.primitives.length === 0) return
+      if (!projection || projection.primitives.length === 0 || !context.drawingCtx) return
       const viewport = context.viewport
       renderPrimitives(
-        // GPU K 线在帧末才提交，主画布上的 2D 图形会被其覆盖。
-        // 绘图输出到独立 overlay canvas，保持在所有行情图元之上。
-        context.overlayCtx ?? context.ctx,
+        // 正式图元表面独立于行情和会话，动态清屏不会擦掉这里的像素。
+        context.drawingCtx,
         projection.primitives,
         renderers,
         { left: 0, top: 0, right: viewport.plotWidth, bottom: context.pane.height },
+        context.dpr,
+      )
+    },
+    dispose() {},
+  }
+}
+
+/** 会话图元单独绘制到动态覆盖层，每次移动只刷新临时坐标。 */
+export function createDrawingSessionLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
+  const renderers = options.renderers ?? createDefaultPrimitiveRendererSet()
+  return {
+    id: makePluginLayerId('drawingSessionRenderer'),
+    role: 'overlay',
+    pane: 'global',
+    z: 56,
+    visible: true,
+    paint(context) {
+      const projection = context.sessionDrawingProjection
+      if (!projection || projection.primitives.length === 0) return
+      renderPrimitives(
+        context.overlayCtx ?? context.ctx,
+        projection.primitives,
+        renderers,
+        { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height },
         context.dpr,
       )
     },

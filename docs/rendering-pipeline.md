@@ -274,8 +274,9 @@ Main 或 Overlay 分支是否执行由 `UpdateLevel` 和十字线状态决定，
 
 | Canvas                   | 内容                                               | 更新时机      |
 | ------------------------ | -------------------------------------------------- | ------------- |
-| `mainCanvas`             | background、primary、indicator、component、drawing | Main / All    |
-| `overlayCanvas`          | crosshair、hover 等 overlay                        | Overlay / All |
+| `mainCanvas`             | background、primary、indicator、component          | Main / All    |
+| `drawingCanvas`          | 正式图元，排除当前拖拽覆盖的成员                    | 投影输入变化  |
+| `overlayCanvas`          | 拖拽覆盖、绘图预览、框选、crosshair、hover           | Overlay / All |
 | `yAxisCanvas`            | 右轴静态刻度和标签                                 | Main / All    |
 | `yAxisOverlayCanvas`     | 右轴动态价签                                       | Overlay / All |
 | `leftYAxisCanvas`        | 左轴静态内容                                       | Main / All    |
@@ -288,10 +289,16 @@ plot 区层级：
 ```text
 z-index 0  pane mainCanvas
 z-index 1  chart 级 gpu-scene-canvas（仅 WebGPU）
+z-index 2  pane drawingCanvas（DOM 顺序在 overlayCanvas 前）
 z-index 2  pane overlayCanvas
 ```
 
 全图另有一张 `xAxisCanvas`。时间轴是独立 Layer，不注册进主 Scene。
+
+正式图元与会话图元分别由 Drawing Layer 和 Drawing Session Layer 绘制。帧去重包含会话图元引用；
+正式层版本只包含文档、选中集合和覆盖成员，连续拖动复用其投影与像素。拖拽首次覆盖时清除正式层中的原图元，
+提交或取消时恢复正式层；视口、主题、布局和 DPR 改变时重新绘制。两层的坐标轴装饰合并到同一帧，正式层保留的
+轴标签在动态帧重放，见 [绘图会话层设计](design/drawing-session-layer.md)。
 
 ### 7.2 Canvas 尺寸
 

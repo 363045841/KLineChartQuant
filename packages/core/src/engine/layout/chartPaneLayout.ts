@@ -136,6 +136,7 @@ export class ChartPaneLayout {
       pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')
+      const drawingCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')
       const yAxisCanvas = this.createAxisCanvas(spec, 'right', 'base')
       const yAxisOverlayCanvas = this.createAxisCanvas(spec, 'right', 'overlay')
@@ -158,12 +159,18 @@ export class ChartPaneLayout {
       overlayCanvas.style.backgroundColor = 'transparent'
       overlayCanvas.style.zIndex = '2'
 
+      // 正式图元与动态覆盖分开保存像素，同 z-index 按 DOM 顺序叠放在行情之上。
+      drawingCanvas.id = `${spec.id}-drawing`
+      drawingCanvas.className = 'drawing-canvas'
+      drawingCanvas.style.cssText = overlayCanvas.style.cssText
+
       const leftYAxisCanvas = this.createAxisCanvas(spec, 'left', 'base')
       const leftYAxisOverlayCanvas = this.createAxisCanvas(spec, 'left', 'overlay')
 
       const renderer = new PaneRenderer(
         {
           mainCanvas,
+          drawingCanvas,
           overlayCanvas,
           yAxisCanvas,
           yAxisOverlayCanvas,
@@ -209,6 +216,7 @@ export class ChartPaneLayout {
     this.paneRenderers.forEach((renderer) => {
       const domEls = renderer.getDom()
       canvasLayer.appendChild(domEls.mainCanvas)
+      canvasLayer.appendChild(domEls.drawingCanvas)
       canvasLayer.appendChild(domEls.overlayCanvas)
       rightAxisLayer.appendChild(domEls.yAxisCanvas)
       rightAxisLayer.appendChild(domEls.yAxisOverlayCanvas)
@@ -350,6 +358,7 @@ export class ChartPaneLayout {
       renderer.resize(vp.plotWidth, h, vp.dpr)
       const domEls = renderer.getDom()
       domEls.mainCanvas.style.top = `${y}px`
+      domEls.drawingCanvas.style.top = `${y}px`
       domEls.overlayCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.left = '0px'

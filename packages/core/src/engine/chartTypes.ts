@@ -1,3 +1,4 @@
+/** 图表布局、分层画布与视口的公共类型契约。 */
 import type { PaneCapabilities, PaneRole } from '../foundation/plugin/index.js'
 
 /** Pane 左上角标题与右上角操作控件共用的逻辑像素内边距。 */
@@ -23,6 +24,8 @@ export type PaneSpec = {
 
 export type PaneRendererDom = {
   mainCanvas: HTMLCanvasElement
+  /** 正式图元独立表面；拖拽和预览使用 overlayCanvas。 */
+  drawingCanvas: HTMLCanvasElement
   overlayCanvas: HTMLCanvasElement
   yAxisCanvas: HTMLCanvasElement
   /** 轴区动态层（最新价标签、十字线价签），叠在 yAxisCanvas 上 */

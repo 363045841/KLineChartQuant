@@ -414,6 +414,8 @@ export interface RenderOverlayContext {
   markerManager?: MarkerManagerLike
   /** 绘图系统预先生成的当前 Pane 帧投影。 */
   drawingProjection?: DrawingFrameProjection
+  /** 会话图元（拖拽覆盖、预览和框选）的独立投影。 */
+  sessionDrawingProjection?: DrawingFrameProjection
 }
 
 /** 指标子契约：指标帧快照与 GPU Scene 渲染器。 */
@@ -432,6 +434,8 @@ export interface RenderSurfaceContext {
   ctx: CanvasRenderingContext2D
   /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */
   overlayCtx?: CanvasRenderingContext2D
+  /** 正式图元的独立画布，不随动态覆盖层清屏。 */
+  drawingCtx?: CanvasRenderingContext2D
   yAxisCtx?: CanvasRenderingContext2D
   /** 轴区动态层（最新价标签、十字线价签） */
   yAxisOverlayCtx?: CanvasRenderingContext2D
