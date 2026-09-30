@@ -20,8 +20,7 @@
  */
 
 import { applyColorPresetOverrides, type ColorPresetSettings } from './colorPresetSettings.js'
-import { darkTheme } from './theme-dark.js'
-import { lightTheme } from './theme-light.js'
+import { resolveBaseTheme } from './presets/impl/themePresets.js'
 import type { ColorTokens, Theme } from './types.js'
 
 /**
@@ -125,12 +124,24 @@ export function withAsiaMarketColors(theme: Theme): Theme {
  * const colors = resolveThemeColors(theme, isAsiaMarket)
  * ```
  */
+export function resolveTheme(
+  themeName: 'light' | 'dark',
+  isAsiaMarket?: boolean,
+  colorPresetSettings?: ColorPresetSettings,
+): Theme {
+  const base = resolveBaseTheme(themeName, colorPresetSettings?.preset)
+  const active = isAsiaMarket ? withAsiaMarketColors(base) : base
+  return {
+    ...active,
+    colors: applyColorPresetOverrides(active.colors, themeName, colorPresetSettings),
+  }
+}
+
+/** 渲染器保留原有颜色接口，与 UI 使用同一主题解析流程。 */
 export function resolveThemeColors(
   themeName: 'light' | 'dark',
   isAsiaMarket?: boolean,
   colorPresetSettings?: ColorPresetSettings,
 ): ColorTokens {
-  const base = themeName === 'dark' ? darkTheme : lightTheme
-  const active = isAsiaMarket ? withAsiaMarketColors(base) : base
-  return applyColorPresetOverrides(active.colors, themeName, colorPresetSettings)
+  return resolveTheme(themeName, isAsiaMarket, colorPresetSettings).colors
 }

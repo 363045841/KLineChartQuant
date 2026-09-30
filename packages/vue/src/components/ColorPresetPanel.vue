@@ -23,9 +23,8 @@
     type ColorPresetKey,
     type ColorPresetSettings,
     type ColorPresetThemeName,
-    darkTheme,
-    lightTheme,
     normalizeColorPresetSettings,
+    resolveThemeColors,
   } from '@363045841yyt/klinechart-core'
   import { computed } from 'vue'
   import ColorInput from './ColorInput.vue'
@@ -33,6 +32,7 @@
   const props = defineProps<{
     colorPresetSettings: ColorPresetSettings | undefined
     editingTheme: ColorPresetThemeName
+    isAsiaMarket?: boolean
   }>()
 
   const emit = defineEmits<{
@@ -56,14 +56,11 @@
       .filter((group) => group.items.length > 0)
   })
 
-  function getThemeDefaultColor(themeName: ColorPresetThemeName, key: ColorPresetKey): string {
-    const theme = themeName === 'dark' ? darkTheme : lightTheme
-    return theme.colors[key]
-  }
-
+  /** 编辑入口展示与图表一致的最终配色，包括预设与亚洲涨跌约定。 */
   function getColorValue(key: ColorPresetKey): string {
-    const colorSettings = normalizeColorPresetSettings(props.colorPresetSettings)
-    return colorSettings[props.editingTheme]?.[key] ?? getThemeDefaultColor(props.editingTheme, key)
+    return resolveThemeColors(props.editingTheme, props.isAsiaMarket, props.colorPresetSettings)[
+      key
+    ]
   }
 
   function setColorValue(key: ColorPresetKey, value: string): void {

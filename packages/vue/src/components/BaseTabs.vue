@@ -129,13 +129,13 @@
 
   .base-tabs__tab {
     flex: 0 0 auto;
-    padding: 8px 10px;
+    padding: var(--klc-spacing-sm) calc(var(--klc-spacing-sm) + 2px);
     border: 0;
     border-bottom: 2px solid transparent;
     color: var(--klc-color-ui-muted);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-typography-font-size-md);
     white-space: nowrap;
     cursor: pointer;
   }
@@ -162,7 +162,7 @@
   .base-tabs--compact .base-tabs__tab {
     padding: 0 12px;
     border-bottom: 0;
-    font-size: 13px;
+    font-size: calc(var(--klc-typography-font-size-md) + 1px);
     line-height: 32px;
   }
 
@@ -173,8 +173,8 @@
     border-radius: 1px;
     background: var(--klc-color-ui-accent);
     transition:
-      left 0.2s ease,
-      width 0.2s ease;
+      left var(--klc-motion-duration-moderate) ease,
+      width var(--klc-motion-duration-moderate) ease;
   }
 
   @media (prefers-reduced-motion: reduce) {

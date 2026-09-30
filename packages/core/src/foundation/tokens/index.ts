@@ -18,10 +18,14 @@ export {
   type ColorPresetSettings,
   type ColorPresetThemeName,
   normalizeColorPresetSettings,
+  UI_COLOR_PRESET_ITEMS,
+  type UiColorPresetKey,
 } from './colorPresetSettings.js'
 export { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from './drawingColors.js'
 export { mergeTheme } from './mergeTheme.js'
-export { resolveThemeColors, withAsiaMarketColors } from './theme-china.js'
+export { findThemePreset, THEME_PRESETS } from './presets/impl/themePresets.js'
+export { DEFAULT_THEME_PRESET, type ThemePreset, type ThemePresetId } from './presets/types.js'
+export { resolveTheme, resolveThemeColors, withAsiaMarketColors } from './theme-china.js'
 export { darkTheme } from './theme-dark.js'
 export { lightTheme } from './theme-light.js'
 export {

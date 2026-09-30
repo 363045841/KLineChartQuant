@@ -3,13 +3,7 @@
  * tooltip up/down colors, and auto theme detection via prefers-color-scheme.
  * Preference lives in settings.theme; effective theme is ctrl.theme (kernel computed).
  */
-import {
-  type ColorPresetSettings,
-  darkTheme,
-  lightTheme,
-  resolveThemeColors,
-  themeToCssVars,
-} from '@363045841yyt/klinechart-core'
+import { resolveTheme, themeToCssVars } from '@363045841yyt/klinechart-core'
 import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
@@ -26,24 +20,23 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
   )
   const chartSettings = ref<ChartSettings>({})
 
+  const resolvedTheme = computed(() =>
+    resolveTheme(
+      chartTheme.value,
+      chartSettings.value.isAsiaMarket,
+      chartSettings.value.colorPresetSettings,
+    ),
+  )
+
   const tooltipColors = computed(() => {
-    const isAsiaMarket = chartSettings.value.isAsiaMarket ?? false
-    const colors = resolveThemeColors(chartTheme.value, isAsiaMarket as boolean | undefined)
+    const colors = resolvedTheme.value.colors
     return {
       upColor: colors.candleUpBody,
       downColor: colors.candleDownBody,
     }
   })
 
-  const themeCssVars = computed(() => {
-    const theme = chartTheme.value === 'dark' ? darkTheme : lightTheme
-    const colors = resolveThemeColors(
-      chartTheme.value,
-      chartSettings.value.isAsiaMarket as boolean | undefined,
-      chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined,
-    )
-    return themeToCssVars({ ...theme, colors })
-  })
+  const themeCssVars = computed(() => themeToCssVars(resolvedTheme.value))
 
   watch(
     themeCssVars,
