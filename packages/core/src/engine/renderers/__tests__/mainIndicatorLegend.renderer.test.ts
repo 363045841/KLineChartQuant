@@ -1,16 +1,20 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MARenderState } from '@/core/indicators/state/maState'
 import {
+  countFillTexts,
+  createContextWithInstanceState,
+  createMARenderState,
   createMockCanvasContext,
   createMockIndicatorInstanceHost,
-  createMockRenderContext,
-  createMockStateReader,
+  type MockCanvasContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import { createMainIndicatorLegendLayer } from '../Indicator/mainIndicatorLegend'
+import {
+  type CanvasLegendOptions,
+  createMainIndicatorLegendLayer,
+} from '../Indicator/mainIndicatorLegend'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -23,30 +27,11 @@ afterEach(() => {
 /** 固定主图实例身份：图例按实例枚举 metadata，并从帧读取器按该 ID 取投影。 */
 const MA_INSTANCE_ID = 'main:MA'
 
-/** 构造测试用 MARenderState。 */
-function createTestMARenderState(overrides: Partial<MARenderState> = {}): MARenderState {
-  const series: Record<number, (number | undefined)[]> = {
-    5: Array.from({ length: 100 }, () => 105),
-    10: Array.from({ length: 100 }, () => 110),
-    20: Array.from({ length: 100 }, () => 120),
-    30: Array.from({ length: 100 }, () => 130),
-    60: Array.from({ length: 100 }, () => 160),
-  }
+let ctx: MockCanvasContext
 
-  // 起始若干索引置空，验证稀疏序列跳过逻辑。
-  for (let i = 0; i < 4; i++) series[5]![i] = undefined
-  for (let i = 0; i < 9; i++) series[10]![i] = undefined
-  for (let i = 0; i < 19; i++) series[20]![i] = undefined
-
-  return {
-    timestamp: Date.now(),
-    series,
-    enabledPeriods: [5, 10, 20, 30, 60],
-    visibleMin: 105,
-    visibleMax: 160,
-    ...overrides,
-  }
-}
+beforeEach(() => {
+  ctx = createMockCanvasContext()
+})
 
 /** 构造携带主图实例清单的图例宿主；空数组表示当前没有启用主图指标。 */
 function createLegendHost(
@@ -62,23 +47,7 @@ function createLegendHost(
   )
 }
 
-/**
- * 构造图例渲染上下文：overlay 与主画布共用同一 spy，指标行从帧读取器按实例 ID 读取。
- */
-function createLegendContext(
-  ctx: CanvasRenderingContext2D,
-  reader: RenderContext['indicatorStateReader'],
-  overrides: MockRenderContextOverrides = {},
-): RenderContext {
-  return createMockRenderContext({
-    ctx,
-    overlayCtx: ctx,
-    indicatorStateReader: reader,
-    ...overrides,
-  })
-}
-
-/** 组装带固定宿主的图例 Layer。 */
+/** 组装带固定宿主的图例 Layer；options 只声明差异项。 */
 function createLegendLayer(
   host: PluginHost,
   options: Parameters<typeof createMainIndicatorLegendLayer>[0] = { yPaddingPx: 20 },
@@ -86,8 +55,30 @@ function createLegendLayer(
   return createMainIndicatorLegendLayer(options, () => host)
 }
 
-describe('createMainIndicatorLegendLayer', () => {
-  it('should expose the legend layer identity', () => {
+/** 以固定主图实例构造图例宿主。 */
+function createMAHost(definitionId = 'ma'): PluginHost {
+  return createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId }])
+}
+
+/** 统计图例绘制的指标标题行数量（标题行文本与指标展示名完全相等）。 */
+function countTitleRows(title: string): number {
+  return countFillTexts(ctx, (text) => text === title)
+}
+
+/**
+ * 构造图例帧上下文：图例绘制在 overlay 画布，这里让 overlay 与主画布共用同一 spy，
+ * 以便直接断言图例文本；运行时不共享画布。
+ */
+function createLegendContext(
+  instanceId: string,
+  state: unknown,
+  overrides: MockRenderContextOverrides = {},
+): RenderContext {
+  return createContextWithInstanceState(ctx, instanceId, state, { overlayCtx: ctx, ...overrides })
+}
+
+describe('MainIndicatorLegend identity', () => {
+  it('exposes the legend layer identity', () => {
     const layer = createLegendLayer(createLegendHost([]))
 
     expect(layer.id).toBe('plugin:mainIndicatorLegend')
@@ -98,70 +89,85 @@ describe('createMainIndicatorLegendLayer', () => {
 })
 
 describe('MainIndicatorLegend paint', () => {
-  let ctx: CanvasRenderingContext2D
+  it('reads visibility changes each frame while still publishing external context', () => {
+    let config: CanvasLegendOptions = { visible: false }
+    const onContext = vi.fn()
+    const layer = createLegendLayer(createMAHost(), {
+      yPaddingPx: 20,
+      getLegendOptions: () => config,
+      onContext,
+    })
+    const context = createLegendContext(MA_INSTANCE_ID, createMARenderState())
 
-  beforeEach(() => {
-    ctx = createMockCanvasContext()
-  })
-
-  it('should not draw MA when MA is not active', () => {
-    const state = createTestMARenderState()
-    const layer = createLegendLayer(createLegendHost([]))
-
-    layer.paint(createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state)))
-
-    const maLabelCalls = vi.mocked(ctx.fillText).mock.calls.filter((call) => call[0] === 'MA')
-    expect(maLabelCalls).toHaveLength(0)
-  })
-
-  it('should draw MA values from the frame state reader', () => {
-    const state = createTestMARenderState()
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
+    layer.paint(context)
+    expect(ctx.fillText).not.toHaveBeenCalled()
+    expect(onContext).toHaveBeenLastCalledWith(
+      expect.objectContaining({ indicators: expect.any(Array) }),
     )
 
-    layer.paint(createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state)))
-
-    const fillTextCalls = vi.mocked(ctx.fillText).mock.calls
-    const maLabelCalls = fillTextCalls.filter((call) => call[0] === 'MA')
-    expect(maLabelCalls).toHaveLength(1)
-
-    const ma5Calls = fillTextCalls.filter((call) => String(call[0]).includes('MA5'))
-    expect(ma5Calls.length).toBeGreaterThan(0)
+    config = { visible: true }
+    layer.paint(context)
+    expect(countTitleRows('MA')).toBe(1)
   })
 
-  it('should use crosshairIndex when available', () => {
-    const state = createTestMARenderState({
+  it.each([
+    { configuredIds: undefined, viewIds: ['ma'], expected: 1 },
+    { configuredIds: ['ma'], viewIds: ['ma'], expected: 1 },
+    { configuredIds: [], viewIds: ['ma'], expected: 0 },
+    { configuredIds: ['ma'], viewIds: [], expected: 0 },
+  ])(
+    'intersects configured IDs with the view-projected IDs (expected $expected rows)',
+    ({ configuredIds, viewIds, expected }) => {
+      const layer = createLegendLayer(createMAHost(), {
+        yPaddingPx: 20,
+        getLegendOptions: () => ({ visibleIndicatorIds: configuredIds }),
+        getVisibleIndicatorIds: () => viewIds,
+      })
+
+      layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
+
+      expect(countTitleRows('MA')).toBe(expected)
+    },
+  )
+
+  it('does not paint MA when MA is not active', () => {
+    const layer = createLegendLayer(createLegendHost([]))
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
+
+    expect(countTitleRows('MA')).toBe(0)
+  })
+
+  it('draws MA values from the frame state reader', () => {
+    const layer = createLegendLayer(createMAHost())
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
+
+    expect(countTitleRows('MA')).toBe(1)
+    expect(countFillTexts(ctx, (text) => text.includes('MA5'))).toBeGreaterThan(0)
+  })
+
+  it('uses crosshairIndex when available', () => {
+    const state = createMARenderState({
       series: { 5: Array.from({ length: 100 }, (_, i) => 100 + i) },
       enabledPeriods: [5],
     })
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
+    const layer = createLegendLayer(createMAHost())
 
-    layer.paint(
-      createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state), {
-        crosshairIndex: 50,
-      }),
-    )
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 50 }))
 
-    const maValueCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('150.000'))
-    expect(maValueCalls.length).toBeGreaterThan(0)
+    expect(countFillTexts(ctx, (text) => text.includes('150.000'))).toBeGreaterThan(0)
   })
 
-  it('should use last index when crosshairIndex is null', () => {
-    const state = createTestMARenderState({
+  it('uses last index when crosshairIndex is null', () => {
+    const state = createMARenderState({
       series: { 5: Array.from({ length: 10 }, (_, i) => 100 + i) },
       enabledPeriods: [5],
     })
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
+    const layer = createLegendLayer(createMAHost())
 
     layer.paint(
-      createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state), {
+      createLegendContext(MA_INSTANCE_ID, state, {
         crosshairIndex: null,
         range: { start: 0, end: 10 },
         data: Array.from({ length: 10 }, (_, i) => ({
@@ -175,213 +181,144 @@ describe('MainIndicatorLegend paint', () => {
       }),
     )
 
-    const maValueCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('109.000'))
-    expect(maValueCalls.length).toBeGreaterThan(0)
+    expect(countFillTexts(ctx, (text) => text.includes('109.000'))).toBeGreaterThan(0)
   })
 
-  it('should not crash when the frame state is empty', () => {
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
-
-    const context = createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID))
+  it.each([
+    { label: 'the instance projection is missing', state: undefined },
+    {
+      label: 'state has no valid data',
+      state: createMARenderState({
+        visibleMin: Infinity,
+        visibleMax: -Infinity,
+        enabledPeriods: [],
+      }),
+    },
+  ])('does not paint MA and does not throw when $label', ({ state }) => {
+    const layer = createLegendLayer(createMAHost())
+    const context = createLegendContext(MA_INSTANCE_ID, state)
 
     expect(() => layer.paint(context)).not.toThrow()
+    expect(countTitleRows('MA')).toBe(0)
   })
 
-  it('should not draw MA period values when state has no valid data', () => {
-    const state = createTestMARenderState({
-      visibleMin: Infinity,
-      visibleMax: -Infinity,
-      enabledPeriods: [],
-    })
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
-
-    layer.paint(createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state)))
-
-    const ma5Calls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('MA5'))
-    expect(ma5Calls).toHaveLength(0)
-  })
-
-  it('should display values with 3 decimal places', () => {
-    const state = createTestMARenderState({
+  it('displays values with 3 decimal places', () => {
+    const state = createMARenderState({
       series: { 5: Array.from({ length: 100 }, () => 123.4567) },
       enabledPeriods: [5],
     })
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
+    const layer = createLegendLayer(createMAHost())
 
-    layer.paint(createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state)))
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state))
 
-    const formattedValueCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('123.457'))
-    expect(formattedValueCalls.length).toBeGreaterThan(0)
+    expect(countFillTexts(ctx, (text) => text.includes('123.457'))).toBeGreaterThan(0)
   })
 
-  it('should save and restore context', () => {
-    const state = createTestMARenderState()
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
+  it('saves and restores context', () => {
+    const layer = createLegendLayer(createMAHost())
 
-    layer.paint(createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state)))
+    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('MainIndicatorLegend MA data source', () => {
-  it('should read from the frame reader instead of calculating', () => {
-    const state = createTestMARenderState({
+describe('MainIndicatorLegend frame state source', () => {
+  it('reads from the frame reader instead of calculating', () => {
+    const state = createMARenderState({
       series: { 5: [undefined, undefined, undefined, undefined, 999.99] },
       enabledPeriods: [5],
     })
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-    )
-
-    const ctx = createMockCanvasContext()
-    const context = createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state), {
+    const layer = createLegendLayer(createMAHost())
+    const context = createLegendContext(MA_INSTANCE_ID, state, {
       crosshairIndex: 4,
       range: { start: 0, end: 5 },
     })
+
     layer.paint(context)
 
     // getTitleInfo 从帧读取器取值，而非重新计算。
     expect(context.indicatorStateReader?.get).toHaveBeenCalledWith(MA_INSTANCE_ID)
-
-    const valueCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('999.99'))
-    expect(valueCalls.length).toBeGreaterThan(0)
+    expect(countFillTexts(ctx, (text) => text.includes('999.99'))).toBeGreaterThan(0)
   })
 })
 
-describe('MainIndicatorLegend with other indicators', () => {
-  it('should draw BOLL when active', () => {
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: 'main:BOLL', definitionId: 'boll' }]),
-    )
+/**
+ * 主图指标标题行用例表：各指标 state 形状与展示名不同，绘制路径相同。
+ * 表驱动避免为每个指标复制同一套宿主、上下文与断言。
+ */
+const MAIN_INDICATOR_CASES: ReadonlyArray<{
+  instanceId: string
+  definitionId: string
+  title: string
+  /** 各指标 getTitleInfo 消费的专属 state 形状。 */
+  state: unknown
+}> = [
+  {
+    instanceId: 'main:BOLL',
+    definitionId: 'boll',
+    title: 'BOLL',
+    state: {
+      timestamp: 1,
+      series: [{ upper: 120, middle: 100, lower: 80 }],
+      params: { period: 20, multiplier: 2 },
+      visibleMin: 80,
+      visibleMax: 120,
+    },
+  },
+  {
+    instanceId: 'main:EXPMA',
+    definitionId: 'expma',
+    title: 'EXPMA',
+    state: {
+      timestamp: 1,
+      series: [{ fast: 10, slow: 8 }],
+      params: { fastPeriod: 12, slowPeriod: 50 },
+      visibleMin: 8,
+      visibleMax: 10,
+    },
+  },
+  {
+    instanceId: 'main:ENE',
+    definitionId: 'ene',
+    title: 'ENE',
+    state: {
+      timestamp: 1,
+      series: [{ upper: 20, middle: 15, lower: 10 }],
+      params: { period: 10, deviation: 11 },
+      visibleMin: 10,
+      visibleMax: 20,
+    },
+  },
+  {
+    instanceId: 'main:WMA',
+    definitionId: 'wma',
+    title: 'WMA',
+    state: { timestamp: 1, series: [123], params: { period: 10 } },
+  },
+]
 
-    const ctx = createMockCanvasContext()
-    layer.paint(
-      createLegendContext(
-        ctx,
-        createMockStateReader('main:BOLL', {
-          timestamp: 1,
-          series: [{ upper: 120, middle: 100, lower: 80 }],
-          params: { period: 20, multiplier: 2 },
-          visibleMin: 80,
-          visibleMax: 120,
-        }),
-        { crosshairIndex: 0 },
-      ),
-    )
+describe('MainIndicatorLegend indicator rows', () => {
+  it.each(MAIN_INDICATOR_CASES)(
+    'paints the $title title row when active',
+    ({ instanceId, definitionId, title, state }) => {
+      const layer = createLegendLayer(createLegendHost([{ instanceId, definitionId }]))
 
-    const bollLabelCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('BOLL'))
-    expect(bollLabelCalls.length).toBeGreaterThan(0)
-  })
+      layer.paint(createLegendContext(instanceId, state, { crosshairIndex: 0 }))
 
-  it('should draw EXPMA when active', () => {
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: 'main:EXPMA', definitionId: 'expma' }]),
-    )
-
-    const ctx = createMockCanvasContext()
-    layer.paint(
-      createLegendContext(
-        ctx,
-        createMockStateReader('main:EXPMA', {
-          timestamp: 1,
-          series: [{ fast: 10, slow: 8 }],
-          params: { fastPeriod: 12, slowPeriod: 50 },
-          visibleMin: 8,
-          visibleMax: 10,
-        }),
-        { crosshairIndex: 0 },
-      ),
-    )
-
-    const expmaLabelCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('EXPMA'))
-    expect(expmaLabelCalls.length).toBeGreaterThan(0)
-  })
-
-  it('should draw ENE when active', () => {
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: 'main:ENE', definitionId: 'ene' }]),
-    )
-
-    const ctx = createMockCanvasContext()
-    layer.paint(
-      createLegendContext(
-        ctx,
-        createMockStateReader('main:ENE', {
-          timestamp: 1,
-          series: [{ upper: 20, middle: 15, lower: 10 }],
-          params: { period: 10, deviation: 11 },
-          visibleMin: 10,
-          visibleMax: 20,
-        }),
-        { crosshairIndex: 0 },
-      ),
-    )
-
-    const eneLabelCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('ENE'))
-    expect(eneLabelCalls.length).toBeGreaterThan(0)
-  })
-
-  it('should draw any registered main indicator when active (WMA example)', () => {
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: 'main:WMA', definitionId: 'wma' }]),
-    )
-
-    const ctx = createMockCanvasContext()
-    layer.paint(
-      createLegendContext(
-        ctx,
-        createMockStateReader('main:WMA', {
-          timestamp: 1,
-          series: [123],
-          params: { period: 10 },
-        }),
-        { crosshairIndex: 0 },
-      ),
-    )
-
-    const wmaLabelCalls = vi
-      .mocked(ctx.fillText)
-      .mock.calls.filter((call) => String(call[0]).includes('WMA'))
-    expect(wmaLabelCalls.length).toBeGreaterThan(0)
-  })
+      expect(countTitleRows(title)).toBeGreaterThan(0)
+    },
+  )
 })
 
 describe('MainIndicatorLegend external mode & context callback', () => {
   it('publishes legend context via onContext while still painting in canvas mode', () => {
     const onContext = vi.fn()
-    const state = createTestMARenderState()
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-      { yPaddingPx: 20, onContext },
-    )
+    const layer = createLegendLayer(createMAHost(), { yPaddingPx: 20, onContext })
 
-    const ctx = createMockCanvasContext()
     layer.paint(
-      createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state), {
+      createLegendContext(MA_INSTANCE_ID, createMARenderState(), {
         crosshairIndex: 50,
       }),
     )
@@ -393,27 +330,26 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(legend.hasCrosshair).toBe(true)
     expect(legend.currentBar).not.toBeNull()
     expect(legend.indicators.some((row: { name: string }) => row.name === 'MA')).toBe(true)
-    expect(vi.mocked(ctx.fillText).mock.calls.length).toBeGreaterThan(0)
+    expect(ctx.fillText).toHaveBeenCalled()
   })
 
   it('does not paint canvas text when renderMode is external but still publishes context', () => {
     const onContext = vi.fn()
-    const state = createTestMARenderState()
-    const layer = createLegendLayer(
-      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'ma' }]),
-      { yPaddingPx: 20, onContext, renderMode: 'external' },
-    )
+    const layer = createLegendLayer(createMAHost(), {
+      yPaddingPx: 20,
+      onContext,
+      renderMode: 'external',
+    })
 
-    const ctx = createMockCanvasContext()
     layer.paint(
-      createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID, state), {
+      createLegendContext(MA_INSTANCE_ID, createMARenderState(), {
         crosshairIndex: 10,
       }),
     )
 
     expect(onContext).toHaveBeenCalledTimes(1)
     expect(onContext.mock.calls[0]![0]).not.toBeNull()
-    expect(vi.mocked(ctx.fillText)).not.toHaveBeenCalled()
+    expect(ctx.fillText).not.toHaveBeenCalled()
   })
 
   it('retains custom KLineData fields in the currentBar slot context', () => {
@@ -423,15 +359,14 @@ describe('MainIndicatorLegend external mode & context callback', () => {
       onContext,
       renderMode: 'external',
     })
-
-    const ctx = createMockCanvasContext()
-    const context = createLegendContext(ctx, createMockStateReader(MA_INSTANCE_ID), {
+    const context = createLegendContext(MA_INSTANCE_ID, undefined, {
       crosshairIndex: 10,
     })
     Object.assign((context.data as KLineData[])[10]!, {
       turnoverRate: 3.14,
       customLabel: 'featured',
     })
+
     layer.paint(context)
 
     const legend = onContext.mock.calls[0]![0]

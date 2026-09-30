@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EXPMARenderState } from '@/core/indicators/state/expmaState'
 import {
+  createContextWithInstanceState,
   createMockCanvasContext,
-  createMockRenderContext,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import type { RenderContext } from '@/plugin'
 import { createEXPMALayer } from '../Indicator/expma'
 
 /** 固定实例身份：renderer 只按 instanceId 寻址，不再依赖指标类型 state key。 */
@@ -34,21 +33,6 @@ function createTestEXPMALayer() {
   return createEXPMALayer({ instanceId: EXPMA_INSTANCE_ID })
 }
 
-/** 构造携带实例投影的帧上下文。 */
-function createContextWithState(
-  ctx: CanvasRenderingContext2D,
-  state?: EXPMARenderState,
-  overrides: Partial<RenderContext> = {},
-): RenderContext {
-  return createMockRenderContext({
-    ctx,
-    indicatorStateReader: {
-      get: <T>(key: string) => (key === EXPMA_INSTANCE_ID ? (state as T) : undefined),
-    },
-    ...overrides,
-  })
-}
-
 describe('createEXPMALayer', () => {
   it('should expose the expma layer identity', () => {
     const layer = createTestEXPMALayer()
@@ -68,7 +52,7 @@ describe('EXPMA layer paint', () => {
   })
 
   it('should not draw when the instance projection is missing', () => {
-    createTestEXPMALayer().paint(createContextWithState(ctx, undefined))
+    createTestEXPMALayer().paint(createContextWithInstanceState(ctx, EXPMA_INSTANCE_ID, undefined))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
@@ -77,14 +61,16 @@ describe('EXPMA layer paint', () => {
   it('should not draw when state has no valid data', () => {
     const state = createTestEXPMARenderState({ visibleMin: Infinity, visibleMax: -Infinity })
 
-    createTestEXPMALayer().paint(createContextWithState(ctx, state))
+    createTestEXPMALayer().paint(createContextWithInstanceState(ctx, EXPMA_INSTANCE_ID, state))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
   })
 
   it('should save and restore context', () => {
-    createTestEXPMALayer().paint(createContextWithState(ctx, createTestEXPMARenderState()))
+    createTestEXPMALayer().paint(
+      createContextWithInstanceState(ctx, EXPMA_INSTANCE_ID, createTestEXPMARenderState()),
+    )
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
@@ -95,7 +81,9 @@ describe('EXPMA layer paint', () => {
     const reader = createMockStateReader(EXPMA_INSTANCE_ID, state)
 
     createTestEXPMALayer().paint(
-      createContextWithState(ctx, state, { indicatorStateReader: reader }),
+      createContextWithInstanceState(ctx, EXPMA_INSTANCE_ID, state, {
+        indicatorStateReader: reader,
+      }),
     )
 
     expect(ctx.stroke).toHaveBeenCalled()
@@ -104,7 +92,9 @@ describe('EXPMA layer paint', () => {
   })
 
   it('should use correct line styles', () => {
-    createTestEXPMALayer().paint(createContextWithState(ctx, createTestEXPMARenderState()))
+    createTestEXPMALayer().paint(
+      createContextWithInstanceState(ctx, EXPMA_INSTANCE_ID, createTestEXPMARenderState()),
+    )
 
     expect(ctx.lineWidth).toBe(1)
     expect(ctx.lineJoin).toBe('round')
@@ -117,7 +107,9 @@ describe('EXPMA layer paint', () => {
     })
 
     createTestEXPMALayer().paint(
-      createContextWithState(ctx, state, { range: { start: 0, end: 10 } }),
+      createContextWithInstanceState(ctx, EXPMA_INSTANCE_ID, state, {
+        range: { start: 0, end: 10 },
+      }),
     )
 
     expect(ctx.beginPath).toHaveBeenCalled()

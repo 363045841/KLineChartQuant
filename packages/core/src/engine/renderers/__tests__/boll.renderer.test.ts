@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BOLLRenderState } from '@/core/indicators/state/bollState'
 import {
+  createContextWithInstanceState,
   createMockCanvasContext,
-  createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import type { RenderContext } from '@/plugin'
 import { createBOLLLayer } from '../Indicator/boll'
 
 if (typeof globalThis.Path2D === 'undefined') {
@@ -47,21 +46,6 @@ function createTestBOLLLayer() {
   })
 }
 
-/** 构造携带实例投影的帧上下文。 */
-function createContextWithState(
-  ctx: CanvasRenderingContext2D,
-  state?: BOLLRenderState,
-  overrides: Partial<RenderContext> = {},
-): RenderContext {
-  return createMockRenderContext({
-    ctx,
-    indicatorStateReader: {
-      get: <T>(key: string) => (key === BOLL_INSTANCE_ID ? (state as T) : undefined),
-    },
-    ...overrides,
-  })
-}
-
 describe('createBOLLLayer', () => {
   it('should expose the boll layer identity', () => {
     const layer = createTestBOLLLayer()
@@ -81,7 +65,7 @@ describe('BOLL layer paint', () => {
   })
 
   it('should not draw when the instance projection is missing', () => {
-    createTestBOLLLayer().paint(createContextWithState(ctx, undefined))
+    createTestBOLLLayer().paint(createContextWithInstanceState(ctx, BOLL_INSTANCE_ID, undefined))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
@@ -93,7 +77,7 @@ describe('BOLL layer paint', () => {
       visibleMax: -Infinity,
     })
 
-    createTestBOLLLayer().paint(createContextWithState(ctx, state))
+    createTestBOLLLayer().paint(createContextWithInstanceState(ctx, BOLL_INSTANCE_ID, state))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
@@ -102,7 +86,7 @@ describe('BOLL layer paint', () => {
   it('should save and restore context', () => {
     const state = createTestBOLLState()
 
-    createTestBOLLLayer().paint(createContextWithState(ctx, state))
+    createTestBOLLLayer().paint(createContextWithInstanceState(ctx, BOLL_INSTANCE_ID, state))
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
@@ -113,7 +97,7 @@ describe('BOLL layer paint', () => {
       params: { ...createTestBOLLState().params, showUpper: true },
     })
 
-    createTestBOLLLayer().paint(createContextWithState(ctx, state))
+    createTestBOLLLayer().paint(createContextWithInstanceState(ctx, BOLL_INSTANCE_ID, state))
 
     expect(ctx.stroke).toHaveBeenCalled()
   })
@@ -125,7 +109,9 @@ describe('BOLL layer paint', () => {
       ),
     })
 
-    const context = createContextWithState(ctx, state, { range: { start: 0, end: 25 } })
+    const context = createContextWithInstanceState(ctx, BOLL_INSTANCE_ID, state, {
+      range: { start: 0, end: 25 },
+    })
 
     expect(() => createTestBOLLLayer().paint(context)).not.toThrow()
   })
@@ -134,7 +120,9 @@ describe('BOLL layer paint', () => {
     const state = createTestBOLLState({ params: { ...createTestBOLLState().params, period: 50 } })
 
     createTestBOLLLayer().paint(
-      createContextWithState(ctx, state, { range: { start: 0, end: 20 } }),
+      createContextWithInstanceState(ctx, BOLL_INSTANCE_ID, state, {
+        range: { start: 0, end: 20 },
+      }),
     )
 
     expect(ctx.stroke).not.toHaveBeenCalled()

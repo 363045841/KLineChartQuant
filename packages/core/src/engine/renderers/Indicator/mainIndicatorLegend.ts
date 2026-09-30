@@ -42,6 +42,8 @@ export type MainIndicatorLegendOptions = {
   onContext?: (ctx: LegendTemplateContext | null) => void
   /** 读取当前数据视图允许显示的指标 ID；缺省显示全部。 */
   getVisibleIndicatorIds?: () => ReadonlyArray<string>
+  /** 每帧读取 options 状态中的 Canvas 图例配置。 */
+  getLegendOptions?: () => CanvasLegendOptions | undefined
   /** 是否绘制 Canvas 图例，默认 true。 */
   visible?: boolean
   /** 图例渲染模式，默认 canvas；external 仅发布上下文。 */
@@ -62,8 +64,6 @@ export function createMainIndicatorLegendLayer(
   const renderMode = options.renderMode ?? 'canvas'
   const onContext = options.onContext
   const readVisibleIndicatorIds = options.getVisibleIndicatorIds
-  const getVisibleIndicatorIdSet = (): ReadonlySet<string> | null =>
-    readVisibleIndicatorIds ? new Set(readVisibleIndicatorIds()) : null
 
   return createIndicatorRendererLayer({
     name: 'mainIndicatorLegend',
@@ -71,15 +71,22 @@ export function createMainIndicatorLegendLayer(
     role: 'overlay',
     z: RENDERER_PRIORITY.FOREGROUND,
     draw(context) {
+      const config = options.getLegendOptions?.()
+      const viewIds = readVisibleIndicatorIds?.()
+      const configuredIds = config?.visibleIndicatorIds
+      // 用户筛选与当前视图的指标集合取交集，避免显示其他视图的指标。
+      const visibleIds = configuredIds
+        ? configuredIds.filter((id) => !viewIds || viewIds.includes(id))
+        : viewIds
       const legend = buildLegendTemplateContext({
         context,
         host: getPluginHost(),
         yPaddingPx: options.yPaddingPx,
-        visibleIndicatorIds: getVisibleIndicatorIdSet(),
+        visibleIndicatorIds: visibleIds ? new Set(visibleIds) : null,
       })
       onContext?.(legend)
 
-      if (!visible || renderMode === 'external') return
+      if (!(config?.visible ?? visible) || renderMode === 'external') return
       if (!legend || !context.overlayCtx) return
 
       paintLegendOnCanvas(context.overlayCtx, legend)

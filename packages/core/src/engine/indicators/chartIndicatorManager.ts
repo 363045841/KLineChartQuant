@@ -838,6 +838,7 @@ export class ChartIndicatorManager {
           {
             yPaddingPx: this.deps.getOption().yPaddingPx,
             getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
+            getLegendOptions: () => this.deps.getOption().legend,
           },
           this.deps.getPluginHost,
         ),

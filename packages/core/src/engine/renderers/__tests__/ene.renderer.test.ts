@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ENERenderState } from '@/core/indicators/state/eneState'
 import {
+  createContextWithInstanceState,
   createMockCanvasContext,
-  createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { resolveThemeColors } from '@/foundation/tokens'
-import type { RenderContext } from '@/plugin'
 import { createENELayer } from '../Indicator/ene'
 
 /** 固定实例身份：renderer 只按 instanceId 寻址，不再依赖指标类型 state key。 */
@@ -33,21 +32,6 @@ function createTestENELayer() {
   return createENELayer({ instanceId: ENE_INSTANCE_ID })
 }
 
-/** 构造携带实例投影的帧上下文。 */
-function createContextWithState(
-  ctx: CanvasRenderingContext2D,
-  state?: ENERenderState,
-  overrides: Partial<RenderContext> = {},
-): RenderContext {
-  return createMockRenderContext({
-    ctx,
-    indicatorStateReader: {
-      get: <T>(key: string) => (key === ENE_INSTANCE_ID ? (state as T) : undefined),
-    },
-    ...overrides,
-  })
-}
-
 describe('createENELayer', () => {
   it('should expose the ene layer identity', () => {
     const layer = createTestENELayer()
@@ -67,7 +51,7 @@ describe('ENE layer paint', () => {
   })
 
   it('should not draw when the instance projection is missing', () => {
-    createTestENELayer().paint(createContextWithState(ctx, undefined))
+    createTestENELayer().paint(createContextWithInstanceState(ctx, ENE_INSTANCE_ID, undefined))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
@@ -76,34 +60,42 @@ describe('ENE layer paint', () => {
   it('should not draw when state has no valid data', () => {
     const state = createTestENERenderState({ visibleMin: Infinity, visibleMax: -Infinity })
 
-    createTestENELayer().paint(createContextWithState(ctx, state))
+    createTestENELayer().paint(createContextWithInstanceState(ctx, ENE_INSTANCE_ID, state))
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
   })
 
   it('should save and restore context', () => {
-    createTestENELayer().paint(createContextWithState(ctx, createTestENERenderState()))
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
   })
 
   it('should not draw band fill', () => {
-    createTestENELayer().paint(createContextWithState(ctx, createTestENERenderState()))
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.fill).not.toHaveBeenCalled()
     expect(ctx.closePath).not.toHaveBeenCalled()
   })
 
   it('should draw all three lines (upper, middle, lower)', () => {
-    createTestENELayer().paint(createContextWithState(ctx, createTestENERenderState()))
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.stroke).toHaveBeenCalled()
   })
 
   it('should use correct line styles', () => {
-    createTestENELayer().paint(createContextWithState(ctx, createTestENERenderState()))
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     expect(ctx.lineWidth).toBe(1)
     expect(ctx.lineJoin).toBe('round')
@@ -111,7 +103,9 @@ describe('ENE layer paint', () => {
   })
 
   it('should use theme colors', () => {
-    createTestENELayer().paint(createContextWithState(ctx, createTestENERenderState()))
+    createTestENELayer().paint(
+      createContextWithInstanceState(ctx, ENE_INSTANCE_ID, createTestENERenderState()),
+    )
 
     // 最后绘制下轨，strokeStyle 应取 light 主题的 ene.lower
     expect(ctx.strokeStyle).toBe(resolveThemeColors('light').ene.lower)
@@ -124,7 +118,9 @@ describe('ENE layer paint', () => {
       ),
     })
 
-    const context = createContextWithState(ctx, state, { range: { start: 0, end: 15 } })
+    const context = createContextWithInstanceState(ctx, ENE_INSTANCE_ID, state, {
+      range: { start: 0, end: 15 },
+    })
 
     expect(() => createTestENELayer().paint(context)).not.toThrow()
     expect(ctx.stroke).toHaveBeenCalled()

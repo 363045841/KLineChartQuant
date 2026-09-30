@@ -463,6 +463,7 @@ export class ChartRenderer {
             yPaddingPx: opt.yPaddingPx,
             onContext: this.deps.onLegendContext,
             getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
+            getLegendOptions: () => this.deps.getOption().legend,
           },
           this.deps.getPluginHost,
         ),

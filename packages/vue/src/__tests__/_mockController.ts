@@ -34,6 +34,9 @@ import type { App } from 'vue'
 
 type TestSignal<T> = Signal<T> & { subscriberCount: () => number }
 
+/** `updateOptionsFacade` 接收的 chart options 补丁。 */
+type OptionsFacadePatch = Parameters<ChartController['updateOptionsFacade']>[0]
+
 function createSignal<T>(initial: T): TestSignal<T> {
   let value = initial
   const subs = new Set<() => void>()
@@ -63,8 +66,8 @@ export interface MockChartController extends ChartController {
   disposeCalls: () => number
   /** spy: themes passed to `setTheme` */
   setThemeCalls: () => ReadonlyArray<'light' | 'dark'>
-  /** spy: main legend renderer configuration updates */
-  rendererConfigCalls: () => ReadonlyArray<{ name: string; config: Record<string, unknown> }>
+  /** spy: 主图图例写入 chart options 的补丁 */
+  optionsFacadeCalls: () => ReadonlyArray<OptionsFacadePatch>
   /** 当前 legendTemplateContext Signal 的订阅数量 */
   legendSubscriberCount: () => number
   /** interactionState Signal 的订阅数量 */
@@ -119,7 +122,7 @@ export function createMockChartController(
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const globalDrawingLock = createSignal(false)
   const interactionState = createSignal(createIdleInteractionSnapshot())
-  const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
+  const optionsFacadeCalls: OptionsFacadePatch[] = []
   const alertController: AlertController = {
     rules: createSignal<ReadonlyArray<AlertRule>>([]),
     events: createSignal<ReadonlyArray<AlertEvent>>([]),
@@ -232,8 +235,8 @@ export function createMockChartController(
     addIndicator: () => null,
     removeIndicator: () => false,
     updateIndicatorParams: () => false,
-    updateRendererConfig: (name, config) => {
-      rendererConfigCalls.push({ name, config })
+    updateOptionsFacade: (options) => {
+      optionsFacadeCalls.push(options)
     },
     setDrawingTool: () => {},
     setDrawingToolId: () => {},
@@ -283,7 +286,6 @@ export function createMockChartController(
     getLeftLoadBufferWidth: () => 0,
     scrollToRight: () => {},
     updateSettingsFacade: () => {},
-    updateOptionsFacade: () => {},
     dispose: () => {
       disposeCalls += 1
     },
@@ -298,7 +300,7 @@ export function createMockChartController(
     _setDrawings: (next) => drawings.set(next),
     disposeCalls: () => disposeCalls,
     setThemeCalls: () => setThemeCalls,
-    rendererConfigCalls: () => rendererConfigCalls,
+    optionsFacadeCalls: () => optionsFacadeCalls,
     legendSubscriberCount: () => legendTemplateContext.subscriberCount(),
     interactionSubscriberCount: () => interactionState.subscriberCount(),
     dataSubscriberCount: () => data.subscriberCount(),

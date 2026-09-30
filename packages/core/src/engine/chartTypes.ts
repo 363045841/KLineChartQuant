@@ -48,6 +48,8 @@ export type ChartOptions = {
   initialZoomLevel?: number
   /** 未来区屏数：最后一根 K 线右侧允许的滚动空间（屏宽倍数）；缺省用 DEFAULT_FUTURE_SCREENS */
   futureScreens?: number
+  /** 主图 Canvas 图例配置，由 options 状态统一管理。 */
+  legend?: import('./renderers/Indicator/mainIndicatorLegend.js').CanvasLegendOptions
 }
 
 export type KLinePositions = number[]
