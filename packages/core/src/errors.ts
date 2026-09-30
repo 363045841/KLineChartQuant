@@ -34,73 +34,73 @@
  * controllers.
  */
 export type KLineChartErrorCode =
-    // generic
-    | "INVALID_PARAM"
-    | "INVALID_STATE"
-    | "DISPOSED"
-    | "NOT_REGISTERED"
-    // Agent facade and canonical tool boundary
-    | "INVALID_ARGUMENTS"
-    | "OUT_OF_RANGE"
-    | "NO_DATA"
-    | "INDICATOR_NOT_FOUND"
-    | "DATA_REVISION_CHANGED"
-    // comparison commands (UI 与 Agent 共用的对比写原语)
-    | "COMPARISON_NO_PRIMARY"
-    | "COMPARISON_DUPLICATE"
-    // scale (TimeScale / PriceScale construction + setters)
-    | "SCALE_RANGE_INVALID"
-    | "SCALE_HEIGHT_INVALID"
-    | "SCALE_LOG_REQUIRES_POSITIVE"
-    | "SCALE_BAR_WIDTH_INVALID"
-    // footprint
-    | "FOOTPRINT_TICKSIZE_INVALID"
-    | "FOOTPRINT_BAR_INTERVAL_INVALID"
-    | "FOOTPRINT_RATIO_INVALID"
-    // anchoredVwap
-    | "AVWAP_ANCHOR_OUT_OF_RANGE"
-    // indicators (shared — every indicator validates inputs the same way)
-    | "INDICATOR_INVALID_PARAM"
-    // orderBookHeatmap (controller + logColorScale + state + snapshotRing)
-    | "HEATMAP_CONFIG_INVALID"
-    // mtfOverlay (alignToBaseIndex + resampleBars + createMtfController)
-    | "MTF_CONFIG_INVALID"
-    // alternative chart types (renko / rangeBars / pointAndFigure)
-    | "CHART_TYPE_CONFIG_INVALID"
-    // replay controller
-    | "REPLAY_CONFIG_INVALID"
-    // scene / chart-controller / framework adapter wiring
-    | "CONTROLLER_CONFIG_INVALID"
-    // data-fetcher (gotdx / baostock / tradingview)
-    | "FETCH_FAILED"
-    // 数据源明确不支持请求能力，可由行情流转层处理
-    | "UNSUPPORTED_CAPABILITY"
-    // 数据源明确不存在请求品种，可由行情流转层处理
-    | "INSTRUMENT_NOT_FOUND"
-    // fetch aborted via AbortSignal (cancelation, not a failure)
-    | "FETCH_ABORTED"
-    // depth/SSE source
-    | "DEPTH_SOURCE_ERROR"
-    // serialization
-    | "SCHEMA_VERSION_MISMATCH"
-    | "INVALID_JSON"
-    | "NOT_OBJECT"
-    | "INVALID_TIMESTAMP"
-    | "MISSING_CONTROLLERS"
-    // drawing document
-    | "DRAWING_UNKNOWN_PANE"
-    | "DRAWING_INVALID_ANCHOR_COUNT"
-    | "DRAWING_ANCHOR_NOT_FOUND"
-    | "DRAWING_ANCHOR_DATE_OUT_OF_RANGE"
-    | "DRAWING_ANCHOR_DATE_NOT_TRADING"
-    | "DRAWING_ANCHOR_DATE_UNAVAILABLE"
-    | "DRAWING_INVALID_ANCHOR";
+  // generic
+  | 'INVALID_PARAM'
+  | 'INVALID_STATE'
+  | 'DISPOSED'
+  | 'NOT_REGISTERED'
+  // Agent facade and canonical tool boundary
+  | 'INVALID_ARGUMENTS'
+  | 'OUT_OF_RANGE'
+  | 'NO_DATA'
+  | 'INDICATOR_NOT_FOUND'
+  | 'DATA_REVISION_CHANGED'
+  // comparison commands (UI 与 Agent 共用的对比写原语)
+  | 'COMPARISON_NO_PRIMARY'
+  | 'COMPARISON_DUPLICATE'
+  // scale (TimeScale / PriceScale construction + setters)
+  | 'SCALE_RANGE_INVALID'
+  | 'SCALE_HEIGHT_INVALID'
+  | 'SCALE_LOG_REQUIRES_POSITIVE'
+  | 'SCALE_BAR_WIDTH_INVALID'
+  // footprint
+  | 'FOOTPRINT_TICKSIZE_INVALID'
+  | 'FOOTPRINT_BAR_INTERVAL_INVALID'
+  | 'FOOTPRINT_RATIO_INVALID'
+  // anchoredVwap
+  | 'AVWAP_ANCHOR_OUT_OF_RANGE'
+  // indicators (shared — every indicator validates inputs the same way)
+  | 'INDICATOR_INVALID_PARAM'
+  // orderBookHeatmap (controller + logColorScale + state + snapshotRing)
+  | 'HEATMAP_CONFIG_INVALID'
+  // mtfOverlay (alignToBaseIndex + resampleBars + createMtfController)
+  | 'MTF_CONFIG_INVALID'
+  // alternative chart types (renko / rangeBars / pointAndFigure)
+  | 'CHART_TYPE_CONFIG_INVALID'
+  // replay controller
+  | 'REPLAY_CONFIG_INVALID'
+  // scene / chart-controller / framework adapter wiring
+  | 'CONTROLLER_CONFIG_INVALID'
+  // data-fetcher (gotdx / baostock / tradingview)
+  | 'FETCH_FAILED'
+  // 数据源明确不支持请求能力，可由行情流转层处理
+  | 'UNSUPPORTED_CAPABILITY'
+  // 数据源明确不存在请求品种，可由行情流转层处理
+  | 'INSTRUMENT_NOT_FOUND'
+  // fetch aborted via AbortSignal (cancelation, not a failure)
+  | 'FETCH_ABORTED'
+  // depth/SSE source
+  | 'DEPTH_SOURCE_ERROR'
+  // serialization
+  | 'SCHEMA_VERSION_MISMATCH'
+  | 'INVALID_JSON'
+  | 'NOT_OBJECT'
+  | 'INVALID_TIMESTAMP'
+  | 'MISSING_CONTROLLERS'
+  // drawing document
+  | 'DRAWING_UNKNOWN_PANE'
+  | 'DRAWING_INVALID_ANCHOR_COUNT'
+  | 'DRAWING_ANCHOR_NOT_FOUND'
+  | 'DRAWING_ANCHOR_DATE_OUT_OF_RANGE'
+  | 'DRAWING_ANCHOR_DATE_NOT_TRADING'
+  | 'DRAWING_ANCHOR_DATE_UNAVAILABLE'
+  | 'DRAWING_INVALID_ANCHOR'
 
 export interface KLineChartErrorOptions {
-    /** Lower-level error this wraps (preserved as the standard `.cause`). */
-    cause?: unknown;
-    /** 供上层将领域失败转换为可操作反馈的非敏感上下文。 */
-    details?: Readonly<Record<string, unknown>>;
+  /** Lower-level error this wraps (preserved as the standard `.cause`). */
+  cause?: unknown
+  /** 供上层将领域失败转换为可操作反馈的非敏感上下文。 */
+  details?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -111,41 +111,36 @@ export interface KLineChartErrorOptions {
  * the human-readable explanation.
  */
 export class KLineChartError extends Error {
-    readonly code: KLineChartErrorCode;
-    readonly details?: Readonly<Record<string, unknown>>;
-    // 显式声明下层错误引用，ES2022 标准 Error.cause 的稳定访问入口
-    // declare 仅作类型声明，避免 useDefineForClassFields 把 cause 覆盖为 undefined
-    declare readonly cause?: unknown;
+  readonly code: KLineChartErrorCode
+  readonly details?: Readonly<Record<string, unknown>>
+  // 显式声明下层错误引用，ES2022 标准 Error.cause 的稳定访问入口
+  // declare 仅作类型声明，避免 useDefineForClassFields 把 cause 覆盖为 undefined
+  declare readonly cause?: unknown
 
-    constructor(
-        code: KLineChartErrorCode,
-        message: string,
-        opts?: KLineChartErrorOptions,
-    ) {
-        // Forward `cause` via the ES2022 Error options bag when available.
-        if (opts?.cause !== undefined) {
-            super(message, { cause: opts.cause });
-        } else {
-            super(message);
-        }
-        this.code = code;
-        this.details = opts?.details;
-        // `name` defaults to the constructor name in V8; pinning it makes
-        // serialized errors (e.g. via JSON.stringify) carry the type tag.
-        this.name = "KLineChartError";
-        // Capture stack at the throw site, not inside the constructor.
-        // V8-specific but harmless elsewhere.
-        if (
-            typeof (Error as unknown as { captureStackTrace?: unknown })
-                .captureStackTrace === "function"
-        ) {
-            (
-                Error as unknown as {
-                    captureStackTrace: (e: Error, c: unknown) => void;
-                }
-            ).captureStackTrace(this, KLineChartError);
-        }
+  constructor(code: KLineChartErrorCode, message: string, opts?: KLineChartErrorOptions) {
+    // Forward `cause` via the ES2022 Error options bag when available.
+    if (opts?.cause !== undefined) {
+      super(message, { cause: opts.cause })
+    } else {
+      super(message)
     }
+    this.code = code
+    this.details = opts?.details
+    // `name` defaults to the constructor name in V8; pinning it makes
+    // serialized errors (e.g. via JSON.stringify) carry the type tag.
+    this.name = 'KLineChartError'
+    // Capture stack at the throw site, not inside the constructor.
+    // V8-specific but harmless elsewhere.
+    if (
+      typeof (Error as unknown as { captureStackTrace?: unknown }).captureStackTrace === 'function'
+    ) {
+      ;(
+        Error as unknown as {
+          captureStackTrace: (e: Error, c: unknown) => void
+        }
+      ).captureStackTrace(this, KLineChartError)
+    }
+  }
 }
 
 /**
@@ -157,129 +152,170 @@ export class KLineChartError extends Error {
  *     }
  *   }
  */
-export function isKLineChartError(value: unknown): value is KLineChartError;
+export function isKLineChartError(value: unknown): value is KLineChartError
 export function isKLineChartError<C extends KLineChartErrorCode>(
-    value: unknown,
-    code: C,
-): value is KLineChartError & { code: C };
-export function isKLineChartError(
-    value: unknown,
-    code?: KLineChartErrorCode,
-): boolean {
-    if (!(value instanceof KLineChartError)) return false;
-    return code === undefined || value.code === code;
+  value: unknown,
+  code: C,
+): value is KLineChartError & { code: C }
+export function isKLineChartError(value: unknown, code?: KLineChartErrorCode): boolean {
+  if (!(value instanceof KLineChartError)) return false
+  return code === undefined || value.code === code
 }
 
 // 数据获取错误码具名常量，供协议与流转层引用，避免散落字符串字面量。
 // 用 as const satisfies 而非类型注解，保留字面量类型以支持 error.code 的收窄比较。
 export const ERROR_CODES = {
-    FETCH_FAILED: "FETCH_FAILED",
-    FETCH_ABORTED: "FETCH_ABORTED",
-    UNSUPPORTED_CAPABILITY: "UNSUPPORTED_CAPABILITY",
-    INSTRUMENT_NOT_FOUND: "INSTRUMENT_NOT_FOUND",
-} as const satisfies Readonly<Record<FetchErrorCodeName, KLineChartErrorCode>>;
+  FETCH_FAILED: 'FETCH_FAILED',
+  FETCH_ABORTED: 'FETCH_ABORTED',
+  UNSUPPORTED_CAPABILITY: 'UNSUPPORTED_CAPABILITY',
+  INSTRUMENT_NOT_FOUND: 'INSTRUMENT_NOT_FOUND',
+} as const satisfies Readonly<Record<FetchErrorCodeName, KLineChartErrorCode>>
 
 // ERROR_CODES 的键名集合，保证键与值一一对应。
 type FetchErrorCodeName =
-    | "FETCH_FAILED"
-    | "FETCH_ABORTED"
-    | "UNSUPPORTED_CAPABILITY"
-    | "INSTRUMENT_NOT_FOUND";
+  | 'FETCH_FAILED'
+  | 'FETCH_ABORTED'
+  | 'UNSUPPORTED_CAPABILITY'
+  | 'INSTRUMENT_NOT_FOUND'
 
 // 通用错误码具名常量：生命周期与入参类错误，供各模块统一引用，避免散落字符串字面量。
 export const GENERIC_ERROR_CODES = {
-    INVALID_PARAM: "INVALID_PARAM",
-    INVALID_STATE: "INVALID_STATE",
-    DISPOSED: "DISPOSED",
-    NOT_REGISTERED: "NOT_REGISTERED",
-} as const satisfies Readonly<
-    Record<GenericErrorCodeName, KLineChartErrorCode>
->;
+  INVALID_PARAM: 'INVALID_PARAM',
+  INVALID_STATE: 'INVALID_STATE',
+  DISPOSED: 'DISPOSED',
+  NOT_REGISTERED: 'NOT_REGISTERED',
+} as const satisfies Readonly<Record<GenericErrorCodeName, KLineChartErrorCode>>
 
 // GENERIC_ERROR_CODES 的键名集合，保证键与值一一对应。
-type GenericErrorCodeName =
-    "INVALID_PARAM" | "INVALID_STATE" | "DISPOSED" | "NOT_REGISTERED";
+type GenericErrorCodeName = 'INVALID_PARAM' | 'INVALID_STATE' | 'DISPOSED' | 'NOT_REGISTERED'
 
 // 对比写原语错误码，供 Agent 工具层返回可据以自纠正的失败原因。
 export const COMPARISON_ERROR_CODES = Object.freeze({
-    NO_PRIMARY: "COMPARISON_NO_PRIMARY",
-    DUPLICATE: "COMPARISON_DUPLICATE",
-    INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
-} as const satisfies Readonly<Record<string, KLineChartErrorCode>>);
+  NO_PRIMARY: 'COMPARISON_NO_PRIMARY',
+  DUPLICATE: 'COMPARISON_DUPLICATE',
+  INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // 副图/渲染器投影错误码具名常量，供引擎层引用，避免散落字符串字面量。
-export const SUBPANE_ERROR_CODES: Readonly<
-    Record<SubPaneErrorCodeName, KLineChartErrorCode>
-> = {
-    UNKNOWN_INDICATOR: GENERIC_ERROR_CODES.NOT_REGISTERED,
-    MISSING_RENDERER_METADATA: GENERIC_ERROR_CODES.INVALID_PARAM,
-};
+export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineChartErrorCode>> = {
+  UNKNOWN_INDICATOR: GENERIC_ERROR_CODES.NOT_REGISTERED,
+  MISSING_RENDERER_METADATA: GENERIC_ERROR_CODES.INVALID_PARAM,
+}
 
 // SUBPANE_ERROR_CODES 的键名集合，保证键与值一一对应。
-type SubPaneErrorCodeName = "UNKNOWN_INDICATOR" | "MISSING_RENDERER_METADATA";
+type SubPaneErrorCodeName = 'UNKNOWN_INDICATOR' | 'MISSING_RENDERER_METADATA'
 
 /** Agent facade errors. Values are append-only public protocol identifiers. */
 export const CHART_AGENT_ERROR_CODES = Object.freeze({
-    INVALID_QUERY: "INVALID_ARGUMENTS",
-    OUT_OF_RANGE: "OUT_OF_RANGE",
-    NO_DATA: "NO_DATA",
-    INDICATOR_NOT_FOUND: "INDICATOR_NOT_FOUND",
-    DATA_REVISION_CHANGED: "DATA_REVISION_CHANGED",
-} as const satisfies Readonly<Record<string, KLineChartErrorCode>>);
+  INVALID_QUERY: 'INVALID_ARGUMENTS',
+  OUT_OF_RANGE: 'OUT_OF_RANGE',
+  NO_DATA: 'NO_DATA',
+  INDICATOR_NOT_FOUND: 'INDICATOR_NOT_FOUND',
+  DATA_REVISION_CHANGED: 'DATA_REVISION_CHANGED',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // 绘图文档错误码，供交互层和 Agent 工具层识别可修正的输入失败。
 export const DRAWING_ERROR_CODES = Object.freeze({
-    UNKNOWN_PANE: "DRAWING_UNKNOWN_PANE",
-    INVALID_ANCHOR_COUNT: "DRAWING_INVALID_ANCHOR_COUNT",
-    ANCHOR_NOT_FOUND: "DRAWING_ANCHOR_NOT_FOUND",
-    ANCHOR_DATE_OUT_OF_RANGE: "DRAWING_ANCHOR_DATE_OUT_OF_RANGE",
-    ANCHOR_DATE_NOT_TRADING: "DRAWING_ANCHOR_DATE_NOT_TRADING",
-    ANCHOR_DATE_UNAVAILABLE: "DRAWING_ANCHOR_DATE_UNAVAILABLE",
-    INVALID_ANCHOR: "DRAWING_INVALID_ANCHOR",
-} as const satisfies Readonly<Record<string, KLineChartErrorCode>>);
+  UNKNOWN_PANE: 'DRAWING_UNKNOWN_PANE',
+  INVALID_ANCHOR_COUNT: 'DRAWING_INVALID_ANCHOR_COUNT',
+  ANCHOR_NOT_FOUND: 'DRAWING_ANCHOR_NOT_FOUND',
+  ANCHOR_DATE_OUT_OF_RANGE: 'DRAWING_ANCHOR_DATE_OUT_OF_RANGE',
+  ANCHOR_DATE_NOT_TRADING: 'DRAWING_ANCHOR_DATE_NOT_TRADING',
+  ANCHOR_DATE_UNAVAILABLE: 'DRAWING_ANCHOR_DATE_UNAVAILABLE',
+  INVALID_ANCHOR: 'DRAWING_INVALID_ANCHOR',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // Agent 指标查询错误码具名常量，供查询层引用，避免散落字符串字面量。
 export const INDICATOR_QUERY_ERROR_CODES: Readonly<
-    Record<IndicatorQueryErrorCodeName, KLineChartErrorCode>
+  Record<IndicatorQueryErrorCodeName, KLineChartErrorCode>
 > = {
-    INVALID_QUERY: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-    RANGE_EMPTY: CHART_AGENT_ERROR_CODES.OUT_OF_RANGE,
-    INDICATOR_NOT_REGISTERED: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
-    UNSUPPORTED_OUTPUT: "UNSUPPORTED_CAPABILITY",
-    MARKET_DATA_UNAVAILABLE: CHART_AGENT_ERROR_CODES.NO_DATA,
-    RESULT_COMMIT_FAILED: CHART_AGENT_ERROR_CODES.DATA_REVISION_CHANGED,
-};
+  INVALID_QUERY: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+  RANGE_EMPTY: CHART_AGENT_ERROR_CODES.OUT_OF_RANGE,
+  INDICATOR_NOT_REGISTERED: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
+  UNSUPPORTED_OUTPUT: 'UNSUPPORTED_CAPABILITY',
+  MARKET_DATA_UNAVAILABLE: CHART_AGENT_ERROR_CODES.NO_DATA,
+  RESULT_COMMIT_FAILED: CHART_AGENT_ERROR_CODES.DATA_REVISION_CHANGED,
+}
 
 // Agent 指标查询错误码的业务名称集合。
 type IndicatorQueryErrorCodeName =
-    | "INVALID_QUERY"
-    | "RANGE_EMPTY"
-    | "INDICATOR_NOT_REGISTERED"
-    | "UNSUPPORTED_OUTPUT"
-    | "MARKET_DATA_UNAVAILABLE"
-    | "RESULT_COMMIT_FAILED";
+  | 'INVALID_QUERY'
+  | 'RANGE_EMPTY'
+  | 'INDICATOR_NOT_REGISTERED'
+  | 'UNSUPPORTED_OUTPUT'
+  | 'MARKET_DATA_UNAVAILABLE'
+  | 'RESULT_COMMIT_FAILED'
 
 /** 便捷构造器：按错误码抛出统一错误。 */
 export function createMarketDataError(
-    code: KLineChartErrorCode,
-    message: string,
-    opts?: KLineChartErrorOptions,
+  code: KLineChartErrorCode,
+  message: string,
+  opts?: KLineChartErrorOptions,
 ): KLineChartError {
-    return new KLineChartError(code, message, opts);
+  return new KLineChartError(code, message, opts)
 }
 
 /** 便捷构造器：品种缺失交易时段。 */
-export function createMissingSessionError(
-    sourceId: string,
-    instrumentId: string,
-): KLineChartError {
-    return createMarketDataError(
-        ERROR_CODES.UNSUPPORTED_CAPABILITY,
-        `[${sourceId}] sessionId is required for instrument ${instrumentId}`,
-    );
+export function createMissingSessionError(sourceId: string, instrumentId: string): KLineChartError {
+  return createMarketDataError(
+    ERROR_CODES.UNSUPPORTED_CAPABILITY,
+    `[${sourceId}] sessionId is required for instrument ${instrumentId}`,
+  )
 }
 
 /** Controller 挂载配置错误码；追加定义以保持现有错误码表稳定。 */
 export const CONTROLLER_ERROR_CODES = Object.freeze({
-    CONFIG_INVALID: "CONTROLLER_CONFIG_INVALID",
-} as const satisfies Readonly<Record<string, KLineChartErrorCode>>);
+  CONFIG_INVALID: 'CONTROLLER_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
+
+// ── 领域族错误码具名常量 ──
+
+// scale（TimeScale / PriceScale 构造与 setter）；供 scale/ 引用。
+export const SCALE_ERROR_CODES = {
+  RANGE_INVALID: 'SCALE_RANGE_INVALID',
+  HEIGHT_INVALID: 'SCALE_HEIGHT_INVALID',
+  LOG_REQUIRES_POSITIVE: 'SCALE_LOG_REQUIRES_POSITIVE',
+  BAR_WIDTH_INVALID: 'SCALE_BAR_WIDTH_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// footprint（成交分布）；供 footprint 控制器引用。
+export const FOOTPRINT_ERROR_CODES = {
+  TICKSIZE_INVALID: 'FOOTPRINT_TICKSIZE_INVALID',
+  BAR_INTERVAL_INVALID: 'FOOTPRINT_BAR_INTERVAL_INVALID',
+  RATIO_INVALID: 'FOOTPRINT_RATIO_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// anchoredVwap（锚定 VWAP）；供 anchoredVwap 引用。
+export const AVWAP_ERROR_CODES = {
+  ANCHOR_OUT_OF_RANGE: 'AVWAP_ANCHOR_OUT_OF_RANGE',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// indicators（各指标共享的入参校验失败）；供 features/indicators 引用。
+export const INDICATOR_ERROR_CODES = {
+  INVALID_PARAM: 'INDICATOR_INVALID_PARAM',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// orderBookHeatmap（盘口热力图）；供 orderBookHeatmap 引用。
+export const HEATMAP_ERROR_CODES = {
+  CONFIG_INVALID: 'HEATMAP_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// mtfOverlay（多周期叠加）；供 mtfOverlay 引用。
+export const MTF_ERROR_CODES = {
+  CONFIG_INVALID: 'MTF_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// alternative chart types（renko / rangeBars / pointAndFigure）；供 features/chartTypes 引用。
+export const CHART_TYPE_ERROR_CODES = {
+  CONFIG_INVALID: 'CHART_TYPE_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// replay controller（回放）；供 features/replay 引用。
+export const REPLAY_ERROR_CODES = {
+  CONFIG_INVALID: 'REPLAY_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// depth/SSE source（深度源）；供 data/depth 引用。
+export const DEPTH_ERROR_CODES = {
+  SOURCE_ERROR: 'DEPTH_SOURCE_ERROR',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
