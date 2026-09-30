@@ -220,6 +220,11 @@ export interface ChartAgentControllerDependencies {
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
   /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
   readonly comparisonCommands: ComparisonCommands
+  /**
+   * 额外的 Agent 工具宿主（@Tool 标注方法所在对象）；由宿主经
+   * ChartController.registerToolHost 动态注册，缺省无。
+   */
+  readonly extraToolHosts?: () => ReadonlyArray<object>
   /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
   readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean

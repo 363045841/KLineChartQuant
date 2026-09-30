@@ -84,6 +84,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       fetch: fetchBrowserProvider,
       getWebSearchApiKey: () => this.webSearchApiKey(),
       requestQuestion: (request, context) => this.requestQuestion(request, context),
+      extraChartTools: options.extraChartTools,
     })
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
@@ -219,6 +220,16 @@ export class BrowserAgentBridge implements AgentBridgeClient {
    * @param context 提问所属运行、工具调用与取消信号。
    * @returns 用户答复；signal 中止时以 ABORTED 拒绝。
    */
+  /**
+   * 后补注册外部图表工具：外部插件晚于 bridge 加载时，宿主收集到
+   * RegisteredChartTool 登记后调用，工具即进入后续会话的可用目录。
+   */
+  registerExternalChartTools(
+    tools: ReadonlyArray<import('@363045841yyt/klinechart-core/controllers').RegisteredChartTool>,
+  ): void {
+    this.tools.registerChartTools(tools)
+  }
+
   private requestQuestion(
     request: AskUserRequest,
     context: { runId: string; toolCallId: string; signal: AbortSignal },
