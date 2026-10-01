@@ -139,7 +139,7 @@ export interface IndicatorStateContracts
 
 /**
  * 通过 @Indicator 注册但不参与结果/状态派生的附属渲染器（数据视图 / 叠加层 / 成交量）。
- * 仅登记内部 name，使 @Indicator 的注册名受编译期约束。
+ * 登记内置附属渲染器名称，不限制第三方定义的注册名称。
  */
 export interface AuxiliaryIndicatorContracts {
   volume: unknown
@@ -153,8 +153,11 @@ export interface AuxiliaryIndicatorContracts {
 /** 参与结果/状态派生的指标内部 name。 */
 export type IndicatorStateName = keyof IndicatorStateContracts
 
-/** 可通过 @Indicator 注册的全部内部 name。 */
-export type IndicatorName = IndicatorStateName | keyof AuxiliaryIndicatorContracts
+/** 内置指标与附属渲染器名称。 */
+export type BuiltinIndicatorName = IndicatorStateName | keyof AuxiliaryIndicatorContracts
+
+/** 注册名允许第三方扩展；状态契约仍由 IndicatorStateName 约束。 */
+export type IndicatorName = BuiltinIndicatorName | (string & {})
 
 /**
  * 指标渲染条目形状：由渲染状态派生计算结果实际携带的字段。

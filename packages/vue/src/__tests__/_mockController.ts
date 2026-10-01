@@ -295,7 +295,7 @@ export function createMockChartController(
     resetMainPriceAxis: () => {
       resetPriceAxisCalls += 1
     },
-    dispose: () => {
+    dispose: async () => {
       disposeCalls += 1
     },
   }

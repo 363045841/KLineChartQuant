@@ -269,6 +269,8 @@ export class ChartRenderer {
   private measuredVisiblePriceMagnitudeOrder: number | null = null
   /** 上一帧已提交的主层与交互层内容输入。 */
   private paintedMainVersion: readonly unknown[] | null = null
+  private disposed = false
+  private schedulingStopped = false
   private paintedOverlayVersion: readonly unknown[] | null = null
   /** 正式绘图层的输入版本；会话坐标变化仅刷新动态覆盖层。 */
   private paintedDrawingVersion: readonly unknown[] | null = null
@@ -584,6 +586,7 @@ export class ChartRenderer {
    * @param level - Main 只画主层，Overlay 只画覆盖层（crosshair 等），All 全画
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
+    if (this.schedulingStopped) return
     // 已经有待执行的下一帧，只合并 level，不重复 scheduleFlush
     if (this.raf !== null) {
       this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
@@ -594,6 +597,13 @@ export class ChartRenderer {
     this.frameTx.writeInput({ level })
     // 提交帧，下次 rAF 上屏
     this.frameTx.scheduleFlush()
+  }
+
+  /** 外部 Layer 私有数据变化时使帧缓存失效，下一帧仍由 RAF 合并。 */
+  invalidateFrame(): void {
+    if (this.schedulingStopped) return
+    this.paintedMainVersion = null
+    this.paintedOverlayVersion = null
   }
 
   /**
@@ -1472,12 +1482,21 @@ export class ChartRenderer {
     this.paintedOverlayVersion = null
   }
 
-  destroy(): void {
+  /** 停止申请和提交新帧，保留 Scene 供异步插件卸载访问。 */
+  stopScheduling(): void {
+    if (this.schedulingStopped) return
+    this.schedulingStopped = true
     this.clearLastPriceCountdownTimer()
     if (this.raf !== null) {
       cancelAnimationFrame(this.raf)
       this.raf = null
     }
+  }
+
+  destroy(): void {
+    if (this.disposed) return
+    this.disposed = true
+    this.stopScheduling()
     this.cachedDrawFrame = null
     this.xAxisCtx = null
     this.scene.dispose()

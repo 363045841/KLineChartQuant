@@ -14,6 +14,7 @@ import {
   ResizeObserverMock,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId'
 import { ScaleType } from '../../foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
@@ -856,7 +857,7 @@ describe('Chart DPR pipeline', () => {
       indicatorId: 'RSI',
     })
     expect(rsiRendererName).toBeDefined()
-    expect(chart.getRenderer(rsiRendererName!)).toBeDefined()
+    expect(chart.getRenderer(makePluginLayerId(rsiRendererName!))).toBeDefined()
     await chart.destroy()
   })
 
@@ -864,9 +865,9 @@ describe('Chart DPR pipeline', () => {
     const chart = mountChart()
     const scene = chart['renderer'].getScene()
     for (const name of ['lastPriceLine', 'lastPriceLabelRegistrar']) {
-      expect(chart.getRenderer(name)).toBeDefined()
+      expect(chart.getRenderer(makePluginLayerId(name))).toBeDefined()
       expect(scene.getLayer(`plugin:${name}`)).toBeDefined()
-      expect(chart.getRenderer(name)?.role).toBe('overlay')
+      expect(chart.getRenderer(makePluginLayerId(name))?.role).toBe('overlay')
     }
 
     chart['kernel'].actions.setDataView('timeshare')

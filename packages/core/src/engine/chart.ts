@@ -11,6 +11,10 @@
  */
 
 import {
+  CHART_RENDERERS_SERVICE,
+  type ChartRendererAccess,
+} from '../controllers/renderers/index.js'
+import {
   type CustomDataSource,
   isTimeSharePeriod,
   type SymbolInfo,
@@ -39,7 +43,6 @@ import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
 } from '../foundation/config/priceAxisRangeMode.js'
-import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../foundation/plugin/index.js'
 import { createPluginHost, type PluginHostImpl, wrapPaneInfo } from '../foundation/plugin/index.js'
 import {
@@ -60,7 +63,7 @@ import {
   type RendererBackend,
   type RendererHost,
 } from '../rendering/render/index.js'
-import type { Layer, Scene } from '../rendering/scene/types.js'
+import type { Layer } from '../rendering/scene/types.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -166,6 +169,7 @@ export class Chart {
 
   /** 插件宿主 */
   private pluginHost: PluginHostImpl
+  private destruction: Promise<void> | undefined
 
   /** 具体渲染后端及其生命周期所有者 */
   private rendererHost: RendererHost
@@ -472,6 +476,12 @@ export class Chart {
         this.commitRightAxisWidthMeasurement(extrema)
       },
     })
+    this.pluginHost.registerService(CHART_RENDERERS_SERVICE, {
+      useRenderer: (layer) => this.useRenderer(layer),
+      removeRenderer: (id) => this.removeRenderer(id),
+      getRenderer: (id) => this.getRenderer(id),
+      requestRender: () => this.requestRender(),
+    } satisfies ChartRendererAccess)
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
     this.drawing = new ChartDrawingFacade({
@@ -508,9 +518,9 @@ export class Chart {
     this.indicatorManager = new ChartIndicatorManager({
       getOption: () => this.getRenderOptions(),
       getPluginHost: () => this.pluginHost,
-      getRenderer: (name) => this.renderer.getScene().getLayer(makePluginLayerId(name)) as never,
+      getRenderer: (id) => this.getRenderer(id),
       useRenderer: (layer) => this.useRenderer(layer),
-      removeRenderer: (name) => this.removeRenderer(name),
+      removeRenderer: (id) => this.removeRenderer(id),
       getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
@@ -655,38 +665,40 @@ export class Chart {
 
   // ========== 渲染器 API（唯一绘制契约：Layer；Scene 负责过滤与分发） ==========
 
-  /** Scene Layer id 生成规则（`plugin:` 前缀），与既有幂等语义一致。 */
-  private getRendererScene(): Scene<RenderContext> | null {
-    return this.renderer?.getScene() ?? null
-  }
-
   /**
    * 注册渲染器 Layer（唯一绘制路径；幂等，首个同 id Layer 胜出）。
-   * `options.pane` 声明绘制目标，缺省 `LAYER_PANE_GLOBAL`。
+   * 绘制目标由 Layer.pane 声明；查询和移除直接使用 Layer.id。
    */
   useRenderer(layer: Layer<RenderContext>): void {
-    this.getRendererScene()?.addLayer(layer)
+    this.renderer.getScene().addLayer(layer)
+    this.scheduleDraw()
   }
 
   /** 移除渲染器 Layer。 */
-  removeRenderer(name: string): void {
-    this.getRendererScene()?.removeLayer(makePluginLayerId(name))
+  removeRenderer(id: string): void {
+    if (this.renderer.getScene().removeLayer(id)) this.scheduleDraw()
   }
 
   /** 获取已注册渲染器 Layer。 */
-  getRenderer<T extends Layer<RenderContext> = Layer<RenderContext>>(name: string): T | undefined {
-    return this.getRendererScene()?.getLayer(makePluginLayerId(name)) as T | undefined
+  getRenderer(id: string): Layer<RenderContext> | undefined {
+    return this.renderer.getScene().getLayer(id) ?? undefined
   }
 
   /** 启用/禁用渲染器（Scene Layer 显隐）。 */
-  setRendererEnabled(name: string, enabled: boolean): void {
-    this.getRendererScene()?.setLayerVisibility(makePluginLayerId(name), enabled)
+  setRendererEnabled(id: string, enabled: boolean): void {
+    this.renderer.getScene().setLayerVisibility(id, enabled)
     this.scheduleDraw()
   }
 
   /** 获取所有渲染器 Layer。 */
   getAllRenderers(): ReadonlyArray<Layer<RenderContext>> {
-    return this.getRendererScene()?.layers.peek() ?? []
+    return this.renderer.getScene().layers.peek()
+  }
+
+  /** 外部 Layer 更新私有数据后请求完整重绘，不受帧内容缓存跳过。 */
+  requestRender(): void {
+    this.renderer.invalidateFrame()
+    this.scheduleDraw()
   }
 
   /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */
@@ -1265,9 +1277,18 @@ export class Chart {
   }
 
   /** 销毁图表实例 */
-  async destroy() {
+  destroy(): Promise<void> {
+    if (!this.destruction) this.destruction = this.destroyChart()
+    return this.destruction
+  }
+
+  /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
+  private async destroyChart(): Promise<void> {
+    this.renderer.stopScheduling()
     this.workspacePersistence?.dispose()
     this.workspacePersistence = null
+    // 插件卸载时仍可访问 Scene、状态与服务；随后统一释放图表资源。
+    await this.pluginHost.destroy()
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
     this.indicatorManager.destroy()
@@ -1281,7 +1302,6 @@ export class Chart {
     this.drawingCommands.dispose()
     this.kernel.dispose()
     this.alertController.dispose()
-    await this.pluginHost.destroy()
   }
 
   // ==================== Facade API (High-level interface for adapters) ====================

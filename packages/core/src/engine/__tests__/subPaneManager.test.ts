@@ -1,11 +1,11 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderContext } from '../../foundation/plugin/index'
-import type { Renderer } from '../../rendering/render/Renderer'
 import type { Layer } from '../../rendering/scene/types'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import type { SubPaneSpec } from '../state/indicatorState'
 import { type SubPaneContext, SubPaneManager } from '../subPaneManager'
+import { createRendererLayerStore } from './helpers/rendererLayerStoreTestKit'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -16,21 +16,14 @@ afterEach(() => {
 })
 
 /** 构造副图管理器的最小运行时上下文；metadata 由静态定义注册表提供。 */
-function createMockContext(): SubPaneContext & {
-  renderers: Map<string, unknown>
-  layers: Set<string>
-} {
-  const renderers = new Map<string, unknown>()
-  const layers = new Set<string>()
+function createMockContext() {
+  const rendererLayers = createRendererLayerStore()
   return {
-    renderers,
-    layers,
+    layers: rendererLayers.layers,
     onPaneProjectionChanged: vi.fn(),
-    getRenderer: vi.fn((name) => renderers.get(name) as never),
-    useRenderer: vi.fn((layer: Layer<RenderContext>) =>
-      renderers.set(layer.id.replace('plugin:', ''), layer),
-    ),
-    removeRenderer: vi.fn((name) => renderers.delete(name)),
+    getRenderer: rendererLayers.getRenderer,
+    useRenderer: rendererLayers.useRenderer,
+    removeRenderer: rendererLayers.removeRenderer,
     getOption: () => ({
       rightAxisWidth: 60,
       priceLabelWidth: 60,
@@ -39,7 +32,7 @@ function createMockContext(): SubPaneContext & {
     getCrosshairPos: () => null,
     getCrosshairPrice: () => null,
     getActivePaneId: () => null,
-  }
+  } satisfies SubPaneContext & { layers: Map<string, Layer<RenderContext>> }
 }
 
 describe('SubPaneManager runtime projection', () => {
@@ -91,6 +84,7 @@ describe('SubPaneManager runtime projection', () => {
 
     expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
+    expect(ctx.layers.size).toBe(0)
   })
 
   it('does not record a mount when renderer registration throws', () => {

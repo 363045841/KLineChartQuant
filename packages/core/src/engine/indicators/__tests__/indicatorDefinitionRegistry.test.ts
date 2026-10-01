@@ -8,12 +8,22 @@ import {
 } from '../indicatorDefinitionRegistry'
 import { IndicatorKind } from '../indicatorMetadata'
 
-// 用例自定义指标：通过 declaration merging 登记内部 name，与第三方扩展方式一致。
-declare module '../indicatorContracts.js' {
-  interface AuxiliaryIndicatorContracts {
-    customRsi: unknown
-    customMacd: unknown
+/** 注册一个仅用于目录解析的第三方指标定义；name 为任意字符串，无需并入契约。 */
+function registerDefinition(name: string, alias: string): void {
+  @Indicator({
+    name,
+    aliases: [alias],
+    displayName: name,
+    kind: IndicatorKind.Indicator,
+    category: 'oscillator',
+    indicatorType: 'momentum',
+    defaultPaneId: `sub_${alias}`,
+  })
+  class Definition {
+    static rendererFactory = vi.fn()
   }
+
+  void Definition
 }
 
 describe('Indicator definition registry', () => {
@@ -22,20 +32,7 @@ describe('Indicator definition registry', () => {
   })
 
   it('collects decorated definitions and resolves aliases case-insensitively', () => {
-    @Indicator({
-      name: 'customRsi',
-      aliases: ['CUSTOM_RSI'],
-      displayName: 'Custom RSI',
-      kind: IndicatorKind.Indicator,
-      category: 'oscillator',
-      indicatorType: 'momentum',
-      defaultPaneId: 'sub_CUSTOM_RSI',
-    })
-    class CustomRsiDefinition {
-      static rendererFactory = vi.fn()
-    }
-
-    void CustomRsiDefinition
+    registerDefinition('customRsi', 'CUSTOM_RSI')
 
     const definition = getRegisteredIndicatorDefinition('CUSTOM_RSI')
 
@@ -46,20 +43,7 @@ describe('Indicator definition registry', () => {
   })
 
   it('clears registered definitions and aliases for tests', () => {
-    @Indicator({
-      name: 'customMacd',
-      aliases: ['CUSTOM_MACD'],
-      displayName: 'Custom MACD',
-      kind: IndicatorKind.Indicator,
-      category: 'oscillator',
-      indicatorType: 'momentum',
-      defaultPaneId: 'sub_CUSTOM_MACD',
-    })
-    class CustomMacdDefinition {
-      static rendererFactory = vi.fn()
-    }
-
-    void CustomMacdDefinition
+    registerDefinition('customMacd', 'CUSTOM_MACD')
 
     expect(getRegisteredIndicatorDefinition('CUSTOM_MACD')).toBeDefined()
 

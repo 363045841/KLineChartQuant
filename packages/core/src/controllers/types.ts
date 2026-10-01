@@ -32,8 +32,10 @@ import type { CreatePaneInput, PanePatch } from '../engine/paneManager.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
+import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
+import type { ChartRendererAccess } from './renderers/index.js'
 
 export {
   FIVE_DAY_TIME_SHARE_DAYS,
@@ -394,7 +396,11 @@ export interface ChartMountOptions {
   settings?: Partial<ChartSettings>
 }
 
-export interface ChartController extends DrawingChartAdapter {
+export interface ChartController extends DrawingChartAdapter, ChartRendererAccess {
+  /** 使用现有 PluginHost 安装插件；插件可通过 getChartRenderers 获取渲染能力。 */
+  usePlugin(plugin: Plugin, config?: PluginConfig): Promise<void>
+  /** 卸载插件；其 uninstall 负责移除自有 Layer 和取消订阅。 */
+  removePlugin(name: string): Promise<void>
   /** 按当前视口偏移复制所选图元，一次撤回移除全部副本。 */
   copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject>
   /** Stable, serializable Agent context and deterministic query facade. */
@@ -597,7 +603,8 @@ export interface ChartController extends DrawingChartAdapter {
   updateOptionsFacade(options: Record<string, unknown>): void
 
   /** tear down DOM + listeners; idempotent */
-  dispose(): void
+  /** 立即关闭公开操作并清理挂载 DOM，返回插件卸载与资源释放的完成任务。 */
+  dispose(): Promise<void>
 }
 
 /**

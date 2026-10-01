@@ -83,7 +83,7 @@ export function createMockChartController(): MockControllerHandle {
     zoomOut() {
       /* no-op */
     },
-    dispose() {
+    async dispose() {
       disposeCount += 1
     },
   }

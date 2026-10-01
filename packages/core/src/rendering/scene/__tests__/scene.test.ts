@@ -159,6 +159,41 @@ describe('createScene', () => {
     expect(scene.removeLayer('a')).toBe(false)
   })
 
+  it('removeLayer disposes the detached layer exactly once', () => {
+    const scene = createScene<FrameStub>()
+    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
+    scene.addLayer(a)
+
+    expect(scene.removeLayer('a')).toBe(true)
+    expect(a.disposeCalls).toBe(1)
+
+    // 已移除的层不再被 scene.dispose 二次释放
+    scene.dispose()
+    expect(a.disposeCalls).toBe(1)
+  })
+
+  it('dispose isolates a throwing layer and still releases siblings', () => {
+    const scene = createScene<FrameStub>()
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const boom = makeMockLayer({
+      id: 'boom',
+      role: 'primary',
+      pane: 'main',
+      z: 0,
+      onDispose: () => {
+        throw new Error('cleanup failed')
+      },
+    })
+    const ok = makeMockLayer({ id: 'ok', role: 'primary', pane: 'main', z: 1 })
+    scene.addLayer(boom)
+    scene.addLayer(ok)
+
+    expect(() => scene.dispose()).not.toThrow()
+    expect(boom.disposeCalls).toBe(1)
+    expect(ok.disposeCalls).toBe(1)
+    errorLog.mockRestore()
+  })
+
   it('layers signal fires on add and remove with a NEW array reference', () => {
     const scene = createScene<FrameStub>()
     const seen: ReadonlyArray<Layer<FrameStub>>[] = []

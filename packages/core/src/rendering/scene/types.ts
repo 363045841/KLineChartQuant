@@ -132,6 +132,7 @@ export interface Scene<TFrame = unknown> {
   readonly layers: Signal<ReadonlyArray<Layer<TFrame>>>
 
   addLayer(layer: Layer<TFrame>): void
+  /** 移除并释放指定 Layer；不存在或已销毁时返回 false。 */
   removeLayer(id: string): boolean
   getLayer(id: string): Layer<TFrame> | null
   setLayerVisibility(id: string, visible: boolean): boolean
