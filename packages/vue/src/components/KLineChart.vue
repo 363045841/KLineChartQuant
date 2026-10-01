@@ -96,7 +96,7 @@
             tabindex="0"
             @keydown="onDrawingHistoryKeydown"
             class="chart-container"
-            :style="chartContainerStyle"
+            :class="{ 'chart-container--without-left-axis': leftAxisHostStyle.display === 'none' }"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
@@ -1534,15 +1534,6 @@
     return { width: `${width}px` }
   })
 
-  const chartContainerStyle = computed(() => {
-    const base: Record<string, string> = {}
-    if (leftAxisHostStyle.value.display === 'none') {
-      base.borderRadius = '3px 0 0 3px'
-      base.borderLeft = '1px solid var(--chart-border)'
-    }
-    return base
-  })
-
   function applyZoomToLevel(targetLevel: number, anchorX?: number) {
     controller.value?.zoomToLevel(targetLevel, anchorX)
   }
@@ -1838,7 +1829,8 @@
 
     // 1) 滚轮缩放处理
     const onWheelHandler = setupWheelHandler()
-    container.addEventListener('wheel', onWheelHandler, { passive: false })
+    // 绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
+    chartMain.addEventListener('wheel', onWheelHandler, { passive: false })
 
     // 2) 创建 Chart 控制器（使用模板 DOM 元素）
     const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
@@ -2058,25 +2050,35 @@
     cursor: move;
   }
 
-  .chart-container {
+  /* 绘图区与左右轴共用布局、背景和手势规则。 */
+  .chart-container,
+  .left-axis-host,
+  .right-axis-host {
     position: relative;
+    min-height: inherit;
+    box-sizing: border-box;
+    background: var(--chart-bg);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .chart-container {
     flex: 1 1 auto;
     overflow-x: auto;
     overflow-y: hidden;
-    min-height: inherit;
     scrollbar-width: none;
     -ms-overflow-style: none;
     border: 1px solid var(--chart-border);
     border-right: 0;
     border-left: 0;
     border-radius: 0;
-    box-sizing: border-box;
-    background: var(--chart-bg);
+  }
 
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    touch-action: none;
+  .chart-container--without-left-axis {
+    border-radius: 3px 0 0 3px;
+    border-left: 1px solid var(--chart-border);
   }
 
   .drawing-line-label-editor {
@@ -2154,38 +2156,26 @@
     display: none;
   }
 
+  .left-axis-host,
   .right-axis-host {
-    position: relative;
     flex: 0 0 auto;
-    min-height: inherit;
-    box-sizing: border-box;
-    background: var(--chart-bg);
-    overflow: visible;
     border: 1px solid var(--chart-border);
+  }
+
+  .right-axis-host {
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
-
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    touch-action: none;
   }
 
   .left-axis-host {
-    position: relative;
-    flex: 0 0 auto;
-    min-height: inherit;
-    box-sizing: border-box;
-    background: var(--chart-bg);
-    overflow: visible;
-    border: 1px solid var(--chart-border);
     border-top-left-radius: 3px;
     border-bottom-left-radius: 3px;
+  }
 
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    touch-action: none;
+  /* 轴画布由 Core 动态创建，定位与叠层由 Core 管理，Vue 只负责显示样式。 */
+  .left-axis-host :deep(> canvas),
+  .right-axis-host :deep(> canvas) {
+    display: block;
   }
 
   .scroll-content {
@@ -2283,32 +2273,12 @@
     display: block;
   }
 
-  .right-axis,
-  .right-axis-overlay,
-  .left-axis,
-  .left-axis-overlay {
-    position: absolute;
-    display: block;
-    left: 0;
-  }
-
   .x-axis-canvas {
     position: absolute;
     left: 0;
     bottom: 0;
     display: block;
     z-index: 10;
-  }
-
-  .right-axis,
-  .left-axis {
-    z-index: 15;
-  }
-
-  .right-axis-overlay,
-  .left-axis-overlay {
-    z-index: 16;
-    pointer-events: none;
   }
 </style>
 

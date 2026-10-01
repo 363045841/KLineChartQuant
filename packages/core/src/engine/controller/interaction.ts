@@ -608,6 +608,21 @@ export class InteractionController {
     return range.start + (worldX - previous <= current - worldX ? low - 1 : low)
   }
 
+  /** 将价格轴滚轮增量归一到像素，以鼠标所在 pane 价位为锚点缩放。 */
+  onRightAxisWheel(e: WheelEvent): void {
+    if (this.isPointerDown() || !Number.isFinite(e.deltaY) || e.deltaY === 0) return
+    const { mouseY } = this.getRightAxisPointerLocation(e.clientX, e.clientY)
+    const pane = this.getPaneByY(mouseY)
+    if (!pane?.capabilities.supportsPriceTranslate) return
+    const pixelsPerLine = 16
+    const maxWheelPixels = 100
+    const wheelSensitivity = 0.1
+    const unit = e.deltaMode === 1 ? pixelsPerLine : e.deltaMode === 2 ? pane.height : 1
+    const delta = Math.max(-maxWheelPixels, Math.min(maxWheelPixels, e.deltaY * unit))
+    e.preventDefault()
+    this.chart.scalePrice(pane.id, delta * wheelSensitivity, mouseY - pane.top)
+  }
+
   onRightAxisPointerDown(e: PointerEvent) {
     if (e.isPrimary === false) return
     this.isTouchSession = e.pointerType === 'touch'

@@ -651,6 +651,51 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
+  it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
+    'zooms the price axis around the wheel position without changing time zoom (%s)',
+    async (scaleType) => {
+      const chart = mountChart(1000, 600, {
+        initialSettings: {
+          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+          mainRightAxisTypeSetting: scaleType,
+        },
+      })
+      try {
+        chart.resize()
+        chart.setData(makeBars(200))
+        chart.draw()
+        const pane = chart.getPaneRenderers()[0]!.getPane()
+        const anchorY = pane.height * 0.25
+        const anchorPrice = pane.yAxis.yToPrice(anchorY)
+        const initialRange = pane.yAxis.getDisplayRange()
+        const zoomLevel = chart.kernel.zoom.readonly.zoomLevel.peek()
+        const axisHost = chart.getDom().rightAxisLayer
+        const rect = axisHost.getBoundingClientRect()
+        const event = new WheelEvent('wheel', {
+          deltaY: -100,
+          clientX: rect.left + 1,
+          clientY: rect.top + pane.top + anchorY,
+          cancelable: true,
+        })
+        // 真实 DOM dispatch 设置事件 target，再经公开入口分流。
+        axisHost.addEventListener('wheel', (wheel) => chart.handleWheelEvent(wheel), {
+          once: true,
+        })
+        axisHost.dispatchEvent(event)
+        chart.draw()
+        const nextRange = pane.yAxis.getDisplayRange()
+        expect(nextRange.maxPrice - nextRange.minPrice).toBeLessThan(
+          initialRange.maxPrice - initialRange.minPrice,
+        )
+        expect(pane.yAxis.priceToY(anchorPrice)).toBeCloseTo(anchorY, 6)
+        expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(zoomLevel)
+        expect(event.defaultPrevented).toBe(true)
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
   let restoreChartDomStubs: () => void
 
   it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(

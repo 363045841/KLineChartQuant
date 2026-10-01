@@ -1,3 +1,4 @@
+// Pane 价格坐标映射及纵向平移、缩放。
 import { ScaleType } from '../../foundation/types/scaleType.js'
 
 import {
@@ -172,13 +173,22 @@ export class PriceScale {
   }
 
   /**
-   * 按拖拽位移缩放 Y 轴（deltaY < 0 放大，deltaY > 0 缩小）
+   * 按位移缩放 Y 轴；指定 pane 内 anchorY 时保持该位置的价格不变。
    */
-  scaleByDelta(deltaY: number): void {
+  scaleByDelta(deltaY: number, anchorY?: number): void {
     if (!Number.isFinite(deltaY) || deltaY === 0) return
+    if (anchorY !== undefined && !Number.isFinite(anchorY)) return
+    const previousScale = this.verticalScale
     const factor = Math.exp(-deltaY * 0.01)
     const nextScale = this.verticalScale * factor
     this.verticalScale = Math.min(8, Math.max(0.2, nextScale))
+    if (anchorY !== undefined) {
+      const viewHeight = Math.max(1, this.height - this.paddingTop - this.paddingBottom)
+      const ratio = 0.5 - (anchorY - this.paddingTop) / viewHeight
+      // 在刻度的原生空间补偿中心位移，对数和百分比轴与线性轴共用锚点规则。
+      const span = this.nativeRange() || 1
+      this.priceOffset += ratio * span * (1 / previousScale - 1 / this.verticalScale)
+    }
     this.priceOffset = this.clampOffset(this.priceOffset)
   }
 

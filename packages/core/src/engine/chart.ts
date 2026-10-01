@@ -977,9 +977,10 @@ export class Chart {
    * 缩放价格轴（用于右侧刻度栏上下拖动）
    * @param paneId 目标 pane ID
    * @param deltaY Y轴像素偏移（向上拖动放大，向下拖动缩小）
+   * @param anchorY 可选的 pane 内 Y 坐标，缩放时保持该位置的价格不变
    */
-  scalePrice(paneId: string, deltaY: number): void {
-    this.transformPrice(paneId, (pane) => pane.yAxis.scaleByDelta(deltaY))
+  scalePrice(paneId: string, deltaY: number, anchorY?: number): void {
+    this.transformPrice(paneId, (pane) => pane.yAxis.scaleByDelta(deltaY, anchorY))
   }
   /**
    * 更新数据并请求重绘
@@ -1657,10 +1658,13 @@ export class Chart {
   }
 
   /**
-   * 滚轮事件处理（高层 API）
-   * 使用 computeZoom 计算精确的 scrollLeft，更新 viewport signal
+   * 按事件目标分流滚轮：价格轴围绕鼠标价位缩放，绘图区缩放时间轴。
    */
   handleWheelEvent(e: WheelEvent): void {
+    if (e.target instanceof Node && this.dom.rightAxisLayer.contains(e.target)) {
+      this.interaction.onRightAxisWheel(e)
+      return
+    }
     if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     const rect = this.dom.container.getBoundingClientRect()
     this.zoomController.handleWheel(e.deltaY, e.clientX - rect.left)
