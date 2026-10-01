@@ -232,7 +232,8 @@
     color: var(--dropdown-trigger-color, var(--klc-color-ui-text));
     font-size: calc(var(--klc-typography-font-size-md) + 1px);
     font-weight: 500;
-    line-height: 1;
+    /* 为字体下沿留出空间，避免省略号裁切区域截断文字。 */
+    line-height: 1.4;
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
