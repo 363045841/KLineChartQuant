@@ -48,11 +48,23 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
 
   const removeLayer = (id: string): boolean => {
     if (disposed) return false
+    const removed = layerList.find((layer) => layer.id === id)
+    if (!removed) return false
     const next = layerList.filter((layer) => layer.id !== id)
-    if (next.length === layerList.length) return false
     layerList = next
     publish()
+    // 先脱离 Scene 再释放，保证重入移除不会重复 dispose。
+    disposeLayer(removed)
     return true
+  }
+
+  /** 隔离单个 Layer 的释放错误，确保其余资源仍可清理。 */
+  const disposeLayer = (layer: Layer<TFrame>): void => {
+    try {
+      layer.dispose()
+    } catch (error) {
+      console.error(`[Layer] ${layer.id} dispose error:`, error)
+    }
   }
 
   const getLayer = (id: string): Layer<TFrame> | null => {
@@ -114,11 +126,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     const snapshot = layerList
     layerList = []
     for (const layer of snapshot) {
-      try {
-        layer.dispose()
-      } catch {
-        // 吞掉单个 Layer 的 dispose 错误，避免一个坏 Layer 拖累其余。
-      }
+      disposeLayer(layer)
     }
     layersSignal.set([] as ReadonlyArray<Layer<TFrame>>)
   }

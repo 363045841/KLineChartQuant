@@ -11,6 +11,8 @@ import type { CustomMarkerEntity } from '@/engine/marker/registry.js'
 import { MAIN_PANE_ID } from '@/engine/paneIds.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/paneManager.js'
 import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
+import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
 
 /**
@@ -21,6 +23,41 @@ import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
  * @returns 可展开进 ChartController 的方法集合
  */
 export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
+  /** 挂载宿主 Layer，销毁后不接收新资源。 */
+  function useRenderer(layer: Layer<RenderContext>): void {
+    if (isDisposed()) return
+    chart.useRenderer(layer)
+  }
+
+  /** 按完整 ID 移除并释放宿主 Layer。 */
+  function removeRenderer(id: string): void {
+    if (isDisposed()) return
+    chart.removeRenderer(id)
+  }
+
+  /** 按完整 ID 查询 Layer，销毁后返回 undefined。 */
+  function getRenderer(id: string): Layer<RenderContext> | undefined {
+    if (isDisposed()) return undefined
+    return chart.getRenderer(id)
+  }
+
+  /** 外部 Layer 的数据变化后请求重绘。 */
+  function requestRender(): void {
+    if (isDisposed()) return
+    chart.requestRender()
+  }
+
+  /** 安装插件，由 PluginHost 管理安装状态。 */
+  async function usePlugin(plugin: Plugin, config?: PluginConfig): Promise<void> {
+    if (isDisposed()) return
+    await chart.plugin.use(plugin, config)
+  }
+
+  /** 卸载插件，由插件清理自身 Layer 和订阅。 */
+  async function removePlugin(name: string): Promise<void> {
+    if (isDisposed()) return
+    await chart.plugin.remove(name)
+  }
   /** 获取当前缩放级别总数。 */
   function getZoomLevelCount(): number {
     if (isDisposed()) return 0
@@ -242,6 +279,12 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     setTooltipAnchorPositioning,
     getContentWidth,
     getLeftLoadBufferWidth,
+    useRenderer,
+    removeRenderer,
+    getRenderer,
+    requestRender,
+    usePlugin,
+    removePlugin,
     scrollToRight,
     getIndicatorTitle,
     createPane,

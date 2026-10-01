@@ -204,20 +204,19 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
   })
 
-  function dispose(): void {
-    if (disposed) return
+  let disposal: Promise<void> | undefined
+
+  function dispose(): Promise<void> {
+    if (disposal) return disposal
     disposed = true
     dataMethods.dispose()
-    try {
-      void chart.destroy()
-    } catch {
-      /* best-effort */
-    }
+    disposal = chart.destroy()
     try {
       mounted.cleanup()
     } catch {
       /* best-effort */
     }
+    return disposal
   }
 
   return {

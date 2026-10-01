@@ -134,3 +134,24 @@ export function stubAnimationFrame(): void {
   )
   vi.stubGlobal('cancelAnimationFrame', vi.fn())
 }
+
+/** 安装可手动提交的 RAF 队列，验证帧合并时不依赖真实时钟。 */
+export function installAnimationFrameQueue() {
+  let nextId = 0
+  const callbacks = new Map<number, FrameRequestCallback>()
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callbacks.set(++nextId, callback)
+    return nextId
+  })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id))
+  return {
+    /** 返回下一帧的待执行回调数。 */
+    pending: () => callbacks.size,
+    /** 提交一帧；本帧新请求的回调留待下一次提交。 */
+    flush() {
+      const pending = [...callbacks.values()]
+      callbacks.clear()
+      for (const callback of pending) callback(performance.now())
+    },
+  }
+}

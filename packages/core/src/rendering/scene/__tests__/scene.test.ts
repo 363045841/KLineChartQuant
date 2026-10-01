@@ -157,6 +157,32 @@ describe('createScene', () => {
     expect(scene.removeLayer('a')).toBe(true)
     expect(scene.getLayer('a')).toBeNull()
     expect(scene.removeLayer('a')).toBe(false)
+    scene.dispose()
+    expect(a.disposeCalls).toBe(1)
+  })
+
+  it('detaches a Layer before dispose and isolates cleanup errors', () => {
+    const scene = createScene<FrameStub>()
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const removed = makeMockLayer({
+      id: 'removed',
+      role: 'primary',
+      pane: 'main',
+      z: 0,
+      onDispose() {
+        expect(scene.getLayer('removed')).toBeNull()
+        expect(scene.removeLayer('removed')).toBe(false)
+        throw new Error('cleanup failed')
+      },
+    })
+    const remaining = makeMockLayer({ id: 'remaining', role: 'primary', pane: 'main', z: 1 })
+    scene.addLayer(removed)
+    scene.addLayer(remaining)
+    expect(scene.removeLayer(removed.id)).toBe(true)
+    scene.dispose()
+    expect(removed.disposeCalls).toBe(1)
+    expect(remaining.disposeCalls).toBe(1)
+    errorLog.mockRestore()
   })
 
   it('layers signal fires on add and remove with a NEW array reference', () => {

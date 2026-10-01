@@ -52,11 +52,9 @@ export function hasSubPaneRendererMetadata(
 export interface SubPaneContext {
   /** 副图增删改后通知实例链路重建渲染投影。 */
   onPaneProjectionChanged: () => void
-  getRenderer: <T extends Layer<RenderContext> = Layer<RenderContext>>(
-    name: string,
-  ) => T | undefined
+  getRenderer: (id: string) => Layer<RenderContext> | undefined
   useRenderer: (layer: Layer<RenderContext>) => void
-  removeRenderer: (name: string) => void
+  removeRenderer: (id: string) => void
   getOption: () => {
     rightAxisWidth: number
     priceLabelWidth?: number
@@ -207,7 +205,7 @@ export class SubPaneManager {
 
   private mount(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
     const definition = getRegisteredIndicatorDefinition(entry.indicatorId)!
-    if (!ctx.getRenderer(entry.rendererName)) {
+    if (!ctx.getRenderer(entry.layerId)) {
       const layer = createIndicatorLayer({
         paneId: entry.paneId,
         indicatorId: entry.indicatorId,
@@ -222,7 +220,7 @@ export class SubPaneManager {
   }
 
   private mountScaleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
-    if (ctx.getRenderer(entry.scaleRendererName)) {
+    if (ctx.getRenderer(entry.scaleLayerId)) {
       return
     }
     const definition = getRegisteredIndicatorDefinition(entry.indicatorId)
@@ -256,7 +254,7 @@ export class SubPaneManager {
   }
 
   private mountPaneTitleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
-    if (ctx.getRenderer(entry.paneTitleRendererName)) {
+    if (ctx.getRenderer(entry.paneTitleLayerId)) {
       return
     }
     const layer = createPaneTitleRendererLayer({
@@ -271,10 +269,10 @@ export class SubPaneManager {
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {
     // removeRenderer 同步卸 Scene Layer 并触发 Layer.dispose
-    ctx.removeRenderer(entry.rendererName)
-    ctx.removeRenderer(entry.scaleRendererName)
+    ctx.removeRenderer(entry.layerId)
+    ctx.removeRenderer(entry.scaleLayerId)
     if (!preserveTitle) {
-      ctx.removeRenderer(entry.paneTitleRendererName)
+      ctx.removeRenderer(entry.paneTitleLayerId)
     }
   }
 

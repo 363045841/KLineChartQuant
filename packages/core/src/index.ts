@@ -6,6 +6,19 @@ export * from './components/orderBookHeatmap/index.js'
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
+export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/indicatorContracts.js'
+export {
+  Indicator,
+  type IndicatorDefinitionConfig,
+} from './engine/indicators/indicatorDefinitionRegistry.js'
+export {
+  IndicatorKind,
+  type IndicatorMetadata,
+  type IndicatorRendererOptions,
+  type IndicatorRuntimeDescriptor,
+  type IndicatorScaleRendererOptions,
+  type RendererFactory,
+} from './engine/indicators/indicatorMetadata.js'
 export * from './engine/market/marketSessionRegistry.js'
 export * from './engine/market/resolveSymbolMarketSession.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
@@ -28,6 +41,8 @@ export * from './features/input/index.js'
 export * from './features/replay/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/persistence/index.js'
+export { makePluginLayerId } from './foundation/plugin/impl/rendererLayerId.js'
+export type { Plugin, PluginConfig, PluginHost, RenderContext } from './foundation/plugin/types.js'
 export * from './foundation/reactivity/index.js'
 export * from './foundation/tokens/index.js'
 export { formatDateTimeInTimeZone, formatTimeInTimeZone } from './foundation/utils/dateFormat.js'

@@ -82,14 +82,142 @@ StateKernel                        RendererHost
 销毁顺序保证业务资源先于底层设备释放：
 
 ```text
-indicator manager
-  -> RendererPluginManager.clear
+停止帧调度和工作区持久化
+  -> PluginHost 等待已接受的安装/卸载，并卸载剩余插件
+  -> indicator manager
   -> ChartRenderer.destroy / Scene.dispose
   -> data / viewport / pane managers
   -> 移除 WebGPU DOM canvas
   -> RendererHost.dispose
-  -> StateKernel / PluginHost
+  -> StateKernel
 ```
+
+### 3.1 第三方 Layer 与指标注册
+
+宿主通过 `ChartController.useRenderer(layer)` 挂载原生 `Layer<RenderContext>`，
+`getRenderer(id)`、`removeRenderer(id)` 使用完整 `Layer.id`，不添加前缀。
+注册和移除自动申请下一帧；Layer 的私有数据或 `visible` 变化后调用
+`requestRender()`，它使内容缓存失效，并通过现有 RAF 合并请求。
+
+Scene 接管成功挂载的 Layer，移除时先脱离集合再调用 `dispose()`；图表销毁释放剩余 Layer。
+同 ID 首个实例胜出，未被接纳的实例由调用方释放。移除后重新挂载应创建新的 Layer。
+
+以下示例只使用正式包入口，在主图覆盖层绘制可更新的文字；container 和行情 data 由宿主提供：
+
+```ts
+import {
+  createChartController,
+  type Layer,
+  type RenderContext,
+  resolveThemeColors,
+} from '@363045841yyt/klinechart-core'
+
+const chart = await createChartController({ container, data })
+let label = '第三方叠加层'
+function createStatusLayer(id = 'vendor:status'): Layer<RenderContext> {
+  return {
+    id,
+    role: 'overlay',
+    pane: 'main',
+    z: 100,
+    visible: true,
+    paint(context) {
+      const canvas = context.overlayCtx
+      if (!canvas) return
+      const colors = resolveThemeColors(context.theme)
+      canvas.save()
+      canvas.fillStyle = colors.crosshairLine
+      canvas.fillText(label, 20, 40)
+      canvas.restore()
+    },
+    dispose() {
+      // 释放本 Layer 的订阅、缓存或外部资源。
+    },
+  }
+}
+const layer = createStatusLayer()
+chart.useRenderer(layer)
+label = '外部数据已更新'
+chart.requestRender()
+// 宿主卸载时调用 cleanup。
+async function cleanup() {
+  chart.removeRenderer(layer.id)
+  await chart.dispose()
+}
+```
+
+指标型 Layer 通过正式入口的 `@Indicator` 注册，名称可为第三方字符串；
+内置指标状态契约仍保持闭集。先注册定义，再调用 `addIndicator(name, role)`，
+Layer 的创建、参数更新和移除由指标状态驱动。指标工厂应使 Layer.id 与定义的
+渲染名称一致：`makePluginLayerId(definition.getRendererName(options))`。
+主图定义需声明 `mainPane`，副图定义需声明坐标轴元数据。
+第三方纯 overlay 可直接挂载，无需声明指标定义。
+
+例如，使用上面的工厂声明主图指标；定义应在创建图表之前执行，
+第三方构建配置需要支持标准 class decorators：
+
+```ts
+import { Indicator, IndicatorKind, makePluginLayerId } from '@363045841yyt/klinechart-core'
+
+const indicatorName = 'vendorStatus'
+@Indicator({
+  name: indicatorName,
+  displayName: 'Vendor Status',
+  kind: IndicatorKind.Indicator,
+  category: 'main',
+  indicatorType: 'other',
+  defaultPaneId: 'main',
+  mainPane: { rendererName: indicatorName },
+})
+class StatusIndicator {
+  static rendererFactory() {
+    return createStatusLayer(makePluginLayerId(indicatorName))
+  }
+}
+
+// 创建图表后，由状态挂载或移除指标实例。
+const instanceId = chart.addIndicator(indicatorName, 'main')
+if (instanceId) chart.removeIndicator(instanceId)
+```
+
+插件继续通过现有 PluginHost 管理；`ChartController.usePlugin(plugin)` 安装，
+`removePlugin(name)` 卸载。插件在 `install(host)` 中调用 `getChartRenderers(host)`
+获取同一实例的渲染能力，`uninstall()` 负责移除 Layer 和取消订阅：
+
+```ts
+import {
+  type ChartRendererAccess,
+  createChartController,
+  getChartRenderers,
+  type Layer,
+  type Plugin,
+  type RenderContext,
+} from '@363045841yyt/klinechart-core'
+
+let renderers: ChartRendererAccess
+let pluginLayer: Layer<RenderContext>
+const plugin: Plugin = {
+  name: 'vendor-status',
+  version: '1.0.0',
+  install(host) {
+    renderers = getChartRenderers(host)
+    pluginLayer = createStatusLayer()
+    renderers.useRenderer(pluginLayer)
+  },
+  uninstall() {
+    renderers.removeRenderer(pluginLayer.id)
+  },
+}
+const pluginChart = await createChartController({ container, data })
+await pluginChart.usePlugin(plugin)
+await pluginChart.removePlugin(plugin.name)
+await pluginChart.dispose()
+```
+
+Controller 的 `dispose()` 立即关闭公开操作和清理挂载 DOM，返回异步资源释放任务；
+重复调用返回同一任务。图表先等待已接受的插件安装/卸载，再卸载剩余插件，
+随后释放 Scene、状态与后端。插件卸载期间仍可通过渲染服务访问 Scene。
+模块加载、URL、CDN 和持久化加载策略属于宿主，core 只接收定义与 Layer。
 
 ## 4. Viewport 是几何入口
 

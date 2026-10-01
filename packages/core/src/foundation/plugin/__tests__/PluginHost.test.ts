@@ -12,3 +12,34 @@ describe('PluginHostImpl shared state', () => {
     expect(host.getSharedState('plugin:standalone')).toBe(pluginState)
   })
 })
+
+describe('PluginHostImpl lifecycle', () => {
+  it('serializes removal with destruction and rejects new installations during shutdown', async () => {
+    const host = createPluginHost()
+    let finishUninstall!: () => void
+    const waiting = new Promise<void>((resolve) => {
+      finishUninstall = resolve
+    })
+    let uninstalls = 0
+    await host.use({
+      name: 'async-plugin',
+      version: '1.0.0',
+      install() {},
+      async uninstall() {
+        uninstalls++
+        await waiting
+      },
+    })
+    const removal = host.remove('async-plugin')
+    const destruction = host.destroy()
+    expect(host.destroy()).toBe(destruction)
+    await expect(
+      host.use({ name: 'late-plugin', version: '1.0.0', install() {} }),
+    ).rejects.toThrow()
+    finishUninstall()
+    await removal
+    await destruction
+    expect(uninstalls).toBe(1)
+    expect(host.getPlugins()).toEqual([])
+  })
+})

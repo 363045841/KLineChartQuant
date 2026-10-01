@@ -1,6 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderContext } from '../../foundation/plugin/index'
-import type { Renderer } from '../../rendering/render/Renderer'
 import type { Layer } from '../../rendering/scene/types'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
@@ -17,20 +16,22 @@ afterEach(() => {
 
 /** 构造副图管理器的最小运行时上下文；metadata 由静态定义注册表提供。 */
 function createMockContext(): SubPaneContext & {
-  renderers: Map<string, unknown>
+  renderers: Map<string, Layer<RenderContext>>
   layers: Set<string>
 } {
-  const renderers = new Map<string, unknown>()
+  const renderers = new Map<string, Layer<RenderContext>>()
   const layers = new Set<string>()
   return {
     renderers,
     layers,
     onPaneProjectionChanged: vi.fn(),
-    getRenderer: vi.fn((name) => renderers.get(name) as never),
-    useRenderer: vi.fn((layer: Layer<RenderContext>) =>
-      renderers.set(layer.id.replace('plugin:', ''), layer),
-    ),
-    removeRenderer: vi.fn((name) => renderers.delete(name)),
+    getRenderer: vi.fn((id) => renderers.get(id)),
+    useRenderer: vi.fn((layer: Layer<RenderContext>) => renderers.set(layer.id, layer)),
+    removeRenderer: vi.fn((id) => {
+      const layer = renderers.get(id)
+      renderers.delete(id)
+      layer?.dispose()
+    }),
     getOption: () => ({
       rightAxisWidth: 60,
       priceLabelWidth: 60,
@@ -91,6 +92,7 @@ describe('SubPaneManager runtime projection', () => {
 
     expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
+    expect(ctx.renderers.size).toBe(0)
   })
 
   it('does not record a mount when renderer registration throws', () => {

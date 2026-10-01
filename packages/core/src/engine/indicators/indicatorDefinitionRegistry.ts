@@ -1,3 +1,4 @@
+/** 指标定义装饰器与全局定义目录，实例挂载由图表状态驱动。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import type { ChartDataView } from '../state/modeState.js'
 import type { IndicatorName } from './indicatorContracts.js'
@@ -16,7 +17,7 @@ import type {
 } from './indicatorMetadata.js'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
-  /** 指标内部 name，必须是契约注册表（`indicatorContracts.ts`）登记的键。 */
+  /** 指标定义名称，允许第三方扩展；注册定义后仍须添加指标实例。 */
   name: IndicatorName
   aliases?: readonly string[]
   displayName: string

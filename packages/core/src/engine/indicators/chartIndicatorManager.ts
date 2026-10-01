@@ -42,7 +42,7 @@ import {
   getRegisteredIndicatorDefinitions,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry.js'
-import type { IndicatorMetadata } from './indicatorMetadata.js'
+import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   INDICATOR_INSTANCE_STATE_SERVICE,
@@ -134,9 +134,7 @@ export interface SubPaneOps {
 export interface IndicatorDependencies {
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
-  getRenderer: <T extends Layer<RenderContext> = Layer<RenderContext>>(
-    name: string,
-  ) => T | undefined
+  getRenderer: (id: string) => Layer<RenderContext> | undefined
   useRenderer: (layer: Layer<RenderContext>) => void
   removeRenderer: (name: string) => void
   /** pane ratios SSOT */
@@ -791,6 +789,12 @@ export class ChartIndicatorManager {
     for (const id of [...this.appliedMainIndicators.keys()]) {
       if (desired.some((instance) => instance.role === 'main' && instance.indicatorId === id))
         continue
+      const definition = getRegisteredIndicatorDefinition(id)
+      // 系统图层跨数据视图保留；用户指标随实例删除释放。
+      const rendererName = definition?.mainPane?.rendererName
+      if (definition?.kind === IndicatorKind.Indicator && rendererName) {
+        this.deps.removeRenderer(makePluginLayerId(rendererName))
+      }
       this.appliedMainIndicators.delete(id)
       changed = true
     }
@@ -851,7 +855,7 @@ export class ChartIndicatorManager {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     const rendererName = definition?.mainPane?.rendererName
     if (!definition || !rendererName) return
-    this.deps.removeRenderer(rendererName)
+    this.deps.removeRenderer(makePluginLayerId(rendererName))
     this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
   }
 
