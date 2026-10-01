@@ -72,6 +72,16 @@ function mountChart(
   return new Chart(createChartDom(width, height), defaultOptions, runtime)
 }
 
+/** 挂载锁定纵轴模式 + 指定轴类型的主图，供价格轴缩放与重置用例共用。 */
+function mountHandModeChart(scaleType: ScaleType): Chart {
+  return mountChart(1000, 600, {
+    initialSettings: {
+      mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+      mainRightAxisTypeSetting: scaleType,
+    },
+  })
+}
+
 /** 生成均质 K 线序列；high/low 固定为 close ± 1。 */
 function makeBars(count: number, close = 10): KLineData[] {
   return Array.from({ length: count }, (_, timestamp) => ({
@@ -81,6 +91,14 @@ function makeBars(count: number, close = 10): KLineData[] {
     low: close - 1,
     close,
   }))
+}
+
+/** 生成前段低价区（9~11）续后段高价区（99~101）的序列，用于验证按可视区重适配范围。 */
+function makeTwoTierBars(lowCount = 1000, highCount = 1000): KLineData[] {
+  return Array.from({ length: lowCount + highCount }, (_, timestamp) => {
+    const close = timestamp < lowCount ? 10 : 100
+    return { timestamp, open: close, high: close + 1, low: close - 1, close }
+  })
 }
 
 /** 读取 Chart 的 K 线 / 分时模式处理器；私有成员访问集中在此。 */
@@ -651,17 +669,90 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
+  it('zooms the price axis around the wheel position without changing time zoom', async () => {
+    const chart = mountHandModeChart(ScaleType.Percent)
+    try {
+      chart.resize()
+      chart.setData(makeBars(200))
+      chart.draw()
+      const pane = chart.getPaneRenderers()[0]!.getPane()
+      const anchorY = pane.height * 0.25
+      const anchorPrice = pane.yAxis.yToPrice(anchorY)
+      const initialRange = pane.yAxis.getDisplayRange()
+      const zoomLevel = chart.kernel.zoom.readonly.zoomLevel.peek()
+      const axisHost = chart.getDom().rightAxisLayer
+      const rect = axisHost.getBoundingClientRect()
+      const event = new WheelEvent('wheel', {
+        deltaY: -100,
+        clientX: rect.left + 1,
+        clientY: rect.top + pane.top + anchorY,
+        cancelable: true,
+      })
+      // 真实 DOM dispatch 设置事件 target，再经公开入口分流。
+      axisHost.addEventListener('wheel', (wheel) => chart.handleWheelEvent(wheel), {
+        once: true,
+      })
+      axisHost.dispatchEvent(event)
+      chart.draw()
+      const nextRange = pane.yAxis.getDisplayRange()
+      expect(nextRange.maxPrice - nextRange.minPrice).toBeLessThan(
+        initialRange.maxPrice - initialRange.minPrice,
+      )
+      expect(pane.yAxis.priceToY(anchorPrice)).toBeCloseTo(anchorY, 6)
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(zoomLevel)
+      expect(event.defaultPrevented).toBe(true)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   let restoreChartDomStubs: () => void
+
+  it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
+    'fits the current visible highs and lows after scrolling without changing the locked mode (%s)',
+    async (scaleType) => {
+      const chart = mountHandModeChart(scaleType)
+      try {
+        chart.resize()
+        chart.applyCustomData({
+          symbol: 'PRIMARY',
+          market: 'CN',
+          period: 'daily',
+          data: makeTwoTierBars(),
+        })
+        chart.draw()
+        const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
+        expect(axis.getScaleType()).toBe(scaleType)
+        const initialRange = axis.getDisplayRange()
+        // 先手动缩放并平移，制造锁定范围与新可视区的偏差。
+        chart.scalePrice(MAIN_PANE_ID, -100)
+        chart.translatePrice(MAIN_PANE_ID, 80)
+        chart.draw()
+        expect(axis.getDisplayRange()).not.toEqual(initialRange)
+
+        // 滚动到早期低价区：锁定模式保留旧范围，重置必须重新适配当前视图。
+        chart.kernel.viewport.actions.scrollTo(chart.getLeftLoadBufferWidth())
+        chart.draw()
+        chart.resetPriceTransform(MAIN_PANE_ID)
+        chart.draw()
+        expect(axis.getDisplayRange().minPrice).toBeCloseTo(9)
+        expect(axis.getDisplayRange().maxPrice).toBeCloseTo(11)
+        expect(chart.kernel.mainPriceAxis.readonly.rangeMode.peek()).toBe(
+          PRICE_AXIS_RANGE_MODE.HAND,
+        )
+        expect(chart.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting).toBe(
+          scaleType,
+        )
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
 
   it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
     'fits a fresh price range on every symbol switch after manual scaling (%s)',
     async (scaleType) => {
-      const chart = mountChart(1000, 600, {
-        initialSettings: {
-          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
-          mainRightAxisTypeSetting: scaleType,
-        },
-      })
+      const chart = mountHandModeChart(scaleType)
       try {
         chart.resize()
         chart.applyCustomData({

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createLeftYAxisStaticRendererLayer } from '@/core/renderers/leftYAxis'
 import {
   createYAxisOverlayRendererLayer,
   createYAxisStaticRendererLayer,
@@ -83,26 +82,6 @@ describe('yAxis renderer', () => {
 
     const targetCtx = context.yAxisCtx!
     expect(targetCtx.fillText).toHaveBeenCalledTimes(0)
-  })
-
-  it('uses the percent scale for timeshare left-axis ticks', () => {
-    const layer = createLeftYAxisStaticRendererLayer({ axisWidth: 80 })
-    const leftAxisCtx = createMockCanvasContext()
-    const context = createContext({
-      period: 'timeshare',
-      leftAxisCtx,
-      pane: createPane({
-        yAxis: {
-          ...createPane().yAxis,
-          getScaleType: () => 'percent',
-          toPercent: (price) => price - 100,
-        },
-      }),
-    })
-
-    layer.paint(context)
-
-    expect(leftAxisCtx.fillText).toHaveBeenCalledWith('+20.00%', expect.any(Number), 10)
   })
 
   it('uses price values for timeshare right-axis ticks', () => {

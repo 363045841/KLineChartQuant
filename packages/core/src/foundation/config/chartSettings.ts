@@ -6,6 +6,9 @@ import { AXIS_TYPE_NONE, ScaleType } from '../types/scaleType.js'
 
 import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
 
+export { ScaleType } from '../types/scaleType.js'
+export { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
+
 export interface SettingItem {
   key: string
   label: string
@@ -120,7 +123,7 @@ export const DEFAULT_SETTINGS = [
     label: '主图右轴类型',
     type: 'select',
     default: ScaleType.Linear,
-    group: 'main',
+    group: 'priceAxis',
     options: [
       { value: AXIS_TYPE_NONE, label: '不显示' },
       { value: ScaleType.Linear, label: '常规轴' },
@@ -129,11 +132,22 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
+    key: 'priceAxisPosition',
+    label: '价格轴位置',
+    type: 'select',
+    default: 'right',
+    group: 'priceAxis',
+    options: [
+      { value: 'left', label: '左侧' },
+      { value: 'right', label: '右侧' },
+    ],
+  },
+  {
     key: 'mainLeftAxisDisplaySetting',
     label: '左轴显示',
     type: 'select',
     default: 'none',
-    group: 'main',
+    group: 'priceAxis',
     options: [
       { value: 'none', label: '不显示' },
       { value: 'price', label: '价格' },
@@ -145,7 +159,7 @@ export const DEFAULT_SETTINGS = [
     label: '纵轴刻度',
     type: 'select',
     default: PRICE_AXIS_RANGE_MODE.AUTO,
-    group: 'main',
+    group: 'priceAxis',
     options: [
       { value: PRICE_AXIS_RANGE_MODE.AUTO, label: '自动适应' },
       { value: PRICE_AXIS_RANGE_MODE.HAND, label: '锁定价格对 K 线比例' },

@@ -74,6 +74,8 @@
     groups: ReadonlyArray<DropMenuGroup>
     disabled?: boolean
     triggerClass?: string
+    /** 菜单相对触发按钮的弹出方向。 */
+    placement?: 'auto' | 'top' | 'bottom'
     message?: string
   }>()
   const emit = defineEmits<{
@@ -88,6 +90,9 @@
   const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
     triggerRef,
     menuRef,
+    4,
+    false,
+    props.placement,
   )
   const menuStyle = computed(() => ({ ...popupStyle.value, zIndex: 1010 }))
 

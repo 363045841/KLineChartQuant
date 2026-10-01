@@ -8,6 +8,7 @@
 import type { Chart } from '@/engine/chart.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import type { CustomMarkerEntity } from '@/engine/marker/registry.js'
+import { MAIN_PANE_ID } from '@/engine/paneIds.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/paneManager.js'
 import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
 import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
@@ -204,6 +205,12 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.markers.clear()
   }
 
+  /** 恢复主图价格轴的纵轴缩放和偏移。 */
+  function resetMainPriceAxis(): void {
+    if (isDisposed()) return
+    chart.resetPriceTransform(MAIN_PANE_ID)
+  }
+
   /** 更新设置（高层 API）。 */
   function updateSettingsFacade(settings: Record<string, unknown>): void {
     if (isDisposed()) return
@@ -217,6 +224,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   return {
+    resetMainPriceAxis,
     getZoomLevelCount,
     setTheme,
     setSystemTheme,

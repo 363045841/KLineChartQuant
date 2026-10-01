@@ -139,8 +139,8 @@ export function createIndicatorScaleLayer(
           pos: localY,
           origin: 0,
           variant: 'crosshair',
-          bgColor: tokenColors.label.bg,
-          textColor: tokenColors.label.text,
+          bgColor: tokenColors.crosshairLabelBg,
+          textColor: tokenColors.crosshairLabelText,
           fontSize: 12,
         })
       }

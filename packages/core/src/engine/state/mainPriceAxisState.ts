@@ -20,8 +20,8 @@ export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
   return {
     readonly,
     actions: {
-      /** 品种切换后清除手动范围，保留模式偏好并等待新行情初始化。 */
-      resetForSymbol(): void {
+      /** 清除手动范围，保留模式偏好，由下一帧按可见行情重新初始化。 */
+      resetHandRange(): void {
         signals.handRange.set(null)
       },
       useAutoRange(): void {

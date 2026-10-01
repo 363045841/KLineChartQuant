@@ -24,6 +24,7 @@ import type {
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
+import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 import type { LegendTemplateContext } from '@363045841yyt/klinechart-core/controllers'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type { App } from 'vue'
@@ -86,12 +87,17 @@ export interface MockChartController extends ChartController {
   /** test-only: 写入全部已确认图元 */
   _setDrawings: (drawings: ReadonlyArray<DrawingObject>) => void
   _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
+  /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
+  _setSettings: (settings: ChartSettings) => void
+  /** spy: resetMainPriceAxis 调用次数 */
+  resetMainPriceAxisCalls: () => number
 }
 
 export function createMockChartController(
   opts: Partial<ChartMountOptions> = {},
 ): MockChartController {
   let disposeCalls = 0
+  let resetPriceAxisCalls = 0
   const setThemeCalls: Array<'light' | 'dark'> = []
   const canUndoDrawing = createSignal(false)
   const canRedoDrawing = createSignal(false)
@@ -286,6 +292,9 @@ export function createMockChartController(
     getLeftLoadBufferWidth: () => 0,
     scrollToRight: () => {},
     updateSettingsFacade: () => {},
+    resetMainPriceAxis: () => {
+      resetPriceAxisCalls += 1
+    },
     dispose: () => {
       disposeCalls += 1
     },
@@ -293,6 +302,8 @@ export function createMockChartController(
 
   return {
     ...(controller as ChartController),
+    _setSettings: (next) => settings.set(next),
+    resetMainPriceAxisCalls: () => resetPriceAxisCalls,
     _setDrawingHistory: (undo, redo) => {
       canUndoDrawing.set(undo)
       canRedoDrawing.set(redo)

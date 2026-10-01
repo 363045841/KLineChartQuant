@@ -99,7 +99,6 @@ import { createCustomMarkersLayer } from './layers/customMarkersLayer.js'
 import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer.js'
 import { createFiveDayTimeShareLayer } from './layers/fiveDayTimeShareLayer.js'
 import { createGridLinesLayer } from './layers/gridLinesLayer.js'
-import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer.js'
 import { createTimeShareLayer } from './layers/timeShareLayer.js'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer.js'
 
@@ -529,23 +528,6 @@ export class ChartRenderer {
       }
       this.scene.addLayer(createYAxisStaticLayer(yAxisOpts))
       this.scene.addLayer(createYAxisOverlayLayer(yAxisOpts))
-    }
-    {
-      const leftYAxisOpts = {
-        axisWidth: opt.leftAxisWidth,
-        yPaddingPx: opt.yPaddingPx,
-        getCrosshair: () => {
-          const pos = interaction.crosshairPos
-          const price = interaction.crosshairPrice
-          const activePaneId = interaction.activePaneId
-          if (pos && price !== null) {
-            return { y: pos.y, price, activePaneId }
-          }
-          return null
-        },
-      }
-      this.scene.addLayer(createLeftYAxisStaticLayer(leftYAxisOpts))
-      this.scene.addLayer(createLeftYAxisOverlayLayer(leftYAxisOpts))
     }
   }
 

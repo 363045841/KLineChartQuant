@@ -592,6 +592,8 @@ export interface ChartController extends DrawingChartAdapter {
 
   // ---- Settings ----
   updateSettingsFacade(settings: Record<string, unknown>): void
+  /** 按当前可见 range 的 Max/Min 适配主图纵轴，保留轴类型与范围模式。 */
+  resetMainPriceAxis(): void
   updateOptionsFacade(options: Record<string, unknown>): void
 
   /** tear down DOM + listeners; idempotent */
