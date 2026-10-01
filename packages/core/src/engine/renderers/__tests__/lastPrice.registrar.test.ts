@@ -50,6 +50,26 @@ describe('createLastPriceLabelLayer', () => {
     ])
   })
 
+  it('formats the label as a percentage on the percent axis', () => {
+    const context = createMockRenderContext({
+      dataView: ChartDataViewId.KLine,
+      settings: { mainRightAxisTypeSetting: 'percent' },
+      pane: {
+        yAxis: { toPercent: (price: number) => ((price - 100) / 100) * 100 },
+      },
+      data: [
+        { timestamp: 1_000, open: 100, high: 110, low: 90, close: 100 },
+        { timestamp: 2_000, open: 100, high: 110, low: 90, close: 105 },
+      ],
+    })
+
+    paintLabel(context)
+
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+      expect.objectContaining({ type: 'lastPrice', text: '+5.00%' }),
+    ])
+  })
+
   it('does not register when the last close is outside the display range', () => {
     const context = createMockRenderContext({
       dataView: ChartDataViewId.KLine,

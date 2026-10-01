@@ -1,4 +1,4 @@
-import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings.js'
+import { AXIS_DISPLAY } from '../../foundation/config/axisSettings.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
@@ -6,23 +6,17 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
-import { formatAxisPriceValue } from './axisValueFormat.js'
+import {
+  formatAxisPriceValue,
+  resolvePriceAxisDisplay,
+  usesPercentAxis,
+} from './axisValueFormat.js'
 
 type YAxisOptions = {
   axisWidth: number
   /** 与 pane 一致的 Y 轴内边距；保留以兼容既有插件选项形状。 */
   yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
-}
-
-/** 右轴当前展示语义：分时强制价格，比较视图默认百分比 */
-function resolveRightAxisDisplay(context: RenderContext) {
-  return resolveEffectiveAxisDisplay('right', {
-    period: context.period,
-    comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
-    leftSetting: context.settings?.mainLeftAxisDisplaySetting,
-    rightTypeSetting: context.settings?.mainRightAxisTypeSetting,
-  })
 }
 
 /**
@@ -37,8 +31,7 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
     visible: true,
     paint(context) {
       const { ctx, pane, dpr, yAxisCtx } = context
-      const axisDisplay = resolveRightAxisDisplay(context)
-      if (axisDisplay === 'none') return
+      if (resolvePriceAxisDisplay(context) === AXIS_DISPLAY.NONE) return
 
       const tokenColors = resolveThemeColors(
         context.theme,
@@ -47,7 +40,7 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
       )
       const targetCtx = yAxisCtx || ctx
       const axisWidth = yAxisCtx?.canvas ? yAxisCtx.canvas.width / dpr : options.axisWidth
-      const isPercent = axisDisplay === 'percent' && pane.role === 'price'
+      const isPercent = usesPercentAxis(context)
 
       if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
         targetCtx.clearRect(0, 0, axisWidth, pane.height)
@@ -86,8 +79,7 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
     visible: true,
     paint(context) {
       const { pane, dpr, yAxisOverlayCtx, yAxisCtx } = context
-      const axisDisplay = resolveRightAxisDisplay(context)
-      if (axisDisplay === 'none') return
+      if (resolvePriceAxisDisplay(context) === AXIS_DISPLAY.NONE) return
 
       const targetCtx = yAxisOverlayCtx ?? yAxisCtx
       if (!targetCtx) return
@@ -102,7 +94,7 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
       const axisWidth = targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth
       targetCtx.clearRect(0, 0, axisWidth, pane.height)
 
-      const isPercent = axisDisplay === 'percent' && pane.role === 'price'
+      const isPercent = usesPercentAxis(context)
 
       // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。
       if (pane.role === 'price') {

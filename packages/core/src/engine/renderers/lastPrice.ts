@@ -9,6 +9,7 @@ import type { Layer } from '../../rendering/scene/types.js'
 import { registerAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
+import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
 
 function getLastPriceInfo(context: RenderContext) {
   const { pane, data } = context
@@ -53,10 +54,14 @@ export function createLastPriceLabelLayer(): Layer<RenderContext> {
       const info = getLastPriceInfo(context)
       if (!info) return
 
+      // 标签文本跟随轴展示语义：百分比轴显示涨跌幅，否则显示价格。
+      const isPercent = usesPercentAxis(context)
+      const displayValue = isPercent ? context.pane.yAxis.toPercent(info.price) : info.price
+
       registerAxisLabel(context, 'yRightOverlay', {
         kind: AXIS_LABEL_KIND.TAG,
         type: 'lastPrice',
-        text: info.price.toFixed(2),
+        text: formatAxisPriceValue(displayValue, isPercent),
         countdown: context.countdown,
         pos: info.y + context.pane.top,
         origin: context.pane.top,
