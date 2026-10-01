@@ -20,7 +20,7 @@
             :model-value="provider.modelId"
             :options="modelOptions"
             :placeholder="modelsLoading ? text.loadingModels : text.modelPlaceholder"
-            :title="text.model"
+            :aria-label="text.model"
             :disabled="running || !provider.configured"
             @open="$emit('models-open')"
             @update:model-value="$emit('model', $event)"

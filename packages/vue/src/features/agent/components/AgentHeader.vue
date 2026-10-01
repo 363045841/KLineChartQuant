@@ -7,49 +7,46 @@
         <strong>{{ text.agent }}</strong>
       </div>
       <div class="agent-header__actions">
-        <button
-          type="button"
-          :title="text.newSession"
-          :aria-label="text.newSession"
-          @click="$emit('create')"
-        >
-          <IconPlus aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          :title="text.renameSession"
-          :aria-label="text.renameSession"
-          :disabled="!activeSessionId"
-          @click="openRenameDialog"
-        >
-          <IconPencil aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          :title="text.deleteSession"
-          :aria-label="text.deleteSession"
-          :disabled="!activeSessionId"
-          @click="openDeleteDialog"
-        >
-          <IconTrash aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          :title="text.settings"
-          :aria-label="text.settings"
-          @click="$emit('settings')"
-        >
-          <IconSettings aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          data-testid="agent-panel-close"
-          :title="text.closePanel"
-          :aria-label="text.closePanel"
-          @click="$emit('close')"
-        >
-          <IconPanelRightClose aria-hidden="true" />
-        </button>
+        <BaseTooltip :content="text.newSession" placement="bottom">
+          <button type="button" :aria-label="text.newSession" @click="$emit('create')">
+            <IconPlus aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip :content="text.renameSession" placement="bottom">
+          <button
+            type="button"
+            :aria-label="text.renameSession"
+            :disabled="!activeSessionId"
+            @click="openRenameDialog"
+          >
+            <IconPencil aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip :content="text.deleteSession" placement="bottom">
+          <button
+            type="button"
+            :aria-label="text.deleteSession"
+            :disabled="!activeSessionId"
+            @click="openDeleteDialog"
+          >
+            <IconTrash aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip :content="text.settings" placement="bottom">
+          <button type="button" :aria-label="text.settings" @click="$emit('settings')">
+            <IconSettings aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip :content="text.closePanel" placement="bottom">
+          <button
+            type="button"
+            data-testid="agent-panel-close"
+            :aria-label="text.closePanel"
+            @click="$emit('close')"
+          >
+            <IconPanelRightClose aria-hidden="true" />
+          </button>
+        </BaseTooltip>
       </div>
     </div>
 
@@ -108,6 +105,7 @@
   import IconTrash from '~icons/tabler/trash'
   import BaseButton from '../../../components/BaseButton.vue'
   import BaseModal from '../../../components/BaseModal.vue'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'

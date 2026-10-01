@@ -8,15 +8,19 @@
       @pointerup.stop
       @click.stop
     >
-      <button
+      <BaseTooltip
         v-for="shortcut in shortcuts"
         :key="shortcut.id"
-        type="button"
-        :aria-label="shortcut.label"
-        :title="shortcut.label"
-        :aria-pressed="isAxisTypeSelected(shortcut.id)"
-        @click="selectAxisType(shortcut.id)"
-      >{{ shortcut.text }}</button>
+        :content="shortcut.label"
+        placement="left"
+      >
+        <button
+          type="button"
+          :aria-label="shortcut.label"
+          :aria-pressed="isAxisTypeSelected(shortcut.id)"
+          @click="selectAxisType(shortcut.id)"
+        >{{ shortcut.text }}</button>
+      </BaseTooltip>
     </div>
   <DropMenu
     class="axis-settings-menu"
@@ -49,6 +53,7 @@
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerSettings from '~icons/tabler/settings'
   import { usePriceAxisMenu } from '../composables/chart/usePriceAxisMenu.js'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import DropMenu from './DropMenu.vue'
 
   const props = defineProps<{

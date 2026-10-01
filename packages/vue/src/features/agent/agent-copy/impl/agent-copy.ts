@@ -94,7 +94,7 @@ const copy = {
     additionalHeaders: 'Additional headers (JSON)',
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "My app"\n}',
-    model: 'Model ID',
+    model: 'Select a model',
     modelList: 'Available models',
     modelPool: 'Model pool',
     contextWindow: 'Context',
@@ -221,7 +221,7 @@ const copy = {
     additionalHeaders: '附加请求头（JSON）',
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "我的应用"\n}',
-    model: '模型 ID',
+    model: '选择模型',
     modelList: '可用模型',
     modelPool: '模型池',
     contextWindow: '上下文',

@@ -1,24 +1,31 @@
 <template>
   <div ref="rootRef" class="dropdown" :class="[`dropdown--${size}`, { 'is-open': isOpen }]">
-    <button
-      ref="triggerRef"
-      type="button"
-      class="dropdown__trigger"
-      :title="title"
-      :style="triggerStyle"
-      aria-haspopup="listbox"
-      :aria-expanded="isOpen"
-      :disabled="disabled"
-      @click="toggleOpen"
-      @keydown.escape.stop="close"
-      @keydown.down.prevent="open"
-      @keydown.enter.prevent="toggleOpen"
-      @keydown.space.prevent="toggleOpen"
+    <BaseTooltip
+      :content="title"
+      placement="top"
+      :disabled="!title || isOpen"
+      trigger-display="contents"
     >
-      <span v-if="label" class="dropdown__label">{{ label }}</span>
-      <span class="dropdown__value">{{ selectedOption?.label ?? placeholder }}</span>
-      <span class="dropdown__chevron" aria-hidden="true"></span>
-    </button>
+      <button
+        ref="triggerRef"
+        type="button"
+        class="dropdown__trigger"
+        :style="triggerStyle"
+        :aria-label="ariaLabel"
+        aria-haspopup="listbox"
+        :aria-expanded="isOpen"
+        :disabled="disabled"
+        @click="toggleOpen"
+        @keydown.escape.stop="close"
+        @keydown.down.prevent="open"
+        @keydown.enter.prevent="toggleOpen"
+        @keydown.space.prevent="toggleOpen"
+      >
+        <span v-if="label" class="dropdown__label">{{ label }}</span>
+        <span class="dropdown__value">{{ selectedOption?.label ?? placeholder }}</span>
+        <span class="dropdown__chevron" aria-hidden="true"></span>
+      </button>
+    </BaseTooltip>
 
     <Teleport :to="teleportTarget">
       <div
@@ -58,6 +65,7 @@
   import { useClickOutside } from '../composables/useClickOutside.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup.js'
+  import BaseTooltip from './common/BaseTooltip.vue'
 
   export interface DropdownOption<T extends string = string> {
     label: string
@@ -74,6 +82,8 @@
       placement?: 'auto' | 'top' | 'bottom'
       label?: string
       title?: string
+      /** 触发器按钮的无障碍名称 */
+      ariaLabel?: string
       placeholder?: string
       allowEmpty?: boolean
       disabled?: boolean

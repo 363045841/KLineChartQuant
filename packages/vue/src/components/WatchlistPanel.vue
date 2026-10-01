@@ -28,7 +28,6 @@
           <button
             type="button"
             class="watchlist-panel__select"
-            :title="`${item.symbol} - ${item.name}`"
             @click="emit('select', item)"
           >
             <span class="watchlist-panel__symbol">{{ item.symbol }}</span>

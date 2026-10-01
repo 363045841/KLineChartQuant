@@ -157,9 +157,7 @@ describe('AgentWorkspace', () => {
     await flushPromises()
 
     expect(document.querySelector('.base-title')?.textContent).toBe('模型设置')
-    expect(mounted.wrapper.find('button[aria-label="模型设置"]').attributes('title')).toBe(
-      '模型设置',
-    )
+    expect(mounted.wrapper.find('button[aria-label="模型设置"]').exists()).toBe(true)
   })
 
   it('renders the interface group first with the collapse-reasoning option', async () => {
