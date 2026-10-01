@@ -15,6 +15,8 @@
  */
 
 import type { Signal } from '../../foundation/reactivity/signal.js'
+import type { Renderer } from '../render/Renderer.js'
+import type { SurfaceRegion } from '../render/SurfaceBackend.js'
 
 /**
  * 绘制角色。Scene 按角色分组/过滤（例如 overlay 帧只画 overlay），
@@ -50,7 +52,9 @@ export interface FramePaint {
   /** 本帧构建的业务帧上下文（含 ctx/几何/主题），由 ChartRenderer 提供。 */
   context: unknown
   /** 本帧渲染后端；Layer 用它提交 GPU 画笔。 */
-  renderer: unknown
+  renderer: Pick<Renderer, 'beginFrame'>
+  /** 本 pane 的绘制区域，由 Scene 在分发图层前绑定。 */
+  region: SurfaceRegion
   /** 帧计数器，用于动画与跳帧检测。 */
   frameNumber: number
   /** 距离上一次绘制的时间（ms），首帧可能为 0。 */

@@ -997,7 +997,7 @@ export class ChartRenderer {
     }
   }
 
-  /** 遍历所有 pane，逐 pane 清 canvas → 构建 RenderContext → beginFrame；所有 pane 构建完成后一次 scene.paint，再 endFrame 统一提交 GPU / 时间轴 */
+  /** 构建所有 pane 的上下文与区域，由 Scene 逐 pane 绑定并绘制，最后统一提交 GPU。 */
   private renderPanes(
     vp: Viewport,
     range: VisibleRange,
@@ -1292,12 +1292,11 @@ export class ChartRenderer {
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
       // 画 main canvas（非 overlay 角色 layer）
       if (shouldUpdateMain) {
-        // 标记后续 GPU 绘制属于此 region
-        sceneRenderer.beginFrame(region)
         framePanes.push({
           paneId: pane.id,
           context,
           renderer: sceneRenderer,
+          region,
           frameNumber: this.frameCount++,
           deltaMs: 0,
           roles: MAIN_CANVAS_ROLES,
@@ -1307,11 +1306,11 @@ export class ChartRenderer {
       // 画 overlay canvas（绘图和动态 overlay 角色 layer）
       if (shouldUpdateOverlay) {
         // GPU 主层在本帧已经清过；overlay 不得清除其可见 GPU 内容。
-        sceneRenderer.beginFrame(region, { clear: false })
         framePanes.push({
           paneId: pane.id,
           context,
           renderer: sceneRenderer,
+          region,
           frameNumber: this.frameCount++,
           deltaMs: 0,
           roles: shouldUpdateDrawing ? OVERLAY_CANVAS_ROLES : SESSION_CANVAS_ROLES,

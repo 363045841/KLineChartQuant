@@ -75,6 +75,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
   const paint = (frame: SceneFrame): void => {
     if (disposed) return
     for (const pane of frame.panes) {
+      // 区域绑定必须紧邻实际绘制，避免共享后端沿用最后一个副图的区域。
+      pane.renderer.beginFrame(pane.region, { clear: pane.clear })
       // 命中当前 pane 或全局、且可见的 Layer
       let candidates = layerList.filter(
         (layer) =>

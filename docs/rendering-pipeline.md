@@ -255,11 +255,11 @@ sequenceDiagram
   FT->>CR: render(snapshot)
   CR->>CR: sealFrameGeometry
   CR->>CR: flushPendingHover
-  loop each pane
-    CR->>R: beginFrame(region) [Main]
-    CR->>Scene: paintPane(non-overlay roles)
-    CR->>R: beginFrame(region) [Overlay]
-    CR->>Scene: paintPane(overlay role)
+  CR->>CR: 构建所有 Pane 的上下文与 region
+  CR->>Scene: paint({ panes })
+  loop each pane pass
+    Scene->>R: beginFrame(region, { clear })
+    Scene->>Scene: 按 paneId 与 roles 分发 Layer
   end
   CR->>R: endFrame
   CR->>CR: timeAxisLayer.paint
@@ -337,8 +337,11 @@ Overlay 只有在 `cachedDrawFrame` 已存在时才复用几何；首个请求�
 4. 计算当前 pane 的 Y 轴 ticks。
 5. 把 context 写入 `paneCtxMap`，供 Layer bridge 获取。
 6. 构建 `{ x: 0, y: pane.top, width: plotWidth, height: pane.height, dpr }` region。
-7. Main 分支调用 `Renderer.beginFrame(region)`，再 paint 非 overlay roles。
-8. Overlay 分支再次调用 `Renderer.beginFrame(region)`，再 paint `overlay` role。
+7. Main 分支收集非 overlay roles 的绘制输入，携带 region 和 `clear: true`。
+8. Overlay 分支收集动态覆盖与需要更新的绘图角色，携带 region 和 `clear: false`。
+
+全部上下文构建完成后调用一次 `scene.paint({ panes })`。Scene 在每个绘制批次分发 Layer 前调用
+`Renderer.beginFrame(region, { clear })`，保证共享后端绑定的区域与当前 Pane 一致。
 
 所有 pane 完成后只调用一次 `Renderer.endFrame()`。之后 `renderXAxis()` 构造时间轴 context，并直接
 调用 `timeAxisLayer.paint()`。
@@ -350,9 +353,9 @@ Overlay 只有在 `cachedDrawFrame` 已存在时才复用几何；首个请求�
 
 ### 9.1 Scene 规则
 
-`createScene()` 持有注册顺序数组和只读 `layers` signal。`paintPane(ctx, roles?)`：
+`createScene()` 持有注册顺序数组和 `layers` signal。`paint({ panes })` 对每个绘制批次执行：
 
-1. 选择 `layer.paneRole === ctx.paneRole` 或 `global` 的 Layer。
+1. 绑定批次的 region 并传递 clear 标志，然后选择 `layer.pane === paneId` 或 `global` 的 Layer。
 2. 跳过不可见 Layer。
 3. 有 roles 参数时进一步过滤。
 4. 按 `z` 升序稳定排序；相同 z 保持注册顺序。
@@ -361,8 +364,7 @@ Overlay 只有在 `cachedDrawFrame` 已存在时才复用几何；首个请求�
 重复 Layer id 采用 first-wins。增删 Layer 时 signal 发布新数组。修改 `visible` 不更换数组 identity，
 避免批量显隐造成框架订阅风暴。
 
-Scene 自身不吞掉 `paint()` 异常。旧 RendererPlugin 经 `createLayerFromPlugin()` 桥接时，桥接层会
-隔离单个 plugin draw 异常，并把 `PaintContext.renderer` 注入业务 `RenderContext.sceneRenderer`。
+Scene 注入 `paneId`、`clear` 和 `sceneRenderer`，并隔离单个 Layer 的绘制异常，避免中断后续图层。
 
 ### 9.2 Layer role
 

@@ -76,7 +76,16 @@ function makeMockLayer(opts: MockLayerOpts): MockLayer {
 function frame(paneId: string, clear = false, roles?: ReadonlyArray<LayerRole>): SceneFrame {
   return {
     panes: [
-      { paneId, context: { tag: paneId }, renderer: {}, frameNumber: 0, deltaMs: 0, roles, clear },
+      {
+        paneId,
+        context: { tag: paneId },
+        renderer: { beginFrame: vi.fn() },
+        region: { x: 0, y: 0, width: 600, height: 300, dpr: 1 },
+        frameNumber: 0,
+        deltaMs: 0,
+        roles,
+        clear,
+      },
     ],
   }
 }
@@ -86,6 +95,52 @@ function frame(paneId: string, clear = false, roles?: ReadonlyArray<LayerRole>):
 // ---------------------------------------------------------------------------
 
 describe('createScene', () => {
+  it('binds each pane region before painting its layers and preserves overlay content', () => {
+    const scene = createScene<FrameStub>()
+    const mainRegion = { x: 0, y: 0, width: 600, height: 300, dpr: 2 }
+    const subRegion = { ...mainRegion, y: 310, height: 150 }
+    let boundRegion = subRegion
+    const beginFrame = vi.fn((region: typeof mainRegion) => {
+      boundRegion = region
+    })
+    const renderer = { beginFrame }
+    const painted: Array<{ paneId: string; region: typeof mainRegion }> = []
+    for (const paneId of [LAYER_PANE_GLOBAL, 'main', 'sub']) {
+      scene.addLayer({
+        id: paneId,
+        pane: paneId,
+        role: 'primary',
+        z: 0,
+        visible: true,
+        paint(context) {
+          painted.push({ paneId: context.tag, region: boundRegion })
+        },
+        dispose() {},
+      })
+    }
+    const passes = [
+      { paneId: 'main', region: mainRegion, clear: true },
+      { paneId: 'main', region: mainRegion, clear: false },
+      { paneId: 'sub', region: subRegion, clear: true },
+    ]
+    scene.paint({
+      panes: passes.map((pass) => ({
+        ...pass,
+        context: { tag: pass.paneId },
+        renderer,
+        frameNumber: 0,
+        deltaMs: 0,
+      })),
+    })
+    expect(painted).toEqual(
+      passes.flatMap(({ paneId, region }) => [
+        { paneId, region },
+        { paneId, region },
+      ]),
+    )
+    expect(beginFrame.mock.calls).toEqual(passes.map(({ region, clear }) => [region, { clear }]))
+  })
+
   it('addLayer then getLayer round-trips by id', () => {
     const scene = createScene<FrameStub>()
     const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
