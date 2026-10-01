@@ -953,9 +953,11 @@ export class Chart {
     this.scheduleDraw()
   }
 
+  /** 清除纵轴变换，主图下一帧按当前可见 range 的 Max/Min 重新适配。 */
   resetPriceTransform(paneId: string): void {
     const renderer = this.paneRenderer(paneId)
     if (!renderer) return
+    if (paneId === MAIN_PANE_ID) this.kernel.mainPriceAxis.actions.resetHandRange()
     renderer.getPane().yAxis.resetTransform()
     this.scheduleDraw()
   }

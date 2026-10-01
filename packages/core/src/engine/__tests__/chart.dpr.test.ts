@@ -699,6 +699,52 @@ describe('Chart DPR pipeline', () => {
   let restoreChartDomStubs: () => void
 
   it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
+    'fits the current visible highs and lows after scrolling without changing the locked mode (%s)',
+    async (scaleType) => {
+      const chart = mountChart(1000, 600, {
+        initialSettings: {
+          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+          mainRightAxisTypeSetting: scaleType,
+        },
+      })
+      try {
+        chart.resize()
+        chart.applyCustomData({
+          symbol: 'PRIMARY',
+          market: 'CN',
+          period: 'daily',
+          data: makeBars(2000).map((bar) =>
+            bar.timestamp < 1000 ? bar : { ...bar, open: 100, close: 100, high: 101, low: 99 },
+          ),
+        })
+        chart.draw()
+        const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
+        const initialRange = axis.getDisplayRange()
+        chart.scalePrice(MAIN_PANE_ID, -100)
+        chart.translatePrice(MAIN_PANE_ID, 80)
+        chart.draw()
+        expect(axis.getDisplayRange()).not.toEqual(initialRange)
+
+        // 滚动到早期低价区：锁定模式保留旧范围，重置必须重新适配当前视图。
+        chart.kernel.viewport.actions.scrollTo(chart.getLeftLoadBufferWidth())
+        chart.draw()
+        chart.resetPriceTransform(MAIN_PANE_ID)
+        chart.draw()
+        expect(axis.getDisplayRange().minPrice).toBeCloseTo(9)
+        expect(axis.getDisplayRange().maxPrice).toBeCloseTo(11)
+        expect(chart.kernel.mainPriceAxis.readonly.rangeMode.peek()).toBe(
+          PRICE_AXIS_RANGE_MODE.HAND,
+        )
+        expect(chart.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting).toBe(
+          scaleType,
+        )
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
+  it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
     'fits a fresh price range on every symbol switch after manual scaling (%s)',
     async (scaleType) => {
       const chart = mountChart(1000, 600, {

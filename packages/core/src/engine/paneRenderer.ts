@@ -21,7 +21,7 @@ export type PaneRendererOptions = {
 }
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
-   管理 main/drawing/overlay/yAxis/yAxisOverlay（及可选 left 轴）canvas
+   管理 main/drawing/overlay/yAxis/yAxisOverlay canvas，价格轴与左右摆放位置无关
    持有 Pane 实例（布局、Y 轴、价格范围）
    响应 Chart 的 resize / layout 信号
    GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
@@ -62,8 +62,8 @@ export class PaneRenderer {
         overlayCtx: this.dom.overlayCanvas.getContext('2d'),
         yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
         yAxisOverlayCtx: this.dom.yAxisOverlayCanvas.getContext('2d'),
-        leftAxisCtx: this.dom.leftYAxisCanvas?.getContext('2d') ?? null,
-        leftAxisOverlayCtx: this.dom.leftYAxisOverlayCanvas?.getContext('2d') ?? null,
+        leftAxisCtx: null,
+        leftAxisOverlayCtx: null,
       }
     }
     return this.contexts
@@ -123,19 +123,6 @@ export class PaneRenderer {
     PaneRenderer.resizeCanvas(yAxisCanvas, yAxisWidth, yAxisHeight, dpr)
     PaneRenderer.resizeCanvas(yAxisOverlayCanvas, yAxisWidth, yAxisHeight, dpr)
 
-    // Left YAxis Canvas + overlay
-    const leftCanvas = this.dom.leftYAxisCanvas
-    const leftOverlayCanvas = this.dom.leftYAxisOverlayCanvas
-    if (leftCanvas) {
-      const fallbackLeftAxisWidth = this.opt.leftAxisWidth
-      const leftParentWidth = leftCanvas.parentElement?.clientWidth ?? 0
-      const canvasLeftAxisWidth = leftParentWidth > 0 ? leftParentWidth : fallbackLeftAxisWidth
-      const leftW = Math.round(Math.max(canvasLeftAxisWidth, 0) * dpr)
-      PaneRenderer.resizeCanvas(leftCanvas, leftW, yAxisHeight, dpr)
-      if (leftOverlayCanvas) {
-        PaneRenderer.resizeCanvas(leftOverlayCanvas, leftW, yAxisHeight, dpr)
-      }
-    }
   }
 
   /** 销毁 PaneRenderer 实例 */

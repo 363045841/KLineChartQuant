@@ -86,17 +86,11 @@
           </div>
           <div ref="tooltipLayerRef" class="tooltip-layer"></div>
           <div
-            v-if="computedLeftAxisWidth > 0"
-            ref="leftAxisLayerRef"
-            class="left-axis-host"
-            :style="leftAxisHostStyle"
-          ></div>
-          <div
             ref="containerRef"
             tabindex="0"
             @keydown="onDrawingHistoryKeydown"
             class="chart-container"
-            :class="{ 'chart-container--without-left-axis': leftAxisHostStyle.display === 'none' }"
+            :class="{ 'chart-container--axis-left': priceAxisPosition === 'left' }"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
@@ -269,6 +263,7 @@
           <div
             ref="rightAxisLayerRef"
             class="right-axis-host"
+            :class="{ 'price-axis-host--left': priceAxisPosition === 'left' }"
             :style="{ width: axisHostWidth + 'px' }"
             @pointerdown="onRightAxisPointerDown"
             @pointermove="onRightAxisPointerMove"
@@ -277,7 +272,13 @@
             @pointercancel="onRightAxisPointerCancel"
             @lostpointercapture="onRightAxisLostPointerCapture"
             @contextmenu.prevent
-          ></div>
+          >
+            <PriceAxisSettingsMenu
+              :controller="controller"
+              :height="props.bottomAxisHeight"
+              @settings-change="handleSettingsChange"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -388,7 +389,10 @@
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
   import { useChartState } from '../composables/chart/useChartState.js'
   import { useChartTheme } from '../composables/chart/useChartTheme.js'
-  import { useControllerSignal } from '../composables/chart/useControllerSignal.js'
+  import {
+    useControllerSignal,
+    useControllerSignalValue,
+  } from '../composables/chart/useControllerSignal.js'
   import { useDrawingManager } from '../composables/chart/useDrawingManager.js'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
@@ -408,6 +412,7 @@
   import LeftToolbar from './LeftToolbar.vue'
   import MarkerTooltip from './MarkerTooltip.vue'
   import PaneHeaderOverlay from './PaneHeaderOverlay.vue'
+  import PriceAxisSettingsMenu from './PriceAxisSettingsMenu.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
@@ -766,7 +771,6 @@
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
   const tooltipContentRef = ref<HTMLDivElement | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
-  const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
   provideFullscreenTeleportTarget(chartWrapperRef)
 
   // ── Fullscreen (controlled / uncontrolled) ──
@@ -849,6 +853,7 @@
   }
 
   const showBatchStockDialog = ref(false)
+
   const showDrawingSettingsDialog = ref(false)
   const editingDrawingId = ref<string | null>(null)
   const batchSymbols = ref<string[]>([])
@@ -1523,16 +1528,13 @@
     Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
   )
 
-  const computedLeftAxisWidth = computed(() => props.leftAxisWidth ?? 0)
-
-  const leftAxisHostStyle = computed(() => {
-    const width = computedLeftAxisWidth.value
-    if (width <= 0) return { display: 'none' }
-    if (kLineLevel.value === 'timeshare') return { width: `${width}px` }
-    const leftDisplay = chartSettings.value?.mainLeftAxisDisplaySetting
-    if (!leftDisplay || leftDisplay === 'none') return { width: `${width}px`, display: 'none' }
-    return { width: `${width}px` }
-  })
+  // 位置只改变同一 DOM 轴的 flex 顺序，Canvas、范围与交互实例保持同一份。
+  const priceAxisPosition = useControllerSignalValue(
+    controller,
+    (ctrl) => ctrl.settings,
+    (settings) => settings.priceAxisPosition,
+    () => _initialResolved.priceAxisPosition,
+  )
 
   function applyZoomToLevel(targetLevel: number, anchorX?: number) {
     controller.value?.zoomToLevel(targetLevel, anchorX)
@@ -1569,7 +1571,6 @@
     canvasLayer: HTMLDivElement,
     rightAxisLayer: HTMLDivElement,
     xAxisCanvas: HTMLCanvasElement,
-    leftAxisLayer?: HTMLDivElement,
   ): Promise<ChartController> {
     const ctrl = createChartController({
       container,
@@ -1577,14 +1578,12 @@
       marketSessions: props.marketSessions,
       canvasLayer,
       rightAxisLayer,
-      leftAxisLayer,
       xAxisCanvas,
       theme: _initialTheme,
       initialZoomLevel: props.initialZoomLevel,
       zoomLevels: props.zoomLevels,
       yPaddingPx: props.yPaddingPx,
       rightAxisWidth: props.rightAxisWidth,
-      leftAxisWidth: props.leftAxisWidth,
       bottomAxisHeight: props.bottomAxisHeight,
       priceLabelWidth: props.priceLabelWidth,
       minKWidth: props.minKWidth,
@@ -1836,10 +1835,9 @@
     const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
     const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
     const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
-    const leftAxisLayer = chartMain.querySelector<HTMLDivElement>('.left-axis-host') ?? undefined
     let ctrl: ChartController
     try {
-      ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!, leftAxisLayer)
+      ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
     } catch (err) {
       console.error('[KLineChart] initChart failed:', err)
       return
@@ -2052,7 +2050,6 @@
 
   /* 绘图区与左右轴共用布局、背景和手势规则。 */
   .chart-container,
-  .left-axis-host,
   .right-axis-host {
     position: relative;
     min-height: inherit;
@@ -2076,9 +2073,15 @@
     border-radius: 0;
   }
 
-  .chart-container--without-left-axis {
+  .chart-container {
     border-radius: 3px 0 0 3px;
     border-left: 1px solid var(--chart-border);
+  }
+
+  .chart-container--axis-left {
+    border-radius: 0 3px 3px 0;
+    border-left: 0;
+    border-right: 1px solid var(--chart-border);
   }
 
   .drawing-line-label-editor {
@@ -2156,7 +2159,6 @@
     display: none;
   }
 
-  .left-axis-host,
   .right-axis-host {
     flex: 0 0 auto;
     border: 1px solid var(--chart-border);
@@ -2167,13 +2169,15 @@
     border-bottom-right-radius: 3px;
   }
 
-  .left-axis-host {
+  .price-axis-host--left {
+    order: -1;
     border-top-left-radius: 3px;
     border-bottom-left-radius: 3px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
   }
 
   /* 轴画布由 Core 动态创建，定位与叠层由 Core 管理，Vue 只负责显示样式。 */
-  .left-axis-host :deep(> canvas),
   .right-axis-host :deep(> canvas) {
     display: block;
   }
