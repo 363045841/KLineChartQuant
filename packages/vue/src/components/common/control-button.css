@@ -1,0 +1,67 @@
+/* 工具栏按钮与下拉触发器的共享外观；通过 scoped 样式引入，避免影响其他按钮。 */
+.control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  gap: 6px;
+  height: calc(12px + 2 * var(--klc-spacing-sm));
+  padding: 0 var(--klc-spacing-sm);
+  border: 1px solid var(--control-button-border, var(--klc-color-ui-border));
+  border-radius: 8px;
+  background: var(--control-button-background, var(--klc-color-ui-control-background));
+  color: var(--control-button-color, var(--klc-color-ui-text));
+  font-family: var(--klc-typography-font-family);
+  font-size: calc(var(--klc-typography-font-size-md) + 1px);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--klc-motion-duration-moderate) ease,
+    border-color var(--klc-motion-duration-moderate) ease,
+    box-shadow var(--klc-motion-duration-moderate) ease;
+}
+
+.control-button:hover:not(:disabled),
+.control-button[aria-expanded="true"]:not(:disabled) {
+  border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
+  background: var(--control-button-active-background, var(--klc-color-ui-hover));
+}
+
+.control-button:focus-visible {
+  border-color: var(--control-button-focus-border, var(--klc-color-ui-accent));
+  background: var(--control-button-focus-background, var(--klc-color-ui-hover));
+  box-shadow: var(
+    --control-button-focus-shadow,
+    0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent)
+  );
+  outline: 0;
+}
+
+.control-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.control-button--sm {
+  height: calc(8px + 2 * var(--klc-spacing-sm));
+  padding: 0 6px;
+  gap: 4px;
+  font-size: var(--klc-typography-font-size-md);
+}
+
+@media (max-width: 768px), (max-height: 640px) {
+  .control-button:not(.control-button--sm) {
+    height: 26px;
+    gap: 4px;
+    padding: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control-button {
+    transition: none;
+  }
+}

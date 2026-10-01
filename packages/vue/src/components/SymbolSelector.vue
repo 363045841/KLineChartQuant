@@ -2,7 +2,7 @@
   <div ref="chipWrapRef" class="symbol-chip-wrap">
     <button
       type="button"
-      class="symbol-chip"
+      class="control-button symbol-chip"
       :class="{ 'is-open': showPopup }"
       :title="displayText"
       :aria-expanded="showPopup"
@@ -263,6 +263,8 @@
   )
 </script>
 
+<style scoped src="./common/control-button.css"></style>
+
 <style scoped>
   .symbol-chip-wrap {
     position: relative;
@@ -270,57 +272,11 @@
     flex: 0 0 auto;
   }
 
-  /* 触发器样式与 Dropdown 的 .dropdown__trigger 保持一致（同尺寸、同边框/背景/交互态）。 */
-  .symbol-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    cursor: pointer;
-    transition:
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  .symbol-chip:hover,
-  .symbol-chip.is-open {
-    border-color: var(--klc-color-ui-border-strong);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .symbol-chip:focus-visible {
-    border-color: var(--klc-color-ui-accent);
-    background: var(--klc-color-ui-hover);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
-    outline: 0;
-  }
-
-  .symbol-chip.is-open .symbol-chip__arrow {
-    transform: rotate(180deg);
-  }
-
   .symbol-chip__code {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1;
     letter-spacing: 0.01em;
-  }
-
-  .symbol-chip__arrow {
-    color: var(--klc-color-ui-muted);
-    font-size: 12px;
-    line-height: 1;
-    transition: transform 0.15s ease;
   }
 
   .symbol-list {
@@ -463,10 +419,7 @@
 
   @media (max-width: 768px), (max-height: 640px) {
     .symbol-chip {
-      height: 26px;
       max-width: 120px;
-      gap: 4px;
-      padding: 0 6px;
     }
 
     .symbol-list {

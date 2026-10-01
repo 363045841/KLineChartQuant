@@ -2,14 +2,16 @@
   <div ref="rootRef" class="compare-chip-wrap">
     <button
       type="button"
-      class="compare-chip"
+      class="control-button compare-chip"
       :class="{ 'is-open': showPopup }"
       title="比较商品"
       :aria-expanded="showPopup"
       aria-haspopup="dialog"
       @click="togglePopup"
     >
-      <span class="compare-chip__icon" aria-hidden="true">+</span>
+      <span class="compare-chip__icon" aria-hidden="true">
+        <IconTablerPlus />
+      </span>
       <span class="compare-chip__text">比较商品</span>
       <span v-if="comparisonLoading" class="compare-chip__spinner" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
@@ -140,6 +142,7 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
+  import IconTablerPlus from '~icons/tabler/plus'
   import { useAggregationSourceHealth } from '../composables/useAggregationSourceHealth.js'
   import {
     type AggregationSourceDefinition,
@@ -277,6 +280,8 @@
   })
 </script>
 
+<style scoped src="./common/control-button.css"></style>
+
 <style scoped>
   .compare-chip-wrap {
     position: relative;
@@ -284,53 +289,18 @@
     flex: 0 0 auto;
   }
 
-  /* 触发器样式与 Dropdown 的 .dropdown__trigger 保持一致（同尺寸、同边框/背景/交互态）。 */
-  .compare-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    cursor: pointer;
-    transition:
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  .compare-chip:hover,
-  .compare-chip.is-open {
-    border-color: var(--klc-color-ui-border-strong);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .compare-chip:focus-visible {
-    border-color: var(--klc-color-ui-accent);
-    background: var(--klc-color-ui-hover);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
-    outline: 0;
-  }
-
   .compare-chip__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--klc-color-ui-muted);
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1;
+    /* Tabler 图标在 24 viewBox 内四周留白，15px 下左右各约 3px；抵消后使视觉间距与 Dropdown 触发器一致 */
+    margin-inline: -3px;
   }
 
-  .compare-chip__text {
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
+  .compare-chip__icon svg {
+    width: 15px;
+    height: 15px;
   }
 
   .compare-chip__badge {
@@ -558,12 +528,6 @@
   }
 
   @media (max-width: 768px), (max-height: 640px) {
-    .compare-chip {
-      height: 26px;
-      gap: 4px;
-      padding: 0 6px;
-    }
-
     .compare-list {
       max-height: 180px;
     }

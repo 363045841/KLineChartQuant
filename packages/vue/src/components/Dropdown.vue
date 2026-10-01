@@ -9,7 +9,8 @@
       <button
         ref="triggerRef"
         type="button"
-        class="dropdown__trigger"
+        class="control-button dropdown__trigger"
+        :class="{ 'control-button--sm': size === 'sm' }"
         :style="triggerStyle"
         :aria-label="ariaLabel"
         aria-haspopup="listbox"
@@ -197,6 +198,8 @@
   onBeforeUnmount(close)
 </script>
 
+<style scoped src="./common/control-button.css"></style>
+
 <style scoped>
   .dropdown {
     position: relative;
@@ -204,51 +207,15 @@
   }
 
   .dropdown__trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 var(--klc-spacing-sm);
-    border: 1px solid var(--dropdown-trigger-border, var(--klc-color-ui-border));
-    border-radius: 8px;
-    background: var(--dropdown-trigger-background, var(--klc-color-ui-control-background));
-    color: var(--dropdown-trigger-color, var(--klc-color-ui-text));
-    font: inherit;
-    cursor: pointer;
-    transition:
-      background-color var(--klc-motion-duration-moderate) ease,
-      border-color var(--klc-motion-duration-moderate) ease,
-      box-shadow var(--klc-motion-duration-moderate) ease;
-  }
-
-  .dropdown--md .dropdown__trigger {
-    height: calc(12px + 2 * var(--klc-spacing-sm));
-  }
-
-  .dropdown--sm .dropdown__trigger {
-    height: calc(8px + 2 * var(--klc-spacing-sm));
-    padding: 0 6px;
-    gap: 4px;
-  }
-
-  .dropdown__trigger:hover:not(:disabled),
-  .dropdown.is-open .dropdown__trigger {
-    border-color: var(--dropdown-trigger-active-border, var(--klc-color-ui-border-strong));
-    background: var(--dropdown-trigger-active-background, var(--klc-color-ui-hover));
-  }
-
-  .dropdown__trigger:focus-visible {
-    border-color: var(--dropdown-trigger-focus-border, var(--klc-color-ui-accent));
-    background: var(--dropdown-trigger-focus-background, var(--klc-color-ui-hover));
-    box-shadow: var(
-      --dropdown-trigger-focus-shadow,
-      0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent)
-    );
-    outline: 0;
-  }
-
-  .dropdown__trigger:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
+    /* Dropdown 的主题接口映射到共享按钮变量，供 Agent 等场景定制外观。 */
+    --control-button-border: var(--dropdown-trigger-border);
+    --control-button-background: var(--dropdown-trigger-background);
+    --control-button-color: var(--dropdown-trigger-color);
+    --control-button-active-border: var(--dropdown-trigger-active-border);
+    --control-button-active-background: var(--dropdown-trigger-active-background);
+    --control-button-focus-border: var(--dropdown-trigger-focus-border);
+    --control-button-focus-background: var(--dropdown-trigger-focus-background);
+    --control-button-focus-shadow: var(--dropdown-trigger-focus-shadow);
   }
 
   .dropdown__label {
@@ -339,12 +306,6 @@
   }
 
   @media (max-width: 768px), (max-height: 640px) {
-    .dropdown--md .dropdown__trigger {
-      height: 26px;
-      gap: 4px;
-      padding: 0 6px;
-    }
-
     .dropdown--md .dropdown__label {
       display: none;
     }

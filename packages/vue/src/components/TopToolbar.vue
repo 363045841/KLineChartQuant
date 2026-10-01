@@ -50,17 +50,17 @@
       :supported-adjustments="supportedAdjustments"
       @update:model-value="emit('kLineAdjustChange', $event)"
     />
-    <BaseButton
+    <button
       v-if="showBackButton"
-      class="back-button"
-      size="sm"
+      type="button"
+      class="control-button back-button"
       title="返回"
       aria-label="返回"
       @click="emit('back')"
     >
       <IconTablerArrowLeft class="back-button__icon" aria-hidden="true" />
       返回
-    </BaseButton>
+    </button>
     <AggregationSourceDialog
       :show="showSourceDialog"
       :sources="aggregationSources"
@@ -84,7 +84,6 @@
   import type { SymbolSearchFn } from '../composables/useSymbolSearch.js'
 
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
-  import BaseButton from './BaseButton.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown from './KLineLevelDropdown.vue'
@@ -229,6 +228,8 @@
   }
 </script>
 
+<style scoped src="./common/control-button.css"></style>
+
 <style scoped>
   .top-toolbar {
     position: relative;
@@ -240,7 +241,7 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
     background: var(--klc-color-ui-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--klc-color-ui-text) 6%, transparent);
     box-sizing: border-box;
     user-select: none;
     overflow-x: auto;
@@ -260,11 +261,5 @@
   .back-button__icon {
     width: 15px;
     height: 15px;
-  }
-
-  @media (max-width: 768px), (max-height: 640px) {
-    .back-button {
-      --base-button-height: 26px;
-    }
   }
 </style>
