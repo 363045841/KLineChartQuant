@@ -157,31 +157,40 @@ describe('createScene', () => {
     expect(scene.removeLayer('a')).toBe(true)
     expect(scene.getLayer('a')).toBeNull()
     expect(scene.removeLayer('a')).toBe(false)
+  })
+
+  it('removeLayer disposes the detached layer exactly once', () => {
+    const scene = createScene<FrameStub>()
+    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
+    scene.addLayer(a)
+
+    expect(scene.removeLayer('a')).toBe(true)
+    expect(a.disposeCalls).toBe(1)
+
+    // 已移除的层不再被 scene.dispose 二次释放
     scene.dispose()
     expect(a.disposeCalls).toBe(1)
   })
 
-  it('detaches a Layer before dispose and isolates cleanup errors', () => {
+  it('dispose isolates a throwing layer and still releases siblings', () => {
     const scene = createScene<FrameStub>()
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const removed = makeMockLayer({
-      id: 'removed',
+    const boom = makeMockLayer({
+      id: 'boom',
       role: 'primary',
       pane: 'main',
       z: 0,
-      onDispose() {
-        expect(scene.getLayer('removed')).toBeNull()
-        expect(scene.removeLayer('removed')).toBe(false)
+      onDispose: () => {
         throw new Error('cleanup failed')
       },
     })
-    const remaining = makeMockLayer({ id: 'remaining', role: 'primary', pane: 'main', z: 1 })
-    scene.addLayer(removed)
-    scene.addLayer(remaining)
-    expect(scene.removeLayer(removed.id)).toBe(true)
-    scene.dispose()
-    expect(removed.disposeCalls).toBe(1)
-    expect(remaining.disposeCalls).toBe(1)
+    const ok = makeMockLayer({ id: 'ok', role: 'primary', pane: 'main', z: 1 })
+    scene.addLayer(boom)
+    scene.addLayer(ok)
+
+    expect(() => scene.dispose()).not.toThrow()
+    expect(boom.disposeCalls).toBe(1)
+    expect(ok.disposeCalls).toBe(1)
     errorLog.mockRestore()
   })
 

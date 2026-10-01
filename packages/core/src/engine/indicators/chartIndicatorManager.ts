@@ -136,7 +136,7 @@ export interface IndicatorDependencies {
   getPluginHost: () => PluginHostImpl
   getRenderer: (id: string) => Layer<RenderContext> | undefined
   useRenderer: (layer: Layer<RenderContext>) => void
-  removeRenderer: (name: string) => void
+  removeRenderer: (id: string) => void
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>

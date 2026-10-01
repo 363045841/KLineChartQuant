@@ -5,6 +5,7 @@ import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinit
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import type { SubPaneSpec } from '../state/indicatorState'
 import { type SubPaneContext, SubPaneManager } from '../subPaneManager'
+import { createRendererLayerStore } from './helpers/rendererLayerStoreTestKit'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -15,23 +16,14 @@ afterEach(() => {
 })
 
 /** 构造副图管理器的最小运行时上下文；metadata 由静态定义注册表提供。 */
-function createMockContext(): SubPaneContext & {
-  renderers: Map<string, Layer<RenderContext>>
-  layers: Set<string>
-} {
-  const renderers = new Map<string, Layer<RenderContext>>()
-  const layers = new Set<string>()
+function createMockContext() {
+  const rendererLayers = createRendererLayerStore()
   return {
-    renderers,
-    layers,
+    layers: rendererLayers.layers,
     onPaneProjectionChanged: vi.fn(),
-    getRenderer: vi.fn((id) => renderers.get(id)),
-    useRenderer: vi.fn((layer: Layer<RenderContext>) => renderers.set(layer.id, layer)),
-    removeRenderer: vi.fn((id) => {
-      const layer = renderers.get(id)
-      renderers.delete(id)
-      layer?.dispose()
-    }),
+    getRenderer: rendererLayers.getRenderer,
+    useRenderer: rendererLayers.useRenderer,
+    removeRenderer: rendererLayers.removeRenderer,
     getOption: () => ({
       rightAxisWidth: 60,
       priceLabelWidth: 60,
@@ -40,7 +32,7 @@ function createMockContext(): SubPaneContext & {
     getCrosshairPos: () => null,
     getCrosshairPrice: () => null,
     getActivePaneId: () => null,
-  }
+  } satisfies SubPaneContext & { layers: Map<string, Layer<RenderContext>> }
 }
 
 describe('SubPaneManager runtime projection', () => {
@@ -92,7 +84,7 @@ describe('SubPaneManager runtime projection', () => {
 
     expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
-    expect(ctx.renderers.size).toBe(0)
+    expect(ctx.layers.size).toBe(0)
   })
 
   it('does not record a mount when renderer registration throws', () => {

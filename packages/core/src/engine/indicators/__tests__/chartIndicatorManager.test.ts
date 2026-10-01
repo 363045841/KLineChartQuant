@@ -3,10 +3,9 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createPluginHost, type RenderContext } from '@/foundation/plugin'
+import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
-import type { Renderer } from '../../../rendering/render/Renderer.js'
-import type { Layer } from '../../../rendering/scene/types.js'
+import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
 import type { PaneSpec } from '../../chartTypes'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -19,13 +18,10 @@ beforeAll(async () => {
 
 /** 构造满足 IndicatorDependencies 的最小依赖，并暴露可断言的 renderer 记录。 */
 function createMockDeps() {
-  const layers = new Map<string, Layer<RenderContext>>()
+  const rendererLayers = createRendererLayerStore()
   const paneRatios$ = createSignal<Readonly<Record<string, number>>>({})
   const paneSpecs$ = createSignal<ReadonlyArray<PaneSpec>>([])
   const indicator = createIndicatorState()
-  const useRenderer = vi.fn((layer: Layer<RenderContext>) => {
-    layers.set(layer.id, layer)
-  })
   const subPaneOps: IndicatorDependencies['subPaneOps'] = {
     create: (entry) => indicator.actions.upsertSub(entry),
     remove: (paneId) => indicator.actions.removeSub(paneId),
@@ -48,13 +44,9 @@ function createMockDeps() {
       kGap: 2,
     }),
     getPluginHost: () => createPluginHost(),
-    getRenderer: (id: string) => layers.get(id),
-    useRenderer,
-    removeRenderer: (id: string) => {
-      const layer = layers.get(id)
-      layers.delete(id)
-      layer?.dispose()
-    },
+    getRenderer: rendererLayers.getRenderer,
+    useRenderer: rendererLayers.useRenderer,
+    removeRenderer: rendererLayers.removeRenderer,
     getVisibleMainIndicatorIds: () => [] as ReadonlyArray<string>,
     paneRatios$,
     paneSpecs$,
@@ -64,13 +56,13 @@ function createMockDeps() {
     getCrosshairPrice: () => null,
     getActivePaneId: () => null,
     scheduleDraw: vi.fn(),
-    getLayer: (id: string) => layers.get(id) ?? null,
+    getLayer: rendererLayers.getLayer,
     indicator,
     subPaneOps,
     runRendererTransaction: (run: () => void) => run(),
   } satisfies IndicatorDependencies
 
-  return { deps, layers, useRenderer, indicator }
+  return { deps, useRenderer: rendererLayers.useRenderer, indicator }
 }
 
 describe('ChartIndicatorManager', () => {
