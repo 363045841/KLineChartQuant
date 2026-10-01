@@ -156,7 +156,9 @@ viewport state 的 effect 承担所有尺寸副作用：
 
 ### 5.2 `prepareFrameData`
 
-`ChartRenderer.prepareFrameData(level)` 生成当前代 `FrameContext`：
+`ChartRenderer.prepareFrameData(level, countdown)` 生成当前代 `FrameContext`：
+
+实际帧在 derive 开始时从可注入 Clock 读取一次 Unix 毫秒 now，统一派生倒计时文本和剩余时间。版本比较、Layer 显示和 timer 延迟共用该快照；Overlay 复用几何时仍重新派生倒计时。timer 由 ChartRenderer 的事务副作用阶段管理，只请求下一次 Overlay 帧，paint 不读取时钟、不安排刷新。详见 [倒计时帧时间决策](design/frame-countdown-time.md)。
 
 1. Overlay 且已有 `cachedDrawFrame` 时复用 viewport、range 和 K 线几何。
 2. 读取 viewport；首帧尺寸未建立时返回 `null`。

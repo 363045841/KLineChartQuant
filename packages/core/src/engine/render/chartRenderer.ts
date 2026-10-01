@@ -17,6 +17,7 @@ import {
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
+import { type Clock, systemClock } from '../../foundation/utils/clock.js'
 import {
   createDisplayTimeFormatter,
   type DisplayTimeFormatter,
@@ -39,6 +40,7 @@ import type {
 } from '../../rendering/scene/types.js'
 import {
   createAxisLabelsFrame,
+  formatLastPriceCountdown,
   getLastPriceRemainingMs,
   registerAxisLabel,
 } from '../axisLabels/index.js'
@@ -106,11 +108,17 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kGap: number
 }
 
-/**
- * 一帧绘制几何与数据（prepare 产出，render 只读）。
- * 大数组字段做结构共享，禁止深拷贝。
- */
+/** 帧内共享的时间与倒计时派生结果。 */
+type FrameCountdown = {
+  now: number
+  remainingMs: number | null
+  text: string | null
+}
+
+/** 一帧绘制几何与数据；大数组结构共享，render 只读。 */
 type FrameContext = {
+  /** 当前帧重新派生的时间与倒计时，不进入几何缓存。 */
+  countdown: FrameCountdown
   /** 视口（scrollLeft、plotWidth、dpr 等） */
   vp: Viewport
   /** 可见 K 线起止索引 */
@@ -150,6 +158,7 @@ type FrameDrawInput = {
 
 /** 单帧快照，frame 为 null 表示无可画数据 */
 type FrameDrawSnapshot = {
+  countdown: FrameCountdown
   generation: number
   level: UpdateLevel
   frame: FrameContext | null
@@ -171,6 +180,8 @@ export function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): Updat
 
 /** 在绘制帧内提交 viewport 的原生滚动位置，跳过无变化写入。 */
 export interface RendererDependencies {
+  /** 帧开始时读取一次的时间源，测试可注入。 */
+  clock?: Clock
   /** 当前主品种的市场时段，倒计时显示与刷新共用。 */
   getMarketSession: () => typeof ASHARE_MARKET_SESSION | undefined
   getDom: () => ChartDom
@@ -325,7 +336,7 @@ export class ChartRenderer {
   }
 
   /** 捕获交互画布与时间轴的输入；倒计时以秒为单位变化。 */
-  private overlayContentVersion(): readonly unknown[] {
+  private overlayContentVersion(countdown: string | null): readonly unknown[] {
     const interaction = this.deps.getInteraction()
     const pos = interaction.crosshairPos
     return [
@@ -344,7 +355,7 @@ export class ChartRenderer {
       // getOverlay 会新建数组，按图元引用比较才能同时捕获移动和避免空数组误失效。
       ...(this.deps.getOverlay?.() ?? []),
       this.deps.getSelectionMarquee?.(),
-      this.lastPriceCountdownTimer === null ? null : Math.floor(Date.now() / 1_000),
+      countdown,
     ]
   }
 
@@ -363,12 +374,19 @@ export class ChartRenderer {
       derive: (input, generation) => {
         // generation 0 是 createFrameTransaction 构造占位，禁止 prepare/副作用
         if (generation === 0) {
-          return { generation: 0, level: input.level, frame: null, skip: true }
+          return {
+            generation: 0,
+            level: input.level,
+            frame: null,
+            skip: true,
+            countdown: { now: 0, remainingMs: null, text: null },
+          }
         }
+        const countdown = this.deriveCountdown((this.deps.clock ?? systemClock).now())
         const mainChanged = !this.sameVersion(this.paintedMainVersion, this.mainContentVersion())
         const overlayChanged = !this.sameVersion(
           this.paintedOverlayVersion,
-          this.overlayContentVersion(),
+          this.overlayContentVersion(countdown.text),
         )
         const skip =
           !mainChanged &&
@@ -377,16 +395,20 @@ export class ChartRenderer {
           input.level !== UpdateLevel.Overlay
         return {
           generation,
+          countdown,
           level: mainChanged ? UpdateLevel.All : UpdateLevel.Overlay,
           frame: skip
             ? null
-            : this.prepareFrameData(mainChanged ? UpdateLevel.All : UpdateLevel.Overlay),
+            : this.prepareFrameData(mainChanged ? UpdateLevel.All : UpdateLevel.Overlay, countdown),
           skip,
         }
       },
       render: (snapshot) => {
         // generation 0 占位不绘制
-        if (snapshot.generation === 0 || snapshot.skip) return
+        if (snapshot.generation === 0) return
+        // timer 只请求下一帧；即使本帧跳过 paint，也由事务统一续订。
+        this.scheduleLastPriceCountdown(snapshot.countdown)
+        if (snapshot.skip) return
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame && !snapshot.frame.useCachedFrame) {
@@ -402,7 +424,7 @@ export class ChartRenderer {
         this.drawWithFrame(snapshot.level, snapshot.frame)
         if (snapshot.frame) {
           this.paintedMainVersion = this.mainContentVersion()
-          this.paintedOverlayVersion = this.overlayContentVersion()
+          this.paintedOverlayVersion = this.overlayContentVersion(snapshot.countdown.text)
         }
         if (snapshot.frame) {
           this.cacheDrawFrame(snapshot.frame)
@@ -650,7 +672,6 @@ export class ChartRenderer {
 
     // 当前视图无可绘制数据时必须清空所有 canvas，不能保留前一视图的像素。
     if (!frame) {
-      this.clearLastPriceCountdownTimer()
       this.clearAllCanvases()
       return
     }
@@ -689,6 +710,7 @@ export class ChartRenderer {
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
       requiresRightAxisWidthMeasurement,
+      frame.countdown.text,
     )
 
     // 画底部时间轴（独立 layer，不进 scene）
@@ -704,7 +726,6 @@ export class ChartRenderer {
       renderData,
       fiveDayTimeShareGeometry,
     )
-    this.scheduleLastPriceCountdown(renderData)
   }
 
   /** 停止本根 K 线倒计时的刷新计时器。 */
@@ -715,18 +736,32 @@ export class ChartRenderer {
     }
   }
 
-  /** 有效的最新 K 线只在秒边界申请 overlay 帧；切换周期或收线时停止。 */
-  private scheduleLastPriceCountdown(data: ChartSeriesDatum[]): void {
-    this.clearLastPriceCountdownTimer()
+  /** 用本帧唯一时间快照派生最新 K 线的倒计时。 */
+  private deriveCountdown(now: number): FrameCountdown {
+    const data = this.deps.getDataManager().getRenderData()
     const last = data[data.length - 1]
-    if (!last || this.deps.dataView$.peek() !== ChartDataViewId.KLine) return
-    const now = Date.now()
-    const remaining = getLastPriceRemainingMs(
-      this.deps.getDataManager().currentPeriod,
-      last.timestamp,
-      this.deps.getMarketSession(),
+    if (
+      !last ||
+      !this.peekViewport() ||
+      this.deps.dataView$.peek() !== ChartDataViewId.KLine ||
+      !this.deps.settings$.peek().showLastPriceCountdown
+    ) {
+      return { now, remainingMs: null, text: null }
+    }
+    const period = this.deps.getDataManager().currentPeriod
+    const marketSession = this.deps.getMarketSession()
+    const remaining = getLastPriceRemainingMs(period, last.timestamp, marketSession, now)
+    return {
       now,
-    )
+      remainingMs: remaining,
+      text: formatLastPriceCountdown(period, last.timestamp, marketSession, now),
+    }
+  }
+
+  /** 使用帧时间快照续订唯一 timer，回调只请求 Overlay 帧。 */
+  private scheduleLastPriceCountdown(countdown: FrameCountdown): void {
+    this.clearLastPriceCountdownTimer()
+    const { now, remainingMs: remaining } = countdown
     if (remaining === null) return
     const delay = Math.min(remaining, 1_000 - (now % 1_000) + 1)
     this.lastPriceCountdownTimer = setTimeout(() => {
@@ -748,7 +783,7 @@ export class ChartRenderer {
     return this.deps.viewport.readonly.viewport.peek()
   }
 
-  private prepareFrameData(level: UpdateLevel): FrameContext | null {
+  private prepareFrameData(level: UpdateLevel, countdown: FrameCountdown): FrameContext | null {
     const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
     const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.peekViewport()
@@ -890,6 +925,7 @@ export class ChartRenderer {
         : null
 
     return {
+      countdown,
       vp,
       range,
       rawRange,
@@ -995,6 +1031,7 @@ export class ChartRenderer {
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
     visiblePriceExtrema: VisiblePriceExtrema | null,
     requiresRightAxisWidthMeasurement: boolean,
+    countdown: string | null,
   ): { axisLabelsFrame: AxisLabelsFrame; sharedXAxisRanges: XAxisRange[] } {
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
     // 轴标签收集统一走 axisLabels 模块的单帧聚合：X 表面共享 + 每 Pane 独立 Y 表面。
@@ -1166,6 +1203,7 @@ export class ChartRenderer {
       // 构造本 pane 的 RenderContext，供所有 layer 读取
       const opt = this.deps.getOption()
       const context: RenderContext = {
+        countdown: countdown ?? undefined,
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
         drawingCtx: drawingCtx ?? undefined,

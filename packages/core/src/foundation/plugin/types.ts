@@ -409,6 +409,8 @@ export interface RenderAxisContext {
 
 /** 覆盖层子契约：十字线、标记器与绘图帧投影。 */
 export interface RenderOverlayContext {
+  /** 帧准备阶段派生的最新价倒计时；不存在时使用单行价签。 */
+  countdown?: string
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
   markerManager?: MarkerManagerLike

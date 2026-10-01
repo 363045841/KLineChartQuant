@@ -55,16 +55,23 @@ describe('paintAxisLabels', () => {
     expect(ctx.fillText).toHaveBeenCalledWith('120.00', 76, 10)
   })
 
-  it('lays out a Y label tag with the label baseline', () => {
-    const ctx = createMockCanvasContext()
+  it.each<{ type: AxisTagLabel['type'] }>([{ type: undefined }, { type: 'lastPrice' }])(
+    'lays out a single-line Y label $type with the label baseline',
+    ({ type }) => {
+      const ctx = createMockCanvasContext()
 
-    paintAxisLabels(ctx, [tag()], 'yRightOverlay', { dpr: 1, axisWidth: 80, axisHeight: 200 })
+      paintAxisLabels(ctx, [tag({ type })], 'yRightOverlay', {
+        dpr: 1,
+        axisWidth: 80,
+        axisHeight: 200,
+      })
 
-    // rectH = 12 + 4 = 16；yy = 55；rectY = 47
-    expect(ctx.fillRect).toHaveBeenCalledWith(0, 47, 80, 16)
-    // label 变体：roundToPhysicalPixel(yy) + 1 = 56
-    expect(ctx.fillText).toHaveBeenCalledWith('100.00', 40, 56)
-  })
+      // rectH = 12 + 4 = 16；yy = 55；rectY = 47
+      expect(ctx.fillRect).toHaveBeenCalledWith(0, 47, 80, 16)
+      // label 变体：roundToPhysicalPixel(yy) + 1 = 56
+      expect(ctx.fillText).toHaveBeenCalledWith('100.00', 40, 56)
+    },
+  )
 
   it('lays out a Y crosshair tag on the physical pixel center', () => {
     const ctx = createMockCanvasContext()

@@ -48,7 +48,7 @@ export function getLastPriceRemainingMs(
   period: string,
   barTimestamp: number,
   marketSession: MarketSessionConfig | undefined,
-  now: number = Date.now(),
+  now: number,
 ): number | null {
   if (!marketSession || marketSession.sessions.length === 0 || !Number.isFinite(now)) return null
   const openMinute = getMinuteOfDayInTimeZone(barTimestamp, marketSession.timeZone)
@@ -75,7 +75,7 @@ export function formatLastPriceCountdown(
   period: string,
   barTimestamp: number,
   marketSession: MarketSessionConfig | undefined,
-  now: number = Date.now(),
+  now: number,
 ): string | null {
   const remaining = getLastPriceRemainingMs(period, barTimestamp, marketSession, now)
   if (remaining === null) return null

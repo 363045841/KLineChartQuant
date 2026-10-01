@@ -102,6 +102,13 @@ export const DEFAULT_SETTINGS = [
   },
   { key: 'showGridLines', label: '显示网格', type: 'boolean', default: true, group: 'main' },
   {
+    key: 'showLastPriceCountdown',
+    label: 'K线倒计时',
+    type: 'boolean',
+    default: true,
+    group: 'main',
+  },
+  {
     key: 'showVolumePriceMarkers',
     label: '显示量价关系标记',
     type: 'boolean',

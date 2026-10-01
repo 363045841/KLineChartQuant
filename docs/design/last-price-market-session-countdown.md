@@ -1,5 +1,7 @@
 # 最新价市场时段倒计时
 
+帧开始时从统一 Clock 读取一次 now，倒计时在 derive 中计算，Layer 只消费本帧文本。设置 showLastPriceCountdown 默认 true；关闭时不输出文本并停止秒级刷新，恢复单行价签。时间快照和 timer 所有权见 [倒计时帧时间决策](frame-countdown-time.md)。
+
 倒计时直接使用当前主品种 `market` 在 `MarketSessionRegistry` 中注册的配置，显示与秒级刷新共用该配置和计算函数。没有注册配置时隐藏倒计时，不推测市场时段。
 
 `lastPriceCountdown.ts` 完整替换固定周期相加的实现。分钟周期沿配置的交易时段推进，跳过午休等间隔；当天不足完整周期时，在最后一个时段收盘结束。日 K 使用时间戳在市场时区对应日期的最后收盘时间。分钟 K 延续现有约定，时间戳代表开线时间。

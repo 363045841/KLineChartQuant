@@ -1,5 +1,7 @@
 # 轴标签单帧收集模块化
 
+最新价倒计时由帧准备阶段派生，注册 Layer 只读取 `context.countdown`；Clock 与 timer 的帧时序见 [倒计时帧时间决策](frame-countdown-time.md)。`showLastPriceCountdown` 关闭时不生成倒计时、停止秒级刷新，并沿用单行价签布局。
+
 ## 背景
 
 轴标签（X 轴时间标签、Y 轴价格标签、十字线签、刻度文字）此前分散在多个轴渲染器里

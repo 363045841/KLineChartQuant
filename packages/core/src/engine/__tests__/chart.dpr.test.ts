@@ -332,6 +332,59 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
+  it('shares one clock sample across countdown paint and cached overlay frames', async () => {
+    const opened = Date.parse('2026-06-01T09:30:00+08:00')
+    let now = opened
+    const clock = { now: vi.fn(() => now) }
+    const chart = mountChart(1000, 600, { clock })
+    try {
+      chart.resize()
+      chart.applyCustomData({
+        symbol: 'PRIMARY',
+        market: 'CN',
+        period: '1min',
+        data: [{ timestamp: opened, open: 10, high: 11, low: 9, close: 10 }],
+      })
+      const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
+      clock.now.mockClear()
+      chart.draw()
+      expect(clock.now).toHaveBeenCalledOnce()
+      expect(chart['renderer'].getPaneCtxMap().get('main')?.countdown).toBe('01:00')
+
+      // 同一秒内可以跳过 paint，但到下一秒必须重新派生缓存帧的倒计时。
+      paint.mockClear()
+      clock.now.mockClear()
+      now = opened + 999
+      chart.draw()
+      expect(clock.now).toHaveBeenCalledOnce()
+      expect(paint).not.toHaveBeenCalled()
+      now = opened + 1_000
+      chart.draw()
+      expect(chart['renderer'].getPaneCtxMap().get('main')?.countdown).toBe('00:59')
+      expect(
+        paint.mock.lastCall?.[0].panes.every((pane) =>
+          pane.roles?.every((role) => role === 'drawing' || role === 'overlay'),
+        ),
+      ).toBe(true)
+
+      chart.updateSettings({ showLastPriceCountdown: false })
+      chart.draw()
+      expect(chart['renderer'].getPaneCtxMap().get('main')?.countdown).toBeUndefined()
+      expect(chart['renderer']['lastPriceCountdownTimer']).toBeNull()
+      chart.updateSettings({ showLastPriceCountdown: true })
+      chart.draw()
+      expect(chart['renderer'].getPaneCtxMap().get('main')?.countdown).toBe('00:59')
+      expect(chart['renderer']['lastPriceCountdownTimer']).not.toBeNull()
+
+      now = opened + 60_000
+      chart.draw()
+      expect(chart['renderer'].getPaneCtxMap().get('main')?.countdown).toBeUndefined()
+      expect(chart['renderer']['lastPriceCountdownTimer']).toBeNull()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('invalidates main content for data, zoom, settings, resize and DPR changes', async () => {
     const chart = mountChart()
     const bars = makeBars(100)

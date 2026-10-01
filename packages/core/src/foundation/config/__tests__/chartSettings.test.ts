@@ -42,6 +42,17 @@ describe('rendererBackend default', () => {
 })
 
 describe('normalizeSettings', () => {
+  it('defaults countdown on and preserves an explicit off preference', () => {
+    expect(normalizeSettings().showLastPriceCountdown).toBe(true)
+    expect(normalizeSettings({ showLastPriceCountdown: false }).showLastPriceCountdown).toBe(false)
+    expect(
+      resolveSettings(undefined, { showLastPriceCountdown: false }).showLastPriceCountdown,
+    ).toBe(false)
+    expect(
+      resolveSettings({ showLastPriceCountdown: true }, { showLastPriceCountdown: false })
+        .showLastPriceCountdown,
+    ).toBe(true)
+  })
   it('defaults to WebGL', () => {
     expect(normalizeSettings().rendererBackend).toBe('webgl')
   })

@@ -1,5 +1,5 @@
 /** 验证最新价标签经轴标签模块注册到右轴 overlay 表面。 */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createLastPriceLabelLayer, createLastPriceLineLayer } from '@/core/renderers/lastPrice'
 import {
   createMockCanvasContext,
@@ -8,7 +8,6 @@ import {
 import type { RenderContext } from '@/foundation/plugin/index'
 import { resolveThemeColors } from '@/foundation/tokens/index'
 import { ChartDataViewId } from '@/foundation/types/chartView'
-import { ASHARE_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
 
 /** 以主图身份调用最新价标签 Layer.paint。 */
 function paintLabel(context: RenderContext): void {
@@ -37,25 +36,18 @@ describe('createLastPriceLabelLayer', () => {
     ])
   })
 
-  it('registers the remaining time for a live supported bar', () => {
-    const now = Date.parse('2026-06-01T09:30:00+08:00')
-    vi.setSystemTime(now)
-    try {
-      const context = createMockRenderContext({
-        dataView: ChartDataViewId.KLine,
-        period: '5min',
-        marketSession: ASHARE_MARKET_SESSION,
-        data: [{ timestamp: now, open: 90, high: 96, low: 89, close: 95 }],
-      })
+  it.each(['05:00', undefined])('uses the frame countdown %s without reading time', (countdown) => {
+    const context = createMockRenderContext({
+      dataView: ChartDataViewId.KLine,
+      countdown,
+      data: [{ timestamp: 1_000, open: 90, high: 96, low: 89, close: 95 }],
+    })
 
-      paintLabel(context)
+    paintLabel(context)
 
-      expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
-        expect.objectContaining({ type: 'lastPrice', countdown: '05:00' }),
-      ])
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+      expect.objectContaining({ type: 'lastPrice', countdown }),
+    ])
   })
 
   it('does not register when the last close is outside the display range', () => {

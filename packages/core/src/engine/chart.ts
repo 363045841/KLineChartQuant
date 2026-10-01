@@ -259,6 +259,8 @@ export class Chart {
       initialSettings?: Partial<ChartSettings>
       initialViewWorkspaces?: ViewWorkspacesSnapshot
       marketSessions?: Readonly<Record<string, MarketSessionConfig>>
+      /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
+      clock?: import('../foundation/utils/clock.js').Clock
     },
   ) {
     this.dom = dom
@@ -433,6 +435,7 @@ export class Chart {
 
     // 先创建 Scene，确保恢复的指标首次 projection 能直接挂载 Layer。
     this.renderer = new ChartRenderer({
+      clock: runtime?.clock,
       getMarketSession: () => {
         const spec = this.dataManager.symbols.peek()[0]
         if (!spec?.market) return undefined

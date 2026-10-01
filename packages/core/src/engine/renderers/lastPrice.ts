@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { formatLastPriceCountdown, registerAxisLabel } from '../axisLabels/index.js'
+import { registerAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
@@ -57,9 +57,7 @@ export function createLastPriceLabelLayer(): Layer<RenderContext> {
         kind: AXIS_LABEL_KIND.TAG,
         type: 'lastPrice',
         text: info.price.toFixed(2),
-        countdown:
-          formatLastPriceCountdown(context.period, info.timestamp, context.marketSession) ??
-          undefined,
+        countdown: context.countdown,
         pos: info.y + context.pane.top,
         origin: context.pane.top,
         variant: 'label',
