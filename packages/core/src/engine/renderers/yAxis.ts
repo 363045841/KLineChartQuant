@@ -120,8 +120,8 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
           pos: crosshair.y,
           origin: pane.top,
           variant: 'crosshair',
-          bgColor: tokenColors.label.bg,
-          textColor: tokenColors.label.text,
+          bgColor: tokenColors.crosshairLabelBg,
+          textColor: tokenColors.crosshairLabelText,
           fontSize: 12,
         })
       }

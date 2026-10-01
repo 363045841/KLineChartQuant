@@ -55,8 +55,9 @@ export const darkTheme: Theme = {
     gridMinor: '#202A39',
 
     crosshairLine: '#686C72',
-    crosshairLabelBg: '#E8EAED',
-    crosshairLabelText: '#0E1116',
+    // 深色下用中灰而非近白，避免标签在轴上形成刺眼亮块；文字取浅色保证对比度。
+    crosshairLabelBg: '#3A3F47',
+    crosshairLabelText: '#E8EAED',
 
     selectionFill: '#4A9EFF33',
     selectionStroke: '#4A9EFF',

@@ -25,8 +25,8 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-grid-major: #2A3547;
   --klc-color-grid-minor: #202A39;
   --klc-color-crosshair-line: #686C72;
-  --klc-color-crosshair-label-bg: #E8EAED;
-  --klc-color-crosshair-label-text: #0E1116;
+  --klc-color-crosshair-label-bg: #3A3F47;
+  --klc-color-crosshair-label-text: #E8EAED;
   --klc-color-selection-fill: #4A9EFF33;
   --klc-color-selection-stroke: #4A9EFF;
   --klc-color-tooltip-bg: #1B1F26EE;
@@ -220,7 +220,7 @@ Each role is measured against its own surface (default: \`colors.background\`).
 |---|---|---|---|---|---|
 | foreground | #E8EAED | background | 14.72 | 4.5:1 | ✅ |
 | axisText | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
-| crosshairLabelText | #0E1116 | crosshairLabelBg | 15.69 | 4.5:1 | ✅ |
+| crosshairLabelText | #E8EAED | crosshairLabelBg | 8.79 | 4.5:1 | ✅ |
 | tooltipText | #E8EAED | tooltipBg | 13.71 | 4.5:1 | ✅ |
 | candleUpBody | #089981 | background | 4.97 | 3.0:1 | ✅ |
 | candleDownBody | #f23645 | background | 4.55 | 3.0:1 | ✅ |

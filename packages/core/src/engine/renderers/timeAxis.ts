@@ -359,8 +359,8 @@ export function createTimeAxisLayer(options: TimeAxisLayerOptions): Layer<Render
             kind: AXIS_LABEL_KIND.TAG,
             text,
             pos: crosshair.x,
-            bgColor: colors.label.bg,
-            textColor: colors.label.text,
+            bgColor: colors.crosshairLabelBg,
+            textColor: colors.crosshairLabelText,
             fontSize: 12,
           })
         }
