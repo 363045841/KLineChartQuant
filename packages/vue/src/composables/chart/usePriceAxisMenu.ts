@@ -18,12 +18,27 @@ const GROUP = {
 } as const
 const RESET_AXIS = 'reset-price-axis'
 
-/** 提供三组菜单及选择处理，参数为 controller 与已有设置更新入口。 */
+/** 提供菜单与轴类型快捷入口，参数为 controller 与已有设置更新入口。 */
 export function usePriceAxisMenu(
   controller: Ref<ChartController | null>,
   applySettings: (settings: ChartSettings) => void,
 ) {
   const settings = useControllerSignal(controller, (chart) => chart.settings, resolveSettings)
+  const shortcuts = [
+    { id: ScaleType.Linear, label: '价格', text: 'A' },
+    { id: ScaleType.Log, label: '对数', text: 'L' },
+    { id: ScaleType.Percent, label: '百分比', text: '%' },
+  ] as const
+
+  /** 快捷按钮与菜单共用轴类型命令。 */
+  function selectAxisType(itemId: string): void {
+    select(GROUP.TYPE, itemId)
+  }
+
+  /** 快捷按钮与菜单共用当前模式判断。 */
+  function isAxisTypeSelected(itemId: string): boolean {
+    return isSelected(GROUP.TYPE, itemId)
+  }
 
   const groups: ReadonlyArray<DropMenuGroup> = [
     {
@@ -83,5 +98,5 @@ export function usePriceAxisMenu(
     }
   }
 
-  return { groups, select, isSelected }
+  return { groups, select, isSelected, shortcuts, selectAxisType, isAxisTypeSelected }
 }

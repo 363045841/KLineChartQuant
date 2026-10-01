@@ -1,8 +1,25 @@
 <!-- 单一价格轴的设置按钮、分组菜单和当前模式标记，与摆放位置无关。 -->
 <template>
+  <div class="price-axis-controls" :style="{ height: height + 'px' }">
+    <div
+      class="price-axis-shortcuts"
+      @pointerdown.stop
+      @pointermove.stop
+      @pointerup.stop
+      @click.stop
+    >
+      <button
+        v-for="shortcut in shortcuts"
+        :key="shortcut.id"
+        type="button"
+        :aria-label="shortcut.label"
+        :title="shortcut.label"
+        :aria-pressed="isAxisTypeSelected(shortcut.id)"
+        @click="selectAxisType(shortcut.id)"
+      >{{ shortcut.text }}</button>
+    </div>
   <DropMenu
     class="axis-settings-menu"
-    :style="{ height: height + 'px' }"
     :label="MENU_LABEL"
     :groups="groups"
     trigger-class="axis-settings-button"
@@ -22,6 +39,7 @@
       </span>
     </template>
   </DropMenu>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -39,20 +57,65 @@
   }>()
   const emit = defineEmits<{ 'settings-change': [settings: ChartSettings] }>()
   const MENU_LABEL = '价格轴设置'
-  const { groups, select, isSelected } = usePriceAxisMenu(
-    toRef(() => props.controller),
-    (settings) => emit('settings-change', settings),
-  )
+  const { groups, select, isSelected, shortcuts, selectAxisType, isAxisTypeSelected } =
+    usePriceAxisMenu(
+      toRef(() => props.controller),
+      (settings) => emit('settings-change', settings),
+    )
 </script>
 
 <style scoped>
   /* 两侧入口都铺满所在价格轴与时间轴的交叉区域。 */
-  .axis-settings-menu {
+  .price-axis-controls {
     position: absolute;
     right: 0;
     bottom: 0;
     z-index: 30;
     width: 100%;
+  }
+
+  .axis-settings-menu {
+    height: 100%;
+  }
+
+  /* 快捷入口位于设置按钮正上方，父轴悬停时显示。 */
+  .price-axis-shortcuts {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 4px;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .price-axis-shortcuts button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
+    background: var(--klc-color-ui-background);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .price-axis-shortcuts button:hover {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .price-axis-shortcuts button[aria-pressed='true'] {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .price-axis-shortcuts button:focus-visible {
+    outline: none;
+    background: var(--klc-color-ui-hover);
   }
 
   .axis-settings-menu :deep(.axis-settings-button) {

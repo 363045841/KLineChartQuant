@@ -2169,6 +2169,11 @@
     border-bottom-right-radius: 3px;
   }
 
+  .right-axis-host:hover :deep(.price-axis-shortcuts) {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
   .price-axis-host--left {
     order: -1;
     border-top-left-radius: 3px;
