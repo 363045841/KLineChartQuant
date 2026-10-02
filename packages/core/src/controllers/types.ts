@@ -543,6 +543,10 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
     params?: Record<string, unknown>,
   ): string | null
   removeIndicator(instanceId: string): boolean
+  /** 调整主图指标的 Legend 顺序。 */
+  moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean
+  /** 在原有 Legend 位置原子替换主图指标。 */
+  replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
 
   // ---- Drawing ----

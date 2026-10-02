@@ -757,6 +757,43 @@ export class ChartIndicatorManager {
       .map((instance) => instance.indicatorId)
   }
 
+  /** 移动用户主图实例的 Legend 顺序，保留实例身份和计算参数。 */
+  moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean {
+    const instances = this.deps.indicator.readonly.instances
+      .peek()
+      .filter((instance) => instance.role === 'main' && instance.source !== 'mode')
+    const index = instances.findIndex((instance) => instance.indicatorId === definitionId)
+    const target = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || target < 0 || target >= instances.length) return false
+    const current = instances[index]!
+    instances[index] = instances[target]!
+    instances[target] = current
+    this.deps.indicator.actions.replaceAllMain(instances)
+    // 仅顺序变化不会重建计算和 renderer，仍需请求绘制新 Legend 顺序。
+    this.deps.scheduleDraw()
+    return true
+  }
+
+  /** 在同一序列位置替换用户主图定义，以一次状态写入保留其他实例。 */
+  replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean {
+    const nextId = resolveIndicatorDefinitionId(nextDefinitionId)
+    if (!nextId || !ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(nextId)) return false
+    if (this.isMainIndicatorActive(nextId)) return false
+    const instances = this.deps.indicator.readonly.instances
+      .peek()
+      .filter((instance) => instance.role === 'main' && instance.source !== 'mode')
+    const index = instances.findIndex((instance) => instance.indicatorId === definitionId)
+    if (index < 0) return false
+    instances[index] = {
+      ...instances[index]!,
+      instanceId: `main:${nextId}`,
+      indicatorId: nextId,
+      params: { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[nextId] ?? {}) },
+    }
+    this.deps.indicator.actions.replaceAllMain(instances)
+    return true
+  }
+
   isMainIndicatorActive(indicatorId: string): boolean {
     const id = resolveIndicatorDefinitionId(indicatorId)
     return id !== undefined && Boolean(this.getMainIndicatorInstance(id))

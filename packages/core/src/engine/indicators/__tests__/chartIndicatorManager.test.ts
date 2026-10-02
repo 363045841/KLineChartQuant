@@ -132,6 +132,31 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('主图实例增删', () => {
+    it('移动 Legend 保留实例及参数，并在没有计算变更时请求重绘', () => {
+      manager.enableMainIndicator('MA', { ma5: false })
+      manager.enableMainIndicator('BOLL')
+      const before = harness.indicator.readonly.instances.peek()
+      vi.clearAllMocks()
+
+      expect(manager.moveMainIndicator('BOLL', 'up')).toBe(true)
+      expect(harness.indicator.readonly.instances.peek()).toEqual([before[1], before[0]])
+      expect(deps.scheduleDraw).toHaveBeenCalledTimes(1)
+      expect(manager.moveMainIndicator('BOLL', 'up')).toBe(false)
+      expect(manager.moveMainIndicator('missing', 'down')).toBe(false)
+    })
+
+    it('替换主图 Legend 保留位置及其余实例，拒绝副图定义和重复指标', () => {
+      manager.enableMainIndicator('MA', { ma5: false })
+      manager.enableMainIndicator('BOLL')
+      const first = harness.indicator.readonly.instances.peek()[0]
+      expect(manager.replaceMainIndicator('BOLL', 'MA')).toBe(false)
+      expect(manager.replaceMainIndicator('BOLL', 'RSI')).toBe(false)
+      expect(manager.replaceMainIndicator('BOLL', 'EXPMA')).toBe(true)
+      expect(manager.getActiveMainIndicators()).toEqual(['MA', 'EXPMA'])
+      expect(harness.indicator.readonly.instances.peek()[0]).toEqual(first)
+      expect(manager.getMainIndicatorParams('EXPMA')).not.toBeNull()
+    })
+
     it('重复启用只注册一次 renderer 资源', () => {
       expect(manager.enableMainIndicator('MA')).toBe(true)
       expect(manager.enableMainIndicator('MA')).toBe(true)

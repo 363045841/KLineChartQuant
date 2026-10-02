@@ -1,6 +1,6 @@
+/** 主图 Legend 数据投影测试，Canvas 不再绘制标题。 */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  countFillTexts,
   createContextWithInstanceState,
   createMARenderState,
   createMockCanvasContext,
@@ -12,9 +12,10 @@ import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import {
-  type CanvasLegendOptions,
   createMainIndicatorLegendLayer,
+  type LegendOptions,
 } from '../Indicator/mainIndicatorLegend'
+import type { LegendRow } from '../legend/types'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -28,9 +29,11 @@ afterEach(() => {
 const MA_INSTANCE_ID = 'main:MA'
 
 let ctx: MockCanvasContext
+let rows: ReadonlyArray<LegendRow> = []
 
 beforeEach(() => {
   ctx = createMockCanvasContext()
+  rows = []
 })
 
 /** 构造携带主图实例清单的图例宿主；空数组表示当前没有启用主图指标。 */
@@ -60,21 +63,31 @@ function createMAHost(definitionId = 'ma'): PluginHost {
   return createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId }])
 }
 
-/** 统计图例绘制的指标标题行数量（标题行文本与指标展示名完全相等）。 */
+/** 统计发布给 DOM renderer 的指标标题。 */
 function countTitleRows(title: string): number {
-  return countFillTexts(ctx, (text) => text === title)
+  return countLegendTexts((text) => text === title)
+}
+
+/** 在已发布的展示文本中匹配字段。 */
+function countLegendTexts(predicate: (text: string) => boolean): number {
+  return rows.flatMap((row) => row.texts).filter((item) => predicate(item.text)).length
 }
 
 /**
- * 构造图例帧上下文：图例绘制在 overlay 画布，这里让 overlay 与主画布共用同一 spy，
- * 以便直接断言图例文本；运行时不共享画布。
+ * 构造图例帧上下文，捕获发布给 DOM renderer 的展示行。
  */
 function createLegendContext(
   instanceId: string,
   state: unknown,
   overrides: MockRenderContextOverrides = {},
 ): RenderContext {
-  return createContextWithInstanceState(ctx, instanceId, state, { overlayCtx: ctx, ...overrides })
+  return createContextWithInstanceState(ctx, instanceId, state, {
+    overlayCtx: ctx,
+    publishLegendRows: (_paneId, next) => {
+      rows = next
+    },
+    ...overrides,
+  })
 }
 
 describe('MainIndicatorLegend identity', () => {
@@ -89,8 +102,24 @@ describe('MainIndicatorLegend identity', () => {
 })
 
 describe('MainIndicatorLegend paint', () => {
+  it('keeps the indicator hover identity and position stable when the crosshair enters or leaves', () => {
+    const layer = createLegendLayer(createMAHost())
+    const state = createMARenderState()
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: null }))
+    const idle = rows.find((row) => row.key === MA_INSTANCE_ID)!
+    expect(idle.indicator).toEqual({ instanceId: MA_INSTANCE_ID, definitionId: 'ma' })
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 50 }))
+    const active = rows.find((row) => row.key === MA_INSTANCE_ID)!
+    expect(active.y).toBe(idle.y)
+    expect(active.indicator).toEqual(idle.indicator)
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: null }))
+    expect(rows.find((row) => row.key === MA_INSTANCE_ID)?.y).toBe(idle.y)
+  })
+
   it('reads visibility changes each frame while still publishing external context', () => {
-    let config: CanvasLegendOptions = { visible: false }
+    let config: LegendOptions = { visible: false }
     const onContext = vi.fn()
     const layer = createLegendLayer(createMAHost(), {
       yPaddingPx: 20,
@@ -111,6 +140,7 @@ describe('MainIndicatorLegend paint', () => {
   })
 
   it.each([
+    { configuredIds: ['MA'], viewIds: ['ma'], expected: 1 },
     { configuredIds: undefined, viewIds: ['ma'], expected: 1 },
     { configuredIds: ['ma'], viewIds: ['ma'], expected: 1 },
     { configuredIds: [], viewIds: ['ma'], expected: 0 },
@@ -130,6 +160,20 @@ describe('MainIndicatorLegend paint', () => {
     },
   )
 
+  it('shows an uppercase MA instance when the Kernel publishes its lowercase definition name', () => {
+    const layer = createLegendLayer(createMAHost('MA'), {
+      yPaddingPx: 20,
+      getVisibleIndicatorIds: () => ['ma'],
+    })
+    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
+    expect(countTitleRows('MA')).toBe(1)
+    expect(rows.find((row) => row.key === MA_INSTANCE_ID)?.indicator).toEqual({
+      instanceId: MA_INSTANCE_ID,
+      definitionId: 'MA',
+    })
+    expect(countLegendTexts((text) => text.includes('MA5'))).toBeGreaterThan(0)
+  })
+
   it('does not paint MA when MA is not active', () => {
     const layer = createLegendLayer(createLegendHost([]))
 
@@ -144,7 +188,7 @@ describe('MainIndicatorLegend paint', () => {
     layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
 
     expect(countTitleRows('MA')).toBe(1)
-    expect(countFillTexts(ctx, (text) => text.includes('MA5'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('MA5'))).toBeGreaterThan(0)
   })
 
   it('uses crosshairIndex when available', () => {
@@ -156,7 +200,7 @@ describe('MainIndicatorLegend paint', () => {
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 50 }))
 
-    expect(countFillTexts(ctx, (text) => text.includes('150.000'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('150.000'))).toBeGreaterThan(0)
   })
 
   it('uses last index when crosshairIndex is null', () => {
@@ -181,7 +225,7 @@ describe('MainIndicatorLegend paint', () => {
       }),
     )
 
-    expect(countFillTexts(ctx, (text) => text.includes('109.000'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('109.000'))).toBeGreaterThan(0)
   })
 
   it.each([
@@ -211,16 +255,16 @@ describe('MainIndicatorLegend paint', () => {
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, state))
 
-    expect(countFillTexts(ctx, (text) => text.includes('123.457'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('123.457'))).toBeGreaterThan(0)
   })
 
-  it('saves and restores context', () => {
+  it('does not draw or measure Canvas text', () => {
     const layer = createLegendLayer(createMAHost())
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
 
-    expect(ctx.save).toHaveBeenCalledTimes(1)
-    expect(ctx.restore).toHaveBeenCalledTimes(1)
+    expect(ctx.fillText).not.toHaveBeenCalled()
+    expect(ctx.measureText).not.toHaveBeenCalled()
   })
 })
 
@@ -240,7 +284,7 @@ describe('MainIndicatorLegend frame state source', () => {
 
     // getTitleInfo 从帧读取器取值，而非重新计算。
     expect(context.indicatorStateReader?.get).toHaveBeenCalledWith(MA_INSTANCE_ID)
-    expect(countFillTexts(ctx, (text) => text.includes('999.99'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('999.99'))).toBeGreaterThan(0)
   })
 })
 
@@ -313,7 +357,7 @@ describe('MainIndicatorLegend indicator rows', () => {
 })
 
 describe('MainIndicatorLegend external mode & context callback', () => {
-  it('publishes legend context via onContext while still painting in canvas mode', () => {
+  it('publishes DOM rows and the custom slot context from the same projection', () => {
     const onContext = vi.fn()
     const layer = createLegendLayer(createMAHost(), { yPaddingPx: 20, onContext })
 
@@ -330,7 +374,8 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(legend.hasCrosshair).toBe(true)
     expect(legend.currentBar).not.toBeNull()
     expect(legend.indicators.some((row: { name: string }) => row.name === 'MA')).toBe(true)
-    expect(ctx.fillText).toHaveBeenCalled()
+    expect(countTitleRows('MA')).toBe(1)
+    expect(ctx.fillText).not.toHaveBeenCalled()
   })
 
   it('does not paint canvas text when renderMode is external but still publishes context', () => {

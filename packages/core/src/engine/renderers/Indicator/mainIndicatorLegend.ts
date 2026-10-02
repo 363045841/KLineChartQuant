@@ -1,8 +1,10 @@
+/** 构建主图 DOM Legend 行，Canvas 不再绘制标题文本。 */
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
 import type { Layer } from '@/rendering/scene/types.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
 import { MAIN_PANE_ID } from '../../paneIds.js'
+import type { LegendRow, LegendText } from '../legend/types.js'
 import {
   buildLegendTemplateContext,
   type LegendRenderMode,
@@ -10,61 +12,26 @@ import {
 } from './mainIndicatorLegendContext.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
-const textWidthCache = new Map<string, number>()
-const TEXT_WIDTH_CACHE_LIMIT = 512
-
-function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
-  const key = `${ctx.font}\n${text}`
-  const cached = textWidthCache.get(key)
-  if (cached !== undefined) {
-    return cached
-  }
-
-  const width = ctx.measureText(text).width
-  if (textWidthCache.size >= TEXT_WIDTH_CACHE_LIMIT) {
-    textWidthCache.clear()
-  }
-  textWidthCache.set(key, width)
-  return width
-}
-
-/** Canvas 主图图例的公开配置。 */
-export interface CanvasLegendOptions {
-  /** 是否绘制 Canvas 图例，默认 true。 */
+/** 主图图例公开配置，保留现有配置入口。 */
+export interface LegendOptions {
   visible?: boolean
-  /** 允许显示的主图指标 ID；未设置时显示全部。 */
   visibleIndicatorIds?: ReadonlyArray<string>
 }
 
-export type MainIndicatorLegendOptions = {
+export interface MainIndicatorLegendOptions {
   yPaddingPx: number
-  /** 每帧构建后的图例上下文回调（canvas / external 均触发） */
   onContext?: (ctx: LegendTemplateContext | null) => void
-  /** 读取当前数据视图允许显示的指标 ID；缺省显示全部。 */
   getVisibleIndicatorIds?: () => ReadonlyArray<string>
-  /** 每帧读取 options 状态中的 Canvas 图例配置。 */
-  getLegendOptions?: () => CanvasLegendOptions | undefined
-  /** 是否绘制 Canvas 图例，默认 true。 */
+  getLegendOptions?: () => LegendOptions | undefined
   visible?: boolean
-  /** 图例渲染模式，默认 canvas；external 仅发布上下文。 */
   renderMode?: LegendRenderMode
 }
 
-/**
- * 创建主图指标图例 Layer（覆盖层）。
- *
- * 统一管理 MA、BOLL 等主图指标的图例显示，支持多行排列；
- * 指标数据经 `context.indicatorStateReader` 与注入的 PluginHost 目录服务读取。
- */
+/** 构建数据并交给独立 DOM renderer，external 模式只发布插槽上下文。 */
 export function createMainIndicatorLegendLayer(
   options: MainIndicatorLegendOptions,
   getPluginHost: () => PluginHost | null,
 ): Layer<RenderContext> {
-  const visible = options.visible ?? true
-  const renderMode = options.renderMode ?? 'canvas'
-  const onContext = options.onContext
-  const readVisibleIndicatorIds = options.getVisibleIndicatorIds
-
   return createIndicatorRendererLayer({
     name: 'mainIndicatorLegend',
     paneId: MAIN_PANE_ID,
@@ -72,282 +39,125 @@ export function createMainIndicatorLegendLayer(
     z: RENDERER_PRIORITY.FOREGROUND,
     draw(context) {
       const config = options.getLegendOptions?.()
-      const viewIds = readVisibleIndicatorIds?.()
-      const configuredIds = config?.visibleIndicatorIds
-      // 用户筛选与当前视图的指标集合取交集，避免显示其他视图的指标。
-      const visibleIds = configuredIds
+      const viewIds = options.getVisibleIndicatorIds?.()
+      const configuredIds = config?.visibleIndicatorIds?.flatMap((id) => {
+        const definition = getRegisteredIndicatorDefinition(id)
+        return definition ? [definition.name] : []
+      })
+      const ids = configuredIds
         ? configuredIds.filter((id) => !viewIds || viewIds.includes(id))
         : viewIds
       const legend = buildLegendTemplateContext({
         context,
         host: getPluginHost(),
         yPaddingPx: options.yPaddingPx,
-        visibleIndicatorIds: visibleIds ? new Set(visibleIds) : null,
+        visibleIndicatorIds: ids ? new Set(ids) : null,
       })
-      onContext?.(legend)
-
-      if (!(config?.visible ?? visible) || renderMode === 'external') return
-      if (!legend || !context.overlayCtx) return
-
-      paintLegendOnCanvas(context.overlayCtx, legend)
+      options.onContext?.(legend)
+      const visible = config?.visible ?? options.visible ?? true
+      context.publishLegendRows?.(
+        MAIN_PANE_ID,
+        visible && options.renderMode !== 'external' && legend
+          ? buildMainLegendRows(legend, context.pane.top)
+          : [],
+      )
     },
   })
 }
 
-function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: LegendTemplateContext) {
+/** 将主图行情、指标及叠加商品转换为按行展示的 DOM 文本。 */
+export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: number): LegendRow[] {
+  const rows: LegendRow[] = []
   const { layout, colors } = legend
-  const fontSize = 12
-  const { x: legendX, y: baseY, lineHeight, gap, compact } = layout
-
-  overlayCtx.save()
-  setCanvasFont(overlayCtx, getFont(fontSize))
-  overlayCtx.textAlign = 'left'
-  overlayCtx.textBaseline = 'top'
-
-  let rowIndex = 0
-
-  const rowY = () => baseY + rowIndex * lineHeight
-
-  if (legend.timeshare) {
-    const ts = legend.timeshare
-    if (!compact) {
-      let x = legendX
-      const y = rowY()
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('现价 ', x, y)
-      x += measureTextWidth(overlayCtx, '现价 ')
-      overlayCtx.fillStyle = ts.changeColor
-      overlayCtx.fillText(ts.price.toFixed(2), x, y)
-      x += measureTextWidth(overlayCtx, ts.price.toFixed(2)) + gap
-
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('均价 ', x, y)
-      x += measureTextWidth(overlayCtx, '均价 ')
-      overlayCtx.fillText(ts.average.toFixed(2), x, y)
-      x += measureTextWidth(overlayCtx, ts.average.toFixed(2)) + gap
-
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('涨跌 ', x, y)
-      x += measureTextWidth(overlayCtx, '涨跌 ')
-      overlayCtx.fillStyle = ts.changeColor
-      const sign = ts.changeAmount > 0 ? '+' : ''
-      overlayCtx.fillText(`${sign}${ts.changeAmount.toFixed(2)}`, x, y)
-      x += measureTextWidth(overlayCtx, `${sign}${ts.changeAmount.toFixed(2)}`) + gap
-
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('涨幅 ', x, y)
-      x += measureTextWidth(overlayCtx, '涨幅 ')
-      overlayCtx.fillStyle = ts.changeColor
-      const pctSign = ts.changePercent > 0 ? '+' : ''
-      overlayCtx.fillText(`${pctSign}${ts.changePercent.toFixed(2)}%`, x, y)
-      x += measureTextWidth(overlayCtx, `${pctSign}${ts.changePercent.toFixed(2)}%`) + gap
-
-      if (ts.volumeText) {
-        overlayCtx.fillStyle = colors.textTertiary
-        overlayCtx.fillText('成交量 ', x, y)
-        x += measureTextWidth(overlayCtx, '成交量 ')
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText(ts.volumeText, x, y)
-        x += measureTextWidth(overlayCtx, ts.volumeText) + gap
-      }
-
-      if (ts.amountText) {
-        overlayCtx.fillStyle = colors.textTertiary
-        overlayCtx.fillText('成交额 ', x, y)
-        x += measureTextWidth(overlayCtx, '成交额 ')
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText(ts.amountText, x, y)
-      }
-      rowIndex++
-    } else {
-      {
-        let x = legendX
-        const y = rowY()
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('现价 ', x, y)
-        x += measureTextWidth(overlayCtx, '现价 ')
-        overlayCtx.fillStyle = ts.changeColor
-        overlayCtx.fillText(ts.price.toFixed(2), x, y)
-        x += measureTextWidth(overlayCtx, ts.price.toFixed(2)) + gap
-
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('均价 ', x, y)
-        x += measureTextWidth(overlayCtx, '均价 ')
-        overlayCtx.fillText(ts.average.toFixed(2), x, y)
-        x += measureTextWidth(overlayCtx, ts.average.toFixed(2)) + gap
-
-        if (ts.volumeText) {
-          overlayCtx.fillStyle = colors.textTertiary
-          overlayCtx.fillText('成交量 ', x, y)
-          x += measureTextWidth(overlayCtx, '成交量 ')
-          overlayCtx.fillStyle = colors.textPrimary
-          overlayCtx.fillText(ts.volumeText, x, y)
-        }
-        rowIndex++
-      }
-      {
-        let x = legendX
-        const y = rowY()
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('涨跌 ', x, y)
-        x += measureTextWidth(overlayCtx, '涨跌 ')
-        overlayCtx.fillStyle = ts.changeColor
-        const sign = ts.changeAmount > 0 ? '+' : ''
-        overlayCtx.fillText(`${sign}${ts.changeAmount.toFixed(2)}`, x, y)
-        x += measureTextWidth(overlayCtx, `${sign}${ts.changeAmount.toFixed(2)}`) + gap
-
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('涨幅 ', x, y)
-        x += measureTextWidth(overlayCtx, '涨幅 ')
-        overlayCtx.fillStyle = ts.changeColor
-        const pctSign = ts.changePercent > 0 ? '+' : ''
-        overlayCtx.fillText(`${pctSign}${ts.changePercent.toFixed(2)}%`, x, y)
-        x += measureTextWidth(overlayCtx, `${pctSign}${ts.changePercent.toFixed(2)}%`) + gap
-
-        if (ts.amountText) {
-          overlayCtx.fillStyle = colors.textTertiary
-          overlayCtx.fillText('成交额 ', x, y)
-          x += measureTextWidth(overlayCtx, '成交额 ')
-          overlayCtx.fillStyle = colors.textPrimary
-          overlayCtx.fillText(ts.amountText, x, y)
-        }
-        rowIndex++
-      }
-    }
+  /** 用同一行号维护紧凑布局和指标的位置。 */
+  function add(key: string, texts: LegendText[], indicator?: LegendRow['indicator']): void {
+    rows.push({
+      key,
+      paneId: MAIN_PANE_ID,
+      x: layout.x,
+      y: paneTop + layout.y + rows.length * layout.lineHeight,
+      maxWidth: Math.max(0, layout.paneWidth - layout.x),
+      height: layout.lineHeight,
+      gap: layout.gap,
+      texts,
+      indicator,
+    })
   }
-
-  if (legend.currentBar) {
-    const k = legend.currentBar
-    if (!compact) {
-      let x = legendX
-      const y = rowY()
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('O ', x, y)
-      x += measureTextWidth(overlayCtx, 'O ')
-      overlayCtx.fillStyle = k.color
-      overlayCtx.fillText(k.open.toFixed(2), x, y)
-      x += measureTextWidth(overlayCtx, k.open.toFixed(2)) + gap
-
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('H ', x, y)
-      x += measureTextWidth(overlayCtx, 'H ')
-      overlayCtx.fillText(k.high.toFixed(2), x, y)
-      x += measureTextWidth(overlayCtx, k.high.toFixed(2)) + gap
-
-      overlayCtx.fillText('L ', x, y)
-      x += measureTextWidth(overlayCtx, 'L ')
-      overlayCtx.fillText(k.low.toFixed(2), x, y)
-      x += measureTextWidth(overlayCtx, k.low.toFixed(2)) + gap
-
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText('C ', x, y)
-      x += measureTextWidth(overlayCtx, 'C ')
-      overlayCtx.fillStyle = k.color
-      overlayCtx.fillText(k.close.toFixed(2), x, y)
-      x += measureTextWidth(overlayCtx, k.close.toFixed(2)) + gap
-
-      if (k.volumeText) {
-        overlayCtx.fillStyle = colors.textTertiary
-        overlayCtx.fillText('Vol ', x, y)
-        x += measureTextWidth(overlayCtx, 'Vol ')
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText(k.volumeText, x, y)
-      }
-      rowIndex++
-    } else {
+  const ts = legend.timeshare
+  if (ts) {
+    const price = [
+      { text: `现价 ${ts.price.toFixed(2)}`, color: ts.changeColor },
+      { text: `均价 ${ts.average.toFixed(2)}`, color: colors.textPrimary },
+    ]
+    const change = [
       {
-        let x = legendX
-        const y = rowY()
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('O ', x, y)
-        x += measureTextWidth(overlayCtx, 'O ')
-        overlayCtx.fillStyle = k.color
-        overlayCtx.fillText(k.open.toFixed(2), x, y)
-        x += measureTextWidth(overlayCtx, k.open.toFixed(2)) + gap
-
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('H ', x, y)
-        x += measureTextWidth(overlayCtx, 'H ')
-        overlayCtx.fillText(k.high.toFixed(2), x, y)
-        x += measureTextWidth(overlayCtx, k.high.toFixed(2)) + gap
-
-        overlayCtx.fillText('L ', x, y)
-        x += measureTextWidth(overlayCtx, 'L ')
-        overlayCtx.fillText(k.low.toFixed(2), x, y)
-        rowIndex++
-      }
+        text: `涨跌 ${ts.changeAmount > 0 ? '+' : ''}${ts.changeAmount.toFixed(2)}`,
+        color: ts.changeColor,
+      },
       {
-        let x = legendX
-        const y = rowY()
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText('C ', x, y)
-        x += measureTextWidth(overlayCtx, 'C ')
-        overlayCtx.fillStyle = k.color
-        overlayCtx.fillText(k.close.toFixed(2), x, y)
-        x += measureTextWidth(overlayCtx, k.close.toFixed(2)) + gap
-
-        if (k.volumeText) {
-          overlayCtx.fillStyle = colors.textTertiary
-          overlayCtx.fillText('Vol ', x, y)
-          x += measureTextWidth(overlayCtx, 'Vol ')
-          overlayCtx.fillStyle = colors.textPrimary
-          overlayCtx.fillText(k.volumeText, x, y)
-        }
-        rowIndex++
-      }
-    }
+        text: `涨幅 ${ts.changePercent > 0 ? '+' : ''}${ts.changePercent.toFixed(2)}%`,
+        color: ts.changeColor,
+      },
+    ]
+    const volume = ts.volumeText
+      ? [{ text: `成交量 ${ts.volumeText}`, color: colors.textPrimary }]
+      : []
+    const amount = ts.amountText
+      ? [{ text: `成交额 ${ts.amountText}`, color: colors.textPrimary }]
+      : []
+    if (layout.compact) {
+      add('timeshare-price', [...price, ...volume])
+      add('timeshare-change', [...change, ...amount])
+    } else add('timeshare', [...price, ...change, ...volume, ...amount])
   }
-
-  for (const titleInfo of legend.indicators) {
-    let x = legendX
-    let y = rowY()
-    overlayCtx.fillStyle = colors.textPrimary
-    overlayCtx.fillText(titleInfo.name, x, y)
-    x += measureTextWidth(overlayCtx, titleInfo.name)
-
-    if (titleInfo.params && titleInfo.params.length > 0) {
-      const paramText = `(${titleInfo.params.join(',')})`
-      overlayCtx.fillStyle = colors.textTertiary
-      overlayCtx.fillText(paramText, x, y)
-      x += measureTextWidth(overlayCtx, paramText) + gap
-    } else {
-      x += gap
-    }
-
-    if (titleInfo.values) {
-      y += 1
-      for (const item of titleInfo.values) {
-        const valText = `${item.label} ${item.value.toFixed(3)}`
-        overlayCtx.fillStyle = item.color
-        overlayCtx.fillText(valText, x, y)
-        x += measureTextWidth(overlayCtx, valText) + gap
-      }
-    }
-    rowIndex++
+  const bar = legend.currentBar
+  if (bar) {
+    const ohl = [
+      { text: `O ${bar.open.toFixed(2)}`, color: bar.color },
+      { text: `H ${bar.high.toFixed(2)}`, color: colors.textPrimary },
+      { text: `L ${bar.low.toFixed(2)}`, color: colors.textPrimary },
+    ]
+    const close = [
+      { text: `C ${bar.close.toFixed(2)}`, color: bar.color },
+      ...(bar.volumeText ? [{ text: `Vol ${bar.volumeText}`, color: colors.textPrimary }] : []),
+    ]
+    if (layout.compact) {
+      add('bar-ohl', ohl)
+      add('bar-close', close)
+    } else add('bar', [...ohl, ...close])
   }
-
-  for (const cmp of legend.comparisons) {
-    let x = legendX
-    const y = rowY()
-    const dotRadius = 4
-    overlayCtx.fillStyle = cmp.color
-    overlayCtx.beginPath()
-    overlayCtx.arc(x + dotRadius, y + fontSize / 2 - 1, dotRadius, 0, Math.PI * 2)
-    overlayCtx.fill()
-    x += dotRadius * 2 + 4
-
-    overlayCtx.fillStyle = colors.textPrimary
-    const name = cmp.name?.trim()
-    const symbolText = name && name !== cmp.symbol ? `${cmp.symbol} ${name}` : cmp.symbol
-    overlayCtx.fillText(symbolText, x, y)
-    x += measureTextWidth(overlayCtx, symbolText) + gap
-
-    const sign = cmp.percent > 0 ? '+' : ''
-    const pctText = `${sign}${cmp.percent.toFixed(2)}%`
-    overlayCtx.fillStyle = cmp.percentColor
-    overlayCtx.fillText(pctText, x, y)
-    rowIndex++
+  for (const [index, title] of legend.indicators.entries()) {
+    add(
+      title.instanceId ?? `indicator:${index}`,
+      [
+        { text: title.name, color: colors.textPrimary },
+        ...(title.params?.length
+          ? [{ text: `(${title.params.join(',')})`, color: colors.textTertiary }]
+          : []),
+        ...(title.values?.map((item) => ({
+          text: `${item.label} ${item.value.toFixed(3)}`,
+          color: item.color,
+        })) ?? []),
+      ],
+      title.instanceId && title.definitionId
+        ? { instanceId: title.instanceId, definitionId: title.definitionId }
+        : undefined,
+    )
   }
-
-  overlayCtx.restore()
+  for (const comparison of legend.comparisons) {
+    const name = comparison.name?.trim()
+    add(`comparison:${comparison.symbol}`, [
+      { text: '●', color: comparison.color },
+      {
+        text:
+          name && name !== comparison.symbol ? `${comparison.symbol} ${name}` : comparison.symbol,
+        color: colors.textPrimary,
+      },
+      {
+        text: `${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(2)}%`,
+        color: comparison.percentColor,
+      },
+    ])
+  }
+  return rows
 }

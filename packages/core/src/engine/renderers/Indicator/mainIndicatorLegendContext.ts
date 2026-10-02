@@ -10,8 +10,8 @@ import {
   type IndicatorInstanceCatalog,
 } from '../../indicators/instances/api/indicatorRenderBinding.js'
 
-/** 图例渲染模式：canvas 默认绘制；external 仅发布上下文，不画 Canvas 文字 */
-export type LegendRenderMode = 'canvas' | 'external'
+/** 图例渲染模式：dom 默认展示；external 仅发布自定义插槽上下文。 */
+export type LegendRenderMode = 'dom' | 'external'
 
 export interface LegendLayout {
   x: number
@@ -44,6 +44,9 @@ export interface LegendTimeshareRow {
 }
 
 export interface LegendIndicatorRow {
+  /** 实际绘制的实例身份，用于 Legend 命中后的操作。 */
+  instanceId?: string
+  definitionId?: string
   name: string
   params?: number[]
   values?: TitleValueItem[]
@@ -59,7 +62,7 @@ export interface LegendComparisonRow {
 
 /**
  * 主图左上角图例完整上下文。
- * Canvas 绘制与 Vue legend slot 共用同一份数据。
+ * DOM renderer 与自定义 legend slot 共用同一份数据。
  */
 export interface LegendTemplateContext {
   period: string
@@ -164,7 +167,8 @@ export function buildLegendTemplateContext(
   }
 
   let currentBar: LegendCurrentBar | null = null
-  if (hasCrosshair && context.dataView !== ChartDataViewId.Comparison) {
+  // OHLC 行始终占据同一位置，进入/离开画布不再推动指标 Legend，保证 DOM hover 稳定。
+  if (context.dataView !== ChartDataViewId.Comparison) {
     const k = klineData[targetIndex]
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open
@@ -220,9 +224,10 @@ function collectIndicatorRows(
 
   const rows: LegendIndicatorRow[] = []
   for (const instance of catalog.listMainInstances()) {
-    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
     const meta = getRegisteredIndicatorDefinition(instance.definitionId)
     if (!meta?.getTitleInfo) continue
+    // Kernel 可见集合使用定义 name（ma），实例目录使用展示 ID（MA）；统一按定义身份筛选。
+    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(meta.name)) continue
     const titleInfo: TitleInfo | null = meta.getTitleInfo(
       klineData,
       targetIndex,
@@ -234,6 +239,8 @@ function collectIndicatorRows(
     )
     if (!titleInfo) continue
     rows.push({
+      instanceId: instance.instanceId,
+      definitionId: instance.definitionId,
       name: titleInfo.name,
       params: titleInfo.params,
       values: titleInfo.values,

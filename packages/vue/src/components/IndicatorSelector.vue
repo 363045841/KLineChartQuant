@@ -146,6 +146,7 @@
     activeIndicators?: string[]
     indicatorParams?: Record<string, Record<string, unknown>>
     replacePaneId?: string | null
+    replaceRole?: 'main' | 'sub'
   }>()
 
   const emit = defineEmits<{
@@ -199,6 +200,11 @@
   /** 按当前视图组织搜索后的指标，所有分组始终保持展开。 */
   const indicatorGroups = computed<IndicatorGroup[]>(() => {
     if (props.replacePaneId) {
+      if (props.replaceRole === 'main') {
+        return filteredMain.value.length > 0
+          ? [{ key: 'main', label: '主图指标', items: filteredMain.value }]
+          : []
+      }
       return filteredSub.value.length > 0
         ? [{ key: 'sub', label: '副图指标', items: filteredSub.value }]
         : []
@@ -272,7 +278,8 @@
   function toggleIndicator(indicatorId: string) {
     if (props.replacePaneId) {
       const indicator = findIndicator(indicatorId)
-      if (!indicator || indicator.pane !== 'sub') return
+      if (!indicator || indicator.pane !== (props.replaceRole ?? 'sub')) return
+      if (props.replaceRole === 'main' && isActive(indicatorId)) return
       emit('replace', props.replacePaneId, indicatorId)
       closeMenu()
       return

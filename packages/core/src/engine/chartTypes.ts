@@ -49,8 +49,8 @@ export type ChartOptions = {
   defaultPaneMinHeightPx?: number
   zoomLevels?: number
   initialZoomLevel?: number
-  /** 主图 Canvas 图例配置，由 options 状态统一管理。 */
-  legend?: import('./renderers/Indicator/mainIndicatorLegend.js').CanvasLegendOptions
+  /** 主图 DOM 图例配置，由 options 状态统一管理。 */
+  legend?: import('./renderers/Indicator/mainIndicatorLegend.js').LegendOptions
 }
 
 export type KLinePositions = number[]

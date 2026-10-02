@@ -24,6 +24,7 @@ describe('createPaneTitleRendererLayer', () => {
       .mockReturnValue({ name: 'RSI' })
     const stateReader = { get: vi.fn() }
     const canvas = createMockCanvasContext()
+    const publishLegendRows = vi.fn()
     const layer = createPaneTitleRendererLayer({
       paneId: 'sub_RSI',
       title: 'RSI',
@@ -35,6 +36,7 @@ describe('createPaneTitleRendererLayer', () => {
     layer.paint(
       createMockRenderContext({
         overlayCtx: canvas,
+        publishLegendRows,
         pane: { id: 'sub_RSI' },
         paneWidth: 800,
         data: [],
@@ -46,12 +48,23 @@ describe('createPaneTitleRendererLayer', () => {
 
     expect(getTitleInfo).toHaveBeenCalledWith(
       [],
-      null,
+      -1,
       {},
       stateReader,
       'inst-rsi',
       'sub_RSI',
       expect.any(Object),
     )
+    expect(publishLegendRows).toHaveBeenCalledWith('sub_RSI', [
+      expect.objectContaining({
+        indicator: { instanceId: 'inst-rsi', definitionId: 'rsi' },
+        paneId: 'sub_RSI',
+        texts: [expect.objectContaining({ text: 'RSI' })],
+        height: 18,
+        maxWidth: expect.any(Number),
+      }),
+    ])
+    expect(canvas.fillText).not.toHaveBeenCalled()
+    expect(canvas.measureText).not.toHaveBeenCalled()
   })
 })

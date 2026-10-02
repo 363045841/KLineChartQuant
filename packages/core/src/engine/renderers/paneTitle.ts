@@ -1,55 +1,15 @@
+/** 构建副图指标标题数据，文本统一交给独立 DOM Legend renderer。 */
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
-import type { RenderContext } from '../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
-import type { ColorTokens } from '../../foundation/tokens/index.js'
+import { RENDERER_PRIORITY, type RenderContext } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { PANE_HEADER_INSET_PX } from '../chartTypes.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../indicators/indicatorMetadata.js'
-
 import type { SubIndicatorType } from './Indicator/index.js'
 
-/**
- * @deprecated 请从 indicatorMetadata 导入 TitleInfo
- */
 export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata.js'
-
-function getVolumeTitleInfo(
-  data: KLineData[],
-  index: number | null,
-  colors: ColorTokens,
-): TitleInfo | null {
-  if (index === null) return null
-  const kline = data[index]
-  if (!kline || kline.volume === undefined) return null
-  const color = kline.open < kline.close ? colors.volumeUp : colors.volumeDown
-  return {
-    name: 'VOL',
-    params: [],
-    values: [{ label: 'VOL', value: kline.volume, color }],
-  }
-}
-
-const textWidthCache = new Map<string, number>()
-const TEXT_WIDTH_CACHE_LIMIT = 256
-
-function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
-  const key = `${ctx.font}\n${text}`
-  const cached = textWidthCache.get(key)
-  if (cached !== undefined) {
-    return cached
-  }
-
-  const width = ctx.measureText(text).width
-  if (textWidthCache.size >= TEXT_WIDTH_CACHE_LIMIT) {
-    textWidthCache.clear()
-  }
-  textWidthCache.set(key, width)
-  return width
-}
 
 export interface PaneTitleOptions {
   paneId: string
@@ -57,14 +17,12 @@ export interface PaneTitleOptions {
   description?: string
   yOffset?: number
   indicatorId: SubIndicatorType
-  /** 该 pane 绑定的实例身份，标题值从该实例的投影读取。 */
   instanceId: string
   params: Record<string, unknown>
 }
 
+/** 从实例投影读取当前标题，发布 Pane 内唯一的 DOM Legend 行。 */
 export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<RenderContext> {
-  const currentOptions = { ...options }
-
   return {
     id: makePluginLayerId(`paneTitle_${options.paneId}`),
     role: 'overlay',
@@ -72,86 +30,65 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
     z: RENDERER_PRIORITY.FOREGROUND,
     visible: true,
     paint(context) {
-      const { overlayCtx, pane } = context
+      if (context.pane.id !== options.paneId) return
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      if (pane.id !== currentOptions.paneId || !overlayCtx) return
-
-      const fontSize = 12
-      const x = PANE_HEADER_INSET_PX
-      const y = currentOptions.yOffset ?? fontSize
-      const gap = 8
-
-      overlayCtx.save()
-      setCanvasFont(overlayCtx, getFont(fontSize))
-      overlayCtx.textAlign = 'left'
-      overlayCtx.textBaseline = 'top'
-
-      const crosshairIndex = context.crosshairIndex ?? null
-      const castParams = currentOptions.params as Record<string, number | boolean | string>
-      const klineData = context.data as KLineData[]
-
-      // 指标 metadata 来自静态定义注册表；标题值读取该实例自己的投影
-      let titleInfo: TitleInfo | null = null
-      const meta = getRegisteredIndicatorDefinition(currentOptions.indicatorId)
+      const data = context.data as KLineData[]
+      const index = context.crosshairIndex ?? Math.min(context.range.end - 1, data.length - 1)
+      const meta = getRegisteredIndicatorDefinition(options.indicatorId)
+      let title: TitleInfo | null = null
       if (meta?.getTitleInfo && context.indicatorStateReader) {
-        titleInfo = meta.getTitleInfo(
-          klineData,
-          crosshairIndex,
-          castParams,
+        title = meta.getTitleInfo(
+          data,
+          index,
+          options.params as Record<string, number | boolean | string>,
           context.indicatorStateReader,
-          currentOptions.instanceId,
-          currentOptions.paneId,
+          options.instanceId,
+          options.paneId,
           colors,
         )
       }
-
-      // fallback: VOLUME 不是注册指标，内联处理
-      if (!titleInfo) {
-        titleInfo = getVolumeTitleInfo(klineData, crosshairIndex, colors)
-      }
-
-      if (titleInfo) {
-        let currentX = x
-
-        overlayCtx.fillStyle = colors.text.primary
-        overlayCtx.fillText(titleInfo.name, currentX, y)
-        currentX += measureTextWidth(overlayCtx, titleInfo.name)
-
-        if (titleInfo.params && titleInfo.params.length > 0) {
-          const paramText = `(${titleInfo.params.join(',')})`
-          overlayCtx.fillStyle = colors.text.tertiary
-          overlayCtx.fillText(paramText, currentX, y)
-          currentX += measureTextWidth(overlayCtx, paramText) + gap
-        } else {
-          currentX += gap
-        }
-
-        if (titleInfo.values && titleInfo.values.length > 0) {
-          // y += 1
-          for (const item of titleInfo.values) {
-            const valueText = `${item.label} ${item.value.toFixed(3)}`
-            overlayCtx.fillStyle = item.color
-            overlayCtx.fillText(valueText, currentX, y)
-            currentX += measureTextWidth(overlayCtx, valueText) + gap
-          }
-        }
-      } else {
-        overlayCtx.fillStyle = colors.text.primary
-        const fallbackTitle = meta?.displayName ?? currentOptions.title
-        overlayCtx.fillText(fallbackTitle, x, y)
-
-        if (currentOptions.description) {
-          const titleWidth = measureTextWidth(overlayCtx, currentOptions.title)
-          overlayCtx.fillStyle = colors.text.weak
-          overlayCtx.fillText(` - ${currentOptions.description}`, x + titleWidth, y)
+      const bar = data[index]
+      if (!meta && bar?.volume !== undefined) {
+        title = {
+          name: options.title,
+          values: [
+            {
+              label: 'VOL',
+              value: bar.volume,
+              color: bar.open < bar.close ? colors.volumeUp : colors.volumeDown,
+            },
+          ],
         }
       }
-
-      overlayCtx.restore()
+      context.publishLegendRows?.(options.paneId, [
+        {
+          key: options.instanceId,
+          paneId: options.paneId,
+          x: PANE_HEADER_INSET_PX,
+          y: context.pane.top + (options.yOffset ?? 12),
+          maxWidth: Math.max(0, context.paneWidth - PANE_HEADER_INSET_PX),
+          height: 18,
+          gap: 8,
+          indicator: { instanceId: options.instanceId, definitionId: options.indicatorId },
+          texts: [
+            { text: title?.name ?? meta?.displayName ?? options.title, color: colors.text.primary },
+            ...(title?.params?.length
+              ? [{ text: `(${title.params.join(',')})`, color: colors.text.tertiary }]
+              : []),
+            ...(title?.values?.map((item) => ({
+              text: `${item.label} ${item.value.toFixed(3)}`,
+              color: item.color,
+            })) ?? []),
+            ...(!title && options.description
+              ? [{ text: ` - ${options.description}`, color: colors.text.weak }]
+              : []),
+          ],
+        },
+      ])
     },
     dispose() {},
   }

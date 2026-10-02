@@ -279,6 +279,8 @@ export function createMockChartController(
     createPane: () => false,
     updatePane: () => false,
     removePane: () => false,
+    moveMainIndicator: () => false,
+    replaceMainIndicator: () => false,
     movePane: () => false,
     replacePaneContent: () => false,
     updatePaneContent: () => false,

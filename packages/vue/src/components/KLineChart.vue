@@ -112,14 +112,6 @@
                   <slot name="legend" v-bind="legendTemplateContext" />
                 </div>
 
-                <PaneHeaderOverlay
-                  :panes="paneHeaderItems"
-                  @close="removeSubPane"
-                  @replace="openPaneIndicatorReplacement"
-                  @move-up="movePaneUp"
-                  @move-down="movePaneDown"
-                />
-
                 <CanvasToolbarStack>
                   <RangeSelectionExport
                     v-if="rangeSelectionReady"
@@ -315,10 +307,11 @@
       :active-indicators="activeIndicators"
       :indicator-params="indicatorParams"
       :replace-pane-id="replacementPaneId"
+      :replace-role="replacementRole"
       @toggle="handleIndicatorToggle"
       @update-params="handleUpdateParams"
       @reorder-sub-indicators="handleReorderSubIndicators"
-      @replace="replacePaneIndicator"
+      @replace="replaceLegend"
       @close="replacementPaneId = null"
     />
   </div>
@@ -327,7 +320,6 @@
 <script setup lang="ts">
   import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
   import {
-    type CanvasLegendOptions,
     type ChartController,
     type ChartMountOptions,
     CURSOR_DRAWING_TOOL_ID,
@@ -336,9 +328,9 @@
     type DrawingLineLabelTarget,
     type DrawingStyle,
     type DrawingToolId,
+    type LegendOptions,
     type LegendTemplateContext,
     marketDataProviderRegistry,
-    PANE_HEADER_INSET_PX,
     type RendererBackendRuntime,
     type SymbolInfo,
     type SymbolSpec,
@@ -397,6 +389,7 @@
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
   import { useKLineTooltip } from '../composables/chart/useKLineTooltip.js'
+  import { useLegendActions } from '../composables/chart/useLegendActions.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
@@ -411,7 +404,6 @@
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
   import MarkerTooltip from './MarkerTooltip.vue'
-  import PaneHeaderOverlay from './PaneHeaderOverlay.vue'
   import PriceAxisSettingsMenu from './PriceAxisSettingsMenu.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
@@ -466,7 +458,7 @@
       settings?: Partial<ChartSettings>
 
       /** Canvas 主图图例配置；默认由 Core 绘制，不进入 Vue 更新路径。 */
-      legend?: CanvasLegendOptions
+      legend?: LegendOptions
 
       /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
       customData?: CustomDataSource
@@ -525,7 +517,7 @@
 
   /**
    * legend 插槽作用域。
-   * 存在 #legend 时完全替换主图左上角 Canvas 图例；字段与 core LegendTemplateContext 一致。
+   * 存在 #legend 时替换主图默认 DOM 图例；字段与 core LegendTemplateContext 一致。
    */
   export type LegendSlotProps = LegendTemplateContext
 
@@ -857,7 +849,6 @@
   const showDrawingSettingsDialog = ref(false)
   const editingDrawingId = ref<string | null>(null)
   const batchSymbols = ref<string[]>([])
-  const replacementPaneId = ref<string | null>(null)
 
   const chartState = useChartState(controller)
   const {
@@ -919,56 +910,16 @@
     handleReorderSubIndicators,
   } = useIndicatorManager(controller, paneRatios)
 
-  // 仅在画布几何变化时刷新 Pane Header；横向滚动改变 visible range 不应触发 Vue 渲染。
-  const paneHeaderLayoutEpoch = ref(0)
-
-  /** 读取 Core 的真实 Pane 几何，确保 Header 与最小高度、取整后的布局一致。 */
-  const paneHeaderItems = computed(() => {
-    // Pane 重排或画布尺寸变化后，Canvas 会同步更新 DOM 尺寸与位置。
-    void paneLayout.value
-    void paneHeaderLayoutEpoch.value
-    const canvasLayer = canvasLayerRef.value
-    if (!canvasLayer) return []
-
-    return subPanes.value.flatMap((pane, index) => {
-      const canvas = Array.from(
-        canvasLayer.querySelectorAll<HTMLCanvasElement>('canvas.main-canvas.sub'),
-      ).find((element) => element.id === `${pane.id}-main`)
-      if (!canvas) return []
-      return [
-        {
-          id: pane.id,
-          top: canvas.offsetTop + PANE_HEADER_INSET_PX,
-          anchorLeft: canvas.offsetLeft + canvas.offsetWidth - PANE_HEADER_INSET_PX,
-          canMoveUp: index > 0,
-          canMoveDown: index < subPanes.value.length - 1,
-        },
-      ]
-    })
+  const {
+    replacementId: replacementPaneId,
+    replacementRole,
+    replaceLegend,
+  } = useLegendActions(controller, canvasLayerRef, {
+    removePane: removeSubPane,
+    movePane: moveSubPane,
+    replacePane: switchSubIndicator,
+    openSelector: () => indicatorSelectorRef.value?.openMenu(),
   })
-
-  /** 打开指标选择器，并将下一次选择限定为替换指定副图 Pane。 */
-  function openPaneIndicatorReplacement(paneId: string): void {
-    replacementPaneId.value = paneId
-    indicatorSelectorRef.value?.openMenu()
-  }
-
-  /** 使用选择器中选定的副图指标原子替换 Pane 内容，保留 Pane 身份和尺寸。 */
-  function replacePaneIndicator(paneId: string, indicatorId: string): void {
-    switchSubIndicator(
-      paneId,
-      indicatorId as import('@363045841yyt/klinechart-core/controllers').SubIndicatorType,
-    )
-    replacementPaneId.value = null
-  }
-
-  function movePaneUp(paneId: string): void {
-    moveSubPane(paneId, 'up')
-  }
-
-  function movePaneDown(paneId: string): void {
-    moveSubPane(paneId, 'down')
-  }
 
   const {
     drawingController,
@@ -1613,17 +1564,6 @@
       })
     })
 
-    let paneHeaderViewportSignature = ''
-    const updatePaneHeaderViewportSignature = () => {
-      const viewport = ctrl.viewport.peek()
-      const nextSignature = `${viewport.plotWidth}:${viewport.plotHeight}:${viewport.dpr}`
-      if (nextSignature === paneHeaderViewportSignature) return
-      paneHeaderViewportSignature = nextSignature
-      paneHeaderLayoutEpoch.value += 1
-    }
-    updatePaneHeaderViewportSignature()
-    const unsubscribeViewport = ctrl.viewport.subscribe(updatePaneHeaderViewportSignature)
-
     const unsubscribeData = ctrl.data.subscribe(() => {
       const data = ctrl.data.peek()
       if (data.length > 0 && (symbolStatus.value === 'loading' || symbolStatus.value === 'error')) {
@@ -1756,7 +1696,6 @@
       unsubscribeData()
       unsubscribeDataLoading()
       unsubscribeDataError()
-      unsubscribeViewport()
       unsubscribePaneLayout()
       unsubscribeTheme()
       unsubscribeDrawingTool()

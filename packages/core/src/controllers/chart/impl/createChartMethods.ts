@@ -137,6 +137,18 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.indicators.remove(instanceId)
   }
 
+  /** 调整主图 Legend 的顺序，边界处返回 false。 */
+  function moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean {
+    if (isDisposed()) return false
+    return chart.indicators.moveMain(definitionId, direction)
+  }
+
+  /** 校验主图定义后，以一次状态写入替换对应 Legend。 */
+  function replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean {
+    if (isDisposed()) return false
+    return chart.indicators.replaceMain(definitionId, nextDefinitionId)
+  }
+
   /** 更新指标实例参数。 */
   function updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
     if (isDisposed()) return false
@@ -274,6 +286,8 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     handlePinchZoom,
     addIndicator,
     removeIndicator,
+    moveMainIndicator,
+    replaceMainIndicator,
     updateIndicatorParams,
     setTooltipSize,
     setTooltipAnchorPositioning,

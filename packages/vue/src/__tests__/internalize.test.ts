@@ -112,7 +112,7 @@ async function flushMount() {
 }
 
 describe('KLineChart legend slot lifecycle', () => {
-  it('does not subscribe to legend context and keeps Canvas legend visible without a legend slot', async () => {
+  it('does not subscribe to legend context and keeps native DOM legend visible without a legend slot', async () => {
     const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
 

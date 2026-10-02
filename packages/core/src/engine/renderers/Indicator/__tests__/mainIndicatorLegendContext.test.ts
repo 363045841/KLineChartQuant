@@ -111,7 +111,9 @@ describe('buildLegendTemplateContext indicator rows', () => {
       visibleIndicatorIds: new Set(['ma']),
     })
 
-    expect(result?.indicators).toEqual([{ name: 'MA', values: [] }])
+    expect(result?.indicators).toEqual([
+      { instanceId: 'main:ma', definitionId: 'ma', name: 'MA', params: undefined, values: [] },
+    ])
   })
 })
 
