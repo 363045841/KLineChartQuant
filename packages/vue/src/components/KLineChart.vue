@@ -265,9 +265,24 @@
             @lostpointercapture="onRightAxisLostPointerCapture"
             @contextmenu.prevent
           >
+            <div
+              v-for="pane in paneAxisItems"
+              :key="pane.id"
+              class="pane-axis-controls-host"
+              :style="{ top: pane.top + 'px', height: pane.height + 'px' }"
+            >
+              <PriceAxisSettingsMenu
+                :controller="controller"
+                :pane-id="pane.id"
+                :height="0"
+                :show-settings="false"
+                @settings-change="handleSettingsChange"
+              />
+            </div>
             <PriceAxisSettingsMenu
               :controller="controller"
               :height="props.bottomAxisHeight"
+              :show-shortcuts="false"
               @settings-change="handleSettingsChange"
             />
           </div>
@@ -390,6 +405,7 @@
   import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
   import { useKLineTooltip } from '../composables/chart/useKLineTooltip.js'
   import { useLegendActions } from '../composables/chart/useLegendActions.js'
+  import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
@@ -757,6 +773,7 @@
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
+  const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const chartMainRef = ref<HTMLDivElement | null>(null)
   const chartStageRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
@@ -909,6 +926,12 @@
     handleUpdateParams,
     handleReorderSubIndicators,
   } = useIndicatorManager(controller, paneRatios)
+
+  // 画布几何（尺寸 / DPR）变化时刷新轴快捷入口布局；横向滚动改变 visible range 不触发。
+  const paneAxisLayoutEpoch = ref(0)
+
+  /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
+  const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
   const {
     replacementId: replacementPaneId,
@@ -1564,6 +1587,18 @@
       })
     })
 
+    // 轴快捷入口读取画布真实几何；容器尺寸或 DPR 变化后需重新读取，横向滚动不触发。
+    let paneAxisViewportSignature = ''
+    const refreshPaneAxisLayout = () => {
+      const viewport = ctrl.viewport.peek()
+      const nextSignature = `${viewport.plotWidth}:${viewport.plotHeight}:${viewport.dpr}`
+      if (nextSignature === paneAxisViewportSignature) return
+      paneAxisViewportSignature = nextSignature
+      paneAxisLayoutEpoch.value += 1
+    }
+    refreshPaneAxisLayout()
+    const unsubscribeViewport = ctrl.viewport.subscribe(refreshPaneAxisLayout)
+
     const unsubscribeData = ctrl.data.subscribe(() => {
       const data = ctrl.data.peek()
       if (data.length > 0 && (symbolStatus.value === 'loading' || symbolStatus.value === 'error')) {
@@ -1697,6 +1732,7 @@
       unsubscribeDataLoading()
       unsubscribeDataError()
       unsubscribePaneLayout()
+      unsubscribeViewport()
       unsubscribeTheme()
       unsubscribeDrawingTool()
       unsubscribeUndo()
@@ -2108,7 +2144,13 @@
     border-bottom-right-radius: 3px;
   }
 
-  .right-axis-host:hover :deep(.price-axis-shortcuts) {
+  .pane-axis-controls-host {
+    position: absolute;
+    width: 100%;
+    z-index: 2;
+  }
+
+  .pane-axis-controls-host:hover :deep(.price-axis-shortcuts) {
     visibility: visible;
     pointer-events: auto;
   }

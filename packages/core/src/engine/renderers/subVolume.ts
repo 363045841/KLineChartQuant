@@ -110,10 +110,8 @@ function drawVolume(context: RenderContext): void {
       return
     }
 
-    const padding = Math.max(0.05, (maxVolume - minVolume) * 0.1)
-    const valueMin = Math.max(0, minVolume - padding)
-    const valueMax = maxVolume + padding
-    const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+    // 范围由 Pane 统一管理，关闭自动后保留鼠标平移和缩放。
+    const displayRange = pane.yAxis.getDisplayRange()
     const displayMin = displayRange.minPrice
     const displayMax = displayRange.maxPrice
     const displayValueRange = displayMax - displayMin || 1

@@ -1192,20 +1192,83 @@ describe('Chart pane layout regressions', () => {
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
     expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('log')
 
-    // 新建子图从设置播种刻度类型并投影。
+    // 副图不继承主图设置，独立切换后也不被主图覆盖。
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe('log')
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe(ScaleType.Linear)
     const macd = chart
       .getPaneRenderers()
       .find((r) => r.getPane().id === 'MACD_0')
       ?.getPane()
-    expect(macd?.yAxis.getScaleType()).toBe('log')
+    expect(macd?.yAxis.getScaleType()).toBe(ScaleType.Linear)
+    chart.setPanePriceAxisScaleType('MACD_0', ScaleType.Log)
+    chart.setPanePriceAxisRangeMode('MACD_0', PRICE_AXIS_RANGE_MODE.HAND)
+    chart.updateSettings({ mainRightAxisTypeSetting: ScaleType.Percent })
+    expect(macd?.yAxis.getScaleType()).toBe(ScaleType.Log)
+    expect(chart.kernel.mainPriceAxis.readonly.paneRanges.peek().MACD_0?.rangeMode).toBe(
+      PRICE_AXIS_RANGE_MODE.HAND,
+    )
+    expect(chart.kernel.mainPriceAxis.readonly.rangeMode.peek()).toBe(PRICE_AXIS_RANGE_MODE.AUTO)
 
     // 分时视图强制主图 percent，覆盖设置里的 log。
     chart.setActiveMode(getModeHandlers(chart).timeShare)
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
     expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('percent')
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe('timeshare')
+    await chart.destroy()
+  })
+
+  it('can turn off a restored main log axis when the settings preference is already linear', async () => {
+    const source = mountChart()
+    source.setPanePriceAxisScaleType(MAIN_PANE_ID, ScaleType.Log)
+    const initialViewWorkspaces = source.kernel.snapshotViewWorkspaces()
+    await source.destroy()
+    const chart = mountChart(1000, 600, {
+      initialSettings: { mainRightAxisTypeSetting: ScaleType.Linear },
+      initialViewWorkspaces,
+    })
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(ScaleType.Log)
+    chart.setPanePriceAxisScaleType(MAIN_PANE_ID, ScaleType.Linear)
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(
+      ScaleType.Linear,
+    )
+    expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe(ScaleType.Linear)
+    await chart.destroy()
+  })
+
+  it('pans a manual sub-pane horizontally and vertically without moving the main price range', async () => {
+    const chart = mountChart()
+    chart.setData(makeBars(500))
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.resize()
+    chart.draw()
+    chart.setPanePriceAxisRangeMode('MACD_0', PRICE_AXIS_RANGE_MODE.HAND)
+    const pane = chart
+      .getPaneRenderers()
+      .find((renderer) => renderer.getPane().id === 'MACD_0')!
+      .getPane()
+    const before = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
+    chart.kernel.viewport.actions.scrollTo(
+      chart.kernel.viewport.readonly.leftLoadBufferWidth.peek() + 100,
+    )
+    const dom = chart.getDom()
+    dom.container.hasPointerCapture = () => false
+    const mouse = { pointerType: 'mouse', clientY: pane.top + pane.height / 2 }
+    chart.handlePointerEvent(pointerEvent('pointerdown', dom.container, mouse))
+    chart.handlePointerEvent(
+      pointerEvent('pointermove', dom.container, {
+        ...mouse,
+        clientX: 120,
+        clientY: mouse.clientY + 20,
+      }),
+    )
+    expect(chart.kernel.viewport.readonly.scrollLeftLogical.peek()).toBe(80)
+    expect(chart.kernel.mainPriceAxis.readonly.paneRanges.peek().MACD_0?.handRange).not.toEqual(
+      before.MACD_0?.handRange,
+    )
+    expect(chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[MAIN_PANE_ID]).toEqual(
+      before[MAIN_PANE_ID],
+    )
+    chart.handlePointerEvent(pointerEvent('pointerup', dom.container, mouse))
     await chart.destroy()
   })
 

@@ -43,8 +43,8 @@ function createTRIXLayer(options: TRIXRendererOptions = {}): Layer<RenderContext
       const { showTRIX, showSignal } = state.params
       if (!showTRIX && !showSignal) return
 
-      const { valueMin, valueMax, series, signalSeries } = state
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const { series, signalSeries } = state
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

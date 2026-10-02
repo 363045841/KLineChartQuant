@@ -80,10 +80,9 @@ function createCCILayer(options: CCIRendererOptions = {}): Layer<RenderContext> 
         return
       }
 
-      const { valueMin, valueMax, params, series } = state
-      const valueRange = valueMax - valueMin || 1
+      const { params, series } = state
 
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

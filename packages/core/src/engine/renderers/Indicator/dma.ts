@@ -44,12 +44,7 @@ function createDMALayer(options: DMARendererOptions = {}): Layer<RenderContext> 
       const drawEnd = Math.min(range.end, series.length)
       const rangeStart = range.start
 
-      let valueMin = state.visibleMin
-      let valueMax = state.visibleMax
-      const padding = Math.max(0.05, (valueMax - valueMin) * 0.1)
-      valueMin = valueMin - padding
-      valueMax = valueMax + padding
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

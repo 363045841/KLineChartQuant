@@ -137,9 +137,9 @@ function createMOMLayer(options: MOMRendererOptions = {}): Layer<RenderContext> 
         return
       }
 
-      const { valueMin, valueMax, params, series } = state
+      const { params, series } = state
 
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

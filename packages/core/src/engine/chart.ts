@@ -723,13 +723,14 @@ export class Chart {
 
   /** 按用户坐标偏好生成各 pane 的刻度 Map */
   private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
-    return buildPaneScaleTypesFromSetting(
-      this.paneRenderers.map((renderer) => {
-        const pane = renderer.getPane()
-        return { id: pane.id, role: pane.role }
-      }),
-      resolvePriceScaleTypeSetting(setting),
-    )
+    const current = this.kernel.pane.readonly.paneScaleTypes.peek()
+    const panes = this.paneRenderers.map((renderer) => renderer.getPane())
+    const next = buildPaneScaleTypesFromSetting(panes, resolvePriceScaleTypeSetting(setting))
+    for (const pane of panes) {
+      const existing = current.get(pane.id)
+      if (pane.id !== MAIN_PANE_ID && existing !== undefined) next.set(pane.id, existing)
+    }
+    return next
   }
 
   /**
@@ -737,6 +738,9 @@ export class Chart {
    * commitLayout 只保留已有 id，不静默塞 linear，避免盖掉用户偏好。
    */
   private ensurePaneScaleTypesFromSettings(): void {
+    this.kernel.mainPriceAxis.actions.retainPanes(
+      new Set(this.paneRenderers.map((renderer) => renderer.getPane().id)),
+    )
     const setting = resolvePriceScaleTypeSetting(
       this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
     )
@@ -929,7 +933,7 @@ export class Chart {
     return this.paneRenderers.find((renderer) => renderer.getPane().id === paneId)
   }
 
-  /** 验证交互资格，执行价格轴变换并提交主图 HAND 范围。 */
+  /** 验证交互资格，执行变换并提交目标 Pane 的 HAND 范围。 */
   private transformPrice(
     paneId: string,
     transform: (pane: ReturnType<PaneRenderer['getPane']>) => void,
@@ -937,17 +941,15 @@ export class Chart {
     const pane = this.paneRenderer(paneId)?.getPane()
     if (!pane?.capabilities.supportsPriceTranslate) return
     if (
-      paneId === MAIN_PANE_ID &&
-      (this.kernel.mainPriceAxis.readonly.rangeMode.peek() !== PRICE_AXIS_RANGE_MODE.HAND ||
-        this.kernel.mainPriceAxis.readonly.handRange.peek() === null)
+      this.kernel.mainPriceAxis.readonly.paneRanges.peek()[paneId]?.rangeMode !==
+        PRICE_AXIS_RANGE_MODE.HAND ||
+      this.kernel.mainPriceAxis.readonly.paneRanges.peek()[paneId]?.handRange == null
     )
       return
     // 品种切换后的首屏范围由新行情初始化，不能从仍未投影的旧价格轴接受交互。
     transform(pane)
-    if (paneId === MAIN_PANE_ID) {
-      this.kernel.mainPriceAxis.actions.setHandRange(pane.yAxis.getDisplayRange())
-      pane.yAxis.resetTransform()
-    }
+    this.kernel.mainPriceAxis.actions.setHandRange(pane.yAxis.getDisplayRange(), paneId)
+    pane.yAxis.resetTransform()
     this.scheduleDraw()
   }
 
@@ -979,21 +981,51 @@ export class Chart {
   resetPriceTransform(paneId: string): void {
     const renderer = this.paneRenderer(paneId)
     if (!renderer) return
-    if (paneId === MAIN_PANE_ID) this.kernel.mainPriceAxis.actions.resetHandRange()
+    this.kernel.mainPriceAxis.actions.resetHandRange(paneId)
     renderer.getPane().yAxis.resetTransform()
     this.scheduleDraw()
   }
 
   /** 切换主图价格轴范围来源模式。 */
   setMainPriceAxisRangeMode(mode: PriceAxisRangeMode): void {
-    const renderer = this.paneRenderer(MAIN_PANE_ID)
+    this.setPanePriceAxisRangeMode(MAIN_PANE_ID, mode)
+  }
+
+  /** 设置目标 Pane 的范围模式，关闭自动时保存该轴当前范围。 */
+  setPanePriceAxisRangeMode(paneId: string, mode: PriceAxisRangeMode): void {
+    const renderer = this.paneRenderer(paneId)
     if (!renderer) return
-    if (mode === PRICE_AXIS_RANGE_MODE.HAND) {
-      this.kernel.mainPriceAxis.actions.useHandRange(renderer.getPane().yAxis.getDisplayRange())
+    batch(() => {
+      if (paneId === MAIN_PANE_ID)
+        this.kernel.settings.actions.patch({ mainPriceAxisRangeMode: mode })
+      if (mode === PRICE_AXIS_RANGE_MODE.HAND) {
+        this.kernel.mainPriceAxis.actions.useHandRange(
+          renderer.getPane().yAxis.getDisplayRange(),
+          paneId,
+        )
+      } else {
+        this.kernel.mainPriceAxis.actions.useAutoRange(paneId)
+        renderer.getPane().yAxis.resetTransform()
+      }
+    })
+    this.scheduleDraw()
+  }
+
+  /** 只修改目标 Pane 刻度；百分比仅允许主图使用。 */
+  setPanePriceAxisScaleType(paneId: string, type: ScaleType): void {
+    if (!this.paneRenderer(paneId) || (paneId !== MAIN_PANE_ID && type === ScaleType.Percent))
+      return
+    if (paneId === MAIN_PANE_ID) {
+      // Pane 状态是有效刻度的 SSOT；偏好相同也必须执行显式轴命令。
+      batch(() => {
+        this.kernel.settings.actions.patch({ mainRightAxisTypeSetting: type })
+        this.applyPriceScaleSettingToKernel(type)
+      })
     } else {
-      this.kernel.mainPriceAxis.actions.useAutoRange()
-      renderer.getPane().yAxis.resetTransform()
+      this.kernel.pane.actions.setPaneScaleType(paneId, type)
+      this.projectPaneScaleTypes()
     }
+    this.scheduleWorkspacePersistence()
     this.scheduleDraw()
   }
 

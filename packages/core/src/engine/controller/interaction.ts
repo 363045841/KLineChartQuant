@@ -448,9 +448,12 @@ export class InteractionController {
 
         const deltaY = e.clientY - this.dragStartY
         this.dragStartY = e.clientY
-        if (deltaY !== 0 && this.activePaneIdOnDrag === 'main') {
-          if (this.settings.mainPriceAxisRangeMode === PRICE_AXIS_RANGE_MODE.HAND) {
-            // 主图纵向平移同样属于滚动交互，隐藏十字线直到鼠标松开，取值索引保持不变。
+        if (deltaY !== 0 && this.activePaneIdOnDrag) {
+          if (
+            this.chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[this.activePaneIdOnDrag]
+              ?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND
+          ) {
+            // 手动范围允许平移当前 Pane，其他 Pane 的纵轴不受影响；隐藏十字线但保留取值索引。
             this.clearHover(true)
             this.chart.translatePrice(this.activePaneIdOnDrag, deltaY)
           }
@@ -739,7 +742,10 @@ export class InteractionController {
   private beginScalePriceDrag(clientY: number, mouseY: number) {
     const pane = this.getPaneByY(mouseY)
     if (!pane) return false
-    if (pane.id === 'main' && this.settings.mainPriceAxisRangeMode !== PRICE_AXIS_RANGE_MODE.HAND) {
+    if (
+      this.chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[pane.id]?.rangeMode !==
+      PRICE_AXIS_RANGE_MODE.HAND
+    ) {
       return false
     }
     this._state.actions.startDrag('scale-price')

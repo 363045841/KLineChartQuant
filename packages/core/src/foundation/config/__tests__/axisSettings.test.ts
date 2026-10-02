@@ -44,15 +44,15 @@ describe('axisSettings', () => {
     ).toBe('none')
   })
 
-  it('maps percent setting only onto price panes', () => {
+  it.each(['percent', 'log'] as const)('maps %s setting only onto price panes', (setting) => {
     const types = buildPaneScaleTypesFromSetting(
       [
         { id: 'main', role: 'price' },
         { id: 'MACD_0', role: 'indicator' },
       ],
-      'percent',
+      setting,
     )
-    expect(types.get('main')).toBe('percent')
+    expect(types.get('main')).toBe(setting)
     expect(types.get('MACD_0')).toBe('linear')
   })
 

@@ -312,8 +312,7 @@ export class ChartRenderer {
       this.deps.options.readonly.options.peek(),
       this.deps.settings$.peek(),
       this.deps.theme$.peek(),
-      this.deps.mainPriceAxis.readonly.handRange.peek(),
-      this.deps.mainPriceAxis.readonly.rangeMode.peek(),
+      this.deps.mainPriceAxis.readonly.paneRanges.peek(),
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
       // Legend 顺序也属于展示输入，实例重排无需计算变化即可刷新 DOM。
       this.deps.getIndicatorManager().indicatorsComputed.peek(),
@@ -1136,13 +1135,17 @@ export class ChartRenderer {
           }
         }
 
-        if (pane.id === 'main') {
-          const handRange = this.deps.mainPriceAxis.readonly.handRange.peek()
-          if (this.deps.mainPriceAxis.readonly.rangeMode.peek() === PRICE_AXIS_RANGE_MODE.HAND) {
+        {
+          const axisRange = this.deps.mainPriceAxis.readonly.paneRanges.peek()[pane.id]
+          const handRange = axisRange?.handRange
+          if (axisRange?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND) {
             if (!handRange) {
               // 新品种的首个有效帧只使用自身范围，清除旧品种的平移和缩放。
               pane.yAxis.resetTransform()
-              this.deps.mainPriceAxis.actions.initializeHandRange(pane.yAxis.getDisplayRange())
+              this.deps.mainPriceAxis.actions.initializeHandRange(
+                pane.yAxis.getDisplayRange(),
+                pane.id,
+              )
             } else {
               pane.yAxis.setRange(handRange)
             }

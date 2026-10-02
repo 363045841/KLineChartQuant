@@ -119,12 +119,8 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
       const macdData = state.series
       if (!macdData || macdData.length === 0) return
 
-      // 柱体直接复用已提交状态中带 padding 的范围，与右轴刻度保持同一坐标系。
-      const valueMin = Number.isFinite(state.valueMin) ? state.valueMin : state.visibleMin
-      const valueMax = Number.isFinite(state.valueMax) ? state.valueMax : state.visibleMax
-      const valueRange = valueMax - valueMin || 1
-
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      // 图形与刻度共用 Pane 范围，包含手动平移和缩放。
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

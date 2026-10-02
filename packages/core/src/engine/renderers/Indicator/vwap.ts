@@ -34,8 +34,8 @@ function createVWAPLayer(
       const state = context.indicatorStateReader?.get<VWAPRenderState>(instanceId)
       if (!state || !state.params.showVWAP || state.visibleMin > state.visibleMax) return
 
-      const { valueMin, valueMax, series } = state
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const { series } = state
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

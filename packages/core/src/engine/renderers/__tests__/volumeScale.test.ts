@@ -40,7 +40,8 @@ describe('formatVolumeScaleLabel', () => {
           height: 160,
           yAxis: {
             getScaleType: () => 'linear',
-            getDisplayRange: (range) => range ?? { maxPrice: 0, minPrice: 0 },
+            // Pane 显示范围由 Core 维护（AUTO 下即指标范围），刻度层不再自传自动范围。
+            getDisplayRange: () => ({ maxPrice: 1_110, minPrice: 990 }),
             getPaddingTop: () => 0,
             getPaddingBottom: () => 0,
           },

@@ -2,6 +2,7 @@
 // -- Controller types (framework-agnostic) --
 
 export { PANE_HEADER_INSET_PX } from '../engine/chartTypes.js'
+export { MAIN_PANE_ID } from '../engine/paneIds.js'
 export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,

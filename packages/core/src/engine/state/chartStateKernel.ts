@@ -435,7 +435,7 @@ export class ChartStateKernel extends StateKernel {
         const nextIdentity = next ? symbolSpecIdentityKey(next) : null
         batch(() => {
           // 手动价格范围属于本次品种展示，不缓存，也不随品种或数据源继承。
-          if (previousIdentity !== nextIdentity) this.mainPriceAxis.actions.resetHandRange()
+          if (previousIdentity !== nextIdentity) this.mainPriceAxis.actions.resetAllHandRanges()
           this.data.actions.setSymbols(snapshot)
         })
       },

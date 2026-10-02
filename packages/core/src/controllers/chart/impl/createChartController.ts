@@ -230,6 +230,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     symbols: chart.symbols,
     theme: themeSignal,
     settings: chart.kernel.settings.readonly.settings,
+    paneScaleTypes: chart.kernel.pane.readonly.paneScaleTypes,
+    panePriceAxisRanges: chart.kernel.mainPriceAxis.readonly.paneRanges,
     rendererRuntime: chart.kernel.renderer.readonly.runtime,
     chartMode: chart.kernel.mode.readonly.chartMode,
     lastBarPeriod: chart.kernel.mode.readonly.lastBarPeriod,
