@@ -1,5 +1,5 @@
 /** 集中裁决周期与对比集合对应的视图；分时周期优先于对比集合。 */
-import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../../controllers/types.js'
+import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '@/controllers/types.js'
 import { ChartDataViewId } from '../../state/modeState.js'
 import type { ViewTransition, ViewTransitionInput } from '../types.js'
 

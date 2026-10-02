@@ -1,10 +1,10 @@
 // InteractionController 测试设施：图表替身与交互内核替身的单一事实来源。
 // 由 interaction.dpr.test.ts / interaction.future.test.ts 共享，替身结构变更只需改这里。
 
+import { createInteractionState } from '@/engine/state/interactionState'
 import { writableRef } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData } from '@/types/price'
-import { createInteractionState } from '../../../state/interactionState'
 
 /** 交互内核替身：直接复用生产实现，测试不再手抄 snapshot 字段。 */
 export function createMockInteractionState() {

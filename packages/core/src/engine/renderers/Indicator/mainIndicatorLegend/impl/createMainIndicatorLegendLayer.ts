@@ -1,9 +1,10 @@
 /** 构建主图 DOM Legend 行，Canvas 不再绘制标题文本。 */
+
+import { MAIN_PANE_ID } from '@/engine/paneIds.js'
+import type { LegendRow, LegendText } from '@/engine/renderers/legend/types.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
-import { MAIN_PANE_ID } from '../../../../paneIds.js'
-import type { LegendRow, LegendText } from '../../../legend/types.js'
 import { createIndicatorRendererLayer } from '../../shared/indicatorRendererLayer.js'
 import type { LegendTemplateContext, MainIndicatorLegendOptions } from '../types.js'
 import { buildLegendTemplateContext } from './buildLegendTemplateContext.js'

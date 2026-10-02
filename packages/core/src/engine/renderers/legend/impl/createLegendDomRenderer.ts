@@ -5,7 +5,7 @@ import eye from '@iconify-icons/tabler/eye'
 import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
 import x from '@iconify-icons/tabler/x'
-import { FONT_FAMILY } from '../../../../foundation/tokens/fonts.js'
+import { FONT_FAMILY } from '@/foundation/tokens/fonts.js'
 import {
   LEGEND_ACTION_EVENT,
   type LegendAction,
@@ -203,9 +203,7 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
           if (created || previous.texts[index]?.color !== segment.color)
             span.style.color = segment.color
           const marginLeft =
-            index > 0 && segment.gapBefore !== undefined
-              ? `${segment.gapBefore - data.gap}px`
-              : ''
+            index > 0 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
           if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
         }
         if (data.indicator) {

@@ -9,9 +9,9 @@ import {
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
+import type { LegendRow } from '@/engine/renderers/legend/types'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import type { LegendRow } from '../../../legend/types'
 import { createMainIndicatorLegendLayer } from '../impl/createMainIndicatorLegendLayer.js'
 import type { LegendOptions } from '../types.js'
 

@@ -1,6 +1,6 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
-import type { KLineData } from '../../../controllers/types.js'
-import { createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import type { KLineData } from '@/controllers/types.js'
+import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { SourceRouter } from '../../provider/impl/router.js'
 import type {

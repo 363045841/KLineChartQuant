@@ -1,5 +1,5 @@
 /** 聚合已启用行情数据源的无状态品种目录查询能力。 */
-import { ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { InstrumentDescriptor, InstrumentSearchQuery } from '../types.js'
 import type { MarketDataProviderRegistry } from './registry.js'
 

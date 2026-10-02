@@ -3,7 +3,7 @@
  * 注册表不负责持久化，应用层可将配置快照同步到 localStorage 或其他存储。
  */
 
-import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type {
   KLineAdjustment,

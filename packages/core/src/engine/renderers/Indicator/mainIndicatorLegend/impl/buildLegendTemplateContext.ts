@@ -1,18 +1,19 @@
 /**
  * 构建主图图例的模板上下文：把帧数据投影为行情、指标与对比展示行。
  */
+
+import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
+import {
+  INDICATOR_INSTANCE_CATALOG_SERVICE,
+  type IndicatorInstanceCatalog,
+} from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
+import { resolveLegendValueIndex } from '@/engine/renderers/legend/impl/resolveLegendValueIndex.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '@/foundation/types/chartView.js'
 import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
-import { symbolSpecIdentityKey } from '../../../../data/symbolIdentity.js'
-import { getRegisteredIndicatorDefinition } from '../../../../indicators/indicatorDefinitionRegistry.js'
-import type { TitleInfo } from '../../../../indicators/indicatorMetadata.js'
-import {
-  INDICATOR_INSTANCE_CATALOG_SERVICE,
-  type IndicatorInstanceCatalog,
-} from '../../../../indicators/instances/api/indicatorRenderBinding.js'
-import { resolveLegendValueIndex } from '../../../legend/impl/resolveLegendValueIndex.js'
 import type {
   LegendComparisonRow,
   LegendIndicatorRow,

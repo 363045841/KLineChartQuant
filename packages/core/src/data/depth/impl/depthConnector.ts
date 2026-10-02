@@ -12,7 +12,7 @@
  * ```
  */
 
-import type { HeatmapController } from '../../../components/orderBookHeatmap/index.js'
+import type { HeatmapController } from '@/components/orderBookHeatmap/index.js'
 
 import type { DepthDelta, DepthSnapshot, DepthSource } from '../types.js'
 

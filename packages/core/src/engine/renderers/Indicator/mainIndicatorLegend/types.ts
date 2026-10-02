@@ -4,8 +4,9 @@
  * 仅存放跨模块引用或被公开 API 暴露的类型；构建与绘制实现留在 impl/。
  * 本文件不得 import 同子模块 impl/。
  */
+
+import type { TitleValueItem } from '@/engine/indicators/indicatorMetadata.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { TitleValueItem } from '../../../indicators/indicatorMetadata.js'
 
 /** 图例行的像素布局，由构建阶段按帧算出。 */
 export interface LegendLayout {
