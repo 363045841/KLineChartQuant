@@ -204,7 +204,7 @@ flowchart TB
 2. `FrameTransaction` 封存输入 → `prepareFrameData` 生成几何快照 → `sealFrameGeometry`。
 3. 按 pane 执行 `Scene.paintPane`，Layer 通过统一 `Renderer` 绘制；
    GPU 路径失败时业务层回退 Canvas2D。
-4. `Renderer.endFrame()` 收口（WebGPU 每帧单次 `queue.submit`），随后绘制时间轴层。
+4. `Renderer.endFrame()` 结束帧（WebGPU 每帧单次 `queue.submit`），随后绘制时间轴层。
 
 ### 4.3 交互
 

@@ -26,8 +26,8 @@ import type { SurfaceRegion } from '../render/SurfaceBackend.js'
  */
 export type LayerRole =
   | 'background' // grid, axes
-  | 'primary' // candles, volume bars
-  | 'indicator' // MA, BOLL, indicator-defined plots
+  | 'primary' // candles, time-share line
+  | 'indicator' // MA, BOLL, sub-pane volume, indicator-defined plots
   | 'component' // Volume Profile, Heatmap, Footprint
   | 'drawing' // user drawings
   | 'overlay' // crosshair, hover, legends

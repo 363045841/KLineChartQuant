@@ -498,8 +498,8 @@ Scene 注入 `paneId`、`clear` 和 `sceneRenderer`，并隔离单个 Layer 的�
 
 ```text
 background  网格、静态轴背景类内容
-primary     K 线、分时主序列、成交量柱
-indicator   MA、BOLL、MACD 等指标
+primary     K 线、分时线
+indicator   MA、BOLL、MACD 等指标、副图成交量
 component   Volume Profile、Heatmap、Footprint 等组件
 drawing     用户绘图
 overlay     十字线、hover、动态标签
@@ -558,7 +558,7 @@ computed 不调用 renderer factory，也不直接产生 Scene 副作用。
 - `beginFrame(region)` 设置当前 pane region。
 - `drawInstances()` 绘制矩形类 instance batch。
 - `drawLines()` 绘制单条、多条 strip 或填充带。
-- `endFrame()` 收口当前 chart frame。
+- `endFrame()` 结束当前 chart frame。
 
 `drawInstances()` 和 `drawLines()` 返回 boolean：
 

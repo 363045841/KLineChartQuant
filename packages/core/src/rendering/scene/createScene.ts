@@ -89,18 +89,19 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     for (const pane of frame.panes) {
       // 区域绑定必须紧邻实际绘制，避免共享后端沿用最后一个副图的区域。
       pane.renderer.beginFrame(pane.region, { clear: pane.clear })
-      // 命中当前 pane 或全局、且可见的 Layer
+      // 本批要绘制的 Layer 列表
       let candidates = layerList.filter(
         (layer) =>
           (layer.pane === pane.paneId || layer.pane === LAYER_PANE_GLOBAL) && layer.visible,
       )
-      // 若指定了角色集合，进一步按角色过滤（如 overlay 帧只画 overlay）
+      // 指定了 role 集合时，只保留这些 role 的 Layer（例如 overlay 帧只画 overlay）
       if (pane.roles) {
         const roles = pane.roles
         candidates = candidates.filter((layer) => roles.includes(layer.role))
       }
       // 按 z 升序稳定排序，相同 z 保留注册顺序（ECMAScript 2019+ 保证稳定）
       candidates.sort((a, b) => a.z - b.z)
+      // 依次绘制这批 Layer
       for (const layer of candidates) {
         const ctx: LayerPaint<TFrame> = {
           ...(pane.context as TFrame),

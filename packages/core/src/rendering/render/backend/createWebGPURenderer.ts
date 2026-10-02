@@ -526,7 +526,7 @@ export async function createWebGPURenderer(
       }
     }
 
-    // endFrame 收口：prune 未 touch 的 strip 资源；composite 中途 flush 保持 frame open
+    // endFrame 结束：prune 未 touch 的 strip 资源；composite 中途 flush 保持 frame open
     if (!options?.composite && metricsFrameOpen) {
       pruneUnusedStripKeys()
       metrics.endFrame()
