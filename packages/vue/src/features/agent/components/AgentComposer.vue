@@ -51,7 +51,6 @@
             aria-hidden="true"
           ></span>
         </span>
-        <span v-else-if="running" class="composer__notice">{{ text.steeringDisabled }}</span>
         <button
           v-if="running"
           type="button"
