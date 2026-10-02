@@ -130,10 +130,10 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       [
         { text: title.name, color: colors.textPrimary },
         ...(title.params?.length
-          ? [{ text: `(${title.params.join(',')})`, color: colors.textTertiary }]
+          ? [{ text: `(${title.params.join(',')})`, color: colors.textTertiary, gapBefore: 4 }]
           : []),
         ...(title.values?.map((item) => ({
-          text: `${item.label} ${item.value.toFixed(3)}`,
+          text: `${item.label} ${item.formattedValue ?? item.value.toFixed(3)}`,
           color: item.color,
         })) ?? []),
       ],

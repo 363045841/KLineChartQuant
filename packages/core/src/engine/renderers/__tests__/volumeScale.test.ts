@@ -12,12 +12,15 @@ const VOLUME_INSTANCE_ID = 'inst-volume-dynamic'
 
 describe('formatVolumeScaleLabel', () => {
   it('keeps small timeshare volumes in their original unit', () => {
-    expect(formatVolumeScaleLabel(9_999)).toBe('9999.00')
+    expect(formatVolumeScaleLabel(999)).toBe('999.00')
   })
 
   it('formats medium and large volumes with meaningful units', () => {
-    expect(formatVolumeScaleLabel(25_000)).toBe('2.50万')
-    expect(formatVolumeScaleLabel(250_000_000)).toBe('2.50B')
+    expect(formatVolumeScaleLabel(1_000)).toBe('1.00K')
+    expect(formatVolumeScaleLabel(25_000)).toBe('25.00K')
+    expect(formatVolumeScaleLabel(1_000_000)).toBe('1.00M')
+    expect(formatVolumeScaleLabel(250_000_000)).toBe('250.00M')
+    expect(formatVolumeScaleLabel(1_000_000_000)).toBe('1.00B')
   })
 
   it('draws ticks from the frame state for a dynamic volume pane', () => {

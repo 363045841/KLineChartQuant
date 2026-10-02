@@ -19,7 +19,7 @@ const PANE_TITLE_HEIGHT_PX = 18
 
 export interface PaneTitleOptions {
   paneId: string
-  /** 无注册指标定义时的展示名（如成交量）。 */
+  /** 指标未提供标题信息时的展示名。 */
   title: string
   indicatorId: SubIndicatorType
   instanceId: string
@@ -58,20 +58,6 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
           colors,
         )
       }
-      // 成交量没有注册指标定义，标题值由当前 K 线成交量合成。
-      const bar = data[index]
-      if (!meta && bar?.volume !== undefined) {
-        title = {
-          name: options.title,
-          values: [
-            {
-              label: 'VOL',
-              value: bar.volume,
-              color: bar.open < bar.close ? colors.volumeUp : colors.volumeDown,
-            },
-          ],
-        }
-      }
       context.publishLegendRows?.(options.paneId, [
         {
           key: options.instanceId,
@@ -86,10 +72,10 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
           texts: [
             { text: title?.name ?? options.title, color: colors.text.primary },
             ...(title?.params?.length
-              ? [{ text: `(${title.params.join(',')})`, color: colors.text.tertiary }]
+              ? [{ text: `(${title.params.join(',')})`, color: colors.text.tertiary, gapBefore: 4 }]
               : []),
             ...(title?.values?.map((item) => ({
-              text: `${item.label} ${item.value.toFixed(3)}`,
+              text: `${item.label} ${item.formattedValue ?? item.value.toFixed(3)}`,
               color: item.color,
             })) ?? []),
           ],

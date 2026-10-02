@@ -2,6 +2,8 @@
 export interface LegendText {
   text: string
   color: string
+  /** 与前一段文本的间距（像素），未指定时使用行间距。 */
+  gapBefore?: number
 }
 
 export interface LegendRow {

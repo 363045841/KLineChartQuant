@@ -117,8 +117,7 @@ export function buildLegendTemplateContext(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  const fontSize = 12
-  const lineHeight = fontSize + 6
+  const lineHeight = 24
   const legendX = 12
   const gap = 10
   const legendYOffset = 6

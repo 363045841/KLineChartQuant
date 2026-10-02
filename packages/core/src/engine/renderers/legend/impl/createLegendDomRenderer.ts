@@ -47,7 +47,7 @@ function createStyles(document: Document): HTMLStyleElement {
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:18px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
     .klc-legend-row[data-indicator] { pointer-events:auto; }
-    .klc-legend-text { display:flex; align-items:center; width:max-content; max-width:100%; overflow:hidden; }
+    .klc-legend-text { display:flex; align-items:center; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
     .klc-legend-row[data-hidden] .klc-legend-text { filter:grayscale(1); opacity:.55; }
     .klc-legend-frame { position:absolute; left:-5px; top:50%; transform:translateY(-50%);
@@ -202,6 +202,11 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
           if (node.data !== segment.text) node.data = segment.text
           if (created || previous.texts[index]?.color !== segment.color)
             span.style.color = segment.color
+          const marginLeft =
+            index > 0 && segment.gapBefore !== undefined
+              ? `${segment.gapBefore - data.gap}px`
+              : ''
+          if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
         }
         if (data.indicator) {
           const hidden = data.hidden === true

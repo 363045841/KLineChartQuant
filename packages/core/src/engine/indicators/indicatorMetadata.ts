@@ -164,6 +164,8 @@ export type IndicatorVisibleStateComposer = (
 export interface TitleValueItem {
   label: string
   value: number
+  /** 指标专用的数值展示文本；未指定时按通用精度展示。 */
+  formattedValue?: string
   color: string
 }
 

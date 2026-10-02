@@ -17,6 +17,43 @@ afterEach(() => {
 })
 
 describe('createPaneTitleRendererLayer', () => {
+  it.each([
+    { crosshairIndex: null, latestVolume: 2500, text: '2.50K' },
+    { crosshairIndex: 0, latestVolume: 2500, text: '0.00' },
+    { crosshairIndex: null, latestVolume: 12500, text: '12.50K' },
+    { crosshairIndex: null, latestVolume: 125000000, text: '125.00M' },
+    { crosshairIndex: null, latestVolume: 1250000000, text: '1.25B' },
+  ])('publishes VOL $text at crosshair index $crosshairIndex', ({ crosshairIndex, latestVolume, text }) => {
+    const publishLegendRows = vi.fn()
+    const layer = createPaneTitleRendererLayer({
+      paneId: 'sub_VOL',
+      title: 'VOL',
+      indicatorId: 'VOL',
+      instanceId: 'inst-vol',
+      params: {},
+    })
+    layer.paint(
+      createMockRenderContext({
+        pane: { id: 'sub_VOL' },
+        publishLegendRows,
+        crosshairIndex,
+        indicatorStateReader: { get: vi.fn() },
+        data: [
+          { timestamp: 1, open: 10, high: 12, low: 9, close: 11, volume: 0 },
+          { timestamp: 2, open: 11, high: 13, low: 10, close: 12, volume: latestVolume },
+        ],
+      }),
+    )
+    expect(publishLegendRows).toHaveBeenCalledWith('sub_VOL', [
+      expect.objectContaining({
+        texts: [
+          expect.objectContaining({ text: 'VOL' }),
+          expect.objectContaining({ text: `VOL ${text}` }),
+        ],
+      }),
+    ])
+  })
+
   it('passes the bound instance identity and frame state reader to the title callback', () => {
     // paneTitle 通过静态定义注册表取 metadata，spy 其公开的 getTitleInfo 以观察调用契约
     const getTitleInfo = vi
