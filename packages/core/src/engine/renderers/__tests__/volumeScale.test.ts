@@ -23,7 +23,7 @@ describe('formatVolumeScaleLabel', () => {
     expect(formatVolumeScaleLabel(1_000_000_000)).toBe('1.00B')
   })
 
-  it('draws ticks from the frame state for a dynamic volume pane', () => {
+  it('formats pane ticks through the shared volume scale labels', () => {
     const yAxisCtx = createMockCanvasContext()
     const layer = createVolumeScaleLayer({
       axisWidth: 60,
@@ -55,6 +55,9 @@ describe('formatVolumeScaleLabel', () => {
       }),
     )
 
-    expect(vi.mocked(yAxisCtx.fillText)).toHaveBeenCalled()
+    // 刻度落在 990~1110，超过 1e3 的值必须走成交量量级后缀，而非通用价格格式。
+    const labels = vi.mocked(yAxisCtx.fillText).mock.calls.map(([text]) => text as string)
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels.some((text) => text.endsWith('K'))).toBe(true)
   })
 })

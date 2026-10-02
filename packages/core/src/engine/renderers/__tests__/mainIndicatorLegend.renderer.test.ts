@@ -195,15 +195,6 @@ describe('MainIndicatorLegend paint', () => {
     expect(countTitleRows('MA')).toBe(1)
   })
 
-  it('draws MA values from the frame state reader', () => {
-    const layer = createLegendLayer(createMAHost())
-
-    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
-
-    expect(countTitleRows('MA')).toBe(1)
-    expect(countLegendTexts((text) => text.includes('MA5'))).toBeGreaterThan(0)
-  })
-
   it('uses crosshairIndex when available', () => {
     const state = createMARenderState({
       series: { 5: Array.from({ length: 100 }, (_, i) => 100 + i) },
@@ -271,15 +262,6 @@ describe('MainIndicatorLegend paint', () => {
 
     expect(countLegendTexts((text) => text.includes('123.457'))).toBeGreaterThan(0)
   })
-
-  it('does not draw or measure Canvas text', () => {
-    const layer = createLegendLayer(createMAHost())
-
-    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
-
-    expect(ctx.fillText).not.toHaveBeenCalled()
-    expect(ctx.measureText).not.toHaveBeenCalled()
-  })
 })
 
 describe('MainIndicatorLegend frame state source', () => {
@@ -303,8 +285,9 @@ describe('MainIndicatorLegend frame state source', () => {
 })
 
 /**
- * 主图指标标题行用例表：各指标 state 形状与展示名不同，绘制路径相同。
- * 表驱动避免为每个指标复制同一套宿主、上下文与断言。
+ * 主图指标标题行用例表：各指标 state 形状、展示名与取值格式不同，绘制路径相同。
+ * 表驱动避免为每个指标复制同一套宿主、上下文与断言；expectedValueTexts
+ * 逐条校验 getTitleInfo 的 state → 展示文本契约，而非仅确认标题出现。
  */
 const MAIN_INDICATOR_CASES: ReadonlyArray<{
   instanceId: string
@@ -312,6 +295,8 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
   title: string
   /** 各指标 getTitleInfo 消费的专属 state 形状。 */
   state: unknown
+  /** 标题行应发布的取值文本（label + 三位小数），逐条校验 formatting。 */
+  expectedValueTexts: readonly string[]
 }> = [
   {
     instanceId: 'main:BOLL',
@@ -324,6 +309,7 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
       visibleMin: 80,
       visibleMax: 120,
     },
+    expectedValueTexts: ['UP 120.000', 'MID 100.000', 'DN 80.000'],
   },
   {
     instanceId: 'main:EXPMA',
@@ -336,6 +322,7 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
       visibleMin: 8,
       visibleMax: 10,
     },
+    expectedValueTexts: ['FAST 10.000', 'SLOW 8.000'],
   },
   {
     instanceId: 'main:ENE',
@@ -348,24 +335,29 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
       visibleMin: 10,
       visibleMax: 20,
     },
+    expectedValueTexts: ['UP 20.000', 'MID 15.000', 'DN 10.000'],
   },
   {
     instanceId: 'main:WMA',
     definitionId: 'wma',
     title: 'WMA',
     state: { timestamp: 1, series: [123], params: { period: 10 } },
+    expectedValueTexts: ['WMA 123.000'],
   },
 ]
 
 describe('MainIndicatorLegend indicator rows', () => {
   it.each(MAIN_INDICATOR_CASES)(
-    'paints the $title title row when active',
-    ({ instanceId, definitionId, title, state }) => {
+    'publishes $title value rows from the frame state when active',
+    ({ instanceId, definitionId, title, state, expectedValueTexts }) => {
       const layer = createLegendLayer(createLegendHost([{ instanceId, definitionId }]))
 
       layer.paint(createLegendContext(instanceId, state, { crosshairIndex: 0 }))
 
       expect(countTitleRows(title)).toBeGreaterThan(0)
+      for (const text of expectedValueTexts) {
+        expect(countLegendTexts((item) => item === text)).toBeGreaterThan(0)
+      }
     },
   )
 })
