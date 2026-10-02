@@ -99,7 +99,7 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 2px;
     padding-bottom: 8px;
     visibility: hidden;
@@ -107,10 +107,11 @@
   }
 
   .price-axis-shortcuts button {
+    box-sizing: border-box;
     width: 24px;
     height: 24px;
     padding: 0;
-    border: 0;
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
     color: var(--klc-color-ui-muted);
     background: var(--klc-color-ui-background);
@@ -123,14 +124,18 @@
     background: var(--klc-color-ui-hover);
   }
 
-  .price-axis-shortcuts button[aria-pressed='true'] {
-    color: var(--klc-color-ui-accent);
-    background: var(--klc-color-ui-hover);
-  }
-
   .price-axis-shortcuts button:focus-visible {
     outline: none;
     background: var(--klc-color-ui-hover);
+  }
+
+  /* 开启状态只靠底色区分，边框和文字颜色与未开启时一致。 */
+  .price-axis-shortcuts button[aria-pressed='true'] {
+    background: var(--klc-color-ui-border);
+  }
+
+  .price-axis-shortcuts button[aria-pressed='true']:hover {
+    background: var(--klc-color-ui-border-strong);
   }
 
   .axis-settings-menu :deep(.axis-settings-button) {
