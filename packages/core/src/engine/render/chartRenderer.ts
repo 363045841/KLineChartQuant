@@ -78,7 +78,7 @@ import {
   computeTimeShareXLayout,
 } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
-import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend.js'
+import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import { createTimeAxisLayer } from '../renderers/timeAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
@@ -213,11 +213,12 @@ export interface RendererDependencies {
   getOverlay?: DrawingStoreDeps['getOverlay']
   /** 绘图交互会话中的临时框选，不进入持久化图元列表。 */
   getSelectionMarquee?: () => DrawingSelectionMarquee | null
-  /** 主图图例上下文发布（canvas / external 均触发；draw 内回调） */
+  /** 主图图例上下文发布（dom / external 均触发；draw 内回调） */
+  onLegendRows?: RenderContext['publishLegendRows']
+  /** 无可绘制数据或清空图表时同步释放 DOM 标题。 */
+  onClearLegendRows?: () => void
   onLegendContext?: (
-    ctx:
-      | import('../renderers/Indicator/mainIndicatorLegendContext.js').LegendTemplateContext
-      | null,
+    ctx: import('../renderers/Indicator/mainIndicatorLegend/types.js').LegendTemplateContext | null,
   ) => void
   /** 可视区极值跨数量级时才请求右轴实测与布局更新。 */
   commitRightAxisWidthMeasurement?: (extrema: VisiblePriceExtrema) => void
@@ -314,6 +315,8 @@ export class ChartRenderer {
       this.deps.mainPriceAxis.readonly.handRange.peek(),
       this.deps.mainPriceAxis.readonly.rangeMode.peek(),
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
+      // Legend 顺序也属于展示输入，实例重排无需计算变化即可刷新 DOM。
+      this.deps.getIndicatorManager().indicatorsComputed.peek(),
       this.deps.customMarkers$.peek(),
       this.deps.getActiveMode(),
       layers,
@@ -948,6 +951,7 @@ export class ChartRenderer {
   }
 
   clearAllCanvases(): void {
+    this.deps.onClearLegendRows?.()
     this.paintedMainVersion = null
     this.paintedOverlayVersion = null
     this.paintedDrawingVersion = null
@@ -1195,6 +1199,7 @@ export class ChartRenderer {
       // 构造本 pane 的 RenderContext，供所有 layer 读取
       const opt = this.deps.getOption()
       const context: RenderContext = {
+        publishLegendRows: this.deps.onLegendRows,
         countdown: countdown ?? undefined,
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,

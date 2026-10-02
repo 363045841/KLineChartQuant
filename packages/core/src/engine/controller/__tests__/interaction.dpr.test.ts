@@ -64,6 +64,36 @@ describe('InteractionController DPR consumption', () => {
     expect(interaction.hoveredIndex).not.toBeNull()
   })
 
+  it('keeps the crosshair value index while panning so legend values do not drift', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollTo: () => true })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+
+    interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
+    const index = interaction.crosshairIndex
+    expect(index).not.toBeNull()
+
+    interaction.onPointerDown({
+      clientX: 50,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 1,
+    } as PointerEvent)
+    interaction.onPointerMove({ clientX: 30, clientY: 40, isPrimary: true } as PointerEvent)
+
+    // 平移隐藏十字线，但取值索引必须保持不变，Legend 数值才不会随视口变化。
+    expect(interaction.crosshairPos).toBeNull()
+    expect(interaction.crosshairIndex).toBe(index)
+
+    interaction.onPointerUp({
+      clientX: 30,
+      clientY: 40,
+      isPrimary: true,
+      pointerId: 1,
+    } as PointerEvent)
+  })
+
   it('uses viewport plot bounds for hit boundary checks', () => {
     const chart = createChartStub({ dpr: 2, plotWidth: 100, plotHeight: 80 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())

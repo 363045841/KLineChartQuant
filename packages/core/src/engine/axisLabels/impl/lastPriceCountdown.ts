@@ -1,11 +1,11 @@
 /** 依据市场时区与交易时段推算本根 K 线结束点，并给出收线倒计时。 */
-import type { KLinePeriod } from '../../../data/provider/types.js'
-import { isDailyPeriod } from '../../../foundation/types/chartPeriod.js'
+import type { KLinePeriod } from '@/data/provider/types.js'
+import { isDailyPeriod } from '@/foundation/types/chartPeriod.js'
 import {
   getMinuteOfDayInTimeZone,
   type MarketSessionConfig,
   minuteOfDayToTimestamp,
-} from '../../../foundation/utils/sessionTimeLabels.js'
+} from '@/foundation/utils/sessionTimeLabels.js'
 
 /** 日内周期对应的交易分钟数；偏长周期沿用日线的收盘规则。 */
 const INTRADAY_PERIOD_MINUTES = {

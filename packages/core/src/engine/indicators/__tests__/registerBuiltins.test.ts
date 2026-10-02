@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { makePluginLayerId } from '../../../foundation/plugin/impl/rendererLayerId'
+import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
 

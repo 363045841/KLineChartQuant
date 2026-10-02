@@ -81,6 +81,26 @@ export class ChartIndicatorFacade {
     return instanceId
   }
 
+  /** 移动主图 Legend 并保存工作区。 */
+  moveMain(id: string, direction: 'up' | 'down'): boolean {
+    return this.persistIfChanged(this.deps.manager.moveMainIndicator(id, direction))
+  }
+
+  /** 原子替换指定主图指标并保存工作区。 */
+  replaceMain(id: string, nextId: string): boolean {
+    return this.persistIfChanged(this.deps.manager.replaceMainIndicator(id, nextId))
+  }
+
+  /** 隐藏或显示主图指标并保存工作区。 */
+  setMainHidden(id: string, hidden: boolean): boolean {
+    return this.persistIfChanged(this.deps.manager.setMainHidden(id, hidden))
+  }
+
+  /** 隐藏或显示指定 pane 的副图指标并保存工作区。 */
+  setSubHidden(paneId: string, hidden: boolean): boolean {
+    return this.persistIfChanged(this.deps.manager.setSubHidden(paneId, hidden))
+  }
+
   /** 删除指定指标实例。 */
   remove(instanceId: string): boolean {
     return this.persistIfChanged(this.deps.manager.removeIndicator(instanceId))

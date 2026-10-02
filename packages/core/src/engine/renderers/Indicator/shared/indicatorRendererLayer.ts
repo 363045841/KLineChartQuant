@@ -6,10 +6,10 @@
  * 避免每个指标渲染器重复实现，符合单一事实来源。
  */
 
+import { MAIN_PANE_ID } from '@/engine/paneIds.js'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer, LayerRole } from '@/rendering/scene/types.js'
-import { MAIN_PANE_ID } from '../../../paneIds.js'
 
 /** 指标渲染器工厂的通用选项：仅承载身份，不含绘制状态。 */
 export interface IndicatorRendererFactoryOptions {

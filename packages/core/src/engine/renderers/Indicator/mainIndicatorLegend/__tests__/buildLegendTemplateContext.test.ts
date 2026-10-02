@@ -10,7 +10,7 @@ import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorD
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
-import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
+import { buildLegendTemplateContext } from '../impl/buildLegendTemplateContext'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -104,14 +104,29 @@ describe('buildLegendTemplateContext indicator rows', () => {
     const result = buildLegendTemplateContext({
       context,
       host: createMockIndicatorInstanceHost([
-        { instanceId: 'main:ma', definitionId: 'ma', paneId: 'main', params: {} },
-        { instanceId: 'main:boll', definitionId: 'boll', paneId: 'main', params: {} },
+        { instanceId: 'main:MA', definitionId: 'MA', paneId: 'main', hidden: false, params: {} },
+        {
+          instanceId: 'main:BOLL',
+          definitionId: 'BOLL',
+          paneId: 'main',
+          hidden: false,
+          params: {},
+        },
       ]),
       yPaddingPx: 0,
-      visibleIndicatorIds: new Set(['ma']),
+      visibleIndicatorIds: new Set(['MA']),
     })
 
-    expect(result?.indicators).toEqual([{ name: 'MA', values: [] }])
+    expect(result?.indicators).toEqual([
+      {
+        instanceId: 'main:MA',
+        definitionId: 'MA',
+        hidden: false,
+        name: 'MA',
+        params: undefined,
+        values: [],
+      },
+    ])
   })
 })
 

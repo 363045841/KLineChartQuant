@@ -1,86 +1,28 @@
+/**
+ * 构建主图图例的模板上下文：把帧数据投影为行情、指标与对比展示行。
+ */
+
+import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
+import {
+  INDICATOR_INSTANCE_CATALOG_SERVICE,
+  type IndicatorInstanceCatalog,
+} from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
+import { resolveLegendValueIndex } from '@/engine/renderers/legend/impl/resolveLegendValueIndex.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '@/foundation/types/chartView.js'
 import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
-import { symbolSpecIdentityKey } from '../../data/symbolIdentity.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
-import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
-import {
-  INDICATOR_INSTANCE_CATALOG_SERVICE,
-  type IndicatorInstanceCatalog,
-} from '../../indicators/instances/api/indicatorRenderBinding.js'
+import type {
+  LegendComparisonRow,
+  LegendIndicatorRow,
+  LegendLayout,
+  LegendTemplateContext,
+  LegendTimeshareRow,
+} from '../types.js'
 
-/** 图例渲染模式：canvas 默认绘制；external 仅发布上下文，不画 Canvas 文字 */
-export type LegendRenderMode = 'canvas' | 'external'
-
-export interface LegendLayout {
-  x: number
-  y: number
-  lineHeight: number
-  gap: number
-  paneWidth: number
-  compact: boolean
-}
-
-/** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
-export type LegendCurrentBar = Omit<KLineData, 'volume'> & {
-  volume: number | null
-  // 成交量+单位格式化文本(eg. 1.23亿)
-  volumeText: string | null
-  color: string
-}
-
-export interface LegendTimeshareRow {
-  price: number
-  average: number
-  changeAmount: number
-  changePercent: number
-  volume: number | null
-  /** 带手数单位的成交量文本。 */
-  volumeText: string | null
-  amount: number | null
-  amountText: string | null
-  changeColor: string
-}
-
-export interface LegendIndicatorRow {
-  name: string
-  params?: number[]
-  values?: TitleValueItem[]
-}
-
-export interface LegendComparisonRow {
-  symbol: string
-  name?: string
-  percent: number
-  color: string
-  percentColor: string
-}
-
-/**
- * 主图左上角图例完整上下文。
- * Canvas 绘制与 Vue legend slot 共用同一份数据。
- */
-export interface LegendTemplateContext {
-  period: string
-  index: number
-  hasCrosshair: boolean
-  layout: LegendLayout
-  colors: {
-    textPrimary: string
-    textTertiary: string
-    up: string
-    down: string
-  }
-  /** 十字线指向的当前 K 线展示行（含 volumeText / color 与自定义字段） */
-  currentBar: LegendCurrentBar | null
-  timeshare: LegendTimeshareRow | null
-  indicators: ReadonlyArray<LegendIndicatorRow>
-  comparisons: ReadonlyArray<LegendComparisonRow>
-  /** 当前索引处的原始 K 线（分时模式下可能无 close） */
-  bar: KLineData | TimeShareData | null
-}
-
+/** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
 export interface BuildLegendTemplateContextInput {
   context: RenderContext
   host: PluginHost | null
@@ -89,12 +31,14 @@ export interface BuildLegendTemplateContextInput {
   visibleIndicatorIds?: ReadonlySet<string> | null
 }
 
+/** 成交量按中文 “万/亿” 缩写，保留两位小数。 */
 export function formatVolumeShort(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
   return v.toFixed(2)
 }
 
+/** 成交额按中文 “万/亿” 缩写，保留两位小数。 */
 export function formatAmountShort(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
@@ -113,8 +57,7 @@ export function buildLegendTemplateContext(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  const fontSize = 12
-  const lineHeight = fontSize + 6
+  const lineHeight = 24
   const legendX = 12
   const gap = 10
   const legendYOffset = 6
@@ -122,7 +65,7 @@ export function buildLegendTemplateContext(
   const range = context.range
   const crosshairIndex = context.crosshairIndex
   const hasCrosshair = typeof crosshairIndex === 'number'
-  const targetIndex = hasCrosshair ? crosshairIndex : Math.min(range.end - 1, klineData.length - 1)
+  const targetIndex = resolveLegendValueIndex(crosshairIndex, klineData.length)
 
   const layout: LegendLayout = {
     x: legendX,
@@ -163,8 +106,9 @@ export function buildLegendTemplateContext(
     }
   }
 
-  let currentBar: LegendCurrentBar | null = null
-  if (hasCrosshair && context.dataView !== ChartDataViewId.Comparison) {
+  let currentBar: LegendTemplateContext['currentBar'] = null
+  // OHLC 行始终占据同一位置，进入/离开画布不再推动指标 Legend，保证 DOM hover 稳定。
+  if (context.dataView !== ChartDataViewId.Comparison) {
     const k = klineData[targetIndex]
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open
@@ -234,6 +178,9 @@ function collectIndicatorRows(
     )
     if (!titleInfo) continue
     rows.push({
+      instanceId: instance.instanceId,
+      definitionId: instance.definitionId,
+      hidden: instance.hidden,
       name: titleInfo.name,
       params: titleInfo.params,
       values: titleInfo.values,

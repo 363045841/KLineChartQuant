@@ -3,9 +3,9 @@
  * 后端只要实现该契约即可接入数据，接入方仅需提供 source 元信息与可选的本地规则
  */
 import type { KLineData, TimeShareData } from '@/controllers/types.js'
+import type { LiveBarsDataSource } from '@/data/live/types.js'
 import { MarketSessionRegistry } from '@/engine/market/marketSessionRegistry.js'
 import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/errors.js'
-import type { LiveBarsDataSource } from '../../../live/types.js'
 
 import type {
   AssetClass,

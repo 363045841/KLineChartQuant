@@ -492,7 +492,13 @@ export interface RenderContext
     RenderIndicatorContext,
     RenderOverlayContext,
     RenderSurfaceContext,
-    RenderThemeContext {}
+    RenderThemeContext {
+  /** 发布标题展示行给独立 DOM renderer，不参与指标计算。 */
+  publishLegendRows?: (
+    paneId: string,
+    rows: ReadonlyArray<import('../../engine/renderers/legend/types.js').LegendRow>,
+  ) => void
+}
 
 /** 绘图渲染 primitive 契约：仅保留 `RenderContext`/`DrawingFrameProjection` 依赖的屏幕原语。 */
 

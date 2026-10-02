@@ -5,7 +5,7 @@ import type {
   LiveBarsRequest,
   LiveBarsStatus,
   LiveBarsStream,
-} from '../../../live/types.js'
+} from '@/data/live/types.js'
 import type { BarQuery, InstrumentDescriptor } from '../../types.js'
 
 /** 约一百根日 K 的本地测试品种。 */

@@ -351,6 +351,28 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
+  it('refreshes Legend after main instance reorder even when calculation state is unchanged', async () => {
+    const chart = mountChart()
+    try {
+      chart.resize()
+      chart.setData(makeBars(100))
+      chart.indicators.enableMain('MA')
+      chart.indicators.enableMain('BOLL')
+      chart.draw()
+      const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
+      chart.draw()
+      expect(paint).not.toHaveBeenCalled()
+      expect(chart.indicators.moveMain('BOLL', 'up')).toBe(true)
+      chart.draw()
+      expect(paint).toHaveBeenCalled()
+      paint.mockClear()
+      chart.draw()
+      expect(paint).not.toHaveBeenCalled()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('shares one clock sample across countdown paint and cached overlay frames', async () => {
     const opened = Date.parse('2026-06-01T09:30:00+08:00')
     let now = opened

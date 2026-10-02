@@ -17,6 +17,8 @@ export interface IndicatorInstanceDescriptor {
   readonly instanceId: string
   readonly definitionId: string
   readonly paneId: string
+  /** 指标是否被隐藏：隐藏时图例保留但置灰。 */
+  readonly hidden: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 

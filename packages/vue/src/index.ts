@@ -50,7 +50,6 @@ export type {
   LegendCurrentBar,
   LegendIndicatorRow,
   LegendLayout,
-  LegendRenderMode,
   LegendTemplateContext,
   LegendTimeshareRow,
 } from '@363045841yyt/klinechart-core/controllers'
