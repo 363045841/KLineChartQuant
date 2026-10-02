@@ -10,15 +10,15 @@
     >
       <BaseTooltip
         v-for="shortcut in shortcuts"
-        :key="shortcut.id"
+        :key="shortcut.on"
         :content="shortcut.label"
         placement="left"
       >
         <button
           type="button"
           :aria-label="shortcut.label"
-          :aria-pressed="isAxisTypeSelected(shortcut.id)"
-          @click="selectAxisType(shortcut.id)"
+          :aria-pressed="isShortcutSelected(shortcut)"
+          @click="selectShortcut(shortcut)"
         >{{ shortcut.text }}</button>
       </BaseTooltip>
     </div>
@@ -62,7 +62,7 @@
   }>()
   const emit = defineEmits<{ 'settings-change': [settings: ChartSettings] }>()
   const MENU_LABEL = '价格轴设置'
-  const { groups, select, isSelected, shortcuts, selectAxisType, isAxisTypeSelected } =
+  const { groups, select, isSelected, shortcuts, selectShortcut, isShortcutSelected } =
     usePriceAxisMenu(
       toRef(() => props.controller),
       (settings) => emit('settings-change', settings),

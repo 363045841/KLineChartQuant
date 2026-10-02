@@ -1,5 +1,9 @@
 // 验证价格轴设置菜单的快捷按钮渲染、切换写入与菜单内当前模式勾选。
-import { type ChartSettings, ScaleType } from '@363045841yyt/klinechart-core/config'
+import {
+  type ChartSettings,
+  PRICE_AXIS_RANGE_MODE,
+  ScaleType,
+} from '@363045841yyt/klinechart-core/config'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
@@ -31,26 +35,32 @@ describe('价格轴设置菜单', () => {
     document.body.innerHTML = ''
   })
 
-  it('渲染三个快捷按钮并标记当前轴类型', () => {
-    const { wrapper } = mountMenu({ mainRightAxisTypeSetting: ScaleType.Log })
+  it('渲染两个快捷按钮并各自标记当前模式', () => {
+    const { wrapper } = mountMenu({
+      mainRightAxisTypeSetting: ScaleType.Log,
+      mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+    })
     const buttons = wrapper.findAll('.price-axis-shortcuts button')
-    expect(buttons.map((button) => button.text())).toEqual(['A', 'L', '%'])
-    expect(buttons.map((button) => button.attributes('aria-pressed'))).toEqual([
-      'false',
-      'true',
-      'false',
-    ])
+    expect(buttons.map((button) => button.text())).toEqual(['A', 'L'])
+    expect(buttons.map((button) => button.attributes('aria-pressed'))).toEqual(['true', 'true'])
     wrapper.unmount()
   })
 
-  it('点击快捷按钮按当前设置快照写出轴类型', async () => {
+  it('点击自动按钮按当前设置快照把纵轴模式写回常规', async () => {
     const { wrapper } = mountMenu({
-      mainRightAxisTypeSetting: ScaleType.Linear,
+      mainRightAxisTypeSetting: ScaleType.Log,
+      mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
       priceAxisPosition: 'left',
     })
-    await wrapper.findAll('.price-axis-shortcuts button')[2]!.trigger('click')
+    await wrapper.findAll('.price-axis-shortcuts button')[0]!.trigger('click')
     expect(wrapper.emitted('settings-change')).toEqual([
-      [{ mainRightAxisTypeSetting: ScaleType.Percent, priceAxisPosition: 'left' }],
+      [
+        {
+          mainRightAxisTypeSetting: ScaleType.Log,
+          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+          priceAxisPosition: 'left',
+        },
+      ],
     ])
     wrapper.unmount()
   })

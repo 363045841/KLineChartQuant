@@ -18,26 +18,41 @@ const GROUP = {
 } as const
 const RESET_AXIS = 'reset-price-axis'
 
-/** 提供菜单与轴类型快捷入口，参数为 controller 与已有设置更新入口。 */
+/** 快捷按钮：绑定所属菜单分组与开/关值，按下态与切换命令都按该分组解析。 */
+export interface PriceAxisShortcut {
+  group: string
+  on: string
+  off: string
+  label: string
+  text: string
+}
+
+/** 提供菜单与价格轴快捷入口，参数为 controller 与已有设置更新入口。 */
 export function usePriceAxisMenu(
   controller: Ref<ChartController | null>,
   applySettings: (settings: ChartSettings) => void,
 ) {
   const settings = useControllerSignal(controller, (chart) => chart.settings, resolveSettings)
-  const shortcuts = [
-    { id: ScaleType.Linear, label: '价格', text: 'A' },
-    { id: ScaleType.Log, label: '对数', text: 'L' },
-    { id: ScaleType.Percent, label: '百分比', text: '%' },
-  ] as const
+  // 自动写纵轴模式，对数是轴类型，两者分属不同设置，互不排斥；再次点击切回非激活值。
+  const shortcuts: ReadonlyArray<PriceAxisShortcut> = [
+    {
+      group: GROUP.RANGE,
+      on: PRICE_AXIS_RANGE_MODE.AUTO,
+      off: PRICE_AXIS_RANGE_MODE.HAND,
+      label: '自动',
+      text: 'A',
+    },
+    { group: GROUP.TYPE, on: ScaleType.Log, off: ScaleType.Linear, label: '对数', text: 'L' },
+  ]
 
-  /** 快捷按钮与菜单共用轴类型命令。 */
-  function selectAxisType(itemId: string): void {
-    select(GROUP.TYPE, itemId)
+  /** 快捷按钮复用菜单命令：未激活则写入开值，已激活则切回关值。 */
+  function selectShortcut(shortcut: PriceAxisShortcut): void {
+    select(shortcut.group, isShortcutSelected(shortcut) ? shortcut.off : shortcut.on)
   }
 
-  /** 快捷按钮与菜单共用当前模式判断。 */
-  function isAxisTypeSelected(itemId: string): boolean {
-    return isSelected(GROUP.TYPE, itemId)
+  /** 快捷按钮按下态来自其所属分组的开值。 */
+  function isShortcutSelected(shortcut: PriceAxisShortcut): boolean {
+    return isSelected(shortcut.group, shortcut.on)
   }
 
   const groups: ReadonlyArray<DropMenuGroup> = [
@@ -98,5 +113,5 @@ export function usePriceAxisMenu(
     }
   }
 
-  return { groups, select, isSelected, shortcuts, selectAxisType, isAxisTypeSelected }
+  return { groups, select, isSelected, shortcuts, selectShortcut, isShortcutSelected }
 }

@@ -29,16 +29,40 @@ function group(menu: ReturnType<typeof usePriceAxisMenu>, label: string) {
 }
 
 describe('价格轴菜单', () => {
-  it('快捷按钮与轴类型分组一一对应，并标记当前轴类型', () => {
-    const { menu } = createMenu({ mainRightAxisTypeSetting: ScaleType.Log })
-    expect(menu.shortcuts.map((shortcut) => shortcut.text)).toEqual(['A', 'L', '%'])
-    expect(menu.shortcuts.map((shortcut) => shortcut.id)).toEqual([
-      ScaleType.Linear,
+  it('快捷按钮分别绑定纵轴模式与轴类型，并各自标记当前值', () => {
+    const { menu } = createMenu({
+      mainRightAxisTypeSetting: ScaleType.Log,
+      mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+    })
+    expect(menu.shortcuts.map((shortcut) => shortcut.text)).toEqual(['A', 'L'])
+    expect(menu.shortcuts.map((shortcut) => shortcut.on)).toEqual([
+      PRICE_AXIS_RANGE_MODE.AUTO,
       ScaleType.Log,
-      ScaleType.Percent,
     ])
-    expect(menu.isAxisTypeSelected(ScaleType.Log)).toBe(true)
-    expect(menu.isAxisTypeSelected(ScaleType.Linear)).toBe(false)
+    // 两者分属不同设置，不互斥：对数轴 + 自动范围时同时按下。
+    expect(menu.isShortcutSelected(menu.shortcuts[0]!)).toBe(true)
+    expect(menu.isShortcutSelected(menu.shortcuts[1]!)).toBe(true)
+  })
+
+  it('再次点击已激活的快捷按钮取消并切回非激活值', () => {
+    const { menu, applied } = createMenu({
+      mainRightAxisTypeSetting: ScaleType.Log,
+      mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+    })
+    // 取消自动：纵轴模式切回锁定价格对 K 线比例。
+    menu.selectShortcut(menu.shortcuts[0]!)
+    // 取消对数：轴类型切回常规轴。
+    menu.selectShortcut(menu.shortcuts[1]!)
+    expect(applied).toEqual([
+      {
+        mainRightAxisTypeSetting: ScaleType.Log,
+        mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+      },
+      {
+        mainRightAxisTypeSetting: ScaleType.Linear,
+        mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+      },
+    ])
   })
 
   it('切换轴类型只覆盖该字段并沿用当前设置', () => {
@@ -47,7 +71,7 @@ describe('价格轴菜单', () => {
       mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
       priceAxisPosition: 'left',
     })
-    menu.selectAxisType(ScaleType.Percent)
+    menu.select(group(menu, '轴类型').id, ScaleType.Percent)
     expect(applied).toEqual([
       {
         mainRightAxisTypeSetting: ScaleType.Percent,
