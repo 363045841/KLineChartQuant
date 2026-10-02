@@ -1,6 +1,8 @@
 /** 独立 DOM Legend renderer：复用节点、差量写入，不经框架响应式状态。 */
 import arrowDown from '@iconify-icons/tabler/arrow-down'
 import arrowUp from '@iconify-icons/tabler/arrow-up'
+import eye from '@iconify-icons/tabler/eye'
+import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
 import x from '@iconify-icons/tabler/x'
 import { FONT_FAMILY } from '../../../../foundation/tokens/fonts.js'
@@ -11,14 +13,18 @@ import {
   type LegendRow,
 } from '../types.js'
 
+/** 隐藏/显示按钮的图标反映当前状态：显示状态用睁眼图标，隐藏状态用划线图标。 */
+const VISIBILITY_ICONS = { visible: eye, hidden: eyeOff } as const
 const ACTIONS: ReadonlyArray<{ action: LegendAction; label: string; icon: typeof arrowUp }> = [
   { action: 'move-up', label: '上移指标', icon: arrowUp },
   { action: 'move-down', label: '下移指标', icon: arrowDown },
   { action: 'replace', label: '更换指标', icon: refresh },
+  { action: 'toggle-visibility', label: '显示指标', icon: eye },
   { action: 'close', label: '关闭指标', icon: x },
 ]
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
-const FRAME_EXTRA_WIDTH_PX = 108
+/** 五个操作按钮所需的 frame 右侧扩展宽度。 */
+const FRAME_EXTRA_WIDTH_PX = 130
 
 interface MountedRow {
   element: HTMLDivElement
@@ -26,6 +32,9 @@ interface MountedRow {
   spans: HTMLSpanElement[]
   nodes: Text[]
   buttons: HTMLButtonElement[]
+  /** 隐藏/显示按钮及其图标，随行状态切换。 */
+  visibilityButton?: HTMLButtonElement
+  visibilityIcon?: SVGSVGElement
   data: LegendRow
 }
 
@@ -40,6 +49,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-row[data-indicator] { pointer-events:auto; }
     .klc-legend-text { display:flex; align-items:center; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
+    .klc-legend-row[data-hidden] .klc-legend-text { filter:grayscale(1); opacity:.55; }
     .klc-legend-frame { position:absolute; left:-5px; top:50%; transform:translateY(-50%);
       width:calc(100% + ${FRAME_EXTRA_WIDTH_PX}px); height:28px; box-sizing:border-box;
       display:none; align-items:center; justify-content:flex-end; padding:2px 3px;
@@ -90,12 +100,17 @@ function addActions(document: Document, row: MountedRow): void {
             action: item.action,
             paneId: row.data.paneId,
             definitionId: indicator.definitionId,
+            ...(item.action === 'toggle-visibility' ? { hidden: !row.data.hidden } : {}),
           },
         }),
       )
     })
     row.buttons.push(button)
     actions.append(button)
+    if (item.action === 'toggle-visibility') {
+      row.visibilityButton = button
+      row.visibilityIcon = icon
+    }
   }
   frame.append(actions)
   row.element.append(frame)
@@ -187,6 +202,19 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
           if (node.data !== segment.text) node.data = segment.text
           if (created || previous.texts[index]?.color !== segment.color)
             span.style.color = segment.color
+        }
+        if (data.indicator) {
+          const hidden = data.hidden === true
+          if (row.element.hasAttribute('data-hidden') !== hidden) {
+            row.element.toggleAttribute('data-hidden', hidden)
+          }
+          const label = hidden ? '隐藏指标' : '显示指标'
+          const icon = hidden ? VISIBILITY_ICONS.hidden : VISIBILITY_ICONS.visible
+          if (row.visibilityButton && row.visibilityIcon && row.visibilityButton.title !== label) {
+            row.visibilityButton.title = label
+            row.visibilityButton.setAttribute('aria-label', label)
+            row.visibilityIcon.innerHTML = icon.body
+          }
         }
         if (row.buttons.length) {
           const order =

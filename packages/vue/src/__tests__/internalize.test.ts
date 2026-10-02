@@ -215,6 +215,7 @@ describe('KLineChart legend slot lifecycle', () => {
         {
           instanceId: 'main:MA',
           definitionId: 'MA',
+          hidden: false,
           name: 'MA',
           params: [5],
           values: [{ label: 'MA5', value: 10.5, color: '#2962ff' }],

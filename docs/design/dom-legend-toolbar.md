@@ -16,4 +16,6 @@ Legend 取值索引只有一个来源（`resolveLegendValueIndex`）：有十字
 
 原生 DOM 处理指针事件；只有按钮点击向 Vue 发送带指标身份的低频操作事件。副图继续调用 Pane API；主图移动只改变 Legend 顺序并请求重绘，替换原子写入实例集合，保留其他实例及参数。按钮图标和文字均由 Core DOM renderer 管理。
 
+隐藏指标按钮在实例状态写入 `hidden`（展示配置，不参与计算身份）：主图卸载绘制 Layer、副图卸载 renderer 与坐标轴，均保留实例、计算与图例行；行上标记 `data-hidden`，CSS 以灰度与透明度置灰文字，工具条按钮图标反映当前状态（显示为睁眼、隐藏为划线）。再次点击恢复绘制。
+
 隐藏图例、切换视图、清空数据、删除 Pane 及销毁图表时清理对应 DOM。自定义 #legend 插槽仍由使用者控制，只在显式提供插槽时订阅 Vue 上下文，默认 Legend 高频路径不进入 Vue。legend 配置采用 LegendOptions；是否展示由 options.legend.visible 决定。

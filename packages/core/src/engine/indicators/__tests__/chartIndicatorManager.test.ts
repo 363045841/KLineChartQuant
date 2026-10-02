@@ -197,6 +197,43 @@ describe('ChartIndicatorManager', () => {
     })
   })
 
+  describe('隐藏指标', () => {
+    it('隐藏主图指标卸载绘制 Layer，但保留实例、参数与显示能力', () => {
+      manager.enableMainIndicator('MA', { ma5: false })
+      vi.clearAllMocks()
+
+      expect(manager.setMainHidden('MA', true)).toBe(true)
+      expect(deps.removeRenderer).toHaveBeenCalledTimes(1)
+      expect(manager.isMainIndicatorActive('MA')).toBe(true)
+      expect(harness.indicator.readonly.instances.peek()[0]).toEqual(
+        expect.objectContaining({ instanceId: 'main:MA', hidden: true }),
+      )
+
+      vi.clearAllMocks()
+      expect(manager.setMainHidden('MA', false)).toBe(true)
+      expect(harness.useRenderer).toHaveBeenCalled()
+      expect(harness.indicator.readonly.instances.peek()[0]).not.toHaveProperty('hidden')
+      expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(false)
+    })
+
+    it('隐藏副图指标只保留 pane 与实例，不删除副图', () => {
+      const instanceId = manager.addIndicator('VOL', 'sub')
+      expect(instanceId).not.toBeNull()
+      const paneId = manager.getSubPaneEntries()[0]!.paneId
+
+      expect(manager.setSubHidden(paneId, true)).toBe(true)
+      expect(harness.indicator.readonly.instances.peek()).toEqual([
+        expect.objectContaining({ instanceId, paneId, hidden: true }),
+      ])
+      expect(manager.getSubPaneEntries()).toHaveLength(1)
+    })
+
+    it('未启用的指标隐藏返回 false', () => {
+      expect(manager.setMainHidden('MA', true)).toBe(false)
+      expect(manager.setSubHidden('missing', true)).toBe(false)
+    })
+  })
+
   describe('实例结果投影', () => {
     it('按 instanceId 提供计算结果并计算主图价格范围', async () => {
       manager.enableMainIndicator('MA')

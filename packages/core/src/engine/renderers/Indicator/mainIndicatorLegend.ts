@@ -62,7 +62,12 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
   const rows: LegendRow[] = []
   const { layout, colors } = legend
   /** 用同一行号维护紧凑布局和指标的位置。 */
-  function add(key: string, texts: LegendText[], indicator?: LegendRow['indicator']): void {
+  function add(
+    key: string,
+    texts: LegendText[],
+    indicator?: LegendRow['indicator'],
+    hidden?: boolean,
+  ): void {
     rows.push({
       key,
       paneId: MAIN_PANE_ID,
@@ -73,6 +78,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       gap: layout.gap,
       texts,
       indicator,
+      hidden,
     })
   }
   const ts = legend.timeshare
@@ -132,6 +138,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
         })) ?? []),
       ],
       { instanceId: title.instanceId, definitionId: title.definitionId },
+      title.hidden,
     )
   }
   for (const comparison of legend.comparisons) {

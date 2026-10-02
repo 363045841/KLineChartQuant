@@ -82,6 +82,30 @@ describe('indicatorState', () => {
     expect(state.readonly.configRevision()).toBe(initialRevision + 1)
   })
 
+  it('toggles hidden without touching calculation config or params', () => {
+    const state = createIndicatorState()
+    state.actions.upsertMain('MA', { period: 5 })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    const revision = state.readonly.configRevision()
+
+    state.actions.setIndicatorHidden('main:MA', true)
+    state.actions.setIndicatorHidden('legacy:RSI_0', true)
+
+    expect(state.readonly.instances()).toEqual([
+      expect.objectContaining({ instanceId: 'main:MA', hidden: true, params: { period: 5 } }),
+      expect.objectContaining({ instanceId: 'legacy:RSI_0', hidden: true }),
+    ])
+    expect(state.readonly.subPanes()).toEqual([
+      expect.objectContaining({ paneId: 'RSI_0', hidden: true }),
+    ])
+    // 隐藏属于展示配置，不参与计算身份，不触发重新计算。
+    expect(state.readonly.configRevision()).toBe(revision)
+
+    state.actions.setIndicatorHidden('main:MA', false)
+    expect(state.readonly.instances()[0]).not.toHaveProperty('hidden')
+    expect(state.readonly.configRevision()).toBe(revision)
+  })
+
   it('remove and clear', () => {
     const m = createIndicatorState()
     m.actions.upsertMain('MA', {})

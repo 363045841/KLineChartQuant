@@ -322,6 +322,7 @@ export class ChartIndicatorManager {
         paneId: instance.paneId,
         indicatorId: instance.indicatorId,
         ordinal: instance.ordinal,
+        hidden: instance.hidden === true,
         params: instance.params,
       }))
     this.deps.runRendererTransaction(() => {
@@ -511,6 +512,7 @@ export class ChartIndicatorManager {
           instanceId: instance.instanceId,
           definitionId: instance.indicatorId,
           paneId: instance.paneId,
+          hidden: instance.hidden === true,
           params: instance.params,
         }))
     return Object.freeze({
@@ -581,11 +583,18 @@ export class ChartIndicatorManager {
   getMainIndicatorPriceRange(): { min: number; max: number } | null {
     const pool = this.resultPool
     if (!pool) return null
+    // 隐藏的主图指标不参与主图价格范围，避免不可见线条撑大缩放区间。
+    const hiddenIds = new Set(
+      this.deps.indicator.readonly.instances
+        .peek()
+        .filter((instance) => instance.hidden === true)
+        .map((instance) => instance.instanceId),
+    )
     let min = Infinity
     let max = -Infinity
     for (const instance of this.pipeline.snapshot().instances.values()) {
       // 主图实例固定落在 main pane；paneId 不参与计算身份。
-      if (instance.paneId !== 'main') continue
+      if (instance.paneId !== 'main' || hiddenIds.has(instance.instanceId)) continue
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
@@ -794,6 +803,25 @@ export class ChartIndicatorManager {
     return true
   }
 
+  /** 隐藏或显示主图指标；只改变绘制，保留实例与计算。 */
+  setMainHidden(definitionId: string, hidden: boolean): boolean {
+    const id = resolveIndicatorDefinitionId(definitionId)
+    const instance = id ? this.getMainIndicatorInstance(id) : undefined
+    if (!instance) return false
+    this.deps.indicator.actions.setIndicatorHidden(instance.instanceId, hidden)
+    return true
+  }
+
+  /** 隐藏或显示指定 pane 的副图指标；只改变绘制，保留 pane 与标题。 */
+  setSubHidden(paneId: string, hidden: boolean): boolean {
+    const instance = this.deps.indicator.readonly.instances
+      .peek()
+      .find((entry) => entry.role === 'sub' && entry.paneId === paneId)
+    if (!instance) return false
+    this.deps.indicator.actions.setIndicatorHidden(instance.instanceId, hidden)
+    return true
+  }
+
   isMainIndicatorActive(indicatorId: string): boolean {
     const id = resolveIndicatorDefinitionId(indicatorId)
     return id !== undefined && Boolean(this.getMainIndicatorInstance(id))
@@ -826,12 +854,7 @@ export class ChartIndicatorManager {
     for (const id of [...this.appliedMainIndicators.keys()]) {
       if (desired.some((instance) => instance.role === 'main' && instance.indicatorId === id))
         continue
-      const definition = getRegisteredIndicatorDefinition(id)
-      // 系统图层跨数据视图保留；用户指标随实例删除释放。
-      const rendererName = definition?.mainPane?.rendererName
-      if (definition?.kind === IndicatorKind.Indicator && rendererName) {
-        this.deps.removeRenderer(makePluginLayerId(rendererName))
-      }
+      this.removeMainIndicatorRenderer(id)
       this.appliedMainIndicators.delete(id)
       changed = true
     }
@@ -840,6 +863,15 @@ export class ChartIndicatorManager {
       const id = entry.indicatorId
       // 模式主序列（如 candle）由 core 挂载；有 @Indicator 主图定义的模式图层由此投影。
       if (entry.source === 'mode' && !getRegisteredIndicatorDefinition(id)?.mainPane) continue
+      // 隐藏：只卸载绘制层，保留实例与 Legend 层，图例仍显示并可恢复。
+      if (entry.hidden === true) {
+        if (this.appliedMainIndicators.has(id)) {
+          this.removeMainIndicatorRenderer(id)
+          this.appliedMainIndicators.delete(id)
+          changed = true
+        }
+        continue
+      }
       const hasApplied = this.appliedMainIndicators.has(id)
       const params = entry.params as Readonly<Record<string, number | boolean | string>>
       const projectionKey = mainIndicatorProjectionKey(params)
@@ -894,6 +926,15 @@ export class ChartIndicatorManager {
     if (!definition || !rendererName) return
     this.deps.removeRenderer(makePluginLayerId(rendererName))
     this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
+  }
+
+  /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。Legend 层与实例状态不动。 */
+  private removeMainIndicatorRenderer(indicatorId: string): void {
+    const definition = getRegisteredIndicatorDefinition(indicatorId)
+    const rendererName = definition?.mainPane?.rendererName
+    if (definition?.kind === IndicatorKind.Indicator && rendererName) {
+      this.deps.removeRenderer(makePluginLayerId(rendererName))
+    }
   }
 
   /** 构造主图指标 Layer，保留工厂声明的绘制角色，供 Scene 按画布刷新。 */

@@ -76,6 +76,27 @@ describe('SubPaneManager runtime projection', () => {
     expect(manager.getMountedResources('RSI_0')).toBeDefined()
   })
 
+  it('mounts only the pane title while hidden and restores drawing when shown', () => {
+    manager.reconcile(ctx, [{ ...rsi, hidden: true }])
+    expect(ctx.useRenderer).toHaveBeenCalledTimes(1)
+    expect(ctx.layers.size).toBe(1)
+
+    vi.clearAllMocks()
+    manager.reconcile(ctx, [rsi])
+    expect(ctx.layers.size).toBe(3)
+    expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('rsi_RSI_0')
+  })
+
+  it('unmounts drawing layers when a mounted indicator becomes hidden', () => {
+    manager.reconcile(ctx, [rsi])
+    vi.clearAllMocks()
+
+    manager.reconcile(ctx, [{ ...rsi, hidden: true }])
+
+    expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
+    expect(ctx.layers.size).toBe(1)
+  })
+
   it('unmounts resources absent from desired state', () => {
     manager.reconcile(ctx, [rsi])
     vi.clearAllMocks()

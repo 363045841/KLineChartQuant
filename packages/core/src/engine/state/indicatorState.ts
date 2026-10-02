@@ -23,6 +23,8 @@ export interface IndicatorInstanceSpec {
   readonly ordinal: number
   /** mode 实例由 Kernel 管理，用户指标操作不能删除。 */
   readonly source?: IndicatorInstanceSource
+  /** 隐藏只影响图表绘制，图例仍保留并置灰；不参与计算身份。 */
+  readonly hidden?: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -36,6 +38,8 @@ export interface SubPaneSpec {
   readonly paneId: string
   readonly indicatorId: string
   readonly ordinal: number
+  /** 隐藏的副图指标只保留标题行，不绘制指标内容。 */
+  readonly hidden?: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -52,6 +56,7 @@ function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceSpec 
     role: entry.role,
     ordinal: entry.ordinal ?? 0,
     params: deepFreezeSnapshot(entry.params),
+    ...(entry.hidden ? { hidden: true as const } : {}),
   }
   return Object.freeze(
     entry.source === 'mode' ? { ...snapshot, source: 'mode' as const } : snapshot,
@@ -145,6 +150,7 @@ export function createIndicatorState() {
             paneId: instance.paneId,
             indicatorId: instance.indicatorId,
             ordinal: instance.ordinal,
+            ...(instance.hidden ? { hidden: true as const } : {}),
             params: instance.params,
           }),
         ),
@@ -177,6 +183,7 @@ export function createIndicatorState() {
       role: 'main',
       ordinal: 0,
       params: { ...(existing?.params ?? {}), ...params },
+      hidden: existing?.hidden,
     })
     if (index >= 0) next[index] = entry
     else {
@@ -245,6 +252,16 @@ export function createIndicatorState() {
         if (findMainIndex(readonly.instances.peek(), id) < 0) return
         upsertMain(id, params)
       },
+      /** 隐藏或显示指标实例；隐藏只影响绘制，图例保留并置灰，不参与计算与参数比较。 */
+      setIndicatorHidden(instanceId: string, hidden: boolean) {
+        const prev = readonly.instances.peek()
+        const index = prev.findIndex((instance) => instance.instanceId === instanceId)
+        const current = index < 0 ? undefined : prev[index]
+        if (!current || current.source === 'mode' || Boolean(current.hidden) === hidden) return
+        const next = [...prev]
+        next[index] = snapshotInstance({ ...current, hidden })
+        write(next)
+      },
       /** 整体替换主图实例，保留副图实例。 */
       replaceAllMain(instances: ReadonlyArray<IndicatorInstanceSpec>) {
         const retained = readonly.instances
@@ -305,6 +322,7 @@ export function createIndicatorState() {
           instanceId: entry.instanceId ?? prev[index]!.instanceId,
           ordinal: entry.ordinal ?? prev[index]!.ordinal,
           role: 'sub',
+          hidden: entry.hidden ?? prev[index]!.hidden,
         })
         write(next)
       },

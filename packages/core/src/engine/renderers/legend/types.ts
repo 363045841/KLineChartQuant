@@ -14,14 +14,18 @@ export interface LegendRow {
   gap: number
   texts: ReadonlyArray<LegendText>
   indicator?: { instanceId: string; definitionId: string }
+  /** 指标被隐藏：行保留并置灰，工具条切换为“显示指标”。 */
+  hidden?: boolean
 }
 
 export const LEGEND_ACTION_EVENT = 'klc:legend-action'
-export type LegendAction = 'move-up' | 'move-down' | 'replace' | 'close'
+export type LegendAction = 'move-up' | 'move-down' | 'replace' | 'toggle-visibility' | 'close'
 export interface LegendActionDetail {
   action: LegendAction
   paneId: string
   definitionId: string
+  /** 仅 toggle-visibility：切换后的目标隐藏状态。 */
+  hidden?: boolean
 }
 
 export interface LegendDomRenderer {

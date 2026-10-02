@@ -38,13 +38,14 @@ beforeEach(() => {
 
 /** 构造携带主图实例清单的图例宿主；空数组表示当前没有启用主图指标。 */
 function createLegendHost(
-  mainInstances: ReadonlyArray<{ instanceId: string; definitionId: string }>,
+  mainInstances: ReadonlyArray<{ instanceId: string; definitionId: string; hidden?: boolean }>,
 ): PluginHost {
   return createMockIndicatorInstanceHost(
-    mainInstances.map(({ instanceId, definitionId }) => ({
+    mainInstances.map(({ instanceId, definitionId, hidden }) => ({
       instanceId,
       definitionId,
       paneId: 'main',
+      hidden: hidden === true,
       params: {},
     })),
   )
@@ -180,6 +181,18 @@ describe('MainIndicatorLegend paint', () => {
     layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
 
     expect(countTitleRows('MA')).toBe(0)
+  })
+
+  it('carries the hidden flag into the legend row without dropping it', () => {
+    const layer = createLegendLayer(
+      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'MA', hidden: true }]),
+    )
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
+
+    const row = rows.find((entry) => entry.key === MA_INSTANCE_ID)
+    expect(row?.hidden).toBe(true)
+    expect(countTitleRows('MA')).toBe(1)
   })
 
   it('draws MA values from the frame state reader', () => {

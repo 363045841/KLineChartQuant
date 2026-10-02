@@ -46,6 +46,8 @@ export interface LegendIndicatorRow {
   instanceId: string
   /** 指标规范 ID（displayName），与可见集合、实例目录同一身份空间。 */
   definitionId: string
+  /** 隐藏的指标图例保留并置灰。 */
+  hidden: boolean
   name: string
   params?: number[]
   values?: TitleValueItem[]
@@ -239,6 +241,7 @@ function collectIndicatorRows(
     rows.push({
       instanceId: instance.instanceId,
       definitionId: instance.definitionId,
+      hidden: instance.hidden,
       name: titleInfo.name,
       params: titleInfo.params,
       values: titleInfo.values,

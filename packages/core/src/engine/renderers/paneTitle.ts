@@ -23,6 +23,8 @@ export interface PaneTitleOptions {
   title: string
   indicatorId: SubIndicatorType
   instanceId: string
+  /** 指标被隐藏时标题行保留并置灰。 */
+  hidden?: boolean
   params: Record<string, unknown>
 }
 
@@ -80,6 +82,7 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
           height: PANE_TITLE_HEIGHT_PX,
           gap: 8,
           indicator: { instanceId: options.instanceId, definitionId: options.indicatorId },
+          hidden: options.hidden === true,
           texts: [
             { text: title?.name ?? options.title, color: colors.text.primary },
             ...(title?.params?.length

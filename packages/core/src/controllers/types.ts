@@ -547,6 +547,10 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean
   /** 在原有 Legend 位置原子替换主图指标。 */
   replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean
+  /** 隐藏或显示主图指标；只影响绘制，保留实例与参数。 */
+  setMainIndicatorHidden(definitionId: string, hidden: boolean): boolean
+  /** 隐藏或显示指定 pane 的副图指标；只影响绘制，保留 pane 与参数。 */
+  setSubIndicatorHidden(paneId: string, hidden: boolean): boolean
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
 
   // ---- Drawing ----

@@ -111,4 +111,35 @@ describe('createPaneTitleRendererLayer', () => {
       expect.any(Object),
     )
   })
+
+  it('marks the title row hidden when the indicator is hidden', () => {
+    vi.spyOn(getRegisteredIndicatorDefinition('rsi')!, 'getTitleInfo').mockReturnValue({
+      name: 'RSI',
+    })
+    const publishLegendRows = vi.fn()
+    const layer = createPaneTitleRendererLayer({
+      paneId: 'sub_RSI',
+      title: 'RSI',
+      indicatorId: 'rsi',
+      instanceId: 'inst-rsi',
+      hidden: true,
+      params: {},
+    })
+
+    layer.paint(
+      createMockRenderContext({
+        publishLegendRows,
+        pane: { id: 'sub_RSI' },
+        paneWidth: 800,
+        data: [],
+        crosshairIndex: null,
+        indicatorStateReader: { get: vi.fn() },
+        isAsiaMarket: true,
+      }),
+    )
+
+    expect(publishLegendRows).toHaveBeenCalledWith('sub_RSI', [
+      expect.objectContaining({ hidden: true }),
+    ])
+  })
 })

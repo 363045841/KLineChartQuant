@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 /** DOM Legend 的高频差量更新、操作身份与生命周期测试。 */
+import eye from '@iconify-icons/tabler/eye'
+import eyeOff from '@iconify-icons/tabler/eye-off'
 import { describe, expect, it, vi } from 'vitest'
 import { createLegendDomRenderer } from '../impl/createLegendDomRenderer.js'
 import { LEGEND_ACTION_EVENT, type LegendRow } from '../types.js'
@@ -57,7 +59,7 @@ describe('DOM Legend renderer', () => {
     renderer.dispose()
   })
 
-  it('四个按钮传递对应实例身份，并更新上下边界', () => {
+  it('五个按钮传递对应实例身份，并更新上下边界', () => {
     const { host, renderer, row } = createHarness()
     const onAction = vi.fn()
     host.addEventListener(LEGEND_ACTION_EVENT, onAction)
@@ -72,10 +74,11 @@ describe('DOM Legend renderer', () => {
       .querySelectorAll('button')
     expect(firstButtons[0]!.disabled).toBe(true)
     expect(firstButtons[1]!.disabled).toBe(false)
-    for (const index of [1, 2, 3]) firstButtons[index]!.click()
+    for (const index of [1, 2, 3, 4]) firstButtons[index]!.click()
     expect(onAction.mock.calls.map(([event]) => event.detail)).toEqual([
       { action: 'move-down', paneId: 'main', definitionId: 'MA' },
       { action: 'replace', paneId: 'main', definitionId: 'MA' },
+      { action: 'toggle-visibility', paneId: 'main', definitionId: 'MA', hidden: true },
       { action: 'close', paneId: 'main', definitionId: 'MA' },
     ])
     renderer.update('main', [second, row], ['main'])
@@ -83,6 +86,34 @@ describe('DOM Legend renderer', () => {
     expect(firstButtons[1]!.disabled).toBe(true)
     firstButtons[0]!.click()
     expect(onAction.mock.lastCall?.[0].detail.action).toBe('move-up')
+    renderer.dispose()
+  })
+
+  it('隐藏状态标记在行上并切换可见性按钮语义', () => {
+    const { host, renderer, row } = createHarness()
+    // jsdom 会把自闭合标签序列化为显式闭合，比较前统一形态。
+    const icon = (button: HTMLButtonElement) =>
+      button
+        .querySelector('svg')!
+        .innerHTML.replace(/<\/path>/g, '/>')
+        .replace(/>\/>/g, '/>')
+    renderer.update('main', [row], ['main'])
+    const element = host.querySelector<HTMLElement>('.klc-legend-row')!
+    expect(element.hasAttribute('data-hidden')).toBe(false)
+    const toggle = element.querySelectorAll<HTMLButtonElement>('button')[3]!
+    expect(toggle.title).toBe('显示指标')
+    expect(icon(toggle)).toBe(eye.body)
+
+    renderer.update('main', [{ ...row, hidden: true }], ['main'])
+    expect(element.hasAttribute('data-hidden')).toBe(true)
+    expect(toggle.title).toBe('隐藏指标')
+    expect(toggle.getAttribute('aria-label')).toBe('隐藏指标')
+    expect(icon(toggle)).toBe(eyeOff.body)
+
+    renderer.update('main', [{ ...row, hidden: false }], ['main'])
+    expect(element.hasAttribute('data-hidden')).toBe(false)
+    expect(toggle.title).toBe('显示指标')
+    expect(icon(toggle)).toBe(eye.body)
     renderer.dispose()
   })
 

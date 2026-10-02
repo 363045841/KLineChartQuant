@@ -104,15 +104,28 @@ describe('buildLegendTemplateContext indicator rows', () => {
     const result = buildLegendTemplateContext({
       context,
       host: createMockIndicatorInstanceHost([
-        { instanceId: 'main:MA', definitionId: 'MA', paneId: 'main', params: {} },
-        { instanceId: 'main:BOLL', definitionId: 'BOLL', paneId: 'main', params: {} },
+        { instanceId: 'main:MA', definitionId: 'MA', paneId: 'main', hidden: false, params: {} },
+        {
+          instanceId: 'main:BOLL',
+          definitionId: 'BOLL',
+          paneId: 'main',
+          hidden: false,
+          params: {},
+        },
       ]),
       yPaddingPx: 0,
       visibleIndicatorIds: new Set(['MA']),
     })
 
     expect(result?.indicators).toEqual([
-      { instanceId: 'main:MA', definitionId: 'MA', name: 'MA', params: undefined, values: [] },
+      {
+        instanceId: 'main:MA',
+        definitionId: 'MA',
+        hidden: false,
+        name: 'MA',
+        params: undefined,
+        values: [],
+      },
     ])
   })
 })

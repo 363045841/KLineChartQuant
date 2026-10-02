@@ -14,6 +14,8 @@ describe('Legend DOM actions', () => {
     const moveMain = vi.spyOn(ctrl, 'moveMainIndicator')
     const replaceMain = vi.spyOn(ctrl, 'replaceMainIndicator')
     const removeMain = vi.spyOn(ctrl, 'removeIndicator')
+    const setMainHidden = vi.spyOn(ctrl, 'setMainIndicatorHidden')
+    const setSubHidden = vi.spyOn(ctrl, 'setSubIndicatorHidden')
     const options = {
       removePane: vi.fn(),
       movePane: vi.fn(),
@@ -30,9 +32,12 @@ describe('Legend DOM actions', () => {
       action: LegendActionDetail['action'],
       paneId = 'main',
       definitionId = 'MA',
+      hidden?: boolean,
     ): void {
       layer.dispatchEvent(
-        new CustomEvent(LEGEND_ACTION_EVENT, { detail: { action, paneId, definitionId } }),
+        new CustomEvent(LEGEND_ACTION_EVENT, {
+          detail: { action, paneId, definitionId, ...(hidden === undefined ? {} : { hidden }) },
+        }),
       )
     }
     emit('move-up')
@@ -63,6 +68,11 @@ describe('Legend DOM actions', () => {
     actions.replaceLegend('sub_RSI', 'MACD')
     expect(options.replacePane).toHaveBeenCalledWith('sub_RSI', 'MACD')
     expect(options.openSelector).toHaveBeenCalledTimes(2)
+
+    emit('toggle-visibility', 'main', 'MA', true)
+    expect(setMainHidden).toHaveBeenCalledWith('MA', true)
+    emit('toggle-visibility', 'sub_RSI', 'RSI', false)
+    expect(setSubHidden).toHaveBeenCalledWith('sub_RSI', false)
 
     scope.stop()
     emit('close')

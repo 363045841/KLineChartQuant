@@ -149,6 +149,18 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.indicators.replaceMain(definitionId, nextDefinitionId)
   }
 
+  /** 隐藏或显示主图指标；只影响绘制，不删除实例。 */
+  function setMainIndicatorHidden(definitionId: string, hidden: boolean): boolean {
+    if (isDisposed()) return false
+    return chart.indicators.setMainHidden(definitionId, hidden)
+  }
+
+  /** 隐藏或显示指定 pane 的副图指标；只影响绘制，不删除 pane。 */
+  function setSubIndicatorHidden(paneId: string, hidden: boolean): boolean {
+    if (isDisposed()) return false
+    return chart.indicators.setSubHidden(paneId, hidden)
+  }
+
   /** 更新指标实例参数。 */
   function updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
     if (isDisposed()) return false
@@ -288,6 +300,8 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     removeIndicator,
     moveMainIndicator,
     replaceMainIndicator,
+    setMainIndicatorHidden,
+    setSubIndicatorHidden,
     updateIndicatorParams,
     setTooltipSize,
     setTooltipAnchorPositioning,

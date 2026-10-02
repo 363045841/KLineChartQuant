@@ -38,6 +38,10 @@ export function useLegendActions(
         } else if (action === 'close') {
           if (main) controller.value?.removeIndicator(definitionId)
           else options.removePane(paneId)
+        } else if (action === 'toggle-visibility') {
+          const hidden = detail.hidden === true
+          if (main) controller.value?.setMainIndicatorHidden(definitionId, hidden)
+          else controller.value?.setSubIndicatorHidden(paneId, hidden)
         } else {
           const direction = action === 'move-up' ? 'up' : 'down'
           if (main) controller.value?.moveMainIndicator(definitionId, direction)
@@ -64,7 +68,9 @@ function isLegendAction(value: unknown): value is LegendActionDetail {
   if (!value || typeof value !== 'object') return false
   return (
     'action' in value &&
-    ['move-up', 'move-down', 'replace', 'close'].includes(String(value.action)) &&
+    ['move-up', 'move-down', 'replace', 'toggle-visibility', 'close'].includes(
+      String(value.action),
+    ) &&
     'paneId' in value &&
     typeof value.paneId === 'string' &&
     'definitionId' in value &&
