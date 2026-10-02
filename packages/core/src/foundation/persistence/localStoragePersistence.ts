@@ -145,3 +145,24 @@ export function createLocalStoragePersistence<T>(
     },
   }
 }
+
+/**
+ * 已绑定快照来源的持久化契约：宿主只消费无参 schedule/dispose，不需要关心取值时机。
+ */
+export interface SnapshotPersistence {
+  /** 安排一次延迟写入；实际写入时读取已绑定的快照。 */
+  schedule(): void
+  /** 释放资源并补写最新待写快照。 */
+  dispose(): void
+}
+
+/** 将快照 getter 绑定到 `Persistence`，得到宿主可直接调用的无参协议。 */
+export function bindSnapshotPersistence<T>(
+  persistence: Persistence<T>,
+  getSnapshot: () => T,
+): SnapshotPersistence {
+  return {
+    schedule: () => persistence.schedule(getSnapshot),
+    dispose: () => persistence.dispose(),
+  }
+}

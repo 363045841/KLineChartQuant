@@ -5,6 +5,7 @@ import type {
   ViewWorkspacesSnapshot,
 } from '../engine/state/viewWorkspace.js'
 import {
+  bindSnapshotPersistence,
   createLocalStoragePersistence,
   getBrowserLocalStorage,
   type KeyValueStorage,
@@ -47,14 +48,5 @@ export function createViewWorkspacePersistence(
   getSnapshot: () => ViewWorkspacesSnapshot,
   storage: KeyValueStorage | null = getBrowserLocalStorage(),
 ): ViewWorkspacePersistence {
-  const persistence = createPersistence(storage)
-
-  return {
-    schedule(): void {
-      persistence.schedule(getSnapshot)
-    },
-    dispose(): void {
-      persistence.dispose()
-    },
-  }
+  return bindSnapshotPersistence(createPersistence(storage), getSnapshot)
 }

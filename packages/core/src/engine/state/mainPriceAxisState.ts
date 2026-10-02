@@ -12,11 +12,33 @@ export interface PanePriceAxisRange {
   readonly handRange: PriceRange | null
 }
 
-/** 创建逐 Pane 范围状态，未设置的副图使用自动范围。 */
-export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
-  const paneRanges: Readonly<Record<string, PanePriceAxisRange>> = Object.freeze({
-    [MAIN_PANE_ID]: Object.freeze({ rangeMode: initialMode, handRange: null }),
-  })
+/** paneId → 范围模式 的可持久化快照；只保存自动/手动开关，不保存具体范围值。 */
+export type PanePriceAxisModesSnapshot = Readonly<Record<string, PriceAxisRangeMode>>
+
+/** 持久化适配器的最小契约；Chart 不依赖具体浏览器存储实现。 */
+export interface PanePriceAxisModePersistence {
+  /** 合并连续的范围模式变更。 */
+  schedule(): void
+  /** 在图表销毁前补写尚未落盘的变更。 */
+  dispose(): void
+}
+
+/** 创建逐 Pane 范围状态；传入已持久化的模式可恢复各轴开关，未设置的副图使用自动范围。 */
+export function createMainPriceAxisState(
+  initialMode: PriceAxisRangeMode,
+  initialModes?: Readonly<Record<string, PriceAxisRangeMode>>,
+) {
+  const seeded: Record<string, PanePriceAxisRange> = {
+    [MAIN_PANE_ID]: Object.freeze({
+      rangeMode: initialModes?.[MAIN_PANE_ID] ?? initialMode,
+      handRange: null,
+    }),
+  }
+  for (const [paneId, mode] of Object.entries(initialModes ?? {})) {
+    if (paneId === MAIN_PANE_ID) continue
+    seeded[paneId] = Object.freeze({ rangeMode: mode, handRange: null })
+  }
+  const paneRanges: Readonly<Record<string, PanePriceAxisRange>> = Object.freeze(seeded)
   const { signals, readonly } = createSubState({ paneRanges })
   /** 原子写入目标 Pane，不修改其他轴。 */
   function write(paneId: string, rangeMode: PriceAxisRangeMode, range: PriceRange | null): void {

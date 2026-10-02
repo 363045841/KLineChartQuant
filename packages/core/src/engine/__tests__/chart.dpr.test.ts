@@ -1272,6 +1272,63 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('restores each pane range mode from the persisted snapshot over the settings preference', async () => {
+    const chart = mountChart(1000, 600, {
+      initialSettings: { mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO },
+      initialPanePriceAxisModes: {
+        [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.HAND,
+        RSI_0: PRICE_AXIS_RANGE_MODE.HAND,
+      },
+      initialViewWorkspaces: {
+        kline: {
+          instances: [
+            {
+              instanceId: 'user:rsi-0',
+              indicatorId: 'RSI',
+              paneId: 'RSI_0',
+              role: 'sub',
+              ordinal: 0,
+              params: {},
+            },
+          ],
+          paneRatios: { main: 0.75, RSI_0: 0.25 },
+          paneSpecs: [
+            { id: 'main', ratio: 0.75, role: 'price' },
+            { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+          ],
+          paneScaleTypes: {},
+        },
+        timeshare: {
+          instances: [],
+          paneRatios: { main: 1 },
+          paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+          paneScaleTypes: {},
+        },
+      },
+    })
+
+    const ranges = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
+    expect(ranges[MAIN_PANE_ID]?.rangeMode).toBe(PRICE_AXIS_RANGE_MODE.HAND)
+    expect(ranges.RSI_0?.rangeMode).toBe(PRICE_AXIS_RANGE_MODE.HAND)
+    // 只持久化模式；手动范围值不落盘，恢复后为空，等首个有效帧再初始化。
+    expect(ranges[MAIN_PANE_ID]?.handRange).toBeNull()
+    await chart.destroy()
+  })
+
+  it('persists pane range modes through the injected adapter', async () => {
+    const chart = mountChart()
+    chart.setData(makeBars(10))
+    const schedule = vi.fn()
+    chart.setPanePriceAxisPersistence({ schedule, dispose: vi.fn() })
+
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    chart.setPanePriceAxisRangeMode('MACD_0', PRICE_AXIS_RANGE_MODE.HAND)
+
+    expect(schedule).toHaveBeenCalled()
+    expect(chart.snapshotPanePriceAxisModes().MACD_0).toBe(PRICE_AXIS_RANGE_MODE.HAND)
+    await chart.destroy()
+  })
+
   it('clears stale canvases and cached geometry when switching data views', async () => {
     const chart = mountChart()
     const renderer = chart['renderer']
