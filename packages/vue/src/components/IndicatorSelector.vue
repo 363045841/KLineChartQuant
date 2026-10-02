@@ -146,7 +146,8 @@
     activeIndicators?: string[]
     indicatorParams?: Record<string, Record<string, unknown>>
     replacePaneId?: string | null
-    replaceRole?: 'main' | 'sub'
+    /** 替换目标所在位置；与 replacePaneId 同时提供。 */
+    replaceRole: 'main' | 'sub'
   }>()
 
   const emit = defineEmits<{
@@ -278,8 +279,9 @@
   function toggleIndicator(indicatorId: string) {
     if (props.replacePaneId) {
       const indicator = findIndicator(indicatorId)
-      if (!indicator || indicator.pane !== (props.replaceRole ?? 'sub')) return
-      if (props.replaceRole === 'main' && isActive(indicatorId)) return
+      if (!indicator || indicator.pane !== props.replaceRole) return
+      // 替换源本身不允许再次选中；主图和副图同一规则，避免出现重复指标。
+      if (isActive(indicatorId)) return
       emit('replace', props.replacePaneId, indicatorId)
       closeMenu()
       return

@@ -2,12 +2,10 @@
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
 import { MAIN_PANE_ID } from '../../paneIds.js'
 import type { LegendRow, LegendText } from '../legend/types.js'
 import {
   buildLegendTemplateContext,
-  type LegendRenderMode,
   type LegendTemplateContext,
 } from './mainIndicatorLegendContext.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
@@ -21,13 +19,12 @@ export interface LegendOptions {
 export interface MainIndicatorLegendOptions {
   yPaddingPx: number
   onContext?: (ctx: LegendTemplateContext | null) => void
+  /** 当前数据视图应显示的主图指标规范 ID；缺省表示不过滤。 */
   getVisibleIndicatorIds?: () => ReadonlyArray<string>
   getLegendOptions?: () => LegendOptions | undefined
-  visible?: boolean
-  renderMode?: LegendRenderMode
 }
 
-/** 构建数据并交给独立 DOM renderer，external 模式只发布插槽上下文。 */
+/** 构建数据并交给独立 DOM renderer。 */
 export function createMainIndicatorLegendLayer(
   options: MainIndicatorLegendOptions,
   getPluginHost: () => PluginHost | null,
@@ -40,26 +37,21 @@ export function createMainIndicatorLegendLayer(
     draw(context) {
       const config = options.getLegendOptions?.()
       const viewIds = options.getVisibleIndicatorIds?.()
-      const configuredIds = config?.visibleIndicatorIds?.flatMap((id) => {
-        const definition = getRegisteredIndicatorDefinition(id)
-        return definition ? [definition.name] : []
-      })
-      const ids = configuredIds
+      // 用户筛选与当前视图的可见指标取交集；两者同为规范 ID（displayName）。
+      const configuredIds = config?.visibleIndicatorIds
+      const visibleIds = configuredIds
         ? configuredIds.filter((id) => !viewIds || viewIds.includes(id))
         : viewIds
       const legend = buildLegendTemplateContext({
         context,
         host: getPluginHost(),
         yPaddingPx: options.yPaddingPx,
-        visibleIndicatorIds: ids ? new Set(ids) : null,
+        visibleIndicatorIds: visibleIds ? new Set(visibleIds) : null,
       })
       options.onContext?.(legend)
-      const visible = config?.visible ?? options.visible ?? true
       context.publishLegendRows?.(
         MAIN_PANE_ID,
-        visible && options.renderMode !== 'external' && legend
-          ? buildMainLegendRows(legend, context.pane.top)
-          : [],
+        config?.visible !== false && legend ? buildMainLegendRows(legend, context.pane.top) : [],
       )
     },
   })
@@ -126,9 +118,9 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       add('bar-close', close)
     } else add('bar', [...ohl, ...close])
   }
-  for (const [index, title] of legend.indicators.entries()) {
+  for (const title of legend.indicators) {
     add(
-      title.instanceId ?? `indicator:${index}`,
+      title.instanceId,
       [
         { text: title.name, color: colors.textPrimary },
         ...(title.params?.length
@@ -139,9 +131,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
           color: item.color,
         })) ?? []),
       ],
-      title.instanceId && title.definitionId
-        ? { instanceId: title.instanceId, definitionId: title.definitionId }
-        : undefined,
+      { instanceId: title.instanceId, definitionId: title.definitionId },
     )
   }
   for (const comparison of legend.comparisons) {

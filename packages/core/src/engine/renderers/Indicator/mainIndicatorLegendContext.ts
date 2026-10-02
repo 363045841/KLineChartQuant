@@ -9,9 +9,7 @@ import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
 } from '../../indicators/instances/api/indicatorRenderBinding.js'
-
-/** 图例渲染模式：dom 默认展示；external 仅发布自定义插槽上下文。 */
-export type LegendRenderMode = 'dom' | 'external'
+import { resolveLegendValueIndex } from '../legend/impl/resolveLegendValueIndex.js'
 
 export interface LegendLayout {
   x: number
@@ -44,9 +42,10 @@ export interface LegendTimeshareRow {
 }
 
 export interface LegendIndicatorRow {
-  /** 实际绘制的实例身份，用于 Legend 命中后的操作。 */
-  instanceId?: string
-  definitionId?: string
+  /** 实例身份，用于 Legend 命中后的操作。 */
+  instanceId: string
+  /** 指标规范 ID（displayName），与可见集合、实例目录同一身份空间。 */
+  definitionId: string
   name: string
   params?: number[]
   values?: TitleValueItem[]
@@ -125,7 +124,7 @@ export function buildLegendTemplateContext(
   const range = context.range
   const crosshairIndex = context.crosshairIndex
   const hasCrosshair = typeof crosshairIndex === 'number'
-  const targetIndex = hasCrosshair ? crosshairIndex : Math.min(range.end - 1, klineData.length - 1)
+  const targetIndex = resolveLegendValueIndex(crosshairIndex, klineData.length)
 
   const layout: LegendLayout = {
     x: legendX,
@@ -224,10 +223,9 @@ function collectIndicatorRows(
 
   const rows: LegendIndicatorRow[] = []
   for (const instance of catalog.listMainInstances()) {
+    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
     const meta = getRegisteredIndicatorDefinition(instance.definitionId)
     if (!meta?.getTitleInfo) continue
-    // Kernel 可见集合使用定义 name（ma），实例目录使用展示 ID（MA）；统一按定义身份筛选。
-    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(meta.name)) continue
     const titleInfo: TitleInfo | null = meta.getTitleInfo(
       klineData,
       targetIndex,

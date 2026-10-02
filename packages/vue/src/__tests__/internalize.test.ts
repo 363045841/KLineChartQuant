@@ -212,7 +212,13 @@ describe('KLineChart legend slot lifecycle', () => {
         changeColor: '#ff0000',
       },
       indicators: [
-        { name: 'MA', params: [5], values: [{ label: 'MA5', value: 10.5, color: '#2962ff' }] },
+        {
+          instanceId: 'main:MA',
+          definitionId: 'MA',
+          name: 'MA',
+          params: [5],
+          values: [{ label: 'MA5', value: 10.5, color: '#2962ff' }],
+        },
       ],
       comparisons: [{ symbol: 'SPY', percent: 1.25, color: '#f59e0b', percentColor: '#ff0000' }],
       bar: { timestamp: 1, open: 10, high: 12, low: 9, close: 11, volume: 1000 },

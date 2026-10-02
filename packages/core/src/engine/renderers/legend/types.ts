@@ -25,12 +25,7 @@ export interface LegendActionDetail {
 }
 
 export interface LegendDomRenderer {
-  update(
-    paneId: string,
-    rows: ReadonlyArray<LegendRow>,
-    paneOrder: ReadonlyArray<string>,
-    freezeValues?: boolean,
-  ): void
+  update(paneId: string, rows: ReadonlyArray<LegendRow>, paneOrder: ReadonlyArray<string>): void
   clear(): void
   dispose(): void
 }

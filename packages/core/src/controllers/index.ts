@@ -184,13 +184,12 @@ export {
   isSubIndicatorId,
 } from '../engine/renderers/Indicator/indicatorCatalog.js'
 export type { LegendOptions } from '../engine/renderers/Indicator/mainIndicatorLegend.js'
-// Main-pane legend template context (Vue #legend slot / external renderers)
+// Main-pane legend template context (Vue #legend slot)
 export type {
   LegendComparisonRow,
   LegendCurrentBar,
   LegendIndicatorRow,
   LegendLayout,
-  LegendRenderMode,
   LegendTemplateContext,
   LegendTimeshareRow,
 } from '../engine/renderers/Indicator/mainIndicatorLegendContext.js'

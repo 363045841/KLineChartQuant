@@ -117,7 +117,7 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
   }
 
   return {
-    update(paneId, rows, paneOrder, freezeValues = false) {
+    update(paneId, rows, paneOrder) {
       for (const [id, entries] of mounted) {
         if (paneOrder.includes(id)) continue
         for (const row of entries.values()) row.element.remove()
@@ -156,8 +156,6 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
           entries.set(data.key, row)
         }
         const previous = row.data
-        // 平移会清空 Crosshair 并改变可见范围；沿用已展示文本，不把最新可见 K 线当作拖动取值。
-        const texts = freezeValues && row.nodes.length ? previous.texts : data.texts
         const style = row.element.style
         const left = `${data.x}px`
         const top = `${data.y}px`
@@ -169,12 +167,12 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
         if (style.maxWidth !== maxWidth) style.maxWidth = maxWidth
         if (style.minHeight !== minHeight) style.minHeight = minHeight
         if (row.text.style.gap !== gap) row.text.style.gap = gap
-        while (row.spans.length > texts.length) {
+        while (row.spans.length > data.texts.length) {
           row.spans.pop()?.remove()
           row.nodes.pop()
         }
-        for (let index = 0; index < texts.length; index++) {
-          const segment = texts[index]!
+        for (let index = 0; index < data.texts.length; index++) {
+          const segment = data.texts[index]!
           let span = row.spans[index]
           const created = !span
           if (!span) {
@@ -201,7 +199,7 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
           if (row.buttons[0]!.disabled !== upDisabled) row.buttons[0]!.disabled = upDisabled
           if (row.buttons[1]!.disabled !== downDisabled) row.buttons[1]!.disabled = downDisabled
         }
-        row.data = texts === data.texts ? data : { ...data, texts }
+        row.data = data
       }
     },
     clear,

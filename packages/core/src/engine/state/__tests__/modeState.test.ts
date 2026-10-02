@@ -195,7 +195,7 @@ describe('modeState', () => {
     kernel.indicator.actions.upsertMain('BOLL', {})
     kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
 
-    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['ma', 'boll'])
+    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['MA', 'BOLL'])
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },

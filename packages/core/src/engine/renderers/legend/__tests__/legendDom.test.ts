@@ -27,28 +27,6 @@ function createHarness() {
 }
 
 describe('DOM Legend renderer', () => {
-  it('拖动期间保留数值与颜色，仍同步布局，结束后恢复更新', () => {
-    const { host, renderer, row } = createHarness()
-    renderer.update('main', [row], ['main'])
-    const value = host.querySelectorAll('.klc-legend-text > span')[2]!
-    const changed = {
-      ...row,
-      y: 40,
-      texts: [...row.texts.slice(0, 2), { text: 'MA5 200.000', color: 'red' }],
-    }
-    renderer.update('main', [changed], ['main'], true)
-    expect(value.textContent).toBe('MA5 100.000')
-    expect(value.style.color).toBe('blue')
-    expect(host.querySelector<HTMLElement>('.klc-legend-row')?.style.top).toBe('40px')
-
-    renderer.update('main', [{ ...changed, y: 50 }], ['main'], true)
-    expect(value.textContent).toBe('MA5 100.000')
-    renderer.update('main', [changed], ['main'], false)
-    expect(value.textContent).toBe('MA5 200.000')
-    expect(value.style.color).toBe('red')
-    renderer.dispose()
-  })
-
   it('相同帧不写 DOM，数值更新复用 Text 节点且不读取布局', () => {
     const { host, renderer, row } = createHarness()
     const geometry = vi.spyOn(host, 'getBoundingClientRect')

@@ -343,7 +343,8 @@ export class ChartStateKernel extends StateKernel {
         if (instance.role !== 'main' || instance.source === 'mode') continue
         const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
         if (definition && supportsIndicatorDataView(definition, dataView)) {
-          ids.add(definition.name)
+          // 对外统一使用规范 ID（displayName），与实例目录的 definitionId 同一身份空间。
+          ids.add(definition.displayName)
         }
       }
       return Object.freeze([...ids])

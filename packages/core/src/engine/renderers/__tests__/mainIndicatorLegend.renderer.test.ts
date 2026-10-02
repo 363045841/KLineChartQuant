@@ -58,8 +58,8 @@ function createLegendLayer(
   return createMainIndicatorLegendLayer(options, () => host)
 }
 
-/** 以固定主图实例构造图例宿主。 */
-function createMAHost(definitionId = 'ma'): PluginHost {
+/** 以固定主图实例构造图例宿主；definitionId 使用对外规范 ID（displayName）。 */
+function createMAHost(definitionId = 'MA'): PluginHost {
   return createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId }])
 }
 
@@ -107,7 +107,7 @@ describe('MainIndicatorLegend paint', () => {
     const state = createMARenderState()
     layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: null }))
     const idle = rows.find((row) => row.key === MA_INSTANCE_ID)!
-    expect(idle.indicator).toEqual({ instanceId: MA_INSTANCE_ID, definitionId: 'ma' })
+    expect(idle.indicator).toEqual({ instanceId: MA_INSTANCE_ID, definitionId: 'MA' })
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 50 }))
     const active = rows.find((row) => row.key === MA_INSTANCE_ID)!
@@ -140,13 +140,13 @@ describe('MainIndicatorLegend paint', () => {
   })
 
   it.each([
-    { configuredIds: ['MA'], viewIds: ['ma'], expected: 1 },
-    { configuredIds: undefined, viewIds: ['ma'], expected: 1 },
-    { configuredIds: ['ma'], viewIds: ['ma'], expected: 1 },
-    { configuredIds: [], viewIds: ['ma'], expected: 0 },
-    { configuredIds: ['ma'], viewIds: [], expected: 0 },
+    { configuredIds: ['MA'], viewIds: ['MA'], expected: 1 },
+    { configuredIds: undefined, viewIds: ['MA'], expected: 1 },
+    { configuredIds: [], viewIds: ['MA'], expected: 0 },
+    { configuredIds: ['MA'], viewIds: [], expected: 0 },
+    { configuredIds: ['BOLL'], viewIds: ['MA'], expected: 0 },
   ])(
-    'intersects configured IDs with the view-projected IDs (expected $expected rows)',
+    'intersects configured IDs with the view-visible IDs (expected $expected rows)',
     ({ configuredIds, viewIds, expected }) => {
       const layer = createLegendLayer(createMAHost(), {
         yPaddingPx: 20,
@@ -160,10 +160,10 @@ describe('MainIndicatorLegend paint', () => {
     },
   )
 
-  it('shows an uppercase MA instance when the Kernel publishes its lowercase definition name', () => {
+  it('matches the configured ID and instance identity in the same canonical ID space', () => {
     const layer = createLegendLayer(createMAHost('MA'), {
       yPaddingPx: 20,
-      getVisibleIndicatorIds: () => ['ma'],
+      getVisibleIndicatorIds: () => ['MA'],
     })
     layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
     expect(countTitleRows('MA')).toBe(1)
@@ -203,7 +203,7 @@ describe('MainIndicatorLegend paint', () => {
     expect(countLegendTexts((text) => text.includes('150.000'))).toBeGreaterThan(0)
   })
 
-  it('uses last index when crosshairIndex is null', () => {
+  it('uses the latest bar when crosshairIndex is null, not the visible range end', () => {
     const state = createMARenderState({
       series: { 5: Array.from({ length: 10 }, (_, i) => 100 + i) },
       enabledPeriods: [5],
@@ -213,7 +213,8 @@ describe('MainIndicatorLegend paint', () => {
     layer.paint(
       createLegendContext(MA_INSTANCE_ID, state, {
         crosshairIndex: null,
-        range: { start: 0, end: 10 },
+        // 视口只覆盖前 5 根，取值仍应落在最新一根（索引 9），不随视口漂移。
+        range: { start: 0, end: 5 },
         data: Array.from({ length: 10 }, (_, i) => ({
           timestamp: 1000000000000 + i * 60000,
           open: 100 + i,
@@ -356,7 +357,7 @@ describe('MainIndicatorLegend indicator rows', () => {
   )
 })
 
-describe('MainIndicatorLegend external mode & context callback', () => {
+describe('MainIndicatorLegend context callback', () => {
   it('publishes DOM rows and the custom slot context from the same projection', () => {
     const onContext = vi.fn()
     const layer = createLegendLayer(createMAHost(), { yPaddingPx: 20, onContext })
@@ -378,31 +379,11 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(ctx.fillText).not.toHaveBeenCalled()
   })
 
-  it('does not paint canvas text when renderMode is external but still publishes context', () => {
-    const onContext = vi.fn()
-    const layer = createLegendLayer(createMAHost(), {
-      yPaddingPx: 20,
-      onContext,
-      renderMode: 'external',
-    })
-
-    layer.paint(
-      createLegendContext(MA_INSTANCE_ID, createMARenderState(), {
-        crosshairIndex: 10,
-      }),
-    )
-
-    expect(onContext).toHaveBeenCalledTimes(1)
-    expect(onContext.mock.calls[0]![0]).not.toBeNull()
-    expect(ctx.fillText).not.toHaveBeenCalled()
-  })
-
   it('retains custom KLineData fields in the currentBar slot context', () => {
     const onContext = vi.fn()
     const layer = createLegendLayer(createLegendHost([]), {
       yPaddingPx: 20,
       onContext,
-      renderMode: 'external',
     })
     const context = createLegendContext(MA_INSTANCE_ID, undefined, {
       crosshairIndex: 10,

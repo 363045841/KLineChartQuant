@@ -228,7 +228,7 @@ export class Chart {
   private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
     createSignal<LegendTemplateContext | null>(null)
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
-  private legendDom: import('./renderers/legend/types.js').LegendDomRenderer | null = null
+  private readonly legendDom: import('./renderers/legend/types.js').LegendDomRenderer
 
   /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
   private drawingSession: DrawingInteractionController | null = null
@@ -271,6 +271,7 @@ export class Chart {
     },
   ) {
     this.dom = dom
+    this.legendDom = createLegendDomRenderer(dom.canvasLayer)
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
@@ -476,19 +477,10 @@ export class Chart {
         this._legendTemplateContext.set(ctx)
       },
       onLegendRows: (paneId, rows) => {
-        if (!this.legendDom && this.dom.canvasLayer) {
-          this.legendDom = createLegendDomRenderer(this.dom.canvasLayer)
-        }
-        const paneOrder = this.kernel.pane.readonly.paneSpecs
-          .peek()
-          .filter((pane) => pane.visible !== false)
-          .map((pane) => pane.id)
-        const dragMode = this.kernel.interaction.readonly.dragMode.peek()
-        const freezeValues =
-          dragMode === 'pan' || dragMode === 'scale-price' || dragMode === 'resize-separator'
-        this.legendDom?.update(paneId, rows, paneOrder, freezeValues)
+        const paneOrder = this.kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)
+        this.legendDom.update(paneId, rows, paneOrder)
       },
-      onClearLegendRows: () => this.legendDom?.clear(),
+      onClearLegendRows: () => this.legendDom.clear(),
       commitRightAxisWidthMeasurement: (extrema) => {
         this.commitRightAxisWidthMeasurement(extrema)
       },
@@ -637,7 +629,7 @@ export class Chart {
     this.renderer.clearAllCanvases()
     // #legend 插槽消费独立的 Vue DOM 上下文，不随 canvas 清屏；切换时必须同步清除旧图例。
     this._legendTemplateContext.set(null)
-    this.legendDom?.clear()
+    this.legendDom.clear()
 
     if (isTimeShareDataView(nextDataView)) {
       const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
@@ -1311,8 +1303,7 @@ export class Chart {
     this.disposeActiveRendererProjection = null
     this.indicatorManager.destroy()
     this.renderer.destroy()
-    this.legendDom?.dispose()
-    this.legendDom = null
+    this.legendDom.dispose()
     this.viewportScrollBridge.dispose()
     this.dataManager.destroy()
     this.viewportManager.destroy()

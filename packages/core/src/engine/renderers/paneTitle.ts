@@ -8,14 +8,19 @@ import { PANE_HEADER_INSET_PX } from '../chartTypes.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../indicators/indicatorMetadata.js'
 import type { SubIndicatorType } from './Indicator/index.js'
+import { resolveLegendValueIndex } from './legend/impl/resolveLegendValueIndex.js'
 
 export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata.js'
 
+/** 副图标题距 Pane 顶部的偏移。 */
+const PANE_TITLE_TOP_PX = 12
+/** 副图标题行高。 */
+const PANE_TITLE_HEIGHT_PX = 18
+
 export interface PaneTitleOptions {
   paneId: string
+  /** 无注册指标定义时的展示名（如成交量）。 */
   title: string
-  description?: string
-  yOffset?: number
   indicatorId: SubIndicatorType
   instanceId: string
   params: Record<string, unknown>
@@ -37,7 +42,7 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
         context.colorPresetSettings,
       )
       const data = context.data as KLineData[]
-      const index = context.crosshairIndex ?? Math.min(context.range.end - 1, data.length - 1)
+      const index = resolveLegendValueIndex(context.crosshairIndex, data.length)
       const meta = getRegisteredIndicatorDefinition(options.indicatorId)
       let title: TitleInfo | null = null
       if (meta?.getTitleInfo && context.indicatorStateReader) {
@@ -51,6 +56,7 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
           colors,
         )
       }
+      // 成交量没有注册指标定义，标题值由当前 K 线成交量合成。
       const bar = data[index]
       if (!meta && bar?.volume !== undefined) {
         title = {
@@ -69,13 +75,13 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
           key: options.instanceId,
           paneId: options.paneId,
           x: PANE_HEADER_INSET_PX,
-          y: context.pane.top + (options.yOffset ?? 12),
+          y: context.pane.top + PANE_TITLE_TOP_PX,
           maxWidth: Math.max(0, context.paneWidth - PANE_HEADER_INSET_PX),
-          height: 18,
+          height: PANE_TITLE_HEIGHT_PX,
           gap: 8,
           indicator: { instanceId: options.instanceId, definitionId: options.indicatorId },
           texts: [
-            { text: title?.name ?? meta?.displayName ?? options.title, color: colors.text.primary },
+            { text: title?.name ?? options.title, color: colors.text.primary },
             ...(title?.params?.length
               ? [{ text: `(${title.params.join(',')})`, color: colors.text.tertiary }]
               : []),
@@ -83,9 +89,6 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
               text: `${item.label} ${item.value.toFixed(3)}`,
               color: item.color,
             })) ?? []),
-            ...(!title && options.description
-              ? [{ text: ` - ${options.description}`, color: colors.text.weak }]
-              : []),
           ],
         },
       ])

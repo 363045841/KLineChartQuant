@@ -67,4 +67,48 @@ describe('createPaneTitleRendererLayer', () => {
     expect(canvas.fillText).not.toHaveBeenCalled()
     expect(canvas.measureText).not.toHaveBeenCalled()
   })
+
+  it('reads the latest bar when there is no crosshair, not the visible range end', () => {
+    const getTitleInfo = vi
+      .spyOn(getRegisteredIndicatorDefinition('rsi')!, 'getTitleInfo')
+      .mockReturnValue({ name: 'RSI' })
+    const layer = createPaneTitleRendererLayer({
+      paneId: 'sub_RSI',
+      title: 'RSI',
+      indicatorId: 'rsi',
+      instanceId: 'inst-rsi',
+      params: {},
+    })
+    const data = Array.from({ length: 10 }, (_, i) => ({
+      timestamp: 1000000000000 + i * 60000,
+      open: 100 + i,
+      high: 101 + i,
+      low: 99 + i,
+      close: 100 + i,
+      volume: 1000,
+    }))
+
+    layer.paint(
+      createMockRenderContext({
+        pane: { id: 'sub_RSI' },
+        paneWidth: 800,
+        data,
+        // 视口只覆盖前 5 根，取值仍应落到最新一根（索引 9）。
+        range: { start: 0, end: 5 },
+        crosshairIndex: null,
+        indicatorStateReader: { get: vi.fn() },
+        isAsiaMarket: true,
+      }),
+    )
+
+    expect(getTitleInfo).toHaveBeenCalledWith(
+      data,
+      9,
+      {},
+      expect.any(Object),
+      'inst-rsi',
+      'sub_RSI',
+      expect.any(Object),
+    )
+  })
 })
