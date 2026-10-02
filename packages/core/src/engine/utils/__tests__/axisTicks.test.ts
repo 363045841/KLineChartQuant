@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { PaneInfo } from '../../../foundation/plugin/types.js'
-import { ScaleType } from '../../../foundation/types/scaleType.js'
+import type { PaneInfo } from '@/foundation/plugin/types.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
 import { createMockPaneInfo } from '../../__tests__/helpers/renderTestKit.js'
 import { PriceScale } from '../../scale/priceScale.js'
 import { createYAxisTicks } from '../axisTicks.js'

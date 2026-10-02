@@ -5,8 +5,8 @@ import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../../../foundation/reactivity/signal.js'
-import type { TimeShareData } from '../../../foundation/types/price.js'
+} from '@/foundation/reactivity/signal.js'
+import type { TimeShareData } from '@/foundation/types/price.js'
 import type { TimeShareRange } from '../../provider/types.js'
 
 import {

@@ -1,10 +1,10 @@
 /** K 线图表快照适配器：接收缓存查询结果并发布数据、加载与错误状态。 */
-import type { KLineData, SymbolSpec } from '../../../controllers/types.js'
+import type { KLineData, SymbolSpec } from '@/controllers/types.js'
 import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../../../foundation/reactivity/signal.js'
+} from '@/foundation/reactivity/signal.js'
 import type { TradingCalendar } from '../../provider/types.js'
 import { OLDER_DATA_STATUS, type OlderDataStatus } from '../../provider/types.js'
 import type { DataChange, KLineBuffer, LoadedTimeRange } from '../types.js'

@@ -1,6 +1,6 @@
 // 覆盖五风格 × 两种明暗 × 两种市场方向，验证持久化、用户覆盖优先级与“预设只改颜色”。
 import { describe, expect, it } from 'vitest'
-import { normalizeSettings } from '../../../config/chartSettings.js'
+import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { normalizeColorPresetSettings } from '../../colorPresetSettings.js'
 import { resolveTheme, resolveThemeColors, withAsiaMarketColors } from '../../theme-china.js'
 import { darkTheme } from '../../theme-dark.js'

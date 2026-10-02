@@ -132,6 +132,31 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('主图实例增删', () => {
+    it('移动 Legend 保留实例及参数，并在没有计算变更时请求重绘', () => {
+      manager.enableMainIndicator('MA', { ma5: false })
+      manager.enableMainIndicator('BOLL')
+      const before = harness.indicator.readonly.instances.peek()
+      vi.clearAllMocks()
+
+      expect(manager.moveMainIndicator('BOLL', 'up')).toBe(true)
+      expect(harness.indicator.readonly.instances.peek()).toEqual([before[1], before[0]])
+      expect(deps.scheduleDraw).toHaveBeenCalledTimes(1)
+      expect(manager.moveMainIndicator('BOLL', 'up')).toBe(false)
+      expect(manager.moveMainIndicator('missing', 'down')).toBe(false)
+    })
+
+    it('替换主图 Legend 保留位置及其余实例，拒绝副图定义和重复指标', () => {
+      manager.enableMainIndicator('MA', { ma5: false })
+      manager.enableMainIndicator('BOLL')
+      const first = harness.indicator.readonly.instances.peek()[0]
+      expect(manager.replaceMainIndicator('BOLL', 'MA')).toBe(false)
+      expect(manager.replaceMainIndicator('BOLL', 'RSI')).toBe(false)
+      expect(manager.replaceMainIndicator('BOLL', 'EXPMA')).toBe(true)
+      expect(manager.getActiveMainIndicators()).toEqual(['MA', 'EXPMA'])
+      expect(harness.indicator.readonly.instances.peek()[0]).toEqual(first)
+      expect(manager.getMainIndicatorParams('EXPMA')).not.toBeNull()
+    })
+
     it('重复启用只注册一次 renderer 资源', () => {
       expect(manager.enableMainIndicator('MA')).toBe(true)
       expect(manager.enableMainIndicator('MA')).toBe(true)
@@ -169,6 +194,43 @@ describe('ChartIndicatorManager', () => {
     it('未知实例的改动操作返回 false', () => {
       expect(manager.updateIndicatorParams('missing', { opacity: 0.5 })).toBe(false)
       expect(manager.removeIndicator('missing')).toBe(false)
+    })
+  })
+
+  describe('隐藏指标', () => {
+    it('隐藏主图指标卸载绘制 Layer，但保留实例、参数与显示能力', () => {
+      manager.enableMainIndicator('MA', { ma5: false })
+      vi.clearAllMocks()
+
+      expect(manager.setMainHidden('MA', true)).toBe(true)
+      expect(deps.removeRenderer).toHaveBeenCalledTimes(1)
+      expect(manager.isMainIndicatorActive('MA')).toBe(true)
+      expect(harness.indicator.readonly.instances.peek()[0]).toEqual(
+        expect.objectContaining({ instanceId: 'main:MA', hidden: true }),
+      )
+
+      vi.clearAllMocks()
+      expect(manager.setMainHidden('MA', false)).toBe(true)
+      expect(harness.useRenderer).toHaveBeenCalled()
+      expect(harness.indicator.readonly.instances.peek()[0]).not.toHaveProperty('hidden')
+      expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(false)
+    })
+
+    it('隐藏副图指标只保留 pane 与实例，不删除副图', () => {
+      const instanceId = manager.addIndicator('VOL', 'sub')
+      expect(instanceId).not.toBeNull()
+      const paneId = manager.getSubPaneEntries()[0]!.paneId
+
+      expect(manager.setSubHidden(paneId, true)).toBe(true)
+      expect(harness.indicator.readonly.instances.peek()).toEqual([
+        expect.objectContaining({ instanceId, paneId, hidden: true }),
+      ])
+      expect(manager.getSubPaneEntries()).toHaveLength(1)
+    })
+
+    it('未启用的指标隐藏返回 false', () => {
+      expect(manager.setMainHidden('MA', true)).toBe(false)
+      expect(manager.setSubHidden('missing', true)).toBe(false)
     })
   })
 

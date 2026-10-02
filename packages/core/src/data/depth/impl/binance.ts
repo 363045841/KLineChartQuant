@@ -1,4 +1,4 @@
-import { DEPTH_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { DEPTH_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from '../types.js'
 

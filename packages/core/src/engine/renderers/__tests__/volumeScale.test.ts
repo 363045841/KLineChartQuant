@@ -12,15 +12,18 @@ const VOLUME_INSTANCE_ID = 'inst-volume-dynamic'
 
 describe('formatVolumeScaleLabel', () => {
   it('keeps small timeshare volumes in their original unit', () => {
-    expect(formatVolumeScaleLabel(9_999)).toBe('9999.00')
+    expect(formatVolumeScaleLabel(999)).toBe('999.00')
   })
 
   it('formats medium and large volumes with meaningful units', () => {
-    expect(formatVolumeScaleLabel(25_000)).toBe('2.50万')
-    expect(formatVolumeScaleLabel(250_000_000)).toBe('2.50B')
+    expect(formatVolumeScaleLabel(1_000)).toBe('1.00K')
+    expect(formatVolumeScaleLabel(25_000)).toBe('25.00K')
+    expect(formatVolumeScaleLabel(1_000_000)).toBe('1.00M')
+    expect(formatVolumeScaleLabel(250_000_000)).toBe('250.00M')
+    expect(formatVolumeScaleLabel(1_000_000_000)).toBe('1.00B')
   })
 
-  it('draws ticks from the frame state for a dynamic volume pane', () => {
+  it('formats pane ticks through the shared volume scale labels', () => {
     const yAxisCtx = createMockCanvasContext()
     const layer = createVolumeScaleLayer({
       axisWidth: 60,
@@ -37,7 +40,8 @@ describe('formatVolumeScaleLabel', () => {
           height: 160,
           yAxis: {
             getScaleType: () => 'linear',
-            getDisplayRange: (range) => range ?? { maxPrice: 0, minPrice: 0 },
+            // Pane 显示范围由 Core 维护（AUTO 下即指标范围），刻度层不再自传自动范围。
+            getDisplayRange: () => ({ maxPrice: 1_110, minPrice: 990 }),
             getPaddingTop: () => 0,
             getPaddingBottom: () => 0,
           },
@@ -52,6 +56,9 @@ describe('formatVolumeScaleLabel', () => {
       }),
     )
 
-    expect(vi.mocked(yAxisCtx.fillText)).toHaveBeenCalled()
+    // 刻度落在 990~1110，超过 1e3 的值必须走成交量量级后缀，而非通用价格格式。
+    const labels = vi.mocked(yAxisCtx.fillText).mock.calls.map(([text]) => text as string)
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels.some((text) => text.endsWith('K'))).toBe(true)
   })
 })

@@ -317,6 +317,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@iconify-icons/tabler':
+        specifier: ^2.0.3
+        version: 2.0.3
       effect:
         specifier: ^3.22.2
         version: 3.22.2
@@ -2533,6 +2536,9 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
+
+  '@iconify-icons/tabler@2.0.3':
+    resolution: {integrity: sha512-CHJDW0icnmEC6EOud4Gvor/NnExVsJZjX2w05kpmh7qxIiWdC6tTY4Aa3Z5wt/tc6avl0v8xDylhuzgd/AD4gQ==}
 
   '@iconify-json/tabler@1.2.38':
     resolution: {integrity: sha512-9v6ooRU/bKOK/Whv4w2aiK5gBnfCV9Ei+uD1iDDeLu2b+EnF3G3ZKkRKWEOOLG8bJyfKn6XEia6gUQ9oO7cF+Q==}
@@ -13191,6 +13197,10 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3':
     optional: true
+
+  '@iconify-icons/tabler@2.0.3':
+    dependencies:
+      '@iconify/types': 2.0.0
 
   '@iconify-json/tabler@1.2.38':
     dependencies:

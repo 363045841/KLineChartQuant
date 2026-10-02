@@ -3,13 +3,15 @@ import type { Layer } from '@/rendering/scene/types.js'
 
 import { createIndicatorScaleLayer } from './indicator_scale.js'
 
-const YI = 1e8
-const WAN = 1e4
+const BILLION = 1e9
+const MILLION = 1e6
+const THOUSAND = 1e3
 
-/** 将成交量刻度按量级格式化，避免小额成交量显示为 0.00B。 */
+/** 成交量统一按英文 K、M、B 单位格式化，供坐标轴和标题共用。 */
 export function formatVolumeScaleLabel(value: number): string {
-  if (Math.abs(value) >= YI) return `${(value / YI).toFixed(2)}B`
-  if (Math.abs(value) >= WAN) return `${(value / WAN).toFixed(2)}万`
+  if (Math.abs(value) >= BILLION) return `${(value / BILLION).toFixed(2)}B`
+  if (Math.abs(value) >= MILLION) return `${(value / MILLION).toFixed(2)}M`
+  if (Math.abs(value) >= THOUSAND) return `${(value / THOUSAND).toFixed(2)}K`
   return value.toFixed(2)
 }
 

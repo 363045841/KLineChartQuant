@@ -1,6 +1,6 @@
 /** 从图表插件宿主获取正式的实例级渲染能力。 */
-import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import type { PluginHost } from '../../../foundation/plugin/types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { PluginHost } from '@/foundation/plugin/types.js'
 import { CHART_RENDERERS_SERVICE, type ChartRendererAccess } from '../types.js'
 
 /** 供 Plugin.install 调用；非图表宿主没有渲染服务时明确报错。 */

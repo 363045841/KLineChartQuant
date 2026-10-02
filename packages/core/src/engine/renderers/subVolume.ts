@@ -7,9 +7,9 @@ import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
-import { IndicatorKind } from '../indicators/indicatorMetadata.js'
+import { type GetTitleInfoFn, IndicatorKind } from '../indicators/indicatorMetadata.js'
 
-import { createVolumeScaleLayer } from './Indicator/scale/volume_scale.js'
+import { createVolumeScaleLayer, formatVolumeScaleLabel } from './Indicator/scale/volume_scale.js'
 import { tryDrawRectsGpu } from './rectsViaRenderer.js'
 
 interface VolumeRendererOptions {
@@ -250,6 +250,40 @@ function judgeVolumeColor(
   return neutralColor
 }
 
+/** 成交量标题直接读取行情数据，与量柱共用颜色判定。 */
+const getVolumeTitleInfo: GetTitleInfoFn = (
+  data,
+  index,
+  _params,
+  _stateReader,
+  _instanceId,
+  _paneId,
+  colors,
+) => {
+  if (index === null) return { name: 'VOL', values: [] }
+  const bar = data[index]
+  return {
+    name: 'VOL',
+    values:
+      bar && typeof bar.volume === 'number' && Number.isFinite(bar.volume)
+        ? [
+            {
+              label: 'VOL',
+              value: bar.volume,
+              formattedValue: formatVolumeScaleLabel(bar.volume),
+              color: judgeVolumeColor(
+                bar,
+                data[index - 1],
+                colors.volumeUp,
+                colors.volumeDown,
+                colors.volumeNeutral,
+              ),
+            },
+          ]
+        : [],
+  }
+}
+
 @Indicator({
   name: 'volume',
   displayName: 'VOL',
@@ -259,6 +293,7 @@ function judgeVolumeColor(
   defaultPaneId: 'sub',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare],
   scaleRendererFactory: createVolumeScaleLayer,
+  getTitleInfo: getVolumeTitleInfo,
 })
 export class VolumeIndicatorDefinition {
   static rendererFactory = createVolumeLayer

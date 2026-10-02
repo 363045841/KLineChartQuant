@@ -30,7 +30,11 @@ export interface SubPaneEntry extends SubPaneSpec {
 }
 
 type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources
-type MountedSubPaneResources = SubPaneResources & { readonly projectionKey: string }
+type MountedSubPaneResources = SubPaneResources & {
+  readonly projectionKey: string
+  /** 当前投影的隐藏状态，用于判断是否需要重建置灰标题。 */
+  readonly hidden: boolean
+}
 
 /** 判断指标定义是否拥有副图投影所需的完整 renderer 元数据。 */
 export function hasSubPaneRendererMetadata(
@@ -118,10 +122,19 @@ export class SubPaneManager {
       let candidate: ProjectedSubPaneEntry | undefined
       try {
         candidate = this.describeEntry(ctx, spec)
-        const nextProjectionKey = `${spec.indicatorId}:${stableConfig(spec.params)}`
+        const nextProjectionKey = `${spec.indicatorId}:${spec.hidden ? 'hidden' : 'shown'}:${stableConfig(spec.params)}`
         if (current?.projectionKey === nextProjectionKey) continue
 
-        if (current?.rendererName === candidate.rendererName) {
+        if (candidate.hidden) {
+          // 隐藏：卸载指标与坐标轴，只保留置灰标题，供再次点击恢复。
+          if (current) this.unmount(ctx, current)
+          this.mountPaneTitleRenderer(ctx, candidate)
+        } else if (current?.hidden) {
+          // 从隐藏恢复：全量重建，确保标题重新着色并挂回绘制与坐标轴。
+          if (current) this.unmount(ctx, current)
+          this.mount(ctx, candidate)
+          this.mountPaneTitleRenderer(ctx, candidate)
+        } else if (current?.rendererName === candidate.rendererName) {
           // params 变化：直接替换 Layer（原子重建），避免渲染器内部持有 config
           this.unmount(ctx, current, true)
           this.mount(ctx, candidate)
@@ -134,6 +147,7 @@ export class SubPaneManager {
         this.mounted.set(spec.paneId, {
           ...toResources(candidate),
           projectionKey: nextProjectionKey,
+          hidden: candidate.hidden === true,
         })
         changed = true
       } catch (error) {
@@ -154,7 +168,7 @@ export class SubPaneManager {
   getMountedResources(paneId: string): SubPaneResources | undefined {
     const resources = this.mounted.get(paneId)
     if (!resources) return undefined
-    const { projectionKey: _, ...snapshot } = resources
+    const { projectionKey: _, hidden: _hidden, ...snapshot } = resources
     return { ...snapshot }
   }
 
@@ -262,6 +276,7 @@ export class SubPaneManager {
       title: findIndicator(entry.indicatorId)?.label ?? entry.indicatorId,
       indicatorId: entry.indicatorId,
       instanceId: entry.instanceId,
+      hidden: entry.hidden === true,
       params: { ...entry.params },
     })
     ctx.useRenderer(layer)

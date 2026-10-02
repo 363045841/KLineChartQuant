@@ -5,7 +5,7 @@ import {
   HK_MARKET_SESSION,
   KR_MARKET_SESSION,
   US_MARKET_SESSION,
-} from '../../../foundation/utils/sessionTimeLabels.js'
+} from '@/foundation/utils/sessionTimeLabels.js'
 import { FOREX_MARKET_SESSION } from '../../market/forexMarketSession.js'
 import { formatLastPriceCountdown, getLastPriceRemainingMs } from '../index.js'
 

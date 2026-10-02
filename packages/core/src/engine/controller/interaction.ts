@@ -233,7 +233,7 @@ export class InteractionController {
       this.dragStartY = e.clientY
       this.activeSeparatorUpperPaneId = separatorUpperPaneId
       this._state.actions.setSeparatorHover(separatorUpperPaneId)
-      this.clearHover()
+      this.clearHover(true)
       this.chart.scheduleDraw()
       return
     }
@@ -440,8 +440,8 @@ export class InteractionController {
         const clamped = Math.min(Math.max(0, this.scrollStartX + deltaX), this._cachedMaxScrollLeft)
         const dpr = this.chart.getCurrentDpr()
         if (this.chart.kernel.viewport.actions.scrollTo(Math.round(clamped * dpr) / dpr)) {
-          // 平移期间不保留旧帧的十字线、tooltip 与 marker hover。
-          this.clearHover()
+          // 平移期间隐藏十字线、tooltip 与 marker hover，但保留取值索引，Legend 数值不随视口变化。
+          this.clearHover(true)
           // 程序化滚动不再依赖原生 scroll 回调驱动重绘；统一交给 ChartRenderer 帧事务。
           this.chart.scheduleDraw()
         }
@@ -453,8 +453,8 @@ export class InteractionController {
             this.chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[this.activePaneIdOnDrag]
               ?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND
           ) {
-            // 手动范围允许平移当前 Pane，其他 Pane 的纵轴不受影响。
-            this.clearHover()
+            // 手动范围允许平移当前 Pane，其他 Pane 的纵轴不受影响；隐藏十字线但保留取值索引。
+            this.clearHover(true)
             this.chart.translatePrice(this.activePaneIdOnDrag, deltaY)
           }
         }
@@ -753,7 +753,8 @@ export class InteractionController {
     this.activePaneIdOnDrag = pane.id
     this._state.actions.setRightAxisHover(pane.id)
     this._state.actions.setSeparatorHover(null)
-    this._state.actions.updateCrosshair(null, null, null)
+    // 纵向缩放价格轴同样隐藏十字线，但保留取值索引，Legend 数值不随之变化。
+    this._state.actions.updateCrosshair(null, null)
     this._state.actions.updateHover(null, pane.id)
     return true
   }
@@ -788,11 +789,15 @@ export class InteractionController {
     }
   }
 
-  clearHover() {
+  /**
+   * 清除悬停派生状态。
+   * @param keepValueIndex 拖拽期间为 true：只隐藏十字线，保留取值索引，避免 Legend 数值随视口漂移
+   */
+  clearHover(keepValueIndex = false) {
     this.hoverFlushPending = false
     this.lastHoverRenderKey = ''
     this._state.actions.setRightAxisHover(null)
-    this._state.actions.updateCrosshair(null, null, null)
+    this._state.actions.updateCrosshair(null, null, keepValueIndex ? undefined : null)
     this._state.actions.updateHover(null, null)
     this._state.actions.updateMarkerHover(null, null, null)
     this.chart.clearDrawingHover()

@@ -1,10 +1,10 @@
 /** K 线数据存储：按时间戳去重合并增量数据、维护已加载窗口，并通过信号发布数据变更。 */
-import type { KLineData } from '../../../controllers/types.js'
+import type { KLineData } from '@/controllers/types.js'
 import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../../../foundation/reactivity/signal.js'
+} from '@/foundation/reactivity/signal.js'
 
 import {
   DATA_CHANGE_KINDS,

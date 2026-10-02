@@ -476,7 +476,7 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
    */
   readonly legendTemplateContext: ReadonlySignal<
-    | import('../engine/renderers/Indicator/mainIndicatorLegendContext.js').LegendTemplateContext
+    | import('../engine/renderers/Indicator/mainIndicatorLegend/types.js').LegendTemplateContext
     | null
   >
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
@@ -561,6 +561,14 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
     params?: Record<string, unknown>,
   ): string | null
   removeIndicator(instanceId: string): boolean
+  /** 调整主图指标的 Legend 顺序。 */
+  moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean
+  /** 在原有 Legend 位置原子替换主图指标。 */
+  replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean
+  /** 隐藏或显示主图指标；只影响绘制，保留实例与参数。 */
+  setMainIndicatorHidden(definitionId: string, hidden: boolean): boolean
+  /** 隐藏或显示指定 pane 的副图指标；只影响绘制，保留 pane 与参数。 */
+  setSubIndicatorHidden(paneId: string, hidden: boolean): boolean
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
 
   // ---- Drawing ----

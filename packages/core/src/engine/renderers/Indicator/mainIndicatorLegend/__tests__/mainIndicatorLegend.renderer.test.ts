@@ -1,6 +1,6 @@
+/** 主图 Legend 数据投影测试，Canvas 不再绘制标题。 */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  countFillTexts,
   createContextWithInstanceState,
   createMARenderState,
   createMockCanvasContext,
@@ -9,12 +9,11 @@ import {
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
+import type { LegendRow } from '@/engine/renderers/legend/types'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import {
-  type CanvasLegendOptions,
-  createMainIndicatorLegendLayer,
-} from '../Indicator/mainIndicatorLegend'
+import { createMainIndicatorLegendLayer } from '../impl/createMainIndicatorLegendLayer.js'
+import type { LegendOptions } from '../types.js'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -28,20 +27,23 @@ afterEach(() => {
 const MA_INSTANCE_ID = 'main:MA'
 
 let ctx: MockCanvasContext
+let rows: ReadonlyArray<LegendRow> = []
 
 beforeEach(() => {
   ctx = createMockCanvasContext()
+  rows = []
 })
 
 /** 构造携带主图实例清单的图例宿主；空数组表示当前没有启用主图指标。 */
 function createLegendHost(
-  mainInstances: ReadonlyArray<{ instanceId: string; definitionId: string }>,
+  mainInstances: ReadonlyArray<{ instanceId: string; definitionId: string; hidden?: boolean }>,
 ): PluginHost {
   return createMockIndicatorInstanceHost(
-    mainInstances.map(({ instanceId, definitionId }) => ({
+    mainInstances.map(({ instanceId, definitionId, hidden }) => ({
       instanceId,
       definitionId,
       paneId: 'main',
+      hidden: hidden === true,
       params: {},
     })),
   )
@@ -55,26 +57,36 @@ function createLegendLayer(
   return createMainIndicatorLegendLayer(options, () => host)
 }
 
-/** 以固定主图实例构造图例宿主。 */
-function createMAHost(definitionId = 'ma'): PluginHost {
+/** 以固定主图实例构造图例宿主；definitionId 使用对外规范 ID（displayName）。 */
+function createMAHost(definitionId = 'MA'): PluginHost {
   return createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId }])
 }
 
-/** 统计图例绘制的指标标题行数量（标题行文本与指标展示名完全相等）。 */
+/** 统计发布给 DOM renderer 的指标标题。 */
 function countTitleRows(title: string): number {
-  return countFillTexts(ctx, (text) => text === title)
+  return countLegendTexts((text) => text === title)
+}
+
+/** 在已发布的展示文本中匹配字段。 */
+function countLegendTexts(predicate: (text: string) => boolean): number {
+  return rows.flatMap((row) => row.texts).filter((item) => predicate(item.text)).length
 }
 
 /**
- * 构造图例帧上下文：图例绘制在 overlay 画布，这里让 overlay 与主画布共用同一 spy，
- * 以便直接断言图例文本；运行时不共享画布。
+ * 构造图例帧上下文，捕获发布给 DOM renderer 的展示行。
  */
 function createLegendContext(
   instanceId: string,
   state: unknown,
   overrides: MockRenderContextOverrides = {},
 ): RenderContext {
-  return createContextWithInstanceState(ctx, instanceId, state, { overlayCtx: ctx, ...overrides })
+  return createContextWithInstanceState(ctx, instanceId, state, {
+    overlayCtx: ctx,
+    publishLegendRows: (_paneId, next) => {
+      rows = next
+    },
+    ...overrides,
+  })
 }
 
 describe('MainIndicatorLegend identity', () => {
@@ -89,8 +101,24 @@ describe('MainIndicatorLegend identity', () => {
 })
 
 describe('MainIndicatorLegend paint', () => {
+  it('keeps the indicator hover identity and position stable when the crosshair enters or leaves', () => {
+    const layer = createLegendLayer(createMAHost())
+    const state = createMARenderState()
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: null }))
+    const idle = rows.find((row) => row.key === MA_INSTANCE_ID)!
+    expect(idle.indicator).toEqual({ instanceId: MA_INSTANCE_ID, definitionId: 'MA' })
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 50 }))
+    const active = rows.find((row) => row.key === MA_INSTANCE_ID)!
+    expect(active.y).toBe(idle.y)
+    expect(active.indicator).toEqual(idle.indicator)
+
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: null }))
+    expect(rows.find((row) => row.key === MA_INSTANCE_ID)?.y).toBe(idle.y)
+  })
+
   it('reads visibility changes each frame while still publishing external context', () => {
-    let config: CanvasLegendOptions = { visible: false }
+    let config: LegendOptions = { visible: false }
     const onContext = vi.fn()
     const layer = createLegendLayer(createMAHost(), {
       yPaddingPx: 20,
@@ -111,12 +139,13 @@ describe('MainIndicatorLegend paint', () => {
   })
 
   it.each([
-    { configuredIds: undefined, viewIds: ['ma'], expected: 1 },
-    { configuredIds: ['ma'], viewIds: ['ma'], expected: 1 },
-    { configuredIds: [], viewIds: ['ma'], expected: 0 },
-    { configuredIds: ['ma'], viewIds: [], expected: 0 },
+    { configuredIds: ['MA'], viewIds: ['MA'], expected: 1 },
+    { configuredIds: undefined, viewIds: ['MA'], expected: 1 },
+    { configuredIds: [], viewIds: ['MA'], expected: 0 },
+    { configuredIds: ['MA'], viewIds: [], expected: 0 },
+    { configuredIds: ['BOLL'], viewIds: ['MA'], expected: 0 },
   ])(
-    'intersects configured IDs with the view-projected IDs (expected $expected rows)',
+    'intersects configured IDs with the view-visible IDs (expected $expected rows)',
     ({ configuredIds, viewIds, expected }) => {
       const layer = createLegendLayer(createMAHost(), {
         yPaddingPx: 20,
@@ -130,6 +159,20 @@ describe('MainIndicatorLegend paint', () => {
     },
   )
 
+  it('matches the configured ID and instance identity in the same canonical ID space', () => {
+    const layer = createLegendLayer(createMAHost('MA'), {
+      yPaddingPx: 20,
+      getVisibleIndicatorIds: () => ['MA'],
+    })
+    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
+    expect(countTitleRows('MA')).toBe(1)
+    expect(rows.find((row) => row.key === MA_INSTANCE_ID)?.indicator).toEqual({
+      instanceId: MA_INSTANCE_ID,
+      definitionId: 'MA',
+    })
+    expect(countLegendTexts((text) => text.includes('MA5'))).toBeGreaterThan(0)
+  })
+
   it('does not paint MA when MA is not active', () => {
     const layer = createLegendLayer(createLegendHost([]))
 
@@ -138,13 +181,16 @@ describe('MainIndicatorLegend paint', () => {
     expect(countTitleRows('MA')).toBe(0)
   })
 
-  it('draws MA values from the frame state reader', () => {
-    const layer = createLegendLayer(createMAHost())
+  it('carries the hidden flag into the legend row without dropping it', () => {
+    const layer = createLegendLayer(
+      createLegendHost([{ instanceId: MA_INSTANCE_ID, definitionId: 'MA', hidden: true }]),
+    )
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
 
+    const row = rows.find((entry) => entry.key === MA_INSTANCE_ID)
+    expect(row?.hidden).toBe(true)
     expect(countTitleRows('MA')).toBe(1)
-    expect(countFillTexts(ctx, (text) => text.includes('MA5'))).toBeGreaterThan(0)
   })
 
   it('uses crosshairIndex when available', () => {
@@ -156,10 +202,10 @@ describe('MainIndicatorLegend paint', () => {
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 50 }))
 
-    expect(countFillTexts(ctx, (text) => text.includes('150.000'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('150.000'))).toBeGreaterThan(0)
   })
 
-  it('uses last index when crosshairIndex is null', () => {
+  it('uses the latest bar when crosshairIndex is null, not the visible range end', () => {
     const state = createMARenderState({
       series: { 5: Array.from({ length: 10 }, (_, i) => 100 + i) },
       enabledPeriods: [5],
@@ -169,7 +215,8 @@ describe('MainIndicatorLegend paint', () => {
     layer.paint(
       createLegendContext(MA_INSTANCE_ID, state, {
         crosshairIndex: null,
-        range: { start: 0, end: 10 },
+        // 视口只覆盖前 5 根，取值仍应落在最新一根（索引 9），不随视口漂移。
+        range: { start: 0, end: 5 },
         data: Array.from({ length: 10 }, (_, i) => ({
           timestamp: 1000000000000 + i * 60000,
           open: 100 + i,
@@ -181,7 +228,7 @@ describe('MainIndicatorLegend paint', () => {
       }),
     )
 
-    expect(countFillTexts(ctx, (text) => text.includes('109.000'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('109.000'))).toBeGreaterThan(0)
   })
 
   it.each([
@@ -211,16 +258,7 @@ describe('MainIndicatorLegend paint', () => {
 
     layer.paint(createLegendContext(MA_INSTANCE_ID, state))
 
-    expect(countFillTexts(ctx, (text) => text.includes('123.457'))).toBeGreaterThan(0)
-  })
-
-  it('saves and restores context', () => {
-    const layer = createLegendLayer(createMAHost())
-
-    layer.paint(createLegendContext(MA_INSTANCE_ID, createMARenderState()))
-
-    expect(ctx.save).toHaveBeenCalledTimes(1)
-    expect(ctx.restore).toHaveBeenCalledTimes(1)
+    expect(countLegendTexts((text) => text.includes('123.457'))).toBeGreaterThan(0)
   })
 })
 
@@ -240,13 +278,14 @@ describe('MainIndicatorLegend frame state source', () => {
 
     // getTitleInfo 从帧读取器取值，而非重新计算。
     expect(context.indicatorStateReader?.get).toHaveBeenCalledWith(MA_INSTANCE_ID)
-    expect(countFillTexts(ctx, (text) => text.includes('999.99'))).toBeGreaterThan(0)
+    expect(countLegendTexts((text) => text.includes('999.99'))).toBeGreaterThan(0)
   })
 })
 
 /**
- * 主图指标标题行用例表：各指标 state 形状与展示名不同，绘制路径相同。
- * 表驱动避免为每个指标复制同一套宿主、上下文与断言。
+ * 主图指标标题行用例表：各指标 state 形状、展示名与取值格式不同，绘制路径相同。
+ * 表驱动避免为每个指标复制同一套宿主、上下文与断言；expectedValueTexts
+ * 逐条校验 getTitleInfo 的 state → 展示文本契约，而非仅确认标题出现。
  */
 const MAIN_INDICATOR_CASES: ReadonlyArray<{
   instanceId: string
@@ -254,6 +293,8 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
   title: string
   /** 各指标 getTitleInfo 消费的专属 state 形状。 */
   state: unknown
+  /** 标题行应发布的取值文本（label + 三位小数），逐条校验 formatting。 */
+  expectedValueTexts: readonly string[]
 }> = [
   {
     instanceId: 'main:BOLL',
@@ -266,6 +307,7 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
       visibleMin: 80,
       visibleMax: 120,
     },
+    expectedValueTexts: ['UP 120.000', 'MID 100.000', 'DN 80.000'],
   },
   {
     instanceId: 'main:EXPMA',
@@ -278,6 +320,7 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
       visibleMin: 8,
       visibleMax: 10,
     },
+    expectedValueTexts: ['FAST 10.000', 'SLOW 8.000'],
   },
   {
     instanceId: 'main:ENE',
@@ -290,30 +333,35 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
       visibleMin: 10,
       visibleMax: 20,
     },
+    expectedValueTexts: ['UP 20.000', 'MID 15.000', 'DN 10.000'],
   },
   {
     instanceId: 'main:WMA',
     definitionId: 'wma',
     title: 'WMA',
     state: { timestamp: 1, series: [123], params: { period: 10 } },
+    expectedValueTexts: ['WMA 123.000'],
   },
 ]
 
 describe('MainIndicatorLegend indicator rows', () => {
   it.each(MAIN_INDICATOR_CASES)(
-    'paints the $title title row when active',
-    ({ instanceId, definitionId, title, state }) => {
+    'publishes $title value rows from the frame state when active',
+    ({ instanceId, definitionId, title, state, expectedValueTexts }) => {
       const layer = createLegendLayer(createLegendHost([{ instanceId, definitionId }]))
 
       layer.paint(createLegendContext(instanceId, state, { crosshairIndex: 0 }))
 
       expect(countTitleRows(title)).toBeGreaterThan(0)
+      for (const text of expectedValueTexts) {
+        expect(countLegendTexts((item) => item === text)).toBeGreaterThan(0)
+      }
     },
   )
 })
 
-describe('MainIndicatorLegend external mode & context callback', () => {
-  it('publishes legend context via onContext while still painting in canvas mode', () => {
+describe('MainIndicatorLegend context callback', () => {
+  it('publishes DOM rows and the custom slot context from the same projection', () => {
     const onContext = vi.fn()
     const layer = createLegendLayer(createMAHost(), { yPaddingPx: 20, onContext })
 
@@ -330,25 +378,7 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(legend.hasCrosshair).toBe(true)
     expect(legend.currentBar).not.toBeNull()
     expect(legend.indicators.some((row: { name: string }) => row.name === 'MA')).toBe(true)
-    expect(ctx.fillText).toHaveBeenCalled()
-  })
-
-  it('does not paint canvas text when renderMode is external but still publishes context', () => {
-    const onContext = vi.fn()
-    const layer = createLegendLayer(createMAHost(), {
-      yPaddingPx: 20,
-      onContext,
-      renderMode: 'external',
-    })
-
-    layer.paint(
-      createLegendContext(MA_INSTANCE_ID, createMARenderState(), {
-        crosshairIndex: 10,
-      }),
-    )
-
-    expect(onContext).toHaveBeenCalledTimes(1)
-    expect(onContext.mock.calls[0]![0]).not.toBeNull()
+    expect(countTitleRows('MA')).toBe(1)
     expect(ctx.fillText).not.toHaveBeenCalled()
   })
 
@@ -357,7 +387,6 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     const layer = createLegendLayer(createLegendHost([]), {
       yPaddingPx: 20,
       onContext,
-      renderMode: 'external',
     })
     const context = createLegendContext(MA_INSTANCE_ID, undefined, {
       crosshairIndex: 10,

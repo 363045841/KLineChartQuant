@@ -1,11 +1,6 @@
 /** 行情 Provider 能力流转层：按源级能力选择 Provider，并在确定性拒绝时切换数据源。 */
 
-import {
-  ERROR_CODES,
-  GENERIC_ERROR_CODES,
-  isKLineChartError,
-  KLineChartError,
-} from '../../../errors.js'
+import { ERROR_CODES, GENERIC_ERROR_CODES, isKLineChartError, KLineChartError } from '@/errors.js'
 import type {
   BarSeries,
   InstrumentDescriptor,
