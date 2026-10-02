@@ -11,11 +11,9 @@ import {
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import {
-  createMainIndicatorLegendLayer,
-  type LegendOptions,
-} from '../Indicator/mainIndicatorLegend'
-import type { LegendRow } from '../legend/types'
+import type { LegendRow } from '../../../legend/types'
+import { createMainIndicatorLegendLayer } from '../impl/createMainIndicatorLegendLayer.js'
+import type { LegendOptions } from '../types.js'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()

@@ -5,7 +5,7 @@
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 
 // 主图指标图例（统一管理 MA、BOLL 等）
-export { createMainIndicatorLegendLayer } from './mainIndicatorLegend.js'
+export { createMainIndicatorLegendLayer } from './mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 
 /**
  * 副图指标类型

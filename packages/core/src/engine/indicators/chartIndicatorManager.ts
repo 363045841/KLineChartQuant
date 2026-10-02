@@ -29,7 +29,7 @@ import type { VisibleRange } from '../layout/pane.js'
 import { UpdateLevel } from '../layout/pane.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
-import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend.js'
+import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,

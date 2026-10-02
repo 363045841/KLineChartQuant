@@ -183,16 +183,16 @@ export {
   findIndicator,
   isSubIndicatorId,
 } from '../engine/renderers/Indicator/indicatorCatalog.js'
-export type { LegendOptions } from '../engine/renderers/Indicator/mainIndicatorLegend.js'
 // Main-pane legend template context (Vue #legend slot)
 export type {
   LegendComparisonRow,
   LegendCurrentBar,
   LegendIndicatorRow,
   LegendLayout,
+  LegendOptions,
   LegendTemplateContext,
   LegendTimeshareRow,
-} from '../engine/renderers/Indicator/mainIndicatorLegendContext.js'
+} from '../engine/renderers/Indicator/mainIndicatorLegend/types.js'
 export type { LegendActionDetail } from '../engine/renderers/legend/types.js'
 export { LEGEND_ACTION_EVENT } from '../engine/renderers/legend/types.js'
 export { getPhysicalKLineConfig } from '../engine/utils/klineConfig.js'

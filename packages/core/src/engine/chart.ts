@@ -102,7 +102,7 @@ import { type ChartModeHandler, KLineMode, TimeShareMode } from './modes/index.j
 import { MAIN_PANE_ID } from './paneIds.js'
 import { PaneRenderer } from './paneRenderer.js'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer.js'
-import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext.js'
+import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegend/types.js'
 import { createLegendDomRenderer } from './renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from './state/chartStateKernel.js'
 import type { RangeSelectionState } from './state/interactionState.js'

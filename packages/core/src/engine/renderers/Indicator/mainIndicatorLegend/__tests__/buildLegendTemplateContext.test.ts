@@ -10,7 +10,7 @@ import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorD
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
-import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
+import { buildLegendTemplateContext } from '../impl/buildLegendTemplateContext'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()

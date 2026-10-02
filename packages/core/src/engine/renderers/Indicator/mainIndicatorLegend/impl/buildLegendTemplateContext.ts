@@ -1,90 +1,27 @@
+/**
+ * 构建主图图例的模板上下文：把帧数据投影为行情、指标与对比展示行。
+ */
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '@/foundation/types/chartView.js'
 import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
-import { symbolSpecIdentityKey } from '../../data/symbolIdentity.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
-import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
+import { symbolSpecIdentityKey } from '../../../../data/symbolIdentity.js'
+import { getRegisteredIndicatorDefinition } from '../../../../indicators/indicatorDefinitionRegistry.js'
+import type { TitleInfo } from '../../../../indicators/indicatorMetadata.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
-} from '../../indicators/instances/api/indicatorRenderBinding.js'
-import { resolveLegendValueIndex } from '../legend/impl/resolveLegendValueIndex.js'
+} from '../../../../indicators/instances/api/indicatorRenderBinding.js'
+import { resolveLegendValueIndex } from '../../../legend/impl/resolveLegendValueIndex.js'
+import type {
+  LegendComparisonRow,
+  LegendIndicatorRow,
+  LegendLayout,
+  LegendTemplateContext,
+  LegendTimeshareRow,
+} from '../types.js'
 
-export interface LegendLayout {
-  x: number
-  y: number
-  lineHeight: number
-  gap: number
-  paneWidth: number
-  compact: boolean
-}
-
-/** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
-export type LegendCurrentBar = Omit<KLineData, 'volume'> & {
-  volume: number | null
-  // 成交量+单位格式化文本(eg. 1.23亿)
-  volumeText: string | null
-  color: string
-}
-
-export interface LegendTimeshareRow {
-  price: number
-  average: number
-  changeAmount: number
-  changePercent: number
-  volume: number | null
-  /** 带手数单位的成交量文本。 */
-  volumeText: string | null
-  amount: number | null
-  amountText: string | null
-  changeColor: string
-}
-
-export interface LegendIndicatorRow {
-  /** 实例身份，用于 Legend 命中后的操作。 */
-  instanceId: string
-  /** 指标规范 ID（displayName），与可见集合、实例目录同一身份空间。 */
-  definitionId: string
-  /** 隐藏的指标图例保留并置灰。 */
-  hidden: boolean
-  name: string
-  params?: number[]
-  values?: TitleValueItem[]
-}
-
-export interface LegendComparisonRow {
-  symbol: string
-  name?: string
-  percent: number
-  color: string
-  percentColor: string
-}
-
-/**
- * 主图左上角图例完整上下文。
- * DOM renderer 与自定义 legend slot 共用同一份数据。
- */
-export interface LegendTemplateContext {
-  period: string
-  index: number
-  hasCrosshair: boolean
-  layout: LegendLayout
-  colors: {
-    textPrimary: string
-    textTertiary: string
-    up: string
-    down: string
-  }
-  /** 十字线指向的当前 K 线展示行（含 volumeText / color 与自定义字段） */
-  currentBar: LegendCurrentBar | null
-  timeshare: LegendTimeshareRow | null
-  indicators: ReadonlyArray<LegendIndicatorRow>
-  comparisons: ReadonlyArray<LegendComparisonRow>
-  /** 当前索引处的原始 K 线（分时模式下可能无 close） */
-  bar: KLineData | TimeShareData | null
-}
-
+/** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
 export interface BuildLegendTemplateContextInput {
   context: RenderContext
   host: PluginHost | null
@@ -93,12 +30,14 @@ export interface BuildLegendTemplateContextInput {
   visibleIndicatorIds?: ReadonlySet<string> | null
 }
 
+/** 成交量按中文 “万/亿” 缩写，保留两位小数。 */
 export function formatVolumeShort(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
   return v.toFixed(2)
 }
 
+/** 成交额按中文 “万/亿” 缩写，保留两位小数。 */
 export function formatAmountShort(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
@@ -166,7 +105,7 @@ export function buildLegendTemplateContext(
     }
   }
 
-  let currentBar: LegendCurrentBar | null = null
+  let currentBar: LegendTemplateContext['currentBar'] = null
   // OHLC 行始终占据同一位置，进入/离开画布不再推动指标 Legend，保证 DOM hover 稳定。
   if (context.dataView !== ChartDataViewId.Comparison) {
     const k = klineData[targetIndex]

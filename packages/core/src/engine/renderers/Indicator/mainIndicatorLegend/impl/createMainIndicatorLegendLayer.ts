@@ -2,27 +2,11 @@
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
-import { MAIN_PANE_ID } from '../../paneIds.js'
-import type { LegendRow, LegendText } from '../legend/types.js'
-import {
-  buildLegendTemplateContext,
-  type LegendTemplateContext,
-} from './mainIndicatorLegendContext.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-/** 主图图例公开配置，保留现有配置入口。 */
-export interface LegendOptions {
-  visible?: boolean
-  visibleIndicatorIds?: ReadonlyArray<string>
-}
-
-export interface MainIndicatorLegendOptions {
-  yPaddingPx: number
-  onContext?: (ctx: LegendTemplateContext | null) => void
-  /** 当前数据视图应显示的主图指标规范 ID；缺省表示不过滤。 */
-  getVisibleIndicatorIds?: () => ReadonlyArray<string>
-  getLegendOptions?: () => LegendOptions | undefined
-}
+import { MAIN_PANE_ID } from '../../../../paneIds.js'
+import type { LegendRow, LegendText } from '../../../legend/types.js'
+import { createIndicatorRendererLayer } from '../../shared/indicatorRendererLayer.js'
+import type { LegendTemplateContext, MainIndicatorLegendOptions } from '../types.js'
+import { buildLegendTemplateContext } from './buildLegendTemplateContext.js'
 
 /** 构建数据并交给独立 DOM renderer。 */
 export function createMainIndicatorLegendLayer(

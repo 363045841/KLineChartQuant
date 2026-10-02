@@ -78,7 +78,7 @@ import {
   computeTimeShareXLayout,
 } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
-import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend.js'
+import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import { createTimeAxisLayer } from '../renderers/timeAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
@@ -218,9 +218,7 @@ export interface RendererDependencies {
   /** 无可绘制数据或清空图表时同步释放 DOM 标题。 */
   onClearLegendRows?: () => void
   onLegendContext?: (
-    ctx:
-      | import('../renderers/Indicator/mainIndicatorLegendContext.js').LegendTemplateContext
-      | null,
+    ctx: import('../renderers/Indicator/mainIndicatorLegend/types.js').LegendTemplateContext | null,
   ) => void
   /** 可视区极值跨数量级时才请求右轴实测与布局更新。 */
   commitRightAxisWidthMeasurement?: (extrema: VisiblePriceExtrema) => void
