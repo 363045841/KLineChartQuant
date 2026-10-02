@@ -24,8 +24,13 @@ import type {
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
-import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+import {
+  type ChartSettings,
+  PRICE_AXIS_RANGE_MODE,
+  ScaleType,
+} from '@363045841yyt/klinechart-core/config'
 import type { LegendTemplateContext } from '@363045841yyt/klinechart-core/controllers'
+import { MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type { App } from 'vue'
 
@@ -117,6 +122,10 @@ export function createMockChartController(
   const theme = createSignal<'light' | 'dark'>(themePreference)
   const settings = createSignal({ theme: themePreference } as Record<string, unknown>)
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
+  const paneScaleTypes = createSignal<ReadonlyMap<string, ScaleType>>(new Map())
+  const panePriceAxisRanges = createSignal<
+    ReturnType<ChartController['panePriceAxisRanges']['peek']>
+  >({})
   const rangeSelection = createSignal({
     startTimestamp: null as number | null,
     endTimestamp: null as number | null,
@@ -167,6 +176,24 @@ export function createMockChartController(
     globalDrawingLock,
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
+    paneScaleTypes,
+    panePriceAxisRanges,
+    setPanePriceAxisScaleType: (paneId, type) => {
+      paneScaleTypes.set(new Map(paneScaleTypes.peek()).set(paneId, type))
+      if (paneId === MAIN_PANE_ID)
+        settings.set({ ...settings.peek(), mainRightAxisTypeSetting: type })
+    },
+    setPanePriceAxisRangeMode: (paneId, rangeMode) => {
+      panePriceAxisRanges.set({
+        ...panePriceAxisRanges.peek(),
+        [paneId]: { rangeMode, handRange: null },
+      })
+      if (paneId === MAIN_PANE_ID)
+        settings.set({ ...settings.peek(), mainPriceAxisRangeMode: rangeMode })
+    },
+    resetPanePriceAxis: () => {
+      resetPriceAxisCalls += 1
+    },
     interactionState,
     selectedRange: createSignal<{ from: number; to: number } | null>(null),
     rangeSelection,
@@ -302,7 +329,23 @@ export function createMockChartController(
 
   return {
     ...(controller as ChartController),
-    _setSettings: (next) => settings.set(next),
+    _setSettings: (next) => {
+      settings.set(next)
+      const type = next.mainRightAxisTypeSetting
+      paneScaleTypes.set(
+        new Map(paneScaleTypes.peek()).set(
+          MAIN_PANE_ID,
+          type === ScaleType.Log || type === ScaleType.Percent ? type : ScaleType.Linear,
+        ),
+      )
+      panePriceAxisRanges.set({
+        ...panePriceAxisRanges.peek(),
+        [MAIN_PANE_ID]: {
+          rangeMode: next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+          handRange: null,
+        },
+      })
+    },
     resetMainPriceAxisCalls: () => resetPriceAxisCalls,
     _setDrawingHistory: (undo, redo) => {
       canUndoDrawing.set(undo)

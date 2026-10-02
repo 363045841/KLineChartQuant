@@ -262,6 +262,23 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
 
   return {
     resetMainPriceAxis,
+    /** 逐 Pane 轴命令与 UI 共用核心入口。 */
+    setPanePriceAxisScaleType: (
+      paneId: string,
+      type: import('../../../foundation/types/scaleType.js').ScaleType,
+    ) => {
+      if (!isDisposed()) chart.setPanePriceAxisScaleType(paneId, type)
+    },
+    setPanePriceAxisRangeMode: (
+      paneId: string,
+      mode: import('../../../foundation/config/priceAxisRangeMode.js').PriceAxisRangeMode,
+    ) => {
+      if (isDisposed()) return
+      chart.setPanePriceAxisRangeMode(paneId, mode)
+    },
+    resetPanePriceAxis: (paneId: string) => {
+      if (!isDisposed()) chart.resetPriceTransform(paneId)
+    },
     getZoomLevelCount,
     setTheme,
     setSystemTheme,

@@ -169,8 +169,8 @@ function createUltimateOscillatorLayer(
         return
       }
 
-      const { valueMin, valueMax, params, series } = state
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const { params, series } = state
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

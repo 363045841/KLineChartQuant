@@ -34,8 +34,8 @@ function createVMALayer(
       const state = context.indicatorStateReader?.get<VMARenderState>(instanceId)
       if (!state || !state.params.showVMA || state.visibleMin > state.visibleMax) return
 
-      const { valueMin, valueMax, series } = state
-      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const { series } = state
+      const displayRange = pane.yAxis.getDisplayRange()
       const displayMin = displayRange.minPrice
       const displayMax = displayRange.maxPrice
       const displayValueRange = displayMax - displayMin || 1

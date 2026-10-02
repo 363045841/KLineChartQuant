@@ -84,10 +84,7 @@ export function createIndicatorScaleLayer(
         context.colorPresetSettings,
       )
 
-      const displayRange = pane.yAxis.getDisplayRange({
-        minPrice: valueMin,
-        maxPrice: valueMax,
-      })
+      const displayRange = pane.yAxis.getDisplayRange()
 
       // 无自定义格式化时按显示范围自适应小数位，避免小量级指标刻度全部折叠为 ±0.00。
       const effectiveDecimals = formatTickLabel

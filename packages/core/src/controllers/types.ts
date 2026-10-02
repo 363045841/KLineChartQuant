@@ -444,6 +444,24 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   readonly globalDrawingLock: ReadonlySignal<boolean>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
+  /** 每个 Pane 的有效刻度和独立范围状态。 */
+  readonly paneScaleTypes: ReadonlySignal<
+    ReadonlyMap<string, import('../foundation/types/scaleType.js').ScaleType>
+  >
+  readonly panePriceAxisRanges: ReadonlySignal<
+    Readonly<Record<string, import('../engine/state/mainPriceAxisState.js').PanePriceAxisRange>>
+  >
+  /** 设置目标 Pane 的轴状态；百分比仅支持主图。 */
+  setPanePriceAxisScaleType(
+    paneId: string,
+    type: import('../foundation/types/scaleType.js').ScaleType,
+  ): void
+  setPanePriceAxisRangeMode(
+    paneId: string,
+    mode: import('../foundation/config/priceAxisRangeMode.js').PriceAxisRangeMode,
+  ): void
+  /** 重置目标 Pane 的范围变换，保留自动/手动模式。 */
+  resetPanePriceAxis(paneId: string): void
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
   /** 区间选择工具确认的时间范围。 */
   readonly selectedRange: ReadonlySignal<{ from: number; to: number } | null>

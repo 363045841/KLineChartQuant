@@ -53,7 +53,7 @@ describe('indicator scale layer formatting', () => {
           height: 160,
           yAxis: {
             getScaleType: () => 'linear',
-            getDisplayRange: (range) => range ?? { maxPrice: 0, minPrice: 0 },
+            getDisplayRange: () => ({ maxPrice: 0.002, minPrice: -0.002 }),
             getPaddingTop: () => 0,
             getPaddingBottom: () => 0,
           },

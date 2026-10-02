@@ -5,7 +5,7 @@ import {
   resolveSettings,
   ScaleType,
 } from '@363045841yyt/klinechart-core/config'
-import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+import { type ChartController, MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
 import type { DropMenuGroup } from '../../components/DropMenu.vue'
 import { useControllerSignal } from './useControllerSignal.js'
@@ -31,8 +31,19 @@ export interface PriceAxisShortcut {
 export function usePriceAxisMenu(
   controller: Ref<ChartController | null>,
   applySettings: (settings: ChartSettings) => void,
+  paneId: string = MAIN_PANE_ID,
 ) {
   const settings = useControllerSignal(controller, (chart) => chart.settings, resolveSettings)
+  const scaleTypes = useControllerSignal<ReadonlyMap<string, ScaleType>>(
+    controller,
+    (chart) => chart.paneScaleTypes,
+    () => new Map(),
+  )
+  const ranges = useControllerSignal<ReturnType<ChartController['panePriceAxisRanges']['peek']>>(
+    controller,
+    (chart) => chart.panePriceAxisRanges,
+    () => ({}),
+  )
   // 自动写纵轴模式，对数是轴类型，两者分属不同设置，互不排斥；再次点击切回非激活值。
   const shortcuts: ReadonlyArray<PriceAxisShortcut> = [
     {
@@ -62,7 +73,7 @@ export function usePriceAxisMenu(
       items: [
         { id: ScaleType.Log, label: '对数' },
         { id: ScaleType.Linear, label: '价格' },
-        { id: ScaleType.Percent, label: '百分比' },
+        ...(paneId === MAIN_PANE_ID ? [{ id: ScaleType.Percent, label: '百分比' }] : []),
       ],
     },
     {
@@ -86,8 +97,9 @@ export function usePriceAxisMenu(
 
   /** 从 controller 当前设置判断勾选项，重置组不属于模式选项。 */
   function isSelected(groupId: string, itemId: string): boolean {
-    if (groupId === GROUP.TYPE) return settings.value.mainRightAxisTypeSetting === itemId
-    if (groupId === GROUP.RANGE) return settings.value.mainPriceAxisRangeMode === itemId
+    if (groupId === GROUP.TYPE) return (scaleTypes.value.get(paneId) ?? ScaleType.Linear) === itemId
+    if (groupId === GROUP.RANGE)
+      return (ranges.value[paneId]?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO) === itemId
     if (groupId === GROUP.POSITION) return settings.value.priceAxisPosition === itemId
     return false
   }
@@ -97,17 +109,20 @@ export function usePriceAxisMenu(
     const chart = controller.value
     if (!chart) return
     if (groupId === GROUP.RESET && itemId === RESET_AXIS) {
-      chart.resetMainPriceAxis()
+      chart.resetPanePriceAxis(paneId)
     } else if (
       groupId === GROUP.TYPE &&
       (itemId === ScaleType.Log || itemId === ScaleType.Linear || itemId === ScaleType.Percent)
     ) {
-      applySettings({ ...chart.settings.peek(), mainRightAxisTypeSetting: itemId })
+      chart.setPanePriceAxisScaleType(paneId, itemId)
+      // 主图偏好通知宿主保存，目标轴已经由统一命令更新。
+      if (paneId === MAIN_PANE_ID) applySettings({ ...chart.settings.peek() })
     } else if (
       groupId === GROUP.RANGE &&
       (itemId === PRICE_AXIS_RANGE_MODE.AUTO || itemId === PRICE_AXIS_RANGE_MODE.HAND)
     ) {
-      applySettings({ ...chart.settings.peek(), mainPriceAxisRangeMode: itemId })
+      chart.setPanePriceAxisRangeMode(paneId, itemId)
+      if (paneId === MAIN_PANE_ID) applySettings({ ...chart.settings.peek() })
     } else if (groupId === GROUP.POSITION && (itemId === 'left' || itemId === 'right')) {
       applySettings({ ...chart.settings.peek(), priceAxisPosition: itemId })
     }

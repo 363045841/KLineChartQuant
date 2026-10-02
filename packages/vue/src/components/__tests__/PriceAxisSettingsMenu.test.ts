@@ -35,7 +35,7 @@ describe('价格轴设置菜单', () => {
     document.body.innerHTML = ''
   })
 
-  it('渲染两个快捷按钮并各自标记当前模式', () => {
+  it('主图快捷按钮独立选中，对数可以连续点击关闭和开启', async () => {
     const { wrapper } = mountMenu({
       mainRightAxisTypeSetting: ScaleType.Log,
       mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
@@ -43,6 +43,11 @@ describe('价格轴设置菜单', () => {
     const buttons = wrapper.findAll('.price-axis-shortcuts button')
     expect(buttons.map((button) => button.text())).toEqual(['A', 'L'])
     expect(buttons.map((button) => button.attributes('aria-pressed'))).toEqual(['true', 'true'])
+    await buttons[1]!.trigger('click')
+    expect(buttons[1]!.attributes('aria-pressed')).toBe('false')
+    expect(buttons[0]!.attributes('aria-pressed')).toBe('true')
+    await buttons[1]!.trigger('click')
+    expect(buttons[1]!.attributes('aria-pressed')).toBe('true')
     wrapper.unmount()
   })
 

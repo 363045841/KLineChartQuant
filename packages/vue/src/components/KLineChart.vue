@@ -273,9 +273,24 @@
             @lostpointercapture="onRightAxisLostPointerCapture"
             @contextmenu.prevent
           >
+            <div
+              v-for="pane in paneAxisItems"
+              :key="pane.id"
+              class="pane-axis-controls-host"
+              :style="{ top: pane.top + 'px', height: pane.height + 'px' }"
+            >
+              <PriceAxisSettingsMenu
+                :controller="controller"
+                :pane-id="pane.id"
+                :height="0"
+                :show-settings="false"
+                @settings-change="handleSettingsChange"
+              />
+            </div>
             <PriceAxisSettingsMenu
               :controller="controller"
               :height="props.bottomAxisHeight"
+              :show-shortcuts="false"
               @settings-change="handleSettingsChange"
             />
           </div>
@@ -397,6 +412,7 @@
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
   import { useKLineTooltip } from '../composables/chart/useKLineTooltip.js'
+  import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
@@ -765,6 +781,7 @@
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
+  const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const chartMainRef = ref<HTMLDivElement | null>(null)
   const chartStageRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
@@ -921,6 +938,9 @@
 
   // 仅在画布几何变化时刷新 Pane Header；横向滚动改变 visible range 不应触发 Vue 渲染。
   const paneHeaderLayoutEpoch = ref(0)
+
+  /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
+  const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneHeaderLayoutEpoch)
 
   /** 读取 Core 的真实 Pane 几何，确保 Header 与最小高度、取整后的布局一致。 */
   const paneHeaderItems = computed(() => {
@@ -2169,7 +2189,13 @@
     border-bottom-right-radius: 3px;
   }
 
-  .right-axis-host:hover :deep(.price-axis-shortcuts) {
+  .pane-axis-controls-host {
+    position: absolute;
+    width: 100%;
+    z-index: 2;
+  }
+
+  .pane-axis-controls-host:hover :deep(.price-axis-shortcuts) {
     visibility: visible;
     pointer-events: auto;
   }

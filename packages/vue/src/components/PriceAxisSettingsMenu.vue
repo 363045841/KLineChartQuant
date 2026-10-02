@@ -1,7 +1,8 @@
 <!-- 单一价格轴的设置按钮、分组菜单和当前模式标记，与摆放位置无关。 -->
 <template>
-  <div class="price-axis-controls" :style="{ height: height + 'px' }">
+  <div class="price-axis-controls" :data-pane-id="paneId" :style="{ height: height + 'px' }">
     <div
+      v-if="showShortcuts"
       class="price-axis-shortcuts"
       @pointerdown.stop
       @pointermove.stop
@@ -23,6 +24,7 @@
       </BaseTooltip>
     </div>
   <DropMenu
+    v-if="showSettings"
     class="axis-settings-menu"
     :label="MENU_LABEL"
     :groups="groups"
@@ -48,7 +50,7 @@
 
 <script setup lang="ts">
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import { type ChartController, MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
   import { toRef } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerSettings from '~icons/tabler/settings'
@@ -56,16 +58,23 @@
   import BaseTooltip from './common/BaseTooltip.vue'
   import DropMenu from './DropMenu.vue'
 
-  const props = defineProps<{
-    controller: ChartController | null
-    height: number
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      controller: ChartController | null
+      height: number
+      paneId?: string
+      showSettings?: boolean
+      showShortcuts?: boolean
+    }>(),
+    { paneId: MAIN_PANE_ID, showSettings: true, showShortcuts: true },
+  )
   const emit = defineEmits<{ 'settings-change': [settings: ChartSettings] }>()
   const MENU_LABEL = '价格轴设置'
   const { groups, select, isSelected, shortcuts, selectShortcut, isShortcutSelected } =
     usePriceAxisMenu(
       toRef(() => props.controller),
       (settings) => emit('settings-change', settings),
+      props.paneId,
     )
 </script>
 
@@ -83,7 +92,7 @@
     height: 100%;
   }
 
-  /* 快捷入口位于设置按钮正上方，父轴悬停时显示。 */
+  /* 快捷入口位于各 Pane 轴底部，父轴悬停时显示。 */
   .price-axis-shortcuts {
     position: absolute;
     bottom: 100%;
@@ -92,7 +101,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding-bottom: 4px;
+    padding-bottom: 8px;
     visibility: hidden;
     pointer-events: none;
   }
@@ -115,6 +124,7 @@
   }
 
   .price-axis-shortcuts button[aria-pressed='true'] {
+    color: var(--klc-color-ui-accent);
     background: var(--klc-color-ui-hover);
   }
 

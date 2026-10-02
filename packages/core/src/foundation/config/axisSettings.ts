@@ -79,17 +79,14 @@ export function resolveEffectiveAxisDisplay(
   return side === 'left' ? (input.leftSetting ?? AXIS_DISPLAY.NONE) : rightDisplay
 }
 
-/** 按坐标偏好生成各 pane 的生效刻度；percent 只作用于价格 pane */
+/** 主图坐标偏好只作用于价格 Pane；副图独立使用线性默认值。 */
 export function buildPaneScaleTypesFromSetting(
   paneRoles: ReadonlyArray<{ id: string; role: string }>,
   setting: PriceScaleTypeSetting,
 ): Map<string, PriceScaleTypeSetting> {
   const next = new Map<string, PriceScaleTypeSetting>()
   for (const pane of paneRoles) {
-    next.set(
-      pane.id,
-      setting === ScaleType.Percent && pane.role !== 'price' ? ScaleType.Linear : setting,
-    )
+    next.set(pane.id, pane.role === 'price' ? setting : ScaleType.Linear)
   }
   return next
 }

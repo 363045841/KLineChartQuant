@@ -44,6 +44,23 @@ describe('价格轴菜单', () => {
     expect(menu.isShortcutSelected(menu.shortcuts[1]!)).toBe(true)
   })
 
+  it('副图快捷操作只修改自己的轴，且不提供百分比', () => {
+    const { controller } = createMenu({ mainRightAxisTypeSetting: ScaleType.Percent })
+    const first = usePriceAxisMenu(shallowRef(controller), () => {}, 'RSI')
+    const second = usePriceAxisMenu(shallowRef(controller), () => {}, 'MACD')
+    expect(first.shortcuts.map((shortcut) => shortcut.text)).toEqual(['A', 'L'])
+    first.selectShortcut(first.shortcuts[1]!)
+    first.selectShortcut(first.shortcuts[0]!)
+    expect(controller.paneScaleTypes.peek().get('RSI')).toBe(ScaleType.Log)
+    expect(controller.panePriceAxisRanges.peek().RSI?.rangeMode).toBe(PRICE_AXIS_RANGE_MODE.HAND)
+    expect(second.isShortcutSelected(second.shortcuts[1]!)).toBe(false)
+    expect(second.isShortcutSelected(second.shortcuts[0]!)).toBe(true)
+    expect(controller.settings.peek().mainRightAxisTypeSetting).toBe(ScaleType.Percent)
+    first.selectShortcut(first.shortcuts[1]!)
+    expect(controller.paneScaleTypes.peek().get('RSI')).toBe(ScaleType.Linear)
+    expect(first.isShortcutSelected(first.shortcuts[1]!)).toBe(false)
+  })
+
   it('再次点击已激活的快捷按钮取消并切回非激活值', () => {
     const { menu, applied } = createMenu({
       mainRightAxisTypeSetting: ScaleType.Log,
@@ -60,7 +77,7 @@ describe('价格轴菜单', () => {
       },
       {
         mainRightAxisTypeSetting: ScaleType.Linear,
-        mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+        mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
       },
     ])
   })
@@ -90,7 +107,11 @@ describe('价格轴菜单', () => {
         mainRightAxisTypeSetting: ScaleType.Linear,
         mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
       },
-      { mainRightAxisTypeSetting: ScaleType.Linear, priceAxisPosition: 'left' },
+      {
+        mainRightAxisTypeSetting: ScaleType.Linear,
+        mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+        priceAxisPosition: 'left',
+      },
     ])
   })
 
