@@ -79,8 +79,7 @@ function createStyles(document: Document): HTMLStyleElement {
       height:16px; padding:0 2px; border:1px solid var(--klc-color-ui-border); border-radius:3px;
       background:var(--klc-color-ui-surface); color:var(--klc-color-ui-text-soft); cursor:pointer; pointer-events:auto; }
     .klc-legend-collapse[hidden] { display:none; }
-    .klc-legend-collapse:hover, .klc-legend-collapse:focus-visible {
-      background:color-mix(in srgb,var(--klc-color-ui-text) 8%,transparent); outline:none; }
+    .klc-legend-collapse:hover, .klc-legend-collapse:focus-visible { outline:none; }
     .klc-legend-collapse > svg { display:block; width:14px; height:14px; overflow:visible; }
     .klc-legend-collapse-count { font-family:${FONT_FAMILY}; font-size:12px; line-height:1;
       color:var(--klc-color-ui-text-soft); }
