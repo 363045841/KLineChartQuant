@@ -442,5 +442,5 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 
 ## 📄 License
 
-[MIT](LICENSE)
+[Apache-2.0](LICENSE)
 

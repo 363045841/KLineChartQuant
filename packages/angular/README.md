@@ -128,5 +128,5 @@ For full setup including the data backend, see the [root README]../../README.md)
 
 ## 📄 License
 
-[MIT](LICENSE)
+[Apache-2.0](LICENSE)
 

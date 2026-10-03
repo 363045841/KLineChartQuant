@@ -3,8 +3,8 @@ info:
   title: KLineChartQuant Market Data API
   version: 1.0.0
   license:
-    name: MIT
-    identifier: MIT
+    name: Apache-2.0
+    identifier: Apache-2.0
   description: |
     前端主导的统一行情协议。数据源后端负责将私有上游字段转换为此协议，
     前端通过 InstrumentDescriptor、BarSeries 和 TimeShareSeries 消费数据。

@@ -3,7 +3,7 @@
   "version": "0.11.0-alpha.8",
   "private": true,
   "description": "Electron desktop shell for @363045841yyt/klinechart",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./out/main/main.js",
   "scripts": {

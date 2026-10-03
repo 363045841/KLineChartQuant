@@ -3,7 +3,7 @@
   "version": "0.7.1",
   "description": "A lightweight financial K-line charting library with first-class AI Agent support, crisp ResizeObserver-driven rendering, and plugin-based architecture. Focused on quantitative trading scenarios with TradingView-level interaction experience.",
   "author": "363045841 <slslswbsy@qq.com>",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/363045841/KLineChartQuant.git"

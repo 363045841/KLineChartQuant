@@ -2,7 +2,7 @@
   "name": "@363045841yyt/klinechart",
   "version": "0.11.0-alpha.8",
   "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/363045841/KLineChartQuant.git"

@@ -475,5 +475,5 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 ## 📄 License
 
-[MIT](LICENSE)
+[Apache-2.0](LICENSE)
 
