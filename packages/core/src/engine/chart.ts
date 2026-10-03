@@ -106,6 +106,10 @@ import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorL
 import { createLegendDomRenderer } from './renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from './state/chartStateKernel.js'
 import type { RangeSelectionState } from './state/interactionState.js'
+import type {
+  PanePriceAxisModePersistence,
+  PanePriceAxisModesSnapshot,
+} from './state/mainPriceAxisState.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -113,10 +117,6 @@ import {
   resolveChartWorkspaceId,
 } from './state/modeState.js'
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
-import type {
-  PanePriceAxisModePersistence,
-  PanePriceAxisModesSnapshot,
-} from './state/mainPriceAxisState.js'
 import { ChartZoomController } from './utils/chartZoomController.js'
 import { getPhysicalKLineConfig } from './utils/klineConfig.js'
 import { resolveViewTransition } from './view/impl/resolveViewTransition.js'
@@ -437,7 +437,6 @@ export class Chart {
         viewport: this.kernel.viewport,
         options: this.kernel.options,
         period$: this.kernel.dataManager.readonly.currentPeriod,
-        getPlotWidth: () => this.getLeftLoadBufferWidth(),
         onChange: () => {
           this.scheduleDraw()
           this.checkVisibleRangeGapWhenIdle()

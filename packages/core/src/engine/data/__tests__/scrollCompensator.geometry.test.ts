@@ -131,22 +131,4 @@ describe('ScrollCompensator geometry SSOT', () => {
     expect(getScrollLeft()).toBeLessThanOrEqual(maxScroll)
     expect(getScrollLeft()).toBe(maxScroll)
   })
-
-  it('adjustScrollAfterDataChange uses injected left buffer when scrollLeft <= 0', () => {
-    const injectedLeft = 640
-    const { viewport, getScrollLeft } = createMockViewport({
-      scrollLeft: 0,
-      leftLoadBufferWidth: injectedLeft,
-      contentWidth: 2000,
-      viewWidth: 800,
-      dpr: 1,
-    })
-    const deps: ScrollDeps = {
-      getOption: () => ({ kWidth: 8, kGap: 2 }),
-      viewport,
-    }
-
-    new ScrollCompensator(deps).adjustScrollAfterDataChange(10)
-    expect(getScrollLeft()).toBe(injectedLeft)
-  })
 })

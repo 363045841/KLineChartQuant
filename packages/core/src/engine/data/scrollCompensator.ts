@@ -1,3 +1,4 @@
+/** 数据变更只补偿前插索引，空白槽位不触发自动回拉。 */
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
@@ -17,25 +18,6 @@ export class ScrollCompensator {
     const compensation = (count * unitPx) / dpr
     const nextScrollLeft = this.deps.viewport.readonly.scrollLeft.peek() + compensation
     this.deps.viewport.actions.scrollTo(nextScrollLeft)
-  }
-
-  adjustScrollAfterDataChange(dataLength: number): void {
-    const scrollLeft = this.deps.viewport.readonly.scrollLeft.peek()
-    if (scrollLeft < 0) return
-
-    if (scrollLeft <= 0) {
-      this.deps.viewport.actions.scrollTo(this.deps.viewport.readonly.leftLoadBufferWidth.peek())
-      return
-    }
-
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const totalDataWidth = (startXPx + dataLength * unitPx) / dpr
-    const leftBuffer = this.deps.viewport.readonly.leftLoadBufferWidth.peek()
-    if (scrollLeft >= leftBuffer + totalDataWidth) {
-      this.deps.viewport.actions.scrollTo(leftBuffer)
-    }
   }
 
   scrollToRight(dataLength: number): void {

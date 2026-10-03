@@ -31,7 +31,7 @@ export function computeLeftLoadBufferWidth(input: ContentGeometryInput): number 
   return Math.round(input.viewWidth)
 }
 
-/** 从当前视图和物理槽位网格派生完整内容几何，右移极限保留最后两个数据槽位。 */
+/** 派生初始内容尺寸；两侧空白的动态扩展由视口状态管理。 */
 export function computeContentGeometry(input: ContentGeometryInput): ContentGeometry {
   if (input.dataLength === 0) {
     return { contentWidth: 0, maxScrollLeft: 0, futureWidth: 0, futureBarCount: 0 }
@@ -57,10 +57,8 @@ export function computeContentGeometry(input: ContentGeometryInput): ContentGeom
     }
   }
   const { unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-  const retainedBars = Math.min(2, input.dataLength)
-  // 按槽位左缘定位，保留首个槽位的间隙；不使用可见范围的额外扩窗判断数据是否在屏内。
-  const maxScrollLeft = left + ((input.dataLength - retainedBars) * unitPx) / input.dpr
-  const futureWidthPx = Math.max(0, input.plotWidth * input.dpr - retainedBars * unitPx)
+  const maxScrollLeft = left + (input.dataLength * unitPx) / input.dpr
+  const futureWidthPx = input.plotWidth * input.dpr
   return {
     contentWidth: maxScrollLeft + input.viewWidth,
     maxScrollLeft,

@@ -83,7 +83,7 @@ describe('contentGeometry parity', () => {
     expect(computeLeftLoadBufferWidth(input)).toBe(Math.round(800.4))
   })
 
-  it('K 线内容宽度恰好在保留两个数据槽位的位置触及原生滚动边界', () => {
+  it('K 线初始内容包含完整数据与一屏未来槽位', () => {
     const input = baseInput({
       dataLength: 100,
       period: 'daily',
@@ -94,7 +94,7 @@ describe('contentGeometry parity', () => {
     })
     const left = computeLeftLoadBufferWidth(input)
     const { unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
-    const expectedMax = left + ((input.dataLength - 2) * unitPx) / input.dpr
+    const expectedMax = left + (input.dataLength * unitPx) / input.dpr
     expect(computeContentWidth(input)).toBe(expectedMax + input.viewWidth)
     expect(computeContentGeometry(input).maxScrollLeft).toBe(expectedMax)
   })
@@ -105,9 +105,9 @@ describe('contentGeometry parity', () => {
     expect(computeMaxScrollLeft(800, 800)).toBe(0)
   })
 
-  it('未来区宽度由屏宽减去两个槽位得到，不足一槽仍保留可索引的部分槽位', () => {
+  it('初始未来区覆盖一屏，不足一槽仍保留可索引的部分槽位', () => {
     const geometry = computeContentGeometry(baseInput({ viewWidth: 101, plotWidth: 101 }))
-    expect(geometry.futureWidth).toBe(83)
-    expect(geometry.futureBarCount).toBe(10)
+    expect(geometry.futureWidth).toBe(101)
+    expect(geometry.futureBarCount).toBe(12)
   })
 })

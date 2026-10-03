@@ -25,13 +25,12 @@ describe('viewportState visibleRange SSOT', () => {
     expect(getVisibleRange(0, 800, 8, 2, 100).start).toBeLessThan(0)
   })
 
-  it('最右边的未来索引来自统一内容几何', () => {
+  it('未来可见范围按世界槽位推导，不受初始未来槽位数量限制', () => {
     const module = createViewportState(createViewportStateDeps({ dataLength: 10 }))
     module.actions.resize(400, 400, 1)
-    module.actions.scrollTo(Number.MAX_SAFE_INTEGER)
-    expect(module.readonly.contentGeometry().futureBarCount).toBe(38)
-    // 两个数据槽位 + 38 个未来槽位；左右各一根仍只是渲染扩窗。
-    expect(module.readonly.rawVisibleRange()).toEqual({ start: 6, end: 49 })
+    module.actions.scrollToLogical(1000)
+    expect(module.readonly.contentGeometry().futureBarCount).toBe(40)
+    expect(module.readonly.rawVisibleRange()).toEqual({ start: 98, end: 141 })
   })
 
   it('分时沿交易槽位计算完整数据范围', () => {
@@ -39,7 +38,7 @@ describe('viewportState visibleRange SSOT', () => {
       createViewportStateDeps({ dataLength: 240, options: { kWidth: 3 }, period: 'timeshare' }),
     )
     module.actions.resize(900, 400, 1)
-    module.actions.scrollTo(Number.MAX_SAFE_INTEGER)
+    module.actions.scrollToLogical(0)
     expect(module.readonly.rawVisibleRange()).toEqual({ start: -1, end: 240 })
     expect(module.readonly.visibleRange()).toEqual({ start: 0, end: 240 })
     expect(module.readonly.contentGeometry().futureBarCount).toBe(0)

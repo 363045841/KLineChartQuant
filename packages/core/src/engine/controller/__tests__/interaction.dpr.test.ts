@@ -33,7 +33,14 @@ describe('InteractionController DPR consumption', () => {
   })
 
   it('hides hover while panning and restores it after mouse release', () => {
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollTo: () => true })
+    const slotGrid = { origin: 5, step: 10 }
+    const chart = createChartStub({
+      dpr: 1,
+      plotWidth: 300,
+      plotHeight: 160,
+      scrollTo: () => true,
+      slotGrid,
+    })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
@@ -58,6 +65,7 @@ describe('InteractionController DPR consumption', () => {
       pointerId: 1,
     } as PointerEvent)
     // 渲染帧先封存平移后的几何，再用松手位置恢复 hover。
+    slotGrid.origin = 25
     interaction.setKLinePositions([20, 30], { start: 0, end: 2 }, 10)
     interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
@@ -363,7 +371,12 @@ describe('InteractionController hover snapshot', () => {
   })
 
   it('maps drawing coordinates through sealed frame centers', () => {
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 200 })
+    const chart = createChartStub({
+      dpr: 1,
+      plotWidth: 300,
+      plotHeight: 200,
+      dataView: ChartDataViewId.TimeShare,
+    })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.setKLinePositions([0, 30, 130], { start: 20, end: 23 }, 10, [8, 37, 137])

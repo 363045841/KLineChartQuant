@@ -10,8 +10,12 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { Viewport, ViewportState } from '../chartTypes.js'
 import type { VisibleRange } from '../layout/pane.js'
-import { computeTimeShareVisibleRange } from '../modes/index.js'
+import {
+  computeFiveDayTimeShareContentWidth,
+  computeTimeShareVisibleRange,
+} from '../modes/index.js'
 import { deriveKGap } from '../utils/zoom.js'
+import { createKLineSlotGrid, createTimeShareSlotGrid } from '../viewport/slotGrid.js'
 import { clampVisibleRange, getVisibleRange } from '../viewport/viewport.js'
 import {
   computeContentGeometry,
@@ -127,13 +131,14 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     const plotWidth = computePlotWidth(viewWidth)
     const plotHeight = computePlotHeight(viewHeight)
     const logicalScrollLeft = scrollLeftRaw - leftLoadBufferWidth
-    const scrollLeft = Math.round(logicalScrollLeft * dpr) / dpr
+    const scrollLeft = logicalScrollLeft
     return { viewWidth, viewHeight, plotWidth, plotHeight, scrollLeft, dpr }
   }
 
   const { signals, readonly } = createSubState(
     {
       requestedScrollLeft: 0,
+      extraLeftWidth: 0,
       viewWidth: 0,
       viewHeight: 0,
       preciseDpr: 0,
@@ -144,6 +149,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       plotWidth: (s) => computePlotWidth(s.viewWidth()),
       plotHeight: (s) => computePlotHeight(s.viewHeight()),
       leftLoadBufferWidth: (s) =>
+        s.extraLeftWidth() +
         pureLeftBuffer({
           viewWidth: s.viewWidth(),
           plotWidth: Math.round(s.viewWidth()),
@@ -167,7 +173,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     })
   })
 
-  // 内容、滚动边界和未来槽位数量由同一快照派生，缩放与 resize 自动重新计算。
+  // 初始序列尺寸由数据派生；原生滚动内容另按世界坐标请求扩展。
   const contentGeometry = computed(() => {
     const options = signalDeps.options$()
     return computeContentGeometry({
@@ -183,12 +189,36 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       timeShareSlotWidth: readTimeShareSlotWidth(),
     })
   })
-  const contentWidth = computed(() => contentGeometry().contentWidth)
-  const maxScrollLeft = computed(() => contentGeometry().maxScrollLeft)
-  const scrollLeft = computed(() =>
-    Math.max(0, Math.min(readonly.requestedScrollLeft(), maxScrollLeft())),
+  const seriesContentWidth = computed(() => contentGeometry().contentWidth)
+  const maxScrollLeft = computed(() =>
+    Math.max(
+      contentGeometry().maxScrollLeft + readonly.extraLeftWidth(),
+      readonly.requestedScrollLeft() + readonly.plotWidth(),
+    ),
   )
+  const contentWidth = computed(() => maxScrollLeft() + readonly.viewWidth())
+  const scrollLeft = computed(() => readonly.requestedScrollLeft())
   const scrollLeftLogical = computed(() => scrollLeft() - readonly.leftLoadBufferWidth())
+  const timeShareSlotCount = computed(
+    () =>
+      (signalDeps.period$() === FIVE_DAY_TIME_SHARE_PERIOD ? readTimeShareDayCount() : 1) *
+      readSessionSlots(),
+  )
+  const minimumTimeShareContentWidth = computed(() =>
+    computeFiveDayTimeShareContentWidth(
+      readonly.viewWidth(),
+      signalDeps.period$() === FIVE_DAY_TIME_SHARE_PERIOD ? readTimeShareDayCount() : 1,
+      readSessionSlots(),
+      readonly.dpr(),
+    ),
+  )
+  const slotGrid = computed(() => {
+    const dpr = readonly.dpr()
+    if (!isTimeSharePeriod(signalDeps.period$())) {
+      return createKLineSlotGrid(signalDeps.options$().kWidth, kGap(), dpr)
+    }
+    return createTimeShareSlotGrid(seriesContentWidth(), timeShareSlotCount(), dpr)
+  })
 
   // ── 带引用缓存的 computed —— 仅在字段值实际变化时返回新对象 ──
   // 避免 Object.is 短路失效导致下游 effect / Vue 订阅在子像素滚动时虚假重跑
@@ -229,7 +259,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     } else if (isTimeSharePeriod(period)) {
       vr = computeTimeShareVisibleRange({
         scrollLeft: vp.scrollLeft,
-        totalWidth: contentWidth(),
+        totalWidth: seriesContentWidth(),
         viewWidth: vp.plotWidth,
         dataLength: signalDeps.dataLength$(),
         sessionSlots: readSessionSlots(),
@@ -243,11 +273,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         signalDeps.dataLength$(),
         vp.dpr,
       )
-      // 未来索引与内容布局共用槽位数量，额外一根只用于渲染扩窗。
-      vr = {
-        start: raw.start,
-        end: Math.min(raw.end, signalDeps.dataLength$() + contentGeometry().futureBarCount + 1),
-      }
+      // 可见槽位无界；是否有真实数据只影响 OHLC 绘制。
+      vr = raw
     }
     if (
       _cachedRawVisibleRange &&
@@ -324,6 +351,22 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     if (signals.requestedScrollLeft.peek() === clamped) return false
     signals.requestedScrollLeft.set(clamped)
     return true
+  }
+
+  /** 扩展两侧空白内容后提交世界滚动量，任何槽位都不会被 DOM 边界截断。 */
+  const setLogicalScrollLeft = (value: number): boolean => {
+    if (!Number.isFinite(value)) return false
+    const previous = scrollLeftLogical.peek()
+    const target = value + readonly.leftLoadBufferWidth.peek()
+    const padding = readonly.plotWidth.peek()
+    const leftGrowth = target < 0 ? -target + padding : 0
+    const next = target + leftGrowth
+    const extraLeft = readonly.extraLeftWidth.peek() + leftGrowth
+    batch(() => {
+      signals.extraLeftWidth.set(extraLeft)
+      signals.requestedScrollLeft.set(next)
+    })
+    return previous !== value
   }
 
   const syncFromDomScroll = (): boolean => {
@@ -409,6 +452,10 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const mergedReadonly = {
     ...readonly,
     contentWidth,
+    seriesContentWidth,
+    slotGrid,
+    timeShareSlotCount,
+    minimumTimeShareContentWidth,
     maxScrollLeft,
     scrollLeft,
     scrollLeftLogical,
@@ -438,7 +485,12 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
        * @param v - 目标 scrollLeft（CSS px）
        */
       scrollTo(v: number): boolean {
-        return setRequestedScrollLeft(v)
+        return setLogicalScrollLeft(v - readonly.leftLoadBufferWidth.peek())
+      },
+
+      /** 按世界坐标滚动，必要时扩展过去与未来槽位。 */
+      scrollToLogical(v: number): boolean {
+        return setLogicalScrollLeft(v)
       },
 
       /**
@@ -524,6 +576,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         signals.viewWidth.set(0)
         signals.viewHeight.set(0)
         signals.requestedScrollLeft.set(0)
+        signals.extraLeftWidth.set(0)
       })
     },
   }

@@ -78,19 +78,16 @@ describe('InteractionController future-slot crosshair', () => {
     expect(interaction.crosshairIndex).toBe(9)
   })
 
-  it('clears the crosshair and hit-test on a zero tail step instead of falling back', () => {
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
+  it('过去槽位不依赖可见数据中心，保留十字线并禁止 OHLC hover', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollLeft: -100 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    // centers=[5,5] → 尾步长 0：数据区内可命中，超出最后一根必须清空而非外推 / fallback
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10, [5, 5])
+    interaction.setKLinePositions([], { start: 0, end: 0 }, 10, [])
 
-    expect(interaction.getLogicalIndexAtScreenX(30)).toBeNull()
+    expect(interaction.getLogicalIndexAtScreenX(30)).toBe(-7)
 
     hoverAt(interaction, 3)
-    expect(interaction.crosshairIndex).toBe(0)
-
-    hoverAt(interaction, 150)
-    expect(interaction.crosshairIndex).toBeNull()
+    expect(interaction.crosshairIndex).toBe(-10)
+    expect(interaction.crosshairPos?.x).toBe(5)
     expect(interaction.hoveredIndex).toBeNull()
   })
 })

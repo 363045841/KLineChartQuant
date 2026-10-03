@@ -58,7 +58,8 @@ export function clampVisibleRange(range: { start: number; end: number }): {
   start: number
   end: number
 } {
-  return { start: Math.max(0, range.start), end: range.end }
+  const start = Math.max(0, range.start)
+  return { start, end: Math.max(start, range.end) }
 }
 
 /**

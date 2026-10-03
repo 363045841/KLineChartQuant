@@ -163,7 +163,7 @@ describe('viewportState template', () => {
     expect(module.readonly.scrollLeft()).toBe(100)
   })
 
-  it('clamps programmatic and user DOM scroll inputs to the derived maximum', async () => {
+  it('expands content for programmatic scroll and preserves DOM scroll coordinates', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const deps = scrollDeps(10)
     const container = createScrollContainerStub()
@@ -177,18 +177,19 @@ describe('viewportState template', () => {
     module.actions.init()
     expect(module.actions.scrollTo(10_000)).toBe(true)
     expect(module.actions.scrollTo(10_000)).toBe(false)
-    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(10_000)
+    expect(module.readonly.maxScrollLeft()).toBeGreaterThan(10_000)
 
     container.scrollLeft = 10_000
     module.actions.syncFromDomScroll()
-    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(10_000)
 
     module.actions.scrollTo(Number.NaN)
-    expect(module.readonly.scrollLeft()).toBe(0)
+    expect(module.readonly.scrollLeft()).toBe(10_000)
 
     module.actions.scrollTo(10_000)
     deps.dataLength$.set(1)
-    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(10_000)
   })
 
   it('synchronizes derived content width without writing scroll position', async () => {

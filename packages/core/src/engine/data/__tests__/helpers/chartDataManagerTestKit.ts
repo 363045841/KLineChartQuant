@@ -184,6 +184,7 @@ export interface TestChartDataManagerHarness {
   dataState: DataStateModule
   dataManagerState: DataManagerStateModule
   scrollTo: (value: number) => void
+  getScrollLeft: () => number
 }
 
 /**
@@ -207,6 +208,7 @@ export function createTestChartDataManager(
     dataState,
     dataManagerState,
     scrollTo: (value) => deps.viewport.actions.scrollTo(value),
+    getScrollLeft: () => deps.viewport.readonly.scrollLeft.peek(),
   }
 }
 

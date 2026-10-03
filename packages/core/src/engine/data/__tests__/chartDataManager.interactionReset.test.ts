@@ -54,10 +54,11 @@ describe('ChartDataManager 交互重置时机', () => {
       }),
     )
     const resetInteraction = vi.fn()
-    manager = createTestChartDataManager(document, {
+    const harness = createTestChartDataManager(document, {
       viewport: { scrollLeft: 800 },
       resetInteraction,
-    }).manager
+    })
+    manager = harness.manager
 
     manager.setSymbols([makeTestSymbolSpec('sh.600000')])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
@@ -66,7 +67,11 @@ describe('ChartDataManager 交互重置时机', () => {
 
     resetInteraction.mockClear()
     // 实时尾部写入只改末尾，既有下标不变 → 不得作废交互
-    manager.updateBars([{ ...makeKLine(now), close: 111 }])
+    for (const scroll of [10000, 0]) {
+      harness.scrollTo(scroll)
+      manager.updateBars([{ ...makeKLine(now), close: 111 + scroll }])
+      expect(harness.getScrollLeft()).toBe(scroll)
+    }
     expect(resetInteraction).not.toHaveBeenCalled()
 
     resetInteraction.mockClear()

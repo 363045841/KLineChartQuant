@@ -12,6 +12,7 @@ import { UpdateLevel } from '../layout/pane.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 import type { InteractionSnapshot, InteractionStateModule } from '../state/interactionState.js'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
+import { slotIndexAt, slotWorldX } from '../viewport/slotGrid.js'
 import { MarkerInteractionState } from './markerInteraction.js'
 import { PinchTracker } from './pinchTracker.js'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition.js'
@@ -552,8 +553,15 @@ export class InteractionController {
     }
   }
 
-  /** 根据本帧已封存的中心点读取逻辑索引对应的视口内 X 坐标。 */
+  /** K 线按无界槽位投影，分时按封存的交易中心投影。 */
   getScreenXAtLogicalIndex(index: number): number | null {
+    if (!Number.isInteger(index)) return null
+    if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
+      return (
+        slotWorldX(this.chart.kernel.viewport.readonly.slotGrid.peek(), index) -
+        this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
+      )
+    }
     const centers = this.frameCenters
     const range = this.frameVisibleRange
     const viewport = this.chart.getViewport()
@@ -582,8 +590,14 @@ export class InteractionController {
     return step > 0 && Number.isFinite(step) ? step : null
   }
 
-  /** 根据本帧已封存的中心点查找最接近视口内 X 坐标的逻辑索引。 */
+  /** K 线直接求解指针槽位，分时按交易数据中心查找索引。 */
   getLogicalIndexAtScreenX(screenX: number): number | null {
+    if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
+      return slotIndexAt(
+        this.chart.kernel.viewport.readonly.slotGrid.peek(),
+        screenX + this.chart.kernel.viewport.readonly.scrollLeftLogical.peek(),
+      )
+    }
     const centers = this.frameCenters
     const range = this.frameVisibleRange
     const viewport = this.chart.getViewport()
@@ -865,9 +879,11 @@ export class InteractionController {
     }
 
     if (this.tooltipPositionMode === 'adaptive') {
-      // 未来槽位无 OHLC：十字线保留，hover/tooltip 不放行
+      // 两侧空白槽位无 OHLC：十字线保留，hover/tooltip 不放行。
       this._state.actions.setHoveredIndex(
-        bar.globalIdx < this.chart.getInternalData().length ? bar.globalIdx : null,
+        bar.globalIdx >= 0 && bar.globalIdx < this.chart.getInternalData().length
+          ? bar.globalIdx
+          : null,
       )
       this.updateTooltip(ctx)
       return
@@ -967,10 +983,22 @@ export class InteractionController {
   /**
    * 查找最近邻 K 线 bar
    *
-   * 使用二分搜索在 kLinePositions 中定位指针最近的 K 线 bar。
-   * 若无 kLinePositions、visibleRange 或 kWidthPx，返回 null。
+   * K 线直接按网格求解，过去和未来槽位不依赖帧数组；分时查找真实交易数据中心。
    */
   private findNearestBar(ctx: HoverContext): NearestBar | null {
+    if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
+      const viewport = this.chart.getViewport()
+      if (!viewport) return null
+      const grid = this.chart.kernel.viewport.readonly.slotGrid.peek()
+      const globalIdx = slotIndexAt(grid, ctx.worldX)
+      const widthLogical = (this.frameKWidthPx ?? 1) / ctx.dpr
+      return {
+        globalIdx,
+        localIdx: globalIdx - (this.frameVisibleRange?.start ?? 0),
+        kLineStartX: slotWorldX(grid, globalIdx) - widthLogical / 2,
+        widthLogical,
+      }
+    }
     const kLinePositions = this.framePositions
     const kLineCenters = this.frameCenters
     const kWidthPx = this.frameKWidthPx
@@ -1005,21 +1033,6 @@ export class InteractionController {
       }
     } else if (lo === positions.length) {
       if (positions.length === 0) return null
-      if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
-        // 未来槽位：按尾部步长外推索引，允许十字线进入未来区（仅 K 线视图；分时无未来区）
-        const lastLocal = positions.length - 1
-        const lastCenter = centers?.[lastLocal] ?? positions[lastLocal]! + kWidthLogical / 2
-        const step = this.tailSlotStep(centers, kWidthPx, dpr)
-        if (!step) return null
-        const extrapolated = lastLocal + Math.max(1, Math.ceil((worldX - lastCenter) / step))
-        return {
-          localIdx: extrapolated,
-          globalIdx: extrapolated + visibleRange.start,
-          // 槽位推进用尾部步长（含 kGap），与 centers 栅格一致；bar 宽只决定左缘到中心的偏移
-          kLineStartX: positions[lastLocal]! + (extrapolated - lastLocal) * step,
-          widthLogical: kWidthLogical,
-        }
-      }
       localIdx = positions.length - 1 // 分时保持旧行为：回夹最后一根
     }
 
@@ -1059,14 +1072,10 @@ export class InteractionController {
     const pane = this.getPaneByY(mouseY)
     this._state.actions.setActivePaneId(pane?.id || null)
 
-    // 负索引仍清除；越界（未来槽位）放行，snap X 用外推中心
-    if (bar.globalIdx < 0) {
-      this._state.actions.updateCrosshair(null, null, null)
-      return
-    }
-
     const kLineCenters = this.frameCenters
-    const centerX = kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2
+    const centerX = isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())
+      ? (kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2)
+      : slotWorldX(this.chart.kernel.viewport.readonly.slotGrid.peek(), bar.globalIdx)
     const snappedX = centerX - scrollLeft
 
     const price = pane ? pane.yAxis.yToPrice(mouseY - pane.top) : null

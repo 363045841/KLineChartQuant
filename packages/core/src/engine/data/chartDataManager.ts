@@ -610,8 +610,6 @@ export class ChartDataManager {
 
     if (prependedCount > 0) {
       this._scrollCompensator.compensatePrepend(prependedCount)
-    } else {
-      this._scrollCompensator.adjustScrollAfterDataChange(bufferData.length)
     }
 
     const isInitialData =

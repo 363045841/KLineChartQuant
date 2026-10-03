@@ -841,7 +841,7 @@ export class ChartRenderer {
           ? computeFiveDayTimeShareGeometry({
               range: timeShareRange,
               marketSession,
-              contentWidth: this.deps.viewport.readonly.contentWidth.peek(),
+              contentWidth: this.deps.viewport.readonly.seriesContentWidth.peek(),
               dpr: vp.dpr,
             })
           : null
@@ -871,7 +871,7 @@ export class ChartRenderer {
         const layout = computeTimeShareXLayout({
           arrivedCount: count,
           sessionSlots: resolveMarketSessionSlots(marketSession),
-          totalWidth: this.deps.viewport.readonly.contentWidth.peek(),
+          totalWidth: this.deps.viewport.readonly.seriesContentWidth.peek(),
           dpr: vp.dpr,
           slotIndices: internalData
             .slice(range.start, range.end)
@@ -1449,17 +1449,12 @@ export class ChartRenderer {
 
     if (count <= 0) return []
 
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx, kWidthPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-
+    const grid = this.deps.viewport.readonly.slotGrid.peek()
     const centers: number[] = new Array(count)
-    const halfWidthPx = (kWidthPx - 1) / 2
 
     for (let i = 0; i < count; i++) {
       const dataIndex = start + i
-      const leftPx = startXPx + dataIndex * unitPx
-      centers[i] = (leftPx + halfWidthPx) / dpr
+      centers[i] = grid.origin + dataIndex * grid.step
     }
 
     return centers

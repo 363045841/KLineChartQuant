@@ -1,43 +1,37 @@
+/** 缩放手势协调：所有入口通过同一槽位变换原子提交视口。 */
 import { isTimeSharePeriod } from '../../controllers/types.js'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { clampZoomLevel, computeZoom, deriveKGap } from './zoom.js'
+import { createKLineSlotGrid, createTimeShareSlotGrid, zoomSlotGrid } from '../viewport/slotGrid.js'
+import { clampZoomLevel, deriveKGap, kGapFromKWidth, zoomLevelToKWidth } from './zoom.js'
 
 export interface ZoomDependencies {
-  /** scroll / dpr 几何，读写走 kernel.viewport */
   viewport: ViewportStateModule
-  /** min/max kWidth / zoomLevelCount SSOT */
   options: OptionsStateModule
-  /** 当前周期（kGap 推导） */
   period$: ReadonlySignal<string>
-  /** 左侧加载缓冲宽度：逻辑滚动量转 DOM 滚动位置的唯一换算量 */
-  getPlotWidth: () => number
   onChange?: () => void
 }
 
-/**
- * 缩放协调器 —— 无本地业务状态。
- * zoomLevel/kWidth 归属 zoomState；此类只解释手势并协调 scroll 副作用。
- */
 export class ChartZoomController {
-  private readonly deps: ZoomDependencies
-  private readonly zoomState: ZoomStateModule
+  /** 注入唯一的缩放状态与视口状态。 */
+  constructor(
+    private readonly deps: ZoomDependencies,
+    private readonly zoomState: ZoomStateModule,
+  ) {}
 
-  constructor(deps: ZoomDependencies, zoomState: ZoomStateModule) {
-    this.deps = deps
-    this.zoomState = zoomState
-  }
-
+  /** 当前缩放级别。 */
   get currentZoomLevel(): number {
     return this.zoomState.readonly.zoomLevel.peek()
   }
 
+  /** 当前 K 线宽度。 */
   get currentKWidth(): number {
     return this.zoomState.readonly.kWidth.peek()
   }
 
+  /** 当前绘制间隙。 */
   get currentKGap(): number {
     return deriveKGap({
       kWidth: this.currentKWidth,
@@ -46,78 +40,70 @@ export class ChartZoomController {
     })
   }
 
+  /** 配置中的缩放级别数量。 */
   get zoomLevelCount(): number {
     return this.deps.options.readonly.options.peek().zoomLevelCount
   }
 
+  /** 切换级别，以指定视口位置为中心；无指针时使用视口中心。 */
   zoomToLevel(level: number, anchorX?: number): void {
     this.applyZoom(level, anchorX)
   }
 
+  /** 围绕指针槽位放大一级。 */
   zoomIn(anchorX?: number): void {
     this.applyZoom(this.currentZoomLevel + 1, anchorX)
   }
 
+  /** 围绕指针槽位缩小一级。 */
   zoomOut(anchorX?: number): void {
     this.applyZoom(this.currentZoomLevel - 1, anchorX)
   }
 
+  /** 将有效滚轮输入转换为一级缩放。 */
   handleWheel(deltaY: number, viewportX: number): void {
-    this.applyZoom(this.currentZoomLevel + (deltaY > 0 ? -1 : 1), viewportX)
+    if (deltaY === 0 || !Number.isFinite(deltaY)) return
+    this.applyZoom(this.currentZoomLevel + (deltaY < 0 ? 1 : -1), viewportX)
   }
 
-  handlePinch(delta: number, centerClientX: number): void {
-    this.applyZoom(this.currentZoomLevel + delta, centerClientX)
+  /** 双指中心与鼠标使用相同的槽位变换。 */
+  handlePinch(delta: number, viewportX: number): void {
+    this.applyZoom(this.currentZoomLevel + delta, viewportX)
   }
 
-  /** 将级别夹取后分发到 K 线 / 分时缩放路径；级别不变则不动。 */
-  private applyZoom(level: number, anchorViewportX?: number): void {
-    const targetLevel = clampZoomLevel(level, this.zoomLevelCount)
-    if (targetLevel === this.currentZoomLevel) return
+  /** 保存指针槽位坐标，更新几何后直接求解滚动量，不以数据边界改变锚点。 */
+  private applyZoom(level: number, pointerX?: number): void {
+    if (!Number.isFinite(level) || (pointerX !== undefined && !Number.isFinite(pointerX))) return
+    const target = clampZoomLevel(level, this.zoomLevelCount)
+    const current = this.currentZoomLevel
+    if (target === current) return
+    const viewport = this.deps.viewport
+    const before = viewport.readonly.slotGrid.peek()
+    const scroll = viewport.readonly.scrollLeftLogical.peek()
+    const anchor = pointerX ?? viewport.readonly.plotWidth.peek() / 2
+    if (!(before.step > 0)) return
 
-    if (isTimeSharePeriod(this.deps.period$.peek())) {
-      this.applyTimeShareZoom(targetLevel, anchorViewportX)
-      return
-    }
-
-    const opt = this.deps.options.readonly.options.peek()
-    const result = computeZoom({
-      targetLevel,
-      currentLevel: this.currentZoomLevel,
-      currentKWidth: this.currentKWidth,
-      currentKGap: this.currentKGap,
-      anchorViewportX: anchorViewportX ?? 0,
-      scrollLeftLogical: this.deps.viewport.readonly.scrollLeftLogical.peek(),
-      dpr: this.deps.viewport.readonly.dpr.peek(),
-      config: {
-        minKWidth: opt.minKWidth,
-        maxKWidth: opt.maxKWidth,
-        zoomLevelCount: opt.zoomLevelCount,
-      },
+    const dpr = viewport.readonly.dpr.peek()
+    const timeShare = isTimeSharePeriod(this.deps.period$.peek())
+    const width = Math.max(1, Math.round(before.step * dpr) + target - current) / dpr
+    const options = this.deps.options.readonly.options.peek()
+    const kWidth = zoomLevelToKWidth(target, options)
+    const after = timeShare
+      ? createTimeShareSlotGrid(
+          Math.max(
+            viewport.readonly.minimumTimeShareContentWidth.peek(),
+            viewport.readonly.timeShareSlotCount.peek() * width,
+          ),
+          viewport.readonly.timeShareSlotCount.peek(),
+          dpr,
+        )
+      : createKLineSlotGrid(kWidth, kGapFromKWidth(kWidth, dpr), dpr)
+    const nextScroll = zoomSlotGrid(before, after, scroll, anchor)
+    batch(() => {
+      if (timeShare) this.zoomState.actions.setTimeShareSlotWidth(width)
+      this.zoomState.actions.setZoomLevel(target)
+      viewport.actions.scrollToLogical(nextScroll)
     })
-    if (!result) return
-
-    // 先落级别：viewportState 会用新几何同步重算 maxScrollLeft，再由 scrollTo 统一夹取
-    this.zoomState.actions.setZoomLevel(result.targetLevel)
-    this.deps.viewport.actions.scrollTo(result.scrollLeftLogical + this.deps.getPlotWidth())
-    this.deps.onChange?.()
-  }
-
-  /** 缩放分时槽位宽度，并让手势锚点保持在同一世界坐标。 */
-  private applyTimeShareZoom(targetLevel: number, anchorViewportX?: number): void {
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const currentWidth = this.zoomState.readonly.timeShareSlotWidth.peek() ?? 1 / dpr
-    const currentWidthPx = Math.max(1, Math.round(currentWidth * dpr))
-    const nextWidthPx = Math.max(1, currentWidthPx + (targetLevel - this.currentZoomLevel))
-    if (nextWidthPx === currentWidthPx) return
-
-    const anchor = anchorViewportX ?? 0
-    const scrollLeft = this.deps.viewport.readonly.scrollLeftLogical.peek()
-    const nextScrollLeft = ((scrollLeft + anchor) * nextWidthPx) / currentWidthPx - anchor
-
-    this.zoomState.actions.setZoomLevel(targetLevel)
-    this.zoomState.actions.setTimeShareSlotWidth(nextWidthPx / dpr)
-    this.deps.viewport.actions.scrollTo(nextScrollLeft + this.deps.getPlotWidth())
     this.deps.onChange?.()
   }
 }

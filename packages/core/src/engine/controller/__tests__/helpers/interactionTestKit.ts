@@ -2,6 +2,7 @@
 // 由 interaction.dpr.test.ts / interaction.future.test.ts 共享，替身结构变更只需改这里。
 
 import { createInteractionState } from '@/engine/state/interactionState'
+import type { SlotGrid } from '@/engine/viewport/slotGrid'
 import { writableRef } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData } from '@/types/price'
@@ -40,6 +41,7 @@ export function createChartStub(args: {
   plotHeight: number
   /** 逻辑滚动偏移：getViewport().scrollLeft 与 kernel.viewport.readonly.scrollLeft/scrollLeftLogical.peek() 同源。 */
   scrollLeft?: number
+  slotGrid?: SlotGrid
   /** 内部 K 线数据；省略时使用 2 根默认数据。 */
   data?: KLineData[]
   paneByY?: Array<{
@@ -132,6 +134,7 @@ export function createChartStub(args: {
         readonly: {
           scrollLeft: { peek: () => scrollLeft },
           scrollLeftLogical: { peek: () => scrollLeft },
+          slotGrid: { peek: () => args.slotGrid ?? { origin: 5 / args.dpr, step: 10 / args.dpr } },
           maxScrollLeft: { peek: () => 1_000 },
         },
         actions: {
