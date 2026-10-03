@@ -247,7 +247,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
 
   let canvasDomEffect: (() => void) | null = null
   let webglEffect: (() => void) | null = null
-  let contentWidthDomEffect: (() => void) | null = null
 
   /**
    * 写入请求 scrollLeft；与当前值相等时跳过，避免 pan 重复事件空通知。
@@ -290,15 +289,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       if (plotWidth <= 0 || plotHeight <= 0) return
       const dpr = readonly.dpr()
       _resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
-    })
-    contentWidthDomEffect = effect(() => {
-      if (!readonly.initialized()) return
-      const derivedContentWidth = contentWidth()
-      const scrollContent = _getDom().scrollContent
-      const cssWidth = `${derivedContentWidth}px`
-      if (scrollContent && scrollContent.style.width !== cssWidth) {
-        scrollContent.style.width = cssWidth
-      }
     })
   }
 
@@ -457,10 +447,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     dispose() {
       canvasDomEffect?.()
       webglEffect?.()
-      contentWidthDomEffect?.()
       canvasDomEffect = null
       webglEffect = null
-      contentWidthDomEffect = null
       batch(() => {
         signals.initialized.set(false)
         signals.preciseDpr.set(0)

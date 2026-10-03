@@ -67,6 +67,13 @@ function input(overrides: Partial<ViewInput> & Pick<ViewInput, 'view'>): ViewInp
 }
 
 describe('VIEW_STRATEGIES', () => {
+  it.each([400, 800, 1600])('blank buffers follow the current plot width %s', (width) => {
+    const strategy = VIEW_STRATEGIES[ChartDataViewId.KLine]
+    const projected = strategy.project(input({ view: ChartDataViewId.KLine, width }))
+    expect(projected.domOffset).toBe(width)
+    expect(projected.contentWidth - projected.seriesWidth).toBe(width * 2)
+    expect(projected.scrollBounds.min).toBeGreaterThanOrEqual(-width)
+  })
   it('K 线保持模型滚动并由中心网格派生索引', () => {
     const snapshot = VIEW_STRATEGIES[ChartDataViewId.KLine].project(
       input({ view: ChartDataViewId.KLine, scroll: 0 }),

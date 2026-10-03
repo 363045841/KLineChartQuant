@@ -380,7 +380,10 @@ export class Chart {
         comparison: this.kernel.comparison,
         scheduleDraw: (level) => this.scheduleDraw(level),
         onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
-        resetInteraction: () => this.interaction.reset(),
+        resetInteraction: () => {
+          this.interaction.reset()
+          this.zoomController.stopAnimation()
+        },
         updateIndicatorData: (data, range, dataRevision, displayTimestamps) =>
           this.indicatorManager.updateIndicatorData(data, range, dataRevision, displayTimestamps),
         isPointerDown: () => this.interaction.isPointerDown(),
@@ -435,9 +438,10 @@ export class Chart {
       {
         viewport: this.kernel.viewport,
         options: this.kernel.options,
+        onStart: () => this.interaction.stopInertia(),
         onChange: () => {
           this.scheduleDraw()
-          this.checkVisibleRangeGapWhenIdle()
+          if (!this.zoomController.isAnimating) this.checkVisibleRangeGapWhenIdle()
         },
       },
       this.kernel.zoom,
@@ -471,7 +475,15 @@ export class Chart {
       options: this.kernel.options,
       viewport: this.kernel.viewport,
       commitViewportScroll: (targetScrollLeft) =>
-        this.viewportScrollBridge.commit(targetScrollLeft),
+        this.viewportScrollBridge.commit(
+          targetScrollLeft,
+          this.dom.scrollContent
+            ? {
+                element: this.dom.scrollContent,
+                width: this.kernel.viewport.readonly.contentWidth.peek(),
+              }
+            : undefined,
+        ),
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this.activeMode,
@@ -1312,6 +1324,8 @@ export class Chart {
 
   /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
   private async destroyChart(): Promise<void> {
+    this.interaction.stopInertia()
+    this.zoomController.stopAnimation()
     this.renderer.stopScheduling()
     this.workspacePersistence?.dispose()
     this.workspacePersistence = null
@@ -1509,8 +1523,10 @@ export class Chart {
     this.dataManager.checkVisibleRangeGap()
   }
 
-  private checkVisibleRangeGapWhenIdle(): void {
-    if (!this.interaction.isPointerDown()) this.checkVisibleRangeGap()
+  /** 拖拽、惯性与缩放动画期间不检查行情缺口，视图停稳后再检查。 */
+  checkVisibleRangeGapWhenIdle(): void {
+    if (!this.interaction.isPointerDown() && !this.zoomController.isAnimating)
+      this.checkVisibleRangeGap()
   }
 
   /**
@@ -1547,6 +1563,8 @@ export class Chart {
     spec: SymbolSpec | null = this.dataManager.symbols.peek()[0] ?? null,
     period: string | undefined = spec?.period,
   ) {
+    this.interaction.stopInertia()
+    this.zoomController.stopAnimation()
     const transition = resolveViewTransition({
       period,
       comparisonSpecs: this.kernel.comparison.readonly.specs.peek(),
@@ -1645,6 +1663,10 @@ export class Chart {
     },
   ): boolean {
     // 判断事件目标是否在右轴区域
+    if (e.type === 'pointerdown') {
+      this.interaction.stopInertia()
+      this.zoomController.stopAnimation()
+    }
     const isRightAxis = this.dom.rightAxisLayer.contains(e.target as Node)
     const hadPointer = e.type === 'pointerup' && this.interaction.isPointerDown()
     const drawingHandler =
@@ -1714,6 +1736,7 @@ export class Chart {
    * 按事件目标分流滚轮：价格轴围绕鼠标价位缩放，绘图区缩放时间轴。
    */
   handleWheelEvent(e: WheelEvent): void {
+    this.interaction.stopInertia()
     if (e.target instanceof Node && this.dom.rightAxisLayer.contains(e.target)) {
       this.interaction.onRightAxisWheel(e)
       return

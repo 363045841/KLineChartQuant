@@ -199,7 +199,7 @@ describe('viewportState template', () => {
     )
   })
 
-  it('synchronizes derived content width without writing scroll position', async () => {
+  it('leaves content width and scroll DOM writes to the render frame', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const writes: string[] = []
     const scrollContent = {
@@ -224,7 +224,8 @@ describe('viewportState template', () => {
     module.actions.resize(100, 100, 1)
     module.actions.init()
 
-    expect(writes).toEqual([`width:${module.readonly.contentWidth()}px`])
+    expect(module.readonly.contentWidth()).toBeGreaterThan(100)
+    expect(writes).toEqual([])
   })
 
   it('resize batches dimension writes into one notification', async () => {

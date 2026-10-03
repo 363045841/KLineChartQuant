@@ -147,6 +147,7 @@ export function createChartStub(args: {
       dpr: args.dpr,
     }),
     getCurrentDpr: () => args.dpr,
+    checkVisibleRangeGapWhenIdle: () => undefined,
     kernel: {
       viewport: {
         readonly: {
@@ -157,6 +158,14 @@ export function createChartStub(args: {
           maxScrollLeft: { peek: () => 1_000 },
         },
         actions: {
+          scrollToLogical: (value: number) => {
+            const bounds = viewSnapshot().scrollBounds
+            const next = Math.max(bounds.min, Math.min(bounds.max, value))
+            const changed = scrollLeft !== next
+            scrollLeft = next
+            if (args.scrollTo) args.scrollTo(next)
+            return changed
+          },
           scrollTo: (value: number) => {
             scrollLeft = value
             return args.scrollTo ? args.scrollTo(value) : true
@@ -188,9 +197,6 @@ export function createChartStub(args: {
     updateDrawingHover: () => undefined,
     clearDrawingHover: () => undefined,
     scheduleDraw: args.scheduleDraw ?? (() => undefined),
-    zoomAt: () => undefined,
-    resetPriceOffset: () => undefined,
-    resetPriceTransform: () => undefined,
     panes: { resizeBoundary: () => false },
     scalePrice: () => undefined,
   }

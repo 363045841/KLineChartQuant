@@ -7,7 +7,7 @@
  * 数值基准：dpr=1，viewWidth=plotWidth=1000，dataLength=10，
  * 级别 6→5 缩小一级（kWidth 21→17.4，kGapPx 均钳 3，旧 unitPx=24 / 新 unitPx=20）。
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChartDataView } from '@/engine/state/modeState'
 import { computed, createSignal } from '@/foundation/reactivity/signal'
 import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
@@ -17,8 +17,8 @@ import { createZoomState } from '../../state/zoomState'
 import { ChartZoomController } from '../chartZoomController'
 
 /** 组装真实 viewportState / zoomState / optionsState 与控制器（无 DOM 依赖）。 */
-function makeController(dpr = 1, period = 'daily') {
-  const deps = createViewportStateDeps({ dataLength: 10, period })
+function makeController(dpr = 1, period = 'daily', dataLength = 10, width = 1000) {
+  const deps = createViewportStateDeps({ dataLength, period })
   const zoomState = createZoomState({
     minKWidth$: createSignal(3),
     maxKWidth$: createSignal(21),
@@ -37,7 +37,7 @@ function makeController(dpr = 1, period = 'daily') {
     zoomLevel$: zoomState.readonly.zoomLevel,
     timeShareSlotWidth$: zoomState.readonly.timeShareSlotWidth,
   })
-  viewport.actions.resize(1000, 500, dpr)
+  viewport.actions.resize(width, 500, dpr)
 
   const options = createOptionsState({
     yPaddingPx: 20,
@@ -62,6 +62,137 @@ function makeController(dpr = 1, period = 'daily') {
   )
   return { viewport, controller }
 }
+
+describe('ChartZoomController smooth zoom', () => {
+  let time: number
+  let frames: Map<number, FrameRequestCallback>
+  let frameId: number
+  beforeEach(() => {
+    time = 0
+    frameId = 0
+    frames = new Map()
+    vi.spyOn(performance, 'now').mockImplementation(() => time)
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.set(++frameId, callback)
+      return frameId
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id))
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+  const step = (dt: number) => {
+    time += dt
+    const callbacks = [...frames.values()]
+    frames.clear()
+    for (const callback of callbacks) callback(time)
+  }
+
+  it.each([1, 1.25, 1.5, 2, 3])('interpolates around the pointer slot at DPR=%s', (dpr) => {
+    const { controller, viewport } = makeController(dpr)
+    const before = viewport.readonly.viewSnapshot.peek()
+    const pointer = before.grid.origin + before.grid.step * 4.37 - before.scroll
+    controller.handleWheel(1, pointer)
+    expect(controller.currentZoomLevel).toBe(6)
+    step(40)
+    expect(controller.currentZoomLevel).toBeGreaterThan(5)
+    expect(controller.currentZoomLevel).toBeLessThan(6)
+    for (const dt of [40, 40, 60]) {
+      const view = viewport.readonly.viewSnapshot.peek()
+      expect((view.scroll + pointer - view.grid.origin) / view.grid.step).toBeCloseTo(4.37, 10)
+      step(dt)
+    }
+    expect(controller.currentZoomLevel).toBe(5)
+    expect(frames.size).toBe(0)
+  })
+
+  it.each([400, 800, 1600])(
+    'keeps the last several candles at the pointer throughout zoom, width=%s',
+    (width) => {
+      for (const dpr of [1, 1.5, 2]) {
+        for (const distance of [2, 3, 10, 30, 60]) {
+          for (const delta of [-1, 1]) {
+            const { controller, viewport } = makeController(dpr, 'daily', 600, width)
+            controller.zoomToLevel(delta < 0 ? 4 : 5)
+            const slot = 600 - distance + 0.2
+            const anchor = width * 0.75
+            const initial = viewport.readonly.viewSnapshot.peek()
+            viewport.actions.scrollToLogical(
+              initial.grid.origin + slot * initial.grid.step - anchor,
+            )
+            controller.handleWheel(delta, anchor)
+            for (let frame = 0; frame < 12; frame++) {
+              step(16)
+              const view = viewport.readonly.viewSnapshot.peek()
+              expect((view.scroll + anchor - view.grid.origin) / view.grid.step).toBeCloseTo(
+                slot,
+                9,
+              )
+            }
+            expect(frames.size).toBe(0)
+          }
+        }
+      }
+    },
+  )
+
+  it('accumulates wheel input and reverses smoothly from the current size', () => {
+    const { controller } = makeController()
+    controller.handleWheel(1, 100)
+    step(40)
+    const intermediate = controller.currentZoomLevel
+    controller.handleWheel(1, 100)
+    expect(controller.currentZoomLevel).toBe(intermediate)
+    step(180)
+    expect(controller.currentZoomLevel).toBe(4)
+    controller.zoomIn(100)
+    step(40)
+    const growing = controller.currentZoomLevel
+    controller.zoomOut(100)
+    expect(controller.currentZoomLevel).toBe(growing)
+    step(180)
+    expect(controller.currentZoomLevel).toBe(4)
+  })
+
+  it.each(['min', 'max'] as const)('clamps every frame at the %s boundary', (side) => {
+    const { controller, viewport } = makeController()
+    controller.zoomToLevel(3)
+    viewport.actions.scrollToLogical(side === 'min' ? -10000 : 10000)
+    controller.handleWheel(-1, side === 'min' ? 0 : 1000)
+    for (let i = 0; i < 12; i++) {
+      step(16)
+      const view = viewport.readonly.viewSnapshot.peek()
+      expect(view.scroll).toBeGreaterThanOrEqual(view.scrollBounds.min)
+      expect(view.scroll).toBeLessThanOrEqual(view.scrollBounds.max)
+      expect(Math.min(view.range.end, 10) - Math.max(view.range.start, 0)).toBeGreaterThanOrEqual(2)
+    }
+    expect(controller.currentZoomLevel).toBe(4)
+  })
+
+  it('cancels pending zoom when dragging starts and accepts an immediate level jump', () => {
+    const { controller } = makeController()
+    controller.zoomOut()
+    step(40)
+    controller.stopAnimation()
+    const stopped = controller.currentZoomLevel
+    step(200)
+    expect(controller.currentZoomLevel).toBe(stopped)
+    expect(frames.size).toBe(0)
+    controller.zoomIn()
+    controller.zoomToLevel(2)
+    step(200)
+    expect(controller.currentZoomLevel).toBe(2)
+    expect(frames.size).toBe(0)
+  })
+
+  it('keeps pinch changes continuous instead of rounding them to levels', () => {
+    const { controller } = makeController()
+    controller.zoomToLevel(3)
+    controller.handlePinch(0.25, 100)
+    expect(controller.currentZoomLevel).toBe(3.25)
+  })
+})
 
 describe('ChartZoomController 有界槽位', () => {
   it.each([1, 1.25, 1.5, 2])('DPR=%s：放大时实际槽位间距同步增长', (dpr) => {

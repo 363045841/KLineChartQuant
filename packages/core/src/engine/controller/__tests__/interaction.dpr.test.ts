@@ -57,8 +57,14 @@ describe('InteractionController DPR consumption', () => {
       clientY: 40,
       isPrimary: true,
       pointerId: 1,
+      timeStamp: 0,
     } as PointerEvent)
-    interaction.onPointerMove({ clientX: 30, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.onPointerMove({
+      clientX: 30,
+      clientY: 40,
+      isPrimary: true,
+      timeStamp: 100,
+    } as PointerEvent)
     expect(interaction.crosshairPos).toBeNull()
     expect(interaction.hoveredIndex).toBeNull()
 
@@ -67,6 +73,7 @@ describe('InteractionController DPR consumption', () => {
       clientY: 40,
       isPrimary: true,
       pointerId: 1,
+      timeStamp: 220,
     } as PointerEvent)
     // 平移已更新模型滚动量，渲染帧封存新投影后用松手位置恢复 hover。
     interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())

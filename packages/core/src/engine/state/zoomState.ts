@@ -33,19 +33,25 @@ export function createZoomState(deps: ZoomDeps) {
       zoomLevelCount: deps.zoomLevelCount,
     }),
   )
+  const setLevel = (level: number): void => {
+    if (!Number.isFinite(level)) return
+    const view = deps.dataView$.peek()
+    const sizes = state.readonly.sizes.peek()
+    state.signals.sizes.set({
+      ...sizes,
+      [view]: { ...sizes[view], level: Math.max(1, Math.min(deps.zoomLevelCount, level)) },
+    })
+  }
   return {
     readonly: { zoomLevel, timeShareSlotWidth, kWidth },
     actions: {
       /** 写入当前视图的合法尺寸级别。 */
       setZoomLevel(level: number): void {
         if (!Number.isFinite(level)) return
-        const view = deps.dataView$.peek()
-        const sizes = state.readonly.sizes.peek()
-        state.signals.sizes.set({
-          ...sizes,
-          [view]: { ...sizes[view], level: clampZoomLevel(level, deps.zoomLevelCount) },
-        })
+        setLevel(clampZoomLevel(level, deps.zoomLevelCount))
       },
+      /** 动画帧的连续级别；仍由模型派生宽度与槽位，结束时落到完整档位。 */
+      setZoomProgress: setLevel,
       /** 原子导航事务使用的交易槽宽，null 表示由策略适配初始布局。 */
       setSessionSlotWidth(width: number | null): void {
         if (width !== null && (!Number.isFinite(width) || width <= 0)) return

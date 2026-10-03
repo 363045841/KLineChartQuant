@@ -646,7 +646,16 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
-  it('checks after mouse pointerup and wheel zoom, but never during a held pointer', async () => {
+  it('checks after smooth wheel zoom settles, but never during a held pointer', async () => {
+    const frames = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.set(++frameId, callback)
+      return frameId
+    })
+    vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((id) => {
+      frames.delete(id)
+    })
     const dom = createChartDom(1000, 600)
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
@@ -662,9 +671,13 @@ describe('Chart DPR pipeline', () => {
     expect(check).not.toHaveBeenCalled()
 
     chart.handlePointerEvent(pointerEvent('pointerup', dom.container, mouse))
-    expect(check).toHaveBeenCalledOnce()
+    expect(check).not.toHaveBeenCalled()
     chart.handleWheelEvent({ deltaY: -1, clientX: 100 } as WheelEvent)
-    expect(check).toHaveBeenCalledTimes(2)
+    expect(check).not.toHaveBeenCalled()
+    const callbacks = [...frames.values()]
+    frames.clear()
+    for (const callback of callbacks) callback(performance.now() + 200)
+    expect(check).toHaveBeenCalledOnce()
     await chart.destroy()
   })
 

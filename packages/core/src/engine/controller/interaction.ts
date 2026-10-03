@@ -54,6 +54,8 @@ export class InteractionController {
   // ── Plain fields (kept — internal event processing only, not exposed) ──
   private dragStartX = 0
   private scrollStartX = 0
+  private panSamples: Array<{ scroll: number; time: number }> = []
+  private inertiaFrame: number | null = null
   private dragStartY = 0
   /** maxScrollLeft at drag start, cached to prevent jumps when scrollWidth grows mid-drag */
   private _cachedMaxScrollLeft = -1
@@ -153,7 +155,84 @@ export class InteractionController {
   }
 
   isPointerDown(): boolean {
-    return this._state.readonly.isDragging.peek() || this.pinchTracker.getPointerCount() > 0
+    return (
+      this._state.readonly.isDragging.peek() ||
+      this.pinchTracker.getPointerCount() > 0 ||
+      this.inertiaFrame !== null
+    )
+  }
+
+  /** 新输入、视图重置及销毁时立即取消惯性。 */
+  stopInertia(): void {
+    if (this.inertiaFrame !== null) cancelAnimationFrame(this.inertiaFrame)
+    this.inertiaFrame = null
+    this.panSamples = []
+  }
+
+  private samplePan(time: number): void {
+    this.panSamples.push({
+      scroll: this.chart.kernel.viewport.readonly.scrollLeftLogical.peek(),
+      time,
+    })
+    while (this.panSamples.length > 2 && this.panSamples[1]!.time <= time - 100) {
+      this.panSamples.shift()
+    }
+  }
+
+  private startInertia(releaseTime: number): boolean {
+    const first = this.panSamples[0]
+    const last = this.panSamples.at(-1)
+    if (!first || !last || releaseTime - last.time >= 100) return false
+    const elapsed = releaseTime - first.time
+    if (elapsed <= 0) return false
+    let velocity = Math.max(-3, Math.min(3, (last.scroll - first.scroll) / elapsed))
+    if (Math.abs(velocity) < 0.15) return false
+
+    const initialView = this.chart.kernel.viewport.readonly.viewSnapshot.peek()
+    if (!initialView.capabilities.allowPan) return false
+    let position = initialView.scroll
+    let expectedScroll = initialView.scroll
+    let lastTime = performance.now()
+    const finish = () => {
+      this.stopInertia()
+      if (!this.isTouchSession && this.lastClientPos) this.queueHoverFlush()
+      this.chart.checkVisibleRangeGapWhenIdle()
+    }
+    const advance = (time: number) => {
+      const view = this.chart.kernel.viewport.readonly.viewSnapshot.peek()
+      // 切换视图、缩放或外部导航后不再使用旧的运动轨迹。
+      if (
+        !view.capabilities.allowPan ||
+        view.view !== initialView.view ||
+        view.grid.step !== initialView.grid.step ||
+        view.scroll !== expectedScroll
+      ) {
+        finish()
+        return
+      }
+      const dt = Math.max(0, time - lastTime)
+      lastTime = time
+      const decay = Math.exp(-dt / 240)
+      position += velocity * 240 * (1 - decay)
+      velocity *= decay
+      const { min, max } = view.scrollBounds
+      const bounded = Math.max(min, Math.min(max, position))
+      const dpr = this.chart.getCurrentDpr()
+      const aligned = Math.max(min, Math.min(max, Math.round(bounded * dpr) / dpr))
+      if (this.chart.kernel.viewport.actions.scrollToLogical(aligned)) {
+        this.clearHover(true)
+        this.chart.scheduleDraw()
+      }
+      expectedScroll = this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
+      if (bounded !== position || Math.abs(velocity) < 0.02) {
+        finish()
+        return
+      }
+      this.inertiaFrame = requestAnimationFrame(advance)
+    }
+    this.clearHover(true)
+    this.inertiaFrame = requestAnimationFrame(advance)
+    return true
   }
 
   /**
@@ -189,6 +268,7 @@ export class InteractionController {
    * @param e PointerEvent
    */
   onPointerDown(e: PointerEvent) {
+    this.stopInertia()
     this.isTouchSession = e.pointerType === 'touch'
     if (this.pinchTracker.handlePointerDown(e, this.isTouchSession)) {
       // 保留首指的 capture；第二指也需 capture，离开容器后仍能收到最后的 pointerup。
@@ -248,6 +328,7 @@ export class InteractionController {
     this.dragStartX = e.clientX
     this.dragStartY = e.clientY
     this.scrollStartX = this.chart.kernel.viewport.readonly.scrollLeft.peek()
+    this.samplePan(e.timeStamp ?? performance.now())
     this._cachedMaxScrollLeft = -1
     this.capturePointer(e, this.chart.getDom().container)
     this.activePaneIdOnDrag = pane?.id || null
@@ -306,9 +387,10 @@ export class InteractionController {
       }
     }
 
+    const inertiaStarted = wasPanning && this.startInertia(e.timeStamp ?? performance.now())
     this.endDragSession()
     // 鼠标平移结束后按当前指针位置恢复 hover；触屏由 explore 模式单独控制。
-    if (wasPanning && !this.isTouchSession) {
+    if (wasPanning && !this.isTouchSession && !inertiaStarted) {
       this.queueHoverFlush()
     }
   }
@@ -340,6 +422,7 @@ export class InteractionController {
   onPointerCancel(e: PointerEvent) {
     this.pinchTracker.handlePointerUp(e)
     if (e.isPrimary === false || !this.isActivePointer(e)) return
+    this.stopInertia()
     this.endDragSession()
     this.clearHover()
     this.chart.scheduleDraw()
@@ -348,7 +431,10 @@ export class InteractionController {
 
   /** capture 被浏览器或宿主释放时，不能再继续依据后续 move 推导拖拽。 */
   onLostPointerCapture(e: PointerEvent) {
+    // 正常松手主动释放 capture 不应取消刚启动的惯性。
+    if (this.activePointerId === null) return
     if (!this.isActivePointer(e)) return
+    this.stopInertia()
     this.endDragSession(false)
     this.clearHover()
     this.chart.scheduleDraw()
@@ -436,6 +522,7 @@ export class InteractionController {
           // 程序化滚动不再依赖原生 scroll 回调驱动重绘；统一交给 ChartRenderer 帧事务。
           this.chart.scheduleDraw()
         }
+        this.samplePan(e.timeStamp ?? performance.now())
 
         const deltaY = e.clientY - this.dragStartY
         this.dragStartY = e.clientY
@@ -481,6 +568,7 @@ export class InteractionController {
    * 无 pending 时为 no-op。
    */
   flushPendingHover(): void {
+    if (this.inertiaFrame !== null) return
     if (!this.hoverFlushPending) return
     this.hoverFlushPending = false
     if (!this.lastClientPos) return
@@ -516,7 +604,7 @@ export class InteractionController {
     this.frameView = snapshot
 
     // 几何变化时标记 hover 待刷新；由 flushPendingHover 与 paint 同帧完成
-    if (!unchanged && this.lastClientPos && !this._state.readonly.isDragging.peek()) {
+    if (!unchanged && this.lastClientPos && !this.isPointerDown()) {
       this.hoverFlushPending = true
       this.flushPendingHover()
     }
@@ -1051,6 +1139,7 @@ export class InteractionController {
    * 重置所有交互状态（数据更新时调用）
    */
   reset(): void {
+    this.stopInertia()
     this.endDragSession()
     this.dragStartX = 0
     this.dragStartY = 0
