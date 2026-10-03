@@ -12,19 +12,26 @@
       ></textarea>
       <div class="composer__footer">
         <div class="composer__meta">
-          <Dropdown
+          <DropMenu
             class="composer__model"
-            allow-empty
-            size="sm"
-            placement="top"
-            :model-value="provider.modelId"
-            :options="modelOptions"
-            :placeholder="modelsLoading ? text.loadingModels : text.modelPlaceholder"
-            :aria-label="text.model"
+            :label="text.model"
+            :groups="modelGroups"
+            :empty-text="text.noModelsInPool"
             :disabled="running || !provider.configured"
+            placement="top"
             @open="$emit('models-open')"
-            @update:model-value="$emit('model', $event)"
-          />
+            @select="selectModel"
+          >
+            <template #trigger>
+              <span class="composer__model-value">{{ modelTriggerLabel }}</span>
+              <span class="composer__model-chevron" aria-hidden="true"></span>
+            </template>
+            <template #item-action="{ item }">
+              <span v-if="item.id === provider.modelId" class="composer__model-check">
+                <IconCheck aria-hidden="true" />
+              </span>
+            </template>
+          </DropMenu>
           <Dropdown
             v-if="provider.reasoningEfforts?.length"
             class="composer__reasoning"
@@ -82,8 +89,10 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
+  import IconCheck from '~icons/tabler/check'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import Dropdown from '../../../components/Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from '../../../components/DropMenu.vue'
   import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
@@ -106,9 +115,18 @@
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
-  const modelOptions = computed(() =>
-    props.models.map((model) => ({ value: model.id, label: model.name })),
-  )
+  const modelGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'models',
+      label: props.provider.profileName ?? props.provider.providerLabel,
+      items: props.models.map((model) => ({ id: model.id, label: model.name })),
+    },
+  ])
+  const modelTriggerLabel = computed(() => {
+    const selected = props.models.find((model) => model.id === props.provider.modelId)
+    if (selected) return selected.name
+    return props.modelsLoading ? text.value.loadingModels : text.value.modelPlaceholder
+  })
   const reasoningOptions = computed(() =>
     (props.provider.reasoningEfforts ?? []).map((effort) => ({ value: effort, label: effort })),
   )
@@ -124,6 +142,11 @@
       accessibleLabel: label,
     }
   })
+
+  /** 从模型菜单选择模型并上报。 */
+  function selectModel(_groupId: string, modelId: string): void {
+    emit('model', modelId)
+  }
 
   function onKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
@@ -223,6 +246,75 @@
   .composer__model,
   .composer__reasoning {
     min-width: 0;
+  }
+
+  .composer__model :deep(.drop-menu__trigger) {
+    max-width: 160px;
+    height: 26px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px;
+    border: 1px solid var(--agent-border);
+    border-radius: 8px;
+    color: var(--agent-text);
+    background: var(--agent-hover);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .composer__model :deep(.drop-menu__trigger:hover),
+  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) {
+    border-color: var(--agent-border-strong);
+    background: var(--agent-input);
+  }
+
+  .composer__model :deep(.drop-menu__trigger:focus-visible) {
+    outline: none;
+    border-color: var(--agent-accent);
+    background: var(--agent-input);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-accent) 24%, transparent);
+  }
+
+  .composer__model :deep(.drop-menu__trigger:disabled) {
+    color: var(--agent-text-soft);
+    background: transparent;
+    cursor: not-allowed;
+  }
+
+  .composer__model-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .composer__model-chevron {
+    width: 0;
+    height: 0;
+    flex: 0 0 auto;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--agent-muted);
+  }
+
+  /* 当前模型的勾选标记始终可见，不受 item-action 悬停显隐控制。 */
+  .composer__model-check {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    color: var(--agent-text);
+    visibility: visible;
+  }
+
+  .composer__model-check svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .composer__reasoning {
     --dropdown-trigger-background: var(--agent-hover);
     --dropdown-trigger-color: var(--agent-text);
     --dropdown-trigger-chevron: var(--agent-muted);
@@ -234,7 +326,6 @@
       color-mix(in srgb, var(--agent-accent) 24%, transparent);
   }
 
-  .composer__model :deep(.dropdown__trigger),
   .composer__reasoning :deep(.dropdown__trigger) {
     max-width: 160px;
     height: 26px;
@@ -242,7 +333,6 @@
     padding: 0 9px;
   }
 
-  .composer__model :deep(.dropdown__value),
   .composer__reasoning :deep(.dropdown__value) {
     min-width: 0;
     overflow: hidden;
@@ -253,7 +343,6 @@
     white-space: nowrap;
   }
 
-  .composer__model :deep(.dropdown__trigger:disabled),
   .composer__reasoning :deep(.dropdown__trigger:disabled) {
     color: var(--agent-text-soft);
     background: transparent;

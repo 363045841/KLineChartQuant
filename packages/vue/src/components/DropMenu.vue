@@ -47,7 +47,9 @@
               <slot name="item-action" :group="group" :item="item" />
             </span>
           </div>
-          <div v-if="group.items.length === 0" class="drop-menu__empty">暂无模板</div>
+          <div v-if="group.items.length === 0 && emptyText" class="drop-menu__empty">
+            {{ emptyText }}
+          </div>
         </div>
         <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
       </div>
@@ -77,6 +79,8 @@
     /** 菜单相对触发按钮的弹出方向。 */
     placement?: 'auto' | 'top' | 'bottom'
     message?: string
+    /** 分组为空时展示的提示；未提供时不渲染空提示。 */
+    emptyText?: string
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]

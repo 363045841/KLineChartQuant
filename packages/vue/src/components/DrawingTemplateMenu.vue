@@ -4,6 +4,7 @@
     :groups="groups"
     :disabled="disabled"
     :message="message"
+    empty-text="暂无模板"
     :trigger-class="triggerClass"
     @open="emit('open')"
     @select="select"
@@ -67,7 +68,9 @@
           {
             id: 'save',
             label: '保存',
-            items: [{ id: 'save', label: '保存为模板', disabled: props.disabled || !props.canSave }],
+            items: [
+              { id: 'save', label: '保存为模板', disabled: props.disabled || !props.canSave },
+            ],
           },
         ]
       : []),

@@ -97,10 +97,10 @@ describe('AgentWorkspace', () => {
     )
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
-    const modelTrigger = mounted.wrapper.get('.composer__model .dropdown__trigger')
+    const modelTrigger = mounted.wrapper.get('.composer__model .drop-menu__trigger')
     await modelTrigger.trigger('click')
     await flushPromises()
-    await document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
+    await document.querySelector<HTMLButtonElement>('.drop-menu__item-main')!.click()
     await flushPromises()
 
     await textarea.trigger('keydown', { key: 'Enter' })
@@ -122,17 +122,17 @@ describe('AgentWorkspace', () => {
     document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
     await flushPromises()
 
-    await mounted.wrapper.get('.composer__model .dropdown__trigger').trigger('click')
+    await mounted.wrapper.get('.composer__model .drop-menu__trigger').trigger('click')
     await flushPromises()
     expect(
-      [...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map(
+      [...document.querySelectorAll<HTMLButtonElement>('.drop-menu__item-main')].map(
         (option) => option.textContent,
       ),
     ).toEqual(['Provider Model A', 'Provider Model B'])
 
-    await document.querySelectorAll<HTMLButtonElement>('.dropdown__option')[1]!.click()
+    await document.querySelectorAll<HTMLButtonElement>('.drop-menu__item-main')[1]!.click()
     await flushPromises()
-    expect(mounted.wrapper.get('.composer__model .dropdown__value').text()).toBe('Provider Model B')
+    expect(mounted.wrapper.get('.composer__model-value').text()).toBe('Provider Model B')
   })
 
   it('switches the interface language from the settings dialog', async () => {
