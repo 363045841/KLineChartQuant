@@ -36,8 +36,8 @@
 
 ## 分层
 
-能力探测是纯工具（只依赖 `errors`），放在 `foundation/utils/rendererCapability.ts`，因此 `foundation/config` 引用它属于同层依赖，不产生 foundation → rendering 的反向依赖。后端选择 `selectBackend` 仍留在 `rendering/renderer-tier/`，从 foundation 上引。
+能力探测是纯工具（只依赖 `errors`），放在 `foundation/utils/rendererCapability.ts`，因此 `foundation/config` 引用它属于同层依赖，不产生 foundation → rendering 的反向依赖。实际后端选择由 `RendererHost` 自身的降级链负责（`rendering/render/rendererHost.ts`）。
 
 ## 边界
 
-探测结果只作为**初始偏好默认**，不作为 runtime 生效状态源。生效后端仍以 `RendererHost.runtime.effective` 为准（见 `docs/rendering-pipeline.md` §14.1 与 `docs/design/axis-preference-vs-effective.md` 的偏好/生效拆分）。
+探测结果只作为**初始偏好默认**，不作为 runtime 生效状态源。生效后端仍以 `RendererHost.runtime.effective` 为准（见 `docs/rendering-pipeline.md` §12 与 `docs/design/axis-preference-vs-effective.md` 的偏好/生效拆分）。

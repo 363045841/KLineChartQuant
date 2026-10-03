@@ -10,11 +10,7 @@ import type { Layer } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { resolveTimeShareBaseline } from '../modes/index.js'
-import {
-  drawAreaFill,
-  drawPreCloseLine,
-  drawSegmentLine,
-} from '../render/layers/timeShareCommon.js'
+import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShareCommon.js'
 
 /** 分时主图 Layer：按可见范围绘制价格线、均价线与昨收基线。 */
 export function createTimeShareLayer(): Layer<RenderContext> {

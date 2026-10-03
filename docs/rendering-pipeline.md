@@ -699,46 +699,11 @@ WebGPU `device.lost` 回调进入 `RendererHost.handleDeviceLost()`：
 
 不要在 Layer 内建立第二套 resize、DPR 或 scroll 缓存。
 
-## 14. 尚未接入主链路的能力
+## 14. 扩展规则
 
-以下代码存在并有独立测试，但不是 ChartRenderer 当前运行时的一部分。
+### 14.1 新增业务图形
 
-### 14.1 `renderer-tier`
-
-能力探测已下移到 `foundation/utils/rendererCapability`（`detectRendererTier` 等），同步探测：
-
-```text
-webgpu > webgl2 > canvas2d > none
-```
-
-探测结果只用于推导 `settings.rendererBackend` 的**初始偏好默认**（映射 `webgl2 → webgl`、
-`canvas2d → canvas`、`none → webgl`，见 `docs/design/renderer-backend-default-detection.md`），
-不作为 runtime 状态源。`rendering/renderer-tier` 仅保留 `selectBackend`（从调用方 registry
-选择 factory），尚未接入 RendererHost。
-
-RendererHost 有自己的实际创建与降级链，backend 命名为 `webgpu | webgl | canvas`，其
-`runtime.effective` 是生效后端的唯一来源。在统一命名、runtime 和失败语义前，不能把两套选择结果
-同时作为状态来源。
-
-### 14.2 `scheduler`
-
-`rendering/scheduler/createFrameBudget.ts` 提供优先级队列、同 id 合并、deadline、队列上限和帧耗时
-统计。它适合可分片工作，但没有接入 FrameTransaction 或 ChartRenderer。
-
-FrameTransaction 负责原子帧快照，FrameBudget 负责可延期任务，两者语义不同。
-
-### 14.3 `retainedScene`
-
-`rendering/scene/retainedScene.ts` 已实现按 key/revision 保存 rects、lines 和 band 节点，并支持按 pane
-收集、z 排序和过期清理。主 Scene 当前仍逐帧调用 Layer.paint，尚未消费 RetainedScene 节点。
-
-WebGPUResourceTable 的局部 buffer 复用不等于 RetainedScene 已接入。
-
-## 15. 扩展规则
-
-### 15.1 新增业务图形
-
-1. 在 `engine/render/layers` 或 `engine/renderers` 实现 Layer/RendererPlugin。
+1. 在 `engine/renderers` 实现 Layer/RendererPlugin。
 2. 从 `RenderContext` 读取本帧数据和几何，不读取 DOM。
 3. 优先使用已有 `drawInstances/drawLines` helper。
 4. GPU 返回 false 时完整执行 Canvas2D fallback。
@@ -746,7 +711,7 @@ WebGPUResourceTable 的局部 buffer 复用不等于 RetainedScene 已接入。
 6. 缓存的 GPU 资源必须按 Renderer 实例隔离；后端切换后不能复用旧 handle。
 7. dispose 时释放 Layer 持有的资源。
 
-### 15.2 扩展 Renderer 原语
+### 14.2 扩展 Renderer 原语
 
 只有现有原语无法表达、且多个业务功能确实共享同一能力时才扩展接口。扩展必须同时定义：
 
@@ -757,7 +722,7 @@ WebGPUResourceTable 的局部 buffer 复用不等于 RetainedScene 已接入。
 - Host 热切换后的缓存失效方式。
 - contract tests。
 
-### 15.3 新增后端
+### 14.3 新增后端
 
 1. 实现完整 `SurfaceBackend`。
 2. 实现 `Renderer`，准确声明 caps。
@@ -766,17 +731,15 @@ WebGPUResourceTable 的局部 buffer 复用不等于 RetainedScene 已接入。
 5. 覆盖 resize、region、clear、draw、fallback、dispose 和设备丢失测试。
 6. 核心引擎设计变化需在 `docs/design` 增加设计决策文档。
 
-## 16. 测试与诊断
+## 15. 测试与诊断
 
-### 16.1 自动测试
+### 15.1 自动测试
 
 渲染基础设施测试位于：
 
 - `rendering/scene/__tests__`
 - `rendering/render/__tests__`
-- `rendering/renderer-tier/__tests__`
 - `foundation/utils/__tests__/rendererCapability.test.ts`
-- `rendering/scheduler/__tests__`
 - `engine/renderers/__tests__`
 - `engine/__tests__/renderSinglePath.test.ts`
 - `engine/__tests__/paneRenderer.resize.test.ts`
@@ -794,12 +757,12 @@ pnpm --filter @363045841yyt/klinechart-core test
 pnpm test:packages
 ```
 
-### 16.2 Frame metrics
+### 15.2 Frame metrics
 
-WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upload、composite 和 frame
+WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upload 和 frame
 边界。修改资源复用或提交策略时，应检查指标而不是只观察视觉结果。
 
-### 16.3 手工验证
+### 15.3 手工验证
 
 1. 浏览器缩放 80%、100%、125%、150% 时 K 线和 1px 线清晰。
 2. 跨不同 DPR 屏幕移动窗口后立即恢复清晰。
@@ -812,7 +775,7 @@ WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upl
 9. WebGPU 多 pane 一帧只有一次常规 queue submit。
 10. 主图和副图同时有 GPU batch 时，资源内容不会互相覆盖。
 
-## 17. 关键文件
+## 16. 关键文件
 
 **组合与帧编排**
 
@@ -834,7 +797,7 @@ WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upl
 - `rendering/scene/types.ts`
 - `rendering/scene/createScene.ts`
 - `rendering/scene/createLayerFromPlugin.ts`
-- `engine/render/layers/*`
+- `engine/renderers/*`
 
 **Renderer 与后端**
 
@@ -854,7 +817,7 @@ WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upl
 - `engine/renderers/candleViaRenderer.ts`
 - `engine/renderers/linesViaRenderer.ts`
 
-## 18. 维护要求
+## 17. 维护要求
 
 修改渲染主链路时，必须同步检查本文涉及的五个契约：
 

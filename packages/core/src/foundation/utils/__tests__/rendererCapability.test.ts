@@ -1,5 +1,5 @@
 /**
- * Tests for `detectRendererTier` + the rank helpers.
+ * Tests for `detectRendererTier`.
  *
  * Coverage:
  *   1. Probe selection cascade — WebGPU wins, WebGL2 wins when no GPU,
@@ -8,25 +8,14 @@
  *   3. Probes throwing are treated as "not available", error message
  *      folded into reason.
  *   4. `tried` enumerates the probed order.
- *   5. `detectRendererTierOrThrow` throws KLineChartError on `'none'`.
- *   6. `compareRendererTier` honours `webgpu > webgl2 > canvas2d > none`.
- *   7. `isTierAtLeast` works for all four tiers.
- *   8. Production probes (no override) run without crashing — in Node
+ *   5. Production probes (no override) run without crashing — in Node
  *      they should pick `'none'` since there's no document/navigator
  *      with these capabilities.
  */
 
 import { describe, expect, it } from 'vitest'
 
-import { isKLineChartError } from '@/errors'
-import {
-  compareRendererTier,
-  detectRendererTier,
-  detectRendererTierOrThrow,
-  isTierAtLeast,
-  RENDERER_TIER_RANK,
-  type RendererTier,
-} from '../rendererCapability'
+import { detectRendererTier } from '../rendererCapability'
 
 // Helpers — return preset probe maps for each scenario.
 const TRUE = (): boolean => true
@@ -101,67 +90,6 @@ describe('detectRendererTier — reason narrative', () => {
       probes: { webgpu: THROW('gpu denied'), webgl2: TRUE, canvas2d: TRUE },
     })
     expect(r.tier).toBe('webgl2')
-  })
-})
-
-describe('detectRendererTierOrThrow', () => {
-  it('returns the tier result when a tier is found', () => {
-    const r = detectRendererTierOrThrow({ probes: { webgpu: TRUE } })
-    expect(r.tier).toBe('webgpu')
-  })
-
-  it('throws KLineChartError(INVALID_STATE) when no tier is found', () => {
-    try {
-      detectRendererTierOrThrow({
-        probes: { webgpu: FALSE, webgl2: FALSE, canvas2d: FALSE },
-      })
-      expect.fail('expected throw')
-    } catch (e) {
-      expect(isKLineChartError(e, 'INVALID_STATE')).toBe(true)
-    }
-  })
-})
-
-describe('compareRendererTier', () => {
-  it.each([
-    ['webgpu', 'webgl2', 1],
-    ['webgl2', 'webgpu', -1],
-    ['webgpu', 'webgpu', 0],
-    ['webgl2', 'canvas2d', 1],
-    ['canvas2d', 'webgl2', -1],
-    ['canvas2d', 'none', 1],
-    ['none', 'canvas2d', -1],
-    ['none', 'none', 0],
-  ] as Array<[RendererTier, RendererTier, -1 | 0 | 1]>)('%s vs %s = %d', (a, b, expected) => {
-    expect(compareRendererTier(a, b)).toBe(expected)
-  })
-})
-
-describe('isTierAtLeast', () => {
-  it('webgpu satisfies any minimum', () => {
-    expect(isTierAtLeast('webgpu', 'webgpu')).toBe(true)
-    expect(isTierAtLeast('webgpu', 'webgl2')).toBe(true)
-    expect(isTierAtLeast('webgpu', 'canvas2d')).toBe(true)
-    expect(isTierAtLeast('webgpu', 'none')).toBe(true)
-  })
-
-  it('webgl2 does not satisfy webgpu minimum', () => {
-    expect(isTierAtLeast('webgl2', 'webgpu')).toBe(false)
-    expect(isTierAtLeast('webgl2', 'webgl2')).toBe(true)
-  })
-
-  it('none satisfies only the none minimum', () => {
-    expect(isTierAtLeast('none', 'none')).toBe(true)
-    expect(isTierAtLeast('none', 'canvas2d')).toBe(false)
-  })
-})
-
-describe('RENDERER_TIER_RANK', () => {
-  it('ranks the tiers in the documented order', () => {
-    expect(RENDERER_TIER_RANK.webgpu).toBe(3)
-    expect(RENDERER_TIER_RANK.webgl2).toBe(2)
-    expect(RENDERER_TIER_RANK.canvas2d).toBe(1)
-    expect(RENDERER_TIER_RANK.none).toBe(0)
   })
 })
 

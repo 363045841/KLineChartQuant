@@ -70,8 +70,20 @@ import {
 } from '../marker/registry.js'
 import type { ChartModeHandler } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
+import { createCandleLayer } from '../renderers/candle.js'
+import { createComparisonLineLayer } from '../renderers/comparisonLine.js'
+import { createCrosshairLayer } from '../renderers/crosshair.js'
+import { createCustomMarkersLayer } from '../renderers/customMarkers.js'
+import { createExtremaMarkersLayer } from '../renderers/extremaMarkers.js'
+import { createFiveDayTimeShareLayer } from '../renderers/fiveDayTimeShare.js'
+import { createGridLinesLayer } from '../renderers/gridLines.js'
 import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import { createTimeAxisLayer } from '../renderers/timeAxis.js'
+import { createTimeShareLayer } from '../renderers/timeShare.js'
+import {
+  createYAxisOverlayRendererLayer,
+  createYAxisStaticRendererLayer,
+} from '../renderers/yAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import type { ChartDataView } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
@@ -83,15 +95,6 @@ import {
   computeVisiblePriceExtrema,
   type VisiblePriceExtrema,
 } from '../utils/visiblePriceExtrema.js'
-import { createCandleLayer } from './layers/candleLayer.js'
-import { createComparisonLineLayer } from './layers/comparisonLineLayer.js'
-import { createCrosshairLayer } from './layers/crosshairLayer.js'
-import { createCustomMarkersLayer } from './layers/customMarkersLayer.js'
-import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer.js'
-import { createFiveDayTimeShareLayer } from './layers/fiveDayTimeShareLayer.js'
-import { createGridLinesLayer } from './layers/gridLinesLayer.js'
-import { createTimeShareLayer } from './layers/timeShareLayer.js'
-import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -511,7 +514,6 @@ export class ChartRenderer {
     {
       const yAxisOpts = {
         axisWidth,
-        yPaddingPx: opt.yPaddingPx,
         getCrosshair: () => {
           const pos = interaction.crosshairPos
           const price = interaction.crosshairPrice
@@ -522,8 +524,8 @@ export class ChartRenderer {
           return null
         },
       }
-      this.scene.addLayer(createYAxisStaticLayer(yAxisOpts))
-      this.scene.addLayer(createYAxisOverlayLayer(yAxisOpts))
+      this.scene.addLayer(createYAxisStaticRendererLayer(yAxisOpts))
+      this.scene.addLayer(createYAxisOverlayRendererLayer(yAxisOpts))
     }
   }
 

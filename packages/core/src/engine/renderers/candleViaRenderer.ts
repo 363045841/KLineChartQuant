@@ -16,7 +16,6 @@ export type CandleRectBatch = {
 /**
  * 经 Renderer.drawInstances 画 body/wick。
  * 任一非空 batch 绘制失败 → false（调用方应走 2D）。
- * 不负责 composite。
  */
 export function drawCandlesViaRenderer(
   renderer: Renderer,

@@ -14,8 +14,6 @@ import {
 
 type YAxisOptions = {
   axisWidth: number
-  /** 与 pane 一致的 Y 轴内边距；保留以兼容既有插件选项形状。 */
-  yPaddingPx?: number
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }
 

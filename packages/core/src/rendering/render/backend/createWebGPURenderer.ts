@@ -408,7 +408,7 @@ export async function createWebGPURenderer(
     return `${region.x},${region.y},${region.width},${region.height},${region.dpr}`
   }
 
-  function flushPendingDraws(options?: { composite?: boolean }): void {
+  function flushPendingDraws(): void {
     const hadDraws = pendingDraws.length > 0
     const shouldSubmit = hadDraws || frameClearRequested
     if (shouldSubmit) {
@@ -477,15 +477,8 @@ export async function createWebGPURenderer(
     retireBuffers()
     frameClearRequested = false
 
-    if (options?.composite) {
-      if (metricsFrameOpen || hadDraws) {
-        openMetricsFrame()
-        metrics.recordComposite()
-      }
-    }
-
-    // endFrame 结束：prune 未 touch 的 strip 资源；composite 中途 flush 保持 frame open
-    if (!options?.composite && metricsFrameOpen) {
+    // endFrame 结束：prune 未 touch 的 strip 资源
+    if (metricsFrameOpen) {
       pruneUnusedStripKeys()
       metrics.endFrame()
       metricsFrameOpen = false
