@@ -1,3 +1,4 @@
+/** 绘制 Pane 内部的价格刻度网格与交易日期纵向网格。 */
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
@@ -47,17 +48,13 @@ function drawGridLines(context: RenderContext): void {
   const startX = scrollLeft
   const endX = scrollLeft + plotWidth
 
-  // Pane 分隔线：非首 pane 在顶部画一条横线
-  if (pane.top > 0) {
-    const h = createHorizontalLineRect(startX, endX, 0, dpr)
-    if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
-  }
-
-  // 水平网格线：从预计算的 yAxisTicks 取 Y 位置，确保与轴刻度对齐
+  // Pane 边界由宿主分隔层绘制；网格线只覆盖内部，避免与分隔边框叠加。
   if (context.yAxisTicks) {
     for (const tick of context.yAxisTicks) {
       const h = createHorizontalLineRect(startX, endX, tick.y, dpr)
-      if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
+      if (h && h.y > 0 && h.y + h.height < pane.height) {
+        ctx.fillRect(h.x, h.y, h.width, h.height)
+      }
     }
   }
 

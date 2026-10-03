@@ -5,8 +5,11 @@
  */
 
 import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
-import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-import { loadBuiltinIndicators } from '@363045841yyt/klinechart-core/controllers'
+import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core/controllers'
+import {
+  createChartController,
+  loadBuiltinIndicators,
+} from '@363045841yyt/klinechart-core/controllers'
 import type { MarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,7 +24,7 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
   )
   return {
     ...actual,
-    createChartController: () => Promise.resolve(mockController),
+    createChartController: vi.fn((_opts: ChartMountOptions) => Promise.resolve(mockController)),
   }
 })
 
@@ -45,6 +48,27 @@ afterEach(() => {
 })
 
 describe('KLineChart interaction lifecycle', () => {
+  it('挂载独立左轴，并在分时模式同时显示两侧轴', async () => {
+    const wrapper = mount(KlineChart, { attachTo: document.body })
+    await flushMount()
+    const left = wrapper.get('.left-axis-host')
+    const options = vi.mocked(createChartController).mock.calls.at(-1)![0]
+    expect(options.leftAxisLayer).toBe(left.element)
+    expect(options.leftAxisWidth).toBeGreaterThan(0)
+    expect(left.isVisible()).toBe(false)
+
+    mockController._setChartMode('timeshare')
+    await nextTick()
+    expect(left.isVisible()).toBe(true)
+    expect(wrapper.get('.right-axis-host').isVisible()).toBe(true)
+    expect(wrapper.get('.right-axis-host').classes()).not.toContain('price-axis-host--left')
+
+    mockController._setChartMode('kline')
+    await nextTick()
+    expect(left.isVisible()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('卸载时显式退订 interactionState', async () => {
     const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()

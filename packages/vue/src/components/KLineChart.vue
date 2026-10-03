@@ -75,6 +75,13 @@
           @update-source-endpoint="setAggregationSourceEndpoint"
         />
         <div ref="chartMainRef" class="chart-main">
+          <div
+            ref="leftAxisLayerRef"
+            v-show="chartMode === 'timeshare'"
+            class="left-axis-host"
+            :style="{ width: props.rightAxisWidth + props.priceLabelWidth + 'px' }"
+            aria-label="价格轴"
+          ></div>
           <div class="pane-separator-layer" aria-hidden="true">
             <div
               v-for="line in paneSeparatorLines"
@@ -90,7 +97,10 @@
             tabindex="0"
             @keydown="onDrawingHistoryKeydown"
             class="chart-container"
-            :class="{ 'chart-container--axis-left': priceAxisPosition === 'left' }"
+            :class="{
+              'chart-container--axis-left': chartMode !== 'timeshare' && priceAxisPosition === 'left',
+              'chart-container--dual-axis': chartMode === 'timeshare',
+            }"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
@@ -255,7 +265,7 @@
           <div
             ref="rightAxisLayerRef"
             class="right-axis-host"
-            :class="{ 'price-axis-host--left': priceAxisPosition === 'left' }"
+            :class="{ 'price-axis-host--left': chartMode !== 'timeshare' && priceAxisPosition === 'left' }"
             :style="{ width: axisHostWidth + 'px' }"
             @pointerdown="onRightAxisPointerDown"
             @pointermove="onRightAxisPointerMove"
@@ -774,6 +784,7 @@
   const containerRef = ref<HTMLDivElement | null>(null)
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
   const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
+  const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
   const chartMainRef = ref<HTMLDivElement | null>(null)
   const chartStageRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
@@ -1553,6 +1564,8 @@
       marketSessions: props.marketSessions,
       canvasLayer,
       rightAxisLayer,
+      leftAxisLayer: leftAxisLayerRef.value ?? undefined,
+      leftAxisWidth: props.rightAxisWidth + props.priceLabelWidth,
       xAxisCanvas,
       theme: _initialTheme,
       initialZoomLevel: props.initialZoomLevel,
@@ -2026,6 +2039,7 @@
 
   /* 绘图区与左右轴共用布局、背景和手势规则。 */
   .chart-container,
+  .left-axis-host,
   .right-axis-host {
     position: relative;
     min-height: inherit;
@@ -2058,6 +2072,13 @@
     border-radius: 0 3px 3px 0;
     border-left: 0;
     border-right: 1px solid var(--chart-border);
+  }
+
+  /* 双轴分隔线由各自轴容器绘制，行情区不再叠加侧边框。 */
+  .chart-container--dual-axis {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
   }
 
   .drawing-line-label-editor {
@@ -2138,6 +2159,19 @@
   .right-axis-host {
     flex: 0 0 auto;
     border: 1px solid var(--chart-border);
+  }
+
+  /* 分时左轴独立占据 flex 宽度，容器缩放由 Core 的 ResizeObserver 感知。 */
+  .left-axis-host {
+    position: relative;
+    flex: 0 0 auto;
+    border: 1px solid var(--chart-border);
+    border-top-left-radius: 3px;
+    border-bottom-left-radius: 3px;
+  }
+
+  .left-axis-host :deep(> canvas) {
+    display: block;
   }
 
   .right-axis-host {

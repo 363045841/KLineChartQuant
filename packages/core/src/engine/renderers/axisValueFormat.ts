@@ -19,7 +19,7 @@ export function formatAxisPriceValue(value: number, isPercent: boolean): string 
 }
 
 /**
- * 解析价格轴当前的展示语义：分时强制价格，比较视图取百分比。
+ * 解析右轴展示语义：分时与比较视图显示百分比。
  *
  * @param context - 当前渲染上下文
  * @returns 该轴应展示的标签语义

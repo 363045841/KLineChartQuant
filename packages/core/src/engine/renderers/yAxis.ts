@@ -1,8 +1,10 @@
+/** 价格轴刻度、范围带与十字线价签的静态和动态绘制。 */
 import { AXIS_DISPLAY } from '../../foundation/config/axisSettings.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
@@ -59,6 +61,26 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
           axisWidth,
           axisHeight: pane.height,
         })
+        // 分时左右轴共用刻度坐标，左侧直接显示对应的原始价格。
+        const leftCtx = context.leftAxisCtx
+        if (leftCtx && isTimeSharePeriod(context.period) && pane.role === 'price') {
+          const leftWidth = leftCtx.canvas.width / dpr
+          const leftLabels = context.axisLabels.forSurface('yLeftStatic', pane.id)
+          for (const tick of context.yAxisTicks) {
+            leftLabels.register({
+              kind: AXIS_LABEL_KIND.TICK,
+              text: formatAxisPriceValue(tick.value, false),
+              pos: tick.y,
+              color: tokenColors.text.secondary,
+              fontSize: 12,
+            })
+          }
+          paintAxisLabels(leftCtx, leftLabels.labels, 'yLeftStatic', {
+            dpr,
+            axisWidth: leftWidth,
+            axisHeight: pane.height,
+          })
+        }
       }
     },
     dispose() {},
@@ -122,6 +144,25 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
           textColor: tokenColors.crosshairLabelText,
           fontSize: 12,
         })
+        const leftCtx = context.leftAxisOverlayCtx
+        if (leftCtx && isTimeSharePeriod(context.period) && pane.role === 'price') {
+          registerAxisLabel(context, 'yLeftOverlay', {
+            kind: AXIS_LABEL_KIND.TAG,
+            text: formatAxisPriceValue(crosshair.price, false),
+            pos: crosshair.y,
+            origin: pane.top,
+            variant: 'crosshair',
+            bgColor: tokenColors.crosshairLabelBg,
+            textColor: tokenColors.crosshairLabelText,
+            fontSize: 12,
+          })
+          paintAxisLabels(
+            leftCtx,
+            context.axisLabels.forSurface('yLeftOverlay', pane.id).labels,
+            'yLeftOverlay',
+            { dpr, axisWidth: leftCtx.canvas.width / dpr, axisHeight: pane.height },
+          )
+        }
       }
 
       paintAxisLabels(

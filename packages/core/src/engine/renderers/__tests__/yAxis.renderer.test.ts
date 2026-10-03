@@ -1,4 +1,6 @@
+/** 价格轴静态刻度与动态价签的绘制测试。 */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
 import {
   createYAxisOverlayRendererLayer,
   createYAxisStaticRendererLayer,
@@ -84,23 +86,28 @@ describe('yAxis renderer', () => {
     expect(targetCtx.fillText).toHaveBeenCalledTimes(0)
   })
 
-  it('uses price values for timeshare right-axis ticks', () => {
-    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
-    const context = createContext({
-      period: 'timeshare',
-      pane: createPane({
-        yAxis: {
-          ...createPane().yAxis,
-          getScaleType: () => 'percent',
-          toPercent: (price) => price - 100,
-        },
-      }),
-    })
+  it.each(['timeshare', FIVE_DAY_TIME_SHARE_PERIOD])(
+    'draws %s price on left and percent on right',
+    (period) => {
+      const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
+      const context = createContext({
+        period,
+        leftAxisCtx: createMockCanvasContext(),
+        pane: createPane({
+          yAxis: {
+            ...createPane().yAxis,
+            getScaleType: () => 'percent',
+            toPercent: (price) => price - 100,
+          },
+        }),
+      })
 
-    layer.paint(context)
+      layer.paint(context)
 
-    expect(context.yAxisCtx?.fillText).toHaveBeenCalledWith('120.00', expect.any(Number), 10)
-  })
+      expect(context.yAxisCtx?.fillText).toHaveBeenCalledWith('+20.00%', expect.any(Number), 10)
+      expect(context.leftAxisCtx?.fillText).toHaveBeenCalledWith('120.00', expect.any(Number), 10)
+    },
+  )
 
   it('uses ctx when yAxisCtx is not provided', () => {
     const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
@@ -162,5 +169,28 @@ describe('yAxis renderer', () => {
     layer.paint(context)
 
     expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledTimes(0)
+  })
+
+  it('shows the timeshare crosshair as price on left and percent on right', () => {
+    const layer = createYAxisOverlayRendererLayer({
+      axisWidth: 80,
+      getCrosshair: () => ({ y: 55, price: 95, activePaneId: 'main' }),
+    })
+    const context = createContext({
+      period: 'timeshare',
+      pane: createPane({ id: 'main', yAxis: { toPercent: (price) => price - 100 } }),
+      yAxisOverlayCtx: createMockCanvasContext(),
+      leftAxisOverlayCtx: createMockCanvasContext(),
+    })
+
+    layer.paint(context)
+
+    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+      expect.objectContaining({ text: '-5.00%' }),
+    ])
+    expect(context.axisLabels.forSurface('yLeftOverlay', 'main').labels).toEqual([
+      expect.objectContaining({ text: '95.00' }),
+    ])
+    expect(context.leftAxisOverlayCtx?.fillText).toHaveBeenCalled()
   })
 })

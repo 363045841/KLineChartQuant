@@ -62,8 +62,8 @@ export class PaneRenderer {
         overlayCtx: this.dom.overlayCanvas.getContext('2d'),
         yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
         yAxisOverlayCtx: this.dom.yAxisOverlayCanvas.getContext('2d'),
-        leftAxisCtx: null,
-        leftAxisOverlayCtx: null,
+        leftAxisCtx: this.dom.leftYAxisCanvas?.getContext('2d') ?? null,
+        leftAxisOverlayCtx: this.dom.leftYAxisOverlayCanvas?.getContext('2d') ?? null,
       }
     }
     return this.contexts
@@ -123,6 +123,14 @@ export class PaneRenderer {
     PaneRenderer.resizeCanvas(yAxisCanvas, yAxisWidth, yAxisHeight, dpr)
     PaneRenderer.resizeCanvas(yAxisOverlayCanvas, yAxisWidth, yAxisHeight, dpr)
 
+    // rightAxisWidth 可为 0；价格标签宽度仍需计入左轴的默认宽度。
+    const leftParentWidth = this.dom.leftYAxisCanvas?.parentElement?.clientWidth ?? 0
+    const leftWidth = Math.round(
+      (leftParentWidth > 0 ? leftParentWidth : this.opt.leftAxisWidth || fallbackYAxisWidth) * dpr,
+    )
+    for (const canvas of [this.dom.leftYAxisCanvas, this.dom.leftYAxisOverlayCanvas]) {
+      if (canvas) PaneRenderer.resizeCanvas(canvas, leftWidth, yAxisHeight, dpr)
+    }
   }
 
   /** 销毁 PaneRenderer 实例 */

@@ -142,6 +142,15 @@ export class ChartPaneLayout {
       const yAxisOverlayCanvas = this.createAxisCanvas(spec, 'right', 'overlay')
 
       const isMain = pane.role === 'price'
+      const leftYAxisCanvas = isMain ? this.createAxisCanvas(spec, 'left') : undefined
+      const leftYAxisOverlayCanvas = isMain
+        ? this.createAxisCanvas(spec, 'left', 'overlay')
+        : undefined
+      for (const canvas of [leftYAxisCanvas, leftYAxisOverlayCanvas]) {
+        if (!canvas) continue
+        canvas.style.pointerEvents = 'none'
+        canvas.style.zIndex = '3'
+      }
 
       mainCanvas.id = `${spec.id}-main`
       mainCanvas.className = isMain ? 'main-canvas main' : 'main-canvas sub'
@@ -171,6 +180,8 @@ export class ChartPaneLayout {
           overlayCanvas,
           yAxisCanvas,
           yAxisOverlayCanvas,
+          leftYAxisCanvas,
+          leftYAxisOverlayCanvas,
         },
         pane,
         {
@@ -200,6 +211,9 @@ export class ChartPaneLayout {
       )
       existingAxisCanvases.forEach((canvas) => canvas.remove())
     }
+    dom.leftAxisLayer
+      ?.querySelectorAll('canvas.left-axis, canvas.left-axis-overlay')
+      .forEach((canvas) => canvas.remove())
 
     this.paneRenderers.forEach((renderer) => {
       const domEls = renderer.getDom()
@@ -208,6 +222,9 @@ export class ChartPaneLayout {
       canvasLayer.appendChild(domEls.overlayCanvas)
       rightAxisLayer.appendChild(domEls.yAxisCanvas)
       rightAxisLayer.appendChild(domEls.yAxisOverlayCanvas)
+      for (const canvas of [domEls.leftYAxisCanvas, domEls.leftYAxisOverlayCanvas]) {
+        if (canvas) (dom.leftAxisLayer ?? canvasLayer).appendChild(canvas)
+      }
     })
 
     this._paneSpecs = this._paneSpecs.map((spec, index) => ({
@@ -346,6 +363,9 @@ export class ChartPaneLayout {
       domEls.yAxisCanvas.style.left = '0px'
       domEls.yAxisOverlayCanvas.style.top = `${y}px`
       domEls.yAxisOverlayCanvas.style.left = '0px'
+      for (const canvas of [domEls.leftYAxisCanvas, domEls.leftYAxisOverlayCanvas]) {
+        if (canvas) canvas.style.top = `${y}px`
+      }
 
       y += h + gap
     }

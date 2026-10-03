@@ -1,4 +1,6 @@
+/** 轴展示偏好与分时、比较模式覆盖规则。 */
 import { describe, expect, it } from 'vitest'
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
 
 import {
   buildPaneScaleTypesFromSetting,
@@ -7,22 +9,25 @@ import {
 } from '../axisSettings'
 
 describe('axisSettings', () => {
-  it('keeps timeshare left percent and right price regardless of user settings', () => {
-    expect(
-      resolveEffectiveAxisDisplay('left', {
-        period: 'timeshare',
-        leftSetting: 'none',
-        rightTypeSetting: 'none',
-      }),
-    ).toBe('percent')
-    expect(
-      resolveEffectiveAxisDisplay('right', {
-        period: 'timeshare',
-        leftSetting: 'percent',
-        rightTypeSetting: 'percent',
-      }),
-    ).toBe('price')
-  })
+  it.each(['timeshare', FIVE_DAY_TIME_SHARE_PERIOD])(
+    'keeps %s left price and right percent',
+    (period) => {
+      expect(
+        resolveEffectiveAxisDisplay('left', {
+          period,
+          leftSetting: 'none',
+          rightTypeSetting: 'none',
+        }),
+      ).toBe('price')
+      expect(
+        resolveEffectiveAxisDisplay('right', {
+          period,
+          leftSetting: 'percent',
+          rightTypeSetting: 'percent',
+        }),
+      ).toBe('percent')
+    },
+  )
 
   it('keeps log as a right-axis type that still displays price labels', () => {
     expect(resolveEffectiveAxisDisplay('right', { rightTypeSetting: 'log' })).toBe('price')

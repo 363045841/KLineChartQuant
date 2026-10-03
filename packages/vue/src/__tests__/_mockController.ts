@@ -94,6 +94,8 @@ export interface MockChartController extends ChartController {
   _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
   /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
   _setSettings: (settings: ChartSettings) => void
+  /** test-only: 切换图表模式，驱动轴布局显示。 */
+  _setChartMode: (mode: ReturnType<ChartController['chartMode']['peek']>) => void
   /** spy: resetMainPriceAxis 调用次数 */
   resetMainPriceAxisCalls: () => number
 }
@@ -120,6 +122,7 @@ export function createMockChartController(
   const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
   const themePreference = opts.theme ?? 'light'
   const theme = createSignal<'light' | 'dark'>(themePreference)
+  const chartMode = createSignal<ReturnType<ChartController['chartMode']['peek']>>('kline')
   const settings = createSignal({ theme: themePreference } as Record<string, unknown>)
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
   const paneScaleTypes = createSignal<ReadonlyMap<string, ScaleType>>(new Map())
@@ -164,7 +167,7 @@ export function createMockChartController(
       status: 'ready' as const,
       error: null,
     }),
-    chartMode: createSignal('kline' as const),
+    chartMode,
     lastBarPeriod: createSignal('daily'),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
@@ -333,6 +336,7 @@ export function createMockChartController(
 
   return {
     ...(controller as ChartController),
+    _setChartMode: (mode) => chartMode.set(mode),
     _setSettings: (next) => {
       settings.set(next)
       const type = next.mainRightAxisTypeSetting
