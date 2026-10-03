@@ -2,9 +2,9 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
+import * as analyticLineGeometry from '../analyticLineGeometry'
 import { createWebGPURenderer } from '../backend/createWebGPURenderer'
 import { createFrameMetrics, getFrameMetrics, resetFrameMetrics } from '../frameMetrics'
-import * as wideLineGeometry from '../wideLineGeometry'
 import { createMockWebGPU } from './helpers/webgpuTestKit'
 
 describe('createWebGPURenderer', () => {
@@ -352,6 +352,17 @@ describe('createWebGPURenderer', () => {
     expect(fake.passes).toHaveLength(1)
     expect(fake.passes[0]?.draw).toHaveBeenCalledTimes(2)
     const uniformWrites = fake.queue.writeBuffer.mock.calls.filter((call) => call[4] === 32)
+    expect(fake.pipelineDescriptors).toHaveLength(1)
+    expect(fake.pipelineDescriptors[0]?.primitive?.topology).toBe('triangle-list')
+    expect(fake.pipelineDescriptors[0]?.vertex.buffers?.[0]).toMatchObject({
+      arrayStride: 16,
+      attributes: [
+        { shaderLocation: 0, offset: 0, format: 'float32x2' },
+        { shaderLocation: 1, offset: 8, format: 'float32x2' },
+      ],
+    })
+    expect(fake.passes[0]?.draw).toHaveBeenNthCalledWith(1, 6, 1)
+    expect(fake.shaderModules[0]?.code).toContain('uniforms.color * coverage')
     expect(uniformWrites).toHaveLength(2)
     for (const call of uniformWrites) {
       expect(new Float32Array(call[2] as ArrayBuffer)[3]).toBe(12)
@@ -379,6 +390,8 @@ describe('createWebGPURenderer', () => {
     ).toBe(true)
 
     const info: GPUDeviceLostInfo = { reason: 'unknown', message: 'device reset' }
+    expect(fake.pipelineDescriptors[0]?.vertex.buffers?.[0]?.arrayStride).toBe(8)
+    expect(fake.shaderModules[0]?.code).not.toContain('fwidth')
     fake.lost.resolve(info)
     await Promise.resolve()
     expect(onDeviceLost).toHaveBeenCalledWith(info)
@@ -410,9 +423,9 @@ describe('createWebGPURenderer', () => {
     expect(renderer.drawLines({ pipeline, strips, uniforms: { scrollLeft: 0 } })).toBe(true)
     renderer.endFrame()
     const createsAfterFirst = fake.device.createBuffer.mock.calls.length
-    // strip 点列 4 floats = 16 bytes；uniform 为 32 bytes
+    // 解析 AA 每段 6 顶点 × 4 floats = 96 bytes；uniform 为 32 bytes。
     const vertexWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter(
-      (c) => c[4] === 16,
+      (c) => c[4] === 96,
     ).length
     const uniformWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter(
       (c) => c[4] === 32,
@@ -424,7 +437,8 @@ describe('createWebGPURenderer', () => {
 
     // 几何未变：strip vertex 不新建、不重传；uniform 仍写
     expect(fake.device.createBuffer.mock.calls.length).toBe(createsAfterFirst)
-    expect(fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 16).length).toBe(
+    expect(vertexWritesAfterFirst).toBe(1)
+    expect(fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 96).length).toBe(
       vertexWritesAfterFirst,
     )
     expect(fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 32).length).toBeGreaterThan(
@@ -433,10 +447,10 @@ describe('createWebGPURenderer', () => {
     expect(getFrameMetrics().queueSubmitCount).toBe(1)
   })
 
-  it('skips wide line expansion for equal points and rebuilds after changes', async () => {
+  it('reuses analytic line geometry for equal points and rebuilds after changes', async () => {
     const fake = createMockWebGPU()
     const renderer = await createWebGPURenderer({ gpu: fake.gpu, canvas: fake.canvas })
-    const expand = vi.spyOn(wideLineGeometry, 'buildWideLineGeometry')
+    const expand = vi.spyOn(analyticLineGeometry, 'buildAnalyticLineGeometry')
     renderer.surface.resize(100, 100, 1)
     const pipeline = renderer.createPipeline({ type: 'line' })
     const region = { x: 0, y: 0, width: 100, height: 100, dpr: 1 }

@@ -402,18 +402,19 @@ describe('createWebGLRenderer', () => {
       ])
     })
 
-    it('preserves diagonal vertices and quantizes width at high DPR', () => {
+    it.each([1, 2])('preserves diagonal point references and width at DPR %s', (dpr) => {
       const { renderer } = makeRenderer()
-      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 2 })
+      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr })
       const pipeline = renderer.createPipeline({ type: 'line' })
+      const points = [
+        { x: 0.2, y: 5.1 },
+        { x: 10.7, y: 8.4 },
+      ]
       renderer.drawLines({
         pipeline,
         strips: [
           {
-            points: [
-              { x: 0.2, y: 5.1 },
-              { x: 10.7, y: 8.4 },
-            ],
+            points,
             color: '#0f0',
             width: 1,
           },
@@ -422,10 +423,7 @@ describe('createWebGLRenderer', () => {
       })
       const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
       expect(lines[0]!.width).toBe(1)
-      expect(lines[0]!.points).toEqual([
-        { x: 0.2, y: 5.1 },
-        { x: 10.7, y: 8.4 },
-      ])
+      expect(lines[0]!.points).toBe(points)
     })
 
     it('delegates to line surface drawFilledBand for fill pipeline', () => {

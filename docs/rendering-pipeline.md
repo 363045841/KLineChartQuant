@@ -602,11 +602,13 @@ WebGL Renderer 包装 chart 级 `SharedWebGLSurface`，并使用 candle 和 line
 
 - `beginFrame(region)` 绑定共享 surface region，并设置各图元 surface 的 region。
 - instance、line 和 fill 调用立即执行 WebGL draw。
-- WebGL surface 输出需要在业务 helper 成功后立即 `compositeTo(mainCtx, region)`。
-- line helper 必须一次提交多条 strips，不能逐条 draw 导致 MSAA clear 覆盖前一条。
-- `endFrame()` 当前没有延迟提交工作。
+- WebGL 使用可见共享 canvas；业务 helper 不将 GPU 输出复制回 Canvas2D。
+- line helper 批量提交多条 strips，减少顶点上传；所有线宽（包括 1px）均使用解析 AA 三角形。
+- `endFrame()` 统一 resolve 共享 MSAA target，清屏属于帧生命周期。
 
-WebGL composite 发生在 Layer paint 内。WebGPU 不走此路径。
+线条每顶点为 `x,y,edgeDist,edgeHalf`（16 bytes），使用 `fwidth(edgeDist)` 计算边缘 coverage。
+WebGL 颜色未预乘，shader 仅将 alpha 乘 coverage；每批恢复 alpha 混合，防止蜡烛绘制关闭 BLEND。
+蜡烛仍用独立实心 shader；填充带在 surface 内补 `edgeHalf=-1` 哨兵，保持实心 coverage。
 
 ### 11.3 WebGPU
 
@@ -627,6 +629,10 @@ WebGPU 使用一张 chart 级可见 canvas：
 
 当前实现使用 4x MSAA，单 pass clear 和 resolve。不得在 pane 或 Layer 中途 submit，否则会破坏
 每 chart frame 单次提交的不变量。
+
+所有线宽均通过共享 `buildAnalyticLineGeometry()` 生成三角形，line pipeline 的 stride 为 16，
+属性 location 0/1 分别为位置和边距。颜色已预乘，WGSL 将整个 RGBA 乘 coverage。
+fill pipeline 保留 8-byte 顶点和实心 shader；MSAA 继续覆盖填充、多边形及线段端点。
 
 WebGPU 资源策略：
 
@@ -689,10 +695,11 @@ WebGPU `device.lost` 回调进入 `RendererHost.handleDeviceLost()`：
 1. StateKernel 的 viewport DPR 是唯一 DPR。
 2. 对外 region 和业务几何使用逻辑像素。
 3. Canvas drawing buffer 和 GPU viewport/scissor 使用物理像素。
-4. 线条、矩形边界和宽度在物理像素空间取整，再转换回逻辑坐标。
+4. 轴向线吸附物理像素中心，矩形边界吸附像素网格；斜线保留原顶点，线宽保留小数且至少一个物理像素。
 5. GPU shader 或预处理 helper 必须显式处理 DPR，不能把逻辑坐标直接当设备坐标。
 6. WebGPU/WebGL 坐标转换使用 `physicalRegion.ts`、`physicalLine.ts` 等共享规则。
 7. GPU composite 禁止 image smoothing，避免纹理二次采样变糊。
+8. 线条解析 AA：两侧各外扩一个物理像素（逻辑空间为 `1/dpr`），边距属性以物理像素计；DPR 变化必须重建几何。
 
 不要在 Layer 内建立第二套 resize、DPR 或 scroll 缓存。
 

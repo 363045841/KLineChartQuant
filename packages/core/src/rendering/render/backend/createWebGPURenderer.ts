@@ -1,5 +1,6 @@
-/** WebGPU 后端实现，管理 GPU 资源、帧内批绘制和 compute dispatch。 */
+/** WebGPU 后端实现，管理 GPU 资源、解析 AA 线条与帧内批绘制。 */
 
+import { buildAnalyticLineGeometry } from '../analyticLineGeometry.js'
 import { createFrameMetrics } from '../frameMetrics.js'
 import { prepareLineStripForPhysicalPixels } from '../physicalLine.js'
 import { toPhysicalRegion } from '../physicalRegion.js'
@@ -9,7 +10,6 @@ import type {
   ComputePipelineHandle,
   DispatchComputeParams,
   DrawInstancesParams,
-  DrawLineStrip,
   DrawLinesParams,
   PipelineHandle,
   Renderer,
@@ -23,7 +23,6 @@ import {
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '../webgpuGlobals.js'
 import { createWebGPUResourceTable } from '../webgpuResourceTable.js'
-import { buildWideLineGeometry } from '../wideLineGeometry.js'
 import {
   createWebGPUSurfaceBackend,
   type WebGPUSurfaceBackend,
@@ -83,7 +82,7 @@ fn fragmentMain() -> @location(0) vec4f {
 }
 `
 
-const LINE_SHADER = `
+const FILL_SHADER = `
 struct Uniforms {
   resolution: vec2f,
   dpr: f32,
@@ -106,6 +105,35 @@ fn vertexMain(@location(0) point: vec2f) -> @builtin(position) vec4f {
 @fragment
 fn fragmentMain() -> @location(0) vec4f {
   return uniforms.color;
+}
+`
+
+const LINE_SHADER = `
+struct Uniforms {
+  resolution: vec2f,
+  dpr: f32,
+  scrollLeft: f32,
+  color: vec4f,
+}
+struct VertexOutput {
+  @builtin(position) position: vec4f,
+  @location(0) edge: vec2f,
+}
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@vertex
+fn vertexMain(@location(0) point: vec2f, @location(1) edge: vec2f) -> VertexOutput {
+  let position = vec2f((point.x - uniforms.scrollLeft) * uniforms.dpr, point.y * uniforms.dpr);
+  let clip = vec2f(position.x / uniforms.resolution.x * 2.0 - 1.0, 1.0 - position.y / uniforms.resolution.y * 2.0);
+  var output: VertexOutput;
+  output.position = vec4f(clip, 0.0, 1.0);
+  output.edge = edge;
+  return output;
+}
+@fragment
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+  let aa = max(fwidth(input.edge.x), 1e-4);
+  let coverage = clamp((input.edge.y - abs(input.edge.x)) / aa + 0.5, 0.0, 1.0);
+  return uniforms.color * coverage;
 }
 `
 
@@ -169,15 +197,6 @@ function parseColor(value: unknown): readonly [number, number, number, number] |
   return [rgba[0] * rgba[3], rgba[1] * rgba[3], rgba[2] * rgba[3], rgba[3]]
 }
 
-function linePoints(strip: DrawLineStrip): Float32Array {
-  const values = new Float32Array(strip.points.length * 2)
-  for (let index = 0; index < strip.points.length; index++) {
-    values[index * 2] = strip.points[index]!.x
-    values[index * 2 + 1] = strip.points[index]!.y
-  }
-  return values
-}
-
 export async function createWebGPURenderer(
   options: CreateWebGPURendererOptions = {},
 ): Promise<Renderer> {
@@ -232,7 +251,6 @@ export async function createWebGPURenderer(
     dpr: number
     scrollLeft: number
     scrollSensitive: boolean
-    wide: boolean
     vertexCount: number
     buffer: GPUBuffer
   }
@@ -330,13 +348,19 @@ export async function createWebGPURenderer(
     return record
   }
 
-  function getPipeline(kind: 'candle' | 'line-strip' | 'line-wide' | 'fill'): GPURenderPipeline {
+  function getPipeline(kind: PipelineType): GPURenderPipeline {
     const cached = pipelineCache.get(kind)
     if (cached) return cached
     const isCandle = kind === 'candle'
-    const module = device.createShaderModule({ code: isCandle ? RECT_SHADER : LINE_SHADER })
-    const topology: GPUPrimitiveTopology =
-      kind === 'line-strip' ? 'line-strip' : kind === 'fill' ? 'triangle-strip' : 'triangle-list'
+    const isLine = kind === 'line'
+    const attributes: GPUVertexAttribute[] = [
+      { shaderLocation: 0, offset: 0, format: isCandle ? 'float32x4' : 'float32x2' },
+    ]
+    if (isLine) attributes.push({ shaderLocation: 1, offset: 8, format: 'float32x2' })
+    const module = device.createShaderModule({
+      code: isCandle ? RECT_SHADER : isLine ? LINE_SHADER : FILL_SHADER,
+    })
+    const topology: GPUPrimitiveTopology = kind === 'fill' ? 'triangle-strip' : 'triangle-list'
     const pipeline = device.createRenderPipeline({
       layout: 'auto',
       vertex: {
@@ -344,15 +368,9 @@ export async function createWebGPURenderer(
         entryPoint: 'vertexMain',
         buffers: [
           {
-            arrayStride: isCandle ? 16 : 8,
+            arrayStride: isCandle || isLine ? 16 : 8,
             stepMode: isCandle ? 'instance' : 'vertex',
-            attributes: [
-              {
-                shaderLocation: 0,
-                offset: 0,
-                format: isCandle ? 'float32x4' : 'float32x2',
-              },
-            ],
+            attributes,
           },
         ],
       },
@@ -412,38 +430,6 @@ export async function createWebGPURenderer(
       entries: [{ binding: 0, resource: { buffer: record.buffer } }],
     })
     return { bindGroup }
-  }
-
-  function beginPass(
-    encoder: GPUCommandEncoder,
-    region: import('../SurfaceBackend.js').SurfaceRegion,
-    loadOp: 'clear' | 'load',
-  ): GPURenderPassEncoder | null {
-    const view = rawSurface.getCurrentTextureView()
-    const msaaView = ensureMsaaView()
-    if (!view || !msaaView) return null
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: msaaView,
-          resolveTarget: view,
-          clearValue: { r: 0, g: 0, b: 0, a: 0 },
-          loadOp,
-          storeOp: 'store',
-        },
-      ],
-    })
-    const { x, y, width, height } = toPhysicalRegion(region, {
-      width: canvas.width,
-      height: canvas.height,
-    })
-    if (width <= 0 || height <= 0) {
-      pass.end()
-      return null
-    }
-    pass.setViewport(x, y, width, height, 0, 1)
-    pass.setScissorRect(x, y, width, height)
-    return pass
   }
 
   function regionKey(region: import('../SurfaceBackend.js').SurfaceRegion): string {
@@ -666,10 +652,11 @@ export async function createWebGPURenderer(
             }
             if (!cached) {
               const physicalStrip = prepareLineStripForPhysicalPixels(strip, dpr, scrollLeft)
-              const wide = (physicalStrip.width ?? 1) * dpr > 1
-              const values = wide
-                ? buildWideLineGeometry(physicalStrip.points, physicalStrip.width ?? 1)
-                : linePoints(physicalStrip)
+              const values = buildAnalyticLineGeometry(
+                physicalStrip.points,
+                physicalStrip.width ?? 1,
+                dpr,
+              )
               if (!values) return false
               const uploaded = resourceTable.ensureUploadedOwnedExact({
                 key,
@@ -693,8 +680,7 @@ export async function createWebGPURenderer(
                 dpr,
                 scrollLeft,
                 scrollSensitive: vertical && !horizontal,
-                wide,
-                vertexCount: values.length / 2,
+                vertexCount: values.length / 4,
                 buffer: uploaded.buffer,
               }
               stripGeometry.set(key, cached)
@@ -704,7 +690,7 @@ export async function createWebGPURenderer(
             pendingDraws.push({
               kind: 'lines',
               region: { ...currentRegion },
-              pipeline: getPipeline(cached.wide ? 'line-wide' : 'line-strip'),
+              pipeline: getPipeline('line'),
               vertexBuffer: cached.buffer,
               vertexCount: cached.vertexCount,
               color: strip.color,

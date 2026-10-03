@@ -26,7 +26,7 @@ function ensureLineCache(renderer: Renderer): LineGpuCache {
 
 /**
  * 经 Renderer.drawLines 一次提交多条折线（strips 批量）。
- * 禁止 per-strip 循环 drawLines：LineWebGLSurface MSAA 每次 clear 会盖掉前一条。
+ * 多条折线共用批量入口，减少 GPU 上传；清屏与 MSAA resolve 由帧生命周期负责。
  * 不负责 composite。pipeline 按 renderer 缓存。
  */
 export function drawLinesViaRenderer(

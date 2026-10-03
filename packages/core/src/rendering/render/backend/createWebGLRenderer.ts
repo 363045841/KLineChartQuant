@@ -21,13 +21,6 @@ type WebGLPipelineDescriptor = {
   type: 'candle' | 'line' | 'fill'
 }
 
-type WebGLDrawUniforms = {
-  color?: string
-  scrollLeft?: number
-  lineWidth?: number
-  alpha?: number
-}
-
 interface BufferRecord {
   usage: BufferUsage
   byteLength: number
@@ -43,10 +36,6 @@ const handleCaps: RendererCapabilities = {
   storageBuffer: false,
   maxInstances: 1_000_000,
   name: 'webgl2',
-}
-
-function toWebGLRegion(r: SurfaceRegion) {
-  return r as { x: number; y: number; width: number; height: number; dpr: number }
 }
 
 export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurface): Renderer {
@@ -177,11 +166,11 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       currentRegion = { ...region }
       surface.bindRegion(region)
       if (candleSurface) {
-        candleSurface.setRegion(toWebGLRegion(region))
+        candleSurface.setRegion(region)
         candleSurface.resize(region.width, region.height, region.dpr)
       }
       if (lineSurface) {
-        lineSurface.setRegion(toWebGLRegion(region))
+        lineSurface.setRegion(region)
         lineSurface.resize(region.width, region.height, region.dpr)
       }
     },
@@ -217,7 +206,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       // 折线/填充 fail-closed：无 surface 则 false，由业务层 2D 兜底
       if (!lineSurface) return false
 
-      // 批量 strips：一次 drawLineStrips（单次 MSAA clear），多周期 MA 必须走此路径
+      // 批量 strips 共用一次几何上传；MSAA clear 与 resolve 由帧边界负责。
       if (params.strips && params.strips.length > 0) {
         if (pipelineMeta_rec.type === 'fill') return false
         const dpr = currentRegion?.dpr ?? 1
@@ -226,7 +215,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
           .map((s) => {
             const physical = prepareLineStripForPhysicalPixels(s, dpr, scrollLeft)
             return {
-              points: physical.points.map((p) => ({ x: p.x, y: p.y })),
+              points: physical.points,
               color: physical.color,
               width: physical.width ?? 1,
             }

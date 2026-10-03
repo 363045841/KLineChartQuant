@@ -2,9 +2,28 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { buildAnalyticLineGeometry } from '../analyticLineGeometry'
 import { prepareLineStripForPhysicalPixels } from '../physicalLine'
 
 describe('prepareLineStripForPhysicalPixels', () => {
+  it('keeps a snapped 1px center while padding analytic AA outside the pixel', () => {
+    const strip = prepareLineStripForPhysicalPixels(
+      {
+        points: [
+          { x: 0, y: 10 },
+          { x: 20, y: 10 },
+        ],
+        color: '#fff',
+        width: 1,
+      },
+      1,
+    )
+    expect(strip.points[0]!.y).toBe(10.5)
+    const vertices = buildAnalyticLineGeometry(strip.points, strip.width ?? 1, 1)!
+    expect(vertices[1]).toBe(12)
+    expect(vertices[5]).toBe(9)
+    expect(vertices[3]).toBe(0.5)
+  })
   it('preserves fractional physical width and snaps an axial edge to the pixel grid', () => {
     const strip = prepareLineStripForPhysicalPixels(
       {

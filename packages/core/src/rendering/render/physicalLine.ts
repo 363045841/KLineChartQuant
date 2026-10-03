@@ -14,7 +14,7 @@ function alignedEdge(value: number, dpr: number): number {
   return Math.round(value * dpr) / dpr
 }
 
-/** 仅对轴向线吸附物理像素；斜线保持原始顶点供 MSAA 平滑。 */
+/** 仅对轴向线吸附物理像素；斜线保持原始顶点，由 GPU shader 进行解析 AA。 */
 export function prepareLineStripForPhysicalPixels(
   strip: DrawLineStrip,
   dpr: number,

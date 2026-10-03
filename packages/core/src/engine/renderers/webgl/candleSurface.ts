@@ -1,15 +1,9 @@
-import { buildWideLineGeometry } from '@/rendering/render/wideLineGeometry.js'
+// WebGL 蜡烛、解析 AA 折线与实心填充带的绘制表面。
+import { buildAnalyticLineGeometry } from '@/rendering/render/analyticLineGeometry.js'
 import { SharedWebGLSurface, type WebGLRegion } from './sharedWebGLSurface.js'
 
-type Rect = {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 type LineStrip = {
-  points: Array<{ x: number; y: number }>
+  points: ReadonlyArray<{ x: number; y: number }>
   width: number
 }
 
@@ -35,7 +29,7 @@ type RectWebGLHandles = {
   colorLocation: WebGLUniformLocation
 }
 
-type BasicLineWebGLHandles = {
+type LineWebGLHandles = {
   program: WebGLProgram
   vao: WebGLVertexArrayObject
   vertexBuffer: WebGLBuffer
@@ -45,8 +39,10 @@ type BasicLineWebGLHandles = {
   colorLocation: WebGLUniformLocation
 }
 
-type LineWebGLHandles = {
-  basic: BasicLineWebGLHandles
+type CachedLineGeometry = {
+  vertices: Float32Array
+  vertexCount: number
+  points: Float64Array
 }
 
 const RECT_VERTEX_SHADER_SOURCE = `#version 300 es
@@ -82,6 +78,8 @@ const LINE_VERTEX_SHADER_SOURCE = `#version 300 es
 precision highp float;
 
 in vec2 a_position;
+in vec2 a_edge;
+out vec2 v_edge;
 
 uniform vec2 u_resolution;
 uniform float u_dpr;
@@ -92,6 +90,7 @@ void main() {
         (a_position.x - u_scrollX) * u_dpr,
         a_position.y * u_dpr
     );
+    v_edge = a_edge;
     vec2 zeroToOne = position / u_resolution;
     vec2 clip = vec2(
         zeroToOne.x * 2.0 - 1.0,
@@ -113,6 +112,17 @@ void main() {
 
 const UNIT_QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
 
+const LINE_FRAGMENT_SHADER_SOURCE = `#version 300 es
+precision highp float;
+in vec2 v_edge;
+uniform vec4 u_color;
+out vec4 outColor;
+void main() {
+    float aa = max(fwidth(v_edge.x), 1e-4);
+    float cov = v_edge.y < 0.0 ? 1.0 : clamp((v_edge.y - abs(v_edge.x)) / aa + 0.5, 0.0, 1.0);
+    outColor = vec4(u_color.rgb, u_color.a * cov);
+}`
+
 export class CandleWebGLSurface {
   private shared: SharedWebGLSurface
   private handles: RectWebGLHandles | null = null
@@ -120,7 +130,6 @@ export class CandleWebGLSurface {
   private logicalHeight = 0
   private available = false
   private rectCapacity = 0
-  private rectScratch = new Float32Array(0)
   private region: WebGLRegion | null = null
 
   constructor(shared: SharedWebGLSurface) {
@@ -131,10 +140,6 @@ export class CandleWebGLSurface {
 
   isAvailable(): boolean {
     return this.available
-  }
-
-  getCanvas(): HTMLCanvasElement {
-    return this.shared.getCanvas()
   }
 
   setRegion(region: WebGLRegion): void {
@@ -185,6 +190,7 @@ export class CandleWebGLSurface {
       gl.disable(gl.BLEND)
     } else {
       gl.enable(gl.BLEND)
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     }
     gl.uniform2f(handles.resolutionLocation, physical.widthPx, physical.heightPx)
     gl.uniform1f(handles.dprLocation, this.region.dpr)
@@ -193,34 +199,6 @@ export class CandleWebGLSurface {
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, rectCount)
     gl.bindVertexArray(null)
     return true
-  }
-
-  drawRects(rects: Rect[], color: string, scrollLeft: number): boolean {
-    const handles = this.handles
-    if (!handles || !rects.length || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
-      return false
-    }
-
-    const floatCount = rects.length * 4
-    if (this.rectScratch.length < floatCount) {
-      this.rectScratch = new Float32Array(nextBufferFloatCapacity(floatCount))
-    }
-
-    for (let i = 0; i < rects.length; i++) {
-      const rect = rects[i]!
-      const offset = i * 4
-      this.rectScratch[offset] = rect.x
-      this.rectScratch[offset + 1] = rect.y
-      this.rectScratch[offset + 2] = rect.width
-      this.rectScratch[offset + 3] = rect.height
-    }
-
-    return this.drawRectBuffer(
-      this.rectScratch.subarray(0, floatCount),
-      rects.length,
-      color,
-      scrollLeft,
-    )
   }
 
   destroy(): void {
@@ -302,10 +280,6 @@ export class CandleWebGLSurface {
     gl.vertexAttribDivisor(rectLocation, 1)
     gl.bindVertexArray(null)
 
-    gl.enable(gl.BLEND)
-    // alpha 通道独立混合：颜色走预乘语义（SRC_ALPHA），alpha 不重复乘源 alpha。
-    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-
     return {
       program,
       vao,
@@ -331,10 +305,10 @@ export class LineWebGLSurface {
   private lineScratch = new Float32Array(0)
   private region: WebGLRegion | null = null
 
-  // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
+  // 以 points 数组引用与线宽缓存几何；DPR 改变时重建物理 AA 边距。
   private geoCache = new WeakMap<
-    Array<{ x: number; y: number }>,
-    Map<number, { vertices: Float32Array; vertexCount: number }>
+    ReadonlyArray<{ x: number; y: number }>,
+    Map<number, CachedLineGeometry>
   >()
 
   constructor(shared: SharedWebGLSurface) {
@@ -347,10 +321,6 @@ export class LineWebGLSurface {
     return this.available
   }
 
-  getCanvas(): HTMLCanvasElement {
-    return this.shared.getCanvas()
-  }
-
   setRegion(region: WebGLRegion): void {
     this.region = region
   }
@@ -358,6 +328,7 @@ export class LineWebGLSurface {
   resize(width: number, height: number, dpr: number): void {
     this.logicalWidth = width
     this.logicalHeight = height
+    if (this.dpr !== dpr) this.geoCache = new WeakMap()
     this.dpr = dpr
   }
 
@@ -369,11 +340,9 @@ export class LineWebGLSurface {
 
     type DrawCmd = {
       colorValue: FloatColor
-      mode: number
       firstVertex: number
       pointCount: number
-      vertices?: Float32Array
-      points?: Array<{ x: number; y: number }>
+      vertices: Float32Array
     }
 
     const gl = this.shared.getGL()
@@ -382,7 +351,6 @@ export class LineWebGLSurface {
 
     const drawCmds: DrawCmd[] = []
     let totalFloats = 0
-    let hasNativeLines = false
 
     for (const line of lines) {
       if (line.points.length < 2) return false
@@ -390,26 +358,11 @@ export class LineWebGLSurface {
       const colorValue = parseColor(line.color)
       if (!colorValue) return false
 
-      const physicalWidthPx = (line.width ?? 1) * this.dpr
-      if (physicalWidthPx <= 1) {
-        hasNativeLines = true
-        drawCmds.push({
-          colorValue,
-          mode: gl.LINE_STRIP,
-          firstVertex: totalFloats / 2,
-          pointCount: line.points.length,
-          points: line.points,
-        })
-        totalFloats += line.points.length * 2
-        continue
-      }
-
       const geometry = this.getLineGeometry(line)
       if (!geometry) return false
       drawCmds.push({
         colorValue,
-        mode: gl.TRIANGLES,
-        firstVertex: totalFloats / 2,
+        firstVertex: totalFloats / 4,
         pointCount: geometry.vertexCount,
         vertices: geometry.vertices,
       })
@@ -421,18 +374,8 @@ export class LineWebGLSurface {
     }
     let floatOffset = 0
     for (const cmd of drawCmds) {
-      if (cmd.vertices) {
-        this.lineScratch.set(cmd.vertices, floatOffset)
-        floatOffset += cmd.vertices.length
-        continue
-      }
-
-      const points = cmd.points
-      if (!points) return false
-      for (const point of points) {
-        this.lineScratch[floatOffset++] = point.x
-        this.lineScratch[floatOffset++] = point.y
-      }
+      this.lineScratch.set(cmd.vertices, floatOffset)
+      floatOffset += cmd.vertices.length
     }
 
     if (!this.shared.bindRegion(region)) {
@@ -441,9 +384,12 @@ export class LineWebGLSurface {
     const physical = this.shared.getPhysicalRegion(region)
     if (!physical) return false
 
-    gl.useProgram(handles.basic.program)
-    gl.bindVertexArray(handles.basic.vao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
+    gl.useProgram(handles.program)
+    // 不透明蜡烛会关闭 BLEND；线条 coverage 必须在每批绘制时恢复混合。
+    gl.enable(gl.BLEND)
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.bindVertexArray(handles.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
 
     if (this.vertexCapacity < totalFloats) {
       this.vertexCapacity = nextBufferFloatCapacity(totalFloats)
@@ -455,22 +401,19 @@ export class LineWebGLSurface {
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.lineScratch.subarray(0, totalFloats))
 
-    gl.uniform2f(handles.basic.resolutionLocation, physical.widthPx, physical.heightPx)
-    gl.uniform1f(handles.basic.dprLocation, region.dpr)
-    gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
-    if (hasNativeLines) {
-      gl.lineWidth(1)
-    }
+    gl.uniform2f(handles.resolutionLocation, physical.widthPx, physical.heightPx)
+    gl.uniform1f(handles.dprLocation, region.dpr)
+    gl.uniform1f(handles.scrollXLocation, scrollLeft)
 
     for (const cmd of drawCmds) {
       gl.uniform4f(
-        handles.basic.colorLocation,
+        handles.colorLocation,
         cmd.colorValue[0],
         cmd.colorValue[1],
         cmd.colorValue[2],
         cmd.colorValue[3],
       )
-      gl.drawArrays(cmd.mode, cmd.firstVertex, cmd.pointCount)
+      gl.drawArrays(gl.TRIANGLES, cmd.firstVertex, cmd.pointCount)
     }
 
     gl.bindVertexArray(null)
@@ -483,15 +426,29 @@ export class LineWebGLSurface {
     let widthMap = this.geoCache.get(line.points)
     if (widthMap) {
       const cached = widthMap.get(width)
-      if (cached) return cached
+      if (
+        cached &&
+        cached.points.length === line.points.length * 2 &&
+        line.points.every(
+          (point, index) =>
+            cached.points[index * 2] === point.x && cached.points[index * 2 + 1] === point.y,
+        )
+      ) {
+        return cached
+      }
     } else {
       widthMap = new Map()
       this.geoCache.set(line.points, widthMap)
     }
 
-    const vertices = buildWideLineGeometry(line.points, width)
+    const vertices = buildAnalyticLineGeometry(line.points, width, this.dpr)
     if (!vertices) return null
-    const geometry = { vertices, vertexCount: vertices.length / 2 }
+    const points = new Float64Array(line.points.length * 2)
+    for (let index = 0; index < line.points.length; index++) {
+      points[index * 2] = line.points[index]!.x
+      points[index * 2 + 1] = line.points[index]!.y
+    }
+    const geometry = { vertices, vertexCount: vertices.length / 4, points }
     widthMap.set(width, geometry)
     return geometry
   }
@@ -507,7 +464,7 @@ export class LineWebGLSurface {
     if (!colorValue) return false
 
     const vertexCount = pointCount * 2
-    const floatCount = vertexCount * 2
+    const floatCount = vertexCount * 4
     if (this.fillScratch.length < floatCount) {
       this.fillScratch = new Float32Array(nextBufferFloatCapacity(floatCount))
     }
@@ -518,8 +475,12 @@ export class LineWebGLSurface {
       const lower = band.lowerPoints[i]!
       this.fillScratch[writeIndex++] = upper.x
       this.fillScratch[writeIndex++] = upper.y
+      this.fillScratch[writeIndex++] = 0
+      this.fillScratch[writeIndex++] = -1 // 实心哨兵，填充带不参与线条 coverage。
       this.fillScratch[writeIndex++] = lower.x
       this.fillScratch[writeIndex++] = lower.y
+      this.fillScratch[writeIndex++] = 0
+      this.fillScratch[writeIndex++] = -1
     }
 
     const gl = this.shared.getGL()
@@ -530,9 +491,11 @@ export class LineWebGLSurface {
     const physical = this.shared.getPhysicalRegion(region)
     if (!physical) return false
 
-    gl.useProgram(handles.basic.program)
-    gl.bindVertexArray(handles.basic.vao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
+    gl.useProgram(handles.program)
+    gl.enable(gl.BLEND)
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.bindVertexArray(handles.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
 
     if (this.vertexCapacity < floatCount) {
       this.vertexCapacity = nextBufferFloatCapacity(floatCount)
@@ -544,16 +507,10 @@ export class LineWebGLSurface {
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.fillScratch.subarray(0, floatCount))
 
-    gl.uniform2f(handles.basic.resolutionLocation, physical.widthPx, physical.heightPx)
-    gl.uniform1f(handles.basic.dprLocation, region.dpr)
-    gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
-    gl.uniform4f(
-      handles.basic.colorLocation,
-      colorValue[0],
-      colorValue[1],
-      colorValue[2],
-      colorValue[3],
-    )
+    gl.uniform2f(handles.resolutionLocation, physical.widthPx, physical.heightPx)
+    gl.uniform1f(handles.dprLocation, region.dpr)
+    gl.uniform1f(handles.scrollXLocation, scrollLeft)
+    gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexCount)
     gl.bindVertexArray(null)
 
@@ -569,10 +526,9 @@ export class LineWebGLSurface {
     }
 
     if (gl) {
-      const { basic } = handles
-      gl.deleteBuffer(basic.vertexBuffer)
-      gl.deleteVertexArray(basic.vao)
-      gl.deleteProgram(basic.program)
+      gl.deleteBuffer(handles.vertexBuffer)
+      gl.deleteVertexArray(handles.vao)
+      gl.deleteProgram(handles.program)
     }
     this.handles = null
     this.available = false
@@ -584,7 +540,7 @@ export class LineWebGLSurface {
     if (!gl) return null
 
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, LINE_VERTEX_SHADER_SOURCE)
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE)
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, LINE_FRAGMENT_SHADER_SOURCE)
     if (!vertexShader || !fragmentShader) {
       if (vertexShader) gl.deleteShader(vertexShader)
       if (fragmentShader) gl.deleteShader(fragmentShader)
@@ -617,7 +573,8 @@ export class LineWebGLSurface {
     }
 
     const positionLocation = gl.getAttribLocation(program, 'a_position')
-    if (positionLocation < 0) {
+    const edgeLocation = gl.getAttribLocation(program, 'a_edge')
+    if (positionLocation < 0 || edgeLocation < 0) {
       gl.deleteBuffer(vertexBuffer)
       gl.deleteVertexArray(vao)
       gl.deleteProgram(program)
@@ -627,23 +584,19 @@ export class LineWebGLSurface {
     gl.bindVertexArray(vao)
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
     gl.enableVertexAttribArray(positionLocation)
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0)
+    gl.enableVertexAttribArray(edgeLocation)
+    gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 16, 8)
     gl.bindVertexArray(null)
 
-    gl.enable(gl.BLEND)
-    // alpha 通道独立混合：颜色走预乘语义（SRC_ALPHA），alpha 不重复乘源 alpha。
-    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-
     return {
-      basic: {
-        program,
-        vao,
-        vertexBuffer,
-        resolutionLocation,
-        dprLocation,
-        scrollXLocation,
-        colorLocation,
-      },
+      program,
+      vao,
+      vertexBuffer,
+      resolutionLocation,
+      dprLocation,
+      scrollXLocation,
+      colorLocation,
     }
   }
 }
