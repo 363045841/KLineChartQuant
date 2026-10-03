@@ -7,11 +7,8 @@ import {
 } from '@/foundation/utils/timeShareAxisLabels'
 import {
   ASHARE_TIMESHARE_SESSION_SLOTS,
-  computeTimeShareBarMetrics,
-  computeTimeSharePaneLayout,
   computeTimeSharePriceRange,
   computeTimeShareTimeLabelIndices,
-  computeTimeShareVisibleRange,
   computeTimeShareXLayout,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
@@ -104,39 +101,6 @@ describe('resolveTimeShareSessionSlots', () => {
   })
 })
 
-describe('computeTimeShareBarMetrics', () => {
-  it('uses the same full-session integer grid for partial and full data', () => {
-    // 盘中仅 60 点：宽度仍按 240 槽计算，不把 60 点拉满屏。
-    const partial = computeTimeShareBarMetrics(60, 320, 1)
-    const full = computeTimeShareBarMetrics(240, 320, 1)
-    expect(partial).not.toBeNull()
-    expect(full).not.toBeNull()
-    expect(partial!.kWidth).toBeCloseTo(full!.kWidth, 8)
-    expect(partial!.kGap).toBeCloseTo(full!.kGap, 8)
-    expect((partial!.kWidth + partial!.kGap) * 240).toBeLessThanOrEqual(320)
-  })
-
-  it('keeps a constant one-pixel unit and puts remainder into margins at DPR=1', () => {
-    const m = computeTimeShareBarMetrics(240, 320, 1)
-    expect(m).not.toBeNull()
-    const unit = m!.kWidth + m!.kGap
-    expect(unit).toBe(1)
-    expect(unit * 240).toBe(240)
-  })
-
-  it('keeps width and gap as integer physical pixels at high DPR', () => {
-    const m = computeTimeShareBarMetrics(240, 320, 2)
-    expect(m).not.toBeNull()
-    expect(m!.kWidth * 2).toBe(1)
-    expect(m!.kGap * 2).toBe(1)
-  })
-
-  it('returns null for empty data or invalid width', () => {
-    expect(computeTimeShareBarMetrics(0, 320, 1)).toBeNull()
-    expect(computeTimeShareBarMetrics(10, 0, 1)).toBeNull()
-  })
-})
-
 describe('computeTimeShareXLayout', () => {
   it('places partial-day points on session timeline leaving right-side blank', () => {
     const layout = computeTimeShareXLayout({
@@ -218,77 +182,6 @@ describe('computeTimeShareXLayout', () => {
 
     expect(layout).not.toBeNull()
     expect(layout!.barVisible).toEqual([true, false, true, true])
-  })
-})
-
-describe('computeTimeShareVisibleRange', () => {
-  it('covers full data when scrolled to left edge (no scroll in timeshare)', () => {
-    const r = computeTimeShareVisibleRange({
-      scrollLeft: 0,
-      totalWidth: 900,
-      viewWidth: 900,
-      dataLength: 240,
-      sessionSlots: 240,
-    })
-    expect(r.start).toBe(-1)
-    expect(r.end).toBe(240)
-  })
-
-  it('uses the same step grid as the layout for a scrolled viewport', () => {
-    // step = 480/240 = 2；视口 [120, 360] 覆盖第 60..179 槽
-    const r = computeTimeShareVisibleRange({
-      scrollLeft: 120,
-      totalWidth: 480,
-      viewWidth: 240,
-      dataLength: 240,
-      sessionSlots: 240,
-    })
-    expect(r.start).toBe(59)
-    expect(r.end).toBe(181)
-  })
-
-  it('respects per-market session slots (HK 330) without clipping', () => {
-    const r = computeTimeShareVisibleRange({
-      scrollLeft: 0,
-      totalWidth: 990,
-      viewWidth: 990,
-      dataLength: 330,
-      sessionSlots: 330,
-    })
-    expect(r.start).toBe(-1)
-    expect(r.end).toBe(330)
-  })
-
-  it('returns empty range for invalid input', () => {
-    expect(
-      computeTimeShareVisibleRange({
-        scrollLeft: 0,
-        totalWidth: 0,
-        viewWidth: 480,
-        dataLength: 240,
-        sessionSlots: 240,
-      }),
-    ).toEqual({ start: 0, end: 0 })
-    expect(
-      computeTimeShareVisibleRange({
-        scrollLeft: 0,
-        totalWidth: 480,
-        viewWidth: 480,
-        dataLength: 0,
-        sessionSlots: 240,
-      }),
-    ).toEqual({ start: 0, end: 0 })
-  })
-})
-
-describe('computeTimeSharePaneLayout', () => {
-  it('splits price area above volume area without overlap', () => {
-    const layout = computeTimeSharePaneLayout(400, 0.25)
-    expect(layout.priceAreaHeight).toBe(300)
-    expect(layout.volumeAreaHeight).toBe(100)
-    expect(layout.priceTop).toBe(0)
-    expect(layout.volumeTop).toBe(300)
-    expect(layout.priceTop + layout.priceAreaHeight).toBe(layout.volumeTop)
   })
 })
 

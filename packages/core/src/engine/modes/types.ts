@@ -8,22 +8,6 @@ export interface ChartModeHandler {
   /** 是否使用指标调度器（计算 MA/BOLL 等技术指标） */
   readonly useIndicatorScheduler: boolean
 
-  /** 计算内容宽度（CSS px）。返回 null 走标准可滚动计算 */
-  computeContentWidth(
-    dataLength: number,
-    leftBufferWidth: number,
-    viewWidth: number,
-    opt: { kWidth: number; kGap: number },
-    dpr: number,
-  ): number | null
-
-  /** 计算 K 线宽度/间距。返回 null 走标准缩放计算 */
-  computeKWidth(
-    dataLength: number,
-    viewWidth: number,
-    dpr: number,
-  ): { kWidth: number; kGap: number } | null
-
   /** 更新 Pane 的价格范围 */
   updatePaneRange(
     pane: Pane,

@@ -22,7 +22,7 @@ function makeController(dpr = 1, period = 'daily') {
   const zoomState = createZoomState({
     minKWidth$: createSignal(3),
     maxKWidth$: createSignal(21),
-    dataView$: createSignal<ChartDataView>('kline'),
+    dataView$: deps.dataView$,
     zoomLevelCount: 6,
   })
   zoomState.actions.setZoomLevel(6)
@@ -56,7 +56,6 @@ function makeController(dpr = 1, period = 'daily') {
     {
       viewport,
       options,
-      period$: deps.period$,
       onChange: () => {},
     },
     zoomState,

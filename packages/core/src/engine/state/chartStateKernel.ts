@@ -20,6 +20,7 @@ import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 import type { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession.js'
 import { PaneManager } from '../paneManager.js'
+import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
 import { type ComparisonStateModule, createComparisonState } from './comparisonState.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
@@ -263,19 +264,19 @@ export class ChartStateKernel extends StateKernel {
       }
       return this.data.readonly.dataLength()
     })
-    const timeShareDayCount$ = computed(() => this.data.readonly.timeShareRange()?.days.length ?? 0)
 
     // ── Data manager state (coordination layer) ──
     this.dataManager = createDataManagerState()
     // computed() 立即求值一次，故须在 dataManager 创建之后定义
-    this.sessionSlots$ = computed(() => {
+    const marketSession$ = computed(() => {
+      if (!VIEW_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
       const spec = this.dataManager.readonly.currentSpec()
-      if (!deps.marketSessions || !spec?.market) return 0
-      try {
-        return resolveMarketSessionSlots(resolveSymbolMarketSession(spec, deps.marketSessions))
-      } catch {
-        return 0
-      }
+      if (!deps.marketSessions || !spec) return null
+      return resolveSymbolMarketSession(spec, deps.marketSessions)
+    })
+    this.sessionSlots$ = computed(() => {
+      const session = marketSession$()
+      return session ? resolveMarketSessionSlots(session) : 0
     })
 
     // ── Indicator state ──
@@ -288,10 +289,11 @@ export class ChartStateKernel extends StateKernel {
     this.viewport = createViewportState({
       options$: this.optionsForViewport$,
       dataLength$: this.dataLength$,
-      period$: this.dataManager.readonly.currentPeriod,
+      dataView$: this.mode.readonly.dataView,
+      data$: this.data.readonly.data,
+      marketSession$,
+      timeShareRange$: this.data.readonly.timeShareRange,
       zoomLevel$: this.zoomLevel$,
-      sessionSlots$: this.sessionSlots$,
-      timeShareDayCount$,
       timeShareSlotWidth$: this.zoom.readonly.timeShareSlotWidth,
     })
 
@@ -431,8 +433,6 @@ export class ChartStateKernel extends StateKernel {
     // ── Flat actions bag for framework adapters ──
     this.actions = {
       setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
-      setTimeShareKWidth: (kWidth: number) => this.zoom.actions.setTimeShareKWidth(kWidth),
-      clearTimeShareKWidth: () => this.zoom.actions.clearTimeShareKWidth(),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
         const snapshot = symbols.map((symbol) => ({ ...symbol }))
         const previous = this.data.readonly.symbols.peek()[0]

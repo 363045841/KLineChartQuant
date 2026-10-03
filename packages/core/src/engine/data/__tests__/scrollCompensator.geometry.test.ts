@@ -1,134 +1,56 @@
 import { describe, expect, it } from 'vitest'
-import {
-  computeContentWidth,
-  computeLeftLoadBufferWidth,
-  computeMaxScrollLeft,
-} from '../../state/contentGeometry'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import { ScrollCompensator, type ScrollDeps } from '../scrollCompensator'
 import { createMockViewport } from './helpers/chartDataManagerTestKit'
 
-function makeDeps(
-  options: {
-    scrollLeft?: number
-    leftBuffer?: number
-    contentWidth?: number
-    viewWidth?: number
-    dataLength?: number
-  } = {},
-): { deps: ScrollDeps; getScrollLeft: () => number } {
-  const viewWidth = options.viewWidth ?? 800
-  const dataLength = options.dataLength ?? 100
-  const kWidth = 8
-  const kGap = 2
-  const dpr = 1
-  const period = 'daily'
-  const leftBuffer =
-    options.leftBuffer ??
-    computeLeftLoadBufferWidth({
-      viewWidth,
-      plotWidth: viewWidth,
-      dataLength,
-      period,
-      dpr,
-      kWidth,
-      kGap,
-    })
-  const contentWidth =
-    options.contentWidth ??
-    computeContentWidth({
-      viewWidth,
-      plotWidth: viewWidth,
-      dataLength,
-      period,
-      dpr,
-      kWidth,
-      kGap,
-    })
-
+/** 用注入的视口几何装配补偿器；数值不依赖任何内容宽度公式。 */
+function makeDeps(options: {
+  leftBuffer: number
+  contentWidth: number
+  viewWidth: number
+  scrollLeft?: number
+}): { deps: ScrollDeps; getScrollLeft: () => number } {
   const { viewport, getScrollLeft } = createMockViewport({
     scrollLeft: options.scrollLeft ?? 0,
-    leftLoadBufferWidth: leftBuffer,
-    contentWidth,
-    viewWidth,
-    dpr,
+    leftLoadBufferWidth: options.leftBuffer,
+    contentWidth: options.contentWidth,
+    viewWidth: options.viewWidth,
+    dpr: 1,
   })
-
   return {
-    deps: {
-      getOption: () => ({ kWidth, kGap }),
-      viewport,
-    },
+    deps: { getOption: () => ({ kWidth: 8, kGap: 2 }), viewport },
     getScrollLeft,
   }
 }
 
-describe('ScrollCompensator geometry SSOT', () => {
-  it('scrollToRight clamps target to maxScrollLeft from injected contentWidth', () => {
+describe('ScrollCompensator geometry', () => {
+  it('scrollToRight clamps the target to the injected maxScrollLeft', () => {
     const dataLength = 200
     const viewWidth = 400
-    const kWidth = 8
-    const kGap = 2
-    const dpr = 1
-    const leftBuffer = computeLeftLoadBufferWidth({
-      viewWidth,
-      plotWidth: viewWidth,
-      dataLength,
-      period: 'daily',
-      dpr,
-      kWidth,
-      kGap,
-    })
-    const contentWidth = computeContentWidth({
-      viewWidth,
-      plotWidth: viewWidth,
-      dataLength,
-      period: 'daily',
-      dpr,
-      kWidth,
-      kGap,
-    })
-    const maxScroll = computeMaxScrollLeft(contentWidth, viewWidth)
+    const leftBuffer = 400
+    const contentWidth = 2600
+    const { deps, getScrollLeft } = makeDeps({ leftBuffer, contentWidth, viewWidth })
 
-    const { deps, getScrollLeft } = makeDeps({
-      scrollLeft: 0,
-      leftBuffer,
-      contentWidth,
-      viewWidth,
-      dataLength,
-    })
     new ScrollCompensator(deps).scrollToRight(dataLength)
-    const scrollLeft = getScrollLeft()
 
-    const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-    const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
-    const rawTarget = leftBuffer + (lastKLineEndPx - viewWidth)
-    const expected = Math.round(Math.max(0, Math.min(rawTarget, maxScroll)) * dpr) / dpr
-    expect(scrollLeft).toBe(expected)
+    const { unitPx, startXPx } = getPhysicalKLineConfig(8, 2, 1)
+    const rawTarget = leftBuffer + (startXPx + dataLength * unitPx) - viewWidth
+    const maxScroll = contentWidth - viewWidth
+    expect(getScrollLeft()).toBe(Math.max(0, Math.min(rawTarget, maxScroll)))
   })
 
-  it('scrollToRight uses viewport contentWidth / leftLoadBufferWidth, not local formulas', () => {
+  it('reads contentWidth and leftLoadBufferWidth from the viewport, not local formulas', () => {
     const injectedLeft = 111
     const injectedContent = 500
     const viewWidth = 400
-    const { viewport, getScrollLeft } = createMockViewport({
-      scrollLeft: 0,
-      leftLoadBufferWidth: injectedLeft,
+    const { deps, getScrollLeft } = makeDeps({
+      leftBuffer: injectedLeft,
       contentWidth: injectedContent,
       viewWidth,
-      dpr: 1,
     })
 
-    const deps: ScrollDeps = {
-      getOption: () => ({ kWidth: 8, kGap: 2 }),
-      viewport,
-    }
+    new ScrollCompensator(deps).scrollToRight(50)
 
-    const compensator = new ScrollCompensator(deps)
-    compensator.scrollToRight(50)
-
-    const maxScroll = Math.max(0, injectedContent - viewWidth)
-    expect(getScrollLeft()).toBeLessThanOrEqual(maxScroll)
-    expect(getScrollLeft()).toBe(maxScroll)
+    expect(getScrollLeft()).toBe(injectedContent - viewWidth)
   })
 })

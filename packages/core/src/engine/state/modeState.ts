@@ -1,5 +1,6 @@
 /** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
+import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
 
 export {
   type ChartDataView,
@@ -67,14 +68,7 @@ export function createModeState() {
     return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
   })
   const interactionCapabilities = computed<InteractionCapabilities>(() => {
-    const dataView = sourceReadonly.dataView()
-    const supportsKLineInteraction = !isTimeShareDataView(dataView)
-    return Object.freeze({
-      allowPan: true,
-      allowZoom: true,
-      allowVerticalScroll: supportsKLineInteraction,
-      allowRightAxisScale: supportsKLineInteraction,
-    })
+    return VIEW_STRATEGIES[sourceReadonly.dataView()].capabilities
   })
 
   const setDataView = (view: ChartDataView, lastBarPeriod?: string): void => {

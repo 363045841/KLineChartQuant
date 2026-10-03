@@ -82,7 +82,6 @@ export interface DataDependencies {
     displayTimestamps?: readonly number[] | null,
   ) => void
   isPointerDown: () => boolean
-  onTimeShareDataReady: (dataLength: number) => void
   /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
 }
@@ -689,7 +688,6 @@ export class ChartDataManager {
     const data = this._dataState.readonly.data.peek() as TimeShareData[]
     this._dmState.actions.setRangeInitialized(true)
     this.deps.resetInteraction()
-    this.deps.onTimeShareDataReady(data.length)
     void this.updateTimeShareIndicators(data)
     this.deps.scheduleDraw()
   }

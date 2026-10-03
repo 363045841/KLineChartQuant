@@ -6,7 +6,6 @@ import type { ChartDataManager } from '../../data/chartDataManager.js'
 import type { Pane, VisibleRange } from '../../layout/pane.js'
 import type { ChartModeHandler } from '../types.js'
 import {
-  computeTimeShareBarMetrics,
   computeTimeSharePriceRange,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
@@ -26,24 +25,6 @@ export class TimeShareMode implements ChartModeHandler {
 
   setMarketSession(config: MarketSessionConfig): void {
     this._marketSession = config
-  }
-
-  computeContentWidth(
-    _dataLength: number,
-    leftBufferWidth: number,
-    viewWidth: number,
-    _opt: { kWidth: number; kGap: number },
-    _dpr: number,
-  ): number | null {
-    return leftBufferWidth + Math.max(viewWidth, 1)
-  }
-
-  computeKWidth(
-    dataLength: number,
-    viewWidth: number,
-    dpr: number,
-  ): { kWidth: number; kGap: number } | null {
-    return computeTimeShareBarMetrics(dataLength, viewWidth, dpr, this._marketSession)
   }
 
   updatePaneRange(

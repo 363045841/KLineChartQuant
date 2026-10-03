@@ -24,41 +24,6 @@ function mockDm(
 }
 
 describe('TimeShareMode', () => {
-  it('computeKWidth uses a fixed integer physical unit and leaves centered margins', () => {
-    const mode = new TimeShareMode()
-    const m = mode.computeKWidth(240, 320, 1)
-    expect(m).not.toBeNull()
-    expect(m!.kWidth + m!.kGap).toBe(1)
-    expect((m!.kWidth + m!.kGap) * 240).toBe(240)
-  })
-
-  it('computeKWidth for partial day matches full-session bar size', () => {
-    const mode = new TimeShareMode()
-    const partial = mode.computeKWidth(60, 320, 1)
-    const full = mode.computeKWidth(240, 320, 1)
-    expect(partial).not.toBeNull()
-    expect(full).not.toBeNull()
-    expect(partial!.kWidth).toBeCloseTo(full!.kWidth, 8)
-    expect(partial!.kGap).toBeCloseTo(full!.kGap, 8)
-  })
-
-  it('setMarketSession switches bar metrics to HK 330 slots', () => {
-    const mode = new TimeShareMode()
-    const ashare = mode.computeKWidth(100, 720, 1)!
-    mode.setMarketSession({
-      timeZone: 'Asia/Hong_Kong',
-      sessions: [
-        { open: 9 * 60 + 30, close: 12 * 60 },
-        { open: 13 * 60, close: 16 * 60 },
-      ],
-      slotMinutes: 1,
-    })
-    const hk = mode.computeKWidth(100, 720, 1)!
-    // 固定整数物理网格：A 股 240 槽 unit=3；港股 330 槽 unit=2。
-    expect(ashare.kWidth + ashare.kGap).toBe(3)
-    expect(hk.kWidth + hk.kGap).toBe(2)
-  })
-
   it('updatePaneRange uses preClose as basePrice and covers open gap', () => {
     const mode = new TimeShareMode()
     const pane = new Pane('main')

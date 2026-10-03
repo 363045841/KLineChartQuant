@@ -237,31 +237,19 @@ describe('Chart DPR pipeline', () => {
     }
   })
 
-  it('commits timeshare geometry atomically and repaints slot-only changes', async () => {
+  it('projects ordinary timeshare from model inputs and rejects horizontal navigation', async () => {
     const chart = mountChart()
     try {
       setInlinePrimary(chart)
       chart.setCurrentPeriod(TIME_SHARE_PERIOD)
-      const zoom = chart.kernel.zoom.readonly
-      const observed: Array<{ width: number; slot: number | null }> = []
-      const unsubscribe = zoom.kWidth.subscribe(() =>
-        observed.push({ width: zoom.kWidth.peek(), slot: zoom.timeShareSlotWidth.peek() }),
-      )
-      const draw = vi.spyOn(chart, 'scheduleDraw')
-      chart.applyRenderState({ kWidth: 4, slotWidth: 5 })
-      expect(observed).toEqual([{ width: 4, slot: 5 }])
+      const viewport = chart.kernel.viewport
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(0)
+      expect(viewport.readonly.contentWidth.peek()).toBe(viewport.readonly.plotWidth.peek())
       expect(chart.kernel.viewport.readonly.kGap.peek()).toBe(1 / chart.getCurrentDpr())
-      draw.mockClear()
-      chart.applyRenderState({ kWidth: 4, slotWidth: 6 })
-      expect(zoom.timeShareSlotWidth.peek()).toBe(6)
-      expect(draw).toHaveBeenCalledOnce()
-      draw.mockClear()
-      chart.applyRenderState({ kWidth: 4, slotWidth: 6 })
-      expect(draw).not.toHaveBeenCalled()
-      chart.applyRenderState({ kWidth: 5, slotWidth: 3 })
-      expect(zoom.kWidth.peek()).toBe(4)
-      expect(zoom.timeShareSlotWidth.peek()).toBe(6)
-      unsubscribe()
+      viewport.actions.scrollToLogical(1000)
+      chart.zoom.in(200)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(0)
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(1)
     } finally {
       await chart.destroy()
     }
@@ -444,7 +432,7 @@ describe('Chart DPR pipeline', () => {
 
     chart.setData([...bars, { timestamp: 100, open: 11, high: 12, low: 10, close: 11 }])
     expectMainPaint('data')
-    chart.applyRenderState({ zoomLevel: 2 })
+    chart.zoom.toLevel(2)
     expectMainPaint('zoom')
     chart.updateSettings({ showGridLines: false })
     expectMainPaint('settings')
@@ -1013,8 +1001,8 @@ describe('Chart DPR pipeline', () => {
     const chart = mountChart()
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
 
-    chart.applyRenderState({ zoomLevel: 2 })
-    chart.applyRenderState({ zoomLevel: 2 })
+    chart.zoom.toLevel(2)
+    chart.zoom.toLevel(2)
 
     expect(scheduleDrawSpy).toHaveBeenCalledTimes(1)
 

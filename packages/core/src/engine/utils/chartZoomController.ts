@@ -1,16 +1,15 @@
 /** 缩放手势协调：所有入口通过同一槽位变换原子提交视口。 */
-import { isTimeSharePeriod } from '../../controllers/types.js'
-import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { batch } from '../../foundation/reactivity/signal.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { createKLineSlotGrid, createTimeShareSlotGrid, zoomSlotGrid } from '../viewport/slotGrid.js'
-import { clampZoomLevel, deriveKGap, kGapFromKWidth, zoomLevelToKWidth } from './zoom.js'
+import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
+import { zoomSlotGrid } from '../viewport/slotGrid.js'
+import { clampZoomLevel, zoomLevelToKWidth } from './zoom.js'
 
 export interface ZoomDependencies {
   viewport: ViewportStateModule
   options: OptionsStateModule
-  period$: ReadonlySignal<string>
   onChange?: () => void
 }
 
@@ -28,16 +27,12 @@ export class ChartZoomController {
 
   /** 当前 K 线宽度。 */
   get currentKWidth(): number {
-    return this.zoomState.readonly.kWidth.peek()
+    return this.deps.viewport.readonly.viewSnapshot.peek().kWidth
   }
 
   /** 当前绘制间隙。 */
   get currentKGap(): number {
-    return deriveKGap({
-      kWidth: this.currentKWidth,
-      dpr: this.deps.viewport.readonly.dpr.peek(),
-      period: this.deps.period$.peek(),
-    })
+    return this.deps.viewport.readonly.viewSnapshot.peek().kGap
   }
 
   /** 配置中的缩放级别数量。 */
@@ -78,31 +73,21 @@ export class ChartZoomController {
     const current = this.currentZoomLevel
     if (target === current) return
     const viewport = this.deps.viewport
-    const before = viewport.readonly.slotGrid.peek()
-    const scroll = viewport.readonly.scrollLeftLogical.peek()
+    const input = viewport.readonly.viewInput.peek()
+    const strategy = VIEW_STRATEGIES[input.view]
+    if (!strategy.capabilities.allowZoom) return
+    const before = viewport.readonly.viewSnapshot.peek()
     const anchor = pointerX ?? viewport.readonly.plotWidth.peek() / 2
-    if (!(before.step > 0)) return
-
-    const dpr = viewport.readonly.dpr.peek()
-    const timeShare = isTimeSharePeriod(this.deps.period$.peek())
-    const width = Math.max(1, Math.round(before.step * dpr) + target - current) / dpr
+    if (!(before.grid.step > 0)) return
     const options = this.deps.options.readonly.options.peek()
     const kWidth = zoomLevelToKWidth(target, options)
-    const after = timeShare
-      ? createTimeShareSlotGrid(
-          Math.max(
-            viewport.readonly.minimumTimeShareContentWidth.peek(),
-            viewport.readonly.timeShareSlotCount.peek() * width,
-          ),
-          viewport.readonly.timeShareSlotCount.peek(),
-          dpr,
-        )
-      : createKLineSlotGrid(kWidth, kGapFromKWidth(kWidth, dpr), dpr)
-    const nextScroll = zoomSlotGrid(before, after, scroll, anchor)
+    const nextInput = strategy.zoomInput(input, target - current, kWidth)
+    const after = strategy.project(nextInput)
+    const nextScroll = zoomSlotGrid(before.grid, after.grid, before.scroll, anchor)
     batch(() => {
-      if (timeShare) this.zoomState.actions.setTimeShareSlotWidth(width)
+      this.zoomState.actions.setSessionSlotWidth(nextInput.sessionSlotWidth)
       this.zoomState.actions.setZoomLevel(target)
-      viewport.actions.scrollToLogical(nextScroll)
+      viewport.actions.setNavigation(strategy.navigate(after, nextScroll))
     })
     this.deps.onChange?.()
   }

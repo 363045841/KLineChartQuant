@@ -126,7 +126,6 @@ export function createMockDataDependencies(
     resetInteraction,
     updateIndicatorData: () => {},
     isPointerDown: () => false,
-    onTimeShareDataReady: () => {},
     setSymbols,
   }
 }

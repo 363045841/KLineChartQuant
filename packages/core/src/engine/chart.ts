@@ -384,7 +384,6 @@ export class Chart {
         updateIndicatorData: (data, range, dataRevision, displayTimestamps) =>
           this.indicatorManager.updateIndicatorData(data, range, dataRevision, displayTimestamps),
         isPointerDown: () => this.interaction.isPointerDown(),
-        onTimeShareDataReady: (dataLength) => this.initializeTimeShareWidth(dataLength),
         setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
       this.kernel.data,
@@ -436,7 +435,6 @@ export class Chart {
       {
         viewport: this.kernel.viewport,
         options: this.kernel.options,
-        period$: this.kernel.dataManager.readonly.currentPeriod,
         onChange: () => {
           this.scheduleDraw()
           this.checkVisibleRangeGapWhenIdle()
@@ -643,8 +641,6 @@ export class Chart {
     const nextDataView =
       dataView ?? (mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine)
     if (prev === mode && this.kernel.mode.readonly.dataView.peek() === nextDataView) return
-
-    if (isTimeShareDataView(nextDataView)) this.kernel.zoom.actions.clearTimeShareKWidth()
 
     prev.onDeactivate(
       {
@@ -877,55 +873,13 @@ export class Chart {
 
   // ========== Render State API (Vue SSOT) ==========
 
-  /** 按当前视图原子应用缩放等级或分时几何；kGap 始终由 viewport 派生。 */
-  applyRenderState(state: { zoomLevel: number } | { kWidth: number; slotWidth: number }): void {
-    const zoom = this.kernel.zoom
-    const timeShare = isTimeShareDataView(this.kernel.mode.readonly.dataView.peek())
-    if ('zoomLevel' in state) {
-      if (timeShare) return
-      const before = zoom.readonly.zoomLevel.peek()
-      zoom.actions.setZoomLevel(state.zoomLevel)
-      if (zoom.readonly.zoomLevel.peek() === before) return
-    } else {
-      if (
-        !timeShare ||
-        !Number.isFinite(state.kWidth) ||
-        state.kWidth <= 0 ||
-        !Number.isFinite(state.slotWidth) ||
-        state.slotWidth < state.kWidth
-      )
-        return
-      if (
-        zoom.readonly.kWidth.peek() === state.kWidth &&
-        zoom.readonly.timeShareSlotWidth.peek() === state.slotWidth
-      )
-        return
-      batch(() => {
-        zoom.actions.setTimeShareKWidth(state.kWidth)
-        zoom.actions.setTimeShareSlotWidth(state.slotWidth)
-      })
-    }
-    this.scheduleDraw()
-  }
-
   /** 为数据、渲染和指标提供同一份当前几何投影。 */
   private getRenderOptions() {
     return {
       ...this.kernel.options.readonly.options.peek(),
-      kWidth: this.kernel.zoom.readonly.kWidth(),
+      kWidth: this.kernel.viewport.readonly.viewSnapshot().kWidth,
       kGap: this.kernel.viewport.readonly.kGap(),
     }
-  }
-
-  /** 数据就绪或布局首次有效时初始化分时几何，并对齐左缓冲区。 */
-  private initializeTimeShareWidth(dataLength: number): void {
-    const vp = this.getViewport()
-    if (this.activeMode !== this._timeShareMode || dataLength <= 0 || !vp || vp.plotWidth <= 0)
-      return
-    const metrics = this._timeShareMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
-    if (!metrics) return
-    this.applyRenderState({ kWidth: metrics.kWidth, slotWidth: metrics.kWidth + metrics.kGap })
-    this.kernel.viewport.actions.scrollTo(this.getLeftLoadBufferWidth())
   }
 
   /** 获取所有 PaneRenderer */
@@ -1255,9 +1209,6 @@ export class Chart {
     const vp = this.getViewport()
     const timeShare = this.activeMode === this._timeShareMode
     if (!vp || (timeShare ? vp.plotWidth <= 0 : vp.viewWidth < 10 || vp.viewHeight < 10)) return
-    if (timeShare && this.kernel.zoom.readonly.timeShareSlotWidth.peek() === null) {
-      this.initializeTimeShareWidth(this.dataManager.getTimeShareData().length)
-    }
     this.renderer.clearCachedFrame()
     this.layoutManager.layoutPanes()
     this.interaction.invalidateHover()

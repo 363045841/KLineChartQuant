@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { InteractionController } from '@/core/controller/interaction'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 
-import { createChartStub, createMockInteractionState } from './helpers/interactionTestKit'
+import {
+  createChartStub,
+  createInteractionBars,
+  createInteractionTimeShare,
+  createMockInteractionState,
+} from './helpers/interactionTestKit'
 
 describe('InteractionController DPR consumption', () => {
   it('requests the shared render frame after a programmatic pan changes scroll state', () => {
@@ -33,23 +38,22 @@ describe('InteractionController DPR consumption', () => {
   })
 
   it('hides hover while panning and restores it after mouse release', () => {
-    const slotGrid = { origin: 5, step: 10 }
     const chart = createChartStub({
       dpr: 1,
       plotWidth: 300,
       plotHeight: 160,
       scrollTo: () => true,
-      slotGrid,
+      data: createInteractionBars(20),
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.onPointerMove({ clientX: 44, clientY: 40, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
 
     interaction.onPointerDown({
-      clientX: 50,
+      clientX: 44,
       clientY: 40,
       isPrimary: true,
       pointerId: 1,
@@ -64,9 +68,8 @@ describe('InteractionController DPR consumption', () => {
       isPrimary: true,
       pointerId: 1,
     } as PointerEvent)
-    // 渲染帧先封存平移后的几何，再用松手位置恢复 hover。
-    slotGrid.origin = 25
-    interaction.setKLinePositions([20, 30], { start: 0, end: 2 }, 10)
+    // 平移已更新模型滚动量，渲染帧封存新投影后用松手位置恢复 hover。
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
     interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
     expect(interaction.hoveredIndex).not.toBeNull()
@@ -75,7 +78,7 @@ describe('InteractionController DPR consumption', () => {
   it('keeps the crosshair value index while panning so legend values do not drift', () => {
     const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollTo: () => true })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
     interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
@@ -106,7 +109,7 @@ describe('InteractionController DPR consumption', () => {
     const chart = createChartStub({ dpr: 2, plotWidth: 100, plotHeight: 80 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
     interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
@@ -124,7 +127,7 @@ describe('InteractionController DPR consumption', () => {
       chartDpr1 as never,
       createMockInteractionState(),
     )
-    interactionDpr1.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interactionDpr1.setViewSnapshot(chartDpr1.kernel.viewport.readonly.viewSnapshot.peek())
 
     interactionDpr1.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
     interactionDpr1.flushPendingHover()
@@ -135,35 +138,36 @@ describe('InteractionController DPR consumption', () => {
       chartDpr2 as never,
       createMockInteractionState(),
     )
-    interactionDpr2.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interactionDpr2.setViewSnapshot(chartDpr2.kernel.viewport.readonly.viewSnapshot.peek())
 
     interactionDpr2.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
     interactionDpr2.flushPendingHover()
     expect(interactionDpr2.crosshairIndex).toBe(1)
   })
 
-  it('uses sealed centers to select and snap the timeshare crosshair', () => {
+  it('uses timeshare centers to select and snap the crosshair', () => {
     const chart = createChartStub({
       dpr: 1,
       plotWidth: 300,
       plotHeight: 160,
       dataView: ChartDataViewId.TimeShare,
+      data: createInteractionTimeShare(10),
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    // 分时 slot 间距可与 K 线物理宽度不同，不能从 position + width/2 推导中心。
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10, [1, 21])
+    // 分钟槽位中心为 30..39，与 K 线物理宽度不同，命中必须读交易中心而非 position + width/2。
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
     interaction.onPointerMove({ clientX: 10, clientY: 40, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
 
     expect(interaction.crosshairIndex).toBe(0)
-    expect(interaction.crosshairPos?.x).toBe(1)
+    expect(interaction.crosshairPos?.x).toBe(30)
   })
 
   it('pointermove does not write crosshair until flushPendingHover', () => {
     const chart = createChartStub({ dpr: 1, plotWidth: 100, plotHeight: 80 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
     interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
     expect(interaction.crosshairPos).toBeNull()
@@ -175,7 +179,7 @@ describe('InteractionController DPR consumption', () => {
   it('pointerleave cancels pending hover so flush does not restore crosshair', () => {
     const chart = createChartStub({ dpr: 1, plotWidth: 100, plotHeight: 80 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
     interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
     interaction.onPointerLeave({ isPrimary: true } as PointerEvent)
@@ -222,29 +226,6 @@ describe('InteractionController DPR consumption', () => {
 
     expect(interaction.isDraggingState()).toBe(false)
   })
-
-  it('indexes bars from sealed frameVisibleRange, not stale viewport.visibleFrom', () => {
-    // hit-test 与 positions 必须同帧同源；即使 viewport 快照与 seal range 不一致，也以 seal 为准
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
-    chart.viewport.peek = () => ({
-      zoomLevel: 1,
-      plotWidth: 300,
-      plotHeight: 160,
-      dpr: 1,
-      visibleFrom: 99,
-      visibleTo: 101,
-      kWidth: 6,
-      kGap: 2,
-    })
-    const interaction = new InteractionController(chart as never, createMockInteractionState())
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
-
-    interaction.onPointerMove({ clientX: 5, clientY: 40, isPrimary: true } as PointerEvent)
-    interaction.flushPendingHover()
-
-    expect(interaction.crosshairIndex).toBe(0)
-    expect(interaction.crosshairPos).not.toBeNull()
-  })
 })
 
 describe('InteractionController pane capability gating', () => {
@@ -260,7 +241,7 @@ describe('InteractionController pane capability gating', () => {
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
     interaction.onPointerMove({ clientX: 5, clientY: 140, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
 
@@ -280,7 +261,7 @@ describe('InteractionController pane capability gating', () => {
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
     interaction.onPointerMove({ clientX: 5, clientY: 10, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
 
@@ -301,7 +282,7 @@ describe('InteractionController pane capability gating', () => {
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
     interaction.onPointerMove({ clientX: 5, clientY: 10, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
     expect(interaction.hoveredIndex).toBe(interaction.crosshairIndex)
@@ -363,28 +344,24 @@ describe('InteractionController hover snapshot', () => {
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBe(customMarker)
 
     hoveringCustom = false
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
 
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBeNull()
   })
 
-  it('maps drawing coordinates through sealed frame centers', () => {
-    const chart = createChartStub({
-      dpr: 1,
-      plotWidth: 300,
-      plotHeight: 200,
-      dataView: ChartDataViewId.TimeShare,
-    })
+  it('maps drawing coordinates through the shared slot grid', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 200 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    interaction.setKLinePositions([0, 30, 130], { start: 20, end: 23 }, 10, [8, 37, 137])
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    expect(interaction.getScreenXAtLogicalIndex(22)).toBe(137)
-    expect(interaction.getScreenXAtLogicalIndex(23)).toBe(237)
-    expect(interaction.getLogicalIndexAtScreenX(138)).toBe(23)
-    expect(interaction.getLogicalIndexAtScreenX(121)).toBe(22)
-    expect(interaction.getLogicalIndexAtScreenX(20)).toBe(20)
+    // K 线中心网格 origin=6、step=10；索引与屏幕坐标互为逆映射。
+    expect(interaction.getScreenXAtLogicalIndex(22)).toBe(226)
+    expect(interaction.getScreenXAtLogicalIndex(23)).toBe(236)
+    expect(interaction.getLogicalIndexAtScreenX(226)).toBe(22)
+    expect(interaction.getLogicalIndexAtScreenX(236)).toBe(23)
+    expect(interaction.getLogicalIndexAtScreenX(6)).toBe(0)
   })
 })

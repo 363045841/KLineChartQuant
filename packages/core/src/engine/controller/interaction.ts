@@ -11,8 +11,7 @@ import type { Chart } from '../chart.js'
 import { UpdateLevel } from '../layout/pane.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 import type { InteractionSnapshot, InteractionStateModule } from '../state/interactionState.js'
-import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
-import { slotIndexAt, slotWorldX } from '../viewport/slotGrid.js'
+import type { ViewSnapshot } from '../view/types.js'
 import { MarkerInteractionState } from './markerInteraction.js'
 import { PinchTracker } from './pinchTracker.js'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition.js'
@@ -79,13 +78,7 @@ export class InteractionController {
    * 本帧封存的 K 线几何（非 kernel signal，避免每帧广播大数组）。
    * 仅 InteractionController hover 读取；绘制走 ChartRenderer FrameContext。
    */
-  private framePositions: number[] | null = null
-  private frameCenters: number[] | null = null
-  private frameKWidthPx: number | null = null
-  /** 帧内单中心点时的逻辑槽位步长。 */
-  private frameFallbackCenterStep: number | null = null
-  /** 与 framePositions 同代的可见区间（已 clamp start>=0，与 calcKLinePositions 一致） */
-  private frameVisibleRange: { start: number; end: number } | null = null
+  private frameView: ViewSnapshot | null = null
   private markerState = new MarkerInteractionState()
   private lastHoverRenderKey = ''
   private useTooltipAnchorPositioning = false
@@ -364,10 +357,7 @@ export class InteractionController {
 
   /** 处理滚动事件 */
   onScroll(options: { scheduleDraw?: boolean } = {}) {
-    this.framePositions = null
-    this.frameCenters = null
-    this.frameKWidthPx = null
-    this.frameVisibleRange = null
+    this.frameView = null
     this.hoverFlushPending = false
     this.clearHover()
     if (options.scheduleDraw !== false) {
@@ -521,30 +511,9 @@ export class InteractionController {
    * @param kWidthPx K 线宽度（物理像素）
    * @param centers K 线中心 x 坐标数组
    */
-  setKLinePositions(
-    positions: number[] | null,
-    visibleRange: { start: number; end: number } | null,
-    kWidthPx?: number,
-    centers?: number[] | null,
-    fallbackCenterStep?: number,
-  ) {
-    const nextWidth = kWidthPx ?? null
-    const nextCenters = centers ?? null
-    const nextRange = visibleRange
-    const nextFallbackCenterStep = fallbackCenterStep ?? null
-    const unchanged =
-      this.framePositions === positions &&
-      this.frameCenters === nextCenters &&
-      this.frameKWidthPx === nextWidth &&
-      this.frameFallbackCenterStep === nextFallbackCenterStep &&
-      this.frameVisibleRange?.start === nextRange?.start &&
-      this.frameVisibleRange?.end === nextRange?.end
-
-    this.framePositions = positions
-    this.frameCenters = nextCenters
-    this.frameKWidthPx = nextWidth
-    this.frameFallbackCenterStep = nextFallbackCenterStep
-    this.frameVisibleRange = nextRange
+  setViewSnapshot(snapshot: ViewSnapshot) {
+    const unchanged = this.frameView === snapshot
+    this.frameView = snapshot
 
     // 几何变化时标记 hover 待刷新；由 flushPendingHover 与 paint 同帧完成
     if (!unchanged && this.lastClientPos && !this._state.readonly.isDragging.peek()) {
@@ -556,73 +525,15 @@ export class InteractionController {
   /** K 线按无界槽位投影，分时按封存的交易中心投影。 */
   getScreenXAtLogicalIndex(index: number): number | null {
     if (!Number.isInteger(index)) return null
-    if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
-      return (
-        slotWorldX(this.chart.kernel.viewport.readonly.slotGrid.peek(), index) -
-        this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
-      )
-    }
-    const centers = this.frameCenters
-    const range = this.frameVisibleRange
-    const viewport = this.chart.getViewport()
-    if (!centers || !range || !viewport) return null
-
-    return logicalIndexToScreenX({
-      index,
-      visibleRange: range,
-      centers,
-      scrollLeft: viewport.scrollLeft,
-      dpr: viewport.dpr,
-      fallbackStep: this.frameFallbackCenterStep ?? 0,
-    })
-  }
-
-  /**
-   * 尾部槽位步长：centers 尾步长 → frameFallbackCenterStep → kWidthPx/dpr（与 getLogicalIndexAtScreenX 同源）。
-   * centers 尾步长存在但为 0/非有限时返回 null（不落 fallback）；无有效步长返回 null。
-   */
-  private tailSlotStep(centers: number[] | null, kWidthPx: number, dpr: number): number | null {
-    const lastCenter = centers?.[centers.length - 1]
-    const prevCenter = centers?.[centers.length - 2]
-    const tailStep =
-      lastCenter !== undefined && prevCenter !== undefined ? lastCenter - prevCenter : null
-    const step = tailStep ?? this.frameFallbackCenterStep ?? kWidthPx / dpr
-    return step > 0 && Number.isFinite(step) ? step : null
+    const view = this.chart.kernel.viewport.readonly.viewSnapshot.peek()
+    const world = view.worldAtIndex(index)
+    return world === null ? null : world - view.scroll
   }
 
   /** K 线直接求解指针槽位，分时按交易数据中心查找索引。 */
   getLogicalIndexAtScreenX(screenX: number): number | null {
-    if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
-      return slotIndexAt(
-        this.chart.kernel.viewport.readonly.slotGrid.peek(),
-        screenX + this.chart.kernel.viewport.readonly.scrollLeftLogical.peek(),
-      )
-    }
-    const centers = this.frameCenters
-    const range = this.frameVisibleRange
-    const viewport = this.chart.getViewport()
-    if (!centers || centers.length === 0 || !range || !viewport) return null
-
-    const worldX = screenX + viewport.scrollLeft
-    let low = 0
-    let high = centers.length
-    while (low < high) {
-      const middle = (low + high) >> 1
-      if (centers[middle]! < worldX) low = middle + 1
-      else high = middle
-    }
-
-    if (low === 0) return range.start
-    if (low === centers.length) {
-      const step = this.tailSlotStep(centers, this.frameKWidthPx ?? 0, viewport.dpr)
-      if (!step) return null
-      const lastIndex = range.end - 1
-      const lastCenter = centers[centers.length - 1]!
-      return lastIndex + Math.max(1, Math.ceil((worldX - lastCenter) / step))
-    }
-    const previous = centers[low - 1]!
-    const current = centers[low]!
-    return range.start + (worldX - previous <= current - worldX ? low - 1 : low)
+    const view = this.chart.kernel.viewport.readonly.viewSnapshot.peek()
+    return view.indexAtWorld(screenX + view.scroll)
   }
 
   /** 将价格轴滚轮增量归一到像素，以鼠标所在 pane 价位为锚点缩放。 */
@@ -857,7 +768,7 @@ export class InteractionController {
    * 边界 → pane 分隔器 → marker → K 线 bar → 十字线定位 → candle 命中 → tooltip。
    * 每个步骤都可能提前 return，无需执行后续检测。
    */
-  /** @internal 公开给外部在合适的时机触发十字线重算（如 setKLinePositions 之后） */
+  /** @internal 公开给外部在合适的时机触发十字线重算（如封存新视图快照之后） */
   updatePlotHoverFromPoint(clientX: number, clientY: number) {
     const ctx = this.resolveHoverContext(clientX, clientY)
     if (!ctx) return
@@ -873,7 +784,7 @@ export class InteractionController {
 
     this.positionCrosshair(ctx, bar)
 
-    if (isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
+    if (this.chart.kernel.viewport.readonly.viewSnapshot.peek().hoverKind === 'point') {
       this.handleTimeshareHover(ctx, bar)
       return
     }
@@ -986,77 +897,17 @@ export class InteractionController {
    * K 线直接按网格求解，过去和未来槽位不依赖帧数组；分时查找真实交易数据中心。
    */
   private findNearestBar(ctx: HoverContext): NearestBar | null {
-    if (!isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
-      const viewport = this.chart.getViewport()
-      if (!viewport) return null
-      const grid = this.chart.kernel.viewport.readonly.slotGrid.peek()
-      const globalIdx = slotIndexAt(grid, ctx.worldX)
-      const widthLogical = (this.frameKWidthPx ?? 1) / ctx.dpr
-      return {
-        globalIdx,
-        localIdx: globalIdx - (this.frameVisibleRange?.start ?? 0),
-        kLineStartX: slotWorldX(grid, globalIdx) - widthLogical / 2,
-        widthLogical,
-      }
-    }
-    const kLinePositions = this.framePositions
-    const kLineCenters = this.frameCenters
-    const kWidthPx = this.frameKWidthPx
-    // 与 framePositions 同代的 seal range（viewport 已 clamp，此处仍用 seal 保证同帧一致）
-    const visibleRange = this.frameVisibleRange
-    if (!kLinePositions || !visibleRange || !kWidthPx) return null
-
-    const { worldX, dpr, scrollLeft, plotWidth } = ctx
-    const kWidthLogical = kWidthPx / dpr
-    const positions = kLinePositions
-    // 优先使用渲染帧封存的中心点，保证分时折线、量柱和十字线共用同一 X 基准。
-    const centers = kLineCenters?.length === positions.length ? kLineCenters : null
-
-    let lo = 0,
-      hi = positions.length
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1
-      const center = centers?.[mid] ?? positions[mid]! + kWidthLogical / 2
-      if (center < worldX) {
-        lo = mid + 1
-      } else {
-        hi = mid
-      }
-    }
-
-    let localIdx = lo
-    if (lo > 0 && lo < positions.length) {
-      const prevCenter = centers?.[lo - 1] ?? positions[lo - 1]! + kWidthLogical / 2
-      const currCenter = centers?.[lo] ?? positions[lo]! + kWidthLogical / 2
-      if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
-        localIdx = lo - 1
-      }
-    } else if (lo === positions.length) {
-      if (positions.length === 0) return null
-      localIdx = positions.length - 1 // 分时保持旧行为：回夹最后一根
-    }
-
-    // 跳过中心不在可视视口内的 K 线（边缘裁剪），取相邻可见 K 线
-    const barCenter = centers?.[localIdx] ?? positions[localIdx]! + kWidthLogical / 2
-    if (barCenter < scrollLeft) {
-      if (localIdx + 1 < positions.length) {
-        localIdx += 1
-      } else {
-        return null
-      }
-    } else if (barCenter > scrollLeft + plotWidth) {
-      if (localIdx > 0) {
-        localIdx -= 1
-      } else {
-        return null
-      }
-    }
-
+    const view = this.frameView
+    if (!view || !view.ready) return null
+    const globalIdx = view.indexAtWorld(ctx.worldX)
+    if (globalIdx === null) return null
+    const center = view.worldAtIndex(globalIdx)
+    if (center === null) return null
     return {
-      localIdx,
-      globalIdx: localIdx + visibleRange.start,
-      kLineStartX: positions[localIdx]!,
-      widthLogical: kWidthLogical,
+      localIdx: globalIdx - view.range.start,
+      globalIdx,
+      kLineStartX: center - view.kWidth / 2,
+      widthLogical: view.kWidth,
     }
   }
 
@@ -1072,10 +923,7 @@ export class InteractionController {
     const pane = this.getPaneByY(mouseY)
     this._state.actions.setActivePaneId(pane?.id || null)
 
-    const kLineCenters = this.frameCenters
-    const centerX = isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())
-      ? (kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2)
-      : slotWorldX(this.chart.kernel.viewport.readonly.slotGrid.peek(), bar.globalIdx)
+    const centerX = bar.kLineStartX + bar.widthLogical / 2
     const snappedX = centerX - scrollLeft
 
     const price = pane ? pane.yAxis.yToPrice(mouseY - pane.top) : null
@@ -1214,10 +1062,7 @@ export class InteractionController {
     this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, null)
     this.markerState.reset()
-    this.framePositions = null
-    this.frameCenters = null
-    this.frameKWidthPx = null
-    this.frameVisibleRange = null
+    this.frameView = null
     this.lastHoverRenderKey = ''
   }
 
