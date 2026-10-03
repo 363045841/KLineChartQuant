@@ -5,7 +5,6 @@ export type FrameMetricsSnapshot = {
   bufferUploadBytes: number
   drawCallCount: number
   queueSubmitCount: number
-  compositeCount: number
 }
 
 function empty(): FrameMetricsSnapshot {
@@ -14,7 +13,6 @@ function empty(): FrameMetricsSnapshot {
     bufferUploadBytes: 0,
     drawCallCount: 0,
     queueSubmitCount: 0,
-    compositeCount: 0,
   }
 }
 
@@ -45,9 +43,6 @@ export function createFrameMetrics() {
     },
     recordSubmit(): void {
       current.queueSubmitCount += 1
-    },
-    recordComposite(): void {
-      current.compositeCount += 1
     },
     endFrame(): void {
       snapshot = { ...current }

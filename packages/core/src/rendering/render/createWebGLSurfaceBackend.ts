@@ -2,7 +2,7 @@
 
 import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface.js'
 
-import type { CompositeOptions, SurfaceRegion, VisibleSurface } from './SurfaceBackend.js'
+import type { SurfaceRegion, VisibleSurface } from './SurfaceBackend.js'
 
 /** WebGL surface 对外暴露底层 canvas，供图表直接叠放到 2D canvas 下方。 */
 export type WebGLSurfaceBackend = VisibleSurface
@@ -30,15 +30,6 @@ export function createWebGLSurfaceBackend(surface: SharedWebGLSurface): WebGLSur
     clearRegion(region: SurfaceRegion): void {
       if (disposed) return
       surface.clearRegion(region)
-    },
-
-    compositeTo(
-      targetCtx: CanvasRenderingContext2D,
-      region: SurfaceRegion,
-      options?: CompositeOptions,
-    ): void {
-      if (disposed) return
-      surface.compositeRegionTo(targetCtx, region, options)
     },
 
     dispose(): void {

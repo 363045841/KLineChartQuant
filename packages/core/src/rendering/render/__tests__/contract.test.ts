@@ -40,13 +40,6 @@ function makeMockSurface(): SurfaceBackend {
       return region.width > 0 && region.height > 0
     },
     clearRegion: () => {},
-    compositeTo: (ctx, region, options) => {
-      // No-op for tests — the contract is that this exists and accepts
-      // a CanvasRenderingContext2D + region + optional options.
-      void ctx
-      void region
-      void options
-    },
     dispose: () => {
       disposed = true
       lastRegion = null
@@ -64,7 +57,6 @@ describe('SurfaceBackend contract', () => {
     expect(typeof s.resize).toBe('function')
     expect(typeof s.bindRegion).toBe('function')
     expect(typeof s.clearRegion).toBe('function')
-    expect(typeof s.compositeTo).toBe('function')
     expect(typeof s.dispose).toBe('function')
   })
 

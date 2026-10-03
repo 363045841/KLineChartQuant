@@ -13,14 +13,12 @@ describe('frameMetrics', () => {
     m.recordUpload(64)
     m.recordDraw()
     m.recordSubmit()
-    m.recordComposite()
     m.endFrame()
     expect(getFrameMetrics()).toMatchObject({
       bufferCreateCount: 1,
       bufferUploadBytes: 64,
       drawCallCount: 1,
       queueSubmitCount: 1,
-      compositeCount: 1,
     })
   })
 })

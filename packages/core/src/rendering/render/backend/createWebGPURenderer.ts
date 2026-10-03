@@ -28,7 +28,7 @@ import {
   type WebGPUSurfaceBackend,
 } from './createWebGPUSurfaceBackend.js'
 
-type PipelineType = 'candle' | 'line' | 'fill'
+type PipelineType = 'candle' | 'line'
 
 type BufferRecord = {
   buffer: GPUBuffer
@@ -71,32 +71,6 @@ fn vertexMain(@builtin(vertex_index) vertexIndex: u32, @location(0) rect: vec4f)
   let position = vec2f(
     left + unit.x * max(1.0, right - left),
     top + unit.y * max(1.0, bottom - top),
-  );
-  let clip = vec2f(position.x / uniforms.resolution.x * 2.0 - 1.0, 1.0 - position.y / uniforms.resolution.y * 2.0);
-  return vec4f(clip, 0.0, 1.0);
-}
-
-@fragment
-fn fragmentMain() -> @location(0) vec4f {
-  return uniforms.color;
-}
-`
-
-const FILL_SHADER = `
-struct Uniforms {
-  resolution: vec2f,
-  dpr: f32,
-  scrollLeft: f32,
-  color: vec4f,
-}
-
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
-
-@vertex
-fn vertexMain(@location(0) point: vec2f) -> @builtin(position) vec4f {
-  let position = vec2f(
-    (point.x - uniforms.scrollLeft) * uniforms.dpr,
-    point.y * uniforms.dpr,
   );
   let clip = vec2f(position.x / uniforms.resolution.x * 2.0 - 1.0, 1.0 - position.y / uniforms.resolution.y * 2.0);
   return vec4f(clip, 0.0, 1.0);
@@ -352,15 +326,13 @@ export async function createWebGPURenderer(
     const cached = pipelineCache.get(kind)
     if (cached) return cached
     const isCandle = kind === 'candle'
-    const isLine = kind === 'line'
     const attributes: GPUVertexAttribute[] = [
       { shaderLocation: 0, offset: 0, format: isCandle ? 'float32x4' : 'float32x2' },
     ]
-    if (isLine) attributes.push({ shaderLocation: 1, offset: 8, format: 'float32x2' })
+    if (!isCandle) attributes.push({ shaderLocation: 1, offset: 8, format: 'float32x2' })
     const module = device.createShaderModule({
-      code: isCandle ? RECT_SHADER : isLine ? LINE_SHADER : FILL_SHADER,
+      code: isCandle ? RECT_SHADER : LINE_SHADER,
     })
-    const topology: GPUPrimitiveTopology = kind === 'fill' ? 'triangle-strip' : 'triangle-list'
     const pipeline = device.createRenderPipeline({
       layout: 'auto',
       vertex: {
@@ -368,7 +340,7 @@ export async function createWebGPURenderer(
         entryPoint: 'vertexMain',
         buffers: [
           {
-            arrayStride: isCandle || isLine ? 16 : 8,
+            arrayStride: 16,
             stepMode: isCandle ? 'instance' : 'vertex',
             attributes,
           },
@@ -379,7 +351,7 @@ export async function createWebGPURenderer(
         entryPoint: 'fragmentMain',
         targets: [{ format, blend: BLEND }],
       },
-      primitive: { topology },
+      primitive: { topology: 'triangle-list' },
       multisample: { count: 4 },
     })
     pipelineCache.set(kind, pipeline)
@@ -436,7 +408,7 @@ export async function createWebGPURenderer(
     return `${region.x},${region.y},${region.width},${region.height},${region.dpr}`
   }
 
-  function flushPendingDraws(options?: { composite?: boolean }): void {
+  function flushPendingDraws(): void {
     const hadDraws = pendingDraws.length > 0
     const shouldSubmit = hadDraws || frameClearRequested
     if (shouldSubmit) {
@@ -505,28 +477,15 @@ export async function createWebGPURenderer(
     retireBuffers()
     frameClearRequested = false
 
-    if (options?.composite) {
-      if (metricsFrameOpen || hadDraws) {
-        openMetricsFrame()
-        metrics.recordComposite()
-      }
-    }
-
-    // endFrame 结束：prune 未 touch 的 strip 资源；composite 中途 flush 保持 frame open
-    if (!options?.composite && metricsFrameOpen) {
+    // endFrame 结束：prune 未 touch 的 strip 资源
+    if (metricsFrameOpen) {
       pruneUnusedStripKeys()
       metrics.endFrame()
       metricsFrameOpen = false
     }
   }
 
-  // M2：compositeTo 为 no-op（可见 GPU canvas）；仅 endFrame submit
-  const surface: WebGPUSurfaceBackend = {
-    ...rawSurface,
-    compositeTo(_targetCtx, _region, _compositeOptions) {
-      // 禁止中途 flush，保证每 chart 帧单次 queue.submit
-    },
-  }
+  const surface: WebGPUSurfaceBackend = rawSurface
 
   const renderer: Renderer = {
     surface,
@@ -564,7 +523,7 @@ export async function createWebGPURenderer(
     createPipeline(descriptor): PipelineHandle {
       if (disposed) throw new Error('Renderer is disposed')
       const type = (descriptor as { type?: PipelineType })?.type
-      if (type !== 'candle' && type !== 'line' && type !== 'fill') {
+      if (type !== 'candle' && type !== 'line') {
         throw new Error('Unsupported WebGPU pipeline type')
       }
       const handle = {}
@@ -699,20 +658,7 @@ export async function createWebGPURenderer(
           }
           return true
         }
-
-        if (pipelineRecord.type !== 'fill' || !params.vertices || !params.vertexCount) return false
-        const vertexRecord = buffers.get(params.vertices as object)
-        if (!vertexRecord || params.vertexCount < 3) return false
-        pendingDraws.push({
-          kind: 'lines',
-          region: { ...currentRegion },
-          pipeline: getPipeline('fill'),
-          vertexBuffer: vertexRecord.buffer,
-          vertexCount: params.vertexCount,
-          color: params.uniforms?.color,
-          scrollLeft: (params.uniforms?.scrollLeft as number) ?? 0,
-        })
-        return true
+        return false
       } catch {
         return false
       }

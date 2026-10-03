@@ -370,7 +370,7 @@ describe('createWebGPURenderer', () => {
     expect(fake.queue.submit).toHaveBeenCalledOnce()
   })
 
-  it('uses triangle-strip for filled bands and reports device loss', async () => {
+  it('reports device loss', async () => {
     const fake = createMockWebGPU()
     const onDeviceLost = vi.fn()
     const renderer = await createWebGPURenderer({
@@ -379,19 +379,8 @@ describe('createWebGPURenderer', () => {
       onDeviceLost,
     })
     renderer.surface.resize(100, 100, 1)
-    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
-    const vertices = renderer.createBuffer('vertex', 32)
-    const pipeline = renderer.createPipeline({ type: 'fill' })
-
-    expect(renderer.drawLines({ pipeline, vertices, vertexCount: 4 })).toBe(true)
-    renderer.endFrame()
-    expect(
-      fake.pipelineDescriptors.some((item) => item.primitive?.topology === 'triangle-strip'),
-    ).toBe(true)
 
     const info: GPUDeviceLostInfo = { reason: 'unknown', message: 'device reset' }
-    expect(fake.pipelineDescriptors[0]?.vertex.buffers?.[0]?.arrayStride).toBe(8)
-    expect(fake.shaderModules[0]?.code).not.toContain('fwidth')
     fake.lost.resolve(info)
     await Promise.resolve()
     expect(onDeviceLost).toHaveBeenCalledWith(info)

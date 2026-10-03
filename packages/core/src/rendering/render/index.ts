@@ -48,7 +48,6 @@ export type {
 } from './rendererHost.js'
 export { createRendererHost, createRendererHostFromRenderer } from './rendererHost.js'
 export type {
-  CompositeOptions,
   SurfaceBackend,
   SurfaceRegion,
   VisibleSurface,

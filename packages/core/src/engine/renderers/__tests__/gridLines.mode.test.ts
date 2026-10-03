@@ -3,7 +3,7 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import { createGridLinesLayer } from '@/engine/render/layers/gridLinesLayer'
+import { createGridLinesLayer } from '@/engine/renderers/gridLines'
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'

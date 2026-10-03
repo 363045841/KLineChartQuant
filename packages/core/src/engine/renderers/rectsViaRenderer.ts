@@ -1,6 +1,5 @@
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import type { BufferHandle, PipelineHandle, Renderer } from '../../rendering/render/Renderer.js'
-import { compositeSceneRenderer } from './linesViaRenderer.js'
 
 export type RectBatch = {
   buf: Float32Array
@@ -29,7 +28,7 @@ function ensureRectCache(renderer: Renderer): RectGpuCache {
 
 /**
  * 经 Renderer.drawInstances 画多组矩形（volume / MACD bar / candle 共用）。
- * 任一非空 batch 失败 → false。不负责 composite。
+ * 任一非空 batch 失败 → false。
  * instance buffer 每 batch 独立创建，避免同 frame 内不同绘制目标互相覆盖。
  */
 export function drawRectBatchesViaRenderer(
@@ -75,9 +74,5 @@ export function tryDrawRectsGpu(
   if (active.length === 0) return true
 
   if (!context.sceneRenderer) return false
-  if (drawRectBatchesViaRenderer(context.sceneRenderer, active, scrollLeft)) {
-    compositeSceneRenderer(context)
-    return true
-  }
-  return false
+  return drawRectBatchesViaRenderer(context.sceneRenderer, active, scrollLeft)
 }

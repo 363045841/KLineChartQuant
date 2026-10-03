@@ -13,17 +13,11 @@ type MockLineStrip = {
   color: string
 }
 
-type MockFilledBand = {
-  upperPoints: Array<{ x: number; y: number }>
-  lowerPoints: Array<{ x: number; y: number }>
-}
-
 const mocks = vi.hoisted(() => ({
   mockDrawRectBuffer: vi.fn(
     (_rectData: Float32Array, _rectCount: number, _color: string, _scrollLeft: number) => true,
   ),
   mockDrawLineStrips: vi.fn((_lines: MockLineStrip[], _scrollLeft: number) => true),
-  mockDrawFilledBand: vi.fn((_band: MockFilledBand, _color: string, _scrollLeft: number) => true),
   mockSetRegion: vi.fn(),
   mockResize: vi.fn(),
   mockDestroyCandle: vi.fn(),
@@ -48,7 +42,6 @@ vi.mock('@/engine/renderers/webgl/candleSurface', () => {
       resize = mr.mockResize
       clear = () => {}
       drawLineStrips = mr.mockDrawLineStrips
-      drawFilledBand = mr.mockDrawFilledBand
       destroy = mr.mockDestroyLine
     },
   }
@@ -424,31 +417,6 @@ describe('createWebGLRenderer', () => {
       const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
       expect(lines[0]!.width).toBe(1)
       expect(lines[0]!.points).toBe(points)
-    })
-
-    it('delegates to line surface drawFilledBand for fill pipeline', () => {
-      const { renderer } = makeRenderer()
-      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 2 })
-
-      const pipeline = renderer.createPipeline({ type: 'fill' })
-      const vertexBuf = renderer.createBuffer('vertex', 256)
-      // [upper0_x, upper0_y, lower0_x, lower0_y, upper1_x, upper1_y, ...]
-      const verts = new Float32Array([0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50])
-      renderer.writeBuffer(vertexBuf, verts)
-
-      renderer.drawLines({
-        pipeline,
-        vertices: vertexBuf,
-        vertexCount: 6,
-        uniforms: { color: '#0000ff', scrollLeft: 5 },
-      })
-
-      expect(mocks.mockDrawFilledBand).toHaveBeenCalledTimes(1)
-      const args = mocks.mockDrawFilledBand.mock.calls[0]!
-      expect(args[0].upperPoints).toHaveLength(3)
-      expect(args[0].lowerPoints).toHaveLength(3)
-      expect(args[1]).toBe('#0000ff')
-      expect(args[2]).toBe(5)
     })
   })
 

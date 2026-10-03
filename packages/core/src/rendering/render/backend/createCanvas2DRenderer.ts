@@ -22,7 +22,6 @@ export function createCanvas2DRenderer(): Renderer {
     resize: () => {},
     bindRegion: () => false,
     clearRegion: () => {},
-    compositeTo: () => {},
     dispose: () => {},
   }
 

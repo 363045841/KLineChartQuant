@@ -3,7 +3,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { createWebGPUSurfaceBackend } from '../backend/createWebGPUSurfaceBackend'
-import { createMockCanvas2DContext } from './helpers/rendererTestKit'
 import { createMockWebGPU } from './helpers/webgpuTestKit'
 
 /** 构造 SurfaceBackend 与可观测的 canvas / context / device 替身。 */
@@ -58,15 +57,6 @@ describe('createWebGPUSurfaceBackend', () => {
     expect(canvas.height).toBe(101)
     expect(canvas.style.width).toBe('101.6px')
     expect(canvas.style.height).toBe('80.8px')
-  })
-
-  it('compositeTo is a no-op under hybrid DOM (M2)', () => {
-    const { surface } = makeSurface()
-    const target = createMockCanvas2DContext()
-
-    surface.compositeTo(target, { x: 10, y: 20, width: 100, height: 50, dpr: 2 })
-
-    expect(target.drawImage).not.toHaveBeenCalled()
   })
 
   it('clearRegion submits a transparent clear of the WebGPU canvas', () => {

@@ -1,4 +1,4 @@
-// WebGL 蜡烛、解析 AA 折线与实心填充带的绘制表面。
+// WebGL 蜡烛与解析 AA 折线的绘制表面。
 import { buildAnalyticLineGeometry } from '@/rendering/render/analyticLineGeometry.js'
 import { SharedWebGLSurface, type WebGLRegion } from './sharedWebGLSurface.js'
 
@@ -9,11 +9,6 @@ type LineStrip = {
 
 type ColoredLineStrip = LineStrip & {
   color: string
-}
-
-type FilledBand = {
-  upperPoints: Array<{ x: number; y: number }>
-  lowerPoints: Array<{ x: number; y: number }>
 }
 
 type FloatColor = readonly [number, number, number, number]
@@ -119,7 +114,7 @@ uniform vec4 u_color;
 out vec4 outColor;
 void main() {
     float aa = max(fwidth(v_edge.x), 1e-4);
-    float cov = v_edge.y < 0.0 ? 1.0 : clamp((v_edge.y - abs(v_edge.x)) / aa + 0.5, 0.0, 1.0);
+    float cov = clamp((v_edge.y - abs(v_edge.x)) / aa + 0.5, 0.0, 1.0);
     outColor = vec4(u_color.rgb, u_color.a * cov);
 }`
 
@@ -301,7 +296,6 @@ export class LineWebGLSurface {
   private dpr = 1
   private available = false
   private vertexCapacity = 0
-  private fillScratch = new Float32Array(0)
   private lineScratch = new Float32Array(0)
   private region: WebGLRegion | null = null
 
@@ -451,70 +445,6 @@ export class LineWebGLSurface {
     const geometry = { vertices, vertexCount: vertices.length / 4, points }
     widthMap.set(width, geometry)
     return geometry
-  }
-
-  drawFilledBand(band: FilledBand, color: string, scrollLeft: number): boolean {
-    const handles = this.handles
-    const pointCount = Math.min(band.upperPoints.length, band.lowerPoints.length)
-    if (!handles || pointCount < 2 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
-      return false
-    }
-
-    const colorValue = parseColor(color)
-    if (!colorValue) return false
-
-    const vertexCount = pointCount * 2
-    const floatCount = vertexCount * 4
-    if (this.fillScratch.length < floatCount) {
-      this.fillScratch = new Float32Array(nextBufferFloatCapacity(floatCount))
-    }
-
-    let writeIndex = 0
-    for (let i = 0; i < pointCount; i++) {
-      const upper = band.upperPoints[i]!
-      const lower = band.lowerPoints[i]!
-      this.fillScratch[writeIndex++] = upper.x
-      this.fillScratch[writeIndex++] = upper.y
-      this.fillScratch[writeIndex++] = 0
-      this.fillScratch[writeIndex++] = -1 // 实心哨兵，填充带不参与线条 coverage。
-      this.fillScratch[writeIndex++] = lower.x
-      this.fillScratch[writeIndex++] = lower.y
-      this.fillScratch[writeIndex++] = 0
-      this.fillScratch[writeIndex++] = -1
-    }
-
-    const gl = this.shared.getGL()
-    const region = this.region
-    if (!gl || !region) return false
-
-    if (!this.shared.bindRegion(region)) return false
-    const physical = this.shared.getPhysicalRegion(region)
-    if (!physical) return false
-
-    gl.useProgram(handles.program)
-    gl.enable(gl.BLEND)
-    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    gl.bindVertexArray(handles.vao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
-
-    if (this.vertexCapacity < floatCount) {
-      this.vertexCapacity = nextBufferFloatCapacity(floatCount)
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT,
-        gl.DYNAMIC_DRAW,
-      )
-    }
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.fillScratch.subarray(0, floatCount))
-
-    gl.uniform2f(handles.resolutionLocation, physical.widthPx, physical.heightPx)
-    gl.uniform1f(handles.dprLocation, region.dpr)
-    gl.uniform1f(handles.scrollXLocation, scrollLeft)
-    gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexCount)
-    gl.bindVertexArray(null)
-
-    return true
   }
 
   destroy(): void {

@@ -1,8 +1,7 @@
 # Rendering 模块
 
 `rendering` 提供图表绘制的通用基础设施，位于业务绘制代码与具体图形 API 之间。它负责组织
-Scene/Layer、统一 Renderer 契约、管理 WebGPU/WebGL2/Canvas2D 后端，以及提供渲染能力检测
-和帧预算等辅助能力。
+Scene/Layer、统一 Renderer 契约，并管理 WebGPU/WebGL2/Canvas2D 后端。
 
 完整的单帧时序、几何准备、Canvas 分层和 DPR 处理以
 [`docs/rendering-pipeline.md`](../../../../docs/rendering-pipeline.md) 为准。本文只介绍本目录的
@@ -27,23 +26,17 @@ render/             Renderer 绘制原语与 Surface 生命周期
 
 本目录不负责：
 
-- K 线、指标、坐标轴等业务图形的具体绘制；这些代码位于 `engine/renderers` 和
-  `engine/render/layers`。
+- K 线、指标、坐标轴等业务图形的具体绘制；这些代码位于 `engine/renderers`。
 - viewport、缩放、滚动和 DPR 状态；它们由 StateKernel 和 `ChartViewportManager` 维护。
 - 帧几何计算；`ChartRenderer.prepareFrameData` 负责生成同一帧共享的几何快照。
 - Layer 的注册；实际 paint 调度由 Scene 负责。
 
 ## 目录结构
 
-| 目录             | 职责                                                                                     | 主链路状态                     |
-| ---------------- | ---------------------------------------------------------------------------------------- | ------------------------------ |
-| `scene/`         | 定义 Scene/Layer，按 pane 和 role 过滤并按 z 顺序绘制                                    | 已接入                         |
-| `render/`        | 定义 Renderer/SurfaceBackend，提供三个后端及 RendererHost                                | 已接入                         |
-| `renderer-tier/` | 从注册表选择可用 backend factory（能力探测已移到 `foundation/utils/rendererCapability`） | 独立能力，未接入 RendererHost  |
-| `scheduler/`     | 按优先级、截止时间和队列上限调度帧内任务                                                 | 独立能力，未接入 ChartRenderer |
-
-`scene/retainedScene.ts` 提供按 key/revision 保存图元节点的 retained 数据结构。目前它没有接入
-主绘制链路；当前 Scene 仍在每帧调用可见 Layer 的 `paint`。
+| 目录      | 职责                                                      | 主链路状态 |
+| --------- | --------------------------------------------------------- | ---------- |
+| `scene/`  | 定义 Scene/Layer，按 pane 和 role 过滤并按 z 顺序绘制     | 已接入     |
+| `render/` | 定义 Renderer/SurfaceBackend，提供三个后端及 RendererHost | 已接入     |
 
 ## Scene 与 Layer
 
@@ -81,8 +74,8 @@ role 用于分组和增量绘制，最终叠放顺序仍以 `z` 为准。
 表示资源、pipeline 或 surface 不满足要求，业务层必须走 Canvas2D 兜底。禁止 GPU 和 2D
 同时绘制同一批内容。
 
-`render/SurfaceBackend.ts` 管理底层 canvas/context，包括 resize、region 绑定、清屏、合成和
-销毁。Renderer 管绘制原语，SurfaceBackend 管输出表面，两者不要互相承担职责。
+`render/SurfaceBackend.ts` 管理底层 canvas/context，包括 resize、region 绑定和清屏。
+Renderer 管绘制原语，SurfaceBackend 管输出表面，两者不要互相承担职责。
 
 ## 后端与降级
 
@@ -141,41 +134,9 @@ Chart.scheduleDraw(level)
 `UpdateLevel.Overlay` 只选择 overlay role，并复用缓存几何；`Main` 和 `All` 会重算主图几何。
 Scene 不负责调用 `beginFrame/endFrame`，这个帧边界必须由 ChartRenderer 保证。
 
-## 辅助模块
-
-### renderer-tier
-
-渲染能力定义为：
-
-```text
-webgpu > webgl2 > canvas2d > none
-```
-
-能力探测 `detectRendererTier()` 已下移到 `foundation/utils/rendererCapability`，只进行同步预检；
-WebGPU 检测不会调用异步 `requestAdapter()`，真正创建后端时仍可能失败。其结果是
-`settings.rendererBackend` 的初始偏好默认来源（见 `docs/design/renderer-backend-default-detection.md`），
-不是 runtime 状态。
-
-本目录只保留 `selectBackend()`：在检测上限内从调用方注册的 factories 中选择最高可用实现，并支持
-`minimum` 能力下限。它目前没有参与 `RendererHost` 的实际降级流程，而且 tier 名称
-`webgpu/webgl2/canvas2d` 与 Host 的 backend 名称 `webgpu/webgl/canvas` 不完全相同。接入前
-需要先统一模型，不能并行维护两套后端选择状态。
-
-### scheduler
-
-`createFrameBudget()` 提供高、中、低优先级任务队列、同 id 合并、deadline 截止和帧耗时统计。
-它适合可分片、允许跨帧完成的工作，不应替代保证原子快照的 FrameTransaction。当前
-ChartRenderer 未使用它。
-
-### retainedScene
-
-`createRetainedScene()` 按节点 key 保存 rects、lines 和 band，使用 revision 表达数据版本，并
-可按 pane 收集、按 z 排序和清理过期节点。它是后续 retained rendering 的数据基础，目前不
-参与 `createScene()` 的即时 Layer paint。
-
 ## 扩展方式
 
-新增业务图形时，优先在 `engine/render/layers` 或 `engine/renderers` 中实现 Layer，调用
+新增业务图形时，优先在 `engine/renderers` 中实现 Layer，调用
 已有 Renderer 原语，并提供 Canvas2D fallback。只有现有原语无法表达且多个业务图形都会受益
 时，才扩展 Renderer 契约。
 
@@ -191,10 +152,9 @@ ChartRenderer 未使用它。
 
 测试与实现放在同一子目录的 `__tests__` 中：
 
-- `scene/__tests__`：Layer 注册、排序、过滤、pane 分发和 retained 数据结构。
+- `scene/__tests__`：Layer 注册、排序、过滤和 pane 分发。
 - `render/__tests__`：Renderer 契约、Host 降级、三个后端、Surface、物理像素转换和帧指标。
-- `renderer-tier/__tests__`：backend factory 选择。能力探测测试位于 `foundation/utils/__tests__/rendererCapability.test.ts`。
-- `scheduler/__tests__`：优先级、合并、deadline 和队列限制。
+- 能力探测测试位于 `foundation/utils/__tests__/rendererCapability.test.ts`。
 
 运行 core package 测试：
 

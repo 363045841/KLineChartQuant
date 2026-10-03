@@ -13,18 +13,8 @@
  * 任何 probe 抛出的异常都会被捕获并折叠进 reason，视为不可用（不触发跳级级联）。
  */
 
-import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-
 /** 渲染层级，全序：`'webgpu' > 'webgl2' > 'canvas2d' > 'none'`。 */
 export type RendererTier = 'webgpu' | 'webgl2' | 'canvas2d' | 'none'
-
-/** `compareRendererTier` 使用的数值 rank，越大越强。 */
-export const RENDERER_TIER_RANK: Readonly<Record<RendererTier, number>> = {
-  webgpu: 3,
-  webgl2: 2,
-  canvas2d: 1,
-  none: 0,
-}
 
 /**
  * 探测结果。`tier` 为选中的层级，`reason` 为人类可读的一行说明（用于诊断，不做分支判断）。
@@ -117,47 +107,4 @@ export function detectRendererTier(opts?: DetectRendererTierOptions): RendererTi
     reason: `no tier available — ${reasonParts.join('; ')}`,
     tried: [...tried],
   }
-}
-
-/**
- * 严格变体：无任何可渲染层级时抛 `KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE)`。
- *
- * @param opts - 可选的 probe 注入（测试用）
- * @returns 探测结果（tier 保证不是 'none'）
- */
-export function detectRendererTierOrThrow(opts?: DetectRendererTierOptions): RendererTierResult {
-  const r = detectRendererTier(opts)
-  if (r.tier === 'none') {
-    throw new KLineChartError(
-      GENERIC_ERROR_CODES.INVALID_STATE,
-      `detectRendererTierOrThrow: ${r.reason}`,
-    )
-  }
-  return r
-}
-
-/**
- * 层级三向比较：`a > b → 1`，`a < b → -1`，相等 → 0。
- *
- * @param a - 左操作数
- * @param b - 右操作数
- * @returns -1 | 0 | 1
- */
-export function compareRendererTier(a: RendererTier, b: RendererTier): -1 | 0 | 1 {
-  const ra = RENDERER_TIER_RANK[a]
-  const rb = RENDERER_TIER_RANK[b]
-  if (ra > rb) return 1
-  if (ra < rb) return -1
-  return 0
-}
-
-/**
- * `tier >= minimum` 守卫，供需要能力下限的渲染特性使用。
- *
- * @param tier - 当前层级
- * @param minimum - 要求的下限
- * @returns 是否满足下限
- */
-export function isTierAtLeast(tier: RendererTier, minimum: RendererTier): boolean {
-  return compareRendererTier(tier, minimum) >= 0
 }
