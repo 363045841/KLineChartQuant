@@ -279,7 +279,10 @@ export class Chart {
     },
   ) {
     this.dom = dom
-    this.legendDom = createLegendDomRenderer(dom.canvasLayer)
+    this.legendDom = createLegendDomRenderer(
+      dom.canvasLayer,
+      () => this.dataManager.symbols.peek().length > 0,
+    )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)

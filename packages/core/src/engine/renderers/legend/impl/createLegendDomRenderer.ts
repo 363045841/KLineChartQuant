@@ -78,6 +78,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-collapse { position:absolute; z-index:1; display:flex; align-items:center; gap:2px;
       height:16px; padding:0 2px; border:1px solid var(--klc-color-ui-border); border-radius:3px;
       background:var(--klc-color-ui-surface); color:var(--klc-color-ui-text-soft); cursor:pointer; pointer-events:auto; }
+    .klc-legend-collapse[hidden] { display:none; }
     .klc-legend-collapse:hover, .klc-legend-collapse:focus-visible {
       background:color-mix(in srgb,var(--klc-color-ui-text) 8%,transparent); outline:none; }
     .klc-legend-collapse > svg { display:block; width:14px; height:14px; overflow:visible; }
@@ -134,8 +135,11 @@ function addActions(document: Document, row: MountedRow): void {
   row.element.append(frame)
 }
 
-/** 创建图表拥有的 DOM renderer，只在结构变化时创建或移除节点。 */
-export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
+/** 创建 DOM renderer，通过 hasSelectedSymbol 读取当前品种选择状态。 */
+export function createLegendDomRenderer(
+  host: HTMLElement,
+  hasSelectedSymbol: () => boolean,
+): LegendDomRenderer {
   const document = host.ownerDocument
   const root = document.createElement('div')
   root.className = 'klc-legend-root'
@@ -315,12 +319,16 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
         }
         row.data = data
       }
-      // 主图有指标行时启用收起按钮：首行坐标用于收起态定位，末行下方用于展开态定位。
+      // 已选择品种且主图有指标行时启用按钮，避免默认指标让空图显示展开/收起入口。
       if (paneId === MAIN_PANE_ID) {
         const first = rows[0]
         const last = rows[rows.length - 1]
         mainIndicatorCount = indicatorRows.length
-        const enable = indicatorRows.length > 0 && first !== undefined && last !== undefined
+        const enable =
+          hasSelectedSymbol() &&
+          indicatorRows.length > 0 &&
+          first !== undefined &&
+          last !== undefined
         if (collapseButton.hidden === enable) collapseButton.hidden = !enable
         if (enable) {
           firstRowTop = `${first.y}px`

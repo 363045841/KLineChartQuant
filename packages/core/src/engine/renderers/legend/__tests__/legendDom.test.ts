@@ -7,9 +7,9 @@ import { createLegendDomRenderer } from '../impl/createLegendDomRenderer.js'
 import { LEGEND_ACTION_EVENT, type LegendRow } from '../types.js'
 
 /** 构造真实 DOM 与固定展示行，其余用例只声明差异。 */
-function createHarness() {
+function createHarness(hasSelectedSymbol: () => boolean = () => true) {
   const host = document.createElement('div')
-  const renderer = createLegendDomRenderer(host)
+  const renderer = createLegendDomRenderer(host, hasSelectedSymbol)
   const row: LegendRow = {
     key: 'main:MA',
     paneId: 'main',
@@ -29,6 +29,29 @@ function createHarness() {
 }
 
 describe('DOM Legend renderer', () => {
+  it('未选品种时隐藏按钮，选中后显示，收起后清除品种仍隐藏', () => {
+    let selected = false
+    const { host, renderer, row } = createHarness(() => selected)
+    document.body.append(host)
+    const button = host.querySelector<HTMLButtonElement>('.klc-legend-collapse')!
+    renderer.update('main', [row], ['main'])
+    expect(button.hidden).toBe(true)
+    expect(getComputedStyle(button).display).toBe('none')
+
+    selected = true
+    renderer.update('main', [row], ['main'])
+    expect(button.hidden).toBe(false)
+    expect(getComputedStyle(button).display).toBe('flex')
+    button.click()
+
+    selected = false
+    renderer.update('main', [row], ['main'])
+    expect(button.hidden).toBe(true)
+    expect(getComputedStyle(button).display).toBe('none')
+    renderer.dispose()
+    host.remove()
+  })
+
   it('相同帧不写 DOM，数值更新复用 Text 节点且不读取布局', () => {
     const { host, renderer, row } = createHarness()
     const geometry = vi.spyOn(host, 'getBoundingClientRect')
