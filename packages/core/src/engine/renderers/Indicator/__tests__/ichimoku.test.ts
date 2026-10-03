@@ -92,6 +92,33 @@ function paint(context: RenderContext): void {
 }
 
 describe('ichimoku retained projection', () => {
+  it.each([4, 5, 6, 10])('draws future spans once when the viewport ends at %i', (end) => {
+    const { context, priceRead } = makeContext({
+      timestamp: 4,
+      series: Array.from({ length: 6 }, (_, index) => ({
+        spanA: 100 + index,
+        spanB: 90 + index,
+      })),
+      params: { ...PARAMS, displacement: 2 },
+      valueMin: 90,
+      valueMax: 110,
+      visibleMin: 90,
+      visibleMax: 110,
+    })
+    // 可见槽位可越过行情末尾；中心坐标与未来区使用同一物理像素网格。
+    const centers = Array.from({ length: end }, (_, index) => 5 + index * 9)
+    paint({ ...context, range: { start: 0, end }, kLineCenters: centers })
+
+    // 两条边界各六点，云层再投影各六点，任何槽位均不应重复收集。
+    expect(priceRead).toHaveBeenCalledTimes(24)
+    const spanLines = vi.mocked(context.ctx.lineTo).mock.calls.slice(-10)
+    expect(spanLines).toEqual([
+      ...Array.from({ length: 5 }, (_, index) => [14 + index * 9, 101 + index]),
+      ...Array.from({ length: 5 }, (_, index) => [14 + index * 9, 91 + index]),
+    ])
+    expect(context.ctx.lineTo).toHaveBeenCalledTimes(21)
+  })
+
   it('retains the projection across scroll and repaints with the current scroll offset', () => {
     const { priceRead, context, layer } = makeContext({
       timestamp: 4,

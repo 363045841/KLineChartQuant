@@ -44,7 +44,9 @@ function collectIchimokuPoints(
   const chikouPts: Point[] = []
   const cloudSegs: CloudSeg[] = []
 
-  const drawEnd = Math.min(range.end, series.length)
+  const dataLen = context.data.length
+  // 可见范围包含未来槽位时，历史循环仍只收集行情区，未来云由后续循环追加一次。
+  const drawEnd = Math.min(range.end, dataLen, series.length)
   for (let i = range.start; i < drawEnd; i++) {
     const p = series[i]
     if (!p) continue
@@ -62,7 +64,6 @@ function collectIchimokuPoints(
     }
   }
 
-  const dataLen = context.data.length
   if (dataLen < series.length) {
     const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
     const futureEnd = Math.min(dataLen + params.displacement, series.length)
