@@ -1,10 +1,10 @@
-/** 验证 WebGL SurfaceBackend 的区域绑定、清理、合成和销毁行为。 */
+/** 验证 WebGL SurfaceBackend 的区域绑定、清理和销毁行为。 */
 
 import { describe, expect, it } from 'vitest'
 
 import { createWebGLSurfaceBackend, type WebGLSurfaceBackend } from '../createWebGLSurfaceBackend'
 import type { SurfaceRegion } from '../index'
-import { createMockCanvas2DContext, createMockSharedWebGLSurface } from './helpers/rendererTestKit'
+import { createMockSharedWebGLSurface } from './helpers/rendererTestKit'
 
 type MockSurface = ReturnType<typeof createMockSharedWebGLSurface>
 
@@ -53,22 +53,6 @@ describe('WebGL SurfaceBackend adapter', () => {
     expect(mock.clearRegion).toHaveBeenCalledWith(region)
   })
 
-  it('compositeTo delegates to the underlying surface', () => {
-    const { backend, mock } = makeBackend()
-    const ctx = createMockCanvas2DContext()
-    const region: SurfaceRegion = { x: 0, y: 0, width: 800, height: 600, dpr: 2 }
-    backend.compositeTo(ctx, region)
-    expect(mock.compositeRegionTo).toHaveBeenCalledWith(ctx, region, undefined)
-  })
-
-  it('compositeTo passes options through', () => {
-    const { backend, mock } = makeBackend()
-    const ctx = createMockCanvas2DContext()
-    const region: SurfaceRegion = { x: 0, y: 0, width: 800, height: 600, dpr: 2 }
-    backend.compositeTo(ctx, region, { alpha: 0.5 })
-    expect(mock.compositeRegionTo).toHaveBeenCalledWith(ctx, region, { alpha: 0.5 })
-  })
-
   it('lifecycle: dispose then isAvailable returns false', () => {
     const { backend, mock } = makeBackend()
     expect(backend.isAvailable()).toBe(true)
@@ -84,17 +68,9 @@ describe('WebGL SurfaceBackend adapter', () => {
     expect(backend.bindRegion({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })).toBe(false)
     backend.resize(800, 600, 2)
     backend.clearRegion({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
-    backend.compositeTo(createMockCanvas2DContext(), {
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-      dpr: 1,
-    })
 
     expect(mock.resize).not.toHaveBeenCalled()
     expect(mock.clearRegion).not.toHaveBeenCalled()
-    expect(mock.compositeRegionTo).not.toHaveBeenCalled()
   })
 
   it('dispose is idempotent', () => {

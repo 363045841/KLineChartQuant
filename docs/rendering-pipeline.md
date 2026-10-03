@@ -578,7 +578,6 @@ SurfaceBackend 负责：
 - 按逻辑尺寸和 DPR 调整 drawing buffer。
 - 绑定逻辑像素 `SurfaceRegion`。
 - 清理 region。
-- 在需要时把 GPU 内容合成到 2D context。
 - 幂等销毁。
 
 `SurfaceRegion` 始终使用逻辑像素。后端负责转换成物理 viewport/scissor。
@@ -616,8 +615,6 @@ WebGPU 使用一张 chart 级可见 canvas：
 
 - Chart 把 `gpu-scene-canvas` 挂在 main canvas 和 overlay canvas 之间。
 - 多 pane 共用该 canvas，通过 region 的物理 viewport/scissor 隔离。
-- `SurfaceBackend.compositeTo()` 是 no-op，禁止 GPU -> Canvas2D `drawImage`。
-- 半透明填充必须把 alpha 烘焙进颜色，而不是依赖 2D composite alpha。
 
 一帧内：
 
@@ -698,8 +695,7 @@ WebGPU `device.lost` 回调进入 `RendererHost.handleDeviceLost()`：
 4. 轴向线吸附物理像素中心，矩形边界吸附像素网格；斜线保留原顶点，线宽保留小数且至少一个物理像素。
 5. GPU shader 或预处理 helper 必须显式处理 DPR，不能把逻辑坐标直接当设备坐标。
 6. WebGPU/WebGL 坐标转换使用 `physicalRegion.ts`、`physicalLine.ts` 等共享规则。
-7. GPU composite 禁止 image smoothing，避免纹理二次采样变糊。
-8. 线条解析 AA：两侧各外扩一个物理像素（逻辑空间为 `1/dpr`），边距属性以物理像素计；DPR 变化必须重建几何。
+7. 线条解析 AA：两侧各外扩一个物理像素（逻辑空间为 `1/dpr`），边距属性以物理像素计；DPR 变化必须重建几何。
 
 不要在 Layer 内建立第二套 resize、DPR 或 scroll 缓存。
 

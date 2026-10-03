@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 
-import {
-  compositeSceneRenderer,
-  drawLinesViaRenderer,
-  shouldCompositeSceneRenderer,
-} from '../linesViaRenderer'
+import { drawLinesViaRenderer } from '../linesViaRenderer'
 
 describe('drawLinesViaRenderer', () => {
   it('issues one batched drawLines with all strips (not N calls)', () => {
@@ -86,34 +82,5 @@ describe('drawLinesViaRenderer', () => {
         0,
       ),
     ).toBe(false)
-  })
-})
-
-describe('compositeSceneRenderer hybrid DOM', () => {
-  it('skips composite for visible GPU canvases', () => {
-    const webgl = createMockRenderer()
-    const webgpu = createMockRenderer({ capsName: 'webgpu' })
-    expect(shouldCompositeSceneRenderer(webgl)).toBe(false)
-    expect(shouldCompositeSceneRenderer(webgpu)).toBe(false)
-
-    compositeSceneRenderer({
-      ctx: {} as CanvasRenderingContext2D,
-      pane: { top: 0, height: 100 },
-      viewport: { plotWidth: 200 },
-      paneWidth: 200,
-      dpr: 1,
-      sceneRenderer: webgpu,
-    })
-    expect(webgpu.surface.compositeTo).not.toHaveBeenCalled()
-
-    compositeSceneRenderer({
-      ctx: {} as CanvasRenderingContext2D,
-      pane: { top: 0, height: 100 },
-      viewport: { plotWidth: 200 },
-      paneWidth: 200,
-      dpr: 1,
-      sceneRenderer: webgl,
-    })
-    expect(webgl.surface.compositeTo).not.toHaveBeenCalled()
   })
 })

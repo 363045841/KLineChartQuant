@@ -1,6 +1,6 @@
 /** WebGPU canvas 表面后端，负责物理 buffer 尺寸与 region 生命周期。 */
 
-import type { CompositeOptions, SurfaceRegion, VisibleSurface } from '../SurfaceBackend.js'
+import type { SurfaceRegion, VisibleSurface } from '../SurfaceBackend.js'
 import { GPU_TEXTURE_RENDER_ATTACHMENT } from '../webgpuGlobals.js'
 
 export type WebGPUSurfaceBackend = VisibleSurface & {
@@ -78,13 +78,6 @@ export function createWebGPUSurfaceBackend(
       } catch {
         // device lost / texture unavailable：忽略，下帧 beginFrame 会重建
       }
-    },
-    compositeTo(
-      _targetCtx: CanvasRenderingContext2D,
-      _region: SurfaceRegion,
-      _compositeOptions?: CompositeOptions,
-    ): void {
-      // M2：WebGPU 可见 canvas 直接参与 DOM 分层，禁止 GPU→2D drawImage
     },
     getBoundRegion(): SurfaceRegion | null {
       return boundRegion ? { ...boundRegion } : null

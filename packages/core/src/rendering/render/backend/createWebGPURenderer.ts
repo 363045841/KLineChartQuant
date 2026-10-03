@@ -492,13 +492,7 @@ export async function createWebGPURenderer(
     }
   }
 
-  // M2：compositeTo 为 no-op（可见 GPU canvas）；仅 endFrame submit
-  const surface: WebGPUSurfaceBackend = {
-    ...rawSurface,
-    compositeTo(_targetCtx, _region, _compositeOptions) {
-      // 禁止中途 flush，保证每 chart 帧单次 queue.submit
-    },
-  }
+  const surface: WebGPUSurfaceBackend = rawSurface
 
   const renderer: Renderer = {
     surface,

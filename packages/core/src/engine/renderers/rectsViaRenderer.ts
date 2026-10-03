@@ -1,6 +1,5 @@
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import type { BufferHandle, PipelineHandle, Renderer } from '../../rendering/render/Renderer.js'
-import { compositeSceneRenderer } from './linesViaRenderer.js'
 
 export type RectBatch = {
   buf: Float32Array
@@ -75,9 +74,5 @@ export function tryDrawRectsGpu(
   if (active.length === 0) return true
 
   if (!context.sceneRenderer) return false
-  if (drawRectBatchesViaRenderer(context.sceneRenderer, active, scrollLeft)) {
-    compositeSceneRenderer(context)
-    return true
-  }
-  return false
+  return drawRectBatchesViaRenderer(context.sceneRenderer, active, scrollLeft)
 }

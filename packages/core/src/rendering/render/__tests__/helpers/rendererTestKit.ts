@@ -25,16 +25,6 @@ import type { SurfaceBackend, SurfaceRegion } from '../../SurfaceBackend'
 /** 最小 canvas 替身；core 默认 node 环境无 DOM，此强转集中在本夹具内。 */
 const MOCK_CANVAS = { width: 0, height: 0 } as unknown as HTMLCanvasElement
 
-/** 最小 CanvasRenderingContext2D 替身；DOM 类型成员上百，强转集中在本夹具内。 */
-export function createMockCanvas2DContext() {
-  return {
-    save: vi.fn(),
-    restore: vi.fn(),
-    setTransform: vi.fn(),
-    drawImage: vi.fn(),
-  } as unknown as CanvasRenderingContext2D
-}
-
 /** 构造可观测的 SurfaceBackend 替身；dispose 后 isAvailable 与 bindRegion 变为不可用。 */
 export function createMockSurfaceBackend() {
   let disposed = false
@@ -46,7 +36,6 @@ export function createMockSurfaceBackend() {
       return region.width > 0 && region.height > 0
     }),
     clearRegion: vi.fn(),
-    compositeTo: vi.fn(),
     dispose: vi.fn(() => {
       disposed = true
     }),
@@ -78,7 +67,6 @@ function createSharedWebGLSurfaceSpies(options: MockSharedWebGLSurfaceOptions) {
     ),
     clearRegion: vi.fn(),
     endFrame: vi.fn(),
-    compositeRegionTo: vi.fn(),
     destroy: vi.fn(() => {
       disposed = true
     }),

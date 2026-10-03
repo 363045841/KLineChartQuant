@@ -72,13 +72,12 @@ function makeSceneRenderer(capsName = 'webgl2') {
     r,
     drawInstances: r.drawInstances,
     writeBuffer: r.writeBuffer,
-    compositeTo: r.surface.compositeTo,
   }
 }
 
 describe('candle sceneRenderer path', () => {
-  it('draws via sceneRenderer.drawInstances and composites on webgl', () => {
-    const { r, drawInstances, compositeTo } = makeSceneRenderer()
+  it('draws via sceneRenderer.drawInstances on webgl', () => {
+    const { r, drawInstances } = makeSceneRenderer()
 
     const ctx = createCtx(r, {
       data: makeBars(5),
@@ -91,11 +90,10 @@ describe('candle sceneRenderer path', () => {
     paint(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
-    expect(compositeTo).not.toHaveBeenCalled()
   })
 
-  it('skips compositeTo when sceneRenderer is webgpu (visible GPU canvas)', () => {
-    const { r, drawInstances, compositeTo } = makeSceneRenderer('webgpu')
+  it('draws via sceneRenderer.drawInstances when sceneRenderer is webgpu', () => {
+    const { r, drawInstances } = makeSceneRenderer('webgpu')
 
     const ctx = createCtx(r, {
       data: makeBars(3),
@@ -108,11 +106,10 @@ describe('candle sceneRenderer path', () => {
     paint(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
-    expect(compositeTo).not.toHaveBeenCalled()
   })
 
   it('falls to Canvas2D when drawInstances returns false (fail-closed)', () => {
-    const { r, drawInstances, compositeTo } = makeSceneRenderer()
+    const { r, drawInstances } = makeSceneRenderer()
     drawInstances.mockReturnValue(false)
     const ctx2d = createMockCanvasContext()
 
@@ -127,7 +124,6 @@ describe('candle sceneRenderer path', () => {
 
     paint(ctx)
 
-    expect(compositeTo).not.toHaveBeenCalled()
     expect(ctx2d.fillRect).toHaveBeenCalled()
   })
 })

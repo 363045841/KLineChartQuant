@@ -54,37 +54,6 @@ export function drawLinesViaRenderer(
   }
 }
 
-/** GPU 后端走可见 DOM canvas，禁止 drawImage 回 2D。 */
-export function shouldCompositeSceneRenderer(renderer: Renderer): boolean {
-  return renderer.caps.name === 'canvas2d'
-}
-
-/**
- * Canvas2D 后端保留兼容入口；GPU 后端由 plot 区可见 canvas 直接显示。
- */
-export function compositeSceneRenderer(context: {
-  ctx: CanvasRenderingContext2D
-  pane: { top: number; height: number }
-  viewport: { plotWidth: number }
-  paneWidth: number
-  dpr: number
-  sceneRenderer?: Renderer
-}): void {
-  const r = context.sceneRenderer
-  if (!r || !shouldCompositeSceneRenderer(r)) return
-  r.surface.compositeTo(
-    context.ctx,
-    {
-      x: 0,
-      y: context.pane.top,
-      width: context.viewport.plotWidth,
-      height: context.pane.height,
-      dpr: context.dpr,
-    },
-    { imageSmoothingEnabled: false },
-  )
-}
-
 /**
  * 折线 GPU：仅 sceneRenderer；失败返回 false（调用方 2D）。
  * 指标 draw 内：if (tryDrawLinesGpu(context, lines, scrollLeft)) return
@@ -98,9 +67,5 @@ export function tryDrawLinesGpu(
   if (drawable.length === 0) return false
 
   if (!context.sceneRenderer) return false
-  if (drawLinesViaRenderer(context.sceneRenderer, drawable, scrollLeft)) {
-    compositeSceneRenderer(context)
-    return true
-  }
-  return false
+  return drawLinesViaRenderer(context.sceneRenderer, drawable, scrollLeft)
 }

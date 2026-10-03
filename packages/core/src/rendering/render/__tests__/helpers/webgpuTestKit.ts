@@ -3,7 +3,7 @@
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  *
  * 约束：WebGPU 是 DOM 类型，成员上百，结构化对象无法满足；
- * 与 createMockCanvas2DContext 同例，强转集中在本夹具工厂内部，消费方不再内联 as unknown as。
+ * 强转集中在本夹具工厂内部，消费方不再内联 as unknown as。
  */
 import { vi } from 'vitest'
 
