@@ -32,8 +32,8 @@ describe('modeState', () => {
     expect(m.readonly.lastBarPeriod.peek()).toBe('60min')
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
     expect(m.readonly.interactionCapabilities.peek()).toEqual({
-      allowPan: true,
-      allowZoom: true,
+      allowPan: false,
+      allowZoom: false,
       allowVerticalScroll: false,
       allowRightAxisScale: false,
     })

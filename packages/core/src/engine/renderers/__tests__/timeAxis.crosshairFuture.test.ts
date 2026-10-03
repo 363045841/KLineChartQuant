@@ -63,6 +63,22 @@ describe('resolveCrosshairTimestamp 十字线时间解析', () => {
 })
 
 describe('timeAxis draw 越界十字签接线', () => {
+  it('整屏过去区域绘制负槽位刻度和十字线标签', () => {
+    const context = createMockRenderContext({
+      data: createKLineData(5),
+      scrollLeft: -1000,
+      range: { start: 0, end: 0 },
+    })
+    createTimeAxisLayer({
+      height: 24,
+      getCrosshair: () => ({ x: 42, index: -10 }),
+    }).paint({ ...context, paneId: 'xAxis', clear: false })
+    expect(context.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe('T-10')
+    const ticks = context.axisLabels.forSurface('xTicks').labels
+    expect(ticks.length).toBeGreaterThan(0)
+    expect(ticks.every((tick) => tick.text.startsWith('T-'))).toBe(true)
+  })
+
   it('越界十字线索引在 xCrosshair 表面注册外推时间标签', () => {
     const data = createKLineData(5)
     const last = data[data.length - 1]!.timestamp

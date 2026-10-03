@@ -158,7 +158,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
 
   try {
-    chart.applyRenderState({ zoomLevel: initialZoomLevel })
+    chart.zoom.toLevel(initialZoomLevel)
   } catch {
     /* tolerate jsdom */
   }

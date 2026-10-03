@@ -24,11 +24,7 @@ import {
   type DisplayTimeZoneSetting,
   resolveDisplayTimeZone,
 } from '../../foundation/utils/dateFormat.js'
-import {
-  ASHARE_MARKET_SESSION,
-  resolveMarketSessionSlots,
-  resolveTimestampSessionSlot,
-} from '../../foundation/utils/timeShareAxisLabels.js'
+import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import { createScene } from '../../rendering/scene/createScene.js'
 import type {
@@ -72,21 +68,16 @@ import {
   MarkerManager,
   type MarkerManagerDeps,
 } from '../marker/registry.js'
-import {
-  type ChartModeHandler,
-  computeFiveDayTimeShareGeometry,
-  computeTimeShareXLayout,
-} from '../modes/index.js'
+import type { ChartModeHandler } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
 import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import { createTimeAxisLayer } from '../renderers/timeAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
-import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
+import type { ChartDataView } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 import { createYAxisTicks } from '../utils/axisTicks.js'
-import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 import {
   computeVisiblePriceExtrema,
@@ -116,6 +107,7 @@ type FrameCountdown = {
 
 /** 一帧绘制几何与数据；大数组结构共享，render 只读。 */
 type FrameContext = {
+  viewSnapshot: import('../view/types.js').ViewSnapshot
   /** 当前帧重新派生的时间与倒计时，不进入几何缓存。 */
   countdown: FrameCountdown
   /** 视口（scrollLeft、plotWidth、dpr 等） */
@@ -637,15 +629,7 @@ export class ChartRenderer {
    * 在 paint 之前调用；引用未变时 interaction 侧应跳过 signal 通知。
    */
   private sealFrameGeometry(frame: FrameContext): void {
-    this.deps
-      .getInteraction()
-      .setKLinePositions(
-        frame.kLinePositions,
-        frame.range,
-        frame.kWidthPx,
-        frame.kLineCenters,
-        this.deps.getOption().kWidth + this.deps.getOption().kGap,
-      )
+    this.deps.getInteraction().setViewSnapshot(frame.viewSnapshot)
     const widthMeasurement = frame.rightAxisWidthMeasurement
     if (widthMeasurement) {
       const magnitude = Math.max(Math.abs(widthMeasurement.min), Math.abs(widthMeasurement.max))
@@ -737,7 +721,7 @@ export class ChartRenderer {
     if (
       !last ||
       !this.peekViewport() ||
-      this.deps.dataView$.peek() !== ChartDataViewId.KLine ||
+      !this.deps.viewport.readonly.viewSnapshot.peek().hasPriceSeries ||
       !this.deps.settings$.peek().showLastPriceCountdown
     ) {
       return { now, remainingMs: null, text: null }
@@ -786,8 +770,9 @@ export class ChartRenderer {
     const internalData = [...this.deps.getDataManager().getRenderData()]
     if (internalData.length === 0) return null
 
-    const opt = this.deps.getOption()
-    // 可见区间 SSOT 在 viewportState：clamped 可索引；raw 含扩窗（start 可能为 -1）
+    const projection = this.deps.viewport.readonly.viewSnapshot.peek()
+    if (!projection.ready) return null
+    // 全部横向几何由模型一次投影，render 不再派生另一套坐标。
     const range = useCachedFrame
       ? this.cachedDrawFrame!.range
       : this.deps.viewport.readonly.visibleRange.peek()
@@ -796,7 +781,6 @@ export class ChartRenderer {
       : this.deps.viewport.readonly.rawVisibleRange.peek()
 
     const dataManager = this.deps.getDataManager()
-    const mode = this.deps.getActiveMode()
 
     let kLinePositions: KLinePositions
     let kLineCenters: number[]
@@ -811,98 +795,16 @@ export class ChartRenderer {
       kWidthPx = this.cachedDrawFrame!.kWidthPx
       fiveDayTimeShareGeometry = this.cachedDrawFrame!.fiveDayTimeShareGeometry
     } else {
-      const physConfig = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr)
-      // bar 宽度取奇数，保证 center 对齐整数像素
-      const barWidthPx = calcKBarWidthPx(physConfig.unitPx)
-
-      kLineCenters = this.calcKLineCenters(range)
-      kLinePositions = new Array(kLineCenters.length)
-      kBarRects = new Array(kLineCenters.length)
-
-      for (let i = 0; i < kLineCenters.length; i++) {
-        const centerPx = Math.round(kLineCenters[i]! * vp.dpr)
-        const leftPx = centerPx - (physConfig.kWidthPx - 1) / 2
-        kLinePositions[i] = leftPx / vp.dpr
-
-        const barLeftPx = centerPx - (barWidthPx - 1) / 2
-        kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
-      }
-
-      fiveDayTimeShareGeometry = null
-      const dataView = this.deps.dataView$.peek()
-      // 五日分时：按交易日和 session 槽位生成唯一世界坐标，窄屏时内容宽度允许滚动。
-      if (dataView === ChartDataViewId.FiveDayTimeShare) {
-        const timeShareRange = dataManager.getTimeShareRange()
-        const marketSession =
-          'marketSession' in mode && mode.marketSession
-            ? (mode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
-            : ASHARE_MARKET_SESSION
-        const layout = timeShareRange
-          ? computeFiveDayTimeShareGeometry({
-              range: timeShareRange,
-              marketSession,
-              contentWidth: this.deps.viewport.readonly.contentWidth.peek(),
-              dpr: vp.dpr,
-            })
-          : null
-        if (layout) {
-          kLineCenters = layout.centers
-          kLinePositions = new Array(layout.centers.length)
-          kBarRects = new Array(layout.centers.length)
-          for (let i = 0; i < layout.centers.length; i++) {
-            const centerPx = Math.round(layout.centers[i]! * vp.dpr)
-            kLinePositions[i] = (centerPx - Math.floor(layout.kWidthPx / 2)) / vp.dpr
-            kBarRects[i] = {
-              x: (centerPx - (Math.round(layout.barWidth * vp.dpr) - 1) / 2) / vp.dpr,
-              width: layout.barVisible[i] ? layout.barWidth : 0,
-            }
-          }
-          kWidthPx = layout.kWidthPx
-          fiveDayTimeShareGeometry = layout.geometry
-        } else {
-          kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
-        }
-      } else if (mode.debugName === 'TimeShare') {
-        const count = kLineCenters.length
-        const marketSession =
-          'marketSession' in mode && mode.marketSession
-            ? (mode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
-            : ASHARE_MARKET_SESSION
-        const layout = computeTimeShareXLayout({
-          arrivedCount: count,
-          sessionSlots: resolveMarketSessionSlots(marketSession),
-          totalWidth: this.deps.viewport.readonly.contentWidth.peek(),
-          dpr: vp.dpr,
-          slotIndices: internalData
-            .slice(range.start, range.end)
-            .map(
-              (item, index) => resolveTimestampSessionSlot(item.timestamp, marketSession) ?? index,
-            ),
-        })
-        if (layout) {
-          const barWidthPx = Math.round(layout.barWidth * vp.dpr)
-          for (let i = 0; i < count; i++) {
-            const centerPx = Math.round(layout.centers[i]! * vp.dpr)
-            kLineCenters[i] = centerPx / vp.dpr
-            // 兼容需要起点的旧接口；分时绘制与交互均以 kLineCenters 为准。
-            kLinePositions[i] = (centerPx - Math.floor(layout.kWidthPx / 2)) / vp.dpr
-            kBarRects[i] = {
-              x: (centerPx - (barWidthPx - 1) / 2) / vp.dpr,
-              width: layout.barVisible[i] ? layout.barWidth : 0,
-            }
-          }
-          kWidthPx = layout.kWidthPx
-        } else {
-          kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
-        }
-      } else {
-        kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
-      }
+      kLineCenters = projection.centers
+      kLinePositions = projection.positions
+      kBarRects = projection.bars
+      kWidthPx = projection.kWidthPx
+      fiveDayTimeShareGeometry = projection.fiveDayGeometry
     }
 
     const visiblePriceExtrema = useCachedFrame
       ? this.cachedDrawFrame!.visiblePriceExtrema
-      : this.deps.dataView$() === ChartDataViewId.KLine
+      : projection.hasPriceSeries
         ? computeVisiblePriceExtrema(
             internalData as KLineData[],
             range,
@@ -919,6 +821,7 @@ export class ChartRenderer {
         : null
 
     return {
+      viewSnapshot: this.deps.viewport.readonly.viewSnapshot.peek(),
       countdown,
       vp,
       range,
@@ -1440,29 +1343,6 @@ export class ChartRenderer {
         sceneRenderer: this.deps.getSceneRenderer(),
       })
     }
-  }
-
-  /** 按物理像素网格计算 K 线中心点，后续几何均由中心点派生。 */
-  private calcKLineCenters(range: VisibleRange): number[] {
-    const { start, end } = range
-    const count = end - start
-
-    if (count <= 0) return []
-
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx, kWidthPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-
-    const centers: number[] = new Array(count)
-    const halfWidthPx = (kWidthPx - 1) / 2
-
-    for (let i = 0; i < count; i++) {
-      const dataIndex = start + i
-      const leftPx = startXPx + dataIndex * unitPx
-      centers[i] = (leftPx + halfWidthPx) / dpr
-    }
-
-    return centers
   }
 
   /** 在成功绘制后缓存主层几何，供下一帧 Overlay 复用。 */

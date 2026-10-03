@@ -2,10 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TimeShareRange, TradingDate } from '@/data/provider/types'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
-import {
-  computeFiveDayTimeShareContentWidth,
-  computeFiveDayTimeShareGeometry,
-} from '../impl/fiveDayTimeShareGeometry'
+import { computeFiveDayTimeShareGeometry } from '../impl/fiveDayTimeShareGeometry'
 
 /** 创建位于 A 股上午 session 的测试时间戳。 */
 function timestampAt(tradingDate: string, minuteOffset: number): number {
@@ -32,11 +29,6 @@ function createRange(dates: string[]): TimeShareRange {
 }
 
 describe('fiveDayTimeShareGeometry', () => {
-  it('uses one physical pixel per slot as the minimum scrollable content width', () => {
-    expect(computeFiveDayTimeShareContentWidth(500, 5, 241, 1)).toBe(1205)
-    expect(computeFiveDayTimeShareContentWidth(800, 5, 241, 2)).toBe(800)
-  })
-
   it('maps non-contiguous trading days to independent day segments', () => {
     const range = createRange(['2026-08-14', '2026-08-17'])
     const frame = computeFiveDayTimeShareGeometry({

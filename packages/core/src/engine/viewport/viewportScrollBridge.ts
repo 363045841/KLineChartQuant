@@ -18,13 +18,20 @@ export class ViewportScrollBridge {
    * 在 render frame 内提交目标滚动位置。
    * @param targetScrollLeft - 已由 viewport state 钳制的 CSS 像素位置。
    */
-  commit(targetScrollLeft: number): void {
+  commit(targetScrollLeft: number, content?: { element: HTMLElement; width: number }): void {
     const container = this.getContainer()
     if (!container) {
       this.pendingProgrammaticScrollLeft = null
       return
     }
-    if (container.scrollLeft === targetScrollLeft) return
+    // 宽度变更会触发浏览器自动夹取 scrollLeft，必须与模型目标在同一帧提交并确认。
+    if (content && content.element.style.width !== `${content.width}px`) {
+      content.element.style.width = `${content.width}px`
+    }
+    if (container.scrollLeft === targetScrollLeft) {
+      this.pendingProgrammaticScrollLeft = container.scrollLeft
+      return
+    }
 
     container.scrollLeft = targetScrollLeft
     // 记录浏览器实际接受的值，避免子像素钳制导致回流事件无法匹配。
@@ -38,7 +45,6 @@ export class ViewportScrollBridge {
    */
   isExternalScroll(actualScrollLeft: number): boolean {
     if (this.pendingProgrammaticScrollLeft === actualScrollLeft) {
-      this.pendingProgrammaticScrollLeft = null
       return false
     }
     this.pendingProgrammaticScrollLeft = null

@@ -152,8 +152,8 @@ describe('viewportState template', () => {
     expect(vs.visibleFrom).toBeGreaterThanOrEqual(0)
     expect(vs.visibleFrom).toBeLessThan(vs.visibleTo)
     expect(vs.kWidth).toBe(8)
-    // kGap 由 kGapFromKWidth(8,2)=1.5 推导，不再从 options$ 透传
-    expect(vs.kGap).toBe(1.5)
+    // 物理宽度 16 → 物理间距 10，DPR=2 时输出逻辑间距 5。
+    expect(vs.kGap).toBe(5)
   })
 
   it('scrollTo writes signal and DOM', async () => {
@@ -163,7 +163,7 @@ describe('viewportState template', () => {
     expect(module.readonly.scrollLeft()).toBe(100)
   })
 
-  it('clamps programmatic and user DOM scroll inputs to the derived maximum', async () => {
+  it('bounds programmatic and DOM scroll and reprojects when data shrinks', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const deps = scrollDeps(10)
     const container = createScrollContainerStub()
@@ -177,21 +177,29 @@ describe('viewportState template', () => {
     module.actions.init()
     expect(module.actions.scrollTo(10_000)).toBe(true)
     expect(module.actions.scrollTo(10_000)).toBe(false)
-    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
+    const bounded = module.readonly.scrollLeft()
+    expect(bounded).toBeLessThan(10_000)
+    expect(bounded).toBeLessThanOrEqual(module.readonly.maxScrollLeft())
+    expect(module.readonly.scrollLeftLogical()).toBe(
+      module.readonly.viewSnapshot().scrollBounds.max,
+    )
 
     container.scrollLeft = 10_000
     module.actions.syncFromDomScroll()
-    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBe(bounded)
 
     module.actions.scrollTo(Number.NaN)
-    expect(module.readonly.scrollLeft()).toBe(0)
+    expect(module.readonly.scrollLeft()).toBe(bounded)
 
     module.actions.scrollTo(10_000)
     deps.dataLength$.set(1)
-    expect(module.readonly.scrollLeft()).toBe(module.readonly.maxScrollLeft())
+    expect(module.readonly.scrollLeft()).toBeLessThan(bounded)
+    expect(module.readonly.scrollLeftLogical()).toBe(
+      module.readonly.viewSnapshot().scrollBounds.max,
+    )
   })
 
-  it('synchronizes derived content width without writing scroll position', async () => {
+  it('leaves content width and scroll DOM writes to the render frame', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const writes: string[] = []
     const scrollContent = {
@@ -216,7 +224,8 @@ describe('viewportState template', () => {
     module.actions.resize(100, 100, 1)
     module.actions.init()
 
-    expect(writes).toEqual([`width:${module.readonly.contentWidth()}px`])
+    expect(module.readonly.contentWidth()).toBeGreaterThan(100)
+    expect(writes).toEqual([])
   })
 
   it('resize batches dimension writes into one notification', async () => {

@@ -23,17 +23,6 @@ export interface FiveDayTimeShareFrameGeometry {
   kWidthPx: number
 }
 
-/** 计算五日分时内容宽度，保证每个交易槽至少占一个物理像素。 */
-export function computeFiveDayTimeShareContentWidth(
-  viewWidth: number,
-  dayCount: number,
-  sessionSlots: number,
-  dpr: number,
-): number {
-  if (viewWidth <= 0 || dayCount <= 0 || sessionSlots <= 0 || !(dpr > 0)) return 0
-  return Math.max(viewWidth, (dayCount * sessionSlots) / dpr)
-}
-
 /** 根据交易日分组和 session 槽位生成唯一的五日分时横向几何。 */
 export function computeFiveDayTimeShareGeometry(
   input: FiveDayTimeShareGeometryInput,

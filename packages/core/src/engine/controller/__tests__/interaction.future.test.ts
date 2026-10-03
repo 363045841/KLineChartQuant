@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 未来区槽位交互测试：十字线放行进入未来槽位、无 OHLC 不命中 tooltip、分时保持回夹旧行为。
+// 槽位交互测试：K 线负/未来槽位由中心网格外推，分时只命中真实交易中心，空白槽位不出 OHLC。
 import { describe, expect, it } from 'vitest'
 
 import { InteractionController } from '@/core/controller/interaction'
@@ -8,16 +8,21 @@ import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartVie
 import {
   createChartStub,
   createInteractionBars,
+  createInteractionTimeShare,
   createMockInteractionState,
 } from './helpers/interactionTestKit'
 
-/** 10 根数据、unit 10px、dpr=1 的未来区测试场景。 */
+/**
+ * 10 根数据、dpr=1 的测试场景。
+ * 几何：kWidth=7 → kWidthPx=7、gapPx=4，中心网格 origin=7、step=11。
+ */
 function createFutureScene(args?: {
   dataView?: ChartDataView
   /** 通过公开的 onSettingsChanged 入口切换 tooltip 位置模式（如 'adaptive'）。 */
   tooltipPosition?: 'adaptive'
 }) {
-  const data = createInteractionBars(10)
+  const isTimeShare = args?.dataView === ChartDataViewId.TimeShare
+  const data = isTimeShare ? createInteractionTimeShare(10) : createInteractionBars(10)
   const chart = createChartStub({
     dpr: 1,
     plotWidth: 300,
@@ -29,12 +34,7 @@ function createFutureScene(args?: {
   if (args?.tooltipPosition) {
     interaction.onSettingsChanged({}, { tooltipPosition: args.tooltipPosition })
   }
-  interaction.setKLinePositions(
-    Array.from({ length: 10 }, (_, i) => i * 10),
-    { start: 0, end: 12 },
-    10,
-    Array.from({ length: 10 }, (_, i) => i * 10 + 5),
-  )
+  interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
   return interaction
 }
 
@@ -47,17 +47,17 @@ describe('InteractionController future-slot crosshair', () => {
   it('lets the crosshair snap onto an extrapolated future slot but keeps hoveredIndex null', () => {
     const interaction = createFutureScene()
 
-    // worldX=150，最后一根中心 95，尾步长 10 → 9 + ceil(55/10) = 15
+    // world=150 → 最近槽位 13，中心 150；未来槽位无 OHLC，不产生 hover。
     hoverAt(interaction, 150)
 
-    expect(interaction.crosshairIndex).toBe(15)
-    expect(interaction.crosshairPos?.x).toBe(155)
+    expect(interaction.crosshairIndex).toBe(13)
+    expect(interaction.crosshairPos?.x).toBe(150)
     expect(interaction.hoveredIndex).toBeNull()
   })
 
   it.each([
-    { label: '普通位置', clientX: 55, expectedIndex: 5 },
-    { label: '精确落在末根中心', clientX: 95, expectedIndex: 9 },
+    { label: '普通位置', clientX: 61, expectedIndex: 5 },
+    { label: '精确落在末根中心', clientX: 106, expectedIndex: 9 },
   ])(
     'snaps and hovers a real bar inside the data region（$label）',
     ({ clientX, expectedIndex }) => {
@@ -70,27 +70,25 @@ describe('InteractionController future-slot crosshair', () => {
     },
   )
 
-  it('clamps to the last bar in timeshare view instead of extrapolating', () => {
+  it('hits only real timeshare centers and never extrapolates', () => {
     const interaction = createFutureScene({ dataView: ChartDataViewId.TimeShare })
 
+    // 分钟槽位中心为 30..39；world=150 超过末根中心，回夹到最后一根。
     hoverAt(interaction, 150)
 
     expect(interaction.crosshairIndex).toBe(9)
   })
 
-  it('clears the crosshair and hit-test on a zero tail step instead of falling back', () => {
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
+  it('过去槽位不依赖可见数据中心，保留十字线并禁止 OHLC hover', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollLeft: -100 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
-    // centers=[5,5] → 尾步长 0：数据区内可命中，超出最后一根必须清空而非外推 / fallback
-    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10, [5, 5])
+    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    expect(interaction.getLogicalIndexAtScreenX(30)).toBeNull()
+    expect(interaction.getLogicalIndexAtScreenX(30)).toBe(-7)
 
     hoverAt(interaction, 3)
-    expect(interaction.crosshairIndex).toBe(0)
-
-    hoverAt(interaction, 150)
-    expect(interaction.crosshairIndex).toBeNull()
+    expect(interaction.crosshairIndex).toBe(-9)
+    expect(interaction.crosshairPos?.x).toBe(8)
     expect(interaction.hoveredIndex).toBeNull()
   })
 })
@@ -101,14 +99,14 @@ describe('InteractionController future-slot adaptive tooltip guard', () => {
 
     hoverAt(interaction, 150)
 
-    expect(interaction.crosshairIndex).toBe(15)
+    expect(interaction.crosshairIndex).toBe(13)
     expect(interaction.hoveredIndex).toBeNull()
   })
 
   it('still hovers a real bar in the data region in adaptive mode', () => {
     const interaction = createFutureScene({ tooltipPosition: 'adaptive' })
 
-    hoverAt(interaction, 55)
+    hoverAt(interaction, 61)
 
     expect(interaction.hoveredIndex).toBe(5)
   })

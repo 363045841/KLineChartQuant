@@ -181,14 +181,15 @@ describe('collectTimeAxisTicks 未来区接线', () => {
     })
     paint(context)
 
-    // 一槽 8px，最小间距 56px → 取 10 槽步长，刻度只落在 T+10 的倍数。
+    // 一槽 8px，最小间距 56px → 取 10 槽步长，刻度只落在 T+10 的倍数，
+    // 不再强制补 T+1（首条未来刻度由步长决定）。
     const labels = context.axisLabels
       .forSurface('xTicks')
       .labels.filter((label): label is AxisTickLabel => label.kind === AXIS_LABEL_KIND.TICK)
     const colors = resolveThemeColors('light')
     expect(
       labels.filter((label) => label.color === colors.text.tertiary).map((label) => label.text),
-    ).toEqual(['T+1', 'T+20', 'T+30', 'T+40', 'T+50', 'T+60'])
+    ).toEqual(['T+10', 'T+20', 'T+30', 'T+40', 'T+50', 'T+60'])
 
     const futureOnly = createMockRenderContext({
       data,

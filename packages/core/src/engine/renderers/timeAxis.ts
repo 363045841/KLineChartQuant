@@ -13,6 +13,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
   formatFutureSlotLabel,
+  formatPastSlotLabel,
   resolveAxisTimeLabel,
 } from '../../foundation/utils/futureSlotLabel.js'
 import {
@@ -24,6 +25,7 @@ import {
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
+import { createKLineSlotGrid, slotWorldX } from '../viewport/slotGrid.js'
 
 /** 未来占位刻度之间的最小逻辑像素间距。 */
 const FUTURE_TICK_MIN_SPACING = 56
@@ -136,6 +138,27 @@ function collectTimeAxisTicks(
   const minX = paddingX
   const maxX = Math.max(paddingX, width - paddingX)
 
+  // 过去空白使用同一槽位中心网格，不伪造首根行情之前的交易日期。
+  const grid = createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
+  const pastStep = resolveFutureTickStep(grid.step, FUTURE_TICK_MIN_SPACING)
+  const pastStart = Math.ceil((scrollLeft + minX - grid.origin) / grid.step)
+  const pastEnd = Math.min(-1, Math.floor((scrollLeft + maxX - grid.origin) / grid.step))
+  for (
+    let index = Math.ceil(pastStart / pastStep) * pastStep;
+    index <= pastEnd;
+    index += pastStep
+  ) {
+    const text = formatPastSlotLabel(index)
+    if (text === null) continue
+    surface.register({
+      kind: AXIS_LABEL_KIND.TICK,
+      text,
+      pos: slotWorldX(grid, index) - scrollLeft,
+      color: colors.text.tertiary,
+      fontSize,
+    })
+  }
+
   for (const idx of boundaries) {
     if (idx < range.start || idx >= range.end) continue
     const k = klineData[idx]
@@ -186,26 +209,8 @@ function collectTimeAxisTicks(
   }
 
   // 日历未覆盖的槽位按整齐的相对索引步长标注；位置始终由槽位 index 决定。
+  // 不强制补 T+1：首条未来刻度完全由步长决定，避免紧贴末根 K 线的标签拥挤。
   if (!klineData.length || range.end <= klineData.length) return
-  const firstFutureIndex = klineData.length
-  const firstText = formatFutureSlotLabel(firstFutureIndex, klineData.length)
-  if (
-    range.start <= firstFutureIndex &&
-    firstText !== null &&
-    context.getTimestampAtLogicalIndex?.(firstFutureIndex) == null
-  ) {
-    const centerX = context.kLineCenters[firstFutureIndex - range.start]
-    const screenX = centerX === undefined ? null : centerX - scrollLeft
-    if (screenX !== null && screenX >= minX && screenX <= maxX) {
-      surface.register({
-        kind: AXIS_LABEL_KIND.TICK,
-        text: firstText,
-        pos: screenX,
-        color: colors.text.tertiary,
-        fontSize,
-      })
-    }
-  }
   const step = resolveFutureTickStep(context.kWidth + context.kGap, FUTURE_TICK_MIN_SPACING)
   const firstOffset = Math.max(1, range.start - klineData.length + 1)
   for (

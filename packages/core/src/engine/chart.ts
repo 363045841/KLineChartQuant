@@ -106,6 +106,10 @@ import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorL
 import { createLegendDomRenderer } from './renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from './state/chartStateKernel.js'
 import type { RangeSelectionState } from './state/interactionState.js'
+import type {
+  PanePriceAxisModePersistence,
+  PanePriceAxisModesSnapshot,
+} from './state/mainPriceAxisState.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -113,10 +117,6 @@ import {
   resolveChartWorkspaceId,
 } from './state/modeState.js'
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
-import type {
-  PanePriceAxisModePersistence,
-  PanePriceAxisModesSnapshot,
-} from './state/mainPriceAxisState.js'
 import { ChartZoomController } from './utils/chartZoomController.js'
 import { getPhysicalKLineConfig } from './utils/klineConfig.js'
 import { resolveViewTransition } from './view/impl/resolveViewTransition.js'
@@ -287,7 +287,7 @@ export class Chart {
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
 
     const initialZoomLevel = opt.initialZoomLevel ?? 1
-    const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? 20))
+    const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? DEFAULT_ZOOM_LEVEL_COUNT))
 
     // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
     this.kernel = new ChartStateKernel({
@@ -380,11 +380,13 @@ export class Chart {
         comparison: this.kernel.comparison,
         scheduleDraw: (level) => this.scheduleDraw(level),
         onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
-        resetInteraction: () => this.interaction.reset(),
+        resetInteraction: () => {
+          this.interaction.reset()
+          this.zoomController.stopAnimation()
+        },
         updateIndicatorData: (data, range, dataRevision, displayTimestamps) =>
           this.indicatorManager.updateIndicatorData(data, range, dataRevision, displayTimestamps),
         isPointerDown: () => this.interaction.isPointerDown(),
-        onTimeShareDataReady: (dataLength) => this.initializeTimeShareWidth(dataLength),
         setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
       this.kernel.data,
@@ -436,11 +438,10 @@ export class Chart {
       {
         viewport: this.kernel.viewport,
         options: this.kernel.options,
-        period$: this.kernel.dataManager.readonly.currentPeriod,
-        getPlotWidth: () => this.getLeftLoadBufferWidth(),
+        onStart: () => this.interaction.stopInertia(),
         onChange: () => {
           this.scheduleDraw()
-          this.checkVisibleRangeGapWhenIdle()
+          if (!this.zoomController.isAnimating) this.checkVisibleRangeGapWhenIdle()
         },
       },
       this.kernel.zoom,
@@ -474,7 +475,15 @@ export class Chart {
       options: this.kernel.options,
       viewport: this.kernel.viewport,
       commitViewportScroll: (targetScrollLeft) =>
-        this.viewportScrollBridge.commit(targetScrollLeft),
+        this.viewportScrollBridge.commit(
+          targetScrollLeft,
+          this.dom.scrollContent
+            ? {
+                element: this.dom.scrollContent,
+                width: this.kernel.viewport.readonly.contentWidth.peek(),
+              }
+            : undefined,
+        ),
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this.activeMode,
@@ -644,8 +653,6 @@ export class Chart {
     const nextDataView =
       dataView ?? (mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine)
     if (prev === mode && this.kernel.mode.readonly.dataView.peek() === nextDataView) return
-
-    if (isTimeShareDataView(nextDataView)) this.kernel.zoom.actions.clearTimeShareKWidth()
 
     prev.onDeactivate(
       {
@@ -878,55 +885,13 @@ export class Chart {
 
   // ========== Render State API (Vue SSOT) ==========
 
-  /** 按当前视图原子应用缩放等级或分时几何；kGap 始终由 viewport 派生。 */
-  applyRenderState(state: { zoomLevel: number } | { kWidth: number; slotWidth: number }): void {
-    const zoom = this.kernel.zoom
-    const timeShare = isTimeShareDataView(this.kernel.mode.readonly.dataView.peek())
-    if ('zoomLevel' in state) {
-      if (timeShare) return
-      const before = zoom.readonly.zoomLevel.peek()
-      zoom.actions.setZoomLevel(state.zoomLevel)
-      if (zoom.readonly.zoomLevel.peek() === before) return
-    } else {
-      if (
-        !timeShare ||
-        !Number.isFinite(state.kWidth) ||
-        state.kWidth <= 0 ||
-        !Number.isFinite(state.slotWidth) ||
-        state.slotWidth < state.kWidth
-      )
-        return
-      if (
-        zoom.readonly.kWidth.peek() === state.kWidth &&
-        zoom.readonly.timeShareSlotWidth.peek() === state.slotWidth
-      )
-        return
-      batch(() => {
-        zoom.actions.setTimeShareKWidth(state.kWidth)
-        zoom.actions.setTimeShareSlotWidth(state.slotWidth)
-      })
-    }
-    this.scheduleDraw()
-  }
-
   /** 为数据、渲染和指标提供同一份当前几何投影。 */
   private getRenderOptions() {
     return {
       ...this.kernel.options.readonly.options.peek(),
-      kWidth: this.kernel.zoom.readonly.kWidth(),
+      kWidth: this.kernel.viewport.readonly.viewSnapshot().kWidth,
       kGap: this.kernel.viewport.readonly.kGap(),
     }
-  }
-
-  /** 数据就绪或布局首次有效时初始化分时几何，并对齐左缓冲区。 */
-  private initializeTimeShareWidth(dataLength: number): void {
-    const vp = this.getViewport()
-    if (this.activeMode !== this._timeShareMode || dataLength <= 0 || !vp || vp.plotWidth <= 0)
-      return
-    const metrics = this._timeShareMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
-    if (!metrics) return
-    this.applyRenderState({ kWidth: metrics.kWidth, slotWidth: metrics.kWidth + metrics.kGap })
-    this.kernel.viewport.actions.scrollTo(this.getLeftLoadBufferWidth())
   }
 
   /** 获取所有 PaneRenderer */
@@ -1256,9 +1221,6 @@ export class Chart {
     const vp = this.getViewport()
     const timeShare = this.activeMode === this._timeShareMode
     if (!vp || (timeShare ? vp.plotWidth <= 0 : vp.viewWidth < 10 || vp.viewHeight < 10)) return
-    if (timeShare && this.kernel.zoom.readonly.timeShareSlotWidth.peek() === null) {
-      this.initializeTimeShareWidth(this.dataManager.getTimeShareData().length)
-    }
     this.renderer.clearCachedFrame()
     this.layoutManager.layoutPanes()
     this.interaction.invalidateHover()
@@ -1362,6 +1324,8 @@ export class Chart {
 
   /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
   private async destroyChart(): Promise<void> {
+    this.interaction.stopInertia()
+    this.zoomController.stopAnimation()
     this.renderer.stopScheduling()
     this.workspacePersistence?.dispose()
     this.workspacePersistence = null
@@ -1559,8 +1523,10 @@ export class Chart {
     this.dataManager.checkVisibleRangeGap()
   }
 
-  private checkVisibleRangeGapWhenIdle(): void {
-    if (!this.interaction.isPointerDown()) this.checkVisibleRangeGap()
+  /** 拖拽、惯性与缩放动画期间不检查行情缺口，视图停稳后再检查。 */
+  checkVisibleRangeGapWhenIdle(): void {
+    if (!this.interaction.isPointerDown() && !this.zoomController.isAnimating)
+      this.checkVisibleRangeGap()
   }
 
   /**
@@ -1597,6 +1563,8 @@ export class Chart {
     spec: SymbolSpec | null = this.dataManager.symbols.peek()[0] ?? null,
     period: string | undefined = spec?.period,
   ) {
+    this.interaction.stopInertia()
+    this.zoomController.stopAnimation()
     const transition = resolveViewTransition({
       period,
       comparisonSpecs: this.kernel.comparison.readonly.specs.peek(),
@@ -1695,6 +1663,10 @@ export class Chart {
     },
   ): boolean {
     // 判断事件目标是否在右轴区域
+    if (e.type === 'pointerdown') {
+      this.interaction.stopInertia()
+      this.zoomController.stopAnimation()
+    }
     const isRightAxis = this.dom.rightAxisLayer.contains(e.target as Node)
     const hadPointer = e.type === 'pointerup' && this.interaction.isPointerDown()
     const drawingHandler =
@@ -1764,6 +1736,7 @@ export class Chart {
    * 按事件目标分流滚轮：价格轴围绕鼠标价位缩放，绘图区缩放时间轴。
    */
   handleWheelEvent(e: WheelEvent): void {
+    this.interaction.stopInertia()
     if (e.target instanceof Node && this.dom.rightAxisLayer.contains(e.target)) {
       this.interaction.onRightAxisWheel(e)
       return
@@ -1820,3 +1793,5 @@ export class Chart {
    * 销毁图表实例
    */
 }
+
+import { DEFAULT_ZOOM_LEVEL_COUNT } from './utils/zoom.js'

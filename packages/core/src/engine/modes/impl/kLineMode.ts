@@ -9,24 +9,6 @@ export class KLineMode implements ChartModeHandler {
 
   readonly useIndicatorScheduler = true
 
-  computeContentWidth(
-    _dataLength: number,
-    _leftBufferWidth: number,
-    _viewWidth: number,
-    _opt: { kWidth: number; kGap: number },
-    _dpr: number,
-  ): number | null {
-    return null
-  }
-
-  computeKWidth(
-    _dataLength: number,
-    _viewWidth: number,
-    _dpr: number,
-  ): { kWidth: number; kGap: number } | null {
-    return null
-  }
-
   updatePaneRange(
     pane: Pane,
     range: VisibleRange,

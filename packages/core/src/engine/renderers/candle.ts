@@ -23,6 +23,8 @@ import {
 } from '../render/retainedProjection.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
+const THICK_WICK_ZOOM_LEVEL = 10
+
 /** 缓冲池属于 Layer，避免其他图表覆盖已保留的几何。 */
 type CandleBuffers = {
   upBody: Float32Array | null
@@ -106,6 +108,7 @@ export function createCandleLayer(): Layer<RenderContext> {
           kWidthPx,
           dpr,
           kLineCenters,
+          zoomLevel: context.zoomLevel ?? 1,
           showVolumePriceMarkers,
           buffers,
         })
@@ -118,6 +121,7 @@ export function createCandleLayer(): Layer<RenderContext> {
               createProjectionRevision(context, [
                 context.dataRevision,
                 context.dataView,
+                context.zoomLevel ?? 1,
                 showVolumePriceMarkers,
               ]),
               build,
@@ -158,6 +162,7 @@ function prepareCandles(args: {
   kWidthPx: number
   dpr: number
   kLineCenters: number[]
+  zoomLevel: number
   showVolumePriceMarkers: boolean
   buffers: CandleBuffers
 }): PreparedCandles {
@@ -199,9 +204,10 @@ function prepareCandles(args: {
   }
 
   const invDpr = 1 / dpr
-  const wickWidth = invDpr
-  // 对 1x / 2x 设备，整像素到逻辑坐标的往返是精确的；其余 DPR 保留原有二次取整路径。
-  const exactPixelRoundTrip = dpr === 1 || dpr === 2
+  // 两档均为固定物理像素，不随 DPR 增粗；实体与影线同奇偶，保证居中和整数边界。
+  const wickWidthPx = args.zoomLevel >= THICK_WICK_ZOOM_LEVEL ? 2 : 1
+  const bodyWidthPx = Math.max(wickWidthPx, kWidthPx - (kWidthPx % 2 === wickWidthPx % 2 ? 0 : 1))
+  const wickWidth = wickWidthPx * invDpr
 
   for (let i = range.start; i < range.end && i < data.length; i++) {
     const e = data[i]
@@ -214,30 +220,22 @@ function prepareCandles(args: {
     const closePx = Math.round(fastPriceToY(e.close) * dpr)
     const highPx = Math.round(fastPriceToY(e.high) * dpr)
     const lowPx = Math.round(fastPriceToY(e.low) * dpr)
-    const alignedOpenY = openPx * invDpr
-    const alignedCloseY = closePx * invDpr
     const alignedHighY = highPx * invDpr
     const alignedLowY = lowPx * invDpr
-    const alignedRawRectY = Math.min(alignedOpenY, alignedCloseY)
-    const alignedRawRectH = Math.max(Math.abs(alignedOpenY - alignedCloseY), 1)
 
     const centerPx = Math.round(centerLogical * dpr)
-    const roundedLeftPx = centerPx - (kWidthPx - 1) / 2
+    const roundedLeftPx = centerPx - Math.floor(bodyWidthPx / 2)
 
-    // Inlined createAlignedKLineFromPx — no object allocation
-    const topPx = exactPixelRoundTrip
-      ? Math.min(openPx, closePx)
-      : Math.round(alignedRawRectY * dpr)
-    const bottomPx = exactPixelRoundTrip
-      ? topPx + Math.max(Math.abs(openPx - closePx), dpr)
-      : Math.round((alignedRawRectY + alignedRawRectH) * dpr)
-    const bodyHPx = Math.max(1, bottomPx - topPx)
+    // 全部实体/影线几何在整数物理像素空间完成，最小实体高度也只占一个物理像素。
+    const topPx = Math.min(openPx, closePx)
+    const bodyHPx = Math.max(1, Math.abs(openPx - closePx))
+    const bottomPx = topPx + bodyHPx
 
     const bodyX = roundedLeftPx * invDpr
     const bodyY = topPx * invDpr
-    const bodyW = kWidthPx * invDpr
+    const bodyW = bodyWidthPx * invDpr
     const bodyH = bodyHPx * invDpr
-    const wickCenterX = centerPx * invDpr
+    const wickLeftX = (centerPx - Math.floor(wickWidthPx / 2)) * invDpr
 
     const preClose = i > 0 ? data[i - 1]?.close : undefined
     const trend = getKLineTrend(e, preClose)
@@ -268,31 +266,26 @@ function prepareCandles(args: {
 
     // Inlined createVerticalLineRect for upper wick
     if (e.high > bodyHigh) {
-      const top = Math.min(alignedHighY, bodyY)
-      const bottom = Math.max(alignedHighY, bodyY)
-      const physTop = exactPixelRoundTrip ? Math.min(highPx, topPx) : Math.round(top * dpr)
-      const physBottom = exactPixelRoundTrip ? Math.max(highPx, topPx) : Math.round(bottom * dpr)
+      const physTop = Math.min(highPx, topPx)
+      const physBottom = Math.max(highPx, topPx)
       const wickH = Math.max(1, physBottom - physTop) * invDpr
       const buf = isUp ? upWickBuf : downWickBuf
       const idx = isUp ? upWickCount++ : downWickCount++
       const off = idx * 4
-      buf[off] = wickCenterX
+      buf[off] = wickLeftX
       buf[off + 1] = physTop * invDpr
       buf[off + 2] = wickWidth
       buf[off + 3] = wickH
     }
     // Inlined createVerticalLineRect for lower wick
     if (e.low < bodyLow) {
-      const bodyBottom = bodyY + bodyH
-      const top = Math.min(bodyBottom, alignedLowY)
-      const bottom = Math.max(bodyBottom, alignedLowY)
-      const physTop = exactPixelRoundTrip ? Math.min(bottomPx, lowPx) : Math.round(top * dpr)
-      const physBottom = exactPixelRoundTrip ? Math.max(bottomPx, lowPx) : Math.round(bottom * dpr)
+      const physTop = Math.min(bottomPx, lowPx)
+      const physBottom = Math.max(bottomPx, lowPx)
       const wickH = Math.max(1, physBottom - physTop) * invDpr
       const buf = isUp ? upWickBuf : downWickBuf
       const idx = isUp ? upWickCount++ : downWickCount++
       const off = idx * 4
-      buf[off] = wickCenterX
+      buf[off] = wickLeftX
       buf[off + 1] = physTop * invDpr
       buf[off + 2] = wickWidth
       buf[off + 3] = wickH

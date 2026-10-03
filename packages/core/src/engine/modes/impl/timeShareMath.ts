@@ -73,30 +73,6 @@ export function resolveTimeShareSessionSlots(
   return resolveMarketSessionSlots(marketSession)
 }
 
-/**
- * 分时 bar 宽度：使用可容纳全部 sessionSlots 的固定整数物理网格。
- * 多余像素均分到左右边距；物理宽度不足时回退比例布局。
- */
-export function computeTimeShareBarMetrics(
-  dataLength: number,
-  viewWidth: number,
-  dpr: number,
-  marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION,
-): { kWidth: number; kGap: number } | null {
-  if (dataLength <= 0 || viewWidth <= 0 || !(dpr > 0)) return null
-
-  const sessionSlots = resolveMarketSessionSlots(marketSession)
-  if (sessionSlots <= 0) return null
-  const grid = resolveSessionSlotPhysicalGrid(viewWidth, sessionSlots, dpr)
-  if (!grid) {
-    const unit = viewWidth / sessionSlots
-    const kWidth = Math.max(unit - 1 / dpr, unit * 0.01)
-    return { kWidth, kGap: unit - kWidth }
-  }
-  const barWidthPx = calcKBarWidthPx(grid.unitPx)
-  return { kWidth: barWidthPx / dpr, kGap: (grid.unitPx - barWidthPx) / dpr }
-}
-
 export type TimeShareXLayoutInput = {
   arrivedCount: number
   sessionSlots: number
@@ -145,55 +121,6 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
   const barWidth = calcKBarWidthPx(kWidthPx) / dpr
 
   return { step, offset: (grid?.offsetPx ?? 0) / dpr, centers, barWidth, barVisible, kWidthPx }
-}
-
-export type TimeShareVisibleRangeInput = {
-  scrollLeft: number
-  totalWidth: number
-  viewWidth: number
-  dataLength: number
-  sessionSlots: number
-}
-
-/**
- * 分时可见区间：与 computeTimeShareXLayout 共用同一套 slot 网格（step = totalWidth / sessionSlots）。
- *
- * 不能复用 getVisibleRange（K 线按 kWidth/kGap 取整的网格）：分时落点按 step 均分，
- * 两者取整误差会累积，导致窄屏时右侧数据被排除在渲染范围之外。
- */
-export function computeTimeShareVisibleRange(input: TimeShareVisibleRangeInput): {
-  start: number
-  end: number
-} {
-  const { scrollLeft, totalWidth, viewWidth, dataLength, sessionSlots } = input
-  if (dataLength <= 0 || sessionSlots <= 0 || totalWidth <= 0 || viewWidth <= 0)
-    return { start: 0, end: 0 }
-  const step = totalWidth / sessionSlots
-  const start = Math.floor(scrollLeft / step) - 1
-  const end = Math.min(dataLength, Math.ceil((scrollLeft + viewWidth) / step) + 1)
-  return { start, end }
-}
-
-export type TimeSharePaneLayout = {
-  priceTop: number
-  priceAreaHeight: number
-  volumeTop: number
-  volumeAreaHeight: number
-}
-
-export function computeTimeSharePaneLayout(
-  paneHeight: number,
-  volumeRatio: number,
-): TimeSharePaneLayout {
-  const ratio = Math.min(1, Math.max(0, volumeRatio))
-  const volumeAreaHeight = paneHeight * ratio
-  const priceAreaHeight = paneHeight - volumeAreaHeight
-  return {
-    priceTop: 0,
-    priceAreaHeight,
-    volumeTop: priceAreaHeight,
-    volumeAreaHeight,
-  }
 }
 
 export {
