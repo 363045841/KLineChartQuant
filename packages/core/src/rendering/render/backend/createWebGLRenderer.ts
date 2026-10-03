@@ -18,7 +18,7 @@ import type {
 import type { SurfaceBackend, SurfaceRegion } from '../SurfaceBackend.js'
 
 type WebGLPipelineDescriptor = {
-  type: 'candle' | 'line' | 'fill'
+  type: 'candle' | 'line'
 }
 
 interface BufferRecord {
@@ -28,7 +28,7 @@ interface BufferRecord {
 }
 
 interface PipelineRecord {
-  type: 'candle' | 'line' | 'fill'
+  type: 'candle' | 'line'
 }
 
 const handleCaps: RendererCapabilities = {
@@ -208,7 +208,6 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
 
       // 批量 strips 共用一次几何上传；MSAA clear 与 resolve 由帧边界负责。
       if (params.strips && params.strips.length > 0) {
-        if (pipelineMeta_rec.type === 'fill') return false
         const dpr = currentRegion?.dpr ?? 1
         const lines = params.strips
           .filter((s) => s.points.length >= 2)
@@ -229,19 +228,6 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       if (!vertexMeta || !vertexMeta.data) return false
 
       const color = (params.uniforms?.color as string) ?? '#000000'
-
-      if (pipelineMeta_rec.type === 'fill') {
-        const floats = new Float32Array(vertexMeta.data, 0, params.vertexCount * 2)
-        const pointCount = Math.floor(params.vertexCount / 2)
-        const upperPoints: Array<{ x: number; y: number }> = []
-        const lowerPoints: Array<{ x: number; y: number }> = []
-        for (let i = 0; i < pointCount; i++) {
-          const offset = i * 4
-          upperPoints.push({ x: floats[offset]!, y: floats[offset + 1]! })
-          lowerPoints.push({ x: floats[offset + 2]!, y: floats[offset + 3]! })
-        }
-        return lineSurface.drawFilledBand({ upperPoints, lowerPoints }, color, scrollLeft)
-      }
 
       const floats = new Float32Array(vertexMeta.data, 0, params.vertexCount * 2)
       const points: Array<{ x: number; y: number }> = []

@@ -557,7 +557,7 @@ computed 不调用 renderer factory，也不直接产生 Scene 副作用。
 
 - `beginFrame(region)` 设置当前 pane region。
 - `drawInstances()` 绘制矩形类 instance batch。
-- `drawLines()` 绘制单条、多条 strip 或填充带。
+- `drawLines()` 绘制单条或多条 strip。
 - `endFrame()` 结束当前 chart frame。
 
 `drawInstances()` 和 `drawLines()` 返回 boolean：
@@ -601,14 +601,14 @@ fallback。
 WebGL Renderer 包装 chart 级 `SharedWebGLSurface`，并使用 candle 和 line surface 执行实际绘制。
 
 - `beginFrame(region)` 绑定共享 surface region，并设置各图元 surface 的 region。
-- instance、line 和 fill 调用立即执行 WebGL draw。
+- instance 和 line 调用立即执行 WebGL draw。
 - WebGL 使用可见共享 canvas；业务 helper 不将 GPU 输出复制回 Canvas2D。
 - line helper 批量提交多条 strips，减少顶点上传；所有线宽（包括 1px）均使用解析 AA 三角形。
 - `endFrame()` 统一 resolve 共享 MSAA target，清屏属于帧生命周期。
 
 线条每顶点为 `x,y,edgeDist,edgeHalf`（16 bytes），使用 `fwidth(edgeDist)` 计算边缘 coverage。
 WebGL 颜色未预乘，shader 仅将 alpha 乘 coverage；每批恢复 alpha 混合，防止蜡烛绘制关闭 BLEND。
-蜡烛仍用独立实心 shader；填充带在 surface 内补 `edgeHalf=-1` 哨兵，保持实心 coverage。
+蜡烛仍用独立实心 shader。
 
 ### 11.3 WebGPU
 
@@ -632,7 +632,7 @@ WebGPU 使用一张 chart 级可见 canvas：
 
 所有线宽均通过共享 `buildAnalyticLineGeometry()` 生成三角形，line pipeline 的 stride 为 16，
 属性 location 0/1 分别为位置和边距。颜色已预乘，WGSL 将整个 RGBA 乘 coverage。
-fill pipeline 保留 8-byte 顶点和实心 shader；MSAA 继续覆盖填充、多边形及线段端点。
+MSAA 覆盖多边形及线段端点。
 
 WebGPU 资源策略：
 

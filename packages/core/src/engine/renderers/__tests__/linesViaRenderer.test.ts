@@ -4,10 +4,8 @@ import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendere
 
 import {
   compositeSceneRenderer,
-  drawFilledBandViaRenderer,
   drawLinesViaRenderer,
   shouldCompositeSceneRenderer,
-  tryDrawFilledBandGpu,
 } from '../linesViaRenderer'
 
 describe('drawLinesViaRenderer', () => {
@@ -91,57 +89,6 @@ describe('drawLinesViaRenderer', () => {
   })
 })
 
-describe('drawFilledBandViaRenderer', () => {
-  it('uses fill pipeline and packs upper/lower points', () => {
-    const r = createMockRenderer()
-    r.drawLines.mockReturnValue(true)
-    const ok = drawFilledBandViaRenderer(
-      r,
-      [
-        { x: 0, y: 10 },
-        { x: 1, y: 12 },
-      ],
-      [
-        { x: 0, y: 20 },
-        { x: 1, y: 22 },
-      ],
-      'rgba(0,0,255,0.2)',
-      5,
-    )
-    expect(ok).toBe(true)
-    expect(r.createPipeline).toHaveBeenCalledWith({ type: 'fill' })
-    expect(r.drawLines).toHaveBeenCalledTimes(1)
-    const args = r.drawLines.mock.calls[0]![0]
-    expect(args.vertexCount).toBe(4)
-    expect(args.uniforms!.color).toBe('rgba(0,0,255,0.2)')
-    expect(args.uniforms!.scrollLeft).toBe(5)
-  })
-
-  it('returns false when fewer than 2 points', () => {
-    const r = createMockRenderer()
-    expect(drawFilledBandViaRenderer(r, [{ x: 0, y: 1 }], [{ x: 0, y: 2 }], '#00f', 0)).toBe(false)
-    expect(r.drawLines).not.toHaveBeenCalled()
-  })
-
-  it('reuses fill pipeline and vertex buffer across frames', () => {
-    const r = createMockRenderer()
-    r.drawLines.mockReturnValue(true)
-    const upper = [
-      { x: 0, y: 10 },
-      { x: 1, y: 12 },
-    ]
-    const lower = [
-      { x: 0, y: 20 },
-      { x: 1, y: 22 },
-    ]
-    expect(drawFilledBandViaRenderer(r, upper, lower, '#00f', 0)).toBe(true)
-    expect(drawFilledBandViaRenderer(r, upper, lower, '#00f', 5)).toBe(true)
-    expect(r.createPipeline).toHaveBeenCalledTimes(1)
-    expect(r.createBuffer).toHaveBeenCalledTimes(1)
-    expect(r.destroyBuffer).not.toHaveBeenCalled()
-  })
-})
-
 describe('compositeSceneRenderer hybrid DOM', () => {
   it('skips composite for visible GPU canvases', () => {
     const webgl = createMockRenderer()
@@ -168,62 +115,5 @@ describe('compositeSceneRenderer hybrid DOM', () => {
       sceneRenderer: webgl,
     })
     expect(webgl.surface.compositeTo).not.toHaveBeenCalled()
-  })
-})
-
-describe('tryDrawFilledBandGpu alpha on visible GPU canvases', () => {
-  const upper = [
-    { x: 0, y: 10 },
-    { x: 1, y: 12 },
-  ]
-  const lower = [
-    { x: 0, y: 20 },
-    { x: 1, y: 22 },
-  ]
-
-  it('webgl bakes alpha into fill color and skips compositeTo', () => {
-    const r = createMockRenderer()
-    r.drawLines.mockReturnValue(true)
-    const ok = tryDrawFilledBandGpu(
-      {
-        ctx: {} as CanvasRenderingContext2D,
-        pane: { top: 0, height: 100 },
-        viewport: { plotWidth: 200 },
-        paneWidth: 200,
-        dpr: 1,
-        sceneRenderer: r,
-      } as never,
-      upper,
-      lower,
-      'rgba(0, 128, 255, 1)',
-      0,
-      0.2,
-    )
-    expect(ok).toBe(true)
-    expect(r.drawLines.mock.calls[0]![0].uniforms!.color).toBe('rgba(0, 128, 255, 0.2)')
-    expect(r.surface.compositeTo).not.toHaveBeenCalled()
-  })
-
-  it('webgpu bakes alpha into fill color and skips compositeTo', () => {
-    const r = createMockRenderer({ capsName: 'webgpu' })
-    r.drawLines.mockReturnValue(true)
-    const ok = tryDrawFilledBandGpu(
-      {
-        ctx: {} as CanvasRenderingContext2D,
-        pane: { top: 0, height: 100 },
-        viewport: { plotWidth: 200 },
-        paneWidth: 200,
-        dpr: 1,
-        sceneRenderer: r,
-      } as never,
-      upper,
-      lower,
-      'rgba(0, 128, 255, 1)',
-      0,
-      0.2,
-    )
-    expect(ok).toBe(true)
-    expect(r.drawLines.mock.calls[0]![0].uniforms!.color).toBe('rgba(0, 128, 255, 0.2)')
-    expect(r.surface.compositeTo).not.toHaveBeenCalled()
   })
 })

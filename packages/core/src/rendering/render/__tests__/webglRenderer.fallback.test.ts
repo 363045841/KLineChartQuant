@@ -20,7 +20,6 @@ vi.mock('../../engine/renderers/webgl/candleSurface', () => ({
     resize = vi.fn()
     clear = vi.fn()
     drawLineStrips = vi.fn()
-    drawFilledBand = vi.fn()
     destroy = vi.fn()
   },
 }))
@@ -68,28 +67,6 @@ describe('fail-closed when GPU surfaces unavailable', () => {
       renderer.writeBuffer(vertexBuf, new Float32Array([0, 0, 100, 100]))
 
       expect(renderer.drawLines({ pipeline, vertices: vertexBuf, vertexCount: 2 })).toBe(false)
-    })
-  })
-
-  describe('drawLines — fill type', () => {
-    it('returns false when lineSurface unavailable', () => {
-      const renderer = makeRenderer()
-
-      renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
-
-      const pipeline = renderer.createPipeline({ type: 'fill' })
-      const vertexBuf = renderer.createBuffer('vertex', 256)
-      const verts = new Float32Array([0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50])
-      renderer.writeBuffer(vertexBuf, verts)
-
-      const ok = renderer.drawLines({
-        pipeline,
-        vertices: vertexBuf,
-        vertexCount: 6,
-        uniforms: { color: '#0000ff', scrollLeft: 5 },
-      })
-
-      expect(ok).toBe(false)
     })
   })
 

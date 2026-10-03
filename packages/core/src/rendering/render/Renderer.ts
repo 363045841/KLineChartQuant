@@ -62,7 +62,7 @@ export interface Renderer {
    */
   drawInstances(params: DrawInstancesParams): boolean
   /**
-   * 返回 true 表示本批折线/填充已成功提交 GPU。
+   * 返回 true 表示本批折线已成功提交 GPU。
    * 返回 false 表示未画上——调用方应 fail-closed 走 2D。
    */
   drawLines(params: DrawLinesParams): boolean
