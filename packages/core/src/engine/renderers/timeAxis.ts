@@ -186,26 +186,8 @@ function collectTimeAxisTicks(
   }
 
   // 日历未覆盖的槽位按整齐的相对索引步长标注；位置始终由槽位 index 决定。
+  // 不强制补 T+1：首条未来刻度完全由步长决定，避免紧贴末根 K 线的标签拥挤。
   if (!klineData.length || range.end <= klineData.length) return
-  const firstFutureIndex = klineData.length
-  const firstText = formatFutureSlotLabel(firstFutureIndex, klineData.length)
-  if (
-    range.start <= firstFutureIndex &&
-    firstText !== null &&
-    context.getTimestampAtLogicalIndex?.(firstFutureIndex) == null
-  ) {
-    const centerX = context.kLineCenters[firstFutureIndex - range.start]
-    const screenX = centerX === undefined ? null : centerX - scrollLeft
-    if (screenX !== null && screenX >= minX && screenX <= maxX) {
-      surface.register({
-        kind: AXIS_LABEL_KIND.TICK,
-        text: firstText,
-        pos: screenX,
-        color: colors.text.tertiary,
-        fontSize,
-      })
-    }
-  }
   const step = resolveFutureTickStep(context.kWidth + context.kGap, FUTURE_TICK_MIN_SPACING)
   const firstOffset = Math.max(1, range.start - klineData.length + 1)
   for (
