@@ -59,7 +59,7 @@ describe('DOM Legend renderer', () => {
     renderer.dispose()
   })
 
-  it('五个按钮传递对应实例身份，并更新上下边界', () => {
+  it('六个按钮传递对应实例身份，并更新上下边界', () => {
     const { host, renderer, row } = createHarness()
     const onAction = vi.fn()
     host.addEventListener(LEGEND_ACTION_EVENT, onAction)
@@ -74,11 +74,12 @@ describe('DOM Legend renderer', () => {
       .querySelectorAll('button')
     expect(firstButtons[0]!.disabled).toBe(true)
     expect(firstButtons[1]!.disabled).toBe(false)
-    for (const index of [1, 2, 3, 4]) firstButtons[index]!.click()
+    for (const index of [1, 2, 3, 4, 5]) firstButtons[index]!.click()
     expect(onAction.mock.calls.map(([event]) => event.detail)).toEqual([
       { action: 'move-down', paneId: 'main', definitionId: 'MA' },
       { action: 'replace', paneId: 'main', definitionId: 'MA' },
       { action: 'toggle-visibility', paneId: 'main', definitionId: 'MA', hidden: true },
+      { action: 'settings', paneId: 'main', definitionId: 'MA' },
       { action: 'close', paneId: 'main', definitionId: 'MA' },
     ])
     renderer.update('main', [second, row], ['main'])
@@ -86,6 +87,103 @@ describe('DOM Legend renderer', () => {
     expect(firstButtons[1]!.disabled).toBe(true)
     firstButtons[0]!.click()
     expect(onAction.mock.lastCall?.[0].detail.action).toBe('move-up')
+    renderer.dispose()
+  })
+
+  it('收起按钮收起全部主图行并移动到首行位置，展开后回到末行下方', () => {
+    const { host, renderer, row } = createHarness()
+    const button = host.querySelector<HTMLButtonElement>('.klc-legend-collapse')!
+    const count = host.querySelector<HTMLElement>('.klc-legend-collapse-count')!
+    const second = {
+      ...row,
+      key: 'main:BOLL',
+      y: 40,
+      indicator: { instanceId: 'main:BOLL', definitionId: 'BOLL' },
+    }
+    expect(button.hidden).toBe(true)
+
+    renderer.update('main', [row, second], ['main'])
+    const rows = host.querySelectorAll<HTMLElement>('.klc-legend-row')
+    expect(button.hidden).toBe(false)
+    // 展开态：按钮位于末行下方，不显示指标数量。
+    expect(button.style.top).toBe(`${second.y + second.height + 2}px`)
+    expect(button.style.left).toBe(`${row.x}px`)
+    expect(button.title).toBe('收起指标')
+    expect(count.hidden).toBe(true)
+    expect([...rows].every((element) => element.style.display === '')).toBe(true)
+
+    button.click()
+    // 收起态：全部主图行隐藏，按钮移动到首行位置，图标右侧显示指标数量。
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    expect(button.title).toBe('展开指标')
+    expect([...rows].every((element) => element.style.display === 'none')).toBe(true)
+    expect(button.style.top).toBe(`${row.y}px`)
+    expect(count.hidden).toBe(false)
+    expect(count.textContent).toBe('2')
+
+    button.click()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect([...rows].every((element) => element.style.display === '')).toBe(true)
+    expect(button.style.top).toBe(`${second.y + second.height + 2}px`)
+    expect(count.hidden).toBe(true)
+    renderer.dispose()
+  })
+
+  it('收起态再更新时指标数量随启用指标数变化', () => {
+    const { host, renderer, row } = createHarness()
+    const button = host.querySelector<HTMLButtonElement>('.klc-legend-collapse')!
+    const count = host.querySelector<HTMLElement>('.klc-legend-collapse-count')!
+    renderer.update('main', [row], ['main'])
+    button.click()
+    expect(count.textContent).toBe('1')
+
+    renderer.update(
+      'main',
+      [
+        row,
+        {
+          ...row,
+          key: 'main:BOLL',
+          y: 40,
+          indicator: { instanceId: 'main:BOLL', definitionId: 'BOLL' },
+        },
+        {
+          ...row,
+          key: 'main:EXPMA',
+          y: 64,
+          indicator: { instanceId: 'main:EXPMA', definitionId: 'EXPMA' },
+        },
+      ],
+      ['main'],
+    )
+    expect(count.textContent).toBe('3')
+    renderer.dispose()
+  })
+
+  it('收起期间保持隐藏，clear 复位为展开且按钮隐藏', () => {
+    const { host, renderer, row } = createHarness()
+    const button = host.querySelector<HTMLButtonElement>('.klc-legend-collapse')!
+    renderer.update('main', [row], ['main'])
+    button.click()
+    expect(host.querySelector<HTMLElement>('.klc-legend-row')!.style.display).toBe('none')
+
+    renderer.clear()
+    expect(button.hidden).toBe(true)
+
+    // clear 后再发布的行保持可见且展开态。
+    renderer.update('main', [row], ['main'])
+    expect(button.hidden).toBe(false)
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(host.querySelector<HTMLElement>('.klc-legend-row')!.style.display).toBe('')
+
+    // 只有非指标行时按钮隐藏。
+    renderer.update('main', [{ ...row, indicator: undefined }], ['main'])
+    expect(button.hidden).toBe(true)
+
+    // 副图更新不影响主图按钮。
+    renderer.update('main', [row], ['main'])
+    renderer.update('sub_RSI', [{ ...row, paneId: 'sub_RSI' }], ['main', 'sub_RSI'])
+    expect(button.hidden).toBe(false)
     renderer.dispose()
   })
 

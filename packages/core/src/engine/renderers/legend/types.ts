@@ -21,7 +21,13 @@ export interface LegendRow {
 }
 
 export const LEGEND_ACTION_EVENT = 'klc:legend-action'
-export type LegendAction = 'move-up' | 'move-down' | 'replace' | 'toggle-visibility' | 'close'
+export type LegendAction =
+  | 'move-up'
+  | 'move-down'
+  | 'replace'
+  | 'toggle-visibility'
+  | 'settings'
+  | 'close'
 export interface LegendActionDetail {
   action: LegendAction
   paneId: string

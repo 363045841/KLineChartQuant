@@ -34,6 +34,7 @@ export function createMainIndicatorLegendLayer(
         visibleIndicatorIds: visibleIds ? new Set(visibleIds) : null,
       })
       options.onContext?.(legend)
+      // 是否收起由 DOM renderer 自行切换显示，渲染层只发布完整行。
       context.publishLegendRows?.(
         MAIN_PANE_ID,
         config?.visible !== false && legend ? buildMainLegendRows(legend, context.pane.top) : [],

@@ -1,10 +1,14 @@
 /** 独立 DOM Legend renderer：复用节点、差量写入，不经框架响应式状态。 */
 import arrowDown from '@iconify-icons/tabler/arrow-down'
 import arrowUp from '@iconify-icons/tabler/arrow-up'
+import chevronDown from '@iconify-icons/tabler/chevron-down'
+import chevronUp from '@iconify-icons/tabler/chevron-up'
 import eye from '@iconify-icons/tabler/eye'
 import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
+import settings from '@iconify-icons/tabler/settings'
 import x from '@iconify-icons/tabler/x'
+import { MAIN_PANE_ID } from '@/engine/paneIds.js'
 import { FONT_FAMILY } from '@/foundation/tokens/fonts.js'
 import {
   LEGEND_ACTION_EVENT,
@@ -20,11 +24,16 @@ const ACTIONS: ReadonlyArray<{ action: LegendAction; label: string; icon: typeof
   { action: 'move-down', label: '下移指标', icon: arrowDown },
   { action: 'replace', label: '更换指标', icon: refresh },
   { action: 'toggle-visibility', label: '显示指标', icon: eye },
+  { action: 'settings', label: '指标设置', icon: settings },
   { action: 'close', label: '关闭指标', icon: x },
 ]
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
-/** 五个操作按钮所需的 frame 右侧扩展宽度。 */
-const FRAME_EXTRA_WIDTH_PX = 130
+/** 六个操作按钮所需的 frame 右侧扩展宽度。 */
+const FRAME_EXTRA_WIDTH_PX = 156
+/** 收起按钮图标：展开态用收起图标，收起态用展开图标。 */
+const COLLAPSE_ICONS = { expanded: chevronUp, collapsed: chevronDown } as const
+/** 收起按钮与最后一行图例之间的间距。 */
+const COLLAPSE_GAP_PX = 2
 
 interface MountedRow {
   element: HTMLDivElement
@@ -66,6 +75,15 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-button:disabled { opacity:.3; cursor:default; }
     .klc-legend-button:disabled:hover { background:transparent; }
     .klc-legend-button > svg { display:block; width:14px; height:14px; overflow:visible; }
+    .klc-legend-collapse { position:absolute; z-index:1; display:flex; align-items:center; gap:2px;
+      height:16px; padding:0 2px; border:1px solid var(--klc-color-ui-border); border-radius:3px;
+      background:var(--klc-color-ui-surface); color:var(--klc-color-ui-text-soft); cursor:pointer; pointer-events:auto; }
+    .klc-legend-collapse:hover, .klc-legend-collapse:focus-visible {
+      background:color-mix(in srgb,var(--klc-color-ui-text) 8%,transparent); outline:none; }
+    .klc-legend-collapse > svg { display:block; width:14px; height:14px; overflow:visible; }
+    .klc-legend-collapse-count { font-family:${FONT_FAMILY}; font-size:12px; line-height:1;
+      color:var(--klc-color-ui-text-soft); }
+    .klc-legend-collapse-count[hidden] { display:none; }
   `
   return style
 }
@@ -125,10 +143,73 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
   host.append(root)
   const mounted = new Map<string, Map<string, MountedRow>>()
 
-  /** 清理全部标题节点，保留容器及主题样式。 */
+  // 主图图例整块收起状态只存在于当前图表实例内存；收起只是切换已有行的显示，不改发布数据。
+  let mainCollapsed = false
+  // 收起时在图标右侧显示的主图指标数量。
+  let mainIndicatorCount = 0
+  // 收起按钮定位到首行；展开时定位到最后一行下方。
+  let firstRowTop: string | null = null
+  let lastRowBottom: string | null = null
+  const collapseButton = document.createElement('button')
+  collapseButton.type = 'button'
+  collapseButton.className = 'klc-legend-collapse'
+  collapseButton.hidden = true
+  const collapseIcon = document.createElementNS(SVG_NAMESPACE, 'svg')
+  collapseIcon.setAttribute('viewBox', '0 0 24 24')
+  collapseIcon.setAttribute('aria-hidden', 'true')
+  const collapseCount = document.createElement('span')
+  collapseCount.className = 'klc-legend-collapse-count'
+  collapseCount.hidden = true
+  collapseButton.append(collapseIcon, collapseCount)
+  collapseButton.addEventListener('click', (event) => {
+    event.stopPropagation()
+    mainCollapsed = !mainCollapsed
+    applyCollapseState()
+  })
+  // 收起按钮阻止画布拖拽，点击不触发画布指针流程。
+  for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
+    collapseButton.addEventListener(event, (event) => event.stopPropagation())
+  }
+  root.append(collapseButton)
+
+  /** 切换主图行的显示，并把按钮放到首行（收起）或末行下方（展开）。 */
+  function applyCollapseState(): void {
+    // 收起态隐藏全部已发布行；行节点保留，展开时无需重绘即可恢复。
+    const display = mainCollapsed ? 'none' : ''
+    for (const [paneId, entries] of mounted) {
+      if (paneId !== MAIN_PANE_ID) continue
+      for (const row of entries.values()) {
+        if (row.element.style.display !== display) row.element.style.display = display
+      }
+    }
+    const icon = mainCollapsed ? COLLAPSE_ICONS.collapsed : COLLAPSE_ICONS.expanded
+    const label = mainCollapsed ? '展开指标' : '收起指标'
+    if (collapseButton.title !== label) {
+      collapseIcon.innerHTML = icon.body
+      collapseButton.title = label
+      collapseButton.setAttribute('aria-label', label)
+      collapseButton.setAttribute('aria-expanded', String(!mainCollapsed))
+    }
+    // 收起态才在图标右侧显示主图指标数量。
+    if (collapseCount.hidden === mainCollapsed) collapseCount.hidden = !mainCollapsed
+    const countText = mainCollapsed ? String(mainIndicatorCount) : ''
+    if (collapseCount.textContent !== countText) collapseCount.textContent = countText
+    const top = (mainCollapsed ? firstRowTop : lastRowBottom) ?? ''
+    if (collapseButton.style.top !== top) collapseButton.style.top = top
+  }
+
+  /** 清理全部标题节点，保留容器及主题样式；收起状态复位为展开。 */
   function clear(): void {
     for (const rows of mounted.values()) for (const row of rows.values()) row.element.remove()
     mounted.clear()
+    collapseButton.hidden = true
+    mainIndicatorCount = 0
+    firstRowTop = null
+    lastRowBottom = null
+    if (mainCollapsed) {
+      mainCollapsed = false
+      applyCollapseState()
+    }
   }
 
   return {
@@ -167,6 +248,8 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
               element.addEventListener(event, (event) => event.stopPropagation())
             }
           }
+          // 收起期间新建的行同样保持隐藏，避免展开前闪出。
+          if (data.paneId === MAIN_PANE_ID && mainCollapsed) element.style.display = 'none'
           root.append(element)
           entries.set(data.key, row)
         }
@@ -221,16 +304,34 @@ export function createLegendDomRenderer(host: HTMLElement): LegendDomRenderer {
         }
         if (row.buttons.length) {
           const order =
-            paneId === 'main'
+            paneId === MAIN_PANE_ID
               ? indicatorRows.map((row) => row.key)
-              : paneOrder.filter((id) => id !== 'main')
-          const index = order.indexOf(paneId === 'main' ? data.key : paneId)
+              : paneOrder.filter((id) => id !== MAIN_PANE_ID)
+          const index = order.indexOf(paneId === MAIN_PANE_ID ? data.key : paneId)
           const upDisabled = index <= 0
           const downDisabled = index < 0 || index >= order.length - 1
           if (row.buttons[0]!.disabled !== upDisabled) row.buttons[0]!.disabled = upDisabled
           if (row.buttons[1]!.disabled !== downDisabled) row.buttons[1]!.disabled = downDisabled
         }
         row.data = data
+      }
+      // 主图有指标行时启用收起按钮：首行坐标用于收起态定位，末行下方用于展开态定位。
+      if (paneId === MAIN_PANE_ID) {
+        const first = rows[0]
+        const last = rows[rows.length - 1]
+        mainIndicatorCount = indicatorRows.length
+        const enable = indicatorRows.length > 0 && first !== undefined && last !== undefined
+        if (collapseButton.hidden === enable) collapseButton.hidden = !enable
+        if (enable) {
+          firstRowTop = `${first.y}px`
+          lastRowBottom = `${last.y + last.height + COLLAPSE_GAP_PX}px`
+          const left = `${first.x}px`
+          if (collapseButton.style.left !== left) collapseButton.style.left = left
+        } else {
+          firstRowTop = null
+          lastRowBottom = null
+        }
+        applyCollapseState()
       }
     },
     clear,

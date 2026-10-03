@@ -942,6 +942,7 @@
     movePane: moveSubPane,
     replacePane: switchSubIndicator,
     openSelector: () => indicatorSelectorRef.value?.openMenu(),
+    openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
   })
 
   const {

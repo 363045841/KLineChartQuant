@@ -15,6 +15,7 @@ export function useLegendActions(
     movePane: (paneId: string, direction: 'up' | 'down') => void
     replacePane: (paneId: string, definitionId: string) => void
     openSelector: () => void
+    openIndicatorSettings: (definitionId: string) => void
   },
 ) {
   const replacementId = ref<string | null>(null)
@@ -42,6 +43,8 @@ export function useLegendActions(
           const hidden = detail.hidden === true
           if (main) controller.value?.setMainIndicatorHidden(definitionId, hidden)
           else controller.value?.setSubIndicatorHidden(paneId, hidden)
+        } else if (action === 'settings') {
+          options.openIndicatorSettings(definitionId)
         } else {
           const direction = action === 'move-up' ? 'up' : 'down'
           if (main) controller.value?.moveMainIndicator(definitionId, direction)
@@ -68,7 +71,7 @@ function isLegendAction(value: unknown): value is LegendActionDetail {
   if (!value || typeof value !== 'object') return false
   return (
     'action' in value &&
-    ['move-up', 'move-down', 'replace', 'toggle-visibility', 'close'].includes(
+    ['move-up', 'move-down', 'replace', 'toggle-visibility', 'settings', 'close'].includes(
       String(value.action),
     ) &&
     'paneId' in value &&

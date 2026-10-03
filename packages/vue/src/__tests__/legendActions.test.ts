@@ -21,6 +21,7 @@ describe('Legend DOM actions', () => {
       movePane: vi.fn(),
       replacePane: vi.fn(),
       openSelector: vi.fn(),
+      openIndicatorSettings: vi.fn(),
     }
     const layer = document.createElement('div')
     const scope = effectScope()
@@ -73,6 +74,10 @@ describe('Legend DOM actions', () => {
     expect(setMainHidden).toHaveBeenCalledWith('MA', true)
     emit('toggle-visibility', 'sub_RSI', 'RSI', false)
     expect(setSubHidden).toHaveBeenCalledWith('sub_RSI', false)
+
+    emit('settings', 'main', 'MA')
+    emit('settings', 'sub_RSI', 'RSI')
+    expect(options.openIndicatorSettings.mock.calls).toEqual([['MA'], ['RSI']])
 
     scope.stop()
     emit('close')

@@ -342,6 +342,8 @@
     openMenu: () => controller.openMenu(),
     closeMenu,
     toggleMenu: () => controller.toggleMenu(),
+    /** 直接打开指定指标的参数设置，供 Legend 悬浮工具条复用。 */
+    openParams: showParams,
   })
 </script>
 
