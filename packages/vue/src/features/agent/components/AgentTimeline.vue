@@ -6,7 +6,6 @@
     @scroll.passive="updateAutoScroll"
   >
     <section v-if="entries.length === 0" class="empty-state">
-      <IconChartCandle aria-hidden="true" />
       <h2>{{ text.emptyTitle }}</h2>
       <p>{{ text.emptyBody }}</p>
       <div class="empty-state__prompts">
@@ -90,7 +89,6 @@
   import { computed, nextTick, ref, watch } from 'vue'
   import IconArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconArrowUpRight from '~icons/tabler/arrow-up-right'
-  import IconChartCandle from '~icons/tabler/chart-candle'
   import LoadingSpinner from '../../../components/LoadingSpinner.vue'
   import type {
     AgentErrorView,
@@ -143,7 +141,7 @@
     text.value.promptTrend,
     text.value.promptRsi,
     text.value.promptEma,
-    text.value.promptTheme,
+    text.value.promptBond,
   ])
   const entries = computed<TimelineEntry[]>(() =>
     [
@@ -237,16 +235,12 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
     gap: 8px;
     color: var(--agent-text);
+    text-align: center;
   }
 
-  .empty-state > svg {
-    width: 26px;
-    height: 26px;
-    color: var(--agent-accent);
-  }
   h2 {
     margin: 4px 0 0;
     font-size: 16px;
@@ -261,24 +255,26 @@
 
   .empty-state__prompts {
     width: 100%;
-    display: grid;
-    gap: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
   }
   .empty-state__prompts button {
-    min-width: 0;
+    max-width: 100%;
     min-height: 36px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    padding: 7px 9px;
+    padding: 7px 14px;
     border: 1px solid var(--agent-border);
-    border-radius: 5px;
+    border-radius: 999px;
     color: var(--agent-text);
     background: var(--agent-surface);
     font: inherit;
     font-size: 12px;
-    text-align: left;
+    text-align: center;
     cursor: pointer;
   }
   .empty-state__prompts button:hover {
