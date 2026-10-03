@@ -33,28 +33,32 @@ export type TimeSharePriceRange = {
   maxPrice: number
 }
 
-/**
- * 分时 Y 轴价格区间：以 baseline（昨收）为中心，对称覆盖可见最大绝对涨跌幅并加 padding。
- * 全天平盘时仍保留最小 0.5% 边距，避免 range 退化。
- */
+// 非平盘按可见振幅留白，平盘按价格量级保留非零区间。
+const TIME_SHARE_RANGE_PADDING_RATIO = 0.1
+const TIME_SHARE_FLAT_PADDING_RATIO = 0.0001
+
+/** 从可见价格与均价的极值生成带留白的 Y 轴范围；无有效值时返回 null。 */
 export function computeTimeSharePriceRange(
   prices: ReadonlyArray<number | undefined | null>,
-  baseline: number,
 ): TimeSharePriceRange | null {
-  if (!Number.isFinite(baseline) || baseline === 0) return null
-
-  let maxAbsPct = 0
-  for (const p of prices) {
-    if (typeof p !== 'number' || !Number.isFinite(p)) continue
-    const pct = Math.abs((p - baseline) / baseline) * 100
-    if (pct > maxAbsPct) maxAbsPct = pct
+  let minPrice = Infinity
+  let maxPrice = -Infinity
+  for (const price of prices) {
+    if (typeof price !== 'number' || !Number.isFinite(price)) continue
+    minPrice = Math.min(minPrice, price)
+    maxPrice = Math.max(maxPrice, price)
   }
+  if (!Number.isFinite(minPrice)) return null
 
-  const padding = Math.max(maxAbsPct * 0.1, 0.5)
-  const displayPct = maxAbsPct + padding
+  const span = maxPrice - minPrice
+  // 最小区间只用于完全平盘，不能扩大已有的小幅波动。
+  const padding =
+    span > 0
+      ? span * TIME_SHARE_RANGE_PADDING_RATIO
+      : (Math.abs(minPrice) || 1) * TIME_SHARE_FLAT_PADDING_RATIO
   return {
-    minPrice: baseline * (1 - displayPct / 100),
-    maxPrice: baseline * (1 + displayPct / 100),
+    minPrice: minPrice - padding,
+    maxPrice: maxPrice + padding,
   }
 }
 

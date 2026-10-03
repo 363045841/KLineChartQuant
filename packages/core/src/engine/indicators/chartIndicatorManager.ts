@@ -20,7 +20,7 @@ import {
   effect,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
-import type { KLineData } from '../../foundation/types/price.js'
+import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { Layer } from '../../rendering/scene/types.js'
@@ -571,11 +571,25 @@ export class ChartIndicatorManager {
     this.onResultsAppliedCallback = callback
   }
 
-  /** 创建绑定当前帧已提交结果的读取器；键为 instanceId。 */
-  createRenderStateReader(): IndicatorRenderStateReader {
+  /** 按 instanceId 读取已提交结果；绘制帧的 VOL 直接从展示行情派生。 */
+  createRenderStateReader(frame?: {
+    data: readonly ChartSeriesDatum[]
+    range: VisibleRange
+  }): IndicatorRenderStateReader {
+    const frameStates = new Map<string, unknown>()
+    const volume = frame ? composeVolumeRenderState(frame.data, frame.range, Date.now()) : null
+    const volumeMetadata = getRegisteredIndicatorDefinition('volume')
+    if (volume && volumeMetadata) {
+      for (const instance of this.deps.indicator.readonly.instances.peek()) {
+        const metadata = getRegisteredIndicatorDefinition(instance.indicatorId)
+        if (metadata?.name === volumeMetadata.name) {
+          frameStates.set(instance.instanceId, volume)
+        }
+      }
+    }
     return {
       get: <T = unknown>(instanceId: string): T | undefined =>
-        this.renderStates.get(instanceId) as T | undefined,
+        (frameStates.get(instanceId) ?? this.renderStates.get(instanceId)) as T | undefined,
     }
   }
 
@@ -642,17 +656,6 @@ export class ChartIndicatorManager {
       )
       if (state === undefined) continue
       renderStates.set(instance.instanceId, state)
-    }
-    // 成交量没有 calculator，渲染状态由当前行情直接合成。
-    const volume = composeVolumeRenderState(this.currentData, this.visibleRange, timestamp)
-    const volumeMetadata = getRegisteredIndicatorDefinition('volume')
-    if (volume && volumeMetadata) {
-      for (const instance of this.deps.indicator.readonly.instances.peek()) {
-        const metadata = getRegisteredIndicatorDefinition(instance.indicatorId)
-        if (metadata?.name === volumeMetadata.name) {
-          renderStates.set(instance.instanceId, volume)
-        }
-      }
     }
     return renderStates
   }

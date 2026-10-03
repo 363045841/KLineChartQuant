@@ -10,6 +10,7 @@ import type { PaneSpec } from '../../chartTypes'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { loadBuiltinIndicators } from '../registerBuiltins'
+import type { VolumeRenderState } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 
 beforeAll(async () => {
@@ -235,6 +236,33 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('实例结果投影', () => {
+    it.each([false, true])('VOL 使用分时帧行情，已有 K 线计算结果：%s', async (hasResults) => {
+      const instanceId = manager.addIndicator('VOL', 'sub')!
+      const otherId = manager.addIndicator('OBV', 'sub')!
+      if (hasResults) {
+        manager.enableMainIndicator('MA')
+        const calculationData = createTestData(80)
+        manager.updateIndicatorData(calculationData, { start: 0, end: 80 })
+        await vi.waitFor(() => {
+          expect(manager.createRenderStateReader().get('main:MA')).toBeDefined()
+        })
+      }
+      const data = [
+        { timestamp: 1, price: 10, average: 10, volume: 100 },
+        { timestamp: 2, price: 11, average: 10.5, volume: 200 },
+      ]
+      const reader = manager.createRenderStateReader({ data, range: { start: 0, end: 2 } })
+      expect(reader.get<VolumeRenderState>(instanceId)).toEqual({
+        timestamp: expect.any(Number),
+        valueMin: 90,
+        valueMax: 210,
+      })
+      expect(reader.get<VolumeRenderState>(otherId)).not.toEqual(reader.get(instanceId))
+      expect(
+        manager.createRenderStateReader({ data: [], range: { start: 0, end: 0 } }).get(instanceId),
+      ).toBeUndefined()
+    })
+
     it('按 instanceId 提供计算结果并计算主图价格范围', async () => {
       manager.enableMainIndicator('MA')
       const data = createTestData(80)

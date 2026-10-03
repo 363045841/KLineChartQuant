@@ -4,7 +4,7 @@
  * 计算结果只按图表实例寻址；本模块刻意一次只接收一个实例结果，禁止重建按指标类型索引的结果包。
  * 展示配置不参与计算，只在投影时合入 renderer 读取的参数。
  */
-import type { KLineData } from '../../foundation/types/price.js'
+import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
 import type { IndicatorSeriesResult } from './instances/domain/instanceModel.js'
 
@@ -88,8 +88,9 @@ export interface VolumeRenderState {
   readonly valueMax: number
 }
 
+/** 从当前展示行情与可见区间生成成交量范围，不依赖指标计算数据。 */
 export function composeVolumeRenderState(
-  data: ReadonlyArray<KLineData>,
+  data: ReadonlyArray<ChartSeriesDatum>,
   visibleRange: VisibleRange,
   timestamp: number,
 ): VolumeRenderState | null {

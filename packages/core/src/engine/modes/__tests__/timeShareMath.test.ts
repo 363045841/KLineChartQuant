@@ -1,3 +1,4 @@
+/** 分时价格范围、涨跌幅基准与交易时段横向几何的回归测试。 */
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -66,26 +67,38 @@ describe('resolveFiveDayTimeShareBaseline', () => {
 })
 
 describe('computeTimeSharePriceRange', () => {
-  it('uses preClose baseline and pads around max absolute percent move', () => {
-    // open gap up: first trade 11, preClose 10 → +10%; later 10.5 → 5%
-    const range = computeTimeSharePriceRange([11, 10.5, 10.2], 10)
-    expect(range).not.toBeNull()
-    // maxAbsPct=10, padding=max(1, 0.5)=1 → display 11%
-    expect(range!.maxPrice).toBeCloseTo(10 * 1.11, 8)
-    expect(range!.minPrice).toBeCloseTo(10 * 0.89, 8)
+  it('fits visible extrema with padding proportional to the price span', () => {
+    const range = computeTimeSharePriceRange([11, 10.5, 10.2])!
+    expect(range.maxPrice).toBeCloseTo(11.08, 8)
+    expect(range.minPrice).toBeCloseTo(10.12, 8)
   })
 
-  it('still applies minimum padding when all prices equal baseline (flat day)', () => {
-    const range = computeTimeSharePriceRange([10, 10, 10], 10)
-    expect(range).not.toBeNull()
-    // maxAbsPct=0, padding=min 0.5% → ±0.5%
-    expect(range!.maxPrice).toBeCloseTo(10.05, 8)
-    expect(range!.minPrice).toBeCloseTo(9.95, 8)
+  it.each([1, 0.000001, 1000000])('preserves small movements at price scale %s', (scale) => {
+    const prices = [230.7, 230.75, 230.82].map((price) => price * scale)
+    const range = computeTimeSharePriceRange(prices)!
+    const span = prices[2]! - prices[0]!
+    // 价格振幅应占纵轴区间的 5/6，不因价格量级而被压扁。
+    expect(span / (range.maxPrice - range.minPrice)).toBeCloseTo(5 / 6, 8)
+    expect(range.minPrice).toBeLessThan(prices[0]!)
+    expect(range.maxPrice).toBeGreaterThan(prices[2]!)
   })
 
-  it('returns null for invalid baseline', () => {
-    expect(computeTimeSharePriceRange([10], 0)).toBeNull()
-    expect(computeTimeSharePriceRange([10], NaN)).toBeNull()
+  it.each([10, 0, -10])('provides a non-zero centered range on a flat day at %s', (price) => {
+    const range = computeTimeSharePriceRange([price, price])!
+    expect(range.minPrice).toBeLessThan(price)
+    expect(range.maxPrice).toBeGreaterThan(price)
+    expect((range.minPrice + range.maxPrice) / 2).toBeCloseTo(price, 8)
+  })
+
+  it('ignores missing and non-finite values without distorting the extrema', () => {
+    expect(computeTimeSharePriceRange([null, undefined, NaN, Infinity, -Infinity, 10, 11])).toEqual(
+      {
+        minPrice: 9.9,
+        maxPrice: 11.1,
+      },
+    )
+    expect(computeTimeSharePriceRange([])).toBeNull()
+    expect(computeTimeSharePriceRange([null, undefined, NaN, Infinity])).toBeNull()
   })
 })
 

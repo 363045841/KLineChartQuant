@@ -1,4 +1,4 @@
-/** 分时图表模式：固定整物理网格柱宽与以昨收为基准的对称价格轴。 */
+/** 分时图表模式：固定整物理网格柱宽，价格范围由可见价格与均价决定。 */
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types.js'
 import type { MarketSessionConfig } from '@/foundation/utils/timeShareAxisLabels.js'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
@@ -57,7 +57,7 @@ export class TimeShareMode implements ChartModeHandler {
       if (!item) continue
       visibleValues.push(item.price, item.average)
     }
-    const priceRange = computeTimeSharePriceRange(visibleValues, baseline)
+    const priceRange = computeTimeSharePriceRange(visibleValues)
     if (!priceRange) return
     pane.yAxis.setRange(priceRange)
   }

@@ -1,3 +1,4 @@
+/** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 import type { SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
@@ -938,7 +939,10 @@ export class ChartRenderer {
     const axisLabelsFrame = createAxisLabelsFrame()
     const sharedXAxisRanges: XAxisRange[] = []
     const indicatorManager = this.deps.getIndicatorManager()
-    const indicatorStateReader = indicatorManager.createRenderStateReader()
+    const indicatorStateReader = indicatorManager.createRenderStateReader({
+      data: renderData,
+      range,
+    })
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
