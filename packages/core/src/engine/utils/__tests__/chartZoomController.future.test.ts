@@ -63,27 +63,79 @@ function makeController(dpr = 1, period = 'daily') {
   return { viewport, controller }
 }
 
-describe('ChartZoomController 无界槽位', () => {
+describe('ChartZoomController 有界槽位', () => {
+  it.each([1, 1.25, 1.5, 2])('DPR=%s：放大时实际槽位间距同步增长', (dpr) => {
+    const { viewport, controller } = makeController(dpr)
+    let previousGapPx = 0
+    let previousStepPx = 0
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      controller.zoomToLevel(level)
+      const view = viewport.readonly.viewSnapshot.peek()
+      const gapPx = view.kGap * dpr
+      const stepPx = view.grid.step * dpr
+      expect(gapPx).toBeGreaterThan(previousGapPx)
+      expect(stepPx).toBeGreaterThan(previousStepPx)
+      expect(stepPx).toBeCloseTo(view.kWidthPx + gapPx, 10)
+      expect(view.worldAtIndex(1)! - view.worldAtIndex(0)!).toBeCloseTo(view.grid.step, 10)
+      previousGapPx = gapPx
+      previousStepPx = stepPx
+    }
+    expect(previousGapPx).toBeGreaterThan(3)
+  })
+
+  it.each([
+    { side: 'min', requested: -10000, pointer: 0 },
+    { side: 'max', requested: 10000, pointer: 1000 },
+  ] as const)('放大超出 $side 边界时修正中心', ({ side, requested, pointer }) => {
+    const { viewport, controller } = makeController()
+    controller.zoomToLevel(3)
+    viewport.actions.scrollToLogical(requested)
+    const before = viewport.readonly.viewSnapshot.peek()
+    const coordinate = (before.scroll + pointer - before.grid.origin) / before.grid.step
+    controller.zoomToLevel(6, pointer)
+    const after = viewport.readonly.viewSnapshot.peek()
+    const anchored = after.grid.origin + coordinate * after.grid.step - pointer
+    if (side === 'min') expect(anchored).toBeLessThan(after.scrollBounds.min)
+    else expect(anchored).toBeGreaterThan(after.scrollBounds.max)
+    expect(after.scroll).toBe(after.scrollBounds[side])
+  })
+
+  it('数据区域内缩放严格保持鼠标连续槽位', () => {
+    const { viewport, controller } = makeController()
+    const before = viewport.readonly.viewSnapshot.peek()
+    const pointer = before.grid.origin + 4.37 * before.grid.step - before.scroll
+    controller.zoomToLevel(5, pointer)
+    const after = viewport.readonly.viewSnapshot.peek()
+    expect((after.scroll + pointer - after.grid.origin) / after.grid.step).toBeCloseTo(4.37, 10)
+  })
+
   it.each([-10000, -1000, -100, 0, 192, 10000])(
-    '世界滚动量=%s：两侧扩展后连续缩放保持鼠标槽位',
+    '请求滚动量=%s：连续缩放优先保持鼠标槽位，仅在边界修正',
     (scroll) => {
       const { viewport, controller } = makeController()
       viewport.actions.scrollToLogical(scroll)
       const pointer = 501.37
-      const grid = viewport.readonly.slotGrid.peek()
-      const coordinate = (scroll + pointer - grid.origin) / grid.step
       for (const level of [5, 4, 3, 2, 1, 2, 3, 4, 5, 6]) {
+        const before = viewport.readonly.viewSnapshot.peek()
+        const coordinate = (before.scroll + pointer - before.grid.origin) / before.grid.step
         controller.zoomToLevel(level, pointer)
-        const next = viewport.readonly.slotGrid.peek()
+        const view = viewport.readonly.viewSnapshot.peek()
+        const next = view.grid
         const actual = viewport.readonly.scrollLeftLogical.peek()
-        expect((actual + pointer - next.origin) / next.step).toBeCloseTo(coordinate, 10)
+        const anchored = next.origin + coordinate * next.step - pointer
+        expect(actual).toBeCloseTo(
+          Math.max(view.scrollBounds.min, Math.min(anchored, view.scrollBounds.max)),
+          10,
+        )
+        if (anchored >= view.scrollBounds.min && anchored <= view.scrollBounds.max) {
+          expect((actual + pointer - next.origin) / next.step).toBeCloseTo(coordinate, 10)
+        }
         expect(viewport.readonly.viewport.peek().scrollLeft).toBe(actual)
         expect(viewport.readonly.scrollLeft.peek()).toBeGreaterThanOrEqual(0)
         expect(viewport.readonly.scrollLeft.peek()).toBeLessThanOrEqual(
           viewport.readonly.maxScrollLeft.peek(),
         )
       }
-      expect(viewport.readonly.scrollLeftLogical.peek()).toBeCloseTo(scroll, 10)
     },
   )
 

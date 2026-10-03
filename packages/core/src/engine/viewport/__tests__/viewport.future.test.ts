@@ -1,19 +1,33 @@
-/** 无界槽位：过去与未来区域都是合法视口位置。 */
+/** 槽位导航边界：两侧空白最多一屏，并保留两根完整 K 线。 */
 import { describe, expect, it } from 'vitest'
 import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
 import { createViewportState } from '../../state/viewportState'
 
-describe('无界 K 线槽位', () => {
-  it.each([1, 1.25, 1.5, 2])('DPR=%s：允许整屏过去和整屏未来', (dpr) => {
+describe('K 线槽位边界', () => {
+  it.each([1, 1.25, 1.5, 2])('DPR=%s：极端导航仍保留两根完整 K 线', (dpr) => {
     const module = createViewportState(createViewportStateDeps({ dataLength: 10 }))
     module.actions.resize(613, 400, dpr)
     for (const target of [-10000, 10000, -20000, 20000, 0]) {
       module.actions.scrollToLogical(target)
-      expect(module.readonly.scrollLeftLogical()).toBeCloseTo(target, 10)
-      expect(module.readonly.viewport().scrollLeft).toBeCloseTo(target, 10)
+      const view = module.readonly.viewSnapshot()
+      const scroll = view.scroll
+      expect(scroll).toBeCloseTo(
+        Math.max(view.scrollBounds.min, Math.min(target, view.scrollBounds.max)),
+        10,
+      )
+      expect(module.readonly.viewport().scrollLeft).toBe(scroll)
       expect(module.readonly.scrollLeft()).toBeGreaterThanOrEqual(0)
-      if (target < -2000) expect(module.readonly.rawVisibleRange().end).toBeLessThan(0)
-      if (target > 2000) expect(module.readonly.rawVisibleRange().start).toBeGreaterThan(10)
+      expect(scroll).toBeGreaterThanOrEqual(-613)
+      expect(scroll + 613).toBeLessThanOrEqual(view.seriesWidth + 613)
+      const visible = view.bars.filter((bar, index) => {
+        const dataIndex = view.range.start + index
+        return (
+          dataIndex < 10 &&
+          bar.x >= scroll - 1e-9 &&
+          bar.x + bar.width - 1 / dpr <= scroll + 613 + 1e-9
+        )
+      })
+      expect(visible.length).toBeGreaterThanOrEqual(2)
     }
   })
 

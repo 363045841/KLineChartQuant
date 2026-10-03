@@ -1,6 +1,9 @@
 /** 缩放级别与绘制尺寸的纯派生；指针变换统一由 slotGrid 实现。 */
 import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 
+/** 控制器与直接创建 Chart 共用的默认缩放档位数量。 */
+export const DEFAULT_ZOOM_LEVEL_COUNT = 30
+
 export interface ZoomConfigBase {
   minKWidth: number
   maxKWidth: number
@@ -13,18 +16,16 @@ export interface DeriveKGapInput {
   period: string
 }
 
-const PHYS_K_GAP_MAX = 3
-
 /** 将合法缩放级别线性映射到配置的 K 线宽度。 */
 export function zoomLevelToKWidth(level: number, config: ZoomConfigBase): number {
   const fraction = (level - 1) / (config.zoomLevelCount - 1)
   return config.minKWidth + fraction * (config.maxKWidth - config.minKWidth)
 }
 
-/** 派生渲染使用的物理像素间隙。 */
+/** 间距随 K 线物理宽度按比例增长，至少一个物理像素。 */
 export function kGapFromKWidth(kWidth: number, dpr: number): number {
   const widthPx = Math.round(kWidth * dpr)
-  return Math.max(1, Math.min(PHYS_K_GAP_MAX, Math.round(widthPx * 0.6))) / dpr
+  return Math.max(1, Math.round(widthPx * 0.6)) / dpr
 }
 
 /** 按周期派生 K 线或分时的绘制间隙。 */

@@ -66,7 +66,7 @@ export class ChartZoomController {
     this.applyZoom(this.currentZoomLevel + delta, viewportX)
   }
 
-  /** 保存指针槽位坐标，更新几何后直接求解滚动量，不以数据边界改变锚点。 */
+  /** 先保持指针槽位坐标，再由策略在可见数据边界处修正视口。 */
   private applyZoom(level: number, pointerX?: number): void {
     if (!Number.isFinite(level) || (pointerX !== undefined && !Number.isFinite(pointerX))) return
     const target = clampZoomLevel(level, this.zoomLevelCount)

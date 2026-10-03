@@ -14,7 +14,7 @@ import {
 
 /**
  * 10 根数据、dpr=1 的测试场景。
- * 几何：kWidth=7 → kWidthPx=7、gapPx=3，中心网格 origin=6、step=10。
+ * 几何：kWidth=7 → kWidthPx=7、gapPx=4，中心网格 origin=7、step=11。
  */
 function createFutureScene(args?: {
   dataView?: ChartDataView
@@ -47,17 +47,17 @@ describe('InteractionController future-slot crosshair', () => {
   it('lets the crosshair snap onto an extrapolated future slot but keeps hoveredIndex null', () => {
     const interaction = createFutureScene()
 
-    // world=150 → 最近槽位 14，中心 146；未来槽位无 OHLC，不产生 hover。
+    // world=150 → 最近槽位 13，中心 150；未来槽位无 OHLC，不产生 hover。
     hoverAt(interaction, 150)
 
-    expect(interaction.crosshairIndex).toBe(14)
-    expect(interaction.crosshairPos?.x).toBe(146)
+    expect(interaction.crosshairIndex).toBe(13)
+    expect(interaction.crosshairPos?.x).toBe(150)
     expect(interaction.hoveredIndex).toBeNull()
   })
 
   it.each([
-    { label: '普通位置', clientX: 55, expectedIndex: 5 },
-    { label: '精确落在末根中心', clientX: 95, expectedIndex: 9 },
+    { label: '普通位置', clientX: 61, expectedIndex: 5 },
+    { label: '精确落在末根中心', clientX: 106, expectedIndex: 9 },
   ])(
     'snaps and hovers a real bar inside the data region（$label）',
     ({ clientX, expectedIndex }) => {
@@ -84,11 +84,11 @@ describe('InteractionController future-slot crosshair', () => {
     const interaction = new InteractionController(chart as never, createMockInteractionState())
     interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    expect(interaction.getLogicalIndexAtScreenX(30)).toBe(-8)
+    expect(interaction.getLogicalIndexAtScreenX(30)).toBe(-7)
 
     hoverAt(interaction, 3)
-    expect(interaction.crosshairIndex).toBe(-10)
-    expect(interaction.crosshairPos?.x).toBe(6)
+    expect(interaction.crosshairIndex).toBe(-9)
+    expect(interaction.crosshairPos?.x).toBe(8)
     expect(interaction.hoveredIndex).toBeNull()
   })
 })
@@ -99,14 +99,14 @@ describe('InteractionController future-slot adaptive tooltip guard', () => {
 
     hoverAt(interaction, 150)
 
-    expect(interaction.crosshairIndex).toBe(14)
+    expect(interaction.crosshairIndex).toBe(13)
     expect(interaction.hoveredIndex).toBeNull()
   })
 
   it('still hovers a real bar in the data region in adaptive mode', () => {
     const interaction = createFutureScene({ tooltipPosition: 'adaptive' })
 
-    hoverAt(interaction, 55)
+    hoverAt(interaction, 61)
 
     expect(interaction.hoveredIndex).toBe(5)
   })

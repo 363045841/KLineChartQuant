@@ -48,12 +48,12 @@ describe('InteractionController DPR consumption', () => {
     const interaction = new InteractionController(chart as never, createMockInteractionState())
     interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    interaction.onPointerMove({ clientX: 44, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.onPointerMove({ clientX: 40, clientY: 40, isPrimary: true } as PointerEvent)
     interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
 
     interaction.onPointerDown({
-      clientX: 44,
+      clientX: 40,
       clientY: 40,
       isPrimary: true,
       pointerId: 1,
@@ -357,11 +357,11 @@ describe('InteractionController hover snapshot', () => {
 
     interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    // K 线中心网格 origin=6、step=10；索引与屏幕坐标互为逆映射。
-    expect(interaction.getScreenXAtLogicalIndex(22)).toBe(226)
-    expect(interaction.getScreenXAtLogicalIndex(23)).toBe(236)
-    expect(interaction.getLogicalIndexAtScreenX(226)).toBe(22)
-    expect(interaction.getLogicalIndexAtScreenX(236)).toBe(23)
-    expect(interaction.getLogicalIndexAtScreenX(6)).toBe(0)
+    // K 线中心网格 origin=7、step=11；索引与屏幕坐标互为逆映射。
+    expect(interaction.getScreenXAtLogicalIndex(22)).toBe(249)
+    expect(interaction.getScreenXAtLogicalIndex(23)).toBe(260)
+    expect(interaction.getLogicalIndexAtScreenX(249)).toBe(22)
+    expect(interaction.getLogicalIndexAtScreenX(260)).toBe(23)
+    expect(interaction.getLogicalIndexAtScreenX(7)).toBe(0)
   })
 })

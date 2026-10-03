@@ -133,6 +133,92 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it.each([1, 1.25, 1.5, 2, 3])('doji body stays one physical pixel high at DPR=%s', (dpr) => {
+    const canvas = createMockCanvasContext()
+    paint(
+      createCtx(undefined, {
+        ctx: canvas,
+        data: [{ timestamp: 1, open: 100, close: 100, high: 105, low: 95 }],
+        range: { start: 0, end: 1 },
+        kLineCenters: [100],
+        kWidthPx: 5,
+        dpr,
+        settings: { showVolumePriceMarkers: false },
+      }),
+    )
+    const rectangles = vi.mocked(canvas.fillRect).mock.calls
+    expect(rectangles[0]![3] * dpr).toBeCloseTo(1, 5)
+    for (const rectangle of rectangles) {
+      for (const value of rectangle) {
+        expect(value * dpr).toBeCloseTo(Math.round(value * dpr), 4)
+      }
+    }
+  })
+
+  it.each([1, 1.25, 1.5, 2, 3].flatMap((dpr) => [30, 31].map((bodyPx) => ({ dpr, bodyPx }))))(
+    'both wick tiers stay centered across backends at DPR=$dpr and body width=$bodyPx',
+    ({ dpr, bodyPx }) => {
+      const canvas = createMockCanvasContext()
+      const layer = createCandleLayer()
+      const { r, writeBuffer } = makeSceneRenderer()
+      const context = createCtx(undefined, {
+        ctx: canvas,
+        dataRevision: 1,
+        data: makeBars(1),
+        range: { start: 0, end: 1 },
+        kLineCenters: [100],
+        dpr,
+        settings: { showVolumePriceMarkers: false },
+      })
+      // 实体宽度和数据版本不变，验证级别切换独立使影线缓存失效。
+      for (const { zoomLevel, wickPx } of [
+        { zoomLevel: 1, wickPx: 1 },
+        { zoomLevel: 9, wickPx: 1 },
+        { zoomLevel: 10, wickPx: 2 },
+        { zoomLevel: 20, wickPx: 2 },
+        { zoomLevel: 9, wickPx: 1 },
+      ]) {
+        vi.mocked(canvas.fillRect).mockClear()
+        writeBuffer.mockClear()
+        const projected = { ...context, kWidthPx: bodyPx, kWidth: bodyPx / dpr, zoomLevel }
+        layer.paint(projected)
+        const rectangles = vi.mocked(canvas.fillRect).mock.calls
+        expect(rectangles).toHaveLength(3)
+        const body = rectangles[0]!
+        expect(body[0] * dpr).toBeCloseTo(Math.round(body[0] * dpr), 5)
+        expect((body[2] * dpr) % 2).toBeCloseTo(wickPx % 2, 5)
+        for (const wick of rectangles.slice(1)) {
+          expect(wick[2] * dpr).toBeCloseTo(wickPx, 5)
+          expect(wick[0] * dpr).toBeCloseTo(Math.round(wick[0] * dpr), 5)
+          expect(wick[0] + wick[2] / 2).toBeCloseTo(body[0] + body[2] / 2, 5)
+          const leftMargin = wick[0] - body[0]
+          const rightMargin = body[0] + body[2] - wick[0] - wick[2]
+          expect(leftMargin).toBeCloseTo(rightMargin, 5)
+          expect(leftMargin * dpr).toBeCloseTo(Math.round(leftMargin * dpr), 5)
+        }
+        layer.paint({ ...projected, sceneRenderer: r })
+        const batches = writeBuffer.mock.calls.map(([, data]) => data)
+        expect(batches).toHaveLength(2)
+        const wicks = batches[1]
+        const bodies = batches[0]
+        if (!(bodies instanceof Float32Array)) throw new Error('Missing body geometry')
+        expect(wicks).toBeInstanceOf(Float32Array)
+        if (!(wicks instanceof Float32Array)) throw new Error('Missing wick geometry')
+        expect(wicks[2]! * dpr).toBeCloseTo(wickPx, 5)
+        expect(wicks[6]! * dpr).toBeCloseTo(wickPx, 5)
+        for (const offset of [0, 4]) {
+          // GPU 缓冲为 Float32；允许浮点误差，仍严格排除半个物理像素的偏移。
+          expect(wicks[offset]! * dpr).toBeCloseTo(Math.round(wicks[offset]! * dpr), 4)
+          expect(wicks[offset]! + wicks[offset + 2]! / 2).toBeCloseTo(
+            bodies[0]! + bodies[2]! / 2,
+            4,
+          )
+        }
+      }
+      layer.dispose()
+    },
+  )
+
   it('retains unchanged geometry, replays after another chart, and invalidates on data updates', () => {
     const closeRead = vi.fn(() => 102)
     const canvas = createMockCanvasContext()
@@ -231,17 +317,19 @@ describe('candle preparation', () => {
     const open = aligned(bar.open)
     const close = aligned(bar.close)
     const top = Math.min(open, close)
-    const height = Math.max(Math.abs(open - close), 1)
+    const height = Math.max(Math.abs(open - close), 1 / dpr)
     const topPx = Math.round(top * dpr)
     const bottomPx = Math.round((top + height) * dpr)
     const bodyY = Math.fround(topPx / dpr)
     const bodyH = Math.fround(Math.max(1, bottomPx - topPx) / dpr)
     const centerPx = Math.round(12.5 * dpr)
+    const bodyPx = 5
     const bodyX = Math.fround((centerPx - 2) / dpr)
-    const bodyW = Math.fround(5 / dpr)
+    const bodyW = Math.fround(bodyPx / dpr)
     const body = projectWorldRectToScreen(bodyX, bodyW, 0.4, dpr)
-    const wickX = Math.fround(centerPx / dpr)
-    const wick = projectWorldRectToScreen(wickX, 1 / dpr, 0.4, dpr)
+    const wickPx = 1
+    const wickX = Math.fround((centerPx - Math.floor(wickPx / 2)) / dpr)
+    const wick = projectWorldRectToScreen(wickX, wickPx / dpr, 0.4, dpr)
     const highY = aligned(bar.high)
     const lowY = aligned(bar.low)
     const upperTop = Math.round(Math.min(highY, bodyY) * dpr)

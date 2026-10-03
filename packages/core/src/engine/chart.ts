@@ -287,7 +287,7 @@ export class Chart {
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
 
     const initialZoomLevel = opt.initialZoomLevel ?? 1
-    const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? 20))
+    const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? DEFAULT_ZOOM_LEVEL_COUNT))
 
     // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
     this.kernel = new ChartStateKernel({
@@ -1770,3 +1770,5 @@ export class Chart {
    * 销毁图表实例
    */
 }
+
+import { DEFAULT_ZOOM_LEVEL_COUNT } from './utils/zoom.js'

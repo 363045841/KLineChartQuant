@@ -34,6 +34,8 @@ export interface ViewSnapshot {
   grid: SlotGrid
   scroll: number
   domOffset: number
+  /** 当前几何允许的逻辑滚动区间，导航与缩放共用。 */
+  scrollBounds: { min: number; max: number }
   domScroll: number
   contentWidth: number
   seriesWidth: number

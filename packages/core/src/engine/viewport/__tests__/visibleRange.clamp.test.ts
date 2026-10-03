@@ -14,11 +14,16 @@ describe('viewportState visibleRange SSOT', () => {
     expect(module.readonly.viewportState().visibleFrom).toBe(0)
   })
 
-  it('未来可见范围按世界槽位推导，不受初始未来槽位数量限制', () => {
+  it('未来槽位仍进入可见范围，同时保留末两根 K 线', () => {
     const module = createViewportState(createViewportStateDeps({ dataLength: 10 }))
     module.actions.resize(400, 400, 1)
     module.actions.scrollToLogical(1000)
-    expect(module.readonly.rawVisibleRange()).toEqual({ start: 98, end: 141 })
+    const range = module.readonly.rawVisibleRange()
+    expect(range.start).toBeLessThanOrEqual(8)
+    expect(range.end).toBeGreaterThan(10)
+    expect(module.readonly.scrollLeftLogical()).toBe(
+      module.readonly.viewSnapshot().scrollBounds.max,
+    )
   })
 
   it('分时沿交易槽位计算完整数据范围', () => {

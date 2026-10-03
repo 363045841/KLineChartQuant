@@ -43,7 +43,7 @@ function snapshot(
     ...fields,
     view: input.view,
     viewportWidth: input.width,
-    // K 线允许整屏落在数据之外；交易视图必须有可绘制的交易中心。
+    // K 线几何不依赖到达点数量；交易视图必须有可绘制的交易中心。
     ready: input.width > 0 && (fields.hoverKind === 'candle' ? true : fields.centers.length > 0),
     positions: fields.centers.map((center) => center - half),
     bars: fields.centers.map((center, index) => ({
@@ -53,28 +53,37 @@ function snapshot(
   }
 }
 
-/** 无界 K 线与对比槽位：负索引、数据索引、未来索引共用中心网格。 */
+/** K 线与对比槽位共用网格，视口边界保留至少两根完整实体。 */
 function projectBars(input: ViewInput): ViewSnapshot {
   const gap = kGapFromKWidth(input.kWidth, input.dpr)
   const grid = createKLineSlotGrid(input.kWidth, gap, input.dpr)
-  const start = Math.floor((input.scroll - grid.origin) / grid.step) - 1
-  const end = Math.ceil((input.scroll + input.width - grid.origin) / grid.step) + 1
+  const barWidth = calcKBarWidthPx(grid.step * input.dpr) / input.dpr
+  const half = (Math.round(barWidth * input.dpr) - 1) / (2 * input.dpr)
+  const count = Math.min(2, input.dataLength)
+  const min =
+    count > 0 ? Math.max(-input.width, slotWorldX(grid, count - 1) + half - input.width) : 0
+  const max = count > 0 ? slotWorldX(grid, input.dataLength - count) - half : 0
+  // 视口窄于两根实体时居中显示已有数据；正常尺寸严格保留两根完整实体。
+  const scrollBounds = min <= max ? { min, max } : { min: (min + max) / 2, max: (min + max) / 2 }
+  const scroll = Math.max(scrollBounds.min, Math.min(input.scroll, scrollBounds.max))
+  const start = Math.floor((scroll - grid.origin) / grid.step) - 1
+  const end = Math.ceil((scroll + input.width - grid.origin) / grid.step) + 1
   const range = { start: Math.max(0, start), end: Math.max(0, end) }
   const baseOffset = Math.round(input.width)
-  // 逻辑滚动为负时向左扩展同量空白，DOM 位置因此始终非负。
-  const domOffset = baseOffset + Math.max(0, -input.scroll - baseOffset)
-  const domScroll = input.scroll + domOffset
+  const domOffset = baseOffset
+  const domScroll = scroll + domOffset
   const seriesWidth = input.dataLength * grid.step
   const kWidthPx = calcKWidthPx(input.kWidth, input.dpr)
   return snapshot(
     input,
     {
       grid,
-      scroll: input.scroll,
+      scroll,
+      scrollBounds,
       domOffset,
       domScroll,
-      // 右侧预留一屏，保证未来槽位可继续滚动而不是被 DOM 边界拦下。
-      contentWidth: Math.max(domOffset + seriesWidth + input.width, domScroll + 2 * input.width),
+      // 两侧各预留一屏；实际导航还必须满足最少可见 K 线约束。
+      contentWidth: domOffset + seriesWidth + input.width,
       seriesWidth,
       kWidth: input.kWidth,
       kGap: gap,
@@ -91,7 +100,7 @@ function projectBars(input: ViewInput): ViewSnapshot {
       worldAtIndex: (index) => (Number.isInteger(index) ? slotWorldX(grid, index) : null),
       indexAtWorld: (world) => (Number.isFinite(world) ? slotIndexAt(grid, world) : null),
     },
-    calcKBarWidthPx(grid.step * input.dpr) / input.dpr,
+    barWidth,
   )
 }
 
@@ -134,6 +143,7 @@ function projectSingleSession(input: ViewInput): ViewSnapshot {
     {
       grid,
       scroll: 0,
+      scrollBounds: { min: 0, max: 0 },
       domOffset: 0,
       domScroll: 0,
       contentWidth: input.width,
@@ -179,6 +189,7 @@ function projectMultipleSessions(input: ViewInput): ViewSnapshot {
     {
       grid,
       scroll,
+      scrollBounds: { min: 0, max: Math.max(0, width - input.width) },
       domOffset: 0,
       domScroll: scroll,
       contentWidth: width,
@@ -215,9 +226,9 @@ function zoomSessions(input: ViewInput, delta: number, _kWidth: number): ViewInp
   }
 }
 
-/** 无界视图接受任意有限世界坐标。 */
-function navigateBars(_snapshot: ViewSnapshot, requested: number): number {
-  return requested
+/** 平移与缩放统一遵循当前投影的可见数据边界。 */
+function navigateBars(view: ViewSnapshot, requested: number): number {
+  return Math.max(view.scrollBounds.min, Math.min(requested, view.scrollBounds.max))
 }
 /** 固定视图拒绝横向导航。 */
 function navigateFixed(_snapshot: ViewSnapshot, _requested: number): number {
