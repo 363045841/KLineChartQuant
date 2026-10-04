@@ -1,5 +1,6 @@
-/** ChartModel 模块入口：视图事实来源、视图状态与视图行为实现。 */
+/** ChartModel 模块入口：视图事实来源、视图状态、视图行为与比较叠加实现。 */
 
+export * from './impl/comparison/index.js'
 export * from './impl/modes/index.js'
 export {
   type ChartModeId,

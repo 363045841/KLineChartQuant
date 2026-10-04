@@ -1,7 +1,7 @@
 /** K 线原生比较投影：主品种保留 OHLC，比较折线归一到主品种可见首价。 */
-import type { KLineData } from '../../../foundation/types/price.js'
-import { findVisibleBarRange } from '../../utils/visibleBarIndex.js'
-import type { ComparisonData, ComparisonProjection, ComparisonSeriesProjection } from '../types.js'
+import type { KLineData } from '../../../../foundation/types/price.js'
+import { findVisibleBarRange } from '../../../utils/visibleBarIndex.js'
+import type { ComparisonData, ComparisonProjection, ComparisonSeriesProjection } from './types.js'
 
 /** 百分比比较只接受有限正价格。 */
 function hasValidPrice(item: KLineData): boolean {

@@ -19,8 +19,6 @@ export {
   type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
-export * from './engine/market/marketSessionRegistry.js'
-export * from './engine/market/resolveSymbolMarketSession.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,
@@ -40,6 +38,8 @@ export * from './features/indicators/index.js'
 export * from './features/input/index.js'
 export * from './features/replay/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
+export * from './foundation/config/marketSession/marketSessionRegistry.js'
+export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'
 export * from './foundation/persistence/index.js'
 export { makePluginLayerId } from './foundation/plugin/impl/rendererLayerId.js'
 export type { Plugin, PluginConfig, PluginHost, RenderContext } from './foundation/plugin/types.js'

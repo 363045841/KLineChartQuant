@@ -4,8 +4,8 @@
  */
 import type { KLineData, TimeShareData } from '@/controllers/types.js'
 import type { LiveBarsDataSource } from '@/data/live/types.js'
-import { MarketSessionRegistry } from '@/engine/market/marketSessionRegistry.js'
 import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/errors.js'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 
 import type {
   AssetClass,

@@ -7,7 +7,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
+import { paintAxisLabels, registerAxisLabel } from '../labels/index.js'
 import {
   formatAxisPriceValue,
   resolvePriceAxisDisplay,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PaneInfo } from '@/foundation/plugin/types.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import { createMockPaneInfo } from '../../__tests__/helpers/renderTestKit.js'
-import { PriceScale } from '../../scale/priceScale.js'
+import { PriceScale } from '../../scale/index.js'
 import { createYAxisTicks } from '../axisTicks.js'
 
 /** 用真实 PriceScale 构造 PaneInfo，其余字段复用共享夹具。 */

@@ -1,9 +1,9 @@
 /** 缩放手势协调：所有入口通过同一槽位变换原子提交视口。 */
 import { batch } from '../../foundation/reactivity/signal.js'
+import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
 import { zoomSlotGrid } from '../viewport/slotGrid.js'
 import { clampZoomLevel, zoomLevelToKWidth } from './zoom.js'
 
@@ -144,7 +144,7 @@ export class ChartZoomController {
     if (target === current) return
     const viewport = this.deps.viewport
     const input = viewport.readonly.viewInput.peek()
-    const strategy = VIEW_STRATEGIES[input.view]
+    const strategy = SCALE_X_STRATEGIES[input.view]
     if (!strategy.capabilities.allowZoom) return
     const before = viewport.readonly.viewSnapshot.peek()
     const anchor = pointerX ?? viewport.readonly.plotWidth.peek() / 2

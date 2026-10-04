@@ -1,7 +1,7 @@
 /** 原生比较投影测试：主品种 OHLC、延迟起点、缺口与视口基准重算。 */
 import { describe, expect, it } from 'vitest'
-import type { KLineData } from '../../../foundation/types/price.js'
-import { projectComparison } from '../impl/comparisonProjection.js'
+import type { KLineData } from '../../../../../foundation/types/price.js'
+import { projectComparison } from '../comparisonProjection.js'
 import type { ComparisonData } from '../types.js'
 
 /** 同日期的不同时间点用于验证按时间戳匹配。 */

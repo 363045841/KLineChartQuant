@@ -6,7 +6,7 @@ import {
   KR_MARKET_SESSION,
   type MarketSessionConfig,
   US_MARKET_SESSION,
-} from '../../foundation/utils/sessionTimeLabels.js'
+} from '../../utils/sessionTimeLabels.js'
 import { FOREX_MARKET_SESSION } from './forexMarketSession.js'
 
 const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {

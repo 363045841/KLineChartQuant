@@ -2,6 +2,8 @@
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import type { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
+import { resolveSymbolMarketSession } from '../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
@@ -16,7 +18,9 @@ import {
   type ChartDataView,
   ChartDataViewId,
   type ChartModelModule,
+  type ComparisonStateModule,
   createChartModel,
+  createComparisonState,
   isTimeShareDataView,
   resolveChartWorkspaceId,
 } from '../chartModel/index.js'
@@ -26,11 +30,8 @@ import type { DrawingToolId } from '../drawing/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
-import type { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
-import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession.js'
 import { PaneManager } from '../paneManager.js'
-import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
-import { type ComparisonStateModule, createComparisonState } from './comparisonState.js'
+import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
@@ -262,7 +263,7 @@ export class ChartStateKernel extends StateKernel {
     this.dataManager = createDataManagerState()
     // computed() 立即求值一次，故须在 dataManager 创建之后定义
     const marketSession$ = computed(() => {
-      if (!VIEW_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
+      if (!SCALE_X_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
       const spec = this.dataManager.readonly.currentSpec()
       if (!deps.marketSessions || !spec) return null
       return resolveSymbolMarketSession(spec, deps.marketSessions)

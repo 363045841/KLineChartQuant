@@ -8,12 +8,12 @@
  */
 import { vi } from 'vitest'
 import type { MARenderState } from '@/core/indicators/state/maState'
-import { createAxisLabelsFrame } from '@/engine/axisLabels/index'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding'
+import { createAxisLabelsFrame } from '@/engine/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/utils/klineConfig'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'

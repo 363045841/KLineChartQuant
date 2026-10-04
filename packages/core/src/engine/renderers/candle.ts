@@ -15,12 +15,12 @@ import {
 } from '../../foundation/utils/volumePrice.js'
 import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import type { MarkerManager } from '../marker/registry.js'
 import {
   createProjectionRevision,
   type ProjectionRevision,
   sameProjectionRevision,
-} from '../render/retainedProjection.js'
+} from '../frame/retainedProjection.js'
+import type { MarkerManager } from '../marker/registry.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
 const THICK_WICK_ZOOM_LEVEL = 10

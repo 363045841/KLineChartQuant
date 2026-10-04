@@ -1,5 +1,5 @@
 import { ScaleType } from '../../foundation/types/scaleType.js'
-import { fromLog, logFormulaForPriceRange, toLog } from '../scale/logFormula.js'
+import { fromLog, logFormulaForPriceRange, toLog } from '../scale/index.js'
 
 import { calculateTickCount } from './tickCount.js'
 

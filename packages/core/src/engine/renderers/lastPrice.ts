@@ -6,9 +6,9 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { registerAxisLabel } from '../axisLabels/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
+import { registerAxisLabel } from '../labels/index.js'
 import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
 
 function getLastPriceInfo(context: RenderContext) {

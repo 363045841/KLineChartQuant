@@ -10,8 +10,8 @@ import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Chart } from '../chart.js'
 import { UpdateLevel } from '../layout/pane.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
+import type { ScaleXSnapshot } from '../scale/index.js'
 import type { InteractionSnapshot, InteractionStateModule } from '../state/interactionState.js'
-import type { ViewSnapshot } from '../view/types.js'
 import { MarkerInteractionState } from './markerInteraction.js'
 import { PinchTracker } from './pinchTracker.js'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition.js'
@@ -80,7 +80,7 @@ export class InteractionController {
    * 本帧封存的 K 线几何（非 kernel signal，避免每帧广播大数组）。
    * 仅 InteractionController hover 读取；绘制走 ChartRenderer FrameContext。
    */
-  private frameView: ViewSnapshot | null = null
+  private frameView: ScaleXSnapshot | null = null
   private markerState = new MarkerInteractionState()
   private lastHoverRenderKey = ''
   private useTooltipAnchorPositioning = false
@@ -599,7 +599,7 @@ export class InteractionController {
    * @param kWidthPx K 线宽度（物理像素）
    * @param centers K 线中心 x 坐标数组
    */
-  setViewSnapshot(snapshot: ViewSnapshot) {
+  setViewSnapshot(snapshot: ScaleXSnapshot) {
     const unchanged = this.frameView === snapshot
     this.frameView = snapshot
 

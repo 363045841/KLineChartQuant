@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
-import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
+import { symbolSpecIdentityKey } from '../../../../data/symbolIdentity'
+import { createTestChartStateKernel } from '../../../../state/__tests__/helpers/createTestChartStateKernel'
 import { createComparisonState } from '../comparisonState'
-import { createTestChartStateKernel } from './helpers/createTestChartStateKernel'
 
 describe('comparisonState', () => {
   it('external mutation of returned colors map does not alter store', () => {

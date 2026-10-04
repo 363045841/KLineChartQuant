@@ -4,12 +4,12 @@ import type { MarketSessionConfig } from '@/foundation/utils/timeShareAxisLabels
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
 import type { Pane, VisibleRange } from '../../../layout/pane.js'
-import type { ChartModeHandler } from './types.js'
 import {
   computeTimeSharePriceRange,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
 } from './timeShareMath.js'
+import type { ChartModeHandler } from './types.js'
 
 export class TimeShareMode implements ChartModeHandler {
   readonly debugName = 'TimeShare'

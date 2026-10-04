@@ -35,12 +35,6 @@ import type {
   Scene,
   SceneFrame,
 } from '../../rendering/scene/types.js'
-import {
-  createAxisLabelsFrame,
-  formatLastPriceCountdown,
-  getLastPriceRemainingMs,
-  registerAxisLabel,
-} from '../axisLabels/index.js'
 import type { ChartModeHandler } from '../chartModel/index.js'
 import { type ChartDataView, ChartDataViewId } from '../chartModel/index.js'
 import type {
@@ -64,6 +58,12 @@ import {
   registerDefaultDrawingDefinitions,
 } from '../drawing/index.js'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
+import {
+  createAxisLabelsFrame,
+  formatLastPriceCountdown,
+  getLastPriceRemainingMs,
+  registerAxisLabel,
+} from '../labels/index.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { UpdateLevel } from '../layout/pane.js'
 import {
@@ -110,7 +110,7 @@ type FrameCountdown = {
 
 /** 一帧绘制几何与数据；大数组结构共享，render 只读。 */
 type FrameContext = {
-  viewSnapshot: import('../view/types.js').ViewSnapshot
+  viewSnapshot: import('../scale/index.js').ScaleXSnapshot
   /** 当前帧重新派生的时间与倒计时，不进入几何缓存。 */
   countdown: FrameCountdown
   /** 视口（scrollLeft、plotWidth、dpr 等） */

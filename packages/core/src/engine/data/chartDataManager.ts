@@ -45,15 +45,17 @@ import {
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
+import { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
-import { ChartDataViewId } from '../chartModel/index.js'
+import type { ComparisonStateModule } from '../chartModel/index.js'
+import {
+  ChartDataViewId,
+  type ComparisonProjection,
+  projectComparison,
+} from '../chartModel/index.js'
 import type { ChartDom } from '../chartTypes.js'
-import { projectComparison } from '../comparison/impl/comparisonProjection.js'
-import type { ComparisonProjection } from '../comparison/types.js'
 import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
-import { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
-import type { ComparisonStateModule } from '../state/comparisonState.js'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
 import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'

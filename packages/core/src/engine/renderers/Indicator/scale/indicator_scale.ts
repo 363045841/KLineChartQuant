@@ -5,7 +5,7 @@
  * 状态经 `context.indicatorStateReader` 读取，不再持有 config。
  */
 
-import { paintAxisLabels, registerAxisLabel } from '@/engine/axisLabels/index.js'
+import { paintAxisLabels, registerAxisLabel } from '@/engine/labels/index.js'
 import { calculateValueTickPositions } from '@/engine/utils/tickPosition.js'
 import type { BaseIndicatorState, RenderContext } from '@/foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '@/foundation/plugin/index.js'

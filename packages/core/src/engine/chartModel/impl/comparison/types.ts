@@ -1,5 +1,5 @@
 /** K 线比较叠加契约：主品种 OHLC 范围、共同基准与比较品种等价价格。 */
-import type { KLineData } from '../../foundation/types/price.js'
+import type { KLineData } from '../../../../foundation/types/price.js'
 
 /** 按完整品种身份索引的行情快照。 */
 export type ComparisonData = ReadonlyMap<string, ReadonlyArray<KLineData>>

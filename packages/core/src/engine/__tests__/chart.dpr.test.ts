@@ -16,14 +16,13 @@ import {
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId'
 import { ScaleType } from '../../foundation/types/scaleType'
-import { ChartDataViewId } from '../chartModel/index'
 import type { ChartModeHandler } from '../chartModel/index'
+import { ChartDataViewId, isTimeShareDataView, resolveChartDataView } from '../chartModel/index'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { MAIN_PANE_ID } from '../paneIds'
-import { resolveViewTransition } from '../view/impl/resolveViewTransition'
 
 const defaultOptions: ChartOptions = {
   kWidth: 10,
@@ -177,8 +176,8 @@ describe('Chart DPR pipeline', () => {
     async ({ period, specs, view, mode }) => {
       const chart = mountChart()
       try {
-        const decision = resolveViewTransition({ period })
-        expect(decision.dataView).toBe(view)
+        const timeShare = isTimeShareDataView(view)
+        expect(resolveChartDataView(period)).toBe(view)
         setInlinePrimary(chart)
         chart.setComparisonSpecs(specs)
         const activate = vi.spyOn(chart, 'setActiveMode')
@@ -202,7 +201,7 @@ describe('Chart DPR pipeline', () => {
             : getModeHandlers(chart).kLine,
         )
         expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(
-          decision.timeShare || specs.length > 0 ? ScaleType.Percent : ScaleType.Linear,
+          timeShare || specs.length > 0 ? ScaleType.Percent : ScaleType.Linear,
         )
         activate.mockClear()
         chart.setSymbols([{ ...chart.symbols.peek()[0]!, period }])
@@ -210,7 +209,7 @@ describe('Chart DPR pipeline', () => {
         expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
         chart.comparisonCommands.clear()
         expect(chart.kernel.mode.readonly.dataView.peek()).toBe(
-          decision.timeShare ? view : ChartDataViewId.KLine,
+          timeShare ? view : ChartDataViewId.KLine,
         )
       } finally {
         await chart.destroy()

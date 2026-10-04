@@ -2,8 +2,8 @@
  * ChartMarkerFacade —— 自定义标记状态与位置缓存协调。
  */
 
+import type { ChartRenderer } from '../frame/chartRenderer.js'
 import type { CustomMarkerEntity, MarkerManager } from '../marker/registry.js'
-import type { ChartRenderer } from '../render/chartRenderer.js'
 import type { ChartStateKernel } from '../state/chartStateKernel.js'
 
 /** Marker Facade 所需依赖。 */

@@ -1,15 +1,15 @@
-/** 视图横向模型契约：策略、输入与所有消费者共享的不可变投影。 */
+/** 横向标尺契约（scaleX）：策略、输入与所有消费者共享的不可变横向几何投影。 */
 
-import type { SymbolSpec } from '../../controllers/types.js'
-import type { TimeShareRange } from '../../data/provider/types.js'
-import type { SlotGrid } from '../../foundation/geometry/slotGrid.js'
-import type { FiveDayTimeShareGeometry } from '../../foundation/plugin/index.js'
-import type { ChartDataView } from '../../foundation/types/chartView.js'
-import type { ChartSeriesDatum } from '../../foundation/types/price.js'
-import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
-import type { ViewCapabilities } from '../chartModel/index.js'
+import type { SymbolSpec } from '../../../../controllers/types.js'
+import type { TimeShareRange } from '../../../../data/provider/types.js'
+import type { SlotGrid } from '../../../../foundation/geometry/slotGrid.js'
+import type { FiveDayTimeShareGeometry } from '../../../../foundation/plugin/index.js'
+import type { ChartDataView } from '../../../../foundation/types/chartView.js'
+import type { ChartSeriesDatum } from '../../../../foundation/types/price.js'
+import type { MarketSessionConfig } from '../../../../foundation/utils/timeShareAxisLabels.js'
+import type { ViewCapabilities } from '../../../chartModel/index.js'
 
-export interface ViewInput {
+export interface ScaleXInput {
   view: ChartDataView
   width: number
   dpr: number
@@ -22,7 +22,7 @@ export interface ViewInput {
   scroll: number
 }
 
-export interface ViewSnapshot {
+export interface ScaleXSnapshot {
   view: ChartDataView
   ready: boolean
   grid: SlotGrid
@@ -52,21 +52,10 @@ export interface ViewSnapshot {
   indexAtWorld: (world: number) => number | null
 }
 
-export interface ViewStrategy {
+export interface ScaleXStrategy {
   requiresMarketSession: boolean
   capabilities: Readonly<ViewCapabilities>
-  project: (input: ViewInput) => ViewSnapshot
-  zoomInput: (input: ViewInput, delta: number, kWidth: number) => ViewInput
-  navigate: (snapshot: ViewSnapshot, requested: number) => number
-}
-
-/** 视图切换的唯一裁决输入。 */
-export interface ViewTransitionInput {
-  period: string | undefined
-}
-
-/** 视图切换结果，供工作区与数据加载入口消费。 */
-export interface ViewTransition {
-  dataView: ChartDataView
-  timeShare: boolean
+  project: (input: ScaleXInput) => ScaleXSnapshot
+  zoomInput: (input: ScaleXInput, delta: number, kWidth: number) => ScaleXInput
+  navigate: (snapshot: ScaleXSnapshot, requested: number) => number
 }

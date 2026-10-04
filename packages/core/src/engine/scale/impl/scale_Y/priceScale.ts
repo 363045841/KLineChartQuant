@@ -1,5 +1,5 @@
 // Pane 价格坐标映射及纵向平移、缩放。
-import { ScaleType } from '../../foundation/types/scaleType.js'
+import { ScaleType } from '../../../../foundation/types/scaleType.js'
 
 import {
   fromLog,

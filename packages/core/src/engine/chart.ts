@@ -39,6 +39,8 @@ import {
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../foundation/config/chartSettings.js'
+import { MarketSessionRegistry } from '../foundation/config/marketSession/marketSessionRegistry.js'
+import { resolveSymbolMarketSession } from '../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
@@ -70,6 +72,7 @@ import {
   type ChartModeHandler,
   isTimeShareDataView,
   KLineMode,
+  resolveChartDataView,
   TimeShareMode,
 } from './chartModel/index.js'
 import type {
@@ -99,16 +102,14 @@ import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
 import { ChartPaneFacade } from './facade/chartPaneFacade.js'
 import { ChartThemeFacade } from './facade/chartThemeFacade.js'
 import { ChartZoomFacade } from './facade/chartZoomFacade.js'
+import { ChartRenderer, mergeUpdateLevel } from './frame/chartRenderer.js'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
 import { ChartPaneLayout } from './layout/chartPaneLayout.js'
 import { UpdateLevel } from './layout/pane.js'
 import type { CustomMarkerEntity, MarkerManager } from './marker/registry.js'
-import { MarketSessionRegistry } from './market/marketSessionRegistry.js'
-import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession.js'
 import { MAIN_PANE_ID } from './paneIds.js'
 import { PaneRenderer } from './paneRenderer.js'
-import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer.js'
 import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegend/types.js'
 import { createLegendDomRenderer } from './renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from './state/chartStateKernel.js'
@@ -120,7 +121,6 @@ import type {
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
 import { ChartZoomController } from './utils/chartZoomController.js'
 import { getPhysicalKLineConfig } from './utils/klineConfig.js'
-import { resolveViewTransition } from './view/impl/resolveViewTransition.js'
 import { ChartViewportManager } from './viewport/chartViewportManager.js'
 import { ViewportScrollBridge } from './viewport/viewportScrollBridge.js'
 
@@ -1542,27 +1542,23 @@ export class Chart {
   private transitionView(
     spec: SymbolSpec | null = this.dataManager.symbols.peek()[0] ?? null,
     period: string | undefined = spec?.period,
-  ) {
+  ): { dataView: ChartDataView; timeShare: boolean } {
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
-    const transition = resolveViewTransition({
-      period,
-    })
-    if (transition.timeShare && spec) {
+    const dataView = resolveChartDataView(period)
+    const timeShare = isTimeShareDataView(dataView)
+    if (timeShare && spec) {
       this._timeShareMode.setMarketSession(resolveSymbolMarketSession(spec, this.marketSessions))
     }
     batch(() => {
-      this.setActiveMode(
-        transition.timeShare ? this._timeShareMode : this._kLineMode,
-        transition.dataView,
-      )
+      this.setActiveMode(timeShare ? this._timeShareMode : this._kLineMode, dataView)
       this.applyPriceScaleSettingToKernel(
         resolvePriceScaleTypeSetting(
           this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
         ),
       )
     })
-    return transition
+    return { dataView, timeShare }
   }
 
   /**
@@ -1619,7 +1615,6 @@ export class Chart {
         {
           symbol: source.symbol ?? '',
           market: source.market,
-          period: source.period ?? TIME_SHARE_PERIOD,
         },
         this.marketSessions,
       )

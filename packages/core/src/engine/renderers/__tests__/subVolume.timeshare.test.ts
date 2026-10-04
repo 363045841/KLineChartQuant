@@ -6,7 +6,7 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 
 import type { RenderContext } from '@/foundation/plugin/index'
-import { PriceScale } from '../../scale/priceScale'
+import { PriceScale } from '../../scale/index'
 import { VolumeIndicatorDefinition } from '../subVolume'
 
 /** 构造记录每次填充颜色的上下文。 */

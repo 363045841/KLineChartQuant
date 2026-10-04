@@ -1,16 +1,19 @@
-/** 集中定义各视图的横向行为；模型、绘制和交互不再独立识别周期。 */
-import { slotIndexAt, slotWorldX } from '../../../foundation/geometry/slotGrid.js'
-import { ChartDataViewId } from '../../../foundation/types/chartView.js'
+/** 集中定义各数据视图的横向标尺行为；模型、绘制和交互不再独立识别周期。 */
+import { slotIndexAt, slotWorldX } from '../../../../foundation/geometry/slotGrid.js'
+import { ChartDataViewId } from '../../../../foundation/types/chartView.js'
 import {
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
-} from '../../../foundation/utils/timeShareAxisLabels.js'
-import { CHART_VIEW_DEFINITIONS } from '../../chartModel/index.js'
-import { computeFiveDayTimeShareGeometry, computeTimeShareXLayout } from '../../chartModel/index.js'
-import { calcKBarWidthPx, calcKWidthPx } from '../../utils/klineConfig.js'
-import { kGapFromKWidth } from '../../utils/zoom.js'
-import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../viewport/slotGrid.js'
-import type { ViewInput, ViewSnapshot, ViewStrategy } from '../types.js'
+} from '../../../../foundation/utils/timeShareAxisLabels.js'
+import {
+  CHART_VIEW_DEFINITIONS,
+  computeFiveDayTimeShareGeometry,
+  computeTimeShareXLayout,
+} from '../../../chartModel/index.js'
+import { calcKBarWidthPx, calcKWidthPx } from '../../../utils/klineConfig.js'
+import { kGapFromKWidth } from '../../../utils/zoom.js'
+import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../../viewport/slotGrid.js'
+import type { ScaleXInput, ScaleXSnapshot, ScaleXStrategy } from './types.js'
 
 /** 视图能力与市场 session 需求统一来自 ChartModel 声明。 */
 const KLINE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine]
@@ -19,11 +22,11 @@ const FIVE_DAY_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.FiveDayTimeSh
 
 /** 由中心几何派生共享快照；位置、实体矩形与命中都读同一份中心数组。 */
 function snapshot(
-  input: ViewInput,
-  fields: Omit<ViewSnapshot, 'view' | 'ready' | 'positions' | 'bars' | 'viewportWidth'>,
+  input: ScaleXInput,
+  fields: Omit<ScaleXSnapshot, 'view' | 'ready' | 'positions' | 'bars' | 'viewportWidth'>,
   barWidth: number,
   visible?: ReadonlyArray<boolean>,
-): ViewSnapshot {
+): ScaleXSnapshot {
   const half = (fields.kWidthPx - 1) / (2 * input.dpr)
   return {
     ...fields,
@@ -40,7 +43,7 @@ function snapshot(
 }
 
 /** K 线与对比槽位共用网格，视口边界保留至少两根完整实体。 */
-function projectBars(input: ViewInput): ViewSnapshot {
+function projectBars(input: ScaleXInput): ScaleXSnapshot {
   const gap = kGapFromKWidth(input.kWidth, input.dpr)
   const grid = createKLineSlotGrid(input.kWidth, gap, input.dpr)
   const barWidth = calcKBarWidthPx(grid.step * input.dpr) / input.dpr
@@ -106,7 +109,7 @@ function nearestIndex(centers: ReadonlyArray<number>, world: number): number | n
 }
 
 /** 单日分时固定适配全天交易槽位，旧导航与旧槽宽不会影响投影。 */
-function projectSingleSession(input: ViewInput): ViewSnapshot {
+function projectSingleSession(input: ScaleXInput): ScaleXSnapshot {
   const session = input.marketSession
   const slots = session ? resolveMarketSessionSlots(session) : 0
   const grid = createTimeShareSlotGrid(input.width, slots, input.dpr)
@@ -153,7 +156,7 @@ function projectSingleSession(input: ViewInput): ViewSnapshot {
 }
 
 /** 多日交易网格可滚动；尺寸与数据分组共同派生，禁止退回单日或 K 线几何。 */
-function projectMultipleSessions(input: ViewInput): ViewSnapshot {
+function projectMultipleSessions(input: ScaleXInput): ScaleXSnapshot {
   const slotsPerDay = input.marketSession ? resolveMarketSessionSlots(input.marketSession) : 0
   const slots = slotsPerDay * (input.timeShareRange?.days.length ?? 0)
   const width = Math.max(input.width, slots * (input.sessionSlotWidth ?? 1 / input.dpr))
@@ -199,12 +202,12 @@ function projectMultipleSessions(input: ViewInput): ViewSnapshot {
 }
 
 /** K 线缩放只改变配置尺寸，导航由统一锚点变换计算。 */
-function zoomBars(input: ViewInput, _delta: number, kWidth: number): ViewInput {
+function zoomBars(input: ScaleXInput, _delta: number, kWidth: number): ScaleXInput {
   return { ...input, kWidth }
 }
 
 /** 多日分时根据当前网格步长改变交易槽宽。 */
-function zoomSessions(input: ViewInput, delta: number, _kWidth: number): ViewInput {
+function zoomSessions(input: ScaleXInput, delta: number, _kWidth: number): ScaleXInput {
   const before = projectMultipleSessions(input)
   return {
     ...input,
@@ -213,33 +216,33 @@ function zoomSessions(input: ViewInput, delta: number, _kWidth: number): ViewInp
 }
 
 /** 平移与缩放统一遵循当前投影的可见数据边界。 */
-function navigateBars(view: ViewSnapshot, requested: number): number {
+function navigateBars(view: ScaleXSnapshot, requested: number): number {
   return Math.max(view.scrollBounds.min, Math.min(requested, view.scrollBounds.max))
 }
 /** 固定视图拒绝横向导航。 */
-function navigateFixed(_snapshot: ViewSnapshot, _requested: number): number {
+function navigateFixed(_snapshot: ScaleXSnapshot, _requested: number): number {
   return 0
 }
 /** 多日视图导航限制在其交易内容内。 */
-function navigateSessions(view: ViewSnapshot, requested: number): number {
+function navigateSessions(view: ScaleXSnapshot, requested: number): number {
   return Math.max(0, Math.min(requested, Math.max(0, view.contentWidth - view.viewportWidth)))
 }
 
-const bars: ViewStrategy = {
+const bars: ScaleXStrategy = {
   requiresMarketSession: KLINE_DEFINITION.requiresMarketSession,
   capabilities: KLINE_DEFINITION.capabilities,
   project: projectBars,
   zoomInput: zoomBars,
   navigate: navigateBars,
 }
-const single: ViewStrategy = {
+const single: ScaleXStrategy = {
   requiresMarketSession: TIMESHARE_DEFINITION.requiresMarketSession,
   capabilities: TIMESHARE_DEFINITION.capabilities,
   project: projectSingleSession,
   zoomInput: (input) => input,
   navigate: navigateFixed,
 }
-const multiple: ViewStrategy = {
+const multiple: ScaleXStrategy = {
   requiresMarketSession: FIVE_DAY_DEFINITION.requiresMarketSession,
   capabilities: FIVE_DAY_DEFINITION.capabilities,
   project: projectMultipleSessions,
@@ -248,8 +251,9 @@ const multiple: ViewStrategy = {
 }
 
 /** 唯一的视图策略选择点，新增视图必须完整实现同一契约。 */
-export const VIEW_STRATEGIES: Readonly<Record<ViewInput['view'], ViewStrategy>> = Object.freeze({
-  [ChartDataViewId.KLine]: bars,
-  [ChartDataViewId.TimeShare]: single,
-  [ChartDataViewId.FiveDayTimeShare]: multiple,
-})
+export const SCALE_X_STRATEGIES: Readonly<Record<ScaleXInput['view'], ScaleXStrategy>> =
+  Object.freeze({
+    [ChartDataViewId.KLine]: bars,
+    [ChartDataViewId.TimeShare]: single,
+    [ChartDataViewId.FiveDayTimeShare]: multiple,
+  })

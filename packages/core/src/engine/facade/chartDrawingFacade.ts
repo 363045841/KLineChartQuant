@@ -13,7 +13,7 @@ import {
   type DrawingToolId,
   type DrawingWorkspaceId,
 } from '../drawing/index.js'
-import type { ChartRenderer } from '../render/chartRenderer.js'
+import type { ChartRenderer } from '../frame/chartRenderer.js'
 import type { ChartStateKernel } from '../state/chartStateKernel.js'
 
 /** Drawing Facade 所需依赖。 */

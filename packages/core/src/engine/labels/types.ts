@@ -3,7 +3,7 @@
  *
  * ready-to-draw 标签数据（`AxisLabel`）与帧聚合契约（`AxisLabelsFrame`）声明在
  * foundation（`foundation/plugin/types.ts`），以保持 foundation 不反向依赖 engine；
- * 本文件按模块公开面重导出，并补充模块自有的绘制度量契约。实现位于 `axisLabels/impl/`。
+ * 本文件按模块公开面重导出，并补充模块自有的绘制度量契约。实现位于 `labels/impl/`。
  */
 
 export type {

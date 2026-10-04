@@ -1,8 +1,8 @@
 // InteractionController 测试设施：图表替身与交互内核替身的单一事实来源。
 // 由 interaction.dpr.test.ts / interaction.future.test.ts 共享，替身结构变更只需改这里。
 
+import { SCALE_X_STRATEGIES } from '@/engine/scale'
 import { createInteractionState } from '@/engine/state/interactionState'
-import { VIEW_STRATEGIES } from '@/engine/view/impl/viewStrategies'
 import { writableRef } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum, KLineData, TimeShareData } from '@/foundation/types/price'
@@ -123,7 +123,7 @@ export function createChartStub(args: {
   const rightAxisLayer = document.createElement('div') as HTMLDivElement
   // 与生产同源：快照由当前视图策略按 dpr 派生，测试只改 view / data / scroll 输入。
   const viewSnapshot = () =>
-    VIEW_STRATEGIES[view].project({
+    SCALE_X_STRATEGIES[view].project({
       view,
       width: args.plotWidth,
       dpr: args.dpr,
@@ -181,7 +181,7 @@ export function createChartStub(args: {
         readonly: {
           dataView: { peek: () => view },
           interactionCapabilities: {
-            peek: () => VIEW_STRATEGIES[view].capabilities,
+            peek: () => SCALE_X_STRATEGIES[view].capabilities,
           },
         },
       },

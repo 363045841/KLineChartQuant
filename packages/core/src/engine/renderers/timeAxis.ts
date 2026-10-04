@@ -24,7 +24,7 @@ import {
 } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { paintAxisLabels, registerAxisLabel } from '../axisLabels/index.js'
+import { paintAxisLabels, registerAxisLabel } from '../labels/index.js'
 import { createKLineSlotGrid, slotWorldX } from '../viewport/slotGrid.js'
 
 /** 未来占位刻度之间的最小逻辑像素间距。 */
