@@ -26,6 +26,9 @@
         :source-endpoints="sourceEndpoints"
         :watchlist-keys="watchlistKeys"
         :show-back-button="kLineLevel === 'timeshare'"
+        :screenshot-capturing="isCapturing"
+        :screenshot-message="screenshotMessage"
+        @screenshot="captureScreenshot"
         @add-overlay-symbol="onAddOverlaySymbol"
         @remove-overlay-symbol="onRemoveOverlaySymbol"
         @k-line-level-change="onKLineLevelChange"
@@ -404,6 +407,7 @@
   } = useAggregationSources(aggregationSources)
 
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
+  import { useChartScreenshot } from '../composables/chart/useChartScreenshot.js'
   import { useChartState } from '../composables/chart/useChartState.js'
   import { useChartTheme } from '../composables/chart/useChartTheme.js'
   import { useComparisonSymbols } from '../composables/chart/useComparisonSymbols.js'
@@ -759,6 +763,12 @@
   const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
   const chartMainRef = ref<HTMLDivElement | null>(null)
+  const { isCapturing, screenshotMessage, captureScreenshot } = useChartScreenshot(
+    chartMainRef,
+    currentSymbol,
+    computed(() => currentSymbolItem.value?.name ?? ''),
+    () => controller.value?.viewport.peek().dpr ?? window.devicePixelRatio,
+  )
   const chartStageRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
@@ -800,7 +810,7 @@
   const controller = shallowRef<ChartController | null>(null)
   const { add: onAddOverlaySymbol, remove: onRemoveOverlaySymbol } = useComparisonSymbols({
     getController: () => controller.value,
-    getPrimary: () => currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null,
+    getPrimary: () => (currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null),
     toSpec: toSymbolSpec,
     onError: (item, error) => {
       symbolStatus.value = 'error'

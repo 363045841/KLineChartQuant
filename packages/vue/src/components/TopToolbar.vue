@@ -1,75 +1,95 @@
+<!-- 图表顶部控件及固定在右侧的截图入口。 -->
 <template>
-  <div
-    ref="toolbarRef"
-    class="top-toolbar"
-    @mousedown="onMouseDown"
-    @mousemove="onMouseMove"
-    @mouseup="onMouseUp"
-    @mouseleave="onMouseUp"
-    @wheel="onWheel"
-  >
-    <SymbolSelector
-      v-if="displaySymbol"
-      :symbol="displaySymbol"
-      :selected-item="symbolItem"
-      :symbols="symbolPool"
-      :search="search"
-      :loading="symbolLoading"
-      :error="symbolError"
-      :retrying="symbolRetrying"
-      :error-message="symbolErrorMessage"
-      :aggregation-sources="aggregationSources"
-      :enabled-source-names="enabledSourceNames"
-      :watchlist-keys="watchlistKeys"
-      @change="onSymbolSelectorChange"
-      @add-watchlist="emit('addWatchlist', $event)"
-      @manage-sources="showSourceDialog = true"
-    />
-    <CompareSymbolSelector
-      :symbols="symbolPool"
-      :search="search"
-      :selected="overlaySymbols"
-      :selected-items="overlaySymbolItems"
-      :comparison-colors="comparisonColors"
-      :comparison-loading="comparisonLoading"
-      :aggregation-sources="aggregationSources"
-      :enabled-source-names="enabledSourceNames"
-      @add="emit('addOverlaySymbol', $event)"
-      @remove="emit('removeOverlaySymbol', $event)"
-      @manage-sources="showSourceDialog = true"
-    />
-    <KLineLevelDropdown
-      v-if="supportedKLineLevels === undefined || supportedKLineLevels.length > 0"
-      :model-value="kLineLevel"
-      :supported-levels="supportedKLineLevels"
-      @update:model-value="emit('kLineLevelChange', $event)"
-    />
-    <KLineAdjustmentDropdown
-      v-if="supportedAdjustments === undefined || supportedAdjustments.length > 0"
-      :model-value="kLineAdjust"
-      :supported-adjustments="supportedAdjustments"
-      @update:model-value="emit('kLineAdjustChange', $event)"
-    />
-    <button
-      v-if="showBackButton"
-      type="button"
-      class="control-button back-button"
-      title="返回"
-      aria-label="返回"
-      @click="emit('back')"
+  <div class="top-toolbar">
+    <div
+      ref="toolbarRef"
+      class="top-toolbar__controls"
+      @mousedown="onMouseDown"
+      @mousemove="onMouseMove"
+      @mouseup="onMouseUp"
+      @mouseleave="onMouseUp"
+      @wheel="onWheel"
     >
-      <IconTablerArrowLeft class="back-button__icon" aria-hidden="true" />
-      返回
-    </button>
-    <AggregationSourceDialog
-      :show="showSourceDialog"
-      :sources="aggregationSources"
-      :enabled-names="enabledSourceNames"
-      :endpoints="sourceEndpoints"
-      @close="showSourceDialog = false"
-      @toggle="onToggleAggregationSource"
-      @update-endpoint="onUpdateSourceEndpoint"
-    />
+      <SymbolSelector
+        v-if="displaySymbol"
+        :symbol="displaySymbol"
+        :selected-item="symbolItem"
+        :symbols="symbolPool"
+        :search="search"
+        :loading="symbolLoading"
+        :error="symbolError"
+        :retrying="symbolRetrying"
+        :error-message="symbolErrorMessage"
+        :aggregation-sources="aggregationSources"
+        :enabled-source-names="enabledSourceNames"
+        :watchlist-keys="watchlistKeys"
+        @change="onSymbolSelectorChange"
+        @add-watchlist="emit('addWatchlist', $event)"
+        @manage-sources="showSourceDialog = true"
+      />
+      <CompareSymbolSelector
+        :symbols="symbolPool"
+        :search="search"
+        :selected="overlaySymbols"
+        :selected-items="overlaySymbolItems"
+        :comparison-colors="comparisonColors"
+        :comparison-loading="comparisonLoading"
+        :aggregation-sources="aggregationSources"
+        :enabled-source-names="enabledSourceNames"
+        @add="emit('addOverlaySymbol', $event)"
+        @remove="emit('removeOverlaySymbol', $event)"
+        @manage-sources="showSourceDialog = true"
+      />
+      <KLineLevelDropdown
+        v-if="supportedKLineLevels === undefined || supportedKLineLevels.length > 0"
+        :model-value="kLineLevel"
+        :supported-levels="supportedKLineLevels"
+        @update:model-value="emit('kLineLevelChange', $event)"
+      />
+      <KLineAdjustmentDropdown
+        v-if="supportedAdjustments === undefined || supportedAdjustments.length > 0"
+        :model-value="kLineAdjust"
+        :supported-adjustments="supportedAdjustments"
+        @update:model-value="emit('kLineAdjustChange', $event)"
+      />
+      <button
+        v-if="showBackButton"
+        type="button"
+        class="control-button back-button"
+        title="返回"
+        aria-label="返回"
+        @click="emit('back')"
+      >
+        <IconTablerArrowLeft class="back-button__icon" aria-hidden="true" />
+        返回
+      </button>
+      <AggregationSourceDialog
+        :show="showSourceDialog"
+        :sources="aggregationSources"
+        :enabled-names="enabledSourceNames"
+        :endpoints="sourceEndpoints"
+        @close="showSourceDialog = false"
+        @toggle="onToggleAggregationSource"
+        @update-endpoint="onUpdateSourceEndpoint"
+      />
+    </div>
+    <div class="screenshot-actions">
+      <span v-if="screenshotMessage" class="screenshot-message" role="status">
+        {{ screenshotMessage }}
+      </span>
+      <DropMenu
+        :label="screenshotCapturing ? chartScreenshotLabels.capturing : chartScreenshotLabels.capture"
+        :groups="screenshotMenuGroups"
+        :disabled="screenshotCapturing"
+        trigger-class="control-button screenshot-button"
+        placement="bottom"
+        @select="onScreenshotSelect"
+      >
+        <template #trigger>
+          <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
+        </template>
+      </DropMenu>
+    </div>
   </div>
 </template>
 
@@ -77,6 +97,12 @@
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
   import { computed, ref } from 'vue'
   import IconTablerArrowLeft from '~icons/tabler/arrow-left'
+  import IconTablerCamera from '~icons/tabler/camera'
+  import {
+    type ChartScreenshotAction,
+    chartScreenshotActions,
+    chartScreenshotLabels,
+  } from '../composables/chart/useChartScreenshot.js'
   import type {
     AggregationSourceDefinition,
     AggregationSourceEndpoint,
@@ -85,6 +111,7 @@
 
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
+  import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown from './KLineLevelDropdown.vue'
   import { isKLineLevel, type KLineLevel } from './kLineLevel'
@@ -97,6 +124,24 @@
 
   const toolbarRef = ref<HTMLElement | null>(null)
   const showSourceDialog = ref(false)
+
+  const screenshotMenuGroups: ReadonlyArray<DropMenuGroup> = [
+    {
+      id: chartScreenshotLabels.capture,
+      label: chartScreenshotLabels.capture,
+      items: [
+        { id: chartScreenshotActions.download, label: chartScreenshotLabels.download },
+        { id: chartScreenshotActions.copy, label: chartScreenshotLabels.copy },
+      ],
+    },
+  ]
+
+  /** 将 DropMenu 的选项映射为截图动作，交由图表组件执行。 */
+  function onScreenshotSelect(_groupId: string, action: string): void {
+    if (action === chartScreenshotActions.download || action === chartScreenshotActions.copy) {
+      emit('screenshot', action)
+    }
+  }
 
   let isDown = false
   let startX = 0
@@ -164,6 +209,8 @@
       comparisonColors?: Map<string, string>
       comparisonLoading?: boolean
       showBackButton?: boolean
+      screenshotCapturing?: boolean
+      screenshotMessage?: string | null
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>
@@ -187,6 +234,7 @@
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
     (e: 'back'): void
+    (e: 'screenshot', action: ChartScreenshotAction): void
   }>()
 
   const displaySymbol = computed(() => props.symbol?.trim() ?? '')
@@ -244,12 +292,21 @@
     box-shadow: 0 1px 3px color-mix(in srgb, var(--klc-color-ui-text) 6%, transparent);
     box-sizing: border-box;
     user-select: none;
+  }
+
+  .top-toolbar__controls {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
   }
 
-  .top-toolbar::-webkit-scrollbar {
+  .top-toolbar__controls::-webkit-scrollbar {
     display: none;
   }
 
@@ -261,5 +318,23 @@
   .back-button__icon {
     width: 15px;
     height: 15px;
+  }
+
+  .screenshot-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .screenshot-button__icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .screenshot-message {
+    color: var(--klc-color-ui-text);
+    font-size: 12px;
   }
 </style>
