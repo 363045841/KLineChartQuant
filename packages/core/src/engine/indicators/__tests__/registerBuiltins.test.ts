@@ -12,7 +12,7 @@ describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {
     const definitions = getBuiltinIndicatorDefinitions()
 
-    expect(definitions).toHaveLength(59)
+    expect(definitions).toHaveLength(60)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
         'ma',
@@ -22,6 +22,7 @@ describe('builtin indicator registration', () => {
         'volume',
         'volumeProfile',
         'zones',
+        'extremaMarkers',
         't3',
         'vidya',
         'frama',
