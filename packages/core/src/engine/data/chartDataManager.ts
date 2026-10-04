@@ -55,11 +55,12 @@ import {
   type ComparisonProjection,
   projectComparison,
 } from '../chartModel/index.js'
-import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
+import type { UpdateLevel } from '../pane/index.js'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
 import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
-import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
+import type { VisibleRange } from '../viewport/viewport.js'
 import { hasLeftDataGap } from '../viewport/viewport.js'
 
 import { ComparisonManager } from './comparisonManager.js'

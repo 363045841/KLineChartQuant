@@ -13,7 +13,7 @@ import {
   createTestChartDataManager,
   createTestDocument,
 } from '../../../../data/__tests__/helpers/chartDataManagerTestKit'
-import { Pane } from '../../../../layout/pane'
+import { Pane } from '../../../../pane/index'
 import { KLineMode } from '../kLineMode'
 
 describe('KLineMode 纯未来区价格轴冻结', () => {

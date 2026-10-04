@@ -1,4 +1,4 @@
-import { DEFAULT_ZOOM_LEVEL_COUNT } from '../../../engine/utils/zoom.js'
+import { DEFAULT_ZOOM_LEVEL_COUNT } from '../../../engine/viewport/zoom.js'
 
 export const DEFAULT_OPTS = {
   yPaddingPx: 20,

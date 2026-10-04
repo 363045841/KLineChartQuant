@@ -18,7 +18,7 @@ import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
 import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
+import { getPhysicalKLineConfig } from '../../viewport/klineConfig.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 

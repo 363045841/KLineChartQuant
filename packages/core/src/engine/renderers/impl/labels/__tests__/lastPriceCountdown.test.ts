@@ -6,7 +6,7 @@ import {
   KR_MARKET_SESSION,
   US_MARKET_SESSION,
 } from '@/foundation/utils/sessionTimeLabels.js'
-import { FOREX_MARKET_SESSION } from '../../../foundation/config/marketSession/forexMarketSession.js'
+import { FOREX_MARKET_SESSION } from '../../../../../foundation/config/marketSession/forexMarketSession.js'
 import { formatLastPriceCountdown, getLastPriceRemainingMs } from '../index.js'
 
 describe('last price countdown', () => {

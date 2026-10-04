@@ -2,7 +2,7 @@
 
 import type { SlotGrid } from '../../foundation/geometry/slotGrid.js'
 import { resolveSessionSlotPhysicalGrid } from '../../foundation/utils/timeShareAxisLabels.js'
-import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { getPhysicalKLineConfig } from './klineConfig.js'
 
 export {
   type SlotGrid,

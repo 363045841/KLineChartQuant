@@ -1,8 +1,8 @@
-import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
-import type { KLineData } from '../../foundation/types/price.js'
-import { MAIN_PANE_ID } from '../pane/types.js'
-import { type PriceRange, PriceScale } from '../scale/index.js'
-import { getVisiblePriceRange } from '../viewport/viewport.js'
+import type { PaneCapabilities, PaneRole } from '../../../../foundation/plugin/index.js'
+import type { KLineData } from '../../../../foundation/types/price.js'
+import { type PriceRange, PriceScale } from '../../../scale/index.js'
+import { getVisiblePriceRange, type VisibleRange } from '../../../viewport/viewport.js'
+import { MAIN_PANE_ID } from '../../types.js'
 
 /**
  * 更新级别枚举 - 用于双层 Canvas 架构
@@ -15,8 +15,6 @@ export enum UpdateLevel {
   Overlay = 'overlay',
   All = 'all',
 }
-
-export type VisibleRange = { start: number; end: number }
 
 export interface PaneInitOptions {
   role?: PaneRole

@@ -4,7 +4,7 @@ import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { zoomSlotGrid } from '../viewport/slotGrid.js'
+import { zoomSlotGrid } from './slotGrid.js'
 import { clampZoomLevel, zoomLevelToKWidth } from './zoom.js'
 
 export interface ZoomDependencies {

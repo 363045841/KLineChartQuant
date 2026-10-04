@@ -18,7 +18,7 @@ import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import type { VisiblePriceExtrema } from '../utils/visiblePriceExtrema.js'
+import type { VisiblePriceExtrema } from '../viewport/visiblePriceExtrema.js'
 
 /** 已解析的图表选项：kWidth / kGap 必填，由样式与配置派生。 */
 export type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {

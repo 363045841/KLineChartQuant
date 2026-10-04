@@ -5,7 +5,7 @@ import {
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
 import { type ChartDataView, ChartDataViewId } from '../../foundation/types/chartView.js'
-import { clampZoomLevel, zoomLevelToKWidth } from '../utils/zoom.js'
+import { clampZoomLevel, zoomLevelToKWidth } from '../viewport/zoom.js'
 
 export interface ZoomDeps {
   minKWidth$: ReadonlySignal<number>

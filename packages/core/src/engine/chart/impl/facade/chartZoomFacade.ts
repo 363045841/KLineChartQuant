@@ -1,8 +1,8 @@
 /**
  * ChartZoomFacade —— 图表缩放的公开操作。
  */
-import type { ChartStateKernel } from '../state/chartStateKernel.js'
-import type { ChartZoomController } from '../utils/chartZoomController.js'
+import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
+import type { ChartZoomController } from '../../../viewport/chartZoomController.js'
 
 /** Zoom Facade 所需依赖。 */
 export interface ChartZoomFacadeDependencies {

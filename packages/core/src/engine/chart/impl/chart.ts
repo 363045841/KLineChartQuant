@@ -91,19 +91,11 @@ import {
   type DrawingToolId,
   resolveDrawingTradingDate,
 } from '../../drawing/index.js'
-import { ChartDrawingFacade } from '../../facade/chartDrawingFacade.js'
-import { ChartIndicatorFacade } from '../../facade/chartIndicatorFacade.js'
-import { ChartMarkerFacade } from '../../facade/chartMarkerFacade.js'
-import { ChartPaneFacade } from '../../facade/chartPaneFacade.js'
-import { ChartThemeFacade } from '../../facade/chartThemeFacade.js'
-import { ChartZoomFacade } from '../../facade/chartZoomFacade.js'
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
-import { ChartPaneLayout } from '../../layout/chartPaneLayout.js'
-import { UpdateLevel } from '../../layout/pane.js'
 import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
-import type { PaneRenderer } from '../../pane/index.js'
+import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
 import type { LegendTemplateContext } from '../../renderers/Indicator/mainIndicatorLegend/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
@@ -114,7 +106,6 @@ import type {
   PanePriceAxisModesSnapshot,
 } from '../../state/mainPriceAxisState.js'
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from '../../state/viewWorkspace.js'
-import { ChartZoomController } from '../../utils/chartZoomController.js'
 import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
 import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
 import type {
@@ -125,6 +116,13 @@ import type {
   Viewport,
   ViewportState,
 } from '../types.js'
+import { ChartZoomController } from '../../viewport/chartZoomController.js'
+import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
+import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
+import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
+import { ChartPaneFacade } from './facade/chartPaneFacade.js'
+import { ChartThemeFacade } from './facade/chartThemeFacade.js'
+import { ChartZoomFacade } from './facade/chartZoomFacade.js'
 
 export type { InteractionSnapshot }
 
@@ -1771,4 +1769,4 @@ export class Chart {
    */
 }
 
-import { DEFAULT_ZOOM_LEVEL_COUNT } from '../../utils/zoom.js'
+import { DEFAULT_ZOOM_LEVEL_COUNT } from '../../viewport/zoom.js'

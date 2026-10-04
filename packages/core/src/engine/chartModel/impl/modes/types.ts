@@ -1,6 +1,7 @@
 /** 图表模式契约：K 线/分时等模式对内容宽度、柱宽与价格范围的统一接口。 */
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
-import type { Pane, VisibleRange } from '../../../layout/pane.js'
+import type { Pane } from '../../../pane/index.js'
+import type { VisibleRange } from '../../../viewport/viewport.js'
 
 export interface ChartModeHandler {
   readonly debugName: string

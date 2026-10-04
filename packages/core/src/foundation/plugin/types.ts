@@ -381,7 +381,7 @@ export interface RenderGeometryContext {
   kWidthPx: number
   /** K 线真正可视区的 high/low 及其索引；由帧准备阶段计算，供多个 renderer 共享。 */
   visiblePriceExtrema?:
-    | import('../../engine/utils/visiblePriceExtrema.js').VisiblePriceExtrema
+    | import('../../engine/viewport/visiblePriceExtrema.js').VisiblePriceExtrema
     | null
   /** 本帧可视极值跨越右轴文字数量级边界，允许低频实测并调整宽度。 */
   requiresRightAxisWidthMeasurement?: boolean

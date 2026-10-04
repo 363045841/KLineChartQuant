@@ -8,8 +8,8 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
-import { registerAxisLabel } from '../labels/index.js'
 import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
+import { registerAxisLabel } from './impl/labels/index.js'
 
 function getLastPriceInfo(context: RenderContext) {
   const { pane, data } = context

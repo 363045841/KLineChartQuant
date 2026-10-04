@@ -13,7 +13,7 @@ export type {
   AxisLabelsFrame,
   AxisTagLabel,
   AxisTickLabel,
-} from '../../foundation/plugin/types.js'
+} from '../../../../foundation/plugin/types.js'
 
 /** 绘制单个表面轴标签所需的画布度量。 */
 export interface AxisLabelMetrics {

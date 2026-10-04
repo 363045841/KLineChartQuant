@@ -25,9 +25,7 @@ import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
-import type { VisibleRange } from '../layout/pane.js'
-import { UpdateLevel } from '../layout/pane.js'
-import { SubPaneManager } from '../pane/index.js'
+import { SubPaneManager, UpdateLevel } from '../pane/index.js'
 import type { PaneSpec, SubPaneContext, SubPaneEntry } from '../pane/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
@@ -38,6 +36,7 @@ import type {
   SubPaneInput,
   SubPaneSpec,
 } from '../state/indicatorState.js'
+import type { VisibleRange } from '../viewport/viewport.js'
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,

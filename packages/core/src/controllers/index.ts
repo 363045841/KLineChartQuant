@@ -195,6 +195,6 @@ export type {
 } from '../engine/renderers/Indicator/mainIndicatorLegend/types.js'
 export type { LegendActionDetail } from '../engine/renderers/legend/types.js'
 export { LEGEND_ACTION_EVENT } from '../engine/renderers/legend/types.js'
-export { getPhysicalKLineConfig } from '../engine/utils/klineConfig.js'
+export { getPhysicalKLineConfig } from '../engine/viewport/klineConfig.js'
 // Utility functions
-export { kGapFromKWidth, zoomLevelToKWidth } from '../engine/utils/zoom.js'
+export { kGapFromKWidth, zoomLevelToKWidth } from '../engine/viewport/zoom.js'

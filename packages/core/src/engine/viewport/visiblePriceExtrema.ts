@@ -1,5 +1,5 @@
 import type { KLineData } from '../../foundation/types/price.js'
-import type { VisibleRange } from '../layout/pane.js'
+import type { VisibleRange } from './viewport.js'
 import { findVisibleBarRange } from './visibleBarIndex.js'
 
 /** 主图真正落在视口内的 K 线高低点；供同帧多个消费者共享。 */

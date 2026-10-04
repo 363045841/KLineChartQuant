@@ -7,12 +7,12 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { paintAxisLabels, registerAxisLabel } from '../labels/index.js'
 import {
   formatAxisPriceValue,
   resolvePriceAxisDisplay,
   usesPercentAxis,
 } from './axisValueFormat.js'
+import { paintAxisLabels, registerAxisLabel } from './impl/labels/index.js'
 
 type YAxisOptions = {
   axisWidth: number

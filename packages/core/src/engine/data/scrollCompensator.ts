@@ -1,6 +1,6 @@
 /** 数据变更只补偿前插索引，空白槽位不触发自动回拉。 */
 import type { ViewportStateModule } from '../state/viewportState.js'
-import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
 
 export interface ScrollDeps {
   getOption: () => { kWidth: number; kGap: number }

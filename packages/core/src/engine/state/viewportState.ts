@@ -12,8 +12,8 @@ import { type ChartDataView, ChartDataViewId } from '../../foundation/types/char
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { Viewport, ViewportState } from '../chart/index.js'
-import type { VisibleRange } from '../layout/pane.js'
 import { SCALE_X_STRATEGIES, type ScaleXInput } from '../scale/index.js'
+import type { VisibleRange } from '../viewport/viewport.js'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。

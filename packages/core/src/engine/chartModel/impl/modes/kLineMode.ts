@@ -1,6 +1,7 @@
 /** K 线图表模式：内容宽度/柱宽交给标准缩放，价格范围直接委托 Pane。 */
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
-import type { Pane, VisibleRange } from '../../../layout/pane.js'
+import type { Pane } from '../../../pane/index.js'
+import type { VisibleRange } from '../../../viewport/viewport.js'
 
 import type { ChartModeHandler } from './types.js'
 

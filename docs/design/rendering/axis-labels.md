@@ -12,7 +12,8 @@
 
 ## 决策
 
-- 新增 `engine/labels/` 模块，采用 `types.ts + impl/` 分层（对齐仓库既有语义化模块布局）。
+- 新增 `engine/labels/` 模块（现位于 `engine/renderers/impl/labels/`，见
+  `../conventions/engine-module-consolidation.md`），采用 `types.ts + impl/` 分层（对齐仓库既有语义化模块布局）。
   ready-to-draw 标签数据契约 `AxisLabel`/`AxisLabelSurface`/`AxisLabelCollector`/`AxisLabelsFrame`
   声明在 foundation（`foundation/plugin/types.ts`），以保持 **foundation 不反向依赖 engine**；
   模块 `types.ts` 按公开面重导出并补充绘制度量契约 `AxisLabelMetrics`。
@@ -34,7 +35,7 @@
 - **绘图投影不再有第二套出口**：`projectDrawingsForFrame` 不再接收可选 `axisLabelRegistrars`，
   也不在返回值里携带标签数组；它经统一入口把绘图锚点标签注册到 `xLabels`/`yRightOverlay`。
   `DrawingFrameProjection` 只保留 `primitives` 与 X/Y 范围带。
-- **公开入口收口**：`engine/labels/index.ts` 作为模块唯一 barrel，只做重导出；
+- **公开入口收口**：`engine/renderers/impl/labels/index.ts` 作为模块唯一 barrel，只做重导出；
   `chartRenderer`、`lastPrice`、`frameProjection`、各轴渲染器从该入口依赖。
 
 ## 画布与刷新级别时序（保持不变）

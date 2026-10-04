@@ -33,16 +33,9 @@ import {
   projectDrawingsForFrame,
   registerDefaultDrawingDefinitions,
 } from '../../drawing/index.js'
-import {
-  createAxisLabelsFrame,
-  formatLastPriceCountdown,
-  getLastPriceRemainingMs,
-  registerAxisLabel,
-} from '../../labels/index.js'
-import type { VisibleRange } from '../../layout/pane.js'
-import { UpdateLevel } from '../../layout/pane.js'
 import { MarkerManager } from '../../marker/registry.js'
 import type { PaneRenderer } from '../../pane/index.js'
+import { UpdateLevel } from '../../pane/index.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
 import { createCrosshairLayer } from '../../renderers/crosshair.js'
@@ -51,17 +44,24 @@ import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
 import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
 import { createGridLinesLayer } from '../../renderers/gridLines.js'
 import { createMainIndicatorLegendLayer } from '../../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
+import {
+  createAxisLabelsFrame,
+  formatLastPriceCountdown,
+  getLastPriceRemainingMs,
+  registerAxisLabel,
+} from '../../renderers/impl/labels/index.js'
 import { createTimeAxisLayer } from '../../renderers/timeAxis.js'
 import { createTimeShareLayer } from '../../renderers/timeShare.js'
 import {
   createYAxisOverlayRendererLayer,
   createYAxisStaticRendererLayer,
 } from '../../renderers/yAxis.js'
-import { createYAxisTicks } from '../../utils/axisTicks.js'
+import { createYAxisTicks } from '../../scale/index.js'
+import type { VisibleRange } from '../../viewport/viewport.js'
 import {
   computeVisiblePriceExtrema,
   type VisiblePriceExtrema,
-} from '../../utils/visiblePriceExtrema.js'
+} from '../../viewport/visiblePriceExtrema.js'
 import type { RendererDependencies } from '../types.js'
 
 /** 帧内共享的时间与倒计时派生结果。 */

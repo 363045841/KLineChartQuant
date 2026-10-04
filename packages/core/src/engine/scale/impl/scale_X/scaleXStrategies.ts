@@ -10,9 +10,9 @@ import {
   computeFiveDayTimeShareGeometry,
   computeTimeShareXLayout,
 } from '../../../chartModel/index.js'
-import { calcKBarWidthPx, calcKWidthPx } from '../../../utils/klineConfig.js'
-import { kGapFromKWidth } from '../../../utils/zoom.js'
+import { calcKBarWidthPx, calcKWidthPx } from '../../../viewport/klineConfig.js'
 import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../../viewport/slotGrid.js'
+import { kGapFromKWidth } from '../../../viewport/zoom.js'
 import type { ScaleXInput, ScaleXSnapshot, ScaleXStrategy } from './types.js'
 
 /** 视图能力与市场 session 需求统一来自 ChartModel 声明。 */

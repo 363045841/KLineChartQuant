@@ -4,9 +4,9 @@ import {
   type AxisDisplaySetting,
   type EffectiveAxisDisplayInput,
   resolveEffectiveAxisDisplay,
-} from '../../foundation/config/axisSettings.js'
-import type { PaneInfo, YAxisTick } from '../../foundation/plugin/types.js'
-import { ScaleType } from '../../foundation/types/scaleType.js'
+} from '../../../../foundation/config/axisSettings.js'
+import type { PaneInfo, YAxisTick } from '../../../../foundation/plugin/types.js'
+import { ScaleType } from '../../../../foundation/types/scaleType.js'
 
 const TARGET_TICK_SPACING_PX = 42
 const MIN_TICK_SPACING_PX = 28

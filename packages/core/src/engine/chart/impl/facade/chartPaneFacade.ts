@@ -2,9 +2,9 @@
  * ChartPaneFacade —— Pane 业务操作与布局查询。
  */
 
-import type { ChartPaneLayout } from '../layout/chartPaneLayout.js'
-import type { CreatePaneInput, PanePatch, PaneSpec } from '../pane/types.js'
-import type { ChartStateKernel } from '../state/chartStateKernel.js'
+import type { ChartPaneLayout } from '../../../pane/index.js'
+import type { CreatePaneInput, PanePatch, PaneSpec } from '../../../pane/types.js'
+import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
 
 /** Pane Facade 所需依赖。 */
 export interface ChartPaneFacadeDependencies {

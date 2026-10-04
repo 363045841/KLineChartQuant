@@ -5,7 +5,7 @@ import type { TimeShareRange } from '@/data/provider/types'
 import type { TimeShareData } from '@/foundation/types/price'
 import { ScaleType } from '@/foundation/types/scaleType'
 import { createMockChartDataManager } from '../../../../data/__tests__/helpers/chartDataManagerTestKit'
-import { Pane } from '../../../../layout/pane'
+import { Pane } from '../../../../pane/index'
 import { TimeShareMode } from '../timeShareMode'
 
 /** 构造分时点，默认均价与价格相同。 */
