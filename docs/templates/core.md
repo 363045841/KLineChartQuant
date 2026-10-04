@@ -221,7 +221,7 @@ Chart
 - `RendererHost` owns backend lifecycle, resize, switching, and degradation. The renderer reports whether a GPU batch was rendered; layers perform a complete Canvas2D fallback when it was not.
 - Coordinates exposed to chart logic are logical pixels. Canvas buffers and GPU viewports use the kernel's effective DPR and physical pixels.
 
-For the runtime contract, extension rules, backend behavior, and diagnostics, see [the rendering pipeline](../../docs/rendering-pipeline.md).
+For the runtime contract, extension rules, backend behavior, and diagnostics, see [the rendering pipeline](../../docs/rendering/rendering-pipeline.md).
 
 ## Additional Public APIs
 

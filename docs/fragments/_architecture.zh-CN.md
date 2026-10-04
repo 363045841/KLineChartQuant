@@ -73,4 +73,4 @@ flowchart TB
 - **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
   `@Tool` 注册的原语——与 UI 使用同一入口。
 
-完整架构文档见 [docs/architecture.md]({{root}}docs/architecture.md)。
+完整架构文档见 [docs/architecture/architecture.md]({{root}}docs/architecture/architecture.md)。

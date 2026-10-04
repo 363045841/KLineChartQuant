@@ -13,7 +13,7 @@
 # type-check and lint:types resolve each workspace package through its
 # published entrypoint (dist/*.d.ts), so the `test` job builds them before
 # running either gate. The remaining warn-only gates still need their own
-# fixes before they can block merges; see docs/CI_GATES.md for the current
+# fixes before they can block merges; see docs/contributing/CI_GATES.md for the current
 # matrix and blockers.
 
 name: library-ci
@@ -91,7 +91,7 @@ jobs:
 
       # ---- WARN-ONLY GATES ----
       # These still need their own fixes before they can block merges; see
-      # docs/CI_GATES.md for the current blockers.
+      # docs/contributing/CI_GATES.md for the current blockers.
       - name: Bundle size budgets (size-limit) [WARN]
         run: pnpm size:packages
         continue-on-error: true

@@ -4,7 +4,7 @@
 
 本文描述 KLineChartQuant 的整体架构：包边界、核心引擎的分层、运行时数据流，
 以及外部行情后端的接入方式。渲染主链路的细节以
-[docs/rendering-pipeline.md](rendering-pipeline.md) 为事实来源，本文不与其重复。
+[docs/rendering/rendering-pipeline.md](../rendering/rendering-pipeline.md) 为事实来源，本文不与其重复。
 
 ## 1. 系统总览
 
@@ -163,7 +163,7 @@ flowchart TB
 ### 3.5 渲染管线
 
 `rendering/` 与 `engine/render/` 实现统一绘制路径。事实来源见
-[docs/rendering-pipeline.md](rendering-pipeline.md)，此处仅列要点：
+[docs/rendering/rendering-pipeline.md](../rendering/rendering-pipeline.md)，此处仅列要点：
 
 - `Chart.scheduleDraw(level)` → `ChartRenderer` + `FrameTransaction` 合并高频请求，
   非重入地推进帧快照。
@@ -278,7 +278,7 @@ flowchart TB
 
 ## 7. 维护要求
 
-- 本文与 `docs/rendering-pipeline.md` 分工：本文讲「整体架构」，渲染文档讲「绘制实现」。
+- 本文与 `docs/rendering/rendering-pipeline.md` 分工：本文讲「整体架构」，渲染文档讲「绘制实现」。
   渲染行为变化优先更新渲染文档；包边界、分层或数据流变化更新本文。
 - 新增包时同步更新第 2 节包表与 README `_packages` 片段。
 - 新增外部数据源时同步更新第 5 节与 README `_data-sources` 片段。

@@ -1,7 +1,7 @@
 # 第三方渲染层注册决策
 
 关联：[issue #282](https://github.com/363045841/KLineChartQuant/issues/282)。
-运行时契约和接入示例见 [Core 渲染架构](../../rendering-pipeline.md#31-第三方-layer-与指标注册)。
+运行时契约和接入示例见 [Core 渲染架构](../../rendering/rendering-pipeline.md#31-第三方-layer-与指标注册)。
 
 ## 问题
 

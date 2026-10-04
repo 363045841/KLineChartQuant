@@ -4,7 +4,7 @@
 Scene/Layer、统一 Renderer 契约，并管理 WebGPU/WebGL2/Canvas2D 后端。
 
 完整的单帧时序、几何准备、Canvas 分层和 DPR 处理以
-[`docs/rendering-pipeline.md`](../../../../docs/rendering-pipeline.md) 为准。本文只介绍本目录的
+[`docs/rendering/rendering-pipeline.md`](../../../../docs/rendering/rendering-pipeline.md) 为准。本文只介绍本目录的
 边界、组成和扩展方式。
 
 ## 模块边界

@@ -103,7 +103,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - **Rendering** at `packages/core/src/rendering/` — Scene/Layer, RendererHost, WebGPU/WebGL/Canvas2D backends.
 - **Root `src/` no longer exists**. Code was migrated to packages. The root `vite.config.ts` still builds a library entry from the (now-removed) `src/index.ts`; for publishing, use `pnpm build:packages`.
 - **DPR/ResizeObserver** is the single source of truth for canvas sizing (`devicePixelContentBoxSize` with `window.devicePixelRatio` fallback); state in `viewportState`, DOM adapter in `ChartViewportManager`.
-- **Rendering pipeline** (SSOT: `docs/rendering-pipeline.md`): `Chart.scheduleDraw` → `ChartRenderer` + `FrameTransaction` → `prepareFrameData` (viewport → getVisibleRange → calcKLinePositions) → `sealFrameGeometry` → per-pane `scene.paintPane` → `sceneRenderer.endFrame` → `timeAxisLayer.paint`.
+- **Rendering pipeline** (SSOT: `docs/rendering/rendering-pipeline.md`): `Chart.scheduleDraw` → `ChartRenderer` + `FrameTransaction` → `prepareFrameData` (viewport → getVisibleRange → calcKLinePositions) → `sealFrameGeometry` → per-pane `scene.paintPane` → `sceneRenderer.endFrame` → `timeAxisLayer.paint`.
 - **Layer roles**: background / primary / indicator / component / drawing / overlay; UpdateLevel Main|Overlay|All for dual-canvas incremental paint.
 - **StateKernel** is the single source of truth for chart business state (sub-state modules include options, zoom, data, dataManager, comparison, indicator, subPane, marker, viewport, pane, settings, mode, drawing, interaction, systemTheme). Preference theme is `settings.theme` (`light|dark|auto`); **effective** theme is `computed` from preference + `systemTheme` (exposed as flat `signals.theme`). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `packages/core/src/engine/state/README.md`.
 - **Core Native Agent Tools** Agent 和用户等权,用户UI调用的入口就是Agent工具的入口,Agent就是用户,用户就是Agent.
@@ -136,7 +136,7 @@ Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/s
 ## Known Quirks
 
 - **Local times in tests**: dateFormat tests assume CST (Asia/Shanghai). Run `$env:TZ='Asia/Shanghai'` on Windows if they fail locally.
-- **Rendering docs SSOT**: `docs/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
+- **Rendering docs SSOT**: `docs/rendering/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
 - **Viewport too large** may trigger `MAX_CANVAS_PIXELS` (`clampDpr` in viewportState), causing DPR to be actively downgraded.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
 - **tsc 增量构建与产物**: 四个 tsc 包（core/agent-runtime/react/angular）的 `tsconfig.build.json` 使用 `incremental` + `node_modules/.tmp` 缓存。该缓存只比对源文件时间戳，若 `dist/` 被带外删除而缓存仍在，`tsc` 会认为已最新、跳过 emit 并退出 0（得到空 `dist`）。本地遇到这种情况删掉对应的 `node_modules/.tmp/tsconfig.build.*.tsbuildinfo` 再构建即可；CI 每次都是干净检出，不存在该缓存。

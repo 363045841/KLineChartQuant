@@ -140,7 +140,7 @@ flowchart TB
 - **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
   invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
 
-See [docs/architecture.md](docs/architecture.md) for the full architecture document.
+See [docs/architecture/architecture.md](docs/architecture/architecture.md) for the full architecture document.
 
 
 ## ⚡ Performance
@@ -406,7 +406,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 ## 📖 More Documentation
 
-- [Rendering Pipeline](docs/rendering-pipeline.md) - Current paint path: FrameTransaction, Scene/Layer, Renderer backends
+- [Rendering Pipeline](docs/rendering/rendering-pipeline.md) - Current paint path: FrameTransaction, Scene/Layer, Renderer backends
 
 
 ## 📋 Component Props

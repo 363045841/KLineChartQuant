@@ -384,7 +384,7 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 
 ## 📖 More Documentation
 
-- [Rendering Pipeline](../../docs/rendering-pipeline.md) - Current paint path: FrameTransaction, Scene/Layer, Renderer backends
+- [Rendering Pipeline](../../docs/rendering/rendering-pipeline.md) - Current paint path: FrameTransaction, Scene/Layer, Renderer backends
 
 
 ## 📋 Component Props

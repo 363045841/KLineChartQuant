@@ -73,4 +73,4 @@ flowchart TB
 - **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
   invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
 
-See [docs/architecture.md]({{root}}docs/architecture.md) for the full architecture document.
+See [docs/architecture/architecture.md]({{root}}docs/architecture/architecture.md) for the full architecture document.

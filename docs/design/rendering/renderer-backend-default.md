@@ -40,4 +40,4 @@
 
 ## 边界
 
-探测结果只作为**初始偏好默认**，不作为 runtime 生效状态源。生效后端仍以 `RendererHost.runtime.effective` 为准（见 `docs/rendering-pipeline.md` §12 与 `docs/design/axis/axis-display.md` 的偏好/生效拆分）。
+探测结果只作为**初始偏好默认**，不作为 runtime 生效状态源。生效后端仍以 `RendererHost.runtime.effective` 为准（见 `docs/rendering/rendering-pipeline.md` §12 与 `docs/design/axis/axis-display.md` 的偏好/生效拆分）。

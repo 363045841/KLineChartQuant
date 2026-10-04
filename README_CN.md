@@ -140,7 +140,7 @@ flowchart TB
 - **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
   `@Tool` 注册的原语——与 UI 使用同一入口。
 
-完整架构文档见 [docs/architecture.md](docs/architecture.md)。
+完整架构文档见 [docs/architecture/architecture.md](docs/architecture/architecture.md)。
 
 
 ## ⚡ 性能
@@ -406,7 +406,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 ## 📖 更多文档
 
-- [渲染链路](docs/rendering-pipeline.md) - 当前绘制路径：FrameTransaction、Scene/Layer、Renderer 后端
+- [渲染链路](docs/rendering/rendering-pipeline.md) - 当前绘制路径：FrameTransaction、Scene/Layer、Renderer 后端
 
 
 ## 📋 组件 Props
