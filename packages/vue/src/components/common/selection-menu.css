@@ -1,0 +1,31 @@
+/* 工具条单选下拉的触发器内容：当前值、展开箭头与选中标记，供周期、复权等入口复用。 */
+.selection-menu__value {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-menu__chevron {
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--klc-color-ui-muted);
+}
+
+/* 当前项勾选标记始终可见，不受 item-action 悬停显隐控制。 */
+.selection-menu__check {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--klc-color-ui-text);
+  visibility: visible;
+}
+
+.selection-menu__check svg {
+  width: 14px;
+  height: 14px;
+}

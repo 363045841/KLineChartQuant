@@ -81,7 +81,7 @@
         :label="screenshotCapturing ? chartScreenshotLabels.capturing : chartScreenshotLabels.capture"
         :groups="screenshotMenuGroups"
         :disabled="screenshotCapturing"
-        trigger-class="control-button screenshot-button"
+        trigger-class="screenshot-button"
         placement="bottom"
         @select="onScreenshotSelect"
       >

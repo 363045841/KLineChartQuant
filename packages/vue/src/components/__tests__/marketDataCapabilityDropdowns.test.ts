@@ -38,9 +38,15 @@ describe('行情能力下拉菜单', () => {
       global: { stubs: { Teleport: true } },
     })
 
-    await wrapper.get('.dropdown__trigger').trigger('click')
+    const trigger = wrapper.get('.drop-menu__trigger')
+    // 触发器复用工具栏共享按钮外观与下拉值样式，保证高度与商品选择入口一致。
+    expect(trigger.classes()).toContain('control-button')
+    expect(wrapper.get('.selection-menu__value').exists()).toBe(true)
+    expect(trigger.text()).toBe('1day')
 
-    expect(wrapper.findAll('.dropdown__option').map((item) => item.text())).toEqual([
+    await wrapper.get('.drop-menu__trigger').trigger('click')
+
+    expect(wrapper.findAll('.drop-menu__item-main').map((item) => item.text())).toEqual([
       '分时',
       '1day',
     ])
@@ -56,9 +62,11 @@ describe('行情能力下拉菜单', () => {
       global: { stubs: { Teleport: true } },
     })
 
-    await wrapper.get('.dropdown__trigger').trigger('click')
+    expect(wrapper.get('.drop-menu__trigger').text()).toBe('5日分时')
 
-    expect(wrapper.findAll('.dropdown__option').map((item) => item.text())).toEqual([
+    await wrapper.get('.drop-menu__trigger').trigger('click')
+
+    expect(wrapper.findAll('.drop-menu__item-main').map((item) => item.text())).toEqual([
       '分时',
       '5日分时',
     ])
@@ -74,8 +82,12 @@ describe('行情能力下拉菜单', () => {
       global: { stubs: { Teleport: true } },
     })
 
-    await wrapper.get('.dropdown__trigger').trigger('click')
+    const trigger = wrapper.get('.drop-menu__trigger')
+    expect(trigger.classes()).toContain('control-button')
+    expect(trigger.text()).toBe('不复权')
 
-    expect(wrapper.findAll('.dropdown__option').map((item) => item.text())).toEqual(['不复权'])
+    await wrapper.get('.drop-menu__trigger').trigger('click')
+
+    expect(wrapper.findAll('.drop-menu__item-main').map((item) => item.text())).toEqual(['不复权'])
   })
 })
