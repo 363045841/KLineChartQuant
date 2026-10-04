@@ -20,12 +20,10 @@ import { createDefaultRendererHost, type RendererBackend } from '@/rendering/ren
 import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
 import {
   createPanePriceAxisPersistence,
-  loadStoredPanePriceAxisModes,
-} from '../../panePriceAxisPersistence.js'
-import {
   createViewWorkspacePersistence,
+  loadStoredPanePriceAxisModes,
   loadStoredViewWorkspaces,
-} from '../../viewWorkspacePersistence.js'
+} from '../../persistence/index.js'
 import type {
   ChartController,
   ChartMountOptions,

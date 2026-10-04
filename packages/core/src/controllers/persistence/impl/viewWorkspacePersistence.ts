@@ -3,14 +3,14 @@
 import type {
   ViewWorkspacePersistence,
   ViewWorkspacesSnapshot,
-} from '../engine/state/viewWorkspace.js'
+} from '../../../engine/state/viewWorkspace.js'
 import {
   bindSnapshotPersistence,
   createLocalStoragePersistence,
   getBrowserLocalStorage,
   type KeyValueStorage,
   type PersistenceCodec,
-} from '../foundation/persistence/index.js'
+} from '../../../foundation/persistence/index.js'
 
 /** localStorage 键名。 */
 export const VIEW_WORKSPACES_STORAGE_KEY = 'kline-chart-view-workspaces'

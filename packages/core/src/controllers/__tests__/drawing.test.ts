@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createDrawingController } from '../createDrawingController'
+import { createDrawingController } from '../drawing/index'
 
 // ---------------------------------------------------------------------------
 // Construction

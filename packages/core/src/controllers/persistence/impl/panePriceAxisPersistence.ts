@@ -3,18 +3,18 @@
 import type {
   PanePriceAxisModePersistence,
   PanePriceAxisModesSnapshot,
-} from '../engine/state/mainPriceAxisState.js'
+} from '../../../engine/state/mainPriceAxisState.js'
 import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
-} from '../foundation/config/priceAxisRangeMode.js'
+} from '../../../foundation/config/priceAxisRangeMode.js'
 import {
   bindSnapshotPersistence,
   createLocalStoragePersistence,
   getBrowserLocalStorage,
   type KeyValueStorage,
   type PersistenceCodec,
-} from '../foundation/persistence/index.js'
+} from '../../../foundation/persistence/index.js'
 
 /** localStorage 键名。 */
 export const PANE_PRICE_AXIS_MODES_STORAGE_KEY = 'kline-chart-pane-price-axis-modes'

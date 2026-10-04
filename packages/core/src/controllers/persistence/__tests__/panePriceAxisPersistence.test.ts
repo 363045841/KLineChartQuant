@@ -1,13 +1,13 @@
 /** 各 Pane 价格轴范围模式 localStorage 持久化回归测试。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PanePriceAxisModesSnapshot } from '../../engine/state/mainPriceAxisState'
-import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode'
-import { createMemoryKeyValueStorage } from '../../foundation/persistence/__tests__/_memoryKeyValueStorage'
+import type { PanePriceAxisModesSnapshot } from '../../../engine/state/mainPriceAxisState'
+import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode'
+import { createMemoryKeyValueStorage } from '../../../foundation/persistence/__tests__/_memoryKeyValueStorage'
 import {
   createPanePriceAxisPersistence,
   loadStoredPanePriceAxisModes,
   PANE_PRICE_AXIS_MODES_STORAGE_KEY,
-} from '../panePriceAxisPersistence'
+} from '../index'
 
 describe('pane price axis persistence', () => {
   beforeEach(() => {

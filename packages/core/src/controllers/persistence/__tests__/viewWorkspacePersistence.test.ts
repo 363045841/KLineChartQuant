@@ -1,13 +1,13 @@
 /** 视图工作区 localStorage 持久化回归测试。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ViewWorkspacesSnapshot } from '../../engine/state/viewWorkspace'
-import { createMemoryKeyValueStorage } from '../../foundation/persistence/__tests__/_memoryKeyValueStorage'
+import type { ViewWorkspacesSnapshot } from '../../../engine/state/viewWorkspace'
+import { createMemoryKeyValueStorage } from '../../../foundation/persistence/__tests__/_memoryKeyValueStorage'
 import {
   createViewWorkspacePersistence,
   loadStoredViewWorkspaces,
   VIEW_WORKSPACES_STORAGE_KEY,
-} from '../viewWorkspacePersistence'
+} from '../index'
 
 function createSnapshot(): ViewWorkspacesSnapshot {
   return {
