@@ -12,7 +12,7 @@
 
 ## 决策
 
-- 新增 `engine/axisLabels/` 模块，采用 `types.ts + impl/` 分层（对齐仓库既有语义化模块布局）。
+- 新增 `engine/labels/` 模块，采用 `types.ts + impl/` 分层（对齐仓库既有语义化模块布局）。
   ready-to-draw 标签数据契约 `AxisLabel`/`AxisLabelSurface`/`AxisLabelCollector`/`AxisLabelsFrame`
   声明在 foundation（`foundation/plugin/types.ts`），以保持 **foundation 不反向依赖 engine**；
   模块 `types.ts` 按公开面重导出并补充绘制度量契约 `AxisLabelMetrics`。
@@ -34,7 +34,7 @@
 - **绘图投影不再有第二套出口**：`projectDrawingsForFrame` 不再接收可选 `axisLabelRegistrars`，
   也不在返回值里携带标签数组；它经统一入口把绘图锚点标签注册到 `xLabels`/`yRightOverlay`。
   `DrawingFrameProjection` 只保留 `primitives` 与 X/Y 范围带。
-- **公开入口收口**：`engine/axisLabels/index.ts` 作为模块唯一 barrel，只做重导出；
+- **公开入口收口**：`engine/labels/index.ts` 作为模块唯一 barrel，只做重导出；
   `chartRenderer`、`lastPrice`、`frameProjection`、各轴渲染器从该入口依赖。
 
 ## 画布与刷新级别时序（保持不变）
@@ -70,11 +70,11 @@
 
 ## 影响与验证
 
-- 轴标签的生产与绘制全部集中到 `axisLabels` 模块：旧的 `kLineDraw/axis.ts` 标签绘制函数、
+- 轴标签的生产与绘制全部集中到 `labels` 模块：旧的 `kLineDraw/axis.ts` 标签绘制函数、
   `drawScaleTicks`、`YAxisLabel`/`XAxisLabel`/`AxisLabelRegistrar` 已删除。
 - 单测：
-  - `axisLabels/__tests__/axisLabelCollector.test.ts`：表面隔离、X 共享、注册入口、paneId 覆盖；
-  - `axisLabels/__tests__/paintAxisLabels.test.ts`：X/Y 刻度对齐、Y 价签 `label`/`crosshair`
+  - `labels/__tests__/axisLabelCollector.test.ts`：表面隔离、X 共享、注册入口、paneId 覆盖；
+  - `labels/__tests__/paintAxisLabels.test.ts`：X/Y 刻度对齐、Y 价签 `label`/`crosshair`
     基线、X 时间签竖直布局；
   - `lastPrice.registrar.test.ts`：最新价经统一入口注册到 `yRightOverlay`；
   - `yAxis.renderer.test.ts`：左右轴刻度、overlay 装饰标签与十字线价签注册/绘制；

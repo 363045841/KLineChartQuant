@@ -16,4 +16,4 @@ ComparisonProjection 是单帧共享结果，包含主品种可见 OHLC 极值�
 
 ## 视图决策归属
 
-数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源是 `engine/chartModel/` 模块。`CHART_VIEW_DEFINITIONS` 声明每个视图的主序列渲染偏好、`requiresMarketSession`、横向 `capabilities` 与主图系统实例；`resolveChartDataView(period)` 是周期到视图的唯一推导；`ChartDataViewId` 等类型只从该模块流出。比较集合不参与视图决策，移除独立比较视图后 `chartMode` 仅由主品种周期决定。视图切换的渲染副作用（清屏、图例清理、模式处理器激活）仍编排在 `Chart`，不进 ChartModel。
+数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源是 `engine/chartModel/` 模块。`CHART_VIEW_DEFINITIONS` 声明每个视图的主序列渲染偏好、`requiresMarketSession`、横向 `capabilities` 与主图系统实例；`resolveChartDataView(period)` 是周期到视图的唯一推导；`ChartDataViewId` 等类型只从该模块流出。比较投影（`projectComparison` / `ComparisonProjection`）与比较状态（`createComparisonState`）也位于本模块 `impl/comparison/`；比较品种的数据协调（`engine/data/comparisonManager.ts`）与 CRUD 命令（`engine/data/comparisonCommands.ts`）留在 `engine/data/`。比较集合不参与视图决策，移除独立比较视图后 `chartMode` 仅由主品种周期决定。视图切换的渲染副作用（清屏、图例清理、模式处理器激活）仍编排在 `Chart`，不进 ChartModel。

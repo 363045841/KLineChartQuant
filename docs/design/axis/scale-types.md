@@ -7,7 +7,7 @@
 ## 问题
 
 - **重复定义**：`ScaleMode`（scale）、`ScaleType`（engine）、`PriceScaleTypeSetting` / `RightAxisTypeSetting`（config）、plugin 内联联合各自声明同一组字符串。
-- **字面量比较**：`createPriceScale`、`engine/scale/priceScale`、`tickPosition`、`chart`、`candle`、`chartPaneLayout`、`chartRenderer`、`indicator_scale`、`axisSettings`、`chartSettings` 均直接写 `'log'` / `'linear'` / `'percent'`。
+- **字面量比较**：`createPriceScale`、`engine/scale/impl/scale_Y/priceScale`、`tickPosition`、`chart`、`candle`、`chartPaneLayout`、`chartRenderer`、`indicator_scale`、`axisSettings`、`chartSettings` 均直接写 `'log'` / `'linear'` / `'percent'`。
 - 违反仓库「禁止硬编码字符串」「单一事实来源」约定。
 
 ## 决策
@@ -30,7 +30,7 @@ export type AxisType = ScaleType | typeof AXIS_TYPE_NONE
 
 ## 非目标
 
-- **不合并** headless `scale/impl/createPriceScale.ts` 与 `engine/scale/priceScale.ts` 两套价格坐标实现。
+- **不合并** headless `scale/impl/createPriceScale.ts` 与 `engine/scale/impl/scale_Y/priceScale.ts` 两套价格坐标实现。
 - **不纳入** `AxisDisplaySetting = 'none' | 'price' | 'percent'`：它是轴标签展示语义，与刻度类型是两套词汇；`yAxis` / `leftYAxis` / `resolveAxisDisplaySetting` 中的字面量保持不变。
 - **不改测试**：用例中的 `'log'` 字面量作为公开字符串契约锚点保留，改常量反而会掩盖常量值被误改的问题。
 - 不改 `vue` / `react` / `angular` 包（经检索不引用相关类型与字面量）。

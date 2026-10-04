@@ -2,7 +2,7 @@
 
 K 线与分时共用一个 `ChartStateKernel`。切换只修改 `chartModel.dataView`，不恢复第二份图表快照。
 
-`engine/chartModel/` 模块是数据视图的唯一事实来源：`CHART_VIEW_DEFINITIONS` 声明每个视图的主序列渲染偏好、`requiresMarketSession`、横向能力与主图系统实例，`createChartModel()` 保存 `dataView` 状态并派生 `effectivePrimaryRenderer` 与 `interactionCapabilities`。
+`engine/chartModel/` 模块是数据视图的唯一事实来源：`CHART_VIEW_DEFINITIONS` 声明每个视图的主序列渲染偏好、`requiresMarketSession`、横向能力与主图系统实例，`createChartModel()` 保存 `dataView` 状态并派生 `effectivePrimaryRenderer` 与 `interactionCapabilities`。视图行为实现（`impl/modes/`）与视图上的比较叠加投影、比较状态（`impl/comparison/`）也在本模块内；比较品种的数据协调与 CRUD 命令留在 `engine/data/`。
 
 ## 状态
 

@@ -140,7 +140,10 @@ flowchart TB
   marker、viewport、pane、settings、chartModel、drawing、interaction、renderer、
   systemTheme 等。
 - `engine/chartModel/` 是数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源，
-  声明每个视图的渲染偏好、横向能力、市场 session 与主图系统实例，并提供周期 → 视图推导。
+  声明每个视图的渲染偏好、横向能力、市场 session 与主图系统实例，并提供周期 → 视图推导；
+  视图行为实现（`ChartModeHandler`）与视图上的比较叠加投影、比较状态也收在本模块 `impl/` 下。
+  比较品种的数据协调与 CRUD 命令仍留在 `engine/data/`，不进入 ChartModel。
+- `engine/scale/` 是坐标标度的唯一来源，分两个轴：`impl/scale_Y/` 负责纵向价格标度（价格↔Y 映射、纵向平移缩放、线性/对数/百分比），`impl/scale_X/` 负责横向槽位标度（每帧槽位中心、实体宽度、内容宽度与可滚动区间，并提供缩放与平移导航策略）。
 - 每个子状态模块对外只暴露 `readonly`（ReadonlySignal 包）+ 语义化 `actions`；
   所有写入都必须经过 action，派生状态放在 `computed()`，DOM 副作用放在 `effect()`。
 - 多字段写入通过 `batch()` 合并为一次通知周期，保证消费者读到一致快照。
@@ -164,7 +167,7 @@ flowchart TB
 
 ### 3.5 渲染管线
 
-`rendering/` 与 `engine/render/` 实现统一绘制路径。事实来源见
+`rendering/` 与 `engine/frame/` 实现统一绘制路径。事实来源见
 [docs/rendering/rendering-pipeline.md](../rendering/rendering-pipeline.md)，此处仅列要点：
 
 - `Chart.scheduleDraw(level)` → `ChartRenderer` + `FrameTransaction` 合并高频请求，
@@ -271,7 +274,7 @@ flowchart TB
 - `packages/core/src/rendering/render/rendererHost.ts`
 - `packages/core/src/rendering/scene/createScene.ts`
 - `packages/core/src/foundation/reactivity/frameTransaction.ts`
-- `packages/core/src/engine/render/chartRenderer.ts`
+- `packages/core/src/engine/frame/chartRenderer.ts`
 
 **插件与响应式**
 

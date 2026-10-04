@@ -109,7 +109,7 @@ data/
 
 ### 4. 公开入口收口
 
-`engine/drawing/index.ts` 收敛为唯一公开 barrel：只做重导出，不再承载实现。所有模块外调用点（controllers、features/agent、engine/facade、engine/state、engine/render、vue 适配层）统一从该 barrel 或 `engine/drawing/types.ts` 依赖，禁止再指向模块内部实现文件，使后续内部搬移不影响外部。
+`engine/drawing/index.ts` 收敛为唯一公开 barrel：只做重导出，不再承载实现。所有模块外调用点（controllers、features/agent、engine/facade、engine/state、engine/frame、vue 适配层）统一从该 barrel 或 `engine/drawing/types.ts` 依赖，禁止再指向模块内部实现文件，使后续内部搬移不影响外部。
 
 适配层（Vue）的绘图类型改从 `@363045841yyt/klinechart-core/controllers` 门面获取，不再从 `.../plugin` 子路径取（后者只保留 foundation 渲染原语）。
 
