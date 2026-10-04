@@ -25,6 +25,7 @@
       :value="modelValue"
       :placeholder="placeholder"
       :aria-label="ariaLabel"
+      :autofocus="autofocus"
       autocomplete="off"
       spellcheck="false"
       @input="onInput"
@@ -66,11 +67,14 @@
       ariaLabel?: string
       /** 是否在有输入内容时显示清空按钮 */
       clearable?: boolean
+      /** 挂载后是否自动聚焦内部输入框，供弹窗打开时聚焦搜索使用 */
+      autofocus?: boolean
     }>(),
     {
       placeholder: '搜索',
       ariaLabel: '搜索',
       clearable: true,
+      autofocus: false,
     },
   )
 

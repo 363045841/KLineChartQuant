@@ -17,6 +17,7 @@
             :model-value="searchQuery"
             placeholder="搜索指标名称..."
             aria-label="搜索指标"
+            autofocus
             @update:model-value="controller.setSearchQuery"
           />
           <SegmentedTabs v-model="indicatorView" :tabs="viewOptions" aria-label="指标视图" />
