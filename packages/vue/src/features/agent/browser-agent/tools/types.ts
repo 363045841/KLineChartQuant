@@ -1,6 +1,9 @@
 // 浏览器宿主的工具注册契约；实现位于 impl/，避免 Bridge 持有具体适配细节。
 
-import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+import type {
+  ChartAgentController,
+  RegisteredChartTool,
+} from '@363045841yyt/klinechart-core/controllers'
 import type { QuestionAnswerView } from '../../agent-contracts.js'
 
 /** Runtime Tool Catalog 解析工具时需要的浏览器宿主状态。 */
@@ -32,4 +35,9 @@ export interface BrowserToolRegistryDependencies {
     },
     context: BrowserQuestionContext,
   ) => Promise<QuestionAnswerView>
+  /**
+   * 额外的图表工具惰性源（外部宿主/插件经 core registerChartTool 或自持登记
+   * 均可）；每次构造 registry 时求值一次。未提供时不追加。
+   */
+  readonly extraChartTools?: () => ReadonlyArray<RegisteredChartTool>
 }

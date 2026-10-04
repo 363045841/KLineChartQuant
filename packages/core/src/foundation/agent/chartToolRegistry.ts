@@ -138,3 +138,22 @@ export function Tool<TParameters extends TSchema>(config: ChartToolConfig<TParam
 export function getRegisteredChartTools(): readonly RegisteredChartTool[] {
   return [...registeredChartTools.values()]
 }
+
+/**
+ * 编程式注册工具（无装饰器环境用）：外部宿主/插件 bundle 与 Core 不共享模块
+ * 实例时，无法经 @Tool 装饰器写入本注册表；由宿主桥接层以本函数把已构造的
+ * 工具登记转写进唯一真源。名称冲突时抛错（与装饰器语义一致）。
+ * 桥接层也可以不落本表、直接经各自动态清单消费 RegisteredChartTool——本函数
+ * 服务于"希望 Agent 会话内跨 bundle 工具可见性一致"的宿主。
+ */
+export function registerChartTool(tool: RegisteredChartTool): void {
+  if (registeredChartTools.has(tool.config.name)) {
+    throw new TypeError(`[chartToolRegistry] '${tool.config.name}' is already registered.`)
+  }
+  registeredChartTools.set(tool.config.name, tool)
+}
+
+/** 移除编程式注册的工具（宿主卸载外部工具宿主时用）；不存在时静默。 */
+export function unregisterChartTool(name: string): void {
+  registeredChartTools.delete(name)
+}

@@ -13,6 +13,7 @@ export type {
   InstrumentLookupInput,
 } from '../features/agent/index.js'
 export { getRegisteredChartTools } from '../features/agent/index.js'
+export type { RegisteredChartTool } from '../foundation/agent/chartToolRegistry.js'
 export type {
   RendererBackend,
   RendererBackendRuntime,
