@@ -328,6 +328,21 @@
     margin-left: auto;
   }
 
+  /* 截图入口只保留图标，去掉外框和默认底色，交互提示交给 hover tooltip。 */
+  .screenshot-actions :deep(.screenshot-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .screenshot-actions :deep(.screenshot-button:hover:not(:disabled)),
+  .screenshot-actions :deep(.screenshot-button[aria-expanded='true']:not(:disabled)) {
+    border-color: transparent;
+    background: var(--klc-color-ui-hover);
+  }
+
   .screenshot-button__icon {
     width: 18px;
     height: 18px;
