@@ -1,3 +1,4 @@
+<!-- 图表设置弹窗：编辑设置草稿，管理主题、配色、数据源与缓存。 -->
 <template>
   <!-- 主弹窗 -->
   <BaseModal
@@ -6,6 +7,7 @@
     subtitle="个性化配置"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
+    body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm))"
     footer-align="space-between"
     @close="closeSettings"
   >
@@ -13,7 +15,7 @@
       <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
     </template>
 
-    <div class="settings-body">
+    <div class="settings-body" :class="{ 'settings-body--style': activeSection === 'style' }">
       <template v-if="activeSection === 'main'">
         <template v-for="item in mainSettings" :key="item.key">
           <div class="settings-item">
@@ -87,7 +89,11 @@
       </template>
 
       <template v-else-if="activeSection === 'style'">
-        <ThemePresetPanel :settings="settings" @update:settings="onThemePresetChange" />
+        <ThemePresetPanel :settings="settings" @update:settings="onThemePresetChange">
+          <template #actions>
+            <ThemeModeControl v-model="settings.theme" label="明暗模式" />
+          </template>
+        </ThemePresetPanel>
         <template v-for="item in styleSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -162,7 +168,7 @@
             :title="credit.url"
           >
             <span class="credit-name">{{ credit.name }}</span>
-            <span class="credit-meta">{{ credit.version }} · {{ credit.license }}</span>
+            <span class="credit-version">{{ credit.version }} · {{ credit.license }}</span>
           </a>
         </template>
       </template>
@@ -234,6 +240,7 @@
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
+  import ThemeModeControl from './common/ThemeModeControl.vue'
   import ToggleSwitch from './common/ToggleSwitch.vue'
   import Dropdown from './Dropdown.vue'
   import ThemePresetPanel from './ThemePresetPanel.vue'
@@ -271,7 +278,10 @@
   }>()
 
   const mainSettings = computed(
-    () => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[],
+    () =>
+      DEFAULT_SETTINGS.filter(
+        (s) => s.key !== 'theme' && s.group === 'main',
+      ) as unknown as SettingItem[],
   )
 
   const localTimeZone = resolveLocalTimeZone()
@@ -296,7 +306,10 @@
     () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
   )
   const styleSettings = computed(
-    () => DEFAULT_SETTINGS.filter((s) => s.group === 'style') as unknown as SettingItem[],
+    () =>
+      DEFAULT_SETTINGS.filter(
+        (s) => s.key !== 'theme' && s.group === 'style',
+      ) as unknown as SettingItem[],
   )
   const cacheLimitOptions = [50, 100, 150, 200, 500].map((value) => ({
     value: String(value),
@@ -409,64 +422,68 @@
   .settings-body {
     display: flex;
     flex-direction: column;
+    gap: 0;
+    font-family: var(--klc-typography-font-family);
+    font-size: var(--klc-typography-font-size-md);
+    line-height: var(--klc-typography-line-height-standard);
+    color: var(--klc-color-ui-text);
   }
 
+  /* 区块只在边界留白，避免说明文字、区块 padding 与设置行 padding 叠加。 */
+  .settings-body--style > :first-child {
+    margin-block-end: var(--klc-spacing-sm);
+    /* 与设置行共用水平内边距，保持主题面板与下方设置项对齐。 */
+    padding-inline: var(--klc-spacing-sm);
+  }
+
+  /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与留白。 */
   .settings-subsection-label {
-    font-size: 11px;
-    color: #edf2f3;
-    font-weight: 500;
-    padding: 8px 12px 2px;
-    opacity: 0.85;
+    padding-block: var(--klc-spacing-sm) var(--klc-spacing-xs);
+    /* 与设置行共用水平内边距，保持分组小标题与条目对齐。 */
+    padding-inline: var(--klc-spacing-sm);
+    font-size: var(--klc-typography-font-size-md);
+    font-weight: var(--klc-typography-font-weight-bold);
+    color: var(--klc-color-ui-muted);
   }
 
-  /* 扁平化列表项 */
+  /* 设置行仅负责布局，交互状态由具体控件提供。 */
   .settings-item {
-    /* 组件库不能依赖宿主的全局 box-sizing reset，40px 包含垂直内边距。 */
+    /* 行高包含内边距，所有分组共用相同的水平对齐与垂直节奏。 */
     box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    min-height: 40px;
-    padding: var(--klc-spacing-sm) var(--klc-spacing-md);
+    gap: var(--klc-spacing-md);
+    min-block-size: 40px;
+    /* 左右内边距让文本与控件不贴住行的交互态背景边缘。 */
+    padding: var(--klc-spacing-sm);
     border-radius: 6px;
-    cursor: pointer;
-    font-size: calc(var(--klc-typography-font-size-md) + 1px);
-    font-family: var(--klc-typography-font-family);
-    color: var(--klc-color-axis-text);
-    transition: background 0.15s ease;
+    font: inherit;
+    color: inherit;
+    transition: background-color var(--klc-motion-duration-fast) ease;
   }
 
-  .settings-item:hover {
-    background: var(--klc-color-ui-hover);
+  .settings-item.nav-item:hover,
+  .settings-item.credit-item:hover {
+    background-color: var(--klc-color-ui-hover);
   }
 
   .settings-item.runtime-hint {
-    min-height: 28px;
-    padding-top: 0;
-    padding-bottom: 8px;
-    font-size: 12px;
-    color: var(--klc-color-axis-text);
-    cursor: default;
-  }
-
-  .settings-item.runtime-hint:hover {
-    background: transparent;
+    min-block-size: auto;
+    padding-block: 0 var(--klc-spacing-sm);
+    font-size: var(--klc-typography-font-size-md);
+    line-height: var(--klc-typography-line-height-standard);
+    color: var(--klc-color-ui-muted);
   }
 
   .settings-item.cache-usage {
-    cursor: default;
-    color: var(--klc-color-axis-text);
-  }
-
-  .settings-item.cache-usage:hover {
-    background: transparent;
+    color: var(--klc-color-ui-muted);
   }
 
   .cache-usage__value {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--klc-spacing-sm);
     white-space: nowrap;
   }
 
@@ -474,53 +491,61 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-inline-size: 28px;
+    min-block-size: 28px;
     padding: 0;
     border: 0;
-    color: var(--klc-color-axis-text);
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
     background: none;
     cursor: pointer;
-    transition: color 0.15s ease;
+    transition: color var(--klc-motion-duration-fast) ease;
   }
 
   .cache-clear-btn:hover {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-text);
+  }
+
+  .cache-clear-btn:focus-visible,
+  .settings-item.credit-item:focus-visible {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: 2px;
   }
 
   .cache-clear-btn svg {
-    width: 16px;
-    height: 16px;
+    inline-size: 16px;
+    block-size: 16px;
   }
 
-  a.settings-item.credit-item {
+  .settings-item.credit-item {
+    /* 纯文本条目用 32px 的紧凑行高，比控件行的 40px 更紧凑但不过密。 */
+    min-block-size: 32px;
+    padding-block: var(--klc-spacing-xs);
     cursor: pointer;
-    min-height: 32px;
-    padding: 6px 12px;
     text-decoration: none;
-    color: var(--klc-color-axis-text);
+    /* 包名与版本号属于代码类内容，使用等宽字体。 */
+    font-family: var(--klc-typography-font-family-mono);
   }
 
-  a.settings-item.credit-item:hover {
-    background: var(--klc-color-ui-hover);
-  }
-
+  /* 包名继承致谢条目的等宽字体，不再单独声明字体栈。 */
   .credit-name {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    min-inline-size: 0;
+    font-size: var(--klc-typography-font-size-md);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .credit-meta {
+  .credit-version {
     flex: 0 0 auto;
-    font-size: 11px;
-    color: var(--klc-color-axis-text);
+    font-size: var(--klc-typography-font-size-md);
+    color: var(--klc-color-ui-muted);
     white-space: nowrap;
   }
 
   .settings-item > span {
-    min-width: 0;
-    line-height: 1.4;
+    min-inline-size: 0;
+    line-height: var(--klc-typography-line-height-standard);
   }
 
   /* 导航项交互优化 */
@@ -529,38 +554,34 @@
   }
 
   .nav-arrow {
-    color: var(--klc-color-axis-text);
-    transition:
-      transform 0.15s,
-      color 0.15s;
+    color: var(--klc-color-ui-muted);
+    transition: transform var(--klc-motion-duration-fast) ease;
     flex-shrink: 0;
   }
 
   .settings-item.nav-item:hover .nav-arrow {
-    color: var(--klc-color-axis-text);
     transform: translateX(2px);
   }
 
   /* 底部按钮 */
   .footer-right {
     display: flex;
-    gap: 8px;
+    gap: var(--klc-spacing-sm);
     justify-content: flex-end;
   }
 
   @media (max-width: 480px) {
     .settings-item {
-      gap: 8px;
+      gap: var(--klc-spacing-sm);
     }
 
-    .footer-right {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      width: 100%;
-    }
+  }
 
-    .base-button {
-      width: 100%;
+  @media (prefers-reduced-motion: reduce) {
+    .settings-item,
+    .cache-clear-btn,
+    .nav-arrow {
+      transition: none;
     }
   }
 </style>

@@ -441,8 +441,8 @@ export interface SpacingTokens {
  * Typography stack. Renderers compose a font shorthand from these.
  */
 export interface TypographyTokens {
-  readonly fontFamily: string // Includes fallbacks
-  readonly fontFamilyMono: string // For numeric tick labels
+  readonly fontFamily: string // 'inherit' to follow the host page, or an explicit stack
+  readonly fontFamilyMono: string // JetBrains Mono first, for code / numeric content
   readonly fontSizeSm: CssLength // '10px' (axis ticks)
   readonly fontSizeMd: CssLength // '12px' (default body)
   readonly fontSizeLg: CssLength // '14px' (legends)

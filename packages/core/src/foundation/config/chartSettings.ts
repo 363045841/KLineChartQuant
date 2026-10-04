@@ -189,7 +189,7 @@ export const DEFAULT_SETTINGS = [
     label: '明暗模式',
     type: 'select',
     default: 'dark',
-    group: 'main',
+    group: 'style',
     options: [
       { value: 'light', label: '浅色' },
       { value: 'dark', label: '深色' },

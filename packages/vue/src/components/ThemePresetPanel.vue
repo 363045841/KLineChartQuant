@@ -1,7 +1,10 @@
 <!-- 五种独立视觉风格，卡片和实际图表共用 Core Token。 -->
 <template>
   <section class="theme-presets" aria-label="主题预设">
-    <div class="theme-presets__heading">主题预设</div>
+    <div class="theme-presets__heading">
+      <span>主题预设</span>
+      <slot name="actions" />
+    </div>
     <div class="theme-presets__grid">
       <button
         v-for="preset in presets"
@@ -15,7 +18,9 @@
         <span class="theme-preset__sample" aria-hidden="true">
           <span class="theme-preset__accent"></span>
           <span class="theme-preset__line"></span>
-          <span class="theme-preset__check">{{ isSelected(preset) ? '✓' : '' }}</span>
+          <span class="theme-preset__choose">
+            <IconTablerCheck v-if="isSelected(preset)" />
+          </span>
         </span>
         <strong>{{ preset.label }}</strong>
         <span class="theme-preset__description">{{ preset.description }}</span>
@@ -27,6 +32,7 @@
 
 <script setup lang="ts">
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import IconTablerCheck from '~icons/tabler/check'
   import { useThemePresets } from '../composables/useThemePresets.js'
 
   const props = defineProps<{ settings: ChartSettings }>()
@@ -39,11 +45,18 @@
 
 <style scoped>
   .theme-presets {
-    padding: var(--klc-spacing-sm) var(--klc-spacing-md) var(--klc-spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--klc-spacing-md);
+    min-inline-size: 0;
   }
 
   .theme-presets__heading {
-    margin-bottom: var(--klc-spacing-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--klc-spacing-sm);
+    min-block-size: 32px;
     font-size: var(--klc-typography-font-size-md);
     font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-text);
@@ -56,10 +69,11 @@
   }
 
   .theme-preset {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: var(--klc-spacing-xs);
-    min-width: 0;
+    gap: var(--klc-spacing-sm);
+    min-inline-size: 0;
     padding: var(--klc-spacing-md);
     /* 卡片边框跟随所选预设的界面边框色，不用强调色描边。 */
     border: 1px solid var(--preset-border);
@@ -69,6 +83,7 @@
     text-align: left;
     cursor: pointer;
     font: inherit;
+    line-height: var(--klc-typography-line-height-standard);
   }
 
   /* 选中态只靠勾选标记区分；键盘聚焦保留无障碍焦点环。 */
@@ -85,38 +100,44 @@
     display: flex;
     align-items: center;
     gap: var(--klc-spacing-sm);
-    height: var(--klc-spacing-xl);
-    margin-bottom: var(--klc-spacing-xs);
+    block-size: var(--klc-spacing-xl);
     font-size: var(--klc-typography-font-size-md);
     font-weight: var(--klc-typography-font-weight-bold);
   }
 
   .theme-preset__accent {
-    width: var(--klc-spacing-xl);
-    height: var(--klc-spacing-lg);
+    inline-size: var(--klc-spacing-xl);
+    block-size: var(--klc-spacing-lg);
     border-radius: 4px;
     background: var(--preset-accent);
   }
 
   .theme-preset__line {
-    width: var(--klc-spacing-xxl);
-    height: 2px;
+    inline-size: var(--klc-spacing-xxl);
+    block-size: 2px;
     background: var(--preset-indicator);
   }
 
-  .theme-preset__check {
-    margin-left: auto;
+  .theme-preset__choose {
+    display: inline-flex;
+    margin-inline-start: auto;
     color: var(--preset-accent);
+  }
+
+  .theme-preset__choose svg {
+    inline-size: var(--klc-spacing-lg);
+    block-size: var(--klc-spacing-lg);
   }
 
   .theme-preset__description {
     color: var(--preset-muted);
     font-size: var(--klc-typography-font-size-sm);
     line-height: var(--klc-typography-line-height-standard);
+    text-align: start;
   }
 
   .theme-presets__hint {
-    margin: var(--klc-spacing-sm) 0 0;
+    margin: 0;
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-typography-font-size-sm);
     line-height: var(--klc-typography-line-height-standard);
