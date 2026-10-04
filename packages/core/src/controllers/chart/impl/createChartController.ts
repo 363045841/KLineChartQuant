@@ -186,6 +186,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, isDisposed)
+  // Agent 工具宿主：经 registerToolHost/unregisterToolHost 动态增删，
+  // 供外部宿主（插件等）把 @Tool 标注的领域方法暴露给 Agent runtime
+  const extraToolHosts: object[] = []
 
   const agent = createChartAgentController({
     chartId: generateUUID(),
@@ -205,6 +208,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
+    extraToolHosts: () => extraToolHosts,
     resolveSubPaneIndicatorId: (indicatorId) =>
       getRegisteredIndicatorDefinition(indicatorId)?.displayName ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
@@ -267,6 +271,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     ...dataMethods.methods,
     ...chartMethods,
     ...drawingMethods,
+    // Agent 工具宿主注册（@Tool 方法归属解析；幂等去重）
+    registerToolHost: (host) => {
+      if (!extraToolHosts.includes(host)) extraToolHosts.push(host)
+    },
+    unregisterToolHost: (host) => {
+      const index = extraToolHosts.indexOf(host)
+      if (index >= 0) extraToolHosts.splice(index, 1)
+    },
     dispose,
   }
 }
