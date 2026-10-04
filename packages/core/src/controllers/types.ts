@@ -13,8 +13,7 @@ import type {
   InstrumentCapabilities,
   InstrumentDescriptor,
 } from '../data/provider/types.js'
-import type { InteractionSnapshot } from '../engine/chart.js'
-import type { PaneSpec } from '../engine/chartTypes.js'
+import type { InteractionSnapshot } from '../engine/chart/index.js'
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
@@ -28,7 +27,7 @@ import type {
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
-import type { CreatePaneInput, PanePatch } from '../engine/paneManager.js'
+import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'

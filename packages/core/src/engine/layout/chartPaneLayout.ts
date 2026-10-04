@@ -1,7 +1,8 @@
 import type { PaneRole } from '../../foundation/plugin/index.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
-import type { ChartDom, PaneSpec, Viewport } from '../chartTypes.js'
-import { PaneRenderer } from '../paneRenderer.js'
+import type { ChartDom, Viewport } from '../chart/index.js'
+import { PaneRenderer } from '../pane/index.js'
+import type { PaneSpec } from '../pane/types.js'
 import type { PaneStateModule } from '../state/paneState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 

@@ -7,7 +7,7 @@ import {
   type SymbolSpec,
   TIME_SHARE_PERIOD,
 } from '@/controllers/types'
-import { Chart, type ChartOptions } from '@/core/chart'
+import { Chart, type ChartOptions } from '@/core/chart/index'
 import {
   createChartDom,
   installChartDomStubs,
@@ -22,7 +22,7 @@ import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/help
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { MAIN_PANE_ID } from '../paneIds'
+import { MAIN_PANE_ID } from '../pane/index'
 
 const defaultOptions: ChartOptions = {
   kWidth: 10,

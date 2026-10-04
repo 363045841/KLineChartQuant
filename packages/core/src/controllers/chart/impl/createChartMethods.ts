@@ -5,12 +5,12 @@
  * 由 createChartController 展开（spread）合并进最终 controller 返回值。
  */
 
-import type { Chart } from '@/engine/chart.js'
+import type { Chart } from '@/engine/chart/index.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import type { CustomMarkerEntity } from '@/engine/marker/registry.js'
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
-import type { CreatePaneInput, PanePatch } from '@/engine/paneManager.js'
-import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
+import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
+import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'

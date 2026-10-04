@@ -3,8 +3,8 @@ import type { RenderContext } from '../../foundation/plugin/index'
 import type { Layer } from '../../rendering/scene/types'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
+import { type SubPaneContext, SubPaneManager } from '../pane/index'
 import type { SubPaneSpec } from '../state/indicatorState'
-import { type SubPaneContext, SubPaneManager } from '../subPaneManager'
 import { createRendererLayerStore } from './helpers/rendererLayerStoreTestKit'
 
 beforeAll(async () => {

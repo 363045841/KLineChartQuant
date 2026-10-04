@@ -23,8 +23,8 @@ import {
 } from '../../../foundation/utils/dateFormat.js'
 import { createScene } from '../../../rendering/scene/createScene.js'
 import type { FramePaint, Layer, LayerRole, Scene } from '../../../rendering/scene/types.js'
+import type { KLinePositions, Viewport } from '../../chart/index.js'
 import { ChartDataViewId } from '../../chartModel/index.js'
-import type { KLinePositions, Viewport } from '../../chartTypes.js'
 import {
   createDrawingLayer,
   createDrawingSessionLayer,
@@ -42,7 +42,7 @@ import {
 import type { VisibleRange } from '../../layout/pane.js'
 import { UpdateLevel } from '../../layout/pane.js'
 import { MarkerManager } from '../../marker/registry.js'
-import { PaneRenderer } from '../../paneRenderer.js'
+import type { PaneRenderer } from '../../pane/index.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
 import { createCrosshairLayer } from '../../renderers/crosshair.js'

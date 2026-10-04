@@ -1,8 +1,7 @@
 /** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 
-export { PANE_HEADER_INSET_PX } from '../engine/chartTypes.js'
-export { MAIN_PANE_ID } from '../engine/paneIds.js'
+export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
 export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,

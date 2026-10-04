@@ -2,7 +2,7 @@
 
 import { ScaleType } from '../../foundation/types/scaleType.js'
 import type { ChartWorkspaceId } from '../chartModel/index.js'
-import type { PaneSpec } from '../chartTypes.js'
+import type { PaneSpec } from '../pane/types.js'
 import type { IndicatorInstanceInput } from './indicatorState.js'
 
 /** 单个视图工作区中需要跨会话恢复的用户配置。 */

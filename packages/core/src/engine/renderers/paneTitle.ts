@@ -4,9 +4,9 @@ import { RENDERER_PRIORITY, type RenderContext } from '../../foundation/plugin/i
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { PANE_HEADER_INSET_PX } from '../chartTypes.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../indicators/indicatorMetadata.js'
+import { PANE_HEADER_INSET_PX } from '../pane/types.js'
 import type { SubIndicatorType } from './Indicator/index.js'
 import { resolveLegendValueIndex } from './legend/impl/resolveLegendValueIndex.js'
 

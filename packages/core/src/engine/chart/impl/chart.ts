@@ -13,40 +13,44 @@
 import {
   CHART_RENDERERS_SERVICE,
   type ChartRendererAccess,
-} from '../controllers/renderers/index.js'
+} from '../../../controllers/renderers/index.js'
 import {
   type CustomDataSource,
   isTimeSharePeriod,
   type SymbolInfo,
   type SymbolSpec,
   TIME_SHARE_PERIOD,
-} from '../controllers/types.js'
-import type { DataBuffer } from '../data/buffer/impl/dataBuffer.js'
-import type { MarketDataCache } from '../data/buffer/impl/marketDataCache.js'
-import { resolveMarketDataCacheMaxBytes } from '../data/buffer/impl/marketDataPolicy.js'
-import { lookupInstrumentsBySymbol } from '../data/provider/impl/instrumentSearch.js'
-import { marketDataProviderRegistry } from '../data/provider/impl/registry.js'
-import { AUTO_SOURCE_ID } from '../data/provider/types.js'
-import { createAlertController } from '../features/alerts/impl/createAlertController.js'
+} from '../../../controllers/types.js'
+import type { DataBuffer } from '../../../data/buffer/impl/dataBuffer.js'
+import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
+import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
+import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
+import { marketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
+import { AUTO_SOURCE_ID } from '../../../data/provider/types.js'
+import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
 import {
   createVolumeLookbacks,
   pushToVolumeLookbacks,
   type VolumeLookbacks,
-} from '../features/alerts/impl/rollingVolume.js'
-import type { AlertController, MarketSnapshot } from '../features/alerts/types.js'
+} from '../../../features/alerts/impl/rollingVolume.js'
+import type { AlertController, MarketSnapshot } from '../../../features/alerts/types.js'
 import {
   buildPaneScaleTypesFromSetting,
   type ChartSettings,
   resolvePriceScaleTypeSetting,
-} from '../foundation/config/chartSettings.js'
-import { MarketSessionRegistry } from '../foundation/config/marketSession/marketSessionRegistry.js'
-import { resolveSymbolMarketSession } from '../foundation/config/marketSession/resolveSymbolMarketSession.js'
+} from '../../../foundation/config/chartSettings.js'
+import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
+import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
-} from '../foundation/config/priceAxisRangeMode.js'
-import type { RenderContext } from '../foundation/plugin/index.js'
-import { createPluginHost, type PluginHostImpl, wrapPaneInfo } from '../foundation/plugin/index.js'
+} from '../../../foundation/config/priceAxisRangeMode.js'
+import type { RenderContext } from '../../../foundation/plugin/index.js'
+import {
+  createPluginHost,
+  type PluginHostImpl,
+  wrapPaneInfo,
+} from '../../../foundation/plugin/index.js'
 import {
   batch,
   createSignal,
@@ -54,18 +58,18 @@ import {
   type ReadonlySignal,
   type Signal,
   type WritableSignal,
-} from '../foundation/reactivity/signal.js'
-import { getFont } from '../foundation/tokens/fonts.js'
-import type { KLineData, TimeShareData } from '../foundation/types/price.js'
-import { AXIS_TYPE_NONE, ScaleType } from '../foundation/types/scaleType.js'
-import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels.js'
+} from '../../../foundation/reactivity/signal.js'
+import { getFont } from '../../../foundation/tokens/fonts.js'
+import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
+import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.js'
+import type { MarketSessionConfig } from '../../../foundation/utils/sessionTimeLabels.js'
 import {
   createDefaultRendererHostSync,
   getVisibleCanvas,
   type RendererBackend,
   type RendererHost,
-} from '../rendering/render/index.js'
-import type { Layer } from '../rendering/scene/types.js'
+} from '../../../rendering/render/index.js'
+import type { Layer } from '../../../rendering/scene/types.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -74,68 +78,67 @@ import {
   KLineMode,
   resolveChartDataView,
   TimeShareMode,
-} from './chartModel/index.js'
-import type {
-  ChartDom,
-  ChartOptions,
-  IndicatorInstance,
-  PaneSpec,
-  SubPaneInfo,
-  Viewport,
-  ViewportState,
-} from './chartTypes.js'
-import { InteractionController, type InteractionSnapshot } from './controller/interaction.js'
+} from '../../chartModel/index.js'
+import { InteractionController, type InteractionSnapshot } from '../../controller/interaction.js'
 // ===== 普通 imports，按路径字母排序 =====
-import { ChartDataManager } from './data/chartDataManager.js'
-import { ComparisonCommands } from './data/comparisonCommands.js'
-import { symbolInfoFromSpec } from './data/symbolInfo.js'
+import { ChartDataManager } from '../../data/chartDataManager.js'
+import { ComparisonCommands } from '../../data/comparisonCommands.js'
+import { symbolInfoFromSpec } from '../../data/symbolInfo.js'
 import {
   DrawingCommands,
   DrawingDocument,
   type DrawingInteractionController,
   type DrawingToolId,
   resolveDrawingTradingDate,
-} from './drawing/index.js'
-import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
-import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
-import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
-import { ChartPaneFacade } from './facade/chartPaneFacade.js'
-import { ChartThemeFacade } from './facade/chartThemeFacade.js'
-import { ChartZoomFacade } from './facade/chartZoomFacade.js'
-import { ChartRenderer, mergeUpdateLevel } from './frame/index.js'
-import { ChartIndicatorManager } from './indicators/chartIndicatorManager.js'
-import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
-import { ChartPaneLayout } from './layout/chartPaneLayout.js'
-import { UpdateLevel } from './layout/pane.js'
-import type { CustomMarkerEntity, MarkerManager } from './marker/registry.js'
-import { MAIN_PANE_ID } from './paneIds.js'
-import { PaneRenderer } from './paneRenderer.js'
-import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegend/types.js'
-import { createLegendDomRenderer } from './renderers/legend/impl/createLegendDomRenderer.js'
-import { ChartStateKernel } from './state/chartStateKernel.js'
-import type { RangeSelectionState } from './state/interactionState.js'
+} from '../../drawing/index.js'
+import { ChartDrawingFacade } from '../../facade/chartDrawingFacade.js'
+import { ChartIndicatorFacade } from '../../facade/chartIndicatorFacade.js'
+import { ChartMarkerFacade } from '../../facade/chartMarkerFacade.js'
+import { ChartPaneFacade } from '../../facade/chartPaneFacade.js'
+import { ChartThemeFacade } from '../../facade/chartThemeFacade.js'
+import { ChartZoomFacade } from '../../facade/chartZoomFacade.js'
+import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
+import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { ChartPaneLayout } from '../../layout/chartPaneLayout.js'
+import { UpdateLevel } from '../../layout/pane.js'
+import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
+import type { PaneRenderer } from '../../pane/index.js'
+import type { PaneSpec } from '../../pane/types.js'
+import { MAIN_PANE_ID } from '../../pane/types.js'
+import type { LegendTemplateContext } from '../../renderers/Indicator/mainIndicatorLegend/types.js'
+import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
+import { ChartStateKernel } from '../../state/chartStateKernel.js'
+import type { RangeSelectionState } from '../../state/interactionState.js'
 import type {
   PanePriceAxisModePersistence,
   PanePriceAxisModesSnapshot,
-} from './state/mainPriceAxisState.js'
-import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
-import { ChartZoomController } from './utils/chartZoomController.js'
-import { getPhysicalKLineConfig } from './utils/klineConfig.js'
-import { ChartViewportManager } from './viewport/chartViewportManager.js'
-import { ViewportScrollBridge } from './viewport/viewportScrollBridge.js'
+} from '../../state/mainPriceAxisState.js'
+import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from '../../state/viewWorkspace.js'
+import { ChartZoomController } from '../../utils/chartZoomController.js'
+import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
+import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
+import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
+import type {
+  ChartDom,
+  ChartOptions,
+  IndicatorInstance,
+  SubPaneInfo,
+  Viewport,
+  ViewportState,
+} from '../types.js'
 
+export type { PaneRendererDom, PaneSpec } from '../../pane/types.js'
 export type {
   ChartDom,
   ChartOptions,
   IndicatorInstance,
   IndicatorRole,
   KLinePositions,
-  PaneRendererDom,
-  PaneSpec,
   SubPaneInfo,
   Viewport,
   ViewportState,
-} from './chartTypes.js'
+} from '../types.js'
 export type { InteractionSnapshot }
 // ===== 重新导出 =====
 export { getPhysicalKLineConfig }
@@ -233,7 +236,7 @@ export class Chart {
   private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
     createSignal<LegendTemplateContext | null>(null)
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
-  private readonly legendDom: import('./renderers/legend/types.js').LegendDomRenderer
+  private readonly legendDom: import('../../renderers/legend/types.js').LegendDomRenderer
 
   /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
   private drawingSession: DrawingInteractionController | null = null
@@ -273,7 +276,7 @@ export class Chart {
       initialPanePriceAxisModes?: PanePriceAxisModesSnapshot
       marketSessions?: Readonly<Record<string, MarketSessionConfig>>
       /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
-      clock?: import('../foundation/utils/clock.js').Clock
+      clock?: import('../../../foundation/utils/clock.js').Clock
     },
   ) {
     this.dom = dom
@@ -1782,4 +1785,4 @@ export class Chart {
    */
 }
 
-import { DEFAULT_ZOOM_LEVEL_COUNT } from './utils/zoom.js'
+import { DEFAULT_ZOOM_LEVEL_COUNT } from '../../utils/zoom.js'

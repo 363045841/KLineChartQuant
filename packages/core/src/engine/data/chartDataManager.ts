@@ -48,13 +48,13 @@ import {
 import { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import type { ChartDom } from '../chart/index.js'
 import type { ComparisonStateModule } from '../chartModel/index.js'
 import {
   ChartDataViewId,
   type ComparisonProjection,
   projectComparison,
 } from '../chartModel/index.js'
-import type { ChartDom } from '../chartTypes.js'
 import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
 import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'

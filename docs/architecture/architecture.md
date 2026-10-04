@@ -121,7 +121,7 @@ flowchart TB
 
 ### 3.2 Chart（引擎门面）
 
-`engine/chart.ts` 是引擎的组合根，负责装配：
+`engine/chart/impl/chart.ts` 是引擎的组合根，负责装配：
 
 - `ChartStateKernel`：业务状态单一事实源。
 - `ChartViewportManager`：ResizeObserver 与滚动 DOM 适配。
@@ -253,7 +253,7 @@ flowchart TB
 **控制器与门面**
 
 - `packages/core/src/controllers/createChartController.ts`
-- `packages/core/src/engine/chart.ts`
+- `packages/core/src/engine/chart/impl/chart.ts`
 
 **状态内核**
 

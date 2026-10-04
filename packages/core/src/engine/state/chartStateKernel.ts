@@ -24,13 +24,13 @@ import {
   isTimeShareDataView,
   resolveChartWorkspaceId,
 } from '../chartModel/index.js'
-import type { PaneSpec } from '../chartTypes.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
-import { PaneManager } from '../paneManager.js'
+import { PaneManager } from '../pane/index.js'
+import type { PaneSpec } from '../pane/types.js'
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'

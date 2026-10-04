@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Pane } from '@/core/layout/pane'
-import { PaneRenderer } from '@/core/paneRenderer'
+import { PaneRenderer } from '@/core/pane/index'
 
 /** 构造含左右轴的真实 DOM 画布。 */
 function createDom() {

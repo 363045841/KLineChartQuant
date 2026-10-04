@@ -8,7 +8,7 @@ import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
 import settings from '@iconify-icons/tabler/settings'
 import x from '@iconify-icons/tabler/x'
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { FONT_FAMILY } from '@/foundation/tokens/fonts.js'
 import {
   LEGEND_ACTION_EVENT,

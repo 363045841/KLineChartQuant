@@ -4,7 +4,7 @@ import {
   type PriceAxisRangeMode,
 } from '../../foundation/config/priceAxisRangeMode.js'
 import { computed, createSubState } from '../../foundation/reactivity/signal.js'
-import { MAIN_PANE_ID } from '../paneIds.js'
+import { MAIN_PANE_ID } from '../pane/types.js'
 import type { PriceRange } from '../scale/index.js'
 
 export interface PanePriceAxisRange {

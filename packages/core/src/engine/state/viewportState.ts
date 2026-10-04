@@ -11,7 +11,7 @@ import {
 import { type ChartDataView, ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
-import type { Viewport, ViewportState } from '../chartTypes.js'
+import type { Viewport, ViewportState } from '../chart/index.js'
 import type { VisibleRange } from '../layout/pane.js'
 import { SCALE_X_STRATEGIES, type ScaleXInput } from '../scale/index.js'
 

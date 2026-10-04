@@ -1,24 +1,5 @@
 /** 管理单个 Pane 的画布尺寸、上下文和运行时状态。 */
-import type { PaneRendererDom } from './chartTypes.js'
-
-export type { PaneRendererDom }
-
-export type PaneRendererContexts = {
-  mainCtx: CanvasRenderingContext2D | null
-  drawingCtx: CanvasRenderingContext2D | null
-  overlayCtx: CanvasRenderingContext2D | null
-  yAxisCtx: CanvasRenderingContext2D | null
-  yAxisOverlayCtx: CanvasRenderingContext2D | null
-  leftAxisCtx: CanvasRenderingContext2D | null
-  leftAxisOverlayCtx: CanvasRenderingContext2D | null
-}
-
-export type PaneRendererOptions = {
-  rightAxisWidth: number
-  leftAxisWidth: number
-  yPaddingPx: number
-  priceLabelWidth?: number
-}
+import type { PaneRendererContexts, PaneRendererDom, PaneRendererOptions } from '../types.js'
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
    管理 main/drawing/overlay/yAxis/yAxisOverlay canvas，价格轴与左右摆放位置无关
@@ -27,13 +8,13 @@ export type PaneRendererOptions = {
    GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
 export class PaneRenderer {
   private dom: PaneRendererDom
-  private pane: import('./layout/pane.js').Pane
+  private pane: import('../../layout/pane.js').Pane
   private opt: PaneRendererOptions
   private contexts: PaneRendererContexts | null = null
 
   constructor(
     dom: PaneRendererDom,
-    pane: import('./layout/pane.js').Pane,
+    pane: import('../../layout/pane.js').Pane,
     opt: PaneRendererOptions,
   ) {
     this.dom = dom
@@ -45,7 +26,7 @@ export class PaneRenderer {
   }
 
   /** 获取关联的 Pane 实例 */
-  getPane(): import('./layout/pane.js').Pane {
+  getPane(): import('../../layout/pane.js').Pane {
     return this.pane
   }
 

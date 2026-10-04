@@ -1,4 +1,4 @@
-import type { ChartDom } from '../chartTypes.js'
+import type { ChartDom } from '../chart/index.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 

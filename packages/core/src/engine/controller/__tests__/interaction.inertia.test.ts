@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Chart } from '../../chart'
+import type { Chart } from '../../chart/index'
 import { InteractionController } from '../interaction'
 import {
   createChartStub,

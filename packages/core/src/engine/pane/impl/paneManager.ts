@@ -1,21 +1,8 @@
 /** PaneManager 统一管理 pane 布局与副图内容的原子领域变更。 */
-import { batch } from '../foundation/reactivity/signal.js'
-import { generateUUID } from '../foundation/utils/uuid.js'
-import type { PaneSpec } from './chartTypes.js'
-import type { IndicatorStateModule, SubPaneInput } from './state/indicatorState.js'
-import type { PaneStateModule } from './state/paneState.js'
-
-/** 可由用户界面和 Agent 共同提交的 pane 可更新字段。 */
-export type PanePatch = Partial<Omit<PaneSpec, 'id'>>
-
-/** PaneManager 的领域依赖，仅依赖业务状态而不依赖 DOM 或 renderer。 */
-export interface PaneManagerDependencies {
-  readonly pane: PaneStateModule
-  readonly indicator: IndicatorStateModule
-}
-
-/** 创建副图 pane 所需的内容；实例身份由 PaneManager 生成。 */
-export type CreatePaneInput = Omit<SubPaneInput, 'instanceId' | 'ordinal'>
+import { batch } from '../../../foundation/reactivity/signal.js'
+import { generateUUID } from '../../../foundation/utils/uuid.js'
+import type { SubPaneInput } from '../../state/indicatorState.js'
+import type { CreatePaneInput, PaneManagerDependencies, PanePatch, PaneSpec } from '../types.js'
 
 /**
  * 收敛 pane 领域写入，保证副图 pane 与对应 indicator instance 同批发布。

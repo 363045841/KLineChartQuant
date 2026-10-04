@@ -1,6 +1,6 @@
 import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import { MAIN_PANE_ID } from '../paneIds.js'
+import { MAIN_PANE_ID } from '../pane/types.js'
 import { type PriceRange, PriceScale } from '../scale/index.js'
 import { getVisiblePriceRange } from '../viewport/viewport.js'
 

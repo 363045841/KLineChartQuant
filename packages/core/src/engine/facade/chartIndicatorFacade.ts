@@ -2,7 +2,7 @@
  * ChartIndicatorFacade —— 指标实例与主图指标的公开操作。
  */
 import type { Computed } from '../../foundation/reactivity/signal.js'
-import type { IndicatorInstance, SubPaneInfo } from '../chartTypes.js'
+import type { IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import type { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
 
 /** Indicator Facade 所需依赖。 */

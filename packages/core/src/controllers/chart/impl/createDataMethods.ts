@@ -9,7 +9,7 @@
 import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
 import { BarsLiveSubscription } from '@/data/live/impl/barsLive.js'
 import { ORIGINAL_BAR_AGGREGATION } from '@/data/provider/types.js'
-import type { Chart } from '@/engine/chart.js'
+import type { Chart } from '@/engine/chart/index.js'
 import type { CustomDataSource, KLineData, SymbolInfo, SymbolSpec } from '../types.js'
 
 /**

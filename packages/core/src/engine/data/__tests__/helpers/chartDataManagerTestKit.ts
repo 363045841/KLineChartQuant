@@ -18,8 +18,8 @@ import type {
   OlderDataStatus,
   TimeShareRange,
 } from '@/data/provider/types'
+import type { ChartDom } from '@/engine/chart/index'
 import { createComparisonState } from '@/engine/chartModel'
-import type { ChartDom } from '@/engine/chartTypes'
 import { ChartDataManager, type DataDependencies } from '@/engine/data/chartDataManager'
 import {
   createDataManagerState,

@@ -7,7 +7,7 @@
  */
 import { vi } from 'vitest'
 
-import type { ChartDom } from '@/core/chart'
+import type { ChartDom } from '@/core/chart/index'
 
 import { createMockCanvasContext } from './renderTestKit'
 

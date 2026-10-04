@@ -1,15 +1,15 @@
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
-import { Chart } from '@/engine/chart.js'
 import type {
   ChartOptions,
   IndicatorInstance as LegacyIndicatorInstance,
   SubPaneInfo as LegacySubPaneInfo,
   ViewportState as LegacyViewportState,
-} from '@/engine/chartTypes.js'
+} from '@/engine/chart/index.js'
+import { Chart } from '@/engine/chart/index.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
-import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
+import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'

@@ -1,33 +1,13 @@
-import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors.js'
-import { makePluginLayerId } from '../foundation/plugin/impl/rendererLayerId.js'
-import type { RenderContext } from '../foundation/plugin/index.js'
-import type { Layer } from '../rendering/scene/types.js'
-import { getRegisteredIndicatorDefinition } from './indicators/indicatorDefinitionRegistry.js'
-import { createIndicatorLayer } from './renderers/Indicator/factory.js'
-import { findIndicator } from './renderers/Indicator/indicatorCatalog.js'
-import { createIndicatorScaleLayer } from './renderers/Indicator/scale/indicator_scale.js'
-import { createPaneTitleRendererLayer } from './renderers/paneTitle.js'
-import type { SubPaneSpec } from './state/indicatorState.js'
-
-export interface SubPaneResources {
-  readonly paneId: string
-  readonly indicatorId: string
-  readonly rendererName: string
-  readonly scaleRendererName: string
-  readonly paneTitleRendererName: string
-  readonly layerId: string
-  readonly scaleLayerId: string
-  readonly paneTitleLayerId: string
-}
-
-export interface SubPaneEntry extends SubPaneSpec {
-  readonly rendererName?: string
-  readonly scaleRendererName?: string
-  readonly paneTitleRendererName?: string
-  readonly layerId?: string
-  readonly scaleLayerId?: string
-  readonly paneTitleLayerId?: string
-}
+import { KLineChartError, SUBPANE_ERROR_CODES } from '../../../errors.js'
+import { makePluginLayerId } from '../../../foundation/plugin/impl/rendererLayerId.js'
+import type { Layer } from '../../../rendering/scene/types.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { createIndicatorLayer } from '../../renderers/Indicator/factory.js'
+import { findIndicator } from '../../renderers/Indicator/indicatorCatalog.js'
+import { createIndicatorScaleLayer } from '../../renderers/Indicator/scale/indicator_scale.js'
+import { createPaneTitleRendererLayer } from '../../renderers/paneTitle.js'
+import type { SubPaneSpec } from '../../state/indicatorState.js'
+import type { SubPaneContext, SubPaneResources } from '../types.js'
 
 type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources
 type MountedSubPaneResources = SubPaneResources & {
@@ -38,7 +18,7 @@ type MountedSubPaneResources = SubPaneResources & {
 
 /** 判断指标定义是否拥有副图投影所需的完整 renderer 元数据。 */
 export function hasSubPaneRendererMetadata(
-  definition: import('./indicators/indicatorMetadata.js').IndicatorMetadata,
+  definition: import('../../indicators/indicatorMetadata.js').IndicatorMetadata,
   paneId: string,
   indicatorId: string,
 ): boolean {
@@ -51,22 +31,6 @@ export function hasSubPaneRendererMetadata(
   } catch {
     return false
   }
-}
-
-export interface SubPaneContext {
-  /** 副图增删改后通知实例链路重建渲染投影。 */
-  onPaneProjectionChanged: () => void
-  getRenderer: (id: string) => Layer<RenderContext> | undefined
-  useRenderer: (layer: Layer<RenderContext>) => void
-  removeRenderer: (id: string) => void
-  getOption: () => {
-    rightAxisWidth: number
-    priceLabelWidth?: number
-    yPaddingPx: number
-  }
-  getCrosshairPos: () => { x: number; y: number } | null
-  getCrosshairPrice: () => number | null
-  getActivePaneId: () => string | null
 }
 
 function stableConfig(value: unknown): string {

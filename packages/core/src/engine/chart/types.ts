@@ -1,8 +1,5 @@
-/** 图表布局、分层画布与视口的公共类型契约。 */
-import type { PaneCapabilities, PaneRole } from '../foundation/plugin/index.js'
-
-/** Pane 左上角标题与右上角操作控件共用的逻辑像素内边距。 */
-export const PANE_HEADER_INSET_PX = 12
+/** chart 模块对外契约：图表装配层所需的 DOM、选项、视口与指标实例类型。 */
+import type { PaneSpec } from '../pane/types.js'
 
 export type ChartDom = {
   container: HTMLDivElement
@@ -11,27 +8,6 @@ export type ChartDom = {
   rightAxisLayer: HTMLDivElement
   leftAxisLayer?: HTMLDivElement
   xAxisCanvas: HTMLCanvasElement
-}
-
-export type PaneSpec = {
-  id: string
-  ratio: number
-  visible?: boolean
-  minHeightPx?: number
-  role?: PaneRole
-  capabilities?: Partial<PaneCapabilities>
-}
-
-export type PaneRendererDom = {
-  mainCanvas: HTMLCanvasElement
-  /** 正式图元独立表面；拖拽和预览使用 overlayCanvas。 */
-  drawingCanvas: HTMLCanvasElement
-  overlayCanvas: HTMLCanvasElement
-  yAxisCanvas: HTMLCanvasElement
-  /** 轴区动态层（最新价标签、十字线价签），叠在 yAxisCanvas 上 */
-  yAxisOverlayCanvas: HTMLCanvasElement
-  leftYAxisCanvas?: HTMLCanvasElement
-  leftYAxisOverlayCanvas?: HTMLCanvasElement
 }
 
 export type ChartOptions = {
@@ -50,7 +26,7 @@ export type ChartOptions = {
   zoomLevels?: number
   initialZoomLevel?: number
   /** 主图 DOM 图例配置，由 options 状态统一管理。 */
-  legend?: import('./renderers/Indicator/mainIndicatorLegend/types.js').LegendOptions
+  legend?: import('../renderers/Indicator/mainIndicatorLegend/types.js').LegendOptions
 }
 
 export type KLinePositions = number[]
