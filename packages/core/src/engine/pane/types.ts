@@ -7,6 +7,9 @@ import type { PaneStateModule } from '../state/paneState.js'
 /** Pane 左上角标题与右上角操作控件共用的逻辑像素内边距。 */
 export const PANE_HEADER_INSET_PX = 12
 
+/** 未显式配置价格标签宽度时的默认逻辑像素宽度。 */
+export const DEFAULT_PRICE_LABEL_WIDTH = 60
+
 /**
  * 主图 pane 的唯一标识。
  * 与渲染器的 GLOBAL_PANE_ID（Symbol，表示渲染到所有 pane）语义不同，二者不会冲突。
@@ -53,6 +56,11 @@ export type PaneRendererOptions = {
   leftAxisWidth: number
   yPaddingPx: number
   priceLabelWidth?: number
+}
+
+/** 已解析的 PaneRenderer 参数：priceLabelWidth 已填默认值。 */
+export type ResolvedPaneRendererOptions = Omit<PaneRendererOptions, 'priceLabelWidth'> & {
+  priceLabelWidth: number
 }
 
 /** 可由用户界面和 Agent 共同提交的 pane 可更新字段。 */

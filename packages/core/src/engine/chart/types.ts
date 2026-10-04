@@ -1,5 +1,7 @@
 /** chart 模块对外契约：图表装配层所需的 DOM、选项、视口与指标实例类型。 */
+
 import type { PaneSpec } from '../pane/types.js'
+import type { IndicatorInstanceRole } from '../state/indicatorState.js'
 
 export type ChartDom = {
   container: HTMLDivElement
@@ -53,7 +55,8 @@ export type ViewportState = {
   kGap: number
 }
 
-export type IndicatorRole = 'main' | 'sub'
+/** 指标实例角色，复用引擎状态层的唯一取值定义。 */
+export type IndicatorRole = IndicatorInstanceRole
 
 export interface IndicatorInstance {
   id: string

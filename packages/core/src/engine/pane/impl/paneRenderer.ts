@@ -1,5 +1,11 @@
 /** 管理单个 Pane 的画布尺寸、上下文和运行时状态。 */
-import type { PaneRendererContexts, PaneRendererDom, PaneRendererOptions } from '../types.js'
+import {
+  DEFAULT_PRICE_LABEL_WIDTH,
+  type PaneRendererContexts,
+  type PaneRendererDom,
+  type PaneRendererOptions,
+  type ResolvedPaneRendererOptions,
+} from '../types.js'
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
    管理 main/drawing/overlay/yAxis/yAxisOverlay canvas，价格轴与左右摆放位置无关
@@ -9,7 +15,7 @@ import type { PaneRendererContexts, PaneRendererDom, PaneRendererOptions } from 
 export class PaneRenderer {
   private dom: PaneRendererDom
   private pane: import('../../layout/pane.js').Pane
-  private opt: PaneRendererOptions
+  private opt: ResolvedPaneRendererOptions
   private contexts: PaneRendererContexts | null = null
 
   constructor(
@@ -21,7 +27,7 @@ export class PaneRenderer {
     this.pane = pane
     this.opt = {
       ...opt,
-      priceLabelWidth: opt.priceLabelWidth || 60,
+      priceLabelWidth: opt.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH,
     }
   }
 
@@ -85,7 +91,7 @@ export class PaneRenderer {
     const yAxisOverlayCanvas = this.dom.yAxisOverlayCanvas
 
     // 先读取 parentClientWidth，避免在写入样式后读取触发强制回流
-    const fallbackYAxisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth || 60)
+    const fallbackYAxisWidth = this.opt.rightAxisWidth + this.opt.priceLabelWidth
     const parentClientWidth = yAxisCanvas.parentElement?.clientWidth ?? 0
     const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth
 

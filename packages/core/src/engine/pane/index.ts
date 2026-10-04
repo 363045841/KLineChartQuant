@@ -11,6 +11,7 @@ export type {
   PaneRendererDom,
   PaneRendererOptions,
   PaneSpec,
+  ResolvedPaneRendererOptions,
   SubPaneContext,
   SubPaneEntry,
   SubPaneResources,

@@ -22,7 +22,7 @@ import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/help
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { MAIN_PANE_ID } from '../pane/index'
+import { MAIN_PANE_ID } from '../pane/types'
 
 const defaultOptions: ChartOptions = {
   kWidth: 10,

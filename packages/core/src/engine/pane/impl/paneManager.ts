@@ -168,14 +168,9 @@ export class PaneManager {
       .filter((item) => item.role === 'sub' && item.source !== 'mode' && !nextIds.has(item.paneId))
       .map((item) => item.paneId)
     // 完整布局导入以调用方快照为准，不能继承上一帧的 ratio。
-    const visible = nextSpecs.filter((item) => item.visible !== false)
-    const total =
-      visible.reduce((sum, item) => sum + (Number.isFinite(item.ratio) ? item.ratio : 1), 0) || 1
-    const ratios: Record<string, number> = {}
-    for (const item of nextSpecs) {
-      const value = Number.isFinite(item.ratio) ? item.ratio : 1
-      ratios[item.id] = item.visible === false ? value : value / total
-    }
+    const ratios = this.buildRatios(nextSpecs, (item) =>
+      Number.isFinite(item.ratio) ? item.ratio : 1,
+    )
     batch(() => {
       for (const paneId of removedSubPaneIds) this.dependencies.indicator.actions.removeSub(paneId)
       this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
@@ -202,11 +197,22 @@ export class PaneManager {
       }
     }
 
+    return this.buildRatios(specs, (item) => raw[item.id] ?? item.ratio)
+  }
+
+  /**
+   * 由每个 pane 的原始权重生成可提交的归一化比例。
+   * 隐藏 pane 保留原值、不参与归一化；可见 pane 按可见总和归一。
+   */
+  private buildRatios(
+    specs: ReadonlyArray<PaneSpec>,
+    rawValueOf: (item: PaneSpec) => number,
+  ): Record<string, number> {
     const visible = specs.filter((item) => item.visible !== false)
-    const total = visible.reduce((sum, item) => sum + (raw[item.id] ?? item.ratio ?? 1), 0) || 1
+    const total = visible.reduce((sum, item) => sum + rawValueOf(item), 0) || 1
     const ratios: Record<string, number> = {}
     for (const item of specs) {
-      const value = raw[item.id] ?? item.ratio ?? 1
+      const value = rawValueOf(item)
       ratios[item.id] = item.visible === false ? value : value / total
     }
     return ratios

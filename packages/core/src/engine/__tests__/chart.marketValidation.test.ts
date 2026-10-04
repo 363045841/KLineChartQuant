@@ -6,7 +6,7 @@ import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { MAIN_PANE_ID } from '../pane/index'
+import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs } from './helpers/chartDomTestKit'
 
 const options: ChartOptions = {

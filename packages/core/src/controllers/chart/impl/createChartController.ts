@@ -1,9 +1,9 @@
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import type {
   ChartOptions,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-  ViewportState as LegacyViewportState,
+  IndicatorInstance as EngineIndicatorInstance,
+  SubPaneInfo as EngineSubPaneInfo,
+  ViewportState as EngineViewportState,
 } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
@@ -42,7 +42,9 @@ import { createDataMethods } from './createDataMethods.js'
 import { createDrawingMethods } from './createDrawingMethods.js'
 import { mountChartDom } from './mountChartDom.js'
 
-function mapViewportState(vp: LegacyViewportState): ChartViewport {
+// engine 侧模型 → controller 公开模型的字段投影：engine 的指标实例带 internal ordinal，
+// 公开实例不含，故在此收窄为面向前端的快照。
+function mapViewportState(vp: EngineViewportState): ChartViewport {
   return {
     zoomLevel: vp.zoomLevel,
     plotWidth: vp.plotWidth,
@@ -55,7 +57,7 @@ function mapViewportState(vp: LegacyViewportState): ChartViewport {
   }
 }
 
-function mapIndicatorInstance(indicator: LegacyIndicatorInstance): IndicatorInstance {
+function mapIndicatorInstance(indicator: EngineIndicatorInstance): IndicatorInstance {
   return {
     id: indicator.id,
     definitionId: indicator.definitionId,
@@ -67,7 +69,7 @@ function mapIndicatorInstance(indicator: LegacyIndicatorInstance): IndicatorInst
   }
 }
 
-function mapSubPaneInfo(subPane: LegacySubPaneInfo): SubPaneInfo {
+function mapSubPaneInfo(subPane: EngineSubPaneInfo): SubPaneInfo {
   return {
     instanceId: subPane.instanceId,
     paneId: subPane.paneId,

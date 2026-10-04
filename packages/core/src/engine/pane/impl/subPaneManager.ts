@@ -8,6 +8,7 @@ import { createIndicatorScaleLayer } from '../../renderers/Indicator/scale/indic
 import { createPaneTitleRendererLayer } from '../../renderers/paneTitle.js'
 import type { SubPaneSpec } from '../../state/indicatorState.js'
 import type { SubPaneContext, SubPaneResources } from '../types.js'
+import { DEFAULT_PRICE_LABEL_WIDTH } from '../types.js'
 
 type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources
 type MountedSubPaneResources = SubPaneResources & {
@@ -203,7 +204,7 @@ export class SubPaneManager {
     }
     const definition = getRegisteredIndicatorDefinition(entry.indicatorId)
     const opt = ctx.getOption()
-    const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 60)
+    const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH)
     const getCrosshair = () => {
       const pos = ctx.getCrosshairPos()
       const price = ctx.getCrosshairPrice()

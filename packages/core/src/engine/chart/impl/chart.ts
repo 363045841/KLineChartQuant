@@ -104,8 +104,7 @@ import { ChartPaneLayout } from '../../layout/chartPaneLayout.js'
 import { UpdateLevel } from '../../layout/pane.js'
 import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
 import type { PaneRenderer } from '../../pane/index.js'
-import type { PaneSpec } from '../../pane/types.js'
-import { MAIN_PANE_ID } from '../../pane/types.js'
+import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
 import type { LegendTemplateContext } from '../../renderers/Indicator/mainIndicatorLegend/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
@@ -116,7 +115,6 @@ import type {
 } from '../../state/mainPriceAxisState.js'
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from '../../state/viewWorkspace.js'
 import { ChartZoomController } from '../../utils/chartZoomController.js'
-import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
 import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
 import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
 import type {
@@ -128,20 +126,7 @@ import type {
   ViewportState,
 } from '../types.js'
 
-export type { PaneRendererDom, PaneSpec } from '../../pane/types.js'
-export type {
-  ChartDom,
-  ChartOptions,
-  IndicatorInstance,
-  IndicatorRole,
-  KLinePositions,
-  SubPaneInfo,
-  Viewport,
-  ViewportState,
-} from '../types.js'
 export type { InteractionSnapshot }
-// ===== 重新导出 =====
-export { getPhysicalKLineConfig }
 
 const RIGHT_AXIS_FONT = getFont(12)
 const RIGHT_AXIS_TEXT_PADDING = 12
@@ -1168,7 +1153,8 @@ export class Chart {
    */
   private commitRightAxisWidthMeasurement(extrema: { min: number; max: number }): void {
     const options = this.kernel.options.readonly.options.peek()
-    const minimumWidth = options.rightAxisWidth + (options.priceLabelWidth ?? 60)
+    const minimumWidth =
+      options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH)
     const yAxisCtx = this.paneRenderers[0]?.getContexts().yAxisCtx ?? null
     if (!yAxisCtx) return
     yAxisCtx.save()

@@ -6,7 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
-import type { PaneSpec } from '../../pane/index'
+import type { PaneSpec } from '../../pane/types'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { loadBuiltinIndicators } from '../registerBuiltins'

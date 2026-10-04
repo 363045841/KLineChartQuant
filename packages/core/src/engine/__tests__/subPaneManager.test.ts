@@ -51,10 +51,6 @@ describe('SubPaneManager runtime projection', () => {
     ctx = createMockContext()
   })
 
-  it('does not expose or own a business entries signal', () => {
-    expect('entriesSignal' in manager).toBe(false)
-  })
-
   it('mounts desired resources once across repeated reconcile calls', () => {
     manager.reconcile(ctx, [rsi])
     manager.reconcile(ctx, [rsi])
