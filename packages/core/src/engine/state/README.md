@@ -54,7 +54,6 @@ state/
 ├── viewportState.ts           # 视口几何、DPR clamp 与尺寸
 ├── contentGeometry.ts         # 视口内容的纯几何计算（leftBuffer / contentWidth / maxScroll）
 ├── paneState.ts               # 主图/副图布局
-├── modeState.ts               # kline / timeshare / fiveDayTimeShare / comparison 模式
 ├── themeState.ts              # 系统主题注入点（用户偏好在 settings.theme）
 ├── settingsState.ts           # 用户偏好设置快照
 ├── drawingState.ts            # 绘图工具、图元与选中 id

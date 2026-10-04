@@ -69,7 +69,7 @@ chart.dispose()
 
 ## State Kernel
 
-The engine is built around `ChartStateKernel`, the single source of truth for chart business state. It composes independent state modules for options, zoom, data, viewport, pane layout, settings, system theme, chart mode, drawing, interaction, comparisons, indicators, markers, and renderer runtime.
+The engine is built around `ChartStateKernel`, the single source of truth for chart business state. It composes independent state modules for options, zoom, data, viewport, pane layout, settings, system theme, chart model (data view), drawing, interaction, comparisons, indicators, markers, and renderer runtime. The data view (kline / timeshare / fiveDayTimeShare) has a single source of truth in the `engine/chartModel/` module.
 
 ```text
 Controller method / DOM input

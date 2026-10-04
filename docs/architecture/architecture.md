@@ -137,8 +137,10 @@ flowchart TB
 `engine/state/stateKernel.ts` 定义响应式内核骨架，`ChartStateKernel` 聚合各子状态模块：
 
 - 子状态包括 options、zoom、data、dataManager、comparison、indicator、subPane、
-  marker、viewport、pane、settings、mode、drawing、interaction、renderer、
+  marker、viewport、pane、settings、chartModel、drawing、interaction、renderer、
   systemTheme 等。
+- `engine/chartModel/` 是数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源，
+  声明每个视图的渲染偏好、横向能力、市场 session 与主图系统实例，并提供周期 → 视图推导。
 - 每个子状态模块对外只暴露 `readonly`（ReadonlySignal 包）+ 语义化 `actions`；
   所有写入都必须经过 action，派生状态放在 `computed()`，DOM 副作用放在 `effect()`。
 - 多字段写入通过 `batch()` 合并为一次通知周期，保证消费者读到一致快照。

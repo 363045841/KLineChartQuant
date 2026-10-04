@@ -12,9 +12,9 @@ import { createKLineData } from '@/engine/__tests__/helpers/renderTestKit'
 import {
   createTestChartDataManager,
   createTestDocument,
-} from '../../data/__tests__/helpers/chartDataManagerTestKit'
-import { Pane } from '../../layout/pane'
-import { KLineMode } from '../impl/kLineMode'
+} from '../../../../data/__tests__/helpers/chartDataManagerTestKit'
+import { Pane } from '../../../../layout/pane'
+import { KLineMode } from '../kLineMode'
 
 describe('KLineMode 纯未来区价格轴冻结', () => {
   let document: Document

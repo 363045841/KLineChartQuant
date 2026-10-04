@@ -1,7 +1,7 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 
 import { registerAxisLabel } from '@/engine/axisLabels/index.js'
-import { resolveChartWorkspaceId } from '@/engine/state/modeState.js'
+import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import { midpoint, type Point } from '@/foundation/geometry/index.js'
 import {

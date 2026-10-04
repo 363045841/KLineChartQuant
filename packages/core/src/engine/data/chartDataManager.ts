@@ -11,12 +11,15 @@ import { DataBuffer } from '../../data/buffer/impl/dataBuffer.js'
 import { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
 import {
+  type BarsSelection,
   instrumentKeyFromSpec,
   LATEST_TRADING_DATE,
+  SERIES_SELECTION_KIND,
   SeriesRepository,
   type SeriesSelection,
   seriesSelectionKey,
   sourceIdFromSpec,
+  type TimeShareSelection,
   type TradingDateKey,
 } from '../../data/buffer/impl/seriesRepository.js'
 import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/impl/timeShareBuffer.js'
@@ -44,6 +47,7 @@ import {
 } from '../../data/provider/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import { ChartDataViewId } from '../chartModel/index.js'
 import type { ChartDom } from '../chartTypes.js'
 import { projectComparison } from '../comparison/impl/comparisonProjection.js'
 import type { ComparisonProjection } from '../comparison/types.js'
@@ -51,8 +55,7 @@ import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
 import type { ComparisonStateModule } from '../state/comparisonState.js'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
-import type { DataStateModule } from '../state/dataState.js'
-import { ChartDataViewId } from '../state/modeState.js'
+import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 import { hasLeftDataGap } from '../viewport/viewport.js'
@@ -105,9 +108,6 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
 ])
 
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
-
-type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
-type TimeShareSelection = Extract<SeriesSelection, { kind: 'timeShare' }>
 
 export class ChartDataManager {
   private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
@@ -185,7 +185,7 @@ export class ChartDataManager {
       throw new Error(`[ChartDataManager] invalid K-line adjustment "${adjustment}"`)
     }
     return {
-      kind: 'bars',
+      kind: SERIES_SELECTION_KIND.bars,
       instrumentKey: instrumentKeyFromSpec(spec),
       sourceId: sourceIdFromSpec(spec),
       period: period as KLinePeriod,
@@ -211,7 +211,7 @@ export class ChartDataManager {
     tradingDate: TradingDateKey = LATEST_TRADING_DATE,
   ): TimeShareSelection {
     return {
-      kind: 'timeShare',
+      kind: SERIES_SELECTION_KIND.timeShare,
       instrumentKey: instrumentKeyFromSpec(spec),
       sourceId: sourceIdFromSpec(spec),
       tradingDate,
@@ -277,7 +277,7 @@ export class ChartDataManager {
   /** 发布无活动序列快照。 */
   private publishEmptySnapshot(): void {
     this._dataState.actions.applyActiveBufferSnapshot({
-      kind: 'empty',
+      kind: ACTIVE_BUFFER_KIND.empty,
       selection: null,
       data: [],
       loading: false,
@@ -311,10 +311,10 @@ export class ChartDataManager {
     const prependedCount = dataChanged ? dataChange.prependedCount : 0
     if (dataChanged) this._lastDataChange = dataChange
 
-    if (selection.kind === 'bars') {
+    if (selection.kind === SERIES_SELECTION_KIND.bars) {
       const buffer = buf as KLineBuffer
       this._dataState.actions.applyActiveBufferSnapshot({
-        kind: 'bars',
+        kind: ACTIVE_BUFFER_KIND.bars,
         selection,
         data: dataChanged
           ? [...buffer.data.peek().data]
@@ -328,7 +328,7 @@ export class ChartDataManager {
     } else {
       const buffer = buf as TimeShareBuffer
       this._dataState.actions.applyActiveBufferSnapshot({
-        kind: 'timeShare',
+        kind: ACTIVE_BUFFER_KIND.timeShare,
         selection,
         data: dataChanged
           ? [...buffer.data.peek().data]
@@ -367,12 +367,14 @@ export class ChartDataManager {
 
   private getActiveDataBuffer(): KLineBuffer | null {
     const selection = this._activeSelection
-    return selection?.kind === 'bars' ? (this._repository.getBars(selection) ?? null) : null
+    return selection?.kind === SERIES_SELECTION_KIND.bars
+      ? (this._repository.getBars(selection) ?? null)
+      : null
   }
 
   private getActiveTimeShareBuffer(): TimeShareBuffer | null {
     const selection = this._activeSelection
-    return selection?.kind === 'timeShare'
+    return selection?.kind === SERIES_SELECTION_KIND.timeShare
       ? (this._repository.getTimeShare(selection) ?? null)
       : null
   }
@@ -539,7 +541,7 @@ export class ChartDataManager {
       .peek()
       .map((spec) =>
         sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
-        (selection.kind === 'bars'
+        (selection.kind === SERIES_SELECTION_KIND.bars
           ? !isTimeSharePeriod(spec.period) &&
             seriesSelectionKey(this.barsSelectionForSpec(spec)) === seriesSelectionKey(selection)
           : isTimeSharePeriod(spec.period) &&
@@ -552,7 +554,7 @@ export class ChartDataManager {
     if (
       current &&
       sourceIdFromSpec(current) === AUTO_SOURCE_ID &&
-      (selection.kind === 'bars'
+      (selection.kind === SERIES_SELECTION_KIND.bars
         ? !isTimeSharePeriod(current.period) &&
           seriesSelectionKey(this.barsSelectionForSpec(current)) === seriesSelectionKey(selection)
         : isTimeSharePeriod(current.period) &&
@@ -573,7 +575,7 @@ export class ChartDataManager {
     prevDataLength?: number,
     prependedCount?: number,
   ): void {
-    if (selection.kind === 'timeShare') {
+    if (selection.kind === SERIES_SELECTION_KIND.timeShare) {
       this.onTimeShareBufferChanged()
       return
     }
@@ -928,7 +930,7 @@ export class ChartDataManager {
     ) {
       const spec = buf.currentSpec
       const selection = this._activeSelection
-      if (spec && selection?.kind === 'bars') {
+      if (spec && selection?.kind === SERIES_SELECTION_KIND.bars) {
         void this.loadBars(selection, buf, spec, {
           limit: DEFAULT_BAR_PAGE_LIMIT,
           beforeTimestamp: loadedTimeRange.earliestTs,
@@ -946,7 +948,7 @@ export class ChartDataManager {
     if (
       !buffer ||
       !selection ||
-      selection.kind !== 'bars' ||
+      selection.kind !== SERIES_SELECTION_KIND.bars ||
       !spec ||
       !loaded ||
       buffer.loading.peek() ||
@@ -972,7 +974,7 @@ export class ChartDataManager {
     const primary = this._dataState.readonly.symbols.peek()[0]
     if (
       primary &&
-      selection.kind === 'bars' &&
+      selection.kind === SERIES_SELECTION_KIND.bars &&
       !isTimeSharePeriod(primary.period) &&
       seriesSelectionKey(this.barsSelectionForSpec(primary)) === seriesSelectionKey(selection)
     ) {
@@ -1168,7 +1170,7 @@ export class ChartDataManager {
       const active = this._activeSelection
       const latestSelection = this.timeShareSelectionForSpec(primary)
       const tsSelection =
-        active?.kind === 'timeShare' &&
+        active?.kind === SERIES_SELECTION_KIND.timeShare &&
         active.instrumentKey === latestSelection.instrumentKey &&
         active.sourceId === latestSelection.sourceId
           ? active
@@ -1331,7 +1333,7 @@ export class ChartDataManager {
   private requestTradingCalendar(buffer: KLineBuffer, anchorTimestamp: number): void {
     const selection = this._activeSelection
     const source = this.calendarSources.get(buffer)
-    if (selection?.kind !== 'bars' || !source) return
+    if (selection?.kind !== SERIES_SELECTION_KIND.bars || !source) return
     const provider = marketDataProviderRegistry.get(source.sourceId)
     if (
       !provider?.source.capabilities?.tradingCalendar ||

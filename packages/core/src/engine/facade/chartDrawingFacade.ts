@@ -3,6 +3,7 @@
  */
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { resolveChartWorkspaceId } from '../chartModel/index.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
 import {
   CURSOR_DRAWING_TOOL_ID,
@@ -14,7 +15,6 @@ import {
 } from '../drawing/index.js'
 import type { ChartRenderer } from '../render/chartRenderer.js'
 import type { ChartStateKernel } from '../state/chartStateKernel.js'
-import { resolveChartWorkspaceId } from '../state/modeState.js'
 
 /** Drawing Facade 所需依赖。 */
 export interface ChartDrawingFacadeDependencies {

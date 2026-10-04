@@ -16,13 +16,13 @@ import {
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId'
 import { ScaleType } from '../../foundation/types/scaleType'
+import { ChartDataViewId } from '../chartModel/index'
+import type { ChartModeHandler } from '../chartModel/index'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import type { ChartModeHandler } from '../modes/types'
 import { MAIN_PANE_ID } from '../paneIds'
-import { ChartDataViewId } from '../state/modeState'
 import { resolveViewTransition } from '../view/impl/resolveViewTransition'
 
 const defaultOptions: ChartOptions = {

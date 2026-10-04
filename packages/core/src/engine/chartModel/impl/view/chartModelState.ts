@@ -1,37 +1,17 @@
-/** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
-import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
-import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
-
-export {
-  type ChartDataView,
-  ChartDataViewId,
-  ChartWorkspaceId,
-  isTimeShareDataView,
-  resolveChartWorkspaceId,
-} from '../../foundation/types/chartView.js'
-
+/** ChartModel 状态：当前数据视图、主序列渲染偏好与视图派生能力。 */
+import { batch, computed, createSubState } from '../../../../foundation/reactivity/signal.js'
 import {
+  CHART_VIEW_DEFINITIONS,
   type ChartDataView,
   ChartDataViewId,
+  DEFAULT_PRIMARY_RENDERERS,
   isTimeShareDataView,
-} from '../../foundation/types/chartView.js'
+  type PrimaryRendererByView,
+  type PrimaryRendererType,
+  type ViewCapabilities,
+} from './chartViews.js'
 
 export type ChartModeId = ChartDataView
-export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
-export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>
-
-export type InteractionCapabilities = Readonly<{
-  allowPan: boolean
-  allowZoom: boolean
-  allowVerticalScroll: boolean
-  allowRightAxisScale: boolean
-}>
-
-const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
-  [ChartDataViewId.KLine]: 'candlestick',
-  [ChartDataViewId.TimeShare]: 'line',
-  [ChartDataViewId.FiveDayTimeShare]: 'line',
-})
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
 function snapshotPrimaryRenderers(
@@ -51,7 +31,7 @@ function resolveEffectivePrimaryRenderer(
   return renderer
 }
 
-export function createModeState() {
+export function createChartModel() {
   const { signals, readonly: sourceReadonly } = createSubState({
     dataView: ChartDataViewId.KLine as ChartDataView,
     lastBarPeriod: 'daily',
@@ -62,9 +42,9 @@ export function createModeState() {
     const view = sourceReadonly.dataView()
     return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
   })
-  const interactionCapabilities = computed<InteractionCapabilities>(() => {
-    return VIEW_STRATEGIES[sourceReadonly.dataView()].capabilities
-  })
+  const interactionCapabilities = computed<Readonly<ViewCapabilities>>(
+    () => CHART_VIEW_DEFINITIONS[sourceReadonly.dataView()].capabilities,
+  )
 
   const setDataView = (view: ChartDataView, lastBarPeriod?: string): void => {
     if (isTimeShareDataView(view) && lastBarPeriod && !isTimeShareDataView(lastBarPeriod)) {
@@ -108,4 +88,4 @@ export function createModeState() {
   }
 }
 
-export type ModeStateModule = ReturnType<typeof createModeState>
+export type ChartModelModule = ReturnType<typeof createChartModel>

@@ -69,7 +69,7 @@ chart.dispose()
 
 ## 状态内核
 
-引擎以 `ChartStateKernel` 为图表业务状态的单一事实来源。它组合 options、zoom、data、viewport、pane layout、settings、system theme、chart mode、drawing、interaction、comparison、indicator、marker 和 renderer runtime 等独立子状态。
+引擎以 `ChartStateKernel` 为图表业务状态的单一事实来源。它组合 options、zoom、data、viewport、pane layout、settings、system theme、chart model（数据视图）、drawing、interaction、comparison、indicator、marker 和 renderer runtime 等独立子状态。数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源是 `engine/chartModel/` 模块。
 
 ```text
 Controller 方法 / DOM 输入

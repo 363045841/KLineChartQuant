@@ -4,9 +4,9 @@ import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
 import type { TimeShareRange } from '@/data/provider/types'
 import type { TimeShareData } from '@/foundation/types/price'
 import { ScaleType } from '@/foundation/types/scaleType'
-import { createMockChartDataManager } from '../../data/__tests__/helpers/chartDataManagerTestKit'
-import { Pane } from '../../layout/pane'
-import { TimeShareMode } from '../impl/timeShareMode'
+import { createMockChartDataManager } from '../../../../data/__tests__/helpers/chartDataManagerTestKit'
+import { Pane } from '../../../../layout/pane'
+import { TimeShareMode } from '../timeShareMode'
 
 /** 构造分时点，默认均价与价格相同。 */
 function ts(price: number, i = 0, average = price): TimeShareData {

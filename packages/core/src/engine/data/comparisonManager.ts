@@ -1,16 +1,14 @@
 /** 比较叠加数据投影：订阅 Repository 叶子 Buffer，向主图提供折线数据和加载状态。 */
 import type { KLineData, SymbolSpec } from '../../controllers/types.js'
 import {
+  type BarsSelection,
   SeriesRepository,
-  type SeriesSelection,
   seriesSelectionKey,
 } from '../../data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '../../data/buffer/types.js'
 import { OLDER_DATA_STATUS } from '../../data/provider/types.js'
 
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
-
-type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 
 /** 比较投影所需的协调器能力，不暴露 Repository 内部拓扑。 */
 export interface ComparisonHooks {

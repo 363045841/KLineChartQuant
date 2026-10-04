@@ -8,7 +8,7 @@
  * 级别 6→5 缩小一级（kWidth 21→17.4，kGapPx 均钳 3，旧 unitPx=24 / 新 unitPx=20）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChartDataView } from '@/engine/state/modeState'
+import type { ChartDataView } from '@/engine/chartModel/index'
 import { computed, createSignal } from '@/foundation/reactivity/signal'
 import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
 import { createOptionsState } from '../../state/optionsState'

@@ -64,6 +64,14 @@ import {
   type RendererHost,
 } from '../rendering/render/index.js'
 import type { Layer } from '../rendering/scene/types.js'
+import {
+  type ChartDataView,
+  ChartDataViewId,
+  type ChartModeHandler,
+  isTimeShareDataView,
+  KLineMode,
+  TimeShareMode,
+} from './chartModel/index.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -98,7 +106,6 @@ import { UpdateLevel } from './layout/pane.js'
 import type { CustomMarkerEntity, MarkerManager } from './marker/registry.js'
 import { MarketSessionRegistry } from './market/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession.js'
-import { type ChartModeHandler, KLineMode, TimeShareMode } from './modes/index.js'
 import { MAIN_PANE_ID } from './paneIds.js'
 import { PaneRenderer } from './paneRenderer.js'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer.js'
@@ -110,12 +117,6 @@ import type {
   PanePriceAxisModePersistence,
   PanePriceAxisModesSnapshot,
 } from './state/mainPriceAxisState.js'
-import {
-  type ChartDataView,
-  ChartDataViewId,
-  isTimeShareDataView,
-  resolveChartWorkspaceId,
-} from './state/modeState.js'
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
 import { ChartZoomController } from './utils/chartZoomController.js'
 import { getPhysicalKLineConfig } from './utils/klineConfig.js'

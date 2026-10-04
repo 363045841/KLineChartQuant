@@ -11,6 +11,15 @@ import { batch, computed, type ReadonlySignal } from '../../foundation/reactivit
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost.js'
+import {
+  CHART_VIEW_DEFINITIONS,
+  type ChartDataView,
+  ChartDataViewId,
+  type ChartModelModule,
+  createChartModel,
+  isTimeShareDataView,
+  resolveChartWorkspaceId,
+} from '../chartModel/index.js'
 import type { PaneSpec } from '../chartTypes.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
@@ -38,14 +47,6 @@ import {
 } from './interactionState.js'
 import { createMainPriceAxisState, type MainPriceAxisStateModule } from './mainPriceAxisState.js'
 import { createMarkerState, type MarkerStateModule } from './markerState.js'
-import {
-  type ChartDataView,
-  ChartDataViewId,
-  createModeState,
-  isTimeShareDataView,
-  type ModeStateModule,
-  resolveChartWorkspaceId,
-} from './modeState.js'
 import { createOptionsState, type OptionsStateModule } from './optionsState.js'
 import { createPaneState, type PaneStateModule } from './paneState.js'
 import { createRendererState, type RendererStateModule } from './rendererState.js'
@@ -197,7 +198,7 @@ export class ChartStateKernel extends StateKernel {
   readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
   readonly mainPriceAxis: MainPriceAxisStateModule
-  readonly mode: ModeStateModule
+  readonly mode: ChartModelModule
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
@@ -231,7 +232,7 @@ export class ChartStateKernel extends StateKernel {
     this.options = createOptionsState(deps.initialOptions)
 
     // ── Data view state（缩放宽度需按视图派生）──
-    this.mode = createModeState()
+    this.mode = createChartModel()
 
     // ── Zoom state ──
     this.zoom = createZoomState({
@@ -463,63 +464,16 @@ export class ChartStateKernel extends StateKernel {
         this.renderer.actions.setRuntime(runtime),
       setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const workspaceId = resolveChartWorkspaceId(view)
-        const modeInstances: IndicatorInstanceSpec[] =
-          view === ChartDataViewId.FiveDayTimeShare
-            ? [
-                {
-                  instanceId: 'mode:five-day-timeshare',
-                  indicatorId: ChartDataViewId.FiveDayTimeShare,
-                  paneId: 'main',
-                  role: 'main',
-                  ordinal: 0,
-                  params: {},
-                },
-              ]
-            : isTimeShareDataView(view)
-              ? [
-                  {
-                    instanceId: 'mode:timeshare',
-                    indicatorId: 'timeShare',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                ]
-              : [
-                  {
-                    instanceId: 'mode:candle',
-                    indicatorId: 'candle',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                  {
-                    instanceId: 'mode:extrema-markers',
-                    indicatorId: 'extremaMarkers',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                  {
-                    instanceId: 'mode:last-price-line',
-                    indicatorId: 'lastPriceLine',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                  {
-                    instanceId: 'mode:last-price-label',
-                    indicatorId: 'lastPriceLabelRegistrar',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                ]
+        const modeInstances: IndicatorInstanceSpec[] = CHART_VIEW_DEFINITIONS[
+          view
+        ].mainInstances.map((instance) => ({
+          instanceId: instance.instanceId,
+          indicatorId: instance.indicatorId,
+          paneId: 'main',
+          role: 'main',
+          ordinal: 0,
+          params: { ...(instance.params ?? {}) },
+        }))
         batch(() => {
           this.mode.actions.setDataView(view, lastBarPeriod)
           this.indicator.actions.setActiveWorkspace(workspaceId)

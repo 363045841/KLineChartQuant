@@ -41,6 +41,8 @@ import {
   getLastPriceRemainingMs,
   registerAxisLabel,
 } from '../axisLabels/index.js'
+import type { ChartModeHandler } from '../chartModel/index.js'
+import { type ChartDataView, ChartDataViewId } from '../chartModel/index.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -69,7 +71,6 @@ import {
   MarkerManager,
   type MarkerManagerDeps,
 } from '../marker/registry.js'
-import type { ChartModeHandler } from '../modes/index.js'
 import { PaneRenderer } from '../paneRenderer.js'
 import { createCandleLayer } from '../renderers/candle.js'
 import { createComparisonLineLayer } from '../renderers/comparisonLine.js'
@@ -86,7 +87,6 @@ import {
   createYAxisStaticRendererLayer,
 } from '../renderers/yAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
-import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'

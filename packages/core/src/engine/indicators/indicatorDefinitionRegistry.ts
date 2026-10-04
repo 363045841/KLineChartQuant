@@ -1,6 +1,6 @@
 /** 指标定义装饰器与全局定义目录，实例挂载由图表状态驱动。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import type { ChartDataView } from '../state/modeState.js'
+import type { ChartDataView } from '../chartModel/index.js'
 import type { IndicatorName } from './indicatorContracts.js'
 import type {
   GetTitleInfoFn,

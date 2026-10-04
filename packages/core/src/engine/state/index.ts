@@ -24,7 +24,6 @@ export {
   type InteractionStateModule,
 } from './interactionState.js'
 export { createMarkerState, type MarkerStateModule } from './markerState.js'
-export { type ChartModeId, createModeState, type ModeStateModule } from './modeState.js'
 export { createOptionsState, type OptionsStateModule } from './optionsState.js'
 export { createPaneState, type PaneStateModule } from './paneState.js'
 export { createSettingsState, type SettingsStateModule } from './settingsState.js'

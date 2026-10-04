@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
-import { ChartDataViewId, createModeState } from '../modeState'
-import { createTestChartStateKernel } from './helpers/createTestChartStateKernel'
+import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
+import { ChartDataViewId, createChartModel } from '../index'
 
-describe('modeState', () => {
+describe('chartModel', () => {
   it('defaults to kline', () => {
-    const m = createModeState()
+    const m = createChartModel()
     expect(m.readonly.chartMode.peek()).toBe('kline')
     expect(m.readonly.dataView.peek()).toBe('kline')
     expect(m.readonly.lastBarPeriod.peek()).toBe('daily')
@@ -15,7 +15,7 @@ describe('modeState', () => {
   })
 
   it('setChartMode updates and equal-skips', () => {
-    const m = createModeState()
+    const m = createChartModel()
     const listener = vi.fn()
     m.readonly.chartMode.subscribe(listener)
     m.actions.setChartMode('timeshare')
@@ -25,7 +25,7 @@ describe('modeState', () => {
   })
 
   it('derives the effective renderer and interaction capabilities from dataView', () => {
-    const m = createModeState()
+    const m = createChartModel()
 
     m.actions.setDataView('timeshare', '60min')
 
@@ -40,7 +40,7 @@ describe('modeState', () => {
   })
 
   it('keeps five-day timeshare as a distinct view with timeshare semantics', () => {
-    const m = createModeState()
+    const m = createChartModel()
 
     m.actions.setDataView('fiveDayTimeShare', 'daily')
 
@@ -52,7 +52,7 @@ describe('modeState', () => {
   })
 
   it('stores renderer preferences per view and falls back for unsupported combinations', () => {
-    const m = createModeState()
+    const m = createChartModel()
     m.actions.setPrimaryRenderer('kline', 'ohlc-bar')
     m.actions.setPrimaryRenderer('timeshare', 'candlestick')
 

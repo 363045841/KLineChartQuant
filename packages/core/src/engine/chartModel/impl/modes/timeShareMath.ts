@@ -6,7 +6,7 @@ import {
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
 } from '@/foundation/utils/timeShareAxisLabels.js'
-import { calcKBarWidthPx } from '../../utils/klineConfig.js'
+import { calcKBarWidthPx } from '../../../utils/klineConfig.js'
 
 export type TimeShareBaselineInput = {
   preClose?: number | null

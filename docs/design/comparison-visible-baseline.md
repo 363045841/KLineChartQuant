@@ -13,3 +13,7 @@ ComparisonProjection 是单帧共享结果，包含主品种可见 OHLC 极值�
 行为目标是 TradingView 的主品种 K 线加比较折线及同轴百分比比较。延迟起点对齐是本项目明确约定的边界行为，不宣称复刻 TradingView 的全部细节。
 
 左上角比较行只展示颜色标识和品种名称，不展示行情数值。比较行沿用指标悬浮框，只提供隐藏／显示与删除按钮。隐藏状态属于 comparisonState，隐藏折线不参与绘制或价格范围，但保留选择、数据与置灰名称；删除按完整品种身份移除选择并清理隐藏状态。
+
+## 视图决策归属
+
+数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源是 `engine/chartModel/` 模块。`CHART_VIEW_DEFINITIONS` 声明每个视图的主序列渲染偏好、`requiresMarketSession`、横向 `capabilities` 与主图系统实例；`resolveChartDataView(period)` 是周期到视图的唯一推导；`ChartDataViewId` 等类型只从该模块流出。比较集合不参与视图决策，移除独立比较视图后 `chartMode` 仅由主品种周期决定。视图切换的渲染副作用（清屏、图例清理、模式处理器激活）仍编排在 `Chart`，不进 ChartModel。

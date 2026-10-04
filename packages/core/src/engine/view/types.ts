@@ -7,6 +7,7 @@ import type { FiveDayTimeShareGeometry } from '../../foundation/plugin/index.js'
 import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
+import type { ViewCapabilities } from '../chartModel/index.js'
 
 export interface ViewInput {
   view: ChartDataView
@@ -19,13 +20,6 @@ export interface ViewInput {
   marketSession: MarketSessionConfig | null
   timeShareRange: TimeShareRange | null
   scroll: number
-}
-
-export interface ViewCapabilities {
-  allowPan: boolean
-  allowZoom: boolean
-  allowVerticalScroll: boolean
-  allowRightAxisScale: boolean
 }
 
 export interface ViewSnapshot {

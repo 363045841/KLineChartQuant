@@ -2,9 +2,9 @@
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types.js'
 import type { MarketSessionConfig } from '@/foundation/utils/timeShareAxisLabels.js'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
-import type { ChartDataManager } from '../../data/chartDataManager.js'
-import type { Pane, VisibleRange } from '../../layout/pane.js'
-import type { ChartModeHandler } from '../types.js'
+import type { ChartDataManager } from '../../../data/chartDataManager.js'
+import type { Pane, VisibleRange } from '../../../layout/pane.js'
+import type { ChartModeHandler } from './types.js'
 import {
   computeTimeSharePriceRange,
   resolveFiveDayTimeShareBaseline,

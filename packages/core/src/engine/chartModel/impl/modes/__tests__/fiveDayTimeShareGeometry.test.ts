@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TimeShareRange, TradingDate } from '@/data/provider/types'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
-import { computeFiveDayTimeShareGeometry } from '../impl/fiveDayTimeShareGeometry'
+import { computeFiveDayTimeShareGeometry } from '../fiveDayTimeShareGeometry'
 
 /** 创建位于 A 股上午 session 的测试时间戳。 */
 function timestampAt(tradingDate: string, minuteOffset: number): number {

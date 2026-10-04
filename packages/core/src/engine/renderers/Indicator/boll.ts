@@ -4,6 +4,7 @@ import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.
 import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
 import type { Layer } from '@/rendering/scene/types.js'
+import { ChartDataViewId } from '../../chartModel/index.js'
 import { calcBOLLData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
@@ -15,7 +16,6 @@ import type {
 } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
 import type { BOLLRenderState } from '../../indicators/state/bollState.js'
-import { ChartDataViewId } from '../../state/modeState.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 

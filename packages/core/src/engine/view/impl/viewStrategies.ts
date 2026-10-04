@@ -5,31 +5,17 @@ import {
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
 } from '../../../foundation/utils/timeShareAxisLabels.js'
-import { computeFiveDayTimeShareGeometry } from '../../modes/impl/fiveDayTimeShareGeometry.js'
-import { computeTimeShareXLayout } from '../../modes/impl/timeShareMath.js'
+import { CHART_VIEW_DEFINITIONS } from '../../chartModel/index.js'
+import { computeFiveDayTimeShareGeometry, computeTimeShareXLayout } from '../../chartModel/index.js'
 import { calcKBarWidthPx, calcKWidthPx } from '../../utils/klineConfig.js'
 import { kGapFromKWidth } from '../../utils/zoom.js'
 import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../viewport/slotGrid.js'
-import type { ViewCapabilities, ViewInput, ViewSnapshot, ViewStrategy } from '../types.js'
+import type { ViewInput, ViewSnapshot, ViewStrategy } from '../types.js'
 
-const BAR_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
-  allowPan: true,
-  allowZoom: true,
-  allowVerticalScroll: true,
-  allowRightAxisScale: true,
-})
-const FIXED_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
-  allowPan: false,
-  allowZoom: false,
-  allowVerticalScroll: false,
-  allowRightAxisScale: false,
-})
-const SESSION_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
-  allowPan: true,
-  allowZoom: true,
-  allowVerticalScroll: false,
-  allowRightAxisScale: false,
-})
+/** 视图能力与市场 session 需求统一来自 ChartModel 声明。 */
+const KLINE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine]
+const TIMESHARE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.TimeShare]
+const FIVE_DAY_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.FiveDayTimeShare]
 
 /** 由中心几何派生共享快照；位置、实体矩形与命中都读同一份中心数组。 */
 function snapshot(
@@ -94,7 +80,7 @@ function projectBars(input: ViewInput): ViewSnapshot {
         slotWorldX(grid, range.start + index),
       ),
       fiveDayGeometry: null,
-      capabilities: BAR_CAPABILITIES,
+      capabilities: KLINE_DEFINITION.capabilities,
       hoverKind: 'candle',
       hasPriceSeries: true,
       worldAtIndex: (index) => (Number.isInteger(index) ? slotWorldX(grid, index) : null),
@@ -155,7 +141,7 @@ function projectSingleSession(input: ViewInput): ViewSnapshot {
       slotRange: { start: -1, end: slots },
       centers,
       fiveDayGeometry: null,
-      capabilities: FIXED_CAPABILITIES,
+      capabilities: TIMESHARE_DEFINITION.capabilities,
       hoverKind: 'point',
       hasPriceSeries: false,
       worldAtIndex: (index) => centers[index] ?? null,
@@ -201,7 +187,7 @@ function projectMultipleSessions(input: ViewInput): ViewSnapshot {
       slotRange: { start: 0, end: slots },
       centers,
       fiveDayGeometry: layout ? layout.geometry : null,
-      capabilities: SESSION_CAPABILITIES,
+      capabilities: FIVE_DAY_DEFINITION.capabilities,
       hoverKind: 'point',
       hasPriceSeries: false,
       worldAtIndex: (index) => centers[index] ?? null,
@@ -240,22 +226,22 @@ function navigateSessions(view: ViewSnapshot, requested: number): number {
 }
 
 const bars: ViewStrategy = {
-  requiresMarketSession: false,
-  capabilities: BAR_CAPABILITIES,
+  requiresMarketSession: KLINE_DEFINITION.requiresMarketSession,
+  capabilities: KLINE_DEFINITION.capabilities,
   project: projectBars,
   zoomInput: zoomBars,
   navigate: navigateBars,
 }
 const single: ViewStrategy = {
-  requiresMarketSession: true,
-  capabilities: FIXED_CAPABILITIES,
+  requiresMarketSession: TIMESHARE_DEFINITION.requiresMarketSession,
+  capabilities: TIMESHARE_DEFINITION.capabilities,
   project: projectSingleSession,
   zoomInput: (input) => input,
   navigate: navigateFixed,
 }
 const multiple: ViewStrategy = {
-  requiresMarketSession: true,
-  capabilities: SESSION_CAPABILITIES,
+  requiresMarketSession: FIVE_DAY_DEFINITION.requiresMarketSession,
+  capabilities: FIVE_DAY_DEFINITION.capabilities,
   project: projectMultipleSessions,
   zoomInput: zoomSessions,
   navigate: navigateSessions,
