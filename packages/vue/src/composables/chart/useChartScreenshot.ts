@@ -28,15 +28,13 @@ const PNG_MIME_TYPE = 'image/png'
 const CHART_BACKGROUND_TOKEN = '--klc-color-ui-background'
 const SCREENSHOT_SURFACE_TOKEN = '--klc-color-ui-surface'
 const SCREENSHOT_PADDING = 24
-const SCREENSHOT_CORNER_RADIUS = 12
 const WATERMARK_LIGHT_TEXT_TOKEN = '--klc-color-text-primary'
 const WATERMARK_DARK_TEXT_TOKEN = '--klc-color-text-white'
 const WATERMARK_BRAND_TEXT_TOKEN = '--klc-color-ui-muted'
 const WATERMARK_TEXT = 'KLineChartQuant'
 const WATERMARK_SEPARATOR = ' · '
 const WATERMARK_HORIZONTAL_PADDING = 16
-const WATERMARK_INSTRUMENT_Y = 26
-const WATERMARK_BRAND_Y = 56
+const WATERMARK_LINE_GAP = 12
 const WATERMARK_FONT_SIZE = 20
 const WATERMARK_FONT_FAMILY = 'Outfit, sans-serif'
 const WATERMARK_FONT_WEIGHT = 600
@@ -69,7 +67,49 @@ function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-/** 捕获 DOM，合成带留白、圆角图表和独立水印页脚的图片，供所有导出方式共用。 */
+/** 绘制透明文字图层并裁去上下空行，让排版间距以实际字形像素边界为准。 */
+function createWatermarkTextImage(
+  width: number,
+  scale: number,
+  text: string,
+  color: string,
+  family: string,
+  weight: number,
+): HTMLCanvasElement {
+  const image = document.createElement('canvas')
+  const fontSize = WATERMARK_FONT_SIZE * scale
+  const baseline = Math.ceil(fontSize * 2)
+  image.width = width
+  image.height = Math.ceil(fontSize * 3)
+  const context = image.getContext('2d')
+  if (!context) throw new Error(chartScreenshotLabels.failed)
+  context.font = `${weight} ${fontSize}px ${family}`
+  context.fillStyle = color
+  context.textBaseline = 'alphabetic'
+  context.textAlign = 'center'
+  context.fillText(
+    text,
+    width / 2,
+    baseline,
+    width - WATERMARK_HORIZONTAL_PADDING * 2 * scale,
+  )
+  const pixels = context.getImageData(0, 0, image.width, image.height)
+  let lastVisiblePixel = pixels.data.length / 4 - 1
+  // Alpha 为零才算留白，以实际绘制结果计算边界，不依赖字体度量的取整方式。
+  while (lastVisiblePixel >= 0 && pixels.data[lastVisiblePixel * 4 + 3] === 0) {
+    lastVisiblePixel -= 1
+  }
+  if (lastVisiblePixel < 0) throw new Error(chartScreenshotLabels.failed)
+  let firstVisiblePixel = 0
+  while (pixels.data[firstVisiblePixel * 4 + 3] === 0) firstVisiblePixel += 1
+  const firstRow = Math.floor(firstVisiblePixel / image.width)
+  const lastRow = Math.floor(lastVisiblePixel / image.width)
+  image.height = lastRow - firstRow + 1
+  context.putImageData(pixels, 0, -firstRow)
+  return image
+}
+
+/** 捕获 DOM，合成带留白和独立水印页脚的完整图表，供所有导出方式共用。 */
 async function createScreenshot(
   element: HTMLElement,
   symbol: string,
@@ -91,56 +131,42 @@ async function createScreenshot(
     image: await captureChartImage(element, frame, backgroundColor),
     scale: frame.dpr,
   }))
-  // 留白、圆角和页脚使用同一像素比例，保持高 DPR 下的视觉尺寸一致。
+  // 留白和页脚使用同一像素比例，保持高 DPR 下的视觉尺寸一致。
   const padding = Math.round(SCREENSHOT_PADDING * scale)
   const footerTop = padding + image.height
   const result = document.createElement('canvas')
   const context = result.getContext('2d')
   if (!context) throw new Error(chartScreenshotLabels.failed)
-  const brandFont = `${WATERMARK_FONT_WEIGHT} ${WATERMARK_FONT_SIZE * scale}px ${WATERMARK_FONT_FAMILY}`
-  context.font = brandFont
-  const brandDescent = context.measureText(WATERMARK_TEXT).actualBoundingBoxDescent
-  const brandBaseline = Math.round(footerTop + WATERMARK_BRAND_Y * scale)
-  // 底边从品牌字形的实际下沿计算，使其留白与图表上方的 padding 相同。
   result.width = image.width + padding * 2
-  result.height = Math.ceil(brandBaseline + brandDescent) + padding
+  const brand = createWatermarkTextImage(
+    result.width,
+    scale,
+    WATERMARK_TEXT,
+    styles.getPropertyValue(WATERMARK_BRAND_TEXT_TOKEN).trim(),
+    WATERMARK_FONT_FAMILY,
+    WATERMARK_FONT_WEIGHT,
+  )
+  const watermarkTextToken =
+    styles.colorScheme === 'dark' ? WATERMARK_DARK_TEXT_TOKEN : WATERMARK_LIGHT_TEXT_TOKEN
+  const instrument = createWatermarkTextImage(
+    result.width,
+    scale,
+    instrumentText,
+    styles.getPropertyValue(watermarkTextToken).trim(),
+    WATERMARK_NAME_FONT_FAMILY,
+    WATERMARK_NAME_FONT_WEIGHT,
+  )
+  const instrumentTop = footerTop + padding
+  const brandTop = instrumentTop + instrument.height + Math.round(WATERMARK_LINE_GAP * scale)
+  // 图表上方、图表到品种文字上沿、品牌文字下沿到底边共用同一个 padding。
+  result.height = brandTop + brand.height + padding
   context.imageSmoothingEnabled = false
   context.fillStyle = styles.getPropertyValue(SCREENSHOT_SURFACE_TOKEN).trim()
   context.fillRect(0, 0, result.width, result.height)
-  // 仅裁剪转换出的图表，外部留白和水印不受圆角裁剪影响。
-  context.save()
-  context.beginPath()
-  context.roundRect(
-    padding,
-    padding,
-    image.width,
-    image.height,
-    SCREENSHOT_CORNER_RADIUS * scale,
-  )
-  context.clip()
   context.drawImage(image, padding, padding)
-  context.restore()
-  const watermarkTextToken =
-    styles.colorScheme === 'dark' ? WATERMARK_DARK_TEXT_TOKEN : WATERMARK_LIGHT_TEXT_TOKEN
-  context.fillStyle = styles.getPropertyValue(watermarkTextToken).trim()
-  context.font = `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE * scale}px ${WATERMARK_NAME_FONT_FAMILY}`
-  context.textBaseline = 'alphabetic'
-  context.textAlign = 'center'
-  context.fillText(
-    instrumentText,
-    result.width / 2,
-    Math.round(footerTop + WATERMARK_INSTRUMENT_Y * scale),
-    result.width - WATERMARK_HORIZONTAL_PADDING * 2 * scale,
-  )
+  context.drawImage(instrument, 0, instrumentTop)
   // 品牌保留相同字号，仅通过主题灰色降低视觉权重。
-  context.fillStyle = styles.getPropertyValue(WATERMARK_BRAND_TEXT_TOKEN).trim()
-  context.font = brandFont
-  context.fillText(
-    WATERMARK_TEXT,
-    result.width / 2,
-    brandBaseline,
-    result.width - WATERMARK_HORIZONTAL_PADDING * 2 * scale,
-  )
+  context.drawImage(brand, 0, brandTop)
   return result
 }
 
