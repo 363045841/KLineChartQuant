@@ -1,15 +1,16 @@
 // 本文件验证 Agent 指标查询保留原入参，同时只向调用方返回紧凑文本。
 
 import { describe, expect, it, vi } from 'vitest'
+import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata'
-import { createDataState } from '@/engine/state/dataState'
+import { ACTIVE_BUFFER_KIND, createDataState } from '@/engine/state/dataState'
 import { CHART_AGENT_ERROR_CODES } from '@/errors'
 import type { KLineData } from '@/foundation/types/price'
 import { createIndicatorQuery } from '../impl/indicator/indicatorQuery'
 import type { IndicatorQueryInput } from '../types'
 
 const BAR_SELECTION = {
-  kind: 'bars' as const,
+  kind: SERIES_SELECTION_KIND.bars,
   instrumentKey: 'TEST',
   sourceId: 'test',
   period: 'daily' as const,
@@ -32,7 +33,7 @@ function createBars(length: number, timestampOffset = 0): KLineData[] {
 /** 发布测试 K 线数据。 */
 function publishBars(dataState: ReturnType<typeof createDataState>, data: KLineData[]): void {
   dataState.actions.applyActiveBufferSnapshot({
-    kind: 'bars',
+    kind: ACTIVE_BUFFER_KIND.bars,
     selection: BAR_SELECTION,
     data,
     loading: false,
@@ -264,9 +265,9 @@ BOS 向上 5 @ 1970-01-01 08:00`)
   it('rejects an active time-share series because indicator queries require bars', async () => {
     const dataState = createDataState()
     dataState.actions.applyActiveBufferSnapshot({
-      kind: 'timeShare',
+      kind: ACTIVE_BUFFER_KIND.timeShare,
       selection: {
-        kind: 'timeShare',
+        kind: SERIES_SELECTION_KIND.timeShare,
         instrumentKey: 'TEST',
         sourceId: 'test',
         tradingDate: 'latest',

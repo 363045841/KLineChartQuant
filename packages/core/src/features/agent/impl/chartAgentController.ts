@@ -1,6 +1,7 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
 import { type Static, Type } from 'typebox'
 import type { IndicatorInstance } from '@/controllers/types.js'
+import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
 import {
   lookupInstrumentsBySymbol,
   searchInstruments,
@@ -17,7 +18,7 @@ import {
   type DrawingObject,
   getDrawingInputAnchorCount,
 } from '@/engine/drawing/index.js'
-import type { DataStateModule } from '@/engine/state/dataState.js'
+import { ACTIVE_BUFFER_KIND, type DataStateModule } from '@/engine/state/dataState.js'
 import { CHART_AGENT_ERROR_CODES, KLineChartError } from '@/errors.js'
 import {
   type ChartToolExecutionContext,
@@ -387,7 +388,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
   /** 从 StateKernel 派生当前图表的只读上下文。 */
   private createContext(): ChartAgentContextSnapshot | null {
     const activeBuffer = this.dependencies.dataState.readonly.activeBuffer()
-    if (activeBuffer.kind === 'empty' || activeBuffer.data.length === 0) return null
+    if (activeBuffer.kind === ACTIVE_BUFFER_KIND.empty || activeBuffer.data.length === 0)
+      return null
 
     const spec = this.dependencies.currentSpec()
     const dataRange = requireTimestampRange(activeBuffer.data)
@@ -398,7 +400,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const exchange = spec?.instrument?.exchange ?? spec?.exchange ?? null
     const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
     const period = this.dependencies.chartMode()
-    const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
+    const adjustMode =
+      selection.kind === SERIES_SELECTION_KIND.bars ? selection.adjustment : (spec?.adjust ?? null)
     const timezone = activeBuffer.timezone
     const visibleRange = this.dependencies.selectedRange()
     const drawingSelection = projectDrawingSelection(
@@ -431,7 +434,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     symbol: string | null,
     visibleRange: ChartAgentTimeRange | null,
   ): string | null {
-    if (activeBuffer.kind !== 'bars' || !symbol || !visibleRange) return null
+    if (activeBuffer.kind !== ACTIVE_BUFFER_KIND.bars || !symbol || !visibleRange) return null
     const data = activeBuffer.data.filter(
       (item) => item.timestamp >= visibleRange.from && item.timestamp <= visibleRange.to,
     )

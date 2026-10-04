@@ -3,19 +3,19 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DataBuffer } from '../buffer/impl/dataBuffer'
 import {
+  type BarsSelection,
   instrumentKeyFromSpec,
+  SERIES_SELECTION_KIND,
   SeriesRepository,
-  type SeriesSelection,
   sourceIdFromSpec,
+  type TimeShareSelection,
 } from '../buffer/impl/seriesRepository'
 import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
 
 /** 创建测试用 K 线选择。 */
-function barsSelection(
-  overrides: Partial<Extract<SeriesSelection, { kind: 'bars' }>> = {},
-): Extract<SeriesSelection, { kind: 'bars' }> {
+function barsSelection(overrides: Partial<BarsSelection> = {}): BarsSelection {
   return {
-    kind: 'bars',
+    kind: SERIES_SELECTION_KIND.bars,
     instrumentKey: '["CN","SH","600000"]',
     sourceId: 'gotdx',
     period: 'daily',
@@ -26,11 +26,9 @@ function barsSelection(
 }
 
 /** 创建测试用分时选择。 */
-function timeShareSelection(
-  overrides: Partial<Extract<SeriesSelection, { kind: 'timeShare' }>> = {},
-): Extract<SeriesSelection, { kind: 'timeShare' }> {
+function timeShareSelection(overrides: Partial<TimeShareSelection> = {}): TimeShareSelection {
   return {
-    kind: 'timeShare',
+    kind: SERIES_SELECTION_KIND.timeShare,
     instrumentKey: '["CN","SH","600000"]',
     sourceId: 'gotdx',
     tradingDate: 'latest',
@@ -119,9 +117,7 @@ describe('SeriesRepository', () => {
 
     expect(listener).toHaveBeenCalledTimes(1)
     expect(repository.getBars(selection)).toBeUndefined()
-    expect(
-      repository.getBars(resolved.selection as Extract<SeriesSelection, { kind: 'bars' }>),
-    ).toBe(buffer)
+    expect(repository.getBars(resolved.selection as BarsSelection)).toBe(buffer)
     expect(() => (repository.snapshot.peek() as Map<string, unknown>).clear()).toThrow('immutable')
   })
 

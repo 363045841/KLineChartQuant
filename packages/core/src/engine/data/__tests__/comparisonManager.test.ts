@@ -4,20 +4,19 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
 import { DataBuffer } from '@/data/buffer/impl/dataBuffer'
 import {
+  type BarsSelection,
   instrumentKeyFromSpec,
+  SERIES_SELECTION_KIND,
   SeriesRepository,
-  type SeriesSelection,
   sourceIdFromSpec,
 } from '@/data/buffer/impl/seriesRepository'
 import { OLDER_DATA_STATUS } from '@/data/provider/types'
 import { ComparisonManager } from '../comparisonManager'
 
-type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
-
 /** 将测试品种转换为日 K 选择。 */
 function selectionForSpec(spec: SymbolSpec): BarsSelection {
   return {
-    kind: 'bars',
+    kind: SERIES_SELECTION_KIND.bars,
     instrumentKey: instrumentKeyFromSpec(spec),
     sourceId: sourceIdFromSpec(spec),
     period: (spec.period ?? 'daily') as BarsSelection['period'],

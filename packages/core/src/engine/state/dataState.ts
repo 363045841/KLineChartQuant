@@ -1,7 +1,11 @@
 /** 主图数据 buffer 业务状态：activeBuffer、数据版本与 symbol 目录。 */
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
-import type { SeriesSelection } from '../../data/buffer/impl/seriesRepository.js'
+import {
+  type BarsSelection,
+  SERIES_SELECTION_KIND,
+  type TimeShareSelection,
+} from '../../data/buffer/impl/seriesRepository.js'
 import type { TimeShareRange } from '../../data/provider/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
@@ -10,10 +14,17 @@ export interface DataDeps {
   /** placeholder — for future visibleRange computed */
 }
 
+/** 活动 Buffer 快照判别字段字面量；空态与两类序列共用同一取值来源。 */
+export const ACTIVE_BUFFER_KIND = {
+  empty: 'empty',
+  bars: SERIES_SELECTION_KIND.bars,
+  timeShare: SERIES_SELECTION_KIND.timeShare,
+} as const
+
 /** Kernel 中当前活动 Buffer 的原子业务快照。 */
 export type ActiveBufferSnapshot =
   | {
-      readonly kind: 'empty'
+      readonly kind: typeof ACTIVE_BUFFER_KIND.empty
       readonly dataRevision: number
       readonly selection: null
       readonly data: ReadonlyArray<never>
@@ -24,9 +35,9 @@ export type ActiveBufferSnapshot =
       readonly timeSharePreClose: null
     }
   | {
-      readonly kind: 'bars'
+      readonly kind: typeof ACTIVE_BUFFER_KIND.bars
       readonly dataRevision: number
-      readonly selection: Extract<SeriesSelection, { kind: 'bars' }>
+      readonly selection: BarsSelection
       readonly data: ReadonlyArray<KLineData>
       readonly loading: boolean
       readonly error: string | null
@@ -36,9 +47,9 @@ export type ActiveBufferSnapshot =
       readonly timeSharePreClose: null
     }
   | {
-      readonly kind: 'timeShare'
+      readonly kind: typeof ACTIVE_BUFFER_KIND.timeShare
       readonly dataRevision: number
-      readonly selection: Extract<SeriesSelection, { kind: 'timeShare' }>
+      readonly selection: TimeShareSelection
       readonly data: ReadonlyArray<TimeShareData>
       readonly loading: boolean
       readonly error: string | null
@@ -51,7 +62,7 @@ export type ActiveBufferSnapshot =
 /** 创建空活动快照。 */
 function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
   return Object.freeze({
-    kind: 'empty',
+    kind: ACTIVE_BUFFER_KIND.empty,
     dataRevision: 0,
     selection: null,
     data: Object.freeze([]),

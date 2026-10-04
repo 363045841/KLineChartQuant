@@ -1,11 +1,16 @@
 /** dataState 单元测试：验证活动选择和强类型业务快照原子发布。 */
 import { describe, expect, it } from 'vitest'
 
-import type { SeriesSelection } from '@/data/buffer/impl/seriesRepository'
-import { createDataState } from '../dataState'
+import {
+  type BarsSelection,
+  SERIES_SELECTION_KIND,
+  type SeriesSelection,
+  type TimeShareSelection,
+} from '@/data/buffer/impl/seriesRepository'
+import { ACTIVE_BUFFER_KIND, createDataState } from '../dataState'
 
-const barsSelection: Extract<SeriesSelection, { kind: 'bars' }> = {
-  kind: 'bars',
+const barsSelection: BarsSelection = {
+  kind: SERIES_SELECTION_KIND.bars,
   instrumentKey: '["CN","SH","600000"]',
   sourceId: 'gotdx',
   period: 'daily',
@@ -33,7 +38,7 @@ describe('dataState', () => {
     state.readonly.loading.subscribe(record)
 
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars',
+      kind: ACTIVE_BUFFER_KIND.bars,
       selection: barsSelection,
       data: [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }],
       loading: true,
@@ -56,7 +61,7 @@ describe('dataState', () => {
     const state = createDataState()
     const data = [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }]
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars',
+      kind: ACTIVE_BUFFER_KIND.bars,
       selection: barsSelection,
       data,
       loading: true,
@@ -66,7 +71,7 @@ describe('dataState', () => {
       timeSharePreClose: null,
     })
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars',
+      kind: ACTIVE_BUFFER_KIND.bars,
       selection: barsSelection,
       data,
       loading: false,
@@ -78,7 +83,7 @@ describe('dataState', () => {
     expect(state.readonly.dataRevision()).toBe(1)
 
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars',
+      kind: ACTIVE_BUFFER_KIND.bars,
       selection: barsSelection,
       data: [...data],
       loading: false,
@@ -93,7 +98,7 @@ describe('dataState', () => {
   it('reset clears the complete active snapshot', () => {
     const state = createDataState()
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars',
+      kind: ACTIVE_BUFFER_KIND.bars,
       selection: barsSelection,
       data: [],
       loading: true,
@@ -120,15 +125,15 @@ describe('dataState', () => {
       olderData: 'unknown' as const,
       days: [{ tradingDate: '2026-08-06' as const, preClose: 10, data: [] }],
     }
-    const selection: Extract<SeriesSelection, { kind: 'timeShare' }> = {
-      kind: 'timeShare',
+    const selection: TimeShareSelection = {
+      kind: SERIES_SELECTION_KIND.timeShare,
       instrumentKey: '["CN","SH","600519"]',
       sourceId: 'gotdx',
       tradingDate: '2026-08-06',
     }
 
     state.actions.applyActiveBufferSnapshot({
-      kind: 'timeShare',
+      kind: ACTIVE_BUFFER_KIND.timeShare,
       selection,
       data: [{ timestamp: 1, price: 10, average: 10 }],
       loading: false,
