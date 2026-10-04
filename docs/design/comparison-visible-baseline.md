@@ -1,0 +1,19 @@
+# K 线主图的原生比较功能
+
+比较不是独立图表模式。ChartDataView 和 chartMode 仅包含 kline、timeshare、fiveDayTimeShare；比较入口只写入比较品种集合，增删品种不切换视图、工作区、缩放或滚动状态。
+
+主品种始终提供 K 线 OHLC、时间轴、逻辑索引、指标数据、最新价和悬浮提示。比较品种单独订阅 Repository Buffer，继承主图 K 线周期，以时间戳映射到主图时间轴并绘制折线。增删比较不会重建或重新请求主 Buffer。分时模式保留比较选择，但不绘制比较折线。
+
+存在比较品种时，K 线主图使用百分比刻度。主品种首个可见有效收盘价是共同基准；比较品种使用自身首个可见有效价格计算涨跌幅，映射到相同高度。较晚出现的比较品种保留真实时间位置，缺数据处不补造行情。基准线以主题参考线颜色绘制为横跨内容区的 0% 虚线。
+
+ComparisonProjection 是单帧共享结果，包含主品种可见 OHLC 极值、比较折线等价价格与统一基准。价格轴、折线、基准线、比较图例使用相同起点。主图指标范围同时参与自动缩放，避免 K 线影线或指标被比较折线范围裁掉。
+
+比较覆盖期间保留 settings 中的轴偏好；移除最后一个比较品种时，从当前用户设置重新派生刻度，不保存临时刻度副本。主品种渲染偏好保持不变，默认仍为蜡烛图。
+
+行为目标是 TradingView 的主品种 K 线加比较折线及同轴百分比比较。延迟起点对齐是本项目明确约定的边界行为，不宣称复刻 TradingView 的全部细节。
+
+左上角比较行只展示颜色标识和品种名称，不展示行情数值。比较行沿用指标悬浮框，只提供隐藏／显示与删除按钮。隐藏状态属于 comparisonState，隐藏折线不参与绘制或价格范围，但保留选择、数据与置灰名称；删除按完整品种身份移除选择并清理隐藏状态。
+
+## 视图决策归属
+
+数据视图（kline / timeshare / fiveDayTimeShare）的唯一事实来源是 `engine/chartModel/` 模块。`CHART_VIEW_DEFINITIONS` 声明每个视图的主序列渲染偏好、`requiresMarketSession`、横向 `capabilities` 与主图系统实例；`resolveChartDataView(period)` 是周期到视图的唯一推导；`ChartDataViewId` 等类型只从该模块流出。比较投影（`projectComparison` / `ComparisonProjection`）与比较状态（`createComparisonState`）也位于本模块 `impl/comparison/`；比较品种的数据协调（`engine/data/comparisonManager.ts`）与 CRUD 命令（`engine/data/comparisonCommands.ts`）留在 `engine/data/`。比较集合不参与视图决策，移除独立比较视图后 `chartMode` 仅由主品种周期决定。视图切换的渲染副作用（清屏、图例清理、模式处理器激活）仍编排在 `Chart`，不进 ChartModel。

@@ -18,10 +18,10 @@
 
 ## 最新价线的模式可见性
 
-`lastPriceLine` 与 `lastPriceLabelRegistrar` 是 mode 自有的主图 Indicators，声明 `dataViews: ['kline']`。K 线模式创建它们的系统实例，比较与分时模式不创建。
+`lastPriceLine` 与 `lastPriceLabelRegistrar` 是 mode 自有的主图 Indicators，声明 `dataViews: ['kline']`。它们由 `CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine].mainInstances` 声明，只有 K 线视图创建这些系统实例，分时视图不创建。
 
-原因：最新价虚线描述主 K 线的最后收盘价，在归一化对比序列的 pane 中没有意义。它必须跟随与 `extremaMarkers` 相同的声明式可见性投影，而不是依赖绘制时的模式判断。
+原因：最新价虚线描述主 K 线的最后收盘价，在分时的 pane 中没有意义。它必须跟随与 `extremaMarkers` 相同的声明式可见性投影，而不是依赖绘制时的模式判断。
 
-生命周期：`ChartIndicatorManager` 从 Indicator 定义安装两个层；`ChartStateKernel.activeRenderers$` 从活动的 mode 实例集合选择它们的可见性，因此比较模式从不启用任何最新价 renderer。
+生命周期：`ChartIndicatorManager` 从 Indicator 定义安装两个层；`ChartStateKernel.activeRenderers$` 从活动的 mode 实例集合选择它们的可见性，因此分时视图从不启用任何最新价 renderer。
 
-图例：比较视图的 legend 上下文省略 `currentBar`，因此 K 线专属的 O/H/L/C/Vol 行既不由 Canvas legend 渲染，也不由外部 legend slot 渲染。
+图例：图例上下文只在 K 线视图渲染 `currentBar`（O/H/L/C/Vol 行），分时视图不渲染。

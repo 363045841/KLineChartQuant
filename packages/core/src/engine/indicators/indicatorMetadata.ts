@@ -9,7 +9,7 @@ import type { IndicatorRenderStateReader, RenderContext } from '../../foundation
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import type { ChartDataView } from '../state/modeState.js'
+import type { ChartDataView } from '../chartModel/index.js'
 
 import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorContracts.js'
 

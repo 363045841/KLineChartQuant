@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createIndicatorSelectorController } from '../createIndicatorSelectorController'
+import { createIndicatorSelectorController } from '../indicatorSelector/index'
 import type { IndicatorDefinition } from '../types'
 
 // ---------------------------------------------------------------------------

@@ -3,10 +3,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FIVE_DAY_TIME_SHARE_PERIOD, TIME_SHARE_PERIOD } from '../../controllers/types'
 import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
-import { Chart, type ChartOptions } from '../chart'
+import { Chart, type ChartOptions } from '../chart/index'
+import { ChartDataViewId } from '../chartModel/index'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { MAIN_PANE_ID } from '../paneIds'
-import { ChartDataViewId } from '../state/modeState'
+import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs } from './helpers/chartDomTestKit'
 
 const options: ChartOptions = {

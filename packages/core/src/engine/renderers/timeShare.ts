@@ -7,9 +7,9 @@ import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
+import { resolveTimeShareBaseline } from '../chartModel/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
-import { resolveTimeShareBaseline } from '../modes/index.js'
 import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShareCommon.js'
 
 /** 分时主图 Layer：按可见范围绘制价格线、均价线与昨收基线。 */

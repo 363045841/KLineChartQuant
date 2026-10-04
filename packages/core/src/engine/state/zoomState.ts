@@ -5,7 +5,7 @@ import {
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
 import { type ChartDataView, ChartDataViewId } from '../../foundation/types/chartView.js'
-import { clampZoomLevel, zoomLevelToKWidth } from '../utils/zoom.js'
+import { clampZoomLevel, zoomLevelToKWidth } from '../viewport/zoom.js'
 
 export interface ZoomDeps {
   minKWidth$: ReadonlySignal<number>
@@ -18,7 +18,6 @@ export interface ZoomDeps {
 export function createZoomState(deps: ZoomDeps) {
   const initial = {
     [ChartDataViewId.KLine]: { level: 1, slotWidth: null as number | null },
-    [ChartDataViewId.Comparison]: { level: 1, slotWidth: null as number | null },
     [ChartDataViewId.TimeShare]: { level: 1, slotWidth: null as number | null },
     [ChartDataViewId.FiveDayTimeShare]: { level: 1, slotWidth: null as number | null },
   }

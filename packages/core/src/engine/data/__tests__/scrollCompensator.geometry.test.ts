@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getPhysicalKLineConfig } from '../../utils/klineConfig'
+import { getPhysicalKLineConfig } from '../../viewport/klineConfig'
 import { ScrollCompensator, type ScrollDeps } from '../scrollCompensator'
 import { createMockViewport } from './helpers/chartDataManagerTestKit'
 

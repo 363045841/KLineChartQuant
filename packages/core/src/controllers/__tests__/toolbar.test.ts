@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createToolbarController } from '../createToolbarController'
+import { createToolbarController } from '../toolbar/index'
 import type { ToolDefinition } from '../types'
 
 // ---------------------------------------------------------------------------

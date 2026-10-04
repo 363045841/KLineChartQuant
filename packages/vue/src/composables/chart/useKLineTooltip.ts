@@ -272,7 +272,7 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
         const data = ctrl.getData()
         const kline =
           typeof idx === 'number' && idx >= 0 && idx < data.length ? data[idx] : undefined
-        const hidden = !kline || ctrl.chartMode.peek() === 'comparison' || isMobile
+        const hidden = !kline || isMobile
         if (visibilityEl !== el) {
           visibilityEl = el
           hiddenState = true

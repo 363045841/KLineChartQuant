@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
 import { MarketDataCache } from '@/data/buffer/impl/marketDataCache'
+import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository'
 import { MarketDataProviderRegistry } from '@/data/provider/impl/registry'
 import type {
   BarSeries,
@@ -11,7 +12,7 @@ import type {
 } from '@/data/provider/types'
 import { ComparisonCommands } from '@/engine/data/comparisonCommands'
 import { DrawingCommands, DrawingDocument } from '@/engine/drawing/index'
-import { createDataState } from '@/engine/state/dataState'
+import { ACTIVE_BUFFER_KIND, createDataState } from '@/engine/state/dataState'
 import { createDrawingState } from '@/engine/state/drawingState'
 import { CHART_AGENT_ERROR_CODES } from '@/errors'
 import { createSignal } from '@/foundation/reactivity/signal'
@@ -20,7 +21,7 @@ import type { KLineData } from '@/foundation/types/price'
 import { createChartAgentController, getRegisteredChartTools } from '../impl/chartAgentController'
 
 const BAR_SELECTION = {
-  kind: 'bars' as const,
+  kind: SERIES_SELECTION_KIND.bars,
   instrumentKey: 'TEST',
   sourceId: 'fixture',
   period: 'daily' as const,
@@ -49,7 +50,7 @@ function publishBars(
   timezone: string | null = null,
 ): void {
   dataState.actions.applyActiveBufferSnapshot({
-    kind: 'bars',
+    kind: ACTIVE_BUFFER_KIND.bars,
     selection: BAR_SELECTION,
     data: bars,
     loading: false,
@@ -104,7 +105,7 @@ function createFixture() {
     source: 'fixture',
   })
   const selectedRange = createSignal<{ from: number; to: number } | null>(null)
-  const chartMode = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>('kline')
+  const chartMode = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline')
   const indicatorParams = { period: 14, showLabel: true, invalid: Number.NaN }
   const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([
     {
@@ -192,7 +193,6 @@ function createFixture() {
   const comparisonCommands = new ComparisonCommands({
     getSpecs: () => [],
     setSpecs: () => {},
-    setComparisonViewActive: () => {},
     registerSpec: () => {},
     resolveInstrument: async () => ({
       candidates: [],

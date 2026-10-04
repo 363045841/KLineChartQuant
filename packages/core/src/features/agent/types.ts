@@ -21,7 +21,7 @@ import type {
   DrawingObject,
 } from '../../engine/drawing/index.js'
 import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata.js'
-import type { PaneManager } from '../../engine/paneManager.js'
+import type { PaneManager } from '../../engine/pane/index.js'
 import type { DataStateModule } from '../../engine/state/dataState.js'
 import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'

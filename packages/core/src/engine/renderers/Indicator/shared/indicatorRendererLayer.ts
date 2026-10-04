@@ -6,7 +6,7 @@
  * 避免每个指标渲染器重复实现，符合单一事实来源。
  */
 
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer, LayerRole } from '@/rendering/scene/types.js'

@@ -31,6 +31,14 @@ export function useLegendActions(
         const detail: unknown = event.detail
         if (!isLegendAction(detail)) return
         const { paneId, definitionId, action } = detail
+        if (detail.comparisonIdentity) {
+          if (action === 'close')
+            controller.value?.removeComparisonSymbol(detail.comparisonIdentity)
+          else if (action === 'toggle-visibility') {
+            controller.value?.setComparisonHidden(detail.comparisonIdentity, detail.hidden === true)
+          }
+          return
+        }
         const main = paneId === 'main'
         if (action === 'replace') {
           replacementId.value = main ? definitionId : paneId

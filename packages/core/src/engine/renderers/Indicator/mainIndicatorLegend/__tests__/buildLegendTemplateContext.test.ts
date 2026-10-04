@@ -5,6 +5,7 @@ import {
   createMockRenderContext,
   createMockStateReader,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { projectComparison } from '@/engine/chartModel'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
@@ -177,26 +178,31 @@ describe('buildLegendTemplateContext comparison rows', () => {
     },
   ])('resolves comparison data by identity key ($label)', ({ spec, expectedPercent }) => {
     const identity = symbolSpecIdentityKey(spec)
+    const comparisonData = new Map([[identity, comparisonDataFor(spec)]])
     const context = createMockRenderContext({
       data: mainData,
       period: 'daily',
-      dataView: 'comparison',
+      dataView: 'kline',
       range: { start: 0, end: 2 },
       crosshairIndex: 1,
       paneWidth: 800,
       isAsiaMarket: true,
       comparisonSymbols: [spec],
-      comparisonData: new Map([[identity, comparisonDataFor(spec)]]),
+      comparisonData,
+      comparisonProjection:
+        projectComparison(mainData, comparisonData, { start: 0, end: 2 }, [0, 10], 0, 800) ??
+        undefined,
       comparisonColors: new Map([[identity, '#123456']]),
     })
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
-    expect(result?.currentBar).toBeNull()
-    // 对比视图没有主品种行，仅列出比较品种
+    expect(result?.currentBar?.close).toBe(mainData[1]!.close)
     expect(result?.comparisons).toEqual([
       {
         symbol: spec.symbol,
+        identity,
+        hidden: false,
         ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
         percent: expectedPercent,
         color: '#123456',
@@ -205,7 +211,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
     ])
   })
 
-  it('has no main symbol row when comparison data is not loaded', () => {
+  it('keeps the primary OHLC row when comparison data is not loaded', () => {
     const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
     const context = createMockRenderContext({
       data: mainData,
@@ -220,6 +226,9 @@ describe('buildLegendTemplateContext comparison rows', () => {
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
-    expect(result?.comparisons).toEqual([])
+    expect(result?.comparisons).toEqual([
+      expect.objectContaining({ symbol: spec.symbol, identity: symbolSpecIdentityKey(spec) }),
+    ])
+    expect(result?.currentBar?.close).toBe(mainData[1]!.close)
   })
 })

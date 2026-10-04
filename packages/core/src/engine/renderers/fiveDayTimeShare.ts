@@ -6,10 +6,9 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
+import { ChartDataViewId, resolveFiveDayTimeShareBaseline } from '../chartModel/index.js'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
-import { resolveFiveDayTimeShareBaseline } from '../modes/index.js'
-import { ChartDataViewId } from '../state/modeState.js'
 import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShareCommon.js'
 
 /** 五日分时主图 Layer：按共享日边界绘制，避免相邻交易日之间产生连线。 */

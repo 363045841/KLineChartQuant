@@ -8,7 +8,7 @@ import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
 import settings from '@iconify-icons/tabler/settings'
 import x from '@iconify-icons/tabler/x'
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { FONT_FAMILY } from '@/foundation/tokens/fonts.js'
 import {
   LEGEND_ACTION_EVENT,
@@ -27,6 +27,12 @@ const ACTIONS: ReadonlyArray<{ action: LegendAction; label: string; icon: typeof
   { action: 'settings', label: '指标设置', icon: settings },
   { action: 'close', label: '关闭指标', icon: x },
 ]
+/** 比较行只提供可见性和删除操作，沿用指标悬浮框的样式。 */
+const COMPARISON_ACTIONS: typeof ACTIONS = [
+  { action: 'toggle-visibility', label: '隐藏比较品种', icon: eye },
+  { action: 'close', label: '删除比较品种', icon: x },
+]
+const COMPARISON_FRAME_WIDTH_PX = 60
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 /** 六个操作按钮所需的 frame 右侧扩展宽度。 */
 const FRAME_EXTRA_WIDTH_PX = 156
@@ -55,7 +61,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-row { position:absolute; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:18px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
-    .klc-legend-row[data-indicator] { pointer-events:auto; }
+    .klc-legend-row[data-indicator], .klc-legend-row[data-comparison] { pointer-events:auto; }
     .klc-legend-text { display:flex; align-items:center; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
     .klc-legend-row[data-hidden] .klc-legend-text { filter:grayscale(1); opacity:.55; }
@@ -65,7 +71,8 @@ function createStyles(document: Document): HTMLStyleElement {
       border:1px solid var(--klc-color-ui-border); border-radius:4px;
       background:var(--klc-color-ui-surface); z-index:-1; pointer-events:auto; }
     .klc-legend-actions { display:flex; align-items:center; gap:2px; }
-    .klc-legend-row[data-indicator]:hover, .klc-legend-row[data-indicator]:focus-within { z-index:1; }
+    .klc-legend-row[data-indicator]:hover, .klc-legend-row[data-indicator]:focus-within,
+    .klc-legend-row[data-comparison]:hover, .klc-legend-row[data-comparison]:focus-within { z-index:1; }
     .klc-legend-row:hover > .klc-legend-frame, .klc-legend-row:focus-within > .klc-legend-frame { display:flex; }
     .klc-legend-button { display:grid; place-items:center; flex:0 0 22px;
       width:22px; height:22px; padding:0; border:0; border-radius:3px;
@@ -93,9 +100,10 @@ function addActions(document: Document, row: MountedRow): void {
   // frame 是独立于文本流的包裹层，依据同一文本 DOM 的尺寸定位，不改变文字坐标。
   const frame = document.createElement('div')
   frame.className = 'klc-legend-frame'
+  if (row.data.comparison) frame.style.width = `calc(100% + ${COMPARISON_FRAME_WIDTH_PX}px)`
   const actions = document.createElement('div')
   actions.className = 'klc-legend-actions'
-  for (const item of ACTIONS) {
+  for (const item of row.data.comparison ? COMPARISON_ACTIONS : ACTIONS) {
     const button = document.createElement('button')
     button.type = 'button'
     button.className = 'klc-legend-button'
@@ -110,14 +118,16 @@ function addActions(document: Document, row: MountedRow): void {
     button.addEventListener('click', (event) => {
       event.stopPropagation()
       const indicator = row.data.indicator
-      if (!indicator) return
+      const comparison = row.data.comparison
+      if (!indicator && !comparison) return
       row.element.dispatchEvent(
         new CustomEvent(LEGEND_ACTION_EVENT, {
           bubbles: true,
           detail: {
             action: item.action,
             paneId: row.data.paneId,
-            definitionId: indicator.definitionId,
+            definitionId: indicator?.definitionId ?? '',
+            ...(comparison ? { comparisonIdentity: comparison.identity } : {}),
             ...(item.action === 'toggle-visibility' ? { hidden: !row.data.hidden } : {}),
           },
         }),
@@ -243,8 +253,9 @@ export function createLegendDomRenderer(
           text.className = 'klc-legend-text'
           element.append(text)
           row = { element, text, spans: [], nodes: [], buttons: [], data }
-          if (data.indicator) {
-            element.dataset.indicator = data.indicator.instanceId
+          if (data.indicator || data.comparison) {
+            if (data.indicator) element.dataset.indicator = data.indicator.instanceId
+            if (data.comparison) element.dataset.comparison = data.comparison.identity
             addActions(document, row)
             // Legend 本身阻止画布拖拽，悬浮数值不触发 Vue 或画布指针流程。
             for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
@@ -260,7 +271,7 @@ export function createLegendDomRenderer(
         const style = row.element.style
         const left = `${data.x}px`
         const top = `${data.y}px`
-        const maxWidth = `${Math.max(0, data.maxWidth - (data.indicator ? FRAME_EXTRA_WIDTH_PX : 0))}px`
+        const maxWidth = `${Math.max(0, data.maxWidth - (data.comparison ? COMPARISON_FRAME_WIDTH_PX : data.indicator ? FRAME_EXTRA_WIDTH_PX : 0))}px`
         const minHeight = `${data.height}px`
         const gap = `${data.gap}px`
         if (style.left !== left) style.left = left
@@ -292,12 +303,18 @@ export function createLegendDomRenderer(
             index > 0 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
           if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
         }
-        if (data.indicator) {
+        if (data.indicator || data.comparison) {
           const hidden = data.hidden === true
           if (row.element.hasAttribute('data-hidden') !== hidden) {
             row.element.toggleAttribute('data-hidden', hidden)
           }
-          const label = hidden ? '隐藏指标' : '显示指标'
+          const label = data.comparison
+            ? hidden
+              ? '显示比较品种'
+              : '隐藏比较品种'
+            : hidden
+              ? '隐藏指标'
+              : '显示指标'
           const icon = hidden ? VISIBILITY_ICONS.hidden : VISIBILITY_ICONS.visible
           if (row.visibilityButton && row.visibilityIcon && row.visibilityButton.title !== label) {
             row.visibilityButton.title = label
@@ -305,7 +322,7 @@ export function createLegendDomRenderer(
             row.visibilityIcon.innerHTML = icon.body
           }
         }
-        if (row.buttons.length) {
+        if (row.buttons.length && data.indicator) {
           const order =
             paneId === MAIN_PANE_ID
               ? indicatorRows.map((row) => row.key)

@@ -2,6 +2,7 @@
 
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
+import { ACTIVE_BUFFER_KIND } from '@/engine/state/dataState.js'
 import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type {
   IndicatorCalculationQueryInput,
@@ -125,7 +126,7 @@ export function createIndicatorQuery(dependencies: IndicatorQueryDependencies): 
       )
       for (let attempt = 0; attempt < MAX_DATA_REVISION_ATTEMPTS; attempt++) {
         const dataSnapshot = dependencies.dataState.readonly.activeBuffer.peek()
-        if (dataSnapshot.kind !== 'bars' || dataSnapshot.data.length === 0) {
+        if (dataSnapshot.kind !== ACTIVE_BUFFER_KIND.bars || dataSnapshot.data.length === 0) {
           throw new KLineChartError(
             INDICATOR_QUERY_ERROR_CODES.MARKET_DATA_UNAVAILABLE,
             'Indicator query requires active K-line data',

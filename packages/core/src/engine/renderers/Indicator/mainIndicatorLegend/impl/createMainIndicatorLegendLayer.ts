@@ -1,6 +1,6 @@
 /** 构建主图 DOM Legend 行，Canvas 不再绘制标题文本。 */
 
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { LegendRow, LegendText } from '@/engine/renderers/legend/types.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
@@ -43,7 +43,7 @@ export function createMainIndicatorLegendLayer(
   })
 }
 
-/** 将主图行情、指标及叠加商品转换为按行展示的 DOM 文本。 */
+/** 左上角展示主品种行情、指标和比较品种名称，比较行不展示行情数值。 */
 export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: number): LegendRow[] {
   const rows: LegendRow[] = []
   const { layout, colors } = legend
@@ -53,6 +53,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
     texts: LegendText[],
     indicator?: LegendRow['indicator'],
     hidden?: boolean,
+    comparison?: LegendRow['comparison'],
   ): void {
     rows.push({
       key,
@@ -65,6 +66,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       texts,
       indicator,
       hidden,
+      comparison,
     })
   }
   const ts = legend.timeshare
@@ -128,19 +130,22 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
     )
   }
   for (const comparison of legend.comparisons) {
+    if (!comparison.identity) continue
     const name = comparison.name?.trim()
-    add(`comparison:${comparison.symbol}`, [
-      { text: '●', color: comparison.color },
-      {
-        text:
-          name && name !== comparison.symbol ? `${comparison.symbol} ${name}` : comparison.symbol,
-        color: colors.textPrimary,
-      },
-      {
-        text: `${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(2)}%`,
-        color: comparison.percentColor,
-      },
-    ])
+    add(
+      `comparison:${comparison.identity}`,
+      [
+        { text: '●', color: comparison.color },
+        {
+          text:
+            name && name !== comparison.symbol ? `${comparison.symbol} ${name}` : comparison.symbol,
+          color: colors.textPrimary,
+        },
+      ],
+      undefined,
+      comparison.hidden,
+      { identity: comparison.identity },
+    )
   }
   return rows
 }

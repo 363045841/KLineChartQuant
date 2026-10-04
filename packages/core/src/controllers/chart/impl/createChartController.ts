@@ -1,15 +1,15 @@
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
-import { Chart } from '@/engine/chart.js'
 import type {
   ChartOptions,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-  ViewportState as LegacyViewportState,
-} from '@/engine/chartTypes.js'
+  IndicatorInstance as EngineIndicatorInstance,
+  SubPaneInfo as EngineSubPaneInfo,
+  ViewportState as EngineViewportState,
+} from '@/engine/chart/index.js'
+import { Chart } from '@/engine/chart/index.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
-import { MAIN_PANE_ID } from '@/engine/paneIds.js'
-import { hasSubPaneRendererMetadata } from '@/engine/subPaneManager.js'
+import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
@@ -20,12 +20,10 @@ import { createDefaultRendererHost, type RendererBackend } from '@/rendering/ren
 import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
 import {
   createPanePriceAxisPersistence,
-  loadStoredPanePriceAxisModes,
-} from '../../panePriceAxisPersistence.js'
-import {
   createViewWorkspacePersistence,
+  loadStoredPanePriceAxisModes,
   loadStoredViewWorkspaces,
-} from '../../viewWorkspacePersistence.js'
+} from '../../persistence/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -42,7 +40,9 @@ import { createDataMethods } from './createDataMethods.js'
 import { createDrawingMethods } from './createDrawingMethods.js'
 import { mountChartDom } from './mountChartDom.js'
 
-function mapViewportState(vp: LegacyViewportState): ChartViewport {
+// engine 侧模型 → controller 公开模型的字段投影：engine 的指标实例带 internal ordinal，
+// 公开实例不含，故在此收窄为面向前端的快照。
+function mapViewportState(vp: EngineViewportState): ChartViewport {
   return {
     zoomLevel: vp.zoomLevel,
     plotWidth: vp.plotWidth,
@@ -55,7 +55,7 @@ function mapViewportState(vp: LegacyViewportState): ChartViewport {
   }
 }
 
-function mapIndicatorInstance(indicator: LegacyIndicatorInstance): IndicatorInstance {
+function mapIndicatorInstance(indicator: EngineIndicatorInstance): IndicatorInstance {
   return {
     id: indicator.id,
     definitionId: indicator.definitionId,
@@ -67,7 +67,7 @@ function mapIndicatorInstance(indicator: LegacyIndicatorInstance): IndicatorInst
   }
 }
 
-function mapSubPaneInfo(subPane: LegacySubPaneInfo): SubPaneInfo {
+function mapSubPaneInfo(subPane: EngineSubPaneInfo): SubPaneInfo {
   return {
     instanceId: subPane.instanceId,
     paneId: subPane.paneId,

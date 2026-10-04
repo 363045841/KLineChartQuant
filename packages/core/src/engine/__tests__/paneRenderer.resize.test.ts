@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 // 验证 Pane 画布尺寸、轴宽与 DPR 映射。
 import { describe, expect, it } from 'vitest'
-
-import { Pane } from '@/core/layout/pane'
-import { PaneRenderer } from '@/core/paneRenderer'
+import { Pane, PaneRenderer } from '@/core/pane/index'
 
 /** 构造含左右轴的真实 DOM 画布。 */
 function createDom() {

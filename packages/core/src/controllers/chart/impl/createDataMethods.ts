@@ -6,9 +6,10 @@
  * 作为销毁短路条件，dispose() 负责退订 currentSpec 并停止实时连接。
  */
 
+import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
 import { BarsLiveSubscription } from '@/data/live/impl/barsLive.js'
 import { ORIGINAL_BAR_AGGREGATION } from '@/data/provider/types.js'
-import type { Chart } from '@/engine/chart.js'
+import type { Chart } from '@/engine/chart/index.js'
 import type { CustomDataSource, KLineData, SymbolInfo, SymbolSpec } from '../types.js'
 
 /**
@@ -21,11 +22,13 @@ import type { CustomDataSource, KLineData, SymbolInfo, SymbolSpec } from '../typ
 export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
   const liveBars = new BarsLiveSubscription({ updateBars })
 
-  /** 按当前活动品种协调 MT5 K 线实时订阅。 */
+  /** 按当前活动品种协调实时 K 线订阅，不区分具体数据源。 */
   function reconcileLiveBars(): void {
     const selection = chart.kernel.data.readonly.activeSelection.peek()
     const barAggregation =
-      selection?.kind === 'bars' ? selection.barAggregation : ORIGINAL_BAR_AGGREGATION
+      selection?.kind === SERIES_SELECTION_KIND.bars
+        ? selection.barAggregation
+        : ORIGINAL_BAR_AGGREGATION
     liveBars.reconcile(chart.kernel.dataManager.readonly.currentSpec.peek(), barAggregation)
   }
 
@@ -65,6 +68,12 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
   function removeComparisonSymbol(symbol: string): void {
     if (isDisposed()) return
     chart.removeComparisonSymbol(symbol)
+  }
+
+  /** 将比较折线可见性操作委托给 core。 */
+  function setComparisonHidden(identity: string, hidden: boolean): void {
+    if (isDisposed()) return
+    chart.setComparisonHidden(identity, hidden)
   }
 
   function setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void {
@@ -171,6 +180,7 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
       setComparisonSpecs,
       addComparisonSymbol,
       removeComparisonSymbol,
+      setComparisonHidden,
       setComparisonData,
       setCurrentSymbol,
       setCurrentPeriod,

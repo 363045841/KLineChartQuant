@@ -4,19 +4,19 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
 import { DataBuffer } from '@/data/buffer/impl/dataBuffer'
 import {
+  type BarsSelection,
   instrumentKeyFromSpec,
+  SERIES_SELECTION_KIND,
   SeriesRepository,
-  type SeriesSelection,
   sourceIdFromSpec,
 } from '@/data/buffer/impl/seriesRepository'
+import { OLDER_DATA_STATUS } from '@/data/provider/types'
 import { ComparisonManager } from '../comparisonManager'
-
-type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 
 /** 将测试品种转换为日 K 选择。 */
 function selectionForSpec(spec: SymbolSpec): BarsSelection {
   return {
-    kind: 'bars',
+    kind: SERIES_SELECTION_KIND.bars,
     instrumentKey: instrumentKeyFromSpec(spec),
     sourceId: sourceIdFromSpec(spec),
     period: (spec.period ?? 'daily') as BarsSelection['period'],
@@ -38,7 +38,6 @@ function createHarness() {
   })
   const loadRange = vi.fn()
   const setLoading = vi.fn()
-  const setReferenceLength = vi.fn()
   const releaseSelection = vi.fn((selection: BarsSelection) => repository.delete(selection))
   const manager = new ComparisonManager(repository, {
     selectionForSpec,
@@ -49,7 +48,6 @@ function createHarness() {
     scheduleDraw: vi.fn(),
     getSpecs: () => specs,
     setLoading,
-    setReferenceLength,
   })
   return {
     manager,
@@ -58,7 +56,6 @@ function createHarness() {
     loadBuffer,
     loadRange,
     setLoading,
-    setReferenceLength,
     releaseSelection,
     setSpecs(next: ReadonlyArray<SymbolSpec>) {
       specs = next
@@ -90,24 +87,23 @@ describe('ComparisonManager runtime projection', () => {
     expect(harness.repository.getBars(selectionForSpec(spec))).toBeDefined()
   })
 
-  it('publishes the reference series bar count and resets it when comparisons are gone', () => {
+  it('projects every selected comparison buffer independently of the primary', () => {
     const harness = createHarness()
     const first = { symbol: 'A', market: 'CN', source: 'custom', period: 'daily' }
     const second = { symbol: 'B', market: 'CN', source: 'custom', period: 'daily' }
     harness.setSpecs([first, second])
     harness.manager.reconcile()
-    harness.setReferenceLength.mockClear()
 
     harness.manager.setData('A', [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }])
     harness.manager.setData('B', [
       { timestamp: 1, open: 1, high: 1, low: 1, close: 1 },
       { timestamp: 2, open: 1, high: 1, low: 1, close: 1 },
     ])
-    expect(harness.setReferenceLength).toHaveBeenLastCalledWith(1)
+    expect([...harness.manager.data.values()].map((data) => data.length)).toEqual([1, 2])
 
     harness.setSpecs([])
     harness.manager.reconcile()
-    expect(harness.setReferenceLength).toHaveBeenLastCalledWith(0)
+    expect(harness.manager.data.size).toBe(0)
   })
 
   it('does not reset a shared leaf when comparison request metadata differs', () => {
@@ -180,6 +176,11 @@ describe('ComparisonManager runtime projection', () => {
     harness.setSpecs([spec])
     harness.manager.setData('A', [{ timestamp: 100, open: 1, high: 1, low: 1, close: 1 }])
     const buffer = harness.repository.getBars(selectionForSpec(spec))!
+    buffer.mergeData(
+      [{ timestamp: 100, open: 1, high: 1, low: 1, close: 1 }],
+      OLDER_DATA_STATUS.AVAILABLE,
+      'Asia/Shanghai',
+    )
     buffer.setLoading(true)
 
     harness.manager.ensureRange(99)

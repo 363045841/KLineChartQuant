@@ -1,6 +1,9 @@
 /** 加载边界与可见数据价格范围的纯计算；可见槽位范围由视图策略派生。 */
 import type { KLineData } from '../../foundation/types/price.js'
-import type { PriceRange } from '../scale/price.js'
+import type { PriceRange } from '../scale/index.js'
+
+/** 视口可见的数据索引区间（start 含、end 不含）。 */
+export type VisibleRange = { start: number; end: number }
 
 /** 左侧加载缓冲进入视口，意味着首根已加载 K 线之前出现空白。 */
 export function hasLeftDataGap(scrollLeft: number, leftLoadBufferWidth: number): boolean {

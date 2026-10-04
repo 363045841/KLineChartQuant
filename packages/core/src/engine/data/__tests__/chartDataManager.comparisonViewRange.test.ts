@@ -1,143 +1,80 @@
+/** 比较叠加协调器测试：主序列、逻辑坐标与指标数据不被比较集合替换。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
 import type { KLineData } from '@/controllers/types'
 import type { ChartDataManager } from '../chartDataManager'
+import { ComparisonManager } from '../comparisonManager'
 import { createTestChartDataManager, createTestDocument } from './helpers/chartDataManagerTestKit'
 
-const mainData: KLineData[] = [
-  { timestamp: 1743318000000, date: '2026-01-01', open: 100, high: 110, low: 90, close: 100 },
-  { timestamp: 1743404400000, date: '2026-01-02', open: 100, high: 112, low: 88, close: 102 },
-  { timestamp: 1743490800000, date: '2026-01-03', open: 102, high: 113, low: 89, close: 101 },
+const primary: KLineData[] = [
+  { timestamp: 1, open: 100, high: 110, low: 90, close: 100 },
+  { timestamp: 2, open: 100, high: 112, low: 88, close: 102 },
+  { timestamp: 3, open: 102, high: 113, low: 89, close: 101 },
+]
+const compared: KLineData[] = [
+  { timestamp: 2, open: 50, high: 500, low: 1, close: 50 },
+  { timestamp: 3, open: 60, high: 500, low: 1, close: 60 },
 ]
 
-const cmpData: KLineData[] = [
-  { timestamp: 1743318000000, date: '2026-01-01', open: 50, high: 50, low: 50, close: 50 },
-  { timestamp: 1743404400000, date: '2026-01-02', open: 51, high: 51, low: 51, close: 51 },
-  { timestamp: 1743490800000, date: '2026-01-03', open: 52, high: 52, low: 52, close: 52 },
-]
-
-describe('ChartDataManager.getComparisonViewLineRange', () => {
-  let manager: ChartDataManager | null = null
-  let document: Document
-
+describe('K 线比较叠加数据', () => {
+  let manager: ChartDataManager
   beforeEach(() => {
-    document = createTestDocument()
+    manager = createTestChartDataManager(createTestDocument(), {
+      viewport: { visibleRange: { start: 0, end: 3 } },
+    }).manager
   })
-
   afterEach(() => {
-    manager?.destroy()
-    manager = null
+    manager.destroy()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
-  function makeManager(): ChartDataManager {
-    const m = createTestChartDataManager(document, {
-      viewport: { visibleRange: { start: 0, end: 3 } },
-    }).manager
-    manager = m
-    return m
+  /** 使用真实内联 Buffer 加载主品种和延迟出现的比较品种。 */
+  function load(): void {
+    manager.setSymbols([{ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' }])
+    manager.setData(primary)
+    manager.setComparisonData('CMP', compared)
   }
 
-  /** 仅加载 kline 主品种；对比集合为空。 */
-  function loadKlineOnly(): ChartDataManager {
-    const m = makeManager()
-    m.setSymbols([{ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' }])
-    m.setData(mainData)
-    return m
-  }
-
-  /** 对比集合 = [MAIN, CMP]，首序列 MAIN 充当参考序列，主品种需由调用方显式加入集合。 */
-  function loadWithReference(): ChartDataManager {
-    const m = loadKlineOnly()
-    m.setComparisonData('MAIN', mainData)
-    m.setComparisonData('CMP', cmpData)
-    return m
-  }
-
-  /** 以 scrollLeft=0、中心从 0 递增的几何调用，基准索引即 range.start。 */
-  function lineRange(m: ChartDataManager, range: { start: number; end: number }) {
-    const centers = Array.from({ length: Math.max(0, range.end - range.start) }, (_, i) => i * 10)
-    return m.getComparisonViewLineRange(range, centers, 0, 800)
-  }
-
-  it('returns null when no comparison symbols exist', () => {
-    const m = loadKlineOnly()
-    expect(lineRange(m, { start: 0, end: 3 })).toBeNull()
+  it('保留主品种渲染数据、指标数据和逻辑坐标', () => {
+    load()
+    expect(manager.getRenderData()).toEqual(primary)
+    expect(manager.getInternalData()).toEqual(primary)
+    expect(manager.getTimestampAtLogicalIndex(0)).toBe(1)
+    expect(manager.getLogicalIndexAtTimestamp(3)).toBe(2)
+    expect(manager.getLogicalSlotCount()).toBe(primary.length + 24)
   })
 
-  it('returns null when the reference series has no loaded data', () => {
-    const m = makeManager()
-    m.setComparisonData('CMP', [])
-    expect(lineRange(m, { start: 0, end: 3 })).toBeNull()
+  it('价格范围同时包含主品种影线和比较折线，不使用比较品种原始 high/low', () => {
+    load()
+    const projection = manager.getComparisonProjection({ start: 0, end: 3 }, [0, 10, 20], 0, 100)
+    expect(projection?.basePrice).toBe(100)
+    expect(projection?.min).toBe(88)
+    expect(projection?.max).toBe(120)
+    expect(projection?.series[0]?.points).toEqual([
+      { index: 1, price: 100 },
+      { index: 2, price: 120 },
+    ])
   })
 
-  it('includes comparison equivalent prices and ignores raw high/low', () => {
-    const m = loadWithReference()
-    // 参考 MAIN 基准 100 → cmp 基准 50，等价价 100/102/104；MAIN 自身 100/102/101
-    expect(lineRange(m, { start: 0, end: 3 })).toEqual({ min: 100, max: 104 })
+  it('比较集合为空或没有主品种数据时不替换主图', () => {
+    expect(manager.getComparisonProjection({ start: 0, end: 3 }, [0, 10, 20], 0, 100)).toBeNull()
+    manager.setComparisonData('CMP', compared)
+    expect(manager.getRenderData()).toEqual([])
+    expect(manager.getComparisonProjection({ start: 0, end: 3 }, [0, 10, 20], 0, 100)).toBeNull()
   })
 
-  it('respects the visible range window', () => {
-    const m = loadWithReference()
-    // 只看前两根：MAIN 100/102，cmp 等价 100/102
-    expect(lineRange(m, { start: 0, end: 2 })).toEqual({ min: 100, max: 102 })
+  it('主品种已覆盖可见范围时仍检查比较折线的历史覆盖', () => {
+    load()
+    const ensure = vi.spyOn(ComparisonManager.prototype, 'ensureRange')
+    manager.checkVisibleRangeGap()
+    expect(ensure).toHaveBeenCalledWith(primary[0]!.timestamp)
   })
 
-  it('uses the first comparison bar at or after the visible base date', () => {
-    const m = loadWithReference()
-    m.setComparisonData('CMP', [cmpData[0]!, cmpData[2]!])
-
-    expect(lineRange(m, { start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
-  })
-
-  it('uses binary timestamp lookup when neither series provides dates', () => {
-    const m = makeManager()
-    m.setSymbols([{ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' }])
-    const noDateMain = mainData.map(({ date: _date, ...item }) => item)
-    m.setData(noDateMain)
-    m.setComparisonData('MAIN', noDateMain)
-    m.setComparisonData(
-      'CMP',
-      [cmpData[0]!, cmpData[2]!].map(({ date: _date, ...item }) => item),
-    )
-
-    expect(lineRange(m, { start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
-  })
-
-  it('anchors the baseline on the first fully visible bar when the left bar is scrolled off', () => {
-    const m = loadWithReference()
-    // range.start=1 的 bar 中心 x=-5 落在屏外 → 基准取索引 2：MAIN[2]=101，cmp 基准 52
-    // 折线从基准起算：bar2 MAIN 101 → 0%，CMP 52 → 0% → 范围 {101,101}
-    const range = { start: 1, end: 3 }
-    const centers = [-5, 5]
-    expect(m.getComparisonViewLineRange(range, centers, 0, 800)).toEqual({ min: 101, max: 101 })
-  })
-
-  it('checks comparison coverage when the reference series already covers the visible range', () => {
-    const m = loadKlineOnly()
-    m.setComparisonData('CMP', [cmpData[1]!, cmpData[2]!])
-    const comparisonManager = (
-      m as unknown as {
-        _comparisonManager: { ensureRange: (firstVisibleTs: number) => void }
-      }
-    )._comparisonManager
-    const ensureRange = vi.spyOn(comparisonManager, 'ensureRange')
-
-    m.checkVisibleRangeGap()
-
-    expect(ensureRange).toHaveBeenCalledWith(mainData[0]!.timestamp)
-  })
-
-  it('returns null when the visible window is outside the data', () => {
-    const m = loadKlineOnly()
-    m.setComparisonData('CMP', cmpData)
-    expect(lineRange(m, { start: 10, end: 20 })).toBeNull()
-  })
-
-  it('uses the first comparison series as the axis reference without a kline primary', () => {
-    const m = makeManager()
-    m.setComparisonData('CMP', cmpData)
-
-    expect(m.getRenderData()).toEqual(cmpData)
+  it('滚动重算主品种基准且不纳入屏外比较点', () => {
+    load()
+    const projection = manager.getComparisonProjection({ start: 0, end: 3 }, [0, 10, 20], 10, 10)
+    expect(projection?.basePrice).toBe(102)
+    expect(projection?.min).toBe(88)
+    expect(projection?.max).toBeCloseTo(122.4)
   })
 })

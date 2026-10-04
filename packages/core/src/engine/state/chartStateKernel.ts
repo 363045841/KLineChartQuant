@@ -2,6 +2,8 @@
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import type { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
+import { resolveSymbolMarketSession } from '../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
@@ -11,17 +13,25 @@ import { batch, computed, type ReadonlySignal } from '../../foundation/reactivit
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels.js'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost.js'
-import type { PaneSpec } from '../chartTypes.js'
+import {
+  CHART_VIEW_DEFINITIONS,
+  type ChartDataView,
+  ChartDataViewId,
+  type ChartModelModule,
+  type ComparisonStateModule,
+  createChartModel,
+  createComparisonState,
+  isTimeShareDataView,
+  resolveChartWorkspaceId,
+} from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
-import type { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
-import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession.js'
-import { PaneManager } from '../paneManager.js'
-import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
-import { type ComparisonStateModule, createComparisonState } from './comparisonState.js'
+import { PaneManager } from '../pane/index.js'
+import type { PaneSpec } from '../pane/types.js'
+import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
@@ -38,14 +48,6 @@ import {
 } from './interactionState.js'
 import { createMainPriceAxisState, type MainPriceAxisStateModule } from './mainPriceAxisState.js'
 import { createMarkerState, type MarkerStateModule } from './markerState.js'
-import {
-  type ChartDataView,
-  ChartDataViewId,
-  createModeState,
-  isTimeShareDataView,
-  type ModeStateModule,
-  resolveChartWorkspaceId,
-} from './modeState.js'
 import { createOptionsState, type OptionsStateModule } from './optionsState.js'
 import { createPaneState, type PaneStateModule } from './paneState.js'
 import { createRendererState, type RendererStateModule } from './rendererState.js'
@@ -129,10 +131,7 @@ function resolveIndicatorRenderers(
       }
     }
     // 无 @Indicator 定义的裸主序列 renderer 直接按实例 id 挂载。
-    if (
-      instance.source === 'mode' &&
-      (instance.indicatorId === 'candle' || instance.indicatorId === 'comparisonLine')
-    ) {
+    if (instance.source === 'mode' && instance.indicatorId === 'candle') {
       add(mainRenderers, instance.indicatorId)
       continue
     }
@@ -200,7 +199,7 @@ export class ChartStateKernel extends StateKernel {
   readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
   readonly mainPriceAxis: MainPriceAxisStateModule
-  readonly mode: ModeStateModule
+  readonly mode: ChartModelModule
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
@@ -234,7 +233,7 @@ export class ChartStateKernel extends StateKernel {
     this.options = createOptionsState(deps.initialOptions)
 
     // ── Data view state（缩放宽度需按视图派生）──
-    this.mode = createModeState()
+    this.mode = createChartModel()
 
     // ── Zoom state ──
     this.zoom = createZoomState({
@@ -257,19 +256,14 @@ export class ChartStateKernel extends StateKernel {
     // ── Comparison state（对比品种独立 SSOT，不派生自 kline 主品种）──
     this.comparison = createComparisonState()
 
-    // 比较视图激活时，视口数据长度由对比参考序列长度决定；否则由 kline 主品种决定。
-    this.dataLength$ = computed(() => {
-      if (this.comparison.readonly.specs().length > 0) {
-        return this.comparison.readonly.referenceLength()
-      }
-      return this.data.readonly.dataLength()
-    })
+    // 比较叠加不替换主序列，视口与指标始终消费主品种数据长度。
+    this.dataLength$ = this.data.readonly.dataLength
 
     // ── Data manager state (coordination layer) ──
     this.dataManager = createDataManagerState()
     // computed() 立即求值一次，故须在 dataManager 创建之后定义
     const marketSession$ = computed(() => {
-      if (!VIEW_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
+      if (!SCALE_X_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
       const spec = this.dataManager.readonly.currentSpec()
       if (!deps.marketSessions || !spec) return null
       return resolveSymbolMarketSession(spec, deps.marketSessions)
@@ -337,7 +331,13 @@ export class ChartStateKernel extends StateKernel {
     // 主图和指标统一从 kernel 状态投影；此处只输出意图，不执行 Layer 副作用。
     this.activeRenderers$ = computed(() => {
       const dataView = this.mode.readonly.dataView()
-      const renderers = resolveIndicatorRenderers(dataView, this.indicator.readonly.instances())
+      const renderers = [
+        ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances()),
+      ]
+      // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
+      if (dataView === ChartDataViewId.KLine && this.comparison.readonly.active()) {
+        renderers.push({ name: 'comparisonLine', layerId: makePluginLayerId('comparisonLine') })
+      }
       return Object.freeze([
         ...new Map(
           renderers.map((descriptor) => [descriptor.layerId, Object.freeze(descriptor)]),
@@ -465,74 +465,16 @@ export class ChartStateKernel extends StateKernel {
         this.renderer.actions.setRuntime(runtime),
       setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const workspaceId = resolveChartWorkspaceId(view)
-        const modeInstances: IndicatorInstanceSpec[] =
-          view === ChartDataViewId.FiveDayTimeShare
-            ? [
-                {
-                  instanceId: 'mode:five-day-timeshare',
-                  indicatorId: ChartDataViewId.FiveDayTimeShare,
-                  paneId: 'main',
-                  role: 'main',
-                  ordinal: 0,
-                  params: {},
-                },
-              ]
-            : isTimeShareDataView(view)
-              ? [
-                  {
-                    instanceId: 'mode:timeshare',
-                    indicatorId: 'timeShare',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                ]
-              : view === ChartDataViewId.Comparison
-                ? [
-                    {
-                      instanceId: 'mode:comparison',
-                      indicatorId: 'comparisonLine',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                  ]
-                : [
-                    {
-                      instanceId: 'mode:candle',
-                      indicatorId: 'candle',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                    {
-                      instanceId: 'mode:extrema-markers',
-                      indicatorId: 'extremaMarkers',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                    {
-                      instanceId: 'mode:last-price-line',
-                      indicatorId: 'lastPriceLine',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                    {
-                      instanceId: 'mode:last-price-label',
-                      indicatorId: 'lastPriceLabelRegistrar',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                  ]
+        const modeInstances: IndicatorInstanceSpec[] = CHART_VIEW_DEFINITIONS[
+          view
+        ].mainInstances.map((instance) => ({
+          instanceId: instance.instanceId,
+          indicatorId: instance.indicatorId,
+          paneId: 'main',
+          role: 'main',
+          ordinal: 0,
+          params: { ...(instance.params ?? {}) },
+        }))
         batch(() => {
           this.mode.actions.setDataView(view, lastBarPeriod)
           this.indicator.actions.setActiveWorkspace(workspaceId)

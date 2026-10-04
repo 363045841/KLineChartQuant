@@ -779,18 +779,18 @@ WebGPU renderer 通过 `frameMetrics` 记录 draw、submit、buffer create、upl
 
 **组合与帧编排**
 
-- `engine/chart.ts`
-- `engine/render/chartRenderer.ts`
+- `engine/chart/impl/chart.ts`
+- `engine/frame/chartRenderer.ts`
 - `foundation/reactivity/frameTransaction.ts`
 
 **状态、视口与 pane**
 
 - `engine/state/viewportState.ts`
 - `engine/viewport/chartViewportManager.ts`
-- `engine/layout/chartPaneLayout.ts`
-- `engine/paneRenderer.ts`
-- `engine/utils/klineConfig.ts`
-- `engine/modes/impl/timeShareMath.ts`
+- `engine/pane/impl/layout/chartPaneLayout.ts`
+- `engine/pane/impl/paneRenderer.ts`
+- `engine/viewport/klineConfig.ts`
+- `engine/chartModel/impl/modes/timeShareMath.ts`
 
 **Scene 与 Layer**
 

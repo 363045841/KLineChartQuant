@@ -7,7 +7,7 @@ import {
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 
 import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
-import { createChartController } from '../createChartController'
+import { createChartController } from '../chart/index'
 
 import type { KLineData } from '../types'
 

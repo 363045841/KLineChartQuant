@@ -15,12 +15,12 @@ import {
 } from '../../foundation/utils/volumePrice.js'
 import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import type { MarkerManager } from '../marker/registry.js'
 import {
   createProjectionRevision,
   type ProjectionRevision,
   sameProjectionRevision,
-} from '../render/retainedProjection.js'
+} from '../frame/index.js'
+import type { MarkerManager } from '../marker/registry.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 
 const THICK_WICK_ZOOM_LEVEL = 10
@@ -73,8 +73,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     z: RENDERER_PRIORITY.MAIN,
     visible: true,
     paint(context) {
-      // 比较模式只展示各品种的涨跌幅折线。
-      if (context.dataView === ChartDataViewId.Comparison) return
+      if (context.dataView !== ChartDataViewId.KLine) return
       const {
         ctx,
         pane,

@@ -28,7 +28,7 @@ Chart（engine/chart.ts）
 
 - 定义 `StateKernel` 抽象基类与 `SubStateModule` 组合契约。
 - 为每一类图表状态提供 `createXxxState()` 子状态工厂：options、zoom、data、viewport、pane、
-  systemTheme、settings、mode、drawing、interaction、dataManager、comparison、indicator、
+  systemTheme、settings、mode、drawing、interaction、dataManager、indicator、
   marker、renderer。
 - 在 `ChartStateKernel` 中组合上述子状态，并暴露跨子状态的派生信号
   （如 `effectiveTheme$`、`dataLength$`、`activeRenderers$`）。
@@ -36,7 +36,7 @@ Chart（engine/chart.ts）
 
 本目录不负责：
 
-- 图表绘制、渲染帧边界；由 `engine/render/` 与 `rendering/` 负责。
+- 图表绘制、渲染帧边界；由 `engine/frame/` 与 `rendering/` 负责。
 - 行情数据的实际拉取与缓冲；由 `engine/data/` 与 `data/` 负责。
 - 业务查询 DTO 的构造；公开查询必须基于已提交结果构造受限投影。
 - 维护任何状态的第二份副本；`StateKernel` 是唯一事实源。
@@ -54,14 +54,12 @@ state/
 ├── viewportState.ts           # 视口几何、DPR clamp 与尺寸
 ├── contentGeometry.ts         # 视口内容的纯几何计算（leftBuffer / contentWidth / maxScroll）
 ├── paneState.ts               # 主图/副图布局
-├── modeState.ts               # kline / timeshare / fiveDayTimeShare / comparison 模式
 ├── themeState.ts              # 系统主题注入点（用户偏好在 settings.theme）
 ├── settingsState.ts           # 用户偏好设置快照
 ├── drawingState.ts            # 绘图工具、图元与选中 id
 ├── interactionState.ts        # 十字线、悬停、拖拽、区间选择
 ├── indicatorState.ts          # 指标实例与副图配置
 ├── markerState.ts             # 自定义 marker 业务状态
-├── comparisonState.ts         # 对比序列状态
 ├── rendererState.ts           # renderer backend 运行时状态
 ├── viewWorkspace.ts           # 视图工作区可恢复快照类型与持久化契约
 ├── immutable.ts               # 快照深度冻结工具

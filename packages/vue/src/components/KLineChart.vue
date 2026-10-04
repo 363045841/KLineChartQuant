@@ -406,6 +406,7 @@
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
   import { useChartState } from '../composables/chart/useChartState.js'
   import { useChartTheme } from '../composables/chart/useChartTheme.js'
+  import { useComparisonSymbols } from '../composables/chart/useComparisonSymbols.js'
   import {
     useControllerSignal,
     useControllerSignalValue,
@@ -636,14 +637,6 @@
     try {
       applyInstrumentCapabilities(item)
       ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      // 对比视图没有主品种：切换主品种时，把对比集合中原来由 UI 推入的主品种条目替换为新品种。
-      const oldKey = currentSymbolItem.value ? symbolIdentityKey(currentSymbolItem.value) : null
-      const specs = ctrl.comparisonSpecs.peek()
-      if (oldKey && specs.some((spec) => symbolIdentityKey(spec) === oldKey)) {
-        ctrl.setComparisonSpecs(
-          specs.map((spec) => (symbolIdentityKey(spec) === oldKey ? toSymbolSpec(item) : spec)),
-        )
-      }
       ctrl.setSymbols([toSymbolSpec(item)])
     } catch (error) {
       symbolStatus.value = 'error'
@@ -673,26 +666,6 @@
     ) {
       kLineAdjust.value = adjustments[0]!
     }
-  }
-
-  function onAddOverlaySymbol(item: SymbolItem) {
-    const ctrl = controller.value
-    if (!ctrl) return
-    try {
-      const primary = currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null
-      // 比较视图不设主品种；首个对比时由 UI 把当前 kline 主品种作为普通序列推入，保证主折线可见。
-      if (primary && ctrl.comparisonSpecs.peek().length === 0) {
-        ctrl.addComparisonSymbol(primary)
-      }
-      ctrl.addComparisonSymbol(toSymbolSpec(item), primary)
-    } catch (error) {
-      symbolStatus.value = 'error'
-      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
-    }
-  }
-
-  function onRemoveOverlaySymbol(identity: string) {
-    controller.value?.removeComparisonSymbol(identity)
   }
 
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
@@ -825,6 +798,15 @@
 
   // ── Controller & Composable Wiring ──
   const controller = shallowRef<ChartController | null>(null)
+  const { add: onAddOverlaySymbol, remove: onRemoveOverlaySymbol } = useComparisonSymbols({
+    getController: () => controller.value,
+    getPrimary: () => currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null,
+    toSpec: toSymbolSpec,
+    onError: (item, error) => {
+      symbolStatus.value = 'error'
+      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+    },
+  })
   const chartMode = useControllerSignal(
     controller,
     (ctrl) => ctrl.chartMode,
@@ -1318,9 +1300,7 @@
     }
     return null
   })
-  const showExternalKLineTooltip = computed(
-    () => chartMode.value !== 'comparison' && externalHoveredKLine.value !== null && !isMobile,
-  )
+  const showExternalKLineTooltip = computed(() => externalHoveredKLine.value !== null && !isMobile)
   const externalKLineTooltipStyle = computed(() => {
     const position = dragPos.value ?? externalInteractionState.value.tooltipPos
     const offset = getLayerOffset()

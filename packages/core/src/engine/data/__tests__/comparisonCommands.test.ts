@@ -31,7 +31,6 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
   const setSpecs = vi.fn((next: ReadonlyArray<SymbolSpec>) => {
     specs = next.map((spec) => ({ ...spec }))
   })
-  const setComparisonViewActive = vi.fn()
   const scheduleDraw = vi.fn()
   const registerSpec = vi.fn()
   const resolveInstrument = vi.fn(
@@ -56,7 +55,6 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
   const dependencies: ComparisonCommandsDependencies = {
     getSpecs: () => specs,
     setSpecs,
-    setComparisonViewActive,
     registerSpec,
     resolveInstrument,
     getColor: (identity) => colors.get(identity),
@@ -65,7 +63,6 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
   return {
     commands: new ComparisonCommands(dependencies),
     setSpecs,
-    setComparisonViewActive,
     scheduleDraw,
     registerSpec,
     resolveInstrument,
@@ -75,13 +72,12 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
 }
 
 describe('ComparisonCommands', () => {
-  it('creates a comparison without a primary symbol and activates the comparison view', async () => {
+  it('stores a comparison selection independently of the primary symbol', async () => {
     const harness = createHarness()
 
     await harness.commands.create({ symbol: 'CMP' })
 
     expect(harness.specs().map((spec) => spec.symbol)).toEqual(['CMP'])
-    expect(harness.setComparisonViewActive).toHaveBeenCalledWith(true)
     expect(harness.scheduleDraw).toHaveBeenCalledOnce()
   })
 
@@ -332,20 +328,18 @@ describe('ComparisonCommands', () => {
     expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
-  it('keeps the comparison view while other comparisons remain', () => {
+  it('removes only the requested comparison while retaining other overlays', () => {
     const harness = createHarness([COMPARISON, { ...COMPARISON, symbol: 'SECOND' }])
 
     expect(harness.commands.remove({ identity: 'CMP' })).toBe(true)
     expect(harness.specs().map((spec) => spec.symbol)).toEqual(['SECOND'])
-    expect(harness.setComparisonViewActive).not.toHaveBeenCalled()
   })
 
-  it('removes the last comparison and leaves the comparison view', () => {
+  it('removes the last comparison without a view transition', () => {
     const harness = createHarness([COMPARISON])
 
     expect(harness.commands.remove({ identity: symbolSpecIdentityKey(COMPARISON) })).toBe(true)
     expect(harness.specs()).toEqual([])
-    expect(harness.setComparisonViewActive).toHaveBeenCalledWith(false)
     expect(harness.scheduleDraw).toHaveBeenCalledOnce()
   })
 
@@ -361,7 +355,6 @@ describe('ComparisonCommands', () => {
 
     expect(harness.commands.clear()).toBe(2)
     expect(harness.specs()).toEqual([])
-    expect(harness.setComparisonViewActive).toHaveBeenCalledWith(false)
   })
 
   it('does not clear when no comparison exists', () => {

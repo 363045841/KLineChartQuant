@@ -13,10 +13,16 @@ export type TradingDateKey = string
 
 export const LATEST_TRADING_DATE: TradingDateKey = 'latest'
 
+/** 序列选择判别字段字面量；判别种类时引用它，不在业务代码里散落字符串。 */
+export const SERIES_SELECTION_KIND = {
+  bars: 'bars',
+  timeShare: 'timeShare',
+} as const
+
 /** 当前图表消费的强类型序列选择。 */
 export type SeriesSelection =
   | {
-      readonly kind: 'bars'
+      readonly kind: typeof SERIES_SELECTION_KIND.bars
       readonly instrumentKey: InstrumentKey
       readonly sourceId: SourceId
       readonly period: KLinePeriod
@@ -24,11 +30,20 @@ export type SeriesSelection =
       readonly barAggregation: BarAggregation
     }
   | {
-      readonly kind: 'timeShare'
+      readonly kind: typeof SERIES_SELECTION_KIND.timeShare
       readonly instrumentKey: InstrumentKey
       readonly sourceId: SourceId
       readonly tradingDate: TradingDateKey
     }
+
+/** 按判别字段收窄后的 K 线选择。 */
+export type BarsSelection = Extract<SeriesSelection, { kind: typeof SERIES_SELECTION_KIND.bars }>
+
+/** 按判别字段收窄后的分时选择。 */
+export type TimeShareSelection = Extract<
+  SeriesSelection,
+  { kind: typeof SERIES_SELECTION_KIND.timeShare }
+>
 
 /** 单个来源提供的 K 线与分时序列。 */
 export interface SourceSeriesNode {
@@ -80,7 +95,7 @@ export function barSeriesKey(
 
 /** 生成可用于订阅表和兼容诊断字段的稳定选择键。 */
 export function seriesSelectionKey(selection: SeriesSelection): string {
-  return selection.kind === 'bars'
+  return selection.kind === SERIES_SELECTION_KIND.bars
     ? JSON.stringify([
         selection.kind,
         selection.instrumentKey,
@@ -125,29 +140,26 @@ export class SeriesRepository {
   }
 
   /** 按完整 K 线身份查询 Buffer。 */
-  getBars(selection: Extract<SeriesSelection, { kind: 'bars' }>): KLineBuffer | undefined {
+  getBars(selection: BarsSelection): KLineBuffer | undefined {
     return this.getSource(selection)?.bars.get(
       barSeriesKey(selection.period, selection.adjustment, selection.barAggregation),
     )
   }
 
   /** 按完整分时身份查询 Buffer。 */
-  getTimeShare(
-    selection: Extract<SeriesSelection, { kind: 'timeShare' }>,
-  ): TimeShareBuffer | undefined {
+  getTimeShare(selection: TimeShareSelection): TimeShareBuffer | undefined {
     return this.getSource(selection)?.timeShare.get(selection.tradingDate)
   }
 
   /** 查询任意判别选择对应的 Buffer。 */
   get(selection: SeriesSelection): KLineBuffer | TimeShareBuffer | undefined {
-    return selection.kind === 'bars' ? this.getBars(selection) : this.getTimeShare(selection)
+    return selection.kind === SERIES_SELECTION_KIND.bars
+      ? this.getBars(selection)
+      : this.getTimeShare(selection)
   }
 
   /** 返回已有 K 线 Buffer，或创建并注册唯一实例。 */
-  getOrCreateBars(
-    selection: Extract<SeriesSelection, { kind: 'bars' }>,
-    create: () => KLineBuffer,
-  ): KLineBuffer {
+  getOrCreateBars(selection: BarsSelection, create: () => KLineBuffer): KLineBuffer {
     const existing = this.getBars(selection)
     if (existing) return existing
     const buffer = create()
@@ -157,7 +169,7 @@ export class SeriesRepository {
 
   /** 返回已有分时 Buffer，或创建并注册唯一实例。 */
   getOrCreateTimeShare(
-    selection: Extract<SeriesSelection, { kind: 'timeShare' }>,
+    selection: TimeShareSelection,
     create: () => TimeShareBuffer,
   ): TimeShareBuffer {
     const existing = this.getTimeShare(selection)
@@ -189,7 +201,7 @@ export class SeriesRepository {
     const oldSource = instrument.sources.get(selection.sourceId)!
     const oldBars = new Map(oldSource.bars)
     const oldTimeShare = new Map(oldSource.timeShare)
-    if (selection.kind === 'bars') {
+    if (selection.kind === SERIES_SELECTION_KIND.bars) {
       oldBars.delete(barSeriesKey(selection.period, selection.adjustment, selection.barAggregation))
     } else {
       oldTimeShare.delete(selection.tradingDate)
@@ -198,7 +210,7 @@ export class SeriesRepository {
     const targetSource = instrument.sources.get(normalizedSourceId)
     const targetBars = new Map(targetSource?.bars)
     const targetTimeShare = new Map(targetSource?.timeShare)
-    if (selection.kind === 'bars') {
+    if (selection.kind === SERIES_SELECTION_KIND.bars) {
       targetBars.set(
         barSeriesKey(selection.period, selection.adjustment, selection.barAggregation),
         buffer as KLineBuffer,
@@ -234,12 +246,12 @@ export class SeriesRepository {
     const bars = new Map(source.bars)
     const timeShare = new Map(source.timeShare)
     const buffer =
-      selection.kind === 'bars'
+      selection.kind === SERIES_SELECTION_KIND.bars
         ? bars.get(barSeriesKey(selection.period, selection.adjustment, selection.barAggregation))
         : timeShare.get(selection.tradingDate)
     if (!buffer) return false
 
-    if (selection.kind === 'bars') {
+    if (selection.kind === SERIES_SELECTION_KIND.bars) {
       bars.delete(barSeriesKey(selection.period, selection.adjustment, selection.barAggregation))
     } else {
       timeShare.delete(selection.tradingDate)
@@ -293,7 +305,7 @@ export class SeriesRepository {
     const source = instrument?.sources.get(selection.sourceId)
     const bars = new Map(source?.bars)
     const timeShare = new Map(source?.timeShare)
-    if (selection.kind === 'bars') {
+    if (selection.kind === SERIES_SELECTION_KIND.bars) {
       bars.set(
         barSeriesKey(selection.period, selection.adjustment, selection.barAggregation),
         buffer as KLineBuffer,

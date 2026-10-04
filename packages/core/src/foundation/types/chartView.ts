@@ -5,7 +5,6 @@ export const ChartDataViewId = Object.freeze({
   KLine: 'kline',
   TimeShare: 'timeshare',
   FiveDayTimeShare: 'fiveDayTimeShare',
-  Comparison: 'comparison',
 } as const)
 
 export type ChartDataView = (typeof ChartDataViewId)[keyof typeof ChartDataViewId]

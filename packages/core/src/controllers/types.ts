@@ -13,8 +13,7 @@ import type {
   InstrumentCapabilities,
   InstrumentDescriptor,
 } from '../data/provider/types.js'
-import type { InteractionSnapshot } from '../engine/chart.js'
-import type { PaneSpec } from '../engine/chartTypes.js'
+import type { InteractionSnapshot } from '../engine/chart/index.js'
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
@@ -28,7 +27,7 @@ import type {
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
-import type { CreatePaneInput, PanePatch } from '../engine/paneManager.js'
+import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
@@ -498,10 +497,12 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   setSymbols(next: ReadonlyArray<SymbolSpec>): void
   /** Register symbols into the available symbol catalog for UI pickers */
   registerSymbols(symbols: ReadonlyArray<SymbolInfo>): void
-  /** 直接设置对比集合（对比视图唯一 SSOT），与 kline 主品种解耦。 */
+  /** 设置 K 线主图的原生比较折线集合，不改变 chartMode 或主品种。 */
   setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void
   addComparisonSymbol(spec: SymbolSpec, primary?: SymbolSpec | null): void
   removeComparisonSymbol(symbol: string): void
+  /** 隐藏或显示比较折线，保留品种选择及图例。 */
+  setComparisonHidden(identity: string, hidden: boolean): void
   /** Inject comparison product data directly (bypasses fetcher) */
   setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void
   /** Update the main symbol code without triggering a fetch */

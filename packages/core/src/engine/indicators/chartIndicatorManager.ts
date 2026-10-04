@@ -24,9 +24,9 @@ import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.j
 import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import type { ChartOptions, IndicatorInstance, PaneSpec, SubPaneInfo } from '../chartTypes.js'
-import type { VisibleRange } from '../layout/pane.js'
-import { UpdateLevel } from '../layout/pane.js'
+import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
+import { SubPaneManager, UpdateLevel } from '../pane/index.js'
+import type { PaneSpec, SubPaneContext, SubPaneEntry } from '../pane/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
 import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
@@ -36,7 +36,7 @@ import type {
   SubPaneInput,
   SubPaneSpec,
 } from '../state/indicatorState.js'
-import { type SubPaneContext, type SubPaneEntry, SubPaneManager } from '../subPaneManager.js'
+import type { VisibleRange } from '../viewport/viewport.js'
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,

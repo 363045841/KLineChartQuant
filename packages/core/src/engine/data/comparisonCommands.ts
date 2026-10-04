@@ -116,8 +116,6 @@ export interface ComparisonCommandsDependencies {
   getSpecs(): ReadonlyArray<SymbolSpec>
   /** 原子写回对比品种选择；实现负责同步对比颜色。 */
   setSpecs(next: ReadonlyArray<SymbolSpec>): void
-  /** 进入或退出比较视图（mode + 主图 percent 刻度副作用）。 */
-  setComparisonViewActive(active: boolean): void
   /** 将对比品种登记进可解析目录，供 UI picker 与后续操作复用。 */
   registerSpec(spec: SymbolSpec): void
   /** 按代码返回全部精确匹配品种描述，供消解策略过滤与裁决；未找到时候选为空。 */
@@ -201,7 +199,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     return this.write(this.resolveSpec(input, primary ?? null, input.instrument ?? null))
   }
 
-  /** 去重 → 登记 → 原子写回对比 specs → 切视图 → 重绘；重复返回 false。 */
+  /** 去重、登记并原子写入比较叠加集合，增删操作不切换图表视图。 */
   private write(spec: SymbolSpec): boolean {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
@@ -212,7 +210,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     }
     this.dependencies.registerSpec(spec)
     this.dependencies.setSpecs([...specs, spec])
-    if (specs.length === 0) this.dependencies.setComparisonViewActive(true)
     this.dependencies.scheduleDraw()
     return true
   }
@@ -222,7 +219,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     name: 'comparison_remove',
     label: 'Remove comparison symbol',
     description:
-      'Remove one comparison symbol by its identity from comparisons_list; a matching symbol code also works. The chart returns to the K-line view when the last comparison is removed.',
+      'Remove one comparison line by its identity from comparisons_list; a matching symbol code also works. The primary symbol and chart mode remain unchanged.',
     parameters: ComparisonRemoveToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -234,17 +231,16 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     if (!specs.some(matches)) return false
     const remaining = specs.filter((spec) => !matches(spec))
     this.dependencies.setSpecs(remaining)
-    if (remaining.length === 0) this.dependencies.setComparisonViewActive(false)
     this.dependencies.scheduleDraw()
     return true
   }
 
-  /** 删除全部对比品种并恢复 K 线视图，返回删除数量。 */
+  /** 删除全部比较折线，保留主品种与图表视图，返回删除数量。 */
   @Tool({
     name: 'comparisons_clear',
     label: 'Clear comparison symbols',
     description:
-      'Remove every comparison symbol and return the chart to the K-line view. Returns the number of removed symbols.',
+      'Remove every comparison line while keeping the primary symbol and chart mode unchanged. Returns the number of removed symbols.',
     parameters: ComparisonsClearToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -253,7 +249,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     const specs = this.comparisonSpecs()
     if (specs.length === 0) return 0
     this.dependencies.setSpecs([])
-    this.dependencies.setComparisonViewActive(false)
     this.dependencies.scheduleDraw()
     return specs.length
   }

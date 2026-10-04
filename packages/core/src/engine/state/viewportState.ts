@@ -11,10 +11,9 @@ import {
 import { type ChartDataView, ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
-import type { Viewport, ViewportState } from '../chartTypes.js'
-import type { VisibleRange } from '../layout/pane.js'
-import { VIEW_STRATEGIES } from '../view/impl/viewStrategies.js'
-import type { ViewInput } from '../view/types.js'
+import type { Viewport, ViewportState } from '../chart/index.js'
+import { SCALE_X_STRATEGIES, type ScaleXInput } from '../scale/index.js'
+import type { VisibleRange } from '../viewport/viewport.js'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。
@@ -117,7 +116,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         [ChartDataViewId.KLine]: 0,
         [ChartDataViewId.TimeShare]: 0,
         [ChartDataViewId.FiveDayTimeShare]: 0,
-        [ChartDataViewId.Comparison]: 0,
       },
       viewWidth: 0,
       viewHeight: 0,
@@ -132,7 +130,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   )
 
   // 唯一投影入口：视图状态选择策略，所有几何消费者读取同一快照。
-  const viewInput = computed<ViewInput>(() => ({
+  const viewInput = computed<ScaleXInput>(() => ({
     view: signalDeps.dataView$(),
     width: readonly.plotWidth(),
     dpr: readonly.dpr(),
@@ -144,7 +142,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     timeShareRange: signalDeps.timeShareRange$(),
     scroll: readonly.navigation()[signalDeps.dataView$()],
   }))
-  const viewSnapshot = computed(() => VIEW_STRATEGIES[viewInput().view].project(viewInput()))
+  const viewSnapshot = computed(() => SCALE_X_STRATEGIES[viewInput().view].project(viewInput()))
   const kGap = computed(() => viewSnapshot().kGap)
   const slotGrid = computed(() => viewSnapshot().grid)
   const contentWidth = computed(() => viewSnapshot().contentWidth)
@@ -255,7 +253,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const setLogicalScrollLeft = (value: number): boolean => {
     if (!Number.isFinite(value)) return false
     const snapshot = viewSnapshot.peek()
-    const next = VIEW_STRATEGIES[snapshot.view].navigate(snapshot, value)
+    const next = SCALE_X_STRATEGIES[snapshot.view].navigate(snapshot, value)
     if (next === snapshot.scroll) return false
     signals.navigation.set({ ...readonly.navigation.peek(), [snapshot.view]: next })
     return true
@@ -458,7 +456,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
           [ChartDataViewId.KLine]: 0,
           [ChartDataViewId.TimeShare]: 0,
           [ChartDataViewId.FiveDayTimeShare]: 0,
-          [ChartDataViewId.Comparison]: 0,
         })
       })
     },

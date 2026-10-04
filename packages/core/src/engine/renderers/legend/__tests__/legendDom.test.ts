@@ -29,6 +29,44 @@ function createHarness(hasSelectedSymbol: () => boolean = () => true) {
 }
 
 describe('DOM Legend renderer', () => {
+  it('比较名称复用悬浮框，仅提供隐藏和删除按钮，并保留隐藏行供恢复', () => {
+    const { host, renderer, row } = createHarness()
+    const comparison = {
+      ...row,
+      key: 'comparison:A',
+      indicator: undefined,
+      comparison: { identity: 'id:A' },
+      texts: [{ text: '比较商品 A', color: 'blue' }],
+    }
+    const onAction = vi.fn()
+    host.addEventListener(LEGEND_ACTION_EVENT, onAction)
+    renderer.update('main', [comparison], ['main'])
+    const element = host.querySelector<HTMLElement>('[data-comparison]')!
+    const buttons = element.querySelectorAll<HTMLButtonElement>('button')
+    expect(buttons).toHaveLength(2)
+    expect(element.querySelector('.klc-legend-frame')).not.toBeNull()
+    expect(buttons[0]!.disabled).toBe(false)
+    expect(buttons[0]!.title).toBe('隐藏比较品种')
+    buttons[0]!.click()
+    expect(onAction.mock.calls[0]![0].detail).toMatchObject({
+      action: 'toggle-visibility',
+      comparisonIdentity: 'id:A',
+      hidden: true,
+    })
+    renderer.update('main', [{ ...comparison, hidden: true }], ['main'])
+    expect(element.hasAttribute('data-hidden')).toBe(true)
+    expect(buttons[0]!.title).toBe('显示比较品种')
+    buttons[0]!.click()
+    expect(onAction.mock.calls[1]![0].detail.hidden).toBe(false)
+    buttons[1]!.click()
+    expect(onAction.mock.calls[2]![0].detail).toMatchObject({
+      action: 'close',
+      comparisonIdentity: 'id:A',
+    })
+    renderer.update('main', [], ['main'])
+    expect(host.querySelector('[data-comparison]')).toBeNull()
+    renderer.dispose()
+  })
   it('未选品种时隐藏按钮，选中后显示，收起后清除品种仍隐藏', () => {
     let selected = false
     const { host, renderer, row } = createHarness(() => selected)

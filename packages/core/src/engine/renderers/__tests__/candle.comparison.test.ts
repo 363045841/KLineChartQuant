@@ -1,33 +1,23 @@
+/** K 线原生比较不会替换或隐藏主品种的蜡烛渲染。 */
 import { describe, expect, it } from 'vitest'
-
 import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import type { RenderContext } from '@/foundation/plugin/index'
 import { createCandleLayer } from '../candle'
 
-/** 以主图身份调用 K 线 Layer.paint。 */
-function paint(context: RenderContext): void {
-  createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
-}
-
-describe('candle renderer in comparison view', () => {
-  it('skips drawing candles in comparison mode', () => {
+describe('K 线比较叠加', () => {
+  it.each([false, true])('存在比较折线=%s 时仍绘制主品种 K 线', (comparison) => {
     const ctx = createMockCanvasContext()
-    paint(
-      createMockRenderContext({
-        ctx,
-        dataView: 'comparison',
-        comparisonSymbols: [{ symbol: 'CMP', market: 'CN', period: 'daily' }],
-      }),
-    )
-    expect(ctx.save).not.toHaveBeenCalled()
-    expect(ctx.fillRect).not.toHaveBeenCalled()
-  })
-
-  it('still draws when no comparison symbols are present', () => {
-    const ctx = createMockCanvasContext()
-    expect(() => paint(createMockRenderContext({ ctx }))).not.toThrow()
+    const context = createMockRenderContext({
+      ctx,
+      dataView: 'kline',
+      data: [{ timestamp: 1, open: 100, high: 110, low: 90, close: 105 }],
+      range: { start: 0, end: 1 },
+      kLineCenters: [10],
+      comparisonSymbols: comparison ? [{ symbol: 'CMP', market: 'CN', period: 'daily' }] : [],
+    })
+    createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
+    expect(ctx.fillRect).toHaveBeenCalled()
   })
 })

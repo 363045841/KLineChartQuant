@@ -62,7 +62,6 @@ export function buildLegendTemplateContext(
   const gap = 10
   const legendYOffset = 6
   const compact = context.paneWidth < 400
-  const range = context.range
   const crosshairIndex = context.crosshairIndex
   const hasCrosshair = typeof crosshairIndex === 'number'
   const targetIndex = resolveLegendValueIndex(crosshairIndex, klineData.length)
@@ -108,7 +107,7 @@ export function buildLegendTemplateContext(
 
   let currentBar: LegendTemplateContext['currentBar'] = null
   // OHLC 行始终占据同一位置，进入/离开画布不再推动指标 Legend，保证 DOM hover 稳定。
-  if (context.dataView !== ChartDataViewId.Comparison) {
+  if (context.dataView === ChartDataViewId.KLine) {
     const k = klineData[targetIndex]
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open
@@ -129,7 +128,7 @@ export function buildLegendTemplateContext(
     colors,
     visibleIndicatorIds,
   )
-  const comparisons = collectComparisonRows(context, klineData, targetIndex, range, colors)
+  const comparisons = collectComparisonRows(context, klineData, targetIndex, colors)
 
   return {
     period: context.period,
@@ -189,51 +188,35 @@ function collectIndicatorRows(
   return rows
 }
 
+/** 比较图例使用折线投影的自身起点，以时间戳读取主图当前位置的真实价格。 */
 function collectComparisonRows(
   context: RenderContext,
   klineData: KLineData[],
   targetIndex: number,
-  range: { start: number; end: number },
   colors: ReturnType<typeof resolveThemeColors>,
 ): LegendComparisonRow[] {
   const comparisonSymbols = context.comparisonSymbols
+  const projection = context.comparisonProjection
+  const targetBar = klineData[targetIndex]
   if (!comparisonSymbols?.length) return []
-
-  const baseIndex = Math.max(0, range.start)
-  const baseItem = klineData[baseIndex]
-  if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return []
-
   const comparisonData = context.comparisonData
-  if (!comparisonData?.size) return []
 
-  // 对比视图没有“主品种”，所有序列平等列出。
   const rows: LegendComparisonRow[] = []
   const comparisonColors = context.comparisonColors
-  const baseDate = baseItem.date ?? ''
-  const targetBar = klineData[targetIndex]
 
   for (const spec of comparisonSymbols) {
     const identity = symbolSpecIdentityKey(spec)
-    const data = comparisonData.get(identity)
-    if (!data?.length) continue
-
-    const baseline = baseDate
-      ? findBaselineByDate(data, baseDate)
-      : findBaselineByTimestamp(data, baseItem.timestamp)
-    if (!baseline || baseline.close <= 0) continue
-
-    const byDate = new Map<string, KLineData>()
-    for (const item of data) {
-      byDate.set(item.date ?? String(item.timestamp), item)
-    }
-
-    const key = targetBar?.date ?? String(targetBar?.timestamp ?? '')
-    const cmpItem = byDate.get(key)
-    if (!cmpItem || !Number.isFinite(cmpItem.close)) continue
-
-    const percent = ((cmpItem.close - baseline.close) / baseline.close) * 100
+    const data = comparisonData?.get(identity)
+    const series = projection?.series.find((item) => item.identity === identity)
+    const cmpItem = data?.find((item) => item.timestamp === targetBar?.timestamp)
+    const percent =
+      series && cmpItem && Number.isFinite(cmpItem.close) && cmpItem.close > 0
+        ? ((cmpItem.close - series.baselineClose) / series.baselineClose) * 100
+        : 0
     const color = comparisonColors?.get(identity) ?? colors.palette.i2
     rows.push({
+      identity,
+      hidden: context.comparisonHidden?.get(identity) === true,
       symbol: spec.symbol,
       ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
       percent,
@@ -247,21 +230,4 @@ function collectComparisonRows(
     })
   }
   return rows
-}
-
-function findBaselineByDate(data: ReadonlyArray<KLineData>, date: string): KLineData | null {
-  for (const item of data) {
-    if (item.date && item.date >= date) return item
-  }
-  return null
-}
-
-function findBaselineByTimestamp(
-  data: ReadonlyArray<KLineData>,
-  timestamp: number,
-): KLineData | null {
-  for (const item of data) {
-    if (item.timestamp >= timestamp) return item
-  }
-  return null
 }

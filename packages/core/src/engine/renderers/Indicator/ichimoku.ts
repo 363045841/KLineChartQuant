@@ -6,6 +6,11 @@ import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
+import {
+  createProjectionRevision,
+  type ProjectionRevision,
+  sameProjectionRevision,
+} from '../../frame/index.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
@@ -13,12 +18,7 @@ import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
 import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import {
-  createProjectionRevision,
-  type ProjectionRevision,
-  sameProjectionRevision,
-} from '../../render/retainedProjection.js'
-import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
+import { getPhysicalKLineConfig } from '../../viewport/klineConfig.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 

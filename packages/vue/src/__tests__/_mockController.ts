@@ -217,6 +217,7 @@ export function createMockChartController(
     registerSymbols: () => {},
     setComparisonSpecs: () => {},
     addComparisonSymbol: () => {},
+    setComparisonHidden: () => {},
     removeComparisonSymbol: () => {},
     setComparisonData: () => {},
     setCurrentSymbol: () => {},

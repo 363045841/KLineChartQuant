@@ -36,10 +36,7 @@
 
 ## 状态投影
 
-`ChartStateKernel.setDataView('fiveDayTimeShare')` 原子投影以下 mode 实例：
-
-- 主图 `mode:five-day-timeshare` / `fiveDayTimeShare`
-- 成交量 `mode:timeshare-volume` / `volume`
+`ChartStateKernel.setDataView('fiveDayTimeShare')` 从 `CHART_VIEW_DEFINITIONS` 原子投影该视图声明的 `mainInstances`（当前为 `mode:five-day-timeshare` / `fiveDayTimeShare`）。
 
 五日视图允许横向平移，禁止缩放、纵向平移和轴缩放。单日分时继续禁止横向平移。
 

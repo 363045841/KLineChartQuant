@@ -1,8 +1,7 @@
 /** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 
-export { PANE_HEADER_INSET_PX } from '../engine/chartTypes.js'
-export { MAIN_PANE_ID } from '../engine/paneIds.js'
+export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
 export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
@@ -196,6 +195,6 @@ export type {
 } from '../engine/renderers/Indicator/mainIndicatorLegend/types.js'
 export type { LegendActionDetail } from '../engine/renderers/legend/types.js'
 export { LEGEND_ACTION_EVENT } from '../engine/renderers/legend/types.js'
-export { getPhysicalKLineConfig } from '../engine/utils/klineConfig.js'
+export { getPhysicalKLineConfig } from '../engine/viewport/klineConfig.js'
 // Utility functions
-export { kGapFromKWidth, zoomLevelToKWidth } from '../engine/utils/zoom.js'
+export { kGapFromKWidth, zoomLevelToKWidth } from '../engine/viewport/zoom.js'
