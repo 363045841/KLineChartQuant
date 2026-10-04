@@ -14,6 +14,8 @@ import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { ChartFrameCaptureContext } from '../../screenshot/types.js'
 
 /**
  * 构造一组轻量图表操作方法。
@@ -45,6 +47,16 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   function requestRender(): void {
     if (isDisposed()) return
     chart.requestRender()
+  }
+
+  /** 请求截图帧；销毁后明确拒绝，避免吞掉异步截图结果。 */
+  function captureFrame<T>(
+    capture: (frame: ChartFrameCaptureContext) => T | Promise<T>,
+  ): Promise<T> {
+    if (isDisposed()) {
+      return Promise.reject(new KLineChartError(GENERIC_ERROR_CODES.DISPOSED, '图表已销毁，无法截图'))
+    }
+    return chart.captureFrame(capture)
   }
 
   /** 安装插件，由 PluginHost 管理安装状态。 */
@@ -328,6 +340,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     removeRenderer,
     getRenderer,
     requestRender,
+    captureFrame,
     usePlugin,
     removePlugin,
     scrollToRight,

@@ -396,6 +396,10 @@ export interface ChartMountOptions {
 }
 
 export interface ChartController extends DrawingChartAdapter, ChartRendererAccess {
+  /** 在完整绘制帧结束时同步调用捕获函数，返回其异步合成结果。 */
+  captureFrame<T>(
+    capture: (frame: import('./screenshot/types.js').ChartFrameCaptureContext) => T | Promise<T>,
+  ): Promise<T>
   /** 使用现有 PluginHost 安装插件；插件可通过 getChartRenderers 获取渲染能力。 */
   usePlugin(plugin: Plugin, config?: PluginConfig): Promise<void>
   /** 卸载插件；其 uninstall 负责移除自有 Layer 和取消订阅。 */

@@ -1,7 +1,9 @@
 /** WebGPU canvas 表面后端，负责物理 buffer 尺寸与 region 生命周期。 */
 
 import type { SurfaceRegion, VisibleSurface } from '../SurfaceBackend.js'
-import { GPU_TEXTURE_RENDER_ATTACHMENT } from '../webgpuGlobals.js'
+import { GPU_TEXTURE_COPY_SRC, GPU_TEXTURE_RENDER_ATTACHMENT } from '../webgpuGlobals.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { readWebGPUFrame } from '../frameCapture/impl/readWebGPUFrame.js'
 
 export type WebGPUSurfaceBackend = VisibleSurface & {
   readonly device: GPUDevice
@@ -27,7 +29,7 @@ export function createWebGPUSurfaceBackend(
     device,
     format,
     alphaMode: 'premultiplied',
-    usage: GPU_TEXTURE_RENDER_ATTACHMENT,
+    usage: GPU_TEXTURE_RENDER_ATTACHMENT | GPU_TEXTURE_COPY_SRC,
   })
 
   let disposed = false
@@ -37,6 +39,19 @@ export function createWebGPUSurfaceBackend(
     canvas,
     device,
     format,
+    /** 在完整帧提交后、浏览器呈现前立即复制当前纹理。 */
+    captureFrame(): Promise<HTMLCanvasElement> {
+      if (disposed) {
+        return Promise.reject(new KLineChartError(GENERIC_ERROR_CODES.DISPOSED, 'WebGPU 截图表面已销毁'))
+      }
+      return readWebGPUFrame({
+        device,
+        texture: context.getCurrentTexture(),
+        format,
+        width: canvas.width,
+        height: canvas.height,
+      })
+    },
     isAvailable(): boolean {
       return !disposed
     },

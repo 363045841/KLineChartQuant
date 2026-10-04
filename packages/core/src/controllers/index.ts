@@ -26,6 +26,7 @@ export {
 export { createIndicatorSelectorController } from './indicatorSelector/index.js'
 export type { ChartRendererAccess } from './renderers/index.js'
 export { getChartRenderers } from './renderers/index.js'
+export type { ChartFrameCaptureContext } from './screenshot/types.js'
 export type {
   ActiveIndicator,
   ChartController,

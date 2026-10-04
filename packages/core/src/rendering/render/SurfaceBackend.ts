@@ -33,6 +33,8 @@ export type SurfaceRegion = {
  * primitives — those belong to `Renderer`.
  */
 export interface SurfaceBackend {
+  /** 可见 GPU 表面的取帧能力；调用方必须在完整绘制帧结束、呈现前调用。 */
+  captureFrame?(): Promise<HTMLCanvasElement>
   /** Returns false if the underlying context could not be initialised. */
   isAvailable(): boolean
 

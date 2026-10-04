@@ -70,6 +70,8 @@ import {
   type RendererHost,
 } from '../../../rendering/render/index.js'
 import type { Layer } from '../../../rendering/scene/types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -737,6 +739,22 @@ export class Chart {
   requestRender(): void {
     this.renderer.invalidateFrame()
     this.scheduleDraw()
+  }
+
+  /** 在完整帧完成后立即启动 GPU 快照，并让宿主同步捕获同帧的 Canvas2D 图层。 */
+  captureFrame<T>(capture: (frame: ChartFrameCaptureContext) => T | Promise<T>): Promise<T> {
+    return this.renderer.captureFrame(() => {
+      const surface = this.rendererHost.renderer.surface
+      const source = getVisibleCanvas(surface)
+      if (source && !surface.captureFrame) {
+        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, '当前 GPU 后端未提供取帧能力')
+      }
+      return capture({
+        dpr: this.kernel.viewport.readonly.dpr.peek(),
+        surface:
+          source && surface.captureFrame ? { source, image: surface.captureFrame() } : null,
+      })
+    })
   }
 
   /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */

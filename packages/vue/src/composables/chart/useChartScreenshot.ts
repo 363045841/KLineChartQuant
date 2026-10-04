@@ -1,4 +1,5 @@
 /** 将 chart-main 与底部水印统一导出为 PNG，供下载和剪贴板共用。 */
+import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { type Ref, ref } from 'vue'
 import '@fontsource/outfit/latin-600.css'
 import { captureChartImage } from './captureChartImage.js'
@@ -73,7 +74,7 @@ async function createScreenshot(
   element: HTMLElement,
   symbol: string,
   name: string,
-  dpr: number,
+  captureFrame: ChartController['captureFrame'],
 ): Promise<HTMLCanvasElement> {
   const instrumentText = [name.trim(), symbol.trim()]
     .filter(Boolean)
@@ -86,10 +87,11 @@ async function createScreenshot(
   await document.fonts.load(WATERMARK_NAME_FONT, instrumentText)
   const styles = getComputedStyle(element)
   const backgroundColor = styles.getPropertyValue(CHART_BACKGROUND_TOKEN).trim()
-  const width = element.getBoundingClientRect().width
-  const image = await captureChartImage(element, dpr, backgroundColor)
+  const { image, scale } = await captureFrame(async (frame) => ({
+    image: await captureChartImage(element, frame, backgroundColor),
+    scale: frame.dpr,
+  }))
   // 留白、圆角和页脚使用同一像素比例，保持高 DPR 下的视觉尺寸一致。
-  const scale = image.width / width
   const padding = Math.round(SCREENSHOT_PADDING * scale)
   const footerTop = padding + image.height
   const result = document.createElement('canvas')
@@ -147,7 +149,7 @@ export function useChartScreenshot(
   target: Ref<HTMLElement | null>,
   symbol: Ref<string>,
   name: Readonly<Ref<string>>,
-  getDpr: () => number,
+  getController: () => ChartController | null,
 ) {
   const isCapturing = ref(false)
   const screenshotMessage = ref<string | null>(null)
@@ -156,7 +158,8 @@ export function useChartScreenshot(
   async function captureScreenshot(action: ChartScreenshotAction): Promise<void> {
     if (isCapturing.value) return
     const element = target.value
-    if (!element || element.clientWidth === 0 || element.clientHeight === 0) return
+    const controller = getController()
+    if (!element || !controller || element.clientWidth === 0 || element.clientHeight === 0) return
     if (
       action === chartScreenshotActions.copy &&
       (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined')
@@ -170,9 +173,12 @@ export function useChartScreenshot(
     try {
       // 点击时固定品种信息，避免异步截图期间切换品种导致水印与文件名不一致。
       const capturedSymbol = symbol.value
-      const imagePromise = createScreenshot(element, capturedSymbol, name.value, getDpr()).then(
-        canvasToPng,
-      )
+      const imagePromise = createScreenshot(
+        element,
+        capturedSymbol,
+        name.value,
+        controller.captureFrame,
+      ).then(canvasToPng)
       if (action === chartScreenshotActions.copy) {
         // 先发起 write，再异步生成图片，保留浏览器要求的用户手势授权。
         await navigator.clipboard.write([

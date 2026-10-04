@@ -767,7 +767,7 @@
     chartMainRef,
     currentSymbol,
     computed(() => currentSymbolItem.value?.name ?? ''),
-    () => controller.value?.viewport.peek().dpr ?? window.devicePixelRatio,
+    () => controller.value,
   )
   const chartStageRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)

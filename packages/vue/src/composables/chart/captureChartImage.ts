@@ -1,11 +1,12 @@
 /** 按引擎 DPR 合成原始 Canvas 像素与 DOM 浮层，避免图表经过 SVG 重采样。 */
+import type { ChartFrameCaptureContext } from '@363045841yyt/klinechart-core/controllers'
 const CHART_BACKGROUND_HOSTS = '.chart-main, .chart-container, .left-axis-host, .right-axis-host'
 const CLIPPING_OVERFLOW = new Set(['hidden', 'clip', 'auto', 'scroll'])
 const SVG_MIME_TYPE = 'image/svg+xml'
 const CANVAS_CONTEXT_ERROR = '截图画布初始化失败'
 
 type CanvasSnapshot = {
-  image: HTMLCanvasElement
+  image: Promise<HTMLCanvasElement>
   x: number
   y: number
   clip: { x: number; y: number; width: number; height: number }
@@ -23,7 +24,8 @@ function compareStackingOrder(left: CanvasSnapshot, right: CanvasSnapshot): numb
 }
 
 /** 同步复制可见 Canvas，并记录整数物理像素位置、祖先裁剪区域和层叠顺序。 */
-function snapshotCanvases(element: HTMLElement, dpr: number): CanvasSnapshot[] {
+function snapshotCanvases(element: HTMLElement, frame: ChartFrameCaptureContext): CanvasSnapshot[] {
+  const { dpr } = frame
   const rootBounds = element.getBoundingClientRect()
   const snapshots: CanvasSnapshot[] = []
   for (const source of element.querySelectorAll('canvas')) {
@@ -56,13 +58,20 @@ function snapshotCanvases(element: HTMLElement, dpr: number): CanvasSnapshot[] {
       if (node === element) break
     }
     if (!visible || right <= left || bottom <= top) continue
-    const image = document.createElement('canvas')
-    image.width = source.width
-    image.height = source.height
-    const context = image.getContext('2d')
-    if (!context) throw new Error(CANVAS_CONTEXT_ERROR)
-    // 不传目标宽高，原始 buffer 按一比一复制，不放大也不缩小。
-    context.drawImage(source, 0, 0)
+    let image: Promise<HTMLCanvasElement>
+    if (frame.surface?.source === source) {
+      // GPU 由后端在同帧呈现前读取，不能把 WebGPU canvas 当作普通 Canvas2D 复制。
+      image = frame.surface.image
+    } else {
+      const copy = document.createElement('canvas')
+      copy.width = source.width
+      copy.height = source.height
+      const context = copy.getContext('2d')
+      if (!context) throw new Error(CANVAS_CONTEXT_ERROR)
+      // 不传目标宽高，原始 buffer 按一比一复制，不放大也不缩小。
+      context.drawImage(source, 0, 0)
+      image = Promise.resolve(copy)
+    }
     snapshots.push({
       image,
       x: Math.round((bounds.left - rootBounds.left) * dpr),
@@ -106,12 +115,19 @@ async function captureDomOverlay(
 /** 按引擎物理尺寸输出图表，Canvas 原始像素和 DOM 浮层分别合成。 */
 export async function captureChartImage(
   element: HTMLElement,
-  dpr: number,
+  frame: ChartFrameCaptureContext,
   backgroundColor: string,
 ): Promise<HTMLCanvasElement> {
+  const { dpr } = frame
   const bounds = element.getBoundingClientRect()
   // 在异步 DOM 转换前固定所有画布内容，避免不同图层来自不同帧。
-  const snapshots = snapshotCanvases(element, dpr)
+  const snapshots = snapshotCanvases(element, frame)
+  const [imageCopies, overlay] = await Promise.all([
+    Promise.all(snapshots.map((snapshot) => snapshot.image)),
+    captureDomOverlay(element, bounds.width, bounds.height),
+    // 即使 GPU 表面暂时不可见，也消费其读回结果，避免设备丢失产生未处理拒绝。
+    frame.surface?.image,
+  ])
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bounds.width * dpr)
   canvas.height = Math.round(bounds.height * dpr)
@@ -120,15 +136,14 @@ export async function captureChartImage(
   context.fillStyle = backgroundColor
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.imageSmoothingEnabled = false
-  for (const snapshot of snapshots) {
+  for (const [index, snapshot] of snapshots.entries()) {
     context.save()
     context.beginPath()
     context.rect(snapshot.clip.x, snapshot.clip.y, snapshot.clip.width, snapshot.clip.height)
     context.clip()
-    context.drawImage(snapshot.image, snapshot.x, snapshot.y)
+    context.drawImage(imageCopies[index]!, snapshot.x, snapshot.y)
     context.restore()
   }
-  const overlay = await captureDomOverlay(element, bounds.width, bounds.height)
   // DOM 文本保留浏览器抗锯齿，Canvas 图表不参与这次 SVG 栅格化。
   context.imageSmoothingEnabled = true
   context.drawImage(overlay, 0, 0, canvas.width, canvas.height)

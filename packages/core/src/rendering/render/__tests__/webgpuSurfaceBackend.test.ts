@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createWebGPUSurfaceBackend } from '../backend/createWebGPUSurfaceBackend'
 import { createMockWebGPU } from './helpers/webgpuTestKit'
+import { GPU_TEXTURE_COPY_SRC, GPU_TEXTURE_RENDER_ATTACHMENT } from '../webgpuGlobals'
 
 /** 构造 SurfaceBackend 与可观测的 canvas / context / device 替身。 */
 function makeSurface() {
@@ -24,7 +25,7 @@ describe('createWebGPUSurfaceBackend', () => {
       device,
       format: 'bgra8unorm',
       alphaMode: 'premultiplied',
-      usage: 0x10,
+      usage: GPU_TEXTURE_RENDER_ATTACHMENT | GPU_TEXTURE_COPY_SRC,
     })
   })
 

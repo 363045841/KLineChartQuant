@@ -1,4 +1,5 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
@@ -140,6 +141,8 @@ export class ChartRenderer {
 
   /** 已排队的 rAF 句柄；null 表示当前没有挂起的帧调度 */
   private raf: number | null = null
+  /** 捕获函数必须在绘制事务完成后、同一个 RAF 回调内同步执行。 */
+  private pendingCaptures: Array<{ run: () => void; reject: (cause: unknown) => void }> = []
   /** 最新价签的秒级倒计时计时器；只请求 overlay 重绘。 */
   private lastPriceCountdownTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -332,11 +335,17 @@ export class ChartRenderer {
         if (snapshot.frame) {
           this.cacheDrawFrame(snapshot.frame)
         }
+        this.completeFrameCaptures()
       },
       schedule: (run) => {
         this.raf = requestAnimationFrame(() => {
           this.raf = null
-          run()
+          try {
+            run()
+          } catch (error) {
+            this.rejectFrameCaptures(error)
+            throw error
+          }
           // 若 paint 中又 scheduleDraw，已写入新 pendingLevel 且 raf 非 null，不得清掉
           if (this.raf === null) {
             this.pendingLevel = UpdateLevel.All
@@ -503,6 +512,42 @@ export class ChartRenderer {
     this.paintedOverlayVersion = null
   }
 
+  /** 强制完整重绘，在该帧呈现前调用捕获函数；异步读回不会阻塞后续绘制。 */
+  captureFrame<T>(capture: () => T | Promise<T>): Promise<T> {
+    if (this.schedulingStopped) {
+      return Promise.reject(new KLineChartError(GENERIC_ERROR_CODES.DISPOSED, '截图帧调度已停止'))
+    }
+    const result = new Promise<T>((resolve, reject) => {
+      this.pendingCaptures.push({
+        run: () => {
+          try {
+            resolve(capture())
+          } catch (error) {
+            reject(error)
+          }
+        },
+        reject,
+      })
+    })
+    this.invalidateFrame()
+    this.scheduleDraw(UpdateLevel.All)
+    return result
+  }
+
+  /** 在帧完成位置执行已排队的截图请求，执行期间的新请求留给下一帧。 */
+  private completeFrameCaptures(): void {
+    const requests = this.pendingCaptures
+    this.pendingCaptures = []
+    for (const request of requests) request.run()
+  }
+
+  /** 绘制失败或销毁时结束挂起截图，避免宿主永久停留在忙碌状态。 */
+  private rejectFrameCaptures(cause: unknown): void {
+    const requests = this.pendingCaptures
+    this.pendingCaptures = []
+    for (const request of requests) request.reject(cause)
+  }
+
   /**
    * 立即同步重绘一帧，不走 rAF。
    *
@@ -524,7 +569,12 @@ export class ChartRenderer {
       this.pendingLevel = level
     }
     this.frameTx.writeInput({ level: this.pendingLevel })
-    this.frameTx.flush()
+    try {
+      this.frameTx.flush()
+    } catch (error) {
+      this.rejectFrameCaptures(error)
+      throw error
+    }
   }
 
   /**
@@ -1262,6 +1312,7 @@ export class ChartRenderer {
   stopScheduling(): void {
     if (this.schedulingStopped) return
     this.schedulingStopped = true
+    this.rejectFrameCaptures(new KLineChartError(GENERIC_ERROR_CODES.DISPOSED, '截图帧调度已停止'))
     this.clearLastPriceCountdownTimer()
     if (this.raf !== null) {
       cancelAnimationFrame(this.raf)
