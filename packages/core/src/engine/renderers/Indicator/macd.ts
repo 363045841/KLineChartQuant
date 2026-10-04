@@ -13,8 +13,9 @@ import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { MACDRenderState } from '../../indicators/state/macdState.js'
 import { EMPTY_MACD_STATE } from '../../indicators/state/macdState.js'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { barVerticalRect } from '../barGeometry/impl/projectBars.js'
 import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { tryDrawRectsGpu } from '../rectsViaRenderer.js'
+import { drawWorldRectBatches } from '../rectsViaRenderer.js'
 import { createMacdScaleLayer } from './scale/macd_scale.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
@@ -65,12 +66,6 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
   let cachedDifPoints: LinePoint[] = []
   let cachedDeaPoints: LinePoint[] = []
 
-  function clearLineCache() {
-    cachedLineKey = ''
-    cachedDifPoints = []
-    cachedDeaPoints = []
-  }
-
   // 构建线条缓存 key
   function buildLineCacheKey(
     range: { start: number; end: number },
@@ -80,7 +75,6 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
     displayMax: number,
     stateTimestamp: number,
   ): string {
-    const dr = pane.yAxis.getDisplayRange()
     return [
       stateTimestamp,
       range.start,
@@ -133,24 +127,20 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
 
       // 绘制 MACD 柱状图（WebGL 优先）
       if (config.showBAR) {
-        const alignedZeroY = Math.round(zeroY * dpr) / dpr
-
         const maxBars = Math.max(1, drawEnd - drawStart)
-        const barUpBuf = new Float32Array(maxBars * 4)
-        const barUpLightBuf = new Float32Array(maxBars * 4)
-        const barDownBuf = new Float32Array(maxBars * 4)
-        const barDownLightBuf = new Float32Array(maxBars * 4)
-        let barUpCount = 0,
-          barUpLightCount = 0,
-          barDownCount = 0,
-          barDownLightCount = 0
+        const batches = [
+          colors.macd.barUp,
+          colors.macd.barUpLight,
+          colors.macd.barDownLight,
+          colors.macd.barDown,
+        ].map((color) => ({ color, buf: new Float64Array(maxBars * 4), count: 0 }))
 
         for (let i = drawStart; i < drawEnd; i++) {
           const point = macdData[i]
           if (!point) continue
 
           const barRect = context.kBarRects[i - range.start]
-          if (!barRect) continue
+          if (!barRect || barRect.width <= 0) continue
 
           const barY = pane.height - ((point.macd - displayMin) / displayValueRange) * pane.height
           const isPositive = point.macd >= 0
@@ -158,74 +148,16 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
           const prevPoint = i > 0 ? macdData[i - 1] : null
           const isRising = prevPoint ? point.macd >= prevPoint.macd : true
 
-          const alignedBarY = Math.round(barY * dpr) / dpr
-          const minBarHPx = 1 / dpr
-
-          let buf: Float32Array
-          let idx: number
-
-          if (isPositive) {
-            const rawH = alignedZeroY - alignedBarY
-            const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
-            const finalBarY = rawH <= 0 ? alignedZeroY - minBarHPx : alignedZeroY - finalH
-            if (isRising) {
-              buf = barUpBuf
-              idx = barUpCount++
-            } else {
-              buf = barUpLightBuf
-              idx = barUpLightCount++
-            }
-            const off = idx * 4
-            buf[off] = barRect.x
-            buf[off + 1] = finalBarY
-            buf[off + 2] = barRect.width
-            buf[off + 3] = finalH
-          } else {
-            const rawH = alignedBarY - alignedZeroY
-            const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
-            if (isRising) {
-              buf = barDownLightBuf
-              idx = barDownLightCount++
-            } else {
-              buf = barDownBuf
-              idx = barDownCount++
-            }
-            const off = idx * 4
-            buf[off] = barRect.x
-            buf[off + 1] = alignedZeroY
-            buf[off + 2] = barRect.width
-            buf[off + 3] = finalH
-          }
+          const vertical = barVerticalRect(barY, zeroY, dpr)
+          const batch = batches[(isPositive ? 0 : 2) + (isRising ? 0 : 1)]!
+          const off = batch.count++ * 4
+          batch.buf[off] = barRect.x
+          batch.buf[off + 1] = vertical.y
+          batch.buf[off + 2] = barRect.width
+          batch.buf[off + 3] = vertical.height
         }
 
-        const usedGpu = tryDrawRectsGpu(
-          context,
-          [
-            { buf: barUpBuf, count: barUpCount, color: colors.macd.barUp },
-            { buf: barUpLightBuf, count: barUpLightCount, color: colors.macd.barUpLight },
-            { buf: barDownBuf, count: barDownCount, color: colors.macd.barDown },
-            { buf: barDownLightBuf, count: barDownLightCount, color: colors.macd.barDownLight },
-          ],
-          scrollLeft,
-        )
-        if (!usedGpu) {
-          drawMacdBarsWithCanvas2D(
-            ctx,
-            scrollLeft,
-            colors.macd.barUp,
-            colors.macd.barUpLight,
-            colors.macd.barDown,
-            colors.macd.barDownLight,
-            barUpBuf,
-            barUpCount,
-            barUpLightBuf,
-            barUpLightCount,
-            barDownBuf,
-            barDownCount,
-            barDownLightBuf,
-            barDownLightCount,
-          )
-        }
+        drawWorldRectBatches(context, batches)
       }
 
       // 更新线条点缓存
@@ -290,62 +222,6 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
       }
     },
   })
-}
-
-function drawMacdBarsWithCanvas2D(
-  ctx: CanvasRenderingContext2D,
-  scrollLeft: number,
-  barUpColor: string,
-  barUpLightColor: string,
-  barDownColor: string,
-  barDownLightColor: string,
-  barUpBuf: Float32Array,
-  barUpCount: number,
-  barUpLightBuf: Float32Array,
-  barUpLightCount: number,
-  barDownBuf: Float32Array,
-  barDownCount: number,
-  barDownLightBuf: Float32Array,
-  barDownLightCount: number,
-): void {
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-
-  ctx.fillStyle = barUpColor
-  for (let i = 0; i < barUpCount; i++) {
-    const off = i * 4
-    ctx.fillRect(barUpBuf[off]!, barUpBuf[off + 1]!, barUpBuf[off + 2]!, barUpBuf[off + 3]!)
-  }
-
-  ctx.fillStyle = barUpLightColor
-  for (let i = 0; i < barUpLightCount; i++) {
-    const off = i * 4
-    ctx.fillRect(
-      barUpLightBuf[off]!,
-      barUpLightBuf[off + 1]!,
-      barUpLightBuf[off + 2]!,
-      barUpLightBuf[off + 3]!,
-    )
-  }
-
-  ctx.fillStyle = barDownColor
-  for (let i = 0; i < barDownCount; i++) {
-    const off = i * 4
-    ctx.fillRect(barDownBuf[off]!, barDownBuf[off + 1]!, barDownBuf[off + 2]!, barDownBuf[off + 3]!)
-  }
-
-  ctx.fillStyle = barDownLightColor
-  for (let i = 0; i < barDownLightCount; i++) {
-    const off = i * 4
-    ctx.fillRect(
-      barDownLightBuf[off]!,
-      barDownLightBuf[off + 1]!,
-      barDownLightBuf[off + 2]!,
-      barDownLightBuf[off + 3]!,
-    )
-  }
-
-  ctx.restore()
 }
 
 function drawMacdLinesWithCanvas2D(

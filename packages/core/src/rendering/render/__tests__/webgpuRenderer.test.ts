@@ -115,47 +115,60 @@ describe('createWebGPURenderer', () => {
     expect(fake.buffers[0]?.destroy).toHaveBeenCalledOnce()
   })
 
-  it('draws rectangle instances into an MSAA region', async () => {
-    const fake = createMockWebGPU()
-    const renderer = await createWebGPURenderer({
-      gpu: fake.gpu,
-      canvas: fake.canvas,
-    })
-    renderer.surface.resize(200, 100, 2)
-    renderer.beginFrame({ x: 10, y: 5, width: 80, height: 40, dpr: 2 })
-    const vertices = renderer.createBuffer('vertex', 4)
-    const instances = renderer.createBuffer('instance', 16)
-    const pipeline = renderer.createPipeline({ type: 'candle' })
+  it.each([false, true])(
+    'draws rectangles into an MSAA region with physicalPixels=%s',
+    async (physicalPixels) => {
+      const fake = createMockWebGPU()
+      const renderer = await createWebGPURenderer({
+        gpu: fake.gpu,
+        canvas: fake.canvas,
+      })
+      renderer.surface.resize(200, 100, 2)
+      renderer.beginFrame({ x: 10, y: 5, width: 80, height: 40, dpr: 2 })
+      const vertices = renderer.createBuffer('vertex', 4)
+      const instances = renderer.createBuffer('instance', 16)
+      const pipeline = renderer.createPipeline({ type: 'candle' })
 
-    const drawn = renderer.drawInstances({
-      pipeline,
-      vertices,
-      instances,
-      instanceCount: 3,
-      vertexCount: 6,
-      uniforms: { color: '#ff0000', scrollLeft: 4 },
-    })
+      const drawn = renderer.drawInstances({
+        pipeline,
+        vertices,
+        instances,
+        instanceCount: 3,
+        vertexCount: 6,
+        physicalPixels,
+        uniforms: { color: '#ff0000', scrollLeft: 4 },
+      })
 
-    expect(drawn).toBe(true)
-    expect(fake.queue.submit).not.toHaveBeenCalled()
-    renderer.endFrame()
-    expect(fake.device.createTexture).toHaveBeenCalledWith(
-      expect.objectContaining({ sampleCount: 4, format: 'bgra8unorm' }),
-    )
-    expect(fake.passes[0]?.setViewport).toHaveBeenCalledWith(20, 10, 160, 80, 0, 1)
-    expect(fake.passes[0]?.setScissorRect).toHaveBeenCalledWith(20, 10, 160, 80)
-    expect(fake.passes[0]?.draw).toHaveBeenCalledWith(6, 3)
-    expect(fake.queue.submit).toHaveBeenCalledOnce()
+      expect(drawn).toBe(true)
+      expect(fake.queue.submit).not.toHaveBeenCalled()
+      renderer.endFrame()
+      expect(fake.device.createTexture).toHaveBeenCalledWith(
+        expect.objectContaining({ sampleCount: 4, format: 'bgra8unorm' }),
+      )
+      expect(fake.passes[0]?.setViewport).toHaveBeenCalledWith(20, 10, 160, 80, 0, 1)
+      expect(fake.passes[0]?.setScissorRect).toHaveBeenCalledWith(20, 10, 160, 80)
+      expect(fake.passes[0]?.draw).toHaveBeenCalledWith(6, 3)
+      expect(fake.queue.submit).toHaveBeenCalledOnce()
 
-    const uniformWrite = fake.queue.writeBuffer.mock.calls.find((call) => call[4] === 32)
-    expect(uniformWrite).toBeDefined()
-    expect(
-      Array.from(new Float32Array(uniformWrite![2] as ArrayBuffer, uniformWrite![3], 8)),
-    ).toEqual([160, 80, 2, 4, 1, 0, 0, 1])
-    expect(fake.shaderModules[0]!.code).toContain(
-      'round((rect.x - uniforms.scrollLeft) * uniforms.dpr)',
-    )
-  })
+      const uniformWrite = fake.queue.writeBuffer.mock.calls.find((call) => call[4] === 32)
+      expect(uniformWrite).toBeDefined()
+      const uniformData = uniformWrite?.[2]
+      if (!(uniformData instanceof ArrayBuffer)) throw new Error('Missing uniform data')
+      expect(Array.from(new Float32Array(uniformData, uniformWrite?.[3], 8))).toEqual([
+        160,
+        80,
+        physicalPixels ? 1 : 2,
+        physicalPixels ? 0 : 4,
+        1,
+        0,
+        0,
+        1,
+      ])
+      expect(fake.shaderModules[0]!.code).toContain(
+        'round((rect.x - uniforms.scrollLeft) * uniforms.dpr)',
+      )
+    },
+  )
 
   it('submits a transparent clear for a main frame with no GPU draws', async () => {
     const fake = createMockWebGPU()

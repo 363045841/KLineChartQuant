@@ -152,6 +152,7 @@ export class CandleWebGLSurface {
     rectCount: number,
     color: string,
     scrollLeft: number,
+    physicalPixels = false,
   ): boolean {
     const handles = this.handles
     if (!handles || rectCount === 0 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
@@ -188,7 +189,7 @@ export class CandleWebGLSurface {
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     }
     gl.uniform2f(handles.resolutionLocation, physical.widthPx, physical.heightPx)
-    gl.uniform1f(handles.dprLocation, this.region.dpr)
+    gl.uniform1f(handles.dprLocation, physicalPixels ? 1 : this.region.dpr)
     gl.uniform1f(handles.scrollXLocation, scrollLeft)
     gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, rectCount)

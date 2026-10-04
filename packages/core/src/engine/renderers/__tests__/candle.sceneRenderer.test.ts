@@ -6,7 +6,6 @@ import {
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import type { RenderContext } from '@/foundation/plugin/index'
-import { projectWorldRectToScreen } from '@/foundation/utils/pixelAlign'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 import type { Renderer } from '@/rendering/render/Renderer'
 import { createCandleLayer } from '../candle'
@@ -200,15 +199,12 @@ describe('candle preparation', () => {
         if (!(bodies instanceof Float32Array)) throw new Error('Missing body geometry')
         expect(wicks).toBeInstanceOf(Float32Array)
         if (!(wicks instanceof Float32Array)) throw new Error('Missing wick geometry')
-        expect(wicks[2]! * dpr).toBeCloseTo(wickPx, 5)
-        expect(wicks[6]! * dpr).toBeCloseTo(wickPx, 5)
+        expect(wicks[2]).toBe(wickPx)
+        expect(wicks[6]).toBe(wickPx)
         for (const offset of [0, 4]) {
-          // GPU 缓冲为 Float32；允许浮点误差，仍严格排除半个物理像素的偏移。
-          expect(wicks[offset]! * dpr).toBeCloseTo(Math.round(wicks[offset]! * dpr), 4)
-          expect(wicks[offset]! + wicks[offset + 2]! / 2).toBeCloseTo(
-            bodies[0]! + bodies[2]! / 2,
-            4,
-          )
+          // GPU 批次直接存整数物理像素，几何中心必须完全相等。
+          expect(Number.isInteger(wicks[offset])).toBe(true)
+          expect(wicks[offset]! + wicks[offset + 2]! / 2).toBe(bodies[0]! + bodies[2]! / 2)
         }
       }
       layer.dispose()
@@ -316,16 +312,14 @@ describe('candle preparation', () => {
     const height = Math.max(Math.abs(open - close), 1 / dpr)
     const topPx = Math.round(top * dpr)
     const bottomPx = Math.round((top + height) * dpr)
-    const bodyY = Math.fround(topPx / dpr)
-    const bodyH = Math.fround(Math.max(1, bottomPx - topPx) / dpr)
+    const bodyY = topPx / dpr
+    const bodyH = Math.max(1, bottomPx - topPx) / dpr
     const centerPx = Math.round(12.5 * dpr)
     const bodyPx = 5
-    const bodyX = Math.fround((centerPx - 2) / dpr)
-    const bodyW = Math.fround(bodyPx / dpr)
-    const body = projectWorldRectToScreen(bodyX, bodyW, 0.4, dpr)
+    const scrollPx = Math.round(0.4 * dpr)
+    const body = { x: (centerPx - 2 - scrollPx) / dpr, width: bodyPx / dpr }
     const wickPx = 1
-    const wickX = Math.fround((centerPx - Math.floor(wickPx / 2)) / dpr)
-    const wick = projectWorldRectToScreen(wickX, wickPx / dpr, 0.4, dpr)
+    const wick = { x: (centerPx - scrollPx) / dpr, width: wickPx / dpr }
     const highY = aligned(bar.high)
     const lowY = aligned(bar.low)
     const upperTop = Math.round(Math.min(highY, bodyY) * dpr)
@@ -335,18 +329,8 @@ describe('candle preparation', () => {
     const lowerBottom = Math.round(Math.max(rawBodyBottom, lowY) * dpr)
     expect(vi.mocked(ctx2d.fillRect).mock.calls).toEqual([
       [body.x, bodyY, body.width, bodyH],
-      [
-        wick.x,
-        Math.fround(upperTop / dpr),
-        wick.width,
-        Math.fround(Math.max(1, upperBottom - upperTop) / dpr),
-      ],
-      [
-        wick.x,
-        Math.fround(lowerTop / dpr),
-        wick.width,
-        Math.fround(Math.max(1, lowerBottom - lowerTop) / dpr),
-      ],
+      [wick.x, upperTop / dpr, wick.width, Math.max(1, upperBottom - upperTop) / dpr],
+      [wick.x, lowerTop / dpr, wick.width, Math.max(1, lowerBottom - lowerTop) / dpr],
     ])
   })
 

@@ -10,7 +10,7 @@ import {
   computeFiveDayTimeShareGeometry,
   computeTimeShareXLayout,
 } from '../../../chartModel/index.js'
-import { calcKBarWidthPx, calcKWidthPx } from '../../../viewport/klineConfig.js'
+import { calcBarLeftPx, calcKBarWidthPx, calcKWidthPx } from '../../../viewport/klineConfig.js'
 import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../../viewport/slotGrid.js'
 import { kGapFromKWidth } from '../../../viewport/zoom.js'
 import type { ScaleXInput, ScaleXSnapshot, ScaleXStrategy } from './types.js'
@@ -36,7 +36,8 @@ function snapshot(
     ready: input.width > 0 && (fields.hoverKind === 'candle' ? true : fields.centers.length > 0),
     positions: fields.centers.map((center) => center - half),
     bars: fields.centers.map((center, index) => ({
-      x: center - (Math.round(barWidth * input.dpr) - 1) / (2 * input.dpr),
+      x:
+        calcBarLeftPx(Math.round(center * input.dpr), Math.round(barWidth * input.dpr)) / input.dpr,
       width: visible && !visible[index] ? 0 : barWidth,
     })),
   }

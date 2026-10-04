@@ -8,7 +8,6 @@ import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
 import { VolumePriceRelation } from '../../foundation/types/volumePrice.js'
-import { projectWorldRectToScreen } from '../../foundation/utils/pixelAlign.js'
 import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
@@ -21,22 +20,23 @@ import {
   sameProjectionRevision,
 } from '../frame/index.js'
 import type { MarkerManager } from '../marker/registry.js'
-import { drawCandlesViaRenderer } from './candleViaRenderer.js'
+import { calcBarLeftPx, fitBarWidthPx } from '../viewport/klineConfig.js'
+import { drawWorldRectBatches } from './rectsViaRenderer.js'
 
 const THICK_WICK_ZOOM_LEVEL = 10
 
 /** 缓冲池属于 Layer，避免其他图表覆盖已保留的几何。 */
 type CandleBuffers = {
-  upBody: Float32Array | null
-  downBody: Float32Array | null
-  upWick: Float32Array | null
-  downWick: Float32Array | null
+  upBody: Float64Array | null
+  downBody: Float64Array | null
+  upWick: Float64Array | null
+  downWick: Float64Array | null
 }
 
-function ensureBufferCapacity(pool: Float32Array | null, requiredFloats: number): Float32Array {
+function ensureBufferCapacity(pool: Float64Array | null, requiredFloats: number): Float64Array {
   if (pool && pool.length >= requiredFloats) return pool
   const newLen = Math.max(requiredFloats, Math.ceil((pool?.length ?? 0) * 1.5))
-  return new Float32Array(newLen)
+  return new Float64Array(newLen)
 }
 
 type CandleMarker = {
@@ -49,15 +49,14 @@ type CandleMarker = {
 type PreparedCandles = {
   upMarkers: CandleMarker[]
   downMarkers: CandleMarker[]
-  upBodyBuf: Float32Array
+  upBodyBuf: Float64Array
   upBodyCount: number
-  downBodyBuf: Float32Array
+  downBodyBuf: Float64Array
   downBodyCount: number
-  upWickBuf: Float32Array
+  upWickBuf: Float64Array
   upWickCount: number
-  downWickBuf: Float32Array
+  downWickBuf: Float64Array
   downWickCount: number
-  wickWidth: number
 }
 
 /** 创建 K 线主体 Layer。 */
@@ -74,18 +73,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     visible: true,
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
-      const {
-        ctx,
-        pane,
-        data,
-        range,
-        scrollLeft,
-        kWidthPx,
-        dpr,
-        kLineCenters,
-        markerManager,
-        settings,
-      } = context
+      const { pane, data, range, kWidthPx, dpr, kLineCenters, markerManager, settings } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -128,20 +116,12 @@ export function createCandleLayer(): Layer<RenderContext> {
 
       const upColor = colors.candleUpBody
       const downColor = colors.candleDownBody
-      // sceneRenderer → fail-closed 2D
-      let usedGpu = false
-      if (context.sceneRenderer) {
-        usedGpu = drawCandlesViaRenderer(
-          context.sceneRenderer,
-          prepared,
-          upColor,
-          downColor,
-          scrollLeft,
-        )
-      }
-      if (!usedGpu) {
-        drawCandlesWithCanvas2D(ctx, scrollLeft, dpr, prepared, upColor, downColor)
-      }
+      drawWorldRectBatches(context, [
+        { buf: prepared.upBodyBuf, count: prepared.upBodyCount, color: upColor },
+        { buf: prepared.downBodyBuf, count: prepared.downBodyCount, color: downColor },
+        { buf: prepared.upWickBuf, count: prepared.upWickCount, color: upColor },
+        { buf: prepared.downWickBuf, count: prepared.downWickCount, color: downColor },
+      ])
 
       if (showVolumePriceMarkers) {
         drawVolumePriceMarkers(context, prepared, volumePriceMarkerManager!, colors.volumePrice)
@@ -205,7 +185,7 @@ function prepareCandles(args: {
   const invDpr = 1 / dpr
   // 两档均为固定物理像素，不随 DPR 增粗；实体与影线同奇偶，保证居中和整数边界。
   const wickWidthPx = args.zoomLevel >= THICK_WICK_ZOOM_LEVEL ? 2 : 1
-  const bodyWidthPx = Math.max(wickWidthPx, kWidthPx - (kWidthPx % 2 === wickWidthPx % 2 ? 0 : 1))
+  const bodyWidthPx = fitBarWidthPx(kWidthPx, wickWidthPx)
   const wickWidth = wickWidthPx * invDpr
 
   for (let i = range.start; i < range.end && i < data.length; i++) {
@@ -223,7 +203,7 @@ function prepareCandles(args: {
     const alignedLowY = lowPx * invDpr
 
     const centerPx = Math.round(centerLogical * dpr)
-    const roundedLeftPx = centerPx - Math.floor(bodyWidthPx / 2)
+    const roundedLeftPx = calcBarLeftPx(centerPx, bodyWidthPx)
 
     // 全部实体/影线几何在整数物理像素空间完成，最小实体高度也只占一个物理像素。
     const topPx = Math.min(openPx, closePx)
@@ -234,7 +214,7 @@ function prepareCandles(args: {
     const bodyY = topPx * invDpr
     const bodyW = bodyWidthPx * invDpr
     const bodyH = bodyHPx * invDpr
-    const wickLeftX = (centerPx - Math.floor(wickWidthPx / 2)) * invDpr
+    const wickLeftX = calcBarLeftPx(centerPx, wickWidthPx) * invDpr
 
     const preClose = i > 0 ? data[i - 1]?.close : undefined
     const trend = getKLineTrend(e, preClose)
@@ -246,48 +226,23 @@ function prepareCandles(args: {
       targetMarkers.push({ i, relation, alignedHighY, alignedLowY })
     }
 
-    if (isUp) {
-      const off = upBodyCount++ * 4
-      upBodyBuf[off] = bodyX
-      upBodyBuf[off + 1] = bodyY
-      upBodyBuf[off + 2] = bodyW
-      upBodyBuf[off + 3] = bodyH
-    } else {
-      const off = downBodyCount++ * 4
-      downBodyBuf[off] = bodyX
-      downBodyBuf[off + 1] = bodyY
-      downBodyBuf[off + 2] = bodyW
-      downBodyBuf[off + 3] = bodyH
-    }
+    const bodyBuf = isUp ? upBodyBuf : downBodyBuf
+    const bodyOff = (isUp ? upBodyCount++ : downBodyCount++) * 4
+    bodyBuf.set([bodyX, bodyY, bodyW, bodyH], bodyOff)
 
-    const bodyHigh = isUp ? e.close : e.open
-    const bodyLow = isUp ? e.open : e.close
-
-    // Inlined createVerticalLineRect for upper wick
-    if (e.high > bodyHigh) {
-      const physTop = Math.min(highPx, topPx)
-      const physBottom = Math.max(highPx, topPx)
-      const wickH = Math.max(1, physBottom - physTop) * invDpr
-      const buf = isUp ? upWickBuf : downWickBuf
-      const idx = isUp ? upWickCount++ : downWickCount++
-      const off = idx * 4
-      buf[off] = wickLeftX
-      buf[off + 1] = physTop * invDpr
-      buf[off + 2] = wickWidth
-      buf[off + 3] = wickH
-    }
-    // Inlined createVerticalLineRect for lower wick
-    if (e.low < bodyLow) {
-      const physTop = Math.min(bottomPx, lowPx)
-      const physBottom = Math.max(bottomPx, lowPx)
-      const wickH = Math.max(1, physBottom - physTop) * invDpr
-      const buf = isUp ? upWickBuf : downWickBuf
-      const idx = isUp ? upWickCount++ : downWickCount++
-      const off = idx * 4
-      buf[off] = wickLeftX
-      buf[off + 1] = physTop * invDpr
-      buf[off + 2] = wickWidth
-      buf[off + 3] = wickH
+    // 上下影线只取实体外的物理像素区间，不再重复价格方向和端点排序逻辑。
+    const wickSegments: readonly [number, number][] = [
+      [highPx, topPx],
+      [bottomPx, lowPx],
+    ]
+    for (const [wickTop, wickBottom] of wickSegments) {
+      if (wickBottom <= wickTop) continue
+      const wickBuf = isUp ? upWickBuf : downWickBuf
+      const wickOff = (isUp ? upWickCount++ : downWickCount++) * 4
+      wickBuf.set(
+        [wickLeftX, wickTop * invDpr, wickWidth, (wickBottom - wickTop) * invDpr],
+        wickOff,
+      )
     }
   }
 
@@ -302,84 +257,6 @@ function prepareCandles(args: {
     upWickCount,
     downWickBuf,
     downWickCount,
-    wickWidth,
-  }
-}
-
-function drawCandlesWithCanvas2D(
-  ctx: CanvasRenderingContext2D,
-  scrollLeft: number,
-  dpr: number,
-  prepared: PreparedCandles,
-  upColor: string,
-  downColor: string,
-): void {
-  ctx.fillStyle = upColor
-  for (let i = 0; i < prepared.upBodyCount; i++) {
-    const off = i * 4
-    const projected = projectWorldRectToScreen(
-      prepared.upBodyBuf[off]!,
-      prepared.upBodyBuf[off + 2]!,
-      scrollLeft,
-      dpr,
-    )
-    ctx.fillRect(
-      projected.x,
-      prepared.upBodyBuf[off + 1]!,
-      projected.width,
-      prepared.upBodyBuf[off + 3]!,
-    )
-  }
-
-  ctx.fillStyle = downColor
-  for (let i = 0; i < prepared.downBodyCount; i++) {
-    const off = i * 4
-    const projected = projectWorldRectToScreen(
-      prepared.downBodyBuf[off]!,
-      prepared.downBodyBuf[off + 2]!,
-      scrollLeft,
-      dpr,
-    )
-    ctx.fillRect(
-      projected.x,
-      prepared.downBodyBuf[off + 1]!,
-      projected.width,
-      prepared.downBodyBuf[off + 3]!,
-    )
-  }
-
-  ctx.fillStyle = upColor
-  for (let i = 0; i < prepared.upWickCount; i++) {
-    const off = i * 4
-    const projected = projectWorldRectToScreen(
-      prepared.upWickBuf[off]!,
-      prepared.wickWidth,
-      scrollLeft,
-      dpr,
-    )
-    ctx.fillRect(
-      projected.x,
-      prepared.upWickBuf[off + 1]!,
-      projected.width,
-      prepared.upWickBuf[off + 3]!,
-    )
-  }
-
-  ctx.fillStyle = downColor
-  for (let i = 0; i < prepared.downWickCount; i++) {
-    const off = i * 4
-    const projected = projectWorldRectToScreen(
-      prepared.downWickBuf[off]!,
-      prepared.wickWidth,
-      scrollLeft,
-      dpr,
-    )
-    ctx.fillRect(
-      projected.x,
-      prepared.downWickBuf[off + 1]!,
-      projected.width,
-      prepared.downWickBuf[off + 3]!,
-    )
   }
 }
 
@@ -532,7 +409,6 @@ function drawVolumePriceMarker(
     boundingY = tipY
   } else {
     const baseY = align(y + gap)
-    const tipY = align(baseY + height)
     boundingX = align(x - sideLength / 2)
     boundingY = baseY
   }

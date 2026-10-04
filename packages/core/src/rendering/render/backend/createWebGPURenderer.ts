@@ -193,6 +193,7 @@ export async function createWebGPURenderer(
         pipeline: GPURenderPipeline
         instanceBuffer: GPUBuffer
         instanceCount: number
+        physicalPixels: boolean
         color: unknown
         scrollLeft: number
       }
@@ -381,13 +382,14 @@ export async function createWebGPURenderer(
     colorValue: unknown,
     scrollLeft: number,
     region: import('../SurfaceBackend.js').SurfaceRegion,
+    physicalPixels = false,
   ): { bindGroup: GPUBindGroup } | null {
     const color = parseColor(colorValue ?? '#000000')
     if (!color) return null
     const values = new Float32Array([
       Math.round(region.width * region.dpr),
       Math.round(region.height * region.dpr),
-      region.dpr,
+      physicalPixels ? 1 : region.dpr,
       scrollLeft,
       color[0],
       color[1],
@@ -451,7 +453,13 @@ export async function createWebGPURenderer(
             pass.setScissorRect(x, y, width, height)
 
             for (const draw of draws) {
-              const uniform = createUniform(draw.pipeline, draw.color, draw.scrollLeft, draw.region)
+              const uniform = createUniform(
+                draw.pipeline,
+                draw.color,
+                draw.scrollLeft,
+                draw.region,
+                draw.kind === 'instances' && draw.physicalPixels,
+              )
               if (!uniform) continue
               pass.setPipeline(draw.pipeline)
               if (draw.kind === 'instances') {
@@ -566,7 +574,8 @@ export async function createWebGPURenderer(
           instanceBuffer: instanceRecord.buffer,
           instanceCount: params.instanceCount,
           color: params.uniforms?.color,
-          scrollLeft: (params.uniforms?.scrollLeft as number) ?? 0,
+          physicalPixels: params.physicalPixels === true,
+          scrollLeft: params.physicalPixels ? 0 : ((params.uniforms?.scrollLeft as number) ?? 0),
         })
         return true
       } catch {

@@ -15,7 +15,13 @@ type MockLineStrip = {
 
 const mocks = vi.hoisted(() => ({
   mockDrawRectBuffer: vi.fn(
-    (_rectData: Float32Array, _rectCount: number, _color: string, _scrollLeft: number) => true,
+    (
+      _rectData: Float32Array,
+      _rectCount: number,
+      _color: string,
+      _scrollLeft: number,
+      _physicalPixels?: boolean,
+    ) => true,
   ),
   mockDrawLineStrips: vi.fn((_lines: MockLineStrip[], _scrollLeft: number) => true),
   mockSetRegion: vi.fn(),
@@ -174,6 +180,26 @@ describe('createWebGLRenderer', () => {
   })
 
   describe('drawInstances', () => {
+    it('passes physical screen rectangles without applying DPR or scroll again', () => {
+      const { renderer } = makeRenderer()
+      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 1.25 })
+      const instances = renderer.createBuffer('instance', 16)
+      const rects = new Float32Array([15, 20, 11, 30])
+      renderer.writeBuffer(instances, rects)
+      expect(
+        renderer.drawInstances({
+          pipeline: renderer.createPipeline({ type: 'candle' }),
+          vertices: renderer.createBuffer('vertex', 48),
+          instances,
+          instanceCount: 1,
+          vertexCount: 6,
+          physicalPixels: true,
+          uniforms: { color: '#ff0000', scrollLeft: 79.5 },
+        }),
+      ).toBe(true)
+      expect(mocks.mockDrawRectBuffer).toHaveBeenCalledWith(rects, 1, '#ff0000', 0, true)
+    })
+
     it('delegates to candle surface drawRectBuffer', () => {
       const { renderer } = makeRenderer()
       const region: SurfaceRegion = { x: 0, y: 0, width: 800, height: 600, dpr: 2 }

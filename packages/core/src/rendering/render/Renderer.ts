@@ -92,6 +92,8 @@ export type DrawInstancesParams = {
   instanceCount: number
   /** 每个 instance 的顶点数（quad 用 4，triangle 用 6） */
   vertexCount: number
+  /** 矩形批次已投影为屏幕物理像素，后端不得再次应用 DPR 或滚动偏移。 */
+  physicalPixels?: boolean
   /** uniform 块，后端自行解译 */
   uniforms?: Record<string, unknown>
 }

@@ -193,8 +193,10 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       // candle 路径 fail-closed：无 surface 则 false，由业务层 2D 兜底
       if (!candleSurface) return false
       const dpr = currentRegion?.dpr ?? 1
-      const screenRects = projectRectsToScreen(floats, rectCount, scrollLeft, dpr)
-      return candleSurface.drawRectBuffer(screenRects, rectCount, color, 0)
+      const screenRects = params.physicalPixels
+        ? floats
+        : projectRectsToScreen(floats, rectCount, scrollLeft, dpr)
+      return candleSurface.drawRectBuffer(screenRects, rectCount, color, 0, params.physicalPixels)
     },
 
     drawLines(params: DrawLinesParams): boolean {
