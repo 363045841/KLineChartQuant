@@ -1,7 +1,7 @@
 /**
  * Value Area greedy expansion — VAH / VAL computation around the POC.
  *
- * Algorithm (CME-traditional, see `docs/ROADMAP.md` §3.1):
+ * Algorithm (CME-traditional):
  *   1. Seed the Value Area with the POC bucket.
  *   2. Compute the target volume `target = totalVolume * percent`.
  *   3. Repeatedly grow the VA by **one** of its boundary's neighbours:

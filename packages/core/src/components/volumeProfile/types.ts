@@ -11,9 +11,8 @@
  * renderer at `src/core/renderers/Indicator/volumeProfile.ts`, which is kept
  * untouched per branch policy).
  *
- * See `docs/ROADMAP.md` §3.1 for the algorithm rationale and §0 for the
- * controller layering this fits into. See `computeShader.wgsl.md` for the
- * planned WebGPU compute path of the heavy `binBarToBuckets` work.
+ * See `computeShader.wgsl.md` for the planned WebGPU compute path of the
+ * heavy `binBarToBuckets` work.
  */
 
 import type { Signal } from '../../foundation/reactivity/index.js'
@@ -27,7 +26,7 @@ import type { Signal } from '../../foundation/reactivity/index.js'
  *   that overlaps `[low, high]`, proportional to that bucket's price-range
  *   overlap with the bar. O(buckets-spanned) per bar.
  *
- * The trade-off is laid out in `docs/ROADMAP.md` §3.1: typical-price is what
+ * The trade-off: typical-price is what
  * you want for live profile rendering at frame rate; proportional is what you
  * want for "true" historical profiles and TPO-style work.
  */

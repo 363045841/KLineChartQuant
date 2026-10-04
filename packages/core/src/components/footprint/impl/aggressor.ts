@@ -12,8 +12,7 @@
  * can compose them in a fallback chain (explicit → heuristic) without
  * branching on classifier identity.
  *
- * See `docs/ROADMAP.md` §3.3 for the rationale — order of preference is
- * always explicit > Lee-Ready > tick rule.
+ * Order of preference is always explicit > Lee-Ready > tick rule.
  */
 
 import type {

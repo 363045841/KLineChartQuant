@@ -11,7 +11,7 @@
 - renderer / scale renderer 在创建时绑定自己的 `instanceId`，绘制时从 `context.indicatorStateReader.get(instanceId)` 读取该实例的渲染投影。**没有**按指标类型索引的结果包，**没有** stateKey，也不写 PluginHost StateStore。
 - 展示配置（`presentation.defaultOptions`）不进入计算，由投影阶段合入 renderer 读取的 `params`。
 
-设计决策见 `docs/design/indicator-instance-render-binding.md` 与 `docs/design/indicator-instance-calculation-migration.md`。
+设计决策见 `docs/design/indicator/indicator-instance-state.md` 与 `docs/design/indicator/indicator-instance-render-binding.md`。
 
 ## 文件改动清单（按依赖顺序）
 

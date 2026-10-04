@@ -5,10 +5,10 @@
  * a **data transform**, not a different renderer. Every output is still
  * OHLCV-shaped, so the same candle renderer paints all of them. This package
  * is therefore deliberately headless: rendering belongs to the
- * Renderer/Scene layer (see `docs/ROADMAP.md` §0).
+ * Renderer/Scene layer.
  *
  * Why this matters for the WebGPU path: because the output is OHLCV, the
- * existing instanced-quad K-line vertex pipeline (see `docs/ROADMAP.md` §2.3)
+ * existing instanced-quad K-line vertex pipeline
  * draws Heikin Ashi / Renko / P&F / Range Bars at the same throughput as raw
  * candles — no new render path, no new shader.
  *

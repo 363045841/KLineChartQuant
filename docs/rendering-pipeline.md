@@ -286,7 +286,7 @@ viewport state 的 effect 承担所有尺寸副作用：
 
 `ChartRenderer.prepareFrameData(level, countdown)` 生成当前代 `FrameContext`：
 
-实际帧在 derive 开始时从可注入 Clock 读取一次 Unix 毫秒 now，统一派生倒计时文本和剩余时间。版本比较、Layer 显示和 timer 延迟共用该快照；Overlay 复用几何时仍重新派生倒计时。timer 由 ChartRenderer 的事务副作用阶段管理，只请求下一次 Overlay 帧，paint 不读取时钟、不安排刷新。详见 [倒计时帧时间决策](design/frame-countdown-time.md)。
+实际帧在 derive 开始时从可注入 Clock 读取一次 Unix 毫秒 now，统一派生倒计时文本和剩余时间。版本比较、Layer 显示和 timer 延迟共用该快照；Overlay 复用几何时仍重新派生倒计时。timer 由 ChartRenderer 的事务副作用阶段管理，只请求下一次 Overlay 帧，paint 不读取时钟、不安排刷新。详见 [最新价倒计时](design/session/last-price-countdown.md)。
 
 1. Overlay 且已有 `cachedDrawFrame` 时复用 viewport、range 和 K 线几何。
 2. 读取 viewport；首帧尺寸未建立时返回 `null`。
@@ -428,7 +428,7 @@ z-index 2  pane overlayCanvas
 正式图元与会话图元分别由 Drawing Layer 和 Drawing Session Layer 绘制。帧去重包含会话图元引用；
 正式层版本只包含文档、选中集合和覆盖成员，连续拖动复用其投影与像素。拖拽首次覆盖时清除正式层中的原图元，
 提交或取消时恢复正式层；视口、主题、布局和 DPR 改变时重新绘制。两层的坐标轴装饰合并到同一帧，正式层保留的
-轴标签在动态帧重放，见 [绘图会话层设计](design/drawing-session-layer.md)。
+轴标签在动态帧重放，见 [绘图会话层设计](design/drawing/drawing-session-layer.md)。
 
 ### 7.2 Canvas 尺寸
 

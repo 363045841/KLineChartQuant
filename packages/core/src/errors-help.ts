@@ -61,8 +61,6 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
     'Market data changed throughout the bounded query attempts. Retry from a fresh context snapshot when the active series stabilizes.',
 
   // Comparison commands
-  COMPARISON_NO_PRIMARY:
-    'Add a primary instrument to the chart before creating a comparison. Read the active symbol and retry once a base series is loaded.',
   COMPARISON_DUPLICATE:
     'The comparison instrument is already present on the chart. List existing comparisons and skip duplicates.',
 

@@ -95,4 +95,4 @@ engine/drawing/
 ## 测试与设计文档
 
 - 单测位于各子模块 `__tests__/`，跨子模块共享夹具见 `__tests__/helpers/drawingTestKit.ts`，用例只声明差异。
-- 目录与契约分层决策见 `docs/design/drawing-module-layout.md`；交互与模型设计见 `docs/design/drawing-*.md`（交互硬化、多选、框选、命令边界、文档 CRUD 边界、时间锚点投影、文字布局等）。
+- 目录与契约分层决策见 `docs/design/conventions/module-layout-convention.md`；交互与模型设计见 `docs/design/drawing/*.md`（选择与框选、命令边界、锚点、附属文本与标签、会话层、复制、适配器端口、工具扩展、全局锁定等）。

@@ -1,7 +1,7 @@
 /**
  * Bar-to-bucket volume distribution.
  *
- * Two modes, both described in `docs/ROADMAP.md` §3.1:
+ * Two modes:
  *
  * - `typical-price` (fast, default): the bar's entire volume is added to the
  *   bucket containing the typical price `(high + low + close) / 3`. O(1) per

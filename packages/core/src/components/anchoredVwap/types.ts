@@ -17,8 +17,7 @@
  * This module owns the **data model + math only**. Rendering belongs to the
  * `@klinechart-quant/core` Renderer/Scene layer (or a Vue/React adapter).
  *
- * See `docs/ROADMAP.md` §3 for the broader controller layering this fits
- * into. The dispose-guard pattern follows
+ * The dispose-guard pattern follows
  * `createIndicatorSelectorController.ts`.
  */
 

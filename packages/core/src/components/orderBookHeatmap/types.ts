@@ -1,7 +1,7 @@
 /**
  * L2 Order Book Heatmap — public types.
  *
- * Implements the data model described in `docs/ROADMAP.md` §3.2.
+ * Defines the data model for the L2 order-book heatmap.
  *
  * Critique addressed (PR23): the live render path uses fixed-cadence
  * snapshots (cheap to upload to a GPU storage buffer), while a parallel

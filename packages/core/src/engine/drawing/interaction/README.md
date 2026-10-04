@@ -41,6 +41,15 @@ interaction/
 - `model/`：`drawingAccess`、`drawingLabels`、`materializeAnchors`。
 - `engine/drawing/types.ts`：图元领域模型契约。
 
+## 磁吸档位与修饰键
+
+档位契约与吸附规则属 `magnet/`；本层持有生效档位的会话状态，并在三个路径（`onPointerDown` 绘制分支、`onPointerMove` 预览分支、`handleDragMove` 锚点拖拽分支）经 `resolveMagnetOptions(e)` 单点分发修饰键：
+
+- off 时按住 Ctrl/Command 临时开启（按 strong）；开启（weak/strong）时按住临时关闭。
+- Shift 按住时磁吸一律不生效：宿主 Shift 锁角会先改写坐标，引擎再吸附会造成双重改写；Shift 作为约束修饰键优先于 Ctrl 取反。
+- 点锚点拖拽时被拖锚点绝对跟随指针，磁吸随落点收敛到 OHLC；整线拖拽是位移增量语义（全体锚点平移），无单一落点基准，不吸附。
+- `resolveDrawingPointer` 不传 `magnet` 即不吸附：cursor 命中、框选、线段标签等只读路径一律不传，保证点选命中与框选范围不随吸附漂移。
+
 ## 约定
 
 - 磁吸仅作用于落点与预览路径；命中、框选、标签等只读路径不得开启磁吸，否则命中范围会随吸附漂移。

@@ -46,7 +46,6 @@ export type KLineChartErrorCode =
   | 'INDICATOR_NOT_FOUND'
   | 'DATA_REVISION_CHANGED'
   // comparison commands (UI 与 Agent 共用的对比写原语)
-  | 'COMPARISON_NO_PRIMARY'
   | 'COMPARISON_DUPLICATE'
   // scale (TimeScale / PriceScale construction + setters)
   | 'SCALE_RANGE_INVALID'
@@ -191,7 +190,6 @@ type GenericErrorCodeName = 'INVALID_PARAM' | 'INVALID_STATE' | 'DISPOSED' | 'NO
 
 // 对比写原语错误码，供 Agent 工具层返回可据以自纠正的失败原因。
 export const COMPARISON_ERROR_CODES = Object.freeze({
-  NO_PRIMARY: 'COMPARISON_NO_PRIMARY',
   DUPLICATE: 'COMPARISON_DUPLICATE',
   INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)

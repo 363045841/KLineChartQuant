@@ -77,6 +77,18 @@ role 用于分组和增量绘制，最终叠放顺序仍以 `z` 为准。
 `render/SurfaceBackend.ts` 管理底层 canvas/context，包括 resize、region 绑定和清屏。
 Renderer 管绘制原语，SurfaceBackend 管输出表面，两者不要互相承担职责。
 
+## 线条解析抗锯齿
+
+GPU 线宽不走原生线段：`render/analyticLineGeometry.ts` 的 `buildAnalyticLineGeometry(points, width, dpr)` 把折线展开为逐段四边形（butt 端，无 miter join），每顶点携带逻辑 `x,y` 与物理像素距离 `edgeDist,edgeHalf`；WebGL 与 WebGPU 共用该几何（WebGL 侧实现在 `engine/renderers/webgl/candleSurface.ts`）。填充带保持独立输入，不依赖该函数。
+
+- 每有效段生成六个顶点；几何沿法线两侧各外扩一个物理像素；不延长 butt 端点。
+- fragment 覆盖率：`aa = max(fwidth(edgeDist), 1e-4)`，`coverage = clamp((edgeHalf - abs(edgeDist)) / aa + 0.5, 0, 1)`。
+- WebGL 使用直通 RGBA + SRC_ALPHA 混合，输出 `vec4(rgb, alpha * coverage)`；蜡烛可能关闭 BLEND，线条与填充带必须在每批 draw 时恢复混合。
+- WebGPU 使用预乘 RGBA + one / one-minus-src-alpha 混合，输出 `color * coverage`；线条为 16-byte triangle-list pipeline，填充带保留独立实心 shader 与 8-byte 布局。
+- 保留 MSAA，与解析 AA 和轴向像素吸附共存：解析 AA 负责侧边，MSAA 处理端点与其他图元。
+- 缓存：WebGL 按点列引用与线宽缓存，用双精度点值快照检查原地修改，DPR 改变时清空；WebGPU 按原始点值、线宽、DPR 与轴向吸附需要的滚动位置判断是否重建。
+- 逐段绘制在急转弯或半透明重叠处仍可能叠色，这是无 join 几何的既有局限。
+
 ## 后端与降级
 
 `RendererHost` 持有当前 Renderer，并负责创建、切换、降级、resize 和销毁：

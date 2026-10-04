@@ -11,9 +11,6 @@
  * belongs to the `@klinechart-quant/core` Renderer/Scene layer; the planned
  * GPU compute path is sketched in `computeShader.wgsl.md`.
  *
- * See `docs/ROADMAP.md` §3.3 (Footprint) for the algorithm rationale and §0
- * for how this controller fits the seven-module core layering.
- *
  * Cross-references:
  *   - `impl/aggressor.ts`   — buy/sell classification (explicit, tick rule, Lee-Ready)
  *   - `impl/perBarStats.ts` — delta, cumulative delta, diagonal imbalance

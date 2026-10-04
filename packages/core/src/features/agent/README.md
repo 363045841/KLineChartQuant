@@ -5,9 +5,9 @@
 文本而非 JSON，以减少 Agent 的 token 输入。它不读取或写入图表的渲染结果池。
 
 指标计算和结果池的完整模型见
-[`docs/design/indicator-result-kernel-implementation.md`](../../../../../docs/design/indicator-result-kernel-implementation.md)，
+[`docs/design/indicator/indicator-instance-render-binding.md`](../../../../../docs/design/indicator/indicator-instance-render-binding.md)，
 计算参数与展示配置的分层见
-[`docs/design/indicator-runtime-parameter-separation.md`](../../../../../docs/design/indicator-runtime-parameter-separation.md)。
+[`docs/design/indicator/indicator-parameter-layers.md`](../../../../../docs/design/indicator/indicator-parameter-layers.md)。
 
 ## 模块边界
 

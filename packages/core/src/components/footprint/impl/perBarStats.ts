@@ -9,8 +9,6 @@
  * (`computeShader.wgsl.md`) parallelises them per-bar in a single dispatch
  * for the heavy historical scan; the values produced here are byte-identical
  * to that GPU path's eventual output.
- *
- * See `docs/ROADMAP.md` §3.3 for the diagonal-imbalance rationale.
  */
 
 import type { FootprintBarCell, FootprintImbalance } from '../types.js'

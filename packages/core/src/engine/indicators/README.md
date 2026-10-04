@@ -6,9 +6,9 @@
 不直接依赖 Worker 或 PluginHost。
 
 完整契约见
-[`docs/design/indicator-instance-render-binding.md`](../../../../../docs/design/indicator-instance-render-binding.md)
+[`docs/design/indicator/indicator-instance-state.md`](../../../../../docs/design/indicator/indicator-instance-state.md)
 与
-[`docs/design/indicator-instance-calculation-migration.md`](../../../../../docs/design/indicator-instance-calculation-migration.md)。
+[`docs/design/indicator/indicator-instance-render-binding.md`](../../../../../docs/design/indicator/indicator-instance-render-binding.md)。
 
 ## 模块边界
 

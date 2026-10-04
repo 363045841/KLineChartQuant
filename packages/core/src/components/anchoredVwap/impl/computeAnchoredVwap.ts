@@ -7,7 +7,7 @@
  * running sums; the controller's tests pin equivalence between the two
  * paths.
  *
- * Math summary (formal derivation in `docs/ROADMAP.md` §3):
+ * Math summary:
  *
  *   typicalPrice(j) = (H[j] + L[j] + C[j]) / 3
  *   vwp(j)          = typicalPrice(j) * V[j]

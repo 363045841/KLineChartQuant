@@ -1,7 +1,7 @@
 /**
  * Scene + Layer 类型契约。
  *
- * Scene 位于 core 依赖栈中 `render` 之上（见 `docs/ROADMAP.md` §0）：
+ * Scene 位于 core 依赖栈中 `render` 之上：
  *
  *     interaction → store → scene → render
  *

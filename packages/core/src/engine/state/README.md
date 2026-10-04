@@ -11,8 +11,7 @@
 3. **读写分离**：外部消费者只能拿到 `ReadonlySignal`（无 `.set()`）；变更必须经 Action。
 4. **批量原子更新**：多字段写入通过 `batch()` 合并为一次通知周期。
 
-详细的 StateKernel 迁移背景见
-[`docs/state-kernel-migration-plan.md`](../../../../docs/state-kernel-migration-plan.md)。
+详细契约见 [`packages/core/src/engine/state/stateKernel.ts`](./stateKernel.ts)。
 
 ## 模块边界
 
