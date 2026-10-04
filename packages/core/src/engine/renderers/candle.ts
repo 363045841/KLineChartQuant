@@ -19,7 +19,7 @@ import {
   createProjectionRevision,
   type ProjectionRevision,
   sameProjectionRevision,
-} from '../frame/retainedProjection.js'
+} from '../frame/index.js'
 import type { MarkerManager } from '../marker/registry.js'
 import { drawCandlesViaRenderer } from './candleViaRenderer.js'
 

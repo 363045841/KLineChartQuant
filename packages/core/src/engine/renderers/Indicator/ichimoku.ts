@@ -10,7 +10,7 @@ import {
   createProjectionRevision,
   type ProjectionRevision,
   sameProjectionRevision,
-} from '../../frame/retainedProjection.js'
+} from '../../frame/index.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'

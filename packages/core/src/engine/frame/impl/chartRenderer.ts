@@ -1,105 +1,68 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
-import type { SymbolSpec } from '../../controllers/types.js'
-import type { ChartSettings } from '../../foundation/config/chartSettings.js'
-import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
+import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
+import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
   AxisLabelsFrame,
   FiveDayTimeShareGeometry,
-  PluginHostImpl,
   RenderContext,
   XAxisRange,
-  YAxisRange,
-} from '../../foundation/plugin/index.js'
-import { wrapPaneInfo } from '../../foundation/plugin/index.js'
+} from '../../../foundation/plugin/index.js'
+import { wrapPaneInfo } from '../../../foundation/plugin/index.js'
 import {
   createFrameTransaction,
   type FrameTransaction,
-} from '../../foundation/reactivity/frameTransaction.js'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
-import { ScaleType } from '../../foundation/types/scaleType.js'
-import { type Clock, systemClock } from '../../foundation/utils/clock.js'
+} from '../../../foundation/reactivity/frameTransaction.js'
+import type { ChartSeriesDatum, KLineData } from '../../../foundation/types/price.js'
+import { ScaleType } from '../../../foundation/types/scaleType.js'
+import { systemClock } from '../../../foundation/utils/clock.js'
 import {
   createDisplayTimeFormatter,
   type DisplayTimeFormatter,
   type DisplayTimeZoneSetting,
   resolveDisplayTimeZone,
-} from '../../foundation/utils/dateFormat.js'
-import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels.js'
-import type { Renderer } from '../../rendering/render/Renderer.js'
-import { createScene } from '../../rendering/scene/createScene.js'
-import type {
-  FramePaint,
-  Layer,
-  LayerRole,
-  Scene,
-  SceneFrame,
-} from '../../rendering/scene/types.js'
-import type { ChartModeHandler } from '../chartModel/index.js'
-import { type ChartDataView, ChartDataViewId } from '../chartModel/index.js'
-import type {
-  ChartDom,
-  ChartOptions,
-  KLinePositions,
-  PaneSpec,
-  Viewport,
-  ViewportState,
-} from '../chartTypes.js'
-import { InteractionController } from '../controller/interaction.js'
-import { ChartDataManager } from '../data/chartDataManager.js'
+} from '../../../foundation/utils/dateFormat.js'
+import { createScene } from '../../../rendering/scene/createScene.js'
+import type { FramePaint, Layer, LayerRole, Scene } from '../../../rendering/scene/types.js'
+import { ChartDataViewId } from '../../chartModel/index.js'
+import type { KLinePositions, Viewport } from '../../chartTypes.js'
 import {
   createDrawingLayer,
   createDrawingSessionLayer,
   DrawingDefinitionRegistry,
-  type DrawingSelectionMarquee,
   DrawingStore,
-  type DrawingStoreDeps,
   projectDrawingsForFrame,
   registerDefaultDrawingDefinitions,
-} from '../drawing/index.js'
-import { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
+} from '../../drawing/index.js'
 import {
   createAxisLabelsFrame,
   formatLastPriceCountdown,
   getLastPriceRemainingMs,
   registerAxisLabel,
-} from '../labels/index.js'
-import type { VisibleRange } from '../layout/pane.js'
-import { UpdateLevel } from '../layout/pane.js'
-import {
-  type CustomMarkerEntity,
-  MarkerManager,
-  type MarkerManagerDeps,
-} from '../marker/registry.js'
-import { PaneRenderer } from '../paneRenderer.js'
-import { createCandleLayer } from '../renderers/candle.js'
-import { createComparisonLineLayer } from '../renderers/comparisonLine.js'
-import { createCrosshairLayer } from '../renderers/crosshair.js'
-import { createCustomMarkersLayer } from '../renderers/customMarkers.js'
-import { createExtremaMarkersLayer } from '../renderers/extremaMarkers.js'
-import { createFiveDayTimeShareLayer } from '../renderers/fiveDayTimeShare.js'
-import { createGridLinesLayer } from '../renderers/gridLines.js'
-import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
-import { createTimeAxisLayer } from '../renderers/timeAxis.js'
-import { createTimeShareLayer } from '../renderers/timeShare.js'
+} from '../../labels/index.js'
+import type { VisibleRange } from '../../layout/pane.js'
+import { UpdateLevel } from '../../layout/pane.js'
+import { MarkerManager } from '../../marker/registry.js'
+import { PaneRenderer } from '../../paneRenderer.js'
+import { createCandleLayer } from '../../renderers/candle.js'
+import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
+import { createCrosshairLayer } from '../../renderers/crosshair.js'
+import { createCustomMarkersLayer } from '../../renderers/customMarkers.js'
+import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
+import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
+import { createGridLinesLayer } from '../../renderers/gridLines.js'
+import { createMainIndicatorLegendLayer } from '../../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
+import { createTimeAxisLayer } from '../../renderers/timeAxis.js'
+import { createTimeShareLayer } from '../../renderers/timeShare.js'
 import {
   createYAxisOverlayRendererLayer,
   createYAxisStaticRendererLayer,
-} from '../renderers/yAxis.js'
-import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
-import type { OptionsStateModule } from '../state/optionsState.js'
-import type { ViewportStateModule } from '../state/viewportState.js'
-import type { ZoomStateModule } from '../state/zoomState.js'
-import { createYAxisTicks } from '../utils/axisTicks.js'
+} from '../../renderers/yAxis.js'
+import { createYAxisTicks } from '../../utils/axisTicks.js'
 import {
   computeVisiblePriceExtrema,
   type VisiblePriceExtrema,
-} from '../utils/visiblePriceExtrema.js'
-
-type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
-  kWidth: number
-  kGap: number
-}
+} from '../../utils/visiblePriceExtrema.js'
+import type { RendererDependencies } from '../types.js'
 
 /** 帧内共享的时间与倒计时派生结果。 */
 type FrameCountdown = {
@@ -110,15 +73,13 @@ type FrameCountdown = {
 
 /** 一帧绘制几何与数据；大数组结构共享，render 只读。 */
 type FrameContext = {
-  viewSnapshot: import('../scale/index.js').ScaleXSnapshot
+  viewSnapshot: import('../../scale/index.js').ScaleXSnapshot
   /** 当前帧重新派生的时间与倒计时，不进入几何缓存。 */
   countdown: FrameCountdown
   /** 视口（scrollLeft、plotWidth、dpr 等） */
   vp: Viewport
   /** 可见 K 线起止索引 */
   range: VisibleRange
-  /** 含左右扩窗的可见区间，仅用于数据缺口检测。 */
-  rawRange: VisibleRange
   /** 每根 K 线在大图上的 x 坐标 */
   kLinePositions: KLinePositions
   /** 每根 K 线中心的 x 坐标（由物理像素回算逻辑值） */
@@ -133,10 +94,6 @@ type FrameContext = {
   data: ChartSeriesDatum[]
   /** 与本帧主序列快照对应的提交版本。 */
   dataRevision: number
-  /** 当前缩放级别索引 */
-  zoomLevel: number
-  /** 缩放级别总数 */
-  zoomLevelCount: number
   /** 五日分时供所有 renderer 和交互共享的帧级几何。 */
   fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
   /** 帧准备阶段生成的真正可视 K 线极值。 */
@@ -159,66 +116,15 @@ type FrameDrawSnapshot = {
   skip: boolean
 }
 
-/** Main 与 Overlay 合并为 All，其余取更全或后者 */
+/** Main 与 Overlay 合并为 All；相同级别保持不变 */
 export function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): UpdateLevel {
   if (current === UpdateLevel.All || next === UpdateLevel.All) return UpdateLevel.All
   if (current === next) return current
-  if (
-    (current === UpdateLevel.Main && next === UpdateLevel.Overlay) ||
-    (current === UpdateLevel.Overlay && next === UpdateLevel.Main)
-  ) {
-    return UpdateLevel.All
-  }
-  return next
+  // 仅剩 Main ↔ Overlay 两种组合，合并为 All
+  return UpdateLevel.All
 }
 
 /** 在绘制帧内提交 viewport 的原生滚动位置，跳过无变化写入。 */
-export interface RendererDependencies {
-  /** 帧开始时读取一次的时间源，测试可注入。 */
-  clock?: Clock
-  /** 当前主品种的市场时段，倒计时显示与刷新共用。 */
-  getMarketSession: () => typeof ASHARE_MARKET_SESSION | undefined
-  getDom: () => ChartDom
-  getOption: () => ResolvedChartOptions
-  getPaneRenderers: () => PaneRenderer[]
-  getInteraction: () => InteractionController
-  getSceneRenderer: () => Renderer
-  getPluginHost: () => PluginHostImpl
-  /** 当前数据视图应显示的主图指标 ID 快照。 */
-  getVisibleMainIndicatorIds: () => ReadonlyArray<string>
-  /** 生效主题 SSOT */
-  theme$: ReadonlySignal<'light' | 'dark'>
-  /** zoomLevel / kWidth SSOT */
-  zoom: ZoomStateModule
-  /** zoomLevelCount 等 options SSOT */
-  options: OptionsStateModule
-  /** scroll / dpr / plot 几何 SSOT */
-  viewport: ViewportStateModule
-  /** 由 Chart 的 ViewportScrollBridge 在 render frame 内提交原生滚动。 */
-  commitViewportScroll: (targetScrollLeft: number) => void
-  getDataManager: () => ChartDataManager
-  getIndicatorManager: () => ChartIndicatorManager
-  getActiveMode: () => ChartModeHandler
-  dataView$: ReadonlySignal<ChartDataView>
-  settings$: ReadonlySignal<ChartSettings>
-  mainPriceAxis: MainPriceAxisStateModule
-  customMarkers$: MarkerManagerDeps['customMarkers$']
-  drawings$: DrawingStoreDeps['drawings$']
-  selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
-  getOverlay?: DrawingStoreDeps['getOverlay']
-  /** 绘图交互会话中的临时框选，不进入持久化图元列表。 */
-  getSelectionMarquee?: () => DrawingSelectionMarquee | null
-  /** 主图图例上下文发布（dom / external 均触发；draw 内回调） */
-  onLegendRows?: RenderContext['publishLegendRows']
-  /** 无可绘制数据或清空图表时同步释放 DOM 标题。 */
-  onClearLegendRows?: () => void
-  onLegendContext?: (
-    ctx: import('../renderers/Indicator/mainIndicatorLegend/types.js').LegendTemplateContext | null,
-  ) => void
-  /** 可视区极值跨数量级时才请求右轴实测与布局更新。 */
-  commitRightAxisWidthMeasurement?: (extrema: VisiblePriceExtrema) => void
-}
-
 export class ChartRenderer {
   /** 依赖注入容器，ChartRenderer 不直接持有状态，从 deps 接口读取，也便于测试 mock */
   private deps: RendererDependencies
@@ -260,7 +166,6 @@ export class ChartRenderer {
   private timeAxisLayer: Layer<RenderContext> | null = null
   private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
   private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
-  private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
   /** 上次已测量右轴的可视区绝对值数量级。 */
   private measuredVisiblePriceMagnitudeOrder: number | null = null
   /** 上一帧已提交的主层与交互层内容输入。 */
@@ -558,13 +463,9 @@ export class ChartRenderer {
     return this.deps.settings$.peek()
   }
 
-  private get settings(): ChartSettings {
-    return this.deps.settings$.peek()
-  }
-
   /** 仅在持久化显示时区偏好变更时重建 formatter 状态。 */
   private getDisplayTimeFormatter(): DisplayTimeFormatter {
-    const configured = this.settings.displayTimeZone
+    const configured = this.getSettings().displayTimeZone
     const setting: DisplayTimeZoneSetting = configured === 'local' ? 'local' : 'UTC'
     if (setting !== this.displayTimeZoneSetting) {
       this.displayTimeZoneSetting = setting
@@ -750,23 +651,23 @@ export class ChartRenderer {
     }, delay)
   }
 
-  /**
-   * 计算一帧的 viewport、可见区间、K 线位置。
-   *
-   * Overlay 时复用 cachedDrawFrame 跳过重算，Main/All 强制刷新缓存。
-   * 帧缓存用于复用当前可见区几何。
-   * TimeShare 模式按 plotWidth 平分 bar，覆盖 K 线位置。
-   */
-  /** viewWidth 为 0 表示尚未完成首帧尺寸 */
+  /** viewWidth 为 0 表示尚未完成首帧尺寸。 */
   private peekViewport(): Viewport | null {
     if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
     return this.deps.viewport.readonly.viewport.peek()
   }
 
+  /**
+   * 计算一帧的 viewport、可见区间与 K 线几何。
+   *
+   * Overlay 且已有缓存帧时复用 cachedDrawFrame，跳过重算；Main/All 强制刷新。
+   * 帧几何全部来自 viewSnapshot 投影，render 不再派生另一套坐标。
+   */
   private prepareFrameData(level: UpdateLevel, countdown: FrameCountdown): FrameContext | null {
-    const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
+    const cached = level === UpdateLevel.Overlay ? this.cachedDrawFrame : null
+    const useCachedFrame = cached !== null
 
-    const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.peekViewport()
+    const vp = cached ? cached.viewport : this.peekViewport()
     if (!vp) return null
 
     const internalData = [...this.deps.getDataManager().getRenderData()]
@@ -775,12 +676,7 @@ export class ChartRenderer {
     const projection = this.deps.viewport.readonly.viewSnapshot.peek()
     if (!projection.ready) return null
     // 全部横向几何由模型一次投影，render 不再派生另一套坐标。
-    const range = useCachedFrame
-      ? this.cachedDrawFrame!.range
-      : this.deps.viewport.readonly.visibleRange.peek()
-    const rawRange = useCachedFrame
-      ? (this._prevFrameRange?.raw ?? range)
-      : this.deps.viewport.readonly.rawVisibleRange.peek()
+    const range = cached ? cached.range : this.deps.viewport.readonly.visibleRange.peek()
 
     const dataManager = this.deps.getDataManager()
 
@@ -790,12 +686,12 @@ export class ChartRenderer {
     let kWidthPx: number
     let fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
 
-    if (useCachedFrame) {
-      kLinePositions = this.cachedDrawFrame!.kLinePositions
-      kLineCenters = this.cachedDrawFrame!.kLineCenters
-      kBarRects = this.cachedDrawFrame!.kBarRects
-      kWidthPx = this.cachedDrawFrame!.kWidthPx
-      fiveDayTimeShareGeometry = this.cachedDrawFrame!.fiveDayTimeShareGeometry
+    if (cached) {
+      kLinePositions = cached.kLinePositions
+      kLineCenters = cached.kLineCenters
+      kBarRects = cached.kBarRects
+      kWidthPx = cached.kWidthPx
+      fiveDayTimeShareGeometry = cached.fiveDayTimeShareGeometry
     } else {
       kLineCenters = projection.centers
       kLinePositions = projection.positions
@@ -804,8 +700,8 @@ export class ChartRenderer {
       fiveDayTimeShareGeometry = projection.fiveDayGeometry
     }
 
-    const visiblePriceExtrema = useCachedFrame
-      ? this.cachedDrawFrame!.visiblePriceExtrema
+    const visiblePriceExtrema = cached
+      ? cached.visiblePriceExtrema
       : projection.hasPriceSeries
         ? computeVisiblePriceExtrema(
             internalData as KLineData[],
@@ -816,9 +712,7 @@ export class ChartRenderer {
           )
         : null
     const rightAxisWidthMeasurement =
-      !useCachedFrame &&
-      visiblePriceExtrema &&
-      this.requiresRightAxisWidthMeasurement(visiblePriceExtrema)
+      !cached && visiblePriceExtrema && this.requiresRightAxisWidthMeasurement(visiblePriceExtrema)
         ? visiblePriceExtrema
         : null
 
@@ -827,7 +721,6 @@ export class ChartRenderer {
       countdown,
       vp,
       range,
-      rawRange,
       kLinePositions,
       kLineCenters,
       kBarRects,
@@ -835,8 +728,6 @@ export class ChartRenderer {
       useCachedFrame,
       data: internalData,
       dataRevision: dataManager.getRenderDataRevision(),
-      zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
-      zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
       rightAxisWidthMeasurement,
@@ -875,25 +766,27 @@ export class ChartRenderer {
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       drawingCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      yAxisCtx?.clearRect(
-        0,
-        0,
-        (yAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1,
-        pane.height + 2 / vp.dpr,
-      )
-      yAxisOverlayCtx?.clearRect(
-        0,
-        0,
-        (yAxisOverlayCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1,
-        pane.height + 2 / vp.dpr,
-      )
+      if (yAxisCtx) {
+        this.clearAxisCtx(yAxisCtx, vp.dpr, yAxisCtx.canvas.width / vp.dpr, pane.height)
+      }
+      if (yAxisOverlayCtx) {
+        this.clearAxisCtx(
+          yAxisOverlayCtx,
+          vp.dpr,
+          yAxisOverlayCtx.canvas.width / vp.dpr,
+          pane.height,
+        )
+      }
       if (leftAxisCtx) {
-        const laW = (leftAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1
-        leftAxisCtx.clearRect(0, 0, laW, pane.height + 2 / vp.dpr)
+        this.clearAxisCtx(leftAxisCtx, vp.dpr, leftAxisCtx.canvas.width / vp.dpr, pane.height)
       }
       if (leftAxisOverlayCtx) {
-        const laW = (leftAxisOverlayCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1
-        leftAxisOverlayCtx.clearRect(0, 0, laW, pane.height + 2 / vp.dpr)
+        this.clearAxisCtx(
+          leftAxisOverlayCtx,
+          vp.dpr,
+          leftAxisOverlayCtx.canvas.width / vp.dpr,
+          pane.height,
+        )
       }
     }
     const xCtx = this.xAxisCtx
@@ -1155,17 +1048,18 @@ export class ChartRenderer {
           plotHeight: vp.plotHeight,
         },
         settings: {
-          ...this.settings,
+          ...this.getSettings(),
           // 分时昨收优先读 series 元数据，settings 作回退
           preClose:
-            dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
+            dataManager.getTimeSharePreClose() ??
+            (this.getSettings().preClose as number | undefined),
         },
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
         axisLabels: axisLabelsFrame,
         theme: this.deps.theme$.peek(),
-        isAsiaMarket: this.settings.isAsiaMarket as boolean,
-        colorPresetSettings: this.settings.colorPresetSettings,
+        isAsiaMarket: this.getSettings().isAsiaMarket as boolean,
+        colorPresetSettings: this.getSettings().colorPresetSettings,
       }
 
       // 覆盖成员进入会话层时从正式层排除；连续移动复用正式层投影和像素。
@@ -1273,11 +1167,6 @@ export class ChartRenderer {
     if (xAxisCtx && this.timeAxisLayer) {
       const opt = this.deps.getOption()
       const dataManager = this.deps.getDataManager()
-      const activeMode = this.deps.getActiveMode()
-      const marketSession =
-        'marketSession' in activeMode
-          ? (activeMode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
-          : undefined
       const timeAxisContext: RenderContext = {
         ctx: xAxisCtx,
         pane: {
@@ -1307,7 +1196,7 @@ export class ChartRenderer {
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,
-        marketSession,
+        marketSession: this.deps.getMarketSession(),
         data: renderData,
         dataView: this.deps.dataView$.peek(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
@@ -1336,8 +1225,8 @@ export class ChartRenderer {
         xAxisRanges: sharedXAxisRanges,
         axisLabels: axisLabelsFrame,
         theme: this.deps.theme$.peek(),
-        isAsiaMarket: this.settings.isAsiaMarket as boolean,
-        colorPresetSettings: this.settings.colorPresetSettings,
+        isAsiaMarket: this.getSettings().isAsiaMarket as boolean,
+        colorPresetSettings: this.getSettings().colorPresetSettings,
       }
       this.timeAxisLayer.paint({
         ...timeAxisContext,
@@ -1351,10 +1240,6 @@ export class ChartRenderer {
   /** 在成功绘制后缓存主层几何，供下一帧 Overlay 复用。 */
   private cacheDrawFrame(frame: FrameContext): void {
     if (frame.useCachedFrame) return
-    this._prevFrameRange = {
-      visible: { ...frame.range },
-      raw: { ...frame.rawRange },
-    }
     this.cachedDrawFrame = {
       viewport: { ...frame.vp },
       range: { ...frame.range },
