@@ -351,6 +351,10 @@ export interface RenderDataContext {
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
   comparisonSymbols?: ReadonlyArray<import('../../controllers/types.js').SymbolSpec>
   comparisonColors?: ReadonlyMap<string, string>
+  /** 比较品种的隐藏状态，图例保留名称供恢复显示。 */
+  comparisonHidden?: ReadonlyMap<string, boolean>
+  /** K 线原生比较单帧投影，蜡烛、折线与坐标轴共享同一基准。 */
+  comparisonProjection?: import('../../engine/comparison/types.js').ComparisonProjection
   /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   /** 逻辑索引 → X 轴时间戳；未来槽位仅由数据源交易日历提供，无对应值时为 null。 */

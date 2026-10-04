@@ -18,7 +18,6 @@ export interface ZoomDeps {
 export function createZoomState(deps: ZoomDeps) {
   const initial = {
     [ChartDataViewId.KLine]: { level: 1, slotWidth: null as number | null },
-    [ChartDataViewId.Comparison]: { level: 1, slotWidth: null as number | null },
     [ChartDataViewId.TimeShare]: { level: 1, slotWidth: null as number | null },
     [ChartDataViewId.FiveDayTimeShare]: { level: 1, slotWidth: null as number | null },
   }

@@ -69,12 +69,10 @@ export interface ViewStrategy {
 /** 视图切换的唯一裁决输入。 */
 export interface ViewTransitionInput {
   period: string | undefined
-  comparisonSpecs: ReadonlyArray<SymbolSpec>
 }
 
 /** 视图切换结果，供工作区与数据加载入口消费。 */
 export interface ViewTransition {
   dataView: ChartDataView
   timeShare: boolean
-  comparison: boolean
 }

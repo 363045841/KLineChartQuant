@@ -31,12 +31,11 @@ export function createComparisonState() {
       /** 对比品种唯一可写 SSOT，与 kline 主品种 state 无关。 */
       specs: [] as ReadonlyArray<SymbolSpec>,
       colors: immutableMap(new Map<string, string>()),
+      hidden: immutableMap(new Map<string, boolean>()),
       loading: false,
-      /** 对比参考序列（specs[0]）的已加载 bar 数；无主品种时驱动视口数据长度。 */
-      referenceLength: 0,
     },
     {
-      /** 对比视图是否激活由对比品种数量派生。 */
+      /** 是否选择了比较折线，由比较集合数量派生。 */
       active: (s) => s.specs().length > 0,
     },
   )
@@ -47,7 +46,24 @@ export function createComparisonState() {
     actions: {
       /** 原子写回对比品种快照，调用方不得绕过此入口。 */
       setSpecs(specs: ReadonlyArray<SymbolSpec>) {
-        signals.specs.set(snapshotSpecs(specs))
+        const identities = new Set(specs.map(symbolSpecIdentityKey))
+        batch(() => {
+          signals.specs.set(snapshotSpecs(specs))
+          signals.hidden.set(
+            immutableMap(
+              new Map([...signals.hidden.peek()].filter(([identity]) => identities.has(identity))),
+            ),
+          )
+        })
+      },
+
+      /** 隐藏只影响折线可见性，保留选择、数据和图例以便恢复显示。 */
+      setHidden(identity: string, hidden: boolean): void {
+        if (!signals.specs.peek().some((spec) => symbolSpecIdentityKey(spec) === identity)) return
+        const next = new Map(signals.hidden.peek())
+        if (hidden) next.set(identity, true)
+        else next.delete(identity)
+        signals.hidden.set(immutableMap(next))
       },
 
       setColors(colors: ReadonlyMap<string, string>) {
@@ -56,11 +72,6 @@ export function createComparisonState() {
 
       setLoading(loading: boolean) {
         signals.loading.set(loading)
-      },
-
-      /** 更新对比参考序列的 bar 数；无主品种时供视口计算可见区间。 */
-      setReferenceLength(length: number) {
-        signals.referenceLength.set(Number.isFinite(length) && length > 0 ? Math.floor(length) : 0)
       },
 
       /** 按当前对比品种补齐颜色；已有颜色沿用，缺失按调色板分配。 */
@@ -85,8 +96,8 @@ export function createComparisonState() {
         batch(() => {
           signals.specs.set([])
           signals.colors.set(immutableMap(new Map()))
+          signals.hidden.set(immutableMap(new Map()))
           signals.loading.set(false)
-          signals.referenceLength.set(0)
         })
       },
     },
@@ -95,8 +106,8 @@ export function createComparisonState() {
       batch(() => {
         signals.specs.set([])
         signals.colors.set(immutableMap(new Map()))
+        signals.hidden.set(immutableMap(new Map()))
         signals.loading.set(false)
-        signals.referenceLength.set(0)
       })
     },
   }

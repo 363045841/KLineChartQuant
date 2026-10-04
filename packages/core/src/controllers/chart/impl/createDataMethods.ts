@@ -67,6 +67,12 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.removeComparisonSymbol(symbol)
   }
 
+  /** 将比较折线可见性操作委托给 core。 */
+  function setComparisonHidden(identity: string, hidden: boolean): void {
+    if (isDisposed()) return
+    chart.setComparisonHidden(identity, hidden)
+  }
+
   function setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void {
     if (isDisposed()) return
     chart.setComparisonData(symbol, [...data])
@@ -171,6 +177,7 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
       setComparisonSpecs,
       addComparisonSymbol,
       removeComparisonSymbol,
+      setComparisonHidden,
       setComparisonData,
       setCurrentSymbol,
       setCurrentPeriod,

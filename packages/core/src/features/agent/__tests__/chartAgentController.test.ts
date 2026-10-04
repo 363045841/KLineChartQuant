@@ -104,7 +104,7 @@ function createFixture() {
     source: 'fixture',
   })
   const selectedRange = createSignal<{ from: number; to: number } | null>(null)
-  const chartMode = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>('kline')
+  const chartMode = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline')
   const indicatorParams = { period: 14, showLabel: true, invalid: Number.NaN }
   const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([
     {
@@ -192,7 +192,6 @@ function createFixture() {
   const comparisonCommands = new ComparisonCommands({
     getSpecs: () => [],
     setSpecs: () => {},
-    setComparisonViewActive: () => {},
     registerSpec: () => {},
     resolveInstrument: async () => ({
       candidates: [],

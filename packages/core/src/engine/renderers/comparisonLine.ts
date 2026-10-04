@@ -1,16 +1,11 @@
-// 比较视图折线渲染器：把对比集合每个品种相对自身基准的涨跌幅折算到参考序列基准价后绘制。
-
+/** K 线原生比较绘制层：叠加比较折线和共同 0% 基准线，不替换主品种蜡烛。 */
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
-import type { RenderContext } from '../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY, type RenderContext } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
-import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
-import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 
-/** 比较视图折线 Layer（仅 Comparison 视图，绘制到主图）。 */
+/** 创建 K 线主图比较 Layer，数据计算由共享比较投影负责。 */
 export function createComparisonLineLayer(): Layer<RenderContext> {
   return {
     id: makePluginLayerId('comparisonLine'),
@@ -19,142 +14,77 @@ export function createComparisonLineLayer(): Layer<RenderContext> {
     z: RENDERER_PRIORITY.MAIN + 2,
     visible: true,
     paint(context) {
-      if (context.dataView !== ChartDataViewId.Comparison) return
-      // context.data 是对比集合首个序列，仅作为横轴与百分比基准的参考序列，不单独绘制。
-      const referenceData = context.data as KLineData[]
-      const comparisonSymbols = context.comparisonSymbols ?? []
-      if (comparisonSymbols.length === 0 || referenceData.length === 0) return
-      if (context.pane.id !== 'main') return
-
-      const { first: baseIndex } = findVisibleBarRange(
-        context.range,
-        context.kLineCenters,
-        context.scrollLeft,
-        context.paneWidth,
-      )
-      const baseItem = referenceData[baseIndex]
-      if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return
-      const basePrice = baseItem.close
-      const baseDate = baseItem.date ?? ''
-
+      const projection = context.comparisonProjection
+      if (context.dataView !== ChartDataViewId.KLine || context.pane.id !== 'main' || !projection)
+        return
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-
       const ctx = context.ctx
       ctx.save()
-      ctx.translate(-context.scrollLeft, 0)
-      ctx.lineWidth = Math.max(1, 1.5 / context.dpr)
 
-      const comparisonData = context.comparisonData
-      if (comparisonData?.size) {
-        const comparisonColors = context.comparisonColors
-        for (let symbolIndex = 0; symbolIndex < comparisonSymbols.length; symbolIndex++) {
-          const spec = comparisonSymbols[symbolIndex]!
-          const identity = symbolSpecIdentityKey(spec)
-          const data = comparisonData.get(identity)
-          if (!data?.length) continue
-
-          const baseline = baseDate
-            ? findBaselineByDate(data, baseDate)
-            : findBaselineByTimestamp(data, baseItem.timestamp)
-          if (!baseline || baseline.close <= 0) continue
-
-          const byDate = new Map<string, KLineData>()
-          for (const item of data) {
-            byDate.set(item.date ?? String(item.timestamp), item)
-          }
-
-          strokeStrip(
-            ctx,
-            buildComparisonLinePoints(
-              context,
-              referenceData,
-              byDate,
-              baseline.close,
-              basePrice,
-              baseIndex,
-            ),
-            comparisonColors?.get(identity) ?? colors.palette.i2,
-          )
-        }
+      // 基准横跨整个内容区，包括品种尚无数据的时间段，不补造行情折线。
+      const baselineY = context.pane.yAxis.priceToY(projection.basePrice)
+      if (Number.isFinite(baselineY)) {
+        ctx.lineWidth = 1 / context.dpr
+        ctx.strokeStyle = colors.referenceLine.neutral
+        ctx.setLineDash([4, 4])
+        ctx.beginPath()
+        ctx.moveTo(0, baselineY)
+        ctx.lineTo(context.paneWidth, baselineY)
+        ctx.stroke()
+        ctx.setLineDash([])
       }
 
+      ctx.lineWidth = Math.max(1, 1.5 / context.dpr)
+      for (const series of projection.series) {
+        const points = series.points.map((point) => ({
+          x:
+            (context.kLineCenters[point.index - context.range.start] ?? Number.NaN) -
+            context.scrollLeft,
+          y: point.price === null ? Number.NaN : context.pane.yAxis.priceToY(point.price),
+        }))
+        strokeStrip(
+          ctx,
+          points,
+          context.comparisonColors?.get(series.identity) ?? colors.palette.i2,
+        )
+      }
       ctx.restore()
     },
     dispose() {},
   }
 }
 
-/** 比较商品折线点集：相对自身基准的涨跌幅折算为参考序列基准上的等价价格后映射 y */
-export function buildComparisonLinePoints(
-  context: RenderContext,
-  referenceData: ReadonlyArray<KLineData>,
-  byDate: ReadonlyMap<string, KLineData>,
-  baselineClose: number,
-  basePrice: number,
-  baseIndex: number,
-): Array<{ x: number; y: number }> {
-  const points: Array<{ x: number; y: number }> = []
-  const start = Math.max(baseIndex, context.range.start)
-  for (let i = start; i < context.range.end && i < referenceData.length; i++) {
-    const referenceItem = referenceData[i]
-    const x = context.kLineCenters[i - context.range.start]
-    if (!referenceItem || x === undefined) {
-      points.push({ x: x ?? 0, y: Number.NaN })
-      continue
-    }
-    const key = referenceItem.date ?? String(referenceItem.timestamp)
-    const item = byDate.get(key)
-    if (!item || !Number.isFinite(item.close)) {
-      points.push({ x, y: Number.NaN })
-      continue
-    }
-    const pct = ((item.close - baselineClose) / baselineClose) * 100
-    const equivalentPrice = basePrice * (1 + pct / 100)
-    const y = context.pane.yAxis.priceToY(equivalentPrice)
-    points.push({ x, y })
-  }
-  return points
-}
-
-/** 以 moveTo/lineTo 绘制一条折线，遇非法点断开路径 */
+/** 绘制一条折线，数据缺口断开路径，单个有效点仍以圆点显示。 */
 export function strokeStrip(
   ctx: CanvasRenderingContext2D,
   points: ReadonlyArray<{ x: number; y: number }>,
   color: string,
 ): void {
-  if (points.length < 2) return
-  ctx.beginPath()
   ctx.strokeStyle = color
-  let hasPath = false
-  for (const p of points) {
-    if (!Number.isFinite(p.y)) {
-      hasPath = false
-      continue
+  ctx.fillStyle = color
+  let segment: Array<{ x: number; y: number }> = []
+  /** 提交一个连续的数据片段，避免跨越真实行情缺口。 */
+  function flush(): void {
+    const first = segment[0]
+    if (!first) return
+    ctx.beginPath()
+    if (segment.length === 1) {
+      ctx.arc(first.x, first.y, Math.max(1.5, ctx.lineWidth), 0, 2 * Math.PI)
+      ctx.fill()
+    } else {
+      ctx.moveTo(first.x, first.y)
+      for (const point of segment.slice(1)) ctx.lineTo(point.x, point.y)
+      ctx.stroke()
     }
-    if (hasPath) ctx.lineTo(p.x, p.y)
-    else ctx.moveTo(p.x, p.y)
-    hasPath = true
+    segment = []
   }
-  if (hasPath) ctx.stroke()
-}
-
-function findBaselineByDate(data: ReadonlyArray<KLineData>, date: string): KLineData | null {
-  for (const item of data) {
-    if (item.date && item.date >= date) return item
+  for (const point of points) {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) flush()
+    else segment.push(point)
   }
-  return null
-}
-
-function findBaselineByTimestamp(
-  data: ReadonlyArray<KLineData>,
-  timestamp: number,
-): KLineData | null {
-  for (const item of data) {
-    if (item.timestamp >= timestamp) return item
-  }
-  return null
+  flush()
 }

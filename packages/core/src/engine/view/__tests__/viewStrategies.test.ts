@@ -127,10 +127,7 @@ describe('VIEW_STRATEGIES', () => {
     expect(snapshot.indexAtWorld(snapshot.centers[0]!)).toBe(0)
   })
 
-  it('对比视图复用 K 线横向规则', () => {
-    const bars = VIEW_STRATEGIES[ChartDataViewId.KLine]
-    const comparison = VIEW_STRATEGIES[ChartDataViewId.Comparison]
-    expect(comparison.project).toBe(bars.project)
-    expect(comparison.navigate).toBe(bars.navigate)
+  it('只注册 K 线、分时与五日分时三种图表视图', () => {
+    expect(Object.keys(VIEW_STRATEGIES)).toEqual(['kline', 'timeshare', 'fiveDayTimeShare'])
   })
 })

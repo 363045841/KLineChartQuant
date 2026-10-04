@@ -16,6 +16,8 @@ export interface LegendRow {
   gap: number
   texts: ReadonlyArray<LegendText>
   indicator?: { instanceId: string; definitionId: string }
+  /** 比较品种按完整身份执行隐藏与删除，独立于指标身份。 */
+  comparison?: { identity: string }
   /** 指标被隐藏：行保留并置灰，工具条切换为“显示指标”。 */
   hidden?: boolean
 }
@@ -32,6 +34,8 @@ export interface LegendActionDetail {
   action: LegendAction
   paneId: string
   definitionId: string
+  /** 比较操作使用此身份，definitionId 仅供指标操作。 */
+  comparisonIdentity?: string
   /** 仅 toggle-visibility：切换后的目标隐藏状态。 */
   hidden?: boolean
 }

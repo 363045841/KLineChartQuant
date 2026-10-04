@@ -16,6 +16,8 @@ describe('Legend DOM actions', () => {
     const removeMain = vi.spyOn(ctrl, 'removeIndicator')
     const setMainHidden = vi.spyOn(ctrl, 'setMainIndicatorHidden')
     const setSubHidden = vi.spyOn(ctrl, 'setSubIndicatorHidden')
+    const setComparisonHidden = vi.spyOn(ctrl, 'setComparisonHidden')
+    const removeComparison = vi.spyOn(ctrl, 'removeComparisonSymbol')
     const options = {
       removePane: vi.fn(),
       movePane: vi.fn(),
@@ -78,6 +80,31 @@ describe('Legend DOM actions', () => {
     emit('settings', 'main', 'MA')
     emit('settings', 'sub_RSI', 'RSI')
     expect(options.openIndicatorSettings.mock.calls).toEqual([['MA'], ['RSI']])
+
+    for (const hidden of [true, false]) {
+      layer.dispatchEvent(
+        new CustomEvent(LEGEND_ACTION_EVENT, {
+          detail: {
+            action: 'toggle-visibility',
+            paneId: 'main',
+            definitionId: '',
+            comparisonIdentity: 'id:CMP',
+            hidden,
+          },
+        }),
+      )
+    }
+    expect(setComparisonHidden.mock.calls).toEqual([
+      ['id:CMP', true],
+      ['id:CMP', false],
+    ])
+    layer.dispatchEvent(
+      new CustomEvent(LEGEND_ACTION_EVENT, {
+        detail: { action: 'close', paneId: 'main', definitionId: '', comparisonIdentity: 'id:CMP' },
+      }),
+    )
+    expect(removeComparison).toHaveBeenCalledExactlyOnceWith('id:CMP')
+    expect(removeMain).toHaveBeenCalledTimes(1)
 
     scope.stop()
     emit('close')

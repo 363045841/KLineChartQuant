@@ -52,6 +52,8 @@ export interface LegendIndicatorRow {
 }
 
 export interface LegendComparisonRow {
+  identity?: string
+  hidden?: boolean
   symbol: string
   name?: string
   percent: number

@@ -241,9 +241,6 @@ export class Chart {
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
 
-  /** 比较视图进入前的刻度快照，退出比较视图时恢复。 */
-  private _savedComparisonScaleTypes: Map<string, ScaleType> | null = null
-
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
   private _lastAlertTimestamp: number | null = null
   /** 右轴 host 当前生效的 CSS 宽度；仅在可视区极值变化时更新。 */
@@ -404,8 +401,7 @@ export class Chart {
     // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
     this.comparisonCommands = new ComparisonCommands({
       getSpecs: () => this.kernel.comparison.readonly.specs.peek(),
-      setSpecs: (specs) => this.kernel.actions.setComparisonSpecs(specs),
-      setComparisonViewActive: () => this.transitionView(),
+      setSpecs: (specs) => this.setComparisonSpecs(specs),
       registerSpec: (spec) => this.dataManager.registerSymbols([symbolInfoFromSpec(spec)]),
       resolveInstrument: async ({ symbol, source }) => {
         // 具体源才限定查询范围，auto/缺省时允许跨全部已启用数据源解析。
@@ -807,38 +803,14 @@ export class Chart {
    * 分时覆盖期间保留用户 Setting，由 dataView 返回 K 线时重新派生生效刻度。
    */
   private applyPriceScaleSettingToKernel(setting: ScaleType): void {
-    const next = this.buildScaleTypesFromSetting(setting)
     if (isTimeShareDataView(this.kernel.mode.readonly.chartMode.peek())) {
       return
     }
+    const next = this.buildScaleTypesFromSetting(setting)
+    // 比较只覆盖主图的生效刻度，移除后从 settings 重新派生用户偏好。
     if (this.dataManager.getComparisonSpecs().length > 0) {
-      this._savedComparisonScaleTypes = next
-      this.applyComparisonScaleType(true)
-      return
+      next.set(MAIN_PANE_ID, ScaleType.Percent)
     }
-    this.kernel.pane.actions.replacePaneScaleTypes(next)
-    this.projectPaneScaleTypes()
-  }
-
-  /** 比较视图的主图刻度通过 kernel 管理，避免渲染期旁路写入 PriceScale。 */
-  private applyComparisonScaleType(active: boolean): void {
-    if (!active) {
-      if (!this._savedComparisonScaleTypes) return
-      this.kernel.pane.actions.replacePaneScaleTypes(this._savedComparisonScaleTypes)
-      this._savedComparisonScaleTypes = null
-      this.projectPaneScaleTypes()
-      return
-    }
-
-    if (!this._savedComparisonScaleTypes) {
-      this._savedComparisonScaleTypes = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
-    }
-    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
-    const mainPane = this.paneRenderers
-      .find((renderer) => renderer.getPane().role === 'price')
-      ?.getPane()
-    if (!mainPane || next.get(mainPane.id) === ScaleType.Percent) return
-    next.set(mainPane.id, ScaleType.Percent)
     this.kernel.pane.actions.replacePaneScaleTypes(next)
     this.projectPaneScaleTypes()
   }
@@ -1552,16 +1524,20 @@ export class Chart {
     }
   }
 
-  /**
-   * 直接设置对比集合（对比视图唯一 SSOT），与 kline 主品种完全解耦。
-   * K 线周期下集合非空时进入比较视图，分时周期保持分时；主品种需显式加入集合。
-   */
+  /** 原子设置 K 线比较折线及生效刻度，不切换视图、工作区或主品种渲染器。 */
   setComparisonSpecs(specs: ReadonlyArray<SymbolSpec>): void {
-    this.kernel.actions.setComparisonSpecs(specs)
-    this.transitionView()
+    batch(() => {
+      this.kernel.actions.setComparisonSpecs(specs)
+      this.applyPriceScaleSettingToKernel(
+        resolvePriceScaleTypeSetting(
+          this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
+        ),
+      )
+    })
+    this.scheduleDraw()
   }
 
-  /** 执行唯一视图决策：先恢复旧对比刻度，再切换一次 mode/dataView。 */
+  /** 仅按主品种周期切换 K 线或分时，比较集合不参与视图决策。 */
   private transitionView(
     spec: SymbolSpec | null = this.dataManager.symbols.peek()[0] ?? null,
     period: string | undefined = spec?.period,
@@ -1570,24 +1546,26 @@ export class Chart {
     this.zoomController.stopAnimation()
     const transition = resolveViewTransition({
       period,
-      comparisonSpecs: this.kernel.comparison.readonly.specs.peek(),
     })
     if (transition.timeShare && spec) {
       this._timeShareMode.setMarketSession(resolveSymbolMarketSession(spec, this.marketSessions))
     }
     batch(() => {
-      if (!transition.comparison) this.applyComparisonScaleType(false)
       this.setActiveMode(
         transition.timeShare ? this._timeShareMode : this._kLineMode,
         transition.dataView,
       )
-      if (transition.comparison) this.applyComparisonScaleType(true)
+      this.applyPriceScaleSettingToKernel(
+        resolvePriceScaleTypeSetting(
+          this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
+        ),
+      )
     })
     return transition
   }
 
   /**
-   * 新增对比品种；品种登记、选择、视图切换与重绘由 comparisonCommands 统一处理。
+   * 新增原生比较折线；品种登记、集合写入与重绘由 comparisonCommands 统一处理。
    * primary 为调用方显式传入的图表主品种，仅用于补齐缺省路由字段。
    */
   addComparisonSymbol(spec: SymbolSpec, primary?: SymbolSpec | null): void {
@@ -1599,8 +1577,19 @@ export class Chart {
     this.comparisonCommands.remove({ identity: symbol })
   }
 
+  /** 切换比较折线可见性，保留图例名称和比较选择。 */
+  setComparisonHidden(identity: string, hidden: boolean): void {
+    this.kernel.comparison.actions.setHidden(identity, hidden)
+    this.scheduleDraw()
+  }
+
   setComparisonData(symbol: string, data: KLineData[]): void {
     this.dataManager.setComparisonData(symbol, data)
+    this.applyPriceScaleSettingToKernel(
+      resolvePriceScaleTypeSetting(
+        this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
+      ),
+    )
   }
 
   setCurrentSymbol(symbol: string): void {

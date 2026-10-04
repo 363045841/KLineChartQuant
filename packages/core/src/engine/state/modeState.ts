@@ -31,7 +31,6 @@ const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
   [ChartDataViewId.KLine]: 'candlestick',
   [ChartDataViewId.TimeShare]: 'line',
   [ChartDataViewId.FiveDayTimeShare]: 'line',
-  [ChartDataViewId.Comparison]: 'line',
 })
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
@@ -46,11 +45,7 @@ function resolveEffectivePrimaryRenderer(
   view: ChartDataView,
   renderer: PrimaryRendererType,
 ): PrimaryRendererType {
-  if (
-    (isTimeShareDataView(view) || view === ChartDataViewId.Comparison) &&
-    renderer !== 'line' &&
-    renderer !== 'area'
-  ) {
+  if (isTimeShareDataView(view) && renderer !== 'line' && renderer !== 'area') {
     return 'line'
   }
   return renderer

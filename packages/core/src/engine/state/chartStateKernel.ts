@@ -129,10 +129,7 @@ function resolveIndicatorRenderers(
       }
     }
     // 无 @Indicator 定义的裸主序列 renderer 直接按实例 id 挂载。
-    if (
-      instance.source === 'mode' &&
-      (instance.indicatorId === 'candle' || instance.indicatorId === 'comparisonLine')
-    ) {
+    if (instance.source === 'mode' && instance.indicatorId === 'candle') {
       add(mainRenderers, instance.indicatorId)
       continue
     }
@@ -257,13 +254,8 @@ export class ChartStateKernel extends StateKernel {
     // ── Comparison state（对比品种独立 SSOT，不派生自 kline 主品种）──
     this.comparison = createComparisonState()
 
-    // 比较视图激活时，视口数据长度由对比参考序列长度决定；否则由 kline 主品种决定。
-    this.dataLength$ = computed(() => {
-      if (this.comparison.readonly.specs().length > 0) {
-        return this.comparison.readonly.referenceLength()
-      }
-      return this.data.readonly.dataLength()
-    })
+    // 比较叠加不替换主序列，视口与指标始终消费主品种数据长度。
+    this.dataLength$ = this.data.readonly.dataLength
 
     // ── Data manager state (coordination layer) ──
     this.dataManager = createDataManagerState()
@@ -337,7 +329,13 @@ export class ChartStateKernel extends StateKernel {
     // 主图和指标统一从 kernel 状态投影；此处只输出意图，不执行 Layer 副作用。
     this.activeRenderers$ = computed(() => {
       const dataView = this.mode.readonly.dataView()
-      const renderers = resolveIndicatorRenderers(dataView, this.indicator.readonly.instances())
+      const renderers = [
+        ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances()),
+      ]
+      // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
+      if (dataView === ChartDataViewId.KLine && this.comparison.readonly.active()) {
+        renderers.push({ name: 'comparisonLine', layerId: makePluginLayerId('comparisonLine') })
+      }
       return Object.freeze([
         ...new Map(
           renderers.map((descriptor) => [descriptor.layerId, Object.freeze(descriptor)]),
@@ -488,51 +486,40 @@ export class ChartStateKernel extends StateKernel {
                     params: {},
                   },
                 ]
-              : view === ChartDataViewId.Comparison
-                ? [
-                    {
-                      instanceId: 'mode:comparison',
-                      indicatorId: 'comparisonLine',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                  ]
-                : [
-                    {
-                      instanceId: 'mode:candle',
-                      indicatorId: 'candle',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                    {
-                      instanceId: 'mode:extrema-markers',
-                      indicatorId: 'extremaMarkers',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                    {
-                      instanceId: 'mode:last-price-line',
-                      indicatorId: 'lastPriceLine',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                    {
-                      instanceId: 'mode:last-price-label',
-                      indicatorId: 'lastPriceLabelRegistrar',
-                      paneId: 'main',
-                      role: 'main',
-                      ordinal: 0,
-                      params: {},
-                    },
-                  ]
+              : [
+                  {
+                    instanceId: 'mode:candle',
+                    indicatorId: 'candle',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                  {
+                    instanceId: 'mode:extrema-markers',
+                    indicatorId: 'extremaMarkers',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                  {
+                    instanceId: 'mode:last-price-line',
+                    indicatorId: 'lastPriceLine',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                  {
+                    instanceId: 'mode:last-price-label',
+                    indicatorId: 'lastPriceLabelRegistrar',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                ]
         batch(() => {
           this.mode.actions.setDataView(view, lastBarPeriod)
           this.indicator.actions.setActiveWorkspace(workspaceId)

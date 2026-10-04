@@ -143,7 +143,7 @@ describe('Chart DPR pipeline', () => {
     {
       period: 'daily',
       specs: [comparison],
-      view: ChartDataViewId.Comparison,
+      view: ChartDataViewId.KLine,
       mode: ChartDataViewId.KLine,
     },
     {
@@ -177,7 +177,7 @@ describe('Chart DPR pipeline', () => {
     async ({ period, specs, view, mode }) => {
       const chart = mountChart()
       try {
-        const decision = resolveViewTransition({ period, comparisonSpecs: specs })
+        const decision = resolveViewTransition({ period })
         expect(decision.dataView).toBe(view)
         setInlinePrimary(chart)
         chart.setComparisonSpecs(specs)
@@ -202,7 +202,7 @@ describe('Chart DPR pipeline', () => {
             : getModeHandlers(chart).kLine,
         )
         expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(
-          decision.timeShare || decision.comparison ? ScaleType.Percent : ScaleType.Linear,
+          decision.timeShare || specs.length > 0 ? ScaleType.Percent : ScaleType.Linear,
         )
         activate.mockClear()
         chart.setSymbols([{ ...chart.symbols.peek()[0]!, period }])
@@ -218,7 +218,7 @@ describe('Chart DPR pipeline', () => {
     },
   )
 
-  it('restores the configured scale after comparison → timeshare → comparison → K-line', async () => {
+  it('restores the configured scale after kline comparison overlays → timeshare → kline', async () => {
     const chart = mountChart()
     try {
       setInlinePrimary(chart)
@@ -229,9 +229,50 @@ describe('Chart DPR pipeline', () => {
         ScaleType.Percent,
       )
       chart.setCurrentPeriod('daily')
-      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.Comparison)
+      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
       chart.comparisonCommands.clear()
       expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(ScaleType.Log)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('adding comparison overlays preserves primary data, viewport and candle renderer', async () => {
+    const chart = mountChart()
+    try {
+      const data = makeBars(100)
+      chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data })
+      const primaryData = chart.data.peek()
+      const count = chart.kernel.dataLength$.peek()
+      const zoom = chart.kernel.zoom.readonly.zoomLevel.peek()
+      const scroll = chart.kernel.viewport.readonly.scrollLeftLogical.peek()
+      chart.comparisonCommands.add(comparison)
+      chart.setComparisonData(comparison.symbol, makeBars(10))
+      const comparisonIdentity = chart.comparisonCommands.list()[0]!.identity
+      chart.setComparisonHidden(comparisonIdentity, true)
+      expect(chart.kernel.comparison.readonly.hidden.peek().get(comparisonIdentity)).toBe(true)
+      chart.setComparisonHidden(comparisonIdentity, false)
+      expect(chart.kernel.comparison.readonly.hidden.peek().has(comparisonIdentity)).toBe(false)
+      expect(chart.data.peek()).toBe(primaryData)
+      expect(chart.kernel.dataLength$.peek()).toBe(count)
+      expect(chart.kernel.mode.readonly.chartMode.peek()).toBe(ChartDataViewId.KLine)
+      expect(chart.kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      expect(chart.kernel.activeRenderers$.peek()).toContainEqual({
+        name: 'candle',
+        layerId: 'plugin:candle',
+      })
+      expect(chart.kernel.activeRenderers$.peek()).toContainEqual({
+        name: 'comparisonLine',
+        layerId: 'plugin:comparisonLine',
+      })
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(zoom)
+      expect(chart.kernel.viewport.readonly.scrollLeftLogical.peek()).toBe(scroll)
+      chart.comparisonCommands.clear()
+      expect(chart.data.peek()).toBe(primaryData)
+      expect(chart.kernel.activeRenderers$.peek()).not.toContainEqual({
+        name: 'comparisonLine',
+        layerId: 'plugin:comparisonLine',
+      })
     } finally {
       await chart.destroy()
     }
@@ -284,7 +325,7 @@ describe('Chart DPR pipeline', () => {
     }
   })
 
-  it('uses the custom-data comparison snapshot to select its view', async () => {
+  it('keeps custom-data comparisons inside the kline view', async () => {
     const chart = mountChart()
     try {
       chart.applyCustomData({
@@ -294,7 +335,7 @@ describe('Chart DPR pipeline', () => {
         data: [],
         comparisons: { COMPARE: [] },
       })
-      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.Comparison)
+      expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
       chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data: [] })
       expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
       expect(chart.interactionState).toBe(chart.kernel.interaction.readonly.interactionSnapshot)

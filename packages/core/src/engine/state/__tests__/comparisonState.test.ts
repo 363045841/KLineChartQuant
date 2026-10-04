@@ -76,12 +76,13 @@ describe('ChartStateKernel comparison selection transaction', () => {
     expect(kernel.comparison.readonly.specs.peek()).toEqual([])
   })
 
-  it('uses the comparison reference length for the viewport when comparison is active', () => {
+  it('keeps the primary viewport and renderer when comparisons are added', () => {
     const kernel = createTestChartStateKernel()
 
     kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
-    kernel.comparison.actions.setReferenceLength(42)
 
-    expect(kernel.dataLength$()).toBe(42)
+    expect(kernel.dataLength$()).toBe(kernel.data.readonly.dataLength())
+    expect(kernel.mode.readonly.dataView.peek()).toBe('kline')
+    expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
   })
 })

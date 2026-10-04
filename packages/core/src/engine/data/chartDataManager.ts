@@ -1,3 +1,4 @@
+/** 行情协调器：管理 Repository、数据加载与各视图的数据投影。 */
 import {
   type CustomDataSource,
   FIVE_DAY_TIME_SHARE_DAYS,
@@ -35,7 +36,6 @@ import type {
   TradingDate,
 } from '../../data/provider/types.js'
 import {
-  ALIGNED_BAR_AGGREGATION,
   AUTO_SOURCE_ID,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
@@ -45,6 +45,8 @@ import {
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { ChartDom } from '../chartTypes.js'
+import { projectComparison } from '../comparison/impl/comparisonProjection.js'
+import type { ComparisonProjection } from '../comparison/types.js'
 import type { UpdateLevel, VisibleRange } from '../layout/pane.js'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry.js'
 import type { ComparisonStateModule } from '../state/comparisonState.js'
@@ -53,7 +55,6 @@ import type { DataStateModule } from '../state/dataState.js'
 import { ChartDataViewId } from '../state/modeState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
-import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 import { hasLeftDataGap } from '../viewport/viewport.js'
 
 import { ComparisonManager } from './comparisonManager.js'
@@ -147,11 +148,12 @@ export class ChartDataManager {
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
     this._comparisonManager = new ComparisonManager(this._repository, {
-      selectionForSpec: (spec) => this.barsSelectionForSpec(spec),
+      selectionForSpec: (spec) => this.barsSelectionForSpec(this.comparisonSpecForPrimary(spec)),
       createBuffer: (_spec, selection) => this.createKLineBuffer(selection),
-      loadBuffer: (spec, selection, buffer) => this.loadBufferSnapshot(spec, selection, buffer),
+      loadBuffer: (spec, selection, buffer) =>
+        this.loadBufferSnapshot(this.comparisonSpecForPrimary(spec), selection, buffer),
       loadRange: (spec, selection, buffer, beforeTimestamp) =>
-        this.loadBars(selection, buffer, spec, {
+        this.loadBars(selection, buffer, this.comparisonSpecForPrimary(spec), {
           limit: DEFAULT_BAR_PAGE_LIMIT,
           beforeTimestamp,
         }),
@@ -159,10 +161,8 @@ export class ChartDataManager {
       scheduleDraw: () => this.deps.scheduleDraw(),
       getSpecs: () => this.deps.comparison.readonly.specs.peek(),
       setLoading: (loading) => this.deps.comparison.actions.setLoading(loading),
-      setReferenceLength: (length) => this.deps.comparison.actions.setReferenceLength(length),
     })
     this._comparisonSpecsUnsub = this.deps.comparison.readonly.specs.subscribe(() => {
-      this.reconcilePrimaryBarAggregation()
       this.reconcileComparisonBuffers()
     })
     this.reconcileComparisonBuffers()
@@ -194,32 +194,15 @@ export class ChartDataManager {
     }
   }
 
-  /** 比较视图统一使用 aligned，其余 K 线使用 original，避免同图混合不同桶边界。 */
+  /** 原生比较沿用主品种的原始 K 线桶，增删比较不会重建主 Buffer。 */
   private barAggregation(): BarAggregation {
-    return this.deps.comparison.readonly.active.peek()
-      ? ALIGNED_BAR_AGGREGATION
-      : ORIGINAL_BAR_AGGREGATION
+    return ORIGINAL_BAR_AGGREGATION
   }
 
-  /** 对比状态改变即切换 K 线数据身份，销毁旧 Buffer 后重新请求，禁止混用不同桶边界。 */
-  private reconcilePrimaryBarAggregation(): void {
-    const primary = this._dataState.readonly.symbols.peek()[0]
-    const active = this._activeSelection
-    if (!primary || isTimeSharePeriod(primary.period) || active?.kind !== 'bars') return
-    const activeBuffer = this._repository.getBars(active)
-    if (primary.incremental === false || activeBuffer?.currentSpec?.incremental === false) return
-    if (activeBuffer && activeBuffer.getRawData().length > 0 && !activeBuffer.loadedTimeRange)
-      return
-    const nextSelection = this.barsSelectionForSpec(primary)
-    if (seriesSelectionKey(active) === seriesSelectionKey(nextSelection)) return
-    this._repository.delete(active)
-    this._repository.delete(nextSelection)
-    const nextBuffer = this._repository.getOrCreateBars(nextSelection, () =>
-      this.createKLineBuffer(nextSelection),
-    )
-    nextBuffer.setSymbol(primary)
-    this.activateBuffer(nextSelection)
-    void this.loadBars(nextSelection, nextBuffer, primary, { limit: DEFAULT_BAR_PAGE_LIMIT })
+  /** 比较品种继承主图当前 K 线周期，切到分时时保留其已选择的 K 线周期。 */
+  private comparisonSpecForPrimary(spec: SymbolSpec): SymbolSpec {
+    const period = this._dataState.readonly.symbols.peek()[0]?.period
+    return period && !isTimeSharePeriod(period) ? { ...spec, period } : spec
   }
 
   /** 将业务品种转换为 Repository 分时选择。 */
@@ -808,32 +791,19 @@ export class ChartDataManager {
     return this._dataState.readonly.dataRevision.peek()
   }
 
-  /** 比较视图的数据与配置身份，供帧级主层失效。 */
+  /** 比较叠加的数据与配置身份，供帧级主层失效。 */
   getComparisonContentInputs(): readonly unknown[] {
     return [
       this.deps.comparison.readonly.specs.peek(),
       this.deps.comparison.readonly.colors.peek(),
+      this.deps.comparison.readonly.hidden.peek(),
       ...this._comparisonManager.getContentInputs(),
     ]
   }
 
   getRenderData(): ReadonlyArray<KLineData | TimeShareData> {
-    // 比较视图只认对比集合：首个序列同时是横轴与百分比的参考序列，与 kline 主品种无关。
-    if (this.deps.comparison.readonly.specs.peek().length > 0) {
-      return this.getComparisonReferenceData()
-    }
+    // 主品种始终提供渲染数据；比较数据只进入折线投影。
     return this._dataState.readonly.data.peek()
-  }
-
-  /**
-   * 对比视图的横轴参考序列数据：取对比集合首个品种的已加载 Buffer。
-   * 参考序列仅决定时间轴与百分比基准价，不是“主品种”。
-   */
-  getComparisonReferenceData(): KLineData[] {
-    const reference = this.deps.comparison.readonly.specs.peek()[0]
-    if (!reference) return []
-    const buffer = this._repository.getBars(this.barsSelectionForSpec(reference))
-    return buffer ? buffer.getRawData() : []
   }
 
   getTimeShareData(): TimeShareData[] {
@@ -891,6 +861,11 @@ export class ChartDataManager {
     return new Map(this.deps.comparison.readonly.colors.peek())
   }
 
+  /** 返回比较折线隐藏状态供图例渲染。 */
+  getComparisonHidden(): ReadonlyMap<string, boolean> {
+    return this.deps.comparison.readonly.hidden.peek()
+  }
+
   // ── Data updates (KLine) ──
 
   updateData(data: KLineData[]): void {
@@ -938,12 +913,10 @@ export class ChartDataManager {
     if (data.length === 0) return
     const loadedTimeRange = buf.loadedTimeRange
     if (!loadedTimeRange) return
-    // 比较序列用可见数据的时间戳独立检查历史覆盖。
-    const rawRange = this.getRawVisibleRangeOrNull()
     const range = this.getVisibleRangeOrNull()
-    if (!rawRange || !range) return
-
-    const firstVisibleTs = rawRange.start < 0 ? data[0]?.timestamp : data[range.start]?.timestamp
+    const rawRange = this.getRawVisibleRangeOrNull()
+    const first = range && rawRange ? data[rawRange.start < 0 ? 0 : range.start] : undefined
+    if (first) this._comparisonManager.ensureRange(first.timestamp)
     if (
       hasLeftDataGap(
         this.deps.viewport.readonly.scrollLeft.peek(),
@@ -962,11 +935,6 @@ export class ChartDataManager {
         })
       }
     }
-
-    // 比较序列的历史覆盖独立于主序列，避免主图已覆盖时比较线出现缺口却不加载。
-    if (firstVisibleTs === undefined) return
-
-    this._comparisonManager.ensureRange(firstVisibleTs)
   }
 
   /** 请求当前图表缓存覆盖指定左边界；每次向前拉取一页，不按时间范围外推。 */
@@ -1308,69 +1276,26 @@ export class ChartDataManager {
 
   // ── Comparison view line range ──
 
-  /**
-   * 比较视图下可见区折线（各比较商品等价价）的极值范围。
-   * 用作主图 y 轴范围及缩放/平移 clamp 上下限；返回 null 表示当前不可用。
-   *
-   * @param range 当前可见区间
-   * @param kLineCenters 本帧各 bar 的世界坐标中心 x（与 range 对齐）
-   * @param scrollLeft 本帧横向滚动量，用于与渲染器共用同一基准索引
-   * @param paneWidth 内容区逻辑宽度，用于判定可见 bar 范围
-   */
-  getComparisonViewLineRange(
+  /** 构建主品种 OHLC 与比较折线的可见投影，供坐标轴和绘制层共同消费。 */
+  getComparisonProjection(
     range: VisibleRange,
     kLineCenters: ReadonlyArray<number>,
     scrollLeft: number,
     paneWidth: number,
-  ): { min: number; max: number } | null {
-    const comparisonSpecs = this.deps.comparison.readonly.specs.peek()
-    if (comparisonSpecs.length === 0) return null
-    // 参考序列是对比集合首个品种，仅决定横轴与百分比基准价。
-    const internalData = this.getComparisonReferenceData()
-    if (internalData.length === 0) return null
-    const { first: baseIndex } = findVisibleBarRange(range, kLineCenters, scrollLeft, paneWidth)
-    const baseItem = internalData[baseIndex]
-    if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
-    const mainBase = baseItem.close
-    const baseDate = baseItem.date ?? ''
-    const startIdx = Math.max(baseIndex, range.start)
-
-    let min = Number.POSITIVE_INFINITY
-    let max = Number.NEGATIVE_INFINITY
-
-    // 对比商品折线：相对自身基准的涨跌幅折算为参考序列基准上的等价价
-    for (const spec of comparisonSpecs) {
-      const data = this._comparisonManager.data.get(symbolSpecIdentityKey(spec))
-      if (!data?.length) continue
-
-      const baseline = baseDate
-        ? findComparisonBaselineByDate(data, baseDate)
-        : findComparisonBaselineByTimestamp(data, baseItem.timestamp)
-      if (!baseline || !Number.isFinite(baseline.close) || baseline.close <= 0) continue
-
-      const byDate = new Map<string, KLineData>()
-      for (const item of data) {
-        if (item.date) byDate.set(item.date, item)
-        else byDate.set(String(item.timestamp), item)
-      }
-
-      for (let i = startIdx; i < range.end && i < internalData.length; i++) {
-        const mainItem = internalData[i]
-        if (!mainItem) continue
-        const key = mainItem.date ?? String(mainItem.timestamp)
-        const item = byDate.get(key)
-        if (!item || !Number.isFinite(item.close)) continue
-
-        const pct = (item.close - baseline.close) / baseline.close
-        const equivalentPrice = mainBase * (1 + pct)
-        if (!Number.isFinite(equivalentPrice)) continue
-        if (equivalentPrice < min) min = equivalentPrice
-        if (equivalentPrice > max) max = equivalentPrice
-      }
+  ): ComparisonProjection | null {
+    if (this.getComparisonSpecs().length === 0) return null
+    const data = this._comparisonManager.data
+    for (const [identity, hidden] of this.deps.comparison.readonly.hidden.peek()) {
+      if (hidden) data.delete(identity)
     }
-
-    if (!Number.isFinite(min) || !Number.isFinite(max)) return null
-    return { min, max }
+    return projectComparison(
+      this.getInternalData(),
+      data,
+      range,
+      kLineCenters,
+      scrollLeft,
+      paneWidth,
+    )
   }
 
   // ── Index helpers ──
@@ -1382,9 +1307,9 @@ export class ChartDataManager {
   }
 
   getTimestampAtLogicalIndex(index: number): number | null {
+    if (!Number.isInteger(index) || index < 0) return null
     const buf = this.getActiveDataBuffer()
     const data = buf ? buf.getRawData() : []
-    if (!Number.isInteger(index) || index < 0) return null
     return data[index]?.timestamp ?? null
   }
 
@@ -1463,39 +1388,4 @@ export class ChartDataManager {
     this.marketDataCache.destroy()
     this._loadHint.destroy()
   }
-}
-
-function findComparisonBaselineByDate(
-  data: ReadonlyArray<KLineData>,
-  date: string,
-): KLineData | null {
-  return findFirstAtOrAfter(data, date, (item) => item.date ?? '')
-}
-
-/** 从时间升序序列中二分定位首个不早于目标时间戳的比较基线。 */
-function findComparisonBaselineByTimestamp(
-  data: ReadonlyArray<KLineData>,
-  timestamp: number,
-): KLineData | null {
-  return findFirstAtOrAfter(data, timestamp, (item) => item.timestamp)
-}
-
-/** 在已按键升序排列的数据中定位首个不小于目标值的元素。 */
-function findFirstAtOrAfter<T, TValue extends string | number>(
-  data: ReadonlyArray<T>,
-  target: TValue,
-  getValue: (item: T) => TValue,
-): T | null {
-  let low = 0
-  let high = data.length
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2)
-    const item = data[middle]
-    if (item && getValue(item) < target) {
-      low = middle + 1
-    } else {
-      high = middle
-    }
-  }
-  return data[low] ?? null
 }

@@ -117,7 +117,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         [ChartDataViewId.KLine]: 0,
         [ChartDataViewId.TimeShare]: 0,
         [ChartDataViewId.FiveDayTimeShare]: 0,
-        [ChartDataViewId.Comparison]: 0,
       },
       viewWidth: 0,
       viewHeight: 0,
@@ -458,7 +457,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
           [ChartDataViewId.KLine]: 0,
           [ChartDataViewId.TimeShare]: 0,
           [ChartDataViewId.FiveDayTimeShare]: 0,
-          [ChartDataViewId.Comparison]: 0,
         })
       })
     },

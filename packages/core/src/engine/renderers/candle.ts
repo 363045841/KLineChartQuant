@@ -73,8 +73,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     z: RENDERER_PRIORITY.MAIN,
     visible: true,
     paint(context) {
-      // 比较模式只展示各品种的涨跌幅折线。
-      if (context.dataView === ChartDataViewId.Comparison) return
+      if (context.dataView !== ChartDataViewId.KLine) return
       const {
         ctx,
         pane,

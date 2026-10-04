@@ -51,20 +51,6 @@ describe('modeState', () => {
     expect(m.readonly.interactionCapabilities.peek().allowZoom).toBe(true)
   })
 
-  it('uses a line renderer while retaining K-line interactions in comparison view', () => {
-    const m = createModeState()
-
-    m.actions.setDataView('comparison')
-
-    expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
-    expect(m.readonly.interactionCapabilities.peek()).toEqual({
-      allowPan: true,
-      allowZoom: true,
-      allowVerticalScroll: true,
-      allowRightAxisScale: true,
-    })
-  })
-
   it('stores renderer preferences per view and falls back for unsupported combinations', () => {
     const m = createModeState()
     m.actions.setPrimaryRenderer('kline', 'ohlc-bar')
@@ -74,7 +60,6 @@ describe('modeState', () => {
       kline: 'ohlc-bar',
       timeshare: 'candlestick',
       fiveDayTimeShare: 'line',
-      comparison: 'line',
     })
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('ohlc-bar')
 
@@ -128,22 +113,19 @@ describe('modeState', () => {
       { name: 'fiveDayTimeShare', layerId: 'plugin:fiveDayTimeShare' },
     ])
 
-    kernel.actions.setDataView('comparison')
-
-    expect(kernel.indicator.readonly.instances.peek()).toEqual([
-      {
-        instanceId: 'mode:comparison',
-        indicatorId: 'comparisonLine',
-        paneId: 'main',
-        role: 'main',
-        ordinal: 0,
-        source: 'mode',
-        params: {},
-      },
-    ])
+    kernel.actions.setDataView('kline')
+    const before = kernel.activeRenderers$.peek()
+    kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
     expect(kernel.activeRenderers$.peek()).toEqual([
+      ...before,
       { name: 'comparisonLine', layerId: 'plugin:comparisonLine' },
     ])
+    expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+    kernel.actions.setDataView('timeshare')
+    expect(kernel.activeRenderers$.peek()).not.toContainEqual({
+      name: 'comparisonLine',
+      layerId: 'plugin:comparisonLine',
+    })
   })
 
   it('restores and snapshots independent view workspaces without mode instances', async () => {

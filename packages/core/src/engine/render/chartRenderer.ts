@@ -86,12 +86,11 @@ import {
   createYAxisStaticRendererLayer,
 } from '../renderers/yAxis.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
-import type { ChartDataView } from '../state/modeState.js'
+import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 import { createYAxisTicks } from '../utils/axisTicks.js'
-import { findVisibleBarRange } from '../utils/visibleBarIndex.js'
 import {
   computeVisiblePriceExtrema,
   type VisiblePriceExtrema,
@@ -947,6 +946,13 @@ export class ChartRenderer {
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
 
+    // 单帧只生成一次比较投影，轴范围、百分比基准和折线共享同一快照。
+    const comparisonActive =
+      this.deps.dataView$() === ChartDataViewId.KLine && dataManager.getComparisonSpecs().length > 0
+    const comparisonProjection = comparisonActive
+      ? dataManager.getComparisonProjection(range, kLineCenters, vp.scrollLeft, vp.plotWidth)
+      : null
+
     // 正式图元保存到独立 canvas，会话图元与十字线共用动态覆盖 canvas。
     const MAIN_CANVAS_ROLES: readonly LayerRole[] = [
       'background',
@@ -982,35 +988,24 @@ export class ChartRenderer {
         previousContext?.drawingCtx !== drawingCtx ||
         !previousContext?.drawingProjection
 
-      // 非缓存帧：更新 pane Y 轴范围；比较视图下以可见折线极值为准
+      // 非缓存帧：主图范围同时包含主品种 OHLC、指标和比较折线。
       if (!useCachedFrame) {
-        const comparisonActive = dataManager.getComparisonSpecs().length > 0
-
         if (pane.id === 'main' && comparisonActive) {
-          // 比较视图：y 轴范围 = 可见区各比较商品等价价极值，
-          // 随滚动/缩放逐帧重算，缩放与平移的 clamp 上下限同步跟随折线
-          const lineRange = dataManager.getComparisonViewLineRange(
-            range,
-            kLineCenters,
-            vp.scrollLeft,
-            vp.plotWidth,
-          )
-          if (lineRange) {
-            const linePriceRange = { maxPrice: lineRange.max, minPrice: lineRange.min }
-            pane.yAxis.setRange(linePriceRange)
+          pane.yAxis.setBasePrice(comparisonProjection?.basePrice ?? null)
+          if (comparisonProjection) {
+            pane.yAxis.setRange({
+              maxPrice: Math.max(
+                comparisonProjection.max,
+                mainIndicatorRange?.max ?? comparisonProjection.max,
+              ),
+              minPrice: Math.min(
+                comparisonProjection.min,
+                mainIndicatorRange?.min ?? comparisonProjection.min,
+              ),
+            })
           } else {
-            mode.updatePaneRange(pane as any, range, dataManager, null)
+            mode.updatePaneRange(pane, range, dataManager, mainIndicatorRange)
           }
-          // 绕过 Pane.updateRange 时需手动补齐 percent 基准价；
-          // 基准与折线一致，锚定内容区内首根完全可见的 bar。
-          const { first: baseIdx } = findVisibleBarRange(
-            range,
-            kLineCenters,
-            vp.scrollLeft,
-            vp.plotWidth,
-          )
-          const baseItem = renderData[baseIdx]
-          pane.yAxis.setBasePrice(baseItem && 'close' in baseItem ? baseItem.close : null)
         } else {
           const subPaneEntry = indicatorManager.getSubPaneEntry(pane.id)
           const subIndicatorState = subPaneEntry
@@ -1040,7 +1035,7 @@ export class ChartRenderer {
             }
           } else {
             const indicatorRange = mode.useIndicatorScheduler ? mainIndicatorRange : null
-            mode.updatePaneRange(pane as any, range, dataManager, indicatorRange)
+            mode.updatePaneRange(pane, range, dataManager, indicatorRange)
           }
         }
 
@@ -1126,8 +1121,10 @@ export class ChartRenderer {
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         comparisonData: dataManager.getComparisonData(),
-        comparisonSymbols: dataManager.getComparisonSpecs(),
+        comparisonSymbols: comparisonActive ? dataManager.getComparisonSpecs() : [],
         comparisonColors: dataManager.getComparisonColors(),
+        comparisonHidden: dataManager.getComparisonHidden(),
+        comparisonProjection: comparisonProjection ?? undefined,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,

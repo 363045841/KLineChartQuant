@@ -264,7 +264,6 @@ const multiple: ViewStrategy = {
 /** 唯一的视图策略选择点，新增视图必须完整实现同一契约。 */
 export const VIEW_STRATEGIES: Readonly<Record<ViewInput['view'], ViewStrategy>> = Object.freeze({
   [ChartDataViewId.KLine]: bars,
-  [ChartDataViewId.Comparison]: bars,
   [ChartDataViewId.TimeShare]: single,
   [ChartDataViewId.FiveDayTimeShare]: multiple,
 })
