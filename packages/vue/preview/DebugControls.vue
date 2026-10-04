@@ -184,7 +184,7 @@
     background: var(--klc-color-ui-input);
     color: var(--klc-color-ui-muted);
     font-size: 12px;
-    font-family: monospace;
+    font-family: var(--klc-typography-font-family-mono);
   }
 
   .debug-controls button {
@@ -226,7 +226,7 @@
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 11px;
-    font-family: monospace;
+    font-family: var(--klc-typography-font-family-mono);
     white-space: nowrap;
     border: 1px solid;
   }
