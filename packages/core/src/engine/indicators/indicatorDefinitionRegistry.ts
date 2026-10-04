@@ -44,6 +44,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   runtime?: IndicatorRuntimeDescriptor<T>
   presentation?: IndicatorPresentationDescriptor
   getTitleInfo?: GetTitleInfoFn
+  /** 指标选择器 UI 元数据：内置指标来自静态 uiMeta 表；外部指标随定义携带。 */
+  ui?: { name?: string; description?: string; params?: readonly unknown[] }
 }
 
 type IndicatorDefinitionClass = {
@@ -86,6 +88,56 @@ function removeAliasesFor(name: string): void {
  *   static rendererFactory = createMALayer
  * }
  */
+/** 组装指标元数据并写入注册表：@Indicator 装饰器与编程式注册的共享实现。
+ *  外部宿主（插件 bundle）与 Core 不共享模块实例、无法经类装饰器注册，
+ *  编程式入口是外部指标定义进入目录的唯一通道。name 放宽为 string：
+ *  契约 union 仅约束内置指标的编译期拼写，外部指标运行时无此约束。 */
+function defineIndicator<C>(
+  config: Omit<IndicatorDefinitionConfig<C>, 'name'> & {
+    name: string
+    aliases?: readonly string[]
+  },
+  rendererFactory: RendererFactory,
+  classScaleRendererFactory?: ScaleRendererFactory,
+): void {
+  const normalizedName = normalizeIndicatorId(config.name)
+  const getRendererName: IndicatorRendererNameResolver =
+    config.getRendererName ??
+    (({ paneId }) => config.mainPane?.rendererName ?? `${config.name}_${paneId}`)
+  const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
+    config.getScaleRendererName ??
+    (({ paneId }) =>
+      config.scaleRendererFactory || config.scale
+        ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
+        : null)
+  const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
+    config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
+  removeAliasesFor(normalizedName)
+
+  // runtime.configKey 默认等于 name
+  const runtime = config.runtime && {
+    ...config.runtime,
+    configKey: config.runtime.configKey ?? config.name,
+  }
+
+  indicatorDefinitions.set(normalizedName, {
+    ...config,
+    getRendererName,
+    getScaleRendererName,
+    getPaneTitleRendererName,
+    runtime,
+    rendererFactory,
+    scaleRendererFactory: classScaleRendererFactory ?? config.scaleRendererFactory,
+    paneIdField: config.paneIdField,
+    allowMainPane: config.allowMainPane,
+  })
+  indexAlias(config.name, normalizedName)
+  indexAlias(config.displayName, normalizedName)
+  for (const alias of config.aliases ?? []) {
+    indexAlias(alias, normalizedName)
+  }
+}
+
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
   return function <T extends IndicatorDefinitionClass>(
     value: T,
@@ -100,46 +152,32 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         )
       }
 
-      const normalizedName = normalizeIndicatorId(config.name)
-      const getRendererName: IndicatorRendererNameResolver =
-        config.getRendererName ??
-        (({ paneId }) => config.mainPane?.rendererName ?? `${config.name}_${paneId}`)
-      const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
-        config.getScaleRendererName ??
-        (({ paneId }) =>
-          config.scaleRendererFactory || config.scale
-            ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
-            : null)
-      const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
-        config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
-      removeAliasesFor(normalizedName)
-
-      // runtime.configKey 默认等于 name
-      const runtime = config.runtime && {
-        ...config.runtime,
-        configKey: config.runtime.configKey ?? config.name,
-      }
-
-      indicatorDefinitions.set(normalizedName, {
-        ...config,
-        getRendererName,
-        getScaleRendererName,
-        getPaneTitleRendererName,
-        runtime,
-        rendererFactory,
-        scaleRendererFactory: this.scaleRendererFactory ?? config.scaleRendererFactory,
-        paneIdField: config.paneIdField,
-        allowMainPane: config.allowMainPane,
-      })
-      indexAlias(config.name, normalizedName)
-      indexAlias(config.displayName, normalizedName)
-      for (const alias of config.aliases ?? []) {
-        indexAlias(alias, normalizedName)
-      }
+      defineIndicator(config, rendererFactory, this.scaleRendererFactory)
     })
 
     return value
   }
+}
+
+/**
+ * 编程式注册指标定义（无装饰器环境用）：外部宿主/插件 bundle 与 Core 不共享
+ * 模块实例，类装饰器的模块加载注册不可达；由宿主以本函数直接写入注册表。
+ * 同名重复注册抛错（与装饰器语义一致）。
+ */
+export function registerIndicatorDefinition(
+  config: Omit<IndicatorDefinitionConfig, 'name'> & {
+    name: string
+    aliases?: readonly string[]
+  },
+  rendererFactory: RendererFactory,
+): void {
+  if (indicatorDefinitions.has(normalizeIndicatorId(config.name))) {
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      `[Indicator] '${config.name}' is already registered.`,
+    )
+  }
+  defineIndicator(config, rendererFactory)
 }
 
 export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[] {
