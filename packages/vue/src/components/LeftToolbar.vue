@@ -108,34 +108,6 @@
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <BaseTooltip content="撤回">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="撤回"
-          :disabled="!canUndoDrawing"
-          @click="$emit('undoDrawing')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerArrowBackUp class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-      <BaseTooltip content="重做">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="重做"
-          :disabled="!canRedoDrawing"
-          @click="$emit('redoDrawing')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerArrowForwardUp class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
       <BaseTooltip :content="globalDrawingLocked ? '解锁全部图元' : '锁定全部图元'">
         <button
           type="button"
@@ -370,8 +342,6 @@
   import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
-  import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
-  import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
@@ -487,8 +457,6 @@
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
-    (e: 'undoDrawing'): void
-    (e: 'redoDrawing'): void
     (e: 'clearDrawings'): void
     (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
@@ -510,8 +478,6 @@
       drawingToolId?: string
       magnetMode?: MagnetMode
       continuousDrawing?: boolean
-      canUndoDrawing?: boolean
-      canRedoDrawing?: boolean
       /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */
       hasDrawings?: boolean
       hasIndicators?: boolean
@@ -773,6 +739,9 @@
   }
 
   .left-toolbar {
+    border-radius: 0 0 0 var(--chart-frame-radius, 3px);
+    border-top: 0;
+    border-right: 0;
     flex: 0 0 52px;
     display: flex;
     flex-direction: column;

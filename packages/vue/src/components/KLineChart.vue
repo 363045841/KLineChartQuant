@@ -7,6 +7,10 @@
   >
     <div class="chart-workspace">
       <TopToolbar
+        :can-undo-drawing="canUndoDrawing"
+        :can-redo-drawing="canRedoDrawing"
+        @undo-drawing="controller?.undoDrawing()"
+        @redo-drawing="controller?.redoDrawing()"
         :symbol="currentSymbol"
         :symbol-item="currentSymbolItem ?? undefined"
         :symbols="symbolPool"
@@ -49,8 +53,6 @@
           :drawing-tool-id="drawingToolId"
           :magnet-mode="magnetMode"
           :continuous-drawing="continuousDrawing"
-          :can-undo-drawing="canUndoDrawing"
-          :can-redo-drawing="canRedoDrawing"
           :has-drawings="drawings.length > 0"
           :has-indicators="activeIndicators.length > 0"
           :all-drawings-hidden="drawings.length > 0 && drawings.every((drawing) => !drawing.visible)"
@@ -66,8 +68,6 @@
           @toggle-fullscreen="handleToggleFullscreen"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
-          @undo-drawing="controller?.undoDrawing()"
-          @redo-drawing="controller?.redoDrawing()"
           @clear-drawings="controller?.clearDrawings()"
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
@@ -78,6 +78,14 @@
           @update-source-endpoint="setAggregationSourceEndpoint"
         />
         <div ref="chartMainRef" class="chart-main">
+          <a
+            class="chart-brand"
+            href="https://github.com/363045841/KLineChartQuant"
+            target="_blank"
+            rel="noopener noreferrer"
+            :style="{ bottom: `${props.bottomAxisHeight + 8}px` }"
+            aria-label="KlineChartQuant"
+          >KlineChartQuant</a>
           <div
             ref="leftAxisLayerRef"
             v-show="chartMode === 'timeshare'"
@@ -1938,11 +1946,13 @@
   }
 
   .chart-workspace {
+    --chart-frame-radius: 3px;
     min-width: 0;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
+    border-radius: var(--chart-frame-radius);
     /* 图表内部存在高 z-index 的叠加层，隔离为独立层叠上下文，
        避免它们越过自选股面板滑出动画（后者靠 DOM 顺序天然在上层）。 */
     isolation: isolate;
@@ -1953,7 +1963,7 @@
     min-height: 255px;
     display: flex;
     align-items: stretch;
-    gap: 4px;
+    gap: 0;
   }
 
   .chart-main {
@@ -1963,6 +1973,21 @@
     align-items: stretch;
     gap: 0;
     position: relative;
+  }
+
+  .chart-brand {
+    position: absolute;
+    left: 12px;
+    /* Canvas 叠层最高为 3；品牌位于其上，低于 tooltip 等交互浮层。 */
+    z-index: 4;
+    color: var(--klc-color-ui-text);
+    opacity: 0.3;
+    font-family: Outfit, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
   }
 
   .pane-separator-layer {
@@ -2050,16 +2075,16 @@
     border: 1px solid var(--chart-border);
     border-right: 0;
     border-left: 0;
+    border-top: 0;
     border-radius: 0;
   }
 
   .chart-container {
-    border-radius: 3px 0 0 3px;
     border-left: 1px solid var(--chart-border);
   }
 
   .chart-container--axis-left {
-    border-radius: 0 3px 3px 0;
+    border-bottom-right-radius: var(--chart-frame-radius);
     border-left: 0;
     border-right: 1px solid var(--chart-border);
   }
@@ -2149,6 +2174,8 @@
   .right-axis-host {
     flex: 0 0 auto;
     border: 1px solid var(--chart-border);
+    border-top: 0;
+    border-bottom-right-radius: var(--chart-frame-radius);
   }
 
   /* 分时左轴独立占据 flex 宽度，容器缩放由 Core 的 ResizeObserver 感知。 */
@@ -2156,17 +2183,11 @@
     position: relative;
     flex: 0 0 auto;
     border: 1px solid var(--chart-border);
-    border-top-left-radius: 3px;
-    border-bottom-left-radius: 3px;
+    border-top: 0;
   }
 
   .left-axis-host :deep(> canvas) {
     display: block;
-  }
-
-  .right-axis-host {
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
   }
 
   .pane-axis-controls-host {
@@ -2182,10 +2203,7 @@
 
   .price-axis-host--left {
     order: -1;
-    border-top-left-radius: 3px;
-    border-bottom-left-radius: 3px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+    border-radius: 0;
   }
 
   /* 轴画布由 Core 动态创建，定位与叠层由 Core 管理，Vue 只负责显示样式。 */
@@ -2270,10 +2288,6 @@
   }
 
   @media (max-width: 768px), (max-height: 640px) {
-    .chart-stage {
-      gap: 4px;
-    }
-
     .watchlist-panel {
       --watchlist-panel-expanded-width: 132px;
     }
