@@ -127,19 +127,28 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     }
   }
 
-  async function renameSession(title: string): Promise<void> {
-    if (!state.value.activeSessionId || !title.trim()) return
-    await bridge.renameSession(state.value.activeSessionId, title.trim())
+  // 重命名指定会话；标题为空时忽略。
+  async function renameSession(sessionId: string, title: string): Promise<void> {
+    const nextTitle = title.trim()
+    if (!nextTitle) return
+    await bridge.renameSession(sessionId, nextTitle)
   }
 
-  async function deleteSession(): Promise<void> {
-    const sessionId = state.value.activeSessionId
-    if (!sessionId) return
+  // 删除指定会话；仅当删除的是活动会话时才切换或重置工作区。
+  async function deleteSession(sessionId: string): Promise<void> {
     await bridge.deleteSession(sessionId)
     const sessions = state.value.sessions.filter((session) => session.id !== sessionId)
-    state.value = { ...state.value, sessions, activeSessionId: sessions[0]?.id ?? null }
-    if (sessions[0]) await openSession(sessions[0].id)
-    else state.value = { ...createWorkspaceState(), provider: state.value.provider }
+    if (state.value.activeSessionId !== sessionId) {
+      state.value = { ...state.value, sessions }
+      return
+    }
+    const nextSessionId = sessions[0]?.id ?? null
+    if (nextSessionId) {
+      state.value = { ...state.value, sessions }
+      await openSession(nextSessionId)
+      return
+    }
+    state.value = { ...createWorkspaceState(), provider: state.value.provider }
   }
 
   async function send(): Promise<void> {

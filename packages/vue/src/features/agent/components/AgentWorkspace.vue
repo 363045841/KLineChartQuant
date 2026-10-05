@@ -1,15 +1,24 @@
 <template>
-  <section ref="workspace" class="agent-workspace" aria-label="Agent Alpha">
+  <section ref="workspace" class="agent-workspace" :aria-label="text.agent">
     <AgentHeader
+      :locale="locale"
+      :sessions-open="sessionDrawerOpen"
+      @create="handleCreateSession"
+      @toggle-sessions="sessionDrawerOpen = !sessionDrawerOpen"
+      @settings="providerSettings.show(state.provider)"
+      @close="handleClosePanel"
+    />
+
+    <AgentSessionDrawer
+      :show="sessionDrawerOpen"
       :sessions="state.sessions"
       :active-session-id="state.activeSessionId"
       :locale="locale"
-      @create="createSession"
-      @select="selectSession"
+      @close="sessionDrawerOpen = false"
+      @create="handleCreateSession"
+      @select="handleSelectSession"
       @rename="renameSession"
       @delete="deleteSession"
-      @settings="providerSettings.show(state.provider)"
-      @close="$emit('close')"
     />
 
     <AgentTimeline
@@ -64,20 +73,23 @@
 </template>
 
 <script setup lang="ts">
-  import { nextTick, onUnmounted, ref, watch } from 'vue'
+  import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
   import type { AgentBridgeClient } from '../agent-contracts.js'
+  import { getAgentCopy } from '../agent-copy.js'
   import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
   import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
   import AgentHeader from './AgentHeader.vue'
+  import AgentSessionDrawer from './AgentSessionDrawer.vue'
   import AgentSettingsDialog from './AgentSettingsDialog.vue'
   import AgentTimeline from './AgentTimeline.vue'
 
   const props = defineProps<{ bridge: AgentBridgeClient }>()
-  defineEmits<{ close: [] }>()
+  const emit = defineEmits<{ close: [] }>()
 
   const workspace = ref<HTMLElement | null>(null)
+  const sessionDrawerOpen = ref(false)
   const liveAnnouncement = ref('')
   let announcementTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -107,6 +119,26 @@
     loadModels,
     setReasoningEffort,
   } = useAgentWorkspace(props.bridge)
+
+  const text = computed(() => getAgentCopy(locale.value))
+
+  // 新建会话后收起抽屉，让新对话立即可见。
+  async function handleCreateSession(): Promise<void> {
+    await createSession()
+    sessionDrawerOpen.value = false
+  }
+
+  // 选中会话后收起抽屉。
+  async function handleSelectSession(sessionId: string): Promise<void> {
+    await selectSession(sessionId)
+    sessionDrawerOpen.value = false
+  }
+
+  // 关闭面板前先收起抽屉，避免再次打开时残留旧的抽屉状态。
+  function handleClosePanel(): void {
+    sessionDrawerOpen.value = false
+    emit('close')
+  }
 
   function focusTarget(selector: string): void {
     void nextTick(() => workspace.value?.querySelector<HTMLElement>(selector)?.focus())
@@ -181,6 +213,7 @@
 
     height: 100%;
     min-width: 0;
+    position: relative;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto auto auto;
     overflow: hidden;
