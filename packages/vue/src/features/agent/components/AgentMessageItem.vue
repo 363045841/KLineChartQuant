@@ -4,16 +4,6 @@
       <IconActivity aria-hidden="true" />
       <span>{{ text.action }}</span>
     </div>
-    <div v-if="message.role !== 'action' && message.role !== 'reasoning'" class="message__role">
-      <IconUser v-if="message.role === 'user'" aria-hidden="true" />
-      <IconSparkles v-else aria-hidden="true" />
-      <span>{{ message.role === 'user' ? text.you : text.agent }}</span>
-      <IconLoader2
-        v-if="message.status === 'streaming'"
-        class="message__spinner"
-        aria-hidden="true"
-      />
-    </div>
     <details
       v-if="message.role === 'reasoning'"
       class="message__reasoning"
@@ -30,34 +20,39 @@
       </summary>
       <p class="message__content">{{ message.content }}</p>
     </details>
+    <div v-if="message.role === 'user'" class="message__bubble">
+      <p class="message__content">{{ message.content }}</p>
+    </div>
     <div
-      v-if="message.role === 'assistant'"
+      v-else-if="message.role === 'assistant'"
       class="message__content message__content--markdown"
       v-html="html"
       @click="openCitation"
     />
     <p v-else-if="message.role !== 'reasoning'" class="message__content">{{ message.content }}</p>
-    <div v-if="showActions" class="message__actions">
-      <button
-        type="button"
-        :data-status="copyStatus"
-        :aria-label="copyLabel"
-        :title="copyLabel"
-        @click="copy"
-      >
-        <IconCheck v-if="copyStatus === 'copied'" aria-hidden="true" />
-        <IconAlertTriangle v-else-if="copyStatus === 'failed'" aria-hidden="true" />
-        <IconCopy v-else aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        :disabled="regenerateDisabled"
-        :aria-label="text.regenerate"
-        :title="text.regenerate"
-        @click="$emit('regenerate')"
-      >
-        <IconRefresh aria-hidden="true" />
-      </button>
+    <div v-if="showActions || message.role === 'user'" class="message__actions">
+      <BaseTooltip :content="copyLabel" placement="bottom">
+        <button
+          type="button"
+          :data-status="copyStatus"
+          :aria-label="copyLabel"
+          @click="copy"
+        >
+          <IconCheck v-if="copyStatus === 'copied'" aria-hidden="true" />
+          <IconAlertTriangle v-else-if="copyStatus === 'failed'" aria-hidden="true" />
+          <IconCopy v-else aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip v-if="showActions" :content="text.regenerate" placement="bottom">
+        <button
+          type="button"
+          :disabled="regenerateDisabled"
+          :aria-label="text.regenerate"
+          @click="$emit('regenerate')"
+        >
+          <IconRefresh aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
   </article>
 </template>
@@ -71,8 +66,7 @@
   import IconCopy from '~icons/tabler/copy'
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconRefresh from '~icons/tabler/refresh'
-  import IconSparkles from '~icons/tabler/sparkles'
-  import IconUser from '~icons/tabler/user'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentMessageView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import { renderAgentMarkdown } from '../render-agent-markdown.js'
@@ -148,10 +142,21 @@
     color: var(--agent-text);
   }
 
+  /* 用户消息靠右显示，气泡与操作按钮分列。 */
   .message--user {
-    padding: 9px 10px;
-    border-radius: 6px;
+    align-self: flex-end;
+    max-width: 82%;
+  }
+
+  .message__bubble {
+    padding: 9px 12px;
+    border-radius: 12px;
     background: var(--agent-user-message);
+  }
+
+  /* 用户消息的复制按钮与气泡右缘对齐。 */
+  .message--user .message__actions {
+    justify-content: flex-end;
   }
 
   .message--action {
@@ -162,7 +167,6 @@
     font-size: 11px;
   }
 
-  .message__role,
   .message__action {
     display: flex;
     align-items: center;

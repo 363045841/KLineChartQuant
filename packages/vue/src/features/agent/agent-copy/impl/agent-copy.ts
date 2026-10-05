@@ -5,7 +5,6 @@ import type { AgentLocale } from '../types.js'
 const copy = {
   en: {
     agent: 'Agent Alpha',
-    you: 'You',
     timeline: 'Agent timeline',
     newSession: 'New session',
     renameSession: 'Rename session',
@@ -122,7 +121,6 @@ const copy = {
   },
   'zh-CN': {
     agent: 'Agent Alpha',
-    you: '你',
     timeline: 'Agent 时间线',
     newSession: '新建会话',
     renameSession: '重命名会话',
