@@ -4,7 +4,6 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { AGENT_UI_PROTOCOL_VERSION } from '../index'
 
 import type { NodeRuntimeSessions } from '../node'
 
@@ -39,18 +38,6 @@ describeSqlite('Node SQLite runtime sessions', () => {
       context: { items: [{ kind: 'chart-symbol', value: { symbol: 'AAPL', name: 'Apple' } }] },
       readOnly: true,
       startedAt: 1_000,
-    })
-    await runtime.sessions.persistEvent({
-      sessionId: session.id,
-      lane: first.lane,
-      event: {
-        type: 'run.started',
-        runId: first.runId,
-        sessionId: session.id,
-        startedAt: 1_000,
-        sequence: 1,
-        protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      },
     })
     await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 1_100 })
     const retry = await runtime.sessions.retryRun({

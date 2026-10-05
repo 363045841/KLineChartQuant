@@ -421,13 +421,9 @@ describe('BrowserAgentBridge', () => {
     const waitForTerminal = (runId: string) =>
       new Promise<void>((resolve) => {
         const unsubscribe = bridge.subscribe((event) => {
-          if (
-            event.type !== 'run.completed' &&
-            event.type !== 'run.cancelled' &&
-            event.type !== 'run.failed'
-          )
-            return
-          if (event.runId !== runId) return
+          if (event.type !== 'session.snapshot') return
+          const run = event.snapshot.runs.find((item) => item.id === runId)
+          if (!run || !['completed', 'cancelled', 'failed'].includes(run.status)) return
           unsubscribe()
           resolve()
         })
@@ -479,7 +475,7 @@ describe('BrowserAgentBridge', () => {
     const waitForCompletion = () =>
       new Promise<void>((resolve) => {
         const unsubscribe = bridge.subscribe((event) => {
-          if (event.type !== 'run.completed') return
+          if (event.type !== 'session.snapshot' || event.snapshot.runs.at(-1)?.status !== 'completed') return
           unsubscribe()
           resolve()
         })

@@ -3,6 +3,13 @@ import type { AgentUiEvent } from '../agent-contracts'
 import { FakeAgentBridge } from '../testing/fake-agent-bridge'
 import { stubProviderModelCatalog } from './_agentProviderFixtures'
 
+/** 断言测试 Bridge 交付完整快照。 */
+function snapshot(events: AgentUiEvent[]) {
+  const event = [...events].reverse().find((item) => item.type === 'session.snapshot')
+  if (event?.type !== 'session.snapshot') throw new Error('No conversation snapshot received.')
+  return event.snapshot
+}
+
 describe('FakeAgentBridge', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -71,12 +78,14 @@ describe('FakeAgentBridge', () => {
     })
     await vi.advanceTimersByTimeAsync(500)
 
-    expect(events[0]).toMatchObject({ type: 'run.started', runId })
-    expect(events.some((event) => event.type === 'assistant.text.delta')).toBe(true)
-    expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
-      result: { status: 'succeeded', safety: 'read-only' },
-    })
-    expect(events.at(-1)).toMatchObject({ type: 'run.completed', runId })
+    expect(events[0]).toMatchObject({ type: 'session.snapshot' })
+    expect(
+      snapshot(events).messages.some((message) => message.role === 'assistant' && message.content),
+    ).toBe(true)
+    expect(snapshot(events).toolCalls).toContainEqual(
+      expect.objectContaining({ status: 'succeeded', safety: 'read-only' }),
+    )
+    expect(snapshot(events).runs.at(-1)).toMatchObject({ status: 'completed', id: runId })
   })
 
   it('supports accepted and rejected structured confirmations', async () => {
@@ -90,16 +99,13 @@ describe('FakeAgentBridge', () => {
       readOnly: false,
     })
     await vi.advanceTimersByTimeAsync(40)
-    const required = events.find(
-      (event): event is Extract<AgentUiEvent, { type: 'tool.confirmation.required' }> =>
-        event.type === 'tool.confirmation.required',
-    )
+    const required = snapshot(events).confirmations?.at(-1)
     expect(required).toBeDefined()
 
-    await bridge.confirmTool(required!.request.id, 'confirmed')
+    await bridge.confirmTool(required!.id, 'confirmed')
     await vi.advanceTimersByTimeAsync(500)
-    expect(events.some((event) => event.type === 'tool.finished')).toBe(true)
-    expect(events.some((event) => event.type === 'run.completed')).toBe(true)
+    expect(snapshot(events).toolCalls.some((tool) => tool.status === 'succeeded')).toBe(true)
+    expect(snapshot(events).runs.at(-1)?.status).toBe('completed')
 
     const second = new FakeAgentBridge({ stepDelayMs: 10, providerConfigured: true })
     const secondEvents: AgentUiEvent[] = []
@@ -110,16 +116,11 @@ describe('FakeAgentBridge', () => {
       readOnly: false,
     })
     await vi.advanceTimersByTimeAsync(40)
-    const secondRequired = secondEvents.find(
-      (event): event is Extract<AgentUiEvent, { type: 'tool.confirmation.required' }> =>
-        event.type === 'tool.confirmation.required',
-    )
-    await second.confirmTool(secondRequired!.request.id, 'rejected')
+    const secondRequired = snapshot(secondEvents).confirmations?.at(-1)
+    await second.confirmTool(secondRequired!.id, 'rejected')
     await vi.advanceTimersByTimeAsync(500)
-    expect(secondEvents).toContainEqual(
-      expect.objectContaining({ type: 'tool.confirmation.resolved', decision: 'rejected' }),
-    )
-    expect(secondEvents.some((event) => event.type === 'tool.finished')).toBe(false)
+    expect(snapshot(secondEvents).confirmations?.at(-1)?.status).toBe('rejected')
+    expect(snapshot(secondEvents).toolCalls.some((tool) => tool.status === 'succeeded')).toBe(false)
   })
 
   it('reports a partial stop after a completed mutation and exposes undo', async () => {
@@ -135,9 +136,11 @@ describe('FakeAgentBridge', () => {
     await vi.advanceTimersByTimeAsync(40)
     await bridge.cancelRun(runId)
 
-    expect(events.at(-1)).toMatchObject({ type: 'run.cancelled', partial: true })
+    expect(snapshot(events).runs.at(-1)?.status).toBe('partial')
     await bridge.undoTurn(runId)
-    expect(events.at(-1)).toMatchObject({ type: 'tool.undone', runId })
+    expect(
+      snapshot(events).toolCalls.some((tool) => tool.status === 'undone' && tool.runId === runId),
+    ).toBe(true)
   })
 
   it('emits recoverable failure and starts retry as a distinct run', async () => {
@@ -151,13 +154,13 @@ describe('FakeAgentBridge', () => {
       readOnly: false,
     })
     await vi.advanceTimersByTimeAsync(50)
-    expect(events.at(-1)).toMatchObject({
-      type: 'run.failed',
+    expect(snapshot(events).runs.at(-1)).toMatchObject({
+      status: 'failed',
       error: { retryable: true },
     })
 
     const retry = await bridge.retryRun(first.runId)
     expect(retry.runId).not.toBe(first.runId)
-    expect(events.at(-1)).toMatchObject({ type: 'user.message.created', runId: retry.runId })
+    expect(snapshot(events).runs.at(-1)).toMatchObject({ id: retry.runId, status: 'running' })
   })
 })

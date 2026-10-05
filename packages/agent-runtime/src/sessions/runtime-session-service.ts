@@ -2,18 +2,23 @@
 import type { Context, JsonValue } from '@earendil-works/chord'
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import type { AgentMessage } from '@earendil-works/pi-agent-core'
-import type { ConversationId, EntryRecord, Session, Tx } from '@earendil-works/pi-durable'
+import type {
+  ConversationId,
+  ConversationView,
+  ConversationWatch,
+  EntryRecord,
+  Session,
+  Tx,
+} from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import {
-  AGENT_UI_PROTOCOL_VERSION,
   type AgentErrorView,
   type AgentSessionSnapshot,
   type AgentSessionView,
-  type AgentUiEvent,
-  type AgentUsageView,
 } from '../contracts/ui.js'
 import { type DurableExecution, DurableRunDriver } from '../pi/impl/durable-run-driver.js'
 import { type RedactionOptions, redactString } from '../security/redaction.js'
+import { projectConversation } from './conversation-projection.js'
 import {
   SESSION_ENTRY,
   SESSION_LANE,
@@ -22,21 +27,18 @@ import {
   type SessionLane,
   scanAll,
 } from './durable-session.js'
-import { decodeAgentUiEvent } from './event-codec.js'
-import { replaySnapshot } from './session-replay.js'
 import {
   type BeginRunInput,
   KQ_CUSTOM_ENTRY,
   KQ_SESSION_SCHEMA_VERSION,
   type KqRunStartedEntry,
   type KqRunTerminalEntry,
-  type PersistEventInput,
   type RetryRunInput,
   type RunPersistenceContext,
 } from './types.js'
 
 export interface RuntimeSessionServiceOptions {
-  execution?: DurableExecution
+  execution: DurableExecution
   /** 宿主持有底层 Session，负责关闭存储；服务只管理应用会话。 */
   session: Session
   now?: () => number
@@ -120,7 +122,8 @@ function isContextItem(value: unknown): value is { kind: string; value: JsonValu
 
 /** 应用会话由主 Conversation 标识，重试使用官方历史 fork。 */
 export class RuntimeSessionService {
-  private readonly execution?: DurableExecution
+  private readonly observers = new Map<string, Set<() => Promise<void>>>()
+  private readonly execution: DurableExecution
   private readonly session: Session
   private readonly context: Context
   private readonly now: () => number
@@ -142,8 +145,6 @@ export class RuntimeSessionService {
   /** 创建官方 Harness 的 UI 适配器。 */
   createDriver() {
     const execution = this.execution
-    if (!execution)
-      throw new AgentRuntimeError('INTERNAL_ERROR', 'The host must provide a Pi Harness.')
     return new DurableRunDriver(execution, async (plan) => {
       const lane = await this.requireLane(plan.sessionId)
       const conversation = await execution.harness.conversation(lane.conversationId, this.context)
@@ -151,6 +152,155 @@ export class RuntimeSessionService {
         throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The current Conversation is missing.')
       return conversation
     })
+  }
+
+  /** 订阅官方 Conversation 完整视图，分支切换时重新绑定。 */
+  async watchSession(
+    sessionId: string,
+    listener: (snapshot: AgentSessionSnapshot) => void,
+  ): Promise<() => Promise<void>> {
+    const execution = this.execution
+    let stopped = false
+    let watch: ConversationWatch | undefined
+    let revision = 0
+    let pending = Promise.resolve()
+    const refresh = () => {
+      pending = pending.then(async () => {
+        if (stopped) return
+        const lane = await this.requireLane(sessionId)
+        if (watch?.value.conversation.id === lane.conversationId) {
+          listener(await this.nativeSnapshot(sessionId, watch.value))
+          return
+        }
+        const generation = ++revision
+        await watch?.stop()
+        const conversation = await execution.harness.conversation(lane.conversationId, this.context)
+        if (!conversation)
+          throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The current Conversation is missing.')
+        watch = await conversation.watch(this.context)
+        const initial = await this.nativeSnapshot(sessionId, watch.value)
+        if (!stopped && generation === revision) listener(initial)
+        watch.start(async (view) => {
+          const snapshot = await this.nativeSnapshot(sessionId, view)
+          if (!stopped && generation === revision) listener(snapshot)
+        })
+      })
+      return pending
+    }
+    const observers = this.observers.get(sessionId) ?? new Set()
+    observers.add(refresh)
+    this.observers.set(sessionId, observers)
+    try {
+      await refresh()
+    } catch (error) {
+      observers.delete(refresh)
+      await watch?.stop()
+      throw error
+    }
+    return async () => {
+      stopped = true
+      revision++
+      observers.delete(refresh)
+      if (!observers.size) this.observers.delete(sessionId)
+      await pending
+      await watch?.stop()
+    }
+  }
+
+  /** 分支或目录修改后刷新订阅，消息更新直接由官方 watch 驱动。 */
+  private async refreshObservers(sessionId: string): Promise<void> {
+    await Promise.all([...(this.observers.get(sessionId) ?? [])].map((refresh) => refresh()))
+  }
+
+  /** 从官方记录生成界面快照，不读取任何 UI 事件日志。 */
+  private async nativeSnapshot(
+    sessionId: string,
+    view: ConversationView,
+  ): Promise<AgentSessionSnapshot> {
+    const main = await this.requireLane(sessionId, SESSION_LANE.main)
+    // 当前分支严格使用 watch 的这一帧，避免异步读取时把下一帧的最终消息和旧 partial 同时展示。
+    const history = await this.sessionEntries(sessionId)
+    const visible = new Map(
+      history
+        .filter((entry) => entry.conversationId !== view.conversation.id)
+        .map((entry) => [entry.id, entry]),
+    )
+    for (const entry of view.entries) visible.set(entry.id, entry)
+    const entries = [...visible.values()].sort((left, right) => left.id - right.id)
+    const contexts = new Map(
+      entries
+        .filter((entry) => entry.kind === KQ_CUSTOM_ENTRY.runStarted)
+        .map((entry) => [entry.id, { sessionId, ...runStart(entry) }]),
+    )
+    const failures = new Map<string, import('../contracts/ui.js').AgentRunView>()
+    for (const entry of entries.filter((item) => item.kind === KQ_CUSTOM_ENTRY.runTerminal)) {
+      const value = entry.data
+      if (!isObject(value) || typeof value.runId !== 'string' || typeof value.endedAt !== 'number')
+        continue
+      const status = value.status
+      if (
+        status === 'completed' ||
+        status === 'failed' ||
+        status === 'interrupted' ||
+        status === 'cancelled' ||
+        status === 'partial'
+      ) {
+        const error =
+          isObject(value.error) &&
+          typeof value.error.code === 'string' &&
+          typeof value.error.message === 'string'
+            ? {
+                code: value.error.code,
+                message: value.error.message,
+                retryable: value.error.retryable === true,
+                ...(typeof value.error.raw === 'string' ? { raw: value.error.raw } : {}),
+                ...(typeof value.error.providerCode === 'string'
+                  ? { providerCode: value.error.providerCode }
+                  : {}),
+                ...(typeof value.error.recommendedAction === 'string'
+                  ? { recommendedAction: value.error.recommendedAction }
+                  : {}),
+              }
+            : status === 'interrupted'
+              ? {
+                  code: 'RUN_INTERRUPTED',
+                  message: 'The Agent run was interrupted when its host stopped.',
+                  retryable: true,
+                }
+              : undefined
+        failures.set(value.runId, {
+          id: value.runId,
+          sessionId,
+          status,
+          endedAt: value.endedAt,
+          error,
+        })
+      }
+    }
+    const submissions = await this.session.commit(async (tx) => {
+      const records = await Promise.all(
+        entries.flatMap((entry) => {
+          const context = contexts.get(entry.id)
+          return context ? [tx.submissionByRequest(entry.conversationId, context.runId)] : []
+        }),
+      )
+      return records.filter((record) => record !== undefined)
+    }, this.context)
+    const agent = view.docs['pi.agent']
+    const modelRef = isObject(agent?.model) ? agent.model : undefined
+    const model =
+      modelRef && typeof modelRef.provider === 'string' && typeof modelRef.modelId === 'string'
+        ? this.execution.models.getModel(modelRef.provider, modelRef.modelId)
+        : undefined
+    return projectConversation(
+      await this.view(main),
+      entries,
+      view,
+      contexts,
+      submissions,
+      failures,
+      model?.contextWindow,
+    )
   }
 
   /** 原子创建主 Conversation、身份文档和元数据。 */
@@ -180,19 +330,21 @@ export class RuntimeSessionService {
     return views.sort((left, right) => right.updatedAt - left.updatedAt)
   }
 
-  /** 从去重后的分支事件重建 UI 快照。 */
+  /** 从官方 Conversation 读取完整快照。 */
   async open(sessionId: string): Promise<AgentSessionSnapshot> {
-    const main = await this.requireLane(sessionId, SESSION_LANE.main)
-    const events: AgentUiEvent[] = []
-    for (const entry of await this.sessionEntries(sessionId)) {
-      if (entry.kind !== KQ_CUSTOM_ENTRY.event) continue
-      const data = entry.data
-      if (!isObject(data) || !isObject(data.event))
-        throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent event checkpoint is invalid.')
-      // 业务事件统一由协议编解码器读取。
-      events.push(decodeAgentUiEvent(data.event))
+    const lane = await this.requireLane(sessionId)
+    const conversation = await this.execution.harness.conversation(
+      lane.conversationId,
+      this.context,
+    )
+    if (!conversation)
+      throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Conversation is missing.')
+    const watch = await conversation.watch(this.context)
+    try {
+      return await this.nativeSnapshot(sessionId, watch.value)
+    } finally {
+      await watch.stop()
     }
-    return replaySnapshot(await this.view(main), events)
   }
 
   /** 原子更新主会话标题与更新时间。 */
@@ -203,6 +355,7 @@ export class RuntimeSessionService {
       identity.title = title.trim()
       await this.touch(tx, main.conversationId)
     }, this.context)
+    await this.refreshObservers(sessionId)
   }
 
   /** 标记主会话与全部重试分支删除，避免历史 fork 失去引用。 */
@@ -253,145 +406,57 @@ export class RuntimeSessionService {
         input.originalRunId,
       )
     }
-    if (this.execution) {
-      const conversation = await this.execution.harness.conversation(
-        source.conversationId,
-        this.context,
-      )
-      if (!conversation)
-        throw new AgentRuntimeError(
-          'SESSION_NOT_FOUND',
-          'The retry source Conversation is missing.',
-        )
-      let record: RunPersistenceContext | undefined
-      await conversation.fork(
-        boundary.id,
-        {
-          ownership: { kind: 'ownerless' },
-          init: async (tx, id) => {
-            record = await initializeFork(tx, id)
-          },
-        },
-        this.context,
-      )
-      if (!record) throw new AgentRuntimeError('INTERNAL_ERROR', 'Pi did not initialize the fork.')
-      return record
-    }
-    return this.session.commit(async (tx) => {
-      const fork = await tx.forkConversation(source.conversationId, boundary.id, {
+    const conversation = await this.execution.harness.conversation(
+      source.conversationId,
+      this.context,
+    )
+    if (!conversation)
+      throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The retry source Conversation is missing.')
+    let record: RunPersistenceContext | undefined
+    await conversation.fork(
+      boundary.id,
+      {
         ownership: { kind: 'ownerless' },
-      })
-      return initializeFork(tx, fork.id)
-    }, this.context)
-  }
-
-  /** 保存 UI 投影事件，成功提交后才返回给广播方。 */
-  async persistEvent(input: PersistEventInput): Promise<AgentUiEvent> {
-    const lane = await this.requireLane(input.sessionId, input.lane)
-    const event = decodeAgentUiEvent({ ...input.event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
-    await this.session.commit(
-      (tx) =>
-        tx.appendEntry(lane.conversationId, {
-          kind: KQ_CUSTOM_ENTRY.event,
-          data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, event }),
-        }),
+        init: async (tx, id) => {
+          record = await initializeFork(tx, id)
+        },
+      },
       this.context,
     )
-    return event
-  }
-
-  /** 保存助手模型消息，供后续运行上下文使用。 */
-  async appendAssistantMessage(
-    context: RunPersistenceContext,
-    content: string,
-    timestamp: number,
-  ): Promise<void> {
-    if (this.execution) return
-    const lane = await this.requireLane(context.sessionId, context.lane)
-    await this.session.commit(
-      (tx) =>
-        tx.appendEntry(lane.conversationId, {
-          kind: SESSION_ENTRY.message,
-          model: [
-            {
-              role: 'assistant',
-              content: [{ type: 'text', text: content }],
-              api: 'openai-responses',
-              provider: 'kq-runtime',
-              model: 'redacted',
-              usage: {
-                input: 0,
-                output: 0,
-                cacheRead: 0,
-                cacheWrite: 0,
-                totalTokens: 0,
-                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-              },
-              stopReason: 'stop',
-              timestamp,
-            },
-          ],
-        }),
-      this.context,
-    )
+    if (!record) throw new AgentRuntimeError('INTERNAL_ERROR', 'Pi did not initialize the fork.')
+    await this.refreshObservers(input.sessionId)
+    return record
   }
 
   /** 原子记录终态与主会话更新时间。 */
   async finishRun(
     context: RunPersistenceContext,
     terminal: Omit<KqRunTerminalEntry, 'schemaVersion' | 'runId'>,
-    details: { sequence?: number; usage?: AgentUsageView; error?: AgentErrorView } = {},
-  ): Promise<AgentUiEvent> {
+    details: { error?: AgentErrorView } = {},
+  ): Promise<void> {
     const lane = await this.requireLane(context.sessionId, context.lane)
     const main = await this.requireLane(context.sessionId, SESSION_LANE.main)
-    const envelope = {
-      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      runId: context.runId,
-      sessionId: context.sessionId,
-      endedAt: terminal.endedAt,
-      ...(details.sequence === undefined ? {} : { sequence: details.sequence }),
-    }
-    const event: AgentUiEvent =
-      terminal.status === 'completed'
-        ? { ...envelope, type: 'run.completed', usage: details.usage }
-        : terminal.status === 'cancelled' || terminal.status === 'partial'
-          ? { ...envelope, type: 'run.cancelled', partial: terminal.status === 'partial' }
-          : {
-              ...envelope,
-              type: terminal.status === 'interrupted' ? 'run.interrupted' : 'run.failed',
-              error: details.error ?? {
-                code: terminal.status === 'interrupted' ? 'RUN_INTERRUPTED' : 'PROVIDER_ERROR',
-                message:
-                  terminal.status === 'interrupted'
-                    ? 'The Agent run was interrupted when its host stopped.'
-                    : 'The Agent run failed.',
-                retryable: true,
-                recommendedAction: 'Retry this run.',
-              },
-            }
     await this.session.commit(async (tx) => {
       await tx.appendEntry(lane.conversationId, {
         kind: KQ_CUSTOM_ENTRY.runTerminal,
-        data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, runId: context.runId, ...terminal }),
-      })
-      await tx.appendEntry(lane.conversationId, {
-        kind: KQ_CUSTOM_ENTRY.event,
-        data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, event }),
+        data: json({
+          schemaVersion: KQ_SESSION_SCHEMA_VERSION,
+          runId: context.runId,
+          ...terminal,
+          ...(details.error ? { error: details.error } : {}),
+        }),
       })
       await this.touch(tx, main.conversationId)
     }, this.context)
-    return event
   }
 
   /** 将宿主退出时未结算的运行标记中断，终态与回放事件在同一事务提交。 */
   async recoverInterrupted(): Promise<string[]> {
     // 宿主重启不自动重放图表副作用，先通过官方取消协议结算残留任务。
-    if (this.execution) {
-      const inspection = await this.execution.harness.inspect(this.context)
-      const conversations = new Set(inspection.tasks.map((task) => task.record.conversationId))
-      for (const id of conversations) {
-        await (await this.execution.harness.conversation(id, this.context))?.abort(this.context)
-      }
+    const inspection = await this.execution.harness.inspect(this.context)
+    const conversations = new Set(inspection.tasks.map((task) => task.record.conversationId))
+    for (const id of conversations) {
+      await (await this.execution.harness.conversation(id, this.context))?.abort(this.context)
     }
     const interrupted: string[] = []
     for (const view of await this.list()) {
@@ -408,6 +473,18 @@ export class RuntimeSessionService {
       for (const entry of entries.filter((entry) => entry.kind === KQ_CUSTOM_ENTRY.runStarted)) {
         const started = runStart(entry)
         if (terminalIds.has(started.runId)) continue
+        // Pi 的回答可能已经原子提交，而宿主尚未来得及写入目录时间；保留官方成功终态。
+        const submission = await this.session.commit(
+          (tx) => tx.submissionByRequest(entry.conversationId, started.runId),
+          this.context,
+        )
+        if (submission?.status === 'done') {
+          await this.finishRun(
+            { sessionId: view.id, ...started },
+            { status: 'completed', endedAt: this.now() },
+          )
+          continue
+        }
         const endedAt = this.now()
         await this.finishRun({ sessionId: view.id, ...started }, { status: 'interrupted', endedAt })
         interrupted.push(started.runId)
@@ -432,18 +509,13 @@ export class RuntimeSessionService {
   /** 读取当前分支的继承历史，排除本次用户输入。 */
   async getTranscript(context: RunPersistenceContext): Promise<AgentMessage[]> {
     const lane = await this.requireLane(context.sessionId, context.lane)
-    if (this.execution) {
-      const conversation = await this.execution.harness.conversation(
-        lane.conversationId,
-        this.context,
-      )
-      if (!conversation)
-        throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Conversation is missing.')
-      return [...(await conversation.context(this.context)).messages]
-    }
-    return (await this.entries(lane.conversationId)).flatMap((entry) =>
-      String(entry.id) === context.userEntryId ? [] : [...(entry.model ?? [])],
+    const conversation = await this.execution.harness.conversation(
+      lane.conversationId,
+      this.context,
     )
+    if (!conversation)
+      throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Conversation is missing.')
+    return [...(await conversation.context(this.context)).messages]
   }
 
   /** 完整读取官方 Conversation 分页及对应身份文档。 */
@@ -561,9 +633,6 @@ export class RuntimeSessionService {
     await tx.appendEntry(conversationId, { kind: SESSION_ENTRY.boundary })
     const user = await tx.appendEntry(conversationId, {
       kind: SESSION_ENTRY.message,
-      ...(this.execution
-        ? {}
-        : { model: [{ role: 'user' as const, content: prompt, timestamp: input.startedAt }] }),
     })
     const record: RunPersistenceContext = {
       sessionId: input.sessionId,

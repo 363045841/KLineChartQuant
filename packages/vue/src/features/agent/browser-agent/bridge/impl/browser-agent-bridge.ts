@@ -26,8 +26,8 @@ import type {
   AgentRunContext,
   AgentSessionSnapshot,
   AgentSessionView,
-  AgentUiEvent,
-  AgentUiEventInput,
+  AgentWorkspaceEvent,
+  AgentWorkspaceEventInput,
   ProviderModelPoolEntry,
   ProviderModelsResult,
   ProviderModelView,
@@ -59,7 +59,7 @@ import type { BrowserToolContext } from '../../tools/types.js'
 import type { BrowserAgentBridgeOptions } from '../types.js'
 
 export class BrowserAgentBridge implements AgentBridgeClient {
-  private readonly listeners = new Set<(event: AgentUiEvent) => void>()
+  private readonly listeners = new Set<(event: AgentWorkspaceEvent) => void>()
   private readonly modelSettings = new BrowserAgentModelSettingsStore()
   private readonly modelPool = new ProviderModelPool(
     () => this.modelSettings.modelPool(),
@@ -275,7 +275,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return this.modelSettings.webSearchApiKey()
   }
 
-  /** 当前生效的全部真实凭据，供 PiRunDriver 在事件投影前逐字剔除。 */
+  /** 当前生效的凭据，只在用户输入保存与提交前用于脱敏。 */
   private async secretValues(): Promise<readonly string[]> {
     const values: string[] = []
     try {
@@ -588,7 +588,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     await this.emitProviderStatus()
   }
 
-  subscribe(listener: (event: AgentUiEvent) => void): () => void {
+  subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
@@ -611,14 +611,13 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       provider: this.support.provider,
     })
     runtime.subscribe((event) => {
-      if (event.type === 'run.started') this.runs.register(event.runId)
-      if (
-        event.type === 'run.completed' ||
-        event.type === 'run.failed' ||
-        event.type === 'run.cancelled' ||
-        event.type === 'run.interrupted'
-      )
-        this.runs.complete(event.runId)
+      if (event.type === 'session.snapshot') {
+        for (const run of event.snapshot.runs) {
+          if (!run.id) continue
+          if (run.status === 'running' || run.status === 'cancelling') this.runs.register(run.id)
+          else this.runs.complete(run.id)
+        }
+      }
       for (const listener of this.listeners) listener(event)
     })
     try {
@@ -645,7 +644,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   /** 向所有 UI 事件订阅者广播，并统一补上协议版本。 */
-  private emit(event: AgentUiEventInput): void {
+  private emit(event: AgentWorkspaceEventInput): void {
     for (const listener of this.listeners)
       listener({ ...event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
   }

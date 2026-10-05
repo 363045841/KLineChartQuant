@@ -1,13 +1,11 @@
-import type { AgentRunContext, AgentUiEvent, AgentUiEventInput } from '../contracts/ui.js'
+// 应用仅保留会话目录与宿主提交关联，模型消息及工具状态由 Pi 保存。
+import type { AgentRunContext } from '../contracts/ui.js'
 
 export const KQ_SESSION_SCHEMA_VERSION = 1 as const
 export const KQ_CUSTOM_ENTRY = {
-  event: 'kq.ui.event',
   runStarted: 'kq.run.started',
   runTerminal: 'kq.run.terminal',
   sessionMetadata: 'kq.session.metadata',
-  toolMapping: 'kq.tool.mapping',
-  toolTrace: 'kq.tool.trace',
 } as const
 
 export interface KqSessionMetadataEntry {
@@ -33,11 +31,6 @@ export interface KqRunTerminalEntry {
   runId: string
   status: 'completed' | 'failed' | 'cancelled' | 'partial' | 'interrupted'
   endedAt: number
-}
-
-export interface PersistedAgentEvent {
-  schemaVersion: typeof KQ_SESSION_SCHEMA_VERSION
-  event: AgentUiEvent
 }
 
 export interface BeginRunInput {
@@ -69,10 +62,4 @@ export interface RunPersistenceContext {
   userEntryId: string
   startedAt: number
   retryOfRunId?: string
-}
-
-export interface PersistEventInput {
-  sessionId: string
-  lane: string
-  event: AgentUiEventInput | AgentUiEvent
 }

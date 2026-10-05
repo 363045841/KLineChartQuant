@@ -4,7 +4,6 @@ import { createModels, fauxAssistantMessage, fauxProvider } from '@earendil-work
 import { afterEach, describe, expect, it } from 'vitest'
 import { AgentApplicationService } from '../application/agent-application-service'
 import { type BrowserRuntimeSessions, createBrowserRuntimeSessions } from '../browser'
-import { AGENT_UI_PROTOCOL_VERSION } from '../contracts/ui'
 
 // Node 24 提供原生 Web Locks；较旧 Node 由浏览器手动验证此路径。
 describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
@@ -43,17 +42,14 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
       faux.setResponses([fauxAssistantMessage('First response')])
       const models = createModels()
       models.setProvider(faux.provider)
-      await runtime.sessions.createDriver().run(
-        {
-          ...first,
-          models,
-          model: faux.getModel(),
-          streamFn: models.streamSimple.bind(models),
-          scope: { symbol: null, period: null, readOnly: true },
-          tools: [],
-        },
-        () => {},
-      )
+      await runtime.sessions.createDriver().run({
+        ...first,
+        models,
+        model: faux.getModel(),
+        streamFn: models.streamSimple.bind(models),
+        scope: { symbol: null, period: null, readOnly: true },
+        tools: [],
+      })
       await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 3 })
       const second = await runtime.sessions.beginRun({
         sessionId: session.id,
@@ -62,18 +58,6 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
         prompt: 'Follow up',
         readOnly: true,
         startedAt: 4,
-      })
-      await runtime.sessions.persistEvent({
-        sessionId: session.id,
-        lane: second.lane,
-        event: {
-          protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-          sequence: 7,
-          type: 'run.started',
-          runId: second.runId,
-          sessionId: session.id,
-          startedAt: 4,
-        },
       })
       await runtime.close()
       opened.pop()
@@ -94,7 +78,9 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
           content: [{ type: 'text', text: 'First response' }],
         }),
       ])
-      expect((await runtime.sessions.open(session.id)).lastSequence).toBe(7)
+      expect((await runtime.sessions.open(session.id)).messages.at(-1)?.content).toBe(
+        'First response',
+      )
       const retry = await runtime.sessions.retryRun({
         sessionId: session.id,
         originalRunId: second.runId,
@@ -111,7 +97,12 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
       await runtime.close()
       opened.pop()
       runtime = await open(name)
-      const app = new AgentApplicationService({ sessions: runtime.sessions })
+      const app = new AgentApplicationService({
+        sessions: runtime.sessions,
+        createPlan: () => {
+          throw new Error('This test only reads sessions.')
+        },
+      })
       expect(await app.initialize()).toEqual([])
       expect((await app.openSession(session.id)).session.title).toBe('Renamed after retry')
       const next = await runtime.sessions.beginRun({
@@ -137,7 +128,12 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
       await runtime.close()
       opened.pop()
       runtime = await open(name)
-      const app = new AgentApplicationService({ sessions: runtime.sessions })
+      const app = new AgentApplicationService({
+        sessions: runtime.sessions,
+        createPlan: () => {
+          throw new Error('This test only reads sessions.')
+        },
+      })
       expect(await app.initialize()).toEqual([])
       expect((await app.openSession(session.id)).session).toEqual(session)
       const run = await runtime.sessions.beginRun({
@@ -163,39 +159,38 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
       expect(await second.sessions.list()).toEqual([])
     })
 
-    it('reads beyond one page of entries without duplicating inherited events', async () => {
+    it('reads beyond one page of official messages without duplicating inherited history', async () => {
       const runtime = await open(`durable-pages-${globalThis.crypto.randomUUID()}`)
       const session = await runtime.sessions.create()
-      const run = await runtime.sessions.beginRun({
-        sessionId: session.id,
-        runId: 'long-run',
-        turnId: 'long-turn',
-        prompt: 'History',
-        readOnly: true,
-        startedAt: 1,
-      })
+      const faux = fauxProvider()
+      faux.setResponses(
+        Array.from({ length: 105 }, (_, index) => fauxAssistantMessage(`Answer ${index}`)),
+      )
+      const models = createModels()
+      models.setProvider(faux.provider)
       for (let index = 0; index < 105; index++) {
-        await runtime.sessions.persistEvent({
+        const run = await runtime.sessions.beginRun({
           sessionId: session.id,
-          lane: run.lane,
-          event: {
-            protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-            sequence: index + 1,
-            type: 'user.message.created',
-            runId: run.runId,
-            sessionId: session.id,
-            message: {
-              id: `message-${index}`,
-              role: 'user',
-              content: `${index}`,
-              createdAt: index,
-            },
-          },
+          runId: `run-${index}`,
+          turnId: `turn-${index}`,
+          prompt: `Question ${index}`,
+          readOnly: true,
+          startedAt: index,
         })
+        await runtime.sessions.createDriver().run({
+          ...run,
+          models,
+          model: faux.getModel(),
+          streamFn: models.streamSimple.bind(models),
+          scope: { symbol: null, period: null, readOnly: true },
+          tools: [],
+        })
+        await runtime.sessions.finishRun(run, { status: 'completed', endedAt: index + 1 })
       }
       const snapshot = await runtime.sessions.open(session.id)
-      expect(snapshot.messages).toHaveLength(105)
-      expect(snapshot.lastSequence).toBe(105)
+      expect(snapshot.messages).toHaveLength(210)
+      expect(snapshot.messages.at(-1)?.content).toBe('Answer 104')
+      expect(new Set(snapshot.messages.map((message) => message.id)).size).toBe(210)
     })
   },
 )

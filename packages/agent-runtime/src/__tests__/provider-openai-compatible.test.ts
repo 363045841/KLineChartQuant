@@ -1,6 +1,7 @@
 import type { FetchFunction } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
 import { describe, expect, it, vi } from 'vitest'
+import { AgentApplicationService } from '../application/agent-application-service'
 import {
   AgentRuntimeError,
   createOpenAiCompatibleRuntimeSupport,
@@ -16,6 +17,7 @@ import {
   parseRetryAfter,
   requestProviderJson,
 } from '../index'
+import { createMemoryRuntimeSessions } from '../testing/memory-sessions'
 
 const secret = 'temporary-provider-credential'
 const baseUrl = 'https://models.example.test/v1'
@@ -95,7 +97,7 @@ function providerFetch(options: { invalidTool?: boolean; protocol?: ProviderApiP
   })
 }
 
-function streamResponse(protocol: ProviderApiProtocol): Response {
+function streamResponse(protocol: ProviderApiProtocol, finalText = 'Real response'): Response {
   const events =
     protocol === 'openai-completions'
       ? [
@@ -132,6 +134,13 @@ function streamResponse(protocol: ProviderApiProtocol): Response {
           },
           { type: 'response.output_text.delta', output_index: 0, delta: 'Real ' },
           { type: 'response.output_text.delta', output_index: 0, delta: 'response' },
+          { type: 'response.output_text.done', output_index: 0, content_index: 0, text: finalText },
+          {
+            type: 'response.content_part.done',
+            output_index: 0,
+            content_index: 0,
+            part: { type: 'output_text', text: finalText, annotations: [] },
+          },
           {
             type: 'response.output_item.done',
             output_index: 0,
@@ -139,7 +148,7 @@ function streamResponse(protocol: ProviderApiProtocol): Response {
               id: 'message-1',
               type: 'message',
               role: 'assistant',
-              content: [{ type: 'output_text', text: 'Real response', annotations: [] }],
+              content: [{ type: 'output_text', text: finalText, annotations: [] }],
             },
           },
           {
@@ -367,6 +376,48 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
 })
 
 describe('OpenAI-compatible runtime support', () => {
+  it('projects the complete Responses text without duplicating done payloads and replays it unchanged', async () => {
+    const { credentials, settings } = configuredStores()
+    await configure(credentials, settings, 'openai-responses')
+    const finalText =
+      '你好\n\n✅ **完整答案**\n\n保留 sk-abcdefghijklmnop 和 /Users/alice，以及最后一句。'
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: async () => streamResponse('openai-responses', finalText),
+    })
+    const runtime = await createMemoryRuntimeSessions()
+    const app = new AgentApplicationService({
+      sessions: runtime.sessions,
+      createPlan: support.createPlan,
+    })
+    let stop = () => {}
+    try {
+      const session = await app.createSession()
+      const completed = new Promise<void>((resolve, reject) => {
+        stop = app.subscribe((event) => {
+          if (event.type !== 'session.snapshot') return
+          const run = event.snapshot.runs.at(-1)
+          if (run?.status === 'completed') resolve()
+          if (run?.status === 'failed') reject(new Error(run.error?.message))
+        })
+      })
+      await app.startRun({ sessionId: session.id, prompt: '你好', readOnly: true })
+      await completed
+      const snapshot = await app.openSession(session.id)
+      expect(
+        snapshot.messages
+          .filter((message) => message.role === 'assistant')
+          .map((message) => message.content),
+      ).toEqual([finalText])
+      expect(snapshot.runs[0]?.usage).toMatchObject({ inputTokens: 1, outputTokens: 2 })
+    } finally {
+      stop()
+      await app.close()
+      await runtime.close()
+    }
+  })
+
   it.each([
     ['openai-completions', '/chat/completions'],
     ['openai-responses', '/responses'],

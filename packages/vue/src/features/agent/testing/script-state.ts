@@ -1,4 +1,4 @@
-// 将回放与实时 Agent 事件投影为唯一的 Renderer 视图状态。
+// 仅供测试脚本把步骤转换为完整快照；生产 Vue 不消费模型增量事件。
 
 import { projectReply } from '@363045841yyt/klinechart-agent-runtime'
 import {
@@ -7,8 +7,10 @@ import {
   type AgentRunView,
   type AgentUiEvent,
   type ToolCallView,
-} from '../../agent-contracts.js'
-import type { AgentWorkspaceState } from '../types.js'
+} from '../agent-contracts.js'
+import type { AgentWorkspaceState as WorkspaceState } from '../workspace/types.js'
+
+type AgentWorkspaceState = WorkspaceState & { lastSequence: number }
 
 const IDLE_RUN: AgentRunView = {
   id: null,
@@ -102,6 +104,8 @@ function reduceCurrentAgentUiEvent(
   if (isRunEvent(event) && event.runId !== state.run.id) return state
 
   switch (event.type) {
+    case 'session.snapshot':
+      return state
     case 'user.message.created':
     case 'action.summary':
       return { ...state, messages: [...state.messages, event.message] }

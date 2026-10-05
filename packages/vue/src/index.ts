@@ -78,9 +78,9 @@ export * from './features/agent/agent-contracts.js'
 export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export { createAgentPanelWidthStorage } from './features/agent/workspace/impl/agent-panel-width-storage.js'
 export {
-  createInitialAgentState,
-  reduceAgentUiEvent,
-} from './features/agent/workspace/impl/agent-reducer.js'
+  createWorkspaceState,
+  displayConversation,
+} from './features/agent/workspace/impl/workspace-state.js'
 export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'
 export type {
   AgentPanelWidthStorage,

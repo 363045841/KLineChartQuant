@@ -348,6 +348,7 @@ interface RunEventEnvelope extends EventEnvelope {
 }
 
 export type AgentUiEvent =
+  | (EventEnvelope & { type: 'session.snapshot'; snapshot: AgentSessionSnapshot })
   | (RunEventEnvelope & { type: 'run.started'; startedAt: number; retryOfRunId?: string })
   | (RunEventEnvelope & { type: 'run.cancelling' })
   | (RunEventEnvelope & { type: 'run.cancelled'; partial: boolean; endedAt: number })
@@ -373,7 +374,10 @@ export type AgentUiEvent =
       createdAt: number
     })
   | (RunEventEnvelope & { type: 'assistant.thinking.delta'; messageId: string; delta: string })
-  | (RunEventEnvelope & { type: 'assistant.thinking.completed'; messageId: string })
+  | (RunEventEnvelope & {
+      type: 'assistant.thinking.completed'
+      messageId: string
+    })
   | (RunEventEnvelope & { type: 'action.summary'; message: AgentMessageView })
   | (RunEventEnvelope & { type: 'tool.started'; call: ToolCallView })
   | (RunEventEnvelope & {
@@ -416,7 +420,8 @@ export interface AgentSessionSnapshot {
   messages: AgentMessageView[]
   toolCalls: ToolCallView[]
   runs: AgentRunView[]
-  lastSequence: number
+  questions?: QuestionView[]
+  confirmations?: ConfirmationView[]
 }
 
 export interface StartRunInput {
@@ -507,5 +512,23 @@ export interface AgentBridgeClient {
   saveWebSearchApiKey(apiKey: string): Promise<void>
   setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void>
   deleteProviderCredential(): Promise<void>
-  subscribe(listener: (event: AgentUiEvent) => void): () => void
+  subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
 }
+
+/** 面板只接收完整会话快照、目录/设置和宿主提问；不接收模型增量事件。 */
+export type AgentWorkspaceEvent = Extract<
+  AgentUiEvent,
+  {
+    type:
+      | 'session.snapshot'
+      | 'sessions.changed'
+      | 'provider.status.changed'
+      | 'tool.question.required'
+      | 'tool.question.resolved'
+  }
+>
+export type AgentWorkspaceEventInput = AgentWorkspaceEvent extends infer Event
+  ? Event extends AgentWorkspaceEvent
+    ? Omit<Event, 'protocolVersion'>
+    : never
+  : never

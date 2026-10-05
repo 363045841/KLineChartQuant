@@ -1,35 +1,23 @@
+// 宿主只管理提交操作、会话目录和 Provider 设置，消息与运行状态来自官方 Conversation。
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
-  type AgentRunUiEventInput,
-  type AgentUiEvent,
+  type AgentWorkspaceEvent,
   type ProviderModelsInput,
-  type ProviderModelsResult,
   type ProviderStatusView,
   type ProviderTestInput,
-  type ProviderTestResult,
   type StartRunInput,
 } from '../contracts/ui.js'
+import type { DurableRunDriver } from '../pi/impl/durable-run-driver.js'
 import type { RunPersistenceContext } from '../sessions/types.js'
-import type { AgentApplicationApi, AgentApplicationServiceOptions, RunDriver } from './types.js'
+import type { AgentApplicationApi, AgentApplicationServiceOptions } from './types.js'
 
-interface ActiveRun {
+interface OwnedSubmission {
   context: RunPersistenceContext
-  driver: RunDriver
-  status: 'running' | 'cancelling'
-  completedReversibleTool: boolean
+  driver: DurableRunDriver
+  cancelled: boolean
   promise: Promise<void>
 }
-
-type GlobalAgentUiEvent = Extract<
-  AgentUiEvent,
-  { type: 'sessions.changed' | 'provider.status.changed' }
->
-type GlobalAgentUiEventInput = GlobalAgentUiEvent extends infer Event
-  ? Event extends GlobalAgentUiEvent
-    ? Omit<Event, 'protocolVersion' | 'sequence'>
-    : never
-  : never
 
 const DEFAULT_PROVIDER_STATUS: ProviderStatusView = {
   state: 'not-configured',
@@ -38,139 +26,209 @@ const DEFAULT_PROVIDER_STATUS: ProviderStatusView = {
   compatibility: 'unknown',
 }
 
-function isCancelling(active: ActiveRun): boolean {
-  return active.status === 'cancelling'
-}
-
+/** 应用服务不消费文本或工具事件，也不保存消息投影。 */
 export class AgentApplicationService implements AgentApplicationApi {
-  private readonly sessions: AgentApplicationServiceOptions['sessions']
-  private readonly createDriver: () => RunDriver
-  private readonly createPlan: AgentApplicationServiceOptions['createPlan']
-  private readonly provider: AgentApplicationServiceOptions['provider']
+  private readonly listeners = new Set<(event: AgentWorkspaceEvent) => void>()
+  private readonly owned = new Map<string, OwnedSubmission>()
+  private readonly admitting = new Set<string>()
   private readonly now: () => number
   private readonly id: () => string
-  private readonly logger: AgentApplicationServiceOptions['logger']
-  private readonly listeners = new Set<(event: AgentUiEvent) => void>()
-  private readonly activeByRun = new Map<string, ActiveRun>()
-  private readonly activeBySession = new Map<string, string>()
-  private sequence = 0
 
-  constructor(options: AgentApplicationServiceOptions) {
-    this.sessions = options.sessions
-    this.createDriver = options.createDriver ?? (() => options.sessions.createDriver())
-    this.createPlan = options.createPlan
-    this.provider = options.provider
+  constructor(private readonly options: AgentApplicationServiceOptions) {
     this.now = options.now ?? Date.now
     this.id = options.id ?? (() => globalThis.crypto.randomUUID())
-    this.logger = options.logger
   }
 
+  /** 宿主重启时通过官方取消协议结算遗留任务。 */
   async initialize(): Promise<string[]> {
-    const interrupted = await this.sessions.recoverInterrupted()
-    const snapshots = await Promise.all(
-      (await this.sessions.list()).map((session) => this.sessions.open(session.id)),
-    )
-    for (const snapshot of snapshots) this.sequence = Math.max(this.sequence, snapshot.lastSequence)
-    return interrupted
+    return this.options.sessions.recoverInterrupted()
   }
 
+  /** 关闭本宿主提交的工作。 */
   async close(): Promise<void> {
     await this.interruptOwnedRuns()
   }
 
   listSessions() {
-    return this.sessions.list()
+    return this.options.sessions.list()
   }
-
   openSession(sessionId: string) {
-    return this.sessions.open(sessionId)
+    return this.options.sessions.open(sessionId)
   }
-
-  async getProviderStatus(): Promise<ProviderStatusView> {
-    return (await this.provider?.getStatus()) ?? DEFAULT_PROVIDER_STATUS
+  async getProviderStatus() {
+    return (await this.options.provider?.getStatus()) ?? DEFAULT_PROVIDER_STATUS
   }
 
   async createSession() {
-    const session = await this.sessions.create()
-    await this.emitGlobal({ type: 'sessions.changed', sessions: await this.sessions.list() })
+    const session = await this.options.sessions.create()
+    await this.publishSessions()
     return session
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
-    await this.sessions.rename(sessionId, title)
-    await this.emitGlobal({ type: 'sessions.changed', sessions: await this.sessions.list() })
+    await this.options.sessions.rename(sessionId, title)
+    await this.publishSessions()
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    if (this.activeBySession.has(sessionId)) {
-      throw new AgentRuntimeError(
-        'RUN_ACTIVE',
-        'Stop the active Agent run before deleting its session.',
-      )
+    await this.admit(sessionId, () => this.options.sessions.delete(sessionId))
+    await this.publishSessions()
+  }
+
+  /** 拒绝仍在执行的提交；官方已结算时等待宿主清理完成。 */
+  private async assertAvailable(sessionId: string): Promise<void> {
+    const owned = [...this.owned.values()].find((item) => item.context.sessionId === sessionId)
+    if (!owned) return
+    const run = (await this.openSession(sessionId)).runs.find(
+      (item) => item.id === owned.context.runId,
+    )
+    if (run && !['running', 'cancelling'].includes(run.status)) {
+      await owned.promise
+      return
     }
-    await this.sessions.delete(sessionId)
-    await this.emitGlobal({ type: 'sessions.changed', sessions: await this.sessions.list() })
+    throw new AgentRuntimeError('RUN_ACTIVE', 'Only one Agent run may be active in a session.')
   }
 
   async startRun(input: StartRunInput): Promise<{ runId: string }> {
-    if (this.activeBySession.has(input.sessionId)) {
-      throw new AgentRuntimeError('RUN_ACTIVE', 'Only one Agent run may be active in a session.')
-    }
-    const startedAt = this.now()
-    const runId = this.id()
-    const context = await this.sessions.beginRun({
-      ...input,
-      runId,
-      turnId: this.id(),
-      startedAt,
+    return this.admit(input.sessionId, async () => {
+      const context = await this.options.sessions.beginRun({
+        ...input,
+        runId: this.id(),
+        turnId: this.id(),
+        startedAt: this.now(),
+      })
+      return this.launch(context)
     })
-    return this.launch(context)
-  }
-
-  async cancelRun(runId: string): Promise<void> {
-    const active = this.activeByRun.get(runId)
-    if (!active || active.status !== 'running') {
-      throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is not active.')
-    }
-    active.status = 'cancelling'
-    await this.emitRun(active, { type: 'run.cancelling' })
-    active.driver.abort()
-    await active.promise
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
-    if (this.activeByRun.has(runId)) {
-      throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run before retrying it.')
-    }
-    const original = await this.sessions.findRun(runId)
-    if (this.activeBySession.has(original.sessionId)) {
-      throw new AgentRuntimeError('RUN_ACTIVE', 'Only one Agent run may be active in a session.')
-    }
-    const context = await this.sessions.retryRun({
-      sessionId: original.sessionId,
-      originalRunId: runId,
-      runId: this.id(),
-      turnId: this.id(),
-      startedAt: this.now(),
+    const original = await this.options.sessions.findRun(runId)
+    return this.admit(original.sessionId, async () => {
+      const context = await this.options.sessions.retryRun({
+        sessionId: original.sessionId,
+        originalRunId: runId,
+        runId: this.id(),
+        turnId: this.id(),
+        startedAt: this.now(),
+      })
+      return this.launch(context)
     })
-    return this.launch(context)
+  }
+
+  /** 只串行化宿主的准备阶段，避免两次提交在官方任务创建前交叉写入运行关联。 */
+  private async admit<T>(sessionId: string, action: () => Promise<T>): Promise<T> {
+    if (this.admitting.has(sessionId))
+      throw new AgentRuntimeError('RUN_ACTIVE', 'A submission is already being prepared.')
+    this.admitting.add(sessionId)
+    try {
+      await this.assertAvailable(sessionId)
+      return await action()
+    } finally {
+      this.admitting.delete(sessionId)
+    }
+  }
+
+  async cancelRun(runId: string): Promise<void> {
+    const owned = this.owned.get(runId)
+    if (!owned) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is not active.')
+    owned.cancelled = true
+    owned.driver.abort()
+    await owned.promise
+  }
+
+  /** 官方任务记录负责状态；这个 Map 仅用于关闭时等待宿主提交操作。 */
+  async interruptOwnedRuns(): Promise<void> {
+    const owned = [...this.owned.values()]
+    for (const item of owned) {
+      item.cancelled = true
+      item.driver.abort()
+    }
+    await Promise.allSettled(owned.map((item) => item.promise))
+  }
+
+  private launch(context: RunPersistenceContext): { runId: string } {
+    const owned: OwnedSubmission = {
+      context,
+      driver: this.options.sessions.createDriver(),
+      cancelled: false,
+      promise: Promise.resolve(),
+    }
+    this.owned.set(context.runId, owned)
+    owned.promise = this.execute(owned)
+    void owned.promise.catch((error: unknown) => {
+      this.options.logger?.write({
+        level: 'error',
+        event: 'agent.submission.failed',
+        sessionId: context.sessionId,
+        runId: context.runId,
+        fields: { message: toAgentRuntimeError(error).message },
+      })
+    })
+    return { runId: context.runId }
+  }
+
+  /** 原样订阅官方完整状态，配置失败才由宿主补充终态错误。 */
+  private async execute(owned: OwnedSubmission): Promise<void> {
+    const { context } = owned
+    let stop: (() => Promise<void>) | undefined
+    try {
+      stop = await this.options.sessions.watchSession(context.sessionId, (snapshot) =>
+        this.publish({
+          protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+          type: 'session.snapshot',
+          snapshot,
+        }),
+      )
+      if (owned.cancelled) throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.')
+      const plan = await this.options.createPlan(context)
+      if (owned.cancelled) throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.')
+      await owned.driver.run(plan)
+      await this.options.sessions.finishRun(context, { status: 'completed', endedAt: this.now() })
+      this.options.logger?.write({
+        level: 'info',
+        event: 'agent.run.completed',
+        sessionId: context.sessionId,
+        runId: context.runId,
+        durationMs: this.now() - context.startedAt,
+      })
+    } catch (thrown) {
+      const error = toAgentRuntimeError(thrown)
+      await this.options.sessions.finishRun(
+        context,
+        { status: error.code === 'ABORTED' ? 'cancelled' : 'failed', endedAt: this.now() },
+        { error: error.toView() },
+      )
+    } finally {
+      try {
+        await stop?.()
+        const snapshot = await this.openSession(context.sessionId)
+        this.publish({
+          protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+          type: 'session.snapshot',
+          snapshot,
+        })
+      } finally {
+        this.owned.delete(context.runId)
+      }
+    }
   }
 
   async confirmTool(): Promise<void> {
     throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No tool confirmation is pending.')
   }
-
   async undoTurn(): Promise<void> {
-    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No reversible runtime tool result is available.')
+    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No reversible tool result is available.')
   }
 
-  async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    if (!this.provider)
+  async testProvider(input: ProviderTestInput) {
+    const provider = this.options.provider
+    if (!provider)
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
         'No Agent Provider adapter is installed.',
       )
-    await this.emitGlobal({
+    this.publish({
+      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
       type: 'provider.status.changed',
       status: {
         ...(await this.getProviderStatus()),
@@ -180,193 +238,52 @@ export class AgentApplicationService implements AgentApplicationApi {
       },
     })
     try {
-      return await this.provider.test(input)
+      return await provider.test(input)
     } finally {
-      await this.emitGlobal({
-        type: 'provider.status.changed',
-        status: await this.getProviderStatus(),
-      })
+      await this.publishProvider()
     }
   }
 
-  async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    if (!this.provider)
+  async listProviderModels(input: ProviderModelsInput) {
+    const provider = this.options.provider
+    if (!provider)
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
         'No Agent Provider adapter is installed.',
       )
     try {
-      return await this.provider.listModels(input)
+      return await provider.listModels(input)
     } finally {
-      await this.emitGlobal({
-        type: 'provider.status.changed',
-        status: await this.getProviderStatus(),
-      })
+      await this.publishProvider()
     }
   }
 
   async deleteProviderCredential(): Promise<void> {
-    await this.provider?.deleteCredential()
-    await this.emitGlobal({
-      type: 'provider.status.changed',
-      status: await this.getProviderStatus(),
-    })
+    await this.options.provider?.deleteCredential()
+    await this.publishProvider()
   }
 
-  subscribe(listener: (event: AgentUiEvent) => void): () => void {
+  subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void {
     this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
-
-  async interruptOwnedRuns(): Promise<void> {
-    const active = [...this.activeByRun.values()]
-    for (const run of active) run.driver.abort()
-    await Promise.allSettled(active.map((run) => run.promise))
-  }
-
-  private launch(context: RunPersistenceContext): { runId: string } {
-    const driver = this.createDriver()
-    const active: ActiveRun = {
-      context,
-      driver,
-      status: 'running',
-      completedReversibleTool: false,
-      promise: Promise.resolve(),
-    }
-    this.activeByRun.set(context.runId, active)
-    this.activeBySession.set(context.sessionId, context.runId)
-    active.promise = this.execute(active)
-    return { runId: context.runId }
-  }
-
-  private async execute(active: ActiveRun): Promise<void> {
-    const { context } = active
-    const startedAt = context.startedAt
-    try {
-      await this.emitRun(active, {
-        type: 'run.started',
-        startedAt,
-        retryOfRunId: context.retryOfRunId,
-      })
-      if (isCancelling(active)) {
-        throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.', { retryable: true })
-      }
-      if (!context.retryOfRunId)
-        await this.emitRun(active, {
-          type: 'user.message.created',
-          message: {
-            id: context.userEntryId,
-            role: 'user',
-            content: context.prompt,
-            createdAt: startedAt,
-          },
-        })
-      if (isCancelling(active)) {
-        throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.', { retryable: true })
-      }
-      const configuredPlan = await this.createPlan(context)
-      const plan = configuredPlan.transcript
-        ? configuredPlan
-        : { ...configuredPlan, transcript: await this.sessions.getTranscript(context) }
-      const result = await active.driver.run(plan, async (event) => {
-        if (
-          event.type === 'tool.finished' &&
-          event.result.status === 'succeeded' &&
-          event.result.reversible
-        ) {
-          active.completedReversibleTool = true
-        }
-        await this.emitRun(active, event)
-      })
-      await this.sessions.appendAssistantMessage(context, result.text, this.now())
-      const endedAt = this.now()
-      this.publish(
-        await this.sessions.finishRun(
-          context,
-          { status: 'completed', endedAt },
-          { sequence: ++this.sequence, usage: result.usage },
-        ),
-      )
-      this.log('info', 'agent.run.completed', active, { durationMs: endedAt - startedAt })
-    } catch (thrown) {
-      const error = toAgentRuntimeError(thrown)
-      const endedAt = this.now()
-      if (error.code === 'ABORTED') {
-        const partial = active.completedReversibleTool
-        this.publish(
-          await this.sessions.finishRun(
-            context,
-            {
-              status: partial ? 'partial' : 'cancelled',
-              endedAt,
-            },
-            { sequence: ++this.sequence },
-          ),
-        )
-        this.log('info', 'agent.run.cancelled', active, {
-          durationMs: endedAt - startedAt,
-          partial,
-        })
-      } else {
-        this.publish(
-          await this.sessions.finishRun(
-            context,
-            { status: 'failed', endedAt },
-            { sequence: ++this.sequence, error: error.toView() },
-          ),
-        )
-        this.log('error', 'agent.run.failed', active, {
-          durationMs: endedAt - startedAt,
-          code: error.code,
-        })
-      }
-    } finally {
-      this.activeByRun.delete(context.runId)
-      if (this.activeBySession.get(context.sessionId) === context.runId)
-        this.activeBySession.delete(context.sessionId)
+    return () => {
+      this.listeners.delete(listener)
     }
   }
-
-  private async emitRun(active: ActiveRun, event: AgentRunUiEventInput): Promise<void> {
-    const projected = {
-      ...event,
-      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      sequence: ++this.sequence,
-      runId: active.context.runId,
-      sessionId: active.context.sessionId,
-    }
-    const safe = await this.sessions.persistEvent({
-      sessionId: active.context.sessionId,
-      lane: active.context.lane,
-      event: projected,
-    })
-    this.publish(safe)
-  }
-
-  private async emitGlobal(event: GlobalAgentUiEventInput): Promise<void> {
-    this.publish({
-      ...event,
-      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      sequence: ++this.sequence,
-    })
-  }
-
-  private publish(event: AgentUiEvent): void {
+  private publish(event: AgentWorkspaceEvent): void {
     for (const listener of this.listeners) listener(event)
   }
-
-  private log(
-    level: 'info' | 'error',
-    event: string,
-    active: ActiveRun,
-    fields: Record<string, unknown>,
-  ): void {
-    this.logger?.write({
-      level,
-      event,
-      sessionId: active.context.sessionId,
-      runId: active.context.runId,
-      fields,
+  private async publishSessions(): Promise<void> {
+    this.publish({
+      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+      type: 'sessions.changed',
+      sessions: await this.listSessions(),
+    })
+  }
+  private async publishProvider(): Promise<void> {
+    this.publish({
+      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+      type: 'provider.status.changed',
+      status: await this.getProviderStatus(),
     })
   }
 }
