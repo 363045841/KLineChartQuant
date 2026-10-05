@@ -1,7 +1,7 @@
 // 本文件装配浏览器 IndexedDB 文件系统与官方 pi-durable JSONL 存储。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
-import { createSession } from '@earendil-works/pi-durable'
 import { JsonlStorage } from '@earendil-works/pi-durable/storage/jsonl'
+import { openDurableExecution } from './sessions/durable-execution.js'
 import { IndexedDbFileSystem } from './sessions/indexeddb-filesystem.js'
 import {
   RuntimeSessionService,
@@ -55,8 +55,9 @@ export async function createBrowserRuntimeSessions(
   try {
     fs = await IndexedDbFileSystem.open(name)
     const storage = await JsonlStorage.open(BROWSER_SESSION_DIRECTORY, fs, BACKGROUND_CONTEXT)
-    const session = createSession(storage)
-    const sessions = new RuntimeSessionService({ session, redaction: options.redaction })
+    const execution = await openDurableExecution(storage)
+    const session = execution.harness
+    const sessions = new RuntimeSessionService({ session, execution, redaction: options.redaction })
     const filesystem = fs
     return {
       sessions,

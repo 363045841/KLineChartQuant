@@ -27,6 +27,9 @@
         :message="entry.message"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
+        :show-actions="isFinalReply(entry.message)"
+        :regenerate-disabled="isLoading"
+        @regenerate="$emit('retry', entry.message.runId)"
       />
       <template v-else-if="entry.kind === 'tool'">
         <ToolCallCard
@@ -128,7 +131,7 @@
     prompt: [prompt: string]
     confirm: [confirmationId: string, decision: 'confirmed' | 'rejected']
     answer: [questionId: string, answer: QuestionAnswerView]
-    retry: []
+    retry: [runId?: string]
     undo: []
     locate: [toolCallId: string]
   }>()
@@ -160,7 +163,9 @@
       ...props.runs
         .filter(
           (run) =>
-            run.id && (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
+            run.id &&
+            !props.runs.some((replacement) => replacement.retryOfRunId === run.id) &&
+            (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
         )
         .map((run) => ({
           kind: 'run' as const,
@@ -174,6 +179,16 @@
     ['completed', 'failed', 'cancelled', 'partial', 'interrupted'].includes(props.run.status),
   )
   const isLoading = computed(() => !isTerminal.value && props.run.status !== 'idle')
+  /** 仅在已完成运行的最后一条助手回复下显示操作。 */
+  function isFinalReply(message: AgentMessageView): boolean {
+    if (message.role !== 'assistant' || message.status !== 'complete' || !message.runId)
+      return false
+    const run = props.runs.find((item) => item.id === message.runId)
+    if (run?.status !== 'completed') return false
+    return !props.messages
+      .slice(props.messages.indexOf(message) + 1)
+      .some((item) => item.role === 'assistant' && item.runId === message.runId)
+  }
   /** 返回单轮模型输入与输出的累计 token。 */
   function turnTokens(run: AgentRunView): number {
     return (run.usage?.inputTokens ?? 0) + (run.usage?.outputTokens ?? 0)

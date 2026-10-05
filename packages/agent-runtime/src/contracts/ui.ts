@@ -52,6 +52,8 @@ export interface EvidenceView {
 
 export interface AgentMessageView {
   id: string
+  /** 消息所属运行，供历史回复的重新生成操作使用。 */
+  runId?: string
   role: 'user' | 'assistant' | 'action' | 'reasoning'
   content: string
   createdAt: number
@@ -324,6 +326,7 @@ export interface AgentSessionView {
 }
 
 export interface AgentRunView {
+  retryOfRunId?: string
   id: string | null
   sessionId: string | null
   status: AgentRunStatus
@@ -345,7 +348,7 @@ interface RunEventEnvelope extends EventEnvelope {
 }
 
 export type AgentUiEvent =
-  | (RunEventEnvelope & { type: 'run.started'; startedAt: number })
+  | (RunEventEnvelope & { type: 'run.started'; startedAt: number; retryOfRunId?: string })
   | (RunEventEnvelope & { type: 'run.cancelling' })
   | (RunEventEnvelope & { type: 'run.cancelled'; partial: boolean; endedAt: number })
   | (RunEventEnvelope & { type: 'run.completed'; endedAt: number; usage?: AgentUsageView })

@@ -76,6 +76,9 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
 
 /** Pi 单次 Agent 运行所需的完整不可变计划。 */
 export interface PiRunPlan {
+  /** 官方 Harness 使用的 Provider 集合与流选项。 */
+  models?: import('@earendil-works/pi-ai').Models
+  streamOptions?: import('@earendil-works/pi-ai').ModelsSimpleStreamOptions
   /** 所属 Agent 会话 ID。 */
   sessionId: string
   /** 本次运行 ID。 */

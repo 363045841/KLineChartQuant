@@ -1,8 +1,8 @@
 // 本文件创建官方 pi-durable SQLite 存储及应用会话服务。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
-import { createSession } from '@earendil-works/pi-durable'
 import type { SqliteStorage } from '@earendil-works/pi-durable/storage/sqlite'
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node'
+import { openDurableExecution } from './sessions/durable-execution.js'
 import {
   RuntimeSessionService,
   type RuntimeSessionServiceOptions,
@@ -26,9 +26,11 @@ export async function createNodeRuntimeSessions(
   options: NodeRuntimeSessionOptions,
 ): Promise<NodeRuntimeSessions> {
   const storage = await openNodeSqliteStorage(options.databasePath)
-  const session = createSession(storage)
+  const execution = await openDurableExecution(storage)
+  const session = execution.harness
   const sessions = new RuntimeSessionService({
     session,
+    execution,
     now: options.now,
     id: options.id,
     redaction: options.redaction,

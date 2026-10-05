@@ -12,6 +12,7 @@ import {
   type AgentUiEvent,
   type AgentUsageView,
 } from '../contracts/ui.js'
+import { type DurableExecution, DurableRunDriver } from '../pi/impl/durable-run-driver.js'
 import { type RedactionOptions, redactString } from '../security/redaction.js'
 import {
   SESSION_ENTRY,
@@ -35,6 +36,7 @@ import {
 } from './types.js'
 
 export interface RuntimeSessionServiceOptions {
+  execution?: DurableExecution
   /** 宿主持有底层 Session，负责关闭存储；服务只管理应用会话。 */
   session: Session
   now?: () => number
@@ -118,6 +120,7 @@ function isContextItem(value: unknown): value is { kind: string; value: JsonValu
 
 /** 应用会话由主 Conversation 标识，重试使用官方历史 fork。 */
 export class RuntimeSessionService {
+  private readonly execution?: DurableExecution
   private readonly session: Session
   private readonly context: Context
   private readonly now: () => number
@@ -127,12 +130,27 @@ export class RuntimeSessionService {
 
   /** 接收宿主 Session 与时间、脱敏依赖。 */
   constructor(options: RuntimeSessionServiceOptions) {
+    this.execution = options.execution
     this.session = options.session
     this.context = options.context ?? BACKGROUND_CONTEXT
     this.now = options.now ?? Date.now
     this.id = options.id ?? (() => globalThis.crypto.randomUUID())
     this.defaultTitle = options.defaultTitle ?? 'New analysis'
     this.redaction = options.redaction ?? {}
+  }
+
+  /** 创建官方 Harness 的 UI 适配器。 */
+  createDriver() {
+    const execution = this.execution
+    if (!execution)
+      throw new AgentRuntimeError('INTERNAL_ERROR', 'The host must provide a Pi Harness.')
+    return new DurableRunDriver(execution, async (plan) => {
+      const lane = await this.requireLane(plan.sessionId)
+      const conversation = await execution.harness.conversation(lane.conversationId, this.context)
+      if (!conversation)
+        throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The current Conversation is missing.')
+      return conversation
+    })
   }
 
   /** 原子创建主 Conversation、身份文档和元数据。 */
@@ -164,7 +182,7 @@ export class RuntimeSessionService {
 
   /** 从去重后的分支事件重建 UI 快照。 */
   async open(sessionId: string): Promise<AgentSessionSnapshot> {
-    const main = await this.requireLane(sessionId)
+    const main = await this.requireLane(sessionId, SESSION_LANE.main)
     const events: AgentUiEvent[] = []
     for (const entry of await this.sessionEntries(sessionId)) {
       if (entry.kind !== KQ_CUSTOM_ENTRY.event) continue
@@ -177,9 +195,9 @@ export class RuntimeSessionService {
     return replaySnapshot(await this.view(main), events)
   }
 
-  /** 原子更新会话标题与更新时间。 */
+  /** 原子更新主会话标题与更新时间。 */
   async rename(sessionId: string, title: string): Promise<void> {
-    const main = await this.requireLane(sessionId)
+    const main = await this.requireLane(sessionId, SESSION_LANE.main)
     await this.session.commit(async (tx) => {
       const identity = await tx.doc(SessionIdentityDoc, main.conversationId)
       identity.title = title.trim()
@@ -201,7 +219,7 @@ export class RuntimeSessionService {
   async beginRun(input: BeginRunInput): Promise<RunPersistenceContext> {
     const main = await this.requireLane(input.sessionId)
     return this.session.commit(
-      (tx) => this.start(tx, main.conversationId, SESSION_LANE.main, input),
+      (tx) => this.start(tx, main.conversationId, main.lane, input),
       this.context,
     )
   }
@@ -221,26 +239,53 @@ export class RuntimeSessionService {
     if (!boundary || boundary.kind !== SESSION_ENTRY.boundary)
       throw new AgentRuntimeError('SESSION_CORRUPT', 'The retry source boundary is missing.')
     const lane = `${SESSION_LANE.retryPrefix}${input.runId}`
-    return this.session.commit(async (tx) => {
-      const fork = await tx.forkConversation(source.conversationId, boundary.id, {
-        ownership: { kind: 'ownerless' },
-      })
-      Object.assign(await tx.doc(SessionIdentityDoc, fork.id), {
+    const initializeFork = async (tx: Tx, conversationId: ConversationId) => {
+      Object.assign(await tx.doc(SessionIdentityDoc, conversationId), {
         sessionId: input.sessionId,
         lane,
         title: source.title,
       })
       return this.start(
         tx,
-        fork.id,
+        conversationId,
         lane,
         { ...original, ...input, prompt: original.prompt, readOnly: original.readOnly },
         input.originalRunId,
       )
+    }
+    if (this.execution) {
+      const conversation = await this.execution.harness.conversation(
+        source.conversationId,
+        this.context,
+      )
+      if (!conversation)
+        throw new AgentRuntimeError(
+          'SESSION_NOT_FOUND',
+          'The retry source Conversation is missing.',
+        )
+      let record: RunPersistenceContext | undefined
+      await conversation.fork(
+        boundary.id,
+        {
+          ownership: { kind: 'ownerless' },
+          init: async (tx, id) => {
+            record = await initializeFork(tx, id)
+          },
+        },
+        this.context,
+      )
+      if (!record) throw new AgentRuntimeError('INTERNAL_ERROR', 'Pi did not initialize the fork.')
+      return record
+    }
+    return this.session.commit(async (tx) => {
+      const fork = await tx.forkConversation(source.conversationId, boundary.id, {
+        ownership: { kind: 'ownerless' },
+      })
+      return initializeFork(tx, fork.id)
     }, this.context)
   }
 
-  /** 写入脱敏事件，成功提交后才返回给广播方。 */
+  /** 保存 UI 投影事件，成功提交后才返回给广播方。 */
   async persistEvent(input: PersistEventInput): Promise<AgentUiEvent> {
     const lane = await this.requireLane(input.sessionId, input.lane)
     const event = decodeAgentUiEvent({ ...input.event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
@@ -261,6 +306,7 @@ export class RuntimeSessionService {
     content: string,
     timestamp: number,
   ): Promise<void> {
+    if (this.execution) return
     const lane = await this.requireLane(context.sessionId, context.lane)
     await this.session.commit(
       (tx) =>
@@ -297,7 +343,7 @@ export class RuntimeSessionService {
     details: { sequence?: number; usage?: AgentUsageView; error?: AgentErrorView } = {},
   ): Promise<AgentUiEvent> {
     const lane = await this.requireLane(context.sessionId, context.lane)
-    const main = await this.requireLane(context.sessionId)
+    const main = await this.requireLane(context.sessionId, SESSION_LANE.main)
     const envelope = {
       protocolVersion: AGENT_UI_PROTOCOL_VERSION,
       runId: context.runId,
@@ -339,6 +385,14 @@ export class RuntimeSessionService {
 
   /** 将宿主退出时未结算的运行标记中断，终态与回放事件在同一事务提交。 */
   async recoverInterrupted(): Promise<string[]> {
+    // 宿主重启不自动重放图表副作用，先通过官方取消协议结算残留任务。
+    if (this.execution) {
+      const inspection = await this.execution.harness.inspect(this.context)
+      const conversations = new Set(inspection.tasks.map((task) => task.record.conversationId))
+      for (const id of conversations) {
+        await (await this.execution.harness.conversation(id, this.context))?.abort(this.context)
+      }
+    }
     const interrupted: string[] = []
     for (const view of await this.list()) {
       const entries = await this.sessionEntries(view.id)
@@ -378,6 +432,15 @@ export class RuntimeSessionService {
   /** 读取当前分支的继承历史，排除本次用户输入。 */
   async getTranscript(context: RunPersistenceContext): Promise<AgentMessage[]> {
     const lane = await this.requireLane(context.sessionId, context.lane)
+    if (this.execution) {
+      const conversation = await this.execution.harness.conversation(
+        lane.conversationId,
+        this.context,
+      )
+      if (!conversation)
+        throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Conversation is missing.')
+      return [...(await conversation.context(this.context)).messages]
+    }
     return (await this.entries(lane.conversationId)).flatMap((entry) =>
       String(entry.id) === context.userEntryId ? [] : [...(entry.model ?? [])],
     )
@@ -402,18 +465,28 @@ export class RuntimeSessionService {
   }
 
   /** 查找有效应用会话与分支，删除后不允许继续写入。 */
-  private async requireLane(
-    sessionId: string,
-    lane: string = SESSION_LANE.main,
-  ): Promise<SessionLane> {
+  private async requireLane(sessionId: string, lane?: string): Promise<SessionLane> {
     const lanes = await this.lanes()
     const main = lanes.find(
       (item) => item.sessionId === sessionId && item.lane === SESSION_LANE.main && !item.deleted,
     )
+    if (!main)
+      throw new AgentRuntimeError(
+        'SESSION_NOT_FOUND',
+        'The requested Agent session does not exist.',
+      )
+    // 当前分支由最后提交的运行起点决定，未开始运行的会话使用主分支。
+    const latestRun =
+      lane === undefined
+        ? (await this.sessionEntries(sessionId))
+            .reverse()
+            .find((entry) => entry.kind === KQ_CUSTOM_ENTRY.runStarted)
+        : undefined
+    const selectedLane = lane ?? (latestRun ? runStart(latestRun).lane : SESSION_LANE.main)
     const found = lanes.find(
-      (item) => item.sessionId === sessionId && item.lane === lane && !item.deleted,
+      (item) => item.sessionId === sessionId && item.lane === selectedLane && !item.deleted,
     )
-    if (!main || !found)
+    if (!found)
       throw new AgentRuntimeError(
         'SESSION_NOT_FOUND',
         'The requested Agent session does not exist.',
@@ -488,7 +561,9 @@ export class RuntimeSessionService {
     await tx.appendEntry(conversationId, { kind: SESSION_ENTRY.boundary })
     const user = await tx.appendEntry(conversationId, {
       kind: SESSION_ENTRY.message,
-      model: [{ role: 'user', content: prompt, timestamp: input.startedAt }],
+      ...(this.execution
+        ? {}
+        : { model: [{ role: 'user' as const, content: prompt, timestamp: input.startedAt }] }),
     })
     const record: RunPersistenceContext = {
       sessionId: input.sessionId,

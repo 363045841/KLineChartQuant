@@ -19,7 +19,12 @@ export const SessionIdentityDoc = defineDoc({
   history: 'latest',
   fork: 'initial',
   // 每条 Conversation 显式记录所属应用会话与运行分支。
-  initial: (): SessionIdentity => ({ sessionId: '', lane: '', title: '', deleted: false }),
+  initial: (): SessionIdentity => ({
+    sessionId: '',
+    lane: '',
+    title: '',
+    deleted: false,
+  }),
 })
 
 export interface SessionLane {

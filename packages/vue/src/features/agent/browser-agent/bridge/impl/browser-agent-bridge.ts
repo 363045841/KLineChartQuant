@@ -13,7 +13,6 @@ import {
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
-  PiRunDriver,
   PROVIDER_SETTINGS_VERSION,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
@@ -608,7 +607,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.durable = durable
     const runtime = new AgentApplicationService({
       sessions: durable.sessions,
-      createDriver: () => new PiRunDriver({ redaction }),
       createPlan: (context) => this.support.createPlan(context),
       provider: this.support.provider,
     })

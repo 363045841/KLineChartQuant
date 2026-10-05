@@ -1,7 +1,8 @@
 // 本文件为测试提供官方 MemoryStorage 装配，不模拟 Pi 的持久化行为。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
-import { createSession, MemoryStorage } from '@earendil-works/pi-durable'
+import { MemoryStorage } from '@earendil-works/pi-durable'
 import type { BrowserRuntimeSessions } from '../browser.js'
+import { openDurableExecution } from '../sessions/durable-execution.js'
 import {
   RuntimeSessionService,
   type RuntimeSessionServiceOptions,
@@ -11,9 +12,10 @@ import {
 export async function createMemoryRuntimeSessions(
   redaction?: RuntimeSessionServiceOptions['redaction'],
 ): Promise<BrowserRuntimeSessions> {
-  const session = createSession(new MemoryStorage())
+  const execution = await openDurableExecution(new MemoryStorage())
+  const session = execution.harness
   return {
-    sessions: new RuntimeSessionService({ session, redaction }),
+    sessions: new RuntimeSessionService({ session, execution, redaction }),
     close: () => session.close(BACKGROUND_CONTEXT),
   }
 }

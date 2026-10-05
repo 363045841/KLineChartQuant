@@ -1,5 +1,6 @@
 // 将回放与实时 Agent 事件投影为唯一的 Renderer 视图状态。
 
+import { projectReply } from '@363045841yyt/klinechart-agent-runtime'
 import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentMessageView,
@@ -89,6 +90,7 @@ function reduceCurrentAgentUiEvent(
         sessionId: event.sessionId,
         status: 'running',
         startedAt: event.startedAt,
+        retryOfRunId: event.retryOfRunId,
       },
       previousRuns: archiveRun(state),
       error: null,
@@ -107,16 +109,18 @@ function reduceCurrentAgentUiEvent(
     case 'assistant.message.started':
       return {
         ...state,
-        messages: [
-          ...state.messages,
+        messages: projectReply(
+          state.messages,
           {
             id: event.messageId,
+            runId: event.runId,
             role: 'assistant',
             content: '',
             createdAt: event.createdAt,
             status: 'streaming',
           },
-        ],
+          state.run.retryOfRunId,
+        ),
       }
 
     case 'assistant.text.delta':

@@ -165,8 +165,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (state.value.run.id) await bridge.cancelRun(state.value.run.id)
   }
 
-  async function retry(): Promise<void> {
-    if (state.value.run.id) await bridge.retryRun(state.value.run.id)
+  async function retry(runId = state.value.run.id): Promise<void> {
+    if (runId && !isRunning.value) await bridge.retryRun(runId)
   }
 
   async function confirmTool(

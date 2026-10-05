@@ -186,14 +186,7 @@
     overflow: hidden;
     color: var(--agent-text);
     background: var(--agent-bg);
-    font-family:
-      Inter,
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      sans-serif;
+    font-family: var(--klc-typography-font-family);
     letter-spacing: 0;
   }
 

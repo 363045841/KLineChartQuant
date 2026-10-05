@@ -848,11 +848,7 @@
     border-radius: 4px;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-input);
-    font:
-      11px/1.4 ui-monospace,
-      SFMono-Regular,
-      Consolas,
-      monospace;
+    font: 11px/1.4 var(--klc-typography-font-family-mono);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -961,7 +957,7 @@
     min-height: 76px;
     padding: 8px 10px;
     resize: vertical;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--klc-typography-font-family-mono);
     line-height: 1.4;
   }
 

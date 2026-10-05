@@ -37,6 +37,15 @@
       @click="openCitation"
     />
     <p v-else-if="message.role !== 'reasoning'" class="message__content">{{ message.content }}</p>
+    <div v-if="showActions" class="message__actions">
+      <button type="button" @click="copy">
+        <IconCopy aria-hidden="true" />
+        {{ copyStatus === 'copied' ? text.copiedMessage : copyStatus === 'failed' ? text.copyFailed : text.copyMessage }}
+      </button>
+      <button type="button" :disabled="regenerateDisabled" @click="$emit('regenerate')">
+        <IconRefresh aria-hidden="true" />{{ text.regenerate }}
+      </button>
+    </div>
   </article>
 </template>
 
@@ -44,18 +53,25 @@
   import { computed } from 'vue'
   import IconActivity from '~icons/tabler/activity'
   import IconBrain from '~icons/tabler/brain'
+  import IconCopy from '~icons/tabler/copy'
   import IconLoader2 from '~icons/tabler/loader-2'
+  import IconRefresh from '~icons/tabler/refresh'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconUser from '~icons/tabler/user'
   import type { AgentMessageView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import { renderAgentMarkdown } from '../render-agent-markdown.js'
+  import { useMessageCopy } from './use-message-copy.js'
 
   const props = defineProps<{
     message: AgentMessageView
     collapseReasoning: boolean
     locale: AgentLocale
+    showActions?: boolean
+    regenerateDisabled?: boolean
   }>()
+  defineEmits<{ regenerate: [] }>()
+  const { status: copyStatus, copy } = useMessageCopy(() => props.message.content)
   const text = computed(() => getAgentCopy(props.locale))
   const html = computed(() => renderAgentMarkdown(props.message.content, props.message.citations))
   // 启用折叠后思考过程默认收起；否则流式输出期间默认展开。
@@ -83,6 +99,24 @@
 </script>
 
 <style scoped>
+  .message__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .message__actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    padding: 4px;
+    background: transparent;
+    color: var(--agent-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .message__actions button:hover { color: var(--agent-text); }
+  .message__actions button:disabled { opacity: 0.5; cursor: not-allowed; }
   .message {
     min-width: 0;
     color: var(--agent-text);
@@ -243,7 +277,7 @@
     padding: 1px 4px;
     border-radius: 3px;
     background: var(--agent-card);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--klc-typography-font-family-mono);
     font-size: 0.92em;
   }
 

@@ -1,6 +1,8 @@
 // 本文件验证官方 JSONL 存储通过 IndexedDB 在关闭与重开后恢复历史。
 import 'fake-indexeddb/auto'
+import { createModels, fauxAssistantMessage, fauxProvider } from '@earendil-works/pi-ai'
 import { afterEach, describe, expect, it } from 'vitest'
+import { AgentApplicationService } from '../application/agent-application-service'
 import { type BrowserRuntimeSessions, createBrowserRuntimeSessions } from '../browser'
 import { AGENT_UI_PROTOCOL_VERSION } from '../contracts/ui'
 
@@ -37,7 +39,21 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
         readOnly: true,
         startedAt: 1,
       })
-      await runtime.sessions.appendAssistantMessage(first, 'First response', 2)
+      const faux = fauxProvider()
+      faux.setResponses([fauxAssistantMessage('First response')])
+      const models = createModels()
+      models.setProvider(faux.provider)
+      await runtime.sessions.createDriver().run(
+        {
+          ...first,
+          models,
+          model: faux.getModel(),
+          streamFn: models.streamSimple.bind(models),
+          scope: { symbol: null, period: null, readOnly: true },
+          tools: [],
+        },
+        () => {},
+      )
       await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 3 })
       const second = await runtime.sessions.beginRun({
         sessionId: session.id,
@@ -67,7 +83,11 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
         expect.objectContaining({ id: session.id, title: 'Browser history' }),
       ])
       const restored = await runtime.sessions.findRun(second.runId)
-      expect(await runtime.sessions.getTranscript(restored)).toEqual([
+      expect(
+        (await runtime.sessions.getTranscript(restored)).filter(
+          (message) => message.role !== 'system',
+        ),
+      ).toEqual([
         expect.objectContaining({ role: 'user', content: '[REDACTED]' }),
         expect.objectContaining({
           role: 'assistant',
@@ -87,11 +107,48 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
       )
       expect(await runtime.sessions.recoverInterrupted()).toEqual(['second', 'retry'])
       expect(await runtime.sessions.recoverInterrupted()).toEqual([])
+      await runtime.sessions.rename(session.id, 'Renamed after retry')
+      await runtime.close()
+      opened.pop()
+      runtime = await open(name)
+      const app = new AgentApplicationService({ sessions: runtime.sessions })
+      expect(await app.initialize()).toEqual([])
+      expect((await app.openSession(session.id)).session.title).toBe('Renamed after retry')
+      const next = await runtime.sessions.beginRun({
+        sessionId: session.id,
+        runId: 'after-reload',
+        turnId: 'after-reload-turn',
+        prompt: 'Continue on the retry branch',
+        readOnly: true,
+        startedAt: 6,
+      })
+      expect(next.lane).toBe(retry.lane)
       await runtime.sessions.delete(session.id)
       await runtime.close()
       opened.pop()
       runtime = await open(name)
       expect(await runtime.sessions.list()).toEqual([])
+    })
+
+    it('initializes an existing session without runs after reopening IndexedDB', async () => {
+      const name = `durable-empty-${globalThis.crypto.randomUUID()}`
+      let runtime = await open(name)
+      const session = await runtime.sessions.create('Existing session')
+      await runtime.close()
+      opened.pop()
+      runtime = await open(name)
+      const app = new AgentApplicationService({ sessions: runtime.sessions })
+      expect(await app.initialize()).toEqual([])
+      expect((await app.openSession(session.id)).session).toEqual(session)
+      const run = await runtime.sessions.beginRun({
+        sessionId: session.id,
+        runId: 'first-after-reload',
+        turnId: 'first-after-reload-turn',
+        prompt: 'First question',
+        readOnly: true,
+        startedAt: 1,
+      })
+      expect(run.lane).toBe('main')
     })
 
     it('rejects a second writer and releases the lock on close', async () => {

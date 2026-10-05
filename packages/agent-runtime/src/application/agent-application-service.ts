@@ -10,7 +10,6 @@ import {
   type ProviderTestResult,
   type StartRunInput,
 } from '../contracts/ui.js'
-import { PiRunDriver } from '../pi/impl/pi-run-driver.js'
 import type { RunPersistenceContext } from '../sessions/types.js'
 import type { AgentApplicationApi, AgentApplicationServiceOptions, RunDriver } from './types.js'
 
@@ -58,7 +57,7 @@ export class AgentApplicationService implements AgentApplicationApi {
 
   constructor(options: AgentApplicationServiceOptions) {
     this.sessions = options.sessions
-    this.createDriver = options.createDriver ?? (() => new PiRunDriver())
+    this.createDriver = options.createDriver ?? (() => options.sessions.createDriver())
     this.createPlan = options.createPlan
     this.provider = options.provider
     this.now = options.now ?? Date.now
@@ -244,19 +243,24 @@ export class AgentApplicationService implements AgentApplicationApi {
     const { context } = active
     const startedAt = context.startedAt
     try {
-      await this.emitRun(active, { type: 'run.started', startedAt })
+      await this.emitRun(active, {
+        type: 'run.started',
+        startedAt,
+        retryOfRunId: context.retryOfRunId,
+      })
       if (isCancelling(active)) {
         throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.', { retryable: true })
       }
-      await this.emitRun(active, {
-        type: 'user.message.created',
-        message: {
-          id: context.userEntryId,
-          role: 'user',
-          content: context.prompt,
-          createdAt: startedAt,
-        },
-      })
+      if (!context.retryOfRunId)
+        await this.emitRun(active, {
+          type: 'user.message.created',
+          message: {
+            id: context.userEntryId,
+            role: 'user',
+            content: context.prompt,
+            createdAt: startedAt,
+          },
+        })
       if (isCancelling(active)) {
         throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.', { retryable: true })
       }

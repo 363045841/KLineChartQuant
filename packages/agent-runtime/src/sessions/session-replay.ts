@@ -1,5 +1,6 @@
 // 本文件把持久化 UI 事件投影为会话快照。
 import type { AgentSessionSnapshot, AgentSessionView, AgentUiEvent } from '../contracts/ui.js'
+import { projectReply } from './reply-projection.js'
 
 /** 按事件顺序重建消息、工具和运行状态。 */
 export function replaySnapshot(
@@ -20,7 +21,12 @@ export function replaySnapshot(
       }
       switch (event.type) {
         case 'run.started':
-          runs.set(event.runId, { ...previous, status: 'running', startedAt: event.startedAt })
+          runs.set(event.runId, {
+            ...previous,
+            status: 'running',
+            startedAt: event.startedAt,
+            retryOfRunId: event.retryOfRunId,
+          })
           break
         case 'run.cancelling':
           runs.set(event.runId, { ...previous, status: 'cancelling' })
@@ -61,13 +67,20 @@ export function replaySnapshot(
     if (event.type === 'user.message.created' || event.type === 'action.summary')
       messages.set(event.message.id, event.message)
     if (event.type === 'assistant.message.started' || event.type === 'assistant.thinking.started') {
-      messages.set(event.messageId, {
-        id: event.messageId,
-        role: event.type === 'assistant.thinking.started' ? 'reasoning' : 'assistant',
-        content: '',
-        createdAt: event.createdAt,
-        status: 'streaming',
-      })
+      const next = projectReply(
+        [...messages.values()],
+        {
+          id: event.messageId,
+          runId: event.runId,
+          role: event.type === 'assistant.thinking.started' ? 'reasoning' : 'assistant',
+          content: '',
+          createdAt: event.createdAt,
+          status: 'streaming',
+        },
+        runs.get(event.runId)?.retryOfRunId,
+      )
+      messages.clear()
+      for (const message of next) messages.set(message.id, message)
     }
     if (event.type === 'assistant.text.delta' || event.type === 'assistant.thinking.delta') {
       const message = messages.get(event.messageId)

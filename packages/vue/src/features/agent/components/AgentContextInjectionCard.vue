@@ -104,7 +104,7 @@
     border-radius: 3px;
     color: var(--agent-text-soft);
     background: var(--agent-input);
-    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-family: var(--klc-typography-font-family-mono);
     font-size: 10px;
     line-height: 1.45;
     overflow-wrap: anywhere;
