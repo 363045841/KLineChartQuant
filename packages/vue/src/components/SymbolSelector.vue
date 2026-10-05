@@ -85,7 +85,7 @@
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
-              <span class="symbol-list__exchange" :style="{ fontFamily: `var(--klc-typography-font-family-mono, ${typography.fontFamilyMono})` }">{{ formatSymbolMeta(item) }}</span>
+              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
             </button>
             <button
               v-if="!watchlistKeys.has(symbolIdentityKey(item))"
@@ -122,11 +122,10 @@
     useSymbolSearch,
   } from '../composables/useSymbolSearch.js'
   import BaseTabs from './BaseTabs.vue'
-  import LoadingSpinner from './LoadingSpinner.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
   import '@fontsource/jetbrains-mono/400.css'
-  import { typography } from '../../../core/src/foundation/tokens/theme-base.js'
 
   export type SymbolItem = SearchableSymbol
 
@@ -412,6 +411,7 @@
     border-radius: 6px;
     background: var(--klc-color-ui-control-background);
     color: var(--klc-color-ui-muted);
+    font-family: var(--klc-typography-font-family-mono);
     font-size: 11px;
     font-weight: 400;
     line-height: 1.4;
