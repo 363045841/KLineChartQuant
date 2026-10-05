@@ -4,7 +4,6 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-
 import type { NodeRuntimeSessions } from '../node'
 
 const [major = 0, minor = 0] = process.versions.node.split('.').map(Number)
@@ -40,7 +39,8 @@ describeSqlite('Node SQLite runtime sessions', () => {
       startedAt: 1_000,
     })
     await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 1_100 })
-    const retry = await runtime.sessions.retryRun({
+    const retry = await runtime.sessions.forkRun({
+      kind: 'retry',
       sessionId: session.id,
       originalRunId: first.runId,
       runId: 'run-2',
@@ -57,7 +57,9 @@ describeSqlite('Node SQLite runtime sessions', () => {
     ])
     expect((await runtime.sessions.findRun('run-2')).retryOfRunId).toBe('run-1')
     expect((await runtime.sessions.findRun('run-2')).context).toEqual(first.context)
-    expect((await runtime.sessions.open(session.id)).runs[0]?.status).toBe('completed')
+    expect((await runtime.sessions.open(session.id)).runs).toEqual([
+      expect.objectContaining({ id: 'run-2', status: 'cancelled' }),
+    ])
 
     await runtime.sessions.delete(session.id)
     await runtime.close()

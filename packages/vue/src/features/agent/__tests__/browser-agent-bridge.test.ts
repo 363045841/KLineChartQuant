@@ -441,7 +441,17 @@ describe('BrowserAgentBridge', () => {
     expect(retry.runId).not.toBe(first.runId)
     await waitForTerminal(retry.runId)
     const snapshot = await bridge.openSession(session!.id)
-    expect(snapshot.runs.map((run) => run.id)).toEqual([first.runId, retry.runId])
+    expect(snapshot.runs.map((run) => run.id)).toEqual([retry.runId])
+    expect(snapshot.messages).toEqual([
+      expect.objectContaining({ role: 'user', content: '分析 RSI', runId: retry.runId }),
+    ])
+    const edited = await bridge.editMessage(retry.runId, '分析 EMA')
+    await waitForTerminal(edited.runId)
+    const branch = await bridge.openSession(session!.id)
+    expect(branch.messages).toEqual([
+      expect.objectContaining({ role: 'user', content: '分析 EMA', runId: edited.runId }),
+    ])
+    expect(branch.runs[0]).toMatchObject({ editOfRunId: retry.runId })
   })
 
   it('includes completed turns in the next Provider request', async () => {
@@ -472,19 +482,28 @@ describe('BrowserAgentBridge', () => {
     await bridge.setProviderModel('chart-model')
     const [session] = await bridge.listSessions()
 
-    const waitForCompletion = () =>
+    const waitForCompletion = (prompt: string) =>
       new Promise<void>((resolve) => {
         const unsubscribe = bridge.subscribe((event) => {
-          if (event.type !== 'session.snapshot' || event.snapshot.runs.at(-1)?.status !== 'completed') return
+          if (
+            event.type !== 'session.snapshot' ||
+            event.snapshot.runs.at(-1)?.status !== 'completed'
+          )
+            return
+          if (
+            event.snapshot.messages.filter((message) => message.role === 'user').at(-1)?.content !==
+            prompt
+          )
+            return
           unsubscribe()
           resolve()
         })
       })
 
-    const firstCompleted = waitForCompletion()
+    const firstCompleted = waitForCompletion('第一轮问题')
     await bridge.startRun({ sessionId: session!.id, prompt: '第一轮问题', readOnly: true })
     await firstCompleted
-    const secondCompleted = waitForCompletion()
+    const secondCompleted = waitForCompletion('你刚刚说了什么')
     await bridge.startRun({ sessionId: session!.id, prompt: '你刚刚说了什么', readOnly: true })
     await secondCompleted
 

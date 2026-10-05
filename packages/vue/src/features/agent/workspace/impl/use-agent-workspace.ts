@@ -9,6 +9,7 @@ import type {
   ProviderReasoningEffort,
   QuestionAnswerView,
 } from '../../agent-contracts.js'
+import { getAgentCopy } from '../../agent-copy.js'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
@@ -27,6 +28,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   // UI 与模型请求共享 Bridge 从 Core 投影的同一份上下文项。
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
+  const submitting = ref(false)
   const readOnly = ref(preferences.readOnly)
   const collapseReasoning = ref(preferences.collapseReasoning)
   const models = shallowRef<readonly ProviderModelView[]>([])
@@ -40,7 +42,9 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   let snapshotDelivery = 0
   let modelLoadGeneration = 0
 
-  const isRunning = computed(() => ['running', 'cancelling'].includes(state.value.run.status))
+  const isRunning = computed(
+    () => submitting.value || ['running', 'cancelling'].includes(state.value.run.status),
+  )
   const providerReady = computed(
     () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
   )
@@ -163,11 +167,13 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       await openSession(sessionId)
     }
     draft.value = ''
-    await bridge.startRun({
-      sessionId,
-      prompt,
-      readOnly: readOnly.value,
-    })
+    await submitRun(() =>
+      bridge.startRun({
+        sessionId,
+        prompt,
+        readOnly: readOnly.value,
+      }),
+    )
   }
 
   async function stop(): Promise<void> {
@@ -175,7 +181,25 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   async function retry(runId = state.value.run.id): Promise<void> {
-    if (runId && !isRunning.value) await bridge.retryRun(runId)
+    if (runId && !isRunning.value) await submitRun(() => bridge.retryRun(runId))
+  }
+
+  /** 编辑仅接受当前可见用户消息的运行，避免陈旧草稿提交到其他会话。 */
+  async function editMessage(runId: string, prompt: string): Promise<void> {
+    if (isRunning.value) throw new Error(getAgentCopy(locale.value).editBusy)
+    if (!state.value.messages.some((message) => message.role === 'user' && message.runId === runId))
+      throw new Error(getAgentCopy(locale.value).editUnavailable)
+    await submitRun(() => bridge.editMessage(runId, prompt))
+  }
+
+  /** 在官方运行快照到达前锁住提交入口，消除准备阶段的重复点击窗口。 */
+  async function submitRun(action: () => Promise<{ runId: string }>): Promise<void> {
+    submitting.value = true
+    try {
+      await action()
+    } finally {
+      submitting.value = false
+    }
   }
 
   async function confirmTool(
@@ -265,6 +289,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     send,
     stop,
     retry,
+    editMessage,
     confirmTool,
     answerQuestion,
     undoTurn,

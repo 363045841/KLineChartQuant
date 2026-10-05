@@ -327,6 +327,8 @@ export interface AgentSessionView {
 
 export interface AgentRunView {
   retryOfRunId?: string
+  /** 该运行替换的历史用户输入所属运行。 */
+  editOfRunId?: string
   id: string | null
   sessionId: string | null
   status: AgentRunStatus
@@ -494,6 +496,8 @@ export interface AgentBridgeClient {
   startRun(input: StartRunInput): Promise<{ runId: string }>
   cancelRun(runId: string): Promise<void>
   retryRun(runId: string): Promise<{ runId: string }>
+  /** 编辑指定运行的用户输入，并从该输入之前创建分支。 */
+  editMessage(runId: string, prompt: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void>
   undoTurn(runId: string): Promise<void>

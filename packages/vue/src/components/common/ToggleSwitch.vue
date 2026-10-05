@@ -65,7 +65,7 @@
     width: 100%;
     height: 100%;
     border-radius: 10px;
-    background: var(--klc-color-border-button);
+      background: var(--toggle-switch-track-background, var(--klc-color-border-button));
     transition: background 0.15s ease;
   }
 
@@ -76,7 +76,7 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--klc-color-background);
+      background: var(--toggle-switch-thumb-background, var(--klc-color-background));
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     transition: transform 0.15s ease;
   }
@@ -89,7 +89,7 @@
   }
 
   .toggle-switch input:checked + .toggle-switch__track {
-    background: var(--klc-color-ui-accent);
+      background: var(--toggle-switch-active-background, var(--klc-color-ui-accent));
   }
 
   .toggle-switch input:checked + .toggle-switch__track .toggle-switch__thumb {
@@ -101,7 +101,7 @@
   }
 
   .toggle-switch input:focus-visible + .toggle-switch__track {
-    outline: 2px solid var(--klc-color-axis-text);
+      outline: 2px solid var(--toggle-switch-focus-color, var(--klc-color-axis-text));
     outline-offset: 2px;
   }
 </style>

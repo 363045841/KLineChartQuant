@@ -478,6 +478,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return (await this.runtime()).retryRun(runId)
   }
 
+  /** 沿历史输入的 Fork 运行修改后的正文，保留该轮冻结的图表上下文。 */
+  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
+    await this.refreshRedaction()
+    return (await this.runtime()).editMessage(runId, prompt)
+  }
+
   async confirmTool(): Promise<void> {
     throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No tool confirmation is pending.')
   }

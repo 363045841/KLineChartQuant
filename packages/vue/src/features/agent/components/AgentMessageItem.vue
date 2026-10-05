@@ -1,5 +1,6 @@
+<!-- 消息正文、复制、历史运行操作与用户消息原地编辑。 -->
 <template>
-  <article class="message" :class="`message--${message.role}`">
+  <article class="message" :class="[`message--${message.role}`, { 'message--editing': editing }]">
     <div v-if="message.role === 'action'" class="message__action">
       <IconActivity aria-hidden="true" />
       <span>{{ text.action }}</span>
@@ -21,7 +22,30 @@
       <p class="message__content">{{ message.content }}</p>
     </details>
     <div v-if="message.role === 'user'" class="message__bubble">
-      <p class="message__content">{{ message.content }}</p>
+      <form v-if="editing" class="message__editor" @submit.prevent="saveEdit">
+        <textarea
+          ref="editInput"
+          v-model="editDraft"
+          :aria-label="text.editMessage"
+          :disabled="editPending"
+          rows="1"
+          @keydown="editKeydown"
+        />
+        <p v-if="editError" class="message__edit-error" role="alert">{{ editError }}</p>
+        <button
+          class="message__edit-send agent-primary-button"
+          type="submit"
+          :disabled="!canSaveEdit"
+          :aria-label="text.saveAndSend"
+          :title="text.saveAndSend"
+          :aria-busy="editPending"
+        >
+          <span class="agent-primary-button__background" aria-hidden="true"></span>
+          <IconLoader2 v-if="editPending" class="message__spinner" aria-hidden="true" />
+          <IconArrowUp v-else aria-hidden="true" />
+        </button>
+      </form>
+      <p v-else class="message__content">{{ message.content }}</p>
     </div>
     <div
       v-else-if="message.role === 'assistant'"
@@ -30,7 +54,7 @@
       @click="openCitation"
     />
     <p v-else-if="message.role !== 'reasoning'" class="message__content">{{ message.content }}</p>
-    <div v-if="showActions || message.role === 'user'" class="message__actions">
+    <div v-if="!editing && (showActions || message.role === 'user')" class="message__actions">
       <BaseTooltip :content="copyLabel" placement="bottom">
         <button
           type="button"
@@ -41,6 +65,11 @@
           <IconCheck v-if="copyStatus === 'copied'" aria-hidden="true" />
           <IconAlertTriangle v-else-if="copyStatus === 'failed'" aria-hidden="true" />
           <IconCopy v-else aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip v-if="canEdit" :content="text.editMessage" placement="bottom">
+        <button type="button" :disabled="editDisabled" :aria-label="text.editMessage" @click="beginEdit">
+          <IconPencil aria-hidden="true" />
         </button>
       </BaseTooltip>
       <BaseTooltip v-if="showActions" :content="text.regenerate" placement="bottom">
@@ -61,14 +90,18 @@
   import { computed } from 'vue'
   import IconActivity from '~icons/tabler/activity'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconArrowUp from '~icons/tabler/arrow-up'
   import IconBrain from '~icons/tabler/brain'
   import IconCheck from '~icons/tabler/check'
   import IconCopy from '~icons/tabler/copy'
   import IconLoader2 from '~icons/tabler/loader-2'
+  import IconPencil from '~icons/tabler/pencil'
   import IconRefresh from '~icons/tabler/refresh'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentMessageView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { useMessageEdit } from '../message-edit/impl/use-message-edit.js'
+  import type { EditMessageAction } from '../message-edit/types.js'
   import { renderAgentMarkdown } from '../render-agent-markdown.js'
   import { useMessageCopy } from './use-message-copy.js'
 
@@ -78,10 +111,29 @@
     locale: AgentLocale
     showActions?: boolean
     regenerateDisabled?: boolean
+    editDisabled?: boolean
+    editMessage?: EditMessageAction
   }>()
   defineEmits<{ regenerate: [] }>()
   const { status: copyStatus, copy } = useMessageCopy(() => props.message.content)
   const text = computed(() => getAgentCopy(props.locale))
+  const {
+    editing,
+    draft: editDraft,
+    pending: editPending,
+    error: editError,
+    input: editInput,
+    canEdit,
+    canSave: canSaveEdit,
+    begin: beginEdit,
+    save: saveEdit,
+    keydown: editKeydown,
+  } = useMessageEdit({
+    message: () => props.message,
+    disabled: () => Boolean(props.editDisabled),
+    action: () => props.editMessage,
+    failureText: () => text.value.editFailed,
+  })
   // 图标按钮的无障碍名称随复制反馈状态变化。
   const copyLabel = computed(() =>
     copyStatus.value === 'copied'
@@ -115,7 +167,33 @@
   }
 </script>
 
+<style scoped src="./agent-primary-button.css"></style>
+
 <style scoped>
+  .message__editor { position: relative; padding-bottom: 32px; }
+  .message__editor textarea {
+    box-sizing: border-box;
+    field-sizing: content;
+    width: 100%;
+    min-width: 0;
+    min-height: 1lh;
+    display: block;
+    resize: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--agent-text);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.52;
+  }
+  .message__editor textarea:focus-visible { outline: none; }
+  .message__edit-send {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+  }
+  .message__edit-error { margin: 0; color: var(--agent-text); font-size: 12px; }
   .message__actions {
     display: flex;
     gap: 2px;
@@ -148,10 +226,20 @@
     max-width: 82%;
   }
 
+  .message--editing { width: 82%; }
+
   .message__bubble {
     padding: 9px 12px;
     border-radius: 12px;
     background: var(--agent-user-message);
+  }
+
+  /* 编辑框与面板融为一体，仅由一圈圆角边框界定输入区域。 */
+  .message--editing .message__bubble {
+    padding: 12px 14px;
+    border: 1px solid var(--agent-border);
+    border-radius: 16px;
+    background: transparent;
   }
 
   /* 用户消息的复制按钮与气泡右缘对齐。 */

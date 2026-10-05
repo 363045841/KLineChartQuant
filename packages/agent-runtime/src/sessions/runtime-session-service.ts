@@ -29,11 +29,11 @@ import {
 } from './durable-session.js'
 import {
   type BeginRunInput,
+  type ForkRunInput,
   KQ_CUSTOM_ENTRY,
   KQ_SESSION_SCHEMA_VERSION,
   type KqRunStartedEntry,
   type KqRunTerminalEntry,
-  type RetryRunInput,
   type RunPersistenceContext,
 } from './types.js'
 
@@ -112,6 +112,7 @@ function runStart(entry: EntryRecord): KqRunStartedEntry {
     startedAt: value.startedAt,
     ...(Array.isArray(items) ? { context: { items: items.filter(isContextItem) } } : {}),
     ...(typeof value.retryOfRunId === 'string' ? { retryOfRunId: value.retryOfRunId } : {}),
+    ...(typeof value.editOfRunId === 'string' ? { editOfRunId: value.editOfRunId } : {}),
   }
 }
 
@@ -120,7 +121,7 @@ function isContextItem(value: unknown): value is { kind: string; value: JsonValu
   return isObject(value) && typeof value.kind === 'string' && isJson(value.value)
 }
 
-/** 应用会话由主 Conversation 标识，重试使用官方历史 fork。 */
+/** 应用会话由主 Conversation 标识，历史消息操作共享官方 Fork。 */
 export class RuntimeSessionService {
   private readonly observers = new Map<string, Set<() => Promise<void>>>()
   private readonly execution: DurableExecution
@@ -219,14 +220,8 @@ export class RuntimeSessionService {
   ): Promise<AgentSessionSnapshot> {
     const main = await this.requireLane(sessionId, SESSION_LANE.main)
     // 当前分支严格使用 watch 的这一帧，避免异步读取时把下一帧的最终消息和旧 partial 同时展示。
-    const history = await this.sessionEntries(sessionId)
-    const visible = new Map(
-      history
-        .filter((entry) => entry.conversationId !== view.conversation.id)
-        .map((entry) => [entry.id, entry]),
-    )
-    for (const entry of view.entries) visible.set(entry.id, entry)
-    const entries = [...visible.values()].sort((left, right) => left.id - right.id)
+    // 官方分支的继承历史是显示与模型上下文的共同来源，不能合并已放弃的分支。
+    const entries = [...view.entries].sort((left, right) => left.id - right.id)
     const contexts = new Map(
       entries
         .filter((entry) => entry.kind === KQ_CUSTOM_ENTRY.runStarted)
@@ -358,7 +353,7 @@ export class RuntimeSessionService {
     await this.refreshObservers(sessionId)
   }
 
-  /** 标记主会话与全部重试分支删除，避免历史 fork 失去引用。 */
+  /** 标记主会话与全部历史分支删除，避免 Fork 失去引用。 */
   async delete(sessionId: string): Promise<void> {
     await this.requireLane(sessionId)
     const lanes = (await this.lanes()).filter((lane) => lane.sessionId === sessionId)
@@ -368,7 +363,7 @@ export class RuntimeSessionService {
     }, this.context)
   }
 
-  /** 在主 Conversation 中原子写入运行边界、用户消息和运行起点。 */
+  /** 在当前 Conversation 中原子写入运行边界、用户消息和运行起点。 */
   async beginRun(input: BeginRunInput): Promise<RunPersistenceContext> {
     const main = await this.requireLane(input.sessionId)
     return this.session.commit(
@@ -377,21 +372,21 @@ export class RuntimeSessionService {
     )
   }
 
-  /** 在原用户消息之前的边界 fork，隔离失败运行与后续消息。 */
-  async retryRun(input: RetryRunInput): Promise<RunPersistenceContext> {
+  /** 重新生成与编辑都从原用户输入之前的官方边界创建分支。 */
+  async forkRun(input: ForkRunInput): Promise<RunPersistenceContext> {
     const original = await this.findRun(input.originalRunId)
     if (original.sessionId !== input.sessionId)
       throw new AgentRuntimeError(
         'SESSION_NOT_FOUND',
-        'The retry source belongs to another session.',
+        'The branch source belongs to another session.',
       )
     const source = await this.requireLane(input.sessionId, original.lane)
     const history = await this.entries(source.conversationId)
     const userIndex = history.findIndex((entry) => String(entry.id) === original.userEntryId)
     const boundary = history[userIndex - 1]
     if (!boundary || boundary.kind !== SESSION_ENTRY.boundary)
-      throw new AgentRuntimeError('SESSION_CORRUPT', 'The retry source boundary is missing.')
-    const lane = `${SESSION_LANE.retryPrefix}${input.runId}`
+      throw new AgentRuntimeError('SESSION_CORRUPT', 'The branch source boundary is missing.')
+    const lane = `${SESSION_LANE.forkPrefix}${input.runId}`
     const initializeFork = async (tx: Tx, conversationId: ConversationId) => {
       Object.assign(await tx.doc(SessionIdentityDoc, conversationId), {
         sessionId: input.sessionId,
@@ -402,8 +397,15 @@ export class RuntimeSessionService {
         tx,
         conversationId,
         lane,
-        { ...original, ...input, prompt: original.prompt, readOnly: original.readOnly },
-        input.originalRunId,
+        {
+          ...original,
+          ...input,
+          prompt: input.kind === 'edit' ? input.prompt : original.prompt,
+          readOnly: original.readOnly,
+        },
+        input.kind === 'edit'
+          ? { editOfRunId: input.originalRunId }
+          : { retryOfRunId: input.originalRunId },
       )
     }
     const conversation = await this.execution.harness.conversation(
@@ -411,7 +413,7 @@ export class RuntimeSessionService {
       this.context,
     )
     if (!conversation)
-      throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The retry source Conversation is missing.')
+      throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The branch source Conversation is missing.')
     let record: RunPersistenceContext | undefined
     await conversation.fork(
       boundary.id,
@@ -627,7 +629,7 @@ export class RuntimeSessionService {
     conversationId: ConversationId,
     lane: string,
     input: BeginRunInput,
-    retryOfRunId?: string,
+    origin: Pick<RunPersistenceContext, 'retryOfRunId' | 'editOfRunId'> = {},
   ): Promise<RunPersistenceContext> {
     const prompt = redactString(input.prompt, this.redaction)
     await tx.appendEntry(conversationId, { kind: SESSION_ENTRY.boundary })
@@ -644,7 +646,7 @@ export class RuntimeSessionService {
       userEntryId: String(user.id),
       startedAt: input.startedAt,
       ...(input.context ? { context: input.context } : {}),
-      ...(retryOfRunId ? { retryOfRunId } : {}),
+      ...origin,
     }
     await tx.appendEntry(conversationId, {
       kind: KQ_CUSTOM_ENTRY.runStarted,

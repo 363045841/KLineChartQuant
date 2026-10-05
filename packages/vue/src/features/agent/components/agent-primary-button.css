@@ -1,0 +1,46 @@
+/* Composer 与消息编辑共用主按钮的底色、图标层级及交互状态。 */
+.agent-primary-button {
+  width: 24px;
+  height: 24px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--agent-text);
+  background: transparent;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agent-primary-button__background {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--agent-control);
+  transition: background-color 0.2s ease;
+}
+
+.agent-primary-button > svg {
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+}
+
+.agent-primary-button:hover:not(:disabled) {
+  background: transparent;
+}
+
+.agent-primary-button:hover:not(:disabled) .agent-primary-button__background {
+  background-color: var(--agent-hover);
+}
+
+.agent-primary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

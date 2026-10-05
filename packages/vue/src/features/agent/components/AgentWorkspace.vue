@@ -33,6 +33,8 @@
       :collapse-reasoning="collapseReasoning"
       :locale="locale"
       @prompt="draft = $event"
+      :edit-message="editMessage"
+      :actions-disabled="isRunning"
       @confirm="confirmTool"
       @answer="answerQuestion"
       @retry="retry"
@@ -111,6 +113,7 @@
     send,
     stop,
     retry,
+    editMessage,
     confirmTool,
     answerQuestion,
     undoTurn,
@@ -197,7 +200,7 @@
     --agent-surface: var(--klc-color-ui-surface);
     --agent-card: var(--klc-color-ui-card);
     --agent-control: var(--klc-color-ui-control-background);
-    --agent-input: var(--klc-color-ui-input);
+    --agent-input: var(--klc-color-agent-composer-input-background);
     --agent-hover: var(--klc-color-ui-hover);
     --agent-user-message: var(--klc-color-agent-user-message);
     --agent-border: var(--klc-color-ui-border);
@@ -208,6 +211,10 @@
     --agent-accent: var(--klc-color-ui-accent);
     --agent-accent-strong: var(--klc-color-ui-accent-strong);
     --agent-focus: var(--klc-color-ui-focus);
+    --toggle-switch-track-background: var(--agent-control);
+    --toggle-switch-thumb-background: var(--agent-text);
+    --toggle-switch-active-background: var(--agent-accent);
+    --toggle-switch-focus-color: var(--agent-focus);
     --agent-warning-bg: var(--klc-color-ui-warning-background);
     --agent-danger-bg: var(--klc-color-ui-danger-background);
 

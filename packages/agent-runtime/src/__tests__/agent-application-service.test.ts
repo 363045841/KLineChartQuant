@@ -33,7 +33,9 @@ describe('AgentApplicationService', () => {
         status: 'failed',
         error: { code: 'PROVIDER_NOT_CONFIGURED' },
       })
-      expect(snapshot.messages).toEqual([])
+      expect(snapshot.messages).toEqual([
+        expect.objectContaining({ role: 'user', content: 'Hello', runId: snapshot.runs[0]?.id }),
+      ])
     } finally {
       await app.close()
       await runtime.close()

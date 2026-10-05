@@ -24,6 +24,7 @@ export interface KqRunStartedEntry {
   userEntryId: string
   startedAt: number
   retryOfRunId?: string
+  editOfRunId?: string
 }
 
 export interface KqRunTerminalEntry {
@@ -43,13 +44,18 @@ export interface BeginRunInput {
   startedAt: number
 }
 
-export interface RetryRunInput {
+/** 分支来源及新运行标识，运行策略通过可辨识联合声明。 */
+interface ForkRunBase {
   sessionId: string
   originalRunId: string
   runId: string
   turnId: string
   startedAt: number
 }
+
+export type ForkRunAction = { kind: 'retry' } | { kind: 'edit'; prompt: string }
+
+export type ForkRunInput = ForkRunBase & ForkRunAction
 
 export interface RunPersistenceContext {
   sessionId: string
@@ -62,4 +68,5 @@ export interface RunPersistenceContext {
   userEntryId: string
   startedAt: number
   retryOfRunId?: string
+  editOfRunId?: string
 }

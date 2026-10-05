@@ -8,7 +8,7 @@ type SessionIdentity = {
   deleted: boolean
 }
 
-export const SESSION_LANE = { main: 'main', retryPrefix: 'retry:' } as const
+export const SESSION_LANE = { main: 'main', forkPrefix: 'fork:' } as const
 export const SESSION_ENTRY = { message: 'kq.message', boundary: 'kq.run.boundary' } as const
 export const SESSION_SCAN_PAGE_SIZE = 100
 

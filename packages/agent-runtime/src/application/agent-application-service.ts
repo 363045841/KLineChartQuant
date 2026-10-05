@@ -9,7 +9,7 @@ import {
   type StartRunInput,
 } from '../contracts/ui.js'
 import type { DurableRunDriver } from '../pi/impl/durable-run-driver.js'
-import type { RunPersistenceContext } from '../sessions/types.js'
+import type { ForkRunAction, RunPersistenceContext } from '../sessions/types.js'
 import type { AgentApplicationApi, AgentApplicationServiceOptions } from './types.js'
 
 interface OwnedSubmission {
@@ -102,14 +102,27 @@ export class AgentApplicationService implements AgentApplicationApi {
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
+    return this.forkRun(runId, { kind: 'retry' })
+  }
+
+  /** 修改历史用户输入，沿原输入之前的分支边界重新执行。 */
+  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
+    const content = prompt.trim()
+    if (!content) throw new AgentRuntimeError('INVALID_PAYLOAD', 'The edited message is empty.')
+    return this.forkRun(runId, { kind: 'edit', prompt: content })
+  }
+
+  /** 重新生成和编辑共享准备互斥、官方 Fork 与提交生命周期。 */
+  private async forkRun(runId: string, action: ForkRunAction): Promise<{ runId: string }> {
     const original = await this.options.sessions.findRun(runId)
     return this.admit(original.sessionId, async () => {
-      const context = await this.options.sessions.retryRun({
+      const context = await this.options.sessions.forkRun({
         sessionId: original.sessionId,
         originalRunId: runId,
         runId: this.id(),
         turnId: this.id(),
         startedAt: this.now(),
+        ...action,
       })
       return this.launch(context)
     })

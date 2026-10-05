@@ -86,7 +86,8 @@ describe('RuntimeSessionService', () => {
     expect(await service.recoverInterrupted()).toEqual(['pending'])
     expect(await service.recoverInterrupted()).toEqual([])
     expect((await service.open(session.id)).runs[0]?.status).toBe('interrupted')
-    const retry = await service.retryRun({
+    const retry = await service.forkRun({
+      kind: 'retry',
       sessionId: session.id,
       originalRunId: 'pending',
       runId: 'retry',

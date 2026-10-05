@@ -333,9 +333,45 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
+    return this.forkRun(runId)
+  }
+
+  /** 脚本演示沿用生产分支语义，丢弃当前视图中的后续轮次。 */
+  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
+    if (!prompt.trim()) throw new Error('The edited message is empty.')
+    return this.forkRun(runId, prompt.trim())
+  }
+
+  /** 将脚本状态切回原用户输入之前，再启动新的运行。 */
+  private async forkRun(runId: string, prompt?: string): Promise<{ runId: string }> {
     const run = this.runs.get(runId)
     if (!run) throw new Error(`Unknown fake run: ${runId}`)
-    return this.startRun({ sessionId: run.sessionId, prompt: run.prompt, readOnly: run.readOnly })
+    const state = this.states.get(run.sessionId)
+    if (!state) throw new Error(`Unknown fake session: ${run.sessionId}`)
+    const index = state.messages.findIndex(
+      (message) => message.role === 'user' && message.runId === runId,
+    )
+    if (index < 0) throw new Error(`Unknown fake message: ${runId}`)
+    const messages = state.messages.slice(0, index)
+    const retained = new Set(messages.map((message) => message.runId))
+    this.states.set(run.sessionId, {
+      ...state,
+      messages,
+      toolCalls: state.toolCalls.filter((tool) => retained.has(tool.runId)),
+      previousRuns: [...state.previousRuns, state.run].filter(
+        (item) => item.id && retained.has(item.id),
+      ),
+      run: { id: null, sessionId: run.sessionId, status: 'idle' },
+      questions: [],
+      confirmations: [],
+      error: null,
+      canUndoTurn: false,
+    })
+    return this.startRun({
+      sessionId: run.sessionId,
+      prompt: prompt ?? run.prompt,
+      readOnly: run.readOnly,
+    })
   }
 
   async confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
@@ -476,6 +512,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       type: 'user.message.created',
       message: {
         id: `user-${run.id}`,
+        runId: run.id,
         role: 'user',
         content: run.prompt,
         createdAt: startedAt + 1,
@@ -485,6 +522,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       type: 'action.summary',
       message: {
         id: `action-${run.id}`,
+        runId: run.id,
         role: 'action',
         content: 'Reading the current chart context',
         createdAt: startedAt + 2,

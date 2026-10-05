@@ -28,7 +28,9 @@
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
         :show-actions="isFinalReply(entry.message)"
-        :regenerate-disabled="isLoading"
+        :regenerate-disabled="isLoading || actionsDisabled"
+        :edit-disabled="isLoading || actionsDisabled"
+        :edit-message="editMessage"
         @regenerate="$emit('retry', entry.message.runId)"
       />
       <template v-else-if="entry.kind === 'tool'">
@@ -103,6 +105,7 @@
     ToolCallView,
   } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import type { EditMessageAction } from '../message-edit/types.js'
   import AgentErrorNotice from './AgentErrorNotice.vue'
   import AgentMessageItem from './AgentMessageItem.vue'
   import ConfirmationCard from './ConfirmationCard.vue'
@@ -125,6 +128,8 @@
     canUndo: boolean
     collapseReasoning: boolean
     locale: AgentLocale
+    editMessage?: EditMessageAction
+    actionsDisabled?: boolean
   }>()
 
   defineEmits<{

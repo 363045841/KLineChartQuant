@@ -32,6 +32,7 @@ export function displayConversation(
 ): AgentWorkspaceState {
   const run = snapshot.runs.at(-1) ?? { id: null, sessionId: null, status: 'idle' as const }
   const changed = state.activeSessionId !== snapshot.session.id
+  const visibleTools = new Set(snapshot.toolCalls.map((tool) => tool.id))
   return {
     ...state,
     activeSessionId: snapshot.session.id,
@@ -40,8 +41,12 @@ export function displayConversation(
     run,
     previousRuns: snapshot.runs.slice(0, -1),
     error: run.error ?? null,
-    confirmations: snapshot.confirmations ?? (changed ? [] : state.confirmations),
-    questions: snapshot.questions ?? (changed ? [] : state.questions),
+    confirmations: (snapshot.confirmations ?? (changed ? [] : state.confirmations)).filter((item) =>
+      visibleTools.has(item.toolCallId),
+    ),
+    questions: (snapshot.questions ?? (changed ? [] : state.questions)).filter((item) =>
+      visibleTools.has(item.toolCallId),
+    ),
     canUndoTurn: snapshot.toolCalls.some(
       (tool) => tool.runId === run.id && tool.status === 'succeeded' && Boolean(tool.undoToken),
     ),

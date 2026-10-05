@@ -1,6 +1,5 @@
 // 仅供测试脚本把步骤转换为完整快照；生产 Vue 不消费模型增量事件。
 
-import { projectReply } from '@363045841yyt/klinechart-agent-runtime'
 import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentMessageView,
@@ -113,8 +112,8 @@ function reduceCurrentAgentUiEvent(
     case 'assistant.message.started':
       return {
         ...state,
-        messages: projectReply(
-          state.messages,
+        messages: [
+          ...state.messages,
           {
             id: event.messageId,
             runId: event.runId,
@@ -123,8 +122,7 @@ function reduceCurrentAgentUiEvent(
             createdAt: event.createdAt,
             status: 'streaming',
           },
-          state.run.retryOfRunId,
-        ),
+        ],
       }
 
     case 'assistant.text.delta':

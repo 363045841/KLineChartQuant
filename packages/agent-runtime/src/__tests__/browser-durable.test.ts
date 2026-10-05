@@ -78,15 +78,15 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
           content: [{ type: 'text', text: 'First response' }],
         }),
       ])
-      expect((await runtime.sessions.open(session.id)).messages.at(-1)?.content).toBe(
-        'First response',
-      )
-      const retry = await runtime.sessions.retryRun({
+      expect((await runtime.sessions.open(session.id)).messages.at(-1)?.content).toBe('Follow up')
+      const retry = await runtime.sessions.forkRun({
+        kind: 'edit',
         sessionId: session.id,
         originalRunId: second.runId,
         runId: 'retry',
         turnId: 'retry-turn',
         startedAt: 5,
+        prompt: 'Edited follow up',
       })
       expect(await runtime.sessions.getTranscript(retry)).toEqual(
         await runtime.sessions.getTranscript(restored),
@@ -105,6 +105,10 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
       })
       expect(await app.initialize()).toEqual([])
       expect((await app.openSession(session.id)).session.title).toBe('Renamed after retry')
+      expect(
+        (await app.openSession(session.id)).messages.map((message) => message.content),
+      ).toEqual(['[REDACTED]', 'First response', 'Edited follow up'])
+      expect((await runtime.sessions.findRun(second.runId)).prompt).toBe('Follow up')
       const next = await runtime.sessions.beginRun({
         sessionId: session.id,
         runId: 'after-reload',

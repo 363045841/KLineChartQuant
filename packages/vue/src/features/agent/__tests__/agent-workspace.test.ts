@@ -109,6 +109,28 @@ describe('AgentWorkspace', () => {
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
   })
 
+  it('edits a historical user message through the workspace and replaces the later conversation', async () => {
+    const mounted = await mountWorkspace({ providerConfigured: true })
+    const composer = mounted.wrapper.get('.composer textarea')
+    for (const prompt of ['First question', 'Later question']) {
+      await composer.setValue(prompt)
+      await composer.trigger('keydown', { key: 'Enter' })
+      await vi.runAllTimersAsync()
+      await flushPromises()
+    }
+    expect(mounted.wrapper.findAll('.message--user')).toHaveLength(2)
+    await mounted.wrapper.get('.message--user button[aria-label="Edit message"]').trigger('click')
+    await mounted.wrapper.get('.message__editor textarea').setValue('Changed question')
+    await mounted.wrapper.get('.message__editor').trigger('submit')
+    await flushPromises()
+    expect(mounted.wrapper.findAll('.message--user')).toHaveLength(1)
+    expect(mounted.wrapper.get('.message--user').text()).toContain('Changed question')
+    expect(mounted.wrapper.text()).not.toContain('Later question')
+    await vi.runAllTimersAsync()
+    await flushPromises()
+    expect(mounted.wrapper.findAll('.tool-card')).toHaveLength(1)
+  })
+
   it('selects models from the Composer dropdown', async () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Model settings"]').trigger('click')
@@ -234,7 +256,7 @@ describe('AgentWorkspace', () => {
     expect(mounted.wrapper.get('.error-notice').text()).toContain('Retry')
     await mounted.wrapper.get('.error-notice button').trigger('click')
     await flushPromises()
-    expect(mounted.wrapper.findAll('.message--user')).toHaveLength(2)
+    expect(mounted.wrapper.findAll('.message--user')).toHaveLength(1)
 
     await mounted.wrapper.get('.composer__primary--stop').trigger('click')
     await mounted.wrapper.get('.context-bar__toggle input').setValue(true)

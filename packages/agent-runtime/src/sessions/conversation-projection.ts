@@ -9,7 +9,6 @@ import type {
   SourceCitation,
   ToolCallView,
 } from '../contracts/ui.js'
-import { projectReply } from './reply-projection.js'
 import type { RunPersistenceContext } from './types.js'
 
 /** 读取官方 JSON 文档中的对象。 */
@@ -114,7 +113,7 @@ export function projectConversation(
   hostFailures: ReadonlyMap<string, AgentRunView>,
   contextWindow?: number,
 ): AgentSessionSnapshot {
-  let messages: AgentMessageView[] = []
+  const messages: AgentMessageView[] = []
   const tools = new Map<string, ToolCallView>()
   const runs = new Map<string, AgentRunView>()
   const currentByConversation = new Map<number, RunPersistenceContext>()
@@ -143,19 +142,15 @@ export function projectConversation(
     })
     const content = text(message)
     if (content || streaming)
-      messages = projectReply(
-        messages,
-        {
-          id,
-          runId: context.runId,
-          role: 'assistant',
-          content,
-          createdAt: message.timestamp,
-          status: streaming ? 'streaming' : 'complete',
-          citations: sources.get(context.runId),
-        },
-        context.retryOfRunId,
-      )
+      messages.push({
+        id,
+        runId: context.runId,
+        role: 'assistant',
+        content,
+        createdAt: message.timestamp,
+        status: streaming ? 'streaming' : 'complete',
+        citations: sources.get(context.runId),
+      })
     if (!streaming) {
       const run = runs.get(context.runId)
       if (run) {
@@ -177,6 +172,14 @@ export function projectConversation(
     const context = contexts.get(entry.id)
     if (context) {
       currentByConversation.set(entry.conversationId, context)
+      // 输入在 Fork 事务内已经持久化，即使 Provider 尚未启动也应显示并允许后续编辑。
+      messages.push({
+        id: context.userEntryId,
+        runId: context.runId,
+        role: 'user',
+        content: context.prompt,
+        createdAt: context.startedAt,
+      })
       const submission = submissionByRun.get(context.runId)
       const failed = submission?.status === 'unanswered'
       runs.set(context.runId, {
@@ -184,6 +187,7 @@ export function projectConversation(
         sessionId: session.id,
         startedAt: context.startedAt,
         retryOfRunId: context.retryOfRunId,
+        editOfRunId: context.editOfRunId,
         status:
           submission?.status === 'done'
             ? 'completed'
@@ -208,14 +212,6 @@ export function projectConversation(
     const current = currentByConversation.get(entry.conversationId)
     if (!current) continue
     for (const message of entry.model ?? []) {
-      if (message.role === 'user' && !current.retryOfRunId)
-        messages.push({
-          id: String(entry.id),
-          runId: current.runId,
-          role: 'user',
-          content: text(message),
-          createdAt: message.timestamp,
-        })
       if (message.role === 'assistant') addAssistant(message, String(entry.id), current)
       if (message.role === 'toolResult') {
         tools.set(
@@ -259,24 +255,20 @@ export function projectConversation(
             status: 'streaming',
           })
       })
-      messages = projectReply(
-        messages,
-        {
-          id: liveId,
-          runId: current.runId,
-          role: 'assistant',
-          content: content
-            .flatMap((block) => {
-              const row = object(block)
-              return row.type === 'text' && typeof row.text === 'string' ? [row.text] : []
-            })
-            .join(''),
-          createdAt,
-          status: 'streaming',
-          citations: sources.get(current.runId),
-        },
-        current.retryOfRunId,
-      )
+      messages.push({
+        id: liveId,
+        runId: current.runId,
+        role: 'assistant',
+        content: content
+          .flatMap((block) => {
+            const row = object(block)
+            return row.type === 'text' && typeof row.text === 'string' ? [row.text] : []
+          })
+          .join(''),
+        createdAt,
+        status: 'streaming',
+        citations: sources.get(current.runId),
+      })
     }
     for (const slot of Array.isArray(live.tools) ? live.tools : []) {
       const row = object(slot)

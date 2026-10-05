@@ -2,10 +2,10 @@
 
 exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
 ":root {
-  --klc-color-background: #111827;
-  --klc-color-foreground: #E8EAED;
-  --klc-color-chart-background: #111827;
-  --klc-color-floating-surface: #1B2533;
+  --klc-color-background: #151619;
+  --klc-color-foreground: #DCE0E8;
+  --klc-color-chart-background: #151619;
+  --klc-color-floating-surface: #191A1E;
   --klc-color-candle-up-body: #089981;
   --klc-color-candle-up-border: #089981;
   --klc-color-candle-up-wick: #089981;
@@ -19,19 +19,19 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-volume-up: #22D69B66;
   --klc-color-volume-down: #FF646466;
   --klc-color-volume-neutral: #FFFFFF66;
-  --klc-color-axis-text: #9AA0A6;
-  --klc-color-axis-line: #2A2F36;
-  --klc-color-axis-tick: #2A2F36;
-  --klc-color-grid-major: #2A3547;
-  --klc-color-grid-minor: #202A39;
+  --klc-color-axis-text: #ACB2BE;
+  --klc-color-axis-line: #2D3036;
+  --klc-color-axis-tick: #2D3036;
+  --klc-color-grid-major: #24272E;
+  --klc-color-grid-minor: #1D2026;
   --klc-color-crosshair-line: #686C72;
-  --klc-color-crosshair-label-bg: #3A3F47;
-  --klc-color-crosshair-label-text: #E8EAED;
+  --klc-color-crosshair-label-bg: #27292E;
+  --klc-color-crosshair-label-text: #DCE0E8;
   --klc-color-selection-fill: #4A9EFF33;
   --klc-color-selection-stroke: #4A9EFF;
-  --klc-color-tooltip-bg: #1B1F26EE;
-  --klc-color-tooltip-text: #E8EAED;
-  --klc-color-tooltip-border: #2A2F36;
+  --klc-color-tooltip-bg: #191A1E;
+  --klc-color-tooltip-text: #DCE0E8;
+  --klc-color-tooltip-border: #2D3036;
   --klc-color-heatmap-coldest: #0E1116;
   --klc-color-heatmap-hottest: #80B7FF;
   --klc-color-volume-profile-fill: #6B727A66;
@@ -63,25 +63,25 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-palette-i9: #60A5FA;
   --klc-color-palette-i10: #9AA0A6;
   --klc-color-palette-indicator-atr: #F59E0B;
-  --klc-color-text-primary: hsl(210, 10%, 85%);
-  --klc-color-text-secondary: hsl(210, 8%, 75%);
-  --klc-color-text-tertiary: hsl(210, 6%, 60%);
+  --klc-color-text-primary: #DCE0E8;
+  --klc-color-text-secondary: #ACB2BE;
+  --klc-color-text-tertiary: #838A98;
   --klc-color-text-weak: hsl(210, 5%, 45%);
   --klc-color-text-white: rgba(255, 255, 255, 0.95);
   --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
-  --klc-color-tag-bg-white: rgb(40, 40, 55);
-  --klc-color-tag-bg-light-gray: rgba(50, 50, 65, 0.92);
-  --klc-color-tag-bg-pure-white: #282837;
+  --klc-color-tag-bg-white: #191A1E;
+  --klc-color-tag-bg-light-gray: rgba(29, 31, 36, 0.92);
+  --klc-color-tag-bg-pure-white: #1D1F24;
   --klc-color-tag-bg-transparent: transparent;
-  --klc-color-tag-bg-active: #1890ff;
-  --klc-color-tag-bg-active-hover: #40a9ff;
-  --klc-color-tag-bg-hover: #2D3544;
+  --klc-color-tag-bg-active: #626D82;
+  --klc-color-tag-bg-active-hover: #556179;
+  --klc-color-tag-bg-hover: #2D3036;
   --klc-color-border-dark: rgba(255, 255, 255, 0.15);
   --klc-color-border-medium: rgba(255, 255, 255, 0.12);
   --klc-color-border-light: rgba(255, 255, 255, 0.08);
   --klc-color-border-separator: rgba(255, 255, 255, 0.10);
-  --klc-color-border-button: #505060;
-  --klc-color-border-chart: #3A4048;
+  --klc-color-border-button: #434752;
+  --klc-color-border-chart: #2D3036;
   --klc-color-ma-ma5: #e8590c;
   --klc-color-ma-ma10: #0891b2;
   --klc-color-ma-ma20: #2563eb;
@@ -154,19 +154,20 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-zones-ob-bear-fill: rgba(248, 113, 113, 0.35);
   --klc-color-reference-line-neutral: rgba(255, 255, 255, 0.3);
   --klc-color-wmsr-grid: rgba(255, 255, 255, 0.1);
-  --klc-color-ui-background: #151A1D;
-  --klc-color-ui-surface: #1B2125;
-  --klc-color-ui-card: #20272B;
-  --klc-color-ui-input: #232B30;
-  --klc-color-ui-hover: #2A3338;
-  --klc-color-ui-border: #323C41;
-  --klc-color-ui-border-strong: #526169;
-  --klc-color-ui-text: #EDF2F3;
-  --klc-color-ui-text-soft: #839198;
-  --klc-color-ui-muted: #A4B0B5;
-  --klc-color-ui-accent: #2D948A;
-  --klc-color-ui-accent-strong: #247C74;
-  --klc-color-ui-focus: #48B0A6;
+  --klc-color-ui-background: #151619;
+  --klc-color-ui-surface: #191A1E;
+  --klc-color-ui-card: #1D1F24;
+  --klc-color-ui-input: #1B1D22;
+  --klc-color-ui-control-background: #27292E;
+  --klc-color-ui-hover: #2D3036;
+  --klc-color-ui-border: #2D3036;
+  --klc-color-ui-border-strong: #434752;
+  --klc-color-ui-text: #DCE0E8;
+  --klc-color-ui-text-soft: #838A98;
+  --klc-color-ui-muted: #ACB2BE;
+  --klc-color-ui-accent: #626D82;
+  --klc-color-ui-accent-strong: #556179;
+  --klc-color-ui-focus: #94A3BC;
   --klc-color-ui-warning-background: #302717;
   --klc-color-ui-warning-border: #8F681D;
   --klc-color-ui-warning-text: #E6B85C;
@@ -177,12 +178,14 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-success: #45C58E;
   --klc-color-ui-warning: #F0B44C;
   --klc-color-ui-danger: #FF7373;
-  --klc-color-ui-neutral: #839198;
+  --klc-color-ui-neutral: #838A98;
   --klc-color-ui-on-accent: #FFFFFF;
-  --klc-color-ui-secondary-button-text: #9AA0A6;
-  --klc-color-ui-control-background: #2A3338;
-  --klc-color-agent-user-message: #17312E;
-  --klc-color-agent-backdrop: rgba(15, 20, 25, 0.35);
+  --klc-color-ui-secondary-button-text: #ACB2BE;
+  --klc-color-agent-composer-input-background: rgb(44, 44, 46);
+  --klc-color-agent-composer-control-background: #3A3A3C;
+  --klc-color-agent-composer-control-hover: #48484A;
+  --klc-color-agent-user-message: #27292E;
+  --klc-color-agent-backdrop: rgba(0, 0, 0, 0.35);
   --klc-color-agent-panel-shadow: rgba(0, 0, 0, 0.2);
   --klc-spacing-none: 0;
   --klc-spacing-xxs: 2px;
@@ -218,46 +221,46 @@ Each role is measured against its own surface (default: \`colors.background\`).
 
 | Role | Value | Surface | Ratio | Floor | Pass |
 |---|---|---|---|---|---|
-| foreground | #E8EAED | background | 14.72 | 4.5:1 | ✅ |
-| axisText | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
-| crosshairLabelText | #E8EAED | crosshairLabelBg | 8.79 | 4.5:1 | ✅ |
-| tooltipText | #E8EAED | tooltipBg | 13.71 | 4.5:1 | ✅ |
-| candleUpBody | #089981 | background | 4.97 | 3.0:1 | ✅ |
-| candleDownBody | #f23645 | background | 4.55 | 3.0:1 | ✅ |
-| performancePositive | #22D69B | background | 9.43 | 4.5:1 | ✅ |
-| performanceNegative | #FF6464 | background | 6.13 | 4.5:1 | ✅ |
-| performanceNeutral | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
-| candleDojiBorder | #8A8F98 | background | 5.46 | 3.0:1 | ✅ |
-| crosshairLine | #686C72 | background | 3.36 | 3.0:1 | ✅ |
-| selectionStroke | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
-| alertActive | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
-| alertTriggered | #FFA94D | background | 9.32 | 3.0:1 | ✅ |
-| avwapLine | #A78BFA | background | 6.52 | 3.0:1 | ✅ |
-| mtfOverlay | #38BDF8 | background | 8.28 | 3.0:1 | ✅ |
+| foreground | #DCE0E8 | background | 13.67 | 4.5:1 | ✅ |
+| axisText | #ACB2BE | background | 8.50 | 4.5:1 | ✅ |
+| crosshairLabelText | #DCE0E8 | crosshairLabelBg | 11.00 | 4.5:1 | ✅ |
+| tooltipText | #DCE0E8 | tooltipBg | 13.14 | 4.5:1 | ✅ |
+| candleUpBody | #089981 | background | 5.07 | 3.0:1 | ✅ |
+| candleDownBody | #f23645 | background | 4.64 | 3.0:1 | ✅ |
+| performancePositive | #22D69B | background | 9.61 | 4.5:1 | ✅ |
+| performanceNegative | #FF6464 | background | 6.25 | 4.5:1 | ✅ |
+| performanceNeutral | #9AA0A6 | background | 6.85 | 4.5:1 | ✅ |
+| candleDojiBorder | #8A8F98 | background | 5.57 | 3.0:1 | ✅ |
+| crosshairLine | #686C72 | background | 3.43 | 3.0:1 | ✅ |
+| selectionStroke | #4A9EFF | background | 6.57 | 3.0:1 | ✅ |
+| alertActive | #4A9EFF | background | 6.57 | 3.0:1 | ✅ |
+| alertTriggered | #FFA94D | background | 9.51 | 3.0:1 | ✅ |
+| avwapLine | #A78BFA | background | 6.65 | 3.0:1 | ✅ |
+| mtfOverlay | #38BDF8 | background | 8.45 | 3.0:1 | ✅ |
 
 ## Indicator palette
 
 | Slot | Value | Ratio vs BG |
 |---|---|---|
-| i1 | #4A9EFF | 6.44 |
-| i2 | #FFB95A | 10.42 |
-| i3 | #22D69B | 9.43 |
-| i4 | #E879BA | 6.65 |
-| i5 | #FF8848 | 7.49 |
-| i6 | #7DD3FC | 10.64 |
-| i7 | #FCE96A | 14.36 |
-| i8 | #A78BFA | 6.52 |
-| i9 | #60A5FA | 6.98 |
-| i10 | #9AA0A6 | 6.72 |
-| indicatorAtr | #F59E0B | 8.26 |"
+| i1 | #4A9EFF | 6.57 |
+| i2 | #FFB95A | 10.63 |
+| i3 | #22D69B | 9.61 |
+| i4 | #E879BA | 6.78 |
+| i5 | #FF8848 | 7.64 |
+| i6 | #7DD3FC | 10.85 |
+| i7 | #FCE96A | 14.65 |
+| i8 | #A78BFA | 6.65 |
+| i9 | #60A5FA | 7.12 |
+| i10 | #9AA0A6 | 6.85 |
+| indicatorAtr | #F59E0B | 8.42 |"
 `;
 
 exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
 ":root {
-  --klc-color-background: #FAFAFA;
-  --klc-color-foreground: #1F1F1F;
-  --klc-color-chart-background: #FFFFFF;
-  --klc-color-floating-surface: #FFFFFF;
+  --klc-color-background: #F5F5F7;
+  --klc-color-foreground: #242426;
+  --klc-color-chart-background: #F5F5F7;
+  --klc-color-floating-surface: #FAFAFC;
   --klc-color-candle-up-body: #089981;
   --klc-color-candle-up-border: #089981;
   --klc-color-candle-up-wick: #089981;
@@ -271,19 +274,19 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-volume-up: #0F8B5C66;
   --klc-color-volume-down: #C2363B66;
   --klc-color-volume-neutral: #00000066;
-  --klc-color-axis-text: #5A5A5A;
-  --klc-color-axis-line: #D0D0D0;
-  --klc-color-axis-tick: #D0D0D0;
+  --klc-color-axis-text: #606066;
+  --klc-color-axis-line: #D8D8DE;
+  --klc-color-axis-tick: #D8D8DE;
   --klc-color-grid-major: #E5E5E5;
   --klc-color-grid-minor: #F0F0F0;
   --klc-color-crosshair-line: #8C8C8C;
-  --klc-color-crosshair-label-bg: #1F1F1F;
-  --klc-color-crosshair-label-text: #FAFAFA;
+  --klc-color-crosshair-label-bg: #242426;
+  --klc-color-crosshair-label-text: #F5F5F7;
   --klc-color-selection-fill: #2D7FF933;
   --klc-color-selection-stroke: #2D7FF9;
-  --klc-color-tooltip-bg: #FFFFFFEE;
-  --klc-color-tooltip-text: #1F1F1F;
-  --klc-color-tooltip-border: #D0D0D0;
+  --klc-color-tooltip-bg: #FAFAFC;
+  --klc-color-tooltip-text: #242426;
+  --klc-color-tooltip-border: #D8D8DE;
   --klc-color-heatmap-coldest: #F0F4F8;
   --klc-color-heatmap-hottest: #1F3A5F;
   --klc-color-volume-profile-fill: #9CA3AF66;
@@ -315,25 +318,25 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-palette-i9: #2D7FF9;
   --klc-color-palette-i10: #6E6E6E;
   --klc-color-palette-indicator-atr: #d97706;
-  --klc-color-text-primary: hsl(210, 9%, 31%);
-  --klc-color-text-secondary: hsl(210, 9%, 35%);
-  --klc-color-text-tertiary: hsl(210, 8%, 50%);
+  --klc-color-text-primary: #242426;
+  --klc-color-text-secondary: #606066;
+  --klc-color-text-tertiary: #76767C;
   --klc-color-text-weak: hsl(210, 7%, 65%);
   --klc-color-text-white: rgba(255, 255, 255, 0.92);
   --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
-  --klc-color-tag-bg-white: rgb(255, 255, 255);
+  --klc-color-tag-bg-white: #FAFAFC;
   --klc-color-tag-bg-light-gray: rgba(255, 255, 255, 0.92);
-  --klc-color-tag-bg-pure-white: #ffffff;
+  --klc-color-tag-bg-pure-white: #FFFFFF;
   --klc-color-tag-bg-transparent: transparent;
-  --klc-color-tag-bg-active: #1890ff;
-  --klc-color-tag-bg-active-hover: #40a9ff;
-  --klc-color-tag-bg-hover: #E5E7EB;
+  --klc-color-tag-bg-active: #52617B;
+  --klc-color-tag-bg-active-hover: #414E66;
+  --klc-color-tag-bg-hover: #DCDCE1;
   --klc-color-border-dark: rgba(0, 0, 0, 0.12);
   --klc-color-border-medium: rgba(0, 0, 0, 0.10);
   --klc-color-border-light: rgba(0, 0, 0, 0.08);
   --klc-color-border-separator: rgba(0, 0, 0, 0.10);
-  --klc-color-border-button: #d0d0d0;
-  --klc-color-border-chart: #e5e5e5;
+  --klc-color-border-button: #B8B8BE;
+  --klc-color-border-chart: #D8D8DE;
   --klc-color-ma-ma5: #e8590c;
   --klc-color-ma-ma10: #0891b2;
   --klc-color-ma-ma20: #2563eb;
@@ -406,19 +409,20 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-zones-ob-bear-fill: rgba(239, 68, 68, 0.25);
   --klc-color-reference-line-neutral: rgba(0, 0, 0, 0.3);
   --klc-color-wmsr-grid: rgba(0, 0, 0, 0.1);
-  --klc-color-ui-background: #F4F6F7;
-  --klc-color-ui-surface: #FFFFFF;
-  --klc-color-ui-card: #FBFCFC;
+  --klc-color-ui-background: #F5F5F7;
+  --klc-color-ui-surface: #FAFAFC;
+  --klc-color-ui-card: #FFFFFF;
   --klc-color-ui-input: #FFFFFF;
-  --klc-color-ui-hover: #EDF1F2;
-  --klc-color-ui-border: #DCE1E3;
-  --klc-color-ui-border-strong: #B9C1C5;
-  --klc-color-ui-text: #182126;
-  --klc-color-ui-text-soft: #829097;
-  --klc-color-ui-muted: #607078;
-  --klc-color-ui-accent: #176F68;
-  --klc-color-ui-accent-strong: #115B55;
-  --klc-color-ui-focus: #278E86;
+  --klc-color-ui-control-background: #E5E5EA;
+  --klc-color-ui-hover: #DCDCE1;
+  --klc-color-ui-border: #D8D8DE;
+  --klc-color-ui-border-strong: #B8B8BE;
+  --klc-color-ui-text: #242426;
+  --klc-color-ui-text-soft: #76767C;
+  --klc-color-ui-muted: #606066;
+  --klc-color-ui-accent: #52617B;
+  --klc-color-ui-accent-strong: #414E66;
+  --klc-color-ui-focus: #52617B;
   --klc-color-ui-warning-background: #FFF8E8;
   --klc-color-ui-warning-border: #D29A3A;
   --klc-color-ui-warning-text: #AD7414;
@@ -429,12 +433,14 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-success: #16885A;
   --klc-color-ui-warning: #C58A1A;
   --klc-color-ui-danger: #D14B4B;
-  --klc-color-ui-neutral: #9CA3AF;
+  --klc-color-ui-neutral: #76767C;
   --klc-color-ui-on-accent: #FFFFFF;
-  --klc-color-ui-secondary-button-text: #5A5A5A;
-  --klc-color-ui-control-background: #EDF1F2;
-  --klc-color-agent-user-message: #E7F2EF;
-  --klc-color-agent-backdrop: rgba(15, 20, 25, 0.35);
+  --klc-color-ui-secondary-button-text: #606066;
+  --klc-color-agent-composer-input-background: #FFFFFF;
+  --klc-color-agent-composer-control-background: #E5E5EA;
+  --klc-color-agent-composer-control-hover: #DCDCE1;
+  --klc-color-agent-user-message: #EAEAEE;
+  --klc-color-agent-backdrop: rgba(0, 0, 0, 0.35);
   --klc-color-agent-panel-shadow: rgba(0, 0, 0, 0.2);
   --klc-spacing-none: 0;
   --klc-spacing-xxs: 2px;
@@ -470,36 +476,36 @@ Each role is measured against its own surface (default: \`colors.background\`).
 
 | Role | Value | Surface | Ratio | Floor | Pass |
 |---|---|---|---|---|---|
-| foreground | #1F1F1F | background | 15.79 | 4.5:1 | ✅ |
-| axisText | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
-| crosshairLabelText | #FAFAFA | crosshairLabelBg | 15.79 | 4.5:1 | ✅ |
-| tooltipText | #1F1F1F | tooltipBg | 16.48 | 4.5:1 | ✅ |
-| candleUpBody | #089981 | background | 3.42 | 3.0:1 | ✅ |
-| candleDownBody | #f23645 | background | 3.73 | 3.0:1 | ✅ |
-| performancePositive | #0B7A50 | background | 5.14 | 4.5:1 | ✅ |
-| performanceNegative | #C2363B | background | 5.18 | 4.5:1 | ✅ |
-| performanceNeutral | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
-| candleDojiBorder | #6E6E6E | background | 4.89 | 3.0:1 | ✅ |
-| crosshairLine | #8C8C8C | background | 3.22 | 3.0:1 | ✅ |
-| selectionStroke | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |
-| alertActive | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |
-| alertTriggered | #C2410C | background | 4.96 | 3.0:1 | ✅ |
-| avwapLine | #7C3AED | background | 5.46 | 3.0:1 | ✅ |
-| mtfOverlay | #0369A1 | background | 5.68 | 3.0:1 | ✅ |
+| foreground | #242426 | background | 14.23 | 4.5:1 | ✅ |
+| axisText | #606066 | background | 5.74 | 4.5:1 | ✅ |
+| crosshairLabelText | #F5F5F7 | crosshairLabelBg | 14.23 | 4.5:1 | ✅ |
+| tooltipText | #242426 | tooltipBg | 14.86 | 4.5:1 | ✅ |
+| candleUpBody | #089981 | background | 3.28 | 3.0:1 | ✅ |
+| candleDownBody | #f23645 | background | 3.58 | 3.0:1 | ✅ |
+| performancePositive | #0B7A50 | background | 4.93 | 4.5:1 | ✅ |
+| performanceNegative | #C2363B | background | 4.96 | 4.5:1 | ✅ |
+| performanceNeutral | #5A5A5A | background | 6.33 | 4.5:1 | ✅ |
+| candleDojiBorder | #6E6E6E | background | 4.68 | 3.0:1 | ✅ |
+| crosshairLine | #8C8C8C | background | 3.09 | 3.0:1 | ✅ |
+| selectionStroke | #2D7FF9 | background | 3.50 | 3.0:1 | ✅ |
+| alertActive | #2D7FF9 | background | 3.50 | 3.0:1 | ✅ |
+| alertTriggered | #C2410C | background | 4.76 | 3.0:1 | ✅ |
+| avwapLine | #7C3AED | background | 5.23 | 3.0:1 | ✅ |
+| mtfOverlay | #0369A1 | background | 5.45 | 3.0:1 | ✅ |
 
 ## Indicator palette
 
 | Slot | Value | Ratio vs BG |
 |---|---|---|
-| i1 | #0072B2 | 4.97 |
-| i2 | #E69F00 | 2.16 |
-| i3 | #009E73 | 3.28 |
-| i4 | #CC79A7 | 2.93 |
-| i5 | #D55E00 | 3.71 |
-| i6 | #56B4E9 | 2.21 |
-| i7 | #F0E442 | 1.27 |
-| i8 | #7C3AED | 5.46 |
-| i9 | #2D7FF9 | 3.65 |
-| i10 | #6E6E6E | 4.89 |
-| indicatorAtr | #d97706 | 3.05 |"
+| i1 | #0072B2 | 4.76 |
+| i2 | #E69F00 | 2.07 |
+| i3 | #009E73 | 3.14 |
+| i4 | #CC79A7 | 2.81 |
+| i5 | #D55E00 | 3.55 |
+| i6 | #56B4E9 | 2.12 |
+| i7 | #F0E442 | 1.21 |
+| i8 | #7C3AED | 5.23 |
+| i9 | #2D7FF9 | 3.50 |
+| i10 | #6E6E6E | 4.68 |
+| indicatorAtr | #d97706 | 2.93 |"
 `;

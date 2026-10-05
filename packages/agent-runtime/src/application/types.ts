@@ -49,6 +49,7 @@ export interface AgentApplicationApi {
   startRun(input: StartRunInput): Promise<{ runId: string }>
   cancelRun(runId: string): Promise<void>
   retryRun(runId: string): Promise<{ runId: string }>
+  editMessage(runId: string, prompt: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   undoTurn(runId: string): Promise<void>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>

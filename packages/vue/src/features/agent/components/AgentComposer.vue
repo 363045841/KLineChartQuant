@@ -61,24 +61,24 @@
         <button
           v-if="running"
           type="button"
-          class="composer__primary composer__primary--stop"
+          class="composer__primary composer__primary--stop agent-primary-button"
           :title="text.stop"
           :aria-label="text.stop"
           @click="$emit('stop')"
         >
-          <span class="composer__primary-background" aria-hidden="true"></span>
+          <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
           <IconPlayerStopFilled aria-hidden="true" />
         </button>
         <button
           v-else
           type="button"
-          class="composer__primary"
+          class="composer__primary agent-primary-button"
           :disabled="!draft.trim()"
           :title="text.send"
           :aria-label="text.send"
           @click="$emit('send')"
         >
-          <span class="composer__primary-background" aria-hidden="true"></span>
+          <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
           <IconArrowUp aria-hidden="true" />
         </button>
       </div>
@@ -155,6 +155,8 @@
   }
 </script>
 
+<style scoped src="./agent-primary-button.css"></style>
+
 <style scoped>
   .composer {
     display: grid;
@@ -179,7 +181,7 @@
     border: 1px solid var(--agent-border);
     border-radius: 12px;
     color: var(--agent-text);
-    background: var(--agent-input);
+    background: var(--klc-color-agent-composer-input-background);
     font: inherit;
     font-size: 13px;
     line-height: 1.5;
@@ -248,7 +250,8 @@
     min-width: 0;
   }
 
-  .composer__model :deep(.drop-menu__trigger) {
+  .composer__model :deep(.drop-menu__trigger),
+  .composer__reasoning :deep(.dropdown__trigger) {
     max-width: 160px;
     height: 26px;
     box-sizing: border-box;
@@ -256,29 +259,33 @@
     align-items: center;
     gap: 5px;
     padding: 0 9px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid transparent;
     border-radius: 8px;
     color: var(--agent-text);
-    background: var(--agent-hover);
+    background: var(--klc-color-agent-composer-control-background);
     font: inherit;
     font-size: 11px;
     cursor: pointer;
   }
 
-  .composer__model :deep(.drop-menu__trigger:hover),
-  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) {
-    border-color: var(--agent-border-strong);
-    background: var(--agent-input);
+  .composer__model :deep(.drop-menu__trigger:hover:not(:disabled)),
+  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']:not(:disabled)),
+  .composer__reasoning :deep(.dropdown__trigger:hover:not(:disabled)),
+  .composer__reasoning :deep(.dropdown__trigger[aria-expanded='true']:not(:disabled)) {
+    border-color: var(--klc-color-agent-composer-control-hover);
+    background: var(--klc-color-agent-composer-control-hover);
   }
 
-  .composer__model :deep(.drop-menu__trigger:focus-visible) {
+  .composer__model :deep(.drop-menu__trigger:focus-visible),
+  .composer__reasoning :deep(.dropdown__trigger:focus-visible) {
     outline: none;
-    border-color: var(--agent-accent);
-    background: var(--agent-input);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-accent) 24%, transparent);
+    border-color: var(--agent-focus);
+    background: var(--klc-color-agent-composer-control-hover);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
   }
 
-  .composer__model :deep(.drop-menu__trigger:disabled) {
+  .composer__model :deep(.drop-menu__trigger:disabled),
+  .composer__reasoning :deep(.dropdown__trigger:disabled) {
     color: var(--agent-text-soft);
     background: transparent;
     cursor: not-allowed;
@@ -314,25 +321,6 @@
     height: 14px;
   }
 
-  .composer__reasoning {
-    --dropdown-trigger-background: var(--agent-hover);
-    --dropdown-trigger-color: var(--agent-text);
-    --dropdown-trigger-chevron: var(--agent-muted);
-    --dropdown-trigger-active-border: var(--agent-border-strong);
-    --dropdown-trigger-active-background: var(--agent-input);
-    --dropdown-trigger-focus-border: var(--agent-accent);
-    --dropdown-trigger-focus-background: var(--agent-input);
-    --dropdown-trigger-focus-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--agent-accent) 24%, transparent);
-  }
-
-  .composer__reasoning :deep(.dropdown__trigger) {
-    max-width: 160px;
-    height: 26px;
-    gap: 5px;
-    padding: 0 9px;
-  }
-
   .composer__reasoning :deep(.dropdown__value) {
     min-width: 0;
     overflow: hidden;
@@ -341,57 +329,6 @@
     font-weight: 400;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .composer__reasoning :deep(.dropdown__trigger:disabled) {
-    color: var(--agent-text-soft);
-    background: transparent;
-  }
-
-  .composer__primary {
-    width: 24px;
-    height: 24px;
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    color: var(--klc-color-ui-on-accent);
-    background: transparent;
-    box-sizing: border-box;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .composer__primary-background {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background-color: var(--agent-accent);
-    transition: background-color 0.2s ease;
-  }
-
-  .composer__primary > svg {
-    z-index: 1;
-    width: 14px;
-    height: 14px;
-  }
-
-  .composer__primary:hover:not(:disabled) {
-    background: transparent;
-  }
-
-  .composer__primary:hover:not(:disabled) .composer__primary-background {
-    background-color: var(--agent-accent-strong);
-  }
-
-  .composer__primary:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 
   .composer__primary--stop .composer__primary-background {

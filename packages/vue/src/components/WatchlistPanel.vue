@@ -229,7 +229,8 @@
 
   .watchlist-panel__item:hover,
   .watchlist-panel__item.is-active {
-    background: var(--klc-color-ui-hover);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, var(--klc-color-ui-surface));
+    box-shadow: inset 2px 0 var(--klc-color-ui-focus);
   }
 
   .watchlist-panel__select {

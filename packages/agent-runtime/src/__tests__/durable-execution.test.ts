@@ -51,6 +51,9 @@ describe('official durable execution', () => {
       const session = await app.createSession()
       const run = await app.startRun({ sessionId: session.id, prompt: 'Start', readOnly: true })
       await partial
+      await expect(app.editMessage(run.runId, 'Edited while running')).rejects.toMatchObject({
+        code: 'RUN_ACTIVE',
+      })
       await app.cancelRun(run.runId)
       const snapshot = await app.openSession(session.id)
       expect(snapshot.runs.at(-1)?.status).toBe('cancelled')
@@ -79,6 +82,7 @@ describe('official durable execution', () => {
         { stopReason: 'toolUse' },
       ),
       fauxAssistantMessage('最终答案\n\n完整尾部'),
+      fauxAssistantMessage('Edited result'),
     ])
     const models = createModels()
     models.setProvider(faux.provider)
@@ -153,6 +157,17 @@ describe('official durable execution', () => {
         resultSummary: '检查完成',
         evidence: { symbol: 'AAPL', source: 'Native tool' },
       })
+      const edited = await app.editMessage(run.runId, 'Change the inspection request')
+      await waitRun(app, edited.runId)
+      const branch = await app.openSession(session.id)
+      expect(branch.toolCalls).toEqual([])
+      expect(branch.messages.map((message) => message.content)).toEqual([
+        'Change the inspection request',
+        'Edited result',
+      ])
+      expect(branch.runs).toEqual([
+        expect.objectContaining({ id: edited.runId, editOfRunId: run.runId }),
+      ])
     } finally {
       release()
       stop()
@@ -161,13 +176,20 @@ describe('official durable execution', () => {
     }
   })
 
-  it('preserves the historical reply position across repeated forks and continues from the latest answer', async () => {
+  it('projects only the current branch across repeated forks and continues from the latest answer', async () => {
     const runtime = await createMemoryRuntimeSessions()
     const faux = fauxProvider()
     faux.setResponses(
-      ['Original', 'Later answer', 'Regenerated', 'Regenerated again', 'Follow-up'].map((answer) =>
-        fauxAssistantMessage(answer),
-      ),
+      [
+        'Prefix answer',
+        'Original',
+        'Later answer',
+        'Regenerated',
+        'Regenerated again',
+        'Edited answer',
+        'Edited again',
+        'Follow-up',
+      ].map((answer) => fauxAssistantMessage(answer)),
     )
     const models = createModels()
     models.setProvider(faux.provider)
@@ -184,6 +206,12 @@ describe('official durable execution', () => {
     })
     try {
       const session = await app.createSession()
+      const prefix = await app.startRun({
+        sessionId: session.id,
+        prompt: 'Prefix question',
+        readOnly: true,
+      })
+      await waitRun(app, prefix.runId)
       const first = await app.startRun({
         sessionId: session.id,
         prompt: 'Original question',
@@ -202,14 +230,37 @@ describe('official durable execution', () => {
       await waitRun(app, repeated.runId)
       expect(
         (await app.openSession(session.id)).messages.map((message) => message.content),
-      ).toEqual(['Original question', 'Regenerated again', 'Later question', 'Later answer'])
+      ).toEqual(['Prefix question', 'Prefix answer', 'Original question', 'Regenerated again'])
+      const selected = (await app.openSession(session.id)).messages.find(
+        (message) => message.content === 'Original question',
+      )
+      expect(selected?.runId).toBe(repeated.runId)
+      await expect(app.editMessage(repeated.runId, '  ')).rejects.toMatchObject({
+        code: 'INVALID_PAYLOAD',
+      })
+      const edited = await app.editMessage(repeated.runId, 'Edited question')
+      await waitRun(app, edited.runId)
+      const editedAgain = await app.editMessage(edited.runId, 'Edited question again')
+      await waitRun(app, editedAgain.runId)
+      const snapshot = await app.openSession(session.id)
+      expect(snapshot.messages.map((message) => message.content)).toEqual([
+        'Prefix question',
+        'Prefix answer',
+        'Edited question again',
+        'Edited again',
+      ])
+      expect(snapshot.runs.map((run) => run.id)).toEqual([prefix.runId, editedAgain.runId])
+      expect((await runtime.sessions.findRun(first.runId)).prompt).toBe('Original question')
       const next = await app.startRun({ sessionId: session.id, prompt: 'Continue', readOnly: true })
       await waitRun(app, next.runId)
       const transcript = await runtime.sessions.getTranscript(
         await runtime.sessions.findRun(next.runId),
       )
       const content = JSON.stringify(transcript)
-      expect(content).toContain('Regenerated again')
+      expect(content).toContain('Prefix answer')
+      expect(content).toContain('Edited question again')
+      expect(content).toContain('Edited again')
+      expect(content).not.toContain('Regenerated again')
       expect(content).not.toContain('Later answer')
       expect(content).not.toContain('"text":"Original"')
     } finally {
@@ -252,7 +303,7 @@ describe('official durable execution', () => {
       const next = await app.startRun({ sessionId: session.id, prompt: 'Next', readOnly: true })
       await waitRun(app, next.runId)
       const context = await runtime.sessions.findRun(next.runId)
-      expect(context.lane).toBe(`retry:${retry.runId}`)
+      expect(context.lane).toBe(`fork:${retry.runId}`)
       const transcript = await runtime.sessions.getTranscript(context)
       const answers = transcript
         .filter((message) => message.role === 'assistant')
