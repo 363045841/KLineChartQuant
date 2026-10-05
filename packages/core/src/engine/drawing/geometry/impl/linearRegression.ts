@@ -1,40 +1,33 @@
-// 回归通道使用的线性回归：对价格序列做最小二乘拟合，返回斜率、截距与残差标准差。
+/** 线性回归结果，x 使用输入数组的序号，y 使用输入值。 */
+export type LinearRegression = {
+  slope: number
+  intercept: number
+  stdDev: number
+}
 
-export function computeLinearRegression(
-  values: number[],
-): { slope: number; intercept: number; stdDev: number } | null {
+/** 对有限数值做最小二乘拟合，并返回拟合线和残差标准差。 */
+export function computeLinearRegression(values: ReadonlyArray<number>): LinearRegression | null {
   const n = values.length
-  if (n < 2) return null
+  if (n < 2 || values.some((value) => !Number.isFinite(value))) return null
 
-  let sumX = 0
-  let sumY = 0
-  let sumXY = 0
-  let sumXX = 0
+  const xMean = (n - 1) / 2
+  const yMean = values.reduce((sum, value) => sum + value, 0) / n
+  let xx = 0
+  let xy = 0
   for (let i = 0; i < n; i++) {
-    const x = i
-    const y = values[i]!
-    sumX += x
-    sumY += y
-    sumXY += x * y
-    sumXX += x * x
+    const x = i - xMean
+    xx += x * x
+    xy += x * (values[i]! - yMean)
   }
+  if (xx === 0) return null
 
-  const denominator = n * sumXX - sumX * sumX
-  if (denominator === 0) return null
-
-  const slope = (n * sumXY - sumX * sumY) / denominator
-  const intercept = (sumY - slope * sumX) / n
-
-  let variance = 0
+  const slope = xy / xx
+  const intercept = yMean - slope * xMean
+  let residualSum = 0
   for (let i = 0; i < n; i++) {
-    const fitted = intercept + slope * i
-    const diff = values[i]! - fitted
-    variance += diff * diff
+    const residual = values[i]! - (intercept + slope * i)
+    residualSum += residual * residual
   }
 
-  return {
-    slope,
-    intercept,
-    stdDev: Math.sqrt(variance / n),
-  }
+  return { slope, intercept, stdDev: Math.sqrt(residualSum / n) }
 }

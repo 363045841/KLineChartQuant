@@ -3,17 +3,17 @@
  */
 
 import { buildFillPolygon } from '@/engine/drawing/geometry/impl/fillRegions.js'
-import { computeLinearRegression } from '@/engine/drawing/geometry/impl/linearRegression.js'
+import { computeRegressionChannel } from '@/engine/drawing/geometry/impl/regressionChannel.js'
 import type { DrawingDefinition, ResolvedDrawingAnchor } from '@/engine/drawing/types.js'
 import { midpoint } from '@/foundation/geometry/index.js'
 import type { LinePrimitive } from '@/foundation/plugin/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 
-/** 将锚点逻辑索引解析为 seriesData 下标；越界或非有限返回 -1。 */
-function getAnchorDataIndex(anchor: ResolvedDrawingAnchor, data: KLineData[]): number {
-  if (!Number.isFinite(anchor.index)) return -1
+/** 将锚点逻辑索引解析为 seriesData 下标；无效索引返回 null。 */
+function getAnchorDataIndex(anchor: ResolvedDrawingAnchor, data: KLineData[]): number | null {
+  if (!Number.isFinite(anchor.index)) return null
   const index = Math.round(anchor.index)
-  if (index < 0 || index >= data.length) return -1
+  if (index < 0 || index >= data.length) return null
   return index
 }
 
@@ -133,38 +133,29 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
       if (!first || !second) return { primitives: [] }
       const firstIndex = getAnchorDataIndex(first, context.seriesData)
       const secondIndex = getAnchorDataIndex(second, context.seriesData)
-      if (firstIndex < 0 && secondIndex < 0) return { primitives: [] }
-
-      const clampedFirstIndex = Math.min(
-        Math.max(Math.round(first.index), 0),
-        context.seriesData.length - 1,
+      if (firstIndex === null || secondIndex === null) return { primitives: [] }
+      const params = drawing.params
+      const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
+      const regression = computeRegressionChannel(
+        context.seriesData.map((item) => item.close),
+        firstIndex,
+        secondIndex,
+        sigma,
       )
-      const clampedSecondIndex = Math.min(
-        Math.max(Math.round(second.index), 0),
-        context.seriesData.length - 1,
-      )
-      const startIndex = Math.min(clampedFirstIndex, clampedSecondIndex)
-      const endIndex = Math.max(clampedFirstIndex, clampedSecondIndex)
-      const slice = context.seriesData.slice(startIndex, endIndex + 1)
-      const regression = computeLinearRegression(slice.map((item) => item.close))
       if (!regression) return { primitives: [] }
-
-      const sigma = (drawing.params as { sigma?: number } | undefined)?.sigma ?? 2
-      const offset = regression.stdDev * sigma
-      const firstValue = regression.intercept
-      const lastValue = regression.intercept + regression.slope * (slice.length - 1)
+      const { firstValue, secondValue, offset } = regression
 
       const startAnchor = {
         id: `${drawing.id}-reg-start`,
         index: Math.round(first.index),
-        time: context.seriesData[startIndex]!.timestamp,
+        time: context.seriesData[firstIndex]!.timestamp,
         price: firstValue,
       }
       const endAnchor = {
         id: `${drawing.id}-reg-end`,
         index: Math.round(second.index),
-        time: context.seriesData[endIndex]!.timestamp,
-        price: lastValue,
+        time: context.seriesData[secondIndex]!.timestamp,
+        price: secondValue,
       }
       const upperStartAnchor = {
         ...startAnchor,
@@ -174,7 +165,7 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
       const upperEndAnchor = {
         ...endAnchor,
         id: `${drawing.id}-reg-upper-end`,
-        price: lastValue + offset,
+        price: secondValue + offset,
       }
       const lowerStartAnchor = {
         ...startAnchor,
@@ -184,7 +175,7 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
       const lowerEndAnchor = {
         ...endAnchor,
         id: `${drawing.id}-reg-lower-end`,
-        price: lastValue - offset,
+        price: secondValue - offset,
       }
 
       const middleA = context.toScreen(startAnchor)
@@ -213,7 +204,11 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
           { kind: 'line', a: lowerA, b: lowerB, style: drawing.style },
         ],
         computedAnchors: [startAnchor, endAnchor],
-        meta: { sigma, stdDev: regression.stdDev, slope: regression.slope },
+        meta: {
+          sigma: regression.sigma,
+          stdDev: regression.regression.stdDev,
+          slope: regression.regression.slope,
+        },
       }
     },
   }
