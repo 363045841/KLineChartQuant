@@ -1347,7 +1347,7 @@ function rebuildIfStale(): Indicator[] {
       .filter((def) => def.kind === IndicatorKind.Indicator)
       .map((def) => {
         const key = normalizeId(def.name)
-        const ui = uiMeta[key]
+        const ui = uiMeta[key] ?? def.ui
         return {
           id: def.displayName,
           label: def.displayName,
