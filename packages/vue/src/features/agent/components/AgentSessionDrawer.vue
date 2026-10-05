@@ -330,10 +330,6 @@
     white-space: nowrap;
   }
 
-  .agent-session-drawer__item.is-active .agent-session-drawer__item-title {
-    font-weight: 600;
-  }
-
   .agent-session-drawer__item-actions {
     padding-right: 4px;
     transition: opacity 0.12s ease;

@@ -7,7 +7,7 @@
     <div v-if="message.role !== 'action' && message.role !== 'reasoning'" class="message__role">
       <IconUser v-if="message.role === 'user'" aria-hidden="true" />
       <IconSparkles v-else aria-hidden="true" />
-      <span>{{ message.role === 'user' ? 'You' : text.agent }}</span>
+      <span>{{ message.role === 'user' ? text.you : text.agent }}</span>
       <IconLoader2
         v-if="message.status === 'streaming'"
         class="message__spinner"
@@ -38,12 +38,25 @@
     />
     <p v-else-if="message.role !== 'reasoning'" class="message__content">{{ message.content }}</p>
     <div v-if="showActions" class="message__actions">
-      <button type="button" @click="copy">
-        <IconCopy aria-hidden="true" />
-        {{ copyStatus === 'copied' ? text.copiedMessage : copyStatus === 'failed' ? text.copyFailed : text.copyMessage }}
+      <button
+        type="button"
+        :data-status="copyStatus"
+        :aria-label="copyLabel"
+        :title="copyLabel"
+        @click="copy"
+      >
+        <IconCheck v-if="copyStatus === 'copied'" aria-hidden="true" />
+        <IconAlertTriangle v-else-if="copyStatus === 'failed'" aria-hidden="true" />
+        <IconCopy v-else aria-hidden="true" />
       </button>
-      <button type="button" :disabled="regenerateDisabled" @click="$emit('regenerate')">
-        <IconRefresh aria-hidden="true" />{{ text.regenerate }}
+      <button
+        type="button"
+        :disabled="regenerateDisabled"
+        :aria-label="text.regenerate"
+        :title="text.regenerate"
+        @click="$emit('regenerate')"
+      >
+        <IconRefresh aria-hidden="true" />
       </button>
     </div>
   </article>
@@ -52,7 +65,9 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import IconActivity from '~icons/tabler/activity'
+  import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconBrain from '~icons/tabler/brain'
+  import IconCheck from '~icons/tabler/check'
   import IconCopy from '~icons/tabler/copy'
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconRefresh from '~icons/tabler/refresh'
@@ -73,6 +88,14 @@
   defineEmits<{ regenerate: [] }>()
   const { status: copyStatus, copy } = useMessageCopy(() => props.message.content)
   const text = computed(() => getAgentCopy(props.locale))
+  // 图标按钮的无障碍名称随复制反馈状态变化。
+  const copyLabel = computed(() =>
+    copyStatus.value === 'copied'
+      ? text.value.copiedMessage
+      : copyStatus.value === 'failed'
+        ? text.value.copyFailed
+        : text.value.copyMessage,
+  )
   const html = computed(() => renderAgentMarkdown(props.message.content, props.message.citations))
   // 启用折叠后思考过程默认收起；否则流式输出期间默认展开。
   const reasoningOpen = computed(
@@ -101,19 +124,22 @@
 <style scoped>
   .message__actions {
     display: flex;
-    gap: 8px;
+    gap: 2px;
     margin-top: 8px;
   }
   .message__actions button {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
     border: 0;
     padding: 4px;
     background: transparent;
     color: var(--agent-muted);
-    font-size: 11px;
     cursor: pointer;
+  }
+  .message__actions button svg {
+    width: 15px;
+    height: 15px;
   }
   .message__actions button:hover { color: var(--agent-text); }
   .message__actions button:disabled { opacity: 0.5; cursor: not-allowed; }

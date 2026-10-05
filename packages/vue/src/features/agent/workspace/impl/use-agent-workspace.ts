@@ -40,9 +40,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   let snapshotDelivery = 0
   let modelLoadGeneration = 0
 
-  const activeSession = computed(() =>
-    state.value.sessions.find((session) => session.id === state.value.activeSessionId),
-  )
   const isRunning = computed(() => ['running', 'cancelling'].includes(state.value.run.status))
   const providerReady = computed(
     () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
@@ -258,7 +255,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     modelsLoading,
     providerSettings,
     locale,
-    activeSession,
     isRunning,
     providerReady,
     collapseReasoning,

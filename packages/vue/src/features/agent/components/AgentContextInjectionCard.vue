@@ -11,19 +11,23 @@
       <span class="injection-card__count"
         >{{ contextItems.length }} {{ text.injectedKLineBarsCount }}</span
       >
-      <span class="injection-card__action">
-        {{ expanded ? text.hideInjectedKLineBars : text.showInjectedKLineBars }}
+      <span class="injection-card__action" aria-hidden="true">
+        <IconChevronDown />
       </span>
     </button>
-    <div v-if="expanded" :id="contentId" class="injection-card__content">
-      <p class="injection-card__description">{{ text.injectedKLineBarsDescription }}</p>
-      <pre class="injection-card__data">{{ preview }}</pre>
-    </div>
+    <Transition name="injection-card-expand">
+      <div v-if="expanded" :id="contentId" class="injection-card__content">
+        <div class="injection-card__content-inner">
+          <pre class="injection-card__data">{{ preview }}</pre>
+        </div>
+      </div>
+    </Transition>
   </section>
 </template>
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import type { AgentContextItem } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
@@ -79,25 +83,53 @@
   }
 
   .injection-card__action {
-    color: var(--agent-accent);
-    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    color: var(--agent-text);
+  }
+
+  .injection-card__action svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.15s ease;
+  }
+
+  .injection-card__summary[aria-expanded='true'] .injection-card__action svg {
+    transform: rotate(180deg);
   }
 
   .injection-card__content {
-    padding: 0 12px 10px;
+    display: grid;
+    grid-template-rows: 1fr;
   }
 
-  .injection-card__description {
-    margin: 0 0 7px;
-    color: var(--agent-muted);
-    font-size: 11px;
-    line-height: 1.4;
+  .injection-card__content-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 用 0fr→1fr 动画展开/收起，适配内容高度不定的预览面板。 */
+  .injection-card-expand-enter-active,
+  .injection-card-expand-leave-active {
+    transition: grid-template-rows 0.2s ease;
+  }
+
+  .injection-card-expand-enter-from,
+  .injection-card-expand-leave-to {
+    grid-template-rows: 0fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .injection-card-expand-enter-active,
+    .injection-card-expand-leave-active {
+      transition-duration: 0.01ms;
+    }
   }
 
   .injection-card__data {
     min-width: 0;
     max-height: 220px;
-    margin: 0;
+    margin: 8px 12px 10px;
     overflow-y: auto;
     padding: 8px;
     border: 1px solid var(--agent-border);

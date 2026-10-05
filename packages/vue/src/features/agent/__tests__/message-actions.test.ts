@@ -1,11 +1,17 @@
 // 本文件验证回复复制与历史运行重新生成的按钮行为。
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import AgentMessageItem from '../components/AgentMessageItem.vue'
 import AgentTimeline from '../components/AgentTimeline.vue'
 
 describe('reply actions', () => {
-  it('copies Markdown source and reports success', async () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('copies Markdown source and reverts the feedback state', async () => {
+    vi.useFakeTimers()
     const writeText = vi.fn().mockResolvedValue(undefined)
     const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
@@ -24,9 +30,13 @@ describe('reply actions', () => {
       },
     })
     try {
-      await wrapper.get('.message__actions button').trigger('click')
+      const button = wrapper.get('.message__actions button')
+      await button.trigger('click')
       expect(writeText).toHaveBeenCalledWith('**Answer**')
-      expect(wrapper.text()).toContain('已复制')
+      expect(button.attributes('data-status')).toBe('copied')
+      vi.advanceTimersByTime(2000)
+      await nextTick()
+      expect(button.attributes('data-status')).toBe('idle')
     } finally {
       wrapper.unmount()
       if (original) Object.defineProperty(navigator, 'clipboard', original)
