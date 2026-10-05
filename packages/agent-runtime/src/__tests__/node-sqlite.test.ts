@@ -29,13 +29,14 @@ describeSqlite('Node SQLite runtime sessions', () => {
     const databasePath = join(directory, 'agent.sqlite')
     let id = 0
     const ids = () => `id-${++id}`
-    runtime = createNodeRuntimeSessions({ databasePath, cwd: directory, id: ids })
+    runtime = await createNodeRuntimeSessions({ databasePath, id: ids })
     const session = await runtime.sessions.create('Durable RSI')
     const first = await runtime.sessions.beginRun({
       sessionId: session.id,
       runId: 'run-1',
       turnId: 'turn-1',
       prompt: 'Inspect RSI',
+      context: { items: [{ kind: 'chart-symbol', value: { symbol: 'AAPL', name: 'Apple' } }] },
       readOnly: true,
       startedAt: 1_000,
     })
@@ -63,17 +64,18 @@ describeSqlite('Node SQLite runtime sessions', () => {
     await runtime.close()
     runtime = undefined
 
-    runtime = createNodeRuntimeSessions({ databasePath, cwd: directory, id: ids })
+    runtime = await createNodeRuntimeSessions({ databasePath, id: ids })
     expect(await runtime.sessions.list()).toEqual([
       expect.objectContaining({ id: session.id, title: 'Durable RSI' }),
     ])
     expect((await runtime.sessions.findRun('run-2')).retryOfRunId).toBe('run-1')
-    expect((await runtime.sessions.open(session.id)).runs[0]?.status).toBe('running')
+    expect((await runtime.sessions.findRun('run-2')).context).toEqual(first.context)
+    expect((await runtime.sessions.open(session.id)).runs[0]?.status).toBe('completed')
 
     await runtime.sessions.delete(session.id)
     await runtime.close()
     runtime = undefined
-    runtime = createNodeRuntimeSessions({ databasePath, cwd: directory, id: ids })
+    runtime = await createNodeRuntimeSessions({ databasePath, id: ids })
     expect(await runtime.sessions.list()).toEqual([])
   })
 
@@ -82,9 +84,8 @@ describeSqlite('Node SQLite runtime sessions', () => {
     directory = await mkdtemp(join(tmpdir(), 'kq-agent-runtime-redaction-'))
     const databasePath = join(directory, 'agent.sqlite')
     const secret = 'sqlite-secret-sentinel'
-    runtime = createNodeRuntimeSessions({
+    runtime = await createNodeRuntimeSessions({
       databasePath,
-      cwd: directory,
       id: () => 'redacted-session',
       redaction: { secretValues: [secret] },
     })

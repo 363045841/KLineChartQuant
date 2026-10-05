@@ -1,4 +1,4 @@
-import { MemorySessionRepo } from '@earendil-works/pi-agent-core'
+import { createSession, MemoryStorage } from '@earendil-works/pi-durable'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -46,7 +46,7 @@ function fixture() {
   let now = 1_000
   const drivers: ControlledDriver[] = []
   const sessions = new RuntimeSessionService({
-    repository: new MemorySessionRepo(),
+    session: createSession(new MemoryStorage()),
     id: () => `session-${++id}`,
     now: () => ++now,
   })
@@ -73,7 +73,7 @@ describe('AgentApplicationService', () => {
     let connected = false
     const events: AgentUiEvent[] = []
     const runtime = new AgentApplicationService({
-      sessions: new RuntimeSessionService({ repository: new MemorySessionRepo() }),
+      sessions: new RuntimeSessionService({ session: createSession(new MemoryStorage()) }),
       createPlan: () => ({}) as PiRunPlan,
       provider: {
         getStatus: () =>
@@ -231,12 +231,15 @@ describe('AgentApplicationService', () => {
   })
 
   it('continues the durable event sequence after a runtime restart', async () => {
-    const repository = new MemorySessionRepo()
+    const durableSession = createSession(new MemoryStorage())
     let id = 0
     const createService = () => {
       const drivers: ControlledDriver[] = []
       const service = new AgentApplicationService({
-        sessions: new RuntimeSessionService({ repository, id: () => `session-${++id}` }),
+        sessions: new RuntimeSessionService({
+          session: durableSession,
+          id: () => `session-${++id}`,
+        }),
         id: () => `runtime-${++id}`,
         createDriver: () => {
           const driver = new ControlledDriver()

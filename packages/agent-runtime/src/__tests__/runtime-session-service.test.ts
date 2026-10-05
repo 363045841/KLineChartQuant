@@ -1,4 +1,5 @@
-import { BACKGROUND_CONTEXT, MemorySessionRepo } from '@earendil-works/pi-agent-core'
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
+import { createSession, MemoryStorage } from '@earendil-works/pi-durable'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,18 +8,24 @@ import {
   KQ_CUSTOM_ENTRY,
   RuntimeSessionService,
 } from '../index'
+import {
+  SESSION_LANE,
+  SESSION_SCAN_PAGE_SIZE,
+  SessionIdentityDoc,
+  scanAll,
+} from '../sessions/durable-session'
 
 function createFixture() {
   let now = 1_000
   let id = 0
-  const repository = new MemorySessionRepo()
+  const session = createSession(new MemoryStorage())
   const service = new RuntimeSessionService({
-    repository,
+    session,
     now: () => ++now,
     id: () => `id-${++id}`,
     redaction: { secretValues: ['registered-secret'] },
   })
-  return { repository, service }
+  return { session, service }
 }
 
 describe('RuntimeSessionService', () => {
@@ -36,7 +43,7 @@ describe('RuntimeSessionService', () => {
   })
 
   it('persists follow-ups and creates retry at the original user parent', async () => {
-    const { repository, service } = createFixture()
+    const { service } = createFixture()
     const session = await service.create()
     const first = await service.beginRun({
       sessionId: session.id,
@@ -72,14 +79,8 @@ describe('RuntimeSessionService', () => {
       lane: 'retry:run-3',
     })
     expect(retry.userEntryId).not.toBe(first.userEntryId)
-    await service.close()
-    const piSession = await repository.open(
-      (await repository.list(undefined, BACKGROUND_CONTEXT))[0]!,
-      BACKGROUND_CONTEXT,
-    )
-    const originalEntry = await piSession.getEntry(first.userEntryId, BACKGROUND_CONTEXT)
-    const retryEntry = await piSession.getEntry(retry.userEntryId, BACKGROUND_CONTEXT)
-    expect(retryEntry?.parentId).toBe(originalEntry?.parentId)
+    expect(await service.getTranscript(retry)).toEqual([])
+    expect(await service.getTranscript(followUp)).toEqual(transcript)
   })
 
   it('checkpoints redacted replayable events and rebuilds a snapshot', async () => {
@@ -147,75 +148,54 @@ describe('RuntimeSessionService', () => {
   })
 
   it('fails closed on future and corrupt schemas', async () => {
-    const { repository, service } = createFixture()
-    const future = await repository.create({ id: 'future' }, BACKGROUND_CONTEXT)
-    await future.setName('Future', BACKGROUND_CONTEXT)
-    const futureMain = await future.createBranch('main', null, BACKGROUND_CONTEXT)
-    await futureMain.appendCustomEntry(
-      KQ_CUSTOM_ENTRY.sessionMetadata,
-      {
-        schemaVersion: 99,
-        updatedAt: 1,
-      },
-      BACKGROUND_CONTEXT,
-    )
-    await future.close(BACKGROUND_CONTEXT)
+    const { session, service } = createFixture()
+    await seedMetadata(session, 'future', 99, 1)
     await expect(service.open('future')).rejects.toMatchObject({
       code: 'SESSION_SCHEMA_UNSUPPORTED',
     } satisfies Partial<AgentRuntimeError>)
 
-    const corrupt = await repository.create({ id: 'corrupt' }, BACKGROUND_CONTEXT)
-    await corrupt.setName('Corrupt', BACKGROUND_CONTEXT)
-    const corruptMain = await corrupt.createBranch('main', null, BACKGROUND_CONTEXT)
-    await corruptMain.appendCustomEntry(
-      KQ_CUSTOM_ENTRY.sessionMetadata,
-      {
-        schemaVersion: 1,
-        updatedAt: 'bad',
-      },
-      BACKGROUND_CONTEXT,
-    )
-    await corrupt.close(BACKGROUND_CONTEXT)
+    await seedMetadata(session, 'corrupt', 1, 'bad')
     await expect(service.open('corrupt')).rejects.toMatchObject({
       code: 'SESSION_CORRUPT',
     } satisfies Partial<AgentRuntimeError>)
   })
 
-  it('migrates the supported version-zero metadata deterministically', async () => {
-    const { repository, service } = createFixture()
-    const legacy = await repository.create({ id: 'legacy' }, BACKGROUND_CONTEXT)
-    await legacy.setName('Legacy', BACKGROUND_CONTEXT)
-    const legacyMain = await legacy.createBranch('main', null, BACKGROUND_CONTEXT)
-    await legacyMain.appendCustomEntry(
-      KQ_CUSTOM_ENTRY.sessionMetadata,
-      {
-        schemaVersion: 0,
-        updatedAt: 42,
-      },
-      BACKGROUND_CONTEXT,
-    )
-    await legacy.close(BACKGROUND_CONTEXT)
+  it('rejects version-zero metadata without migrating stored history', async () => {
+    const { session, service } = createFixture()
+    const conversationId = await seedMetadata(session, 'legacy', 0, 42)
 
-    expect(await service.open('legacy')).toMatchObject({
-      session: { id: 'legacy', title: 'Legacy', updatedAt: 42 },
+    await expect(service.open('legacy')).rejects.toMatchObject({
+      code: 'SESSION_SCHEMA_UNSUPPORTED',
     })
-    await service.close()
-    const reopenedLegacy = await repository.open(
-      (await repository.list(undefined, BACKGROUND_CONTEXT))[0]!,
+    const metadataEntries = await session.commit(
+      (tx) =>
+        scanAll((cursor) => tx.scanEntries({ conversationId }, SESSION_SCAN_PAGE_SIZE, cursor)),
       BACKGROUND_CONTEXT,
     )
-    const metadataEntries = await reopenedLegacy.findEntries(
-      {
-        customType: KQ_CUSTOM_ENTRY.sessionMetadata,
-        order: 'asc',
-      },
-      BACKGROUND_CONTEXT,
-    )
-    expect(
-      metadataEntries.map((entry) => (entry.type === 'custom' ? entry.data : undefined)),
-    ).toEqual([
+    expect(metadataEntries.reverse().map((entry) => entry.data)).toEqual([
       { schemaVersion: 0, updatedAt: 42 },
-      { schemaVersion: 1, updatedAt: 42 },
     ])
   })
 })
+
+/** 用真实 pi-durable 事务写入不同版本的业务元数据。 */
+async function seedMetadata(
+  session: ReturnType<typeof createSession>,
+  id: string,
+  schemaVersion: number,
+  updatedAt: number | string,
+) {
+  return session.commit(async (tx) => {
+    const conversation = await tx.createConversation({ ownership: { kind: 'ownerless' } })
+    Object.assign(await tx.doc(SessionIdentityDoc, conversation.id), {
+      sessionId: id,
+      lane: SESSION_LANE.main,
+      title: id,
+    })
+    await tx.appendEntry(conversation.id, {
+      kind: KQ_CUSTOM_ENTRY.sessionMetadata,
+      data: { schemaVersion, updatedAt },
+    })
+    return conversation.id
+  }, BACKGROUND_CONTEXT)
+}

@@ -76,7 +76,7 @@ export class AgentApplicationService implements AgentApplicationApi {
   }
 
   async close(): Promise<void> {
-    await this.sessions.close()
+    await this.interruptOwnedRuns()
   }
 
   listSessions() {
@@ -276,26 +276,41 @@ export class AgentApplicationService implements AgentApplicationApi {
       })
       await this.sessions.appendAssistantMessage(context, result.text, this.now())
       const endedAt = this.now()
-      await this.sessions.finishRun(context, { status: 'completed', endedAt })
-      await this.emitRun(active, { type: 'run.completed', endedAt, usage: result.usage })
+      this.publish(
+        await this.sessions.finishRun(
+          context,
+          { status: 'completed', endedAt },
+          { sequence: ++this.sequence, usage: result.usage },
+        ),
+      )
       this.log('info', 'agent.run.completed', active, { durationMs: endedAt - startedAt })
     } catch (thrown) {
       const error = toAgentRuntimeError(thrown)
       const endedAt = this.now()
       if (error.code === 'ABORTED') {
         const partial = active.completedReversibleTool
-        await this.sessions.finishRun(context, {
-          status: partial ? 'partial' : 'cancelled',
-          endedAt,
-        })
-        await this.emitRun(active, { type: 'run.cancelled', partial, endedAt })
+        this.publish(
+          await this.sessions.finishRun(
+            context,
+            {
+              status: partial ? 'partial' : 'cancelled',
+              endedAt,
+            },
+            { sequence: ++this.sequence },
+          ),
+        )
         this.log('info', 'agent.run.cancelled', active, {
           durationMs: endedAt - startedAt,
           partial,
         })
       } else {
-        await this.sessions.finishRun(context, { status: 'failed', endedAt })
-        await this.emitRun(active, { type: 'run.failed', endedAt, error: error.toView() })
+        this.publish(
+          await this.sessions.finishRun(
+            context,
+            { status: 'failed', endedAt },
+            { sequence: ++this.sequence, error: error.toView() },
+          ),
+        )
         this.log('error', 'agent.run.failed', active, {
           durationMs: endedAt - startedAt,
           code: error.code,
@@ -315,7 +330,7 @@ export class AgentApplicationService implements AgentApplicationApi {
       sequence: ++this.sequence,
       runId: active.context.runId,
       sessionId: active.context.sessionId,
-    } as AgentUiEvent
+    }
     const safe = await this.sessions.persistEvent({
       sessionId: active.context.sessionId,
       lane: active.context.lane,

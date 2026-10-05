@@ -56,6 +56,14 @@ export default defineConfig({
     alias: [
       ...coreAliases,
       {
+        find: /^@363045841yyt\/klinechart-agent-runtime\/testing$/,
+        replacement: fileURLToPath(new URL('../agent-runtime/src/testing/index.ts', import.meta.url)),
+      },
+      {
+        find: /^@363045841yyt\/klinechart-agent-runtime\/browser$/,
+        replacement: fileURLToPath(new URL('../agent-runtime/src/browser.ts', import.meta.url)),
+      },
+      {
         find: /^@363045841yyt\/klinechart-agent-runtime$/,
         replacement: agentRuntime,
       },

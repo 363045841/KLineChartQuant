@@ -1,41 +1,42 @@
-import type {
-  AgentMessage,
-  Branch,
-  Context,
-  CustomEntry,
-  Entry,
-  JsonValue,
-  Session,
-  SessionCreateOptions,
-  SessionMetadata,
-  SessionRepo,
-} from '@earendil-works/pi-agent-core'
-import { BACKGROUND_CONTEXT } from '@earendil-works/pi-agent-core'
+// 本文件通过 pi-durable 的 Conversation、文档与原子事务管理应用会话。
+import type { Context, JsonValue } from '@earendil-works/chord'
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
+import type { ConversationId, EntryRecord, Session, Tx } from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  type AgentErrorView,
   type AgentSessionSnapshot,
   type AgentSessionView,
   type AgentUiEvent,
+  type AgentUsageView,
 } from '../contracts/ui.js'
 import { type RedactionOptions, redactString, redactValue } from '../security/redaction.js'
+import {
+  SESSION_ENTRY,
+  SESSION_LANE,
+  SESSION_SCAN_PAGE_SIZE,
+  SessionIdentityDoc,
+  type SessionLane,
+  scanAll,
+} from './durable-session.js'
+import { decodeAgentUiEvent } from './event-codec.js'
+import { replaySnapshot } from './session-replay.js'
 import {
   type BeginRunInput,
   KQ_CUSTOM_ENTRY,
   KQ_SESSION_SCHEMA_VERSION,
   type KqRunStartedEntry,
   type KqRunTerminalEntry,
-  type KqSessionMetadataEntry,
   type PersistEventInput,
   type RetryRunInput,
   type RunPersistenceContext,
 } from './types.js'
 
-type AnySessionRepo = SessionRepo<SessionMetadata, SessionCreateOptions, never>
-
 export interface RuntimeSessionServiceOptions {
-  repository: AnySessionRepo
-  createOptions?: (id: string) => SessionCreateOptions
+  /** 宿主持有底层 Session，负责关闭存储；服务只管理应用会话。 */
+  session: Session
   now?: () => number
   id?: () => string
   defaultTitle?: string
@@ -43,60 +44,34 @@ export interface RuntimeSessionServiceOptions {
   context?: Context
 }
 
+/** 验证持久化 JSON 对象。 */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function isJsonValue(value: unknown): value is JsonValue {
+/** 将业务载荷编码为官方存储契约要求的 JSON。 */
+function json(value: unknown): JsonValue {
+  const result: unknown = JSON.parse(JSON.stringify(value))
+  if (isJson(result)) return result
+  throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent entry is not JSON-compatible.')
+}
+
+/** 递归判断 JSON 值，禁止通过类型断言绕过存储契约。 */
+function isJson(value: unknown): value is JsonValue {
   if (
     value === null ||
     typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
+    typeof value === 'boolean' ||
+    typeof value === 'number'
   )
     return true
-  if (Array.isArray(value)) return value.every(isJsonValue)
-  return isObject(value) && Object.values(value).every(isJsonValue)
+  if (Array.isArray(value)) return value.every(isJson)
+  return isObject(value) && Object.values(value).every(isJson)
 }
 
-function toJsonValue(value: unknown): JsonValue {
-  const serialized = JSON.stringify(value)
-  if (serialized === undefined)
-    throw new AgentRuntimeError(
-      'SESSION_CORRUPT',
-      'The Agent session entry is not JSON-serializable.',
-    )
-  const parsed: unknown = JSON.parse(serialized)
-  if (!isJsonValue(parsed))
-    throw new AgentRuntimeError(
-      'SESSION_CORRUPT',
-      'The Agent session entry is not JSON-compatible.',
-    )
-  return parsed
-}
-
-function requireMetadata(value: unknown): KqSessionMetadataEntry {
-  if (
-    !isObject(value) ||
-    typeof value.schemaVersion !== 'number' ||
-    typeof value.updatedAt !== 'number'
-  ) {
-    throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent session metadata is invalid.')
-  }
-  if (value.schemaVersion > KQ_SESSION_SCHEMA_VERSION) {
-    throw new AgentRuntimeError(
-      'SESSION_SCHEMA_UNSUPPORTED',
-      'This Agent session was created by a newer application version.',
-    )
-  }
-  return { schemaVersion: value.schemaVersion, updatedAt: value.updatedAt }
-}
-
-function isCustom(entry: Entry, customType: string): entry is CustomEntry {
-  return entry.type === 'custom' && entry.customType === customType
-}
-
-function requireRunStarted(value: unknown): KqRunStartedEntry {
+/** 解码运行起点，保留可选的图表上下文。 */
+function runStart(entry: EntryRecord): KqRunStartedEntry {
+  const value = entry.data
   if (
     !isObject(value) ||
     value.schemaVersion !== KQ_SESSION_SCHEMA_VERSION ||
@@ -110,517 +85,433 @@ function requireRunStarted(value: unknown): KqRunStartedEntry {
   ) {
     throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent run record is invalid.')
   }
-  return value as unknown as KqRunStartedEntry
-}
-
-function requireRunTerminal(value: unknown): KqRunTerminalEntry {
+  // JSON 解码后的上下文沿用业务边界的结构检查。
+  const context = value.context
+  if (context !== undefined && (!isObject(context) || !Array.isArray(context.items))) {
+    throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent run context is invalid.')
+  }
+  const items = context === undefined ? undefined : context.items
   if (
-    !isObject(value) ||
-    value.schemaVersion !== KQ_SESSION_SCHEMA_VERSION ||
-    typeof value.runId !== 'string' ||
-    typeof value.status !== 'string' ||
-    typeof value.endedAt !== 'number'
-  ) {
-    throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent terminal run record is invalid.')
-  }
-  return value as unknown as KqRunTerminalEntry
-}
-
-function replaySnapshot(session: AgentSessionView, events: AgentUiEvent[]): AgentSessionSnapshot {
-  const messages = new Map<string, AgentSessionSnapshot['messages'][number]>()
-  const tools = new Map<string, AgentSessionSnapshot['toolCalls'][number]>()
-  const runs = new Map<string, AgentSessionSnapshot['runs'][number]>()
-  let lastSequence = 0
-
-  for (const event of events) {
-    lastSequence = Math.max(lastSequence, event.sequence ?? 0)
-    if ('runId' in event) {
-      const previous = runs.get(event.runId) ?? {
-        id: event.runId,
-        sessionId: event.sessionId,
-        status: 'idle' as const,
-      }
-      if (event.type === 'run.started')
-        runs.set(event.runId, { ...previous, status: 'running', startedAt: event.startedAt })
-      if (event.type === 'run.cancelling')
-        runs.set(event.runId, { ...previous, status: 'cancelling' })
-      if (event.type === 'run.completed')
-        runs.set(event.runId, {
-          ...previous,
-          status: 'completed',
-          endedAt: event.endedAt,
-          usage: event.usage,
-        })
-      if (event.type === 'run.failed')
-        runs.set(event.runId, {
-          ...previous,
-          status: 'failed',
-          endedAt: event.endedAt,
-          error: event.error,
-        })
-      if (event.type === 'run.interrupted')
-        runs.set(event.runId, {
-          ...previous,
-          status: 'interrupted',
-          endedAt: event.endedAt,
-          error: event.error,
-        })
-      if (event.type === 'run.cancelled')
-        runs.set(event.runId, {
-          ...previous,
-          status: event.partial ? 'partial' : 'cancelled',
-          endedAt: event.endedAt,
-        })
-    }
-
-    if (event.type === 'user.message.created' || event.type === 'action.summary')
-      messages.set(event.message.id, event.message)
-    if (event.type === 'assistant.message.started') {
-      messages.set(event.messageId, {
-        id: event.messageId,
-        role: 'assistant',
-        content: '',
-        createdAt: event.createdAt,
-        status: 'streaming',
-      })
-    }
-    if (event.type === 'assistant.text.delta') {
-      const message = messages.get(event.messageId)
-      if (message)
-        messages.set(event.messageId, { ...message, content: `${message.content}${event.delta}` })
-    }
-    if (event.type === 'assistant.message.completed' || event.type === 'assistant.message.failed') {
-      const message = messages.get(event.messageId)
-      if (message)
-        messages.set(event.messageId, {
-          ...message,
-          status: event.type === 'assistant.message.completed' ? 'complete' : 'failed',
-          ...(event.type === 'assistant.message.completed' && event.citations?.length
-            ? { citations: event.citations }
-            : {}),
-        })
-    }
-    if (event.type === 'tool.started') tools.set(event.call.id, event.call)
-    if (event.type === 'tool.progress') {
-      const tool = tools.get(event.toolCallId)
-      if (tool) tools.set(event.toolCallId, { ...tool, progress: event.progress })
-    }
-    if (event.type === 'tool.finished') tools.set(event.result.id, event.result)
-    if (event.type === 'tool.undone') {
-      const tool = tools.get(event.toolCallId)
-      if (tool) tools.set(event.toolCallId, { ...tool, status: 'undone' })
-    }
-  }
-
+    items !== undefined &&
+    (!Array.isArray(items) ||
+      !items.every((item) => isObject(item) && typeof item.kind === 'string' && isJson(item.value)))
+  )
+    throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent run context is invalid.')
   return {
-    session,
-    messages: [...messages.values()],
-    toolCalls: [...tools.values()],
-    runs: [...runs.values()],
-    lastSequence,
+    schemaVersion: value.schemaVersion,
+    runId: value.runId,
+    turnId: value.turnId,
+    lane: value.lane,
+    prompt: value.prompt,
+    readOnly: value.readOnly,
+    userEntryId: value.userEntryId,
+    startedAt: value.startedAt,
+    ...(Array.isArray(items) ? { context: { items: items.filter(isContextItem) } } : {}),
+    ...(typeof value.retryOfRunId === 'string' ? { retryOfRunId: value.retryOfRunId } : {}),
   }
 }
 
+/** 校验已冻结的运行上下文项。 */
+function isContextItem(value: unknown): value is { kind: string; value: JsonValue } {
+  return isObject(value) && typeof value.kind === 'string' && isJson(value.value)
+}
+
+/** 应用会话由主 Conversation 标识，重试使用官方历史 fork。 */
 export class RuntimeSessionService {
-  private readonly repository: AnySessionRepo
-  private readonly createOptions: (id: string) => SessionCreateOptions
+  private readonly session: Session
+  private readonly context: Context
   private readonly now: () => number
   private readonly id: () => string
   private readonly defaultTitle: string
   private readonly redaction: RedactionOptions
-  private readonly context: Context
-  private readonly opened = new Map<string, Session>()
-  private readonly metadata = new Map<string, SessionMetadata>()
 
+  /** 接收宿主 Session 与时间、脱敏依赖。 */
   constructor(options: RuntimeSessionServiceOptions) {
-    this.repository = options.repository
-    this.createOptions = options.createOptions ?? ((id) => ({ id }))
+    this.session = options.session
+    this.context = options.context ?? BACKGROUND_CONTEXT
     this.now = options.now ?? Date.now
     this.id = options.id ?? (() => globalThis.crypto.randomUUID())
     this.defaultTitle = options.defaultTitle ?? 'New analysis'
     this.redaction = options.redaction ?? {}
-    this.context = options.context ?? BACKGROUND_CONTEXT
   }
 
+  /** 原子创建主 Conversation、身份文档和元数据。 */
   async create(title = this.defaultTitle): Promise<AgentSessionView> {
     const id = this.id()
-    const session = await this.repository.create(this.createOptions(id), this.context)
-    this.opened.set(id, session)
-    this.metadata.set(id, session.metadata)
-    await session.setName(title, this.context)
-    await session.createBranch('main', null, this.context)
     const updatedAt = this.now()
-    await this.requireBranch(session, 'main').then((branch) =>
-      branch.appendCustomEntry(
-        KQ_CUSTOM_ENTRY.sessionMetadata,
-        {
-          schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-          updatedAt,
-        } satisfies KqSessionMetadataEntry,
-        this.context,
-      ),
-    )
+    await this.session.commit(async (tx) => {
+      const conversation = await tx.createConversation({ ownership: { kind: 'ownerless' } })
+      Object.assign(await tx.doc(SessionIdentityDoc, conversation.id), {
+        sessionId: id,
+        lane: SESSION_LANE.main,
+        title,
+      })
+      await this.touch(tx, conversation.id, updatedAt)
+    }, this.context)
     return { id, title, updatedAt }
   }
 
+  /** 返回所有未删除主会话，按最近更新时间排序。 */
   async list(): Promise<AgentSessionView[]> {
-    const metadata = await this.repository.list(undefined, this.context)
-    const sessions = await Promise.all(metadata.map((entry) => this.catalogEntry(entry)))
-    // The array is newly allocated above and has no external observers.
-    return sessions.sort((left, right) => right.updatedAt - left.updatedAt)
+    const lanes = await this.lanes()
+    const views = await Promise.all(
+      lanes
+        .filter((lane) => lane.lane === SESSION_LANE.main && !lane.deleted)
+        .map((lane) => this.view(lane)),
+    )
+    return views.sort((left, right) => right.updatedAt - left.updatedAt)
   }
 
+  /** 从去重后的分支事件重建 UI 快照。 */
   async open(sessionId: string): Promise<AgentSessionSnapshot> {
-    const session = await this.requireSession(sessionId)
-    await this.ensureSchema(session)
-    const view = await this.catalogEntry(session.metadata)
-    const entries = await session.findEntries(
-      {
-        customType: KQ_CUSTOM_ENTRY.event,
-        order: 'asc',
-      },
-      this.context,
-    )
-    const events = entries.map((entry) => {
-      if (
-        !isCustom(entry, KQ_CUSTOM_ENTRY.event) ||
-        !isObject(entry.data) ||
-        !isObject(entry.data.event)
-      ) {
+    const main = await this.requireLane(sessionId)
+    const events: AgentUiEvent[] = []
+    for (const entry of await this.sessionEntries(sessionId)) {
+      if (entry.kind !== KQ_CUSTOM_ENTRY.event) continue
+      const data = entry.data
+      if (!isObject(data) || !isObject(data.event))
         throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent event checkpoint is invalid.')
-      }
-      return entry.data.event as unknown as AgentUiEvent
-    })
-    return replaySnapshot(view, events)
+      // 业务事件统一由协议编解码器读取。
+      events.push(decodeAgentUiEvent(data.event))
+    }
+    return replaySnapshot(await this.view(main), events)
   }
 
+  /** 原子更新会话标题与更新时间。 */
   async rename(sessionId: string, title: string): Promise<void> {
-    const session = await this.requireSession(sessionId)
-    await session.setName(title.trim(), this.context)
-    await this.touch(session)
+    const main = await this.requireLane(sessionId)
+    await this.session.commit(async (tx) => {
+      const identity = await tx.doc(SessionIdentityDoc, main.conversationId)
+      identity.title = title.trim()
+      await this.touch(tx, main.conversationId)
+    }, this.context)
   }
 
+  /** 标记主会话与全部重试分支删除，避免历史 fork 失去引用。 */
   async delete(sessionId: string): Promise<void> {
-    const metadata = await this.requireMetadata(sessionId)
-    const session = this.opened.get(sessionId)
-    if (session) await session.close(this.context)
-    this.opened.delete(sessionId)
-    this.metadata.delete(sessionId)
-    await this.repository.delete(metadata, this.context)
+    await this.requireLane(sessionId)
+    const lanes = (await this.lanes()).filter((lane) => lane.sessionId === sessionId)
+    await this.session.commit(async (tx) => {
+      for (const lane of lanes)
+        (await tx.doc(SessionIdentityDoc, lane.conversationId)).deleted = true
+    }, this.context)
   }
 
+  /** 在主 Conversation 中原子写入运行边界、用户消息和运行起点。 */
   async beginRun(input: BeginRunInput): Promise<RunPersistenceContext> {
-    const session = await this.requireSession(input.sessionId)
-    const lane = 'main'
-    const prompt = redactString(input.prompt, this.redaction)
-    const branch = await this.requireBranch(session, lane)
-    const userEntryId = await branch.appendMessage(
-      {
-        role: 'user',
-        content: prompt,
-        timestamp: input.startedAt,
-      },
+    const main = await this.requireLane(input.sessionId)
+    return this.session.commit(
+      (tx) => this.start(tx, main.conversationId, SESSION_LANE.main, input),
       this.context,
     )
-    const record: KqRunStartedEntry = {
-      schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-      runId: input.runId,
-      turnId: input.turnId,
-      lane,
-      prompt,
-      readOnly: input.readOnly,
-      ...(input.context ? { context: input.context } : {}),
-      userEntryId,
-      startedAt: input.startedAt,
-    }
-    await branch.appendCustomEntry(KQ_CUSTOM_ENTRY.runStarted, toJsonValue(record), this.context)
-    await this.touch(session)
-    return { sessionId: input.sessionId, ...record }
   }
 
+  /** 在原用户消息之前的边界 fork，隔离失败运行与后续消息。 */
   async retryRun(input: RetryRunInput): Promise<RunPersistenceContext> {
-    const session = await this.requireSession(input.sessionId)
-    const original = await this.findRunStart(session, input.originalRunId)
-    const userEntry = await session.getEntry(original.userEntryId, this.context)
-    if (!userEntry)
-      throw new AgentRuntimeError('SESSION_CORRUPT', 'The retry source message is missing.')
-    const lane = `retry:${input.runId}`
-    const branch = await session.createBranch(lane, userEntry.parentId, this.context)
-    const userEntryId = await branch.appendMessage(
-      {
-        role: 'user',
-        content: original.prompt,
-        timestamp: input.startedAt,
-      },
-      this.context,
-    )
-    const record: KqRunStartedEntry = {
-      schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-      runId: input.runId,
-      turnId: input.turnId,
-      lane,
-      prompt: original.prompt,
-      readOnly: original.readOnly,
-      ...(original.context ? { context: original.context } : {}),
-      userEntryId,
-      startedAt: input.startedAt,
-      retryOfRunId: input.originalRunId,
-    }
-    await branch.appendCustomEntry(KQ_CUSTOM_ENTRY.runStarted, toJsonValue(record), this.context)
-    await this.touch(session)
-    return { sessionId: input.sessionId, ...record }
+    const original = await this.findRun(input.originalRunId)
+    if (original.sessionId !== input.sessionId)
+      throw new AgentRuntimeError(
+        'SESSION_NOT_FOUND',
+        'The retry source belongs to another session.',
+      )
+    const source = await this.requireLane(input.sessionId, original.lane)
+    const history = await this.entries(source.conversationId)
+    const userIndex = history.findIndex((entry) => String(entry.id) === original.userEntryId)
+    const boundary = history[userIndex - 1]
+    if (!boundary || boundary.kind !== SESSION_ENTRY.boundary)
+      throw new AgentRuntimeError('SESSION_CORRUPT', 'The retry source boundary is missing.')
+    const lane = `${SESSION_LANE.retryPrefix}${input.runId}`
+    return this.session.commit(async (tx) => {
+      const fork = await tx.forkConversation(source.conversationId, boundary.id, {
+        ownership: { kind: 'ownerless' },
+      })
+      Object.assign(await tx.doc(SessionIdentityDoc, fork.id), {
+        sessionId: input.sessionId,
+        lane,
+        title: source.title,
+      })
+      return this.start(
+        tx,
+        fork.id,
+        lane,
+        { ...original, ...input, prompt: original.prompt, readOnly: original.readOnly },
+        input.originalRunId,
+      )
+    }, this.context)
   }
 
+  /** 写入脱敏事件，成功提交后才返回给广播方。 */
   async persistEvent(input: PersistEventInput): Promise<AgentUiEvent> {
-    const session = await this.requireSession(input.sessionId)
-    const event = {
-      ...input.event,
-      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-    } as AgentUiEvent
-    const safe = redactValue(event, this.redaction) as AgentUiEvent
-    await (await this.requireBranch(session, input.lane)).appendCustomEntry(
-      KQ_CUSTOM_ENTRY.event,
-      toJsonValue({
-        schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-        event: safe,
-      }),
+    const lane = await this.requireLane(input.sessionId, input.lane)
+    const safe = redactValue(
+      { ...input.event, protocolVersion: AGENT_UI_PROTOCOL_VERSION },
+      this.redaction,
+    )
+    const event = decodeAgentUiEvent(safe)
+    await this.session.commit(
+      (tx) =>
+        tx.appendEntry(lane.conversationId, {
+          kind: KQ_CUSTOM_ENTRY.event,
+          data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, event }),
+        }),
       this.context,
     )
-    return safe
+    return event
   }
 
+  /** 保存助手模型消息，供后续运行上下文使用。 */
   async appendAssistantMessage(
     context: RunPersistenceContext,
     content: string,
     timestamp: number,
   ): Promise<void> {
-    await (
-      await this.requireBranch(await this.requireSession(context.sessionId), context.lane)
-    ).appendMessage(
-      {
-        role: 'assistant',
-        content: [{ type: 'text', text: redactString(content, this.redaction) }],
-        api: 'openai-responses',
-        provider: 'kq-runtime',
-        model: 'redacted',
-        usage: {
-          input: 0,
-          output: 0,
-          cacheRead: 0,
-          cacheWrite: 0,
-          totalTokens: 0,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-        },
-        stopReason: 'stop',
-        timestamp,
-      },
+    const lane = await this.requireLane(context.sessionId, context.lane)
+    await this.session.commit(
+      (tx) =>
+        tx.appendEntry(lane.conversationId, {
+          kind: SESSION_ENTRY.message,
+          model: [
+            {
+              role: 'assistant',
+              content: [{ type: 'text', text: redactString(content, this.redaction) }],
+              api: 'openai-responses',
+              provider: 'kq-runtime',
+              model: 'redacted',
+              usage: {
+                input: 0,
+                output: 0,
+                cacheRead: 0,
+                cacheWrite: 0,
+                totalTokens: 0,
+                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+              },
+              stopReason: 'stop',
+              timestamp,
+            },
+          ],
+        }),
       this.context,
     )
   }
 
+  /** 原子记录终态与主会话更新时间。 */
   async finishRun(
     context: RunPersistenceContext,
     terminal: Omit<KqRunTerminalEntry, 'schemaVersion' | 'runId'>,
-  ): Promise<void> {
-    const session = await this.requireSession(context.sessionId)
-    await (await this.requireBranch(session, context.lane)).appendCustomEntry(
-      KQ_CUSTOM_ENTRY.runTerminal,
-      {
-        schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-        runId: context.runId,
-        ...terminal,
-      } satisfies KqRunTerminalEntry,
-      this.context,
-    )
-    await this.touch(session)
+    details: { sequence?: number; usage?: AgentUsageView; error?: AgentErrorView } = {},
+  ): Promise<AgentUiEvent> {
+    const lane = await this.requireLane(context.sessionId, context.lane)
+    const main = await this.requireLane(context.sessionId)
+    const envelope = {
+      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+      runId: context.runId,
+      sessionId: context.sessionId,
+      endedAt: terminal.endedAt,
+      ...(details.sequence === undefined ? {} : { sequence: details.sequence }),
+    }
+    const event: AgentUiEvent =
+      terminal.status === 'completed'
+        ? { ...envelope, type: 'run.completed', usage: details.usage }
+        : terminal.status === 'cancelled' || terminal.status === 'partial'
+          ? { ...envelope, type: 'run.cancelled', partial: terminal.status === 'partial' }
+          : {
+              ...envelope,
+              type: terminal.status === 'interrupted' ? 'run.interrupted' : 'run.failed',
+              error: details.error ?? {
+                code: terminal.status === 'interrupted' ? 'RUN_INTERRUPTED' : 'PROVIDER_ERROR',
+                message:
+                  terminal.status === 'interrupted'
+                    ? 'The Agent run was interrupted when its host stopped.'
+                    : 'The Agent run failed.',
+                retryable: true,
+                recommendedAction: 'Retry this run.',
+              },
+            }
+    const safe = decodeAgentUiEvent(redactValue(event, this.redaction))
+    await this.session.commit(async (tx) => {
+      await tx.appendEntry(lane.conversationId, {
+        kind: KQ_CUSTOM_ENTRY.runTerminal,
+        data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, runId: context.runId, ...terminal }),
+      })
+      await tx.appendEntry(lane.conversationId, {
+        kind: KQ_CUSTOM_ENTRY.event,
+        data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, event: safe }),
+      })
+      await this.touch(tx, main.conversationId)
+    }, this.context)
+    return safe
   }
 
+  /** 将宿主退出时未结算的运行标记中断，终态与回放事件在同一事务提交。 */
   async recoverInterrupted(): Promise<string[]> {
     const interrupted: string[] = []
-    // Pi branch writes must remain ordered during recovery.
-    for (const metadata of await this.repository.list(undefined, this.context)) {
-      const session = await this.openMetadata(metadata)
-      await this.ensureSchema(session)
-      const starts = await session.findEntries(
-        {
-          customType: KQ_CUSTOM_ENTRY.runStarted,
-          order: 'asc',
-        },
-        this.context,
-      )
-      const terminals = await session.findEntries(
-        {
-          customType: KQ_CUSTOM_ENTRY.runTerminal,
-          order: 'asc',
-        },
-        this.context,
-      )
+    for (const view of await this.list()) {
+      const entries = await this.sessionEntries(view.id)
       const terminalIds = new Set(
-        terminals.map((entry) => requireRunTerminal((entry as CustomEntry).data).runId),
+        entries
+          .filter((entry) => entry.kind === KQ_CUSTOM_ENTRY.runTerminal)
+          .map((entry) => {
+            if (!isObject(entry.data) || typeof entry.data.runId !== 'string')
+              throw new AgentRuntimeError('SESSION_CORRUPT', 'The terminal run record is invalid.')
+            return entry.data.runId
+          }),
       )
-      for (const entry of starts) {
-        const started = requireRunStarted((entry as CustomEntry).data)
+      for (const entry of entries.filter((entry) => entry.kind === KQ_CUSTOM_ENTRY.runStarted)) {
+        const started = runStart(entry)
         if (terminalIds.has(started.runId)) continue
         const endedAt = this.now()
-        const context: RunPersistenceContext = { sessionId: metadata.id, ...started }
-        await this.finishRun(context, { status: 'interrupted', endedAt })
-        await this.persistEvent({
-          sessionId: metadata.id,
-          lane: started.lane,
-          event: {
-            type: 'run.interrupted',
-            runId: started.runId,
-            sessionId: metadata.id,
-            endedAt,
-            error: {
-              code: 'RUN_INTERRUPTED',
-              message: 'The Agent run was interrupted when its host stopped.',
-              retryable: true,
-              recommendedAction: 'Retry this run.',
-            },
-          },
-        })
+        await this.finishRun({ sessionId: view.id, ...started }, { status: 'interrupted', endedAt })
         interrupted.push(started.runId)
       }
     }
     return interrupted
   }
 
+  /** 在全部未删除会话中查找运行起点。 */
   async findRun(runId: string): Promise<RunPersistenceContext> {
-    // Stop on the first newest match without opening every session concurrently.
-    for (const metadata of await this.repository.list(undefined, this.context)) {
-      const session = await this.openMetadata(metadata)
-      const entries = await session.findEntries(
-        {
-          customType: KQ_CUSTOM_ENTRY.runStarted,
-          order: 'desc',
-        },
-        this.context,
-      )
-      for (const entry of entries) {
-        const started = requireRunStarted((entry as CustomEntry).data)
-        if (started.runId === runId) return { sessionId: metadata.id, ...started }
+    for (const view of await this.list()) {
+      for (const entry of (await this.sessionEntries(view.id)).filter(
+        (item) => item.kind === KQ_CUSTOM_ENTRY.runStarted,
+      )) {
+        const started = runStart(entry)
+        if (started.runId === runId) return { sessionId: view.id, ...started }
       }
     }
     throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The requested Agent run does not exist.')
   }
 
-  async close(): Promise<void> {
-    await Promise.all([...this.opened.values()].map((session) => session.close(this.context)))
-    this.opened.clear()
-  }
-
+  /** 读取当前分支的继承历史，排除本次用户输入。 */
   async getTranscript(context: RunPersistenceContext): Promise<AgentMessage[]> {
-    const branch = await this.requireBranch(
-      await this.requireSession(context.sessionId),
-      context.lane,
-    )
-    const entries = await branch.findEntries(
-      { type: 'message', order: 'oldestFirst' },
-      this.context,
-    )
-    return entries.flatMap((entry) =>
-      entry.type === 'message' && entry.id !== context.userEntryId ? [entry.message] : [],
+    const lane = await this.requireLane(context.sessionId, context.lane)
+    return (await this.entries(lane.conversationId)).flatMap((entry) =>
+      String(entry.id) === context.userEntryId ? [] : [...(entry.model ?? [])],
     )
   }
 
-  private async findRunStart(session: Session, runId: string): Promise<KqRunStartedEntry> {
-    const entries = await session.findEntries(
-      {
-        customType: KQ_CUSTOM_ENTRY.runStarted,
-        order: 'desc',
-      },
+  /** 完整读取官方 Conversation 分页及对应身份文档。 */
+  private async lanes(): Promise<SessionLane[]> {
+    const conversations = await this.session.commit(
+      (tx) => scanAll((cursor) => tx.scanConversations({}, SESSION_SCAN_PAGE_SIZE, cursor)),
       this.context,
     )
-    for (const entry of entries) {
-      const record = requireRunStarted((entry as CustomEntry).data)
-      if (record.runId === runId) return record
-    }
-    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The requested Agent run does not exist.')
-  }
-
-  private async catalogEntry(metadata: SessionMetadata): Promise<AgentSessionView> {
-    const session = await this.openMetadata(metadata)
-    const sessionMetadata = await this.ensureSchema(session)
-    return {
-      id: metadata.id,
-      title: (await session.getName(this.context)) ?? this.defaultTitle,
-      updatedAt: sessionMetadata.updatedAt,
-    }
-  }
-
-  private async ensureSchema(session: Session): Promise<KqSessionMetadataEntry> {
-    const entry = await session.findEntry(
-      {
-        customType: KQ_CUSTOM_ENTRY.sessionMetadata,
-        order: 'desc',
-      },
-      this.context,
-    )
-    if (!entry || !isCustom(entry, KQ_CUSTOM_ENTRY.sessionMetadata)) {
-      throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent session metadata is missing.')
-    }
-    const metadata = requireMetadata(entry.data)
-    if (metadata.schemaVersion < KQ_SESSION_SCHEMA_VERSION) {
-      const migrated = { schemaVersion: KQ_SESSION_SCHEMA_VERSION, updatedAt: metadata.updatedAt }
-      await (await this.requireBranch(session, 'main')).appendCustomEntry(
-        KQ_CUSTOM_ENTRY.sessionMetadata,
-        migrated,
+    const lanes: SessionLane[] = []
+    for (const conversation of conversations) {
+      const identity = await this.session.snapshot(
+        SessionIdentityDoc,
+        conversation.id,
         this.context,
       )
-      return migrated
+      if (identity) lanes.push({ conversationId: conversation.id, ...identity })
     }
-    return metadata
+    return lanes
   }
 
-  private async touch(session: Session): Promise<void> {
-    await (await this.requireBranch(session, 'main')).appendCustomEntry(
-      KQ_CUSTOM_ENTRY.sessionMetadata,
-      {
-        schemaVersion: KQ_SESSION_SCHEMA_VERSION,
-        updatedAt: this.now(),
-      } satisfies KqSessionMetadataEntry,
-      this.context,
+  /** 查找有效应用会话与分支，删除后不允许继续写入。 */
+  private async requireLane(
+    sessionId: string,
+    lane: string = SESSION_LANE.main,
+  ): Promise<SessionLane> {
+    const lanes = await this.lanes()
+    const main = lanes.find(
+      (item) => item.sessionId === sessionId && item.lane === SESSION_LANE.main && !item.deleted,
     )
-  }
-
-  private async requireSession(sessionId: string): Promise<Session> {
-    const existing = this.opened.get(sessionId)
-    if (existing) return existing
-    return this.openMetadata(await this.requireMetadata(sessionId))
-  }
-
-  private async requireMetadata(sessionId: string): Promise<SessionMetadata> {
-    const cached = this.metadata.get(sessionId)
-    if (cached) return cached
-    const metadata = (await this.repository.list(undefined, this.context)).find(
-      (entry) => entry.id === sessionId,
+    const found = lanes.find(
+      (item) => item.sessionId === sessionId && item.lane === lane && !item.deleted,
     )
-    if (!metadata)
+    if (!main || !found)
       throw new AgentRuntimeError(
         'SESSION_NOT_FOUND',
         'The requested Agent session does not exist.',
       )
-    this.metadata.set(sessionId, metadata)
-    return metadata
+    return found
   }
 
-  private async openMetadata(metadata: SessionMetadata): Promise<Session> {
-    const existing = this.opened.get(metadata.id)
-    if (existing) return existing
-    const session = await this.repository.open(metadata, this.context)
-    this.opened.set(metadata.id, session)
-    this.metadata.set(metadata.id, metadata)
-    return session
+  /** 返回分支继承历史，按官方数值 ID 升序排列。 */
+  private entries(conversationId: ConversationId): Promise<EntryRecord[]> {
+    return this.session.commit(
+      async (tx) =>
+        (
+          await scanAll((cursor) =>
+            tx.scanEntries({ conversationId }, SESSION_SCAN_PAGE_SIZE, cursor),
+          )
+        ).reverse(),
+      this.context,
+    )
   }
 
-  private async requireBranch(session: Session, name: string): Promise<Branch> {
-    const branch = await session.branch(name, this.context)
-    if (!branch)
+  /** 合并应用会话所有分支，按全局 Entry ID 去重。 */
+  private async sessionEntries(sessionId: string): Promise<EntryRecord[]> {
+    const entries = new Map<number, EntryRecord>()
+    for (const lane of (await this.lanes()).filter(
+      (item) => item.sessionId === sessionId && !item.deleted,
+    )) {
+      for (const entry of await this.entries(lane.conversationId)) entries.set(entry.id, entry)
+    }
+    return [...entries.values()].sort((left, right) => left.id - right.id)
+  }
+
+  /** 校验最新业务 schema 并构造目录视图。 */
+  private async view(lane: SessionLane): Promise<AgentSessionView> {
+    const metadata = (await this.entries(lane.conversationId))
+      .reverse()
+      .find((entry) => entry.kind === KQ_CUSTOM_ENTRY.sessionMetadata)?.data
+    if (
+      !isObject(metadata) ||
+      typeof metadata.schemaVersion !== 'number' ||
+      typeof metadata.updatedAt !== 'number'
+    )
+      throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent session metadata is invalid.')
+    if (metadata.schemaVersion !== KQ_SESSION_SCHEMA_VERSION)
       throw new AgentRuntimeError(
-        'SESSION_CORRUPT',
-        `The Agent session branch "${name}" is missing.`,
+        'SESSION_SCHEMA_UNSUPPORTED',
+        'The Agent session schema version is not supported.',
       )
-    return branch
+    return { id: lane.sessionId, title: lane.title, updatedAt: metadata.updatedAt }
+  }
+
+  /** 在当前事务中追加更新时间。 */
+  private async touch(
+    tx: Tx,
+    conversationId: ConversationId,
+    updatedAt = this.now(),
+  ): Promise<void> {
+    await tx.appendEntry(conversationId, {
+      kind: KQ_CUSTOM_ENTRY.sessionMetadata,
+      data: { schemaVersion: KQ_SESSION_SCHEMA_VERSION, updatedAt },
+    })
+  }
+
+  /** 构造并提交一次用户输入与运行记录。 */
+  private async start(
+    tx: Tx,
+    conversationId: ConversationId,
+    lane: string,
+    input: BeginRunInput,
+    retryOfRunId?: string,
+  ): Promise<RunPersistenceContext> {
+    const prompt = redactString(input.prompt, this.redaction)
+    await tx.appendEntry(conversationId, { kind: SESSION_ENTRY.boundary })
+    const user = await tx.appendEntry(conversationId, {
+      kind: SESSION_ENTRY.message,
+      model: [{ role: 'user', content: prompt, timestamp: input.startedAt }],
+    })
+    const record: RunPersistenceContext = {
+      sessionId: input.sessionId,
+      runId: input.runId,
+      turnId: input.turnId,
+      lane,
+      prompt,
+      readOnly: input.readOnly,
+      userEntryId: String(user.id),
+      startedAt: input.startedAt,
+      ...(input.context ? { context: input.context } : {}),
+      ...(retryOfRunId ? { retryOfRunId } : {}),
+    }
+    await tx.appendEntry(conversationId, {
+      kind: KQ_CUSTOM_ENTRY.runStarted,
+      data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, ...record }),
+    })
+    await this.touch(tx, conversationId)
+    return record
   }
 }

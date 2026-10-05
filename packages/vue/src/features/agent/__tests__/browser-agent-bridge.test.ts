@@ -4,11 +4,11 @@ import type { AgentChartSymbolContextItem } from '@363045841yyt/klinechart-agent
 import { KLineChartError } from '@363045841yyt/klinechart-core'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BrowserAgentBridge } from '../browser-agent/bridge/impl/browser-agent-bridge'
 import { BrowserToolRegistry } from '../browser-agent/tools/impl/browser-tool-registry'
 import { createOpenAiCompatibleFetchStub } from './_agentProviderFixtures'
 import { readStoredAgentModelSettings } from './_agentSettingsFixtures'
 import { createTestChartAgent, createTestChartAgentContext } from './_testChartAgent'
+import { BrowserAgentBridge } from './browser-agent-fixture'
 
 /** 清理每个测试写入的浏览器全局状态；LocalStorage 由全局 test-setup 统一清理。 */
 afterEach(() => {

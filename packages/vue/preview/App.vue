@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
+  import { ref, computed, provide, inject, onBeforeUnmount, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
   import { useChartDocumentTitle } from './useChartDocumentTitle'
   import { AgentWorkbenchShell, createAgentPanelWidthStorage, KlineChart } from '../src/index'
@@ -526,6 +526,7 @@
   const agentBridge = new BrowserAgentBridge({
     getChartAgent: () => chartRef.value?.getController?.()?.agent,
   })
+  onBeforeUnmount(() => agentBridge.close())
   const webPanelWidthStorage = createAgentPanelWidthStorage()
   const showModal = ref(false)
 

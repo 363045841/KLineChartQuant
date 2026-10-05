@@ -2,11 +2,11 @@
 
 import { InMemoryProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
 import { describe, expect, it } from 'vitest'
-import { BrowserAgentBridge } from '../browser-agent/bridge/impl/browser-agent-bridge'
 import {
   readStoredAgentModelSettings,
   storedAgentModelSettingsJson,
 } from './_agentSettingsFixtures'
+import { BrowserAgentBridge } from './browser-agent-fixture'
 
 describe('BrowserAgentBridge credential injection', () => {
   it('keeps the API key out of localStorage and routes it to the injected store', async () => {
