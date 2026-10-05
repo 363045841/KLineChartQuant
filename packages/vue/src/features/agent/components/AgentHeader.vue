@@ -72,12 +72,18 @@
 
 <style scoped>
   .agent-header {
-    padding: var(--agent-header-inset, 12px) var(--agent-header-inset, 12px) 10px;
+    height: 40px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--agent-header-inset, 12px);
+    border-top: 1px solid var(--agent-border);
     border-bottom: 1px solid var(--agent-border);
     background: var(--agent-surface);
   }
 
   .agent-header__top {
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;

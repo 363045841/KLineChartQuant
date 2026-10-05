@@ -56,17 +56,17 @@
         :supported-adjustments="supportedAdjustments"
         @update:model-value="emit('kLineAdjustChange', $event)"
       />
+      <BaseTooltip v-if="showBackButton" content="返回" placement="bottom" trigger-display="contents">
       <button
-        v-if="showBackButton"
         type="button"
         class="control-button back-button"
-        title="返回"
         aria-label="返回"
         @click="emit('back')"
       >
         <IconTablerArrowLeft class="back-button__icon" aria-hidden="true" />
         返回
       </button>
+      </BaseTooltip>
       <AggregationSourceDialog
         :show="showSourceDialog"
         :sources="aggregationSources"
@@ -78,7 +78,7 @@
       />
     </div>
     <div class="screenshot-actions">
-      <BaseTooltip content="撤回">
+      <BaseTooltip content="撤回" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -89,7 +89,7 @@
           <IconTablerArrowBackUp class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="重做">
+      <BaseTooltip content="重做" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -100,6 +100,18 @@
           <IconTablerArrowForwardUp class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
+      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'" placement="bottom">
+        <button
+          type="button"
+          class="control-button history-button"
+          :aria-label="isFullscreen ? '退出全屏' : '全屏显示'"
+          :aria-pressed="!!isFullscreen"
+          @click="emit('toggleFullscreen')"
+        >
+          <IconTablerMinimize v-if="isFullscreen" class="history-button__icon" aria-hidden="true" />
+          <IconTablerMaximize v-else class="history-button__icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
       <span v-if="screenshotMessage" class="screenshot-message" role="status">
         {{ screenshotMessage }}
       </span>
@@ -108,6 +120,7 @@
         :groups="screenshotMenuGroups"
         :disabled="screenshotCapturing"
         trigger-class="screenshot-button"
+        tooltip-placement="bottom"
         placement="bottom"
         @select="onScreenshotSelect"
       >
@@ -115,6 +128,17 @@
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </template>
       </DropMenu>
+      <slot name="watchlist"></slot>
+      <BaseTooltip content="设置" placement="bottom">
+        <button
+          type="button"
+          class="control-button history-button"
+          aria-label="设置"
+          @click="emit('settings')"
+        >
+          <IconTablerSettings class="history-button__icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
   </div>
 </template>
@@ -126,6 +150,9 @@
   import IconTablerCamera from '~icons/tabler/camera'
   import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
+  import IconTablerMaximize from '~icons/tabler/maximize'
+  import IconTablerMinimize from '~icons/tabler/minimize'
+  import IconTablerSettings from '~icons/tabler/settings'
   import BaseTooltip from './common/BaseTooltip.vue'
   import {
     type ChartScreenshotAction,
@@ -241,6 +268,7 @@
       screenshotCapturing?: boolean
       canUndoDrawing?: boolean
       canRedoDrawing?: boolean
+      isFullscreen?: boolean
       screenshotMessage?: string | null
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
@@ -267,6 +295,8 @@
     (e: 'back'): void
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
+    (e: 'toggleFullscreen'): void
+    (e: 'settings'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
   }>()
 
@@ -320,7 +350,7 @@
     gap: 6px;
     padding: 0 8px;
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: var(--chart-frame-radius, 3px) var(--chart-frame-radius, 3px) 0 0;
+    border-radius: 0;
     background: var(--klc-color-ui-surface);
     box-sizing: border-box;
     user-select: none;
@@ -410,6 +440,7 @@
 
   .screenshot-actions .history-button,
   .screenshot-actions :deep(.screenshot-button) {
+    color: var(--klc-color-ui-muted);
     width: 30px;
     min-width: 30px;
     padding: 0;

@@ -92,7 +92,7 @@
 
   const shellStyle = computed(() => ({
     '--agent-panel-width': `${panelWidth.value}px`,
-    '--agent-panel-track': panelOpen.value ? `${panelWidth.value}px` : '0px',
+    '--agent-panel-track': panelOpen.value ? `${panelWidth.value}px` : 'var(--agent-header-button-size)',
   }))
 
   // 将传入的面板宽度限制到允许范围，并返回整数像素值。
@@ -180,8 +180,6 @@
     --agent-focus: var(--klc-color-ui-focus);
     --agent-header-inset: 12px;
     --agent-header-button-size: 30px;
-    --chart-surface-padding: 16px;
-    --chart-surface-end-padding: calc(var(--agent-header-inset) + var(--agent-header-button-size));
 
     width: 100%;
     height: 100%;
@@ -190,10 +188,6 @@
     position: relative;
     overflow: hidden;
     background: var(--agent-bg);
-  }
-
-  .agent-workbench-shell--panel-open {
-    --chart-surface-end-padding: var(--chart-surface-padding);
   }
 
   .agent-workbench-shell :deep(button),
@@ -213,14 +207,15 @@
     height: 100%;
     position: relative;
     overflow: hidden;
-    /* 收起时为启动器留出独立空间，不遮挡 chart 插槽中的自选股或工具栏。 */
-    padding: 0 var(--chart-surface-end-padding) 0 var(--chart-surface-padding);
+    padding: 0;
     box-sizing: border-box;
     background: var(--agent-bg);
     margin-right: var(--agent-panel-track, 0px);
   }
 
   .agent-panel {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     width: var(--agent-panel-width);
     min-height: 0;
     position: absolute;
@@ -229,11 +224,9 @@
     bottom: 0;
     z-index: 3;
     overflow: hidden;
-    border-left: 1px solid var(--klc-color-ui-border);
     background: var(--agent-bg);
-    visibility: hidden;
+     visibility: hidden;
     transform: translateX(100%);
-    will-change: transform;
     transition:
       transform 0.28s ease,
       visibility 0s linear 0.28s;
@@ -241,7 +234,8 @@
 
   .agent-workbench-shell--panel-open .agent-panel {
     visibility: visible;
-    transform: translateX(0);
+    /* 动画结束后退出 transform 合成层，避免文字持续使用纹理栅格化。 */
+    transform: none;
     transition:
       transform 0.28s ease,
       visibility 0s;
@@ -264,6 +258,7 @@
     place-items: center;
     padding: 0;
     border: 1px solid var(--klc-color-ui-border);
+    border-left: 0;
     box-sizing: border-box;
     color: var(--agent-text);
     background: var(--agent-surface);
@@ -295,7 +290,7 @@
     user-select: none !important;
   }
 
-  .agent-workbench-shell--compact .chart-surface {
+  .agent-workbench-shell--compact.agent-workbench-shell--panel-open .chart-surface {
     margin-right: 0;
   }
 
@@ -309,6 +304,7 @@
   }
 
   .agent-workbench-shell--compact .agent-panel {
+    border-left: 1px solid var(--klc-color-ui-border);
     width: min(var(--agent-panel-width), calc(100% - 28px));
     min-width: min(360px, calc(100% - 28px));
     z-index: 31;

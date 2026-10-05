@@ -1,10 +1,15 @@
 <template>
   <div ref="chipWrapRef" class="symbol-chip-wrap">
+    <BaseTooltip
+      :content="error || retrying ? `${displayText} · ${errorTagText}` : displayText"
+      placement="bottom"
+      trigger-display="contents"
+      :disabled="showPopup"
+    >
     <button
       type="button"
       class="control-button symbol-chip"
       :class="{ 'is-open': showPopup }"
-      :title="displayText"
       :aria-expanded="showPopup"
       aria-haspopup="dialog"
       @click="togglePopup"
@@ -14,18 +19,18 @@
       <span
         v-else-if="error || retrying"
         class="symbol-chip__error"
-        :title="errorTagText"
         role="status"
       >
         <IconTablerAlertTriangle class="symbol-chip__warn" aria-hidden="true" />
         <span class="symbol-chip__error-text">{{ errorTagText }}</span>
       </span>
     </button>
+    </BaseTooltip>
     <SymbolPopover
       v-model:search="searchQuery"
       :show="showPopup"
       :anchor="chipWrapRef"
-      dialog-label="切换合约"
+      dialog-label="选择商品"
       search-placeholder="搜索代码或名称…"
       search-aria-label="搜索商品"
       @close="closePopup"
@@ -80,7 +85,7 @@
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
-              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
+              <span class="symbol-list__exchange" :style="{ fontFamily: `var(--klc-typography-font-family-mono, ${typography.fontFamilyMono})` }">{{ formatSymbolMeta(item) }}</span>
             </button>
             <button
               v-if="!watchlistKeys.has(symbolIdentityKey(item))"
@@ -118,7 +123,10 @@
   } from '../composables/useSymbolSearch.js'
   import BaseTabs from './BaseTabs.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import SymbolPopover from './SymbolPopover.vue'
+  import '@fontsource/jetbrains-mono/400.css'
+  import { typography } from '../../../core/src/foundation/tokens/theme-base.js'
 
   export type SymbolItem = SearchableSymbol
 
@@ -280,12 +288,12 @@
   }
 
   .symbol-list {
-    max-height: 280px;
+    max-height: 480px;
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    margin: 0 -4px;
+    margin: 0;
   }
 
   .symbol-list::-webkit-scrollbar {
@@ -312,8 +320,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 4px;
-    border-radius: 7px;
+    margin: 0;
+    border-bottom: 1px solid var(--klc-color-ui-border);
     transition: background 0.12s ease;
     flex-shrink: 0;
   }
@@ -323,7 +331,7 @@
   }
 
   .symbol-list__item.is-active {
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 10%, transparent);
+    background: var(--klc-color-ui-hover);
   }
 
   .symbol-list__select {
@@ -333,7 +341,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 10px;
+    padding: 10px 12px;
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
@@ -349,9 +357,9 @@
     justify-content: center;
     width: 26px;
     height: 26px;
-    margin-right: 4px;
+    margin-right: 12px;
     padding: 0;
-    border: 1px solid transparent;
+    border: 0;
     border-radius: 4px;
     background: transparent;
     color: var(--klc-color-ui-muted);
@@ -359,7 +367,6 @@
   }
 
   .symbol-list__add:hover {
-    border-color: var(--klc-color-ui-border);
     background: var(--klc-color-ui-hover);
     color: var(--klc-color-ui-text);
   }
@@ -379,7 +386,7 @@
 
   .symbol-list__code {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.2;
     letter-spacing: 0.01em;
     color: var(--klc-color-ui-text);
@@ -400,21 +407,21 @@
 
   .symbol-list__exchange {
     flex: 0 0 auto;
-    padding: 2px 7px;
-    border-radius: 4px;
-    background: var(--klc-color-ui-hover);
+    box-sizing: border-box;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--klc-color-ui-control-background);
     color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 400;
     line-height: 1.4;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     white-space: nowrap;
   }
 
-  .symbol-list__item.is-active .symbol-list__exchange {
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
-    color: var(--klc-color-ui-accent);
+  .symbol-list__item:last-child {
+    border-bottom: 0;
   }
 
   @media (max-width: 768px), (max-height: 640px) {
@@ -423,7 +430,7 @@
     }
 
     .symbol-list {
-      max-height: 220px;
+      max-height: 320px;
     }
   }
 

@@ -1,20 +1,24 @@
 <template>
   <section v-if="contextItems.length" class="injection-card" :aria-label="text.injectedKLineBars">
+    <BaseTooltip
+      :content="`${text.injectedKLineBars} · ${contextItems.length} ${text.injectedKLineBarsCount}`"
+      placement="top"
+      trigger-display="contents"
+      :disabled="expanded"
+    >
     <button
       class="injection-card__summary"
       type="button"
+      :aria-label="text.injectedKLineBars"
       :aria-expanded="expanded"
       :aria-controls="contentId"
       @click="expanded = !expanded"
     >
-      <span class="injection-card__title">{{ text.injectedKLineBars }}</span>
-      <span class="injection-card__count"
-        >{{ contextItems.length }} {{ text.injectedKLineBarsCount }}</span
-      >
       <span class="injection-card__action" aria-hidden="true">
-        <IconChevronDown />
+        <IconEye />
       </span>
     </button>
+    </BaseTooltip>
     <Transition name="injection-card-expand">
       <div v-if="expanded" :id="contentId" class="injection-card__content">
         <div class="injection-card__content-inner">
@@ -27,7 +31,8 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
-  import IconChevronDown from '~icons/tabler/chevron-down'
+  import IconEye from '~icons/tabler/eye'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentContextItem } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
@@ -45,60 +50,46 @@
 
 <style scoped>
   .injection-card {
-    border-top: 1px solid var(--agent-border);
-    background: var(--agent-surface);
+    display: contents;
   }
 
   .injection-card__summary {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 4px;
+    width: 26px;
+    box-sizing: border-box;
+    justify-content: center;
+    min-height: 26px;
+    padding: 3px;
     border: 0;
-    color: var(--agent-text-soft);
-    background: transparent;
+    border-radius: var(--agent-control-radius, 8px);
+    color: var(--agent-muted);
+    background: var(--klc-color-agent-composer-input-background);
     font: inherit;
     font-size: 11px;
     text-align: left;
     cursor: pointer;
   }
 
-  .injection-card__summary:hover {
+  .injection-card__summary:hover,
+  .injection-card__summary[aria-expanded='true'] {
     background: var(--agent-hover);
-  }
-
-  .injection-card__title {
-    overflow: hidden;
-    color: var(--agent-text);
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .injection-card__count {
-    color: var(--agent-muted);
-    white-space: nowrap;
   }
 
   .injection-card__action {
     display: inline-flex;
     align-items: center;
-    color: var(--agent-text);
+    color: inherit;
   }
 
   .injection-card__action svg {
     width: 14px;
     height: 14px;
-    transition: transform 0.15s ease;
-  }
-
-  .injection-card__summary[aria-expanded='true'] .injection-card__action svg {
-    transform: rotate(180deg);
   }
 
   .injection-card__content {
+    min-width: 0;
     display: grid;
     grid-template-rows: 1fr;
   }
@@ -129,11 +120,11 @@
   .injection-card__data {
     min-width: 0;
     max-height: 220px;
-    margin: 8px 12px 10px;
+    margin: 0;
     overflow-y: auto;
     padding: 8px;
     border: 1px solid var(--agent-border);
-    border-radius: 3px;
+    border-radius: var(--agent-control-radius, 8px);
     color: var(--agent-text-soft);
     background: var(--agent-input);
     font-family: var(--klc-typography-font-family-mono);

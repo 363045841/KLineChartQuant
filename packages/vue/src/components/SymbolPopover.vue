@@ -1,19 +1,31 @@
 <!--
-  公共商品选择弹层外壳：统一承载 Teleport 定位、tab 栏与搜索框。
+  公共商品选择弹窗外壳：统一承载屏幕居中布局、tab 栏与搜索框。
   调用方通过 #tabs 提供数据源 tab、通过 #body 提供列表内容，弹层样式在本组件内统一。
 -->
 <template>
   <Teleport :to="teleportTarget">
     <Transition name="symbol-popover">
+      <div v-if="show" class="symbol-popover-overlay" @pointerdown.self="close">
       <div
-        v-if="show"
         ref="panelRef"
         class="symbol-popover"
-        :style="popupStyle"
         role="dialog"
+        aria-modal="true"
         :aria-label="dialogLabel"
+        @keydown.esc.stop.prevent="close"
+        @keydown.tab="trapFocus"
       >
-        <slot name="tabs" />
+        <header class="symbol-popover__header">
+          <span>{{ dialogLabel }}</span>
+          <BaseTooltip content="关闭" placement="bottom">
+            <button type="button" class="symbol-popover__close" aria-label="关闭" @click="close">
+              <IconX aria-hidden="true" />
+            </button>
+          </BaseTooltip>
+        </header>
+        <div class="symbol-popover__filters">
+          <slot name="tabs" />
+        </div>
         <div class="symbol-popover__search">
           <SearchField
             ref="searchFieldRef"
@@ -23,21 +35,22 @@
           />
           <AggregationSourceButton @click="emit('manageSources')" />
         </div>
-        <slot name="body" />
+        <div class="symbol-popover__body"><slot name="body" /></div>
+      </div>
       </div>
     </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+  import { nextTick, ref, watch } from 'vue'
 
-  import { useClickOutside } from '../composables/useClickOutside.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup.js'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
   import SearchField from './common/SearchField.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
+  import IconX from '~icons/tabler/x'
 
   const props = withDefaults(
     defineProps<{
@@ -69,42 +82,55 @@
   const searchFieldRef = ref<InstanceType<typeof SearchField> | null>(null)
   const teleportTarget = useFullscreenTeleportTarget()
 
-  const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
-    computed(() => props.anchor),
-    panelRef,
-    8,
-  )
-
   /** 展开时同步定位并聚焦搜索框，收起时停止监听 */
+  function close(): void {
+    emit('close')
+    props.anchor?.querySelector<HTMLButtonElement>('button')?.focus()
+  }
+
+  function trapFocus(event: KeyboardEvent): void {
+    const targets = panelRef.value?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
+    )
+    if (!targets?.length) return
+    const first = targets[0]
+    const last = targets[targets.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last?.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first?.focus()
+    }
+  }
+
   watch(
     () => props.show,
     (open) => {
       if (open) {
-        startPositionSync()
         nextTick(() => searchFieldRef.value?.focus())
-      } else {
-        stopPositionSync()
       }
     },
   )
 
-  // 点击弹层与触发元素之外时请求关闭
-  useClickOutside(
-    () => [props.anchor, panelRef.value],
-    () => emit('close'),
-    { enabled: () => props.show },
-  )
-
-  onBeforeUnmount(() => {
-    stopPositionSync()
-  })
 </script>
 
 <style scoped>
+  .symbol-popover-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1010;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.35);
+  }
+
   .symbol-popover {
-    z-index: 110;
-    width: min(360px, calc(100vw - 24px));
-    padding: 14px;
+    z-index: 1010;
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     background: var(--klc-color-ui-surface);
@@ -112,33 +138,109 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .symbol-popover__filters {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .symbol-popover__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--klc-color-ui-border);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .symbol-popover__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .symbol-popover__close:hover {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .symbol-popover__close svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .symbol-popover__filters :deep(.base-tabs) {
+    padding: 0 12px;
+    border-bottom: 0;
+  }
+
+  .symbol-popover__filters :deep(.base-tabs__tab) {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .symbol-popover__filters :deep(.base-tabs__indicator) {
+    bottom: 6px;
+  }
+
+  .symbol-popover__body {
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .symbol-popover__search {
     display: flex;
     align-items: center;
-    gap: 6px;
+    flex: 0 0 auto;
+    gap: 0;
+    min-height: 42px;
+    padding: 0;
+    border-top: 1px solid var(--klc-color-ui-border);
+    border-bottom: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-surface);
+  }
+
+  .symbol-popover__search :deep(.search-field) {
+    height: 42px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .symbol-popover__search :deep(.source-button) {
+    margin-right: 12px;
   }
 
   .symbol-popover-enter-active,
   .symbol-popover-leave-active {
     transition:
-      opacity 0.15s ease,
-      transform 0.15s ease;
+      opacity 0.15s ease;
   }
 
   .symbol-popover-enter-from,
   .symbol-popover-leave-to {
     opacity: 0;
-    transform: translateY(-4px);
   }
 
   @media (max-width: 768px), (max-height: 640px) {
     .symbol-popover {
-      width: min(320px, calc(100vw - 16px));
-      padding: 12px;
-      gap: 8px;
+      width: min(560px, calc(100vw - 32px));
     }
   }
 </style>

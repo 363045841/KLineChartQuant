@@ -1,6 +1,6 @@
 <!-- K 线级别选择入口：按品种能力过滤周期档位，用 DropMenu 呈现当前值。 -->
 <template>
-  <DropMenu :label="TITLE" :groups="groups" @select="select">
+  <DropMenu :label="TITLE" :groups="groups" tooltip-placement="bottom" @select="select">
     <template #trigger>
       <span class="selection-menu__value">{{ selectedLabel }}</span>
       <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />

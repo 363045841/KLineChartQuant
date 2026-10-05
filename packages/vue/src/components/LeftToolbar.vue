@@ -232,42 +232,6 @@
       </BaseTooltip>
     </div>
 
-    <span class="left-toolbar__divider"></span>
-
-    <div class="left-toolbar__group">
-      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :aria-label="isFullscreen ? '退出全屏' : '全屏显示'"
-          @click="$emit('toggleFullscreen')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerMinimize v-if="isFullscreen" class="tool-icon" aria-hidden="true" />
-          <IconTablerMaximize v-else class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-    </div>
-
-    <span class="left-toolbar__divider"></span>
-
-    <div class="left-toolbar__group">
-      <BaseTooltip content="设置">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="设置"
-          @click="openSettings"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerSettings class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-    </div>
   </nav>
 
   <Teleport :to="teleportTarget">
@@ -360,14 +324,11 @@
   import IconTablerMagnetOff from '~icons/tabler/magnet-off'
   import IconTablerMarquee2 from '~icons/tabler/marquee-2'
   import IconTablerMathFunction from '~icons/tabler/math-function'
-  import IconTablerMaximize from '~icons/tabler/maximize'
-  import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerMinusVertical from '~icons/tabler/minus-vertical'
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerPlus from '~icons/tabler/plus'
   import IconTablerPointer from '~icons/tabler/pointer'
-  import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerShape from '~icons/tabler/shape'
   import IconTablerTrash from '~icons/tabler/trash'
   import IconTablerX from '~icons/tabler/x'
@@ -453,7 +414,6 @@
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
     (e: 'setContinuousDrawing', enabled: boolean): void
-    (e: 'toggleFullscreen'): void
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
@@ -469,7 +429,6 @@
 
   const props = withDefaults(
     defineProps<{
-      isFullscreen?: boolean
       alertController?: ChartController | null
       effectiveSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
@@ -535,7 +494,7 @@
   const menuRef = ref<HTMLElement | null>(null)
   const teleportTarget = useFullscreenTeleportTarget()
   const dropdownPosition = ref({ '--menu-anchor-left': '0px', '--menu-anchor-top': '0px' })
-  const showSettings = ref(false)
+  const showSettings = defineModel<boolean>('settingsOpen', { default: false })
   const showAlerts = ref(false)
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
@@ -690,10 +649,6 @@
   /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
   function toggleGlobalDrawingLock() {
     emit('setGlobalDrawingLock', !props.globalDrawingLocked)
-  }
-
-  function openSettings() {
-    showSettings.value = true
   }
 
   function onToggleAggregationSource(name: string, enabled: boolean) {

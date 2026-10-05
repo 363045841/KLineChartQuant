@@ -7,6 +7,9 @@
   >
     <div class="chart-workspace">
       <TopToolbar
+        :is-fullscreen="effectiveIsFullscreen"
+        @toggle-fullscreen="handleToggleFullscreen"
+        @settings="chartSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
         @undo-drawing="controller?.undoDrawing()"
@@ -42,10 +45,19 @@
         @toggle-aggregation-source="setAggregationSourceEnabled"
         @update-source-endpoint="setAggregationSourceEndpoint"
         @back="onBackFromTimeShare"
-      />
+      >
+        <template #watchlist>
+          <WatchlistPanel
+            :items="watchlistItems"
+            :active-key="currentSymbolItem ? symbolIdentityKey(currentSymbolItem) : undefined"
+            @select="onSymbolChange"
+            @remove="removeWatchlistItem"
+          />
+        </template>
+      </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
-          :is-fullscreen="effectiveIsFullscreen"
+          v-model:settings-open="chartSettingsOpen"
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :renderer-runtime="rendererRuntime"
@@ -65,7 +77,6 @@
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
           @toggle-indicator="onToggleIndicator"
-          @toggle-fullscreen="handleToggleFullscreen"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @clear-drawings="controller?.clearDrawings()"
@@ -310,12 +321,6 @@
         </div>
       </div>
     </div>
-    <WatchlistPanel
-      :items="watchlistItems"
-      :active-key="currentSymbolItem ? symbolIdentityKey(currentSymbolItem) : undefined"
-      @select="onSymbolChange"
-      @remove="removeWatchlistItem"
-    />
     <ExportProgressDialog :progress="exportingProgress" @close="exportingProgress = null" />
     <BatchStockDialog
       :show="showBatchStockDialog"
@@ -786,6 +791,7 @@
 
   // ── Fullscreen (controlled / uncontrolled) ──
   const internalIsFullscreen = ref(false)
+  const chartSettingsOpen = ref(false)
   const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
   let onFullscreenChange: (() => void) | null = null
 
@@ -1936,13 +1942,13 @@
     display: flex;
     align-items: stretch;
     width: var(--kmap-width);
-    height: calc(var(--kmap-height) - 32px);
+    height: var(--kmap-height);
     min-height: 300px;
     flex-direction: row;
-    margin: 16px 0;
+    margin: 0;
     padding: 0;
     box-sizing: border-box;
-    gap: 4px;
+    gap: 0;
   }
 
   .chart-workspace {
@@ -2287,11 +2293,6 @@
     anchor-name: --marker-tooltip-anchor;
   }
 
-  @media (max-width: 768px), (max-height: 640px) {
-    .watchlist-panel {
-      --watchlist-panel-expanded-width: 132px;
-    }
-  }
 </style>
 
 <style>

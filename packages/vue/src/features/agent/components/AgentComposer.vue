@@ -160,7 +160,7 @@
 
 <style scoped>
   .composer__input {
-    --composer-inset: 8px;
+    --composer-inset: 16px;
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -172,11 +172,11 @@
   .composer__textarea {
     width: 100%;
     display: block;
-    min-height: 72px;
+    min-height: 88px;
     max-height: 152px;
     resize: none;
     box-sizing: border-box;
-    padding: var(--composer-inset) var(--composer-inset) 8px;
+    padding: var(--composer-inset);
     border: 0;
     border-radius: var(--agent-control-radius, 8px);
     color: var(--agent-text);
