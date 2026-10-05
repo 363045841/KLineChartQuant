@@ -252,9 +252,9 @@ export const darkTheme: Theme = {
     wmsrGrid: 'rgba(255, 255, 255, 0.1)',
     ui: darkInterfaceColors,
     agent: {
-      composerInputBackground: 'rgb(44, 44, 46)',
-      composerControlBackground: '#3A3A3C',
-      composerControlHover: '#48484A',
+      composerInputBackground: darkInterfaceColors.card,
+      composerControlBackground: darkInterfaceColors.controlBackground,
+      composerControlHover: darkInterfaceColors.hover,
       userMessage: darkInterfaceColors.controlBackground,
       backdrop: 'rgba(0, 0, 0, 0.35)',
       panelShadow: 'rgba(0, 0, 0, 0.2)',

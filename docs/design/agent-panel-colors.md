@@ -6,10 +6,10 @@
 
 Composer 输入框使用独立的语义颜色 `colors.agent.composerInputBackground`，避免调整通用 `ui.input` 时影响其他表单控件。
 
-Composer 的深色输入框采用 `rgb(44, 44, 46)`，浅色采用白色；它与通用表单输入背景独立。现有 `themeToCssVars` 自动生成 `--klc-color-agent-composer-input-background`，Vue 的 `.composer__textarea` 直接消费该变量。
+Composer 的深色输入框复用界面卡片底色 `#1D1F24`，略亮于面板背景，避免大面积亮灰显得突兀；浅色采用白色。专属语义 Token 保留，现有 `themeToCssVars` 自动生成 `--klc-color-agent-composer-input-background`，Vue 的 `.composer__textarea` 直接消费该变量。
 
 消息编辑框继续使用透明背景，不消费这个 Token。
 
-Composer 的模型和思考力度按钮共同消费 `composerControlBackground` 与 `composerControlHover`，使用同一套中性灰底色和交互样式，避免输入框内出现偏蓝的控件色块。
+Composer 的模型和思考力度按钮共同消费 `composerControlBackground` 与 `composerControlHover`，深色主题复用通用控件底色 `#27292E` 和悬停色 `#2D3036`，略亮于输入框，保持统一的冷灰层次与交互样式。
 
 只读开关通过共享 ToggleSwitch 的颜色变量消费工作区配色；其他使用 ToggleSwitch 的界面沿用默认主题。警告与错误继续使用对应的状态色。

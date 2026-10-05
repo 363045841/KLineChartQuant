@@ -1,6 +1,5 @@
 <template>
-  <div class="composer">
-    <div class="composer__input">
+  <div class="composer__input">
       <textarea
         class="composer__textarea"
         :value="draft"
@@ -24,7 +23,7 @@
           >
             <template #trigger>
               <span class="composer__model-value">{{ modelTriggerLabel }}</span>
-              <span class="composer__model-chevron" aria-hidden="true"></span>
+              <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
             </template>
             <template #item-action="{ item }">
               <span v-if="item.id === provider.modelId" class="composer__model-check">
@@ -46,18 +45,19 @@
             @update:model-value="$emit('reasoning-effort', $event)"
           />
         </div>
-        <span
+        <BaseTooltip
           v-if="contextUsage"
-          class="composer__notice"
-          :aria-label="contextUsage.accessibleLabel"
+          :content="contextUsage.label"
+          placement="top"
         >
-          <span>{{ contextUsage.label }}</span>
           <span
             class="composer__usage-ring"
             :style="{ '--usage-progress': `${contextUsage.percent * 3.6}deg` }"
-            aria-hidden="true"
+            :aria-label="contextUsage.accessibleLabel"
+            role="img"
+            tabindex="0"
           ></span>
-        </span>
+        </BaseTooltip>
         <button
           v-if="running"
           type="button"
@@ -82,7 +82,6 @@
           <IconArrowUp aria-hidden="true" />
         </button>
       </div>
-    </div>
   </div>
 </template>
 
@@ -90,7 +89,9 @@
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import DropMenu, { type DropMenuGroup } from '../../../components/DropMenu.vue'
   import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
@@ -158,16 +159,14 @@
 <style scoped src="./agent-primary-button.css"></style>
 
 <style scoped>
-  .composer {
-    display: grid;
-    gap: 7px;
-    padding: 10px 12px 12px;
-    border-top: 1px solid var(--agent-border);
-    background: var(--agent-surface);
-  }
-
   .composer__input {
-    position: relative;
+    --composer-inset: 8px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0 12px 12px;
+    border-radius: var(--agent-control-radius, 8px);
+    background: var(--klc-color-agent-composer-input-background);
   }
 
   .composer__textarea {
@@ -177,17 +176,14 @@
     max-height: 152px;
     resize: none;
     box-sizing: border-box;
-    padding: 11px 42px 31px 12px;
-    border: 1px solid var(--agent-border);
-    border-radius: 12px;
+    padding: var(--composer-inset) var(--composer-inset) 8px;
+    border: 0;
+    border-radius: var(--agent-control-radius, 8px);
     color: var(--agent-text);
-    background: var(--klc-color-agent-composer-input-background);
+    background: transparent;
     font: inherit;
     font-size: 13px;
     line-height: 1.5;
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
   }
 
   .composer__textarea::placeholder {
@@ -199,23 +195,10 @@
   }
 
   .composer__footer {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    left: 12px;
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .composer__notice {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--agent-muted);
-    font-size: 11px;
-    line-height: 1.3;
+    padding: 0 var(--composer-inset) var(--composer-inset);
   }
 
   .composer__usage-ring {
@@ -234,8 +217,13 @@
     position: absolute;
     inset: 2px;
     border-radius: 50%;
-    background: var(--agent-surface);
+    background: var(--klc-color-agent-composer-input-background);
     content: '';
+  }
+
+  .composer__usage-ring:focus-visible {
+    outline: 2px solid var(--agent-focus);
+    outline-offset: 3px;
   }
 
   .composer__meta {
@@ -299,12 +287,15 @@
   }
 
   .composer__model-chevron {
-    width: 0;
-    height: 0;
+    width: 14px;
+    height: 14px;
     flex: 0 0 auto;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid var(--agent-muted);
+    color: var(--agent-muted);
+    transition: transform var(--klc-motion-duration-fast) ease;
+  }
+
+  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) .composer__model-chevron {
+    transform: rotate(180deg);
   }
 
   /* 当前模型的勾选标记始终可见，不受 item-action 悬停显隐控制。 */

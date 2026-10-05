@@ -24,7 +24,7 @@
       >
         <span v-if="label" class="dropdown__label">{{ label }}</span>
         <span class="dropdown__value">{{ selectedOption?.label ?? placeholder }}</span>
-        <span class="dropdown__chevron" aria-hidden="true"></span>
+        <IconChevronDown class="dropdown__chevron" aria-hidden="true" />
       </button>
     </BaseTooltip>
 
@@ -62,6 +62,7 @@
 
 <script setup lang="ts">
   import { computed, onBeforeUnmount, ref } from 'vue'
+  import IconChevronDown from '~icons/tabler/chevron-down'
 
   import { useClickOutside } from '../composables/useClickOutside.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
@@ -245,11 +246,10 @@
   }
 
   .dropdown__chevron {
-    width: 0;
-    height: 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid var(--dropdown-trigger-chevron, var(--klc-color-ui-muted));
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    color: var(--dropdown-trigger-chevron, var(--klc-color-ui-muted));
     transition: transform var(--klc-motion-duration-fast) ease;
   }
 

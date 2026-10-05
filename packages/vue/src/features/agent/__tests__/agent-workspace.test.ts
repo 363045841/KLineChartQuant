@@ -111,7 +111,7 @@ describe('AgentWorkspace', () => {
 
   it('edits a historical user message through the workspace and replaces the later conversation', async () => {
     const mounted = await mountWorkspace({ providerConfigured: true })
-    const composer = mounted.wrapper.get('.composer textarea')
+    const composer = mounted.wrapper.get('.composer__textarea')
     for (const prompt of ['First question', 'Later question']) {
       await composer.setValue(prompt)
       await composer.trigger('keydown', { key: 'Enter' })
@@ -259,7 +259,7 @@ describe('AgentWorkspace', () => {
     expect(mounted.wrapper.findAll('.message--user')).toHaveLength(1)
 
     await mounted.wrapper.get('.composer__primary--stop').trigger('click')
-    await mounted.wrapper.get('.context-bar__toggle input').setValue(true)
+    await mounted.wrapper.get('.context-bar__readonly input').setValue(true)
     await textarea.setValue('Add EMA 20')
     await textarea.trigger('keydown', { key: 'Enter' })
     await vi.advanceTimersByTimeAsync(40)

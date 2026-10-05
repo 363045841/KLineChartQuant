@@ -82,6 +82,7 @@
           <IconRefresh aria-hidden="true" />
         </button>
       </BaseTooltip>
+      <slot name="run-status" />
     </div>
   </article>
 </template>
@@ -196,8 +197,13 @@
   .message__edit-error { margin: 0; color: var(--agent-text); font-size: 12px; }
   .message__actions {
     display: flex;
+    align-items: center;
     gap: 2px;
     margin-top: 8px;
+  }
+  .message__actions :deep(.run-status__usage) {
+    margin-left: auto;
+    align-self: center;
   }
   .message__actions button {
     display: inline-flex;
