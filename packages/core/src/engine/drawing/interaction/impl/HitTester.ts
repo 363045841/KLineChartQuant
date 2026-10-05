@@ -14,8 +14,8 @@ import {
   resolveAreaLabelLayout,
   resolveLineLabelLayout,
 } from '../../geometry/impl/labelLayout.js'
-import { computeLinearRegression } from '../../geometry/impl/linearRegression.js'
 import { getLines, getVerticalHandleLines } from '../../geometry/impl/lines.js'
+import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.js'
 import type { DrawingLine, VerticalHandleLine } from '../../geometry/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingObject } from '../../types.js'
@@ -501,19 +501,20 @@ export class HitTester {
     }
     const clampedFirst = Math.min(Math.max(firstIndex, 0), data.length - 1)
     const clampedSecond = Math.min(Math.max(secondIndex, 0), data.length - 1)
-    const startIndex = Math.min(clampedFirst, clampedSecond)
-    const endIndex = Math.max(clampedFirst, clampedSecond)
-    const slice = data.slice(startIndex, endIndex + 1)
-    const regression = computeLinearRegression(slice.map((item: { close: number }) => item.close))
+    const params = drawing.params
+    const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
+    const regression = computeRegressionChannel(
+      data.map((item: { close: number }) => item.close),
+      clampedFirst,
+      clampedSecond,
+      sigma,
+    )
     if (!regression) {
       cache?.set(drawing.id, null)
       return null
     }
 
-    const sigma = (drawing.params as { sigma?: number } | undefined)?.sigma ?? 2
-    const offset = regression.stdDev * sigma
-    const firstValue = regression.intercept
-    const lastValue = regression.intercept + regression.slope * (slice.length - 1)
+    const { firstValue, secondValue, offset } = regression
 
     const middleStart = anchorToScreen(
       { id: '', time: firstTimestamp, price: firstValue },
@@ -521,7 +522,7 @@ export class HitTester {
       adapter,
     )
     const middleEnd = anchorToScreen(
-      { id: '', time: secondTimestamp, price: lastValue },
+      { id: '', time: secondTimestamp, price: secondValue },
       drawing.paneId,
       adapter,
     )
@@ -531,7 +532,7 @@ export class HitTester {
       adapter,
     )
     const upperEnd = anchorToScreen(
-      { id: '', time: secondTimestamp, price: lastValue + offset },
+      { id: '', time: secondTimestamp, price: secondValue + offset },
       drawing.paneId,
       adapter,
     )
@@ -541,7 +542,7 @@ export class HitTester {
       adapter,
     )
     const lowerEnd = anchorToScreen(
-      { id: '', time: secondTimestamp, price: lastValue - offset },
+      { id: '', time: secondTimestamp, price: secondValue - offset },
       drawing.paneId,
       adapter,
     )

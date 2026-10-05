@@ -461,6 +461,13 @@ export function createOpenAiCompatibleRuntimeSupport(
       : availableTools
     return {
       sessionId: context.sessionId,
+      models,
+      streamOptions: adapter.streamOptions({
+        fetch: trackedFetch,
+        timeoutMs,
+        maxRetries,
+        maxRetryDelayMs,
+      }),
       runId: context.runId,
       turnId: context.turnId,
       prompt: context.prompt,

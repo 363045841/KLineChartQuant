@@ -3,19 +3,22 @@
 import type {
   OpenAiCompatibleProviderSettings,
   ProviderCredentialStore,
+  RedactionOptions,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  AgentApplicationService,
   AgentRuntimeError,
   type AskUserRequest,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
-  PiRunDriver,
-  type PiRunPlan,
   PROVIDER_SETTINGS_VERSION,
-  toAgentRuntimeError,
 } from '@363045841yyt/klinechart-agent-runtime'
+import {
+  type BrowserRuntimeSessions,
+  createBrowserRuntimeSessions,
+} from '@363045841yyt/klinechart-agent-runtime/browser'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentBridgeClient,
@@ -23,8 +26,8 @@ import type {
   AgentRunContext,
   AgentSessionSnapshot,
   AgentSessionView,
-  AgentUiEvent,
-  AgentUiEventInput,
+  AgentWorkspaceEvent,
+  AgentWorkspaceEventInput,
   ProviderModelPoolEntry,
   ProviderModelsResult,
   ProviderModelView,
@@ -51,14 +54,12 @@ import {
 import { ProviderModelPool } from '../../provider/impl/provider-model-pool.js'
 import type { BrowserProviderConnection, BrowserProviderProfile } from '../../provider/types.js'
 import { BrowserRunRegistry } from '../../session/impl/browser-run-registry.js'
-import { BrowserSessionStore } from '../../session/impl/browser-session-store.js'
-import type { BrowserSession } from '../../session/types.js'
 import { BrowserToolRegistry } from '../../tools/impl/browser-tool-registry.js'
 import type { BrowserToolContext } from '../../tools/types.js'
 import type { BrowserAgentBridgeOptions } from '../types.js'
 
 export class BrowserAgentBridge implements AgentBridgeClient {
-  private readonly listeners = new Set<(event: AgentUiEvent) => void>()
+  private readonly listeners = new Set<(event: AgentWorkspaceEvent) => void>()
   private readonly modelSettings = new BrowserAgentModelSettingsStore()
   private readonly modelPool = new ProviderModelPool(
     () => this.modelSettings.modelPool(),
@@ -66,7 +67,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   )
   private readonly profiles = new BrowserProviderProfiles(this.modelSettings)
   private readonly enabledTools = new BrowserEnabledTools(this.modelSettings)
-  private readonly sessions = new BrowserSessionStore()
+  private readonly createSessions: (redaction: RedactionOptions) => Promise<BrowserRuntimeSessions>
+  private readonly redactionSecrets: string[] = []
+  private runtimePromise: Promise<AgentApplicationService> | undefined
+  private durable: BrowserRuntimeSessions | undefined
   private readonly runs = new BrowserRunRegistry()
   private readonly context: ChartContextSource
   private readonly tools: BrowserToolRegistry
@@ -76,6 +80,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly getChartAgent: () => ChartAgentController | null | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
+    this.createSessions =
+      options.createSessions ?? ((redaction) => createBrowserRuntimeSessions({ redaction }))
     this.getChartAgent = options.getChartAgent ?? (() => null)
     this.credentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
     this.settings = new BrowserProviderSettingsStore(this.profiles)
@@ -112,19 +118,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async listSessions(): Promise<AgentSessionView[]> {
-    return this.sessions.list()
+    return (await this.runtime()).listSessions()
   }
 
   async openSession(sessionId: string): Promise<AgentSessionSnapshot> {
-    const session = this.sessions.require(sessionId)
-    return {
-      session: session.view,
-      // 快照不能暴露内部会话数组，否则 UI reducer 的追加会与存储层写入重复。
-      messages: session.messages.map((message) => ({ ...message })),
-      toolCalls: [],
-      runs: session.runs,
-      lastSequence: 0,
-    }
+    return (await this.runtime()).openSession(sessionId)
   }
 
   async getProviderStatus(): Promise<ProviderStatusView> {
@@ -219,17 +217,15 @@ export class BrowserAgentBridge implements AgentBridgeClient {
    * @param context 提问所属运行、工具调用与取消信号。
    * @returns 用户答复；signal 中止时以 ABORTED 拒绝。
    */
-  private requestQuestion(
+  private async requestQuestion(
     request: AskUserRequest,
     context: { runId: string; toolCallId: string; signal: AbortSignal },
   ): Promise<QuestionAnswerView> {
-    const run = this.runs.find(context.runId)
-    if (!run) {
-      return Promise.reject(
-        new AgentRuntimeError('RUN_NOT_ACTIVE', 'Ask question requires an active Agent run.'),
-      )
-    }
-    const sessionId = run.input.sessionId
+    await this.runtime()
+    const run = await this.durable?.sessions.findRun(context.runId)
+    if (!run)
+      throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'Ask question requires an active Agent run.')
+    const sessionId = run.sessionId
     const id = this.runs.nextQuestionId()
     return new Promise<QuestionAnswerView>((resolve, reject) => {
       const settle = () => {
@@ -279,7 +275,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return this.modelSettings.webSearchApiKey()
   }
 
-  /** 当前生效的全部真实凭据，供 PiRunDriver 在事件投影前逐字剔除。 */
+  /** 当前生效的凭据，只在用户输入保存与提交前用于脱敏。 */
   private async secretValues(): Promise<readonly string[]> {
     const values: string[] = []
     try {
@@ -451,65 +447,41 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async createSession(): Promise<AgentSessionView> {
-    const session = this.sessions.create()
-    this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
-    return session.view
+    return (await this.runtime()).createSession()
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
-    this.sessions.rename(sessionId, title)
-    this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
+    await (await this.runtime()).renameSession(sessionId, title)
   }
 
   async deleteSession(sessionId: string): Promise<void> {
     if (this.runs.activeCount)
       throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run first.')
-    this.sessions.delete(sessionId)
-    this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
+    await (await this.runtime()).deleteSession(sessionId)
   }
 
   async startRun(input: StartRunInput): Promise<{ runId: string }> {
-    const session = this.sessions.require(input.sessionId)
-    const runId = this.runs.nextRunId()
-    const startedAt = Date.now()
-    // 真实凭据必须进脱敏名单：内置正则只覆盖 Bearer/Basic、`sk-` 前缀与本地路径，
-    // 非该形态的 Provider Key（自建网关、非 OpenAI 厂商）否则会原样出现在事件流里。
-    const driver = new PiRunDriver({ redaction: { secretValues: await this.secretValues() } })
+    await this.refreshRedaction()
     const runInput: StartRunInput = {
       ...input,
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
     }
-    this.runs.register(runId, { driver, input: runInput })
-    this.sessions.rememberRunInput(input.sessionId, runInput)
-    const transcript = [...session.transcript]
-    session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
-    session.messages.push({
-      id: `user-${runId}`,
-      role: 'user',
-      content: input.prompt,
-      createdAt: startedAt,
-    })
-    session.runs.push({ id: runId, sessionId: input.sessionId, status: 'running', startedAt })
-    this.emit({ type: 'run.started', runId, sessionId: input.sessionId, startedAt })
-    this.emit({
-      type: 'user.message.created',
-      runId,
-      sessionId: input.sessionId,
-      message: session.messages.at(-1)!,
-    })
-    void this.run(driver, runId, runInput, session, transcript, startedAt)
-    return { runId }
+    return (await this.runtime()).startRun(runInput)
   }
 
   async cancelRun(runId: string): Promise<void> {
-    this.runs.abort(runId)
+    await (await this.runtime()).cancelRun(runId)
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
-    const session = this.sessions.findSessionByRun(runId)
-    const input = session ? this.sessions.runInput(session.view.id) : undefined
-    if (!input) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is unavailable.')
-    return this.startRun(input)
+    await this.refreshRedaction()
+    return (await this.runtime()).retryRun(runId)
+  }
+
+  /** 沿历史输入的 Fork 运行修改后的正文，保留该轮冻结的图表上下文。 */
+  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
+    await this.refreshRedaction()
+    return (await this.runtime()).editMessage(runId, prompt)
   }
 
   async confirmTool(): Promise<void> {
@@ -622,102 +594,63 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     await this.emitProviderStatus()
   }
 
-  subscribe(listener: (event: AgentUiEvent) => void): () => void {
+  subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
 
-  /** 按 runId 驱动一次运行，把 Pi 事件投影为 UI 事件并回填会话 transcript/消息。 */
-  private async run(
-    driver: PiRunDriver,
-    runId: string,
-    input: StartRunInput,
-    session: BrowserSession,
-    transcript: PiRunPlan['transcript'],
-    startedAt: number,
-  ): Promise<void> {
+  /** 惰性创建共享应用运行时，恢复历史与中断运行后才允许 UI 访问。 */
+  private runtime(): Promise<AgentApplicationService> {
+    this.runtimePromise ??= this.initializeRuntime()
+    return this.runtimePromise
+  }
+
+  /** 统一浏览器与 Node 的会话、运行和事件持久化逻辑。 */
+  private async initializeRuntime(): Promise<AgentApplicationService> {
+    await this.refreshRedaction()
+    const redaction = { secretValues: this.redactionSecrets }
+    const durable = await this.createSessions(redaction)
+    this.durable = durable
+    const runtime = new AgentApplicationService({
+      sessions: durable.sessions,
+      createPlan: (context) => this.support.createPlan(context),
+      provider: this.support.provider,
+    })
+    runtime.subscribe((event) => {
+      if (event.type === 'session.snapshot') {
+        for (const run of event.snapshot.runs) {
+          if (!run.id) continue
+          if (run.status === 'running' || run.status === 'cancelling') this.runs.register(run.id)
+          else this.runs.complete(run.id)
+        }
+      }
+      for (const listener of this.listeners) listener(event)
+    })
     try {
-      const plan = await this.support.createPlan({
-        sessionId: input.sessionId,
-        runId,
-        turnId: runId,
-        lane: 'main',
-        prompt: input.prompt,
-        readOnly: input.readOnly,
-        context: input.context,
-        startedAt,
-        userEntryId: `user-${runId}`,
-      })
-      const result = await driver.run({ ...plan, transcript }, async (event) => {
-        this.emit({ ...event, runId, sessionId: input.sessionId })
-      })
-      const endedAt = Date.now()
-      session.transcript.push({
-        role: 'assistant',
-        content: [{ type: 'text', text: result.text }],
-        api: 'openai-responses',
-        provider: 'kq-runtime',
-        model: 'redacted',
-        usage: {
-          input: 0,
-          output: 0,
-          cacheRead: 0,
-          cacheWrite: 0,
-          totalTokens: 0,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-        },
-        stopReason: 'stop',
-        timestamp: endedAt,
-      })
-      session.messages.push({
-        id: `assistant-${runId}`,
-        role: 'assistant',
-        content: result.text,
-        createdAt: endedAt,
-        ...(result.citations.length ? { citations: result.citations } : {}),
-      })
-      this.finish(session, runId, 'completed', endedAt)
-      this.emit({
-        type: 'run.completed',
-        runId,
-        sessionId: input.sessionId,
-        endedAt,
-        usage: result.usage,
-      })
+      await runtime.initialize()
+      if (!(await runtime.listSessions()).length) await runtime.createSession()
+      return runtime
     } catch (error) {
-      const endedAt = Date.now()
-      const agentError = toAgentRuntimeError(error)
-      const cancelled = agentError.code === 'ABORTED'
-      this.finish(session, runId, cancelled ? 'cancelled' : 'failed', endedAt)
-      this.emit(
-        cancelled
-          ? { type: 'run.cancelled', runId, sessionId: input.sessionId, partial: false, endedAt }
-          : {
-              type: 'run.failed',
-              runId,
-              sessionId: input.sessionId,
-              endedAt,
-              error: agentError.toView(),
-            },
-      )
-    } finally {
-      this.runs.complete(runId)
+      await durable.close()
+      throw error
     }
   }
 
-  /** 把运行终态写回会话记录。 */
-  private finish(
-    session: BrowserSession,
-    runId: string,
-    status: 'completed' | 'cancelled' | 'failed',
-    endedAt: number,
-  ): void {
-    const run = session.runs.find((item) => item.id === runId)
-    if (run) Object.assign(run, { status, endedAt })
+  /** 停止运行并释放浏览器数据库写锁。 */
+  async close(): Promise<void> {
+    if (!this.runtimePromise) return
+    const runtime = await this.runtimePromise
+    await runtime.interruptOwnedRuns()
+    await this.durable?.close()
+  }
+
+  /** 在每次运行前更新共享脱敏名单，覆盖初始化后更改的凭据。 */
+  private async refreshRedaction(): Promise<void> {
+    this.redactionSecrets.splice(0, this.redactionSecrets.length, ...(await this.secretValues()))
   }
 
   /** 向所有 UI 事件订阅者广播，并统一补上协议版本。 */
-  private emit(event: AgentUiEventInput): void {
+  private emit(event: AgentWorkspaceEventInput): void {
     for (const listener of this.listeners)
       listener({ ...event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
   }

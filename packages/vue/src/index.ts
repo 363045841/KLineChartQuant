@@ -53,6 +53,8 @@ export type {
   LegendTemplateContext,
   LegendTimeshareRow,
 } from '@363045841yyt/klinechart-core/controllers'
+export { default as ColorPicker } from './components/ColorPicker.vue'
+export type { ColorPickerProps } from './components/color-picker/types.js'
 
 export type {
   KlineTooltipSlotProps,
@@ -77,11 +79,11 @@ export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchS
 export * from './features/agent/agent-contracts.js'
 export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export { createAgentPanelWidthStorage } from './features/agent/workspace/impl/agent-panel-width-storage.js'
-export {
-  createInitialAgentState,
-  reduceAgentUiEvent,
-} from './features/agent/workspace/impl/agent-reducer.js'
 export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'
+export {
+  createWorkspaceState,
+  displayConversation,
+} from './features/agent/workspace/impl/workspace-state.js'
 export type {
   AgentPanelWidthStorage,
   AgentWorkspaceState,

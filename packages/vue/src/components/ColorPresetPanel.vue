@@ -4,14 +4,14 @@
     <template v-for="group in colorPresetGroups" :key="group.group">
       <div class="color-group-label">{{ group.label }}</div>
       <div class="color-grid">
-        <label v-for="item in group.items" :key="item.key" class="color-item">
+        <div v-for="item in group.items" :key="item.key" class="color-item">
           <span class="color-item-text">{{ item.label }}</span>
-          <ColorInput
-            :value="getColorValue(item.key)"
+          <ColorPicker
+            :model-value="getColorValue(item.key)"
             :label="item.label"
-            @change="setColorValue(item.key, $event)"
+            @update:model-value="setColorValue(item.key, $event)"
           />
-        </label>
+        </div>
       </div>
     </template>
   </div>
@@ -27,7 +27,7 @@
     resolveThemeColors,
   } from '@363045841yyt/klinechart-core'
   import { computed } from 'vue'
-  import ColorInput from './ColorInput.vue'
+  import ColorPicker from './ColorPicker.vue'
 
   const props = defineProps<{
     colorPresetSettings: ColorPresetSettings | undefined

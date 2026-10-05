@@ -1,9 +1,8 @@
-import { BACKGROUND_CONTEXT, NodeExecutionEnv } from '@earendil-works/pi-agent-core/node'
-import {
-  createNodeSqliteFactory,
-  SqliteSessionRepo,
-} from '@earendil-works/pi-session-backend-sqlite-node'
-
+// 本文件创建官方 pi-durable SQLite 存储及应用会话服务。
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
+import type { SqliteStorage } from '@earendil-works/pi-durable/storage/sqlite'
+import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node'
+import { openDurableExecution } from './sessions/durable-execution.js'
 import {
   RuntimeSessionService,
   type RuntimeSessionServiceOptions,
@@ -11,7 +10,6 @@ import {
 
 export interface NodeRuntimeSessionOptions {
   databasePath: string
-  cwd: string
   now?: RuntimeSessionServiceOptions['now']
   id?: RuntimeSessionServiceOptions['id']
   redaction?: RuntimeSessionServiceOptions['redaction']
@@ -19,34 +17,23 @@ export interface NodeRuntimeSessionOptions {
 
 export interface NodeRuntimeSessions {
   sessions: RuntimeSessionService
-  repository: SqliteSessionRepo
+  storage: SqliteStorage
   close(): Promise<void>
 }
 
-export function createNodeRuntimeSessions(options: NodeRuntimeSessionOptions): NodeRuntimeSessions {
-  const env = new NodeExecutionEnv({ cwd: options.cwd })
-  const repository = new SqliteSessionRepo({
-    directory: options.cwd,
-    databaseFactory: createNodeSqliteFactory(),
-    databasePath: options.databasePath,
-  })
+/** 异步打开 SQLite；底层 Session 与存储随宿主一起关闭。 */
+export async function createNodeRuntimeSessions(
+  options: NodeRuntimeSessionOptions,
+): Promise<NodeRuntimeSessions> {
+  const storage = await openNodeSqliteStorage(options.databasePath)
+  const execution = await openDurableExecution(storage)
+  const session = execution.harness
   const sessions = new RuntimeSessionService({
-    repository,
-    createOptions: (id) => ({
-      id,
-      cwd: options.cwd,
-    }),
+    session,
+    execution,
     now: options.now,
     id: options.id,
     redaction: options.redaction,
   })
-  return {
-    sessions,
-    repository,
-    async close() {
-      await sessions.close()
-      await repository.close(BACKGROUND_CONTEXT)
-      await env.cleanup(BACKGROUND_CONTEXT)
-    },
-  }
+  return { sessions, storage, close: () => session.close(BACKGROUND_CONTEXT) }
 }

@@ -19,6 +19,7 @@
  */
 
 import { motion, spacing, typography } from './theme-base.js'
+import { lightInterfaceColors } from './interface-colors.js'
 import type { Theme } from './types.js'
 
 export const lightTheme: Theme = {
@@ -27,10 +28,10 @@ export const lightTheme: Theme = {
   typography,
   motion,
   colors: {
-    background: '#FAFAFA',
-    foreground: '#1F1F1F',
-    chartBackground: '#FFFFFF',
-    floatingSurface: '#FFFFFF',
+    background: lightInterfaceColors.background,
+    foreground: lightInterfaceColors.text,
+    chartBackground: lightInterfaceColors.background,
+    floatingSurface: lightInterfaceColors.surface,
 
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
@@ -48,23 +49,23 @@ export const lightTheme: Theme = {
     volumeDown: '#C2363B66',
     volumeNeutral: '#00000066',
 
-    axisText: '#5A5A5A',
-    axisLine: '#D0D0D0',
-    axisTick: '#D0D0D0',
+    axisText: lightInterfaceColors.muted,
+    axisLine: lightInterfaceColors.border,
+    axisTick: lightInterfaceColors.border,
 
     gridMajor: '#E5E5E5',
     gridMinor: '#F0F0F0',
 
     crosshairLine: '#8C8C8C',
-    crosshairLabelBg: '#1F1F1F',
-    crosshairLabelText: '#FAFAFA',
+    crosshairLabelBg: lightInterfaceColors.text,
+    crosshairLabelText: lightInterfaceColors.background,
 
     selectionFill: '#2D7FF933',
     selectionStroke: '#2D7FF9',
 
-    tooltipBg: '#FFFFFFEE',
-    tooltipText: '#1F1F1F',
-    tooltipBorder: '#D0D0D0',
+    tooltipBg: lightInterfaceColors.surface,
+    tooltipText: lightInterfaceColors.text,
+    tooltipBorder: lightInterfaceColors.border,
 
     heatmapColdest: '#F0F4F8',
     heatmapHottest: '#1F3A5F',
@@ -111,9 +112,9 @@ export const lightTheme: Theme = {
 
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
-      primary: 'hsl(210, 9%, 31%)',
-      secondary: 'hsl(210, 9%, 35%)',
-      tertiary: 'hsl(210, 8%, 50%)',
+      primary: lightInterfaceColors.text,
+      secondary: lightInterfaceColors.muted,
+      tertiary: lightInterfaceColors.textSoft,
       weak: 'hsl(210, 7%, 65%)',
       white: 'rgba(255, 255, 255, 0.92)',
     },
@@ -121,22 +122,21 @@ export const lightTheme: Theme = {
       lastPrice: 'rgba(230, 100, 115, 0.95)',
     },
     tagBg: {
-      white: 'rgb(255, 255, 255)',
+      white: lightInterfaceColors.surface,
       lightGray: 'rgba(255, 255, 255, 0.92)',
-      pureWhite: '#ffffff',
+      pureWhite: lightInterfaceColors.card,
       transparent: 'transparent',
-      active: '#1890ff',
-      activeHover: '#40a9ff',
-      // 相对 background #FAFAFA 提高悬停对比，避免与底色糊成一片
-      hover: '#E5E7EB',
+      active: lightInterfaceColors.accent,
+      activeHover: lightInterfaceColors.accentStrong,
+      hover: lightInterfaceColors.hover,
     },
     border: {
       dark: 'rgba(0, 0, 0, 0.12)',
       medium: 'rgba(0, 0, 0, 0.10)',
       light: 'rgba(0, 0, 0, 0.08)',
       separator: 'rgba(0, 0, 0, 0.10)',
-      button: '#d0d0d0',
-      chart: '#e5e5e5',
+      button: lightInterfaceColors.borderStrong,
+      chart: lightInterfaceColors.border,
     },
     ma: {
       ma5: '#e8590c',
@@ -254,38 +254,13 @@ export const lightTheme: Theme = {
       neutral: 'rgba(0, 0, 0, 0.3)',
     },
     wmsrGrid: 'rgba(0, 0, 0, 0.1)',
-    ui: {
-      background: '#F4F6F7',
-      surface: '#FFFFFF',
-      card: '#FBFCFC',
-      input: '#FFFFFF',
-      hover: '#EDF1F2',
-      border: '#DCE1E3',
-      borderStrong: '#B9C1C5',
-      text: '#182126',
-      textSoft: '#829097',
-      muted: '#607078',
-      accent: '#176F68',
-      accentStrong: '#115B55',
-      focus: '#278E86',
-      warningBackground: '#FFF8E8',
-      warningBorder: '#D29A3A',
-      warningText: '#AD7414',
-      warningStrong: '#996311',
-      dangerBackground: '#FFF1F1',
-      dangerBorder: '#D56A6A',
-      dangerText: '#C63F3F',
-      success: '#16885A',
-      warning: '#C58A1A',
-      danger: '#D14B4B',
-      neutral: '#9CA3AF',
-      onAccent: '#FFFFFF',
-      secondaryButtonText: '#5A5A5A',
-      controlBackground: '#EDF1F2',
-    },
+    ui: lightInterfaceColors,
     agent: {
-      userMessage: '#E7F2EF',
-      backdrop: 'rgba(15, 20, 25, 0.35)',
+      composerInputBackground: lightInterfaceColors.input,
+      composerControlBackground: lightInterfaceColors.controlBackground,
+      composerControlHover: lightInterfaceColors.hover,
+      userMessage: '#EAEAEE',
+      backdrop: 'rgba(0, 0, 0, 0.35)',
       panelShadow: 'rgba(0, 0, 0, 0.2)',
     },
   },

@@ -108,34 +108,6 @@
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <BaseTooltip content="撤回">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="撤回"
-          :disabled="!canUndoDrawing"
-          @click="$emit('undoDrawing')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerArrowBackUp class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-      <BaseTooltip content="重做">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="重做"
-          :disabled="!canRedoDrawing"
-          @click="$emit('redoDrawing')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerArrowForwardUp class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
       <BaseTooltip :content="globalDrawingLocked ? '解锁全部图元' : '锁定全部图元'">
         <button
           type="button"
@@ -260,42 +232,6 @@
       </BaseTooltip>
     </div>
 
-    <span class="left-toolbar__divider"></span>
-
-    <div class="left-toolbar__group">
-      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :aria-label="isFullscreen ? '退出全屏' : '全屏显示'"
-          @click="$emit('toggleFullscreen')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerMinimize v-if="isFullscreen" class="tool-icon" aria-hidden="true" />
-          <IconTablerMaximize v-else class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-    </div>
-
-    <span class="left-toolbar__divider"></span>
-
-    <div class="left-toolbar__group">
-      <BaseTooltip content="设置">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="设置"
-          @click="openSettings"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerSettings class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-    </div>
   </nav>
 
   <Teleport :to="teleportTarget">
@@ -308,24 +244,21 @@
       @pointermove.stop
       @pointerup.stop
     >
-      <BaseTooltip
+      <div class="tool-dropdown__title">{{ openGroup.title }}</div>
+      <button
         v-for="child in openGroup.children"
         :key="child.id"
-        :content="child.title"
-        placement="top"
+        type="button"
+        class="tool-dropdown__item"
+        :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
+        :aria-label="child.title"
+        :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
+        :disabled="openGroup.id === deleteGroup.id && (child.id === 'drawings' ? !hasDrawings : !hasIndicators)"
+        @click="selectChild(openGroup, child)"
       >
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
-          :aria-label="child.title"
-          :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
-          :disabled="openGroup.id === deleteGroup.id && (child.id === 'drawings' ? !hasDrawings : !hasIndicators)"
-          @click="selectChild(openGroup, child)"
-        >
-          <component :is="child.icon" class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
+        <component :is="child.icon" class="tool-icon" aria-hidden="true" />
+        <span>{{ child.title }}</span>
+      </button>
     </div>
   </Teleport>
 
@@ -370,8 +303,6 @@
   import { computed, onMounted, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
-  import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
-  import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
@@ -390,14 +321,11 @@
   import IconTablerMagnetOff from '~icons/tabler/magnet-off'
   import IconTablerMarquee2 from '~icons/tabler/marquee-2'
   import IconTablerMathFunction from '~icons/tabler/math-function'
-  import IconTablerMaximize from '~icons/tabler/maximize'
-  import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerMinusVertical from '~icons/tabler/minus-vertical'
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerPlus from '~icons/tabler/plus'
   import IconTablerPointer from '~icons/tabler/pointer'
-  import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerShape from '~icons/tabler/shape'
   import IconTablerTrash from '~icons/tabler/trash'
   import IconTablerX from '~icons/tabler/x'
@@ -483,12 +411,9 @@
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
     (e: 'setContinuousDrawing', enabled: boolean): void
-    (e: 'toggleFullscreen'): void
     (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
-    (e: 'undoDrawing'): void
-    (e: 'redoDrawing'): void
     (e: 'clearDrawings'): void
     (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
@@ -501,7 +426,6 @@
 
   const props = withDefaults(
     defineProps<{
-      isFullscreen?: boolean
       alertController?: ChartController | null
       effectiveSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
@@ -510,8 +434,6 @@
       drawingToolId?: string
       magnetMode?: MagnetMode
       continuousDrawing?: boolean
-      canUndoDrawing?: boolean
-      canRedoDrawing?: boolean
       /** 是否存在已确认图元；无图元且未锁定时禁用全部锁定按钮 */
       hasDrawings?: boolean
       hasIndicators?: boolean
@@ -569,7 +491,7 @@
   const menuRef = ref<HTMLElement | null>(null)
   const teleportTarget = useFullscreenTeleportTarget()
   const dropdownPosition = ref({ '--menu-anchor-left': '0px', '--menu-anchor-top': '0px' })
-  const showSettings = ref(false)
+  const showSettings = defineModel<boolean>('settingsOpen', { default: false })
   const showAlerts = ref(false)
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
@@ -684,9 +606,10 @@
     const trigger = event.currentTarget as HTMLElement
     const bounds = trigger.getBoundingClientRect()
     triggerRef.value = trigger
+    const menuHeight = 42 + (group.children?.length ?? 0) * 30
     dropdownPosition.value = {
       '--menu-anchor-left': `${bounds.right}px`,
-      '--menu-anchor-top': `${bounds.top + bounds.height / 2}px`,
+      '--menu-anchor-top': `${Math.max(8, Math.min(bounds.top, window.innerHeight - menuHeight - 8))}px`,
     }
     openGroupId.value = group.id
   }
@@ -724,10 +647,6 @@
   /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
   function toggleGlobalDrawingLock() {
     emit('setGlobalDrawingLock', !props.globalDrawingLocked)
-  }
-
-  function openSettings() {
-    showSettings.value = true
   }
 
   function onToggleAggregationSource(name: string, enabled: boolean) {
@@ -773,6 +692,9 @@
   }
 
   .left-toolbar {
+    border-radius: 0 0 0 var(--chart-frame-radius, 3px);
+    border-top: 0;
+    border-right: 0;
     flex: 0 0 52px;
     display: flex;
     flex-direction: column;
@@ -892,29 +814,71 @@
     outline: 1px solid var(--klc-color-ui-muted);
   }
 
-  /* --- 下拉菜单（与工具栏同配色、同按钮样式，高度对齐工具栏宽度） --- */
+  /* --- 工具组纵向菜单 --- */
   .tool-dropdown {
-    --menu-padding-y: 5px;
-    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 4px), calc(100vw - var(--tool-button-size) - 16px));
-    --menu-half-height: calc(var(--tool-button-size) / 2 + var(--menu-padding-y) + 1px);
+    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 4px), max(8px, calc(100vw - 188px)));
     position: fixed;
     left: var(--menu-left);
-    top: clamp(calc(var(--menu-half-height) + 8px), var(--menu-anchor-top), calc(100vh - var(--menu-half-height) - 8px));
-    transform: translateY(-50%);
+    top: var(--menu-anchor-top);
     display: flex;
-    align-items: center;
-    gap: 4px;
-    width: max-content;
-    max-width: calc(100vw - var(--menu-left) - 8px);
-    padding: var(--menu-padding-y) 5px;
+    flex-direction: column;
+    width: 180px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    padding: 4px;
+    border-radius: 8px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     z-index: 100;
-    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
-  .tool-dropdown :deep(.base-tooltip__trigger) {
+  .tool-dropdown__title {
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
+  }
+
+  .tool-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 30px;
+    width: 100%;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-ui-text);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .tool-dropdown__item .tool-icon {
     flex-shrink: 0;
+    color: var(--klc-color-ui-muted);
+  }
+
+  .tool-dropdown__item:hover,
+  .tool-dropdown__item.active {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .tool-dropdown__item:focus-visible {
+    outline: 1px solid var(--klc-color-ui-muted);
+    outline-offset: -1px;
+  }
+
+  .tool-dropdown__item:disabled {
+    background: transparent;
+    opacity: 0.5;
+    cursor: default;
   }
 
   /* --- 工具项容器 --- */
@@ -964,10 +928,6 @@
 
     .left-toolbar__divider {
       width: 16px;
-    }
-
-    .tool-dropdown {
-      --menu-padding-y: 4px;
     }
   }
 </style>

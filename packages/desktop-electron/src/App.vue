@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
   import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
-  import { ref } from 'vue'
+  import { onBeforeUnmount, ref } from 'vue'
   import { BrowserAgentBridge } from '../../vue/src/features/agent/browser-agent/bridge/impl/browser-agent-bridge'
   import {
     AgentWorkbenchShell,
@@ -29,6 +29,7 @@
     getChartAgent: () => chartRef.value?.getController?.()?.agent,
     credentials: createElectronCredentialStore(),
   })
+  onBeforeUnmount(() => bridge.close())
   const e2eChartData = import.meta.env.MODE === 'e2e' ? createE2eChartData() : undefined
 
   const panelWidthStorage = createAgentPanelWidthStorage()

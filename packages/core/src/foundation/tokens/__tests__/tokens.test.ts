@@ -174,8 +174,12 @@ describe('WCAG AA contrast — foreground text vs background (≥ 4.5:1)', () =>
 
 describe('dark theme grid colors', () => {
   it('uses restrained cool-gray contrast against the chart background', () => {
-    expect(darkTheme.colors.gridMajor).toBe('#2A3547')
-    expect(darkTheme.colors.gridMinor).toBe('#202A39')
+    const major = contrast(darkTheme.colors.gridMajor, darkTheme.colors.chartBackground)
+    const minor = contrast(darkTheme.colors.gridMinor, darkTheme.colors.chartBackground)
+    // 网格有主次，但不能比正文与行情更抢眼；具体色值由主题快照记录。
+    expect(major).toBeGreaterThan(minor)
+    expect(minor).toBeGreaterThan(1)
+    expect(major).toBeLessThan(1.5)
   })
 })
 

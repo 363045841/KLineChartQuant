@@ -123,6 +123,8 @@ export class ChartPaneLayout {
     const prevScaleTypes = new Map<string, ScaleType>()
     for (const r of this.paneRenderers) {
       prevScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
+      // 只回收本模块拥有的 pane 表面，保留图表级 GPU 与十字线等独立表面。
+      for (const canvas of Object.values(r.getDom())) canvas?.remove()
     }
 
     this.paneRenderers = this._paneSpecs.map((spec, index) => {
@@ -199,23 +201,6 @@ export class ChartPaneLayout {
     const dom = this.deps.getDom()
     const canvasLayer = dom.canvasLayer
     const rightAxisLayer = dom.rightAxisLayer
-    if (canvasLayer) {
-      // 保留 chart 级 WebGPU scene canvas（M2 hybrid DOM）
-      const existingCanvases = canvasLayer.querySelectorAll(
-        'canvas:not(.x-axis-canvas):not(.gpu-scene-canvas)',
-      )
-      existingCanvases.forEach((canvas) => canvas.remove())
-    }
-    if (rightAxisLayer) {
-      const existingAxisCanvases = rightAxisLayer.querySelectorAll(
-        'canvas.right-axis, canvas.right-axis-overlay',
-      )
-      existingAxisCanvases.forEach((canvas) => canvas.remove())
-    }
-    dom.leftAxisLayer
-      ?.querySelectorAll('canvas.left-axis, canvas.left-axis-overlay')
-      .forEach((canvas) => canvas.remove())
-
     this.paneRenderers.forEach((renderer) => {
       const domEls = renderer.getDom()
       canvasLayer.appendChild(domEls.mainCanvas)

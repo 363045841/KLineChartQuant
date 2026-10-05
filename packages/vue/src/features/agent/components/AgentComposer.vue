@@ -1,6 +1,5 @@
 <template>
-  <div class="composer">
-    <div class="composer__input">
+  <div class="composer__input">
       <textarea
         class="composer__textarea"
         :value="draft"
@@ -24,7 +23,7 @@
           >
             <template #trigger>
               <span class="composer__model-value">{{ modelTriggerLabel }}</span>
-              <span class="composer__model-chevron" aria-hidden="true"></span>
+              <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
             </template>
             <template #item-action="{ item }">
               <span v-if="item.id === provider.modelId" class="composer__model-check">
@@ -46,43 +45,43 @@
             @update:model-value="$emit('reasoning-effort', $event)"
           />
         </div>
-        <span
+        <BaseTooltip
           v-if="contextUsage"
-          class="composer__notice"
-          :aria-label="contextUsage.accessibleLabel"
+          :content="contextUsage.label"
+          placement="top"
         >
-          <span>{{ contextUsage.label }}</span>
           <span
             class="composer__usage-ring"
             :style="{ '--usage-progress': `${contextUsage.percent * 3.6}deg` }"
-            aria-hidden="true"
+            :aria-label="contextUsage.accessibleLabel"
+            role="img"
+            tabindex="0"
           ></span>
-        </span>
+        </BaseTooltip>
         <button
           v-if="running"
           type="button"
-          class="composer__primary composer__primary--stop"
+          class="composer__primary composer__primary--stop agent-primary-button"
           :title="text.stop"
           :aria-label="text.stop"
           @click="$emit('stop')"
         >
-          <span class="composer__primary-background" aria-hidden="true"></span>
+          <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
           <IconPlayerStopFilled aria-hidden="true" />
         </button>
         <button
           v-else
           type="button"
-          class="composer__primary"
+          class="composer__primary agent-primary-button"
           :disabled="!draft.trim()"
           :title="text.send"
           :aria-label="text.send"
           @click="$emit('send')"
         >
-          <span class="composer__primary-background" aria-hidden="true"></span>
+          <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
           <IconArrowUp aria-hidden="true" />
         </button>
       </div>
-    </div>
   </div>
 </template>
 
@@ -90,7 +89,9 @@
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import DropMenu, { type DropMenuGroup } from '../../../components/DropMenu.vue'
   import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
@@ -155,37 +156,34 @@
   }
 </script>
 
-<style scoped>
-  .composer {
-    display: grid;
-    gap: 7px;
-    padding: 10px 12px 12px;
-    border-top: 1px solid var(--agent-border);
-    background: var(--agent-surface);
-  }
+<style scoped src="./agent-primary-button.css"></style>
 
+<style scoped>
   .composer__input {
-    position: relative;
+    --composer-inset: 16px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0 12px 12px;
+    border-radius: var(--agent-control-radius, 8px);
+    background: var(--klc-color-agent-composer-input-background);
   }
 
   .composer__textarea {
     width: 100%;
     display: block;
-    min-height: 72px;
+    min-height: 88px;
     max-height: 152px;
     resize: none;
     box-sizing: border-box;
-    padding: 11px 42px 31px 12px;
-    border: 1px solid var(--agent-border);
-    border-radius: 12px;
+    padding: var(--composer-inset);
+    border: 0;
+    border-radius: var(--agent-control-radius, 8px);
     color: var(--agent-text);
-    background: var(--agent-input);
+    background: transparent;
     font: inherit;
     font-size: 13px;
     line-height: 1.5;
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
   }
 
   .composer__textarea::placeholder {
@@ -197,23 +195,10 @@
   }
 
   .composer__footer {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    left: 12px;
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .composer__notice {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--agent-muted);
-    font-size: 11px;
-    line-height: 1.3;
+    padding: 0 var(--composer-inset) var(--composer-inset);
   }
 
   .composer__usage-ring {
@@ -232,8 +217,13 @@
     position: absolute;
     inset: 2px;
     border-radius: 50%;
-    background: var(--agent-surface);
+    background: var(--klc-color-agent-composer-input-background);
     content: '';
+  }
+
+  .composer__usage-ring:focus-visible {
+    outline: 2px solid var(--agent-focus);
+    outline-offset: 3px;
   }
 
   .composer__meta {
@@ -248,7 +238,8 @@
     min-width: 0;
   }
 
-  .composer__model :deep(.drop-menu__trigger) {
+  .composer__model :deep(.drop-menu__trigger),
+  .composer__reasoning :deep(.dropdown__trigger) {
     max-width: 160px;
     height: 26px;
     box-sizing: border-box;
@@ -256,29 +247,33 @@
     align-items: center;
     gap: 5px;
     padding: 0 9px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid transparent;
     border-radius: 8px;
     color: var(--agent-text);
-    background: var(--agent-hover);
+    background: var(--klc-color-agent-composer-control-background);
     font: inherit;
     font-size: 11px;
     cursor: pointer;
   }
 
-  .composer__model :deep(.drop-menu__trigger:hover),
-  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) {
-    border-color: var(--agent-border-strong);
-    background: var(--agent-input);
+  .composer__model :deep(.drop-menu__trigger:hover:not(:disabled)),
+  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']:not(:disabled)),
+  .composer__reasoning :deep(.dropdown__trigger:hover:not(:disabled)),
+  .composer__reasoning :deep(.dropdown__trigger[aria-expanded='true']:not(:disabled)) {
+    border-color: var(--klc-color-agent-composer-control-hover);
+    background: var(--klc-color-agent-composer-control-hover);
   }
 
-  .composer__model :deep(.drop-menu__trigger:focus-visible) {
+  .composer__model :deep(.drop-menu__trigger:focus-visible),
+  .composer__reasoning :deep(.dropdown__trigger:focus-visible) {
     outline: none;
-    border-color: var(--agent-accent);
-    background: var(--agent-input);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-accent) 24%, transparent);
+    border-color: var(--agent-focus);
+    background: var(--klc-color-agent-composer-control-hover);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
   }
 
-  .composer__model :deep(.drop-menu__trigger:disabled) {
+  .composer__model :deep(.drop-menu__trigger:disabled),
+  .composer__reasoning :deep(.dropdown__trigger:disabled) {
     color: var(--agent-text-soft);
     background: transparent;
     cursor: not-allowed;
@@ -292,12 +287,15 @@
   }
 
   .composer__model-chevron {
-    width: 0;
-    height: 0;
+    width: 14px;
+    height: 14px;
     flex: 0 0 auto;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid var(--agent-muted);
+    color: var(--agent-muted);
+    transition: transform var(--klc-motion-duration-fast) ease;
+  }
+
+  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) .composer__model-chevron {
+    transform: rotate(180deg);
   }
 
   /* 当前模型的勾选标记始终可见，不受 item-action 悬停显隐控制。 */
@@ -314,25 +312,6 @@
     height: 14px;
   }
 
-  .composer__reasoning {
-    --dropdown-trigger-background: var(--agent-hover);
-    --dropdown-trigger-color: var(--agent-text);
-    --dropdown-trigger-chevron: var(--agent-muted);
-    --dropdown-trigger-active-border: var(--agent-border-strong);
-    --dropdown-trigger-active-background: var(--agent-input);
-    --dropdown-trigger-focus-border: var(--agent-accent);
-    --dropdown-trigger-focus-background: var(--agent-input);
-    --dropdown-trigger-focus-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--agent-accent) 24%, transparent);
-  }
-
-  .composer__reasoning :deep(.dropdown__trigger) {
-    max-width: 160px;
-    height: 26px;
-    gap: 5px;
-    padding: 0 9px;
-  }
-
   .composer__reasoning :deep(.dropdown__value) {
     min-width: 0;
     overflow: hidden;
@@ -341,57 +320,6 @@
     font-weight: 400;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .composer__reasoning :deep(.dropdown__trigger:disabled) {
-    color: var(--agent-text-soft);
-    background: transparent;
-  }
-
-  .composer__primary {
-    width: 24px;
-    height: 24px;
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    color: var(--klc-color-ui-on-accent);
-    background: transparent;
-    box-sizing: border-box;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .composer__primary-background {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background-color: var(--agent-accent);
-    transition: background-color 0.2s ease;
-  }
-
-  .composer__primary > svg {
-    z-index: 1;
-    width: 14px;
-    height: 14px;
-  }
-
-  .composer__primary:hover:not(:disabled) {
-    background: transparent;
-  }
-
-  .composer__primary:hover:not(:disabled) .composer__primary-background {
-    background-color: var(--agent-accent-strong);
-  }
-
-  .composer__primary:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 
   .composer__primary--stop .composer__primary-background {

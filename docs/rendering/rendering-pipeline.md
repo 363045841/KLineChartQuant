@@ -406,7 +406,7 @@ Main 或 Overlay 分支是否执行由 `UpdateLevel` 和十字线状态决定，
 | ------------------------ | -------------------------------------------------- | ------------- |
 | `mainCanvas`             | background、primary、indicator、component          | Main / All    |
 | `drawingCanvas`          | 正式图元，排除当前拖拽覆盖的成员                    | 投影输入变化  |
-| `overlayCanvas`          | 拖拽覆盖、绘图预览、框选、crosshair、hover           | Overlay / All |
+| `overlayCanvas`          | 拖拽覆盖、绘图预览、框选、hover                      | Overlay / All |
 | `yAxisCanvas`            | 右轴静态刻度和标签                                 | Main / All    |
 | `yAxisOverlayCanvas`     | 右轴动态价签                                       | Overlay / All |
 | `leftYAxisCanvas`        | 左轴静态内容                                       | Main / All    |
@@ -421,9 +421,15 @@ z-index 0  pane mainCanvas
 z-index 1  chart 级 gpu-scene-canvas（仅 WebGPU）
 z-index 2  pane drawingCanvas（DOM 顺序在 overlayCanvas 前）
 z-index 2  pane overlayCanvas
+z-index 3  chart 级 crosshair-canvas
 ```
 
 全图另有一张 `xAxisCanvas`。时间轴是独立 Layer，不注册进主 Scene。
+
+十字线由 `CrosshairOverlay` 在整张绘图区的独立 Canvas2D 上绘制，不进入 pane Scene。
+`ChartRenderer` 在 pane 绘制后提交一次全局交点，纵线贯穿整个 plot，水平线裁剪到活跃 pane。
+该表面沿用引擎 viewport 的尺寸和 DPR，每个绘制帧清理并更新，截图通过现有 canvas 层叠合成收集。
+设计决策见 [图表级十字线覆盖层](../design/rendering/crosshair-dash-origin.md)。
 
 正式图元与会话图元分别由 Drawing Layer 和 Drawing Session Layer 绘制。帧去重包含会话图元引用；
 正式层版本只包含文档、选中集合和覆盖成员，连续拖动复用其投影与像素。拖拽首次覆盖时清除正式层中的原图元，

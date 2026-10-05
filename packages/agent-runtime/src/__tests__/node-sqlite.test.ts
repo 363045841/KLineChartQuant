@@ -4,8 +4,6 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { AGENT_UI_PROTOCOL_VERSION } from '../index'
-
 import type { NodeRuntimeSessions } from '../node'
 
 const [major = 0, minor = 0] = process.versions.node.split('.').map(Number)
@@ -29,30 +27,20 @@ describeSqlite('Node SQLite runtime sessions', () => {
     const databasePath = join(directory, 'agent.sqlite')
     let id = 0
     const ids = () => `id-${++id}`
-    runtime = createNodeRuntimeSessions({ databasePath, cwd: directory, id: ids })
+    runtime = await createNodeRuntimeSessions({ databasePath, id: ids })
     const session = await runtime.sessions.create('Durable RSI')
     const first = await runtime.sessions.beginRun({
       sessionId: session.id,
       runId: 'run-1',
       turnId: 'turn-1',
       prompt: 'Inspect RSI',
+      context: { items: [{ kind: 'chart-symbol', value: { symbol: 'AAPL', name: 'Apple' } }] },
       readOnly: true,
       startedAt: 1_000,
     })
-    await runtime.sessions.persistEvent({
-      sessionId: session.id,
-      lane: first.lane,
-      event: {
-        type: 'run.started',
-        runId: first.runId,
-        sessionId: session.id,
-        startedAt: 1_000,
-        sequence: 1,
-        protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      },
-    })
     await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 1_100 })
-    const retry = await runtime.sessions.retryRun({
+    const retry = await runtime.sessions.forkRun({
+      kind: 'retry',
       sessionId: session.id,
       originalRunId: first.runId,
       runId: 'run-2',
@@ -63,17 +51,20 @@ describeSqlite('Node SQLite runtime sessions', () => {
     await runtime.close()
     runtime = undefined
 
-    runtime = createNodeRuntimeSessions({ databasePath, cwd: directory, id: ids })
+    runtime = await createNodeRuntimeSessions({ databasePath, id: ids })
     expect(await runtime.sessions.list()).toEqual([
       expect.objectContaining({ id: session.id, title: 'Durable RSI' }),
     ])
     expect((await runtime.sessions.findRun('run-2')).retryOfRunId).toBe('run-1')
-    expect((await runtime.sessions.open(session.id)).runs[0]?.status).toBe('running')
+    expect((await runtime.sessions.findRun('run-2')).context).toEqual(first.context)
+    expect((await runtime.sessions.open(session.id)).runs).toEqual([
+      expect.objectContaining({ id: 'run-2', status: 'cancelled' }),
+    ])
 
     await runtime.sessions.delete(session.id)
     await runtime.close()
     runtime = undefined
-    runtime = createNodeRuntimeSessions({ databasePath, cwd: directory, id: ids })
+    runtime = await createNodeRuntimeSessions({ databasePath, id: ids })
     expect(await runtime.sessions.list()).toEqual([])
   })
 
@@ -82,9 +73,8 @@ describeSqlite('Node SQLite runtime sessions', () => {
     directory = await mkdtemp(join(tmpdir(), 'kq-agent-runtime-redaction-'))
     const databasePath = join(directory, 'agent.sqlite')
     const secret = 'sqlite-secret-sentinel'
-    runtime = createNodeRuntimeSessions({
+    runtime = await createNodeRuntimeSessions({
       databasePath,
-      cwd: directory,
       id: () => 'redacted-session',
       redaction: { secretValues: [secret] },
     })

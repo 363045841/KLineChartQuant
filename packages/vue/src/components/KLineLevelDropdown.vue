@@ -1,9 +1,9 @@
 <!-- K 线级别选择入口：按品种能力过滤周期档位，用 DropMenu 呈现当前值。 -->
 <template>
-  <DropMenu :label="TITLE" :groups="groups" @select="select">
+  <DropMenu :label="TITLE" :groups="groups" tooltip-placement="bottom" @select="select">
     <template #trigger>
       <span class="selection-menu__value">{{ selectedLabel }}</span>
-      <span class="selection-menu__chevron" aria-hidden="true"></span>
+      <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
     </template>
     <template #item-action="{ item }">
       <span v-if="item.id === selectedValue" class="selection-menu__check">
@@ -16,6 +16,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
   import { K_LINE_LEVEL_OPTIONS, type KLineLevel } from './kLineLevel'
 

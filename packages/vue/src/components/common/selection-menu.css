@@ -8,12 +8,15 @@
 }
 
 .selection-menu__chevron {
-  width: 0;
-  height: 0;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--klc-color-ui-muted);
+  color: var(--klc-color-ui-muted);
+  transition: transform var(--klc-motion-duration-fast) ease;
+}
+
+:deep(.drop-menu__trigger[aria-expanded='true']) .selection-menu__chevron {
+  transform: rotate(180deg);
 }
 
 /* 当前项勾选标记始终可见，不受 item-action 悬停显隐控制。 */

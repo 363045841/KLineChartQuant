@@ -1,23 +1,34 @@
 <template>
   <div class="context-bar">
-    <div class="context-bar__chips" :aria-label="scopeLabel">
-      <span v-if="symbolContext"
-        >{{ symbolContext.value.symbol
-        }}{{ symbolContext.value.name ? ` (${symbolContext.value.name})` : '' }}</span
-      >
-      <span v-if="rangeContext" class="context-bar__range"
-        >{{ rangeContext.value.from }} - {{ rangeContext.value.to }}</span
-      >
-    </div>
-    <div class="context-bar__toggle" :title="text.readOnlyHint">
+    <div
+      class="context-bar__pill context-bar__readonly"
+      :title="text.readOnlyHint"
+    >
+      {{ text.readOnly }}
       <ToggleSwitch
         :model-value="readOnly"
         :aria-label="text.readOnly"
         size="compact"
         @update:model-value="$emit('read-only', $event)"
       />
-      {{ text.readOnly }}
     </div>
+    <div v-if="symbolContext || rangeContext" class="context-bar__chips" :aria-label="scopeLabel">
+      <span v-if="symbolContext" class="context-bar__pill context-bar__symbol"
+        ><span class="context-bar__text">{{ symbolContext.value.symbol
+        }}{{ symbolContext.value.name ? ` - ${symbolContext.value.name}` : '' }}</span></span
+      >
+      <BaseTooltip
+        v-if="rangeContext"
+        class="context-bar__range"
+        :content="`${rangeContext.value.from} - ${rangeContext.value.to}`"
+        placement="top"
+      >
+        <span class="context-bar__pill context-bar__range-text" tabindex="0">
+          <span class="context-bar__text">{{ rangeContext.value.from }} - {{ rangeContext.value.to }}</span>
+        </span>
+      </BaseTooltip>
+    </div>
+    <AgentContextInjectionCard :context-items="contextItems" :locale="locale" />
   </div>
 </template>
 
@@ -25,6 +36,8 @@
   import { computed } from 'vue'
 
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
@@ -57,41 +70,78 @@
   .context-bar {
     min-width: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
-    padding: 7px 12px;
-    border-top: 1px solid var(--agent-border);
-    background: var(--agent-surface);
+    padding: 8px 12px;
     color: var(--agent-muted);
     font-size: 11px;
   }
 
   .context-bar__chips {
-    min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px;
+    display: contents;
   }
 
-  .context-bar__chips > span {
-    min-width: max-content;
-    padding: 3px 6px;
-    border: 1px solid var(--agent-border);
-    border-radius: 3px;
+  .context-bar__pill {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 0;
+    border-radius: var(--agent-control-radius, 8px);
+    background: var(--klc-color-agent-composer-input-background);
     white-space: nowrap;
   }
 
   .context-bar__range {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
   }
 
-  .context-bar__toggle {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
+  .context-bar__range-text {
+    width: 100%;
+    min-width: 0;
   }
+
+  .context-bar__readonly {
+    order: -2;
+    flex: 0 0 auto;
+    color: var(--agent-muted);
+    gap: 6px;
+    border: 0;
+    background: var(--klc-color-agent-composer-input-background);
+  }
+
+  .context-bar__symbol {
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+
+  .context-bar__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .context-bar :deep(.injection-card__summary) {
+    order: 0;
+    flex: 0 0 26px;
+  }
+
+  .context-bar :deep(.injection-card__content) {
+    order: 1;
+    flex: 0 0 100%;
+  }
+
+  .context-bar__pill {
+    box-sizing: border-box;
+    min-height: 26px;
+  }
+
 </style>

@@ -18,6 +18,7 @@
  */
 
 import { motion, spacing, typography } from './theme-base.js'
+import { darkInterfaceColors } from './interface-colors.js'
 import type { Theme } from './types.js'
 
 export const darkTheme: Theme = {
@@ -26,10 +27,10 @@ export const darkTheme: Theme = {
   typography,
   motion,
   colors: {
-    background: '#111827',
-    foreground: '#E8EAED',
-    chartBackground: '#111827',
-    floatingSurface: '#1B2533',
+    background: darkInterfaceColors.background,
+    foreground: darkInterfaceColors.text,
+    chartBackground: darkInterfaceColors.background,
+    floatingSurface: darkInterfaceColors.surface,
 
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
@@ -47,24 +48,24 @@ export const darkTheme: Theme = {
     volumeDown: '#FF646466',
     volumeNeutral: '#FFFFFF66',
 
-    axisText: '#9AA0A6',
-    axisLine: '#2A2F36',
-    axisTick: '#2A2F36',
+    axisText: darkInterfaceColors.muted,
+    axisLine: darkInterfaceColors.border,
+    axisTick: darkInterfaceColors.border,
 
-    gridMajor: '#2A3547',
-    gridMinor: '#202A39',
+    gridMajor: '#24272E',
+    gridMinor: '#1D2026',
 
     crosshairLine: '#686C72',
     // 深色下用中灰而非近白，避免标签在轴上形成刺眼亮块；文字取浅色保证对比度。
-    crosshairLabelBg: '#3A3F47',
-    crosshairLabelText: '#E8EAED',
+    crosshairLabelBg: darkInterfaceColors.controlBackground,
+    crosshairLabelText: darkInterfaceColors.text,
 
     selectionFill: '#4A9EFF33',
     selectionStroke: '#4A9EFF',
 
-    tooltipBg: '#1B1F26EE',
-    tooltipText: '#E8EAED',
-    tooltipBorder: '#2A2F36',
+    tooltipBg: darkInterfaceColors.surface,
+    tooltipText: darkInterfaceColors.text,
+    tooltipBorder: darkInterfaceColors.border,
 
     heatmapColdest: '#0E1116',
     heatmapHottest: '#80B7FF',
@@ -107,9 +108,9 @@ export const darkTheme: Theme = {
 
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
-      primary: 'hsl(210, 10%, 85%)',
-      secondary: 'hsl(210, 8%, 75%)',
-      tertiary: 'hsl(210, 6%, 60%)',
+      primary: darkInterfaceColors.text,
+      secondary: darkInterfaceColors.muted,
+      tertiary: darkInterfaceColors.textSoft,
       weak: 'hsl(210, 5%, 45%)',
       white: 'rgba(255, 255, 255, 0.95)',
     },
@@ -117,22 +118,21 @@ export const darkTheme: Theme = {
       lastPrice: 'rgba(230, 100, 115, 0.95)',
     },
     tagBg: {
-      white: 'rgb(40, 40, 55)',
-      lightGray: 'rgba(50, 50, 65, 0.92)',
-      pureWhite: '#282837',
+      white: darkInterfaceColors.surface,
+      lightGray: 'rgba(29, 31, 36, 0.92)',
+      pureWhite: darkInterfaceColors.card,
       transparent: 'transparent',
-      active: '#1890ff',
-      activeHover: '#40a9ff',
-      // 相对 background #111827 提高悬停对比，列表项 hover 更易辨认
-      hover: '#2D3544',
+      active: darkInterfaceColors.accent,
+      activeHover: darkInterfaceColors.accentStrong,
+      hover: darkInterfaceColors.hover,
     },
     border: {
       dark: 'rgba(255, 255, 255, 0.15)',
       medium: 'rgba(255, 255, 255, 0.12)',
       light: 'rgba(255, 255, 255, 0.08)',
       separator: 'rgba(255, 255, 255, 0.10)',
-      button: '#505060',
-      chart: '#3A4048',
+      button: darkInterfaceColors.borderStrong,
+      chart: darkInterfaceColors.border,
     },
     ma: {
       ma5: '#e8590c',
@@ -250,38 +250,13 @@ export const darkTheme: Theme = {
       neutral: 'rgba(255, 255, 255, 0.3)',
     },
     wmsrGrid: 'rgba(255, 255, 255, 0.1)',
-    ui: {
-      background: '#151A1D',
-      surface: '#1B2125',
-      card: '#20272B',
-      input: '#232B30',
-      hover: '#2A3338',
-      border: '#323C41',
-      borderStrong: '#526169',
-      text: '#EDF2F3',
-      textSoft: '#839198',
-      muted: '#A4B0B5',
-      accent: '#2D948A',
-      accentStrong: '#247C74',
-      focus: '#48B0A6',
-      warningBackground: '#302717',
-      warningBorder: '#8F681D',
-      warningText: '#E6B85C',
-      warningStrong: '#B9822B',
-      dangerBackground: '#351D1F',
-      dangerBorder: '#A94F55',
-      dangerText: '#FF8585',
-      success: '#45C58E',
-      warning: '#F0B44C',
-      danger: '#FF7373',
-      neutral: '#839198',
-      onAccent: '#FFFFFF',
-      secondaryButtonText: '#9AA0A6',
-      controlBackground: '#2A3338',
-    },
+    ui: darkInterfaceColors,
     agent: {
-      userMessage: '#17312E',
-      backdrop: 'rgba(15, 20, 25, 0.35)',
+      composerInputBackground: darkInterfaceColors.card,
+      composerControlBackground: darkInterfaceColors.controlBackground,
+      composerControlHover: darkInterfaceColors.hover,
+      userMessage: darkInterfaceColors.controlBackground,
+      backdrop: 'rgba(0, 0, 0, 0.35)',
       panelShadow: 'rgba(0, 0, 0, 0.2)',
     },
   },

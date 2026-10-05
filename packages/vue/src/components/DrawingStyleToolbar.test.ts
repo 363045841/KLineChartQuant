@@ -112,7 +112,7 @@ describe('DrawingStyleToolbar 模板菜单', () => {
     const wrapper = mount(DrawingStyleToolbar, {
       props: { drawings: [createDrawingObject('a', true)], editableStyleKeys: ['stroke'] },
     })
-    expect(wrapper.get('input[type="color"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('button[aria-label="颜色"]').attributes('disabled')).toBeUndefined()
     expect(wrapper.get('.toolbar-btn--delete').attributes('disabled')).toBeDefined()
     wrapper.unmount()
   })

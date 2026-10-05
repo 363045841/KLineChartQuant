@@ -13,7 +13,6 @@ import type {
 
 /** Renderer 侧的单一 Agent 工作区视图状态，由事件回放与实时事件共同投影得到。 */
 export interface AgentWorkspaceState {
-  lastSequence: number
   sessions: AgentSessionView[]
   activeSessionId: string | null
   messages: AgentMessageView[]

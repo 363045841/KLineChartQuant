@@ -301,8 +301,13 @@ export interface UiColors {
   readonly controlBackground: ColorValue
 }
 
-/** Agent 专属颜色：对话气泡、遮罩与面板阴影。 */
+/** Agent 专属颜色仅定义输入、消息与遮罩；通用界面角色统一消费 UiColors。 */
 export interface AgentColors {
+  /** Composer 输入框背景，独立于通用表单输入框。 */
+  readonly composerInputBackground: ColorValue
+  /** Composer 内模型和思考力度选择器共用的底色与交互底色。 */
+  readonly composerControlBackground: ColorValue
+  readonly composerControlHover: ColorValue
   readonly userMessage: ColorValue
   readonly backdrop: ColorValue
   readonly panelShadow: ColorValue

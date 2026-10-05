@@ -1,6 +1,6 @@
 <template>
   <div ref="rootRef" class="drop-menu">
-    <BaseTooltip :content="label" placement="top" :disabled="open || disabled">
+    <BaseTooltip :content="label" :placement="tooltipPlacement ?? 'top'" :disabled="open || disabled">
       <button
         ref="triggerRef"
         type="button"
@@ -78,6 +78,8 @@
     triggerClass?: string
     /** 菜单相对触发按钮的弹出方向。 */
     placement?: 'auto' | 'top' | 'bottom'
+    /** 按钮提示的显示方向，独立于菜单弹出方向。 */
+    tooltipPlacement?: 'top' | 'bottom'
     message?: string
     /** 分组为空时展示的提示；未提供时不渲染空提示。 */
     emptyText?: string

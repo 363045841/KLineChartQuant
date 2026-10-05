@@ -11,6 +11,7 @@ import {
   type AgentToolView,
   type AgentUiEvent,
   type AgentUiEventInput,
+  type AgentWorkspaceEvent,
   type ConfirmationView,
   type ProviderModelPoolEntry,
   type ProviderModelsResult,
@@ -27,6 +28,7 @@ import {
   type ToolCallView,
 } from '../agent-contracts.js'
 import { ProviderModelPool } from '../browser-agent/provider/impl/provider-model-pool.js'
+import { createInitialAgentState, reduceAgentUiEvent } from './script-state.js'
 
 interface FakeRun {
   id: string
@@ -49,7 +51,8 @@ export interface FakeAgentBridgeOptions {
 }
 
 export class FakeAgentBridge implements AgentBridgeClient {
-  private readonly listeners = new Set<(event: AgentUiEvent) => void>()
+  private readonly states = new Map<string, ReturnType<typeof createInitialAgentState>>()
+  private readonly listeners = new Set<(event: AgentWorkspaceEvent) => void>()
   private readonly runs = new Map<string, FakeRun>()
   private readonly confirmations = new Map<string, PendingConfirmation>()
   private readonly questions = new Map<string, string>()
@@ -127,7 +130,15 @@ export class FakeAgentBridge implements AgentBridgeClient {
   async openSession(sessionId: string): Promise<AgentSessionSnapshot> {
     const session = this.sessions.find((item) => item.id === sessionId)
     if (!session) throw new Error(`Unknown fake session: ${sessionId}`)
-    return { session, messages: [], toolCalls: [], runs: [], lastSequence: 0 }
+    const state = this.states.get(sessionId) ?? createInitialAgentState()
+    return {
+      session,
+      messages: state.messages,
+      toolCalls: state.toolCalls,
+      runs: state.run.id ? [...state.previousRuns, state.run] : [],
+      questions: state.questions,
+      confirmations: state.confirmations,
+    }
   }
 
   async getProviderStatus(): Promise<ProviderStatusView> {
@@ -322,9 +333,45 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
+    return this.forkRun(runId)
+  }
+
+  /** 脚本演示沿用生产分支语义，丢弃当前视图中的后续轮次。 */
+  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
+    if (!prompt.trim()) throw new Error('The edited message is empty.')
+    return this.forkRun(runId, prompt.trim())
+  }
+
+  /** 将脚本状态切回原用户输入之前，再启动新的运行。 */
+  private async forkRun(runId: string, prompt?: string): Promise<{ runId: string }> {
     const run = this.runs.get(runId)
     if (!run) throw new Error(`Unknown fake run: ${runId}`)
-    return this.startRun({ sessionId: run.sessionId, prompt: run.prompt, readOnly: run.readOnly })
+    const state = this.states.get(run.sessionId)
+    if (!state) throw new Error(`Unknown fake session: ${run.sessionId}`)
+    const index = state.messages.findIndex(
+      (message) => message.role === 'user' && message.runId === runId,
+    )
+    if (index < 0) throw new Error(`Unknown fake message: ${runId}`)
+    const messages = state.messages.slice(0, index)
+    const retained = new Set(messages.map((message) => message.runId))
+    this.states.set(run.sessionId, {
+      ...state,
+      messages,
+      toolCalls: state.toolCalls.filter((tool) => retained.has(tool.runId)),
+      previousRuns: [...state.previousRuns, state.run].filter(
+        (item) => item.id && retained.has(item.id),
+      ),
+      run: { id: null, sessionId: run.sessionId, status: 'idle' },
+      questions: [],
+      confirmations: [],
+      error: null,
+      canUndoTurn: false,
+    })
+    return this.startRun({
+      sessionId: run.sessionId,
+      prompt: prompt ?? run.prompt,
+      readOnly: run.readOnly,
+    })
   }
 
   async confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
@@ -453,7 +500,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 
-  subscribe(listener: (event: AgentUiEvent) => void): () => void {
+  subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
@@ -465,6 +512,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       type: 'user.message.created',
       message: {
         id: `user-${run.id}`,
+        runId: run.id,
         role: 'user',
         content: run.prompt,
         createdAt: startedAt + 1,
@@ -474,6 +522,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       type: 'action.summary',
       message: {
         id: `action-${run.id}`,
+        runId: run.id,
         role: 'action',
         content: 'Reading the current chart context',
         createdAt: startedAt + 2,
@@ -648,6 +697,38 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   private emit(event: AgentUiEventInput): void {
     const normalized = { protocolVersion: AGENT_UI_PROTOCOL_VERSION, ...event } as AgentUiEvent
-    for (const listener of this.listeners) listener(normalized)
+    if ('sessionId' in normalized) {
+      const session = this.sessions.find((item) => item.id === normalized.sessionId)
+      if (session) {
+        const state = reduceAgentUiEvent(
+          this.states.get(session.id) ?? createInitialAgentState(),
+          normalized,
+        )
+        this.states.set(session.id, state)
+        const snapshot: AgentSessionSnapshot = {
+          session,
+          messages: state.messages,
+          toolCalls: state.toolCalls,
+          runs: state.run.id ? [...state.previousRuns, state.run] : [],
+          questions: state.questions,
+          confirmations: state.confirmations,
+        }
+        for (const listener of this.listeners)
+          listener({
+            protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+            type: 'session.snapshot',
+            snapshot,
+          })
+        return
+      }
+    }
+    if (
+      normalized.type === 'sessions.changed' ||
+      normalized.type === 'provider.status.changed' ||
+      normalized.type === 'session.snapshot' ||
+      normalized.type === 'tool.question.required' ||
+      normalized.type === 'tool.question.resolved'
+    )
+      for (const listener of this.listeners) listener(normalized)
   }
 }

@@ -1,19 +1,11 @@
 <template>
   <CanvasToolbar>
     <BaseTooltip v-if="canEdit('stroke')" content="颜色" placement="top" trigger-display="contents">
-      <div class="color-item">
-        <span
-          class="color-swatch"
-          :style="{ background: style.stroke ?? DEFAULT_DRAWING_STROKE }"
-        ></span>
-        <input
-          type="color"
-          class="color-input"
-          aria-label="颜色"
-          :value="style.stroke ?? DEFAULT_DRAWING_STROKE"
-          @input="onColorChange(($event.target as HTMLInputElement).value)"
-        />
-      </div>
+      <ColorPicker
+        label="颜色"
+        :model-value="style.stroke ?? DEFAULT_DRAWING_STROKE"
+        @update:model-value="onColorChange"
+      />
     </BaseTooltip>
 
     <BaseTooltip v-if="canEdit('strokeWidth')" content="线宽" placement="top" trigger-display="contents">
@@ -175,10 +167,11 @@
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerSettings from '~icons/tabler/settings'
+  import ColorPicker from './ColorPicker.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
-  import Dropdown from './Dropdown.vue'
   import DrawingTemplateMenu from './DrawingTemplateMenu.vue'
+  import Dropdown from './Dropdown.vue'
 
   const widthOptions = [
     { label: '1px', value: '1' },
@@ -227,7 +220,6 @@
     (e: 'saveExistingTemplate', name: string): void
   }>()
 
-
   function onKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
     if (e.key === 'Delete') {
@@ -268,40 +260,6 @@
 </script>
 
 <style scoped>
-  .color-item {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-
-  .color-item:hover {
-    background: var(--klc-color-ui-hover);
-  }
-
-  .color-swatch {
-    display: block;
-    width: 16px;
-    height: 16px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    border-radius: 4px;
-    pointer-events: none;
-  }
-
-  .color-input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-  }
-
   .selection-count {
     padding: 0 4px;
     color: var(--klc-color-ui-text-soft);

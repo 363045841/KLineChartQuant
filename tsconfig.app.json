@@ -24,6 +24,10 @@
       "@/utils/*": ["./packages/core/src/foundation/utils/*"],
       "@/*": ["./packages/core/src/*"],
       "@363045841yyt/klinechart-agent-runtime": ["./packages/agent-runtime/src/index.ts"],
+      "@363045841yyt/klinechart-agent-runtime/browser": ["./packages/agent-runtime/src/browser.ts"],
+      "@363045841yyt/klinechart-agent-runtime/testing": [
+        "./packages/agent-runtime/src/testing/index.ts"
+      ],
       "@363045841yyt/klinechart-agent-runtime/contracts/ui": [
         "./packages/agent-runtime/src/contracts/ui.ts"
       ]

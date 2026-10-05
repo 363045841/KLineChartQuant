@@ -1,8 +1,7 @@
 import type {
-  AgentRunUiEventInput,
   AgentSessionSnapshot,
   AgentSessionView,
-  AgentUiEvent,
+  AgentWorkspaceEvent,
   ProviderModelsInput,
   ProviderModelsResult,
   ProviderStatusView,
@@ -10,7 +9,7 @@ import type {
   ProviderTestResult,
   StartRunInput,
 } from '../contracts/ui.js'
-import type { PiRunPlan, PiRunResult } from '../pi/types.js'
+import type { PiRunPlan } from '../pi/types.js'
 import type { RunPersistenceContext } from '../sessions/types.js'
 
 export interface RuntimeLogRecord {
@@ -26,15 +25,8 @@ export interface RuntimeLogSink {
   write(record: RuntimeLogRecord): void
 }
 
-export interface RunDriver {
-  run(plan: PiRunPlan, emit: (event: AgentRunUiEventInput) => Promise<void>): Promise<PiRunResult>
-  abort(): void
-  waitForIdle(): Promise<void>
-}
-
 export interface AgentApplicationServiceOptions {
   sessions: import('../sessions/runtime-session-service.js').RuntimeSessionService
-  createDriver?: () => RunDriver
   createPlan(context: RunPersistenceContext): Promise<PiRunPlan> | PiRunPlan
   provider?: {
     getStatus(): Promise<ProviderStatusView> | ProviderStatusView
@@ -57,10 +49,11 @@ export interface AgentApplicationApi {
   startRun(input: StartRunInput): Promise<{ runId: string }>
   cancelRun(runId: string): Promise<void>
   retryRun(runId: string): Promise<{ runId: string }>
+  editMessage(runId: string, prompt: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   undoTurn(runId: string): Promise<void>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>
-  subscribe(listener: (event: AgentUiEvent) => void): () => void
+  subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
 }

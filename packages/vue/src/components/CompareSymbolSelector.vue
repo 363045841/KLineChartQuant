@@ -1,10 +1,10 @@
 <template>
   <div ref="rootRef" class="compare-chip-wrap">
+    <BaseTooltip content="比较商品" placement="bottom" trigger-display="contents" :disabled="showPopup">
     <button
       type="button"
       class="control-button compare-chip"
       :class="{ 'is-open': showPopup }"
-      title="比较商品"
       :aria-expanded="showPopup"
       aria-haspopup="dialog"
       @click="togglePopup"
@@ -16,6 +16,7 @@
       <span v-if="comparisonLoading" class="compare-chip__spinner" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
+    </BaseTooltip>
     <SymbolPopover
       v-model:search="searchQuery"
       :show="showPopup"
@@ -159,6 +160,7 @@
 
   import BaseTabs from './BaseTabs.vue'
   import SymbolPopover from './SymbolPopover.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -338,7 +340,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding-bottom: 10px;
+    padding: 12px;
     border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
@@ -365,7 +367,7 @@
     align-items: center;
     gap: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--klc-color-ui-border);
+    border: 0;
     border-radius: 6px;
     background: var(--klc-color-ui-hover);
     font-size: 12px;
@@ -418,12 +420,12 @@
   }
 
   .compare-list {
-    max-height: 220px;
+    max-height: 480px;
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    margin: 0 -4px;
+    margin: 0;
   }
 
   .compare-list::-webkit-scrollbar {
@@ -452,10 +454,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 10px;
-    margin: 0 4px;
+    padding: 10px 12px;
+    margin: 0;
     border: none;
-    border-radius: 7px;
+    border-bottom: 1px solid var(--klc-color-ui-border);
+    border-radius: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
@@ -479,7 +482,7 @@
 
   .compare-list__code {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.2;
     letter-spacing: 0.01em;
     color: var(--klc-color-ui-text);
@@ -507,12 +510,12 @@
 
   .compare-list__exchange {
     flex: 0 0 auto;
-    padding: 2px 7px;
-    border-radius: 4px;
-    background: var(--klc-color-ui-hover);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 400;
     line-height: 1.4;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -529,7 +532,7 @@
 
   @media (max-width: 768px), (max-height: 640px) {
     .compare-list {
-      max-height: 180px;
+      max-height: 320px;
     }
   }
 </style>

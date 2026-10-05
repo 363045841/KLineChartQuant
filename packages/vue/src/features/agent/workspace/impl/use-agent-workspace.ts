@@ -1,32 +1,34 @@
-// 连接稳定的 Bridge、事件 reducer 与 Vue 交互状态。
+// 订阅官方会话的完整快照，Vue 只维护输入、偏好与交互状态。
 
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
   AgentBridgeClient,
   AgentContextItem,
-  AgentUiEvent,
+  AgentWorkspaceEvent,
   ProviderModelView,
   ProviderReasoningEffort,
   QuestionAnswerView,
 } from '../../agent-contracts.js'
+import { getAgentCopy } from '../../agent-copy.js'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
 } from '../../browser-agent/provider-settings/impl/agent-provider-settings-store.js'
-import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer.js'
 import {
   agentWorkspacePreferencesPersistence,
   defaultAgentWorkspacePreferences,
 } from './agent-workspace-preferences.js'
+import { createWorkspaceState, displayConversation } from './workspace-state.js'
 
 /** 组装 Agent 工作区的响应式状态与操作，并挂载 Bridge 事件订阅。 */
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const preferences =
     agentWorkspacePreferencesPersistence.load() ?? defaultAgentWorkspacePreferences()
-  const state = shallowRef(createInitialAgentState())
+  const state = shallowRef(createWorkspaceState())
   // UI 与模型请求共享 Bridge 从 Core 投影的同一份上下文项。
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
+  const submitting = ref(false)
   const readOnly = ref(preferences.readOnly)
   const collapseReasoning = ref(preferences.collapseReasoning)
   const models = shallowRef<readonly ProviderModelView[]>([])
@@ -36,83 +38,83 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const locale = ref<'en' | 'zh-CN'>(preferences.locale)
   let unsubscribe: (() => void) | undefined
   let unsubscribeContextItems: (() => void) | undefined
-  let bufferedEvents: AgentUiEvent[] | undefined
+  let selectionGeneration = 0
+  let snapshotDelivery = 0
   let modelLoadGeneration = 0
 
-  const activeSession = computed(() =>
-    state.value.sessions.find((session) => session.id === state.value.activeSessionId),
+  const isRunning = computed(
+    () => submitting.value || ['running', 'cancelling'].includes(state.value.run.status),
   )
-  const isRunning = computed(() => ['running', 'cancelling'].includes(state.value.run.status))
   const providerReady = computed(
     () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
   )
 
-  function project(event: AgentUiEvent): void {
-    state.value = reduceAgentUiEvent(state.value, event)
-  }
-
-  function receive(event: AgentUiEvent): void {
-    if (bufferedEvents) bufferedEvents.push(event)
-    else project(event)
-  }
-
-  function flush(buffer: AgentUiEvent[]): void {
-    if (bufferedEvents !== buffer) return
-    bufferedEvents = undefined
-    for (const event of buffer) project(event)
+  function project(event: AgentWorkspaceEvent): void {
+    if (event.type === 'session.snapshot') {
+      if (event.snapshot.session.id === state.value.activeSessionId) {
+        snapshotDelivery++
+        state.value = displayConversation(state.value, event.snapshot)
+      }
+    } else if (event.type === 'sessions.changed') {
+      state.value = { ...state.value, sessions: event.sessions }
+    } else if (event.type === 'provider.status.changed') {
+      state.value = { ...state.value, provider: event.status }
+    } else if ('sessionId' in event && event.sessionId === state.value.activeSessionId) {
+      // 提问是宿主交互，不是模型流式状态；由 Bridge 管理待答 Promise。
+      if (event.type === 'tool.question.required')
+        state.value = { ...state.value, questions: [...state.value.questions, event.request] }
+      if (event.type === 'tool.question.resolved')
+        state.value = {
+          ...state.value,
+          questions: state.value.questions.map((question) =>
+            question.id === event.questionId
+              ? { ...question, status: event.status, answer: event.answer }
+              : question,
+          ),
+        }
+    }
   }
 
   async function openSession(sessionId: string): Promise<void> {
-    const ownsBuffer = bufferedEvents === undefined
-    const buffer = bufferedEvents ?? []
-    if (ownsBuffer) bufferedEvents = buffer
-    try {
-      const snapshot = await bridge.openSession(sessionId)
-      const currentRun = snapshot.runs.at(-1) ?? createInitialAgentState().run
+    const selection = ++selectionGeneration
+    const delivered = snapshotDelivery
+    if (state.value.activeSessionId !== sessionId) {
       state.value = {
         ...state.value,
-        lastSequence: Math.max(state.value.lastSequence, snapshot.lastSequence),
         activeSessionId: sessionId,
-        messages: snapshot.messages,
-        toolCalls: snapshot.toolCalls,
-        confirmations: [],
+        messages: [],
+        toolCalls: [],
         questions: [],
-        run: currentRun,
-        previousRuns: snapshot.runs.slice(0, -1),
-        error: currentRun.error ?? null,
-        canUndoTurn: snapshot.toolCalls.some(
-          (tool) =>
-            tool.runId === currentRun.id && tool.status === 'succeeded' && Boolean(tool.undoToken),
-        ),
+        confirmations: [],
+        run: { id: null, sessionId, status: 'idle' },
+        previousRuns: [],
+        error: null,
+        canUndoTurn: false,
       }
-    } finally {
-      if (ownsBuffer) flush(buffer)
     }
+    const snapshot = await bridge.openSession(sessionId)
+    // 异步切换只接受最新选择；加载期间收到的官方新快照不能被较早读取覆盖。
+    if (selection === selectionGeneration && delivered === snapshotDelivery)
+      state.value = displayConversation(state.value, snapshot)
   }
 
   async function initialize(): Promise<void> {
-    const buffer: AgentUiEvent[] = []
-    bufferedEvents = buffer
-    unsubscribe = bridge.subscribe(receive)
+    unsubscribe = bridge.subscribe(project)
     unsubscribeContextItems = bridge.subscribeContextItems((items) => {
       contextItems.value = items
     })
-    try {
-      const [sessions, provider] = await Promise.all([
-        bridge.listSessions(),
-        bridge.getProviderStatus(),
-      ])
-      state.value = {
-        ...state.value,
-        sessions,
-        activeSessionId: state.value.activeSessionId ?? sessions[0]?.id ?? null,
-        provider,
-      }
-      const sessionId = state.value.activeSessionId
-      if (sessionId) await openSession(sessionId)
-    } finally {
-      flush(buffer)
+    const [sessions, provider] = await Promise.all([
+      bridge.listSessions(),
+      bridge.getProviderStatus(),
+    ])
+    state.value = {
+      ...state.value,
+      sessions,
+      activeSessionId: state.value.activeSessionId ?? sessions[0]?.id ?? null,
+      provider,
     }
+    const sessionId = state.value.activeSessionId
+    if (sessionId) await openSession(sessionId)
   }
 
   async function createSession(): Promise<void> {
@@ -126,17 +128,28 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     }
   }
 
-  async function renameSession(title: string): Promise<void> {
-    if (!state.value.activeSessionId || !title.trim()) return
-    await bridge.renameSession(state.value.activeSessionId, title.trim())
+  // 重命名指定会话；标题为空时忽略。
+  async function renameSession(sessionId: string, title: string): Promise<void> {
+    const nextTitle = title.trim()
+    if (!nextTitle) return
+    await bridge.renameSession(sessionId, nextTitle)
   }
 
-  async function deleteSession(): Promise<void> {
-    const sessionId = state.value.activeSessionId
-    if (!sessionId) return
+  // 删除指定会话；仅当删除的是活动会话时才切换或重置工作区。
+  async function deleteSession(sessionId: string): Promise<void> {
     await bridge.deleteSession(sessionId)
     const sessions = state.value.sessions.filter((session) => session.id !== sessionId)
-    state.value = { ...state.value, sessions, activeSessionId: sessions[0]?.id ?? null }
+    if (state.value.activeSessionId !== sessionId) {
+      state.value = { ...state.value, sessions }
+      return
+    }
+    const nextSessionId = sessions[0]?.id ?? null
+    if (nextSessionId) {
+      state.value = { ...state.value, sessions }
+      await openSession(nextSessionId)
+      return
+    }
+    state.value = { ...createWorkspaceState(), provider: state.value.provider }
   }
 
   async function send(): Promise<void> {
@@ -151,22 +164,42 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (!sessionId) {
       const session = await bridge.createSession()
       sessionId = session.id
-      state.value = { ...state.value, activeSessionId: sessionId }
+      await openSession(sessionId)
     }
     draft.value = ''
-    await bridge.startRun({
-      sessionId,
-      prompt,
-      readOnly: readOnly.value,
-    })
+    await submitRun(() =>
+      bridge.startRun({
+        sessionId,
+        prompt,
+        readOnly: readOnly.value,
+      }),
+    )
   }
 
   async function stop(): Promise<void> {
     if (state.value.run.id) await bridge.cancelRun(state.value.run.id)
   }
 
-  async function retry(): Promise<void> {
-    if (state.value.run.id) await bridge.retryRun(state.value.run.id)
+  async function retry(runId = state.value.run.id): Promise<void> {
+    if (runId && !isRunning.value) await submitRun(() => bridge.retryRun(runId))
+  }
+
+  /** 编辑仅接受当前可见用户消息的运行，避免陈旧草稿提交到其他会话。 */
+  async function editMessage(runId: string, prompt: string): Promise<void> {
+    if (isRunning.value) throw new Error(getAgentCopy(locale.value).editBusy)
+    if (!state.value.messages.some((message) => message.role === 'user' && message.runId === runId))
+      throw new Error(getAgentCopy(locale.value).editUnavailable)
+    await submitRun(() => bridge.editMessage(runId, prompt))
+  }
+
+  /** 在官方运行快照到达前锁住提交入口，消除准备阶段的重复点击窗口。 */
+  async function submitRun(action: () => Promise<{ runId: string }>): Promise<void> {
+    submitting.value = true
+    try {
+      await action()
+    } finally {
+      submitting.value = false
+    }
   }
 
   async function confirmTool(
@@ -232,6 +265,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     }))
   })
   onUnmounted(() => {
+    selectionGeneration++
     unsubscribe?.()
     unsubscribeContextItems?.()
   })
@@ -245,7 +279,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     modelsLoading,
     providerSettings,
     locale,
-    activeSession,
     isRunning,
     providerReady,
     collapseReasoning,
@@ -256,6 +289,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     send,
     stop,
     retry,
+    editMessage,
     confirmTool,
     answerQuestion,
     undoTurn,

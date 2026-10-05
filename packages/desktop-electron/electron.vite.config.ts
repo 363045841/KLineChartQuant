@@ -63,6 +63,10 @@ export default defineConfig({
       alias: [
         ...createCoreSourceAliases(coreSrc),
         {
+          find: /^@363045841yyt\/klinechart-agent-runtime\/browser$/,
+          replacement: `${root}/packages/agent-runtime/src/browser.ts`,
+        },
+        {
           find: /^@363045841yyt\/klinechart-agent-runtime$/,
           replacement: agentRuntime,
         },

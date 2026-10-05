@@ -42,7 +42,7 @@
   ],
   "type": "module",
   "engines": {
-    "node": "^22.18.0 || >=24.11.0"
+    "node": "^22.19.0 || >=24.11.0"
   },
   "scripts": {
     "setup:backends": "node scripts/setup-backends.mjs",

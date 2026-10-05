@@ -27,7 +27,20 @@
         :message="entry.message"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
-      />
+        :show-actions="isFinalReply(entry.message)"
+        :regenerate-disabled="isLoading || actionsDisabled"
+        :edit-disabled="isLoading || actionsDisabled"
+        :edit-message="editMessage"
+        @regenerate="$emit('retry', entry.message.runId)"
+      >
+        <template #run-status>
+          <AgentRunStatus
+            v-if="statusForReply(entry.message)"
+            :run="statusForReply(entry.message)!"
+            :locale="locale"
+          />
+        </template>
+      </AgentMessageItem>
       <template v-else-if="entry.kind === 'tool'">
         <ToolCallCard
           :tool="entry.tool"
@@ -48,37 +61,15 @@
           @answer="$emit('answer', questionFor(entry.tool.id)!.id, $event)"
         />
       </template>
-      <section
+      <AgentRunStatus
         v-if="
           entry.kind === 'run' &&
-          (entry.run.usage ||
-            (entry.run.id === run.id && (isLoading || canUndo)))
+          !messages.some((message) => message.runId === entry.run.id && isFinalReply(message)) &&
+          entry.run.usage
         "
-        class="run-status"
-        :data-status="entry.run.status"
-        :tabindex="entry.run.id === run.id && isTerminal ? -1 : undefined"
-        :data-focus="entry.run.id === run.id ? 'completion' : undefined"
-      >
-        <div v-if="entry.run.usage" class="run-status__usage">
-          <span>{{ text.input }} {{ entry.run.usage.inputTokens ?? 0 }}</span>
-          <span>{{ text.output }} {{ entry.run.usage.outputTokens ?? 0 }}</span>
-          <strong>{{ text.total }} {{ turnTokens(entry.run) }} {{ text.tokens }}</strong>
-        </div>
-        <span
-          v-if="entry.run.id === run.id && isLoading"
-          class="run-status__indicator"
-        >
-          <LoadingSpinner />
-        </span>
-        <button
-          v-if="entry.run.id === run.id && canUndo"
-          type="button"
-          @click="$emit('undo')"
-        >
-          <IconArrowBackUp aria-hidden="true" />
-          {{ text.undo }}
-        </button>
-      </section>
+        :run="entry.run"
+        :locale="locale"
+      />
     </template>
 
     <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="$emit('retry')" />
@@ -87,9 +78,7 @@
 
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
-  import IconArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconArrowUpRight from '~icons/tabler/arrow-up-right'
-  import LoadingSpinner from '../../../components/LoadingSpinner.vue'
   import type {
     AgentErrorView,
     AgentMessageView,
@@ -100,11 +89,13 @@
     ToolCallView,
   } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import type { EditMessageAction } from '../message-edit/types.js'
   import AgentErrorNotice from './AgentErrorNotice.vue'
   import AgentMessageItem from './AgentMessageItem.vue'
   import ConfirmationCard from './ConfirmationCard.vue'
   import QuestionCard from './QuestionCard.vue'
   import ToolCallCard from './ToolCallCard.vue'
+  import AgentRunStatus from './AgentRunStatus.vue'
 
   type TimelineEntry =
     | { kind: 'message'; id: string; at: number; message: AgentMessageView }
@@ -122,13 +113,15 @@
     canUndo: boolean
     collapseReasoning: boolean
     locale: AgentLocale
+    editMessage?: EditMessageAction
+    actionsDisabled?: boolean
   }>()
 
   defineEmits<{
     prompt: [prompt: string]
     confirm: [confirmationId: string, decision: 'confirmed' | 'rejected']
     answer: [questionId: string, answer: QuestionAnswerView]
-    retry: []
+    retry: [runId?: string]
     undo: []
     locate: [toolCallId: string]
   }>()
@@ -160,7 +153,9 @@
       ...props.runs
         .filter(
           (run) =>
-            run.id && (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
+            run.id &&
+            !props.runs.some((replacement) => replacement.retryOfRunId === run.id) &&
+            (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
         )
         .map((run) => ({
           kind: 'run' as const,
@@ -174,9 +169,20 @@
     ['completed', 'failed', 'cancelled', 'partial', 'interrupted'].includes(props.run.status),
   )
   const isLoading = computed(() => !isTerminal.value && props.run.status !== 'idle')
-  /** 返回单轮模型输入与输出的累计 token。 */
-  function turnTokens(run: AgentRunView): number {
-    return (run.usage?.inputTokens ?? 0) + (run.usage?.outputTokens ?? 0)
+  /** 仅在已完成运行的最后一条助手回复下显示操作。 */
+  function isFinalReply(message: AgentMessageView): boolean {
+    if (message.role !== 'assistant' || message.status !== 'complete' || !message.runId)
+      return false
+    const run = props.runs.find((item) => item.id === message.runId)
+    if (run?.status !== 'completed') return false
+    return !props.messages
+      .slice(props.messages.indexOf(message) + 1)
+      .some((item) => item.role === 'assistant' && item.runId === message.runId)
+  }
+  /** 完成回复的状态嵌入操作栏，其他运行仍保留独立进度入口。 */
+  function statusForReply(message: AgentMessageView): AgentRunView | undefined {
+    if (!isFinalReply(message)) return undefined
+    return props.runs.find((item) => item.id === message.runId && item.usage)
   }
 
   function confirmationFor(toolCallId: string): ConfirmationView | undefined {

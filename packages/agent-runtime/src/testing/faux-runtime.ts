@@ -128,6 +128,7 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
     }
     return {
       sessionId: context.sessionId,
+      models,
       runId: context.runId,
       turnId: context.turnId,
       prompt: context.prompt,
