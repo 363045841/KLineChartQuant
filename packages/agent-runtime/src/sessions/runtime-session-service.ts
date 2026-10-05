@@ -12,7 +12,7 @@ import {
   type AgentUiEvent,
   type AgentUsageView,
 } from '../contracts/ui.js'
-import { type RedactionOptions, redactString, redactValue } from '../security/redaction.js'
+import { type RedactionOptions, redactString } from '../security/redaction.js'
 import {
   SESSION_ENTRY,
   SESSION_LANE,
@@ -243,11 +243,7 @@ export class RuntimeSessionService {
   /** 写入脱敏事件，成功提交后才返回给广播方。 */
   async persistEvent(input: PersistEventInput): Promise<AgentUiEvent> {
     const lane = await this.requireLane(input.sessionId, input.lane)
-    const safe = redactValue(
-      { ...input.event, protocolVersion: AGENT_UI_PROTOCOL_VERSION },
-      this.redaction,
-    )
-    const event = decodeAgentUiEvent(safe)
+    const event = decodeAgentUiEvent({ ...input.event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
     await this.session.commit(
       (tx) =>
         tx.appendEntry(lane.conversationId, {
@@ -273,7 +269,7 @@ export class RuntimeSessionService {
           model: [
             {
               role: 'assistant',
-              content: [{ type: 'text', text: redactString(content, this.redaction) }],
+              content: [{ type: 'text', text: content }],
               api: 'openai-responses',
               provider: 'kq-runtime',
               model: 'redacted',
@@ -327,7 +323,6 @@ export class RuntimeSessionService {
                 recommendedAction: 'Retry this run.',
               },
             }
-    const safe = decodeAgentUiEvent(redactValue(event, this.redaction))
     await this.session.commit(async (tx) => {
       await tx.appendEntry(lane.conversationId, {
         kind: KQ_CUSTOM_ENTRY.runTerminal,
@@ -335,11 +330,11 @@ export class RuntimeSessionService {
       })
       await tx.appendEntry(lane.conversationId, {
         kind: KQ_CUSTOM_ENTRY.event,
-        data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, event: safe }),
+        data: json({ schemaVersion: KQ_SESSION_SCHEMA_VERSION, event }),
       })
       await this.touch(tx, main.conversationId)
     }, this.context)
-    return safe
+    return event
   }
 
   /** 将宿主退出时未结算的运行标记中断，终态与回放事件在同一事务提交。 */

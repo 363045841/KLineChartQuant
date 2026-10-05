@@ -9,7 +9,7 @@ import type {
   ToolCallView,
   ToolProgressView,
 } from '../../contracts/ui.js'
-import { type RedactionOptions, redactString, redactValue } from '../../security/redaction.js'
+import { type RedactionOptions, redactString } from '../../security/redaction.js'
 import type {
   PiRunEventSink,
   PiRunPlan,
@@ -143,7 +143,7 @@ export interface PiRunDriverOptions {
   now?: () => number
   /** 消息 ID 生成器，用于测试稳定事件。 */
   id?: () => string
-  /** 需要在事件和工具结果中移除的敏感值配置。 */
+  /** 用户输入中的敏感值配置。 */
   redaction?: RedactionOptions
 }
 
@@ -270,7 +270,7 @@ export class PiRunDriver {
             createdAt: this.now(),
           })
         }
-        const delta = redactString(event.assistantMessageEvent.delta, this.redaction)
+        const delta = event.assistantMessageEvent.delta
         assistantText += delta
         await emit({ type: 'assistant.text.delta', messageId: assistantMessageId, delta })
         return
@@ -306,7 +306,7 @@ export class PiRunDriver {
         await emit({
           type: 'assistant.thinking.delta',
           messageId,
-          delta: redactString(event.assistantMessageEvent.delta, this.redaction),
+          delta: event.assistantMessageEvent.delta,
         })
         return
       }
@@ -341,7 +341,7 @@ export class PiRunDriver {
     refreshDeadline()
 
     try {
-      await agent.prompt(plan.prompt)
+      await agent.prompt(redactString(plan.prompt, this.redaction))
       if (timedOut) {
         throw new AgentRuntimeError('DEADLINE_EXCEEDED', 'The Agent run exceeded its deadline.', {
           retryable: true,
@@ -450,11 +450,12 @@ export class PiRunDriver {
         for (const citation of result.citations ?? []) citations.set(citation.id, citation)
         results.set(toolCallId, result)
         return {
-          content: [{ type: 'text', text: redactString(result.content, this.redaction) }],
-          details: redactValue(
-            { summary: result.summary, evidence: result.evidence, undoToken: result.undoToken },
-            this.redaction,
-          ),
+          content: [{ type: 'text', text: result.content }],
+          details: {
+            summary: result.summary,
+            evidence: result.evidence,
+            undoToken: result.undoToken,
+          },
         }
       },
     }
@@ -483,7 +484,7 @@ export class PiRunDriver {
       const definition = toolsByName.get(event.toolName)
       if (!definition) return
       const id = publicToolCallId(plan.runId, event.toolCallId)
-      // 输入摘要在发往 UI 前脱敏，工具原始参数不会进入事件流。
+      // 工具原始参数不进入事件流，仅展示摘要。
       let inputSummary = 'Validated tool input'
       try {
         inputSummary = definition.summarizeInput?.(event.args) ?? inputSummary
@@ -496,7 +497,7 @@ export class PiRunDriver {
         name: definition.name,
         label: definition.label,
         status: 'running',
-        inputSummary: redactString(inputSummary, this.redaction),
+        inputSummary,
         safety: definition.safety,
         reversible: definition.reversible,
         startedAt: this.now(),
@@ -535,8 +536,8 @@ export class PiRunDriver {
         : {
             ...started,
             status: 'succeeded',
-            resultSummary: redactString(result?.summary ?? 'Tool completed.', this.redaction),
-            resultContent: redactString(result?.content ?? '', this.redaction),
+            resultSummary: result?.summary ?? 'Tool completed.',
+            resultContent: result?.content ?? '',
             evidence: result?.evidence,
             undoToken: result?.undoToken,
             finishedAt,

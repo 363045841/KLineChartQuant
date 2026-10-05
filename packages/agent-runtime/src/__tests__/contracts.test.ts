@@ -7,7 +7,7 @@ import {
   type AgentRuntimeErrorCode,
   createUnavailableRuntimeSupport,
   parseAgentIpcRequest,
-  redactValue,
+  redactString,
 } from '../index'
 
 function request(overrides: Record<string, unknown> = {}) {
@@ -102,24 +102,16 @@ describe('Agent IPC contracts', () => {
 })
 
 describe('redaction', () => {
-  it('removes secret-shaped fields, registered values, auth headers, and local usernames', () => {
+  it('redacts registered values, auth headers and local usernames in input text', () => {
     const secret = 'temporary-provider-value'
-    const result = redactValue(
-      {
-        apiKey: secret,
-        nested: {
-          authorization: 'Bearer abc.def.ghi',
-          message: `failure at /Users/alice/project with ${secret} and sk-abcdefghijklmnop`,
-          hiddenThinking: 'private reasoning',
-        },
-      },
+    const result = redactString(
+      `Bearer abc.def.ghi failure at /Users/alice/project with ${secret} and sk-abcdefghijklmnop`,
       { secretValues: [secret] },
     )
     const serialized = JSON.stringify(result)
     expect(serialized).not.toContain(secret)
     expect(serialized).not.toContain('abc.def.ghi')
     expect(serialized).not.toContain('alice')
-    expect(serialized).not.toContain('private reasoning')
     expect(serialized).not.toContain('sk-abcdefghijklmnop')
   })
 })

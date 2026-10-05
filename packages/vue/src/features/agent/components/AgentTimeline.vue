@@ -60,8 +60,8 @@
         :data-focus="entry.run.id === run.id ? 'completion' : undefined"
       >
         <div v-if="entry.run.usage" class="run-status__usage">
-          <span>{{ text.input }} {{ entry.run.usage.inputTokens ?? 0 }}</span>
-          <span>{{ text.output }} {{ entry.run.usage.outputTokens ?? 0 }}</span>
+          <span>{{ text.input }} {{ entry.run.usage.inputTokens ?? 0 }} {{ text.tokens }}</span>
+          <span>{{ text.output }} {{ entry.run.usage.outputTokens ?? 0 }} {{ text.tokens }}</span>
           <strong>{{ text.total }} {{ turnTokens(entry.run) }} {{ text.tokens }}</strong>
         </div>
         <span

@@ -29,6 +29,44 @@ function createFixture() {
 }
 
 describe('RuntimeSessionService', () => {
+  it('preserves usage metadata through persistence and replay', async () => {
+    const { service } = createFixture()
+    const session = await service.create()
+    const run = await service.beginRun({
+      sessionId: session.id,
+      runId: 'usage-run',
+      turnId: 'usage-turn',
+      prompt: 'registered-secret',
+      readOnly: true,
+      startedAt: 1,
+    })
+    const usage = {
+      inputTokens: 1200,
+      outputTokens: 300,
+      contextTokens: 1100,
+      contextWindow: 128000,
+      costUsd: 0.01,
+      durationMs: 50,
+    }
+    await service.appendAssistantMessage(run, 'registered-secret', 2)
+    const event = await service.finishRun(run, { status: 'completed', endedAt: 2 }, { usage })
+    expect(event).toMatchObject({ type: 'run.completed', usage })
+    expect((await service.open(session.id)).runs[0]?.usage).toEqual(usage)
+    const followUp = await service.beginRun({
+      sessionId: session.id,
+      runId: 'follow-up',
+      turnId: 'next',
+      prompt: 'Next',
+      readOnly: true,
+      startedAt: 3,
+    })
+    expect(await service.getTranscript(followUp)).toContainEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        content: [{ type: 'text', text: 'registered-secret' }],
+      }),
+    )
+  })
   it('creates, lists, opens, renames, and deletes Pi sessions', async () => {
     const { service } = createFixture()
     const created = await service.create()
@@ -83,7 +121,7 @@ describe('RuntimeSessionService', () => {
     expect(await service.getTranscript(followUp)).toEqual(transcript)
   })
 
-  it('checkpoints redacted replayable events and rebuilds a snapshot', async () => {
+  it('redacts the prompt and preserves replayable event content', async () => {
     const { service } = createFixture()
     const session = await service.create()
     const run = await service.beginRun({
@@ -127,7 +165,8 @@ describe('RuntimeSessionService', () => {
     const snapshot = await service.open(session.id)
     expect(snapshot.lastSequence).toBe(2)
     expect(snapshot.runs[0]?.status).toBe('running')
-    expect(snapshot.messages[0]?.content).toBe('[REDACTED] at [LOCAL_PATH]/work')
+    expect(run.prompt).toBe('[REDACTED]')
+    expect(snapshot.messages[0]?.content).toBe('registered-secret at /Users/alice/work')
   })
 
   it('marks durable non-terminal runs interrupted exactly once', async () => {
