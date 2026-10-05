@@ -885,6 +885,40 @@ describe('Chart DPR pipeline', () => {
     vi.restoreAllMocks()
   })
 
+  it('retains one chart crosshair surface across pane rebuilds, DPR changes and disposal', async () => {
+    const chart = mountChart()
+    const host = chart.getDom().canvasLayer
+    const canvas = host.querySelector<HTMLCanvasElement>('canvas.crosshair-canvas')
+    try {
+      expect(canvas).not.toBeNull()
+      chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', data: makeBars(100) })
+      chart.draw()
+      chart.updateOptions({
+        panes: [
+          { id: 'main', ratio: 0.7 },
+          { id: 'sub', ratio: 0.3 },
+        ],
+      })
+      chart.draw()
+      expect(host.querySelectorAll('canvas.crosshair-canvas')).toHaveLength(1)
+      expect(host.querySelector('canvas.crosshair-canvas')).toBe(canvas)
+      emitResize(ResizeObserverMock.instances[0]!, {
+        width: 1000,
+        height: 600,
+        devicePixelWidth: 2000,
+        devicePixelHeight: 1200,
+      })
+      chart.draw()
+      const viewport = chart.getViewport()!
+      expect(canvas?.width).toBe(Math.round(viewport.plotWidth * viewport.dpr))
+      expect(canvas?.height).toBe(Math.round(viewport.plotHeight * viewport.dpr))
+    } finally {
+      await chart.destroy()
+    }
+    expect(canvas?.isConnected).toBe(false)
+    expect(host.querySelector('canvas.crosshair-canvas')).toBeNull()
+  })
+
   it('mounts renderer layers for restored sub-pane indicators', async () => {
     const chart = mountChart(1000, 600, {
       initialViewWorkspaces: {

@@ -13,6 +13,7 @@ import {
   createFrameTransaction,
   type FrameTransaction,
 } from '../../../foundation/reactivity/frameTransaction.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { ChartSeriesDatum, KLineData } from '../../../foundation/types/price.js'
 import { ScaleType } from '../../../foundation/types/scaleType.js'
 import { systemClock } from '../../../foundation/utils/clock.js'
@@ -39,7 +40,7 @@ import type { PaneRenderer } from '../../pane/index.js'
 import { UpdateLevel } from '../../pane/index.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
-import { createCrosshairLayer } from '../../renderers/crosshair.js'
+import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
 import { createCustomMarkersLayer } from '../../renderers/customMarkers.js'
 import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
 import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
@@ -150,6 +151,7 @@ export class ChartRenderer {
   readonly drawingStore: DrawingStore
   private readonly drawingDefinitions = new DrawingDefinitionRegistry()
   private xAxisCtx: CanvasRenderingContext2D | null = null
+  private readonly crosshairOverlay: CrosshairOverlay
 
   private cachedDrawFrame: {
     viewport: Viewport
@@ -267,6 +269,7 @@ export class ChartRenderer {
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
+    this.crosshairOverlay = new CrosshairOverlay(deps.getDom().canvasLayer)
     this.markerManager = new MarkerManager({ customMarkers$: deps.customMarkers$ })
     this.drawingStore = new DrawingStore({
       drawings$: deps.drawings$,
@@ -413,17 +416,6 @@ export class ChartRenderer {
           this.deps.getPluginHost,
         ),
       )
-    }
-    {
-      const layer = createCrosshairLayer({
-        getCrosshairState: () => ({
-          pos: interaction.crosshairPos,
-          activePaneId: interaction.activePaneId,
-          isDragging: interaction.isDraggingState(),
-          price: interaction.crosshairPrice,
-        }),
-      })
-      this.scene.addLayer(layer)
     }
     {
       const yAxisOpts = {
@@ -643,6 +635,7 @@ export class ChartRenderer {
       requiresRightAxisWidthMeasurement,
       frame.countdown.text,
     )
+    this.renderCrosshair(vp)
 
     // 画底部时间轴（独立 layer，不进 scene）
     this.renderXAxis(
@@ -657,6 +650,29 @@ export class ChartRenderer {
       renderData,
       fiveDayTimeShareGeometry,
     )
+  }
+
+  /** 在 pane 范围与绘制完成后，向整张图表的独立表面提交一次十字线。 */
+  private renderCrosshair(viewport: Viewport): void {
+    const interaction = this.deps.getInteraction()
+    const renderers = this.deps.getPaneRenderers()
+    const firstPane = renderers[0]?.getPane()
+    const context = firstPane ? this.paneCtxMap.get(firstPane.id) : undefined
+    if (!context) {
+      this.crosshairOverlay.clear()
+      return
+    }
+    const activePane = renderers
+      .find((renderer) => renderer.getPane().id === interaction.activePaneId)
+      ?.getPane()
+    this.crosshairOverlay.paint({
+      viewport,
+      pos: interaction.crosshairPos,
+      price: interaction.crosshairPrice,
+      activePane: activePane ? wrapPaneInfo(activePane) : null,
+      color: resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
+        .crosshairLine,
+    })
   }
 
   /** 停止本根 K 线倒计时的刷新计时器。 */
@@ -796,6 +812,7 @@ export class ChartRenderer {
   }
 
   clearAllCanvases(): void {
+    this.crosshairOverlay.clear()
     this.deps.onClearLegendRows?.()
     this.paintedMainVersion = null
     this.paintedOverlayVersion = null
@@ -896,7 +913,7 @@ export class ChartRenderer {
       ? dataManager.getComparisonProjection(range, kLineCenters, vp.scrollLeft, vp.plotWidth)
       : null
 
-    // 正式图元保存到独立 canvas，会话图元与十字线共用动态覆盖 canvas。
+    // 正式图元保存到独立 canvas，会话图元使用 pane 动态覆盖 canvas。
     const MAIN_CANVAS_ROLES: readonly LayerRole[] = [
       'background',
       'primary',
@@ -1326,6 +1343,7 @@ export class ChartRenderer {
     this.stopScheduling()
     this.cachedDrawFrame = null
     this.xAxisCtx = null
+    this.crosshairOverlay.dispose()
     this.scene.dispose()
     this.paneCtxMap.clear()
   }
