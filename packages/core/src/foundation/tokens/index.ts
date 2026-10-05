@@ -8,6 +8,7 @@
  * Public surface from the root `@klinechart-quant/core` barrel.
  */
 
+export { COLOR_PICKER_CSS_VARS } from './colorPicker.js'
 export {
   applyColorPresetOverrides,
   COLOR_PRESET_ITEMS,

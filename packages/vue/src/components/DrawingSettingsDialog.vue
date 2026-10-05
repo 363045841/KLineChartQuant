@@ -5,14 +5,14 @@
     </template>
     <div class="drawing-settings-body" role="tabpanel" :aria-label="activeTab === 'style' ? '样式' : '文本'">
       <template v-if="activeTab === 'style'">
-        <label v-for="field in visibleStyleFields" :key="field" class="color-row">
+        <div v-for="field in visibleStyleFields" :key="field" class="color-row">
           <span>{{ drawingColorFields[field].label }}</span>
-          <ColorInput
-            :value="drawingColorValue(field)"
+          <ColorPicker
+            :model-value="drawingColorValue(field)"
             :label="drawingColorFields[field].label"
-            @change="emit('updateStyle', { [field]: $event })"
+            @update:model-value="emit('updateStyle', { [field]: $event })"
           />
-        </label>
+        </div>
       </template>
       <div v-else-if="textTarget" class="text-settings">
         <label class="text-row">
@@ -97,7 +97,7 @@
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
-  import ColorInput from './ColorInput.vue'
+  import ColorPicker from './ColorPicker.vue'
   import DrawingTemplateMenu from './DrawingTemplateMenu.vue'
   import {
     type DrawingColorField,
