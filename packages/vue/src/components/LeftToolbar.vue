@@ -244,24 +244,21 @@
       @pointermove.stop
       @pointerup.stop
     >
-      <BaseTooltip
+      <div class="tool-dropdown__title">{{ openGroup.title }}</div>
+      <button
         v-for="child in openGroup.children"
         :key="child.id"
-        :content="child.title"
-        placement="top"
+        type="button"
+        class="tool-dropdown__item"
+        :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
+        :aria-label="child.title"
+        :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
+        :disabled="openGroup.id === deleteGroup.id && (child.id === 'drawings' ? !hasDrawings : !hasIndicators)"
+        @click="selectChild(openGroup, child)"
       >
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
-          :aria-label="child.title"
-          :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
-          :disabled="openGroup.id === deleteGroup.id && (child.id === 'drawings' ? !hasDrawings : !hasIndicators)"
-          @click="selectChild(openGroup, child)"
-        >
-          <component :is="child.icon" class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
+        <component :is="child.icon" class="tool-icon" aria-hidden="true" />
+        <span>{{ child.title }}</span>
+      </button>
     </div>
   </Teleport>
 
@@ -609,9 +606,10 @@
     const trigger = event.currentTarget as HTMLElement
     const bounds = trigger.getBoundingClientRect()
     triggerRef.value = trigger
+    const menuHeight = 42 + (group.children?.length ?? 0) * 30
     dropdownPosition.value = {
       '--menu-anchor-left': `${bounds.right}px`,
-      '--menu-anchor-top': `${bounds.top + bounds.height / 2}px`,
+      '--menu-anchor-top': `${Math.max(8, Math.min(bounds.top, window.innerHeight - menuHeight - 8))}px`,
     }
     openGroupId.value = group.id
   }
@@ -816,29 +814,71 @@
     outline: 1px solid var(--klc-color-ui-muted);
   }
 
-  /* --- 下拉菜单（与工具栏同配色、同按钮样式，高度对齐工具栏宽度） --- */
+  /* --- 工具组纵向菜单 --- */
   .tool-dropdown {
-    --menu-padding-y: 5px;
-    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 4px), calc(100vw - var(--tool-button-size) - 16px));
-    --menu-half-height: calc(var(--tool-button-size) / 2 + var(--menu-padding-y) + 1px);
+    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 4px), max(8px, calc(100vw - 188px)));
     position: fixed;
     left: var(--menu-left);
-    top: clamp(calc(var(--menu-half-height) + 8px), var(--menu-anchor-top), calc(100vh - var(--menu-half-height) - 8px));
-    transform: translateY(-50%);
+    top: var(--menu-anchor-top);
     display: flex;
-    align-items: center;
-    gap: 4px;
-    width: max-content;
-    max-width: calc(100vw - var(--menu-left) - 8px);
-    padding: var(--menu-padding-y) 5px;
+    flex-direction: column;
+    width: 180px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    padding: 4px;
+    border-radius: 8px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     z-index: 100;
-    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
-  .tool-dropdown :deep(.base-tooltip__trigger) {
+  .tool-dropdown__title {
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
+  }
+
+  .tool-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 30px;
+    width: 100%;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-ui-text);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .tool-dropdown__item .tool-icon {
     flex-shrink: 0;
+    color: var(--klc-color-ui-muted);
+  }
+
+  .tool-dropdown__item:hover,
+  .tool-dropdown__item.active {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .tool-dropdown__item:focus-visible {
+    outline: 1px solid var(--klc-color-ui-muted);
+    outline-offset: -1px;
+  }
+
+  .tool-dropdown__item:disabled {
+    background: transparent;
+    opacity: 0.5;
+    cursor: default;
   }
 
   /* --- 工具项容器 --- */
@@ -888,10 +928,6 @@
 
     .left-toolbar__divider {
       width: 16px;
-    }
-
-    .tool-dropdown {
-      --menu-padding-y: 4px;
     }
   }
 </style>
