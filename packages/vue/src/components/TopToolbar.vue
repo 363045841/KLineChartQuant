@@ -77,6 +77,9 @@
         @update-endpoint="onUpdateSourceEndpoint"
       />
     </div>
+    <div class="layout-actions">
+      <LayoutMenu :controller="layoutController ?? null" />
+    </div>
     <div class="screenshot-actions">
       <BaseTooltip content="撤回" placement="bottom">
         <button
@@ -144,16 +147,16 @@
 </template>
 
 <script setup lang="ts">
+  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
   import { computed, ref } from 'vue'
-  import IconTablerArrowLeft from '~icons/tabler/arrow-left'
-  import IconTablerCamera from '~icons/tabler/camera'
   import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
+  import IconTablerArrowLeft from '~icons/tabler/arrow-left'
+  import IconTablerCamera from '~icons/tabler/camera'
   import IconTablerMaximize from '~icons/tabler/maximize'
   import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerSettings from '~icons/tabler/settings'
-  import BaseTooltip from './common/BaseTooltip.vue'
   import {
     type ChartScreenshotAction,
     chartScreenshotActions,
@@ -164,13 +167,14 @@
     AggregationSourceEndpoint,
   } from '../composables/useAggregationSources.js'
   import type { SymbolSearchFn } from '../composables/useSymbolSearch.js'
-
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown from './KLineLevelDropdown.vue'
   import { isKLineLevel, type KLineLevel } from './kLineLevel'
+  import LayoutMenu from './LayoutMenu.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
   import SymbolSelector from './SymbolSelector.vue'
 
@@ -250,6 +254,7 @@
 
   const props = withDefaults(
     defineProps<{
+      layoutController?: ChartController | null
       symbol?: string
       symbolItem?: SymbolItem
       kLineLevel?: string
@@ -409,6 +414,7 @@
 
   .top-toolbar :deep(.symbol-chip:hover),
   .top-toolbar :deep(.symbol-chip.is-open),
+  .top-toolbar :deep(.symbol-chip[aria-expanded='true']),
   .top-toolbar :deep(.compare-chip:hover),
   .top-toolbar :deep(.compare-chip.is-open),
   .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled)),
@@ -428,12 +434,20 @@
     height: 15px;
   }
 
+  .layout-actions {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: auto;
+    border-left: 1px solid var(--klc-color-ui-border);
+    padding-left: 4px;
+  }
+
   .screenshot-actions {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 2px;
-    margin-left: auto;
     border-left: 1px solid var(--klc-color-ui-border);
     padding-left: 4px;
   }

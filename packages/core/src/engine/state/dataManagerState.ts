@@ -2,17 +2,11 @@
 
 import type { SymbolSpec } from '../../controllers/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
+import type { LayoutViewportSnapshot } from '../layout/index.js'
 
 export interface IncrementalLoadBatch {
   readonly count: number
   readonly leftBufferWidth: number
-}
-
-/** 单个数据视图的可恢复横向位置。 */
-export interface ViewportSnapshot {
-  readonly anchorTimestamp: number
-  readonly anchorOffsetPx: number
-  readonly zoomLevel: number
 }
 
 function emptyIncrementalLoadBatch(): IncrementalLoadBatch {
@@ -23,7 +17,7 @@ export function createDataManagerState() {
   const { signals, readonly } = createSubState(
     {
       currentSpec: null as SymbolSpec | null,
-      viewportSnapshots: Object.freeze({}) as Readonly<Record<string, ViewportSnapshot>>,
+      viewportSnapshots: Object.freeze({}) as Readonly<Record<string, LayoutViewportSnapshot>>,
       rangeInitialized: false,
       pendingIncrementalLoad: emptyIncrementalLoadBatch(),
     },
@@ -36,11 +30,15 @@ export function createDataManagerState() {
     readonly,
 
     actions: {
+      /** 原子恢复文档携带的视口索引，不改变当前行情品种。 */
+      restoreViewportSnapshots(snapshots: Readonly<Record<string, LayoutViewportSnapshot>>): void {
+        signals.viewportSnapshots.set(Object.freeze(structuredClone(snapshots)))
+      },
       setCurrentSpec(spec: SymbolSpec | null) {
         signals.currentSpec.set(spec)
       },
 
-      saveViewportSnapshot(key: string, snapshot: ViewportSnapshot) {
+      saveViewportSnapshot(key: string, snapshot: LayoutViewportSnapshot) {
         if (!key || !Number.isFinite(snapshot.anchorTimestamp)) return
         signals.viewportSnapshots.set(
           Object.freeze({
@@ -50,11 +48,11 @@ export function createDataManagerState() {
         )
       },
 
-      getViewportSnapshot(key: string): ViewportSnapshot | null {
+      getViewportSnapshot(key: string): LayoutViewportSnapshot | null {
         return signals.viewportSnapshots.peek()[key] ?? null
       },
 
-      consumeViewportSnapshot(key: string): ViewportSnapshot | null {
+      consumeViewportSnapshot(key: string): LayoutViewportSnapshot | null {
         const snapshots = signals.viewportSnapshots.peek()
         const snapshot = snapshots[key] ?? null
         if (!snapshot) return null

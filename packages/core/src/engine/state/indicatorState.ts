@@ -5,8 +5,8 @@ import {
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
 } from '../indicators/indicatorDefinitionRegistry.js'
+import type { LayoutWorkspaces } from '../layout/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
-import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 
 /** 指标实例所在的图表区域。 */
 export type IndicatorInstanceRole = 'main' | 'sub'
@@ -208,7 +208,7 @@ export function createIndicatorState() {
         })
       },
       /** 用已校验的持久快照恢复两个工作区的用户指标。 */
-      restoreWorkspaces(workspaces: ViewWorkspacesSnapshot) {
+      restoreWorkspaces(workspaces: LayoutWorkspaces) {
         // 快照可能来自规范 ID 之前的版本；恢复时统一解析为展示名
         const normalizeInstanceId = (entry: IndicatorInstanceInput): IndicatorInstanceInput => ({
           ...entry,

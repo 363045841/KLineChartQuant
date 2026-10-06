@@ -1,6 +1,6 @@
 /** 各 Pane 价格轴范围模式 localStorage 持久化回归测试。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PanePriceAxisModesSnapshot } from '../../../engine/state/mainPriceAxisState'
+import type { LayoutPanePriceAxisModes } from '../../../engine/layout'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode'
 import { createMemoryKeyValueStorage } from '../../../foundation/persistence/__tests__/_memoryKeyValueStorage'
 import {
@@ -31,7 +31,7 @@ describe('pane price axis persistence', () => {
 
   it('coalesces writes for one second and flushes pending work on dispose', () => {
     const storage = createMemoryKeyValueStorage()
-    let modes: PanePriceAxisModesSnapshot = { main: PRICE_AXIS_RANGE_MODE.AUTO }
+    let modes: LayoutPanePriceAxisModes = { main: PRICE_AXIS_RANGE_MODE.AUTO }
     const persistence = createPanePriceAxisPersistence(() => modes, storage)
 
     persistence.schedule()

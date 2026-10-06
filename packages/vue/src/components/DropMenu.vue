@@ -22,6 +22,7 @@
         v-if="open"
         ref="menuRef"
         class="drop-menu__panel"
+        :class="panelClass"
         :style="menuStyle"
         role="menu"
         :aria-label="label"
@@ -35,7 +36,9 @@
             v-for="item in group.items"
             :key="item.id"
             class="drop-menu__item"
+            :class="{ 'is-active': item.active }"
           >
+            <slot name="item" :group="group" :item="item" :select="() => select(group.id, item.id)">
             <button
               type="button"
               class="drop-menu__item-main"
@@ -43,6 +46,7 @@
               :disabled="item.disabled"
               @click="select(group.id, item.id)"
             >{{ item.label }}</button>
+            </slot>
             <span v-if="$slots['item-action']" class="drop-menu__item-action">
               <slot name="item-action" :group="group" :item="item" />
             </span>
@@ -52,6 +56,9 @@
           </div>
         </div>
         <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
+        <div v-if="$slots.footer" class="drop-menu__footer">
+          <slot name="footer" />
+        </div>
       </div>
     </Teleport>
   </div>
@@ -68,7 +75,7 @@
   export interface DropMenuGroup {
     id: string
     label: string
-    items: ReadonlyArray<{ id: string; label: string; disabled?: boolean }>
+    items: ReadonlyArray<{ id: string; label: string; disabled?: boolean; active?: boolean }>
   }
 
   const props = defineProps<{
@@ -83,6 +90,12 @@
     message?: string
     /** 分组为空时展示的提示；未提供时不渲染空提示。 */
     emptyText?: string
+    /** 自定义管理表单需要的面板宽度，仍限制在视口内。 */
+    panelWidth?: string
+    /** 管理操作需要在同一面板内展开表单。 */
+    keepOpenOnSelect?: boolean
+    /** 特定菜单可采用无外边距、整行选项的布局。 */
+    panelClass?: string
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -100,7 +113,11 @@
     false,
     props.placement,
   )
-  const menuStyle = computed(() => ({ ...popupStyle.value, zIndex: 1010 }))
+  const menuStyle = computed(() => ({
+    ...popupStyle.value,
+    zIndex: 1010,
+    ...(props.panelWidth ? { width: props.panelWidth, maxWidth: 'calc(100vw - 16px)' } : {}),
+  }))
 
   useClickOutside(
     () => [rootRef.value, menuRef.value],
@@ -146,7 +163,7 @@
   }
 
   function select(groupId: string, itemId: string) {
-    hide()
+    if (!props.keepOpenOnSelect) hide()
     emit('select', groupId, itemId)
   }
 
@@ -175,6 +192,50 @@
     margin-top: 4px;
     padding-top: 4px;
     border-top: 1px solid var(--klc-color-ui-border);
+  }
+
+  .drop-menu__footer {
+    padding: 8px;
+    border-top: 1px solid var(--klc-color-ui-border);
+  }
+
+  .drop-menu__panel--flush {
+    padding: 0;
+  }
+
+  .drop-menu__panel--flush .drop-menu__item {
+    border-radius: 0;
+  }
+
+  .drop-menu__panel--flush .drop-menu__item.is-active {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .drop-menu__panel--flush .drop-menu__item-action {
+    visibility: visible;
+  }
+
+  .drop-menu__item:hover :deep(.layout-menu__hover-action),
+  .drop-menu__item:focus-within :deep(.layout-menu__hover-action) {
+    visibility: visible;
+  }
+
+  .drop-menu__panel--flush .drop-menu__group + .drop-menu__group {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .drop-menu__panel--flush .drop-menu__heading {
+    padding: 6px 8px;
+  }
+
+  .drop-menu__panel--flush .drop-menu__heading:empty {
+    display: none;
+  }
+
+  .drop-menu__panel--flush .drop-menu__item-action:empty,
+  .drop-menu__panel--flush .drop-menu__footer:empty {
+    display: none;
   }
 
   .drop-menu__heading,

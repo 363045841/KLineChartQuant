@@ -1,7 +1,7 @@
 /** 视图工作区 localStorage 持久化回归测试。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ViewWorkspacesSnapshot } from '../../../engine/state/viewWorkspace'
+import type { LayoutWorkspaces } from '../../../engine/layout'
 import { createMemoryKeyValueStorage } from '../../../foundation/persistence/__tests__/_memoryKeyValueStorage'
 import {
   createViewWorkspacePersistence,
@@ -9,7 +9,7 @@ import {
   VIEW_WORKSPACES_STORAGE_KEY,
 } from '../index'
 
-function createSnapshot(): ViewWorkspacesSnapshot {
+function createSnapshot(): LayoutWorkspaces {
   return {
     kline: {
       instances: [

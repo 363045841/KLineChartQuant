@@ -14,6 +14,7 @@ import {
   CHART_RENDERERS_SERVICE,
   type ChartRendererAccess,
 } from '../../../controllers/renderers/index.js'
+import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import {
   type CustomDataSource,
   isTimeSharePeriod,
@@ -27,6 +28,7 @@ import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/market
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
 import { marketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
 import { AUTO_SOURCE_ID } from '../../../data/provider/types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
 import {
   createVolumeLookbacks,
@@ -70,8 +72,6 @@ import {
   type RendererHost,
 } from '../../../rendering/render/index.js'
 import type { Layer } from '../../../rendering/scene/types.js'
-import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -96,6 +96,11 @@ import {
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import type {
+  LayoutPanePriceAxisModes,
+  LayoutPersistence,
+  LayoutWorkspaces,
+} from '../../layout/index.js'
 import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
@@ -103,12 +108,8 @@ import type { LegendTemplateContext } from '../../renderers/Indicator/mainIndica
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
-import type {
-  PanePriceAxisModePersistence,
-  PanePriceAxisModesSnapshot,
-} from '../../state/mainPriceAxisState.js'
-import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from '../../state/viewWorkspace.js'
 import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
+import { ChartZoomController } from '../../viewport/chartZoomController.js'
 import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
 import type {
   ChartDom,
@@ -118,7 +119,6 @@ import type {
   Viewport,
   ViewportState,
 } from '../types.js'
-import { ChartZoomController } from '../../viewport/chartZoomController.js'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
 import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
@@ -241,9 +241,9 @@ export class Chart {
   /** 滚动成交量窗口（惰性初始化） */
   private _volumeLookbacks: VolumeLookbacks | null = null
   /** 仅由 controller 注入的工作区持久化适配器。 */
-  private workspacePersistence: ViewWorkspacePersistence | null = null
+  private workspacePersistence: LayoutPersistence | null = null
   /** 仅由 controller 注入的各 Pane 范围模式持久化适配器。 */
-  private panePriceAxisPersistence: PanePriceAxisModePersistence | null = null
+  private panePriceAxisPersistence: LayoutPersistence | null = null
 
   /**
    * 创建图表实例
@@ -256,9 +256,9 @@ export class Chart {
     runtime?: {
       rendererHost?: RendererHost
       initialSettings?: Partial<ChartSettings>
-      initialViewWorkspaces?: ViewWorkspacesSnapshot
+      initialViewWorkspaces?: LayoutWorkspaces
       /** 已持久化的各 Pane 价格轴范围模式。 */
-      initialPanePriceAxisModes?: PanePriceAxisModesSnapshot
+      initialPanePriceAxisModes?: LayoutPanePriceAxisModes
       marketSessions?: Readonly<Record<string, MarketSessionConfig>>
       /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
       clock?: import('../../../foundation/utils/clock.js').Clock
@@ -596,7 +596,7 @@ export class Chart {
   }
 
   /** 由 controller 在构造完成后注入浏览器工作区持久化。 */
-  setViewWorkspacePersistence(persistence: ViewWorkspacePersistence): void {
+  setViewWorkspacePersistence(persistence: LayoutPersistence): void {
     this.workspacePersistence?.dispose()
     this.workspacePersistence = persistence
   }
@@ -607,13 +607,13 @@ export class Chart {
   }
 
   /** 由 controller 在构造完成后注入各 Pane 范围模式持久化。 */
-  setPanePriceAxisPersistence(persistence: PanePriceAxisModePersistence): void {
+  setPanePriceAxisPersistence(persistence: LayoutPersistence): void {
     this.panePriceAxisPersistence?.dispose()
     this.panePriceAxisPersistence = persistence
   }
 
   /** 返回各 Pane 的范围模式快照，供持久化适配器读取。 */
-  snapshotPanePriceAxisModes(): PanePriceAxisModesSnapshot {
+  snapshotPanePriceAxisModes(): LayoutPanePriceAxisModes {
     const modes: Record<string, PriceAxisRangeMode> = {}
     for (const [paneId, state] of Object.entries(
       this.kernel.mainPriceAxis.readonly.paneRanges.peek(),
@@ -751,8 +751,7 @@ export class Chart {
       }
       return capture({
         dpr: this.kernel.viewport.readonly.dpr.peek(),
-        surface:
-          source && surface.captureFrame ? { source, image: surface.captureFrame() } : null,
+        surface: source && surface.captureFrame ? { source, image: surface.captureFrame() } : null,
       })
     })
   }
