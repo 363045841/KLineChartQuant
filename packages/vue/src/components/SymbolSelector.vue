@@ -85,7 +85,7 @@
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
-              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
+              <span class="symbol-meta-badge">{{ formatSymbolMeta(item) }}</span>
             </button>
             <button
               v-if="!watchlistKeys.has(symbolIdentityKey(item))"
@@ -406,22 +406,6 @@
     color: var(--klc-color-ui-muted);
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .symbol-list__exchange {
-    flex: 0 0 auto;
-    box-sizing: border-box;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-muted);
-    font-family: var(--klc-typography-font-family-mono);
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 1.4;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
     white-space: nowrap;
   }
 

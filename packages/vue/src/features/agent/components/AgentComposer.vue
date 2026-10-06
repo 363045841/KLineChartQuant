@@ -157,6 +157,7 @@
 </script>
 
 <style scoped src="./agent-primary-button.css"></style>
+<style src="./agent-select-trigger.css"></style>
 
 <style scoped>
   .composer__input {
@@ -238,7 +239,6 @@
     min-width: 0;
   }
 
-  .composer__model :deep(.drop-menu__trigger),
   .composer__reasoning :deep(.dropdown__trigger) {
     max-width: 160px;
     height: 26px;
@@ -256,15 +256,16 @@
     cursor: pointer;
   }
 
-  .composer__model :deep(.drop-menu__trigger:hover:not(:disabled)),
-  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']:not(:disabled)),
+  .composer__model :deep(.drop-menu__trigger) {
+    max-width: 160px;
+  }
+
   .composer__reasoning :deep(.dropdown__trigger:hover:not(:disabled)),
   .composer__reasoning :deep(.dropdown__trigger[aria-expanded='true']:not(:disabled)) {
     border-color: var(--klc-color-agent-composer-control-hover);
     background: var(--klc-color-agent-composer-control-hover);
   }
 
-  .composer__model :deep(.drop-menu__trigger:focus-visible),
   .composer__reasoning :deep(.dropdown__trigger:focus-visible) {
     outline: none;
     border-color: var(--agent-focus);
@@ -272,7 +273,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
   }
 
-  .composer__model :deep(.drop-menu__trigger:disabled),
   .composer__reasoning :deep(.dropdown__trigger:disabled) {
     color: var(--agent-text-soft);
     background: transparent;

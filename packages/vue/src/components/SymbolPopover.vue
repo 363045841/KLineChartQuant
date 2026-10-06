@@ -116,6 +116,23 @@
 </script>
 
 <style scoped>
+  /* 两种商品列表共用元信息徽标，保持字体、底色与间距一致。 */
+  .symbol-popover__body :deep(.symbol-meta-badge) {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-muted);
+    font-family: var(--klc-typography-font-family-mono);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
   .symbol-popover-overlay {
     position: fixed;
     inset: 0;
