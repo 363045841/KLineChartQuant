@@ -90,6 +90,9 @@ export function resolveSettingDefault(value: SettingItem['default']): boolean | 
   return typeof value === 'function' ? value() : value
 }
 
+/** tooltipPosition 取值：none 表示不显示数据悬浮框。 */
+export const TOOLTIP_POSITION_NONE = 'none'
+
 /** 默认设置配置 */
 export const DEFAULT_SETTINGS = [
   {
@@ -215,13 +218,14 @@ export const DEFAULT_SETTINGS = [
   },
   {
     key: 'tooltipPosition',
-    label: '数据悬浮框位置',
+    label: '数据悬浮框',
     type: 'select',
     default: 'adaptive',
     group: 'main',
     options: [
       { value: 'adaptive', label: '自适应右上、左上角' },
       { value: 'crosshair', label: '跟随十字线' },
+      { value: TOOLTIP_POSITION_NONE, label: '不显示' },
     ],
   },
 ] as const

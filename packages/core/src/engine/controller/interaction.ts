@@ -139,7 +139,9 @@ export class InteractionController {
    * 业务 settings 本体在 kernel.settings；此处不再持有 plain 副本。
    */
   onSettingsChanged(prev: ChartSettings, next: ChartSettings): void {
-    const nextMode = (next.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
+    // 'none'（不显示）不需要定位模式；显隐由宿主按设置控制，定位沿用 crosshair。
+    const nextMode: TooltipPositionMode =
+      next.tooltipPosition === 'adaptive' ? 'adaptive' : 'crosshair'
     if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
     this.tooltipPositionMode = nextMode
     if (prev.mainPriceAxisRangeMode !== next.mainPriceAxisRangeMode) {

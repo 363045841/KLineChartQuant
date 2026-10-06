@@ -20,7 +20,7 @@
 
 `KlineChart` exposes `#kline-tooltip` and `#marker-tooltip` slots for custom tooltip rendering. When a slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
 
-Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'` (default), a custom `#kline-tooltip` is also draggable; double-click resets.
+Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'` (default), a custom `#kline-tooltip` is also draggable; double-click resets. With `tooltipPosition === 'none'`, the data tooltip is hidden entirely.
 
 ### `#kline-tooltip`
 

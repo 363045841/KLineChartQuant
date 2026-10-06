@@ -359,7 +359,11 @@
 </template>
 
 <script setup lang="ts">
-  import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
+  import {
+    type ChartSettings,
+    resolveSettings,
+    TOOLTIP_POSITION_NONE,
+  } from '@363045841yyt/klinechart-core/config'
   import {
     type ChartController,
     type ChartMountOptions,
@@ -1291,6 +1295,11 @@
   const markerTooltipSize = ref({ width: 220, height: 120 })
   const isMobile = window.matchMedia('(pointer: coarse)').matches
 
+  /** 数据悬浮框是否启用；设置为“不显示”时隐藏内置与外部 tooltip */
+  const isTooltipEnabled = computed(
+    () => (chartSettings.value?.tooltipPosition ?? 'adaptive') !== TOOLTIP_POSITION_NONE,
+  )
+
   /** adaptive 模式下 tooltip 可拖拽（内置与 #kline-tooltip 共用） */
   const isTooltipDraggable = computed(
     () => (chartSettings.value?.tooltipPosition ?? 'adaptive') === 'adaptive',
@@ -1312,6 +1321,7 @@
     isIntraday: () => isIntraday.value,
     timezone: () => props.timezone,
     isDraggable: () => isTooltipDraggable.value,
+    isEnabled: () => isTooltipEnabled.value,
   })
 
   const externalHoveredKLine = computed(() => {
@@ -1324,7 +1334,9 @@
     }
     return null
   })
-  const showExternalKLineTooltip = computed(() => externalHoveredKLine.value !== null && !isMobile)
+  const showExternalKLineTooltip = computed(
+    () => externalHoveredKLine.value !== null && !isMobile && isTooltipEnabled.value,
+  )
   const externalKLineTooltipStyle = computed(() => {
     const position = dragPos.value ?? externalInteractionState.value.tooltipPos
     const offset = getLayerOffset()
