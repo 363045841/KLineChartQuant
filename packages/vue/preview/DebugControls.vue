@@ -177,6 +177,7 @@
   }
 
   .version-badge {
+    opacity: 0.6;
     padding: 2px 8px;
     border-radius: 12px;
     border: 1px solid var(--klc-color-ui-border);
