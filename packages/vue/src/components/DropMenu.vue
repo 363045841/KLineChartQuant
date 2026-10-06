@@ -1,3 +1,4 @@
+<!-- 分组下拉菜单：统一整行选项、选中态及操作区样式。 -->
 <template>
   <div ref="rootRef" class="drop-menu">
     <BaseTooltip :content="label" :placement="tooltipPlacement ?? 'top'" :disabled="open || disabled">
@@ -22,7 +23,7 @@
         v-if="open"
         ref="menuRef"
         class="drop-menu__panel"
-        :class="panelClass"
+        :class="{ 'drop-menu__panel--compact': density === 'compact' }"
         :style="menuStyle"
         role="menu"
         :aria-label="label"
@@ -45,7 +46,10 @@
               role="menuitem"
               :disabled="item.disabled"
               @click="select(group.id, item.id)"
-            >{{ item.label }}</button>
+            >
+              <slot name="item-icon" :group="group" :item="item" />
+              <span>{{ item.label }}</span>
+            </button>
             </slot>
             <span v-if="$slots['item-action']" class="drop-menu__item-action">
               <slot name="item-action" :group="group" :item="item" />
@@ -92,10 +96,10 @@
     emptyText?: string
     /** 自定义管理表单需要的面板宽度，仍限制在视口内。 */
     panelWidth?: string
+    /** 菜单项行高；默认松散，短选项列表可使用紧凑模式。 */
+    density?: 'compact' | 'loose'
     /** 管理操作需要在同一面板内展开表单。 */
     keepOpenOnSelect?: boolean
-    /** 特定菜单可采用无外边距、整行选项的布局。 */
-    panelClass?: string
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -181,7 +185,7 @@
   .drop-menu__panel {
     min-width: 150px;
     max-width: min(280px, calc(100vw - 16px));
-    padding: 4px;
+    padding: 0;
     overflow-y: auto;
     border-radius: 8px;
     background: var(--klc-color-ui-input);
@@ -189,8 +193,6 @@
   }
 
   .drop-menu__group + .drop-menu__group {
-    margin-top: 4px;
-    padding-top: 4px;
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
@@ -199,50 +201,27 @@
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
-  .drop-menu__panel--flush {
-    padding: 0;
-  }
-
-  .drop-menu__panel--flush .drop-menu__item {
-    border-radius: 0;
-  }
-
-  .drop-menu__panel--flush .drop-menu__item.is-active {
-    background: var(--klc-color-ui-hover);
-  }
-
-  .drop-menu__panel--flush .drop-menu__item-action {
-    visibility: visible;
-  }
-
-  .drop-menu__item:hover :deep(.layout-menu__hover-action),
-  .drop-menu__item:focus-within :deep(.layout-menu__hover-action) {
-    visibility: visible;
-  }
-
-  .drop-menu__panel--flush .drop-menu__group + .drop-menu__group {
-    margin-top: 0;
-    padding-top: 0;
-  }
-
-  .drop-menu__panel--flush .drop-menu__heading {
-    padding: 6px 8px;
-  }
-
-  .drop-menu__panel--flush .drop-menu__heading:empty {
+  .drop-menu__heading:empty {
     display: none;
   }
 
-  .drop-menu__panel--flush .drop-menu__item-action:empty,
-  .drop-menu__panel--flush .drop-menu__footer:empty {
+  .drop-menu__item-action:empty,
+  .drop-menu__footer:empty {
     display: none;
   }
 
-  .drop-menu__heading,
-  .drop-menu__empty {
-    padding: 5px 8px;
+  .drop-menu__heading {
+    padding: 8px 10px 4px;
     color: var(--klc-color-ui-muted);
     font-size: 11px;
+    font-weight: 500;
+    line-height: 16px;
+  }
+
+  .drop-menu__empty {
+    padding: 8px 10px;
+    color: var(--klc-color-ui-muted);
+    font-size: 12px;
   }
 
   .drop-menu__message {
@@ -254,36 +233,61 @@
   .drop-menu__item {
     display: flex;
     align-items: center;
-    border-radius: 4px;
+    padding: 0;
+    border-radius: 0;
   }
 
   .drop-menu__item:hover,
-  .drop-menu__item:focus-within {
+  .drop-menu__item:focus-within,
+  .drop-menu__item.is-active {
     background: var(--klc-color-ui-hover);
   }
 
-  .drop-menu__item-main {
+  /* item 插槽可用同一 class 复用默认按钮样式。 */
+  .drop-menu__item :deep(.drop-menu__item-main) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex: 1;
     min-width: 0;
-    padding: 6px 8px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 8px 10px;
     border: 0;
+    border-radius: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
     font-size: 12px;
+    font-weight: 400;
+    line-height: 20px;
     text-align: left;
     overflow-wrap: anywhere;
     cursor: pointer;
   }
 
-  .drop-menu__item-action {
-    display: flex;
-    flex: 0 0 auto;
-    visibility: hidden;
+  .drop-menu__panel--compact .drop-menu__item :deep(.drop-menu__item-main) {
+    min-height: 28px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 
-  .drop-menu__item:hover .drop-menu__item-action,
-  .drop-menu__item:focus-within .drop-menu__item-action {
+  .drop-menu__item :deep(.drop-menu__item-main svg) {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .drop-menu__item-action {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding-right: 8px;
+  }
+
+  .drop-menu__item:hover .drop-menu__item-action :deep(button),
+  .drop-menu__item:focus-within .drop-menu__item-action :deep(button) {
     visibility: visible;
   }
 
@@ -298,6 +302,16 @@
     background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
+    visibility: hidden;
+  }
+
+  /* 状态标记始终可见，管理按钮仅在悬停或聚焦时出现。 */
+  .drop-menu__item-action :deep(.drop-menu__status) {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    color: var(--klc-color-ui-text);
   }
 
   .drop-menu__item-action :deep(button:hover),
@@ -326,8 +340,56 @@
     height: 14px;
   }
 
-  .drop-menu__item-main:disabled {
+  .drop-menu__item :deep(.drop-menu__item-main:disabled) {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .drop-menu__item :deep(.drop-menu__item-editor) {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 5px 10px;
+  }
+
+  .drop-menu__item :deep(.drop-menu__item-editor input) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 3px 4px;
+    border: 1px solid var(--klc-color-ui-accent);
+    border-radius: 3px;
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-text);
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch) {
+    margin-left: auto;
+    width: 28px;
+    height: 16px;
+    padding: 2px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background: var(--klc-color-ui-muted);
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch[aria-checked='true']) {
+    background: var(--klc-color-ui-accent);
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch span) {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--klc-color-ui-surface);
+    transition: transform var(--klc-motion-duration-moderate);
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch[aria-checked='true'] span) {
+    transform: translateX(12px);
   }
 </style>

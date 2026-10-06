@@ -130,6 +130,13 @@
         <template #trigger>
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </template>
+        <template #item-icon="{ item }">
+          <IconTablerDownload
+            v-if="item.id === chartScreenshotActions.download"
+            aria-hidden="true"
+          />
+          <IconTablerClipboard v-else-if="item.id === chartScreenshotActions.copy" aria-hidden="true" />
+        </template>
       </DropMenu>
       <slot name="watchlist"></slot>
       <BaseTooltip content="设置" placement="bottom">
@@ -154,6 +161,8 @@
   import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
   import IconTablerArrowLeft from '~icons/tabler/arrow-left'
   import IconTablerCamera from '~icons/tabler/camera'
+  import IconTablerClipboard from '~icons/tabler/clipboard'
+  import IconTablerDownload from '~icons/tabler/download'
   import IconTablerMaximize from '~icons/tabler/maximize'
   import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerSettings from '~icons/tabler/settings'

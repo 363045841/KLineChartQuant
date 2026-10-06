@@ -26,7 +26,7 @@
               <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
             </template>
             <template #item-action="{ item }">
-              <span v-if="item.id === provider.modelId" class="composer__model-check">
+              <span v-if="item.id === provider.modelId" class="drop-menu__status">
                 <IconCheck aria-hidden="true" />
               </span>
             </template>
@@ -296,20 +296,6 @@
 
   .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) .composer__model-chevron {
     transform: rotate(180deg);
-  }
-
-  /* 当前模型的勾选标记始终可见，不受 item-action 悬停显隐控制。 */
-  .composer__model-check {
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    color: var(--agent-text);
-    visibility: visible;
-  }
-
-  .composer__model-check svg {
-    width: 14px;
-    height: 14px;
   }
 
   .composer__reasoning :deep(.dropdown__value) {
