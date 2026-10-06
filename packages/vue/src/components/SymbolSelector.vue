@@ -48,7 +48,7 @@
       <template #body>
         <div class="symbol-list" role="listbox" aria-label="商品列表">
           <div v-if="searchLoading" class="symbol-list__empty">
-            <LoadingSpinner class="symbol-chip__spinner" />
+            <LoadingSpinner :size="32" class="symbol-list__spinner" />
             <span>正在搜索</span>
           </div>
           <div v-else-if="filteredSymbols.length === 0" class="symbol-list__empty">
@@ -313,6 +313,11 @@
     font-size: 13px;
     text-align: center;
     gap: 2px;
+  }
+
+  /* 与无结果搜索图标占位一致：同为 32px 并保留相同下间距。 */
+  .symbol-list__spinner {
+    margin-bottom: 8px;
   }
 
   .symbol-list__item {

@@ -311,6 +311,7 @@
   import IconTablerChartLine from '~icons/tabler/chart-line'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerEqual from '~icons/tabler/equal'
+  import IconTablerEraser from '~icons/tabler/eraser'
   import IconTablerEye from '~icons/tabler/eye'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
@@ -393,7 +394,7 @@
     title: '删除',
     icon: IconTablerTrash,
     children: [
-      { id: 'drawings', title: '删除所有绘图', icon: IconTablerTrash },
+      { id: 'drawings', title: '删除所有绘图', icon: IconTablerEraser },
       { id: 'indicators', title: '移除所有指标', icon: IconTablerMathFunction },
     ],
   }
@@ -761,9 +762,9 @@
   }
 
   .left-toolbar__button.active {
-    border-color: var(--klc-color-ui-border);
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
+    border-color: transparent;
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
+    color: var(--klc-color-ui-accent);
   }
 
   .left-toolbar__button:focus-visible {
@@ -825,7 +826,7 @@
     width: 180px;
     max-width: calc(100vw - 16px);
     max-height: calc(100vh - 16px);
-    padding: 4px;
+    padding: 4px 0 0;
     border-radius: 8px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -838,7 +839,7 @@
     flex: 0 0 32px;
     display: flex;
     align-items: center;
-    padding: 0 4px;
+    padding: 0 8px;
     color: var(--klc-color-ui-muted);
     font-size: 11px;
   }
@@ -849,9 +850,9 @@
     gap: 8px;
     flex: 0 0 30px;
     width: 100%;
-    padding: 0 4px;
+    padding: 0 8px;
     border: 0;
-    border-radius: 4px;
+    border-radius: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;

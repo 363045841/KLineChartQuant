@@ -2,6 +2,8 @@
 .selection-menu__value {
   min-width: 0;
   overflow: hidden;
+  /* 覆盖 control-button 的 line-height:1，避免 overflow:hidden 裁掉 "y" 等字符下沿。 */
+  line-height: normal;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;

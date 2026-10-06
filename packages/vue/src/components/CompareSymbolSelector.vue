@@ -79,7 +79,7 @@
 
         <div class="compare-list" role="listbox" aria-label="商品列表">
           <div v-if="searchLoading" class="compare-list__empty">
-            <span class="compare-chip__spinner" aria-hidden="true" />
+            <LoadingSpinner :size="32" class="compare-list__spinner" />
             <span>正在搜索</span>
           </div>
           <div v-else-if="comparisonSymbols.length === 0" class="compare-list__empty">
@@ -159,8 +159,9 @@
   } from '../composables/useSymbolSearch.js'
 
   import BaseTabs from './BaseTabs.vue'
-  import SymbolPopover from './SymbolPopover.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import LoadingSpinner from './LoadingSpinner.vue'
+  import SymbolPopover from './SymbolPopover.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -447,6 +448,11 @@
     font-size: 13px;
     text-align: center;
     gap: 2px;
+  }
+
+  /* 与无结果搜索图标占位一致：同为 32px 并保留相同下间距。 */
+  .compare-list__spinner {
+    margin-bottom: 8px;
   }
 
   .compare-list__item {

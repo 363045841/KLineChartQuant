@@ -211,7 +211,7 @@
     --agent-accent-strong: var(--klc-color-ui-accent-strong);
     --agent-focus: var(--klc-color-ui-focus);
     --toggle-switch-track-background: var(--agent-control);
-    --toggle-switch-thumb-background: var(--agent-text);
+    --toggle-switch-thumb-background: var(--klc-color-ui-on-accent);
     --toggle-switch-active-background: var(--agent-accent);
     --toggle-switch-focus-color: var(--agent-focus);
     --agent-warning-bg: var(--klc-color-ui-warning-background);
