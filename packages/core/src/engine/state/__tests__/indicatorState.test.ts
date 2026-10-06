@@ -1,7 +1,14 @@
-import { describe, expect, it } from 'vitest'
+/** 验证指标状态写入；只显式注册用例需要的 CCI 和成交量定义。 */
+import { beforeAll, describe, expect, it } from 'vitest'
+import { registerIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
+import { CCIIndicatorDefinition } from '../../renderers/Indicator/cci'
+import { VolumeIndicatorDefinition } from '../../renderers/subVolume'
 import { createIndicatorState, type IndicatorInstanceSpec } from '../indicatorState'
-import '../../renderers/subVolume'
-import '../../renderers/Indicator/cci'
+
+beforeAll(() => {
+  registerIndicatorDefinition(CCIIndicatorDefinition)
+  registerIndicatorDefinition(VolumeIndicatorDefinition)
+})
 
 describe('indicatorState', () => {
   it('restores independent user indicators for kline and timeshare workspaces', () => {

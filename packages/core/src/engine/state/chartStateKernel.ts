@@ -26,6 +26,7 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
+import { registerBuiltinRenderers } from '../indicators/generated/builtinRenderers.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
@@ -61,8 +62,6 @@ import {
 } from './viewportState.js'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 import { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState.js'
-import '../renderers/extremaMarkers.js'
-import '../renderers/lastPrice.js'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
 export interface ActiveRendererDescriptor {
@@ -228,6 +227,7 @@ export class ChartStateKernel extends StateKernel {
 
   constructor(deps: ChartStateKernelDeps) {
     super()
+    registerBuiltinRenderers()
 
     // ── Options state (before zoom, since zoom reads from options) ──
     this.options = createOptionsState(deps.initialOptions)

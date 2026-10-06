@@ -9,10 +9,10 @@ beforeAll(async () => {
 })
 
 describe('builtin indicator registration', () => {
-  it('loads all builtin indicator definitions through decorators', () => {
+  it('explicitly registers all builtin definitions with decorator metadata', () => {
     const definitions = getBuiltinIndicatorDefinitions()
 
-    expect(definitions).toHaveLength(60)
+    expect(new Set(definitions.map((definition) => definition.name)).size).toBe(definitions.length)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
         'ma',
@@ -23,6 +23,8 @@ describe('builtin indicator registration', () => {
         'volumeProfile',
         'zones',
         'extremaMarkers',
+        'lastPriceLine',
+        'lastPriceLabelRegistrar',
         't3',
         'vidya',
         'frama',
@@ -36,6 +38,16 @@ describe('builtin indicator registration', () => {
         'fiveDayTimeShare',
       ]),
     )
+  })
+
+  it('shares concurrent initialization without replacing registered definitions', async () => {
+    const definitions = getBuiltinIndicatorDefinitions()
+    await Promise.all([loadBuiltinIndicators(), loadBuiltinIndicators()])
+    const reloaded = getBuiltinIndicatorDefinitions()
+    expect(reloaded).toHaveLength(definitions.length)
+    for (const definition of definitions) {
+      expect(getRegisteredIndicatorDefinition(definition.name)).toBe(definition)
+    }
   })
 
   it('allows builtin definitions to be queried by display name', () => {

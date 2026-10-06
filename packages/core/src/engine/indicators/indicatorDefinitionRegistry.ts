@@ -46,7 +46,7 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   getTitleInfo?: GetTitleInfoFn
 }
 
-type IndicatorDefinitionClass = {
+export type IndicatorDefinitionClass = {
   new (...args: never[]): unknown
   rendererFactory?: RendererFactory
   scaleRendererFactory?: ScaleRendererFactory
@@ -54,6 +54,8 @@ type IndicatorDefinitionClass = {
 
 const indicatorDefinitions = new Map<string, IndicatorMetadata>()
 const indicatorDefinitionAliases = new Map<string, string>()
+const declaredDefinitions = new WeakMap<IndicatorDefinitionClass, IndicatorMetadata>()
+let registeredClasses = new WeakSet<IndicatorDefinitionClass>()
 
 function normalizeIndicatorId(id: string): string {
   return id
@@ -78,7 +80,7 @@ function removeAliasesFor(name: string): void {
 }
 
 /**
- * 标准类装饰器：在模块加载时收集指标定义
+ * 标准类装饰器：保存元数据并自动注册；生成入口引用定义类以保证生产构建保留初始化。
  *
  * 使用方式：
  * @Indicator({ name: 'ma', ... })
@@ -100,7 +102,6 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         )
       }
 
-      const normalizedName = normalizeIndicatorId(config.name)
       const getRendererName: IndicatorRendererNameResolver =
         config.getRendererName ??
         (({ paneId }) => config.mainPane?.rendererName ?? `${config.name}_${paneId}`)
@@ -112,7 +113,6 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
             : null)
       const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
         config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
-      removeAliasesFor(normalizedName)
 
       // runtime.configKey 默认等于 name
       const runtime = config.runtime && {
@@ -120,7 +120,7 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         configKey: config.runtime.configKey ?? config.name,
       }
 
-      indicatorDefinitions.set(normalizedName, {
+      declaredDefinitions.set(this, {
         ...config,
         getRendererName,
         getScaleRendererName,
@@ -131,15 +131,32 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         paneIdField: config.paneIdField,
         allowMainPane: config.allowMainPane,
       })
-      indexAlias(config.name, normalizedName)
-      indexAlias(config.displayName, normalizedName)
-      for (const alias of config.aliases ?? []) {
-        indexAlias(alias, normalizedName)
-      }
+      registerIndicatorDefinition(this)
     })
 
     return value
   }
+}
+
+/** 显式注册带 @Indicator 的定义类；同一类只注册一次，避免多图表初始化覆盖扩展定义。 */
+export function registerIndicatorDefinition(definitionClass: IndicatorDefinitionClass): void {
+  if (registeredClasses.has(definitionClass)) return
+  const definition = declaredDefinitions.get(definitionClass)
+  if (!definition) {
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      '[Indicator] definition class must declare @Indicator metadata',
+    )
+  }
+  const normalizedName = normalizeIndicatorId(definition.name)
+  removeAliasesFor(normalizedName)
+  indicatorDefinitions.set(normalizedName, definition)
+  indexAlias(definition.name, normalizedName)
+  indexAlias(definition.displayName, normalizedName)
+  for (const alias of definition.aliases ?? []) {
+    indexAlias(alias, normalizedName)
+  }
+  registeredClasses.add(definitionClass)
 }
 
 export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[] {
@@ -165,4 +182,5 @@ export function resolveIndicatorDefinitionId(nameOrAlias: string): string | unde
 export function clearRegisteredIndicatorDefinitionsForTest(): void {
   indicatorDefinitions.clear()
   indicatorDefinitionAliases.clear()
+  registeredClasses = new WeakSet<IndicatorDefinitionClass>()
 }

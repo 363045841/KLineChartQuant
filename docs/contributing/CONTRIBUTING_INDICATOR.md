@@ -6,7 +6,7 @@
 
 ## 架构前提
 
-- 指标定义由 `@Indicator` 装饰器在模块加载时登记进 `indicatorDefinitionRegistry`；`loadBuiltinIndicators()` 负责 import 内置定义。
+- `@Indicator` 装饰器保存元数据并自动注册。开发和生产构建扫描生产源码里的导出定义类，生成引用这些类的装配入口，保证 tree-shaking 后注册仍执行；无需手动维护 import 或注册清单。
 - 计算结果按 `instanceId` 保存在结果池。`calculationKey = definitionId + 计算参数 + 计算上下文`，只用于跨实例去重，不含 pane 与样式。
 - renderer / scale renderer 在创建时绑定自己的 `instanceId`，绘制时从 `context.indicatorStateReader.get(instanceId)` 读取该实例的渲染投影。**没有**按指标类型索引的结果包，**没有** stateKey，也不写 PluginHost StateStore。
 - 展示配置（`presentation.defaultOptions`）不进入计算，由投影阶段合入 renderer 读取的 `params`。
@@ -23,9 +23,11 @@
 | 2 | `packages/core/src/engine/indicators/calculators/xxx.ts`（**新**）+ `calculators/index.ts`（**改**） | 纯计算函数 `calcXXXData(...)`，并从 `calculators/index.ts` 导出 |
 | 3 | `packages/core/src/engine/indicators/indicatorContracts.ts`（**改**） | 副图登记进 `VisibleIndicatorStateContracts`，主图登记进 `MainIndicatorStateContracts`（`xxx: XXXRenderState`） |
 | 4 | `packages/core/src/engine/renderers/Indicator/xxx.ts`（**新**） | renderer plugin（读 `instanceId` 投影）+ 同文件 `@Indicator({...})` + `static rendererFactory` |
-| 5 | `packages/core/src/engine/indicators/registerBuiltins.ts`（**改**） | 把 `../renderers/Indicator/xxx.js` 加进 `loadBuiltinIndicators()` 的 import 列表 |
+| 5 | 自动生成装配入口（**无需手改**） | 导出带 `@Indicator` 的具名类；开发服务器和 core 构建自动发现。需要提交生成文件时运行 `pnpm indicators:generate` |
 
 第 3 步是编译期约束：`@Indicator` 的 `name` 类型为 `IndicatorName`，必须是契约表登记的键，漏登记无法通过类型检查。
+
+扫描覆盖 `packages/core/src` 的生产 TypeScript 源码，排除测试和生成文件；`kind` 和 `name` 必须能在编译期确定。未导出的定义、重复名称或不确定身份会阻止构建。生成文件位于 `engine/indicators/generated/`，不要手动编辑。CI 比对扫描结果与真实生产 bundle 的定义目录，检查 tree-shaking 后的完整性。
 
 `state/xxxState.ts` 只保留渲染状态类型与 `EMPTY_*` 常量，不定义 state key。
 

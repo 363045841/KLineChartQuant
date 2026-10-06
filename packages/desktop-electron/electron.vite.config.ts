@@ -5,6 +5,7 @@ import Icons from 'unplugin-icons/vite'
 import babel from 'vite-plugin-babel'
 
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
+import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
@@ -38,6 +39,7 @@ export default defineConfig({
   renderer: {
     root: '.',
     plugins: [
+      indicatorEntrypointsPlugin(),
       babel({
         include: [/\/packages\/core\/src\/.*\.tsx?$/],
         exclude: [/node_modules/],

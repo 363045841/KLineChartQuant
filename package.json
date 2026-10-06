@@ -45,6 +45,9 @@
     "node": "^22.19.0 || >=24.11.0"
   },
   "scripts": {
+    "indicators:generate": "node scripts/generate-indicator-entrypoints.mjs",
+    "indicators:check": "node scripts/generate-indicator-entrypoints.mjs --check",
+    "test:indicator-generation": "pnpm --filter @363045841yyt/klinechart-core build && node --test scripts/__tests__/generate-indicator-entrypoints.test.mjs",
     "setup:backends": "node scripts/setup-backends.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:lan": "node scripts/dev.mjs --lan",
@@ -61,7 +64,7 @@
     "preview": "pnpm --filter @363045841yyt/klinechart preview",
     "preview:demo": "vite preview --config packages/vue/preview/vite.config.ts",
     "type-check": "pnpm type-check:src && pnpm type-check:tests",
-    "type-check:src": "vue-tsc --noEmit -p tsconfig.app.json && vue-tsc --noEmit -p tsconfig.node.json",
+    "type-check:src": "pnpm indicators:generate && vue-tsc --noEmit -p tsconfig.app.json && vue-tsc --noEmit -p tsconfig.node.json",
     "type-check:tests": "vue-tsc --noEmit -p tsconfig.vitest.json",
     "test:unit": "vitest",
     "test:packages": "pnpm -r test",

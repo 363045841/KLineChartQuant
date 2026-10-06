@@ -67,6 +67,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check automatic indicator discovery and production bundle
+        run: |
+          pnpm indicators:check
+          pnpm test:indicator-generation
+
       # type-check and lint:types both resolve the workspace packages through
       # their published entrypoints (dist/*.d.ts), so every package must be
       # built first, in workspace dependency order:

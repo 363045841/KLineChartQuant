@@ -6,6 +6,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Components from 'unplugin-vue-components/vite'
+import { indicatorEntrypointsPlugin } from './scripts/indicator-entrypoints-plugin.mjs'
 
 const decoratorTransform = babel({
   include: [/\/packages\/.*\.tsx?$/],
@@ -23,6 +24,7 @@ const decoratorTransform = babel({
 
 export default defineConfig({
   plugins: [
+    indicatorEntrypointsPlugin(),
     decoratorTransform,
     vue(),
     vueDevTools(),

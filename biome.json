@@ -15,7 +15,8 @@
       "!examples",
       "!**/preview",
       "!public/mock-stock-data.json",
-      "!packages/desktop-electron/out"
+      "!packages/desktop-electron/out",
+      "!packages/core/src/engine/indicators/generated"
     ]
   },
   "formatter": {
