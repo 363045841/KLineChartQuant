@@ -87,11 +87,8 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
   onUnmounted(() => {
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
     autoThemeMediaQuery = null
-    for (const name of Object.keys(themeCssVars.value)) {
-      document.body.style.removeProperty(name)
-    }
-    document.body.style.backgroundColor = ''
-    document.documentElement.style.colorScheme = ''
+    // body 上的主题变量是页面级共享资源，所有图表实例解析结果一致。单个实例卸载时不清空，
+    // 由下一次挂载的 setProperty 覆盖，避免误删仍在使用的实例主题。
   })
 
   return {
