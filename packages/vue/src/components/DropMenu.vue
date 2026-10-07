@@ -23,7 +23,10 @@
         v-if="open"
         ref="menuRef"
         class="drop-menu__panel"
-        :class="{ 'drop-menu__panel--compact': density === 'compact' }"
+        :class="{
+          'drop-menu__panel--compact': density === 'compact',
+          'drop-menu__panel--replace-detail': replaceDetailOnAction,
+        }"
         :style="menuStyle"
         role="menu"
         :aria-label="label"
@@ -100,6 +103,8 @@
     density?: 'compact' | 'loose'
     /** 管理操作需要在同一面板内展开表单。 */
     keepOpenOnSelect?: boolean
+    /** 操作区浮于详情位置，悬停或聚焦行时替换 drop-menu__item-detail。 */
+    replaceDetailOnAction?: boolean
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -183,8 +188,11 @@
   }
 
   .drop-menu__panel {
+    box-sizing: border-box;
+    width: max-content;
     min-width: 150px;
-    max-width: min(280px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: min(420px, calc(100vh - 24px));
     padding: 0;
     overflow-y: auto;
     border-radius: 8px;
@@ -242,9 +250,9 @@
     background: var(--klc-color-ui-hover);
   }
 
-  /* 选中项常驻显示，用比 hover 更浅的底色，避免整行过重。 */
+  /* 选中项常驻显示，用比 hover 更浅的公共 Token，避免整行过重。 */
   .drop-menu__item.is-active {
-    background: color-mix(in srgb, var(--klc-color-ui-hover) 55%, var(--klc-color-ui-input));
+    background: var(--klc-color-ui-selected);
   }
 
   /* item 插槽可用同一 class 复用默认按钮样式。 */
@@ -288,6 +296,24 @@
     align-items: center;
     flex: 0 0 auto;
     padding-right: 8px;
+  }
+
+  .drop-menu__panel--replace-detail .drop-menu__item {
+    position: relative;
+  }
+
+  .drop-menu__panel--replace-detail .drop-menu__item-action {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    padding: 0;
+    transform: translateY(-50%);
+  }
+
+  /* 保留详情自身的尺寸，避免切换操作时面板宽度跳动；操作区不占布局空间。 */
+  .drop-menu__panel--replace-detail .drop-menu__item:hover :deep(.drop-menu__item-detail),
+  .drop-menu__panel--replace-detail .drop-menu__item:focus-within :deep(.drop-menu__item-detail) {
+    visibility: hidden;
   }
 
   .drop-menu__item:hover .drop-menu__item-action :deep(button),
