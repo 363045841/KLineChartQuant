@@ -20,7 +20,7 @@
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
   import { K_LINE_LEVEL_OPTIONS, type KLineLevel } from './kLineLevel'
 
-  const TITLE = 'K线级别'
+  const TITLE = '级别'
 
   const props = defineProps<{
     modelValue?: string

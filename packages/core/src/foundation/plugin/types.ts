@@ -338,7 +338,7 @@ export interface RenderDataContext {
   dataRevision?: number
   /** 当前帧的序列数据：K 线视图为 KLineData，分时视图为 TimeShareData。 */
   data: ReadonlyArray<ChartSeriesDatum>
-  /** K线级别，如 'daily'、'5min'、'15min' */
+  /** 级别，如 'daily'、'5min'、'15min' */
   period: string
   /** 当前图表数据视图。 */
   dataView: ChartDataView
