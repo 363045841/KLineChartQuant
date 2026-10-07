@@ -318,7 +318,7 @@ export interface DrawingViewportPort {
   /** screen-x → logical bar index */
   getLogicalIndexAtX(mouseX: number): number | null
   /** logical bar index → current-frame screen x */
-  getScreenXAtLogicalIndex(index: number): number | null
+  getXAtLogicalIndex(index: number): number | null
   /** 逻辑索引对应当前绘制数据点的时间戳（ms）。 */
   getDrawingTimestampAtLogicalIndex(index: number): number | null
   /** unix timestamp (ms) → current logical index */

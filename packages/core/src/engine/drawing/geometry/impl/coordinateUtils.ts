@@ -44,7 +44,7 @@ export function anchorToScreen(
     return null
   }
   const index = baseIndex + (futureOffset ?? 0)
-  const x = adapter.getScreenXAtLogicalIndex(index)
+  const x = adapter.getXAtLogicalIndex(index)
   if (x === null) return null
   if (anchor.type === 'vertical') return { type: 'vertical', x }
   return { type: 'point', x, y: adapter.priceToY(paneId, anchor.price) }
@@ -133,14 +133,14 @@ export function resolveDrawingPointer(
   // 磁吸只改写局部坐标，不影响 pane 判定（吸附基准仍取落点所在 Pane）。
   let x = placement.x
   let y = placement.y - placement.pane.top
+  // 回归等依赖已有数据的图元在最后一根 K 线贴边，预览和确认落点共用此约束。
+  if (options?.clampDataEnd) {
+    const lastX = adapter.getXAtLogicalIndex(data.length - 1)
+    if (lastX === null) return null
+    x = Math.min(x, lastX)
+  }
   if (options?.magnet) {
-    const snapped = snapPointerToOhlc(
-      placement.x,
-      placement.y,
-      placement.pane,
-      adapter,
-      options.magnet,
-    )
+    const snapped = snapPointerToOhlc(x, placement.y, placement.pane, adapter, options.magnet)
     if (snapped) {
       x = snapped.x
       y = snapped.y - placement.pane.top

@@ -59,7 +59,7 @@ export function snapPointerToOhlc(
     }
   }
 
-  const snappedX = adapter.getScreenXAtLogicalIndex(barIndex)
+  const snappedX = adapter.getXAtLogicalIndex(barIndex)
   if (snappedX === null && bestY === null) return null
 
   return {

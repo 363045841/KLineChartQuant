@@ -50,6 +50,8 @@ export interface ResolveDrawingPointerOptions {
    * 命中、框选、标签等只读路径不得传入，否则会在画布外产生假命中。
    */
   clampPaneId?: string
+  /** 落点限制在已有数据的右边界，供依赖 K 线区间计算的图元使用。 */
+  clampDataEnd?: boolean
 }
 
 /** 图元的一条线：由两个持久化锚点下标定义。 */

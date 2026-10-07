@@ -1140,8 +1140,8 @@ export class Chart {
   }
 
   /** 根据本帧已封存的中心点读取逻辑索引对应的视口内 X 坐标。 */
-  getScreenXAtLogicalIndex(index: number): number | null {
-    return this.interaction.getScreenXAtLogicalIndex(index)
+  getXAtLogicalIndex(index: number): number | null {
+    return this.interaction.getXAtLogicalIndex(index)
   }
 
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */

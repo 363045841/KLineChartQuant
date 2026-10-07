@@ -524,7 +524,7 @@ describe('Chart DPR pipeline', () => {
         chart.drawing.setSelectedIds(['dragged', 'stationary'])
         chart.draw()
         // 点选线身会维持多选，整组图元进入会话层。
-        const x = adapter.getScreenXAtLogicalIndex(50)
+        const x = adapter.getXAtLogicalIndex(50)
         if (x === null) throw new Error('Expected a visible drawing midpoint')
         const y = adapter.priceToY(MAIN_PANE_ID, 10)
         const event = (type: string, dy = 0) =>
@@ -593,7 +593,7 @@ describe('Chart DPR pipeline', () => {
       ])
       chart.drawing.setSelectedIds(['selected'])
       chart.draw()
-      const x = adapter.getScreenXAtLogicalIndex(50)
+      const x = adapter.getXAtLogicalIndex(50)
       if (x === null) throw new Error('Expected a visible preview position')
       const y = adapter.priceToY(MAIN_PANE_ID, 10)
       expect(

@@ -613,7 +613,7 @@ export class InteractionController {
   }
 
   /** K 线按无界槽位投影，分时按封存的交易中心投影。 */
-  getScreenXAtLogicalIndex(index: number): number | null {
+  getXAtLogicalIndex(index: number): number | null {
     if (!Number.isInteger(index)) return null
     const view = this.chart.kernel.viewport.readonly.viewSnapshot.peek()
     const world = view.worldAtIndex(index)

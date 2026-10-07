@@ -44,7 +44,7 @@ function mockAdapter(
     getData: () => [],
     getDrawingData: () => [],
     getLogicalIndexAtX: () => null,
-    getScreenXAtLogicalIndex: () => null,
+    getXAtLogicalIndex: () => null,
     getDrawingTimestampAtLogicalIndex: () => null,
     getLogicalIndexAtTimestamp: () => null,
     getDrawingWorkspaceId: () => 'kline',

@@ -1,3 +1,4 @@
+/** 绘图拖拽：由起始快照生成锚点移动，并约束回归通道的数据边界。 */
 import type { DrawingViewportPort } from '@/controllers/types.js'
 import { midpoint } from '@/foundation/geometry/index.js'
 import {
@@ -8,7 +9,7 @@ import {
 } from '../../geometry/impl/coordinateUtils.js'
 import type { ResolveDrawingPointerOptions } from '../../geometry/types.js'
 import type { DrawingObject } from '../../types.js'
-import type { DragFollow, DrawingDragTarget } from '../types.js'
+import { type DragFollow, type DrawingDragTarget, DrawingTool } from '../types.js'
 import { resolveAnchorFollowers, resolveVerticalHandleAnchors } from './dragPolicy.js'
 
 // ---- Types ----
@@ -94,8 +95,11 @@ export class DragHandler {
 
     const target = this.dragState.target
     const magnet = target.type === 'all' ? undefined : options?.magnet
-    const pointer = resolveDrawingPointer(e, container, adapter, magnet ? { magnet } : undefined)
     const primary = this.dragState.drawings[0]
+    const pointer = resolveDrawingPointer(e, container, adapter, {
+      magnet,
+      clampDataEnd: target.type === 'anchor' && primary?.kind === DrawingTool.RegressionChannel,
+    })
     if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
     if (target.type === 'anchor') {
       return [this.moveAnchor(primary, target.index, pointer, adapter)]
@@ -103,7 +107,11 @@ export class DragHandler {
     if (target.type === 'vertical-handle') {
       return [this.moveVerticalHandle(primary, target.lineIndex, pointer, adapter)]
     }
-    const dx = pointer.x - this.dragState.startMouse.x
+    // 整组选中图元共用受限位移，回归端点到达最后一根 K 线时保持组内间距。
+    const dx = this.dragState.drawings.reduce(
+      (offset, drawing) => this.clampRegressionOffset(drawing, offset, adapter),
+      pointer.x - this.dragState.startMouse.x,
+    )
     const dy = pointer.y - this.dragState.startMouse.y
     return this.dragState.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
   }
@@ -250,6 +258,21 @@ export class DragHandler {
       }
     }
     return { ...drawing, anchors }
+  }
+
+  /** 限制回归通道的整体水平位移，让较新端点停在最后一根 K 线中心。 */
+  private clampRegressionOffset(
+    drawing: DrawingObject,
+    dx: number,
+    adapter: DrawingViewportPort,
+  ): number {
+    if (drawing.kind !== DrawingTool.RegressionChannel) return dx
+    const lastX = adapter.getXAtLogicalIndex(adapter.getDrawingData().length - 1)
+    if (lastX === null) return dx
+    return drawing.anchors.reduce((offset, anchor) => {
+      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+      return isScreenPoint(screen) ? Math.min(offset, lastX - screen.x) : offset
+    }, dx)
   }
 
   /** 结束拖拽，清空状态 */

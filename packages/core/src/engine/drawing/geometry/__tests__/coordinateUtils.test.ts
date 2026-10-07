@@ -16,7 +16,7 @@ function createAdapter(overrides: Partial<DrawingViewportPort> = {}) {
       getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
       getDrawingData: () => [{ timestamp: 1_000 }],
       getLogicalIndexAtX: () => 0,
-      getScreenXAtLogicalIndex: () => 137,
+      getXAtLogicalIndex: () => 137,
       getDrawingTimestampAtLogicalIndex: () => 1_000,
       getLogicalIndexAtTimestamp: () => 0,
       getDrawingWorkspaceId: () => 'timeshare',
@@ -98,7 +98,7 @@ describe('drawing coordinate utilities', () => {
   it('stores a right-side blank-area anchor as an offset from the last bar', () => {
     const adapter = createAdapter({
       getLogicalIndexAtX: () => 3,
-      getScreenXAtLogicalIndex: (index) => 137 + index * 10,
+      getXAtLogicalIndex: (index) => 137 + index * 10,
     })
 
     expect(screenToAnchor(170, 30, 'sub', adapter)).toEqual({

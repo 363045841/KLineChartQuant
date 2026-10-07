@@ -102,7 +102,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
       getData: () => chart.getData(),
       getDrawingData,
       getLogicalIndexAtX,
-      getScreenXAtLogicalIndex,
+      getXAtLogicalIndex,
       getDrawingTimestampAtLogicalIndex,
       getLogicalIndexAtTimestamp,
       getDrawingWorkspaceId,
@@ -256,9 +256,9 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   /** 逻辑 bar 索引 → 当前帧 screen x。 */
-  function getScreenXAtLogicalIndex(index: number): number | null {
+  function getXAtLogicalIndex(index: number): number | null {
     if (isDisposed()) return null
-    return chart.getScreenXAtLogicalIndex(index)
+    return chart.getXAtLogicalIndex(index)
   }
 
   /** 逻辑索引 → 时间戳（ms）。 */
@@ -355,7 +355,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     getKWidthKGap,
     getCurrentDpr,
     getLogicalIndexAtX,
-    getScreenXAtLogicalIndex,
+    getXAtLogicalIndex,
     getTimestampAtLogicalIndex,
     getDrawingData,
     getDrawingTimestampAtLogicalIndex,

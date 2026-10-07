@@ -24,7 +24,7 @@
 | weak | high/low | 8px       | Bar 中心可解析时吸附到中心 |
 | strong | high/low/open/close | 无距离门槛，始终吸最近价格 | 同上 |
 
-- X 吸附与 Y 是否命中无关：只要 `getScreenXAtLogicalIndex(barIndex)` 非 null，X 即改写为 Bar 中心；同一 Bar 内点击因此解析出同一时间戳，差异仅在 Bar 边界半个 Bar 宽内。
+- X 吸附与 Y 是否命中无关：只要 `getXAtLogicalIndex(barIndex)` 非 null，X 即改写为 Bar 中心；同一 Bar 内点击因此解析出同一时间戳，差异仅在 Bar 边界半个 Bar 宽内。
 - 候选遍历顺序 `[high, low, open, close]`，距离用 `<=` 比较——同距离时后遍历者胜出。
 - Bar 中心不可解析且 Y 无命中（完全无吸附点）时 `snapPointerToOhlc` 返回 null，调用方使用原始坐标。
 

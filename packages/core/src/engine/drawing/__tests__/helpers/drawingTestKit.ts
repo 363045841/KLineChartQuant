@@ -294,7 +294,7 @@ export function createDrawingViewportPort(
     getData: () => OHLC_BARS,
     getDrawingData: () => OHLC_BARS,
     getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
-    getScreenXAtLogicalIndex: (index: number) => index * 10 + 5,
+    getXAtLogicalIndex: (index: number) => index * 10 + 5,
     getDrawingTimestampAtLogicalIndex: (index: number) => BAR_TIMESTAMPS[index] ?? null,
     getLogicalIndexAtTimestamp: (timestamp: number) => {
       const index = BAR_TIMESTAMPS.indexOf(timestamp)
