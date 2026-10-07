@@ -97,8 +97,6 @@
     message?: string
     /** 分组为空时展示的提示；未提供时不渲染空提示。 */
     emptyText?: string
-    /** 自定义管理表单需要的面板宽度，仍限制在视口内。 */
-    panelWidth?: string
     /** 菜单项行高；默认松散，短选项列表可使用紧凑模式。 */
     density?: 'compact' | 'loose'
     /** 管理操作需要在同一面板内展开表单。 */
@@ -125,7 +123,6 @@
   const menuStyle = computed(() => ({
     ...popupStyle.value,
     zIndex: 1010,
-    ...(props.panelWidth ? { width: props.panelWidth, maxWidth: 'calc(100vw - 16px)' } : {}),
   }))
 
   useClickOutside(
@@ -373,27 +370,6 @@
   .drop-menu__item :deep(.drop-menu__item-main:disabled) {
     opacity: 0.5;
     cursor: default;
-  }
-
-  .drop-menu__item :deep(.drop-menu__item-editor) {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    padding: 5px 10px;
-  }
-
-  .drop-menu__item :deep(.drop-menu__item-editor input) {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
-    padding: 3px 4px;
-    border: 1px solid var(--klc-color-ui-accent);
-    border-radius: 3px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    font-size: 12px;
-    outline: none;
   }
 
   .drop-menu__item :deep(.drop-menu__switch) {

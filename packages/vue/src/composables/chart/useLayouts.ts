@@ -5,6 +5,7 @@ import type { DropMenuGroup } from '../../components/DropMenu.vue'
 import { useControllerSignal } from './useControllerSignal.js'
 
 const SAVE_SUCCESS_DURATION_MS = 1000
+const DEFAULT_LAYOUT_NAME = '默认布局'
 
 /** 订阅 core 布局信号，并集中处理异步操作、命名和错误展示。 */
 export function useLayouts(controller: Ref<ChartController | null>) {
@@ -17,9 +18,6 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     controller,
     (api) => api.activeLayoutId,
     () => 'default',
-  )
-  const currentName = computed(
-    () => layouts.value.find(({ id }) => id === activeId.value)?.name ?? '默认布局',
   )
   const autoSave = useControllerSignal(
     controller,
@@ -35,6 +33,25 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     controller,
     (api) => api.layoutSaveError,
     () => null,
+  )
+
+  /** 操作进行中；所有面板操作在此状态内串行派发。 */
+  const busy = ref(false)
+  const saved = ref(false)
+  /** 本次操作的错误文案；与 core 的持久化错误合并展示。 */
+  const error = ref('')
+  const deleting = ref<string | null>(null)
+  const naming = ref<{
+    mode: 'create' | 'rename' | 'duplicate'
+    id?: string
+    initialName: string
+  } | null>(null)
+  const namingError = ref('')
+  let savedTimer: ReturnType<typeof setTimeout> | undefined
+  onScopeDispose(() => clearTimeout(savedTimer))
+
+  const currentName = computed(
+    () => layouts.value.find(({ id }) => id === activeId.value)?.name ?? DEFAULT_LAYOUT_NAME,
   )
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => [
     {
@@ -61,18 +78,6 @@ export function useLayouts(controller: Ref<ChartController | null>) {
       })),
     },
   ])
-  const busy = ref(false)
-  const saved = ref(false)
-  let savedTimer: ReturnType<typeof setTimeout> | undefined
-  onScopeDispose(() => clearTimeout(savedTimer))
-  const error = ref('')
-  const naming = ref<{
-    mode: 'create' | 'rename' | 'duplicate'
-    id?: string
-    initialName: string
-  } | null>(null)
-  const namingError = ref('')
-  const deleting = ref<string | null>(null)
   /** 弹窗标题随命名模式切换。 */
   const namingTitle = computed(() => {
     if (naming.value?.mode === 'rename') return '重命名布局'
@@ -107,9 +112,23 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     await run((api) => api.listLayouts())
   }
 
-  /** 选择文档成功后关闭弹层。 */
+  /** 选择文档；切换成功后由 core 更新活动身份。 */
   async function select(id: string): Promise<void> {
     await run((api) => api.switchLayout({ id }))
+  }
+
+  /** 覆盖当前归档，名称与身份不变。 */
+  async function saveCurrent(): Promise<void> {
+    if (busy.value) return
+    clearTimeout(savedTimer)
+    saved.value = false
+    if (await run((api) => api.saveLayout({ id: activeId.value, name: currentName.value }))) {
+      saved.value = true
+      savedTimer = setTimeout(() => {
+        saved.value = false
+        savedTimer = undefined
+      }, SAVE_SUCCESS_DURATION_MS)
+    }
   }
 
   /** 打开命名弹窗；复制预填副本名，重命名预填原名称，创建用占位名。 */
@@ -154,20 +173,6 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     }
   }
 
-  /** 覆盖当前归档，名称与身份不变。 */
-  async function saveCurrent(): Promise<void> {
-    if (busy.value) return
-    clearTimeout(savedTimer)
-    saved.value = false
-    if (await run((api) => api.saveLayout({ id: activeId.value, name: currentName.value }))) {
-      saved.value = true
-      savedTimer = setTimeout(() => {
-        saved.value = false
-        savedTimer = undefined
-      }, SAVE_SUCCESS_DURATION_MS)
-    }
-  }
-
   /** 删除前由 UI 明确选择目标，成功才移除确认行。 */
   async function remove(id: string): Promise<void> {
     if (await run((api) => api.deleteLayout({ id }))) deleting.value = null
@@ -201,18 +206,15 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     onSelect,
     busy,
     saved,
-    error,
     naming,
     namingTitle,
     namingConfirmLabel,
     namingError,
     deleting,
     refresh,
-    select,
     openNaming,
     closeNaming,
     submitNaming,
-    saveCurrent,
     remove,
   }
 }
