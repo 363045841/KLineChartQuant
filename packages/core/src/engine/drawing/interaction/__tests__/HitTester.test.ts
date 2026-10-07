@@ -17,7 +17,7 @@ function createAdapter() {
   return createDrawingAdapter({
     viewport: {
       getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
-      getScreenXAtLogicalIndex: () => 137,
+      getXAtLogicalIndex: () => 137,
       getLogicalIndexAtTimestamp: () => 0,
       priceToY: (_paneId: string, price: number) => price,
       getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
@@ -30,7 +30,7 @@ function createLineAdapter() {
   return createDrawingAdapter({
     viewport: {
       getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
-      getScreenXAtLogicalIndex: (index: number) => (index === 0 ? 20 : 220),
+      getXAtLogicalIndex: (index: number) => (index === 0 ? 20 : 220),
       getLogicalIndexAtTimestamp: (timestamp: number) => (timestamp === 1_000 ? 0 : 1),
       priceToY: (_paneId: string, price: number) => price,
       getPaneInfo: () => ({ paneId: 'main', top: 30, height: 240 }),
@@ -50,7 +50,7 @@ function anchorScreenY(index: number): number {
 
 /** 构造通道类夹具共用的适配器：索引 i → x = i*50+20，y = 200 - price。 */
 function createChannelAdapter() {
-  return createFourBarTimelineAdapter({ getScreenXAtLogicalIndex: anchorScreenX })
+  return createFourBarTimelineAdapter({ getXAtLogicalIndex: anchorScreenX })
 }
 
 /** 四锚点平行通道夹具：0/1 为第一条线，2/3 为第二条线。 */

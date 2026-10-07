@@ -92,7 +92,7 @@ describe('复制落点', () => {
         { id: 'b', type: 'point', time: 3000, price: 120 },
       ],
     })
-    const unavailable = createCopyAdapter({ getScreenXAtLogicalIndex: () => null })
+    const unavailable = createCopyAdapter({ getXAtLogicalIndex: () => null })
     expect(resolveCopyPlacements([drawing], unavailable)).toEqual([])
   })
 })

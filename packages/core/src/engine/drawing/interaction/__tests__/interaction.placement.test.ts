@@ -3,14 +3,43 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   CONTAINER,
+  createDrawingAdapter,
   createDrawingObject,
   createPlacementAdapter,
   pointerDown,
   pointerMove,
 } from '../../__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController } from '../impl/interaction'
+import { DrawingTool } from '../types'
 
 describe('DrawingInteractionController placement', () => {
+  it('clamps regression preview and confirmed endpoints to the last candle', () => {
+    const createDrawing = vi.fn(() => createDrawingObject({ id: 'regression' }))
+    const adapter = createDrawingAdapter({
+      document: { getDrawingToolId: () => DrawingTool.RegressionChannel, createDrawing },
+    })
+    const controller = new DrawingInteractionController(adapter)
+    controller.onPointerDown(pointerDown(5, 100), CONTAINER)
+
+    // 包含绘图区右侧和轴区：进行中的预览始终贴在已有数据末端。
+    for (const x of [95, 350]) {
+      expect(controller.onPointerMove(pointerMove(x, 80), CONTAINER)).toBe(true)
+      const preview = controller.getPaintOverlay()[0]
+      expect(preview?.anchors.map((anchor) => anchor.time)).toEqual([500, 1_500])
+      expect(preview?.anchors.every((anchor) => anchor.futureOffset === undefined)).toBe(true)
+    }
+
+    controller.onPointerDown(pointerDown(95, 80), CONTAINER)
+    expect(createDrawing).toHaveBeenCalledWith({
+      kind: DrawingTool.RegressionChannel,
+      paneId: 'main',
+      anchors: [
+        { timestamp: 500, price: 100 },
+        { timestamp: 1_500, price: 120 },
+      ],
+    })
+  })
+
   it('passes the future-slot offset through when creating a drawing in the right blank area', () => {
     const createdDrawing = createDrawingObject({ id: 'future-line' })
     const createDrawing = vi.fn(() => createdDrawing)

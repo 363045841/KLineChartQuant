@@ -8,22 +8,17 @@ import type {
 import { Chart } from '@/engine/chart/index.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
+import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
 import { resolveSettings } from '@/foundation/config/chartSettings.js'
-import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
 import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
-import {
-  createPanePriceAxisPersistence,
-  createViewWorkspacePersistence,
-  loadStoredPanePriceAxisModes,
-  loadStoredViewWorkspaces,
-} from '../../persistence/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -93,8 +88,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   await loadBuiltinIndicators()
-  const initialViewWorkspaces = loadStoredViewWorkspaces()
-  const initialPanePriceAxisModes = loadStoredPanePriceAxisModes()
   const mounted = mountChartDom(opts)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
@@ -130,16 +123,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     {
       rendererHost,
       initialSettings,
-      initialViewWorkspaces: initialViewWorkspaces ?? undefined,
-      initialPanePriceAxisModes: initialPanePriceAxisModes ?? undefined,
       marketSessions: opts.marketSessions,
     },
-  )
-  chart.setViewWorkspacePersistence(
-    createViewWorkspacePersistence(() => chart.kernel.snapshotViewWorkspaces()),
-  )
-  chart.setPanePriceAxisPersistence(
-    createPanePriceAxisPersistence(() => chart.snapshotPanePriceAxisModes()),
   )
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
@@ -186,6 +171,36 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, isDisposed)
+  const layoutManager = new LayoutManager({
+    // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
+    exportLayout: () => {
+      chart.captureViewportSnapshot()
+      return chart.kernel.exportLayout()
+    },
+    createLayout: () => chart.kernel.createLayout(),
+    applyLayout: (document) => {
+      if (isDisposed()) throw new Error('图表已销毁')
+      batch(() => {
+        chart.kernel.applyLayout(document)
+        if (document.currentSymbol !== undefined) {
+          dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
+        }
+      })
+      chart.drawingCommands.history.reset()
+      chart.scheduleDraw()
+    },
+  })
+  await layoutManager.initialize()
+  const layoutSubscriptions = [
+    chart.kernel.dataManager.readonly.currentSpec,
+    chart.kernel.indicator.readonly.workspaces,
+    chart.kernel.pane.readonly.workspaces,
+    chart.kernel.settings.readonly.settings,
+    chart.kernel.drawing.readonly.drawings,
+    chart.kernel.mainPriceAxis.readonly.paneRanges,
+    chart.kernel.viewport.readonly.scrollLeft,
+    chart.kernel.zoom.readonly.zoomLevel,
+  ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave()))
 
   const agent = createChartAgentController({
     chartId: generateUUID(),
@@ -219,7 +234,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposal) return disposal
     disposed = true
     dataMethods.dispose()
-    disposal = chart.destroy()
+    for (const unsubscribe of layoutSubscriptions) unsubscribe()
+    disposal = layoutManager.dispose().finally(() => chart.destroy())
     try {
       mounted.cleanup()
     } catch {
@@ -229,6 +245,21 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   return {
+    layouts: layoutManager.layouts,
+    activeLayoutId: layoutManager.activeLayoutId,
+    layoutAutoSave: layoutManager.layoutAutoSave,
+    layoutDirty: layoutManager.layoutDirty,
+    layoutSaveError: layoutManager.layoutSaveError,
+    createLayout: (input) => layoutManager.createLayout(input),
+    setLayoutAutoSave: (input) => layoutManager.setLayoutAutoSave(input),
+    exportLayout: () => layoutManager.exportLayout(),
+    applyLayout: (document) => layoutManager.applyLayout(document),
+    listLayouts: () => layoutManager.listLayouts(),
+    saveLayout: (input) => layoutManager.saveLayout(input),
+    switchLayout: (input) => layoutManager.switchLayout(input),
+    renameLayout: (input) => layoutManager.renameLayout(input),
+    duplicateLayout: (input) => layoutManager.duplicateLayout(input),
+    deleteLayout: (input) => layoutManager.deleteLayout(input),
     agent,
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,

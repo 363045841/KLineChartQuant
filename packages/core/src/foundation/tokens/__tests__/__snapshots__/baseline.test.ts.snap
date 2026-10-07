@@ -160,6 +160,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-input: #1B1D22;
   --klc-color-ui-control-background: #27292E;
   --klc-color-ui-hover: #2D3036;
+  --klc-color-ui-selected: #25272D;
   --klc-color-ui-border: #2D3036;
   --klc-color-ui-border-strong: #434752;
   --klc-color-ui-text: #DCE0E8;
@@ -415,6 +416,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-input: #FFFFFF;
   --klc-color-ui-control-background: #E5E5EA;
   --klc-color-ui-hover: #DCDCE1;
+  --klc-color-ui-selected: #ECECEF;
   --klc-color-ui-border: #D8D8DE;
   --klc-color-ui-border-strong: #B8B8BE;
   --klc-color-ui-text: #242426;

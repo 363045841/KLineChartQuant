@@ -149,7 +149,7 @@ interface DrawingChartAdapter {
   getData(): ReadonlyArray<KLineData>
   getDrawingData(): ReadonlyArray<{ timestamp: number }>
   getLogicalIndexAtX(mouseX: number): number | null
-  getScreenXAtLogicalIndex(index: number): number | null
+  getXAtLogicalIndex(index: number): number | null
   getDrawingTimestampAtLogicalIndex(index: number): number | null
   getLogicalIndexAtTimestamp(timestamp: number): number | null
   getDrawingWorkspaceId(): DrawingWorkspaceId

@@ -23,7 +23,7 @@ import type {
   HitResult,
   LineLabelTarget,
 } from '../types.js'
-import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID } from '../types.js'
+import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, DrawingTool } from '../types.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import { DragHandler } from './DragHandler.js'
 import { HitTester } from './HitTester.js'
@@ -317,7 +317,10 @@ export class DrawingInteractionController {
    * 不再因落点解析失败而抹掉预览。首个锚点仍要求落在有效 Pane 内。
    */
   private resolvePlacementOptions(e: PointerEvent): ResolveDrawingPointerOptions {
-    const options = this.resolveMagnetOptions(e) ?? {}
+    const options = {
+      ...this.resolveMagnetOptions(e),
+      clampDataEnd: this.getActiveTool() === DrawingTool.RegressionChannel,
+    }
     return this.pendingPaneId === null ? options : { ...options, clampPaneId: this.pendingPaneId }
   }
 

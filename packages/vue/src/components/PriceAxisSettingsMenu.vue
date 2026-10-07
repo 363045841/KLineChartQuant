@@ -40,7 +40,7 @@
       <IconTablerSettings aria-hidden="true" />
     </template>
     <template #item-action="{ group, item }">
-      <span v-if="isSelected(group.id, item.id)" class="price-axis-menu-check">
+      <span v-if="isSelected(group.id, item.id)" class="drop-menu__status">
         <IconTablerCheck aria-hidden="true" />
       </span>
     </template>
@@ -173,17 +173,4 @@
     height: 16px;
   }
 
-  /* 当前模式的勾选标记始终可见。 */
-  .price-axis-menu-check {
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    color: var(--klc-color-ui-text);
-    visibility: visible;
-  }
-
-  .price-axis-menu-check svg {
-    width: 14px;
-    height: 14px;
-  }
 </style>

@@ -2,9 +2,9 @@
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { ScaleType } from '../../foundation/types/scaleType.js'
+import type { LayoutWorkspaces } from '../layout/index.js'
 import type { PaneSpec } from '../pane/types.js'
 import { immutableMap } from './immutable.js'
-import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 
 function copyRatios(ratios: Readonly<Record<string, number>>): Record<string, number> {
   return { ...ratios }
@@ -96,7 +96,7 @@ export function createPaneState() {
         })
       },
       /** 用已校验的持久快照恢复两个工作区的布局与坐标轴类型。 */
-      restoreWorkspaces(workspaces: ViewWorkspacesSnapshot): void {
+      restoreWorkspaces(workspaces: LayoutWorkspaces): void {
         const next = Object.freeze({
           kline: snapshotWorkspace(
             workspaces.kline.paneRatios,

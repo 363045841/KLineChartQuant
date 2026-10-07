@@ -178,7 +178,7 @@
     --agent-surface: var(--klc-color-ui-surface);
     --agent-text: var(--klc-color-ui-text);
     --agent-focus: var(--klc-color-ui-focus);
-    --agent-header-inset: 12px;
+    --agent-header-inset: 8px;
     --agent-header-button-size: 30px;
 
     width: 100%;

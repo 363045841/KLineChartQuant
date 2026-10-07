@@ -1,7 +1,7 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
-import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { type ChartSettings, normalizeSettings } from '../../foundation/config/chartSettings.js'
 import type { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
@@ -29,9 +29,15 @@ import type { DrawingToolId } from '../drawing/index.js'
 import { registerBuiltinRenderers } from '../indicators/generated/builtinRenderers.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
+import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
+import {
+  LAYOUT_DOCUMENT_VERSION,
+  type LayoutDocument,
+  type LayoutWorkspaces,
+} from '../layout/index.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 import { PaneManager } from '../pane/index.js'
-import type { PaneSpec } from '../pane/types.js'
+import { MAIN_PANE_ID, type PaneSpec } from '../pane/types.js'
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
@@ -60,7 +66,6 @@ import {
   type ViewportDomDeps,
   type ViewportStateModule,
 } from './viewportState.js'
-import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 import { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState.js'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
@@ -177,10 +182,6 @@ export interface ChartStateKernelDeps {
   initialZoomLevel: number
   initialSettings?: Partial<ChartSettings>
   initialRendererRuntime?: RendererBackendRuntime
-  /** 已校验的用户视图工作区快照；系统 mode 实例不参与恢复。 */
-  initialViewWorkspaces?: ViewWorkspacesSnapshot
-  /** 已持久化的各 Pane 价格轴范围模式；缺失时回退 settings 偏好。 */
-  initialPanePriceAxisModes?: Readonly<Record<string, PriceAxisRangeMode>>
   /** 各市场分时交易时段注册表（分时几何 / 槽位共用）；未注入时分时槽位退化为 0 */
   marketSessions?: MarketSessionRegistry
   scheduleDraw: (level?: unknown) => void
@@ -302,18 +303,11 @@ export class ChartStateKernel extends StateKernel {
       this.pane.actions.commitLayout(initialRatios, initialPanes)
     }
     this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
-    if (deps.initialViewWorkspaces) {
-      batch(() => {
-        this.indicator.actions.restoreWorkspaces(deps.initialViewWorkspaces!)
-        this.pane.actions.restoreWorkspaces(deps.initialViewWorkspaces!)
-      })
-    }
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     this.settings = createSettingsState(deps.initialSettings)
     this.mainPriceAxis = createMainPriceAxisState(
       this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-      deps.initialPanePriceAxisModes,
     )
     this.renderer = createRendererState(
       deps.initialRendererRuntime ?? { effective: 'webgl', status: 'ready', error: null },
@@ -543,7 +537,7 @@ export class ChartStateKernel extends StateKernel {
   }
 
   /** 返回两个视图工作区的用户配置快照，排除由 mode 管理的系统实例。 */
-  snapshotViewWorkspaces(): ViewWorkspacesSnapshot {
+  snapshotViewWorkspaces(): LayoutWorkspaces {
     const indicatorWorkspaces = this.indicator.readonly.workspaces.peek()
     const paneWorkspaces = this.pane.readonly.workspaces.peek()
     const snapshot = (workspaceId: ChartWorkspaceId) => {
@@ -567,6 +561,55 @@ export class ChartStateKernel extends StateKernel {
       [ChartWorkspaceId.KLine]: snapshot(ChartWorkspaceId.KLine),
       [ChartWorkspaceId.TimeShare]: snapshot(ChartWorkspaceId.TimeShare),
     }
+  }
+
+  /** 聚合图表配置、已确认绘图与可恢复视口位置，生成独立的持久化快照。 */
+  exportLayout(): LayoutDocument {
+    return structuredClone({
+      version: LAYOUT_DOCUMENT_VERSION,
+      currentSymbol: this.dataManager.readonly.currentSpec.peek(),
+      workspaces: this.snapshotViewWorkspaces(),
+      panePriceAxisModes: Object.fromEntries(
+        Object.entries(this.mainPriceAxis.readonly.paneRanges.peek()).map(([id, state]) => [
+          id,
+          state.rangeMode,
+        ]),
+      ),
+      settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
+      drawings: this.drawing.readonly.drawings.peek(),
+      viewport: this.dataManager.readonly.viewportSnapshots.peek(),
+    })
+  }
+
+  /** 新布局从默认图表设置和单主窗格开始，不复制用户指标。 */
+  createLayout(): LayoutDocument {
+    const workspace = () => ({
+      instances: [],
+      paneRatios: { [MAIN_PANE_ID]: 1 },
+      paneSpecs: [{ id: MAIN_PANE_ID, ratio: 1 }],
+      paneScaleTypes: {},
+    })
+    return {
+      version: LAYOUT_DOCUMENT_VERSION,
+      currentSymbol: structuredClone(this.dataManager.readonly.currentSpec.peek()),
+      workspaces: { kline: workspace(), timeshare: workspace() },
+      panePriceAxisModes: { [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
+      drawings: [],
+      settings: selectLayoutSettings(normalizeSettings()),
+    }
+  }
+
+  /** 布局和用户指标在一次 batch 中恢复，再重建当前视图的系统实例。 */
+  applyLayout(document: LayoutDocument): void {
+    batch(() => {
+      this.indicator.actions.restoreWorkspaces(document.workspaces)
+      this.pane.actions.restoreWorkspaces(document.workspaces)
+      if (document.settings) this.settings.actions.patch(selectLayoutSettings(document.settings))
+      this.mainPriceAxis.actions.restoreModes(document.panePriceAxisModes)
+      this.drawing.actions.restoreDocument(document.drawings ?? [], [])
+      this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
+      this.actions.setDataView(this.mode.readonly.dataView.peek())
+    })
   }
 
   dispose(): void {

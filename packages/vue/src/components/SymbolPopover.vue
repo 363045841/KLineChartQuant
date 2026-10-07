@@ -44,13 +44,11 @@
 
 <script setup lang="ts">
   import { nextTick, ref, watch } from 'vue'
-
-  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
-
-  import AggregationSourceButton from './AggregationSourceButton.vue'
-  import SearchField from './common/SearchField.vue'
-  import BaseTooltip from './common/BaseTooltip.vue'
   import IconX from '~icons/tabler/x'
+  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
+  import AggregationSourceButton from './AggregationSourceButton.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
+  import SearchField from './common/SearchField.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -112,7 +110,6 @@
       }
     },
   )
-
 </script>
 
 <style scoped>

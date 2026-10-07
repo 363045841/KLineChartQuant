@@ -12,6 +12,7 @@ export interface VisualPalette {
   card: string
   input: string
   hover: string
+  selected: string
   border: string
   borderStrong: string
   text: string

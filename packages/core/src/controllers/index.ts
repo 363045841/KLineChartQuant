@@ -175,6 +175,12 @@ export {
   isBuiltinIndicatorsLoaded,
   loadBuiltinIndicators,
 } from '../engine/indicators/registerBuiltins.js'
+export type {
+  LayoutApi,
+  LayoutDocument,
+  LayoutSummary,
+  NamedLayoutDocument,
+} from '../engine/layout/index.js'
 // Indicator types & config
 export type { SubIndicatorType } from '../engine/renderers/Indicator/index.js'
 export type { Indicator } from '../engine/renderers/Indicator/indicatorCatalog.js'

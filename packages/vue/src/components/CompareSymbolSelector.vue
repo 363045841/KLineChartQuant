@@ -118,7 +118,7 @@
               <span class="compare-list__desc">{{ item.name }}</span>
             </span>
             <span class="compare-list__right">
-              <span class="compare-list__exchange">{{ formatSymbolMeta(item) }}</span>
+              <SymbolMetaBadge :symbol="item" />
               <span v-if="isSelected(item)" class="compare-list__check" aria-hidden="true">
                 <svg
                   viewBox="0 0 24 24"
@@ -160,6 +160,7 @@
 
   import BaseTabs from './BaseTabs.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import SymbolMetaBadge from './common/SymbolMetaBadge.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
@@ -249,14 +250,6 @@
 
   function removeSymbol(item: SymbolItem) {
     emit('remove', symbolIdentityKey(item))
-  }
-
-  /** 展示交易所、品种类别和会话，便于区分同代码多语义。 */
-  function formatSymbolMeta(item: SymbolItem): string {
-    const parts = [item.exchange]
-    if (item.assetClass !== 'unknown') parts.push(item.assetClass)
-    if (item.sessionId) parts.push(item.sessionId)
-    return parts.join(' · ')
   }
 
   function togglePopup() {
@@ -492,9 +485,7 @@
     line-height: 1.2;
     letter-spacing: 0.01em;
     color: var(--klc-color-ui-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .compare-list__desc {
@@ -502,9 +493,7 @@
     font-weight: 400;
     line-height: 1.2;
     color: var(--klc-color-ui-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .compare-list__right {
@@ -512,20 +501,6 @@
     align-items: center;
     gap: 6px;
     flex: 0 0 auto;
-  }
-
-  .compare-list__exchange {
-    flex: 0 0 auto;
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 1.4;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
   }
 
   .compare-list__check {

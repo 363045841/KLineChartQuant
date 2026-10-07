@@ -26,7 +26,7 @@
               <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
             </template>
             <template #item-action="{ item }">
-              <span v-if="item.id === provider.modelId" class="composer__model-check">
+              <span v-if="item.id === provider.modelId" class="drop-menu__status">
                 <IconCheck aria-hidden="true" />
               </span>
             </template>
@@ -157,6 +157,7 @@
 </script>
 
 <style scoped src="./agent-primary-button.css"></style>
+<style src="./agent-select-trigger.css"></style>
 
 <style scoped>
   .composer__input {
@@ -238,7 +239,6 @@
     min-width: 0;
   }
 
-  .composer__model :deep(.drop-menu__trigger),
   .composer__reasoning :deep(.dropdown__trigger) {
     max-width: 160px;
     height: 26px;
@@ -256,15 +256,16 @@
     cursor: pointer;
   }
 
-  .composer__model :deep(.drop-menu__trigger:hover:not(:disabled)),
-  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']:not(:disabled)),
+  .composer__model :deep(.drop-menu__trigger) {
+    max-width: 160px;
+  }
+
   .composer__reasoning :deep(.dropdown__trigger:hover:not(:disabled)),
   .composer__reasoning :deep(.dropdown__trigger[aria-expanded='true']:not(:disabled)) {
     border-color: var(--klc-color-agent-composer-control-hover);
     background: var(--klc-color-agent-composer-control-hover);
   }
 
-  .composer__model :deep(.drop-menu__trigger:focus-visible),
   .composer__reasoning :deep(.dropdown__trigger:focus-visible) {
     outline: none;
     border-color: var(--agent-focus);
@@ -272,7 +273,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
   }
 
-  .composer__model :deep(.drop-menu__trigger:disabled),
   .composer__reasoning :deep(.dropdown__trigger:disabled) {
     color: var(--agent-text-soft);
     background: transparent;
@@ -296,20 +296,6 @@
 
   .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) .composer__model-chevron {
     transform: rotate(180deg);
-  }
-
-  /* 当前模型的勾选标记始终可见，不受 item-action 悬停显隐控制。 */
-  .composer__model-check {
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    color: var(--agent-text);
-    visibility: visible;
-  }
-
-  .composer__model-check svg {
-    width: 14px;
-    height: 14px;
   }
 
   .composer__reasoning :deep(.dropdown__value) {

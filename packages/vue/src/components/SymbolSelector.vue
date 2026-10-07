@@ -85,7 +85,7 @@
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
-              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
+              <SymbolMetaBadge :symbol="item" />
             </button>
             <button
               v-if="!watchlistKeys.has(symbolIdentityKey(item))"
@@ -123,6 +123,7 @@
   } from '../composables/useSymbolSearch.js'
   import BaseTabs from './BaseTabs.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import SymbolMetaBadge from './common/SymbolMetaBadge.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
   import '@fontsource/jetbrains-mono/400.css'
@@ -251,14 +252,6 @@
     }
     emit('change', item)
     closePopup()
-  }
-
-  /** 展示交易所、品种类别和会话，便于区分同代码多语义。 */
-  function formatSymbolMeta(item: SymbolItem): string {
-    const parts = [item.exchange]
-    if (item.assetClass !== 'unknown') parts.push(item.assetClass)
-    if (item.sessionId) parts.push(item.sessionId)
-    return parts.join(' · ')
   }
 
   watch(
@@ -394,9 +387,7 @@
     line-height: 1.2;
     letter-spacing: 0.01em;
     color: var(--klc-color-ui-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .symbol-list__desc {
@@ -404,25 +395,7 @@
     font-weight: 400;
     line-height: 1.2;
     color: var(--klc-color-ui-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .symbol-list__exchange {
-    flex: 0 0 auto;
-    box-sizing: border-box;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-muted);
-    font-family: var(--klc-typography-font-family-mono);
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 1.4;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .symbol-list__item:last-child {

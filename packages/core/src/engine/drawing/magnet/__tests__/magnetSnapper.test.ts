@@ -85,7 +85,7 @@ describe('snapPointerToOhlc', () => {
   })
 
   it('weak 档 Bar 中心与 Y 均无吸附点时返回 null', () => {
-    const adapter = createMagnetSnapAdapter(OHLC_BARS, { getScreenXAtLogicalIndex: () => null })
+    const adapter = createMagnetSnapAdapter(OHLC_BARS, { getXAtLogicalIndex: () => null })
     // Y 距 high/low 超过 8px 且 X 中心不可解析 → 整体 null。
     expect(snapPointerToOhlc(12, 150, MAGNET_PANE, adapter, { mode: 'weak' })).toBeNull()
     expect(snapPointerToOhlc(12, 150, MAGNET_PANE, adapter, { mode: 'strong' })).toEqual({
@@ -95,7 +95,7 @@ describe('snapPointerToOhlc', () => {
   })
 
   it('Y 命中但 Bar 中心不可解析时只吸附 Y', () => {
-    const adapter = createMagnetSnapAdapter(OHLC_BARS, { getScreenXAtLogicalIndex: () => null })
+    const adapter = createMagnetSnapAdapter(OHLC_BARS, { getXAtLogicalIndex: () => null })
     expect(snapPointerToOhlc(12, 83, MAGNET_PANE, adapter, { mode: 'weak' })).toEqual({
       x: 12,
       y: 80,

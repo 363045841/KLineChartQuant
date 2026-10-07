@@ -25,7 +25,7 @@ function chooseOffset(
 function getTimeOffset(screenX: number, adapter: DrawingViewportPort): number | null {
   const index = adapter.getLogicalIndexAtX(screenX)
   if (index === null) return null
-  const nextX = adapter.getScreenXAtLogicalIndex(index + 1)
+  const nextX = adapter.getXAtLogicalIndex(index + 1)
   if (nextX === null) return null
   const step = nextX - screenX
   if (!Number.isFinite(step) || step <= 0) return null

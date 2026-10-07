@@ -66,6 +66,7 @@ export const UI_COLOR_PRESET_ITEMS = [
   { key: 'controlBackground', label: '控件背景', group: 'interface' },
   { key: 'input', label: '输入框背景', group: 'interface' },
   { key: 'hover', label: '悬停背景', group: 'interface' },
+  { key: 'selected', label: '选中背景', group: 'interface' },
   { key: 'focus', label: '焦点描边', group: 'interface' },
   { key: 'text', label: '主要文字', group: 'text' },
   { key: 'muted', label: '辅助文字', group: 'text' },

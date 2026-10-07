@@ -1,3 +1,4 @@
+<!-- 分组下拉菜单：统一整行选项、选中态及操作区样式。 -->
 <template>
   <div ref="rootRef" class="drop-menu">
     <BaseTooltip :content="label" :placement="tooltipPlacement ?? 'top'" :disabled="open || disabled">
@@ -22,6 +23,10 @@
         v-if="open"
         ref="menuRef"
         class="drop-menu__panel"
+        :class="{
+          'drop-menu__panel--compact': density === 'compact',
+          'drop-menu__panel--replace-detail': replaceDetailOnAction,
+        }"
         :style="menuStyle"
         role="menu"
         :aria-label="label"
@@ -35,14 +40,20 @@
             v-for="item in group.items"
             :key="item.id"
             class="drop-menu__item"
+            :class="{ 'is-active': item.active }"
           >
+            <slot name="item" :group="group" :item="item" :select="() => select(group.id, item.id)">
             <button
               type="button"
               class="drop-menu__item-main"
               role="menuitem"
               :disabled="item.disabled"
               @click="select(group.id, item.id)"
-            >{{ item.label }}</button>
+            >
+              <slot name="item-icon" :group="group" :item="item" />
+              <span>{{ item.label }}</span>
+            </button>
+            </slot>
             <span v-if="$slots['item-action']" class="drop-menu__item-action">
               <slot name="item-action" :group="group" :item="item" />
             </span>
@@ -52,6 +63,9 @@
           </div>
         </div>
         <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
+        <div v-if="$slots.footer" class="drop-menu__footer">
+          <slot name="footer" />
+        </div>
       </div>
     </Teleport>
   </div>
@@ -68,7 +82,14 @@
   export interface DropMenuGroup {
     id: string
     label: string
-    items: ReadonlyArray<{ id: string; label: string; disabled?: boolean }>
+    items: ReadonlyArray<{
+      id: string
+      label: string
+      disabled?: boolean
+      active?: boolean
+      /** 管理菜单用来决定是否展示删除操作；普通列表可省略。 */
+      deletable?: boolean
+    }>
   }
 
   const props = defineProps<{
@@ -83,6 +104,12 @@
     message?: string
     /** 分组为空时展示的提示；未提供时不渲染空提示。 */
     emptyText?: string
+    /** 菜单项行高；默认松散，短选项列表可使用紧凑模式。 */
+    density?: 'compact' | 'loose'
+    /** 管理操作需要在同一面板内展开表单。 */
+    keepOpenOnSelect?: boolean
+    /** 操作区浮于详情位置，悬停或聚焦行时替换 drop-menu__item-detail。 */
+    replaceDetailOnAction?: boolean
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -100,7 +127,10 @@
     false,
     props.placement,
   )
-  const menuStyle = computed(() => ({ ...popupStyle.value, zIndex: 1010 }))
+  const menuStyle = computed(() => ({
+    ...popupStyle.value,
+    zIndex: 1010,
+  }))
 
   useClickOutside(
     () => [rootRef.value, menuRef.value],
@@ -146,7 +176,7 @@
   }
 
   function select(groupId: string, itemId: string) {
-    hide()
+    if (!props.keepOpenOnSelect) hide()
     emit('select', groupId, itemId)
   }
 
@@ -162,9 +192,12 @@
   }
 
   .drop-menu__panel {
+    box-sizing: border-box;
+    width: max-content;
     min-width: 150px;
-    max-width: min(280px, calc(100vw - 16px));
-    padding: 4px;
+    max-width: calc(100vw - 16px);
+    max-height: min(420px, calc(100vh - 24px));
+    padding: 0;
     overflow-y: auto;
     border-radius: 8px;
     background: var(--klc-color-ui-input);
@@ -172,16 +205,35 @@
   }
 
   .drop-menu__group + .drop-menu__group {
-    margin-top: 4px;
-    padding-top: 4px;
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
-  .drop-menu__heading,
-  .drop-menu__empty {
-    padding: 5px 8px;
+  .drop-menu__footer {
+    padding: 8px;
+    border-top: 1px solid var(--klc-color-ui-border);
+  }
+
+  .drop-menu__heading:empty {
+    display: none;
+  }
+
+  .drop-menu__item-action:empty,
+  .drop-menu__footer:empty {
+    display: none;
+  }
+
+  .drop-menu__heading {
+    padding: 8px 10px 4px;
     color: var(--klc-color-ui-muted);
     font-size: 11px;
+    font-weight: 500;
+    line-height: 16px;
+  }
+
+  .drop-menu__empty {
+    padding: 8px 10px;
+    color: var(--klc-color-ui-muted);
+    font-size: 12px;
   }
 
   .drop-menu__message {
@@ -193,7 +245,8 @@
   .drop-menu__item {
     display: flex;
     align-items: center;
-    border-radius: 4px;
+    padding: 0;
+    border-radius: 0;
   }
 
   .drop-menu__item:hover,
@@ -201,28 +254,74 @@
     background: var(--klc-color-ui-hover);
   }
 
-  .drop-menu__item-main {
+  /* 选中项常驻显示，用比 hover 更浅的公共 Token，避免整行过重。 */
+  .drop-menu__item.is-active {
+    background: var(--klc-color-ui-selected);
+  }
+
+  /* item 插槽可用同一 class 复用默认按钮样式。 */
+  .drop-menu__item :deep(.drop-menu__item-main) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex: 1;
     min-width: 0;
-    padding: 6px 8px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: var(--drop-menu-item-padding-block, 8px) 10px;
     border: 0;
+    border-radius: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
     font-size: 12px;
+    font-weight: 400;
+    line-height: 20px;
     text-align: left;
     overflow-wrap: anywhere;
     cursor: pointer;
   }
 
+  .drop-menu__panel--compact .drop-menu__item :deep(.drop-menu__item-main) {
+    min-height: 28px;
+    padding-top: var(--drop-menu-item-padding-block, 4px);
+    padding-bottom: var(--drop-menu-item-padding-block, 4px);
+  }
+
+  .drop-menu__item :deep(.drop-menu__item-main svg) {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
   .drop-menu__item-action {
     display: flex;
+    align-items: center;
     flex: 0 0 auto;
+    padding-right: 8px;
+  }
+
+  .drop-menu__panel--replace-detail .drop-menu__item {
+    position: relative;
+  }
+
+  .drop-menu__panel--replace-detail .drop-menu__item-action {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    padding: 0;
+    transform: translateY(-50%);
+  }
+
+  /* 保留详情自身的尺寸，避免切换操作时面板宽度跳动；操作区不占布局空间。 */
+  .drop-menu__panel--replace-detail .drop-menu__item:hover :deep(.drop-menu__item-detail),
+  .drop-menu__panel--replace-detail .drop-menu__item:focus-within :deep(.drop-menu__item-detail) {
     visibility: hidden;
   }
 
-  .drop-menu__item:hover .drop-menu__item-action,
-  .drop-menu__item:focus-within .drop-menu__item-action {
+  .drop-menu__item:hover .drop-menu__item-action :deep(button),
+  .drop-menu__item:focus-within .drop-menu__item-action :deep(button) {
     visibility: visible;
   }
 
@@ -237,6 +336,16 @@
     background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
+    visibility: hidden;
+  }
+
+  /* 状态标记始终可见，管理按钮仅在悬停或聚焦时出现。 */
+  .drop-menu__item-action :deep(.drop-menu__status) {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    color: var(--klc-color-ui-text);
   }
 
   .drop-menu__item-action :deep(button:hover),
@@ -265,8 +374,35 @@
     height: 14px;
   }
 
-  .drop-menu__item-main:disabled {
+  .drop-menu__item :deep(.drop-menu__item-main:disabled) {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch) {
+    margin-left: auto;
+    width: 28px;
+    height: 16px;
+    padding: 2px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background: var(--klc-color-ui-muted);
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch[aria-checked='true']) {
+    background: var(--klc-color-ui-accent);
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch span) {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--klc-color-ui-surface);
+    transition: transform var(--klc-motion-duration-moderate);
+  }
+
+  .drop-menu__item :deep(.drop-menu__switch[aria-checked='true'] span) {
+    transform: translateX(12px);
   }
 </style>

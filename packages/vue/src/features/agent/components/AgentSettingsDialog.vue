@@ -12,7 +12,7 @@
       <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.settings" />
     </template>
 
-    <div class="provider-form">
+    <div class="provider-form agent-settings-selects">
       <div class="agent-settings-body">
         <section v-if="activeTab === 'interface'" class="agent-settings-interface" role="tabpanel">
           <div class="settings-item">
@@ -980,14 +980,12 @@
 
   .provider-protocol-control :deep(.dropdown__trigger) {
     width: 100%;
-    height: 34px;
     box-sizing: border-box;
-    padding: 0 10px;
   }
 
   .provider-protocol-control :deep(.dropdown__value),
   .provider-profile-dropdown :deep(.dropdown__value) {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 400;
   }
 
@@ -1003,9 +1001,7 @@
 
   .provider-profile-dropdown :deep(.dropdown__trigger) {
     width: 100%;
-    height: 34px;
     box-sizing: border-box;
-    padding: 0 10px;
   }
 
   .provider-profile-new-button {
@@ -1103,3 +1099,4 @@
     }
   }
 </style>
+<style src="./agent-select-trigger.css"></style>

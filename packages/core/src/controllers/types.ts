@@ -26,6 +26,7 @@ import type {
   DrawingObject as PluginDrawingObject,
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
+import type { LayoutApi } from '../engine/layout/types.js'
 import type { CustomMarkerEntity } from '../engine/marker/registry.js'
 import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import type { ChartAgentController } from '../features/agent/types.js'
@@ -317,7 +318,7 @@ export interface DrawingViewportPort {
   /** screen-x → logical bar index */
   getLogicalIndexAtX(mouseX: number): number | null
   /** logical bar index → current-frame screen x */
-  getScreenXAtLogicalIndex(index: number): number | null
+  getXAtLogicalIndex(index: number): number | null
   /** 逻辑索引对应当前绘制数据点的时间戳（ms）。 */
   getDrawingTimestampAtLogicalIndex(index: number): number | null
   /** unix timestamp (ms) → current logical index */
@@ -395,7 +396,7 @@ export interface ChartMountOptions {
   settings?: Partial<ChartSettings>
 }
 
-export interface ChartController extends DrawingChartAdapter, ChartRendererAccess {
+export interface ChartController extends DrawingChartAdapter, ChartRendererAccess, LayoutApi {
   /** 在完整绘制帧结束时同步调用捕获函数，返回其异步合成结果。 */
   captureFrame<T>(
     capture: (frame: import('./screenshot/types.js').ChartFrameCaptureContext) => T | Promise<T>,

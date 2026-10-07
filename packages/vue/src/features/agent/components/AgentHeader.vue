@@ -76,7 +76,7 @@
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    padding: 0 var(--agent-header-inset, 12px);
+    padding: 0 var(--agent-header-inset, 8px);
     border-top: 1px solid var(--agent-border);
     border-bottom: 1px solid var(--agent-border);
     background: var(--agent-surface);

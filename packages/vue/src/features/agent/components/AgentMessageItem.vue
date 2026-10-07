@@ -32,18 +32,30 @@
           @keydown="editKeydown"
         />
         <p v-if="editError" class="message__edit-error" role="alert">{{ editError }}</p>
-        <button
-          class="message__edit-send agent-primary-button"
-          type="submit"
-          :disabled="!canSaveEdit"
-          :aria-label="text.saveAndSend"
-          :title="text.saveAndSend"
-          :aria-busy="editPending"
-        >
-          <span class="agent-primary-button__background" aria-hidden="true"></span>
-          <IconLoader2 v-if="editPending" class="message__spinner" aria-hidden="true" />
-          <IconArrowUp v-else aria-hidden="true" />
-        </button>
+        <div class="message__editor-actions">
+          <button
+            type="button"
+            class="message__edit-cancel"
+            :disabled="editPending"
+            :aria-label="text.cancel"
+            :title="text.cancel"
+            @click="cancelEdit"
+          >
+            <IconX aria-hidden="true" />
+          </button>
+          <button
+            class="message__edit-send agent-primary-button"
+            type="submit"
+            :disabled="!canSaveEdit"
+            :aria-label="text.saveAndSend"
+            :title="text.saveAndSend"
+            :aria-busy="editPending"
+          >
+            <span class="agent-primary-button__background" aria-hidden="true"></span>
+            <IconLoader2 v-if="editPending" class="message__spinner" aria-hidden="true" />
+            <IconArrowUp v-else aria-hidden="true" />
+          </button>
+        </div>
       </form>
       <p v-else class="message__content">{{ message.content }}</p>
     </div>
@@ -98,6 +110,7 @@
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconPencil from '~icons/tabler/pencil'
   import IconRefresh from '~icons/tabler/refresh'
+  import IconX from '~icons/tabler/x'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentMessageView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
@@ -129,6 +142,7 @@
     begin: beginEdit,
     save: saveEdit,
     keydown: editKeydown,
+    cancel: cancelEdit,
   } = useMessageEdit({
     message: () => props.message,
     disabled: () => Boolean(props.editDisabled),
@@ -189,10 +203,38 @@
     line-height: 1.52;
   }
   .message__editor textarea:focus-visible { outline: none; }
-  .message__edit-send {
+  .message__editor-actions {
     position: absolute;
     right: 0;
     bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .message__edit-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--agent-text-soft);
+    cursor: pointer;
+  }
+  .message__edit-cancel:hover:not(:disabled) {
+    color: var(--agent-text);
+    background: var(--agent-hover);
+  }
+  .message__edit-cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .message__edit-cancel svg {
+    width: 14px;
+    height: 14px;
   }
   .message__edit-error { margin: 0; color: var(--agent-text); font-size: 12px; }
   .message__actions {

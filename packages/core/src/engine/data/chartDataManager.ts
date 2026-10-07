@@ -55,8 +55,9 @@ import {
   type ComparisonProjection,
   projectComparison,
 } from '../chartModel/index.js'
+import type { LayoutViewportSnapshot } from '../layout/index.js'
 import type { UpdateLevel } from '../pane/index.js'
-import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState.js'
+import type { DataManagerStateModule } from '../state/dataManagerState.js'
 import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
@@ -1010,8 +1011,8 @@ export class ChartDataManager {
     }
   }
 
-  /** 为当前 K 线视图保存可恢复的横向锚点。 */
-  private saveActiveKLineViewportSnapshot(): void {
+  /** 捕获当前 K 线视图的横向锚点（品种+周期+复权+视图键），供切换与布局持久化恢复。 */
+  saveActiveKLineViewportSnapshot(): void {
     const kBuf = this.getActiveDataBuffer()
     const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
     const kRaw = rawFromBuf ?? (this._dataState.readonly.data.peek() as KLineData[])
@@ -1029,7 +1030,7 @@ export class ChartDataManager {
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const leftBuffer = this.getLeftLoadBufferWidth()
     const baseScrollLeft = ((visibleStart + 1) * unitPx + startXPx) / dpr + leftBuffer
-    const snapshot: ViewportSnapshot = {
+    const snapshot: LayoutViewportSnapshot = {
       anchorTimestamp: anchor.timestamp,
       anchorOffsetPx: this.deps.viewport.readonly.scrollLeft.peek() - baseScrollLeft,
       zoomLevel: this.deps.getZoomLevel(),

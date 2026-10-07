@@ -7,6 +7,7 @@
   >
     <div class="chart-workspace">
       <TopToolbar
+        :layout-controller="controller"
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @settings="chartSettingsOpen = true"
@@ -1690,9 +1691,14 @@
     // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
     symbolPool.value = ctrl.symbolCatalog.peek().map(fromSymbolInfo)
 
-    const unsubscribeSymbols = ctrl.symbols.subscribe(() => {
+    /** 初次接线与之后的布局切换使用同一份品种投影，避免显示旧名称。 */
+    const syncCurrentSymbol = () => {
       const specs = ctrl.symbols.peek()
-      if (specs.length === 0) return
+      if (specs.length === 0) {
+        currentSymbol.value = '选择商品'
+        currentSymbolItem.value = null
+        return
+      }
       const primary = specs[0]
       const primaryInfo = ctrl.symbolCatalog
         .peek()
@@ -1704,28 +1710,38 @@
               info.exchange === primary.exchange,
         )
       currentSymbol.value = primary.symbol
-      currentSymbolItem.value = primaryInfo
-        ? fromSymbolInfo(primaryInfo)
-        : {
-            id:
-              primary.id ??
-              legacyInstrumentId(
-                primary.source ?? '',
-                primary.symbol,
-                primary.exchange ?? '',
-                primary.params,
-              ),
-            sourceId: primary.source ?? '',
-            symbol: primary.symbol,
-            name: primary.symbol,
-            assetClass: 'unknown',
-            exchange: primary.exchange ?? '',
-            sessionId: primary.market || undefined,
-            providerRef: primary.params,
-            capabilities: {},
-          }
-      if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
-    })
+      currentSymbolItem.value =
+        primary.instrument ??
+        (primaryInfo
+          ? fromSymbolInfo(primaryInfo)
+          : {
+              id:
+                primary.id ??
+                legacyInstrumentId(
+                  primary.source ?? '',
+                  primary.symbol,
+                  primary.exchange ?? '',
+                  primary.params,
+                ),
+              sourceId: primary.source ?? '',
+              symbol: primary.symbol,
+              name: primary.symbol,
+              assetClass: 'unknown',
+              exchange: primary.exchange ?? '',
+              sessionId: primary.market || undefined,
+              providerRef: primary.params,
+              capabilities: {},
+            })
+      if (
+        primary.adjust === 'qfq' ||
+        primary.adjust === 'hfq' ||
+        primary.adjust === 'splits' ||
+        primary.adjust === 'none'
+      )
+        kLineAdjust.value = primary.adjust
+    }
+    syncCurrentSymbol()
+    const unsubscribeSymbols = ctrl.symbols.subscribe(syncCurrentSymbol)
 
     const unsubscribeComparisonSpecs = ctrl.comparisonSpecs.subscribe(() => {
       const comparisonSpecs = ctrl.comparisonSpecs.peek()
@@ -1785,7 +1801,7 @@
   }
 
   /** 将受控业务 props 按固定顺序同步到 ChartController。 */
-  function applyControlledChartProps(ctrl: ChartController): void {
+  function applyControlledChartProps(ctrl: ChartController, initial = false): void {
     if (props.indicators !== undefined) {
       for (const indicator of ctrl.indicators.peek()) {
         ctrl.removeIndicator(indicator.id)
@@ -1799,7 +1815,7 @@
 
     if (props.customData) {
       ctrl.applyCustomData(props.customData)
-    } else if (props.symbols !== undefined) {
+    } else if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
       // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
       ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
       ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
@@ -1862,7 +1878,7 @@
     cleanupChartCallbacks = setupChartCallbacks(ctrl)
 
     // 指标必须在 data source 首次加载前创建，避免 scheduler 漏掉首帧计算。
-    applyControlledChartProps(ctrl)
+    applyControlledChartProps(ctrl, true)
 
     // 4) 工具栏初始设置
     applyInitialSettings(ctrl)
