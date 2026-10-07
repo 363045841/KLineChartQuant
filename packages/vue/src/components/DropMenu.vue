@@ -82,7 +82,14 @@
   export interface DropMenuGroup {
     id: string
     label: string
-    items: ReadonlyArray<{ id: string; label: string; disabled?: boolean; active?: boolean }>
+    items: ReadonlyArray<{
+      id: string
+      label: string
+      disabled?: boolean
+      active?: boolean
+      /** 管理菜单用来决定是否展示删除操作；普通列表可省略。 */
+      deletable?: boolean
+    }>
   }
 
   const props = defineProps<{
