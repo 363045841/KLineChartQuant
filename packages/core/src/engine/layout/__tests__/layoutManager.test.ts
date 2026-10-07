@@ -146,3 +146,23 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
     restoredKernel.dispose()
   }
 })
+
+it('视口快照随布局文档持久化，切换到该布局时恢复', async () => {
+  const { kernel, manager } = createManager()
+  try {
+    await manager.initialize()
+    const key = 'US:AAPL:daily:none:Kline'
+    const snapshot = { anchorTimestamp: 1_700_000_000_000, anchorOffsetPx: 24, zoomLevel: 9 }
+    kernel.dataManager.actions.saveViewportSnapshot(key, snapshot)
+    const id = await manager.saveLayout({ name: '带视口' })
+    expect(manager.exportLayout().viewport).toEqual({ [key]: snapshot })
+
+    // 模拟切换前视口内存态已被清空，切回该布局应从文档恢复。
+    kernel.dataManager.actions.restoreViewportSnapshots({})
+    await manager.switchLayout({ id })
+    expect(kernel.dataManager.readonly.viewportSnapshots.peek()).toEqual({ [key]: snapshot })
+  } finally {
+    await manager.dispose()
+    kernel.dispose()
+  }
+})

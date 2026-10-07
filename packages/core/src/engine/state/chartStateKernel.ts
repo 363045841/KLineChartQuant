@@ -574,7 +574,7 @@ export class ChartStateKernel extends StateKernel {
     }
   }
 
-  /** 聚合图表配置；绘图与数据视口按文档可选切片由宿主决定携带。 */
+  /** 聚合图表配置；绘图切片由宿主决定携带，可恢复视口位置随文档持久化。 */
   exportLayout(): LayoutDocument {
     return structuredClone({
       version: LAYOUT_DOCUMENT_VERSION,
@@ -587,6 +587,7 @@ export class ChartStateKernel extends StateKernel {
         ]),
       ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
+      viewport: this.dataManager.readonly.viewportSnapshots.peek(),
     })
   }
 
@@ -615,7 +616,7 @@ export class ChartStateKernel extends StateKernel {
       if (document.settings) this.settings.actions.patch(selectLayoutSettings(document.settings))
       this.mainPriceAxis.actions.restoreModes(document.panePriceAxisModes)
       if (document.drawings) this.drawing.actions.restoreDocument(document.drawings, [])
-      if (document.viewport) this.dataManager.actions.restoreViewportSnapshots(document.viewport)
+      this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())
     })
   }

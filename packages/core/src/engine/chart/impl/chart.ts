@@ -1036,6 +1036,11 @@ export class Chart {
     return this.dataManager.marketDataCache
   }
 
+  /** 捕获当前 K 线视图的视口锚点，供布局文档持久化。 */
+  captureViewportSnapshot(): void {
+    this.dataManager.saveActiveKLineViewportSnapshot()
+  }
+
   /** 请求当前图表缓存覆盖指定左边界。 */
   ensureDataRange(startTs: number): void {
     this.dataManager.ensureDataRange(startTs)

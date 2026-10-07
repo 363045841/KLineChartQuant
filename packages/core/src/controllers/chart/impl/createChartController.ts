@@ -188,7 +188,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, isDisposed)
   const layoutManager = new LayoutManager({
-    exportLayout: () => chart.kernel.exportLayout(),
+    // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
+    exportLayout: () => {
+      chart.captureViewportSnapshot()
+      return chart.kernel.exportLayout()
+    },
     createLayout: () => chart.kernel.createLayout(),
     applyLayout: (document) => {
       if (disposed) throw new Error('图表已销毁')
@@ -211,6 +215,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.kernel.mainPriceAxis.readonly.paneRanges.subscribe(() =>
       layoutManager.scheduleAutoSave(),
     ),
+    chart.kernel.viewport.readonly.scrollLeft.subscribe(() => layoutManager.scheduleAutoSave()),
+    chart.kernel.zoom.readonly.zoomLevel.subscribe(() => layoutManager.scheduleAutoSave()),
   ]
 
   const agent = createChartAgentController({

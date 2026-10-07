@@ -1011,8 +1011,8 @@ export class ChartDataManager {
     }
   }
 
-  /** 为当前 K 线视图保存可恢复的横向锚点。 */
-  private saveActiveKLineViewportSnapshot(): void {
+  /** 捕获当前 K 线视图的横向锚点（品种+周期+复权+视图键），供切换与布局持久化恢复。 */
+  saveActiveKLineViewportSnapshot(): void {
     const kBuf = this.getActiveDataBuffer()
     const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
     const kRaw = rawFromBuf ?? (this._dataState.readonly.data.peek() as KLineData[])
