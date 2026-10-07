@@ -179,7 +179,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
     createLayout: () => chart.kernel.createLayout(),
     applyLayout: (document) => {
-      if (disposed) throw new Error('图表已销毁')
+      if (isDisposed()) throw new Error('图表已销毁')
       batch(() => {
         chart.kernel.applyLayout(document)
         if (document.currentSymbol !== undefined) {
@@ -192,16 +192,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
   await layoutManager.initialize()
   const layoutSubscriptions = [
-    chart.kernel.dataManager.readonly.currentSpec.subscribe(() => layoutManager.scheduleAutoSave()),
-    chart.kernel.indicator.readonly.workspaces.subscribe(() => layoutManager.scheduleAutoSave()),
-    chart.kernel.pane.readonly.workspaces.subscribe(() => layoutManager.scheduleAutoSave()),
-    chart.kernel.settings.readonly.settings.subscribe(() => layoutManager.scheduleAutoSave()),
-    chart.kernel.mainPriceAxis.readonly.paneRanges.subscribe(() =>
-      layoutManager.scheduleAutoSave(),
-    ),
-    chart.kernel.viewport.readonly.scrollLeft.subscribe(() => layoutManager.scheduleAutoSave()),
-    chart.kernel.zoom.readonly.zoomLevel.subscribe(() => layoutManager.scheduleAutoSave()),
-  ]
+    chart.kernel.dataManager.readonly.currentSpec,
+    chart.kernel.indicator.readonly.workspaces,
+    chart.kernel.pane.readonly.workspaces,
+    chart.kernel.settings.readonly.settings,
+    chart.kernel.mainPriceAxis.readonly.paneRanges,
+    chart.kernel.viewport.readonly.scrollLeft,
+    chart.kernel.zoom.readonly.zoomLevel,
+  ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave()))
 
   const agent = createChartAgentController({
     chartId: generateUUID(),

@@ -11,6 +11,8 @@ import {
 } from '../types.js'
 
 export const DEFAULT_LAYOUT_ID = 'default'
+const DEFAULT_LAYOUT_NAME = '默认布局'
+const AUTO_SAVE_DEBOUNCE_MS = 600
 
 /** 判断值是否为普通对象（排除 null 与数组）。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -93,13 +95,104 @@ export class LayoutManager implements LayoutApi {
     globalThis.addEventListener?.('pagehide', this.onPageHide)
   }
 
-  /** 页面离开时补写最新配置，失败保留错误状态。 */
-  private readonly onPageHide = (): void => {
-    if (!this.loaded || !this.archive.autoSave || this.disposed) return
-    void this.run(() => this.saveActive()).catch((error: unknown) => {
-      this.errorSignal.set(error instanceof Error ? error.message : '自动保存失败')
-    })
+  // ── 状态判定 ──
+
+  /** 是否应把当前配置写回活动布局：已加载、开启自动保存且未销毁。 */
+  private shouldAutoSave(): boolean {
+    return this.loaded && this.archive.autoSave && !this.disposed
   }
+
+  /** 当前配置的稳定字符串，用于判断是否发生真实变更。 */
+  private currentConfiguration(): string {
+    return JSON.stringify(this.exportLayout())
+  }
+
+  /** 把当前配置记为干净基线；恢复与保存成功后都走这里。 */
+  private markClean(): void {
+    this.lastConfiguration = this.currentConfiguration()
+    this.dirtySignal.set(false)
+  }
+
+  /** 把未知错误转成界面文案写入错误信号。 */
+  private reportError(error: unknown, fallback: string): void {
+    this.errorSignal.set(error instanceof Error ? error.message : fallback)
+  }
+
+  // ── 归档读写 ──
+
+  /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
+  private async saveArchive(archive: LayoutArchive): Promise<void> {
+    await this.persistence.save(archive)
+    this.archive = archive
+    this.errorSignal.set(null)
+    this.publish()
+  }
+
+  /** 覆盖文档集（默认沿用当前活动身份）。 */
+  private saveDocuments(
+    documents: Readonly<Record<string, NamedLayoutDocument>>,
+    activeId = this.archive.activeId,
+  ): Promise<void> {
+    return this.saveArchive({ ...this.archive, documents, activeId })
+  }
+
+  /** 只派生归档摘要，按文档创建顺序稳定输出；切换活动文档不改变列表位置。 */
+  private publish(): void {
+    this.layoutSignal.set(
+      Object.entries(this.archive.documents).map(([id, document]) =>
+        Object.freeze({
+          id,
+          name: document.name,
+          deletable: id !== DEFAULT_LAYOUT_ID && id !== this.archive.activeId,
+        }),
+      ),
+    )
+    this.activeSignal.set(this.archive.activeId)
+    this.autoSaveSignal.set(this.archive.autoSave)
+  }
+
+  /** 找不到身份时明确失败，避免误操作默认文档。 */
+  private requireDocument(id: string): NamedLayoutDocument {
+    const document = this.archive.documents[id]
+    if (!document) throw new Error('布局不存在')
+    return document
+  }
+
+  /** 串行处理归档操作，失败不会阻塞后续操作。 */
+  private run<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(() => {
+      if (this.disposed) throw new Error('图表已销毁')
+      return operation()
+    })
+    this.queue = result.catch(() => undefined)
+    return result
+  }
+
+  // ── 生命周期 ──
+
+  /** 页面离开时补写最新配置。 */
+  private readonly onPageHide = (): void => {
+    if (!this.shouldAutoSave()) return
+    void this.run(() => this.saveActive()).catch((error: unknown) =>
+      this.reportError(error, '自动保存失败'),
+    )
+  }
+
+  /** 释放计时器并补写已开启的自动保存。 */
+  async dispose(): Promise<void> {
+    clearTimeout(this.timer)
+    globalThis.removeEventListener?.('pagehide', this.onPageHide)
+    try {
+      await this.run(async () => {
+        if (this.shouldAutoSave()) await this.saveActive()
+      })
+    } finally {
+      this.disposed = true
+      await this.persistence.dispose()
+    }
+  }
+
+  // ── 领域操作 ──
 
   /** 返回当前图表的文档快照。 */
   exportLayout(): LayoutDocument {
@@ -116,88 +209,57 @@ export class LayoutManager implements LayoutApi {
     }
   }
 
-  /** 串行处理归档操作，失败不会阻塞后续操作。 */
-  private run<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.queue.then(() => {
-      if (this.disposed) throw new Error('图表已销毁')
-      return operation()
-    })
-    this.queue = result.catch(() => undefined)
-    return result
-  }
-
   /** 首次加载归档，默认布局取本图表首次使用管理器时的快照。 */
   private async load(): Promise<void> {
     if (this.loaded) return
     if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用布局存储')
     const stored = await this.persistence.load()
-    this.archive = stored ?? this.archive
-    if (!this.archive.documents[DEFAULT_LAYOUT_ID]) {
-      await this.commit(
+    if (stored) this.archive = stored
+    const fallback = this.archive.documents[DEFAULT_LAYOUT_ID]
+    if (!fallback) {
+      await this.saveDocuments(
         {
           ...this.archive.documents,
-          [DEFAULT_LAYOUT_ID]: { ...this.exportLayout(), id: DEFAULT_LAYOUT_ID, name: '默认布局' },
+          [DEFAULT_LAYOUT_ID]: {
+            ...this.exportLayout(),
+            id: DEFAULT_LAYOUT_ID,
+            name: DEFAULT_LAYOUT_NAME,
+          },
         },
         DEFAULT_LAYOUT_ID,
       )
     } else if (stored) {
-      const active =
-        this.archive.documents[this.archive.activeId] ?? this.archive.documents[DEFAULT_LAYOUT_ID]
+      const active = this.archive.documents[this.archive.activeId] ?? fallback
       this.applyLayout(active)
       this.archive = { ...this.archive, activeId: active.id }
     }
     this.loaded = true
-    this.lastConfiguration = JSON.stringify(this.exportLayout())
-    this.dirtySignal.set(false)
+    this.markClean()
     this.publish()
   }
 
   /** 挂载时恢复上次使用的归档，失败通过只读错误信号展示。 */
   initialize(): Promise<void> {
-    return this.run(() => this.load()).catch((error: unknown) => {
-      this.errorSignal.set(error instanceof Error ? error.message : '布局读取失败')
-    })
-  }
-
-  /** 只派生归档摘要，按文档创建顺序稳定输出，切换活动文档不改变列表位置。 */
-  private publish(): void {
-    this.layoutSignal.set(
-      Object.keys(this.archive.documents).flatMap((id) => {
-        const document = this.archive.documents[id]
-        return document ? [Object.freeze({ id, name: document.name })] : []
-      }),
+    return this.run(() => this.load()).catch((error: unknown) =>
+      this.reportError(error, '布局读取失败'),
     )
-    this.activeSignal.set(this.archive.activeId)
-    this.autoSaveSignal.set(this.archive.autoSave)
-  }
-
-  /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
-  private async commit(
-    documents: Readonly<Record<string, NamedLayoutDocument>>,
-    activeId = this.archive.activeId,
-  ): Promise<void> {
-    const archive = { ...this.archive, documents, activeId }
-    await this.persistence.save(archive)
-    this.archive = archive
-    this.errorSignal.set(null)
-    this.publish()
   }
 
   /** 标记真实配置变化；恢复产生的通知不触发回写。 */
   scheduleAutoSave(): void {
     if (this.applying || this.disposed) return
-    const configuration = JSON.stringify(this.exportLayout())
+    const configuration = this.currentConfiguration()
     if (configuration === this.lastConfiguration) return
     this.lastConfiguration = configuration
     this.dirtySignal.set(true)
-    if (!this.loaded || !this.archive.autoSave) return
+    if (!this.shouldAutoSave()) return
     clearTimeout(this.timer)
     this.timer = setTimeout(() => {
       this.timer = undefined
-      void this.run(() => this.saveActive()).catch((error: unknown) => {
-        this.errorSignal.set(error instanceof Error ? error.message : '自动保存失败')
-      })
-    }, 600)
+      void this.run(() => this.saveActive()).catch((error: unknown) =>
+        this.reportError(error, '自动保存失败'),
+      )
+    }, AUTO_SAVE_DEBOUNCE_MS)
   }
 
   /** 切换前和销毁前补写，避免防抖期间的最后一次修改丢失。 */
@@ -207,28 +269,13 @@ export class LayoutManager implements LayoutApi {
     if (!this.dirtySignal.peek()) return
     const current = this.requireDocument(this.archive.activeId)
     const snapshot = this.exportLayout()
-    await this.commit({
+    await this.saveDocuments({
       ...this.archive.documents,
       [current.id]: { ...snapshot, id: current.id, name: current.name },
     })
     // 保存过程中若发生新变更，保留脏标记并安排下一次保存。
-    if (JSON.stringify(snapshot) === JSON.stringify(this.exportLayout()))
-      this.dirtySignal.set(false)
+    if (this.currentConfiguration() === JSON.stringify(snapshot)) this.dirtySignal.set(false)
     else this.scheduleAutoSave()
-  }
-
-  /** 释放计时器并补写已开启的自动保存。 */
-  async dispose(): Promise<void> {
-    clearTimeout(this.timer)
-    globalThis.removeEventListener?.('pagehide', this.onPageHide)
-    try {
-      await this.run(async () => {
-        if (this.loaded && this.archive.autoSave) await this.saveActive()
-      })
-    } finally {
-      this.disposed = true
-      await this.persistence.dispose()
-    }
   }
 
   /** 查询具名布局，同时初始化默认归档。 */
@@ -244,15 +291,15 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       const id = input.id ?? crypto.randomUUID()
-      if (input.id && !this.archive.documents[id]) throw new Error('布局不存在')
-      await this.commit(
+      if (input.id) this.requireDocument(input.id)
+      await this.saveDocuments(
         {
           ...this.archive.documents,
           [id]: { ...this.exportLayout(), id, name: requireName(input.name) },
         },
         id,
       )
-      this.dirtySignal.set(false)
+      this.markClean()
       return id
     })
   }
@@ -261,18 +308,17 @@ export class LayoutManager implements LayoutApi {
   switchLayout(input: { id: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
-      if (this.archive.autoSave) await this.saveActive()
+      if (this.shouldAutoSave()) await this.saveActive()
       clearTimeout(this.timer)
       const previous = this.exportLayout()
       try {
         this.applyLayout(this.requireDocument(input.id))
-        await this.commit(this.archive.documents, input.id)
+        await this.saveDocuments(this.archive.documents, input.id)
       } catch (error) {
         this.applyLayout(previous)
         throw error
       }
-      this.lastConfiguration = JSON.stringify(this.exportLayout())
-      this.dirtySignal.set(false)
+      this.markClean()
     })
   }
 
@@ -280,7 +326,7 @@ export class LayoutManager implements LayoutApi {
   renameLayout(input: { id: string; name: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
-      await this.commit({
+      await this.saveDocuments({
         ...this.archive.documents,
         [input.id]: { ...this.requireDocument(input.id), name: requireName(input.name) },
       })
@@ -292,7 +338,7 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       const id = crypto.randomUUID()
-      await this.commit({
+      await this.saveDocuments({
         ...this.archive.documents,
         [id]: {
           ...(input.id === this.archive.activeId
@@ -311,32 +357,24 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       this.requireDocument(input.id)
-      if (input.id === DEFAULT_LAYOUT_ID || input.id === this.activeLayoutId.peek())
+      if (input.id === DEFAULT_LAYOUT_ID || input.id === this.archive.activeId)
         throw new Error('默认布局和当前布局不能删除')
       const next = { ...this.archive.documents }
       delete next[input.id]
-      await this.commit(next)
+      await this.saveDocuments(next)
     })
-  }
-
-  /** 找不到身份时明确失败，避免误操作默认文档。 */
-  private requireDocument(id: string): NamedLayoutDocument {
-    const document = this.archive.documents[id]
-    if (!document) throw new Error('布局不存在')
-    return document
   }
 
   /** 创建无用户指标的全新布局，并切换到它。 */
   createLayout(input: { name: string }): Promise<string> {
     return this.run(async () => {
       await this.load()
-      if (this.archive.autoSave) await this.saveActive()
+      if (this.shouldAutoSave()) await this.saveActive()
       const id = crypto.randomUUID()
       const document = { ...this.dependencies.createLayout(), id, name: requireName(input.name) }
-      await this.commit({ ...this.archive.documents, [id]: document }, id)
+      await this.saveDocuments({ ...this.archive.documents, [id]: document }, id)
       this.applyLayout(document)
-      this.lastConfiguration = JSON.stringify(this.exportLayout())
-      this.dirtySignal.set(false)
+      this.markClean()
       return id
     })
   }
@@ -346,12 +384,8 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       clearTimeout(this.timer)
-      const archive = { ...this.archive, autoSave: input.enabled }
-      await this.persistence.save(archive)
-      this.archive = archive
-      this.errorSignal.set(null)
-      this.publish()
-      if (input.enabled) await this.saveActive()
+      await this.saveArchive({ ...this.archive, autoSave: input.enabled })
+      if (this.shouldAutoSave()) await this.saveActive()
     })
   }
 }

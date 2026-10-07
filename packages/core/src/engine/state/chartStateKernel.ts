@@ -37,7 +37,7 @@ import {
 } from '../layout/index.js'
 import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 import { PaneManager } from '../pane/index.js'
-import type { PaneSpec } from '../pane/types.js'
+import { MAIN_PANE_ID, type PaneSpec } from '../pane/types.js'
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
@@ -584,15 +584,15 @@ export class ChartStateKernel extends StateKernel {
   createLayout(): LayoutDocument {
     const workspace = () => ({
       instances: [],
-      paneRatios: { main: 1 },
-      paneSpecs: [{ id: 'main', ratio: 1 }],
+      paneRatios: { [MAIN_PANE_ID]: 1 },
+      paneSpecs: [{ id: MAIN_PANE_ID, ratio: 1 }],
       paneScaleTypes: {},
     })
     return {
       version: LAYOUT_DOCUMENT_VERSION,
       currentSymbol: structuredClone(this.dataManager.readonly.currentSpec.peek()),
       workspaces: { kline: workspace(), timeshare: workspace() },
-      panePriceAxisModes: { main: PRICE_AXIS_RANGE_MODE.AUTO },
+      panePriceAxisModes: { [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
       settings: selectLayoutSettings(normalizeSettings()),
     }
   }

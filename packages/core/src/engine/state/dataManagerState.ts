@@ -39,7 +39,6 @@ export function createDataManagerState() {
       },
 
       saveViewportSnapshot(key: string, snapshot: LayoutViewportSnapshot) {
-        if (!key || !Number.isFinite(snapshot.anchorTimestamp)) return
         signals.viewportSnapshots.set(
           Object.freeze({
             ...signals.viewportSnapshots.peek(),
@@ -54,7 +53,7 @@ export function createDataManagerState() {
 
       consumeViewportSnapshot(key: string): LayoutViewportSnapshot | null {
         const snapshots = signals.viewportSnapshots.peek()
-        const snapshot = snapshots[key] ?? null
+        const snapshot = snapshots[key]
         if (!snapshot) return null
         const { [key]: _, ...remaining } = snapshots
         signals.viewportSnapshots.set(Object.freeze(remaining))

@@ -69,10 +69,12 @@ export interface NamedLayoutDocument extends LayoutDocument {
   readonly name: string
 }
 
-/** 布局列表只暴露名称和身份，不复制文档业务状态。 */
+/** 布局列表项：只暴露名称、身份与是否可删除，不复制文档业务状态。 */
 export interface LayoutSummary {
   readonly id: string
   readonly name: string
+  /** 默认布局与当前活动布局不可删除。 */
+  readonly deletable: boolean
 }
 
 /** 布局归档的持久化形状；由 LayoutManager 写入 IndexedDB。 */
