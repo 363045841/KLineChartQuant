@@ -1,4 +1,4 @@
-// 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和最近使用顺序。
+// 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import type { SymbolSpec } from '../../../controllers/types.js'
@@ -34,11 +34,18 @@ it('保存和切换布局，保留设备偏好，复制与重命名不改变当�
     const copy = await manager.duplicateLayout({ id: dark, name: '副本' })
     await manager.renameLayout({ id: copy, name: '工作布局' })
     expect(manager.activeLayoutId.peek()).toBe(dark)
-    await manager.createLayout({ name: '新布局' })
+    const created = await manager.createLayout({ name: '新布局' })
     expect(kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB).toBe(200)
     await manager.switchLayout({ id: copy })
     expect(kernel.settings.readonly.settings.peek().theme).toBe('dark')
-    expect(manager.layouts.peek()[0]).toEqual({ id: copy, name: '工作布局' })
+    // 切换活动文档不改变列表顺序，选中项停留在原位置。
+    expect(manager.layouts.peek().map((layout) => layout.id)).toEqual([
+      'default',
+      dark,
+      copy,
+      created,
+    ])
+    expect(manager.activeLayoutId.peek()).toBe(copy)
     expect(kernel.exportLayout().settings).not.toHaveProperty('marketDataCacheMaxMiB')
     await expect(manager.deleteLayout({ id: 'default' })).rejects.toThrow()
     await expect(manager.deleteLayout({ id: copy })).rejects.toThrow()
@@ -49,7 +56,7 @@ it('保存和切换布局，保留设备偏好，复制与重命名不改变当�
   }
 })
 
-it('自动保存补写最后一次变更，重新打开恢复活动布局和最近顺序', async () => {
+it('自动保存补写最后一次变更，重新打开恢复活动布局和列表顺序', async () => {
   const { kernel, manager } = createManager()
   await manager.initialize()
   const id = await manager.saveLayout({ name: '常用布局' })
@@ -63,7 +70,7 @@ it('自动保存补写最后一次变更，重新打开恢复活动布局和最�
   try {
     await restored.manager.initialize()
     expect(restored.manager.activeLayoutId.peek()).toBe(id)
-    expect(restored.manager.layouts.peek()[0]?.id).toBe(id)
+    expect(restored.manager.layouts.peek().map((layout) => layout.id)).toEqual(['default', id])
     expect(restored.kernel.settings.readonly.settings.peek().theme).toBe('dark')
     await restored.manager.setLayoutAutoSave({ enabled: false })
     restored.kernel.settings.actions.patch({ theme: 'light' })

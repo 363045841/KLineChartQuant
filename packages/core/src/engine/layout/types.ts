@@ -90,7 +90,6 @@ export interface LayoutArchive {
   readonly documents: Readonly<Record<string, NamedLayoutDocument>>
   readonly activeId: string
   readonly autoSave: boolean
-  readonly recentIds: ReadonlyArray<string>
 }
 
 /** UI 与 Agent 共用的布局管理入口。 */

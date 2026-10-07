@@ -1,4 +1,4 @@
-// 布局管理领域入口：具名文档、自动保存偏好和最近使用顺序统一存入 IndexedDB。
+// 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
 import { Type } from 'typebox'
 import { Value } from 'typebox/value'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
@@ -70,7 +70,6 @@ const ArchiveSchema = Type.Object({
   documents: DocumentsSchema,
   activeId: Type.String(),
   autoSave: Type.Boolean(),
-  recentIds: Type.Array(Type.String()),
 })
 
 /** 校验归档的文档版本与必需切片；不进行类型断言。 */
@@ -97,7 +96,6 @@ export class LayoutManager implements LayoutApi {
     documents: {},
     activeId: DEFAULT_LAYOUT_ID,
     autoSave: true,
-    recentIds: [],
   }
   private readonly layoutSignal = createSignal<ReadonlyArray<LayoutSummary>>([])
   private readonly activeSignal = createSignal(DEFAULT_LAYOUT_ID)
@@ -194,15 +192,13 @@ export class LayoutManager implements LayoutApi {
     })
   }
 
-  /** 只派生归档摘要，完整文档保持在持久化边界。 */
+  /** 只派生归档摘要，按文档创建顺序稳定输出，切换活动文档不改变列表位置。 */
   private publish(): void {
     this.layoutSignal.set(
-      [...new Set([...this.archive.recentIds, ...Object.keys(this.archive.documents)])].flatMap(
-        (id) => {
-          const document = this.archive.documents[id]
-          return document ? [Object.freeze({ id, name: document.name })] : []
-        },
-      ),
+      Object.keys(this.archive.documents).flatMap((id) => {
+        const document = this.archive.documents[id]
+        return document ? [Object.freeze({ id, name: document.name })] : []
+      }),
     )
     this.activeSignal.set(this.archive.activeId)
     this.autoSaveSignal.set(this.archive.autoSave)
@@ -213,15 +209,7 @@ export class LayoutManager implements LayoutApi {
     documents: Readonly<Record<string, NamedLayoutDocument>>,
     activeId = this.archive.activeId,
   ): Promise<void> {
-    const archive = {
-      ...this.archive,
-      documents,
-      activeId,
-      recentIds: [
-        activeId,
-        ...this.archive.recentIds.filter((id) => id !== activeId && Boolean(documents[id])),
-      ],
-    }
+    const archive = { ...this.archive, documents, activeId }
     await this.persistence.save(archive)
     this.archive = archive
     this.errorSignal.set(null)
