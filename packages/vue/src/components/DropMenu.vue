@@ -269,7 +269,7 @@
     width: 100%;
     box-sizing: border-box;
     min-height: 36px;
-    padding: 8px 10px;
+    padding: var(--drop-menu-item-padding-block, 8px) 10px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -285,8 +285,8 @@
 
   .drop-menu__panel--compact .drop-menu__item :deep(.drop-menu__item-main) {
     min-height: 28px;
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding-top: var(--drop-menu-item-padding-block, 4px);
+    padding-bottom: var(--drop-menu-item-padding-block, 4px);
   }
 
   .drop-menu__item :deep(.drop-menu__item-main svg) {

@@ -77,6 +77,11 @@
 </script>
 
 <style scoped>
+  /* 商品行上下留白与搜索列表一致，覆盖紧凑菜单默认的 4px。 */
+  .drop-menu__item-main {
+    --drop-menu-item-padding-block: 10px;
+  }
+
   /* DropMenu 触发器是共享组件的元素，用 :deep 收紧为紧凑图标按钮。 */
   :deep(.watchlist-trigger) {
     width: 30px;
@@ -108,11 +113,12 @@
     min-width: 0;
   }
 
+  /* 与商品搜索、比较商品的代码/名称两行块保持一致：gap 与 line-height 对齐，避免间距被 DropMenu 的 20px 行高放大。 */
   .watchlist-item__identity {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
@@ -121,11 +127,13 @@
   .watchlist-item__symbol {
     font-size: 13px;
     font-weight: 600;
+    line-height: 1.2;
   }
 
   .watchlist-item__name {
     color: var(--klc-color-ui-muted);
     font-size: 11px;
+    line-height: 1.2;
   }
 
   /* 空间不足时整块换行，不挤压或覆盖商品信息。 */
