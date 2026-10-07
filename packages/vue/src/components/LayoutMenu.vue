@@ -19,7 +19,7 @@
       <button v-if="group.id === 'layouts'" type="button" :disabled="busy" :aria-label="`复制 ${item.label}`" title="复制" @click.stop="begin('duplicate', layouts.find(layout => layout.id === item.id))"><IconCopy aria-hidden="true" /></button>
       <button v-if="group.id === 'layouts'" type="button" :disabled="busy" :aria-label="`重命名 ${item.label}`" title="重命名" @click.stop="begin('rename', layouts.find(layout => layout.id === item.id))"><IconPencil aria-hidden="true" /></button>
       <button v-if="group.id === 'layouts' && item.id !== 'default' && item.id !== activeId" type="button" class="drop-menu__action--danger" :disabled="busy" :aria-label="`删除 ${item.label}`" title="删除" @click.stop="deleting = item.id"><IconTrash aria-hidden="true" /></button>
-      <span v-if="group.id === 'layouts'" class="drop-menu__status"><IconCheck v-if="item.id === activeId" aria-label="当前布局" /></span>
+      <span v-if="group.id === 'layouts' && item.id === activeId" class="drop-menu__status"><IconCheck aria-label="当前布局" /></span>
     </template>
     <template #footer>
       <div v-if="deleting || (edit && edit.mode !== 'rename')" class="layout-menu__editor">
