@@ -1,6 +1,6 @@
 // 将布局领域 API 接入 Vue；弹层只负责展示与派发操作。
 import type { ChartController, LayoutSummary } from '@363045841yyt/klinechart-core/controllers'
-import { computed, type ComponentPublicInstance, onScopeDispose, type Ref, ref } from 'vue'
+import { computed, onScopeDispose, type Ref, ref } from 'vue'
 import type { DropMenuGroup } from '../../components/DropMenu.vue'
 import { useControllerSignal } from './useControllerSignal.js'
 
@@ -55,8 +55,8 @@ export function useLayouts(controller: Ref<ChartController | null>) {
       label: '布局列表',
       items: layouts.value.map((layout) => ({
         id: layout.id,
-          label: layout.name,
-          active: layout.id === activeId.value,
+        label: layout.name,
+        active: layout.id === activeId.value,
         disabled: busy.value,
       })),
     },
@@ -66,9 +66,25 @@ export function useLayouts(controller: Ref<ChartController | null>) {
   let savedTimer: ReturnType<typeof setTimeout> | undefined
   onScopeDispose(() => clearTimeout(savedTimer))
   const error = ref('')
-  const name = ref('')
-  const edit = ref<{ mode: 'create' | 'rename' | 'duplicate'; id?: string } | null>(null)
+  const naming = ref<{
+    mode: 'create' | 'rename' | 'duplicate'
+    id?: string
+    initialName: string
+  } | null>(null)
+  const namingError = ref('')
   const deleting = ref<string | null>(null)
+  /** 弹窗标题随命名模式切换。 */
+  const namingTitle = computed(() => {
+    if (naming.value?.mode === 'rename') return '重命名布局'
+    if (naming.value?.mode === 'duplicate') return '复制布局'
+    return '创建新布局'
+  })
+  /** 确认按钮文案随命名模式切换。 */
+  const namingConfirmLabel = computed(() => {
+    if (naming.value?.mode === 'rename') return '保存'
+    if (naming.value?.mode === 'duplicate') return '复制'
+    return '创建'
+  })
 
   /** 异步失败保留界面输入，允许用户重试。 */
   async function run(operation: (api: ChartController) => Promise<unknown>): Promise<boolean> {
@@ -96,38 +112,46 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     await run((api) => api.switchLayout({ id }))
   }
 
-  /** 命名表单只持有交互态，完整布局不进入 Vue。 */
-  function begin(mode: 'create' | 'rename' | 'duplicate', layout?: LayoutSummary): void {
-    edit.value = { mode, id: layout?.id }
-    name.value =
-      mode === 'duplicate'
-        ? `${layout?.name ?? currentName.value} 副本`
-        : mode === 'create'
-          ? '未命名'
-          : (layout?.name ?? currentName.value)
+  /** 打开命名弹窗；复制预填副本名，重命名预填原名称，创建用占位名。 */
+  function openNaming(mode: 'create' | 'rename' | 'duplicate', layout?: LayoutSummary): void {
+    namingError.value = ''
     deleting.value = null
-  }
-
-  /** 行内重命名输入框挂载时聚焦并选中名称，便于直接替换。 */
-  function focusRenameInput(element: Element | ComponentPublicInstance | null): void {
-    if (element instanceof HTMLInputElement && document.activeElement !== element) {
-      element.focus()
-      element.select()
+    naming.value = {
+      mode,
+      id: layout?.id,
+      initialName:
+        mode === 'duplicate'
+          ? `${layout?.name ?? currentName.value} 副本`
+          : mode === 'create'
+            ? '未命名'
+            : (layout?.name ?? currentName.value),
     }
   }
 
-  /** 提交对应领域方法，成功才清除编辑态。 */
-  async function submit(): Promise<void> {
-    const input = edit.value
-    if (!input || !name.value.trim()) return
-    const succeeded = await run((api) => {
-      if (input.mode === 'rename' && input.id)
-        return api.renameLayout({ id: input.id, name: name.value })
-      if (input.mode === 'duplicate' && input.id)
-        return api.duplicateLayout({ id: input.id, name: name.value })
-      return api.createLayout({ name: name.value })
-    })
-    if (succeeded) edit.value = null
+  /** 关闭命名弹窗并清除本次错误。 */
+  function closeNaming(): void {
+    naming.value = null
+    namingError.value = ''
+  }
+
+  /** 提交命名操作；失败保留弹窗与输入，成功才关闭。 */
+  async function submitNaming(name: string): Promise<void> {
+    const input = naming.value
+    if (!input || !name.trim() || busy.value || !controller.value) return
+    const api = controller.value
+    busy.value = true
+    namingError.value = ''
+    try {
+      if (input.mode === 'rename' && input.id) await api.renameLayout({ id: input.id, name })
+      else if (input.mode === 'duplicate' && input.id)
+        await api.duplicateLayout({ id: input.id, name })
+      else await api.createLayout({ name })
+      closeNaming()
+    } catch (failure) {
+      namingError.value = failure instanceof Error ? failure.message : '布局操作失败'
+    } finally {
+      busy.value = false
+    }
   }
 
   /** 覆盖当前归档，名称与身份不变。 */
@@ -149,7 +173,7 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     if (await run((api) => api.deleteLayout({ id }))) deleting.value = null
   }
 
-  /** 下拉操作在同一面板中展开，不创建居中弹窗。 */
+  /** 下拉操作：列表选择、保存、自动保存与创建在面板内派发，命名类操作打开弹窗。 */
   async function onSelect(group: string, id: string): Promise<void> {
     if (group === 'layouts') {
       await select(id)
@@ -163,12 +187,7 @@ export function useLayouts(controller: Ref<ChartController | null>) {
       await run((api) => api.setLayoutAutoSave({ enabled: !autoSave.value }))
       return
     }
-    if (id === 'create') {
-      begin('create')
-      return
-    }
-    const current = layouts.value.find((layout) => layout.id === activeId.value)
-    if (id === 'rename' || id === 'duplicate') begin(id, current)
+    if (id === 'create') openNaming('create')
   }
 
   return {
@@ -183,14 +202,16 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     busy,
     saved,
     error,
-    name,
-    edit,
+    naming,
+    namingTitle,
+    namingConfirmLabel,
+    namingError,
     deleting,
     refresh,
     select,
-    begin,
-    focusRenameInput,
-    submit,
+    openNaming,
+    closeNaming,
+    submitNaming,
     saveCurrent,
     remove,
   }

@@ -51,7 +51,7 @@
 
 ## 布局管理实现
 
-TopToolbar 右侧新增独立竖线分组，使用 `DropMenu` 和商品选择同款 `symbol-chip` trigger。菜单包含保存、自动保存开关、创建新布局、布局列表；复制与重命名位于列表项右侧，只在 hover 或键盘焦点进入时展示。重命名在名称原位输入，Enter 提交、Esc 取消。
+TopToolbar 右侧新增独立竖线分组，使用 `DropMenu` 和商品选择同款 `symbol-chip` trigger。菜单包含保存、自动保存开关、创建新布局、布局列表；复制与重命名位于列表项右侧，只在 hover 或键盘焦点进入时展示。创建、复制与重命名复用同一个 `LayoutNameDialog` 弹窗输入名称，弹窗基于通用 `BaseModal` 构建；删除确认仍在下拉面板内就地展开。
 
 调用路径为 `LayoutMenu → useLayouts → ChartController → LayoutManager → ChartStateKernel`。布局管理不注册 Agent Tool（用户明确要求）。Controller 提供 `exportLayout` / `applyLayout`、具名文档 CRUD、`createLayout` 与 `setLayoutAutoSave`，同时提供布局摘要、活动身份、自动保存、未保存变更和保存错误的只读信号。
 
