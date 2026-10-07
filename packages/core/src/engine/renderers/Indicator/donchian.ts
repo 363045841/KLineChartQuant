@@ -28,7 +28,7 @@ interface DonchianRendererOptions {
 function createDonchianLayer(options: DonchianRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `donchian_${paneId}`,
+    definitionId: 'donchian',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -127,7 +127,6 @@ function getDonchianTitleInfo(
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'donchian_main',
     toActiveConfig: (params, active) => ({
       ...params,
       showUpper: active,

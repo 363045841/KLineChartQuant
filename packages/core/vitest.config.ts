@@ -30,6 +30,7 @@ export default defineConfig({
     }),
   ],
   test: {
+    setupFiles: ['./src/engine/indicators/__tests__/helpers/initializeDefinitions.ts'],
     // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+）
     fsModuleCache: true,
     environment: 'node',

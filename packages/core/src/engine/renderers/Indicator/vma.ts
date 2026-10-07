@@ -20,7 +20,7 @@ function createVMALayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_VMA', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `vma_${paneId}`,
+    definitionId: 'vma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

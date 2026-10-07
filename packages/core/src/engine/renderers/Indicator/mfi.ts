@@ -20,7 +20,7 @@ function createMFILayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_MFI', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `mfi_${paneId}`,
+    definitionId: 'mfi',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

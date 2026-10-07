@@ -30,7 +30,7 @@ interface FRAMARendererOptions {
 function createFRAMALayer(options: FRAMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `frama_${paneId}`,
+    definitionId: 'frama',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -96,7 +96,6 @@ const getFRAMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'frama_main',
     toActiveConfig: (params, active) => ({ ...params, showFRAMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('frama', EMPTY_FRAMA_STATE) },

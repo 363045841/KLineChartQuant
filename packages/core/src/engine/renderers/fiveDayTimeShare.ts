@@ -1,20 +1,19 @@
 /** 五日分时主图 Layer，按交易日独立绘制价格、均价、面积和昨收线。 */
 
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { ChartDataViewId, resolveFiveDayTimeShareBaseline } from '../chartModel/index.js'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { Indicator, resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShareCommon.js'
 
 /** 五日分时主图 Layer：按共享日边界绘制，避免相邻交易日之间产生连线。 */
 export function createFiveDayTimeShareLayer(): Layer<RenderContext> {
   return {
-    id: makePluginLayerId(ChartDataViewId.FiveDayTimeShare),
+    id: resolveIndicatorLayerId(ChartDataViewId.FiveDayTimeShare, 'main'),
     role: 'primary',
     pane: 'main',
     z: RENDERER_PRIORITY.MAIN,
@@ -96,7 +95,7 @@ export function createFiveDayTimeShareLayer(): Layer<RenderContext> {
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.FiveDayTimeShare],
   kind: IndicatorKind.System,
-  mainPane: { rendererName: ChartDataViewId.FiveDayTimeShare },
+  mainPane: {},
 })
 export class FiveDayTimeShareIndicatorDefinition {
   static rendererFactory = createFiveDayTimeShareLayer

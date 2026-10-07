@@ -1,5 +1,6 @@
 /** 指标定义装饰器与全局定义目录，实例挂载由图表状态驱动。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { ChartDataView } from '../chartModel/index.js'
 import type { IndicatorName } from './indicatorContracts.js'
 import type {
@@ -50,13 +51,14 @@ export type IndicatorDefinitionClass = {
   new (...args: never[]): unknown
   rendererFactory?: RendererFactory
   scaleRendererFactory?: ScaleRendererFactory
+  [definitionMetadata]?: () => IndicatorMetadata
 }
 
+const definitionMetadata = Symbol('Indicator.definition')
 const indicatorDefinitions = new Map<string, IndicatorMetadata>()
 const indicatorDefinitionAliases = new Map<string, string>()
-const declaredDefinitions = new WeakMap<IndicatorDefinitionClass, IndicatorMetadata>()
-let registeredClasses = new WeakSet<IndicatorDefinitionClass>()
 
+/** 将名称和别名转换为目录使用的统一查询键。 */
 function normalizeIndicatorId(id: string): string {
   return id
     .trim()
@@ -64,6 +66,7 @@ function normalizeIndicatorId(id: string): string {
     .replace(/[^a-z0-9]/g, '')
 }
 
+/** 将已校验的非空别名写入目录索引。 */
 function indexAlias(alias: string, name: string): void {
   const normalized = normalizeIndicatorId(alias)
   if (normalized) {
@@ -71,16 +74,8 @@ function indexAlias(alias: string, name: string): void {
   }
 }
 
-function removeAliasesFor(name: string): void {
-  for (const [alias, target] of indicatorDefinitionAliases) {
-    if (target === name) {
-      indicatorDefinitionAliases.delete(alias)
-    }
-  }
-}
-
 /**
- * 标准类装饰器：保存元数据并自动注册；生成入口引用定义类以保证生产构建保留初始化。
+ * 标准类装饰器：只声明元数据，类初始化不修改全局目录；装配入口负责注册。
  *
  * 使用方式：
  * @Indicator({ name: 'ma', ... })
@@ -91,57 +86,64 @@ function removeAliasesFor(name: string): void {
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
   return function <T extends IndicatorDefinitionClass>(
     value: T,
-    context: ClassDecoratorContext<T>,
+    _context: ClassDecoratorContext<T>,
   ): T {
-    context.addInitializer(function (this: T) {
-      const rendererFactory = this.rendererFactory
-      if (typeof rendererFactory !== 'function') {
-        throw new KLineChartError(
-          GENERIC_ERROR_CODES.INVALID_PARAM,
-          `[Indicator] '${config.name}' definition must expose static rendererFactory`,
-        )
-      }
+    let metadata: IndicatorMetadata | undefined
+    Object.defineProperty(value, definitionMetadata, {
+      value: () => {
+        if (metadata) return metadata
+        const rendererFactory = value.rendererFactory
+        if (typeof rendererFactory !== 'function') {
+          throw new KLineChartError(
+            GENERIC_ERROR_CODES.INVALID_PARAM,
+            `[Indicator] '${config.name}' definition must expose static rendererFactory`,
+          )
+        }
 
-      const getRendererName: IndicatorRendererNameResolver =
-        config.getRendererName ??
-        (({ paneId }) => config.mainPane?.rendererName ?? `${config.name}_${paneId}`)
-      const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
-        config.getScaleRendererName ??
-        (({ paneId }) =>
-          config.scaleRendererFactory || config.scale
-            ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
-            : null)
-      const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
-        config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
+        // 固定主图定义使用独占名称；可切换 pane 的定义使用 pane 级身份。
+        const getRendererName: IndicatorRendererNameResolver =
+          config.getRendererName ??
+          (({ paneId }) =>
+            config.category === 'main' && !config.allowMainPane && paneId === 'main'
+              ? config.name
+              : `${config.name}_${paneId}`)
+        const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
+          config.getScaleRendererName ??
+          (({ paneId }) =>
+            value.scaleRendererFactory || config.scaleRendererFactory || config.scale
+              ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
+              : null)
+        const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
+          config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
 
-      // runtime.configKey 默认等于 name
-      const runtime = config.runtime && {
-        ...config.runtime,
-        configKey: config.runtime.configKey ?? config.name,
-      }
+        // runtime.configKey 默认等于 name
+        const runtime = config.runtime && {
+          ...config.runtime,
+          configKey: config.runtime.configKey ?? config.name,
+        }
 
-      declaredDefinitions.set(this, {
-        ...config,
-        getRendererName,
-        getScaleRendererName,
-        getPaneTitleRendererName,
-        runtime,
-        rendererFactory,
-        scaleRendererFactory: this.scaleRendererFactory ?? config.scaleRendererFactory,
-        paneIdField: config.paneIdField,
-        allowMainPane: config.allowMainPane,
-      })
-      registerIndicatorDefinition(this)
+        metadata = {
+          ...config,
+          getRendererName,
+          getScaleRendererName,
+          getPaneTitleRendererName,
+          runtime,
+          rendererFactory,
+          scaleRendererFactory: value.scaleRendererFactory ?? config.scaleRendererFactory,
+          paneIdField: config.paneIdField,
+          allowMainPane: config.allowMainPane,
+        }
+        return metadata
+      },
     })
 
     return value
   }
 }
 
-/** 显式注册带 @Indicator 的定义类；同一类只注册一次，避免多图表初始化覆盖扩展定义。 */
+/** 注册注解定义；相同元数据幂等，不同定义争用同一身份时拒绝覆盖。 */
 export function registerIndicatorDefinition(definitionClass: IndicatorDefinitionClass): void {
-  if (registeredClasses.has(definitionClass)) return
-  const definition = declaredDefinitions.get(definitionClass)
+  const definition = definitionClass[definitionMetadata]?.()
   if (!definition) {
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
@@ -149,20 +151,57 @@ export function registerIndicatorDefinition(definitionClass: IndicatorDefinition
     )
   }
   const normalizedName = normalizeIndicatorId(definition.name)
-  removeAliasesFor(normalizedName)
-  indicatorDefinitions.set(normalizedName, definition)
-  indexAlias(definition.name, normalizedName)
-  indexAlias(definition.displayName, normalizedName)
-  for (const alias of definition.aliases ?? []) {
-    indexAlias(alias, normalizedName)
+  const existing = indicatorDefinitions.get(normalizedName)
+  if (existing === definition) return
+  if (!normalizedName || existing) {
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      `[Indicator] definition name is empty or already registered: '${definition.name}'`,
+    )
   }
-  registeredClasses.add(definitionClass)
+  // 先校验全部别名，避免失败后目录留下部分写入。
+  const aliases = [definition.name, definition.displayName, ...(definition.aliases ?? [])]
+  for (const alias of aliases) {
+    const target = indicatorDefinitionAliases.get(normalizeIndicatorId(alias))
+    if (target && target !== normalizedName) {
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        `[Indicator] alias is already registered: '${alias}'`,
+      )
+    }
+  }
+  indicatorDefinitions.set(normalizedName, definition)
+  for (const alias of aliases) indexAlias(alias, normalizedName)
 }
 
+/** 按目录里的唯一命名规则解析数据、坐标轴或标题 Layer ID；未声明的身份直接报错。 */
+export function resolveIndicatorLayerId(
+  definitionId: string,
+  paneId: string,
+  part: 'renderer' | 'scale' | 'title' = 'renderer',
+): string {
+  const definition = getRegisteredIndicatorDefinition(definitionId)
+  const options = { paneId, indicatorId: definitionId }
+  const name =
+    part === 'renderer'
+      ? definition?.getRendererName(options)
+      : part === 'scale'
+        ? definition?.getScaleRendererName(options)
+        : definition?.getPaneTitleRendererName(options)
+  if (!name)
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      `[Indicator] missing ${part} identity for '${definitionId}'`,
+    )
+  return makePluginLayerId(name)
+}
+
+/** 返回已装配定义的快照，调用方不能修改目录。 */
 export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[] {
   return [...indicatorDefinitions.values()]
 }
 
+/** 按名称、展示名或别名查询已装配定义。 */
 export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadata | undefined {
   const normalizedName = normalizeIndicatorId(name)
   const canonicalName = indicatorDefinitionAliases.get(normalizedName) ?? normalizedName
@@ -179,8 +218,8 @@ export function resolveIndicatorDefinitionId(nameOrAlias: string): string | unde
   return getRegisteredIndicatorDefinition(nameOrAlias)?.displayName
 }
 
+/** 清空测试目录；类上的声明仍可重新装配。 */
 export function clearRegisteredIndicatorDefinitionsForTest(): void {
   indicatorDefinitions.clear()
   indicatorDefinitionAliases.clear()
-  registeredClasses = new WeakSet<IndicatorDefinitionClass>()
 }

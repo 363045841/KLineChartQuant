@@ -24,7 +24,7 @@ interface WMARendererOptions {
 function createWMALayer(options: WMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `wma_${paneId}`,
+    definitionId: 'wma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getWMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'wma_main',
     toActiveConfig: (params, active) => ({ ...params, showWMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('wma', EMPTY_WMA_STATE) },

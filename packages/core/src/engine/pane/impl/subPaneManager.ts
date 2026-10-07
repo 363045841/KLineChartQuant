@@ -1,7 +1,9 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../../../errors.js'
-import { makePluginLayerId } from '../../../foundation/plugin/impl/rendererLayerId.js'
 import type { Layer } from '../../../rendering/scene/types.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import {
+  getRegisteredIndicatorDefinition,
+  resolveIndicatorLayerId,
+} from '../../indicators/indicatorDefinitionRegistry.js'
 import { createIndicatorLayer } from '../../renderers/Indicator/factory.js'
 import { findIndicator } from '../../renderers/Indicator/indicatorCatalog.js'
 import { createIndicatorScaleLayer } from '../../renderers/Indicator/scale/indicator_scale.js'
@@ -176,9 +178,9 @@ export class SubPaneManager {
       rendererName,
       scaleRendererName,
       paneTitleRendererName,
-      layerId: makePluginLayerId(rendererName),
-      scaleLayerId: makePluginLayerId(scaleRendererName),
-      paneTitleLayerId: makePluginLayerId(paneTitleRendererName),
+      layerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId),
+      scaleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'scale'),
+      paneTitleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'title'),
     }
   }
 

@@ -311,7 +311,6 @@ export interface IndicatorMetadata<T = unknown> {
    * 主图指标启停相关配置。
    */
   mainPane?: {
-    rendererName: string
     toActiveConfig?: (
       params: Record<string, unknown>,
       active: boolean,

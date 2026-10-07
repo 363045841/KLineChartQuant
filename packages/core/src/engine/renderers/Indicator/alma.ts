@@ -28,7 +28,7 @@ interface ALMARendererOptions {
 function createALMALayer(options: ALMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `alma_${paneId}`,
+    definitionId: 'alma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -94,7 +94,6 @@ const getALMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'alma_main',
     toActiveConfig: (params, active) => ({ ...params, showALMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('alma', EMPTY_ALMA_STATE) },

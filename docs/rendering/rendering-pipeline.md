@@ -146,10 +146,10 @@ async function cleanup() {
 }
 ```
 
-指标型 Layer 通过正式入口的 `@Indicator` 注册，名称可为第三方字符串；
+指标型 Layer 通过正式入口的 `@Indicator` 声明，再由 `registerIndicatorDefinition` 注册，名称可为第三方字符串；
 内置指标状态契约仍保持闭集。先注册定义，再调用 `addIndicator(name, role)`，
 Layer 的创建、参数更新和移除由指标状态驱动。指标工厂应使 Layer.id 与定义的
-渲染名称一致：`makePluginLayerId(definition.getRendererName(options))`。
+渲染名称一致：`resolveIndicatorLayerId(definitionId, paneId)`。定义的名称规则是唯一来源，工厂不得重复拼接名称。
 主图定义需声明 `mainPane`，副图定义需声明坐标轴元数据。
 第三方纯 overlay 可直接挂载，无需声明指标定义。
 
@@ -157,7 +157,7 @@ Layer 的创建、参数更新和移除由指标状态驱动。指标工厂应�
 第三方构建配置需要支持标准 class decorators：
 
 ```ts
-import { Indicator, IndicatorKind, makePluginLayerId } from '@363045841yyt/klinechart-core'
+import { Indicator, IndicatorKind, registerIndicatorDefinition, resolveIndicatorLayerId } from '@363045841yyt/klinechart-core'
 
 const indicatorName = 'vendorStatus'
 @Indicator({
@@ -167,13 +167,15 @@ const indicatorName = 'vendorStatus'
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
-  mainPane: { rendererName: indicatorName },
+  mainPane: {},
 })
 class StatusIndicator {
   static rendererFactory() {
-    return createStatusLayer(makePluginLayerId(indicatorName))
+    return createStatusLayer(resolveIndicatorLayerId(indicatorName, 'main'))
   }
 }
+
+registerIndicatorDefinition(StatusIndicator)
 
 // 创建图表后，由状态挂载或移除指标实例。
 const instanceId = chart.addIndicator(indicatorName, 'main')

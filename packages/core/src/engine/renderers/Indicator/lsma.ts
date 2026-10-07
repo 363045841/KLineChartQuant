@@ -24,7 +24,7 @@ interface LSMARendererOptions {
 function createLSMALayer(options: LSMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `lsma_${paneId}`,
+    definitionId: 'lsma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getLSMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'lsma_main',
     toActiveConfig: (params, active) => ({ ...params, showLSMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('lsma', EMPTY_LSMA_STATE) },

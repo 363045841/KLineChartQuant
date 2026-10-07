@@ -119,7 +119,7 @@ function createMOMLayer(options: MOMRendererOptions = {}): Layer<RenderContext> 
   }
 
   return createIndicatorRendererLayer({
-    name: `mom_${paneId}`,
+    definitionId: 'mom',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

@@ -900,7 +900,7 @@ export class ChartIndicatorManager {
     const mainPane = definition?.mainPane
     if (!definition || !mainPane) return
 
-    const rendererName = mainPane.rendererName
+    const rendererName = definition.getRendererName({ paneId: 'main', indicatorId })
     const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
 
     if (!existingLayer) {
@@ -925,7 +925,7 @@ export class ChartIndicatorManager {
   /** 参数变化时原子重建主图指标 Layer。 */
   private replaceMainIndicatorLayer(indicatorId: string): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const rendererName = definition?.mainPane?.rendererName
+    const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
     if (!definition || !rendererName) return
     this.deps.removeRenderer(makePluginLayerId(rendererName))
     this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
@@ -934,7 +934,7 @@ export class ChartIndicatorManager {
   /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。Legend 层与实例状态不动。 */
   private removeMainIndicatorRenderer(indicatorId: string): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const rendererName = definition?.mainPane?.rendererName
+    const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
     if (definition?.kind === IndicatorKind.Indicator && rendererName) {
       this.deps.removeRenderer(makePluginLayerId(rendererName))
     }

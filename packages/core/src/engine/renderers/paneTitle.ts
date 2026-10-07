@@ -1,10 +1,12 @@
 /** 构建副图指标标题数据，文本统一交给独立 DOM Legend renderer。 */
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import { RENDERER_PRIORITY, type RenderContext } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
+import {
+  getRegisteredIndicatorDefinition,
+  resolveIndicatorLayerId,
+} from '../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo } from '../indicators/indicatorMetadata.js'
 import { PANE_HEADER_INSET_PX } from '../pane/types.js'
 import type { SubIndicatorType } from './Indicator/index.js'
@@ -31,7 +33,7 @@ export interface PaneTitleOptions {
 /** 从实例投影读取当前标题，发布 Pane 内唯一的 DOM Legend 行。 */
 export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<RenderContext> {
   return {
-    id: makePluginLayerId(`paneTitle_${options.paneId}`),
+    id: resolveIndicatorLayerId(options.indicatorId, options.paneId, 'title'),
     role: 'overlay',
     pane: options.paneId,
     z: RENDERER_PRIORITY.FOREGROUND,

@@ -149,7 +149,7 @@ function createAwesomeOscillatorLayer(
   }
 
   return createIndicatorRendererLayer({
-    name: `awesomeOscillator_${paneId}`,
+    definitionId: 'awesomeOscillator',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

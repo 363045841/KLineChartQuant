@@ -27,7 +27,7 @@ interface SARRendererOptions {
 function createSARLayer(options: SARRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `sar_${paneId}`,
+    definitionId: 'sar',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -102,7 +102,6 @@ function getSARTitleInfo(
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'sar_main',
     toActiveConfig: (params, active) => ({ ...params, showSAR: active }),
   },
   scale: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },

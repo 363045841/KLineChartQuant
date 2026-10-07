@@ -25,7 +25,7 @@ interface KeltnerRendererOptions {
 function createKeltnerLayer(options: KeltnerRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `keltner_${paneId}`,
+    definitionId: 'keltner',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -128,7 +128,6 @@ function getKeltnerTitleInfo(
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'keltner_main',
     toActiveConfig: (params, active) => ({
       ...params,
       showUpper: active,

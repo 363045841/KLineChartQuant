@@ -1,12 +1,11 @@
 /** 最新价 label 注册与虚线 Layer 工厂（overlay 层，绘制到主图）。 */
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { Indicator, resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
 import { registerAxisLabel } from './impl/labels/index.js'
@@ -39,7 +38,7 @@ function getLastPriceInfo(context: RenderContext) {
  */
 export function createLastPriceLabelLayer(): Layer<RenderContext> {
   return {
-    id: makePluginLayerId('lastPriceLabelRegistrar'),
+    id: resolveIndicatorLayerId('lastPriceLabelRegistrar', 'main'),
     role: 'overlay',
     pane: 'main',
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
@@ -85,7 +84,7 @@ export function createLastPriceLabelLayer(): Layer<RenderContext> {
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
   kind: IndicatorKind.System,
-  mainPane: { rendererName: 'lastPriceLabelRegistrar' },
+  mainPane: {},
 })
 export class LastPriceLabelRegistrarIndicatorDefinition {
   static rendererFactory = createLastPriceLabelLayer
@@ -96,7 +95,7 @@ export class LastPriceLabelRegistrarIndicatorDefinition {
  */
 export function createLastPriceLineLayer(): Layer<RenderContext> {
   return {
-    id: makePluginLayerId('lastPriceLine'),
+    id: resolveIndicatorLayerId('lastPriceLine', 'main'),
     role: 'overlay',
     pane: 'main',
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
@@ -147,7 +146,7 @@ export function createLastPriceLineLayer(): Layer<RenderContext> {
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
   kind: IndicatorKind.System,
-  mainPane: { rendererName: 'lastPriceLine' },
+  mainPane: {},
 })
 export class LastPriceLineIndicatorDefinition {
   static rendererFactory = createLastPriceLineLayer

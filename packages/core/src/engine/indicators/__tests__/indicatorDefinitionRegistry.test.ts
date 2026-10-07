@@ -1,16 +1,17 @@
-/** 验证注解自动注册，以及别名、重复装配和清理后的重注册行为。 */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
+/** 验证声明与装配分离、目录冲突原子性和身份解析。 */
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
   clearRegisteredIndicatorDefinitionsForTest,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
   Indicator,
   registerIndicatorDefinition,
+  resolveIndicatorLayerId,
 } from '../indicatorDefinitionRegistry'
 import { IndicatorKind } from '../indicatorMetadata'
+import { createTestRendererLayer } from './helpers/metadataTestKit'
 
-/** 注册一个仅用于目录解析的第三方指标定义；name 为任意字符串，无需并入契约。 */
+/** 声明带别名的真实 Layer 定义，注册由调用方决定。 */
 function declareDefinition(name: string, alias: string) {
   @Indicator({
     name,
@@ -20,60 +21,61 @@ function declareDefinition(name: string, alias: string) {
     category: 'oscillator',
     indicatorType: 'momentum',
     defaultPaneId: `sub_${alias}`,
+    scale: { indicatorKey: name },
   })
   class Definition {
-    static rendererFactory = vi.fn()
+    static rendererFactory = () => createTestRendererLayer(name)
   }
-
   return Definition
 }
 
 describe('Indicator definition registry', () => {
-  beforeEach(() => {
-    clearRegisteredIndicatorDefinitionsForTest()
-  })
+  beforeEach(clearRegisteredIndicatorDefinitionsForTest)
 
-  it('automatically registers decorated definitions and resolves aliases case-insensitively', () => {
+  it('declares without mutating the directory, then registers idempotently', () => {
     const Definition = declareDefinition('customRsi', 'CUSTOM_RSI')
-    expect(getRegisteredIndicatorDefinition('CUSTOM_RSI')?.name).toBe('customRsi')
+    expect(getRegisteredIndicatorDefinitions()).toEqual([])
     registerIndicatorDefinition(Definition)
-
+    registerIndicatorDefinition(Definition)
     const definition = getRegisteredIndicatorDefinition('CUSTOM_RSI')
-
     expect(definition?.name).toBe('customRsi')
     expect(getRegisteredIndicatorDefinition('custom rsi')).toBe(definition)
-    expect(getRegisteredIndicatorDefinition('customrsi')).toBe(definition)
     expect(getRegisteredIndicatorDefinitions()).toHaveLength(1)
+    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane')).toBe('plugin:customRsi_pane')
+    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', 'scale')).toBe(
+      'plugin:customRsiScale_pane',
+    )
+    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', 'title')).toBe('plugin:paneTitle_pane')
   })
 
-  it('clears registered definitions and aliases for tests', () => {
+  it('can assemble the same declaration after clearing the directory', () => {
     const Definition = declareDefinition('customMacd', 'CUSTOM_MACD')
     registerIndicatorDefinition(Definition)
-
-    expect(getRegisteredIndicatorDefinition('CUSTOM_MACD')).toBeDefined()
-
     clearRegisteredIndicatorDefinitionsForTest()
-
-    expect(getRegisteredIndicatorDefinition('CUSTOM_MACD')).toBeUndefined()
     expect(getRegisteredIndicatorDefinitions()).toEqual([])
     registerIndicatorDefinition(Definition)
     expect(getRegisteredIndicatorDefinition('CUSTOM_MACD')).toBeDefined()
   })
 
-  it('does not overwrite a replacement when the original class is registered again', () => {
+  it('rejects duplicate names and aliases without changing the existing directory', () => {
     const Original = declareDefinition('customRsi', 'OLD_RSI')
-    const Replacement = declareDefinition('customRsi', 'NEW_RSI')
     registerIndicatorDefinition(Original)
-    registerIndicatorDefinition(Replacement)
-    const replacement = getRegisteredIndicatorDefinition('NEW_RSI')
-    registerIndicatorDefinition(Original)
-    expect(getRegisteredIndicatorDefinition('customRsi')).toBe(replacement)
-    expect(getRegisteredIndicatorDefinition('OLD_RSI')).toBeUndefined()
+    const original = getRegisteredIndicatorDefinition('customRsi')
+    expect(() => registerIndicatorDefinition(declareDefinition('customRsi', 'NEW_RSI'))).toThrow(
+      'already registered',
+    )
+    expect(() => registerIndicatorDefinition(declareDefinition('other', 'OLD_RSI'))).toThrow(
+      'alias is already registered',
+    )
+    expect(getRegisteredIndicatorDefinition('customRsi')).toBe(original)
+    expect(getRegisteredIndicatorDefinition('other')).toBeUndefined()
+    expect(getRegisteredIndicatorDefinition('NEW_RSI')).toBeUndefined()
     expect(getRegisteredIndicatorDefinitions()).toHaveLength(1)
   })
 
-  it('rejects classes without decorator metadata', () => {
+  it('rejects undeclared classes and unknown Layer identities', () => {
     class Undeclared {}
     expect(() => registerIndicatorDefinition(Undeclared)).toThrow('must declare @Indicator')
+    expect(() => resolveIndicatorLayerId('missing', 'main')).toThrow('missing renderer identity')
   })
 })

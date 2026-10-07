@@ -142,7 +142,7 @@ function createWMSRLayer(options: WMSRRendererOptions = {}): Layer<RenderContext
   }
 
   return createIndicatorRendererLayer({
-    name: `wmsr_${paneId}`,
+    definitionId: 'wmsr',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

@@ -164,7 +164,7 @@ function createSchaffTrendCycleLayer(
   }
 
   return createIndicatorRendererLayer({
-    name: `schaffTrendCycle_${paneId}`,
+    definitionId: 'schaffTrendCycle',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

@@ -25,7 +25,7 @@ interface TRIMARendererOptions {
 function createTRIMALayer(options: TRIMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `trima_${paneId}`,
+    definitionId: 'trima',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -91,7 +91,6 @@ const getTRIMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'trima_main',
     toActiveConfig: (params, active) => ({ ...params, showTRIMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('trima', EMPTY_TRIMA_STATE) },

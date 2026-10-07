@@ -142,7 +142,7 @@ function createDPOLayer(options: DPORendererOptions = {}): Layer<RenderContext> 
   }
 
   return createIndicatorRendererLayer({
-    name: `dpo_${paneId}`,
+    definitionId: 'dpo',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

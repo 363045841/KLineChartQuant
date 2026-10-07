@@ -24,7 +24,7 @@ interface TEMARendererOptions {
 function createTEMALayer(options: TEMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `tema_${paneId}`,
+    definitionId: 'tema',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getTEMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'tema_main',
     toActiveConfig: (params, active) => ({ ...params, showTEMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('tema', EMPTY_TEMA_STATE) },

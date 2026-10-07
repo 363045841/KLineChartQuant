@@ -2,6 +2,7 @@
 
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { LegendRow, LegendText } from '@/engine/renderers/legend/types.js'
+import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
@@ -15,7 +16,7 @@ export function createMainIndicatorLegendLayer(
   getPluginHost: () => PluginHost | null,
 ): Layer<RenderContext> {
   return createIndicatorRendererLayer({
-    name: 'mainIndicatorLegend',
+    layerId: makePluginLayerId('mainIndicatorLegend'),
     paneId: MAIN_PANE_ID,
     role: 'overlay',
     z: RENDERER_PRIORITY.FOREGROUND,

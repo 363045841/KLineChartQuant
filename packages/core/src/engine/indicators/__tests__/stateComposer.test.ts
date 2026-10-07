@@ -123,7 +123,7 @@ describe('composeInstanceRenderState', () => {
         category: 'main',
         indicatorType: 'moving-average',
       },
-      { mainPane: { rendererName: 'ma', composeRenderState } },
+      { mainPane: { composeRenderState } },
     )
     const result = createResult({ series: [1, 2, 3] }, params)
 
@@ -175,7 +175,7 @@ describe('composeInstanceRenderState', () => {
         indicatorType: 'other',
       },
       {
-        mainPane: { rendererName: 'mix', composeRenderState },
+        mainPane: { composeRenderState },
         visibleState: { compose },
       },
     )
@@ -212,7 +212,7 @@ describe('computeInstanceMainIndicatorPriceRange', () => {
         category: 'main',
         indicatorType: 'channel',
       },
-      { mainPane: { rendererName: 'boll', computePriceRange } },
+      { mainPane: { computePriceRange } },
     )
     const result = createResult({ series: [1] }, { period: 20 })
 
@@ -235,7 +235,7 @@ describe('computeInstanceMainIndicatorPriceRange', () => {
         category: 'main',
         indicatorType: 'moving-average',
       },
-      { mainPane: { rendererName: 'ma' } },
+      { mainPane: {} },
     )
     const withoutMainPane = createTestIndicatorMetadata({
       name: 'rsi',

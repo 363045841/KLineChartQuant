@@ -24,7 +24,7 @@ interface ROCRendererOptions {
 function createROCLayer(options: ROCRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub_ROC', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `roc_${paneId}`,
+    definitionId: 'roc',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

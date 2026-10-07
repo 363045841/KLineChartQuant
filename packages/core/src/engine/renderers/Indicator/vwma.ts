@@ -24,7 +24,7 @@ interface VWMARendererOptions {
 function createVWMALayer(options: VWMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `vwma_${paneId}`,
+    definitionId: 'vwma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getVWMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'vwma_main',
     toActiveConfig: (params, active) => ({ ...params, showVWMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('vwma', EMPTY_VWMA_STATE) },

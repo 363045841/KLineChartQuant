@@ -1,31 +1,17 @@
-# 注解驱动的内置定义发现
+# 注解定义的统一发现与装配
 
-## 问题
+`@Indicator` 只声明类的定义元数据，模块求值不修改全局目录。定义保存在类的私有 Symbol 属性中；读取发生在静态工厂初始化完成后，不使用 `addInitializer`、WeakMap 或 WeakSet。
 
-最新价虚线和标签靠裸导入触发装饰器注册，生产 tree-shaking 删除模块后不会报告错误。手动 import 清单和 `sideEffects` 白名单都会因漏维护而再次出现相同问题。
+扫描工具按 TypeScript 符号识别 core 生产源码中的导出注解类，校验名称和 kind，生成唯一的 `generated/builtinIndicators.ts`。system 与 indicator 共用清单和加载时机，kind 只决定业务分类。清单动态加载并读取每个具体类导出，确保生产 tree-shaking 能追踪真实依赖。
 
-## 决策
+`loadBuiltinIndicators()` 是内置定义唯一装配入口；并发调用共享加载 Promise，失败后可重试。注册以类上缓存的元数据对象为幂等身份，不再维护独立 loaded 状态或初始化查询 API。读取目录统一调用 `getRegisteredIndicatorDefinitions()`。
 
-`@Indicator` 是名称、身份、视图和工厂的唯一声明位置。作者只需导出带注解的具名类，不在其他文件添加 import 或注册项。
+`createChartController()` 在创建 Chart 前等待装配完成。直接使用底层 Chart 或 StateKernel 的宿主也必须先完成装配；状态内核不执行模块注册。底层测试 setup 遵守同一前置条件。
 
-`scripts/generate-indicator-entrypoints.mjs` 使用 TypeScript AST 和符号解析扫描全部 core 生产源码。识别注解的实际声明，支持导入别名、命名空间和再导出；不执行源码。`kind` 和 `name` 由编译期字符串类型或直接字面量确定。测试和生成目录不参与发现。
+外部扩展保留 `@Indicator` 语法，在初始化时显式调用 `registerIndicatorDefinition(Definition)`，无需 PluginHost 安装周期。相同定义重复装配无操作；不同定义争用同一名称或别名直接报错，校验全部别名后才写入目录。删除旧的隐式自动注册和覆盖语义，不提供兼容层。
 
-扫描生成两个入口：系统渲染器使用命名导入同步装配，技术指标动态导入后读取具体定义类。类引用被传入注册函数，因此构建器能追踪每个定义和工厂的实际依赖。删除渲染器 `sideEffects` 白名单；数据模块现有副作用声明保留。
+`resolveIndicatorLayerId(definitionId, paneId, part)` 根据定义的 renderer、scale 或 title 名称规则生成 Layer ID。工厂与挂载描述均消费此规则。删除 `mainPane.rendererName`，主图业务描述不再另存名称；固定主图定义使用独占名称，可切换 pane 的定义使用 pane 级身份，特殊规则只在 `getRendererName` 声明。独立 overlay 直接声明 Layer ID，PluginHost 继续管理能力包，不参与指标定义生命周期。
 
-生成入口是派生文件，纳入版本控制以支持源码使用和编辑器类型检查。core 构建先重新生成再编译；Vite/Vitest 在启动与构建开始时重新生成。源码新增、删除或修改定义时，开发插件重新生成并重载页面，清除旧注册。输出排序稳定，内容相同不写文件。
+未被生产消费的 `layerRegistry`、类型常量、导出与测试全部删除。渲染模型仍为 Scene / Layer，数据与计算链不改变。
 
-未导出的定义、重复规范名称、无法确定的身份或空目录都使生成失败，避免静默漏项。CI 在构建前检查生成文件是否与源码一致，并将真实生产 bundle 加载后的目录与自动扫描结果逐项比对。
-
-## 注册生命周期
-
-装饰器继续自动注册，保持已有 `@Indicator` 扩展语义。生成代码引用具体定义类并在内部调用可重复装配的注册函数，既保证构建器追踪依赖，也支持测试清理后重新装配。`ChartStateKernel` 在投影前调用生成的系统入口，覆盖直接创建 Chart 的路径。`loadBuiltinIndicators()` 自动装配系统定义并加载全部技术指标，并发调用共享加载任务。
-
-注册表按类身份去重，重复图表初始化不会覆盖后注册的扩展定义。测试清理目录同时重置去重记录，已加载的类仍可重新装配。
-
-## 扫描范围与第三方
-
-自动发现覆盖本仓库 core 生产源码，不会遍历消费应用或 node_modules。外部定义继续按原有 `@Indicator` 语义在模块执行时自动注册，不要求改写现有调用方式；外部包自身的依赖发现属于其构建职责。扫描工具不是浏览器运行时依赖，发布产物包含已生成并编译的入口。
-
-## 验证
-
-生成器用例覆盖新增、删除、别名、命名空间、再导出、测试排除、同名无关注解、重复名称和无效声明。生产构建用真实 core 定义，验证全部目录和工厂保留，并创建最新价虚线及标签 Layer。另运行目录、状态投影、Controller 和最新价绘制测试以及 demo 构建。
+验收包含目录冲突原子性、声明无注册副作用、并发装配幂等、全部定义的工厂身份一致性、开发扫描增删，以及 src/dist 的生产打包保留检查。

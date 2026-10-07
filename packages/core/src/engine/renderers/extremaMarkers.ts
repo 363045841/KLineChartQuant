@@ -1,5 +1,4 @@
 /** 可视区最高/最低价标注 Layer（overlay 层，绘制到所有 pane）。 */
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
@@ -14,7 +13,7 @@ import {
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { Indicator, resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
 const textWidthCache = new Map<string, number>()
@@ -99,7 +98,7 @@ function drawAllMarkers(
 /** 可视区最高/最低价标注 Layer（绘制到所有 pane 的 overlay 层）。 */
 export function createExtremaMarkersLayer(): Layer<RenderContext> {
   return {
-    id: makePluginLayerId('extremaMarkers'),
+    id: resolveIndicatorLayerId('extremaMarkers', 'main'),
     role: 'overlay',
     pane: LAYER_PANE_GLOBAL,
     z: RENDERER_PRIORITY.OVERLAY,
@@ -161,7 +160,7 @@ export function createExtremaMarkersLayer(): Layer<RenderContext> {
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
   kind: IndicatorKind.System,
-  mainPane: { rendererName: 'extremaMarkers' },
+  mainPane: {},
 })
 export class ExtremaMarkersIndicatorDefinition {
   static rendererFactory = createExtremaMarkersLayer

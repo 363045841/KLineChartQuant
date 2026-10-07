@@ -1,6 +1,5 @@
 /** 分时主图 Layer：按可见范围绘制价格线、均价线与昨收基线（仅 TimeShare dataView）。 */
 
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
@@ -8,14 +7,14 @@ import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { resolveTimeShareBaseline } from '../chartModel/index.js'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { Indicator, resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShareCommon.js'
 
 /** 分时主图 Layer：按可见范围绘制价格线、均价线与昨收基线。 */
 export function createTimeShareLayer(): Layer<RenderContext> {
   return {
-    id: makePluginLayerId('timeShare'),
+    id: resolveIndicatorLayerId('timeShare', 'main'),
     role: 'primary',
     pane: 'main',
     z: RENDERER_PRIORITY.MAIN,
@@ -96,7 +95,7 @@ export function createTimeShareLayer(): Layer<RenderContext> {
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.TimeShare],
   kind: IndicatorKind.System,
-  mainPane: { rendererName: 'timeShare' },
+  mainPane: {},
 })
 export class TimeShareIndicatorDefinition {
   static rendererFactory = createTimeShareLayer

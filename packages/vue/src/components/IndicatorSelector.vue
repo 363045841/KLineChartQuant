@@ -126,7 +126,6 @@
     createIndicatorSelectorController,
     findIndicator,
     type IndicatorDefinition,
-    isBuiltinIndicatorsLoaded,
     loadBuiltinIndicators,
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onMounted, ref } from 'vue'
@@ -174,9 +173,7 @@
   const catalogLen = computed(() => catalog.value.length)
 
   onMounted(async () => {
-    if (!isBuiltinIndicatorsLoaded()) {
-      await loadBuiltinIndicators()
-    }
+    await loadBuiltinIndicators()
     controller.catalog.set(allIndicatorDefinitions())
   })
 

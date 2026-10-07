@@ -24,7 +24,7 @@ interface HMARendererOptions {
 function createHMALayer(options: HMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `hma_${paneId}`,
+    definitionId: 'hma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getHMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'hma_main',
     toActiveConfig: (params, active) => ({ ...params, showHMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('hma', EMPTY_HMA_STATE) },

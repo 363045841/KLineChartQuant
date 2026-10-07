@@ -171,10 +171,7 @@ export {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
 } from '../engine/indicators/indicatorMetadata.js'
-export {
-  isBuiltinIndicatorsLoaded,
-  loadBuiltinIndicators,
-} from '../engine/indicators/registerBuiltins.js'
+export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {
   LayoutApi,
   LayoutDocument,

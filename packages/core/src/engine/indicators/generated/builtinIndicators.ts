@@ -1,7 +1,7 @@
 /** 自动扫描 @Indicator 生成；请修改定义类，不要手动编辑。 */
 import type { IndicatorDefinitionClass } from '../indicatorDefinitionRegistry.js'
 
-/** 自动加载所有指标定义，直接引用类导出以保留生产构建依赖。 */
+/** 加载所有注解定义，kind 仅用于元数据分类；引用类导出以保留生产构建依赖。 */
 export function loadBuiltinDefinitionClasses(): Promise<IndicatorDefinitionClass[]> {
   return Promise.all([
     import('../../renderers/Indicator/alma.js').then((module) => module.ALMADefinition),
@@ -60,6 +60,11 @@ export function loadBuiltinDefinitionClasses(): Promise<IndicatorDefinitionClass
     import('../../renderers/Indicator/wmsr.js').then((module) => module.WMSRIndicatorDefinition),
     import('../../renderers/Indicator/zlema.js').then((module) => module.ZLEMADefinition),
     import('../../renderers/Indicator/zones.js').then((module) => module.ZonesDefinition),
+    import('../../renderers/extremaMarkers.js').then((module) => module.ExtremaMarkersIndicatorDefinition),
+    import('../../renderers/fiveDayTimeShare.js').then((module) => module.FiveDayTimeShareIndicatorDefinition),
+    import('../../renderers/lastPrice.js').then((module) => module.LastPriceLabelRegistrarIndicatorDefinition),
+    import('../../renderers/lastPrice.js').then((module) => module.LastPriceLineIndicatorDefinition),
     import('../../renderers/subVolume.js').then((module) => module.VolumeIndicatorDefinition),
+    import('../../renderers/timeShare.js').then((module) => module.TimeShareIndicatorDefinition),
   ])
 }

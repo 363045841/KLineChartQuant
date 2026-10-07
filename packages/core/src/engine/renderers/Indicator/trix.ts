@@ -25,7 +25,7 @@ interface TRIXRendererOptions {
 function createTRIXLayer(options: TRIXRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub_TRIX', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `trix_${paneId}`,
+    definitionId: 'trix',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

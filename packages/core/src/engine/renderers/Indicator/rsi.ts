@@ -154,7 +154,7 @@ function createRSILayer(options: RSIRendererOptions = {}): Layer<RenderContext> 
   }
 
   return createIndicatorRendererLayer({
-    name: `rsi_${paneId}`,
+    definitionId: 'rsi',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

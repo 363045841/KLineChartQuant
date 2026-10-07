@@ -26,7 +26,6 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
-import { registerBuiltinRenderers } from '../indicators/generated/builtinRenderers.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
@@ -228,7 +227,6 @@ export class ChartStateKernel extends StateKernel {
 
   constructor(deps: ChartStateKernelDeps) {
     super()
-    registerBuiltinRenderers()
 
     // ── Options state (before zoom, since zoom reads from options) ──
     this.options = createOptionsState(deps.initialOptions)

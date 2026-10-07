@@ -57,7 +57,7 @@ function createATRLayer(options: ATRRendererOptions = {}): Layer<RenderContext> 
   }
 
   return createIndicatorRendererLayer({
-    name: `atr_${paneId}`,
+    definitionId: 'atr',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

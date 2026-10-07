@@ -19,7 +19,7 @@ function createVolumeProfileLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_VolumeProfile', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `volumeProfile_${paneId}`,
+    definitionId: 'volumeProfile',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

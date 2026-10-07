@@ -55,7 +55,8 @@ export function createIndicatorScaleLayer(
   } = options
 
   return createIndicatorRendererLayer({
-    name: `${indicatorKey}Scale_${paneId}`,
+    definitionId: indicatorKey,
+    part: 'scale',
     paneId,
     role: 'indicator',
     z: RENDERER_PRIORITY.INDICATOR_SCALE,

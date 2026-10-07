@@ -83,7 +83,7 @@ function createStochRSILayer(options: StochRSIRendererOptions = {}): Layer<Rende
   }
 
   return createIndicatorRendererLayer({
-    name: `stochRSI_${paneId}`,
+    definitionId: 'stochRSI',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
