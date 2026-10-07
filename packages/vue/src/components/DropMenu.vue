@@ -238,9 +238,13 @@
   }
 
   .drop-menu__item:hover,
-  .drop-menu__item:focus-within,
-  .drop-menu__item.is-active {
+  .drop-menu__item:focus-within {
     background: var(--klc-color-ui-hover);
+  }
+
+  /* 选中项常驻显示，用比 hover 更浅的底色，避免整行过重。 */
+  .drop-menu__item.is-active {
+    background: color-mix(in srgb, var(--klc-color-ui-hover) 55%, var(--klc-color-ui-input));
   }
 
   /* item 插槽可用同一 class 复用默认按钮样式。 */
