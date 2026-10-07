@@ -57,7 +57,7 @@ export interface LayoutDocument {
   readonly panePriceAxisModes: LayoutPanePriceAxisModes
   /** 图表级设置白名单子集；省略表示沿用当前设置。 */
   readonly settings?: Partial<ChartSettings>
-  /** 用户绘图文档；省略表示不携带绘图。 */
+  /** 已确认的用户绘图；导出始终携带，省略或空数组表示没有绘图。 */
   readonly drawings?: ReadonlyArray<DrawingObject>
   /** 按 品种+周期+复权+数据视图 键的可恢复视口位置；省略表示不携带。 */
   readonly viewport?: Readonly<Record<string, LayoutViewportSnapshot>>

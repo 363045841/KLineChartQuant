@@ -2,6 +2,8 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import type { SymbolSpec } from '../../../controllers/types.js'
+import type { DrawingObject } from '../../drawing/types.js'
+import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
 
@@ -24,6 +26,108 @@ function createManager() {
   })
   return { kernel, manager }
 }
+
+/** 按生产订阅方式把图元变更交给布局自动保存，返回释放订阅的方法。 */
+function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createManager>) {
+  return kernel.drawing.readonly.drawings.subscribe(() => manager.scheduleAutoSave())
+}
+
+/** 构造带时间锚点与工作区身份的真实绘图文档，供存储往返用例复用。 */
+function createDrawing(): DrawingObject {
+  return {
+    id: 'layout-trend-line',
+    kind: 'trend-line',
+    paneId: MAIN_PANE_ID,
+    workspaceId: 'kline',
+    visible: true,
+    anchors: [
+      { id: 'start', type: 'point', time: 1_700_000_000_000, price: 10 },
+      { id: 'end', type: 'point', time: 1_700_086_400_000, price: 12 },
+    ],
+    params: {},
+    style: {},
+  }
+}
+
+it('绘图随布局落盘，复制保留图元，新建与缺少绘图的文档清空图元和选择', async () => {
+  const { kernel, manager } = createManager()
+  try {
+    await manager.initialize()
+    const drawing = createDrawing()
+    kernel.drawing.actions.addDrawingsAndSelect([drawing])
+    const exported = manager.exportLayout()
+    expect(exported.drawings).toEqual([drawing])
+    expect(exported.drawings).not.toBe(kernel.drawing.readonly.drawings.peek())
+    const id = await manager.saveLayout({ name: '带绘图' })
+    const copy = await manager.duplicateLayout({ id, name: '绘图副本' })
+    await manager.createLayout({ name: '空布局' })
+    expect(kernel.drawing.readonly.drawings.peek()).toEqual([])
+    expect(kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
+    await manager.switchLayout({ id: copy })
+    expect(kernel.drawing.readonly.drawings.peek()).toEqual([drawing])
+    kernel.drawing.actions.setSelectedDrawingIds([drawing.id])
+    const { drawings: _drawings, ...withoutDrawings } = exported
+    manager.applyLayout(withoutDrawings)
+    expect(kernel.drawing.readonly.drawings.peek()).toEqual([])
+    expect(kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
+    await manager.switchLayout({ id })
+  } finally {
+    await manager.dispose()
+    kernel.dispose()
+  }
+  const restored = createManager()
+  try {
+    await restored.manager.initialize()
+    expect(restored.kernel.drawing.readonly.drawings.peek()).toEqual([createDrawing()])
+    expect(restored.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
+  } finally {
+    await restored.manager.dispose()
+    restored.kernel.dispose()
+  }
+})
+
+it('绘图修改和删除通过自动保存落盘，重新打开不复活已删除的图元', async () => {
+  const first = createManager()
+  await first.manager.initialize()
+  // 复用生产中的信号订阅，验证绘图变化会标记文档，而选择变化不会进入快照。
+  const unsubscribe = subscribeDrawingAutoSave(first)
+  try {
+    const drawing = createDrawing()
+    first.kernel.drawing.actions.addDrawingsAndSelect([drawing])
+    expect(first.manager.layoutDirty.peek()).toBe(true)
+    await first.manager.saveLayout({ name: '绘图自动保存' })
+    first.kernel.drawing.actions.setSelectedDrawingIds([])
+    expect(first.manager.layoutDirty.peek()).toBe(false)
+    first.kernel.drawing.actions.setDrawings([{ ...drawing, visible: false }])
+    expect(first.manager.layoutDirty.peek()).toBe(true)
+  } finally {
+    unsubscribe()
+    await first.manager.dispose()
+    first.kernel.dispose()
+  }
+  const second = createManager()
+  await second.manager.initialize()
+  const unsubscribeSecond = subscribeDrawingAutoSave(second)
+  try {
+    expect(second.kernel.drawing.readonly.drawings.peek()).toEqual([
+      { ...createDrawing(), visible: false },
+    ])
+    second.kernel.drawing.actions.clearDrawings()
+    expect(second.manager.layoutDirty.peek()).toBe(true)
+  } finally {
+    unsubscribeSecond()
+    await second.manager.dispose()
+    second.kernel.dispose()
+  }
+  const final = createManager()
+  try {
+    await final.manager.initialize()
+    expect(final.kernel.drawing.readonly.drawings.peek()).toEqual([])
+  } finally {
+    await final.manager.dispose()
+    final.kernel.dispose()
+  }
+})
 
 it('保存和切换布局，保留设备偏好，复制与重命名不改变当前图表', async () => {
   const { kernel, manager } = createManager()

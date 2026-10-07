@@ -563,7 +563,7 @@ export class ChartStateKernel extends StateKernel {
     }
   }
 
-  /** 聚合图表配置；绘图切片由宿主决定携带，可恢复视口位置随文档持久化。 */
+  /** 聚合图表配置、已确认绘图与可恢复视口位置，生成独立的持久化快照。 */
   exportLayout(): LayoutDocument {
     return structuredClone({
       version: LAYOUT_DOCUMENT_VERSION,
@@ -576,6 +576,7 @@ export class ChartStateKernel extends StateKernel {
         ]),
       ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
+      drawings: this.drawing.readonly.drawings.peek(),
       viewport: this.dataManager.readonly.viewportSnapshots.peek(),
     })
   }
@@ -593,6 +594,7 @@ export class ChartStateKernel extends StateKernel {
       currentSymbol: structuredClone(this.dataManager.readonly.currentSpec.peek()),
       workspaces: { kline: workspace(), timeshare: workspace() },
       panePriceAxisModes: { [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
+      drawings: [],
       settings: selectLayoutSettings(normalizeSettings()),
     }
   }
@@ -604,7 +606,7 @@ export class ChartStateKernel extends StateKernel {
       this.pane.actions.restoreWorkspaces(document.workspaces)
       if (document.settings) this.settings.actions.patch(selectLayoutSettings(document.settings))
       this.mainPriceAxis.actions.restoreModes(document.panePriceAxisModes)
-      if (document.drawings) this.drawing.actions.restoreDocument(document.drawings, [])
+      this.drawing.actions.restoreDocument(document.drawings ?? [], [])
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())
     })

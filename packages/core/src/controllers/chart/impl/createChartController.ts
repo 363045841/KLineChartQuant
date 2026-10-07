@@ -196,6 +196,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.kernel.indicator.readonly.workspaces,
     chart.kernel.pane.readonly.workspaces,
     chart.kernel.settings.readonly.settings,
+    chart.kernel.drawing.readonly.drawings,
     chart.kernel.mainPriceAxis.readonly.paneRanges,
     chart.kernel.viewport.readonly.scrollLeft,
     chart.kernel.zoom.readonly.zoomLevel,
