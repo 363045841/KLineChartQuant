@@ -6,7 +6,6 @@ export {
   type LayoutArchive,
   type LayoutDocument,
   type LayoutPanePriceAxisModes,
-  type LayoutPersistence,
   type LayoutSummary,
   type LayoutViewportSnapshot,
   type LayoutWorkspace,

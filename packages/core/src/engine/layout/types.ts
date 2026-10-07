@@ -4,9 +4,10 @@
  * @remarks
  * 把此前分散在 engine/state 各模块的持久化快照类型（视图工作区、各 Pane 价格轴模式、
  * 可恢复视口位置）集中为一份版本化文档；序列化、存储与恢复实现位于同模块 impl/。
- * 本文件只描述文档形状与持久化适配器契约，不依赖同模块 impl/。
+ * 本文件只描述文档形状，不依赖同模块 impl/。
  */
 
+import type { SymbolSpec } from '../../controllers/types.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import type { PriceAxisRangeMode } from '../../foundation/config/priceAxisRangeMode.js'
 import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'
@@ -49,7 +50,7 @@ export type LayoutPanePriceAxisModes = Readonly<Record<string, PriceAxisRangeMod
 export interface LayoutDocument {
   readonly version: typeof LAYOUT_DOCUMENT_VERSION
   /** 主品种及其数据源、周期、复权与路由描述；旧文档省略时保留当前选择。 */
-  readonly currentSymbol?: import('../../controllers/types.js').SymbolSpec | null
+  readonly currentSymbol?: SymbolSpec | null
   /** 各视图工作区的用户指标与 pane 布局。 */
   readonly workspaces: LayoutWorkspaces
   /** 各 Pane 的价格轴自动/手动模式。 */
@@ -60,17 +61,6 @@ export interface LayoutDocument {
   readonly drawings?: ReadonlyArray<DrawingObject>
   /** 按 品种+周期+复权+数据视图 键的可恢复视口位置；省略表示不携带。 */
   readonly viewport?: Readonly<Record<string, LayoutViewportSnapshot>>
-}
-
-/**
- * 布局文档持久化适配器契约；Chart 不依赖具体浏览器存储实现。
- *
- * @remarks
- * `schedule()` 合并连续变更，`dispose()` 在图表销毁前补写尚未落盘的变更。
- */
-export interface LayoutPersistence {
-  schedule(): void
-  dispose(): void
 }
 
 /** 具名归档在文档上附加身份；运行时状态仍由 Kernel 管理。 */
@@ -85,14 +75,14 @@ export interface LayoutSummary {
   readonly name: string
 }
 
-/** UI 与 Agent 共用的布局管理入口。 */
+/** 布局归档的持久化形状；由 LayoutManager 写入 IndexedDB。 */
 export interface LayoutArchive {
   readonly documents: Readonly<Record<string, NamedLayoutDocument>>
   readonly activeId: string
   readonly autoSave: boolean
 }
 
-/** UI 与 Agent 共用的布局管理入口。 */
+/** 控制器与 UI 消费的布局管理入口。 */
 export interface LayoutApi {
   readonly layouts: import('../../foundation/reactivity/signal.js').ReadonlySignal<
     ReadonlyArray<LayoutSummary>

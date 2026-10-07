@@ -96,11 +96,6 @@ import {
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
-import type {
-  LayoutPanePriceAxisModes,
-  LayoutPersistence,
-  LayoutWorkspaces,
-} from '../../layout/index.js'
 import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
@@ -240,10 +235,6 @@ export class Chart {
 
   /** 滚动成交量窗口（惰性初始化） */
   private _volumeLookbacks: VolumeLookbacks | null = null
-  /** 仅由 controller 注入的工作区持久化适配器。 */
-  private workspacePersistence: LayoutPersistence | null = null
-  /** 仅由 controller 注入的各 Pane 范围模式持久化适配器。 */
-  private panePriceAxisPersistence: LayoutPersistence | null = null
 
   /**
    * 创建图表实例
@@ -256,9 +247,6 @@ export class Chart {
     runtime?: {
       rendererHost?: RendererHost
       initialSettings?: Partial<ChartSettings>
-      initialViewWorkspaces?: LayoutWorkspaces
-      /** 已持久化的各 Pane 价格轴范围模式。 */
-      initialPanePriceAxisModes?: LayoutPanePriceAxisModes
       marketSessions?: Readonly<Record<string, MarketSessionConfig>>
       /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
       clock?: import('../../../foundation/utils/clock.js').Clock
@@ -287,8 +275,6 @@ export class Chart {
       initialZoomLevel,
       initialSettings: runtime?.initialSettings,
       initialRendererRuntime: this.rendererHost.runtime,
-      initialViewWorkspaces: runtime?.initialViewWorkspaces,
-      initialPanePriceAxisModes: runtime?.initialPanePriceAxisModes,
       marketSessions: this.marketSessions,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
@@ -342,18 +328,12 @@ export class Chart {
       pane: this.kernel.pane,
       afterCommitLayout: () => {
         this.ensurePaneScaleTypesFromSettings()
-        this.scheduleWorkspacePersistence()
-        this.schedulePanePriceAxisPersistence()
       },
     })
     this.panes = new ChartPaneFacade({
       kernel: this.kernel,
       layoutManager: this.layoutManager,
       ensureScaleTypes: () => this.ensurePaneScaleTypesFromSettings(),
-      schedulePersistence: () => {
-        this.scheduleWorkspacePersistence()
-        this.schedulePanePriceAxisPersistence()
-      },
       invalidateDrawingHistory: () => this.drawingCommands.history.reset(),
     })
 
@@ -569,7 +549,6 @@ export class Chart {
     })
     this.indicators = new ChartIndicatorFacade({
       manager: this.indicatorManager,
-      schedulePersistence: () => this.scheduleWorkspacePersistence(),
     })
 
     // 异步计算结果就绪后串联 Alert 管线
@@ -593,39 +572,6 @@ export class Chart {
   getViewport(): Viewport | null {
     if (this.kernel.viewport.readonly.viewWidth.peek() === 0) return null
     return this.kernel.viewport.readonly.viewport.peek()
-  }
-
-  /** 由 controller 在构造完成后注入浏览器工作区持久化。 */
-  setViewWorkspacePersistence(persistence: LayoutPersistence): void {
-    this.workspacePersistence?.dispose()
-    this.workspacePersistence = persistence
-  }
-
-  /** 调度用户工作区快照持久化。 */
-  private scheduleWorkspacePersistence(): void {
-    this.workspacePersistence?.schedule()
-  }
-
-  /** 由 controller 在构造完成后注入各 Pane 范围模式持久化。 */
-  setPanePriceAxisPersistence(persistence: LayoutPersistence): void {
-    this.panePriceAxisPersistence?.dispose()
-    this.panePriceAxisPersistence = persistence
-  }
-
-  /** 返回各 Pane 的范围模式快照，供持久化适配器读取。 */
-  snapshotPanePriceAxisModes(): LayoutPanePriceAxisModes {
-    const modes: Record<string, PriceAxisRangeMode> = {}
-    for (const [paneId, state] of Object.entries(
-      this.kernel.mainPriceAxis.readonly.paneRanges.peek(),
-    )) {
-      modes[paneId] = state.rangeMode
-    }
-    return modes
-  }
-
-  /** 调度各 Pane 范围模式快照持久化。 */
-  private schedulePanePriceAxisPersistence(): void {
-    this.panePriceAxisPersistence?.schedule()
   }
 
   /** 获取当前活跃的模式处理器 */
@@ -987,7 +933,6 @@ export class Chart {
         renderer.getPane().yAxis.resetTransform()
       }
     })
-    this.schedulePanePriceAxisPersistence()
     this.scheduleDraw()
   }
 
@@ -1005,7 +950,6 @@ export class Chart {
       this.kernel.pane.actions.setPaneScaleType(paneId, type)
       this.projectPaneScaleTypes()
     }
-    this.scheduleWorkspacePersistence()
     this.scheduleDraw()
   }
 
@@ -1312,10 +1256,6 @@ export class Chart {
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
     this.renderer.stopScheduling()
-    this.workspacePersistence?.dispose()
-    this.workspacePersistence = null
-    this.panePriceAxisPersistence?.dispose()
-    this.panePriceAxisPersistence = null
     // 插件卸载时仍可访问 Scene、状态与服务；随后统一释放图表资源。
     await this.pluginHost.destroy()
     this.disposeActiveRendererProjection?.()

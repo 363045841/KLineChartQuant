@@ -18,13 +18,9 @@
 
 ## 持久化
 
-K 线与分时工作区的用户配置使用 `localStorage` 持久化，键名为 `kline-chart-view-workspaces`。存储内容是完整 workspace 快照，仅包括用户指标、pane 布局比例和坐标轴类型；mode 管理的主序列、行情数据、viewport 与 renderer 实例均不保存。
+K 线与分时工作区不再单独持久化，而是随图表布局文档保存：`LayoutDocument.workspaces` 携带完整的用户指标、pane 布局比例和坐标轴类型快照；mode 管理的主序列、行情数据、viewport 与 renderer 实例均不保存。`LayoutManager` 把具名文档写入 IndexedDB。
 
-`createChartController` 在创建 `Chart` 前同步读取快照，再作为 kernel 初始状态注入，避免首帧默认布局闪烁。JSON 损坏时直接使用默认布局。
-
-用户通过指标或 pane 的语义入口变更工作区时，`Chart` 调用持久化适配器调度保存。适配器以 1 秒 trailing debounce 合并连续变更；`pagehide` 和 Chart 销毁时仅在有待写入变更时立即补写。
-
-StateKernel 仍是业务状态 SSOT，只提供完整快照的恢复与读取。浏览器存储、定时器和页面事件只存在于 controller 层适配器中；读取异常或配额不足均降级为默认内存状态，不影响图表运行。
+`createChartController` 在 Chart 挂载后调用 `LayoutManager.initialize()`，恢复活动布局并投影首帧。内核 `workspaces` 信号变化触发布局自动保存（合并 600ms 内连续变更），切换、`pagehide` 与 Chart 销毁前补写。StateKernel 仍是业务状态 SSOT，只提供完整快照的恢复与读取。
 
 ## Runtime 启动阶段
 

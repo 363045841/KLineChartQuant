@@ -13,20 +13,13 @@ export interface PanePriceAxisRange {
   readonly handRange: PriceRange | null
 }
 
-/** 创建逐 Pane 范围状态；传入已持久化的模式可恢复各轴开关，未设置的副图使用自动范围。 */
-export function createMainPriceAxisState(
-  initialMode: PriceAxisRangeMode,
-  initialModes?: LayoutPanePriceAxisModes,
-) {
+/** 创建逐 Pane 范围状态；主图从 settings 偏好初始化，未设置的副图使用自动范围。 */
+export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
   const seeded: Record<string, PanePriceAxisRange> = {
     [MAIN_PANE_ID]: Object.freeze({
-      rangeMode: initialModes?.[MAIN_PANE_ID] ?? initialMode,
+      rangeMode: initialMode,
       handRange: null,
     }),
-  }
-  for (const [paneId, mode] of Object.entries(initialModes ?? {})) {
-    if (paneId === MAIN_PANE_ID) continue
-    seeded[paneId] = Object.freeze({ rangeMode: mode, handRange: null })
   }
   const paneRanges: Readonly<Record<string, PanePriceAxisRange>> = Object.freeze(seeded)
   const { signals, readonly } = createSubState({ paneRanges })

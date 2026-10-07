@@ -182,10 +182,6 @@ export interface ChartStateKernelDeps {
   initialZoomLevel: number
   initialSettings?: Partial<ChartSettings>
   initialRendererRuntime?: RendererBackendRuntime
-  /** 已校验的用户视图工作区快照；系统 mode 实例不参与恢复。 */
-  initialViewWorkspaces?: LayoutWorkspaces
-  /** 已持久化的各 Pane 价格轴范围模式；缺失时回退 settings 偏好。 */
-  initialPanePriceAxisModes?: Readonly<Record<string, PriceAxisRangeMode>>
   /** 各市场分时交易时段注册表（分时几何 / 槽位共用）；未注入时分时槽位退化为 0 */
   marketSessions?: MarketSessionRegistry
   scheduleDraw: (level?: unknown) => void
@@ -307,18 +303,11 @@ export class ChartStateKernel extends StateKernel {
       this.pane.actions.commitLayout(initialRatios, initialPanes)
     }
     this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
-    if (deps.initialViewWorkspaces) {
-      batch(() => {
-        this.indicator.actions.restoreWorkspaces(deps.initialViewWorkspaces!)
-        this.pane.actions.restoreWorkspaces(deps.initialViewWorkspaces!)
-      })
-    }
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     this.settings = createSettingsState(deps.initialSettings)
     this.mainPriceAxis = createMainPriceAxisState(
       this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-      deps.initialPanePriceAxisModes,
     )
     this.renderer = createRendererState(
       deps.initialRendererRuntime ?? { effective: 'webgl', status: 'ready', error: null },

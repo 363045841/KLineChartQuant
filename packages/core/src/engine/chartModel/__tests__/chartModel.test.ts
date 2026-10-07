@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
+import { LAYOUT_DOCUMENT_VERSION } from '../../layout/types'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
 import { ChartDataViewId, createChartModel } from '../index'
 
@@ -130,7 +131,7 @@ describe('chartModel', () => {
 
   it('restores and snapshots independent view workspaces without mode instances', async () => {
     await loadBuiltinIndicators()
-    const initialViewWorkspaces = {
+    const workspaces = {
       kline: {
         instances: [
           {
@@ -156,12 +157,17 @@ describe('chartModel', () => {
         paneScaleTypes: { main: 'percent' as const },
       },
     }
-    const kernel = createTestChartStateKernel({ initialViewWorkspaces })
+    const kernel = createTestChartStateKernel()
+    kernel.applyLayout({
+      version: LAYOUT_DOCUMENT_VERSION,
+      workspaces,
+      panePriceAxisModes: {},
+    })
 
-    expect(kernel.snapshotViewWorkspaces()).toEqual(initialViewWorkspaces)
+    expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
     kernel.actions.setDataView(ChartDataViewId.TimeShare)
     expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual(['main', 'RSI_0'])
-    expect(kernel.snapshotViewWorkspaces()).toEqual(initialViewWorkspaces)
+    expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
   })
 
   it('uses an independent indicator workspace for timeshare', async () => {

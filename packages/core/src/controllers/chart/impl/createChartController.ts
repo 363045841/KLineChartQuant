@@ -19,12 +19,6 @@ import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/in
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
 import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
-import {
-  createPanePriceAxisPersistence,
-  createViewWorkspacePersistence,
-  loadStoredPanePriceAxisModes,
-  loadStoredViewWorkspaces,
-} from '../../persistence/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -94,8 +88,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   await loadBuiltinIndicators()
-  const initialViewWorkspaces = loadStoredViewWorkspaces()
-  const initialPanePriceAxisModes = loadStoredPanePriceAxisModes()
   const mounted = mountChartDom(opts)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
@@ -131,16 +123,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     {
       rendererHost,
       initialSettings,
-      initialViewWorkspaces: initialViewWorkspaces ?? undefined,
-      initialPanePriceAxisModes: initialPanePriceAxisModes ?? undefined,
       marketSessions: opts.marketSessions,
     },
-  )
-  chart.setViewWorkspacePersistence(
-    createViewWorkspacePersistence(() => chart.kernel.snapshotViewWorkspaces()),
-  )
-  chart.setPanePriceAxisPersistence(
-    createPanePriceAxisPersistence(() => chart.snapshotPanePriceAxisModes()),
   )
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {

@@ -1,6 +1,4 @@
 // 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
-import { Type } from 'typebox'
-import { Value } from 'typebox/value'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
 import { createSignal } from '../../../foundation/reactivity/signal.js'
 import {
@@ -13,68 +11,38 @@ import {
 } from '../types.js'
 
 export const DEFAULT_LAYOUT_ID = 'default'
-const Workspace = Type.Object({
-  instances: Type.Array(
-    Type.Object({
-      indicatorId: Type.String(),
-      paneId: Type.String(),
-      role: Type.Union([Type.Literal('main'), Type.Literal('sub')]),
-      params: Type.Record(Type.String(), Type.Unknown()),
-      instanceId: Type.Optional(Type.String()),
-      ordinal: Type.Optional(Type.Number()),
-      hidden: Type.Optional(Type.Boolean()),
-      source: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('mode')])),
-    }),
-  ),
-  paneRatios: Type.Record(Type.String(), Type.Number()),
-  paneSpecs: Type.Array(Type.Object({ id: Type.String(), ratio: Type.Number() })),
-  paneScaleTypes: Type.Record(
-    Type.String(),
-    Type.Union([Type.Literal('linear'), Type.Literal('log'), Type.Literal('percent')]),
-  ),
-})
-const DocumentSchema = Type.Object({
-  version: Type.Literal(LAYOUT_DOCUMENT_VERSION),
-  currentSymbol: Type.Optional(
-    Type.Union([
-      Type.Null(),
-      Type.Object({
-        symbol: Type.String(),
-        market: Type.String(),
-        id: Type.Optional(Type.String()),
-        exchange: Type.Optional(Type.String()),
-        period: Type.Optional(Type.String()),
-        adjust: Type.Optional(Type.String()),
-        source: Type.Optional(Type.String()),
-        params: Type.Optional(
-          Type.Record(Type.String(), Type.Union([Type.String(), Type.Number(), Type.Boolean()])),
-        ),
-        startDate: Type.Optional(Type.String()),
-        endDate: Type.Optional(Type.String()),
-        incremental: Type.Optional(Type.Boolean()),
-      }),
-    ]),
-  ),
-  workspaces: Type.Object({ kline: Workspace, timeshare: Workspace }),
-  panePriceAxisModes: Type.Record(
-    Type.String(),
-    Type.Union([Type.Literal('auto'), Type.Literal('hand')]),
-  ),
-  settings: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
-})
-const DocumentsSchema = Type.Record(
-  Type.String(),
-  Type.Intersect([DocumentSchema, Type.Object({ id: Type.String(), name: Type.String() })]),
-)
-const ArchiveSchema = Type.Object({
-  documents: DocumentsSchema,
-  activeId: Type.String(),
-  autoSave: Type.Boolean(),
-})
 
-/** 校验归档的文档版本与必需切片；不进行类型断言。 */
-function isArchive(value: unknown): value is LayoutArchive {
-  return Value.Check(ArchiveSchema, value)
+/** 判断值是否为普通对象（排除 null 与数组）。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 具名文档的最小结构校验：版本、身份与两个必需切片齐备；深入字段由各 state 恢复入口负责。 */
+function isNamedLayoutDocument(value: unknown): value is NamedLayoutDocument {
+  return (
+    isRecord(value) &&
+    value.version === LAYOUT_DOCUMENT_VERSION &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    isRecord(value.workspaces) &&
+    isRecord(value.panePriceAxisModes)
+  )
+}
+
+/** 归档存储校验：只保留结构完整的文档，避免脏数据进入内存状态。 */
+function decodeArchive(value: unknown): LayoutArchive | null {
+  if (
+    !isRecord(value) ||
+    typeof value.activeId !== 'string' ||
+    typeof value.autoSave !== 'boolean' ||
+    !isRecord(value.documents)
+  )
+    return null
+  const documents: Record<string, NamedLayoutDocument> = {}
+  for (const [id, document] of Object.entries(value.documents)) {
+    if (isNamedLayoutDocument(document)) documents[id] = document
+  }
+  return { documents, activeId: value.activeId, autoSave: value.autoSave }
 }
 
 /** 空名称在存储前拒绝，保持所有调用方的输入规则一致。 */
@@ -90,7 +58,7 @@ export class LayoutManager implements LayoutApi {
     storeName: 'layouts',
     key: 'documents',
     flushOnPageHide: false,
-    codec: { decode: (value) => (isArchive(value) ? value : null), encode: (value) => value },
+    codec: { decode: decodeArchive, encode: (value) => value },
   })
   private archive: LayoutArchive = {
     documents: {},
@@ -138,9 +106,8 @@ export class LayoutManager implements LayoutApi {
     return this.dependencies.exportLayout()
   }
 
-  /** 将文档交给图表领域入口恢复。 */
+  /** 将文档交给图表领域入口恢复；文档由本管理器或调用方按契约构造。 */
   applyLayout(document: LayoutDocument): void {
-    if (!Value.Check(DocumentSchema, document)) throw new Error('布局文档无效或版本不受支持')
     this.applying = true
     try {
       this.dependencies.applyLayout(structuredClone(document))
@@ -272,7 +239,7 @@ export class LayoutManager implements LayoutApi {
     })
   }
 
-  /** 保存当前图表；有 id 时覆盖指定归档。 */
+  /** 保存当前图表；有 id 时覆盖指定归档。保存后当前状态即是归档内容。 */
   saveLayout(input: { name: string; id?: string }): Promise<string> {
     return this.run(async () => {
       await this.load()
@@ -285,11 +252,7 @@ export class LayoutManager implements LayoutApi {
         },
         id,
       )
-      this.dirtySignal.set(
-        JSON.stringify(this.archive.documents[id]) !==
-          JSON.stringify({ ...this.exportLayout(), id, name: requireName(input.name) }),
-      )
-      if (this.dirtySignal.peek()) this.scheduleAutoSave()
+      this.dirtySignal.set(false)
       return id
     })
   }
@@ -386,6 +349,7 @@ export class LayoutManager implements LayoutApi {
       const archive = { ...this.archive, autoSave: input.enabled }
       await this.persistence.save(archive)
       this.archive = archive
+      this.errorSignal.set(null)
       this.publish()
       if (input.enabled) await this.saveActive()
     })
