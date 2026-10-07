@@ -275,6 +275,8 @@ export interface UiColors {
   readonly card: ColorValue
   readonly input: ColorValue
   readonly hover: ColorValue
+  /** 选中项常驻底色（列表项、菜单项）；比 hover 更轻，避免整行过重。 */
+  readonly selected: ColorValue
   readonly border: ColorValue
   readonly borderStrong: ColorValue
   readonly text: ColorValue

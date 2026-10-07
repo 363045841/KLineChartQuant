@@ -37,6 +37,7 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
         card: p.card,
         input: p.input,
         hover: p.hover,
+        selected: p.selected,
         border: p.border,
         borderStrong: p.borderStrong,
         text: p.text,
