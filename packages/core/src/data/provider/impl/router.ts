@@ -90,7 +90,14 @@ async function resolveInstrument(
         `[${provider.source.id}] instrument "${attached.id}" does not support ${capability}`,
       )
     }
-    return attached
+    // 足迹需要完整的品种价格精度。布局恢复或旧目录条目缺少精度时，从权威目录重新解析。
+    if (
+      !attached.capabilities.trades?.raw ||
+      (typeof attached.tickSize === 'number' &&
+        Number.isFinite(attached.tickSize) &&
+        attached.tickSize > 0)
+    )
+      return attached
   }
 
   if (!provider.catalog) {

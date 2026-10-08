@@ -253,7 +253,8 @@ export class ChartIndicatorManager {
     this.calculationScheduler = createInstanceCalculationScheduler({
       pipeline: this.pipeline,
       executor: {
-        setData: (data, revision) => this.executorHolder.active.setData(data, revision),
+        setData: (data, revision, trades) =>
+          this.executorHolder.active.setData(data, revision, trades),
         execute: (plan, revision) => this.executorHolder.active.execute(plan, revision),
       },
       onCommit: ({ pool }) => this.applyCommittedPool(pool),
@@ -538,12 +539,28 @@ export class ChartIndicatorManager {
   }
 
   /** 计算计划或数据变化后请求一次调度；无数据时不触发。 */
+  private tradeInput: import('../../data/trades/types.js').TradeSnapshot | undefined
+
+  /** 成交与 K 线共用同一计算调度及过期请求门控。 */
+  updateTradeInput(input: import('../../data/trades/types.js').TradeSnapshot): void {
+    if (
+      this.tradeInput?.status === input.status &&
+      this.tradeInput.tickSize === input.tickSize &&
+      this.tradeInput.message === input.message &&
+      this.tradeInput.batches === input.batches
+    )
+      return
+    this.tradeInput = { ...input, revision: (this.tradeInput?.revision ?? 0) + 1 }
+    this.requestCompute()
+  }
+
   private requestCompute(): void {
     if (!this.hasData) return
     void this.calculationScheduler.compute({
       dataRevision: this.dataRevision,
       timestamps: this.displayTimestamps ?? this.currentTimestamps,
       data: this.currentData,
+      trades: this.tradeInput,
     })
   }
 

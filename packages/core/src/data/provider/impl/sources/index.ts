@@ -13,6 +13,7 @@ import './mock.js'
 import './mt5.js'
 
 export { baostockMarketDataProvider } from './baostock.js'
+export { binanceMarketDataProvider } from './binance.js'
 export { finshareMarketDataProvider } from './finshare.js'
 export { gotdxMarketDataProvider } from './gotdx.js'
 export { mockMarketDataProvider } from './mock.js'

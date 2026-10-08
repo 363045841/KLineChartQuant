@@ -35,3 +35,13 @@ export {
 } from './live/impl/barsLive.js'
 export * from './provider/impl/sources/index.js'
 export * from './provider/index.js'
+export type {
+  MarketTrade,
+  TradeBatch,
+  TradeDataSource,
+  TradeFrame,
+  TradeRange,
+  TradeSnapshot,
+  TradeStatus,
+  TradeStream,
+} from './trades/types.js'

@@ -20,6 +20,7 @@ export function loadBuiltinDefinitionClasses(): Promise<IndicatorDefinitionClass
     import('../../renderers/Indicator/fastk.js').then((module) => module.FASTKIndicatorDefinition),
     import('../../renderers/Indicator/fib.js').then((module) => module.FibDefinition),
     import('../../renderers/Indicator/fisherTransform.js').then((module) => module.FisherTransformIndicatorDefinition),
+    import('../../renderers/Indicator/footprint.js').then((module) => module.FootprintIndicatorDefinition),
     import('../../renderers/Indicator/frama.js').then((module) => module.FRAMADefinition),
     import('../../renderers/Indicator/gmma.js').then((module) => module.GMMADefinition),
     import('../../renderers/Indicator/hma.js').then((module) => module.HMADefinition),

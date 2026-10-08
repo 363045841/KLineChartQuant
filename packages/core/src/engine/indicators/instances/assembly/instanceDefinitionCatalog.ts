@@ -16,8 +16,10 @@ export function createInstanceCalculationDefinitions(
     if (!runtime) continue
     const definition: IndicatorCalculationDefinition = {
       definitionId: item.name,
+      inputs: runtime.inputs,
       outputAlignment: runtime.outputAlignment,
-      compute: (data, params) => runtime.compute(data, params),
+      compute: runtime.compute,
+      createCompute: runtime.createCompute,
     }
     definitions.push(Object.freeze(definition))
   }
@@ -36,6 +38,7 @@ export function serializeInstanceCalculationDefinitions(
       Object.freeze({
         definitionId: item.name,
         computeKey: runtime.computeKey,
+        inputs: runtime.inputs,
         outputAlignment: runtime.outputAlignment,
       }),
     )

@@ -5,7 +5,7 @@
  *
  *   node scripts/start-connector.mjs            # 启动全部 connector（gotdx + binance + baostock，不含 mt5）
  *   node scripts/start-connector.mjs gotdx      # gotdx 通达信（:8080）
- *   node scripts/start-connector.mjs binance    # 币安深度（:8081）
+ *   node scripts/start-connector.mjs binance    # Binance 现货行情与逐笔成交（:8091）
  *   node scripts/start-connector.mjs baostock   # BaoStock / TradingView（:8000）
  *   node scripts/start-connector.mjs mt5        # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
  *   node scripts/start-connector.mjs tdx baostock  # 可同时指定多个，也支持别名

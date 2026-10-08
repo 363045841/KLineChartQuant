@@ -5,8 +5,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import { createTradeBuffer } from '../../../data/trades/impl/tradeBuffer'
+import type { TradeBatch, TradeDataSource } from '../../../data/trades/types'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
+import {
+  createContextWithInstanceState,
+  createKLineData,
+  createMockCanvasContext,
+} from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
+import { FootprintIndicatorDefinition } from '../../renderers/Indicator/footprint'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { loadBuiltinIndicators } from '../registerBuiltins'
@@ -81,6 +89,75 @@ describe('ChartIndicatorManager', () => {
 
   afterEach(() => {
     manager.destroy()
+  })
+
+  it('每页历史返回后提交足迹并请求绘制，不等待下一页完成', async () => {
+    const data = createKLineData(100)
+    manager.enableMainIndicator('Footprint')
+    manager.updateIndicatorData(data, { start: 80, end: 82 }, 1)
+    let releaseFirst: ((batch: TradeBatch) => void) | undefined
+    const source: TradeDataSource = {
+      fetch: vi.fn<TradeDataSource['fetch']>(
+        ({ signal }) =>
+          new Promise<TradeBatch>((resolve, reject) => {
+            if (!releaseFirst) releaseFirst = resolve
+            signal.addEventListener('abort', () => reject(new Error('cancelled')))
+          }),
+      ),
+      connect: () => ({ subscribe: () => () => {}, close: () => {} }),
+    }
+    const buffer = createTradeBuffer(source, {
+      id: 'binance:spot:BTCUSDT',
+      sourceId: 'binance',
+      symbol: 'BTCUSDT',
+      name: 'BTCUSDT',
+      exchange: 'BINANCE',
+      assetClass: 'crypto',
+      tickSize: 0.01,
+      capabilities: { trades: { raw: true, live: true } },
+    })
+    const unsubscribe = buffer.snapshot.subscribe(() =>
+      manager.updateTradeInput(buffer.snapshot.peek()),
+    )
+    const loading = buffer.ensureRange({ from: data[80]!.timestamp, to: data[82]!.timestamp })
+    try {
+      releaseFirst?.({
+        complete: true,
+        range: { from: data[81]!.timestamp, to: data[82]!.timestamp },
+        items: [
+          {
+            tradeId: '1',
+            timestamp: data[81]!.timestamp,
+            price: '100',
+            size: '0.25',
+            side: 'sell',
+          },
+        ],
+      })
+      const instanceId = harness.indicator.readonly.instances
+        .peek()
+        .find((instance) => instance.indicatorId === 'Footprint')!.instanceId
+      const ctx = createMockCanvasContext()
+      await vi.waitFor(() => {
+        vi.mocked(ctx.fillRect).mockClear()
+        const state = manager.createRenderStateReader().get(instanceId)
+        FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId }).paint(
+          createContextWithInstanceState(ctx, instanceId, state, {
+            data,
+            range: { start: 80, end: 82 },
+            kLineCenters: [100, 150],
+            pane: { yAxis: { priceToY: (price) => 1100 - price * 10 } },
+          }),
+        )
+        expect(ctx.fillRect).toHaveBeenCalledTimes(1)
+      })
+      expect(source.fetch).toHaveBeenCalledTimes(2)
+      expect(deps.scheduleDraw).toHaveBeenCalled()
+    } finally {
+      unsubscribe()
+      buffer.dispose()
+      await loading
+    }
   })
 
   describe('main indicator params', () => {

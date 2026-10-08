@@ -1,5 +1,6 @@
 /** 新实例计算链路的 inline 与 Worker 执行器适配。 */
 import type { KLineData } from '@/foundation/types/price.js'
+import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import type { IndicatorCalculationOutput } from '../domain/instanceCalculationPlan.js'
 import {
   INSTANCE_WORKER_PROTOCOL_VERSION,
@@ -17,8 +18,8 @@ export function createInlineIndicatorCalculationExecutor(
 ): IndicatorCalculationExecutor {
   const runtime = new IndicatorInstanceExecutionRuntime(definitions)
   const executor: IndicatorCalculationExecutor = {
-    async setData(data, dataRevision) {
-      runtime.setData(data, dataRevision)
+    async setData(data, dataRevision, trades) {
+      runtime.setData(data, dataRevision, trades)
     },
     async execute(plan) {
       return runtime.execute(plan)
@@ -35,6 +36,7 @@ export function createWorkerIndicatorCalculationExecutor(input: {
   let nextRequestId = 0
   let ready = false
   let disposed = false
+  let previousTrades: TradeSnapshot | undefined
   const pending = new Map<
     number,
     {
@@ -90,10 +92,26 @@ export function createWorkerIndicatorCalculationExecutor(input: {
   })
 
   const executor: IndicatorCalculationExecutor & { dispose: () => void } = {
-    async setData(data: KLineData[], dataRevision: number): Promise<void> {
+    async setData(data: KLineData[], dataRevision: number, trades?: TradeSnapshot): Promise<void> {
       await readyPromise
       if (disposed) throw new Error('Indicator Worker executor is disposed')
-      input.worker.postMessage({ type: 'setData', data, dataRevision })
+      const appendTrades =
+        trades !== undefined &&
+        previousTrades !== undefined &&
+        previousTrades.batches.length <= trades.batches.length &&
+        previousTrades.batches.every((batch, index) => batch === trades.batches[index])
+      const update =
+        trades && appendTrades
+          ? { ...trades, batches: trades.batches.slice(previousTrades?.batches.length ?? 0) }
+          : trades
+      input.worker.postMessage({
+        type: 'setData',
+        data,
+        dataRevision,
+        trades: update,
+        appendTrades,
+      })
+      previousTrades = trades
     },
     async execute(plan, dataRevision): Promise<readonly IndicatorCalculationOutput[]> {
       await readyPromise

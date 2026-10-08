@@ -48,6 +48,30 @@ const uiMeta: Record<
     params?: ParamConfig[]
   }
 > = {
+  footprint: {
+    name: '足迹图',
+    description: '按价格档位展示真实成交的主动卖量 × 主动买量；虚线标记成交覆盖不完整的柱子。',
+    params: [
+      {
+        key: 'ticksPerRow',
+        label: '每行价格跳数',
+        type: 'number',
+        min: 1,
+        max: 100000,
+        step: 1,
+        default: 300,
+      },
+      {
+        key: 'imbalanceRatio',
+        label: '不平衡倍数',
+        type: 'number',
+        min: 1,
+        max: 100,
+        step: 1,
+        default: 3,
+      },
+    ],
+  },
   ma: {
     name: '均线',
     description:

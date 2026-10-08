@@ -29,6 +29,7 @@ import type {
 } from '../types.js'
 
 export interface MarketDataProviderOptions {
+  trades?: import('../../../trades/types.js').TradeDataSource
   // 数据源元信息；marketSessions 中声明的会话会注册进本地会话表
   source: DataSourceDescriptor
   // 传输实现，负责 wire 语义
@@ -60,6 +61,8 @@ function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor
     exchange: item.exchange,
     sessionId: item.sessionId,
     currency: item.currency,
+    tickSize: item.tickSize,
+    lotSize: item.lotSize,
     providerRef: item.providerRef,
     capabilities: item.capabilities,
   }
@@ -133,6 +136,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
   return {
     source: runtimeSource,
     liveBars: options.liveBars,
+    trades: options.trades,
 
     // 通过 probe endpoint 探测数据源可用性，失败时返回 offline 而非抛错
     async probe(signal) {

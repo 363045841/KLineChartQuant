@@ -27,6 +27,7 @@ import {
 } from '@/engine/state/dataManagerState'
 import { createDataState, type DataStateModule } from '@/engine/state/dataState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
+import { createSignal } from '@/foundation/reactivity/signal'
 import type { TimeShareData } from '@/foundation/types/price'
 
 /** ViewportStateModule 替身入参。 */
@@ -68,7 +69,7 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
       contentWidth: { peek: () => contentWidth },
       viewWidth: { peek: () => viewWidth },
       viewHeight: { peek: () => viewHeight },
-      visibleRange: { peek: () => visibleRange },
+      visibleRange: createSignal(visibleRange),
       rawVisibleRange: { peek: () => visibleRange },
       viewport: {
         peek: () => ({

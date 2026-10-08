@@ -6,6 +6,7 @@
  */
 
 import type { KLineData } from '@/foundation/types/price.js'
+import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import {
   expandIndicatorCalculationOutputs,
   type IndicatorCalculationOutput,
@@ -15,7 +16,7 @@ import {
 import type { IndicatorResultPool } from '../domain/instanceModel.js'
 
 export interface IndicatorCalculationExecutor {
-  setData(data: KLineData[], dataRevision: number): Promise<void>
+  setData(data: KLineData[], dataRevision: number, trades?: TradeSnapshot): Promise<void>
   execute(
     plan: IndicatorCalculationPlan,
     dataRevision: number,
@@ -46,12 +47,13 @@ export function createInstanceCalculationScheduler(
       readonly dataRevision: number
       readonly timestamps: readonly number[]
       readonly data: KLineData[]
+      readonly trades?: TradeSnapshot
     }): Promise<boolean> {
       const nextRequestId = ++requestId
       const snapshot = options.pipeline.snapshot()
       const plan = options.pipeline.calculationPlan()
       try {
-        await options.executor.setData(input.data, input.dataRevision)
+        await options.executor.setData(input.data, input.dataRevision, input.trades)
         const outputs = await options.executor.execute(plan, input.dataRevision)
         // 结果必须仍然对应发起时的实例版本，且不能覆盖之后的成功请求。
         if (nextRequestId < requestId || nextRequestId <= committedRequestId) return false

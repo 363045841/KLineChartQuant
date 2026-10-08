@@ -1,20 +1,8 @@
-export { classifyExplicit, classifyLeeReady, classifyTickRule } from './impl/aggressor.js'
-export { createFootprintController } from './impl/createFootprintController.js'
-export {
-  computeCumulativeDelta,
-  computeDelta,
-  computeDiagonalImbalances,
-} from './impl/perBarStats.js'
+/** Footprint 公共契约；计算和绘制均由统一指标实例管线管理。 */
 export type {
-  AggressorResult,
-  AggressorSide,
   FootprintBar,
-  FootprintBarCell,
-  FootprintConfig,
-  FootprintController,
-  FootprintImbalance,
-  LeeReadyState,
-  TickRuleState,
-  Trade,
-  TradeWithFlag,
+  FootprintCell,
+  FootprintParams,
+  FootprintRenderState,
+  FootprintSeries,
 } from './types.js'

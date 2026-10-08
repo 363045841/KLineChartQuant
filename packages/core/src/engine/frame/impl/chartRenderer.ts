@@ -203,6 +203,7 @@ export class ChartRenderer {
       ...this.deps.getDataManager().getComparisonContentInputs(),
       this.deps.getDataManager().currentPeriod,
       this.deps.dataView$.peek(),
+      this.deps.primaryRenderer$?.peek(),
       vp?.scrollLeft,
       vp?.plotWidth,
       vp?.plotHeight,
@@ -387,7 +388,11 @@ export class ChartRenderer {
       this.scene.addLayer(createGridLinesLayer())
     }
     {
-      this.scene.addLayer(createCandleLayer())
+      this.scene.addLayer(
+        createCandleLayer(
+          this.deps.primaryRenderer$ ? () => this.deps.primaryRenderer$!.peek() : undefined,
+        ),
+      )
     }
     {
       this.scene.addLayer(createTimeShareLayer())

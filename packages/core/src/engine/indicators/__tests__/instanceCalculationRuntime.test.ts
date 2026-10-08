@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { KLineData } from '@/types/price'
+import { EMPTY_TRADE_SNAPSHOT } from '../../../data/trades/types'
 
 import {
   expandIndicatorCalculationOutputs,
@@ -21,6 +22,33 @@ import {
   createTestInstance,
   FakeCalculationSource,
 } from './helpers/instanceTestKit'
+
+describe('成交输入依赖', () => {
+  // 只改变成交版本时，纯 K 线计算结果复用；成交依赖必须重新计算。
+  it('invalidates only calculators that declare trades', () => {
+    const source = new FakeCalculationSource([
+      createTestInstance({ instanceId: 'bars', definitionId: 'bars' }),
+      createTestInstance({ instanceId: 'trades', definitionId: 'trades' }),
+    ])
+    const bars = vi.fn(() => [1])
+    const trades = vi.fn(() => [2])
+    const runtime = new IndicatorInstanceExecutionRuntime([
+      { definitionId: 'bars', compute: bars },
+      { definitionId: 'trades', inputs: ['trades'], compute: trades },
+    ])
+    const data = createTestData(2)
+    runtime.setData(data, 1, { ...EMPTY_TRADE_SNAPSHOT, revision: 1 })
+    runtime.execute(source.calculationPlan())
+    runtime.setData(data, 1, { ...EMPTY_TRADE_SNAPSHOT, revision: 2 })
+    runtime.execute(source.calculationPlan())
+    expect(bars).toHaveBeenCalledTimes(1)
+    expect(trades).toHaveBeenCalledTimes(2)
+    runtime.setData(data, 2, { ...EMPTY_TRADE_SNAPSHOT, revision: 2 })
+    runtime.execute(source.calculationPlan())
+    expect(bars).toHaveBeenCalledTimes(2)
+    expect(trades).toHaveBeenCalledTimes(3)
+  })
+})
 
 describe('executeIndicatorCalculationPlan', () => {
   it('相同计算参数的不同实例只执行一次并共享结果引用', () => {

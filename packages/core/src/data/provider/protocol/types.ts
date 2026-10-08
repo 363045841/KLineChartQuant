@@ -29,6 +29,7 @@ const V1_API_BASE = '/api/v1/market-data'
 
 /** V1 协议端点路径；wire 契约的单一来源。 */
 export const V1_ENDPOINTS = {
+  tradesRange: `${V1_API_BASE}/trades/range`,
   /** 数据源相关端点基路径（probe / stream 在其下拼接 sourceId）。 */
   sources: `${V1_API_BASE}/sources`,
   instrumentsSearch: `${V1_API_BASE}/instruments/search`,
@@ -285,6 +286,15 @@ export interface MarketTickTransport {
  * 返回统一解包后的 data 载荷，不掺领域映射逻辑
  */
 export interface MarketDataTransport {
+  fetchTradeRange?(
+    request: {
+      readonly sourceId: string
+      readonly instrument: ProtocolInstrumentReference
+      readonly from: number
+      readonly to: number
+    },
+    signal?: AbortSignal,
+  ): Promise<import('../../trades/types.js').TradeBatch>
   // 探测指定数据源可用性
   probe(sourceId: string, signal?: AbortSignal): Promise<ProtocolSourceProbe>
   // 搜索数据源内的标准品种目录

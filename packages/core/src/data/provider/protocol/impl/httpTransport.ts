@@ -133,6 +133,16 @@ export function createHttpMarketDataTransport(
   }
 
   return {
+    /** 成交时间范围与 K 线共用请求、envelope 和错误处理。 */
+    async fetchTradeRange(req, signal) {
+      return request<import('../../../trades/types.js').TradeBatch>(
+        baseUrl(),
+        V1_ENDPOINTS.tradesRange,
+        { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(req), signal },
+        getFetch,
+        label,
+      )
+    },
     // 通过 probe endpoint 探测数据源可用性
     async probe(sourceId, signal) {
       const path = `${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/probe`

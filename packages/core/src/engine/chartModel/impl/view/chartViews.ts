@@ -29,14 +29,20 @@ export interface ChartViewDefinition {
 }
 
 /**
- * 主序列渲染类型：同一主序列可选的四种画法。
+ * 主序列渲染类型：同一主序列可选的画法。
  * - `candlestick`：蜡烛图，实体 + 影线，需要 OHLC。
+ * - `hollow-candlestick`：涨跌实体均为空心边框，保留影线，需要 OHLC。
  * - `ohlc-bar`：美式 OHLC 柱，只有横线不含实体，需要 OHLC。
  * - `line`：只连收盘价折线。
  * - `area`：收盘价折线 + 底部填充。
  * 蜡烛与 OHLC 柱依赖 OHLC；折线与面积只需收盘价，因此分时只用后两者。
  */
-export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
+export type PrimaryRendererType =
+  | 'candlestick'
+  | 'hollow-candlestick'
+  | 'ohlc-bar'
+  | 'line'
+  | 'area'
 
 /** 每个视图独立保存的主序列渲染偏好。 */
 export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>

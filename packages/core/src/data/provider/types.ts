@@ -7,6 +7,7 @@ import type { KLineData, TimeShareData } from '../../controllers/types.js'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { DepthSource } from '../depth/types.js'
 import type { LiveBarsDataSource } from '../live/types.js'
+import type { TradeDataSource } from '../trades/types.js'
 
 /** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
 export const ASSET_CLASS_VALUES = [
@@ -115,6 +116,7 @@ export interface TimeShareRangeCapability {
 
 /** 单个品种可被前端启用的行情能力。 */
 export interface InstrumentCapabilities {
+  trades?: { readonly raw: boolean; readonly live: boolean }
   bars?: BarCapability
   /** 能按末根 K 线时间戳提供后续槽位的真实交易日历。 */
   tradingCalendar?: boolean
@@ -129,6 +131,7 @@ export interface InstrumentCapabilities {
 
 /** 数据源级能力声明，用于在请求前筛选流转候选源。 */
 export interface SourceCapabilities {
+  trades?: { readonly raw: boolean; readonly live: boolean }
   assetClasses: ReadonlyArray<AssetClass>
   bars?: BarCapability
   tradingCalendar?: boolean
@@ -314,6 +317,7 @@ export interface DepthDataSource {
 
 /** 按能力组合的数据源接口，缺失模块表示数据源不支持该能力。 */
 export interface MarketDataProvider {
+  readonly trades?: TradeDataSource
   readonly source: DataSourceDescriptor
   /** 探测数据源可用性并返回本次检查结果。 */
   probe(signal?: AbortSignal): Promise<SourceProbeResult>

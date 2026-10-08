@@ -45,6 +45,13 @@ import {
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
+import { createTradeBuffer } from '../../data/trades/impl/tradeBuffer.js'
+import {
+  EMPTY_TRADE_SNAPSHOT,
+  TRADE_STATUS,
+  type TradeBuffer,
+  type TradeSnapshot,
+} from '../../data/trades/types.js'
 import { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
@@ -70,6 +77,8 @@ import { ScrollCompensator } from './scrollCompensator.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
+  updateTradeInput?: (input: TradeSnapshot) => void
+  needsTrades?: () => boolean
   getOption: () => { kWidth: number; kGap: number }
   getZoomLevel: () => number
   setZoomLevel: (level: number) => void
@@ -114,8 +123,75 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
 export class ChartDataManager {
+  private tradeBuffer: TradeBuffer | null = null
+  private tradeUnsubscribe: (() => void) | null = null
+  private tradeIdentity = ''
+  private tradeDemandTimer: ReturnType<typeof setTimeout> | null = null
+  private tradeSelectionUnsubscribe: (() => void) | null = null
+  private tradeViewportUnsubscribe: (() => void) | null = null
+
+  /** 成交需求与活动品种共同决定唯一 Buffer，不由 renderer 创建网络连接。 */
+  reconcileTradeInput(): void {
+    const spec = this._dmState.readonly.currentSpec.peek()
+    const selection = this._activeSelection
+    const activeBuffer = this.getActiveDataBuffer()
+    const instrument =
+      (activeBuffer ? this.resolvedBarSources.get(activeBuffer)?.instrument : undefined) ??
+      spec?.instrument
+    const provider = instrument ? marketDataProviderRegistry.get(instrument.sourceId) : undefined
+    const supported =
+      this.deps.needsTrades?.() &&
+      spec &&
+      selection?.kind === SERIES_SELECTION_KIND.bars &&
+      selection.instrumentKey === instrumentKeyFromSpec(spec) &&
+      selection.sourceId === instrument?.sourceId &&
+      instrument?.capabilities.trades?.raw &&
+      provider?.trades
+    const identity =
+      supported && instrument
+        ? JSON.stringify([instrument.sourceId, instrument.id, instrument.tickSize])
+        : ''
+    if (identity !== this.tradeIdentity || (!supported && this.tradeBuffer)) {
+      this.tradeUnsubscribe?.()
+      this.tradeBuffer?.dispose()
+      this.tradeBuffer = null
+      this.tradeIdentity = identity
+      if (this.tradeDemandTimer) clearTimeout(this.tradeDemandTimer)
+      this.tradeDemandTimer = null
+      if (supported && instrument && provider?.trades) {
+        this.tradeBuffer = createTradeBuffer(provider.trades, instrument)
+        this.deps.updateTradeInput?.(this.tradeBuffer.snapshot.peek())
+        this.tradeUnsubscribe = this.tradeBuffer.snapshot.subscribe(() =>
+          this.deps.updateTradeInput?.(this.tradeBuffer?.snapshot.peek() ?? EMPTY_TRADE_SNAPSHOT),
+        )
+      }
+    }
+    if (!supported) {
+      this.deps.updateTradeInput?.({
+        ...EMPTY_TRADE_SNAPSHOT,
+        status: this.deps.needsTrades?.() ? TRADE_STATUS.unsupported : TRADE_STATUS.idle,
+        message: this.deps.needsTrades?.() ? '当前品种不支持原始逐笔成交' : null,
+      })
+      return
+    }
+    const data = this._dataState.readonly.data.peek()
+    const range = this.getVisibleRangeOrNull()
+    const first = range ? data[Math.max(0, range.start)]?.timestamp : undefined
+    const end = range ? Math.min(range.end, data.length) : 0
+    // 历史视口止于最后一根可见柱的右边界，不向当前时刻拉取屏外逐笔。
+    const to = Math.min(data[end]?.timestamp ?? Date.now(), Date.now())
+    if (first === undefined || end <= (range?.start ?? 0) || to <= first || !this.tradeBuffer)
+      return
+    if (this.tradeDemandTimer) clearTimeout(this.tradeDemandTimer)
+    const buffer = this.tradeBuffer
+    this.tradeDemandTimer = setTimeout(() => {
+      this.tradeDemandTimer = null
+      if (this.tradeBuffer === buffer) void buffer.ensureRange({ from: first, to })
+    }, 200)
+  }
   private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
-  private readonly calendarSources = new WeakMap<
+  /** K 线请求实际解析出的来源与品种，成交及交易日历共用。 */
+  private readonly resolvedBarSources = new WeakMap<
     KLineBuffer,
     { sourceId: string; instrument: InstrumentDescriptor }
   >()
@@ -149,6 +225,12 @@ export class ChartDataManager {
     this.deps = deps
     this._dataState = dataState
     this._dmState = dmState
+    this.tradeSelectionUnsubscribe = dmState.readonly.currentSpec.subscribe(() =>
+      this.reconcileTradeInput(),
+    )
+    this.tradeViewportUnsubscribe = deps.viewport.readonly.visibleRange.subscribe(() =>
+      this.reconcileTradeInput(),
+    )
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
     this._comparisonManager = new ComparisonManager(this._repository, {
@@ -433,7 +515,10 @@ export class ChartDataManager {
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
-      this.calendarSources.set(buffer, { sourceId: result.sourceId, instrument: result.instrument })
+      this.resolvedBarSources.set(buffer, {
+        sourceId: result.sourceId,
+        instrument: result.instrument,
+      })
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -627,6 +712,7 @@ export class ChartDataManager {
         currentRange,
         this._dataState.readonly.dataRevision.peek(),
       )
+      this.reconcileTradeInput()
     }
 
     if (prependedCount > 0) {
@@ -1336,7 +1422,7 @@ export class ChartDataManager {
 
   private requestTradingCalendar(buffer: KLineBuffer, anchorTimestamp: number): void {
     const selection = this._activeSelection
-    const source = this.calendarSources.get(buffer)
+    const source = this.resolvedBarSources.get(buffer)
     if (selection?.kind !== SERIES_SELECTION_KIND.bars || !source) return
     const provider = marketDataProviderRegistry.get(source.sourceId)
     if (
@@ -1391,6 +1477,11 @@ export class ChartDataManager {
     this._comparisonManager.clearAll()
     this.unbindActiveBuffer()
     this._repository.dispose()
+    this.tradeSelectionUnsubscribe?.()
+    this.tradeViewportUnsubscribe?.()
+    if (this.tradeDemandTimer) clearTimeout(this.tradeDemandTimer)
+    this.tradeUnsubscribe?.()
+    this.tradeBuffer?.dispose()
     this.marketDataCache.destroy()
     this._loadHint.destroy()
   }

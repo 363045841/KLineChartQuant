@@ -6,6 +6,27 @@ import { createTestChartStateKernel } from '../../state/__tests__/helpers/create
 import { ChartDataViewId, createChartModel } from '../index'
 
 describe('chartModel', () => {
+  it('applies and restores hollow candle settings while keeping timeshare rendering independent', () => {
+    const kernel = createTestChartStateKernel()
+    const restored = createTestChartStateKernel()
+    try {
+      kernel.settings.actions.patch({ klineShape: 'hollow-candlestick' })
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
+      kernel.actions.setDataView('timeshare')
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('line')
+      kernel.actions.setDataView('kline')
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
+      const layout = kernel.exportLayout()
+      expect(layout.settings?.klineShape).toBe('hollow-candlestick')
+      restored.applyLayout(layout)
+      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
+      restored.settings.actions.patch({ klineShape: 'candlestick' })
+      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+    } finally {
+      kernel.dispose()
+      restored.dispose()
+    }
+  })
   it('defaults to kline', () => {
     const m = createChartModel()
     expect(m.readonly.chartMode.peek()).toBe('kline')

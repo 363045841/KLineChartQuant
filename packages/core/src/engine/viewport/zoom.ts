@@ -1,8 +1,15 @@
 /** 缩放级别与绘制尺寸的纯派生；指针变换统一由 slotGrid 实现。 */
 import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 
-/** 控制器与直接创建 Chart 共用的默认缩放档位数量。 */
-export const DEFAULT_ZOOM_LEVEL_COUNT = 30
+/** 主图 K 线宽度的默认上下限（逻辑像素）；上限需支撑足迹图展示价格行数字与横条细节。 */
+export const DEFAULT_MIN_K_WIDTH = 1
+export const DEFAULT_MAX_K_WIDTH = 200
+
+/**
+ * 控制器与直接创建 Chart 共用的默认缩放档位数量。
+ * 档位数与 K 线宽度上限同步提高，放大到足迹图可读尺寸时仍保持每档约 2.5 逻辑像素的推进步长。
+ */
+export const DEFAULT_ZOOM_LEVEL_COUNT = 80
 
 export interface ZoomConfigBase {
   minKWidth: number

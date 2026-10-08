@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { KLineChartError } from '@/errors'
+import { symbolInfoFromSpec } from '../../../engine/data/symbolInfo'
 import { marketDataProviderRegistry } from '../impl/registry'
 import { SourceRouter, SourceRoutingError } from '../impl/router'
 import type { InstrumentDescriptor, MarketDataProvider } from '../types'
@@ -23,6 +24,55 @@ const baseInstrument: InstrumentDescriptor = {
 describe('SourceRouter', () => {
   beforeEach(() => {
     marketDataProviderRegistry.clear()
+  })
+
+  it('resolves missing trade price precision from the catalog and preserves it in chart symbol info', async () => {
+    const instrument: InstrumentDescriptor = {
+      ...baseInstrument,
+      tickSize: 0.01,
+      lotSize: 0.00001,
+      currency: 'USDT',
+      capabilities: { ...baseInstrument.capabilities, trades: { raw: true, live: true } },
+    }
+    let catalogCalls = 0
+    marketDataProviderRegistry.register(
+      createMockMarketDataProvider({
+        sourceId: instrument.sourceId,
+        search: async () => {
+          catalogCalls++
+          return [instrument]
+        },
+        fetchBars: async (query) => {
+          expect(query.instrument.tickSize).toBe(0.01)
+          return {
+            instrumentId: instrument.id,
+            period: 'daily',
+            adjustment: 'none',
+            barAggregation: 'original',
+            timezone: 'UTC',
+            data: [],
+            olderData: 'unknown',
+          }
+        },
+      }),
+    )
+    const result = await new SourceRouter().bars({
+      preferredSourceId: instrument.sourceId,
+      instrument: { ...instrument, tickSize: undefined },
+      symbol: instrument.symbol,
+      exchange: instrument.exchange,
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: 'original',
+      limit: 2,
+    })
+    expect(catalogCalls).toBe(1)
+    const info = symbolInfoFromSpec({
+      symbol: instrument.symbol,
+      market: 'CN',
+      instrument: result.instrument,
+    })
+    expect(info).toMatchObject({ tickSize: 0.01, lotSize: 0.00001, currency: 'USDT' })
   })
 
   // 验证 auto 策略在确定性拒绝后重新搜索目标源并使用目标源私有 providerRef。

@@ -21,6 +21,7 @@
         :search="searchSymbols"
         :k-line-level="kLineLevel"
         :k-line-adjust="kLineAdjust"
+        :k-line-shape="kLineShape"
         :symbol-loading="symbolStatus === 'loading'"
         :symbol-error="symbolStatus === 'error'"
         :symbol-retrying="symbolRetrying"
@@ -41,6 +42,7 @@
         @remove-overlay-symbol="onRemoveOverlaySymbol"
         @k-line-level-change="onKLineLevelChange"
         @k-line-adjust-change="onKLineAdjustChange"
+        @k-line-shape-change="onKLineShapeChange"
         @symbol-change="onSymbolChange"
         @add-watchlist="addWatchlistItem"
         @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -491,7 +493,7 @@
       /** 价格标签额外宽度（用于显示涨跌幅，默认 60px） */
       priceLabelWidth?: number
 
-      /** 缩放级别数量（默认 10） */
+      /** 缩放级别数量（默认 80） */
       zoomLevels?: number
       /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
       initialZoomLevel?: number
@@ -515,11 +517,11 @@
     {
       yPaddingPx: 20,
       minKWidth: 1,
-      maxKWidth: 50,
+      maxKWidth: 200,
       rightAxisWidth: 0,
       bottomAxisHeight: 24,
       priceLabelWidth: 60,
-      zoomLevels: 20,
+      zoomLevels: 80,
       initialZoomLevel: 3,
       // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
       // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
@@ -746,6 +748,9 @@
       exchange: info.exchange ?? '',
       sessionId: info.sessionId ?? (info.market || undefined),
       providerRef: info.params,
+      tickSize: info.tickSize,
+      lotSize: info.lotSize,
+      currency: info.currency,
       capabilities: info.capabilities ?? {},
     }
   }
@@ -757,6 +762,9 @@
       assetClass: item.assetClass,
       sessionId: item.sessionId,
       capabilities: item.capabilities,
+      tickSize: item.tickSize,
+      lotSize: item.lotSize,
+      currency: item.currency,
       symbol: item.symbol,
       market: item.sessionId ?? '',
       description: item.name,
@@ -881,6 +889,16 @@
 
   if (props.settings !== undefined) {
     chartSettings.value = _initialResolved
+  }
+
+  const liveSettings = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.settings,
+    () => _initialResolved,
+  )
+  const kLineShape = computed(() => liveSettings.value.klineShape ?? 'candlestick')
+  function onKLineShapeChange(shape: NonNullable<ChartSettings['klineShape']>): void {
+    handleSettingsChange({ ...liveSettings.value, klineShape: shape })
   }
 
   const showBatchStockDialog = ref(false)

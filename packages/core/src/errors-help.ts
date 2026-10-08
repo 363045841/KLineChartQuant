@@ -76,11 +76,11 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
 
   // Footprint controller
   FOOTPRINT_TICKSIZE_INVALID:
-    'FootprintController tickSize must be > 0 (the quantization unit for the price ladder).',
+    'Footprint requires a positive instrument tickSize for its price ladder.',
   FOOTPRINT_BAR_INTERVAL_INVALID:
-    'FootprintController barIntervalMs must be a positive finite number — the ms-per-bar bucket width.',
+    'Reserved historical error code; Footprint now aligns to actual candle timestamps.',
   FOOTPRINT_RATIO_INVALID:
-    'FootprintController imbalanceRatio must be > 0 — the ask:bid ratio threshold for the diagonal imbalance flag.',
+    'Footprint imbalanceRatio must be a positive integer for diagonal volume comparison.',
 
   // Anchored VWAP
   AVWAP_ANCHOR_OUT_OF_RANGE:

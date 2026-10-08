@@ -60,7 +60,9 @@ type PreparedCandles = {
 }
 
 /** 创建 K 线主体 Layer。 */
-export function createCandleLayer(): Layer<RenderContext> {
+export function createCandleLayer(
+  getShape?: () => import('../chartModel/index.js').PrimaryRendererType,
+): Layer<RenderContext> {
   const buffers: CandleBuffers = { upBody: null, downBody: null, upWick: null, downWick: null }
   const retained = createRetainedGeometry<PreparedCandles, ProjectionRevision>(
     sameProjectionRevision,
@@ -74,6 +76,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, markerManager, settings } = context
+      const hollow = (getShape?.() ?? settings?.klineShape) === 'hollow-candlestick'
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -98,6 +101,7 @@ export function createCandleLayer(): Layer<RenderContext> {
           zoomLevel: context.zoomLevel ?? 1,
           showVolumePriceMarkers,
           buffers,
+          hollow,
         })
       // 无版本的直接调用不能继续持有旧版本，缓冲将在下面重新写入。
       if (context.dataRevision === undefined) retained.clear()
@@ -110,6 +114,7 @@ export function createCandleLayer(): Layer<RenderContext> {
                 context.dataView,
                 context.zoomLevel ?? 1,
                 showVolumePriceMarkers,
+                hollow,
               ]),
               build,
             )
@@ -144,6 +149,7 @@ function prepareCandles(args: {
   zoomLevel: number
   showVolumePriceMarkers: boolean
   buffers: CandleBuffers
+  hollow: boolean
 }): PreparedCandles {
   const { pane, data, range, kWidthPx, dpr, kLineCenters, showVolumePriceMarkers, buffers } = args
   const relations = showVolumePriceMarkers
@@ -153,9 +159,9 @@ function prepareCandles(args: {
   const upMarkers: CandleMarker[] = []
   const downMarkers: CandleMarker[] = []
   const maxRects = Math.max(1, range.end - range.start)
-  const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * 4)
+  const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * (args.hollow ? 4 : 1) * 4)
   buffers.upBody = upBodyBuf
-  const downBodyBuf = ensureBufferCapacity(buffers.downBody, maxRects * 4)
+  const downBodyBuf = ensureBufferCapacity(buffers.downBody, maxRects * (args.hollow ? 4 : 1) * 4)
   buffers.downBody = downBodyBuf
   const upWickBuf = ensureBufferCapacity(buffers.upWick, maxRects * 2 * 4)
   buffers.upWick = upWickBuf
@@ -227,8 +233,26 @@ function prepareCandles(args: {
     }
 
     const bodyBuf = isUp ? upBodyBuf : downBodyBuf
-    const bodyOff = (isUp ? upBodyCount++ : downBodyCount++) * 4
-    bodyBuf.set([bodyX, bodyY, bodyW, bodyH], bodyOff)
+    // 边框由不重叠的物理像素矩形组成，内部不填背景，保留足迹、网格等底层内容。
+    // 太窄或十字星没有内部空间时，使用原有最小实体几何。
+    const bodyRects: readonly (readonly number[])[] =
+      args.hollow && bodyWidthPx > 2 && bodyHPx > 2
+        ? [
+            [bodyX, bodyY, bodyW, invDpr],
+            [bodyX, (bottomPx - 1) * invDpr, bodyW, invDpr],
+            [bodyX, (topPx + 1) * invDpr, invDpr, (bodyHPx - 2) * invDpr],
+            [
+              (roundedLeftPx + bodyWidthPx - 1) * invDpr,
+              (topPx + 1) * invDpr,
+              invDpr,
+              (bodyHPx - 2) * invDpr,
+            ],
+          ]
+        : [[bodyX, bodyY, bodyW, bodyH]]
+    for (const rect of bodyRects) {
+      const bodyOff = (isUp ? upBodyCount++ : downBodyCount++) * 4
+      bodyBuf.set(rect, bodyOff)
+    }
 
     // 上下影线只取实体外的物理像素区间，不再重复价格方向和端点排序逻辑。
     const wickSegments: readonly [number, number][] = [

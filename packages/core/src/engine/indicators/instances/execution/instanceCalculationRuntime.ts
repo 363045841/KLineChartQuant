@@ -5,6 +5,7 @@
  * 参数和 firstReadyIndex 语义完全一致。
  */
 import type { KLineData } from '@/foundation/types/price.js'
+import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,
@@ -13,9 +14,11 @@ import type {
 import type { IndicatorParameters } from '../domain/instanceModel.js'
 
 export interface IndicatorCalculationDefinition {
+  readonly inputs?: readonly 'trades'[]
+  readonly createCompute?: () => IndicatorCalculationDefinition['compute']
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
-  compute(data: KLineData[], params: IndicatorParameters): unknown
+  compute(data: KLineData[], params: IndicatorParameters, trades?: TradeSnapshot): unknown
 }
 
 export type IndicatorCalculationDefinitionResolver = (
@@ -47,10 +50,11 @@ export function executeIndicatorCalculationTask(
   task: IndicatorCalculationTask,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
+  trades?: TradeSnapshot,
 ): IndicatorCalculationOutput {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
-  const series = definition.compute(data, task.params)
+  const series = definition.compute(data, task.params, trades)
   return Object.freeze({
     calculationKey: task.calculationKey,
     series,
@@ -66,8 +70,11 @@ export function executeIndicatorCalculationPlan(
   plan: IndicatorCalculationPlan,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
+  trades?: TradeSnapshot,
 ): readonly IndicatorCalculationOutput[] {
   return Object.freeze(
-    plan.tasks.map((task) => executeIndicatorCalculationTask(task, data, resolveDefinition)),
+    plan.tasks.map((task) =>
+      executeIndicatorCalculationTask(task, data, resolveDefinition, trades),
+    ),
   )
 }

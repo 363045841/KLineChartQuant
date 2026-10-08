@@ -150,6 +150,9 @@ export interface SymbolInfo {
   assetClass?: AssetClass
   sessionId?: string
   capabilities?: InstrumentCapabilities
+  tickSize?: number
+  lotSize?: number
+  currency?: string
   symbol: string
   market: string
   description?: string

@@ -18,6 +18,13 @@ export interface DataSourceRegistration {
 
 /** 内置数据源注册表 */
 export const dataSourceRegistry = {
+  binance: {
+    id: 'binance',
+    displayName: 'Binance Spot',
+    description: 'Binance 现货 K 线与真实逐笔成交',
+    defaultBaseUrl: 'http://127.0.0.1:8091',
+    marketSessions: { BINANCE_SPOT: { timeZone: 'UTC', sessions: [{ open: 0, close: 24 * 60 }] } },
+  },
   gotdx: {
     id: 'gotdx',
     displayName: 'GOTDX',
