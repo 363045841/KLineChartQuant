@@ -47,6 +47,12 @@
         @update-source-endpoint="setAggregationSourceEndpoint"
         @back="onBackFromTimeShare"
       >
+        <template v-if="slots['toolbar-start']" #start>
+          <slot name="toolbar-start" />
+        </template>
+        <template v-if="slots['toolbar-end']" #end>
+          <slot name="toolbar-end" />
+        </template>
         <template #watchlist>
           <WatchlistPanel
             :items="watchlistItems"
@@ -575,6 +581,8 @@
    * @remarks 仅类型契约，运行时仍用 useSlots() 判断插槽是否存在。
    */
   defineSlots<{
+    'toolbar-start'(): unknown
+    'toolbar-end'(): unknown
     legend(props: LegendSlotProps): unknown
     'kline-tooltip'(props: KlineTooltipSlotProps): unknown
     'marker-tooltip'(props: MarkerTooltipSlotProps): unknown

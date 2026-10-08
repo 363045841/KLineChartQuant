@@ -314,6 +314,19 @@ Providing `#legend` fully replaces the default Canvas legend. The slot scope is 
 </template>
 ```
 
+### Host toolbar controls
+
+Use `#toolbar-start` and `#toolbar-end` to place host account or workspace
+controls in the native toolbar. Both slots are optional and inherit the
+resolved chart theme. They stay outside the draggable, scrolling chart controls.
+
+```vue
+<KlineChart>
+  <template #toolbar-start><AccountMenu /></template>
+  <template #toolbar-end><WorkspaceActions /></template>
+</KlineChart>
+```
+
 
 ## 🎨 Custom Tooltip
 
