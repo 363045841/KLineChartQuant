@@ -198,22 +198,15 @@ export function useIndicatorManager(
     }
   }
 
+  /** 将定义级参数设置提交到全部匹配实例；主图使用定义 ID，副图使用实例 ID。 */
   function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
-    if (
-      indicatorId === 'MA' ||
-      indicatorId === 'BOLL' ||
-      indicatorId === 'EXPMA' ||
-      indicatorId === 'ENE'
-    ) {
-      ctrl.value?.updateIndicatorParams(indicatorId, params)
-      return
-    }
-    if (isSubPaneIndicator(indicatorId)) {
-      subPanes.value
-        .filter((p) => p.indicatorId === indicatorId)
-        .forEach((pane) => {
-          ctrl.value?.updateIndicatorParams(pane.id, params)
-        })
+    const controller = ctrl.value
+    if (!controller) return
+
+    for (const instance of controller.indicators.peek()) {
+      if (instance.definitionId !== indicatorId) continue
+      const targetId = instance.role === 'main' ? instance.definitionId : instance.id
+      controller.updateIndicatorParams(targetId, params)
     }
   }
 
