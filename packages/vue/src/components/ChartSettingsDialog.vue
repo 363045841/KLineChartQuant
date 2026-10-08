@@ -192,7 +192,9 @@
     @close="showAggregationSourceModal = false"
     @toggle="onToggleAggregationSource"
     @update-endpoint="onUpdateSourceEndpoint"
-  />
+  >
+    <template #source-management><slot name="source-management" /></template>
+  </AggregationSourceDialog>
 
   <!-- 嵌套颜色预设弹窗 -->
   <BaseModal

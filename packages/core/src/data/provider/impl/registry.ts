@@ -66,6 +66,19 @@ export class MarketDataProviderRegistry {
   private readonly providers = new Map<string, MarketDataProvider>()
   private readonly configs = new Map<string, MarketDataSourceConfig>()
 
+  private readonly catalogListeners = new Set<() => void>()
+
+  /** 订阅连接目录变化；返回释放函数。配置修改不触发目录事件。 */
+  subscribeCatalog(listener: () => void): () => void {
+    this.catalogListeners.add(listener)
+    return () => this.catalogListeners.delete(listener)
+  }
+
+  /** 在注册表完成一次目录修改后通知宿主。 */
+  private notifyCatalog(): void {
+    for (const listener of this.catalogListeners) listener()
+  }
+
   /** 注册 Provider；source ID 必须非空且不得重复。 */
   register(provider: MarketDataProvider, config: MarketDataSourceConfigPatch = {}): void {
     const sourceId = provider.source.id
@@ -84,12 +97,14 @@ export class MarketDataProviderRegistry {
 
     this.providers.set(sourceId, provider)
     this.configs.set(sourceId, mergeConfig({ enabled: true, priority: 0 }, config))
+    this.notifyCatalog()
   }
 
   /** 注销 Provider 及其运行时配置，并返回是否实际删除。 */
   unregister(sourceId: string): boolean {
     const removed = this.providers.delete(sourceId)
     this.configs.delete(sourceId)
+    if (removed) this.notifyCatalog()
     return removed
   }
 
@@ -171,6 +186,7 @@ export class MarketDataProviderRegistry {
   clear(): void {
     this.providers.clear()
     this.configs.clear()
+    this.notifyCatalog()
   }
 }
 

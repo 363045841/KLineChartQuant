@@ -276,7 +276,9 @@
     @clear-market-data-cache="emit('clearMarketDataCache')"
     @toggle-aggregation-source="onToggleAggregationSource"
     @update-source-endpoint="onUpdateSourceEndpoint"
-  />
+  >
+    <template #source-management><slot name="source-management" /></template>
+  </ChartSettingsDialog>
 
   <AlertDialog
     :show="showAlerts"

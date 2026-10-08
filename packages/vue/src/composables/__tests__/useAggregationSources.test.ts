@@ -1,7 +1,6 @@
 import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
-
+import { effectScope, nextTick } from 'vue'
 import {
   AGGREGATION_SOURCES_STORAGE_KEY,
   applyAggregationSourceBaseUrls,
@@ -10,6 +9,7 @@ import {
   resolveEnabledAggregationSources,
   useAggregationSources,
 } from '../useAggregationSources'
+import { useMarketDataSourceCatalog } from '../useMarketDataSourceCatalog'
 import { createOnlineProbe, registerProvider, source } from './_aggregationSourceFixtures'
 
 describe('useAggregationSources', () => {
@@ -98,6 +98,47 @@ describe('useAggregationSources', () => {
     })
     expect(marketDataProviderRegistry.getConfig('first')).toMatchObject({ enabled: false })
     expect(marketDataProviderRegistry.getConfig('second')).toMatchObject({ enabled: true })
+  })
+
+  it('tracks late connections without resetting disabled preferences, and releases subscriptions', async () => {
+    const scope = effectScope()
+    const state = scope.run(() => {
+      const catalog = useMarketDataSourceCatalog()
+      return { catalog, preferences: useAggregationSources(catalog) }
+    })
+    if (!state) throw new Error('effect scope did not initialize')
+    registerProvider('first', createOnlineProbe())
+    await nextTick()
+    state.preferences.setEnabled('first', false)
+    registerProvider('second', createOnlineProbe())
+    await nextTick()
+    expect(state.catalog.value.map((item) => item.name)).toContain('second')
+    expect(state.preferences.enabledNames.value).toContain('second')
+    expect(state.preferences.enabledNames.value).not.toContain('first')
+    marketDataProviderRegistry.unregister('second')
+    await nextTick()
+    expect(state.catalog.value.map((item) => item.name)).not.toContain('second')
+    scope.stop()
+    registerProvider('second', createOnlineProbe())
+    expect(state.catalog.value.map((item) => item.name)).not.toContain('second')
+  })
+
+  it('never applies persisted or edited endpoints to hosted credential connections', () => {
+    registerProvider('first', createOnlineProbe())
+    const managed = {
+      ...source('first'),
+      defaultBaseUrl: 'https://chart.example/market/key',
+      endpointEditable: false,
+    }
+    expect(
+      resolveAggregationSourceEndpoints([managed], {
+        known: ['first'],
+        enabled: ['first'],
+        baseUrls: { first: 'https://attacker.example' },
+      }),
+    ).toEqual({})
+    applyAggregationSourceBaseUrls([managed], { first: { host: 'attacker.example', port: '443' } })
+    expect(marketDataProviderRegistry.getConfig('first').baseUrl).toBeUndefined()
   })
 
   it('marks a source offline when it is not a registered provider', async () => {
