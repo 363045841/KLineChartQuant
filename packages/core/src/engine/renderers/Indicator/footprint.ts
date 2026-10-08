@@ -1,21 +1,70 @@
 /** Footprint 标准指标定义及 Layer；复用帧柱中心、价格轴和 token 配色，不创建第二套画布。 */
-import { createFootprintCalculator } from '../../../components/footprint/impl/calculateFootprint.js'
-import type { FootprintRenderState } from '../../../components/footprint/types.js'
-import { TRADE_STATUS_LABEL } from '../../../data/trades/types.js'
-import type { RenderContext } from '../../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
-import { getFont } from '../../../foundation/tokens/fonts.js'
-import { resolveThemeColors } from '../../../foundation/tokens/index.js'
-import { roundToPhysicalPixel, worldXToScreenX } from '../../../foundation/utils/pixelAlign.js'
-import type { Layer } from '../../../rendering/scene/types.js'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
-import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
+import { createFootprintCalculator } from '@/components/footprint/impl/calculateFootprint.js'
+import type { FootprintCell, FootprintRenderState } from '@/components/footprint/types.js'
+import { TRADE_STATUS_LABEL } from '@/data/trades/types.js'
+import { Indicator } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind, readIndicatorSeriesEntry } from '@/engine/indicators/indicatorMetadata.js'
+import type { RenderContext } from '@/foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { getFont } from '@/foundation/tokens/fonts.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { roundToPhysicalPixel, worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 /** 不平衡方向的不透明度；透明度不是颜色，故不进入 token。 */
 const IMBALANCE_ALPHA = 0.75
 /** 普通方向的不透明度。 */
 const NORMAL_ALPHA = 0.4
+/** 价位数字的最小字号；行距放不下它时整列不画数字。 */
+const MIN_LABEL_FONT_SIZE = 8
+/** 价位数字的最大字号。 */
+const MAX_LABEL_FONT_SIZE = 10
+/** 相邻价位标签之间保留的最小垂直间隙（逻辑像素）。 */
+const LABEL_GAP = 2
+/** 低于该柱宽不显示价位数字，避免文字挤在窄柱上。 */
+const MIN_LABEL_COLUMN_WIDTH = 40
+
+/** 确定整列价位数字的统一字号，保证同一列要么全画、要么全不画。
+ *
+ * 行距取未取整的价格屏幕坐标差；只有最小行距在物理像素取整后仍放得下
+ * 「字号 + 间隙」时才返回可用字号，否则返回 0。判定不再依赖逐行取整后的行高，
+ * 避免同一列因像素取整抖动而时有时无。
+ *
+ * @param cells - 该柱按价格升序排列的价位
+ * @param priceToY - 价格到屏幕 Y 的映射
+ * @param rowSize - 单个价位的价格跨度
+ * @param width - 该柱在屏幕上的宽度
+ * @param dpr - 设备像素比
+ * @returns 统一字号；0 表示该列不显示数字
+ */
+function resolveLabelFontSize(
+  cells: readonly FootprintCell[],
+  priceToY: (price: number) => number,
+  rowSize: number,
+  width: number,
+  dpr: number,
+): number {
+  if (width < MIN_LABEL_COLUMN_WIDTH || cells.length === 0) return 0
+  // 只统计相邻价位间距；单档位柱子用自身价格跨度估算。
+  let minPitch = Infinity
+  if (cells.length === 1) {
+    const price = Number(cells[0]!.price)
+    minPitch = Math.abs(priceToY(price) - priceToY(price + rowSize))
+  } else {
+    for (let i = 0; i + 1 < cells.length; i++) {
+      const pitch = Math.abs(
+        priceToY(Number(cells[i]!.price)) - priceToY(Number(cells[i + 1]!.price)),
+      )
+      if (pitch > 0) minPitch = Math.min(minPitch, pitch)
+    }
+  }
+  if (!Number.isFinite(minPitch) || minPitch <= 0) return 0
+  // 行距取整后可能少一个物理像素，按最坏情况计算，保证相邻标签不重叠。
+  const snappedPitch = Math.floor(minPitch * dpr) / dpr
+  const fontSize = Math.min(MAX_LABEL_FONT_SIZE, Math.floor(snappedPitch - LABEL_GAP))
+  return fontSize >= MIN_LABEL_FONT_SIZE ? fontSize : 0
+}
 
 /** 可视区共用成交额比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
 function createFootprintLayer(
@@ -68,6 +117,14 @@ function createFootprintLayer(
             : center - (kLineCenters[visibleIndex - 1] ?? center - context.kWidth - context.kGap)
         const halfWidth = Math.max(pixel, roundToPhysicalPixel((spacing - 4) / 2, context.dpr))
         const width = halfWidth * 2
+        // 标签是否显示在列级别一次算定，避免逐行像素取整导致同列时有时无。
+        const labelFontSize = resolveLabelFontSize(
+          bar.cells,
+          (price) => pane.yAxis.priceToY(price),
+          rowSize,
+          width,
+          context.dpr,
+        )
         let lowestVisibleY = -Infinity
         const labels: {
           y: number
@@ -77,7 +134,6 @@ function createFootprintLayer(
           bidImbalance: boolean
           askImbalance: boolean
         }[] = []
-        let previousLabelTop = Infinity
         for (const cell of bar.cells) {
           const price = Number(cell.price)
           const y = pane.yAxis.priceToY(price)
@@ -121,33 +177,29 @@ function createFootprintLayer(
             ctx.fillRect(x, rectTop, askWidth, rectHeight)
           }
           ctx.globalAlpha = 1
-          if (width >= 40) {
-            // 行高不足时仍允许稀疏价位显示数字；只跳过会重叠的标签。
-            // cells 按价格升序排列，所以标签从屏幕下方向上方排布。
-            const fontSize = Math.max(8, Math.min(10, Math.floor(height - 2)))
+          if (labelFontSize > 0) {
+            // 行距已在列级别校验，这里只处理视口上下裁切与单侧文字过宽。
             const textY = roundToPhysicalPixel((top + bottom) / 2, context.dpr)
-            const textTop = textY - fontSize / 2
-            const textBottom = textY + fontSize / 2
+            const textTop = textY - labelFontSize / 2
+            const textBottom = textY + labelFontSize / 2
             const bidText = compactValue(cell.bidValue)
             const askText = compactValue(cell.askValue)
-            ctx.font = getFont(fontSize, { bold: true })
+            ctx.font = getFont(labelFontSize, { bold: true })
             const availableWidth = halfWidth - 4
             if (
               textTop >= 0 &&
               textBottom <= pane.height &&
-              textBottom + 2 <= previousLabelTop &&
               ctx.measureText(bidText).width <= availableWidth &&
               ctx.measureText(askText).width <= availableWidth
             ) {
               labels.push({
                 y: textY,
-                fontSize,
+                fontSize: labelFontSize,
                 bid: bidText,
                 ask: askText,
                 bidImbalance: cell.bidImbalance,
                 askImbalance: cell.askImbalance,
               })
-              previousLabelTop = textTop
             }
           }
         }
@@ -171,7 +223,7 @@ function createFootprintLayer(
           ctx.strokeRect(x - width / 2, 2, width, 6)
           ctx.setLineDash([])
         }
-        if (width >= 40 && Number.isFinite(lowestVisibleY)) {
+        if (width >= MIN_LABEL_COLUMN_WIDTH && Number.isFinite(lowestVisibleY)) {
           const summaryY = Math.min(pane.height - 4, lowestVisibleY + 14)
           ctx.font = getFont(10)
           ctx.textAlign = 'center'

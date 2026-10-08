@@ -81,6 +81,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 ## Code Conventions
 
 - **Formatter / Linter**: Biome（配置见根目录 `biome.json`）；`semi: false`、`singleQuote: true`、`printWidth: 100`、LF、尾逗号 `all`。VSCode / Zed 保存时自动格式化。
+- **Imports**: 跨目录导入可使用 tsconfig 的 `@/` 别名（`@/engine/*`、`@/foundation/*` 等），避免 `../../../` 形式的深层相对路径。
 - **Decorator transform**: Babel (`@babel/plugin-proposal-decorators` with `version: '2023-11'`). Not native TC39 decorators.
 - **Vue bindings signal bridge**: `shallowRef` (not `ref`) — core signal values are immutable; deep proxying breaks `Object.is` referential equality.
 - **Controller factory injection**: Vue package uses `__setControllerFactory(createChartController)` at import time. Tests override via `__setControllerFactory(null/mock)` in setup.

@@ -1,15 +1,32 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createFootprintCalculator } from '../../../../components/footprint/impl/calculateFootprint.js'
-import type { FootprintBar, FootprintRenderState } from '../../../../components/footprint/types.js'
-import { EMPTY_TRADE_SNAPSHOT } from '../../../../data/trades/types.js'
+import { createFootprintCalculator } from '@/components/footprint/impl/calculateFootprint.js'
+import type { FootprintBar, FootprintRenderState } from '@/components/footprint/types.js'
+import { EMPTY_TRADE_SNAPSHOT } from '@/data/trades/types.js'
 import {
   createContextWithInstanceState,
   createKLineData,
   createMockCanvasContext,
-} from '../../../__tests__/helpers/renderTestKit.js'
-import { getRegisteredIndicatorDefinition } from '../../../indicators/indicatorDefinitionRegistry.js'
-import { composeInstanceRenderState } from '../../../indicators/stateComposer.js'
+} from '@/engine/__tests__/helpers/renderTestKit.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { composeInstanceRenderState } from '@/engine/indicators/stateComposer.js'
 import { FootprintIndicatorDefinition } from '../footprint.js'
+
+/** 构造按固定价差排列的 Footprint 柱子，用于文本布局断言。 */
+function createRowBar(rowSize: number, cellCount: number, startPrice = 100): FootprintBar {
+  return {
+    timestamp: 1,
+    complete: true,
+    delta: '0',
+    totalValue: '0',
+    cells: Array.from({ length: cellCount }, (_, index) => ({
+      price: String(startPrice + index * rowSize),
+      bidValue: '1',
+      askValue: '1',
+      bidImbalance: false,
+      askImbalance: false,
+    })),
+  }
+}
 
 describe('Footprint Layer', () => {
   it.each([0, 80])(
@@ -237,4 +254,37 @@ describe('Footprint Layer', () => {
       expect(rectangles[1]![2]).toBeLessThan(rectangles[2]![2])
     },
   )
+
+  // 同一列行距一致时文本必须整列一致：非整数物理行距曾导致隔行丢失文本。
+  it.each([
+    { rowSize: 10.5, expected: 12 },
+    { rowSize: 9.7, expected: 0 },
+  ])('renders $expected of 12 price-row labels at rowSize $rowSize', ({ rowSize, expected }) => {
+    const cellCount = 12
+    const state: FootprintRenderState = {
+      timestamp: 1,
+      series: {
+        status: 'ready',
+        message: null,
+        rowSize: String(rowSize),
+        asOf: 2,
+        bars: [createRowBar(rowSize, cellCount)],
+      },
+    }
+    const ctx = createMockCanvasContext()
+    vi.mocked(ctx.measureText).mockReturnValue({ width: 8 } as TextMetrics)
+    FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
+      createContextWithInstanceState(ctx, 'fp', state, {
+        range: { start: 0, end: 1 },
+        kLineCenters: [200],
+        kWidth: 60,
+        kGap: 4,
+        pane: { height: 500, yAxis: { priceToY: (price) => 500 - price } },
+      }),
+    )
+    // 柱中心 200：Bid 贴中心左侧 x=198，Ask 贴右侧 x=202。
+    const calls = vi.mocked(ctx.fillText).mock.calls
+    expect(calls.filter(([, x]) => x === 198)).toHaveLength(expected)
+    expect(calls.filter(([, x]) => x === 202)).toHaveLength(expected)
+  })
 })
