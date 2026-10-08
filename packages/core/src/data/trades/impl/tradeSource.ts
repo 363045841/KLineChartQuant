@@ -81,7 +81,7 @@ export function createTradeDataSource(
     },
     connect(instrument) {
       const listeners = new Set<(frame: TradeFrame) => void>()
-      const query = new URLSearchParams({ symbol: instrument.symbol, kind: 'raw' })
+      const query = new URLSearchParams({ symbol: instrument.symbol, kind: 'aggregated' })
       const source = new EventSource(
         `${baseUrl()}${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/trades/stream?${query}`,
       )

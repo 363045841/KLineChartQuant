@@ -17,7 +17,7 @@ import { TRADE_STATUS } from '../types.js'
 
 // 默认不访问外网；设置 BINANCE_CONNECTOR_TEST_URL 指向已启动的真实 Go 服务。
 it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
-  'matches a closed Binance candle using raw trades through the standard pipeline',
+  'matches a closed Binance candle using aggregated trades through the standard pipeline',
   async () => {
     marketDataProviderRegistry.setConfig('binance', {
       baseUrl: process.env.BINANCE_CONNECTOR_TEST_URL,
