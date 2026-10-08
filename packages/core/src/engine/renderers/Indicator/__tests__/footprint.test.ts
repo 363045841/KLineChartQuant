@@ -53,6 +53,9 @@ describe('Footprint Layer', () => {
         1,
       )
       const ctx = createMockCanvasContext()
+      // 共享 mock 的 measureText 恒为 50px，窄柱下会被宽度闸门判为放不下；
+      // 此用例关心的是数字落在横条两侧，故让文本宽度可通过。
+      vi.mocked(ctx.measureText).mockReturnValue({ width: 8 } as TextMetrics)
       const layer = FootprintIndicatorDefinition.rendererFactory({
         paneId: 'main',
         instanceId: 'fp',
@@ -69,7 +72,12 @@ describe('Footprint Layer', () => {
       expect(ctx.fillRect).toHaveBeenCalledTimes(2)
       expect(ctx.fillRect).toHaveBeenNthCalledWith(1, -3, 80, 23, 19)
       expect(ctx.fillRect).toHaveBeenNthCalledWith(2, 47, 80, 23, 19)
-      expect(ctx.fillText).toHaveBeenCalledWith('0.25', 18, 93, 20)
+      // Bid 向左、Ask 向右贴在柱中心两侧；Delta 汇总柱下方的整柱净流向。
+      const center = start === 0 ? 20 : 70
+      const texts = vi.mocked(ctx.fillText).mock.calls
+      expect(texts).toContainEqual(['0.25', center - 2, 90])
+      expect(texts).toContainEqual(['0', center + 2, 90])
+      expect(texts).toContainEqual([`Δ-0.25`, center, 113, 46])
     },
   )
 

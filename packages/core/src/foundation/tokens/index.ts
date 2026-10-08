@@ -47,6 +47,7 @@ export type {
   CssLength,
   ENEColors,
   EXPMAColors,
+  FootprintCellColors,
   IndicatorPalette,
   KDJColors,
   KSTColors,

@@ -53,8 +53,6 @@ export type KLineChartErrorCode =
   | 'SCALE_LOG_REQUIRES_POSITIVE'
   | 'SCALE_BAR_WIDTH_INVALID'
   // footprint
-  | 'FOOTPRINT_TICKSIZE_INVALID'
-  | 'FOOTPRINT_BAR_INTERVAL_INVALID'
   | 'FOOTPRINT_RATIO_INVALID'
   // anchoredVwap
   | 'AVWAP_ANCHOR_OUT_OF_RANGE'
@@ -276,10 +274,8 @@ export const SCALE_ERROR_CODES = {
   BAR_WIDTH_INVALID: 'SCALE_BAR_WIDTH_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>
 
-// footprint（成交分布）；供 footprint 控制器引用。
+// footprint（成交分布）；供 footprint 计算引用。
 export const FOOTPRINT_ERROR_CODES = {
-  TICKSIZE_INVALID: 'FOOTPRINT_TICKSIZE_INVALID',
-  BAR_INTERVAL_INVALID: 'FOOTPRINT_BAR_INTERVAL_INVALID',
   RATIO_INVALID: 'FOOTPRINT_RATIO_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>
 

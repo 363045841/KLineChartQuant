@@ -43,19 +43,24 @@ export function createFootprintCalculator() {
         message: input.message,
       }
     const rowUnits = tick.units * BigInt(params.ticksPerRow)
-    const nextIdentity = JSON.stringify([
-      data.map((bar) => bar.timestamp),
+    // K 线身份只需检测有序唯一时间戳序列的变化：长度 + 首尾时间戳即可唯一确定。
+    const nextIdentity = [
+      data.length,
+      data[0]?.timestamp,
+      data[data.length - 1]?.timestamp,
       input.tickSize,
       params.ticksPerRow,
-    ])
+    ].join('|')
+    // 批次身份用范围、完整性、数量与首尾 tradeId 组合，避免逐笔序列化。
     const nextBatchKeys = input.batches.map((batch) =>
-      JSON.stringify([
-        batch.range,
+      [
+        batch.range.from,
+        batch.range.to,
         batch.complete,
         batch.items.length,
         batch.items[0]?.tradeId,
         batch.items[batch.items.length - 1]?.tradeId,
-      ]),
+      ].join('|'),
     )
     if (
       identity !== nextIdentity ||

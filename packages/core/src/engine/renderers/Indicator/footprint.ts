@@ -1,8 +1,10 @@
-/** Footprint 标准指标定义及 Layer；复用帧柱中心、价格轴和主题，不创建第二套画布。 */
+/** Footprint 标准指标定义及 Layer；复用帧柱中心、价格轴和 token 配色，不创建第二套画布。 */
 import { createFootprintCalculator } from '../../../components/footprint/impl/calculateFootprint.js'
 import type { FootprintRenderState } from '../../../components/footprint/types.js'
+import { TRADE_STATUS_LABEL } from '../../../data/trades/types.js'
 import type { RenderContext } from '../../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { getFont } from '../../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { roundToPhysicalPixel, worldXToScreenX } from '../../../foundation/utils/pixelAlign.js'
 import type { Layer } from '../../../rendering/scene/types.js'
@@ -10,35 +12,15 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
-/** 足迹方向使用独立红灰配色，不随 K 线涨跌配色约定翻转。 */
-const FOOTPRINT_COLORS = {
-  bid: '#d64b4b',
-  ask: '#929292',
-  darkText: '#eeeeee',
-  lightText: '#303030',
-} as const
+/** 不平衡方向的不透明度；透明度不是颜色，故不进入 token。 */
+const IMBALANCE_ALPHA = 0.75
+/** 普通方向的不透明度。 */
+const NORMAL_ALPHA = 0.4
 
 /** 可视区共用数量比例；Bid 从柱中心向左延伸，Ask 向右延伸，零量不绘制。 */
 function createFootprintLayer(
   options: { paneId?: string; instanceId?: string } = {},
 ): Layer<RenderContext> {
-  // biome-ignore lint/suspicious/noConsole: 区分图层未创建与已创建但未进入 paint。
-  console.info('[Footprint.layer]', {
-    instanceId: options.instanceId,
-    paneId: options.paneId ?? 'main',
-  })
-  let lastDiagnosticAt = -Infinity
-  function diagnose(details: Record<string, unknown>): void {
-    const now = performance.now()
-    if (now - lastDiagnosticAt < 1000) return
-    lastDiagnosticAt = now
-    // biome-ignore lint/suspicious/noConsole: 用户要求临时诊断 Footprint 实际绘制链路。
-    console.info('[Footprint.paint]', {
-      instanceId: options.instanceId,
-      paneId: options.paneId ?? 'main',
-      ...details,
-    })
-  }
   return createIndicatorRendererLayer({
     definitionId: 'footprint',
     paneId: options.paneId ?? 'main',
@@ -47,14 +29,7 @@ function createFootprintLayer(
       const state = options.instanceId
         ? context.indicatorStateReader?.get<FootprintRenderState>(options.instanceId)
         : undefined
-      if (!state) {
-        diagnose({
-          reason: 'missing-instance-state',
-          range: context.range,
-          centerCount: context.kLineCenters.length,
-        })
-        return
-      }
+      if (!state) return
       const { ctx, pane, range, kLineCenters, scrollLeft } = context
       const start = Math.max(0, range.start)
       const end = Math.min(range.end, state.series.bars.length)
@@ -67,31 +42,15 @@ function createFootprintLayer(
       }
       const rowSize = Number(state.series.rowSize)
       const pixel = 1 / context.dpr
-      let visibleBars = 0
-      let missingBars = 0
-      let missingCenters = 0
-      let drawnCells = 0
-      let outsidePriceCells = 0
-      let invalidPriceCells = 0
-      let drawnNumbers = 0
-      let drawnSides = 0
-      let firstCell: Record<string, unknown> | undefined
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
+      const footprintColors = colors.footprintCell
       ctx.save()
-      ctx.font = '10px sans-serif'
-      const statusLabel = {
-        idle: '',
-        loading: '足迹成交加载中',
-        ready: '',
-        gap: '足迹成交存在缺口',
-        error: '足迹成交加载失败',
-        unsupported: '当前品种不支持真实逐笔成交',
-      }
-      const message = state.series.message ?? statusLabel[state.series.status]
+      ctx.font = getFont(10)
+      const message = state.series.message ?? TRADE_STATUS_LABEL[state.series.status]
       if (message) {
         ctx.fillStyle = colors.referenceLine.neutral
         ctx.fillText(message, 8, 16)
@@ -100,15 +59,8 @@ function createFootprintLayer(
         const bar = state.series.bars[index]
         const visibleIndex = index - range.start
         const center = kLineCenters[visibleIndex]
-        if (!bar) {
-          missingBars++
-          continue
-        }
-        visibleBars++
-        if (center === undefined || !Number.isFinite(center)) {
-          missingCenters++
-          continue
-        }
+        if (!bar) continue
+        if (center === undefined || !Number.isFinite(center)) continue
         const x = worldXToScreenX(center, scrollLeft, context.dpr)
         const spacing =
           kLineCenters[visibleIndex + 1] !== undefined
@@ -133,19 +85,13 @@ function createFootprintLayer(
           const top = roundToPhysicalPixel(Math.min(y, nextY), context.dpr)
           const bottom = roundToPhysicalPixel(Math.max(y, nextY), context.dpr)
           const height = Math.max(pixel, bottom - top)
-          firstCell ??= { timestamp: bar.timestamp, price: cell.price, x, y, top, height, width }
           if (!Number.isFinite(y) || !Number.isFinite(nextY) || !Number.isFinite(maxVolume)) {
-            invalidPriceCells++
             continue
           }
-          if (bottom <= 0 || top >= pane.height) {
-            outsidePriceCells++
-            continue
-          }
+          if (bottom <= 0 || top >= pane.height) continue
           const bid = Number(cell.bidVolume)
           const ask = Number(cell.askVolume)
           if (maxVolume <= 0 || (bid <= 0 && ask <= 0)) continue
-          drawnCells++
           // 高度表示价格档位，宽度只表示成交量；档位之间留一个物理像素间隔。
           const gap = height >= 3 * pixel ? pixel : 0
           const rectTop = Math.max(0, top)
@@ -161,20 +107,18 @@ function createFootprintLayer(
               halfWidth,
               Math.max(pixel, roundToPhysicalPixel((halfWidth * bid) / maxVolume, context.dpr)),
             )
-            ctx.globalAlpha = cell.bidImbalance ? 0.75 : 0.4
-            ctx.fillStyle = FOOTPRINT_COLORS.bid
+            ctx.globalAlpha = cell.bidImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA
+            ctx.fillStyle = footprintColors.bid
             ctx.fillRect(x - bidWidth, rectTop, bidWidth, rectHeight)
-            drawnSides++
           }
           if (ask > 0) {
             const askWidth = Math.min(
               halfWidth,
               Math.max(pixel, roundToPhysicalPixel((halfWidth * ask) / maxVolume, context.dpr)),
             )
-            ctx.globalAlpha = cell.askImbalance ? 0.75 : 0.4
-            ctx.fillStyle = FOOTPRINT_COLORS.ask
+            ctx.globalAlpha = cell.askImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA
+            ctx.fillStyle = footprintColors.ask
             ctx.fillRect(x, rectTop, askWidth, rectHeight)
-            drawnSides++
           }
           ctx.globalAlpha = 1
           if (width >= 40) {
@@ -186,17 +130,22 @@ function createFootprintLayer(
             const textBottom = textY + fontSize / 2
             const bidText = compactVolume(cell.bidVolume)
             const askText = compactVolume(cell.askVolume)
-            ctx.font = `bold ${fontSize}px sans-serif`
+            ctx.font = getFont(fontSize, { bold: true })
             const availableWidth = halfWidth - 4
             if (
-              textTop >= 0 && textBottom <= pane.height &&
+              textTop >= 0 &&
+              textBottom <= pane.height &&
               textBottom + 2 <= previousLabelTop &&
               ctx.measureText(bidText).width <= availableWidth &&
               ctx.measureText(askText).width <= availableWidth
             ) {
               labels.push({
-                y: textY, fontSize, bid: bidText, ask: askText,
-                bidImbalance: cell.bidImbalance, askImbalance: cell.askImbalance,
+                y: textY,
+                fontSize,
+                bid: bidText,
+                ask: askText,
+                bidImbalance: cell.bidImbalance,
+                askImbalance: cell.askImbalance,
               })
               previousLabelTop = textTop
             }
@@ -206,15 +155,14 @@ function createFootprintLayer(
         ctx.globalAlpha = 1
         ctx.textBaseline = 'middle'
         for (const label of labels) {
-          ctx.font = `${label.bidImbalance ? 'bold ' : ''}${label.fontSize}px sans-serif`
+          ctx.font = getFont(label.fontSize, { bold: label.bidImbalance })
           ctx.textAlign = 'right'
-          ctx.fillStyle = context.theme === 'dark' ? FOOTPRINT_COLORS.darkText : FOOTPRINT_COLORS.lightText
+          ctx.fillStyle = footprintColors.text
           ctx.fillText(label.bid, x - 2, label.y)
-          ctx.font = `${label.askImbalance ? 'bold ' : ''}${label.fontSize}px sans-serif`
+          ctx.font = getFont(label.fontSize, { bold: label.askImbalance })
           ctx.textAlign = 'left'
-          ctx.fillStyle = context.theme === 'dark' ? FOOTPRINT_COLORS.darkText : FOOTPRINT_COLORS.lightText
+          ctx.fillStyle = footprintColors.text
           ctx.fillText(label.ask, x + 2, label.y)
-          drawnNumbers++
         }
         ctx.textBaseline = 'alphabetic'
         if (!bar.complete) {
@@ -225,36 +173,13 @@ function createFootprintLayer(
         }
         if (width >= 40 && Number.isFinite(lowestVisibleY)) {
           const summaryY = Math.min(pane.height - 4, lowestVisibleY + 14)
-          ctx.font = '10px sans-serif'
+          ctx.font = getFont(10)
           ctx.textAlign = 'center'
-          ctx.fillStyle = Number(bar.delta) >= 0 ? FOOTPRINT_COLORS.ask : FOOTPRINT_COLORS.bid
+          ctx.fillStyle = Number(bar.delta) >= 0 ? footprintColors.ask : footprintColors.bid
           ctx.fillText(`Δ${compactVolume(bar.delta)}`, x, summaryY, width)
         }
       }
       ctx.restore()
-      diagnose({
-        reason: drawnCells > 0 ? 'painted' : 'no-visible-cells',
-        status: state.series.status,
-        message: state.series.message,
-        asOf: state.series.asOf,
-        rowSize: state.series.rowSize,
-        range: { ...range },
-        seriesBarCount: state.series.bars.length,
-        loadedBarCount: state.series.bars.filter((bar) => bar !== undefined).length,
-        centerCount: kLineCenters.length,
-        scrollLeft,
-        paneHeight: pane.height,
-        visibleBars,
-        missingBars,
-        missingCenters,
-        drawnCells,
-        drawnSides,
-        maxVolume,
-        drawnNumbers,
-        outsidePriceCells,
-        invalidPriceCells,
-        firstCell,
-      })
     },
   })
 }

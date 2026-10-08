@@ -37,9 +37,9 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-volume-profile-fill: #6B727A66;
   --klc-color-volume-profile-poc: #FFA94D;
   --klc-color-volume-profile-value-area: #4A9EFF33;
-  --klc-color-footprint-ask: #22D69B80;
-  --klc-color-footprint-bid: #FF646480;
-  --klc-color-footprint-imbalance: #FFA94D;
+  --klc-color-footprint-cell-bid: #d64b4b;
+  --klc-color-footprint-cell-ask: #929292;
+  --klc-color-footprint-cell-text: #eeeeee;
   --klc-color-alert-active: #4A9EFF;
   --klc-color-alert-triggered: #FFA94D;
   --klc-color-alert-muted: #6B727A;
@@ -293,9 +293,9 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-volume-profile-fill: #9CA3AF66;
   --klc-color-volume-profile-poc: #F97316;
   --klc-color-volume-profile-value-area: #2D7FF933;
-  --klc-color-footprint-ask: #0F8B5C80;
-  --klc-color-footprint-bid: #C2363B80;
-  --klc-color-footprint-imbalance: #F97316;
+  --klc-color-footprint-cell-bid: #d64b4b;
+  --klc-color-footprint-cell-ask: #929292;
+  --klc-color-footprint-cell-text: #303030;
   --klc-color-alert-active: #2D7FF9;
   --klc-color-alert-triggered: #C2410C;
   --klc-color-alert-muted: #9CA3AF;

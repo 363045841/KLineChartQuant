@@ -1,9 +1,18 @@
-/** 成交 Buffer 统一管理覆盖缓存、有界历史分页及实时衔接；视口变化只更新范围需求。 */
+/**
+ * 成交 Buffer 统一管理覆盖缓存、有界历史分页及实时衔接；视口变化只更新范围需求。
+ *
+ * 状态不变量：
+ * - link.coveredTo > 0 仅在 link.active 时才有意义；断连或缺口后 active=false 且 coveredTo=0。
+ * - link.since 记录订阅建立时刻，作为历史需求的上界；active=false 时不参与计算。
+ * - lastID 为最后接受的实时序号，null 表示尚未收到实时帧。
+ * - capacityBlocked 非空表示当前需求超出预算，需求缩小后清除。
+ */
 import { createSignal } from '../../../foundation/reactivity/signal.js'
 import type { InstrumentDescriptor } from '../../provider/types.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
   type MarketTrade,
+  TRADE_MESSAGES,
   TRADE_STATUS,
   type TradeBatch,
   type TradeBuffer,
@@ -13,8 +22,23 @@ import {
 } from '../types.js'
 import { mergeTradeRanges, missingTradeRanges, TRADE_HISTORY_PAGE_MS } from './tradeRanges.js'
 
-const MAX_CACHED_TRADES = 250_000
-const MAX_PENDING_TRADES = 250_000
+/** 逐笔成交内存预算：缓存上限与待定缓冲上限语义不同，各自命名取值。 */
+const TRADE_MEMORY_BUDGET = Object.freeze({
+  /** 覆盖缓存最多保留的成交条数，超出即拒绝写入并触发回收。 */
+  cachedTrades: 250_000,
+  /** 历史加载期间实时帧的待定缓冲上限，超出即中断加载并标记容量阻塞。 */
+  pendingTrades: 250_000,
+})
+
+/** 实时连接与覆盖水位：三者共同表达订阅可用性与已确认的实时覆盖右水位。 */
+interface TradeLinkState {
+  /** 订阅链路已建立；断连或出现缺口后为 false。 */
+  active: boolean
+  /** 订阅建立时刻，作为历史需求上界；0 表示尚未建立。 */
+  since: number
+  /** 已确认的实时覆盖右水位；0 表示尚无连续覆盖。 */
+  coveredTo: number
+}
 
 /** 同一品种只有一个顺序历史加载任务；已完成页缓存复用，失败页不自动重试。 */
 export function createTradeBuffer(
@@ -25,7 +49,7 @@ export function createTradeBuffer(
     typeof instrument.tickSize === 'number' &&
     Number.isFinite(instrument.tickSize) &&
     instrument.tickSize > 0
-  const tickSizeMessage = '品种缺少有效的最小价格单位（tickSize），无法计算足迹'
+  const tickSizeMessage = TRADE_MESSAGES.tickSizeInvalid
   const snapshot = createSignal<TradeSnapshot>({
     ...EMPTY_TRADE_SNAPSHOT,
     tickSize: String(instrument.tickSize ?? 0),
@@ -42,11 +66,19 @@ export function createTradeBuffer(
   let ids = new Set<string>()
   let pending: MarketTrade[] = []
   let lastID: bigint | null = null
-  let liveTo = 0
-  let connected = false
-  let connectedAt = 0
+  const link: TradeLinkState = { active: false, since: 0, coveredTo: 0 }
   let capacityBlocked: TradeRange | null = null
   let failureMessage: string | null = null
+
+  /** 是否具备可延续的实时尾部覆盖。 */
+  function hasLiveCoverage(): boolean {
+    return link.active && link.coveredTo > 0
+  }
+
+  /** 订阅时刻是否已建立、可作为历史需求上界。 */
+  function hasSubscriptionClock(): boolean {
+    return link.active && link.since > 0
+  }
 
   /** 发布原子快照；加载状态不会撤销已确认历史覆盖。 */
   function publish(status: TradeSnapshot['status'], message: string | null = null): void {
@@ -69,7 +101,7 @@ export function createTradeBuffer(
       seen.add(trade.tradeId)
       items.push(trade)
     }
-    if (ids.size + items.length > MAX_CACHED_TRADES) return false
+    if (ids.size + items.length > TRADE_MEMORY_BUDGET.cachedTrades) return false
     for (const trade of items) ids.add(trade.tradeId)
     batches.push({ ...batch, items })
     if (batches.length >= 256) {
@@ -107,45 +139,45 @@ export function createTradeBuffer(
 
   /** 实时输入以连续 ID 确认尾部覆盖，历史查看不拉取可视区到当前时刻之间的成交。 */
   function appendLive(trades: readonly MarketTrade[]): void {
-    if (!connected || liveTo === 0 || trades.length === 0 || capacityBlocked) return
-    const items = trades.filter((trade) => trade.timestamp >= liveTo && !ids.has(trade.tradeId))
+    if (!hasLiveCoverage() || trades.length === 0 || capacityBlocked) return
+    const items = trades.filter(
+      (trade) => trade.timestamp >= link.coveredTo && !ids.has(trade.tradeId),
+    )
     if (items.length === 0) return
-    const to = Math.max(liveTo, items[items.length - 1]!.timestamp + 1)
-    if (desired && desired.to < liveTo - TRADE_HISTORY_PAGE_MS) {
-      liveTo = to
+    const to = Math.max(link.coveredTo, items[items.length - 1]!.timestamp + 1)
+    if (desired && desired.to < link.coveredTo - TRADE_HISTORY_PAGE_MS) {
+      link.coveredTo = to
       return
     }
-    if (!commit({ items, range: { from: liveTo, to }, complete: true })) {
+    if (!commit({ items, range: { from: link.coveredTo, to }, complete: true })) {
       reclaimForDemand()
-      if (!commit({ items, range: { from: liveTo, to }, complete: true })) {
+      if (!commit({ items, range: { from: link.coveredTo, to }, complete: true })) {
         capacityBlocked = desired
-        publish(TRADE_STATUS.error, '可视范围的逐笔成交超过缓存预算，请缩小范围')
+        publish(TRADE_STATUS.error, TRADE_MESSAGES.capacityExceeded)
         return
       }
     }
-    liveTo = to
+    link.coveredTo = to
     if (!loading) publish(failureMessage ? TRADE_STATUS.error : TRADE_STATUS.ready, failureMessage)
   }
 
   /** 标记未确认尾部；重连只补尾部缺口，已加载历史保持有效。 */
   function markGap(message: string): void {
-    const from = liveTo || desired?.to || Date.now()
+    const from = link.coveredTo || desired?.to || Date.now()
     batches.push({
       items: [],
       range: { from, to: Math.max(from + 1, Date.now()) },
       complete: false,
     })
-    connected = false
-    liveTo = 0
+    link.active = false
+    link.coveredTo = 0
     publish(TRADE_STATUS.gap, message)
   }
 
   /** 顺序请求缺失范围的最新一分钟；保留成功页，失败页不会随缩放重试。 */
   function historyDemand(range: TradeRange): TradeRange {
     // 订阅建立后的尾部由实时流负责，不随 Date.now 的变化轮询 REST。
-    return connected && connectedAt > 0
-      ? { from: range.from, to: Math.min(range.to, connectedAt) }
-      : range
+    return hasSubscriptionClock() ? { from: range.from, to: Math.min(range.to, link.since) } : range
   }
 
   async function loadMissing(): Promise<void> {
@@ -168,13 +200,17 @@ export function createTradeBuffer(
           reclaimForDemand()
           if (!commit(fetched)) {
             capacityBlocked = { ...desired }
-            failureMessage = '可视范围的逐笔成交超过缓存预算，请缩小范围'
+            failureMessage = TRADE_MESSAGES.capacityExceeded
             break
           }
         }
         // 首次历史页追上订阅时刻后，连续实时成交可从该水位延续。
-        if (connected && liveTo === 0 && pending.some((trade) => trade.timestamp >= range.to))
-          liveTo = range.to
+        if (
+          link.active &&
+          link.coveredTo === 0 &&
+          pending.some((trade) => trade.timestamp >= range.to)
+        )
+          link.coveredTo = range.to
         const tail = pending
         pending = []
         appendLive(tail)
@@ -198,7 +234,7 @@ export function createTradeBuffer(
         (capacityBlocked ||
           failed.some((range) => range.from < desired!.to && range.to > desired!.from))
       publish(
-        relevantFailure ? TRADE_STATUS.error : connected ? TRADE_STATUS.ready : TRADE_STATUS.gap,
+        relevantFailure ? TRADE_STATUS.error : link.active ? TRADE_STATUS.ready : TRADE_STATUS.gap,
         relevantFailure ? failureMessage : null,
       )
     }
@@ -232,8 +268,8 @@ export function createTradeBuffer(
       if (frame.code === 'DISCONNECTED' || frame.complete === false)
         markGap(frame.message ?? '成交流存在缺口')
       if (frame.code === 'CONNECTED') {
-        connected = true
-        connectedAt = Date.now()
+        link.active = true
+        link.since = Date.now()
         // 重连保留旧水位；下一批连续成交或历史补页确认新的覆盖。
         if (desired && snapshot.peek().status !== TRADE_STATUS.error && !loading)
           void ensureRange(desired)
@@ -247,25 +283,25 @@ export function createTradeBuffer(
       if (lastID !== null && id <= lastID) continue
       if (lastID !== null && id !== lastID + 1n) {
         markGap('逐笔成交 ID 不连续')
-        connectedAt = trade.timestamp
+        link.since = trade.timestamp
         sequenceGap = true
         // 断序后不能用后续实时帧伪造连续覆盖。
-        liveTo = 0
+        link.coveredTo = 0
       }
       lastID = id
       accepted.push(trade)
     }
-    if (accepted.length > 0 && liveTo === 0) {
-      connected = true
-      liveTo =
-        connectedAt > 0 ? Math.min(connectedAt, accepted[0]!.timestamp) : accepted[0]!.timestamp
+    if (accepted.length > 0 && link.coveredTo === 0) {
+      link.active = true
+      link.coveredTo =
+        link.since > 0 ? Math.min(link.since, accepted[0]!.timestamp) : accepted[0]!.timestamp
     }
-    if (connected && liveTo > 0) appendLive(accepted)
+    if (hasLiveCoverage()) appendLive(accepted)
     else if (loading) {
       pending.push(...accepted)
-      if (pending.length > MAX_PENDING_TRADES) {
+      if (pending.length > TRADE_MEMORY_BUDGET.pendingTrades) {
         pending = []
-        failureMessage = '历史加载期间的成交缓冲已达上限'
+        failureMessage = TRADE_MESSAGES.pendingOverflow
         request?.abort()
         capacityBlocked = desired
         publish(TRADE_STATUS.error, failureMessage)

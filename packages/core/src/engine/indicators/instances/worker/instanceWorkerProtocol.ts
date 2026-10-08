@@ -4,11 +4,11 @@
  * 协议只表达行情快照、去重计算任务与任务输出；实例到 pane 的关系留在主线程投影层。
  */
 import type { KLineData } from '@/foundation/types/price.js'
-import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,
 } from '../domain/instanceCalculationPlan.js'
+import type { TradeSnapshotDiff } from '../execution/instanceExecutionRuntime.js'
 
 /** Worker 可执行的指标定义描述。 */
 export interface SerializedIndicatorCalculationDefinition {
@@ -26,8 +26,7 @@ export type InstanceWorkerRequest =
     }
   | {
       readonly type: 'setData'
-      readonly trades?: TradeSnapshot
-      readonly appendTrades?: boolean
+      readonly tradesDiff?: TradeSnapshotDiff
       readonly dataRevision: number
       readonly data: KLineData[]
     }
@@ -56,7 +55,7 @@ export type InstanceWorkerResponse =
       readonly message: string
     }
 
-export const INSTANCE_WORKER_PROTOCOL_VERSION = 2
+export const INSTANCE_WORKER_PROTOCOL_VERSION = 3
 
 export function isInstanceWorkerResponse(value: unknown): value is InstanceWorkerResponse {
   if (!value || typeof value !== 'object') return false

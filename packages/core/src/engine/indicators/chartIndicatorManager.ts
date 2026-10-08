@@ -550,7 +550,12 @@ export class ChartIndicatorManager {
       this.tradeInput.batches === input.batches
     )
       return
-    this.tradeInput = { ...input, revision: (this.tradeInput?.revision ?? 0) + 1 }
+    // revision 由成交摄取层保证单调；这里兜底保证内容变更时版本严格前进，
+    // 避免 chartDataManager 合成的 revision=0 unsupported 快照造成版本回退。
+    this.tradeInput = {
+      ...input,
+      revision: Math.max(input.revision, (this.tradeInput?.revision ?? 0) + 1),
+    }
     this.requestCompute()
   }
 

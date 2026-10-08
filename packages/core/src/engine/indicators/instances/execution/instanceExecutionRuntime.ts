@@ -16,6 +16,34 @@ import {
   type IndicatorCalculationDefinitionResolver,
 } from './instanceCalculationRuntime.js'
 
+/** 成交快照更新意图：replace 携带整段快照，append 的 snapshot 只携带新增批次。 */
+export interface TradeSnapshotDiff {
+  readonly mode: 'append' | 'replace'
+  readonly snapshot: TradeSnapshot
+}
+
+/**
+ * 判断本次成交快照相对上一份是否为引用前缀。
+ * 是则返回仅含新增批次的 append 增量，避免 Worker 全量结构化克隆；否则返回整段 replace。
+ * 长度不变时增量为空，用于成交内容未变（仅版本推进）时避免重复克隆整段批次。
+ */
+export function diffTradeSnapshot(
+  previous: TradeSnapshot | undefined,
+  next: TradeSnapshot,
+): TradeSnapshotDiff {
+  if (
+    previous !== undefined &&
+    next.batches.length >= previous.batches.length &&
+    previous.batches.every((batch, index) => batch === next.batches[index])
+  ) {
+    return {
+      mode: 'append',
+      snapshot: { ...next, batches: next.batches.slice(previous.batches.length) },
+    }
+  }
+  return { mode: 'replace', snapshot: next }
+}
+
 export class IndicatorInstanceExecutionRuntime {
   private data: KLineData[] = []
   private dataRevision = 0
@@ -39,21 +67,29 @@ export class IndicatorInstanceExecutionRuntime {
     this.definitions.set(definition.definitionId, definition)
   }
 
-  setData(
-    data: KLineData[],
-    dataRevision: number,
-    trades?: TradeSnapshot,
-    appendTrades = false,
-  ): void {
+  /**
+   * 写入行情快照。
+   * @param data 当前 K 线数据
+   * @param dataRevision 数据版本，不允许回退
+   * @param tradesDiff 成交更新意图；缺省表示清空成交
+   */
+  setData(data: KLineData[], dataRevision: number, tradesDiff?: TradeSnapshotDiff): void {
     if (dataRevision < this.dataRevision) {
       throw new RangeError(`Indicator data revision moved backwards: ${dataRevision}`)
     }
     this.data = data
     this.dataRevision = dataRevision
-    this.trades =
-      trades && appendTrades
-        ? { ...trades, batches: [...(this.trades?.batches ?? []), ...trades.batches] }
-        : trades
+    this.trades = this.mergeTrades(tradesDiff)
+  }
+
+  /** 按显式模式合并成交：replace 覆盖整段，append 在已缓存批次后追加增量。 */
+  private mergeTrades(diff: TradeSnapshotDiff | undefined): TradeSnapshot | undefined {
+    if (diff === undefined) return undefined
+    if (diff.mode === 'replace') return diff.snapshot
+    return {
+      ...diff.snapshot,
+      batches: [...(this.trades?.batches ?? []), ...diff.snapshot.batches],
+    }
   }
 
   execute(plan: IndicatorCalculationPlan): readonly IndicatorCalculationOutput[] {

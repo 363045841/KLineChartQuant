@@ -248,6 +248,20 @@ export interface VolumePriceColors {
   readonly fallWithout: ColorValue
 }
 
+/**
+ * 足迹图横条与叠印数字的专用配色。
+ * 使用独立红/灰约定（Bid 红、Ask 中性灰），不随 K 线涨跌方向翻转。
+ * 命名为 footprintCell 以区别于既有的涨跌方向 token（footprintBid / footprintAsk）。
+ */
+export interface FootprintCellColors {
+  /** 主动卖（Bid）横条颜色。 */
+  readonly bid: ColorValue
+  /** 主动买（Ask）横条颜色。 */
+  readonly ask: ColorValue
+  /** 横条内叠印数字的可读文字颜色。 */
+  readonly text: ColorValue
+}
+
 /** Structure (SMC) indicator — HH/HL/LH/LL/CHoCH/BOS. */
 export interface StructureColors {
   readonly hh: ColorValue
@@ -371,9 +385,8 @@ export interface ColorTokens {
   readonly volumeProfileFill: ColorValue
   readonly volumeProfilePoc: ColorValue
   readonly volumeProfileValueArea: ColorValue
-  readonly footprintAsk: ColorValue
-  readonly footprintBid: ColorValue
-  readonly footprintImbalance: ColorValue
+  /** 足迹图横条与数字的专用配色；使用独立红/灰约定，不随涨跌方向翻转。 */
+  readonly footprintCell: FootprintCellColors
 
   // Alerts
   readonly alertActive: ColorValue

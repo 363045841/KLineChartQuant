@@ -4,9 +4,10 @@
  * Worker 通过 computeKey 解析到具体 calculator；inline 路径直接使用各指标
  * metadata 的 runtime.compute，不经过本模块。
  */
-import type { KLineData } from '../../foundation/types/price.js'
+
 import { createFootprintCalculator } from '../../components/footprint/impl/calculateFootprint.js'
 import type { TradeSnapshot } from '../../data/trades/types.js'
+import type { KLineData } from '../../foundation/types/price.js'
 
 import {
   calcALMAData,

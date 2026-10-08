@@ -197,7 +197,6 @@ export class ChartStateKernel extends StateKernel {
   /** 系统主题注入（非用户偏好）；用户偏好在 settings.theme */
   readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
-  private readonly disposeKlineShape: () => void
   readonly mainPriceAxis: MainPriceAxisStateModule
   readonly mode: ChartModelModule
   readonly drawing: DrawingStateModule
@@ -304,15 +303,8 @@ export class ChartStateKernel extends StateKernel {
     this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
+    // K 线形态由 settings.klineShape 直接派生，不再镜像进 mode 主序列偏好。
     this.settings = createSettingsState(deps.initialSettings)
-    let previousKlineShape = this.settings.readonly.settings.peek().klineShape
-    this.mode.actions.setPrimaryRenderer('kline', previousKlineShape ?? 'candlestick')
-    this.disposeKlineShape = this.settings.readonly.settings.subscribe(() => {
-      const shape = this.settings.readonly.settings.peek().klineShape
-      if (shape === previousKlineShape) return
-      previousKlineShape = shape
-      this.mode.actions.setPrimaryRenderer('kline', shape ?? 'candlestick')
-    })
     this.mainPriceAxis = createMainPriceAxisState(
       this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
     )
@@ -489,10 +481,6 @@ export class ChartStateKernel extends StateKernel {
         })
       },
       setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
-      setPrimaryRenderer: (
-        view: ChartDataView,
-        renderer: import('../chartModel/index.js').PrimaryRendererType,
-      ) => this.mode.actions.setPrimaryRenderer(view, renderer),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
       updateCrosshair: (
         pos: { x: number; y: number } | null,
@@ -625,7 +613,6 @@ export class ChartStateKernel extends StateKernel {
     this.data.dispose()
     this.viewport.dispose()
     this.pane.dispose()
-    this.disposeKlineShape()
     this.settings.dispose()
     this.systemTheme.dispose()
     this.mode.dispose()

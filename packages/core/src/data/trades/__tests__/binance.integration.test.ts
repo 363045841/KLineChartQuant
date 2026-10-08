@@ -61,11 +61,14 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
       createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
     )
     runtime.setData([...result.data], 1, {
-      revision: 1,
-      tickSize: String(instrument.tickSize),
-      status: TRADE_STATUS.ready,
-      batches: [batch],
-      message: null,
+      mode: 'replace',
+      snapshot: {
+        revision: 1,
+        tickSize: String(instrument.tickSize),
+        status: TRADE_STATUS.ready,
+        batches: [batch],
+        message: null,
+      },
     })
     const plan = pipeline.calculationPlan()
     const outputs = runtime.execute(plan)

@@ -56,9 +56,8 @@ export function withAsiaMarketColors(theme: Theme): Theme {
       volumeUp: theme.colors.volumeDown,
       volumeDown: theme.colors.volumeUp,
 
-      // ── Footprint (ask = buy = bull, bid = sell = bear) ──
-      footprintAsk: theme.colors.footprintBid,
-      footprintBid: theme.colors.footprintAsk,
+      // 足迹图的 footprintCell 是主动买卖方向色（Bid 红 / Ask 中性灰），
+      // 不是涨跌对，故不参与红涨绿跌翻转。
 
       // ── Nested: price accents ──
       price: {

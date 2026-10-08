@@ -48,6 +48,7 @@ import {
 import { createTradeBuffer } from '../../data/trades/impl/tradeBuffer.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
+  TRADE_MESSAGES,
   TRADE_STATUS,
   type TradeBuffer,
   type TradeSnapshot,
@@ -170,7 +171,7 @@ export class ChartDataManager {
       this.deps.updateTradeInput?.({
         ...EMPTY_TRADE_SNAPSHOT,
         status: this.deps.needsTrades?.() ? TRADE_STATUS.unsupported : TRADE_STATUS.idle,
-        message: this.deps.needsTrades?.() ? '当前品种不支持原始逐笔成交' : null,
+        message: this.deps.needsTrades?.() ? TRADE_MESSAGES.unsupportedRaw : null,
       })
       return
     }

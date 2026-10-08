@@ -10,7 +10,7 @@ import {
 } from '../worker/instanceWorkerProtocol.js'
 import type { IndicatorCalculationDefinition } from './instanceCalculationRuntime.js'
 import type { IndicatorCalculationExecutor } from './instanceCalculationScheduler.js'
-import { IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
+import { diffTradeSnapshot, IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
 
 /** 不依赖 Worker 的直接执行器；测试、SSR 和降级路径使用同一执行语义。 */
 export function createInlineIndicatorCalculationExecutor(
@@ -19,7 +19,12 @@ export function createInlineIndicatorCalculationExecutor(
   const runtime = new IndicatorInstanceExecutionRuntime(definitions)
   const executor: IndicatorCalculationExecutor = {
     async setData(data, dataRevision, trades) {
-      runtime.setData(data, dataRevision, trades)
+      // inline 无结构化克隆开销，成交始终按整段替换下发，与 Worker 共享同一运行时合并路径。
+      runtime.setData(
+        data,
+        dataRevision,
+        trades === undefined ? undefined : { mode: 'replace', snapshot: trades },
+      )
     },
     async execute(plan) {
       return runtime.execute(plan)
@@ -95,21 +100,12 @@ export function createWorkerIndicatorCalculationExecutor(input: {
     async setData(data: KLineData[], dataRevision: number, trades?: TradeSnapshot): Promise<void> {
       await readyPromise
       if (disposed) throw new Error('Indicator Worker executor is disposed')
-      const appendTrades =
-        trades !== undefined &&
-        previousTrades !== undefined &&
-        previousTrades.batches.length <= trades.batches.length &&
-        previousTrades.batches.every((batch, index) => batch === trades.batches[index])
-      const update =
-        trades && appendTrades
-          ? { ...trades, batches: trades.batches.slice(previousTrades?.batches.length ?? 0) }
-          : trades
       input.worker.postMessage({
         type: 'setData',
         data,
         dataRevision,
-        trades: update,
-        appendTrades,
+        // 引用前缀扩展时只传新增批次，避免全量成交结构化克隆。
+        tradesDiff: trades === undefined ? undefined : diffTradeSnapshot(previousTrades, trades),
       })
       previousTrades = trades
     },

@@ -75,6 +75,52 @@ describe('SourceRouter', () => {
     expect(info).toMatchObject({ tickSize: 0.01, lotSize: 0.00001, currency: 'USDT' })
   })
 
+  // 验证挂载描述已带有效 tickSize 时直接沿用，不再回权威目录重新解析。
+  it('reuses the attached descriptor when it already carries a valid tickSize', async () => {
+    const instrument: InstrumentDescriptor = {
+      ...baseInstrument,
+      tickSize: 0.01,
+      lotSize: 0.00001,
+      currency: 'USDT',
+      capabilities: { ...baseInstrument.capabilities, trades: { raw: true, live: true } },
+    }
+    let catalogCalls = 0
+    marketDataProviderRegistry.register(
+      createMockMarketDataProvider({
+        sourceId: instrument.sourceId,
+        search: async () => {
+          catalogCalls++
+          return [instrument]
+        },
+        fetchBars: async (query) => {
+          expect(query.instrument).toBe(instrument)
+          expect(query.instrument.tickSize).toBe(0.01)
+          return {
+            instrumentId: instrument.id,
+            period: 'daily',
+            adjustment: 'none',
+            barAggregation: 'original',
+            timezone: 'UTC',
+            data: [],
+            olderData: 'unknown',
+          }
+        },
+      }),
+    )
+    const result = await new SourceRouter().bars({
+      preferredSourceId: instrument.sourceId,
+      instrument,
+      symbol: instrument.symbol,
+      exchange: instrument.exchange,
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: 'original',
+      limit: 2,
+    })
+    expect(catalogCalls).toBe(0)
+    expect(result.instrument).toBe(instrument)
+  })
+
   // 验证 auto 策略在确定性拒绝后重新搜索目标源并使用目标源私有 providerRef。
   it('flows auto requests on deterministic rejection and resolves target identity', async () => {
     const targetInstrument = {

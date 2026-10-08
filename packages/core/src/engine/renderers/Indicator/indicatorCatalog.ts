@@ -1363,6 +1363,38 @@ const uiMeta: Record<
 let _allIndicators: Indicator[] | null = null
 let _definitionCount = -1
 
+/** runtime.defaultParams 归一化后的参数表。 */
+type RuntimeDefaultParams = Readonly<Record<string, unknown>>
+
+/** 判断 defaultParams 是否为工厂函数。 */
+function isDefaultParamsFactory(value: unknown): value is () => RuntimeDefaultParams {
+  return typeof value === 'function'
+}
+
+/** 判断 defaultParams 是否为参数表对象。 */
+function isDefaultParamsObject(value: unknown): value is RuntimeDefaultParams {
+  return typeof value === 'object' && value !== null
+}
+
+/** 解析 runtime.defaultParams，兼容常量对象与工厂函数两种声明。 */
+function resolveRuntimeDefaultParams(value: unknown): RuntimeDefaultParams {
+  if (isDefaultParamsFactory(value)) return value()
+  return isDefaultParamsObject(value) ? value : {}
+}
+
+/** 组装参数配置：结构来自 uiMeta，默认值优先取自注册表声明的 runtime.defaultParams。 */
+function buildParamConfigs(
+  params: ReadonlyArray<ParamConfig> | undefined,
+  runtimeDefaults: RuntimeDefaultParams,
+): ParamConfig[] | undefined {
+  if (!params) return undefined
+  return params.map((param) => {
+    const runtimeDefault = runtimeDefaults[param.key]
+    // 注册表未声明该 key 或值非数字时保留 uiMeta 默认值。
+    return typeof runtimeDefault === 'number' ? { ...param, default: runtimeDefault } : param
+  })
+}
+
 function rebuildIfStale(): Indicator[] {
   const definitions = getRegisteredIndicatorDefinitions()
   if (_allIndicators === null || definitions.length !== _definitionCount) {
@@ -1372,6 +1404,7 @@ function rebuildIfStale(): Indicator[] {
       .map((def) => {
         const key = normalizeId(def.name)
         const ui = uiMeta[key]
+        const runtimeDefaults = resolveRuntimeDefaultParams(def.runtime?.defaultParams)
         return {
           id: def.displayName,
           label: def.displayName,
@@ -1386,7 +1419,7 @@ function rebuildIfStale(): Indicator[] {
             def.indicatorType,
           indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
-          params: ui?.params,
+          params: buildParamConfigs(ui?.params, runtimeDefaults),
         }
       })
       .sort((a, b) => {

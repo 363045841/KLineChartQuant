@@ -59,10 +59,8 @@ type PreparedCandles = {
   downWickCount: number
 }
 
-/** 创建 K 线主体 Layer。 */
-export function createCandleLayer(
-  getShape?: () => import('../chartModel/index.js').PrimaryRendererType,
-): Layer<RenderContext> {
+/** 创建 K 线主体 Layer。形态直接取 settings.klineShape，作为唯一事实来源。 */
+export function createCandleLayer(): Layer<RenderContext> {
   const buffers: CandleBuffers = { upBody: null, downBody: null, upWick: null, downWick: null }
   const retained = createRetainedGeometry<PreparedCandles, ProjectionRevision>(
     sameProjectionRevision,
@@ -76,7 +74,7 @@ export function createCandleLayer(
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, markerManager, settings } = context
-      const hollow = (getShape?.() ?? settings?.klineShape) === 'hollow-candlestick'
+      const hollow = settings?.klineShape === 'hollow-candlestick'
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,

@@ -2,7 +2,12 @@
 import { ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { MarketDataTransport } from '../../provider/protocol/types.js'
 import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
-import type { MarketTrade, TradeDataSource, TradeFrame } from '../types.js'
+import {
+  type MarketTrade,
+  TRADE_MESSAGES,
+  type TradeDataSource,
+  type TradeFrame,
+} from '../types.js'
 import { parseDecimal } from './decimal.js'
 
 /** 校验成交身份、方向和十进制载荷，缺失主动方向不推断。 */
@@ -48,7 +53,7 @@ export function createTradeDataSource(
         instrument.sourceId !== sourceId ||
         !instrument.capabilities.trades?.raw
       )
-        throw new KLineChartError(ERROR_CODES.UNSUPPORTED_CAPABILITY, '当前品种不支持原始逐笔成交')
+        throw new KLineChartError(ERROR_CODES.UNSUPPORTED_CAPABILITY, TRADE_MESSAGES.unsupportedRaw)
       const batch = await transport.fetchTradeRange(
         {
           sourceId,
@@ -108,14 +113,19 @@ export function createTradeDataSource(
             })
           else throw new TypeError('Invalid trade frame')
         } catch {
-          publish({ type: 'status', code: 'TRADE_GAP', message: '成交流协议错误', complete: false })
+          publish({
+            type: 'status',
+            code: 'TRADE_GAP',
+            message: TRADE_MESSAGES.protocolError,
+            complete: false,
+          })
         }
       }
       source.onerror = () =>
         publish({
           type: 'status',
           code: 'DISCONNECTED',
-          message: '成交流连接中断',
+          message: TRADE_MESSAGES.disconnected,
           complete: false,
         })
       return {

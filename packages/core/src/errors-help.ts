@@ -74,11 +74,7 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   SCALE_BAR_WIDTH_INVALID:
     'barWidth must be > 0. Zoom helpers should clamp the result above a floor (e.g. 0.5 px) before calling setBarWidth.',
 
-  // Footprint controller
-  FOOTPRINT_TICKSIZE_INVALID:
-    'Footprint requires a positive instrument tickSize for its price ladder.',
-  FOOTPRINT_BAR_INTERVAL_INVALID:
-    'Reserved historical error code; Footprint now aligns to actual candle timestamps.',
+  // Footprint
   FOOTPRINT_RATIO_INVALID:
     'Footprint imbalanceRatio must be a positive integer for diagonal volume comparison.',
 

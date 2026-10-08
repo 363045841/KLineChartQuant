@@ -13,13 +13,6 @@ import {
 
 export type ChartModeId = ChartDataView
 
-/** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
-function snapshotPrimaryRenderers(
-  value: Record<ChartDataView, PrimaryRendererType>,
-): PrimaryRendererByView {
-  return Object.freeze({ ...value })
-}
-
 /** 按数据视图校验主渲染器，不支持的组合回退到视图默认值。 */
 function resolveEffectivePrimaryRenderer(
   view: ChartDataView,
@@ -69,13 +62,6 @@ export function createChartModel() {
         if (!period || isTimeShareDataView(period) || signals.lastBarPeriod.peek() === period)
           return
         signals.lastBarPeriod.set(period)
-      },
-      setPrimaryRenderer(view: ChartDataView, renderer: PrimaryRendererType): void {
-        const current = signals.primaryRendererByView.peek()
-        if (current[view] === renderer) return
-        signals.primaryRendererByView.set(
-          snapshotPrimaryRenderers({ ...current, [view]: renderer }),
-        )
       },
     },
     dispose(): void {

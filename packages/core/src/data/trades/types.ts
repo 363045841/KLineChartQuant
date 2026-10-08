@@ -12,6 +12,26 @@ export const TRADE_STATUS = {
 } as const
 export type TradeStatus = (typeof TRADE_STATUS)[keyof typeof TRADE_STATUS]
 
+/** 成交加载/协议/订阅错误的单一文案来源；生产者与渲染器共用，避免多处各写一份。 */
+export const TRADE_MESSAGES = Object.freeze({
+  tickSizeInvalid: '品种缺少有效的最小价格单位（tickSize），无法计算足迹',
+  capacityExceeded: '可视范围的逐笔成交超过缓存预算，请缩小范围',
+  pendingOverflow: '历史加载期间的成交缓冲已达上限',
+  protocolError: '成交流协议错误',
+  disconnected: '成交流连接中断',
+  unsupportedRaw: '当前品种不支持原始逐笔成交',
+})
+
+/** 状态兜底文案：仅当快照未携带具体 message 时用于展示。 */
+export const TRADE_STATUS_LABEL: Readonly<Record<TradeStatus, string>> = Object.freeze({
+  idle: '',
+  loading: '足迹成交加载中',
+  ready: '',
+  gap: '足迹成交存在缺口',
+  error: '足迹成交加载失败',
+  unsupported: TRADE_MESSAGES.unsupportedRaw,
+})
+
 export interface MarketTrade {
   readonly tradeId: string
   readonly timestamp: number

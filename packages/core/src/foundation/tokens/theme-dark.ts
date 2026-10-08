@@ -17,8 +17,8 @@
  * `__tests__/themes.test.ts` enforces this.
  */
 
-import { motion, spacing, typography } from './theme-base.js'
 import { darkInterfaceColors } from './interface-colors.js'
+import { motion, spacing, typography } from './theme-base.js'
 import type { Theme } from './types.js'
 
 export const darkTheme: Theme = {
@@ -72,9 +72,12 @@ export const darkTheme: Theme = {
     volumeProfileFill: '#6B727A66',
     volumeProfilePoc: '#FFA94D',
     volumeProfileValueArea: '#4A9EFF33',
-    footprintAsk: '#22D69B80',
-    footprintBid: '#FF646480',
-    footprintImbalance: '#FFA94D',
+    // 足迹图专用红/灰配色：Bid 红、Ask 中性灰，不随涨跌约定翻转。
+    footprintCell: {
+      bid: '#d64b4b',
+      ask: '#929292',
+      text: '#eeeeee',
+    },
 
     alertActive: '#4A9EFF',
     alertTriggered: '#FFA94D',

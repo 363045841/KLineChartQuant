@@ -38,7 +38,7 @@ worker.onmessage = (event: MessageEvent<InstanceWorkerRequest>): void => {
         return
       case 'setData':
         if (!runtime) throw new TypeError('Runtime not initialized')
-        runtime.setData(message.data, message.dataRevision, message.trades, message.appendTrades)
+        runtime.setData(message.data, message.dataRevision, message.tradesDiff)
         return
       case 'execute': {
         if (!runtime) throw new TypeError('Runtime not initialized')
