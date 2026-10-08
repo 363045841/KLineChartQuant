@@ -24,6 +24,10 @@ const MAX_LABEL_FONT_SIZE = 10
 const LABEL_GAP = 2
 /** 低于该柱宽不显示价位数字，避免文字挤在窄柱上。 */
 const MIN_LABEL_COLUMN_WIDTH = 40
+/** Delta 汇总文字字号，与指标图例文本（12px）保持一致。 */
+const SUMMARY_FONT_SIZE = 12
+/** Delta 汇总文字到柱脚最低可见价的垂直间距（逻辑像素）。 */
+const SUMMARY_OFFSET = 14
 
 /** 确定整列价位数字的统一字号，保证同一列要么全画、要么全不画。
  *
@@ -224,11 +228,17 @@ function createFootprintLayer(
           ctx.setLineDash([])
         }
         if (width >= MIN_LABEL_COLUMN_WIDTH && Number.isFinite(lowestVisibleY)) {
-          const summaryY = Math.min(pane.height - 4, lowestVisibleY + 14)
-          ctx.font = getFont(10)
-          ctx.textAlign = 'center'
-          ctx.fillStyle = Number(bar.delta) >= 0 ? footprintColors.ask : footprintColors.bid
-          ctx.fillText(`Δ${compactValue(bar.delta)}`, x, summaryY, width)
+          // Delta 只跟随柱脚自然位置绘制；柱脚移出可视区后不再吸附到 pane 底部。
+          const summaryY = lowestVisibleY + SUMMARY_OFFSET
+          const summaryTop = summaryY - SUMMARY_FONT_SIZE
+          if (summaryTop >= 0 && summaryY <= pane.height) {
+            const delta = Number(bar.delta)
+            ctx.font = getFont(SUMMARY_FONT_SIZE)
+            ctx.textAlign = 'center'
+            ctx.fillStyle = delta >= 0 ? footprintColors.ask : footprintColors.bid
+            // 正值显式带 +，负值沿用定点格式化自带的 -，零值不带符号。
+            ctx.fillText(`${delta > 0 ? '+' : ''}${compactValue(bar.delta)}`, x, summaryY, width)
+          }
         }
       }
       ctx.restore()
