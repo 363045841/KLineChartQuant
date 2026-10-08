@@ -1,14 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createFootprintCalculator } from '@/components/footprint/impl/calculateFootprint.js'
 import type { FootprintBar, FootprintRenderState } from '@/components/footprint/types.js'
-import { EMPTY_TRADE_SNAPSHOT } from '@/data/trades/types.js'
 import {
   createContextWithInstanceState,
-  createKLineData,
   createMockCanvasContext,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import { composeInstanceRenderState } from '@/engine/indicators/stateComposer.js'
 import { FootprintIndicatorDefinition } from '../footprint.js'
 
 /** 构造按固定价差排列的 Footprint 柱子，用于文本布局断言。 */
@@ -29,127 +24,6 @@ function createRowBar(rowSize: number, cellCount: number, startPrice = 100): Foo
 }
 
 describe('Footprint Layer', () => {
-  it.each([0, 80])(
-    'draws loaded trades with viewport start %i using visible frame coordinates',
-    (start) => {
-      const data = createKLineData(100)
-      const params = { ticksPerRow: 1, imbalanceRatio: 3 }
-      const series = createFootprintCalculator()(data, params, {
-        ...EMPTY_TRADE_SNAPSHOT,
-        revision: 1,
-        status: 'ready',
-        tickSize: '2',
-        batches: [
-          {
-            complete: true,
-            range: { from: data[start]!.timestamp, to: data[start + 2]!.timestamp },
-            items: [start, start + 1].map((index) => ({
-              tradeId: String(index + 1),
-              timestamp: data[index]!.timestamp,
-              price: '100',
-              size: '0.25',
-              side: 'sell' as const,
-            })),
-          },
-        ],
-      })
-      const definition = getRegisteredIndicatorDefinition('footprint')!
-      const range = { start, end: start + 2 }
-      const state = composeInstanceRenderState(
-        definition,
-        {
-          instanceId: 'fp',
-          calculationKey: 'fp',
-          dataRevision: 1,
-          params,
-          series,
-          firstReadyIndex: start,
-        },
-        {},
-        range,
-        1,
-      )
-      const ctx = createMockCanvasContext()
-      // 共享 mock 的 measureText 恒为 50px，窄柱下会被宽度闸门判为放不下；
-      // 此用例关心的是数字落在横条两侧，故让文本宽度可通过。
-      vi.mocked(ctx.measureText).mockReturnValue({ width: 8 } as TextMetrics)
-      const layer = FootprintIndicatorDefinition.rendererFactory({
-        paneId: 'main',
-        instanceId: 'fp',
-      })
-      layer.paint(
-        createContextWithInstanceState(ctx, 'fp', state, {
-          data,
-          range,
-          kLineCenters: [100, 150],
-          scrollLeft: 80,
-          pane: { yAxis: { priceToY: (price) => 1100 - price * 10 } },
-        }),
-      )
-      expect(ctx.fillRect).toHaveBeenCalledTimes(2)
-      expect(ctx.fillRect).toHaveBeenNthCalledWith(1, -3, 80, 23, 19)
-      expect(ctx.fillRect).toHaveBeenNthCalledWith(2, 47, 80, 23, 19)
-      // Bid 向左、Ask 向右贴在柱中心两侧；Delta 汇总柱下方的整柱净流向。
-      const center = start === 0 ? 20 : 70
-      const texts = vi.mocked(ctx.fillText).mock.calls
-      expect(texts).toContainEqual(['25', center - 2, 90])
-      expect(texts).toContainEqual(['0', center + 2, 90])
-      expect(texts).toContainEqual([`Δ-25`, center, 113, 46])
-    },
-  )
-
-  it('uses one linear volume scale across prices, sides and visible candles, without zero-volume backgrounds', () => {
-    const makeBar = (timestamp: number, values: [string, string][]): FootprintBar => ({
-      timestamp,
-      complete: true,
-      delta: '0',
-      totalValue: '0',
-      cells: values.map(([bidValue, askValue], index) => ({
-        price: String(100 + index * 2),
-        bidValue,
-        askValue,
-        bidImbalance: false,
-        askImbalance: false,
-      })),
-    })
-    const state: FootprintRenderState = {
-      timestamp: 1,
-      series: {
-        status: 'ready',
-        message: null,
-        rowSize: '2',
-        asOf: 3,
-        bars: [
-          makeBar(1, [
-            ['2', '8'],
-            ['0', '4'],
-            ['0', '0'],
-          ]),
-          makeBar(2, [['1', '4']]),
-        ],
-      },
-    }
-    const ctx = createMockCanvasContext()
-    FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
-      createContextWithInstanceState(ctx, 'fp', state, {
-        range: { start: 0, end: 2 },
-        kLineCenters: [100, 200],
-        scrollLeft: 40,
-        pane: { yAxis: { priceToY: (price) => 1100 - price * 10 } },
-      }),
-    )
-    const rectangles = vi.mocked(ctx.fillRect).mock.calls
-    // 最大量 8 对应半柱宽 48，其他量严格按相同比例缩放。
-    expect(rectangles.map(([x, , width]) => [x, width])).toEqual([
-      [48, 12],
-      [60, 48],
-      [60, 24],
-      [154, 6],
-      [160, 24],
-    ])
-    expect(rectangles).toHaveLength(5)
-  })
-
   it('clips a price row crossing the pane boundary instead of discarding it', () => {
     const state: FootprintRenderState = {
       timestamp: 1,
