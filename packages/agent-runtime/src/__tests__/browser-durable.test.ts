@@ -154,9 +154,11 @@ describe.skipIf(typeof navigator === 'undefined' || !navigator.locks)(
     it('rejects a second writer and releases the lock on close', async () => {
       const name = `durable-lock-${globalThis.crypto.randomUUID()}`
       const first = await open(name)
-      await expect(createBrowserRuntimeSessions({ databaseName: name })).rejects.toThrow(
-        'another page',
-      )
+      await expect(createBrowserRuntimeSessions({ databaseName: name })).rejects.toMatchObject({
+        code: 'SESSION_LOCKED',
+        retryable: true,
+        message: expect.stringContaining('another page'),
+      })
       await first.close()
       opened.pop()
       const second = await open(name)

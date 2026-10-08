@@ -10,21 +10,32 @@ import type {
   QuestionAnswerView,
 } from '../../agent-contracts.js'
 import { getAgentCopy } from '../../agent-copy.js'
+import { toAgentErrorView } from '../../agent-error-view.js'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
 } from '../../browser-agent/provider-settings/impl/agent-provider-settings-store.js'
+import type { AgentWorkspaceAvailability } from '../types.js'
 import {
   agentWorkspacePreferencesPersistence,
   defaultAgentWorkspacePreferences,
 } from './agent-workspace-preferences.js'
 import { createWorkspaceState, displayConversation } from './workspace-state.js'
 
+/** 工作区无法启动且错误形状不可识别时的兜底视图。 */
+const WORKSPACE_UNAVAILABLE_FALLBACK = {
+  code: 'INTERNAL_ERROR',
+  message: 'The Agent workspace could not start.',
+  retryable: true,
+} as const
+
 /** 组装 Agent 工作区的响应式状态与操作，并挂载 Bridge 事件订阅。 */
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const preferences =
     agentWorkspacePreferencesPersistence.load() ?? defaultAgentWorkspacePreferences()
   const state = shallowRef(createWorkspaceState())
+  // 运行时可用性与单次运行错误分离：不可用时展示独立视图而不是时间线错误。
+  const availability = ref<AgentWorkspaceAvailability>({ status: 'initializing' })
   // UI 与模型请求共享 Bridge 从 Core 投影的同一份上下文项。
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
@@ -99,22 +110,42 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   async function initialize(): Promise<void> {
-    unsubscribe = bridge.subscribe(project)
-    unsubscribeContextItems = bridge.subscribeContextItems((items) => {
+    subscribeBridge()
+    availability.value = { status: 'initializing' }
+    try {
+      const [sessions, provider] = await Promise.all([
+        bridge.listSessions(),
+        bridge.getProviderStatus(),
+      ])
+      state.value = {
+        ...state.value,
+        sessions,
+        activeSessionId: state.value.activeSessionId ?? sessions[0]?.id ?? null,
+        provider,
+      }
+      const sessionId = state.value.activeSessionId
+      if (sessionId) await openSession(sessionId)
+      availability.value = { status: 'ready' }
+    } catch (error) {
+      availability.value = {
+        status: 'unavailable',
+        error: toAgentErrorView(error, WORKSPACE_UNAVAILABLE_FALLBACK),
+      }
+    }
+  }
+
+  /** 仅首次初始化时订阅桥接事件，重试不会叠加订阅。 */
+  function subscribeBridge(): void {
+    unsubscribe ??= bridge.subscribe(project)
+    unsubscribeContextItems ??= bridge.subscribeContextItems((items) => {
       contextItems.value = items
     })
-    const [sessions, provider] = await Promise.all([
-      bridge.listSessions(),
-      bridge.getProviderStatus(),
-    ])
-    state.value = {
-      ...state.value,
-      sessions,
-      activeSessionId: state.value.activeSessionId ?? sessions[0]?.id ?? null,
-      provider,
-    }
-    const sessionId = state.value.activeSessionId
-    if (sessionId) await openSession(sessionId)
+  }
+
+  /** 运行时不可用时重试初始化；成功后工作区恢复可用。 */
+  async function retryInitialize(): Promise<void> {
+    if (availability.value.status === 'initializing') return
+    await initialize()
   }
 
   async function createSession(): Promise<void> {
@@ -272,6 +303,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
 
   return {
     state,
+    availability,
     contextItems,
     draft,
     readOnly,
@@ -289,6 +321,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     send,
     stop,
     retry,
+    retryInitialize,
     editMessage,
     confirmTool,
     answerQuestion,

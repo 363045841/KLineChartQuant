@@ -3,63 +3,73 @@
     <AgentHeader
       :locale="locale"
       :sessions-open="sessionDrawerOpen"
+      :available="available"
       @create="handleCreateSession"
       @toggle-sessions="sessionDrawerOpen = !sessionDrawerOpen"
       @settings="providerSettings.show(state.provider)"
       @close="handleClosePanel"
     />
 
-    <AgentSessionDrawer
-      :show="sessionDrawerOpen"
-      :sessions="state.sessions"
-      :active-session-id="state.activeSessionId"
-      :locale="locale"
-      @close="sessionDrawerOpen = false"
-      @create="handleCreateSession"
-      @select="handleSelectSession"
-      @rename="renameSession"
-      @delete="deleteSession"
-    />
+    <template v-if="available">
+      <AgentSessionDrawer
+        :show="sessionDrawerOpen"
+        :sessions="state.sessions"
+        :active-session-id="state.activeSessionId"
+        :locale="locale"
+        @close="sessionDrawerOpen = false"
+        @create="handleCreateSession"
+        @select="handleSelectSession"
+        @rename="renameSession"
+        @delete="deleteSession"
+      />
 
-    <AgentTimeline
-      :messages="state.messages"
-      :tool-calls="state.toolCalls"
-      :confirmations="state.confirmations"
-      :questions="state.questions"
-      :run="state.run"
-      :runs="[...state.previousRuns, state.run]"
-      :error="state.error"
-      :can-undo="state.canUndoTurn"
-      :collapse-reasoning="collapseReasoning"
-      :locale="locale"
-      @prompt="draft = $event"
-      :edit-message="editMessage"
-      :actions-disabled="isRunning"
-      @confirm="confirmTool"
-      @answer="answerQuestion"
-      @retry="retry"
-      @undo="undoTurn"
-    />
+      <AgentTimeline
+        :messages="state.messages"
+        :tool-calls="state.toolCalls"
+        :confirmations="state.confirmations"
+        :questions="state.questions"
+        :run="state.run"
+        :runs="[...state.previousRuns, state.run]"
+        :error="state.error"
+        :can-undo="state.canUndoTurn"
+        :collapse-reasoning="collapseReasoning"
+        :locale="locale"
+        @prompt="draft = $event"
+        :edit-message="editMessage"
+        :actions-disabled="isRunning"
+        @confirm="confirmTool"
+        @answer="answerQuestion"
+        @retry="retry"
+        @undo="undoTurn"
+      />
 
-    <AgentContextBar
-      :context-items="contextItems"
+      <AgentContextBar
+        :context-items="contextItems"
+        :locale="locale"
+        :read-only="readOnly"
+        @read-only="setReadOnly"
+      />
+      <AgentComposer
+        v-model:draft="draft"
+        :running="isRunning"
+        :provider="state.provider"
+        :models="models"
+        :models-loading="modelsLoading"
+        :usage="state.run.usage"
+        :locale="locale"
+        @send="send"
+        @stop="stop"
+        @model="setModel"
+        @models-open="loadModels"
+        @reasoning-effort="setReasoningEffort"
+      />
+    </template>
+
+    <AgentUnavailableNotice
+      v-else-if="availability.status === 'unavailable'"
+      :error="availability.error"
       :locale="locale"
-      :read-only="readOnly"
-      @read-only="setReadOnly"
-    />
-    <AgentComposer
-      v-model:draft="draft"
-      :running="isRunning"
-      :provider="state.provider"
-      :models="models"
-      :models-loading="modelsLoading"
-      :usage="state.run.usage"
-      :locale="locale"
-      @send="send"
-      @stop="stop"
-      @model="setModel"
-      @models-open="loadModels"
-      @reasoning-effort="setReasoningEffort"
+      @retry="retryInitialize"
     />
 
     <p class="sr-only" aria-live="polite" aria-atomic="true">{{ liveAnnouncement }}</p>
@@ -84,6 +94,7 @@
   import AgentSessionDrawer from './AgentSessionDrawer.vue'
   import AgentSettingsDialog from './AgentSettingsDialog.vue'
   import AgentTimeline from './AgentTimeline.vue'
+  import AgentUnavailableNotice from './AgentUnavailableNotice.vue'
 
   const props = defineProps<{ bridge: AgentBridgeClient }>()
   const emit = defineEmits<{ close: [] }>()
@@ -95,6 +106,7 @@
 
   const {
     state,
+    availability,
     contextItems,
     draft,
     providerSettings,
@@ -111,6 +123,7 @@
     send,
     stop,
     retry,
+    retryInitialize,
     editMessage,
     confirmTool,
     answerQuestion,
@@ -122,6 +135,7 @@
   } = useAgentWorkspace(props.bridge)
 
   const text = computed(() => getAgentCopy(locale.value))
+  const available = computed(() => availability.value.status === 'ready')
 
   // 新建会话后收起抽屉，让新对话立即可见。
   async function handleCreateSession(): Promise<void> {
@@ -175,6 +189,13 @@
     () => state.value.error,
     (error) => {
       if (error) focusTarget('[data-focus="error"]')
+    },
+  )
+
+  watch(
+    () => availability.value.status,
+    (status) => {
+      if (status === 'unavailable') focusTarget('[data-focus="availability"]')
     },
   )
 

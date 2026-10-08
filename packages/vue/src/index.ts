@@ -86,6 +86,7 @@ export {
 } from './features/agent/workspace/impl/workspace-state.js'
 export type {
   AgentPanelWidthStorage,
+  AgentWorkspaceAvailability,
   AgentWorkspaceState,
 } from './features/agent/workspace/types.js'
 

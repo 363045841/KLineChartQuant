@@ -114,6 +114,13 @@ describe('redaction', () => {
     expect(serialized).not.toContain('alice')
     expect(serialized).not.toContain('sk-abcdefghijklmnop')
   })
+
+  it('strips a registered value whose shape the built-in patterns miss', () => {
+    const key = 'glm-4-not-an-openai-shaped-key'
+    // 先证明内置正则漏掉该形态，再证明 secretValues 逐字剔除。
+    expect(redactString(`leaked ${key}`)).toContain(key)
+    expect(redactString(`leaked ${key}`, { secretValues: [key] })).not.toContain(key)
+  })
 })
 
 describe('production Provider fallback', () => {

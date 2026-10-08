@@ -14,6 +14,7 @@ import {
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
   PROVIDER_SETTINGS_VERSION,
+  toAgentRuntimeError,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   type BrowserRuntimeSessions,
@@ -599,9 +600,15 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return () => this.listeners.delete(listener)
   }
 
-  /** 惰性创建共享应用运行时，恢复历史与中断运行后才允许 UI 访问。 */
+  /**
+   * 惰性创建共享应用运行时。
+   * 初始化失败时不缓存 rejected promise，使外部锁释放后再次调用可以重试。
+   */
   private runtime(): Promise<AgentApplicationService> {
-    this.runtimePromise ??= this.initializeRuntime()
+    this.runtimePromise ??= this.initializeRuntime().catch((error: unknown) => {
+      this.runtimePromise = undefined
+      throw toAgentRuntimeError(error)
+    })
     return this.runtimePromise
   }
 
@@ -610,25 +617,25 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     await this.refreshRedaction()
     const redaction = { secretValues: this.redactionSecrets }
     const durable = await this.createSessions(redaction)
-    this.durable = durable
-    const runtime = new AgentApplicationService({
-      sessions: durable.sessions,
-      createPlan: (context) => this.support.createPlan(context),
-      provider: this.support.provider,
-    })
-    runtime.subscribe((event) => {
-      if (event.type === 'session.snapshot') {
-        for (const run of event.snapshot.runs) {
-          if (!run.id) continue
-          if (run.status === 'running' || run.status === 'cancelling') this.runs.register(run.id)
-          else this.runs.complete(run.id)
-        }
-      }
-      for (const listener of this.listeners) listener(event)
-    })
     try {
+      const runtime = new AgentApplicationService({
+        sessions: durable.sessions,
+        createPlan: (context) => this.support.createPlan(context),
+        provider: this.support.provider,
+      })
+      runtime.subscribe((event) => {
+        if (event.type === 'session.snapshot') {
+          for (const run of event.snapshot.runs) {
+            if (!run.id) continue
+            if (run.status === 'running' || run.status === 'cancelling') this.runs.register(run.id)
+            else this.runs.complete(run.id)
+          }
+        }
+        for (const listener of this.listeners) listener(event)
+      })
       await runtime.initialize()
       if (!(await runtime.listSessions()).length) await runtime.createSession()
+      this.durable = durable
       return runtime
     } catch (error) {
       await durable.close()
@@ -636,12 +643,16 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     }
   }
 
-  /** 停止运行并释放浏览器数据库写锁。 */
+  /** 停止运行并释放浏览器数据库写锁；可重复调用，初始化失败时同样安全。 */
   async close(): Promise<void> {
-    if (!this.runtimePromise) return
-    const runtime = await this.runtimePromise
+    const pending = this.runtimePromise
+    this.runtimePromise = undefined
+    if (!pending) return
+    const runtime = await pending.catch(() => undefined)
+    if (!runtime) return
     await runtime.interruptOwnedRuns()
     await this.durable?.close()
+    this.durable = undefined
   }
 
   /** 在每次运行前更新共享脱敏名单，覆盖初始化后更改的凭据。 */

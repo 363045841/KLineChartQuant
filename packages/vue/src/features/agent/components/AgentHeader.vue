@@ -10,6 +10,7 @@
           :aria-label="sessionsToggleLabel"
           aria-haspopup="dialog"
           :aria-expanded="sessionsOpen"
+          :disabled="!available"
           @click="$emit('toggle-sessions')"
         >
           <IconMenu2 aria-hidden="true" />
@@ -18,7 +19,12 @@
 
       <div class="agent-header__actions">
         <BaseTooltip :content="text.newSession" placement="bottom">
-          <button type="button" :aria-label="text.newSession" @click="$emit('create')">
+          <button
+            type="button"
+            :aria-label="text.newSession"
+            :disabled="!available"
+            @click="$emit('create')"
+          >
             <IconPlus aria-hidden="true" />
           </button>
         </BaseTooltip>
@@ -51,10 +57,15 @@
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
-  const props = defineProps<{
-    locale: AgentLocale
-    sessionsOpen: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      locale: AgentLocale
+      sessionsOpen: boolean
+      /** 运行时可用时才允许操作会话；不可用时仅保留设置与关闭入口。 */
+      available?: boolean
+    }>(),
+    { available: true },
+  )
 
   defineEmits<{
     create: []
@@ -114,6 +125,13 @@
   .agent-header__top button:focus-visible {
     color: var(--agent-text);
     background: var(--agent-hover);
+  }
+
+  .agent-header__top button:disabled {
+    opacity: 0.4;
+    cursor: default;
+    color: var(--agent-muted);
+    background: transparent;
   }
 
   .agent-header__sessions-toggle[aria-expanded='true'] {
