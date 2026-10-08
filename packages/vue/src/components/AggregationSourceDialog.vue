@@ -210,7 +210,7 @@
   // 地址变更后防抖拨测，避免每敲一个字符就打一次网络
   let endpointProbeTimer: ReturnType<typeof setTimeout> | undefined
   watch(
-    () => props.endpoints,
+    [() => props.endpoints, () => props.sources],
     () => {
       if (!props.show) return
       if (endpointProbeTimer !== undefined) clearTimeout(endpointProbeTimer)
