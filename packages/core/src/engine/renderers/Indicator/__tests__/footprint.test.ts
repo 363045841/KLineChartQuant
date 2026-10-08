@@ -75,22 +75,22 @@ describe('Footprint Layer', () => {
       // Bid 向左、Ask 向右贴在柱中心两侧；Delta 汇总柱下方的整柱净流向。
       const center = start === 0 ? 20 : 70
       const texts = vi.mocked(ctx.fillText).mock.calls
-      expect(texts).toContainEqual(['0.25', center - 2, 90])
+      expect(texts).toContainEqual(['25', center - 2, 90])
       expect(texts).toContainEqual(['0', center + 2, 90])
-      expect(texts).toContainEqual([`Δ-0.25`, center, 113, 46])
+      expect(texts).toContainEqual([`Δ-25`, center, 113, 46])
     },
   )
 
   it('uses one linear volume scale across prices, sides and visible candles, without zero-volume backgrounds', () => {
-    const makeBar = (timestamp: number, volumes: [string, string][]): FootprintBar => ({
+    const makeBar = (timestamp: number, values: [string, string][]): FootprintBar => ({
       timestamp,
       complete: true,
       delta: '0',
-      totalVolume: '0',
-      cells: volumes.map(([bidVolume, askVolume], index) => ({
+      totalValue: '0',
+      cells: values.map(([bidValue, askValue], index) => ({
         price: String(100 + index * 2),
-        bidVolume,
-        askVolume,
+        bidValue,
+        askValue,
         bidImbalance: false,
         askImbalance: false,
       })),
@@ -146,12 +146,12 @@ describe('Footprint Layer', () => {
             timestamp: 1,
             complete: false,
             delta: '1',
-            totalVolume: '1',
+            totalValue: '1',
             cells: [
               {
                 price: '89',
-                bidVolume: '0',
-                askVolume: '1',
+                bidValue: '0',
+                askValue: '1',
                 bidImbalance: false,
                 askImbalance: false,
               },
@@ -189,19 +189,19 @@ describe('Footprint Layer', () => {
               timestamp: 1,
               complete: true,
               delta: '0',
-              totalVolume: '0',
+              totalValue: '0',
               cells: [
                 {
                   price: '100.23',
-                  bidVolume: '0.000001',
-                  askVolume: '3',
+                  bidValue: '0.000001',
+                  askValue: '3',
                   bidImbalance: false,
                   askImbalance: false,
                 },
                 {
                   price: '101.6',
-                  bidVolume: '7',
-                  askVolume: '0',
+                  bidValue: '7',
+                  askValue: '0',
                   bidImbalance: false,
                   askImbalance: false,
                 },

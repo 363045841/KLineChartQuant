@@ -1,4 +1,4 @@
-/** Footprint 的计算与渲染契约；柱子以实际 K 线开盘时间寻址。 */
+/** Footprint 的计算与渲染契约；柱子以实际 K 线开盘时间寻址，数值为成交额（价 × 量）。 */
 import type { TradeStatus } from '../../data/trades/types.js'
 
 export interface FootprintParams {
@@ -7,8 +7,8 @@ export interface FootprintParams {
 }
 export interface FootprintCell {
   readonly price: string
-  readonly bidVolume: string
-  readonly askVolume: string
+  readonly bidValue: string
+  readonly askValue: string
   readonly bidImbalance: boolean
   readonly askImbalance: boolean
 }
@@ -16,7 +16,7 @@ export interface FootprintBar {
   readonly timestamp: number
   readonly cells: readonly FootprintCell[]
   readonly delta: string
-  readonly totalVolume: string
+  readonly totalValue: string
   readonly complete: boolean
 }
 export interface FootprintSeries {

@@ -17,7 +17,7 @@ const IMBALANCE_ALPHA = 0.75
 /** 普通方向的不透明度。 */
 const NORMAL_ALPHA = 0.4
 
-/** 可视区共用数量比例；Bid 从柱中心向左延伸，Ask 向右延伸，零量不绘制。 */
+/** 可视区共用成交额比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
 function createFootprintLayer(
   options: { paneId?: string; instanceId?: string } = {},
 ): Layer<RenderContext> {
@@ -33,11 +33,11 @@ function createFootprintLayer(
       const { ctx, pane, range, kLineCenters, scrollLeft } = context
       const start = Math.max(0, range.start)
       const end = Math.min(range.end, state.series.bars.length)
-      // 全部可见柱、两侧和所有价位共用一个上限，保证宽度能直接比较成交量。
-      let maxVolume = 0
+      // 全部可见柱、两侧和所有价位共用一个上限，保证宽度能直接比较成交额。
+      let maxValue = 0
       for (let index = start; index < end; index++) {
         for (const cell of state.series.bars[index]?.cells ?? []) {
-          maxVolume = Math.max(maxVolume, Number(cell.bidVolume), Number(cell.askVolume))
+          maxValue = Math.max(maxValue, Number(cell.bidValue), Number(cell.askValue))
         }
       }
       const rowSize = Number(state.series.rowSize)
@@ -85,14 +85,14 @@ function createFootprintLayer(
           const top = roundToPhysicalPixel(Math.min(y, nextY), context.dpr)
           const bottom = roundToPhysicalPixel(Math.max(y, nextY), context.dpr)
           const height = Math.max(pixel, bottom - top)
-          if (!Number.isFinite(y) || !Number.isFinite(nextY) || !Number.isFinite(maxVolume)) {
+          if (!Number.isFinite(y) || !Number.isFinite(nextY) || !Number.isFinite(maxValue)) {
             continue
           }
           if (bottom <= 0 || top >= pane.height) continue
-          const bid = Number(cell.bidVolume)
-          const ask = Number(cell.askVolume)
-          if (maxVolume <= 0 || (bid <= 0 && ask <= 0)) continue
-          // 高度表示价格档位，宽度只表示成交量；档位之间留一个物理像素间隔。
+          const bid = Number(cell.bidValue)
+          const ask = Number(cell.askValue)
+          if (maxValue <= 0 || (bid <= 0 && ask <= 0)) continue
+          // 高度表示价格档位，宽度只表示成交额；档位之间留一个物理像素间隔。
           const gap = height >= 3 * pixel ? pixel : 0
           const rectTop = Math.max(0, top)
           const rectBottom = Math.min(
@@ -105,7 +105,7 @@ function createFootprintLayer(
           if (bid > 0) {
             const bidWidth = Math.min(
               halfWidth,
-              Math.max(pixel, roundToPhysicalPixel((halfWidth * bid) / maxVolume, context.dpr)),
+              Math.max(pixel, roundToPhysicalPixel((halfWidth * bid) / maxValue, context.dpr)),
             )
             ctx.globalAlpha = cell.bidImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA
             ctx.fillStyle = footprintColors.bid
@@ -114,7 +114,7 @@ function createFootprintLayer(
           if (ask > 0) {
             const askWidth = Math.min(
               halfWidth,
-              Math.max(pixel, roundToPhysicalPixel((halfWidth * ask) / maxVolume, context.dpr)),
+              Math.max(pixel, roundToPhysicalPixel((halfWidth * ask) / maxValue, context.dpr)),
             )
             ctx.globalAlpha = cell.askImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA
             ctx.fillStyle = footprintColors.ask
@@ -128,8 +128,8 @@ function createFootprintLayer(
             const textY = roundToPhysicalPixel((top + bottom) / 2, context.dpr)
             const textTop = textY - fontSize / 2
             const textBottom = textY + fontSize / 2
-            const bidText = compactVolume(cell.bidVolume)
-            const askText = compactVolume(cell.askVolume)
+            const bidText = compactValue(cell.bidValue)
+            const askText = compactValue(cell.askValue)
             ctx.font = getFont(fontSize, { bold: true })
             const availableWidth = halfWidth - 4
             if (
@@ -176,7 +176,7 @@ function createFootprintLayer(
           ctx.font = getFont(10)
           ctx.textAlign = 'center'
           ctx.fillStyle = Number(bar.delta) >= 0 ? footprintColors.ask : footprintColors.bid
-          ctx.fillText(`Δ${compactVolume(bar.delta)}`, x, summaryY, width)
+          ctx.fillText(`Δ${compactValue(bar.delta)}`, x, summaryY, width)
         }
       }
       ctx.restore()
@@ -184,13 +184,13 @@ function createFootprintLayer(
   })
 }
 
-const volumeFormatter = new Intl.NumberFormat('en', {
+const valueFormatter = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumSignificantDigits: 3,
 })
 /** 显示精度只在画布格式化边界缩减，计算结果仍保留完整十进制字符串。 */
-function compactVolume(value: string): string {
-  return volumeFormatter.format(Number(value))
+function compactValue(value: string): string {
+  return valueFormatter.format(Number(value))
 }
 
 @Indicator({

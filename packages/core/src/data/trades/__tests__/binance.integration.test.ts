@@ -74,7 +74,11 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
     const outputs = runtime.execute(plan)
     const series = readIndicatorSeriesEntry<FootprintSeries>(outputs[0]?.series, 'footprint')
     expect(series.bars[0]?.complete).toBe(true)
-    expect(Number(series.bars[0]?.totalVolume)).toBeCloseTo(first.volume ?? 0, 6)
+    // 聚合成交按成交额累计，应与同一根 K 线的报价额（turnover）一致。
+    const turnover = first.turnover ?? 0
+    const totalValue = Number(series.bars[0]?.totalValue)
+    expect(turnover).toBeGreaterThan(0)
+    expect(Math.abs(totalValue - turnover) / turnover).toBeLessThan(1e-6)
     const definition = getRegisteredIndicatorDefinition('footprint')
     const instanceResult = expandIndicatorCalculationOutputs(plan, outputs, 1).get('footprint-test')
     if (!definition || !instanceResult) throw new Error('Footprint registered result missing')

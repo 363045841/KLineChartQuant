@@ -21,6 +21,11 @@ export function decimalUnits(value: Decimal, scale: number): bigint {
   return value.units * 10n ** BigInt(scale - value.scale)
 }
 
+/** 定点相乘；scale 相加，得到两数的精确乘积，用于价 × 量。 */
+export function multiplyDecimal(a: Decimal, b: Decimal): Decimal {
+  return { units: a.units * b.units, scale: a.scale + b.scale }
+}
+
 /** 输出标准十进制字符串，保留整数运算的准确结果。 */
 export function formatDecimal(units: bigint, scale: number): string {
   const sign = units < 0n ? '-' : ''

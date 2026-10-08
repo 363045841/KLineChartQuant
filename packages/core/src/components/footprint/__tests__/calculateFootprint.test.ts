@@ -55,11 +55,11 @@ describe('Footprint calculator', () => {
     )
     expect(result.bars[0]).toMatchObject({
       timestamp: 1000,
-      totalVolume: '0.3',
-      delta: '0.3',
+      totalValue: '0.36',
+      delta: '0.36',
       complete: true,
     })
-    expect(result.bars[1]).toMatchObject({ timestamp: 2000, totalVolume: '0.4', delta: '-0.4' })
+    expect(result.bars[1]).toMatchObject({ timestamp: 2000, totalValue: '0.44', delta: '-0.44' })
     expect(result.bars[0]?.cells[0]?.price).toBe('1.2')
   })
 
@@ -73,13 +73,13 @@ describe('Footprint calculator', () => {
       ...second,
       batches: [...second.batches, batch([trade('2', 1500, '1.2', '0.2', 'buy')])],
     })
-    expect(result.bars[0]?.totalVolume).toBe('0.3')
+    expect(result.bars[0]?.totalValue).toBe('0.36')
   })
 
   // 完整范围的空柱是零，未覆盖的空柱必须是 undefined。
   it('distinguishes a covered zero-volume candle from unavailable data', () => {
     const result = createFootprintCalculator()(data, params, input([batch([])]))
-    expect(result.bars[0]).toMatchObject({ complete: true, totalVolume: '0', cells: [] })
+    expect(result.bars[0]).toMatchObject({ complete: true, totalValue: '0', cells: [] })
     expect(result.bars[1]).toBeUndefined()
     const gap = createFootprintCalculator()(data, params, input([batch([], 1000, 2000, false)]))
     expect(gap.bars[0]).toBeUndefined()
@@ -94,6 +94,6 @@ describe('Footprint calculator', () => {
     const result = compute(prepended, { ...params, ticksPerRow: 2 }, snapshot)
     expect(result.bars[1]?.timestamp).toBe(1000)
     expect(result.bars[1]?.cells[0]?.price).toBe('1.2')
-    expect(result.bars[1]?.totalVolume).toBe('2')
+    expect(result.bars[1]?.totalValue).toBe('2.58')
   })
 })
