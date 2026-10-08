@@ -1,4 +1,5 @@
 import type { PersistenceCodec } from './localStoragePersistence.js'
+import { scopedPersistenceName } from './persistence-scope.js'
 
 /** 一个已绑定 IndexedDB record 的异步持久化实例。 */
 export interface IndexedDbPersistence<T> {
@@ -55,6 +56,7 @@ function openDatabase<T>(options: CreateIndexedDbPersistenceOptions<T>): Promise
 export function createIndexedDbPersistence<T>(
   options: CreateIndexedDbPersistenceOptions<T>,
 ): IndexedDbPersistence<T> {
+  const scopedOptions = { ...options, databaseName: scopedPersistenceName(options.databaseName) }
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
   const flushOnPageHide = options.flushOnPageHide ?? true
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -72,7 +74,7 @@ export function createIndexedDbPersistence<T>(
     mode: IDBTransactionMode,
     run: (store: IDBObjectStore) => IDBRequest<R>,
   ): Promise<R> {
-    const database = await openDatabase(options)
+    const database = await openDatabase(scopedOptions)
     try {
       return await new Promise<R>((resolve, reject) => {
         const transaction = database.transaction(options.storeName, mode)
