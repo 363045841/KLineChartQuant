@@ -1,0 +1,89 @@
+{
+  "motion": {
+    "$description": "Motion v2 (craft-principles §4.5; design §3.3). Animate only transform/opacity, never `transition: all` (CP 32). Chart interactions and keyboard actions (crosshair, pan, zoom, command palette) are 100+/day actions: 0ms (CP 31). prefers-reduced-motion keeps opacity/color and drops translate/scale (CP 40). The legacy duration*/easing* keys stay for existing consumers.",
+    "ease": {
+      "out": {
+        "$type": "cubicBezier",
+        "$value": [0.23, 1, 0.32, 1],
+        "$description": "Enter/exit (S9)."
+      },
+      "inOut": {
+        "$type": "cubicBezier",
+        "$value": [0.77, 0, 0.175, 1],
+        "$description": "On-screen move/morph (S9)."
+      },
+      "drawer": {
+        "$type": "cubicBezier",
+        "$value": [0.32, 0.72, 0, 1],
+        "$description": "Sheets and drawers; Vaul's curve, paired with dur.sheet (S10)."
+      },
+      "expo": {
+        "$type": "cubicBezier",
+        "$value": [0.16, 1, 0.3, 1],
+        "$description": "Marketing reveals; Basement slide-up (S14)."
+      }
+    },
+    "dur": {
+      "0": {
+        "$type": "duration",
+        "$value": { "value": 0, "unit": "ms" },
+        "$description": "Keyboard actions, command palette, 2nd+ tooltip (S7, S8, S9)."
+      },
+      "press": {
+        "$type": "duration",
+        "$value": { "value": 140, "unit": "ms" },
+        "$description": ":active scale(0.97) press feedback (S7; S9 range 100-160)."
+      },
+      "fast": {
+        "$type": "duration",
+        "$value": { "value": 160, "unit": "ms" },
+        "$description": "Tooltip, small popover (S9 range 125-200)."
+      },
+      "base": {
+        "$type": "duration",
+        "$value": { "value": 200, "unit": "ms" },
+        "$description": "Dropdown, menu, select (S9 range 150-250; S7: 180)."
+      },
+      "slow": {
+        "$type": "duration",
+        "$value": { "value": 260, "unit": "ms" },
+        "$description": "Modal/dialog. [derived pick] within S9's 200-500 range."
+      },
+      "sheet": {
+        "$type": "duration",
+        "$value": { "value": 500, "unit": "ms" },
+        "$description": "Drawer with ease.drawer (S10)."
+      },
+      "toast": {
+        "$type": "duration",
+        "$value": { "value": 400, "unit": "ms" },
+        "$description": "Toast transform with `ease` (S11)."
+      }
+    },
+    "stagger": {
+      "$type": "duration",
+      "$value": { "value": 40, "unit": "ms" },
+      "$description": "List reveals, occasional only (S9 range 30-80)."
+    },
+    "loaderDelay": {
+      "$type": "duration",
+      "$value": { "value": 200, "unit": "ms" },
+      "$description": "Loading indicator show delay (S1 range 150-300)."
+    },
+    "loaderMin": {
+      "$type": "duration",
+      "$value": { "value": 400, "unit": "ms" },
+      "$description": "Loading indicator minimum visible time (S1 range 300-500)."
+    },
+    "flash": {
+      "$type": "duration",
+      "$value": { "value": 500, "unit": "ms" },
+      "$description": "Price-update flash; off under prefers-reduced-motion (trading-ui-benchmark 4.4; design §3.3)."
+    },
+    "fade": {
+      "$type": "duration",
+      "$value": { "value": 1000, "unit": "ms" },
+      "$description": "Price-update fade-out after the flash; off under prefers-reduced-motion (trading-ui-benchmark 4.4; design §3.3)."
+    }
+  }
+}

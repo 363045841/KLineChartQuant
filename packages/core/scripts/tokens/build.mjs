@@ -16,6 +16,7 @@ import {
   emitThemeTs,
   emitVisualPalettesTs,
 } from './lib/emit.mjs'
+import { collectFoundation, emitFoundationCss, emitFoundationTs } from './lib/emit-foundation.mjs'
 import { stringifyTokens } from './lib/json.mjs'
 import {
   buildModeSelector,
@@ -98,7 +99,31 @@ export async function buildAll() {
     }))
   ts('presets/impl/visualPalettes.ts', emitVisualPalettesTs(visual))
 
-  // 5. 自包含的 DTCG 解析器包，供 nebutra-sailor 等外部消费方使用。
+  // 5. v2 基础 Token。Phase 1 中它们与 preset 无关（preset 个性化属于 Phase 3），这里强制校验。
+  const foundation = {}
+  for (const mode of MODES) {
+    const base = collectFoundation(find('pro', mode).raw, find('pro', mode).sdTree, isThemePath)
+    for (const r of results.filter((x) => x.input.mode === mode)) {
+      const other = collectFoundation(r.raw, r.sdTree, isThemePath)
+      if (JSON.stringify(other) !== JSON.stringify(base))
+        throw new Error(`foundation tokens differ for preset ${r.input.preset} (${mode})`)
+    }
+    foundation[mode] = base
+  }
+  outputs.set(
+    path.join(OUT_DIR, 'css/foundation.css'),
+    emitFoundationCss(foundation.light, foundation.dark),
+  )
+  ts(
+    'foundation.ts',
+    emitFoundationTs(
+      foundation.light,
+      foundation.dark,
+      '// 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/{foundation,scheme}/*.tokens.json 生成，请勿手改。',
+    ),
+  )
+
+  // 6. 自包含的 DTCG 解析器包，供 nebutra-sailor 等外部消费方使用。
   const bundle = bundleResolver(
     resolver.doc,
     (ref) => resolver.overrides.get(ref) ?? readJson(path.join(DTCG_DIR, ref)),

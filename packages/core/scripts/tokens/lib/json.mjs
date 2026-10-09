@@ -17,7 +17,11 @@ export function stringifyTokens(data, width = 100) {
   function block(v, ind) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return inline(v)
     const pad = ' '.repeat(ind + 2)
-    const entries = Object.entries(v).map(([k, x]) => {
+    // `$` 元数据键置前：JS 会把整数键（如 "12"）排到最前，这里恢复可读的顺序。
+    const ordered = Object.entries(v).sort(
+      ([a], [b]) => Number(b[0] === '$') - Number(a[0] === '$'),
+    )
+    const entries = ordered.map(([k, x]) => {
       const head = `${pad}${JSON.stringify(k)}: `
       if (isLeaf(x)) {
         const s = inline(x)

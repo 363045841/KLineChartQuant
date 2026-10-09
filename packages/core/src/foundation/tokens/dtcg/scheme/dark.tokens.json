@@ -1168,6 +1168,121 @@
           "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.2)" } }
         }
       }
+    },
+    "elevation": {
+      "$description": "Dark elevation: depth comes from lighter surfaces first (color.ui background → surface → card; Material overlay ladder S31, Radix steps 1 → 2 → 3 S20; CP 10). Shadows remain only as soft transparent darkening, same layer geometry as light, never the only depth cue (S2, S31). Per-layer opacity [derived]: CP §4.4 gives 0.3-0.5; it falls as elevation rises (S19), 0.5 → 0.4 → 0.3, while added layers deepen the stack.",
+      "1": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.5 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 0.5, "unit": "px" },
+            "blur": { "value": 1, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.5 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 2, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          }
+        ],
+        "$description": "Tooltip, small surface."
+      },
+      "2": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.4 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 2, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.4 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 2, "unit": "px" },
+            "blur": { "value": 4, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.4 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 4, "unit": "px" },
+            "blur": { "value": 8, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          }
+        ],
+        "$description": "Menu, popover."
+      },
+      "3": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.3 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 2, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.3 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 2, "unit": "px" },
+            "blur": { "value": 4, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.3 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 4, "unit": "px" },
+            "blur": { "value": 8, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.3 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 8, "unit": "px" },
+            "blur": { "value": 16, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.3 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 16, "unit": "px" },
+            "blur": { "value": 32, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          }
+        ],
+        "$description": "Modal, fullscreen."
+      },
+      "hairline": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 100], "alpha": 0.08 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 0, "unit": "px" },
+            "blur": { "value": 0, "unit": "px" },
+            "spread": { "value": 1, "unit": "px" }
+          }
+        ],
+        "$description": "1px white ring on floating surfaces. [derived] midpoint of CP §4.4's 0.06-0.10 range (semi-transparent border S1; Basement off-white at 10-30% S14)."
+      }
+    },
+    "brand": {
+      "accentText": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.3255, 0.4941, 0.8039],
+          "hex": "#537ECD"
+        },
+        "$description": "Accent used as text on dark surfaces (≥ 4.5:1). ADR 0007; competitor-brand-colors.md §4."
+      }
     }
   }
 }

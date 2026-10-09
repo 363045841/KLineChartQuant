@@ -252,5 +252,14 @@
       "backdrop": { "$type": "color", "$value": "{dark.color.agent.backdrop}" },
       "panelShadow": { "$type": "color", "$value": "{dark.color.agent.panelShadow}" }
     }
+  },
+  "elevation": {
+    "1": { "$type": "shadow", "$value": "{dark.elevation.1}" },
+    "2": { "$type": "shadow", "$value": "{dark.elevation.2}" },
+    "3": { "$type": "shadow", "$value": "{dark.elevation.3}" },
+    "hairline": { "$type": "shadow", "$value": "{dark.elevation.hairline}" }
+  },
+  "brand": {
+    "accentText": { "$type": "color", "$value": "{dark.brand.accentText}" }
   }
 }

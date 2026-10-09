@@ -96,8 +96,13 @@ export function cssValue(type, value, extensions) {
     case 'shadow':
       if (typeof value === 'string') return value
       return (Array.isArray(value) ? value : [value]).map(formatShadowLayer).join(', ')
+    case 'number': {
+      // DTCG dimension 只允许 px/rem；em 字距以 number + `$extensions[EXT].unit` 表达。
+      const unit = extensions?.[EXT]?.unit
+      if (unit && typeof value === 'number') return value === 0 ? '0' : `${value}${unit}`
+      return value
+    }
     case 'fontWeight':
-    case 'number':
       return value
     default:
       if (typeof value === 'string' || typeof value === 'number') return value

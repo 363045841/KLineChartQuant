@@ -255,5 +255,14 @@
       "backdrop": { "$type": "color", "$value": "{light.color.agent.backdrop}" },
       "panelShadow": { "$type": "color", "$value": "{light.color.agent.panelShadow}" }
     }
+  },
+  "elevation": {
+    "1": { "$type": "shadow", "$value": "{light.elevation.1}" },
+    "2": { "$type": "shadow", "$value": "{light.elevation.2}" },
+    "3": { "$type": "shadow", "$value": "{light.elevation.3}" },
+    "hairline": { "$type": "shadow", "$value": "{light.elevation.hairline}" }
+  },
+  "brand": {
+    "accentText": { "$type": "color", "$value": "{light.brand.accentText}" }
   }
 }

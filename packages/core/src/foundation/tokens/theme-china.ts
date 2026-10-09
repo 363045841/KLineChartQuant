@@ -20,6 +20,7 @@
  */
 
 import { applyColorPresetOverrides, type ColorPresetSettings } from './colorPresetSettings.js'
+import { foundationTokens } from './foundation.js'
 import { resolveBaseTheme } from './presets/impl/themePresets.js'
 import type { ColorTokens, Theme } from './types.js'
 
@@ -134,6 +135,8 @@ export function resolveTheme(
   return {
     ...active,
     colors: applyColorPresetOverrides(active.colors, themeName, colorPresetSettings),
+    // v2 基础 Token 按明暗模式挂载；Phase 1 中与预设无关，不改变任何既有颜色。
+    foundation: foundationTokens[themeName],
   }
 }
 

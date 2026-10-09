@@ -18,6 +18,13 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
  *   typography.fontFamily                    `--klc-typography-font-family`
  *   typography.fontWeightRegular             `--klc-typography-font-weight-regular`
  *   motion.durationFast                      `--klc-motion-duration-fast`
+ *   foundation.radius.sm                     `--klc-radius-sm`
+ *   foundation.text.label[13].fontSize       `--klc-text-label-13-font-size`
+ *   foundation.zIndex.modal                  `--klc-z-index-modal`
+ *
+ * The v2 foundation (`theme.foundation`, see `foundation.ts`) is emitted only
+ * when present. `lightTheme` / `darkTheme` leave it unset, so their output is
+ * the frozen baseline; `resolveTheme()` attaches it per mode.
  *
  * Numeric tokens (font weights, line heights) emit as strings — CSS doesn't
  * care, and consumers consume them through `var(...)` so the type tag is
@@ -28,7 +35,23 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
  * (Tailwind, MUI, Radix) on the same page.
  */
 
-import type { Theme } from './types.js'
+import type { FoundationTokens, Theme } from './types.js'
+
+/**
+ * Emission order of the foundation groups. Matches `design-tokens/css/foundation.css`
+ * (scripts/tokens/lib/emit-foundation.mjs); pipeline.test.ts checks the two agree.
+ */
+export const FOUNDATION_GROUPS = [
+  'radius',
+  'text',
+  'space',
+  'density',
+  'elevation',
+  'motion',
+  'zIndex',
+  'breakpoint',
+  'brand',
+] as const satisfies ReadonlyArray<keyof FoundationTokens>
 
 export interface ThemeToCssVarsOptions {
   /**
@@ -79,6 +102,20 @@ function flattenFamily(
   return out
 }
 
+/** Flatten nested foundation groups: every path segment is kebab-cased and joined by `-`. */
+function flattenFoundation(foundation: FoundationTokens, prefix: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  const visit = (node: object, path: string): void => {
+    for (const [k, v] of Object.entries(node)) {
+      const name = `${path}-${camelToKebab(k)}`
+      if (v !== null && typeof v === 'object') visit(v, name)
+      else out[`${prefix}${name}`] = String(v)
+    }
+  }
+  for (const group of FOUNDATION_GROUPS) visit(foundation[group], camelToKebab(group))
+  return out
+}
+
 /**
  * Emit a `{ [cssVarName]: value }` map for the given theme.
  *
@@ -113,6 +150,7 @@ export function themeToCssVars(theme: Theme, opts?: ThemeToCssVarsOptions): Reco
       'typography',
     ),
     ...flattenFamily(theme.motion as unknown as Record<string, string>, prefix, 'motion'),
+    ...(theme.foundation ? flattenFoundation(theme.foundation, prefix) : {}),
   }
 }
 

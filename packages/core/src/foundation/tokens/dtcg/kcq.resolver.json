@@ -4,11 +4,21 @@
   "description": "DTCG Resolver Module 2025.10 entry point. Two orthogonal modifiers: preset (pro, exchange, terminal, zen, quant) x mode (light, dark). Scheme files carry both modes side by side under `light.*` / `dark.*`; preset contexts override those branches; the mode context is a generated selector that aliases the chosen branch onto the public names (`color.*`, ...). Aliases resolve after all sources merge (Resolver 2025.10 §resolution), so presets reach every mode without the modifiers depending on each other. Built by `pnpm tokens:build` (Style Dictionary v5 + permutation script, since SD resolver support is not shipped: style-dictionary#1590).",
   "sets": {
     "foundation": {
-      "description": "Mode- and preset-independent tokens.",
-      "sources": [{ "$ref": "foundation/theme-base.tokens.json" }]
+      "description": "Mode- and preset-independent tokens: the legacy Theme families plus the v2 foundation groups.",
+      "sources": [
+        { "$ref": "foundation/theme-base.tokens.json" },
+        { "$ref": "foundation/radius.tokens.json" },
+        { "$ref": "foundation/type.tokens.json" },
+        { "$ref": "foundation/space.tokens.json" },
+        { "$ref": "foundation/density.tokens.json" },
+        { "$ref": "foundation/motion.tokens.json" },
+        { "$ref": "foundation/z-index.tokens.json" },
+        { "$ref": "foundation/breakpoint.tokens.json" },
+        { "$ref": "foundation/brand.tokens.json" }
+      ]
     },
     "scheme": {
-      "description": "Pro base values for both modes, namespaced `light.*` and `dark.*`.",
+      "description": "Pro base values for both modes, namespaced `light.*` and `dark.*`: colors, elevation recipes, accent text tints.",
       "sources": [{ "$ref": "scheme/light.tokens.json" }, { "$ref": "scheme/dark.tokens.json" }]
     }
   },

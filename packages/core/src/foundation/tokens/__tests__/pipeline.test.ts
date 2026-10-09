@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import {
+  camelToKebab,
+  FOUNDATION_GROUPS,
   resolveTheme,
   THEME_PRESETS,
   type ThemePresetId,
@@ -57,10 +59,36 @@ describe('design tokens pipeline', () => {
 
   for (const { id } of THEME_PRESETS) {
     for (const mode of MODES) {
-      it(`${id} × ${mode}: generated CSS equals runtime themeToCssVars`, () => {
-        const runtime = resolveTheme(mode, false, { preset: id })
+      it(`${id} × ${mode}: generated theme CSS equals runtime themeToCssVars`, () => {
+        // 主题层单独比较：去掉 v2 foundation 后应与冻结的 Theme 输出逐字节一致。
+        const { foundation: _foundation, ...runtime } = resolveTheme(mode, false, { preset: id })
         expect(readThemeCss(id, mode)).toBe(`${toCssDeclarationBlock(themeToCssVars(runtime))}\n`)
       })
     }
+  }
+
+  for (const mode of MODES) {
+    it(`foundation.css (:root + [data-theme='${mode}']) equals runtime foundation vars`, () => {
+      const css = fs.readFileSync(path.join(cssDir, 'foundation.css'), 'utf8')
+      const blocks = new Map(
+        [...css.matchAll(/^([^{\n]+) \{\n([\s\S]*?)\n\}/gm)].map((m) => [m[1], m[2]]),
+      )
+      const decls = [blocks.get(':root'), blocks.get(`[data-theme='${mode}']`)]
+        .join('\n')
+        .split('\n')
+        .map((l) => l.trim().match(/^(--[\w-]+): (.*);$/))
+        .filter((m): m is RegExpMatchArray => m !== null)
+        .map((m) => [m[1], m[2]] as const)
+      const theme = resolveTheme(mode)
+      const all = themeToCssVars(theme)
+      const legacy = themeToCssVars({ ...theme, foundation: undefined })
+      const foundationVars = Object.fromEntries(Object.entries(all).filter(([k]) => !(k in legacy)))
+      expect(Object.fromEntries(decls)).toEqual(foundationVars)
+      // 运行时输出顺序遵循 FOUNDATION_GROUPS（与构建脚本同一顺序）。
+      const groupOf = (name: string) =>
+        FOUNDATION_GROUPS.findIndex((g) => name.startsWith(`--klc-${camelToKebab(g)}-`))
+      const order = Object.keys(foundationVars).map(groupOf)
+      expect(order).toEqual([...order].sort((a, b) => a - b))
+    })
   }
 })
