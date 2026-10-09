@@ -364,4 +364,35 @@ describe('BarsLiveSubscription instrumentId', () => {
     expect(requests).toHaveLength(1)
     expect(requests[0]).not.toHaveProperty('instrumentId')
   })
+
+  it('does not stream an instrument that declares no live bars', () => {
+    const requests = registerLiveProvider()
+    const subscription = new BarsLiveSubscription({ updateBars: () => {} })
+
+    subscription.reconcile({
+      symbol: 'AAPL',
+      period: '5min',
+      instrument: {
+        sourceId: SOURCE_ID,
+        id: 'live-test:US:AAPL',
+        capabilities: { liveBars: false },
+      },
+    })
+
+    expect(requests).toHaveLength(0)
+  })
+
+  it('streams when the instrument does not declare live-bar support either way', () => {
+    const requests = registerLiveProvider()
+    const subscription = new BarsLiveSubscription({ updateBars: () => {} })
+
+    subscription.reconcile({
+      symbol: '600519',
+      period: '5min',
+      instrument: { sourceId: SOURCE_ID, id: 'live-test:SH:600519', capabilities: {} },
+    })
+    subscription.stop()
+
+    expect(requests).toHaveLength(1)
+  })
 })

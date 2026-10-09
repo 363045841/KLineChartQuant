@@ -248,7 +248,7 @@ export class BarsLiveSubscription {
       symbol: string
       period?: string
       source?: string
-      instrument?: { sourceId: string; id?: string }
+      instrument?: { sourceId: string; id?: string; capabilities?: { liveBars?: boolean } }
     } | null,
     barAggregation: BarAggregation = ORIGINAL_BAR_AGGREGATION,
   ): void {
@@ -265,6 +265,12 @@ export class BarsLiveSubscription {
     }
 
     if (!provider.liveBars) {
+      this.stop()
+      return
+    }
+
+    // 数据源支持实时流不代表每个品种都支持（如 gotdx 仅 A 股/指数）；品种显式声明不支持时不建连。
+    if (spec.instrument?.capabilities?.liveBars === false) {
       this.stop()
       return
     }
