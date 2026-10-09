@@ -9,6 +9,8 @@ import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
+// 渲染进程按包名导入 Vue UI；开发与打包都解析到源码，保留热更新且不依赖预先构建 dist。
+const vueEntry = `${root}/packages/vue/src/index.ts`
 const agentRuntime = `${root}/packages/agent-runtime/src/index.ts`
 const agentContracts = `${root}/packages/agent-runtime/src/contracts/ui.ts`
 
@@ -63,6 +65,7 @@ export default defineConfig({
     },
     resolve: {
       alias: [
+        { find: /^@363045841yyt\/klinechart$/, replacement: vueEntry },
         ...createCoreSourceAliases(coreSrc),
         {
           find: /^@363045841yyt\/klinechart-agent-runtime\/browser$/,
