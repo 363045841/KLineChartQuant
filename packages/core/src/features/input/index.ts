@@ -1,10 +1,26 @@
 /**
  * @klinechart-quant/core/input — framework-agnostic input layer.
  *
- * Shipping module: {@link createShortcutRegistry}. See `./keyboard.ts`
+ * Shipping modules: {@link createShortcutRegistry} and the command registry
+ * built on it ({@link createCommandRegistry}). See `./keyboard.ts`
  * for the design notes.
  */
 
+export {
+  type CommandDef,
+  type CommandKeyContext,
+  type CommandLocale,
+  type CommandMatch,
+  type CommandRegistry,
+  type CommandRegistryOptions,
+  type CommandScope,
+  type CommandTitle,
+  createCommandRegistry,
+  formatCombo,
+  primaryShortcut,
+  scoreFields,
+  scoreTextMatch,
+} from './commands.js'
 export {
   createGestureRecognizer,
   type GestureEvent,
