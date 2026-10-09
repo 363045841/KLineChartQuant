@@ -1,46 +1,5 @@
-/** Legend DOM 渲染的数据契约与低频用户操作事件。 */
-export interface LegendText {
-  text: string
-  color: string
-  /** 与前一段文本的间距（像素），未指定时使用行间距。 */
-  gapBefore?: number
-}
-
-export interface LegendRow {
-  key: string
-  paneId: string
-  x: number
-  y: number
-  maxWidth: number
-  height: number
-  gap: number
-  texts: ReadonlyArray<LegendText>
-  indicator?: { instanceId: string; definitionId: string }
-  /** 比较品种按完整身份执行隐藏与删除，独立于指标身份。 */
-  comparison?: { identity: string }
-  /** 指标被隐藏：行保留并置灰，工具条切换为“显示指标”。 */
-  hidden?: boolean
-  /** 指标仍在异步加载：行内展示加载圈。 */
-  loading?: boolean
-}
-
-export const LEGEND_ACTION_EVENT = 'klc:legend-action'
-export type LegendAction =
-  | 'move-up'
-  | 'move-down'
-  | 'replace'
-  | 'toggle-visibility'
-  | 'settings'
-  | 'close'
-export interface LegendActionDetail {
-  action: LegendAction
-  paneId: string
-  definitionId: string
-  /** 比较操作使用此身份，definitionId 仅供指标操作。 */
-  comparisonIdentity?: string
-  /** 仅 toggle-visibility：切换后的目标隐藏状态。 */
-  hidden?: boolean
-}
+/** DOM 图例渲染器生命周期契约，业务数据由 legend 模块提供。 */
+import type { LegendRow } from '@/engine/legend/types.js'
 
 export interface LegendDomRenderer {
   update(paneId: string, rows: ReadonlyArray<LegendRow>, paneOrder: ReadonlyArray<string>): void

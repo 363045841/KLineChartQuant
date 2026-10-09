@@ -143,11 +143,11 @@
                 <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
 
                 <div
-                  v-if="hasLegendSlot && legendTemplateContext"
+                  v-if="hasLegendSlot && legendContext"
                   class="main-legend-overlay"
                   :style="legendOverlayStyle"
                 >
-                  <slot name="legend" v-bind="legendTemplateContext" />
+                  <slot name="legend" v-bind="legendContext" />
                 </div>
 
                 <CanvasToolbarStack>
@@ -442,7 +442,7 @@
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
   import { useKLineTooltip } from '../composables/chart/useKLineTooltip.js'
-  import { useLegendActions } from '../composables/chart/useLegendActions.js'
+  import { useLegendUi } from '../composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
@@ -964,7 +964,6 @@
     clearAllSubPanes,
     clearAllIndicators,
     switchSubIndicator,
-    moveSubPane,
     handleIndicatorToggle,
     handleUpdateParams,
     handleReorderSubIndicators,
@@ -980,10 +979,7 @@
     replacementId: replacementPaneId,
     replacementRole,
     replaceLegend,
-  } = useLegendActions(controller, canvasLayerRef, {
-    removePane: removeSubPane,
-    movePane: moveSubPane,
-    replacePane: switchSubIndicator,
+  } = useLegendUi(controller, canvasLayerRef, {
     openSelector: () => indicatorSelectorRef.value?.openMenu(),
     openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
   })
@@ -1252,7 +1248,7 @@
   })
 
   /** 主图图例模板上下文（#legend slot 消费） */
-  const legendTemplateContext = shallowRef<LegendTemplateContext | null>(null)
+  const legendContext = shallowRef<LegendTemplateContext | null>(null)
   let _unsubLegend: (() => void) | null = null
 
   const hasLegendSlot = ref(!!slots.legend)
@@ -1264,7 +1260,7 @@
   })
 
   const legendOverlayStyle = computed(() => {
-    const ctx = legendTemplateContext.value
+    const ctx = legendContext.value
     if (!ctx) return undefined
     return {
       left: `${ctx.layout.x}px`,
@@ -1286,16 +1282,16 @@
     _unsubLegend?.()
     _unsubLegend = null
     if (!hasLegendSlot.value) {
-      legendTemplateContext.value = null
+      legendContext.value = null
       return
     }
 
-    _unsubLegend = ctrl.legendTemplateContext.subscribe(() => {
-      const next = ctrl.legendTemplateContext.peek()
-      if (legendTemplateContext.value === next) return
-      legendTemplateContext.value = next
+    _unsubLegend = ctrl.legend.context.subscribe(() => {
+      const next = ctrl.legend.context.peek()
+      if (legendContext.value === next) return
+      legendContext.value = next
     })
-    legendTemplateContext.value = ctrl.legendTemplateContext.peek()
+    legendContext.value = ctrl.legend.context.peek()
   }
 
   watch(
@@ -1926,7 +1922,7 @@
     _unsubLegend?.()
     _unsubLegend = null
     applyLegendRenderMode(controller.value, false)
-    legendTemplateContext.value = null
+    legendContext.value = null
     const ctrl = controller.value
     if (ctrl) {
       controller.value = null

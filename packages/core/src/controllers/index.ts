@@ -184,6 +184,26 @@ export type {
   LayoutSummary,
   NamedLayoutDocument,
 } from '../engine/layout/index.js'
+// Main-pane legend template context (Vue #legend slot)
+export type {
+  CreateLegendInput,
+  LegendAction,
+  LegendActionButton,
+  LegendApi,
+  LegendComparisonRow,
+  LegendCurrentBar,
+  LegendEntry,
+  LegendIndicatorRow,
+  LegendLayout,
+  LegendOptions,
+  LegendPatch,
+  LegendRow,
+  LegendTemplateContext,
+  LegendText,
+  LegendTimeshareRow,
+  LegendUiRequest,
+} from '../engine/legend/types.js'
+export { LEGEND_UI_EVENT } from '../engine/legend/types.js'
 // Indicator types & config
 export type { SubIndicatorType } from '../engine/renderers/Indicator/index.js'
 export type { Indicator } from '../engine/renderers/Indicator/indicatorCatalog.js'
@@ -193,18 +213,6 @@ export {
   findIndicator,
   isSubIndicatorId,
 } from '../engine/renderers/Indicator/indicatorCatalog.js'
-// Main-pane legend template context (Vue #legend slot)
-export type {
-  LegendComparisonRow,
-  LegendCurrentBar,
-  LegendIndicatorRow,
-  LegendLayout,
-  LegendOptions,
-  LegendTemplateContext,
-  LegendTimeshareRow,
-} from '../engine/renderers/Indicator/mainIndicatorLegend/types.js'
-export type { LegendActionDetail } from '../engine/renderers/legend/types.js'
-export { LEGEND_ACTION_EVENT } from '../engine/renderers/legend/types.js'
 export { getPhysicalKLineConfig } from '../engine/viewport/klineConfig.js'
 // Utility functions
 export { kGapFromKWidth, zoomLevelToKWidth } from '../engine/viewport/zoom.js'

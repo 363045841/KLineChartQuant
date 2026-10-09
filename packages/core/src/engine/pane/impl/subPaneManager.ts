@@ -6,9 +6,7 @@ import {
   resolveIndicatorLayerId,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import { createIndicatorLayer } from '../../renderers/Indicator/factory.js'
-import { findIndicator } from '../../renderers/Indicator/indicatorCatalog.js'
 import { createIndicatorScaleLayer } from '../../renderers/Indicator/scale/indicator_scale.js'
-import { createPaneTitleRendererLayer } from '../../renderers/paneTitle.js'
 import type { SubPaneSpec } from '../../state/indicatorState.js'
 import type { SubPaneContext, SubPaneResources } from '../types.js'
 import { DEFAULT_PRICE_LABEL_WIDTH } from '../types.js'
@@ -28,10 +26,7 @@ export function hasSubPaneRendererMetadata(
 ): boolean {
   if (definition.category === 'main' || definition.allowMainPane) return false
   try {
-    return Boolean(
-      definition.getScaleRendererName({ paneId, indicatorId }) &&
-        definition.getPaneTitleRendererName({ paneId, indicatorId }),
-    )
+    return Boolean(definition.getScaleRendererName({ paneId, indicatorId }))
   } catch {
     return false
   }
@@ -59,10 +54,8 @@ function toResources(entry: ProjectedSubPaneEntry): SubPaneResources {
     indicatorId: entry.indicatorId,
     rendererName: entry.rendererName,
     scaleRendererName: entry.scaleRendererName,
-    paneTitleRendererName: entry.paneTitleRendererName,
     layerId: entry.layerId,
     scaleLayerId: entry.scaleLayerId,
-    paneTitleLayerId: entry.paneTitleLayerId,
   }
 }
 
@@ -90,23 +83,19 @@ export class SubPaneManager {
         if (current?.projectionKey === nextProjectionKey) continue
 
         if (candidate.hidden) {
-          // 隐藏：卸载指标与坐标轴，只保留置灰标题，供再次点击恢复。
+          // 隐藏只卸载数据与坐标轴，图例由实例状态继续投影。
           if (current) this.unmount(ctx, current)
-          this.mountPaneTitleRenderer(ctx, candidate)
         } else if (current?.hidden) {
           // 从隐藏恢复：全量重建，确保标题重新着色并挂回绘制与坐标轴。
           if (current) this.unmount(ctx, current)
           this.mount(ctx, candidate)
-          this.mountPaneTitleRenderer(ctx, candidate)
         } else if (current?.rendererName === candidate.rendererName) {
           // params 变化：直接替换 Layer（原子重建），避免渲染器内部持有 config
-          this.unmount(ctx, current, true)
+          this.unmount(ctx, current)
           this.mount(ctx, candidate)
-          this.mountPaneTitleRenderer(ctx, candidate)
         } else {
           this.mount(ctx, candidate)
-          this.mountPaneTitleRenderer(ctx, candidate)
-          if (current) this.unmount(ctx, current, true)
+          if (current) this.unmount(ctx, current)
         }
         this.mounted.set(spec.paneId, {
           ...toResources(candidate),
@@ -165,19 +154,13 @@ export class SubPaneManager {
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
     })!
-    const paneTitleRendererName = definition.getPaneTitleRendererName({
-      paneId: spec.paneId,
-      indicatorId: spec.indicatorId,
-    })!
     return {
       ...spec,
       params: { ...spec.params },
       rendererName,
       scaleRendererName,
-      paneTitleRendererName,
       layerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId),
       scaleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'scale'),
-      paneTitleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'title'),
     }
   }
 
@@ -231,28 +214,10 @@ export class SubPaneManager {
     ctx.useRenderer(layer)
   }
 
-  private mountPaneTitleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
-    if (ctx.getRenderer(entry.paneTitleLayerId)) {
-      return
-    }
-    const layer = createPaneTitleRendererLayer({
-      paneId: entry.paneId,
-      title: findIndicator(entry.indicatorId)?.label ?? entry.indicatorId,
-      indicatorId: entry.indicatorId,
-      instanceId: entry.instanceId,
-      hidden: entry.hidden === true,
-      params: { ...entry.params },
-    })
-    ctx.useRenderer(layer)
-  }
-
-  private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {
+  private unmount(ctx: SubPaneContext, entry: SubPaneResources): void {
     // removeRenderer 同步卸 Scene Layer 并触发 Layer.dispose
     ctx.removeRenderer(entry.layerId)
     ctx.removeRenderer(entry.scaleLayerId)
-    if (!preserveTitle) {
-      ctx.removeRenderer(entry.paneTitleLayerId)
-    }
   }
 
   private invalidateProjection(

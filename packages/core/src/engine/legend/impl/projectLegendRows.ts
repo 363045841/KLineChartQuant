@@ -1,51 +1,10 @@
-/** 构建主图 DOM Legend 行，Canvas 不再绘制标题文本。 */
+/** 将统一图例上下文转换为 DOM 与外部模板共用的展示行。 */
 
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
-import type { LegendRow, LegendText } from '@/engine/renderers/legend/types.js'
-import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
-import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { createIndicatorRendererLayer } from '../../shared/indicatorRendererLayer.js'
-import type { LegendTemplateContext, MainIndicatorLegendOptions } from '../types.js'
-import { buildLegendTemplateContext } from './buildLegendTemplateContext.js'
+import type { LegendIndicatorRow, LegendRow, LegendTemplateContext, LegendText } from '../types.js'
 
-/** 构建数据并交给独立 DOM renderer。 */
-export function createMainIndicatorLegendLayer(
-  options: MainIndicatorLegendOptions,
-  getPluginHost: () => PluginHost | null,
-): Layer<RenderContext> {
-  return createIndicatorRendererLayer({
-    layerId: makePluginLayerId('mainIndicatorLegend'),
-    paneId: MAIN_PANE_ID,
-    role: 'overlay',
-    z: RENDERER_PRIORITY.FOREGROUND,
-    draw(context) {
-      const config = options.getLegendOptions?.()
-      const viewIds = options.getVisibleIndicatorIds?.()
-      // 用户筛选与当前视图的可见指标取交集；两者同为规范 ID（displayName）。
-      const configuredIds = config?.visibleIndicatorIds
-      const visibleIds = configuredIds
-        ? configuredIds.filter((id) => !viewIds || viewIds.includes(id))
-        : viewIds
-      const legend = buildLegendTemplateContext({
-        context,
-        host: getPluginHost(),
-        yPaddingPx: options.yPaddingPx,
-        visibleIndicatorIds: visibleIds ? new Set(visibleIds) : null,
-      })
-      options.onContext?.(legend)
-      // 是否收起由 DOM renderer 自行切换显示，渲染层只发布完整行。
-      context.publishLegendRows?.(
-        MAIN_PANE_ID,
-        config?.visible !== false && legend ? buildMainLegendRows(legend, context.pane.top) : [],
-      )
-    },
-  })
-}
-
-/** 左上角展示主品种行情、指标和比较品种名称，比较行不展示行情数值。 */
-export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: number): LegendRow[] {
+/** 左上角统一展示主品种行情、指标数值与比较品种真实行情。 */
+export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: number): LegendRow[] {
   const rows: LegendRow[] = []
   const { layout, colors } = legend
   /** 用同一行号维护紧凑布局和指标的位置。 */
@@ -66,6 +25,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       height: layout.lineHeight,
       gap: layout.gap,
       texts,
+      actions: [],
       indicator,
       hidden,
       comparison,
@@ -118,16 +78,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
   for (const title of legend.indicators) {
     add(
       title.instanceId,
-      [
-        { text: title.name, color: colors.textPrimary },
-        ...(title.params?.length
-          ? [{ text: `(${title.params.join(',')})`, color: colors.textTertiary, gapBefore: 4 }]
-          : []),
-        ...(title.values?.map((item) => ({
-          text: `${item.label} ${item.formattedValue ?? item.value.toFixed(3)}`,
-          color: item.color,
-        })) ?? []),
-      ],
+      projectIndicatorTexts(title, colors),
       { instanceId: title.instanceId, definitionId: title.definitionId },
       title.hidden,
       undefined,
@@ -146,6 +97,17 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
             name && name !== comparison.symbol ? `${comparison.symbol} ${name}` : comparison.symbol,
           color: colors.textPrimary,
         },
+        {
+          text: comparison.price === null ? '现价 —' : `现价 ${comparison.price.toFixed(2)}`,
+          color: comparison.color,
+        },
+        {
+          text:
+            comparison.percent === null
+              ? '涨幅 —'
+              : `涨幅 ${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(2)}%`,
+          color: comparison.percentColor,
+        },
       ],
       undefined,
       comparison.hidden,
@@ -153,4 +115,21 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
     )
   }
   return rows
+}
+
+/** 主副图指标共享名称、参数与数值格式。 */
+export function projectIndicatorTexts(
+  title: LegendIndicatorRow,
+  colors: LegendTemplateContext['colors'],
+): LegendText[] {
+  return [
+    { text: title.name, color: colors.textPrimary },
+    ...(title.params?.length
+      ? [{ text: `(${title.params.join(',')})`, color: colors.textTertiary, gapBefore: 4 }]
+      : []),
+    ...(title.values?.map((item) => ({
+      text: `${item.label} ${item.formattedValue ?? item.value.toFixed(3)}`,
+      color: item.color,
+    })) ?? []),
+  ]
 }

@@ -40,6 +40,7 @@ export function createComparisonLineLayer(): Layer<RenderContext> {
 
       ctx.lineWidth = Math.max(1, 1.5 / context.dpr)
       for (const series of projection.series) {
+        if (context.comparisonHidden?.get(series.identity) === true) continue
         const points = series.points.map((point) => ({
           x:
             (context.kLineCenters[point.index - context.range.start] ?? Number.NaN) -

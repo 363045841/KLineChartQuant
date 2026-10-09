@@ -45,7 +45,6 @@ import { createCustomMarkersLayer } from '../../renderers/customMarkers.js'
 import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
 import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
 import { createGridLinesLayer } from '../../renderers/gridLines.js'
-import { createMainIndicatorLegendLayer } from '../../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import {
   createAxisLabelsFrame,
   formatLastPriceCountdown,
@@ -261,6 +260,7 @@ export class ChartRenderer {
       interaction.tooltipAnchorPlacement,
       this.deps.drawings$.peek(),
       this.deps.selectedDrawingIds$.peek(),
+      this.deps.getLegendConfiguration(),
       // getOverlay 会新建数组，按图元引用比较才能同时捕获移动和避免空数组误失效。
       ...(this.deps.getOverlay?.() ?? []),
       this.deps.getSelectionMarquee?.(),
@@ -404,19 +404,6 @@ export class ChartRenderer {
     }
     {
       this.scene.addLayer(createExtremaMarkersLayer())
-    }
-    {
-      this.scene.addLayer(
-        createMainIndicatorLegendLayer(
-          {
-            yPaddingPx: opt.yPaddingPx,
-            onContext: this.deps.onLegendContext,
-            getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
-            getLegendOptions: () => this.deps.getOption().legend,
-          },
-          this.deps.getPluginHost,
-        ),
-      )
     }
     {
       const yAxisOpts = {
@@ -814,7 +801,7 @@ export class ChartRenderer {
 
   clearAllCanvases(): void {
     this.crosshairOverlay.clear()
-    this.deps.onClearLegendRows?.()
+    this.deps.clearLegendFrame()
     this.paintedMainVersion = null
     this.paintedOverlayVersion = null
     this.paintedDrawingVersion = null
@@ -929,6 +916,7 @@ export class ChartRenderer {
 
     // 本帧所有 pane 的绘制输入；全部 pane 构建完成后再一次性交给 Scene。
     const framePanes: Array<FramePaint & { paneId: string }> = []
+    const legendContexts: RenderContext[] = []
     const sceneRenderer = this.deps.getSceneRenderer()
 
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
@@ -1068,7 +1056,6 @@ export class ChartRenderer {
       // 构造本 pane 的 RenderContext，供所有 layer 读取
       const opt = this.deps.getOption()
       const context: RenderContext = {
-        publishLegendRows: this.deps.onLegendRows,
         countdown: countdown ?? undefined,
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
@@ -1175,6 +1162,7 @@ export class ChartRenderer {
       })
 
       this.paneCtxMap.set(pane.id, context)
+      legendContexts.push(context)
       this.currentPaneId = pane.id
 
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
@@ -1214,6 +1202,7 @@ export class ChartRenderer {
     // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()
 
+    this.deps.projectLegendFrame(legendContexts)
     return { axisLabelsFrame, sharedXAxisRanges }
   }
 

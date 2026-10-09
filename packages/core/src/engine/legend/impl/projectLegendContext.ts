@@ -8,8 +8,8 @@ import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
+  type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
-import { resolveLegendValueIndex } from '@/engine/renderers/legend/impl/resolveLegendValueIndex.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '@/foundation/types/chartView.js'
@@ -21,32 +21,26 @@ import type {
   LegendTemplateContext,
   LegendTimeshareRow,
 } from '../types.js'
+import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
 
 /** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
-export interface BuildLegendTemplateContextInput {
+export interface ProjectLegendContextInput {
   context: RenderContext
   host: PluginHost | null
   yPaddingPx: number
-  /** 由视图状态投影的可见主图指标；null 表示兼容独立图例实例。 */
+  /** 由视图状态投影的可见主图指标；null 表示不过滤。 */
   visibleIndicatorIds?: ReadonlySet<string> | null
 }
 
 /** 成交量按中文 “万/亿” 缩写，保留两位小数。 */
-export function formatVolumeShort(v: number): string {
+export function formatLegendQuantity(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
   return v.toFixed(2)
 }
 
-/** 成交额按中文 “万/亿” 缩写，保留两位小数。 */
-export function formatAmountShort(v: number): string {
-  if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
-  if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
-  return v.toFixed(2)
-}
-
-export function buildLegendTemplateContext(
-  input: BuildLegendTemplateContextInput,
+export function projectLegendContext(
+  input: ProjectLegendContextInput,
 ): LegendTemplateContext | null {
   const { context, host, yPaddingPx, visibleIndicatorIds } = input
   const klineData = context.data as KLineData[]
@@ -97,9 +91,9 @@ export function buildLegendTemplateContext(
         changeAmount,
         changePercent,
         volume,
-        volumeText: volume === null ? null : `${formatVolumeShort(volume)}手`,
+        volumeText: volume === null ? null : `${formatLegendQuantity(volume)}手`,
         amount,
-        amountText: amount === null ? null : formatAmountShort(amount),
+        amountText: amount === null ? null : formatLegendQuantity(amount),
         changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
       }
     }
@@ -114,7 +108,7 @@ export function buildLegendTemplateContext(
       currentBar = {
         ...k,
         volume: typeof k.volume === 'number' ? k.volume : null,
-        volumeText: typeof k.volume === 'number' ? formatVolumeShort(k.volume) : null,
+        volumeText: typeof k.volume === 'number' ? formatLegendQuantity(k.volume) : null,
         color: isUp ? colors.candleUpBody : colors.candleDownBody,
       }
     }
@@ -132,6 +126,7 @@ export function buildLegendTemplateContext(
   const comparisons = collectComparisonRows(context, klineData, targetIndex, colors)
 
   return {
+    rows: [],
     period: context.period,
     index: targetIndex,
     hasCrosshair,
@@ -159,40 +154,65 @@ function collectIndicatorRows(
   colors: ReturnType<typeof resolveThemeColors>,
   visibleIndicatorIds: ReadonlySet<string> | null | undefined,
 ): LegendIndicatorRow[] {
-  if (!host || !stateReader || typeof host.getService !== 'function') return []
+  if (!host || !stateReader) return []
   const catalog = host.getService<IndicatorInstanceCatalog>(INDICATOR_INSTANCE_CATALOG_SERVICE)
   if (!catalog) return []
 
   const rows: LegendIndicatorRow[] = []
   for (const instance of catalog.listMainInstances()) {
     if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
-    const meta = getRegisteredIndicatorDefinition(instance.definitionId)
-    if (!meta) continue
-    const loading = availability?.isLoading(instance.instanceId) === true
-    // 加载中的实例即使暂无标题投影也要占位，否则加载圈无处可挂。
-    const titleInfo: TitleInfo | null = meta.getTitleInfo
+    const row = projectIndicator(
+      instance,
+      stateReader,
+      availability,
+      klineData,
+      targetIndex,
+      colors,
+    )
+    if (row) rows.push(row)
+  }
+  return rows
+}
+
+/** 主副图指标从同一实例目录及帧读取器生成标题；加载时保留占位。 */
+export function projectIndicator(
+  instance: IndicatorInstanceDescriptor,
+  stateReader: RenderContext['indicatorStateReader'],
+  availability: RenderContext['indicatorAvailability'],
+  data: KLineData[],
+  index: number,
+  colors: ReturnType<typeof resolveThemeColors>,
+): LegendIndicatorRow | null {
+  const meta = getRegisteredIndicatorDefinition(instance.definitionId)
+  if (!meta) return null
+  const loading = availability?.isLoading(instance.instanceId) === true
+  const params: Record<string, number | boolean | string> = {}
+  for (const [key, value] of Object.entries(instance.params)) {
+    if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string')
+      params[key] = value
+  }
+  const titleInfo: TitleInfo | null =
+    meta.getTitleInfo && stateReader
       ? meta.getTitleInfo(
-          klineData,
-          targetIndex,
-          instance.params as Record<string, number | boolean | string>,
+          data,
+          index,
+          params,
           stateReader,
           instance.instanceId,
           instance.paneId,
           colors,
         )
       : null
-    if (!titleInfo && !loading) continue
-    rows.push({
-      instanceId: instance.instanceId,
-      definitionId: instance.definitionId,
-      hidden: instance.hidden,
-      loading,
-      name: titleInfo?.name ?? meta.displayName,
-      params: titleInfo?.params,
-      values: titleInfo?.values,
-    })
+  if (!titleInfo && !loading && instance.paneId === 'main') return null
+  return {
+    instanceId: instance.instanceId,
+    definitionId: instance.definitionId,
+    hidden: instance.hidden,
+    loading,
+    name: titleInfo?.name ?? meta.displayName,
+    params: titleInfo?.params,
+    values: titleInfo?.values,
   }
-  return rows
 }
 
 /** 比较图例使用折线投影的自身起点，以时间戳读取主图当前位置的真实价格。 */
@@ -216,22 +236,26 @@ function collectComparisonRows(
     const data = comparisonData?.get(identity)
     const series = projection?.series.find((item) => item.identity === identity)
     const cmpItem = data?.find((item) => item.timestamp === targetBar?.timestamp)
+    const price =
+      cmpItem && Number.isFinite(cmpItem.close) && cmpItem.close > 0 ? cmpItem.close : null
     const percent =
-      series && cmpItem && Number.isFinite(cmpItem.close) && cmpItem.close > 0
-        ? ((cmpItem.close - series.baselineClose) / series.baselineClose) * 100
-        : 0
+      series && price !== null && Number.isFinite(series.baselineClose) && series.baselineClose > 0
+        ? ((price - series.baselineClose) / series.baselineClose) * 100
+        : null
     const color = comparisonColors?.get(identity) ?? colors.palette.i2
     rows.push({
       identity,
       hidden: context.comparisonHidden?.get(identity) === true,
       symbol: spec.symbol,
+      price,
+      bar: cmpItem ?? null,
       ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
       percent,
       color,
       percentColor:
-        percent > 0
+        percent !== null && percent > 0
           ? colors.candleUpBody
-          : percent < 0
+          : percent !== null && percent < 0
             ? colors.candleDownBody
             : colors.text.primary,
     })

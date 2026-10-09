@@ -214,10 +214,8 @@ describe('chartModel', () => {
       { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
       { name: 'ma', layerId: 'plugin:ma' },
       { name: 'boll', layerId: 'plugin:boll' },
-      { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },
       { name: 'rsi_sub_RSI', layerId: 'plugin:rsi_sub_RSI' },
       { name: 'rsiScale_sub_RSI', layerId: 'plugin:rsiScale_sub_RSI' },
-      { name: 'paneTitle_sub_RSI', layerId: 'plugin:paneTitle_sub_RSI' },
     ])
 
     kernel.actions.setDataView('timeshare')

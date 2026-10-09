@@ -96,10 +96,10 @@ import {
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { LegendManager } from '../../legend/impl/LegendManager.js'
 import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
-import type { LegendTemplateContext } from '../../renderers/Indicator/mainIndicatorLegend/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
@@ -213,9 +213,8 @@ export class Chart {
   /** activeRenderers 到 Scene 可见性的唯一投影。 */
   private disposeActiveRendererProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
-  /** 主图图例模板上下文（每帧由 mainIndicatorLegend 发布） */
-  private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
-    createSignal<LegendTemplateContext | null>(null)
+  /** 图例领域操作与展示投影的唯一入口。 */
+  readonly legend: LegendManager
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
   private readonly legendDom: import('../../renderers/legend/types.js').LegendDomRenderer
 
@@ -257,6 +256,7 @@ export class Chart {
     this.legendDom = createLegendDomRenderer(
       dom.canvasLayer,
       () => this.dataManager.symbols.peek().length > 0,
+      (id, action) => this.legend.execute(id, action),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
@@ -477,14 +477,24 @@ export class Chart {
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
       getSelectionMarquee: () => this.drawingSession?.getSelectionMarquee() ?? null,
-      onLegendContext: (ctx) => {
-        this._legendTemplateContext.set(ctx)
-      },
-      onLegendRows: (paneId, rows) => {
+      projectLegendFrame: (contexts) => {
+        this.legend.projectFrame(contexts)
         const paneOrder = this.kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)
-        this.legendDom.update(paneId, rows, paneOrder)
+        const rows = this.legend.rows.peek()
+        for (const paneId of paneOrder)
+          this.legendDom.update(
+            paneId,
+            paneId === MAIN_PANE_ID && this.getOption().legend?.visible === false
+              ? []
+              : rows.filter((row) => row.paneId === paneId),
+            paneOrder,
+          )
       },
-      onClearLegendRows: () => this.legendDom.clear(),
+      getLegendConfiguration: () => this.legend.configuration.peek(),
+      clearLegendFrame: () => {
+        this.legend.clearFrame()
+        this.legendDom.clear()
+      },
       commitRightAxisWidthMeasurement: (extrema) => {
         this.commitRightAxisWidthMeasurement(extrema)
       },
@@ -564,6 +574,18 @@ export class Chart {
     this.indicators = new ChartIndicatorFacade({
       manager: this.indicatorManager,
     })
+    this.legend = new LegendManager({
+      host: this.pluginHost,
+      indicators: this.indicators,
+      panes: this.panes,
+      comparisons: this.comparisonCommands,
+      getComparisonHidden: (identity) =>
+        this.dataManager.getComparisonHidden().get(identity) === true,
+      setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
+      getOptions: () => this.getOption(),
+      getVisibleIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
+      requestRender: () => this.scheduleDraw(),
+    })
 
     // 异步计算结果就绪后串联 Alert 管线
     this.indicatorManager.setOnResultsApplied(() => {
@@ -618,7 +640,7 @@ export class Chart {
     this.renderer.clearCachedFrame()
     this.renderer.clearAllCanvases()
     // #legend 插槽消费独立的 Vue DOM 上下文，不随 canvas 清屏；切换时必须同步清除旧图例。
-    this._legendTemplateContext.set(null)
+    this.legend.clearFrame()
     this.legendDom.clear()
 
     if (isTimeShareDataView(nextDataView)) {
@@ -1278,6 +1300,7 @@ export class Chart {
     this.disposeTradeDemand = null
     this.indicatorManager.destroy()
     this.renderer.destroy()
+    this.legend.dispose()
     this.legendDom.dispose()
     this.viewportScrollBridge.dispose()
     this.dataManager.destroy()
@@ -1434,11 +1457,6 @@ export class Chart {
   /** 清除区间选择。 */
   clearRangeSelection(): void {
     this.kernel.interaction.actions.clearRangeSelection()
-  }
-
-  /** 主图左上角图例模板上下文（null 表示无数据） */
-  get legendTemplateContext(): ReadonlySignal<LegendTemplateContext | null> {
-    return this._legendTemplateContext
   }
 
   // ---------- Data ----------

@@ -39,8 +39,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   getRendererName?: IndicatorRendererNameResolver
   /** 覆盖默认的副图坐标轴 plugin 命名规则。 */
   getScaleRendererName?: IndicatorAuxiliaryRendererNameResolver
-  /** 覆盖默认的副图标题 plugin 命名规则。 */
-  getPaneTitleRendererName?: IndicatorAuxiliaryRendererNameResolver
   visibleState?: IndicatorMetadata['visibleState']
   runtime?: IndicatorRuntimeDescriptor<T>
   presentation?: IndicatorPresentationDescriptor
@@ -113,8 +111,6 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
             value.scaleRendererFactory || config.scaleRendererFactory || config.scale
               ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
               : null)
-        const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
-          config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
 
         // runtime.configKey 默认等于 name
         const runtime = config.runtime && {
@@ -126,7 +122,6 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
           ...config,
           getRendererName,
           getScaleRendererName,
-          getPaneTitleRendererName,
           runtime,
           rendererFactory,
           scaleRendererFactory: value.scaleRendererFactory ?? config.scaleRendererFactory,
@@ -174,20 +169,18 @@ export function registerIndicatorDefinition(definitionClass: IndicatorDefinition
   for (const alias of aliases) indexAlias(alias, normalizedName)
 }
 
-/** 按目录里的唯一命名规则解析数据、坐标轴或标题 Layer ID；未声明的身份直接报错。 */
+/** 按目录里的唯一命名规则解析数据或坐标轴 Layer ID。 */
 export function resolveIndicatorLayerId(
   definitionId: string,
   paneId: string,
-  part: 'renderer' | 'scale' | 'title' = 'renderer',
+  part: 'renderer' | 'scale' = 'renderer',
 ): string {
   const definition = getRegisteredIndicatorDefinition(definitionId)
   const options = { paneId, indicatorId: definitionId }
   const name =
     part === 'renderer'
       ? definition?.getRendererName(options)
-      : part === 'scale'
-        ? definition?.getScaleRendererName(options)
-        : definition?.getPaneTitleRendererName(options)
+      : definition?.getScaleRendererName(options)
   if (!name)
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,

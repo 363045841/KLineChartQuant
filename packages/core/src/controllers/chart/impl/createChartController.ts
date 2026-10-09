@@ -287,7 +287,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     interactionState,
     selectedRange: chart.selectedRange,
     rangeSelection: chart.rangeSelection,
-    legendTemplateContext: chart.legendTemplateContext,
+    legend: chart.legend,
     comparisonColors: chart.comparisonColors,
     comparisonLoading: chart.comparisonLoading,
     comparisonSpecs: chart.comparisonSpecs,

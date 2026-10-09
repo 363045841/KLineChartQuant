@@ -8,34 +8,29 @@ import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
 import settings from '@iconify-icons/tabler/settings'
 import x from '@iconify-icons/tabler/x'
+import {
+  LEGEND_UI_EVENT,
+  type LegendAction,
+  type LegendRow,
+  type LegendUiRequest,
+} from '@/engine/legend/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { FONT_FAMILY } from '@/foundation/tokens/fonts.js'
-import {
-  LEGEND_ACTION_EVENT,
-  type LegendAction,
-  type LegendDomRenderer,
-  type LegendRow,
-} from '../types.js'
+import type { LegendDomRenderer } from '../types.js'
 
 /** 隐藏/显示按钮的图标反映当前状态：显示状态用睁眼图标，隐藏状态用划线图标。 */
 const VISIBILITY_ICONS = { visible: eye, hidden: eyeOff } as const
-const ACTIONS: ReadonlyArray<{ action: LegendAction; label: string; icon: typeof arrowUp }> = [
-  { action: 'move-up', label: '上移指标', icon: arrowUp },
-  { action: 'move-down', label: '下移指标', icon: arrowDown },
-  { action: 'replace', label: '更换指标', icon: refresh },
-  { action: 'toggle-visibility', label: '显示指标', icon: eye },
-  { action: 'settings', label: '指标设置', icon: settings },
-  { action: 'close', label: '关闭指标', icon: x },
-]
-/** 比较行只提供可见性和删除操作，沿用指标悬浮框的样式。 */
-const COMPARISON_ACTIONS: typeof ACTIONS = [
-  { action: 'toggle-visibility', label: '隐藏比较品种', icon: eye },
-  { action: 'close', label: '删除比较品种', icon: x },
-]
-const COMPARISON_FRAME_WIDTH_PX = 60
+const ACTION_ICONS: Record<LegendAction, typeof arrowUp> = {
+  'move-up': arrowUp,
+  'move-down': arrowDown,
+  replace: refresh,
+  'toggle-visibility': eye,
+  settings,
+  close: x,
+}
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
-/** 六个操作按钮所需的 frame 右侧扩展宽度。 */
-const FRAME_EXTRA_WIDTH_PX = 156
+const ACTION_BUTTON_STEP_PX = 24
+const ACTION_FRAME_PADDING_PX = 12
 /** 收起按钮图标：展开态用收起图标，收起态用展开图标。 */
 const COLLAPSE_ICONS = { expanded: chevronUp, collapsed: chevronDown } as const
 /** 收起按钮与最后一行图例之间的间距。 */
@@ -49,6 +44,7 @@ interface MountedRow {
   spans: HTMLSpanElement[]
   nodes: Text[]
   buttons: HTMLButtonElement[]
+  actionFrame?: HTMLDivElement
   /** 隐藏/显示按钮及其图标，随行状态切换。 */
   visibilityButton?: HTMLButtonElement
   visibilityIcon?: SVGSVGElement
@@ -63,18 +59,17 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-row { position:absolute; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:18px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
-    .klc-legend-row[data-indicator], .klc-legend-row[data-comparison] { pointer-events:auto; }
+    .klc-legend-row[data-actions] { pointer-events:auto; }
     .klc-legend-text { display:flex; align-items:center; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
     .klc-legend-row[data-hidden] .klc-legend-text { filter:grayscale(1); opacity:.55; }
     .klc-legend-frame { position:absolute; left:-5px; top:50%; transform:translateY(-50%);
-      width:calc(100% + ${FRAME_EXTRA_WIDTH_PX}px); height:28px; box-sizing:border-box;
+      height:28px; box-sizing:border-box;
       display:none; align-items:center; justify-content:flex-end; padding:2px 3px;
       border:1px solid var(--klc-color-ui-border); border-radius:4px;
       background:var(--klc-color-ui-surface); z-index:-1; pointer-events:auto; }
     .klc-legend-actions { display:flex; align-items:center; gap:2px; }
-    .klc-legend-row[data-indicator]:hover, .klc-legend-row[data-indicator]:focus-within,
-    .klc-legend-row[data-comparison]:hover, .klc-legend-row[data-comparison]:focus-within { z-index:1; }
+    .klc-legend-row[data-actions]:hover, .klc-legend-row[data-actions]:focus-within { z-index:1; }
     .klc-legend-row:hover > .klc-legend-frame, .klc-legend-row:focus-within > .klc-legend-frame { display:flex; }
     .klc-legend-button { display:grid; place-items:center; flex:0 0 22px;
       width:22px; height:22px; padding:0; border:0; border-radius:3px;
@@ -103,43 +98,40 @@ function createStyles(document: Document): HTMLStyleElement {
   return style
 }
 
-/** 创建每个指标独立的操作按钮，事件只携带低频操作身份。 */
-function addActions(document: Document, row: MountedRow): void {
+/** 按 Core 发布的按钮集合创建 DOM，点击统一调用图例操作入口。 */
+function addActions(
+  document: Document,
+  row: MountedRow,
+  execute: (id: string, action: LegendAction) => LegendUiRequest | null,
+): void {
   // frame 是独立于文本流的包裹层，依据同一文本 DOM 的尺寸定位，不改变文字坐标。
   const frame = document.createElement('div')
   frame.className = 'klc-legend-frame'
-  if (row.data.comparison) frame.style.width = `calc(100% + ${COMPARISON_FRAME_WIDTH_PX}px)`
+  frame.style.width = `calc(100% + ${row.data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX}px)`
   const actions = document.createElement('div')
   actions.className = 'klc-legend-actions'
-  for (const item of row.data.comparison ? COMPARISON_ACTIONS : ACTIONS) {
+  for (const item of row.data.actions) {
     const button = document.createElement('button')
     button.type = 'button'
     button.className = 'klc-legend-button'
     button.title = item.label
+    button.disabled = !item.enabled
     button.setAttribute('aria-label', item.label)
     const icon = document.createElementNS(SVG_NAMESPACE, 'svg')
-    icon.setAttribute('viewBox', `0 0 ${item.icon.width ?? 24} ${item.icon.height ?? 24}`)
+    const image =
+      item.action === 'toggle-visibility' && row.data.hidden ? eyeOff : ACTION_ICONS[item.action]
+    icon.setAttribute('viewBox', `0 0 ${image.width ?? 24} ${image.height ?? 24}`)
     icon.setAttribute('aria-hidden', 'true')
     // 仅使用本地已安装图标包的完整 SVG 内容，不手工拆解或重绘图标。
-    icon.innerHTML = item.icon.body
+    icon.innerHTML = image.body
     button.append(icon)
     button.addEventListener('click', (event) => {
       event.stopPropagation()
-      const indicator = row.data.indicator
-      const comparison = row.data.comparison
-      if (!indicator && !comparison) return
-      row.element.dispatchEvent(
-        new CustomEvent(LEGEND_ACTION_EVENT, {
-          bubbles: true,
-          detail: {
-            action: item.action,
-            paneId: row.data.paneId,
-            definitionId: indicator?.definitionId ?? '',
-            ...(comparison ? { comparisonIdentity: comparison.identity } : {}),
-            ...(item.action === 'toggle-visibility' ? { hidden: !row.data.hidden } : {}),
-          },
-        }),
-      )
+      const request = execute(row.data.key, item.action)
+      if (request)
+        row.element.dispatchEvent(
+          new CustomEvent(LEGEND_UI_EVENT, { bubbles: true, detail: request }),
+        )
     })
     row.buttons.push(button)
     actions.append(button)
@@ -150,12 +142,14 @@ function addActions(document: Document, row: MountedRow): void {
   }
   frame.append(actions)
   row.element.append(frame)
+  row.actionFrame = frame
 }
 
 /** 创建 DOM renderer，通过 hasSelectedSymbol 读取当前品种选择状态。 */
 export function createLegendDomRenderer(
   host: HTMLElement,
   hasSelectedSymbol: () => boolean,
+  execute: (id: string, action: LegendAction) => LegendUiRequest | null,
 ): LegendDomRenderer {
   const document = host.ownerDocument
   const root = document.createElement('div')
@@ -265,14 +259,15 @@ export function createLegendDomRenderer(
           spinner.hidden = data.loading !== true
           element.append(text)
           row = { element, text, spinner, spans: [], nodes: [], buttons: [], data }
-          if (data.indicator || data.comparison) {
-            if (data.indicator) element.dataset.indicator = data.indicator.instanceId
-            if (data.comparison) element.dataset.comparison = data.comparison.identity
-            addActions(document, row)
-            // Legend 本身阻止画布拖拽，悬浮数值不触发 Vue 或画布指针流程。
-            for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
-              element.addEventListener(event, (event) => event.stopPropagation())
-            }
+          if (data.indicator) element.dataset.indicator = data.indicator.instanceId
+          if (data.comparison) element.dataset.comparison = data.comparison.identity
+          if (data.actions.length) {
+            element.toggleAttribute('data-actions', true)
+            addActions(document, row, execute)
+          }
+          // 能力集合后续可变化，行节点始终隔离画布指针流程。
+          for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
+            element.addEventListener(event, (event) => event.stopPropagation())
           }
           // 收起期间新建的行同样保持隐藏，避免展开前闪出。
           if (data.paneId === MAIN_PANE_ID && mainCollapsed) element.style.display = 'none'
@@ -280,10 +275,26 @@ export function createLegendDomRenderer(
           entries.set(data.key, row)
         }
         const previous = row.data
+        if (
+          previous.actions.length !== data.actions.length ||
+          previous.actions.some((action, index) => action.action !== data.actions[index]?.action)
+        ) {
+          row.actionFrame?.remove()
+          row.actionFrame = undefined
+          row.buttons = []
+          row.visibilityButton = undefined
+          row.visibilityIcon = undefined
+          row.data = data
+          row.element.toggleAttribute('data-actions', data.actions.length > 0)
+          if (data.actions.length) addActions(document, row, execute)
+        }
         const style = row.element.style
         const left = `${data.x}px`
         const top = `${data.y}px`
-        const maxWidth = `${Math.max(0, data.maxWidth - (data.comparison ? COMPARISON_FRAME_WIDTH_PX : data.indicator ? FRAME_EXTRA_WIDTH_PX : 0))}px`
+        const actionWidth = data.actions.length
+          ? data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX
+          : 0
+        const maxWidth = `${Math.max(0, data.maxWidth - actionWidth)}px`
         const minHeight = `${data.height}px`
         const gap = `${data.gap}px`
         if (style.left !== left) style.left = left
@@ -319,35 +330,21 @@ export function createLegendDomRenderer(
         }
         // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
         if (row.text.lastElementChild !== row.spinner) row.text.append(row.spinner)
-        if (data.indicator || data.comparison) {
-          const hidden = data.hidden === true
-          if (row.element.hasAttribute('data-hidden') !== hidden) {
-            row.element.toggleAttribute('data-hidden', hidden)
+        const hidden = data.hidden === true
+        if (row.element.hasAttribute('data-hidden') !== hidden)
+          row.element.toggleAttribute('data-hidden', hidden)
+        for (const [index, action] of data.actions.entries()) {
+          const button = row.buttons[index]!
+          if (button.title !== action.label) {
+            button.title = action.label
+            button.setAttribute('aria-label', action.label)
           }
-          const label = data.comparison
-            ? hidden
-              ? '显示比较品种'
-              : '隐藏比较品种'
-            : hidden
-              ? '隐藏指标'
-              : '显示指标'
-          const icon = hidden ? VISIBILITY_ICONS.hidden : VISIBILITY_ICONS.visible
-          if (row.visibilityButton && row.visibilityIcon && row.visibilityButton.title !== label) {
-            row.visibilityButton.title = label
-            row.visibilityButton.setAttribute('aria-label', label)
-            row.visibilityIcon.innerHTML = icon.body
-          }
+          if (button.disabled === action.enabled) button.disabled = !action.enabled
         }
-        if (row.buttons.length && data.indicator) {
-          const order =
-            paneId === MAIN_PANE_ID
-              ? indicatorRows.map((row) => row.key)
-              : paneOrder.filter((id) => id !== MAIN_PANE_ID)
-          const index = order.indexOf(paneId === MAIN_PANE_ID ? data.key : paneId)
-          const upDisabled = index <= 0
-          const downDisabled = index < 0 || index >= order.length - 1
-          if (row.buttons[0]!.disabled !== upDisabled) row.buttons[0]!.disabled = upDisabled
-          if (row.buttons[1]!.disabled !== downDisabled) row.buttons[1]!.disabled = downDisabled
+        if (row.visibilityIcon && previous.hidden !== data.hidden) {
+          row.visibilityIcon.innerHTML = (
+            hidden ? VISIBILITY_ICONS.hidden : VISIBILITY_ICONS.visible
+          ).body
         }
         row.data = data
       }

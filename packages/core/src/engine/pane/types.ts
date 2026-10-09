@@ -81,20 +81,16 @@ export interface SubPaneResources {
   readonly indicatorId: string
   readonly rendererName: string
   readonly scaleRendererName: string
-  readonly paneTitleRendererName: string
   readonly layerId: string
   readonly scaleLayerId: string
-  readonly paneTitleLayerId: string
 }
 
 /** 已解析副图 renderer 元数据的副图条目。 */
 export interface SubPaneEntry extends SubPaneSpec {
   readonly rendererName?: string
   readonly scaleRendererName?: string
-  readonly paneTitleRendererName?: string
   readonly layerId?: string
   readonly scaleLayerId?: string
-  readonly paneTitleLayerId?: string
 }
 
 /** 副图 renderer/layer 的运行时投影依赖。 */

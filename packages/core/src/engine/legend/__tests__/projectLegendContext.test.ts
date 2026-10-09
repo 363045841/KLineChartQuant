@@ -11,7 +11,7 @@ import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorD
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
-import { buildLegendTemplateContext } from '../impl/buildLegendTemplateContext'
+import { projectLegendContext } from '../impl/projectLegendContext'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -25,7 +25,7 @@ function point(timestamp: number, price: number): TimeShareData {
   return { timestamp, price, average: price, volume: 100, amount: price * 100 }
 }
 
-describe('buildLegendTemplateContext timeshare baseline', () => {
+describe('projectLegendContext timeshare baseline', () => {
   it('formats timeshare volume as hands', () => {
     const context = createMockRenderContext({
       data: [{ ...point(1, 10), volume: 12_345 }],
@@ -38,7 +38,7 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
       settings: { preClose: 9 },
     })
 
-    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
 
     expect(result?.timeshare?.volumeText).toBe('1.23万手')
   })
@@ -56,7 +56,7 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
       settings: { preClose: 3828.47 },
     })
 
-    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
 
     expect(result?.timeshare?.volume).toBeNull()
     expect(result?.timeshare?.volumeText).toBeNull()
@@ -78,14 +78,14 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
         settings: { preClose },
       })
 
-      const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+      const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
 
       expect(result?.timeshare).toBeNull()
     },
   )
 })
 
-describe('buildLegendTemplateContext indicator rows', () => {
+describe('projectLegendContext indicator rows', () => {
   it('uses the view-projected indicator IDs instead of evaluating view support while drawing', () => {
     // 图例通过实例清单服务枚举主图实例，metadata 从静态定义注册表获取
     vi.spyOn(getRegisteredIndicatorDefinition('ma')!, 'getTitleInfo').mockReturnValue({
@@ -102,7 +102,7 @@ describe('buildLegendTemplateContext indicator rows', () => {
       indicatorStateReader: createMockStateReader('indicator:unused'),
     })
 
-    const result = buildLegendTemplateContext({
+    const result = projectLegendContext({
       context,
       host: createMockIndicatorInstanceHost([
         { instanceId: 'main:MA', definitionId: 'MA', paneId: 'main', hidden: false, params: {} },
@@ -132,7 +132,7 @@ describe('buildLegendTemplateContext indicator rows', () => {
   })
 })
 
-describe('buildLegendTemplateContext comparison rows', () => {
+describe('projectLegendContext comparison rows', () => {
   const mainData: KLineData[] = [
     { timestamp: 1000, date: '2025-01-01', open: 10, high: 11, low: 9, close: 10 },
     { timestamp: 2000, date: '2025-01-02', open: 10, high: 12, low: 10, close: 11 },
@@ -196,7 +196,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
       comparisonColors: new Map([[identity, '#123456']]),
     })
 
-    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
 
     expect(result?.currentBar?.close).toBe(mainData[1]!.close)
     expect(result?.comparisons).toEqual([
@@ -204,6 +204,8 @@ describe('buildLegendTemplateContext comparison rows', () => {
         symbol: spec.symbol,
         identity,
         hidden: false,
+        price: comparisonDataFor(spec)[1]!.close,
+        bar: comparisonDataFor(spec)[1],
         ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
         percent: expectedPercent,
         color: '#123456',
@@ -225,7 +227,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
       comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
     })
 
-    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
 
     expect(result?.comparisons).toEqual([
       expect.objectContaining({ symbol: spec.symbol, identity: symbolSpecIdentityKey(spec) }),

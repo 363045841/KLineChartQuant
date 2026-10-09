@@ -212,7 +212,7 @@ describe('ChartIndicatorManager', () => {
       expect(manager.enableMainIndicator('MA')).toBe(true)
       expect(manager.enableMainIndicator('MA')).toBe(true)
 
-      expect(harness.useRenderer).toHaveBeenCalledTimes(2)
+      expect(harness.useRenderer).toHaveBeenCalledTimes(1)
       expect(manager.isMainIndicatorActive('MA')).toBe(true)
       expect(manager.getActiveMainIndicators()).toEqual(['MA'])
     })

@@ -1406,9 +1406,6 @@ export class ChartDataManager {
   ): ComparisonProjection | null {
     if (this.getComparisonSpecs().length === 0) return null
     const data = this._comparisonManager.data
-    for (const [identity, hidden] of this.deps.comparison.readonly.hidden.peek()) {
-      if (hidden) data.delete(identity)
-    }
     return projectComparison(
       this.getInternalData(),
       data,
@@ -1416,6 +1413,7 @@ export class ChartDataManager {
       kLineCenters,
       scrollLeft,
       paneWidth,
+      this.deps.comparison.readonly.hidden.peek(),
     )
   }
 

@@ -483,10 +483,7 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
    * 主图左上角图例模板上下文。
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
    */
-  readonly legendTemplateContext: ReadonlySignal<
-    | import('../engine/renderers/Indicator/mainIndicatorLegend/types.js').LegendTemplateContext
-    | null
-  >
+  readonly legend: import('../engine/legend/types.js').LegendApi
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
   /** 当前对比品种集合（唯一业务状态）。 */

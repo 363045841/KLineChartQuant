@@ -32,7 +32,6 @@ import { SubPaneManager, UpdateLevel } from '../pane/index.js'
 import type { PaneSpec, SubPaneContext, SubPaneEntry } from '../pane/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
-import { createMainIndicatorLegendLayer } from '../renderers/Indicator/mainIndicatorLegend/impl/createMainIndicatorLegendLayer.js'
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,
@@ -985,7 +984,7 @@ export class ChartIndicatorManager {
       if (this.appliedMainIndicators.get(id) === projectionKey) continue
       try {
         if (!hasApplied) {
-          this.enableMainIndicatorRenderer(id, entry.source === 'mode')
+          this.enableMainIndicatorRenderer(id)
         } else {
           // 参数变化：原子重建该主图指标 Layer（渲染器不持有 config）
           this.replaceMainIndicatorLayer(id)
@@ -999,7 +998,7 @@ export class ChartIndicatorManager {
     return changed
   }
 
-  private enableMainIndicatorRenderer(indicatorId: string, isMode = false): void {
+  private enableMainIndicatorRenderer(indicatorId: string): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     const mainPane = definition?.mainPane
     if (!definition || !mainPane) return
@@ -1009,20 +1008,6 @@ export class ChartIndicatorManager {
 
     if (!existingLayer) {
       this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
-    }
-
-    // core 可能已挂 legend Layer；存在则不重复注册
-    if (!isMode && !this.deps.getLayer(makePluginLayerId('mainIndicatorLegend'))) {
-      this.deps.useRenderer(
-        createMainIndicatorLegendLayer(
-          {
-            yPaddingPx: this.deps.getOption().yPaddingPx,
-            getVisibleIndicatorIds: () => this.deps.getVisibleMainIndicatorIds(),
-            getLegendOptions: () => this.deps.getOption().legend,
-          },
-          this.deps.getPluginHost,
-        ),
-      )
     }
   }
 
@@ -1035,7 +1020,7 @@ export class ChartIndicatorManager {
     this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
   }
 
-  /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。Legend 层与实例状态不动。 */
+  /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。 */
   private removeMainIndicatorRenderer(indicatorId: string): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })

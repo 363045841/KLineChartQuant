@@ -1406,14 +1406,14 @@ describe('Chart pane layout regressions', () => {
     const renderer = chart['renderer']
     const clearCanvases = vi.spyOn(renderer, 'clearAllCanvases')
     const clearCachedFrame = vi.spyOn(renderer, 'clearCachedFrame')
-    const setLegendContext = vi.spyOn(chart['_legendTemplateContext'], 'set')
+    const clearLegendFrame = vi.spyOn(chart.legend, 'clearFrame')
 
     chart.setActiveMode(getModeHandlers(chart).timeShare)
 
     expect(clearCanvases).toHaveBeenCalledOnce()
     expect(clearCachedFrame).toHaveBeenCalledOnce()
-    expect(setLegendContext).toHaveBeenCalledWith(null)
-    expect(chart.legendTemplateContext.peek()).toBeNull()
+    expect(clearLegendFrame).toHaveBeenCalled()
+    expect(chart.legend.context.peek()).toBeNull()
     await chart.destroy()
   })
 

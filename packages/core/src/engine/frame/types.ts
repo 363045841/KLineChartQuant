@@ -63,13 +63,10 @@ export interface RendererDependencies {
   getOverlay?: DrawingStoreDeps['getOverlay']
   /** 绘图交互会话中的临时框选，不进入持久化图元列表。 */
   getSelectionMarquee?: () => DrawingSelectionMarquee | null
-  /** 主图图例上下文发布（dom / external 均触发；draw 内回调） */
-  onLegendRows?: RenderContext['publishLegendRows']
-  /** 无可绘制数据或清空图表时同步释放 DOM 标题。 */
-  onClearLegendRows?: () => void
-  onLegendContext?: (
-    ctx: import('../renderers/Indicator/mainIndicatorLegend/types.js').LegendTemplateContext | null,
-  ) => void
+  /** 完整帧的所有 Pane 统一交给图例管理器投影。 */
+  projectLegendFrame: (contexts: ReadonlyArray<RenderContext>) => void
+  getLegendConfiguration: () => ReadonlyArray<import('../legend/types.js').LegendEntry>
+  clearLegendFrame: () => void
   /** 可视区极值跨数量级时才请求右轴实测与布局更新。 */
   commitRightAxisWidthMeasurement?: (extrema: VisiblePriceExtrema) => void
 }

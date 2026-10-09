@@ -55,7 +55,7 @@ describe('SubPaneManager runtime projection', () => {
     manager.reconcile(ctx, [rsi])
     manager.reconcile(ctx, [rsi])
 
-    expect(ctx.useRenderer).toHaveBeenCalledTimes(3)
+    expect(ctx.useRenderer).toHaveBeenCalledTimes(2)
     expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('rsi_RSI_0')
     expect(manager.getMountedResources('RSI_0')?.scaleRendererName).toBe('rsiScale_RSI_0')
   })
@@ -66,20 +66,20 @@ describe('SubPaneManager runtime projection', () => {
 
     manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])
 
-    // 参数变化：原子重建（unmount + mount renderer/scale/title）
+    // 参数变化：原子重建数据与坐标轴。
     expect(ctx.removeRenderer).toHaveBeenCalled()
     expect(ctx.useRenderer).toHaveBeenCalled()
     expect(manager.getMountedResources('RSI_0')).toBeDefined()
   })
 
-  it('mounts only the pane title while hidden and restores drawing when shown', () => {
+  it('mounts no drawing layers while hidden and restores drawing when shown', () => {
     manager.reconcile(ctx, [{ ...rsi, hidden: true }])
-    expect(ctx.useRenderer).toHaveBeenCalledTimes(1)
-    expect(ctx.layers.size).toBe(1)
+    expect(ctx.useRenderer).not.toHaveBeenCalled()
+    expect(ctx.layers.size).toBe(0)
 
     vi.clearAllMocks()
     manager.reconcile(ctx, [rsi])
-    expect(ctx.layers.size).toBe(3)
+    expect(ctx.layers.size).toBe(2)
     expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('rsi_RSI_0')
   })
 
@@ -89,8 +89,8 @@ describe('SubPaneManager runtime projection', () => {
 
     manager.reconcile(ctx, [{ ...rsi, hidden: true }])
 
-    expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
-    expect(ctx.layers.size).toBe(1)
+    expect(ctx.removeRenderer).toHaveBeenCalledTimes(2)
+    expect(ctx.layers.size).toBe(0)
   })
 
   it('unmounts resources absent from desired state', () => {
@@ -99,7 +99,7 @@ describe('SubPaneManager runtime projection', () => {
 
     manager.reconcile(ctx, [])
 
-    expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
+    expect(ctx.removeRenderer).toHaveBeenCalledTimes(2)
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
     expect(ctx.layers.size).toBe(0)
   })

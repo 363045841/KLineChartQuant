@@ -16,6 +16,7 @@ export function projectComparison(
   centers: ReadonlyArray<number>,
   scrollLeft: number,
   paneWidth: number,
+  hidden: ReadonlyMap<string, boolean> = new Map(),
 ): ComparisonProjection | null {
   const visible = findVisibleBarRange(range, centers, scrollLeft, paneWidth)
   const last = Math.min(visible.last, primary.length - 1)
@@ -66,7 +67,7 @@ export function projectComparison(
           : null
       const price = equivalent !== null && Number.isFinite(equivalent) ? equivalent : null
       points.push({ index, price })
-      if (price !== null) {
+      if (price !== null && hidden.get(identity) !== true) {
         min = Math.min(min, price)
         max = Math.max(max, price)
       }

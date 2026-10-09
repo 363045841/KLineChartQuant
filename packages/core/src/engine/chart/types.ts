@@ -28,7 +28,7 @@ export type ChartOptions = {
   zoomLevels?: number
   initialZoomLevel?: number
   /** 主图 DOM 图例配置，由 options 状态统一管理。 */
-  legend?: import('../renderers/Indicator/mainIndicatorLegend/types.js').LegendOptions
+  legend?: import('../legend/types.js').LegendOptions
 }
 
 export type KLinePositions = number[]

@@ -45,7 +45,6 @@ describe('Indicator definition registry', () => {
     expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', 'scale')).toBe(
       'plugin:customRsiScale_pane',
     )
-    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', 'title')).toBe('plugin:paneTitle_pane')
   })
 
   it('can assemble the same declaration after clearing the directory', () => {

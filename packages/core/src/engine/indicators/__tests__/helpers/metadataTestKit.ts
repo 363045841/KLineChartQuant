@@ -45,7 +45,6 @@ export function createTestIndicatorMetadata(
     rendererFactory: () => createTestRendererLayer(`${input.name}_renderer`),
     getRendererName: ({ paneId }) => `${input.name}_${paneId}`,
     getScaleRendererName: () => null,
-    getPaneTitleRendererName: () => null,
     ...overrides,
   }
 }

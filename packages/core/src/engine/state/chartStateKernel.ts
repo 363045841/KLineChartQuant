@@ -104,14 +104,13 @@ function resolveIndicatorRenderers(
   const mainRenderers: ActiveRendererDescriptor[] = []
   const subRenderers: ActiveRendererDescriptor[] = []
   const seen = new Set<string>()
-  let hasMainIndicatorRenderer = false
   const add = (target: ActiveRendererDescriptor[], name: string | null): void => {
     if (!name || seen.has(name)) return
     seen.add(name)
     target.push({ name, layerId: makePluginLayerId(name) })
   }
 
-  // 主图和副图指标均从统一实例集合读取；主图数据 Layer 共用一个 legend Layer。
+  // 主副图指标从统一实例集合读取，图例由帧投影统一管理。
   for (const instance of instances) {
     const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
     // mode 实例的业务 renderer 由 @Indicator.dataViews 声明可见性，且不参与用户指标图例。
@@ -150,15 +149,12 @@ function resolveIndicatorRenderers(
     if (instance.role === 'main') {
       const rendererName = resolvedDefinition.getRendererName(options)
       add(mainRenderers, rendererName)
-      hasMainIndicatorRenderer ||= Boolean(rendererName)
     } else {
-      // 副图由数据、坐标轴和标题三个独立 Layer 组成。
+      // 副图只挂载数据与坐标轴 Layer。
       add(subRenderers, resolvedDefinition.getRendererName(options))
       add(subRenderers, resolvedDefinition.getScaleRendererName(options))
-      add(subRenderers, resolvedDefinition.getPaneTitleRendererName(options))
     }
   }
-  if (hasMainIndicatorRenderer) add(mainRenderers, 'mainIndicatorLegend')
   return [...mainRenderers, ...subRenderers]
 }
 export interface ChartStateKernelDeps {

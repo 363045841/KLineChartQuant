@@ -9,11 +9,11 @@ import {
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
-import type { LegendRow } from '@/engine/renderers/legend/types'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import { createMainIndicatorLegendLayer } from '../impl/createMainIndicatorLegendLayer.js'
-import type { LegendOptions } from '../types.js'
+import { projectLegendContext } from '../impl/projectLegendContext.js'
+import { projectMainLegendRows } from '../impl/projectLegendRows.js'
+import type { LegendOptions, LegendRow, LegendTemplateContext } from '../types.js'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
@@ -49,12 +49,33 @@ function createLegendHost(
   )
 }
 
-/** 组装带固定宿主的图例 Layer；options 只声明差异项。 */
+/** 运行纯投影，捕获展示行与模板数据；options 只声明差异项。 */
 function createLegendLayer(
   host: PluginHost,
-  options: Parameters<typeof createMainIndicatorLegendLayer>[0] = { yPaddingPx: 20 },
+  options: {
+    yPaddingPx: number
+    getLegendOptions?: () => LegendOptions
+    getVisibleIndicatorIds?: () => ReadonlyArray<string>
+    onContext?: (context: LegendTemplateContext | null) => void
+  } = { yPaddingPx: 20 },
 ) {
-  return createMainIndicatorLegendLayer(options, () => host)
+  return {
+    paint(context: RenderContext) {
+      const config = options.getLegendOptions?.()
+      const viewIds = options.getVisibleIndicatorIds?.()
+      const visible =
+        config?.visibleIndicatorIds?.filter((id) => !viewIds || viewIds.includes(id)) ?? viewIds
+      const legend = projectLegendContext({
+        context,
+        host,
+        yPaddingPx: options.yPaddingPx,
+        visibleIndicatorIds: visible ? new Set(visible) : null,
+      })
+      options.onContext?.(legend)
+      rows =
+        config?.visible !== false && legend ? projectMainLegendRows(legend, context.pane.top) : []
+    },
+  }
 }
 
 /** 以固定主图实例构造图例宿主；definitionId 使用对外规范 ID（displayName）。 */
@@ -82,23 +103,9 @@ function createLegendContext(
 ): RenderContext {
   return createContextWithInstanceState(ctx, instanceId, state, {
     overlayCtx: ctx,
-    publishLegendRows: (_paneId, next) => {
-      rows = next
-    },
     ...overrides,
   })
 }
-
-describe('MainIndicatorLegend identity', () => {
-  it('exposes the legend layer identity', () => {
-    const layer = createLegendLayer(createLegendHost([]))
-
-    expect(layer.id).toBe('plugin:mainIndicatorLegend')
-    expect(layer.role).toBe('overlay')
-    expect(layer.pane).toBe('main')
-    expect(layer.visible).toBe(true)
-  })
-})
 
 describe('MainIndicatorLegend paint', () => {
   it('keeps the indicator hover identity and position stable when the crosshair enters or leaves', () => {

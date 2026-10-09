@@ -90,10 +90,6 @@
       "types": "./dist/engine/renderers/Indicator/indicatorCatalog.d.ts",
       "import": "./dist/engine/renderers/Indicator/indicatorCatalog.js"
     },
-    "./engine/renderers/paneTitle": {
-      "types": "./dist/engine/renderers/paneTitle.d.ts",
-      "import": "./dist/engine/renderers/paneTitle.js"
-    },
     "./engine/controller/interaction": {
       "types": "./dist/engine/controller/interaction.d.ts",
       "import": "./dist/engine/controller/interaction.js"

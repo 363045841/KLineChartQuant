@@ -74,7 +74,7 @@ export interface MockChartController extends ChartController {
   setThemeCalls: () => ReadonlyArray<'light' | 'dark'>
   /** spy: 主图图例写入 chart options 的补丁 */
   optionsFacadeCalls: () => ReadonlyArray<OptionsFacadePatch>
-  /** 当前 legendTemplateContext Signal 的订阅数量 */
+  /** 当前图例上下文 Signal 的订阅数量 */
   legendSubscriberCount: () => number
   /** interactionState Signal 的订阅数量 */
   interactionSubscriberCount: () => number
@@ -88,7 +88,7 @@ export interface MockChartController extends ChartController {
   /** test-only: emit a theme change as the controller would */
   _emitTheme: (next: 'light' | 'dark') => void
   /** test-only: 写入主图图例上下文 */
-  _setLegendTemplateContext: (next: LegendTemplateContext | null) => void
+  _setLegendContext: (next: LegendTemplateContext | null) => void
   /** test-only: 写入全部已确认图元 */
   _setDrawings: (drawings: ReadonlyArray<DrawingObject>) => void
   _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
@@ -136,7 +136,7 @@ export function createMockChartController(
   })
   // 与 Chart 初始值一致：右轴有效宽度由渲染帧测量后写入。
   const rightAxisEffectiveWidth = createSignal(0)
-  const legendTemplateContext = createSignal<LegendTemplateContext | null>(null)
+  const legendContext = createSignal<LegendTemplateContext | null>(null)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const globalDrawingLock = createSignal(false)
   const interactionState = createSignal(createIdleInteractionSnapshot())
@@ -201,7 +201,18 @@ export function createMockChartController(
     selectedRange: createSignal<{ from: number; to: number } | null>(null),
     rangeSelection,
     rightAxisEffectiveWidth,
-    legendTemplateContext,
+    legend: {
+      context: legendContext,
+      rows: createSignal<ReturnType<ChartController['legend']['rows']['peek']>>([]),
+      list: () => [],
+      get: () => null,
+      create: () => null,
+      update: () => false,
+      remove: () => false,
+      move: () => false,
+      replace: () => false,
+      execute: () => null,
+    },
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
     comparisonSpecs: createSignal<ReadonlyArray<SymbolSpec>>([]),
@@ -364,14 +375,14 @@ export function createMockChartController(
     disposeCalls: () => disposeCalls,
     setThemeCalls: () => setThemeCalls,
     optionsFacadeCalls: () => optionsFacadeCalls,
-    legendSubscriberCount: () => legendTemplateContext.subscriberCount(),
+    legendSubscriberCount: () => legendContext.subscriberCount(),
     interactionSubscriberCount: () => interactionState.subscriberCount(),
     dataSubscriberCount: () => data.subscriberCount(),
     _setViewport: (vp) => viewport.set(vp),
     _setData: (next) => data.set(next),
     _setInteractionState: (snapshot) => interactionState.set(snapshot),
     _emitTheme: (next) => theme.set(next),
-    _setLegendTemplateContext: (next) => legendTemplateContext.set(next),
+    _setLegendContext: (next) => legendContext.set(next),
   }
 }
 

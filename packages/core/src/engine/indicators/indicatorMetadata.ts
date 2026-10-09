@@ -338,9 +338,6 @@ export interface IndicatorMetadata<T = unknown> {
   /** 不创建 renderer 实例地解析副图坐标轴 plugin 名称；无坐标轴时返回 null。 */
   getScaleRendererName: IndicatorAuxiliaryRendererNameResolver
 
-  /** 不创建 renderer 实例地解析副图标题 plugin 名称；无标题时返回 null。 */
-  getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver
-
   visibleState?: {
     compose: IndicatorVisibleStateComposer
   }
@@ -356,9 +353,7 @@ export interface IndicatorMetadata<T = unknown> {
 
   /**
    * 标题信息获取回调（决定 pane 标题栏显示内容）
-   * - 副图指标：由 paneTitle 渲染器调用
-   * - 主图指标：由 mainIndicatorLegend 渲染器调用
-   * 未提供时 fallback 到 displayName
+   * 主副图统一由图例管理器调用。
    */
   getTitleInfo?: GetTitleInfoFn
 }
