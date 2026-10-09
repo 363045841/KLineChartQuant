@@ -2,6 +2,7 @@
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { computed, onScopeDispose, type Ref, ref } from 'vue'
 import type { DropMenuGroup } from '../../components/DropMenu.vue'
+import { useToast } from '../toast/useToast.js'
 import { useControllerSignal } from './useControllerSignal.js'
 
 const SAVE_SUCCESS_DURATION_MS = 1000
@@ -60,7 +61,9 @@ export function useLayouts(controller: Ref<ChartController | null>) {
   const saved = ref(false)
   /** 本次操作的错误文案；与 core 的持久化错误合并展示。 */
   const error = ref('')
-  const deleting = ref<string | null>(null)
+  /** 已删除、等待撤销窗口结束才真正提交的布局 id。 */
+  const pendingDeletes = ref<ReadonlySet<string>>(new Set())
+  const toast = useToast()
   const naming = ref<NamingState | null>(null)
   const namingError = ref('')
   let savedTimer: ReturnType<typeof setTimeout> | undefined
@@ -86,13 +89,15 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     {
       id: LAYOUT_MENU.group.layouts,
       label: '布局列表',
-      items: layouts.value.map((layout) => ({
-        id: layout.id,
-        label: layout.name,
-        active: layout.id === activeId.value,
-        deletable: layout.deletable,
-        disabled: busy.value,
-      })),
+      items: layouts.value
+        .filter((layout) => !pendingDeletes.value.has(layout.id))
+        .map((layout) => ({
+          id: layout.id,
+          label: layout.name,
+          active: layout.id === activeId.value,
+          deletable: layout.deletable,
+          disabled: busy.value,
+        })),
     },
   ])
   const namingTitle = computed(() => NAMING_MODES[currentNamingMode()].title)
@@ -146,14 +151,12 @@ export function useLayouts(controller: Ref<ChartController | null>) {
   /** 打开创建弹窗。 */
   function openCreate(): void {
     namingError.value = ''
-    deleting.value = null
     naming.value = { mode: 'create', initialName: '未命名' }
   }
 
   /** 打开重命名或复制弹窗，目标布局由调用方给出。 */
   function openNaming(mode: 'rename' | 'duplicate', target: { id: string; name: string }): void {
     namingError.value = ''
-    deleting.value = null
     naming.value = {
       mode,
       id: target.id,
@@ -186,9 +189,29 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     }
   }
 
-  /** 删除前由 UI 明确选择目标，成功才移除确认行。 */
-  async function remove(id: string): Promise<void> {
-    if (await run((api) => api.deleteLayout({ id }))) deleting.value = null
+  function setPending(id: string, pending: boolean): void {
+    const next = new Set(pendingDeletes.value)
+    if (pending) next.add(id)
+    else next.delete(id)
+    pendingDeletes.value = next
+  }
+
+  /**
+   * 删除布局：先从列表隐藏并给出「撤销」，撤销窗口结束后才提交到 core。
+   * core 的 deleteLayout 不可逆，延迟提交让撤销不依赖恢复接口；提交失败时布局重新出现并显示错误。
+   */
+  function remove(id: string): void {
+    const name = layouts.value.find((layout) => layout.id === id)?.name ?? ''
+    setPending(id, true)
+    toast.showUndo({
+      id: `layout-delete-${id}`,
+      message: name ? `已删除布局「${name}」` : '已删除布局',
+      onUndo: () => setPending(id, false),
+      onCommit: async () => {
+        await run((api) => api.deleteLayout({ id }))
+        setPending(id, false)
+      },
+    })
   }
 
   /** 下拉操作：列表选择、保存、自动保存与创建在面板内派发。 */
@@ -221,7 +244,6 @@ export function useLayouts(controller: Ref<ChartController | null>) {
     namingTitle,
     namingConfirmLabel,
     namingError,
-    deleting,
     refresh,
     openCreate,
     openNaming,

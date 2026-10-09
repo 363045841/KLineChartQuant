@@ -49,49 +49,120 @@
               v-for="profile in profileOptions"
               :key="profile.value"
               class="provider-settings-profile"
-              :class="{ 'is-active': profile.value === providerSettings.profileName }"
+              :class="{
+                'is-active': profile.value === providerSettings.profileName,
+                'is-editing': renamingProfile === profile.value || deletingProfile === profile.value,
+              }"
             >
-              <button
-                type="button"
-                class="provider-settings-profile__select"
-                @click="selectProfile(profile.value)"
+              <!-- 行内重命名（替代设置弹窗上再叠一层命名弹窗）。 -->
+              <form
+                v-if="profileNameMode === 'rename' && renamingProfile === profile.value"
+                class="provider-profile-inline"
+                @submit.prevent="submitProfileName()"
               >
-                {{ profile.label }}
-              </button>
-              <span
-                v-if="persistedProfileNames.has(profile.value)"
-                class="provider-settings-profile__actions"
+                <input
+                  ref="profileNameInput"
+                  v-model="profileNameDraft"
+                  type="text"
+                  autocomplete="off"
+                  :aria-label="text.providerProfileName"
+                  :aria-invalid="profileNameDialogError ? 'true' : undefined"
+                  @keydown.escape.stop.prevent="closeProfileNameDialog()"
+                />
+              </form>
+
+              <!-- 删除会移除凭据与模型池，不可恢复：行内确认并说明后果。 -->
+              <div
+                v-else-if="deletingProfile === profile.value"
+                class="provider-profile-confirm"
+                role="group"
+                :aria-label="text.deleteProviderProfile"
+                @keydown.escape.stop.prevent="cancelRemoveProfile()"
               >
+                <span>{{ text.deleteProviderProfileConfirm }}</span>
+                <div class="provider-profile-confirm__actions">
+                  <button
+                    ref="deleteCancelButton"
+                    type="button"
+                    class="provider-profile-text-button"
+                    @click="cancelRemoveProfile()"
+                  >
+                    {{ text.cancel }}
+                  </button>
+                  <button
+                    type="button"
+                    class="provider-profile-text-button provider-profile-text-button--danger"
+                    @click="confirmRemoveProfile(profile.value)"
+                  >
+                    {{ text.deleteProviderProfile }}
+                  </button>
+                </div>
+              </div>
+
+              <template v-else>
                 <button
                   type="button"
-                  class="provider-settings-profile__action"
-                  :title="text.renameProviderProfile"
-                  :aria-label="text.renameProviderProfile"
-                  @click.stop="openRenameProfileDialog(profile.value)"
+                  class="provider-settings-profile__select"
+                  @click="selectProfile(profile.value)"
                 >
-                  <IconPencil aria-hidden="true" />
+                  {{ profile.label }}
                 </button>
-                <button
-                  type="button"
-                  class="provider-settings-profile__action provider-settings-profile__action--danger"
-                  :title="text.deleteProviderProfile"
-                  :aria-label="text.deleteProviderProfile"
-                  @click.stop="removeProfile(profile.value)"
+                <span
+                  v-if="persistedProfileNames.has(profile.value)"
+                  class="provider-settings-profile__actions"
                 >
-                  <IconTrash aria-hidden="true" />
-                </button>
-              </span>
+                  <BaseTooltip :content="text.renameProviderProfile" placement="top">
+                    <button
+                      type="button"
+                      class="provider-settings-profile__action"
+                      :aria-label="`${text.renameProviderProfile}: ${profile.label}`"
+                      @click.stop="openRenameProfileDialog(profile.value)"
+                    >
+                      <IconPencil aria-hidden="true" />
+                    </button>
+                  </BaseTooltip>
+                  <BaseTooltip :content="text.deleteProviderProfile" placement="top">
+                    <button
+                      type="button"
+                      class="provider-settings-profile__action provider-settings-profile__action--danger"
+                      :aria-label="`${text.deleteProviderProfile}: ${profile.label}`"
+                      @click.stop="removeProfile(profile.value)"
+                    >
+                      <IconTrash aria-hidden="true" />
+                    </button>
+                  </BaseTooltip>
+                </span>
+              </template>
             </div>
+
+            <form
+              v-if="profileNameMode === 'create'"
+              class="provider-profile-inline provider-profile-inline--create"
+              @submit.prevent="submitProfileName()"
+            >
+              <input
+                ref="profileNameInput"
+                v-model="profileNameDraft"
+                type="text"
+                autocomplete="off"
+                :placeholder="`${text.providerProfileName}…`"
+                :aria-label="text.providerProfileName"
+                :aria-invalid="profileNameDialogError ? 'true' : undefined"
+                @keydown.escape.stop.prevent="closeProfileNameDialog()"
+              />
+            </form>
             <button
+              v-else
               type="button"
               class="provider-profile-new-button"
-              :title="text.newProviderProfile"
-              :aria-label="text.newProviderProfile"
               @click="openCreateProfileDialog()"
             >
               <IconPlus aria-hidden="true" />
               <span>{{ text.newProviderProfile }}</span>
             </button>
+            <p v-if="profileNameDialogError" class="provider-profile-error" role="alert">
+              {{ profileNameDialogError }}
+            </p>
           </aside>
 
           <div class="provider-settings-detail">
@@ -129,9 +200,12 @@
               </label>
               <label class="provider-field">
                 <span class="provider-field__label">{{ text.additionalHeaders }}</span>
-                <textarea
+                <BaseTextarea
                   v-model="providerSettings.headers"
-                  rows="4"
+                  class="provider-field__textarea"
+                  size="sm"
+                  :min-rows="3"
+                  :max-rows="10"
                   spellcheck="false"
                   :placeholder="text.additionalHeadersPlaceholder"
                   @blur="providerSettings.persistConnection()"
@@ -148,16 +222,17 @@
                   :placeholder="text.modelSearchPlaceholder"
                   :disabled="providerSettings.modelsLoading"
                 />
-                <BaseButton
-                  size="sm"
-                  class="provider-settings-models__refresh"
-                  :title="text.refreshModels"
-                  :aria-label="text.refreshModels"
-                  :disabled="providerSettings.modelsLoading || !hasProviderConnection"
-                  @click="providerSettings.refreshModelCatalog()"
-                >
-                  <IconRefresh aria-hidden="true" />
-                </BaseButton>
+                <BaseTooltip :content="text.refreshModels" placement="top">
+                  <BaseButton
+                    size="sm"
+                    class="provider-settings-models__refresh"
+                    :aria-label="text.refreshModels"
+                    :disabled="providerSettings.modelsLoading || !hasProviderConnection"
+                    @click="providerSettings.refreshModelCatalog()"
+                  >
+                    <IconRefresh aria-hidden="true" />
+                  </BaseButton>
+                </BaseTooltip>
               </div>
               <div
                 v-if="providerSettings.modelCatalog.length"
@@ -229,10 +304,15 @@
               </div>
               <details class="agent-tool__parameters">
                 <summary>{{ text.toolParameters }}</summary>
-                <textarea
-                  :value="providerSettings.toolInputs[tool.name] ?? '{}'"
+                <BaseTextarea
+                  :model-value="providerSettings.toolInputs[tool.name] ?? '{}'"
+                  class="agent-tool__input"
+                  size="sm"
+                  :min-rows="3"
+                  :max-rows="12"
                   spellcheck="false"
-                  @input="setToolInput(tool.name, $event)"
+                  :aria-label="`${tool.label} ${text.toolParameters}`"
+                  @update:model-value="setToolInput(tool.name, $event)"
                 />
               </details>
               <BaseButton
@@ -278,38 +358,10 @@
       </div>
     </div>
   </BaseModal>
-
-  <BaseModal
-    :show="profileNameDialog !== null"
-    :title="profileNameDialogTitle"
-    width="min(92vw, 360px)"
-    @close="closeProfileNameDialog()"
-  >
-    <form id="agent-provider-profile-form" @submit.prevent="submitProfileName()">
-      <label class="provider-field">
-        <span class="provider-field__label">{{ text.providerProfileName }}</span>
-        <input ref="profileNameInput" v-model="profileNameDraft" type="text" autocomplete="off" />
-      </label>
-      <p v-if="profileNameDialogError" class="provider-profile-error" role="alert">
-        {{ profileNameDialogError }}
-      </p>
-    </form>
-
-    <template #footer>
-      <BaseButton @click="closeProfileNameDialog()">{{ text.cancel }}</BaseButton>
-      <BaseButton
-        type="submit"
-        form="agent-provider-profile-form"
-        :disabled="!profileNameDraft.trim()"
-      >
-        {{ text.confirm }}
-      </BaseButton>
-    </template>
-  </BaseModal>
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, ref, watch } from 'vue'
+  import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
@@ -318,6 +370,8 @@
   import BaseButton from '../../../components/BaseButton.vue'
   import BaseModal from '../../../components/BaseModal.vue'
   import BaseTabs from '../../../components/BaseTabs.vue'
+  import BaseTextarea from '../../../components/common/BaseTextarea.vue'
+  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import {
@@ -343,10 +397,13 @@
   /** 密码型凭据已保存时的掩码占位符；只提示已保存，不承载真实 Key。 */
   const MASKED_SECRET_PLACEHOLDER = '••••••••'
 
-  const profileNameInput = ref<HTMLInputElement | null>(null)
-  const profileNameDialog = ref<'create' | 'rename' | null>(null)
+  /** 行内命名输入；v-for 中的 ref 收集为数组，同一时间只渲染一个。 */
+  const profileNameInput = useTemplateRef<HTMLInputElement | HTMLInputElement[]>('profileNameInput')
+  const deleteCancelButton = useTemplateRef<HTMLButtonElement[]>('deleteCancelButton')
+  const profileNameMode = ref<'create' | 'rename' | null>(null)
   const profileNameDraft = ref('')
   const renamingProfile = ref('')
+  const deletingProfile = ref('')
   const activeTab = ref<'provider' | 'tools' | 'interface'>('provider')
   const text = computed(() => getAgentCopy(props.locale))
   const languageOptions = computed(() => [...AGENT_LOCALE_OPTIONS])
@@ -357,11 +414,6 @@
     { id: 'provider', label: text.value.providerSettings },
     { id: 'tools', label: text.value.tools },
   ])
-  const profileNameDialogTitle = computed(() =>
-    profileNameDialog.value === 'rename'
-      ? text.value.renameProviderProfile
-      : text.value.newProviderProfile,
-  )
   const persistedProfileNames = computed(
     () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
   )
@@ -453,10 +505,8 @@
   }
 
   /** 保存当前工具的 JSON 参数草稿。 */
-  function setToolInput(name: string, event: Event): void {
-    const target = event.target
-    if (!(target instanceof HTMLTextAreaElement)) return
-    props.providerSettings.setToolInput(name, target.value)
+  function setToolInput(name: string, value: string): void {
+    props.providerSettings.setToolInput(name, value)
   }
 
   /** 切换到选择的已保存配置。 */
@@ -464,41 +514,53 @@
     if (id) void props.providerSettings.selectProfile(id)
   }
 
-  /** 打开新建配置命名弹窗。 */
-  function openCreateProfileDialog(): void {
-    profileNameDraft.value = ''
-    renamingProfile.value = ''
-    props.providerSettings.clearProfileNameError()
-    profileNameDialog.value = 'create'
-    void nextTick(() => profileNameInput.value?.focus())
-  }
-
-  /** 打开重命名弹窗并预填当前名称。 */
-  function openRenameProfileDialog(name: string): void {
-    profileNameDraft.value = name
-    renamingProfile.value = name
-    props.providerSettings.clearProfileNameError()
-    profileNameDialog.value = 'rename'
+  function focusProfileNameInput(select: boolean): void {
     void nextTick(() => {
-      profileNameInput.value?.focus()
-      profileNameInput.value?.select()
+      const value = profileNameInput.value
+      const input = Array.isArray(value) ? value[0] : value
+      input?.focus()
+      if (select) input?.select()
     })
   }
 
-  /** 关闭配置命名弹窗并清空临时名称。 */
+  /** 在列表底部展开行内「新建配置」输入。 */
+  function openCreateProfileDialog(): void {
+    deletingProfile.value = ''
+    profileNameDraft.value = ''
+    renamingProfile.value = ''
+    props.providerSettings.clearProfileNameError()
+    profileNameMode.value = 'create'
+    focusProfileNameInput(false)
+  }
+
+  /** 把目标配置行切换为行内重命名输入并预填当前名称。 */
+  function openRenameProfileDialog(name: string): void {
+    deletingProfile.value = ''
+    profileNameDraft.value = name
+    renamingProfile.value = name
+    props.providerSettings.clearProfileNameError()
+    profileNameMode.value = 'rename'
+    focusProfileNameInput(true)
+  }
+
+  /** 退出行内命名并清空临时名称。 */
   function closeProfileNameDialog(): void {
-    profileNameDialog.value = null
+    profileNameMode.value = null
     profileNameDraft.value = ''
     renamingProfile.value = ''
     props.providerSettings.clearProfileNameError()
   }
 
-  /** 确认名称后创建新配置或重命名现有配置。 */
+  /** Enter 提交：创建新配置或重命名现有配置；失败时保留输入并显示错误。 */
   function submitProfileName(): void {
     const draft = profileNameDraft.value.trim()
-    if (!draft || profileNameDialog.value === null) return
+    if (!draft || profileNameMode.value === null) return
+    if (profileNameMode.value === 'rename' && draft === renamingProfile.value) {
+      closeProfileNameDialog()
+      return
+    }
     const operation =
-      profileNameDialog.value === 'rename'
+      profileNameMode.value === 'rename'
         ? props.providerSettings.renameProfile(renamingProfile.value, draft)
         : props.providerSettings.createProfile(draft)
     void operation.then((succeeded) => {
@@ -506,15 +568,26 @@
     })
   }
 
-  /** 确认后删除指定配置。 */
+  /** 删除配置会移除凭据，不可恢复：在该行内展开确认，默认聚焦「取消」。 */
   function removeProfile(name: string): void {
-    if (!window.confirm(text.value.deleteProviderProfileConfirm)) return
+    closeProfileNameDialog()
+    deletingProfile.value = name
+    void nextTick(() => deleteCancelButton.value?.[0]?.focus())
+  }
+
+  function cancelRemoveProfile(): void {
+    deletingProfile.value = ''
+  }
+
+  function confirmRemoveProfile(name: string): void {
+    deletingProfile.value = ''
     void props.providerSettings.deleteProfile(name)
   }
 
-  /** 关闭主设置时一并关闭配置命名弹窗。 */
+  /** 关闭主设置时一并退出行内编辑。 */
   function closeProviderSettings(): void {
     closeProfileNameDialog()
+    cancelRemoveProfile()
     props.providerSettings.close()
   }
 
@@ -837,7 +910,10 @@
     cursor: pointer;
   }
 
-  .agent-tool__parameters textarea,
+  .agent-tool__input {
+    font-family: var(--klc-typography-font-family-mono);
+  }
+
   .agent-tool__result {
     box-sizing: border-box;
     width: 100%;
@@ -918,7 +994,6 @@
   }
 
   .provider-field input,
-  .provider-field textarea,
   .provider-field select {
     width: 100%;
     height: 34px;
@@ -938,7 +1013,6 @@
   }
 
   .provider-field input:disabled,
-  .provider-field textarea:disabled,
   .provider-field select:disabled,
   .provider-settings-models__header input:disabled {
     color: var(--klc-color-ui-muted);
@@ -947,18 +1021,82 @@
   }
 
   .provider-field input::placeholder,
-  .provider-field textarea::placeholder,
   .provider-settings-models__header input::placeholder {
     color: var(--klc-color-ui-text-soft);
     opacity: 0.55;
   }
 
-  .provider-field textarea {
-    min-height: 76px;
-    padding: 8px 10px;
-    resize: vertical;
+  .provider-field__textarea {
     font-family: var(--klc-typography-font-family-mono);
-    line-height: 1.4;
+  }
+
+  .provider-profile-inline {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .provider-profile-inline--create {
+    margin-top: var(--klc-space-4, 4px);
+  }
+
+  .provider-profile-inline input {
+    width: 100%;
+    min-width: 0;
+    height: var(--klc-density-default, 32px);
+    box-sizing: border-box;
+    padding: 0 var(--klc-space-8, 8px);
+    border: 1px solid var(--klc-color-ui-accent);
+    border-radius: var(--klc-radius-sm, 6px);
+    outline: none;
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
+    font: inherit;
+    font-size: var(--klc-text-12-font-size, 12px);
+  }
+
+  .provider-profile-inline input[aria-invalid='true'] {
+    border-color: var(--klc-color-ui-danger-text);
+  }
+
+  .provider-profile-confirm {
+    display: grid;
+    gap: var(--klc-space-4, 4px);
+    padding: var(--klc-space-8, 8px);
+    color: var(--klc-color-ui-text);
+    font-size: var(--klc-text-12-font-size, 12px);
+    line-height: var(--klc-text-12-line-height, 16px);
+  }
+
+  .provider-profile-confirm__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--klc-space-4, 4px);
+  }
+
+  .provider-profile-text-button {
+    height: var(--klc-density-compact, 24px);
+    padding: 0 var(--klc-space-8, 8px);
+    border: 0;
+    border-radius: var(--klc-radius-xs, 4px);
+    color: var(--klc-color-ui-text);
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .provider-profile-text-button:hover,
+  .provider-profile-text-button:focus-visible {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .provider-profile-text-button--danger {
+    color: var(--klc-color-ui-danger-text);
+    font-weight: 600;
+  }
+
+  .provider-settings-profile.is-editing {
+    background: var(--klc-color-ui-hover);
   }
 
   .provider-protocol-control {

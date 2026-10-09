@@ -40,7 +40,7 @@
             :disabled="indicatorView !== 'compact'"
           >
             <div class="indicator-card" :class="{ active: isActive(indicator.id) }">
-              <button class="card-select" @click="toggleIndicator(indicator.id)">
+              <button type="button" class="card-select" @click="toggleIndicator(indicator.id)">
                 <div class="card-header">
                   <span class="card-label">{{ indicator.label }}</span>
                   <span v-if="indicatorView === 'type'" class="pane-badge">
@@ -51,24 +51,36 @@
                   {{ indicator.name }}
                 </div>
               </button>
-              <button
-                v-if="indicator.params?.length"
-                class="card-action-btn"
-                title="编辑参数"
-                aria-label="编辑参数"
-                @click="showParams(indicator.id)"
-              >
-                <IconTablerSettings aria-hidden="true" />
-              </button>
-              <button
+              <BaseTooltip v-if="indicator.params?.length" content="编辑参数" placement="top">
+                <button
+                  type="button"
+                  class="card-action-btn"
+                  :aria-label="`编辑参数：${indicator.name}`"
+                  @click="showParams(indicator.id)"
+                >
+                  <IconTablerSettings aria-hidden="true" />
+                </button>
+              </BaseTooltip>
+              <!-- 说明用锚定气泡（toggletip），不再在选择器弹窗上叠第二个弹窗。 -->
+              <BasePopover
                 v-else-if="indicator.description"
-                class="card-action-btn"
-                title="查看指标说明"
-                aria-label="查看指标说明"
-                @click="showDescription(indicator.id)"
+                :label="`${indicator.name} 指标说明`"
+                role="note"
+                placement="auto"
               >
-                <IconTablerInfoCircle aria-hidden="true" />
-              </button>
+                <template #trigger="{ props: triggerProps }">
+                  <button
+                    type="button"
+                    class="card-action-btn"
+                    :aria-label="`查看指标说明：${indicator.name}`"
+                    v-bind="triggerProps"
+                  >
+                    <IconTablerInfoCircle aria-hidden="true" />
+                  </button>
+                </template>
+                <p class="indicator-description__title">{{ indicator.name }}</p>
+                <p class="indicator-description">{{ indicator.description }}</p>
+              </BasePopover>
             </div>
           </BaseTooltip>
         </div>
@@ -106,17 +118,6 @@
       @confirm="onParamsConfirm"
     />
 
-    <BaseModal
-      v-if="descriptionIndicator"
-      :show="descriptionVisible"
-      :title="descriptionIndicator.name"
-      subtitle="指标说明"
-      width="90vw"
-      max-width="420px"
-      @close="descriptionVisible = false"
-    >
-      <p class="indicator-description">{{ descriptionIndicator.description }}</p>
-    </BaseModal>
   </div>
 </template>
 
@@ -138,6 +139,7 @@
 
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BasePopover from './common/BasePopover.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import SearchField from './common/SearchField.vue'
   import IndicatorParams from './IndicatorParams.vue'
@@ -182,8 +184,6 @@
 
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
-  const descriptionVisible = ref(false)
-  const descriptionIndicatorId = ref<string | null>(null)
   type IndicatorView = 'position' | 'compact' | 'type'
 
   interface IndicatorGroup {
@@ -246,11 +246,6 @@
     return findIndicator(currentIndicatorId.value)
   })
 
-  const descriptionIndicator = computed(() => {
-    if (!descriptionIndicatorId.value) return null
-    return findIndicator(descriptionIndicatorId.value)
-  })
-
   const activeCount = computed(() => props.activeIndicators?.length ?? 0)
   const modalTitle = computed(() => (props.replacePaneId ? '更换指标' : '添加指标'))
 
@@ -297,12 +292,6 @@
   function showParams(indicatorId: string) {
     currentIndicatorId.value = indicatorId
     paramsVisible.value = true
-  }
-
-  /** 显示无参数指标的用途说明。 */
-  function showDescription(indicatorId: string) {
-    descriptionIndicatorId.value = indicatorId
-    descriptionVisible.value = true
   }
 
   /** 关闭选择器，并通知父组件清除一次性的 Pane 替换目标。 */
@@ -456,7 +445,9 @@
     border-radius: 6px;
     background: var(--klc-color-ui-input);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition:
+      border-color var(--klc-motion-dur-fast, 160ms) ease,
+      background-color var(--klc-motion-dur-fast, 160ms) ease;
     text-align: left;
   }
 
@@ -530,7 +521,9 @@
     background: transparent;
     color: var(--klc-color-axis-text);
     cursor: pointer;
-    transition: all 0.15s;
+    transition:
+      color var(--klc-motion-dur-fast, 160ms) ease,
+      background-color var(--klc-motion-dur-fast, 160ms) ease;
   }
 
   .card-action-btn:hover {
@@ -547,9 +540,16 @@
     white-space: nowrap;
   }
 
+  .indicator-description__title {
+    margin: 0 0 var(--klc-space-4, 4px);
+    font-size: var(--klc-text-label-13-font-size, 13px);
+    font-weight: 600;
+    color: var(--klc-color-ui-text);
+  }
+
   .indicator-description {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: 1.65;
     color: var(--klc-color-axis-text);
   }
