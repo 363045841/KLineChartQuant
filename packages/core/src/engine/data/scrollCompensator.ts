@@ -8,6 +8,25 @@ export interface ScrollDeps {
   viewport: ViewportStateModule
 }
 
+/** 定位到最新数据时的对齐选项。 */
+export interface ScrollToRightOptions {
+  /**
+   * 数据不足一屏且确认没有更早历史时，首根 K 线贴左对齐，
+   * 避免左侧出现永远不会被填充的空白槽位。缺省保持右对齐。
+   */
+  alignShortDataLeft?: boolean
+}
+
+/** 视口相对已加载历史的槽位度量，供向左预取决策使用。 */
+export interface LeftHistoryWindow {
+  /** 一屏可容纳的 K 线槽位数；视口未就绪时为 0。 */
+  visibleSlots: number
+  /** 视口左缘之外、已加载但未显示的 K 线根数。 */
+  leftMarginSlots: number
+  /** 视口内首根 K 线左侧露出的空白槽位数。 */
+  blankSlots: number
+}
+
 export class ScrollCompensator {
   constructor(private deps: ScrollDeps) {}
 
@@ -20,7 +39,27 @@ export class ScrollCompensator {
     this.deps.viewport.actions.scrollTo(nextScrollLeft)
   }
 
-  scrollToRight(dataLength: number): void {
+  /** 以视口几何度量左侧已加载余量与露出的空白槽位。 */
+  measureLeftHistory(): LeftHistoryWindow {
+    const dpr = this.deps.viewport.readonly.dpr.peek()
+    const opt = this.deps.getOption()
+    const { unitLogical, startXLogical } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const clientWidth = this.deps.viewport.readonly.viewWidth.peek()
+    if (clientWidth <= 0 || unitLogical <= 0) {
+      return { visibleSlots: 0, leftMarginSlots: 0, blankSlots: 0 }
+    }
+    // 世界坐标滚动量：负值表示视口左缘越过首根 K 线，露出左侧加载缓冲区。
+    const logicalScroll =
+      this.deps.viewport.readonly.scrollLeft.peek() -
+      this.deps.viewport.readonly.leftLoadBufferWidth.peek()
+    return {
+      visibleSlots: clientWidth / unitLogical,
+      leftMarginSlots: Math.max(0, (logicalScroll - startXLogical) / unitLogical),
+      blankSlots: logicalScroll < 0 ? Math.ceil(-logicalScroll / unitLogical) : 0,
+    }
+  }
+
+  scrollToRight(dataLength: number, options: ScrollToRightOptions = {}): void {
     if (dataLength === 0) return
     const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.getOption()
@@ -31,7 +70,9 @@ export class ScrollCompensator {
 
     const leftBuffer = this.deps.viewport.readonly.leftLoadBufferWidth.peek()
     let target: number
-    if (lastKLineEndPx <= clientWidth) {
+    if (lastKLineEndPx <= clientWidth && options.alignShortDataLeft) {
+      target = leftBuffer
+    } else if (lastKLineEndPx <= clientWidth) {
       target = leftBuffer - (clientWidth - lastKLineEndPx)
     } else {
       target = leftBuffer + (lastKLineEndPx - clientWidth)

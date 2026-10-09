@@ -1270,6 +1270,8 @@ export class ChartRenderer {
         getLogicalIndexAtTimestamp: (timestamp) =>
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
+        // 更早历史仍可能加载时，首根之前的空槽不绘制 T-N 占位。
+        pastSlotLabels: !dataManager.hasPendingOlderHistory(),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         range,

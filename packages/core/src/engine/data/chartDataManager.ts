@@ -8,8 +8,18 @@ import {
   type SymbolSpec,
 } from '../../controllers/types.js'
 import { DataBuffer } from '../../data/buffer/impl/dataBuffer.js'
-import { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
-import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
+import {
+  type BarsCacheQuery,
+  type BarsCacheResult,
+  MarketDataCache,
+} from '../../data/buffer/impl/marketDataCache.js'
+import {
+  HISTORY_PREFETCH_SCREENS,
+  HISTORY_PREFETCH_TRIGGER_SCREENS,
+  INITIAL_BAR_SCREENS,
+  MAX_HISTORY_BATCH_PAGES,
+  resolveBarRequestLimit,
+} from '../../data/buffer/impl/marketDataPolicy.js'
 import {
   type BarsSelection,
   instrumentKeyFromSpec,
@@ -36,6 +46,7 @@ import type {
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
+  OlderDataStatus,
   TradingDate,
 } from '../../data/provider/types.js'
 import {
@@ -62,7 +73,6 @@ import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
 import type { VisibleRange } from '../viewport/viewport.js'
-import { hasLeftDataGap } from '../viewport/viewport.js'
 
 import { ComparisonManager } from './comparisonManager.js'
 import { IncrementalLoadHint } from './incrementalLoadHint.js'
@@ -158,7 +168,7 @@ export class ChartDataManager {
         this.loadBufferSnapshot(this.comparisonSpecForPrimary(spec), selection, buffer),
       loadRange: (spec, selection, buffer, beforeTimestamp) =>
         this.loadBars(selection, buffer, this.comparisonSpecForPrimary(spec), {
-          limit: DEFAULT_BAR_PAGE_LIMIT,
+          limit: this.resolveHistoryBatchLimit(0),
           beforeTimestamp,
         }),
       releaseSelection: (selection) => this.releaseComparisonSelection(selection),
@@ -394,7 +404,13 @@ export class ChartDataManager {
     return new DataBuffer()
   }
 
-  /** 从共享缓存获取 K 线并写入当前图表快照。 */
+  /**
+   * 从共享缓存获取一批 K 线并一次性写入当前图表快照。
+   *
+   * `target.limit` 是本批需要的总根数：Provider 单页不足且仍有更早历史时，沿游标继续请求，
+   * 全部页收齐后只调用一次 `mergeData`，因此一批补齐只产生一次数据变更、一次前插提示与
+   * 一个 loading 周期。
+   */
   private async loadBars(
     selection: BarsSelection,
     buffer: KLineBuffer,
@@ -411,29 +427,62 @@ export class ChartDataManager {
     }
     buffer.setLoading(true)
     try {
-      const result = await this.marketDataCache.queryBars({
-        sourceId: spec.source,
-        instrument: spec.instrument,
-        symbol: spec.symbol,
-        exchange: spec.exchange,
-        assetClass: spec.instrument?.assetClass,
-        period: period as KLinePeriod,
-        adjustment: adjustment as KLineAdjustment,
-        barAggregation: selection.barAggregation,
-        limit: target.limit,
-        ...(target.beforeTimestamp === undefined
-          ? {}
-          : { beforeTimestamp: target.beforeTimestamp }),
-      })
-      if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer)
-        return
+      let cursor = target.beforeTimestamp
+      let collected: KLineData[] = []
+      let resolved: { sourceId: string; instrument: InstrumentDescriptor } | null = null
+      let olderData: OlderDataStatus = OLDER_DATA_STATUS.UNKNOWN
+      let timezone = ''
+      for (let page = 0; page < MAX_HISTORY_BATCH_PAGES; page++) {
+        const query: BarsCacheQuery = {
+          sourceId: spec.source,
+          instrument: spec.instrument,
+          symbol: spec.symbol,
+          exchange: spec.exchange,
+          assetClass: spec.instrument?.assetClass,
+          period: period as KLinePeriod,
+          adjustment: adjustment as KLineAdjustment,
+          barAggregation: selection.barAggregation,
+          limit: target.limit - collected.length,
+          ...(cursor === undefined ? {} : { beforeTimestamp: cursor }),
+        }
+        let result: BarsCacheResult
+        try {
+          result = await this.marketDataCache.queryBars(query)
+        } catch (error) {
+          // 首页失败按原语义上报；后续补页失败时保留已收齐的页，下次补齐再重试。
+          if (page === 0) throw error
+          break
+        }
+        if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer)
+          return
+        resolved ??= { sourceId: result.sourceId, instrument: result.instrument }
+        timezone = result.series.timezone
+        olderData = result.series.olderData
+        const pageData = result.series.data
+        // 游标之前已无数据即历史耗尽，避免停在左缘时反复请求空页。
+        if (pageData.length === 0 && cursor !== undefined) {
+          olderData = OLDER_DATA_STATUS.EXHAUSTED
+        }
+        collected = collected.length === 0 ? [...pageData] : [...pageData, ...collected]
+        const earliest = pageData[0]?.timestamp
+        if (
+          earliest === undefined ||
+          olderData === OLDER_DATA_STATUS.EXHAUSTED ||
+          collected.length >= target.limit ||
+          (cursor !== undefined && earliest >= cursor)
+        ) {
+          break
+        }
+        cursor = earliest
+      }
+      if (!resolved) return
       if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
+        if (!this.handleResolvedSource(selection, resolved.sourceId, resolved.instrument, buffer))
           return
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
-      buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
-      this.calendarSources.set(buffer, { sourceId: result.sourceId, instrument: result.instrument })
+      buffer.mergeData(collected, olderData, timezone)
+      this.calendarSources.set(buffer, resolved)
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -443,6 +492,36 @@ export class ChartDataManager {
     } catch (error) {
       buffer.setError(error instanceof Error ? error.message : String(error))
     }
+  }
+
+  /** 活动 K 线 Buffer 仍可能向左加载更早历史（Provider 未声明耗尽且非静态数据）。 */
+  private canLoadOlderHistory(buffer: KLineBuffer): boolean {
+    return (
+      buffer.olderData !== OLDER_DATA_STATUS.EXHAUSTED && buffer.currentSpec?.incremental !== false
+    )
+  }
+
+  /**
+   * 当前 K 线视图左侧是否仍有待加载的历史。
+   *
+   * 为 true 时首根 K 线之前的空槽只是“尚未加载”，时间轴不应绘制 T-N 占位标签；
+   * 分时视图与无活动序列时为 false。
+   */
+  hasPendingOlderHistory(): boolean {
+    const buffer = this.getActiveDataBuffer()
+    return buffer !== null && buffer.getRawData().length > 0 && this.canLoadOlderHistory(buffer)
+  }
+
+  /** 首次请求根数：按当前视口宽度与 K 线间距覆盖 INITIAL_BAR_SCREENS 屏。 */
+  private resolveInitialBarLimit(): number {
+    const { visibleSlots } = this._scrollCompensator.measureLeftHistory()
+    return resolveBarRequestLimit(visibleSlots * INITIAL_BAR_SCREENS)
+  }
+
+  /** 向左补齐一批的根数：预取 HISTORY_PREFETCH_SCREENS 屏，并补上已露出的空白槽位。 */
+  private resolveHistoryBatchLimit(blankSlots: number): number {
+    const { visibleSlots } = this._scrollCompensator.measureLeftHistory()
+    return resolveBarRequestLimit(visibleSlots * HISTORY_PREFETCH_SCREENS + blankSlots)
   }
 
   /** 将旧 YYYYMMDD 或当前品种时区日期转换为 Provider TradingDate。 */
@@ -923,27 +1002,24 @@ export class ChartDataManager {
     const rawRange = this.getRawVisibleRangeOrNull()
     const first = range && rawRange ? data[rawRange.start < 0 ? 0 : range.start] : undefined
     if (first) this._comparisonManager.ensureRange(first.timestamp)
-    if (
-      hasLeftDataGap(
-        this.deps.viewport.readonly.scrollLeft.peek(),
-        this.deps.viewport.readonly.leftLoadBufferWidth.peek(),
-      ) &&
-      !buf.loading.peek() &&
-      buf.olderData !== OLDER_DATA_STATUS.EXHAUSTED &&
-      buf.currentSpec?.incremental !== false
-    ) {
-      const spec = buf.currentSpec
-      const selection = this._activeSelection
-      if (spec && selection?.kind === SERIES_SELECTION_KIND.bars) {
-        void this.loadBars(selection, buf, spec, {
-          limit: DEFAULT_BAR_PAGE_LIMIT,
-          beforeTimestamp: loadedTimeRange.earliestTs,
-        })
-      }
+    if (buf.loading.peek() || !this.canLoadOlderHistory(buf)) return
+    // 左侧露出空白，或已加载余量不足预取阈值时，在触达左缘前整批预取。
+    const history = this._scrollCompensator.measureLeftHistory()
+    const needsHistory =
+      history.blankSlots > 0 ||
+      history.leftMarginSlots < history.visibleSlots * HISTORY_PREFETCH_TRIGGER_SCREENS
+    if (!needsHistory) return
+    const spec = buf.currentSpec
+    const selection = this._activeSelection
+    if (spec && selection?.kind === SERIES_SELECTION_KIND.bars) {
+      void this.loadBars(selection, buf, spec, {
+        limit: this.resolveHistoryBatchLimit(history.blankSlots),
+        beforeTimestamp: loadedTimeRange.earliestTs,
+      })
     }
   }
 
-  /** 请求当前图表缓存覆盖指定左边界；每次向前拉取一页，不按时间范围外推。 */
+  /** 请求当前图表缓存覆盖指定左边界；每次向前拉取一批，不按时间范围外推。 */
   ensureDataRange(startTs: number): void {
     const buffer = this.getActiveDataBuffer()
     const selection = this._activeSelection
@@ -961,7 +1037,7 @@ export class ChartDataManager {
       return
     }
     void this.loadBars(selection, buffer, spec, {
-      limit: DEFAULT_BAR_PAGE_LIMIT,
+      limit: this.resolveHistoryBatchLimit(0),
       beforeTimestamp: loaded.earliestTs,
     })
   }
@@ -1226,7 +1302,7 @@ export class ChartDataManager {
 
     buf.setSymbol(spec)
     void this.loadBars(this.barsSelectionForSpec(spec), buf, spec, {
-      limit: DEFAULT_BAR_PAGE_LIMIT,
+      limit: this.resolveInitialBarLimit(),
     })
   }
 
@@ -1237,7 +1313,7 @@ export class ChartDataManager {
     buffer: KLineBuffer,
   ): void {
     buffer.setSymbol(spec)
-    void this.loadBars(selection, buffer, spec, { limit: DEFAULT_BAR_PAGE_LIMIT })
+    void this.loadBars(selection, buffer, spec, { limit: this.resolveInitialBarLimit() })
   }
 
   /** K 线数据可用后按其视图快照恢复横向位置。 */
@@ -1276,7 +1352,10 @@ export class ChartDataManager {
   scrollToRight(): void {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
-    this._scrollCompensator.scrollToRight(dataLength)
+    // 不足一屏且已无更早历史时贴左对齐；仍可能加载历史时保持右对齐，由补齐填充左侧。
+    this._scrollCompensator.scrollToRight(dataLength, {
+      alignShortDataLeft: buf !== null && !this.canLoadOlderHistory(buf),
+    })
     this.deps.scheduleDraw()
   }
 

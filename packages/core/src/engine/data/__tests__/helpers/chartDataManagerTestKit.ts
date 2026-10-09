@@ -257,6 +257,13 @@ export function makeKLine(timestamp: number): KLineData {
   }
 }
 
+/** 构造以 lastTimestamp 结尾、按日连续的 count 根日线（时间升序）。 */
+export function makeDailyBars(count: number, lastTimestamp: number): KLineData[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeKLine(lastTimestamp - (count - 1 - index) * MS_PER_DAY),
+  )
+}
+
 /** 构造测试 Provider 的品种描述。 */
 export function instrumentFor(symbol: string) {
   return {

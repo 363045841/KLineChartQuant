@@ -148,7 +148,7 @@ function collectTimeAxisTicks(
     index <= pastEnd;
     index += pastStep
   ) {
-    const text = formatPastSlotLabel(index)
+    const text = formatPastSlotLabel(index, context.pastSlotLabels)
     if (text === null) continue
     surface.register({
       kind: AXIS_LABEL_KIND.TICK,
@@ -356,8 +356,12 @@ export function createTimeAxisLayer(options: TimeAxisLayerOptions): Layer<Render
       const crosshair = options.getCrosshair?.()
       if (crosshair && typeof crosshair.index === 'number') {
         const ts = resolveCrosshairTimestamp(context, crosshair.index)
-        const text = resolveAxisTimeLabel(crosshair.index, context.data.length, ts, (timestamp) =>
-          formatCrosshairTime(context, timestamp),
+        const text = resolveAxisTimeLabel(
+          crosshair.index,
+          context.data.length,
+          ts,
+          (timestamp) => formatCrosshairTime(context, timestamp),
+          context.pastSlotLabels,
         )
         if (text !== null) {
           registerAxisLabel(context, 'xCrosshair', {

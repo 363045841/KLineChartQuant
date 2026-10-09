@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { DEFAULT_BAR_PAGE_LIMIT } from '@/data/buffer/impl/marketDataPolicy'
+
 import type { ChartDataManager } from '../chartDataManager'
 import {
   createTestChartDataManager,
@@ -8,6 +10,7 @@ import {
   instrumentFor,
   MS_PER_DAY,
   makeBarsPage,
+  makeDailyBars,
   makeKLine,
   makeTestSymbolSpec,
   registerTestProvider,
@@ -132,7 +135,7 @@ describe('ChartDataManager incremental load', () => {
 
   it('does not queue duplicate history merges while one page is loading', async () => {
     const now = Date.now()
-    const initialStart = now - 365 * MS_PER_DAY
+    const initialStart = now - (DEFAULT_BAR_PAGE_LIMIT - 1) * MS_PER_DAY
     let fetchCount = 0
     let resolveOlder!: (value: TestBarSeries) => void
     registerTestProvider(
@@ -141,7 +144,7 @@ describe('ChartDataManager incremental load', () => {
           async fetch() {
             fetchCount++
             if (fetchCount === 1) {
-              return makeBarsPage([makeKLine(initialStart), makeKLine(now)], {
+              return makeBarsPage(makeDailyBars(DEFAULT_BAR_PAGE_LIMIT, now), {
                 olderData: 'available',
               })
             }
@@ -178,7 +181,7 @@ describe('ChartDataManager incremental load', () => {
             fetchCount++
             return makeBarsPage([makeKLine(Date.now())], {
               instrumentId: 'test:000001',
-              olderData: 'unknown',
+              olderData: 'exhausted',
             })
           },
         },

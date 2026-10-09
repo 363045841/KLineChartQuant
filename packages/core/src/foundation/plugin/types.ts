@@ -359,6 +359,11 @@ export interface RenderDataContext {
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   /** 逻辑索引 → X 轴时间戳；未来槽位仅由数据源交易日历提供，无对应值时为 null。 */
   getTimestampAtLogicalIndex?: (index: number) => number | null
+  /**
+   * 首根 K 线之前的空槽是否绘制 T-N 占位标签。
+   * 更早历史仍可能加载时为 false（空槽只是尚未加载）；缺省视为 true。
+   */
+  pastSlotLabels?: boolean
   /** 当前图表的显示时区 formatter；仅用于普通 K 线的日期显示与边界。 */
   displayTimeFormatter: import('../utils/dateFormat.js').DisplayTimeFormatter
 }

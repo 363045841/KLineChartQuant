@@ -6,6 +6,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { DEFAULT_BAR_PAGE_LIMIT } from '@/data/buffer/impl/marketDataPolicy'
+
 import type { ChartDataManager } from '../chartDataManager'
 import {
   createTestChartDataManager,
@@ -13,11 +15,15 @@ import {
   createTestProvider,
   MS_PER_DAY,
   makeBarsPage,
+  makeDailyBars,
   makeKLine,
   makeTestSymbolSpec,
   registerTestProvider,
   unregisterTestProvider,
 } from './helpers/chartDataManagerTestKit'
+
+/** 首次请求的最小根数（DEFAULT_BAR_PAGE_LIMIT）。 */
+const INITIAL_PAGE_SIZE = DEFAULT_BAR_PAGE_LIMIT
 
 describe('ChartDataManager 交互重置时机', () => {
   let manager: ChartDataManager | null = null
@@ -36,16 +42,17 @@ describe('ChartDataManager 交互重置时机', () => {
 
   it('实时尾部写入不重置交互，整体替换与历史插入才重置', async () => {
     const now = Date.now()
-    const initialStart = now - 365 * MS_PER_DAY
+    const initialStart = now - (INITIAL_PAGE_SIZE - 1) * MS_PER_DAY
     let fetchCount = 0
     registerTestProvider(
       createTestProvider({
         fetchBars: {
           async fetch() {
             fetchCount++
+            // 首页足够覆盖首次请求根数，历史插入只来自后续 ensureDataRange。
             return makeBarsPage(
               fetchCount === 1
-                ? [makeKLine(initialStart), makeKLine(now)]
+                ? makeDailyBars(INITIAL_PAGE_SIZE, now)
                 : [makeKLine(initialStart - 90 * MS_PER_DAY)],
               { olderData: fetchCount === 1 ? 'available' : 'exhausted' },
             )
