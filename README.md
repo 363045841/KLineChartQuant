@@ -77,7 +77,7 @@ flowchart TB
     subgraph app["UI Layer / Framework Bindings"]
         UI["UI Layer"]
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 components · useChart"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC (wraps Vue-built Web Component)"]
+        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart (direct core) · KLineChartWC (Vue Web Component)"]
         AngularPkg["@363045841yyt/klinechart-angular"]
         Agent["AI Agent"]
         AgentRt["@363045841yyt/klinechart-agent-runtime"]
@@ -135,8 +135,9 @@ flowchart TB
   multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance depth.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators, markers and drawing tools plug in as Scene Layers.
-- **React via Web Component** — `@363045841yyt/klinechart-react`'s `KLineChartWC` renders the
-  `<kline-chart>` Custom Element bundled from the Vue package (`@363045841yyt/klinechart/web-component`).
+- **React bindings** — `@363045841yyt/klinechart-react`'s `KLineChart` mounts the core directly
+  (client-only, no Vue runtime); `KLineChartWC` renders the full-UI `<kline-chart>` Custom Element
+  bundled from the Vue package (`@363045841yyt/klinechart/web-component`).
 - **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
   invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
 

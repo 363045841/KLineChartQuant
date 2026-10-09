@@ -73,6 +73,8 @@ npm install @363045841yyt/klinechart-react
 
 ### Basic Usage
 
+`KLineChartWC` renders the full KCQ UI (toolbar, indicators, drawings, settings) through the Vue-built Web Component:
+
 ```tsx
 import { KLineChartWC } from '@363045841yyt/klinechart-react'
 
@@ -80,6 +82,29 @@ function App() {
   return <KLineChartWC zoomLevels={12} style={{ width: '100%', height: '100%' }} />
 }
 ```
+
+### Direct Core Mount
+
+`KLineChart` mounts `@363045841yyt/klinechart-core` directly, with no Vue runtime in the bundle, for hosts that build their own UI. Core loads on the client only; the server renders an empty container. Like the Angular adapter, it does not wire pointer, wheel, or pinch input yet: forward events to `controller.handlePointerEvent` and friends.
+
+```tsx
+import type { ChartController, KLineData } from '@363045841yyt/klinechart-core'
+import { KLineChart, useCoreSignal } from '@363045841yyt/klinechart-react'
+import { useState } from 'react'
+
+function Chart({ data }: { data: KLineData[] }) {
+  const [controller, setController] = useState<ChartController | null>(null)
+  const viewport = useCoreSignal(controller?.viewport)
+  return (
+    <>
+      <KLineChart data={data} theme="dark" onReady={setController} />
+      <span>{viewport?.kWidth}</span>
+    </>
+  )
+}
+```
+
+`useKLineChart(containerRef, options)` is the same mount as a hook, for hosts that own the container element. It reads `containerRef.current` once after the first render, so render the container unconditionally.
 
 For full setup including the data backend, see the [root README]../../README.md).
 
