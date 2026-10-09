@@ -122,10 +122,6 @@
             tabindex="0"
             @keydown="onDrawingHistoryKeydown"
             class="chart-container"
-            :class="{
-              'chart-container--axis-left': chartMode !== 'timeshare' && priceAxisPosition === 'left',
-              'chart-container--dual-axis': chartMode === 'timeshare',
-            }"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
@@ -2021,7 +2017,11 @@
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
-    border-top: 1px solid var(--chart-border);
+    /* 截图区域独立绘制完整外框，子容器只负责坐标轴分隔线。 */
+    border: 1px solid var(--chart-border);
+    /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
+    box-sizing: border-box;
+    border-bottom-right-radius: var(--chart-frame-radius);
     display: flex;
     align-items: stretch;
     gap: 0;
@@ -2125,28 +2125,6 @@
     overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    border: 1px solid var(--chart-border);
-    border-right: 0;
-    border-left: 0;
-    border-top: 0;
-    border-radius: 0;
-  }
-
-  .chart-container {
-    border-left: 1px solid var(--chart-border);
-  }
-
-  .chart-container--axis-left {
-    border-bottom-right-radius: var(--chart-frame-radius);
-    border-left: 0;
-    border-right: 1px solid var(--chart-border);
-  }
-
-  /* 双轴分隔线由各自轴容器绘制，行情区不再叠加侧边框。 */
-  .chart-container--dual-axis {
-    border-left: 0;
-    border-right: 0;
-    border-radius: 0;
   }
 
   .drawing-line-label-editor {
@@ -2226,8 +2204,7 @@
 
   .right-axis-host {
     flex: 0 0 auto;
-    border: 1px solid var(--chart-border);
-    border-top: 0;
+    border-left: 1px solid var(--chart-border);
     border-bottom-right-radius: var(--chart-frame-radius);
   }
 
@@ -2235,8 +2212,7 @@
   .left-axis-host {
     position: relative;
     flex: 0 0 auto;
-    border: 1px solid var(--chart-border);
-    border-top: 0;
+    border-right: 1px solid var(--chart-border);
   }
 
   .left-axis-host :deep(> canvas) {
@@ -2256,6 +2232,8 @@
 
   .price-axis-host--left {
     order: -1;
+    border-left: 0;
+    border-right: 1px solid var(--chart-border);
     border-radius: 0;
   }
 
