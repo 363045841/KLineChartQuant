@@ -94,7 +94,10 @@ function createFootprintLayer(
   return createIndicatorRendererLayer({
     definitionId: 'footprint',
     paneId: options.paneId ?? 'main',
-    z: RENDERER_PRIORITY.INDICATOR,
+    // GPU K 线画布位于 main Canvas2D 上方，足迹内容必须参加覆盖画布绘制。
+    role: 'overlay',
+    // 足迹成交行和数字必须在 K 线主体之后绘制，避免被实体及影线覆盖。
+    z: RENDERER_PRIORITY.OVERLAY,
     draw(context) {
       const state = options.instanceId
         ? context.indicatorStateReader?.get<FootprintRenderState>(options.instanceId)
@@ -102,7 +105,8 @@ function createFootprintLayer(
       if (!state) return
       const textMode = state.textMode ?? FOOTPRINT_TEXT_MODES.BidAsk
       const isBidAsk = textMode === FOOTPRINT_TEXT_MODES.BidAsk
-      const { ctx, pane, range, kLineCenters, scrollLeft } = context
+      const { overlayCtx: ctx, pane, range, kLineCenters, scrollLeft } = context
+      if (!ctx) return
       const start = Math.max(0, range.start)
       const end = Math.min(range.end, state.series.bars.length)
       // 全部可见柱、两侧和所有价位共用一个上限，保证宽度能直接比较数值。

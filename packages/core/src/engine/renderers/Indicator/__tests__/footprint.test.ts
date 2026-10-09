@@ -1,3 +1,4 @@
+/** 验证足迹图覆盖画布目标、价格行裁切和文字布局。 */
 import { describe, expect, it, vi } from 'vitest'
 import type { FootprintBar, FootprintRenderState } from '@/components/footprint/types.js'
 import {
@@ -24,6 +25,37 @@ function createRowBar(rowSize: number, cellCount: number, startPrice = 100): Foo
 }
 
 describe('Footprint Layer', () => {
+  it('paints both rows and labels on the canvas above GPU candles', () => {
+    const mainCtx = createMockCanvasContext()
+    const overlayCtx = createMockCanvasContext()
+    const state: FootprintRenderState = {
+      timestamp: 1,
+      series: {
+        status: 'ready',
+        message: null,
+        rowSize: '15',
+        asOf: 2,
+        bars: [createRowBar(15, 2)],
+      },
+    }
+    const layer = FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' })
+    expect(layer.role).toBe('overlay')
+    layer.paint(
+      createContextWithInstanceState(mainCtx, 'fp', state, {
+        overlayCtx,
+        range: { start: 0, end: 1 },
+        kLineCenters: [200],
+        kWidth: 60,
+        kGap: 4,
+        pane: { height: 500, yAxis: { priceToY: (price) => 500 - price } },
+      }),
+    )
+    expect(overlayCtx.fillRect).toHaveBeenCalledTimes(4)
+    expect(overlayCtx.fillText).toHaveBeenCalled()
+    expect(mainCtx.fillRect).not.toHaveBeenCalled()
+    expect(mainCtx.fillText).not.toHaveBeenCalled()
+  })
+
   it('clips a price row crossing the pane boundary instead of discarding it', () => {
     const state: FootprintRenderState = {
       timestamp: 1,
@@ -54,6 +86,7 @@ describe('Footprint Layer', () => {
     const ctx = createMockCanvasContext()
     FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
       createContextWithInstanceState(ctx, 'fp', state, {
+        overlayCtx: ctx,
         range: { start: 0, end: 1 },
         kLineCenters: [100],
         kWidth: 50,
@@ -103,6 +136,7 @@ describe('Footprint Layer', () => {
       const ctx = createMockCanvasContext()
       FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
         createContextWithInstanceState(ctx, 'fp', state, {
+          overlayCtx: ctx,
           dpr,
           range: { start: 0, end: 1 },
           kLineCenters: [150.73],
@@ -148,6 +182,7 @@ describe('Footprint Layer', () => {
     vi.mocked(ctx.measureText).mockReturnValue({ width: 8 } as TextMetrics)
     FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
       createContextWithInstanceState(ctx, 'fp', state, {
+        overlayCtx: ctx,
         range: { start: 0, end: 1 },
         kLineCenters: [200],
         kWidth: 60,
