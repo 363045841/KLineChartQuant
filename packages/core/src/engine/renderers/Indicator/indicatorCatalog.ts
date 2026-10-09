@@ -1,6 +1,10 @@
+/** 指标选择器的展示名称、说明与参数表。 */
 import {
+  FOOTPRINT_DEFAULT_PARAMS,
   FOOTPRINT_METRIC_OPTIONS,
   FOOTPRINT_METRICS,
+  FOOTPRINT_ROW_MODE_OPTIONS,
+  FOOTPRINT_ROW_MODES,
   FOOTPRINT_TEXT_MODES,
   FOOTPRINT_TEXT_OPTIONS,
 } from '@/components/footprint/types.js'
@@ -25,6 +29,8 @@ export interface ParamConfig {
   default?: number | string
   options?: ReadonlyArray<{ value: string; label: string }>
   description?: string
+  /** 仅当依赖参数取指定值时显示；条件只影响编辑入口。 */
+  visibleWhen?: { key: string; values: readonly (number | string | boolean)[] }
 }
 
 export interface Indicator {
@@ -57,8 +63,41 @@ const uiMeta: Record<
 > = {
   footprint: {
     name: '足迹图',
-    description: '按价格档位展示真实成交的主动卖量 × 主动买量；虚线标记成交覆盖不完整的柱子。',
+    description:
+      '足迹图用于观察每根 K 线内部哪些价位成交集中、买卖哪一方更主动，帮助判断上涨或下跌是否有成交支持，并寻找可能的支撑、阻力和转折。',
     params: [
+      {
+        key: 'rowMode',
+        label: '分行方式',
+        type: 'select',
+        default: FOOTPRINT_DEFAULT_PARAMS.rowMode,
+        options: FOOTPRINT_ROW_MODE_OPTIONS,
+      },
+      {
+        key: 'rowPeriod',
+        label: '振幅统计根数',
+        type: 'number',
+        min: 1,
+        step: 1,
+        default: FOOTPRINT_DEFAULT_PARAMS.rowPeriod,
+        visibleWhen: {
+          key: 'rowMode',
+          values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+        },
+      },
+      {
+        key: 'targetRows',
+        label: '目标行数',
+        type: 'number',
+        min: 10,
+        max: 20,
+        step: 1,
+        default: FOOTPRINT_DEFAULT_PARAMS.targetRows,
+        visibleWhen: {
+          key: 'rowMode',
+          values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+        },
+      },
       {
         key: 'ticksPerRow',
         label: '每行价格跳数',
@@ -66,7 +105,8 @@ const uiMeta: Record<
         min: 1,
         max: 100000,
         step: 1,
-        default: 300,
+        default: FOOTPRINT_DEFAULT_PARAMS.ticksPerRow,
+        visibleWhen: { key: 'rowMode', values: [FOOTPRINT_ROW_MODES.Fixed] },
       },
       {
         key: 'imbalanceRatio',

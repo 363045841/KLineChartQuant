@@ -12,7 +12,32 @@ export const FOOTPRINT_METRIC_OPTIONS = [
   { value: FOOTPRINT_METRICS.Turnover, label: '成交额' },
 ]
 
+/** 分行方式；自动模式使用已收盘 K 线决定整个序列的统一价格网格。 */
+export const FOOTPRINT_ROW_MODES = {
+  Fixed: 'fixed',
+  AverageRange: 'averageRange',
+  ATR: 'atr',
+} as const
+export type FootprintRowMode = (typeof FOOTPRINT_ROW_MODES)[keyof typeof FOOTPRINT_ROW_MODES]
+export const FOOTPRINT_ROW_MODE_OPTIONS = [
+  { value: FOOTPRINT_ROW_MODES.Fixed, label: '固定跳数' },
+  { value: FOOTPRINT_ROW_MODES.AverageRange, label: '平均振幅' },
+  { value: FOOTPRINT_ROW_MODES.ATR, label: 'ATR' },
+]
+export const FOOTPRINT_DEFAULT_PARAMS = {
+  rowMode: FOOTPRINT_ROW_MODES.AverageRange,
+  rowPeriod: 20,
+  targetRows: 15,
+  ticksPerRow: 300,
+  imbalanceRatio: 3,
+  metric: FOOTPRINT_METRICS.Turnover,
+} as const
+
 export interface FootprintParams {
+  /** 未指定分行方式时，显式 ticksPerRow 仍表示固定跳数。 */
+  readonly rowMode?: FootprintRowMode
+  readonly rowPeriod?: number
+  readonly targetRows?: number
   readonly ticksPerRow: number
   readonly imbalanceRatio: number
   readonly metric: FootprintMetric

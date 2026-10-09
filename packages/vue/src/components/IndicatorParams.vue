@@ -1,3 +1,4 @@
+<!-- 指标参数弹窗：按草稿中的模式选择显示适用参数。 -->
 <template>
   <BaseModal
     :show="visible"
@@ -29,7 +30,7 @@
 
     <div class="params-body">
       <div
-        v-for="param in params"
+        v-for="param in visibleParams"
         :key="param.key"
         class="param-item"
         :class="{ 'has-desc': showDescription && param.description }"
@@ -140,6 +141,7 @@
 
   const {
     localValues,
+    visibleParams,
     showDescription,
     numberValue,
     onInput,

@@ -7,8 +7,11 @@ import type {
   FootprintTextMode,
 } from '@/components/footprint/types.js'
 import {
+  FOOTPRINT_DEFAULT_PARAMS,
   FOOTPRINT_METRIC_OPTIONS,
   FOOTPRINT_METRICS,
+  FOOTPRINT_ROW_MODE_OPTIONS,
+  FOOTPRINT_ROW_MODES,
   FOOTPRINT_TEXT_MODES,
   FOOTPRINT_TEXT_OPTIONS,
 } from '@/components/footprint/types.js'
@@ -291,7 +294,13 @@ function footprintMetricLabel(metric: FootprintMetric): string {
 const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
   name: '足迹图',
   params: [
-    params.ticksPerRow as number,
+    ...(params.rowMode === undefined || params.rowMode === FOOTPRINT_ROW_MODES.Fixed
+      ? [params.ticksPerRow as number]
+      : [
+          FOOTPRINT_ROW_MODE_OPTIONS.find((option) => option.value === params.rowMode)?.label ?? '',
+          params.rowPeriod as number,
+          params.targetRows as number,
+        ]),
     params.imbalanceRatio as number,
     footprintMetricLabel(resolveFootprintMetric(params.metric)),
     footprintTextModeLabel(resolveFootprintTextMode(params.textMode)),
@@ -309,11 +318,7 @@ const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
   presentation: { defaultOptions: { textMode: FOOTPRINT_TEXT_MODES.BidAsk } },
   runtime: {
     inputs: ['trades'],
-    defaultParams: {
-      ticksPerRow: 300,
-      imbalanceRatio: 3,
-      metric: FOOTPRINT_METRICS.Turnover,
-    },
+    defaultParams: FOOTPRINT_DEFAULT_PARAMS,
     computeKey: 'calcFootprint',
     createCompute: createFootprintCalculator,
     compute: (data, params, trades) => createFootprintCalculator()(data, params, trades),

@@ -4,5 +4,11 @@ export type {
   FootprintCell,
   FootprintParams,
   FootprintRenderState,
+  FootprintRowMode,
   FootprintSeries,
+} from './types.js'
+export {
+  FOOTPRINT_DEFAULT_PARAMS,
+  FOOTPRINT_ROW_MODE_OPTIONS,
+  FOOTPRINT_ROW_MODES,
 } from './types.js'

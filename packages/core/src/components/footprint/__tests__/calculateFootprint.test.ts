@@ -9,7 +9,12 @@ import {
 } from '../../../data/trades/types.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { createFootprintCalculator } from '../impl/calculateFootprint.js'
-import { FOOTPRINT_METRICS, type FootprintParams } from '../types.js'
+import {
+  FOOTPRINT_DEFAULT_PARAMS,
+  FOOTPRINT_METRICS,
+  FOOTPRINT_ROW_MODES,
+  type FootprintParams,
+} from '../types.js'
 
 const data: KLineData[] = [1000, 2000].map((timestamp) => ({
   timestamp,
@@ -45,6 +50,42 @@ const input = (batches: readonly TradeBatch[]): TradeSnapshot => ({
 })
 
 describe('Footprint calculator', () => {
+  // 活跃柱振幅不参与统计；网格变化后必须重放成交，同时保持总量和 Delta。
+  it('reaggregates retained trades when automatic row height changes after a close', () => {
+    const compute = createFootprintCalculator()
+    const bars = data.map((bar) => ({ ...bar, high: 4, low: 1 }))
+    const snapshot = input([
+      batch([trade('1', 1500, '1.2', '2', 'buy'), trade('2', 1600, '1.4', '1', 'sell')]),
+    ])
+    const first = compute(bars, FOOTPRINT_DEFAULT_PARAMS, snapshot)
+    expect(first.rowSize).toBe('0.2')
+    expect(first.bars[0]?.cells).toHaveLength(2)
+    const live = bars.map((bar, index) => (index === 1 ? { ...bar, high: 10 } : bar))
+    const intrabar = compute(live, FOOTPRINT_DEFAULT_PARAMS, snapshot)
+    expect(intrabar.rowSize).toBe(first.rowSize)
+    expect(intrabar.bars[0]).toBe(first.bars[0])
+    const closed = [...live, { ...bars[1]!, timestamp: 3000 }]
+    const next = compute(closed, FOOTPRINT_DEFAULT_PARAMS, snapshot)
+    expect(next.rowSize).toBe('0.4')
+    expect(next.bars[0]?.cells).toHaveLength(1)
+    expect(next.bars[0]).toMatchObject({ total: '3.8', delta: '1' })
+    expect(compute(closed, FOOTPRINT_DEFAULT_PARAMS, structuredClone(snapshot))).toEqual(next)
+  })
+
+  // 周期切换即使复用计算器，也应按新柱振幅重新决定网格。
+  it('adapts automatic rows to a different candle period', () => {
+    const compute = createFootprintCalculator()
+    const snapshot = input([])
+    const small = data.map((bar) => ({ ...bar, high: 4 }))
+    const large = data.map((bar) => ({ ...bar, high: 31 }))
+    expect(compute(small, FOOTPRINT_DEFAULT_PARAMS, snapshot).rowSize).toBe('0.2')
+    expect(compute(large, FOOTPRINT_DEFAULT_PARAMS, snapshot).rowSize).toBe('2')
+    expect(
+      compute(large, { ...FOOTPRINT_DEFAULT_PARAMS, rowMode: FOOTPRINT_ROW_MODES.Fixed }, snapshot)
+        .rowSize,
+    ).toBe('30')
+  })
+
   // 0.1 + 0.2 必须精确为 0.3；成交恰好落在下一根开盘时归入下一根。
   it('keeps exact decimals and aligns trades to actual candle timestamps', () => {
     const result = createFootprintCalculator()(

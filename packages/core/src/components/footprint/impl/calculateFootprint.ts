@@ -7,7 +7,7 @@ import {
   parseDecimal,
 } from '../../../data/trades/impl/decimal.js'
 import { EMPTY_TRADE_SNAPSHOT, type TradeSnapshot } from '../../../data/trades/types.js'
-import { FOOTPRINT_ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { FOOTPRINT_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import {
   FOOTPRINT_METRICS,
@@ -15,6 +15,7 @@ import {
   type FootprintParams,
   type FootprintSeries,
 } from '../types.js'
+import { resolveRowTicks } from './resolveRowTicks.js'
 
 interface Cell {
   bid: bigint
@@ -39,8 +40,6 @@ export function createFootprintCalculator() {
     params: FootprintParams,
     input: TradeSnapshot = EMPTY_TRADE_SNAPSHOT,
   ): FootprintSeries => {
-    if (!Number.isSafeInteger(params.ticksPerRow) || params.ticksPerRow < 1)
-      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '每行价格跳数必须是正整数')
     if (!Number.isSafeInteger(params.imbalanceRatio) || params.imbalanceRatio < 1)
       throw new KLineChartError(FOOTPRINT_ERROR_CODES.RATIO_INVALID, '不平衡倍数必须是正整数')
     const tick = parseDecimal(input.tickSize)
@@ -52,14 +51,15 @@ export function createFootprintCalculator() {
         status: input.status,
         message: input.message,
       }
-    const rowUnits = tick.units * BigInt(params.ticksPerRow)
+    const rowTicks = resolveRowTicks(data, params, Number(input.tickSize))
+    const rowUnits = tick.units * BigInt(rowTicks)
     // K 线身份只需检测有序唯一时间戳序列的变化：长度 + 首尾时间戳即可唯一确定。
     const nextIdentity = [
       data.length,
       data[0]?.timestamp,
       data[data.length - 1]?.timestamp,
       input.tickSize,
-      params.ticksPerRow,
+      rowTicks,
       params.metric,
     ].join('|')
     // 批次身份用范围、完整性、数量与首尾 tradeId 组合，避免逐笔序列化。

@@ -1,6 +1,6 @@
 /** 指标参数编辑草稿：统一处理数字参数与选项参数、重置和确认值。 */
 import type { ParamConfig } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorCatalog'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { DropMenuGroup } from '../components/DropMenu.vue'
 
 /** 参数草稿值：数字参数为 number，选项参数为 string。 */
@@ -17,6 +17,15 @@ interface IndicatorParamsDraftInput {
 export function useIndicatorParams(props: IndicatorParamsDraftInput) {
   const localValues = ref<IndicatorParamValues>({ ...props.values })
   const showDescription = ref(true)
+  // 使用草稿值推导可见项，切换模式立即生效，并保留隐藏参数的编辑值。
+  const visibleParams = computed(() =>
+    props.params.filter((param) => {
+      const condition = param.visibleWhen
+      if (!condition) return true
+      const value = localValues.value[condition.key]
+      return value !== undefined && condition.values.includes(value)
+    }),
+  )
 
   watch(
     () => props.values,
@@ -93,6 +102,7 @@ export function useIndicatorParams(props: IndicatorParamsDraftInput) {
 
   return {
     localValues,
+    visibleParams,
     showDescription,
     numberValue,
     onInput,
