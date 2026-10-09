@@ -25,6 +25,7 @@ import {
 
 const coreDir = fileURLToPath(new URL('../../../../', import.meta.url))
 const buildScript = path.join(coreDir, 'scripts/tokens/build.mjs')
+const paletteScript = path.join(coreDir, 'scripts/tokens/generate-palettes.mjs')
 const dtcgDir = path.join(coreDir, 'src/foundation/tokens/dtcg')
 const cssDir = path.join(coreDir, 'design-tokens/css')
 
@@ -40,6 +41,15 @@ describe('design tokens pipeline', () => {
   it('generated files are in sync with the DTCG source (tokens:check)', () => {
     expect(() =>
       execFileSync(process.execPath, [buildScript, '--check'], { encoding: 'utf8', stdio: 'pipe' }),
+    ).not.toThrow()
+  })
+
+  it('palette proposals are in sync with the DTCG source (tokens:palettes --check)', () => {
+    expect(() =>
+      execFileSync(process.execPath, [paletteScript, '--check'], {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      }),
     ).not.toThrow()
   })
 

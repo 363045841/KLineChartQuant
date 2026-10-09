@@ -70,13 +70,29 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 
 旧的 `--klc-spacing-*`、`--klc-typography-*`、`--klc-motion-duration-*` / `-easing-*` 保留原值；新动效使用 `dur-*` / `ease-*`，名称不冲突。
 
+## 调色板生成器（仅提案）
+
+`pnpm tokens:palettes` 读取每个 preset × mode 当前解析出的输入，在 OKLCH 中生成 Radix 12 级语义阶梯（CP 1、CP 4；culori），写入 `design-tokens/proposals/palettes.{json,md}`。运行时主题不读取这些文件，Canvas 颜色不变；接入属于 Phase 3。
+
+- 输入：`base`（`color.ui.background`）、`accent`（`color.ui.accent`）、`contrast`（默认 1）、`neutralTint`（`accent` | `pure`，design §4 契约）。另以品牌色、涨跌色、warning、danger 为锚点生成彩色阶梯。
+- 轮廓：明度 / 彩度轮廓取自 `@radix-ui/colors@3.0.0` 的 gray / blue（明暗各一套，值内置于 `scripts/tokens/lib/radix-reference.mjs`）。step 1 = base，step 9 = 锚点，11/12 外推到 step 2 上 APCA Lc 60 / 90（Radix 的保证）且 WCAG ≥ 4.5:1。插值方式与 `neutralTint` 提案规则为 [derived]，记录在 `palettes.json` 的 `method` 中。
+- 报告附每个提案的 WCAG / APCA 检查。当前唯一未通过的是作为输入的浅色 warning `#C58A1A`（step 9 在 2.67–2.86:1），留给 Phase 3。
+
+## 对比度门槛
+
+- `contrastGate.test.ts`（随 core 的 `pnpm test` 运行）：对 5 个预设 × 明暗 × 涨跌约定（绿涨 / 红涨）共 20 个组合、每个组合 27 组声明的前景 / 背景对执行 WCAG 2 AA：文字 4.5:1，组件与图形 3:1。半透明颜色先按浏览器的方式与底色合成再计算。
+- 当前色板已有不达标项，记录在 `__tests__/contrast-known-failures.json`；测试只在出现新的失败或已知失败进一步变差时报错。涨跌颜色不允许进入已知清单。
+- `pnpm tokens:contrast` 生成 `design-tokens/reports/contrast.{md,json}`，其中 APCA 仅作建议（文字 |Lc| ≥ 60、组件 ≥ 45，约等于 4.5:1 / 3:1）。APCA 仍是 beta 且许可证非 OSI，因此不作为门槛；`apca-w3` 依赖 AGPL 的 `colorparsley`，所以改用 colorjs.io（MIT）的 APCA 实现。
+- 只有在评审接受后才运行 `pnpm tokens:contrast --update-known` 重写已知清单。
+
 ## 不变量与测试
 
-- `pipeline.test.ts`：生成文件与源同步；每个 preset × mode 的 Theme CSS 与 `themeToCssVars(resolveTheme(…))` 逐字节一致，DTCG 中的预设映射与 `createVisualTheme` 因此不会各自漂移；`foundation.css` 与运行时 foundation 变量一致。
+- `pipeline.test.ts`：生成文件与源同步；每个 preset × mode 的 Theme CSS 与 `themeToCssVars(resolveTheme(…))` 逐字节一致，DTCG 中的预设映射与 `createVisualTheme` 因此不会各自漂移；`foundation.css` 与运行时 foundation 变量一致；调色板提案与源同步。
 - `foundation.test.ts`：锁定研究取值，并校验字距随字号收紧、同心圆角、层级单调、两种 mode 键集一致、品牌色在 Pro 表面满足 AA。
+- `contrastGate.test.ts`：见上节。
 - `baseline.test.ts.snap`：Theme 层快照，保持不变。
 
 ## 后续
 
 - Phase 2：组件改用 `--klc-*`，stylelint 禁止原始值。
-- Phase 3：`PresetPersonality`（预设的圆角 / 密度 / 阴影个性）与重新生成的色板接入。
+- Phase 3：`PresetPersonality`（预设的圆角 / 密度 / 阴影个性）与重新生成的色板接入，清空已知对比度失败。
