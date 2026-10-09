@@ -6,12 +6,14 @@
       aria-hidden="true"
       :style="{ '--theme-mode-index': activeIndex }"
     ></span>
-    <label
+    <BaseTooltip
       v-for="option in themeModes"
       :key="option.value"
-      class="theme-mode__option"
-      :title="option.label"
+      :content="option.label"
+      placement="bottom"
+      trigger-display="contents"
     >
+    <label class="theme-mode__option">
       <input
         class="theme-mode__input"
         type="radio"
@@ -25,6 +27,7 @@
         <component :is="option.icon" class="theme-mode__icon" aria-hidden="true" />
       </span>
     </label>
+    </BaseTooltip>
   </div>
 </template>
 
@@ -34,6 +37,7 @@
   import IconTablerDeviceDesktop from '~icons/tabler/device-desktop'
   import IconTablerMoon from '~icons/tabler/moon'
   import IconTablerSun from '~icons/tabler/sun'
+  import BaseTooltip from './BaseTooltip.vue'
 
   const props = defineProps<{ modelValue: ChartSettings['theme']; label: string }>()
   const emit = defineEmits<{ 'update:modelValue': [value: ChartSettings['theme']] }>()

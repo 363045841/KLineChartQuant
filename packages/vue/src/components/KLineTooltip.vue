@@ -79,9 +79,9 @@
       useAnchor?: boolean
       anchorPlacement?: 'right-bottom' | 'left-bottom'
       setEl?: (el: HTMLDivElement | null) => void
-      /** 涨的颜色（默认红涨） */
+      /** 涨的颜色；默认跟随主题的 K 线上涨色（含红涨绿跌 / 绿涨红跌设置） */
       upColor?: string
-      /** 跌的颜色（默认绿跌） */
+      /** 跌的颜色；默认跟随主题的 K 线下跌色 */
       downColor?: string
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
@@ -91,8 +91,8 @@
       draggable?: boolean
     }>(),
     {
-      upColor: '#ef4444',
-      downColor: '#22c55e',
+      upColor: 'var(--klc-color-candle-up-border)',
+      downColor: 'var(--klc-color-candle-down-border)',
       timezone: 'Asia/Shanghai',
       showTime: false,
     },

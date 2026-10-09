@@ -15,21 +15,23 @@
       @input="$emit('update:endDate', ($event.target as HTMLInputElement).value)"
     />
     <span class="range-count">共 {{ count }} 条</span>
-    <span
-      class="range-return toolbar-separated"
-      :class="`range-return--${returnDirection}`"
-      title="按区间首尾收盘价计算"
-    >
-      {{ formattedReturnRate }}
-    </span>
-    <button type="button" class="toolbar-btn" title="批量设置" @click="$emit('batchSetting')">
-      批量设置
-    </button>
-    <button type="button" class="toolbar-btn" title="导出" @click="$emit('export')">导出</button>
+    <BaseTooltip content="按区间首尾收盘价计算" placement="top" trigger-display="contents">
+      <span
+        class="range-return toolbar-separated"
+        :class="`range-return--${returnDirection}`"
+        tabindex="0"
+        :aria-label="`区间收益 ${formattedReturnRate}（按区间首尾收盘价计算）`"
+      >
+        {{ formattedReturnRate }}
+      </span>
+    </BaseTooltip>
+    <button type="button" class="toolbar-btn" @click="$emit('batchSetting')">批量设置</button>
+    <button type="button" class="toolbar-btn" @click="$emit('export')">导出</button>
+    <BaseTooltip content="取消选区" placement="top" trigger-display="contents">
     <button
       type="button"
       class="toolbar-btn toolbar-btn--delete"
-      title="取消选区"
+      aria-label="取消选区"
       @click="$emit('clear')"
     >
       <svg
@@ -47,12 +49,14 @@
         <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
       </svg>
     </button>
+    </BaseTooltip>
   </CanvasToolbar>
 </template>
 
 <script setup lang="ts">
   import { computed } from 'vue'
 
+  import BaseTooltip from './common/BaseTooltip.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
 
   const props = defineProps<{

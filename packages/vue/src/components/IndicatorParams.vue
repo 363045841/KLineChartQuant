@@ -8,17 +8,18 @@
     @close="$emit('close')"
   >
     <template #header-extra>
-      <button
-        type="button"
-        class="toggle-desc-btn"
-        :class="{ active: showDescription }"
-        title="显示/隐藏说明"
-        aria-label="显示或隐藏参数说明"
-        :aria-pressed="showDescription"
-        @click="showDescription = !showDescription"
-      >
-        <IconTablerInfoCircle aria-hidden="true" />
-      </button>
+      <BaseTooltip content="显示/隐藏说明" placement="bottom">
+        <button
+          type="button"
+          class="toggle-desc-btn"
+          :class="{ active: showDescription }"
+          aria-label="显示或隐藏参数说明"
+          :aria-pressed="showDescription"
+          @click="showDescription = !showDescription"
+        >
+          <IconTablerInfoCircle aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </template>
 
     <Transition name="slide">
@@ -99,6 +100,7 @@
 
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
 
   interface ParamConfig {
     key: string

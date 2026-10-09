@@ -26,31 +26,41 @@
     >
       <div class="color-picker__heading">常用颜色</div>
       <div class="color-picker__grid" role="group" aria-label="常用颜色">
-        <button
+        <BaseTooltip
           v-for="color in commonColors"
           :key="color.token"
-          type="button"
-          class="color-picker__swatch"
-          :style="{ backgroundColor: `var(--klc-color-${color.token})` }"
-          :aria-label="color.label"
-          :title="color.label"
-          @click="selectCommon"
-        ></button>
+          :content="color.label"
+          placement="top"
+          trigger-display="contents"
+        >
+          <button
+            type="button"
+            class="color-picker__swatch"
+            :style="{ backgroundColor: `var(--klc-color-${color.token})` }"
+            :aria-label="color.label"
+            @click="selectCommon"
+          ></button>
+        </BaseTooltip>
       </div>
       <template v-if="customColors.length">
         <div class="color-picker__heading">自定义颜色</div>
         <div class="color-picker__grid" role="group" aria-label="自定义颜色">
-          <button
+          <BaseTooltip
             v-for="color in customColors"
             :key="color"
-            type="button"
-            class="color-picker__swatch"
-            :style="{ backgroundColor: color }"
-            :aria-label="color"
-            :title="color"
-            :aria-pressed="modelValue === color"
-            @click="select(color)"
-          ></button>
+            :content="color"
+            placement="top"
+            trigger-display="contents"
+          >
+            <button
+              type="button"
+              class="color-picker__swatch"
+              :style="{ backgroundColor: color }"
+              :aria-label="color"
+              :aria-pressed="modelValue === color"
+              @click="select(color)"
+            ></button>
+          </BaseTooltip>
         </div>
       </template>
       <div
@@ -91,6 +101,7 @@
 <script setup lang="ts">
   import { useColorPicker } from './color-picker/impl/useColorPicker.js'
   import type { ColorPickerProps } from './color-picker/types.js'
+  import BaseTooltip from './common/BaseTooltip.vue'
 
   const props = defineProps<ColorPickerProps>()
   const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
