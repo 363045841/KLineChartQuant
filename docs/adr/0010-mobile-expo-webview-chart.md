@@ -34,6 +34,34 @@ Expo 已提供 DOM components（`'use dom'`）：同一个 React DOM 组件在�
 - 记录冷启动到首帧时间、常驻内存、指令往返延迟，作为 P7 基线。
 - 验证 WebGPU 在 iOS WKWebView / Android WebView 上的实际可用性；不可用时由 `rendererCapability` 降级到 WebGL2 / Canvas2D。
 
+## Spike 结果（2026-10-09，`packages/mobile`）
+
+在本机 iOS 26.5 模拟器（iPhone 17 Pro）、Expo Go SDK 57、Metro 开发模式下，图表在 DOM component 内完成挂载、渲染与交互接线。设置 `EXPO_PUBLIC_KCQ_AUTOBENCH=1` 后自动输出一行 `[kcq-bench]` JSON：
+
+| 指标 | 结果 | 说明 |
+|---|---|---|
+| 空闲帧率 / 缩放压测最低帧率 | 59 / 60 FPS | 5,000 根 K 线；模拟器不代表真机 GPU |
+| 桥往返 P50 | 0.5 ms（10 次 0.4–9.2 ms） | `useDOMImperativeHandle` → native action |
+| WebView 挂载 / 冷启动 | 2.5–3.8 s / 4.3–5.5 s | 开发模式、未压缩、经 Metro 加载，不代表发布构建 |
+| 渲染后端 | WebGL（WebGPU 探测到但不可用，按设计降级） | 可用 `EXPO_PUBLIC_KCQ_RENDERER` 强制对比 |
+| DOM bundle | 2.1 MB，gzip 463 KB | 使用 `klinechart-react/direct` 后 |
+| 堆内存 | WKWebView 不提供 `performance.memory` | iOS 需用 Instruments 测量 |
+
+真机 60 FPS、内存与发布构建冷启动仍待测量，退出标准未关闭。
+
+### Spike 中发现并已处理的问题
+
+| 问题 | 处理 |
+|---|---|
+| 直连挂载在真实浏览器中布局错乱、WebKit 首帧画布高度为 0、二次打开数据被恢复的布局清空 | Core 修复，见 ADR 0009 |
+| `import.meta.env.DEV` 在非 Vite 打包器中抛错 | Core 改为 `import.meta.env?.DEV` |
+| Metro 不做 tree-shaking，React 入口带入整套 Vue UI（14.5 MB） | 新增 `klinechart-react/direct` |
+| `babel-preset-expo` 的 WebView 配置以 `{ loose, useBuiltIns }` 降级对象展开，输出裸 `Object.assign`，被 typebox 导入的 `Object` 遮蔽 | 应用 `babel.config.js` 以严格模式先行转换对象展开 |
+| 根目录 Babel 8 被 Expo 的 Babel 7 插件解析为 peer | 应用声明 `@babel/core@^7` |
+| 工作区包带入第二份 React / `@types/react` | `metro.config.js` 固定运行时 React；`tsconfig` `paths` 统一类型并关闭 `experiments.tsconfigPaths` |
+| `expo export` 时 DOM component 的异步分块找不到（Expo CLI 先改名为 md5 再生成 HTML） | 导出检查使用 `EXPO_NO_BUNDLE_SPLITTING=1`；原生发布构建本就不拆分 |
+| Expo Go 在 `--no-dev` 下不加载 DOM component 资源 | 发布性能需用 development/release build 测量 |
+
 ## Consequences
 
 - 移动端 UI（Expo Router + React Native 组件）与桌面 UI 是两套实现；图表行为、配置模型、Agent 原语共享 Core。
