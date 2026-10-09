@@ -1,9 +1,9 @@
 /**
  * setup-backends.mjs
  *
- * 一次性安装数据源后端：将 GoTDX-Connector（gotdx / binance）、Baostock-Tradingview-Connector
- * （baostock / tradingview）与 KCQ-MT5-connector（mt5）克隆到本仓库的同级目录，供
- * `pnpm dev -c <name>` / `pnpm connector <name>` 直接使用。
+ * 一次性安装数据源后端：将 GoTDX-Connector（gotdx）、Binance-Connector（binance）、
+ * Baostock-Tradingview-Connector（baostock / tradingview）与 KCQ-MT5-connector（mt5）克隆到
+ * 本仓库的同级目录，供 `pnpm dev -c <name>` / `pnpm connector <name>` 直接使用。
  * 幂等：目标目录已存在时跳过克隆，不会重复拉取。
  *
  * 用法：
@@ -28,6 +28,12 @@ const BACKENDS = [
     purpose: 'gotdx（通达信）行情后端，tdx-api 默认端口 8080，启动命令：`pnpm dev -c gotdx`',
   },
   {
+    name: 'Binance-Connector',
+    repo: 'https://github.com/363045841/Binance-Connector.git',
+    purpose:
+      'Binance 现货行情后端：K 线、真实逐笔成交与历史归档，供足迹图使用，默认端口 8091，启动命令：`pnpm dev -c binance`',
+  },
+  {
     name: 'Baostock-Tradingview-Connector',
     repo: 'https://github.com/363045841/Baostock-Tradingview-Connector.git',
     purpose:
@@ -45,6 +51,7 @@ const BACKENDS = [
 const COMMANDS = [
   { command: 'pnpm dev -c all', comment: '# Vite 开发服务器 + 全部 connector（不含 mt5）' },
   { command: 'pnpm dev -c gotdx baostock', comment: '# 前端 + 指定的 connector' },
+  { command: 'pnpm connector binance', comment: '# 仅 Binance 现货行情后端（K 线 / 逐笔成交）' },
   { command: 'pnpm connector baostock', comment: '# 仅 BaoStock / TradingView 后端' },
   {
     command: 'pnpm connector mt5',
