@@ -47,6 +47,8 @@ function Chart({ data }: { data: KLineData[] }) {
 }
 ```
 
+Bundlers that do not tree-shake (Metro, Expo DOM components) should import from `@363045841yyt/klinechart-react/direct`, which omits the Web Component and its Vue UI. The host element must have a definite size; the chart fills it.
+
 `useKLineChart(containerRef, options)` is the same mount as a hook, for hosts that own the container element. It reads `containerRef.current` once after the first render, so render the container unconditionally.
 
 For full setup including the data backend, see the [root README]{{root}}README.md).

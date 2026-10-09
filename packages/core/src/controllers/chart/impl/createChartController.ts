@@ -147,13 +147,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   } catch {
     /* tolerate jsdom */
   }
-  if (opts.data && opts.data.length > 0) {
-    try {
-      chart.setData([...opts.data])
-    } catch {
-      /* tolerate first-paint racing */
-    }
-  }
   if (opts.symbols && opts.symbols.length > 0) {
     chart.setSymbols([opts.symbols[0]!])
     if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
@@ -191,6 +184,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
   })
   await layoutManager.initialize()
+  // 宿主显式传入的数据优先于恢复的布局：在布局恢复之后写入，否则恢复出的空品种
+  // （内联数据保存的布局没有 currentSymbol）会经 setSymbols([]) 清空这批数据。
+  if (opts.data && opts.data.length > 0) {
+    try {
+      chart.setData([...opts.data])
+    } catch (error) {
+      // 不中断挂载，但必须可见：静默吞掉会让宿主拿到一张没有数据的空图。
+      console.warn('[createChartController] initial setData failed', error)
+    }
+  }
   const layoutSubscriptions = [
     chart.kernel.dataManager.readonly.currentSpec,
     chart.kernel.indicator.readonly.workspaces,

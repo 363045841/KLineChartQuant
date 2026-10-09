@@ -33,7 +33,8 @@ React 包同时提供两个层级，`KLineChartWC` 保持不变：
 
 ## Consequences
 
-- v1.1 验收标准「React 直接使用 Core，无 Vue 运行时依赖」在**打包层面**达成：只用 `KLineChart` 的宿主不会打入 Vue（`sideEffects: false`，WC 为动态导入）。**安装层面**仍会装上 Vue 包，因为它是 `dependencies`；改为可选 peer 属于破坏性变更，留到下一个 minor。
+- v1.1 验收标准「React 直接使用 Core，无 Vue 运行时依赖」：做 tree-shaking 的打包器（Vite、webpack、Next）只用 `KLineChart` 时不会打入 Vue。Metro 不做 tree-shaking，会顺着 `KLineChartWC` 的动态导入把整套 Vue UI 和字体打进产物（P3 实测 14.5 MB），因此另设 `@363045841yyt/klinechart-react/direct` 入口，只含直连挂载。**安装层面**仍会装上 Vue 包，因为它是 `dependencies`；改为可选 peer 属于破坏性变更，留到下一个 minor。
+- 直连挂载依赖 Core 自建的 DOM 骨架（`buildDom`）。P3 发现该路径此前从未在真实浏览器中渲染验证：缺少 Vue 组件 CSS 对应的布局、WebKit 首帧不布局 pane、恢复的布局会清空挂载数据。三处已修复，并由 `createChartController.directMount.test.ts` 覆盖；`packages/react/preview/direct.html` 用于人工核对。宿主需提供有确定尺寸的容器。
 - 输入接线由 ADR 0008 P1b 的 `bindChartInput` 提供，与 Vue 组件共用；宿主可通过 `input` 选项注入拦截钩子，或传 `false` 自行转发事件。
 - `adapter-architecture.md` §5.2 更新为实际 API。
 - 如果 owner 仍倾向 v0.10.4 的单一 WC 路线，可以只合入 ADR、不合入代码；代码是纯增量，回滚即删除新文件和导出。
