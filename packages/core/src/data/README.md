@@ -6,7 +6,7 @@
 
 图表渲染层需要"窗口内有什么数据"，而不应关心数据从哪来、怎么拉、失败了怎么办。数据层把这些问题收敛到一处：
 
-1. 屏蔽多数据源（gotdx / BaoStock / TradingView / Mock）的协议差异。
+1. 屏蔽多数据源（gotdx / Binance / BaoStock / TradingView / Mock）的协议差异。
 2. 通过图表实例级内存缓存统一增量加载与缓存合并，避免滚动与 Agent 重复拉取。
 3. 在缓存层统一处理分页、重试、错误和加载状态。
 4. 让图表运行时只通过统一 Provider 取数，避免第二套 Fetcher 契约。
@@ -17,11 +17,11 @@
 data/
 ├── index.ts          # 数据层公共出口：re-export 各子模块，副作用注册内置数据源
 ├── buffer/           # 行情缓存：契约 types.ts + 实现 impl/
-├── depth/            # 深度数据：契约 types.ts + 实现 impl/（binance SSE + 热力图连接器）
+├── depth/            # 深度数据：契约 types.ts + 实现 impl/（DepthSource 连接器；Binance 适配器待接入）
 └── provider/         # 统一行情 Provider 体系：契约 types.ts + 实现 impl/
     ├── types.ts          # 领域模型 + 注册表 / Router 契约：InstrumentDescriptor / BarSeries / MarketDataProvider / SourceCapabilityQuery 等
     ├── impl/             # 实现：registry / router / instrumentSearch / sourceRegistry
-    ├── impl/sources/     # 各数据源装配：gotdx / baostock / tradingview / mock 的 Provider 实例 + 注册
+    ├── impl/sources/     # 各数据源装配：gotdx / binance / baostock / tradingview / mock 的 Provider 实例 + 注册
     └── protocol/         # wire 契约：types.ts + 实现 impl/（envelope、HTTP transport、通用 Provider 装配器）
 ```
 
@@ -42,9 +42,9 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 
 盘口订单簿数据，与 K 线/分时无关的独立领域。
 
-- `impl/binance.ts`：Binance SSE 深度源。
-- `impl/depthConnector.ts`：连接深度源与热力图渲染的控制器。
-- `types.ts`：深度领域类型。
+- `types.ts`：深度领域类型（`DepthSource` / `DepthSnapshot` / `DepthDelta`）。
+- `impl/depthConnector.ts`：连接 `DepthSource` 与热力图渲染的控制器。
+- Binance 实时盘口适配器待接入 `Binance-Connector` 的深度接口；旧的 GoTDX `:8081` SSE 适配器已移除。
 
 ### provider/ — 统一行情 Provider 体系
 
@@ -53,7 +53,7 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 - `impl/registry.ts`：Provider 注册表 + 运行时配置（`enabled` / `baseUrl`），聚合源面板写入此处的配置。
 - `impl/sourceRegistry.ts`：数据源静态元数据，作为注册表与 UI 展示的单一事实来源。
 - `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`impl/httpTransport.ts`（HTTP 实现）、`impl/provider.ts`（`createMarketDataProvider` 通用装配器）。
-- `impl/sources/`：各数据源 Provider 装配与注册（gotdx / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
+- `impl/sources/`：各数据源 Provider 装配与注册（gotdx / binance / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
 #### 协议接口
 
 `provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataTransport`），任何后端实现该契约即可接入。HTTP 实现位于 `impl/httpTransport.ts`，请求统一包装为 `ProtocolEnvelope<T>`，失败时返回 `ProtocolErrorEnvelope`。协议名 `market-data-v1`，版本 1。

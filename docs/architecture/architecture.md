@@ -165,7 +165,8 @@ flowchart TB
   通过 `VITE_GOTDX_API_BASE_URL` 等配置连接外部后端。
 - `trades/`：逐笔成交领域：`TradeBuffer`（去重 + 已验证覆盖）与 `TradeDataSource`（历史 / 实时），
   价格与数量走定点 `decimal`，供足迹图按 K 线边界聚合。
-- `depth/binance.ts`：币安 L2 订单簿 + SSE 深度流（:8081）。
+- `depth/`：`DepthSource` → `DepthConnector` → `HeatmapController` 管线；Binance 实时盘口
+  适配器待接入 `Binance-Connector` 的深度接口（旧的 GoTDX `:8081` SSE 适配器已移除）。
 
 ### 3.5 渲染管线
 
@@ -234,15 +235,14 @@ flowchart TB
 | 后端 | 路径 | 端口 | 作用 |
 |---|---|---|---|
 | GoTDX-Connector | 同级 `GoTDX-Connector/` | `8080` | gotdx 通达信：A 股 / 期货 / MAC K 线 |
-| GoTDX-Connector | 同级 `GoTDX-Connector/` | `8081` | 币安 L2 订单簿 + SSE 深度（Heatmap 盘口） |
-| Binance-Connector | 同级 `Binance-Connector/` | `8091` | Binance 现货 K 线、真实逐笔成交（足迹图）与 L2 深度 |
+| Binance-Connector | 同级 `Binance-Connector/` | `8091` | Binance 现货 K 线与真实逐笔成交（足迹图） |
 | Baostock-Tradingview-Connector | 同级 `Baostock-Tradingview-Connector/` | `8000` | BaoStock A 股 + TradingView 全球品种 |
 | KCQ-MT5-connector | 同级 `KCQ-MT5-connector/` | `8090` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD + SSE 实时 K 线（Windows） |
 
 前端对接代码：`packages/core/src/data/provider/impl/sources/gotdx.ts`、
 `packages/core/src/data/provider/impl/sources/binance.ts`、`packages/core/src/data/provider/impl/sources/mt5.ts`、
-`packages/core/src/data/live/impl/barsLive.ts`、`packages/core/src/data/trades/impl/tradeSource.ts`、
-`packages/core/src/data/depth/impl/binance.ts`。Vite 开发代理 `/api/public` → `:8080`、
+`packages/core/src/data/live/impl/barsLive.ts`、`packages/core/src/data/trades/impl/tradeSource.ts`。
+Vite 开发代理 `/api/public` → `:8080`、
 `/api/stock` → `:8000`；Binance 前端直连 `Binance-Connector` 的 `:8091`（不经 Vite 代理）。
 `pnpm setup:backends` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
 （`mt5` 依赖 Windows + 本机 MT5 终端，不纳入 `all`，需显式 `pnpm connector mt5` / `pnpm dev -c mt5`）。
