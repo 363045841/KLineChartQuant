@@ -124,12 +124,6 @@
               'chart-container--axis-left': chartMode !== 'timeshare' && priceAxisPosition === 'left',
               'chart-container--dual-axis': chartMode === 'timeshare',
             }"
-            @pointerdown="onPointerDown"
-            @pointermove="onPointerMove"
-            @pointerup="onPointerUp"
-            @pointerleave="onPointerLeave"
-            @pointercancel="onPointerCancel"
-            @lostpointercapture="onLostPointerCapture"
             @dblclick="onDoubleClick"
             @contextmenu.prevent
           >
@@ -290,12 +284,6 @@
             class="right-axis-host"
             :class="{ 'price-axis-host--left': chartMode !== 'timeshare' && priceAxisPosition === 'left' }"
             :style="{ width: axisHostWidth + 'px' }"
-            @pointerdown="onRightAxisPointerDown"
-            @pointermove="onRightAxisPointerMove"
-            @pointerup="onRightAxisPointerUp"
-            @pointerleave="onRightAxisPointerLeave"
-            @pointercancel="onRightAxisPointerCancel"
-            @lostpointercapture="onRightAxisLostPointerCapture"
             @contextmenu.prevent
           >
             <div
@@ -382,6 +370,7 @@
     type SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
   import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
+  import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     type InstrumentDescriptor,
     searchInstruments,
@@ -1377,54 +1366,65 @@
     handleDrawingToolSelect(toolId)
   }
 
-  function onPointerDown(e: PointerEvent) {
-    if (e.target instanceof HTMLCanvasElement) containerRef.value?.focus({ preventScroll: true })
-    // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
-    drawingDragCursor =
-      e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
-    controller.value?.handlePointerEvent(e, {
+  // DOM 接线由 Core bindChartInput 统一负责；这里只提供画线、区间选择拦截与宿主侧状态。
+  let disposeChartInput: (() => void) | null = null
+
+  const chartInputHooks: ChartInputHooks = {
+    beforePointer(e) {
+      switch (e.type) {
+        case 'pointerdown':
+          if (e.target instanceof HTMLCanvasElement) {
+            containerRef.value?.focus({ preventScroll: true })
+          }
+          // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
+          drawingDragCursor =
+            e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
+          return true
+        case 'pointermove': {
+          const container = containerRef.value
+          if (!container) return true
+          const rect = getContainerRect(container)
+          mousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          }
+          if (hoveredMarker.value || hoveredCustomMarker.value) positionDefaultMarkerTooltip()
+          if (!isEditingLineLabel.value) {
+            lineLabelTarget.value =
+              drawingController.value?.getLineLabelTarget(e, container) ?? null
+          }
+          return true
+        }
+        case 'pointerleave': {
+          const related = e.relatedTarget as Node | null
+          if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
+            return false
+          }
+          if (!isEditingLineLabel.value) lineLabelTarget.value = null
+          drawingDragCursor = null
+          return true
+        }
+        case 'pointercancel':
+        case 'lostpointercapture':
+          drawingDragCursor = null
+          return true
+        default:
+          return true
+      }
+    },
+    intercept: {
       onPointerDown: (event, container) => {
         if (handleRangePointerDown(event, container)) {
           drawingDragCursor = null
           return true
         }
-        if (drawingController.value?.onPointerDown(event, container)) {
-          return true
-        }
-        return false
+        return Boolean(drawingController.value?.onPointerDown(event, container))
       },
-    })
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    const container = containerRef.value
-    if (container) {
-      const rect = getContainerRect(container)
-      mousePos = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      }
-      if (hoveredMarker.value || hoveredCustomMarker.value) positionDefaultMarkerTooltip()
-      if (!isEditingLineLabel.value) {
-        lineLabelTarget.value = drawingController.value?.getLineLabelTarget(e, container) ?? null
-      }
-    }
-    controller.value?.handlePointerEvent(e, {
       onPointerMove: (event, container) => {
-        if (handleRangePointerMove(event, container)) {
-          return true
-        }
-        if (drawingController.value?.onPointerMove(event, container)) {
-          // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
-          return true
-        }
-        return false
+        if (handleRangePointerMove(event, container)) return true
+        // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
+        return Boolean(drawingController.value?.onPointerMove(event, container))
       },
-    })
-  }
-
-  function onPointerUp(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e, {
       onPointerUp: (event, container) => {
         if (handleRangePointerUp(event, container)) {
           drawingDragCursor = null
@@ -1436,29 +1436,11 @@
         }
         return false
       },
-    })
-    // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
-    drawingDragCursor = null
-  }
-
-  function onPointerLeave(e: PointerEvent) {
-    const related = e.relatedTarget as Node | null
-    if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
-      return
-    }
-    if (!isEditingLineLabel.value) lineLabelTarget.value = null
-    drawingDragCursor = null
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onPointerCancel(e: PointerEvent) {
-    drawingDragCursor = null
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onLostPointerCapture(e: PointerEvent) {
-    drawingDragCursor = null
-    controller.value?.handlePointerEvent(e)
+    },
+    afterPointer(e) {
+      // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
+      if (e.type === 'pointerup') drawingDragCursor = null
+    },
   }
 
   function onDoubleClick(e: MouseEvent) {
@@ -1501,30 +1483,6 @@
     emit('kLineLevelChange', 'timeshare')
   }
 
-  function onRightAxisPointerDown(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerMove(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerUp(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerLeave(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerCancel(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisLostPointerCapture(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
   // ── Width / Zoom / Expose ──
   const effectiveRightAxisWidth = ref(0)
   const axisHostWidth = computed(() =>
@@ -1560,14 +1518,6 @@
   // ── Lifecycle Setup ──
 
   let cleanupChartCallbacks: (() => void) | null = null
-
-  function setupWheelHandler(): (e: WheelEvent) => void {
-    const onWheelHandler = (e: WheelEvent) => {
-      e.preventDefault()
-      controller.value?.handleWheelEvent(e)
-    }
-    return onWheelHandler
-  }
 
   function initChart(
     container: HTMLDivElement,
@@ -1847,12 +1797,7 @@
     const chartMain = chartMainRef.value
     if (!container || !chartMain) return
 
-    // 1) 滚轮缩放处理
-    const onWheelHandler = setupWheelHandler()
-    // 绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
-    chartMain.addEventListener('wheel', onWheelHandler, { passive: false })
-
-    // 2) 创建 Chart 控制器（使用模板 DOM 元素）
+    // 1) 创建 Chart 控制器（使用模板 DOM 元素）
     const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
     const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
     const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
@@ -1869,6 +1814,16 @@
       return
     }
     controller.value = ctrl
+    // 2) 输入接线：绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
+    disposeChartInput = bindChartInput(
+      ctrl,
+      {
+        surface: container,
+        wheelTarget: chartMain,
+        axisTargets: rightAxisLayer ? [rightAxisLayer] : [],
+      },
+      chartInputHooks,
+    )
     emit('controllerReady', ctrl)
 
     // controllerReady 监听可能同步卸载组件；DOM ref 被清空后继续接线会在已销毁实例上遗留订阅。
@@ -1898,6 +1853,8 @@
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
     onFullscreenChange = null
+    disposeChartInput?.()
+    disposeChartInput = null
     cleanupChartCallbacks?.()
     cleanupChartCallbacks = null
     _markerTooltipRO?.disconnect()

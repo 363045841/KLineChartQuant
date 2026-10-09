@@ -1,9 +1,17 @@
 /**
  * @klinechart-quant/core/input — framework-agnostic input layer.
  *
- * Shipping module: {@link createShortcutRegistry}. See `./keyboard.ts`
- * for the design notes.
+ * Shipping modules: {@link createShortcutRegistry} (see `./keyboard.ts`)
+ * and {@link bindChartInput}, the DOM binding every framework adapter shares.
  */
+
+export {
+  bindChartInput,
+  type ChartInputController,
+  type ChartInputDisposer,
+  type ChartInputHooks,
+  type ChartInputTargets,
+} from './bindChartInput.js'
 
 export {
   createGestureRecognizer,
