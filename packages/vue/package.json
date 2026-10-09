@@ -100,6 +100,7 @@
     "dompurify": "^3.4.15",
     "html-to-image": "^1.11.13",
     "markdown-it": "^15.0.0",
-    "pinia": "^4.0.3"
+    "pinia": "^4.0.3",
+    "reka-ui": "2.11.0"
   }
 }
