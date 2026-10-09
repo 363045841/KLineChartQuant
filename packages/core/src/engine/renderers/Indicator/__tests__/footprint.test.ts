@@ -62,7 +62,6 @@ describe('Footprint Layer', () => {
       }),
     )
     expect(ctx.fillRect).toHaveBeenCalledWith(100, 190, 25, 10)
-    expect(ctx.strokeRect).toHaveBeenCalled()
   })
 
   it.each([1, 1.25, 1.5, 2, 3])(

@@ -22,16 +22,6 @@ export const TRADE_MESSAGES = Object.freeze({
   unsupportedRaw: '当前品种不支持原始逐笔成交',
 })
 
-/** 状态兜底文案：仅当快照未携带具体 message 时用于展示。 */
-export const TRADE_STATUS_LABEL: Readonly<Record<TradeStatus, string>> = Object.freeze({
-  idle: '',
-  loading: '足迹成交加载中',
-  ready: '',
-  gap: '足迹成交存在缺口',
-  error: '足迹成交加载失败',
-  unsupported: TRADE_MESSAGES.unsupportedRaw,
-})
-
 export interface MarketTrade {
   readonly tradeId: string
   readonly timestamp: number

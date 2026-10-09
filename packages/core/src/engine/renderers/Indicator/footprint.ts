@@ -1,9 +1,12 @@
 /** Footprint 标准指标定义及 Layer；复用帧柱中心、价格轴和 token 配色，不创建第二套画布。 */
 import { createFootprintCalculator } from '@/components/footprint/impl/calculateFootprint.js'
 import type { FootprintCell, FootprintRenderState } from '@/components/footprint/types.js'
-import { TRADE_STATUS_LABEL } from '@/data/trades/types.js'
 import { Indicator } from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import { IndicatorKind, readIndicatorSeriesEntry } from '@/engine/indicators/indicatorMetadata.js'
+import {
+  type GetTitleInfoFn,
+  IndicatorKind,
+  readIndicatorSeriesEntry,
+} from '@/engine/indicators/indicatorMetadata.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { getFont } from '@/foundation/tokens/fonts.js'
@@ -102,12 +105,6 @@ function createFootprintLayer(
       )
       const footprintColors = colors.footprintCell
       ctx.save()
-      ctx.font = getFont(10)
-      const message = state.series.message ?? TRADE_STATUS_LABEL[state.series.status]
-      if (message) {
-        ctx.fillStyle = colors.referenceLine.neutral
-        ctx.fillText(message, 8, 16)
-      }
       for (let index = start; index < end; index++) {
         const bar = state.series.bars[index]
         const visibleIndex = index - range.start
@@ -221,12 +218,6 @@ function createFootprintLayer(
           ctx.fillText(label.ask, x + 2, label.y)
         }
         ctx.textBaseline = 'alphabetic'
-        if (!bar.complete) {
-          ctx.strokeStyle = colors.referenceLine.neutral
-          ctx.setLineDash([2, 2])
-          ctx.strokeRect(x - width / 2, 2, width, 6)
-          ctx.setLineDash([])
-        }
         if (width >= MIN_LABEL_COLUMN_WIDTH && Number.isFinite(lowestVisibleY)) {
           // Delta 只跟随柱脚自然位置绘制；柱脚移出可视区后不再吸附到 pane 底部。
           const summaryY = lowestVisibleY + SUMMARY_OFFSET
@@ -255,6 +246,12 @@ function compactValue(value: string): string {
   return valueFormatter.format(Number(value))
 }
 
+/** 图例标题：只声明身份与参数，足迹的逐柱数值留在画布，不进入标题行。 */
+const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
+  name: '足迹图',
+  params: [params.ticksPerRow as number, params.imbalanceRatio as number],
+})
+
 @Indicator({
   name: 'footprint',
   displayName: 'Footprint',
@@ -262,6 +259,7 @@ function compactValue(value: string): string {
   category: 'main',
   indicatorType: 'volume',
   defaultPaneId: 'main',
+  getTitleInfo: getFootprintTitleInfo,
   runtime: {
     inputs: ['trades'],
     defaultParams: { ticksPerRow: 300, imbalanceRatio: 3 },
