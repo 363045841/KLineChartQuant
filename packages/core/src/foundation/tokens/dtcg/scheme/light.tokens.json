@@ -1,0 +1,1207 @@
+{
+  "$description": "Pro light scheme: the base values every preset starts from. Mirrors theme-light.ts and interface-colors.ts.",
+  "light": {
+    "interface": {
+      "$description": "图表、工具栏与 Agent 共用的冷黑界面配色；控件轻填充，行情与指标承担主要色彩。",
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9608, 0.9608, 0.9686], "hex": "#F5F5F7" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9882], "hex": "#FAFAFC" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "controlBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.898, 0.898, 0.9176], "hex": "#E5E5EA" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8627, 0.8627, 0.8824], "hex": "#DCDCE1" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9255, 0.9255, 0.9373], "hex": "#ECECEF" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8471, 0.8471, 0.8706], "hex": "#D8D8DE" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7216, 0.7216, 0.7451], "hex": "#B8B8BE" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1412, 0.1412, 0.149], "hex": "#242426" }
+      },
+      "textSoft": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4627, 0.4627, 0.4863], "hex": "#76767C" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.3765, 0.4], "hex": "#606066" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3216, 0.3804, 0.4824], "hex": "#52617B" }
+      },
+      "accentStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2549, 0.3059, 0.4], "hex": "#414E66" }
+      },
+      "focus": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3216, 0.3804, 0.4824], "hex": "#52617B" }
+      },
+      "warningBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 0.9725, 0.9098], "hex": "#FFF8E8" }
+      },
+      "warningBorder": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8235, 0.6039, 0.2275], "hex": "#D29A3A" }
+      },
+      "warningText": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6784, 0.4549, 0.0784], "hex": "#AD7414" }
+      },
+      "warningStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6, 0.3882, 0.0667], "hex": "#996311" }
+      },
+      "dangerBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 0.9451, 0.9451], "hex": "#FFF1F1" }
+      },
+      "dangerBorder": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8353, 0.4157, 0.4157], "hex": "#D56A6A" }
+      },
+      "dangerText": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7765, 0.2471, 0.2471], "hex": "#C63F3F" }
+      },
+      "success": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0863, 0.5333, 0.3529], "hex": "#16885A" }
+      },
+      "warning": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7725, 0.5412, 0.102], "hex": "#C58A1A" }
+      },
+      "danger": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8196, 0.2941, 0.2941], "hex": "#D14B4B" }
+      },
+      "neutral": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4627, 0.4627, 0.4863], "hex": "#76767C" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "secondaryButtonText": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.3765, 0.4], "hex": "#606066" }
+      }
+    },
+    "color": {
+      "$description": "Light theme — concrete token values.\n\nColor choices:\n\n  - Bull (up) = a saturated green (#089981). Clears the WCAG AA non-text\n    threshold (≥ 3:1) against #FAFAFA at 3.42:1.\n  - Bear (down) = a saturated red (#f23645). Clears the same threshold at\n    3.73:1.\n  - Background = #FAFAFA (slightly off-white, kinder to eyes than pure\n    #FFFFFF for long sessions).\n  - Grid major / minor split: major lines for round-number price tiers,\n    minor for between-tier rhythm. Both very low contrast (1.3:1, 1.1:1)\n    so they don't dominate.\n\nIndicator palette: ten qualitatively distinct hues using the Okabe-Ito\ncolorblind-safe set (extended to ten by adding three desaturated mids).\nEach WCAG AA against the background (>= 3:1 for non-text).",
+      "background": { "$type": "color", "$value": "{light.interface.background}" },
+      "foreground": { "$type": "color", "$value": "{light.interface.text}" },
+      "chartBackground": { "$type": "color", "$value": "{light.interface.background}" },
+      "floatingSurface": { "$type": "color", "$value": "{light.interface.surface}" },
+      "candleUpBody": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0314, 0.6, 0.5059], "hex": "#089981" }
+      },
+      "candleUpBorder": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0314, 0.6, 0.5059], "hex": "#089981" }
+      },
+      "candleUpWick": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0314, 0.6, 0.5059], "hex": "#089981" }
+      },
+      "candleDownBody": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.949, 0.2118, 0.2706], "hex": "#f23645" }
+      },
+      "candleDownBorder": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.949, 0.2118, 0.2706], "hex": "#f23645" }
+      },
+      "candleDownWick": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.949, 0.2118, 0.2706], "hex": "#f23645" }
+      },
+      "candleDojiBorder": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4314, 0.4314, 0.4314], "hex": "#6E6E6E" }
+      },
+      "performancePositive": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0431, 0.4784, 0.3137], "hex": "#0B7A50" }
+      },
+      "performanceNegative": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7608, 0.2118, 0.2314], "hex": "#C2363B" }
+      },
+      "performanceNeutral": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3529, 0.3529], "hex": "#5A5A5A" }
+      },
+      "volumeUp": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0588, 0.5451, 0.3608],
+          "alpha": 0.4,
+          "hex": "#0F8B5C"
+        },
+        "$description": "40% alpha — paired with candleUp"
+      },
+      "volumeDown": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.7608, 0.2118, 0.2314],
+          "alpha": 0.4,
+          "hex": "#C2363B"
+        }
+      },
+      "volumeNeutral": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.4, "hex": "#000000" }
+      },
+      "axisText": { "$type": "color", "$value": "{light.interface.muted}" },
+      "axisLine": { "$type": "color", "$value": "{light.interface.border}" },
+      "axisTick": { "$type": "color", "$value": "{light.interface.border}" },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.898, 0.898, 0.898], "hex": "#E5E5E5" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9412, 0.9412], "hex": "#F0F0F0" }
+      },
+      "crosshairLine": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.549, 0.549, 0.549], "hex": "#8C8C8C" }
+      },
+      "crosshairLabelBg": { "$type": "color", "$value": "{light.interface.text}" },
+      "crosshairLabelText": { "$type": "color", "$value": "{light.interface.background}" },
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1765, 0.498, 0.9765],
+          "alpha": 0.2,
+          "hex": "#2D7FF9"
+        }
+      },
+      "selectionStroke": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1765, 0.498, 0.9765], "hex": "#2D7FF9" }
+      },
+      "tooltipBg": { "$type": "color", "$value": "{light.interface.surface}" },
+      "tooltipText": { "$type": "color", "$value": "{light.interface.text}" },
+      "tooltipBorder": { "$type": "color", "$value": "{light.interface.border}" },
+      "heatmapColdest": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9569, 0.9725], "hex": "#F0F4F8" }
+      },
+      "heatmapHottest": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1216, 0.2275, 0.3725], "hex": "#1F3A5F" }
+      },
+      "volumeProfileFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.6118, 0.6392, 0.6863],
+          "alpha": 0.4,
+          "hex": "#9CA3AF"
+        }
+      },
+      "volumeProfilePoc": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9765, 0.451, 0.0863], "hex": "#F97316" }
+      },
+      "volumeProfileValueArea": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1765, 0.498, 0.9765],
+          "alpha": 0.2,
+          "hex": "#2D7FF9"
+        }
+      },
+      "footprintAsk": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0588, 0.5451, 0.3608],
+          "alpha": 0.502,
+          "hex": "#0F8B5C"
+        }
+      },
+      "footprintBid": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.7608, 0.2118, 0.2314],
+          "alpha": 0.502,
+          "hex": "#C2363B"
+        }
+      },
+      "footprintImbalance": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9765, 0.451, 0.0863], "hex": "#F97316" }
+      },
+      "alertActive": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1765, 0.498, 0.9765], "hex": "#2D7FF9" }
+      },
+      "alertTriggered": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.7608, 0.2549, 0.0471],
+          "hex": "#C2410C"
+        },
+        "$description": "alertTriggered: orange #F97316 was 2.69:1 on white (fails AA\nnon-text). Darkened to #C2410C → 4.13:1."
+      },
+      "alertMuted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6118, 0.6392, 0.6863], "hex": "#9CA3AF" }
+      },
+      "avwapLine": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4863, 0.2275, 0.9294], "hex": "#7C3AED" }
+      },
+      "avwapBand": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.4863, 0.2275, 0.9294],
+          "alpha": 0.2,
+          "hex": "#7C3AED"
+        }
+      },
+      "mtfOverlay": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0118, 0.4118, 0.6314],
+          "hex": "#0369A1"
+        },
+        "$description": "mtfOverlay: sky #0EA5E9 was 2.66:1 on white. Darkened to\n#0369A1 → 4.59:1."
+      },
+      "timeSharePriceLine": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2902, 0.5647, 0.851], "hex": "#4A90D9" }
+      },
+      "timeShareAvgLine": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9608, 0.651, 0.1373], "hex": "#F5A623" }
+      },
+      "timeShareAreaUp": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0588, 0.5451, 0.3608],
+          "alpha": 0.15,
+          "hex": "#0F8B5C"
+        },
+        "$extensions": { "io.github.363045841.kcq": { "css": "rgba(15, 139, 92, 0.15)" } }
+      },
+      "timeShareAreaDown": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.8353, 0.0745, 0.102],
+          "alpha": 0.15,
+          "hex": "#D5131A"
+        },
+        "$extensions": { "io.github.363045841.kcq": { "css": "rgba(213, 19, 26, 0.15)" } }
+      },
+      "timeSharePreClose": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.5333, 0.5333, 0.5333], "hex": "#888888" }
+      },
+      "timeShareVolume": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2902, 0.5647, 0.851], "hex": "#4A90D9" }
+      },
+      "palette": {
+        "i1": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0, 0.4471, 0.698], "hex": "#0072B2" },
+          "$description": "Okabe-Ito-derived qualitative scale, AA on #FAFAFA\nstrong blue"
+        },
+        "i2": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.902, 0.6235, 0], "hex": "#E69F00" },
+          "$description": "amber"
+        },
+        "i3": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0, 0.6196, 0.451], "hex": "#009E73" },
+          "$description": "teal-green"
+        },
+        "i4": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.8, 0.4745, 0.6549], "hex": "#CC79A7" },
+          "$description": "pink"
+        },
+        "i5": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.8353, 0.3686, 0], "hex": "#D55E00" },
+          "$description": "burnt orange"
+        },
+        "i6": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.3373, 0.7059, 0.9137],
+            "hex": "#56B4E9"
+          },
+          "$description": "sky"
+        },
+        "i7": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9412, 0.8941, 0.2588],
+            "hex": "#F0E442"
+          },
+          "$description": "yellow (use sparingly — low contrast)"
+        },
+        "i8": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.4863, 0.2275, 0.9294],
+            "hex": "#7C3AED"
+          },
+          "$description": "purple"
+        },
+        "i9": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1765, 0.498, 0.9765],
+            "hex": "#2D7FF9"
+          },
+          "$description": "blue"
+        },
+        "i10": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.4314, 0.4314, 0.4314],
+            "hex": "#6E6E6E"
+          },
+          "$description": "neutral gray"
+        },
+        "indicatorAtr": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.851, 0.4667, 0.0235],
+            "hex": "#d97706"
+          }
+        }
+      },
+      "text": {
+        "$description": "── Legacy indicator colours (from engine/theme/colors) ──",
+        "primary": { "$type": "color", "$value": "{light.interface.text}" },
+        "secondary": { "$type": "color", "$value": "{light.interface.muted}" },
+        "tertiary": { "$type": "color", "$value": "{light.interface.textSoft}" },
+        "weak": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6255, 0.65, 0.6745],
+            "hex": "#A0A6AC"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "hsl(210, 7%, 65%)" } }
+        },
+        "white": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [1, 1, 1],
+            "alpha": 0.92,
+            "hex": "#FFFFFF"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 255, 255, 0.92)" } }
+        }
+      },
+      "price": {
+        "lastPrice": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.902, 0.3922, 0.451],
+            "alpha": 0.95,
+            "hex": "#E66473"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(230, 100, 115, 0.95)" } }
+        }
+      },
+      "tagBg": {
+        "white": { "$type": "color", "$value": "{light.interface.surface}" },
+        "lightGray": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [1, 1, 1],
+            "alpha": 0.92,
+            "hex": "#FFFFFF"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 255, 255, 0.92)" } }
+        },
+        "pureWhite": { "$type": "color", "$value": "{light.interface.card}" },
+        "transparent": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0, "hex": "#000000" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "transparent" } }
+        },
+        "active": { "$type": "color", "$value": "{light.interface.accent}" },
+        "activeHover": { "$type": "color", "$value": "{light.interface.accentStrong}" },
+        "hover": { "$type": "color", "$value": "{light.interface.hover}" }
+      },
+      "border": {
+        "dark": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.12,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.12)" } }
+        },
+        "medium": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.1,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.10)" } }
+        },
+        "light": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.08,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.08)" } }
+        },
+        "separator": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.1,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.10)" } }
+        },
+        "button": { "$type": "color", "$value": "{light.interface.borderStrong}" },
+        "chart": { "$type": "color", "$value": "{light.interface.border}" }
+      },
+      "ma": {
+        "ma5": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9098, 0.349, 0.0471],
+            "hex": "#e8590c"
+          }
+        },
+        "ma10": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0314, 0.5686, 0.698],
+            "hex": "#0891b2"
+          }
+        },
+        "ma20": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1451, 0.3882, 0.9216],
+            "hex": "#2563eb"
+          }
+        },
+        "ma30": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1843, 0.6196, 0.2667],
+            "hex": "#2f9e44"
+          }
+        },
+        "ma60": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6824, 0.2431, 0.7882],
+            "hex": "#ae3ec9"
+          }
+        }
+      },
+      "boll": {
+        "upper": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.698, 0.1333, 0.1333],
+            "hex": "#B22222"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(178, 34, 34, 1)" } }
+        },
+        "middle": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "lower": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1333, 0.5451, 0.1333],
+            "hex": "#228B22"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(34, 139, 34, 1)" } }
+        },
+        "bandFill": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.3922, 0.5843, 0.9294],
+            "alpha": 0.1,
+            "hex": "#6495ED"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(100, 149, 237, 0.1)" } }
+        }
+      },
+      "macd": {
+        "dif": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "dea": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.5961, 0], "hex": "#FF9800" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 152, 0, 1)" } }
+        },
+        "barUp": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1333, 0.6706, 0.5804],
+            "hex": "#22ab94"
+          },
+          "$description": "MACD 柱与蜡烛遵循同一涨跌约定（base=Western：多头=绿、空头=红），\n这样 withAsiaMarketColors 交换后即为亚洲市场「红涨绿跌」。"
+        },
+        "barUpLight": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6745, 0.898, 0.8627],
+            "hex": "#ace5dc"
+          }
+        },
+        "barDown": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.3216, 0.3216], "hex": "#ff5252" }
+        },
+        "barDownLight": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9882, 0.7961, 0.8039],
+            "hex": "#fccbcd"
+          }
+        }
+      },
+      "rsi": {
+        "rsi1": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "rsi2": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.5961, 0], "hex": "#FF9800" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 152, 0, 1)" } }
+        },
+        "rsi3": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6118, 0.1529, 0.6902],
+            "hex": "#9C27B0"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(156, 39, 176, 1)" } }
+        },
+        "guide": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.3,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.3)" } }
+        }
+      },
+      "cci": {
+        "cci": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "overbought": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8392, 0.0392, 0.1333],
+            "alpha": 0.5,
+            "hex": "#D60A22"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(214, 10, 34, 0.5)" } }
+        },
+        "oversold": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0118, 0.4824, 0.4],
+            "alpha": 0.5,
+            "hex": "#037B66"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(3, 123, 102, 0.5)" } }
+        }
+      },
+      "kdj": {
+        "k": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "d": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.5961, 0], "hex": "#FF9800" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 152, 0, 1)" } }
+        },
+        "j": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6118, 0.1529, 0.6902],
+            "hex": "#9C27B0"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(156, 39, 176, 1)" } }
+        },
+        "guide": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.3,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.3)" } }
+        }
+      },
+      "mom": {
+        "mom": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "zero": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.2,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.2)" } }
+        }
+      },
+      "wmsr": {
+        "wmsr": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "overbought": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8392, 0.0392, 0.1333],
+            "alpha": 0.5,
+            "hex": "#D60A22"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(214, 10, 34, 0.5)" } }
+        },
+        "oversold": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0118, 0.4824, 0.4],
+            "alpha": 0.5,
+            "hex": "#037B66"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(3, 123, 102, 0.5)" } }
+        },
+        "guide": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.3,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.3)" } }
+        }
+      },
+      "kst": {
+        "kst": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "signal": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.5961, 0], "hex": "#FF9800" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 152, 0, 1)" } }
+        }
+      },
+      "expma": {
+        "fast": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.5961, 0], "hex": "#FF9800" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 152, 0, 1)" } }
+        },
+        "slow": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        }
+      },
+      "ene": {
+        "upper": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8392, 0.0392, 0.1333],
+            "hex": "#D60A22"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(214, 10, 34, 1)" } }
+        },
+        "middle": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "lower": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.0118, 0.4824, 0.4], "hex": "#037B66" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(3, 123, 102, 1)" } }
+        }
+      },
+      "ichimoku": {
+        "tenkan": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.502, 0.098, 0.1333],
+            "hex": "#801922"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgb(128, 25, 34)" } }
+        },
+        "kijun": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2706, 0.4392, 0.9765],
+            "hex": "#4570F9"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(69, 112, 249, 1)" } }
+        },
+        "spanA": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.0118, 0.4824, 0.4], "hex": "#037B66" },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(3, 123, 102, 1)" } }
+        },
+        "spanB": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.8627, 0.149, 0.149], "hex": "#dc2626" }
+        },
+        "chikou": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6118, 0.1529, 0.6902],
+            "hex": "#9C27B0"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(156, 39, 176, 1)" } }
+        }
+      },
+      "fib": {
+        "l618": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.8627, 0.149, 0.149], "hex": "#dc2626" }
+        },
+        "l786": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.4863, 0.1765, 0.0706],
+            "hex": "#7c2d12"
+          }
+        }
+      },
+      "gmma": {
+        "g8": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9373, 0.2667, 0.2667],
+            "hex": "#ef4444"
+          }
+        },
+        "g10": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8824, 0.1137, 0.2824],
+            "hex": "#e11d48"
+          }
+        },
+        "g50": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.5451, 0.3608, 0.9647],
+            "hex": "#8b5cf6"
+          }
+        },
+        "g60": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.3882, 0.4, 0.9451], "hex": "#6366f1" }
+        }
+      },
+      "pivot": {
+        "resistance": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.8627, 0.149, 0.149], "hex": "#dc2626" }
+        }
+      },
+      "label": {
+        "bg": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.8,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.8)" } }
+        },
+        "text": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#ffffff" }
+        }
+      },
+      "lastPriceLabel": {
+        "bg": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [1, 0.9686, 0.9725],
+            "alpha": 0.98,
+            "hex": "#FFF7F8"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 247, 248, 0.98)" } }
+        }
+      },
+      "volumePrice": {
+        "riseWith": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.2667, 0.2667], "hex": "#FF4444" }
+        },
+        "riseWithout": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0, 0.7843, 0.3255], "hex": "#00C853" }
+        },
+        "fallWith": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [1, 0.2667, 0.2667], "hex": "#FF4444" }
+        },
+        "fallWithout": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0, 0.7843, 0.3255], "hex": "#00C853" }
+        }
+      },
+      "structure": {
+        "hh": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0863, 0.6392, 0.2902],
+            "hex": "#16a34a"
+          }
+        },
+        "hl": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1333, 0.7725, 0.3686],
+            "hex": "#22c55e"
+          }
+        },
+        "lh": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.8627, 0.149, 0.149], "hex": "#dc2626" }
+        },
+        "ll": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9373, 0.2667, 0.2667],
+            "hex": "#ef4444"
+          }
+        },
+        "choch": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.5451, 0.3608, 0.9647],
+            "hex": "#8b5cf6"
+          }
+        },
+        "bos": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9608, 0.6196, 0.0431],
+            "hex": "#f59e0b"
+          }
+        }
+      },
+      "zones": {
+        "fvgBullFill": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1333, 0.7725, 0.3686],
+            "alpha": 0.15,
+            "hex": "#22C55E"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(34, 197, 94, 0.15)" } }
+        },
+        "fvgBearFill": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9373, 0.2667, 0.2667],
+            "alpha": 0.15,
+            "hex": "#EF4444"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(239, 68, 68, 0.15)" } }
+        },
+        "fvgBullBorder": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1333, 0.7725, 0.3686],
+            "alpha": 0.6,
+            "hex": "#22C55E"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(34, 197, 94, 0.6)" } }
+        },
+        "fvgBearBorder": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9373, 0.2667, 0.2667],
+            "alpha": 0.6,
+            "hex": "#EF4444"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(239, 68, 68, 0.6)" } }
+        },
+        "obBullFill": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1333, 0.7725, 0.3686],
+            "alpha": 0.25,
+            "hex": "#22C55E"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(34, 197, 94, 0.25)" } }
+        },
+        "obBearFill": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9373, 0.2667, 0.2667],
+            "alpha": 0.25,
+            "hex": "#EF4444"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(239, 68, 68, 0.25)" } }
+        }
+      },
+      "referenceLine": {
+        "neutral": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.3,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.3)" } }
+        }
+      },
+      "wmsrGrid": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.1, "hex": "#000000" },
+        "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.1)" } }
+      },
+      "ui": {
+        "background": { "$type": "color", "$value": "{light.interface.background}" },
+        "surface": { "$type": "color", "$value": "{light.interface.surface}" },
+        "card": { "$type": "color", "$value": "{light.interface.card}" },
+        "input": { "$type": "color", "$value": "{light.interface.input}" },
+        "controlBackground": { "$type": "color", "$value": "{light.interface.controlBackground}" },
+        "hover": { "$type": "color", "$value": "{light.interface.hover}" },
+        "selected": { "$type": "color", "$value": "{light.interface.selected}" },
+        "border": { "$type": "color", "$value": "{light.interface.border}" },
+        "borderStrong": { "$type": "color", "$value": "{light.interface.borderStrong}" },
+        "text": { "$type": "color", "$value": "{light.interface.text}" },
+        "textSoft": { "$type": "color", "$value": "{light.interface.textSoft}" },
+        "muted": { "$type": "color", "$value": "{light.interface.muted}" },
+        "accent": { "$type": "color", "$value": "{light.interface.accent}" },
+        "accentStrong": { "$type": "color", "$value": "{light.interface.accentStrong}" },
+        "focus": { "$type": "color", "$value": "{light.interface.focus}" },
+        "warningBackground": { "$type": "color", "$value": "{light.interface.warningBackground}" },
+        "warningBorder": { "$type": "color", "$value": "{light.interface.warningBorder}" },
+        "warningText": { "$type": "color", "$value": "{light.interface.warningText}" },
+        "warningStrong": { "$type": "color", "$value": "{light.interface.warningStrong}" },
+        "dangerBackground": { "$type": "color", "$value": "{light.interface.dangerBackground}" },
+        "dangerBorder": { "$type": "color", "$value": "{light.interface.dangerBorder}" },
+        "dangerText": { "$type": "color", "$value": "{light.interface.dangerText}" },
+        "success": { "$type": "color", "$value": "{light.interface.success}" },
+        "warning": { "$type": "color", "$value": "{light.interface.warning}" },
+        "danger": { "$type": "color", "$value": "{light.interface.danger}" },
+        "neutral": { "$type": "color", "$value": "{light.interface.neutral}" },
+        "onAccent": { "$type": "color", "$value": "{light.interface.onAccent}" },
+        "secondaryButtonText": {
+          "$type": "color",
+          "$value": "{light.interface.secondaryButtonText}"
+        }
+      },
+      "agent": {
+        "composerInputBackground": { "$type": "color", "$value": "{light.interface.input}" },
+        "composerControlBackground": {
+          "$type": "color",
+          "$value": "{light.interface.controlBackground}"
+        },
+        "composerControlHover": { "$type": "color", "$value": "{light.interface.hover}" },
+        "userMessage": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9176, 0.9176, 0.9333],
+            "hex": "#EAEAEE"
+          }
+        },
+        "backdrop": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.35,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.35)" } }
+        },
+        "panelShadow": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0, 0, 0],
+            "alpha": 0.2,
+            "hex": "#000000"
+          },
+          "$extensions": { "io.github.363045841.kcq": { "css": "rgba(0, 0, 0, 0.2)" } }
+        }
+      }
+    }
+  }
+}

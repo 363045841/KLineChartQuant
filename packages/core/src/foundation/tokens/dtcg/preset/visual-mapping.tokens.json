@@ -1,0 +1,117 @@
+{
+  "$description": "Shared role mapping for the visual presets (exchange, terminal, zen, quant): maps each preset's 14-field VisualPalette onto Theme color roles. Mirrors createVisualTheme() in presets/impl/visualTheme.ts; pipeline.test.ts proves the two stay identical. Pro does not use it.",
+  "light": {
+    "color": {
+      "background": { "$type": "color", "$value": "{light.visual.background}" },
+      "foreground": { "$type": "color", "$value": "{light.visual.text}" },
+      "chartBackground": { "$type": "color", "$value": "{light.visual.background}" },
+      "floatingSurface": { "$type": "color", "$value": "{light.visual.surface}" },
+      "axisText": { "$type": "color", "$value": "{light.visual.muted}" },
+      "axisLine": { "$type": "color", "$value": "{light.visual.border}" },
+      "axisTick": { "$type": "color", "$value": "{light.visual.border}" },
+      "gridMajor": { "$type": "color", "$value": "{light.visual.gridMajor}" },
+      "gridMinor": { "$type": "color", "$value": "{light.visual.gridMinor}" },
+      "crosshairLine": { "$type": "color", "$value": "{light.visual.muted}" },
+      "crosshairLabelBg": { "$type": "color", "$value": "{light.visual.text}" },
+      "crosshairLabelText": { "$type": "color", "$value": "{light.visual.background}" },
+      "selectionStroke": { "$type": "color", "$value": "{light.visual.accent}" },
+      "tooltipBg": { "$type": "color", "$value": "{light.visual.surface}" },
+      "tooltipText": { "$type": "color", "$value": "{light.visual.text}" },
+      "tooltipBorder": { "$type": "color", "$value": "{light.visual.borderStrong}" },
+      "text": {
+        "primary": { "$type": "color", "$value": "{light.visual.text}" },
+        "secondary": { "$type": "color", "$value": "{light.visual.muted}" },
+        "tertiary": { "$type": "color", "$value": "{light.visual.muted}" }
+      },
+      "tagBg": {
+        "active": { "$type": "color", "$value": "{light.visual.accent}" },
+        "activeHover": { "$type": "color", "$value": "{light.visual.accent}" },
+        "hover": { "$type": "color", "$value": "{light.visual.hover}" }
+      },
+      "border": {
+        "button": { "$type": "color", "$value": "{light.visual.border}" },
+        "chart": { "$type": "color", "$value": "{light.visual.border}" },
+        "separator": { "$type": "color", "$value": "{light.visual.border}" }
+      },
+      "ui": {
+        "background": { "$type": "color", "$value": "{light.visual.background}" },
+        "surface": { "$type": "color", "$value": "{light.visual.surface}" },
+        "card": { "$type": "color", "$value": "{light.visual.card}" },
+        "input": { "$type": "color", "$value": "{light.visual.input}" },
+        "hover": { "$type": "color", "$value": "{light.visual.hover}" },
+        "selected": { "$type": "color", "$value": "{light.visual.selected}" },
+        "border": { "$type": "color", "$value": "{light.visual.border}" },
+        "borderStrong": { "$type": "color", "$value": "{light.visual.borderStrong}" },
+        "text": { "$type": "color", "$value": "{light.visual.text}" },
+        "textSoft": { "$type": "color", "$value": "{light.visual.muted}" },
+        "muted": { "$type": "color", "$value": "{light.visual.muted}" },
+        "accent": { "$type": "color", "$value": "{light.visual.accent}" },
+        "accentStrong": { "$type": "color", "$value": "{light.visual.accent}" },
+        "focus": { "$type": "color", "$value": "{light.visual.accent}" },
+        "onAccent": { "$type": "color", "$value": "{light.visual.onAccent}" },
+        "controlBackground": { "$type": "color", "$value": "{light.visual.input}" },
+        "secondaryButtonText": { "$type": "color", "$value": "{light.visual.muted}" }
+      },
+      "agent": {
+        "userMessage": { "$type": "color", "$value": "{light.visual.card}" }
+      }
+    }
+  },
+  "dark": {
+    "color": {
+      "background": { "$type": "color", "$value": "{dark.visual.background}" },
+      "foreground": { "$type": "color", "$value": "{dark.visual.text}" },
+      "chartBackground": { "$type": "color", "$value": "{dark.visual.background}" },
+      "floatingSurface": { "$type": "color", "$value": "{dark.visual.surface}" },
+      "axisText": { "$type": "color", "$value": "{dark.visual.muted}" },
+      "axisLine": { "$type": "color", "$value": "{dark.visual.border}" },
+      "axisTick": { "$type": "color", "$value": "{dark.visual.border}" },
+      "gridMajor": { "$type": "color", "$value": "{dark.visual.gridMajor}" },
+      "gridMinor": { "$type": "color", "$value": "{dark.visual.gridMinor}" },
+      "crosshairLine": { "$type": "color", "$value": "{dark.visual.muted}" },
+      "crosshairLabelBg": { "$type": "color", "$value": "{dark.visual.text}" },
+      "crosshairLabelText": { "$type": "color", "$value": "{dark.visual.background}" },
+      "selectionStroke": { "$type": "color", "$value": "{dark.visual.accent}" },
+      "tooltipBg": { "$type": "color", "$value": "{dark.visual.surface}" },
+      "tooltipText": { "$type": "color", "$value": "{dark.visual.text}" },
+      "tooltipBorder": { "$type": "color", "$value": "{dark.visual.borderStrong}" },
+      "text": {
+        "primary": { "$type": "color", "$value": "{dark.visual.text}" },
+        "secondary": { "$type": "color", "$value": "{dark.visual.muted}" },
+        "tertiary": { "$type": "color", "$value": "{dark.visual.muted}" }
+      },
+      "tagBg": {
+        "active": { "$type": "color", "$value": "{dark.visual.accent}" },
+        "activeHover": { "$type": "color", "$value": "{dark.visual.accent}" },
+        "hover": { "$type": "color", "$value": "{dark.visual.hover}" }
+      },
+      "border": {
+        "button": { "$type": "color", "$value": "{dark.visual.border}" },
+        "chart": { "$type": "color", "$value": "{dark.visual.border}" },
+        "separator": { "$type": "color", "$value": "{dark.visual.border}" }
+      },
+      "ui": {
+        "background": { "$type": "color", "$value": "{dark.visual.background}" },
+        "surface": { "$type": "color", "$value": "{dark.visual.surface}" },
+        "card": { "$type": "color", "$value": "{dark.visual.card}" },
+        "input": { "$type": "color", "$value": "{dark.visual.input}" },
+        "hover": { "$type": "color", "$value": "{dark.visual.hover}" },
+        "selected": { "$type": "color", "$value": "{dark.visual.selected}" },
+        "border": { "$type": "color", "$value": "{dark.visual.border}" },
+        "borderStrong": { "$type": "color", "$value": "{dark.visual.borderStrong}" },
+        "text": { "$type": "color", "$value": "{dark.visual.text}" },
+        "textSoft": { "$type": "color", "$value": "{dark.visual.muted}" },
+        "muted": { "$type": "color", "$value": "{dark.visual.muted}" },
+        "accent": { "$type": "color", "$value": "{dark.visual.accent}" },
+        "accentStrong": { "$type": "color", "$value": "{dark.visual.accent}" },
+        "focus": { "$type": "color", "$value": "{dark.visual.accent}" },
+        "onAccent": { "$type": "color", "$value": "{dark.visual.onAccent}" },
+        "controlBackground": { "$type": "color", "$value": "{dark.visual.input}" },
+        "secondaryButtonText": { "$type": "color", "$value": "{dark.visual.muted}" }
+      },
+      "agent": {
+        "userMessage": { "$type": "color", "$value": "{dark.visual.card}" }
+      }
+    }
+  }
+}

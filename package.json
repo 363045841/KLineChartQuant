@@ -70,6 +70,8 @@
     "test:packages": "pnpm -r test",
     "docs:generate": "node scripts/generate-readmes.mjs",
     "docs:check": "node scripts/generate-readmes.mjs --check",
+    "tokens:build": "node packages/core/scripts/tokens/build.mjs",
+    "tokens:check": "node packages/core/scripts/tokens/build.mjs --check",
     "size:packages": "pnpm -r --workspace-concurrency=4 size",
     "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
     "lint:types": "node scripts/lint-types.mjs",

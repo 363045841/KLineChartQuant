@@ -1,3 +1,4 @@
+// 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/scheme/light.tokens.json 生成，请勿手改。
 /**
  * Light theme — concrete token values.
  *
@@ -18,8 +19,8 @@
  * Each WCAG AA against the background (>= 3:1 for non-text).
  */
 
-import { motion, spacing, typography } from './theme-base.js'
 import { lightInterfaceColors } from './interface-colors.js'
+import { motion, spacing, typography } from './theme-base.js'
 import type { Theme } from './types.js'
 
 export const lightTheme: Theme = {
@@ -32,7 +33,6 @@ export const lightTheme: Theme = {
     foreground: lightInterfaceColors.text,
     chartBackground: lightInterfaceColors.background,
     floatingSurface: lightInterfaceColors.surface,
-
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
     candleUpWick: '#089981',
@@ -40,33 +40,25 @@ export const lightTheme: Theme = {
     candleDownBorder: '#f23645',
     candleDownWick: '#f23645',
     candleDojiBorder: '#6E6E6E',
-
     performancePositive: '#0B7A50',
     performanceNegative: '#C2363B',
     performanceNeutral: '#5A5A5A',
-
     volumeUp: '#0F8B5C66', // 40% alpha — paired with candleUp
     volumeDown: '#C2363B66',
     volumeNeutral: '#00000066',
-
     axisText: lightInterfaceColors.muted,
     axisLine: lightInterfaceColors.border,
     axisTick: lightInterfaceColors.border,
-
     gridMajor: '#E5E5E5',
     gridMinor: '#F0F0F0',
-
     crosshairLine: '#8C8C8C',
     crosshairLabelBg: lightInterfaceColors.text,
     crosshairLabelText: lightInterfaceColors.background,
-
     selectionFill: '#2D7FF933',
     selectionStroke: '#2D7FF9',
-
     tooltipBg: lightInterfaceColors.surface,
     tooltipText: lightInterfaceColors.text,
     tooltipBorder: lightInterfaceColors.border,
-
     heatmapColdest: '#F0F4F8',
     heatmapHottest: '#1F3A5F',
     volumeProfileFill: '#9CA3AF66',
@@ -75,29 +67,26 @@ export const lightTheme: Theme = {
     footprintAsk: '#0F8B5C80',
     footprintBid: '#C2363B80',
     footprintImbalance: '#F97316',
-
     alertActive: '#2D7FF9',
     // alertTriggered: orange #F97316 was 2.69:1 on white (fails AA
     // non-text). Darkened to #C2410C → 4.13:1.
     alertTriggered: '#C2410C',
     alertMuted: '#9CA3AF',
-
     avwapLine: '#7C3AED',
     avwapBand: '#7C3AED33',
     // mtfOverlay: sky #0EA5E9 was 2.66:1 on white. Darkened to
     // #0369A1 → 4.59:1.
     mtfOverlay: '#0369A1',
-
     timeSharePriceLine: '#4A90D9',
     timeShareAvgLine: '#F5A623',
     timeShareAreaUp: 'rgba(15, 139, 92, 0.15)',
     timeShareAreaDown: 'rgba(213, 19, 26, 0.15)',
     timeSharePreClose: '#888888',
     timeShareVolume: '#4A90D9',
-
     palette: {
       // Okabe-Ito-derived qualitative scale, AA on #FAFAFA
-      i1: '#0072B2', // strong blue
+      // strong blue
+      i1: '#0072B2',
       i2: '#E69F00', // amber
       i3: '#009E73', // teal-green
       i4: '#CC79A7', // pink
@@ -109,7 +98,6 @@ export const lightTheme: Theme = {
       i10: '#6E6E6E', // neutral gray
       indicatorAtr: '#d97706',
     },
-
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
       primary: lightInterfaceColors.text,

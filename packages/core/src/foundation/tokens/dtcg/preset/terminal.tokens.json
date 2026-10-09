@@ -1,0 +1,157 @@
+{
+  "$description": "Terminal · 终端 — 冷灰面板 · 高对比边框",
+  "light": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.949, 0.9608], "hex": "#F0F2F5" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9098, 0.9255, 0.9451], "hex": "#E8ECF1" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8863, 0.9059, 0.9333], "hex": "#E2E7EE" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8392, 0.8706, 0.9098], "hex": "#D6DEE8" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8588, 0.8863, 0.9216], "hex": "#DBE2EB" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6745, 0.7216, 0.7843], "hex": "#ACB8C8" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4706, 0.5333, 0.6157], "hex": "#78889D" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1255, 0.1647, 0.2196], "hex": "#202A38" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3216, 0.3804, 0.4627], "hex": "#526176" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6196, 0.2902, 0.0314], "hex": "#9E4A08" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8118, 0.8431, 0.8863], "hex": "#CFD7E2" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8863, 0.9059, 0.9333], "hex": "#E2E7EE" }
+      }
+    },
+    "color": {
+      "selectionStroke": {
+        "$type": "color",
+        "$value": "{light.color.palette.i1}",
+        "$description": "选区改用分类色，避免与高对比边界色混淆。"
+      },
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0, 0.4471, 0.698],
+          "alpha": 0.2,
+          "hex": "#0072B2"
+        },
+        "$description": "= color.palette.i1 at alpha 0x33."
+      }
+    }
+  },
+  "dark": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0627, 0.0706, 0.0824], "hex": "#101215" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.098, 0.1098, 0.1294], "hex": "#191C21" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1255, 0.1412, 0.1686], "hex": "#20242B" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1412, 0.1647, 0.1961], "hex": "#242A32" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1882, 0.2196, 0.2627], "hex": "#303843" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1686, 0.1961, 0.2314], "hex": "#2B323B" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2706, 0.3059, 0.3647], "hex": "#454E5D" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4118, 0.4706, 0.5529], "hex": "#69788D" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9255, 0.9373, 0.9569], "hex": "#ECEFF4" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6902, 0.7294, 0.7843], "hex": "#B0BAC8" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 0.6706, 0.2706], "hex": "#FFAB45" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0863, 0.098, 0.1176], "hex": "#16191E" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1725, 0.2039, 0.251], "hex": "#2C3440" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1255, 0.1529, 0.1961], "hex": "#202732" }
+      }
+    },
+    "color": {
+      "selectionStroke": {
+        "$type": "color",
+        "$value": "{dark.color.palette.i1}",
+        "$description": "选区改用分类色，避免与高对比边界色混淆。"
+      },
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.2902, 0.6196, 1],
+          "alpha": 0.2,
+          "hex": "#4A9EFF"
+        },
+        "$description": "= color.palette.i1 at alpha 0x33."
+      }
+    }
+  }
+}

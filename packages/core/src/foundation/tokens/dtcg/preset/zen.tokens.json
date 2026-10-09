@@ -1,0 +1,147 @@
+{
+  "$description": "Zen · 极简 — 灰绿表面 · 极弱网格",
+  "light": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9725, 0.9765, 0.9608], "hex": "#F8F9F5" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9922, 0.9961, 0.9804], "hex": "#FDFEFA" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9529, 0.9608, 0.9294], "hex": "#F3F5ED" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9373, 0.949, 0.9098], "hex": "#EFF2E8" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9059, 0.9255, 0.8745], "hex": "#E7ECDF" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9216, 0.9373, 0.8902], "hex": "#EBEFE3" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8902, 0.9098, 0.8588], "hex": "#E3E8DB" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6667, 0.7255, 0.6235], "hex": "#AAB99F" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1765, 0.2275, 0.1843], "hex": "#2D3A2F" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4667, 0.3765], "hex": "#667760" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2863, 0.4431, 0.2471], "hex": "#49713F" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9373, 0.9451, 0.9098], "hex": "#EFF1E8" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9569, 0.9647, 0.9412], "hex": "#F4F6F0" }
+      }
+    },
+    "color": {
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.2863, 0.4431, 0.2471],
+          "alpha": 0.149,
+          "hex": "#49713F"
+        },
+        "$description": "= visual.accent at alpha 0x26."
+      }
+    }
+  },
+  "dark": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.1255, 0.1176], "hex": "#17201E" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1137, 0.1608, 0.1451], "hex": "#1D2925" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1373, 0.1922, 0.1725], "hex": "#23312C" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1608, 0.2275, 0.1961], "hex": "#293A32" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1882, 0.2667, 0.2275], "hex": "#30443A" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1765, 0.251, 0.2118], "hex": "#2D4036" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1882, 0.251, 0.2235], "hex": "#304039" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.349, 0.4549, 0.4], "hex": "#597466" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8863, 0.9255, 0.898], "hex": "#E2ECE5" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6627, 0.7412, 0.6863], "hex": "#A9BDAF" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6392, 0.7882, 0.6706], "hex": "#A3C9AB" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0941, 0.1529, 0.1137], "hex": "#18271D" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1216, 0.1647, 0.1451], "hex": "#1F2A25" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1059, 0.1451, 0.1294], "hex": "#1B2521" }
+      }
+    },
+    "color": {
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.6392, 0.7882, 0.6706],
+          "alpha": 0.149,
+          "hex": "#A3C9AB"
+        },
+        "$description": "= visual.accent at alpha 0x26."
+      }
+    }
+  }
+}
