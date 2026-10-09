@@ -167,6 +167,7 @@
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerSettings from '~icons/tabler/settings'
+  import { injectCommands, isEditableTarget } from '../composables/commands/useCommands.js'
   import ColorPicker from './ColorPicker.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
@@ -220,16 +221,19 @@
     (e: 'saveExistingTemplate', name: string): void
   }>()
 
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-    if (e.key === 'Delete') {
-      e.preventDefault()
-      emit('delete')
+  // 图表内由命令层的 drawing.delete 处理 Delete，只作用于获得焦点的图表；
+  // 脱离图表单独使用（没有命令层）时保留原有的页面级 Delete 行为。
+  if (!injectCommands()) {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) return
+      if (e.key === 'Delete') {
+        e.preventDefault()
+        emit('delete')
+      }
     }
+    onMounted(() => document.addEventListener('keydown', onKeyDown))
+    onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
   }
-
-  onMounted(() => document.addEventListener('keydown', onKeyDown))
-  onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
 
   /** 批量编辑展示首个图元的当前值；写入仅限 Core 确认的字段交集。 */
   const style = computed(() => props.drawings[0]?.style ?? {})

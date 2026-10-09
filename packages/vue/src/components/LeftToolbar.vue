@@ -264,15 +264,13 @@
 
   <ChartSettingsDialog
     :show="showSettings"
-    :initial-settings="appliedSettings"
+    :controller="alertController ?? undefined"
     :renderer-runtime="rendererRuntime"
     :market-data-cache-stats="marketDataCacheStats"
     :aggregation-sources="aggregationSources"
     :enabled-source-names="enabledSourceNames"
     :source-endpoints="sourceEndpoints"
     @close="showSettings = false"
-    @confirm="handleConfirmSettings"
-    @apply-theme-preset="handleApplyThemePreset"
     @clear-market-data-cache="emit('clearMarketDataCache')"
     @toggle-aggregation-source="onToggleAggregationSource"
     @update-source-endpoint="onUpdateSourceEndpoint"
@@ -287,11 +285,7 @@
 
 <script setup lang="ts">
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
-  import {
-    type ChartSettings,
-    chartSettingsPersistence,
-    resolveSettings,
-  } from '@363045841yyt/klinechart-core/config'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type ActiveMagnetMode,
     BOX_SELECT_DRAWING_TOOL_ID,
@@ -300,7 +294,7 @@
     MagnetMode,
     type RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, ref, watch } from 'vue'
+  import { computed, ref, toRef, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
@@ -332,11 +326,12 @@
   import IconTablerX from '~icons/tabler/x'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
+  import { useControllerSignal } from '../composables/chart/useControllerSignal.js'
+  import { injectCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
   import { useAlerts } from '../composables/useAlerts.js'
   import { useClickOutside } from '../composables/useClickOutside.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
-  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
   import AlertDialog from './alert/AlertDialog.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
@@ -419,6 +414,7 @@
     (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
     (e: 'setAllDrawingsVisible', visible: boolean): void
+    /** @deprecated 设置由 controller.settingsCommands 直接写入；仅为兼容旧监听者保留，随设置信号变化触发。 */
     (e: 'settingsChange', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
@@ -428,6 +424,7 @@
   const props = withDefaults(
     defineProps<{
       alertController?: ChartController | null
+      /** @deprecated 设置只读 controller.settings 信号（ADR 0006），此 prop 不再使用。 */
       effectiveSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
@@ -501,28 +498,13 @@
     return props.drawingToolId ?? selectedToolId.value
   })
 
-  function loadSettings(): ChartSettings {
-    return resolveSettings()
-  }
-
-  function saveSettings(settings: ChartSettings) {
-    chartSettingsPersistence.save(settings)
-  }
-
-  // 父组件已 seed 的 effectiveSettings 优先；否则读 localStorage
-  const appliedSettings = ref<ChartSettings>(
-    props.effectiveSettings && Object.keys(props.effectiveSettings).length > 0
-      ? { ...props.effectiveSettings }
-      : loadSettings(),
+  // 兼容旧的 settingsChange 监听者：设置只来自 controller 信号，这里只转发，不持有副本。
+  const controllerSettings = useControllerSignal(
+    toRef(() => props.alertController ?? null),
+    (ctrl) => ctrl.settings,
+    () => ({}) as ChartSettings,
   )
-
-  watch(
-    () => props.effectiveSettings,
-    (val) => {
-      if (val) appliedSettings.value = { ...val }
-    },
-    { deep: true },
-  )
+  watch(controllerSettings, (next) => emit('settingsChange', { ...next }))
 
   function isActive(tool: ToolDef): boolean {
     const id = highlightToolId.value
@@ -623,6 +605,8 @@
     { enabled: () => openGroupId.value !== null },
   )
 
+  const commands = injectCommands()
+
   watch(openGroupId, (id, _previous, onCleanup) => {
     if (!id) return
     const close = () => {
@@ -632,18 +616,35 @@
       if (menuRef.value?.contains(event.target as Node)) return
       close()
     }
+    document.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', close)
+    // 脱离图表单独使用时没有命令层，退回到局部 Esc 监听。
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close()
     }
-    document.addEventListener('scroll', onScroll, true)
-    document.addEventListener('keydown', onKeydown)
-    window.addEventListener('resize', close)
+    if (!commands) document.addEventListener('keydown', onKeydown)
     onCleanup(() => {
       document.removeEventListener('scroll', onScroll, true)
-      document.removeEventListener('keydown', onKeydown)
+      if (!commands) document.removeEventListener('keydown', onKeydown)
       window.removeEventListener('resize', close)
     })
   })
+
+  // Esc 关闭工具分组菜单：注册为命令，由图表命令层统一分发。
+  useRegisterCommands(commands, () => [
+    {
+      id: 'toolbar.closeMenu',
+      group: 'general',
+      title: { zh: '关闭工具菜单', en: 'Close tool menu' },
+      shortcut: 'Escape',
+      scope: 'global',
+      palette: false,
+      when: () => openGroupId.value !== null,
+      run: () => {
+        openGroupId.value = null
+      },
+    },
+  ])
 
   /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
   function toggleGlobalDrawingLock() {
@@ -657,28 +658,6 @@
   function onUpdateSourceEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
     emit('updateSourceEndpoint', name, patch)
   }
-
-  function handleConfirmSettings(draft: ChartSettings) {
-    appliedSettings.value = { ...draft }
-    saveSettings(appliedSettings.value)
-    setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
-    emit('settingsChange', { ...appliedSettings.value })
-    showSettings.value = false
-  }
-
-  /** 主题预设点击即生效：只合并预设字段并持久化，不关闭弹窗，也不丢弃草稿里其他未确定的改动。 */
-  function handleApplyThemePreset(
-    colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
-  ) {
-    appliedSettings.value = { ...appliedSettings.value, colorPresetSettings }
-    saveSettings(appliedSettings.value)
-    emit('settingsChange', { ...appliedSettings.value })
-  }
-
-  onMounted(() => {
-    emit('settingsChange', { ...appliedSettings.value })
-    setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
-  })
 </script>
 
 <style scoped>

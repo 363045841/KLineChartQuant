@@ -23,7 +23,11 @@ import type {
   SymbolInfo,
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
-import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
+import {
+  createIdleInteractionSnapshot,
+  createSettingsCommands,
+  type SettingsCommandsDependencies,
+} from '@363045841yyt/klinechart-core'
 import {
   type ChartSettings,
   PRICE_AXIS_RANGE_MODE,
@@ -326,7 +330,9 @@ export function createMockChartController(
     getContentWidth: () => 0,
     getLeftLoadBufferWidth: () => 0,
     scrollToRight: () => {},
-    updateSettingsFacade: () => {},
+    updateSettingsFacade: (patch) => {
+      settings.set({ ...settings.peek(), ...patch })
+    },
     resetMainPriceAxis: () => {
       resetPriceAxisCalls += 1
     },
@@ -334,6 +340,13 @@ export function createMockChartController(
       disposeCalls += 1
     },
   }
+
+  // 与真实 controller 一致：设置唯一写原语，写入 updateSettingsFacade（Agent 工具同源）。
+  ;(controller as { settingsCommands?: ChartController['settingsCommands'] }).settingsCommands =
+    createSettingsCommands({
+      settings: settings as unknown as SettingsCommandsDependencies['settings'],
+      apply: (patch) => controller.updateSettingsFacade?.(patch),
+    })
 
   return {
     ...(controller as ChartController),

@@ -60,7 +60,6 @@
         <LeftToolbar
           v-model:settings-open="chartSettingsOpen"
           :alert-controller="controller"
-          :effective-settings="chartSettings"
           :renderer-runtime="rendererRuntime"
           :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
@@ -84,7 +83,6 @@
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
           @set-all-drawings-visible="onSetAllDrawingsVisible"
-          @settings-change="handleSettingsChange"
           @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
           @update-source-endpoint="setAggregationSourceEndpoint"
@@ -118,7 +116,6 @@
           <div
             ref="containerRef"
             tabindex="0"
-            @keydown="onDrawingHistoryKeydown"
             class="chart-container"
             :class="{
               'chart-container--axis-left': chartMode !== 'timeshare' && priceAxisPosition === 'left',
@@ -309,14 +306,14 @@
                 :pane-id="pane.id"
                 :height="0"
                 :show-settings="false"
-                @settings-change="handleSettingsChange"
+                @settings-change="applySettingsSnapshot"
               />
             </div>
             <PriceAxisSettingsMenu
               :controller="controller"
               :height="props.bottomAxisHeight"
               :show-shortcuts="false"
-              @settings-change="handleSettingsChange"
+              @settings-change="applySettingsSnapshot"
             />
           </div>
         </div>
@@ -337,6 +334,8 @@
       @update-text="onUpdateEditingDrawingText"
       @close="showDrawingSettingsDialog = false"
     />
+    <CommandPalette v-model:open="paletteOpen" :sources="paletteSources" />
+    <ShortcutSheet v-model:open="shortcutsOpen" />
     <DrawingTemplateSaveDialog
       :show="showCanvasTemplateSave"
       :busy="canvasTemplateBusy"
@@ -360,6 +359,7 @@
 </template>
 
 <script setup lang="ts">
+  import { listSettingKeys, scoreFields } from '@363045841yyt/klinechart-core'
   import {
     type ChartSettings,
     resolveSettings,
@@ -440,11 +440,20 @@
   import { useLegendActions } from '../composables/chart/useLegendActions.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { createChartCommands } from '../composables/commands/chartCommands.js'
+  import type { PaletteSource } from '../composables/commands/paletteTypes.js'
+  import { provideChartCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
+  import {
+    persistChartSettings,
+    provideChartController,
+  } from '../composables/settings/useChartSettings.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
   import { useWatchlist } from '../composables/useWatchlist.js'
-
+  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
   import BatchStockDialog from './BatchStockDialog.vue'
+  import CommandPalette from './commands/CommandPalette.vue'
+  import ShortcutSheet from './commands/ShortcutSheet.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
@@ -870,18 +879,35 @@
     return theme as 'light' | 'dark'
   })()
 
-  const {
-    chartTheme,
-    chartSettings,
-    tooltipColors,
-    themeCssVars,
-    handleSettingsChange,
-    applyThemeFromSettings,
-  } = useChartTheme(controller, _initialTheme)
+  // 设置唯一来源是 kernel.settings；chartSettings 只是它的只读投影（ADR 0006）。
+  const { chartTheme, chartSettings, tooltipColors, themeCssVars } = useChartTheme(
+    controller,
+    _initialTheme,
+    () => _initialResolved,
+  )
+  const settingsPersistence = persistChartSettings(controller)
+  provideChartController(controller)
 
-  if (props.settings !== undefined) {
-    chartSettings.value = _initialResolved
+  /** 价格轴菜单等仍上报完整快照：只把与 kernel 不同的已知 key 交给设置原语。 */
+  function applySettingsSnapshot(next: ChartSettings): void {
+    const commands = controller.value?.settingsCommands
+    if (!commands) return
+    const current = commands.current
+    const known = new Set(listSettingKeys())
+    const changed: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(next)) {
+      if (!known.has(key)) continue
+      if (JSON.stringify(current[key]) !== JSON.stringify(value)) changed[key] = value
+    }
+    if (Object.keys(changed).length > 0) commands.applyValues(changed)
   }
+
+  // Canvas 性能分析插桩跟随设置（任何来源写入均生效）。
+  watch(
+    () => Boolean(chartSettings.value.enableCanvasProfiler),
+    (enabled) => setCanvasProfilerEnabled(enabled),
+    { immediate: true },
+  )
 
   const showBatchStockDialog = ref(false)
 
@@ -907,25 +933,6 @@
   const canUndoDrawing = shallowRef(false)
   const canRedoDrawing = shallowRef(false)
 
-  function onDrawingHistoryKeydown(event: KeyboardEvent) {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return
-    const target = event.target
-    if (
-      target instanceof Element &&
-      target.closest('input, textarea, select, [contenteditable], [role="textbox"]')
-    )
-      return
-    const redo =
-      event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z')
-    const undo = !event.shiftKey && event.key.toLowerCase() === 'z'
-    if (redo && canRedoDrawing.value) {
-      event.preventDefault()
-      controller.value?.redoDrawing()
-    } else if (undo && canUndoDrawing.value) {
-      event.preventDefault()
-      controller.value?.undoDrawing()
-    }
-  }
   /** 镜像 kernel.rendererRuntime，供设置页显示有效后端 */
   const rendererRuntime = shallowRef<RendererBackendRuntime | null>(null)
 
@@ -1377,6 +1384,57 @@
     handleDrawingToolSelect(toolId)
   }
 
+  // ── Commands (⌘K palette, ? sheet, keyboard shortcuts) ──
+  // 每个图表一个命令注册表，快捷键只作用于获得焦点的图表；命令与 Agent 工具调用同一动作。
+  const commands = provideChartCommands(chartWrapperRef)
+  const paletteOpen = ref(false)
+  const shortcutsOpen = ref(false)
+  useRegisterCommands(commands, () =>
+    createChartCommands({
+      controller: () => controller.value,
+      openPalette: () => {
+        paletteOpen.value = !paletteOpen.value
+      },
+      openShortcuts: () => {
+        shortcutsOpen.value = true
+      },
+      openSettings: () => {
+        chartSettingsOpen.value = true
+      },
+      openIndicators: onToggleIndicator,
+      toggleFullscreen: handleToggleFullscreen,
+      selectTool: handleSelectTool,
+      zoomIn: () => applyZoomToLevel(zoomLevel.value + 1),
+      zoomOut: () => applyZoomToLevel(zoomLevel.value - 1),
+      hasSelection: () => selectedDrawings.value.length > 0,
+      deleteSelection: onDeleteDrawing,
+    }),
+  )
+
+  /** 命令面板的品种来源：本地品种目录，选择后走与工具栏相同的切换路径。 */
+  const paletteSources = computed<ReadonlyArray<PaletteSource>>(() => [
+    {
+      id: 'symbols',
+      label: '品种',
+      items: (query) => {
+        if (!query.trim()) return []
+        return symbolPool.value
+          .map((item) => ({
+            item,
+            score: scoreFields(query, [item.symbol, item.name, item.exchange]),
+          }))
+          .filter((match) => match.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map(({ item }) => ({
+            id: symbolIdentityKey(item),
+            title: `${item.symbol} ${item.name ?? ''}`.trim(),
+            subtitle: item.exchange,
+            run: () => onSymbolChange(item),
+          }))
+      },
+    },
+  ])
+
   function onPointerDown(e: PointerEvent) {
     if (e.target instanceof HTMLCanvasElement) containerRef.value?.focus({ preventScroll: true })
     // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
@@ -1795,9 +1853,8 @@
   function applyInitialSettings(ctrl: ChartController): void {
     // 分层解析：settings prop 显式 key > localStorage 存量 > 默认值
     const resolved = resolveSettings(props.settings)
-    chartSettings.value = resolved
-    ctrl.updateSettingsFacade(resolved)
-    applyThemeFromSettings(resolved.theme as string)
+    // 解析结果来自 prop 与存量，本身无需回写存储。
+    settingsPersistence.suspend(() => ctrl.updateSettingsFacade(resolved))
   }
 
   /** 将受控业务 props 按固定顺序同步到 ChartController。 */
@@ -1945,9 +2002,8 @@
     (next) => {
       if (next === undefined || !controller.value) return
       const resolved = resolveSettings(next)
-      chartSettings.value = resolved
-      controller.value.updateSettingsFacade(resolved)
-      applyThemeFromSettings(resolved.theme as string)
+      const ctrl = controller.value
+      settingsPersistence.suspend(() => ctrl.updateSettingsFacade(resolved))
     },
     { deep: true },
   )
