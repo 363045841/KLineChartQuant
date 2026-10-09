@@ -299,7 +299,8 @@
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    padding-right: 8px;
+    /* 与选项文字左侧内边距一致，状态标记的右侧留白不会大于文字的左侧留白。 */
+    padding-right: 10px;
   }
 
   .drop-menu__panel--replace-detail .drop-menu__item {
@@ -343,7 +344,8 @@
   .drop-menu__item-action :deep(.drop-menu__status) {
     display: grid;
     place-items: center;
-    width: 26px;
+    /* 宽度贴合图标，避免居中留白叠加后勾选标记右侧间距大于文字左侧。 */
+    width: 14px;
     height: 26px;
     color: var(--klc-color-ui-text);
   }

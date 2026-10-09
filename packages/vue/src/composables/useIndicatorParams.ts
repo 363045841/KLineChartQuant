@@ -62,12 +62,12 @@ export function useIndicatorParams(props: IndicatorParamsDraftInput) {
     localValues.value[param.key] = Number.parseFloat(next.toFixed(10))
   }
 
-  /** 将选项参数映射为 DropMenu 分组。 */
+  /** 将选项参数映射为 DropMenu 分组；参数名已显示在弹窗行首，菜单不再重复分组标题。 */
   function optionGroups(param: ParamConfig): DropMenuGroup[] {
     return [
       {
         id: param.key,
-        label: param.label,
+        label: '',
         items: (param.options ?? []).map((option) => ({ id: option.value, label: option.label })),
       },
     ]
