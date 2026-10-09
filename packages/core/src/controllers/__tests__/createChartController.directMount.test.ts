@@ -130,4 +130,18 @@ describe('createChartController direct mount', () => {
     expect(ctrlB.getData()).toHaveLength(300)
     ctrlB.dispose()
   })
+
+  it('keeps mount symbols over the symbol of a restored layout', async () => {
+    const first = document.createElement('div')
+    document.body.appendChild(first)
+    const ctrlA = await createChartController({ container: first, data: createBars(50) })
+    ctrlA.dispose()
+
+    const spec = { market: 'CN', symbol: '600000', period: 'daily', source: 'custom' } as const
+    const second = document.createElement('div')
+    document.body.appendChild(second)
+    const ctrlB = await createChartController({ container: second, symbols: [spec] })
+    expect(ctrlB.symbols.peek()[0]).toMatchObject({ symbol: '600000', market: 'CN' })
+    ctrlB.dispose()
+  })
 })
