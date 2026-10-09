@@ -11,9 +11,10 @@ import {
   type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
+import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '@/foundation/types/chartView.js'
-import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
+import { isKLineDataArray, isTimeShareDataArray, type KLineData } from '@/foundation/types/price.js'
 import type {
   LegendComparisonRow,
   LegendIndicatorRow,
@@ -22,6 +23,13 @@ import type {
   LegendTimeshareRow,
 } from '../types.js'
 import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
+
+const LINE_HEIGHT = 24
+const LEGEND_X = 12
+const LEGEND_GAP = 10
+const LEGEND_Y_OFFSET = 6
+/** 窄于该宽度时行情行拆成两行，避免与指标挤在同一行。 */
+const COMPACT_PANE_WIDTH = 400
 
 /** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
 export interface ProjectLegendContextInput {
@@ -32,104 +40,53 @@ export interface ProjectLegendContextInput {
   visibleIndicatorIds?: ReadonlySet<string> | null
 }
 
-/** 成交量按中文 “万/亿” 缩写，保留两位小数。 */
-export function formatLegendQuantity(v: number): string {
-  if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
-  if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
-  return v.toFixed(2)
+/** 成交量/成交额按中文 “万/亿” 缩写，保留两位小数。 */
+function formatLegendQuantity(value: number): string {
+  if (value >= 1e8) return (value / 1e8).toFixed(2) + '亿'
+  if (value >= 1e4) return (value / 1e4).toFixed(2) + '万'
+  return value.toFixed(2)
+}
+
+/** 前收价只在为正的有限数时参与分时涨跌计算。 */
+function resolvePreClose(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+/** 涨跌颜色：正为涨色、负为跌色，其余用正文色。 */
+function signedColor(value: number | null, colors: ColorTokens): string {
+  if (value === null || value === 0) return colors.text.primary
+  return value > 0 ? colors.candleUpBody : colors.candleDownBody
 }
 
 export function projectLegendContext(
   input: ProjectLegendContextInput,
 ): LegendTemplateContext | null {
   const { context, host, yPaddingPx, visibleIndicatorIds } = input
-  const klineData = context.data as KLineData[]
-  if (!klineData.length) return null
+  if (!context.data.length) return null
 
   const colors = resolveThemeColors(
     context.theme,
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  const lineHeight = 24
-  const legendX = 12
-  const gap = 10
-  const legendYOffset = 6
-  const compact = context.paneWidth < 400
-  const crosshairIndex = context.crosshairIndex
-  const hasCrosshair = typeof crosshairIndex === 'number'
-  const targetIndex = resolveLegendValueIndex(crosshairIndex, klineData.length)
-
+  const targetIndex = resolveLegendValueIndex(context.crosshairIndex, context.data.length)
   const layout: LegendLayout = {
-    x: legendX,
-    y: yPaddingPx / 2 + legendYOffset,
-    lineHeight,
-    gap,
+    x: LEGEND_X,
+    y: yPaddingPx / 2 + LEGEND_Y_OFFSET,
+    lineHeight: LINE_HEIGHT,
+    gap: LEGEND_GAP,
     paneWidth: context.paneWidth,
-    compact,
+    compact: context.paneWidth < COMPACT_PANE_WIDTH,
   }
 
-  let timeshare: LegendTimeshareRow | null = null
-  if (isTimeShareDataView(context.dataView)) {
-    const tsData = context.data as TimeShareData[]
-    const rawPreClose = context.settings?.preClose as number | undefined
-    const preClose =
-      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose > 0
-        ? rawPreClose
-        : null
-    const item = tsData[targetIndex]
-    if (item && preClose !== null) {
-      const changeAmount = item.price - preClose
-      const changePercent = (changeAmount / preClose) * 100
-      const volume =
-        typeof item.volume === 'number' && Number.isFinite(item.volume) ? item.volume : null
-      const amount =
-        typeof item.amount === 'number' && Number.isFinite(item.amount) ? item.amount : null
-      timeshare = {
-        price: item.price,
-        average: item.average,
-        changeAmount,
-        changePercent,
-        volume,
-        volumeText: volume === null ? null : `${formatLegendQuantity(volume)}手`,
-        amount,
-        amountText: amount === null ? null : formatLegendQuantity(amount),
-        changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
-      }
-    }
-  }
-
-  let currentBar: LegendTemplateContext['currentBar'] = null
-  // OHLC 行始终占据同一位置，进入/离开画布不再推动指标 Legend，保证 DOM hover 稳定。
-  if (context.dataView === ChartDataViewId.KLine) {
-    const k = klineData[targetIndex]
-    if (k && typeof k.close === 'number') {
-      const isUp = k.close >= k.open
-      currentBar = {
-        ...k,
-        volume: typeof k.volume === 'number' ? k.volume : null,
-        volumeText: typeof k.volume === 'number' ? formatLegendQuantity(k.volume) : null,
-        color: isUp ? colors.candleUpBody : colors.candleDownBody,
-      }
-    }
-  }
-
-  const indicators = collectIndicatorRows(
-    host,
-    context.indicatorStateReader,
-    context.indicatorAvailability,
-    klineData,
-    targetIndex,
-    colors,
-    visibleIndicatorIds,
-  )
-  const comparisons = collectComparisonRows(context, klineData, targetIndex, colors)
+  const klineData = isKLineDataArray(context.data) ? context.data : []
+  const bar = klineData[targetIndex] ?? null
 
   return {
     rows: [],
     period: context.period,
     index: targetIndex,
-    hasCrosshair,
+    hasCrosshair: typeof context.crosshairIndex === 'number',
     layout,
     colors: {
       textPrimary: colors.text.primary,
@@ -137,23 +94,77 @@ export function projectLegendContext(
       up: colors.candleUpBody,
       down: colors.candleDownBody,
     },
-    currentBar,
-    timeshare,
-    indicators,
-    comparisons,
-    bar: klineData[targetIndex] ?? null,
+    currentBar: projectCurrentBar(context, klineData, targetIndex, colors),
+    timeshare: projectTimeshareRow(context, targetIndex, colors),
+    indicators: collectIndicatorRows(
+      host,
+      context,
+      klineData,
+      targetIndex,
+      colors,
+      visibleIndicatorIds,
+    ),
+    comparisons: collectComparisonRows(context, bar, colors),
+    bar,
+  }
+}
+
+/** 分时行情行：按前收计算涨跌，缺失前收时整行不展示。 */
+function projectTimeshareRow(
+  context: RenderContext,
+  targetIndex: number,
+  colors: ColorTokens,
+): LegendTimeshareRow | null {
+  if (!isTimeShareDataView(context.dataView)) return null
+  const item = isTimeShareDataArray(context.data) ? context.data[targetIndex] : undefined
+  const preClose = resolvePreClose(context.settings?.preClose)
+  if (!item || preClose === null) return null
+
+  const changeAmount = item.price - preClose
+  const volume =
+    typeof item.volume === 'number' && Number.isFinite(item.volume) ? item.volume : null
+  const amount =
+    typeof item.amount === 'number' && Number.isFinite(item.amount) ? item.amount : null
+  return {
+    price: item.price,
+    average: item.average,
+    changeAmount,
+    changePercent: (changeAmount / preClose) * 100,
+    volume,
+    volumeText: volume === null ? null : `${formatLegendQuantity(volume)}手`,
+    amount,
+    amountText: amount === null ? null : formatLegendQuantity(amount),
+    changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
+  }
+}
+
+/** K 线当前柱：OHLC 与成交量文本，进入/离开画布不推动指标行位置。 */
+function projectCurrentBar(
+  context: RenderContext,
+  klineData: ReadonlyArray<KLineData>,
+  targetIndex: number,
+  colors: ColorTokens,
+): LegendTemplateContext['currentBar'] {
+  if (context.dataView !== ChartDataViewId.KLine) return null
+  const bar = klineData[targetIndex]
+  if (!bar || typeof bar.close !== 'number') return null
+  return {
+    ...bar,
+    volume: typeof bar.volume === 'number' ? bar.volume : null,
+    volumeText: typeof bar.volume === 'number' ? formatLegendQuantity(bar.volume) : null,
+    color: bar.close >= bar.open ? colors.candleUpBody : colors.candleDownBody,
   }
 }
 
 function collectIndicatorRows(
   host: PluginHost | null,
-  stateReader: RenderContext['indicatorStateReader'],
-  availability: RenderContext['indicatorAvailability'],
+  context: RenderContext,
   klineData: KLineData[],
   targetIndex: number,
-  colors: ReturnType<typeof resolveThemeColors>,
+  colors: ColorTokens,
   visibleIndicatorIds: ReadonlySet<string> | null | undefined,
 ): LegendIndicatorRow[] {
+  const stateReader = context.indicatorStateReader
   if (!host || !stateReader) return []
   const catalog = host.getService<IndicatorInstanceCatalog>(INDICATOR_INSTANCE_CATALOG_SERVICE)
   if (!catalog) return []
@@ -164,7 +175,7 @@ function collectIndicatorRows(
     const row = projectIndicator(
       instance,
       stateReader,
-      availability,
+      context.indicatorAvailability,
       klineData,
       targetIndex,
       colors,
@@ -181,7 +192,7 @@ export function projectIndicator(
   availability: RenderContext['indicatorAvailability'],
   data: KLineData[],
   index: number,
-  colors: ReturnType<typeof resolveThemeColors>,
+  colors: ColorTokens,
 ): LegendIndicatorRow | null {
   const meta = getRegisteredIndicatorDefinition(instance.definitionId)
   if (!meta) return null
@@ -215,50 +226,44 @@ export function projectIndicator(
   }
 }
 
-/** 比较图例使用折线投影的自身起点，以时间戳读取主图当前位置的真实价格。 */
+/** 比较图例以时间戳读取主图当前位置的真实行情，涨幅沿用折线基准。 */
 function collectComparisonRows(
   context: RenderContext,
-  klineData: KLineData[],
-  targetIndex: number,
-  colors: ReturnType<typeof resolveThemeColors>,
+  targetBar: KLineData | null,
+  colors: ColorTokens,
 ): LegendComparisonRow[] {
   const comparisonSymbols = context.comparisonSymbols
-  const projection = context.comparisonProjection
-  const targetBar = klineData[targetIndex]
   if (!comparisonSymbols?.length) return []
-  const comparisonData = context.comparisonData
+  return comparisonSymbols.map((spec) => projectComparisonRow(spec, context, targetBar, colors))
+}
 
-  const rows: LegendComparisonRow[] = []
-  const comparisonColors = context.comparisonColors
-
-  for (const spec of comparisonSymbols) {
-    const identity = symbolSpecIdentityKey(spec)
-    const data = comparisonData?.get(identity)
-    const series = projection?.series.find((item) => item.identity === identity)
-    const cmpItem = data?.find((item) => item.timestamp === targetBar?.timestamp)
-    const price =
-      cmpItem && Number.isFinite(cmpItem.close) && cmpItem.close > 0 ? cmpItem.close : null
-    const percent =
-      series && price !== null && Number.isFinite(series.baselineClose) && series.baselineClose > 0
-        ? ((price - series.baselineClose) / series.baselineClose) * 100
-        : null
-    const color = comparisonColors?.get(identity) ?? colors.palette.i2
-    rows.push({
-      identity,
-      hidden: context.comparisonHidden?.get(identity) === true,
-      symbol: spec.symbol,
-      price,
-      bar: cmpItem ?? null,
-      ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
-      percent,
-      color,
-      percentColor:
-        percent !== null && percent > 0
-          ? colors.candleUpBody
-          : percent !== null && percent < 0
-            ? colors.candleDownBody
-            : colors.text.primary,
-    })
+/** 单个比较品种：价格、比较基准涨幅与图例配色。 */
+function projectComparisonRow(
+  spec: NonNullable<RenderContext['comparisonSymbols']>[number],
+  context: RenderContext,
+  targetBar: KLineData | null,
+  colors: ColorTokens,
+): LegendComparisonRow {
+  const identity = symbolSpecIdentityKey(spec)
+  const data = context.comparisonData?.get(identity)
+  const series = context.comparisonProjection?.series.find((item) => item.identity === identity)
+  const cmpItem = data?.find((item) => item.timestamp === targetBar?.timestamp)
+  const price =
+    cmpItem && Number.isFinite(cmpItem.close) && cmpItem.close > 0 ? cmpItem.close : null
+  const baseline = series?.baselineClose
+  const percent =
+    price !== null && baseline !== undefined && Number.isFinite(baseline) && baseline > 0
+      ? ((price - baseline) / baseline) * 100
+      : null
+  return {
+    identity,
+    hidden: context.comparisonHidden?.get(identity) === true,
+    symbol: spec.symbol,
+    price,
+    bar: cmpItem ?? null,
+    ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
+    percent,
+    color: context.comparisonColors?.get(identity) ?? colors.palette.i2,
+    percentColor: signedColor(percent, colors),
   }
-  return rows
 }

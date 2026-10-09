@@ -13,7 +13,12 @@ import type {
   InstrumentCapabilities,
   InstrumentDescriptor,
 } from '../data/provider/types.js'
-import type { InteractionSnapshot } from '../engine/chart/index.js'
+import type {
+  IndicatorInstance,
+  IndicatorRole,
+  InteractionSnapshot,
+  SubPaneInfo,
+} from '../engine/chart/index.js'
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
@@ -59,13 +64,14 @@ export interface ChartViewport {
   kGap: number
 }
 
-/** 指标角色运行时取值，作为 IndicatorRole 的单一事实来源。 */
+/** 指标角色运行时取值，供适配器判断主/副图。 */
 export const INDICATOR_ROLE = {
   MAIN: 'main',
   SUB: 'sub',
 } as const
 
-export type IndicatorRole = (typeof INDICATOR_ROLE)[keyof typeof INDICATOR_ROLE]
+/** 指标实例与副图信息沿用引擎投影，避免控制器层重复定义。 */
+export type { IndicatorInstance, IndicatorRole, SubPaneInfo }
 
 /** 组件受控指标实例配置。 */
 export interface ChartIndicatorConfig {
@@ -73,25 +79,6 @@ export interface ChartIndicatorConfig {
   role: IndicatorRole
   enabled: boolean
   params?: Record<string, unknown>
-}
-
-export interface IndicatorInstance {
-  id: string
-  definitionId: string
-  label: string
-  name: string
-  role: IndicatorRole
-  paneId?: string
-  params: Record<string, unknown>
-}
-
-export interface SubPaneInfo {
-  instanceId: string
-  paneId: string
-  indicatorId: string
-  ordinal: number
-  params: Record<string, unknown>
-  ratio: number
 }
 
 export type DrawingObject = PluginDrawingObject
@@ -655,5 +642,4 @@ export type ChartControllerFactory = (
 // ---------------------------------------------------------------------------
 
 export type { DrawingController, DrawingState } from './drawing/types.js'
-export type { ActiveIndicator, IndicatorSelectorController } from './indicatorSelector/types.js'
 export type { ToolbarController, ToolDefinition, ToolId } from './toolbar/types.js'

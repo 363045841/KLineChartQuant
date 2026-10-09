@@ -429,6 +429,7 @@
     setEndpoint: setAggregationSourceEndpoint,
   } = useAggregationSources(aggregationSources)
 
+  import './tooltip.css'
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
   import { useChartScreenshot } from '../composables/chart/useChartScreenshot.js'
   import { useChartState } from '../composables/chart/useChartState.js'
@@ -448,6 +449,7 @@
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
   import { useWatchlist } from '../composables/useWatchlist.js'
+  import { readElementSize } from '../utils/elementSize.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
@@ -534,7 +536,6 @@
   )
 
   const emit = defineEmits<{
-    (e: 'zoomLevelChange', level: number, kWidth: number): void
     (e: 'toggleFullscreen'): void
     (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
@@ -1167,13 +1168,11 @@
     if (!_markerTooltipRO) {
       _markerTooltipRO = new ResizeObserver((entries) => {
         for (const entry of entries) {
-          const target = entry.target as HTMLDivElement
-          if (!target.isConnected) continue
-          const w = entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width
-          const h = entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height
+          const size = readElementSize(entry)
+          if (!size) continue
           markerTooltipSize.value = {
-            width: Math.max(120, Math.round(w)),
-            height: Math.max(60, Math.round(h)),
+            width: Math.max(120, size.width),
+            height: Math.max(60, size.height),
           }
         }
       })
@@ -2344,53 +2343,5 @@
 <style>
   * {
     -webkit-tap-highlight-color: transparent;
-  }
-
-  .kline-tooltip {
-    position: absolute;
-    z-index: 10;
-    min-width: 200px;
-    max-width: 260px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--klc-color-tooltip-bg);
-    border: 1px solid var(--klc-color-tooltip-border);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-    color: var(--klc-color-tooltip-text);
-    font-size: 12px;
-    line-height: 1.4;
-    pointer-events: none;
-    backdrop-filter: blur(6px);
-    user-select: none;
-  }
-  .kline-tooltip.is-draggable,
-  .kline-tooltip-host.is-draggable {
-    pointer-events: auto;
-    cursor: grab;
-  }
-  .kline-tooltip.is-draggable:active,
-  .kline-tooltip-host.is-draggable:active {
-    cursor: grabbing;
-  }
-  .kline-tooltip__title {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .kline-tooltip__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-  .kline-tooltip__grid .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .kline-tooltip__grid .row span:first-child {
-    color: var(--klc-color-tooltip-text);
-    opacity: 0.56;
   }
 </style>

@@ -7,8 +7,6 @@
 import type { Signal } from '../../foundation/reactivity/index.js'
 import type { IndicatorDefinition, IndicatorPaneRole } from '../types.js'
 
-export type { IndicatorDefinition } from '../types.js'
-
 export interface ActiveIndicator {
   id: string
   definitionId: string

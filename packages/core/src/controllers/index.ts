@@ -24,11 +24,11 @@ export {
   toIndicatorDefinition,
 } from './indicatorDefinitionCatalog.js'
 export { createIndicatorSelectorController } from './indicatorSelector/index.js'
+export type { ActiveIndicator, IndicatorSelectorController } from './indicatorSelector/index.js'
 export type { ChartRendererAccess } from './renderers/index.js'
 export { getChartRenderers } from './renderers/index.js'
 export type { ChartFrameCaptureContext } from './screenshot/types.js'
 export type {
-  ActiveIndicator,
   ChartController,
   ChartControllerFactory,
   ChartIndicatorConfig,
@@ -54,7 +54,6 @@ export type {
   IndicatorPaneRole,
   IndicatorParamDef,
   IndicatorRole,
-  IndicatorSelectorController,
   InteractionSnapshot,
   KLineData,
   PaneLayoutInfo,

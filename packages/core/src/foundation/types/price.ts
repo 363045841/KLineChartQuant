@@ -62,6 +62,20 @@ export function isTimeShareData(data: unknown[]): data is TimeShareData[] {
   )
 }
 
+/** 按首条序列判断是否为 K 线视图数据；分时数据没有 OHLC */
+export function isKLineDataArray(data: ReadonlyArray<ChartSeriesDatum>): data is KLineData[] {
+  const first = data[0]
+  return first !== undefined && 'close' in first
+}
+
+/** 按首条序列判断是否为分时视图数据；K 线数据没有 price/average */
+export function isTimeShareDataArray(
+  data: ReadonlyArray<ChartSeriesDatum>,
+): data is TimeShareData[] {
+  const first = data[0]
+  return first !== undefined && 'price' in first && 'average' in first
+}
+
 export function toKLineData(arr: KLineDailyDongCaiResponse[]): KLineData[] {
   return arr
     .map((e) => ({

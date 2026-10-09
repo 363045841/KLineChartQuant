@@ -8,9 +8,9 @@ import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import {
   createProjectionRevision,
-  type ProjectionRevision,
   sameProjectionRevision,
-} from '../../frame/index.js'
+} from '../../frame/impl/retainedProjection.js'
+import type { ProjectionRevision } from '../../frame/types.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'

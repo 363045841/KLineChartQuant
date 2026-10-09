@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+  import './tooltip.css'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import type { ComponentPublicInstance } from 'vue'
   import { computed } from 'vue'
@@ -162,58 +163,6 @@
 </script>
 
 <style scoped>
-  .kline-tooltip {
-    position: absolute;
-    z-index: 10;
-    min-width: 200px;
-    max-width: 260px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--klc-color-tooltip-bg);
-    border: 1px solid var(--klc-color-tooltip-border);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-    color: var(--klc-color-tooltip-text);
-    font-size: 12px;
-    line-height: 1.4;
-    pointer-events: none;
-    backdrop-filter: blur(6px);
-    user-select: none;
-  }
-
-  .kline-tooltip.is-draggable {
-    pointer-events: auto;
-    cursor: grab;
-  }
-
-  .kline-tooltip.is-draggable:active {
-    cursor: grabbing;
-  }
-
-  .kline-tooltip__title {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-
-  .kline-tooltip__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-
-  .kline-tooltip__grid .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .kline-tooltip__grid .row span:first-child {
-    color: var(--klc-color-tooltip-text);
-    opacity: 0.56;
-  }
-
   @supports (anchor-name: --kmap-anchor) and (position-anchor: --kmap-anchor) {
     .kline-tooltip.use-anchor {
       position: absolute;

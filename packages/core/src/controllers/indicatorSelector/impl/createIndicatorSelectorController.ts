@@ -12,11 +12,11 @@
  */
 
 import { computed, createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import type { IndicatorDefinition } from '../../types.js'
 import { INDICATOR_ROLE } from '../../types.js'
 
 import type {
   ActiveIndicator,
-  IndicatorDefinition,
   IndicatorSelectorController,
   IndicatorSelectorInit,
 } from '../types.js'

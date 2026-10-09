@@ -16,9 +16,9 @@ import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.j
 import type { Layer } from '../../rendering/scene/types.js'
 import {
   createProjectionRevision,
-  type ProjectionRevision,
   sameProjectionRevision,
-} from '../frame/index.js'
+} from '../frame/impl/retainedProjection.js'
+import type { ProjectionRevision } from '../frame/types.js'
 import type { MarkerManager } from '../marker/registry.js'
 import { calcBarLeftPx, fitBarWidthPx } from '../viewport/klineConfig.js'
 import { drawWorldRectBatches } from './rectsViaRenderer.js'

@@ -9,22 +9,6 @@ import type { Signal } from '../../foundation/reactivity/index.js'
 
 export type { DrawingToolId } from '../../engine/drawing/index.js'
 
-export type {
-  CreateDrawingInput,
-  DrawingChartAdapter,
-  DrawingChartViewport,
-  DrawingControllerCallbacks,
-  DrawingDocumentPort,
-  DrawingLabelIndex,
-  DrawingLabelPosition,
-  DrawingObject,
-  DrawingSessionPort,
-  DrawingStyle,
-  DrawingStyleKey,
-  DrawingViewportPort,
-  UpdateDrawingPatch,
-} from '../types.js'
-
 export interface DrawingState {
   readonly activeTool: DrawingToolId | null
   readonly drawingCount: number

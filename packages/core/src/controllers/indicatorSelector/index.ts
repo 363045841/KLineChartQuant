@@ -6,9 +6,4 @@
  */
 
 export { createIndicatorSelectorController } from './impl/createIndicatorSelectorController.js'
-export type {
-  ActiveIndicator,
-  IndicatorDefinition,
-  IndicatorSelectorController,
-  IndicatorSelectorInit,
-} from './types.js'
+export type { ActiveIndicator, IndicatorSelectorController } from './types.js'

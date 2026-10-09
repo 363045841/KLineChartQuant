@@ -51,6 +51,15 @@ interface MountedRow {
   data: LegendRow
 }
 
+/** 仅在值变化时写入样式，减少高频帧的 DOM 变更。 */
+function applyStyle(
+  style: CSSStyleDeclaration,
+  property: 'left' | 'top' | 'maxWidth' | 'minHeight' | 'gap',
+  value: string,
+): void {
+  if (style[property] !== value) style[property] = value
+}
+
 /** 将主题与交互样式限制在当前图表拥有的 Legend 容器中。 */
 function createStyles(document: Document): HTMLStyleElement {
   const style = document.createElement('style')
@@ -227,149 +236,183 @@ export function createLegendDomRenderer(
     }
   }
 
+  /** 移除已不在当前 Pane 顺序中的行容器。 */
+  function prunePanes(paneOrder: ReadonlyArray<string>): void {
+    for (const [id, entries] of mounted) {
+      if (paneOrder.includes(id)) continue
+      for (const row of entries.values()) row.element.remove()
+      mounted.delete(id)
+    }
+  }
+
+  /** 取当前 Pane 的行表，并按最新 key 集合清理失效行。 */
+  function pruneRows(paneId: string, rows: ReadonlyArray<LegendRow>): Map<string, MountedRow> {
+    let entries = mounted.get(paneId)
+    if (!entries) {
+      entries = new Map()
+      mounted.set(paneId, entries)
+    }
+    const keys = new Set(rows.map((row) => row.key))
+    for (const [key, row] of entries) {
+      if (keys.has(key)) continue
+      row.element.remove()
+      entries.delete(key)
+    }
+    return entries
+  }
+
+  /** 新建一行 DOM，并挂载按钮与指针隔离。 */
+  function createRow(data: LegendRow): MountedRow {
+    const element = document.createElement('div')
+    element.className = 'klc-legend-row'
+    const text = document.createElement('div')
+    text.className = 'klc-legend-text'
+    const spinner = document.createElement('span')
+    spinner.className = 'klc-legend-spinner'
+    spinner.setAttribute('aria-hidden', 'true')
+    spinner.hidden = data.loading !== true
+    element.append(text)
+    const row: MountedRow = { element, text, spinner, spans: [], nodes: [], buttons: [], data }
+    if (data.indicator) element.dataset.indicator = data.indicator.instanceId
+    if (data.comparison) element.dataset.comparison = data.comparison.identity
+    if (data.actions.length) {
+      element.toggleAttribute('data-actions', true)
+      addActions(document, row, execute)
+    }
+    // 能力集合后续可变化，行节点始终隔离画布指针流程。
+    for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
+      element.addEventListener(event, (event) => event.stopPropagation())
+    }
+    // 收起期间新建的行同样保持隐藏，避免展开前闪出。
+    if (data.paneId === MAIN_PANE_ID && mainCollapsed) element.style.display = 'none'
+    root.append(element)
+    return row
+  }
+
+  /** 按钮集合变化时重建操作区，保持与文本 DOM 解耦。 */
+  function syncActions(row: MountedRow, data: LegendRow): void {
+    const previous = row.data
+    const changed =
+      previous.actions.length !== data.actions.length ||
+      previous.actions.some((action, index) => action.action !== data.actions[index]?.action)
+    if (!changed) return
+    row.actionFrame?.remove()
+    row.actionFrame = undefined
+    row.buttons = []
+    row.visibilityButton = undefined
+    row.visibilityIcon = undefined
+    // addActions 依据行上最新的按钮集合创建 DOM。
+    row.data = data
+    row.element.toggleAttribute('data-actions', data.actions.length > 0)
+    if (data.actions.length) addActions(document, row, execute)
+  }
+
+  /** 写入行几何与加载态；maxWidth 预留按钮区宽度。 */
+  function syncGeometry(row: MountedRow, data: LegendRow): void {
+    const actionWidth = data.actions.length
+      ? data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX
+      : 0
+    applyStyle(row.element.style, 'left', `${data.x}px`)
+    applyStyle(row.element.style, 'top', `${data.y}px`)
+    applyStyle(row.element.style, 'maxWidth', `${Math.max(0, data.maxWidth - actionWidth)}px`)
+    applyStyle(row.element.style, 'minHeight', `${data.height}px`)
+    applyStyle(row.text.style, 'gap', `${data.gap}px`)
+    const loading = data.loading === true
+    if (row.spinner.hidden === loading) row.spinner.hidden = !loading
+  }
+
+  /** 差量同步文本片段：复用 span 与文本节点，只写变化的样式。 */
+  function syncTexts(row: MountedRow, data: LegendRow, previous: LegendRow): void {
+    while (row.spans.length > data.texts.length) {
+      row.spans.pop()?.remove()
+      row.nodes.pop()
+    }
+    for (let index = 0; index < data.texts.length; index++) {
+      const segment = data.texts[index]!
+      let span = row.spans[index]
+      const created = !span
+      if (!span) {
+        span = document.createElement('span')
+        const node = document.createTextNode(segment.text)
+        span.append(node)
+        row.nodes.push(node)
+        row.spans.push(span)
+        row.text.append(span)
+      }
+      const node = row.nodes[index]!
+      if (node.data !== segment.text) node.data = segment.text
+      if (created || previous.texts[index]?.color !== segment.color)
+        span.style.color = segment.color
+      const marginLeft =
+        index > 0 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
+      if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
+    }
+    // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
+    if (row.text.lastElementChild !== row.spinner) row.text.append(row.spinner)
+  }
+
+  /** 同步隐藏态、按钮标签与可用性、显隐图标。 */
+  function syncState(row: MountedRow, data: LegendRow, previous: LegendRow): void {
+    const hidden = data.hidden === true
+    if (row.element.hasAttribute('data-hidden') !== hidden)
+      row.element.toggleAttribute('data-hidden', hidden)
+    for (const [index, action] of data.actions.entries()) {
+      const button = row.buttons[index]!
+      if (button.title !== action.label) {
+        button.title = action.label
+        button.setAttribute('aria-label', action.label)
+      }
+      if (button.disabled === action.enabled) button.disabled = !action.enabled
+    }
+    if (row.visibilityIcon && previous.hidden !== data.hidden) {
+      row.visibilityIcon.innerHTML = (
+        hidden ? VISIBILITY_ICONS.hidden : VISIBILITY_ICONS.visible
+      ).body
+    }
+  }
+
+  /** 主图行就绪后更新收起按钮的位置、可见性与计数。 */
+  function syncMainCollapse(
+    rows: ReadonlyArray<LegendRow>,
+    indicatorRows: ReadonlyArray<LegendRow>,
+  ): void {
+    const first = rows[0]
+    const last = rows[rows.length - 1]
+    mainIndicatorCount = indicatorRows.length
+    // 已选择品种且主图有指标行时启用，避免默认指标让空图显示展开/收起入口。
+    const enable =
+      hasSelectedSymbol() && indicatorRows.length > 0 && first !== undefined && last !== undefined
+    if (collapseButton.hidden === enable) collapseButton.hidden = !enable
+    if (enable) {
+      firstRowTop = `${first.y}px`
+      lastRowBottom = `${last.y + last.height + COLLAPSE_GAP_PX}px`
+      applyStyle(collapseButton.style, 'left', `${first.x}px`)
+    } else {
+      firstRowTop = null
+      lastRowBottom = null
+    }
+    applyCollapseState()
+  }
+
   return {
     update(paneId, rows, paneOrder) {
-      for (const [id, entries] of mounted) {
-        if (paneOrder.includes(id)) continue
-        for (const row of entries.values()) row.element.remove()
-        mounted.delete(id)
-      }
-      let entries = mounted.get(paneId)
-      if (!entries) {
-        entries = new Map()
-        mounted.set(paneId, entries)
-      }
-      const keys = new Set(rows.map((row) => row.key))
-      for (const [key, row] of entries) {
-        if (keys.has(key)) continue
-        row.element.remove()
-        entries.delete(key)
-      }
+      prunePanes(paneOrder)
+      const entries = pruneRows(paneId, rows)
       const indicatorRows = rows.filter((row) => row.indicator)
       for (const data of rows) {
         let row = entries.get(data.key)
         if (!row) {
-          const element = document.createElement('div')
-          element.className = 'klc-legend-row'
-          const text = document.createElement('div')
-          text.className = 'klc-legend-text'
-          const spinner = document.createElement('span')
-          spinner.className = 'klc-legend-spinner'
-          spinner.setAttribute('aria-hidden', 'true')
-          spinner.hidden = data.loading !== true
-          element.append(text)
-          row = { element, text, spinner, spans: [], nodes: [], buttons: [], data }
-          if (data.indicator) element.dataset.indicator = data.indicator.instanceId
-          if (data.comparison) element.dataset.comparison = data.comparison.identity
-          if (data.actions.length) {
-            element.toggleAttribute('data-actions', true)
-            addActions(document, row, execute)
-          }
-          // 能力集合后续可变化，行节点始终隔离画布指针流程。
-          for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
-            element.addEventListener(event, (event) => event.stopPropagation())
-          }
-          // 收起期间新建的行同样保持隐藏，避免展开前闪出。
-          if (data.paneId === MAIN_PANE_ID && mainCollapsed) element.style.display = 'none'
-          root.append(element)
+          row = createRow(data)
           entries.set(data.key, row)
         }
         const previous = row.data
-        if (
-          previous.actions.length !== data.actions.length ||
-          previous.actions.some((action, index) => action.action !== data.actions[index]?.action)
-        ) {
-          row.actionFrame?.remove()
-          row.actionFrame = undefined
-          row.buttons = []
-          row.visibilityButton = undefined
-          row.visibilityIcon = undefined
-          row.data = data
-          row.element.toggleAttribute('data-actions', data.actions.length > 0)
-          if (data.actions.length) addActions(document, row, execute)
-        }
-        const style = row.element.style
-        const left = `${data.x}px`
-        const top = `${data.y}px`
-        const actionWidth = data.actions.length
-          ? data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX
-          : 0
-        const maxWidth = `${Math.max(0, data.maxWidth - actionWidth)}px`
-        const minHeight = `${data.height}px`
-        const gap = `${data.gap}px`
-        if (style.left !== left) style.left = left
-        if (style.top !== top) style.top = top
-        if (style.maxWidth !== maxWidth) style.maxWidth = maxWidth
-        if (style.minHeight !== minHeight) style.minHeight = minHeight
-        if (row.text.style.gap !== gap) row.text.style.gap = gap
-        const loading = data.loading === true
-        if (row.spinner.hidden === loading) row.spinner.hidden = !loading
-        while (row.spans.length > data.texts.length) {
-          row.spans.pop()?.remove()
-          row.nodes.pop()
-        }
-        for (let index = 0; index < data.texts.length; index++) {
-          const segment = data.texts[index]!
-          let span = row.spans[index]
-          const created = !span
-          if (!span) {
-            span = document.createElement('span')
-            const node = document.createTextNode(segment.text)
-            span.append(node)
-            row.nodes.push(node)
-            row.spans.push(span)
-            row.text.append(span)
-          }
-          const node = row.nodes[index]!
-          if (node.data !== segment.text) node.data = segment.text
-          if (created || previous.texts[index]?.color !== segment.color)
-            span.style.color = segment.color
-          const marginLeft =
-            index > 0 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
-          if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
-        }
-        // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
-        if (row.text.lastElementChild !== row.spinner) row.text.append(row.spinner)
-        const hidden = data.hidden === true
-        if (row.element.hasAttribute('data-hidden') !== hidden)
-          row.element.toggleAttribute('data-hidden', hidden)
-        for (const [index, action] of data.actions.entries()) {
-          const button = row.buttons[index]!
-          if (button.title !== action.label) {
-            button.title = action.label
-            button.setAttribute('aria-label', action.label)
-          }
-          if (button.disabled === action.enabled) button.disabled = !action.enabled
-        }
-        if (row.visibilityIcon && previous.hidden !== data.hidden) {
-          row.visibilityIcon.innerHTML = (
-            hidden ? VISIBILITY_ICONS.hidden : VISIBILITY_ICONS.visible
-          ).body
-        }
+        syncActions(row, data)
+        syncGeometry(row, data)
+        syncTexts(row, data, previous)
+        syncState(row, data, previous)
         row.data = data
       }
-      // 已选择品种且主图有指标行时启用按钮，避免默认指标让空图显示展开/收起入口。
-      if (paneId === MAIN_PANE_ID) {
-        const first = rows[0]
-        const last = rows[rows.length - 1]
-        mainIndicatorCount = indicatorRows.length
-        const enable =
-          hasSelectedSymbol() &&
-          indicatorRows.length > 0 &&
-          first !== undefined &&
-          last !== undefined
-        if (collapseButton.hidden === enable) collapseButton.hidden = !enable
-        if (enable) {
-          firstRowTop = `${first.y}px`
-          lastRowBottom = `${last.y + last.height + COLLAPSE_GAP_PX}px`
-          const left = `${first.x}px`
-          if (collapseButton.style.left !== left) collapseButton.style.left = left
-        } else {
-          firstRowTop = null
-          lastRowBottom = null
-        }
-        applyCollapseState()
-      }
+      if (paneId === MAIN_PANE_ID) syncMainCollapse(rows, indicatorRows)
     },
     clear,
     dispose() {

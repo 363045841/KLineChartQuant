@@ -115,6 +115,7 @@ function createFixture() {
       name: 'RSI',
       role: 'sub',
       paneId: 'rsi-pane',
+      ordinal: 0,
       params: indicatorParams,
     },
   ])

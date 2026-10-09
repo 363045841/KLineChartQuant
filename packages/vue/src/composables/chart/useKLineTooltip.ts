@@ -6,6 +6,7 @@
 import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
 import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref, watch } from 'vue'
+import { readElementSize } from '../../utils/elementSize.js'
 
 /** 默认 tooltip 中性的文字颜色。 */
 const NEUTRAL_COLOR = 'var(--klc-color-ui-muted)'
@@ -303,13 +304,11 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
           if (!resizeObserver) {
             resizeObserver = new ResizeObserver((entries) => {
               for (const entry of entries) {
-                const target = entry.target as HTMLDivElement
-                if (!target.isConnected) continue
-                const w = entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width
-                const h = entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height
+                const size = readElementSize(entry)
+                if (!size) continue
                 ctrl.setTooltipSize({
-                  width: Math.max(180, Math.round(w)),
-                  height: Math.max(80, Math.round(h)),
+                  width: Math.max(180, size.width),
+                  height: Math.max(80, size.height),
                 })
               }
             })

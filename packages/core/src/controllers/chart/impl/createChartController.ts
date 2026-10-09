@@ -1,10 +1,5 @@
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
-import type {
-  ChartOptions,
-  IndicatorInstance as EngineIndicatorInstance,
-  SubPaneInfo as EngineSubPaneInfo,
-  ViewportState as EngineViewportState,
-} from '@/engine/chart/index.js'
+import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
@@ -23,10 +18,8 @@ import type {
   ChartController,
   ChartMountOptions,
   ChartViewport,
-  IndicatorInstance,
   InteractionSnapshot,
   PaneSpec,
-  SubPaneInfo,
   SymbolInfo,
 } from '../types.js'
 import { DEFAULT_OPTS } from './controllerDefaults.js'
@@ -35,8 +28,7 @@ import { createDataMethods } from './createDataMethods.js'
 import { createDrawingMethods } from './createDrawingMethods.js'
 import { mountChartDom } from './mountChartDom.js'
 
-// engine 侧模型 → controller 公开模型的字段投影：engine 的指标实例带 internal ordinal，
-// 公开实例不含，故在此收窄为面向前端的快照。
+// engine 侧视口模型 → controller 公开模型的字段投影。
 function mapViewportState(vp: EngineViewportState): ChartViewport {
   return {
     zoomLevel: vp.zoomLevel,
@@ -47,29 +39,6 @@ function mapViewportState(vp: EngineViewportState): ChartViewport {
     visibleTo: vp.visibleTo,
     kWidth: vp.kWidth,
     kGap: vp.kGap,
-  }
-}
-
-function mapIndicatorInstance(indicator: EngineIndicatorInstance): IndicatorInstance {
-  return {
-    id: indicator.id,
-    definitionId: indicator.definitionId,
-    label: indicator.label,
-    name: indicator.name,
-    role: indicator.role,
-    paneId: indicator.paneId,
-    params: { ...indicator.params },
-  }
-}
-
-function mapSubPaneInfo(subPane: EngineSubPaneInfo): SubPaneInfo {
-  return {
-    instanceId: subPane.instanceId,
-    paneId: subPane.paneId,
-    indicatorId: subPane.indicatorId,
-    ordinal: subPane.ordinal,
-    params: { ...subPane.params },
-    ratio: subPane.ratio,
   }
 }
 
@@ -132,8 +101,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   const viewport = computed(() => mapViewportState(chart.viewport()))
-  const indicators = computed(() => chart.indicators.instances().map(mapIndicatorInstance))
-  const subPanes = computed(() => chart.indicators.subPanes().map(mapSubPaneInfo))
+  const indicators = computed(() => chart.indicators.instances())
+  const subPanes = computed(() => chart.indicators.subPanes())
   const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme.effective
   const selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>> = chart.drawing.selectedIds
   const globalDrawingLock: ReadonlySignal<boolean> = chart.drawing.globalLock

@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+  import './tooltip.css'
   import type {
     CustomMarkerEntity,
     MarkerEntity,
@@ -87,47 +88,6 @@
 </script>
 
 <style scoped>
-  .marker-tooltip {
-    position: absolute;
-    z-index: 10;
-    min-width: 180px;
-    max-width: 260px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--klc-color-tooltip-bg);
-    border: 1px solid var(--klc-color-tooltip-border);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-    color: var(--klc-color-tooltip-text);
-    font-size: 12px;
-    line-height: 1.4;
-    pointer-events: none;
-    backdrop-filter: blur(6px);
-  }
-
-  .marker-tooltip__title {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-
-  .marker-tooltip__content {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-
-  .marker-tooltip__content .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .marker-tooltip__content .row span:first-child {
-    color: color-mix(in srgb, var(--klc-color-tooltip-text) 70%, transparent);
-  }
-
   @supports (anchor-name: --kmap-anchor) and (position-anchor: --kmap-anchor) {
     .marker-tooltip.use-anchor {
       position: absolute;
