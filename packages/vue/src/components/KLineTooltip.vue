@@ -91,8 +91,8 @@
       draggable?: boolean
     }>(),
     {
-      upColor: '#ef4444',
-      downColor: '#22c55e',
+      upColor: 'var(--klc-color-candle-up-body)',
+      downColor: 'var(--klc-color-candle-down-body)',
       timezone: 'Asia/Shanghai',
       showTime: false,
     },
@@ -126,7 +126,7 @@
     return `${sign}${val.toFixed(2)}${unit}`
   }
 
-  const NEUTRAL_COLOR = '#6b7280'
+  const NEUTRAL_COLOR = 'var(--klc-color-ui-muted)'
 
   function calcDirection(
     data: KLineData,

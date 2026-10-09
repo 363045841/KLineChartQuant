@@ -169,8 +169,8 @@ custom source 绑定 Chart 实例，不注册到全局 `marketDataProviderRegist
 
 ## 当前实现
 
-- 仓库实现位于 `packages/core/src/data/buffer/impl/seriesRepository.ts`；身份函数 `instrumentKeyFromSpec` / `sourceIdFromSpec` / `barSeriesKey` / `seriesSelectionKey` 同文件导出。
-- `ChartDataManager` 持有一个图表实例级 `SeriesRepository`（`new SeriesRepository()`），并对外暴露 `symbolCatalog` 等只读投影。
+- 仓库实现位于 `packages/core/src/data/buffer/impl/seriesRepository.ts`；身份函数 `instrumentKeyFromSpec` / `sourceIdFromSpec` / `seriesSelectionKey` 同文件导出，K 线叶子键 `barSeriesKey` 只在文件内部使用。
+- 图表实例级 `MarketDataCache` 拥有唯一的 `SeriesRepository`（`packages/core/src/data/buffer/impl/marketDataCache.ts` 中 `readonly repository = new SeriesRepository()`）；`ChartDataManager` 通过 `this.marketDataCache.repository` 引用同一实例，不再自建仓库，并对外暴露 `symbolCatalog` 等只读投影。
 - `ComparisonManager` 引用同一 Repository 的叶子 Buffer，不再自建 Map-shaped Buffer 管理。
 - 旧 `_klineBuffers` / `_tsBuffers` Map、`preCustomSpec` 和 custom mode 恢复分支已删除，实现中只剩一套 Buffer 所有权。
 

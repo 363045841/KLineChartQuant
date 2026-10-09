@@ -8,7 +8,7 @@ import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/c
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref, watch } from 'vue'
 
 /** 默认 tooltip 中性的文字颜色。 */
-const NEUTRAL_COLOR = '#6b7280'
+const NEUTRAL_COLOR = 'var(--klc-color-ui-muted)'
 
 /** 默认 tooltip 内容各字段对应的 DOM 节点。 */
 interface TooltipDomRefs {

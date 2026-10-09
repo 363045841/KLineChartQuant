@@ -5,16 +5,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import type { FootprintRenderState } from '../../../components/footprint/types'
 import { createTradeBuffer } from '../../../data/trades/impl/tradeBuffer'
-import type { TradeBatch, TradeDataSource } from '../../../data/trades/types'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
-import {
-  createContextWithInstanceState,
-  createKLineData,
-  createMockCanvasContext,
-} from '../../__tests__/helpers/renderTestKit'
+import { createKLineData } from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
-import { FootprintIndicatorDefinition } from '../../renderers/Indicator/footprint'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { loadBuiltinIndicators } from '../registerBuiltins'
@@ -91,22 +86,11 @@ describe('ChartIndicatorManager', () => {
     manager.destroy()
   })
 
-  it('每页历史返回后提交足迹并请求绘制，不等待下一页完成', async () => {
+  it('历史页写入后提交足迹结果并请求绘制', async () => {
     const data = createKLineData(100)
     manager.enableMainIndicator('Footprint')
     manager.updateIndicatorData(data, { start: 80, end: 82 }, 1)
-    let releaseFirst: ((batch: TradeBatch) => void) | undefined
-    const source: TradeDataSource = {
-      fetch: vi.fn<TradeDataSource['fetch']>(
-        ({ signal }) =>
-          new Promise<TradeBatch>((resolve, reject) => {
-            if (!releaseFirst) releaseFirst = resolve
-            signal.addEventListener('abort', () => reject(new Error('cancelled')))
-          }),
-      ),
-      connect: () => ({ subscribe: () => () => {}, close: () => {} }),
-    }
-    const buffer = createTradeBuffer(source, {
+    const buffer = createTradeBuffer({
       id: 'binance:spot:BTCUSDT',
       sourceId: 'binance',
       symbol: 'BTCUSDT',
@@ -117,46 +101,35 @@ describe('ChartIndicatorManager', () => {
       capabilities: { trades: { raw: true, live: true } },
     })
     const unsubscribe = buffer.snapshot.subscribe(() =>
-      manager.updateTradeInput(buffer.snapshot.peek()),
+      manager.updateTradeInput({ ...buffer.snapshot.peek(), status: 'ready', message: null }),
     )
-    const loading = buffer.ensureRange({ from: data[80]!.timestamp, to: data[82]!.timestamp })
     try {
-      releaseFirst?.({
-        complete: true,
-        range: { from: data[81]!.timestamp, to: data[82]!.timestamp },
-        items: [
-          {
-            tradeId: '1',
-            timestamp: data[81]!.timestamp,
-            price: '100',
-            size: '0.25',
-            side: 'sell',
-          },
-        ],
-      })
+      buffer
+        .prepareHistory({
+          complete: true,
+          range: { from: data[81]!.timestamp, to: data[82]!.timestamp },
+          items: [
+            {
+              tradeId: '1',
+              timestamp: data[81]!.timestamp,
+              price: '100',
+              size: '0.25',
+              side: 'sell',
+            },
+          ],
+        })
+        .commit()
       const instanceId = harness.indicator.readonly.instances
         .peek()
         .find((instance) => instance.indicatorId === 'Footprint')!.instanceId
-      const ctx = createMockCanvasContext()
       await vi.waitFor(() => {
-        vi.mocked(ctx.fillRect).mockClear()
-        const state = manager.createRenderStateReader().get(instanceId)
-        FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId }).paint(
-          createContextWithInstanceState(ctx, instanceId, state, {
-            data,
-            range: { start: 80, end: 82 },
-            kLineCenters: [100, 150],
-            pane: { yAxis: { priceToY: (price) => 1100 - price * 10 } },
-          }),
-        )
-        expect(ctx.fillRect).toHaveBeenCalledTimes(1)
+        const state = manager.createRenderStateReader().get<FootprintRenderState>(instanceId)
+        expect(state?.series.bars[81]?.total).toBe('25')
       })
-      expect(source.fetch).toHaveBeenCalledTimes(2)
       expect(deps.scheduleDraw).toHaveBeenCalled()
     } finally {
       unsubscribe()
       buffer.dispose()
-      await loading
     }
   })
 

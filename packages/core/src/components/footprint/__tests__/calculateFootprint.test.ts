@@ -47,6 +47,8 @@ const input = (batches: readonly TradeBatch[]): TradeSnapshot => ({
   tickSize: '0.1',
   status: TRADE_STATUS.ready,
   batches,
+  coverage: batches.filter((batch) => batch.complete).map((batch) => batch.range),
+  latestTimestamp: batches.reduce((latest, batch) => Math.max(latest, batch.range.to), 0),
 })
 
 describe('Footprint calculator', () => {

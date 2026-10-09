@@ -161,7 +161,7 @@
     margin: 0;
     transform: translate(-50%, -50%);
     background: var(--klc-color-ui-surface);
-    color: var(--klc-color-ui-text, #edf2f3);
+    color: var(--klc-color-ui-text);
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);

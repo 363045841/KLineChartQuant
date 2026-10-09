@@ -52,7 +52,7 @@ export function createFootprintCalculator() {
     if (tick.units === 0n)
       return {
         rowSize: '0',
-        asOf: 0,
+        latestTimestamp: 0,
         bars: data.map(() => undefined),
         status: input.status,
         message: input.message,
@@ -68,12 +68,9 @@ export function createFootprintCalculator() {
       input.tickSize,
       rowTicks,
     ].join('|')
-    // 批次身份用范围、完整性、数量与首尾 tradeId 组合，避免逐笔序列化。
+    // 成交批次身份只含数量与首尾 tradeId，覆盖状态独立消费，避免逐笔序列化。
     const nextBatchKeys = input.batches.map((batch) =>
       [
-        batch.range.from,
-        batch.range.to,
-        batch.complete,
         batch.items.length,
         batch.items[0]?.tradeId,
         batch.items[batch.items.length - 1]?.tradeId,
@@ -156,17 +153,15 @@ export function createFootprintCalculator() {
     if (lastRatio !== params.imbalanceRatio || lastMetric !== params.metric) materialized.clear()
     lastRatio = params.imbalanceRatio
     lastMetric = params.metric
-    const coverage = input.batches
-      .filter((batch) => batch.complete)
-      .sort((a, b) => a.range.from - b.range.from)
-    const asOf = input.batches.reduce((latest, batch) => Math.max(latest, batch.range.to), 0)
+    const coverage = input.coverage
+    const latestTimestamp = input.latestTimestamp
     const bars = data.map((bar, index): FootprintBar | undefined => {
       const bucket = buckets.get(bar.timestamp)
-      const end = data[index + 1]?.timestamp ?? asOf
+      const end = data[index + 1]?.timestamp ?? latestTimestamp
       // 覆盖区间不能跨越缺口；只有连续完整批次才能宣称整柱完整。
       let covered = bar.timestamp
-      for (const batch of coverage) {
-        if (batch.range.from <= covered && batch.range.to > covered) covered = batch.range.to
+      for (const range of coverage) {
+        if (range.from <= covered && range.to > covered) covered = range.to
       }
       if (!bucket && (covered < end || end <= bar.timestamp)) return undefined
       const complete = covered >= end && end > bar.timestamp
@@ -211,7 +206,7 @@ export function createFootprintCalculator() {
     })
     return {
       rowSize: formatDecimal(rowUnits, tick.scale),
-      asOf,
+      latestTimestamp,
       bars,
       status: input.status,
       message: input.message,

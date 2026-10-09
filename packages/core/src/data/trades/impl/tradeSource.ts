@@ -5,6 +5,7 @@ import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
 import {
   type MarketTrade,
   TRADE_MESSAGES,
+  TRADE_STREAM_CODES,
   type TradeDataSource,
   type TradeFrame,
 } from '../types.js'
@@ -88,6 +89,8 @@ export function createTradeDataSource(
       const publish = (frame: TradeFrame) => {
         for (const listener of listeners) listener(frame)
       }
+      // 浏览器连接事件是订阅边界的事实来源，不依赖服务端另发 CONNECTED 消息。
+      source.onopen = () => publish({ type: 'status', code: TRADE_STREAM_CODES.connected })
       source.onmessage = (event) => {
         try {
           const value: unknown = JSON.parse(event.data)
@@ -115,7 +118,7 @@ export function createTradeDataSource(
         } catch {
           publish({
             type: 'status',
-            code: 'TRADE_GAP',
+            code: TRADE_STREAM_CODES.gap,
             message: TRADE_MESSAGES.protocolError,
             complete: false,
           })
@@ -124,7 +127,7 @@ export function createTradeDataSource(
       source.onerror = () =>
         publish({
           type: 'status',
-          code: 'DISCONNECTED',
+          code: TRADE_STREAM_CODES.disconnected,
           message: TRADE_MESSAGES.disconnected,
           complete: false,
         })

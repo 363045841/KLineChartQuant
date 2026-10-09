@@ -1,5 +1,6 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
 import type { KLineData } from '@/controllers/types.js'
+import { ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { SourceRouter } from '../../provider/impl/router.js'
@@ -20,12 +21,39 @@ import {
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../provider/types.js'
+import { createTradeBuffer } from '../../trades/impl/tradeBuffer.js'
+import { missingTradeRanges, TRADE_HISTORY_PAGE_MS } from '../../trades/impl/tradeRanges.js'
+import {
+  TRADE_MESSAGES,
+  TRADE_STATUS,
+  TRADE_STREAM_CODES,
+  type TradeBuffer,
+  type TradeFacts,
+  type TradeFrame,
+  type TradeRange,
+  type TradeSnapshot,
+  type TradeStatus,
+  type TradeUpdate,
+} from '../../trades/types.js'
 import {
   DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
   FETCH_TOTAL_ATTEMPTS,
   retryBackoffMs,
 } from './marketDataPolicy.js'
-import { LATEST_TRADING_DATE } from './seriesRepository.js'
+import {
+  LATEST_TRADING_DATE,
+  SeriesRepository,
+  seriesSelectionKey,
+  type TradesSelection,
+} from './seriesRepository.js'
+
+/** 成交查询沿用公共请求生命周期，范围由成交完整性记录决定。 */
+export interface TradesCacheQuery {
+  readonly selection: TradesSelection
+  readonly instrument: InstrumentDescriptor
+  readonly range: TradeRange
+  readonly signal?: AbortSignal
+}
 
 export interface BarsCacheQuery {
   readonly symbol: string
@@ -92,12 +120,24 @@ interface CacheEntry {
   olderData: OlderDataStatus
 }
 
-type CacheEntryKind = 'bars' | 'timeShares' | 'timeShareRanges'
+type CacheEntryKind = 'bars' | 'timeShares' | 'timeShareRanges' | 'trades'
 
-interface CacheEntryMetadata {
-  readonly kind: CacheEntryKind
-  readonly key: string
-  readonly bytes: number
+/** 全部行情共用一个预算条目表；成交条目引用仓库实例，不维护第二份登记表。 */
+type CacheEntryMetadata = { readonly key: string; readonly bytes: number } & (
+  | { readonly kind: Exclude<CacheEntryKind, 'trades'> }
+  | { readonly kind: 'trades'; readonly buffer: TradeBuffer; readonly unsubscribe: () => void }
+)
+
+/** 公共任务状态不进入原始行情存储；成交需求与失败由查询入口更新。 */
+interface QueryState {
+  range?: TradeRange
+  loading: boolean
+  message: string | null
+}
+
+/** 领域规则每次提供一个请求步骤，分页循环由公共协调器执行。 */
+interface QueryPlan {
+  next(): (() => Promise<void>) | null
 }
 
 /** 图表实例缓存的近似内存统计；字节数基于可序列化数据的保守估算。 */
@@ -211,20 +251,34 @@ function estimateBytes(value: unknown): number {
   }
 }
 
+/** 由成交事实与查询任务状态合成指标所需状态；成交存储不感知查询状态。 */
+function resolveTradeStatus(facts: TradeFacts, query?: QueryState): TradeStatus {
+  if (!(Number(facts.tickSize) > 0) || query?.message) return TRADE_STATUS.error
+  if (query?.loading) return TRADE_STATUS.loading
+  if (query?.range && missingTradeRanges(query.range, facts.coverage).length)
+    return TRADE_STATUS.gap
+  return TRADE_STATUS.ready
+}
+
 /** 仅允许一个覆盖请求补齐同一缓存条目，避免并发滚动重复拉取同一页。 */
 export class MarketDataCache {
+  readonly repository = new SeriesRepository()
   private readonly router: SourceRouter
+  private readonly registry: MarketDataProviderRegistry
   private readonly bars = new Map<string, CacheEntry>()
   private readonly timeShares = new Map<string, TimeShareCacheResult>()
   private readonly timeShareRanges = new Map<string, TimeShareRangeCacheResult>()
   private readonly pending = new Map<string, Promise<void>>()
+  private readonly queries = new Map<string, QueryState>()
+  private readonly queryRevisionSignal = createSignal(0)
+  readonly queryRevision: ReadonlySignal<number> = this.queryRevisionSignal
   private readonly entries = new Map<string, CacheEntryMetadata>()
   private readonly statsSignal = createSignal<MarketDataCacheStats>({
     usedBytes: 0,
     maxBytes: DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
     entryCount: 0,
   })
-  private readonly lifecycleAbortController = new AbortController()
+  private lifecycleAbortController = new AbortController()
   private usedBytes = 0
   private maxBytes = DEFAULT_MARKET_DATA_CACHE_MAX_BYTES
   private destroyed = false
@@ -235,6 +289,142 @@ export class MarketDataCache {
   /** 创建绑定一个 Provider Registry 的图表实例级缓存。 */
   constructor(registry: MarketDataProviderRegistry) {
     this.router = new SourceRouter(registry)
+    this.registry = registry
+  }
+
+  /** 返回仓库中唯一的成交实例，并纳入公共缓存的内存统计与淘汰。 */
+  getTradeBuffer(selection: TradesSelection, instrument: InstrumentDescriptor): TradeBuffer {
+    this.throwIfDestroyed()
+    const key = seriesSelectionKey(selection)
+    const existing = this.repository.getTrades(selection)
+    if (existing && existing.snapshot.peek().tickSize !== String(instrument.tickSize ?? 0))
+      this.repository.delete(selection)
+    const buffer = this.repository.getOrCreateTrades(selection, () => createTradeBuffer(instrument))
+    const id = this.entryId('trades', key)
+    const tracked = this.entries.get(id)
+    if (tracked?.kind !== 'trades' || tracked.buffer !== buffer) {
+      this.removeTradeEntry(key)
+      const unsubscribe = buffer.snapshot.subscribe(() => {
+        const entry = this.entries.get(id)
+        if (entry?.kind !== 'trades' || entry.buffer !== buffer) return
+        if (buffer.disposed) this.removeTradeEntry(key)
+        else this.recordEntry({ ...entry, bytes: estimateBytes(buffer.snapshot.peek()) })
+      })
+      this.recordEntry({
+        kind: 'trades',
+        key,
+        bytes: estimateBytes(buffer.snapshot.peek()),
+        buffer,
+        unsubscribe,
+      })
+    }
+    this.touchEntry('trades', key)
+    return buffer
+  }
+
+  /** 实时成交写入同一仓库实例，预算记录与历史写入共用。 */
+  acceptTradeFrame(
+    selection: TradesSelection,
+    instrument: InstrumentDescriptor,
+    frame: TradeFrame,
+  ): void {
+    const buffer = this.getTradeBuffer(selection, instrument)
+    try {
+      this.commitTrades(selection, buffer, () => buffer.prepareFrame(frame))
+    } catch (error) {
+      // 被拒绝的实时帧不能推进连续性证明，后续历史需求需要补回该缺口。
+      buffer
+        .prepareFrame({ type: 'status', code: TRADE_STREAM_CODES.gap, complete: false })
+        .commit()
+      this.setQueryState(seriesSelectionKey(selection), {
+        loading: false,
+        message: errorMessage(error),
+      })
+    }
+  }
+
+  /** 合成指标输入；事实来自唯一存储，状态来自公共查询任务。 */
+  getTradeSnapshot(selection: TradesSelection, buffer: TradeBuffer): TradeSnapshot {
+    const query = this.queries.get(seriesSelectionKey(selection))
+    const facts = buffer.snapshot.peek()
+    const validTick = Number(facts.tickSize) > 0
+    return {
+      ...facts,
+      status: resolveTradeStatus(facts, query),
+      message: validTick ? (query?.message ?? null) : TRADE_MESSAGES.tickSizeInvalid,
+    }
+  }
+
+  /** 查询状态的唯一发布入口，指标投影订阅此版本而不修改成交事实。 */
+  private setQueryState(key: string, patch: Partial<QueryState>): void {
+    this.queries.set(key, { loading: false, message: null, ...this.queries.get(key), ...patch })
+    this.queryRevisionSignal.set(this.queryRevisionSignal.peek() + 1)
+  }
+
+  /** 成交历史和实时共用预算准入：回收其他条目与屏外数据后，再准备并提交候选更新。 */
+  private commitTrades(
+    selection: TradesSelection,
+    buffer: TradeBuffer,
+    prepare: () => TradeUpdate,
+  ): void {
+    const key = seriesSelectionKey(selection)
+    const id = this.entryId('trades', key)
+    let update = prepare()
+    let bytes = estimateBytes(update.facts)
+    const range = this.queries.get(key)?.range
+    if (bytes > this.maxBytes && range && buffer.retain(range)) {
+      update = prepare()
+      bytes = estimateBytes(update.facts)
+    }
+    const reserved = this.entries.get(id)?.bytes ?? 0
+    this.evictToLimit(id, Math.max(0, bytes - reserved))
+    if (this.usedBytes - reserved + bytes > this.maxBytes)
+      throw new KLineChartError(ERROR_CODES.FETCH_FAILED, TRADE_MESSAGES.capacityExceeded)
+    update.commit()
+  }
+
+  /** 逐页补齐当前成交需求；成功页即时发布，失败不伪造覆盖，也不永久排除范围。 */
+  async queryTrades(query: TradesCacheQuery): Promise<void> {
+    const buffer = this.getTradeBuffer(query.selection, query.instrument)
+    const key = seriesSelectionKey(query.selection)
+    this.setQueryState(key, { range: query.range })
+    const signal = this.requestSignal(query.signal)
+    const provider = this.registry.get(query.instrument.sourceId)
+    if (!provider?.trades) {
+      this.setQueryState(key, { loading: false, message: TRADE_MESSAGES.unsupportedRaw })
+      throw new KLineChartError(ERROR_CODES.UNSUPPORTED_CAPABILITY, TRADE_MESSAGES.unsupportedRaw)
+    }
+    const source = provider.trades
+    await this.ensureQuery(key, signal, {
+      next: () => {
+        const requested = this.queries.get(key)?.range
+        if (buffer.disposed || Number(buffer.snapshot.peek().tickSize) <= 0 || !requested)
+          return null
+        const demand = {
+          from: requested.from,
+          to: Math.min(requested.to, buffer.historyBoundary ?? requested.to),
+        }
+        const missing = missingTradeRanges(demand, buffer.snapshot.peek().coverage)
+        const gap = missing[missing.length - 1]
+        if (!gap) return null
+        const from = Math.max(
+          gap.from,
+          Math.floor((gap.to - 1) / TRADE_HISTORY_PAGE_MS) * TRADE_HISTORY_PAGE_MS,
+        )
+        const range = { from, to: gap.to }
+        return async () => {
+          const batch = await this.requestWithRetry(signal, () =>
+            source.fetch({ instrument: query.instrument, range, signal }),
+          )
+          signal.throwIfAborted()
+          if (buffer.disposed) return
+          if (!batch.complete || batch.range.from !== range.from || batch.range.to !== range.to)
+            throw new KLineChartError(ERROR_CODES.FETCH_FAILED, TRADE_MESSAGES.protocolError)
+          this.getTradeBuffer(query.selection, query.instrument)
+          this.commitTrades(query.selection, buffer, () => buffer.prepareHistory(batch))
+        }
+      },
+    })
   }
 
   /** 查询一页 K 线；缓存命中该页则直接返回，否则请求 Provider 一页并合并。 */
@@ -300,7 +490,7 @@ export class MarketDataCache {
       series: result.series,
     }
     this.timeShares.set(key, value)
-    this.recordEntry('timeShares', key, estimateBytes(value))
+    this.recordEntry({ kind: 'timeShares', key, bytes: estimateBytes(value) })
     return value
   }
 
@@ -343,16 +533,22 @@ export class MarketDataCache {
       range,
     }
     this.timeShareRanges.set(key, value)
-    this.recordEntry('timeShareRanges', key, estimateBytes(value))
+    this.recordEntry({ kind: 'timeShareRanges', key, bytes: estimateBytes(value) })
     return value
   }
 
-  /** 清空已缓存的行情快照，不中止正在执行的请求。 */
+  /** 清空缓存并取消旧查询，迟到响应不得重新恢复已清空的数据。 */
   clear(): void {
+    this.lifecycleAbortController.abort()
+    if (!this.destroyed) this.lifecycleAbortController = new AbortController()
+    for (const entry of [...this.entries.values()])
+      if (entry.kind === 'trades') this.removeTradeEntry(entry.key, true)
     this.bars.clear()
     this.timeShares.clear()
     this.timeShareRanges.clear()
     this.pending.clear()
+    this.queries.clear()
+    this.queryRevisionSignal.set(this.queryRevisionSignal.peek() + 1)
     this.entries.clear()
     this.usedBytes = 0
     this.publishStats()
@@ -374,24 +570,64 @@ export class MarketDataCache {
     this.destroyed = true
     this.lifecycleAbortController.abort()
     this.clear()
+    this.repository.dispose()
   }
 
   /** 确保一页请求的根数可从缓存命中，未命中时等待已有请求后重新判断。 */
   private async ensurePage(key: string, query: BarsCacheQuery): Promise<void> {
+    const signal = this.requestSignal(query.signal)
+    let completed = false
+    return this.ensureQuery(this.entryId('bars', key), signal, {
+      next: () =>
+        completed || this.coversPage(this.bars.get(key), query)
+          ? null
+          : async () => {
+              await this.fetchPage(key, { ...query, signal })
+              completed = true
+            },
+    })
+  }
+
+  /** K 线和成交共用单任务协调：等待在途请求后重新检查需求，避免复制分页请求链路。 */
+  private async ensureQuery(key: string, signal: AbortSignal, plan: QueryPlan): Promise<void> {
     this.throwIfDestroyed()
-    query.signal?.throwIfAborted()
-    if (this.coversPage(this.bars.get(key), query)) return
+    signal.throwIfAborted()
+    if (!plan.next()) {
+      this.setQueryState(key, { loading: false, message: null })
+      return
+    }
     const current = this.pending.get(key)
     if (current) {
       await current
-      return this.ensurePage(key, query)
+      return this.ensureQuery(key, signal, plan)
     }
-    const task = this.fetchPage(key, query)
+    const task = this.runQuery(key, signal, plan)
     this.pending.set(key, task)
     try {
       await task
     } finally {
       if (this.pending.get(key) === task) this.pending.delete(key)
+    }
+  }
+
+  /** 所有领域共用分页执行、加载状态和错误提交；领域只生成下一步请求。 */
+  private async runQuery(key: string, signal: AbortSignal, plan: QueryPlan): Promise<void> {
+    this.setQueryState(key, { loading: true, message: null })
+    try {
+      for (;;) {
+        signal.throwIfAborted()
+        const next = plan.next()
+        if (!next) break
+        await next()
+      }
+      this.setQueryState(key, { loading: false })
+    } catch (error) {
+      if (this.queries.has(key))
+        this.setQueryState(key, {
+          loading: false,
+          message: signal.aborted ? null : errorMessage(error),
+        })
+      throw error
     }
   }
 
@@ -413,6 +649,7 @@ export class MarketDataCache {
     const entry = this.bars.get(key)
     const result = await this.requestPage(query, entry)
     this.throwIfDestroyed()
+    query.signal?.throwIfAborted()
     const previous = entry?.data ?? []
     const merged = mergeBars(previous, result.series.data)
     const progressed = merged.length > previous.length || previous.length === 0
@@ -431,7 +668,7 @@ export class MarketDataCache {
       olderData: result.series.olderData,
     }
     this.bars.set(key, value)
-    this.recordEntry('bars', key, estimateBytes(value))
+    this.recordEntry({ kind: 'bars', key, bytes: estimateBytes(value) })
     if (result.series.data.length === 0 || result.series.olderData === OLDER_DATA_STATUS.EXHAUSTED)
       return
     if (!progressed) {
@@ -445,39 +682,54 @@ export class MarketDataCache {
     entry: CacheEntry | undefined,
   ): Promise<BarsCacheResult> {
     const signal = this.requestSignal(query.signal)
-    let lastError: unknown
-    for (let attempt = 1; attempt <= FETCH_TOTAL_ATTEMPTS; attempt++) {
+    return this.requestWithRetry(signal, async () => {
+      const result = await this.router.bars({
+        preferredSourceId: entry?.sourceId ?? query.sourceId,
+        instrument: entry?.instrument ?? query.instrument,
+        symbol: query.symbol,
+        exchange: query.exchange,
+        assetClass: query.assetClass,
+        period: query.period,
+        adjustment: query.adjustment,
+        barAggregation: query.barAggregation,
+        limit: query.limit,
+        ...(query.beforeTimestamp === undefined ? {} : { beforeTimestamp: query.beforeTimestamp }),
+        signal,
+      })
+      return {
+        sourceId: result.provider.source.id,
+        instrument: result.instrument,
+        series: result.series,
+      }
+    })
+  }
+
+  /** 共用可取消的有限重试；失败保持为失败，不写入任何覆盖事实。 */
+  private async requestWithRetry<T>(signal: AbortSignal, request: () => Promise<T>): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      signal.throwIfAborted()
       try {
+        const result = await request()
         signal.throwIfAborted()
-        const result = await this.router.bars({
-          preferredSourceId: entry?.sourceId ?? query.sourceId,
-          instrument: entry?.instrument ?? query.instrument,
-          symbol: query.symbol,
-          exchange: query.exchange,
-          assetClass: query.assetClass,
-          period: query.period,
-          adjustment: query.adjustment,
-          barAggregation: query.barAggregation,
-          limit: query.limit,
-          ...(query.beforeTimestamp === undefined
-            ? {}
-            : { beforeTimestamp: query.beforeTimestamp }),
-          signal,
-        })
-        return {
-          sourceId: result.provider.source.id,
-          instrument: result.instrument,
-          series: result.series,
-        }
+        return result
       } catch (error) {
-        lastError = error
         signal.throwIfAborted()
-        if (attempt < FETCH_TOTAL_ATTEMPTS) {
-          await waitForRetry(retryBackoffMs(attempt), signal)
-        }
+        if (attempt >= FETCH_TOTAL_ATTEMPTS) throw error
+        await waitForRetry(retryBackoffMs(attempt), signal)
       }
     }
-    throw new Error(errorMessage(lastError), { cause: lastError })
+  }
+
+  /** 解除预算订阅并可选回收成交内容；仓库保留实例身份，实时入口可重新纳入预算。 */
+  private removeTradeEntry(key: string, clear = false): void {
+    const id = this.entryId('trades', key)
+    const entry = this.entries.get(id)
+    if (entry?.kind !== 'trades') return
+    entry.unsubscribe()
+    this.usedBytes -= entry.bytes
+    this.entries.delete(id)
+    if (clear) entry.buffer.clear()
+    this.publishStats()
   }
 
   /** 在调用方取消与图表销毁之间合并请求取消信号。 */
@@ -488,15 +740,15 @@ export class MarketDataCache {
   }
 
   /** 记录或更新条目大小，并在写入后淘汰最久未访问的其他缓存条目。 */
-  private recordEntry(kind: CacheEntryKind, key: string, bytes: number): void {
-    const id = this.entryId(kind, key)
+  private recordEntry(entry: CacheEntryMetadata): void {
+    const id = this.entryId(entry.kind, entry.key)
     const previous = this.entries.get(id)
     if (previous) {
       this.usedBytes -= previous.bytes
       this.entries.delete(id)
     }
-    this.entries.set(id, { kind, key, bytes })
-    this.usedBytes += bytes
+    this.entries.set(id, entry)
+    this.usedBytes += entry.bytes
     this.evictToLimit(id)
     this.publishStats()
   }
@@ -511,11 +763,15 @@ export class MarketDataCache {
   }
 
   /** 超出上限时淘汰最久未访问条目；刚写入的单项允许超过上限以保证本次查询可返回。 */
-  private evictToLimit(excludedId?: string): void {
-    while (this.usedBytes > this.maxBytes) {
+  private evictToLimit(excludedId?: string, incomingBytes = 0): void {
+    while (this.usedBytes + incomingBytes > this.maxBytes) {
       const candidate = [...this.entries.entries()].find(([id]) => id !== excludedId)
       if (!candidate) return
       const [id, entry] = candidate
+      if (entry.kind === 'trades') {
+        this.removeTradeEntry(entry.key, true)
+        continue
+      }
       this.entries.delete(id)
       this.usedBytes -= entry.bytes
       if (entry.kind === 'bars') this.bars.delete(entry.key)

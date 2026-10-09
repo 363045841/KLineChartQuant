@@ -455,9 +455,9 @@
   }
 
   .alert-clear-btn:hover {
-    border-color: #dc2626;
-    color: #dc2626;
-    background: rgba(220, 38, 38, 0.06);
+    border-color: var(--klc-color-ui-danger);
+    color: var(--klc-color-ui-danger);
+    background: var(--klc-color-ui-danger-background);
   }
 
   .alert-btn-icon {
@@ -636,9 +636,9 @@
   }
 
   .rule-meta-tag--cooldown {
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(59, 130, 246, 0.25);
-    color: #3b82f6;
+    background: color-mix(in srgb, var(--klc-color-alert-active) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--klc-color-alert-active) 25%, transparent);
+    color: var(--klc-color-alert-active);
   }
 
   .rule-meta-icon {
@@ -689,8 +689,8 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #f59e0b;
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+    background: var(--klc-color-ui-warning);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-warning) 20%, transparent);
   }
 
   .event-item-name {

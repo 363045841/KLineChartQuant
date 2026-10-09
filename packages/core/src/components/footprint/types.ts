@@ -20,9 +20,9 @@ export const FOOTPRINT_ROW_MODES = {
 } as const
 export type FootprintRowMode = (typeof FOOTPRINT_ROW_MODES)[keyof typeof FOOTPRINT_ROW_MODES]
 export const FOOTPRINT_ROW_MODE_OPTIONS = [
-  { value: FOOTPRINT_ROW_MODES.Fixed, label: '固定跳数' },
   { value: FOOTPRINT_ROW_MODES.AverageRange, label: '平均振幅' },
   { value: FOOTPRINT_ROW_MODES.ATR, label: 'ATR' },
+  { value: FOOTPRINT_ROW_MODES.Fixed, label: '固定跳数' },
 ]
 export const FOOTPRINT_DEFAULT_PARAMS = {
   rowMode: FOOTPRINT_ROW_MODES.AverageRange,
@@ -74,7 +74,7 @@ export interface FootprintBar {
 }
 export interface FootprintSeries {
   /** 未闭合柱的完整性截至该输入水位，不依赖 calculator 执行时钟。 */
-  readonly asOf: number
+  readonly latestTimestamp: number
   readonly rowSize: string
   readonly bars: readonly (FootprintBar | undefined)[]
   readonly status: TradeStatus

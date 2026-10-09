@@ -23,6 +23,7 @@ import {
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
 import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
+import { encodeStableNumber } from '../../foundation/utils/stableNumber.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { Layer } from '../../rendering/scene/types.js'
@@ -98,11 +99,7 @@ function mainIndicatorProjectionKey(
 ): string {
   const valueKey = (value: number | boolean | string): string => {
     if (typeof value !== 'number') return `${typeof value}:${JSON.stringify(value)}`
-    if (Number.isNaN(value)) return 'number:NaN'
-    if (value === Number.POSITIVE_INFINITY) return 'number:Infinity'
-    if (value === Number.NEGATIVE_INFINITY) return 'number:-Infinity'
-    if (Object.is(value, -0)) return 'number:-0'
-    return `number:${value}`
+    return encodeStableNumber(value)
   }
   return Object.keys(params)
     .sort()
@@ -235,9 +232,6 @@ export class ChartIndicatorManager {
     }
     return ChartIndicatorManager._enableMainIndicatorsCache
   }
-
-  /** 副图渲染器名称前缀（保留向后兼容） */
-  static readonly SUB_PANE_PREFIX = 'sub_'
 
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
@@ -599,6 +593,8 @@ export class ChartIndicatorManager {
       this.tradeInput?.status === input.status &&
       this.tradeInput.tickSize === input.tickSize &&
       this.tradeInput.message === input.message &&
+      this.tradeInput.coverage === input.coverage &&
+      this.tradeInput.latestTimestamp === input.latestTimestamp &&
       this.tradeInput.batches === input.batches
     )
       return
@@ -796,14 +792,6 @@ export class ChartIndicatorManager {
     })
   }
 
-  get subPaneManagerAccessor(): SubPaneManager {
-    return this.subPaneManager
-  }
-
-  get indicatorInstancesSignalPeek(): ReadonlyArray<IndicatorInstanceSpec> {
-    return this.deps.indicator.readonly.instances.peek()
-  }
-
   get indicatorsComputed(): Computed<ReadonlyArray<IndicatorInstance>> {
     return this._indicatorsComputed
   }
@@ -817,6 +805,22 @@ export class ChartIndicatorManager {
     return this.deps.indicator.readonly.instances
       .peek()
       .find((instance) => instance.role === 'main' && instance.indicatorId === indicatorId)
+  }
+
+  /**
+   * 按实例 ID 定位目标：优先匹配已启用的主图指标，其次匹配副图实例。
+   * @param instanceId 主图指标定义 ID 或副图实例 ID。
+   * @returns 命中的主图定义 ID 或副图 paneId；未命中返回 null。
+   */
+  private resolveIndicatorTarget(
+    instanceId: string,
+  ): { kind: 'main'; mainId: string } | { kind: 'sub'; paneId: string } | null {
+    const mainId = resolveIndicatorDefinitionId(instanceId)
+    if (mainId && this.getMainIndicatorInstance(mainId)) return { kind: 'main', mainId }
+    const subPaneEntry = this.deps.indicator.readonly.instances
+      .peek()
+      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
+    return subPaneEntry ? { kind: 'sub', paneId: subPaneEntry.paneId } : null
   }
 
   // ========== 主图指标 API ==========
@@ -1165,40 +1169,25 @@ export class ChartIndicatorManager {
   }
 
   removeIndicator(instanceId: string): boolean {
-    const mainId = resolveIndicatorDefinitionId(instanceId)
-
-    if (mainId && this.getMainIndicatorInstance(mainId)) {
-      return this.disableMainIndicator(mainId)
-    }
-
-    const subPaneEntry = this.deps.indicator.readonly.instances
-      .peek()
-      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
-    if (subPaneEntry) {
-      this.deps.subPaneOps.remove(subPaneEntry.paneId)
-      return true
-    }
-
-    return false
+    const target = this.resolveIndicatorTarget(instanceId)
+    if (!target) return false
+    if (target.kind === 'main') return this.disableMainIndicator(target.mainId)
+    this.deps.subPaneOps.remove(target.paneId)
+    return true
   }
 
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
-    const mainId = resolveIndicatorDefinitionId(instanceId)
-
-    if (mainId && this.getMainIndicatorInstance(mainId)) {
-      this.updateMainIndicatorParams(mainId, params as Record<string, number | boolean | string>)
+    const target = this.resolveIndicatorTarget(instanceId)
+    if (!target) return false
+    if (target.kind === 'main') {
+      this.updateMainIndicatorParams(
+        target.mainId,
+        params as Record<string, number | boolean | string>,
+      )
       return true
     }
-
-    const subPaneEntry = this.deps.indicator.readonly.instances
-      .peek()
-      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
-    if (subPaneEntry) {
-      this.deps.subPaneOps.setParams(subPaneEntry.paneId, params)
-      return true
-    }
-
-    return false
+    this.deps.subPaneOps.setParams(target.paneId, params)
+    return true
   }
 
   reorderIndicators(orderedInstanceIds: string[]): boolean {

@@ -1,4 +1,6 @@
 /** 活动行情就绪快照与订阅运行模块的依赖契约。 */
+
+import type { MarketDataCache } from '@/data/buffer/impl/marketDataCache.js'
 import type { BarsSelection } from '@/data/buffer/impl/seriesRepository.js'
 import type { InstrumentDescriptor, SourceCapabilities } from '@/data/provider/types.js'
 import type { TradeSnapshot } from '@/data/trades/types.js'
@@ -14,6 +16,7 @@ export interface ReadyMarketSession {
 }
 
 export interface MarketRuntimeDependencies {
+  readonly cache: MarketDataCache
   readonly session: ReadonlySignal<ReadyMarketSession | null>
   readonly visibleRange: ReadonlySignal<VisibleRange>
   readonly data: ReadonlySignal<ReadonlyArray<KLineData | TimeShareData>>

@@ -15,7 +15,7 @@ export function mergeTradeRanges(ranges: readonly TradeRange[]): TradeRange[] {
   return merged
 }
 
-/** 从可视需求扣除已有覆盖与已失败区间，避免相同错误随手势重复请求。 */
+/** 从需求扣除已经验证的覆盖；失败不会成为覆盖事实。 */
 export function missingTradeRanges(
   range: TradeRange,
   covered: readonly TradeRange[],

@@ -1,4 +1,5 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../../../errors.js'
+import { encodeStableNumber } from '../../../foundation/utils/stableNumber.js'
 import type { Layer } from '../../../rendering/scene/types.js'
 import {
   getRegisteredIndicatorDefinition,
@@ -45,11 +46,7 @@ function stableConfig(value: unknown): string {
       .join(',')}}`
   }
   if (typeof value === 'number') {
-    if (Number.isNaN(value)) return 'number:NaN'
-    if (value === Number.POSITIVE_INFINITY) return 'number:Infinity'
-    if (value === Number.NEGATIVE_INFINITY) return 'number:-Infinity'
-    if (Object.is(value, -0)) return 'number:-0'
-    return `number:${value}`
+    return encodeStableNumber(value)
   }
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'

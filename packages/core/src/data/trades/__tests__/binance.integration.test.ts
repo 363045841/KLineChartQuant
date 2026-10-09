@@ -71,6 +71,8 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
         tickSize: String(instrument.tickSize),
         status: TRADE_STATUS.ready,
         batches: [batch],
+        coverage: [batch.range],
+        latestTimestamp: batch.range.to,
         message: null,
       },
     })

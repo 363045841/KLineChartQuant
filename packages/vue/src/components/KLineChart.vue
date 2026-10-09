@@ -2285,7 +2285,7 @@
     pointer-events: none;
     font-size: 12px;
     line-height: 18px;
-    color: var(--klc-color-ui-text, #111);
+    color: var(--klc-color-ui-text);
   }
 
   .canvas-layer {

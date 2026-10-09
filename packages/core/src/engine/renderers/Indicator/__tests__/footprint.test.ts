@@ -34,7 +34,7 @@ describe('Footprint Layer', () => {
         status: 'ready',
         message: null,
         rowSize: '15',
-        asOf: 2,
+        latestTimestamp: 2,
         bars: [createRowBar(15, 2)],
       },
     }
@@ -63,7 +63,7 @@ describe('Footprint Layer', () => {
         status: 'ready',
         message: null,
         rowSize: '2',
-        asOf: 2,
+        latestTimestamp: 2,
         bars: [
           {
             timestamp: 1,
@@ -106,7 +106,7 @@ describe('Footprint Layer', () => {
           status: 'ready',
           message: null,
           rowSize: '1.37',
-          asOf: 2,
+          latestTimestamp: 2,
           bars: [
             {
               timestamp: 1,
@@ -174,7 +174,7 @@ describe('Footprint Layer', () => {
         status: 'ready',
         message: null,
         rowSize: String(rowSize),
-        asOf: 2,
+        latestTimestamp: 2,
         bars: [createRowBar(rowSize, cellCount)],
       },
     }
