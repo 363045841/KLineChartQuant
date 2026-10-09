@@ -96,7 +96,7 @@ flowchart TB
 
     subgraph conn["Market Data Backends"]
         Go["GoTDX-Connector<br/>gotdx :8080"]
-        Bn["GoTDX-Connector<br/>Binance depth :8081"]
+        Bn["Binance-Connector<br/>Binance spot K-line / trades :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5 (Exness) :8090"]
     end
@@ -132,7 +132,7 @@ flowchart TB
 - **Rendering** — submit primitives once, render via WebGPU / WebGL2 / Canvas2D with
   automatic fallback (WebGPU → WebGL → Canvas2D).
 - **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
-  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance depth.
+  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators, markers and drawing tools plug in as Scene Layers.
 - **React via Web Component** — `@363045841yyt/klinechart-react`'s `KLineChartWC` renders the
@@ -197,6 +197,7 @@ KLineChart requires a market data backend. Supported data sources:
 | Data Source | Description | Docs |
 |---|---|---|
 | `gotdx` | Tongdaxin (GOTDX) quotes: A-share / futures / MAC, served by `GoTDX-Connector` | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `binance` | Binance Spot K-lines and real tick-by-tick trades (footprint / order-flow), served by `Binance-Connector` | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
 | `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5](docs/data-sources/mt5.zh-CN.md) |
@@ -229,7 +230,7 @@ Common shorthands:
 pnpm dev:all                  # frontend + all backends
 pnpm dev:g                    # frontend + gotdx (Tongdaxin)
 pnpm dev:b                    # frontend + BaoStock / TradingView
-pnpm dev:bnb                  # frontend + Binance depth
+pnpm dev:bnb                  # frontend + Binance spot market data
 pnpm dev:mt5                  # frontend + MT5 local terminal
 pnpm dev:lan:all              # frontend (0.0.0.0) + all backends
 ```
@@ -243,6 +244,7 @@ Backend only (no frontend):
 ```bash
 pnpm connector                # all backends (mt5 excluded)
 pnpm connector gotdx          # gotdx (Tongdaxin) :8080
+pnpm connector binance        # binance (Binance spot K-line & trades) :8091
 pnpm connector baostock       # BaoStock / TradingView :8000
 pnpm connector mt5            # MT5 local terminal :8090 (Windows + logged-in MT5 terminal)
 ```
