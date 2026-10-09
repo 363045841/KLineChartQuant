@@ -14,6 +14,7 @@ import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
+import { createSettingsCommands } from '@/features/settings/settingsCommands.js'
 import { resolveSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
@@ -202,6 +203,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.kernel.zoom.readonly.zoomLevel,
   ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave()))
 
+  // 设置唯一写原语：UI、命令面板与 Agent 共用同一入口（ADR 0006）。
+  const settingsCommands = createSettingsCommands({
+    settings: chart.kernel.settings.readonly.settings,
+    apply: (patch) => chartMethods.updateSettingsFacade(patch),
+  })
+
   const agent = createChartAgentController({
     chartId: generateUUID(),
     dataState: chart.kernel.data,
@@ -220,6 +227,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
+    settingsCommands,
     resolveSubPaneIndicatorId: (indicatorId) =>
       getRegisteredIndicatorDefinition(indicatorId)?.displayName ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
@@ -261,6 +269,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     duplicateLayout: (input) => layoutManager.duplicateLayout(input),
     deleteLayout: (input) => layoutManager.deleteLayout(input),
     agent,
+    settingsCommands,
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
     data: chart.data,

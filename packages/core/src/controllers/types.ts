@@ -409,6 +409,11 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject>
   /** Stable, serializable Agent context and deterministic query facade. */
   readonly agent: ChartAgentController
+  /**
+   * 设置唯一写原语（ADR 0006）：设置对话框、命令面板与 Agent 工具调用同一组方法，
+   * 读取请订阅 `settings` 信号。
+   */
+  readonly settingsCommands: import('../features/settings/settingsCommands.js').SettingsCommands
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
   /** 右轴当前有效 CSS 宽度（包含用户配置的最小宽度）。 */

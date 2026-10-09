@@ -220,6 +220,8 @@ export interface ChartAgentControllerDependencies {
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
   /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
   readonly comparisonCommands: ComparisonCommands
+  /** 设置唯一写原语；与设置对话框、命令面板共用，其 @Tool 方法即为 Agent 工具。 */
+  readonly settingsCommands?: import('../settings/settingsCommands.js').SettingsCommands
   /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
   readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean

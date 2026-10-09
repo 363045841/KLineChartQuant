@@ -11,6 +11,8 @@ import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '@/data/provider/type
 import type { PaneSpec } from '@/engine/pane/types.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
 import '@/engine/data/comparisonCommands.js'
+// 副作用导入：加载设置原语模块以执行其 @Tool 注册。
+import '@/features/settings/settingsCommands.js'
 import {
   DRAWING_LABEL_INDEX_PATTERN,
   type DrawingAnchorCommandInput,
@@ -382,7 +384,9 @@ class ChartAgentControllerImpl implements ChartAgentController {
 
   /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主。 */
   get toolHosts(): ReadonlyArray<object> {
-    return [this.dependencies.comparisonCommands]
+    const hosts: object[] = [this.dependencies.comparisonCommands]
+    if (this.dependencies.settingsCommands) hosts.push(this.dependencies.settingsCommands)
+    return hosts
   }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */

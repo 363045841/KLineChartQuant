@@ -37,6 +37,7 @@ export * from './features/indicators/index.js'
 // ── Batch 2: Framework-agnostic foundation ────────────────────────────────
 export * from './features/input/index.js'
 export * from './features/replay/index.js'
+export * from './features/settings/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'
 export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'
