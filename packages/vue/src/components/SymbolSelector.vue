@@ -264,6 +264,7 @@
 </script>
 
 <style scoped src="./common/control-button.css"></style>
+<style scoped src="./common/symbol-list.css"></style>
 
 <style scoped>
   .symbol-chip-wrap {
@@ -277,40 +278,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     letter-spacing: 0.01em;
-  }
-
-  .symbol-list {
-    max-height: 480px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-  }
-
-  .symbol-list::-webkit-scrollbar {
-    width: 6px;
-  }
-  .symbol-list::-webkit-scrollbar-thumb {
-    background: var(--klc-color-ui-border);
-    border-radius: 999px;
-  }
-
-  .symbol-list__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 0;
-    color: var(--klc-color-ui-muted);
-    font-size: 13px;
-    text-align: center;
-    gap: 2px;
-  }
-
-  /* 与无结果搜索图标占位一致：同为 32px 并保留相同下间距。 */
-  .symbol-list__spinner {
-    margin-bottom: 8px;
   }
 
   .symbol-list__item {
@@ -371,31 +338,6 @@
   .symbol-list__add svg {
     width: 15px;
     height: 15px;
-  }
-
-  .symbol-list__left {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1 1 0;
-  }
-
-  .symbol-list__code {
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-    color: var(--klc-color-ui-text);
-    overflow-wrap: anywhere;
-  }
-
-  .symbol-list__desc {
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 1.2;
-    color: var(--klc-color-ui-muted);
-    overflow-wrap: anywhere;
   }
 
   .symbol-list__item:last-child {

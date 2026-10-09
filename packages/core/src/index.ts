@@ -10,6 +10,8 @@ export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/in
 export {
   Indicator,
   type IndicatorDefinitionConfig,
+  registerIndicatorDefinition,
+  resolveIndicatorLayerId,
 } from './engine/indicators/indicatorDefinitionRegistry.js'
 export {
   IndicatorKind,

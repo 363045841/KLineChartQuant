@@ -694,7 +694,7 @@
 
   .left-toolbar {
     border-radius: 0 0 0 var(--chart-frame-radius, 3px);
-    border-top: 0;
+    border-top: 1px solid var(--klc-color-ui-border);
     border-right: 0;
     flex: 0 0 52px;
     display: flex;

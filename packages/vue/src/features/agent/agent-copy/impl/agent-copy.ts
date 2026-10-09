@@ -106,6 +106,10 @@ const copy = {
     modelPlaceholder: 'Select a model',
     sessionNamePrompt: 'Session name',
     deleteSessionConfirm: 'Delete this session?',
+    workspaceUnavailableTitle: 'Agent is unavailable',
+    workspaceLockedBody: 'Agent sessions are open in another tab. Close the other tab, then retry.',
+    workspaceUnavailableBody:
+      'The Agent workspace could not start. Retry, or check the console for details.',
     status: {
       idle: 'Ready',
       running: 'Running',
@@ -227,6 +231,9 @@ const copy = {
     modelPlaceholder: '选择模型',
     sessionNamePrompt: '会话名称',
     deleteSessionConfirm: '删除这个会话？',
+    workspaceUnavailableTitle: '智能体不可用',
+    workspaceLockedBody: 'Agent 会话已在另一个标签页打开。请关闭该标签页后重试。',
+    workspaceUnavailableBody: 'Agent 工作区无法启动。请重试，或查看控制台了解详情。',
     status: {
       idle: '就绪',
       running: '运行中',

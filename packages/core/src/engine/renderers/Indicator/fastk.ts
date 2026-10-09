@@ -66,7 +66,7 @@ function createFASTKLayer(options: FASTKRendererOptions = {}): Layer<RenderConte
   }
 
   return createIndicatorRendererLayer({
-    name: `fastk_${paneId}`,
+    definitionId: 'fastk',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

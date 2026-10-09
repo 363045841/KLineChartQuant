@@ -26,12 +26,12 @@ const CONNECTORS = {
     args: ['run', './services/tdx-api'],
   },
   binance: {
-    label: 'binance（币安深度，:8081）',
+    label: 'binance（现货 K 线与逐笔成交，:8091）',
     logLabel: 'binance',
     logColor: LOG_COLORS.binance,
-    dir: 'GoTDX-Connector',
+    dir: 'Binance-Connector',
     cmd: 'go',
-    args: ['run', './services/binance-api'],
+    args: ['run', './cmd/binance-connector'],
   },
   baostock: {
     label: 'baostock / tradingview（:8000）',

@@ -44,6 +44,8 @@ const COLLAPSE_GAP_PX = 2
 interface MountedRow {
   element: HTMLDivElement
   text: HTMLDivElement
+  /** 加载圈元素，位于文本流最前；加载结束由 hidden 隐藏。 */
+  spinner: HTMLSpanElement
   spans: HTMLSpanElement[]
   nodes: Text[]
   buttons: HTMLButtonElement[]
@@ -91,6 +93,12 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-collapse-count { font-family:${FONT_FAMILY}; font-size:12px; line-height:1;
       color:var(--klc-color-ui-text-soft); }
     .klc-legend-collapse-count[hidden] { display:none; }
+    .klc-legend-spinner { flex:0 0 12px; width:12px; height:12px; box-sizing:border-box;
+      border:2px solid currentColor; border-top-color:transparent; border-radius:50%;
+      color:var(--klc-color-ui-text-soft); animation:klc-legend-spin 0.6s linear infinite; }
+    .klc-legend-spinner[hidden] { display:none; }
+    @keyframes klc-legend-spin { to { transform:rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .klc-legend-spinner { animation:none; } }
   `
   return style
 }
@@ -251,8 +259,12 @@ export function createLegendDomRenderer(
           element.className = 'klc-legend-row'
           const text = document.createElement('div')
           text.className = 'klc-legend-text'
+          const spinner = document.createElement('span')
+          spinner.className = 'klc-legend-spinner'
+          spinner.setAttribute('aria-hidden', 'true')
+          spinner.hidden = data.loading !== true
           element.append(text)
-          row = { element, text, spans: [], nodes: [], buttons: [], data }
+          row = { element, text, spinner, spans: [], nodes: [], buttons: [], data }
           if (data.indicator || data.comparison) {
             if (data.indicator) element.dataset.indicator = data.indicator.instanceId
             if (data.comparison) element.dataset.comparison = data.comparison.identity
@@ -279,6 +291,8 @@ export function createLegendDomRenderer(
         if (style.maxWidth !== maxWidth) style.maxWidth = maxWidth
         if (style.minHeight !== minHeight) style.minHeight = minHeight
         if (row.text.style.gap !== gap) row.text.style.gap = gap
+        const loading = data.loading === true
+        if (row.spinner.hidden === loading) row.spinner.hidden = !loading
         while (row.spans.length > data.texts.length) {
           row.spans.pop()?.remove()
           row.nodes.pop()
@@ -303,6 +317,8 @@ export function createLegendDomRenderer(
             index > 0 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
           if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
         }
+        // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
+        if (row.text.lastElementChild !== row.spinner) row.text.append(row.spinner)
         if (data.indicator || data.comparison) {
           const hidden = data.hidden === true
           if (row.element.hasAttribute('data-hidden') !== hidden) {

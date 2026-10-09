@@ -1,6 +1,6 @@
 import type { ChartDom } from '../chart/index.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
-import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
+import { resolvePhysicalKLineConfig } from '../viewport/klineConfig.js'
 
 /** 与 theme selectionFill 对齐：light #2D7FF933 / dark #4A9EFF33；fallback 为 light 默认 */
 const INCREMENTAL_LOAD_HINT_BG = 'var(--klc-color-selection-fill, #2D7FF933)'
@@ -86,9 +86,7 @@ export class IncrementalLoadHint {
   }
 
   private _updateGeometry(hint: HTMLDivElement, count: number, leftBufferWidth: number): void {
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const { unitPx, startXPx, dpr } = resolvePhysicalKLineConfig(this.deps)
 
     hint.style.left = `${leftBufferWidth}px`
     const width = (startXPx + count * unitPx) / dpr

@@ -128,29 +128,14 @@ export function generateIndicatorEntrypoints(
 ) {
   const definitions = discoverIndicatorDefinitions(sourceRoot)
   const outputDirectory = path.join(sourceRoot, GENERATED_DIRECTORY)
-  const systems = definitions.filter((definition) => definition.kind === 'system')
-  const indicators = definitions.filter((definition) => definition.kind === 'indicator')
   const header = '/** 自动扫描 @Indicator 生成；请修改定义类，不要手动编辑。 */\n'
-  const systemSource =
-    header +
-    systems
-      .map(
-        (definition, index) =>
-          `import { ${definition.exportName} as Definition${index} } from '${modulePath(outputDirectory, definition.filename)}'\n`,
-      )
-      .join('') +
-    "import { registerIndicatorDefinition } from '../indicatorDefinitionRegistry.js'\n\n" +
-    '/** 在状态投影前自动装配系统定义，重复调用由目录去重。 */\n' +
-    'export function registerBuiltinRenderers(): void {\n' +
-    systems.map((_, index) => `  registerIndicatorDefinition(Definition${index})\n`).join('') +
-    '}\n'
   const indicatorSource =
     header +
     "import type { IndicatorDefinitionClass } from '../indicatorDefinitionRegistry.js'\n\n" +
-    '/** 自动加载所有指标定义，直接引用类导出以保留生产构建依赖。 */\n' +
+    '/** 加载所有注解定义，kind 仅用于元数据分类；引用类导出以保留生产构建依赖。 */\n' +
     'export function loadBuiltinDefinitionClasses(): Promise<IndicatorDefinitionClass[]> {\n' +
     '  return Promise.all([\n' +
-    indicators
+    definitions
       .map(
         (definition) =>
           `    import('${modulePath(outputDirectory, definition.filename)}').then((module) => module.${definition.exportName}),\n`,
@@ -158,10 +143,7 @@ export function generateIndicatorEntrypoints(
       .join('') +
     '  ])\n}\n'
   let changed = false
-  for (const [basename, content] of [
-    ['builtinRenderers.ts', systemSource],
-    ['builtinIndicators.ts', indicatorSource],
-  ]) {
+  for (const [basename, content] of [['builtinIndicators.ts', indicatorSource]]) {
     const filename = path.join(outputDirectory, basename)
     const previous = existsSync(filename) ? readFileSync(filename, 'utf8') : undefined
     if (previous === content) continue

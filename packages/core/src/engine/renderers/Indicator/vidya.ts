@@ -30,7 +30,7 @@ interface VIDYARendererOptions {
 function createVIDYALayer(options: VIDYARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `vidya_${paneId}`,
+    definitionId: 'vidya',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -96,7 +96,6 @@ const getVIDYATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'vidya_main',
     toActiveConfig: (params, active) => ({ ...params, showVIDYA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('vidya', EMPTY_VIDYA_STATE) },

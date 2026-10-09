@@ -24,7 +24,7 @@ interface DEMARendererOptions {
 function createDEMALayer(options: DEMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `dema_${paneId}`,
+    definitionId: 'dema',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'dema_main',
     toActiveConfig: (params, active) => ({ ...params, showDEMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('dema', EMPTY_DEMA_STATE) },

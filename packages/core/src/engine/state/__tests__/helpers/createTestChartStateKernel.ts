@@ -5,13 +5,18 @@
  * DEFAULT_OPTS 对齐），用例只声明自己真正关心的差异项。
  */
 
+import {
+  DEFAULT_MAX_K_WIDTH,
+  DEFAULT_MIN_K_WIDTH,
+  DEFAULT_ZOOM_LEVEL_COUNT,
+} from '@/engine/viewport/zoom'
 import { ChartStateKernel, type ChartStateKernelDeps } from '../../chartStateKernel'
 
 /** 测试默认布局，与生产 DEFAULT_OPTS 保持一致。 */
 const TEST_KERNEL_OPTIONS = {
-  minKWidth: 1,
-  maxKWidth: 50,
-  zoomLevelCount: 20,
+  minKWidth: DEFAULT_MIN_K_WIDTH,
+  maxKWidth: DEFAULT_MAX_K_WIDTH,
+  zoomLevelCount: DEFAULT_ZOOM_LEVEL_COUNT,
   bottomAxisHeight: 24,
   rightAxisWidth: 0,
   leftAxisWidth: 0,

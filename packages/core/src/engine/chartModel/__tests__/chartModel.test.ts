@@ -6,6 +6,29 @@ import { createTestChartStateKernel } from '../../state/__tests__/helpers/create
 import { ChartDataViewId, createChartModel } from '../index'
 
 describe('chartModel', () => {
+  it('keeps the kline primary renderer at the view default while persisting the candle shape setting', () => {
+    const kernel = createTestChartStateKernel()
+    const restored = createTestChartStateKernel()
+    try {
+      kernel.settings.actions.patch({ klineShape: 'hollow-candlestick' })
+      // 形态由 settings 派生，mode 的 kline 主序列画法保持视图默认值。
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      kernel.actions.setDataView('timeshare')
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('line')
+      kernel.actions.setDataView('kline')
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      const layout = kernel.exportLayout()
+      expect(layout.settings?.klineShape).toBe('hollow-candlestick')
+      restored.applyLayout(layout)
+      expect(restored.settings.readonly.settings.peek().klineShape).toBe('hollow-candlestick')
+      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      restored.settings.actions.patch({ klineShape: 'candlestick' })
+      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+    } finally {
+      kernel.dispose()
+      restored.dispose()
+    }
+  })
   it('defaults to kline', () => {
     const m = createChartModel()
     expect(m.readonly.chartMode.peek()).toBe('kline')
@@ -52,17 +75,16 @@ describe('chartModel', () => {
     expect(m.readonly.interactionCapabilities.peek().allowZoom).toBe(true)
   })
 
-  it('stores renderer preferences per view and falls back for unsupported combinations', () => {
+  it('derives the primary renderer from the active view declaration', () => {
     const m = createChartModel()
-    m.actions.setPrimaryRenderer('kline', 'ohlc-bar')
-    m.actions.setPrimaryRenderer('timeshare', 'candlestick')
 
+    // 主序列画法只由 CHART_VIEW_DEFINITIONS 决定；K 线形态另由 settings.klineShape 表达。
     expect(m.readonly.primaryRendererByView.peek()).toEqual({
-      kline: 'ohlc-bar',
-      timeshare: 'candlestick',
+      kline: 'candlestick',
+      timeshare: 'line',
       fiveDayTimeShare: 'line',
     })
-    expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('ohlc-bar')
+    expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
 
     m.actions.setDataView('timeshare')
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')

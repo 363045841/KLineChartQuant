@@ -128,6 +128,55 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it.each([1, 1.25, 1.5, 2, 3].flatMap((dpr) => [false, true].map((down) => ({ dpr, down }))))(
+    'hollow candles preserve transparent interiors and backend geometry at DPR=$dpr down=$down',
+    ({ dpr, down }) => {
+      const canvas = createMockCanvasContext()
+      const layer = createCandleLayer()
+      const bar = { ...makeBars(1)[0]!, open: down ? 102 : 100, close: down ? 100 : 102 }
+      const context = createCtx(undefined, {
+        ctx: canvas,
+        data: [bar],
+        range: { start: 0, end: 1 },
+        kLineCenters: [100],
+        kWidthPx: 11,
+        dpr,
+        dataRevision: 1,
+        settings: { klineShape: 'hollow-candlestick', showVolumePriceMarkers: false },
+      })
+      layer.paint(context)
+      const rectangles = vi.mocked(canvas.fillRect).mock.calls
+      expect(rectangles).toHaveLength(6)
+      const top = rectangles[0]!
+      const bottom = rectangles[1]!
+      const middleX = top[0] + top[2] / 2
+      const middleY = (top[1] + bottom[1]) / 2
+      expect(
+        rectangles.some(
+          ([x, y, width, height]) =>
+            middleX > x && middleX < x + width && middleY > y && middleY < y + height,
+        ),
+      ).toBe(false)
+      for (const rectangle of rectangles)
+        for (const value of rectangle) expect(value * dpr).toBeCloseTo(Math.round(value * dpr), 4)
+      for (const backend of ['webgl2', 'webgpu']) {
+        const { r, writeBuffer } = makeSceneRenderer(backend)
+        layer.paint({ ...context, sceneRenderer: r })
+        const actual = writeBuffer.mock.calls.flatMap(([, values]) =>
+          values instanceof Float32Array ? [...values] : [],
+        )
+        expect(actual).toEqual(
+          rectangles.flatMap((rectangle) => rectangle.map((value) => Math.round(value * dpr))),
+        )
+      }
+      // 同一数据版本切换形态必须重建几何。
+      vi.mocked(canvas.fillRect).mockClear()
+      layer.paint({ ...context, settings: { ...context.settings, klineShape: 'candlestick' } })
+      expect(canvas.fillRect).toHaveBeenCalledTimes(3)
+      layer.dispose()
+    },
+  )
+
   it.each([1, 1.25, 1.5, 2, 3])('doji body stays one physical pixel high at DPR=%s', (dpr) => {
     const canvas = createMockCanvasContext()
     paint(

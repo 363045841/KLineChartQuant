@@ -21,6 +21,7 @@
         :search="searchSymbols"
         :k-line-level="kLineLevel"
         :k-line-adjust="kLineAdjust"
+        :k-line-shape="kLineShape"
         :symbol-loading="symbolStatus === 'loading'"
         :symbol-error="symbolStatus === 'error'"
         :symbol-retrying="symbolRetrying"
@@ -41,6 +42,7 @@
         @remove-overlay-symbol="onRemoveOverlaySymbol"
         @k-line-level-change="onKLineLevelChange"
         @k-line-adjust-change="onKLineAdjustChange"
+        @k-line-shape-change="onKLineShapeChange"
         @symbol-change="onSymbolChange"
         @add-watchlist="addWatchlistItem"
         @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -120,10 +122,6 @@
             tabindex="0"
             @keydown="onDrawingHistoryKeydown"
             class="chart-container"
-            :class="{
-              'chart-container--axis-left': chartMode !== 'timeshare' && priceAxisPosition === 'left',
-              'chart-container--dual-axis': chartMode === 'timeshare',
-            }"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
@@ -491,7 +489,7 @@
       /** 价格标签额外宽度（用于显示涨跌幅，默认 60px） */
       priceLabelWidth?: number
 
-      /** 缩放级别数量（默认 10） */
+      /** 缩放级别数量（默认 80） */
       zoomLevels?: number
       /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
       initialZoomLevel?: number
@@ -515,11 +513,11 @@
     {
       yPaddingPx: 20,
       minKWidth: 1,
-      maxKWidth: 50,
+      maxKWidth: 200,
       rightAxisWidth: 0,
       bottomAxisHeight: 24,
       priceLabelWidth: 60,
-      zoomLevels: 20,
+      zoomLevels: 80,
       initialZoomLevel: 3,
       // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
       // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
@@ -746,6 +744,9 @@
       exchange: info.exchange ?? '',
       sessionId: info.sessionId ?? (info.market || undefined),
       providerRef: info.params,
+      tickSize: info.tickSize,
+      lotSize: info.lotSize,
+      currency: info.currency,
       capabilities: info.capabilities ?? {},
     }
   }
@@ -757,6 +758,9 @@
       assetClass: item.assetClass,
       sessionId: item.sessionId,
       capabilities: item.capabilities,
+      tickSize: item.tickSize,
+      lotSize: item.lotSize,
+      currency: item.currency,
       symbol: item.symbol,
       market: item.sessionId ?? '',
       description: item.name,
@@ -881,6 +885,16 @@
 
   if (props.settings !== undefined) {
     chartSettings.value = _initialResolved
+  }
+
+  const liveSettings = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.settings,
+    () => _initialResolved,
+  )
+  const kLineShape = computed(() => liveSettings.value.klineShape ?? 'candlestick')
+  function onKLineShapeChange(shape: NonNullable<ChartSettings['klineShape']>): void {
+    handleSettingsChange({ ...liveSettings.value, klineShape: shape })
   }
 
   const showBatchStockDialog = ref(false)
@@ -2003,6 +2017,11 @@
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
+    /* 截图区域独立绘制完整外框，子容器只负责坐标轴分隔线。 */
+    border: 1px solid var(--chart-border);
+    /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
+    box-sizing: border-box;
+    border-bottom-right-radius: var(--chart-frame-radius);
     display: flex;
     align-items: stretch;
     gap: 0;
@@ -2106,28 +2125,6 @@
     overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    border: 1px solid var(--chart-border);
-    border-right: 0;
-    border-left: 0;
-    border-top: 0;
-    border-radius: 0;
-  }
-
-  .chart-container {
-    border-left: 1px solid var(--chart-border);
-  }
-
-  .chart-container--axis-left {
-    border-bottom-right-radius: var(--chart-frame-radius);
-    border-left: 0;
-    border-right: 1px solid var(--chart-border);
-  }
-
-  /* 双轴分隔线由各自轴容器绘制，行情区不再叠加侧边框。 */
-  .chart-container--dual-axis {
-    border-left: 0;
-    border-right: 0;
-    border-radius: 0;
   }
 
   .drawing-line-label-editor {
@@ -2207,8 +2204,7 @@
 
   .right-axis-host {
     flex: 0 0 auto;
-    border: 1px solid var(--chart-border);
-    border-top: 0;
+    border-left: 1px solid var(--chart-border);
     border-bottom-right-radius: var(--chart-frame-radius);
   }
 
@@ -2216,8 +2212,7 @@
   .left-axis-host {
     position: relative;
     flex: 0 0 auto;
-    border: 1px solid var(--chart-border);
-    border-top: 0;
+    border-right: 1px solid var(--chart-border);
   }
 
   .left-axis-host :deep(> canvas) {
@@ -2237,6 +2232,8 @@
 
   .price-axis-host--left {
     order: -1;
+    border-left: 0;
+    border-right: 1px solid var(--chart-border);
     border-radius: 0;
   }
 
@@ -2288,7 +2285,7 @@
     pointer-events: none;
     font-size: 12px;
     line-height: 18px;
-    color: var(--klc-color-ui-text, #111);
+    color: var(--klc-color-ui-text);
   }
 
   .canvas-layer {

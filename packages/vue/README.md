@@ -119,6 +119,7 @@ KLineChart requires a market data backend. Supported data sources:
 | Data Source | Description | Docs |
 |---|---|---|
 | `gotdx` | Tongdaxin (GOTDX) quotes: A-share / futures / MAC, served by `GoTDX-Connector` | [GoTDX-Connector](../../docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `binance` | Binance Spot K-lines and real tick-by-tick trades (footprint / order-flow), served by `Binance-Connector` | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
 | `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock](../../docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock](../../docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5](../../docs/data-sources/mt5.zh-CN.md) |
@@ -151,7 +152,7 @@ Common shorthands:
 pnpm dev:all                  # frontend + all backends
 pnpm dev:g                    # frontend + gotdx (Tongdaxin)
 pnpm dev:b                    # frontend + BaoStock / TradingView
-pnpm dev:bnb                  # frontend + Binance depth
+pnpm dev:bnb                  # frontend + Binance spot market data
 pnpm dev:mt5                  # frontend + MT5 local terminal
 pnpm dev:lan:all              # frontend (0.0.0.0) + all backends
 ```
@@ -165,6 +166,7 @@ Backend only (no frontend):
 ```bash
 pnpm connector                # all backends (mt5 excluded)
 pnpm connector gotdx          # gotdx (Tongdaxin) :8080
+pnpm connector binance        # binance (Binance spot K-line & trades) :8091
 pnpm connector baostock       # BaoStock / TradingView :8000
 pnpm connector mt5            # MT5 local terminal :8090 (Windows + logged-in MT5 terminal)
 ```
@@ -396,12 +398,12 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 | timezone | `string` | `'Asia/Shanghai'` | Time zone for date/time display |
 | yPaddingPx | `number` | 20 | Y-axis padding in pixels |
 | minKWidth | `number` | 1 | Minimum K-line width (logical pixels) |
-| maxKWidth | `number` | 50 | Maximum K-line width (logical pixels) |
+| maxKWidth | `number` | 200 | Maximum K-line width (logical pixels) |
 | rightAxisWidth | `number` | 0 | Right price axis width |
 | leftAxisWidth | `number` | 0 | Left price axis width (0 = hidden) |
 | bottomAxisHeight | `number` | 24 | Bottom time axis height |
 | priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
-| zoomLevels | `number` | 20 | Total number of zoom levels |
+| zoomLevels | `number` | 80 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 | customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |

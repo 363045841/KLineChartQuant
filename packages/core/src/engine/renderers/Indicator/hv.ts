@@ -24,7 +24,7 @@ function createHVLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_HV', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `hv_${paneId}`,
+    definitionId: 'hv',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

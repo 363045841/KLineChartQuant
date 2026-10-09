@@ -11,6 +11,7 @@
     <form :id="formId" class="layout-name" @submit.prevent="submit">
       <label class="layout-name__label" :for="nameId">布局名称</label>
       <input
+        class="form-control"
         :id="nameId"
         v-model="name"
         type="text"
@@ -76,6 +77,8 @@
   }
 </script>
 
+<style scoped src="./common/form-control.css"></style>
+
 <style scoped>
   /* 通用弹窗输入字段：标签在上、控件在下，样式与其他弹窗一致。 */
   .layout-name {
@@ -87,30 +90,6 @@
     color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
-  }
-
-  .layout-name input {
-    width: 100%;
-    height: 34px;
-    box-sizing: border-box;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    outline: none;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    font: inherit;
-    font-size: 12px;
-    transition:
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  .layout-name input:disabled {
-    color: var(--klc-color-ui-muted);
-    background: transparent;
-    cursor: not-allowed;
   }
 
   .layout-name__error {

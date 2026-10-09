@@ -150,6 +150,9 @@ export interface SymbolInfo {
   assetClass?: AssetClass
   sessionId?: string
   capabilities?: InstrumentCapabilities
+  tickSize?: number
+  lotSize?: number
+  currency?: string
   symbol: string
   market: string
   description?: string
@@ -215,6 +218,7 @@ export interface IndicatorParamDef {
   max?: number
   step?: number
   options?: ReadonlyArray<{ value: string; label: string }>
+  visibleWhen?: import('../engine/renderers/Indicator/indicatorCatalog.js').ParamConfig['visibleWhen']
 }
 
 export interface IndicatorDefinition {

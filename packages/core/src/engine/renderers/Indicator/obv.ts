@@ -20,7 +20,7 @@ function createOBVLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_OBV', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `obv_${paneId}`,
+    definitionId: 'obv',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

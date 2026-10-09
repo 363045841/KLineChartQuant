@@ -18,6 +18,7 @@ import {
   makePluginLayerId,
   type Plugin,
   type RenderContext,
+  registerIndicatorDefinition,
 } from '@/index'
 
 /** 构造第三方自有 Layer，记录真实 Scene 对其绘制和释放的调用。 */
@@ -43,7 +44,7 @@ const indicatorLayerId = makePluginLayerId(indicatorName)
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
-  mainPane: { rendererName: indicatorName },
+  mainPane: {},
 })
 class ExternalIndicator {
   /** 指标工厂在每次实例挂载时创建新的 Layer。 */
@@ -51,7 +52,7 @@ class ExternalIndicator {
     createExternalLayer(indicatorLayerId, options?.paneId),
   )
 }
-void ExternalIndicator
+registerIndicatorDefinition(ExternalIndicator)
 
 /** 读取指标工厂最近一次创建的 Layer。 */
 function lastIndicatorLayer(): Layer<RenderContext> {

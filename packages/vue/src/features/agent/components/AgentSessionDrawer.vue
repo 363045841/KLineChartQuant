@@ -94,7 +94,13 @@
         <form :id="renameFormId" @submit.prevent="submitRename">
           <label class="agent-session-drawer__field">
             <span class="agent-session-drawer__field-label">{{ text.sessionNamePrompt }}</span>
-            <input ref="renameInput" v-model="renameDraft" type="text" autocomplete="off" />
+            <input
+              ref="renameInput"
+              v-model="renameDraft"
+              class="form-control"
+              type="text"
+              autocomplete="off"
+            />
           </label>
         </form>
         <template #footer>
@@ -208,6 +214,8 @@
     closeDelete()
   }
 </script>
+
+<style scoped src="../../../components/common/form-control.css"></style>
 
 <style scoped>
   .agent-session-drawer {
@@ -356,20 +364,6 @@
     color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
-  }
-
-  .agent-session-drawer__field input {
-    width: 100%;
-    height: 34px;
-    box-sizing: border-box;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    outline: none;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    font: inherit;
-    font-size: 12px;
   }
 
   .agent-session-drawer__confirm {

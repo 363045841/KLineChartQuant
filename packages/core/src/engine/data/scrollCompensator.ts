@@ -1,6 +1,6 @@
 /** 数据变更只补偿前插索引，空白槽位不触发自动回拉。 */
 import type { ViewportStateModule } from '../state/viewportState.js'
-import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
+import { resolvePhysicalKLineConfig } from '../viewport/klineConfig.js'
 
 export interface ScrollDeps {
   getOption: () => { kWidth: number; kGap: number }
@@ -12,9 +12,7 @@ export class ScrollCompensator {
   constructor(private deps: ScrollDeps) {}
 
   compensatePrepend(count: number): void {
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const { unitPx, dpr } = resolvePhysicalKLineConfig(this.deps)
     const compensation = (count * unitPx) / dpr
     const nextScrollLeft = this.deps.viewport.readonly.scrollLeft.peek() + compensation
     this.deps.viewport.actions.scrollTo(nextScrollLeft)
@@ -22,9 +20,7 @@ export class ScrollCompensator {
 
   scrollToRight(dataLength: number): void {
     if (dataLength === 0) return
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const { unitPx, startXPx, dpr } = resolvePhysicalKLineConfig(this.deps)
     const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
     const clientWidth = this.deps.viewport.readonly.viewWidth.peek()
     if (clientWidth <= 0) return

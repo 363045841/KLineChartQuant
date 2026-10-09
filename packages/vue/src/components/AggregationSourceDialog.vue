@@ -301,11 +301,11 @@
   }
 
   .source-status.is-online {
-    color: var(--klc-color-success, #16865c);
+    color: var(--klc-color-success);
   }
 
   .source-status.is-offline {
-    color: var(--klc-color-danger, #d64545);
+    color: var(--klc-color-danger);
   }
 
   .source-endpoint {

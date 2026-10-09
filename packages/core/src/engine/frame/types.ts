@@ -54,6 +54,7 @@ export interface RendererDependencies {
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
   dataView$: ReadonlySignal<ChartDataView>
+  primaryRenderer$?: ReadonlySignal<import('../chartModel/index.js').PrimaryRendererType>
   settings$: ReadonlySignal<ChartSettings>
   mainPriceAxis: MainPriceAxisStateModule
   customMarkers$: MarkerManagerDeps['customMarkers$']

@@ -70,7 +70,7 @@ function createKSTLayer(options: KSTRendererOptions = {}): Layer<RenderContext> 
   }
 
   return createIndicatorRendererLayer({
-    name: `kst_${paneId}`,
+    definitionId: 'kst',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

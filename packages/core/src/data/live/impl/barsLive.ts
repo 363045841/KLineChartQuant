@@ -4,9 +4,8 @@
  */
 import type { KLineData } from '@/controllers/types.js'
 import { ERROR_CODES, KLineChartError } from '@/errors.js'
-import { marketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
-import { type BarAggregation, ORIGINAL_BAR_AGGREGATION } from '../../provider/types.js'
+import type { BarAggregation } from '../../provider/types.js'
 import type { LiveBar, LiveBarsFrame, LiveBarsStatus, LiveBarsStream } from '../types.js'
 
 export type {
@@ -62,7 +61,6 @@ export class BarsLiveSource implements LiveBarsStream {
     const url = `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
-    console.log(`[BarsLiveSource] 已订阅 SSE ${url}`)
 
     this.es.onopen = () => {
       if (!this.destroyed) this.emitStatus('connected')
@@ -201,80 +199,5 @@ export class RealtimeBarsConnector {
     const pending = this.pendingClosed
     this.pendingClosed = null
     this.sink.updateBars([pending])
-  }
-}
-
-/**
- * 当前活动品种的实时 K 线订阅编排器。
- *
- * 仅在当前数据源声明 liveBars 能力时建立 SSE 连接；每次切换先停止旧连接，
- * 以保证旧品种的延迟帧不会写入当前图表 Buffer。
- */
-export class BarsLiveSubscription {
-  private active: {
-    key: string
-    source: LiveBarsStream
-    connector: RealtimeBarsConnector
-  } | null = null
-
-  /**
-   * 创建活动品种的实时订阅编排器。
-   *
-   * @param sink 实时 K 线写入端。
-   */
-  constructor(private readonly sink: RealtimeBarsSink) {}
-
-  /**
-   * 按当前品种重新协调订阅；不支持实时行情时停止已有订阅。
-   *
-   * @param spec 当前图表品种。
-   * @param barAggregation 当前活动 K 线序列的聚合方式。
-   */
-  reconcile(
-    spec: {
-      symbol: string
-      period?: string
-      source?: string
-      instrument?: { sourceId: string }
-    } | null,
-    barAggregation: BarAggregation = ORIGINAL_BAR_AGGREGATION,
-  ): void {
-    const sourceId = spec?.instrument?.sourceId ?? spec?.source
-    if (!spec?.symbol || !spec.period || !sourceId) {
-      this.stop()
-      return
-    }
-
-    const provider = marketDataProviderRegistry.get(sourceId)
-    if (!provider || provider.source.capabilities?.liveBars !== true) {
-      this.stop()
-      return
-    }
-
-    if (!provider.liveBars) {
-      this.stop()
-      return
-    }
-
-    const key = JSON.stringify([sourceId, spec.symbol, spec.period, barAggregation])
-    if (this.active?.key === key) return
-    this.stop()
-
-    const source = provider.liveBars.createStream({
-      symbol: spec.symbol,
-      period: spec.period,
-      barAggregation,
-    })
-    const connector = new RealtimeBarsConnector(this.sink, source)
-    this.active = { key, source, connector }
-    connector.start()
-  }
-
-  /** 停止当前订阅并释放 EventSource 回调。 */
-  stop(): void {
-    if (!this.active) return
-    this.active.connector.stop()
-    this.active.source.destroy()
-    this.active = null
   }
 }

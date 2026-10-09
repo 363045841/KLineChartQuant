@@ -1,4 +1,3 @@
-import { redactString } from '@363045841yyt/klinechart-agent-runtime'
 import { describe, expect, it } from 'vitest'
 
 import { BrowserAgentBridge } from './browser-agent-fixture'
@@ -24,13 +23,6 @@ describe('BrowserAgentBridge secret redaction', () => {
     })
 
     expect(await secretsOf(bridge)).toContain('glm-4-not-an-openai-shaped-key')
-  })
-
-  it('strips a non sk- provider key that the built-in patterns miss', async () => {
-    const key = 'glm-4-not-an-openai-shaped-key'
-    // 先证明内置正则确实漏掉它，再证明加入 secretValues 后被剔除。
-    expect(redactString(`leaked ${key}`)).toContain(key)
-    expect(redactString(`leaked ${key}`, { secretValues: [key] })).not.toContain(key)
   })
 
   it('includes the web search key alongside the provider key', async () => {

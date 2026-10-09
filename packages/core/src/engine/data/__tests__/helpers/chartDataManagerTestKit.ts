@@ -27,6 +27,7 @@ import {
 } from '@/engine/state/dataManagerState'
 import { createDataState, type DataStateModule } from '@/engine/state/dataState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
+import { createSignal } from '@/foundation/reactivity/signal'
 import type { TimeShareData } from '@/foundation/types/price'
 
 /** ViewportStateModule 替身入参。 */
@@ -68,7 +69,7 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
       contentWidth: { peek: () => contentWidth },
       viewWidth: { peek: () => viewWidth },
       viewHeight: { peek: () => viewHeight },
-      visibleRange: { peek: () => visibleRange },
+      visibleRange: createSignal(visibleRange),
       rawVisibleRange: { peek: () => visibleRange },
       viewport: {
         peek: () => ({
@@ -100,6 +101,8 @@ export interface MockDataDependenciesOptions {
   onBarsReady?: () => void
   /** 数据变更后的交互重置回调；用例用它断言重置时机。 */
   resetInteraction?: () => void
+  needsTrades?: DataDependencies['needsTrades']
+  updateTradeInput?: DataDependencies['updateTradeInput']
 }
 
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
@@ -124,6 +127,8 @@ export function createMockDataDependencies(
     scheduleDraw,
     onBarsReady,
     resetInteraction,
+    needsTrades: options.needsTrades ?? (() => false),
+    updateTradeInput: options.updateTradeInput ?? (() => {}),
     updateIndicatorData: () => {},
     isPointerDown: () => false,
     setSymbols,

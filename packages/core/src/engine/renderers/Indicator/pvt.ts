@@ -20,7 +20,7 @@ function createPVTLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_PVT', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `pvt_${paneId}`,
+    definitionId: 'pvt',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

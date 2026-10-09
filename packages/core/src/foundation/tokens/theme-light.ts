@@ -18,8 +18,8 @@
  * Each WCAG AA against the background (>= 3:1 for non-text).
  */
 
-import { motion, spacing, typography } from './theme-base.js'
 import { lightInterfaceColors } from './interface-colors.js'
+import { motion, spacing, typography } from './theme-base.js'
 import type { Theme } from './types.js'
 
 export const lightTheme: Theme = {
@@ -72,9 +72,12 @@ export const lightTheme: Theme = {
     volumeProfileFill: '#9CA3AF66',
     volumeProfilePoc: '#F97316',
     volumeProfileValueArea: '#2D7FF933',
-    footprintAsk: '#0F8B5C80',
-    footprintBid: '#C2363B80',
-    footprintImbalance: '#F97316',
+    // 足迹图专用红/灰配色：Bid 红、Ask 中性灰，不随涨跌约定翻转。
+    footprintCell: {
+      bid: '#d64b4b',
+      ask: '#929292',
+      text: '#303030',
+    },
 
     alertActive: '#2D7FF9',
     // alertTriggered: orange #F97316 was 2.69:1 on white (fails AA

@@ -54,31 +54,8 @@
           <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
         </svg>
       </button>
-      <button
-        :class="{ 'is-active': depthDemoActive }"
-        @click="$emit('toggle-depth-demo')"
-        title="Toggle Depth Pipeline (Binance SSE → HeatmapController)"
-      >
-        <svg
-          class="debug-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="2" y="10" width="4" height="10" rx="1" />
-          <rect x="10" y="4" width="4" height="16" rx="1" />
-          <rect x="18" y="7" width="4" height="13" rx="1" />
-        </svg>
-      </button>
     </div>
     <div class="debug-right">
-      <span v-if="depthDemoActive" class="depth-status-badge" :class="depthStatusClass">{{
-        depthStatusText
-      }}</span>
       <span class="version-badge">{{ version }}</span>
       <a
         class="debug-link"
@@ -118,9 +95,6 @@
 
   defineProps<{
     customDataActive: boolean
-    depthDemoActive: boolean
-    depthStatusText: string
-    depthStatusClass: string
   }>()
 
   const version = `Vue@${VERSION}-Core@${CORE_VERSION}`
@@ -129,7 +103,6 @@
     'open-modal': []
     'toggle-embed-size': []
     'toggle-custom-data': []
-    'toggle-depth-demo': []
   }>()
 </script>
 
@@ -139,6 +112,7 @@
     position: relative;
     padding: 8px 16px;
     background: var(--klc-color-ui-surface);
+    border-bottom: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -220,27 +194,6 @@
     background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
     border-color: var(--klc-color-ui-accent);
     color: var(--klc-color-ui-accent);
-  }
-
-  .depth-status-badge {
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-family: var(--klc-typography-font-family-mono);
-    white-space: nowrap;
-    border: 1px solid;
-  }
-
-  .depth-status-badge.depth-awaiting {
-    background: var(--klc-color-ui-warning-background);
-    border-color: var(--klc-color-ui-warning-border);
-    color: var(--klc-color-ui-warning-text);
-  }
-
-  .depth-status-badge.depth-connected {
-    background: color-mix(in srgb, var(--klc-color-ui-success) 14%, transparent);
-    border-color: color-mix(in srgb, var(--klc-color-ui-success) 50%, transparent);
-    color: var(--klc-color-ui-success);
   }
 
   @media (max-width: 640px) {

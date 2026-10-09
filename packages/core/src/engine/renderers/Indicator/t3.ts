@@ -30,7 +30,7 @@ interface T3RendererOptions {
 function createT3Layer(options: T3RendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `t3_${paneId}`,
+    definitionId: 't3',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -96,7 +96,6 @@ const getT3TitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 't3_main',
     toActiveConfig: (params, active) => ({ ...params, showT3: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('t3', EMPTY_T3_STATE) },

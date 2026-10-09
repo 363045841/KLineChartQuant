@@ -150,6 +150,14 @@ for (const target of ['src', 'dist']) {
     const expected = discoverIndicatorDefinitions()
       .map((definition) => definition.name)
       .sort()
+    const entry = path.join(output, 'entry.mjs')
+    const directory = path.resolve(CORE_SOURCE_ROOT, '..', target, 'engine/indicators')
+    const extension = target === 'src' ? 'ts' : 'js'
+    writeFileSync(
+      entry,
+      `export { loadBuiltinIndicators } from '${pathToFileURL(path.join(directory, `registerBuiltins.${extension}`)).href}'\n` +
+        `export { getRegisteredIndicatorDefinitions } from '${pathToFileURL(path.join(directory, `indicatorDefinitionRegistry.${extension}`)).href}'\n`,
+    )
     await build({
       configFile: false,
       logLevel: 'error',
@@ -174,12 +182,7 @@ for (const target of ['src', 'dist']) {
         outDir: output,
         minify: true,
         lib: {
-          entry: path.join(
-            CORE_SOURCE_ROOT,
-            '..',
-            target,
-            `engine/indicators/registerBuiltins.${target === 'src' ? 'ts' : 'js'}`,
-          ),
+          entry,
           formats: ['es'],
           fileName: () => 'definitions.mjs',
         },
@@ -188,7 +191,7 @@ for (const target of ['src', 'dist']) {
     })
     const bundled = await import(pathToFileURL(path.join(output, 'definitions.mjs')).href)
     await bundled.loadBuiltinIndicators()
-    const definitions = bundled.getBuiltinIndicatorDefinitions()
+    const definitions = bundled.getRegisteredIndicatorDefinitions()
     assert.deepEqual(definitions.map((definition) => definition.name).sort(), expected)
     for (const definition of definitions)
       assert.equal(typeof definition.rendererFactory, 'function', definition.name)

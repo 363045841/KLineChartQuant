@@ -29,7 +29,7 @@ interface ZLEMARendererOptions {
 function createZLEMALayer(options: ZLEMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `zlema_${paneId}`,
+    definitionId: 'zlema',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -95,7 +95,6 @@ const getZLEMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'zlema_main',
     toActiveConfig: (params, active) => ({ ...params, showZLEMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('zlema', EMPTY_ZLEMA_STATE) },

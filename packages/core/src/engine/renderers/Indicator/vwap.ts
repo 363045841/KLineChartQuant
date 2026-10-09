@@ -20,7 +20,7 @@ function createVWAPLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_VWAP', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `vwap_${paneId}`,
+    definitionId: 'vwap',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

@@ -24,7 +24,7 @@ function createCMFLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_CMF', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `cmf_${paneId}`,
+    definitionId: 'cmf',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

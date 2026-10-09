@@ -23,7 +23,7 @@
 | `engine/__tests__/helpers/chartDomTestKit.ts` | `createChartDom` / `createCanvasGetContextMock` / `createWebGLContextStub` / `ResizeObserverMock` / `installChartDomStubs` / `stubAnimationFrame` |
 | `engine/drawing/__tests__/helpers/drawingTestKit.ts` | 图元构造 + `DrawingDocumentPort` / `DrawingViewportPort` / `DrawingSessionPort` 工厂 + `createDrawingAdapter` + `createFourBarTimelineAdapter` / flat-line / disjoint-channel / parallel-channel 图元工厂 |
 | `engine/data/__tests__/helpers/chartDataManagerTestKit.ts` | `createMockViewport` / `createMockDataDependencies` / `createMockChartDataManager` / `createTestDocument` / `createChartDom` |
-| `data/__tests__/helpers/depthTestKit.ts` | `createFakeEventSource` / `asEventSource` / `createEventSourceFactory` / `makeSnapshotEvent` / `makeDeltaEvent` / `createFakeDepthSource` / `createFakeHeatmapController` |
+| `data/__tests__/helpers/depthTestKit.ts` | `createFakeDepthSource` / `createFakeHeatmapController` |
 | `data/provider/__tests__/helpers/providerTestKit.ts` | `createMockMarketDataProvider` + `DEFAULT_SOURCE_CAPABILITIES` |
 | `rendering/render/__tests__/helpers/rendererTestKit.ts` | `createMockSurfaceBackend` / `createMockSharedWebGLSurface` / `createMockRenderer` |
 | `rendering/render/__tests__/helpers/webgpuTestKit.ts` | `createMockWebGPU` |

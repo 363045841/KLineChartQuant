@@ -13,7 +13,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { computeAnchoredVwap } from '../components/anchoredVwap/impl/computeAnchoredVwap'
-import { createFootprintController } from '../components/footprint/impl/createFootprintController'
 import { isKLineChartError, KLineChartError, type KLineChartErrorCode } from '../errors'
 import { createPriceScale } from '../scale/impl/createPriceScale'
 import { createTimeScale } from '../scale/impl/createTimeScale'
@@ -129,37 +128,6 @@ describe('Migrated throw sites — TimeScale', () => {
       expect(isKLineChartError(e, 'SCALE_BAR_WIDTH_INVALID')).toBe(true)
     }
   })
-})
-
-describe('Migrated throw sites — FootprintController', () => {
-  const cases: Array<{
-    cfg: { tickSize?: number; barIntervalMs?: number; imbalanceRatio?: number }
-    code: KLineChartErrorCode
-    label: string
-  }> = [
-    { cfg: { tickSize: 0 }, code: 'FOOTPRINT_TICKSIZE_INVALID', label: 'tickSize' },
-    {
-      cfg: { barIntervalMs: 0 },
-      code: 'FOOTPRINT_BAR_INTERVAL_INVALID',
-      label: 'barIntervalMs',
-    },
-    {
-      cfg: { imbalanceRatio: 0 },
-      code: 'FOOTPRINT_RATIO_INVALID',
-      label: 'imbalanceRatio',
-    },
-  ]
-  for (const { cfg, code, label } of cases) {
-    it(`${label} <= 0 → ${code}`, () => {
-      let caught: unknown
-      try {
-        createFootprintController(cfg)
-      } catch (e) {
-        caught = e
-      }
-      expect(isKLineChartError(caught, code)).toBe(true)
-    })
-  }
 })
 
 describe('Migrated throw sites — anchoredVwap', () => {

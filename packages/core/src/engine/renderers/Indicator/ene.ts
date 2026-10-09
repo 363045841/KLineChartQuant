@@ -97,7 +97,7 @@ const composeENERenderState: IndicatorRenderStateComposer = (
 export function createENELayer(options: ENERendererOptions = {}): Layer<RenderContext> {
   const { instanceId } = options
   return createIndicatorRendererLayer({
-    name: 'ene',
+    definitionId: 'ene',
     paneId: 'main',
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -215,7 +215,6 @@ const getENETitleInfo: GetTitleInfoFn = (
   indicatorType: 'channel',
   defaultPaneId: 'main',
   mainPane: {
-    rendererName: 'ene',
     toActiveConfig: (params, active) => (active ? params : null),
     computePriceRange: computeENEPriceRange,
     composeRenderState: composeENERenderState,

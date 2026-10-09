@@ -26,7 +26,6 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
-import { registerBuiltinRenderers } from '../indicators/generated/builtinRenderers.js'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
@@ -228,7 +227,6 @@ export class ChartStateKernel extends StateKernel {
 
   constructor(deps: ChartStateKernelDeps) {
     super()
-    registerBuiltinRenderers()
 
     // ── Options state (before zoom, since zoom reads from options) ──
     this.options = createOptionsState(deps.initialOptions)
@@ -305,6 +303,7 @@ export class ChartStateKernel extends StateKernel {
     this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
+    // K 线形态由 settings.klineShape 直接派生，不再镜像进 mode 主序列偏好。
     this.settings = createSettingsState(deps.initialSettings)
     this.mainPriceAxis = createMainPriceAxisState(
       this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
@@ -482,10 +481,6 @@ export class ChartStateKernel extends StateKernel {
         })
       },
       setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
-      setPrimaryRenderer: (
-        view: ChartDataView,
-        renderer: 'candlestick' | 'ohlc-bar' | 'line' | 'area',
-      ) => this.mode.actions.setPrimaryRenderer(view, renderer),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
       updateCrosshair: (
         pos: { x: number; y: number } | null,

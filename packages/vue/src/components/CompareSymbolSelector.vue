@@ -49,7 +49,7 @@
             >
               <span
                 class="compare-selected__color"
-                :style="{ background: comparisonColors?.get(symbolIdentityKey(item)) ?? '#888' }"
+                :style="{ background: comparisonColors?.get(symbolIdentityKey(item)) ?? 'var(--klc-color-ui-muted)' }"
               />
               <span class="compare-selected__code">{{ item.symbol }}</span>
               <span class="compare-selected__desc">{{ item.name }}</span>
@@ -277,6 +277,7 @@
 </script>
 
 <style scoped src="./common/control-button.css"></style>
+<style scoped src="./common/symbol-list.css"></style>
 
 <style scoped>
   .compare-chip-wrap {
@@ -413,41 +414,6 @@
     color: var(--klc-color-ui-accent);
   }
 
-  .compare-list {
-    max-height: 480px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-  }
-
-  .compare-list::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .compare-list::-webkit-scrollbar-thumb {
-    background: var(--klc-color-ui-border);
-    border-radius: 999px;
-  }
-
-  .compare-list__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 0;
-    color: var(--klc-color-ui-muted);
-    font-size: 13px;
-    text-align: center;
-    gap: 2px;
-  }
-
-  /* 与无结果搜索图标占位一致：同为 32px 并保留相同下间距。 */
-  .compare-list__spinner {
-    margin-bottom: 8px;
-  }
-
   .compare-list__item {
     display: flex;
     align-items: center;
@@ -469,31 +435,6 @@
 
   .compare-list__item:hover {
     background: var(--klc-color-ui-hover);
-  }
-
-  .compare-list__left {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1 1 0;
-  }
-
-  .compare-list__code {
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-    color: var(--klc-color-ui-text);
-    overflow-wrap: anywhere;
-  }
-
-  .compare-list__desc {
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 1.2;
-    color: var(--klc-color-ui-muted);
-    overflow-wrap: anywhere;
   }
 
   .compare-list__right {

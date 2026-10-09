@@ -151,7 +151,7 @@ function createUltimateOscillatorLayer(
   }
 
   return createIndicatorRendererLayer({
-    name: `ultimateOscillator_${paneId}`,
+    definitionId: 'ultimateOscillator',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

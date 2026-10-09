@@ -19,7 +19,7 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
 
 /**
  * 由指标定义创建 Layer。
- * 主图指标用 `mainPane.rendererName`，副图指标用 `definition.rendererFactory`。
+ * 主图与副图共用定义工厂，名称由目录统一解析。
  */
 export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<RenderContext> {
   const { definition, role } = options

@@ -96,6 +96,17 @@ export const TOOLTIP_POSITION_NONE = 'none'
 /** 默认设置配置 */
 export const DEFAULT_SETTINGS = [
   {
+    key: 'klineShape',
+    label: 'K 线形态',
+    type: 'select',
+    default: 'candlestick',
+    group: 'toolbar',
+    options: [
+      { value: 'candlestick', label: '实心 K 线' },
+      { value: 'hollow-candlestick', label: '空心 K 线' },
+    ],
+  },
+  {
     key: 'displayTimeZone',
     label: '显示时区',
     type: 'select',

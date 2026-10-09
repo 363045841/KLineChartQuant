@@ -143,7 +143,7 @@ function createIchimokuLayer(options: IchimokuRendererOptions = {}): Layer<Rende
     ProjectionRevision
   >(sameProjectionRevision)
   return createIndicatorRendererLayer({
-    name: `ichimoku_${paneId}`,
+    definitionId: 'ichimoku',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -279,7 +279,6 @@ function getIchimokuTitleInfo(
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'ichimoku_main',
     toActiveConfig: (params, active) => ({
       ...params,
       showTenkan: active,

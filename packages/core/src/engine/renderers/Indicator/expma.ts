@@ -96,7 +96,7 @@ export function createEXPMALayer(options: EXPMARendererOptions = {}): Layer<Rend
   }
 
   return createIndicatorRendererLayer({
-    name: 'expma',
+    definitionId: 'expma',
     paneId: 'main',
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -218,7 +218,6 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   indicatorType: 'moving-average',
   defaultPaneId: 'main',
   mainPane: {
-    rendererName: 'expma',
     toActiveConfig: (params, active) => (active ? params : null),
     computePriceRange: computeEXPMAPriceRange,
     composeRenderState: composeEXPMARenderState,

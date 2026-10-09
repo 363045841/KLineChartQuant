@@ -3,6 +3,7 @@
 import { ERROR_CODES, GENERIC_ERROR_CODES, isKLineChartError, KLineChartError } from '@/errors.js'
 import type {
   BarSeries,
+  InstrumentCapabilities,
   InstrumentDescriptor,
   MarketDataErrorCode,
   MarketDataProvider,
@@ -64,12 +65,40 @@ function isRoutableRejection(code: MarketDataErrorCode): boolean {
   return code === ERROR_CODES.UNSUPPORTED_CAPABILITY || code === ERROR_CODES.INSTRUMENT_NOT_FOUND
 }
 
+/** Router 单次请求可流转的行情能力。 */
+type RoutableCapability = 'bars' | 'timeShare' | 'timeShareRange'
+
+/** 判断单个品种的能力声明是否覆盖指定请求能力。 */
+function instrumentSupportsCapability(
+  capabilities: InstrumentCapabilities,
+  capability: RoutableCapability,
+): boolean {
+  if (capability === 'bars') return capabilities.bars !== undefined
+  if (capability === 'timeShare') return capabilities.timeShare === true
+  return capabilities.timeShareRange !== undefined
+}
+
+/** 判断 tickSize 是否为可用于价格精度计算的有效值。 */
+function isValidTickSize(tickSize: number | undefined): boolean {
+  return typeof tickSize === 'number' && Number.isFinite(tickSize) && tickSize > 0
+}
+
+/**
+ * 判断品种描述是否具备其声明能力所需的全部必要字段。
+ * 声明了依赖价格精度的逐笔成交能力时，必须带有效 tickSize；
+ * 描述不完整意味着可能来自过期或残缺的目录快照，不能直接沿用。
+ */
+function isInstrumentDescriptorComplete(instrument: InstrumentDescriptor): boolean {
+  if (instrument.capabilities.trades?.raw) return isValidTickSize(instrument.tickSize)
+  return true
+}
+
 /** 从候选目录中解析目标源自己的品种描述。 */
 async function resolveInstrument(
   provider: MarketDataProvider,
   identity: SourceRouterInstrumentIdentity,
   attached: InstrumentDescriptor | undefined,
-  capability: 'bars' | 'timeShare' | 'timeShareRange',
+  capability: RoutableCapability,
   signal?: AbortSignal,
 ): Promise<InstrumentDescriptor> {
   if (
@@ -78,19 +107,14 @@ async function resolveInstrument(
     (identity.exchange === undefined || attached.exchange === identity.exchange) &&
     (identity.assetClass === undefined || attached.assetClass === identity.assetClass)
   ) {
-    const supported =
-      capability === 'bars'
-        ? attached.capabilities.bars !== undefined
-        : capability === 'timeShare'
-          ? attached.capabilities.timeShare === true
-          : attached.capabilities.timeShareRange !== undefined
-    if (!supported) {
+    if (!instrumentSupportsCapability(attached.capabilities, capability)) {
       throw new KLineChartError(
         ERROR_CODES.UNSUPPORTED_CAPABILITY,
         `[${provider.source.id}] instrument "${attached.id}" does not support ${capability}`,
       )
     }
-    return attached
+    // 描述缺少被声明能力所需的必要字段时，回权威目录重新解析以获得完整字段。
+    if (isInstrumentDescriptorComplete(attached)) return attached
   }
 
   if (!provider.catalog) {
@@ -120,13 +144,7 @@ async function resolveInstrument(
     )
   }
 
-  const supported =
-    capability === 'bars'
-      ? instrument.capabilities.bars !== undefined
-      : capability === 'timeShare'
-        ? instrument.capabilities.timeShare === true
-        : instrument.capabilities.timeShareRange !== undefined
-  if (!supported) {
+  if (!instrumentSupportsCapability(instrument.capabilities, capability)) {
     throw new KLineChartError(
       ERROR_CODES.UNSUPPORTED_CAPABILITY,
       `[${provider.source.id}] instrument "${instrument.id}" does not support ${capability}`,
@@ -189,7 +207,7 @@ export class SourceRouter {
     identity: SourceRouterInstrumentIdentity,
     preferredSourceId: string | undefined,
     attached: InstrumentDescriptor | undefined,
-    capability: 'bars' | 'timeShare' | 'timeShareRange',
+    capability: RoutableCapability,
     signal: AbortSignal | undefined,
     fetch: (provider: MarketDataProvider, instrument: InstrumentDescriptor) => Promise<T>,
   ): Promise<RoutedMarketData<T>> {

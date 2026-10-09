@@ -6,8 +6,6 @@
  */
 
 export { createScene } from './createScene.js'
-export type { BuiltinLayerType, LayerFactory, LayerRegistry } from './layerRegistry.js'
-export { BUILTIN_LAYER_TYPES, createLayerRegistry } from './layerRegistry.js'
 export {
   type FramePaint,
   LAYER_PANE_GLOBAL,

@@ -1,6 +1,7 @@
 /** 按引擎 DPR 合成原始 Canvas 像素与 DOM 浮层，避免图表经过 SVG 重采样。 */
 import type { ChartFrameCaptureContext } from '@363045841yyt/klinechart-core/controllers'
 const CHART_BACKGROUND_HOSTS = '.chart-main, .chart-container, .left-axis-host, .right-axis-host'
+const SCREENSHOT_EXCLUDED_CONTROLS = '.price-axis-shortcuts, .axis-settings-menu'
 const CLIPPING_OVERFLOW = new Set(['hidden', 'clip', 'auto', 'scroll'])
 const SVG_MIME_TYPE = 'image/svg+xml'
 const CANVAS_CONTEXT_ERROR = '截图画布初始化失败'
@@ -88,7 +89,7 @@ function snapshotCanvases(element: HTMLElement, frame: ChartFrameCaptureContext)
   return snapshots.sort(compareStackingOrder)
 }
 
-/** 只转换 DOM 内容；去掉画布宿主背景，使 DOM 图例和控件能透明叠加。 */
+/** 转换 DOM 浮层，排除坐标轴操作按钮并保留宿主边框。 */
 async function captureDomOverlay(
   element: HTMLElement,
   width: number,
@@ -98,7 +99,10 @@ async function captureDomOverlay(
   const svgUrl = await toSvg(element, {
     width,
     height,
-    filter: (node) => !(node instanceof HTMLCanvasElement),
+    // Canvas 单独合成；快捷按钮和设置入口只用于页面交互，不进入截图。
+    filter: (node) =>
+      !(node instanceof HTMLCanvasElement) &&
+      !(node instanceof Element && node.matches(SCREENSHOT_EXCLUDED_CONTROLS)),
   })
   const svgText = await (await fetch(svgUrl)).text()
   const svg = new DOMParser().parseFromString(svgText, SVG_MIME_TYPE)

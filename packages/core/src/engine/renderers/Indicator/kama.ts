@@ -24,7 +24,7 @@ interface KAMARendererOptions {
 function createKAMALayer(options: KAMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `kama_${paneId}`,
+    definitionId: 'kama',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -90,7 +90,6 @@ const getKAMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'kama_main',
     toActiveConfig: (params, active) => ({ ...params, showKAMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('kama', EMPTY_KAMA_STATE) },

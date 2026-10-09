@@ -8,7 +8,10 @@ import {
   type SymbolSpec,
 } from '../../controllers/types.js'
 import { DataBuffer } from '../../data/buffer/impl/dataBuffer.js'
-import { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
+import {
+  MarketDataCache,
+  type TimeShareCacheQuery,
+} from '../../data/buffer/impl/marketDataCache.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
 import {
   type BarsSelection,
@@ -36,6 +39,7 @@ import type {
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
+  SourceCapabilities,
   TradingDate,
 } from '../../data/provider/types.js'
 import {
@@ -45,6 +49,7 @@ import {
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
+import type { TradeSnapshot } from '../../data/trades/types.js'
 import { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
@@ -60,16 +65,20 @@ import type { UpdateLevel } from '../pane/index.js'
 import type { DataManagerStateModule } from '../state/dataManagerState.js'
 import { ACTIVE_BUFFER_KIND, type DataStateModule } from '../state/dataState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
-import { getPhysicalKLineConfig } from '../viewport/klineConfig.js'
+import { resolvePhysicalKLineConfig } from '../viewport/klineConfig.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import { hasLeftDataGap } from '../viewport/viewport.js'
 
 import { ComparisonManager } from './comparisonManager.js'
 import { IncrementalLoadHint } from './incrementalLoadHint.js'
+import { MarketRuntime } from './marketRuntime/impl/marketRuntime.js'
+import type { ReadyMarketSession } from './marketRuntime/types.js'
 import { ScrollCompensator } from './scrollCompensator.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
+  updateTradeInput: (input: TradeSnapshot) => void
+  needsTrades: () => boolean
   getOption: () => { kWidth: number; kGap: number }
   getZoomLevel: () => number
   setZoomLevel: (level: number) => void
@@ -114,17 +123,30 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
 export class ChartDataManager {
+  private readonly marketRuntime: MarketRuntime
+  private disposed = false
+  private readonly loadRequests = new WeakMap<KLineBuffer | TimeShareBuffer, object>()
+  private readonly readySessions = new WeakMap<KLineBuffer, ReadyMarketSession>()
+
+  /** 成交需求与活动品种共同决定唯一 Buffer，不由 renderer 创建网络连接。 */
+  reconcileTradeInput(): void {
+    this.marketRuntime.reconcileTrades()
+  }
   private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
-  private readonly calendarSources = new WeakMap<
+  /** K 线请求实际解析出的来源与品种，成交及交易日历共用。 */
+  private readonly resolvedBarSources = new WeakMap<
     KLineBuffer,
-    { sourceId: string; instrument: InstrumentDescriptor }
+    {
+      sourceId: string
+      instrument: InstrumentDescriptor
+      capabilities: SourceCapabilities | undefined
+    }
   >()
-  static readonly TRAILING_SLOTS = 30
   static readonly TIME_SHARE_INDICATOR_BAR_LIMIT = 1_500
 
-  private readonly _repository = new SeriesRepository()
   /** 图表与 Agent 共用的实例级行情缓存，负责分页、重试和 Provider 请求。 */
   readonly marketDataCache = new MarketDataCache(marketDataProviderRegistry)
+  private readonly _repository = this.marketDataCache.repository
   private get _activeSelection(): SeriesSelection | null {
     return this._dataState.readonly.activeSelection.peek()
   }
@@ -149,6 +171,17 @@ export class ChartDataManager {
     this.deps = deps
     this._dataState = dataState
     this._dmState = dmState
+    this.marketRuntime = new MarketRuntime({
+      cache: this.marketDataCache,
+      session: dataState.readonly.readyMarket,
+      visibleRange: deps.viewport.readonly.visibleRange,
+      data: dataState.readonly.data,
+      needsTrades: () => deps.needsTrades(),
+      publishTrades: (snapshot) => deps.updateTradeInput(snapshot),
+      writeBars: (session, bars) => {
+        this._repository.getBars(session.selection)?.applyRealtimeBars(bars)
+      },
+    })
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
     this._comparisonManager = new ComparisonManager(this._repository, {
@@ -298,7 +331,29 @@ export class ChartDataManager {
     return active !== null && seriesSelectionKey(active) === seriesSelectionKey(selection)
   }
 
-  /** 将叶子 Buffer 的完整业务状态发布到 Kernel。 */
+  /** 已加载 Buffer 派生稳定就绪身份；实时更新和分页不重建连接。 */
+  private readySession(selection: BarsSelection, buffer: KLineBuffer): ReadyMarketSession | null {
+    const source = this.resolvedBarSources.get(buffer)
+    if (!source?.capabilities || buffer.timezone === null || selection.sourceId !== source.sourceId)
+      return null
+    const previous = this.readySessions.get(buffer)
+    if (
+      previous &&
+      seriesSelectionKey(previous.selection) === seriesSelectionKey(selection) &&
+      JSON.stringify(previous.instrument) === JSON.stringify(source.instrument) &&
+      JSON.stringify(previous.capabilities) === JSON.stringify(source.capabilities)
+    )
+      return previous
+    const session = Object.freeze({
+      selection,
+      instrument: Object.freeze(structuredClone(source.instrument)),
+      capabilities: Object.freeze(structuredClone(source.capabilities)),
+    })
+    this.readySessions.set(buffer, session)
+    return session
+  }
+
+  /** 发布数据和就绪来源的完整快照，连接只观察这一次原子通知。 */
   private publishBufferSnapshot(
     selection: SeriesSelection,
     buf: KLineBuffer | TimeShareBuffer,
@@ -317,18 +372,21 @@ export class ChartDataManager {
 
     if (selection.kind === SERIES_SELECTION_KIND.bars) {
       const buffer = buf as KLineBuffer
-      this._dataState.actions.applyActiveBufferSnapshot({
-        kind: ACTIVE_BUFFER_KIND.bars,
-        selection,
-        data: dataChanged
-          ? [...buffer.data.peek().data]
-          : (this._dataState.readonly.data.peek() as ReadonlyArray<KLineData>),
-        loading: buffer.loading.peek(),
-        error: buffer.lastError.peek(),
-        timezone: buffer.timezone,
-        timeShareRange: null,
-        timeSharePreClose: null,
-      })
+      this._dataState.actions.applyActiveBufferSnapshot(
+        {
+          kind: ACTIVE_BUFFER_KIND.bars,
+          selection,
+          data: dataChanged
+            ? [...buffer.data.peek().data]
+            : (this._dataState.readonly.data.peek() as ReadonlyArray<KLineData>),
+          loading: buffer.loading.peek(),
+          error: buffer.lastError.peek(),
+          timezone: buffer.timezone,
+          timeShareRange: null,
+          timeSharePreClose: null,
+        },
+        this.readySession(selection, buffer),
+      )
     } else {
       const buffer = buf as TimeShareBuffer
       this._dataState.actions.applyActiveBufferSnapshot({
@@ -394,6 +452,11 @@ export class ChartDataManager {
     return new DataBuffer()
   }
 
+  /** 请求令牌是否仍是该 Buffer 的当前加载；过期、被替换或已销毁时为 false。 */
+  private isCurrentLoad(buffer: KLineBuffer | TimeShareBuffer, request: object): boolean {
+    return !this.disposed && this.loadRequests.get(buffer) === request
+  }
+
   /** 从共享缓存获取 K 线并写入当前图表快照。 */
   private async loadBars(
     selection: BarsSelection,
@@ -401,6 +464,8 @@ export class ChartDataManager {
     spec: SymbolSpec,
     target: { limit: number; beforeTimestamp?: number },
   ): Promise<void> {
+    const request = {}
+    this.loadRequests.set(buffer, request)
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
     if (
@@ -425,15 +490,23 @@ export class ChartDataManager {
           ? {}
           : { beforeTimestamp: target.beforeTimestamp }),
       })
+      if (this.disposed || this.loadRequests.get(buffer) !== request) return
       if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer)
         return
+      // 来源必须先于任何 Kernel/Buffer 通知就绪；通知的订阅者会立即协调成交连接。
+      this.resolvedBarSources.set(buffer, {
+        sourceId: result.sourceId,
+        instrument: result.instrument,
+        capabilities: structuredClone(
+          marketDataProviderRegistry.get(result.sourceId)?.source.capabilities,
+        ),
+      })
       if (selection.sourceId === AUTO_SOURCE_ID) {
         if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
           return
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
-      this.calendarSources.set(buffer, { sourceId: result.sourceId, instrument: result.instrument })
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -441,7 +514,8 @@ export class ChartDataManager {
         this.deps.onBarsReady()
       }
     } catch (error) {
-      buffer.setError(error instanceof Error ? error.message : String(error))
+      if (!this.disposed && this.loadRequests.get(buffer) === request)
+        buffer.setError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -476,28 +550,20 @@ export class ChartDataManager {
     buffer: TimeShareBuffer,
     spec: SymbolSpec,
   ): Promise<void> {
-    buffer.setLoading(true)
-    try {
-      const queryDate = buffer.getQueryDate()
-      const tradingDate = queryDate ? this.tradingDateKey(queryDate) : undefined
-      const result = await this.marketDataCache.queryTimeShare({
-        sourceId: spec.source,
-        instrument: spec.instrument,
-        symbol: spec.symbol,
-        exchange: spec.exchange,
-        assetClass: spec.instrument?.assetClass,
-        ...(tradingDate
-          ? { tradingDate }
-          : { resolveTradingDate: (instrument) => this.resolveTradingDate(instrument) }),
-      })
-      if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
-          return
-      }
-      buffer.setInlineData(result.series.data, result.series.preClose)
-    } catch (error) {
-      buffer.setError(error instanceof Error ? error.message : String(error))
-    }
+    await this.runTimeShareLoad(
+      selection,
+      buffer,
+      () => {
+        const tradingDate = this.currentTimeShareTradingDate(buffer)
+        const base = this.timeShareQueryBase(spec)
+        return this.marketDataCache.queryTimeShare(
+          tradingDate
+            ? { ...base, tradingDate }
+            : { ...base, resolveTradingDate: (instrument) => this.resolveTradingDate(instrument) },
+        )
+      },
+      (result) => buffer.setInlineData(result.series.data, result.series.preClose),
+    )
   }
 
   /** 从共享缓存获取多日分时并写入当前图表快照。 */
@@ -507,28 +573,73 @@ export class ChartDataManager {
     spec: SymbolSpec,
     days: number,
   ): Promise<void> {
+    await this.runTimeShareLoad(
+      selection,
+      buffer,
+      () => {
+        const endTradingDate = this.currentTimeShareTradingDate(buffer)
+        const base = this.timeShareQueryBase(spec)
+        return this.marketDataCache.queryTimeShareRange(
+          endTradingDate
+            ? { ...base, endTradingDate, days }
+            : {
+                ...base,
+                resolveEndTradingDate: (instrument) => this.resolveTradingDate(instrument),
+                days,
+              },
+        )
+      },
+      (result) => buffer.setRange(result.range),
+    )
+  }
+
+  /**
+   * 执行一次分时加载请求，统一处理请求令牌、过期校验、AUTO 源回写与错误写入。
+   * @param selection 当前分时选择，用于过期后判断结果是否仍属活动序列。
+   * @param buffer 目标分时 Buffer。
+   * @param query 发起实际的缓存查询。
+   * @param apply 请求成功且未被丢弃时写入结果。
+   * @returns 加载完成后的 Promise。
+   */
+  private async runTimeShareLoad<
+    TResult extends { sourceId: string; instrument: InstrumentDescriptor },
+  >(
+    selection: TimeShareSelection,
+    buffer: TimeShareBuffer,
+    query: () => Promise<TResult>,
+    apply: (result: TResult) => void,
+  ): Promise<void> {
+    const request = {}
+    this.loadRequests.set(buffer, request)
     buffer.setLoading(true)
     try {
-      const queryDate = buffer.getQueryDate()
-      const endTradingDate = queryDate ? this.tradingDateKey(queryDate) : undefined
-      const result = await this.marketDataCache.queryTimeShareRange({
-        sourceId: spec.source,
-        instrument: spec.instrument,
-        symbol: spec.symbol,
-        exchange: spec.exchange,
-        assetClass: spec.instrument?.assetClass,
-        ...(endTradingDate
-          ? { endTradingDate }
-          : { resolveEndTradingDate: (instrument) => this.resolveTradingDate(instrument) }),
-        days,
-      })
-      if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
-          return
-      }
-      buffer.setRange(result.range)
+      const result = await query()
+      if (!this.isCurrentLoad(buffer, request)) return
+      if (!this.isActiveSelection(selection) && this.lookupBuffer(selection) !== buffer) return
+      if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+      apply(result)
     } catch (error) {
-      buffer.setError(error instanceof Error ? error.message : String(error))
+      if (this.isCurrentLoad(buffer, request))
+        buffer.setError(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  /** 读取 Buffer 查询日期并转换为 Repository 交易日键。 */
+  private currentTimeShareTradingDate(buffer: TimeShareBuffer): TradingDate | undefined {
+    const queryDate = buffer.getQueryDate()
+    return queryDate ? this.tradingDateKey(queryDate) : undefined
+  }
+
+  /** 分时单日与多日查询共用的来源描述字段。 */
+  private timeShareQueryBase(
+    spec: SymbolSpec,
+  ): Pick<TimeShareCacheQuery, 'sourceId' | 'instrument' | 'symbol' | 'exchange' | 'assetClass'> {
+    return {
+      sourceId: spec.source,
+      instrument: spec.instrument,
+      symbol: spec.symbol,
+      exchange: spec.exchange,
+      assetClass: spec.instrument?.assetClass,
     }
   }
 
@@ -772,14 +883,6 @@ export class ChartDataManager {
     this._dataState.actions.setSymbolCatalog([...current.values()])
   }
 
-  /** Remove a symbol from the catalog by code. */
-  unregisterSymbol(symbol: string): void {
-    const next = this._dataState.readonly.symbolCatalog.peek().filter((s) => s.symbol !== symbol)
-    if (next.length < this._dataState.readonly.symbolCatalog.peek().length) {
-      this._dataState.actions.setSymbolCatalog(next)
-    }
-  }
-
   get currentPeriod(): string {
     return this._dmState.readonly.currentPeriod.peek()
   }
@@ -855,14 +958,6 @@ export class ChartDataManager {
     return fallback
   }
 
-  get comparisonColors(): ReadonlySignal<ReadonlyMap<string, string>> {
-    return this.deps.comparison.readonly.colors
-  }
-
-  get comparisonLoading(): ReadonlySignal<boolean> {
-    return this.deps.comparison.readonly.loading
-  }
-
   getComparisonColors(): Map<string, string> {
     return new Map(this.deps.comparison.readonly.colors.peek())
   }
@@ -874,11 +969,19 @@ export class ChartDataManager {
 
   // ── Data updates (KLine) ──
 
+  /** 内联数据替换前撤销旧加载请求及正式来源，防止晚返回的 REST 覆盖调用方数据。 */
+  private setInlineBars(buffer: KLineBuffer, data: readonly KLineData[]): void {
+    this.loadRequests.delete(buffer)
+    this.resolvedBarSources.delete(buffer)
+    this.readySessions.delete(buffer)
+    buffer.setInlineData(data)
+  }
+
   updateData(data: KLineData[]): void {
     if (isTimeSharePeriod(this.currentPeriod)) return
     const buf = this.getActiveDataBuffer()
     if (buf) {
-      buf.setInlineData(data)
+      this.setInlineBars(buf, data)
     }
   }
 
@@ -888,7 +991,7 @@ export class ChartDataManager {
     if (currentSpec && currentSpec.incremental !== false) {
       buffer.setCurrentSpec({ ...currentSpec, incremental: false })
     }
-    buffer.setInlineData(data)
+    this.setInlineBars(buffer, data)
   }
 
   /** 实时帧写入活动 K 线 Buffer（末尾窗口 replace-on-conflict）；分时视图或无活动序列时忽略。 */
@@ -901,9 +1004,9 @@ export class ChartDataManager {
     const buf = this.getActiveDataBuffer()
     if (buf) {
       const merged = [...buf.getRawData(), ...newData]
-      buf.setInlineData(merged)
+      this.setInlineBars(buf, merged)
     } else {
-      this.dataBuffer.setInlineData(newData)
+      this.setInlineBars(this.dataBuffer, newData)
     }
   }
 
@@ -1011,6 +1114,17 @@ export class ChartDataManager {
     }
   }
 
+  /** 解析当前 K 线物理几何与左侧加载缓冲宽度，供视图锚点换算。 */
+  private resolveKLineScrollGeometry(): {
+    unitPx: number
+    startXPx: number
+    dpr: number
+    leftBuffer: number
+  } {
+    const { unitPx, startXPx, dpr } = resolvePhysicalKLineConfig(this.deps)
+    return { unitPx, startXPx, dpr, leftBuffer: this.getLeftLoadBufferWidth() }
+  }
+
   /** 捕获当前 K 线视图的横向锚点（品种+周期+复权+视图键），供切换与布局持久化恢复。 */
   saveActiveKLineViewportSnapshot(): void {
     const kBuf = this.getActiveDataBuffer()
@@ -1025,10 +1139,7 @@ export class ChartDataManager {
     const spec = kBuf?.currentSpec
     const anchor = kRaw?.[visibleStart]
     if (!spec || !anchor) return
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const leftBuffer = this.getLeftLoadBufferWidth()
+    const { unitPx, startXPx, dpr, leftBuffer } = this.resolveKLineScrollGeometry()
     const baseScrollLeft = ((visibleStart + 1) * unitPx + startXPx) / dpr + leftBuffer
     const snapshot: LayoutViewportSnapshot = {
       anchorTimestamp: anchor.timestamp,
@@ -1149,6 +1260,19 @@ export class ChartDataManager {
   // ── Main symbol switching ──
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
+    // 快照重置会清空活动选择，先留存它，供分时模式复用用户选定的查询日期。
+    const activeSelectionBeforeReset = this._activeSelection
+    // 先撤销旧行情写入资格，避免切换期间的收线冲刷写入新 Buffer。
+    const previous = this._dmState.readonly.currentSpec.peek()
+    const next = specs[0]
+    if (
+      !previous ||
+      !next ||
+      symbolSpecIdentityKey(previous) !== symbolSpecIdentityKey(next) ||
+      previous.period !== next.period ||
+      previous.adjust !== next.adjust
+    )
+      this.publishEmptySnapshot()
     const selection = isTimeSharePeriod(specs[0]?.period) ? specs.slice(0, 1) : specs
     this.deps.setSymbols(selection)
 
@@ -1171,7 +1295,7 @@ export class ChartDataManager {
       // so data and scroll position are preserved when user returns
       this._dmState.actions.setRangeInitialized(false)
 
-      const active = this._activeSelection
+      const active = activeSelectionBeforeReset
       const latestSelection = this.timeShareSelectionForSpec(primary)
       const tsSelection =
         active?.kind === SERIES_SELECTION_KIND.timeShare &&
@@ -1255,22 +1379,13 @@ export class ChartDataManager {
     const idx = raw.findIndex((d) => d.timestamp >= snapshot.anchorTimestamp)
     if (idx >= 0) {
       this.deps.setZoomLevel(snapshot.zoomLevel)
-      const dpr = this.deps.viewport.readonly.dpr.peek()
-      const opt = this.deps.getOption()
-      const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-      const leftBuffer = this.getLeftLoadBufferWidth()
+      const { unitPx, startXPx, dpr, leftBuffer } = this.resolveKLineScrollGeometry()
       const scrollLeft =
         ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer + snapshot.anchorOffsetPx
       this.deps.viewport.actions.scrollTo(scrollLeft)
       return true
     }
     return false
-  }
-
-  // ── Content width ──
-
-  getContentWidth(): number {
-    return this.deps.viewport.readonly.contentWidth.peek()
   }
 
   scrollToRight(): void {
@@ -1336,7 +1451,7 @@ export class ChartDataManager {
 
   private requestTradingCalendar(buffer: KLineBuffer, anchorTimestamp: number): void {
     const selection = this._activeSelection
-    const source = this.calendarSources.get(buffer)
+    const source = this.resolvedBarSources.get(buffer)
     if (selection?.kind !== SERIES_SELECTION_KIND.bars || !source) return
     const provider = marketDataProviderRegistry.get(source.sourceId)
     if (
@@ -1386,11 +1501,12 @@ export class ChartDataManager {
   }
 
   destroy(): void {
+    this.disposed = true
+    this.marketRuntime.dispose()
     this._comparisonSpecsUnsub?.()
     this._comparisonSpecsUnsub = null
     this._comparisonManager.clearAll()
     this.unbindActiveBuffer()
-    this._repository.dispose()
     this.marketDataCache.destroy()
     this._loadHint.destroy()
   }

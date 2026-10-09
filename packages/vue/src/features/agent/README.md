@@ -7,6 +7,7 @@
 ```text
 agent/
 ├── agent-contracts.ts              # Vue Agent UI 边界契约
+├── agent-error-view.ts              # unknown 错误到 AgentErrorView 的统一投影
 ├── AgentWorkbenchShell.vue          # 工作台壳层
 ├── browser-agent/                   # 浏览器宿主能力
 │   ├── bridge/                      # AgentBridgeClient 编排门面

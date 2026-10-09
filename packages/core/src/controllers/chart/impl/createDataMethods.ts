@@ -1,42 +1,21 @@
 /**
- * createDataMethods — 数据、区间选择与实时订阅的委托方法集。
+ * createDataMethods — 数据与区间选择的委托方法集。
  *
  * 从 createChartController 中抽离，统一把数据/区间选择 API 委托给 Chart facade，
- * 并编排当前活动品种的实时 K 线订阅（BarsLiveSubscription）。方法均以 isDisposed
- * 作为销毁短路条件，dispose() 负责退订 currentSpec 并停止实时连接。
+ * 方法均以 isDisposed 作为销毁短路条件；网络生命周期由活动行情运行模块管理。
  */
 
-import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
-import { BarsLiveSubscription } from '@/data/live/impl/barsLive.js'
-import { ORIGINAL_BAR_AGGREGATION } from '@/data/provider/types.js'
 import type { Chart } from '@/engine/chart/index.js'
 import type { CustomDataSource, KLineData, SymbolInfo, SymbolSpec } from '../types.js'
 
 /**
- * 创建数据/区间选择/实时订阅委托方法集。
+ * 创建数据与区间选择委托方法集。
  *
  * @param chart 被委托的 Chart facade。
  * @param isDisposed 控制器是否已销毁的读取器，用于销毁后短路。
- * @returns methods 为公开委托方法，dispose 用于退订并停止实时连接。
+ * @returns methods 为公开委托方法。
  */
 export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
-  const liveBars = new BarsLiveSubscription({ updateBars })
-
-  /** 按当前活动品种协调实时 K 线订阅，不区分具体数据源。 */
-  function reconcileLiveBars(): void {
-    const selection = chart.kernel.data.readonly.activeSelection.peek()
-    const barAggregation =
-      selection?.kind === SERIES_SELECTION_KIND.bars
-        ? selection.barAggregation
-        : ORIGINAL_BAR_AGGREGATION
-    liveBars.reconcile(chart.kernel.dataManager.readonly.currentSpec.peek(), barAggregation)
-  }
-
-  // 当前品种的 Provider 在自动路由完成后会写回 currentSpec，此时重新检查实时能力。
-  const unsubscribeLiveBars =
-    chart.kernel.dataManager.readonly.currentSpec.subscribe(reconcileLiveBars)
-  reconcileLiveBars()
-
   function setData(next: ReadonlyArray<KLineData>): void {
     if (isDisposed()) return
     chart.setData([...next])
@@ -52,7 +31,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     if (isDisposed()) return
     chart.clearRangeSelection()
     chart.setSymbols(next)
-    reconcileLiveBars()
   }
 
   function setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void {
@@ -85,14 +63,12 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     if (isDisposed()) return
     chart.clearRangeSelection()
     chart.setCurrentSymbol(symbol)
-    reconcileLiveBars()
   }
 
   function setCurrentPeriod(period: string): void {
     if (isDisposed()) return
     chart.clearRangeSelection()
     chart.setCurrentPeriod(period)
-    reconcileLiveBars()
   }
 
   function switchToTimeShareForDate(dateYYYYMMDD: number): void {
@@ -167,12 +143,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.getData()
   }
 
-  /** 退订 currentSpec 监听并停止实时连接；由控制器 dispose 调用。 */
-  function dispose(): void {
-    unsubscribeLiveBars()
-    liveBars.stop()
-  }
-
   return {
     methods: {
       setSymbols,
@@ -200,6 +170,5 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
       updateData: setData,
       getData,
     },
-    dispose,
   }
 }

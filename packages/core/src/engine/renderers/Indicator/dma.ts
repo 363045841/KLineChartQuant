@@ -23,7 +23,7 @@ interface DMARendererOptions {
 function createDMALayer(options: DMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `dma_${paneId}`,
+    definitionId: 'dma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

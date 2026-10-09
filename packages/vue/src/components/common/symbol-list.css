@@ -1,0 +1,68 @@
+/* 品种列表的共享外观：滚动容器、空状态与条目文本，供品种选择与对比选择复用。 */
+.compare-list,
+.symbol-list {
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.compare-list::-webkit-scrollbar,
+.symbol-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.compare-list::-webkit-scrollbar-thumb,
+.symbol-list::-webkit-scrollbar-thumb {
+  background: var(--klc-color-ui-border);
+  border-radius: 999px;
+}
+
+.compare-list__empty,
+.symbol-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 0;
+  color: var(--klc-color-ui-muted);
+  font-size: 13px;
+  text-align: center;
+  gap: 2px;
+}
+
+/* 与无结果搜索图标占位一致：同为 32px 并保留相同下间距。 */
+.compare-list__spinner,
+.symbol-list__spinner {
+  margin-bottom: 8px;
+}
+
+.compare-list__left,
+.symbol-list__left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.compare-list__code,
+.symbol-list__code {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--klc-color-ui-text);
+  overflow-wrap: anywhere;
+}
+
+.compare-list__desc,
+.symbol-list__desc {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--klc-color-ui-muted);
+  overflow-wrap: anywhere;
+}

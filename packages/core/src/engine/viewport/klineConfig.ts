@@ -59,3 +59,24 @@ export function getPhysicalKLineConfig(kWidth: number, kGap: number, dpr: number
     startXLogical,
   }
 }
+
+/** 解析物理 K 线几何所需的最小依赖：图表选项与视口 dpr SSOT。 */
+export interface PhysicalKLineGeometrySource {
+  /** 读取当前 K 线宽度与间隙（逻辑像素）。 */
+  getOption: () => { kWidth: number; kGap: number }
+  /** scroll / dpr / 几何 SSOT。 */
+  viewport: { readonly: { dpr: { peek(): number } } }
+}
+
+/**
+ * 从视图依赖束解析当前物理 K 线几何（unitPx/startXPx 及本次 dpr）。
+ * @param source 提供 dpr 与 kWidth/kGap 的依赖束。
+ * @returns getPhysicalKLineConfig 的结果并附加本次 dpr。
+ */
+export function resolvePhysicalKLineConfig(
+  source: PhysicalKLineGeometrySource,
+): ReturnType<typeof getPhysicalKLineConfig> & { dpr: number } {
+  const dpr = source.viewport.readonly.dpr.peek()
+  const opt = source.getOption()
+  return { ...getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr), dpr }
+}

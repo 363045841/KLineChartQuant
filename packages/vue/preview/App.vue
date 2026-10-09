@@ -2,13 +2,9 @@
   <div class="app-container" :data-theme="currentTheme">
     <DebugControls
       :custom-data-active="useCustomData"
-      :depth-demo-active="useDepthDemo"
-      :depth-status-text="depthStatusText"
-      :depth-status-class="depthStatusClass"
       @open-modal="showModal = true"
       @toggle-embed-size="toggleEmbedSize"
       @toggle-custom-data="onToggleCustomData"
-      @toggle-depth-demo="onToggleDepthDemo"
     />
 
     <!-- 嵌入场景：模拟组件库在父容器中的使用 -->
@@ -79,9 +75,6 @@
     type KLineData,
     type CustomDataSource,
     type ChartController,
-    BinanceSSESource,
-    DepthConnector,
-    createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import { resolveSettings } from '@363045841yyt/klinechart-core/config'
@@ -595,43 +588,6 @@
       }
     } else {
       customData.value = undefined
-    }
-  }
-
-  // ── 深度行情 Pipeline Demo ──
-  const useDepthDemo = ref(false)
-  const depthStatusText = ref('')
-  const depthStatusClass = ref('')
-  let depthConnector: DepthConnector | null = null
-  let depthController: ReturnType<typeof createHeatmapController> | null = null
-  let depthUnsubState: (() => void) | null = null
-
-  function onToggleDepthDemo() {
-    useDepthDemo.value = !useDepthDemo.value
-    if (useDepthDemo.value) {
-      const source = new BinanceSSESource('btcusdt')
-      depthController = createHeatmapController({ tickSize: 0.01 })
-      depthConnector = new DepthConnector(source)
-      depthConnector.addController(depthController)
-      const ctrl = depthController
-      depthUnsubState = ctrl.state.subscribe(() => {
-        const s = ctrl.state.peek()
-        if (s.latestSnapshot) {
-          depthStatusText.value = `depth: ${s.snapshotCount} snapshots · ${s.deltaCount} deltas`
-          depthStatusClass.value = 'depth-connected'
-        } else {
-          depthStatusText.value = 'depth: awaiting data...'
-          depthStatusClass.value = 'depth-awaiting'
-        }
-      })
-      depthConnector.start()
-    } else {
-      depthUnsubState?.()
-      depthUnsubState = null
-      depthConnector?.destroy()
-      depthConnector = null
-      depthController = null
-      depthStatusText.value = ''
     }
   }
 </script>

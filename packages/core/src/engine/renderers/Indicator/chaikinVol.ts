@@ -24,7 +24,7 @@ function createChaikinVolLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_ChaikinVol', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `chaikinVol_${paneId}`,
+    definitionId: 'chaikinVol',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

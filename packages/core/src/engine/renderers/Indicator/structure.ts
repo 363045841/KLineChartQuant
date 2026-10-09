@@ -20,7 +20,7 @@ function createStructureLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_Structure', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `structure_${paneId}`,
+    definitionId: 'structure',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -136,7 +136,6 @@ function getStructureTitleInfo(
   defaultPaneId: 'sub_Structure',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'structure_main',
     toActiveConfig: (params, active) => ({
       ...params,
       showSwingLabels: active,

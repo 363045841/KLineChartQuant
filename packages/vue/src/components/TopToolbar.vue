@@ -56,6 +56,12 @@
         :supported-adjustments="supportedAdjustments"
         @update:model-value="emit('kLineAdjustChange', $event)"
       />
+      <KLineShapeDropdown
+        v-if="!showBackButton"
+        class="top-toolbar__item"
+        :model-value="kLineShape"
+        @update:model-value="emit('kLineShapeChange', $event)"
+      />
       <BaseTooltip v-if="showBackButton" content="返回" placement="bottom" trigger-display="contents">
       <button
         type="button"
@@ -154,6 +160,7 @@
 </template>
 
 <script setup lang="ts">
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
   import { computed, ref } from 'vue'
@@ -182,6 +189,7 @@
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown from './KLineLevelDropdown.vue'
+  import KLineShapeDropdown from './KLineShapeDropdown.vue'
   import { isKLineLevel, type KLineLevel } from './kLineLevel'
   import LayoutMenu from './LayoutMenu.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
@@ -268,6 +276,7 @@
       symbolItem?: SymbolItem
       kLineLevel?: string
       kLineAdjust?: string
+      kLineShape?: ChartSettings['klineShape']
       symbols?: SymbolItem[]
       search?: SymbolSearchFn<SymbolItem>
       symbolLoading?: boolean
@@ -298,6 +307,7 @@
   )
 
   const emit = defineEmits<{
+    (e: 'kLineShapeChange', shape: NonNullable<ChartSettings['klineShape']>): void
     (e: 'addOverlaySymbol', item: SymbolItem): void
     (e: 'removeOverlaySymbol', code: string): void
     (e: 'kLineLevelChange', level: KLineLevel): void
@@ -364,6 +374,7 @@
     gap: 6px;
     padding: 0 8px;
     border: 1px solid var(--klc-color-ui-border);
+    border-bottom: 0;
     border-radius: 0;
     background: var(--klc-color-ui-surface);
     box-sizing: border-box;

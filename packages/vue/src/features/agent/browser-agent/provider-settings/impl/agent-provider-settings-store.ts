@@ -12,29 +12,16 @@ import type {
   ProviderStatusView,
 } from '../../../agent-contracts.js'
 import { PROVIDER_API_PROTOCOLS } from '../../../agent-contracts.js'
+import { toAgentErrorView } from '../../../agent-error-view.js'
 import type { AgentProviderSettingsStore } from '../types.js'
 
 /** 将 bridge 错误收敛为 UI 可直接展示的错误视图。 */
 function toOperationError(error: unknown): AgentErrorView {
-  if (typeof error === 'object' && error !== null) {
-    const value = error as Record<string, unknown>
-    if (typeof value.code === 'string' && typeof value.message === 'string') {
-      return {
-        code: value.code,
-        message: value.message,
-        providerCode: typeof value.providerCode === 'string' ? value.providerCode : undefined,
-        raw: typeof value.raw === 'string' ? value.raw : undefined,
-        retryable: value.retryable === true,
-        recommendedAction:
-          typeof value.recommendedAction === 'string' ? value.recommendedAction : undefined,
-      }
-    }
-  }
-  return {
+  return toAgentErrorView(error, {
     code: 'PROVIDER_ERROR',
     message: 'The Provider operation failed.',
     retryable: true,
-  }
+  })
 }
 
 /** 创建独立 Pinia 容器，防止多个图表实例共享 Provider 弹窗草稿。 */

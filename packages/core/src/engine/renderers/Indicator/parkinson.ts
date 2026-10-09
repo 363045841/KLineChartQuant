@@ -20,7 +20,7 @@ function createParkinsonLayer(
 ): Layer<RenderContext> {
   const { paneId = 'sub_Parkinson', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `parkinson_${paneId}`,
+    definitionId: 'parkinson',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

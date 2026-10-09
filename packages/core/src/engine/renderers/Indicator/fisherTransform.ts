@@ -83,7 +83,7 @@ function createFisherTransformLayer(
   }
 
   return createIndicatorRendererLayer({
-    name: `fisherTransform_${paneId}`,
+    definitionId: 'fisherTransform',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

@@ -75,7 +75,7 @@ function createSTOCHLayer(options: STOCHRendererOptions = {}): Layer<RenderConte
   }
 
   return createIndicatorRendererLayer({
-    name: `stoch_${paneId}`,
+    definitionId: 'stoch',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

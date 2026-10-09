@@ -174,7 +174,8 @@ export interface TitleValueItem {
  */
 export interface TitleInfo {
   name: string
-  params?: number[]
+  /** 参数文本片段；数字参数与枚举参数统一按顺序拼接展示。 */
+  params?: (number | string)[]
   values?: TitleValueItem[]
 }
 
@@ -200,6 +201,14 @@ export type GetTitleInfoFn = (
  * - 自定义运行时指标：无 computeKey，仅主线程 inline 运行
  */
 export interface IndicatorRuntimeDescriptor<C = any> {
+  /** 声明额外行情输入；订阅由数据协调层拥有。 */
+  inputs?: readonly 'trades'[]
+  /** 每个执行器创建独立的增量 calculator。 */
+  createCompute?: () => (
+    data: KLineData[],
+    config: C,
+    trades?: import('../../data/trades/types.js').TradeSnapshot,
+  ) => unknown
   /** configSnapshot 中的 key，默认等于 name（如 'macd'） */
   configKey?: string
   /** paneId 在 configSnapshot 中的 key（如 'macdPaneId'），可省略 */
@@ -207,7 +216,11 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
   /** 计算函数（主线程直接调用，Worker 用 computeKey 桥接） */
-  compute: (data: KLineData[], config: C) => unknown
+  compute: (
+    data: KLineData[],
+    config: C,
+    trades?: import('../../data/trades/types.js').TradeSnapshot,
+  ) => unknown
   /** Worker 端计算键名，映射到 calculators 模块的导出 */
   computeKey: string
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
@@ -311,7 +324,6 @@ export interface IndicatorMetadata<T = unknown> {
    * 主图指标启停相关配置。
    */
   mainPane?: {
-    rendererName: string
     toActiveConfig?: (
       params: Record<string, unknown>,
       active: boolean,

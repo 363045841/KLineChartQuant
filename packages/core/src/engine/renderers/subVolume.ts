@@ -1,4 +1,3 @@
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
@@ -6,7 +5,7 @@ import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { Indicator, resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry.js'
 import { type GetTitleInfoFn, IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { barVerticalRect } from './barGeometry/impl/projectBars.js'
 import { createVolumeScaleLayer, formatVolumeScaleLabel } from './Indicator/scale/volume_scale.js'
@@ -22,10 +21,9 @@ interface VolumeRendererOptions {
  */
 function createVolumeLayer(options: VolumeRendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'sub' } = options
-  const name = `volume_${paneId}`
 
   return {
-    id: makePluginLayerId(name),
+    id: resolveIndicatorLayerId('volume', paneId),
     role: 'indicator',
     pane: paneId,
     z: RENDERER_PRIORITY.MAIN,

@@ -111,7 +111,6 @@ function getGMMATitleInfo(
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'gmma_main',
     toActiveConfig: (params, active) => ({ ...params, showGMMA: active }),
   },
   visibleState: {
@@ -143,7 +142,7 @@ export function createGMMALayer(
   }
 
   return createIndicatorRendererLayer({
-    name: `gmma_${paneId}`,
+    definitionId: 'gmma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

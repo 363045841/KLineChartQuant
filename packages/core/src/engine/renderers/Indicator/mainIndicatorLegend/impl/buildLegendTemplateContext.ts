@@ -123,6 +123,7 @@ export function buildLegendTemplateContext(
   const indicators = collectIndicatorRows(
     host,
     context.indicatorStateReader,
+    context.indicatorAvailability,
     klineData,
     targetIndex,
     colors,
@@ -152,6 +153,7 @@ export function buildLegendTemplateContext(
 function collectIndicatorRows(
   host: PluginHost | null,
   stateReader: RenderContext['indicatorStateReader'],
+  availability: RenderContext['indicatorAvailability'],
   klineData: KLineData[],
   targetIndex: number,
   colors: ReturnType<typeof resolveThemeColors>,
@@ -165,24 +167,29 @@ function collectIndicatorRows(
   for (const instance of catalog.listMainInstances()) {
     if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
     const meta = getRegisteredIndicatorDefinition(instance.definitionId)
-    if (!meta?.getTitleInfo) continue
-    const titleInfo: TitleInfo | null = meta.getTitleInfo(
-      klineData,
-      targetIndex,
-      instance.params as Record<string, number | boolean | string>,
-      stateReader,
-      instance.instanceId,
-      instance.paneId,
-      colors,
-    )
-    if (!titleInfo) continue
+    if (!meta) continue
+    const loading = availability?.isLoading(instance.instanceId) === true
+    // 加载中的实例即使暂无标题投影也要占位，否则加载圈无处可挂。
+    const titleInfo: TitleInfo | null = meta.getTitleInfo
+      ? meta.getTitleInfo(
+          klineData,
+          targetIndex,
+          instance.params as Record<string, number | boolean | string>,
+          stateReader,
+          instance.instanceId,
+          instance.paneId,
+          colors,
+        )
+      : null
+    if (!titleInfo && !loading) continue
     rows.push({
       instanceId: instance.instanceId,
       definitionId: instance.definitionId,
       hidden: instance.hidden,
-      name: titleInfo.name,
-      params: titleInfo.params,
-      values: titleInfo.values,
+      loading,
+      name: titleInfo?.name ?? meta.displayName,
+      params: titleInfo?.params,
+      values: titleInfo?.values,
     })
   }
   return rows

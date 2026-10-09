@@ -8,8 +8,10 @@
  * 4. 协调副图 renderer 与主图 legend，并注册实例状态与目录服务。
  */
 
+import { TRADE_STATUS } from '../../data/trades/types.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type {
+  IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
   PluginHostImpl,
   RenderContext,
@@ -21,6 +23,7 @@ import {
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
 import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
+import { encodeStableNumber } from '../../foundation/utils/stableNumber.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { Layer } from '../../rendering/scene/types.js'
@@ -44,8 +47,11 @@ import {
 } from './indicatorDefinitionRegistry.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
 import {
+  INDICATOR_AVAILABILITY_SERVICE,
+  INDICATOR_AVAILABILITY_SOURCE,
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   INDICATOR_INSTANCE_STATE_SERVICE,
+  type IndicatorAvailabilityRegistry,
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
@@ -93,11 +99,7 @@ function mainIndicatorProjectionKey(
 ): string {
   const valueKey = (value: number | boolean | string): string => {
     if (typeof value !== 'number') return `${typeof value}:${JSON.stringify(value)}`
-    if (Number.isNaN(value)) return 'number:NaN'
-    if (value === Number.POSITIVE_INFINITY) return 'number:Infinity'
-    if (value === Number.NEGATIVE_INFINITY) return 'number:-Infinity'
-    if (Object.is(value, -0)) return 'number:-0'
-    return `number:${value}`
+    return encodeStableNumber(value)
   }
   return Object.keys(params)
     .sort()
@@ -186,6 +188,8 @@ export class ChartIndicatorManager {
   private hasData = false
   private resultPool: IndicatorResultPool | null = null
   private renderStates: ReadonlyMap<string, unknown> = new Map()
+  /** 每个实例尚未完成的异步来源集合；集合非空即视为加载中。 */
+  private readonly availabilitySources = new Map<string, Set<string>>()
 
   /** 返回当前绘制投影的身份，供帧内容版本检测异步指标提交。 */
   getRenderStatesSnapshot(): ReadonlyMap<string, unknown> {
@@ -229,9 +233,6 @@ export class ChartIndicatorManager {
     return ChartIndicatorManager._enableMainIndicatorsCache
   }
 
-  /** 副图渲染器名称前缀（保留向后兼容） */
-  static readonly SUB_PANE_PREFIX = 'sub_'
-
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
 
@@ -253,7 +254,8 @@ export class ChartIndicatorManager {
     this.calculationScheduler = createInstanceCalculationScheduler({
       pipeline: this.pipeline,
       executor: {
-        setData: (data, revision) => this.executorHolder.active.setData(data, revision),
+        setData: (data, revision, trades) =>
+          this.executorHolder.active.setData(data, revision, trades),
         execute: (plan, revision) => this.executorHolder.active.execute(plan, revision),
       },
       onCommit: ({ pool }) => this.applyCommittedPool(pool),
@@ -315,6 +317,11 @@ export class ChartIndicatorManager {
     const paneSpecs = this.deps.paneSpecs$()
     const paneRatios = this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
+    // 实例移除后清理其可用性来源，避免残留的 loading 在重新启用时无法复位。
+    const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
+    for (const instanceId of [...this.availabilitySources.keys()]) {
+      if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
+    }
     const subPanes: SubPaneSpec[] = instances
       .filter((instance) => instance.role === 'sub')
       .map((instance) => ({
@@ -498,6 +505,46 @@ export class ChartIndicatorManager {
     const host = this.deps.getPluginHost()
     host.registerService(INDICATOR_INSTANCE_STATE_SERVICE, this.createRenderStateReader())
     host.registerService(INDICATOR_INSTANCE_CATALOG_SERVICE, this.createInstanceCatalog())
+    host.registerService(INDICATOR_AVAILABILITY_SERVICE, this.createAvailabilityRegistry())
+  }
+
+  /**
+   * 上报某异步来源在实例上的等待状态。
+   *
+   * source 为不透明 token，聚合层只用它区分来源，不解释其含义；多来源以集合叠加，
+   * 任一来源未完成即视为加载中。
+   */
+  reportAvailability(instanceId: string, source: string, pending: boolean): void {
+    const sources = this.availabilitySources.get(instanceId)
+    if (pending) {
+      if (sources?.has(source)) return
+      const next = sources ?? new Set<string>()
+      next.add(source)
+      this.availabilitySources.set(instanceId, next)
+    } else {
+      if (!sources?.delete(source)) return
+      if (sources.size === 0) this.availabilitySources.delete(instanceId)
+    }
+    this.deps.scheduleDraw()
+  }
+
+  /** 指定实例是否仍在等待任一异步来源完成。 */
+  private isInstanceLoading(instanceId: string): boolean {
+    return (this.availabilitySources.get(instanceId)?.size ?? 0) > 0
+  }
+
+  /** 供帧上下文读取实例异步可用性的只读视图。 */
+  createAvailabilityReader(): IndicatorAvailabilityReader {
+    return { isLoading: (instanceId) => this.isInstanceLoading(instanceId) }
+  }
+
+  /** 供宿主注册的实例可用性注册表：第三方异步来源经此上报。 */
+  private createAvailabilityRegistry(): IndicatorAvailabilityRegistry {
+    return Object.freeze({
+      report: (instanceId: string, source: string, pending: boolean) =>
+        this.reportAvailability(instanceId, source, pending),
+      isLoading: (instanceId: string) => this.isInstanceLoading(instanceId),
+    })
   }
 
   /** 当前启用实例目录；主图图例按实例枚举。 */
@@ -538,13 +585,62 @@ export class ChartIndicatorManager {
   }
 
   /** 计算计划或数据变化后请求一次调度；无数据时不触发。 */
+  private tradeInput: import('../../data/trades/types.js').TradeSnapshot | undefined
+
+  /** 成交与 K 线共用同一计算调度及过期请求门控。 */
+  updateTradeInput(input: import('../../data/trades/types.js').TradeSnapshot): void {
+    if (
+      this.tradeInput?.status === input.status &&
+      this.tradeInput.tickSize === input.tickSize &&
+      this.tradeInput.message === input.message &&
+      this.tradeInput.coverage === input.coverage &&
+      this.tradeInput.latestTimestamp === input.latestTimestamp &&
+      this.tradeInput.batches === input.batches
+    )
+      return
+    // revision 由成交摄取层保证单调；这里兜底保证内容变更时版本严格前进，
+    // 避免 chartDataManager 合成的 revision=0 unsupported 快照造成版本回退。
+    this.tradeInput = {
+      ...input,
+      revision: Math.max(input.revision, (this.tradeInput?.revision ?? 0) + 1),
+    }
+    // 声明了 trades 输入的实例按成交快照状态上报领域加载态；映射留在边界，领域侧不感知可用性。
+    const tradesLoading = input.status === TRADE_STATUS.loading
+    for (const instance of this.deps.indicator.readonly.instances.peek()) {
+      const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+      if (definition?.runtime?.inputs?.includes('trades')) {
+        this.reportAvailability(
+          instance.instanceId,
+          INDICATOR_AVAILABILITY_SOURCE.trades,
+          tradesLoading,
+        )
+      }
+    }
+    this.requestCompute()
+  }
+
   private requestCompute(): void {
     if (!this.hasData) return
-    void this.calculationScheduler.compute({
-      dataRevision: this.dataRevision,
-      timestamps: this.displayTimestamps ?? this.currentTimestamps,
-      data: this.currentData,
-    })
+    // 仅当实例尚无已提交结果时标记为计算中：已有结果的重算不显示加载圈，避免闪烁。
+    const pending: string[] = []
+    for (const instance of this.deps.indicator.readonly.instances.peek()) {
+      if (!this.renderStates.has(instance.instanceId)) pending.push(instance.instanceId)
+    }
+    for (const instanceId of pending) {
+      this.reportAvailability(instanceId, INDICATOR_AVAILABILITY_SOURCE.compute, true)
+    }
+    void this.calculationScheduler
+      .compute({
+        dataRevision: this.dataRevision,
+        timestamps: this.displayTimestamps ?? this.currentTimestamps,
+        data: this.currentData,
+        trades: this.tradeInput,
+      })
+      .finally(() => {
+        for (const instanceId of pending) {
+          this.reportAvailability(instanceId, INDICATOR_AVAILABILITY_SOURCE.compute, false)
+        }
+      })
   }
 
   /** 提交最新结果池：先投影到展示时间轴，再生成帧级渲染投影。 */
@@ -696,14 +792,6 @@ export class ChartIndicatorManager {
     })
   }
 
-  get subPaneManagerAccessor(): SubPaneManager {
-    return this.subPaneManager
-  }
-
-  get indicatorInstancesSignalPeek(): ReadonlyArray<IndicatorInstanceSpec> {
-    return this.deps.indicator.readonly.instances.peek()
-  }
-
   get indicatorsComputed(): Computed<ReadonlyArray<IndicatorInstance>> {
     return this._indicatorsComputed
   }
@@ -717,6 +805,22 @@ export class ChartIndicatorManager {
     return this.deps.indicator.readonly.instances
       .peek()
       .find((instance) => instance.role === 'main' && instance.indicatorId === indicatorId)
+  }
+
+  /**
+   * 按实例 ID 定位目标：优先匹配已启用的主图指标，其次匹配副图实例。
+   * @param instanceId 主图指标定义 ID 或副图实例 ID。
+   * @returns 命中的主图定义 ID 或副图 paneId；未命中返回 null。
+   */
+  private resolveIndicatorTarget(
+    instanceId: string,
+  ): { kind: 'main'; mainId: string } | { kind: 'sub'; paneId: string } | null {
+    const mainId = resolveIndicatorDefinitionId(instanceId)
+    if (mainId && this.getMainIndicatorInstance(mainId)) return { kind: 'main', mainId }
+    const subPaneEntry = this.deps.indicator.readonly.instances
+      .peek()
+      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
+    return subPaneEntry ? { kind: 'sub', paneId: subPaneEntry.paneId } : null
   }
 
   // ========== 主图指标 API ==========
@@ -900,7 +1004,7 @@ export class ChartIndicatorManager {
     const mainPane = definition?.mainPane
     if (!definition || !mainPane) return
 
-    const rendererName = mainPane.rendererName
+    const rendererName = definition.getRendererName({ paneId: 'main', indicatorId })
     const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
 
     if (!existingLayer) {
@@ -925,7 +1029,7 @@ export class ChartIndicatorManager {
   /** 参数变化时原子重建主图指标 Layer。 */
   private replaceMainIndicatorLayer(indicatorId: string): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const rendererName = definition?.mainPane?.rendererName
+    const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
     if (!definition || !rendererName) return
     this.deps.removeRenderer(makePluginLayerId(rendererName))
     this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
@@ -934,7 +1038,7 @@ export class ChartIndicatorManager {
   /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。Legend 层与实例状态不动。 */
   private removeMainIndicatorRenderer(indicatorId: string): void {
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const rendererName = definition?.mainPane?.rendererName
+    const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
     if (definition?.kind === IndicatorKind.Indicator && rendererName) {
       this.deps.removeRenderer(makePluginLayerId(rendererName))
     }
@@ -1065,40 +1169,25 @@ export class ChartIndicatorManager {
   }
 
   removeIndicator(instanceId: string): boolean {
-    const mainId = resolveIndicatorDefinitionId(instanceId)
-
-    if (mainId && this.getMainIndicatorInstance(mainId)) {
-      return this.disableMainIndicator(mainId)
-    }
-
-    const subPaneEntry = this.deps.indicator.readonly.instances
-      .peek()
-      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
-    if (subPaneEntry) {
-      this.deps.subPaneOps.remove(subPaneEntry.paneId)
-      return true
-    }
-
-    return false
+    const target = this.resolveIndicatorTarget(instanceId)
+    if (!target) return false
+    if (target.kind === 'main') return this.disableMainIndicator(target.mainId)
+    this.deps.subPaneOps.remove(target.paneId)
+    return true
   }
 
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
-    const mainId = resolveIndicatorDefinitionId(instanceId)
-
-    if (mainId && this.getMainIndicatorInstance(mainId)) {
-      this.updateMainIndicatorParams(mainId, params as Record<string, number | boolean | string>)
+    const target = this.resolveIndicatorTarget(instanceId)
+    if (!target) return false
+    if (target.kind === 'main') {
+      this.updateMainIndicatorParams(
+        target.mainId,
+        params as Record<string, number | boolean | string>,
+      )
       return true
     }
-
-    const subPaneEntry = this.deps.indicator.readonly.instances
-      .peek()
-      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
-    if (subPaneEntry) {
-      this.deps.subPaneOps.setParams(subPaneEntry.paneId, params)
-      return true
-    }
-
-    return false
+    this.deps.subPaneOps.setParams(target.paneId, params)
+    return true
   }
 
   reorderIndicators(orderedInstanceIds: string[]): boolean {

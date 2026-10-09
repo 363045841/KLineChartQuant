@@ -35,9 +35,6 @@ export type ColorPresetKey = keyof Pick<
   | 'tooltipText'
   | 'tooltipBorder'
   | 'volumeProfilePoc'
-  | 'footprintAsk'
-  | 'footprintBid'
-  | 'footprintImbalance'
   | 'alertActive'
   | 'alertTriggered'
   | 'alertMuted'
@@ -119,9 +116,6 @@ export const COLOR_PRESET_ITEMS: readonly ColorPresetItem[] = [
   { key: 'tooltipBorder', label: '提示边框', group: 'interaction' },
 
   { key: 'volumeProfilePoc', label: '成交量 POC', group: 'interaction' },
-  { key: 'footprintAsk', label: '主动买盘', group: 'interaction' },
-  { key: 'footprintBid', label: '主动卖盘', group: 'interaction' },
-  { key: 'footprintImbalance', label: '订单失衡', group: 'interaction' },
   { key: 'alertActive', label: '活动警报', group: 'interaction' },
   { key: 'alertTriggered', label: '触发警报', group: 'interaction' },
   { key: 'alertMuted', label: '静音警报', group: 'interaction' },

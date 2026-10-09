@@ -33,7 +33,7 @@ interface SMMARendererOptions {
 function createSMMALayer(options: SMMARendererOptions = {}): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
-    name: `smma_${paneId}`,
+    definitionId: 'smma',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
@@ -101,7 +101,6 @@ const getSMMATitleInfo = createSingleLineTitleInfo({
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
-    rendererName: 'smma_main',
     toActiveConfig: (params, active) => ({ ...params, showSMMA: active }),
   },
   visibleState: { compose: createSparseVisibleStateComposer('smma', EMPTY_SMMA_STATE) },

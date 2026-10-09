@@ -203,6 +203,7 @@ export class ChartRenderer {
       ...this.deps.getDataManager().getComparisonContentInputs(),
       this.deps.getDataManager().currentPeriod,
       this.deps.dataView$.peek(),
+      this.deps.primaryRenderer$?.peek(),
       vp?.scrollLeft,
       vp?.plotWidth,
       vp?.plotHeight,
@@ -902,6 +903,7 @@ export class ChartRenderer {
       data: renderData,
       range,
     })
+    const indicatorAvailability = indicatorManager.createAvailabilityReader()
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -1101,6 +1103,7 @@ export class ChartRenderer {
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
         indicatorStateReader,
+        indicatorAvailability,
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,

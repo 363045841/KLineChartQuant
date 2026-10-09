@@ -132,7 +132,6 @@ function getMATitleInfo(
   indicatorType: 'moving-average',
   defaultPaneId: 'main',
   mainPane: {
-    rendererName: 'ma',
     toActiveConfig: (_params, active) => ({
       ma5: active,
       ma10: active,
@@ -177,7 +176,7 @@ export function createMALayer(options: { instanceId?: string } = {}): Layer<Rend
   }
 
   return createIndicatorRendererLayer({
-    name: 'ma',
+    definitionId: 'ma',
     paneId: 'main',
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

@@ -1,7 +1,10 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../../../errors.js'
-import { makePluginLayerId } from '../../../foundation/plugin/impl/rendererLayerId.js'
+import { encodeStableNumber } from '../../../foundation/utils/stableNumber.js'
 import type { Layer } from '../../../rendering/scene/types.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import {
+  getRegisteredIndicatorDefinition,
+  resolveIndicatorLayerId,
+} from '../../indicators/indicatorDefinitionRegistry.js'
 import { createIndicatorLayer } from '../../renderers/Indicator/factory.js'
 import { findIndicator } from '../../renderers/Indicator/indicatorCatalog.js'
 import { createIndicatorScaleLayer } from '../../renderers/Indicator/scale/indicator_scale.js'
@@ -43,11 +46,7 @@ function stableConfig(value: unknown): string {
       .join(',')}}`
   }
   if (typeof value === 'number') {
-    if (Number.isNaN(value)) return 'number:NaN'
-    if (value === Number.POSITIVE_INFINITY) return 'number:Infinity'
-    if (value === Number.NEGATIVE_INFINITY) return 'number:-Infinity'
-    if (Object.is(value, -0)) return 'number:-0'
-    return `number:${value}`
+    return encodeStableNumber(value)
   }
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
@@ -176,9 +175,9 @@ export class SubPaneManager {
       rendererName,
       scaleRendererName,
       paneTitleRendererName,
-      layerId: makePluginLayerId(rendererName),
-      scaleLayerId: makePluginLayerId(scaleRendererName),
-      paneTitleLayerId: makePluginLayerId(paneTitleRendererName),
+      layerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId),
+      scaleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'scale'),
+      paneTitleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'title'),
     }
   }
 

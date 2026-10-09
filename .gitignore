@@ -63,6 +63,7 @@ examples/next-app/.next/
 examples/next-app/pnpm-lock.yaml
 
 # Fallow
+# 仅排除生成的缓存与报告目录；配置 .fallowrc.json 仍需纳入版本控制
 .fallow/
 
 # Migration script temp files

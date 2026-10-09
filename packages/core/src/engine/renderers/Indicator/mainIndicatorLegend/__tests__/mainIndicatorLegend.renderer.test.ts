@@ -403,3 +403,24 @@ describe('MainIndicatorLegend context callback', () => {
     expect(legend.currentBar.customLabel).toBe('featured')
   })
 })
+
+describe('MainIndicatorLegend footprint title', () => {
+  /** 足迹图进图例只依赖实例参数与身份：无逐柱数值，也不要求帧内有渲染状态。 */
+  it('publishes the footprint name and params without a render state', () => {
+    const host = createMockIndicatorInstanceHost([
+      {
+        instanceId: 'main:Footprint',
+        definitionId: 'Footprint',
+        paneId: 'main',
+        hidden: false,
+        params: { ticksPerRow: 300, imbalanceRatio: 3, metric: 'turnover', textMode: 'bidAsk' },
+      },
+    ])
+    const layer = createLegendLayer(host)
+
+    layer.paint(createLegendContext('main:Footprint', undefined, { crosshairIndex: 0 }))
+
+    expect(countTitleRows('足迹图')).toBe(1)
+    expect(countLegendTexts((text) => text === '(300,3,成交额,Bid Ask)')).toBe(1)
+  })
+})

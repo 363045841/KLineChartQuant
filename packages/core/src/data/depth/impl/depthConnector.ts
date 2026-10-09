@@ -2,9 +2,13 @@
  * DepthConnector — bridges a DepthSource (data-fetcher layer) to one or
  * more HeatmapControllers (component layer).
  *
+ * 注意：旧的 GoTDX `binance-api`（:8081）SSE 深度适配器已移除。实时盘口来源需要新增
+ * `DepthSource` 适配器，接入 Binance-Connector 的
+ * `/api/v1/market-data/sources/binance/depth/stream`；Heatmap 控制器与连接器本身保留。
+ *
  * Usage:
  * ```ts
- * const source = new BinanceSSESource('btcusdt')
+ * const source = myDepthSource()
  * const controller = createHeatmapController({ tickSize: 0.01 })
  * const connector = new DepthConnector(source)
  * connector.addController(controller)

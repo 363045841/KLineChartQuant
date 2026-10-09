@@ -93,7 +93,7 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
   }
 
   return createIndicatorRendererLayer({
-    name: `macd_${paneId}`,
+    definitionId: 'macd',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

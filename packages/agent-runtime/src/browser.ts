@@ -1,6 +1,7 @@
 // 本文件装配浏览器 IndexedDB 文件系统与官方 pi-durable JSONL 存储。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import { JsonlStorage } from '@earendil-works/pi-durable/storage/jsonl'
+import { AgentRuntimeError } from './contracts/errors.js'
 import { openDurableExecution } from './sessions/durable-execution.js'
 import { IndexedDbFileSystem } from './sessions/indexeddb-filesystem.js'
 import {
@@ -23,14 +24,21 @@ export interface BrowserRuntimeSessions {
 
 /** 获取独占写锁，防止两个页面持有各自的 JSONL 内存索引。 */
 async function lockDatabase(name: string): Promise<() => Promise<void>> {
-  if (!navigator.locks) throw new Error('Browser session persistence requires Web Locks.')
+  if (!navigator.locks) {
+    throw new AgentRuntimeError('INTERNAL_ERROR', 'Browser session persistence requires Web Locks.')
+  }
   return new Promise((resolve, reject) => {
     const lifetime = navigator.locks.request(
       name,
       { mode: 'exclusive', ifAvailable: true },
       async (lock) => {
         if (!lock) {
-          reject(new Error('Agent sessions are open in another page.'))
+          reject(
+            new AgentRuntimeError('SESSION_LOCKED', 'Agent sessions are open in another page.', {
+              retryable: true,
+              recommendedAction: 'Close the other tab, then retry.',
+            }),
+          )
           return
         }
         await new Promise<void>((release) =>

@@ -5,7 +5,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import type { FootprintRenderState } from '../../../components/footprint/types'
+import { createTradeBuffer } from '../../../data/trades/impl/tradeBuffer'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
+import { createKLineData } from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -81,6 +84,53 @@ describe('ChartIndicatorManager', () => {
 
   afterEach(() => {
     manager.destroy()
+  })
+
+  it('历史页写入后提交足迹结果并请求绘制', async () => {
+    const data = createKLineData(100)
+    manager.enableMainIndicator('Footprint')
+    manager.updateIndicatorData(data, { start: 80, end: 82 }, 1)
+    const buffer = createTradeBuffer({
+      id: 'binance:spot:BTCUSDT',
+      sourceId: 'binance',
+      symbol: 'BTCUSDT',
+      name: 'BTCUSDT',
+      exchange: 'BINANCE',
+      assetClass: 'crypto',
+      tickSize: 0.01,
+      capabilities: { trades: { raw: true, live: true } },
+    })
+    const unsubscribe = buffer.snapshot.subscribe(() =>
+      manager.updateTradeInput({ ...buffer.snapshot.peek(), status: 'ready', message: null }),
+    )
+    try {
+      buffer
+        .prepareHistory({
+          complete: true,
+          range: { from: data[81]!.timestamp, to: data[82]!.timestamp },
+          items: [
+            {
+              tradeId: '1',
+              timestamp: data[81]!.timestamp,
+              price: '100',
+              size: '0.25',
+              side: 'sell',
+            },
+          ],
+        })
+        .commit()
+      const instanceId = harness.indicator.readonly.instances
+        .peek()
+        .find((instance) => instance.indicatorId === 'Footprint')!.instanceId
+      await vi.waitFor(() => {
+        const state = manager.createRenderStateReader().get<FootprintRenderState>(instanceId)
+        expect(state?.series.bars[81]?.total).toBe('25')
+      })
+      expect(deps.scheduleDraw).toHaveBeenCalled()
+    } finally {
+      unsubscribe()
+      buffer.dispose()
+    }
   })
 
   describe('main indicator params', () => {

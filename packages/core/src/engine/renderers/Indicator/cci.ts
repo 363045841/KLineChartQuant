@@ -62,7 +62,7 @@ function createCCILayer(options: CCIRendererOptions = {}): Layer<RenderContext> 
   }
 
   return createIndicatorRendererLayer({
-    name: `cci_${paneId}`,
+    definitionId: 'cci',
     paneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {

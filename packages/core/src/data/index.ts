@@ -14,7 +14,6 @@ export { MarketDataCache } from './buffer/impl/marketDataCache.js'
 export { getPeriodDays } from './buffer/impl/marketDataPolicy.js'
 export { TimeShareBuffer } from './buffer/impl/timeShareBuffer.js'
 export type { DataBufferLike, LoadedTimeRange } from './buffer/types.js'
-export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './depth/impl/binance.js'
 export { DepthConnector } from './depth/impl/depthConnector.js'
 export type {
   DepthDelta,
@@ -30,8 +29,17 @@ export type {
 } from './live/impl/barsLive.js'
 export {
   BarsLiveSource,
-  BarsLiveSubscription,
   RealtimeBarsConnector,
 } from './live/impl/barsLive.js'
 export * from './provider/impl/sources/index.js'
 export * from './provider/index.js'
+export type {
+  MarketTrade,
+  TradeBatch,
+  TradeDataSource,
+  TradeFrame,
+  TradeRange,
+  TradeSnapshot,
+  TradeStatus,
+  TradeStream,
+} from './trades/types.js'

@@ -1,3 +1,13 @@
+/** 指标选择器的展示名称、说明与参数表。 */
+import {
+  FOOTPRINT_DEFAULT_PARAMS,
+  FOOTPRINT_METRIC_OPTIONS,
+  FOOTPRINT_METRICS,
+  FOOTPRINT_ROW_MODE_OPTIONS,
+  FOOTPRINT_ROW_MODES,
+  FOOTPRINT_TEXT_MODES,
+  FOOTPRINT_TEXT_OPTIONS,
+} from '@/components/footprint/types.js'
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
@@ -12,12 +22,15 @@ import {
 export interface ParamConfig {
   key: string
   label: string
-  type: 'number'
+  type: 'number' | 'select'
   min?: number
   max?: number
   step?: number
-  default?: number
+  default?: number | string
+  options?: ReadonlyArray<{ value: string; label: string }>
   description?: string
+  /** 仅当依赖参数取指定值时显示；条件只影响编辑入口。 */
+  visibleWhen?: { key: string; values: readonly (number | string | boolean)[] }
 }
 
 export interface Indicator {
@@ -48,6 +61,81 @@ const uiMeta: Record<
     params?: ParamConfig[]
   }
 > = {
+  footprint: {
+    name: '足迹图',
+    description:
+      '足迹图用于观察每根 K 线内部哪些价位成交集中、买卖哪一方更主动，帮助判断上涨或下跌是否有成交支持，并寻找可能的支撑、阻力和转折。',
+    params: [
+      {
+        key: 'rowMode',
+        label: '分行方式',
+        type: 'select',
+        default: FOOTPRINT_DEFAULT_PARAMS.rowMode,
+        options: FOOTPRINT_ROW_MODE_OPTIONS,
+      },
+      {
+        key: 'rowPeriod',
+        label: '振幅统计根数',
+        type: 'number',
+        min: 1,
+        step: 1,
+        default: FOOTPRINT_DEFAULT_PARAMS.rowPeriod,
+        visibleWhen: {
+          key: 'rowMode',
+          values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+        },
+      },
+      {
+        key: 'targetRows',
+        label: '目标行数',
+        type: 'number',
+        min: 10,
+        max: 20,
+        step: 1,
+        default: FOOTPRINT_DEFAULT_PARAMS.targetRows,
+        visibleWhen: {
+          key: 'rowMode',
+          values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+        },
+      },
+      {
+        key: 'ticksPerRow',
+        label: '每行价格跳数',
+        type: 'number',
+        min: 1,
+        max: 100000,
+        step: 1,
+        default: FOOTPRINT_DEFAULT_PARAMS.ticksPerRow,
+        visibleWhen: { key: 'rowMode', values: [FOOTPRINT_ROW_MODES.Fixed] },
+      },
+      {
+        key: 'imbalanceRatio',
+        label: '不平衡倍数',
+        type: 'number',
+        min: 1,
+        max: 100,
+        step: 1,
+        default: 3,
+        description: '相邻价位主动成交量的倍数阈值；达到该倍数的价位数字加粗。',
+      },
+      {
+        key: 'metric',
+        label: '数值类型',
+        type: 'select',
+        default: FOOTPRINT_METRICS.Turnover,
+        options: FOOTPRINT_METRIC_OPTIONS,
+        description:
+          '只决定每档数字的展示口径（成交量或成交额）；不平衡判定固定按成交量，不受此项影响。',
+      },
+      {
+        key: 'textMode',
+        label: '文本模式',
+        type: 'select',
+        default: FOOTPRINT_TEXT_MODES.BidAsk,
+        options: FOOTPRINT_TEXT_OPTIONS,
+      },
+    ],
+  },
   ma: {
     name: '均线',
     description:
@@ -1339,6 +1427,40 @@ const uiMeta: Record<
 let _allIndicators: Indicator[] | null = null
 let _definitionCount = -1
 
+/** runtime.defaultParams 归一化后的参数表。 */
+type RuntimeDefaultParams = Readonly<Record<string, unknown>>
+
+/** 判断 defaultParams 是否为工厂函数。 */
+function isDefaultParamsFactory(value: unknown): value is () => RuntimeDefaultParams {
+  return typeof value === 'function'
+}
+
+/** 判断 defaultParams 是否为参数表对象。 */
+function isDefaultParamsObject(value: unknown): value is RuntimeDefaultParams {
+  return typeof value === 'object' && value !== null
+}
+
+/** 解析 runtime.defaultParams，兼容常量对象与工厂函数两种声明。 */
+function resolveRuntimeDefaultParams(value: unknown): RuntimeDefaultParams {
+  if (isDefaultParamsFactory(value)) return value()
+  return isDefaultParamsObject(value) ? value : {}
+}
+
+/** 组装参数配置：结构来自 uiMeta，默认值优先取自注册表声明的计算参数与展示默认项。 */
+function buildParamConfigs(
+  params: ReadonlyArray<ParamConfig> | undefined,
+  runtimeDefaults: RuntimeDefaultParams,
+): ParamConfig[] | undefined {
+  if (!params) return undefined
+  return params.map((param) => {
+    const runtimeDefault = runtimeDefaults[param.key]
+    // 注册表未声明该 key 或值非数字时保留 uiMeta 默认值。
+    return typeof runtimeDefault === 'number' || typeof runtimeDefault === 'string'
+      ? { ...param, default: runtimeDefault }
+      : param
+  })
+}
+
 function rebuildIfStale(): Indicator[] {
   const definitions = getRegisteredIndicatorDefinitions()
   if (_allIndicators === null || definitions.length !== _definitionCount) {
@@ -1348,6 +1470,10 @@ function rebuildIfStale(): Indicator[] {
       .map((def) => {
         const key = normalizeId(def.name)
         const ui = uiMeta[key]
+        const runtimeDefaults = {
+          ...resolveRuntimeDefaultParams(def.runtime?.defaultParams),
+          ...def.presentation?.defaultOptions,
+        }
         return {
           id: def.displayName,
           label: def.displayName,
@@ -1362,7 +1488,7 @@ function rebuildIfStale(): Indicator[] {
             def.indicatorType,
           indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
-          params: ui?.params,
+          params: buildParamConfigs(ui?.params, runtimeDefaults),
         }
       })
       .sort((a, b) => {

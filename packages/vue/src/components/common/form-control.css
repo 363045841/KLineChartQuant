@@ -1,0 +1,24 @@
+/* 弹窗表单控件的共享外观：输入框、文本域与下拉的统一尺寸、边框、文字与交互底色。 */
+.form-control {
+  width: 100%;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--klc-color-ui-border);
+  border-radius: 8px;
+  outline: none;
+  color: var(--klc-color-ui-text);
+  background: var(--klc-color-ui-input);
+  font: inherit;
+  font-size: 12px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-control:disabled {
+  color: var(--klc-color-ui-muted);
+  background: transparent;
+  cursor: not-allowed;
+}

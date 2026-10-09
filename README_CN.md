@@ -96,7 +96,7 @@ flowchart TB
 
     subgraph conn["行情后端（仓库外平级目录）"]
         Go["GoTDX-Connector<br/>gotdx :8080"]
-        Bn["GoTDX-Connector<br/>币安深度 :8081"]
+        Bn["Binance-Connector<br/>Binance 现货 K 线 / 逐笔成交 :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
     end
@@ -132,7 +132,7 @@ flowchart TB
 - **渲染** — 图元一次提交，WebGPU / WebGL2 / Canvas2D 三后端渲染，自动降级
   （WebGPU → WebGL → Canvas2D）。
 - **数据层** — 统一 `SeriesRepository` + 增量缓冲 + 拉取调度；多数据源聚合
-  （gotdx / BaoStock / TradingView / MT5 / mock）与币安深度。
+  （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 经 Web Component 接入** — `@363045841yyt/klinechart-react` 的 `KLineChartWC` 渲染由
@@ -197,6 +197,7 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 | 数据源 | 说明 | 文档 |
 |---|---|---|
 | `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `GoTDX-Connector` 提供 | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `binance` | Binance 现货 K 线与真实逐笔成交（足迹图 / 订单流），由 `Binance-Connector` 提供 | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
 | `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](docs/data-sources/mt5.zh-CN.md) |
@@ -229,7 +230,7 @@ pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访�
 pnpm dev:all                  # 前端 + 全部后端
 pnpm dev:g                    # 前端 + gotdx 通达信
 pnpm dev:b                    # 前端 + BaoStock / TradingView
-pnpm dev:bnb                  # 前端 + 币安深度
+pnpm dev:bnb                  # 前端 + Binance 现货行情
 pnpm dev:mt5                  # 前端 + MT5 本地终端
 pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 ```
@@ -243,6 +244,7 @@ Windows PowerShell 下如果要求 Ctrl+C 后先输出完关闭日志、最后�
 ```bash
 pnpm connector                # 全部后端（不含 mt5）
 pnpm connector gotdx          # gotdx 通达信（:8080）
+pnpm connector binance        # Binance 现货 K 线 / 逐笔成交（:8091）
 pnpm connector baostock       # BaoStock / TradingView（:8000）
 pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
 ```
@@ -418,12 +420,12 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | timezone | `string` | `'Asia/Shanghai'` | 时区 |
 | yPaddingPx | `number` | 20 | Y轴上下留白像素 |
 | minKWidth | `number` | 1 | K线最小宽度（逻辑像素） |
-| maxKWidth | `number` | 50 | K线最大宽度（逻辑像素） |
+| maxKWidth | `number` | 200 | K线最大宽度（逻辑像素） |
 | rightAxisWidth | `number` | 0 | 右侧价格轴宽度 |
 | leftAxisWidth | `number` | 0 | 左侧价格轴宽度（0=隐藏） |
 | bottomAxisHeight | `number` | 24 | 底部时间轴高度 |
 | priceLabelWidth | `number` | 60 | 价格标签额外宽度（用于显示涨跌幅） |
-| zoomLevels | `number` | 20 | 缩放级别总数 |
+| zoomLevels | `number` | 80 | 缩放级别总数 |
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
 | customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |

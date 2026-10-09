@@ -212,6 +212,7 @@ export class Chart {
   private pendingProjectionLevel: UpdateLevel | null = null
   /** activeRenderers 到 Scene 可见性的唯一投影。 */
   private disposeActiveRendererProjection: (() => void) | null = null
+  private disposeTradeDemand: (() => void) | null = null
   /** 主图图例模板上下文（每帧由 mainIndicatorLegend 发布） */
   private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
     createSignal<LegendTemplateContext | null>(null)
@@ -347,6 +348,15 @@ export class Chart {
         getDom: () => this.dom,
         viewport: this.kernel.viewport,
         comparison: this.kernel.comparison,
+        needsTrades: () =>
+          this.kernel.indicator.readonly.instances
+            .peek()
+            .some((instance) =>
+              getRegisteredIndicatorDefinition(instance.indicatorId)?.runtime?.inputs?.includes(
+                'trades',
+              ),
+            ),
+        updateTradeInput: (input) => this.indicatorManager.updateTradeInput(input),
         scheduleDraw: (level) => this.scheduleDraw(level),
         onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
         resetInteraction: () => {
@@ -365,6 +375,9 @@ export class Chart {
       resolveMarketDataCacheMaxBytes(
         this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
       ),
+    )
+    this.disposeTradeDemand = this.kernel.indicator.readonly.instances.subscribe(() =>
+      this.dataManager.reconcileTradeInput(),
     )
 
     // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
@@ -456,6 +469,7 @@ export class Chart {
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this.activeMode,
       dataView$: this.kernel.mode.readonly.dataView,
+      primaryRenderer$: this.kernel.mode.readonly.effectivePrimaryRenderer,
       settings$: this.kernel.settings.readonly.settings,
       mainPriceAxis: this.kernel.mainPriceAxis,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
@@ -1260,6 +1274,8 @@ export class Chart {
     await this.pluginHost.destroy()
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
+    this.disposeTradeDemand?.()
+    this.disposeTradeDemand = null
     this.indicatorManager.destroy()
     this.renderer.destroy()
     this.legendDom.dispose()

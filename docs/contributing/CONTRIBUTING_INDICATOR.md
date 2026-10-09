@@ -6,7 +6,7 @@
 
 ## 架构前提
 
-- `@Indicator` 装饰器保存元数据并自动注册。开发和生产构建扫描生产源码里的导出定义类，生成引用这些类的装配入口，保证 tree-shaking 后注册仍执行；无需手动维护 import 或注册清单。
+- `@Indicator` 装饰器只声明元数据，不修改全局目录。开发和生产构建扫描生产源码里的导出定义类，生成统一装配清单；`loadBuiltinIndicators()` 加载并显式注册所有定义，保证 tree-shaking 后定义仍保留，无需手动维护清单。外部定义在宿主初始化时调用 `registerIndicatorDefinition(Definition)`。
 - 计算结果按 `instanceId` 保存在结果池。`calculationKey = definitionId + 计算参数 + 计算上下文`，只用于跨实例去重，不含 pane 与样式。
 - renderer / scale renderer 在创建时绑定自己的 `instanceId`，绘制时从 `context.indicatorStateReader.get(instanceId)` 读取该实例的渲染投影。**没有**按指标类型索引的结果包，**没有** stateKey，也不写 PluginHost StateStore。
 - 展示配置（`presentation.defaultOptions`）不进入计算，由投影阶段合入 renderer 读取的 `params`。
@@ -76,7 +76,7 @@ export class XXXIndicatorDefinition {
 | `defaultPaneId` | 是 | 默认 pane（主图 `'main'`，副图如 `'sub_XXX'`） |
 | `runtime` | 有 calculator 的指标必填 | `{ defaultParams, compute, computeKey, outputAlignment?, configKey?, paneIdKey? }`；`defaultParams` 的键就是计算参数集合 |
 | `visibleState` | 副图指标需要 | `{ compose }`，复用 `visibleStateComposers.ts` 的 composer 工厂 |
-| `mainPane` | 主图指标需要 | `{ rendererName, toActiveConfig?, computePriceRange?, composeRenderState? }` |
+| `mainPane` | 主图指标需要 | `{ toActiveConfig?, computePriceRange?, composeRenderState? }`；名称统一由 `getRendererName` 解析 |
 | `presentation` | 建议 | `{ defaultOptions, selectSeriesKeys? }`；展示配置不进入 `calculationKey` |
 | `getTitleInfo` | 否 | pane 标题 / 主图图例内容 |
 | `scale` / `scaleRendererFactory` | 否 | 副图坐标轴 |

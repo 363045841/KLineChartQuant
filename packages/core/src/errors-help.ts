@@ -74,13 +74,9 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   SCALE_BAR_WIDTH_INVALID:
     'barWidth must be > 0. Zoom helpers should clamp the result above a floor (e.g. 0.5 px) before calling setBarWidth.',
 
-  // Footprint controller
-  FOOTPRINT_TICKSIZE_INVALID:
-    'FootprintController tickSize must be > 0 (the quantization unit for the price ladder).',
-  FOOTPRINT_BAR_INTERVAL_INVALID:
-    'FootprintController barIntervalMs must be a positive finite number — the ms-per-bar bucket width.',
+  // Footprint
   FOOTPRINT_RATIO_INVALID:
-    'FootprintController imbalanceRatio must be > 0 — the ask:bid ratio threshold for the diagonal imbalance flag.',
+    'Footprint imbalanceRatio must be a positive integer for diagonal volume comparison.',
 
   // Anchored VWAP
   AVWAP_ANCHOR_OUT_OF_RANGE:

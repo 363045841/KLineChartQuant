@@ -112,12 +112,20 @@ export type {
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   MarketDataSourceStatus,
+  MarketTrade,
   ProviderRef,
   RealtimeBarsSink,
   SourceProbeResult,
   TimeShareDataSource,
   TimeShareQuery,
   TimeShareSeries,
+  TradeBatch,
+  TradeDataSource,
+  TradeFrame,
+  TradeRange,
+  TradeSnapshot,
+  TradeStatus,
+  TradeStream,
   TradingDate,
   VolumeUnit,
 } from '../data/index.js'
@@ -126,11 +134,9 @@ export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,
   BarsLiveSource,
-  BarsLiveSubscription,
-  BinanceSSESource,
   baostockMarketDataProvider,
+  binanceMarketDataProvider,
   DataBuffer,
-  DEFAULT_BINANCE_SSE_URL,
   DepthConnector,
   dataSourceRegistry,
   EUROPE_TRADITIONAL_BAR_AGGREGATION,
@@ -171,10 +177,7 @@ export {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
 } from '../engine/indicators/indicatorMetadata.js'
-export {
-  isBuiltinIndicatorsLoaded,
-  loadBuiltinIndicators,
-} from '../engine/indicators/registerBuiltins.js'
+export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {
   LayoutApi,
   LayoutDocument,
