@@ -374,6 +374,7 @@
     gap: 6px;
     padding: 0 8px;
     border: 1px solid var(--klc-color-ui-border);
+    border-bottom: 0;
     border-radius: 0;
     background: var(--klc-color-ui-surface);
     box-sizing: border-box;

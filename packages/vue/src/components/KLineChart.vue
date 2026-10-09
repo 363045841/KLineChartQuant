@@ -2021,6 +2021,7 @@
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
+    border-top: 1px solid var(--chart-border);
     display: flex;
     align-items: stretch;
     gap: 0;

@@ -139,6 +139,7 @@
     position: relative;
     padding: 8px 16px;
     background: var(--klc-color-ui-surface);
+    border-bottom: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
