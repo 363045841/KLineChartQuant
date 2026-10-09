@@ -1,0 +1,10 @@
+{
+  "packages/vue/src/components/ChartSettingsDialog.vue": {
+    "vue/no-restricted-static-attribute": {
+      "count": 1
+    },
+    "vue/no-restricted-v-bind": {
+      "count": 1
+    }
+  }
+}

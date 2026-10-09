@@ -1,0 +1,312 @@
+{
+  "packages/vue/src/components/AggregationSourceButton.vue": {
+    "klc/no-raw-length": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/AggregationSourceDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 20
+    }
+  },
+  "packages/vue/src/components/BaseButton.vue": {
+    "klc/no-raw-length": {
+      "count": 5
+    }
+  },
+  "packages/vue/src/components/BaseTabs.vue": {
+    "klc/no-raw-length": {
+      "count": 8
+    }
+  },
+  "packages/vue/src/components/ChartSettingsDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 2
+    }
+  },
+  "packages/vue/src/components/ColorPicker.vue": {
+    "klc/no-raw-length": {
+      "count": 22
+    }
+  },
+  "packages/vue/src/components/ColorPresetPanel.vue": {
+    "klc/no-raw-length": {
+      "count": 8
+    }
+  },
+  "packages/vue/src/components/CompareSymbolSelector.vue": {
+    "klc/no-raw-length": {
+      "count": 26
+    }
+  },
+  "packages/vue/src/components/DrawingSettingsDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 12
+    }
+  },
+  "packages/vue/src/components/DrawingStyleToolbar.vue": {
+    "klc/no-raw-length": {
+      "count": 3
+    }
+  },
+  "packages/vue/src/components/ExportProgressDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 5
+    }
+  },
+  "packages/vue/src/components/IndicatorParams.vue": {
+    "klc/no-raw-length": {
+      "count": 20
+    },
+    "declaration-property-value-disallowed-list": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/IndicatorSelector.vue": {
+    "klc/no-raw-length": {
+      "count": 30
+    }
+  },
+  "packages/vue/src/components/KLineChart.vue": {
+    "klc/no-raw-color": {
+      "count": 2
+    },
+    "klc/no-raw-length": {
+      "count": 11
+    },
+    "klc/no-raw-z-index": {
+      "count": 11
+    }
+  },
+  "packages/vue/src/components/KLineTooltip.vue": {
+    "klc/no-raw-color": {
+      "count": 1
+    },
+    "klc/no-raw-length": {
+      "count": 7
+    },
+    "klc/no-raw-z-index": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/LayoutNameDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 6
+    }
+  },
+  "packages/vue/src/components/LeftToolbar.vue": {
+    "klc/no-raw-color": {
+      "count": 1
+    },
+    "klc/no-raw-length": {
+      "count": 18
+    },
+    "klc/no-raw-z-index": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/MarkerTooltip.vue": {
+    "klc/no-raw-color": {
+      "count": 1
+    },
+    "klc/no-raw-length": {
+      "count": 7
+    },
+    "klc/no-raw-z-index": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/PriceAxisSettingsMenu.vue": {
+    "klc/no-raw-length": {
+      "count": 4
+    },
+    "klc/no-raw-z-index": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/RangeSelectionExport.vue": {
+    "klc/no-raw-length": {
+      "count": 7
+    }
+  },
+  "packages/vue/src/components/SegmentedTabs.vue": {
+    "klc/no-raw-length": {
+      "count": 4
+    }
+  },
+  "packages/vue/src/components/SymbolSelector.vue": {
+    "klc/no-raw-length": {
+      "count": 16
+    }
+  },
+  "packages/vue/src/components/ThemePresetPanel.vue": {
+    "klc/no-raw-length": {
+      "count": 2
+    }
+  },
+  "packages/vue/src/components/TopToolbar.vue": {
+    "klc/no-raw-length": {
+      "count": 10
+    }
+  },
+  "packages/vue/src/components/WatchlistPanel.vue": {
+    "klc/no-raw-length": {
+      "count": 5
+    }
+  },
+  "packages/vue/src/styles/scrollbar.css": {
+    "klc/no-raw-length": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/alert/AlertDialog.vue": {
+    "klc/no-raw-color": {
+      "count": 9
+    },
+    "klc/no-raw-length": {
+      "count": 49
+    }
+  },
+  "packages/vue/src/components/alert/AlertRuleForm.vue": {
+    "klc/no-raw-length": {
+      "count": 41
+    }
+  },
+  "packages/vue/src/components/drawing-settings/DrawingTemplateSaveDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 6
+    }
+  },
+  "packages/vue/src/components/common/CanvasToolbar.vue": {
+    "klc/no-raw-color": {
+      "count": 1
+    },
+    "klc/no-raw-length": {
+      "count": 8
+    }
+  },
+  "packages/vue/src/components/common/CanvasToolbarStack.vue": {
+    "klc/no-raw-length": {
+      "count": 1
+    },
+    "klc/no-raw-z-index": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/common/CollapsibleSection.vue": {
+    "klc/no-raw-length": {
+      "count": 5
+    }
+  },
+  "packages/vue/src/components/common/SearchField.vue": {
+    "klc/no-raw-length": {
+      "count": 5
+    }
+  },
+  "packages/vue/src/components/common/SymbolMetaBadge.vue": {
+    "klc/no-raw-length": {
+      "count": 3
+    }
+  },
+  "packages/vue/src/components/common/ThemeModeControl.vue": {
+    "klc/no-raw-length": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/common/ToggleSwitch.vue": {
+    "klc/no-raw-color": {
+      "count": 1
+    },
+    "klc/no-raw-length": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/components/common/control-button.css": {
+    "klc/no-raw-length": {
+      "count": 7
+    }
+  },
+  "packages/vue/src/features/agent/AgentWorkbenchShell.vue": {
+    "klc/no-raw-z-index": {
+      "count": 4
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentComposer.vue": {
+    "klc/no-raw-length": {
+      "count": 8
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentContextBar.vue": {
+    "klc/no-raw-length": {
+      "count": 6
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentContextInjectionCard.vue": {
+    "klc/no-raw-length": {
+      "count": 5
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentErrorNotice.vue": {
+    "klc/no-raw-length": {
+      "count": 12
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentHeader.vue": {
+    "klc/no-raw-length": {
+      "count": 3
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentMessageItem.vue": {
+    "klc/no-raw-length": {
+      "count": 37
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentRunStatus.vue": {
+    "klc/no-raw-length": {
+      "count": 2
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentSessionDrawer.vue": {
+    "klc/no-raw-length": {
+      "count": 14
+    },
+    "klc/no-raw-z-index": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentSettingsDialog.vue": {
+    "klc/no-raw-length": {
+      "count": 67
+    }
+  },
+  "packages/vue/src/features/agent/components/AgentTimeline.vue": {
+    "klc/no-raw-length": {
+      "count": 22
+    }
+  },
+  "packages/vue/src/features/agent/components/ConfirmationCard.vue": {
+    "klc/no-raw-length": {
+      "count": 18
+    }
+  },
+  "packages/vue/src/features/agent/components/QuestionCard.vue": {
+    "klc/no-raw-length": {
+      "count": 28
+    }
+  },
+  "packages/vue/src/features/agent/components/ToolCallCard.vue": {
+    "klc/no-raw-length": {
+      "count": 23
+    }
+  },
+  "packages/vue/src/features/agent/components/agent-primary-button.css": {
+    "klc/no-raw-length": {
+      "count": 1
+    }
+  },
+  "packages/vue/src/features/agent/components/agent-select-trigger.css": {
+    "klc/no-raw-length": {
+      "count": 4
+    }
+  }
+}
