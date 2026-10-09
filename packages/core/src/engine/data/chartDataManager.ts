@@ -1260,6 +1260,8 @@ export class ChartDataManager {
   // ── Main symbol switching ──
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
+    // 快照重置会清空活动选择，先留存它，供分时模式复用用户选定的查询日期。
+    const activeSelectionBeforeReset = this._activeSelection
     // 先撤销旧行情写入资格，避免切换期间的收线冲刷写入新 Buffer。
     const previous = this._dmState.readonly.currentSpec.peek()
     const next = specs[0]
@@ -1293,7 +1295,7 @@ export class ChartDataManager {
       // so data and scroll position are preserved when user returns
       this._dmState.actions.setRangeInitialized(false)
 
-      const active = this._activeSelection
+      const active = activeSelectionBeforeReset
       const latestSelection = this.timeShareSelectionForSpec(primary)
       const tsSelection =
         active?.kind === SERIES_SELECTION_KIND.timeShare &&
