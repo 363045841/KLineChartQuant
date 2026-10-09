@@ -1,8 +1,8 @@
 # 0011. Web 与 Desktop 产品 UI 使用同一框架
 
-- Status: Proposed — **需要 owner 在方案 B / C 中二选一**
+- Status: Accepted（方案 C）
 - Date: 2026-10-09
-- Deciders: 363045841（owner）, tseka
+- Deciders: tseka
 - Source: v1.1 ADR-003、ADR-011
 
 ## Context
@@ -31,12 +31,12 @@ v1.1 ADR-003 写的是「Desktop 原位迁移至 Electron + React」。核实后
 ## Decision
 
 - **否决 A**：同一产品出现两份桌面级 UI，Agent 工作台等核心功能重复实现。
-- **建议 C（当前）**，并预设重新评估条件。满足任一条即重开 B：
+- **采用 C**：Web 与 Desktop 保持 Vue，Mobile 用 Expo + React Native，跨端共享 Core 与框架无关的逻辑层。预设重新评估条件，满足任一条即重开 B：
   1. P3 移动端 spike 显示大量移动端逻辑只能以 React hooks 形式共享，框架无关 TS 无法覆盖；
   2. 团队后续以 React / RN 为主要技术栈；
   3. sailor 撤回「KCQ 去 React」的决定。
-- 无论选 B 还是 C，先做与选择无关的工作：ADR 0008 P1b 输入绑定；把 UI 之外的状态（自选、工作区、行情源、偏好）整理为框架无关的 TS store；Desktop 改为通过包 `exports` 导入。这些工作在 B 下降低迁移成本，在 C 下降低 Mobile 的重复实现。
-- 如果 owner 选 B，按以下顺序执行：React 外壳 + `KLineChartWC` 承载现有 UI → 按面板替换（设置、指标、工作区、Agent 工作台）→ 最后替换图表外壳并移除 WC；每一步 Web 与 Desktop 同步发布。
+- 先做与 B / C 选择无关的工作：ADR 0008 P1b 输入绑定；把 UI 之外的状态（自选、工作区、行情源、偏好）整理为框架无关的 TS store；Desktop 改为通过包 `exports` 导入。这些工作在 B 下降低迁移成本，在 C 下降低 Mobile 的重复实现。
+- 若日后重开 B，按以下顺序执行：React 外壳 + `KLineChartWC` 承载现有 UI → 按面板替换（设置、指标、工作区、Agent 工作台）→ 最后替换图表外壳并移除 WC；每一步 Web 与 Desktop 同步发布。
 
 ### v1.1 技术选型表对应关系
 

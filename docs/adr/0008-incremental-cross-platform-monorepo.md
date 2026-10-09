@@ -38,7 +38,7 @@ v1.1 没有覆盖 Web 这一宿主。Web、Desktop、Mobile 是三个宿主，�
 | P0 | 固定基线 | `library-ci` 全绿（已有） |
 | P1 | React 直连 Core 适配器（ADR 0009，本 PR） | 挂载、释放、增量同步、SSR 测试通过 |
 | P1b | 抽取框架无关输入绑定，Vue 先接入 | Vue 交互测试零回归；React/Angular 获得交互 |
-| P2 | Web + Desktop UI 框架决策（ADR 0011） | owner 选定方案 |
+| P2 | Web + Desktop 保持 Vue（ADR 0011 方案 C）；Desktop 改用包 `exports`，清理相对源码导入 | Desktop 不再引用 `../../vue/src` |
 | P3 | 移动端 spike：Expo DOM component + React 适配器 + 输入绑定（ADR 0010） | 中端 Android 平移/缩放 60 FPS，记录冷启动、内存、桥往返延迟 |
 | P4 | `packages/mobile` 应用骨架（Expo Router）；仅在 spike 证明需要时新增 `packages/chart-mobile` | iOS / Android 真机运行 |
 | P5 | 触控交互：长按十字线、双指缩放、画线、横屏 | 交互用例通过 |
