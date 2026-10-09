@@ -12,17 +12,22 @@ import type { KLineData } from '../../../foundation/types/price.js'
 import {
   FOOTPRINT_METRICS,
   type FootprintBar,
+  type FootprintMetric,
   type FootprintParams,
   type FootprintSeries,
 } from '../types.js'
 import { resolveRowTicks } from './resolveRowTicks.js'
 
+/** 单档同时保留成交量和成交额：成交量用于不平衡判定，成交额仅供成交额口径展示。 */
 interface Cell {
-  bid: bigint
-  ask: bigint
+  bidVolume: bigint
+  askVolume: bigint
+  bidTurnover: bigint
+  askTurnover: bigint
 }
 interface Bucket {
-  scale: number
+  volumeScale: number
+  turnoverScale: number
   cells: Map<bigint, Cell>
 }
 
@@ -34,6 +39,7 @@ export function createFootprintCalculator() {
   let buckets = new Map<number, Bucket>()
   let materialized = new Map<number, FootprintBar>()
   let lastRatio = 0
+  let lastMetric: FootprintMetric | null = null
 
   return (
     data: KLineData[],
@@ -54,13 +60,13 @@ export function createFootprintCalculator() {
     const rowTicks = resolveRowTicks(data, params, Number(input.tickSize))
     const rowUnits = tick.units * BigInt(rowTicks)
     // K 线身份只需检测有序唯一时间戳序列的变化：长度 + 首尾时间戳即可唯一确定。
+    // 聚合同时保留成交量与成交额，展示口径不影响缓存，故身份不含 metric。
     const nextIdentity = [
       data.length,
       data[0]?.timestamp,
       data[data.length - 1]?.timestamp,
       input.tickSize,
       rowTicks,
-      params.metric,
     ].join('|')
     // 批次身份用范围、完整性、数量与首尾 tradeId 组合，避免逐笔序列化。
     const nextBatchKeys = input.batches.map((batch) =>
@@ -101,35 +107,55 @@ export function createFootprintCalculator() {
         const price = parseDecimal(trade.price)
         const scale = Math.max(price.scale, tick.scale)
         const key = decimalUnits(price, scale) / (rowUnits * 10n ** BigInt(scale - tick.scale))
-        // 按口径取量：成交量直接用 size，成交额用价 × 量，定点相乘避免浮点误差。
+        // 同时累加成交量和成交额：不平衡固定看成交量，展示口径可切换而不重建聚合。
         const size = parseDecimal(trade.size)
-        const quantity =
-          params.metric === FOOTPRINT_METRICS.Volume ? size : multiplyDecimal(price, size)
+        const turnover = multiplyDecimal(price, size)
         let bucket = buckets.get(bar.timestamp)
         if (!bucket) {
-          bucket = { scale: quantity.scale, cells: new Map() }
+          bucket = { volumeScale: size.scale, turnoverScale: turnover.scale, cells: new Map() }
           buckets.set(bar.timestamp, bucket)
         }
-        if (quantity.scale > bucket.scale) {
-          const factor = 10n ** BigInt(quantity.scale - bucket.scale)
+        if (size.scale > bucket.volumeScale) {
+          const factor = 10n ** BigInt(size.scale - bucket.volumeScale)
           for (const cell of bucket.cells.values()) {
-            cell.bid *= factor
-            cell.ask *= factor
+            cell.bidVolume *= factor
+            cell.askVolume *= factor
           }
-          bucket.scale = quantity.scale
+          bucket.volumeScale = size.scale
         }
-        const cell = bucket.cells.get(key) ?? { bid: 0n, ask: 0n }
-        const units = decimalUnits(quantity, bucket.scale)
-        if (trade.side === 'buy') cell.ask += units
-        else cell.bid += units
+        if (turnover.scale > bucket.turnoverScale) {
+          const factor = 10n ** BigInt(turnover.scale - bucket.turnoverScale)
+          for (const cell of bucket.cells.values()) {
+            cell.bidTurnover *= factor
+            cell.askTurnover *= factor
+          }
+          bucket.turnoverScale = turnover.scale
+        }
+        const cell = bucket.cells.get(key) ?? {
+          bidVolume: 0n,
+          askVolume: 0n,
+          bidTurnover: 0n,
+          askTurnover: 0n,
+        }
+        const volumeUnits = decimalUnits(size, bucket.volumeScale)
+        const turnoverUnits = decimalUnits(turnover, bucket.turnoverScale)
+        if (trade.side === 'buy') {
+          cell.askVolume += volumeUnits
+          cell.askTurnover += turnoverUnits
+        } else {
+          cell.bidVolume += volumeUnits
+          cell.bidTurnover += turnoverUnits
+        }
         bucket.cells.set(key, cell)
       }
     }
     consumed = input.batches.length
     batchKeys = nextBatchKeys
     const ratio = BigInt(params.imbalanceRatio)
-    if (lastRatio !== params.imbalanceRatio) materialized.clear()
+    // 展示口径与不平衡倍数只影响已渲染柱子，成交量与成交额聚合缓存继续复用。
+    if (lastRatio !== params.imbalanceRatio || lastMetric !== params.metric) materialized.clear()
     lastRatio = params.imbalanceRatio
+    lastMetric = params.metric
     const coverage = input.batches
       .filter((batch) => batch.complete)
       .sort((a, b) => a.range.from - b.range.from)
@@ -151,29 +177,33 @@ export function createFootprintCalculator() {
         materialized.set(bar.timestamp, updated)
         return updated
       }
-      const scale = bucket?.scale ?? 0
+      const isVolume = params.metric === FOOTPRINT_METRICS.Volume
+      const displayScale = bucket ? (isVolume ? bucket.volumeScale : bucket.turnoverScale) : 0
       let bid = 0n
       let ask = 0n
       const cells = [...(bucket?.cells ?? [])]
         .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
         .map(([key, cell]) => {
-          bid += cell.bid
-          ask += cell.ask
-          const lower = bucket?.cells.get(key - 1n)?.bid ?? 0n
-          const upper = bucket?.cells.get(key + 1n)?.ask ?? 0n
+          const cellBid = isVolume ? cell.bidVolume : cell.bidTurnover
+          const cellAsk = isVolume ? cell.askVolume : cell.askTurnover
+          bid += cellBid
+          ask += cellAsk
+          // 不平衡固定按成交量与相邻档比较，与成交额展示口径无关。
+          const lowerVolume = bucket?.cells.get(key - 1n)?.bidVolume ?? 0n
+          const upperVolume = bucket?.cells.get(key + 1n)?.askVolume ?? 0n
           return {
             price: formatDecimal(key * rowUnits, tick.scale),
-            bid: formatDecimal(cell.bid, scale),
-            ask: formatDecimal(cell.ask, scale),
-            askImbalance: lower > 0n && cell.ask >= lower * ratio,
-            bidImbalance: upper > 0n && cell.bid >= upper * ratio,
+            bid: formatDecimal(cellBid, displayScale),
+            ask: formatDecimal(cellAsk, displayScale),
+            askImbalance: lowerVolume > 0n && cell.askVolume >= lowerVolume * ratio,
+            bidImbalance: upperVolume > 0n && cell.bidVolume >= upperVolume * ratio,
           }
         })
       const result: FootprintBar = {
         timestamp: bar.timestamp,
         cells,
-        delta: formatDecimal(ask - bid, scale),
-        total: formatDecimal(ask + bid, scale),
+        delta: formatDecimal(ask - bid, displayScale),
+        total: formatDecimal(ask + bid, displayScale),
         complete,
       }
       materialized.set(bar.timestamp, result)

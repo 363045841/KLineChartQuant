@@ -160,4 +160,31 @@ describe('Footprint calculator', () => {
     expect(result.bars[1]).toMatchObject({ total: '0.4', delta: '-0.4' })
     expect(result.bars[0]?.cells[0]).toMatchObject({ ask: '0.3', bid: '0' })
   })
+
+  // 不平衡固定按成交量与相邻档比较；成交额口径只改变展示数字，不改变加粗标志。
+  it('derives imbalance from volume while displaying turnover', () => {
+    const result = createFootprintCalculator()(
+      data,
+      params,
+      input([batch([trade('1', 1000, '1.2', '1', 'buy'), trade('2', 1000, '1.1', '3.1', 'sell')])]),
+    )
+    const cellAt = (price: string) => result.bars[0]?.cells.find((cell) => cell.price === price)
+    // 成交量 3.1 ≥ 1 × 3 判为 Bid 不平衡；成交额 3.41 < 1.2 × 3 则不会触发。
+    expect(cellAt('1.1')).toMatchObject({ bid: '3.41', ask: '0', bidImbalance: true })
+    expect(cellAt('1.2')).toMatchObject({ bid: '0', ask: '1.2', bidImbalance: false })
+  })
+
+  // 切换展示口径只重算数字，复用同一份成交量聚合，不平衡标志保持稳定。
+  it('keeps imbalance stable when toggling the display metric', () => {
+    const compute = createFootprintCalculator()
+    const snapshot = input([
+      batch([trade('1', 1000, '1.2', '1', 'buy'), trade('2', 1000, '1.1', '3.1', 'sell')]),
+    ])
+    const turnover = compute(data, params, snapshot)
+    const volume = compute(data, { ...params, metric: FOOTPRINT_METRICS.Volume }, snapshot)
+    const lowerOf = (bars: typeof turnover.bars) =>
+      bars[0]?.cells.find((cell) => cell.price === '1.1')
+    expect(lowerOf(turnover.bars)).toMatchObject({ bid: '3.41', bidImbalance: true })
+    expect(lowerOf(volume.bars)).toMatchObject({ bid: '3.1', bidImbalance: true })
+  })
 })

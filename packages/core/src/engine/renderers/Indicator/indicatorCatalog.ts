@@ -116,6 +116,7 @@ const uiMeta: Record<
         max: 100,
         step: 1,
         default: 3,
+        description: '相邻价位主动成交量的倍数阈值；达到该倍数的价位数字加粗。',
       },
       {
         key: 'metric',
@@ -123,6 +124,8 @@ const uiMeta: Record<
         type: 'select',
         default: FOOTPRINT_METRICS.Turnover,
         options: FOOTPRINT_METRIC_OPTIONS,
+        description:
+          '只决定每档数字的展示口径（成交量或成交额）；不平衡判定固定按成交量，不受此项影响。',
       },
       {
         key: 'textMode',

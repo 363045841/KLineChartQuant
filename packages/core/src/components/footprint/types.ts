@@ -1,4 +1,4 @@
-/** Footprint 的计算与渲染契约；柱子以实际 K 线开盘时间寻址，数值口径由 metric 决定。 */
+/** Footprint 的计算与渲染契约；柱子以实际 K 线开盘时间寻址，展示数值口径由 metric 决定，不平衡固定按成交量判定。 */
 import type { TradeStatus } from '../../data/trades/types.js'
 
 /** 足迹数值口径：成交量（base asset）或成交额（价 × 量，quote asset）。 */
@@ -60,7 +60,9 @@ export interface FootprintCell {
   readonly bid: string
   /** 主动买成交汇总；单位由 FootprintParams.metric 决定。 */
   readonly ask: string
+  /** 本档主动卖量相对上一档主动买量构成对角不平衡；固定按成交量判定。 */
   readonly bidImbalance: boolean
+  /** 本档主动买量相对下一档主动卖量构成对角不平衡；固定按成交量判定。 */
   readonly askImbalance: boolean
 }
 export interface FootprintBar {
