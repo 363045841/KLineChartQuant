@@ -123,6 +123,15 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
 
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
+/** 一批进行中的 K 线加载。 */
+interface HistoryLoad {
+  /**
+   * 静默预取：用户尚未看到空白时提前加载，不切换 loading、不显示前插提示。
+   * 用户在加载途中停在空白处时升级为阻塞加载（quiet 置 false 并开启 loading）。
+   */
+  quiet: boolean
+}
+
 export class ChartDataManager {
   private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
   private readonly calendarSources = new WeakMap<
@@ -152,6 +161,11 @@ export class ChartDataManager {
   private _comparisonSpecsUnsub: (() => void) | null = null
   private _loadHint: IncrementalLoadHint
   private _pendingIncrementalLoadFlushTimer = 0
+  /**
+   * 进行中的 K 线批次（含静默预取）。静默预取不写 buffer.loading，
+   * 并发守卫与“静默/阻塞”判定统一读取此表。
+   */
+  private readonly _historyLoads = new WeakMap<KLineBuffer, HistoryLoad>()
 
   private deps: DataDependencies
 
@@ -410,12 +424,15 @@ export class ChartDataManager {
    * `target.limit` 是本批需要的总根数：Provider 单页不足且仍有更早历史时，沿游标继续请求，
    * 全部页收齐后只调用一次 `mergeData`，因此一批补齐只产生一次数据变更、一次前插提示与
    * 一个 loading 周期。
+   *
+   * `target.quiet` 为 true 时是后台预取：不切换 loading、失败不上报错误；
+   * 只有新数据落入可见区域（用户已拖入空白）时才显示前插提示。
    */
   private async loadBars(
     selection: BarsSelection,
     buffer: KLineBuffer,
     spec: SymbolSpec,
-    target: { limit: number; beforeTimestamp?: number },
+    target: { limit: number; beforeTimestamp?: number; quiet?: boolean },
   ): Promise<void> {
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
@@ -425,7 +442,9 @@ export class ChartDataManager {
     ) {
       throw new Error(`[MarketDataCache] invalid bars request for "${spec.symbol}"`)
     }
-    buffer.setLoading(true)
+    const load: HistoryLoad = { quiet: target.quiet === true }
+    this._historyLoads.set(buffer, load)
+    if (!load.quiet) buffer.setLoading(true)
     try {
       let cursor = target.beforeTimestamp
       let collected: KLineData[] = []
@@ -481,8 +500,18 @@ export class ChartDataManager {
           return
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
+      // 静默批次的数据若落入视口内已露出的空白，仍需提示这次拼接。
+      const landsVisible =
+        load.quiet &&
+        this.isActiveSelection(selection) &&
+        this._scrollCompensator.measureLeftHistory().blankSlots > 0
+      if (landsVisible) load.quiet = false
       buffer.mergeData(collected, olderData, timezone)
+      // 批次结束后再通知 onBarsReady，使其链式补齐不被本批的并发守卫拦下。
+      if (this._historyLoads.get(buffer) === load) this._historyLoads.delete(buffer)
       this.calendarSources.set(buffer, resolved)
+      // 静默批次不经过 loading 下降沿，需主动排程提示冲刷。
+      if (landsVisible) this.scheduleIncrementalLoadHintFlush(selection)
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -490,8 +519,16 @@ export class ChartDataManager {
         this.deps.onBarsReady()
       }
     } catch (error) {
-      buffer.setError(error instanceof Error ? error.message : String(error))
+      // 静默预取失败不打断用户；下次补齐（或用户停在空白处的阻塞加载）会重试并上报。
+      if (!load.quiet) buffer.setError(error instanceof Error ? error.message : String(error))
+    } finally {
+      if (this._historyLoads.get(buffer) === load) this._historyLoads.delete(buffer)
     }
+  }
+
+  /** Buffer 是否有进行中的批次（阻塞 loading 或静默预取）。 */
+  private isLoadingHistory(buffer: KLineBuffer): boolean {
+    return buffer.loading.peek() || this._historyLoads.has(buffer)
   }
 
   /** 活动 K 线 Buffer 仍可能向左加载更早历史（Provider 未声明耗尽且非静态数据）。 */
@@ -708,7 +745,8 @@ export class ChartDataManager {
       )
     }
 
-    if (prependedCount > 0) {
+    // 静默预取的前插发生在视口之外，不累计前插提示。
+    if (prependedCount > 0 && this._historyLoads.get(buf)?.quiet !== true) {
       this.recordIncrementalLoad(prependedCount)
     }
   }
@@ -1002,9 +1040,18 @@ export class ChartDataManager {
     const rawRange = this.getRawVisibleRangeOrNull()
     const first = range && rawRange ? data[rawRange.start < 0 ? 0 : range.start] : undefined
     if (first) this._comparisonManager.ensureRange(first.timestamp)
-    if (buf.loading.peek() || !this.canLoadOlderHistory(buf)) return
-    // 左侧露出空白，或已加载余量不足预取阈值时，在触达左缘前整批预取。
     const history = this._scrollCompensator.measureLeftHistory()
+    const inFlight = this._historyLoads.get(buf)
+    if (inFlight) {
+      // 用户停在空白处等待进行中的静默预取：升级为阻塞加载，显示一个 loading 周期。
+      if (inFlight.quiet && history.blankSlots > 0) {
+        inFlight.quiet = false
+        buf.setLoading(true)
+      }
+      return
+    }
+    if (buf.loading.peek() || !this.canLoadOlderHistory(buf)) return
+    // 左侧露出空白时阻塞加载；仅余量不足预取阈值时，在触达左缘前静默预取。
     const needsHistory =
       history.blankSlots > 0 ||
       history.leftMarginSlots < history.visibleSlots * HISTORY_PREFETCH_TRIGGER_SCREENS
@@ -1015,6 +1062,7 @@ export class ChartDataManager {
       void this.loadBars(selection, buf, spec, {
         limit: this.resolveHistoryBatchLimit(history.blankSlots),
         beforeTimestamp: loadedTimeRange.earliestTs,
+        quiet: history.blankSlots === 0,
       })
     }
   }
@@ -1031,7 +1079,7 @@ export class ChartDataManager {
       selection.kind !== SERIES_SELECTION_KIND.bars ||
       !spec ||
       !loaded ||
-      buffer.loading.peek() ||
+      this.isLoadingHistory(buffer) ||
       startTs >= loaded.earliestTs
     ) {
       return

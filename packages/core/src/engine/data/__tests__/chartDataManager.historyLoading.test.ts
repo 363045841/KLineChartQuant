@@ -177,7 +177,7 @@ describe('ChartDataManager history loading orchestration', () => {
     expect(harness.getScrollLeft()).toBeCloseTo(scrollBefore + batch * UNIT)
   })
 
-  it('prefetches before the user reaches the left edge, and not while enough history remains', async () => {
+  it('prefetches silently before the user reaches the left edge', async () => {
     const { fetch } = registerPagedProvider({ total: 3_000, pageCap: 5_000 })
     const harness = createTestChartDataManager(document)
     manager = harness.manager
@@ -185,16 +185,142 @@ describe('ChartDataManager history loading orchestration', () => {
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
     fetch.mockClear()
     const visibleSlots = 800 / UNIT
+    const show = vi.spyOn(IncrementalLoadHint.prototype, 'show')
+    const loadingStates: boolean[] = []
+    const bufferLoadingStates: boolean[] = []
+    const unsubscribeLoading = harness.dataState.readonly.loading.subscribe(() =>
+      loadingStates.push(harness.dataState.readonly.loading.peek()),
+    )
+    const unsubscribeBufferLoading = manager.dataBuffer.loading.subscribe(() =>
+      bufferLoadingStates.push(manager!.dataBuffer.loading.peek()),
+    )
 
+    // 余量充足：不请求。
     scrollToLeftMargin(harness.scrollTo, Math.ceil(visibleSlots))
     manager.checkVisibleRangeGap()
     expect(fetch).not.toHaveBeenCalled()
 
+    // 余量不足阈值但视口内无空白：静默预取，且进行中不重复请求。
     scrollToLeftMargin(harness.scrollTo, Math.floor(visibleSlots / 2))
     manager.checkVisibleRangeGap()
-    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    manager.checkVisibleRangeGap()
+    await vi.waitFor(() =>
+      expect(manager!.getData().length).toBeGreaterThan(DEFAULT_BAR_PAGE_LIMIT),
+    )
+    await new Promise((resolve) => window.setTimeout(resolve, 10))
+    unsubscribeLoading()
+    unsubscribeBufferLoading()
+
     expect(fetch).toHaveBeenCalledOnce()
-    expect(manager.getData().length).toBeGreaterThan(DEFAULT_BAR_PAGE_LIMIT)
+    expect(loadingStates).toEqual([])
+    expect(bufferLoadingStates).toEqual([])
+    expect(show).not.toHaveBeenCalled()
+    expect(harness.dataManagerState.readonly.pendingIncrementalLoad.peek().count).toBe(0)
+  })
+
+  it('upgrades an in-flight prefetch to one loading cycle when the user stops at a blank gap', async () => {
+    const { fetch } = registerPagedProvider({ total: 3_000, pageCap: 5_000 })
+    const harness = createTestChartDataManager(document)
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    const show = vi.spyOn(IncrementalLoadHint.prototype, 'show')
+    const loadingStates: boolean[] = []
+    const unsubscribe = harness.dataState.readonly.loading.subscribe(() =>
+      loadingStates.push(harness.dataState.readonly.loading.peek()),
+    )
+    // 挂起静默预取的 Provider 响应，模拟用户在加载途中拖入空白。
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const original = fetch.getMockImplementation()!
+    fetch.mockImplementation(async (query) => {
+      await gate
+      return original(query)
+    })
+
+    scrollToLeftMargin(harness.scrollTo, 10)
+    manager.checkVisibleRangeGap()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    expect(loadingStates).toEqual([])
+
+    harness.scrollTo(LEFT_BUFFER - 5 * UNIT)
+    manager.checkVisibleRangeGap()
+    manager.checkVisibleRangeGap()
+    expect(loadingStates).toEqual([true])
+    release()
+
+    await vi.waitFor(() => expect(show).toHaveBeenCalled())
+    unsubscribe()
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(loadingStates).toEqual([true, false])
+    expect(show).toHaveBeenCalledOnce()
+  })
+
+  it('shows the hint without a loading cycle when a silent batch lands in a visible gap', async () => {
+    const { fetch } = registerPagedProvider({ total: 3_000, pageCap: 5_000 })
+    const harness = createTestChartDataManager(document)
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    const show = vi.spyOn(IncrementalLoadHint.prototype, 'show')
+    const loadingStates: boolean[] = []
+    const unsubscribe = harness.dataState.readonly.loading.subscribe(() =>
+      loadingStates.push(harness.dataState.readonly.loading.peek()),
+    )
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const original = fetch.getMockImplementation()!
+    fetch.mockImplementation(async (query) => {
+      await gate
+      return original(query)
+    })
+
+    scrollToLeftMargin(harness.scrollTo, 10)
+    manager.checkVisibleRangeGap()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    // 拖拽中露出空白（拖拽期间不做缺口检查），随后静默批次落地。
+    harness.scrollTo(LEFT_BUFFER - 5 * UNIT)
+    release()
+
+    await vi.waitFor(() => expect(show).toHaveBeenCalledOnce())
+    unsubscribe()
+    expect(loadingStates).toEqual([])
+  })
+
+  it('does not surface errors from a silent prefetch', async () => {
+    const now = Date.now()
+    let calls = 0
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: {
+          async fetch() {
+            calls++
+            if (calls > 1) throw new Error('prefetch failed')
+            return makeBarsPage(makeDailyBars(500, now), { olderData: 'available' })
+          },
+        },
+      }),
+    )
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    const harness = createTestChartDataManager(document)
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+    await vi.waitFor(() => expect(manager!.getData()).toHaveLength(500))
+
+    scrollToLeftMargin(harness.scrollTo, 10)
+    manager.checkVisibleRangeGap()
+    await vi.runAllTimersAsync()
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(1))
+    await vi.runAllTimersAsync()
+    vi.useRealTimers()
+
+    expect(manager.dataError.peek()).toBeNull()
+    expect(harness.dataState.readonly.loading.peek()).toBe(false)
+    expect(manager.hasPendingOlderHistory()).toBe(true)
   })
 
   it('treats an empty older page as exhausted and stops requesting', async () => {
