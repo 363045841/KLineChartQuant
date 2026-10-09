@@ -413,7 +413,7 @@ describe('MainIndicatorLegend footprint title', () => {
         definitionId: 'Footprint',
         paneId: 'main',
         hidden: false,
-        params: { ticksPerRow: 300, imbalanceRatio: 3 },
+        params: { ticksPerRow: 300, imbalanceRatio: 3, metric: 'turnover', textMode: 'bidAsk' },
       },
     ])
     const layer = createLegendLayer(host)
@@ -421,6 +421,6 @@ describe('MainIndicatorLegend footprint title', () => {
     layer.paint(createLegendContext('main:Footprint', undefined, { crosshairIndex: 0 }))
 
     expect(countTitleRows('足迹图')).toBe(1)
-    expect(countLegendTexts((text) => text === '(300,3)')).toBe(1)
+    expect(countLegendTexts((text) => text === '(300,3,成交额,Bid Ask)')).toBe(1)
   })
 })

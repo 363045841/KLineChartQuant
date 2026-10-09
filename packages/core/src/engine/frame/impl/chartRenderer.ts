@@ -903,6 +903,7 @@ export class ChartRenderer {
       data: renderData,
       range,
     })
+    const indicatorAvailability = indicatorManager.createAvailabilityReader()
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -1102,6 +1103,7 @@ export class ChartRenderer {
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
         indicatorStateReader,
+        indicatorAvailability,
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,

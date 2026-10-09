@@ -1,6 +1,10 @@
 /** 显式开启的真实 Connector 验收：标准 Provider → 指标实例执行 → 投影 → K 线成交量核对。 */
 import { expect, it } from 'vitest'
-import type { FootprintRenderState, FootprintSeries } from '../../../components/footprint/types.js'
+import {
+  FOOTPRINT_METRICS,
+  type FootprintRenderState,
+  type FootprintSeries,
+} from '../../../components/footprint/types.js'
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
@@ -52,7 +56,7 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
       paneId: 'main',
       calculation: {
         definitionId: 'footprint',
-        params: { ticksPerRow: 100, imbalanceRatio: 3 },
+        params: { ticksPerRow: 100, imbalanceRatio: 3, metric: FOOTPRINT_METRICS.Turnover },
         context: {},
       },
       presentation: {},
@@ -76,9 +80,9 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
     expect(series.bars[0]?.complete).toBe(true)
     // 聚合成交按成交额累计，应与同一根 K 线的报价额（turnover）一致。
     const turnover = first.turnover ?? 0
-    const totalValue = Number(series.bars[0]?.totalValue)
+    const total = Number(series.bars[0]?.total)
     expect(turnover).toBeGreaterThan(0)
-    expect(Math.abs(totalValue - turnover) / turnover).toBeLessThan(1e-6)
+    expect(Math.abs(total - turnover) / turnover).toBeLessThan(1e-6)
     const definition = getRegisteredIndicatorDefinition('footprint')
     const instanceResult = expandIndicatorCalculationOutputs(plan, outputs, 1).get('footprint-test')
     if (!definition || !instanceResult) throw new Error('Footprint registered result missing')

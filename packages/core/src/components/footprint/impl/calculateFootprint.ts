@@ -9,7 +9,12 @@ import {
 import { EMPTY_TRADE_SNAPSHOT, type TradeSnapshot } from '../../../data/trades/types.js'
 import { FOOTPRINT_ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { KLineData } from '../../../foundation/types/price.js'
-import type { FootprintBar, FootprintParams, FootprintSeries } from '../types.js'
+import {
+  FOOTPRINT_METRICS,
+  type FootprintBar,
+  type FootprintParams,
+  type FootprintSeries,
+} from '../types.js'
 
 interface Cell {
   bid: bigint
@@ -55,6 +60,7 @@ export function createFootprintCalculator() {
       data[data.length - 1]?.timestamp,
       input.tickSize,
       params.ticksPerRow,
+      params.metric,
     ].join('|')
     // 批次身份用范围、完整性、数量与首尾 tradeId 组合，避免逐笔序列化。
     const nextBatchKeys = input.batches.map((batch) =>
@@ -95,8 +101,10 @@ export function createFootprintCalculator() {
         const price = parseDecimal(trade.price)
         const scale = Math.max(price.scale, tick.scale)
         const key = decimalUnits(price, scale) / (rowUnits * 10n ** BigInt(scale - tick.scale))
-        // 足迹以成交额计价：数量乘以成交价，定点相乘避免浮点误差。
-        const quantity = multiplyDecimal(price, parseDecimal(trade.size))
+        // 按口径取量：成交量直接用 size，成交额用价 × 量，定点相乘避免浮点误差。
+        const size = parseDecimal(trade.size)
+        const quantity =
+          params.metric === FOOTPRINT_METRICS.Volume ? size : multiplyDecimal(price, size)
         let bucket = buckets.get(bar.timestamp)
         if (!bucket) {
           bucket = { scale: quantity.scale, cells: new Map() }
@@ -155,8 +163,8 @@ export function createFootprintCalculator() {
           const upper = bucket?.cells.get(key + 1n)?.ask ?? 0n
           return {
             price: formatDecimal(key * rowUnits, tick.scale),
-            bidValue: formatDecimal(cell.bid, scale),
-            askValue: formatDecimal(cell.ask, scale),
+            bid: formatDecimal(cell.bid, scale),
+            ask: formatDecimal(cell.ask, scale),
             askImbalance: lower > 0n && cell.ask >= lower * ratio,
             bidImbalance: upper > 0n && cell.bid >= upper * ratio,
           }
@@ -165,7 +173,7 @@ export function createFootprintCalculator() {
         timestamp: bar.timestamp,
         cells,
         delta: formatDecimal(ask - bid, scale),
-        totalValue: formatDecimal(ask + bid, scale),
+        total: formatDecimal(ask + bid, scale),
         complete,
       }
       materialized.set(bar.timestamp, result)

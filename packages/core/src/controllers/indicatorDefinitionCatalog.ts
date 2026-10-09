@@ -18,6 +18,7 @@ function toParamDef(param: NonNullable<Indicator['params']>[number]): IndicatorP
     min: param.min,
     max: param.max,
     step: param.step,
+    options: param.options,
   }
 }
 

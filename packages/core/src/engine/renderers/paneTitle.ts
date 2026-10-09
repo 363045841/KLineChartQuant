@@ -71,6 +71,7 @@ export function createPaneTitleRendererLayer(options: PaneTitleOptions): Layer<R
           gap: 8,
           indicator: { instanceId: options.instanceId, definitionId: options.indicatorId },
           hidden: options.hidden === true,
+          loading: context.indicatorAvailability?.isLoading(options.instanceId) === true,
           texts: [
             { text: title?.name ?? options.title, color: colors.text.primary },
             ...(title?.params?.length

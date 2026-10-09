@@ -152,7 +152,7 @@
 
   const emit = defineEmits<{
     toggle: [indicatorId: string, active: boolean]
-    updateParams: [indicatorId: string, params: Record<string, number>]
+    updateParams: [indicatorId: string, params: Record<string, number | string>]
     reorderSubIndicators: [orderedIndicatorIds: string[]]
     replace: [paneId: string, indicatorId: string]
     close: []
@@ -308,20 +308,22 @@
     emit('close')
   }
 
-  function getParamValues(indicatorId: string): Record<string, number> {
+  function getParamValues(indicatorId: string): Record<string, number | string> {
     const indicator = findIndicator(indicatorId)
     if (!indicator?.params) return {}
 
-    const defaultParams: Record<string, number> = {}
+    const defaultParams: Record<string, number | string> = {}
     for (const p of indicator.params) {
-      defaultParams[p.key] = p.default ?? p.min ?? 1
+      // 选项参数缺少默认值时回退到首个选项，避免非数值默认写入枚举参数。
+      defaultParams[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
     const userParams = props.indicatorParams?.[indicatorId] || {}
-    const result: Record<string, number> = { ...defaultParams }
+    const result: Record<string, number | string> = { ...defaultParams }
 
+    // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
     for (const [key, value] of Object.entries(userParams)) {
-      if (typeof value === 'number') {
+      if (typeof value === 'number' || typeof value === 'string') {
         result[key] = value
       }
     }
@@ -329,7 +331,7 @@
     return result
   }
 
-  function onParamsConfirm(values: Record<string, number>) {
+  function onParamsConfirm(values: Record<string, number | string>) {
     if (currentIndicatorId.value) {
       emit('updateParams', currentIndicatorId.value, values)
     }

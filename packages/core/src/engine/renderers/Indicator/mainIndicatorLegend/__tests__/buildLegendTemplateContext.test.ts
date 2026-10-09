@@ -123,6 +123,7 @@ describe('buildLegendTemplateContext indicator rows', () => {
         instanceId: 'main:MA',
         definitionId: 'MA',
         hidden: false,
+        loading: false,
         name: 'MA',
         params: undefined,
         values: [],

@@ -46,8 +46,11 @@ export interface LegendIndicatorRow {
   definitionId: string
   /** 隐藏的指标图例保留并置灰。 */
   hidden: boolean
+  /** 指标实例仍在异步加载：行内展示加载圈。 */
+  loading: boolean
   name: string
-  params?: number[]
+  /** 参数文本片段；数字参数与枚举参数统一按顺序拼接展示。 */
+  params?: (number | string)[]
   values?: TitleValueItem[]
 }
 

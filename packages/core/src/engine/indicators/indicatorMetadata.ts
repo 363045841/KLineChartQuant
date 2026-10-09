@@ -174,7 +174,8 @@ export interface TitleValueItem {
  */
 export interface TitleInfo {
   name: string
-  params?: number[]
+  /** 参数文本片段；数字参数与枚举参数统一按顺序拼接展示。 */
+  params?: (number | string)[]
   values?: TitleValueItem[]
 }
 

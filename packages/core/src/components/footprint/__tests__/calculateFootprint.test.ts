@@ -9,6 +9,7 @@ import {
 } from '../../../data/trades/types.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { createFootprintCalculator } from '../impl/calculateFootprint.js'
+import { FOOTPRINT_METRICS, type FootprintParams } from '../types.js'
 
 const data: KLineData[] = [1000, 2000].map((timestamp) => ({
   timestamp,
@@ -17,7 +18,11 @@ const data: KLineData[] = [1000, 2000].map((timestamp) => ({
   low: 1,
   close: 1,
 }))
-const params = { ticksPerRow: 1, imbalanceRatio: 3 }
+const params: FootprintParams = {
+  ticksPerRow: 1,
+  imbalanceRatio: 3,
+  metric: FOOTPRINT_METRICS.Turnover,
+}
 const trade = (
   tradeId: string,
   timestamp: number,
@@ -55,11 +60,11 @@ describe('Footprint calculator', () => {
     )
     expect(result.bars[0]).toMatchObject({
       timestamp: 1000,
-      totalValue: '0.36',
+      total: '0.36',
       delta: '0.36',
       complete: true,
     })
-    expect(result.bars[1]).toMatchObject({ timestamp: 2000, totalValue: '0.44', delta: '-0.44' })
+    expect(result.bars[1]).toMatchObject({ timestamp: 2000, total: '0.44', delta: '-0.44' })
     expect(result.bars[0]?.cells[0]?.price).toBe('1.2')
   })
 
@@ -73,13 +78,13 @@ describe('Footprint calculator', () => {
       ...second,
       batches: [...second.batches, batch([trade('2', 1500, '1.2', '0.2', 'buy')])],
     })
-    expect(result.bars[0]?.totalValue).toBe('0.36')
+    expect(result.bars[0]?.total).toBe('0.36')
   })
 
   // 完整范围的空柱是零，未覆盖的空柱必须是 undefined。
   it('distinguishes a covered zero-volume candle from unavailable data', () => {
     const result = createFootprintCalculator()(data, params, input([batch([])]))
-    expect(result.bars[0]).toMatchObject({ complete: true, totalValue: '0', cells: [] })
+    expect(result.bars[0]).toMatchObject({ complete: true, total: '0', cells: [] })
     expect(result.bars[1]).toBeUndefined()
     const gap = createFootprintCalculator()(data, params, input([batch([], 1000, 2000, false)]))
     expect(gap.bars[0]).toBeUndefined()
@@ -94,6 +99,24 @@ describe('Footprint calculator', () => {
     const result = compute(prepended, { ...params, ticksPerRow: 2 }, snapshot)
     expect(result.bars[1]?.timestamp).toBe(1000)
     expect(result.bars[1]?.cells[0]?.price).toBe('1.2')
-    expect(result.bars[1]?.totalValue).toBe('2.58')
+    expect(result.bars[1]?.total).toBe('2.58')
+  })
+
+  // 成交量为口径时按原数量累计，不再乘以价格。
+  it('aggregates raw size when the metric is volume', () => {
+    const result = createFootprintCalculator()(
+      data,
+      { ...params, metric: FOOTPRINT_METRICS.Volume },
+      input([
+        batch([
+          trade('1', 1000, '1.2', '0.1', 'buy'),
+          trade('2', 1000, '1.2', '0.2', 'buy'),
+          trade('3', 2000, '1.1', '0.4', 'sell'),
+        ]),
+      ]),
+    )
+    expect(result.bars[0]).toMatchObject({ total: '0.3', delta: '0.3' })
+    expect(result.bars[1]).toMatchObject({ total: '0.4', delta: '-0.4' })
+    expect(result.bars[0]?.cells[0]).toMatchObject({ ask: '0.3', bid: '0' })
   })
 })

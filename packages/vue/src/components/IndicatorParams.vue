@@ -41,18 +41,34 @@
               {{ param.min ?? '-∞' }} ~ {{ param.max ?? '+∞' }}
             </span>
           </label>
-          <div class="input-wrapper">
+          <DropMenu
+            v-if="param.type === 'select'"
+            :label="param.label"
+            :groups="optionGroups(param)"
+            density="compact"
+            @select="selectOption"
+          >
+            <template #trigger>
+              <span class="selection-menu__value">{{ optionLabel(param) }}</span>
+              <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+            </template>
+            <template #item-action="{ item }">
+              <span v-if="isOptionSelected(param.key, item.id)" class="drop-menu__status">
+                <IconTablerCheck aria-hidden="true" />
+              </span>
+            </template>
+          </DropMenu>
+          <div v-else class="input-wrapper">
             <button
               type="button"
               class="stepper-btn"
               aria-label="减少"
-              :disabled="param.min !== undefined && (localValues[param.key] ?? 0) <= param.min"
+              :disabled="param.min !== undefined && numberValue(param.key) <= param.min"
               @click="step(param, -1)"
             >
               <IconTablerMinus aria-hidden="true" />
             </button>
             <input
-              v-if="param.type === 'number'"
               type="number"
               class="param-input"
               :value="localValues[param.key]"
@@ -65,7 +81,7 @@
               type="button"
               class="stepper-btn"
               aria-label="增加"
-              :disabled="param.max !== undefined && (localValues[param.key] ?? 0) >= param.max"
+              :disabled="param.max !== undefined && numberValue(param.key) >= param.max"
               @click="step(param, 1)"
             >
               <IconTablerPlus aria-hidden="true" />
@@ -91,25 +107,22 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, watch } from 'vue'
+  import type { ParamConfig } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorCatalog'
 
+  import IconTablerCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
 
+  import {
+    type IndicatorParamValues,
+    useIndicatorParams,
+  } from '../composables/useIndicatorParams.js'
+
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
-
-  interface ParamConfig {
-    key: string
-    label: string
-    type: 'number'
-    min?: number
-    max?: number
-    step?: number
-    default?: number
-    description?: string
-  }
+  import DropMenu from './DropMenu.vue'
 
   const props = defineProps<{
     visible: boolean
@@ -117,54 +130,28 @@
     indicatorName: string
     indicatorDescription?: string
     params: ParamConfig[]
-    values: Record<string, number>
+    values: IndicatorParamValues
   }>()
 
   const emit = defineEmits<{
     close: []
-    confirm: [values: Record<string, number>]
+    confirm: [values: IndicatorParamValues]
   }>()
 
-  const localValues = ref<Record<string, number>>({ ...props.values })
-  const showDescription = ref(true)
+  const {
+    localValues,
+    showDescription,
+    numberValue,
+    onInput,
+    step,
+    optionGroups,
+    isOptionSelected,
+    optionLabel,
+    selectOption,
+    onReset,
+  } = useIndicatorParams(props)
 
-  watch(
-    () => props.values,
-    (newValues) => {
-      localValues.value = { ...newValues }
-    },
-    { deep: true, immediate: true },
-  )
-
-  watch(
-    () => props.visible,
-    (visible) => {
-      if (visible) localValues.value = { ...props.values }
-    },
-  )
-
-  function onInput(key: string, event: Event) {
-    const target = event.target as HTMLInputElement
-    const value = parseFloat(target.value)
-    if (!isNaN(value)) localValues.value[key] = value
-  }
-
-  function step(param: ParamConfig, direction: 1 | -1) {
-    const s = param.step || 1
-    let next = (localValues.value[param.key] || 0) + direction * s
-    if (param.min !== undefined) next = Math.max(param.min, next)
-    if (param.max !== undefined) next = Math.min(param.max, next)
-    localValues.value[param.key] = parseFloat(next.toFixed(10))
-  }
-
-  function onReset() {
-    const defaults: Record<string, number> = {}
-    props.params.forEach((p) => {
-      defaults[p.key] = p.default ?? props.values[p.key] ?? 0
-    })
-    localValues.value = defaults
-  }
-
+  /** 提交参数草稿并关闭弹窗。 */
   function onConfirm() {
     emit('confirm', { ...localValues.value })
   }
@@ -375,3 +362,5 @@
     margin-bottom: 0;
   }
 </style>
+
+<style scoped src="./common/selection-menu.css"></style>

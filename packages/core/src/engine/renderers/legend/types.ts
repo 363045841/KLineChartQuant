@@ -20,6 +20,8 @@ export interface LegendRow {
   comparison?: { identity: string }
   /** 指标被隐藏：行保留并置灰，工具条切换为“显示指标”。 */
   hidden?: boolean
+  /** 指标仍在异步加载：行内展示加载圈。 */
+  loading?: boolean
 }
 
 export const LEGEND_ACTION_EVENT = 'klc:legend-action'

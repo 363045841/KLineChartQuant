@@ -1,6 +1,17 @@
 /** Footprint 标准指标定义及 Layer；复用帧柱中心、价格轴和 token 配色，不创建第二套画布。 */
 import { createFootprintCalculator } from '@/components/footprint/impl/calculateFootprint.js'
-import type { FootprintCell, FootprintRenderState } from '@/components/footprint/types.js'
+import type {
+  FootprintCell,
+  FootprintMetric,
+  FootprintRenderState,
+  FootprintTextMode,
+} from '@/components/footprint/types.js'
+import {
+  FOOTPRINT_METRIC_OPTIONS,
+  FOOTPRINT_METRICS,
+  FOOTPRINT_TEXT_MODES,
+  FOOTPRINT_TEXT_OPTIONS,
+} from '@/components/footprint/types.js'
 import { Indicator } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
@@ -73,7 +84,7 @@ function resolveLabelFontSize(
   return fontSize >= MIN_LABEL_FONT_SIZE ? fontSize : 0
 }
 
-/** 可视区共用成交额比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
+/** 可视区共用数值比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
 function createFootprintLayer(
   options: { paneId?: string; instanceId?: string } = {},
 ): Layer<RenderContext> {
@@ -86,14 +97,16 @@ function createFootprintLayer(
         ? context.indicatorStateReader?.get<FootprintRenderState>(options.instanceId)
         : undefined
       if (!state) return
+      const textMode = state.textMode ?? FOOTPRINT_TEXT_MODES.BidAsk
+      const isBidAsk = textMode === FOOTPRINT_TEXT_MODES.BidAsk
       const { ctx, pane, range, kLineCenters, scrollLeft } = context
       const start = Math.max(0, range.start)
       const end = Math.min(range.end, state.series.bars.length)
-      // 全部可见柱、两侧和所有价位共用一个上限，保证宽度能直接比较成交额。
+      // 全部可见柱、两侧和所有价位共用一个上限，保证宽度能直接比较数值。
       let maxValue = 0
       for (let index = start; index < end; index++) {
         for (const cell of state.series.bars[index]?.cells ?? []) {
-          maxValue = Math.max(maxValue, Number(cell.bidValue), Number(cell.askValue))
+          maxValue = Math.max(maxValue, Number(cell.bid), Number(cell.ask))
         }
       }
       const rowSize = Number(state.series.rowSize)
@@ -146,10 +159,10 @@ function createFootprintLayer(
             continue
           }
           if (bottom <= 0 || top >= pane.height) continue
-          const bid = Number(cell.bidValue)
-          const ask = Number(cell.askValue)
+          const bid = Number(cell.bid)
+          const ask = Number(cell.ask)
           if (maxValue <= 0 || (bid <= 0 && ask <= 0)) continue
-          // 高度表示价格档位，宽度只表示成交额；档位之间留一个物理像素间隔。
+          // 高度表示价格档位，宽度只表示当前口径数值；档位之间留一个物理像素间隔。
           const gap = height >= 3 * pixel ? pixel : 0
           const rectTop = Math.max(0, top)
           const rectBottom = Math.min(
@@ -183,22 +196,26 @@ function createFootprintLayer(
             const textY = roundToPhysicalPixel((top + bottom) / 2, context.dpr)
             const textTop = textY - labelFontSize / 2
             const textBottom = textY + labelFontSize / 2
-            const bidText = compactValue(cell.bidValue)
-            const askText = compactValue(cell.askValue)
+            // 单值模式使用当前口径的合计或差（Ask − Bid），统一在中轴左侧显示。
+            const value = textMode === FOOTPRINT_TEXT_MODES.Volume ? bid + ask : ask - bid
+            const bidText = isBidAsk
+              ? compactValue(cell.bid)
+              : `${textMode === FOOTPRINT_TEXT_MODES.Delta && value > 0 ? '+' : ''}${compactValue(String(value))}`
+            const askText = isBidAsk ? compactValue(cell.ask) : ''
             ctx.font = getFont(labelFontSize, { bold: true })
             const availableWidth = halfWidth - 4
             if (
               textTop >= 0 &&
               textBottom <= pane.height &&
               ctx.measureText(bidText).width <= availableWidth &&
-              ctx.measureText(askText).width <= availableWidth
+              (!isBidAsk || ctx.measureText(askText).width <= availableWidth)
             ) {
               labels.push({
                 y: textY,
                 fontSize: labelFontSize,
                 bid: bidText,
                 ask: askText,
-                bidImbalance: cell.bidImbalance,
+                bidImbalance: isBidAsk && cell.bidImbalance,
                 askImbalance: cell.askImbalance,
               })
             }
@@ -212,10 +229,12 @@ function createFootprintLayer(
           ctx.textAlign = 'right'
           ctx.fillStyle = footprintColors.text
           ctx.fillText(label.bid, x - 2, label.y)
-          ctx.font = getFont(label.fontSize, { bold: label.askImbalance })
-          ctx.textAlign = 'left'
-          ctx.fillStyle = footprintColors.text
-          ctx.fillText(label.ask, x + 2, label.y)
+          if (isBidAsk) {
+            ctx.font = getFont(label.fontSize, { bold: label.askImbalance })
+            ctx.textAlign = 'left'
+            ctx.fillStyle = footprintColors.text
+            ctx.fillText(label.ask, x + 2, label.y)
+          }
         }
         ctx.textBaseline = 'alphabetic'
         if (width >= MIN_LABEL_COLUMN_WIDTH && Number.isFinite(lowestVisibleY)) {
@@ -246,10 +265,37 @@ function compactValue(value: string): string {
   return valueFormatter.format(Number(value))
 }
 
+/** 归一化文本模式，未知值回退到 Bid Ask。 */
+function resolveFootprintTextMode(value: unknown): FootprintTextMode {
+  return value === FOOTPRINT_TEXT_MODES.Volume || value === FOOTPRINT_TEXT_MODES.Delta
+    ? value
+    : FOOTPRINT_TEXT_MODES.BidAsk
+}
+
+/** 归一化数值口径，未知值回退到成交额。 */
+function resolveFootprintMetric(value: unknown): FootprintMetric {
+  return value === FOOTPRINT_METRICS.Volume ? FOOTPRINT_METRICS.Volume : FOOTPRINT_METRICS.Turnover
+}
+
+/** 文本模式的展示名称，用于标题参数文本。 */
+function footprintTextModeLabel(mode: FootprintTextMode): string {
+  return FOOTPRINT_TEXT_OPTIONS.find((option) => option.value === mode)?.label ?? mode
+}
+
+/** 数值口径的展示名称，用于标题参数文本。 */
+function footprintMetricLabel(metric: FootprintMetric): string {
+  return FOOTPRINT_METRIC_OPTIONS.find((option) => option.value === metric)?.label ?? metric
+}
+
 /** 图例标题：只声明身份与参数，足迹的逐柱数值留在画布，不进入标题行。 */
 const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
   name: '足迹图',
-  params: [params.ticksPerRow as number, params.imbalanceRatio as number],
+  params: [
+    params.ticksPerRow as number,
+    params.imbalanceRatio as number,
+    footprintMetricLabel(resolveFootprintMetric(params.metric)),
+    footprintTextModeLabel(resolveFootprintTextMode(params.textMode)),
+  ],
 })
 
 @Indicator({
@@ -260,9 +306,14 @@ const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
   indicatorType: 'volume',
   defaultPaneId: 'main',
   getTitleInfo: getFootprintTitleInfo,
+  presentation: { defaultOptions: { textMode: FOOTPRINT_TEXT_MODES.BidAsk } },
   runtime: {
     inputs: ['trades'],
-    defaultParams: { ticksPerRow: 300, imbalanceRatio: 3 },
+    defaultParams: {
+      ticksPerRow: 300,
+      imbalanceRatio: 3,
+      metric: FOOTPRINT_METRICS.Turnover,
+    },
     computeKey: 'calcFootprint',
     createCompute: createFootprintCalculator,
     compute: (data, params, trades) => createFootprintCalculator()(data, params, trades),
@@ -283,8 +334,11 @@ const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
       return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
     },
     composeRenderState(entry, _range, timestamp) {
-      const source = readIndicatorSeriesEntry<FootprintRenderState>(entry, 'footprint')
-      return { series: source.series, timestamp }
+      const source = readIndicatorSeriesEntry<
+        FootprintRenderState & { params?: Readonly<Record<string, unknown>> }
+      >(entry, 'footprint')
+      const textMode = resolveFootprintTextMode(source.params?.textMode)
+      return { series: source.series, timestamp, textMode }
     },
   },
 })

@@ -1,4 +1,10 @@
 import {
+  FOOTPRINT_METRIC_OPTIONS,
+  FOOTPRINT_METRICS,
+  FOOTPRINT_TEXT_MODES,
+  FOOTPRINT_TEXT_OPTIONS,
+} from '@/components/footprint/types.js'
+import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
 } from '../../indicators/indicatorDefinitionRegistry.js'
@@ -12,11 +18,12 @@ import {
 export interface ParamConfig {
   key: string
   label: string
-  type: 'number'
+  type: 'number' | 'select'
   min?: number
   max?: number
   step?: number
-  default?: number
+  default?: number | string
+  options?: ReadonlyArray<{ value: string; label: string }>
   description?: string
 }
 
@@ -69,6 +76,20 @@ const uiMeta: Record<
         max: 100,
         step: 1,
         default: 3,
+      },
+      {
+        key: 'metric',
+        label: '数值类型',
+        type: 'select',
+        default: FOOTPRINT_METRICS.Turnover,
+        options: FOOTPRINT_METRIC_OPTIONS,
+      },
+      {
+        key: 'textMode',
+        label: '文本模式',
+        type: 'select',
+        default: FOOTPRINT_TEXT_MODES.BidAsk,
+        options: FOOTPRINT_TEXT_OPTIONS,
       },
     ],
   },
@@ -1382,7 +1403,7 @@ function resolveRuntimeDefaultParams(value: unknown): RuntimeDefaultParams {
   return isDefaultParamsObject(value) ? value : {}
 }
 
-/** 组装参数配置：结构来自 uiMeta，默认值优先取自注册表声明的 runtime.defaultParams。 */
+/** 组装参数配置：结构来自 uiMeta，默认值优先取自注册表声明的计算参数与展示默认项。 */
 function buildParamConfigs(
   params: ReadonlyArray<ParamConfig> | undefined,
   runtimeDefaults: RuntimeDefaultParams,
@@ -1391,7 +1412,9 @@ function buildParamConfigs(
   return params.map((param) => {
     const runtimeDefault = runtimeDefaults[param.key]
     // 注册表未声明该 key 或值非数字时保留 uiMeta 默认值。
-    return typeof runtimeDefault === 'number' ? { ...param, default: runtimeDefault } : param
+    return typeof runtimeDefault === 'number' || typeof runtimeDefault === 'string'
+      ? { ...param, default: runtimeDefault }
+      : param
   })
 }
 
@@ -1404,7 +1427,10 @@ function rebuildIfStale(): Indicator[] {
       .map((def) => {
         const key = normalizeId(def.name)
         const ui = uiMeta[key]
-        const runtimeDefaults = resolveRuntimeDefaultParams(def.runtime?.defaultParams)
+        const runtimeDefaults = {
+          ...resolveRuntimeDefaultParams(def.runtime?.defaultParams),
+          ...def.presentation?.defaultOptions,
+        }
         return {
           id: def.displayName,
           label: def.displayName,

@@ -8,8 +8,10 @@
  * 4. 协调副图 renderer 与主图 legend，并注册实例状态与目录服务。
  */
 
+import { TRADE_STATUS } from '../../data/trades/types.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type {
+  IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
   PluginHostImpl,
   RenderContext,
@@ -44,8 +46,11 @@ import {
 } from './indicatorDefinitionRegistry.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
 import {
+  INDICATOR_AVAILABILITY_SERVICE,
+  INDICATOR_AVAILABILITY_SOURCE,
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   INDICATOR_INSTANCE_STATE_SERVICE,
+  type IndicatorAvailabilityRegistry,
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
@@ -186,6 +191,8 @@ export class ChartIndicatorManager {
   private hasData = false
   private resultPool: IndicatorResultPool | null = null
   private renderStates: ReadonlyMap<string, unknown> = new Map()
+  /** 每个实例尚未完成的异步来源集合；集合非空即视为加载中。 */
+  private readonly availabilitySources = new Map<string, Set<string>>()
 
   /** 返回当前绘制投影的身份，供帧内容版本检测异步指标提交。 */
   getRenderStatesSnapshot(): ReadonlyMap<string, unknown> {
@@ -316,6 +323,11 @@ export class ChartIndicatorManager {
     const paneSpecs = this.deps.paneSpecs$()
     const paneRatios = this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
+    // 实例移除后清理其可用性来源，避免残留的 loading 在重新启用时无法复位。
+    const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
+    for (const instanceId of [...this.availabilitySources.keys()]) {
+      if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
+    }
     const subPanes: SubPaneSpec[] = instances
       .filter((instance) => instance.role === 'sub')
       .map((instance) => ({
@@ -499,6 +511,46 @@ export class ChartIndicatorManager {
     const host = this.deps.getPluginHost()
     host.registerService(INDICATOR_INSTANCE_STATE_SERVICE, this.createRenderStateReader())
     host.registerService(INDICATOR_INSTANCE_CATALOG_SERVICE, this.createInstanceCatalog())
+    host.registerService(INDICATOR_AVAILABILITY_SERVICE, this.createAvailabilityRegistry())
+  }
+
+  /**
+   * 上报某异步来源在实例上的等待状态。
+   *
+   * source 为不透明 token，聚合层只用它区分来源，不解释其含义；多来源以集合叠加，
+   * 任一来源未完成即视为加载中。
+   */
+  reportAvailability(instanceId: string, source: string, pending: boolean): void {
+    const sources = this.availabilitySources.get(instanceId)
+    if (pending) {
+      if (sources?.has(source)) return
+      const next = sources ?? new Set<string>()
+      next.add(source)
+      this.availabilitySources.set(instanceId, next)
+    } else {
+      if (!sources?.delete(source)) return
+      if (sources.size === 0) this.availabilitySources.delete(instanceId)
+    }
+    this.deps.scheduleDraw()
+  }
+
+  /** 指定实例是否仍在等待任一异步来源完成。 */
+  private isInstanceLoading(instanceId: string): boolean {
+    return (this.availabilitySources.get(instanceId)?.size ?? 0) > 0
+  }
+
+  /** 供帧上下文读取实例异步可用性的只读视图。 */
+  createAvailabilityReader(): IndicatorAvailabilityReader {
+    return { isLoading: (instanceId) => this.isInstanceLoading(instanceId) }
+  }
+
+  /** 供宿主注册的实例可用性注册表：第三方异步来源经此上报。 */
+  private createAvailabilityRegistry(): IndicatorAvailabilityRegistry {
+    return Object.freeze({
+      report: (instanceId: string, source: string, pending: boolean) =>
+        this.reportAvailability(instanceId, source, pending),
+      isLoading: (instanceId: string) => this.isInstanceLoading(instanceId),
+    })
   }
 
   /** 当前启用实例目录；主图图例按实例枚举。 */
@@ -556,17 +608,43 @@ export class ChartIndicatorManager {
       ...input,
       revision: Math.max(input.revision, (this.tradeInput?.revision ?? 0) + 1),
     }
+    // 声明了 trades 输入的实例按成交快照状态上报领域加载态；映射留在边界，领域侧不感知可用性。
+    const tradesLoading = input.status === TRADE_STATUS.loading
+    for (const instance of this.deps.indicator.readonly.instances.peek()) {
+      const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+      if (definition?.runtime?.inputs?.includes('trades')) {
+        this.reportAvailability(
+          instance.instanceId,
+          INDICATOR_AVAILABILITY_SOURCE.trades,
+          tradesLoading,
+        )
+      }
+    }
     this.requestCompute()
   }
 
   private requestCompute(): void {
     if (!this.hasData) return
-    void this.calculationScheduler.compute({
-      dataRevision: this.dataRevision,
-      timestamps: this.displayTimestamps ?? this.currentTimestamps,
-      data: this.currentData,
-      trades: this.tradeInput,
-    })
+    // 仅当实例尚无已提交结果时标记为计算中：已有结果的重算不显示加载圈，避免闪烁。
+    const pending: string[] = []
+    for (const instance of this.deps.indicator.readonly.instances.peek()) {
+      if (!this.renderStates.has(instance.instanceId)) pending.push(instance.instanceId)
+    }
+    for (const instanceId of pending) {
+      this.reportAvailability(instanceId, INDICATOR_AVAILABILITY_SOURCE.compute, true)
+    }
+    void this.calculationScheduler
+      .compute({
+        dataRevision: this.dataRevision,
+        timestamps: this.displayTimestamps ?? this.currentTimestamps,
+        data: this.currentData,
+        trades: this.tradeInput,
+      })
+      .finally(() => {
+        for (const instanceId of pending) {
+          this.reportAvailability(instanceId, INDICATOR_AVAILABILITY_SOURCE.compute, false)
+        }
+      })
   }
 
   /** 提交最新结果池：先投影到展示时间轴，再生成帧级渲染投影。 */

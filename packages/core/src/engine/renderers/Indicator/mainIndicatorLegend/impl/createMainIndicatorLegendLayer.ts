@@ -55,6 +55,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
     indicator?: LegendRow['indicator'],
     hidden?: boolean,
     comparison?: LegendRow['comparison'],
+    loading?: boolean,
   ): void {
     rows.push({
       key,
@@ -68,6 +69,7 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       indicator,
       hidden,
       comparison,
+      loading,
     })
   }
   const ts = legend.timeshare
@@ -128,6 +130,8 @@ export function buildMainLegendRows(legend: LegendTemplateContext, paneTop: numb
       ],
       { instanceId: title.instanceId, definitionId: title.definitionId },
       title.hidden,
+      undefined,
+      title.loading,
     )
   }
   for (const comparison of legend.comparisons) {
