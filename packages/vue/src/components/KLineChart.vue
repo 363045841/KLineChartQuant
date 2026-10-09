@@ -97,7 +97,14 @@
             href="https://github.com/363045841/KLineChartQuant"
             target="_blank"
             rel="noopener noreferrer"
-            :style="{ bottom: `${props.bottomAxisHeight + 8}px` }"
+            :style="{
+              bottom: `${props.bottomAxisHeight + 8}px`,
+              '--chart-brand-axis-width': `${
+                chartMode === 'timeshare'
+                  ? props.rightAxisWidth + props.priceLabelWidth
+                  : priceAxisPosition === 'left' ? axisHostWidth : 0
+              }px`,
+            }"
             aria-label="KlineChartQuant"
           >KlineChartQuant</a>
           <div
@@ -2030,7 +2037,8 @@
 
   .chart-brand {
     position: absolute;
-    left: 12px;
+    /* 品牌锚定绘图区左边缘，随分时左轴或左侧价格轴的宽度移动。 */
+    left: calc(var(--chart-brand-axis-width) + 12px);
     /* Canvas 叠层最高为 3；品牌位于其上，低于 tooltip 等交互浮层。 */
     z-index: 4;
     color: var(--klc-color-ui-text);
