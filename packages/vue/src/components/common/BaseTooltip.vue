@@ -19,6 +19,7 @@
         class="base-tooltip"
         :class="[`base-tooltip--${placement}`, { 'is-styled': styled }]"
         :style="tooltipStyle"
+        :popover="topLayer ? 'manual' : undefined"
         role="tooltip"
       >
         <slot name="content">{{ content }}</slot>
@@ -28,6 +29,9 @@
 </template>
 
 <script setup lang="ts">
+  import { watch } from 'vue'
+
+  import { supportsPopover } from '../../composables/overlay/platform.js'
   import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
   import { type TooltipPlacement, useTooltip } from '../../composables/useTooltip.js'
 
@@ -78,6 +82,20 @@
     hideDelay: () => props.hideDelay,
     disabled: () => props.disabled,
   })
+
+  /**
+   * 提示进入 top layer（popover="manual"），才能显示在 Popover API 菜单与模态 dialog 之上；
+   * 坐标仍由 useTooltip 以视口 fixed 坐标计算（top layer 不受祖先 transform 影响）。
+   */
+  const topLayer = supportsPopover()
+  watch(tooltipRef, (element) => {
+    if (!topLayer || !element) return
+    try {
+      element.showPopover()
+    } catch {
+      // 已打开或尚未连接到文档。
+    }
+  })
 </script>
 
 <style scoped>
@@ -94,15 +112,19 @@
 
   .base-tooltip {
     position: fixed;
-    /* 高于 BaseModal 浮层(1000/1100)，否则弹窗内的提示会被遮挡。 */
-    z-index: 1200;
-    padding: 4px 8px;
+    /* 覆盖 UA 的 popover 默认样式（inset: 0; margin: auto; overflow: auto）。 */
+    inset: auto;
+    margin: 0;
+    overflow: visible;
+    /* 高于弹层与模态（tokens-v2 z-index 分层），否则弹窗内的提示会被遮挡。 */
+    z-index: var(--klc-z-index-tooltip, 1200);
+    padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px);
     border: 1px solid var(--klc-color-tooltip-border);
-    border-radius: 4px;
+    border-radius: var(--klc-radius-xs, 4px);
     background: var(--klc-color-tooltip-bg);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    box-shadow: var(--klc-elevation-2, 0 4px 14px rgb(0 0 0 / 0.14));
     color: var(--klc-color-tooltip-text);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.5;
     white-space: nowrap;
     pointer-events: none;
@@ -147,5 +169,17 @@
   .base-tooltip--bottom.base-tooltip-enter-from,
   .base-tooltip--bottom.base-tooltip-leave-to {
     transform: translateY(-4px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .base-tooltip-enter-active,
+    .base-tooltip-leave-active {
+      transition: opacity 0.12s linear;
+    }
+
+    .base-tooltip.base-tooltip-enter-from,
+    .base-tooltip.base-tooltip-leave-to {
+      transform: none;
+    }
   }
 </style>

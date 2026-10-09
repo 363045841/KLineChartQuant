@@ -3,59 +3,49 @@
   调用方通过 #tabs 提供数据源 tab、通过 #body 提供列表内容，弹层样式在本组件内统一。
 -->
 <template>
-  <Teleport :to="teleportTarget">
-    <Transition name="symbol-popover">
-      <div v-if="show" class="symbol-popover-overlay" @pointerdown.self="close">
-      <div
-        ref="panelRef"
-        class="symbol-popover"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="dialogLabel"
-        @keydown.esc.stop.prevent="close"
-        @keydown.tab="trapFocus"
-      >
-        <header class="symbol-popover__header">
-          <span>{{ dialogLabel }}</span>
-          <BaseTooltip content="关闭" placement="bottom">
-            <button type="button" class="symbol-popover__close" aria-label="关闭" @click="close">
-              <IconX aria-hidden="true" />
-            </button>
-          </BaseTooltip>
-        </header>
-        <div class="symbol-popover__filters">
-          <slot name="tabs" />
-        </div>
-        <div class="symbol-popover__search">
-          <SearchField
-            ref="searchFieldRef"
-            v-model="search"
-            :placeholder="searchPlaceholder"
-            :aria-label="searchAriaLabel"
-          />
-          <AggregationSourceButton @click="emit('manageSources')" />
-        </div>
-        <div class="symbol-popover__body"><slot name="body" /></div>
+  <BaseModal
+    :show="show"
+    :title="dialogLabel"
+    width="min(560px, calc(100vw - 32px))"
+    max-height="calc(100dvh - 32px)"
+    overlay-padding="var(--klc-space-16, 16px)"
+    body-padding="0"
+    @close="emit('close')"
+  >
+    <template #tabs>
+      <div class="symbol-popover__filters">
+        <slot name="tabs" />
       </div>
+      <div class="symbol-popover__search">
+        <SearchField
+          ref="searchField"
+          v-model="search"
+          :placeholder="searchPlaceholder"
+          :aria-label="searchAriaLabel"
+          autofocus
+        />
+        <AggregationSourceButton @click="emit('manageSources')" />
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+    <slot name="body" />
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
-  import { nextTick, ref, watch } from 'vue'
-  import IconX from '~icons/tabler/x'
-  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
+  import { nextTick, useTemplateRef, watch } from 'vue'
   import AggregationSourceButton from './AggregationSourceButton.vue'
-  import BaseTooltip from './common/BaseTooltip.vue'
+  import BaseModal from './BaseModal.vue'
   import SearchField from './common/SearchField.vue'
 
   const props = withDefaults(
     defineProps<{
       /** 弹层是否展开 */
       show: boolean
-      /** 触发元素，用于弹层定位与点击外部判定 */
-      anchor: HTMLElement | null
+      /**
+       * 触发元素。弹层已改为原生模态 dialog，关闭后焦点自动回到打开前的元素；
+       * 保留该属性以兼容旧调用方。
+       */
+      anchor?: HTMLElement | null
       /** 弹层可访问名称 */
       dialogLabel: string
       /** 搜索框占位文案 */
@@ -64,6 +54,7 @@
       searchAriaLabel?: string
     }>(),
     {
+      anchor: null,
       searchPlaceholder: '搜索',
       searchAriaLabel: '搜索',
     },
@@ -76,137 +67,46 @@
     (e: 'manageSources'): void
   }>()
 
-  const panelRef = ref<HTMLElement | null>(null)
-  const searchFieldRef = ref<InstanceType<typeof SearchField> | null>(null)
-  const teleportTarget = useFullscreenTeleportTarget()
+  const searchField = useTemplateRef<InstanceType<typeof SearchField>>('searchField')
 
-  /** 展开时同步定位并聚焦搜索框，收起时停止监听 */
-  function close(): void {
-    emit('close')
-    props.anchor?.querySelector<HTMLButtonElement>('button')?.focus()
-  }
-
-  function trapFocus(event: KeyboardEvent): void {
-    const targets = panelRef.value?.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
-    )
-    if (!targets?.length) return
-    const first = targets[0]
-    const last = targets[targets.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last?.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first?.focus()
-    }
-  }
-
+  // showModal() 后把焦点放到搜索框（dialog 默认聚焦第一个可聚焦元素，即关闭按钮）。
   watch(
     () => props.show,
     (open) => {
-      if (open) {
-        nextTick(() => searchFieldRef.value?.focus())
-      }
+      if (open) void nextTick(() => requestAnimationFrame(() => searchField.value?.focus()))
     },
+    { immediate: true },
   )
 </script>
 
 <style scoped>
-  .symbol-popover-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1010;
-    display: grid;
-    place-items: center;
-    padding: 16px;
-    box-sizing: border-box;
-    background: rgba(0, 0, 0, 0.35);
-  }
-
-  .symbol-popover {
-    z-index: 1010;
-    width: min(560px, calc(100vw - 32px));
-    max-height: calc(100dvh - 32px);
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-surface);
-    color: var(--klc-color-ui-text);
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  }
-
   .symbol-popover__filters {
-    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
-    padding: 0;
   }
 
-  .symbol-popover__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex: 0 0 auto;
-    min-height: 40px;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .symbol-popover__close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    color: var(--klc-color-ui-muted);
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .symbol-popover__close:hover {
-    background: var(--klc-color-ui-hover);
-  }
-
-  .symbol-popover__close svg {
-    width: 15px;
-    height: 15px;
+  .symbol-popover__filters:empty {
+    display: none;
   }
 
   .symbol-popover__filters :deep(.base-tabs) {
-    padding: 0 12px;
+    padding: 0 var(--klc-space-12, 12px);
     border-bottom: 0;
   }
 
   .symbol-popover__filters :deep(.base-tabs__tab) {
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding-top: var(--klc-space-8, 8px);
+    padding-bottom: var(--klc-space-8, 8px);
   }
 
   .symbol-popover__filters :deep(.base-tabs__indicator) {
     bottom: 6px;
   }
 
-  .symbol-popover__body {
-    min-height: 0;
-    overflow-y: auto;
-  }
-
   .symbol-popover__search {
     display: flex;
     align-items: center;
-    flex: 0 0 auto;
-    gap: 0;
     min-height: 42px;
-    padding: 0;
     border-top: 1px solid var(--klc-color-ui-border);
     border-bottom: 1px solid var(--klc-color-ui-border);
     background: var(--klc-color-ui-surface);
@@ -214,30 +114,13 @@
 
   .symbol-popover__search :deep(.search-field) {
     height: 42px;
-    padding: 0 12px;
+    padding: 0 var(--klc-space-12, 12px);
     border: 0;
     border-radius: 0;
     background: transparent;
   }
 
   .symbol-popover__search :deep(.source-button) {
-    margin-right: 12px;
-  }
-
-  .symbol-popover-enter-active,
-  .symbol-popover-leave-active {
-    transition:
-      opacity 0.15s ease;
-  }
-
-  .symbol-popover-enter-from,
-  .symbol-popover-leave-to {
-    opacity: 0;
-  }
-
-  @media (max-width: 768px), (max-height: 640px) {
-    .symbol-popover {
-      width: min(560px, calc(100vw - 32px));
-    }
+    margin-right: var(--klc-space-12, 12px);
   }
 </style>

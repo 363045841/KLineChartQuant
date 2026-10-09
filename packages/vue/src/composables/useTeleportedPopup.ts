@@ -1,5 +1,13 @@
 import { nextTick, type Ref, ref } from 'vue'
 
+/** 元素是否因变换属性成为 fixed 后代的包含块。 */
+function createsContainingBlock(element: Element): boolean {
+  const style = getComputedStyle(element)
+  return [style.transform, style.translate, style.scale].some(
+    (value) => value !== undefined && value !== '' && value !== 'none',
+  )
+}
+
 export function useTeleportedPopup(
   triggerRef: Ref<HTMLElement | null>,
   popupRef: Ref<HTMLElement | null>,
@@ -36,11 +44,12 @@ export function useTeleportedPopup(
     const renderedHeight = Math.min(popupHeight, availableHeight)
     const top = opensUpward ? Math.max(margin, rect.top - gap - renderedHeight) : rect.bottom + gap
 
-    // BaseModal 的原生 dialog 使用 transform 居中。transform 会让内部的
-    // position: fixed 元素改为相对 dialog 定位，因此需要把视口坐标转换为
-    // dialog 的局部坐标；普通 Teleport 到 body 时仍直接使用视口坐标。
+    // 祖先 dialog 带 transform/translate/scale（如进出场过渡中）时，内部的
+    // position: fixed 元素改为相对 dialog 定位，需要把视口坐标转换为 dialog 的局部坐标；
+    // 静止的 BaseModal 没有变换，直接使用视口坐标。
     const dialog = popup?.closest('dialog')
-    const dialogRect = dialog?.getBoundingClientRect()
+    const dialogRect =
+      dialog && createsContainingBlock(dialog) ? dialog.getBoundingClientRect() : null
 
     popupStyle.value = {
       position: 'fixed',

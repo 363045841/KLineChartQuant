@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="dropdown" :class="[`dropdown--${size}`, { 'is-open': isOpen }]">
+  <div class="dropdown" :class="[`dropdown--${size}`, { 'is-open': isOpen }]">
     <BaseTooltip
       :content="title"
       placement="top"
@@ -7,20 +7,17 @@
       trigger-display="contents"
     >
       <button
-        ref="triggerRef"
+        ref="trigger"
         type="button"
         class="control-button dropdown__trigger"
         :class="{ 'control-button--sm': size === 'sm' }"
         :style="triggerStyle"
+        v-bind="popover.triggerBindings.value"
         :aria-label="ariaLabel"
         aria-haspopup="listbox"
-        :aria-expanded="isOpen"
         :disabled="disabled"
-        @click="toggleOpen"
-        @keydown.escape.stop="close"
-        @keydown.down.prevent="open"
-        @keydown.enter.prevent="toggleOpen"
-        @keydown.space.prevent="toggleOpen"
+        @click="popover.onTriggerClick"
+        @keydown="onTriggerKeydown"
       >
         <span v-if="label" class="dropdown__label">{{ label }}</span>
         <span class="dropdown__value">{{ selectedOption?.label ?? placeholder }}</span>
@@ -30,43 +27,40 @@
 
     <Teleport :to="teleportTarget">
       <div
-        v-if="isOpen"
-        ref="menuRef"
+        ref="menu"
         class="dropdown__menu"
-        :style="menuStyle"
+        v-bind="popover.panelBindings.value"
         role="listbox"
-        tabindex="-1"
+        :aria-label="ariaLabel || label || title || undefined"
+        @keydown="onMenuKeydown"
       >
-        <button
-          v-for="option in options"
-          :key="option.value"
-          type="button"
-          class="dropdown__option"
-          :class="{ 'is-selected': option.value === selectedValue }"
-          role="option"
-          :aria-selected="option.value === selectedValue"
-          @click="selectOption(option.value)"
-        >
-          {{ option.label }}
-        </button>
+        <template v-if="isOpen">
+          <button
+            v-for="option in options"
+            :key="option.value"
+            type="button"
+            class="dropdown__option"
+            :class="{ 'is-selected': option.value === selectedValue }"
+            role="option"
+            tabindex="-1"
+            :aria-selected="option.value === selectedValue"
+            @click="selectOption(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </template>
       </div>
     </Teleport>
   </div>
 </template>
 
-<script lang="ts">
-  let activeDropdownId = 0
-  let activeDropdownClose: (() => void) | null = null
-  let dropdownIdSeed = 0
-</script>
-
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, ref } from 'vue'
+  import { computed, onBeforeUnmount, useTemplateRef } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
 
-  import { useClickOutside } from '../composables/useClickOutside.js'
+  import { useAnchoredPopover } from '../composables/overlay/useAnchoredPopover.js'
+  import { useRovingFocus } from '../composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup.js'
   import BaseTooltip from './common/BaseTooltip.vue'
 
   export interface DropdownOption<T extends string = string> {
@@ -106,45 +100,28 @@
     (e: 'open'): void
   }>()
 
-  const rootRef = ref<HTMLElement | null>(null)
-  const triggerRef = ref<HTMLElement | null>(null)
-  const menuRef = ref<HTMLElement | null>(null)
-  const isOpen = ref(false)
-  const dropdownId = ++dropdownIdSeed
-
+  const triggerRef = useTemplateRef<HTMLElement>('trigger')
+  const menuRef = useTemplateRef<HTMLElement>('menu')
   const teleportTarget = useFullscreenTeleportTarget()
 
-  const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
-    triggerRef,
-    menuRef,
-    4,
-    false,
-    props.placement,
-  )
-
-  // 点击触发器与菜单之外时关闭
-  useClickOutside(
-    () => [rootRef.value, menuRef.value],
-    () => close(),
-    { enabled: () => isOpen.value },
-  )
-
-  const triggerStyle = computed(() => {
-    if (props.minWidth) return { minWidth: props.minWidth }
-    return {}
+  const popover = useAnchoredPopover({
+    trigger: triggerRef,
+    panel: menuRef,
+    placement: () => props.placement,
+    offset: 4,
+    matchTriggerWidth: () => !props.minWidth,
+    maxHeight: () => props.maxHeight,
+    disabled: () => props.disabled,
+    onOpen: () => {
+      emit('open')
+      // 打开后焦点进入列表并落在已选项（APG listbox）。
+      roving.focusFirst('[aria-selected="true"]')
+    },
   })
+  const isOpen = popover.open
+  const roving = useRovingFocus(menuRef)
 
-  const menuStyle = computed(() => {
-    if (!isOpen.value) return undefined
-    const trigger = triggerRef.value
-    const { maxHeight: availableHeight, ...positionStyle } = popupStyle.value
-    return {
-      ...positionStyle,
-      minWidth: props.minWidth || (trigger ? `${trigger.offsetWidth}px` : undefined),
-      maxHeight: availableHeight ? `min(${props.maxHeight}, ${availableHeight})` : props.maxHeight,
-      zIndex: 1010,
-    }
-  })
+  const triggerStyle = computed(() => (props.minWidth ? { minWidth: props.minWidth } : {}))
 
   const selectedValue = computed(() => {
     const val = props.modelValue?.trim()
@@ -159,44 +136,31 @@
     )
   })
 
-  function open() {
-    if (activeDropdownId !== dropdownId && activeDropdownClose) {
-      activeDropdownClose()
+  function onTriggerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      popover.show()
+    } else if (event.key === 'Escape' && isOpen.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      popover.hide({ restoreFocus: true })
     }
-
-    if (isOpen.value) return
-
-    activeDropdownId = dropdownId
-    activeDropdownClose = close
-    isOpen.value = true
-    emit('open')
-    startPositionSync()
   }
 
-  function close() {
-    if (!isOpen.value) return
-    isOpen.value = false
-    if (activeDropdownId === dropdownId) {
-      activeDropdownId = 0
-      activeDropdownClose = null
-    }
-    stopPositionSync()
-  }
-
-  function toggleOpen() {
-    if (isOpen.value) {
-      close()
-    } else {
-      open()
+  function onMenuKeydown(event: KeyboardEvent): void {
+    if (roving.onKeydown(event)) return
+    if (event.key === 'Tab') {
+      // Tab 离开列表：关闭并把焦点交还触发器，再由默认行为移到下一个可聚焦元素。
+      popover.hide({ restoreFocus: true })
     }
   }
 
   function selectOption(value: string) {
     emit('update:modelValue', value)
-    close()
+    popover.hide({ restoreFocus: true })
   }
 
-  onBeforeUnmount(close)
+  onBeforeUnmount(() => popover.hide())
 </script>
 
 <style scoped src="./common/control-button.css"></style>
@@ -231,7 +195,7 @@
     min-width: 0;
     overflow: hidden;
     color: var(--dropdown-trigger-color, var(--klc-color-ui-text));
-    font-size: calc(var(--klc-typography-font-size-md) + 1px);
+    font-size: var(--klc-text-13-font-size, 13px);
     font-weight: 500;
     /* 为字体下沿留出空间，避免省略号裁切区域截断文字。 */
     line-height: 1.4;
@@ -258,15 +222,19 @@
   }
 
   .dropdown__menu {
-    padding: 4px;
+    padding: var(--klc-space-4, 4px);
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--klc-radius-md, 8px);
     background: var(--klc-color-ui-input);
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.08),
-      0 6px 12px rgba(0, 0, 0, 0.06);
+    color: var(--klc-color-ui-text);
+    box-shadow: var(--klc-elevation-2, 0 2px 4px rgb(0 0 0 / 0.08), 0 6px 12px rgb(0 0 0 / 0.06));
     box-sizing: border-box;
     overflow-y: auto;
+  }
+
+  /* 空的关闭态面板不占位（退化模式下由 display: none 隐藏）。 */
+  .dropdown__menu:empty {
+    padding: 0;
   }
 
   .dropdown__option {
@@ -276,11 +244,11 @@
     align-items: center;
     padding: 0 var(--klc-spacing-sm);
     border: 0;
-    border-radius: 3px;
+    border-radius: var(--klc-radius-xs, 4px);
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
-    font-size: calc(var(--klc-typography-font-size-md) + 1px);
+    font-size: var(--klc-text-13-font-size, 13px);
     font-weight: 500;
     text-align: left;
     white-space: nowrap;
@@ -290,7 +258,7 @@
 
   .dropdown--sm .dropdown__option {
     height: calc(8px + 2 * var(--klc-spacing-sm));
-    padding: 0 6px;
+    padding: 0 var(--klc-space-8, 8px);
     font-size: var(--klc-typography-font-size-md);
     white-space: nowrap;
   }
