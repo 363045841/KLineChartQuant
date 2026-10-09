@@ -356,6 +356,7 @@
       @replace="replaceLegend"
       @close="replacementPaneId = null"
     />
+    <ToastViewport />
   </div>
 </template>
 
@@ -446,6 +447,7 @@
 
   import BatchStockDialog from './BatchStockDialog.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
+  import ToastViewport from './common/ToastViewport.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import DrawingTemplateSaveDialog from './drawing-settings/DrawingTemplateSaveDialog.vue'
