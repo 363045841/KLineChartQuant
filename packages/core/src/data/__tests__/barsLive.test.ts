@@ -1,8 +1,17 @@
 /** BarsLiveSource 与 RealtimeBarsConnector 测试：esFactory 注入假 EventSource，无网络依赖。 */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DataBuffer } from '../buffer/impl/dataBuffer'
-import { BarsLiveSource, type LiveBar, RealtimeBarsConnector } from '../live/impl/barsLive'
+import {
+  BarsLiveSource,
+  BarsLiveSubscription,
+  type LiveBar,
+  type LiveBarsRequest,
+  type LiveBarsStream,
+  RealtimeBarsConnector,
+} from '../live/impl/barsLive'
+import { marketDataProviderRegistry } from '../provider/impl/registry'
+import type { MarketDataProvider } from '../provider/types'
 
 /** K 线 fixture 入参：timestamp/close 必填，确有差异的 OHLCV 字段可按需覆盖。 */
 type BarOverrides = Pick<LiveBar, 'timestamp' | 'close'> &
@@ -249,5 +258,110 @@ describe('RealtimeBarsConnector', () => {
 
     expect(writes).toEqual([[{ timestamp: 1000, close: 2 }]])
     expect(instances[0]!.closed).toBe(true)
+  })
+})
+
+describe('BarsLiveSource instrumentId', () => {
+  /** 以假 EventSource 连接一次，返回实际订阅地址。 */
+  function connectUrl(instrumentId?: string): string {
+    let url = ''
+    const source = new BarsLiveSource(
+      'gotdx',
+      '000001',
+      'daily',
+      'original',
+      'https://example.test',
+      (target) => {
+        url = target
+        return new FakeEventSource(target) as unknown as EventSource
+      },
+      instrumentId,
+    )
+    source.connect()
+    source.destroy()
+    return url
+  }
+
+  it('appends the encoded instrumentId when the instrument is resolved', () => {
+    expect(connectUrl('gotdx:SZ:000001')).toBe(
+      'https://example.test/api/v1/market-data/sources/gotdx/stream?symbol=000001&period=daily&barAggregation=original&instrumentId=gotdx%3ASZ%3A000001',
+    )
+  })
+
+  it('omits instrumentId when it is unknown', () => {
+    const url = connectUrl()
+    expect(url).toBe(
+      'https://example.test/api/v1/market-data/sources/gotdx/stream?symbol=000001&period=daily&barAggregation=original',
+    )
+    expect(url).not.toContain('instrumentId')
+  })
+})
+
+describe('BarsLiveSubscription instrumentId', () => {
+  const SOURCE_ID = 'live-test'
+
+  /** 注册声明 liveBars 的测试 Provider，记录 createStream 收到的请求。 */
+  function registerLiveProvider() {
+    const requests: LiveBarsRequest[] = []
+    const stream: LiveBarsStream = {
+      onFrame: () => () => {},
+      onStatus: () => () => {},
+      onError: () => () => {},
+      connect: () => {},
+      disconnect: () => {},
+      destroy: () => {},
+    }
+    const provider = {
+      source: {
+        id: SOURCE_ID,
+        displayName: 'Live test',
+        capabilities: { assetClasses: ['stock'], liveBars: true },
+      },
+      probe: async () => ({ status: 'online', checkedAt: 1 }),
+      liveBars: {
+        createStream: vi.fn((request: LiveBarsRequest) => {
+          requests.push(request)
+          return stream
+        }),
+      },
+    } as unknown as MarketDataProvider
+    marketDataProviderRegistry.register(provider)
+    return requests
+  }
+
+  afterEach(() => {
+    if (marketDataProviderRegistry.get(SOURCE_ID)) marketDataProviderRegistry.unregister(SOURCE_ID)
+  })
+
+  it('passes the resolved instrument id and reconnects when only the market differs', () => {
+    const requests = registerLiveProvider()
+    const subscription = new BarsLiveSubscription({ updateBars: () => {} })
+    const spec = (market: 'SZ' | 'SH') => ({
+      symbol: '000001',
+      period: 'daily',
+      source: SOURCE_ID,
+      instrument: { sourceId: SOURCE_ID, id: `${SOURCE_ID}:${market}:000001` },
+    })
+
+    subscription.reconcile(spec('SZ'))
+    subscription.reconcile(spec('SZ'))
+    subscription.reconcile(spec('SH'))
+    subscription.stop()
+
+    expect(requests.map((request) => request.instrumentId)).toEqual([
+      `${SOURCE_ID}:SZ:000001`,
+      `${SOURCE_ID}:SH:000001`,
+    ])
+  })
+
+  it('omits instrumentId when the spec has no resolved instrument', () => {
+    const requests = registerLiveProvider()
+    const subscription = new BarsLiveSubscription({ updateBars: () => {} })
+
+    subscription.reconcile({ symbol: '000001', period: 'daily', source: SOURCE_ID })
+    subscription.stop()
+
+    expect(requests).toHaveLength(1)
+    expect(requests[0]).not.toHaveProperty('instrumentId')
   })
 })

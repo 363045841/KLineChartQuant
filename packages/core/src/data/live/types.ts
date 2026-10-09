@@ -27,6 +27,11 @@ export interface LiveBarsRequest {
   symbol: string
   period: string
   barAggregation: BarAggregation
+  /**
+   * 已解析品种的稳定 id（InstrumentDescriptor.id）。
+   * 裸代码有歧义（如 SZ 000001 与 SH 000001）时，数据源据此定位品种；未解析时省略。
+   */
+  instrumentId?: string
 }
 
 /** 实时 K 线流的统一生命周期接口。 */

@@ -33,7 +33,20 @@ export class BarsLiveSource implements LiveBarsStream {
     readonly barAggregation: BarAggregation,
     private readonly baseUrl: string,
     private readonly esFactory?: (url: string) => EventSource,
+    /** 已解析品种 id；存在时追加 `instrumentId` 查询参数以消除裸代码歧义。 */
+    readonly instrumentId?: string,
   ) {}
+
+  /** SSE 订阅地址；`instrumentId` 仅在已知时追加，保持旧数据源兼容。 */
+  get url(): string {
+    const params = [
+      `symbol=${encodeURIComponent(this.symbol)}`,
+      `period=${encodeURIComponent(this.period)}`,
+      `barAggregation=${encodeURIComponent(this.barAggregation)}`,
+      ...(this.instrumentId ? [`instrumentId=${encodeURIComponent(this.instrumentId)}`] : []),
+    ]
+    return `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?${params.join('&')}`
+  }
 
   /** 订阅数据帧；返回退订函数。 */
   onFrame(cb: (frame: LiveBarsFrame) => void): () => void {
@@ -59,7 +72,7 @@ export class BarsLiveSource implements LiveBarsStream {
     this.disconnect()
     this.emitStatus('connecting')
 
-    const url = `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
+    const url = this.url
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
     console.log(`[BarsLiveSource] 已订阅 SSE ${url}`)
@@ -235,7 +248,7 @@ export class BarsLiveSubscription {
       symbol: string
       period?: string
       source?: string
-      instrument?: { sourceId: string }
+      instrument?: { sourceId: string; id?: string }
     } | null,
     barAggregation: BarAggregation = ORIGINAL_BAR_AGGREGATION,
   ): void {
@@ -256,7 +269,9 @@ export class BarsLiveSubscription {
       return
     }
 
-    const key = JSON.stringify([sourceId, spec.symbol, spec.period, barAggregation])
+    // 同代码不同市场（SZ/SH 000001）是不同品种，订阅键必须包含品种 id。
+    const instrumentId = spec.instrument?.id
+    const key = JSON.stringify([sourceId, spec.symbol, spec.period, barAggregation, instrumentId])
     if (this.active?.key === key) return
     this.stop()
 
@@ -264,6 +279,7 @@ export class BarsLiveSubscription {
       symbol: spec.symbol,
       period: spec.period,
       barAggregation,
+      ...(instrumentId ? { instrumentId } : {}),
     })
     const connector = new RealtimeBarsConnector(this.sink, source)
     this.active = { key, source, connector }

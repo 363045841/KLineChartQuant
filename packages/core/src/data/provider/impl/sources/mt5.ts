@@ -26,9 +26,17 @@ export const mt5MarketDataProvider = createMarketDataProvider({
   transport,
   /** MT5 实时 K 线流在连接时读取运行时地址，面板改址后的下一次订阅立即生效。 */
   liveBars: {
-    createStream({ symbol, period, barAggregation }) {
+    createStream({ symbol, period, barAggregation, instrumentId }) {
       const baseUrl = marketDataProviderRegistry.getConfig(MT5.id).baseUrl ?? MT5.defaultBaseUrl
-      return new BarsLiveSource(MT5.id, symbol, period, barAggregation, baseUrl)
+      return new BarsLiveSource(
+        MT5.id,
+        symbol,
+        period,
+        barAggregation,
+        baseUrl,
+        undefined,
+        instrumentId,
+      )
     },
   },
 })
