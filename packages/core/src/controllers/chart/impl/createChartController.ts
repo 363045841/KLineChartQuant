@@ -233,7 +233,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function dispose(): Promise<void> {
     if (disposal) return disposal
     disposed = true
-    dataMethods.dispose()
     for (const unsubscribe of layoutSubscriptions) unsubscribe()
     disposal = layoutManager.dispose().finally(() => chart.destroy())
     try {

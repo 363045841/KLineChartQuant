@@ -30,7 +30,6 @@ export type {
 } from './live/impl/barsLive.js'
 export {
   BarsLiveSource,
-  BarsLiveSubscription,
   RealtimeBarsConnector,
 } from './live/impl/barsLive.js'
 export * from './provider/impl/sources/index.js'

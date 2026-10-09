@@ -101,6 +101,8 @@ export interface MockDataDependenciesOptions {
   onBarsReady?: () => void
   /** 数据变更后的交互重置回调；用例用它断言重置时机。 */
   resetInteraction?: () => void
+  needsTrades?: DataDependencies['needsTrades']
+  updateTradeInput?: DataDependencies['updateTradeInput']
 }
 
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
@@ -125,6 +127,8 @@ export function createMockDataDependencies(
     scheduleDraw,
     onBarsReady,
     resetInteraction,
+    needsTrades: options.needsTrades ?? (() => false),
+    updateTradeInput: options.updateTradeInput ?? (() => {}),
     updateIndicatorData: () => {},
     isPointerDown: () => false,
     setSymbols,

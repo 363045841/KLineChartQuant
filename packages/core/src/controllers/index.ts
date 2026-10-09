@@ -134,7 +134,6 @@ export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,
   BarsLiveSource,
-  BarsLiveSubscription,
   BinanceSSESource,
   baostockMarketDataProvider,
   binanceMarketDataProvider,

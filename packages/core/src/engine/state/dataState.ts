@@ -9,6 +9,7 @@ import {
 import type { TimeShareRange } from '../../data/provider/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import type { ReadyMarketSession } from '../data/marketRuntime/types.js'
 
 export interface DataDeps {
   /** placeholder — for future visibleRange computed */
@@ -93,6 +94,7 @@ export function createDataState(_deps: DataDeps = {}) {
   const { signals, readonly } = createSubState(
     {
       activeBuffer: emptyActiveBufferSnapshot(),
+      readyMarket: null as ReadyMarketSession | null,
       symbols: [] as ReadonlyArray<SymbolSpec>,
       symbolCatalog: [] as ReadonlyArray<SymbolInfo>,
     },
@@ -121,17 +123,24 @@ export function createDataState(_deps: DataDeps = {}) {
       },
 
       /** 发布完整活动 Buffer 快照，避免缓冲切换中间态。 */
-      applyActiveBufferSnapshot(snapshot: ActiveBufferSnapshotInput) {
+      applyActiveBufferSnapshot(
+        snapshot: ActiveBufferSnapshotInput,
+        readyMarket: ReadyMarketSession | null = null,
+      ) {
         const previous = readonly.activeBuffer.peek()
         const dataChanged =
           previous.selection !== snapshot.selection || previous.data !== snapshot.data
         const dataRevision = dataChanged ? previous.dataRevision + 1 : previous.dataRevision
-        batch(() => signals.activeBuffer.set(snapshotWithRevision(snapshot, dataRevision)))
+        batch(() => {
+          signals.activeBuffer.set(snapshotWithRevision(snapshot, dataRevision))
+          signals.readyMarket.set(readyMarket)
+        })
       },
 
       reset() {
         batch(() => {
           signals.activeBuffer.set(emptyActiveBufferSnapshot())
+          signals.readyMarket.set(null)
           signals.symbols.set([])
           signals.symbolCatalog.set([])
         })
