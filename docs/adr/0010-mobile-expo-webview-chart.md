@@ -26,7 +26,7 @@ Expo 已提供 DOM components（`'use dom'`）：同一个 React DOM 组件在�
    - DOM component 的序列化 props / 异步回调无法满足交互延迟。
 3. 跨桥数据规则（沿用 v1.1 §5）：只传指令、状态快照和低频事件。行情在 WebView 内经 `MarketDataProvider` 拉取，逐 tick 数据和手势事件不跨桥。
 4. Agent 运行在 WebView 内，直接调用 Core `@Tool` 原语；原生侧提供安全存储的凭据接口，与 Electron `credential-ipc` 同构。
-5. 触控交互依赖 ADR 0008 P1b 的输入绑定模块；`controller.handlePinchZoom` 已存在。
+5. 触控交互使用 ADR 0008 P1b 的 `bindChartInput`：它为绘图区设置 `touch-action: none`，单指平移与双指缩放由 Core 的 `PinchTracker` 处理。长按十字线等移动端手势在 P5 补充。
 
 ### Spike 退出标准（P3）
 

@@ -1,8 +1,8 @@
 /**
  * 直接挂载 Core 的 React 适配器，不经过 Vue Web Component。
  *
- * Core 在客户端 effect 中按需加载，SSR 期间只输出容器节点；交互输入接线仍由宿主负责，
- * 与 `@363045841yyt/klinechart-angular` 同级（见 docs/adr/0009）。
+ * Core 在客户端 effect 中按需加载，SSR 期间只输出容器节点。控制器就绪后通过 Core 的
+ * `bindChartInput` 接入指针、滚轮与触控输入，与 Vue 组件共用同一份接线（见 docs/adr/0008、0009）。
  */
 
 import type {
@@ -14,6 +14,7 @@ import type {
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+import type { ChartInputHooks } from '@363045841yyt/klinechart-core/input'
 import {
   type CSSProperties,
   createElement,
@@ -29,6 +30,7 @@ import {
 } from 'react'
 
 type ResolveSettings = typeof import('@363045841yyt/klinechart-core/config')['resolveSettings']
+type BindChartInput = typeof import('@363045841yyt/klinechart-core/input')['bindChartInput']
 
 export interface KLineChartOptions {
   data?: ReadonlyArray<KLineData>
@@ -41,6 +43,11 @@ export interface KLineChartOptions {
   zoomLevels?: number
   /** 测试或宿主注入的控制器工厂；缺省时加载 Core 的 `createChartController`。 */
   factory?: ChartControllerFactory
+  /**
+   * 输入接线，仅在挂载时读取。缺省接入容器上的指针、滚轮与触控；传入钩子可注入画线等拦截；
+   * `false` 表示宿主自行转发事件。
+   */
+  input?: boolean | ChartInputHooks
 }
 
 export interface KLineChartProps extends KLineChartOptions {
@@ -57,14 +64,19 @@ export interface KLineChartHandle {
 interface CoreRuntime {
   factory: ChartControllerFactory
   resolveSettings: ResolveSettings
+  bindChartInput: BindChartInput
 }
 
 /** 在客户端加载 Core；Core 模块加载期会访问浏览器全局，不能进入 SSR 求值路径。 */
 async function loadCoreRuntime(factory: ChartControllerFactory | undefined): Promise<CoreRuntime> {
-  const config = await import('@363045841yyt/klinechart-core/config')
-  if (factory) return { factory, resolveSettings: config.resolveSettings }
+  const [config, input] = await Promise.all([
+    import('@363045841yyt/klinechart-core/config'),
+    import('@363045841yyt/klinechart-core/input'),
+  ])
+  const shared = { resolveSettings: config.resolveSettings, bindChartInput: input.bindChartInput }
+  if (factory) return { factory, ...shared }
   const controllers = await import('@363045841yyt/klinechart-core/controllers')
-  return { factory: controllers.createChartController, resolveSettings: config.resolveSettings }
+  return { factory: controllers.createChartController, ...shared }
 }
 
 /** 未显式指定主题时应用 settings.theme；auto 只注入系统主题，不覆盖用户偏好。 */
@@ -113,6 +125,7 @@ export function useKLineChart(
     if (!container) return
     let cancelled = false
     let created: ChartController | null = null
+    let disposeInput: (() => void) | null = null
     const mount = optionsRef.current
 
     void (async () => {
@@ -134,6 +147,10 @@ export function useKLineChart(
           return
         }
         created = next
+        if (mount.input !== false) {
+          const hooks = mount.input && typeof mount.input === 'object' ? mount.input : {}
+          disposeInput = runtime.bindChartInput(next, { surface: container }, hooks)
+        }
         runtimeRef.current = runtime
         appliedRef.current = { data: mount.data, theme: mount.theme, settings: mount.settings }
         if (mount.theme === undefined) applySettingsTheme(next, mount.settings?.theme)
@@ -146,6 +163,7 @@ export function useKLineChart(
     return () => {
       cancelled = true
       setController(null)
+      disposeInput?.()
       created?.dispose()
     }
   }, [containerRef])

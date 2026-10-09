@@ -34,6 +34,6 @@ React 包同时提供两个层级，`KLineChartWC` 保持不变：
 ## Consequences
 
 - v1.1 验收标准「React 直接使用 Core，无 Vue 运行时依赖」在**打包层面**达成：只用 `KLineChart` 的宿主不会打入 Vue（`sideEffects: false`，WC 为动态导入）。**安装层面**仍会装上 Vue 包，因为它是 `dependencies`；改为可选 peer 属于破坏性变更，留到下一个 minor。
-- 与 Angular 一样，直连适配器目前不接 DOM 输入：指针、滚轮、捏合由宿主转发到 `controller.handlePointerEvent` 等方法，或等待 ADR 0008 的 P1b 输入绑定模块。README 中明确标注。
+- 输入接线由 ADR 0008 P1b 的 `bindChartInput` 提供，与 Vue 组件共用；宿主可通过 `input` 选项注入拦截钩子，或传 `false` 自行转发事件。
 - `adapter-architecture.md` §5.2 更新为实际 API。
 - 如果 owner 仍倾向 v0.10.4 的单一 WC 路线，可以只合入 ADR、不合入代码；代码是纯增量，回滚即删除新文件和导出。

@@ -40,6 +40,8 @@ function createFakeController() {
     setTheme: vi.fn((next: 'light' | 'dark') => theme.set(next)),
     setSystemTheme: vi.fn(),
     updateSettingsFacade: vi.fn(),
+    handlePointerEvent: vi.fn<ChartController['handlePointerEvent']>(() => false),
+    handleWheelEvent: vi.fn<ChartController['handleWheelEvent']>(),
     dispose: vi.fn(),
   }
   return { controller, asController: controller as unknown as ChartController }
@@ -164,6 +166,52 @@ describe('KLineChart', () => {
 
     expect(fakes[0]?.controller.setSystemTheme).toHaveBeenCalledWith('dark')
     expect(fakes[0]?.controller.setTheme).not.toHaveBeenCalled()
+  })
+
+  it('binds pointer and wheel input to the container and releases it on unmount', async () => {
+    const { factory, fakes, resolveAll } = deferredFactory()
+    const { container, unmount } = render(createElement(KLineChart, { factory }))
+    await waitFor(() => expect(factory).toHaveBeenCalledOnce())
+    await resolveAll()
+    const host = container.firstElementChild as HTMLElement
+    const fake = fakes[0]
+
+    // jsdom 未实现 PointerEvent；绑定只看事件类型。
+    host.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+    const wheel = new WheelEvent('wheel', { bubbles: true, cancelable: true })
+    host.dispatchEvent(wheel)
+    expect(fake?.controller.handlePointerEvent).toHaveBeenCalledOnce()
+    expect(fake?.controller.handleWheelEvent).toHaveBeenCalledWith(wheel)
+    expect(wheel.defaultPrevented).toBe(true)
+    expect(host.style.touchAction).toBe('none')
+
+    unmount()
+    host.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+    expect(fake?.controller.handlePointerEvent).toHaveBeenCalledOnce()
+    expect(host.style.touchAction).toBe('')
+  })
+
+  it('passes input hooks through and skips binding when input is false', async () => {
+    const intercept = { onPointerDown: () => true }
+    const hooked = deferredFactory()
+    const first = render(
+      createElement(KLineChart, { factory: hooked.factory, input: { intercept } }),
+    )
+    await waitFor(() => expect(hooked.factory).toHaveBeenCalledOnce())
+    await hooked.resolveAll()
+    first.container.firstElementChild?.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true }),
+    )
+    expect(hooked.fakes[0]?.controller.handlePointerEvent.mock.calls[0]?.[1]).toBe(intercept)
+
+    const manual = deferredFactory()
+    const second = render(createElement(KLineChart, { factory: manual.factory, input: false }))
+    await waitFor(() => expect(manual.factory).toHaveBeenCalledOnce())
+    await manual.resolveAll()
+    second.container.firstElementChild?.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true }),
+    )
+    expect(manual.fakes[0]?.controller.handlePointerEvent).not.toHaveBeenCalled()
   })
 
   it('surfaces factory failures to the nearest error boundary', async () => {

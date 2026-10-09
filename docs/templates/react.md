@@ -28,7 +28,7 @@ function App() {
 
 ### Direct Core Mount
 
-`KLineChart` mounts `@363045841yyt/klinechart-core` directly, with no Vue runtime in the bundle, for hosts that build their own UI. Core loads on the client only; the server renders an empty container. Like the Angular adapter, it does not wire pointer, wheel, or pinch input yet: forward events to `controller.handlePointerEvent` and friends.
+`KLineChart` mounts `@363045841yyt/klinechart-core` directly, with no Vue runtime in the bundle, for hosts that build their own UI. Core loads on the client only; the server renders an empty container. Pointer, wheel, and touch input are wired through the shared core binding `bindChartInput`; pass `input={{ intercept }}` to add drawing intercepts, or `input={false}` to forward events yourself.
 
 ```tsx
 import type { ChartController, KLineData } from '@363045841yyt/klinechart-core'

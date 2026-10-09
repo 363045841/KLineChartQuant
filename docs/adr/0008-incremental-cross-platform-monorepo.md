@@ -45,6 +45,8 @@ v1.1 没有覆盖 Web 这一宿主。Web、Desktop、Mobile 是三个宿主，�
 | P6 | 跨宿主一致性：同一份配置与持久化快照在各宿主渲染结果一致 | golden 测试 |
 | P7 | 性能与发布 | FPS、内存、启动时间、桥延迟达标 |
 
+P1b 实施时确认：平移、十字线、坐标轴拖拽、双指缩放（`PinchTracker`）和滚动监听都已在 Core 内部，宿主缺的只是 DOM 接线。抽取结果为 `@363045841yyt/klinechart-core/input` 的 `bindChartInput`，Vue 组件与 React 适配器已改用它。
+
 v1.1 原 P1「重构 React」与 P2「Desktop React 迁移」之间缺了 P1b。P2 的工作量取决于 ADR 0011，而不是 Desktop 壳本身（壳只有约 450 行）。
 
 ## Consequences

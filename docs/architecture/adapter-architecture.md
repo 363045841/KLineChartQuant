@@ -295,9 +295,27 @@ export function useCoreSignal<T>(signal: ReadonlySignal<T> | null | undefined): 
 handleRef.current?.getController()?.zoomToLevel(3)
 ```
 
-Like the Angular adapter, the direct mount does not wire DOM input; hosts forward events to
-`handlePointerEvent` / `handleWheelEvent` / `handlePinchZoom` until the framework-free input
-binding (ADR 0008, P1b) lands.
+Input goes through the shared core binding `bindChartInput` from
+`@363045841yyt/klinechart-core/input` (ADR 0008, P1b), the same wiring the Vue component uses.
+Pass `input={{ intercept, beforePointer, afterPointer }}` to add drawing or selection intercepts,
+or `input={false}` to forward events yourself.
+
+### 5.2.1 Shared input binding
+
+```typescript
+import { bindChartInput } from '@363045841yyt/klinechart-core/input'
+
+const dispose = bindChartInput(controller, {
+  surface,            // plot area: pointer events, intercepts apply here
+  wheelTarget,        // defaults to surface; Vue passes the parent of plot + price axis
+  axisTargets,        // extra hit areas forwarded without intercepts
+}, { beforePointer, intercept, afterPointer })
+```
+
+It forwards pointerdown / move / up / leave / cancel / lostpointercapture, registers a non-passive
+wheel listener that cancels page scrolling, and sets `touch-action: none` on the surface so touch
+pan and pinch reach the controller's `PinchTracker`. The disposer restores the surface and is
+idempotent.
 
 ### 5.3 Angular 17+ (`@363045841yyt/klinechart-angular`)
 
