@@ -64,25 +64,6 @@ export class ChartPaneLayout {
     return this.paneRenderers
   }
 
-  /**
-   * 公共读：specs 结构来自工作副本定义，ratio 字段取自 kernel（不写工作副本）。
-   */
-  getPaneSpecs(): PaneSpec[] {
-    const kernelRatios = this.deps.pane.readonly.paneRatios.peek()
-    return this._paneSpecs.map((spec) => ({
-      ...spec,
-      ratio: kernelRatios[spec.id] ?? spec.ratio,
-      ...(spec.capabilities ? { capabilities: { ...spec.capabilities } } : {}),
-    }))
-  }
-
-  /**
-   * 公共读：直接返回 kernel paneRatios 副本，不触碰算法工作副本。
-   */
-  getInternalPaneRatios(): Map<string, number> {
-    return new Map(Object.entries(this.deps.pane.readonly.paneRatios.peek()))
-  }
-
   private syncRatiosFromKernel(): void {
     const kernelRatios = this.deps.pane.readonly.paneRatios.peek()
     this._internalPaneRatios = new Map(Object.entries(kernelRatios))

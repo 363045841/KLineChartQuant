@@ -139,11 +139,6 @@ export class PaneRenderer {
     this.contexts = null
   }
 
-  /** pane 当前是否参与布局。 */
-  isVisible(): boolean {
-    return this.visible
-  }
-
   /** 当前存在的全部表面（常驻 + 已创建的按需表面），供释放、定位与诊断使用。 */
   getAllocatedCanvases(): HTMLCanvasElement[] {
     const { drawingCanvas, leftYAxisCanvas, leftYAxisOverlayCanvas } = this.dom

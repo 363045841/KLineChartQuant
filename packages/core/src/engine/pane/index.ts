@@ -5,17 +5,4 @@ export { Pane, UpdateLevel } from './impl/layout/pane.js'
 export { PaneManager } from './impl/paneManager.js'
 export { PaneRenderer } from './impl/paneRenderer.js'
 export { hasSubPaneRendererMetadata, SubPaneManager } from './impl/subPaneManager.js'
-export type {
-  CreatePaneInput,
-  PaneManagerDependencies,
-  PanePatch,
-  PaneRendererContexts,
-  PaneRendererDom,
-  PaneRendererOptions,
-  PaneSpec,
-  PaneSurfaceFactory,
-  ResolvedPaneRendererOptions,
-  SubPaneContext,
-  SubPaneEntry,
-  SubPaneResources,
-} from './types.js'
+export type { SubPaneContext } from './types.js'

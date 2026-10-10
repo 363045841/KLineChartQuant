@@ -166,7 +166,6 @@ export class ChartRenderer {
   private scene: Scene<RenderContext>
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
-  private currentPaneId = 'main'
   private timeAxisLayer: Layer<RenderContext> | null = null
   private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
   private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
@@ -434,10 +433,6 @@ export class ChartRenderer {
 
   getPaneCtxMap(): Map<string, RenderContext> {
     return this.paneCtxMap
-  }
-
-  getCurrentPaneId(): string {
-    return this.currentPaneId
   }
 
   getMarkerManager(): MarkerManager {
@@ -1172,7 +1167,6 @@ export class ChartRenderer {
 
       this.paneCtxMap.set(pane.id, context)
       legendContexts.push(context)
-      this.currentPaneId = pane.id
 
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
       // 画 main canvas（非 overlay 角色 layer）
