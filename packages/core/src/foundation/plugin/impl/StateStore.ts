@@ -53,12 +53,12 @@ export class StateStore {
     if (namespaces) {
       namespaces.forEach((ns) => {
         this.states.delete(ns)
-        if (import.meta.env.DEV) {
+        if (import.meta.env?.DEV) {
           console.debug(`[StateStore] Cleared state: ${ns} (owner: ${ownerId})`)
         }
       })
       this.ownerNamespaces.delete(ownerId)
-    } else if (import.meta.env.DEV) {
+    } else if (import.meta.env?.DEV) {
       console.warn(`[StateStore] Attempted to clear state for unknown owner: ${ownerId}`)
     }
   }

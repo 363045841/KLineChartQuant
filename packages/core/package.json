@@ -66,6 +66,10 @@
       "types": "./dist/foundation/config/chartSettings.d.ts",
       "import": "./dist/foundation/config/chartSettings.js"
     },
+    "./input": {
+      "types": "./dist/features/input/index.d.ts",
+      "import": "./dist/features/input/index.js"
+    },
     "./types/price": {
       "types": "./dist/foundation/types/price.d.ts",
       "import": "./dist/foundation/types/price.js"

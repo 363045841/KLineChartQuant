@@ -612,6 +612,9 @@ export class Chart {
   private startRuntime(): void {
     this.indicatorManager.start()
     this.viewportManager.init()
+    // init 已同步写入首帧尺寸；ResizeObserver 首次回调尺寸不变时不会触发 resize（WebKit 不支持
+    // device-pixel-content-box，DPR 也不会变化），pane 若不在此布局，画布高度会停留在 0。
+    if (this.getViewport()) this.layoutManager.layoutPanes()
     this.ensurePaneScaleTypesFromSettings()
     this.installActiveRendererProjection()
     // 左轴只在分时视图绘制刻度；其余视图不分配左轴后备存储。

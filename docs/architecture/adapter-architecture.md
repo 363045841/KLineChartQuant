@@ -261,34 +261,27 @@ import {
 
 ### 5.2 React 18/19 (`@363045841yyt/klinechart-react`)
 
-**Signal bridge via `useSyncExternalStore`:**
+The React package ships two tiers (ADR 0009):
+
+- `KLineChartWC` wraps the Vue-built `<kline-chart>` Web Component and carries the full KCQ UI.
+- `KLineChart` / `useKLineChart` / `useCoreSignal` mount the core directly, with no Vue runtime in the bundle.
+
+**Mount (client-only, async-safe):**
 
 ```typescript
-import { useSyncExternalStore } from 'react'
-
-export function useChart(ref, opts): ChartController | null {
-  const [controller, setController] = useState<ChartController | null>(null)
-
-  useEffect(() => {
-    const container = ref.current
-    if (!container) return
-    const created = createChart({ ...opts, container })
-    setController(created)
-    return () => { setController(null); created.dispose() }
-  }, [ref])
-
-  return controller
-}
+export function useKLineChart(containerRef, options): ChartController | null
+// - core is loaded with dynamic import() inside useEffect, so SSR renders only the container
+// - a controller that resolves after unmount (or StrictMode's first mount) is disposed at once
+// - mount options are read once; data / theme / settings changes call setData / setTheme /
+//   updateSettingsFacade, with explicit theme taking precedence over settings.theme
 ```
 
 **Subscribing to signals:**
 
 ```typescript
-export function useViewport(controller: ChartController): ChartViewport {
-  const store = controller.viewport
-  const subscribe = useCallback(
-    (cb: () => void) => store.subscribe(cb), [store])
-  const getSnapshot = useCallback(() => store(), [store])
+export function useCoreSignal<T>(signal: ReadonlySignal<T> | null | undefined): T | undefined {
+  const subscribe = useCallback((cb) => (signal ? signal.subscribe(cb) : () => {}), [signal])
+  const getSnapshot = useCallback(() => signal?.peek(), [signal])
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 ```
@@ -296,12 +289,33 @@ export function useViewport(controller: ChartController): ChartViewport {
 **Convenience component:**
 
 ```tsx
-<KLineChart ref={handleRef} data={data} theme="dark" />
+<KLineChart ref={handleRef} data={data} theme="dark" onReady={setController} />
 
 // Imperative access via ref:
-handleRef.current?.zoomToLevel(3)
-handleRef.current?.addIndicator('MA', 'main')
+handleRef.current?.getController()?.zoomToLevel(3)
 ```
+
+Input goes through the shared core binding `bindChartInput` from
+`@363045841yyt/klinechart-core/input` (ADR 0008, P1b), the same wiring the Vue component uses.
+Pass `input={{ intercept, beforePointer, afterPointer }}` to add drawing or selection intercepts,
+or `input={false}` to forward events yourself.
+
+### 5.2.1 Shared input binding
+
+```typescript
+import { bindChartInput } from '@363045841yyt/klinechart-core/input'
+
+const dispose = bindChartInput(controller, {
+  surface,            // plot area: pointer events, intercepts apply here
+  wheelTarget,        // defaults to surface; Vue passes the parent of plot + price axis
+  axisTargets,        // extra hit areas forwarded without intercepts
+}, { beforePointer, intercept, afterPointer })
+```
+
+It forwards pointerdown / move / up / leave / cancel / lostpointercapture, registers a non-passive
+wheel listener that cancels page scrolling, and sets `touch-action: none` on the surface so touch
+pan and pinch reach the controller's `PinchTracker`. The disposer restores the surface and is
+idempotent.
 
 ### 5.3 Angular 17+ (`@363045841yyt/klinechart-angular`)
 
@@ -405,7 +419,7 @@ All three adapters use **composition**:
 | Framework | Abstraction | Mechanism |
 |-----------|-------------|-----------|
 | Vue 3 | Composable (`useChart`) + Component (`KLineChart`) | `shallowRef<ChartController>` + `coreSignalToVueRef` |
-| React | Hook (`useChart`) + Component (`KLineChart`) | `useState<ChartController>` + `useSyncExternalStore` |
+| React | Hook (`useKLineChart`) + Component (`KLineChart`) | `useState<ChartController>` + `useSyncExternalStore` (`useCoreSignal`) |
 | Angular | Component (`KLineChartComponent`) + Provider | `controller: ChartController` + `coreSignalToAngular` |
 
 ### 7.2 SSR Safety
@@ -433,8 +447,8 @@ The mock factory is registered via:
 // Vue
 import { __setChartFactory } from '@363045841yyt/klinechart'
 
-// React
-import { __setChartFactory } from '@363045841yyt/klinechart-react'
+// React: pass `factory` as a prop / option
+<KLineChart factory={mockFactory} />
 
 // Angular
 import { provideKLineChart } from '@363045841yyt/klinechart-angular'
@@ -494,9 +508,9 @@ const { controller, viewport } = useChart(containerRef, { data })
 
 ```typescript
 // React
-import { useChart, useViewport } from '@363045841yyt/klinechart-react'
-const controller = useChart(divRef, { data })
-const viewport = useViewport(controller)
+import { useCoreSignal, useKLineChart } from '@363045841yyt/klinechart-react'
+const controller = useKLineChart(divRef, { data })
+const viewport = useCoreSignal(controller?.viewport)
 ```
 
 ```typescript
