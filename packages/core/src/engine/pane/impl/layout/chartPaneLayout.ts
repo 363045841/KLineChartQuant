@@ -1,9 +1,10 @@
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../../errors.js'
 import type { PaneRole } from '../../../../foundation/plugin/index.js'
 import { ScaleType } from '../../../../foundation/types/scaleType.js'
 import type { ChartDom, Viewport } from '../../../chart/index.js'
 import type { PaneStateModule } from '../../../state/paneState.js'
 import type { ViewportStateModule } from '../../../state/viewportState.js'
-import type { PaneSpec } from '../../types.js'
+import type { PaneSpec, PaneSurfaceFactory } from '../../types.js'
 import { PaneRenderer } from '../paneRenderer.js'
 
 import { Pane, UpdateLevel } from './pane.js'
@@ -41,6 +42,8 @@ export interface PaneLayoutDependencies {
 export class ChartPaneLayout {
   private deps: PaneLayoutDependencies
   private paneRenderers: PaneRenderer[] = []
+  /** 左轴是否可见；只有可见时主图 pane 才分配左轴表面。 */
+  private leftAxisVisible = false
   private _internalPaneRatios: Map<string, number> = new Map()
   private _paneSpecs: PaneSpec[]
 
@@ -118,13 +121,54 @@ export class ChartPaneLayout {
     return canvas
   }
 
+  /**
+   * 按需表面工厂：正式图元表面插在同 pane overlay 之下（同 z-index 按 DOM 顺序叠放），
+   * 左轴表面仅主图 pane 可创建，挂到左轴宿主（缺省回退到绘图层）。
+   */
+  private createSurfaceFactory(
+    spec: PaneSpec,
+    overlayCanvas: HTMLCanvasElement,
+    isMain: boolean,
+  ): PaneSurfaceFactory {
+    const leftAxisHost = this.deps.getDom().leftAxisLayer
+    return {
+      leftAxisHostMeasurable: leftAxisHost !== undefined,
+      createDrawingCanvas: () => {
+        // 正式图元与动态覆盖分开保存像素，同 z-index 按 DOM 顺序叠放在行情之上。
+        const drawingCanvas = document.createElement('canvas')
+        drawingCanvas.id = `${spec.id}-drawing`
+        drawingCanvas.className = 'drawing-canvas'
+        drawingCanvas.style.cssText = overlayCanvas.style.cssText
+        overlayCanvas.before(drawingCanvas)
+        return drawingCanvas
+      },
+      createLeftAxisCanvases: () => {
+        if (!isMain) {
+          throw new KLineChartError(
+            GENERIC_ERROR_CODES.INVALID_STATE,
+            `[ChartPaneLayout] pane '${spec.id}' has no left price axis`,
+          )
+        }
+        const base = this.createAxisCanvas(spec, 'left')
+        const overlay = this.createAxisCanvas(spec, 'left', 'overlay')
+        const host = leftAxisHost ?? this.deps.getDom().canvasLayer
+        for (const canvas of [base, overlay]) {
+          canvas.style.pointerEvents = 'none'
+          canvas.style.zIndex = '3'
+          host.appendChild(canvas)
+        }
+        return { base, overlay }
+      },
+    }
+  }
+
   private initPanes() {
     const kernelScaleTypes = this.deps.pane.readonly.paneScaleTypes.peek()
     const prevScaleTypes = new Map<string, ScaleType>()
     for (const r of this.paneRenderers) {
       prevScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
       // 只回收本模块拥有的 pane 表面，保留图表级 GPU 与十字线等独立表面。
-      for (const canvas of Object.values(r.getDom())) canvas?.remove()
+      r.destroy()
     }
 
     this.paneRenderers = this._paneSpecs.map((spec, index) => {
@@ -139,21 +183,11 @@ export class ChartPaneLayout {
       pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')
-      const drawingCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')
       const yAxisCanvas = this.createAxisCanvas(spec, 'right', 'base')
       const yAxisOverlayCanvas = this.createAxisCanvas(spec, 'right', 'overlay')
 
       const isMain = pane.role === 'price'
-      const leftYAxisCanvas = isMain ? this.createAxisCanvas(spec, 'left') : undefined
-      const leftYAxisOverlayCanvas = isMain
-        ? this.createAxisCanvas(spec, 'left', 'overlay')
-        : undefined
-      for (const canvas of [leftYAxisCanvas, leftYAxisOverlayCanvas]) {
-        if (!canvas) continue
-        canvas.style.pointerEvents = 'none'
-        canvas.style.zIndex = '3'
-      }
 
       mainCanvas.id = `${spec.id}-main`
       mainCanvas.className = isMain ? 'main-canvas main' : 'main-canvas sub'
@@ -171,21 +205,8 @@ export class ChartPaneLayout {
       overlayCanvas.style.backgroundColor = 'transparent'
       overlayCanvas.style.zIndex = '2'
 
-      // 正式图元与动态覆盖分开保存像素，同 z-index 按 DOM 顺序叠放在行情之上。
-      drawingCanvas.id = `${spec.id}-drawing`
-      drawingCanvas.className = 'drawing-canvas'
-      drawingCanvas.style.cssText = overlayCanvas.style.cssText
-
-      const renderer = new PaneRenderer(
-        {
-          mainCanvas,
-          drawingCanvas,
-          overlayCanvas,
-          yAxisCanvas,
-          yAxisOverlayCanvas,
-          leftYAxisCanvas,
-          leftYAxisOverlayCanvas,
-        },
+      return new PaneRenderer(
+        { mainCanvas, overlayCanvas, yAxisCanvas, yAxisOverlayCanvas },
         pane,
         {
           rightAxisWidth: this.deps.getOption().rightAxisWidth,
@@ -193,9 +214,8 @@ export class ChartPaneLayout {
           yPaddingPx: this.deps.getOption().yPaddingPx,
           priceLabelWidth: this.deps.getOption().priceLabelWidth,
         },
+        this.createSurfaceFactory(spec, overlayCanvas, isMain),
       )
-
-      return renderer
     })
 
     const dom = this.deps.getDom()
@@ -204,13 +224,9 @@ export class ChartPaneLayout {
     this.paneRenderers.forEach((renderer) => {
       const domEls = renderer.getDom()
       canvasLayer.appendChild(domEls.mainCanvas)
-      canvasLayer.appendChild(domEls.drawingCanvas)
       canvasLayer.appendChild(domEls.overlayCanvas)
       rightAxisLayer.appendChild(domEls.yAxisCanvas)
       rightAxisLayer.appendChild(domEls.yAxisOverlayCanvas)
-      for (const canvas of [domEls.leftYAxisCanvas, domEls.leftYAxisOverlayCanvas]) {
-        if (canvas) (dom.leftAxisLayer ?? canvasLayer).appendChild(canvas)
-      }
     })
 
     this._paneSpecs = this._paneSpecs.map((spec, index) => ({
@@ -316,6 +332,11 @@ export class ChartPaneLayout {
 
     const visibleSpecs = this._paneSpecs.filter((p) => p.visible !== false)
     if (visibleSpecs.length === 0) return
+    // 隐藏 pane 不参与布局，也不保留后备存储。
+    for (const spec of this._paneSpecs) {
+      if (spec.visible !== false) continue
+      this.paneRenderers.find((r) => r.getPane().id === spec.id)?.setVisible(false)
+    }
 
     const opt = this.deps.getOption()
     const gap = Math.max(0, opt.paneGap ?? 0)
@@ -340,18 +361,11 @@ export class ChartPaneLayout {
       pane.setLayout(y, h)
       pane.setPadding(opt.yPaddingPx, opt.yPaddingPx)
 
-      renderer.resize(vp.plotWidth, h, vp.dpr)
+      renderer.resize(vp.plotWidth, h, vp.dpr, y)
+      this.syncLeftAxis(renderer)
       const domEls = renderer.getDom()
-      domEls.mainCanvas.style.top = `${y}px`
-      domEls.drawingCanvas.style.top = `${y}px`
-      domEls.overlayCanvas.style.top = `${y}px`
-      domEls.yAxisCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.left = '0px'
-      domEls.yAxisOverlayCanvas.style.top = `${y}px`
       domEls.yAxisOverlayCanvas.style.left = '0px'
-      for (const canvas of [domEls.leftYAxisCanvas, domEls.leftYAxisOverlayCanvas]) {
-        if (canvas) canvas.style.top = `${y}px`
-      }
 
       y += h + gap
     }
@@ -434,6 +448,16 @@ export class ChartPaneLayout {
     })
     this.deps.pane.actions.commitLayout(ratios, this.buildLayoutSpecsFromWorkingCopy())
     this.deps.afterCommitLayout?.()
+  }
+
+  /** 同步左轴可见性：可见时为主图 pane 创建左轴表面，隐藏时释放其后备存储。 */
+  setLeftAxisVisible(visible: boolean): void {
+    this.leftAxisVisible = visible
+    for (const renderer of this.paneRenderers) this.syncLeftAxis(renderer)
+  }
+
+  private syncLeftAxis(renderer: PaneRenderer): void {
+    renderer.setLeftAxisVisible(this.leftAxisVisible && renderer.getPane().role === 'price')
   }
 
   hasPane(paneId: string): boolean {

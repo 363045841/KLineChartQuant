@@ -212,6 +212,7 @@ export class Chart {
   private pendingProjectionLevel: UpdateLevel | null = null
   /** activeRenderers 到 Scene 可见性的唯一投影。 */
   private disposeActiveRendererProjection: (() => void) | null = null
+  private disposeLeftAxisProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
   /** 图例领域操作与展示投影的唯一入口。 */
   readonly legend: LegendManager
@@ -602,6 +603,12 @@ export class Chart {
     this.viewportManager.init()
     this.ensurePaneScaleTypesFromSettings()
     this.installActiveRendererProjection()
+    // 左轴只在分时视图绘制刻度；其余视图不分配左轴后备存储。
+    this.disposeLeftAxisProjection = effect(() => {
+      this.layoutManager.setLeftAxisVisible(
+        isTimeShareDataView(this.kernel.mode.readonly.dataView()),
+      )
+    })
     this.scheduleDraw()
   }
 
@@ -1296,6 +1303,8 @@ export class Chart {
     await this.pluginHost.destroy()
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
+    this.disposeLeftAxisProjection?.()
+    this.disposeLeftAxisProjection = null
     this.disposeTradeDemand?.()
     this.disposeTradeDemand = null
     this.indicatorManager.destroy()
