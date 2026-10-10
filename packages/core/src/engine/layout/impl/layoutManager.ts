@@ -13,6 +13,8 @@ import {
 const DEFAULT_LAYOUT_ID = 'default'
 const DEFAULT_LAYOUT_NAME = '默认布局'
 const AUTO_SAVE_DEBOUNCE_MS = 600
+/** 高频来源（视口滚动、缩放）静止多久后再比较配置。 */
+const COALESCED_CHECK_IDLE_MS = 250
 
 /** 判断值是否为普通对象（排除 null 与数组）。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -73,6 +75,7 @@ export class LayoutManager implements LayoutApi {
   private readonly dirtySignal = createSignal(false)
   private readonly errorSignal = createSignal<string | null>(null)
   private timer: ReturnType<typeof setTimeout> | undefined
+  private coalescedTimer: ReturnType<typeof setTimeout> | undefined
   private applying = false
   private disposed = false
   private lastConfiguration = ''
@@ -90,6 +93,8 @@ export class LayoutManager implements LayoutApi {
       exportLayout(): LayoutDocument
       applyLayout(document: LayoutDocument): void
       createLayout(): LayoutDocument
+      /** 恢复前准备文档依赖（如按需加载其指标实现）；完成后再原子写入状态。 */
+      prepareLayout?(document: LayoutDocument): Promise<void>
     },
   ) {
     globalThis.addEventListener?.('pagehide', this.onPageHide)
@@ -172,6 +177,7 @@ export class LayoutManager implements LayoutApi {
 
   /** 页面离开时补写最新配置。 */
   private readonly onPageHide = (): void => {
+    this.flushCoalescedAutoSave()
     if (!this.shouldAutoSave()) return
     void this.run(() => this.saveActive()).catch((error: unknown) =>
       this.reportError(error, '自动保存失败'),
@@ -180,6 +186,7 @@ export class LayoutManager implements LayoutApi {
 
   /** 释放计时器并补写已开启的自动保存。 */
   async dispose(): Promise<void> {
+    this.flushCoalescedAutoSave()
     clearTimeout(this.timer)
     globalThis.removeEventListener?.('pagehide', this.onPageHide)
     try {
@@ -200,7 +207,18 @@ export class LayoutManager implements LayoutApi {
   }
 
   /** 将文档交给图表领域入口恢复；文档由本管理器或调用方按契约构造。 */
-  applyLayout(document: LayoutDocument): void {
+  async applyLayout(document: LayoutDocument): Promise<void> {
+    await this.prepare(document)
+    this.applyPrepared(document)
+  }
+
+  /** 等待文档依赖就绪，使恢复后的首帧即为完整状态。 */
+  private async prepare(document: LayoutDocument): Promise<void> {
+    await this.dependencies.prepareLayout?.(document)
+  }
+
+  /** 同步写入已准备好的文档；恢复期间的状态通知不触发自动保存。 */
+  private applyPrepared(document: LayoutDocument): void {
     this.applying = true
     try {
       this.dependencies.applyLayout(structuredClone(document))
@@ -230,7 +248,8 @@ export class LayoutManager implements LayoutApi {
       )
     } else if (stored) {
       const active = this.archive.documents[this.archive.activeId] ?? fallback
-      this.applyLayout(active)
+      await this.prepare(active)
+      this.applyPrepared(active)
       this.archive = { ...this.archive, activeId: active.id }
     }
     this.loaded = true
@@ -262,8 +281,30 @@ export class LayoutManager implements LayoutApi {
     }, AUTO_SAVE_DEBOUNCE_MS)
   }
 
+  /**
+   * 高频来源（视口逐帧滚动、缩放）只登记待检查，静止后比较一次配置；
+   * 否则每帧都要导出并序列化整份布局。离开页面、销毁与补写前会先完成待检查。
+   */
+  scheduleCoalescedAutoSave(): void {
+    if (this.applying || this.disposed) return
+    clearTimeout(this.coalescedTimer)
+    this.coalescedTimer = setTimeout(() => {
+      this.coalescedTimer = undefined
+      this.scheduleAutoSave()
+    }, COALESCED_CHECK_IDLE_MS)
+  }
+
+  /** 立即执行尚未到期的合并检查。 */
+  private flushCoalescedAutoSave(): void {
+    if (this.coalescedTimer === undefined) return
+    clearTimeout(this.coalescedTimer)
+    this.coalescedTimer = undefined
+    this.scheduleAutoSave()
+  }
+
   /** 切换前和销毁前补写，避免防抖期间的最后一次修改丢失。 */
   private async saveActive(): Promise<void> {
+    this.flushCoalescedAutoSave()
     clearTimeout(this.timer)
     this.timer = undefined
     if (!this.dirtySignal.peek()) return
@@ -311,11 +352,14 @@ export class LayoutManager implements LayoutApi {
       if (this.shouldAutoSave()) await this.saveActive()
       clearTimeout(this.timer)
       const previous = this.exportLayout()
+      const next = this.requireDocument(input.id)
+      await this.prepare(next)
       try {
-        this.applyLayout(this.requireDocument(input.id))
+        this.applyPrepared(next)
         await this.saveDocuments(this.archive.documents, input.id)
       } catch (error) {
-        this.applyLayout(previous)
+        // 回滚目标是当前状态，其依赖已就绪。
+        this.applyPrepared(previous)
         throw error
       }
       this.markClean()
@@ -372,8 +416,9 @@ export class LayoutManager implements LayoutApi {
       if (this.shouldAutoSave()) await this.saveActive()
       const id = crypto.randomUUID()
       const document = { ...this.dependencies.createLayout(), id, name: requireName(input.name) }
+      await this.prepare(document)
       await this.saveDocuments({ ...this.archive.documents, [id]: document }, id)
-      this.applyLayout(document)
+      this.applyPrepared(document)
       this.markClean()
       return id
     })

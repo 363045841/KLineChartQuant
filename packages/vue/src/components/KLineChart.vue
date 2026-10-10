@@ -1816,6 +1816,19 @@
     applyThemeFromSettings(resolved.theme as string)
   }
 
+  /** 受控指标引用的定义实现按需加载；加载失败时由同步方法拒绝写入并给出提示。 */
+  async function loadControlledIndicators(ctrl: ChartController): Promise<void> {
+    const ids = (props.indicators ?? [])
+      .filter((indicator) => indicator.enabled)
+      .map((indicator) => indicator.definitionId)
+    if (ids.length === 0) return
+    try {
+      await ctrl.loadIndicators(ids)
+    } catch (err) {
+      console.error('[KLineChart] loading indicators failed:', err)
+    }
+  }
+
   /** 将受控业务 props 按固定顺序同步到 ChartController。 */
   function applyControlledChartProps(ctrl: ChartController, initial = false): void {
     if (props.indicators !== undefined) {
@@ -1879,6 +1892,8 @@
       console.error('[KLineChart] initChart failed:', err)
       return
     }
+    // 受控指标的实现须在首次同步前就绪，保证其与首批行情同帧计算。
+    await loadControlledIndicators(ctrl)
     if (!containerRef.value || !chartMainRef.value) {
       // 组件在 await 期间已卸载：此时 ctrl 尚未写入 controller.value，需主动释放。
       ctrl.dispose()
@@ -1948,9 +1963,12 @@
       () => props.customMarkers,
       () => props.customData,
     ],
-    () => {
+    async () => {
       const ctrl = controller.value
-      if (ctrl) applyControlledChartProps(ctrl)
+      if (!ctrl) return
+      await loadControlledIndicators(ctrl)
+      // 同步时读取最新 props；加载期间被替换的控制器不再写入。
+      if (controller.value === ctrl) applyControlledChartProps(ctrl)
     },
     { deep: true },
   )

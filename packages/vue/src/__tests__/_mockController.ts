@@ -280,6 +280,7 @@ export function createMockChartController(
       rangeSelection.set({ startTimestamp, endTimestamp, isDragging: false }),
     clearRangeSelection: () =>
       rangeSelection.set({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+    loadIndicators: async () => {},
     addIndicator: () => null,
     removeIndicator: () => false,
     updateIndicatorParams: () => false,

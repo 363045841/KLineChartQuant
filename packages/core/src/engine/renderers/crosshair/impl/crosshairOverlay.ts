@@ -13,30 +13,45 @@ const LINE_CAP = 'butt'
 const DASH_PATTERN = [4, 4]
 const CENTER_GAP = 2
 
-export class CrosshairOverlay {
-  private readonly canvas: HTMLCanvasElement
-  private readonly ctx: CanvasRenderingContext2D
+/** 已挂载的十字线表面与其 2D 上下文。 */
+interface CrosshairSurface {
+  readonly canvas: HTMLCanvasElement
+  readonly ctx: CanvasRenderingContext2D
+}
 
-  /** 创建覆盖整个绘图区的表面，由当前图表实例独占其生命周期。 */
+export class CrosshairOverlay {
+  private readonly host: HTMLElement
+  private surface: CrosshairSurface | null = null
+
+  /** 记录挂载宿主；表面在十字线首次出现时创建，由当前图表实例独占其生命周期。 */
   constructor(host: HTMLElement) {
-    this.canvas = host.ownerDocument.createElement(CANVAS_TAG)
-    this.canvas.className = CROSSHAIR_CANVAS_CLASS
-    this.canvas.style.cssText = OVERLAY_STYLE
-    const ctx = this.canvas.getContext(CANVAS_CONTEXT)
+    this.host = host
+  }
+
+  /** 创建覆盖整个绘图区的表面并挂到宿主。 */
+  private createSurface(): CrosshairSurface {
+    const canvas = this.host.ownerDocument.createElement(CANVAS_TAG)
+    canvas.className = CROSSHAIR_CANVAS_CLASS
+    canvas.style.cssText = OVERLAY_STYLE
+    const ctx = canvas.getContext(CANVAS_CONTEXT)
     if (!ctx) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, CANVAS_CONTEXT_ERROR)
-    this.ctx = ctx
-    host.appendChild(this.canvas)
+    this.host.appendChild(canvas)
+    return { canvas, ctx }
   }
 
   /** 每帧按引擎视口同步物理尺寸并重新绘制，隐藏十字线时同样清除旧像素。 */
   paint(frame: CrosshairOverlayFrame): void {
+    // 从未出现过十字线时没有旧像素可清，也无需分配整幅后备存储。
+    if (!this.surface && !frame.pos) return
+    this.surface ??= this.createSurface()
+    const { canvas, ctx } = this.surface
     const { plotWidth, plotHeight, dpr } = frame.viewport
     const width = Math.max(0, Math.round(plotWidth * dpr))
     const height = Math.max(0, Math.round(plotHeight * dpr))
-    if (this.canvas.width !== width) this.canvas.width = width
-    if (this.canvas.height !== height) this.canvas.height = height
-    this.canvas.style.width = `${plotWidth}px`
-    this.canvas.style.height = `${plotHeight}px`
+    if (canvas.width !== width) canvas.width = width
+    if (canvas.height !== height) canvas.height = height
+    canvas.style.width = `${plotWidth}px`
+    canvas.style.height = `${plotHeight}px`
     this.clear()
     if (!frame.pos || width === 0 || height === 0) return
 
@@ -48,7 +63,6 @@ export class CrosshairOverlay {
     const iy = alignToPhysicalPixelCenter(globalY, dpr)
     // 四向各留出至少 2 个逻辑像素，按整物理像素偏移以保持起点清晰。
     const gap = Math.ceil(CENTER_GAP * dpr) / dpr
-    const ctx = this.ctx
     ctx.save()
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.strokeStyle = frame.color
@@ -81,14 +95,19 @@ export class CrosshairOverlay {
 
   /** 使用物理像素清空整张表面，不依赖上一帧的坐标变换。 */
   clear(): void {
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0)
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    if (!this.surface) return
+    const { canvas, ctx } = this.surface
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
   }
 
   /** 移除实例拥有的表面，释放 Canvas 像素缓冲。 */
   dispose(): void {
-    this.canvas.remove()
-    this.canvas.width = 0
-    this.canvas.height = 0
+    if (!this.surface) return
+    const { canvas } = this.surface
+    canvas.remove()
+    canvas.width = 0
+    canvas.height = 0
+    this.surface = null
   }
 }

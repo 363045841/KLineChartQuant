@@ -268,7 +268,7 @@ export function useIndicatorSelector(controller: ChartController): {
   filteredSub: ComputedRef<ReadonlyArray<IndicatorDefinition>>
   menuOpen: ComputedRef<boolean>
   searchQuery: ComputedRef<string>
-  add: (definitionId: string) => string | null
+  add: (definitionId: string) => Promise<string | null>
   remove: (instanceId: string) => boolean
   openMenu: () => void
   closeMenu: () => void
@@ -287,9 +287,11 @@ export function useIndicatorSelector(controller: ChartController): {
   const menuOpen = coreSignalToVueRef(selector.menuOpen)
   const searchQuery = coreSignalToVueRef(selector.searchQuery)
 
-  function add(definitionId: string): string | null {
+  /** 先按需加载指标实现，再添加到对应位置。 */
+  async function add(definitionId: string): Promise<string | null> {
     const def = controller.catalog.find((d) => d.id === definitionId)
     if (def === undefined) return null
+    await controller.loadIndicators([definitionId])
     return controller.addIndicator(definitionId, def.role)
   }
 

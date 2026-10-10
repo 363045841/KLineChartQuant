@@ -6,16 +6,20 @@
  */
 
 import type { Chart } from '@/engine/chart/index.js'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import {
+  getIndicatorDescriptor,
+  getRegisteredIndicatorDefinition,
+  isIndicatorDefinitionLoaded,
+} from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import type { CustomMarkerEntity } from '@/engine/marker/registry.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
-import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
-import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { ChartFrameCaptureContext } from '../../screenshot/types.js'
+import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
 
 /**
  * 构造一组轻量图表操作方法。
@@ -25,6 +29,20 @@ import type { ChartFrameCaptureContext } from '../../screenshot/types.js'
  * @returns 可展开进 ChartController 的方法集合
  */
 export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
+  /**
+   * 同步指标方法只接受已加载的定义；目录中存在但实现未加载时提示宿主先加载，
+   * 未知 ID 保持原有的静默失败语义。
+   */
+  function isLoaded(definitionId: string): boolean {
+    if (isIndicatorDefinitionLoaded(definitionId)) return true
+    if (getIndicatorDescriptor(definitionId)) {
+      console.warn(
+        `[ChartController] indicator '${definitionId}' is not loaded; await controller.loadIndicators(['${definitionId}']) first`,
+      )
+    }
+    return false
+  }
+
   /** 挂载宿主 Layer，销毁后不接收新资源。 */
   function useRenderer(layer: Layer<RenderContext>): void {
     if (isDisposed()) return
@@ -54,7 +72,9 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     capture: (frame: ChartFrameCaptureContext) => T | Promise<T>,
   ): Promise<T> {
     if (isDisposed()) {
-      return Promise.reject(new KLineChartError(GENERIC_ERROR_CODES.DISPOSED, '图表已销毁，无法截图'))
+      return Promise.reject(
+        new KLineChartError(GENERIC_ERROR_CODES.DISPOSED, '图表已销毁，无法截图'),
+      )
     }
     return chart.captureFrame(capture)
   }
@@ -139,7 +159,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     role: IndicatorRole,
     params?: Record<string, unknown>,
   ): string | null {
-    if (isDisposed()) return null
+    if (isDisposed() || !isLoaded(definitionId)) return null
     return chart.indicators.add(definitionId, role, params)
   }
 
@@ -157,7 +177,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 校验主图定义后，以一次状态写入替换对应 Legend。 */
   function replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean {
-    if (isDisposed()) return false
+    if (isDisposed() || !isLoaded(nextDefinitionId)) return false
     return chart.indicators.replaceMain(definitionId, nextDefinitionId)
   }
 
@@ -219,7 +239,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 创建子窗格。 */
   function createPane(input: CreatePaneInput): boolean {
-    if (isDisposed()) return false
+    if (isDisposed() || !isLoaded(input.indicatorId)) return false
     return chart.panes.create(input)
   }
 
@@ -235,7 +255,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     indicatorId: string,
     params: Record<string, unknown>,
   ): boolean {
-    if (isDisposed()) return false
+    if (isDisposed() || !isLoaded(indicatorId)) return false
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.displayName))
       return false

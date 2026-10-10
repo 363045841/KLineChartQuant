@@ -67,7 +67,7 @@ it('绘图随布局落盘，复制保留图元，新建与缺少绘图的文档�
     expect(kernel.drawing.readonly.drawings.peek()).toEqual([drawing])
     kernel.drawing.actions.setSelectedDrawingIds([drawing.id])
     const { drawings: _drawings, ...withoutDrawings } = exported
-    manager.applyLayout(withoutDrawings)
+    await manager.applyLayout(withoutDrawings)
     expect(kernel.drawing.readonly.drawings.peek()).toEqual([])
     expect(kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
     await manager.switchLayout({ id })
@@ -268,5 +268,99 @@ it('视口快照随布局文档持久化，切换到该布局时恢复', async (
   } finally {
     await manager.dispose()
     kernel.dispose()
+  }
+})
+
+it('恢复与切换布局前先完成文档依赖准备，再原子写入状态', async () => {
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  const events: string[] = []
+  /** 每次准备返回一个由用例显式放行的任务，并通知用例准备已开始。 */
+  let started: Promise<() => void> = Promise.resolve(() => {})
+  let onStart: (release: () => void) => void = () => {}
+  const armPreparation = () => {
+    started = new Promise((resolve) => {
+      onStart = resolve
+    })
+  }
+  const manager = new LayoutManager({
+    exportLayout: () => kernel.exportLayout(),
+    applyLayout: (document) => {
+      events.push('apply')
+      kernel.applyLayout(document)
+    },
+    createLayout: () => kernel.createLayout(),
+    prepareLayout: () => {
+      events.push('prepare')
+      return new Promise<void>((resolve) =>
+        onStart(() => {
+          events.push('prepared')
+          resolve()
+        }),
+      )
+    },
+  })
+  try {
+    await manager.initialize()
+    const id = await manager.saveLayout({ name: '目标' })
+    armPreparation()
+    const switching = manager.switchLayout({ id })
+    const releaseSwitch = await started
+    // 准备未完成时不得写入任何状态。
+    expect(events).toEqual(['prepare'])
+    releaseSwitch()
+    await switching
+    expect(events).toEqual(['prepare', 'prepared', 'apply'])
+    events.length = 0
+    armPreparation()
+    const applying = manager.applyLayout(kernel.exportLayout())
+    const releaseApply = await started
+    expect(events).toEqual(['prepare'])
+    releaseApply()
+    await applying
+    expect(events).toEqual(['prepare', 'prepared', 'apply'])
+  } finally {
+    await manager.dispose()
+    kernel.dispose()
+  }
+})
+
+it('高频视口变化合并为静止后的一次比较，销毁前补齐待检查的变更', async () => {
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  let exports = 0
+  const manager = new LayoutManager({
+    exportLayout: () => {
+      exports++
+      return kernel.exportLayout()
+    },
+    applyLayout: (document) => kernel.applyLayout(document),
+    createLayout: () => kernel.createLayout(),
+  })
+  await manager.initialize()
+  const id = await manager.saveLayout({ name: '视口' })
+  exports = 0
+  kernel.settings.actions.patch({ theme: 'dark' })
+  for (let frame = 0; frame < 60; frame++) manager.scheduleCoalescedAutoSave()
+  // 逐帧通知不导出布局，静止后只比较一次。
+  expect(exports).toBe(0)
+  expect(manager.layoutDirty.peek()).toBe(false)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  expect(exports).toBe(1)
+  expect(manager.layoutDirty.peek()).toBe(true)
+  await manager.saveLayout({ id, name: '视口' })
+
+  // 静止计时未到即销毁：待检查的变更仍要落盘。
+  kernel.settings.actions.patch({ theme: 'light' })
+  manager.scheduleCoalescedAutoSave()
+  await manager.dispose()
+  kernel.dispose()
+
+  const restored = createManager()
+  try {
+    await restored.manager.initialize()
+    expect(restored.manager.activeLayoutId.peek()).toBe(id)
+    expect(restored.kernel.settings.readonly.settings.peek().theme).toBe('light')
+  } finally {
+    await restored.manager.dispose()
+    restored.kernel.dispose()
   }
 })

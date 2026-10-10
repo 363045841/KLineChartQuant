@@ -889,11 +889,18 @@ describe('Chart DPR pipeline', () => {
   it('retains one chart crosshair surface across pane rebuilds, DPR changes and disposal', async () => {
     const chart = mountChart()
     const host = chart.getDom().canvasLayer
-    const canvas = host.querySelector<HTMLCanvasElement>('canvas.crosshair-canvas')
+    let canvas: HTMLCanvasElement | null = null
     try {
-      expect(canvas).not.toBeNull()
       chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', data: makeBars(100) })
       chart.draw()
+      // 十字线首次出现前不分配整幅表面。
+      expect(host.querySelector('canvas.crosshair-canvas')).toBeNull()
+      chart.handlePointerEvent(
+        pointerEvent('pointermove', chart.getDom().container, { pointerType: 'mouse' }),
+      )
+      chart.draw()
+      canvas = host.querySelector<HTMLCanvasElement>('canvas.crosshair-canvas')
+      expect(canvas).not.toBeNull()
       chart.updateOptions({
         panes: [
           { id: 'main', ratio: 0.7 },

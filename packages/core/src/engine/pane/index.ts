@@ -13,6 +13,7 @@ export type {
   PaneRendererDom,
   PaneRendererOptions,
   PaneSpec,
+  PaneSurfaceFactory,
   ResolvedPaneRendererOptions,
   SubPaneContext,
   SubPaneEntry,

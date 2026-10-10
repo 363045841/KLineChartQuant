@@ -99,6 +99,38 @@ test('fails on duplicate names and definitions that cannot be assembled', (conte
   assert.throws(() => generateIndicatorEntrypoints(root), /kind 必须/)
 })
 
+test('extracts the static catalog from constants and rejects runtime-only catalog fields', (context) => {
+  const { root } = createSourceFixture(context)
+  const filename = path.join(root, 'catalog.ts')
+  writeFileSync(
+    filename,
+    "import { Indicator } from './engine/indicators/indicatorDefinitionRegistry.js'\n" +
+      "const MODES = Object.freeze({ Fast: 'fast' } as const)\n" +
+      'const DEFAULTS = { period: 14, mode: MODES.Fast } as const\n' +
+      "@Indicator({ name: 'catalog', kind: 'indicator', displayName: 'CAT', aliases: ['C'], " +
+      'runtime: { defaultParams: { ...DEFAULTS, offset: -1 }, compute: () => [] }, ' +
+      'presentation: { defaultOptions: { showCAT: true }, selectSeriesKeys: () => [] } })\n' +
+      'export class CatalogDefinition {}\n',
+  )
+  const [definition] = discoverIndicatorDefinitions(root)
+  assert.deepEqual(definition.descriptor, {
+    name: 'catalog',
+    kind: 'indicator',
+    aliases: ['C'],
+    displayName: 'CAT',
+    defaultParams: { period: 14, mode: 'fast', offset: -1 },
+    defaultOptions: { showCAT: true },
+  })
+  writeFileSync(
+    filename,
+    "import { Indicator } from './engine/indicators/indicatorDefinitionRegistry.js'\n" +
+      "const label = () => 'CAT'\n" +
+      "@Indicator({ name: 'catalog', kind: 'indicator', displayName: label() })\n" +
+      'export class CatalogDefinition {}\n',
+  )
+  assert.throws(() => discoverIndicatorDefinitions(root), /displayName 必须是编译期常量/)
+})
+
 /** 等待真实 Vite 文件事件，超时直接失败，不依赖固定延迟。 */
 function waitForFileEvent(watcher, event, filename) {
   return new Promise((resolve, reject) => {

@@ -8,8 +8,13 @@ export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
 export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/indicatorContracts.js'
 export {
+  getIndicatorDescriptor,
+  getIndicatorDescriptors,
   Indicator,
   type IndicatorDefinitionConfig,
+  type IndicatorDescriptor,
+  isIndicatorDefinitionLoaded,
+  loadIndicatorDefinitions,
   registerIndicatorDefinition,
   resolveIndicatorLayerId,
 } from './engine/indicators/indicatorDefinitionRegistry.js'

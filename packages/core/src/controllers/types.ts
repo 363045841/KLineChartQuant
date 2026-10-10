@@ -385,7 +385,19 @@ export interface ChartMountOptions {
 
   // Initial chart settings (overrides > stored preferences > DEFAULT_SETTINGS)
   settings?: Partial<ChartSettings>
+
+  /**
+   * 指标实现的加载策略。
+   * - `'on-demand'`（默认）：创建时只加载系统定义与已保存布局用到的指标，其余指标在
+   *   `loadIndicators` / 布局切换 / Agent 工具时按需加载；同步的 `addIndicator` 等方法
+   *   只接受已加载的定义。
+   * - `'all'`：创建时加载全部内置指标，适合直接同步调用指标方法的宿主。
+   */
+  indicatorLoading?: IndicatorLoadingMode
 }
+
+/** 指标实现的加载策略，见 {@link ChartMountOptions.indicatorLoading}。 */
+export type IndicatorLoadingMode = 'on-demand' | 'all'
 
 export interface ChartController extends DrawingChartAdapter, ChartRendererAccess, LayoutApi {
   /** 在完整绘制帧结束时同步调用捕获函数，返回其异步合成结果。 */
@@ -549,6 +561,11 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   clearRangeSelection(): void
 
   // ---- Indicators ----
+  /**
+   * 按需加载指标实现（名称、展示名或别名）；已加载与未知 ID 直接跳过。
+   * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
+   */
+  loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>
   addIndicator(
     definitionId: string,
     role: IndicatorRole,

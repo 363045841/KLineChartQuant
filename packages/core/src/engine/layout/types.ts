@@ -98,7 +98,8 @@ export interface LayoutApi {
   >
   createLayout(input: { name: string }): Promise<string>
   setLayoutAutoSave(input: { enabled: boolean }): Promise<void>
-  applyLayout(document: LayoutDocument): void
+  /** 先加载文档引用的指标实现，再原子恢复；返回时状态已写入。 */
+  applyLayout(document: LayoutDocument): Promise<void>
   listLayouts(): Promise<ReadonlyArray<LayoutSummary>>
   saveLayout(input: { name: string; id?: string }): Promise<string>
   switchLayout(input: { id: string }): Promise<void>

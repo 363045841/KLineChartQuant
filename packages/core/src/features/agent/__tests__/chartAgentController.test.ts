@@ -206,6 +206,11 @@ function createFixture() {
   const copyDrawings = vi.fn<
     (ids: ReadonlyArray<string>) => ReturnType<typeof drawingDocument.listDrawings>
   >(() => [])
+  // 指标实现按需加载：解析只认已加载的定义，工具必须先加载再解析。
+  const loadedIndicators = new Set<string>()
+  const loadIndicators = vi.fn(async (ids: ReadonlyArray<string>) => {
+    for (const id of ids) loadedIndicators.add(id)
+  })
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
     dataState,
@@ -222,8 +227,11 @@ function createFixture() {
     drawings: drawingState.readonly.drawings,
     selectedDrawingIds: drawingState.readonly.selectedDrawingIds,
     getDrawingPaneIds: () => ['main'],
+    loadIndicators,
     resolveSubPaneIndicatorId: (indicatorId) =>
-      ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' })[indicatorId] ?? null,
+      loadedIndicators.has(indicatorId)
+        ? ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' }[indicatorId] ?? null)
+        : null,
     paneManager: { actions: paneActions, list: () => panes },
     comparisonCommands,
     isSubPaneRendererAvailable: (indicatorId) =>
@@ -249,6 +257,7 @@ function createFixture() {
     drawingState,
     requestDraw,
     paneActions,
+    loadIndicators,
   }
 }
 
@@ -457,6 +466,7 @@ describe('createChartAgentController', () => {
     ).resolves.toBe('RSI compact text')
     expect(fixture.queryIndicator).toHaveBeenCalledTimes(2)
     expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
+    expect(fixture.loadIndicators).toHaveBeenCalledWith(['RSI'])
   })
 
   it('rejects timestamp ranges from the registered indicator tool', async () => {
@@ -773,6 +783,9 @@ describe('createChartAgentController', () => {
     await tool('pane_remove').execute(fixture.controller, { paneId: 'rsi' }, execution)
     await tool('panes_clear').execute(fixture.controller, {}, execution)
 
+    // 添加指标前只加载该指标自身的实现。
+    expect(fixture.loadIndicators).toHaveBeenNthCalledWith(1, ['RSI'])
+    expect(fixture.loadIndicators).toHaveBeenNthCalledWith(2, ['VOL'])
     expect(fixture.paneActions.create).toHaveBeenCalledWith({
       paneId: 'rsi',
       indicatorId: 'rsi',

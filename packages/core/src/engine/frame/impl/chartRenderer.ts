@@ -1130,6 +1130,15 @@ export class ChartRenderer {
           'committed',
         )
         this.drawingAxisLabels.set(renderer, labels)
+        // 正式图元表面在 pane 首次出现图元时创建；新表面为空白，只需与清除路径相同的 DPR 变换。
+        if (!context.drawingCtx && (context.drawingProjection?.primitives.length ?? 0) > 0) {
+          const createdDrawingCtx = renderer.ensureDrawingContext()
+          if (createdDrawingCtx) {
+            createdDrawingCtx.setTransform(1, 0, 0, 1, 0, 0)
+            createdDrawingCtx.scale(vp.dpr, vp.dpr)
+            context.drawingCtx = createdDrawingCtx
+          }
+        }
       } else {
         context.drawingProjection = previousContext?.drawingProjection
       }

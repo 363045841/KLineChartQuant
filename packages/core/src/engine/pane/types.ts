@@ -26,17 +26,33 @@ export type PaneSpec = {
   capabilities?: Partial<PaneCapabilities>
 }
 
-/** 单个 Pane 所持有的分层 canvas DOM 集合。 */
+/**
+ * 单个 Pane 所持有的分层 canvas DOM 集合。
+ *
+ * main/overlay/右轴为常驻表面；正式图元与左轴表面按需创建，未创建时为 undefined。
+ */
 export type PaneRendererDom = {
   mainCanvas: HTMLCanvasElement
-  /** 正式图元独立表面；拖拽和预览使用 overlayCanvas。 */
-  drawingCanvas: HTMLCanvasElement
+  /** 正式图元独立表面；仅当该 pane 有正式图元时创建。拖拽和预览使用 overlayCanvas。 */
+  drawingCanvas?: HTMLCanvasElement
   overlayCanvas: HTMLCanvasElement
   yAxisCanvas: HTMLCanvasElement
   /** 轴区动态层（最新价标签、十字线价签），叠在 yAxisCanvas 上 */
   yAxisOverlayCanvas: HTMLCanvasElement
+  /** 左轴静态层；仅在左轴可见时存在。 */
   leftYAxisCanvas?: HTMLCanvasElement
+  /** 左轴动态层；与静态层同生命周期。 */
   leftYAxisOverlayCanvas?: HTMLCanvasElement
+}
+
+/** 按需表面的创建入口：负责 DOM 身份、样式与插入位置，尺寸由 PaneRenderer 写入。 */
+export interface PaneSurfaceFactory {
+  /** 创建正式图元表面，并插入到同 pane overlay 表面之下。 */
+  createDrawingCanvas(): HTMLCanvasElement
+  /** 创建左轴静态与动态表面，并挂到左轴宿主。 */
+  createLeftAxisCanvases(): { base: HTMLCanvasElement; overlay: HTMLCanvasElement }
+  /** 左轴宿主是否为专用左轴层；只有专用层的宽度才代表轴宽。 */
+  readonly leftAxisHostMeasurable: boolean
 }
 
 /** 单个 Pane 的绘图上下文集合，价格轴与左右摆放位置无关。 */
