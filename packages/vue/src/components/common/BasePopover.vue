@@ -22,7 +22,6 @@
       v-bind="popover.panelBindings.value"
       :role="role"
       :aria-label="label"
-      @keydown.escape="onEscape"
     >
       <slot v-if="isOpen" :close="close" />
     </div>
@@ -30,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, useTemplateRef, watchEffect } from 'vue'
+  import { computed, ref, useTemplateRef } from 'vue'
 
   import { useAnchoredPopover } from '../../composables/overlay/useAnchoredPopover.js'
   import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
@@ -77,17 +76,6 @@
   function close(): void {
     popover.hide({ restoreFocus: true })
   }
-
-  function onEscape(event: KeyboardEvent): void {
-    if (popover.native) return
-    event.preventDefault()
-    close()
-  }
-
-  // 触发器解绑时关闭面板。
-  watchEffect(() => {
-    if (!triggerEl.value && isOpen.value) popover.hide()
-  })
 
   defineExpose({ show: popover.show, hide: close, toggle: popover.toggle })
 </script>

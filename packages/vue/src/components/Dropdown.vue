@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, useTemplateRef } from 'vue'
+  import { computed, useTemplateRef } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
 
   import { useAnchoredPopover } from '../composables/overlay/useAnchoredPopover.js'
@@ -159,8 +159,6 @@
     emit('update:modelValue', value)
     popover.hide({ restoreFocus: true })
   }
-
-  onBeforeUnmount(() => popover.hide())
 </script>
 
 <style scoped src="./common/control-button.css"></style>

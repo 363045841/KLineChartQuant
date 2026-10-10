@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-  import { onBeforeUnmount, useTemplateRef } from 'vue'
+  import { useTemplateRef } from 'vue'
 
   import { useAnchoredPopover } from '../composables/overlay/useAnchoredPopover.js'
   import { useRovingFocus } from '../composables/overlay/useRovingFocus.js'
@@ -174,8 +174,6 @@
     emit('select', groupId, itemId)
   }
 
-  onBeforeUnmount(() => hide())
-
   defineExpose({ show, hide })
 </script>
 
@@ -195,6 +193,7 @@
     max-height: min(420px, calc(100vh - 24px));
     padding: 0;
     overflow-y: auto;
+    border: 0;
     border-radius: var(--klc-radius-md, 8px);
     background: var(--klc-color-ui-input);
     color: var(--klc-color-ui-text);
