@@ -9,10 +9,10 @@ import type {
 import type { BarQuery, InstrumentDescriptor } from '../../types.js'
 
 /** 约一百根日 K 的本地测试品种。 */
-export const MOCK_100_SYMBOL = 'MOCK-100'
+const MOCK_100_SYMBOL = 'MOCK-100'
 
 /** 固定一万根日 K 的压力测试品种。 */
-export const MOCK_10000_SYMBOL = 'MOCK-10000'
+const MOCK_10000_SYMBOL = 'MOCK-10000'
 
 /** 将时间戳归一到 UTC 日 K 的开盘时刻，静态数据与实时 forming 必须使用同一桶边界。 */
 function startOfUtcDay(timestamp: number): number {

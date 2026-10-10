@@ -10,7 +10,7 @@ export interface TEMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_TEMA_PERIOD = 20
+const DEFAULT_TEMA_PERIOD = 20
 
 export const EMPTY_TEMA_STATE: TEMARenderState = {
   timestamp: 0,

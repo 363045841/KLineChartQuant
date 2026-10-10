@@ -23,7 +23,7 @@ import type { MagnetMode } from '../../magnet/types'
 import type { DrawingObject } from '../../types'
 
 /** 测试图元默认描边色。 */
-export const TEST_STROKE = '#2962ff'
+const TEST_STROKE = '#2962ff'
 
 /** 构造最小绘图图元，只声明用例关心的字段差异。 */
 export function createDrawingObject(
@@ -234,22 +234,22 @@ export const OHLC_BARS = [
 ]
 
 /** OHLC_BARS 对应的 Bar 时间戳。 */
-export const BAR_TIMESTAMPS = [500, 1000, 1500]
+const BAR_TIMESTAMPS = [500, 1000, 1500]
 
 /** 磁吸夹具的目标 Bar 与 Pane 布局（pane 局部坐标）。 */
 export const MAGNET_PANE: PaneLayoutInfo = { paneId: 'main', top: 0, height: 200 }
 
 /** 磁吸夹具的价格→Y 映射。 */
-export const priceToY = (_paneId: string, price: number) => 200 - price
+const priceToY = (_paneId: string, price: number) => 200 - price
 
 /** 磁吸夹具的 Y→价格映射。 */
-export const yToPrice = (_paneId: string, y: number) => 200 - y
+const yToPrice = (_paneId: string, y: number) => 200 - y
 
 /**
  * 构造完整的绘图文档 port。
  * 选择集合与工具状态默认由内存变量承载，可被子用例通过 overrides 覆盖。
  */
-export function createDrawingDocumentPort(
+function createDrawingDocumentPort(
   drawings: ReadonlyArray<DrawingObject> = [],
   overrides: Partial<DrawingDocumentPort> = {},
 ): DrawingDocumentPort {
@@ -310,9 +310,7 @@ export function createDrawingViewportPort(
 }
 
 /** 构造完整的绘图会话 port。 */
-export function createDrawingSessionPort(
-  overrides: Partial<DrawingSessionPort> = {},
-): DrawingSessionPort {
+function createDrawingSessionPort(overrides: Partial<DrawingSessionPort> = {}): DrawingSessionPort {
   return { requestDraw: vi.fn(), ...overrides } satisfies DrawingSessionPort
 }
 

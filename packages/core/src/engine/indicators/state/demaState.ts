@@ -10,7 +10,7 @@ export interface DEMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_DEMA_PERIOD = 20
+const DEFAULT_DEMA_PERIOD = 20
 
 export const EMPTY_DEMA_STATE: DEMARenderState = {
   timestamp: 0,

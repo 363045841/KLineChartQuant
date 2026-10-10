@@ -10,8 +10,8 @@ export interface HVRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_HV_PERIOD = 20
-export const DEFAULT_HV_ANNUALIZATION = 252
+const DEFAULT_HV_PERIOD = 20
+const DEFAULT_HV_ANNUALIZATION = 252
 
 export const EMPTY_HV_STATE: HVRenderState = {
   timestamp: 0,

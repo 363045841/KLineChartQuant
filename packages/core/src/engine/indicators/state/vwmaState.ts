@@ -10,7 +10,7 @@ export interface VWMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_VWMA_PERIOD = 20
+const DEFAULT_VWMA_PERIOD = 20
 
 export const EMPTY_VWMA_STATE: VWMARenderState = {
   timestamp: 0,

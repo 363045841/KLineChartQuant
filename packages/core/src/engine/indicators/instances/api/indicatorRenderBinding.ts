@@ -59,4 +59,3 @@ export interface IndicatorInstanceCatalog {
 }
 
 /** 帧外状态读取服务。 */
-export type IndicatorInstanceStateService = IndicatorRenderStateReader

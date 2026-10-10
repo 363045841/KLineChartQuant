@@ -43,8 +43,8 @@ export interface StructureRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_STRUCTURE_LEFT = 2
-export const DEFAULT_STRUCTURE_RIGHT = 2
+const DEFAULT_STRUCTURE_LEFT = 2
+const DEFAULT_STRUCTURE_RIGHT = 2
 
 export const EMPTY_STRUCTURE_STATE: StructureRenderState = {
   timestamp: 0,

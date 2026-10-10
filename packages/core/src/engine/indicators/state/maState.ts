@@ -15,20 +15,3 @@ export interface MARenderState extends BaseIndicatorState {
   /** 视口内所有 MA 线的最高价 */
   visibleMax: number
 }
-
-/**
- * MA 状态的 StateStore 键名
- * 格式：indicator:ma:main
- */
-
-/**
- * 空数据占位状态
- * 消费者应检查 visibleMin > visibleMax 判断"无有效数据"
- */
-export const EMPTY_MA_STATE: MARenderState = {
-  timestamp: 0,
-  series: {},
-  enabledPeriods: [],
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

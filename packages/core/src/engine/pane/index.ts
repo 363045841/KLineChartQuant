@@ -18,4 +18,3 @@ export type {
   SubPaneEntry,
   SubPaneResources,
 } from './types.js'
-export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from './types.js'

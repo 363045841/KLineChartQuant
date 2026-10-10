@@ -46,7 +46,7 @@ export class ResizeObserverMock {
  * 构造 WebGL2 context 的最小可用 stub。
  * 常量返回 0，创建/查询类方法返回可辨对象，其余方法为 noop。
  */
-export function createWebGLContextStub(): WebGL2RenderingContext {
+function createWebGLContextStub(): WebGL2RenderingContext {
   const noop = () => {}
   return new Proxy({} as unknown as WebGL2RenderingContext, {
     get(_, prop) {

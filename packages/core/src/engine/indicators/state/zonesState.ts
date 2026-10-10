@@ -25,7 +25,7 @@ export interface ZonesRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_ZONES_OB_LOOKBACK = 5
+const DEFAULT_ZONES_OB_LOOKBACK = 5
 
 export const EMPTY_ZONES_STATE: ZonesRenderState = {
   timestamp: 0,

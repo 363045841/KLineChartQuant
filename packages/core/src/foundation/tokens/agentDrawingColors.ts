@@ -8,6 +8,3 @@ export const AGENT_DRAWING_COLOR_VALUES = [
   '#8B5E83', // 柔和灰紫
   '#9CA3AF', // 中性灰
 ] as const
-
-/** Agent 绘图工具允许写入的颜色。 */
-export type AgentDrawingColor = (typeof AGENT_DRAWING_COLOR_VALUES)[number]

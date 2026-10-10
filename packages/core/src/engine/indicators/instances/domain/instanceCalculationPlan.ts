@@ -124,16 +124,3 @@ export function expandIndicatorCalculationOutputs(
   }
   return results
 }
-
-/** 将计划中的实例按 pane 分组；仅供投影层读取，绝不参与计算分组。 */
-export function groupInstancesByPane(
-  instances: Iterable<IndicatorInstance>,
-): ReadonlyMap<string, readonly IndicatorInstance[]> {
-  const panes = new Map<string, IndicatorInstance[]>()
-  for (const instance of instances) {
-    const pane = panes.get(instance.paneId) ?? []
-    pane.push(instance)
-    panes.set(instance.paneId, pane)
-  }
-  return new Map([...panes].map(([paneId, entries]) => [paneId, Object.freeze(entries)]))
-}

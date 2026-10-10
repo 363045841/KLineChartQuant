@@ -10,7 +10,7 @@ export interface VMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_VMA_PERIOD = 5
+const DEFAULT_VMA_PERIOD = 5
 
 export const EMPTY_VMA_STATE: VMARenderState = {
   timestamp: 0,

@@ -10,8 +10,8 @@ export interface ParkinsonRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_PARKINSON_PERIOD = 20
-export const DEFAULT_PARKINSON_ANNUALIZATION = 252
+const DEFAULT_PARKINSON_PERIOD = 20
+const DEFAULT_PARKINSON_ANNUALIZATION = 252
 
 export const EMPTY_PARKINSON_STATE: ParkinsonRenderState = {
   timestamp: 0,

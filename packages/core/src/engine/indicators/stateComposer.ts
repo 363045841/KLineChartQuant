@@ -5,13 +5,9 @@
  * 展示配置不参与计算，只在投影时合入 renderer 读取的参数。
  */
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
+import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
 import type { IndicatorSeriesResult } from './instances/domain/instanceModel.js'
-
-export interface VisibleRange {
-  start: number
-  end: number
-}
 
 /** 计算结果条目：只含计算参数；价格范围等计算语义使用它，不受展示配置影响。 */
 function toCalculationEntry(result: IndicatorSeriesResult): Record<string, unknown> {

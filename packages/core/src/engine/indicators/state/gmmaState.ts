@@ -24,14 +24,6 @@ export interface GMMARenderState extends BaseIndicatorState {
 export const GMMA_SHORT_PERIODS = [3, 5, 8, 10, 12, 15] as const
 /** 顾比均线长周期组（30~60，慢速 EMA） */
 export const GMMA_LONG_PERIODS = [30, 35, 40, 45, 50, 60] as const
-/** 全部 12 条 GMMA 周期（短组在前、长组在后） */
-export const GMMA_PERIODS = [...GMMA_SHORT_PERIODS, ...GMMA_LONG_PERIODS] as const
-
-/**
- * GMMA 状态的 StateStore 键名
- * 格式：indicator:gmma:paneId
- */
-
 /** 空数据占位状态（visibleMin > visibleMax 表示无有效数据） */
 export const EMPTY_GMMA_STATE: GMMARenderState = {
   timestamp: 0,

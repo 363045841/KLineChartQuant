@@ -10,7 +10,7 @@ export interface ROCRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_ROC_PERIOD = 12
+const DEFAULT_ROC_PERIOD = 12
 
 export const EMPTY_ROC_STATE: ROCRenderState = {
   timestamp: 0,

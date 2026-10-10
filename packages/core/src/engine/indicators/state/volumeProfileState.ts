@@ -30,11 +30,11 @@ export interface VolumeProfileRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_VP_BINS = 24
-export const DEFAULT_VP_LOOKBACK = 0 // 0 = use entire data
-export const DEFAULT_VP_VALUE_AREA = 0.7
+const DEFAULT_VP_BINS = 24
+const DEFAULT_VP_LOOKBACK = 0 // 0 = use entire data
+const DEFAULT_VP_VALUE_AREA = 0.7
 
-export const EMPTY_VP_RESULT: VolumeProfileResult = {
+const EMPTY_VP_RESULT: VolumeProfileResult = {
   bins: [],
   poc: 0,
   vah: 0,

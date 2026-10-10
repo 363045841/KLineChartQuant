@@ -70,7 +70,7 @@ import {
 } from './calculators/index.js'
 
 /** Worker 端 computeKey → calculator 的映射。 */
-export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
+const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
   calcCCIData: (data, c) => calcCCIData(data, c.period),
   calcMACDData: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
   calcMAData: (data, c) => {

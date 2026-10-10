@@ -11,16 +11,6 @@ import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer, LayerRole } from '@/rendering/scene/types.js'
 
-/** 指标渲染器工厂的通用选项：仅承载身份，不含绘制状态。 */
-export interface IndicatorRendererFactoryOptions {
-  /** 目标 pane ID。 */
-  paneId?: string
-  /** 指标实例 ID，渲染状态按该身份寻址。 */
-  instanceId?: string
-  /** 显式 Layer role；缺省按 pane 推导（main → primary，其余 indicator）。 */
-  role?: LayerRole
-}
-
 /** 组装指标 Layer 所需参数。 */
 export type IndicatorRendererLayerSpec = {
   /** 绘制目标 pane，具体 paneId。 */

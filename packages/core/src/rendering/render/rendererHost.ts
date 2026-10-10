@@ -12,12 +12,12 @@ export type RendererBackendRuntime = {
   error: string | null
 }
 
-export type RendererFactory = () => Renderer | Promise<Renderer>
+export type BackendRendererFactory = () => Renderer | Promise<Renderer>
 
 export type RendererHostDependencies = {
-  createWebGPU: RendererFactory
-  createWebGL: RendererFactory
-  createCanvas: RendererFactory
+  createWebGPU: BackendRendererFactory
+  createWebGL: BackendRendererFactory
+  createCanvas: BackendRendererFactory
   onRuntimeChange?: (runtime: Readonly<RendererBackendRuntime>) => void
   requestRedraw?: () => void
 }
@@ -51,7 +51,7 @@ async function prepareRenderer(
   preference: RendererBackend,
   deps: RendererHostDependencies,
 ): Promise<PreparedRenderer> {
-  const attempts: Array<[RendererBackend, RendererFactory]> =
+  const attempts: Array<[RendererBackend, BackendRendererFactory]> =
     preference === 'webgpu'
       ? [
           ['webgpu', deps.createWebGPU],

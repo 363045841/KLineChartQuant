@@ -20,11 +20,6 @@ export function immutableMap<K, V>(source: ReadonlyMap<K, V>): ReadonlyMap<K, V>
   }) as ReadonlyMap<K, V>
 }
 
-/** 浅冻结对象副本 */
-export function freezeRecord<T extends Record<string, unknown>>(value: T): Readonly<T> {
-  return Object.freeze({ ...value })
-}
-
 /** 递归复制并冻结 JSON-like 配置值，阻断嵌套对象绕过 Action 修改。 */
 export function deepFreezeSnapshot<T>(value: T): T {
   const seen = new WeakSet<object>()
@@ -53,21 +48,4 @@ export function deepFreezeSnapshot<T>(value: T): T {
     return item
   }
   return snapshot(value) as T
-}
-
-/** 递归冻结已转移所有权的 JSON-like 值，避免复制大型计算结果。 */
-export function deepFreezeOwned<T>(value: T): T {
-  const seen = new WeakSet<object>()
-  const freeze = (item: unknown): void => {
-    if (item === null || typeof item !== 'object' || seen.has(item)) return
-    const prototype = Object.getPrototypeOf(item)
-    if (!Array.isArray(item) && prototype !== Object.prototype && prototype !== null) {
-      throw new TypeError('Owned state only supports plain objects and arrays')
-    }
-    seen.add(item)
-    for (const nested of Object.values(item)) freeze(nested)
-    Object.freeze(item)
-  }
-  freeze(value)
-  return value
 }

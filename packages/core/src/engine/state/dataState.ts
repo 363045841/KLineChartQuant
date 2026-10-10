@@ -23,7 +23,7 @@ export const ACTIVE_BUFFER_KIND = {
 } as const
 
 /** Kernel 中当前活动 Buffer 的原子业务快照。 */
-export type ActiveBufferSnapshot =
+type ActiveBufferSnapshot =
   | {
       readonly kind: typeof ACTIVE_BUFFER_KIND.empty
       readonly dataRevision: number

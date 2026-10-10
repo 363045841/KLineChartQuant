@@ -12,9 +12,6 @@ import {
   sessionSlotCenterX,
 } from './sessionTimeLabels.js'
 
-/** A 股默认全天 1 分钟槽位数（兼容旧导出） */
-export const ASHARE_TIMESHARE_SESSION_SLOTS = resolveMarketSessionSlots(ASHARE_MARKET_SESSION)
-
 /** 分时时间标签最小水平间距（逻辑像素） */
 export const TIMESHARE_MIN_LABEL_SPACING_PX = 56
 
@@ -81,7 +78,6 @@ export type {
   OpenTimeRange,
   SessionTimeLabel,
 } from './sessionTimeLabels.js'
-export { HK_MARKET_SESSION, KR_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels.js'
 export {
   ASHARE_MARKET_SESSION,
   ASHARE_OPEN_SESSIONS,

@@ -10,7 +10,7 @@ export interface MFIRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_MFI_PERIOD = 14
+const DEFAULT_MFI_PERIOD = 14
 
 export const EMPTY_MFI_STATE: MFIRenderState = {
   timestamp: 0,

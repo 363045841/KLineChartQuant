@@ -24,7 +24,7 @@ export interface FibRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_FIB_PERIOD = 50
+const DEFAULT_FIB_PERIOD = 50
 
 export const EMPTY_FIB_STATE: FibRenderState = {
   timestamp: 0,

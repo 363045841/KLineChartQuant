@@ -16,7 +16,7 @@ export interface FRAMARenderState extends BaseIndicatorState {
 
 /** 根据 pane ID 创建 FRAMA 共享状态 key。 */
 
-export const DEFAULT_FRAMA_PERIOD = 16
+const DEFAULT_FRAMA_PERIOD = 16
 
 export const EMPTY_FRAMA_STATE: FRAMARenderState = {
   timestamp: 0,

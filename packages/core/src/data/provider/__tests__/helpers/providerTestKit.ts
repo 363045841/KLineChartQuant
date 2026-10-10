@@ -12,7 +12,7 @@ import type {
 } from '../../types'
 
 /** 测试默认源级能力：stock / daily / none。 */
-export const DEFAULT_SOURCE_CAPABILITIES: SourceCapabilities = {
+const DEFAULT_SOURCE_CAPABILITIES: SourceCapabilities = {
   assetClasses: ['stock'],
   bars: { periods: ['daily'], adjustments: ['none'] },
 }

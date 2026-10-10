@@ -10,8 +10,8 @@ export interface ChaikinVolRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_CHAIKIN_VOL_EMA_PERIOD = 10
-export const DEFAULT_CHAIKIN_VOL_ROC_PERIOD = 10
+const DEFAULT_CHAIKIN_VOL_EMA_PERIOD = 10
+const DEFAULT_CHAIKIN_VOL_ROC_PERIOD = 10
 
 export const EMPTY_CHAIKIN_VOL_STATE: ChaikinVolRenderState = {
   timestamp: 0,

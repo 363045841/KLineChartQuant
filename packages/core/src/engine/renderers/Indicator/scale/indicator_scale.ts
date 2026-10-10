@@ -22,7 +22,7 @@ interface IndicatorScaleRenderState extends BaseIndicatorState {
   visibleMax?: number
 }
 
-export interface IndicatorScaleRendererOptions {
+export interface IndicatorScaleLayerOptions {
   axisWidth: number
   paneId: string
   indicatorKey: string
@@ -39,13 +39,12 @@ export interface IndicatorScaleRendererOptions {
 }
 
 export function createIndicatorScaleLayer(
-  options: IndicatorScaleRendererOptions,
+  options: IndicatorScaleLayerOptions,
 ): Layer<RenderContext> {
   const {
     axisWidth,
     paneId,
     indicatorKey,
-    label,
     decimals = 2,
     scaleType = ScaleType.Linear,
     getCrosshair,

@@ -14,7 +14,7 @@ import { resolveAnchorFollowers, resolveVerticalHandleAnchors } from './dragPoli
 
 // ---- Types ----
 
-export interface DragState {
+interface DragState {
   drawings: DrawingObject[]
   target: DrawingDragTarget
   startMouse: { x: number; y: number }

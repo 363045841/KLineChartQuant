@@ -11,8 +11,8 @@ export interface TRIXRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_TRIX_PERIOD = 15
-export const DEFAULT_TRIX_SIGNAL_PERIOD = 9
+const DEFAULT_TRIX_PERIOD = 15
+const DEFAULT_TRIX_SIGNAL_PERIOD = 9
 
 export const EMPTY_TRIX_STATE: TRIXRenderState = {
   timestamp: 0,

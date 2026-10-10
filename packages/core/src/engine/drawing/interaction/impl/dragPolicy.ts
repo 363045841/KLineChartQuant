@@ -5,7 +5,7 @@ import type { DrawingKind } from '../../types.js'
 import type { DragFollow, MovingAnchor } from '../types.js'
 
 /** 解析拖动某个锚点时一起移动的锚点；被拖锚点自身始终接受完整位移。 */
-export type AnchorDragFollowers = (
+type AnchorDragFollowers = (
   /** 被拖拽的锚点下标 */
   index: number,
 ) => readonly MovingAnchor[]

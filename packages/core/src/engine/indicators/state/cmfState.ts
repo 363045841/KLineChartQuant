@@ -10,7 +10,7 @@ export interface CMFRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_CMF_PERIOD = 20
+const DEFAULT_CMF_PERIOD = 20
 
 export const EMPTY_CMF_STATE: CMFRenderState = {
   timestamp: 0,

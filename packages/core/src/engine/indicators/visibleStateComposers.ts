@@ -191,43 +191,6 @@ export function createFixedRangeRecordVisibleStateComposer(
   }
 }
 
-export function createFixedRangePointVisibleStateComposer<T extends object>(
-  stateName: string,
-  emptyState: {
-    timestamp: number
-    series: (T | undefined)[]
-    params: unknown
-    valueMin: number
-    valueMax: number
-    visibleMin: number
-    visibleMax: number
-  },
-  fields: readonly (keyof T)[],
-): IndicatorVisibleStateComposer {
-  return ({ entry, visibleRange, timestamp, active }) => {
-    const source = getPointArraySeriesEntry<T>(entry, stateName)
-    if (!active) {
-      return {
-        ...emptyState,
-        timestamp,
-        series: source.series,
-        params: source.params,
-      }
-    }
-
-    const extremes = calcPointArrayExtremes(source.series, fields, visibleRange)
-    return {
-      timestamp,
-      series: source.series,
-      params: source.params,
-      valueMin: emptyState.valueMin,
-      valueMax: emptyState.valueMax,
-      visibleMin: extremes.min,
-      visibleMax: extremes.max,
-    }
-  }
-}
-
 type DualSparseIndicatorSeries = {
   series: (number | undefined)[]
   signalSeries: (number | undefined)[]

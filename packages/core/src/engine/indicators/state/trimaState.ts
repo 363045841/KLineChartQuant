@@ -11,7 +11,7 @@ export interface TRIMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_TRIMA_PERIOD = 20
+const DEFAULT_TRIMA_PERIOD = 20
 
 export const EMPTY_TRIMA_STATE: TRIMARenderState = {
   timestamp: 0,

@@ -19,8 +19,8 @@ export interface SARRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_SAR_STEP = 0.02
-export const DEFAULT_SAR_MAX_STEP = 0.2
+const DEFAULT_SAR_STEP = 0.02
+const DEFAULT_SAR_MAX_STEP = 0.2
 
 export const EMPTY_SAR_STATE: SARRenderState = {
   timestamp: 0,

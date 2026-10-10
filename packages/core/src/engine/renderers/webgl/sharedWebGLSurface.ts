@@ -23,7 +23,7 @@ export type WebGLRegion = {
   dpr: number
 }
 
-export type PhysicalRegion = {
+export type WebGLPhysicalRegion = {
   sourceX: number
   sourceY: number
   widthPx: number
@@ -78,7 +78,7 @@ export class SharedWebGLSurface {
     this.canvas.style.height = `${nextHeight / dpr}px`
   }
 
-  getPhysicalRegion(region: WebGLRegion): PhysicalRegion | null {
+  getPhysicalRegion(region: WebGLRegion): WebGLPhysicalRegion | null {
     return this.toPhysicalRegion(region)
   }
 
@@ -155,7 +155,7 @@ export class SharedWebGLSurface {
   private clearPhysicalRegion(
     gl: WebGL2RenderingContext,
     framebuffer: WebGLFramebuffer | null,
-    physical: PhysicalRegion,
+    physical: WebGLPhysicalRegion,
   ): void {
     const viewportY = this.canvas.height - physical.sourceY - physical.heightPx
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
@@ -178,7 +178,7 @@ export class SharedWebGLSurface {
     this.gl = null
   }
 
-  private toPhysicalRegion(region: WebGLRegion): PhysicalRegion | null {
+  private toPhysicalRegion(region: WebGLRegion): WebGLPhysicalRegion | null {
     const bounds = this.getPhysicalBounds()
     const physical = toPhysicalRegion(region, bounds)
     if (physical.width <= 0 || physical.height <= 0) return null

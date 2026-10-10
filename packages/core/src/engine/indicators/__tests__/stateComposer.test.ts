@@ -2,7 +2,7 @@
  * 实例渲染投影测试：单实例结果到 renderer state 的投影、展示配置合入、主图价格范围与成交量状态。
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-
+import type { VisibleRange } from '../../viewport/viewport'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import { IndicatorKind } from '../indicatorMetadata'
 import type { IndicatorParameters, IndicatorSeriesResult } from '../instances/domain/instanceModel'
@@ -12,7 +12,6 @@ import {
   composeVolumeRenderState,
   computeInstanceMainIndicatorPriceRange,
   createInstanceSeriesEntry,
-  type VisibleRange,
 } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 import { createTestIndicatorMetadata } from './helpers/metadataTestKit'

@@ -2,13 +2,13 @@
  * 插件宿主 - 核心管理类
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import type {
-  BaseIndicatorState,
-  HookCallOptions,
-  Plugin,
-  PluginConfig,
-  PluginHost,
-  PluginLogger,
+import {
+  type BaseIndicatorState,
+  type HookCallOptions,
+  type Plugin,
+  type PluginConfig,
+  type PluginHost,
+  type PluginLogger,
   PluginState,
 } from '../types.js'
 import { ConfigManager } from './ConfigManager.js'
@@ -175,7 +175,7 @@ export class PluginHostImpl implements PluginHost {
       await plugin.install(this, descriptor.config)
 
       // 更新状态
-      this.registry.updateState(plugin.name, 'installed' as PluginState)
+      this.registry.updateState(plugin.name, PluginState.Installed)
 
       // 触发安装后钩子
       await this.hooks.call('plugin:afterInstall', { plugin, config }, { throwOnError: true })
@@ -184,7 +184,7 @@ export class PluginHostImpl implements PluginHost {
     } catch (error) {
       this.registry.updateState(
         plugin.name,
-        'error' as PluginState,
+        PluginState.Error,
         error instanceof Error ? error : new Error(String(error)),
       )
       this.log('error', `Failed to install plugin "${plugin.name}":`, error)

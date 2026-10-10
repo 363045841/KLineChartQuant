@@ -10,7 +10,7 @@ export interface LSMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_LSMA_PERIOD = 25
+const DEFAULT_LSMA_PERIOD = 25
 
 export const EMPTY_LSMA_STATE: LSMARenderState = {
   timestamp: 0,

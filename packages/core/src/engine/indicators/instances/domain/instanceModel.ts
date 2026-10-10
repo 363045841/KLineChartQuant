@@ -95,13 +95,6 @@ export interface IndicatorResultPool {
   readonly results: ReadonlyMap<IndicatorInstanceId, IndicatorSeriesResult>
 }
 
-/** pane 仅拥有其显示实例的、可随时重建的渲染投影。 */
-export interface IndicatorPaneProjection<RenderState = unknown> {
-  readonly resultRevision: number
-  readonly viewportRevision: number
-  readonly panes: ReadonlyMap<IndicatorPaneId, ReadonlyMap<IndicatorInstanceId, RenderState>>
-}
-
 /** 判断参数值是否为数组；显式谓词用于对 readonly 数组正确收窄。 */
 function isParameterArray(
   value: IndicatorParameterObject | readonly IndicatorParameterValue[],
@@ -225,28 +218,5 @@ export function reduceIndicatorInstances(
   return createIndicatorInstanceSnapshot(next.values(), {
     calculationRevision: snapshot.calculationRevision + Number(calculationChanged),
     presentationRevision: snapshot.presentationRevision + Number(presentationChanged),
-  })
-}
-
-/** 构造 pane 投影，并保护同一 pane 内的实例 ID 不重复。 */
-export function createIndicatorPaneProjection<RenderState>(
-  entries: Iterable<readonly [IndicatorPaneId, IndicatorInstanceId, RenderState]>,
-  resultRevision: number,
-  viewportRevision: number,
-): IndicatorPaneProjection<RenderState> {
-  const panes = new Map<IndicatorPaneId, Map<IndicatorInstanceId, RenderState>>()
-  for (const [paneId, instanceId, state] of entries) {
-    const pane = panes.get(paneId) ?? new Map<IndicatorInstanceId, RenderState>()
-    if (pane.has(instanceId))
-      throw new TypeError(`Duplicate pane projection: ${paneId}/${instanceId}`)
-    pane.set(instanceId, state)
-    panes.set(paneId, pane)
-  }
-  return Object.freeze({
-    resultRevision,
-    viewportRevision,
-    panes: immutableMap(
-      new Map([...panes].map(([paneId, states]) => [paneId, immutableMap(states)])),
-    ),
   })
 }

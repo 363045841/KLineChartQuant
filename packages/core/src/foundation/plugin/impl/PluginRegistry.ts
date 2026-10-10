@@ -3,7 +3,7 @@
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 
-import type { Plugin, PluginDescriptor, PluginState } from '../types.js'
+import { type Plugin, type PluginDescriptor, PluginState } from '../types.js'
 
 export class PluginRegistry {
   private plugins: Map<string, PluginDescriptor> = new Map()
@@ -26,7 +26,7 @@ export class PluginRegistry {
         priority: 0,
         ...config,
       },
-      state: 'registered' as PluginState,
+      state: PluginState.Registered,
     }
 
     this.plugins.set(plugin.name, descriptor)

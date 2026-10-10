@@ -21,7 +21,7 @@ export interface ZLEMARenderState extends BaseIndicatorState {
 
 /** ZLEMA 状态的 StateStore 键名，格式 indicator:zlema:<paneId> */
 
-export const DEFAULT_ZLEMA_PERIOD = 14
+const DEFAULT_ZLEMA_PERIOD = 14
 
 /** 空数据占位状态，消费者用 visibleMin > visibleMax 判断"无有效数据" */
 export const EMPTY_ZLEMA_STATE: ZLEMARenderState = {

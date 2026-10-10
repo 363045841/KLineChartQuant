@@ -10,7 +10,7 @@ import type { LiveBarsDataSource } from '../live/types.js'
 import type { TradeDataSource } from '../trades/types.js'
 
 /** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
-export const ASSET_CLASS_VALUES = [
+const ASSET_CLASS_VALUES = [
   'stock',
   'index',
   'fund',

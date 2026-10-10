@@ -41,7 +41,6 @@ export type {
   RendererBackend,
   RendererBackendRuntime,
   RendererBackendStatus,
-  RendererFactory,
   RendererHost,
   RendererHostDependencies,
   RendererHostListeners,

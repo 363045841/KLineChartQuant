@@ -16,8 +16,8 @@ export interface T3RenderState extends BaseIndicatorState {
 
 /** 根据 pane ID 创建 T3 共享状态 key。 */
 
-export const DEFAULT_T3_PERIOD = 5
-export const DEFAULT_T3_VOLUME_FACTOR = 0.7
+const DEFAULT_T3_PERIOD = 5
+const DEFAULT_T3_VOLUME_FACTOR = 0.7
 
 export const EMPTY_T3_STATE: T3RenderState = {
   timestamp: 0,

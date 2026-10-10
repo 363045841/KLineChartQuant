@@ -10,7 +10,7 @@ import {
   type NamedLayoutDocument,
 } from '../types.js'
 
-export const DEFAULT_LAYOUT_ID = 'default'
+const DEFAULT_LAYOUT_ID = 'default'
 const DEFAULT_LAYOUT_NAME = '默认布局'
 const AUTO_SAVE_DEBOUNCE_MS = 600
 

@@ -42,8 +42,6 @@ export function createMockSurfaceBackend() {
   } satisfies SurfaceBackend
 }
 
-export type MockSurfaceBackend = ReturnType<typeof createMockSurfaceBackend>
-
 /** SharedWebGLSurface 替身入参。 */
 export interface MockSharedWebGLSurfaceOptions {
   /** 是否可用；false 用于 fail-closed 场景，bindRegion/beginFrame 一并返回 false。 */
@@ -122,5 +120,3 @@ export function createMockRenderer(options: MockRendererOptions = {}) {
     dispose: vi.fn(() => {}),
   } satisfies Renderer
 }
-
-export type MockRenderer = ReturnType<typeof createMockRenderer>

@@ -21,7 +21,7 @@ import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } 
 import type { KLineData } from '@/types/price'
 
 /** 默认 K 线根数，覆盖指标预热窗口。 */
-export const DEFAULT_BAR_COUNT = 100
+const DEFAULT_BAR_COUNT = 100
 
 /** 构造递增的默认 K 线序列，时间基准与渲染器用例保持一致。 */
 export function createKLineData(length = DEFAULT_BAR_COUNT): KLineData[] {
@@ -128,19 +128,6 @@ export function createMockCanvasContext(): MockCanvasContext {
   }
 
   return ctx as unknown as MockCanvasContext
-}
-
-/** 读取 ctx 上所有 fillText 文本，统一转字符串便于断言。 */
-function getFillTexts(ctx: CanvasRenderingContext2D): string[] {
-  return vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text))
-}
-
-/** 统计 fillText 文本满足给定条件的调用次数。 */
-export function countFillTexts(
-  ctx: CanvasRenderingContext2D,
-  matches: (text: string) => boolean,
-): number {
-  return getFillTexts(ctx).filter(matches).length
 }
 
 /** 默认 PaneInfo 能力开关（price 角色）。 */
@@ -273,7 +260,7 @@ export function createMARenderState(overrides: Partial<MARenderState> = {}): MAR
 }
 
 /** 构造完整 PluginHost，只覆盖调用方声明的字段；共享状态默认由内存 Map 承载。 */
-export function createMockPluginHost(overrides: Partial<PluginHost> = {}): PluginHost {
+function createMockPluginHost(overrides: Partial<PluginHost> = {}): PluginHost {
   const sharedState = new Map<string, unknown>()
   return {
     events: {
@@ -319,7 +306,7 @@ export function createMockStateReader(
 }
 
 /** 构造按名解析注册服务的 PluginHost stub。 */
-export function createMockServiceHost(services: Record<string, unknown>): PluginHost {
+function createMockServiceHost(services: Record<string, unknown>): PluginHost {
   return createMockPluginHost({
     // biome-ignore lint/suspicious/noExplicitAny: 见 createMockStateReader，泛型 getService 需要 any 返回
     getService: vi.fn((name: string): any => services[name]),

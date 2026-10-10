@@ -10,7 +10,7 @@ export interface HMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_HMA_PERIOD = 9
+const DEFAULT_HMA_PERIOD = 9
 
 export const EMPTY_HMA_STATE: HMARenderState = {
   timestamp: 0,

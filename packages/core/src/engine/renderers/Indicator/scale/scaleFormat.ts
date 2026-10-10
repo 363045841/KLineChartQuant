@@ -4,7 +4,7 @@
  */
 
 /** 自适应小数位上限，避免极小范围产生过长的刻度文本。 */
-export const MAX_SCALE_DECIMALS = 6
+const MAX_SCALE_DECIMALS = 6
 
 /**
  * 根据显示范围推导刻度小数位

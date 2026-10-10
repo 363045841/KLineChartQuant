@@ -12,7 +12,7 @@ export interface VWAPRenderState extends BaseIndicatorState {
 
 // 0 = never reset (entire data is one session)
 // > 0 = reset session when consecutive bars' timestamps differ by more than this
-export const DEFAULT_VWAP_SESSION_GAP_MS = 0
+const DEFAULT_VWAP_SESSION_GAP_MS = 0
 
 export const EMPTY_VWAP_STATE: VWAPRenderState = {
   timestamp: 0,

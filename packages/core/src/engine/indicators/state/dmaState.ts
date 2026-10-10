@@ -35,9 +35,9 @@ export interface DMARenderState extends BaseIndicatorState {
  * DMA 状态键：indicator:dma:{paneId}
  */
 
-export const DEFAULT_DMA_P1 = 10
-export const DEFAULT_DMA_P2 = 50
-export const DEFAULT_DMA_P3 = 10
+const DEFAULT_DMA_P1 = 10
+const DEFAULT_DMA_P2 = 50
+const DEFAULT_DMA_P3 = 10
 
 /**
  * 空数据占位状态

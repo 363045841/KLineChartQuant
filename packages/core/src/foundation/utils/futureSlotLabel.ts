@@ -1,9 +1,9 @@
 /** 未来槽位仅在展示层使用相对索引占位，不据此推算交易日期。 */
 
 /** 相对索引占位标签的前缀：末根真实 K 线记作 T，其后槽位依次为 T+1、T+2。 */
-export const FUTURE_SLOT_LABEL_PREFIX = 'T+'
+const FUTURE_SLOT_LABEL_PREFIX = 'T+'
 /** 首根真实 K 线之前的槽位占位前缀。 */
-export const PAST_SLOT_LABEL_PREFIX = 'T-'
+const PAST_SLOT_LABEL_PREFIX = 'T-'
 
 /** 将过去槽位格式化为相对首根数据的负索引占位。 */
 export function formatPastSlotLabel(index: number): string | null {

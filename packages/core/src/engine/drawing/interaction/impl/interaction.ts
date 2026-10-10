@@ -567,5 +567,3 @@ export class DrawingInteractionController {
     })
   }
 }
-
-export { PREVIEW_ID }

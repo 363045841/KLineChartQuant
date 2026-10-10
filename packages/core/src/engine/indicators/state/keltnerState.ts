@@ -23,9 +23,9 @@ export interface KeltnerRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_KELTNER_EMA_PERIOD = 20
-export const DEFAULT_KELTNER_ATR_PERIOD = 10
-export const DEFAULT_KELTNER_MULTIPLIER = 2
+const DEFAULT_KELTNER_EMA_PERIOD = 20
+const DEFAULT_KELTNER_ATR_PERIOD = 10
+const DEFAULT_KELTNER_MULTIPLIER = 2
 
 export const EMPTY_KELTNER_STATE: KeltnerRenderState = {
   timestamp: 0,

@@ -22,23 +22,3 @@ export interface ENERenderState extends BaseIndicatorState {
   /** 视口内所有 ENE 线的最高价 */
   visibleMax: number
 }
-
-/**
- * ENE 状态的 StateStore 键名
- * 格式：indicator:ene:main
- */
-
-/**
- * 空数据占位状态
- * 消费者应检查 visibleMin > visibleMax 判断"无有效数据"
- */
-export const EMPTY_ENE_STATE: ENERenderState = {
-  timestamp: 0,
-  series: [],
-  params: {
-    period: DEFAULT_ENE_PERIOD,
-    deviation: DEFAULT_ENE_DEVIATION,
-  },
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

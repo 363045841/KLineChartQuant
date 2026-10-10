@@ -10,9 +10,9 @@ export interface KAMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_KAMA_PERIOD = 10
-export const DEFAULT_KAMA_FAST_PERIOD = 2
-export const DEFAULT_KAMA_SLOW_PERIOD = 30
+const DEFAULT_KAMA_PERIOD = 10
+const DEFAULT_KAMA_FAST_PERIOD = 2
+const DEFAULT_KAMA_SLOW_PERIOD = 30
 
 export const EMPTY_KAMA_STATE: KAMARenderState = {
   timestamp: 0,

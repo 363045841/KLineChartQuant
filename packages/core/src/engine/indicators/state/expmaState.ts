@@ -22,23 +22,3 @@ export interface EXPMARenderState extends BaseIndicatorState {
   /** 视口内所有 EXPMA 线的最高价 */
   visibleMax: number
 }
-
-/**
- * EXPMA 状态的 StateStore 键名
- * 格式：indicator:expma:main
- */
-
-/**
- * 空数据占位状态
- * 消费者应检查 visibleMin > visibleMax 判断"无有效数据"
- */
-export const EMPTY_EXPMA_STATE: EXPMARenderState = {
-  timestamp: 0,
-  series: [],
-  params: {
-    fastPeriod: DEFAULT_EXPMA_FAST_PERIOD,
-    slowPeriod: DEFAULT_EXPMA_SLOW_PERIOD,
-  },
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

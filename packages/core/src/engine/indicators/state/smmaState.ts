@@ -16,7 +16,7 @@ export interface SMMARenderState extends BaseIndicatorState {
 
 /** 生成指定 pane 的 SMMA 状态 key */
 
-export const DEFAULT_SMMA_PERIOD = 14
+const DEFAULT_SMMA_PERIOD = 14
 
 /** 空 SMMA 状态（未计算前使用） */
 export const EMPTY_SMMA_STATE: SMMARenderState = {

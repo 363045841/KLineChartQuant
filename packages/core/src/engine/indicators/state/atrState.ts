@@ -10,7 +10,7 @@ export interface ATRRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_ATR_PERIOD = 14
+const DEFAULT_ATR_PERIOD = 14
 
 export const EMPTY_ATR_STATE: ATRRenderState = {
   timestamp: 0,

@@ -14,7 +14,7 @@ type ClipRect = { left: number; top: number; right: number; bottom: number }
  *
  * @returns 裁剪后的两端点；线段完全在矩形外时返回 null。
  */
-export function clipLineToRect(
+function clipLineToRect(
   x1: number,
   y1: number,
   x2: number,

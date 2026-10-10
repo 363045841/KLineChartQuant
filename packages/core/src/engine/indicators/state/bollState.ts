@@ -25,26 +25,3 @@ export interface BOLLRenderState extends BaseIndicatorState {
   /** 视口内所有 BOLL 线的最高价 */
   visibleMax: number
 }
-
-/**
- * BOLL 状态的 StateStore 键名
- * 格式：indicator:boll:main
- */
-
-/**
- * 空数据占位状态
- * 消费者应检查 visibleMin > visibleMax 判断"无有效数据"
- */
-export const EMPTY_BOLL_STATE: BOLLRenderState = {
-  timestamp: 0,
-  series: [],
-  params: {
-    period: DEFAULT_BOLL_PERIOD,
-    multiplier: DEFAULT_BOLL_MULTIPLIER,
-    showUpper: true,
-    showMiddle: true,
-    showLower: true,
-  },
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

@@ -21,7 +21,7 @@ export interface DonchianRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_DONCHIAN_PERIOD = 20
+const DEFAULT_DONCHIAN_PERIOD = 20
 
 export const EMPTY_DONCHIAN_STATE: DonchianRenderState = {
   timestamp: 0,

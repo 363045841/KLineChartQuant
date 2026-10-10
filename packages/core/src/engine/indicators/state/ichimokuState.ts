@@ -41,10 +41,10 @@ export interface IchimokuRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_ICHIMOKU_TENKAN = 9
-export const DEFAULT_ICHIMOKU_KIJUN = 26
-export const DEFAULT_ICHIMOKU_SPAN_B = 52
-export const DEFAULT_ICHIMOKU_DISPLACEMENT = 26
+const DEFAULT_ICHIMOKU_TENKAN = 9
+const DEFAULT_ICHIMOKU_KIJUN = 26
+const DEFAULT_ICHIMOKU_SPAN_B = 52
+const DEFAULT_ICHIMOKU_DISPLACEMENT = 26
 
 export const EMPTY_ICHIMOKU_STATE: IchimokuRenderState = {
   timestamp: 0,

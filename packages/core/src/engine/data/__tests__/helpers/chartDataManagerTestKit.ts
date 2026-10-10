@@ -106,7 +106,7 @@ export interface MockDataDependenciesOptions {
 }
 
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
-export function createMockDataDependencies(
+function createMockDataDependencies(
   dom: ChartDom,
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
   options: MockDataDependenciesOptions = {},
@@ -172,7 +172,7 @@ export function createTestDocument(): Document {
 }
 
 /** 从测试 Document 构造 ChartDom。 */
-export function createChartDom(document: Document): ChartDom {
+function createChartDom(document: Document): ChartDom {
   return {
     container: document.querySelector<HTMLDivElement>('#container')!,
     scrollContent: document.querySelector<HTMLDivElement>('#scroll-content')!,

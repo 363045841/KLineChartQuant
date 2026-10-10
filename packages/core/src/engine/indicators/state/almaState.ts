@@ -14,9 +14,9 @@ export interface ALMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_ALMA_PERIOD = 9
-export const DEFAULT_ALMA_OFFSET = 0.85
-export const DEFAULT_ALMA_SIGMA = 6
+const DEFAULT_ALMA_PERIOD = 9
+const DEFAULT_ALMA_OFFSET = 0.85
+const DEFAULT_ALMA_SIGMA = 6
 
 export const EMPTY_ALMA_STATE: ALMARenderState = {
   timestamp: 0,

@@ -14,7 +14,7 @@ export interface DPORenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_DPO_PERIOD = 20
+const DEFAULT_DPO_PERIOD = 20
 
 /**
  * 创建 DPO 的 pane 级状态键。

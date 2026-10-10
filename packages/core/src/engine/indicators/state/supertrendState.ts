@@ -15,8 +15,8 @@ export interface SuperTrendRenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_SUPERTREND_ATR_PERIOD = 10
-export const DEFAULT_SUPERTREND_MULTIPLIER = 3
+const DEFAULT_SUPERTREND_ATR_PERIOD = 10
+const DEFAULT_SUPERTREND_MULTIPLIER = 3
 
 export const EMPTY_SUPERTREND_STATE: SuperTrendRenderState = {
   timestamp: 0,

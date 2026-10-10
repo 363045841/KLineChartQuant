@@ -16,8 +16,8 @@ export interface VIDYARenderState extends BaseIndicatorState {
 
 /** 根据 pane ID 创建 VIDYA 共享状态 key。 */
 
-export const DEFAULT_VIDYA_PERIOD = 14
-export const DEFAULT_VIDYA_CMO_PERIOD = 9
+const DEFAULT_VIDYA_PERIOD = 14
+const DEFAULT_VIDYA_CMO_PERIOD = 9
 
 export const EMPTY_VIDYA_STATE: VIDYARenderState = {
   timestamp: 0,

@@ -129,7 +129,7 @@ export class GMMADefinition {
 }
 
 /** 创建 GMMA 多线渲染器插件（WebGL 优先，失败回退 Canvas2D） */
-export function createGMMALayer(
+function createGMMALayer(
   options: { paneId?: string; instanceId?: string } = {},
 ): Layer<RenderContext> {
   const { paneId = 'main', instanceId } = options

@@ -4,7 +4,7 @@
 
 import type { MarketSnapshot } from '../types.js'
 
-export class RollingVolumeCalculator {
+class RollingVolumeCalculator {
   private buffer: number[]
   private sum = 0
   private cursor = 0

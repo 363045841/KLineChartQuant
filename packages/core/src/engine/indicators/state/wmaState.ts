@@ -10,7 +10,7 @@ export interface WMARenderState extends BaseIndicatorState {
   visibleMax: number
 }
 
-export const DEFAULT_WMA_PERIOD = 9
+const DEFAULT_WMA_PERIOD = 9
 
 export const EMPTY_WMA_STATE: WMARenderState = {
   timestamp: 0,
