@@ -13,6 +13,8 @@ import {
 export const DEFAULT_LAYOUT_ID = 'default'
 const DEFAULT_LAYOUT_NAME = '默认布局'
 const AUTO_SAVE_DEBOUNCE_MS = 600
+/** 高频来源（视口滚动、缩放）静止多久后再比较配置。 */
+const COALESCED_CHECK_IDLE_MS = 250
 
 /** 判断值是否为普通对象（排除 null 与数组）。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -73,6 +75,7 @@ export class LayoutManager implements LayoutApi {
   private readonly dirtySignal = createSignal(false)
   private readonly errorSignal = createSignal<string | null>(null)
   private timer: ReturnType<typeof setTimeout> | undefined
+  private coalescedTimer: ReturnType<typeof setTimeout> | undefined
   private applying = false
   private disposed = false
   private lastConfiguration = ''
@@ -174,6 +177,7 @@ export class LayoutManager implements LayoutApi {
 
   /** 页面离开时补写最新配置。 */
   private readonly onPageHide = (): void => {
+    this.flushCoalescedAutoSave()
     if (!this.shouldAutoSave()) return
     void this.run(() => this.saveActive()).catch((error: unknown) =>
       this.reportError(error, '自动保存失败'),
@@ -182,6 +186,7 @@ export class LayoutManager implements LayoutApi {
 
   /** 释放计时器并补写已开启的自动保存。 */
   async dispose(): Promise<void> {
+    this.flushCoalescedAutoSave()
     clearTimeout(this.timer)
     globalThis.removeEventListener?.('pagehide', this.onPageHide)
     try {
@@ -276,8 +281,30 @@ export class LayoutManager implements LayoutApi {
     }, AUTO_SAVE_DEBOUNCE_MS)
   }
 
+  /**
+   * 高频来源（视口逐帧滚动、缩放）只登记待检查，静止后比较一次配置；
+   * 否则每帧都要导出并序列化整份布局。离开页面、销毁与补写前会先完成待检查。
+   */
+  scheduleCoalescedAutoSave(): void {
+    if (this.applying || this.disposed) return
+    clearTimeout(this.coalescedTimer)
+    this.coalescedTimer = setTimeout(() => {
+      this.coalescedTimer = undefined
+      this.scheduleAutoSave()
+    }, COALESCED_CHECK_IDLE_MS)
+  }
+
+  /** 立即执行尚未到期的合并检查。 */
+  private flushCoalescedAutoSave(): void {
+    if (this.coalescedTimer === undefined) return
+    clearTimeout(this.coalescedTimer)
+    this.coalescedTimer = undefined
+    this.scheduleAutoSave()
+  }
+
   /** 切换前和销毁前补写，避免防抖期间的最后一次修改丢失。 */
   private async saveActive(): Promise<void> {
+    this.flushCoalescedAutoSave()
     clearTimeout(this.timer)
     this.timer = undefined
     if (!this.dirtySignal.peek()) return

@@ -170,15 +170,19 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
   await layoutManager.initialize()
   const layoutSubscriptions = [
-    chart.kernel.dataManager.readonly.currentSpec,
-    chart.kernel.indicator.readonly.workspaces,
-    chart.kernel.pane.readonly.workspaces,
-    chart.kernel.settings.readonly.settings,
-    chart.kernel.drawing.readonly.drawings,
-    chart.kernel.mainPriceAxis.readonly.paneRanges,
-    chart.kernel.viewport.readonly.scrollLeft,
-    chart.kernel.zoom.readonly.zoomLevel,
-  ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave()))
+    ...[
+      chart.kernel.dataManager.readonly.currentSpec,
+      chart.kernel.indicator.readonly.workspaces,
+      chart.kernel.pane.readonly.workspaces,
+      chart.kernel.settings.readonly.settings,
+      chart.kernel.drawing.readonly.drawings,
+      chart.kernel.mainPriceAxis.readonly.paneRanges,
+    ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
+    // 滚动与缩放逐帧变化：静止后再比较一次，避免每帧导出并序列化布局。
+    ...[chart.kernel.viewport.readonly.scrollLeft, chart.kernel.zoom.readonly.zoomLevel].map(
+      (signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave()),
+    ),
+  ]
 
   const agent = createChartAgentController({
     chartId: generateUUID(),

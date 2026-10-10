@@ -323,3 +323,44 @@ it('恢复与切换布局前先完成文档依赖准备，再原子写入状态'
     kernel.dispose()
   }
 })
+
+it('高频视口变化合并为静止后的一次比较，销毁前补齐待检查的变更', async () => {
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  let exports = 0
+  const manager = new LayoutManager({
+    exportLayout: () => {
+      exports++
+      return kernel.exportLayout()
+    },
+    applyLayout: (document) => kernel.applyLayout(document),
+    createLayout: () => kernel.createLayout(),
+  })
+  await manager.initialize()
+  const id = await manager.saveLayout({ name: '视口' })
+  exports = 0
+  kernel.settings.actions.patch({ theme: 'dark' })
+  for (let frame = 0; frame < 60; frame++) manager.scheduleCoalescedAutoSave()
+  // 逐帧通知不导出布局，静止后只比较一次。
+  expect(exports).toBe(0)
+  expect(manager.layoutDirty.peek()).toBe(false)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  expect(exports).toBe(1)
+  expect(manager.layoutDirty.peek()).toBe(true)
+  await manager.saveLayout({ id, name: '视口' })
+
+  // 静止计时未到即销毁：待检查的变更仍要落盘。
+  kernel.settings.actions.patch({ theme: 'light' })
+  manager.scheduleCoalescedAutoSave()
+  await manager.dispose()
+  kernel.dispose()
+
+  const restored = createManager()
+  try {
+    await restored.manager.initialize()
+    expect(restored.manager.activeLayoutId.peek()).toBe(id)
+    expect(restored.kernel.settings.readonly.settings.peek().theme).toBe('light')
+  } finally {
+    await restored.manager.dispose()
+    restored.kernel.dispose()
+  }
+})
