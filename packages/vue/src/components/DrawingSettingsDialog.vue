@@ -17,9 +17,11 @@
       <div v-else-if="textTarget" class="text-settings">
         <label class="text-row">
           <span>文本</span>
-          <textarea
+          <BaseTextarea
             v-model="textDraft"
-            rows="4"
+            class="text-row__field"
+            :min-rows="3"
+            :max-rows="8"
             maxlength="200"
             aria-label="图元文本"
             @change="updateText"
@@ -28,18 +30,23 @@
         <div class="text-alignment">
           <span>位置</span>
           <div class="text-alignment__options" role="group" aria-label="文本位置">
-            <button
+            <BaseTooltip
               v-for="option in alignmentOptions"
               :key="option.position"
-              type="button"
-              :title="option.label"
-              :aria-label="option.label"
-              :aria-pressed="textPosition === option.position"
-              :class="{ 'is-active': textPosition === option.position }"
-              @click="setTextPosition(option.position)"
+              :content="option.label"
+              placement="top"
+              trigger-display="contents"
             >
-              <component :is="option.icon" aria-hidden="true" />
-            </button>
+              <button
+                type="button"
+                :aria-label="option.label"
+                :aria-pressed="textPosition === option.position"
+                :class="{ 'is-active': textPosition === option.position }"
+                @click="setTextPosition(option.position)"
+              >
+                <component :is="option.icon" aria-hidden="true" />
+              </button>
+            </BaseTooltip>
           </div>
         </div>
       </div>
@@ -98,6 +105,8 @@
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
   import ColorPicker from './ColorPicker.vue'
+  import BaseTextarea from './common/BaseTextarea.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import DrawingTemplateMenu from './DrawingTemplateMenu.vue'
   import {
     type DrawingColorField,
@@ -247,16 +256,8 @@
     font-size: 13px;
   }
 
-  .text-row textarea {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 8px 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
+  .text-row__field {
     background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    resize: vertical;
   }
 
   .text-settings {

@@ -8,6 +8,7 @@ import type {
 import { createDrawingTemplateStore } from '@363045841yyt/klinechart-core/engine/drawing'
 import type { Ref } from 'vue'
 import { computed, ref } from 'vue'
+import { useToast } from '../toast/useToast.js'
 
 const defaultStore = createDrawingTemplateStore()
 const LOAD_FAILED = '加载模板失败'
@@ -56,6 +57,7 @@ export function useDrawingTemplates(
   const error = computed(() => state.value?.error.value ?? '')
   const savedName = computed(() => state.value?.savedName.value ?? null)
   const names = computed(() => templates.value.map((template) => template.name))
+  const toast = useToast()
 
   async function reload(): Promise<void> {
     const active = current()
@@ -102,8 +104,25 @@ export function useDrawingTemplates(
     return saved
   }
 
+  /** 删除后给出「撤销」：恢复到删除时的图元类型，不受之后选区切换影响。 */
   async function remove(name: string): Promise<boolean> {
-    return (await mutate((target) => store.remove(target, name), REMOVE_FAILED)) !== null
+    const active = current()
+    const removed = active?.state.templates.value.find((template) => template.name === name)
+    const removedOk = (await mutate((target) => store.remove(target, name), REMOVE_FAILED)) !== null
+    if (removedOk && active && removed) {
+      const { kind: removedKind, state: removedState } = active
+      toast.showUndo({
+        message: `已删除模板「${name}」`,
+        onUndo: async () => {
+          try {
+            removedState.templates.value = await store.upsert(removedKind, removed)
+          } catch {
+            removedState.error.value = SAVE_FAILED
+          }
+        },
+      })
+    }
+    return removedOk
   }
 
   return {

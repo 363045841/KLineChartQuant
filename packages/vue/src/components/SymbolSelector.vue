@@ -87,16 +87,21 @@
               </span>
               <SymbolMetaBadge :symbol="item" />
             </button>
-            <button
+            <BaseTooltip
               v-if="!watchlistKeys.has(symbolIdentityKey(item))"
-              type="button"
-              class="symbol-list__add"
-              title="添加自选"
-              aria-label="添加自选"
-              @click.stop="emit('addWatchlist', item)"
+              content="添加自选"
+              placement="left"
+              trigger-display="contents"
             >
-              <IconTablerPlus aria-hidden="true" />
-            </button>
+              <button
+                type="button"
+                class="symbol-list__add"
+                :aria-label="`添加自选 ${item.symbol}`"
+                @click.stop="emit('addWatchlist', item)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </BaseTooltip>
           </div>
         </div>
       </template>

@@ -1,14 +1,15 @@
 <template>
   <div class="composer__input">
-      <textarea
+      <BaseTextarea
         class="composer__textarea"
-        :value="draft"
-        rows="3"
+        :model-value="draft"
+        :min-rows="3"
+        :max-rows="6"
         :placeholder="text.composerPlaceholder"
         :aria-label="text.composerPlaceholder"
-        @input="$emit('update:draft', ($event.target as HTMLTextAreaElement).value)"
+        @update:model-value="$emit('update:draft', $event)"
         @keydown="onKeydown"
-      ></textarea>
+      />
       <div class="composer__footer">
         <div class="composer__meta">
           <DropMenu
@@ -58,29 +59,29 @@
             tabindex="0"
           ></span>
         </BaseTooltip>
-        <button
-          v-if="running"
-          type="button"
-          class="composer__primary composer__primary--stop agent-primary-button"
-          :title="text.stop"
-          :aria-label="text.stop"
-          @click="$emit('stop')"
-        >
-          <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
-          <IconPlayerStopFilled aria-hidden="true" />
-        </button>
-        <button
-          v-else
-          type="button"
-          class="composer__primary agent-primary-button"
-          :disabled="!draft.trim()"
-          :title="text.send"
-          :aria-label="text.send"
-          @click="$emit('send')"
-        >
-          <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
-          <IconArrowUp aria-hidden="true" />
-        </button>
+        <BaseTooltip v-if="running" :content="text.stop" placement="top">
+          <button
+            type="button"
+            class="composer__primary composer__primary--stop agent-primary-button"
+            :aria-label="text.stop"
+            @click="$emit('stop')"
+          >
+            <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
+            <IconPlayerStopFilled aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip v-else :content="text.send" placement="top">
+          <button
+            type="button"
+            class="composer__primary agent-primary-button"
+            :disabled="!draft.trim()"
+            :aria-label="text.send"
+            @click="$emit('send')"
+          >
+            <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
+            <IconArrowUp aria-hidden="true" />
+          </button>
+        </BaseTooltip>
       </div>
   </div>
 </template>
@@ -91,6 +92,7 @@
   import IconCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
+  import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import DropMenu, { type DropMenuGroup } from '../../../components/DropMenu.vue'
@@ -170,20 +172,17 @@
     background: var(--klc-color-agent-composer-input-background);
   }
 
+  /* BaseTextarea 负责自增高（field-sizing）与无拖拽手柄；这里只定制外观。 */
   .composer__textarea {
-    width: 100%;
-    display: block;
-    min-height: 88px;
-    max-height: 152px;
-    resize: none;
-    box-sizing: border-box;
+    --base-textarea-padding-block: var(--composer-inset);
+    --base-textarea-border: 0px;
+
     padding: var(--composer-inset);
     border: 0;
     border-radius: var(--agent-control-radius, 8px);
     color: var(--agent-text);
     background: transparent;
-    font: inherit;
-    font-size: 13px;
+    font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: 1.5;
   }
 
@@ -191,7 +190,9 @@
     color: var(--agent-text-soft);
   }
 
-  .composer__textarea:focus {
+  .composer__textarea:focus,
+  .composer__textarea:focus-visible {
+    box-shadow: none;
     outline: none;
   }
 

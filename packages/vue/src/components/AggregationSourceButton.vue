@@ -1,17 +1,19 @@
 <template>
-  <button
-    type="button"
-    class="source-button"
-    title="管理聚合源"
-    aria-label="管理聚合源"
-    @click.stop="emit('click')"
-  >
-    <IconTablerAdjustmentsHorizontal aria-hidden="true" />
-  </button>
+  <BaseTooltip content="管理聚合源" placement="bottom" trigger-display="contents">
+    <button
+      type="button"
+      class="source-button"
+      aria-label="管理聚合源"
+      @click.stop="emit('click')"
+    >
+      <IconTablerAdjustmentsHorizontal aria-hidden="true" />
+    </button>
+  </BaseTooltip>
 </template>
 
 <script setup lang="ts">
   import IconTablerAdjustmentsHorizontal from '~icons/tabler/adjustments-horizontal'
+  import BaseTooltip from './common/BaseTooltip.vue'
 
   const emit = defineEmits<{ click: [] }>()
 </script>

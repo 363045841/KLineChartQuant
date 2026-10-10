@@ -53,88 +53,119 @@
             v-for="session in sessions"
             :key="session.id"
             class="agent-session-drawer__item"
-            :class="{ 'is-active': session.id === activeSessionId }"
+            :class="{
+              'is-active': session.id === activeSessionId,
+              'is-editing': renameTarget?.id === session.id || deleteTarget?.id === session.id,
+            }"
           >
-            <button
-              type="button"
-              class="agent-session-drawer__select"
-              :aria-current="session.id === activeSessionId ? 'true' : undefined"
-              @click="$emit('select', session.id)"
+            <!-- 行内重命名：Enter 保存、Esc 取消，替代「抽屉上再叠一层弹窗」。 -->
+            <form
+              v-if="renameTarget?.id === session.id"
+              class="agent-session-drawer__rename"
+              @submit.prevent="submitRename"
             >
-              <span class="agent-session-drawer__item-title">{{ session.title }}</span>
-            </button>
-            <div class="agent-session-drawer__item-actions">
+              <input
+                ref="renameInput"
+                v-model="renameDraft"
+                type="text"
+                autocomplete="off"
+                :aria-label="text.sessionNamePrompt"
+                @keydown.escape.stop.prevent="closeRename"
+              />
+              <BaseTooltip :content="text.confirm" placement="bottom">
+                <button
+                  type="submit"
+                  class="agent-session-drawer__icon-button"
+                  :aria-label="text.confirm"
+                  :disabled="!renameDraft.trim()"
+                >
+                  <IconCheck aria-hidden="true" />
+                </button>
+              </BaseTooltip>
+              <BaseTooltip :content="text.cancel" placement="bottom">
+                <button
+                  type="button"
+                  class="agent-session-drawer__icon-button"
+                  :aria-label="text.cancel"
+                  @click="closeRename"
+                >
+                  <IconX aria-hidden="true" />
+                </button>
+              </BaseTooltip>
+            </form>
+
+            <!-- 删除不可恢复：行内确认并说明后果，焦点落在「取消」。 -->
+            <div
+              v-else-if="deleteTarget?.id === session.id"
+              class="agent-session-drawer__confirm"
+              role="group"
+              :aria-label="text.deleteSession"
+              @keydown.escape.stop.prevent="closeDelete"
+            >
+              <span class="agent-session-drawer__confirm-text">{{ text.deleteSessionConfirm }}</span>
               <button
+                ref="deleteCancel"
                 type="button"
-                class="agent-session-drawer__icon-button"
-                :aria-label="text.renameSession"
-                @click="openRename(session)"
+                class="agent-session-drawer__text-button"
+                @click="closeDelete"
               >
-                <IconPencil aria-hidden="true" />
+                {{ text.cancel }}
               </button>
               <button
                 type="button"
-                class="agent-session-drawer__icon-button"
-                :aria-label="text.deleteSession"
-                @click="openDelete(session)"
+                class="agent-session-drawer__text-button agent-session-drawer__text-button--danger"
+                @click="confirmDelete"
               >
-                <IconTrash aria-hidden="true" />
+                {{ text.deleteSession }}
               </button>
             </div>
+
+            <template v-else>
+              <button
+                type="button"
+                class="agent-session-drawer__select"
+                :aria-current="session.id === activeSessionId ? 'true' : undefined"
+                @click="$emit('select', session.id)"
+              >
+                <span class="agent-session-drawer__item-title">{{ session.title }}</span>
+              </button>
+              <div class="agent-session-drawer__item-actions">
+                <BaseTooltip :content="text.renameSession" placement="bottom">
+                  <button
+                    type="button"
+                    class="agent-session-drawer__icon-button"
+                    :aria-label="`${text.renameSession}: ${session.title}`"
+                    @click="openRename(session)"
+                  >
+                    <IconPencil aria-hidden="true" />
+                  </button>
+                </BaseTooltip>
+                <BaseTooltip :content="text.deleteSession" placement="bottom">
+                  <button
+                    type="button"
+                    class="agent-session-drawer__icon-button"
+                    :aria-label="`${text.deleteSession}: ${session.title}`"
+                    @click="openDelete(session)"
+                  >
+                    <IconTrash aria-hidden="true" />
+                  </button>
+                </BaseTooltip>
+              </div>
+            </template>
           </li>
         </ul>
       </aside>
-
-      <BaseModal
-        :show="renameTarget !== null"
-        :title="text.renameSession"
-        width="min(92vw, 360px)"
-        @close="closeRename"
-      >
-        <form :id="renameFormId" @submit.prevent="submitRename">
-          <label class="agent-session-drawer__field">
-            <span class="agent-session-drawer__field-label">{{ text.sessionNamePrompt }}</span>
-            <input
-              ref="renameInput"
-              v-model="renameDraft"
-              class="form-control"
-              type="text"
-              autocomplete="off"
-            />
-          </label>
-        </form>
-        <template #footer>
-          <BaseButton @click="closeRename">{{ text.cancel }}</BaseButton>
-          <BaseButton type="submit" :form="renameFormId" :disabled="!renameDraft.trim()">
-            {{ text.confirm }}
-          </BaseButton>
-        </template>
-      </BaseModal>
-
-      <BaseModal
-        :show="deleteTarget !== null"
-        :title="text.deleteSession"
-        width="min(92vw, 360px)"
-        @close="closeDelete"
-      >
-        <p class="agent-session-drawer__confirm">{{ text.deleteSessionConfirm }}</p>
-        <template #footer>
-          <BaseButton @click="closeDelete">{{ text.cancel }}</BaseButton>
-          <BaseButton @click="confirmDelete">{{ text.deleteSession }}</BaseButton>
-        </template>
-      </BaseModal>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, ref, useId, watch } from 'vue'
+  import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+  import IconCheck from '~icons/tabler/check'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconTrash from '~icons/tabler/trash'
   import IconX from '~icons/tabler/x'
-  import BaseButton from '../../../components/BaseButton.vue'
-  import BaseModal from '../../../components/BaseModal.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
@@ -157,8 +188,9 @@
   const text = computed(() => getAgentCopy(props.locale))
 
   const panel = ref<HTMLElement | null>(null)
-  const renameFormId = useId()
-  const renameInput = ref<HTMLInputElement | null>(null)
+  /** v-for 内的单个 ref 会收集为数组，同一时间只有一行处于编辑态。 */
+  const renameInput = useTemplateRef<HTMLInputElement[]>('renameInput')
+  const deleteCancel = useTemplateRef<HTMLButtonElement[]>('deleteCancel')
   const renameDraft = ref('')
   const renameTarget = ref<AgentSessionView | null>(null)
   const deleteTarget = ref<AgentSessionView | null>(null)
@@ -173,18 +205,22 @@
 
   // 打开重命名弹窗，并预填目标会话名称。
   function openRename(session: AgentSessionView): void {
+    deleteTarget.value = null
     renameDraft.value = session.title
     renameTarget.value = session
     void nextTick(() => {
-      renameInput.value?.focus()
-      renameInput.value?.select()
+      const input = renameInput.value?.[0]
+      input?.focus()
+      input?.select()
     })
   }
 
-  // 关闭重命名弹窗并清空草稿。
+  // 退出行内重命名并清空草稿，焦点回到列表面板。
   function closeRename(): void {
+    const wasEditing = renameTarget.value !== null
     renameTarget.value = null
     renameDraft.value = ''
+    if (wasEditing) void nextTick(() => panel.value?.focus())
   }
 
   // 提交有效的新名称，交由上层执行重命名。
@@ -196,14 +232,18 @@
     closeRename()
   }
 
-  // 打开删除会话确认弹窗。
+  // 行内删除确认；默认聚焦「取消」，避免误删。
   function openDelete(session: AgentSessionView): void {
+    renameTarget.value = null
     deleteTarget.value = session
+    void nextTick(() => deleteCancel.value?.[0]?.focus())
   }
 
-  // 关闭删除会话确认弹窗。
+  // 退出行内删除确认。
   function closeDelete(): void {
+    const wasConfirming = deleteTarget.value !== null
     deleteTarget.value = null
+    if (wasConfirming) void nextTick(() => panel.value?.focus())
   }
 
   // 用户确认后发出删除目标会话的请求。
@@ -355,22 +395,64 @@
     }
   }
 
-  .agent-session-drawer__field {
-    display: grid;
-    gap: 5px;
-  }
-
-  .agent-session-drawer__field-label {
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 500;
-  }
-
+  .agent-session-drawer__rename,
   .agent-session-drawer__confirm {
-    margin: 0;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
+    padding: var(--klc-space-4, 4px);
+  }
+
+  .agent-session-drawer__rename input {
+    flex: 1;
+    min-width: 0;
+    height: var(--klc-density-default, 32px);
+    box-sizing: border-box;
+    padding: 0 var(--klc-space-8, 8px);
+    border: 1px solid var(--klc-color-ui-accent);
+    border-radius: var(--klc-radius-sm, 6px);
+    outline: none;
     color: var(--klc-color-ui-text);
-    font-size: 13px;
-    line-height: 1.5;
+    background: var(--klc-color-ui-input);
+    font: inherit;
+    font-size: var(--klc-text-12-font-size, 12px);
+  }
+
+  .agent-session-drawer__confirm-text {
+    flex: 1;
+    min-width: 0;
+    padding-left: var(--klc-space-4, 4px);
+    color: var(--agent-text);
+    font-size: var(--klc-text-12-font-size, 12px);
+  }
+
+  .agent-session-drawer__text-button {
+    flex: 0 0 auto;
+    height: var(--klc-density-compact, 24px);
+    padding: 0 var(--klc-space-8, 8px);
+    border: 0;
+    border-radius: var(--klc-radius-xs, 4px);
+    color: var(--agent-text);
+    background: transparent;
+    font: inherit;
+    font-size: var(--klc-text-12-font-size, 12px);
+    cursor: pointer;
+  }
+
+  .agent-session-drawer__text-button:hover,
+  .agent-session-drawer__text-button:focus-visible {
+    background: var(--agent-hover);
+  }
+
+  .agent-session-drawer__text-button--danger {
+    color: var(--klc-color-ui-danger-text);
+    font-weight: 600;
+  }
+
+  .agent-session-drawer__item.is-editing {
+    background: var(--agent-hover);
   }
 
   .agent-session-drawer-enter-active,

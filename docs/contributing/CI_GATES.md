@@ -14,6 +14,7 @@ required, update the table here in the same PR.
 | Bundle size budgets           | `size-limit`                  | core/react/vue/ng | WARN     | Budgets are still pre-build measurements off `src/index.ts`; core currently reports ~242 kB against a 30 kB limit. |
 | Publish hygiene (exports/types/main) | `publint --strict`     | core/react/vue/ng | WARN     | publint needs `dist/` to verify file existence under `pkg.exports`.              |
 | Type-resolution (ESM)         | `@arethetypeswrong/cli` (attw)| core/agent-runtime/vue/react/ng | REQUIRED | —                                                        |
+| UI interaction + token gates  | `pnpm lint:ui` (ESLint + stylelint, bulk suppressions) | `packages/vue/src` | REQUIRED (ratchet) | — |
 | Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | The recursive run also targets `packages/desktop-electron` (`electron-builder`) and `examples/angular-universal` (`ng build`, fails outside its own workspace), so it is not a library gate. The publishable packages are built by the test job instead. |
 | Coverage threshold            | `@vitest/coverage-v8`         | Root              | NOT WIRED| Intentionally deferred until Round 1E lands real engine code worth covering.     |
 
@@ -30,6 +31,24 @@ every publishable package:
 
 The package list and the per-package exclusions live in that script, so the
 profile has a single definition. Gate the new package by adding it there.
+
+### UI interaction + token gates
+
+`pnpm lint:ui` enforces the interaction audit (P0-5) and ADR 0004 on `packages/vue/src`:
+
+- ESLint (`eslint.config.mjs`, Vue template rules Biome does not cover): no native
+  `title=` / `:title` on HTML elements (use `aria-label` + `<BaseTooltip>`), no
+  `window.confirm/alert/prompt` (use `useToast().showUndo()` or an in-place confirm),
+  no raw `<textarea>` outside `BaseTextarea`, `<button>` needs `type`.
+- stylelint (`stylelint.config.mjs`, plugin `scripts/lint/stylelint-plugin-klc.mjs`):
+  no raw colours, no raw px for padding/margin/gap/radius/font-size, no raw z-index,
+  no textarea `resize` handle, no `transition: all`. Fallbacks inside
+  `var(--token, fallback)` are allowed.
+
+Existing debt is recorded in `eslint-suppressions.json` and
+`stylelint-suppressions.json`; CI fails only when a file gains violations. After
+fixing debt run `pnpm lint:ui:prune` (ESLint also fails on stale suppressions, so
+the baseline only ratchets down).
 
 ## Per-package bundle budgets
 

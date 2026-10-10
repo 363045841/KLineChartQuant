@@ -1,39 +1,37 @@
 <!-- 分组下拉菜单：统一整行选项、选中态及操作区样式。 -->
 <template>
-  <div ref="rootRef" class="drop-menu">
+  <div class="drop-menu">
     <BaseTooltip :content="label" :placement="tooltipPlacement ?? 'top'" :disabled="open || disabled">
       <button
-        ref="triggerRef"
+        ref="trigger"
         type="button"
         class="control-button drop-menu__trigger"
         :class="triggerClass"
+        v-bind="popover.triggerBindings.value"
         :aria-label="label"
         aria-haspopup="menu"
-        :aria-expanded="open"
         :disabled="disabled"
-        @click="toggle"
-        @keydown.down.prevent="show(true)"
-        @keydown.escape.stop="hide()"
+        @click="popover.onTriggerClick"
+        @keydown="onTriggerKeydown"
       >
         <slot name="trigger">{{ label }}</slot>
       </button>
     </BaseTooltip>
     <Teleport :to="teleportTarget">
       <div
-        v-if="open"
-        ref="menuRef"
+        ref="menu"
         class="drop-menu__panel"
         :class="{
           'drop-menu__panel--compact': density === 'compact',
           'drop-menu__panel--replace-detail': replaceDetailOnAction,
         }"
-        :style="menuStyle"
+        v-bind="popover.panelBindings.value"
         role="menu"
         :aria-label="label"
-        @keydown.escape.stop.prevent="hide(true)"
-        @keydown.down.prevent="focusItem(1)"
-        @keydown.up.prevent="focusItem(-1)"
+        @keydown="onMenuKeydown"
+        @focusout="onMenuFocusOut"
       >
+       <template v-if="open">
         <div v-for="group in groups" :key="group.id" class="drop-menu__group">
           <div class="drop-menu__heading">{{ group.label }}</div>
           <div
@@ -66,17 +64,18 @@
         <div v-if="$slots.footer" class="drop-menu__footer">
           <slot name="footer" />
         </div>
+       </template>
       </div>
     </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+  import { onBeforeUnmount, useTemplateRef } from 'vue'
 
-  import { useClickOutside } from '../composables/useClickOutside.js'
+  import { useAnchoredPopover } from '../composables/overlay/useAnchoredPopover.js'
+  import { useRovingFocus } from '../composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup.js'
   import BaseTooltip from './common/BaseTooltip.vue'
 
   export interface DropMenuGroup {
@@ -115,72 +114,69 @@
     select: [groupId: string, itemId: string]
     open: []
   }>()
-  const rootRef = ref<HTMLElement | null>(null)
-  const triggerRef = ref<HTMLElement | null>(null)
-  const menuRef = ref<HTMLElement | null>(null)
-  const open = ref(false)
+  const triggerRef = useTemplateRef<HTMLElement>('trigger')
+  const menuRef = useTemplateRef<HTMLElement>('menu')
   const teleportTarget = useFullscreenTeleportTarget()
-  const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
-    triggerRef,
-    menuRef,
-    4,
-    false,
-    props.placement,
-  )
-  const menuStyle = computed(() => ({
-    ...popupStyle.value,
-    zIndex: 1010,
-  }))
-
-  useClickOutside(
-    () => [rootRef.value, menuRef.value],
-    () => hide(),
-    {
-      enabled: () => open.value,
+  const roving = useRovingFocus(menuRef, {
+    itemSelector: '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
+  })
+  const popover = useAnchoredPopover({
+    trigger: triggerRef,
+    panel: menuRef,
+    placement: () => props.placement ?? 'auto',
+    offset: 4,
+    maxHeight: () => 'min(420px, calc(100vh - 24px))',
+    disabled: () => props.disabled ?? false,
+    onOpen: () => {
+      emit('open')
+      // APG menu button：打开后焦点进入第一个可用项。
+      roving.focusFirst('.is-active [role="menuitem"]')
     },
-  )
+  })
+  const open = popover.open
 
-  function show(focus = false) {
-    if (open.value || props.disabled) return
-    open.value = true
-    emit('open')
-    startPositionSync()
-    if (focus)
-      void nextTick(() =>
-        menuRef.value
-          ?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
-          ?.focus(),
-      )
+  function show(): void {
+    popover.show()
   }
 
-  function hide(restoreFocus = false) {
-    if (!open.value) return
-    open.value = false
-    stopPositionSync()
-    if (restoreFocus) triggerRef.value?.focus()
+  function hide(restoreFocus = false): void {
+    popover.hide({ restoreFocus })
   }
 
-  function toggle() {
-    if (open.value) hide()
-    else show()
+  function onTriggerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      show()
+    } else if (event.key === 'Escape' && open.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      hide(true)
+    }
   }
 
-  function focusItem(direction: number) {
-    const items = [
-      ...(menuRef.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ??
-        []),
-    ]
-    if (!items.length) return
-    const index = items.indexOf(document.activeElement as HTMLButtonElement)
-    items[(index + direction + items.length) % items.length]?.focus()
+  function onMenuKeydown(event: KeyboardEvent): void {
+    // 行内输入框（如命名表单）保留方向键与字符输入。
+    const target = event.target as HTMLElement | null
+    if (target?.matches('input, textarea, select, [contenteditable]')) return
+    roving.onKeydown(event)
+  }
+
+  /** 焦点离开面板（Tab 出去或点击别处）时关闭。 */
+  function onMenuFocusOut(event: FocusEvent): void {
+    const next = event.relatedTarget as Node | null
+    if (!next) return
+    if (menuRef.value?.contains(next) || triggerRef.value?.contains(next)) return
+    hide()
   }
 
   function select(groupId: string, itemId: string) {
-    if (!props.keepOpenOnSelect) hide()
+    if (!props.keepOpenOnSelect) hide(true)
     emit('select', groupId, itemId)
   }
 
   onBeforeUnmount(() => hide())
+
+  defineExpose({ show, hide })
 </script>
 
 <!-- 触发器复用工具栏共享按钮外观，避免各下拉各写一套高度与字体。 -->
@@ -199,9 +195,14 @@
     max-height: min(420px, calc(100vh - 24px));
     padding: 0;
     overflow-y: auto;
-    border-radius: 8px;
+    border-radius: var(--klc-radius-md, 8px);
     background: var(--klc-color-ui-input);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
+    color: var(--klc-color-ui-text);
+    box-shadow: var(--klc-elevation-2, 0 6px 12px rgb(0 0 0 / 0.18));
+  }
+
+  .drop-menu__panel:empty {
+    min-width: 0;
   }
 
   .drop-menu__group + .drop-menu__group {
@@ -209,7 +210,7 @@
   }
 
   .drop-menu__footer {
-    padding: 8px;
+    padding: var(--klc-space-8, 8px);
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
@@ -223,23 +224,23 @@
   }
 
   .drop-menu__heading {
-    padding: 8px 10px 4px;
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px) var(--klc-space-4, 4px);
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     font-weight: 500;
     line-height: 16px;
   }
 
   .drop-menu__empty {
-    padding: 8px 10px;
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
     color: var(--klc-color-ui-muted);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .drop-menu__message {
-    padding: 6px 8px;
+    padding: var(--klc-space-8, 8px) var(--klc-space-8, 8px);
     color: var(--klc-color-ui-danger-text);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .drop-menu__item {
@@ -263,19 +264,19 @@
   .drop-menu__item :deep(.drop-menu__item-main) {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--klc-space-8, 8px);
     flex: 1;
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
     min-height: 36px;
-    padding: var(--drop-menu-item-padding-block, 8px) 10px;
+    padding: var(--drop-menu-item-padding-block, 8px) var(--klc-space-12, 12px);
     border: 0;
     border-radius: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     font-weight: 400;
     line-height: 20px;
     text-align: left;
@@ -300,7 +301,7 @@
     align-items: center;
     flex: 0 0 auto;
     /* 与选项文字左侧内边距一致，状态标记的右侧留白不会大于文字的左侧留白。 */
-    padding-right: 10px;
+    padding-right: var(--klc-space-8, 8px);
   }
 
   .drop-menu__panel--replace-detail .drop-menu__item {
@@ -333,7 +334,7 @@
     height: 26px;
     padding: 0;
     border: 0;
-    border-radius: 4px;
+    border-radius: var(--klc-radius-xs, 4px);
     background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
@@ -385,9 +386,9 @@
     margin-left: auto;
     width: 28px;
     height: 16px;
-    padding: 2px;
+    padding: var(--klc-space-2, 2px);
     box-sizing: border-box;
-    border-radius: 20px;
+    border-radius: var(--klc-radius-full, 9999px);
     background: var(--klc-color-ui-muted);
   }
 

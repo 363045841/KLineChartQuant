@@ -72,6 +72,38 @@ export {
 } from './components/index.js'
 
 // ---------------------------------------------------------------------------
+// Interaction primitives (overlay, toast + undo, textarea)
+// ---------------------------------------------------------------------------
+
+export { default as BaseModal } from './components/BaseModal.vue'
+export { default as BasePopover } from './components/common/BasePopover.vue'
+export { default as BaseTextarea } from './components/common/BaseTextarea.vue'
+export { default as BaseTooltip } from './components/common/BaseTooltip.vue'
+export { default as ToastViewport } from './components/common/ToastViewport.vue'
+export {
+  type AnchoredPlacement,
+  type UseAnchoredPopoverOptions,
+  useAnchoredPopover,
+} from './composables/overlay/useAnchoredPopover.js'
+export { type UseRovingFocusOptions, useRovingFocus } from './composables/overlay/useRovingFocus.js'
+export {
+  type CreateToastStoreOptions,
+  createToastStore,
+  provideToast,
+  TOAST_STORE_KEY,
+  type ToastAction,
+  type ToastApi,
+  type ToastDismissReason,
+  type ToastHandle,
+  type ToastItem,
+  type ToastOptions,
+  type ToastStore,
+  type ToastTone,
+  type UndoToastOptions,
+  useToast,
+} from './composables/toast/useToast.js'
+
+// ---------------------------------------------------------------------------
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 

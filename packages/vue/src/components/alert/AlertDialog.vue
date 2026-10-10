@@ -21,7 +21,7 @@
     <!-- Rules Tab -->
     <template v-if="activeTab === 'rules'">
       <div class="alert-section">
-        <button v-if="!editingRule" class="alert-add-btn" @click="startAddRule">
+        <button v-if="!editingRule" type="button" class="alert-add-btn" @click="startAddRule">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -70,28 +70,39 @@
                 <span class="rule-item-predicate">{{ describePredicate(rule) }}</span>
               </div>
               <div class="rule-item-actions">
-                <ToggleSwitch
-                  :model-value="rule.enabled"
-                  :title="rule.enabled ? '禁用' : '启用'"
-                  :aria-label="`${rule.name}启用状态`"
-                  @update:model-value="toggleRule(rule.id, $event)"
-                />
-                <button class="rule-item-btn" title="编辑" @click="startEditRule(rule)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 20h4L18.5 9.5a2 2 0 0 0-3-3L4 16v4" />
-                  </svg>
-                </button>
-                <button
-                  class="rule-item-btn rule-item-btn--danger"
-                  title="删除"
-                  @click="removeRule(rule.id)"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path
-                      d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-                    />
-                  </svg>
-                </button>
+                <BaseTooltip :content="rule.enabled ? '禁用' : '启用'" placement="top">
+                  <ToggleSwitch
+                    :model-value="rule.enabled"
+                    :aria-label="`${rule.name}启用状态`"
+                    @update:model-value="toggleRule(rule.id, $event)"
+                  />
+                </BaseTooltip>
+                <BaseTooltip content="编辑" placement="top">
+                  <button
+                    type="button"
+                    class="rule-item-btn"
+                    :aria-label="`编辑 ${rule.name}`"
+                    @click="startEditRule(rule)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M4 20h4L18.5 9.5a2 2 0 0 0-3-3L4 16v4" />
+                    </svg>
+                  </button>
+                </BaseTooltip>
+                <BaseTooltip content="删除" placement="top">
+                  <button
+                    type="button"
+                    class="rule-item-btn rule-item-btn--danger"
+                    :aria-label="`删除 ${rule.name}`"
+                    @click="deleteRule(rule)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path
+                        d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
+                      />
+                    </svg>
+                  </button>
+                </BaseTooltip>
               </div>
             </div>
             <div v-if="rule.oneShot || rule.cooldownMs" class="rule-item-meta">
@@ -133,7 +144,7 @@
           <span v-if="events.length > 0" class="alert-section-count">
             共 <strong>{{ events.length }}</strong> 条记录
           </span>
-          <button v-if="events.length > 0" class="alert-clear-btn" @click="clearHistory">
+          <button v-if="events.length > 0" type="button" class="alert-clear-btn" @click="clearHistory">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -212,8 +223,10 @@
   } from '@363045841yyt/klinechart-core'
   import { ref, watch } from 'vue'
 
+  import { useToast } from '../../composables/toast/useToast.js'
   import { useAlerts } from '../../composables/useAlerts.js'
   import BaseModal from '../BaseModal.vue'
+  import BaseTooltip from '../common/BaseTooltip.vue'
   import ToggleSwitch from '../common/ToggleSwitch.vue'
   import SegmentedTabs from '../SegmentedTabs.vue'
 
@@ -247,6 +260,20 @@
   } = useAlerts(() => props.chartController)
 
   const editingRule = ref<AlertRule | 'new' | null>(null)
+  const toast = useToast()
+
+  /** 立即删除并提供撤销：撤销时按原规则重新添加。 */
+  function deleteRule(rule: AlertRule): void {
+    if (!removeRule(rule.id)) return
+    if (editingRule.value !== 'new' && editingRule.value?.id === rule.id) editingRule.value = null
+    toast.showUndo({
+      id: `alert-rule-delete-${rule.id}`,
+      message: `已删除预警「${rule.name}」`,
+      onUndo: () => {
+        addRule(rule)
+      },
+    })
+  }
 
   watch(
     () => props.show,

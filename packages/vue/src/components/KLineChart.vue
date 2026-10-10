@@ -370,6 +370,7 @@
       @replace="replaceLegend"
       @close="replacementPaneId = null"
     />
+    <ToastViewport />
   </div>
 </template>
 
@@ -402,6 +403,7 @@
   } from '@363045841yyt/klinechart-core/market-data'
   import {
     computed,
+    inject,
     nextTick,
     onBeforeUpdate,
     onMounted,
@@ -411,9 +413,11 @@
     useSlots,
     watch,
   } from 'vue'
-  import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
+  import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
   import { useAggregationSources } from '../composables/useAggregationSources.js'
+  import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
 
+  if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
   const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
@@ -451,6 +455,7 @@
 
   import BatchStockDialog from './BatchStockDialog.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
+  import ToastViewport from './common/ToastViewport.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import DrawingTemplateSaveDialog from './drawing-settings/DrawingTemplateSaveDialog.vue'
@@ -580,7 +585,7 @@
   defineSlots<{
     /** 宿主管理行情连接与凭据；图表不持有密钥。 */
     'source-management'(): unknown
-      'toolbar-start'(): unknown
+    'toolbar-start'(): unknown
     'toolbar-end'(): unknown
     legend(props: LegendSlotProps): unknown
     'kline-tooltip'(props: KlineTooltipSlotProps): unknown

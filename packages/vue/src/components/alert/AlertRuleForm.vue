@@ -16,6 +16,7 @@
       <label class="rule-form-label">条件类型</label>
       <div class="rule-form-kinds">
         <button
+          type="button"
           v-for="kind in predicateKinds"
           :key="kind.value"
           class="rule-form-kind"
@@ -65,6 +66,7 @@
             <label class="rule-form-label">方向</label>
             <div class="rule-form-directions">
               <button
+                type="button"
                 v-for="d in crossDirections"
                 :key="d.value"
                 class="rule-form-direction"
@@ -183,6 +185,7 @@
           <label class="rule-form-label">方向</label>
           <div class="rule-form-directions">
             <button
+              type="button"
               v-for="d in crossDirections"
               :key="d.value"
               class="rule-form-direction"
@@ -206,6 +209,7 @@
             <label class="rule-form-label">关系</label>
             <div class="rule-form-directions">
               <button
+                type="button"
                 v-for="d in pairDirections"
                 :key="d.value"
                 class="rule-form-direction"
@@ -348,8 +352,8 @@
 
     <!-- 操作按钮 -->
     <div class="rule-form-actions">
-      <button class="rule-form-btn rule-form-btn--cancel" @click="$emit('cancel')">取消</button>
-      <button class="rule-form-btn rule-form-btn--save" :disabled="!isValid" @click="handleSave">
+      <button type="button" class="rule-form-btn rule-form-btn--cancel" @click="$emit('cancel')">取消</button>
+      <button type="button" class="rule-form-btn rule-form-btn--save" :disabled="!isValid" @click="handleSave">
         <svg
           viewBox="0 0 24 24"
           fill="none"
