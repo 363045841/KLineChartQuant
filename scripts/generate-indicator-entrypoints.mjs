@@ -44,6 +44,198 @@ function literalProperty(checker, config, name) {
   return type.isStringLiteral() ? type.value : undefined
 }
 
+/** 静态求值失败的哨兵；只在生成器内部流转。 */
+const UNRESOLVED = Symbol('unresolved')
+
+/** 剥离不影响取值的类型断言与括号。 */
+function unwrapExpression(node) {
+  let current = node
+  while (
+    ts.isAsExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isParenthesizedExpression(current) ||
+    ts.isTypeAssertionExpression(current)
+  ) {
+    current = current.expression
+  }
+  return current
+}
+
+/** 返回标识符或属性访问所指声明的初始值表达式；导入别名逐级解开。 */
+function declarationInitializer(checker, node) {
+  const symbol = resolveSymbol(checker, checker.getSymbolAtLocation(node))
+  const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0]
+  if (!declaration) return undefined
+  if (ts.isVariableDeclaration(declaration)) return declaration.initializer
+  if (ts.isPropertyAssignment(declaration) || ts.isEnumMember(declaration)) {
+    return declaration.initializer
+  }
+  if (ts.isShorthandPropertyAssignment(declaration)) {
+    return declarationInitializer(checker, declaration.name)
+  }
+  return undefined
+}
+
+/** 把表达式解析为对象字面量；Object.freeze 包装与常量引用都会被展开。 */
+function resolveObjectLiteral(checker, node, depth = 0) {
+  if (!node || depth > 16) return undefined
+  const expression = unwrapExpression(node)
+  if (ts.isObjectLiteralExpression(expression)) return expression
+  if (
+    ts.isCallExpression(expression) &&
+    expression.expression.getText() === 'Object.freeze' &&
+    expression.arguments.length === 1
+  ) {
+    return resolveObjectLiteral(checker, expression.arguments[0], depth + 1)
+  }
+  if (ts.isIdentifier(expression) || ts.isPropertyAccessExpression(expression)) {
+    return resolveObjectLiteral(checker, declarationInitializer(checker, expression), depth + 1)
+  }
+  return undefined
+}
+
+/** 在对象字面量中按运行时语义查找属性（后写覆盖先写，展开源递归查找）。 */
+function findPropertyExpression(checker, node, name, depth = 0) {
+  const object = resolveObjectLiteral(checker, node, depth)
+  if (!object) return undefined
+  for (const property of [...object.properties].reverse()) {
+    if (ts.isPropertyAssignment(property) && propertyName(property.name) === name) {
+      return property.initializer
+    }
+    if (ts.isShorthandPropertyAssignment(property) && property.name.text === name) {
+      return property.name
+    }
+    if (ts.isSpreadAssignment(property)) {
+      const nested = findPropertyExpression(checker, property.expression, name, depth + 1)
+      if (nested) return nested
+    }
+  }
+  return undefined
+}
+
+/** 字面量属性名；计算属性名不参与静态目录。 */
+function propertyName(name) {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name)) {
+    return name.text
+  }
+  return undefined
+}
+
+/**
+ * 编译期常量求值：只接受字面量、对象/数组字面量、常量引用与枚举成员，
+ * 遇到函数、调用或运行时值返回 UNRESOLVED，从不执行源码。
+ */
+function evaluateStatic(checker, node, depth = 0) {
+  if (!node || depth > 32) return UNRESOLVED
+  const expression = unwrapExpression(node)
+  if (ts.isStringLiteralLike(expression)) return expression.text
+  if (ts.isNumericLiteral(expression)) return Number(expression.text)
+  if (expression.kind === ts.SyntaxKind.TrueKeyword) return true
+  if (expression.kind === ts.SyntaxKind.FalseKeyword) return false
+  if (
+    ts.isPrefixUnaryExpression(expression) &&
+    (expression.operator === ts.SyntaxKind.MinusToken ||
+      expression.operator === ts.SyntaxKind.PlusToken)
+  ) {
+    const operand = evaluateStatic(checker, expression.operand, depth + 1)
+    if (typeof operand !== 'number') return UNRESOLVED
+    return expression.operator === ts.SyntaxKind.MinusToken ? -operand : operand
+  }
+  if (ts.isArrayLiteralExpression(expression)) {
+    const items = []
+    for (const element of expression.elements) {
+      if (ts.isSpreadElement(element)) {
+        const spread = evaluateStatic(checker, element.expression, depth + 1)
+        if (!Array.isArray(spread)) return UNRESOLVED
+        items.push(...spread)
+        continue
+      }
+      const value = evaluateStatic(checker, element, depth + 1)
+      if (value === UNRESOLVED) return UNRESOLVED
+      items.push(value)
+    }
+    return items
+  }
+  if (ts.isObjectLiteralExpression(expression)) {
+    const result = {}
+    for (const property of expression.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        const spread = evaluateStatic(checker, property.expression, depth + 1)
+        if (spread === UNRESOLVED || typeof spread !== 'object' || Array.isArray(spread)) {
+          return UNRESOLVED
+        }
+        Object.assign(result, spread)
+        continue
+      }
+      const name =
+        ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)
+          ? propertyName(property.name)
+          : undefined
+      if (name === undefined) return UNRESOLVED
+      const value = evaluateStatic(
+        checker,
+        ts.isPropertyAssignment(property) ? property.initializer : property.name,
+        depth + 1,
+      )
+      if (value === UNRESOLVED) return UNRESOLVED
+      result[name] = value
+    }
+    return result
+  }
+  if (
+    ts.isCallExpression(expression) &&
+    expression.expression.getText() === 'Object.freeze' &&
+    expression.arguments.length === 1
+  ) {
+    return evaluateStatic(checker, expression.arguments[0], depth + 1)
+  }
+  if (ts.isPropertyAccessExpression(expression)) {
+    const direct = declarationInitializer(checker, expression)
+    if (direct) return evaluateStatic(checker, direct, depth + 1)
+    const owner = findPropertyExpression(checker, expression.expression, expression.name.text)
+    return owner ? evaluateStatic(checker, owner, depth + 1) : UNRESOLVED
+  }
+  if (ts.isIdentifier(expression)) {
+    if (expression.text === 'undefined') return undefined
+    const initializer = declarationInitializer(checker, expression)
+    return initializer ? evaluateStatic(checker, initializer, depth + 1) : UNRESOLVED
+  }
+  return UNRESOLVED
+}
+
+/** 选择器、别名解析与 Agent 工具结构所需的静态目录字段。 */
+const DESCRIPTOR_FIELDS = [
+  ['aliases'],
+  ['displayName'],
+  ['category'],
+  ['indicatorType'],
+  ['indicatorTypeLabel'],
+  ['defaultPaneId'],
+  ['dataViews'],
+  ['allowMainPane'],
+  ['defaultParams', 'runtime', 'defaultParams'],
+  ['defaultOptions', 'presentation', 'defaultOptions'],
+]
+
+/** 提取一个定义的静态目录；声明了却无法静态求值的字段直接阻止构建。 */
+function extractDescriptor(checker, config, identity, fail) {
+  const descriptor = { name: identity.name, kind: identity.kind }
+  for (const [field, ...path] of DESCRIPTOR_FIELDS) {
+    const segments = path.length > 0 ? path : [field]
+    let expression = config
+    for (const segment of segments) {
+      expression = expression && findPropertyExpression(checker, expression, segment)
+    }
+    if (!expression) continue
+    const value = evaluateStatic(checker, expression)
+    if (value === UNRESOLVED) {
+      fail(`@Indicator.${segments.join('.')} 必须是编译期常量，才能进入按需加载目录`)
+    }
+    if (value !== undefined) descriptor[field] = value
+  }
+  return descriptor
+}
+
 /** 从生产源码发现导出的定义类；无法确定身份或导出的声明直接阻止构建。 */
 export function discoverIndicatorDefinitions(sourceRoot = CORE_SOURCE_ROOT) {
   const files = collectSourceFiles(sourceRoot)
@@ -100,7 +292,8 @@ export function discoverIndicatorDefinitions(sourceRoot = CORE_SOURCE_ROOT) {
             .replace(/[^a-z0-9]/g, '')
           if (!normalized || names.has(normalized)) fail(`@Indicator.name 为空或重复：${name}`)
           names.add(normalized)
-          definitions.push({ filename, exportName: exported.getName(), kind, name })
+          const descriptor = extractDescriptor(checker, configArgument, { name, kind }, fail)
+          definitions.push({ filename, exportName: exported.getName(), kind, name, descriptor })
         }
       }
       ts.forEachChild(node, visit)
@@ -131,17 +324,22 @@ export function generateIndicatorEntrypoints(
   const header = '/** 自动扫描 @Indicator 生成；请修改定义类，不要手动编辑。 */\n'
   const indicatorSource =
     header +
-    "import type { IndicatorDefinitionClass } from '../indicatorDefinitionRegistry.js'\n\n" +
-    '/** 加载所有注解定义，kind 仅用于元数据分类；引用类导出以保留生产构建依赖。 */\n' +
-    'export function loadBuiltinDefinitionClasses(): Promise<IndicatorDefinitionClass[]> {\n' +
-    '  return Promise.all([\n' +
+    "import type {\n  IndicatorDefinitionClass,\n  IndicatorDescriptor,\n} from '../indicatorDefinitionRegistry.js'\n\n" +
+    '/** 内置定义的静态目录与按需加载入口；目录字段在编译期提取，读取目录不会加载实现。 */\n' +
+    'export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{\n' +
+    '  readonly descriptor: IndicatorDescriptor\n' +
+    '  readonly load: () => Promise<IndicatorDefinitionClass>\n' +
+    '}> = [\n' +
     definitions
       .map(
         (definition) =>
-          `    import('${modulePath(outputDirectory, definition.filename)}').then((module) => module.${definition.exportName}),\n`,
+          '  {\n' +
+          `    descriptor: ${JSON.stringify(definition.descriptor)},\n` +
+          `    load: () => import('${modulePath(outputDirectory, definition.filename)}').then((module) => module.${definition.exportName}),\n` +
+          '  },\n',
       )
       .join('') +
-    '  ])\n}\n'
+    ']\n'
   let changed = false
   for (const [basename, content] of [['builtinIndicators.ts', indicatorSource]]) {
     const filename = path.join(outputDirectory, basename)

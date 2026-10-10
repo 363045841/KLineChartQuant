@@ -37,11 +37,15 @@ export function useLegendUi(
     { immediate: true, flush: 'post' },
   )
 
-  /** 选择器提交新定义后，以原图例身份执行原位替换。 */
-  function replaceLegend(_selectorId: string, definitionId: string): void {
-    if (replacementLegendId) controller.value?.legend.replace(replacementLegendId, definitionId)
+  /** 选择器提交新定义后，先加载其实现，再以原图例身份执行原位替换。 */
+  async function replaceLegend(_selectorId: string, definitionId: string): Promise<void> {
+    const legendId = replacementLegendId
+    const ctrl = controller.value
     replacementLegendId = null
     replacementId.value = null
+    if (!legendId || !ctrl) return
+    await ctrl.loadIndicators([definitionId])
+    if (controller.value === ctrl) ctrl.legend.replace(legendId, definitionId)
   }
   return { replacementId, replacementRole, replaceLegend }
 }

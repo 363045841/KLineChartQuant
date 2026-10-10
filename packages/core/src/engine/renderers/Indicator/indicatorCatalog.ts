@@ -9,8 +9,8 @@ import {
   FOOTPRINT_TEXT_OPTIONS,
 } from '@/components/footprint/types.js'
 import {
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
+  getIndicatorDescriptor,
+  getIndicatorDescriptors,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   getBuiltinIndicatorTypeLabel,
@@ -1427,24 +1427,8 @@ const uiMeta: Record<
 let _allIndicators: Indicator[] | null = null
 let _definitionCount = -1
 
-/** runtime.defaultParams 归一化后的参数表。 */
+/** 静态目录中计算参数与展示默认项合并后的参数表。 */
 type RuntimeDefaultParams = Readonly<Record<string, unknown>>
-
-/** 判断 defaultParams 是否为工厂函数。 */
-function isDefaultParamsFactory(value: unknown): value is () => RuntimeDefaultParams {
-  return typeof value === 'function'
-}
-
-/** 判断 defaultParams 是否为参数表对象。 */
-function isDefaultParamsObject(value: unknown): value is RuntimeDefaultParams {
-  return typeof value === 'object' && value !== null
-}
-
-/** 解析 runtime.defaultParams，兼容常量对象与工厂函数两种声明。 */
-function resolveRuntimeDefaultParams(value: unknown): RuntimeDefaultParams {
-  if (isDefaultParamsFactory(value)) return value()
-  return isDefaultParamsObject(value) ? value : {}
-}
 
 /** 组装参数配置：结构来自 uiMeta，默认值优先取自注册表声明的计算参数与展示默认项。 */
 function buildParamConfigs(
@@ -1461,8 +1445,9 @@ function buildParamConfigs(
   })
 }
 
+/** 选择器目录只读静态目录项，列出全部指标而不加载任何实现。 */
 function rebuildIfStale(): Indicator[] {
-  const definitions = getRegisteredIndicatorDefinitions()
+  const definitions = getIndicatorDescriptors()
   if (_allIndicators === null || definitions.length !== _definitionCount) {
     _definitionCount = definitions.length
     _allIndicators = definitions
@@ -1471,8 +1456,8 @@ function rebuildIfStale(): Indicator[] {
         const key = normalizeId(def.name)
         const ui = uiMeta[key]
         const runtimeDefaults = {
-          ...resolveRuntimeDefaultParams(def.runtime?.defaultParams),
-          ...def.presentation?.defaultOptions,
+          ...def.defaultParams,
+          ...def.defaultOptions,
         }
         return {
           id: def.displayName,
@@ -1510,7 +1495,7 @@ export function findIndicator(id: string): Indicator | undefined {
   )
   if (direct) return direct
   // 兼容内部 name / 别名输入：先解析为规范展示名再匹配
-  const canonicalId = getRegisteredIndicatorDefinition(id)?.displayName
+  const canonicalId = getIndicatorDescriptor(id)?.displayName
   if (!canonicalId) return undefined
   const canonical = normalizeId(canonicalId)
   return rebuildIfStale().find((i) => normalizeId(i.id) === canonical)

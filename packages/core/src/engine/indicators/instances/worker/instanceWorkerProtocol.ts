@@ -25,6 +25,11 @@ export type InstanceWorkerRequest =
       readonly definitions: readonly SerializedIndicatorCalculationDefinition[]
     }
   | {
+      /** 按需加载的定义在 init 之后追加。 */
+      readonly type: 'define'
+      readonly definitions: readonly SerializedIndicatorCalculationDefinition[]
+    }
+  | {
       readonly type: 'setData'
       readonly tradesDiff?: TradeSnapshotDiff
       readonly dataRevision: number

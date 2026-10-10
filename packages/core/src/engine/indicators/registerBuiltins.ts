@@ -1,14 +1,21 @@
-/** 内置定义唯一装配入口；所有身份共用清单、加载任务和注册目录。 */
-import { loadBuiltinDefinitionClasses } from './generated/builtinIndicators.js'
-import { registerIndicatorDefinition } from './indicatorDefinitionRegistry.js'
+/** 内置定义装配入口：静态目录随注册表同步可用，实现按需或一次性加载。 */
+import {
+  getIndicatorDescriptors,
+  loadAllIndicatorDefinitions,
+  loadIndicatorDefinitions,
+} from './indicatorDefinitionRegistry.js'
+import { IndicatorKind } from './indicatorMetadata.js'
 
-let loading: ReturnType<typeof loadBuiltinDefinitionClasses> | undefined
+/** 加载全部内置定义的实现；并发调用共享加载任务，失败可重试，注册按身份幂等。 */
+export function loadBuiltinIndicators(): Promise<void> {
+  return loadAllIndicatorDefinitions()
+}
 
-/** 并发调用共享模块加载；失败可重试，目录注册按元数据身份幂等。 */
-export async function loadBuiltinIndicators(): Promise<void> {
-  loading ??= loadBuiltinDefinitionClasses().catch((error: unknown) => {
-    loading = undefined
-    throw error
-  })
-  for (const definition of await loading) registerIndicatorDefinition(definition)
+/** 加载图表视图自身需要的系统定义（K 线标注、最新价、分时主线等）。 */
+export function loadSystemIndicators(): Promise<void> {
+  return loadIndicatorDefinitions(
+    getIndicatorDescriptors()
+      .filter((descriptor) => descriptor.kind === IndicatorKind.System)
+      .map((descriptor) => descriptor.name),
+  )
 }

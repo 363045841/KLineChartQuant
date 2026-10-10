@@ -126,9 +126,8 @@
     createIndicatorSelectorController,
     findIndicator,
     type IndicatorDefinition,
-    loadBuiltinIndicators,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, ref } from 'vue'
+  import { computed, ref } from 'vue'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
@@ -158,7 +157,8 @@
     close: []
   }>()
 
-  const controller = createIndicatorSelectorController()
+  // 目录来自编译期静态元数据，打开选择器不加载任何指标实现。
+  const controller = createIndicatorSelectorController({ catalog: allIndicatorDefinitions() })
 
   const menuOpen = coreSignalToVueRef(controller.menuOpen)
   const searchQuery = coreSignalToVueRef(controller.searchQuery)
@@ -171,11 +171,6 @@
 
   const catalog = coreSignalToVueRef(controller.catalog)
   const catalogLen = computed(() => catalog.value.length)
-
-  onMounted(async () => {
-    await loadBuiltinIndicators()
-    controller.catalog.set(allIndicatorDefinitions())
-  })
 
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)

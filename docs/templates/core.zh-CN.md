@@ -44,7 +44,7 @@ const data: KLineData[] = [
   },
 ]
 
-const chart = createChartController({
+const chart = await createChartController({
   container,
   data,
   initialZoomLevel: 3,
@@ -57,6 +57,8 @@ const unsubscribe = chart.viewport.subscribe(() => {
   console.log(viewport.visibleFrom, viewport.visibleTo)
 })
 
+// 指标实现按需加载；目录可同步读取。
+await chart.loadIndicators(['MA'])
 chart.addIndicator('MA', 'main')
 chart.zoomIn()
 
@@ -65,7 +67,7 @@ unsubscribe()
 chart.dispose()
 ```
 
-当前 `createChartController` 同步创建图表。工厂类型同时允许异步实现，因此接收可配置 factory 的框架适配器应支持 `ChartController | Promise<ChartController>`。
+`createChartController` 是异步的：图表的系统指标与恢复布局引用的指标加载完成后才返回。其余指标实现通过 `loadIndicators`、布局切换与 Agent 工具按需加载；传入 `indicatorLoading: 'all'` 可在创建时加载全部内置指标。接收可配置 factory 的框架适配器应支持 `ChartController | Promise<ChartController>`。
 
 ## 状态内核
 
@@ -208,6 +210,7 @@ Core 创建默认 DOM scaffold 时会在挂载期间安装交互绑定。由框�
 ### 指标、面板与绘图
 
 ```typescript
+await chart.loadIndicators(['MACD', 'RSI'])
 const id = chart.addIndicator('MACD', 'sub', { fast: 12, slow: 26, signal: 9 })
 if (id) chart.updateIndicatorParams(id, { fast: 10, slow: 20, signal: 7 })
 

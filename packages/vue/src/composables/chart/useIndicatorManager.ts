@@ -10,7 +10,7 @@ import type {
   PaneSpec,
   SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
+import { getIndicatorDescriptor } from '@363045841yyt/klinechart-core/indicators'
 import { computed, type Ref } from 'vue'
 
 import { useControllerSignal } from './useControllerSignal.js'
@@ -104,32 +104,40 @@ export function useIndicatorManager(
     indicatorId: SubIndicatorType,
   ): Record<string, number | boolean | string> {
     if (indicatorId === 'VOLUME') return {}
-    const meta = getRegisteredIndicatorDefinition(indicatorId)
-    if (meta?.runtime?.defaultParams) {
-      return { ...meta.runtime.defaultParams } as Record<string, number | boolean | string>
-    }
-    return {}
+    // 静态目录即可给出默认参数，无需加载指标实现。
+    const defaults = getIndicatorDescriptor(indicatorId)?.defaultParams
+    return defaults ? ({ ...defaults } as Record<string, number | boolean | string>) : {}
   }
 
   function isSubPaneIndicator(id: string): boolean {
     if (id === 'VOLUME') return true
-    const def = getRegisteredIndicatorDefinition(id)
+    const def = getIndicatorDescriptor(id)
     return !!def && def.category !== 'main'
   }
 
-  function addSubPane(
+  /** 指标实现按需加载：写入状态前先加载该指标自身的模块。 */
+  async function loadIndicator(
+    controller: ChartController,
+    indicatorId: string,
+  ): Promise<ChartController | null> {
+    await controller.loadIndicators([indicatorId])
+    // 加载期间图表可能已被替换或销毁。
+    return ctrl.value === controller ? controller : null
+  }
+
+  async function addSubPane(
     indicatorId: SubIndicatorType = 'VOLUME',
     params?: Record<string, number | boolean | string>,
-  ): boolean {
-    if (subPanes.value.length >= maxSubPanes) {
+  ): Promise<boolean> {
+    const controller = ctrl.value
+    if (!controller || subPanes.value.length >= maxSubPanes) {
       return false
     }
 
     const mergedParams = params ?? getDefaultParams(indicatorId)
-
-    const paneId = ctrl.value?.addIndicator(indicatorId, 'sub', mergedParams)
-    if (!paneId) return false
-    return true
+    const loaded = await loadIndicator(controller, indicatorId)
+    if (!loaded || subPanes.value.length >= maxSubPanes) return false
+    return loaded.addIndicator(indicatorId, 'sub', mergedParams) !== null
   }
 
   function removeSubPane(paneId: string): void {
@@ -149,9 +157,15 @@ export function useIndicatorManager(
     clearAllSubPanes()
   }
 
-  function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
+  async function switchSubIndicator(
+    paneId: string,
+    newIndicatorId: SubIndicatorType,
+  ): Promise<void> {
+    const controller = ctrl.value
+    if (!controller) return
     const nextParams = getDefaultParams(newIndicatorId)
-    ctrl.value?.replacePaneContent(paneId, newIndicatorId, nextParams)
+    const loaded = await loadIndicator(controller, newIndicatorId)
+    loaded?.replacePaneContent(paneId, newIndicatorId, nextParams)
   }
 
   /** 在副图序列中移动一个 Pane；主图始终固定在第 0 位。 */
@@ -162,18 +176,21 @@ export function useIndicatorManager(
     ctrl.value?.movePane(paneId, target + 1)
   }
 
-  function handleIndicatorToggle(indicatorId: string, active: boolean) {
-    const c = ctrl.value
-    if (!c) return
+  async function handleIndicatorToggle(indicatorId: string, active: boolean): Promise<void> {
+    const controller = ctrl.value
+    if (!controller) return
 
-    const def = getRegisteredIndicatorDefinition(indicatorId)
+    // 角色判断只读静态目录；写入前才加载实现。
+    const def = getIndicatorDescriptor(indicatorId)
     const isMain = def && (def.category === 'main' || def.allowMainPane)
     if (isMain) {
       const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
       if (active && !existingIndicator) {
+        const c = await loadIndicator(controller, indicatorId)
+        if (!c || mainActiveIndicators.value.includes(indicatorId)) return
         c.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
       } else if (!active && existingIndicator) {
-        c.removeIndicator(indicatorId)
+        controller.removeIndicator(indicatorId)
       }
       return
     }
@@ -184,15 +201,17 @@ export function useIndicatorManager(
         if (existingPane) return
         if (subPanes.value.length >= maxSubPanes) return
 
-        const paneId = c.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
+        const loaded = await loadIndicator(controller, indicatorId)
+        if (!loaded || subPanes.value.some((p) => p.indicatorId === indicatorId)) return
+        const paneId = loaded.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
         if (!paneId && subPanes.value.length > 0) {
           const lastPane = subPanes.value[subPanes.value.length - 1]
-          switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
+          await switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
         }
       } else {
         const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
         panesToRemove.forEach((pane) => {
-          c.removePane(pane.id)
+          controller.removePane(pane.id)
         })
       }
     }

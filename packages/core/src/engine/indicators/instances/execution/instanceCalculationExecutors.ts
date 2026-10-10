@@ -12,12 +12,27 @@ import type { IndicatorCalculationDefinition } from './instanceCalculationRuntim
 import type { IndicatorCalculationExecutor } from './instanceCalculationScheduler.js'
 import { diffTradeSnapshot, IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
 
+/** inline 执行器：可在运行中追加按需加载的定义。 */
+export type InlineIndicatorCalculationExecutor = IndicatorCalculationExecutor & {
+  addDefinitions(definitions: Iterable<IndicatorCalculationDefinition>): void
+}
+
+/** Worker 执行器：追加定义以序列化描述下发，可释放 Worker。 */
+export type WorkerIndicatorCalculationExecutor = IndicatorCalculationExecutor & {
+  dispose(): void
+  addDefinitions(definitions: readonly SerializedIndicatorCalculationDefinition[]): void
+}
+
 /** 不依赖 Worker 的直接执行器；测试、SSR 和降级路径使用同一执行语义。 */
 export function createInlineIndicatorCalculationExecutor(
   definitions: Iterable<IndicatorCalculationDefinition>,
-): IndicatorCalculationExecutor {
+): InlineIndicatorCalculationExecutor {
   const runtime = new IndicatorInstanceExecutionRuntime(definitions)
-  const executor: IndicatorCalculationExecutor = {
+  const executor: InlineIndicatorCalculationExecutor = {
+    /** 追加按需加载后的定义；已有身份的同一定义幂等。 */
+    addDefinitions(next: Iterable<IndicatorCalculationDefinition>): void {
+      for (const definition of next) runtime.addDefinition(definition)
+    },
     async setData(data, dataRevision, trades) {
       // inline 无结构化克隆开销，成交始终按整段替换下发，与 Worker 共享同一运行时合并路径。
       runtime.setData(
@@ -37,7 +52,7 @@ export function createInlineIndicatorCalculationExecutor(
 export function createWorkerIndicatorCalculationExecutor(input: {
   readonly worker: Worker
   readonly definitions: readonly SerializedIndicatorCalculationDefinition[]
-}): IndicatorCalculationExecutor & { dispose(): void } {
+}): WorkerIndicatorCalculationExecutor {
   let nextRequestId = 0
   let ready = false
   let disposed = false
@@ -96,7 +111,12 @@ export function createWorkerIndicatorCalculationExecutor(input: {
     definitions: input.definitions,
   })
 
-  const executor: IndicatorCalculationExecutor & { dispose: () => void } = {
+  const executor: WorkerIndicatorCalculationExecutor = {
+    /** 追加按需加载后的定义；消息按序到达，先于之后的计算请求生效。 */
+    addDefinitions(definitions: readonly SerializedIndicatorCalculationDefinition[]): void {
+      if (disposed || definitions.length === 0) return
+      input.worker.postMessage({ type: 'define', definitions })
+    },
     async setData(data: KLineData[], dataRevision: number, trades?: TradeSnapshot): Promise<void> {
       await readyPromise
       if (disposed) throw new Error('Indicator Worker executor is disposed')

@@ -67,6 +67,9 @@ export function createMockChartController(): MockControllerHandle {
     handleScrollEvent() {
       /* no-op */
     },
+    async loadIndicators() {
+      /* no-op */
+    },
     addIndicator() {
       return null
     },

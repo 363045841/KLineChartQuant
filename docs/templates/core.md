@@ -44,7 +44,7 @@ const data: KLineData[] = [
   },
 ]
 
-const chart = createChartController({
+const chart = await createChartController({
   container,
   data,
   initialZoomLevel: 3,
@@ -57,6 +57,8 @@ const unsubscribe = chart.viewport.subscribe(() => {
   console.log(viewport.visibleFrom, viewport.visibleTo)
 })
 
+// Indicator implementations load on demand; the catalog is available synchronously.
+await chart.loadIndicators(['MA'])
 chart.addIndicator('MA', 'main')
 chart.zoomIn()
 
@@ -65,7 +67,7 @@ unsubscribe()
 chart.dispose()
 ```
 
-`createChartController` currently creates synchronously. Its factory type also permits an asynchronous implementation, so framework adapters should support `ChartController | Promise<ChartController>` when accepting a configurable factory.
+`createChartController` is asynchronous: it resolves once the chart's system indicators and the indicators of the restored layout are loaded. Other indicator implementations load on demand through `loadIndicators`, layout switches and Agent tools; pass `indicatorLoading: 'all'` to load every built-in indicator up front. Framework adapters that accept a configurable factory should support `ChartController | Promise<ChartController>`.
 
 ## State Kernel
 
@@ -208,6 +210,7 @@ When Core owns the default DOM scaffold, its interaction bindings are installed 
 ### Indicators, Panes, and Drawings
 
 ```typescript
+await chart.loadIndicators(['MACD', 'RSI'])
 const id = chart.addIndicator('MACD', 'sub', { fast: 12, slow: 26, signal: 9 })
 if (id) chart.updateIndicatorParams(id, { fast: 10, slow: 20, signal: 7 })
 

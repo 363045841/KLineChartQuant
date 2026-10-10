@@ -67,7 +67,7 @@ it('绘图随布局落盘，复制保留图元，新建与缺少绘图的文档�
     expect(kernel.drawing.readonly.drawings.peek()).toEqual([drawing])
     kernel.drawing.actions.setSelectedDrawingIds([drawing.id])
     const { drawings: _drawings, ...withoutDrawings } = exported
-    manager.applyLayout(withoutDrawings)
+    await manager.applyLayout(withoutDrawings)
     expect(kernel.drawing.readonly.drawings.peek()).toEqual([])
     expect(kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
     await manager.switchLayout({ id })
@@ -265,6 +265,59 @@ it('视口快照随布局文档持久化，切换到该布局时恢复', async (
     kernel.dataManager.actions.restoreViewportSnapshots({})
     await manager.switchLayout({ id })
     expect(kernel.dataManager.readonly.viewportSnapshots.peek()).toEqual({ [key]: snapshot })
+  } finally {
+    await manager.dispose()
+    kernel.dispose()
+  }
+})
+
+it('恢复与切换布局前先完成文档依赖准备，再原子写入状态', async () => {
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  const events: string[] = []
+  /** 每次准备返回一个由用例显式放行的任务，并通知用例准备已开始。 */
+  let started: Promise<() => void> = Promise.resolve(() => {})
+  let onStart: (release: () => void) => void = () => {}
+  const armPreparation = () => {
+    started = new Promise((resolve) => {
+      onStart = resolve
+    })
+  }
+  const manager = new LayoutManager({
+    exportLayout: () => kernel.exportLayout(),
+    applyLayout: (document) => {
+      events.push('apply')
+      kernel.applyLayout(document)
+    },
+    createLayout: () => kernel.createLayout(),
+    prepareLayout: () => {
+      events.push('prepare')
+      return new Promise<void>((resolve) =>
+        onStart(() => {
+          events.push('prepared')
+          resolve()
+        }),
+      )
+    },
+  })
+  try {
+    await manager.initialize()
+    const id = await manager.saveLayout({ name: '目标' })
+    armPreparation()
+    const switching = manager.switchLayout({ id })
+    const releaseSwitch = await started
+    // 准备未完成时不得写入任何状态。
+    expect(events).toEqual(['prepare'])
+    releaseSwitch()
+    await switching
+    expect(events).toEqual(['prepare', 'prepared', 'apply'])
+    events.length = 0
+    armPreparation()
+    const applying = manager.applyLayout(kernel.exportLayout())
+    const releaseApply = await started
+    expect(events).toEqual(['prepare'])
+    releaseApply()
+    await applying
+    expect(events).toEqual(['prepare', 'prepared', 'apply'])
   } finally {
     await manager.dispose()
     kernel.dispose()

@@ -313,12 +313,16 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     this.controller?.zoomOut(anchorX)
   }
 
-  addIndicator(
+  /** 先按需加载指标实现，再添加实例；返回实例 ID，失败返回 null。 */
+  async addIndicator(
     definitionId: string,
     role: 'main' | 'sub',
     params?: Record<string, unknown>,
-  ): string | null {
-    return this.controller?.addIndicator(definitionId, role, params) ?? null
+  ): Promise<string | null> {
+    const controller = this.controller
+    if (!controller) return null
+    await controller.loadIndicators([definitionId])
+    return controller.addIndicator(definitionId, role, params)
   }
 
   removeIndicator(instanceId: string): boolean {

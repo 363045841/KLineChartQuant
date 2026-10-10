@@ -90,6 +90,8 @@ export class LayoutManager implements LayoutApi {
       exportLayout(): LayoutDocument
       applyLayout(document: LayoutDocument): void
       createLayout(): LayoutDocument
+      /** 恢复前准备文档依赖（如按需加载其指标实现）；完成后再原子写入状态。 */
+      prepareLayout?(document: LayoutDocument): Promise<void>
     },
   ) {
     globalThis.addEventListener?.('pagehide', this.onPageHide)
@@ -200,7 +202,18 @@ export class LayoutManager implements LayoutApi {
   }
 
   /** 将文档交给图表领域入口恢复；文档由本管理器或调用方按契约构造。 */
-  applyLayout(document: LayoutDocument): void {
+  async applyLayout(document: LayoutDocument): Promise<void> {
+    await this.prepare(document)
+    this.applyPrepared(document)
+  }
+
+  /** 等待文档依赖就绪，使恢复后的首帧即为完整状态。 */
+  private async prepare(document: LayoutDocument): Promise<void> {
+    await this.dependencies.prepareLayout?.(document)
+  }
+
+  /** 同步写入已准备好的文档；恢复期间的状态通知不触发自动保存。 */
+  private applyPrepared(document: LayoutDocument): void {
     this.applying = true
     try {
       this.dependencies.applyLayout(structuredClone(document))
@@ -230,7 +243,8 @@ export class LayoutManager implements LayoutApi {
       )
     } else if (stored) {
       const active = this.archive.documents[this.archive.activeId] ?? fallback
-      this.applyLayout(active)
+      await this.prepare(active)
+      this.applyPrepared(active)
       this.archive = { ...this.archive, activeId: active.id }
     }
     this.loaded = true
@@ -311,11 +325,14 @@ export class LayoutManager implements LayoutApi {
       if (this.shouldAutoSave()) await this.saveActive()
       clearTimeout(this.timer)
       const previous = this.exportLayout()
+      const next = this.requireDocument(input.id)
+      await this.prepare(next)
       try {
-        this.applyLayout(this.requireDocument(input.id))
+        this.applyPrepared(next)
         await this.saveDocuments(this.archive.documents, input.id)
       } catch (error) {
-        this.applyLayout(previous)
+        // 回滚目标是当前状态，其依赖已就绪。
+        this.applyPrepared(previous)
         throw error
       }
       this.markClean()
@@ -372,8 +389,9 @@ export class LayoutManager implements LayoutApi {
       if (this.shouldAutoSave()) await this.saveActive()
       const id = crypto.randomUUID()
       const document = { ...this.dependencies.createLayout(), id, name: requireName(input.name) }
+      await this.prepare(document)
       await this.saveDocuments({ ...this.archive.documents, [id]: document }, id)
-      this.applyLayout(document)
+      this.applyPrepared(document)
       this.markClean()
       return id
     })
