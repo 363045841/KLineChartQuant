@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
  * KEY ASSERTION: this file imports `@363045841yyt/klinechart` at module top level
- * from a Nuxt page. Nuxt 3 SSRs every page by default â€?if the adapter touched
+ * from a Nuxt page. Nuxt 3 SSRs every page by default â€”if the adapter touched
  * `window` / `document` at import time, `nuxt build` would crash during the
  * server prerender pass.
  *
  * The composable `useChart` is invoked here with a template ref. Nuxt's SSR
- * pipeline does NOT call `onMounted` on the server â€?so DOM access is gated
+ * pipeline does NOT call `onMounted` on the server â€”so DOM access is gated
  * to the client only, satisfying the adapter's SSR-safety contract.
  */
 import { ref } from 'vue'

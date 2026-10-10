@@ -17,7 +17,7 @@ import type { KLineData } from '@363045841yyt/klinechart-core'
     standalone: true,
     imports: [KLineChartComponent],
     template: `
-        <h1>&#64;klinechart-quant/angular â€?Angular 19 SSR smoke</h1>
+        <h1>&#64;klinechart-quant/angular â€”Angular 19 SSR smoke</h1>
         <p>Chart mounts on the client. SSR pass renders the shell only.</p>
         <kline-chart
             [data]="mockData"

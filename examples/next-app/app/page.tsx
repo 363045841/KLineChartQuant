@@ -21,7 +21,7 @@ export default function Page(): JSX.Element {
     const data = buildMockCandles(100)
     return (
         <main style={{ padding: 16, fontFamily: 'sans-serif' }}>
-            <h1>KLineChart Quant â€?Next.js 15 SSR smoke</h1>
+            <h1>KLineChart Quant â€”Next.js 15 SSR smoke</h1>
             <p>
                 Adapter loaded at module scope:{' '}
                 <strong>{adapterLoaded ? 'yes' : 'no'}</strong>

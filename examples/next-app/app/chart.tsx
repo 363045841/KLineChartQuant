@@ -6,7 +6,7 @@
  * KEY ASSERTION: `useChart` is invoked here with a real DOM ref. Because
  * this component is gated by `'use client'`, Next runs it in the browser
  * during the commit phase. The adapter's `useEffect`-based mount path is
- * the only code that touches `window` / `document` â€?confirming the contract:
+ * the only code that touches `window` / `document` â€”confirming the contract:
  * "mount happens only in the browser via useEffect".
  *
  * In the SSR pass, Next renders the component shell (the host div) but
@@ -22,10 +22,10 @@ interface ChartProps {
 
 export default function Chart({ data }: ChartProps): JSX.Element {
     const containerRef = useRef<HTMLDivElement | null>(null)
-    // NOTE: `data` here is plain mock â€?the engine factory is not wired in
+    // NOTE: `data` here is plain mock â€”the engine factory is not wired in
     // this smoke test, so the hook will throw at mount time IF a consumer
     // actually runs `pnpm dev` without registering a factory. That is the
-    // documented contract â€?production users call `__setChartFactory(...)`
+    // documented contract â€”production users call `__setChartFactory(...)`
     // before mounting. The SSR/build pass never reaches that point, so
     // `next build` succeeds regardless.
     useChart(containerRef, {

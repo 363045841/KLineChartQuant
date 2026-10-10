@@ -1,5 +1,5 @@
 /**
- * Root layout â€?minimal HTML shell. No client-only code here.
+ * Root layout â€”minimal HTML shell. No client-only code here.
  */
 import type { ReactNode } from 'react'
 
