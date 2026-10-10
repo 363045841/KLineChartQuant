@@ -24,27 +24,28 @@
       </BaseTooltip>
     </div>
   <DropMenu
-    v-if="showSettings"
-    class="axis-settings-menu"
-    :label="MENU_LABEL"
-    :groups="groups"
-    trigger-class="axis-settings-button"
-    placement="top"
-    @pointerdown.stop
-    @pointermove.stop
-    @pointerup.stop
-    @click.stop
-    @select="select"
-  >
-    <template #trigger>
-      <IconTablerSettings aria-hidden="true" />
-    </template>
-    <template #item-action="{ group, item }">
-      <span v-if="isSelected(group.id, item.id)" class="drop-menu__status">
-        <IconTablerCheck aria-hidden="true" />
-      </span>
-    </template>
-  </DropMenu>
+      v-if="showSettings"
+      class="axis-settings-menu"
+      :label="MENU_LABEL"
+      :groups="groups"
+      trigger-class="axis-settings-button"
+      placement="top"
+      density="compact"
+      @pointerdown.stop
+      @pointermove.stop
+      @pointerup.stop
+      @click.stop
+      @select="select"
+    >
+      <template #trigger>
+        <IconTablerSettings aria-hidden="true" />
+      </template>
+      <template #item-action="{ group, item }">
+        <span v-if="isSelected(group.id, item.id)" class="drop-menu__status">
+          <IconTablerCheck aria-hidden="true" />
+        </span>
+      </template>
+    </DropMenu>
   </div>
 </template>
 
