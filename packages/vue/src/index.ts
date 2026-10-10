@@ -242,7 +242,7 @@ export function useChart(
 // ---------------------------------------------------------------------------
 
 /**
- * Bridge the Chart's indicators signal into a Vue shallowRef.
+ * Read the Chart's indicators signal through a read-only Vue view.
  */
 export function useIndicators(controller: ChartController): {
   indicators: ComputedRef<ReadonlyArray<IndicatorInstance>>
@@ -261,7 +261,7 @@ export function useIndicators(controller: ChartController): {
 }
 
 /**
- * Bridge the Chart's interactionState signal into a Vue shallowRef.
+ * Read the Chart's interactionState signal through a read-only Vue view.
  * 仅当 snapshot 引用变化时更新（kernel 侧已做字段级短路与引用缓存）。
  */
 export function useInteractionState(controller: ChartController): ComputedRef<InteractionSnapshot> {
@@ -269,7 +269,7 @@ export function useInteractionState(controller: ChartController): ComputedRef<In
 }
 
 /**
- * Bridge the Chart's paneRatios signal into a Vue shallowRef.
+ * Read the Chart's paneRatios signal through a read-only Vue view.
  */
 export function usePaneRatios(
   controller: ChartController,
@@ -278,7 +278,7 @@ export function usePaneRatios(
 }
 
 /**
- * Bridge the Chart's viewport signal into a Vue shallowRef.
+ * Read the Chart's viewport signal through a read-only Vue view.
  * 引用相等则跳过，配合 viewport 侧缓存减少滚动抖动更新。
  */
 export function useViewport(controller: ChartController): ComputedRef<ChartViewport> {

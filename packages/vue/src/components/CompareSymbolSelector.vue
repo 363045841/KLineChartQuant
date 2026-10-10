@@ -171,7 +171,7 @@
       search?: SymbolSearchFn<SymbolItem>
       selected?: string[]
       selectedItems?: SymbolItem[]
-      comparisonColors?: Map<string, string>
+      comparisonColors?: ReadonlyMap<string, string>
       comparisonLoading?: boolean
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>

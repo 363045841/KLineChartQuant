@@ -1,6 +1,6 @@
 /**
- * useInteractionBridge：把 Controller 的 interactionState 快照桥接到舞台表现与 Vue 镜像。
- * 负责拖拽/悬停类名、容器光标、外部 K 线 tooltip 快照与 marker hover 镜像，
+ * useInteractionBridge：把 Controller 的 interactionState 桥接到舞台表现与只读 Vue 视图。
+ * 负责拖拽/悬停类名、容器光标、外部 K 线 tooltip 与 marker hover 的响应式读取，
  * 并在 controller 更换或组件卸载时显式退订 interactionState。
  */
 import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
@@ -12,7 +12,8 @@ import type {
   CustomMarkerEntity,
   MarkerEntity,
 } from '@363045841yyt/klinechart-core/engine/marker/registry'
-import { type Ref, shallowRef, watch } from 'vue'
+import { type Ref, watch } from 'vue'
+import { useControllerSignal, useControllerSignalValue } from './useControllerSignal.js'
 
 /** 交互绑定的依赖；stage/container 等均为组件内唯一实例。 */
 export interface InteractionBridgeOptions {
@@ -88,28 +89,33 @@ function applyStage(
 }
 
 /**
- * 订阅 interactionState 并同步舞台与镜像。
+ * 订阅 interactionState 更新舞台；Vue 消费者直接读取 Core。
  * @param options 交互绑定依赖
- * @returns 外部 tooltip 快照与 marker hover 镜像
+ * @returns 外部 tooltip 与 marker hover 的只读响应式视图
  */
 export function useInteractionBridge(options: InteractionBridgeOptions) {
-  const externalState = shallowRef<InteractionSnapshot>(createIdleInteractionSnapshot())
-  const hoveredMarker = shallowRef<MarkerEntity | null>(null)
-  const hoveredCustomMarker = shallowRef<CustomMarkerEntity | null>(null)
+  const externalState = useControllerSignal(
+    options.controller,
+    (ctrl) => (options.hasExternalSlot.value ? ctrl.interactionState : undefined),
+    createIdleInteractionSnapshot,
+  )
+  const hoveredMarker = useControllerSignalValue(
+    options.controller,
+    (ctrl) => ctrl.interactionState,
+    (next) => next.hoveredMarkerData,
+    () => null as MarkerEntity | null,
+  )
+  const hoveredCustomMarker = useControllerSignalValue(
+    options.controller,
+    (ctrl) => ctrl.interactionState,
+    (next) => next.hoveredCustomMarker,
+    () => null as CustomMarkerEntity | null,
+  )
 
-  /** 应用一帧交互快照：舞台表现 + 外部快照 + marker 镜像。 */
+  /** DOM 副作用不经过 Vue 渲染调度。 */
   function apply(next: InteractionSnapshot): void {
     applyStage(options.stageRef.value, options.containerRef.value, next, options.getDragCursor())
 
-    // 自定义 K 线 tooltip 是调用方显式选择的 Vue slot；仅该分支保留高频响应式 props。
-    if (options.hasExternalSlot.value) externalState.value = next
-
-    if (hoveredMarker.value !== next.hoveredMarkerData) {
-      hoveredMarker.value = next.hoveredMarkerData
-    }
-    if (hoveredCustomMarker.value !== next.hoveredCustomMarker) {
-      hoveredCustomMarker.value = next.hoveredCustomMarker
-    }
     if (next.hoveredMarkerData || next.hoveredCustomMarker) options.onMarkerHover()
   }
 
@@ -120,7 +126,7 @@ export function useInteractionBridge(options: InteractionBridgeOptions) {
       // 仅在快照实际变化时写入，保持挂载时舞台光标/类名与旧行为一致（不写入 idle 快照）。
       onCleanup(ctrl.interactionState.subscribe(() => apply(ctrl.interactionState.peek())))
     },
-    { immediate: true },
+    { immediate: true, flush: 'sync' },
   )
 
   return { externalState, hoveredMarker, hoveredCustomMarker }

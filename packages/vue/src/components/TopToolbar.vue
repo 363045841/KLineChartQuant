@@ -289,7 +289,7 @@
       symbolErrorMessage?: string
       overlaySymbols?: string[]
       overlaySymbolItems?: SymbolItem[]
-      comparisonColors?: Map<string, string>
+      comparisonColors?: ReadonlyMap<string, string>
       comparisonLoading?: boolean
       showBackButton?: boolean
       screenshotCapturing?: boolean

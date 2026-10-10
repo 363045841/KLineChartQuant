@@ -429,7 +429,7 @@
       effectiveSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
-      /** kernel drawingTool 镜像；高亮以它为准 */
+      /** Core 当前 drawingTool；工具栏高亮以它为准 */
       drawingToolId?: string
       magnetMode?: MagnetMode
       continuousDrawing?: boolean
