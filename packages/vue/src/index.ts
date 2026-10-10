@@ -77,6 +77,8 @@ export {
 
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
 export * from './features/agent/agent-contracts.js'
+export { BrowserAgentBridge } from './features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
+export type { BrowserAgentBridgeOptions } from './features/agent/browser-agent/bridge/types.js'
 export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export { createAgentPanelWidthStorage } from './features/agent/workspace/impl/agent-panel-width-storage.js'
 export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'

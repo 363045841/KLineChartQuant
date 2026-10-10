@@ -30,6 +30,10 @@
       "types": "./dist/foundation/persistence/index.d.ts",
       "import": "./dist/foundation/persistence/index.js"
     },
+    "./persistence-scope": {
+      "types": "./dist/foundation/persistence/persistence-scope.d.ts",
+      "import": "./dist/foundation/persistence/persistence-scope.js"
+    },
     "./controllers": {
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"

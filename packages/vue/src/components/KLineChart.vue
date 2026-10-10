@@ -50,6 +50,12 @@
         @back="onBackFromTimeShare"
       >
         <template #source-management><slot name="source-management" /></template>
+        <template v-if="slots['toolbar-start']" #start>
+          <slot name="toolbar-start" />
+        </template>
+        <template v-if="slots['toolbar-end']" #end>
+          <slot name="toolbar-end" />
+        </template>
         <template #watchlist>
           <WatchlistPanel
             :items="watchlistItems"
@@ -574,6 +580,8 @@
   defineSlots<{
     /** 宿主管理行情连接与凭据；图表不持有密钥。 */
     'source-management'(): unknown
+      'toolbar-start'(): unknown
+    'toolbar-end'(): unknown
     legend(props: LegendSlotProps): unknown
     'kline-tooltip'(props: KlineTooltipSlotProps): unknown
     'marker-tooltip'(props: MarkerTooltipSlotProps): unknown

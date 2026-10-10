@@ -1,3 +1,6 @@
+/** LocalStorage 持久化原语，存储实例绑定创建时的工作区。 */
+import { scopedPersistenceName } from './persistence-scope.js'
+
 /** 可替换的字符串键值存储后端。 */
 export interface KeyValueStorage {
   getItem(key: string): string | null
@@ -60,6 +63,7 @@ export function getBrowserLocalStorage(): KeyValueStorage | null {
 export function createLocalStoragePersistence<T>(
   options: CreateLocalStoragePersistenceOptions<T>,
 ): Persistence<T> {
+  const key = scopedPersistenceName(options.key)
   const storage = options.storage === undefined ? getBrowserLocalStorage() : options.storage
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
   const flushOnPageHide = options.flushOnPageHide ?? true
@@ -77,7 +81,7 @@ export function createLocalStoragePersistence<T>(
   function write(value: T): boolean {
     if (!storage) return false
     try {
-      storage.setItem(options.key, JSON.stringify(options.codec.encode(value)))
+      storage.setItem(key, JSON.stringify(options.codec.encode(value)))
       return true
     } catch {
       return false
@@ -102,7 +106,7 @@ export function createLocalStoragePersistence<T>(
     load(): T | null {
       if (!storage) return null
       try {
-        const raw = storage.getItem(options.key)
+        const raw = storage.getItem(key)
         if (!raw) return null
         const parsed: unknown = JSON.parse(raw)
         return options.codec.decode(parsed)
@@ -131,7 +135,7 @@ export function createLocalStoragePersistence<T>(
       cancelScheduledWrite()
       pending = null
       try {
-        storage.removeItem(options.key)
+        storage.removeItem(key)
         return true
       } catch {
         return false
