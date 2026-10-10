@@ -4,9 +4,11 @@
     title="聚合源管理"
     width="min(92vw, 480px)"
     body-padding="8px"
+    body-scrollable
     @close="emit('close')"
   >
     <div class="source-list">
+      <p v-if="sources.length === 0" class="source-empty" role="status">暂无可用数据源，请连接一个行情源。</p>
       <div
         v-for="source in orderedSources"
         :key="source.name"
@@ -78,6 +80,7 @@
         </CollapsibleSection>
       </div>
     </div>
+    <slot name="source-management" />
   </BaseModal>
 </template>
 
@@ -148,7 +151,7 @@
 
   /** 是否可在面板里改地址/端口 */
   function isConfigurable(source: AggregationSourceDefinition): boolean {
-    return Boolean(source.defaultBaseUrl)
+    return Boolean(source.defaultBaseUrl) && source.endpointEditable !== false
   }
 
   function sourceDescription(source: AggregationSourceDefinition): string {
@@ -207,7 +210,7 @@
   // 地址变更后防抖拨测，避免每敲一个字符就打一次网络
   let endpointProbeTimer: ReturnType<typeof setTimeout> | undefined
   watch(
-    () => props.endpoints,
+    [() => props.endpoints, () => props.sources],
     () => {
       if (!props.show) return
       if (endpointProbeTimer !== undefined) clearTimeout(endpointProbeTimer)
@@ -226,6 +229,7 @@
 </script>
 
 <style scoped>
+.source-empty { padding: 16px; color: var(--klc-color-ui-muted); }
   .source-list {
     display: flex;
     flex-direction: column;

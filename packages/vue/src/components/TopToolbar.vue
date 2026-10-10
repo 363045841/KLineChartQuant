@@ -81,7 +81,9 @@
         @close="showSourceDialog = false"
         @toggle="onToggleAggregationSource"
         @update-endpoint="onUpdateSourceEndpoint"
-      />
+      >
+        <template #source-management><slot name="source-management" /></template>
+      </AggregationSourceDialog>
     </div>
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />

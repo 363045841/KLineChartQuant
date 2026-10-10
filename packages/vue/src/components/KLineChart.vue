@@ -49,6 +49,7 @@
         @update-source-endpoint="setAggregationSourceEndpoint"
         @back="onBackFromTimeShare"
       >
+        <template #source-management><slot name="source-management" /></template>
         <template #watchlist>
           <WatchlistPanel
             :items="watchlistItems"
@@ -90,7 +91,9 @@
           @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
           @update-source-endpoint="setAggregationSourceEndpoint"
-        />
+        >
+          <template #source-management><slot name="source-management" /></template>
+        </LeftToolbar>
         <div ref="chartMainRef" class="chart-main">
           <a
             class="chart-brand"
@@ -402,25 +405,14 @@
     useSlots,
     watch,
   } from 'vue'
-  import {
-    type AggregationSourceDefinition,
-    useAggregationSources,
-  } from '../composables/useAggregationSources.js'
+  import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
+  import { useAggregationSources } from '../composables/useAggregationSources.js'
 
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
   const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
   const hasMarkerTooltipSlot = ref(Boolean(slots['marker-tooltip']))
-  /** Provider 与遗留 Fetcher 的展示元数据；已迁移源不再注册旧 Fetcher。 */
-  const aggregationSources: ReadonlyArray<AggregationSourceDefinition> = [
-    ...marketDataProviderRegistry.getAll().map((provider) => ({
-      name: provider.source.id,
-      displayName: provider.source.displayName,
-      description: provider.source.description,
-      capabilities: provider.catalog ? ['search'] : [],
-      defaultBaseUrl: provider.source.defaultBaseUrl,
-    })),
-  ]
+  const aggregationSources = useMarketDataSourceCatalog()
   const {
     enabledNames: enabledSourceNames,
     enabledNameSet: enabledSourceNameSet,
@@ -580,6 +572,8 @@
    * @remarks 仅类型契约，运行时仍用 useSlots() 判断插槽是否存在。
    */
   defineSlots<{
+    /** 宿主管理行情连接与凭据；图表不持有密钥。 */
+    'source-management'(): unknown
     legend(props: LegendSlotProps): unknown
     'kline-tooltip'(props: KlineTooltipSlotProps): unknown
     'marker-tooltip'(props: MarkerTooltipSlotProps): unknown
