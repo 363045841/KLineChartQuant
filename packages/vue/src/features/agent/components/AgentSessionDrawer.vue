@@ -66,6 +66,7 @@
             >
               <input
                 ref="renameInput"
+                class="form-control-inline-name"
                 v-model="renameDraft"
                 type="text"
                 autocomplete="off"
@@ -407,17 +408,6 @@
 
   .agent-session-drawer__rename input {
     flex: 1;
-    min-width: 0;
-    height: var(--klc-density-default, 32px);
-    box-sizing: border-box;
-    padding: 0 var(--klc-space-8, 8px);
-    border: 1px solid var(--klc-color-ui-accent);
-    border-radius: var(--klc-radius-sm, 6px);
-    outline: none;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    font: inherit;
-    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .agent-session-drawer__confirm-text {

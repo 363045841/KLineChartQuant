@@ -55,8 +55,8 @@ const fallbackOpen = new Set<{ close: () => void; panel: () => HTMLElement | nul
 
 const VIEWPORT_PADDING = 8
 
-/** 测试可替换的能力探测入口。 */
-export const anchoredPopoverPlatform = {
+/** 浮层能力探测入口。 */
+const anchoredPopoverPlatform = {
   popover: supportsPopover,
   anchor: supportsAnchorPositioning,
 }

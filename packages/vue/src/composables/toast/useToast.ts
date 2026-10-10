@@ -241,7 +241,7 @@ export const TOAST_STORE_KEY: InjectionKey<ToastStore> = Symbol('klc-toast-store
 let defaultStore: ToastStore | null = null
 
 /** 模块级默认 store：页面隐藏时暂停，页面卸载时提交延迟操作。 */
-export function getDefaultToastStore(): ToastStore {
+function getDefaultToastStore(): ToastStore {
   if (defaultStore) return defaultStore
   const store = createToastStore()
   defaultStore = store

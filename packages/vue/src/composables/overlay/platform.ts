@@ -39,21 +39,8 @@ export function supportsFieldSizing(): boolean {
   return cssSupports('field-sizing: content')
 }
 
-/** 用户是否要求减少动效。 */
-export function prefersReducedMotion(): boolean {
-  try {
-    return (
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    )
-  } catch {
-    return false
-  }
-}
-
 /** 可通过 Tab 顺序到达的元素选择器；用于焦点陷阱与初始聚焦。 */
-export const TABBABLE_SELECTOR = [
+const TABBABLE_SELECTOR = [
   'a[href]',
   'area[href]',
   'button:not(:disabled)',
@@ -81,7 +68,7 @@ export function getTabbables(container: HTMLElement): HTMLElement[] {
 }
 
 /** popover 是否处于打开状态；不支持 :popover-open 的环境按可见性判断。 */
-export function isPopoverOpen(element: HTMLElement): boolean {
+function isPopoverOpen(element: HTMLElement): boolean {
   try {
     return element.matches(':popover-open')
   } catch {

@@ -58,8 +58,10 @@ const noRawLength = createPlugin(lengthRule, (enabled) => (root, result) => {
   if (!validateOptions(result, lengthRule, { actual: enabled })) return
   root.walkDecls((decl) => {
     if (!LENGTH_PROPERTIES.test(decl.prop.toLowerCase())) return
-    const match = stripVarFallbacks(decl.value).match(/(?<![\w-])-?\d*\.?\d+px\b/)
-    if (!match || /^-?0*\.?0+px$/.test(match[0])) return
+    const match = [...stripVarFallbacks(decl.value).matchAll(/(?<![\w-])-?\d*\.?\d+px\b/g)].find(
+      (candidate) => Number.parseFloat(candidate[0]) !== 0,
+    )
+    if (!match) return
     report({
       ruleName: lengthRule,
       result,

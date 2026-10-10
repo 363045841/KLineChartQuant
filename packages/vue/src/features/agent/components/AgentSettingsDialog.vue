@@ -62,6 +62,7 @@
               >
                 <input
                   ref="profileNameInput"
+                  class="form-control-inline-name"
                   v-model="profileNameDraft"
                   type="text"
                   autocomplete="off"
@@ -142,6 +143,7 @@
             >
               <input
                 ref="profileNameInput"
+                class="form-control-inline-name"
                 v-model="profileNameDraft"
                 type="text"
                 autocomplete="off"
@@ -1026,17 +1028,6 @@
 
   .provider-profile-inline input {
     width: 100%;
-    min-width: 0;
-    height: var(--klc-density-default, 32px);
-    box-sizing: border-box;
-    padding: 0 var(--klc-space-8, 8px);
-    border: 1px solid var(--klc-color-ui-accent);
-    border-radius: var(--klc-radius-sm, 6px);
-    outline: none;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    font: inherit;
-    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .provider-profile-inline input[aria-invalid='true'] {
