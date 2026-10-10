@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createWebGLRenderer } from '../backend/createWebGLRenderer'
 import { createMockSharedWebGLSurface, createMockSurfaceBackend } from './helpers/rendererTestKit'
 
-vi.mock('../../engine/renderers/webgl/candleSurface', () => ({
+vi.mock('@/engine/renderers/webgl/candleSurface', () => ({
   CandleWebGLSurface: class {
     isAvailable = () => false
     setRegion = vi.fn()
