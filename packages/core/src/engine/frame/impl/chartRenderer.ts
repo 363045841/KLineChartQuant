@@ -5,6 +5,8 @@ import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRange
 import type {
   AxisLabelsFrame,
   FiveDayTimeShareGeometry,
+  IndicatorAvailabilityReader,
+  IndicatorRenderStateReader,
   RenderContext,
   XAxisRange,
 } from '../../../foundation/plugin/index.js'
@@ -27,6 +29,7 @@ import { createScene } from '../../../rendering/scene/createScene.js'
 import type { FramePaint, Layer, LayerRole, Scene } from '../../../rendering/scene/types.js'
 import type { KLinePositions, Viewport } from '../../chart/index.js'
 import { ChartDataViewId } from '../../chartModel/index.js'
+import type { ChartDataManager } from '../../data/chartDataManager.js'
 import {
   createDrawingLayer,
   createDrawingSessionLayer,
@@ -57,13 +60,18 @@ import {
   createYAxisOverlayRendererLayer,
   createYAxisStaticRendererLayer,
 } from '../../renderers/yAxis.js'
-import { createYAxisTicks } from '../../scale/index.js'
+import { createYAxisTicks, type PriceRange } from '../../scale/index.js'
 import type { VisibleRange } from '../../viewport/viewport.js'
 import {
   computeVisiblePriceExtrema,
   type VisiblePriceExtrema,
 } from '../../viewport/visiblePriceExtrema.js'
 import type { RendererDependencies } from '../types.js'
+import {
+  computePaneAutoRange,
+  type ResolvedPanePriceRange,
+  resolvePanePriceRange,
+} from './panePriceRange.js'
 
 /** 帧内共享的时间与倒计时派生结果。 */
 type FrameCountdown = {
@@ -101,6 +109,18 @@ type FrameContext = {
   visiblePriceExtrema: VisiblePriceExtrema | null
   /** 跨数量级时生成的低频右轴测量意图；由 seal 阶段提交。 */
   rightAxisWidthMeasurement: VisiblePriceExtrema | null
+  /** 本帧每 Pane 解析后的价格轴范围、基准价与锁定初始化标记。 */
+  panePriceRanges: Record<string, ResolvedPanePriceRange>
+  /** 本帧是否启用比较叠加（仅 K 线视图）。 */
+  comparisonActive: boolean
+  /** 单帧生成的比较投影；轴范围、百分比基准与折线共享。 */
+  comparisonProjection: ReturnType<ChartDataManager['getComparisonProjection']> | null
+  /** 本帧主图指标极值。 */
+  mainIndicatorRange: { min: number; max: number } | null
+  /** 本帧指标实例状态读取器，范围解析与绘制共用。 */
+  indicatorStateReader: IndicatorRenderStateReader
+  /** 本帧指标可用性读取器。 */
+  indicatorAvailability: IndicatorAvailabilityReader
 }
 
 /** 帧事务输入：合并多次 scheduleDraw 的 level */
@@ -320,8 +340,12 @@ export class ChartRenderer {
         if (snapshot.skip) return
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
-        if (snapshot.frame && !snapshot.frame.useCachedFrame) {
-          this.deps.getIndicatorManager().updateVisibleRangeForFrame(snapshot.frame.range)
+        if (snapshot.frame) {
+          if (!snapshot.frame.useCachedFrame) {
+            this.deps.getIndicatorManager().updateVisibleRangeForFrame(snapshot.frame.range)
+          }
+          // visibleRange 就绪后统一收集价格轴范围，供后续绘制纯投影。
+          this.collectPanePriceRanges(snapshot.frame)
         }
         // 把本帧 K 线信息(kLinePositions,range,kWidthPx,kLineCenters)写入 InteractionController，保证 hover 命中与本帧一致
         if (snapshot.frame) {
@@ -582,57 +606,12 @@ export class ChartRenderer {
       return
     }
 
-    const {
-      vp,
-      range,
-      kLinePositions,
-      kLineCenters,
-      kBarRects,
-      kWidthPx,
-      useCachedFrame,
-      fiveDayTimeShareGeometry,
-    } = frame
-    const renderData = frame.data
-
-    const { visiblePriceExtrema, rightAxisWidthMeasurement } = frame
-    const requiresRightAxisWidthMeasurement = rightAxisWidthMeasurement !== null
-    const mainIndicatorRange = useCachedFrame
-      ? null
-      : this.deps.getIndicatorManager().getMainIndicatorPriceRange()
-
     // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paint
-    const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(
-      vp,
-      range,
-      kLinePositions,
-      kLineCenters,
-      kBarRects,
-      kWidthPx,
-      mainIndicatorRange,
-      useCachedFrame,
-      level,
-      renderData,
-      frame.dataRevision,
-      fiveDayTimeShareGeometry,
-      visiblePriceExtrema,
-      requiresRightAxisWidthMeasurement,
-      frame.countdown.text,
-    )
-    this.renderCrosshair(vp)
+    const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(frame, level)
+    this.renderCrosshair(frame.vp)
 
     // 画底部时间轴（独立 layer，不进 scene）
-    this.renderXAxis(
-      vp,
-      range,
-      kLinePositions,
-      kLineCenters,
-      kBarRects,
-      kWidthPx,
-      axisLabelsFrame,
-      sharedXAxisRanges,
-      renderData,
-      fiveDayTimeShareGeometry,
-    )
+    this.renderXAxis(frame, axisLabelsFrame, sharedXAxisRanges)
   }
 
   /** 在 pane 范围与绘制完成后，向整张图表的独立表面提交一次十字线。 */
@@ -765,6 +744,8 @@ export class ChartRenderer {
         ? visiblePriceExtrema
         : null
 
+    const indicatorManager = this.deps.getIndicatorManager()
+
     return {
       viewSnapshot: this.deps.viewport.readonly.viewSnapshot.peek(),
       countdown,
@@ -780,7 +761,99 @@ export class ChartRenderer {
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
       rightAxisWidthMeasurement,
+      // 价格轴范围在 render 回调里、visibleRange 更新之后统一收集。
+      panePriceRanges: {},
+      comparisonActive: false,
+      comparisonProjection: null,
+      mainIndicatorRange: null,
+      indicatorStateReader: indicatorManager.createRenderStateReader({
+        data: internalData,
+        range,
+      }),
+      indicatorAvailability: indicatorManager.createAvailabilityReader(),
     }
+  }
+
+  /**
+   * 收集阶段：visibleRange 更新后，统一解析每个 Pane 本帧最终使用的价格范围。
+   *
+   * 自动范围分派与锁定优先决策都在 panePriceRange 模块内完成，这里只准备输入。
+   * 决策阶段不写内核；尚未保存的锁定范围先收集，循环结束后一次快照提交。
+   */
+  private collectPanePriceRanges(frame: FrameContext): void {
+    const indicatorManager = this.deps.getIndicatorManager()
+    const dataManager = this.deps.getDataManager()
+    const mode = this.deps.getActiveMode()
+
+    const mainIndicatorRange = frame.useCachedFrame
+      ? null
+      : indicatorManager.getMainIndicatorPriceRange()
+    const comparisonActive =
+      this.deps.dataView$() === ChartDataViewId.KLine && dataManager.getComparisonSpecs().length > 0
+    const comparisonProjection = comparisonActive
+      ? dataManager.getComparisonProjection(
+          frame.range,
+          frame.kLineCenters,
+          frame.vp.scrollLeft,
+          frame.vp.plotWidth,
+        )
+      : null
+
+    frame.mainIndicatorRange = mainIndicatorRange
+    frame.comparisonActive = comparisonActive
+    frame.comparisonProjection = comparisonProjection
+
+    const panePriceRanges: Record<string, ResolvedPanePriceRange> = {}
+    // 收集阶段只做决策，不写内核；待初始化的锁定范围先收集，循环后统一提交。
+    const pendingHandRanges: Array<{ paneId: string; range: PriceRange }> = []
+    for (const renderer of this.deps.getPaneRenderers()) {
+      const pane = renderer.getPane()
+      const auto = computePaneAutoRange({
+        paneId: pane.id,
+        role: pane.role,
+        range: frame.range,
+        dataManager,
+        mode,
+        mainIndicatorRange,
+        comparisonActive,
+        comparisonProjection,
+        subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
+      })
+      const axisState = this.deps.mainPriceAxis.readonly.paneRanges.peek()[pane.id]
+      const resolved = resolvePanePriceRange({
+        rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+        handRange: axisState?.handRange ?? null,
+        autoRange: auto?.range ?? null,
+        basePrice: auto?.basePrice ?? null,
+      })
+      panePriceRanges[pane.id] = resolved
+      if (!frame.useCachedFrame && resolved.initializeHandRange && resolved.range) {
+        pendingHandRanges.push({ paneId: pane.id, range: resolved.range })
+      }
+    }
+    frame.panePriceRanges = panePriceRanges
+    // 本帧唯一的业务状态写入：一次快照提交所有待初始化的锁定范围。
+    if (pendingHandRanges.length > 0) {
+      this.deps.mainPriceAxis.actions.initializeHandRanges(pendingHandRanges)
+    }
+  }
+
+  /** 读取副图指标 state 的极值；非副图或未就绪返回 null。 */
+  private readSubIndicatorRange(
+    frame: FrameContext,
+    paneId: string,
+  ): { min: number; max: number } | null {
+    const subPaneEntry = this.deps.getIndicatorManager().getSubPaneEntry(paneId)
+    if (!subPaneEntry) return null
+    const state = frame.indicatorStateReader.get<{
+      valueMin?: number
+      valueMax?: number
+      visibleMin?: number
+      visibleMax?: number
+    }>(subPaneEntry.instanceId)
+    const min = state?.valueMin ?? state?.visibleMin
+    const max = state?.valueMax ?? state?.visibleMax
+    return typeof min === 'number' && typeof max === 'number' ? { min, max } : null
   }
 
   private clearAxisCtx(
@@ -860,42 +933,36 @@ export class ChartRenderer {
 
   /** 构建所有 pane 的上下文与区域，由 Scene 逐 pane 绑定并绘制，最后统一提交 GPU。 */
   private renderPanes(
-    vp: Viewport,
-    range: VisibleRange,
-    kLinePositions: KLinePositions,
-    kLineCenters: number[],
-    kBarRects: Array<{ x: number; width: number }>,
-    kWidthPx: number,
-    mainIndicatorRange: { min: number; max: number } | null,
-    useCachedFrame: boolean,
+    frame: FrameContext,
     level: UpdateLevel,
-    renderData: ChartSeriesDatum[],
-    dataRevision: number,
-    fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
-    visiblePriceExtrema: VisiblePriceExtrema | null,
-    requiresRightAxisWidthMeasurement: boolean,
-    countdown: string | null,
   ): { axisLabelsFrame: AxisLabelsFrame; sharedXAxisRanges: XAxisRange[] } {
+    const {
+      vp,
+      range,
+      kLinePositions,
+      kLineCenters,
+      kBarRects,
+      kWidthPx,
+      useCachedFrame,
+      data: renderData,
+      dataRevision,
+      fiveDayTimeShareGeometry,
+      visiblePriceExtrema,
+    } = frame
+    const requiresRightAxisWidthMeasurement = frame.rightAxisWidthMeasurement !== null
+    const countdown = frame.countdown.text
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
     // 轴标签收集统一走 axisLabels 模块的单帧聚合：X 表面共享 + 每 Pane 独立 Y 表面。
     const axisLabelsFrame = createAxisLabelsFrame()
     const sharedXAxisRanges: XAxisRange[] = []
-    const indicatorManager = this.deps.getIndicatorManager()
-    const indicatorStateReader = indicatorManager.createRenderStateReader({
-      data: renderData,
-      range,
-    })
-    const indicatorAvailability = indicatorManager.createAvailabilityReader()
+    const indicatorStateReader = frame.indicatorStateReader
+    const indicatorAvailability = frame.indicatorAvailability
 
     const dataManager = this.deps.getDataManager()
-    const mode = this.deps.getActiveMode()
 
     // 单帧只生成一次比较投影，轴范围、百分比基准和折线共享同一快照。
-    const comparisonActive =
-      this.deps.dataView$() === ChartDataViewId.KLine && dataManager.getComparisonSpecs().length > 0
-    const comparisonProjection = comparisonActive
-      ? dataManager.getComparisonProjection(range, kLineCenters, vp.scrollLeft, vp.plotWidth)
-      : null
+    const comparisonActive = frame.comparisonActive
+    const comparisonProjection = frame.comparisonProjection
 
     // 正式图元保存到独立 canvas，会话图元使用 pane 动态覆盖 canvas。
     const MAIN_CANVAS_ROLES: readonly LayerRole[] = [
@@ -933,72 +1000,12 @@ export class ChartRenderer {
         previousContext?.drawingCtx !== drawingCtx ||
         !previousContext?.drawingProjection
 
-      // 非缓存帧：主图范围同时包含主品种 OHLC、指标和比较折线。
+      // 非缓存帧：把收集阶段算好的范围直接投影到运行时轴，不做任何决策或回写。
       if (!useCachedFrame) {
-        if (pane.id === 'main' && comparisonActive) {
-          pane.yAxis.setBasePrice(comparisonProjection?.basePrice ?? null)
-          if (comparisonProjection) {
-            pane.yAxis.setRange({
-              maxPrice: Math.max(
-                comparisonProjection.max,
-                mainIndicatorRange?.max ?? comparisonProjection.max,
-              ),
-              minPrice: Math.min(
-                comparisonProjection.min,
-                mainIndicatorRange?.min ?? comparisonProjection.min,
-              ),
-            })
-          } else {
-            mode.updatePaneRange(pane, range, dataManager, mainIndicatorRange)
-          }
-        } else {
-          const subPaneEntry = indicatorManager.getSubPaneEntry(pane.id)
-          const subIndicatorState = subPaneEntry
-            ? indicatorStateReader.get<{
-                valueMin?: number
-                valueMax?: number
-                visibleMin?: number
-                visibleMax?: number
-              }>(subPaneEntry.instanceId)
-            : undefined
-          const subIndicatorRange =
-            subIndicatorState &&
-            Number.isFinite(subIndicatorState.valueMin ?? subIndicatorState.visibleMin) &&
-            Number.isFinite(subIndicatorState.valueMax ?? subIndicatorState.visibleMax)
-              ? {
-                  min: subIndicatorState.valueMin ?? subIndicatorState.visibleMin!,
-                  max: subIndicatorState.valueMax ?? subIndicatorState.visibleMax!,
-                }
-              : null
-          if (pane.role === 'indicator') {
-            // 副图坐标轴只由对应指标 state 驱动，与 K 线/分时主图模式无关。
-            if (subIndicatorRange) {
-              pane.yAxis.setRange({
-                minPrice: subIndicatorRange.min,
-                maxPrice: subIndicatorRange.max,
-              })
-            }
-          } else {
-            const indicatorRange = mode.useIndicatorScheduler ? mainIndicatorRange : null
-            mode.updatePaneRange(pane, range, dataManager, indicatorRange)
-          }
-        }
-
-        {
-          const axisRange = this.deps.mainPriceAxis.readonly.paneRanges.peek()[pane.id]
-          const handRange = axisRange?.handRange
-          if (axisRange?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND) {
-            if (!handRange) {
-              // 新品种的首个有效帧只使用自身范围，清除旧品种的平移和缩放。
-              pane.yAxis.resetTransform()
-              this.deps.mainPriceAxis.actions.initializeHandRange(
-                pane.yAxis.getDisplayRange(),
-                pane.id,
-              )
-            } else {
-              pane.yAxis.setRange(handRange)
-            }
-          }
+        const resolved = frame.panePriceRanges[pane.id]
+        if (resolved) {
+          pane.yAxis.setBasePrice(resolved.basePrice)
+          if (resolved.range) pane.yAxis.setRange(resolved.range)
         }
       }
 
@@ -1210,17 +1217,20 @@ export class ChartRenderer {
   }
 
   private renderXAxis(
-    vp: Viewport,
-    range: VisibleRange,
-    kLinePositions: KLinePositions,
-    kLineCenters: number[],
-    kBarRects: Array<{ x: number; width: number }>,
-    kWidthPx: number,
+    frame: FrameContext,
     axisLabelsFrame: AxisLabelsFrame,
     sharedXAxisRanges: XAxisRange[],
-    renderData: ChartSeriesDatum[],
-    fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): void {
+    const {
+      vp,
+      range,
+      kLinePositions,
+      kLineCenters,
+      kBarRects,
+      kWidthPx,
+      data: renderData,
+      fiveDayTimeShareGeometry,
+    } = frame
     const dom = this.deps.getDom()
     const xAxisCtx = this.xAxisCtx ?? dom.xAxisCanvas.getContext('2d')
     if (!this.xAxisCtx) {
@@ -1247,7 +1257,6 @@ export class ChartRenderer {
             yToPrice: () => 0,
             getPaddingTop: () => 0,
             getPaddingBottom: () => 0,
-            getPriceOffset: () => 0,
             getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
             getScaleType: () => ScaleType.Linear,
             getBasePrice: () => null,

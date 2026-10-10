@@ -566,6 +566,11 @@ export class ChartStateKernel extends StateKernel {
           state.rangeMode,
         ]),
       ),
+      panePriceAxisRanges: Object.fromEntries(
+        Object.entries(this.mainPriceAxis.readonly.paneRanges.peek()).flatMap(([id, state]) =>
+          state.handRange ? [[id, state.handRange]] : [],
+        ),
+      ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
       drawings: this.drawing.readonly.drawings.peek(),
       viewport: this.dataManager.readonly.viewportSnapshots.peek(),
@@ -596,7 +601,10 @@ export class ChartStateKernel extends StateKernel {
       this.indicator.actions.restoreWorkspaces(document.workspaces)
       this.pane.actions.restoreWorkspaces(document.workspaces)
       this.settings.actions.replace(selectLayoutSettings(document.settings ?? {}))
-      this.mainPriceAxis.actions.restoreModes(document.panePriceAxisModes)
+      this.mainPriceAxis.actions.restoreModes(
+        document.panePriceAxisModes,
+        document.panePriceAxisRanges,
+      )
       this.drawing.actions.restoreDocument(document.drawings ?? [], [])
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())

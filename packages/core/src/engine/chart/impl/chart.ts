@@ -75,6 +75,7 @@ import type { Layer } from '../../../rendering/scene/types.js'
 import {
   type ChartDataView,
   ChartDataViewId,
+  type ChartModeChartContext,
   type ChartModeHandler,
   isTimeShareDataView,
   KLineMode,
@@ -101,6 +102,7 @@ import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
+import type { PriceRange } from '../../scale/index.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
 import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
@@ -640,14 +642,7 @@ export class Chart {
       dataView ?? (mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine)
     if (prev === mode && this.kernel.mode.readonly.dataView.peek() === nextDataView) return
 
-    prev.onDeactivate(
-      {
-        enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
-        disableMainIndicator: (id) => this.indicators.disableMain(id),
-        dataManager: this.dataManager,
-      },
-      mode,
-    )
+    prev.onDeactivate(this.createModeChartContext(), mode)
     this.kernel.actions.setDataView(
       nextDataView,
       isTimeShareDataView(nextDataView) ? this.dataManager.currentPeriod : undefined,
@@ -677,14 +672,18 @@ export class Chart {
     }
 
     mode.onActivate(
-      {
-        enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
-        disableMainIndicator: (id) => this.indicators.disableMain(id),
-        dataManager: this.dataManager,
-        currentPeriod: this.dataManager.currentPeriod,
-      },
+      { ...this.createModeChartContext(), currentPeriod: this.dataManager.currentPeriod },
       prev,
     )
+  }
+
+  /** 构建模式激活/停用回调所需的图表能力入口。 */
+  private createModeChartContext(): ChartModeChartContext {
+    return {
+      enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
+      disableMainIndicator: (id) => this.indicators.disableMain(id),
+      dataManager: this.dataManager,
+    }
   }
 
   getCurrentDpr(): number {
@@ -825,6 +824,9 @@ export class Chart {
     const prev = this.kernel.settings.readonly.settings.peek()
     this.kernel.settings.actions.patch(settings)
     const next = this.kernel.settings.readonly.settings.peek()
+    if (prev.mainPriceAxisRangeMode !== next.mainPriceAxisRangeMode) {
+      this.setMainPriceAxisRangeMode(next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO)
+    }
     if (
       prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&
       next.mainRightAxisTypeSetting !== AXIS_TYPE_NONE
@@ -912,23 +914,23 @@ export class Chart {
     return this.paneRenderers.find((renderer) => renderer.getPane().id === paneId)
   }
 
-  /** 验证交互资格，执行变换并提交目标 Pane 的 HAND 范围。 */
+  /**
+   * 校验交互资格，以 HAND 保存范围为基准做纯计算，只写内核价格轴范围。
+   * 品种切换后的首屏范围由新行情初始化，尚未保存时拒绝交互。
+   */
   private transformPrice(
     paneId: string,
-    transform: (pane: ReturnType<PaneRenderer['getPane']>) => void,
+    computeNext: (
+      yAxis: ReturnType<PaneRenderer['getPane']>['yAxis'],
+      base: PriceRange,
+    ) => PriceRange,
   ): void {
     const pane = this.paneRenderer(paneId)?.getPane()
     if (!pane?.capabilities.supportsPriceTranslate) return
-    if (
-      this.kernel.mainPriceAxis.readonly.paneRanges.peek()[paneId]?.rangeMode !==
-        PRICE_AXIS_RANGE_MODE.HAND ||
-      this.kernel.mainPriceAxis.readonly.paneRanges.peek()[paneId]?.handRange == null
-    )
-      return
-    // 品种切换后的首屏范围由新行情初始化，不能从仍未投影的旧价格轴接受交互。
-    transform(pane)
-    this.kernel.mainPriceAxis.actions.setHandRange(pane.yAxis.getDisplayRange(), paneId)
-    pane.yAxis.resetTransform()
+    const state = this.kernel.mainPriceAxis.readonly.paneRanges.peek()[paneId]
+    if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange === null) return
+    const next = computeNext(pane.yAxis, state.handRange)
+    this.kernel.mainPriceAxis.actions.setHandRange(next, paneId)
     this.scheduleDraw()
   }
 
@@ -938,30 +940,13 @@ export class Chart {
    * @param deltaY Y轴像素偏移（正数向下拖动）
    */
   translatePrice(paneId: string, deltaY: number): void {
-    this.transformPrice(paneId, (pane) => {
-      pane.yAxis.setPriceOffset(
-        pane.yAxis.getPriceOffset() + pane.yAxis.deltaYToPriceOffset(deltaY),
-      )
-    })
-  }
-
-  /**
-   * 重置价格轴垂直偏移
-   * @param paneId 目标 pane ID
-   */
-  resetPriceOffset(paneId: string): void {
-    const renderer = this.paneRenderer(paneId)
-    if (!renderer) return
-    renderer.getPane().yAxis.resetPriceOffset()
-    this.scheduleDraw()
+    this.transformPrice(paneId, (yAxis, base) => yAxis.translateRange(base, deltaY))
   }
 
   /** 清除纵轴变换，主图下一帧按当前可见 range 的 Max/Min 重新适配。 */
   resetPriceTransform(paneId: string): void {
-    const renderer = this.paneRenderer(paneId)
-    if (!renderer) return
+    if (!this.paneRenderer(paneId)) return
     this.kernel.mainPriceAxis.actions.resetHandRange(paneId)
-    renderer.getPane().yAxis.resetTransform()
     this.scheduleDraw()
   }
 
@@ -984,7 +969,6 @@ export class Chart {
         )
       } else {
         this.kernel.mainPriceAxis.actions.useAutoRange(paneId)
-        renderer.getPane().yAxis.resetTransform()
       }
     })
     this.scheduleDraw()
@@ -1014,7 +998,7 @@ export class Chart {
    * @param anchorY 可选的 pane 内 Y 坐标，缩放时保持该位置的价格不变
    */
   scalePrice(paneId: string, deltaY: number, anchorY?: number): void {
-    this.transformPrice(paneId, (pane) => pane.yAxis.scaleByDelta(deltaY, anchorY))
+    this.transformPrice(paneId, (yAxis, base) => yAxis.scaleRange(base, deltaY, anchorY))
   }
   /**
    * 更新数据并请求重绘

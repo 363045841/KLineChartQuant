@@ -14,6 +14,7 @@ import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { DrawingObject } from '../drawing/index.js'
 import type { PaneSpec } from '../pane/types.js'
+import type { PriceRange } from '../scale/index.js'
 import type { IndicatorInstanceInput } from '../state/indicatorState.js'
 
 /** 布局文档版本号；恢复时据此迁移旧文档。 */
@@ -37,7 +38,7 @@ export interface LayoutWorkspace {
 /** K 线与分时工作区的完整可恢复快照。 */
 export type LayoutWorkspaces = Readonly<Record<ChartWorkspaceId, LayoutWorkspace>>
 
-/** paneId → 范围模式；只保存自动/手动开关，不保存具体范围值。 */
+/** paneId → 自动或锁定模式。 */
 export type LayoutPanePriceAxisModes = Readonly<Record<string, PriceAxisRangeMode>>
 
 /**
@@ -55,6 +56,8 @@ export interface LayoutDocument {
   readonly workspaces: LayoutWorkspaces
   /** 各 Pane 的价格轴自动/手动模式。 */
   readonly panePriceAxisModes: LayoutPanePriceAxisModes
+  /** 锁定模式的价格范围，与模式一起保存和恢复。 */
+  readonly panePriceAxisRanges?: Readonly<Record<string, PriceRange>>
   /** 图表级设置白名单子集；省略表示沿用当前设置。 */
   readonly settings?: Partial<ChartSettings>
   /** 已确认的用户绘图；导出始终携带，省略或空数组表示没有绘图。 */

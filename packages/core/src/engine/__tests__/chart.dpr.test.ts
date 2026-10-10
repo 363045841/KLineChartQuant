@@ -774,6 +774,30 @@ describe('Chart DPR pipeline', () => {
   let restoreChartDomStubs: () => void
 
   it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
+    'accumulates vertical drags before drawing the next frame (%s)',
+    async (scaleType) => {
+      const chart = mountHandModeChart(scaleType)
+      try {
+        chart.resize()
+        chart.applyCustomData({
+          symbol: 'PRIMARY',
+          market: 'CN',
+          period: 'daily',
+          data: makeBars(200),
+        })
+        chart.draw()
+        const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
+        const y = axis.priceToY(10)
+        for (let i = 0; i < 10; i++) chart.translatePrice(MAIN_PANE_ID, 2)
+        chart.draw()
+        expect(axis.priceToY(10) - y).toBeCloseTo(20, 6)
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
+  it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
     'fits the current visible highs and lows after scrolling without changing the locked mode (%s)',
     async (scaleType) => {
       const chart = mountHandModeChart(scaleType)
@@ -848,8 +872,6 @@ describe('Chart DPR pipeline', () => {
         chart.draw()
         expect(axis.getDisplayRange().minPrice).toBeCloseTo(99)
         expect(axis.getDisplayRange().maxPrice).toBeCloseTo(101)
-        expect(axis.getVerticalScale()).toBe(1)
-        expect(axis.getPriceOffset()).toBe(0)
         expect(axis.priceToY(101)).toBeGreaterThanOrEqual(0)
         expect(axis.priceToY(99)).toBeLessThanOrEqual(chart.getPaneRenderers()[0]!.getPane().height)
 

@@ -159,10 +159,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     applyLayout: (document) => {
       if (isDisposed()) throw new Error('图表已销毁')
       batch(() => {
-        chart.kernel.applyLayout(document)
         if (document.currentSymbol !== undefined) {
           dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
         }
+        // 品种切换清理旧范围后，再恢复布局中的锁定范围。
+        chart.kernel.applyLayout(document)
       })
       chart.drawingCommands.history.reset()
       chart.scheduleDraw()
@@ -176,12 +177,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       chart.kernel.pane.readonly.workspaces,
       chart.kernel.settings.readonly.settings,
       chart.kernel.drawing.readonly.drawings,
-      chart.kernel.mainPriceAxis.readonly.paneRanges,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
     // 滚动与缩放逐帧变化：静止后再比较一次，避免每帧导出并序列化布局。
-    ...[chart.kernel.viewport.readonly.scrollLeft, chart.kernel.zoom.readonly.zoomLevel].map(
-      (signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave()),
-    ),
+    ...[
+      chart.kernel.viewport.readonly.scrollLeft,
+      chart.kernel.zoom.readonly.zoomLevel,
+      chart.kernel.mainPriceAxis.readonly.paneRanges,
+    ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
   ]
 
   const agent = createChartAgentController({

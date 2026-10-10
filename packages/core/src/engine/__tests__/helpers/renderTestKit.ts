@@ -144,7 +144,6 @@ const DEFAULT_PANE_Y_AXIS: PaneInfo['yAxis'] = {
   yToPrice: (y) => y / 10,
   getPaddingTop: () => 0,
   getPaddingBottom: () => 0,
-  getPriceOffset: () => 0,
   getDisplayRange: () => ({ minPrice: 0, maxPrice: 200 }),
   getScaleType: () => 'linear',
   getBasePrice: () => null,

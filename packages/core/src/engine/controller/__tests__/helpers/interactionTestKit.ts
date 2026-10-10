@@ -107,7 +107,6 @@ export function createChartStub(args: {
         priceToY: (p: number) => p,
         getPaddingTop: () => 0,
         getPaddingBottom: () => 0,
-        getPriceOffset: () => 0,
       },
     }),
   }))
