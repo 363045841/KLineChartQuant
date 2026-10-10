@@ -226,8 +226,8 @@
   import {
     type ChartSettings,
     DEFAULT_SETTINGS,
+    normalizeSettings,
     resolveSettingDefault,
-    resolveSettings,
     type SettingItem,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
@@ -351,10 +351,6 @@
 
   const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
 
-  function loadSettings(): ChartSettings {
-    return resolveSettings()
-  }
-
   const runtimeHint = computed(() => {
     const runtime = props.rendererRuntime
     if (!runtime) return ''
@@ -378,13 +374,13 @@
     return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
   }
 
-  const settings = ref<ChartSettings>(loadSettings())
+  const settings = ref<ChartSettings>(normalizeSettings(props.initialSettings))
 
   watch(
     () => props.show,
     (val) => {
       if (val) {
-        settings.value = props.initialSettings ? { ...props.initialSettings } : loadSettings()
+        settings.value = structuredClone(normalizeSettings(props.initialSettings))
         activeSection.value = settingsTabs.value[0]?.id ?? 'dataSource'
       }
     },

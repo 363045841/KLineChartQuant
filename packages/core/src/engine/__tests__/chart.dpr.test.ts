@@ -1572,6 +1572,29 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('restores layout settings into the actual renderer and cache resources', async () => {
+    const chart = mountChart()
+    try {
+      const switchBackend = vi.spyOn(chart['rendererHost'], 'switchTo')
+      const document = chart.kernel.exportLayout()
+      chart.kernel.applyLayout({
+        ...document,
+        settings: {
+          ...document.settings,
+          rendererBackend: 'canvas',
+          marketDataCacheMaxMiB: 200,
+        },
+      })
+      expect(switchBackend).toHaveBeenCalledWith('canvas')
+      expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(200 * 1024 * 1024)
+      chart.kernel.applyLayout({ ...document, settings: {} })
+      expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(50 * 1024 * 1024)
+      expect(chart.kernel.settings.readonly.settings.peek().rendererBackend).toBe('webgl')
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('normalizes only visible panes in imported layout', async () => {
     const chart = mountChart(1000, 800)
     chart.panes.importLayout([

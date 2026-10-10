@@ -77,7 +77,7 @@
     type ChartController,
   } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
-  import { resolveSettings } from '@363045841yyt/klinechart-core/config'
+  import { normalizeSettings } from '@363045841yyt/klinechart-core/config'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
   const DEMO_MAIN_DATA: KLineData[] = [
@@ -541,8 +541,8 @@
   const isFullscreen = ref(false)
   const embedContainerRef = ref<HTMLElement | null>(null)
 
-  // 产品内不传 settings prop，图表内部以 localStorage 偏好 + 默认值自行接管
-  const themePreference = resolveSettings().theme
+  // 初始主题取默认值，控制器就绪后跟随活动布局的有效主题。
+  const themePreference = normalizeSettings().theme
   const currentTheme = ref<'light' | 'dark'>(
     themePreference === 'auto'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches

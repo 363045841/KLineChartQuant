@@ -287,11 +287,7 @@
 
 <script setup lang="ts">
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
-  import {
-    type ChartSettings,
-    chartSettingsPersistence,
-    resolveSettings,
-  } from '@363045841yyt/klinechart-core/config'
+  import { type ChartSettings, normalizeSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type ActiveMagnetMode,
     BOX_SELECT_DRAWING_TOOL_ID,
@@ -300,7 +296,7 @@
     MagnetMode,
     type RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, onMounted, ref, watch } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
@@ -501,27 +497,14 @@
     return props.drawingToolId ?? selectedToolId.value
   })
 
-  function loadSettings(): ChartSettings {
-    return resolveSettings()
-  }
-
-  function saveSettings(settings: ChartSettings) {
-    chartSettingsPersistence.save(settings)
-  }
-
-  // 父组件已 seed 的 effectiveSettings 优先；否则读 localStorage
-  const appliedSettings = ref<ChartSettings>(
-    props.effectiveSettings && Object.keys(props.effectiveSettings).length > 0
-      ? { ...props.effectiveSettings }
-      : loadSettings(),
-  )
+  const appliedSettings = computed(() => normalizeSettings(props.effectiveSettings))
 
   watch(
     () => props.effectiveSettings,
     (val) => {
-      if (val) appliedSettings.value = { ...val }
+      setCanvasProfilerEnabled(!!val?.enableCanvasProfiler)
     },
-    { deep: true },
+    { immediate: true },
   )
 
   function isActive(tool: ToolDef): boolean {
@@ -659,26 +642,16 @@
   }
 
   function handleConfirmSettings(draft: ChartSettings) {
-    appliedSettings.value = { ...draft }
-    saveSettings(appliedSettings.value)
-    setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
-    emit('settingsChange', { ...appliedSettings.value })
+    emit('settingsChange', draft)
     showSettings.value = false
   }
 
-  /** 主题预设点击即生效：只合并预设字段并持久化，不关闭弹窗，也不丢弃草稿里其他未确定的改动。 */
+  /** 主题预设点击即生效：只提交预设字段，不关闭弹窗或提交其他草稿改动。 */
   function handleApplyThemePreset(
     colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
   ) {
-    appliedSettings.value = { ...appliedSettings.value, colorPresetSettings }
-    saveSettings(appliedSettings.value)
-    emit('settingsChange', { ...appliedSettings.value })
+    emit('settingsChange', { ...appliedSettings.value, colorPresetSettings })
   }
-
-  onMounted(() => {
-    emit('settingsChange', { ...appliedSettings.value })
-    setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
-  })
 </script>
 
 <style scoped>

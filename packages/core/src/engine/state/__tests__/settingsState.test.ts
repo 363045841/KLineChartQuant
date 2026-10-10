@@ -13,7 +13,7 @@ describe('settingsState', () => {
     )
   })
 
-  it('replace merges partial via resolveSettings', () => {
+  it('replace fills omitted settings with defaults', () => {
     const s = createSettingsState()
     s.actions.replace({ showGridLines: false })
     expect(s.readonly.settings.peek().showGridLines).toBe(false)

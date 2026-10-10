@@ -16,7 +16,7 @@ import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
-import { resolveSettings } from '@/foundation/config/chartSettings.js'
+import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
@@ -83,7 +83,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     initialZoomLevel,
   }
 
-  const initialSettings = resolveSettings(opts.settings)
+  const initialSettings = normalizeSettings(opts.settings)
   const rendererHost = await createDefaultRendererHost(
     initialSettings.rendererBackend as RendererBackend,
   )

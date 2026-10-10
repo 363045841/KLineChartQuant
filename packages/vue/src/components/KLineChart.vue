@@ -367,7 +367,7 @@
 <script setup lang="ts">
   import {
     type ChartSettings,
-    resolveSettings,
+    normalizeSettings,
     TOOLTIP_POSITION_NONE,
   } from '@363045841yyt/klinechart-core/config'
   import {
@@ -508,8 +508,7 @@
       timezone?: string
 
       /**
-       * 图表设置。逐 key 覆盖：显式声明的 key 优先，未声明的回落到 localStorage 存量，
-       * 最后用默认值补齐。未传时等价于 localStorage 存量 + 默认值。
+       * 图表设置。显式声明的 key 覆盖活动布局，其余设置由布局和默认值提供。
        */
       settings?: Partial<ChartSettings>
 
@@ -869,8 +868,8 @@
   })
   const isIntraday = computed(() => kLineLevel.value.includes('min'))
 
-  // setup 阶段即分层解析 settings，避免子组件先读 localStorage 造成闪色
-  const _initialResolved = resolveSettings(props.settings)
+  // 控制器就绪前使用显式设置与默认值，就绪后直接读取活动布局设置。
+  const _initialResolved = normalizeSettings(props.settings)
   const _initialTheme: 'light' | 'dark' = (() => {
     const theme = _initialResolved.theme as string
     if (theme === 'auto') {
@@ -882,18 +881,8 @@
     return theme as 'light' | 'dark'
   })()
 
-  const {
-    chartTheme,
-    chartSettings,
-    tooltipColors,
-    themeCssVars,
-    handleSettingsChange,
-    applyThemeFromSettings,
-  } = useChartTheme(controller, _initialTheme)
-
-  if (props.settings !== undefined) {
-    chartSettings.value = _initialResolved
-  }
+  const { chartTheme, chartSettings, tooltipColors, themeCssVars, handleSettingsChange } =
+    useChartTheme(controller, _initialTheme, _initialResolved)
 
   const liveSettings = useControllerSignal(
     controller,
@@ -1808,12 +1797,18 @@
     }
   }
 
+  /** 只取 props.settings 中显式声明（非 undefined）的 key，未声明项保留内核当前值。 */
+  function declaredSettings(settings: Partial<ChartSettings>): Partial<ChartSettings> {
+    return Object.fromEntries(
+      Object.entries(settings).filter(([, value]) => value !== undefined),
+    ) as Partial<ChartSettings>
+  }
+
+  /**
+   * 活动布局恢复后，只把 props 显式声明的 key 覆盖到内核。
+   */
   function applyInitialSettings(ctrl: ChartController): void {
-    // 分层解析：settings prop 显式 key > localStorage 存量 > 默认值
-    const resolved = resolveSettings(props.settings)
-    chartSettings.value = resolved
-    ctrl.updateSettingsFacade(resolved)
-    applyThemeFromSettings(resolved.theme as string)
+    if (props.settings !== undefined) ctrl.updateSettingsFacade(declaredSettings(props.settings))
   }
 
   /** 受控指标引用的定义实现按需加载；加载失败时由同步方法拒绝写入并给出提示。 */
@@ -1973,15 +1968,12 @@
     { deep: true },
   )
 
-  // 受控设置：外部 settings 变化时重新分层解析（prop 显式 key > 存量 > 默认）
+  // 受控设置只覆盖显式声明的 key，未声明部分保留活动布局值。
   watch(
     () => props.settings,
     (next) => {
       if (next === undefined || !controller.value) return
-      const resolved = resolveSettings(next)
-      chartSettings.value = resolved
-      controller.value.updateSettingsFacade(resolved)
-      applyThemeFromSettings(resolved.theme as string)
+      controller.value.updateSettingsFacade(declaredSettings(next))
     },
     { deep: true },
   )

@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  type ChartSettings,
   DEFAULT_SETTINGS,
   mapRendererTierToBackend,
   normalizeSettings,
   resolveSettingDefault,
-  resolveSettings,
 } from '../chartSettings'
 
 describe('mapRendererTierToBackend', () => {
@@ -45,13 +43,6 @@ describe('normalizeSettings', () => {
   it('defaults countdown on and preserves an explicit off preference', () => {
     expect(normalizeSettings().showLastPriceCountdown).toBe(true)
     expect(normalizeSettings({ showLastPriceCountdown: false }).showLastPriceCountdown).toBe(false)
-    expect(
-      resolveSettings(undefined, { showLastPriceCountdown: false }).showLastPriceCountdown,
-    ).toBe(false)
-    expect(
-      resolveSettings({ showLastPriceCountdown: true }, { showLastPriceCountdown: false })
-        .showLastPriceCountdown,
-    ).toBe(true)
   })
   it('defaults to WebGL', () => {
     expect(normalizeSettings().rendererBackend).toBe('webgl')
@@ -64,36 +55,27 @@ describe('normalizeSettings', () => {
   })
 })
 
-describe('resolveSettings', () => {
-  it('lets explicit overrides win per key and keeps stored for the rest', () => {
-    const stored: Partial<ChartSettings> = { showGridLines: false, theme: 'light' }
-    const resolved = resolveSettings({ showGridLines: true }, stored)
-    expect(resolved.showGridLines).toBe(true)
-    expect(resolved.theme).toBe('light')
-  })
-
-  it('uses stored plus defaults when no overrides are given', () => {
-    const resolved = resolveSettings(undefined, { showGridLines: false })
+describe('normalizeSettings input', () => {
+  it('fills omitted keys with defaults', () => {
+    const resolved = normalizeSettings({ showGridLines: false })
     expect(resolved.showGridLines).toBe(false)
     expect(resolved.rendererBackend).toBe('webgl')
   })
 
-  it('keeps stored keys that the overrides do not declare', () => {
-    const stored = {
+  it('preserves color preset settings', () => {
+    const resolved = normalizeSettings({
       colorPresetSettings: { dark: { candleUpBody: '#e85d04' } },
-    }
-    const resolved = resolveSettings({ showGridLines: true }, stored)
+    })
     expect(resolved.colorPresetSettings).toEqual({
       dark: { candleUpBody: '#e85d04' },
     })
   })
 
-  it('treats an explicit undefined override as undeclared', () => {
-    const resolved = resolveSettings({ showGridLines: undefined }, { showGridLines: false })
-    expect(resolved.showGridLines).toBe(false)
+  it('uses defaults for undefined keys', () => {
+    expect(normalizeSettings({ showGridLines: undefined }).showGridLines).toBe(true)
   })
 
   it('preserves extension keys from overrides', () => {
-    expect(resolveSettings({ preClose: 12.34 }, {}).preClose).toBe(12.34)
+    expect(normalizeSettings({ preClose: 12.34 }).preClose).toBe(12.34)
   })
 })

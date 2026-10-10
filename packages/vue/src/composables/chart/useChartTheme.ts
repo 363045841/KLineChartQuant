@@ -4,21 +4,29 @@
  * Preference lives in settings.theme; effective theme is ctrl.theme (kernel computed).
  */
 import { resolveTheme, themeToCssVars } from '@363045841yyt/klinechart-core'
-import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
+import { type ChartSettings, normalizeSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, watch } from 'vue'
 
 import { useControllerSignal } from './useControllerSignal.js'
 
-export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 'light' | 'dark') {
+export function useChartTheme(
+  ctrl: Ref<ChartController | null>,
+  initialTheme?: 'light' | 'dark',
+  initialSettings?: ChartSettings,
+) {
   /** 镜像 kernel effectiveTheme（shallowRef 避免 deep proxy） */
   const chartTheme = useControllerSignal(
     ctrl,
     (controller) => controller.theme,
     () => initialTheme ?? 'light',
   )
-  const chartSettings = ref<ChartSettings>({})
+  const chartSettings = useControllerSignal(
+    ctrl,
+    (controller) => controller.settings,
+    () => normalizeSettings(initialSettings),
+  )
 
   const resolvedTheme = computed(() =>
     resolveTheme(
@@ -56,32 +64,26 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
     ctrl.value?.setSystemTheme(e.matches ? 'dark' : 'light')
   }
 
-  function applyThemeFromSettings(themeSetting: string | undefined) {
+  // 活动布局和设置提交共用内核主题偏好，切换布局时同步系统主题监听。
+  function applyThemeFromSettings() {
     const chartCtrl = ctrl.value
-    if (!chartCtrl || !themeSetting) return
+    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
+    autoThemeMediaQuery = null
+    if (!chartCtrl) return
 
-    if (themeSetting === 'auto') {
-      // 确保偏好为 auto（即使调用方未先 facade）
-      chartCtrl.updateSettingsFacade(resolveSettings({ ...chartSettings.value, theme: 'auto' }))
+    if (chartSettings.value.theme === 'auto') {
       const mq = window.matchMedia('(prefers-color-scheme: dark)')
       chartCtrl.setSystemTheme(mq.matches ? 'dark' : 'light')
-      if (autoThemeMediaQuery !== mq) {
-        autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
-        autoThemeMediaQuery = mq
-        mq.addEventListener('change', onSystemThemeChange)
-      }
-    } else {
-      autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
-      autoThemeMediaQuery = null
-      chartCtrl.setTheme(themeSetting as 'light' | 'dark')
+      autoThemeMediaQuery = mq
+      mq.addEventListener('change', onSystemThemeChange)
     }
   }
 
+  watch([ctrl, () => chartSettings.value.theme], applyThemeFromSettings, { immediate: true })
+
+  // 用户只提交变更，所有主题与配色派生均读取内核设置。
   function handleSettingsChange(settings: ChartSettings) {
-    chartSettings.value = settings
-    const resolved = resolveSettings(settings)
-    ctrl.value?.updateSettingsFacade(resolved)
-    applyThemeFromSettings(settings.theme as string)
+    ctrl.value?.updateSettingsFacade(settings)
   }
 
   onUnmounted(() => {
@@ -97,6 +99,5 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
     tooltipColors,
     themeCssVars,
     handleSettingsChange,
-    applyThemeFromSettings,
   }
 }

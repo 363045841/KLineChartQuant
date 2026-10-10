@@ -129,17 +129,23 @@ it('绘图修改和删除通过自动保存落盘，重新打开不复活已删�
   }
 })
 
-it('保存和切换布局，保留设备偏好，复制与重命名不改变当前图表', async () => {
+it('全部设置随布局保存和切换，复制与重命名不改变当前图表', async () => {
   const { kernel, manager } = createManager()
   try {
     await manager.initialize()
-    kernel.settings.actions.patch({ theme: 'dark', marketDataCacheMaxMiB: 200 })
+    kernel.settings.actions.patch({
+      theme: 'dark',
+      rendererBackend: 'canvas',
+      marketDataCacheMaxMiB: 200,
+      enableCanvasProfiler: true,
+    })
     const dark = await manager.saveLayout({ name: '深色' })
     const copy = await manager.duplicateLayout({ id: dark, name: '副本' })
     await manager.renameLayout({ id: copy, name: '工作布局' })
     expect(manager.activeLayoutId.peek()).toBe(dark)
     const created = await manager.createLayout({ name: '新布局' })
-    expect(kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB).toBe(200)
+    expect(kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB).toBe(50)
+    expect(kernel.settings.readonly.settings.peek().enableCanvasProfiler).toBe(false)
     await manager.switchLayout({ id: copy })
     expect(kernel.settings.readonly.settings.peek().theme).toBe('dark')
     // 切换活动文档不改变列表顺序，选中项停留在原位置。
@@ -150,13 +156,30 @@ it('保存和切换布局，保留设备偏好，复制与重命名不改变当�
       created,
     ])
     expect(manager.activeLayoutId.peek()).toBe(copy)
-    expect(kernel.exportLayout().settings).not.toHaveProperty('marketDataCacheMaxMiB')
+    expect(kernel.exportLayout().settings).toMatchObject({
+      rendererBackend: 'canvas',
+      marketDataCacheMaxMiB: 200,
+      enableCanvasProfiler: true,
+    })
     await expect(manager.deleteLayout({ id: 'default' })).rejects.toThrow()
     await expect(manager.deleteLayout({ id: copy })).rejects.toThrow()
     await manager.deleteLayout({ id: dark })
   } finally {
     await manager.dispose()
     kernel.dispose()
+  }
+  const restored = createManager()
+  try {
+    await restored.manager.initialize()
+    expect(restored.kernel.settings.readonly.settings.peek()).toMatchObject({
+      theme: 'dark',
+      rendererBackend: 'canvas',
+      marketDataCacheMaxMiB: 200,
+      enableCanvasProfiler: true,
+    })
+  } finally {
+    await restored.manager.dispose()
+    restored.kernel.dispose()
   }
 })
 

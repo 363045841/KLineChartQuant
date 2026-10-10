@@ -7,10 +7,10 @@
 | 优先级     | 来源                                              |
 | ---------- | ------------------------------------------------- |
 | 1 显式覆盖 | 组件 `settings` prop 显式声明的 `rendererBackend` |
-| 2 存量偏好 | localStorage 中已存的 `rendererBackend`           |
+| 2 布局配置 | 活动布局中已保存的 `rendererBackend`             |
 | 3 探测默认 | `detectRendererTier()` 的层级映射结果             |
 
-前两级由 `resolveSettings` 的逐 key 合并负责，第三级由 `normalizeSettings` 在补齐缺失 key 时求值。
+布局恢复后，Vue 的显式 settings prop 按声明字段覆盖布局配置；缺失项由 `normalizeSettings` 补齐能力探测默认值。设置归档规则见 [图表设置统一由布局持久化](../chart-settings-layout-persistence.md)。
 
 ## 探测与映射
 

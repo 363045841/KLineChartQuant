@@ -19,7 +19,7 @@ import type {
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createChartController } from '@363045841yyt/klinechart-core'
-import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
+import { type ChartSettings, normalizeSettings } from '@363045841yyt/klinechart-core/config'
 import { isPlatformBrowser } from '@angular/common'
 import {
   type AfterViewInit,
@@ -259,7 +259,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
     if (changes['settings'] && !changes['settings'].isFirstChange()) {
       if (this.settings !== undefined) {
-        const resolved = resolveSettings(this.settings)
+        const resolved = normalizeSettings(this.settings)
         this.controller?.updateSettingsFacade(resolved)
         // settings.theme：auto 时只注入 systemTheme
         if (this.theme === undefined && resolved.theme) {

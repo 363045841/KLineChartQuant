@@ -595,7 +595,7 @@ export class ChartStateKernel extends StateKernel {
     batch(() => {
       this.indicator.actions.restoreWorkspaces(document.workspaces)
       this.pane.actions.restoreWorkspaces(document.workspaces)
-      if (document.settings) this.settings.actions.patch(selectLayoutSettings(document.settings))
+      this.settings.actions.replace(selectLayoutSettings(document.settings ?? {}))
       this.mainPriceAxis.actions.restoreModes(document.panePriceAxisModes)
       this.drawing.actions.restoreDocument(document.drawings ?? [], [])
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})

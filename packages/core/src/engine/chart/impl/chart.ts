@@ -214,6 +214,7 @@ export class Chart {
   private disposeActiveRendererProjection: (() => void) | null = null
   private disposeLeftAxisProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
+  private disposeSettingsProjection: (() => void) | null = null
   /** 图例领域操作与展示投影的唯一入口。 */
   readonly legend: LegendManager
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
@@ -595,6 +596,14 @@ export class Chart {
     })
 
     this.startRuntime()
+    // 设置来源统一为内核；布局恢复和界面提交都投影到实际运行资源。
+    let previousSettings = this.kernel.settings.readonly.settings.peek()
+    this.disposeSettingsProjection = this.kernel.settings.readonly.settings.subscribe(() => {
+      const next = this.kernel.settings.readonly.settings.peek()
+      const previous = previousSettings
+      previousSettings = next
+      this.projectSettings(previous, next)
+    })
   }
 
   /** 在所有运行时依赖就绪后，统一将 kernel 状态投影为可绘制图表。 */
@@ -816,13 +825,6 @@ export class Chart {
     const prev = this.kernel.settings.readonly.settings.peek()
     this.kernel.settings.actions.patch(settings)
     const next = this.kernel.settings.readonly.settings.peek()
-    this.interaction.onSettingsChanged(prev, next)
-    if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
-      this.dataManager.marketDataCache.setMaxBytes(
-        resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
-      )
-    }
-
     if (
       prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&
       next.mainRightAxisTypeSetting !== AXIS_TYPE_NONE
@@ -831,7 +833,16 @@ export class Chart {
         resolvePriceScaleTypeSetting(next.mainRightAxisTypeSetting),
       )
     }
+  }
 
+  /** 将内核设置变更应用到交互、缓存和渲染后端，不回写业务设置。 */
+  private projectSettings(prev: Readonly<ChartSettings>, next: Readonly<ChartSettings>): void {
+    this.interaction.onSettingsChanged(prev, next)
+    if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
+      this.dataManager.marketDataCache.setMaxBytes(
+        resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
+      )
+    }
     if (prev.rendererBackend !== next.rendererBackend) {
       void this.rendererHost.switchTo(next.rendererBackend as RendererBackend).then(() => {
         this.syncGpuSceneCanvas()
@@ -1307,6 +1318,8 @@ export class Chart {
     this.disposeLeftAxisProjection = null
     this.disposeTradeDemand?.()
     this.disposeTradeDemand = null
+    this.disposeSettingsProjection?.()
+    this.disposeSettingsProjection = null
     this.indicatorManager.destroy()
     this.renderer.destroy()
     this.legend.dispose()

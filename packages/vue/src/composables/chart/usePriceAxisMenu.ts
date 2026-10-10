@@ -1,8 +1,8 @@
 // 价格轴菜单的分组与命令入口，设置写入复用 controller，重置保留模式偏好。
 import {
   type ChartSettings,
+  normalizeSettings,
   PRICE_AXIS_RANGE_MODE,
-  resolveSettings,
   ScaleType,
 } from '@363045841yyt/klinechart-core/config'
 import { type ChartController, MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
@@ -33,7 +33,7 @@ export function usePriceAxisMenu(
   applySettings: (settings: ChartSettings) => void,
   paneId: string = MAIN_PANE_ID,
 ) {
-  const settings = useControllerSignal(controller, (chart) => chart.settings, resolveSettings)
+  const settings = useControllerSignal(controller, (chart) => chart.settings, normalizeSettings)
   const scaleTypes = useControllerSignal<ReadonlyMap<string, ScaleType>>(
     controller,
     (chart) => chart.paneScaleTypes,

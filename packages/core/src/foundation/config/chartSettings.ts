@@ -266,32 +266,9 @@ const KNOWN_SETTING_KEYS = new Set<string>([
   'colorPresetSettings',
 ])
 
-/** 图表设置在 LocalStorage 中的键名。 */
-export const CHART_SETTINGS_STORAGE_KEY = 'kline-chart-settings'
-
-function isStoredChartSettings(value: unknown): value is Partial<ChartSettings> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-/** 图表设置的 JSON 编解码边界。 */
-const chartSettingsCodec: PersistenceCodec<Partial<ChartSettings>> = {
-  decode(value): Partial<ChartSettings> | null {
-    return isStoredChartSettings(value) ? value : null
-  },
-  encode(value): unknown {
-    return value
-  },
-}
-
-/** 图表设置的唯一持久化入口。 */
-export const chartSettingsPersistence = createLocalStoragePersistence({
-  key: CHART_SETTINGS_STORAGE_KEY,
-  codec: chartSettingsCodec,
-})
-
 /**
  * 归一化设置：用 DEFAULT_SETTINGS 补齐缺失 key、保留业务扩展字段。
- * 不做分层合并，输入缺什么就回默认值；分层取值由 resolveSettings 负责。
+ * 只解析传入设置，不读取存储；设置持久化由布局管理器负责。
  *
  * @param partial - 设置片段
  * @returns 补齐后的完整 ChartSettings
@@ -321,35 +298,6 @@ export function normalizeSettings(partial?: Partial<ChartSettings>): ChartSettin
   return result as ChartSettings
 }
 
-/**
- * 解析生效设置，逐 key 取值优先级：显式覆盖 > 存量偏好 > DEFAULT_SETTINGS 默认值。
- *
- * @remarks
- * - overrides 为组件 settings prop：仅其显式声明的 key 覆盖存量，未声明的 key 回落到存量。
- * - stored 省略时从 chartSettingsPersistence 读取存量；需要纯默认解析（如内核内部状态归一化）时传 {}。
- * - 缺失 key 一律由 DEFAULT_SETTINGS 补齐，返回值始终是完整设置。
- *
- * @param overrides - 显式覆盖项（组件 settings prop）
- * @param stored - 存量偏好；省略时由 chartSettingsPersistence 读取
- * @returns 分层合并后的完整 ChartSettings
- */
-export function resolveSettings(
-  overrides?: Partial<ChartSettings> | null,
-  stored: Partial<ChartSettings> | null = chartSettingsPersistence.load(),
-): ChartSettings {
-  // 逐 key 合并：overrides 显式声明的 key 覆盖存量，undefined 视为未声明
-  const merged: Record<string, unknown> = { ...(stored ?? {}) }
-  if (overrides) {
-    for (const [key, value] of Object.entries(overrides)) {
-      if (value === undefined) continue
-      merged[key] = value
-    }
-  }
-  // 默认值补齐与扩展字段保留统一交给 normalizeSettings
-  return normalizeSettings(merged as Partial<ChartSettings>)
-}
-
-import { createLocalStoragePersistence, type PersistenceCodec } from '../persistence/index.js'
 import {
   type ColorPresetSettings,
   normalizeColorPresetSettings,
