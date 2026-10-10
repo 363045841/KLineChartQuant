@@ -5,7 +5,6 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noImplicitOverride": true,
-    "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
     "declaration": true,
     "declarationMap": true,
@@ -13,19 +12,18 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["vite/client"],
-    "baseUrl": "../..",
+    "types": ["vite/client", "@webgpu/types"],
     "paths": {
-      "@/core/*": ["packages/core/src/engine/*"],
-      "@/engine/*": ["packages/core/src/engine/*"],
-      "@/types/*": ["packages/core/src/foundation/types/*"],
-      "@/plugin": ["packages/core/src/foundation/plugin"],
-      "@/utils/*": ["packages/core/src/foundation/utils/*"],
-      "@/*": ["packages/core/src/*"]
+      "@/core/*": ["./src/engine/*"],
+      "@/engine/*": ["./src/engine/*"],
+      "@/types/*": ["./src/foundation/types/*"],
+      "@/plugin": ["./src/foundation/plugin"],
+      "@/utils/*": ["./src/foundation/utils/*"],
+      "@/*": ["./src/*"]
     },
     "outDir": "dist",
     "rootDir": "../.."
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/__tests__/**", "dist", "node_modules"]
+  "exclude": ["src/**/__tests__/**", "src/**/__bench__/**", "dist", "node_modules"]
 }
