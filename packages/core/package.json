@@ -131,9 +131,6 @@
       "gzip": true
     }
   ],
-  "optionalDependencies": {
-    "ajv": "^8.20.0"
-  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
     "@size-limit/preset-small-lib": "^12.1.0",
@@ -148,7 +145,6 @@
   },
   "dependencies": {
     "@iconify-icons/tabler": "^2.0.3",
-    "effect": "^3.22.2",
     "typebox": "1.3.33"
   }
 }
