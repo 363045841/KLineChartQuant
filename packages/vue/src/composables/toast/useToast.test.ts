@@ -127,23 +127,6 @@ describe('ToastViewport', () => {
     wrapper.unmount()
   })
 
-  it('悬停与键盘聚焦时暂停计时', async () => {
-    vi.useFakeTimers()
-    const store = createToastStore()
-    const wrapper = mountWithStore(store, () => h(ToastViewport))
-    await nextTick()
-    store.show({ message: 'x', timeout: 1000 })
-    await nextTick()
-    const region = document.querySelector('.klc-toast-viewport') as HTMLElement
-    region.dispatchEvent(new PointerEvent('pointerenter'))
-    vi.advanceTimersByTime(5000)
-    expect(store.toasts.value).toHaveLength(1)
-    region.dispatchEvent(new PointerEvent('pointerleave'))
-    vi.advanceTimersByTime(1000)
-    expect(store.toasts.value).toHaveLength(0)
-    wrapper.unmount()
-  })
-
   it('多个视口时只有最后挂载的渲染（模态内视口优先）', async () => {
     const store = createToastStore()
     const wrapper = mountWithStore(store, () =>

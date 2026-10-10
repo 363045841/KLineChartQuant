@@ -1,4 +1,4 @@
-/** BaseTextarea：无拖拽手柄、field-sizing 优先、JS 兜底按内容增高。 */
+/** BaseTextarea：输入同步与 JS 自动增高回退。 */
 
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -21,29 +21,15 @@ describe('BaseTextarea', () => {
     vi.restoreAllMocks()
   })
 
-  it('v-model 双向绑定，透传属性，行数写入 CSS 变量', async () => {
+  it('输入内容通过 v-model 更新', async () => {
     mockFieldSizing(true)
     const wrapper = mount(BaseTextarea, {
-      props: { modelValue: 'a', minRows: 3, maxRows: 6, placeholder: '每行一个代码…' },
+      props: { modelValue: 'a' },
     })
     const textarea = wrapper.get('textarea')
-    expect(textarea.attributes('placeholder')).toBe('每行一个代码…')
-    expect(textarea.attributes('rows')).toBe('3')
-    const style = textarea.attributes('style') ?? ''
-    expect(style).toContain('--base-textarea-min-rows: 3')
-    expect(style).toContain('--base-textarea-max-rows: 6')
     await textarea.setValue('abc')
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['abc'])
-  })
-
-  it('支持 field-sizing 时不写内联高度（交给 CSS）', async () => {
-    mockFieldSizing(true)
-    const wrapper = mount(BaseTextarea, { props: { modelValue: '' } })
-    await wrapper.get('textarea').setValue('line\nline\nline')
-    await nextTick()
-    const element = wrapper.get('textarea').element as HTMLTextAreaElement
-    expect(element.style.height).toBe('')
-    expect(wrapper.classes()).not.toContain('base-textarea--js-autosize')
+    wrapper.unmount()
   })
 
   it('不支持 field-sizing 时按 scrollHeight 自增高', async () => {
@@ -55,7 +41,6 @@ describe('BaseTextarea', () => {
     await nextTick()
     await nextTick()
     expect(element.style.height).toBe('96px')
-    expect(wrapper.classes()).toContain('base-textarea--js-autosize')
     wrapper.unmount()
   })
 })

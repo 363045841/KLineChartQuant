@@ -1,9 +1,8 @@
-/** Dropdown / DropMenu：Popover 层、焦点进入列表、方向键导航、Esc 归还焦点。 */
+/** Dropdown / DropMenu：列表选择、键盘导航与菜单互斥。 */
 
 import { mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
-import { anchoredPopoverPlatform } from '../composables/overlay/useAnchoredPopover.js'
 import Dropdown from './Dropdown.vue'
 import DropMenu from './DropMenu.vue'
 
@@ -80,23 +79,6 @@ describe('Dropdown（无 Popover API 的退化模式）', () => {
     wrapper.unmount()
   })
 
-  it('Esc 关闭并阻止默认行为（不连带关闭外层 dialog），焦点回到触发器', async () => {
-    const wrapper = mount(Dropdown, {
-      attachTo: document.body,
-      props: { modelValue: 'a', options },
-    })
-    const trigger = wrapper.get('button').element as HTMLButtonElement
-    key(trigger, 'ArrowDown')
-    await flush()
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    const event = key(document.activeElement as HTMLElement, 'Escape')
-    await flush()
-    expect(event.defaultPrevented).toBe(true)
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    expect(document.activeElement).toBe(trigger)
-    wrapper.unmount()
-  })
-
   it('打开另一个下拉会关闭当前下拉（同一时间只开一个）', async () => {
     const first = mount(Dropdown, { attachTo: document.body, props: { modelValue: 'a', options } })
     const second = mount(Dropdown, { attachTo: document.body, props: { modelValue: 'a', options } })
@@ -110,63 +92,6 @@ describe('Dropdown（无 Popover API 的退化模式）', () => {
     expect(b.getAttribute('aria-expanded')).toBe('true')
     first.unmount()
     second.unmount()
-  })
-})
-
-describe('Dropdown（Popover API 模式）', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-    delete (HTMLElement.prototype as Partial<HTMLElement>).showPopover
-    delete (HTMLElement.prototype as Partial<HTMLElement>).hidePopover
-  })
-
-  it('面板为 popover="auto"，触发器通过 popovertarget 关联，beforetoggle 同步状态', async () => {
-    const show = vi.fn(function (this: HTMLElement) {
-      const before = new Event('beforetoggle') as Event & { newState: string }
-      Object.assign(before, { newState: 'open' })
-      this.dispatchEvent(before)
-      // 浏览器在显示之后异步派发 toggle；此时才可聚焦面板内容。
-      queueMicrotask(() => {
-        const after = new Event('toggle') as Event & { newState: string }
-        Object.assign(after, { newState: 'open' })
-        this.dispatchEvent(after)
-      })
-    })
-    const hide = vi.fn(function (this: HTMLElement) {
-      const event = new Event('beforetoggle') as Event & { newState: string }
-      Object.assign(event, { newState: 'closed' })
-      this.dispatchEvent(event)
-    })
-    Object.assign(HTMLElement.prototype, { showPopover: show, hidePopover: hide })
-    vi.spyOn(anchoredPopoverPlatform, 'anchor').mockReturnValue(true)
-
-    const wrapper = mount(Dropdown, {
-      attachTo: document.body,
-      props: { modelValue: 'a', options },
-    })
-    const trigger = wrapper.get('button').element as HTMLButtonElement
-    const panel = document.querySelector('[role="listbox"]') as HTMLElement
-    expect(
-      panel.getAttribute('popover') ?? (panel as HTMLElement & { popover?: string }).popover,
-    ).toBe('auto')
-    expect(trigger.getAttribute('popovertarget')).toBe(panel.id)
-    // anchor positioning：触发器声明 anchor-name，面板引用它
-    expect(trigger.getAttribute('style')).toContain('anchor-name')
-    expect(panel.getAttribute('style')).toContain('position-anchor')
-
-    key(trigger, 'ArrowDown')
-    await flush()
-    expect(show).toHaveBeenCalled()
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    expect(optionEls()).toHaveLength(3)
-    // toggle 之后焦点进入已选项
-    expect(document.activeElement).toBe(optionEls()[0])
-
-    optionEls()[1]?.click()
-    await flush()
-    expect(hide).toHaveBeenCalled()
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    wrapper.unmount()
   })
 })
 

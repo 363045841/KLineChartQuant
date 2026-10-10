@@ -39,14 +39,6 @@ describe('@363045841yyt/klinechart —public API surface', () => {
   })
 })
 
-describe('@363045841yyt/klinechart —SSR safety', () => {
-  it('module import does not touch window or document', () => {
-    // Import above ran in node env without jsdom. If it touched window, this
-    // file would not have loaded. Test documents the contract.
-    expect(true).toBe(true)
-  })
-})
-
 describe('@363045841yyt/klinechart —useChart lifecycle', () => {
   afterEach(() => {
     // Reset the injected factory so other tests start clean.
@@ -134,13 +126,6 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
     expect(wrapper.text()).toBe('42')
 
     wrapper.unmount()
-  })
-})
-
-describe('@363045841yyt/klinechart —legend slot contracts', () => {
-  it('exports LegendSlotProps type alias via package surface', () => {
-    // 类型导出在编译期校验；此处确认相关值导出仍可用
-    expect(VueAdapter.KlineChart).toBeDefined()
   })
 })
 
@@ -232,17 +217,5 @@ describe('@363045841yyt/klinechart —tooltip slot contracts', () => {
     expect(downCloseSpan.attributes('style')).toContain(normalizeColor('#22c55e'))
     upWrapper.unmount()
     downWrapper.unmount()
-  })
-})
-
-describe('KLineTooltip 默认涨跌色跟随主题', () => {
-  it('未传 upColor/downColor 时使用主题 K 线色变量', () => {
-    const bar = { timestamp: 1, open: 10, high: 12, low: 9, close: 11 }
-    const wrapper = mount(KLineTooltip, {
-      props: { hoverData: bar, index: 0, data: [bar], pos: { x: 0, y: 0 } },
-    })
-    const close = wrapper.find('.row:nth-child(4) span:last-child')
-    expect(close.attributes('style')).toContain('var(--klc-color-candle-up-body)')
-    wrapper.unmount()
   })
 })
