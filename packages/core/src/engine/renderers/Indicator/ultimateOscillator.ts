@@ -9,7 +9,7 @@ import type { KLineData } from '@/foundation/types/price.js'
 import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcUltimateOscillatorData } from '../../indicators/calculators/ultimateOscillator.js'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { Indicator } from '../../indicators/indicatorDecorator.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { UltimateOscillatorRenderState } from '../../indicators/state/ultimateOscillatorState.js'
 import {

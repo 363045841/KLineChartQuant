@@ -1,63 +1,31 @@
 /**
- * 指标定义装饰器与全局定义目录，实例挂载由图表状态驱动。
+ * 全局指标定义目录，实例挂载由图表状态驱动。
  *
  * 目录分两层：静态目录（IndicatorDescriptor，编译期提取，读取不加载实现）供选择器、
  * 别名解析与 Agent 工具结构同步使用；实现目录（IndicatorMetadata）只含已加载的定义，
  * 由 loadIndicatorDefinitions 按需填充。
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { ChartDataView } from '../chartModel/index.js'
 import { BUILTIN_INDICATOR_MANIFEST } from './generated/builtinIndicators.js'
 import type { IndicatorName } from './indicatorContracts.js'
+import { definitionMetadata, type IndicatorDefinitionClass } from './indicatorDecorator.js'
+import {
+  clearIndicatorLayerNamingForTest,
+  normalizeIndicatorId,
+  registerIndicatorLayerNaming,
+} from './indicatorLayerNaming.js'
 import type {
-  GetTitleInfoFn,
-  IndicatorAuxiliaryRendererNameResolver,
   IndicatorCategory,
   IndicatorKind,
   IndicatorMetadata,
-  IndicatorPresentationDescriptor,
-  IndicatorRendererNameResolver,
-  IndicatorRuntimeDescriptor,
   IndicatorType,
-  RendererFactory,
-  ScaleRendererFactory,
 } from './indicatorMetadata.js'
 
-export type IndicatorDefinitionConfig<T = unknown> = {
-  /** 指标定义名称，允许第三方扩展；注册定义后仍须添加指标实例。 */
-  name: IndicatorName
-  aliases?: readonly string[]
-  displayName: string
-  /** 定义身份：系统渲染器或用户可添加的指标。所有定义必须显式声明。 */
-  kind: IndicatorKind
-  category: IndicatorCategory
-  indicatorType: IndicatorType
-  indicatorTypeLabel?: string
-  defaultPaneId: string
-  /** 指标可参与渲染的数据视图；未声明时仅支持 K 线。 */
-  dataViews?: readonly ChartDataView[]
-  paneIdField?: string
-  allowMainPane?: boolean
-  scaleRendererFactory?: ScaleRendererFactory
-  scale?: IndicatorMetadata['scale']
-  mainPane?: IndicatorMetadata['mainPane']
-  /** 覆盖默认的 renderer plugin 命名规则。 */
-  getRendererName?: IndicatorRendererNameResolver
-  /** 覆盖默认的副图坐标轴 plugin 命名规则。 */
-  getScaleRendererName?: IndicatorAuxiliaryRendererNameResolver
-  visibleState?: IndicatorMetadata['visibleState']
-  runtime?: IndicatorRuntimeDescriptor<T>
-  presentation?: IndicatorPresentationDescriptor
-  getTitleInfo?: GetTitleInfoFn
-}
-
-export type IndicatorDefinitionClass = {
-  new (...args: never[]): unknown
-  rendererFactory?: RendererFactory
-  scaleRendererFactory?: ScaleRendererFactory
-  [definitionMetadata]?: () => IndicatorMetadata
-}
+/** 装饰器与定义配置由叶子模块提供，此处转出以维持公开出口。 */
+export type { IndicatorDefinitionClass, IndicatorDefinitionConfig } from './indicatorDecorator.js'
+export { Indicator } from './indicatorDecorator.js'
+export { resolveIndicatorLayerId } from './indicatorLayerNaming.js'
 
 /**
  * 静态目录项：选择器、搜索与 Agent 工具结构需要的全部字段，读取时不加载指标实现。
@@ -83,7 +51,6 @@ export interface IndicatorDescriptor {
 /** 按需加载实现的入口；第三方直接注册的定义没有加载入口。 */
 export type IndicatorDefinitionLoader = () => Promise<IndicatorDefinitionClass>
 
-const definitionMetadata = Symbol('Indicator.definition')
 const indicatorDefinitions = new Map<string, IndicatorMetadata>()
 const indicatorDescriptors = new Map<
   string,
@@ -94,83 +61,11 @@ const pendingDefinitionLoads = new Map<string, Promise<void>>()
 const registrationListeners = new Set<(definition: IndicatorMetadata) => void>()
 let builtinCatalogRegistered = false
 
-/** 将名称和别名转换为目录使用的统一查询键。 */
-function normalizeIndicatorId(id: string): string {
-  return id
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-}
-
 /** 将已校验的非空别名写入目录索引。 */
 function indexAlias(alias: string, name: string): void {
   const normalized = normalizeIndicatorId(alias)
   if (normalized) {
     indicatorDefinitionAliases.set(normalized, name)
-  }
-}
-
-/**
- * 标准类装饰器：只声明元数据，类初始化不修改全局目录；装配入口负责注册。
- *
- * 使用方式：
- * @Indicator({ name: 'ma', ... })
- * class MADefinition {
- *   static rendererFactory = createMALayer
- * }
- */
-export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
-  return function <T extends IndicatorDefinitionClass>(
-    value: T,
-    _context: ClassDecoratorContext<T>,
-  ): T {
-    let metadata: IndicatorMetadata | undefined
-    Object.defineProperty(value, definitionMetadata, {
-      value: () => {
-        if (metadata) return metadata
-        const rendererFactory = value.rendererFactory
-        if (typeof rendererFactory !== 'function') {
-          throw new KLineChartError(
-            GENERIC_ERROR_CODES.INVALID_PARAM,
-            `[Indicator] '${config.name}' definition must expose static rendererFactory`,
-          )
-        }
-
-        // 固定主图定义使用独占名称；可切换 pane 的定义使用 pane 级身份。
-        const getRendererName: IndicatorRendererNameResolver =
-          config.getRendererName ??
-          (({ paneId }) =>
-            config.category === 'main' && !config.allowMainPane && paneId === 'main'
-              ? config.name
-              : `${config.name}_${paneId}`)
-        const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
-          config.getScaleRendererName ??
-          (({ paneId }) =>
-            value.scaleRendererFactory || config.scaleRendererFactory || config.scale
-              ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
-              : null)
-
-        // runtime.configKey 默认等于 name
-        const runtime = config.runtime && {
-          ...config.runtime,
-          configKey: config.runtime.configKey ?? config.name,
-        }
-
-        metadata = {
-          ...config,
-          getRendererName,
-          getScaleRendererName,
-          runtime,
-          rendererFactory,
-          scaleRendererFactory: value.scaleRendererFactory ?? config.scaleRendererFactory,
-          paneIdField: config.paneIdField,
-          allowMainPane: config.allowMainPane,
-        }
-        return metadata
-      },
-    })
-
-    return value
   }
 }
 
@@ -274,6 +169,7 @@ export function registerIndicatorDefinition(definitionClass: IndicatorDefinition
     indicatorDescriptors.set(normalizedName, { descriptor: descriptorFromMetadata(definition) })
   }
   for (const alias of aliases) indexAlias(alias, normalizedName)
+  registerIndicatorLayerNaming(aliases, definition.getRendererName, definition.getScaleRendererName)
   for (const listener of [...registrationListeners]) listener(definition)
 }
 
@@ -345,26 +241,6 @@ export function loadAllIndicatorDefinitions(): Promise<void> {
   return loadIndicatorDefinitions([...indicatorDescriptors.keys()])
 }
 
-/** 按目录里的唯一命名规则解析数据或坐标轴 Layer ID。 */
-export function resolveIndicatorLayerId(
-  definitionId: string,
-  paneId: string,
-  part: 'renderer' | 'scale' = 'renderer',
-): string {
-  const definition = getRegisteredIndicatorDefinition(definitionId)
-  const options = { paneId, indicatorId: definitionId }
-  const name =
-    part === 'renderer'
-      ? definition?.getRendererName(options)
-      : definition?.getScaleRendererName(options)
-  if (!name)
-    throw new KLineChartError(
-      GENERIC_ERROR_CODES.INVALID_PARAM,
-      `[Indicator] missing ${part} identity for '${definitionId}'`,
-    )
-  return makePluginLayerId(name)
-}
-
 /** 返回已装配定义的快照，调用方不能修改目录。 */
 export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[] {
   return [...indicatorDefinitions.values()]
@@ -392,5 +268,6 @@ export function clearRegisteredIndicatorDefinitionsForTest(): void {
   indicatorDescriptors.clear()
   indicatorDefinitionAliases.clear()
   pendingDefinitionLoads.clear()
+  clearIndicatorLayerNamingForTest()
   builtinCatalogRegistered = false
 }

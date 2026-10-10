@@ -13,7 +13,8 @@ import {
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { Indicator, resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry.js'
+import { Indicator } from '../indicators/indicatorDecorator.js'
+import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
 const textWidthCache = new Map<string, number>()

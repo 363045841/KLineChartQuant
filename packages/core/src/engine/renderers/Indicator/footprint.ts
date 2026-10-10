@@ -15,7 +15,7 @@ import {
   FOOTPRINT_TEXT_MODES,
   FOOTPRINT_TEXT_OPTIONS,
 } from '@/components/footprint/types.js'
-import { Indicator } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
 import {
   type GetTitleInfoFn,
   IndicatorKind,

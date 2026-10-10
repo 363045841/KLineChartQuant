@@ -1,10 +1,10 @@
 /** 验证声明与装配分离、目录冲突原子性和身份解析。 */
 import { beforeEach, describe, expect, it } from 'vitest'
+import { Indicator } from '../indicatorDecorator'
 import {
   clearRegisteredIndicatorDefinitionsForTest,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
-  Indicator,
   registerIndicatorDefinition,
   resolveIndicatorLayerId,
 } from '../indicatorDefinitionRegistry'

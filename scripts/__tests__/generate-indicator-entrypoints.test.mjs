@@ -18,10 +18,10 @@ import { indicatorEntrypointsPlugin } from '../indicator-entrypoints-plugin.mjs'
 function createSourceFixture(context) {
   const root = mkdtempSync(path.join(tmpdir(), 'kmap-indicator-scan-'))
   context.after(() => rmSync(root, { recursive: true, force: true }))
-  const registry = path.join(root, 'engine/indicators/indicatorDefinitionRegistry.ts')
-  mkdirSync(path.dirname(registry), { recursive: true })
+  const decorator = path.join(root, 'engine/indicators/indicatorDecorator.ts')
+  mkdirSync(path.dirname(decorator), { recursive: true })
   writeFileSync(
-    registry,
+    decorator,
     'export function Indicator(config: { name: string; kind: string }) { return (value: unknown) => value }\n',
   )
   /** 写入带命名导出的注解声明，路径可位于任意生产源码目录。 */
@@ -32,7 +32,7 @@ function createSourceFixture(context) {
     const filename = path.join(root, `${basename}.ts`)
     writeFileSync(
       filename,
-      `import { Indicator as Define } from './engine/indicators/indicatorDefinitionRegistry.js'\n@Define({ name: '${name}', kind: '${kind}' })\n${exportClass ? 'export ' : ''}class Definition {}\n`,
+      `import { Indicator as Define } from './engine/indicators/indicatorDecorator.js'\n@Define({ name: '${name}', kind: '${kind}' })\n${exportClass ? 'export ' : ''}class Definition {}\n`,
     )
     return filename
   }
@@ -75,7 +75,7 @@ test('resolves namespace imports, barrel exports and compile-time kind constants
   const { root } = createSourceFixture(context)
   writeFileSync(
     path.join(root, 'barrel.ts'),
-    "export { Indicator } from './engine/indicators/indicatorDefinitionRegistry.js'\n",
+    "export { Indicator } from './engine/indicators/indicatorDecorator.js'\n",
   )
   writeFileSync(
     path.join(root, 'definition.ts'),
@@ -104,7 +104,7 @@ test('extracts the static catalog from constants and rejects runtime-only catalo
   const filename = path.join(root, 'catalog.ts')
   writeFileSync(
     filename,
-    "import { Indicator } from './engine/indicators/indicatorDefinitionRegistry.js'\n" +
+    "import { Indicator } from './engine/indicators/indicatorDecorator.js'\n" +
       "const MODES = Object.freeze({ Fast: 'fast' } as const)\n" +
       'const DEFAULTS = { period: 14, mode: MODES.Fast } as const\n' +
       "@Indicator({ name: 'catalog', kind: 'indicator', displayName: 'CAT', aliases: ['C'], " +
@@ -123,7 +123,7 @@ test('extracts the static catalog from constants and rejects runtime-only catalo
   })
   writeFileSync(
     filename,
-    "import { Indicator } from './engine/indicators/indicatorDefinitionRegistry.js'\n" +
+    "import { Indicator } from './engine/indicators/indicatorDecorator.js'\n" +
       "const label = () => 'CAT'\n" +
       "@Indicator({ name: 'catalog', kind: 'indicator', displayName: label() })\n" +
       'export class CatalogDefinition {}\n',

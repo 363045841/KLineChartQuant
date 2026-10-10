@@ -12,7 +12,7 @@ import {
 } from '../../frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '../../frame/types.js'
 import { calcIchimokuData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { Indicator } from '../../indicators/indicatorDecorator.js'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'

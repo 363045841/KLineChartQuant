@@ -249,7 +249,7 @@ export function discoverIndicatorDefinitions(sourceRoot = CORE_SOURCE_ROOT) {
   )
   const program = ts.createProgram(files, { ...parsed.options, noEmit: true })
   const checker = program.getTypeChecker()
-  const registryFile = path.resolve(sourceRoot, 'engine/indicators/indicatorDefinitionRegistry.ts')
+  const decoratorFile = path.resolve(sourceRoot, 'engine/indicators/indicatorDecorator.ts')
   const definitions = []
   const names = new Set()
 
@@ -269,7 +269,7 @@ export function discoverIndicatorDefinitions(sourceRoot = CORE_SOURCE_ROOT) {
           const isIndicator =
             symbol?.getName() === 'Indicator' &&
             symbol.declarations?.some(
-              (declaration) => path.resolve(declaration.getSourceFile().fileName) === registryFile,
+              (declaration) => path.resolve(declaration.getSourceFile().fileName) === decoratorFile,
             )
           if (!isIndicator) continue
           const fail = (message) => {
