@@ -4,7 +4,7 @@
 export const EXT = 'io.github.363045841.kcq'
 
 /** 与 themeToCssVars 的 camelToKebab 逐字一致，保证变量名不漂移。 */
-export function camelToKebab(s) {
+function camelToKebab(s) {
   return s.replace(/[A-Z]/g, (m, i) => (i === 0 ? m.toLowerCase() : `-${m.toLowerCase()}`))
 }
 
@@ -19,7 +19,7 @@ const round = (n, d) => Number(n.toFixed(d))
  * 存在时原样输出，保证迁移逐字节一致；否则 sRGB 走 `hex` 回退 + 两位 alpha，
  * 其他色彩空间输出 CSS Color 4 函数写法。
  */
-export function formatColor(value, extensions) {
+function formatColor(value, extensions) {
   const authored = extensions?.[EXT]?.css
   if (authored) return authored
   if (typeof value === 'string') return value
@@ -40,12 +40,12 @@ export function formatColor(value, extensions) {
 }
 
 /** 0 输出无单位 `0`（与既有 spacing.none 一致）；其余为 `<value><unit>`。 */
-export function formatDimension(v) {
+function formatDimension(v) {
   if (typeof v === 'string') return v
   return v.value === 0 ? '0' : `${v.value}${v.unit}`
 }
 
-export function formatDuration(v) {
+function formatDuration(v) {
   return typeof v === 'string' ? v : `${v.value}${v.unit}`
 }
 
@@ -65,7 +65,7 @@ const GENERIC_FAMILIES = new Set([
   'fangsong',
 ])
 
-export function formatFontFamily(v) {
+function formatFontFamily(v) {
   if (typeof v === 'string') return v
   return v.map((f) => (/\s/.test(f) && !GENERIC_FAMILIES.has(f) ? `'${f}'` : f)).join(', ')
 }

@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url'
 export const CORE_DIR = fileURLToPath(new URL('../../../', import.meta.url))
 export const TOKENS_DIR = path.join(CORE_DIR, 'src/foundation/tokens')
 export const DTCG_DIR = path.join(TOKENS_DIR, 'dtcg')
-export const RESOLVER_FILE = 'kcq.resolver.json'
+const RESOLVER_FILE = 'kcq.resolver.json'
 
 /** scheme 中不对外选择的私有分组：interface 为 Pro 原始界面色，visual 为预设色表。 */
-export const PRIVATE_GROUPS = new Set(['interface', 'visual'])
+const PRIVATE_GROUPS = new Set(['interface', 'visual'])
 export const MODES = ['light', 'dark']
 
 export function readJson(file) {
@@ -52,7 +52,7 @@ function loadSource(resolver, source, seen) {
 }
 
 /** 叶子 token 整体替换，分组逐键合并；已有键保持原位，保证输出顺序稳定。 */
-export function mergeTokens(base, layer) {
+function mergeTokens(base, layer) {
   const out = { ...base }
   for (const [key, value] of Object.entries(layer)) {
     const prev = out[key]
@@ -98,10 +98,6 @@ export function* walkTokens(node, path = []) {
     if (isToken(value)) yield [[...path, key], value]
     else if (value && typeof value === 'object') yield* walkTokens(value, [...path, key])
   }
-}
-
-export function getAt(node, path) {
-  return path.reduce((n, k) => n?.[k], node)
 }
 
 /**

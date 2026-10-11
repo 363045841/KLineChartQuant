@@ -106,7 +106,7 @@ function flatten(color: string, backdrop: Color): Color {
 
 const round = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d
 
-export function auditTheme(
+function auditTheme(
   theme: Theme,
   meta: { preset: ThemePresetId; mode: 'light' | 'dark'; convention: Convention },
 ): AuditRow[] {

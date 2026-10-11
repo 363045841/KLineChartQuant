@@ -3,7 +3,7 @@ import { cssVarName } from './css-value.mjs'
 import { isToken, walkTokens } from './resolver.mjs'
 
 /** themeToCssVars 的族顺序：colors → spacing → typography → motion。 */
-export const THEME_GROUP_ORDER = ['color', 'spacing', 'typography', 'motion']
+const THEME_GROUP_ORDER = ['color', 'spacing', 'typography', 'motion']
 
 const GENERATED = (src) =>
   `// 生成文件：由 \`pnpm tokens:build\` 从 src/foundation/tokens/dtcg/${src} 生成，请勿手改。`

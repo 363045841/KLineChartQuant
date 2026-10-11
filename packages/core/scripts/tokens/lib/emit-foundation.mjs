@@ -5,7 +5,7 @@ import { cssVarName, EXT } from './css-value.mjs'
 import { isToken } from './resolver.mjs'
 
 /** 输出顺序；与运行时 themeToCssVars 的 FOUNDATION_GROUPS 保持一致（测试校验）。 */
-export const FOUNDATION_GROUPS = [
+const FOUNDATION_GROUPS = [
   'radius',
   'text',
   'space',
@@ -51,7 +51,7 @@ export function collectFoundation(raw, sdTree, isThemePath) {
 const keyOf = (path) => path.join('.')
 
 /** 比较两种 mode 的取值，返回随 mode 变化的路径集合。 */
-export function modeDependentPaths(light, dark) {
+function modeDependentPaths(light, dark) {
   const d = new Map(dark.map((e) => [keyOf(e.path), e.value]))
   return new Set(light.filter((e) => d.get(keyOf(e.path)) !== e.value).map((e) => keyOf(e.path)))
 }
