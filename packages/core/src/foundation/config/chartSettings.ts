@@ -231,7 +231,7 @@ export const DEFAULT_SETTINGS = [
     key: 'tooltipPosition',
     label: '数据悬浮框',
     type: 'select',
-    default: 'adaptive',
+    default: TOOLTIP_POSITION_NONE,
     group: 'main',
     options: [
       { value: 'adaptive', label: '自适应右上、左上角' },
