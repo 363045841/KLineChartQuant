@@ -90,7 +90,7 @@
       <LayoutMenu :controller="layoutController ?? null" />
     </div>
     <div class="screenshot-actions">
-      <BaseTooltip content="撤回" placement="bottom">
+      <BaseTooltip content="撤回" command="drawing.undo" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -101,7 +101,7 @@
           <IconTablerArrowBackUp class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="重做" placement="bottom">
+      <BaseTooltip content="重做" command="drawing.redo" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
