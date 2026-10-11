@@ -67,10 +67,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ESLint/stylelint bulk suppressions record existing debt
-      # (eslint-suppressions.json, stylelint-suppressions.json); only new
+      # Stylelint bulk suppressions record existing debt
+      # (stylelint-suppressions.json); only new
       # violations fail. After fixing debt run `pnpm lint:ui:prune`.
-      - name: UI interaction + token gates (pnpm lint:ui) [REQUIRED]
+      - name: UI token gates (pnpm lint:ui) [REQUIRED]
         run: pnpm lint:ui
 
       - name: Check automatic indicator discovery and production bundle

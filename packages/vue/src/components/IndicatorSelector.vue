@@ -61,7 +61,12 @@
                 @click="toggleIndicator(indicator.id)"
               >
                 <div class="item-header">
-                  <span class="item-label">{{ indicator.label }}</span>
+                  <span class="item-label">
+                    {{ indicator.label }}
+                    <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
+                      {{ indicator.name }}
+                    </span>
+                  </span>
                   <span class="item-tags">
                     <span class="type-badge">
                       {{ indicator.indicatorTypeLabel ?? indicator.indicatorType }}
@@ -447,6 +452,12 @@
     font-size: 12px;
     font-weight: 500;
     color: var(--klc-color-foreground);
+  }
+
+  .item-name {
+    margin-left: var(--klc-space-8, 8px);
+    color: var(--klc-color-ui-muted);
+    font-weight: 400;
   }
 
   .item-tags {
