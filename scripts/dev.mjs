@@ -26,7 +26,7 @@ const ROOT = path.resolve(__dirname, '..')
 const args = process.argv.slice(2)
 const lan = args.includes('--lan')
 
-// 解析 `-c <names...>` 之后的 connector 名称
+// 解析 -c <names...> 之后的 connector 名称
 const cIndex = args.indexOf('-c')
 const connNames = cIndex !== -1 ? args.slice(cIndex + 1).filter((a) => !a.startsWith('-')) : []
 
@@ -52,5 +52,5 @@ const children = [vite, ...startConnectors(connNames)]
 manageShutdown(children)
 
 if (connNames.length === 0) {
-  console.log('（未指定 -c，仅启动开发服务器。用 `pnpm dev -c all` 同时启动全部 connector。）')
+  console.log('（未指定 -c，仅启动开发服务器。用 pnpm dev -c all 同时启动全部 connector。）')
 }
