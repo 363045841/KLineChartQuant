@@ -4,7 +4,6 @@
   <BaseModal
     :open="open"
     title="图表设置"
-    subtitle="个性化配置"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm))"
@@ -106,7 +105,6 @@
   <BaseModal
     v-model:open="showColorPresetModal"
     title="颜色预设"
-    subtitle="自定义图表颜色"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     footer-align="space-between"

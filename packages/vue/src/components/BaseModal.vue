@@ -23,12 +23,11 @@
     >
       <div class="base-modal__surface">
         <div v-if="$slots.header || $slots.title || title" class="base-header">
-          <slot name="header">
-            <div class="base-header-left">
+          <div class="base-header-left">
+            <slot name="header">
               <h2 :id="titleId" class="base-title"><slot name="title">{{ title }}</slot></h2>
-              <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
-            </div>
-          </slot>
+            </slot>
+          </div>
           <div v-if="showClose" class="base-header-right">
             <slot name="header-extra" />
             <button
@@ -102,7 +101,6 @@
       /** 唯一开关状态，由父组件持有。 */
       open: boolean
       title?: string
-      subtitle?: string
       width?: string
       maxWidth?: string
       maxHeight?: string
@@ -119,7 +117,6 @@
     }>(),
     {
       title: '',
-      subtitle: '',
       width: 'min(92vw, 400px)',
       maxWidth: '',
       maxHeight: 'min(600px, calc(100vh - 48px))',
@@ -352,67 +349,71 @@
     }
   }
 
+  /* 标题栏和操作栏共用紧凑高度，内容在栏内垂直居中。 */
+  .base-header,
+  .base-footer {
+    box-sizing: border-box;
+    height: calc(var(--klc-density-default, 32px) + 2 * var(--klc-space-4, 4px));
+  }
+
   .base-header {
     position: relative;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    /* 两侧等宽，关闭按钮和附加操作不改变标题的中心位置。 */
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
     align-items: center;
-    padding: var(--klc-space-12, 12px) var(--klc-space-12, 12px) var(--klc-space-12, 12px)
-      var(--klc-space-16, 16px);
+    padding: var(--klc-space-8, 8px);
     flex-shrink: 0;
     gap: var(--klc-space-12, 12px);
   }
 
   .base-header-left {
     display: flex;
-    align-items: baseline;
+    grid-column: 2;
+    align-items: center;
+    justify-content: center;
     gap: var(--klc-space-8, 8px);
     min-width: 0;
   }
 
   .base-title {
     margin: 0;
-    font-size: var(--klc-text-label-16-font-size, 16px);
-    font-weight: 600;
-    color: var(--klc-color-ui-text);
+    font-size: var(--klc-text-label-13-font-size, 13px);
+    font-weight: 500;
+    color: var(--klc-color-ui-muted);
     line-height: var(--klc-text-label-16-line-height, 24px);
     letter-spacing: var(--klc-text-label-16-letter-spacing, normal);
     white-space: nowrap;
-  }
-
-  .base-subtitle {
-    font-size: var(--klc-text-12-font-size, 12px);
-    color: var(--klc-color-ui-muted);
-    line-height: var(--klc-text-12-line-height, 16px);
-    white-space: nowrap;
+    text-align: center;
   }
 
   .base-header-right {
+    /* 槽位图标按钮与关闭按钮共用尺寸，减少按钮内部留白造成的视觉间距。 */
+    --base-modal-header-action-size: var(--klc-space-24, 24px);
     display: flex;
+    grid-column: 3;
+    justify-self: end;
     align-items: center;
-    gap: var(--klc-space-8, 8px);
+    gap: 0;
     flex-shrink: 0;
   }
 
   .base-close-btn {
-    background: var(--klc-color-ui-hover);
+    background: transparent;
     border: 0;
     border-radius: var(--klc-radius-md, 8px);
-    width: var(--klc-density-default, 32px);
-    height: var(--klc-density-default, 32px);
+    width: var(--base-modal-header-action-size);
+    height: var(--base-modal-header-action-size);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: var(--klc-color-ui-muted);
-    transition:
-      background var(--klc-motion-dur-fast, 160ms),
-      color var(--klc-motion-dur-fast, 160ms);
+    transition: color var(--klc-motion-dur-fast, 160ms);
     padding: 0;
   }
 
   .base-close-btn:hover {
-    background: var(--klc-color-ui-border);
     color: var(--klc-color-ui-text);
   }
 
@@ -446,12 +447,14 @@
   }
 
   .base-footer {
+    /* Footer 内的按钮统一使用紧凑高度。 */
+    --base-button-height: calc(var(--klc-density-default, 32px) - var(--klc-space-4, 4px));
     position: relative;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: var(--klc-space-8, 8px);
-    padding: var(--klc-space-12, 12px) var(--klc-space-16, 16px);
+    padding: 0 var(--klc-space-12, 12px);
     flex-shrink: 0;
   }
 

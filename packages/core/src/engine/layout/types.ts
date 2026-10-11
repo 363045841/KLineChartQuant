@@ -62,6 +62,8 @@ export interface LayoutDocument {
   readonly settings?: Partial<ChartSettings>
   /** 已确认的用户绘图；导出始终携带，省略或空数组表示没有绘图。 */
   readonly drawings?: ReadonlyArray<DrawingObject>
+  /** 布局级指标收藏，跨数据视图共享；旧文档省略时恢复为空。 */
+  readonly favoriteIndicatorIds?: ReadonlyArray<string>
   /** 按 品种+周期+复权+数据视图 键的可恢复视口位置；省略表示不携带。 */
   readonly viewport?: Readonly<Record<string, LayoutViewportSnapshot>>
 }

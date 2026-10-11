@@ -335,6 +335,7 @@
     />
     <IndicatorSelector
       ref="indicatorSelectorRef"
+      :chart-controller="controller"
       :active-indicators="activeIndicators"
       :indicator-params="indicatorParams"
       :replace-pane-id="replacementPaneId"

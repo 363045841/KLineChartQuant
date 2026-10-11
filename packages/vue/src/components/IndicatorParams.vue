@@ -3,7 +3,6 @@
   <BaseModal
     :open="visible"
     :title="indicatorName"
-    subtitle="参数设置"
     width="min(92vw, 360px)"
     footer-align="space-between"
     @update:open="!$event && $emit('close')"
@@ -18,7 +17,7 @@
           :aria-pressed="showDescription"
           @click="showDescription = !showDescription"
         >
-          <IconTablerInfoCircle aria-hidden="true" />
+          <IconTablerHelpCircle aria-hidden="true" />
         </button>
       </BaseTooltip>
     </template>
@@ -102,7 +101,7 @@
       <BaseButton @click="onReset">重置</BaseButton>
       <div class="footer-right">
         <BaseButton @click="$emit('close')">取消</BaseButton>
-        <BaseButton @click="onConfirm">确定</BaseButton>
+        <BaseButton variant="primary" @click="onConfirm">确定</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -113,7 +112,7 @@
 
   import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
-  import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerHelpCircle from '~icons/tabler/help-circle'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
 
@@ -239,21 +238,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: var(--base-modal-header-action-size);
+    height: var(--base-modal-header-action-size);
     padding: 0;
     border: 0;
     border-radius: 8px;
-    background: var(--klc-color-ui-hover);
+    background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
+    transition: color 0.15s ease;
   }
 
   .toggle-desc-btn:hover {
-    background: var(--klc-color-ui-border);
     color: var(--klc-color-ui-text);
   }
 
@@ -314,7 +310,8 @@
   /* ── 底部 ── */
   .footer-right {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
   }
 
   /* ── 动画 ── */

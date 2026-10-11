@@ -178,6 +178,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     ...[
       chart.kernel.dataManager.readonly.currentSpec,
       chart.kernel.indicator.readonly.workspaces,
+      chart.kernel.indicator.readonly.favoriteIndicatorIds,
       chart.kernel.pane.readonly.workspaces,
       chart.kernel.settings.readonly.settings,
       chart.kernel.drawing.readonly.drawings,
@@ -250,6 +251,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     duplicateLayout: (input) => layoutManager.duplicateLayout(input),
     deleteLayout: (input) => layoutManager.deleteLayout(input),
     agent,
+    favoriteIndicatorIds: chart.kernel.indicator.readonly.favoriteIndicatorIds,
+    setIndicatorFavorite: (indicatorId, favorite) => {
+      if (!isDisposed()) chart.kernel.indicator.actions.setFavorite(indicatorId, favorite)
+    },
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
     data: chart.data,
