@@ -64,19 +64,7 @@
           </div>
           <div class="rule-form-field">
             <label class="rule-form-label">方向</label>
-            <div class="rule-form-directions">
-              <button
-                type="button"
-                v-for="d in crossDirections"
-                :key="d.value"
-                class="rule-form-direction"
-                :class="{ active: pf.direction === d.value }"
-                @click="pf.direction = d.value"
-              >
-                <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
-                {{ d.label }}
-              </button>
-            </div>
+            <AlertDirectionButtons v-model="pf.direction" :directions="crossDirections" />
           </div>
         </div>
       </template>
@@ -183,19 +171,7 @@
         </div>
         <div class="rule-form-field">
           <label class="rule-form-label">方向</label>
-          <div class="rule-form-directions">
-            <button
-              type="button"
-              v-for="d in crossDirections"
-              :key="d.value"
-              class="rule-form-direction"
-              :class="{ active: pf.direction === d.value }"
-              @click="pf.direction = d.value"
-            >
-              <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
-              {{ d.label }}
-            </button>
-          </div>
+          <AlertDirectionButtons v-model="pf.direction" :directions="crossDirections" />
         </div>
       </template>
 
@@ -207,19 +183,7 @@
           </div>
           <div class="rule-form-field">
             <label class="rule-form-label">关系</label>
-            <div class="rule-form-directions">
-              <button
-                type="button"
-                v-for="d in pairDirections"
-                :key="d.value"
-                class="rule-form-direction"
-                :class="{ active: pf.direction === d.value }"
-                @click="pf.direction = d.value"
-              >
-                <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
-                {{ d.label }}
-              </button>
-            </div>
+            <AlertDirectionButtons v-model="pf.direction" :directions="pairDirections" />
           </div>
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">指标 B</label>
@@ -383,6 +347,7 @@
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
   import ToggleSwitch from '../common/ToggleSwitch.vue'
+  import AlertDirectionButtons from './AlertDirectionButtons.vue'
 
   const props = defineProps<{ rule?: AlertRule }>()
 
@@ -798,51 +763,6 @@
     color: var(--klc-color-ui-muted);
     font-size: 14px;
     flex-shrink: 0;
-  }
-
-  /* ══════════════════════════════════════════
-   Direction Buttons
-══════════════════════════════════════════ */
-  .rule-form-directions {
-    display: flex;
-    gap: 4px;
-  }
-
-  .rule-form-direction {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
-    background: var(--klc-color-ui-input);
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .rule-form-direction-icon {
-    width: 12px;
-    height: 12px;
-    flex-shrink: 0;
-  }
-
-  .rule-form-direction:hover:not(.active) {
-    border-color: var(--klc-color-ui-border-strong);
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .rule-form-direction.active {
-    background: var(--klc-color-ui-accent);
-    color: var(--klc-color-ui-on-accent);
-    border-color: var(--klc-color-ui-accent);
   }
 
   /* ══════════════════════════════════════════
