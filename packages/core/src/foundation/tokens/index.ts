@@ -53,6 +53,7 @@ export type {
   ElevationTokens,
   ENEColors,
   EXPMAColors,
+  FontFamilyTokens,
   FootprintCellColors,
   FoundationMotionTokens,
   FoundationTokens,

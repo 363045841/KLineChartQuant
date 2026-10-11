@@ -606,6 +606,17 @@ export interface BrandTokens {
   readonly accentText: ColorValue
 }
 
+/**
+ * 随包自托管的字体族（不依赖宿主系统字体或 CDN）。
+ * 值是完整 CSS 字体栈，可直接交给 `font-family` 或 Canvas `ctx.font`。
+ */
+export interface FontFamilyTokens {
+  /** 品牌字体（Outfit），用于截图水印品牌字与图表角标。 */
+  readonly brand: string
+  /** 品牌字的中文回退（HarmonyOS Sans），用于截图水印里的中文品种名。 */
+  readonly brandCjk: string
+}
+
 export interface FoundationTokens {
   readonly radius: RadiusTokens
   readonly text: TextTokens
@@ -616,6 +627,7 @@ export interface FoundationTokens {
   readonly zIndex: ZIndexTokens
   readonly breakpoint: BreakpointTokens
   readonly brand: BrandTokens
+  readonly fontFamily: FontFamilyTokens
 }
 
 /**

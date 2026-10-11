@@ -14,7 +14,8 @@
         { "$ref": "foundation/motion.tokens.json" },
         { "$ref": "foundation/z-index.tokens.json" },
         { "$ref": "foundation/breakpoint.tokens.json" },
-        { "$ref": "foundation/brand.tokens.json" }
+        { "$ref": "foundation/brand.tokens.json" },
+        { "$ref": "foundation/font-family.tokens.json" }
       ]
     },
     "scheme": {

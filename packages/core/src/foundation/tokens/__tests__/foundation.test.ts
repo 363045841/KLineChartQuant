@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  camelToKebab,
   darkFoundation,
   darkTheme,
   FOUNDATION_GROUPS,
@@ -138,6 +139,11 @@ describe('foundation tokens: values (craft-principles §4, design §3.3)', () =>
   it('breakpoints 640 / 768 / 1024 / 1280', () => {
     expect(f.breakpoint).toEqual({ sm: '640px', md: '768px', lg: '1024px', xl: '1280px' })
   })
+
+  it('font families are tokenised and self-hosted (no CDN, no system dependency)', () => {
+    expect(f.fontFamily.brand).toBe('Outfit, sans-serif')
+    expect(f.fontFamily.brandCjk).toBe("'HarmonyOS Sans', sans-serif")
+  })
 })
 
 describe('foundation tokens: per mode', () => {
@@ -213,12 +219,12 @@ describe('foundation tokens: Theme integration', () => {
     expect(vars['--klc-z-index-modal']).toBe('1100')
     expect(vars['--klc-breakpoint-sm']).toBe('640px')
     expect(vars['--klc-brand-accent-text']).toBe('#537ECD')
+    expect(vars['--klc-font-family-brand']).toBe('Outfit, sans-serif')
+    expect(vars['--klc-font-family-brand-cjk']).toBe("'HarmonyOS Sans', sans-serif")
     // 旧 motion 变量保持原值，与新 dur-* 不冲突。
     expect(vars['--klc-motion-duration-fast']).toBe('120ms')
     for (const g of FOUNDATION_GROUPS)
-      expect(
-        Object.keys(vars).some((k) => k.startsWith(`--klc-${g.replace('zIndex', 'z-index')}-`)),
-      ).toBe(true)
+      expect(Object.keys(vars).some((k) => k.startsWith(`--klc-${camelToKebab(g)}-`))).toBe(true)
   })
 
   it('mergeTheme keeps and shallow-merges foundation only when the base has it', () => {

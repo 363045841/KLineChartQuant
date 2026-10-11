@@ -137,6 +137,8 @@
   --klc-breakpoint-lg: 1024px;
   --klc-breakpoint-xl: 1280px;
   --klc-brand-accent: #4C77C6;
+  --klc-font-family-brand: Outfit, sans-serif;
+  --klc-font-family-brand-cjk: 'HarmonyOS Sans', sans-serif;
 }
 
 [data-theme='light'] {

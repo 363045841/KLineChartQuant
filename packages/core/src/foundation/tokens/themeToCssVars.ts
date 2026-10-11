@@ -51,6 +51,7 @@ export const FOUNDATION_GROUPS = [
   'zIndex',
   'breakpoint',
   'brand',
+  'fontFamily',
 ] as const satisfies ReadonlyArray<keyof FoundationTokens>
 
 export interface ThemeToCssVarsOptions {

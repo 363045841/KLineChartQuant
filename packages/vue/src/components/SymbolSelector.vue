@@ -131,7 +131,6 @@
   import SymbolMetaBadge from './common/SymbolMetaBadge.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
-  import '@fontsource/jetbrains-mono/400.css'
 
   export type SymbolItem = SearchableSymbol
 

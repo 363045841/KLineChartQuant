@@ -31,6 +31,7 @@ import {
 } from 'vue'
 
 import { KlineChart } from './components/index.js'
+import './styles/fonts.css'
 import './styles/scrollbar.css'
 
 export type {

@@ -1,0 +1,15 @@
+{
+  "fontFamily": {
+    "$description": "随包自托管的字体族：不依赖宿主系统字体，也不使用 CDN。等宽字体见 typography.fontFamilyMono；Canvas 渲染字体仍冻结在 fonts.ts（ADR 0005）。",
+    "brand": {
+      "$type": "fontFamily",
+      "$value": ["Outfit", "sans-serif"],
+      "$description": "品牌字体：截图水印品牌字与图表左上角角标。随包提供 latin-600（@fontsource/outfit）。"
+    },
+    "brandCjk": {
+      "$type": "fontFamily",
+      "$value": ["HarmonyOS Sans", "sans-serif"],
+      "$description": "品牌字的中文回退：截图水印里的中文品种名。随包提供 HarmonyOS_Sans_SC_Medium.ttf（Medium 500）。"
+    }
+  }
+}

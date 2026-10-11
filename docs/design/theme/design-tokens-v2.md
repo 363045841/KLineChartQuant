@@ -67,6 +67,7 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 | 层级 | `--klc-z-index-{base,chart-overlay,sticky,dropdown,popover,modal,toast,tooltip}` | 0 / 10 / 100 / 1000 / 1010 / 1100 / 1150 / 1200 | 顺序来自 design §3.3；数值锚定现有用法 [derived] |
 | 断点 | `--klc-breakpoint-{sm,md,lg,xl}` | 640 / 768 / 1024 / 1280 | design §3.3（项目自定） |
 | 品牌 | `--klc-brand-accent`、`--klc-brand-accent-text` | `#4C77C6`；文字 `#537ECD`（深）/ `#456FBD`（浅） | ADR 0007 |
+| 字体族 | `--klc-font-family-{brand,brand-cjk}` | `Outfit, sans-serif` / `'HarmonyOS Sans', sans-serif` | 品牌字与截图水印中文名；随包自托管（`@fontsource/outfit`、`assets/fonts/HarmonyOS_Sans_SC_Medium.ttf`），不依赖宿主系统或 CDN |
 
 旧的 `--klc-spacing-*`、`--klc-typography-*`、`--klc-motion-duration-*` / `-easing-*` 保留原值；新动效使用 `dur-*` / `ease-*`，名称不冲突。
 

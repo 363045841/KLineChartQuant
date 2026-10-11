@@ -1,4 +1,4 @@
-// v2 基础 Token（radius / text / space / density / elevation / motion / zIndex / breakpoint / brand）
+// v2 基础 Token（radius / text / space / density / elevation / motion / zIndex / breakpoint / brand / fontFamily）
 // 的输出：--klc-* CSS 与带类型的 TS 对象。与 Theme 层（colors/spacing/typography/motion 旧键）分离，
 // 因此 baseline 快照与 themeToCssVars(lightTheme) 的输出不受影响。
 import { cssVarName, EXT } from './css-value.mjs'
@@ -15,6 +15,7 @@ const FOUNDATION_GROUPS = [
   'zIndex',
   'breakpoint',
   'brand',
+  'fontFamily',
 ]
 const NON_FOUNDATION = new Set(['color', 'spacing', 'typography', 'light', 'dark'])
 
@@ -122,7 +123,7 @@ export function emitFoundationTs(light, dark, header) {
   const omit = modeGroups.map((g) => `'${g}'`).join(' | ')
   const lines = [
     header,
-    '// 设计 Token v2 基础层：圆角、字阶、间距、密度、阴影层级、动效、层级、断点与品牌强调色。',
+    '// 设计 Token v2 基础层：圆角、字阶、间距、密度、阴影层级、动效、层级、断点、品牌强调色与字体族。',
     '// Theme 层（lightTheme / darkTheme）保持冻结；resolveTheme() 按 mode 挂载到 Theme.foundation。',
     "import type { FoundationTokens } from './types.js'",
     '',

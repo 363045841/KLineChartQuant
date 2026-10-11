@@ -1,5 +1,5 @@
 // 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/{foundation,scheme}/*.tokens.json 生成，请勿手改。
-// 设计 Token v2 基础层：圆角、字阶、间距、密度、阴影层级、动效、层级、断点与品牌强调色。
+// 设计 Token v2 基础层：圆角、字阶、间距、密度、阴影层级、动效、层级、断点、品牌强调色与字体族。
 // Theme 层（lightTheme / darkTheme）保持冻结；resolveTheme() 按 mode 挂载到 Theme.foundation。
 import type { FoundationTokens } from './types.js'
 
@@ -202,6 +202,10 @@ const shared = {
     md: '768px',
     lg: '1024px',
     xl: '1280px',
+  },
+  fontFamily: {
+    brand: 'Outfit, sans-serif',
+    brandCjk: "'HarmonyOS Sans', sans-serif",
   },
 } satisfies Omit<FoundationTokens, 'elevation' | 'brand'>
 
