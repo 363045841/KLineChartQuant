@@ -108,7 +108,7 @@ describe('DropMenu', () => {
     },
   ]
 
-  it('打开后焦点进入首个可用项，方向键跳过禁用项', async () => {
+  it('键盘打开后焦点进入首个可用项，方向键跳过禁用项', async () => {
     const wrapper = mount(DropMenu, { attachTo: document.body, props: { label: '菜单', groups } })
     const trigger = wrapper.get('button').element as HTMLButtonElement
     trigger.click()
@@ -123,6 +123,22 @@ describe('DropMenu', () => {
     await flush()
     expect(wrapper.emitted('select')?.[0]).toEqual(['g', '3'])
     expect(document.activeElement).toBe(trigger)
+    wrapper.unmount()
+  })
+
+  it('指针打开时不把焦点移入菜单项，只预置 tabindex', async () => {
+    const wrapper = mount(DropMenu, { attachTo: document.body, props: { label: '菜单', groups } })
+    const trigger = wrapper.get('button').element as HTMLButtonElement
+    trigger.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    trigger.click()
+    await flush()
+    const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+    expect(items.length).toBeGreaterThan(0)
+    expect(document.activeElement).not.toBe(items[0])
+    expect(items[0]?.tabIndex).toBe(0)
+    expect(items[2]?.tabIndex).toBe(-1)
+    key(trigger, 'ArrowDown')
+    expect(document.activeElement).toBe(items[0])
     wrapper.unmount()
   })
 })

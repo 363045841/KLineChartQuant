@@ -11,6 +11,7 @@
         :aria-label="label"
         aria-haspopup="menu"
         :disabled="disabled"
+        @pointerdown="onTriggerPointerDown"
         @click="popover.onTriggerClick"
         @keydown="onTriggerKeydown"
       >
@@ -120,6 +121,8 @@
   const roving = useRovingFocus(menuRef, {
     itemSelector: '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
   })
+  // 记录本次打开是否由指针触发，用于区分是否把焦点移入菜单项。
+  let pointerOpened = false
   const popover = useAnchoredPopover({
     trigger: triggerRef,
     panel: menuRef,
@@ -129,11 +132,18 @@
     disabled: () => props.disabled ?? false,
     onOpen: () => {
       emit('open')
-      // APG menu button：打开后焦点进入第一个可用项。
-      roving.focusFirst('.is-active [role="menuitem"]')
+      // 指针打开时只预置 tabindex：把焦点移入菜单项会让该项常驻 hover 高亮，
+      // 鼠标移开后仍像被选中。键盘打开才把焦点移入第一个可用项（APG menu button）。
+      if (pointerOpened) roving.prime('.is-active [role="menuitem"]')
+      else roving.focusFirst('.is-active [role="menuitem"]')
     },
   })
   const open = popover.open
+
+  /** 指针按下触发器：本次打开不移入焦点，避免菜单项常驻高亮。 */
+  function onTriggerPointerDown(): void {
+    pointerOpened = true
+  }
 
   function show(): void {
     popover.show()
@@ -146,7 +156,13 @@
   function onTriggerKeydown(event: KeyboardEvent): void {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
-      show()
+      // 键盘操作：打开时移入焦点；已打开则把焦点从触发器移入菜单。
+      if (open.value) {
+        roving.focusFirst('.is-active [role="menuitem"]')
+      } else {
+        pointerOpened = false
+        show()
+      }
     } else if (event.key === 'Escape' && open.value) {
       event.preventDefault()
       event.stopPropagation()

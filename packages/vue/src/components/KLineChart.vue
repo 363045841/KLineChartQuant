@@ -59,7 +59,6 @@
         <template #watchlist>
           <WatchlistPanel
             :items="watchlistItems"
-            :active-key="currentSymbolItem ? symbolIdentityKey(currentSymbolItem) : undefined"
             @select="onSymbolChange"
             @remove="removeWatchlistItem"
           />
@@ -1381,13 +1380,11 @@
 
   /** 数据悬浮框是否启用；设置为“不显示”时隐藏内置与外部 tooltip */
   const isTooltipEnabled = computed(
-    () => (chartSettings.value?.tooltipPosition ?? 'adaptive') !== TOOLTIP_POSITION_NONE,
+    () => chartSettings.value.tooltipPosition !== TOOLTIP_POSITION_NONE,
   )
 
   /** adaptive 模式下 tooltip 可拖拽（内置与 #kline-tooltip 共用） */
-  const isTooltipDraggable = computed(
-    () => (chartSettings.value?.tooltipPosition ?? 'adaptive') === 'adaptive',
-  )
+  const isTooltipDraggable = computed(() => chartSettings.value.tooltipPosition === 'adaptive')
 
   // 默认 tooltip 直接订阅 kernel，绕过 Vue VNode；内容由 composable 直写 DOM 维护
   const {
@@ -1940,7 +1937,7 @@
     z-index: 4;
     color: var(--klc-color-ui-text);
     opacity: 0.3;
-    font-family: Outfit, sans-serif;
+    font-family: var(--klc-font-family-brand);
     font-size: 14px;
     font-weight: 600;
     line-height: 1;

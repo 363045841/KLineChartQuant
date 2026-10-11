@@ -51,6 +51,15 @@ export function useRovingFocus(
     return list.findIndex((item) => item === active || item.contains(active))
   }
 
+  /** 只设置 roving tabindex，不移动焦点；用于指针打开时避免菜单项获得常驻焦点高亮。 */
+  function prime(preferSelector?: string): void {
+    const list = items()
+    if (!list.length) return
+    const preferred = preferSelector ? list.findIndex((item) => item.matches(preferSelector)) : -1
+    const target = list[preferred >= 0 ? preferred : 0]
+    for (const item of list) item.tabIndex = item === target ? 0 : -1
+  }
+
   /** 聚焦首项；`preferSelector` 命中时优先聚焦它（如 listbox 的已选项）。 */
   function focusFirst(preferSelector?: string): void {
     const list = items()
@@ -123,5 +132,5 @@ export function useRovingFocus(
     return true
   }
 
-  return { items, focusFirst, focusLast, move, onKeydown }
+  return { items, prime, focusFirst, focusLast, move, onKeydown }
 }
