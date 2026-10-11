@@ -123,6 +123,22 @@ type FrameContext = {
   indicatorAvailability: IndicatorAvailabilityReader
 }
 
+/** 范围决策共用的输入快照；读取阶段不修改 frame 或业务状态。 */
+type PanePriceRangeInputs = Pick<
+  FrameContext,
+  'mainIndicatorRange' | 'comparisonActive' | 'comparisonProjection'
+> & {
+  dataManager: ChartDataManager
+  mode: ReturnType<RendererDependencies['getActiveMode']>
+  axisStates: ReturnType<RendererDependencies['mainPriceAxis']['readonly']['paneRanges']['peek']>
+}
+
+/** 范围决策结果及待提交的锁定初始化意图。 */
+type PanePriceRangeResult = {
+  panePriceRanges: Record<string, ResolvedPanePriceRange>
+  pendingHandRanges: Array<{ paneId: string; range: PriceRange }>
+}
+
 /** 帧事务输入：合并多次 scheduleDraw 的 level */
 type FrameDrawInput = {
   level: UpdateLevel
@@ -781,6 +797,14 @@ export class ChartRenderer {
    * 决策阶段不写内核；尚未保存的锁定范围先收集，循环结束后一次快照提交。
    */
   private collectPanePriceRanges(frame: FrameContext): void {
+    const inputs = this.preparePanePriceRangeInputs(frame)
+    const result = this.resolveFramePanePriceRanges(frame, inputs)
+    this.applyPanePriceRangeFrame(frame, inputs, result)
+    this.initializePendingHandRanges(result.pendingHandRanges)
+  }
+
+  /** 读取本帧范围输入，比较投影与轴状态各准备一次。 */
+  private preparePanePriceRangeInputs(frame: FrameContext): PanePriceRangeInputs {
     const indicatorManager = this.deps.getIndicatorManager()
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -799,10 +823,22 @@ export class ChartRenderer {
         )
       : null
 
-    frame.mainIndicatorRange = mainIndicatorRange
-    frame.comparisonActive = comparisonActive
-    frame.comparisonProjection = comparisonProjection
+    return {
+      dataManager,
+      mode,
+      mainIndicatorRange,
+      comparisonActive,
+      comparisonProjection,
+      axisStates: this.deps.mainPriceAxis.readonly.paneRanges.peek(),
+    }
+  }
 
+  /** 解析各 pane 范围并收集初始化意图，不修改 frame 或内核。 */
+  private resolveFramePanePriceRanges(
+    frame: FrameContext,
+    inputs: PanePriceRangeInputs,
+  ): PanePriceRangeResult {
+    const { dataManager, mode, mainIndicatorRange, comparisonActive, comparisonProjection } = inputs
     const panePriceRanges: Record<string, ResolvedPanePriceRange> = {}
     // 收集阶段只做决策，不写内核；待初始化的锁定范围先收集，循环后统一提交。
     const pendingHandRanges: Array<{ paneId: string; range: PriceRange }> = []
@@ -819,7 +855,7 @@ export class ChartRenderer {
         comparisonProjection,
         subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
       })
-      const axisState = this.deps.mainPriceAxis.readonly.paneRanges.peek()[pane.id]
+      const axisState = inputs.axisStates[pane.id]
       const resolved = resolvePanePriceRange({
         rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
         handRange: axisState?.handRange ?? null,
@@ -831,8 +867,25 @@ export class ChartRenderer {
         pendingHandRanges.push({ paneId: pane.id, range: resolved.range })
       }
     }
-    frame.panePriceRanges = panePriceRanges
-    // 本帧唯一的业务状态写入：一次快照提交所有待初始化的锁定范围。
+    return { panePriceRanges, pendingHandRanges }
+  }
+
+  /** 将计算结果发布到帧对象，供后续轴投影和绘制共享。 */
+  private applyPanePriceRangeFrame(
+    frame: FrameContext,
+    inputs: PanePriceRangeInputs,
+    result: PanePriceRangeResult,
+  ): void {
+    frame.mainIndicatorRange = inputs.mainIndicatorRange
+    frame.comparisonActive = inputs.comparisonActive
+    frame.comparisonProjection = inputs.comparisonProjection
+    frame.panePriceRanges = result.panePriceRanges
+  }
+
+  /** 唯一业务状态写入边界：一次 Action 初始化所有待保存的锁定范围。 */
+  private initializePendingHandRanges(
+    pendingHandRanges: PanePriceRangeResult['pendingHandRanges'],
+  ): void {
     if (pendingHandRanges.length > 0) {
       this.deps.mainPriceAxis.actions.initializeHandRanges(pendingHandRanges)
     }

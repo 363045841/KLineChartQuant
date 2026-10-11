@@ -1430,6 +1430,39 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('initializes all pending pane hand ranges with one action', async () => {
+    await loadBuiltinIndicators()
+    const chart = mountChart()
+    chart.setData(makeBars(500))
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    const indicators = chart['indicatorManager']
+    const entry = indicators.getSubPaneEntry('MACD_0')
+    expect(entry).toBeDefined()
+    // 副图计算异步提交；先等待真实结果，再验证同一帧的批量初始化。
+    await vi.waitFor(() => {
+      expect(indicators.createRenderStateReader().get(entry!.instanceId)).toBeDefined()
+    })
+    // 恢复模式不捕获运行时默认轴，模拟两个 pane 等待首个有效帧初始化。
+    chart.kernel.mainPriceAxis.actions.restoreModes({
+      [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.HAND,
+      MACD_0: PRICE_AXIS_RANGE_MODE.HAND,
+    })
+    const initialize = vi.spyOn(chart.kernel.mainPriceAxis.actions, 'initializeHandRanges')
+
+    chart.resize()
+    chart.draw()
+
+    expect(initialize).toHaveBeenCalledOnce()
+    expect(initialize.mock.calls[0]?.[0].map((entry) => entry.paneId).sort()).toEqual([
+      'MACD_0',
+      MAIN_PANE_ID,
+    ])
+    const ranges = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
+    expect(ranges[MAIN_PANE_ID]?.handRange).toEqual({ minPrice: 9, maxPrice: 11 })
+    expect(ranges.MACD_0?.handRange).toEqual({ minPrice: 0, maxPrice: 0 })
+    await chart.destroy()
+  })
+
   it('clears stale canvases and cached geometry when switching data views', async () => {
     const chart = mountChart()
     const renderer = chart['renderer']
