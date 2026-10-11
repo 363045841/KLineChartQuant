@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "KCQ Mobile Spike",
+    "slug": "kcq-mobile-spike",
+    "version": "0.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nebutra.kcq.spike"
+    },
+    "android": {
+      "package": "com.nebutra.kcq.spike",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0E11",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "tsconfigPaths": false
+    }
+  }
+}
