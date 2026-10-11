@@ -2,8 +2,10 @@
  * connectors.mjs
  *
  * 数据源后端（connector）的启动逻辑，供 `scripts/dev.mjs` 与 `scripts/start-connector.mjs` 复用。
- * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、mt5（别名 m）、all（全部）。
- * `all` 不含 mt5：它依赖 Windows + 已登录的 MT5 (Exness) 终端，仅显式启动。
+ * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、mt5（别名 m）、
+ * ths（别名 t）、all（全部）。
+ * `all` 不含 mt5 与 ths：前者依赖 Windows + 已登录的 MT5 (Exness) 终端，
+ * 后者依赖同花顺 API Key，均仅显式启动。
  */
 
 import { spawn } from 'node:child_process'
@@ -51,6 +53,17 @@ const CONNECTORS = {
     // 依赖 Windows + 本机已登录的 MT5 (Exness) 终端，不纳入 `all`，仅显式启动
     includeInAll: false,
   },
+  ths: {
+    label: 'ths（同花顺 A股/指数/ETF/期货/期权 日线，:8092）',
+    logLabel: 'ths',
+    logColor: LOG_COLORS.ths,
+    dir: 'KCQ-THS-connector',
+    cmd: 'uv',
+    args: ['run', 'python', './server.py'],
+    // 依赖同花顺 API Key（THS_API_KEY 或 ~/.cloudtrade/config.json 的 ths.api_key），
+    // 未配置时 probe 返回 degraded；故不纳入 `all`，仅显式启动
+    includeInAll: false,
+  },
 }
 
 export const CONNECTOR_NAMES = Object.keys(CONNECTORS)
@@ -71,6 +84,8 @@ const ALIASES = {
   b: 'baostock',
   mt5: 'mt5',
   m: 'mt5',
+  ths: 'ths',
+  t: 'ths',
 }
 
 // 解析用户输入的名称列表，返回去重后的标准 connector 名称数组
@@ -84,7 +99,9 @@ export function resolveConnectors(names) {
     }
     const target = ALIASES[key]
     if (!target) {
-      console.error(`  ✗ 未知 connector：${raw}（可用：gotdx / binance / baostock / mt5 / all）`)
+      console.error(
+        `  ✗ 未知 connector：${raw}（可用：gotdx / binance / baostock / mt5 / ths / all）`,
+      )
       continue
     }
     resolved.add(target)

@@ -32,6 +32,7 @@ flowchart TB
         Bn["Binance-Connector<br/>Binance spot K-line / trades :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5 (Exness) :8090"]
+        Th["KCQ-THS-connector<br/>THS daily bars :8092"]
     end
 
     UI --> VuePkg
@@ -55,6 +56,7 @@ flowchart TB
     Bn -->|market data| Data
     Bs -->|market data| Data
     Mt -->|"market data + SSE"| Data
+    Th -->|"market data (daily)"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -65,7 +67,7 @@ flowchart TB
 - **Rendering** — submit primitives once, render via WebGPU / WebGL2 / Canvas2D with
   automatic fallback (WebGPU → WebGL → Canvas2D).
 - **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
-  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
+  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / THS / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators, markers and drawing tools plug in as Scene Layers.
 - **React via Web Component** — `@363045841yyt/klinechart-react`'s `KLineChartWC` renders the

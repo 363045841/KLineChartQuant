@@ -32,6 +32,7 @@ flowchart TB
         Bn["Binance-Connector<br/>Binance 现货 K 线 / 逐笔成交 :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
+        Th["KCQ-THS-connector<br/>同花顺日线 :8092"]
     end
 
     UI --> VuePkg
@@ -55,6 +56,7 @@ flowchart TB
     Bn -->|行情数据| Data
     Bs -->|行情数据| Data
     Mt -->|"行情数据 + SSE"| Data
+    Th -->|"行情数据（日线）"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -65,7 +67,7 @@ flowchart TB
 - **渲染** — 图元一次提交，WebGPU / WebGL2 / Canvas2D 三后端渲染，自动降级
   （WebGPU → WebGL → Canvas2D）。
 - **数据层** — 统一 `SeriesRepository` + 增量缓冲 + 拉取调度；多数据源聚合
-  （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
+  （gotdx / BaoStock / TradingView / MT5 / 同花顺 THS / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 经 Web Component 接入** — `@363045841yyt/klinechart-react` 的 `KLineChartWC` 渲染由
