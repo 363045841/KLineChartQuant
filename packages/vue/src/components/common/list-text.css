@@ -1,0 +1,8 @@
+/* 列表项左侧文本列：主标题 + 副标题的堆叠排版，供品种列表与命令面板共用。 */
+.list-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 0;
+}

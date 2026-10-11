@@ -1,0 +1,35 @@
+/* 数值步进按钮：指标参数面板与预警条件表单共用同一外观。 */
+.stepper-btn,
+.rule-form-stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--klc-color-ui-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.stepper-btn:hover:not(:disabled),
+.rule-form-stepper-btn:hover:not(:disabled) {
+  background: var(--klc-color-ui-hover);
+  color: var(--klc-color-ui-text);
+}
+
+.stepper-btn:disabled,
+.rule-form-stepper-btn:disabled {
+  color: var(--klc-color-ui-border);
+  cursor: not-allowed;
+}
+
+.stepper-btn svg,
+.rule-form-stepper-btn svg {
+  width: 14px;
+  height: 14px;
+}

@@ -1,12 +1,12 @@
 <!-- 保存图元模板弹窗：输入模板名并提交，字段样式沿用其他弹窗的通用输入约定。 -->
 <template>
   <BaseModal
-    :show="show"
+    :open="show"
     title="保存图元模板"
     width="min(92vw, 360px)"
     :close-on-overlay="!busy"
     :show-close="!busy"
-    @close="emit('close')"
+    @update:open="!$event && emit('close')"
   >
     <form :id="formId" class="template-field" @submit.prevent="submit">
       <label class="template-field__label" :for="nameId">模板名称</label>

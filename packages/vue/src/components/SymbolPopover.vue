@@ -4,13 +4,13 @@
 -->
 <template>
   <BaseModal
-    :show="show"
+    :open="show"
     :title="dialogLabel"
     width="min(560px, calc(100vw - 32px))"
     max-height="calc(100dvh - 32px)"
     overlay-padding="var(--klc-space-16, 16px)"
     body-padding="0"
-    @close="emit('close')"
+    @update:open="!$event && emit('close')"
   >
     <template #tabs>
       <div class="symbol-popover__filters">
@@ -22,6 +22,7 @@
           v-model="search"
           :placeholder="searchPlaceholder"
           :aria-label="searchAriaLabel"
+          variant="flush"
           autofocus
         />
         <AggregationSourceButton @click="emit('manageSources')" />
@@ -110,14 +111,6 @@
     border-top: 1px solid var(--klc-color-ui-border);
     border-bottom: 1px solid var(--klc-color-ui-border);
     background: var(--klc-color-ui-surface);
-  }
-
-  .symbol-popover__search :deep(.search-field) {
-    height: 42px;
-    padding: 0 var(--klc-space-12, 12px);
-    border: 0;
-    border-radius: 0;
-    background: transparent;
   }
 
   .symbol-popover__search :deep(.source-button) {

@@ -22,18 +22,23 @@
         :popover="topLayer ? 'manual' : undefined"
         role="tooltip"
       >
-        <slot name="content">{{ content }}</slot>
+        <span class="base-tooltip__content"><slot name="content">{{ content }}</slot></span>
+        <span v-if="shortcut" class="base-tooltip__shortcut" aria-label="快捷键">
+          <ShortcutKeys :shortcut="shortcut" variant="tooltip" />
+        </span>
       </div>
     </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-  import { watch } from 'vue'
-
+  import { primaryShortcut } from '@363045841yyt/klinechart-core'
+  import { computed, watch } from 'vue'
+  import { injectCommands } from '../../composables/commands/useCommands.js'
   import { supportsPopover } from '../../composables/overlay/platform.js'
   import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
   import { type TooltipPlacement, useTooltip } from '../../composables/useTooltip.js'
+  import ShortcutKeys from './ShortcutKeys.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -51,6 +56,8 @@
       hideDelay?: number
       /** 为 true 时屏蔽显示 */
       disabled?: boolean
+      /** 关联命令 id；存在时在 tooltip 后显示该命令的快捷键。 */
+      command?: string
     }>(),
     {
       content: '',
@@ -60,10 +67,18 @@
       showDelay: 300,
       hideDelay: 0,
       disabled: false,
+      command: undefined,
     },
   )
 
   const teleportTarget = useFullscreenTeleportTarget()
+  const registry = injectCommands()
+  const shortcut = computed(() => {
+    if (!props.command || !registry) return null
+    const command = registry.get(props.command)
+    const combo = command ? primaryShortcut(command) : null
+    return combo ? registry.formatShortcut(combo) : null
+  })
 
   const {
     triggerRef,
@@ -137,6 +152,17 @@
 
   .base-tooltip.is-styled {
     visibility: visible;
+  }
+
+  .base-tooltip__content {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .base-tooltip__shortcut {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
   }
 
   .base-tooltip-enter-active,

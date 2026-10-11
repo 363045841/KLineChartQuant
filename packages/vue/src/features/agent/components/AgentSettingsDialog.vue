@@ -1,12 +1,12 @@
 <template>
   <BaseModal
-    :show="providerSettings.open"
+    :open="providerSettings.open"
     :title="text.settings"
     width="min(92vw, 760px)"
     max-height="calc(100vh - 36px)"
     body-padding="12px 20px 16px"
     :body-scrollable="false"
-    @close="closeProviderSettings()"
+    @update:open="!$event && closeProviderSettings()"
   >
     <template #tabs>
       <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.settings" />

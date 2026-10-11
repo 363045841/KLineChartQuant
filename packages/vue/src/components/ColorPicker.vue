@@ -165,7 +165,7 @@
     border-radius: 10px;
     background: var(--klc-color-floating-surface);
     color: var(--klc-color-ui-text);
-    box-shadow: 0 4px 16px var(--klc-color-ui-panel-shadow);
+    box-shadow: var(--klc-elevation-2, 0 4px 16px rgb(0 0 0 / 0.14));
     font-family: var(--klc-typography-font-family);
     font-size: 12px;
   }

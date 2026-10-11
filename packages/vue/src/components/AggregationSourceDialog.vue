@@ -1,11 +1,11 @@
 <template>
   <BaseModal
-    :show="show"
+    :open="show"
     title="聚合源管理"
     width="min(92vw, 480px)"
     body-padding="8px"
     body-scrollable
-    @close="emit('close')"
+    @update:open="!$event && emit('close')"
   >
     <div class="source-list">
       <p v-if="sources.length === 0" class="source-empty" role="status">暂无可用数据源，请连接一个行情源。</p>
@@ -305,11 +305,11 @@
   }
 
   .source-status.is-online {
-    color: var(--klc-color-success);
+    color: var(--klc-color-ui-success);
   }
 
   .source-status.is-offline {
-    color: var(--klc-color-danger);
+    color: var(--klc-color-ui-danger);
   }
 
   .source-endpoint {

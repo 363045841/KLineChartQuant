@@ -1,0 +1,21 @@
+/* 设置行：图表设置弹窗内各分组共用的行布局与文本列。 */
+.settings-item {
+  /* 行高包含内边距，所有分组共用相同的水平对齐与垂直节奏。 */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--klc-spacing-md);
+  min-block-size: 40px;
+  /* 左右内边距让文本与控件不贴住行的交互态背景边缘。 */
+  padding: var(--klc-spacing-sm);
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  transition: background-color var(--klc-motion-duration-fast) ease;
+}
+
+.settings-item > span {
+  min-inline-size: 0;
+  line-height: var(--klc-typography-line-height-standard);
+}

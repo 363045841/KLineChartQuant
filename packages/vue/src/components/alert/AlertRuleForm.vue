@@ -669,37 +669,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
-  .rule-form-stepper-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition:
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .rule-form-stepper-btn:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .rule-form-stepper-btn:disabled {
-    color: var(--klc-color-ui-border);
-    cursor: not-allowed;
-  }
-
-  .rule-form-stepper-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
   .rule-form-stepper-field {
     position: relative;
     display: flex;
@@ -977,3 +946,5 @@
     cursor: not-allowed;
   }
 </style>
+
+<style scoped src="../common/stepper-button.css"></style>

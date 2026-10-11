@@ -81,7 +81,7 @@
             :aria-selected="symbolIdentityKey(item) === selectedKey"
           >
             <button type="button" class="symbol-list__select" @click="selectSymbol(item)">
-              <span class="symbol-list__left">
+              <span class="list-text">
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
@@ -270,6 +270,7 @@
 
 <style scoped src="./common/control-button.css"></style>
 <style scoped src="./common/symbol-list.css"></style>
+<style scoped src="./common/list-text.css"></style>
 
 <style scoped>
   .symbol-chip-wrap {

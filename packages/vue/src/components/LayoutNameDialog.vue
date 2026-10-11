@@ -1,12 +1,12 @@
 <!-- 布局命名弹窗：创建、重命名与复制共用，输入名称后提交。 -->
 <template>
   <BaseModal
-    :show="show"
+    :open="show"
     :title="title"
     width="min(92vw, 360px)"
     :close-on-overlay="!busy"
     :show-close="!busy"
-    @close="emit('close')"
+    @update:open="!$event && emit('close')"
   >
     <form :id="formId" class="layout-name" @submit.prevent="submit">
       <label class="layout-name__label" :for="nameId">布局名称</label>

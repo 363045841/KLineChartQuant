@@ -10,7 +10,7 @@
         :layout-controller="controller"
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
-        @settings="chartSettingsOpen = true"
+        @settings="openChartSettings('main')"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
         @undo-drawing="controller?.undoDrawing()"
@@ -67,11 +67,8 @@
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
-          v-model:settings-open="chartSettingsOpen"
           :alert-controller="controller"
           :effective-settings="chartSettings"
-          :renderer-runtime="rendererRuntime"
-          :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
           :magnet-mode="magnetMode"
           :continuous-drawing="continuousDrawing"
@@ -80,9 +77,6 @@
           :all-drawings-hidden="drawings.length > 0 && drawings.every((drawing) => !drawing.visible)"
           :global-drawing-locked="globalDrawingLock"
           :is-range-select-mode="isRangeSelectMode"
-          :aggregation-sources="aggregationSources"
-          :enabled-source-names="enabledSourceNameSet"
-          :source-endpoints="sourceEndpoints"
           @select-tool="handleSelectTool"
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
@@ -93,13 +87,7 @@
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
           @set-all-drawings-visible="onSetAllDrawingsVisible"
-          @settings-change="handleSettingsChange"
-          @clear-market-data-cache="controller?.clearMarketDataCache()"
-          @toggle-aggregation-source="setAggregationSourceEnabled"
-          @update-source-endpoint="setAggregationSourceEndpoint"
-        >
-          <template #source-management><slot name="source-management" /></template>
-        </LeftToolbar>
+        />
         <div ref="chartMainRef" class="chart-main">
           <a
             class="chart-brand"
@@ -136,7 +124,6 @@
           <div
             ref="containerRef"
             tabindex="0"
-            @keydown="onDrawingHistoryKeydown"
             class="chart-container"
             @dblclick="onDoubleClick"
             @contextmenu.prevent
@@ -358,6 +345,24 @@
       @replace="replaceLegend"
       @close="replacementPaneId = null"
     />
+    <ChartSettingsDialog
+      v-model:open="chartSettingsOpen"
+      :initial-section="chartSettingsSection"
+      :initial-settings="chartSettings"
+      :renderer-runtime="rendererRuntime"
+      :market-data-cache-stats="marketDataCacheStats"
+      :aggregation-sources="aggregationSources"
+      :enabled-source-names="enabledSourceNameSet"
+      :source-endpoints="sourceEndpoints"
+      @confirm="confirmChartSettings"
+      @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
+      @clear-market-data-cache="controller?.clearMarketDataCache()"
+      @toggle-aggregation-source="setAggregationSourceEnabled"
+      @update-source-endpoint="setAggregationSourceEndpoint"
+    >
+      <template #source-management><slot name="source-management" /></template>
+    </ChartSettingsDialog>
+    <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
     <ToastViewport />
   </div>
 </template>
@@ -437,12 +442,16 @@
   import { useLegendUi } from '../composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { createChartCommands } from '../composables/commands/chartCommands.js'
+  import { provideChartCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
   import { useWatchlist } from '../composables/useWatchlist.js'
   import { readElementSize } from '../utils/elementSize.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
+  import CommandPalette from './commands/CommandPalette.vue'
+  import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import ToastViewport from './common/ToastViewport.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
@@ -892,6 +901,18 @@
   // ── Fullscreen (controlled / uncontrolled) ──
   const internalIsFullscreen = ref(false)
   const chartSettingsOpen = ref(false)
+  const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
+
+  function openChartSettings(section: 'main' | 'shortcuts'): void {
+    chartSettingsSection.value = section
+    chartSettingsOpen.value = true
+  }
+
+  function confirmChartSettings(settings: ChartSettings): void {
+    handleSettingsChange(settings)
+    chartSettingsOpen.value = false
+  }
+  const paletteOpen = ref(false)
   const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
   let onFullscreenChange: (() => void) | null = null
 
@@ -994,25 +1015,17 @@
     () => false,
   )
 
-  function onDrawingHistoryKeydown(event: KeyboardEvent) {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return
-    const target = event.target
-    if (
-      target instanceof Element &&
-      target.closest('input, textarea, select, [contenteditable], [role="textbox"]')
-    )
-      return
-    const redo =
-      event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z')
-    const undo = !event.shiftKey && event.key.toLowerCase() === 'z'
-    if (redo && canRedoDrawing.value) {
-      event.preventDefault()
-      controller.value?.redoDrawing()
-    } else if (undo && canUndoDrawing.value) {
-      event.preventDefault()
-      controller.value?.undoDrawing()
-    }
-  }
+  // ── Commands ──
+  // 每张图表一个命令注册表；撤销/重做走命令层，快捷键只作用于获得焦点的图表。
+  const commands = provideChartCommands(chartWrapperRef)
+  useRegisterCommands(commands, () =>
+    createChartCommands({
+      controller: () => controller.value,
+      openPalette: () => {
+        paletteOpen.value = !paletteOpen.value
+      },
+    }),
+  )
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
     (ctrl) => ctrl.rendererRuntime,
