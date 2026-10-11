@@ -1,4 +1,5 @@
 /** LocalStorage 持久化原语，存储实例绑定创建时的工作区。 */
+import { createPendingWriteScheduler, DEFAULT_DEBOUNCE_MS } from './pendingWriteScheduler.js'
 import { scopedPersistenceName } from './persistence-scope.js'
 
 /** 可替换的字符串键值存储后端。 */
@@ -44,8 +45,6 @@ export interface CreateLocalStoragePersistenceOptions<T> {
   readonly flushOnPageHide?: boolean
 }
 
-const DEFAULT_DEBOUNCE_MS = 1_000
-
 /**
  * 安全获取浏览器 localStorage。
  *
@@ -65,18 +64,9 @@ export function createLocalStoragePersistence<T>(
 ): Persistence<T> {
   const key = scopedPersistenceName(options.key)
   const storage = options.storage === undefined ? getBrowserLocalStorage() : options.storage
-  const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
   const flushOnPageHide = options.flushOnPageHide ?? true
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let pending: { readonly createValue: () => T } | null = null
+  const scheduler = createPendingWriteScheduler<T>(options.debounceMs ?? DEFAULT_DEBOUNCE_MS)
   let disposed = false
-
-  function cancelScheduledWrite(): void {
-    if (timer !== null) {
-      clearTimeout(timer)
-      timer = null
-    }
-  }
 
   function write(value: T): boolean {
     if (!storage) return false
@@ -89,11 +79,8 @@ export function createLocalStoragePersistence<T>(
   }
 
   function flush(): boolean {
-    cancelScheduledWrite()
-    if (!pending) return true
-    const next = pending
-    pending = null
-    return write(next.createValue())
+    const next = scheduler.takePending()
+    return next ? write(next()) : true
   }
 
   function onPageHide(): void {
@@ -116,15 +103,12 @@ export function createLocalStoragePersistence<T>(
     },
     save(value: T): boolean {
       if (disposed) return false
-      cancelScheduledWrite()
-      pending = null
+      scheduler.drop()
       return write(value)
     },
     schedule(createValue: () => T): void {
       if (disposed || !storage) return
-      pending = { createValue }
-      cancelScheduledWrite()
-      timer = setTimeout(flush, debounceMs)
+      scheduler.schedule(createValue, flush)
     },
     flush(): boolean {
       if (disposed) return false
@@ -132,8 +116,7 @@ export function createLocalStoragePersistence<T>(
     },
     clear(): boolean {
       if (disposed || !storage) return false
-      cancelScheduledWrite()
-      pending = null
+      scheduler.drop()
       try {
         storage.removeItem(key)
         return true
