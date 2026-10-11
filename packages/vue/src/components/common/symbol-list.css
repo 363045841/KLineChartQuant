@@ -39,15 +39,6 @@
   margin-bottom: 8px;
 }
 
-.compare-list__left,
-.symbol-list__left {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  flex: 1 1 0;
-}
-
 .compare-list__code,
 .symbol-list__code {
   font-size: 13px;

@@ -1,12 +1,12 @@
 <!-- 指标参数弹窗：按草稿中的模式选择显示适用参数。 -->
 <template>
   <BaseModal
-    :show="visible"
+    :open="visible"
     :title="indicatorName"
     subtitle="参数设置"
     width="min(92vw, 360px)"
     footer-align="space-between"
-    @close="$emit('close')"
+    @update:open="!$event && $emit('close')"
   >
     <template #header-extra>
       <BaseTooltip content="显示/隐藏说明" placement="bottom">
@@ -285,37 +285,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
-  .stepper-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition:
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .stepper-btn:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .stepper-btn:disabled {
-    color: var(--klc-color-ui-border);
-    cursor: not-allowed;
-  }
-
-  .stepper-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
   .param-input {
     width: auto;
     field-sizing: content;
@@ -368,3 +337,4 @@
 </style>
 
 <style scoped src="./common/selection-menu.css"></style>
+<style scoped src="./common/stepper-button.css"></style>

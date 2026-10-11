@@ -1,5 +1,10 @@
 <template>
-  <BaseModal :show="show" title="图元设置" width="min(92vw, 440px)" @close="emit('close')">
+  <BaseModal
+    :open="show"
+    title="图元设置"
+    width="min(92vw, 440px)"
+    @update:open="!$event && emit('close')"
+  >
     <template #tabs>
       <BaseTabs v-model="activeTab" :tabs="tabs" aria-label="图元设置" />
     </template>

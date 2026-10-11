@@ -31,7 +31,7 @@ describe('BaseModal', () => {
   it('用 showModal() 打开，并以标题作为 aria-labelledby', async () => {
     const wrapper = mount(BaseModal, {
       attachTo: document.body,
-      props: { show: true, title: '图表设置' },
+      props: { open: true, title: '图表设置' },
       slots: { default: () => h('p', '内容') },
     })
     await flush()
@@ -47,7 +47,7 @@ describe('BaseModal', () => {
     wrapper.unmount()
   })
 
-  it('Esc（cancel 事件）关闭：发出 close 与 update:open，并关闭原生 dialog', async () => {
+  it('Esc 只请求父组件关闭，收到 open=false 后才关闭原生 dialog', async () => {
     const wrapper = mount(BaseModal, {
       attachTo: document.body,
       props: { open: true, title: 'T' },
@@ -57,28 +57,30 @@ describe('BaseModal', () => {
     dialogEl().dispatchEvent(cancel)
     await flush()
     expect(cancel.defaultPrevented).toBe(true)
-    expect(wrapper.emitted('close')).toHaveLength(1)
     expect(wrapper.emitted('update:open')?.[0]).toEqual([false])
+    expect(dialogEl().open).toBe(true)
+    await wrapper.setProps({ open: false })
+    await flush()
     expect(document.querySelector('dialog')).toBeNull()
     wrapper.unmount()
   })
 
   it('只有按下与抬起都在背景上才关闭', async () => {
-    const wrapper = mount(BaseModal, { attachTo: document.body, props: { show: true, title: 'T' } })
+    const wrapper = mount(BaseModal, { attachTo: document.body, props: { open: true, title: 'T' } })
     await flush()
     const dialog = dialogEl()
     dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(wrapper.emitted('update:open')).toBeUndefined()
     dialog.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(wrapper.emitted('update:open')).toEqual([[false]])
     wrapper.unmount()
   })
 
   it('Tab 在对话框内循环（焦点陷阱）', async () => {
     const wrapper = mount(BaseModal, {
       attachTo: document.body,
-      props: { show: true, title: 'T' },
+      props: { open: true, title: 'T' },
       slots: {
         default: () => [h('input', { id: 'first-field' }), h('button', { id: 'last' }, 'OK')],
       },
@@ -136,18 +138,47 @@ describe('BaseModal', () => {
     wrapper.unmount()
   })
 
-  it('兼容旧的 show + close 用法：父级置 false 时卸载内容', async () => {
+  it('父组件的 open 是唯一状态，关闭后可以反复打开', async () => {
     const wrapper = mount(BaseModal, {
       attachTo: document.body,
-      props: { show: true, title: 'T' },
+      props: { open: true, title: 'T' },
       slots: { default: () => h('p', { id: 'body' }, 'x') },
     })
     await flush()
     expect(document.getElementById('body')).not.toBeNull()
-    await wrapper.setProps({ show: false })
+    for (let index = 0; index < 3; index++) {
+      await wrapper.setProps({ open: false })
+      await flush()
+      expect(document.getElementById('body')).toBeNull()
+      await wrapper.setProps({ open: true })
+      await flush()
+      expect(dialogEl().open).toBe(true)
+    }
+    expect(wrapper.emitted('update:open')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('忽略重新打开后到达的旧 close 事件', async () => {
+    const wrapper = mount(BaseModal, {
+      attachTo: document.body,
+      props: { open: true, title: 'T' },
+    })
     await flush()
-    expect(document.getElementById('body')).toBeNull()
-    expect(wrapper.emitted('close')).toBeUndefined()
+    dialogEl().dispatchEvent(new Event('close'))
+    expect(wrapper.emitted('update:open')).toBeUndefined()
+    expect(dialogEl().open).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('原生 dialog 被浏览器关闭时请求更新父组件状态', async () => {
+    const wrapper = mount(BaseModal, {
+      attachTo: document.body,
+      props: { open: true, title: 'T' },
+    })
+    await flush()
+    dialogEl().close()
+    await flush()
+    expect(wrapper.emitted('update:open')).toEqual([[false]])
     wrapper.unmount()
   })
 })

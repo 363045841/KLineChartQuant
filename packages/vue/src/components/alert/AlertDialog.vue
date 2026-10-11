@@ -1,11 +1,11 @@
 <template>
   <BaseModal
-    :show="show"
+    :open="show"
     title="预警"
     subtitle="价格、指标、成交量条件告警"
     width="min(92vw, 560px)"
     max-height="min(680px, calc(100vh - 48px))"
-    @close="handleClose"
+    @update:open="!$event && handleClose()"
   >
     <template #header-extra>
       <SegmentedTabs v-model="activeTab" :tabs="tabs" aria-label="预警视图">

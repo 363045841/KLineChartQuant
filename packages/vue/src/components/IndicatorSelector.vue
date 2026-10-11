@@ -1,14 +1,14 @@
 <template>
   <div class="indicator-selector">
     <BaseModal
-      :show="menuOpen"
+      :open="menuOpen"
       :title="modalTitle"
       :subtitle="`${catalogLen} 个可用指标`"
       width="90vw"
       max-width="860px"
       max-height="85vh"
       footer-align="space-between"
-      @close="closeMenu"
+      @update:open="!$event && closeMenu()"
     >
       <template #subheader>
         <div class="selector-toolbar">
@@ -154,7 +154,6 @@
   const emit = defineEmits<{
     toggle: [indicatorId: string, active: boolean]
     updateParams: [indicatorId: string, params: Record<string, number | string>]
-    reorderSubIndicators: [orderedIndicatorIds: string[]]
     replace: [paneId: string, indicatorId: string]
     close: []
   }>()
@@ -424,7 +423,7 @@
     padding: 6px 32px 6px 10px;
   }
 
-  .indicator-grid.compact .indicator-card .card-label {
+  .indicator-grid.compact .card-label {
     font-size: 12px;
     font-weight: 500;
   }

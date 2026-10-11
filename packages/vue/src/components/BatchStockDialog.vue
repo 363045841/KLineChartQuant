@@ -1,5 +1,9 @@
 <template>
-  <BaseModal title="批量设置股票代码" :show="show" @close="emit('close')">
+  <BaseModal
+    title="批量设置股票代码"
+    :open="show"
+    @update:open="!$event && emit('close')"
+  >
     <label class="batch-field">
       <span class="batch-field__label">股票代码</span>
       <BaseTextarea

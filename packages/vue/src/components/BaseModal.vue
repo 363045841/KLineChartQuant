@@ -4,7 +4,7 @@
   - Tab 在对话框内循环（不逃逸到浏览器 UI），关闭后焦点回到打开前的元素；
   - aria-labelledby 指向标题；关闭按钮有 type 与可访问名称；
   - 进出场用 @starting-style + transition-behavior: allow-discrete，不用定时器；
-  - 受控方式：v-model:open（推荐）或旧的 show + @close（保持兼容）。
+  - 只接受父组件控制的 open，通过 update:open 请求变更，不持有内部开关状态。
 -->
 <template>
   <Teleport :to="teleportTarget">
@@ -21,56 +21,58 @@
       @close="onNativeClose"
       @keydown.tab="trapTab"
     >
-      <div v-if="$slots.header || $slots.title || title" class="base-header">
-        <slot name="header">
-          <div class="base-header-left">
-            <h2 :id="titleId" class="base-title"><slot name="title">{{ title }}</slot></h2>
-            <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
-          </div>
-        </slot>
-        <div v-if="showClose" class="base-header-right">
-          <slot name="header-extra" />
-          <button
-            type="button"
-            class="base-close-btn"
-            :aria-label="closeLabel"
-            @click="requestClose"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
+      <div class="base-modal__surface">
+        <div v-if="$slots.header || $slots.title || title" class="base-header">
+          <slot name="header">
+            <div class="base-header-left">
+              <h2 :id="titleId" class="base-title"><slot name="title">{{ title }}</slot></h2>
+              <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
+            </div>
+          </slot>
+          <div v-if="showClose" class="base-header-right">
+            <slot name="header-extra" />
+            <button
+              type="button"
+              class="base-close-btn"
+              :aria-label="closeLabel"
+              @click="requestClose"
             >
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="$slots.subheader" class="base-subheader">
+          <slot name="subheader" />
+        </div>
+
+        <div v-if="$slots.tabs" class="base-tabs">
+          <slot name="tabs" />
+        </div>
+
+        <div
+          class="base-body"
+          :class="{ 'base-body--scrollable': bodyScrollable }"
+          :style="{ padding: bodyPadding }"
+        >
+          <slot />
+        </div>
+
+        <div v-if="$slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
+          <slot name="footer" />
         </div>
       </div>
 
-      <div v-if="$slots.subheader" class="base-subheader">
-        <slot name="subheader" />
-      </div>
-
-      <div v-if="$slots.tabs" class="base-tabs">
-        <slot name="tabs" />
-      </div>
-
-      <div
-        class="base-body"
-        :class="{ 'base-body--scrollable': bodyScrollable }"
-        :style="{ padding: bodyPadding }"
-      >
-        <slot />
-      </div>
-
-      <div v-if="$slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
-        <slot name="footer" />
-      </div>
-
       <!-- 模态期间 dialog 外的内容是 inert：Undo 等 toast 在对话框内渲染才可交互。 -->
-      <ToastViewport v-if="isOpen" placement="bottom-center" />
+      <ToastViewport v-if="open" placement="bottom-center" />
     </dialog>
   </Teleport>
 </template>
@@ -97,8 +99,8 @@
 
   const props = withDefaults(
     defineProps<{
-      /** 旧版受控开关；新代码使用 v-model:open。 */
-      show?: boolean
+      /** 唯一开关状态，由父组件持有。 */
+      open: boolean
       title?: string
       subtitle?: string
       width?: string
@@ -116,7 +118,6 @@
       closeLabel?: string
     }>(),
     {
-      show: false,
       title: '',
       subtitle: '',
       width: 'min(92vw, 400px)',
@@ -133,11 +134,8 @@
     },
   )
 
-  /** v-model:open；未绑定时为 undefined，回落到 show。 */
-  const open = defineModel<boolean | undefined>('open', { default: undefined })
-
   const emit = defineEmits<{
-    close: []
+    'update:open': [value: boolean]
   }>()
 
   const slots = useSlots()
@@ -151,13 +149,13 @@
   // 原生 modal dialog 位于 top layer，dialog 外的内容是 inert；内部弹层也挂在 dialog 内。
   provideFullscreenTeleportTarget(dialog)
 
-  const isOpen = computed(() => open.value ?? props.show)
-  const rendered = ref(isOpen.value)
+  // 仅控制退场期间 DOM 的存续，不参与判断弹窗是否打开。
+  const rendered = ref(props.open)
   let returnFocusTo: HTMLElement | null = null
   let pointerDownOnBackdrop = false
 
   const modalStyle = computed(() => ({
-    width: props.width,
+    '--base-modal-width': props.width,
     maxWidth: props.maxWidth
       ? `min(${props.maxWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
       : `calc(100vw - ${props.overlayPadding} - ${props.overlayPadding})`,
@@ -172,7 +170,7 @@
     rendered.value = true
     await nextTick()
     const element = dialog.value
-    if (element && !element.open && isOpen.value) element.showModal()
+    if (element && !element.open && props.open) element.showModal()
   }
 
   /** 关闭原生 dialog；内容在退场过渡结束后卸载。 */
@@ -187,7 +185,7 @@
     const animations = typeof element.getAnimations === 'function' ? element.getAnimations() : []
     await Promise.allSettled(animations.map((animation) => animation.finished))
     // 退场期间又被打开时保持渲染。
-    if (!isOpen.value) rendered.value = false
+    if (!props.open) rendered.value = false
   }
 
   function restoreFocus(element: HTMLDialogElement): void {
@@ -200,10 +198,7 @@
 
   /** 用户发起的关闭（Esc、关闭按钮、点击背景）。 */
   function requestClose(): void {
-    if (!isOpen.value && !dialog.value?.open) return
-    open.value = false
-    emit('close')
-    void closeDialog()
+    if (props.open) emit('update:open', false)
   }
 
   function onBackdropPointerDown(): void {
@@ -219,10 +214,8 @@
 
   /** 浏览器直接关闭（如 Chrome 对连续 Esc 的强制关闭）。 */
   function onNativeClose(): void {
-    if (!isOpen.value) return
-    open.value = false
-    emit('close')
-    void closeDialog()
+    // close 事件异步派发：重新打开后到达的旧事件不能关闭新弹窗。
+    if (props.open && !dialog.value?.open) emit('update:open', false)
   }
 
   /** Tab 在对话框内循环。 */
@@ -246,9 +239,12 @@
     }
   }
 
-  watch(isOpen, (value) => (value ? openDialog() : closeDialog()))
+  watch(
+    () => props.open,
+    (value) => (value ? openDialog() : closeDialog()),
+  )
   onMounted(() => {
-    if (isOpen.value) void openDialog()
+    if (props.open) void openDialog()
   })
   onBeforeUnmount(() => {
     const element = dialog.value
@@ -266,6 +262,7 @@
     /* UA 的 modal 居中（inset: 0; margin: auto），静止时没有 transform，
        内部 position: fixed 的元素仍相对视口定位。 */
     margin: auto;
+    width: var(--base-modal-width);
     background: var(--klc-color-ui-surface);
     color: var(--klc-color-ui-text);
     border: 0;
@@ -287,6 +284,16 @@
       translate var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
       overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
       display var(--klc-motion-dur-base, 200ms) allow-discrete;
+  }
+
+  /* 内容在圆角内裁剪；dialog 自身仍保持 visible，供内部弹层越过内容边界。 */
+  .base-modal__surface {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: inherit;
   }
 
   /* 退场：close() 后保持渲染直到过渡结束（display/overlay allow-discrete）。 */
@@ -452,7 +459,7 @@
   @media (max-width: 480px) {
     .base-modal {
       min-width: 0;
-      width: 100% !important;
+      width: 100%;
       max-height: calc(100vh - var(--klc-space-24, 24px));
     }
   }
