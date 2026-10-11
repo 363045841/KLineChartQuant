@@ -25,6 +25,8 @@ export class PriceScale {
   private basePrice: number | null = null
 
   /** 获取百分比轴基准价 */
+  // 经 PaneInfo（wrapPaneInfo）与 PaneInfo.yAxis（axisTicks）结构类型调用，静态分析无法识别接口接收者。
+  // fallow-ignore-next-line unused-class-member
   getBasePrice(): number | null {
     return this.basePrice
   }

@@ -58,6 +58,8 @@ export class Pane {
   readonly yAxis = new PriceScale()
 
   /** 当前 pane 的有效基础价格范围。 */
+  // 由 wrapPaneInfo 以结构类型 PaneInfo 暴露给插件消费，静态分析无法识别接口接收者上的访问。
+  // fallow-ignore-next-line unused-class-member
   get priceRange(): PriceRange {
     return this.yAxis.getRange()
   }
