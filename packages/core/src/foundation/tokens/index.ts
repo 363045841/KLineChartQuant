@@ -23,6 +23,7 @@ export {
   type UiColorPresetKey,
 } from './colorPresetSettings.js'
 export { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from './drawingColors.js'
+export { darkFoundation, foundationTokens, lightFoundation } from './foundation.js'
 export { mergeTheme } from './mergeTheme.js'
 export { findThemePreset, THEME_PRESETS } from './presets/impl/themePresets.js'
 export { DEFAULT_THEME_PRESET, type ThemePreset, type ThemePresetId } from './presets/types.js'
@@ -31,6 +32,7 @@ export { darkTheme } from './theme-dark.js'
 export { lightTheme } from './theme-light.js'
 export {
   camelToKebab,
+  FOUNDATION_GROUPS,
   type ThemeToCssVarsOptions,
   themeToCssVars,
   toCssDeclarationBlock,
@@ -39,15 +41,21 @@ export type {
   AgentColors,
   BOLLColors,
   BorderColors,
+  BrandTokens,
+  BreakpointTokens,
   CCIColors,
   ColorTokens,
   ColorValue,
   CssDuration,
   CssEasing,
   CssLength,
+  DensityTokens,
+  ElevationTokens,
   ENEColors,
   EXPMAColors,
   FootprintCellColors,
+  FoundationMotionTokens,
+  FoundationTokens,
   IndicatorPalette,
   KDJColors,
   KSTColors,
@@ -58,16 +66,25 @@ export type {
   MOMColors,
   MotionTokens,
   PriceColors,
+  RadiusTokens,
   RSIColors,
+  SpaceStep,
+  SpaceTokens,
   SpacingTokens,
   StructureColors,
   TagBgColors,
   TextColors,
+  TextCopyStep,
+  TextLabelStep,
+  TextScaleStep,
+  TextStyleTokens,
+  TextTokens,
   Theme,
   ThemeOverride,
   TypographyTokens,
   UiColors,
   VolumePriceColors,
   WMSRColors,
+  ZIndexTokens,
   ZonesColors,
 } from './types.js'

@@ -1,6 +1,8 @@
+// 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/preset/*.tokens.json 生成，请勿手改。
 // 视觉风格的语义色表；市场涨跌沿用 base，不将强调色用作行情颜色。
 import type { VisualPalette } from '../types.js'
 
+// Exchange · 交易 — 分层面板 · 琥珀强调
 export const exchange = {
   dark: {
     background: '#0B0E11',
@@ -36,6 +38,7 @@ export const exchange = {
   },
 } satisfies Record<'light' | 'dark', VisualPalette>
 
+// Terminal · 终端 — 冷灰面板 · 高对比边框
 export const terminal = {
   dark: {
     background: '#101215',
@@ -71,6 +74,7 @@ export const terminal = {
   },
 } satisfies Record<'light' | 'dark', VisualPalette>
 
+// Zen · 极简 — 灰绿表面 · 极弱网格
 export const zen = {
   dark: {
     background: '#17201E',
@@ -106,6 +110,7 @@ export const zen = {
   },
 } satisfies Record<'light' | 'dark', VisualPalette>
 
+// Quant · 研究 — 多色指标 · 研究工作台
 export const quant = {
   dark: {
     background: '#141625',

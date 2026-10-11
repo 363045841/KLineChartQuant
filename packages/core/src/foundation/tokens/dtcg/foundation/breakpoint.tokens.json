@@ -1,0 +1,25 @@
+{
+  "breakpoint": {
+    "$description": "Viewport breakpoints (design §3.3). These are the project's own; the only research anchor is that the settings dialog collapses below 640 (trading-ui-benchmark 4.2.1). CSS custom properties cannot be used inside @media; consumers read them from JS (matchMedia) or mirror them in container queries.",
+    "sm": {
+      "$type": "dimension",
+      "$value": { "value": 640, "unit": "px" },
+      "$description": "Settings dialog collapses its left nav to a select below this width (trading-ui-benchmark 4.2.1)."
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": { "value": 768, "unit": "px" },
+      "$description": "Project choice (design §3.3)."
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": { "value": 1024, "unit": "px" },
+      "$description": "Project choice (design §3.3)."
+    },
+    "xl": {
+      "$type": "dimension",
+      "$value": { "value": 1280, "unit": "px" },
+      "$description": "Project choice (design §3.3)."
+    }
+  }
+}

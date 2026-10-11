@@ -1,0 +1,197 @@
+{
+  "$description": "Quant · 研究 — 多色指标 · 研究工作台",
+  "light": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9686, 0.9725, 0.9882], "hex": "#F7F8FC" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.949, 0.9804], "hex": "#F0F2FA" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.9373, 0.9804], "hex": "#EAEFFA" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8784, 0.902, 0.9608], "hex": "#E0E6F5" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.898, 0.9176, 0.9686], "hex": "#E5EAF7" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8314, 0.8549, 0.9216], "hex": "#D4DAEB" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.5765, 0.6235, 0.7608], "hex": "#939FC2" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1686, 0.1922, 0.3137], "hex": "#2B3150" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.4353, 0.5686], "hex": "#606F91" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3569, 0.3098, 0.7333], "hex": "#5B4FBB" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8863, 0.9059, 0.9529], "hex": "#E2E7F3" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9294, 0.9412, 0.9725], "hex": "#EDF0F8" }
+      }
+    },
+    "color": {
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.3569, 0.3098, 0.7333],
+          "alpha": 0.149,
+          "hex": "#5B4FBB"
+        },
+        "$description": "= visual.accent at alpha 0x26."
+      },
+      "ma": {
+        "$description": "常用指标消费已有十色分类色盘，避免仅在预览色样体现差异。",
+        "ma5": { "$type": "color", "$value": "{light.color.palette.i1}" },
+        "ma10": { "$type": "color", "$value": "{light.color.palette.i2}" },
+        "ma20": { "$type": "color", "$value": "{light.color.palette.i3}" },
+        "ma30": { "$type": "color", "$value": "{light.color.palette.i4}" },
+        "ma60": { "$type": "color", "$value": "{light.color.palette.i8}" }
+      },
+      "boll": {
+        "upper": { "$type": "color", "$value": "{light.color.palette.i5}" },
+        "middle": { "$type": "color", "$value": "{light.color.palette.i6}" },
+        "lower": { "$type": "color", "$value": "{light.color.palette.i8}" }
+      },
+      "avwapLine": { "$type": "color", "$value": "{light.color.palette.i8}" },
+      "avwapBand": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.4863, 0.2275, 0.9294],
+          "alpha": 0.149,
+          "hex": "#7C3AED"
+        },
+        "$description": "= color.palette.i8 at alpha 0x26."
+      },
+      "mtfOverlay": { "$type": "color", "$value": "{light.color.palette.i6}" }
+    }
+  },
+  "dark": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0784, 0.0863, 0.1451], "hex": "#141625" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1098, 0.1255, 0.2], "hex": "#1C2033" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1373, 0.1608, 0.251], "hex": "#232940" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1569, 0.1843, 0.2863], "hex": "#282F49" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1922, 0.2314, 0.3451], "hex": "#313B58" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1765, 0.2118, 0.3176], "hex": "#2D3651" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2196, 0.2549, 0.3725], "hex": "#38415F" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.3882, 0.4392, 0.6157], "hex": "#63709D" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.8824, 0.9059, 0.9608], "hex": "#E1E7F5" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6745, 0.7216, 0.8235], "hex": "#ACB8D2" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6549, 0.6353, 1], "hex": "#A7A2FF" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.098, 0.0902, 0.1843], "hex": "#19172F" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.149, 0.1725, 0.2627], "hex": "#262C43" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1137, 0.1333, 0.2118], "hex": "#1D2236" }
+      }
+    },
+    "color": {
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.6549, 0.6353, 1],
+          "alpha": 0.149,
+          "hex": "#A7A2FF"
+        },
+        "$description": "= visual.accent at alpha 0x26."
+      },
+      "ma": {
+        "$description": "常用指标消费已有十色分类色盘，避免仅在预览色样体现差异。",
+        "ma5": { "$type": "color", "$value": "{dark.color.palette.i1}" },
+        "ma10": { "$type": "color", "$value": "{dark.color.palette.i2}" },
+        "ma20": { "$type": "color", "$value": "{dark.color.palette.i3}" },
+        "ma30": { "$type": "color", "$value": "{dark.color.palette.i4}" },
+        "ma60": { "$type": "color", "$value": "{dark.color.palette.i8}" }
+      },
+      "boll": {
+        "upper": { "$type": "color", "$value": "{dark.color.palette.i5}" },
+        "middle": { "$type": "color", "$value": "{dark.color.palette.i6}" },
+        "lower": { "$type": "color", "$value": "{dark.color.palette.i8}" }
+      },
+      "avwapLine": { "$type": "color", "$value": "{dark.color.palette.i8}" },
+      "avwapBand": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.6549, 0.5451, 0.9804],
+          "alpha": 0.149,
+          "hex": "#A78BFA"
+        },
+        "$description": "= color.palette.i8 at alpha 0x26."
+      },
+      "mtfOverlay": { "$type": "color", "$value": "{dark.color.palette.i6}" }
+    }
+  }
+}

@@ -485,8 +485,145 @@ export interface MotionTokens {
   readonly easingDecelerate: CssEasing // 'cubic-bezier(0, 0, 0.2, 1)'
 }
 
+// ---------------------------------------------------------------------------
+// Design tokens v2 foundation. Source: `dtcg/foundation/*.tokens.json` plus the
+// per-mode `elevation` / `brand.accentText` in `dtcg/scheme/*.tokens.json`.
+// Each value's research basis is in its DTCG `$description`.
+// CSS names flatten the path: `radius.sm` → `--klc-radius-sm`,
+// `text.label.13.fontSize` → `--klc-text-label-13-font-size`.
+// ---------------------------------------------------------------------------
+
+/** Radius scale. A nested element uses `parent − inset`, clamped to ≥ 0. */
+export interface RadiusTokens {
+  readonly 0: CssLength
+  readonly xs: CssLength
+  readonly sm: CssLength
+  readonly md: CssLength
+  readonly lg: CssLength
+  readonly xl: CssLength
+  readonly full: CssLength
+}
+
+/** One step of the type scale. `letterSpacing` is in `em`. */
+export interface TextStyleTokens {
+  readonly fontSize: CssLength
+  /** px for UI sizes; a unitless ratio for display sizes (72 → 0.9). */
+  readonly lineHeight: CssLength | number
+  readonly letterSpacing: CssLength
+  readonly fontWeight: number
+  /** Set only where a step pins a family (11Mono → the mono stack). */
+  readonly fontFamily?: string
+}
+
+export type TextScaleStep = 12 | 13 | 14 | 16 | 20 | 24 | 32 | 48 | 72
+export type TextLabelStep = 12 | 13 | 14 | 16 | 20
+export type TextCopyStep = 13 | 14 | 16 | 20 | 24
+
+/** Type scale plus the label (single-line) and copy (multi-line) roles. */
+export interface TextTokens extends Readonly<Record<TextScaleStep, TextStyleTokens>> {
+  /** 11px is allowed only in mono / tabular contexts (axis ticks, meta). */
+  readonly '11Mono': TextStyleTokens & { readonly fontFamily: string }
+  readonly label: Readonly<Record<TextLabelStep, TextStyleTokens>>
+  readonly copy: Readonly<Record<TextCopyStep, TextStyleTokens>>
+  /** Default `font-variant-numeric` for numeric UI: `tabular-nums`. */
+  readonly numeric: string
+}
+
+export type SpaceStep = 2 | 4 | 8 | 12 | 16 | 24 | 32 | 40 | 48 | 64 | 80 | 96 | 160
+
+/** Spacing scale on an 8px mini-unit. The legacy {@link SpacingTokens} is unchanged. */
+export type SpaceTokens = Readonly<Record<SpaceStep, CssLength>>
+
+/** Control / row heights per density, plus minimum hit areas. */
+export interface DensityTokens {
+  readonly compact: CssLength
+  readonly default: CssLength
+  readonly comfortable: CssLength
+  readonly touch: CssLength
+  readonly hitTarget: CssLength
+  readonly hitTargetTouch: CssLength
+}
+
+/** `box-shadow` values. Light: shadow + hairline. Dark: lighter surfaces first, soft shadow. */
+export interface ElevationTokens {
+  readonly 1: string
+  readonly 2: string
+  readonly 3: string
+  readonly hairline: string
+}
+
+/** Motion v2. Chart interactions and keyboard actions stay at `dur[0]`. */
+export interface FoundationMotionTokens {
+  readonly ease: {
+    readonly out: CssEasing
+    readonly inOut: CssEasing
+    readonly drawer: CssEasing
+    readonly expo: CssEasing
+  }
+  readonly dur: {
+    readonly 0: CssDuration
+    readonly press: CssDuration
+    readonly fast: CssDuration
+    readonly base: CssDuration
+    readonly slow: CssDuration
+    readonly sheet: CssDuration
+    readonly toast: CssDuration
+  }
+  readonly stagger: CssDuration
+  readonly loaderDelay: CssDuration
+  readonly loaderMin: CssDuration
+  /** Price-update flash; off under `prefers-reduced-motion`. */
+  readonly flash: CssDuration
+  /** Price-update fade after the flash; off under `prefers-reduced-motion`. */
+  readonly fade: CssDuration
+}
+
+/** Named stacking layers, lowest to highest. */
+export interface ZIndexTokens {
+  readonly base: number
+  readonly chartOverlay: number
+  readonly sticky: number
+  readonly dropdown: number
+  readonly popover: number
+  readonly modal: number
+  readonly toast: number
+  readonly tooltip: number
+}
+
+/** Viewport breakpoints. Custom properties cannot be used in `@media`; read them from JS. */
+export interface BreakpointTokens {
+  readonly sm: CssLength
+  readonly md: CssLength
+  readonly lg: CssLength
+  readonly xl: CssLength
+}
+
+/** Brand accent (Instrument Cobalt). Never used for candles, volume or up/down. */
+export interface BrandTokens {
+  /** UI, focus ring, selection (≥ 3:1 on every surface). */
+  readonly accent: ColorValue
+  /** The accent as text on this mode's surfaces (≥ 4.5:1). */
+  readonly accentText: ColorValue
+}
+
+export interface FoundationTokens {
+  readonly radius: RadiusTokens
+  readonly text: TextTokens
+  readonly space: SpaceTokens
+  readonly density: DensityTokens
+  readonly elevation: ElevationTokens
+  readonly motion: FoundationMotionTokens
+  readonly zIndex: ZIndexTokens
+  readonly breakpoint: BreakpointTokens
+  readonly brand: BrandTokens
+}
+
 /**
- * Complete theme — all four token families.
+ * Complete theme — the four token families, plus the optional v2 foundation.
+ *
+ * `foundation` is optional so hand-built themes stay valid. The shipped
+ * `lightTheme` / `darkTheme` leave it unset (their CSS output is the frozen
+ * baseline); `resolveTheme()` attaches the mode's foundation tokens.
  */
 export interface Theme {
   readonly name: string
@@ -494,6 +631,7 @@ export interface Theme {
   readonly spacing: SpacingTokens
   readonly typography: TypographyTokens
   readonly motion: MotionTokens
+  readonly foundation?: FoundationTokens
 }
 
 /**
@@ -502,7 +640,7 @@ export interface Theme {
 export type ThemeOverride = {
   readonly [K in keyof Theme]?: K extends 'name'
     ? string
-    : Theme[K] extends object
-      ? Partial<Theme[K]>
+    : NonNullable<Theme[K]> extends object
+      ? Partial<NonNullable<Theme[K]>>
       : Theme[K]
 }

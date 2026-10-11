@@ -1,0 +1,40 @@
+{
+  "radius": {
+    "0": {
+      "$type": "dimension",
+      "$value": { "value": 0, "unit": "px" },
+      "$description": "Chart panes, full-bleed panels, terminal personality. Basis: Basement square geometry (S14)."
+    },
+    "$description": "Radius scale (craft-principles §4.1; design §3.3). A nested element uses parent radius − inset, clamped to ≥ 0 (CP 11; S33). Radius tracks material, not whim (CP 12). Presets may swap the whole scale (Terminal square, Zen +2) but never mix scales; that mapping is Phase 3 (PresetPersonality).",
+    "xs": {
+      "$type": "dimension",
+      "$value": { "value": 4, "unit": "px" },
+      "$description": "Inner chips, badges, checkboxes inside 6px controls with a 2px inset. [derived] concentric rule S33 (6 − 2)."
+    },
+    "sm": {
+      "$type": "dimension",
+      "$value": { "value": 6, "unit": "px" },
+      "$description": "Buttons, inputs, tooltips, base surfaces. Basis: Geist base/small/tooltip (S3)."
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": { "value": 8, "unit": "px" },
+      "$description": "Toasts, drawers, small cards. Basis: Sonner toast, Vaul drawer (S10, S11)."
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": { "value": 12, "unit": "px" },
+      "$description": "Menus, popovers, modals, medium/large cards. Basis: Geist menu/modal (S3)."
+    },
+    "xl": {
+      "$type": "dimension",
+      "$value": { "value": 16, "unit": "px" },
+      "$description": "Fullscreen sheets. Basis: Geist fullscreen (S3)."
+    },
+    "full": {
+      "$type": "dimension",
+      "$value": { "value": 9999, "unit": "px" },
+      "$description": "Pills, avatars, segmented toggles. Basis: rounded-full is Basement's most used radius (S14)."
+    }
+  }
+}
