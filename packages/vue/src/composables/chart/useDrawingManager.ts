@@ -2,7 +2,7 @@
  * Manages drawing interaction state (selected drawings, drawings list),
  * tool activation, style updates, and deletion.
  * Provides setupDrawing() to initialize DrawingInteractionController
- * with lifecycle callbacks that sync back to Vue refs.
+ * while confirmed drawings and selections are read directly from Core signals.
  */
 import {
   type ChartController,
@@ -14,17 +14,23 @@ import {
   type DrawingToolId,
   type MagnetMode,
 } from '@363045841yyt/klinechart-core/controllers'
-import { computed, onUnmounted, type Ref, shallowRef } from 'vue'
+import { computed, type Ref, shallowRef } from 'vue'
+import { useControllerSignal } from './useControllerSignal.js'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)
   const magnetMode = shallowRef<MagnetMode>('off')
   const continuousDrawing = shallowRef(false)
-  /** 镜像 kernel.selectedDrawingIds（shallowRef 避免 deep proxy 破坏 Object.is）。 */
-  const selectedDrawingIds = shallowRef<ReadonlyArray<string>>([])
-  const drawings = shallowRef<ReadonlyArray<DrawingObject>>([])
-  const readonlySelectedDrawingIds = computed(() => selectedDrawingIds.value)
-  const readonlyDrawings = computed(() => drawings.value)
+  const selectedDrawingIds = useControllerSignal<ReadonlyArray<string>>(
+    ctrl,
+    (chart) => chart.selectedDrawingIds,
+    () => [],
+  )
+  const drawings = useControllerSignal<ReadonlyArray<DrawingObject>>(
+    ctrl,
+    (chart) => chart.drawings,
+    () => [],
+  )
   const selectedDrawings = computed(() => {
     const selectedIds = new Set(selectedDrawingIds.value)
     return drawings.value.filter((drawing) => selectedIds.has(drawing.id))
@@ -33,12 +39,11 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawings.value
     return ctrl.value?.getBatchStyleKeys(selectedDrawingIds.value) ?? []
   })
-  /** 全局绘图锁定镜像（shallowRef 避免 deep proxy 破坏 Object.is）。 */
-  const globalDrawingLock = shallowRef(false)
-  const readonlyGlobalDrawingLock = computed(() => globalDrawingLock.value)
-  let unsubDrawings: (() => void) | null = null
-  let unsubSelected: (() => void) | null = null
-  let unsubGlobalLock: (() => void) | null = null
+  const globalDrawingLock = useControllerSignal(
+    ctrl,
+    (chart) => chart.globalDrawingLock,
+    () => false,
+  )
 
   function handleSelectTool(toolId: string) {
     // Chart 单写路径：kernel + session side effects
@@ -127,34 +132,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawingController.value.setMagnetMode(magnetMode.value)
     drawingController.value.setContinuousDrawing(continuousDrawing.value)
     chartCtrl.registerDrawingSession(drawingController.value)
-
-    // UI 只镜像 kernel 已确认列表；预览/拖拽不进 Vue ref
-    unsubDrawings = chartCtrl.drawings.subscribe(() => {
-      drawings.value = chartCtrl.drawings.peek()
-    })
-    drawings.value = chartCtrl.drawings.peek()
-
-    const syncSelected = () => {
-      selectedDrawingIds.value = chartCtrl.selectedDrawingIds.peek()
-    }
-    unsubSelected = chartCtrl.selectedDrawingIds.subscribe(syncSelected)
-    syncSelected()
-
-    const syncGlobalLock = () => {
-      globalDrawingLock.value = chartCtrl.globalDrawingLock.peek()
-    }
-    unsubGlobalLock = chartCtrl.globalDrawingLock.subscribe(syncGlobalLock)
-    syncGlobalLock()
   }
-
-  onUnmounted(() => {
-    unsubDrawings?.()
-    unsubDrawings = null
-    unsubSelected?.()
-    unsubSelected = null
-    unsubGlobalLock?.()
-    unsubGlobalLock = null
-  })
 
   return {
     drawingController,
@@ -162,11 +140,11 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     setMagnetMode,
     continuousDrawing,
     setContinuousDrawing,
-    selectedDrawingIds: readonlySelectedDrawingIds,
+    selectedDrawingIds,
     selectedDrawings,
     selectedDrawingStyleKeys,
-    drawings: readonlyDrawings,
-    globalDrawingLock: readonlyGlobalDrawingLock,
+    drawings,
+    globalDrawingLock,
     handleSelectTool,
     onUpdateDrawingStyle,
     updateDrawingLabel,

@@ -2,49 +2,20 @@
 <template>
   <!-- 主弹窗 -->
   <BaseModal
-    :show="show"
+    :open="open"
     title="图表设置"
-    subtitle="个性化配置"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm))"
     footer-align="space-between"
-    @close="closeSettings"
+    @update:open="emit('update:open', $event)"
   >
     <template #tabs>
       <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
     </template>
 
     <div class="settings-body" :class="{ 'settings-body--style': activeSection === 'style' }">
-      <template v-if="activeSection === 'main'">
-        <template v-for="item in mainSettings" :key="item.key">
-          <div class="settings-item">
-            <span>{{ item.label }}</span>
-            <template v-if="item.type === 'boolean'">
-              <ToggleSwitch
-                :model-value="Boolean(settings[item.key])"
-                :aria-label="item.label"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-            <template v-else-if="item.type === 'select' && item.options">
-              <Dropdown
-                :model-value="String(settings[item.key])"
-                :options="optionsFor(item)"
-                size="sm"
-                min-width="100px"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-          </div>
-          <div
-            v-if="item.key === 'rendererBackend' && runtimeHint"
-            class="settings-item runtime-hint"
-          >
-            <span>{{ runtimeHint }}</span>
-          </div>
-        </template>
-      </template>
+      <ShortcutSettings v-if="activeSection === 'shortcuts'" />
 
       <template v-else-if="activeSection === 'dataSource'">
         <div class="settings-item">
@@ -72,105 +43,39 @@
             </button>
           </span>
         </div>
-        <div class="settings-item nav-item" @click="showAggregationSourceModal = true">
-          <span>聚合源管理</span>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            width="16"
-            height="16"
-            class="nav-arrow"
-          >
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </div>
+        <SettingsNavRow @select="showAggregationSourceModal = true">聚合源管理</SettingsNavRow>
       </template>
 
-      <template v-else-if="activeSection === 'style'">
-        <ThemePresetPanel :settings="settings" @update:settings="onThemePresetChange">
+      <OpenSourceCredits v-else-if="activeSection === 'opensource'" />
+
+      <template v-else>
+        <ThemePresetPanel
+          v-if="activeSection === 'style'"
+          :settings="settings"
+          @update:settings="onThemePresetChange"
+        >
           <template #actions>
             <ThemeModeControl v-model="settings.theme" label="明暗模式" />
           </template>
         </ThemePresetPanel>
-        <template v-for="item in styleSettings" :key="item.key">
-          <div class="settings-item">
-            <span>{{ item.label }}</span>
-            <template v-if="item.type === 'boolean'">
-              <ToggleSwitch
-                :model-value="Boolean(settings[item.key])"
-                :aria-label="item.label"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-            <template v-else-if="item.type === 'select' && item.options">
-              <Dropdown
-                :model-value="String(settings[item.key])"
-                :options="optionsFor(item)"
-                size="sm"
-                min-width="100px"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
+        <template v-for="item in sectionItems" :key="item.key">
+          <SettingsItemRow
+            :label="item.label"
+            :type="item.type"
+            :value="settings[item.key]"
+            :options="optionsFor(item)"
+            @update="settings[item.key] = $event"
+          />
+          <div
+            v-if="item.key === 'rendererBackend' && runtimeHint"
+            class="settings-item runtime-hint"
+          >
+            <span>{{ runtimeHint }}</span>
           </div>
         </template>
-        <div class="settings-item nav-item" @click="showColorPresetModal = true">
-          <span>颜色配置</span>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            width="16"
-            height="16"
-            class="nav-arrow"
-          >
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </div>
-      </template>
-
-      <template v-else-if="activeSection === 'experimental'">
-        <template v-for="item in experimentalSettings" :key="item.key">
-          <div class="settings-item experimental">
-            <span>{{ item.label }}</span>
-            <template v-if="item.type === 'boolean'">
-              <ToggleSwitch
-                :model-value="Boolean(settings[item.key])"
-                :aria-label="item.label"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-            <template v-else-if="item.type === 'select' && item.options">
-              <Dropdown
-                :model-value="String(settings[item.key])"
-                :options="item.options"
-                size="sm"
-                min-width="100px"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-          </div>
-        </template>
-      </template>
-
-      <template v-else-if="activeSection === 'opensource'">
-        <template v-for="section in openSourceCredits" :key="section.id">
-          <div class="settings-subsection-label">{{ section.title }}</div>
-          <a
-            v-for="credit in section.items"
-            :key="credit.name"
-            class="settings-item credit-item"
-            :href="credit.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            :title="credit.url"
-          >
-            <span class="credit-name">{{ credit.name }}</span>
-            <span class="credit-version">{{ credit.version }} · {{ credit.license }}</span>
-          </a>
-        </template>
+        <SettingsNavRow v-if="activeSection === 'style'" @select="showColorPresetModal = true">
+          颜色配置
+        </SettingsNavRow>
       </template>
     </div>
 
@@ -192,17 +97,17 @@
     @close="showAggregationSourceModal = false"
     @toggle="onToggleAggregationSource"
     @update-endpoint="onUpdateSourceEndpoint"
-  />
+  >
+    <template #source-management><slot name="source-management" /></template>
+  </AggregationSourceDialog>
 
   <!-- 嵌套颜色预设弹窗 -->
   <BaseModal
-    :show="showColorPresetModal"
+    v-model:open="showColorPresetModal"
     title="颜色预设"
-    subtitle="自定义图表颜色"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     footer-align="space-between"
-    @close="showColorPresetModal = false"
   >
     <template #tabs>
       <BaseTabs v-model="colorPresetTheme" :tabs="colorThemeOptions" aria-label="颜色主题" />
@@ -234,20 +139,23 @@
   import { computed, ref, watch } from 'vue'
   import IconTablerTrash from '~icons/tabler/trash'
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
-  import { getOpenSourceCredits } from '../credits/openSourceCredits.js'
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
+  import OpenSourceCredits from './chart-settings/OpenSourceCredits.vue'
+  import SettingsItemRow from './chart-settings/SettingsItemRow.vue'
+  import SettingsNavRow from './chart-settings/SettingsNavRow.vue'
   import ThemeModeControl from './common/ThemeModeControl.vue'
-  import ToggleSwitch from './common/ToggleSwitch.vue'
   import Dropdown from './Dropdown.vue'
+  import ShortcutSettings from './ShortcutSettings.vue'
   import ThemePresetPanel from './ThemePresetPanel.vue'
 
   const props = withDefaults(
     defineProps<{
-      show: boolean
+      open: boolean
+      initialSection?: 'main' | 'shortcuts'
       initialSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
@@ -265,7 +173,7 @@
   )
 
   const emit = defineEmits<{
-    (e: 'close'): void
+    (e: 'update:open', value: boolean): void
     (e: 'confirm', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
@@ -315,14 +223,27 @@
     value: String(value),
     label: `${value} MiB`,
   }))
-  const openSourceCredits = getOpenSourceCredits()
 
-  type SettingsSectionId = 'main' | 'style' | 'experimental' | 'dataSource' | 'opensource'
+  /** 主图 / 样式 / 实验性三个 section 共享同一套设置行渲染，这里按当前 section 取列表。 */
+  const sectionItems = computed<ReadonlyArray<SettingItem>>(() => {
+    if (activeSection.value === 'style') return styleSettings.value
+    if (activeSection.value === 'experimental') return experimentalSettings.value
+    return mainSettings.value
+  })
+
+  type SettingsSectionId =
+    | 'shortcuts'
+    | 'main'
+    | 'style'
+    | 'experimental'
+    | 'dataSource'
+    | 'opensource'
 
   /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
   const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
     const tabs: { id: SettingsSectionId; label: string }[] = []
     if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
+    tabs.push({ id: 'shortcuts', label: '快捷键' })
     tabs.push({ id: 'dataSource', label: '数据源' })
     tabs.push({ id: 'style', label: '样式 / 颜色' })
     if (experimentalSettings.value.length > 0) {
@@ -377,17 +298,17 @@
   const settings = ref<ChartSettings>(normalizeSettings(props.initialSettings))
 
   watch(
-    () => props.show,
+    () => props.open,
     (val) => {
       if (val) {
         settings.value = structuredClone(normalizeSettings(props.initialSettings))
-        activeSection.value = settingsTabs.value[0]?.id ?? 'dataSource'
+        activeSection.value = props.initialSection ?? settingsTabs.value[0]?.id ?? 'dataSource'
       }
     },
   )
 
   function closeSettings() {
-    emit('close')
+    emit('update:open', false)
   }
 
   function resetSettings() {
@@ -414,6 +335,8 @@
   }
 </script>
 
+<style scoped src="./common/settings-item.css"></style>
+
 <style scoped>
   .settings-body {
     display: flex;
@@ -432,38 +355,7 @@
     padding-inline: var(--klc-spacing-sm);
   }
 
-  /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与留白。 */
-  .settings-subsection-label {
-    padding-block: var(--klc-spacing-sm) var(--klc-spacing-xs);
-    /* 与设置行共用水平内边距，保持分组小标题与条目对齐。 */
-    padding-inline: var(--klc-spacing-sm);
-    font-size: var(--klc-typography-font-size-md);
-    font-weight: var(--klc-typography-font-weight-bold);
-    color: var(--klc-color-ui-muted);
-  }
-
   /* 设置行仅负责布局，交互状态由具体控件提供。 */
-  .settings-item {
-    /* 行高包含内边距，所有分组共用相同的水平对齐与垂直节奏。 */
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--klc-spacing-md);
-    min-block-size: 40px;
-    /* 左右内边距让文本与控件不贴住行的交互态背景边缘。 */
-    padding: var(--klc-spacing-sm);
-    border-radius: 6px;
-    font: inherit;
-    color: inherit;
-    transition: background-color var(--klc-motion-duration-fast) ease;
-  }
-
-  .settings-item.nav-item:hover,
-  .settings-item.credit-item:hover {
-    background-color: var(--klc-color-ui-hover);
-  }
-
   .settings-item.runtime-hint {
     min-block-size: auto;
     padding-block: 0 var(--klc-spacing-sm);
@@ -502,8 +394,7 @@
     color: var(--klc-color-ui-text);
   }
 
-  .cache-clear-btn:focus-visible,
-  .settings-item.credit-item:focus-visible {
+  .cache-clear-btn:focus-visible {
     outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 2px;
   }
@@ -511,52 +402,6 @@
   .cache-clear-btn svg {
     inline-size: 16px;
     block-size: 16px;
-  }
-
-  .settings-item.credit-item {
-    /* 纯文本条目用 32px 的紧凑行高，比控件行的 40px 更紧凑但不过密。 */
-    min-block-size: 32px;
-    padding-block: var(--klc-spacing-xs);
-    cursor: pointer;
-    text-decoration: none;
-    /* 包名与版本号属于代码类内容，使用等宽字体。 */
-    font-family: var(--klc-typography-font-family-mono);
-  }
-
-  /* 包名继承致谢条目的等宽字体，不再单独声明字体栈。 */
-  .credit-name {
-    min-inline-size: 0;
-    font-size: var(--klc-typography-font-size-md);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .credit-version {
-    flex: 0 0 auto;
-    font-size: var(--klc-typography-font-size-md);
-    color: var(--klc-color-ui-muted);
-    white-space: nowrap;
-  }
-
-  .settings-item > span {
-    min-inline-size: 0;
-    line-height: var(--klc-typography-line-height-standard);
-  }
-
-  /* 导航项交互优化 */
-  .settings-item.nav-item {
-    cursor: pointer;
-  }
-
-  .nav-arrow {
-    color: var(--klc-color-ui-muted);
-    transition: transform var(--klc-motion-duration-fast) ease;
-    flex-shrink: 0;
-  }
-
-  .settings-item.nav-item:hover .nav-arrow {
-    transform: translateX(2px);
   }
 
   /* 底部按钮 */
@@ -575,8 +420,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .settings-item,
-    .cache-clear-btn,
-    .nav-arrow {
+    .cache-clear-btn {
       transition: none;
     }
   }

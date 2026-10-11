@@ -3,7 +3,7 @@
   仅承载受控输入本身；宽度、聚焦时机等布局与业务逻辑由调用方决定。
 -->
 <template>
-  <div class="search-field">
+  <div class="search-field" :class="{ 'search-field--flush': variant === 'flush' }">
     <span class="search-field__icon" aria-hidden="true">
       <svg viewBox="0 0 16 16" fill="none">
         <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.6" />
@@ -69,12 +69,15 @@
       clearable?: boolean
       /** 挂载后是否自动聚焦内部输入框，供弹窗打开时聚焦搜索使用 */
       autofocus?: boolean
+      /** 外观变体：default 为独立圆角框；flush 用于弹窗头部，去掉边框与圆角 */
+      variant?: 'default' | 'flush'
     }>(),
     {
       placeholder: '搜索',
       ariaLabel: '搜索',
       clearable: true,
       autofocus: false,
+      variant: 'default',
     },
   )
 
@@ -116,6 +119,15 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     background: var(--klc-color-ui-control-background);
+  }
+
+  /* 弹窗头部内嵌：去掉独立框，铺满整行。 */
+  .search-field--flush {
+    height: 42px;
+    padding: 0 var(--klc-space-12, 12px);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .search-field__icon {

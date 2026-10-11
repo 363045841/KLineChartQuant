@@ -42,14 +42,23 @@ export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
       handRange: computed(() => readonly.paneRanges()[MAIN_PANE_ID]!.handRange),
     },
     actions: {
-      /** 一次恢复整组范围模式，清除旧文档的手动范围值。 */
-      restoreModes(modes: LayoutPanePriceAxisModes): void {
+      /** 同时恢复模式和锁定范围，不从运行时默认轴重新捕获范围。 */
+      restoreModes(
+        modes: LayoutPanePriceAxisModes,
+        ranges: Readonly<Record<string, PriceRange>> = {},
+      ): void {
         signals.paneRanges.set(
           Object.freeze(
             Object.fromEntries(
               Object.entries({ [MAIN_PANE_ID]: initialMode, ...modes }).map(([id, rangeMode]) => [
                 id,
-                Object.freeze({ rangeMode, handRange: null }),
+                Object.freeze({
+                  rangeMode,
+                  handRange:
+                    rangeMode === PRICE_AXIS_RANGE_MODE.HAND && ranges[id]
+                      ? Object.freeze({ ...ranges[id] })
+                      : null,
+                }),
               ]),
             ),
           ),
@@ -87,11 +96,20 @@ export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
         if (current?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND && current.handRange !== null)
           write(paneId, current.rangeMode, range)
       },
-      /** 首个有效帧初始化手动范围。 */
-      initializeHandRange(range: PriceRange, paneId: string = MAIN_PANE_ID): void {
-        const current = readonly.paneRanges.peek()[paneId]
-        if (current?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND && current.handRange === null)
-          write(paneId, current.rangeMode, range)
+      /** 首个有效帧批量初始化各 Pane 的锁定范围，一次快照提交避免多次通知。 */
+      initializeHandRanges(entries: ReadonlyArray<{ paneId: string; range: PriceRange }>): void {
+        const current = readonly.paneRanges.peek()
+        let next: Record<string, PanePriceAxisRange> | null = null
+        for (const { paneId, range } of entries) {
+          const state = current[paneId]
+          if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange !== null) continue
+          next ??= { ...current }
+          next[paneId] = Object.freeze({
+            rangeMode: state.rangeMode,
+            handRange: Object.freeze({ ...range }),
+          })
+        }
+        if (next) signals.paneRanges.set(Object.freeze(next))
       },
       /** 删除 Pane 时释放其范围状态。 */
       retainPanes(paneIds: ReadonlySet<string>): void {

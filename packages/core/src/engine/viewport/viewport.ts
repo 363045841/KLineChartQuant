@@ -19,13 +19,13 @@ export function hasLeftDataGap(scrollLeft: number, leftLoadBufferWidth: number):
  *
  * 注意：
  * - `endIndex` 为开区间（不包含）
- * - 若区间内无有效数据，会返回兜底范围 `{ maxPrice: 100, minPrice: 0 }`
+ * - 若区间内无有效数据，返回 null，不生成默认价格范围。
  */
 export function getVisiblePriceRange(
   data: KLineData[],
   startIndex: number,
   endIndex: number,
-): PriceRange {
+): PriceRange | null {
   let maxPrice = -Infinity
   let minPrice = Infinity
 
@@ -37,7 +37,7 @@ export function getVisiblePriceRange(
   }
 
   if (!Number.isFinite(maxPrice) || !Number.isFinite(minPrice)) {
-    return { maxPrice: 100, minPrice: 0 }
+    return null
   }
 
   return { maxPrice, minPrice }

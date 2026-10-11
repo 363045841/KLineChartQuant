@@ -87,3 +87,22 @@ describe('useDrawingTemplates', () => {
     }
   })
 })
+
+describe('useDrawingTemplates 删除撤销', () => {
+  it('删除后显示撤销 toast，撤销即恢复模板', async () => {
+    const { useToast } = await import('../toast/useToast.js')
+    const fixture = setup({ 'trend-line': [{ name: '一', style: { stroke: '#123456' } }] })
+    try {
+      await fixture.actions.reload()
+      await fixture.actions.remove('一')
+      expect(fixture.actions.templates.value).toEqual([])
+      const toast = useToast().toasts.value.at(-1)
+      expect(toast?.message).toContain('一')
+      await toast?.action?.onAction()
+      expect(fixture.actions.templates.value.map((item) => item.name)).toEqual(['一'])
+      useToast().clear('close')
+    } finally {
+      fixture.stop()
+    }
+  })
+})

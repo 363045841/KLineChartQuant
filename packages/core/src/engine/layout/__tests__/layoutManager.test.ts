@@ -1,6 +1,7 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
+import { allIndicatorDefinitions } from '../../../controllers/indicatorDefinitionCatalog.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
@@ -31,6 +32,66 @@ function createManager() {
 function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createManager>) {
   return kernel.drawing.readonly.drawings.subscribe(() => manager.scheduleAutoSave())
 }
+
+it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
+  const definition = allIndicatorDefinitions()[0]
+  if (!definition) throw new Error('内置指标目录为空')
+  const first = createManager()
+  await first.manager.initialize()
+  const unsubscribe = first.kernel.indicator.readonly.favoriteIndicatorIds.subscribe(() =>
+    first.manager.scheduleAutoSave(),
+  )
+  try {
+    const revision = first.kernel.indicator.readonly.configRevision.peek()
+    const instances = first.kernel.indicator.readonly.instances.peek()
+    first.kernel.indicator.actions.setFavorite(definition.id, true)
+    first.kernel.indicator.actions.setFavorite(definition.id, true)
+    expect(first.kernel.indicator.readonly.favoriteIndicatorIds.peek()).toEqual([definition.id])
+    expect(first.kernel.indicator.readonly.instances.peek()).toBe(instances)
+    expect(first.kernel.indicator.readonly.configRevision.peek()).toBe(revision)
+    expect(first.manager.layoutDirty.peek()).toBe(true)
+    const exported = first.manager.exportLayout()
+    expect(exported.favoriteIndicatorIds).not.toBe(
+      first.kernel.indicator.readonly.favoriteIndicatorIds.peek(),
+    )
+    const id = await first.manager.saveLayout({ name: '收藏布局' })
+    const copy = await first.manager.duplicateLayout({ id, name: '收藏副本' })
+    await first.manager.createLayout({ name: '空收藏布局' })
+    expect(first.kernel.indicator.readonly.favoriteIndicatorIds.peek()).toEqual([])
+    await first.manager.switchLayout({ id: copy })
+    expect(first.kernel.indicator.readonly.favoriteIndicatorIds.peek()).toEqual([definition.id])
+    const { favoriteIndicatorIds: _favorites, ...legacy } = exported
+    await first.manager.applyLayout(legacy)
+    expect(first.kernel.indicator.readonly.favoriteIndicatorIds.peek()).toEqual([])
+    await first.manager.switchLayout({ id })
+  } finally {
+    unsubscribe()
+    await first.manager.dispose()
+    first.kernel.dispose()
+  }
+  const restored = createManager()
+  await restored.manager.initialize()
+  const unsubscribeRestored = restored.kernel.indicator.readonly.favoriteIndicatorIds.subscribe(
+    () => restored.manager.scheduleAutoSave(),
+  )
+  try {
+    expect(restored.kernel.indicator.readonly.favoriteIndicatorIds.peek()).toEqual([definition.id])
+    restored.kernel.indicator.actions.setFavorite(definition.id, false)
+    expect(restored.manager.layoutDirty.peek()).toBe(true)
+  } finally {
+    unsubscribeRestored()
+    await restored.manager.dispose()
+    restored.kernel.dispose()
+  }
+  const final = createManager()
+  try {
+    await final.manager.initialize()
+    expect(final.kernel.indicator.readonly.favoriteIndicatorIds.peek()).toEqual([])
+  } finally {
+    await final.manager.dispose()
+    final.kernel.dispose()
+  }
+})
 
 /** 构造带时间锚点与工作区身份的真实绘图文档，供存储往返用例复用。 */
 function createDrawing(): DrawingObject {

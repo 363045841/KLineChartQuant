@@ -122,6 +122,7 @@ export function createIndicatorState() {
     }) as Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceSpec>>>,
     instances: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
     configRevision: 0,
+    favoriteIndicatorIds: Object.freeze<string[]>([]),
   })
 
   /** 写入不可变实例快照。 */
@@ -197,6 +198,22 @@ export function createIndicatorState() {
   return {
     readonly: { ...readonly, subPanes },
     actions: {
+      /** 按规范定义身份收藏或取消收藏，不修改指标实例与计算 revision。 */
+      setFavorite(indicatorId: string, favorite: boolean): void {
+        const id = resolveIndicatorDefinitionId(indicatorId)
+        if (!id) return
+        const previous = readonly.favoriteIndicatorIds.peek()
+        if (previous.includes(id) === favorite) return
+        signals.favoriteIndicatorIds.set(
+          Object.freeze(favorite ? [...previous, id] : previous.filter((entry) => entry !== id)),
+        )
+      },
+      /** 恢复布局收藏，规范化旧身份并去重；未知定义保留以支持稍后注册的插件。 */
+      restoreFavorites(ids: ReadonlyArray<string>): void {
+        signals.favoriteIndicatorIds.set(
+          Object.freeze([...new Set(ids.map((id) => resolveIndicatorDefinitionId(id) ?? id))]),
+        )
+      },
       /** 切换视图工作区；实例、参数和排序均不跨工作区同步。 */
       setActiveWorkspace(workspaceId: ChartWorkspaceId) {
         if (signals.activeWorkspace.peek() === workspaceId) return
@@ -355,6 +372,7 @@ export function createIndicatorState() {
           }),
         )
         signals.instances.set(Object.freeze([]))
+        signals.favoriteIndicatorIds.set(Object.freeze([]))
       })
     },
   }

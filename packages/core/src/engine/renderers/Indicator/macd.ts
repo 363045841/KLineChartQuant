@@ -84,7 +84,6 @@ function createMACDLayer(options: MACDRendererOptions = {}): Layer<RenderContext
       kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
       displayMax.toFixed(6),
       displayMin.toFixed(6),
-      pane.yAxis.getPriceOffset().toFixed(6),
       pane.yAxis.getScaleType(),
       pane.height.toFixed(2),
       config.showDIF,

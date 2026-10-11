@@ -11,3 +11,6 @@
 *.woff2 binary
 *.ttf binary
 *.eot binary
+# 设计 Token 生成产物（pnpm tokens:build），评审时默认折叠
+packages/core/design-tokens/** linguist-generated=true
+packages/core/src/foundation/tokens/dtcg/mode/*.tokens.json linguist-generated=true

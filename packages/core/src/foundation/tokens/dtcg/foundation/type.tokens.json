@@ -1,0 +1,248 @@
+{
+  "text": {
+    "12": {
+      "$description": "Tertiary label, table meta. Basis: Geist label-12 (S4). Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
+      "fontSize": { "$type": "dimension", "$value": { "value": 12, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": 0,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+    },
+    "13": {
+      "$description": "Secondary label, dense UI body. Basis: Geist label/copy-13 (S4); Basement body 13/16 (S14); tracking Inter dynmetrics (S22). Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
+      "fontSize": { "$type": "dimension", "$value": { "value": 13, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 18, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.003,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+    },
+    "14": {
+      "$description": "Default UI text, table rows. Basis: Geist copy-14 \"most used\" (S4); Carbon rows 14px (S29); tracking S22. Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
+      "fontSize": { "$type": "dimension", "$value": { "value": 14, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 20, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.006,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+    },
+    "16": {
+      "$description": "Mobile inputs (≥16px avoids iOS zoom, S1), long copy. Basis: Basement blog 16/24 (S14); tracking S22. Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
+      "fontSize": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 24, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.011,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+    },
+    "20": {
+      "$description": "Dialog titles, section heads. Basis: Basement h4 20/20 -0.02em (S14); tracking S22.",
+      "fontSize": { "$type": "dimension", "$value": { "value": 20, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 24, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.017,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+    },
+    "24": {
+      "$description": "Page titles. Marketing surfaces may tighten to -0.03em (Basement h3, S14). Basis: Tracking S22.",
+      "fontSize": { "$type": "dimension", "$value": { "value": 24, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 28, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.02,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+    },
+    "32": {
+      "$description": "Landing section heads. Basis: Tracking S22.",
+      "fontSize": { "$type": "dimension", "$value": { "value": 32, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 36, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.022,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+    },
+    "48": {
+      "$description": "Landing hero. Basis: Basement mobile hero 46/39 at -0.04em (S14); CP §4.2 range -0.03 to -0.04em, design §2.4 display tracking -0.03 to -0.04em.",
+      "fontSize": { "$type": "dimension", "$value": { "value": 48, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 48, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.04,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+    },
+    "72": {
+      "$description": "Hero display only (72-98px). Basis: Basement h0/h1 (S14); display line-height ≤ 1 (CP 17, 45).",
+      "fontSize": { "$type": "dimension", "$value": { "value": 72, "unit": "px" } },
+      "lineHeight": { "$type": "number", "$value": 0.9 },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": -0.04,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+    },
+    "$description": "Type scale (craft-principles §4.2; design §3.3). Tracking tightens as size grows (CP 17); label and copy are different roles (CP 18). 10px is removed; 11px is allowed only for mono/tabular contexts (axis ticks, meta). Weights: 400 at 12-16 and 600 at ≥20 per CP §4.2. Geist Sans/Mono are the target families (design §2.4); families are not tokenised here because canvas fonts (fonts.ts) are frozen (ADR 0005).",
+    "$extensions": {
+      "io.github.363045841.kcq": {
+        "keywords": {
+          "numeric": "tabular-nums"
+        },
+        "keywordDescriptions": {
+          "numeric": "Default font-variant-numeric for all numeric UI: prices, tables, axes, timers (CP 19; S1, S27; ADR 0004). Emitted as --klc-text-numeric."
+        }
+      }
+    },
+    "11Mono": {
+      "$description": "Axis ticks, dense meta: mono/tabular only. Basis: Geist mono labels (S4); Inter dynmetrics +0.005em ≈ 0 (S22). Weight 400 of CP §4.2's 400-500.",
+      "fontFamily": { "$type": "fontFamily", "$value": "{typography.fontFamilyMono}" },
+      "fontSize": { "$type": "dimension", "$value": { "value": 11, "unit": "px" } },
+      "lineHeight": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
+      "letterSpacing": {
+        "$type": "number",
+        "$value": 0,
+        "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+      },
+      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+    },
+    "label": {
+      "12": {
+        "fontSize": { "$type": "dimension", "$value": "{text.12.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.12.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.12.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
+        }
+      },
+      "13": {
+        "fontSize": { "$type": "dimension", "$value": "{text.13.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.13.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.13.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
+        }
+      },
+      "14": {
+        "fontSize": { "$type": "dimension", "$value": "{text.14.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.14.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.14.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
+        }
+      },
+      "16": {
+        "fontSize": { "$type": "dimension", "$value": "{text.16.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.16.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.16.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
+        }
+      },
+      "20": {
+        "fontSize": { "$type": "dimension", "$value": "{text.20.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.20.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.20.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": { "$type": "fontWeight", "$value": "{text.20.fontWeight}" }
+      },
+      "$description": "Label role: single-line UI text aligned with icons (Geist Label 12/13/14/16/18/20, S4; CP 18). Sizes outside the scale (18) are dropped."
+    },
+    "copy": {
+      "13": {
+        "fontSize": { "$type": "dimension", "$value": "{text.13.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.13.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.13.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": { "$type": "fontWeight", "$value": "{text.13.fontWeight}" }
+      },
+      "14": {
+        "fontSize": { "$type": "dimension", "$value": "{text.14.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.14.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.14.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": { "$type": "fontWeight", "$value": "{text.14.fontWeight}" }
+      },
+      "16": {
+        "fontSize": { "$type": "dimension", "$value": "{text.16.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.16.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.16.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": { "$type": "fontWeight", "$value": "{text.16.fontWeight}" }
+      },
+      "20": {
+        "fontSize": { "$type": "dimension", "$value": "{text.20.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.20.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.20.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": { "$type": "fontWeight", "$value": "{text.20.fontWeight}" }
+      },
+      "24": {
+        "fontSize": { "$type": "dimension", "$value": "{text.24.fontSize}" },
+        "lineHeight": { "$type": "dimension", "$value": "{text.24.lineHeight}" },
+        "letterSpacing": {
+          "$type": "number",
+          "$value": "{text.24.letterSpacing}",
+          "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
+        },
+        "fontWeight": { "$type": "fontWeight", "$value": "{text.24.fontWeight}" }
+      },
+      "$description": "Copy role: multi-line text (Geist Copy 13/14/16/18/20/24, S4; CP 18). Pair with text-wrap: pretty (CP 20). Copy 14 is the default; 13 and 12 are secondary/tertiary (S4)."
+    }
+  }
+}

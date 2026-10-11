@@ -316,12 +316,25 @@ Providing `#legend` fully replaces the default Canvas legend. The slot scope is 
 </template>
 ```
 
+### Host toolbar controls
+
+Use `#toolbar-start` and `#toolbar-end` to place host account or workspace
+controls in the native toolbar. Both slots are optional and inherit the
+resolved chart theme. They stay outside the draggable, scrolling chart controls.
+
+```vue
+<KlineChart>
+  <template #toolbar-start><AccountMenu /></template>
+  <template #toolbar-end><WorkspaceActions /></template>
+</KlineChart>
+```
+
 
 ## 🎨 Custom Tooltip
 
 `KlineChart` exposes `#kline-tooltip` and `#marker-tooltip` slots for custom tooltip rendering. When a slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
 
-Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'` (default), a custom `#kline-tooltip` is also draggable; double-click resets. With `tooltipPosition === 'none'`, the data tooltip is hidden entirely.
+Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'`, a custom `#kline-tooltip` is also draggable; double-click resets. With `tooltipPosition === 'none'` (default), the data tooltip is hidden entirely.
 
 ### `#kline-tooltip`
 

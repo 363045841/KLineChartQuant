@@ -9,18 +9,25 @@
   ],
   "ignorePatterns": [
     "**/dist/**",
+    "**/out/**",
     "**/node_modules/**",
     "**/__bench__/**",
     "components.d.ts",
     "**/*.tsbuildinfo",
     "**/coverage/**",
-    "**/preview/dist/**"
+    "**/preview/dist/**",
+    "packages/core/design-tokens/**",
+    "packages/react/preview/**",
+    "scripts/lint/stylelint-plugin-klc.mjs"
   ],
+  "ignoreDependencies": ["~icons", "postcss-html"],
   "rules": {
     "unused-files": "warn",
     "unused-exports": "warn",
     "unused-types": "warn",
-    "unused-dependencies": "warn"
+    "unused-dependencies": "warn",
+    "css-dead-surface": "off",
+    "css-selector-complexity": "off"
   },
   "duplicates": {
     "ignorePatterns": ["**/__tests__/**"]

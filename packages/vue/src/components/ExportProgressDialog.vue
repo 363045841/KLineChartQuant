@@ -1,10 +1,10 @@
 <template>
   <BaseModal
     title="导出数据"
-    :show="!!progress"
+    :open="!!progress"
     :close-on-overlay="false"
     footer-align="center"
-    @close="emit('close')"
+    @update:open="!$event && emit('close')"
   >
     <div class="export-body">
       <div class="export-label">{{ progress?.label }}</div>

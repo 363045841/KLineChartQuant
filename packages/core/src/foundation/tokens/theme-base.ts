@@ -1,3 +1,4 @@
+// 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/foundation/theme-base.tokens.json 生成，请勿手改。
 import type { MotionTokens, SpacingTokens, TypographyTokens } from './types.js'
 
 export const spacing: SpacingTokens = {
@@ -13,8 +14,7 @@ export const spacing: SpacingTokens = {
 }
 
 export const typography: TypographyTokens = {
-  // 不指定字体，DOM 界面继承宿主页面字体。
-  fontFamily: 'inherit',
+  fontFamily: 'inherit', // 不指定字体，DOM 界面继承宿主页面字体。
   // 代码、版本号、数字等优先使用 JetBrains Mono，缺失时回退系统等宽字体。
   fontFamilyMono:
     "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",

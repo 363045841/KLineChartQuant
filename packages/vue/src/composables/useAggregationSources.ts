@@ -1,6 +1,6 @@
 import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
-import { computed, ref, watch } from 'vue'
+import { computed, type MaybeRefOrGetter, ref, toValue, watch } from 'vue'
 
 /** localStorage 键：启用列表 + 各源地址覆盖 */
 export const AGGREGATION_SOURCES_STORAGE_KEY = 'klinechart.aggregation-sources'
@@ -62,6 +62,8 @@ export interface AggregationSourceDefinition {
   description?: string
   capabilities?: ReadonlyArray<string>
   defaultBaseUrl?: string
+  /** false 时由宿主固定地址，浏览器偏好不得覆盖。 */
+  endpointEditable?: boolean
 }
 
 /** 解析 Provider 默认地址，供 UI 编辑 host/port。 */
@@ -142,7 +144,7 @@ export function resolveAggregationSourceEndpoints(
 ): Record<string, AggregationSourceEndpoint> {
   const result: Record<string, AggregationSourceEndpoint> = {}
   for (const source of sources) {
-    if (!source.defaultBaseUrl) continue
+    if (!source.defaultBaseUrl || source.endpointEditable === false) continue
     const baseUrl = stored?.baseUrls?.[source.name] ?? source.defaultBaseUrl
     result[source.name] = parseProviderEndpoint(baseUrl)
   }
@@ -158,7 +160,7 @@ export function applyAggregationSourceBaseUrls(
   endpoints: Record<string, AggregationSourceEndpoint>,
 ): void {
   for (const source of sources) {
-    if (!source.defaultBaseUrl) continue
+    if (!source.defaultBaseUrl || source.endpointEditable === false) continue
     const provider = marketDataProviderRegistry.get(source.name)
     const ep = endpoints[source.name]
     if (!provider) continue
@@ -196,23 +198,26 @@ function applyAggregationSourceEnabled(
  * 聚合源启用状态 + 地址端口
  * 变更会同步到 localStorage 与 Provider 注册表
  */
-export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDefinition>) {
-  const enabledNames = ref(resolveEnabledAggregationSources(sources))
+export function useAggregationSources(
+  input: MaybeRefOrGetter<ReadonlyArray<AggregationSourceDefinition>>,
+) {
+  const sources = computed(() => toValue(input))
+  const enabledNames = ref(resolveEnabledAggregationSources(sources.value))
   const enabledNameSet = computed(() => new Set(enabledNames.value))
-  const endpoints = ref(resolveAggregationSourceEndpoints(sources))
+  const endpoints = ref(resolveAggregationSourceEndpoints(sources.value))
 
   // 启动时立刻把已存地址灌进 core，保证首轮搜索/K 线就走用户配置
-  applyAggregationSourceBaseUrls(sources, endpoints.value)
-  applyAggregationSourceEnabled(sources, new Set(enabledNames.value))
+  applyAggregationSourceBaseUrls(sources.value, endpoints.value)
+  applyAggregationSourceEnabled(sources.value, new Set(enabledNames.value))
 
   function setEnabled(name: string, enabled: boolean) {
     const next = new Set(enabledNames.value)
     if (enabled) next.add(name)
     else next.delete(name)
-    enabledNames.value = sources
+    enabledNames.value = sources.value
       .filter((source) => next.has(source.name))
       .map((source) => source.name)
-    applyAggregationSourceEnabled(sources, new Set(enabledNames.value))
+    applyAggregationSourceEnabled(sources.value, new Set(enabledNames.value))
   }
 
   /**
@@ -220,6 +225,8 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
    * 立即写回 core 覆盖，并触发持久化 watch
    */
   function setEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
+    if (!sources.value.some((source) => source.name === name && source.endpointEditable !== false))
+      return
     const current = endpoints.value[name] ?? { host: '', port: '' }
     endpoints.value = {
       ...endpoints.value,
@@ -228,27 +235,38 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
         port: patch.port ?? current.port,
       },
     }
-    applyAggregationSourceBaseUrls(sources, endpoints.value)
+    applyAggregationSourceBaseUrls(sources.value, endpoints.value)
   }
+
+  watch(
+    sources,
+    (catalog) => {
+      enabledNames.value = resolveEnabledAggregationSources(catalog)
+      endpoints.value = resolveAggregationSourceEndpoints(catalog)
+      applyAggregationSourceBaseUrls(catalog, endpoints.value)
+      applyAggregationSourceEnabled(catalog, new Set(enabledNames.value))
+    },
+    { flush: 'sync' },
+  )
 
   watch(
     [enabledNames, endpoints],
     () => {
       const baseUrls: Record<string, string> = {}
-      for (const source of sources) {
-        if (!source.defaultBaseUrl) continue
+      for (const source of sources.value) {
+        if (!source.defaultBaseUrl || source.endpointEditable === false) continue
         const ep = endpoints.value[source.name]
         if (!ep?.host.trim()) continue
         baseUrls[source.name] = composeProviderBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
       }
       const value: StoredAggregationSources = {
-        known: sources.map((source) => source.name),
+        known: sources.value.map((source) => source.name),
         enabled: enabledNames.value,
         baseUrls,
       }
       aggregationSourcesPersistence.save(value)
     },
-    { deep: true, immediate: true },
+    { deep: true, immediate: true, flush: 'sync' },
   )
 
   return {

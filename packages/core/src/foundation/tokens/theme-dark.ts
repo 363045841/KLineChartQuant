@@ -1,3 +1,4 @@
+// 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/scheme/dark.tokens.json 生成，请勿手改。
 /**
  * Dark theme — paired with {@link lightTheme}.
  *
@@ -31,7 +32,6 @@ export const darkTheme: Theme = {
     foreground: darkInterfaceColors.text,
     chartBackground: darkInterfaceColors.background,
     floatingSurface: darkInterfaceColors.surface,
-
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
     candleUpWick: '#089981',
@@ -39,34 +39,25 @@ export const darkTheme: Theme = {
     candleDownBorder: '#f23645',
     candleDownWick: '#f23645',
     candleDojiBorder: '#8A8F98',
-
     performancePositive: '#22D69B',
     performanceNegative: '#FF6464',
     performanceNeutral: '#9AA0A6',
-
     volumeUp: '#22D69B66',
     volumeDown: '#FF646466',
     volumeNeutral: '#FFFFFF66',
-
     axisText: darkInterfaceColors.muted,
     axisLine: darkInterfaceColors.border,
     axisTick: darkInterfaceColors.border,
-
     gridMajor: '#24272E',
     gridMinor: '#1D2026',
-
     crosshairLine: '#686C72',
-    // 深色下用中灰而非近白，避免标签在轴上形成刺眼亮块；文字取浅色保证对比度。
-    crosshairLabelBg: darkInterfaceColors.controlBackground,
+    crosshairLabelBg: darkInterfaceColors.controlBackground, // 深色下用中灰而非近白，避免标签在轴上形成刺眼亮块；文字取浅色保证对比度。
     crosshairLabelText: darkInterfaceColors.text,
-
     selectionFill: '#4A9EFF33',
     selectionStroke: '#4A9EFF',
-
     tooltipBg: darkInterfaceColors.surface,
     tooltipText: darkInterfaceColors.text,
     tooltipBorder: darkInterfaceColors.border,
-
     heatmapColdest: '#0E1116',
     heatmapHottest: '#80B7FF',
     volumeProfileFill: '#6B727A66',
@@ -78,25 +69,22 @@ export const darkTheme: Theme = {
       ask: '#929292',
       text: '#eeeeee',
     },
-
     alertActive: '#4A9EFF',
     alertTriggered: '#FFA94D',
     alertMuted: '#6B727A',
-
     avwapLine: '#A78BFA',
     avwapBand: '#A78BFA33',
     mtfOverlay: '#38BDF8',
-
     timeSharePriceLine: '#60A5FA',
     timeShareAvgLine: '#FBBF24',
     timeShareAreaUp: 'rgba(34, 214, 155, 0.20)',
     timeShareAreaDown: 'rgba(255, 100, 100, 0.20)',
     timeSharePreClose: '#9CA3AF',
     timeShareVolume: '#60A5FA',
-
     palette: {
       // Same hue ordering as light theme; values tuned for dark BG.
-      i1: '#4A9EFF', // blue (brightened)
+      // blue (brightened)
+      i1: '#4A9EFF',
       i2: '#FFB95A', // amber
       i3: '#22D69B', // teal-green
       i4: '#E879BA', // pink
@@ -108,7 +96,6 @@ export const darkTheme: Theme = {
       i10: '#9AA0A6', // neutral gray
       indicatorAtr: '#F59E0B',
     },
-
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
       primary: darkInterfaceColors.text,

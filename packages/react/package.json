@@ -1,7 +1,7 @@
 {
   "name": "@363045841yyt/klinechart-react",
   "version": "0.0.0",
-  "description": "React adapter for the @363045841yyt/klinechart Web Component.",
+  "description": "React bindings for @363045841yyt/klinechart: direct core mount and the full-UI Web Component.",
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./direct": {
+      "types": "./dist/direct.d.ts",
+      "import": "./dist/direct.js"
     }
   },
   "files": [

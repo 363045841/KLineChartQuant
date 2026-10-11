@@ -1,6 +1,7 @@
 import { defineCustomElement } from 'vue'
 
 import KlineChart from './components/KLineChart.vue'
+import './styles/fonts.css'
 
 const KLineChartElement = defineCustomElement(KlineChart, {
   shadowRoot: true,

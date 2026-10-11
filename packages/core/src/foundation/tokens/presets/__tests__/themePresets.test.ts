@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { normalizeColorPresetSettings } from '../../colorPresetSettings.js'
+import { darkFoundation, lightFoundation } from '../../foundation.js'
 import { resolveTheme, resolveThemeColors, withAsiaMarketColors } from '../../theme-china.js'
 import { darkTheme } from '../../theme-dark.js'
 import { lightTheme } from '../../theme-light.js'
@@ -58,8 +59,13 @@ describe('独立主题维度', () => {
 
   it('Pro 默认深色完整复用项目原版，浅色保留 Paper 基底', () => {
     expect(normalizeSettings().theme).toBe('dark')
-    expect(resolveTheme('dark')).toEqual(darkTheme)
-    expect(resolveTheme('light')).toEqual(lightTheme)
+    // resolveTheme 只额外挂载 v2 foundation；Theme 四个族仍完整复用原版对象。
+    const { foundation: dark, ...darkRest } = resolveTheme('dark')
+    const { foundation: light, ...lightRest } = resolveTheme('light')
+    expect(darkRest).toEqual(darkTheme)
+    expect(lightRest).toEqual(lightTheme)
+    expect(dark).toBe(darkFoundation)
+    expect(light).toBe(lightFoundation)
   })
 
   it('过滤已删除的预设和旧嵌套标识，保留手动颜色', () => {

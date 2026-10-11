@@ -23,38 +23,42 @@
     </details>
     <div v-if="message.role === 'user'" class="message__bubble">
       <form v-if="editing" class="message__editor" @submit.prevent="saveEdit">
-        <textarea
-          ref="editInput"
+        <BaseTextarea
+          :ref="bindEditInput"
           v-model="editDraft"
+          class="message__edit-input"
+          :min-rows="1"
+          :max-rows="12"
           :aria-label="text.editMessage"
           :disabled="editPending"
-          rows="1"
           @keydown="editKeydown"
         />
         <p v-if="editError" class="message__edit-error" role="alert">{{ editError }}</p>
         <div class="message__editor-actions">
-          <button
-            type="button"
-            class="message__edit-cancel"
-            :disabled="editPending"
-            :aria-label="text.cancel"
-            :title="text.cancel"
-            @click="cancelEdit"
-          >
-            <IconX aria-hidden="true" />
-          </button>
-          <button
-            class="message__edit-send agent-primary-button"
-            type="submit"
-            :disabled="!canSaveEdit"
-            :aria-label="text.saveAndSend"
-            :title="text.saveAndSend"
-            :aria-busy="editPending"
-          >
-            <span class="agent-primary-button__background" aria-hidden="true"></span>
-            <IconLoader2 v-if="editPending" class="message__spinner" aria-hidden="true" />
-            <IconArrowUp v-else aria-hidden="true" />
-          </button>
+          <BaseTooltip :content="text.cancel" placement="top">
+            <button
+              type="button"
+              class="message__edit-cancel"
+              :disabled="editPending"
+              :aria-label="text.cancel"
+              @click="cancelEdit"
+            >
+              <IconX aria-hidden="true" />
+            </button>
+          </BaseTooltip>
+          <BaseTooltip :content="text.saveAndSend" placement="top">
+            <button
+              class="message__edit-send agent-primary-button"
+              type="submit"
+              :disabled="!canSaveEdit"
+              :aria-label="text.saveAndSend"
+              :aria-busy="editPending"
+            >
+              <span class="agent-primary-button__background" aria-hidden="true"></span>
+              <IconLoader2 v-if="editPending" class="message__spinner" aria-hidden="true" />
+              <IconArrowUp v-else aria-hidden="true" />
+            </button>
+          </BaseTooltip>
         </div>
       </form>
       <p v-else class="message__content">{{ message.content }}</p>
@@ -111,6 +115,7 @@
   import IconPencil from '~icons/tabler/pencil'
   import IconRefresh from '~icons/tabler/refresh'
   import IconX from '~icons/tabler/x'
+  import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentMessageView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
@@ -149,6 +154,12 @@
     action: () => props.editMessage,
     failureText: () => text.value.editFailed,
   })
+
+  /** BaseTextarea 暴露原生元素（el），供编辑逻辑聚焦与选区操作。 */
+  function bindEditInput(instance: unknown): void {
+    const el = (instance as { el?: HTMLTextAreaElement | null } | null)?.el
+    editInput.value = el instanceof HTMLTextAreaElement ? el : null
+  }
   // 图标按钮的无障碍名称随复制反馈状态变化。
   const copyLabel = computed(() =>
     copyStatus.value === 'copied'
@@ -186,14 +197,12 @@
 
 <style scoped>
   .message__editor { position: relative; padding-bottom: 32px; }
-  .message__editor textarea {
-    box-sizing: border-box;
-    field-sizing: content;
-    width: 100%;
+  /* BaseTextarea 负责自增高；编辑态贴合气泡，无内边距与边框。 */
+  .message__edit-input {
+    --base-textarea-padding-block: 0px;
+    --base-textarea-border: 0px;
+
     min-width: 0;
-    min-height: 1lh;
-    display: block;
-    resize: none;
     padding: 0;
     border: 0;
     background: transparent;
@@ -202,7 +211,7 @@
     font-size: 13px;
     line-height: 1.52;
   }
-  .message__editor textarea:focus-visible { outline: none; }
+  .message__edit-input:focus-visible { box-shadow: none; outline: none; }
   .message__editor-actions {
     position: absolute;
     right: 0;

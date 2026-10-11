@@ -1,16 +1,17 @@
+<!-- 指标选择弹窗：贴边搜索与 Compact 条目列表，类型通过胶囊标注。 -->
 <template>
   <div class="indicator-selector">
     <BaseModal
-      :show="menuOpen"
+      :open="menuOpen"
       :title="modalTitle"
-      :subtitle="`${catalogLen} 个可用指标`"
-      width="90vw"
-      max-width="860px"
-      max-height="85vh"
-      footer-align="space-between"
-      @close="closeMenu"
+      width="min(640px, calc(100vw - 32px))"
+      max-height="min(560px, 75dvh)"
+      overlay-padding="var(--klc-space-16, 16px)"
+      body-padding="0"
+      :body-scrollable="false"
+      @update:open="!$event && closeMenu()"
     >
-      <template #subheader>
+      <template #tabs>
         <div class="selector-toolbar">
           <SearchField
             class="selector-search"
@@ -18,80 +19,121 @@
             placeholder="搜索指标名称..."
             aria-label="搜索指标"
             autofocus
+            variant="flush"
             @update:model-value="controller.setSearchQuery"
           />
-          <SegmentedTabs v-model="indicatorView" :tabs="viewOptions" aria-label="指标视图" />
         </div>
       </template>
 
-      <div v-for="group in indicatorGroups" :key="group.key" class="indicator-section">
-        <div class="section-header">
-          <span class="section-title">{{ group.label }}</span>
-          <span class="section-count">{{ group.items.length }}</span>
-        </div>
-        <div class="indicator-grid" :class="{ compact: indicatorView === 'compact' }">
-          <BaseTooltip
-            v-for="indicator in group.items"
-            :key="indicator.id"
-            :content="indicator.name"
-            placement="top"
-            trigger-display="contents"
-            :show-delay="0"
-            :disabled="indicatorView !== 'compact'"
+      <div class="selector-content">
+        <nav class="selector-nav" aria-label="指标分类">
+          <button
+            type="button"
+            class="selector-nav-item"
+            :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.favorites }"
+            :aria-current="section === INDICATOR_SELECTOR_SECTIONS.favorites ? 'page' : undefined"
+            @click="section = INDICATOR_SELECTOR_SECTIONS.favorites"
           >
-            <div class="indicator-card" :class="{ active: isActive(indicator.id) }">
-              <button class="card-select" @click="toggleIndicator(indicator.id)">
-                <div class="card-header">
-                  <span class="card-label">{{ indicator.label }}</span>
-                  <span v-if="indicatorView === 'type'" class="pane-badge">
-                    {{ indicator.role === 'main' ? '主' : '副' }}
+            <IconTablerStar aria-hidden="true" />收藏
+          </button>
+          <button
+            type="button"
+            class="selector-nav-item"
+            :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.indicators }"
+            :aria-current="section === INDICATOR_SELECTOR_SECTIONS.indicators ? 'page' : undefined"
+            @click="section = INDICATOR_SELECTOR_SECTIONS.indicators"
+          >
+            <IconTablerMathFunction aria-hidden="true" />指标
+          </button>
+        </nav>
+        <OverlayScrollArea class="selector-results">
+          <div class="indicator-list" role="list" aria-label="指标列表">
+            <div
+              v-for="indicator in filteredIndicators"
+              :key="indicator.id"
+              class="indicator-item"
+              role="listitem"
+            >
+              <button
+                type="button"
+                class="item-select"
+                :aria-pressed="isActive(indicator.id)"
+                @click="toggleIndicator(indicator.id)"
+              >
+                <div class="item-header">
+                  <span class="item-label">
+                    {{ indicator.label }}
+                    <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
+                      {{ indicator.name }}
+                    </span>
+                  </span>
+                  <span class="item-tags">
+                    <span class="type-badge">
+                      {{ indicator.indicatorTypeLabel ?? indicator.indicatorType }}
+                    </span>
+                    <span class="type-badge">{{ indicator.role === 'main' ? '主图' : '副图' }}</span>
                   </span>
                 </div>
-                <div v-if="indicatorView !== 'compact'" class="card-name">
-                  {{ indicator.name }}
-                </div>
               </button>
-              <button
-                v-if="indicator.params?.length"
-                class="card-action-btn"
-                title="编辑参数"
-                aria-label="编辑参数"
-                @click="showParams(indicator.id)"
-              >
-                <IconTablerSettings aria-hidden="true" />
-              </button>
-              <button
+              <BaseTooltip v-if="indicator.params?.length" content="编辑参数" placement="top">
+                <button
+                  type="button"
+                  class="item-action-btn"
+                  :aria-label="`编辑参数：${indicator.name}`"
+                  @click="showParams(indicator.id)"
+                >
+                  <IconTablerSettings aria-hidden="true" />
+                </button>
+              </BaseTooltip>
+              <!-- 说明用锚定气泡，避免在选择器上叠加第二个弹窗。 -->
+              <BasePopover
                 v-else-if="indicator.description"
-                class="card-action-btn"
-                title="查看指标说明"
-                aria-label="查看指标说明"
-                @click="showDescription(indicator.id)"
+                :label="`${indicator.name} 指标说明`"
+                role="note"
+                placement="auto"
               >
-                <IconTablerInfoCircle aria-hidden="true" />
+                <template #trigger="{ props: triggerProps }">
+                  <button
+                    type="button"
+                    class="item-action-btn"
+                    :aria-label="`查看指标说明：${indicator.name}`"
+                    v-bind="triggerProps"
+                  >
+                    <IconTablerInfoCircle aria-hidden="true" />
+                  </button>
+                </template>
+                <p class="indicator-description__title">{{ indicator.name }}</p>
+                <p class="indicator-description">{{ indicator.description }}</p>
+              </BasePopover>
+              <button
+                type="button"
+                class="item-favorite-btn"
+                :aria-label="`${favoriteSet.has(indicator.id) ? '取消收藏' : '收藏'}：${indicator.label}`"
+                :aria-pressed="favoriteSet.has(indicator.id)"
+                :disabled="!chartController"
+                @click="toggleFavorite(indicator.id)"
+              >
+                <IconTablerStarFilled v-if="favoriteSet.has(indicator.id)" aria-hidden="true" />
+                <IconTablerStar v-else aria-hidden="true" />
               </button>
+              <span v-if="isActive(indicator.id)" class="item-check" aria-hidden="true">
+                <IconTablerCheck />
+              </span>
             </div>
-          </BaseTooltip>
-        </div>
-      </div>
+          </div>
 
-      <!-- 无匹配 -->
-      <div v-if="!hasSearchResults && searchQuery.trim()" class="no-results">
-        <IconTablerSearch class="no-results-icon" aria-hidden="true" />
-        <p>未找到匹配的指标</p>
-        <span class="no-results-hint">请尝试其他关键词</span>
+          <div v-if="filteredIndicators.length === 0" class="no-results">
+            <template v-if="section === INDICATOR_SELECTOR_SECTIONS.favorites && !searchQuery.trim()">
+              <p>暂无收藏指标</p>
+            </template>
+            <template v-else>
+              <IconTablerSearch class="no-results-icon" aria-hidden="true" />
+              <p>未找到匹配的指标</p>
+              <span class="no-results-hint">请尝试其他关键词</span>
+            </template>
+          </div>
+        </OverlayScrollArea>
       </div>
-
-      <template #footer>
-        <div class="footer-info">
-          <span class="info-text">已激活 {{ activeCount }} 个指标</span>
-        </div>
-        <div class="footer-actions">
-          <BaseButton v-if="!replacePaneId" :disabled="activeCount === 0" @click="clearAll">
-            清除
-          </BaseButton>
-          <BaseButton @click="closeMenu">确认</BaseButton>
-        </div>
-      </template>
     </BaseModal>
 
     <IndicatorParams
@@ -105,43 +147,39 @@
       @close="paramsVisible = false"
       @confirm="onParamsConfirm"
     />
-
-    <BaseModal
-      v-if="descriptionIndicator"
-      :show="descriptionVisible"
-      :title="descriptionIndicator.name"
-      subtitle="指标说明"
-      width="90vw"
-      max-width="420px"
-      @close="descriptionVisible = false"
-    >
-      <p class="indicator-description">{{ descriptionIndicator.description }}</p>
-    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
   import {
     allIndicatorDefinitions,
+    type ChartController,
     createIndicatorSelectorController,
     findIndicator,
-    type IndicatorDefinition,
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref } from 'vue'
+  import IconTablerCheck from '~icons/tabler/check'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
-
+  import IconTablerStar from '~icons/tabler/star'
+  import IconTablerStarFilled from '~icons/tabler/star-filled'
+  import {
+    INDICATOR_SELECTOR_SECTIONS,
+    useIndicatorFavorites,
+  } from '../composables/useIndicatorFavorites.js'
   import { coreSignalToVueRef } from '../utils/signalBridge.js'
 
-  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BasePopover from './common/BasePopover.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
+  import OverlayScrollArea from './common/OverlayScrollArea.vue'
   import SearchField from './common/SearchField.vue'
   import IndicatorParams from './IndicatorParams.vue'
-  import SegmentedTabs from './SegmentedTabs.vue'
 
   const props = defineProps<{
+    chartController?: ChartController | null
     activeIndicators?: string[]
     indicatorParams?: Record<string, Record<string, unknown>>
     replacePaneId?: string | null
@@ -152,7 +190,6 @@
   const emit = defineEmits<{
     toggle: [indicatorId: string, active: boolean]
     updateParams: [indicatorId: string, params: Record<string, number | string>]
-    reorderSubIndicators: [orderedIndicatorIds: string[]]
     replace: [paneId: string, indicatorId: string]
     close: []
   }>()
@@ -165,85 +202,25 @@
   const filteredMain = coreSignalToVueRef(controller.filteredMain)
   const filteredSub = coreSignalToVueRef(controller.filteredSub)
 
-  const hasSearchResults = computed(
-    () => filteredMain.value.length > 0 || filteredSub.value.length > 0,
-  )
-
-  const catalog = coreSignalToVueRef(controller.catalog)
-  const catalogLen = computed(() => catalog.value.length)
-
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
-  const descriptionVisible = ref(false)
-  const descriptionIndicatorId = ref<string | null>(null)
-  type IndicatorView = 'position' | 'compact' | 'type'
-
-  interface IndicatorGroup {
-    key: string
-    label: string
-    items: ReadonlyArray<IndicatorDefinition>
-  }
-
-  const indicatorView = ref<IndicatorView>('position')
-  const viewOptions: ReadonlyArray<{ value: IndicatorView; label: string }> = [
-    { value: 'position', label: '按位置' },
-    { value: 'compact', label: '简洁' },
-    { value: 'type', label: '按类型' },
-  ]
-
-  /** 按当前视图组织搜索后的指标，所有分组始终保持展开。 */
-  const indicatorGroups = computed<IndicatorGroup[]>(() => {
+  /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
+  const availableIndicators = computed(() => {
     if (props.replacePaneId) {
-      if (props.replaceRole === 'main') {
-        return filteredMain.value.length > 0
-          ? [{ key: 'main', label: '主图指标', items: filteredMain.value }]
-          : []
-      }
-      return filteredSub.value.length > 0
-        ? [{ key: 'sub', label: '副图指标', items: filteredSub.value }]
-        : []
+      return props.replaceRole === 'main' ? filteredMain.value : filteredSub.value
     }
-
-    if (indicatorView.value === 'position') {
-      return [
-        { key: 'main', label: '主图指标', items: filteredMain.value },
-        { key: 'sub', label: '副图指标', items: filteredSub.value },
-      ].filter((group) => group.items.length > 0)
-    }
-
-    const indicators = [...filteredMain.value, ...filteredSub.value]
-    if (indicatorView.value === 'compact') {
-      return indicators.length > 0 ? [{ key: 'all', label: '全部指标', items: indicators }] : []
-    }
-
-    const groups = new Map<string, IndicatorGroup & { order: number }>()
-    for (const indicator of indicators) {
-      const existing = groups.get(indicator.indicatorType)
-      if (existing) {
-        existing.items = [...existing.items, indicator]
-      } else {
-        groups.set(indicator.indicatorType, {
-          key: indicator.indicatorType,
-          label: indicator.indicatorTypeLabel ?? indicator.indicatorType,
-          order: indicator.indicatorTypeOrder ?? 900,
-          items: [indicator],
-        })
-      }
-    }
-    return [...groups.values()].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+    return [...filteredMain.value, ...filteredSub.value]
   })
+  const { section, favoriteSet, filteredIndicators, toggleFavorite } = useIndicatorFavorites(
+    computed(() => props.chartController ?? null),
+    availableIndicators,
+  )
 
   const currentIndicator = computed(() => {
     if (!currentIndicatorId.value) return null
     return findIndicator(currentIndicatorId.value)
   })
 
-  const descriptionIndicator = computed(() => {
-    if (!descriptionIndicatorId.value) return null
-    return findIndicator(descriptionIndicatorId.value)
-  })
-
-  const activeCount = computed(() => props.activeIndicators?.length ?? 0)
   const modalTitle = computed(() => (props.replacePaneId ? '更换指标' : '添加指标'))
 
   function isActive(indicatorId: string): boolean {
@@ -259,13 +236,6 @@
 
   function removeIndicator(indicatorId: string) {
     emit('toggle', indicatorId, false)
-  }
-
-  /** 清除全部已选指标。 */
-  function clearAll() {
-    for (const indicatorId of [...(props.activeIndicators ?? [])]) {
-      emit('toggle', indicatorId, false)
-    }
   }
 
   /** 切换指标启用状态。 */
@@ -289,12 +259,6 @@
   function showParams(indicatorId: string) {
     currentIndicatorId.value = indicatorId
     paramsVisible.value = true
-  }
-
-  /** 显示无参数指标的用途说明。 */
-  function showDescription(indicatorId: string) {
-    descriptionIndicatorId.value = indicatorId
-    descriptionVisible.value = true
   }
 
   /** 关闭选择器，并通知父组件清除一次性的 Pane 替换目标。 */
@@ -347,10 +311,58 @@
     display: none;
   }
 
+  .selector-content {
+    display: flex;
+    height: min(420px, calc(75dvh - 82px));
+    min-height: 0;
+  }
+
+  .selector-nav {
+    display: flex;
+    flex: 0 0 92px;
+    flex-direction: column;
+    border-right: 1px solid var(--klc-color-ui-border);
+  }
+
+  .selector-nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    min-height: 36px;
+    padding: 0 var(--klc-space-12, 12px);
+    border: 0;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    font: inherit;
+    font-size: var(--klc-text-label-13-font-size, 13px);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .selector-nav-item:hover,
+  .selector-nav-item.selected {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+  }
+
+  .selector-nav-item svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+  }
+
+  .selector-results {
+    flex: 1;
+    min-width: 0;
+  }
+
   .selector-toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    min-height: 42px;
+    border-top: 1px solid var(--klc-color-ui-border);
+    border-bottom: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-surface);
   }
 
   /* ── 无匹配 ── */
@@ -380,88 +392,31 @@
     color: var(--klc-color-axis-text);
   }
 
-  /* ── 指标区域 ── */
-  .indicator-section {
+  /* 紧凑条目铺满内容区，类型标注与操作按钮共用一行。 */
+  .indicator-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
   }
 
-  .indicator-section + .indicator-section {
-    margin-top: 18px;
-  }
-
-  .section-header {
+  .indicator-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-  }
-
-  .section-title {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--klc-color-foreground);
-    letter-spacing: 0.3px;
-    line-height: 1;
-  }
-
-  .section-count {
-    font-size: 11px;
-    color: var(--klc-color-axis-text);
-    background: var(--klc-color-grid-minor);
-    padding: 2px 8px;
-    border-radius: 10px;
-  }
-
-  .indicator-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    gap: 8px;
-  }
-
-  .indicator-grid.compact {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
-    gap: 8px;
-  }
-
-  .indicator-grid.compact .indicator-card {
-    min-height: 32px;
-  }
-
-  .indicator-grid.compact .card-select {
-    justify-content: center;
-    padding: 6px 32px 6px 10px;
-  }
-
-  .indicator-grid.compact .indicator-card .card-label {
-    font-size: 12px;
-    font-weight: 500;
-  }
-
-  .indicator-card {
-    display: flex;
-    position: relative;
+    gap: var(--klc-space-4, 4px);
     min-width: 0;
-    min-height: 58px;
-    padding: 0;
-    border: 1px solid var(--klc-color-border-chart);
-    border-radius: 6px;
-    background: var(--klc-color-ui-input);
-    cursor: pointer;
-    transition: all 0.15s ease;
+    min-height: 36px;
+    padding-right: var(--klc-space-8, 8px);
+    background: transparent;
+    transition: background-color var(--klc-motion-dur-fast, 160ms) ease;
     text-align: left;
   }
 
-  .card-select {
+  .item-select {
     display: flex;
     flex: 1;
     min-width: 0;
-    flex-direction: column;
     justify-content: center;
-    gap: 4px;
-    padding: 10px 38px 10px 12px;
+    min-height: 36px;
+    padding: 6px var(--klc-space-4, 4px) 6px var(--klc-space-12, 12px);
     border: 0;
     background: transparent;
     color: inherit;
@@ -469,51 +424,77 @@
     text-align: left;
   }
 
-  .card-select:focus-visible,
-  .card-action-btn:focus-visible {
+  .item-select:focus-visible,
+  .item-action-btn:focus-visible,
+  .item-favorite-btn:focus-visible,
+  .selector-nav-item:focus-visible {
     outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
   }
 
-  .indicator-card.active {
-    border-color: var(--klc-color-ui-accent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 12%, var(--klc-color-ui-input));
+  .indicator-item:hover {
+    background: var(--klc-color-ui-hover);
   }
 
-  .indicator-card.active .card-label {
-    color: var(--klc-color-ui-accent);
-  }
-
-  .card-header {
+  .item-header {
     display: flex;
+    width: 100%;
+    min-width: 0;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 8px;
   }
 
-  .card-label {
-    font-size: 13px;
-    font-weight: 600;
+  .item-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--klc-color-foreground);
   }
 
-  .pane-badge {
-    flex: 0 0 auto;
-    padding: 1px 4px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 3px;
-    color: var(--klc-color-axis-text);
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.2;
+  .item-name {
+    margin-left: var(--klc-space-8, 8px);
+    color: var(--klc-color-ui-muted);
+    font-weight: 400;
   }
 
-  .card-action-btn {
+  .item-tags {
     display: flex;
-    position: absolute;
-    top: 50%;
-    right: 8px;
-    transform: translateY(-50%);
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
+  }
+
+  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
+  .item-check {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--klc-color-ui-text);
+    pointer-events: none;
+  }
+
+  .type-badge {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-muted);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .item-action-btn,
+  .item-favorite-btn {
+    display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     width: 24px;
@@ -524,64 +505,59 @@
     background: transparent;
     color: var(--klc-color-axis-text);
     cursor: pointer;
-    transition: all 0.15s;
+    transition:
+      color var(--klc-motion-dur-fast, 160ms) ease,
+      background-color var(--klc-motion-dur-fast, 160ms) ease;
   }
 
-  .card-action-btn:hover {
+  .item-action-btn:hover,
+  .item-favorite-btn:hover:not(:disabled) {
     background: var(--klc-color-tag-bg-hover);
     color: var(--klc-color-foreground);
   }
 
-  .card-name {
-    overflow: hidden;
-    font-size: 11px;
-    color: var(--klc-color-axis-text);
-    line-height: 1.4;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .item-favorite-btn[aria-pressed='true'] {
+    color: var(--klc-color-ui-text);
+  }
+
+  .item-favorite-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .item-favorite-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  @media (max-width: 480px) {
+    .selector-nav {
+      flex-basis: 76px;
+    }
+
+    .selector-nav-item {
+      gap: var(--klc-space-4, 4px);
+      padding: 0 var(--klc-space-8, 8px);
+    }
+
+    .item-header {
+      flex-wrap: wrap;
+      gap: var(--klc-space-4, 4px);
+    }
+  }
+
+  .indicator-description__title {
+    margin: 0 0 var(--klc-space-4, 4px);
+    font-size: var(--klc-text-label-13-font-size, 13px);
+    font-weight: 600;
+    color: var(--klc-color-ui-text);
   }
 
   .indicator-description {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: 1.65;
     color: var(--klc-color-axis-text);
   }
 
-  /* ── 底部 ── */
-  .footer-info {
-    font-size: 12px;
-    color: var(--klc-color-ui-muted);
-  }
-
-  .footer-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  /* ── 响应式 ── */
-  @media (max-width: 640px) {
-    .selector-toolbar {
-      align-items: stretch;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    /* 纵向排列时不再横向占位，保持固定高度不被 flex 拉伸 */
-    .selector-search {
-      flex: none;
-    }
-
-    .selector-toolbar :deep(.segmented-tabs) {
-      width: 100%;
-    }
-
-    .indicator-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .indicator-grid.compact {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
 </style>

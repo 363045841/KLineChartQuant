@@ -32,7 +32,6 @@ export function wrapPaneInfo(pane: {
       yToPrice: (y) => pane.yAxis.yToPrice(y),
       getPaddingTop: () => pane.yAxis.getPaddingTop(),
       getPaddingBottom: () => pane.yAxis.getPaddingBottom(),
-      getPriceOffset: () => pane.yAxis.getPriceOffset(),
       getDisplayRange: (baseRange) => pane.yAxis.getDisplayRange(baseRange),
       getScaleType: () => pane.yAxis.getScaleType(),
       getBasePrice: () => pane.yAxis.getBasePrice(),

@@ -153,7 +153,6 @@ export interface PaneInfo {
     yToPrice(y: number): number
     getPaddingTop(): number
     getPaddingBottom(): number
-    getPriceOffset(): number
     getDisplayRange(baseRange?: { maxPrice: number; minPrice: number }): {
       maxPrice: number
       minPrice: number

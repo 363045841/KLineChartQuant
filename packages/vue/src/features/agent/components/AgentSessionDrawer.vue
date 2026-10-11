@@ -1,4 +1,4 @@
-<!-- 左侧对话列表抽屉：列出全部会话，支持切换、重命名、删除与新建会话。 -->
+<!-- 会话列表抽屉：负责外壳、列表编排及唯一行内编辑目标。 -->
 <template>
   <Transition name="agent-session-drawer">
     <div v-if="show" class="agent-session-drawer">
@@ -6,9 +6,8 @@
         type="button"
         class="agent-session-drawer__backdrop"
         :aria-label="text.closeSessions"
-        @click="$emit('close')"
+        @click="emit('close')"
       ></button>
-
       <aside
         ref="panel"
         class="agent-session-drawer__panel"
@@ -16,7 +15,7 @@
         aria-modal="true"
         :aria-label="text.sessions"
         tabindex="-1"
-        @keydown.escape.stop.prevent="$emit('close')"
+        @keydown.escape.stop.prevent="emit('close')"
       >
         <header class="agent-session-drawer__head">
           <h2 class="agent-session-drawer__title">{{ text.sessions }}</h2>
@@ -26,7 +25,7 @@
                 type="button"
                 class="agent-session-drawer__icon-button"
                 :aria-label="text.newSession"
-                @click="$emit('create')"
+                @click="emit('create')"
               >
                 <IconPlus aria-hidden="true" />
               </button>
@@ -36,108 +35,46 @@
                 type="button"
                 class="agent-session-drawer__icon-button"
                 :aria-label="text.closeSessions"
-                @click="$emit('close')"
+                @click="emit('close')"
               >
                 <IconX aria-hidden="true" />
               </button>
             </BaseTooltip>
           </div>
         </header>
-
         <p v-if="sessions.length === 0" class="agent-session-drawer__empty">
           {{ text.noSessions }}
         </p>
-
         <ul v-else class="agent-session-drawer__list">
-          <li
+          <AgentSessionRow
             v-for="session in sessions"
             :key="session.id"
-            class="agent-session-drawer__item"
-            :class="{ 'is-active': session.id === activeSessionId }"
-          >
-            <button
-              type="button"
-              class="agent-session-drawer__select"
-              :aria-current="session.id === activeSessionId ? 'true' : undefined"
-              @click="$emit('select', session.id)"
-            >
-              <span class="agent-session-drawer__item-title">{{ session.title }}</span>
-            </button>
-            <div class="agent-session-drawer__item-actions">
-              <button
-                type="button"
-                class="agent-session-drawer__icon-button"
-                :aria-label="text.renameSession"
-                @click="openRename(session)"
-              >
-                <IconPencil aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                class="agent-session-drawer__icon-button"
-                :aria-label="text.deleteSession"
-                @click="openDelete(session)"
-              >
-                <IconTrash aria-hidden="true" />
-              </button>
-            </div>
-          </li>
+            v-model:draft="renameDraft"
+            :session="session"
+            :active="session.id === activeSessionId"
+            :mode="interaction?.sessionId === session.id ? interaction.mode : 'idle'"
+            :locale="locale"
+            @select="emit('select', session.id)"
+            @request-rename="openRename(session)"
+            @request-delete="openDelete(session)"
+            @rename="emit('rename', session.id, $event)"
+            @delete="emit('delete', session.id)"
+            @cancel="closeInteraction"
+          />
         </ul>
       </aside>
-
-      <BaseModal
-        :show="renameTarget !== null"
-        :title="text.renameSession"
-        width="min(92vw, 360px)"
-        @close="closeRename"
-      >
-        <form :id="renameFormId" @submit.prevent="submitRename">
-          <label class="agent-session-drawer__field">
-            <span class="agent-session-drawer__field-label">{{ text.sessionNamePrompt }}</span>
-            <input
-              ref="renameInput"
-              v-model="renameDraft"
-              class="form-control"
-              type="text"
-              autocomplete="off"
-            />
-          </label>
-        </form>
-        <template #footer>
-          <BaseButton @click="closeRename">{{ text.cancel }}</BaseButton>
-          <BaseButton type="submit" :form="renameFormId" :disabled="!renameDraft.trim()">
-            {{ text.confirm }}
-          </BaseButton>
-        </template>
-      </BaseModal>
-
-      <BaseModal
-        :show="deleteTarget !== null"
-        :title="text.deleteSession"
-        width="min(92vw, 360px)"
-        @close="closeDelete"
-      >
-        <p class="agent-session-drawer__confirm">{{ text.deleteSessionConfirm }}</p>
-        <template #footer>
-          <BaseButton @click="closeDelete">{{ text.cancel }}</BaseButton>
-          <BaseButton @click="confirmDelete">{{ text.deleteSession }}</BaseButton>
-        </template>
-      </BaseModal>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, ref, useId, watch } from 'vue'
-  import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
-  import IconTrash from '~icons/tabler/trash'
   import IconX from '~icons/tabler/x'
-  import BaseButton from '../../../components/BaseButton.vue'
-  import BaseModal from '../../../components/BaseModal.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import type { AgentLocale } from '../agent-copy.js'
+  import AgentSessionRow from './AgentSessionRow.vue'
+  import { useAgentSessionDrawer } from './agent-session/impl/useAgentSessionDrawer.js'
 
   const props = defineProps<{
     show: boolean
@@ -145,7 +82,6 @@
     activeSessionId: string | null
     locale: AgentLocale
   }>()
-
   const emit = defineEmits<{
     close: []
     create: []
@@ -153,69 +89,11 @@
     rename: [sessionId: string, title: string]
     delete: [sessionId: string]
   }>()
-
-  const text = computed(() => getAgentCopy(props.locale))
-
-  const panel = ref<HTMLElement | null>(null)
-  const renameFormId = useId()
-  const renameInput = ref<HTMLInputElement | null>(null)
-  const renameDraft = ref('')
-  const renameTarget = ref<AgentSessionView | null>(null)
-  const deleteTarget = ref<AgentSessionView | null>(null)
-
-  // 抽屉打开后聚焦面板，使内容可读且 Escape 关闭可用。
-  watch(
-    () => props.show,
-    (open) => {
-      if (open) void nextTick(() => panel.value?.focus())
-    },
-  )
-
-  // 打开重命名弹窗，并预填目标会话名称。
-  function openRename(session: AgentSessionView): void {
-    renameDraft.value = session.title
-    renameTarget.value = session
-    void nextTick(() => {
-      renameInput.value?.focus()
-      renameInput.value?.select()
-    })
-  }
-
-  // 关闭重命名弹窗并清空草稿。
-  function closeRename(): void {
-    renameTarget.value = null
-    renameDraft.value = ''
-  }
-
-  // 提交有效的新名称，交由上层执行重命名。
-  function submitRename(): void {
-    const target = renameTarget.value
-    const title = renameDraft.value.trim()
-    if (!target || !title) return
-    emit('rename', target.id, title)
-    closeRename()
-  }
-
-  // 打开删除会话确认弹窗。
-  function openDelete(session: AgentSessionView): void {
-    deleteTarget.value = session
-  }
-
-  // 关闭删除会话确认弹窗。
-  function closeDelete(): void {
-    deleteTarget.value = null
-  }
-
-  // 用户确认后发出删除目标会话的请求。
-  function confirmDelete(): void {
-    const target = deleteTarget.value
-    if (!target) return
-    emit('delete', target.id)
-    closeDelete()
-  }
+  const { text, panel, interaction, renameDraft, openRename, openDelete, closeInteraction } =
+    useAgentSessionDrawer(props)
 </script>
 
-<style scoped src="../../../components/common/form-control.css"></style>
+<style scoped src="./agent-icon-button.css"></style>
 
 <style scoped>
   .agent-session-drawer {
@@ -263,29 +141,10 @@
     font-weight: 600;
   }
 
-  .agent-session-drawer__head-actions,
-  .agent-session-drawer__item-actions {
+  .agent-session-drawer__head-actions {
     display: flex;
     align-items: center;
     gap: 2px;
-  }
-
-  .agent-session-drawer__icon-button {
-    width: var(--agent-header-button-size, 30px);
-    height: var(--agent-header-button-size, 30px);
-    display: inline-grid;
-    place-items: center;
-    border: 0;
-    border-radius: 4px;
-    color: var(--agent-muted);
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .agent-session-drawer__icon-button:hover,
-  .agent-session-drawer__icon-button:focus-visible {
-    color: var(--agent-text);
-    background: var(--agent-hover);
   }
 
   .agent-session-drawer__empty {
@@ -304,73 +163,6 @@
     padding: 6px;
     overflow-y: auto;
     list-style: none;
-  }
-
-  .agent-session-drawer__item {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    border-radius: 6px;
-  }
-
-  .agent-session-drawer__item:hover,
-  .agent-session-drawer__item.is-active {
-    background: var(--agent-hover);
-  }
-
-  .agent-session-drawer__select {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: 6px;
-    color: var(--agent-text);
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .agent-session-drawer__item-title {
-    display: block;
-    overflow: hidden;
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .agent-session-drawer__item-actions {
-    padding-right: 4px;
-    transition: opacity 0.12s ease;
-  }
-
-  /* 仅在支持 hover 的设备上隐藏操作按钮；触摸设备始终可见。键盘聚焦时同样显示。 */
-  @media (hover: hover) {
-    .agent-session-drawer__item-actions {
-      opacity: 0;
-    }
-
-    .agent-session-drawer__item:hover .agent-session-drawer__item-actions,
-    .agent-session-drawer__item:focus-within .agent-session-drawer__item-actions {
-      opacity: 1;
-    }
-  }
-
-  .agent-session-drawer__field {
-    display: grid;
-    gap: 5px;
-  }
-
-  .agent-session-drawer__field-label {
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 500;
-  }
-
-  .agent-session-drawer__confirm {
-    margin: 0;
-    color: var(--klc-color-ui-text);
-    font-size: 13px;
-    line-height: 1.5;
   }
 
   .agent-session-drawer-enter-active,

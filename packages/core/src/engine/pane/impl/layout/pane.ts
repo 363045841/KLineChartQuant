@@ -1,7 +1,5 @@
 import type { PaneCapabilities, PaneRole } from '../../../../foundation/plugin/index.js'
-import type { KLineData } from '../../../../foundation/types/price.js'
 import { type PriceRange, PriceScale } from '../../../scale/index.js'
-import { getVisiblePriceRange, type VisibleRange } from '../../../viewport/viewport.js'
 import { MAIN_PANE_ID } from '../../types.js'
 
 /**
@@ -60,6 +58,8 @@ export class Pane {
   readonly yAxis = new PriceScale()
 
   /** 当前 pane 的有效基础价格范围。 */
+  // 由 wrapPaneInfo 以结构类型 PaneInfo 暴露给插件消费，静态分析无法识别接口接收者上的访问。
+  // fallow-ignore-next-line unused-class-member
   get priceRange(): PriceRange {
     return this.yAxis.getRange()
   }
@@ -95,44 +95,5 @@ export class Pane {
    */
   setPadding(top: number, bottom: number) {
     this.yAxis.setPadding(top, bottom)
-  }
-
-  /**
-   * 根据当前可见索引区间更新 priceRange 并同步到 yAxis
-   * @param data 全量 K 线数据
-   * @param range 当前视口可见的索引范围（由 getVisibleRange 计算）
-   * @param indicatorRange 可选的指标极值范围，与K线极值合并
-   */
-  updateRange(
-    data: KLineData[],
-    range: VisibleRange,
-    indicatorRange?: { min: number; max: number } | null,
-  ) {
-    // 纯未来区视口：可见区间无任何真实 bar，冻结最近一次有效价格区间与基准价（TV 行为），
-    // 避免跳变到 {100,0} 兜底；冷启动即未来区（data 为空）仍走原兜底
-    const hasVisibleBar = range.start < data.length && range.end > Math.max(0, range.start)
-    if (!hasVisibleBar && data.length > 0) return
-
-    const priceRange = getVisiblePriceRange(data, range.start, range.end)
-
-    // 如果有指标极值，合并到价格范围
-    if (
-      indicatorRange &&
-      Number.isFinite(indicatorRange.min) &&
-      Number.isFinite(indicatorRange.max)
-    ) {
-      priceRange.minPrice = Math.min(priceRange.minPrice, indicatorRange.min)
-      priceRange.maxPrice = Math.max(priceRange.maxPrice, indicatorRange.max)
-    }
-
-    this.yAxis.setRange(priceRange)
-
-    // 百分比轴（左/右）需要基准价；始终为 price pane 设置，由 leftYAxis/yAxis 按需调用 toPercent
-    if (this.role === 'price' && data.length > 0 && range.start < data.length) {
-      const baseIdx = Math.max(0, range.start)
-      this.yAxis.setBasePrice(data[baseIdx]?.close ?? null)
-    } else {
-      this.yAxis.setBasePrice(null)
-    }
   }
 }

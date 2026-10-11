@@ -1,0 +1,10 @@
+{
+  "brand": {
+    "$description": "Brand accent: Instrument Cobalt (ADR 0007; competitor-brand-colors.md §4, rank 3). Use sparingly: primary action, selection, focus, links, the MA line in preset previews. Market colors stay semantic: the accent never fills candles or volume bars and never encodes up/down (it sits close to the up color under tritanopia, ΔE 0.080). Not wired into presets yet (Phase 3).",
+    "accent": {
+      "$type": "color",
+      "$value": { "colorSpace": "srgb", "components": [0.298, 0.4667, 0.7765], "hex": "#4C77C6" },
+      "$description": "UI, focus ring, selection (≥ 3:1). Blue category norm (Okhsl 261.4 / 0.971 / 0.509) with saturation only lowered 0.971 → 0.654; OKLCH 0.576 / 0.131 / 261.6. 4.10:1 on #151619, 4.05:1 on #F5F5F7."
+    }
+  }
+}

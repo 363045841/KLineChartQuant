@@ -71,7 +71,6 @@ function createStochRSILayer(options: StochRSIRendererOptions = {}): Layer<Rende
       kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
       displayRange.maxPrice.toFixed(6),
       displayRange.minPrice.toFixed(6),
-      pane.yAxis.getPriceOffset().toFixed(6),
       pane.yAxis.getScaleType(),
       pane.height.toFixed(2),
       params.period,

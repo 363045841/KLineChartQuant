@@ -1,0 +1,49 @@
+{
+  "$description": "Legacy Theme families (spacing / typography / motion) exactly as shipped in theme-base.ts. Theme-layer: emitted by themeToCssVars and frozen by baseline.test.ts.snap.",
+  "spacing": {
+    "none": { "$type": "dimension", "$value": { "value": 0, "unit": "px" } },
+    "xxs": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } },
+    "xs": { "$type": "dimension", "$value": { "value": 4, "unit": "px" } },
+    "sm": { "$type": "dimension", "$value": { "value": 8, "unit": "px" } },
+    "md": { "$type": "dimension", "$value": { "value": 12, "unit": "px" } },
+    "lg": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
+    "xl": { "$type": "dimension", "$value": { "value": 24, "unit": "px" } },
+    "xxl": { "$type": "dimension", "$value": { "value": 32, "unit": "px" } },
+    "xxxl": { "$type": "dimension", "$value": { "value": 64, "unit": "px" } }
+  },
+  "typography": {
+    "fontFamily": {
+      "$type": "fontFamily",
+      "$value": "inherit",
+      "$description": "不指定字体，DOM 界面继承宿主页面字体。"
+    },
+    "fontFamilyMono": {
+      "$type": "fontFamily",
+      "$value": [
+        "JetBrains Mono",
+        "ui-monospace",
+        "SFMono-Regular",
+        "Menlo",
+        "Consolas",
+        "Liberation Mono",
+        "monospace"
+      ],
+      "$description": "代码、版本号、数字等优先使用 JetBrains Mono，缺失时回退系统等宽字体。"
+    },
+    "fontSizeSm": { "$type": "dimension", "$value": { "value": 10, "unit": "px" } },
+    "fontSizeMd": { "$type": "dimension", "$value": { "value": 12, "unit": "px" } },
+    "fontSizeLg": { "$type": "dimension", "$value": { "value": 14, "unit": "px" } },
+    "fontWeightRegular": { "$type": "fontWeight", "$value": 400 },
+    "fontWeightMedium": { "$type": "fontWeight", "$value": 500 },
+    "fontWeightBold": { "$type": "fontWeight", "$value": 700 },
+    "lineHeightTight": { "$type": "number", "$value": 1.2 },
+    "lineHeightStandard": { "$type": "number", "$value": 1.4 }
+  },
+  "motion": {
+    "durationInstant": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } },
+    "durationFast": { "$type": "duration", "$value": { "value": 120, "unit": "ms" } },
+    "durationModerate": { "$type": "duration", "$value": { "value": 200, "unit": "ms" } },
+    "easingStandard": { "$type": "cubicBezier", "$value": [0.4, 0, 0.2, 1] },
+    "easingDecelerate": { "$type": "cubicBezier", "$value": [0, 0, 0.2, 1] }
+  }
+}

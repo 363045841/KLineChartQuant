@@ -1,0 +1,147 @@
+{
+  "$description": "Exchange · 交易 — 分层面板 · 琥珀强调",
+  "light": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9725], "hex": "#FAFAF8" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9608, 0.9608, 0.9412], "hex": "#F5F5F0" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9373, 0.9373, 0.9059], "hex": "#EFEFE7" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9059, 0.9059, 0.8627], "hex": "#E7E7DC" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9216, 0.9216, 0.8824], "hex": "#EBEBE1" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.851, 0.851, 0.7961], "hex": "#D9D9CB" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.5765, 0.5843, 0.4902], "hex": "#93957D" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1451, 0.1647, 0.1882], "hex": "#252A30" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4196, 0.4392], "hex": "#666B70" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.5804, 0.4196, 0], "hex": "#946B00" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.902, 0.902, 0.8706], "hex": "#E6E6DE" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9412, 0.9137], "hex": "#F0F0E9" }
+      }
+    },
+    "color": {
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.5804, 0.4196, 0],
+          "alpha": 0.149,
+          "hex": "#946B00"
+        },
+        "$description": "= visual.accent at alpha 0x26."
+      }
+    }
+  },
+  "dark": {
+    "visual": {
+      "background": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0431, 0.0549, 0.0667], "hex": "#0B0E11" }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0706, 0.0863, 0.1098], "hex": "#12161C" }
+      },
+      "card": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0941, 0.1137, 0.1412], "hex": "#181D24" }
+      },
+      "input": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1176, 0.1373, 0.1608], "hex": "#1E2329" }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1451, 0.1686, 0.1961], "hex": "#252B32" }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1333, 0.1529, 0.1804], "hex": "#22272E" }
+      },
+      "border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1882, 0.2118, 0.2471], "hex": "#30363F" }
+      },
+      "borderStrong": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.349, 0.3882, 0.4471], "hex": "#596372" }
+      },
+      "text": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.9255, 0.9373], "hex": "#EAECEF" }
+      },
+      "muted": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6549, 0.6902, 0.7412], "hex": "#A7B0BD" }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.7255, 0.0431], "hex": "#F0B90B" }
+      },
+      "onAccent": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.102, 0.1216], "hex": "#171A1F" }
+      },
+      "gridMajor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1255, 0.149, 0.1843], "hex": "#20262F" }
+      },
+      "gridMinor": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.1137, 0.1412], "hex": "#171D24" }
+      }
+    },
+    "color": {
+      "selectionFill": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9412, 0.7255, 0.0431],
+          "alpha": 0.149,
+          "hex": "#F0B90B"
+        },
+        "$description": "= visual.accent at alpha 0x26."
+      }
+    }
+  }
+}

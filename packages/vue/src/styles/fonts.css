@@ -1,0 +1,5 @@
+/* 随包自托管的字体：@fontsource 由构建把它们引用的 woff2 打进产物，不使用 CDN。
+   等宽字体对应 --klc-typography-font-family-mono；品牌字体对应 --klc-font-family-brand。 */
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/outfit/latin-600.css";

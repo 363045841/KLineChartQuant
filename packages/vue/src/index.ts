@@ -31,6 +31,7 @@ import {
 } from 'vue'
 
 import { KlineChart } from './components/index.js'
+import './styles/fonts.css'
 import './styles/scrollbar.css'
 
 export type {
@@ -72,11 +73,45 @@ export {
 } from './components/index.js'
 
 // ---------------------------------------------------------------------------
+// Interaction primitives (overlay, toast + undo, textarea)
+// ---------------------------------------------------------------------------
+
+export { default as BaseModal } from './components/BaseModal.vue'
+export { default as BasePopover } from './components/common/BasePopover.vue'
+export { default as BaseTextarea } from './components/common/BaseTextarea.vue'
+export { default as BaseTooltip } from './components/common/BaseTooltip.vue'
+export { default as ToastViewport } from './components/common/ToastViewport.vue'
+export {
+  type AnchoredPlacement,
+  type UseAnchoredPopoverOptions,
+  useAnchoredPopover,
+} from './composables/overlay/useAnchoredPopover.js'
+export { type UseRovingFocusOptions, useRovingFocus } from './composables/overlay/useRovingFocus.js'
+export {
+  type CreateToastStoreOptions,
+  createToastStore,
+  provideToast,
+  TOAST_STORE_KEY,
+  type ToastAction,
+  type ToastApi,
+  type ToastDismissReason,
+  type ToastHandle,
+  type ToastItem,
+  type ToastOptions,
+  type ToastStore,
+  type ToastTone,
+  type UndoToastOptions,
+  useToast,
+} from './composables/toast/useToast.js'
+
+// ---------------------------------------------------------------------------
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
 export * from './features/agent/agent-contracts.js'
+export { BrowserAgentBridge } from './features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
+export type { BrowserAgentBridgeOptions } from './features/agent/browser-agent/bridge/types.js'
 export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export { createAgentPanelWidthStorage } from './features/agent/workspace/impl/agent-panel-width-storage.js'
 export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'
@@ -208,7 +243,7 @@ export function useChart(
 // ---------------------------------------------------------------------------
 
 /**
- * Bridge the Chart's indicators signal into a Vue shallowRef.
+ * Read the Chart's indicators signal through a read-only Vue view.
  */
 export function useIndicators(controller: ChartController): {
   indicators: ComputedRef<ReadonlyArray<IndicatorInstance>>
@@ -227,7 +262,7 @@ export function useIndicators(controller: ChartController): {
 }
 
 /**
- * Bridge the Chart's interactionState signal into a Vue shallowRef.
+ * Read the Chart's interactionState signal through a read-only Vue view.
  * 仅当 snapshot 引用变化时更新（kernel 侧已做字段级短路与引用缓存）。
  */
 export function useInteractionState(controller: ChartController): ComputedRef<InteractionSnapshot> {
@@ -235,7 +270,7 @@ export function useInteractionState(controller: ChartController): ComputedRef<In
 }
 
 /**
- * Bridge the Chart's paneRatios signal into a Vue shallowRef.
+ * Read the Chart's paneRatios signal through a read-only Vue view.
  */
 export function usePaneRatios(
   controller: ChartController,
@@ -244,7 +279,7 @@ export function usePaneRatios(
 }
 
 /**
- * Bridge the Chart's viewport signal into a Vue shallowRef.
+ * Read the Chart's viewport signal through a read-only Vue view.
  * 引用相等则跳过，配合 viewport 侧缓存减少滚动抖动更新。
  */
 export function useViewport(controller: ChartController): ComputedRef<ChartViewport> {

@@ -9,7 +9,16 @@ import { useControllerSignal, useControllerSignalValue } from './useControllerSi
 
 /** 仅保存 Vue 自身的交互状态；图表业务状态直接订阅 Controller。 */
 export function useChartState(controller: Ref<ChartController | null>) {
-  const symbolStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const dataLoading = useControllerSignal(
+    controller,
+    (chart) => chart.dataLoading,
+    () => false,
+  )
+  const dataError = useControllerSignal(
+    controller,
+    (chart) => chart.dataError,
+    () => null,
+  )
   // visibleFrom/visibleTo 随滚动每帧变化；Vue 只需要低频的 zoomLevel。
   const zoomLevel = useControllerSignalValue(
     controller,
@@ -32,13 +41,22 @@ export function useChartState(controller: Ref<ChartController | null>) {
     (chart) => chart.paneLayout,
     () => [],
   )
-  const comparisonColorsMap = ref<Map<string, string>>(new Map())
-  const comparisonLoading = ref(false)
+  const comparisonColorsMap = useControllerSignal(
+    controller,
+    (chart) => chart.comparisonColors,
+    () => new Map<string, string>(),
+  )
+  const comparisonLoading = useControllerSignal(
+    controller,
+    (chart) => chart.comparisonLoading,
+    () => false,
+  )
   /** range-select 为 UI 模式，不进 kernel DrawingToolId */
   const isRangeSelectMode = ref(false)
 
   return {
-    symbolStatus,
+    dataLoading,
+    dataError,
     data,
     zoomLevel,
     paneRatios,

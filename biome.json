@@ -16,7 +16,8 @@
       "!**/preview",
       "!public/mock-stock-data.json",
       "!packages/desktop-electron/out",
-      "!packages/core/src/engine/indicators/generated"
+      "!packages/core/src/engine/indicators/generated",
+      "!packages/core/design-tokens"
     ]
   },
   "formatter": {

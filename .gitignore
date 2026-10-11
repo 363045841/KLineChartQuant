@@ -75,3 +75,7 @@ bench/results/
 # PDF export output (scripts/code-to-pdf.mjs, scripts/docs-to-pdf.mjs)
 .code-pdf/
 .docs-pdf/
+
+# 设计 Token 生成产物：仅本地 / CI 产物，不作为源提交
+packages/core/design-tokens/reports/
+packages/core/design-tokens/proposals/

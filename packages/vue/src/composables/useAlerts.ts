@@ -4,48 +4,42 @@ import type {
   AlertRule,
   ChartController,
 } from '@363045841yyt/klinechart-core'
-import { computed, type MaybeRefOrGetter, onScopeDispose, ref, shallowRef, toRef, watch } from 'vue'
+import { type MaybeRefOrGetter, ref, toRef, watch } from 'vue'
+import { useControllerSignal } from './chart/useControllerSignal.js'
 
 export function useAlerts(controllerSource: MaybeRefOrGetter<ChartController | null>) {
   const controller = toRef(controllerSource)
 
-  const rules = shallowRef<ReadonlyArray<AlertRule>>([])
-  const events = shallowRef<ReadonlyArray<AlertEvent>>([])
-  const readonlyRules = computed(() => rules.value)
-  const readonlyEvents = computed(() => events.value)
+  const rules = useControllerSignal<ReadonlyArray<AlertRule>>(
+    controller,
+    (chart) => chart.alertController?.rules,
+    () => [],
+  )
+  const events = useControllerSignal<ReadonlyArray<AlertEvent>>(
+    controller,
+    (chart) => chart.alertController?.events,
+    () => [],
+  )
   const unreadCount = ref(0)
   let prevEventCount = 0
-
-  let unsubRules: (() => void) | null = null
-  let unsubEvents: (() => void) | null = null
 
   function getCtrl(): AlertController | null {
     return controller.value?.alertController ?? null
   }
 
-  function connect() {
-    disconnect()
-    const ctrl = getCtrl()
-    if (!ctrl) return
-    rules.value = ctrl.rules.peek()
-    unsubRules = ctrl.rules.subscribe(() => {
-      rules.value = ctrl.rules.peek()
-    })
-    events.value = ctrl.events.peek()
-    prevEventCount = events.value.length
-    unsubEvents = ctrl.events.subscribe(() => {
-      events.value = ctrl.events.peek()
-      const diff = events.value.length - prevEventCount
-      if (diff > 0) unreadCount.value += diff
-    })
-  }
-
-  function disconnect() {
-    unsubRules?.()
-    unsubEvents?.()
-    unsubRules = null
-    unsubEvents = null
-  }
+  // Unread is UI-owned history, not a mirror of Core's event list.
+  watch(
+    [controller, events],
+    ([nextController, nextEvents], [previousController]) => {
+      if (nextController !== previousController) unreadCount.value = 0
+      else {
+        const diff = nextEvents.length - prevEventCount
+        if (diff > 0) unreadCount.value += diff
+      }
+      prevEventCount = nextEvents.length
+    },
+    { immediate: true, flush: 'sync' },
+  )
 
   function resetUnread() {
     unreadCount.value = 0
@@ -60,13 +54,9 @@ export function useAlerts(controllerSource: MaybeRefOrGetter<ChartController | n
     getCtrl()?.updateRule(id, patch) ?? false
   const clearEvents = () => getCtrl()?.clearEvents()
 
-  watch(controller, connect, { immediate: true })
-
-  onScopeDispose(disconnect)
-
   return {
-    rules: readonlyRules,
-    events: readonlyEvents,
+    rules,
+    events,
     unreadCount,
     resetUnread,
     addRule,

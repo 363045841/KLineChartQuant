@@ -1,0 +1,34 @@
+{
+  "name": "@363045841yyt/klinechart-mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Expo spike: KCQ chart in an Expo DOM component (ADR 0010).",
+  "license": "Apache-2.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "web": "expo start --web",
+    "export:check": "EXPO_NO_BUNDLE_SPLITTING=1 expo export --platform ios --platform android --output-dir dist-export",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@363045841yyt/klinechart-core": "workspace:*",
+    "@363045841yyt/klinechart-react": "workspace:*",
+    "@expo/metro-runtime": "~57.0.16",
+    "expo": "~57.0.27",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/plugin-transform-object-rest-spread": "^7.28.6",
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "~57.0.14",
+    "typescript": "~6.0.3"
+  }
+}

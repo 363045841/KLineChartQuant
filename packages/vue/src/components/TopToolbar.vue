@@ -1,6 +1,7 @@
 <!-- 图表顶部控件及固定在右侧的截图入口。 -->
 <template>
   <div class="top-toolbar">
+    <div v-if="$slots.start" class="top-toolbar__host"><slot name="start" /></div>
     <div
       ref="toolbarRef"
       class="top-toolbar__controls"
@@ -81,13 +82,15 @@
         @close="showSourceDialog = false"
         @toggle="onToggleAggregationSource"
         @update-endpoint="onUpdateSourceEndpoint"
-      />
+      >
+        <template #source-management><slot name="source-management" /></template>
+      </AggregationSourceDialog>
     </div>
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
     </div>
     <div class="screenshot-actions">
-      <BaseTooltip content="撤回" placement="bottom">
+      <BaseTooltip content="撤回" command="drawing.undo" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -98,7 +101,7 @@
           <IconTablerArrowBackUp class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="重做" placement="bottom">
+      <BaseTooltip content="重做" command="drawing.redo" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -156,6 +159,7 @@
         </button>
       </BaseTooltip>
     </div>
+    <div v-if="$slots.end" class="top-toolbar__host"><slot name="end" /></div>
   </div>
 </template>
 
@@ -285,7 +289,7 @@
       symbolErrorMessage?: string
       overlaySymbols?: string[]
       overlaySymbolItems?: SymbolItem[]
-      comparisonColors?: Map<string, string>
+      comparisonColors?: ReadonlyMap<string, string>
       comparisonLoading?: boolean
       showBackButton?: boolean
       screenshotCapturing?: boolean
@@ -391,6 +395,15 @@
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
+  }
+
+  /* 宿主控件保持可访问，不参与图表控件区的拖动与横向滚动。 */
+  .top-toolbar__host {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-width: 0;
+    height: 100%;
   }
 
   .top-toolbar__controls::-webkit-scrollbar {

@@ -439,6 +439,10 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   /** 最近一次 K 线周期；分时返回操作使用该值。 */
   readonly lastBarPeriod: ReadonlySignal<string>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  /** 当前布局的指标收藏唯一数据源。 */
+  readonly favoriteIndicatorIds: ReadonlySignal<ReadonlyArray<string>>
+  /** 收藏操作不启用指标，也不加载其实现。 */
+  setIndicatorFavorite(indicatorId: string, favorite: boolean): void
   readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
   readonly drawingTool: ReadonlySignal<import('../engine/drawing/index.js').DrawingToolId>

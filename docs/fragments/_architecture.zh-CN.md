@@ -10,7 +10,7 @@ flowchart TB
     subgraph app["UI 层 / 框架绑定"]
         UI["UI 层"]
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC（Vue Web Component 封装）"]
+        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart（直连 Core）· KLineChartWC（Vue Web Component）"]
         AngularPkg["@363045841yyt/klinechart-angular"]
         Agent["AI Agent"]
         AgentRt["@363045841yyt/klinechart-agent-runtime"]
@@ -68,8 +68,9 @@ flowchart TB
   （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
-- **React 经 Web Component 接入** — `@363045841yyt/klinechart-react` 的 `KLineChartWC` 渲染由
-  Vue 包打包的 `<kline-chart>` 自定义元素（`@363045841yyt/klinechart/web-component`）。
+- **React 绑定** — `@363045841yyt/klinechart-react` 的 `KLineChart` 直接挂载 Core（仅客户端加载，
+  不含 Vue 运行时）；`KLineChartWC` 渲染由 Vue 包打包、带完整 UI 的 `<kline-chart>` 自定义元素
+  （`@363045841yyt/klinechart/web-component`）。
 - **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
   `@Tool` 注册的原语——与 UI 使用同一入口。
 

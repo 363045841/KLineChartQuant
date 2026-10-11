@@ -95,6 +95,7 @@
     "vue": "^3.5.42"
   },
   "dependencies": {
+    "@floating-ui/dom": "1.8.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/outfit": "^5.3.0",
     "dompurify": "^3.4.15",

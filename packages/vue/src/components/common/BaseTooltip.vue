@@ -19,17 +19,26 @@
         class="base-tooltip"
         :class="[`base-tooltip--${placement}`, { 'is-styled': styled }]"
         :style="tooltipStyle"
+        :popover="topLayer ? 'manual' : undefined"
         role="tooltip"
       >
-        <slot name="content">{{ content }}</slot>
+        <span class="base-tooltip__content"><slot name="content">{{ content }}</slot></span>
+        <span v-if="shortcut" class="base-tooltip__shortcut" aria-label="快捷键">
+          <ShortcutKeys :shortcut="shortcut" variant="tooltip" />
+        </span>
       </div>
     </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
+  import { primaryShortcut } from '@363045841yyt/klinechart-core'
+  import { computed, watch } from 'vue'
+  import { injectCommands } from '../../composables/commands/useCommands.js'
+  import { supportsPopover } from '../../composables/overlay/platform.js'
   import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
   import { type TooltipPlacement, useTooltip } from '../../composables/useTooltip.js'
+  import ShortcutKeys from './ShortcutKeys.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -47,6 +56,8 @@
       hideDelay?: number
       /** 为 true 时屏蔽显示 */
       disabled?: boolean
+      /** 关联命令 id；存在时在 tooltip 后显示该命令的快捷键。 */
+      command?: string
     }>(),
     {
       content: '',
@@ -56,10 +67,18 @@
       showDelay: 300,
       hideDelay: 0,
       disabled: false,
+      command: undefined,
     },
   )
 
   const teleportTarget = useFullscreenTeleportTarget()
+  const registry = injectCommands()
+  const shortcut = computed(() => {
+    if (!props.command || !registry) return null
+    const command = registry.get(props.command)
+    const combo = command ? primaryShortcut(command) : null
+    return combo ? registry.formatShortcut(combo) : null
+  })
 
   const {
     triggerRef,
@@ -78,6 +97,20 @@
     hideDelay: () => props.hideDelay,
     disabled: () => props.disabled,
   })
+
+  /**
+   * 提示进入 top layer（popover="manual"），才能显示在 Popover API 菜单与模态 dialog 之上；
+   * 坐标仍由 useTooltip 以视口 fixed 坐标计算（top layer 不受祖先 transform 影响）。
+   */
+  const topLayer = supportsPopover()
+  watch(tooltipRef, (element) => {
+    if (!topLayer || !element) return
+    try {
+      element.showPopover()
+    } catch {
+      // 已打开或尚未连接到文档。
+    }
+  })
 </script>
 
 <style scoped>
@@ -94,15 +127,19 @@
 
   .base-tooltip {
     position: fixed;
-    /* 高于 BaseModal 浮层(1000/1100)，否则弹窗内的提示会被遮挡。 */
-    z-index: 1200;
-    padding: 4px 8px;
+    /* 覆盖 UA 的 popover 默认样式（inset: 0; margin: auto; overflow: auto）。 */
+    inset: auto;
+    margin: 0;
+    overflow: visible;
+    /* 高于弹层与模态（tokens-v2 z-index 分层），否则弹窗内的提示会被遮挡。 */
+    z-index: var(--klc-z-index-tooltip, 1200);
+    padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px);
     border: 1px solid var(--klc-color-tooltip-border);
-    border-radius: 4px;
+    border-radius: var(--klc-radius-xs, 4px);
     background: var(--klc-color-tooltip-bg);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    box-shadow: var(--klc-elevation-2, 0 4px 14px rgb(0 0 0 / 0.14));
     color: var(--klc-color-tooltip-text);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.5;
     white-space: nowrap;
     pointer-events: none;
@@ -115,6 +152,17 @@
 
   .base-tooltip.is-styled {
     visibility: visible;
+  }
+
+  .base-tooltip__content {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .base-tooltip__shortcut {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
   }
 
   .base-tooltip-enter-active,
@@ -147,5 +195,17 @@
   .base-tooltip--bottom.base-tooltip-enter-from,
   .base-tooltip--bottom.base-tooltip-leave-to {
     transform: translateY(-4px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .base-tooltip-enter-active,
+    .base-tooltip-leave-active {
+      transition: opacity 0.12s linear;
+    }
+
+    .base-tooltip.base-tooltip-enter-from,
+    .base-tooltip.base-tooltip-leave-to {
+      transform: none;
+    }
   }
 </style>

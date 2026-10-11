@@ -10,7 +10,7 @@
         :layout-controller="controller"
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
-        @settings="chartSettingsOpen = true"
+        @settings="openChartSettings('main')"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
         @undo-drawing="controller?.undoDrawing()"
@@ -49,10 +49,16 @@
         @update-source-endpoint="setAggregationSourceEndpoint"
         @back="onBackFromTimeShare"
       >
+        <template #source-management><slot name="source-management" /></template>
+        <template v-if="slots['toolbar-start']" #start>
+          <slot name="toolbar-start" />
+        </template>
+        <template v-if="slots['toolbar-end']" #end>
+          <slot name="toolbar-end" />
+        </template>
         <template #watchlist>
           <WatchlistPanel
             :items="watchlistItems"
-            :active-key="currentSymbolItem ? symbolIdentityKey(currentSymbolItem) : undefined"
             @select="onSymbolChange"
             @remove="removeWatchlistItem"
           />
@@ -60,11 +66,8 @@
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
-          v-model:settings-open="chartSettingsOpen"
           :alert-controller="controller"
           :effective-settings="chartSettings"
-          :renderer-runtime="rendererRuntime"
-          :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
           :magnet-mode="magnetMode"
           :continuous-drawing="continuousDrawing"
@@ -73,9 +76,6 @@
           :all-drawings-hidden="drawings.length > 0 && drawings.every((drawing) => !drawing.visible)"
           :global-drawing-locked="globalDrawingLock"
           :is-range-select-mode="isRangeSelectMode"
-          :aggregation-sources="aggregationSources"
-          :enabled-source-names="enabledSourceNameSet"
-          :source-endpoints="sourceEndpoints"
           @select-tool="handleSelectTool"
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
@@ -86,10 +86,6 @@
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
           @set-all-drawings-visible="onSetAllDrawingsVisible"
-          @settings-change="handleSettingsChange"
-          @clear-market-data-cache="controller?.clearMarketDataCache()"
-          @toggle-aggregation-source="setAggregationSourceEnabled"
-          @update-source-endpoint="setAggregationSourceEndpoint"
         />
         <div ref="chartMainRef" class="chart-main">
           <a
@@ -127,14 +123,7 @@
           <div
             ref="containerRef"
             tabindex="0"
-            @keydown="onDrawingHistoryKeydown"
             class="chart-container"
-            @pointerdown="onPointerDown"
-            @pointermove="onPointerMove"
-            @pointerup="onPointerUp"
-            @pointerleave="onPointerLeave"
-            @pointercancel="onPointerCancel"
-            @lostpointercapture="onLostPointerCapture"
             @dblclick="onDoubleClick"
             @contextmenu.prevent
           >
@@ -295,12 +284,6 @@
             class="right-axis-host"
             :class="{ 'price-axis-host--left': chartMode !== 'timeshare' && priceAxisPosition === 'left' }"
             :style="{ width: axisHostWidth + 'px' }"
-            @pointerdown="onRightAxisPointerDown"
-            @pointermove="onRightAxisPointerMove"
-            @pointerup="onRightAxisPointerUp"
-            @pointerleave="onRightAxisPointerLeave"
-            @pointercancel="onRightAxisPointerCancel"
-            @lostpointercapture="onRightAxisLostPointerCapture"
             @contextmenu.prevent
           >
             <div
@@ -351,6 +334,7 @@
     />
     <IndicatorSelector
       ref="indicatorSelectorRef"
+      :chart-controller="controller"
       :active-indicators="activeIndicators"
       :indicator-params="indicatorParams"
       :replace-pane-id="replacementPaneId"
@@ -361,6 +345,25 @@
       @replace="replaceLegend"
       @close="replacementPaneId = null"
     />
+    <ChartSettingsDialog
+      v-model:open="chartSettingsOpen"
+      :initial-section="chartSettingsSection"
+      :initial-settings="chartSettings"
+      :renderer-runtime="rendererRuntime"
+      :market-data-cache-stats="marketDataCacheStats"
+      :aggregation-sources="aggregationSources"
+      :enabled-source-names="enabledSourceNameSet"
+      :source-endpoints="sourceEndpoints"
+      @confirm="confirmChartSettings"
+      @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
+      @clear-market-data-cache="controller?.clearMarketDataCache()"
+      @toggle-aggregation-source="setAggregationSourceEnabled"
+      @update-source-endpoint="setAggregationSourceEndpoint"
+    >
+      <template #source-management><slot name="source-management" /></template>
+    </ChartSettingsDialog>
+    <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
+    <ToastViewport />
   </div>
 </template>
 
@@ -387,12 +390,14 @@
     type SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
   import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
+  import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     type InstrumentDescriptor,
     searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
   import {
     computed,
+    inject,
     nextTick,
     onBeforeUpdate,
     onMounted,
@@ -402,25 +407,16 @@
     useSlots,
     watch,
   } from 'vue'
-  import {
-    type AggregationSourceDefinition,
-    useAggregationSources,
-  } from '../composables/useAggregationSources.js'
+  import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
+  import { useAggregationSources } from '../composables/useAggregationSources.js'
+  import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
 
+  if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
   const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
   const hasMarkerTooltipSlot = ref(Boolean(slots['marker-tooltip']))
-  /** Provider 与遗留 Fetcher 的展示元数据；已迁移源不再注册旧 Fetcher。 */
-  const aggregationSources: ReadonlyArray<AggregationSourceDefinition> = [
-    ...marketDataProviderRegistry.getAll().map((provider) => ({
-      name: provider.source.id,
-      displayName: provider.source.displayName,
-      description: provider.source.description,
-      capabilities: provider.catalog ? ['search'] : [],
-      defaultBaseUrl: provider.source.defaultBaseUrl,
-    })),
-  ]
+  const aggregationSources = useMarketDataSourceCatalog()
   const {
     enabledNames: enabledSourceNames,
     enabledNameSet: enabledSourceNameSet,
@@ -446,13 +442,18 @@
   import { useLegendUi } from '../composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { createChartCommands } from '../composables/commands/chartCommands.js'
+  import { provideChartCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
   import { useWatchlist } from '../composables/useWatchlist.js'
   import { readElementSize } from '../utils/elementSize.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
+  import CommandPalette from './commands/CommandPalette.vue'
+  import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
+  import ToastViewport from './common/ToastViewport.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import DrawingTemplateSaveDialog from './drawing-settings/DrawingTemplateSaveDialog.vue'
@@ -580,6 +581,10 @@
    * @remarks 仅类型契约，运行时仍用 useSlots() 判断插槽是否存在。
    */
   defineSlots<{
+    /** 宿主管理行情连接与凭据；图表不持有密钥。 */
+    'source-management'(): unknown
+    'toolbar-start'(): unknown
+    'toolbar-end'(): unknown
     legend(props: LegendSlotProps): unknown
     'kline-tooltip'(props: KlineTooltipSlotProps): unknown
     'marker-tooltip'(props: MarkerTooltipSlotProps): unknown
@@ -587,19 +592,79 @@
 
   // ── Symbol / Comparison State ──
 
+  const controller = shallowRef<ChartController | null>(null)
+  const chartState = useChartState(controller)
+  const {
+    data,
+    dataLoading,
+    dataError,
+    zoomLevel,
+    paneRatios,
+    paneLayout,
+    comparisonColorsMap,
+    comparisonLoading,
+    isRangeSelectMode,
+  } = chartState
+  const controllerSymbols = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.symbols,
+    () => [],
+  )
+  const symbolCatalog = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.symbolCatalog,
+    () => [],
+  )
+  const comparisonSpecs = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.comparisonSpecs,
+    () => [],
+  )
   const initialKLineLevel = props.symbols?.[0]?.period ?? 'daily'
-  const kLineAdjust = ref<'qfq' | 'hfq' | 'splits' | 'none'>(
+  // Preference used only before a primary symbol exists; active adjustment is Core-owned.
+  const initialAdjust = ref<'qfq' | 'hfq' | 'splits' | 'none'>(
     (props.symbols?.[0]?.adjust as 'qfq' | 'hfq' | 'splits' | 'none' | undefined) ?? 'none',
   )
-  const currentSymbol = ref('选择商品')
-  const currentSymbolItem = ref<SymbolItem | null>(null)
-  const symbolErrorMessage = ref<string | null>(null)
+  const kLineAdjust = computed(() => {
+    const adjust = controllerSymbols.value[0]?.adjust
+    return adjust === 'qfq' || adjust === 'hfq' || adjust === 'splits' || adjust === 'none'
+      ? adjust
+      : initialAdjust.value
+  })
+  const currentSymbol = computed(() => controllerSymbols.value[0]?.symbol ?? '选择商品')
+  const currentSymbolItem = computed(() => {
+    const primary = controllerSymbols.value[0]
+    return primary ? symbolItemForSpec(primary) : null
+  })
+  // Local feedback describes rejected/pending UI commands, not a copy of Core loading state.
+  const localSymbolStatus = ref<'loading' | 'error' | null>(null)
+  const localSymbolError = ref<string | null>(null)
+  const symbolStatus = computed(
+    () =>
+      localSymbolStatus.value ??
+      (dataLoading.value
+        ? 'loading'
+        : dataError.value
+          ? 'error'
+          : controller.value
+            ? 'ready'
+            : 'idle'),
+  )
+  const symbolErrorMessage = computed(() => localSymbolError.value ?? dataError.value)
+  watch(
+    [data, dataLoading, dataError],
+    () => {
+      localSymbolStatus.value = null
+      localSymbolError.value = null
+    },
+    { flush: 'sync' },
+  )
   const symbolRetrying = computed(
     () => symbolStatus.value === 'loading' && Boolean(symbolErrorMessage.value),
   )
-  const overlaySymbols = ref<string[]>([])
-  const overlaySymbolItems = ref<SymbolItem[]>([])
-  const symbolPool = ref<SymbolItem[]>([])
+  const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
+  const overlaySymbolItems = computed(() => comparisonSpecs.value.map(symbolItemForSpec))
+  const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
   const { watchlistItems, watchlistKeys, restoreWatchlist, addWatchlistItem, removeWatchlistItem } =
     useWatchlist()
 
@@ -607,8 +672,8 @@
   function ensureTimeShareSupported(): boolean {
     const item = currentSymbolItem.value
     if (item?.capabilities && (item.capabilities.timeShare !== true || !item.sessionId)) {
-      symbolStatus.value = 'error'
-      symbolErrorMessage.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
+      localSymbolStatus.value = 'error'
+      localSymbolError.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
       return false
     }
     return true
@@ -620,9 +685,9 @@
     try {
       controller.value?.setCurrentPeriod(level)
     } catch (error) {
-      symbolStatus.value = 'error'
+      localSymbolStatus.value = 'error'
       if (currentSymbolItem.value) {
-        symbolErrorMessage.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
+        localSymbolError.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
       }
     }
   }
@@ -635,9 +700,9 @@
   }
 
   function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
-    kLineAdjust.value = adjust
+    if (!currentSymbolItem.value) initialAdjust.value = adjust
     emit('kLineAdjustChange', adjust)
-    syncSymbolsToController()
+    syncSymbolsToController(adjust)
   }
 
   function formatUnsupportedSymbolMessage(item: SymbolItem, error: unknown): string {
@@ -659,22 +724,22 @@
     ) {
       return
     }
-    symbolStatus.value = 'loading'
-    symbolErrorMessage.value = null
+    localSymbolStatus.value = 'loading'
+    localSymbolError.value = null
     try {
-      applyInstrumentCapabilities(item)
+      const adjust = applyInstrumentCapabilities(item)
       ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      ctrl.setSymbols([toSymbolSpec(item)])
+      ctrl.setSymbols([toSymbolSpec(item, adjust)])
     } catch (error) {
-      symbolStatus.value = 'error'
-      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+      localSymbolStatus.value = 'error'
+      localSymbolError.value = formatUnsupportedSymbolMessage(item, error)
     }
   }
 
   /** 切换品种时将当前周期和复权收敛到该品种声明的能力范围。 */
-  function applyInstrumentCapabilities(item: SymbolItem): void {
+  function applyInstrumentCapabilities(item: SymbolItem): 'qfq' | 'hfq' | 'splits' | 'none' {
     const capabilities = item.capabilities
-    if (!capabilities) return
+    if (!capabilities) return kLineAdjust.value
     const supportedPeriods = capabilities.bars?.periods ?? []
     const currentPeriodSupported =
       kLineLevel.value === 'timeshare'
@@ -691,11 +756,12 @@
       adjustments.length > 0 &&
       !adjustments.includes(kLineAdjust.value as (typeof adjustments)[number])
     ) {
-      kLineAdjust.value = adjustments[0]!
+      return adjustments[0]!
     }
+    return kLineAdjust.value
   }
 
-  function toSymbolSpec(item: SymbolItem): SymbolSpec {
+  function toSymbolSpec(item: SymbolItem, adjust = kLineAdjust.value): SymbolSpec {
     return {
       id: item.id,
       instrument: item,
@@ -707,7 +773,7 @@
       params: item.providerRef,
       startDate: props.symbols?.[0]?.startDate ?? '',
       endDate: props.symbols?.[0]?.endDate ?? '',
-      adjust: kLineAdjust.value,
+      adjust,
     }
   }
 
@@ -777,13 +843,40 @@
     }
   }
 
-  function syncSymbolsToController() {
+  function symbolItemForSpec(spec: SymbolSpec): SymbolItem {
+    if (spec.instrument) return spec.instrument
+    const info = symbolCatalog.value.find((item) =>
+      spec.id && item.id
+        ? spec.id === item.id
+        : item.symbol === spec.symbol &&
+          item.source === spec.source &&
+          item.exchange === spec.exchange,
+    )
+    return info
+      ? fromSymbolInfo(info)
+      : {
+          id:
+            spec.id ??
+            legacyInstrumentId(spec.source ?? '', spec.symbol, spec.exchange ?? '', spec.params),
+          sourceId: spec.source ?? '',
+          symbol: spec.symbol,
+          name: spec.symbol,
+          assetClass: 'unknown',
+          exchange: spec.exchange ?? '',
+          sessionId: spec.market || undefined,
+          providerRef: spec.params,
+          capabilities: {},
+        }
+  }
+
+  function syncSymbolsToController(adjust = kLineAdjust.value) {
     if (!currentSymbolItem.value) return
     const ctrl = controller.value
     if (!ctrl) return
     // 主品种与对比集合解耦：分别写入，周期/复权变化时对比集合用最新周期重建。
-    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value)])
-    ctrl.setComparisonSpecs(overlaySymbolItems.value.map(toSymbolSpec))
+    const comparisons = overlaySymbolItems.value.map((item) => toSymbolSpec(item, adjust))
+    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value, adjust)])
+    ctrl.setComparisonSpecs(comparisons)
   }
 
   // ── DOM Template Refs ──
@@ -808,6 +901,18 @@
   // ── Fullscreen (controlled / uncontrolled) ──
   const internalIsFullscreen = ref(false)
   const chartSettingsOpen = ref(false)
+  const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
+
+  function openChartSettings(section: 'main' | 'shortcuts'): void {
+    chartSettingsSection.value = section
+    chartSettingsOpen.value = true
+  }
+
+  function confirmChartSettings(settings: ChartSettings): void {
+    handleSettingsChange(settings)
+    chartSettingsOpen.value = false
+  }
+  const paletteOpen = ref(false)
   const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
   let onFullscreenChange: (() => void) | null = null
 
@@ -837,25 +942,19 @@
   }
 
   // ── Controller & Composable Wiring ──
-  const controller = shallowRef<ChartController | null>(null)
   const { add: onAddOverlaySymbol, remove: onRemoveOverlaySymbol } = useComparisonSymbols({
     getController: () => controller.value,
     getPrimary: () => (currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null),
     toSpec: toSymbolSpec,
     onError: (item, error) => {
-      symbolStatus.value = 'error'
-      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+      localSymbolStatus.value = 'error'
+      localSymbolError.value = formatUnsupportedSymbolMessage(item, error)
     },
   })
   const chartMode = useControllerSignal(
     controller,
     (ctrl) => ctrl.chartMode,
     () => 'kline' as const,
-  )
-  const controllerSymbols = useControllerSignal(
-    controller,
-    (ctrl) => ctrl.symbols,
-    () => [],
   )
   const marketDataCacheStats = useControllerSignal(
     controller,
@@ -900,45 +999,38 @@
   const editingDrawingId = ref<string | null>(null)
   const batchSymbols = ref<string[]>([])
 
-  const chartState = useChartState(controller)
-  const {
-    symbolStatus,
-    data,
-    zoomLevel,
-    paneRatios,
-    paneLayout,
-    comparisonColorsMap,
-    comparisonLoading,
-    isRangeSelectMode,
-  } = chartState
+  const drawingToolId = useControllerSignal<DrawingToolId>(
+    controller,
+    (ctrl) => ctrl.drawingTool,
+    () => CURSOR_DRAWING_TOOL_ID,
+  )
+  const canUndoDrawing = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.canUndoDrawing,
+    () => false,
+  )
+  const canRedoDrawing = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.canRedoDrawing,
+    () => false,
+  )
 
-  /** 镜像 kernel.drawingTool，供工具栏高亮 */
-  // 标注为完整工具类型，避免被常量字面量收窄成 'cursor'。
-  const drawingToolId = shallowRef<DrawingToolId>(CURSOR_DRAWING_TOOL_ID)
-  const canUndoDrawing = shallowRef(false)
-  const canRedoDrawing = shallowRef(false)
-
-  function onDrawingHistoryKeydown(event: KeyboardEvent) {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return
-    const target = event.target
-    if (
-      target instanceof Element &&
-      target.closest('input, textarea, select, [contenteditable], [role="textbox"]')
-    )
-      return
-    const redo =
-      event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z')
-    const undo = !event.shiftKey && event.key.toLowerCase() === 'z'
-    if (redo && canRedoDrawing.value) {
-      event.preventDefault()
-      controller.value?.redoDrawing()
-    } else if (undo && canUndoDrawing.value) {
-      event.preventDefault()
-      controller.value?.undoDrawing()
-    }
-  }
-  /** 镜像 kernel.rendererRuntime，供设置页显示有效后端 */
-  const rendererRuntime = shallowRef<RendererBackendRuntime | null>(null)
+  // ── Commands ──
+  // 每张图表一个命令注册表；撤销/重做走命令层，快捷键只作用于获得焦点的图表。
+  const commands = provideChartCommands(chartWrapperRef)
+  useRegisterCommands(commands, () =>
+    createChartCommands({
+      controller: () => controller.value,
+      openPalette: () => {
+        paletteOpen.value = !paletteOpen.value
+      },
+    }),
+  )
+  const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
+    controller,
+    (ctrl) => ctrl.rendererRuntime,
+    () => null,
+  )
 
   const {
     mainActiveIndicators,
@@ -1221,7 +1313,7 @@
     }
   }
 
-  // 交互快照 → 舞台表现 / 外部 tooltip 快照 / marker hover 镜像；订阅随组件生命周期显式退订。
+  // 交互快照 → 舞台 DOM 副作用与只读 Vue 视图；订阅由作用域统一释放。
   const {
     externalState: externalInteractionState,
     hoveredMarker,
@@ -1236,10 +1328,12 @@
   })
 
   /** 主图图例模板上下文（#legend slot 消费） */
-  const legendContext = shallowRef<LegendTemplateContext | null>(null)
-  let _unsubLegend: (() => void) | null = null
-
   const hasLegendSlot = ref(!!slots.legend)
+  const legendContext = useControllerSignal<LegendTemplateContext | null>(
+    controller,
+    (ctrl) => (hasLegendSlot.value ? ctrl.legend.context : undefined),
+    () => null,
+  )
 
   onBeforeUpdate(() => {
     hasLegendSlot.value = !!slots.legend
@@ -1266,26 +1360,9 @@
     })
   }
 
-  function syncLegendSubscription(ctrl: ChartController): void {
-    _unsubLegend?.()
-    _unsubLegend = null
-    if (!hasLegendSlot.value) {
-      legendContext.value = null
-      return
-    }
-
-    _unsubLegend = ctrl.legend.context.subscribe(() => {
-      const next = ctrl.legend.context.peek()
-      if (legendContext.value === next) return
-      legendContext.value = next
-    })
-    legendContext.value = ctrl.legend.context.peek()
-  }
-
   watch(
     hasLegendSlot,
     (external) => {
-      if (controller.value) syncLegendSubscription(controller.value)
       applyLegendRenderMode(controller.value, external)
     },
     { immediate: false },
@@ -1303,13 +1380,11 @@
 
   /** 数据悬浮框是否启用；设置为“不显示”时隐藏内置与外部 tooltip */
   const isTooltipEnabled = computed(
-    () => (chartSettings.value?.tooltipPosition ?? 'adaptive') !== TOOLTIP_POSITION_NONE,
+    () => chartSettings.value.tooltipPosition !== TOOLTIP_POSITION_NONE,
   )
 
   /** adaptive 模式下 tooltip 可拖拽（内置与 #kline-tooltip 共用） */
-  const isTooltipDraggable = computed(
-    () => (chartSettings.value?.tooltipPosition ?? 'adaptive') === 'adaptive',
-  )
+  const isTooltipDraggable = computed(() => chartSettings.value.tooltipPosition === 'adaptive')
 
   // 默认 tooltip 直接订阅 kernel，绕过 Vue VNode；内容由 composable 直写 DOM 维护
   const {
@@ -1382,54 +1457,65 @@
     handleDrawingToolSelect(toolId)
   }
 
-  function onPointerDown(e: PointerEvent) {
-    if (e.target instanceof HTMLCanvasElement) containerRef.value?.focus({ preventScroll: true })
-    // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
-    drawingDragCursor =
-      e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
-    controller.value?.handlePointerEvent(e, {
+  // DOM 接线由 Core bindChartInput 统一负责；这里只提供画线、区间选择拦截与宿主侧状态。
+  let disposeChartInput: (() => void) | null = null
+
+  const chartInputHooks: ChartInputHooks = {
+    beforePointer(e) {
+      switch (e.type) {
+        case 'pointerdown':
+          if (e.target instanceof HTMLCanvasElement) {
+            containerRef.value?.focus({ preventScroll: true })
+          }
+          // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
+          drawingDragCursor =
+            e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
+          return true
+        case 'pointermove': {
+          const container = containerRef.value
+          if (!container) return true
+          const rect = getContainerRect(container)
+          mousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          }
+          if (hoveredMarker.value || hoveredCustomMarker.value) positionDefaultMarkerTooltip()
+          if (!isEditingLineLabel.value) {
+            lineLabelTarget.value =
+              drawingController.value?.getLineLabelTarget(e, container) ?? null
+          }
+          return true
+        }
+        case 'pointerleave': {
+          const related = e.relatedTarget as Node | null
+          if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
+            return false
+          }
+          if (!isEditingLineLabel.value) lineLabelTarget.value = null
+          drawingDragCursor = null
+          return true
+        }
+        case 'pointercancel':
+        case 'lostpointercapture':
+          drawingDragCursor = null
+          return true
+        default:
+          return true
+      }
+    },
+    intercept: {
       onPointerDown: (event, container) => {
         if (handleRangePointerDown(event, container)) {
           drawingDragCursor = null
           return true
         }
-        if (drawingController.value?.onPointerDown(event, container)) {
-          return true
-        }
-        return false
+        return Boolean(drawingController.value?.onPointerDown(event, container))
       },
-    })
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    const container = containerRef.value
-    if (container) {
-      const rect = getContainerRect(container)
-      mousePos = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      }
-      if (hoveredMarker.value || hoveredCustomMarker.value) positionDefaultMarkerTooltip()
-      if (!isEditingLineLabel.value) {
-        lineLabelTarget.value = drawingController.value?.getLineLabelTarget(e, container) ?? null
-      }
-    }
-    controller.value?.handlePointerEvent(e, {
       onPointerMove: (event, container) => {
-        if (handleRangePointerMove(event, container)) {
-          return true
-        }
-        if (drawingController.value?.onPointerMove(event, container)) {
-          // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
-          return true
-        }
-        return false
+        if (handleRangePointerMove(event, container)) return true
+        // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
+        return Boolean(drawingController.value?.onPointerMove(event, container))
       },
-    })
-  }
-
-  function onPointerUp(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e, {
       onPointerUp: (event, container) => {
         if (handleRangePointerUp(event, container)) {
           drawingDragCursor = null
@@ -1441,29 +1527,11 @@
         }
         return false
       },
-    })
-    // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
-    drawingDragCursor = null
-  }
-
-  function onPointerLeave(e: PointerEvent) {
-    const related = e.relatedTarget as Node | null
-    if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
-      return
-    }
-    if (!isEditingLineLabel.value) lineLabelTarget.value = null
-    drawingDragCursor = null
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onPointerCancel(e: PointerEvent) {
-    drawingDragCursor = null
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onLostPointerCapture(e: PointerEvent) {
-    drawingDragCursor = null
-    controller.value?.handlePointerEvent(e)
+    },
+    afterPointer(e) {
+      // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
+      if (e.type === 'pointerup') drawingDragCursor = null
+    },
   }
 
   function onDoubleClick(e: MouseEvent) {
@@ -1497,41 +1565,21 @@
     try {
       controller.value.switchToTimeShareForDate(yyyymmdd)
     } catch (error) {
-      symbolStatus.value = 'error'
+      localSymbolStatus.value = 'error'
       if (currentSymbolItem.value) {
-        symbolErrorMessage.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
+        localSymbolError.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
       }
       return
     }
     emit('kLineLevelChange', 'timeshare')
   }
 
-  function onRightAxisPointerDown(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerMove(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerUp(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerLeave(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisPointerCancel(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
-  function onRightAxisLostPointerCapture(e: PointerEvent) {
-    controller.value?.handlePointerEvent(e)
-  }
-
   // ── Width / Zoom / Expose ──
-  const effectiveRightAxisWidth = ref(0)
+  const effectiveRightAxisWidth = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.rightAxisEffectiveWidth,
+    () => 0,
+  )
   const axisHostWidth = computed(() =>
     Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
   )
@@ -1566,14 +1614,6 @@
 
   let cleanupChartCallbacks: (() => void) | null = null
 
-  function setupWheelHandler(): (e: WheelEvent) => void {
-    const onWheelHandler = (e: WheelEvent) => {
-      e.preventDefault()
-      controller.value?.handleWheelEvent(e)
-    }
-    return onWheelHandler
-  }
-
   function initChart(
     container: HTMLDivElement,
     canvasLayer: HTMLDivElement,
@@ -1604,10 +1644,6 @@
   }
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
-    effectiveRightAxisWidth.value = ctrl.rightAxisEffectiveWidth.peek()
-    const unsubscribeRightAxisWidth = ctrl.rightAxisEffectiveWidth.subscribe(() => {
-      effectiveRightAxisWidth.value = ctrl.rightAxisEffectiveWidth.peek()
-    })
     const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
       invalidateContainerRectCache()
       const borderTop = containerRef.value
@@ -1635,165 +1671,15 @@
     refreshPaneAxisLayout()
     const unsubscribeViewport = ctrl.viewport.subscribe(refreshPaneAxisLayout)
 
-    const unsubscribeData = ctrl.data.subscribe(() => {
-      const data = ctrl.data.peek()
-      if (data.length > 0 && (symbolStatus.value === 'loading' || symbolStatus.value === 'error')) {
-        symbolStatus.value = 'ready'
-      }
-    })
-
-    const unsubscribeDataLoading = ctrl.dataLoading.subscribe(() => {
-      const loading = ctrl.dataLoading.peek()
-      if (loading) {
-        symbolStatus.value = 'loading'
-      } else {
-        // 历史补页正常完成同样会结束 loading，只有 Core 发布错误时才显示失败状态。
-        symbolStatus.value = ctrl.dataError.peek() ? 'error' : 'ready'
-      }
-    })
-
-    symbolErrorMessage.value = ctrl.dataError.peek()
-    const unsubscribeDataError = ctrl.dataError.subscribe(() => {
-      symbolErrorMessage.value = ctrl.dataError.peek()
-    })
-
     const unsubscribeTheme = ctrl.theme.subscribe(() => {
       const newTheme = ctrl.theme.peek()
       emit('themeChange', newTheme)
     })
 
-    drawingToolId.value = ctrl.drawingTool.peek()
-    const unsubscribeDrawingTool = ctrl.drawingTool.subscribe(() => {
-      drawingToolId.value = ctrl.drawingTool.peek()
-    })
-    canUndoDrawing.value = ctrl.canUndoDrawing.peek()
-    canRedoDrawing.value = ctrl.canRedoDrawing.peek()
-    const unsubscribeUndo = ctrl.canUndoDrawing.subscribe(() => {
-      canUndoDrawing.value = ctrl.canUndoDrawing.peek()
-    })
-    const unsubscribeRedo = ctrl.canRedoDrawing.subscribe(() => {
-      canRedoDrawing.value = ctrl.canRedoDrawing.peek()
-    })
-
-    rendererRuntime.value = ctrl.rendererRuntime.peek()
-    const unsubscribeRendererRuntime = ctrl.rendererRuntime.subscribe(() => {
-      rendererRuntime.value = ctrl.rendererRuntime.peek()
-    })
-
-    const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
-      comparisonColorsMap.value = new Map(ctrl.comparisonColors.peek())
-    })
-
-    const unsubscribeComparisonLoading = ctrl.comparisonLoading.subscribe(() => {
-      comparisonLoading.value = ctrl.comparisonLoading.peek()
-    })
-
-    // Sync symbol catalog from controller to dropdown pool.
-    const unsubscribeSymbolCatalog = ctrl.symbolCatalog.subscribe(() => {
-      symbolPool.value = ctrl.symbolCatalog.peek().map(fromSymbolInfo)
-    })
-    // 立即同步当前值，确保 dropdown 在 subscribe 创建后立即拿到数据，
-    // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
-    symbolPool.value = ctrl.symbolCatalog.peek().map(fromSymbolInfo)
-
-    /** 初次接线与之后的布局切换使用同一份品种投影，避免显示旧名称。 */
-    const syncCurrentSymbol = () => {
-      const specs = ctrl.symbols.peek()
-      if (specs.length === 0) {
-        currentSymbol.value = '选择商品'
-        currentSymbolItem.value = null
-        return
-      }
-      const primary = specs[0]
-      const primaryInfo = ctrl.symbolCatalog
-        .peek()
-        .find((info) =>
-          primary.id && info.id
-            ? primary.id === info.id
-            : info.symbol === primary.symbol &&
-              info.source === primary.source &&
-              info.exchange === primary.exchange,
-        )
-      currentSymbol.value = primary.symbol
-      currentSymbolItem.value =
-        primary.instrument ??
-        (primaryInfo
-          ? fromSymbolInfo(primaryInfo)
-          : {
-              id:
-                primary.id ??
-                legacyInstrumentId(
-                  primary.source ?? '',
-                  primary.symbol,
-                  primary.exchange ?? '',
-                  primary.params,
-                ),
-              sourceId: primary.source ?? '',
-              symbol: primary.symbol,
-              name: primary.symbol,
-              assetClass: 'unknown',
-              exchange: primary.exchange ?? '',
-              sessionId: primary.market || undefined,
-              providerRef: primary.params,
-              capabilities: {},
-            })
-      if (
-        primary.adjust === 'qfq' ||
-        primary.adjust === 'hfq' ||
-        primary.adjust === 'splits' ||
-        primary.adjust === 'none'
-      )
-        kLineAdjust.value = primary.adjust
-    }
-    syncCurrentSymbol()
-    const unsubscribeSymbols = ctrl.symbols.subscribe(syncCurrentSymbol)
-
-    const unsubscribeComparisonSpecs = ctrl.comparisonSpecs.subscribe(() => {
-      const comparisonSpecs = ctrl.comparisonSpecs.peek()
-      overlaySymbols.value = comparisonSpecs.map(symbolIdentityKey)
-      overlaySymbolItems.value = comparisonSpecs.map((s) => {
-        const info = ctrl.symbolCatalog
-          .peek()
-          .find((item) =>
-            s.id && item.id
-              ? s.id === item.id
-              : item.symbol === s.symbol &&
-                item.source === s.source &&
-                item.exchange === s.exchange,
-          )
-        return info
-          ? fromSymbolInfo(info)
-          : {
-              id: s.id ?? legacyInstrumentId(s.source ?? '', s.symbol, s.exchange ?? '', s.params),
-              sourceId: s.source ?? '',
-              symbol: s.symbol,
-              name: s.symbol,
-              assetClass: 'unknown',
-              exchange: s.exchange ?? '',
-              sessionId: s.market || undefined,
-              providerRef: s.params,
-              capabilities: {},
-            }
-      })
-    })
-
     return () => {
-      unsubscribeRightAxisWidth()
-      unsubscribeData()
-      unsubscribeDataLoading()
-      unsubscribeDataError()
       unsubscribePaneLayout()
       unsubscribeViewport()
       unsubscribeTheme()
-      unsubscribeDrawingTool()
-      unsubscribeUndo()
-      unsubscribeRedo()
-      unsubscribeRendererRuntime()
-      unsubscribeComparisonColors()
-      unsubscribeComparisonLoading()
-      unsubscribeComparisonSpecs()
-      unsubscribeSymbolCatalog()
-      unsubscribeSymbols()
     }
   }
 
@@ -1871,12 +1757,7 @@
     const chartMain = chartMainRef.value
     if (!container || !chartMain) return
 
-    // 1) 滚轮缩放处理
-    const onWheelHandler = setupWheelHandler()
-    // 绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
-    chartMain.addEventListener('wheel', onWheelHandler, { passive: false })
-
-    // 2) 创建 Chart 控制器（使用模板 DOM 元素）
+    // 1) 创建 Chart 控制器（使用模板 DOM 元素）
     const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
     const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
     const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
@@ -1895,6 +1776,16 @@
       return
     }
     controller.value = ctrl
+    // 2) 输入接线：绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
+    disposeChartInput = bindChartInput(
+      ctrl,
+      {
+        surface: container,
+        wheelTarget: chartMain,
+        axisTargets: rightAxisLayer ? [rightAxisLayer] : [],
+      },
+      chartInputHooks,
+    )
     emit('controllerReady', ctrl)
 
     // controllerReady 监听可能同步卸载组件；DOM ref 被清空后继续接线会在已销毁实例上遗留订阅。
@@ -1914,7 +1805,6 @@
 
     // 6) 交互初始化与图例接线（interactionState 订阅由 useInteractionBridge 管理）
     ctrl.setTooltipAnchorPositioning(false)
-    syncLegendSubscription(ctrl)
     applyLegendRenderMode(ctrl, hasLegendSlot.value)
   })
 
@@ -1924,14 +1814,13 @@
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
     onFullscreenChange = null
+    disposeChartInput?.()
+    disposeChartInput = null
     cleanupChartCallbacks?.()
     cleanupChartCallbacks = null
     _markerTooltipRO?.disconnect()
     _markerTooltipRO = null
-    _unsubLegend?.()
-    _unsubLegend = null
     applyLegendRenderMode(controller.value, false)
-    legendContext.value = null
     const ctrl = controller.value
     if (ctrl) {
       controller.value = null
@@ -2048,7 +1937,7 @@
     z-index: 4;
     color: var(--klc-color-ui-text);
     opacity: 0.3;
-    font-family: Outfit, sans-serif;
+    font-family: var(--klc-font-family-brand);
     font-size: 14px;
     font-weight: 600;
     line-height: 1;

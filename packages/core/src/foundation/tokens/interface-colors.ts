@@ -1,3 +1,4 @@
+// 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/scheme/{dark,light}.tokens.json 生成，请勿手改。
 // 图表、工具栏与 Agent 共用的冷黑界面配色；控件轻填充，行情与指标承担主要色彩。
 import type { UiColors } from './types.js'
 

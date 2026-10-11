@@ -36,7 +36,6 @@ function buildEXPMACacheKey(
     kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
     dr.maxPrice.toFixed(6),
     dr.minPrice.toFixed(6),
-    pane.yAxis.getPriceOffset().toFixed(6),
     pane.yAxis.getScaleType(),
     pane.height.toFixed(2),
   ].join('|')

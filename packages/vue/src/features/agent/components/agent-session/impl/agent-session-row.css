@@ -1,0 +1,98 @@
+/* 会话行的布局、交互状态与行内表单样式。 */
+.agent-session-drawer__item {
+  display: flex;
+  align-items: center;
+  gap: var(--klc-space-2, 2px);
+  border-radius: var(--klc-radius-sm, 6px);
+}
+
+.agent-session-drawer__item:hover,
+.agent-session-drawer__item.is-active,
+.agent-session-drawer__item.is-editing {
+  background: var(--agent-hover);
+}
+
+.agent-session-drawer__select {
+  flex: 1;
+  min-width: 0;
+  padding: var(--klc-space-8, 8px) calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
+  border: 0;
+  border-radius: var(--klc-radius-sm, 6px);
+  color: var(--agent-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-session-drawer__item-title {
+  display: block;
+  overflow: hidden;
+  font-size: var(--klc-text-12-font-size, 12px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-session-drawer__item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--klc-space-2, 2px);
+  padding-right: var(--klc-space-4, 4px);
+  transition: opacity 0.12s ease;
+}
+
+/* 触摸设备始终显示操作，键盘聚焦时也显示。 */
+@media (hover: hover) {
+  .agent-session-drawer__item-actions {
+    opacity: 0;
+  }
+
+  .agent-session-drawer__item:hover .agent-session-drawer__item-actions,
+  .agent-session-drawer__item:focus-within .agent-session-drawer__item-actions {
+    opacity: 1;
+  }
+}
+
+.agent-session-drawer__rename,
+.agent-session-drawer__confirm {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--klc-space-4, 4px);
+  padding: var(--klc-space-4, 4px);
+}
+
+.agent-session-drawer__rename input {
+  flex: 1;
+}
+
+.agent-session-drawer__confirm-text {
+  flex: 1;
+  min-width: 0;
+  padding-left: var(--klc-space-4, 4px);
+  color: var(--agent-text);
+  font-size: var(--klc-text-12-font-size, 12px);
+}
+
+.agent-session-drawer__text-button {
+  flex: 0 0 auto;
+  height: var(--klc-density-compact, 24px);
+  padding: 0 var(--klc-space-8, 8px);
+  border: 0;
+  border-radius: var(--klc-radius-xs, 4px);
+  color: var(--agent-text);
+  background: transparent;
+  font: inherit;
+  font-size: var(--klc-text-12-font-size, 12px);
+  cursor: pointer;
+}
+
+.agent-session-drawer__text-button:hover,
+.agent-session-drawer__text-button:focus-visible {
+  background: var(--agent-hover);
+}
+
+.agent-session-drawer__text-button--danger {
+  color: var(--klc-color-ui-danger-text);
+  font-weight: 600;
+}

@@ -22,7 +22,6 @@ function createPane(overrides: MockPaneInfoOverrides = {}): MockPaneInfoOverride
       yToPrice: (y) => y,
       getPaddingTop: () => 10,
       getPaddingBottom: () => 10,
-      getPriceOffset: () => 2,
       getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 120, minPrice: 80 },
     },
     priceRange: { maxPrice: 120, minPrice: 80 },

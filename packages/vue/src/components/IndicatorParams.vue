@@ -1,25 +1,25 @@
 <!-- 指标参数弹窗：按草稿中的模式选择显示适用参数。 -->
 <template>
   <BaseModal
-    :show="visible"
+    :open="visible"
     :title="indicatorName"
-    subtitle="参数设置"
     width="min(92vw, 360px)"
     footer-align="space-between"
-    @close="$emit('close')"
+    @update:open="!$event && $emit('close')"
   >
     <template #header-extra>
-      <button
-        type="button"
-        class="toggle-desc-btn"
-        :class="{ active: showDescription }"
-        title="显示/隐藏说明"
-        aria-label="显示或隐藏参数说明"
-        :aria-pressed="showDescription"
-        @click="showDescription = !showDescription"
-      >
-        <IconTablerInfoCircle aria-hidden="true" />
-      </button>
+      <BaseTooltip content="显示/隐藏说明" placement="bottom">
+        <button
+          type="button"
+          class="toggle-desc-btn"
+          :class="{ active: showDescription }"
+          aria-label="显示或隐藏参数说明"
+          :aria-pressed="showDescription"
+          @click="showDescription = !showDescription"
+        >
+          <IconTablerHelpCircle aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </template>
 
     <Transition name="slide">
@@ -101,7 +101,7 @@
       <BaseButton @click="onReset">重置</BaseButton>
       <div class="footer-right">
         <BaseButton @click="$emit('close')">取消</BaseButton>
-        <BaseButton @click="onConfirm">确定</BaseButton>
+        <BaseButton variant="primary" @click="onConfirm">确定</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -112,7 +112,7 @@
 
   import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
-  import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerHelpCircle from '~icons/tabler/help-circle'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
 
@@ -123,6 +123,7 @@
 
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
   import DropMenu from './DropMenu.vue'
 
   const props = defineProps<{
@@ -237,21 +238,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: var(--base-modal-header-action-size);
+    height: var(--base-modal-header-action-size);
     padding: 0;
     border: 0;
     border-radius: 8px;
-    background: var(--klc-color-ui-hover);
+    background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
+    transition: color 0.15s ease;
   }
 
   .toggle-desc-btn:hover {
-    background: var(--klc-color-ui-border);
     color: var(--klc-color-ui-text);
   }
 
@@ -283,37 +281,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
-  .stepper-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition:
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .stepper-btn:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .stepper-btn:disabled {
-    color: var(--klc-color-ui-border);
-    cursor: not-allowed;
-  }
-
-  .stepper-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
   .param-input {
     width: auto;
     field-sizing: content;
@@ -343,7 +310,8 @@
   /* ── 底部 ── */
   .footer-right {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
   }
 
   /* ── 动画 ── */
@@ -366,3 +334,4 @@
 </style>
 
 <style scoped src="./common/selection-menu.css"></style>
+<style scoped src="./common/stepper-button.css"></style>

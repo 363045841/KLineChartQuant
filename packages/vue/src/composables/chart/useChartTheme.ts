@@ -16,7 +16,7 @@ export function useChartTheme(
   initialTheme?: 'light' | 'dark',
   initialSettings?: ChartSettings,
 ) {
-  /** 镜像 kernel effectiveTheme（shallowRef 避免 deep proxy） */
+  /** 直接读取 kernel effectiveTheme，保持 Core 值的引用身份。 */
   const chartTheme = useControllerSignal(
     ctrl,
     (controller) => controller.theme,

@@ -1,0 +1,35 @@
+{
+  "density": {
+    "$description": "Control and row heights per density (craft-principles §4.3, CP 27; design §3.3). Presets pick a density in Phase 3; users can override (trading-ui-benchmark 4.3.1).",
+    "compact": {
+      "$type": "dimension",
+      "$value": { "value": 24, "unit": "px" },
+      "$description": "Carbon row xs (S29)."
+    },
+    "default": {
+      "$type": "dimension",
+      "$value": { "value": 32, "unit": "px" },
+      "$description": "Carbon row sm (S29)."
+    },
+    "comfortable": {
+      "$type": "dimension",
+      "$value": { "value": 40, "unit": "px" },
+      "$description": "Carbon row md (S29)."
+    },
+    "touch": {
+      "$type": "dimension",
+      "$value": { "value": 48, "unit": "px" },
+      "$description": "Carbon row lg (S29)."
+    },
+    "hitTarget": {
+      "$type": "dimension",
+      "$value": { "value": 24, "unit": "px" },
+      "$description": "Minimum hit area on desktop: visual targets under 24px expand to ≥ 24px (S1)."
+    },
+    "hitTargetTouch": {
+      "$type": "dimension",
+      "$value": { "value": 44, "unit": "px" },
+      "$description": "Minimum hit area on touch/mobile (S1)."
+    }
+  }
+}

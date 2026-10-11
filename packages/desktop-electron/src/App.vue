@@ -11,14 +11,14 @@
 </template>
 
 <script setup lang="ts">
-  import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
-  import { onBeforeUnmount, ref } from 'vue'
-  import { BrowserAgentBridge } from '../../vue/src/features/agent/browser-agent/bridge/impl/browser-agent-bridge'
   import {
     AgentWorkbenchShell,
+    BrowserAgentBridge,
     createAgentPanelWidthStorage,
     KlineChart,
-  } from '../../vue/src/index'
+  } from '@363045841yyt/klinechart'
+  import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+  import { onBeforeUnmount, ref } from 'vue'
 
   import { createE2eChartData } from './features/agent/chart-e2e-fixture'
   import { createElectronCredentialStore } from './features/agent/electron-credential-store'

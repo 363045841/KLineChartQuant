@@ -566,8 +566,14 @@ export class ChartStateKernel extends StateKernel {
           state.rangeMode,
         ]),
       ),
+      panePriceAxisRanges: Object.fromEntries(
+        Object.entries(this.mainPriceAxis.readonly.paneRanges.peek()).flatMap(([id, state]) =>
+          state.handRange ? [[id, state.handRange]] : [],
+        ),
+      ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
       drawings: this.drawing.readonly.drawings.peek(),
+      favoriteIndicatorIds: this.indicator.readonly.favoriteIndicatorIds.peek(),
       viewport: this.dataManager.readonly.viewportSnapshots.peek(),
     })
   }
@@ -586,6 +592,7 @@ export class ChartStateKernel extends StateKernel {
       workspaces: { kline: workspace(), timeshare: workspace() },
       panePriceAxisModes: { [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
       drawings: [],
+      favoriteIndicatorIds: [],
       settings: selectLayoutSettings(normalizeSettings()),
     }
   }
@@ -594,9 +601,13 @@ export class ChartStateKernel extends StateKernel {
   applyLayout(document: LayoutDocument): void {
     batch(() => {
       this.indicator.actions.restoreWorkspaces(document.workspaces)
+      this.indicator.actions.restoreFavorites(document.favoriteIndicatorIds ?? [])
       this.pane.actions.restoreWorkspaces(document.workspaces)
       this.settings.actions.replace(selectLayoutSettings(document.settings ?? {}))
-      this.mainPriceAxis.actions.restoreModes(document.panePriceAxisModes)
+      this.mainPriceAxis.actions.restoreModes(
+        document.panePriceAxisModes,
+        document.panePriceAxisRanges,
+      )
       this.drawing.actions.restoreDocument(document.drawings ?? [], [])
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())

@@ -13,6 +13,9 @@ export default mergeConfig(
         ...configDefaults.exclude,
         'e2e/**',
         '**/*.integration.test.ts',
+        // scripts 下的用例是 node:test 文件，由 `pnpm test:indicator-generation`
+        // 通过 `node --test` 运行；vitest 收集它们会因为找不到 vitest 套件而失败。
+        'scripts/**',
         // Sub-packages have their own vitest configs (jsdom for React/Vue,
         // node for core/Angular) and per-package `@klinechart-quant/core`
         // aliases. Running them under the root config would fail to resolve

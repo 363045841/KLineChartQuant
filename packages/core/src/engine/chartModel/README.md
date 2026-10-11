@@ -10,7 +10,7 @@
   - `chartViews.ts`：`CHART_VIEW_DEFINITIONS` 声明每个视图（kline / timeshare / fiveDayTimeShare）的主序列渲染偏好、`requiresMarketSession`、横向 `capabilities` 与主图系统实例；`resolveChartDataView(period)` 是从主品种周期到数据视图的唯一推导；re-export `ChartDataViewId` / `ChartDataView` / `isTimeShareDataView` / `resolveChartWorkspaceId` / `ChartWorkspaceId`，类型只从本模块流出。
   - `chartModelState.ts`：`createChartModel()` 保存 `dataView` / `lastBarPeriod` / `primaryRendererByView`，派生 `effectivePrimaryRenderer` 与 `interactionCapabilities`。
 - `impl/modes/`：视图的**行为实现**。
-  - `types.ts`：`ChartModeHandler` 契约（`updatePaneRange` / `onActivate` / `onDeactivate` / `useIndicatorScheduler`）。
+  - `types.ts`：`ChartModeHandler` 契约（`computePaneRange` / `onActivate` / `onDeactivate` / `useIndicatorScheduler`）。
   - `kLineMode.ts` / `timeShareMode.ts`：各视图逐帧价格范围计算；分时实现持有运行时 `marketSession`。
   - `timeShareMath.ts` / `fiveDayTimeShareGeometry.ts`：分时数学与几何。
 - `impl/comparison/`：视图上的**比较叠加**。

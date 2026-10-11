@@ -4,7 +4,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
-export const CORE_SOURCE_ROOT = fileURLToPath(new URL('../packages/core/src', import.meta.url))
+// 用 path 从模块位置解析：new URL(相对路径, import.meta.url) 会被 Vite 改写成 dev server 资源地址。
+const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
+export const CORE_SOURCE_ROOT = path.resolve(SCRIPT_DIRECTORY, '../packages/core/src')
 const GENERATED_DIRECTORY = 'engine/indicators/generated'
 
 /** 收集生产源码；测试和生成文件不参与内置定义发现。 */

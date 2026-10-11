@@ -1,17 +1,16 @@
 <template>
   <div class="context-bar">
-    <div
-      class="context-bar__pill context-bar__readonly"
-      :title="text.readOnlyHint"
-    >
-      {{ text.readOnly }}
-      <ToggleSwitch
-        :model-value="readOnly"
-        :aria-label="text.readOnly"
-        size="compact"
-        @update:model-value="$emit('read-only', $event)"
-      />
-    </div>
+    <BaseTooltip :content="text.readOnlyHint" placement="top" trigger-display="contents">
+      <div class="context-bar__pill context-bar__readonly">
+        {{ text.readOnly }}
+        <ToggleSwitch
+          :model-value="readOnly"
+          :aria-label="text.readOnly"
+          size="compact"
+          @update:model-value="$emit('read-only', $event)"
+        />
+      </div>
+    </BaseTooltip>
     <div v-if="symbolContext || rangeContext" class="context-bar__chips" :aria-label="scopeLabel">
       <span v-if="symbolContext" class="context-bar__pill context-bar__symbol"
         ><span class="context-bar__text">{{ symbolContext.value.symbol
@@ -34,16 +33,15 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-
-  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
+  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
     AgentSelectedTimeRangeContextItem,
   } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>
@@ -122,13 +120,6 @@
     max-width: 100%;
   }
 
-  .context-bar__text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .context-bar :deep(.injection-card__summary) {
     order: 0;
     flex: 0 0 26px;
@@ -145,3 +136,5 @@
   }
 
 </style>
+
+<style scoped src="./agent-truncate-text.css"></style>

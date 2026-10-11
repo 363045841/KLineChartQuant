@@ -81,22 +81,27 @@
             :aria-selected="symbolIdentityKey(item) === selectedKey"
           >
             <button type="button" class="symbol-list__select" @click="selectSymbol(item)">
-              <span class="symbol-list__left">
+              <span class="list-text">
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
               <SymbolMetaBadge :symbol="item" />
             </button>
-            <button
+            <BaseTooltip
               v-if="!watchlistKeys.has(symbolIdentityKey(item))"
-              type="button"
-              class="symbol-list__add"
-              title="添加自选"
-              aria-label="添加自选"
-              @click.stop="emit('addWatchlist', item)"
+              content="添加自选"
+              placement="left"
+              trigger-display="contents"
             >
-              <IconTablerPlus aria-hidden="true" />
-            </button>
+              <button
+                type="button"
+                class="symbol-list__add"
+                :aria-label="`添加自选 ${item.symbol}`"
+                @click.stop="emit('addWatchlist', item)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </BaseTooltip>
           </div>
         </div>
       </template>
@@ -126,7 +131,6 @@
   import SymbolMetaBadge from './common/SymbolMetaBadge.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
-  import '@fontsource/jetbrains-mono/400.css'
 
   export type SymbolItem = SearchableSymbol
 
@@ -265,6 +269,7 @@
 
 <style scoped src="./common/control-button.css"></style>
 <style scoped src="./common/symbol-list.css"></style>
+<style scoped src="./common/list-text.css"></style>
 
 <style scoped>
   .symbol-chip-wrap {

@@ -135,7 +135,7 @@ export class InteractionController {
   }
 
   /**
-   * 同步 settings 变更带来的交互侧效应（tooltip 模式 / 主图纵轴复位）。
+   * 同步 tooltip 展示偏好，不在设置恢复期间派发价格轴命令。
    * 业务 settings 本体在 kernel.settings；此处不再持有 plain 副本。
    */
   onSettingsChanged(prev: ChartSettings, next: ChartSettings): void {
@@ -144,11 +144,6 @@ export class InteractionController {
       next.tooltipPosition === 'adaptive' ? 'adaptive' : 'crosshair'
     if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
     this.tooltipPositionMode = nextMode
-    if (prev.mainPriceAxisRangeMode !== next.mainPriceAxisRangeMode) {
-      this.chart.setMainPriceAxisRangeMode(
-        next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-      )
-    }
   }
 
   /** @deprecated Use kernel's interactionSnapshot computed directly. */

@@ -26,6 +26,24 @@ export interface UseTooltipOptions {
 const VIEWPORT_MARGIN = 6
 
 /**
+ * 分组「先延迟、后即时」：一个提示刚隐藏（或仍在显示）时，相邻触发器的提示立即出现，
+ * 对齐 Reka TooltipProvider 的 skipDelayDuration 与 Vercel 指南。
+ */
+const SKIP_DELAY_MS = 300
+let visibleCount = 0
+let lastHiddenAt = Number.NEGATIVE_INFINITY
+
+/** 测试用：重置分组状态。 */
+export function resetTooltipGroup(): void {
+  visibleCount = 0
+  lastHiddenAt = Number.NEGATIVE_INFINITY
+}
+
+function groupIsWarm(): boolean {
+  return visibleCount > 0 || Date.now() - lastHiddenAt < SKIP_DELAY_MS
+}
+
+/**
  * 悬浮提示框状态机。
  * @param options 位置、延迟与禁用配置
  * @returns 绑定 ref、显示状态、样式与事件处理器
@@ -41,6 +59,32 @@ export function useTooltip(options: UseTooltipOptions = {}) {
   let showTimer: ReturnType<typeof setTimeout> | null = null
   let hideTimer: ReturnType<typeof setTimeout> | null = null
   let syncing = false
+  let counted = false
+
+  /** 可见状态变化时维护分组计数。 */
+  function setVisible(next: boolean): void {
+    if (visible.value === next) return
+    visible.value = next
+    if (next && !counted) {
+      counted = true
+      visibleCount += 1
+      document.addEventListener('keydown', onDocumentKeydown, true)
+    } else if (!next && counted) {
+      counted = false
+      visibleCount = Math.max(0, visibleCount - 1)
+      lastHiddenAt = Date.now()
+      document.removeEventListener('keydown', onDocumentKeydown, true)
+    }
+  }
+
+  /** Esc 关闭当前提示（WCAG 1.4.13 可关闭），不阻止其他 Esc 处理。 */
+  function onDocumentKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      clearTimers()
+      setVisible(false)
+      stopSync()
+    }
+  }
 
   /** 将坐标限制在视口内。 */
   function clamp(value: number, min: number, max: number): number {
@@ -118,16 +162,21 @@ export function useTooltip(options: UseTooltipOptions = {}) {
       hideTimer = null
     }
     if (visible.value || showTimer) return
-    showTimer = setTimeout(() => {
+    const reveal = () => {
       showTimer = null
       if (options.disabled?.()) return
-      visible.value = true
       styled.value = false
+      setVisible(true)
       nextTick(() => {
         updatePosition()
         startSync()
       })
-    }, options.showDelay?.() ?? 300)
+    }
+    if (groupIsWarm()) {
+      reveal()
+      return
+    }
+    showTimer = setTimeout(reveal, options.showDelay?.() ?? 300)
   }
 
   function hide(): void {
@@ -138,7 +187,7 @@ export function useTooltip(options: UseTooltipOptions = {}) {
     if (!visible.value || hideTimer) return
     hideTimer = setTimeout(() => {
       hideTimer = null
-      visible.value = false
+      setVisible(false)
       stopSync()
     }, options.hideDelay?.() ?? 0)
   }
@@ -170,6 +219,7 @@ export function useTooltip(options: UseTooltipOptions = {}) {
 
   onBeforeUnmount(() => {
     clearTimers()
+    setVisible(false)
     stopSync()
   })
 

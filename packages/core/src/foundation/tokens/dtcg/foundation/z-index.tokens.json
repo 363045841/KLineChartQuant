@@ -1,0 +1,41 @@
+{
+  "zIndex": {
+    "$description": "Named stacking layers, lowest to highest (design §3.3; ADR 0004 replaces raw z-index 1..1010). [derived] The order is design §3.3's own (no research source); numbers are anchored to current packages/vue usage so migration keeps today's stacking.",
+    "base": { "$type": "number", "$value": 0, "$description": "Document flow." },
+    "chartOverlay": {
+      "$type": "number",
+      "$value": 10,
+      "$description": "Overlays inside the chart frame; today 10-31 (KLineTooltip, MarkerTooltip, chart HUD layers)."
+    },
+    "sticky": {
+      "$type": "number",
+      "$value": 100,
+      "$description": "Sticky toolbars; today 100 (LeftToolbar, CanvasToolbarStack)."
+    },
+    "dropdown": {
+      "$type": "number",
+      "$value": 1000,
+      "$description": "Dropdown menus. [derived] first slot above sticky."
+    },
+    "popover": {
+      "$type": "number",
+      "$value": 1010,
+      "$description": "Popovers; today 1010 (SymbolPopover)."
+    },
+    "modal": {
+      "$type": "number",
+      "$value": 1100,
+      "$description": "Modal dialogs. [derived] slot between popover and tooltip."
+    },
+    "toast": {
+      "$type": "number",
+      "$value": 1150,
+      "$description": "Toasts. [derived] slot between modal and tooltip."
+    },
+    "tooltip": {
+      "$type": "number",
+      "$value": 1200,
+      "$description": "Tooltips, always on top; today 1200 (BaseTooltip)."
+    }
+  }
+}

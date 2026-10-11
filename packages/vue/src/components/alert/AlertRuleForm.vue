@@ -16,6 +16,7 @@
       <label class="rule-form-label">条件类型</label>
       <div class="rule-form-kinds">
         <button
+          type="button"
           v-for="kind in predicateKinds"
           :key="kind.value"
           class="rule-form-kind"
@@ -63,18 +64,7 @@
           </div>
           <div class="rule-form-field">
             <label class="rule-form-label">方向</label>
-            <div class="rule-form-directions">
-              <button
-                v-for="d in crossDirections"
-                :key="d.value"
-                class="rule-form-direction"
-                :class="{ active: pf.direction === d.value }"
-                @click="pf.direction = d.value"
-              >
-                <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
-                {{ d.label }}
-              </button>
-            </div>
+            <AlertDirectionButtons v-model="pf.direction" :directions="crossDirections" />
           </div>
         </div>
       </template>
@@ -181,18 +171,7 @@
         </div>
         <div class="rule-form-field">
           <label class="rule-form-label">方向</label>
-          <div class="rule-form-directions">
-            <button
-              v-for="d in crossDirections"
-              :key="d.value"
-              class="rule-form-direction"
-              :class="{ active: pf.direction === d.value }"
-              @click="pf.direction = d.value"
-            >
-              <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
-              {{ d.label }}
-            </button>
-          </div>
+          <AlertDirectionButtons v-model="pf.direction" :directions="crossDirections" />
         </div>
       </template>
 
@@ -204,18 +183,7 @@
           </div>
           <div class="rule-form-field">
             <label class="rule-form-label">关系</label>
-            <div class="rule-form-directions">
-              <button
-                v-for="d in pairDirections"
-                :key="d.value"
-                class="rule-form-direction"
-                :class="{ active: pf.direction === d.value }"
-                @click="pf.direction = d.value"
-              >
-                <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
-                {{ d.label }}
-              </button>
-            </div>
+            <AlertDirectionButtons v-model="pf.direction" :directions="pairDirections" />
           </div>
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">指标 B</label>
@@ -348,8 +316,8 @@
 
     <!-- 操作按钮 -->
     <div class="rule-form-actions">
-      <button class="rule-form-btn rule-form-btn--cancel" @click="$emit('cancel')">取消</button>
-      <button class="rule-form-btn rule-form-btn--save" :disabled="!isValid" @click="handleSave">
+      <button type="button" class="rule-form-btn rule-form-btn--cancel" @click="$emit('cancel')">取消</button>
+      <button type="button" class="rule-form-btn rule-form-btn--save" :disabled="!isValid" @click="handleSave">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -379,6 +347,7 @@
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
   import ToggleSwitch from '../common/ToggleSwitch.vue'
+  import AlertDirectionButtons from './AlertDirectionButtons.vue'
 
   const props = defineProps<{ rule?: AlertRule }>()
 
@@ -665,37 +634,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
-  .rule-form-stepper-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition:
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .rule-form-stepper-btn:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .rule-form-stepper-btn:disabled {
-    color: var(--klc-color-ui-border);
-    cursor: not-allowed;
-  }
-
-  .rule-form-stepper-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
   .rule-form-stepper-field {
     position: relative;
     display: flex;
@@ -828,51 +766,6 @@
   }
 
   /* ══════════════════════════════════════════
-   Direction Buttons
-══════════════════════════════════════════ */
-  .rule-form-directions {
-    display: flex;
-    gap: 4px;
-  }
-
-  .rule-form-direction {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
-    background: var(--klc-color-ui-input);
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .rule-form-direction-icon {
-    width: 12px;
-    height: 12px;
-    flex-shrink: 0;
-  }
-
-  .rule-form-direction:hover:not(.active) {
-    border-color: var(--klc-color-ui-border-strong);
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .rule-form-direction.active {
-    background: var(--klc-color-ui-accent);
-    color: var(--klc-color-ui-on-accent);
-    border-color: var(--klc-color-ui-accent);
-  }
-
-  /* ══════════════════════════════════════════
    Advanced Options
 ══════════════════════════════════════════ */
   .rule-form-advanced {
@@ -973,3 +866,5 @@
     cursor: not-allowed;
   }
 </style>
+
+<style scoped src="../common/stepper-button.css"></style>

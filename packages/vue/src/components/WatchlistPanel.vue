@@ -43,7 +43,7 @@
   import SymbolMetaBadge from './common/SymbolMetaBadge.vue'
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
 
-  const props = defineProps<{ items: ReadonlyArray<SearchableSymbol>; activeKey?: string }>()
+  const props = defineProps<{ items: ReadonlyArray<SearchableSymbol> }>()
   const emit = defineEmits<{
     select: [item: SearchableSymbol]
     remove: [item: SearchableSymbol]
@@ -58,7 +58,6 @@
       items: props.items.map((item) => ({
         id: symbolIdentityKey(item),
         label: item.symbol,
-        active: symbolIdentityKey(item) === props.activeKey,
       })),
     },
   ])

@@ -124,17 +124,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   } catch {
     /* tolerate jsdom */
   }
-  if (opts.data && opts.data.length > 0) {
-    try {
-      chart.setData([...opts.data])
-    } catch {
-      /* tolerate first-paint racing */
-    }
-  }
-  if (opts.symbols && opts.symbols.length > 0) {
-    chart.setSymbols([opts.symbols[0]!])
-    if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
-  }
   if (opts.theme) {
     try {
       chart.theme.set(opts.theme)
@@ -159,29 +148,47 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     applyLayout: (document) => {
       if (isDisposed()) throw new Error('图表已销毁')
       batch(() => {
-        chart.kernel.applyLayout(document)
         if (document.currentSymbol !== undefined) {
           dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
         }
+        // 品种切换清理旧范围后，再恢复布局中的锁定范围。
+        chart.kernel.applyLayout(document)
       })
       chart.drawingCommands.history.reset()
       chart.scheduleDraw()
     },
   })
   await layoutManager.initialize()
+  // 宿主显式传入的数据与品种优先于恢复的布局：在布局恢复之后写入。否则恢复出的品种
+  // 会覆盖它们，空品种（内联数据保存的布局没有 currentSymbol）还会经 setSymbols([]) 清空。
+  // 未传入时沿用恢复的布局。
+  if (opts.data && opts.data.length > 0) {
+    try {
+      chart.setData([...opts.data])
+    } catch (error) {
+      // 不中断挂载，但必须可见：静默吞掉会让宿主拿到一张没有数据的空图。
+      console.warn('[createChartController] initial setData failed', error)
+    }
+  }
+  if (opts.symbols && opts.symbols.length > 0) {
+    chart.setSymbols([opts.symbols[0]!])
+    if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
+  }
   const layoutSubscriptions = [
     ...[
       chart.kernel.dataManager.readonly.currentSpec,
       chart.kernel.indicator.readonly.workspaces,
+      chart.kernel.indicator.readonly.favoriteIndicatorIds,
       chart.kernel.pane.readonly.workspaces,
       chart.kernel.settings.readonly.settings,
       chart.kernel.drawing.readonly.drawings,
-      chart.kernel.mainPriceAxis.readonly.paneRanges,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
     // 滚动与缩放逐帧变化：静止后再比较一次，避免每帧导出并序列化布局。
-    ...[chart.kernel.viewport.readonly.scrollLeft, chart.kernel.zoom.readonly.zoomLevel].map(
-      (signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave()),
-    ),
+    ...[
+      chart.kernel.viewport.readonly.scrollLeft,
+      chart.kernel.zoom.readonly.zoomLevel,
+      chart.kernel.mainPriceAxis.readonly.paneRanges,
+    ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
   ]
 
   const agent = createChartAgentController({
@@ -244,6 +251,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     duplicateLayout: (input) => layoutManager.duplicateLayout(input),
     deleteLayout: (input) => layoutManager.deleteLayout(input),
     agent,
+    favoriteIndicatorIds: chart.kernel.indicator.readonly.favoriteIndicatorIds,
+    setIndicatorFavorite: (indicatorId, favorite) => {
+      if (!isDisposed()) chart.kernel.indicator.actions.setFavorite(indicatorId, favorite)
+    },
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
     data: chart.data,

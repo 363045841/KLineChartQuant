@@ -1,4 +1,6 @@
 import type { PersistenceCodec } from './localStoragePersistence.js'
+import { createPendingWriteScheduler, DEFAULT_DEBOUNCE_MS } from './pendingWriteScheduler.js'
+import { scopedPersistenceName } from './persistence-scope.js'
 
 /** 一个已绑定 IndexedDB record 的异步持久化实例。 */
 export interface IndexedDbPersistence<T> {
@@ -34,8 +36,6 @@ export interface CreateIndexedDbPersistenceOptions<T> {
   readonly flushOnPageHide?: boolean
 }
 
-const DEFAULT_DEBOUNCE_MS = 1_000
-
 function openDatabase<T>(options: CreateIndexedDbPersistenceOptions<T>): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB is unavailable'))
   return new Promise((resolve, reject) => {
@@ -55,24 +55,16 @@ function openDatabase<T>(options: CreateIndexedDbPersistenceOptions<T>): Promise
 export function createIndexedDbPersistence<T>(
   options: CreateIndexedDbPersistenceOptions<T>,
 ): IndexedDbPersistence<T> {
-  const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
+  const scopedOptions = { ...options, databaseName: scopedPersistenceName(options.databaseName) }
   const flushOnPageHide = options.flushOnPageHide ?? true
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let pending: { readonly createValue: () => T } | null = null
+  const scheduler = createPendingWriteScheduler<T>(options.debounceMs ?? DEFAULT_DEBOUNCE_MS)
   let disposed = false
-
-  function cancelScheduledWrite(): void {
-    if (timer !== null) {
-      clearTimeout(timer)
-      timer = null
-    }
-  }
 
   async function transact<R>(
     mode: IDBTransactionMode,
     run: (store: IDBObjectStore) => IDBRequest<R>,
   ): Promise<R> {
-    const database = await openDatabase(options)
+    const database = await openDatabase(scopedOptions)
     try {
       return await new Promise<R>((resolve, reject) => {
         const transaction = database.transaction(options.storeName, mode)
@@ -95,11 +87,9 @@ export function createIndexedDbPersistence<T>(
   }
 
   async function flush(): Promise<boolean> {
-    cancelScheduledWrite()
-    if (!pending) return true
-    const next = pending
-    pending = null
-    return await write(next.createValue())
+    const next = scheduler.takePending()
+    if (!next) return true
+    return await write(next())
   }
 
   function onPageHide(): void {
@@ -119,19 +109,16 @@ export function createIndexedDbPersistence<T>(
     },
     async save(value: T): Promise<boolean> {
       if (disposed) throw new Error('IndexedDB persistence is disposed')
-      cancelScheduledWrite()
-      pending = null
+      scheduler.drop()
       return await write(value)
     },
     schedule(createValue: () => T): void {
       if (disposed) return
-      pending = { createValue }
-      cancelScheduledWrite()
-      timer = setTimeout(() => {
+      scheduler.schedule(createValue, () => {
         void flush().catch((error: unknown) =>
           console.error('IndexedDB scheduled flush failed', error),
         )
-      }, debounceMs)
+      })
     },
     async flush(): Promise<boolean> {
       if (disposed) throw new Error('IndexedDB persistence is disposed')
@@ -139,8 +126,7 @@ export function createIndexedDbPersistence<T>(
     },
     async clear(): Promise<boolean> {
       if (disposed) throw new Error('IndexedDB persistence is disposed')
-      cancelScheduledWrite()
-      pending = null
+      scheduler.drop()
       await transact('readwrite', (store) => store.delete(options.key))
       return true
     },

@@ -113,7 +113,7 @@
             :aria-selected="isSelected(item)"
             @click="toggleSymbol(item)"
           >
-            <span class="compare-list__left">
+            <span class="list-text">
               <span class="compare-list__code">{{ item.symbol }}</span>
               <span class="compare-list__desc">{{ item.name }}</span>
             </span>
@@ -171,7 +171,7 @@
       search?: SymbolSearchFn<SymbolItem>
       selected?: string[]
       selectedItems?: SymbolItem[]
-      comparisonColors?: Map<string, string>
+      comparisonColors?: ReadonlyMap<string, string>
       comparisonLoading?: boolean
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
@@ -278,6 +278,7 @@
 
 <style scoped src="./common/control-button.css"></style>
 <style scoped src="./common/symbol-list.css"></style>
+<style scoped src="./common/list-text.css"></style>
 
 <style scoped>
   .compare-chip-wrap {

@@ -774,6 +774,30 @@ describe('Chart DPR pipeline', () => {
   let restoreChartDomStubs: () => void
 
   it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
+    'accumulates vertical drags before drawing the next frame (%s)',
+    async (scaleType) => {
+      const chart = mountHandModeChart(scaleType)
+      try {
+        chart.resize()
+        chart.applyCustomData({
+          symbol: 'PRIMARY',
+          market: 'CN',
+          period: 'daily',
+          data: makeBars(200),
+        })
+        chart.draw()
+        const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
+        const y = axis.priceToY(10)
+        for (let i = 0; i < 10; i++) chart.translatePrice(MAIN_PANE_ID, 2)
+        chart.draw()
+        expect(axis.priceToY(10) - y).toBeCloseTo(20, 6)
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
+  it.each([ScaleType.Linear, ScaleType.Log, ScaleType.Percent])(
     'fits the current visible highs and lows after scrolling without changing the locked mode (%s)',
     async (scaleType) => {
       const chart = mountHandModeChart(scaleType)
@@ -848,8 +872,6 @@ describe('Chart DPR pipeline', () => {
         chart.draw()
         expect(axis.getDisplayRange().minPrice).toBeCloseTo(99)
         expect(axis.getDisplayRange().maxPrice).toBeCloseTo(101)
-        expect(axis.getVerticalScale()).toBe(1)
-        expect(axis.getPriceOffset()).toBe(0)
         expect(axis.priceToY(101)).toBeGreaterThanOrEqual(0)
         expect(axis.priceToY(99)).toBeLessThanOrEqual(chart.getPaneRenderers()[0]!.getPane().height)
 
@@ -1405,6 +1427,39 @@ describe('Chart pane layout regressions', () => {
     expect(ranges.RSI_0?.rangeMode).toBe(PRICE_AXIS_RANGE_MODE.HAND)
     // 只持久化模式；手动范围值不落盘，恢复后为空，等首个有效帧再初始化。
     expect(ranges[MAIN_PANE_ID]?.handRange).toBeNull()
+    await chart.destroy()
+  })
+
+  it('initializes all pending pane hand ranges with one action', async () => {
+    await loadBuiltinIndicators()
+    const chart = mountChart()
+    chart.setData(makeBars(500))
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    const indicators = chart['indicatorManager']
+    const entry = indicators.getSubPaneEntry('MACD_0')
+    expect(entry).toBeDefined()
+    // 副图计算异步提交；先等待真实结果，再验证同一帧的批量初始化。
+    await vi.waitFor(() => {
+      expect(indicators.createRenderStateReader().get(entry!.instanceId)).toBeDefined()
+    })
+    // 恢复模式不捕获运行时默认轴，模拟两个 pane 等待首个有效帧初始化。
+    chart.kernel.mainPriceAxis.actions.restoreModes({
+      [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.HAND,
+      MACD_0: PRICE_AXIS_RANGE_MODE.HAND,
+    })
+    const initialize = vi.spyOn(chart.kernel.mainPriceAxis.actions, 'initializeHandRanges')
+
+    chart.resize()
+    chart.draw()
+
+    expect(initialize).toHaveBeenCalledOnce()
+    expect(initialize.mock.calls[0]?.[0].map((entry) => entry.paneId).sort()).toEqual([
+      'MACD_0',
+      MAIN_PANE_ID,
+    ])
+    const ranges = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
+    expect(ranges[MAIN_PANE_ID]?.handRange).toEqual({ minPrice: 9, maxPrice: 11 })
+    expect(ranges.MACD_0?.handRange).toEqual({ minPrice: 0, maxPrice: 0 })
     await chart.destroy()
   })
 

@@ -262,22 +262,6 @@
     </div>
   </Teleport>
 
-  <ChartSettingsDialog
-    :show="showSettings"
-    :initial-settings="appliedSettings"
-    :renderer-runtime="rendererRuntime"
-    :market-data-cache-stats="marketDataCacheStats"
-    :aggregation-sources="aggregationSources"
-    :enabled-source-names="enabledSourceNames"
-    :source-endpoints="sourceEndpoints"
-    @close="showSettings = false"
-    @confirm="handleConfirmSettings"
-    @apply-theme-preset="handleApplyThemePreset"
-    @clear-market-data-cache="emit('clearMarketDataCache')"
-    @toggle-aggregation-source="onToggleAggregationSource"
-    @update-source-endpoint="onUpdateSourceEndpoint"
-  />
-
   <AlertDialog
     :show="showAlerts"
     :chart-controller="alertController ?? null"
@@ -286,15 +270,14 @@
 </template>
 
 <script setup lang="ts">
-  import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
-  import { type ChartSettings, normalizeSettings } from '@363045841yyt/klinechart-core/config'
+  import type { ChartController } from '@363045841yyt/klinechart-core'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type ActiveMagnetMode,
     BOX_SELECT_DRAWING_TOOL_ID,
     CURSOR_DRAWING_TOOL_ID,
     DrawingTool,
     MagnetMode,
-    type RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
@@ -328,17 +311,15 @@
   import IconTablerX from '~icons/tabler/x'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
   import { useAlerts } from '../composables/useAlerts.js'
   import { useClickOutside } from '../composables/useClickOutside.js'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
   import AlertDialog from './alert/AlertDialog.vue'
-  import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
 
-  export interface ToolDef {
+  interface ToolDef {
     id: string
     title: string
     icon: unknown
@@ -415,19 +396,13 @@
     (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
     (e: 'setAllDrawingsVisible', visible: boolean): void
-    (e: 'settingsChange', settings: ChartSettings): void
-    (e: 'clearMarketDataCache'): void
-    (e: 'toggleAggregationSource', name: string, enabled: boolean): void
-    (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
   }>()
 
   const props = withDefaults(
     defineProps<{
       alertController?: ChartController | null
       effectiveSettings?: ChartSettings
-      rendererRuntime?: RendererBackendRuntime | null
-      marketDataCacheStats?: MarketDataCacheStats
-      /** kernel drawingTool 镜像；高亮以它为准 */
+      /** Core 当前 drawingTool；工具栏高亮以它为准 */
       drawingToolId?: string
       magnetMode?: MagnetMode
       continuousDrawing?: boolean
@@ -439,16 +414,8 @@
       globalDrawingLocked?: boolean
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
-      aggregationSources?: ReadonlyArray<
-        import('../composables/useAggregationSources.js').AggregationSourceDefinition
-      >
-      enabledSourceNames?: ReadonlySet<string>
-      sourceEndpoints?: Record<string, AggregationSourceEndpoint>
     }>(),
     {
-      aggregationSources: () => [],
-      enabledSourceNames: () => new Set<string>(),
-      sourceEndpoints: () => ({}),
       magnetMode: MagnetMode.Off,
     },
   )
@@ -488,7 +455,6 @@
   const menuRef = ref<HTMLElement | null>(null)
   const teleportTarget = useFullscreenTeleportTarget()
   const dropdownPosition = ref({ '--menu-anchor-left': '0px', '--menu-anchor-top': '0px' })
-  const showSettings = defineModel<boolean>('settingsOpen', { default: false })
   const showAlerts = ref(false)
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
@@ -496,8 +462,6 @@
     if (props.isRangeSelectMode) return RANGE_SELECT_UI_TOOL_ID
     return props.drawingToolId ?? selectedToolId.value
   })
-
-  const appliedSettings = computed(() => normalizeSettings(props.effectiveSettings))
 
   watch(
     () => props.effectiveSettings,
@@ -631,26 +595,6 @@
   /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
   function toggleGlobalDrawingLock() {
     emit('setGlobalDrawingLock', !props.globalDrawingLocked)
-  }
-
-  function onToggleAggregationSource(name: string, enabled: boolean) {
-    emit('toggleAggregationSource', name, enabled)
-  }
-
-  function onUpdateSourceEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
-    emit('updateSourceEndpoint', name, patch)
-  }
-
-  function handleConfirmSettings(draft: ChartSettings) {
-    emit('settingsChange', draft)
-    showSettings.value = false
-  }
-
-  /** 主题预设点击即生效：只提交预设字段，不关闭弹窗或提交其他草稿改动。 */
-  function handleApplyThemePreset(
-    colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
-  ) {
-    emit('settingsChange', { ...appliedSettings.value, colorPresetSettings })
   }
 </script>
 
