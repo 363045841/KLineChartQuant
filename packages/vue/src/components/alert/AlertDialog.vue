@@ -564,18 +564,12 @@
     opacity: 0.45;
   }
 
-  .rule-item-header {
+  .rule-item-header,
+  .event-item-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-  }
-
-  .rule-item-info {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
   }
 
   .rule-item-name {
@@ -697,13 +691,6 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
   }
 
-  .event-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-  }
-
   .event-item-left {
     display: flex;
     align-items: center;
@@ -765,3 +752,5 @@
     letter-spacing: 0.02em;
   }
 </style>
+
+<style scoped src="../common/list-text.css"></style>

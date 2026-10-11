@@ -1,0 +1,21 @@
+/* Agent 顶栏与对话抽屉共用的图标按钮：固定方形点击区 + 悬浮/聚焦反色。 */
+.agent-header__top button,
+.agent-session-drawer__icon-button {
+  width: var(--agent-header-button-size, 30px);
+  height: var(--agent-header-button-size, 30px);
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: var(--agent-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.agent-header__top button:hover,
+.agent-header__top button:focus-visible,
+.agent-session-drawer__icon-button:hover,
+.agent-session-drawer__icon-button:focus-visible {
+  color: var(--agent-text);
+  background: var(--agent-hover);
+}

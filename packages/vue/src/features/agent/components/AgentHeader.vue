@@ -109,24 +109,6 @@
     gap: 2px;
   }
 
-  .agent-header__top button {
-    width: var(--agent-header-button-size, 30px);
-    height: var(--agent-header-button-size, 30px);
-    display: inline-grid;
-    place-items: center;
-    border: 0;
-    border-radius: 4px;
-    color: var(--agent-muted);
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .agent-header__top button:hover,
-  .agent-header__top button:focus-visible {
-    color: var(--agent-text);
-    background: var(--agent-hover);
-  }
-
   .agent-header__top button:disabled {
     opacity: 0.4;
     cursor: default;
@@ -139,3 +121,5 @@
     background: var(--agent-hover);
   }
 </style>
+
+<style scoped src="./agent-icon-button.css"></style>

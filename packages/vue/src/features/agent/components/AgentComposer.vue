@@ -159,6 +159,7 @@
 </script>
 
 <style scoped src="./agent-primary-button.css"></style>
+<style scoped src="./agent-truncate-text.css"></style>
 <style src="./agent-select-trigger.css"></style>
 
 <style scoped>
@@ -278,13 +279,6 @@
     color: var(--agent-text-soft);
     background: transparent;
     cursor: not-allowed;
-  }
-
-  .composer__model-value {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .composer__model-chevron {

@@ -120,13 +120,6 @@
     max-width: 100%;
   }
 
-  .context-bar__text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .context-bar :deep(.injection-card__summary) {
     order: 0;
     flex: 0 0 26px;
@@ -143,3 +136,5 @@
   }
 
 </style>
+
+<style scoped src="./agent-truncate-text.css"></style>

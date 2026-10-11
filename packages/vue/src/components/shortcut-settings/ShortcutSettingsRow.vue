@@ -104,13 +104,6 @@
     height: 14px;
   }
 
-  .shortcut-settings__text {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-  }
-
   .shortcut-settings__title {
     overflow: hidden;
     color: var(--klc-color-ui-text);
@@ -184,3 +177,5 @@
     height: 14px;
   }
 </style>
+
+<style scoped src="../common/list-text.css"></style>

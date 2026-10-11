@@ -1,0 +1,8 @@
+/* Agent 面板内的单行省略文本：模型名与上下文摘要共用同一截断外观。 */
+.composer__model-value,
+.context-bar__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

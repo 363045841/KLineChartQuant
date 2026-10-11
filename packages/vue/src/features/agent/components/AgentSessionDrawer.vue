@@ -258,6 +258,8 @@
 
 <style scoped src="../../../components/common/form-control.css"></style>
 
+<style scoped src="./agent-icon-button.css"></style>
+
 <style scoped>
   .agent-session-drawer {
     position: absolute;
@@ -309,24 +311,6 @@
     display: flex;
     align-items: center;
     gap: 2px;
-  }
-
-  .agent-session-drawer__icon-button {
-    width: var(--agent-header-button-size, 30px);
-    height: var(--agent-header-button-size, 30px);
-    display: inline-grid;
-    place-items: center;
-    border: 0;
-    border-radius: 4px;
-    color: var(--agent-muted);
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .agent-session-drawer__icon-button:hover,
-  .agent-session-drawer__icon-button:focus-visible {
-    color: var(--agent-text);
-    background: var(--agent-hover);
   }
 
   .agent-session-drawer__empty {
