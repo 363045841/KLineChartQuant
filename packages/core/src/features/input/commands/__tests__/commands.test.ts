@@ -52,6 +52,26 @@ describe('createCommandRegistry', () => {
     ).toBe(redo)
   })
 
+  it('updates a command shortcut and exposes it in search', () => {
+    const registry = createCommandRegistry({ platform: 'win' })
+    const undo = command({
+      id: 'drawing.undo',
+      title: { zh: '撤销', en: 'Undo' },
+      shortcut: 'Mod+Z',
+    })
+    registry.register([undo, command({ id: 'drawing.redo', shortcut: 'Mod+Y' })])
+    registry.setShortcut('drawing.undo', 'Mod+U')
+    expect(registry.commands.peek().map((item) => item.id)).toEqual([
+      'drawing.undo',
+      'drawing.redo',
+    ])
+    expect(registry.resolveKeyboardEvent(key('z', { ctrlKey: true }), inChart)).toBeNull()
+    expect(registry.resolveKeyboardEvent(key('u', { ctrlKey: true }), inChart)?.id).toBe(
+      'drawing.undo',
+    )
+    expect(registry.search('Ctrl+U')[0]?.command.id).toBe('drawing.undo')
+  })
+
   it('throws on a combo conflict and leaves no partial bindings', () => {
     const registry = createCommandRegistry({ platform: 'win' })
     registry.register(command({ id: 'a', shortcut: 'Mod+K' }))
@@ -115,7 +135,9 @@ describe('createCommandRegistry', () => {
     const run = vi.fn()
     registry.register(command({ id: 'drawing.undo', shortcut: 'Mod+Z', when: () => enabled, run }))
     expect(registry.resolveKeyboardEvent(key('z', { ctrlKey: true }), inChart)).toBeNull()
-    expect(registry.search('undo')).toEqual([])
+    const matches = registry.search('undo')
+    expect(matches.map((match) => match.command.id)).toEqual(['drawing.undo'])
+    expect(matches[0]?.available).toBe(false)
     expect(await registry.execute('drawing.undo')).toBe(false)
     enabled = true
     expect(await registry.execute('drawing.undo')).toBe(true)

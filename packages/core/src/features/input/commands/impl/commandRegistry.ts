@@ -91,14 +91,14 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
   }
 
   /** 登记单条命令；快捷键登记失败时回滚，避免留下半绑定。 */
-  function registerOne(def: CommandDef): void {
+  function registerOne(def: CommandDef, preserveOrder = false): void {
     if (typeof def.id !== 'string' || def.id === '') {
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_PARAM,
         'CommandRegistry.register: def.id must be a non-empty string',
       )
     }
-    if (byId.has(def.id)) unregister(def.id)
+    if (byId.has(def.id) && !preserveOrder) unregister(def.id)
     const ids: string[] = []
     try {
       commandShortcuts(def).forEach((combo, index) => {
@@ -147,6 +147,23 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
 
   function get(id: string): CommandDef | null {
     return byId.get(id) ?? null
+  }
+
+  function setShortcut(id: string, shortcut: string | ReadonlyArray<string> | null): void {
+    const current = byId.get(id)
+    if (current === undefined) return
+    const next: CommandDef = { ...current, shortcut: shortcut ?? undefined }
+    // 只移除快捷键绑定，保留 byId 的 Map 插入位置，避免编辑快捷键后命令顺序改变。
+    for (const shortcutId of shortcutIds.get(id) ?? []) shortcuts.unregister(shortcutId)
+    shortcutIds.delete(id)
+    try {
+      registerOne(next, true)
+      publish()
+    } catch (error) {
+      registerOne(current, true)
+      publish()
+      throw error
+    }
   }
 
   function isAvailable(id: string): boolean {
@@ -207,14 +224,15 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
   function search(query: string, options?: { readonly limit?: number }): CommandMatch[] {
     const matches: CommandMatch[] = []
     for (const def of byId.values()) {
-      if (def.palette === false || !available(def)) continue
+      if (def.palette === false) continue
       const score = scoreFields(query, [
         def.title.zh,
         def.title.en,
         def.id,
         ...(def.keywords ?? []),
+        ...commandShortcuts(def).map((shortcut) => formatCombo(shortcut, mac)),
       ])
-      if (score > 0) matches.push({ command: def, score })
+      if (score > 0) matches.push({ command: def, score, available: available(def) })
     }
     // 稳定排序：同分保持注册顺序。
     matches.sort((a, b) => b.score - a.score)
@@ -240,6 +258,7 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
     register,
     unregister,
     get,
+    setShortcut,
     isAvailable,
     execute,
     resolveKeyboardEvent,

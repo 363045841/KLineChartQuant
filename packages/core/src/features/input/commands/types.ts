@@ -57,10 +57,12 @@ export interface CommandKeyContext {
   readonly editable: boolean
 }
 
-/** 检索结果：命令与其匹配得分。 */
+/** 检索结果：命令、匹配得分与当前可用性。 */
 export interface CommandMatch {
   readonly command: CommandDef
   readonly score: number
+  /** 当前 `when()` 是否通过；不可用的命令仍列出，但调用方应禁用。 */
+  readonly available: boolean
 }
 
 /** 命令注册表：命令定义 + 快捷键匹配 + 检索。 */
@@ -73,6 +75,8 @@ export interface CommandRegistry {
   register(def: CommandDef | ReadonlyArray<CommandDef>): () => void
   unregister(id: string): void
   get(id: string): CommandDef | null
+  /** 修改命令快捷键；传 null 清除快捷键，冲突时抛出错误并保留原绑定。 */
+  setShortcut(id: string, shortcut: string | ReadonlyArray<string> | null): void
   isAvailable(id: string): boolean
   /** 按 id 执行；命令缺失或不可用时返回 false。 */
   execute(id: string): Promise<boolean>
