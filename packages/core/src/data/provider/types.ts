@@ -169,6 +169,8 @@ export interface InstrumentDescriptor {
 /** 数据源在聚合源管理和注册表中展示的元数据。 */
 export interface DataSourceDescriptor {
   id: string
+  /** 共用一个 Connector 的 Provider 使用同一个连接 ID；省略时以 source ID 为连接 ID。 */
+  connectionId?: string
   displayName: string
   description?: string
   /** 网络 Provider 的默认 Transport 地址。 */
@@ -363,6 +365,8 @@ export const AUTO_SOURCE_ID = 'auto'
 /** 单个行情数据源的运行时配置。 */
 export interface MarketDataSourceConfig {
   enabled: boolean
+  /** 是否参与品种搜索；与自动行情路由的 enabled 独立。 */
+  searchEnabled?: boolean
   priority: number
   baseUrl?: string
 }

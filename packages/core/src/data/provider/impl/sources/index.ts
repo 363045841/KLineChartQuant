@@ -7,7 +7,6 @@
  */
 import './gotdx.js'
 import './baostock.js'
-import './finshare.js'
 import './tradingview.js'
 import './mock.js'
 import './mt5.js'
@@ -15,7 +14,7 @@ import './ths.js'
 
 export { baostockMarketDataProvider } from './baostock.js'
 export { binanceMarketDataProvider } from './binance.js'
-export { finshareMarketDataProvider } from './finshare.js'
+export { createBuiltinMarketDataContext } from './createBuiltinContext.js'
 export { gotdxMarketDataProvider } from './gotdx.js'
 export { mockMarketDataProvider } from './mock.js'
 export { mt5MarketDataProvider } from './mt5.js'

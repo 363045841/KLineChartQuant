@@ -282,6 +282,7 @@ export class MarketDataCache {
   private usedBytes = 0
   private maxBytes = DEFAULT_MARKET_DATA_CACHE_MAX_BYTES
   private destroyed = false
+  private readonly unsubscribeRegistry: () => void
 
   /** 供设置界面观察的缓存近似内存使用量。 */
   readonly stats: ReadonlySignal<MarketDataCacheStats> = this.statsSignal
@@ -290,6 +291,27 @@ export class MarketDataCache {
   constructor(registry: MarketDataProviderRegistry) {
     this.router = new SourceRouter(registry)
     this.registry = registry
+    let previous = registry.state.peek()
+    this.unsubscribeRegistry = registry.state.subscribe(() => {
+      const next = registry.state.peek()
+      const changedSources = [...previous.providers]
+        .filter(([id, provider]) => {
+          const connectionId = provider.source.connectionId ?? id
+          return (
+            next.providers.get(id) !== provider ||
+            previous.connections.get(connectionId) !== next.connections.get(connectionId)
+          )
+        })
+        .map(([id]) => id)
+      previous = next
+      if (changedSources.length) {
+        this.clear()
+        for (const [instrumentKey] of this.repository.snapshot.peek()) {
+          for (const sourceId of changedSources)
+            this.repository.deleteSource(instrumentKey, sourceId)
+        }
+      }
+    })
   }
 
   /** 返回仓库中唯一的成交实例，并纳入公共缓存的内存统计与淘汰。 */
@@ -567,6 +589,7 @@ export class MarketDataCache {
   /** 销毁图表实例缓存，中止请求并阻止异步响应回写。 */
   destroy(): void {
     if (this.destroyed) return
+    this.unsubscribeRegistry()
     this.destroyed = true
     this.lifecycleAbortController.abort()
     this.clear()

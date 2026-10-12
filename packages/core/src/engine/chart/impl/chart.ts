@@ -25,8 +25,12 @@ import {
 import type { DataBuffer } from '../../../data/buffer/impl/dataBuffer.js'
 import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
+import {
+  defaultMarketDataContext,
+  type MarketDataContext,
+} from '../../../data/management/impl/context.js'
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
-import { marketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
+import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
 import { AUTO_SOURCE_ID } from '../../../data/provider/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
@@ -228,6 +232,7 @@ export class Chart {
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
+  private readonly marketDataProviderRegistry: MarketDataProviderRegistry
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
   private _lastAlertTimestamp: number | null = null
@@ -252,11 +257,15 @@ export class Chart {
       rendererHost?: RendererHost
       initialSettings?: Partial<ChartSettings>
       marketSessions?: Readonly<Record<string, MarketSessionConfig>>
+      marketDataContext?: MarketDataContext
       /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
       clock?: import('../../../foundation/utils/clock.js').Clock
     },
   ) {
     this.dom = dom
+    this.marketDataProviderRegistry = (
+      runtime?.marketDataContext ?? defaultMarketDataContext
+    ).registry
     this.legendDom = createLegendDomRenderer(
       dom.canvasLayer,
       () => this.dataManager.symbols.peek().length > 0,
@@ -346,6 +355,7 @@ export class Chart {
 
     this.dataManager = new ChartDataManager(
       {
+        marketDataProviderRegistry: this.marketDataProviderRegistry,
         getOption: () => this.getRenderOptions(),
         getZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
         setZoomLevel: (level) => this.kernel.zoom.actions.setZoomLevel(level),
@@ -392,11 +402,11 @@ export class Chart {
       resolveInstrument: async ({ symbol, source }) => {
         // 具体源才限定查询范围，auto/缺省时允许跨全部已启用数据源解析。
         const restrictedSourceIds = source && source !== AUTO_SOURCE_ID ? [source] : undefined
-        const matches = await lookupInstrumentsBySymbol(marketDataProviderRegistry, {
+        const matches = await lookupInstrumentsBySymbol(this.marketDataProviderRegistry, {
           symbol,
           sourceIds: restrictedSourceIds,
         })
-        const enabledSourceIds = marketDataProviderRegistry
+        const enabledSourceIds = this.marketDataProviderRegistry
           .getEnabled()
           .map((provider) => provider.source.id)
         // 候选不做挑选：歧义裁决属于 ComparisonCommands 的领域策略。
@@ -408,7 +418,9 @@ export class Chart {
           }
         }
         // 限定源未命中：跨全部已启用源再查一次，用于提示 Agent 换源重试。
-        const elsewhere = await lookupInstrumentsBySymbol(marketDataProviderRegistry, { symbol })
+        const elsewhere = await lookupInstrumentsBySymbol(this.marketDataProviderRegistry, {
+          symbol,
+        })
         return {
           candidates: [],
           searchedSourceIds: restrictedSourceIds,

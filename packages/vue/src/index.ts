@@ -54,9 +54,12 @@ export type {
   LegendTemplateContext,
   LegendTimeshareRow,
 } from '@363045841yyt/klinechart-core/controllers'
+export {
+  defaultMarketDataContext,
+  MarketDataContext,
+} from '@363045841yyt/klinechart-core/market-data'
 export { default as ColorPicker } from './components/ColorPicker.vue'
 export type { ColorPickerProps } from './components/color-picker/types.js'
-
 export type {
   KlineTooltipSlotProps,
   LegendSlotProps,
@@ -71,6 +74,11 @@ export {
   LeftToolbar,
   MarkerTooltip,
 } from './components/index.js'
+export {
+  MARKET_DATA_CONTEXT_KEY,
+  provideMarketDataContext,
+  useMarketDataContext,
+} from './composables/useMarketDataContext.js'
 
 // ---------------------------------------------------------------------------
 // Interaction primitives (overlay, toast + undo, textarea)

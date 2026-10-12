@@ -43,7 +43,7 @@
             </button>
           </span>
         </div>
-        <SettingsNavRow @select="showAggregationSourceModal = true">聚合源管理</SettingsNavRow>
+        <SettingsNavRow @select="showAggregationSourceModal = true">行情数据源</SettingsNavRow>
       </template>
 
       <OpenSourceCredits v-else-if="activeSection === 'opensource'" />
@@ -88,18 +88,13 @@
     </template>
   </BaseModal>
 
-  <!-- 嵌套聚合源管理 -->
-  <AggregationSourceDialog
+  <!-- 使用同一宿主实例的行情管理界面 -->
+  <MarketDataManagementDialog
     :show="showAggregationSourceModal"
-    :sources="aggregationSources"
-    :enabled-names="enabledSourceNames"
-    :endpoints="sourceEndpoints"
     @close="showAggregationSourceModal = false"
-    @toggle="onToggleAggregationSource"
-    @update-endpoint="onUpdateSourceEndpoint"
   >
     <template #source-management><slot name="source-management" /></template>
-  </AggregationSourceDialog>
+  </MarketDataManagementDialog>
 
   <!-- 嵌套颜色预设弹窗 -->
   <BaseModal
@@ -138,8 +133,7 @@
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref, watch } from 'vue'
   import IconTablerTrash from '~icons/tabler/trash'
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
-  import AggregationSourceDialog from './AggregationSourceDialog.vue'
+  import MarketDataManagementDialog from './MarketDataManagementDialog.vue'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
@@ -159,16 +153,8 @@
       initialSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
-      aggregationSources?: ReadonlyArray<
-        import('../composables/useAggregationSources.js').AggregationSourceDefinition
-      >
-      enabledSourceNames?: ReadonlySet<string>
-      sourceEndpoints?: Record<string, AggregationSourceEndpoint>
     }>(),
     {
-      aggregationSources: () => [],
-      enabledSourceNames: () => new Set<string>(),
-      sourceEndpoints: () => ({}),
     },
   )
 
@@ -176,8 +162,6 @@
     (e: 'update:open', value: boolean): void
     (e: 'confirm', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
-    (e: 'toggleAggregationSource', name: string, enabled: boolean): void
-    (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
     /** 主题预设点击即生效，无需等“确定”。 */
     (
       e: 'applyThemePreset',
@@ -262,13 +246,6 @@
     { id: 'dark', label: '深色' },
   ]
 
-  function onToggleAggregationSource(name: string, enabled: boolean) {
-    emit('toggleAggregationSource', name, enabled)
-  }
-
-  function onUpdateSourceEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
-    emit('updateSourceEndpoint', name, patch)
-  }
 
   const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
 

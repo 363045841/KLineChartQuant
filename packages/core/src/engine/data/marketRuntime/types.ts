@@ -16,6 +16,7 @@ export interface ReadyMarketSession {
 }
 
 export interface MarketRuntimeDependencies {
+  readonly registry?: import('@/data/provider/impl/registry.js').MarketDataProviderRegistry
   readonly cache: MarketDataCache
   readonly session: ReadonlySignal<ReadyMarketSession | null>
   readonly visibleRange: ReadonlySignal<VisibleRange>

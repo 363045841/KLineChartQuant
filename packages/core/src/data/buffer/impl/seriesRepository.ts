@@ -329,6 +329,24 @@ export class SeriesRepository {
     return true
   }
 
+  /** 释放一个品种在旧连接上的全部快照，其他来源保持可用。 */
+  deleteSource(instrumentKey: InstrumentKey, sourceId: SourceId): boolean {
+    const current = this._snapshot.peek()
+    const instrument = current.get(instrumentKey)
+    const source = instrument?.sources.get(sourceId)
+    if (!instrument || !source) return false
+    for (const buffer of source.bars.values()) this.disposeBuffer(buffer)
+    for (const buffer of source.timeShare.values()) this.disposeBuffer(buffer)
+    if (source.trades) this.disposeBuffer(source.trades)
+    const sources = new Map(instrument.sources)
+    sources.delete(sourceId)
+    const next = new Map(current)
+    if (sources.size) next.set(instrumentKey, { sources: mapSnapshot(sources) })
+    else next.delete(instrumentKey)
+    this._snapshot.set(mapSnapshot(next))
+    return true
+  }
+
   /** 删除一个市场品种下的全部来源和序列。 */
   deleteInstrument(instrumentKey: InstrumentKey): boolean {
     const instrument = this._snapshot.peek().get(instrumentKey)

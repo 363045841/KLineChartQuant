@@ -74,17 +74,12 @@
         返回
       </button>
       </BaseTooltip>
-      <AggregationSourceDialog
+      <MarketDataManagementDialog
         :show="showSourceDialog"
-        :sources="aggregationSources"
-        :enabled-names="enabledSourceNames"
-        :endpoints="sourceEndpoints"
         @close="showSourceDialog = false"
-        @toggle="onToggleAggregationSource"
-        @update-endpoint="onUpdateSourceEndpoint"
       >
         <template #source-management><slot name="source-management" /></template>
-      </AggregationSourceDialog>
+      </MarketDataManagementDialog>
     </div>
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
@@ -184,10 +179,9 @@
   } from '../composables/chart/useChartScreenshot.js'
   import type {
     AggregationSourceDefinition,
-    AggregationSourceEndpoint,
   } from '../composables/useAggregationSources.js'
   import type { SymbolSearchFn } from '../composables/useSymbolSearch.js'
-  import AggregationSourceDialog from './AggregationSourceDialog.vue'
+  import MarketDataManagementDialog from './MarketDataManagementDialog.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
@@ -299,13 +293,11 @@
       screenshotMessage?: string | null
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
-      sourceEndpoints?: Record<string, AggregationSourceEndpoint>
       watchlistKeys?: ReadonlySet<string>
     }>(),
     {
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
-      sourceEndpoints: () => ({}),
       watchlistKeys: () => new Set<string>(),
     },
   )
@@ -318,8 +310,6 @@
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
     (e: 'symbolChange', symbol: SymbolItem): void
     (e: 'addWatchlist', symbol: SymbolItem): void
-    (e: 'toggleAggregationSource', name: string, enabled: boolean): void
-    (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
     (e: 'back'): void
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
@@ -358,13 +348,6 @@
     emit('symbolChange', item)
   }
 
-  function onToggleAggregationSource(name: string, enabled: boolean) {
-    emit('toggleAggregationSource', name, enabled)
-  }
-
-  function onUpdateSourceEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
-    emit('updateSourceEndpoint', name, patch)
-  }
 </script>
 
 <style scoped src="./common/control-button.css"></style>

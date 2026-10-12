@@ -33,7 +33,10 @@ import {
   type KLineBuffer,
   type TimeShareBuffer,
 } from '../../data/buffer/types.js'
-import { marketDataProviderRegistry } from '../../data/provider/impl/registry.js'
+import {
+  type MarketDataProviderRegistry,
+  marketDataProviderRegistry,
+} from '../../data/provider/impl/registry.js'
 import type {
   BarAggregation,
   InstrumentDescriptor,
@@ -77,6 +80,7 @@ import { ScrollCompensator } from './scrollCompensator.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
+  marketDataProviderRegistry?: MarketDataProviderRegistry
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
   getOption: () => { kWidth: number; kGap: number }
@@ -145,8 +149,12 @@ export class ChartDataManager {
   static readonly TIME_SHARE_INDICATOR_BAR_LIMIT = 1_500
 
   /** 图表与 Agent 共用的实例级行情缓存，负责分页、重试和 Provider 请求。 */
-  readonly marketDataCache = new MarketDataCache(marketDataProviderRegistry)
-  private readonly _repository = this.marketDataCache.repository
+  readonly marketDataCache: MarketDataCache
+  private readonly providerRegistry: MarketDataProviderRegistry
+  private readonly unsubscribeProviderRegistry: () => void
+  private get _repository() {
+    return this.marketDataCache.repository
+  }
   private get _activeSelection(): SeriesSelection | null {
     return this._dataState.readonly.activeSelection.peek()
   }
@@ -168,10 +176,13 @@ export class ChartDataManager {
   private deps: DataDependencies
 
   constructor(deps: DataDependencies, dataState: DataStateModule, dmState: DataManagerStateModule) {
+    this.providerRegistry = deps.marketDataProviderRegistry ?? marketDataProviderRegistry
+    this.marketDataCache = new MarketDataCache(this.providerRegistry)
     this.deps = deps
     this._dataState = dataState
     this._dmState = dmState
     this.marketRuntime = new MarketRuntime({
+      registry: this.providerRegistry,
       cache: this.marketDataCache,
       session: dataState.readonly.readyMarket,
       visibleRange: deps.viewport.readonly.visibleRange,
@@ -203,6 +214,18 @@ export class ChartDataManager {
       this.reconcileComparisonBuffers()
     })
     this.reconcileComparisonBuffers()
+    this.unsubscribeProviderRegistry = this.providerRegistry.state.subscribe(() => {
+      if (this.disposed) return
+      const active = this._activeSelection
+      // 缓存先释放旧连接的快照；图表再加载，避免新实时流混入旧历史数据。
+      if (active && !this._repository.get(active)) {
+        const specs = this.symbols.peek()
+        this.publishEmptySnapshot()
+        this.setSymbols(specs)
+      } else {
+        this.reconcileComparisonBuffers()
+      }
+    })
   }
 
   // ── Buffer helpers ──
@@ -498,7 +521,7 @@ export class ChartDataManager {
         sourceId: result.sourceId,
         instrument: result.instrument,
         capabilities: structuredClone(
-          marketDataProviderRegistry.get(result.sourceId)?.source.capabilities,
+          this.providerRegistry.get(result.sourceId)?.source.capabilities,
         ),
       })
       if (selection.sourceId === AUTO_SOURCE_ID) {
@@ -1451,7 +1474,7 @@ export class ChartDataManager {
     const selection = this._activeSelection
     const source = this.resolvedBarSources.get(buffer)
     if (selection?.kind !== SERIES_SELECTION_KIND.bars || !source) return
-    const provider = marketDataProviderRegistry.get(source.sourceId)
+    const provider = this.providerRegistry.get(source.sourceId)
     if (
       !provider?.source.capabilities?.tradingCalendar ||
       !source.instrument.capabilities.tradingCalendar ||
@@ -1499,6 +1522,7 @@ export class ChartDataManager {
   }
 
   destroy(): void {
+    this.unsubscribeProviderRegistry()
     this.disposed = true
     this.marketRuntime.dispose()
     this._comparisonSpecsUnsub?.()

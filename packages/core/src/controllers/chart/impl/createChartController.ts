@@ -1,4 +1,4 @@
-import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+import { defaultMarketDataContext } from '@/data/management/impl/context.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import {
@@ -101,6 +101,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       rendererHost,
       initialSettings,
       marketSessions: opts.marketSessions,
+      marketDataContext: opts.marketDataContext,
     },
   )
 
@@ -199,7 +200,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     selectedRange: chart.selectedRange,
     indicators,
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
-    marketDataProviderRegistry,
+    marketDataProviderRegistry: (opts.marketDataContext ?? defaultMarketDataContext).registry,
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument: chart.drawingDocument,
     drawingCommands: chart.drawingCommands,

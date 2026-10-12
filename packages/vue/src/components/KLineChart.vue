@@ -32,7 +32,6 @@
         :comparison-loading="comparisonLoading"
         :aggregation-sources="aggregationSources"
         :enabled-source-names="enabledSourceNameSet"
-        :source-endpoints="sourceEndpoints"
         :watchlist-keys="watchlistKeys"
         :show-back-button="kLineLevel === 'timeshare'"
         :screenshot-capturing="isCapturing"
@@ -45,8 +44,6 @@
         @k-line-shape-change="onKLineShapeChange"
         @symbol-change="onSymbolChange"
         @add-watchlist="addWatchlistItem"
-        @toggle-aggregation-source="setAggregationSourceEnabled"
-        @update-source-endpoint="setAggregationSourceEndpoint"
         @back="onBackFromTimeShare"
       >
         <template #source-management><slot name="source-management" /></template>
@@ -351,14 +348,9 @@
       :initial-settings="chartSettings"
       :renderer-runtime="rendererRuntime"
       :market-data-cache-stats="marketDataCacheStats"
-      :aggregation-sources="aggregationSources"
-      :enabled-source-names="enabledSourceNameSet"
-      :source-endpoints="sourceEndpoints"
       @confirm="confirmChartSettings"
       @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
       @clear-market-data-cache="controller?.clearMarketDataCache()"
-      @toggle-aggregation-source="setAggregationSourceEnabled"
-      @update-source-endpoint="setAggregationSourceEndpoint"
     >
       <template #source-management><slot name="source-management" /></template>
     </ChartSettingsDialog>
@@ -384,7 +376,6 @@
     type DrawingToolId,
     type LegendOptions,
     type LegendTemplateContext,
-    marketDataProviderRegistry,
     type RendererBackendRuntime,
     type SymbolInfo,
     type SymbolSpec,
@@ -393,6 +384,7 @@
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     type InstrumentDescriptor,
+    type MarketDataContext,
     searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
   import {
@@ -410,20 +402,13 @@
   import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
   import { useAggregationSources } from '../composables/useAggregationSources.js'
   import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
+  import { provideMarketDataContext, useMarketDataContext } from '../composables/useMarketDataContext.js'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
   const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
   const hasMarkerTooltipSlot = ref(Boolean(slots['marker-tooltip']))
-  const aggregationSources = useMarketDataSourceCatalog()
-  const {
-    enabledNames: enabledSourceNames,
-    enabledNameSet: enabledSourceNameSet,
-    endpoints: sourceEndpoints,
-    setEnabled: setAggregationSourceEnabled,
-    setEndpoint: setAggregationSourceEndpoint,
-  } = useAggregationSources(aggregationSources)
 
   import './tooltip.css'
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
@@ -486,6 +471,8 @@
 
       /** 当前图表实例的市场交易时段覆盖 */
       marketSessions?: ChartMountOptions['marketSessions']
+      /** 挂载时确定的行情管理实例；其生命周期归宿主所有。 */
+      marketDataContext?: MarketDataContext
 
       yPaddingPx?: number
       minKWidth?: number
@@ -534,6 +521,11 @@
       timezone: 'Asia/Shanghai',
     },
   )
+
+  const marketDataContext = provideMarketDataContext(props.marketDataContext ?? useMarketDataContext())
+  const aggregationSources = useMarketDataSourceCatalog(marketDataContext)
+  const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
+    useAggregationSources(aggregationSources, marketDataContext)
 
   const emit = defineEmits<{
     (e: 'toggleFullscreen'): void
@@ -783,7 +775,7 @@
     signal: AbortSignal,
     sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    return searchInstruments(marketDataProviderRegistry, {
+    return searchInstruments(marketDataContext.registry, {
       keyword: query,
       limit,
       signal,
@@ -1624,6 +1616,7 @@
       container,
       data: [],
       marketSessions: props.marketSessions,
+      marketDataContext,
       canvasLayer,
       rightAxisLayer,
       leftAxisLayer: leftAxisLayerRef.value ?? undefined,

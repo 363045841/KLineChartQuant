@@ -39,7 +39,7 @@ export async function searchInstruments(
   const selectedSourceIds = request.sourceIds?.map((sourceId) => sourceId.trim()).filter(Boolean)
   const selectedSources = selectedSourceIds?.length ? new Set(selectedSourceIds) : undefined
   const catalogProviders = registry
-    .getEnabledByPriority()
+    .getSearchableByPriority()
     .filter((provider) => provider.catalog !== undefined)
   const availableSourceIds = catalogProviders.map((provider) => provider.source.id)
   if (selectedSources) {

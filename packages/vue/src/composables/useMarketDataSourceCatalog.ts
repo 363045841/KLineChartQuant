@@ -1,24 +1,22 @@
-/** 将 Provider 目录事件转为 Vue 快照；凭据存储由宿主负责。 */
-import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
-import { onScopeDispose, shallowRef } from 'vue'
+/** 将 Core Provider 目录投影给 Vue；没有第二份可写目录。 */
+import type { MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
+import { computed } from 'vue'
+import { coreSignalToVueRef } from '../utils/signalBridge.js'
 import type { AggregationSourceDefinition } from './useAggregationSources.js'
+import { useMarketDataContext } from './useMarketDataContext.js'
 
-/** 返回可响应注册/注销的源目录，并在组件作用域结束时取消订阅。 */
-export function useMarketDataSourceCatalog() {
-  function snapshot(): ReadonlyArray<AggregationSourceDefinition> {
-    return marketDataProviderRegistry.getAll().map((provider) => ({
+/** 注册、注销和配置变更均从同一个 Core 状态派生。 */
+export function useMarketDataSourceCatalog(context: MarketDataContext = useMarketDataContext()) {
+  const state = coreSignalToVueRef(context.registry.state)
+  return computed<ReadonlyArray<AggregationSourceDefinition>>(() =>
+    [...state.value.providers.values()].map((provider) => ({
       name: provider.source.id,
       displayName: provider.source.displayName,
       description: provider.source.description,
       capabilities: provider.catalog ? ['search'] : [],
       defaultBaseUrl: provider.source.defaultBaseUrl,
       endpointEditable: provider.source.endpointEditable,
-    }))
-  }
-  const catalog = shallowRef(snapshot())
-  const unsubscribe = marketDataProviderRegistry.subscribeCatalog(() => {
-    catalog.value = snapshot()
-  })
-  onScopeDispose(unsubscribe)
-  return catalog
+      connectionId: provider.source.connectionId ?? provider.source.id,
+    })),
+  )
 }

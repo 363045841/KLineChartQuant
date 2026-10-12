@@ -140,7 +140,6 @@ export {
   DepthConnector,
   dataSourceRegistry,
   EUROPE_TRADITIONAL_BAR_AGGREGATION,
-  finshareMarketDataProvider,
   gotdxMarketDataProvider,
   MarketDataProviderRegistry,
   marketDataProviderRegistry,

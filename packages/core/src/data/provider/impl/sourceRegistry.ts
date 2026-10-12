@@ -10,6 +10,7 @@ export const DEFAULT_V1_BASE_URL = 'http://127.0.0.1:8080'
 /** 数据源注册声明：集中承载展示信息与出厂默认地址，运行时覆盖由注册表配置层负责 */
 export interface DataSourceRegistration {
   id: string
+  connectionId?: string
   displayName: string
   description?: string
   defaultBaseUrl?: string
@@ -38,19 +39,15 @@ export const dataSourceRegistry = {
   },
   baostock: {
     id: 'baostock',
+    connectionId: 'baostock-tradingview',
     displayName: 'BaoStock',
     description:
       'BaoStock data connector, source: https://github.com/363045841/Baostock-Tradingview-Connector',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
-  finshare: {
-    id: 'finshare',
-    displayName: 'FinShare Futures',
-    description: 'China futures data via FinShare SDK and Baostock-Tradingview-Connector',
-    defaultBaseUrl: 'http://127.0.0.1:8000',
-  },
   tradingview: {
     id: 'tradingview',
+    connectionId: 'baostock-tradingview',
     displayName: 'TradingView',
     description:
       'Tradingview data connector, source: https://github.com/363045841/Baostock-Tradingview-Connector',

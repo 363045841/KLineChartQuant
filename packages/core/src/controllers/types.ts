@@ -361,6 +361,8 @@ export interface DrawingControllerCallbacks {
 
 export interface ChartMountOptions {
   container: HTMLElement
+  /** 宿主持有的行情管理实例；多个图表可以显式共享。 */
+  marketDataContext?: import('../data/management/impl/context.js').MarketDataContext
   data?: ReadonlyArray<KLineData>
   symbols?: ReadonlyArray<SymbolSpec>
   initialZoomLevel?: number

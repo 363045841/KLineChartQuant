@@ -1,13 +1,10 @@
-/**
- * 统一行情 Provider 注册表与运行时数据源配置。
- * 注册表不负责持久化，应用层可将配置快照同步到 localStorage 或其他存储。
- */
-
+/** Provider、连接和使用策略的权威运行时状态；持久化由宿主负责。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-
+import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { normalizeConnectionUrl } from '../../management/impl/connection.js'
+import { participatesInSearch } from '../../management/impl/policy.js'
+import type { MarketConnection, MarketRegistryState } from '../../management/types.js'
 import type {
-  KLineAdjustment,
-  KLinePeriod,
   MarketDataProvider,
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
@@ -16,179 +13,255 @@ import type {
 } from '../types.js'
 import { isFilterableAssetClass } from '../types.js'
 
-/** 规范化可选 Base URL，空值表示清除覆盖。 */
-function normalizeBaseUrl(baseUrl: string | undefined): string | undefined {
-  const normalized = baseUrl?.trim().replace(/\/+$/, '')
-  return normalized || undefined
-}
-
-/** 将局部配置合并为可安全暴露的完整快照。 */
-function mergeConfig(
-  current: MarketDataSourceConfig,
-  patch: MarketDataSourceConfigPatch,
-): MarketDataSourceConfig {
-  const enabled = patch.enabled ?? current.enabled
-  const priority = patch.priority ?? current.priority
-  const baseUrl = Object.hasOwn(patch, 'baseUrl')
-    ? normalizeBaseUrl(patch.baseUrl)
-    : current.baseUrl
-  return baseUrl === undefined ? { enabled, priority } : { enabled, priority, baseUrl }
-}
-
-/** 判断源级能力是否满足一次请求的候选条件。 */
+/** 判断源级能力是否满足请求。 */
 function supportsCapability(
   capabilities: SourceCapabilities | undefined,
   query: SourceCapabilityQuery,
 ): boolean {
   if (!capabilities) return false
-  const assetClass = query.assetClass
-  // unknown 不参与筛选：未归一化的品种不得因 assetClass 与源声明不符而被排除。
-  if (isFilterableAssetClass(assetClass) && !capabilities.assetClasses.includes(assetClass)) {
+  if (
+    isFilterableAssetClass(query.assetClass) &&
+    !capabilities.assetClasses.includes(query.assetClass)
+  )
     return false
-  }
   if (query.capability === 'timeShare') return capabilities.timeShare === true
-  if (query.capability === 'timeShareRange') {
+  if (query.capability === 'timeShareRange')
     return (
       capabilities.timeShareRange !== undefined &&
       (query.days === undefined || capabilities.timeShareRange.maxTradingDays >= query.days)
     )
-  }
   if (query.capability === 'depth') return capabilities.depth === true
   const bars = capabilities.bars
-  if (!bars) return false
-  if (query.period !== undefined && !bars.periods.includes(query.period)) return false
-  if (query.adjustment !== undefined && !bars.adjustments.includes(query.adjustment)) return false
-  return true
+  return Boolean(
+    bars &&
+      (query.period === undefined || bars.periods.includes(query.period)) &&
+      (query.adjustment === undefined || bars.adjustments.includes(query.adjustment)),
+  )
 }
 
-/** 管理 Provider 实例及其启用状态和 Transport 地址。 */
+/** 管理实例的注册与配置入口；所有读者共享同一份不可变快照。 */
 export class MarketDataProviderRegistry {
-  private readonly providers = new Map<string, MarketDataProvider>()
-  private readonly configs = new Map<string, MarketDataSourceConfig>()
+  private readonly stateSignal = createSignal<MarketRegistryState>({
+    providers: new Map(),
+    policies: new Map(),
+    connections: new Map(),
+  })
+  /** 唯一的观察入口；注册、注销和配置更新都发布新的不可变快照。 */
+  readonly state: ReadonlySignal<MarketRegistryState> = this.stateSignal
 
-  private readonly catalogListeners = new Set<() => void>()
-
-  /** 订阅连接目录变化；返回释放函数。配置修改不触发目录事件。 */
-  subscribeCatalog(listener: () => void): () => void {
-    this.catalogListeners.add(listener)
-    return () => this.catalogListeners.delete(listener)
-  }
-
-  /** 在注册表完成一次目录修改后通知宿主。 */
-  private notifyCatalog(): void {
-    for (const listener of this.catalogListeners) listener()
-  }
-
-  /** 注册 Provider；source ID 必须非空且不得重复。 */
+  /** 注册 Provider，并关联或创建它声明的连接。 */
   register(provider: MarketDataProvider, config: MarketDataSourceConfigPatch = {}): void {
+    if (config.priority !== undefined && !Number.isFinite(config.priority))
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'priority must be finite')
     const sourceId = provider.source.id
-    if (!sourceId || sourceId !== sourceId.trim()) {
+    if (!sourceId || sourceId !== sourceId.trim())
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_PARAM,
         '[MarketDataProviderRegistry] source.id must be non-empty and trimmed',
       )
-    }
-    if (this.providers.has(sourceId)) {
+    const current = this.stateSignal.peek()
+    if (current.providers.has(sourceId))
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_STATE,
         `[MarketDataProviderRegistry] source "${sourceId}" is already registered`,
       )
-    }
-
-    this.providers.set(sourceId, provider)
-    this.configs.set(sourceId, mergeConfig({ enabled: true, priority: 0 }, config))
-    this.notifyCatalog()
+    const connectionId = provider.source.connectionId ?? sourceId
+    if (!connectionId.trim() || connectionId !== connectionId.trim())
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'connectionId must be non-empty and trimmed',
+      )
+    const defaultBaseUrl = normalizeConnectionUrl(provider.source.defaultBaseUrl)
+    const baseUrl = normalizeConnectionUrl(config.baseUrl)
+    const previous = current.connections.get(connectionId)
+    if (
+      previous &&
+      (previous.defaultBaseUrl !== defaultBaseUrl ||
+        previous.editable !== (provider.source.endpointEditable !== false))
+    )
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        `Conflicting connection definition: ${connectionId}`,
+      )
+    const providers = new Map(current.providers).set(sourceId, provider)
+    const policies = new Map(current.policies).set(
+      sourceId,
+      Object.freeze({
+        enabled: config.enabled ?? true,
+        priority: config.priority ?? 0,
+        ...(config.searchEnabled === undefined ? {} : { searchEnabled: config.searchEnabled }),
+      }),
+    )
+    const connections = new Map(current.connections)
+    connections.set(
+      connectionId,
+      Object.freeze(
+        previous ?? {
+          id: connectionId,
+          defaultBaseUrl,
+          baseUrl,
+          editable: provider.source.endpointEditable !== false,
+          version: 0,
+        },
+      ),
+    )
+    this.stateSignal.set({ providers, policies, connections })
   }
 
-  /** 注销 Provider 及其运行时配置，并返回是否实际删除。 */
+  /** 注销 Provider；最后一个使用者注销时移除连接。 */
   unregister(sourceId: string): boolean {
-    const removed = this.providers.delete(sourceId)
-    this.configs.delete(sourceId)
-    if (removed) this.notifyCatalog()
-    return removed
+    const current = this.stateSignal.peek()
+    const provider = current.providers.get(sourceId)
+    if (!provider) return false
+    const connectionId = provider.source.connectionId ?? sourceId
+    const providers = new Map(current.providers)
+    const policies = new Map(current.policies)
+    const connections = new Map(current.connections)
+    providers.delete(sourceId)
+    policies.delete(sourceId)
+    if (
+      ![...providers.values()].some(
+        (item) => (item.source.connectionId ?? item.source.id) === connectionId,
+      )
+    )
+      connections.delete(connectionId)
+    this.stateSignal.set({ providers, policies, connections })
+    return true
   }
 
-  /** 按 source ID 查询 Provider。 */
   get(sourceId: string): MarketDataProvider | undefined {
-    return this.providers.get(sourceId)
+    return this.stateSignal.peek().providers.get(sourceId)
   }
 
-  /** 按 source ID 查询 Provider；未注册时抛出稳定错误。 */
+  /** 要求 Provider 已注册。 */
   getRequired(sourceId: string): MarketDataProvider {
-    const provider = this.providers.get(sourceId)
-    if (!provider) {
+    const provider = this.get(sourceId)
+    if (!provider)
       throw new KLineChartError(
         GENERIC_ERROR_CODES.NOT_REGISTERED,
         `[MarketDataProviderRegistry] source "${sourceId}" is not registered`,
       )
-    }
     return provider
   }
 
-  /** 返回全部 Provider，顺序与注册顺序一致。 */
   getAll(): ReadonlyArray<MarketDataProvider> {
-    return [...this.providers.values()]
+    return [...this.stateSignal.peek().providers.values()]
   }
-
-  /** 返回当前启用的 Provider，顺序与注册顺序一致。 */
   getEnabled(): ReadonlyArray<MarketDataProvider> {
-    return this.getAll().filter(
-      (provider) => this.configs.get(provider.source.id)?.enabled === true,
-    )
+    return this.getAll().filter((item) => this.getConfig(item.source.id).enabled)
   }
-
-  /** 返回按 priority 从高到低排列的已启用 Provider。 */
   getEnabledByPriority(): ReadonlyArray<MarketDataProvider> {
-    return [...this.getEnabled()].sort(
+    return this.byPriority(this.getEnabled())
+  }
+
+  /** 品种搜索使用独立策略，不由自动路由开关决定。 */
+  getSearchableByPriority(): ReadonlyArray<MarketDataProvider> {
+    return this.byPriority(
+      this.getAll().filter(
+        (item) => item.catalog && participatesInSearch(this.getConfig(item.source.id)),
+      ),
+    )
+  }
+
+  private byPriority(
+    providers: ReadonlyArray<MarketDataProvider>,
+  ): ReadonlyArray<MarketDataProvider> {
+    return [...providers].sort(
       (left, right) =>
-        (this.configs.get(right.source.id)?.priority ?? 0) -
-        (this.configs.get(left.source.id)?.priority ?? 0),
+        this.getConfig(right.source.id).priority - this.getConfig(left.source.id).priority,
     )
   }
 
-  /** 返回当前声明能力满足条件的已启用 Provider。 */
   getEnabledByCapability(query: SourceCapabilityQuery): ReadonlyArray<MarketDataProvider> {
-    return this.getEnabledByPriority().filter((provider) =>
-      supportsCapability(this.getCapabilities(provider.source.id), query),
+    return this.getEnabledByPriority().filter((item) =>
+      supportsCapability(this.getCapabilities(item.source.id), query),
     )
   }
 
-  /** 保存 Provider 最近一次探测得到的源级能力。 */
   setCapabilities(sourceId: string, capabilities: SourceCapabilities | undefined): void {
-    const provider = this.getRequired(sourceId)
-    if (capabilities === undefined) {
-      provider.source.capabilities = undefined
-      return
-    }
-    provider.source.capabilities = capabilities
+    this.getRequired(sourceId).source.capabilities = capabilities
   }
-
-  /** 读取 Provider 当前源级能力声明。 */
   getCapabilities(sourceId: string): SourceCapabilities | undefined {
     return this.getRequired(sourceId).source.capabilities
   }
 
-  /** 读取数据源配置副本，避免调用方绕过注册表直接修改。 */
+  /** 从唯一连接配置派生 Provider 地址，避免共用 Connector 的源各存一份地址。 */
   getConfig(sourceId: string): MarketDataSourceConfig {
-    this.getRequired(sourceId)
-    return { ...this.configs.get(sourceId)! }
+    const connection = this.getConnection(sourceId)
+    const policy = this.stateSignal.peek().policies.get(sourceId)!
+    return connection.baseUrl === undefined
+      ? { ...policy }
+      : { ...policy, baseUrl: connection.baseUrl }
   }
 
-  /** 合并数据源运行时配置并返回最新副本。 */
+  getConnection(sourceId: string): MarketConnection {
+    const source = this.getRequired(sourceId).source
+    return this.stateSignal.peek().connections.get(source.connectionId ?? sourceId)!
+  }
+
+  /** 一个连接改址时，所有关联 Provider 同时生效。 */
+  setConnection(connectionId: string, value: string | undefined): void {
+    const current = this.stateSignal.peek()
+    const connection = current.connections.get(connectionId)
+    if (!connection)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
+        `Unknown connection: ${connectionId}`,
+      )
+    const baseUrl = normalizeConnectionUrl(value)
+    if (baseUrl === connection.baseUrl) return
+    const connections = new Map(current.connections).set(
+      connectionId,
+      Object.freeze({
+        ...connection,
+        baseUrl,
+        version: connection.version + 1,
+      }),
+    )
+    this.stateSignal.set({ ...current, connections })
+  }
+
+  /** 兼容源配置入口；地址写入连接，策略只写入 Provider。 */
   setConfig(sourceId: string, patch: MarketDataSourceConfigPatch): MarketDataSourceConfig {
-    this.getRequired(sourceId)
-    const next = mergeConfig(this.configs.get(sourceId)!, patch)
-    this.configs.set(sourceId, next)
-    return { ...next }
+    if (patch.priority !== undefined && !Number.isFinite(patch.priority))
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'priority must be finite')
+    const connection = this.getConnection(sourceId)
+    // 先校验再写入，避免无效地址导致策略半生效。
+    const baseUrl = Object.hasOwn(patch, 'baseUrl')
+      ? normalizeConnectionUrl(patch.baseUrl)
+      : connection.baseUrl
+    const current = this.stateSignal.peek()
+    const policy = current.policies.get(sourceId)!
+    const policies = new Map(current.policies).set(
+      sourceId,
+      Object.freeze({
+        enabled: patch.enabled ?? policy.enabled,
+        priority: patch.priority ?? policy.priority,
+        ...((patch.searchEnabled ?? policy.searchEnabled) === undefined
+          ? {}
+          : {
+              searchEnabled: patch.searchEnabled ?? policy.searchEnabled,
+            }),
+      }),
+    )
+    const connections = new Map(current.connections)
+    if (baseUrl !== connection.baseUrl)
+      connections.set(
+        connection.id,
+        Object.freeze({
+          ...connection,
+          baseUrl,
+          version: connection.version + 1,
+        }),
+      )
+    this.stateSignal.set({ ...current, policies, connections })
+    return this.getConfig(sourceId)
   }
 
-  /** 清空全部 Provider 和配置，供应用销毁或测试隔离使用。 */
   clear(): void {
-    this.providers.clear()
-    this.configs.clear()
-    this.notifyCatalog()
+    this.stateSignal.set({ providers: new Map(), policies: new Map(), connections: new Map() })
   }
 }
 
-/** 内置数据源共用的默认 Provider 注册表。 */
+/** 未显式注入管理实例时使用的兼容注册表。 */
 export const marketDataProviderRegistry = new MarketDataProviderRegistry()

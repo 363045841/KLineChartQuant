@@ -7,7 +7,10 @@ import {
 } from '@/data/buffer/impl/seriesRepository.js'
 import { RealtimeBarsConnector } from '@/data/live/impl/barsLive.js'
 import type { LiveBarsStream } from '@/data/live/types.js'
-import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+import {
+  type MarketDataProviderRegistry,
+  marketDataProviderRegistry,
+} from '@/data/provider/impl/registry.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
   TRADE_MESSAGES,
@@ -50,11 +53,12 @@ function supportsRawTradeStream(session: ReadyMarketSession): boolean {
 function resolveTradeTarget(
   session: ReadyMarketSession | null,
   needed: boolean,
+  registry: MarketDataProviderRegistry,
 ): TradeTarget | null {
   if (!needed || !session) return null
   if (!supportsRawTradeStream(session)) return null
   const { instrument } = session
-  const provider = marketDataProviderRegistry.get(instrument.sourceId)
+  const provider = registry.get(instrument.sourceId)
   if (!provider?.trades) return null
   return {
     selection: {
@@ -79,6 +83,7 @@ function needsRebind(current: TradeBinding | null, target: TradeTarget): boolean
 
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
 export class MarketRuntime {
+  private readonly registry: MarketDataProviderRegistry
   private live: { stream: LiveBarsStream; connector: RealtimeBarsConnector } | null = null
   private session: ReadyMarketSession | null = null
   private trade: TradeBinding | null = null
@@ -87,7 +92,26 @@ export class MarketRuntime {
   private disposed = false
 
   constructor(private readonly deps: MarketRuntimeDependencies) {
+    this.registry = deps.registry ?? marketDataProviderRegistry
+    let previousRegistry = this.registry.state.peek()
     this.subscriptions = [
+      this.registry.state.subscribe(() => {
+        const nextRegistry = this.registry.state.peek()
+        const id = this.session?.instrument.sourceId
+        const source = id ? previousRegistry.providers.get(id)?.source : undefined
+        const connectionId = source?.connectionId ?? id
+        const changed =
+          (connectionId &&
+            previousRegistry.connections.get(connectionId) !==
+              nextRegistry.connections.get(connectionId)) ||
+          (id && previousRegistry.providers.get(id) !== nextRegistry.providers.get(id))
+        previousRegistry = nextRegistry
+        if (changed) {
+          this.session = null
+          this.unmountTrade()
+          this.reconcileSession()
+        }
+      }),
       deps.session.subscribe(() => this.reconcileSession()),
       deps.visibleRange.subscribe(() => this.updateTradeDemand()),
       deps.data.subscribe(() => this.updateTradeDemand()),
@@ -107,7 +131,7 @@ export class MarketRuntime {
       previous?.connector.stop()
       previous?.stream.destroy()
       if (next?.capabilities.liveBars) {
-        const provider = marketDataProviderRegistry.get(next.instrument.sourceId)
+        const provider = this.registry.get(next.instrument.sourceId)
         if (provider?.liveBars) {
           const stream = provider.liveBars.createStream({
             symbol: next.instrument.symbol,
@@ -138,7 +162,11 @@ export class MarketRuntime {
   /** 指标需求变化时协调成交订阅；同一就绪品种的重复协调复用连接及缓存。 */
   reconcileTrades(): void {
     if (this.disposed) return
-    const target = resolveTradeTarget(this.deps.session.peek(), this.deps.needsTrades())
+    const target = resolveTradeTarget(
+      this.deps.session.peek(),
+      this.deps.needsTrades(),
+      this.registry,
+    )
     if (!target) {
       this.unmountTrade()
       this.publishUnsupported()

@@ -17,6 +17,7 @@
 data/
 ├── index.ts          # 数据层公共出口：re-export 各子模块，副作用注册内置数据源
 ├── buffer/           # 行情缓存：契约 types.ts + 实现 impl/
+├── management/       # 宿主持有的行情实例：连接、策略和健康状态
 ├── depth/            # 深度数据：契约 types.ts + 实现 impl/（DepthSource 连接器；Binance 适配器待接入）
 └── provider/         # 统一行情 Provider 体系：契约 types.ts + 实现 impl/
     ├── types.ts          # 领域模型 + 注册表 / Router 契约：InstrumentDescriptor / BarSeries / MarketDataProvider / SourceCapabilityQuery 等
@@ -50,10 +51,15 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 
 前端主导的统一行情模型。数据源适配器把私有协议转换为标准类型，图表与 UI 不解析上游字段（`providerRef` 只由创建它的 Provider 消费）。
 
-- `impl/registry.ts`：Provider 注册表 + 运行时配置（`enabled` / `baseUrl`），聚合源面板写入此处的配置。
+- `impl/registry.ts`：Provider、连接和策略的权威快照；`enabled` 控制行情路由，`searchEnabled` 独立控制搜索。
 - `impl/sourceRegistry.ts`：数据源静态元数据，作为注册表与 UI 展示的单一事实来源。
 - `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`impl/httpTransport.ts`（HTTP 实现）、`impl/provider.ts`（`createMarketDataProvider` 通用装配器）。
-- `impl/sources/`：各数据源 Provider 装配与注册（gotdx / binance / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
+- `impl/sources/`：各数据源 Provider 装配与注册（gotdx / binance / baostock / tradingview / mock）。mock 为本地生成、不依赖后端。
+
+宿主通过 `createBuiltinMarketDataContext()` 创建隔离实例，并将其传入图表；共用 Connector
+的 Provider 共享连接地址。Vue 只读投影 Core 状态，连接表单应用后才提交。
+持久化和实例销毁归宿主所有，详见 [行情管理设计](../../../../docs/design/market-data-management.md)。
+
 #### 协议接口
 
 `provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataTransport`），任何后端实现该契约即可接入。HTTP 实现位于 `impl/httpTransport.ts`，请求统一包装为 `ProtocolEnvelope<T>`，失败时返回 `ProtocolErrorEnvelope`。协议名 `market-data-v1`，版本 1。
