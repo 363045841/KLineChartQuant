@@ -44,6 +44,7 @@ flowchart TB
         Bn["Binance-Connector<br/>Binance 现货 K 线 / 逐笔成交 :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
+        Th["KCQ-THS-connector<br/>同花顺日线 :8092"]
     end
 
     UI --> VuePkg
@@ -67,6 +68,7 @@ flowchart TB
     Bn -->|行情数据| Data
     Bs -->|行情数据| Data
     Mt -->|"行情数据 + SSE"| Data
+    Th -->|"行情数据（日线）"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -238,14 +240,17 @@ flowchart TB
 | Binance-Connector | 同级 `Binance-Connector/` | `8091` | Binance 现货 K 线与真实逐笔成交（足迹图） |
 | Baostock-Tradingview-Connector | 同级 `Baostock-Tradingview-Connector/` | `8000` | BaoStock A 股 + TradingView 全球品种 |
 | KCQ-MT5-connector | 同级 `KCQ-MT5-connector/` | `8090` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD + SSE 实时 K 线（Windows） |
+| KCQ-THS-connector | 同级 `KCQ-THS-connector/` | `8092` | 同花顺（fuyao）A 股 / 指数 / ETF / 期货 / 期权**日线**（需 API Key） |
 
 前端对接代码：`packages/core/src/data/provider/impl/sources/gotdx.ts`、
 `packages/core/src/data/provider/impl/sources/binance.ts`、`packages/core/src/data/provider/impl/sources/mt5.ts`、
+`packages/core/src/data/provider/impl/sources/ths.ts`、
 `packages/core/src/data/live/impl/barsLive.ts`、`packages/core/src/data/trades/impl/tradeSource.ts`。
 Vite 开发代理 `/api/public` → `:8080`、
 `/api/stock` → `:8000`；Binance 前端直连 `Binance-Connector` 的 `:8091`（不经 Vite 代理）。
 `pnpm setup:backends` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
-（`mt5` 依赖 Windows + 本机 MT5 终端，不纳入 `all`，需显式 `pnpm connector mt5` / `pnpm dev -c mt5`）。
+（`mt5` 依赖 Windows + 本机 MT5 终端、`ths` 依赖同花顺 API Key，均不纳入 `all`，
+需显式 `pnpm connector mt5` / `pnpm dev -c mt5` 与 `pnpm connector ths` / `pnpm dev -c ths`）。
 
 ## 6. 关键文件索引
 

@@ -67,4 +67,14 @@ export const dataSourceRegistry = {
       MT5: { timeZone: 'UTC', sessions: [{ open: 0, close: 24 * 60 }] },
     },
   },
+  ths: {
+    id: 'ths',
+    displayName: '同花顺 THS',
+    description:
+      '同花顺(fuyao) A股/指数/ETF/期货/期权日线连接器, source: https://github.com/EliteOtaku/KCQ-THS-connector',
+    defaultBaseUrl: 'http://127.0.0.1:8092',
+    // 上游端外仅提供日线级行情。A股/指数/ETF 的品种声明 sessionId='CN'（复用内置
+    // Asia/Shanghai 会话）；期货/期权的交易时段（含夜盘）与股票不同，其品种不带
+    // sessionId，故此处无需声明额外 marketSessions。
+  },
 } as const satisfies Record<string, DataSourceRegistration>

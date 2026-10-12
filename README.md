@@ -99,6 +99,7 @@ flowchart TB
         Bn["Binance-Connector<br/>Binance spot K-line / trades :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5 (Exness) :8090"]
+        Th["KCQ-THS-connector<br/>THS daily bars :8092"]
     end
 
     UI --> VuePkg
@@ -122,6 +123,7 @@ flowchart TB
     Bn -->|market data| Data
     Bs -->|market data| Data
     Mt -->|"market data + SSE"| Data
+    Th -->|"market data (daily)"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -132,7 +134,7 @@ flowchart TB
 - **Rendering** — submit primitives once, render via WebGPU / WebGL2 / Canvas2D with
   automatic fallback (WebGPU → WebGL → Canvas2D).
 - **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
-  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
+  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / THS / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators, markers and drawing tools plug in as Scene Layers.
 - **React bindings** — `@363045841yyt/klinechart-react`'s `KLineChart` mounts the core directly
@@ -202,6 +204,7 @@ KLineChart requires a market data backend. Supported data sources:
 | `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5](docs/data-sources/mt5.zh-CN.md) |
+| `ths` | Tonghuashun (THS): A-share / index / ETF / futures / options **daily** bars, served by `KCQ-THS-connector` | [THS](docs/data-sources/ths.zh-CN.md) |
 | `mock` | Debug only: local MOCK-100 / MOCK-10000 K-lines, no backend needed, always online | — |
 
 Backend repos live alongside this one (outside the monorepo).
@@ -218,10 +221,11 @@ Then run `pnpm dev` with a `-c` argument to start the frontend and the selected 
 
 ```bash
 pnpm dev                      # frontend only (Vite dev server)
-pnpm dev -c all               # frontend + all backends (gotdx + binance + baostock; mt5 excluded)
+pnpm dev -c all               # frontend + all backends (gotdx + binance + baostock; mt5 / ths excluded)
 pnpm dev -c gotdx baostock    # frontend + selected backends
 pnpm dev -c mt5               # frontend + MT5 local terminal (Windows + logged-in MT5 terminal)
-pnpm dev -c tdx               # aliases supported (tdx / g / b / bnb / m / all)
+pnpm dev -c ths               # frontend + THS daily bars (needs THS_API_KEY or ths.api_key in config.json)
+pnpm dev -c tdx               # aliases supported (tdx / g / b / bnb / m / t / all)
 pnpm dev -c all --lan         # same, dev server bound to 0.0.0.0 (LAN accessible)
 ```
 
@@ -233,21 +237,23 @@ pnpm dev:g                    # frontend + gotdx (Tongdaxin)
 pnpm dev:b                    # frontend + BaoStock / TradingView
 pnpm dev:bnb                  # frontend + Binance spot market data
 pnpm dev:mt5                  # frontend + MT5 local terminal
+pnpm dev:ths                  # frontend + THS daily bars
 pnpm dev:lan:all              # frontend (0.0.0.0) + all backends
 ```
 
-Parallel process logs stay in one terminal and are separated by colored source prefixes: `[vite]`, `[gotdx]`, `[binance]`, `[baostock]`, and `[mt5]`.
+Parallel process logs stay in one terminal and are separated by colored source prefixes: `[vite]`, `[gotdx]`, `[binance]`, `[baostock]`, `[mt5]`, and `[ths]`.
 
 In Windows PowerShell, run `node scripts/dev.mjs -c gotdx` (or use the other `-c` arguments above) to finish shutdown logs before the next prompt after Ctrl+C. `pnpm dev` adds a pnpm process that also receives Ctrl+C; the child script cannot control when pnpm prints `[ELIFECYCLE]`.
 
 Backend only (no frontend):
 
 ```bash
-pnpm connector                # all backends (mt5 excluded)
+pnpm connector                # all backends (mt5 / ths excluded)
 pnpm connector gotdx          # gotdx (Tongdaxin) :8080
 pnpm connector binance        # binance (Binance spot K-line & trades) :8091
 pnpm connector baostock       # BaoStock / TradingView :8000
 pnpm connector mt5            # MT5 local terminal :8090 (Windows + logged-in MT5 terminal)
+pnpm connector ths            # THS daily bars :8092 (needs THS_API_KEY or ths.api_key in config.json)
 ```
 
 For backend only with the same shutdown ordering, run `node scripts/start-connector.mjs gotdx`.

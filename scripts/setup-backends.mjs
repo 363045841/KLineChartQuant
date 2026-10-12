@@ -2,8 +2,9 @@
  * setup-backends.mjs
  *
  * 一次性安装数据源后端：将 GoTDX-Connector（gotdx）、Binance-Connector（binance）、
- * Baostock-Tradingview-Connector（baostock / tradingview）与 KCQ-MT5-connector（mt5）克隆到
- * 本仓库的同级目录，供 `pnpm dev -c <name>` / `pnpm connector <name>` 直接使用。
+ * Baostock-Tradingview-Connector（baostock / tradingview）、KCQ-MT5-connector（mt5）
+ * 与 KCQ-THS-connector（ths）克隆到本仓库的同级目录，供
+ * `pnpm dev -c <name>` / `pnpm connector <name>` 直接使用。
  * 幂等：目标目录已存在时跳过克隆，不会重复拉取。
  *
  * 用法：
@@ -45,6 +46,12 @@ const BACKENDS = [
     purpose:
       'MT5 本地终端行情后端（Exness），FastAPI 默认端口 8090，启动命令：`pnpm connector mt5`（Windows + 已登录 MT5 (Exness) 终端）',
   },
+  {
+    name: 'KCQ-THS-connector',
+    repo: 'https://github.com/EliteOtaku/KCQ-THS-connector.git',
+    purpose:
+      '同花顺（A 股/指数/ETF/期货/期权）**日线**行情后端，FastAPI 默认端口 8092，启动命令：`pnpm connector ths`（需配置 THS_API_KEY 或 ~/.cloudtrade/config.json 的 ths.api_key）',
+  },
 ]
 
 // 完成后的启动命令与说明
@@ -56,6 +63,10 @@ const COMMANDS = [
   {
     command: 'pnpm connector mt5',
     comment: '# 仅 MT5 本地终端后端（Windows + 已登录 MT5 (Exness) 终端）',
+  },
+  {
+    command: 'pnpm connector ths',
+    comment: '# 仅同花顺日线后端（需 THS_API_KEY 或 config.json 的 ths.api_key）',
   },
 ]
 
