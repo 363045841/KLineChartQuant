@@ -1,7 +1,7 @@
 /**
  * 脚本契约：指标定义、输入声明与逐 bar 执行上下文。
  */
-import type { PlotDeclaration, PlotFillDeclaration } from './plot.js'
+import type { PlotDeclaration, PlotFillDeclaration } from './plotDeclaration.js'
 
 /** Plot 的标识和样式。 */
 export interface PlotOptions {
@@ -33,6 +33,10 @@ export type InputSchema<P> = { [K in keyof P]: InputDef<P[K]> }
 export interface IndicatorDef<P> {
   /** 指标名称。 */
   name: string
+  /** 注册位置；缺省放在副图。 */
+  readonly pane?: 'main' | 'sub'
+  /** 显示名称；缺省取 name。 */
+  readonly displayName?: string
   /** 输入参数声明。 */
   inputs: InputSchema<P>
   /**

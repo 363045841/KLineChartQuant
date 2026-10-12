@@ -1,12 +1,12 @@
 /** 验证运行时脚本注册、选择器分组和参数类型沿同一目录传递。 */
 
-import { registerScriptIndicator } from '@363045841yyt/klinechart-core'
 import {
   type ChartController,
   createIndicatorSelectorController,
   findIndicator,
 } from '@363045841yyt/klinechart-core/controllers'
 import { openCloseAverage } from '@363045841yyt/klinechart-script/indicators'
+import { registerScriptIndicator } from '@363045841yyt/klinechart-script-chart'
 import { describe, expect, it } from 'vitest'
 import { effectScope, ref } from 'vue'
 import { useIndicatorCatalog } from '../useIndicatorCatalog.js'

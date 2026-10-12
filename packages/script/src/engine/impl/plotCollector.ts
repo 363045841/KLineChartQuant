@@ -5,15 +5,15 @@
  * - 脚本声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
  * - 脚本未声明 plots 时，允许动态 id，一律按默认折线处理。
  */
-import type { AlertEvent, LogEvent, OutputSink, PlotPoint } from '../../contracts/output.js'
 import type {
   LinePlot,
   Plot,
   PlotCollection,
-  PlotDeclaration,
   PlotFill,
-  PlotFillDeclaration,
-} from '../../contracts/plot.js'
+  PlotPoint,
+} from '@363045841yyt/klinechart-plot-contracts'
+import type { AlertEvent, LogEvent, OutputSink } from '../../contracts/output.js'
+import type { PlotDeclaration, PlotFillDeclaration } from '../../contracts/plotDeclaration.js'
 import { SCRIPT_ERROR_CODES } from '../../errors.js'
 
 /** Plot 默认颜色。 */

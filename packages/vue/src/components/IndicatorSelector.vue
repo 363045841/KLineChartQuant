@@ -176,12 +176,12 @@
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerStar from '~icons/tabler/star'
   import IconTablerStarFilled from '~icons/tabler/star-filled'
+  import { useIndicatorCatalog } from '../composables/useIndicatorCatalog.js'
   import {
     INDICATOR_SELECTOR_SECTIONS,
     useIndicatorFavorites,
   } from '../composables/useIndicatorFavorites.js'
   import { coreSignalToVueRef } from '../utils/signalBridge.js'
-  import { useIndicatorCatalog } from '../composables/useIndicatorCatalog.js'
 
   import BaseModal from './BaseModal.vue'
   import BasePopover from './common/BasePopover.vue'

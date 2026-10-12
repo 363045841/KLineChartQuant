@@ -27,5 +27,5 @@ RSI 等指标可声明固定轴范围，CCI 可要求包含参考区间，非负
 ## Script 接入
 
 Script 的 `OutputSink.onPlot` 通过 `PlotCollector` 收集为共享 Plot 模型。
-Core 使用 `registerScriptIndicator` 注册到现有实例体系，再交给通用 Plot Layer。
+`script-chart` 适配层用 `registerScriptIndicator` 注册到现有实例体系，再交给通用 Plot Layer。
 使用方法见 [Script 接入图表](./script-chart-integration.md)。

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@363045841yyt/klinechart-script": "workspace:*",
+    "@363045841yyt/klinechart-script-chart": "workspace:*",
     "@363045841yyt/klinechart": "workspace:*",
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-core": "workspace:*"

@@ -46,6 +46,9 @@
     "typescript": "~6.0.3",
     "vitest": "^5.0.0"
   },
+  "dependencies": {
+    "@363045841yyt/klinechart-plot-contracts": "workspace:*"
+  },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   }

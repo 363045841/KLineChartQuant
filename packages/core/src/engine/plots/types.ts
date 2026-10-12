@@ -1,8 +1,13 @@
 /** 图表 Plot 契约：指标声明绘图方式，帧投影提供统一的数值范围。 */
-import type { PlotCollection } from '@363045841yyt/klinechart-script'
+import type { PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 
-export type { Plot, PlotCollection, PlotFill, PlotPoint } from '@363045841yyt/klinechart-script'
+export type {
+  Plot,
+  PlotCollection,
+  PlotFill,
+  PlotPoint,
+} from '@363045841yyt/klinechart-plot-contracts'
 
 /** 计算器的数组字段或按周期索引的序列。 */
 export interface PlotSource {

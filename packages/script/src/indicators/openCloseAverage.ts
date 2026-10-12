@@ -11,6 +11,9 @@ export const openCloseAverage = defineIndicator({
   /** 指标名称。 */
   name: 'OC Average',
 
+  /** 注册到主图。 */
+  pane: 'main',
+
   /** 输入参数声明；本指标无参数。 */
   inputs: {},
 

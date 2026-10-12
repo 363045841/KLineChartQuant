@@ -26,6 +26,8 @@ export {
   type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
+// 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
+export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {
   IndicatorPlotDefinition,
   Plot,
@@ -34,8 +36,6 @@ export type {
   PlotPoint,
   PlotRenderState,
 } from './engine/plots/types.js'
-export { registerScriptIndicator } from './engine/scriptIndicators/impl/registerScriptIndicator.js'
-export type { ScriptIndicatorOptions } from './engine/scriptIndicators/types.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,

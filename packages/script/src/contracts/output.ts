@@ -3,13 +3,9 @@
  *
  * 引擎通过 OutputSink 写出结果，不关心结果落到内存还是图表
  */
+import type { PlotPoint } from '@363045841yyt/klinechart-plot-contracts'
 
-/** 单个绘图点；value 为 NaN 表示 na（无值），颜色缺省时由渲染端决定 */
-export interface PlotPoint {
-  value: number
-  /** CSS 颜色字符串 */
-  color?: string
-}
+export type { PlotPoint }
 
 /** 告警事件：由 alert() 直接触发，或 alertcondition() 命中产生 */
 export interface AlertEvent {

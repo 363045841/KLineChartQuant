@@ -2,10 +2,11 @@
  * ChartIndicatorManager 测试：实例 CRUD、主图增删改、副图 pane 联动、读者寻址与主图价格范围。
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PlotRenderState } from '@/engine/plots/types.js'
+import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type { FootprintRenderState } from '../../../components/footprint/types'
 import { createTradeBuffer } from '../../../data/trades/impl/tradeBuffer'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
@@ -15,38 +16,102 @@ import {
   createMockCanvasContext,
 } from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
+import { plotRenderer } from '../../plots/impl/plotDefinition.js'
 import { paintPlots } from '../../plots/impl/plotRenderer.js'
-import { registerScriptIndicator } from '../../scriptIndicators/impl/registerScriptIndicator.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
-import { getRegisteredIndicatorDefinitions } from '../indicatorDefinitionRegistry.js'
+import { Indicator } from '../indicatorDecorator.js'
+import {
+  getRegisteredIndicatorDefinitions,
+  registerIndicatorDefinition,
+} from '../indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicatorMetadata.js'
 import { createInstanceCalculationDefinitions } from '../instances/assembly/instanceDefinitionCatalog.js'
+import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
 import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime.js'
 import type { InstanceWorkerRequest } from '../instances/worker/instanceWorkerProtocol.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 import type { VolumeRenderState } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 
+/**
+ * 用引擎自身能力注册一个产出 Plot 的外部指标，等价于脚本适配层做的事：
+ * 外部来源只提供 Plot 数据，渲染交给引擎。
+ */
+function registerExternalPlotIndicator(config: {
+  name: string
+  category: 'main' | 'sub'
+  compute: (data: KLineData[], params: IndicatorParameters) => PlotCollection
+}): void {
+  const paneId = config.category === 'main' ? 'main' : `sub_${config.name}`
+  const decorate = Indicator({
+    name: config.name,
+    displayName: config.name,
+    kind: IndicatorKind.Indicator,
+    category: config.category,
+    indicatorType: 'other',
+    defaultPaneId: paneId,
+    allowMainPane: config.category === 'main',
+    mainPane:
+      config.category === 'main'
+        ? { toActiveConfig: (params, active) => (active ? params : null) }
+        : undefined,
+    plots: { source: 'collection', series: [] },
+    runtime: { defaultParams: { factor: 1 }, compute: config.compute },
+  })
+  class ExternalPlotDefinition {
+    static rendererFactory = plotRenderer(config.name, paneId)
+  }
+  decorate(ExternalPlotDefinition)
+  registerIndicatorDefinition(ExternalPlotDefinition)
+}
+
+/** 读取数字参数；缺省或类型不符时回落到 1。 */
+function numberOf(params: IndicatorParameters, key: string): number {
+  const value = params[key]
+  return typeof value === 'number' ? value : 1
+}
+
 beforeAll(async () => {
   await loadBuiltinIndicators()
-  registerScriptIndicator(
-    {
-      name: 'ScriptClose',
-      inputs: { factor: { default: 1 } },
-      plots: [{ id: 'close', label: 'CLOSE', kind: 'line', color: 'red' }],
-      onBar(ctx, params) {
-        ctx.plot(ctx.close * params.factor, { id: 'close' })
-      },
-    },
-    { pane: 'main' },
-  )
-  registerScriptIndicator({
-    name: 'ScriptVolume',
-    inputs: {},
-    plots: [{ id: 'volume', kind: 'histogram', color: 'blue' }],
-    onBar(ctx) {
-      ctx.plot(ctx.volume, { id: 'volume' })
-    },
+  registerExternalPlotIndicator({
+    name: 'PlotClose',
+    category: 'main',
+    compute: (data, params) => ({
+      plots: [
+        {
+          kind: 'line',
+          id: 'close',
+          label: 'CLOSE',
+          data: data.map((bar) => ({ value: bar.close * numberOf(params, 'factor') })),
+          color: 'red',
+          visible: true,
+          offset: 0,
+          width: 1,
+          dash: [],
+        },
+      ],
+      fills: [],
+    }),
+  })
+  registerExternalPlotIndicator({
+    name: 'PlotVolume',
+    category: 'sub',
+    compute: (data) => ({
+      plots: [
+        {
+          kind: 'histogram',
+          id: 'volume',
+          label: 'VOLUME',
+          data: data.map((bar) => ({ value: bar.volume ?? 0 })),
+          color: 'blue',
+          visible: true,
+          offset: 0,
+          baseline: 0,
+        },
+      ],
+      fills: [],
+    }),
   })
 })
 
@@ -101,7 +166,7 @@ function createMockDeps() {
 }
 
 describe('ChartIndicatorManager', () => {
-  it('Worker 可用时，Script 和内置指标分别执行并统一提交', async () => {
+  it('Worker 可用时，外部 Plot 指标和内置指标分别执行并统一提交', async () => {
     const requests: InstanceWorkerRequest[] = []
     class TestWorker {
       onmessage: ((event: { data: unknown }) => void) | null = null
@@ -139,11 +204,11 @@ describe('ChartIndicatorManager', () => {
     try {
       manager = new ChartIndicatorManager(deps)
       manager.start()
-      manager.enableMainIndicator('ScriptClose')
+      manager.enableMainIndicator('PlotClose')
       manager.enableMainIndicator('BOLL')
       manager.updateIndicatorData(createTestData(30), { start: 20, end: 30 })
       await vi.waitFor(() => {
-        expect(manager.createRenderStateReader().get('main:ScriptClose')).toBeDefined()
+        expect(manager.createRenderStateReader().get('main:PlotClose')).toBeDefined()
         expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
       })
       const executions = requests.filter((request) => request.type === 'execute')
@@ -153,14 +218,14 @@ describe('ChartIndicatorManager', () => {
       ).toContain('boll')
       expect(
         executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
-      ).not.toContain('ScriptClose')
+      ).not.toContain('PlotClose')
     } finally {
       manager.destroy()
       vi.unstubAllGlobals()
     }
   })
-  it('Script 副图使用 Plot 柱状模型及零基准范围', async () => {
-    const instance = manager.addIndicator('ScriptVolume', 'sub')
+  it('外部 Plot 副图使用柱状模型及零基准范围', async () => {
+    const instance = manager.addIndicator('PlotVolume', 'sub')
     expect(instance).not.toBeNull()
     const data = createTestData(5)
     manager.updateIndicatorData(data, { start: 0, end: 5 })
@@ -170,27 +235,27 @@ describe('ChartIndicatorManager', () => {
     expect(state.visibleMin).toBe(0)
     expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
   })
-  it('Script 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
-    manager.enableMainIndicator('ScriptClose')
+  it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
+    manager.enableMainIndicator('PlotClose')
     const data = createTestData(5)
     manager.updateIndicatorData(data, { start: 0, end: 5 })
-    const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:ScriptClose')
+    const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:PlotClose')
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(5))
     const state = read()!
     expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.close)
     const ctx = createMockCanvasContext()
     paintPlots(
       state,
-      createContextWithInstanceState(ctx, 'main:ScriptClose', state, {
+      createContextWithInstanceState(ctx, 'main:PlotClose', state, {
         range: { start: 0, end: 5 },
       }),
     )
     expect(ctx.stroke).toHaveBeenCalled()
-    manager.updateMainIndicatorParams('ScriptClose', { factor: 2 })
+    manager.updateMainIndicatorParams('PlotClose', { factor: 2 })
     await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]!.close * 2))
     manager.updateIndicatorData(data.slice(0, 3), { start: 0, end: 3 })
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(3))
-    manager.disableMainIndicator('ScriptClose')
+    manager.disableMainIndicator('PlotClose')
     expect(read()).toBeUndefined()
   })
   let manager: ChartIndicatorManager
