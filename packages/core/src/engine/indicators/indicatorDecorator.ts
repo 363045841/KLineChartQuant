@@ -71,7 +71,7 @@ export type IndicatorDefinitionClass = {
  * 使用方式：
  * @Indicator({ name: 'ma', ... })
  * class MADefinition {
- *   static rendererFactory = createMALayer
+ *   static rendererFactory = plotRenderer('ma', 'main')
  * }
  */
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {

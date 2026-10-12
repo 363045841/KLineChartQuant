@@ -480,12 +480,18 @@
     gap: var(--klc-space-4, 4px);
   }
 
-  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
-  .item-check {
+  /* 图标方块：勾号与操作按钮共用居中布局，尺寸由各自规则覆盖。 */
+  .item-check,
+  .item-action-btn,
+  .item-favorite-btn {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
+  }
+
+  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
+  .item-check {
     width: 16px;
     height: 16px;
     color: var(--klc-color-ui-text);
@@ -506,10 +512,6 @@
 
   .item-action-btn,
   .item-favorite-btn {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
     width: 24px;
     height: 24px;
     padding: 0;

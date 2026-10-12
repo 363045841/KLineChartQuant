@@ -20,7 +20,7 @@
     "packages/react/preview/**",
     "scripts/lint/stylelint-plugin-klc.mjs"
   ],
-  "ignoreDependencies": ["~icons", "postcss-html"],
+  "ignoreDependencies": ["~icons", "postcss-html", "@arethetypeswrong/cli"],
   "rules": {
     "unused-files": "warn",
     "unused-exports": "warn",

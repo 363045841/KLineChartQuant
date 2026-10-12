@@ -3,7 +3,7 @@ import { calcMAData } from '@/engine/indicators/calculators/index.js'
 import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
 import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
 import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
-export const createMALayer = plotRenderer('ma', 'main')
+
 @Indicator({
   name: 'ma',
   displayName: 'MA',
@@ -71,5 +71,5 @@ export const createMALayer = plotRenderer('ma', 'main')
   },
 })
 export class MADefinition {
-  static rendererFactory = createMALayer
+  static rendererFactory = plotRenderer('ma', 'main')
 }

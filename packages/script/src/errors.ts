@@ -12,9 +12,6 @@ export const SCRIPT_ERROR_CODES = {
   INFINITE_PLOT_VALUE: 'SCRIPT_INFINITE_PLOT_VALUE',
 } as const
 
-/** 脚本引擎错误码取值。 */
-export type ScriptErrorCode = (typeof SCRIPT_ERROR_CODES)[keyof typeof SCRIPT_ERROR_CODES]
-
 /** Plot 输出错误，携带输出身份与 bar 位置供宿主展示。 */
 export class ScriptPlotError extends Error {
   readonly code = SCRIPT_ERROR_CODES.INFINITE_PLOT_VALUE

@@ -117,6 +117,24 @@ export function updatePlotRange(
   return { ...state, timestamp, ...plotRange(definition, state.plots, state.fills, range) }
 }
 
+/** 固定上下界模式；undefined 与 'fixed' 都表示直接替换。 */
+type RangeBoundMode = NonNullable<IndicatorPlotDefinition['range']>['mode']
+
+/**
+ * 应用声明边界：include 向外扩展，clamp 向内收紧，其余（fixed / 缺省）直接替换。
+ * `side` 决定取 min 还是 max 语义。
+ */
+function applyRangeBound(
+  value: number,
+  bound: number,
+  mode: RangeBoundMode,
+  side: 'min' | 'max',
+): number {
+  if (mode === 'include') return side === 'min' ? Math.min(value, bound) : Math.max(value, bound)
+  if (mode === 'clamp') return side === 'min' ? Math.max(value, bound) : Math.min(value, bound)
+  return bound
+}
+
 /** 图形与坐标轴使用同一套显隐、位移和填充边界规则。 */
 function plotRange(
   definition: IndicatorPlotDefinition,
@@ -147,23 +165,15 @@ function plotRange(
     }
   }
   const padding = min <= max ? (max - min) * (definition.padding ?? 0.05) : 0
-  let valueMin = min - padding
-  let valueMax = max + padding
   const bounds = definition.range
-  if (bounds?.min !== undefined)
-    valueMin =
-      bounds.mode === 'include'
-        ? Math.min(valueMin, bounds.min)
-        : bounds.mode === 'clamp'
-          ? Math.max(valueMin, bounds.min)
-          : bounds.min
-  if (bounds?.max !== undefined)
-    valueMax =
-      bounds.mode === 'include'
-        ? Math.max(valueMax, bounds.max)
-        : bounds.mode === 'clamp'
-          ? Math.min(valueMax, bounds.max)
-          : bounds.max
+  const valueMin =
+    bounds?.min === undefined
+      ? min - padding
+      : applyRangeBound(min - padding, bounds.min, bounds.mode, 'min')
+  const valueMax =
+    bounds?.max === undefined
+      ? max + padding
+      : applyRangeBound(max + padding, bounds.max, bounds.mode, 'max')
   return {
     visibleMin: min,
     visibleMax: max,

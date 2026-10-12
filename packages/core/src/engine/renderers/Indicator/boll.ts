@@ -4,7 +4,7 @@ import { calcBOLLData } from '@/engine/indicators/calculators/index.js'
 import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
 import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
 import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
-export const createBOLLLayer = plotRenderer('boll', 'main')
+
 @Indicator({
   name: 'boll',
   displayName: 'BOLL',
@@ -40,5 +40,5 @@ export const createBOLLLayer = plotRenderer('boll', 'main')
   },
 })
 export class BOLLDefinition {
-  static rendererFactory = createBOLLLayer
+  static rendererFactory = plotRenderer('boll', 'main')
 }
