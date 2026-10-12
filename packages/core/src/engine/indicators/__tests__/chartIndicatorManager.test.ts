@@ -2,22 +2,52 @@
  * ChartIndicatorManager 测试：实例 CRUD、主图增删改、副图 pane 联动、读者寻址与主图价格范围。
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-
+import type { PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { FootprintRenderState } from '../../../components/footprint/types'
 import { createTradeBuffer } from '../../../data/trades/impl/tradeBuffer'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
-import { createKLineData } from '../../__tests__/helpers/renderTestKit'
+import {
+  createContextWithInstanceState,
+  createKLineData,
+  createMockCanvasContext,
+} from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
+import { paintPlots } from '../../plots/impl/plotRenderer.js'
+import { registerScriptIndicator } from '../../scriptIndicators/impl/registerScriptIndicator.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
+import { getRegisteredIndicatorDefinitions } from '../indicatorDefinitionRegistry.js'
+import { createInstanceCalculationDefinitions } from '../instances/assembly/instanceDefinitionCatalog.js'
+import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime.js'
+import type { InstanceWorkerRequest } from '../instances/worker/instanceWorkerProtocol.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 import type { VolumeRenderState } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
+  registerScriptIndicator(
+    {
+      name: 'ScriptClose',
+      inputs: { factor: { default: 1 } },
+      plots: [{ id: 'close', label: 'CLOSE', kind: 'line', color: 'red' }],
+      onBar(ctx, params) {
+        ctx.plot(ctx.close * params.factor, { id: 'close' })
+      },
+    },
+    { pane: 'main' },
+  )
+  registerScriptIndicator({
+    name: 'ScriptVolume',
+    inputs: {},
+    plots: [{ id: 'volume', kind: 'histogram', color: 'blue' }],
+    onBar(ctx) {
+      ctx.plot(ctx.volume, { id: 'volume' })
+    },
+  })
 })
 
 /** 构造满足 IndicatorDependencies 的最小依赖，并暴露可断言的 renderer 记录。 */
@@ -36,6 +66,7 @@ function createMockDeps() {
   }
 
   const deps = {
+    plotColors$: createSignal(resolveThemeColors('light', false)),
     getOption: () => ({
       yPaddingPx: 4,
       rightAxisWidth: 60,
@@ -70,6 +101,98 @@ function createMockDeps() {
 }
 
 describe('ChartIndicatorManager', () => {
+  it('Worker 可用时，Script 和内置指标分别执行并统一提交', async () => {
+    const requests: InstanceWorkerRequest[] = []
+    class TestWorker {
+      onmessage: ((event: { data: unknown }) => void) | null = null
+      onerror = null
+      private runtime = new IndicatorInstanceExecutionRuntime(
+        createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
+      )
+      postMessage(message: InstanceWorkerRequest) {
+        requests.push(message)
+        if (message.type === 'init')
+          queueMicrotask(() =>
+            this.onmessage?.({ data: { type: 'ready', protocolVersion: message.protocolVersion } }),
+          )
+        if (message.type === 'setData') this.runtime.setData(message.data, message.dataRevision)
+        if (message.type === 'execute') {
+          const outputs = this.runtime.execute(message.plan)
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: {
+                type: 'result',
+                requestId: message.requestId,
+                dataRevision: message.dataRevision,
+                calculationRevision: message.plan.calculationRevision,
+                outputs,
+                metrics: { computeMs: 0, taskCount: outputs.length },
+              },
+            }),
+          )
+        }
+      }
+      terminate() {}
+    }
+    manager.destroy()
+    vi.stubGlobal('Worker', TestWorker)
+    try {
+      manager = new ChartIndicatorManager(deps)
+      manager.start()
+      manager.enableMainIndicator('ScriptClose')
+      manager.enableMainIndicator('BOLL')
+      manager.updateIndicatorData(createTestData(30), { start: 20, end: 30 })
+      await vi.waitFor(() => {
+        expect(manager.createRenderStateReader().get('main:ScriptClose')).toBeDefined()
+        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+      })
+      const executions = requests.filter((request) => request.type === 'execute')
+      expect(executions.length).toBeGreaterThan(0)
+      expect(
+        executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
+      ).toContain('boll')
+      expect(
+        executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
+      ).not.toContain('ScriptClose')
+    } finally {
+      manager.destroy()
+      vi.unstubAllGlobals()
+    }
+  })
+  it('Script 副图使用 Plot 柱状模型及零基准范围', async () => {
+    const instance = manager.addIndicator('ScriptVolume', 'sub')
+    expect(instance).not.toBeNull()
+    const data = createTestData(5)
+    manager.updateIndicatorData(data, { start: 0, end: 5 })
+    await vi.waitFor(() => expect(manager.createRenderStateReader().get(instance!)).toBeDefined())
+    const state = manager.createRenderStateReader().get<PlotRenderState>(instance!)!
+    expect(state.plots[0]).toMatchObject({ kind: 'histogram', baseline: 0 })
+    expect(state.visibleMin).toBe(0)
+    expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
+  })
+  it('Script 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
+    manager.enableMainIndicator('ScriptClose')
+    const data = createTestData(5)
+    manager.updateIndicatorData(data, { start: 0, end: 5 })
+    const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:ScriptClose')
+    await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(5))
+    const state = read()!
+    expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.close)
+    const ctx = createMockCanvasContext()
+    paintPlots(
+      state,
+      createContextWithInstanceState(ctx, 'main:ScriptClose', state, {
+        range: { start: 0, end: 5 },
+      }),
+    )
+    expect(ctx.stroke).toHaveBeenCalled()
+    manager.updateMainIndicatorParams('ScriptClose', { factor: 2 })
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]!.close * 2))
+    manager.updateIndicatorData(data.slice(0, 3), { start: 0, end: 3 })
+    await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(3))
+    manager.disableMainIndicator('ScriptClose')
+    expect(read()).toBeUndefined()
+  })
   let manager: ChartIndicatorManager
   let harness: ReturnType<typeof createMockDeps>
   let deps: IndicatorDependencies
@@ -389,6 +512,25 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('生命周期', () => {
+    it('滚动只更新 Plot 范围，主题变化只重建绘图投影', async () => {
+      manager.enableMainIndicator('BOLL')
+      const data = createTestData(80)
+      manager.updateIndicatorData(data, { start: 20, end: 40 })
+      await vi.waitFor(() =>
+        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined(),
+      )
+      const initial = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      manager.updateVisibleRangeForFrame({ start: 40, end: 60 })
+      const scrolled = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      expect(scrolled.plots).toBe(initial.plots)
+      expect(scrolled.visibleMin).not.toBe(initial.visibleMin)
+      const dark = resolveThemeColors('dark', false)
+      harness.deps.plotColors$.set(dark)
+      const themed = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      expect(themed.plots[0]?.color).toBe(dark.boll.upper)
+      expect(themed.visibleMin).toBe(scrolled.visibleMin)
+    })
+
     it('销毁后停止状态投影', () => {
       manager.destroy()
       vi.clearAllMocks()

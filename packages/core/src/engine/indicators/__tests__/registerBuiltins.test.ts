@@ -354,23 +354,19 @@ describe('builtin indicator registration', () => {
     ).toBeNull()
   })
 
-  it('registers main pane price range metadata for stage 8A indicators', () => {
+  it('主图指标通过 Plot 声明价格序列', () => {
     for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
-      expect(getRegisteredIndicatorDefinition(id)?.mainPane?.computePriceRange).toBeTypeOf(
-        'function',
-      )
+      expect(getRegisteredIndicatorDefinition(id)?.plots?.series.length).toBeGreaterThan(0)
     }
   })
 
-  it('registers main pane render state composer metadata for stage 8B indicators', () => {
+  it('主图指标不再声明专用渲染状态投影', () => {
     for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
-      expect(getRegisteredIndicatorDefinition(id)?.mainPane?.composeRenderState).toBeTypeOf(
-        'function',
-      )
+      expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
-  it('registers visible state composer metadata for stage 8C-A indicators', () => {
+  it('单线指标声明 Plot', () => {
     for (const id of [
       'WMA',
       'DEMA',
@@ -383,35 +379,37 @@ describe('builtin indicator registration', () => {
       'PVT',
       'VWAP',
     ]) {
-      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+      expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
-  it('registers visible state composer metadata for stage 8C-B indicators', () => {
+  it('振荡指标声明 Plot', () => {
     for (const id of ['RSI', 'STOCH', 'FASTK', 'MFI', 'WMSR', 'CMF']) {
-      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+      expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
-  it('registers visible state composer metadata for stage 8C-C indicators', () => {
+  it('动量与波动指标声明 Plot', () => {
     for (const id of ['MOM', 'KST', 'ATR', 'HV', 'PARKINSON', 'VMA', 'TRIX']) {
-      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+      expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
-  it('registers visible state composer metadata for stage 8C-D1 MACD indicator', () => {
-    expect(getRegisteredIndicatorDefinition('MACD')?.visibleState?.compose).toBeTypeOf('function')
+  it('MACD 声明柱状和线条 Plot', () => {
+    expect(
+      getRegisteredIndicatorDefinition('MACD')?.plots?.series.map((plot) => plot.kind ?? 'line'),
+    ).toEqual(['histogram', 'line', 'line'])
   })
 
-  it('registers visible state composer metadata for stage 8C-D2 overlay indicators', () => {
+  it('叠加指标声明 Plot', () => {
     for (const id of ['SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB']) {
-      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+      expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
   it('registers visible state composer metadata for stage 8C-D2-B structure indicators', () => {
     for (const id of ['STRUCTURE', 'ZONES', 'VOLUME_PROFILE']) {
-      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+      expect(getRegisteredIndicatorDefinition(id)?.customState?.compose).toBeTypeOf('function')
     }
   })
 
@@ -455,7 +453,8 @@ describe('builtin indicator registration', () => {
     ]
 
     for (const id of ids) {
-      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+      const definition = getRegisteredIndicatorDefinition(id)
+      expect(definition?.plots ?? definition?.customState).toBeDefined()
     }
   })
 })

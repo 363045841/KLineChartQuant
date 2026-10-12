@@ -1,105 +1,8 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { calcMFIData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { MFIRenderState } from '../../indicators/state/mfiState.js'
-import { EMPTY_MFI_STATE } from '../../indicators/state/mfiState.js'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-import { createSingleLineTitleInfo } from './shared/titleInfo.js'
-
-type LinePoint = { x: number; y: number }
-
-function createMFILayer(
-  options: { paneId?: string; instanceId?: string } = {},
-): Layer<RenderContext> {
-  const { paneId = 'sub_MFI', instanceId } = options
-  return createIndicatorRendererLayer({
-    definitionId: 'mfi',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<MFIRenderState>(instanceId)
-      if (!state || !state.params.showMFI || state.visibleMin > state.visibleMax) return
-
-      const { series } = state
-      const displayRange = pane.yAxis.getDisplayRange()
-      const displayMin = displayRange.minPrice
-      const displayMax = displayRange.maxPrice
-      const displayValueRange = displayMax - displayMin || 1
-      const paneH = pane.height
-      const invRange = paneH / displayValueRange
-      const rangeStart = range.start
-      const toY = (v: number) => paneH - (v - displayMin) * invRange
-
-      // 80 / 20 reference lines（复用 CCI 超买超卖 token：语义同为买卖压力带）
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = colors.cci.overbought
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 4])
-      ctx.beginPath()
-      ctx.moveTo(scrollLeft, toY(80))
-      ctx.lineTo(scrollLeft + context.paneWidth, toY(80))
-      ctx.stroke()
-      ctx.strokeStyle = colors.cci.oversold
-      ctx.beginPath()
-      ctx.moveTo(scrollLeft, toY(20))
-      ctx.lineTo(scrollLeft + context.paneWidth, toY(20))
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.restore()
-
-      const drawEnd = Math.min(range.end, series.length)
-      const points: LinePoint[] = []
-      for (let i = range.start; i < drawEnd; i++) {
-        const value = series[i]
-        if (value === undefined) continue
-        const centerX = kLineCenters[i - rangeStart]
-        if (centerX === undefined) continue
-        points.push({ x: centerX, y: toY(value) })
-      }
-
-      if (points.length < 2) return
-
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i5 }], scrollLeft))
-        return
-
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = colors.palette.i5
-      ctx.lineWidth = 1
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(points[0]!.x, points[0]!.y)
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i]!.x, points[i]!.y)
-      }
-      ctx.stroke()
-      ctx.restore()
-    },
-  })
-}
-
-const getMFITitleInfo = createSingleLineTitleInfo({
-  name: 'MFI',
-  defaultPeriod: 14,
-  getColor: (colors) => colors.palette.i5,
-})
-
+/** MFI 的 Plot 和参考线声明。 */
+import { calcMFIData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 @Indicator({
   name: 'mfi',
   displayName: 'MFI',
@@ -107,9 +10,15 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub_MFI',
-  visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
   scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
-  getTitleInfo: getMFITitleInfo,
+  plots: {
+    series: [{ id: 'mfi', label: 'MFI', show: 'showMFI', color: (c) => c.palette.i5 }],
+    range: { min: 0, max: 100 },
+    guides: [
+      { value: 80, color: (c) => c.cci.overbought },
+      { value: 20, color: (c) => c.cci.oversold },
+    ],
+  },
   presentation: { defaultOptions: { showMFI: true } },
   runtime: {
     defaultParams: { period: 14 },
@@ -118,5 +27,5 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   },
 })
 export class MFIIndicatorDefinition {
-  static rendererFactory = createMFILayer
+  static rendererFactory = plotRenderer('mfi', 'sub_MFI')
 }

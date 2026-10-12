@@ -5,12 +5,11 @@ import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcStructureData } from '../../indicators/calculators/index.js'
+import { composeUnitState } from '../../indicators/customStateComposers.js'
 import { Indicator } from '../../indicators/indicatorDecorator.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { StructureRenderState } from '../../indicators/state/structureState.js'
-import { EMPTY_STRUCTURE_STATE } from '../../indicators/state/structureState.js'
-import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 const LABEL_FONT = '11px sans-serif'
@@ -145,9 +144,7 @@ function getStructureTitleInfo(
   },
   scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
   getTitleInfo: getStructureTitleInfo,
-  visibleState: {
-    compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE),
-  },
+  customState: { compose: composeUnitState },
   presentation: {
     defaultOptions: {
       showSwingLabels: true,

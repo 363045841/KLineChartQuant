@@ -6,6 +6,8 @@
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import type { ChartDataView } from '../chartModel/index.js'
+import { createPlotTitleInfo } from '../plots/impl/plotTitleInfo.js'
+import type { IndicatorPlotDefinition } from '../plots/types.js'
 import type { IndicatorName } from './indicatorContracts.js'
 import type {
   GetTitleInfoFn,
@@ -26,6 +28,8 @@ export const definitionMetadata = Symbol('Indicator.definition')
 
 /** @Indicator 装饰器的定义配置。 */
 export type IndicatorDefinitionConfig<T = unknown> = {
+  source?: IndicatorMetadata['source']
+  plots?: IndicatorPlotDefinition
   /** 指标定义名称，允许第三方扩展；注册定义后仍须添加指标实例。 */
   name: IndicatorName
   aliases?: readonly string[]
@@ -47,7 +51,7 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   getRendererName?: IndicatorRendererNameResolver
   /** 覆盖默认的副图坐标轴 plugin 命名规则。 */
   getScaleRendererName?: IndicatorAuxiliaryRendererNameResolver
-  visibleState?: IndicatorMetadata['visibleState']
+  customState?: IndicatorMetadata['customState']
   runtime?: IndicatorRuntimeDescriptor<T>
   presentation?: IndicatorPresentationDescriptor
   getTitleInfo?: GetTitleInfoFn
@@ -73,7 +77,7 @@ export type IndicatorDefinitionClass = {
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
   return function <T extends IndicatorDefinitionClass>(
     value: T,
-    _context: ClassDecoratorContext<T>,
+    _context?: ClassDecoratorContext<T>,
   ): T {
     let metadata: IndicatorMetadata | undefined
     Object.defineProperty(value, definitionMetadata, {
@@ -116,6 +120,9 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
           scaleRendererFactory: value.scaleRendererFactory ?? config.scaleRendererFactory,
           paneIdField: config.paneIdField,
           allowMainPane: config.allowMainPane,
+          getTitleInfo:
+            config.getTitleInfo ??
+            (config.plots ? createPlotTitleInfo(config.displayName) : undefined),
         }
         return metadata
       },

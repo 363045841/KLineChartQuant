@@ -5,7 +5,11 @@
  */
 export * from './contracts/input.js'
 export * from './contracts/output.js'
+export * from './contracts/plot.js'
 export * from './contracts/script.js'
 export * from './defineIndicator.js'
+export { executeScript } from './engine/impl/executeScript.js'
+export { resolveScriptParams } from './engine/impl/execution.js'
+export { PlotCollector, type PlotCollectorOptions } from './engine/impl/plotCollector.js'
 export { runEngine } from './engine/impl/runEngine.js'
 export * from './engine/types.js'

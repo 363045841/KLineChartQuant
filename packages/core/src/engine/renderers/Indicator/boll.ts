@@ -1,135 +1,10 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { KLineData } from '@/foundation/types/price.js'
-import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { ChartDataViewId } from '../../chartModel/index.js'
-import { calcBOLLData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import type {
-  GetTitleInfoFn,
-  IndicatorPriceRangeComputer,
-  IndicatorRenderStateComposer,
-  TitleInfo,
-  TitleValueItem,
-} from '../../indicators/indicatorMetadata.js'
-import { IndicatorKind, readIndicatorSeriesEntry } from '../../indicators/indicatorMetadata.js'
-import type { BOLLRenderState } from '../../indicators/state/bollState.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-type LinePoint = { x: number; y: number }
-
-const BOLL_LINE_WIDTH = 1
-
-interface BOLLRendererOptions {
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-}
-
-/**
- * BOLL GPU：三轨折线；仅 sceneRenderer，失败返回 false 走 2D。
- */
-function drawBOLLWithWebGL(
-  context: RenderContext,
-  data: {
-    showUpper: boolean
-    showMiddle: boolean
-    showLower: boolean
-    upperPoints: LinePoint[]
-    middlePoints: LinePoint[]
-    lowerPoints: LinePoint[]
-  },
-): boolean {
-  const colors = resolveThemeColors(
-    context.theme,
-    context.isAsiaMarket,
-    context.colorPresetSettings,
-  )
-
-  const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
-  if (data.showUpper && data.upperPoints.length >= 2) {
-    lineStrips.push({ points: data.upperPoints, width: BOLL_LINE_WIDTH, color: colors.boll.upper })
-  }
-  if (data.showMiddle && data.middlePoints.length >= 2) {
-    lineStrips.push({
-      points: data.middlePoints,
-      width: BOLL_LINE_WIDTH,
-      color: colors.boll.middle,
-    })
-  }
-  if (data.showLower && data.lowerPoints.length >= 2) {
-    lineStrips.push({ points: data.lowerPoints, width: BOLL_LINE_WIDTH, color: colors.boll.lower })
-  }
-
-  if (lineStrips.length === 0) return false
-  return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
-}
-
-const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry(bundle, 'boll')
-  if (series.length === 0 || range.start >= series.length) {
-    return null
-  }
-
-  let min = Infinity
-  let max = -Infinity
-  const end = Math.min(range.end, series.length)
-  for (let i = range.start; i < end; i++) {
-    const p = series[i]
-    if (p) {
-      min = Math.min(min, p.upper, p.middle, p.lower)
-      max = Math.max(max, p.upper, p.middle, p.lower)
-    }
-  }
-
-  return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
-}
-
-const composeBOLLRenderState: IndicatorRenderStateComposer = (
-  bundle,
-  range,
-  timestamp,
-): BOLLRenderState => {
-  const source = readIndicatorSeriesEntry(bundle, 'boll')
-  const priceRange = computeBOLLPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
-  return {
-    timestamp,
-    series: source.series,
-    params: source.params,
-    visibleMin: priceRange.min,
-    visibleMax: priceRange.max,
-  }
-}
-
-const getBOLLTitleInfo: GetTitleInfoFn = (
-  _data: KLineData[],
-  index: number | null,
-  _params: Record<string, number | boolean | string>,
-  stateReader,
-  instanceId: string,
-  _paneId: string,
-  colors: ColorTokens,
-): TitleInfo | null => {
-  if (index === null) return null
-
-  const state = stateReader.get<BOLLRenderState>(instanceId)
-  if (!state || state.visibleMin > state.visibleMax) return null
-
-  const bollPoint = state.series[index]
-  if (!bollPoint) return null
-
-  const values: TitleValueItem[] = [
-    { label: 'UP', value: bollPoint.upper, color: colors.boll.upper },
-    { label: 'MID', value: bollPoint.middle, color: colors.boll.middle },
-    { label: 'DN', value: bollPoint.lower, color: colors.boll.lower },
-  ]
-
-  return { name: 'BOLL', params: [state.params.period, state.params.multiplier], values }
-}
-
+/** BOLL 声明三条 Plot；图形、图例和范围使用同一份绘图模型。 */
+import { ChartDataViewId } from '@/engine/chartModel/index.js'
+import { calcBOLLData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
+export const createBOLLLayer = plotRenderer('boll', 'main')
 @Indicator({
   name: 'boll',
   displayName: 'BOLL',
@@ -143,8 +18,19 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   mainPane: {
     toActiveConfig: (params, active) =>
       active ? params : { ...params, showUpper: false, showMiddle: false, showLower: false },
-    computePriceRange: computeBOLLPriceRange,
-    composeRenderState: composeBOLLRenderState,
+  },
+  plots: {
+    series: [
+      { id: 'upper', label: 'UP', field: 'upper', show: 'showUpper', color: (c) => c.boll.upper },
+      {
+        id: 'middle',
+        label: 'MID',
+        field: 'middle',
+        show: 'showMiddle',
+        color: (c) => c.boll.middle,
+      },
+      { id: 'lower', label: 'DN', field: 'lower', show: 'showLower', color: (c) => c.boll.lower },
+    ],
   },
   presentation: { defaultOptions: { showUpper: true, showMiddle: true, showLower: true } },
   runtime: {
@@ -152,143 +38,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
     computeKey: 'calcBOLLData',
     compute: (data, c) => calcBOLLData(data, c.period, c.multiplier),
   },
-  getTitleInfo: getBOLLTitleInfo,
 })
 export class BOLLDefinition {
   static rendererFactory = createBOLLLayer
-}
-
-export function createBOLLLayer(options: BOLLRendererOptions = {}): Layer<RenderContext> {
-  const { paneId = 'main', instanceId } = options
-  // 对象池：复用 {x,y} 对象，消除每帧 GC 压力
-  const _upperPool: LinePoint[] = []
-  const _middlePool: LinePoint[] = []
-  const _lowerPool: LinePoint[] = []
-  let _poolSize = 0
-
-  function _growPool(size: number) {
-    if (size <= _poolSize) return
-    for (let i = _poolSize; i < size; i++) {
-      _upperPool[i] = { x: 0, y: 0 }
-      _middlePool[i] = { x: 0, y: 0 }
-      _lowerPool[i] = { x: 0, y: 0 }
-    }
-    _poolSize = size
-  }
-
-  return createIndicatorRendererLayer({
-    definitionId: 'boll',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
-      const klineData = data as KLineData[]
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<BOLLRenderState>(instanceId)
-      if (!state || state.visibleMin > state.visibleMax || state.series.length === 0) {
-        return
-      }
-
-      const { period, showUpper, showMiddle, showLower } = state.params
-      const bollData = state.series
-
-      if (klineData.length < period) return
-
-      const drawStart = Math.max(range.start, period - 1)
-      const drawEnd = Math.min(range.end, klineData.length)
-      if (drawEnd <= drawStart) return
-
-      // ====== 复用池对象，零分配构建点集 ======
-      const rangeStart = range.start
-      const priceToY = pane.yAxis.priceToY.bind(pane.yAxis)
-
-      const pointCount = drawEnd - drawStart
-      _growPool(pointCount)
-
-      // 新数组作为 WebGL geoCache key（避免缓存命中旧数据）
-      const upperPoints: LinePoint[] = new Array(pointCount)
-      const middlePoints: LinePoint[] = new Array(pointCount)
-      const lowerPoints: LinePoint[] = new Array(pointCount)
-
-      let upperIdx = 0,
-        middleIdx = 0,
-        lowerIdx = 0
-
-      for (let i = drawStart; i < drawEnd; i++) {
-        const boll = bollData[i]
-        if (!boll) continue
-
-        const centerX = kLineCenters[i - rangeStart]
-        if (centerX === undefined) continue
-
-        // 坐标转换
-        const upperY = alignToPhysicalPixelCenter(priceToY(boll.upper), dpr)
-        const middleY = alignToPhysicalPixelCenter(priceToY(boll.middle), dpr)
-        const lowerY = alignToPhysicalPixelCenter(priceToY(boll.lower), dpr)
-
-        // 从池中取对象，只改坐标，零分配
-        let p = _upperPool[upperIdx]
-        p.x = centerX
-        p.y = upperY
-        upperPoints[upperIdx++] = p
-        p = _middlePool[middleIdx]
-        p.x = centerX
-        p.y = middleY
-        middlePoints[middleIdx++] = p
-        p = _lowerPool[lowerIdx]
-        p.x = centerX
-        p.y = lowerY
-        lowerPoints[lowerIdx++] = p
-      }
-
-      // 截断到实际长度
-      upperPoints.length = upperIdx
-      middlePoints.length = middleIdx
-      lowerPoints.length = lowerIdx
-
-      // ====== 渲染 ======
-      if (
-        drawBOLLWithWebGL(context, {
-          showUpper,
-          showMiddle,
-          showLower,
-          upperPoints,
-          middlePoints,
-          lowerPoints,
-        })
-      ) {
-        return
-      }
-
-      // ====== Canvas 2D 回退（极少执行） ======
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-      ctx.lineWidth = BOLL_LINE_WIDTH
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-
-      const drawLine = (points: LinePoint[], color: string) => {
-        if (points.length < 2) return
-        ctx.beginPath()
-        ctx.strokeStyle = color
-        ctx.moveTo(points[0].x, points[0].y)
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y)
-        }
-        ctx.stroke()
-      }
-
-      if (showUpper) drawLine(upperPoints, colors.boll.upper)
-      if (showMiddle) drawLine(middlePoints, colors.boll.middle)
-      if (showLower) drawLine(lowerPoints, colors.boll.lower)
-
-      ctx.restore()
-    },
-  })
 }

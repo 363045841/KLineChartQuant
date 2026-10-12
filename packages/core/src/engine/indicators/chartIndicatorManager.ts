@@ -22,6 +22,7 @@ import {
   effect,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
+import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
 import { encodeStableNumber } from '../../foundation/utils/stableNumber.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
@@ -30,6 +31,9 @@ import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import { SubPaneManager, UpdateLevel } from '../pane/index.js'
 import type { PaneSpec, SubPaneContext, SubPaneEntry } from '../pane/types.js'
+import { updatePlotRange } from '../plots/impl/projectPlots.js'
+import { isPlotRenderState } from '../plots/impl/readPlotState.js'
+import type { PlotRenderState } from '../plots/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { SubIndicatorType } from '../renderers/Indicator/index.js'
 import type {
@@ -136,6 +140,7 @@ export interface SubPaneOps {
 }
 
 export interface IndicatorDependencies {
+  plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
   getRenderer: (id: string) => Layer<RenderContext> | undefined
@@ -193,6 +198,16 @@ export class ChartIndicatorManager {
   private hasData = false
   private resultPool: IndicatorResultPool | null = null
   private renderStates: ReadonlyMap<string, unknown> = new Map()
+  private projectedPlotColors: ColorTokens | null = null
+  /** 绘图点由结果和展示配置派生；可见区间变化只重算范围。 */
+  private readonly plotProjections = new WeakMap<
+    IndicatorSeriesResult,
+    {
+      presentation: Readonly<Record<string, unknown>>
+      colors: ColorTokens
+      state: PlotRenderState
+    }
+  >()
   /** 每个实例尚未完成的异步来源集合；集合非空即视为加载中。 */
   private readonly availabilitySources = new Map<string, Set<string>>()
 
@@ -268,9 +283,28 @@ export class ChartIndicatorManager {
     this.calculationScheduler = createInstanceCalculationScheduler({
       pipeline: this.pipeline,
       executor: {
-        setData: (data, revision, trades) =>
-          this.executorHolder.active.setData(data, revision, trades),
-        execute: (plan, revision) => this.executorHolder.active.execute(plan, revision),
+        setData: async (data, revision, trades) => {
+          await this.inlineExecutor.setData(data, revision, trades)
+          if (this.executorHolder.active !== this.inlineExecutor)
+            await this.executorHolder.active.setData(data, revision, trades)
+        },
+        execute: async (plan, revision) => {
+          const active = this.executorHolder.active
+          if (active === this.inlineExecutor) return active.execute(plan, revision)
+          const inlineTasks = plan.tasks.filter(
+            (task) => !getRegisteredIndicatorDefinition(task.definitionId)?.runtime?.computeKey,
+          )
+          const workerTasks = plan.tasks.filter(
+            (task) => getRegisteredIndicatorDefinition(task.definitionId)?.runtime?.computeKey,
+          )
+          const [inline, worker] = await Promise.all([
+            inlineTasks.length
+              ? this.inlineExecutor.execute({ ...plan, tasks: inlineTasks }, revision)
+              : [],
+            workerTasks.length ? active.execute({ ...plan, tasks: workerTasks }, revision) : [],
+          ])
+          return [...inline, ...worker]
+        },
       },
       onCommit: ({ pool }) => this.applyCommittedPool(pool),
       onError: (error) => this.handleCalculationError(error),
@@ -328,6 +362,9 @@ export class ChartIndicatorManager {
 
   /** 将 kernel 当前快照投影为 pane、renderer 与实例链路的运行时状态。 */
   private syncRuntimeFromState(): void {
+    const colors = this.deps.plotColors$()
+    const colorsChanged = colors !== this.projectedPlotColors
+    this.projectedPlotColors = colors
     const paneSpecs = this.deps.paneSpecs$()
     const paneRatios = this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
@@ -356,9 +393,10 @@ export class ChartIndicatorManager {
       }
       this.syncPipeline(instances)
       const presentationChanged = this.syncPresentationProjection()
+      if (colorsChanged) this.reprojectRenderStates()
       const mainChanged = this.reconcileMainIndicators(instances)
       const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
-      if (paneChanged || presentationChanged || mainChanged || subChanged) {
+      if (paneChanged || presentationChanged || mainChanged || subChanged || colorsChanged) {
         this.deps.scheduleDraw()
       }
     })
@@ -720,7 +758,12 @@ export class ChartIndicatorManager {
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
-      const range = computeInstanceMainIndicatorPriceRange(metadata, result, this.visibleRange)
+      const plotState = this.renderStates.get(instance.instanceId)
+      const range = isPlotRenderState(plotState)
+        ? plotState.visibleMin <= plotState.visibleMax
+          ? { min: plotState.visibleMin, max: plotState.visibleMax }
+          : null
+        : computeInstanceMainIndicatorPriceRange(metadata, result, this.visibleRange)
       if (!range) continue
       min = Math.min(min, range.min)
       max = Math.max(max, range.max)
@@ -755,14 +798,30 @@ export class ChartIndicatorManager {
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
+      const colors = this.deps.plotColors$.peek()
+      const previous = this.plotProjections.get(result)
+      if (
+        metadata.plots &&
+        previous?.presentation === instance.presentation &&
+        previous.colors === colors
+      ) {
+        renderStates.set(
+          instance.instanceId,
+          updatePlotRange(previous.state, metadata.plots, this.visibleRange, timestamp),
+        )
+        continue
+      }
       const state = composeInstanceRenderState(
         metadata,
         result,
         instance.presentation,
         this.visibleRange,
         timestamp,
+        colors,
       )
       if (state === undefined) continue
+      if (isPlotRenderState(state))
+        this.plotProjections.set(result, { presentation: instance.presentation, colors, state })
       renderStates.set(instance.instanceId, state)
     }
     return renderStates

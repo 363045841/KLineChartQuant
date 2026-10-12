@@ -59,6 +59,10 @@
               </span>
             </template>
           </DropMenu>
+          <input v-else-if="param.type === 'boolean'" type="checkbox" :aria-label="param.label"
+            :checked="localValues[param.key] === true" @change="onScalarInput(param.key, $event)" />
+          <input v-else-if="param.type === 'string'" type="text" class="param-input" :aria-label="param.label"
+            :value="localValues[param.key]" @input="onScalarInput(param.key, $event)" />
           <div v-else class="input-wrapper">
             <button
               type="button"
@@ -146,6 +150,7 @@
     showDescription,
     numberValue,
     onInput,
+    onScalarInput,
     step,
     optionGroups,
     isOptionSelected,

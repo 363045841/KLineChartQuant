@@ -4,7 +4,7 @@
  * 这是 Script 引擎最早的验证指标，逐 bar 计算 (open + close) / 2 并画到图上。
  * 本文件只描述「一个指标长什么样」，不含任何引擎 / Plot 实现。
  */
-import { defineIndicator } from '../index.js'
+import { defineIndicator } from '../defineIndicator.js'
 
 /** Open/Close 平均值：输出 (open + close) / 2。 */
 export const openCloseAverage = defineIndicator({

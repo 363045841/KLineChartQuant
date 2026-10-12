@@ -329,6 +329,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@363045841yyt/klinechart-script':
+        specifier: workspace:*
+        version: link:../script
       '@iconify-icons/tabler':
         specifier: ^2.0.3
         version: 2.0.3
@@ -387,6 +390,9 @@ importers:
       '@363045841yyt/klinechart-core':
         specifier: workspace:*
         version: link:../core
+      '@363045841yyt/klinechart-script':
+        specifier: workspace:*
+        version: link:../script
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^6.0.7
@@ -577,6 +583,9 @@ importers:
       '@363045841yyt/klinechart-agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
+      '@363045841yyt/klinechart-script':
+        specifier: workspace:*
+        version: link:../script
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
         version: 0.18.5

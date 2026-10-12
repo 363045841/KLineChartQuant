@@ -1,6 +1,7 @@
 /**
  * 脚本契约：指标定义、输入声明与逐 bar 执行上下文。
  */
+import type { PlotDeclaration, PlotFillDeclaration } from './plot.js'
 
 /** Plot 的标识和样式。 */
 export interface PlotOptions {
@@ -34,6 +35,15 @@ export interface IndicatorDef<P> {
   name: string
   /** 输入参数声明。 */
   inputs: InputSchema<P>
+  /**
+   * 可选 Plot 声明。
+   *
+   * 声明后，采集器只接受这些 id 的输出，并按声明补齐样式与空序列；
+   * 不声明时允许脚本动态产生任意 id，按默认折线处理。
+   */
+  readonly plots?: readonly PlotDeclaration[]
+  /** 可选填充声明，引用 plots 中的 id。 */
+  readonly fills?: readonly PlotFillDeclaration[]
   /** 每根 K 线执行一次。 */
   onBar(ctx: Ctx, params: P): void
 }

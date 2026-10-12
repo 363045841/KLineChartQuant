@@ -9,6 +9,7 @@ import { useControllerSignal } from './chart/useControllerSignal.js'
 export const INDICATOR_SELECTOR_SECTIONS = {
   favorites: 'favorites',
   indicators: 'indicators',
+  scripts: 'scripts',
 } as const
 
 /** 根据导航与搜索后的目录派生列表，收藏写入由控制器统一处理。 */
@@ -28,7 +29,11 @@ export function useIndicatorFavorites(
   const filteredIndicators = computed(() =>
     section.value === INDICATOR_SELECTOR_SECTIONS.favorites
       ? availableIndicators.value.filter((indicator) => favoriteSet.value.has(indicator.id))
-      : availableIndicators.value,
+      : availableIndicators.value.filter((indicator) =>
+          section.value === INDICATOR_SELECTOR_SECTIONS.scripts
+            ? indicator.source === 'script'
+            : indicator.source !== 'script',
+        ),
   )
 
   /** 使用当前 Core 快照决定下一状态，不做本地乐观写入。 */

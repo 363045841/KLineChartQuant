@@ -7,11 +7,18 @@ import {
   calcRSIData,
   DEFAULT_MA_PERIODS,
 } from '../calculators'
-import { DEFAULT_BOLL_MULTIPLIER, DEFAULT_BOLL_PERIOD } from '../state/bollState'
-import { DEFAULT_ENE_DEVIATION, DEFAULT_ENE_PERIOD } from '../state/eneState'
-import { DEFAULT_EXPMA_FAST_PERIOD, DEFAULT_EXPMA_SLOW_PERIOD } from '../state/expmaState'
-import { DEFAULT_RSI_PERIOD1, DEFAULT_RSI_PERIOD2, DEFAULT_RSI_PERIOD3 } from '../state/rsiState'
 import { type FromClosesOptions, fromCloses } from './__fixtures__/synthetic'
+
+/** 测试直接声明计算参数，不依赖渲染器默认状态。 */
+const DEFAULT_BOLL_PERIOD = 20
+const DEFAULT_BOLL_MULTIPLIER = 2
+const DEFAULT_ENE_PERIOD = 10
+const DEFAULT_ENE_DEVIATION = 11
+const DEFAULT_EXPMA_FAST_PERIOD = 12
+const DEFAULT_EXPMA_SLOW_PERIOD = 50
+const DEFAULT_RSI_PERIOD1 = 6
+const DEFAULT_RSI_PERIOD2 = 12
+const DEFAULT_RSI_PERIOD3 = 24
 
 /** 计算器测试统一的 K 线选项：固定时间基准与递增成交量。 */
 const CALCULATOR_KLINE_OPTIONS: FromClosesOptions = {

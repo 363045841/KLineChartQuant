@@ -1,178 +1,9 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { calcFASTKData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { FASTKRenderState } from '../../indicators/state/fastkState.js'
-import { EMPTY_FASTK_STATE } from '../../indicators/state/fastkState.js'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+/** FASTK 的 Plot 和参考线声明。 */
+import { calcFASTKData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 import { createFastkScaleLayer } from './scale/fastk_scale.js'
-import { createDashedLineRenderer } from './shared/dashedLines.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-import { createSingleLineTitleInfo } from './shared/titleInfo.js'
-
-type LinePoint = { x: number; y: number }
-
-interface FASTKRendererOptions {
-  /** 目标 pane ID（默认 'sub'） */
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-}
-
-/**
- * 创建 FASTK 渲染器插件
- */
-function createFASTKLayer(options: FASTKRendererOptions = {}): Layer<RenderContext> {
-  const { paneId = 'sub', instanceId } = options
-  // 线条点缓存
-  let cachedKey = ''
-  let cachedFASTKPoints: LinePoint[] = []
-
-  // 离屏 Canvas 缓存虚线背景线 (80/20)
-  const dashedLines = createDashedLineRenderer()
-
-  function clearLineCache() {
-    cachedKey = ''
-    cachedFASTKPoints = []
-  }
-
-  function buildFASTKCacheKey(
-    range: { start: number; end: number },
-    kLineCenters: number[],
-    pane: RenderContext['pane'],
-    params: FASTKRenderState['params'],
-    stateTimestamp: number,
-  ): string {
-    const dr = pane.yAxis.getDisplayRange()
-    return [
-      stateTimestamp,
-      range.start,
-      range.end,
-      kLineCenters.length,
-      kLineCenters[0]?.toFixed(2) ?? 'n',
-      kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
-      dr.maxPrice.toFixed(6),
-      dr.minPrice.toFixed(6),
-      pane.yAxis.getScaleType(),
-      pane.height.toFixed(2),
-      params.showFASTK,
-      params.period,
-    ].join('|')
-  }
-
-  return createIndicatorRendererLayer({
-    definitionId: 'fastk',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<FASTKRenderState>(instanceId)
-      if (!state || state.visibleMin > state.visibleMax) {
-        clearLineCache()
-        return
-      }
-
-      const { params, series } = state
-
-      const displayRange = pane.yAxis.getDisplayRange()
-      const displayMin = displayRange.minPrice
-      const displayMax = displayRange.maxPrice
-      const displayValueRange = displayMax - displayMin || 1
-
-      const paneWidth = context.paneWidth
-      const paneHeight = pane.height
-      dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors.kdj.guide)
-
-      // 确定绘制范围
-      const drawStart = Math.max(range.start, params.period - 1)
-      const drawEnd = Math.min(range.end, series.length)
-
-      // 更新线条缓存
-      const cacheKey = buildFASTKCacheKey(range, kLineCenters, pane, params, state.timestamp)
-      if (cachedKey !== cacheKey) {
-        cachedKey = cacheKey
-
-        const paneH = paneHeight
-        const invRange = paneH / displayValueRange
-        const rangeStart = range.start
-
-        if (params.showFASTK) {
-          const points: LinePoint[] = []
-          for (let i = drawStart; i < drawEnd; i++) {
-            const value = series[i]
-            if (value === undefined) continue
-
-            const centerX = kLineCenters[i - rangeStart]
-            if (centerX === undefined) continue
-
-            points.push({ x: centerX, y: paneH - (value - displayMin) * invRange })
-          }
-          cachedFASTKPoints = points
-        } else {
-          cachedFASTKPoints = []
-        }
-      }
-
-      // 绘制 FASTK 线（WebGL 优先，Canvas2D 回退）
-      const fastkLines =
-        params.showFASTK && cachedFASTKPoints.length >= 2
-          ? [{ points: cachedFASTKPoints, width: 1, color: colors.kdj.k }]
-          : []
-      if (!tryDrawLinesGpu(context, fastkLines, scrollLeft)) {
-        drawFASTKLineWithCanvas2D(ctx, scrollLeft, cachedFASTKPoints, params, colors)
-      }
-    },
-  })
-}
-
-/**
- * 使用 Canvas 2D 绘制 FASTK 线（WebGL 回退）
- */
-function drawFASTKLineWithCanvas2D(
-  ctx: CanvasRenderingContext2D,
-  scrollLeft: number,
-  fastkPoints: LinePoint[],
-  params: { showFASTK: boolean },
-  colors: { kdj: { k: string } },
-): void {
-  if (!params.showFASTK || fastkPoints.length < 2) return
-
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-  ctx.strokeStyle = colors.kdj.k
-  ctx.lineWidth = 1
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  ctx.moveTo(fastkPoints[0]!.x, fastkPoints[0]!.y)
-  for (let i = 1; i < fastkPoints.length; i++) {
-    const point = fastkPoints[i]!
-    ctx.lineTo(point.x, point.y)
-  }
-  ctx.stroke()
-  ctx.restore()
-}
-
-/**
- * 获取 FASTK 标题信息（供 paneTitle 使用）
- */
-const getFASTKTitleInfo = createSingleLineTitleInfo({
-  name: 'FASTK',
-  defaultPeriod: 9,
-  getColor: (colors) => colors.kdj.k,
-})
-
 @Indicator({
   name: 'fastk',
   displayName: 'FASTK',
@@ -180,9 +11,12 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_FASTK',
-  visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
   scaleRendererFactory: createFastkScaleLayer,
-  getTitleInfo: getFASTKTitleInfo,
+  plots: {
+    series: [{ id: 'fastk', label: 'FASTK', show: 'showFASTK', color: (c) => c.kdj.k }],
+    range: { min: 0, max: 100 },
+    guides: [80, 50, 20].map((value) => ({ value, color: (c) => c.kdj.guide })),
+  },
   presentation: { defaultOptions: { showFASTK: true } },
   runtime: {
     defaultParams: { period: 9 },
@@ -191,5 +25,5 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class FASTKIndicatorDefinition {
-  static rendererFactory = createFASTKLayer
+  static rendererFactory = plotRenderer('fastk', 'sub_FASTK')
 }

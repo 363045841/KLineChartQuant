@@ -1,0 +1,153 @@
+/**
+ * PlotCollector：把逐 bar 的 onPlot 输出汇聚成按 K 线对齐的 PlotCollection。
+ *
+ * 作为 OutputSink 的实现，它把散落的 (id, barIndex, point) 收成每个 Plot 的列：
+ * - 脚本声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
+ * - 脚本未声明 plots 时，允许动态 id，一律按默认折线处理。
+ */
+import type { AlertEvent, LogEvent, OutputSink, PlotPoint } from '../../contracts/output.js'
+import type {
+  LinePlot,
+  Plot,
+  PlotCollection,
+  PlotDeclaration,
+  PlotFill,
+  PlotFillDeclaration,
+} from '../../contracts/plot.js'
+import { SCRIPT_ERROR_CODES } from '../../errors.js'
+
+/** Plot 默认颜色。 */
+const DEFAULT_PLOT_COLOR = '#2196f3'
+/** 折线默认线宽。 */
+const DEFAULT_LINE_WIDTH = 1
+/** 折线默认虚线样式（实线）。 */
+const DEFAULT_LINE_DASH: readonly number[] = []
+/** 柱状图默认基线。 */
+const DEFAULT_HISTOGRAM_BASELINE = 0
+/** 点图默认半径。 */
+const DEFAULT_POINTS_RADIUS = 3
+/** 填充默认不透明度。 */
+const DEFAULT_FILL_OPACITY = 0.2
+
+/** 采集器构造参数。 */
+export interface PlotCollectorOptions {
+  /** 本次运行的 bar 数量，用于补齐空 Plot 的序列长度。 */
+  readonly barCount: number
+  /** 脚本的 Plot 声明；提供时拒绝未声明 id。 */
+  readonly plots?: readonly PlotDeclaration[]
+  /** 脚本的填充声明。 */
+  readonly fills?: readonly PlotFillDeclaration[]
+}
+
+/** 按 id / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
+export class PlotCollector implements OutputSink {
+  private readonly barCount: number
+  private readonly declarations?: readonly PlotDeclaration[]
+  private readonly declaredIds?: ReadonlySet<string>
+  private readonly fillDeclarations?: readonly PlotFillDeclaration[]
+  private readonly columns = new Map<string, (PlotPoint | undefined)[]>()
+
+  constructor(options: PlotCollectorOptions) {
+    this.barCount = options.barCount
+    this.declarations = options.plots
+    this.declaredIds = options.plots && new Set(options.plots.map((plot) => plot.id))
+    this.fillDeclarations = options.fills
+    if (this.declaredIds && this.declaredIds.size !== options.plots?.length)
+      throw new TypeError('Duplicate Plot id')
+  }
+
+  /** 接收绘图点：校验声明（如有）后写入对应 id 的列。 */
+  onPlot(id: string, barIndex: number, point: PlotPoint): void {
+    if (this.declaredIds && !this.declaredIds.has(id)) {
+      throw new Error(
+        `[${SCRIPT_ERROR_CODES.UNDECLARED_PLOT}] plot id '${id}' is not declared in script.plots`,
+      )
+    }
+    let column = this.columns.get(id)
+    if (!column) {
+      column = this.emptyColumn()
+      this.columns.set(id, column)
+    }
+    column[barIndex] = point
+  }
+
+  /** 事件不参与 PlotCollection；保留空实现以完整实现 OutputSink。 */
+  onEvent(_event: AlertEvent | LogEvent): void {}
+
+  /** 产出 PlotCollection：声明优先且保持声明顺序，未声明时按首次出现顺序输出。 */
+  collect(): PlotCollection {
+    const plots: Plot[] =
+      this.declarations?.map((declaration) =>
+        toPlot(declaration, this.columns.get(declaration.id) ?? this.emptyColumn()),
+      ) ?? [...this.columns].map(([id, column]) => toDynamicLine(id, column))
+    const fills: PlotFill[] = this.fillDeclarations?.map(toFill) ?? []
+    const ids = new Set(plots.map((plot) => plot.id))
+    for (const fill of fills) {
+      if (!ids.has(fill.from) || !ids.has(fill.to))
+        throw new TypeError(`Unknown fill source: ${fill.id}`)
+    }
+    return { plots, fills }
+  }
+
+  /** 构造与本次运行 bar 数等长的稠密空序列。 */
+  private emptyColumn(): (PlotPoint | undefined)[] {
+    return new Array<PlotPoint | undefined>(this.barCount).fill(undefined)
+  }
+}
+
+/** 把 Plot 声明与采集到的数据组装成具体 Plot，缺省字段填入默认值。 */
+function toPlot(declaration: PlotDeclaration, data: readonly (PlotPoint | undefined)[]): Plot {
+  const base = {
+    id: declaration.id,
+    label: declaration.label ?? declaration.id,
+    data,
+    color: declaration.color ?? DEFAULT_PLOT_COLOR,
+    visible: declaration.visible ?? true,
+    offset: declaration.offset ?? 0,
+  }
+  switch (declaration.kind) {
+    case 'line':
+      return {
+        ...base,
+        kind: 'line',
+        width: declaration.width ?? DEFAULT_LINE_WIDTH,
+        dash: declaration.dash ?? DEFAULT_LINE_DASH,
+      }
+    case 'histogram':
+      return {
+        ...base,
+        kind: 'histogram',
+        baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
+      }
+    case 'points':
+      return { ...base, kind: 'points', radius: declaration.radius ?? DEFAULT_POINTS_RADIUS }
+  }
+}
+
+/** 未声明脚本的动态 Plot 一律按默认折线处理。 */
+function toDynamicLine(id: string, data: readonly (PlotPoint | undefined)[]): LinePlot {
+  return {
+    kind: 'line',
+    id,
+    label: id,
+    data,
+    color: DEFAULT_PLOT_COLOR,
+    visible: true,
+    offset: 0,
+    width: DEFAULT_LINE_WIDTH,
+    dash: DEFAULT_LINE_DASH,
+  }
+}
+
+/** 把填充声明组装成具体 PlotFill，缺省字段填入默认值。 */
+function toFill(declaration: PlotFillDeclaration): PlotFill {
+  return {
+    id: declaration.id,
+    from: declaration.from,
+    to: declaration.to,
+    visible: declaration.visible ?? true,
+    color: declaration.color ?? DEFAULT_PLOT_COLOR,
+    reverseColor: declaration.reverseColor ?? declaration.color ?? DEFAULT_PLOT_COLOR,
+    opacity: declaration.opacity ?? DEFAULT_FILL_OPACITY,
+  }
+}

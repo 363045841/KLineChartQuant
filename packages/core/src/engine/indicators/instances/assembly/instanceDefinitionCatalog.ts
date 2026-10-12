@@ -33,7 +33,7 @@ export function serializeInstanceCalculationDefinitions(
   const definitions: SerializedIndicatorCalculationDefinition[] = []
   for (const item of metadata) {
     const runtime = item.runtime
-    if (!runtime) continue
+    if (!runtime?.computeKey) continue
     definitions.push(
       Object.freeze({
         definitionId: item.name,

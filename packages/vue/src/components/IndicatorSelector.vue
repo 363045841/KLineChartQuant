@@ -45,6 +45,15 @@
           >
             <IconTablerMathFunction aria-hidden="true" />指标
           </button>
+          <button
+            type="button"
+            class="selector-nav-item"
+            :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.scripts }"
+            :aria-current="section === INDICATOR_SELECTOR_SECTIONS.scripts ? 'page' : undefined"
+            @click="section = INDICATOR_SELECTOR_SECTIONS.scripts"
+          >
+            <IconTablerMathFunction aria-hidden="true" />用户自定义脚本
+          </button>
         </nav>
         <OverlayScrollArea class="selector-results">
           <div class="indicator-list" role="list" aria-label="指标列表">
@@ -126,6 +135,9 @@
             <template v-if="section === INDICATOR_SELECTOR_SECTIONS.favorites && !searchQuery.trim()">
               <p>暂无收藏指标</p>
             </template>
+            <template v-else-if="section === INDICATOR_SELECTOR_SECTIONS.scripts && !searchQuery.trim()">
+              <p>暂无用户自定义脚本</p>
+            </template>
             <template v-else>
               <IconTablerSearch class="no-results-icon" aria-hidden="true" />
               <p>未找到匹配的指标</p>
@@ -152,7 +164,6 @@
 
 <script setup lang="ts">
   import {
-    allIndicatorDefinitions,
     type ChartController,
     createIndicatorSelectorController,
     findIndicator,
@@ -170,6 +181,7 @@
     useIndicatorFavorites,
   } from '../composables/useIndicatorFavorites.js'
   import { coreSignalToVueRef } from '../utils/signalBridge.js'
+  import { useIndicatorCatalog } from '../composables/useIndicatorCatalog.js'
 
   import BaseModal from './BaseModal.vue'
   import BasePopover from './common/BasePopover.vue'
@@ -189,13 +201,14 @@
 
   const emit = defineEmits<{
     toggle: [indicatorId: string, active: boolean]
-    updateParams: [indicatorId: string, params: Record<string, number | string>]
+    updateParams: [indicatorId: string, params: Record<string, number | string | boolean>]
     replace: [paneId: string, indicatorId: string]
     close: []
   }>()
 
   // 目录来自编译期静态元数据，打开选择器不加载任何指标实现。
-  const controller = createIndicatorSelectorController({ catalog: allIndicatorDefinitions() })
+  const controller = createIndicatorSelectorController()
+  useIndicatorCatalog(controller)
 
   const menuOpen = coreSignalToVueRef(controller.menuOpen)
   const searchQuery = coreSignalToVueRef(controller.searchQuery)
@@ -267,22 +280,22 @@
     emit('close')
   }
 
-  function getParamValues(indicatorId: string): Record<string, number | string> {
+  function getParamValues(indicatorId: string): Record<string, number | string | boolean> {
     const indicator = findIndicator(indicatorId)
     if (!indicator?.params) return {}
 
-    const defaultParams: Record<string, number | string> = {}
+    const defaultParams: Record<string, number | string | boolean> = {}
     for (const p of indicator.params) {
       // 选项参数缺少默认值时回退到首个选项，避免非数值默认写入枚举参数。
       defaultParams[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
     const userParams = props.indicatorParams?.[indicatorId] || {}
-    const result: Record<string, number | string> = { ...defaultParams }
+    const result: Record<string, number | string | boolean> = { ...defaultParams }
 
     // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
     for (const [key, value] of Object.entries(userParams)) {
-      if (typeof value === 'number' || typeof value === 'string') {
+      if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
         result[key] = value
       }
     }
@@ -290,7 +303,7 @@
     return result
   }
 
-  function onParamsConfirm(values: Record<string, number | string>) {
+  function onParamsConfirm(values: Record<string, number | string | boolean>) {
     if (currentIndicatorId.value) {
       emit('updateParams', currentIndicatorId.value, values)
     }
@@ -319,7 +332,7 @@
 
   .selector-nav {
     display: flex;
-    flex: 0 0 92px;
+    flex: 0 0 140px;
     flex-direction: column;
     border-right: 1px solid var(--klc-color-ui-border);
   }

@@ -22,11 +22,11 @@ import {
 export interface ParamConfig {
   key: string
   label: string
-  type: 'number' | 'select'
+  type: 'number' | 'select' | 'string' | 'boolean'
   min?: number
   max?: number
   step?: number
-  default?: number | string
+  default?: number | string | boolean
   options?: ReadonlyArray<{ value: string; label: string }>
   description?: string
   /** 仅当依赖参数取指定值时显示；条件只影响编辑入口。 */
@@ -34,6 +34,7 @@ export interface ParamConfig {
 }
 
 export interface Indicator {
+  source?: import('../../indicators/indicatorMetadata.js').IndicatorSource
   id: string
   label: string
   name: string
@@ -1445,6 +1446,27 @@ function buildParamConfigs(
   })
 }
 
+/** 脚本输入声明的默认值同时决定参数编辑类型。 */
+function scriptParamConfigs(defaults: RuntimeDefaultParams): ParamConfig[] {
+  return Object.entries(defaults).flatMap(([key, value]): ParamConfig[] => {
+    if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean')
+      return [
+        {
+          key,
+          label: key,
+          type:
+            typeof value === 'number'
+              ? 'number'
+              : typeof value === 'boolean'
+                ? 'boolean'
+                : 'string',
+          default: value,
+        },
+      ]
+    return []
+  })
+}
+
 /** 选择器目录只读静态目录项，列出全部指标而不加载任何实现。 */
 function rebuildIfStale(): Indicator[] {
   const definitions = getIndicatorDescriptors()
@@ -1461,6 +1483,7 @@ function rebuildIfStale(): Indicator[] {
         }
         return {
           id: def.displayName,
+          source: def.source,
           label: def.displayName,
           name: ui?.name ?? def.displayName,
           pane: (def.category === 'main' || def.allowMainPane
@@ -1473,7 +1496,10 @@ function rebuildIfStale(): Indicator[] {
             def.indicatorType,
           indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
-          params: buildParamConfigs(ui?.params, runtimeDefaults),
+          params:
+            def.source === 'script'
+              ? scriptParamConfigs(runtimeDefaults)
+              : buildParamConfigs(ui?.params, runtimeDefaults),
         }
       })
       .sort((a, b) => {

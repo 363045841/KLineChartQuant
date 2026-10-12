@@ -209,6 +209,7 @@ export interface IndicatorParamDef {
 }
 
 export interface IndicatorDefinition {
+  source?: import('../engine/indicators/indicatorMetadata.js').IndicatorSource
   id: string
   label: string
   name?: string

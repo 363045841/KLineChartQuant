@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import type { DropMenuGroup } from '../components/DropMenu.vue'
 
 /** 参数草稿值：数字参数为 number，选项参数为 string。 */
-export type IndicatorParamValues = Record<string, number | string>
+export type IndicatorParamValues = Record<string, number | string | boolean>
 
 /** 参数弹窗的最小入参契约，保持与组件 props 一致。 */
 interface IndicatorParamsDraftInput {
@@ -52,6 +52,13 @@ export function useIndicatorParams(props: IndicatorParamsDraftInput) {
     if (!(event.target instanceof HTMLInputElement)) return
     const value = Number.parseFloat(event.target.value)
     if (!Number.isNaN(value)) localValues.value[key] = value
+  }
+
+  // 文本和开关保留原始类型，避免传入脚本时变成数字或字符串。
+  function onScalarInput(key: string, event: Event): void {
+    if (!(event.target instanceof HTMLInputElement)) return
+    localValues.value[key] =
+      event.target.type === 'checkbox' ? event.target.checked : event.target.value
   }
 
   /** 在 min/max 范围内按 step 增减数字参数。 */
@@ -106,6 +113,7 @@ export function useIndicatorParams(props: IndicatorParamsDraftInput) {
     showDescription,
     numberValue,
     onInput,
+    onScalarInput,
     step,
     optionGroups,
     isOptionSelected,

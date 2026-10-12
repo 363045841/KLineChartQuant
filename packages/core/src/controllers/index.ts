@@ -167,6 +167,8 @@ export {
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
 } from '../engine/drawing/index.js'
+// 选择器可在运行时注册脚本后刷新目录。
+export { onIndicatorDefinitionRegistered } from '../engine/indicators/indicatorDefinitionRegistry.js'
 export type {
   IndicatorType,
   IndicatorTypeRegistry,

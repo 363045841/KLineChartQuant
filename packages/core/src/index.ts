@@ -26,6 +26,16 @@ export {
   type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
+export type {
+  IndicatorPlotDefinition,
+  Plot,
+  PlotCollection,
+  PlotFill,
+  PlotPoint,
+  PlotRenderState,
+} from './engine/plots/types.js'
+export { registerScriptIndicator } from './engine/scriptIndicators/impl/registerScriptIndicator.js'
+export type { ScriptIndicatorOptions } from './engine/scriptIndicators/types.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,

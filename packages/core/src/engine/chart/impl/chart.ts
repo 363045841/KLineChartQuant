@@ -59,6 +59,7 @@ import {
 } from '../../../foundation/plugin/index.js'
 import {
   batch,
+  computed,
   createSignal,
   effect,
   type ReadonlySignal,
@@ -66,6 +67,7 @@ import {
   type WritableSignal,
 } from '../../../foundation/reactivity/signal.js'
 import { getFont } from '../../../foundation/tokens/fonts.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.js'
 import type { MarketSessionConfig } from '../../../foundation/utils/sessionTimeLabels.js'
@@ -557,6 +559,14 @@ export class Chart {
     })
 
     this.indicatorManager = new ChartIndicatorManager({
+      plotColors$: computed(() => {
+        const settings = this.kernel.settings.readonly.settings()
+        return resolveThemeColors(
+          this.kernel.effectiveTheme$(),
+          settings.isAsiaMarket,
+          settings.colorPresetSettings,
+        )
+      }),
       getOption: () => this.getRenderOptions(),
       getPluginHost: () => this.pluginHost,
       getRenderer: (id) => this.getRenderer(id),

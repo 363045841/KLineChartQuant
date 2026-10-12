@@ -9,6 +9,7 @@ import type { IndicatorDef } from '../contracts/script.js'
 export interface RunOptions<P> {
   /** 要执行的指标。 */
   script: IndicatorDef<P>
+  params?: Partial<P>
   /** 行情数据来源。 */
   feed: DataFeed
   /** 结果汇点。 */

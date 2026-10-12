@@ -327,7 +327,7 @@ const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
     createCompute: createFootprintCalculator,
     compute: (data, params, trades) => createFootprintCalculator()(data, params, trades),
   },
-  mainPane: {
+  customState: {
     /** 价格行覆盖完整档位宽度，与蜡烛价格范围合并后仍使用原有主图价格轴。 */
     computePriceRange(entry, range) {
       const source = readIndicatorSeriesEntry<FootprintRenderState>(entry, 'footprint')
@@ -342,7 +342,7 @@ const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
       }
       return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
     },
-    composeRenderState(entry, _range, timestamp) {
+    compose(entry, _range, timestamp) {
       const source = readIndicatorSeriesEntry<
         FootprintRenderState & { params?: Readonly<Record<string, unknown>> }
       >(entry, 'footprint')

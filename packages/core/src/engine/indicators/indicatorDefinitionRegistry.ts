@@ -32,6 +32,7 @@ export { resolveIndicatorLayerId } from './indicatorLayerNaming.js'
  * 内置定义由生成器在编译期从 @Indicator 声明提取。
  */
 export interface IndicatorDescriptor {
+  readonly source?: IndicatorMetadata['source']
   readonly name: IndicatorName
   readonly kind: IndicatorKind
   readonly aliases?: readonly string[]
@@ -125,6 +126,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
   const defaultParams = definition.runtime?.defaultParams
   return {
     name: definition.name,
+    source: definition.source,
     kind: definition.kind,
     aliases: definition.aliases,
     displayName: definition.displayName,

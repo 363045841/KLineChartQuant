@@ -17,6 +17,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@363045841yyt/klinechart-script": "workspace:*",
     "@363045841yyt/klinechart": "workspace:*",
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-core": "workspace:*"
