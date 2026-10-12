@@ -16,6 +16,7 @@ export function composeInstanceRenderState(
   timestamp: number,
   colors: ColorTokens = resolveThemeColors('light', false),
 ): unknown {
+  if (result.error) return { kind: 'error', error: result.error }
   const params = { ...result.params, ...presentation }
   if (metadata.plots)
     return projectPlots(metadata.plots, result.series, params, visibleRange, timestamp, colors)
@@ -55,6 +56,7 @@ export function computeInstanceMainIndicatorPriceRange(
   result: IndicatorSeriesResult,
   visibleRange: VisibleRange,
 ): { min: number; max: number } | null {
+  if (result.error) return null
   return (
     metadata.customState?.computePriceRange?.(
       { series: result.series, params: result.params },

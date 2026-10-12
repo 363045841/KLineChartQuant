@@ -78,6 +78,14 @@ export type IndicatorInstanceCommand =
     }
   | { readonly type: 'remove'; readonly instanceId: IndicatorInstanceId }
 
+/** 可跨 Worker 传输的实例计算错误，不携带 Error 原型或堆栈。 */
+export interface IndicatorCalculationError {
+  readonly message: string
+  readonly code?: string
+  readonly plotId?: string
+  readonly barIndex?: number
+}
+
 export interface IndicatorSeriesResult {
   readonly instanceId: IndicatorInstanceId
   readonly calculationKey: IndicatorCalculationKey
@@ -85,6 +93,7 @@ export interface IndicatorSeriesResult {
   readonly params: IndicatorParameters
   readonly series: unknown
   readonly firstReadyIndex: number | null
+  readonly error?: IndicatorCalculationError
 }
 
 /** 唯一可持久化的计算结果来源：每个实例 ID 对应一项结果。 */

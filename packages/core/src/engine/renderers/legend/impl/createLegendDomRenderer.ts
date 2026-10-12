@@ -1,4 +1,5 @@
 /** 独立 DOM Legend renderer：复用节点、差量写入，不经框架响应式状态。 */
+
 import arrowDown from '@iconify-icons/tabler/arrow-down'
 import arrowUp from '@iconify-icons/tabler/arrow-up'
 import chevronDown from '@iconify-icons/tabler/chevron-down'
@@ -41,6 +42,7 @@ interface MountedRow {
   text: HTMLDivElement
   /** 加载圈元素，位于文本流最前；加载结束由 hidden 隐藏。 */
   spinner: HTMLSpanElement
+  errorBanner: HTMLDivElement
   spans: HTMLSpanElement[]
   nodes: Text[]
   buttons: HTMLButtonElement[]
@@ -76,7 +78,7 @@ function createStyles(document: Document): HTMLStyleElement {
       height:28px; box-sizing:border-box;
       display:none; align-items:center; justify-content:flex-end; padding:2px 3px;
       border:1px solid var(--klc-color-ui-border); border-radius:4px;
-      background:var(--klc-color-ui-surface); z-index:-1; pointer-events:auto; }
+      background:color-mix(in srgb,var(--klc-color-ui-surface) 80%,transparent); z-index:-1; pointer-events:auto; }
     .klc-legend-actions { display:flex; align-items:center; gap:2px; }
     .klc-legend-row[data-actions]:hover, .klc-legend-row[data-actions]:focus-within { z-index:1; }
     .klc-legend-row:hover > .klc-legend-frame, .klc-legend-row:focus-within > .klc-legend-frame { display:flex; }
@@ -101,6 +103,8 @@ function createStyles(document: Document): HTMLStyleElement {
       border:2px solid currentColor; border-top-color:transparent; border-radius:50%;
       color:var(--klc-color-ui-text-soft); animation:klc-legend-spin 0.6s linear infinite; }
     .klc-legend-spinner[hidden] { display:none; }
+    .klc-legend-error-banner { padding:1px 8px; border-radius:3px;
+      background:color-mix(in srgb,var(--klc-color-ui-danger-background) 80%,transparent); color:var(--klc-color-ui-danger-text); }
     @keyframes klc-legend-spin { to { transform:rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .klc-legend-spinner { animation:none; } }
   `
@@ -271,8 +275,20 @@ export function createLegendDomRenderer(
     spinner.className = 'klc-legend-spinner'
     spinner.setAttribute('aria-hidden', 'true')
     spinner.hidden = data.loading !== true
+    const errorBanner = document.createElement('div')
+    errorBanner.className = 'klc-legend-error-banner'
+    errorBanner.setAttribute('role', 'status')
     element.append(text)
-    const row: MountedRow = { element, text, spinner, spans: [], nodes: [], buttons: [], data }
+    const row: MountedRow = {
+      element,
+      text,
+      spinner,
+      errorBanner,
+      spans: [],
+      nodes: [],
+      buttons: [],
+      data,
+    }
     if (data.indicator) element.dataset.indicator = data.indicator.instanceId
     if (data.comparison) element.dataset.comparison = data.comparison.identity
     if (data.actions.length) {
@@ -348,11 +364,22 @@ export function createLegendDomRenderer(
       if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
     }
     // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
-    if (row.text.lastElementChild !== row.spinner) row.text.append(row.spinner)
+    if (data.error) {
+      if (
+        row.text.lastElementChild !== row.errorBanner ||
+        row.errorBanner.previousElementSibling !== row.spinner
+      )
+        row.text.append(row.spinner, row.errorBanner)
+    } else {
+      row.errorBanner.remove()
+      if (row.text.lastElementChild !== row.spinner) row.text.append(row.spinner)
+    }
   }
 
   /** 同步隐藏态、按钮标签与可用性、显隐图标。 */
   function syncState(row: MountedRow, data: LegendRow, previous: LegendRow): void {
+    const message = data.error ?? ''
+    if (row.errorBanner.textContent !== message) row.errorBanner.textContent = message
     const hidden = data.hidden === true
     if (row.element.hasAttribute('data-hidden') !== hidden)
       row.element.toggleAttribute('data-hidden', hidden)

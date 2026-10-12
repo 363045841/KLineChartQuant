@@ -65,7 +65,29 @@ export function executeIndicatorCalculationTask(
 ): IndicatorCalculationOutput {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
-  const series = definition.compute(data, task.params, trades)
+  let series: unknown
+  try {
+    series = definition.compute(data, task.params, trades)
+  } catch (error) {
+    // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
+    return Object.freeze({
+      calculationKey: task.calculationKey,
+      series: undefined,
+      firstReadyIndex: null,
+      error: Object.freeze({
+        message: error instanceof Error ? error.message : String(error),
+        ...(error instanceof Error && 'code' in error && typeof error.code === 'string'
+          ? { code: error.code }
+          : {}),
+        ...(error instanceof Error && 'plotId' in error && typeof error.plotId === 'string'
+          ? { plotId: error.plotId }
+          : {}),
+        ...(error instanceof Error && 'barIndex' in error && typeof error.barIndex === 'number'
+          ? { barIndex: error.barIndex }
+          : {}),
+      }),
+    })
+  }
   return Object.freeze({
     calculationKey: task.calculationKey,
     series,

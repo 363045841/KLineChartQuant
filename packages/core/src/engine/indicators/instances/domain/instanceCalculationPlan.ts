@@ -6,6 +6,7 @@
  */
 import {
   createIndicatorCalculationKey,
+  type IndicatorCalculationError,
   type IndicatorCalculationKey,
   type IndicatorInstance,
   type IndicatorInstanceId,
@@ -44,6 +45,7 @@ export interface IndicatorCalculationOutput {
   readonly calculationKey: IndicatorCalculationKey
   readonly series: unknown
   readonly firstReadyIndex: number | null
+  readonly error?: IndicatorCalculationError
 }
 
 /**
@@ -115,6 +117,7 @@ export function expandIndicatorCalculationOutputs(
           params: task.params,
           series: output.series,
           firstReadyIndex: output.firstReadyIndex,
+          ...(output.error ? { error: output.error } : {}),
         }),
       )
     }

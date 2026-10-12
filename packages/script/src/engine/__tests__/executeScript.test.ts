@@ -1,8 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import type { IndicatorDef } from '../../contracts/script.js'
+import { SCRIPT_ERROR_CODES, ScriptPlotError } from '../../errors.js'
+import { openCloseAverage } from '../../indicators/openCloseAverage.js'
 import { executeScript } from '../impl/executeScript.js'
 
 describe('executeScript', () => {
+  it.each([0, -0])('除数 %s 的无穷大输出产生带位置的运行错误，恢复参数后可重新执行', (n) => {
+    const bars = [{ time: 1, open: 100, high: 102, low: 98, close: 100, volume: 1 }]
+    expect(() => executeScript(openCloseAverage, bars, { n })).toThrow(ScriptPlotError)
+    expect(() => executeScript(openCloseAverage, bars, { n })).toThrow(
+      expect.objectContaining({
+        code: SCRIPT_ERROR_CODES.INFINITE_PLOT_VALUE,
+        plotId: 'oc-average',
+        barIndex: 0,
+      }),
+    )
+    expect(executeScript(openCloseAverage, bars, { n: 4 }).plots[0]?.data[0]?.value).toBe(50)
+  })
+
+  it('NaN 保留为空点，不触发运行错误', () => {
+    const script: IndicatorDef<Record<string, never>> = {
+      name: 'empty-point',
+      inputs: {},
+      onBar(ctx) {
+        ctx.plot(NaN, { id: 'line' })
+      },
+    }
+    const bars = [{ time: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]
+    expect(executeScript(script, bars).plots[0]?.data[0]?.value).toBeNaN()
+  })
   it('按 id 和 bar 下标收集条件输出，参数变化生成全新结果', () => {
     const script: IndicatorDef<{ factor: number }> = {
       name: 'conditional',

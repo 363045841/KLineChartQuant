@@ -196,14 +196,16 @@ export function projectIndicator(
 ): LegendIndicatorRow | null {
   const meta = getRegisteredIndicatorDefinition(instance.definitionId)
   if (!meta) return null
-  const loading = availability?.isLoading(instance.instanceId) === true
+  const error = stateReader?.get<{ error?: { message: string } }>(instance.instanceId)?.error
+    ?.message
+  const loading = !error && availability?.isLoading(instance.instanceId) === true
   const params: Record<string, number | boolean | string> = {}
   for (const [key, value] of Object.entries(instance.params)) {
     if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string')
       params[key] = value
   }
   const titleInfo: TitleInfo | null =
-    meta.getTitleInfo && stateReader
+    !error && meta.getTitleInfo && stateReader
       ? meta.getTitleInfo(
           data,
           index,
@@ -214,14 +216,17 @@ export function projectIndicator(
           colors,
         )
       : null
-  if (!titleInfo && !loading && instance.paneId === 'main') return null
+  if (!titleInfo && !loading && !error && instance.paneId === 'main') return null
   return {
     instanceId: instance.instanceId,
     definitionId: instance.definitionId,
     hidden: instance.hidden,
     loading,
+    error,
     name: titleInfo?.name ?? meta.displayName,
-    params: titleInfo?.params,
+    params:
+      titleInfo?.params ??
+      (error ? Object.values(params).filter((value) => typeof value !== 'boolean') : undefined),
     values: titleInfo?.values,
   }
 }

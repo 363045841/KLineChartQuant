@@ -335,6 +335,7 @@ export class LegendManager implements LegendApi {
         indicator: { instanceId: instance.instanceId, definitionId: instance.definitionId },
         hidden: title.hidden,
         loading: title.loading,
+        error: title.error,
         texts: projectIndicatorTexts(title, {
           textPrimary: colors.text.primary,
           textTertiary: colors.text.tertiary,

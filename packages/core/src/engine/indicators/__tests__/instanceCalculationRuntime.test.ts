@@ -127,6 +127,47 @@ describe('diffTradeSnapshot', () => {
 })
 
 describe('executeIndicatorCalculationPlan', () => {
+  it('单个实例计算失败仍提交其他实例，错误可序列化且重算成功后清除', () => {
+    const source = new FakeCalculationSource([
+      createTestInstance({ instanceId: 'bad', definitionId: 'bad' }),
+      createTestInstance({ instanceId: 'good', definitionId: 'good' }),
+    ])
+    let fail = true
+    const runtime = new IndicatorInstanceExecutionRuntime([
+      {
+        definitionId: 'bad',
+        compute: () => {
+          if (fail)
+            throw Object.assign(new Error('invalid plot'), {
+              code: 'TEST_PLOT',
+              plotId: 'line',
+              barIndex: 1,
+            })
+          return [2, 3]
+        },
+      },
+      { definitionId: 'good', compute: () => [1, 2] },
+    ])
+    const data = createTestData(2)
+    runtime.setData(data, 1)
+    const plan = source.calculationPlan()
+    const results = expandIndicatorCalculationOutputs(
+      plan,
+      structuredClone(runtime.execute(plan)),
+      1,
+    )
+    expect(results.get('bad')).toMatchObject({
+      series: undefined,
+      firstReadyIndex: null,
+      error: { message: 'invalid plot', code: 'TEST_PLOT', plotId: 'line', barIndex: 1 },
+    })
+    expect(results.get('good')?.series).toEqual([1, 2])
+    fail = false
+    runtime.setData(data, 2)
+    const recovered = expandIndicatorCalculationOutputs(plan, runtime.execute(plan), 2)
+    expect(recovered.get('bad')?.error).toBeUndefined()
+    expect(recovered.get('bad')?.series).toEqual([2, 3])
+  })
   it('相同计算参数的不同实例只执行一次并共享结果引用', () => {
     const source = new FakeCalculationSource([
       createTestInstance({

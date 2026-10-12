@@ -7,6 +7,7 @@
 import type { Bar } from '../../contracts/input.js'
 import type { OutputSink } from '../../contracts/output.js'
 import type { Ctx, InputDef, InputSchema } from '../../contracts/script.js'
+import { ScriptPlotError } from '../../errors.js'
 
 /** 为单根 bar 构造执行上下文，按脚本指定的 Plot id 输出绘图点。 */
 export function createBarContext(bar: Bar, barIndex: number, sink: OutputSink): Ctx {
@@ -17,6 +18,8 @@ export function createBarContext(bar: Bar, barIndex: number, sink: OutputSink): 
     close: bar.close,
     volume: bar.volume,
     plot(value, options) {
+      // NaN 保留为空点语义；无穷大是运行错误，不能静默丢弃。
+      if (value === Infinity || value === -Infinity) throw new ScriptPlotError(options.id, barIndex)
       sink.onPlot(options.id, barIndex, { value, color: options.color })
     },
   }

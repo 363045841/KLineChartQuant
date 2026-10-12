@@ -54,6 +54,8 @@ export interface LegendIndicatorRow {
   hidden: boolean
   /** 指标实例仍在异步加载：行内展示加载圈。 */
   loading: boolean
+  /** 计算失败时保留指标身份，错误消息供默认和自定义图例展示。 */
+  error?: string
   name: string
   /** 参数文本片段；数字参数与枚举参数统一按顺序拼接展示。 */
   params?: (number | string)[]
@@ -125,6 +127,7 @@ export interface LegendRow {
   comparison?: { identity: string }
   hidden?: boolean
   loading?: boolean
+  error?: string
 }
 
 export type LegendEntry = Readonly<

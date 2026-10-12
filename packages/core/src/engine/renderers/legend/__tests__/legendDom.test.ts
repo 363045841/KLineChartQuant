@@ -65,6 +65,20 @@ function createHarness(hasSelectedSymbol: () => boolean = () => true) {
 }
 
 describe('DOM Legend renderer', () => {
+  it('错误横幅直接显示诊断，恢复后清除且保留图例节点和操作', () => {
+    const { host, renderer, row } = createHarness()
+    renderer.update('main', [{ ...row, error: 'invalid plot' }], ['main'])
+    const element = host.querySelector('.klc-legend-row')
+    const banner = host.querySelector<HTMLDivElement>('.klc-legend-error-banner')!
+    expect(banner.textContent).toBe('invalid plot')
+    expect(banner.hidden).toBe(false)
+    expect(banner.closest('.klc-legend-text')).not.toBeNull()
+    renderer.update('main', [row], ['main'])
+    expect(host.querySelector('.klc-legend-row')).toBe(element)
+    expect(host.querySelector('.klc-legend-error-banner')).toBeNull()
+    expect(host.querySelectorAll('.klc-legend-actions button')).toHaveLength(row.actions.length)
+    renderer.dispose()
+  })
   it('比较名称复用悬浮框，仅提供隐藏和删除按钮，并保留隐藏行供恢复', () => {
     const { host, renderer, row, execute } = createHarness()
     const comparison = {
