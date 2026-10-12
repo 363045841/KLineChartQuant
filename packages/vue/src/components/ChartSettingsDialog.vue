@@ -133,7 +133,6 @@
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref, watch } from 'vue'
   import IconTablerTrash from '~icons/tabler/trash'
-  import MarketDataManagementDialog from './MarketDataManagementDialog.vue'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
@@ -143,6 +142,7 @@
   import SettingsNavRow from './chart-settings/SettingsNavRow.vue'
   import ThemeModeControl from './common/ThemeModeControl.vue'
   import Dropdown from './Dropdown.vue'
+  import MarketDataManagementDialog from './MarketDataManagementDialog.vue'
   import ShortcutSettings from './ShortcutSettings.vue'
   import ThemePresetPanel from './ThemePresetPanel.vue'
 
@@ -154,8 +154,7 @@
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
     }>(),
-    {
-    },
+    {},
   )
 
   const emit = defineEmits<{
@@ -245,7 +244,6 @@
     { id: 'light', label: '浅色' },
     { id: 'dark', label: '深色' },
   ]
-
 
   const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
 

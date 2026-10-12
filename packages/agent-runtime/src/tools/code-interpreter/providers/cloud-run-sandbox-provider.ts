@@ -22,11 +22,11 @@
 //   **绝不传 `--allow-egress`**。
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { SOFT_TIMEOUT_EXIT_CODE, type Artifact } from '../contract.js'
+import { type Artifact, SOFT_TIMEOUT_EXIT_CODE } from '../contract.js'
 
 import type {
   ExecutionSpec,

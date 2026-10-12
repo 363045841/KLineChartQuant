@@ -1,5 +1,6 @@
 /** 按引擎 DPR 合成原始 Canvas 像素与 DOM 浮层，避免图表经过 SVG 重采样。 */
 import type { ChartFrameCaptureContext } from '@363045841yyt/klinechart-core/controllers'
+
 const CHART_BACKGROUND_HOSTS = '.chart-main, .chart-container, .left-axis-host, .right-axis-host'
 const SCREENSHOT_EXCLUDED_CONTROLS = '.price-axis-shortcuts, .axis-settings-menu'
 const CLIPPING_OVERFLOW = new Set(['hidden', 'clip', 'auto', 'scroll'])
@@ -31,7 +32,8 @@ function snapshotCanvases(element: HTMLElement, frame: ChartFrameCaptureContext)
   const snapshots: CanvasSnapshot[] = []
   for (const source of element.querySelectorAll('canvas')) {
     const bounds = source.getBoundingClientRect()
-    if (bounds.width <= 0 || bounds.height <= 0 || source.width === 0 || source.height === 0) continue
+    if (bounds.width <= 0 || bounds.height <= 0 || source.width === 0 || source.height === 0)
+      continue
     let left = rootBounds.left
     let top = rootBounds.top
     let right = rootBounds.right
@@ -40,7 +42,11 @@ function snapshotCanvases(element: HTMLElement, frame: ChartFrameCaptureContext)
     let visible = true
     for (let node: HTMLElement | null = source; node; node = node.parentElement) {
       const style = getComputedStyle(node)
-      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+      if (
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        Number(style.opacity) === 0
+      ) {
         visible = false
         break
       }
@@ -80,8 +86,10 @@ function snapshotCanvases(element: HTMLElement, frame: ChartFrameCaptureContext)
       clip: {
         x: Math.round((left - rootBounds.left) * dpr),
         y: Math.round((top - rootBounds.top) * dpr),
-        width: Math.round((right - rootBounds.left) * dpr) - Math.round((left - rootBounds.left) * dpr),
-        height: Math.round((bottom - rootBounds.top) * dpr) - Math.round((top - rootBounds.top) * dpr),
+        width:
+          Math.round((right - rootBounds.left) * dpr) - Math.round((left - rootBounds.left) * dpr),
+        height:
+          Math.round((bottom - rootBounds.top) * dpr) - Math.round((top - rootBounds.top) * dpr),
       },
       stackingOrder,
     })
@@ -107,7 +115,10 @@ async function captureDomOverlay(
   const svgText = await (await fetch(svgUrl)).text()
   const svg = new DOMParser().parseFromString(svgText, SVG_MIME_TYPE)
   for (const host of svg.querySelectorAll(CHART_BACKGROUND_HOSTS)) {
-    host.setAttribute('style', `${host.getAttribute('style') ?? ''};background:transparent !important;`)
+    host.setAttribute(
+      'style',
+      `${host.getAttribute('style') ?? ''};background:transparent !important;`,
+    )
   }
   // foreignObject 使用内嵌 data URL，保持最终 Canvas 可导出为 PNG。
   const image = new Image()

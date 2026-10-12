@@ -11,7 +11,7 @@
 //   - `config.files[].raw_value` 输入实测 512 KiB 通过 / 768 KiB 失败；
 //   - fly 侧「超时」与「取消」外观完全一致（都是被 DELETE 的 destroyed），
 //     故终态由 Service 依据自己记录的意图判定，本 Provider 不参与。
-import { SOFT_TIMEOUT_EXIT_CODE, type Artifact } from '../contract.js'
+import { type Artifact, SOFT_TIMEOUT_EXIT_CODE } from '../contract.js'
 
 import type {
   ExecutionSpec,
@@ -232,8 +232,9 @@ interface FlyRun {
 
 /** 缺少任一必需配置即返回 undefined —— 无凭证时 Provider 不注册，但**绝不让 Agent 启动失败**。 */
 export function createFlyMachinesProviderFromEnv(
-  env: Record<string, string | undefined> = (globalThis as { process?: { env?: Record<string, string | undefined> } })
-    .process?.env ?? {},
+  env: Record<string, string | undefined> = (
+    globalThis as { process?: { env?: Record<string, string | undefined> } }
+  ).process?.env ?? {},
 ): FlyMachinesProvider | undefined {
   const token = env['FLY_API_TOKEN']
   const appName = env['KQ_CODE_INTERPRETER_FLY_APP']
@@ -402,7 +403,10 @@ export class FlyMachinesProvider implements RuntimeProvider {
     // sleep 的时长比预算多留一截，作为「控制面失联」时的最后兜底。
     const idleSeconds = Math.ceil(spec.timeoutMs / 1000) + 120
     const body = {
-      name: `kq-ci-${spec.taskId.replace(/[^a-z0-9]/gi, '').slice(0, 20).toLowerCase()}`,
+      name: `kq-ci-${spec.taskId
+        .replace(/[^a-z0-9]/gi, '')
+        .slice(0, 20)
+        .toLowerCase()}`,
       ...(this.#options.region ? { region: this.#options.region } : {}),
       config: {
         image: this.#options.image,

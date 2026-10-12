@@ -46,7 +46,12 @@ export interface ExecutionRequest {
 }
 
 export type ExecutionStatus =
-  'queued' | 'running' | 'succeeded' | 'failed' | 'timed_out' | 'cancelled'
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'timed_out'
+  | 'cancelled'
 
 /** submit 的返回值：任务已受理，终态需由 get 轮询。 */
 export interface ExecutionTask {

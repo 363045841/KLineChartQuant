@@ -1,25 +1,24 @@
 // 本文件实现 Provider 无关的代码解释器控制面：状态机、超时意图与结果归一化。
 import {
+  type Artifact,
+  type CodeInterpreter,
   DEFAULT_MEMORY_MB,
   DEFAULT_TIMEOUT_MS,
   ExecutionRejectedError,
-  MAX_TIMEOUT_MS,
-  SOFT_TIMEOUT_EXIT_CODE,
-  UnknownTaskError,
-  type Artifact,
-  type CodeInterpreter,
   type ExecutionRequest,
   type ExecutionResult,
   type ExecutionStatus,
   type ExecutionTask,
+  MAX_TIMEOUT_MS,
+  SOFT_TIMEOUT_EXIT_CODE,
+  UnknownTaskError,
 } from './contract.js'
-import { applyArtifactPolicy, selectChannel, truncateStream } from './transport/channel.js'
-
 import type {
   ExecutionSpec,
   ProviderHandle,
   RuntimeProvider,
 } from './providers/runtime-provider.js'
+import { applyArtifactPolicy, selectChannel, truncateStream } from './transport/channel.js'
 
 /** 控制面记录的终止意图；平台区分不了超时与取消，谁先发起就记谁（design.md §3.1）。 */
 type KillIntent = 'cancel' | 'timeout'

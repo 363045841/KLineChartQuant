@@ -12,10 +12,7 @@ export interface PaneAutoPriceRange {
 
 /** 模式激活/停用时，图表暴露给模式的能力入口。 */
 export interface ChartModeChartContext {
-  enableMainIndicator: (
-    id: string,
-    params?: Record<string, number | boolean | string>,
-  ) => boolean
+  enableMainIndicator: (id: string, params?: Record<string, number | boolean | string>) => boolean
   disableMainIndicator: (id: string) => boolean
   dataManager: ChartDataManager
 }

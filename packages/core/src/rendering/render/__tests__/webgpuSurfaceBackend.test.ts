@@ -3,8 +3,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { createWebGPUSurfaceBackend } from '../backend/createWebGPUSurfaceBackend'
-import { createMockWebGPU } from './helpers/webgpuTestKit'
 import { GPU_TEXTURE_COPY_SRC, GPU_TEXTURE_RENDER_ATTACHMENT } from '../webgpuGlobals'
+import { createMockWebGPU } from './helpers/webgpuTestKit'
 
 /** 构造 SurfaceBackend 与可观测的 canvas / context / device 替身。 */
 function makeSurface() {

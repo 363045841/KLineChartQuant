@@ -92,7 +92,9 @@
 
   const shellStyle = computed(() => ({
     '--agent-panel-width': `${panelWidth.value}px`,
-    '--agent-panel-track': panelOpen.value ? `${panelWidth.value}px` : 'var(--agent-header-button-size)',
+    '--agent-panel-track': panelOpen.value
+      ? `${panelWidth.value}px`
+      : 'var(--agent-header-button-size)',
   }))
 
   // 将传入的面板宽度限制到允许范围，并返回整数像素值。
