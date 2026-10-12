@@ -241,6 +241,28 @@ describe('findByKeyboardEvent', () => {
     r.register({ id: 'panL', label: 'Pan left', combo: 'ArrowLeft', command: 'pan' })
     expect(r.findByKeyboardEvent(evt({ key: 'ArrowLeft' }))?.id).toBe('panL')
   })
+
+  it('matches punctuation by physical code when the key is IME-degraded', () => {
+    const r = createShortcutRegistry({ platform: 'win' })
+    r.register({ id: 'settings', label: 'Settings', combo: 'Mod+,', command: 'settings.open' })
+    // 正常 ASCII 逗号。
+    expect(r.findByKeyboardEvent(evt({ key: ',', ctrlKey: true }))?.id).toBe('settings')
+    // 中文输入法组合态：key 退化为 'Process' / 全角，code 不变。
+    expect(r.findByKeyboardEvent(evt({ key: 'Process', code: 'Comma', ctrlKey: true }))?.id).toBe(
+      'settings',
+    )
+    expect(r.findByKeyboardEvent(evt({ key: '，', code: 'Comma', ctrlKey: true }))?.id).toBe(
+      'settings',
+    )
+    // Shift 组合不得误命中未加 Shift 的标点快捷键。
+    expect(
+      r.findByKeyboardEvent(evt({ key: '<', code: 'Comma', ctrlKey: true, shiftKey: true })),
+    ).toBeNull()
+    // 物理 code 不匹配时为 null。
+    expect(
+      r.findByKeyboardEvent(evt({ key: 'Process', code: 'Period', ctrlKey: true })),
+    ).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------

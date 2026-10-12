@@ -18,6 +18,7 @@
 | [`session/`](session/) | 市场会话与最新价倒计时 |
 | [`theme/`](theme/) | 主题预设与颜色 Token |
 | [`state/`](state/) | StateKernel 状态模块（pane、workspace） |
+| [`input/`](input/) | 键盘快捷键与命令目录 |
 | [`conventions/`](conventions/) | 模块布局、设置解析、控制器标识与测试夹具 |
 | [`history/`](history/) | 已移除遗留层的记录 |
 

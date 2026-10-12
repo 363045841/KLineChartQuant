@@ -401,8 +401,11 @@
   } from 'vue'
   import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
   import { useAggregationSources } from '../composables/useAggregationSources.js'
+  import {
+    provideMarketDataContext,
+    useMarketDataContext,
+  } from '../composables/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
-  import { provideMarketDataContext, useMarketDataContext } from '../composables/useMarketDataContext.js'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const slots = useSlots()
@@ -435,8 +438,8 @@
   import { readElementSize } from '../utils/elementSize.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
-  import CommandPalette from './commands/CommandPalette.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
+  import CommandPalette from './commands/CommandPalette.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import ToastViewport from './common/ToastViewport.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
@@ -522,7 +525,9 @@
     },
   )
 
-  const marketDataContext = provideMarketDataContext(props.marketDataContext ?? useMarketDataContext())
+  const marketDataContext = provideMarketDataContext(
+    props.marketDataContext ?? useMarketDataContext(),
+  )
   const aggregationSources = useMarketDataSourceCatalog(marketDataContext)
   const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
     useAggregationSources(aggregationSources, marketDataContext)
@@ -1016,6 +1021,9 @@
       openPalette: () => {
         paletteOpen.value = !paletteOpen.value
       },
+      toggleFullscreen: handleToggleFullscreen,
+      openSettings: () => openChartSettings('main'),
+      screenshot: (action) => void captureScreenshot(action),
     }),
   )
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(

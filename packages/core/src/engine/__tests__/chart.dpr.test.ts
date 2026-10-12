@@ -296,6 +296,70 @@ describe('Chart DPR pipeline', () => {
     }
   })
 
+  it('shifts the viewport by whole bars and clamps at the scroll bound', async () => {
+    const chart = mountChart()
+    try {
+      chart.setData(makeBars(200))
+      chart.resize()
+      chart.draw()
+      const viewport = chart.kernel.viewport
+      viewport.actions.scrollToLogical(0)
+      const step = viewport.readonly.viewSnapshot.peek().grid.step
+      expect(step).toBeGreaterThan(0)
+
+      chart.scrollByBars(1)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(step)
+      chart.scrollByBars(-1)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(0)
+
+      // 连续右移在滚动上限处停住，不会越过最后一根。
+      const { max } = viewport.readonly.viewSnapshot.peek().scrollBounds
+      for (let i = 0; i < 1000; i += 1) chart.scrollByBars(1)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(max)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('resets to the configured zoom level and drops the manual price range', async () => {
+    const chart = new Chart(
+      createChartDom(1000, 600),
+      { ...defaultOptions, initialZoomLevel: 3 },
+      {
+        initialSettings: {
+          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+          mainRightAxisTypeSetting: ScaleType.Linear,
+        },
+      },
+    )
+    try {
+      chart.resize()
+      chart.applyCustomData({
+        symbol: 'PRIMARY',
+        market: 'CN',
+        period: 'daily',
+        data: makeBars(200),
+      })
+      chart.draw()
+      const handRange = () =>
+        chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[MAIN_PANE_ID]?.handRange
+      expect(handRange()).not.toBeNull()
+
+      chart.zoom.toLevel(2)
+      chart.scalePrice(MAIN_PANE_ID, -100)
+      chart.translatePrice(MAIN_PANE_ID, 80)
+      chart.draw()
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(2)
+      expect(handRange()).not.toBeNull()
+
+      chart.resetChart()
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(3)
+      expect(handRange()).toBeNull()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('rejects multiple primary symbols and clears a timeshare primary explicitly', async () => {
     const chart = mountChart()
     try {

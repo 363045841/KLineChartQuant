@@ -41,6 +41,7 @@ function pickKeys(event: KeyboardEventLike): KeyboardEventLike {
     metaKey: event.metaKey,
     altKey: event.altKey,
     shiftKey: event.shiftKey,
+    code: event.code,
   }
 }
 

@@ -638,6 +638,10 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   getLeftLoadBufferWidth(): number
   /** scroll to the rightmost position (latest data) */
   scrollToRight(): void
+  /** 按 K 线根数水平平移视口；正数向右、负数向左。 */
+  scrollByBars(bars: number): void
+  /** 重置视图：恢复初始缩放级别并复位主图价格轴。 */
+  resetChart(): void
 
   // ---- Settings ----
   updateSettingsFacade(settings: Record<string, unknown>): void

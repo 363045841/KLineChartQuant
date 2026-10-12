@@ -229,6 +229,18 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.scrollToRight()
   }
 
+  /** 按 K 线根数水平平移视口；正数向右、负数向左。 */
+  function scrollByBars(bars: number): void {
+    if (isDisposed()) return
+    chart.scrollByBars(bars)
+  }
+
+  /** 重置图表视图：恢复初始缩放级别，并复位主图价格轴。 */
+  function resetChart(): void {
+    if (isDisposed()) return
+    chart.resetChart()
+  }
+
   /** 获取指标实例标题；找不到返回 undefined。 */
   function getIndicatorTitle(instanceId: string): string | undefined {
     if (isDisposed()) return undefined
@@ -364,6 +376,8 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     usePlugin,
     removePlugin,
     scrollToRight,
+    scrollByBars,
+    resetChart,
     getIndicatorTitle,
     createPane,
     clearPanes,

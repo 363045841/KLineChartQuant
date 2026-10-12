@@ -149,6 +149,8 @@ function lastSeriesValue(series: unknown): number | null {
 export class Chart {
   private dom: ChartDom
   private dataManager: ChartDataManager
+  /** 创建时配置的初始缩放级别；`resetChart` 恢复到该档位。 */
+  private readonly initialZoomLevel: number
 
   /** StateKernel — single source of truth for all chart state */
   readonly kernel: ChartStateKernel
@@ -277,7 +279,7 @@ export class Chart {
     this.pluginHost = createPluginHost()
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
 
-    const initialZoomLevel = opt.initialZoomLevel ?? 1
+    this.initialZoomLevel = opt.initialZoomLevel ?? 1
     const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? DEFAULT_ZOOM_LEVEL_COUNT))
 
     // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
@@ -286,7 +288,7 @@ export class Chart {
         ...restOpt,
         zoomLevelCount,
       },
-      initialZoomLevel,
+      initialZoomLevel: this.initialZoomLevel,
       initialSettings: runtime?.initialSettings,
       initialRendererRuntime: this.rendererHost.runtime,
       marketSessions: this.marketSessions,
@@ -1160,6 +1162,30 @@ export class Chart {
   scrollToRight(): void {
     this.dataManager.scrollToRight()
     this.checkVisibleRangeGapWhenIdle()
+  }
+
+  /**
+   * 按 K 线根数水平平移视口；正数向右（更新），负数向左（更早）。
+   *
+   * @param bars - 平移根数，非有限值或 0 时忽略
+   */
+  scrollByBars(bars: number): void {
+    if (!Number.isFinite(bars) || bars === 0) return
+    const view = this.kernel.viewport.readonly.viewSnapshot.peek()
+    if (!view.capabilities.allowPan) return
+    const { min, max } = view.scrollBounds
+    const target = Math.max(min, Math.min(view.scroll + bars * view.grid.step, max))
+    if (this.kernel.viewport.actions.scrollToLogical(target)) {
+      this.interaction.stopInertia()
+      this.scheduleDraw()
+      this.checkVisibleRangeGapWhenIdle()
+    }
+  }
+
+  /** 重置图表视图：恢复初始缩放级别，再清除主图价格轴的手动缩放与偏移。 */
+  resetChart(): void {
+    this.zoom.toLevel(this.initialZoomLevel)
+    this.resetPriceTransform(MAIN_PANE_ID)
   }
 
   /**

@@ -338,6 +338,8 @@ export function createMockChartController(
     getContentWidth: () => 0,
     getLeftLoadBufferWidth: () => 0,
     scrollToRight: () => {},
+    scrollByBars: () => {},
+    resetChart: () => {},
     updateSettingsFacade: () => {},
     resetMainPriceAxis: () => {
       resetPriceAxisCalls += 1

@@ -65,7 +65,10 @@ function scopeOf(target: EventTarget | null): CommandScopeEntry | null {
 
 /** 页面级 keydown 处理：按焦点定位所属图表，否则交给最近活动图表。 */
 function onDocumentKeydown(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.isComposing) return
+  if (event.defaultPrevented) return
+  // IME 组合态只阻断纯文本输入；带命令修饰键的组合（Ctrl/⌘/Alt）仍按快捷键处理，
+  // 否则中文输入法会吞掉 Ctrl+, 这类标点快捷键。
+  if (event.isComposing && !event.ctrlKey && !event.metaKey && !event.altKey) return
   const owner = scopeOf(event.target)
   const entry = owner ?? lastActive
   if (!entry || !scopes.has(entry)) return

@@ -126,6 +126,8 @@ export interface KeyboardEventLike {
   readonly metaKey: boolean
   readonly altKey: boolean
   readonly shiftKey: boolean
+  /** 物理键 code（如 `'Comma'`）；中文等 IME 组合态下 `key` 会退化为 `'Process'`，用 code 兜底标点匹配。 */
+  readonly code?: string
 }
 
 export interface ShortcutRegistryOptions {
@@ -152,6 +154,25 @@ const MODIFIER_TOKENS = new Set([
   'option',
   'shift',
 ])
+
+/**
+ * 标点键的物理 code 映射：中文等 IME 组合态下 `event.key` 会变成 `'Process'` 或全角字符，
+ * 而物理 `code` 不变。命中标点快捷键时用 code 兜底，避免 IME 吞掉 `Ctrl+,` 这类组合。
+ */
+const PUNCTUATION_CODES: Readonly<Record<string, string>> = {
+  ',': 'Comma',
+  '.': 'Period',
+  '/': 'Slash',
+  ';': 'Semicolon',
+  "'": 'Quote',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '\\': 'Backslash',
+  '-': 'Minus',
+  '=': 'Equal',
+  '`': 'Backquote',
+  ' ': 'Space',
+}
 
 /**
  * Parse a combo source string into the normalised {@link ParsedCombo}.
@@ -339,10 +360,15 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
       const altOk = event.altKey === parsed.altKey
       const shiftOk = event.shiftKey === parsed.shiftKey
       // Key match: case-insensitive for single-letter keys, exact for
-      // named keys (ArrowRight, F5, ...).
+      // named keys (ArrowRight, F5, ...). 标点额外按物理 code 兜底：仅当 key
+      // 退化为 'Process' / 全角等非可打印 ASCII 时启用，覆盖 IME 组合态，
+      // 且不会让 Shift 组合误命中未加 Shift 的标点快捷键。
       const keyOk =
         parsed.key.length === 1
-          ? parsed.key.toLowerCase() === event.key.toLowerCase()
+          ? parsed.key.toLowerCase() === event.key.toLowerCase() ||
+            (event.code !== undefined &&
+              PUNCTUATION_CODES[parsed.key] === event.code &&
+              !/^[\x20-\x7e]$/.test(event.key))
           : parsed.key === event.key
       if (!ctrlOk || !metaOk || !altOk || !shiftOk || !keyOk) continue
       if (def.when !== undefined && !def.when()) continue

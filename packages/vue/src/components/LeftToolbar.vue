@@ -204,7 +204,7 @@
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <BaseTooltip content="放大">
+      <BaseTooltip content="放大" command="view.zoomIn">
         <button
           type="button"
           class="left-toolbar__button"
@@ -217,7 +217,7 @@
           <IconTablerZoomIn class="tool-icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="缩小">
+      <BaseTooltip content="缩小" command="view.zoomOut">
         <button
           type="button"
           class="left-toolbar__button"

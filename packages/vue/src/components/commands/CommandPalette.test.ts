@@ -13,6 +13,20 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+/** 图表命令按注册顺序的平台化快捷键，供命令面板断言与命令目录保持一致。 */
+const CHART_COMMAND_SHORTCUTS = [
+  'Alt+S',
+  'Ctrl+,',
+  'Ctrl+↑',
+  'Ctrl+↓',
+  '←',
+  '→',
+  'Alt+R',
+  'Shift+F',
+  'Ctrl+Z',
+  'Ctrl+Shift+Z',
+] as const
+
 describe('CommandPalette', () => {
   it('searches the registry and runs the selected command through it', async () => {
     const registry = createCommandRegistry({ platform: 'win' })
@@ -72,7 +86,15 @@ describe('CommandPalette', () => {
     const controller = createMockChartController()
     controller._setDrawingHistory(true, true)
     const registry = createCommandRegistry({ platform: 'win' })
-    registry.register(createChartCommands({ controller: () => controller, openPalette: vi.fn() }))
+    registry.register(
+      createChartCommands({
+        controller: () => controller,
+        openPalette: vi.fn(),
+        toggleFullscreen: vi.fn(),
+        openSettings: vi.fn(),
+        screenshot: vi.fn(),
+      }),
+    )
     const open = ref(true)
     const wrapper = mount(
       defineComponent({
@@ -91,14 +113,22 @@ describe('CommandPalette', () => {
     const shortcuts = [...document.querySelectorAll('.shortcut-key-group')].map((el) =>
       el.textContent?.replace(/\s+/g, ''),
     )
-    expect(shortcuts).toEqual(['Ctrl+Z', 'Ctrl+Shift+Z'])
+    expect(shortcuts).toEqual([...CHART_COMMAND_SHORTCUTS])
     wrapper.unmount()
   })
 
   it('lists unavailable commands as disabled but still shows their shortcuts', async () => {
     const controller = createMockChartController()
     const registry = createCommandRegistry({ platform: 'win' })
-    registry.register(createChartCommands({ controller: () => controller, openPalette: vi.fn() }))
+    registry.register(
+      createChartCommands({
+        controller: () => controller,
+        openPalette: vi.fn(),
+        toggleFullscreen: vi.fn(),
+        openSettings: vi.fn(),
+        screenshot: vi.fn(),
+      }),
+    )
     const open = ref(true)
     const wrapper = mount(
       defineComponent({
@@ -115,11 +145,22 @@ describe('CommandPalette', () => {
     )
     await flush()
     const items = [...document.querySelectorAll<HTMLButtonElement>('.command-palette__item')]
-    expect(items.map((item) => item.disabled)).toEqual([true, true])
+    expect(items.map((item) => item.disabled)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+    ])
     const shortcuts = [...document.querySelectorAll('.shortcut-key-group')].map((el) =>
       el.textContent?.replace(/\s+/g, ''),
     )
-    expect(shortcuts).toEqual(['Ctrl+Z', 'Ctrl+Shift+Z'])
+    expect(shortcuts).toEqual([...CHART_COMMAND_SHORTCUTS])
     wrapper.unmount()
   })
 })
