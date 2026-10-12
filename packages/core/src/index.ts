@@ -19,6 +19,7 @@ export {
   resolveIndicatorLayerId,
 } from './engine/indicators/indicatorDefinitionRegistry.js'
 export {
+  type IndicatorInputDef,
   IndicatorKind,
   type IndicatorMetadata,
   type IndicatorRendererOptions,

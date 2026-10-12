@@ -120,7 +120,7 @@ describe('createChartController mount theme', () => {
     ctrl.dispose()
     ctrl.setData(createBars())
     expect(ctrl.getData()).toEqual([])
-    expect(ctrl.addIndicator('RSI', 'sub')).toBeNull()
+    expect(ctrl.addIndicator('RSI')).toBeNull()
     expect(ctrl.removeDrawing('missing')).toBe(false)
     expect(ctrl.getPaneInfo('main')).toBeUndefined()
     expect(ctrl.getViewport()).toBeNull()
@@ -135,7 +135,7 @@ describe('createChartController mount theme', () => {
     document.body.appendChild(container)
 
     const ctrl = await createChartController({ container })
-    const instanceId = ctrl.addIndicator('RSI', 'sub')
+    const instanceId = ctrl.addIndicator('RSI')
     const paneId = ctrl.subPanes.peek().find((pane) => pane.instanceId === instanceId)?.paneId
 
     expect(paneId).toBeDefined()

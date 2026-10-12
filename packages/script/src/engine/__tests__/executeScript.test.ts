@@ -4,18 +4,21 @@ import { SCRIPT_ERROR_CODES, ScriptPlotError } from '../../errors.js'
 import { openCloseAverage } from '../../indicators/openCloseAverage.js'
 import { executeScript } from '../impl/executeScript.js'
 
+/** 运行测试使用可编辑参数类型，默认值不限制后续输入值。 */
+const editableAverage: IndicatorDef<{ n: number; a: number }> = openCloseAverage
+
 describe('executeScript', () => {
   it.each([0, -0])('除数 %s 的无穷大输出产生带位置的运行错误，恢复参数后可重新执行', (n) => {
     const bars = [{ time: 1, open: 100, high: 102, low: 98, close: 100, volume: 1 }]
-    expect(() => executeScript(openCloseAverage, bars, { n })).toThrow(ScriptPlotError)
-    expect(() => executeScript(openCloseAverage, bars, { n })).toThrow(
+    expect(() => executeScript(editableAverage, bars, { n })).toThrow(ScriptPlotError)
+    expect(() => executeScript(editableAverage, bars, { n })).toThrow(
       expect.objectContaining({
         code: SCRIPT_ERROR_CODES.INFINITE_PLOT_VALUE,
         plotId: 'oc-average',
         barIndex: 0,
       }),
     )
-    expect(executeScript(openCloseAverage, bars, { n: 4 }).plots[0]?.data[0]?.value).toBe(50)
+    expect(executeScript(editableAverage, bars, { n: 4 }).plots[0]?.data[0]?.value).toBe(50)
   })
 
   it('NaN 保留为空点，不触发运行错误', () => {

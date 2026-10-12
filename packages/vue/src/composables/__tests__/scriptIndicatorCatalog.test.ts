@@ -5,6 +5,7 @@ import {
   createIndicatorSelectorController,
   findIndicator,
 } from '@363045841yyt/klinechart-core/controllers'
+import { input } from '@363045841yyt/klinechart-script'
 import { openCloseAverage } from '@363045841yyt/klinechart-script/indicators'
 import { registerScriptIndicator } from '@363045841yyt/klinechart-script-chart'
 import { describe, expect, it } from 'vitest'
@@ -62,5 +63,18 @@ describe('Script selector catalog', () => {
       expect(draft.localValues.value).toEqual({ period: 5, text: 'close', enabled: false })
     })
     scope.stop()
+  })
+  it('input() 声明的标题作为参数面板显示名', () => {
+    registerScriptIndicator({
+      name: 'TitledInputScript',
+      inputs: { n: input(2, '除数') },
+      onBar(ctx) {
+        ctx.plot(ctx.close, { id: 'close' })
+      },
+    })
+
+    expect(findIndicator('TitledInputScript')!.params).toEqual([
+      { key: 'n', label: '除数', type: 'number', default: 2 },
+    ])
   })
 })

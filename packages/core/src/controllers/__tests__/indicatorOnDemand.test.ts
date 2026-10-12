@@ -120,13 +120,13 @@ describe('chart controller on-demand loading', () => {
 
       // 未加载时同步方法拒绝写入，并提示宿主先加载。
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      expect(controller.addIndicator('MACD', 'sub')).toBeNull()
+      expect(controller.addIndicator('MACD')).toBeNull()
       expect(warn).toHaveBeenCalledOnce()
 
       loads.clear()
       await controller.loadIndicators(['MACD'])
       expect([...loads]).toEqual([['macd', 1]])
-      const instanceId = controller.addIndicator('MACD', 'sub')
+      const instanceId = controller.addIndicator('MACD')
       expect(instanceId).not.toBeNull()
       const pane = controller.subPanes.peek().find((item) => item.indicatorId === 'MACD')
       expect(pane).toBeDefined()
@@ -140,8 +140,8 @@ describe('chart controller on-demand loading', () => {
   it('restores a saved layout only after loading the indicators it references', async () => {
     const first = await mountController()
     await first.controller.loadIndicators(['RSI', 'BOLL'])
-    expect(first.controller.addIndicator('RSI', 'sub')).not.toBeNull()
-    expect(first.controller.addIndicator('BOLL', 'main')).not.toBeNull()
+    expect(first.controller.addIndicator('RSI')).not.toBeNull()
+    expect(first.controller.addIndicator('BOLL')).not.toBeNull()
     await first.controller.saveLayout({ name: 'restored' })
     await first.controller.dispose()
     first.container.remove()

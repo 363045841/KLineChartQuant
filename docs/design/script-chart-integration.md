@@ -36,7 +36,7 @@ import { registerDefinedScripts } from '@363045841yyt/klinechart-script-chart'
 import './my-scripts.js'
 
 registerDefinedScripts()
-const instanceId = controller.addIndicator('ScriptClose', 'main', { factor: 2 })
+const instanceId = controller.addIndicator('ScriptClose', { factor: 2 })
 // 删除时使用 controller.removeIndicator(instanceId)。
 ```
 
@@ -56,6 +56,10 @@ const instanceId = controller.addIndicator('ScriptClose', 'main', { factor: 2 })
 
 `defineIndicator` 把定义记入 script 包的名单并通知订阅者；适配层订阅该名单，
 用 `registerDefinedScripts` 一次性开启自动注册。开启后回放已有脚本，并持续注册后续声明的脚本。
+
+脚本的输入参数在 script 包内用 `input(默认值, 标题)` 声明。适配层把声明中的展示字段
+（`title`）作为 `runtime.inputDefs` 传给 core，默认值仍走 `defaultParams`，两处不重复存默认值；
+core 的选择器目录据此生成参数面板，缺省时用参数名当标题。
 
 核心与脚本仍互不认识：名单和订阅机制都在 script 包内，只有适配层同时看到两者。
 重复调用 `registerDefinedScripts` 只生效一次；同一脚本对象重复声明只登记一次。

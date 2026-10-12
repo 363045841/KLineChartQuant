@@ -189,6 +189,16 @@ export type GetTitleInfoFn = (
 ) => TitleInfo | null
 
 /**
+ * 输入参数在面板中的展示声明。
+ *
+ * 只承载展示信息，默认值与类型仍由 runtime.defaultParams 提供，避免两处各存一份默认值。
+ */
+export interface IndicatorInputDef {
+  /** 面板显示名；缺省显示参数名。 */
+  readonly title?: string
+}
+
+/**
  * 指标计算描述符
  * 描述每个指标的计算逻辑，供 IndicatorRuntime 驱动
  *
@@ -211,6 +221,8 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   paneIdKey?: string
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
+  /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
+  inputDefs?: Readonly<Record<string, IndicatorInputDef>>
   /** 计算函数（主线程直接调用，Worker 用 computeKey 桥接） */
   compute: (
     data: KLineData[],

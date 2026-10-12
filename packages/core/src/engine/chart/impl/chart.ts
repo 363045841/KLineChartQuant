@@ -682,7 +682,7 @@ export class Chart {
     this.legendDom.clear()
 
     if (isTimeShareDataView(nextDataView)) {
-      const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+      const percentMap = new Map(this.kernel.pane.getScalePreferences())
       for (const renderer of this.paneRenderers) {
         const pane = renderer.getPane()
         if (pane.role === 'price') percentMap.set(pane.id, ScaleType.Percent)
@@ -782,7 +782,7 @@ export class Chart {
 
   /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */
   private projectPaneScaleTypes(): void {
-    const types = this.kernel.pane.readonly.paneScaleTypes.peek()
+    const types = this.kernel.pane.getScalePreferences()
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       const t = types.get(pane.id) ?? ScaleType.Linear
@@ -792,7 +792,7 @@ export class Chart {
 
   /** 按用户坐标偏好生成各 pane 的刻度 Map */
   private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
-    const current = this.kernel.pane.readonly.paneScaleTypes.peek()
+    const current = this.kernel.pane.getScalePreferences()
     const panes = this.paneRenderers.map((renderer) => renderer.getPane())
     const next = buildPaneScaleTypesFromSetting(panes, resolvePriceScaleTypeSetting(setting))
     for (const pane of panes) {
@@ -814,7 +814,7 @@ export class Chart {
       this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
     )
     const seeded = this.buildScaleTypesFromSetting(setting)
-    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+    const next = new Map(this.kernel.pane.getScalePreferences())
     let changed = false
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()

@@ -19,14 +19,14 @@ pnpm add @363045841yyt/klinechart-script
 声明一个指标：`name` 是指标身份，`inputs` 声明参数，`onBar` 每根 K 线执行一次。
 
 ```ts
-import { defineIndicator } from '@363045841yyt/klinechart-script'
+import { defineIndicator, input } from '@363045841yyt/klinechart-script'
 
 export const openCloseAverage = defineIndicator({
   name: 'OC Average',
   pane: 'main',
-  inputs: {},
-  onBar(ctx) {
-    ctx.plot((ctx.open + ctx.close) / 2, { id: 'oc-average' })
+  inputs: { n: input(2, '除数') },
+  onBar(ctx, params) {
+    ctx.plot((ctx.open + ctx.close) / params.n, { id: 'oc-average' })
   },
 })
 ```

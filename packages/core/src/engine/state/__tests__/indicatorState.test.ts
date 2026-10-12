@@ -1,9 +1,13 @@
 /** 验证指标状态写入，使用正式装配的计算参数契约。 */
 import { beforeAll, describe, expect, it } from 'vitest'
-import { registerIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
+import {
+  registerIndicatorDefinition,
+  registerIndicatorDescriptor,
+} from '../../indicators/indicatorDefinitionRegistry'
 import { CCIIndicatorDefinition } from '../../renderers/Indicator/cci'
 import { VolumeIndicatorDefinition } from '../../renderers/subVolume'
 import { createIndicatorState, type IndicatorInstanceSpec } from '../indicatorState'
+import { createPaneState } from '../paneState'
 
 beforeAll(() => {
   registerIndicatorDefinition(CCIIndicatorDefinition)
@@ -11,6 +15,38 @@ beforeAll(() => {
 })
 
 describe('indicatorState', () => {
+  it.each([
+    { source: 'native' as const, category: 'main' as const },
+    { source: 'native' as const, category: 'sub' as const },
+    { source: 'script' as const, category: 'main' as const },
+    { source: 'script' as const, category: 'sub' as const },
+  ])(
+    '目录发布后按 $source 定义的 $category 位置派生，不使用写入入口的位置',
+    ({ source, category }) => {
+      const indicatorId = `placement-${source}-${category}`
+      const state = createIndicatorState()
+      const pane = createPaneState(state.readonly.workspaces)
+      state.actions.upsertMain(indicatorId, { n: 2 })
+      expect(state.readonly.instances.peek()).toEqual([])
+      registerIndicatorDescriptor({
+        name: indicatorId,
+        displayName: indicatorId,
+        source,
+        kind: 'indicator',
+        category,
+        indicatorType: 'other',
+        defaultPaneId: category === 'main' ? 'main' : `sub_${indicatorId}`,
+      })
+      const instance = state.readonly.instances.peek()[0]!
+      expect(instance.role).toBe(category)
+      expect(instance.paneId).toBe(category === 'main' ? 'main' : `pane:main:${indicatorId}`)
+      expect(pane.readonly.paneSpecs.peek().map((spec) => spec.id)).toEqual(
+        category === 'main' ? ['main'] : ['main', instance.paneId],
+      )
+      expect(state.readonly.configurations.peek().kline[0]).not.toHaveProperty('role')
+      expect(state.readonly.configurations.peek().kline[0]).not.toHaveProperty('paneId')
+    },
+  )
   it('restores independent user indicators for kline and timeshare workspaces', () => {
     const m = createIndicatorState()
     m.actions.restoreWorkspaces({
@@ -19,14 +55,13 @@ describe('indicatorState', () => {
           {
             instanceId: 'main:BOLL',
             indicatorId: 'BOLL',
-            paneId: 'main',
-            role: 'main',
+            layoutId: 'pane:main:BOLL',
             ordinal: 0,
             params: { period: 20 },
           },
         ],
         paneRatios: { main: 1 },
-        paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+        paneSpecs: [{ id: 'main', ratio: 1 }],
         paneScaleTypes: {},
       },
       timeshare: {
@@ -34,14 +69,13 @@ describe('indicatorState', () => {
           {
             instanceId: 'main:MA',
             indicatorId: 'MA',
-            paneId: 'main',
-            role: 'main',
+            layoutId: 'pane:main:MA',
             ordinal: 0,
             params: { period: 5 },
           },
         ],
         paneRatios: { main: 1 },
-        paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+        paneSpecs: [{ id: 'main', ratio: 1 }],
         paneScaleTypes: {},
       },
     })

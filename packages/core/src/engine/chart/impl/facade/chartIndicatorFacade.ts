@@ -70,8 +70,8 @@ export class ChartIndicatorFacade {
   }
 
   /** 添加主图或副图指标实例。 */
-  add(definitionId: string, role: 'main' | 'sub', params?: Record<string, unknown>): string | null {
-    return this.deps.manager.addIndicator(definitionId, role, params)
+  add(definitionId: string, params?: Record<string, unknown>): string | null {
+    return this.deps.manager.addIndicator(definitionId, params)
   }
 
   /** 移动主图 Legend。 */

@@ -147,7 +147,7 @@ async function cleanup() {
 ```
 
 指标型 Layer 通过正式入口的 `@Indicator` 声明，再由 `registerIndicatorDefinition` 注册，名称可为第三方字符串；
-内置指标状态契约仍保持闭集。先注册定义，再调用 `addIndicator(name, role)`，
+内置指标状态契约仍保持闭集。先注册定义，再调用 `addIndicator(name)`，位置由定义决定，
 Layer 的创建、参数更新和移除由指标状态驱动。指标工厂应使 Layer.id 与定义的
 渲染名称一致：`resolveIndicatorLayerId(definitionId, paneId)`。定义的名称规则是唯一来源，工厂不得重复拼接名称。
 主图定义需声明 `mainPane`，副图定义需声明坐标轴元数据。
@@ -178,7 +178,7 @@ class StatusIndicator {
 registerIndicatorDefinition(StatusIndicator)
 
 // 创建图表后，由状态挂载或移除指标实例。
-const instanceId = chart.addIndicator(indicatorName, 'main')
+const instanceId = chart.addIndicator(indicatorName)
 if (instanceId) chart.removeIndicator(instanceId)
 ```
 

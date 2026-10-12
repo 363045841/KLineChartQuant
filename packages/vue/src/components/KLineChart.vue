@@ -458,7 +458,6 @@
   // ── Props & Emits ──
   type ChartIndicatorConfig = {
     definitionId: string
-    role: 'main' | 'sub'
     enabled: boolean
     params?: Record<string, unknown>
   }
@@ -1719,7 +1718,7 @@
       }
       for (const indicator of props.indicators) {
         if (indicator.enabled) {
-          ctrl.addIndicator(indicator.definitionId, indicator.role, indicator.params)
+          ctrl.addIndicator(indicator.definitionId, indicator.params)
         }
       }
     }

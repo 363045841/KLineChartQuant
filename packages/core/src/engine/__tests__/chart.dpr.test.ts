@@ -1024,23 +1024,22 @@ describe('Chart DPR pipeline', () => {
             {
               instanceId: 'user:rsi-0',
               indicatorId: 'RSI',
-              paneId: 'RSI_0',
-              role: 'sub',
+              layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
             },
           ],
           paneRatios: { main: 0.75, RSI_0: 0.25 },
           paneSpecs: [
-            { id: 'main', ratio: 0.75, role: 'price' },
-            { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+            { id: 'main', ratio: 0.75 },
+            { id: 'RSI_0', ratio: 0.25 },
           ],
           paneScaleTypes: {},
         },
         timeshare: {
           instances: [],
           paneRatios: { main: 1 },
-          paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+          paneSpecs: [{ id: 'main', ratio: 1 }],
           paneScaleTypes: {},
         },
       },
@@ -1464,23 +1463,22 @@ describe('Chart pane layout regressions', () => {
             {
               instanceId: 'user:rsi-0',
               indicatorId: 'RSI',
-              paneId: 'RSI_0',
-              role: 'sub',
+              layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
             },
           ],
           paneRatios: { main: 0.75, RSI_0: 0.25 },
           paneSpecs: [
-            { id: 'main', ratio: 0.75, role: 'price' },
-            { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+            { id: 'main', ratio: 0.75 },
+            { id: 'RSI_0', ratio: 0.25 },
           ],
           paneScaleTypes: {},
         },
         timeshare: {
           instances: [],
           paneRatios: { main: 1 },
-          paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+          paneSpecs: [{ id: 'main', ratio: 1 }],
           paneScaleTypes: {},
         },
       },
@@ -1587,14 +1585,14 @@ describe('Chart pane layout regressions', () => {
   it('timeshare does not reuse a K-line volume pane', async () => {
     const chart = mountChart()
     chart.resize()
-    const volumePaneId = chart.indicators.add('VOL', 'sub')
+    const volumePaneId = chart.indicators.add('VOL')
     expect(volumePaneId).not.toBeNull()
     const tsMode = getModeHandlers(chart).timeShare
     const kMode = getModeHandlers(chart).kLine
 
     chart.setActiveMode(tsMode)
     expect(chart.indicators.subPanes.peek()).toEqual([])
-    const timeShareVolumePaneId = chart.indicators.add('VOL', 'sub')
+    const timeShareVolumePaneId = chart.indicators.add('VOL')
     expect(timeShareVolumePaneId).not.toBeNull()
 
     chart.setActiveMode(kMode)
@@ -1716,6 +1714,8 @@ describe('Chart pane layout regressions', () => {
 
   it('normalizes only visible panes in imported layout', async () => {
     const chart = mountChart(1000, 800)
+    chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
     chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },

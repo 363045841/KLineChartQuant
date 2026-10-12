@@ -335,7 +335,7 @@ export function useIndicatorSelector(controller: ChartController): {
     const def = controller.catalog.find((d) => d.id === definitionId)
     if (def === undefined) return null
     await controller.loadIndicators([definitionId])
-    return controller.addIndicator(definitionId, def.role)
+    return controller.addIndicator(definitionId)
   }
 
   function remove(instanceId: string): boolean {

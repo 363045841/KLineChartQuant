@@ -89,14 +89,10 @@ export class LegendManager implements LegendApi {
 
   /** 启用领域指标并回读其稳定图例 ID。 */
   private createIndicator(input: Extract<CreateLegendInput, { kind: 'indicator' }>): string | null {
-    const created = this.deps.indicators.add(input.definitionId, input.role, input.params)
+    const created = this.deps.indicators.add(input.definitionId, input.params)
     if (!created) return null
     const entry = this.list().find(
-      (item) =>
-        item.kind === 'indicator' &&
-        (input.role === 'main'
-          ? item.paneId === MAIN_PANE_ID && item.definitionId === created
-          : item.id === created),
+      (item) => item.kind === 'indicator' && (item.id === created || item.definitionId === created),
     )
     return entry?.id ?? null
   }

@@ -1197,16 +1197,13 @@ export class ChartIndicatorManager {
   /**
    * 添加指标实例；主图返回规范化 definitionId，副图创建独立 instanceId 和 paneId。
    * @param definitionId 已注册的指标定义标识。
-   * @param role 指标显示位置。
    * @param params 可选的指标参数覆盖。
    * @returns 成功时返回可用于后续操作的标识，失败时返回 null。
    */
-  addIndicator(
-    definitionId: string,
-    role: 'main' | 'sub',
-    params?: Record<string, unknown>,
-  ): string | null {
-    if (role === 'main') {
+  addIndicator(definitionId: string, params?: Record<string, unknown>): string | null {
+    const definition = getRegisteredIndicatorDefinition(definitionId)
+    if (!definition) return null
+    if (definition.category === 'main') {
       const success = this.enableMainIndicator(
         definitionId,
         params as Record<string, number | boolean | string>,
@@ -1214,8 +1211,6 @@ export class ChartIndicatorManager {
       if (!success) return null
       return resolveIndicatorDefinitionId(definitionId) ?? definitionId
     } else {
-      const definition = getRegisteredIndicatorDefinition(definitionId)
-      if (!definition) return null
       const instanceId = generateUUID()
       const paneId = generateUUID()
       this.deps.subPaneOps.create(

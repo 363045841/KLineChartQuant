@@ -21,9 +21,12 @@ export interface Ctx {
   plot(value: number, options: PlotOptions): void
 }
 
-/** 单个输入参数的声明。 */
+/** 单个输入参数的声明，由 input() 工厂产出。 */
 export interface InputDef<T> {
-  default: T
+  /** 默认值，同时决定参数在面板中的编辑类型。 */
+  readonly default: T
+  /** 参数面板中的显示名；缺省显示参数名。 */
+  readonly title?: string
 }
 
 /** 输入声明表：键即参数名，P 为解析后的参数值类型。 */

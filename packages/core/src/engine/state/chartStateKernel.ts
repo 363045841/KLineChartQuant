@@ -287,7 +287,7 @@ export class ChartStateKernel extends StateKernel {
     })
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
-    this.pane = createPaneState()
+    this.pane = createPaneState(this.indicator.readonly.workspaces)
     {
       const initialPanes = (deps.initialOptions.panes ?? []).map((spec) => ({ ...spec }))
       const initialRatios: Record<string, number> = {}
@@ -468,11 +468,6 @@ export class ChartStateKernel extends StateKernel {
           this.mode.actions.setDataView(view, lastBarPeriod)
           this.indicator.actions.setActiveWorkspace(workspaceId)
           this.pane.actions.setActiveWorkspace(workspaceId)
-          if (this.pane.readonly.paneSpecs.peek().length === 0) {
-            this.pane.actions.commitLayout({ main: 1 }, [
-              { id: 'main', ratio: 1, visible: true, role: 'price' },
-            ])
-          }
           this.indicator.actions.replaceModeInstances(modeInstances)
         })
       },
@@ -529,21 +524,21 @@ export class ChartStateKernel extends StateKernel {
 
   /** 返回两个视图工作区的用户配置快照，排除由 mode 管理的系统实例。 */
   snapshotViewWorkspaces(): LayoutWorkspaces {
-    const indicatorWorkspaces = this.indicator.readonly.workspaces.peek()
+    const indicatorWorkspaces = this.indicator.readonly.configurations.peek()
     const paneWorkspaces = this.pane.readonly.workspaces.peek()
     const snapshot = (workspaceId: ChartWorkspaceId) => {
       const pane = paneWorkspaces[workspaceId]
       return {
-        instances: indicatorWorkspaces[workspaceId]
-          .filter((instance) => instance.source !== 'mode')
-          .map(({ source: _source, params, ...instance }) => ({
-            ...instance,
-            params: { ...params },
-          })),
+        instances: indicatorWorkspaces[workspaceId].map((instance) => ({
+          ...instance,
+          params: { ...instance.params },
+        })),
         paneRatios: { ...pane.paneRatios },
-        paneSpecs: pane.paneSpecs.map((spec) => ({
-          ...spec,
-          ...(spec.capabilities ? { capabilities: { ...spec.capabilities } } : {}),
+        paneSpecs: pane.paneSpecs.map(({ id, ratio, visible, minHeightPx }) => ({
+          id,
+          ratio,
+          visible,
+          minHeightPx,
         })),
         paneScaleTypes: Object.fromEntries(pane.paneScaleTypes),
       }

@@ -159,7 +159,6 @@ export type CreateLegendInput =
   | {
       kind: 'indicator'
       definitionId: string
-      role: 'main' | 'sub'
       params?: Record<string, unknown>
     }
   | { kind: 'comparison'; spec: SymbolSpec; primary?: SymbolSpec | null }

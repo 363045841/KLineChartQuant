@@ -4,7 +4,7 @@
 
 ## 示例脚本
 
-以下脚本计算 (开盘价 + 收盘价) / 2，并画成一条折线：
+以下脚本计算 (开盘价 + 收盘价) / n，并画成一条折线：
 
 ```ts
 /**
@@ -13,8 +13,9 @@
  * 这是 Script 引擎最早的验证指标，逐 bar 计算 (open + close) / 2 并画到图上。
  */
 import { defineIndicator } from '../defineIndicator.js'
+import { input } from '../input.js'
 
-/** Open/Close 平均值：输出 (open + close) / 2。 */
+/** Open/Close 平均值：输出 (open + close) / n。 */
 export const openCloseAverage = defineIndicator({
   /** 指标名称。 */
   name: 'OC Average',
@@ -22,12 +23,12 @@ export const openCloseAverage = defineIndicator({
   /** 注册到主图。 */
   pane: 'main',
 
-  /** 输入参数声明；本指标无参数。 */
-  inputs: {},
+  /** 输入参数声明：n 为除数，缺省 2 即两价均值。 */
+  inputs: { n: input(2, '除数') },
 
-  /** 每根 K 线执行一次：读取当前 bar 的 open / close，求平均后用 Plot 系函数输出。 */
-  onBar(ctx) {
-    const average = (ctx.open + ctx.close) / 2
+  /** 每根 K 线执行一次：读取当前 bar 的 open / close，求和后除以 n 用 Plot 系函数输出。 */
+  onBar(ctx, params) {
+    const average = (ctx.open + ctx.close) / params.n
     ctx.plot(average, { id: 'oc-average', color: '#26a69a' })
   },
 })
@@ -59,11 +60,21 @@ registerDefinedScripts()
 | `name` | 指标名称，用于目录展示和实例身份；同名重复注册保持首次结果 |
 | `pane` | 注册位置，`main` 主图 / `sub` 副图；缺省为副图 |
 | `displayName` | 显示名称；缺省取 `name` |
-| `inputs` | 参数声明表，键为参数名，`default` 为默认值；用户修改后按覆盖值执行 |
+| `inputs` | 参数声明表，键为参数名，值由 `input(默认值, 标题)` 生成；用户修改后按覆盖值执行 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取当前 bar 与参数，输出 Plot |
 
 `onBar` 收到两个参数：`ctx` 是当前 K 线，`params` 是本次运行的参数。
 `ctx` 提供 `open`、`high`、`low`、`close`、`volume` 五个只读字段，以及输出绘图点的 `plot()`。
+
+参数用 `input(默认值, 标题)` 声明，表的键就是脚本里读的名字：
+
+| 写法 | 面板编辑项 |
+| --- | --- |
+| `n: input(2, '除数')` | 数字输入 |
+| `show: input(true, '显示')` | 开关 |
+| `label: input('MA', '名称')` | 文本输入 |
+
+编辑类型由默认值决定；标题缺省显示参数名。
 
 ```ts
 onBar(ctx, params) {

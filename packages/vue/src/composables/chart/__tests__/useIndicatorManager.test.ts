@@ -13,8 +13,8 @@ function createFixture() {
   vi.spyOn(controller, 'loadIndicators').mockImplementation(async (ids) => {
     events.push(`load:${ids.join(',')}`)
   })
-  vi.spyOn(controller, 'addIndicator').mockImplementation((id, role) => {
-    events.push(`add:${id}:${role}`)
+  vi.spyOn(controller, 'addIndicator').mockImplementation((id) => {
+    events.push(`add:${id}`)
     return 'instance'
   })
   const manager = useIndicatorManager(
@@ -28,10 +28,10 @@ describe('useIndicatorManager on-demand loading', () => {
   it.each([
     { id: 'RSI', role: 'sub' },
     { id: 'BOLL', role: 'main' },
-  ])('loads $id before adding it to the $role pane', async ({ id, role }) => {
+  ])('loads $id before adding it to the $role pane', async ({ id }) => {
     const { events, manager } = createFixture()
     await manager.handleIndicatorToggle(id, true)
-    expect(events).toEqual([`load:${id}`, `add:${id}:${role}`])
+    expect(events).toEqual([`load:${id}`, `add:${id}`])
   })
 
   it('classifies indicators from the static catalog without loading them', () => {

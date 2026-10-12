@@ -6,6 +6,7 @@
  * 由 loadIndicatorDefinitions 按需填充。
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
+import { createSignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataView } from '../chartModel/index.js'
 import { BUILTIN_INDICATOR_MANIFEST } from './generated/builtinIndicators.js'
 import type { IndicatorName } from './indicatorContracts.js'
@@ -17,6 +18,7 @@ import {
 } from './indicatorLayerNaming.js'
 import type {
   IndicatorCategory,
+  IndicatorInputDef,
   IndicatorKind,
   IndicatorMetadata,
   IndicatorType,
@@ -45,6 +47,8 @@ export interface IndicatorDescriptor {
   readonly allowMainPane?: boolean
   /** runtime.defaultParams 的静态值。 */
   readonly defaultParams?: Readonly<Record<string, unknown>>
+  /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultParams。 */
+  readonly inputDefs?: Readonly<Record<string, IndicatorInputDef>>
   /** presentation.defaultOptions 的静态值。 */
   readonly defaultOptions?: Readonly<Record<string, unknown>>
 }
@@ -60,6 +64,7 @@ const indicatorDescriptors = new Map<
 const indicatorDefinitionAliases = new Map<string, string>()
 const pendingDefinitionLoads = new Map<string, Promise<void>>()
 const registrationListeners = new Set<(definition: IndicatorMetadata) => void>()
+const catalogRevision = createSignal(0)
 let builtinCatalogRegistered = false
 
 /** 将已校验的非空别名写入目录索引。 */
@@ -118,6 +123,7 @@ export function registerIndicatorDescriptor(
   const aliases = identityAliases(descriptor)
   assertAliasesAvailable(aliases, normalizedName)
   indicatorDescriptors.set(normalizedName, { descriptor, load })
+  catalogRevision.set(catalogRevision.peek() + 1)
   for (const alias of aliases) indexAlias(alias, normalizedName)
 }
 
@@ -141,6 +147,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
         ? (defaultParams as () => Record<string, unknown>)()
         : (defaultParams as Readonly<Record<string, unknown>> | undefined),
     defaultOptions: definition.presentation?.defaultOptions,
+    inputDefs: definition.runtime?.inputDefs,
   }
 }
 
@@ -173,6 +180,7 @@ export function registerIndicatorDefinition(definitionClass: IndicatorDefinition
   for (const alias of aliases) indexAlias(alias, normalizedName)
   registerIndicatorLayerNaming(aliases, definition.getRendererName, definition.getScaleRendererName)
   for (const listener of [...registrationListeners]) listener(definition)
+  catalogRevision.set(catalogRevision.peek() + 1)
 }
 
 /** 订阅实现装配事件；返回取消订阅函数。 */
@@ -199,6 +207,7 @@ export function getIndicatorDescriptors(): readonly IndicatorDescriptor[] {
 
 /** 按名称、展示名或别名查询静态目录项，不加载实现。 */
 export function getIndicatorDescriptor(nameOrAlias: string): IndicatorDescriptor | undefined {
+  catalogRevision()
   const key = resolveCatalogKey(nameOrAlias)
   return key === undefined ? undefined : indicatorDescriptors.get(key)?.descriptor
 }

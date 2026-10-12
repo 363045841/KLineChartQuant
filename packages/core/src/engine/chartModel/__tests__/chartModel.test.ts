@@ -159,22 +159,23 @@ describe('chartModel', () => {
           {
             instanceId: 'main:BOLL',
             indicatorId: 'BOLL',
-            paneId: 'main',
-            role: 'main' as const,
+            layoutId: 'pane:main:BOLL',
             ordinal: 0,
             params: { period: 20 },
           },
         ],
         paneRatios: { main: 1 },
-        paneSpecs: [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }],
+        paneSpecs: [{ id: 'main', ratio: 1, visible: true }],
         paneScaleTypes: { main: 'log' as const },
       },
       timeshare: {
-        instances: [],
+        instances: [
+          { instanceId: 'rsi', indicatorId: 'RSI', layoutId: 'RSI_0', ordinal: 0, params: {} },
+        ],
         paneRatios: { main: 0.75, RSI_0: 0.25 },
         paneSpecs: [
-          { id: 'main', ratio: 0.75, visible: true, role: 'price' as const },
-          { id: 'RSI_0', ratio: 0.25, visible: true, role: 'indicator' as const },
+          { id: 'main', ratio: 0.75, visible: true },
+          { id: 'RSI_0', ratio: 0.25, visible: true },
         ],
         paneScaleTypes: { main: 'percent' as const },
       },
@@ -190,6 +191,62 @@ describe('chartModel', () => {
     kernel.actions.setDataView(ChartDataViewId.TimeShare)
     expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual(['main', 'RSI_0'])
     expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
+  })
+
+  it('定义决定实例、Pane 和持久文档的位置，布局身份不能覆盖主副图', async () => {
+    await loadBuiltinIndicators()
+    const kernel = createTestChartStateKernel()
+    const document = kernel.createLayout()
+    kernel.applyLayout({
+      ...document,
+      workspaces: {
+        ...document.workspaces,
+        kline: {
+          ...document.workspaces.kline,
+          instances: [
+            {
+              instanceId: 'native-rsi',
+              indicatorId: 'RSI',
+              layoutId: 'rsi-layout',
+              ordinal: 0,
+              params: { period: 14 },
+            },
+            {
+              instanceId: 'native-boll',
+              indicatorId: 'BOLL',
+              layoutId: 'unused-boll-layout',
+              ordinal: 0,
+              params: { period: 20 },
+            },
+          ],
+          paneSpecs: [
+            { id: 'main', ratio: 1 },
+            { id: 'unused-boll-layout', ratio: 1 },
+          ],
+        },
+      },
+    })
+    expect(kernel.indicator.readonly.instances.peek()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ instanceId: 'native-rsi', role: 'sub', paneId: 'rsi-layout' }),
+        expect.objectContaining({ instanceId: 'native-boll', role: 'main', paneId: 'main' }),
+      ]),
+    )
+    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual([
+      'main',
+      'rsi-layout',
+    ])
+    const snapshot = kernel.exportLayout()
+    expect(snapshot.version).toBe(2)
+    for (const config of snapshot.workspaces.kline.instances) {
+      expect(config).not.toHaveProperty('role')
+      expect(config).not.toHaveProperty('paneId')
+    }
+    for (const config of snapshot.workspaces.kline.paneSpecs) {
+      expect(config).not.toHaveProperty('role')
+      expect(config).not.toHaveProperty('capabilities')
+    }
+    kernel.dispose()
   })
 
   it('uses an independent indicator workspace for timeshare', async () => {

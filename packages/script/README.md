@@ -20,14 +20,14 @@ Declare an indicator. `name` identifies it, `inputs` declares its parameters, an
 runs once per bar:
 
 ```ts
-import { defineIndicator } from '@363045841yyt/klinechart-script'
+import { defineIndicator, input } from '@363045841yyt/klinechart-script'
 
 export const openCloseAverage = defineIndicator({
   name: 'OC Average',
   pane: 'main',
-  inputs: {},
-  onBar(ctx) {
-    ctx.plot((ctx.open + ctx.close) / 2, { id: 'oc-average' })
+  inputs: { n: input(2, '除数') },
+  onBar(ctx, params) {
+    ctx.plot((ctx.open + ctx.close) / params.n, { id: 'oc-average' })
   },
 })
 ```

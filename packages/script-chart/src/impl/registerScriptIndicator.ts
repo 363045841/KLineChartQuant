@@ -7,15 +7,31 @@
 import {
   createPlotIndicatorRenderer,
   Indicator,
+  type IndicatorInputDef,
   IndicatorKind,
   registerIndicatorDefinition,
 } from '@363045841yyt/klinechart-core'
 import {
   executeScript,
   type IndicatorDef,
+  type InputDef,
+  type InputSchema,
   resolveScriptParams,
 } from '@363045841yyt/klinechart-script'
 import type { ScriptIndicatorOptions } from '../types.js'
+
+/**
+ * 提取参数的展示声明。
+ *
+ * 只取展示字段：默认值与类型仍由 defaultParams 提供，两处不重复存默认值。
+ */
+function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
+  const defs: Record<string, IndicatorInputDef> = {}
+  for (const [key, def] of Object.entries(inputs as Record<string, InputDef<unknown>>)) {
+    if (def.title !== undefined) defs[key] = { title: def.title }
+  }
+  return defs
+}
 
 /**
  * 注册一个脚本指标。
@@ -45,6 +61,7 @@ export function registerScriptIndicator<P>(
     plots: { source: 'collection', series: [] },
     runtime: {
       defaultParams: resolveScriptParams(script.inputs),
+      inputDefs: resolveInputDefs(script.inputs),
       compute: (data, params: P) =>
         executeScript(
           script,

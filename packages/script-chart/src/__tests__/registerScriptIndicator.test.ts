@@ -2,14 +2,14 @@
  * 适配层测试：脚本定义被翻译成图表指标定义，脚本引擎与图表引擎都保持独立。
  */
 import { getIndicatorDescriptor } from '@363045841yyt/klinechart-core'
-import { defineIndicator } from '@363045841yyt/klinechart-script'
+import { defineIndicator, input } from '@363045841yyt/klinechart-script'
 import { describe, expect, it } from 'vitest'
 import { registerScriptIndicator } from '../impl/registerScriptIndicator.js'
 
 /** 注册到主图的脚本：输出收盘价折线，并带一个数字参数。 */
 const mainLine = defineIndicator({
   name: 'AdapterMainLine',
-  inputs: { factor: { default: 2 } },
+  inputs: { factor: input(2, '系数') },
   onBar(ctx) {
     ctx.plot(ctx.close, { id: 'close' })
   },
@@ -25,7 +25,7 @@ const subLine = defineIndicator({
 })
 
 describe('registerScriptIndicator', () => {
-  it('翻译为主图指标定义，并保留脚本参数默认值', () => {
+  it('翻译为主图指标定义，并保留脚本参数默认值与展示标题', () => {
     registerScriptIndicator(mainLine, { pane: 'main', displayName: '适配折线' })
 
     expect(getIndicatorDescriptor('AdapterMainLine')).toMatchObject({
@@ -35,6 +35,7 @@ describe('registerScriptIndicator', () => {
       category: 'main',
       defaultPaneId: 'main',
       defaultParams: { factor: 2 },
+      inputDefs: { factor: { title: '系数' } },
     })
   })
 

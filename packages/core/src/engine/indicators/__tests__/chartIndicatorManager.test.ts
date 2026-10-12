@@ -225,7 +225,7 @@ describe('ChartIndicatorManager', () => {
     }
   })
   it('外部 Plot 副图使用柱状模型及零基准范围', async () => {
-    const instance = manager.addIndicator('PlotVolume', 'sub')
+    const instance = manager.addIndicator('PlotVolume')
     expect(instance).not.toBeNull()
     const data = createTestData(5)
     manager.updateIndicatorData(data, { start: 0, end: 5 })
@@ -416,7 +416,7 @@ describe('ChartIndicatorManager', () => {
 
   describe('副图实例 CRUD', () => {
     it('为副图指标生成独立实例身份并支持增改删', () => {
-      const instanceId = manager.addIndicator('VOL', 'sub')
+      const instanceId = manager.addIndicator('VOL')
       expect(instanceId).not.toBeNull()
 
       const entry = manager.getSubPaneEntries()[0]!
@@ -456,7 +456,7 @@ describe('ChartIndicatorManager', () => {
     })
 
     it('隐藏副图指标只保留 pane 与实例，不删除副图', () => {
-      const instanceId = manager.addIndicator('VOL', 'sub')
+      const instanceId = manager.addIndicator('VOL')
       expect(instanceId).not.toBeNull()
       const paneId = manager.getSubPaneEntries()[0]!.paneId
 
@@ -475,8 +475,8 @@ describe('ChartIndicatorManager', () => {
 
   describe('实例结果投影', () => {
     it.each([false, true])('VOL 使用分时帧行情，已有 K 线计算结果：%s', async (hasResults) => {
-      const instanceId = manager.addIndicator('VOL', 'sub')!
-      const otherId = manager.addIndicator('OBV', 'sub')!
+      const instanceId = manager.addIndicator('VOL')!
+      const otherId = manager.addIndicator('OBV')!
       if (hasResults) {
         manager.enableMainIndicator('MA')
         const calculationData = createTestData(80)

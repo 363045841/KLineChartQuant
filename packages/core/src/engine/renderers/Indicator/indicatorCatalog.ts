@@ -15,6 +15,7 @@ import {
 import {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
+  type IndicatorInputDef,
   IndicatorKind,
   type IndicatorType,
 } from '../../indicators/indicatorMetadata.js'
@@ -1446,24 +1447,23 @@ function buildParamConfigs(
   })
 }
 
-/** 脚本输入声明的默认值同时决定参数编辑类型。 */
-function scriptParamConfigs(defaults: RuntimeDefaultParams): ParamConfig[] {
+/** 脚本输入声明的默认值决定参数编辑类型，显示名取输入声明，缺省回落参数名。 */
+function scriptParamConfigs(
+  defaults: RuntimeDefaultParams,
+  inputDefs?: Readonly<Record<string, IndicatorInputDef>>,
+): ParamConfig[] {
   return Object.entries(defaults).flatMap(([key, value]): ParamConfig[] => {
-    if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean')
-      return [
-        {
-          key,
-          label: key,
-          type:
-            typeof value === 'number'
-              ? 'number'
-              : typeof value === 'boolean'
-                ? 'boolean'
-                : 'string',
-          default: value,
-        },
-      ]
-    return []
+    if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'boolean')
+      return []
+    return [
+      {
+        key,
+        label: inputDefs?.[key]?.title ?? key,
+        type:
+          typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string',
+        default: value,
+      },
+    ]
   })
 }
 
@@ -1486,9 +1486,7 @@ function rebuildIfStale(): Indicator[] {
           source: def.source,
           label: def.displayName,
           name: ui?.name ?? def.displayName,
-          pane: (def.category === 'main' || def.allowMainPane
-            ? 'main'
-            : 'sub') as Indicator['pane'],
+          pane: def.category === 'main' ? ('main' as const) : ('sub' as const),
           indicatorType: def.indicatorType,
           indicatorTypeLabel:
             def.indicatorTypeLabel ??
@@ -1498,7 +1496,7 @@ function rebuildIfStale(): Indicator[] {
           description: ui?.description,
           params:
             def.source === 'script'
-              ? scriptParamConfigs(runtimeDefaults)
+              ? scriptParamConfigs(runtimeDefaults, def.inputDefs)
               : buildParamConfigs(ui?.params, runtimeDefaults),
         }
       })
