@@ -605,6 +605,9 @@ importers:
       '@codemirror/autocomplete':
         specifier: ^6.20.3
         version: 6.20.3
+      '@codemirror/commands':
+        specifier: ^6.11.1
+        version: 6.11.1
       '@codemirror/lang-javascript':
         specifier: ^6.2.5
         version: 6.2.5
@@ -614,6 +617,9 @@ importers:
       '@codemirror/lint':
         specifier: ^6.9.7
         version: 6.9.7
+      '@codemirror/search':
+        specifier: ^6.7.2
+        version: 6.7.2
       '@codemirror/state':
         specifier: ^6.7.6
         version: 6.7.6
@@ -632,9 +638,6 @@ importers:
       '@fontsource/outfit':
         specifier: ^5.3.0
         version: 5.3.0
-      '@lezer/highlight':
-        specifier: ^1.2.5
-        version: 1.2.5
       '@typescript/vfs':
         specifier: ^1.6.5
         version: 1.6.5(supports-color@10.2.2)(typescript@6.0.3)

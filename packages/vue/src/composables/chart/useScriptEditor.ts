@@ -20,6 +20,8 @@ export interface ScriptEditorSession {
   readonly saved: Ref<boolean>
   /** 打开编辑器并载入该指标的当前源码。 */
   openFor(definitionId: string): void
+  /** 打开编辑器并留空源码，用于新建脚本。 */
+  openBlank(): void
   /** 关闭编辑器并清空当前脚本身份。 */
   close(): void
   /** 把草稿写回注册表。 */
@@ -60,6 +62,14 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       if (!document) error.value = '此指标没有可编辑的脚本文档'
       open.value = true
     },
+    openBlank() {
+      definitionId.value = null
+      error.value = null
+      saved.value = false
+      source.value = ''
+      revision = null
+      open.value = true
+    },
     close() {
       open.value = false
       definitionId.value = null
@@ -68,17 +78,27 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       revision = null
     },
     save() {
-      if (definitionId.value !== null) {
-        try {
-          if (!store || revision === null) throw new Error('此指标没有可编辑的脚本文档')
+      // 没有脚本身份即新建；保存后回填 id，后续保存转为更新。
+      if (!store) {
+        error.value = '此环境没有可编辑的脚本服务'
+        saved.value = false
+        return
+      }
+      try {
+        if (definitionId.value === null) {
+          const created = store.create(source.value)
+          definitionId.value = created.id
+          revision = created.revision
+        } else {
+          if (revision === null) throw new Error('此指标没有可编辑的脚本文档')
           const document = store.update(definitionId.value, source.value, revision)
           revision = document.revision
-          error.value = null
-          saved.value = true
-        } catch (failure) {
-          error.value = failure instanceof Error ? failure.message : String(failure)
-          saved.value = false
         }
+        error.value = null
+        saved.value = true
+      } catch (failure) {
+        error.value = failure instanceof Error ? failure.message : String(failure)
+        saved.value = false
       }
     },
   }

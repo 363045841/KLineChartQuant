@@ -93,15 +93,6 @@
     background: var(--agent-surface);
   }
 
-  .agent-header__top {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-width: 0;
-  }
-
   .agent-header__actions {
     display: flex;
     align-items: center;
@@ -123,3 +114,4 @@
 </style>
 
 <style scoped src="./agent-icon-button.css"></style>
+<style scoped src="../../../components/common/header-row.css"></style>

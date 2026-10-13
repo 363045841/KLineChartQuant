@@ -193,11 +193,6 @@
       "count": 1
     }
   },
-  "packages/vue/src/components/common/CollapsibleSection.vue": {
-    "klc/no-raw-length": {
-      "count": 5
-    }
-  },
   "packages/vue/src/components/common/SearchField.vue": {
     "klc/no-raw-length": {
       "count": 5

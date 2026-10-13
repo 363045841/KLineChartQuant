@@ -195,16 +195,6 @@
     min-height: 0;
   }
 
-  /* ── 搜索栏 ── */
-  .source-toolbar {
-    display: flex;
-    align-items: center;
-    min-height: 42px;
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-surface);
-  }
-
   .source-toolbar__action {
     flex: 0 0 auto;
     display: inline-flex;
@@ -455,7 +445,7 @@
     border-radius: 999px;
     background: color-mix(in srgb, currentColor 13%, transparent);
     color: var(--klc-color-ui-muted);
-    font-size: 10.5px;
+    font-size: var(--klc-text-label-12-font-size, 12px);
     font-weight: 500;
     line-height: 1.7;
     white-space: nowrap;
@@ -484,14 +474,6 @@
     color: var(--klc-color-ui-danger);
   }
 
-  /* ── 数据源启用开关 ── */
-  .provider-row__controls {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 6px;
-  }
-
   /* ── 宿主入口 ── */
   .source-host {
     flex: 0 0 auto;
@@ -512,3 +494,6 @@
     }
   }
 </style>
+
+<style scoped src="./common/search-toolbar.css"></style>
+<style scoped src="./common/control-cluster.css"></style>

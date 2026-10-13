@@ -9,13 +9,13 @@ import { coreSignalToVueRef } from '../utils/signalBridge.js'
 import { useMarketDataContext } from './useMarketDataContext.js'
 
 /** Provider 行的健康状态文案与色调。 */
-export interface MarketProviderStatus {
+interface MarketProviderStatus {
   label: string
   tone: 'online' | 'warning' | 'offline' | 'checking'
 }
 
 /** 单个 Provider 的展示模型；模板只消费该结构。 */
-export interface MarketProviderView {
+interface MarketProviderView {
   id: string
   name: string
   description: string
@@ -25,7 +25,7 @@ export interface MarketProviderView {
 }
 
 /** 同一连接下的 Provider 分组；地址是连接级配置。 */
-export interface MarketConnectionGroup {
+interface MarketConnectionGroup {
   connection: MarketConnection
   title: string
   shared: boolean

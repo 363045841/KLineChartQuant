@@ -1,0 +1,8 @@
+/* 行尾控件簇：数据源行与比较品种行共用的右侧操作组。 */
+.provider-row__controls,
+.compare-list__right {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--klc-space-8, 8px);
+}

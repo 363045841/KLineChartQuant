@@ -1,0 +1,10 @@
+/* 标题行两端对齐：指标列表条目与 Agent 头部共用。 */
+.item-header,
+.agent-header__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--klc-space-8, 8px);
+  width: 100%;
+  min-width: 0;
+}

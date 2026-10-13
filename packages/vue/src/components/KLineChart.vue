@@ -77,6 +77,7 @@
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
           @toggle-indicator="onToggleIndicator"
+          @open-script-editor="openBlankScriptEditor"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @clear-drawings="controller?.clearDrawings()"
@@ -340,6 +341,7 @@
       @update-params="handleUpdateParams"
       @reorder-sub-indicators="handleReorderSubIndicators"
       @replace="replaceLegend"
+      @edit-code="openScriptEditor"
       @close="replacementPaneId = null"
     />
     <ChartSettingsDialog
@@ -360,7 +362,7 @@
       v-model:source="scriptEditorSource"
       :error="scriptEditorError"
       :saved="scriptEditorSaved"
-      :title="scriptEditorDefinitionId ? `编辑脚本 · ${scriptEditorDefinitionId}` : '编辑脚本'"
+      :title="scriptEditorDefinitionId ? `编辑脚本 · ${scriptEditorDefinitionId}` : '新建脚本'"
       @save="saveScriptEditor"
     />
     <ToastViewport />
@@ -1074,6 +1076,7 @@
     error: scriptEditorError,
     saved: scriptEditorSaved,
     openFor: openScriptEditor,
+    openBlank: openBlankScriptEditor,
     save: saveScriptEditor,
   } = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
 

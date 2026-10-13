@@ -5,8 +5,9 @@
  */
 import { javascript } from '@codemirror/lang-javascript'
 import { Compartment, EditorState } from '@codemirror/state'
-import { basicSetup, EditorView } from 'codemirror'
+import { EditorView } from 'codemirror'
 import { type Ref, shallowRef, watch } from 'vue'
+import { scriptEditorSetup } from './scriptEditor/impl/editorSetup.js'
 import { scriptEditorTheme } from './scriptEditor/impl/editorTheme.js'
 
 /** 在 host 元素上挂载编辑器，并把文档变化写回 value。 */
@@ -36,14 +37,14 @@ export function useCodeMirror(
         disposeLanguage?.()
         languageLoading.value = false
         const message = error instanceof Error ? error.message : String(error)
-        languageError.value = `智能提示加载失败：${message}`
+        languageError.value = `LSP 启动失败：${message}`
       }
       const instance = new EditorView({
         parent: element,
         state: EditorState.create({
           doc: value.value,
           extensions: [
-            basicSetup,
+            scriptEditorSetup,
             javascript(),
             scriptEditorTheme,
             EditorState.tabSize.of(2),

@@ -6,10 +6,7 @@ import { ORIGINAL_BAR_AGGREGATION, sourceRouter } from '@363045841yyt/klinechart
 import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel.js'
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel.js'
-import {
-  findNearestKLineIndex,
-  getKLineIndexByTimestamp,
-} from '../../tools/getKLineIndexByTimestamp.js'
+import { findNearestKLineIndex } from '../../tools/getKLineIndexByTimestamp.js'
 import { useControllerSignal } from './useControllerSignal.js'
 
 /** 根据区间首尾收盘价计算收益率，无法形成有效比率时返回 null。 */

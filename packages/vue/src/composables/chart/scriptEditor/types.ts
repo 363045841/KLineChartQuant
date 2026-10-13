@@ -4,6 +4,8 @@ import type { InjectionKey } from 'vue'
 /** 宿主提供的源码读写接口，统一访问脚本注册时使用的仓库。 */
 export interface ScriptSourceStore {
   read(id: string): { readonly source: string; readonly revision: number } | undefined
+  /** 提交一份新脚本，返回它的定义 id 与首个版本号。 */
+  create(source: string): { readonly id: string; readonly source: string; readonly revision: number }
   update(
     id: string,
     source: string,

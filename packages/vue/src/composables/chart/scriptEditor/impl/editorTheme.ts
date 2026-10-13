@@ -11,11 +11,13 @@ const editorTheme = EditorView.theme({
     color: 'var(--klc-color-ui-text)',
     fontSize: 'var(--klc-text-label-13-font-size, 13px)',
     fontWeight: '400',
+    // 行高同时驱动正文行与折叠标记高度，避免两处各写一份。
+    '--cm-line-height': '1.8',
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: "'JetBrains Mono'",
-    lineHeight: '1.8',
+    lineHeight: 'var(--cm-line-height)',
     overflow: 'auto',
   },
   '.cm-content': { padding: '16px 0', caretColor: 'var(--klc-color-ui-accent)' },
@@ -28,6 +30,20 @@ const editorTheme = EditorView.theme({
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '40px', padding: '0 8px 0 12px' },
   '.cm-foldGutter .cm-gutterElement': { padding: '0 6px', cursor: 'pointer' },
+  // 标记撑满与行号一致的行高并居中图标，避免基线对齐造成上下偏移。
+  '.cm-fold-arrow': {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 'calc(var(--cm-line-height) * 1em)',
+  },
+  '.cm-fold-arrow svg': {
+    display: 'block',
+    width: '14px',
+    height: '14px',
+    color: 'var(--klc-color-ui-muted)',
+  },
+  '.cm-foldGutter .cm-gutterElement:hover svg': { color: 'var(--klc-color-ui-text)' },
   '.cm-activeLine': {
     backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-text) 4%, transparent)',
   },

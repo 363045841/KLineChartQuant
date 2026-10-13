@@ -84,6 +84,17 @@
                   </span>
                 </div>
               </button>
+              <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
+              <BaseTooltip v-if="indicator.source === 'script'" content="编辑脚本" placement="top">
+                <button
+                  type="button"
+                  class="item-action-btn"
+                  :aria-label="`编辑脚本：${indicator.name}`"
+                  @click="editScript(indicator.id)"
+                >
+                  <IconTablerCode aria-hidden="true" />
+                </button>
+              </BaseTooltip>
               <BaseTooltip v-if="indicator.params?.length" content="编辑参数" placement="top">
                 <button
                   type="button"
@@ -170,6 +181,7 @@
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
+  import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerSearch from '~icons/tabler/search'
@@ -203,6 +215,8 @@
     toggle: [indicatorId: string, active: boolean]
     updateParams: [indicatorId: string, params: Record<string, number | string | boolean>]
     replace: [paneId: string, indicatorId: string]
+    /** 请求打开该脚本指标的代码编辑器，由宿主图表组件负责弹窗。 */
+    editCode: [indicatorId: string]
     close: []
   }>()
 
@@ -270,6 +284,11 @@
     currentIndicatorId.value = indicatorId
     currentIndicator.value = findIndicator(indicatorId)
     paramsVisible.value = true
+  }
+
+  /** 请求宿主打开脚本代码编辑器；打开动作与图例的编辑脚本共用同一会话。 */
+  function editScript(indicatorId: string) {
+    emit('editCode', indicatorId)
   }
 
   /** 关闭选择器，并通知父组件清除一次性的 Pane 替换目标。 */
@@ -367,15 +386,6 @@
     min-width: 0;
   }
 
-  .selector-toolbar {
-    display: flex;
-    align-items: center;
-    min-height: 42px;
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-surface);
-  }
-
   /* ── 无匹配 ── */
   .no-results {
     display: flex;
@@ -445,15 +455,6 @@
 
   .indicator-item:hover {
     background: var(--klc-color-ui-hover);
-  }
-
-  .item-header {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
   }
 
   .item-label {
@@ -574,3 +575,6 @@
   }
 
 </style>
+
+<style scoped src="./common/search-toolbar.css"></style>
+<style scoped src="./common/header-row.css"></style>

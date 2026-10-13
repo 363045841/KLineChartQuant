@@ -10,10 +10,22 @@
   >
     <div class="script-workspace">
       <div class="script-workspace__toolbar">
-        <span class="script-workspace__language">JavaScript</span>
-        <span class="script-workspace__meta">
-          <span v-if="languageLoading">加载智能提示… · </span>{{ lineCount }} 行
-        </span>
+        <div class="script-workspace__toolbar-info">
+          <span class="script-workspace__language">JavaScript</span>
+          <LoadingSpinner v-if="languageLoading" :size="12" class="script-workspace__spinner" />
+        </div>
+        <div class="script-workspace__toolbar-actions">
+          <BaseTooltip content="设置" placement="bottom">
+            <button type="button" class="script-workspace__icon-button" aria-label="设置">
+              <IconTablerSettings aria-hidden="true" />
+            </button>
+          </BaseTooltip>
+          <BaseTooltip content="更多" placement="bottom">
+            <button type="button" class="script-workspace__icon-button" aria-label="更多">
+              <IconTablerDots aria-hidden="true" />
+            </button>
+          </BaseTooltip>
+        </div>
       </div>
       <div ref="editorHost" class="script-editor" />
       <p v-if="editorError" class="script-workspace__error" role="alert">{{ editorError }}</p>
@@ -36,10 +48,14 @@
   import { computed, useTemplateRef } from 'vue'
 
   import IconTablerCheck from '~icons/tabler/check'
+  import IconTablerDots from '~icons/tabler/dots'
+  import IconTablerSettings from '~icons/tabler/settings'
 
   import { useCodeMirror } from '../composables/chart/useCodeMirror.js'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BaseTooltip from './common/BaseTooltip.vue'
+  import LoadingSpinner from './LoadingSpinner.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -68,7 +84,6 @@
     get: () => props.source,
     set: (value) => emit('update:source', value),
   })
-  const lineCount = computed(() => props.source.split('\n').length)
   const { languageLoading, languageError } = useCodeMirror(editorHost, source, (next) =>
     emit('update:source', next),
   )
@@ -87,7 +102,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--klc-space-12, 12px);
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
+    padding: var(--klc-space-4, 4px) var(--klc-space-16, 16px);
     background: var(--klc-color-ui-control-background);
     border-bottom: 1px solid var(--klc-color-ui-border);
     font-size: var(--klc-text-label-12-font-size, 12px);
@@ -98,9 +113,53 @@
     font-weight: 500;
   }
 
-  .script-workspace__meta {
+  .script-workspace__spinner {
     color: var(--klc-color-ui-muted);
-    font-variant-numeric: tabular-nums;
+  }
+
+  .script-workspace__toolbar-info {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    min-width: 0;
+  }
+
+  .script-workspace__toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
+  }
+
+  .script-workspace__icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--klc-radius-sm, 4px);
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
+    transition:
+      color var(--klc-motion-dur-fast, 160ms) ease,
+      background-color var(--klc-motion-dur-fast, 160ms) ease;
+  }
+
+  .script-workspace__icon-button:hover {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+  }
+
+  .script-workspace__icon-button:focus-visible {
+    outline: 2px solid var(--klc-color-ui-text);
+    outline-offset: -2px;
+  }
+
+  .script-workspace__icon-button svg {
+    width: 16px;
+    height: 16px;
   }
 
   .script-editor {
