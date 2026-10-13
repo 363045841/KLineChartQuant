@@ -29,6 +29,7 @@ export const definitionMetadata = Symbol('Indicator.definition')
 /** @Indicator 装饰器的定义配置。 */
 export type IndicatorDefinitionConfig<T = unknown> = {
   source?: IndicatorMetadata['source']
+  document?: IndicatorMetadata['document']
   plots?: IndicatorPlotDefinition
   /** 指标定义名称，允许第三方扩展；注册定义后仍须添加指标实例。 */
   name: IndicatorName

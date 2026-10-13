@@ -1,15 +1,25 @@
-/** 预览启动：开启脚本自动注册并接入行情服务。 */
-import { registerDefinedScripts } from '@363045841yyt/klinechart-script-chart'
-// 引入脚本定义模块，其 defineIndicator 会被自动注册。
-import '@363045841yyt/klinechart-script/indicators'
+/** 预览启动：预加载 QuickJS，按完整源码注册指标并接入行情服务。 */
+import { createScriptService } from '@363045841yyt/klinechart-script-chart'
+import smaSource from '@363045841yyt/klinechart-script/scripts/sma.js?raw'
+import averageSource from '@363045841yyt/klinechart-script/scripts/open-close-average.js?raw'
 import { createApp } from 'vue'
 import App from './App.vue'
+import { SCRIPT_SOURCE_STORE_KEY } from '../src/composables/chart/scriptEditor/types.js'
 import { MARKET_DATA_CONTEXT_KEY } from '../src/composables/useMarketDataContext.js'
 import { createPreviewMarketDataHost } from './marketDataHost.js'
 import '../src/styles/fonts.css'
 import '../src/styles/scrollbar.css'
 
 const marketDataHost = createPreviewMarketDataHost()
-registerDefinedScripts()
-createApp(App).provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context).mount('#app')
+/** WASM 就绪后才挂载，确保同步计算端口可立即执行。 */
+async function bootstrap(): Promise<void> {
+  const scripts = await createScriptService()
+  scripts.create(smaSource)
+  scripts.create(averageSource)
+  createApp(App)
+    .provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context)
+    .provide(SCRIPT_SOURCE_STORE_KEY, scripts)
+    .mount('#app')
+}
+void bootstrap()
 if (import.meta.hot) import.meta.hot.dispose(() => marketDataHost.dispose())

@@ -63,7 +63,13 @@ const indicatorDescriptors = new Map<
 >()
 const indicatorDefinitionAliases = new Map<string, string>()
 const pendingDefinitionLoads = new Map<string, Promise<void>>()
-const registrationListeners = new Set<(definition: IndicatorMetadata) => void>()
+/** 定义变更意图，执行器据此区分新增与替换。 */
+export interface IndicatorDefinitionChange {
+  readonly type: 'create' | 'update' | 'remove'
+  readonly definition: IndicatorMetadata
+}
+
+const definitionListeners = new Set<(change: IndicatorDefinitionChange) => void>()
 const catalogRevision = createSignal(0)
 let builtinCatalogRegistered = false
 
@@ -170,25 +176,82 @@ export function registerIndicatorDefinition(definitionClass: IndicatorDefinition
       `[Indicator] definition name is empty or already registered: '${definition.name}'`,
     )
   }
-  // 先校验全部别名，避免失败后目录留下部分写入。
+  publishDefinition(definition, false)
+}
+
+/** 显式替换已有脚本实现；注册仍拒绝重复身份，原生定义不允许被脚本编辑覆盖。 */
+export function updateIndicatorDefinition(definitionClass: IndicatorDefinitionClass): void {
+  const definition = definitionClass[definitionMetadata]?.()
+  const existing = definition && getRegisteredIndicatorDefinition(definition.name)
+  if (
+    !definition ||
+    !existing ||
+    definition.source !== 'script' ||
+    existing.source !== 'script' ||
+    definition.name !== existing.name ||
+    JSON.stringify(identityAliases(definition)) !== JSON.stringify(identityAliases(existing))
+  ) {
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      '[Indicator] only existing script definitions with unchanged identity can be updated',
+    )
+  }
+  publishDefinition(definition, true)
+}
+
+/** 校验后统一发布完整定义快照，静态目录与执行器订阅者同时接收新元数据。 */
+function publishDefinition(definition: IndicatorMetadata, replaceDescriptor: boolean): void {
+  const normalizedName = normalizeIndicatorId(definition.name)
   const aliases = identityAliases(definition)
   assertAliasesAvailable(aliases, normalizedName)
   indicatorDefinitions.set(normalizedName, definition)
-  if (!indicatorDescriptors.has(normalizedName)) {
+  if (replaceDescriptor || !indicatorDescriptors.has(normalizedName)) {
     indicatorDescriptors.set(normalizedName, { descriptor: descriptorFromMetadata(definition) })
   }
   for (const alias of aliases) indexAlias(alias, normalizedName)
   registerIndicatorLayerNaming(aliases, definition.getRendererName, definition.getScaleRendererName)
-  for (const listener of [...registrationListeners]) listener(definition)
+  // 先推进目录修订号再通知消费者：订阅者重建目录时才能看到本次提交。
   catalogRevision.set(catalogRevision.peek() + 1)
+  notifyDefinition({ type: replaceDescriptor ? 'update' : 'create', definition })
 }
 
-/** 订阅实现装配事件；返回取消订阅函数。 */
-export function onIndicatorDefinitionRegistered(
-  listener: (definition: IndicatorMetadata) => void,
+/** 删除脚本文档及目录身份，通知所有图表移除对应实例。 */
+export function removeScriptIndicatorDefinition(id: string): void {
+  const definition = getRegisteredIndicatorDefinition(id)
+  if (!definition?.document || definition.source !== 'script') {
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      '[Indicator] script document not found',
+    )
+  }
+  const key = normalizeIndicatorId(definition.name)
+  indicatorDefinitions.delete(key)
+  indicatorDescriptors.delete(key)
+  for (const alias of identityAliases(definition))
+    indicatorDefinitionAliases.delete(normalizeIndicatorId(alias))
+  // 删除同样先推进修订号，订阅者才能感知目录已变化。
+  catalogRevision.set(catalogRevision.peek() + 1)
+  notifyDefinition({ type: 'remove', definition })
+}
+
+/** 已提交快照的通知独立于写入，单个消费者失败不能阻断其它消费者。 */
+function notifyDefinition(change: IndicatorDefinitionChange): void {
+  for (const listener of [...definitionListeners]) {
+    // 已提交定义不因某个消费者失败而回滚；其它图表仍须收到同一快照。
+    try {
+      listener(change)
+    } catch (error) {
+      console.error('[Indicator] definition consumer failed', error)
+    }
+  }
+}
+
+/** 订阅定义新增与更新事件；返回取消订阅函数。 */
+export function onIndicatorDefinitionChanged(
+  listener: (change: IndicatorDefinitionChange) => void,
 ): () => void {
-  registrationListeners.add(listener)
-  return () => registrationListeners.delete(listener)
+  definitionListeners.add(listener)
+  return () => definitionListeners.delete(listener)
 }
 
 /** 将名称、展示名或别名解析为目录统一键；未知身份返回 undefined。 */
@@ -202,6 +265,8 @@ function resolveCatalogKey(nameOrAlias: string): string | undefined {
 /** 返回全部静态目录项（内置 + 已注册的第三方定义），不加载实现。 */
 export function getIndicatorDescriptors(): readonly IndicatorDescriptor[] {
   ensureBuiltinCatalog()
+  // 读取修订号建立响应式依赖：定义增删改时，依赖本目录的派生视图会自动重建。
+  catalogRevision()
   return [...indicatorDescriptors.values()].map((entry) => entry.descriptor)
 }
 
@@ -281,4 +346,6 @@ export function clearRegisteredIndicatorDefinitionsForTest(): void {
   pendingDefinitionLoads.clear()
   clearIndicatorLayerNamingForTest()
   builtinCatalogRegistered = false
+  // 清空本身也是一次目录变更，推进修订号让派生视图失效。
+  catalogRevision.set(catalogRevision.peek() + 1)
 }

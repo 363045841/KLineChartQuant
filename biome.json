@@ -187,6 +187,14 @@
       }
     },
     {
+      "includes": ["packages/script/scripts/**/*.js"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUndeclaredVariables": "off" }
+        }
+      }
+    },
+    {
       "includes": ["packages/react/**/*.{ts,tsx}"],
       "linter": {
         "rules": {

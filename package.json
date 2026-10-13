@@ -79,6 +79,7 @@
     "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
     "lint:types": "node scripts/lint-types.mjs",
     "lint": "biome check .",
+    "script:run": "tsx scripts/run-script.mts",
     "lint:ui": "stylelint \"packages/vue/src/**/*.{vue,css}\"",
     "lint:ui:prune": "stylelint \"packages/vue/src/**/*.{vue,css}\" --suppress",
     "lint:fix": "biome check --write .",

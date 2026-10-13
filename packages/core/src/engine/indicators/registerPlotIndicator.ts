@@ -13,7 +13,12 @@ import {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '../../foundation/types/price.js'
 import { plotRenderer } from '../plots/impl/plotDefinition.js'
-import { Indicator, registerIndicatorDefinition } from './indicatorDefinitionRegistry.js'
+import {
+  Indicator,
+  type IndicatorDefinitionClass,
+  registerIndicatorDefinition,
+  updateIndicatorDefinition,
+} from './indicatorDefinitionRegistry.js'
 import { type IndicatorInputDef, IndicatorKind } from './indicatorMetadata.js'
 
 /** 把 core 行情映射为中立 Bar。 */
@@ -43,12 +48,25 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
  * 缺省位置与显示名取自定义本身；主图定义允许叠加主图，副图定义独占自己的 pane。
  */
 export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
+  registerIndicatorDefinition(createPlotIndicatorDefinition(definition))
+}
+
+/** 保存完整脚本后显式更新同一指标的元数据与执行端口。 */
+export function updatePlotIndicator<P>(definition: IndicatorDefinition<P>): void {
+  updateIndicatorDefinition(createPlotIndicatorDefinition(definition))
+}
+
+/** 注册与更新共用中立定义转换，避免维护两套默认参数或 pane 映射。 */
+function createPlotIndicatorDefinition<P>(
+  definition: IndicatorDefinition<P>,
+): IndicatorDefinitionClass {
   const main = definition.pane === 'main'
   const paneId = main ? 'main' : `sub_${definition.name}`
   const displayName = definition.displayName ?? definition.name
   const decorate = Indicator({
     name: definition.name,
     source: definition.source,
+    document: definition.document,
     displayName,
     kind: IndicatorKind.Indicator,
     category: main ? 'main' : 'sub',
@@ -59,6 +77,7 @@ export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): vo
     scale: { label: displayName, decimals: 2 },
     plots: { source: 'collection', series: [] },
     runtime: {
+      revision: definition.document?.revision,
       defaultParams: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
       compute: (data, params: P) => definition.compute(data.map(toBar), params),
@@ -68,5 +87,5 @@ export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): vo
     static rendererFactory = plotRenderer(definition.name, paneId)
   }
   decorate(PlotIndicatorDefinition)
-  registerIndicatorDefinition(PlotIndicatorDefinition)
+  return PlotIndicatorDefinition
 }

@@ -67,6 +67,30 @@ export class IndicatorInstanceExecutionRuntime {
     this.definitions.set(definition.definitionId, definition)
   }
 
+  /** 显式替换已有定义，同时清除该定义的任务计算器与结果；其它指标缓存保留。 */
+  updateDefinition(definition: IndicatorCalculationDefinition): void {
+    if (!this.definitions.has(definition.definitionId)) {
+      throw new TypeError(`Unknown indicator calculation definition: ${definition.definitionId}`)
+    }
+    this.definitions.set(definition.definitionId, definition)
+    this.clearDefinitionTasks(definition.definitionId)
+  }
+
+  /** 删除定义并释放它的计算状态。 */
+  removeDefinition(id: string): void {
+    this.definitions.delete(id)
+    this.clearDefinitionTasks(id)
+  }
+
+  /** 按定义清理任务状态，新增、更新和删除共享一处失效逻辑。 */
+  private clearDefinitionTasks(id: string): void {
+    for (const [key, taskDefinition] of this.taskDefinitions) {
+      if (taskDefinition.definitionId !== id) continue
+      this.taskDefinitions.delete(key)
+      this.cache.delete(key)
+    }
+  }
+
   /**
    * 写入行情快照。
    * @param data 当前 K 线数据

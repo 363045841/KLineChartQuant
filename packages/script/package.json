@@ -14,10 +14,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    "./indicators": {
-      "types": "./dist/indicators/index.d.ts",
-      "import": "./dist/indicators/index.js"
-    },
+    "./scripts/*": "./scripts/*",
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -25,6 +22,7 @@
   },
   "files": [
     "dist",
+    "scripts",
     "README.md",
     "README.zh-CN.md"
   ],

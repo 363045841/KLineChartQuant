@@ -2,10 +2,28 @@
  * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
  */
 import type { Bar } from './bar.js'
+import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
 import type { PlotCollection } from './plots.js'
+
+/** 可序列化的脚本声明；不包含执行函数。 */
+export interface IndicatorSourceDefinition {
+  readonly name: string
+  readonly displayName?: string
+  readonly pane?: 'main' | 'sub'
+  readonly inputs: InputSchema<Record<string, number | string | boolean>>
+  readonly plots?: readonly PlotDeclaration[]
+  readonly fills?: readonly PlotFillDeclaration[]
+}
 
 /** 指标来源分类：系统内置或扩展生产者（脚本）。 */
 export type IndicatorSource = 'native' | 'script'
+
+/** 可编辑定义的版本化源码；随定义快照提交，消费者不能独立写入。 */
+export interface IndicatorSourceDocument {
+  readonly revision: number
+  readonly source: string
+  readonly definition: IndicatorSourceDefinition
+}
 
 /** 单个输入参数的声明，由 input() 工厂产出。 */
 export interface InputDef<T> {
@@ -28,6 +46,7 @@ export interface IndicatorDefinition<P> {
   readonly pane?: 'main' | 'sub'
   /** 来源分类；缺省由消费方决定。 */
   readonly source?: IndicatorSource
+  readonly document?: IndicatorSourceDocument
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
   /** 计算端口：给定 bars 与参数，产出完整 PlotCollection。 */

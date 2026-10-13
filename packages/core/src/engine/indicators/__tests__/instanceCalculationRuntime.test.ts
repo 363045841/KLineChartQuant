@@ -127,6 +127,33 @@ describe('diffTradeSnapshot', () => {
 })
 
 describe('executeIndicatorCalculationPlan', () => {
+  it('定义更新清除旧 calculator 与结果缓存，保留其它定义缓存并拒绝新增冲突', () => {
+    const source = new FakeCalculationSource([
+      createTestInstance({ instanceId: 'edited', definitionId: 'edited' }),
+      createTestInstance({ instanceId: 'other', definitionId: 'other' }),
+    ])
+    const other = vi.fn(() => [9])
+    const runtime = new IndicatorInstanceExecutionRuntime([
+      { definitionId: 'edited', compute: () => [1], createCompute: () => () => [2] },
+      { definitionId: 'other', compute: other },
+    ])
+    runtime.setData(createTestData(1), 1)
+    const plan = source.calculationPlan()
+    expect(runtime.execute(plan)[0]?.series).toEqual([2])
+    expect(() => runtime.addDefinition({ definitionId: 'edited', compute: () => [3] })).toThrow(
+      'Duplicate',
+    )
+    runtime.updateDefinition({
+      definitionId: 'edited',
+      compute: () => [3],
+      createCompute: () => () => [4],
+    })
+    expect(runtime.execute(plan)[0]?.series).toEqual([4])
+    expect(other).toHaveBeenCalledTimes(1)
+    expect(() => runtime.updateDefinition({ definitionId: 'missing', compute: () => [] })).toThrow(
+      'Unknown',
+    )
+  })
   it('单个实例计算失败仍提交其他实例，错误可序列化且重算成功后清除', () => {
     const source = new FakeCalculationSource([
       createTestInstance({ instanceId: 'bad', definitionId: 'bad' }),

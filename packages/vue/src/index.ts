@@ -75,6 +75,10 @@ export {
   MarkerTooltip,
 } from './components/index.js'
 export {
+  SCRIPT_SOURCE_STORE_KEY,
+  type ScriptSourceStore,
+} from './composables/chart/scriptEditor/types.js'
+export {
   MARKET_DATA_CONTEXT_KEY,
   provideMarketDataContext,
   useMarketDataContext,

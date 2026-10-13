@@ -1,6 +1,8 @@
 /**
  * ChartIndicatorManager 测试：实例 CRUD、主图增删改、副图 pane 联动、读者寻址与主图价格范围。
  */
+
+import type { IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
@@ -31,6 +33,7 @@ import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
 import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime.js'
 import type { InstanceWorkerRequest } from '../instances/worker/instanceWorkerProtocol.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
+import { registerPlotIndicator, updatePlotIndicator } from '../registerPlotIndicator.js'
 import type { VolumeRenderState } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 
@@ -234,6 +237,41 @@ describe('ChartIndicatorManager', () => {
     expect(state.plots[0]).toMatchObject({ kind: 'histogram', baseline: 0 })
     expect(state.visibleMin).toBe(0)
     expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
+  })
+  it('已有脚本定义更新后原实例立即重算，同一行情和参数不复用旧结果', async () => {
+    /** 测试脚本产物使用正式中立 Plot 注册入口。 */
+    const definition = (factor: number): IndicatorDefinition<Record<string, never>> => ({
+      name: 'EditablePlotScript',
+      source: 'script',
+      inputs: {},
+      compute: (bars: readonly { close: number }[]): PlotCollection => ({
+        plots: [
+          {
+            kind: 'line',
+            id: 'close',
+            label: 'close',
+            color: 'red',
+            visible: true,
+            offset: 0,
+            width: 1,
+            dash: [],
+            data: bars.map((bar) => ({ value: bar.close * factor })),
+          },
+        ],
+        fills: [],
+      }),
+    })
+    registerPlotIndicator(definition(1))
+    const id = manager.addIndicator('EditablePlotScript')
+    expect(id).not.toBeNull()
+    const data = createTestData(3)
+    manager.updateIndicatorData(data, { start: 0, end: 3 })
+    const read = () => manager.createRenderStateReader().get<PlotRenderState>(id ?? '')
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]?.close))
+    expect(() => updatePlotIndicator(definition(2))).not.toThrow()
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 2))
+    updatePlotIndicator(definition(3))
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 3))
   })
   it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
     manager.enableMainIndicator('PlotClose')

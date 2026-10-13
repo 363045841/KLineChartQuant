@@ -19,6 +19,7 @@ export interface SerializedIndicatorCalculationDefinition {
 }
 
 export type InstanceWorkerRequest =
+  | { readonly type: 'removeDefinitions'; readonly ids: readonly string[] }
   | {
       readonly type: 'init'
       readonly protocolVersion: number
@@ -27,6 +28,11 @@ export type InstanceWorkerRequest =
   | {
       /** 按需加载的定义在 init 之后追加。 */
       readonly type: 'define'
+      readonly definitions: readonly SerializedIndicatorCalculationDefinition[]
+    }
+  | {
+      /** 显式更新已有定义并丢弃对应计算缓存。 */
+      readonly type: 'updateDefinitions'
       readonly definitions: readonly SerializedIndicatorCalculationDefinition[]
     }
   | {
@@ -60,7 +66,7 @@ export type InstanceWorkerResponse =
       readonly message: string
     }
 
-export const INSTANCE_WORKER_PROTOCOL_VERSION = 3
+export const INSTANCE_WORKER_PROTOCOL_VERSION = 4
 
 export function isInstanceWorkerResponse(value: unknown): value is InstanceWorkerResponse {
   if (!value || typeof value !== 'object') return false

@@ -46,7 +46,7 @@ import type { VisibleRange } from '../viewport/viewport.js'
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
-  onIndicatorDefinitionRegistered,
+  onIndicatorDefinitionChanged,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
@@ -217,9 +217,9 @@ export class ChartIndicatorManager {
   }
   private onResultsAppliedCallback: (() => void) | null = null
 
-  /** 主图指标默认参数与可启用白名单；随已装配定义数量变化重建。 */
+  /** 主图目录缓存；注册或替换任一完整定义后重建。 */
   private static _mainCatalogCache: {
-    readonly definitionCount: number
+    readonly definitions: readonly IndicatorMetadata[]
     readonly defaultParams: Record<string, Record<string, number | boolean | string>>
     readonly enabled: string[]
   } | null = null
@@ -227,7 +227,12 @@ export class ChartIndicatorManager {
   private static get mainCatalog() {
     const definitions = getRegisteredIndicatorDefinitions()
     const cached = ChartIndicatorManager._mainCatalogCache
-    if (cached?.definitionCount === definitions.length) return cached
+    if (
+      cached &&
+      cached.definitions.length === definitions.length &&
+      definitions.every((definition, index) => definition === cached.definitions[index])
+    )
+      return cached
     const mainDefinitions = definitions.filter((def) => def.category === 'main')
     const defaultParams: Record<string, Record<string, number | boolean | string>> = {}
     for (const def of mainDefinitions) {
@@ -236,7 +241,7 @@ export class ChartIndicatorManager {
       } as Record<string, number | boolean | string>
     }
     const next = {
-      definitionCount: definitions.length,
+      definitions,
       defaultParams,
       enabled: mainDefinitions.map((def) => def.displayName),
     }
@@ -274,10 +279,30 @@ export class ChartIndicatorManager {
     this.executorHolder = { active: this.inlineExecutor }
     this.workerExecutor = this.tryCreateWorkerExecutor()
     if (this.workerExecutor) this.executorHolder.active = this.workerExecutor
-    // 按需加载的定义在实例进入状态前装配，同步追加到两个执行器。
-    this.disposeDefinitionSubscription = onIndicatorDefinitionRegistered((definition) => {
-      this.inlineExecutor.addDefinitions(createInstanceCalculationDefinitions([definition]))
-      this.workerExecutor?.addDefinitions(serializeInstanceCalculationDefinitions([definition]))
+    // 新增与更新是不同意图；替换定义后必须丢弃旧计算器与结果缓存并重新计算。
+    this.disposeDefinitionSubscription = onIndicatorDefinitionChanged(({ type, definition }) => {
+      if (type === 'remove') {
+        for (const instance of this.deps.indicator.readonly.instances.peek()) {
+          if (instance.indicatorId !== definition.displayName) continue
+          if (instance.role === 'main') this.deps.indicator.actions.removeMain(instance.indicatorId)
+          else this.deps.subPaneOps.remove(instance.paneId)
+        }
+        this.inlineExecutor.removeDefinitions([definition.name])
+        this.workerExecutor?.removeDefinitions([definition.name])
+        return
+      }
+      const inline = createInstanceCalculationDefinitions([definition])
+      const serialized = serializeInstanceCalculationDefinitions([definition])
+      if (type === 'create') {
+        this.inlineExecutor.addDefinitions(inline)
+        this.workerExecutor?.addDefinitions(serialized)
+        return
+      }
+      this.inlineExecutor.updateDefinitions(inline)
+      this.workerExecutor?.updateDefinitions(serialized)
+      const revision = this.pipeline.snapshot().calculationRevision
+      this.syncPipeline(this.deps.indicator.readonly.instances.peek())
+      if (revision === this.pipeline.snapshot().calculationRevision) this.requestCompute()
     })
 
     this.calculationScheduler = createInstanceCalculationScheduler({
@@ -485,7 +510,7 @@ export class ChartIndicatorManager {
       calculation: {
         definitionId,
         params,
-        context: {},
+        context: { definitionRevision: metadata.runtime.revision ?? 0 },
       },
       presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
     }

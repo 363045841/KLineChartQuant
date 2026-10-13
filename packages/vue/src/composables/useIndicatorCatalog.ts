@@ -2,7 +2,7 @@
 import {
   allIndicatorDefinitions,
   type IndicatorSelectorController,
-  onIndicatorDefinitionRegistered,
+  onIndicatorDefinitionChanged,
 } from '@363045841yyt/klinechart-core/controllers'
 import { onScopeDispose } from 'vue'
 
@@ -10,6 +10,6 @@ import { onScopeDispose } from 'vue'
 export function useIndicatorCatalog(controller: IndicatorSelectorController): void {
   const refresh = () => controller.catalog.set(allIndicatorDefinitions())
   refresh()
-  onScopeDispose(onIndicatorDefinitionRegistered(refresh))
+  onScopeDispose(onIndicatorDefinitionChanged(refresh))
   onScopeDispose(() => controller.dispose())
 }

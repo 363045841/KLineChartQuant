@@ -5,7 +5,10 @@
  * 每个指标通过 metadata 描述其渲染器工厂、计算描述与展示配置等元信息
  */
 
-import type { IndicatorSource } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  IndicatorSource,
+  IndicatorSourceDocument,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -208,6 +211,8 @@ export interface IndicatorInputDef {
  * - 自定义运行时指标：无 computeKey，仅主线程 inline 运行
  */
 export interface IndicatorRuntimeDescriptor<C = any> {
+  /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
+  revision?: number
   /** 声明额外行情输入；订阅由数据协调层拥有。 */
   inputs?: readonly 'trades'[]
   /** 每个执行器创建独立的增量 calculator。 */
@@ -246,6 +251,7 @@ export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unk
  */
 export interface IndicatorMetadata<T = unknown> {
   source?: IndicatorSource
+  document?: IndicatorSourceDocument
   /** 普通指标统一声明 Plot；专用输出使用自己的 composer。 */
   plots?: IndicatorPlotDefinition
   /**
