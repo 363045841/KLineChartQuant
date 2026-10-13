@@ -3,6 +3,7 @@
  */
 
 import type { KLineData } from '@/foundation/types/price.js'
+import { _computeStochastic } from './_shared.js'
 
 /**
  * 计算 Schaff Trend Cycle 序列。
@@ -37,9 +38,9 @@ export function calcSchaffTrendCycleData(
   }
 
   const macd = calculateMACD(data, fast, slow)
-  const firstStochastic = calculateStochastic(macd, cycle)
+  const firstStochastic = _computeStochastic(macd, cycle)
   const firstSmoothed = smoothByFactor(firstStochastic, factor)
-  const secondStochastic = calculateStochastic(firstSmoothed, cycle)
+  const secondStochastic = _computeStochastic(firstSmoothed, cycle)
   return smoothByFactor(secondStochastic, factor)
 }
 
@@ -65,41 +66,6 @@ function calculateMACD(data: KLineData[], fast: number, slow: number): (number |
     fastEma = fastMultiplier * close + (1 - fastMultiplier) * fastEma
     slowEma = slowMultiplier * close + (1 - slowMultiplier) * slowEma
     result[i] = fastEma - slowEma
-  }
-
-  return result
-}
-
-/**
- * 在稀疏数值序列上计算随机指标。
- * @param values 输入数值序列。
- * @param period 回溯窗口周期。
- * @returns 与输入等长的随机指标序列。
- */
-function calculateStochastic(
-  values: (number | undefined)[],
-  period: number,
-): (number | undefined)[] {
-  const result: (number | undefined)[] = new Array(values.length).fill(undefined)
-
-  for (let i = period - 1; i < values.length; i++) {
-    const current = values[i]
-    if (current === undefined) continue
-
-    let lowest = Infinity
-    let highest = -Infinity
-    let validCount = 0
-    for (let j = i - period + 1; j <= i; j++) {
-      const value = values[j]
-      if (value === undefined) continue
-      lowest = Math.min(lowest, value)
-      highest = Math.max(highest, value)
-      validCount++
-    }
-
-    if (validCount !== period) continue
-    const range = highest - lowest
-    result[i] = range === 0 ? 50 : (100 * (current - lowest)) / range
   }
 
   return result
