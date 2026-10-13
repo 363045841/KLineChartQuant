@@ -47,7 +47,8 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
-    "@363045841yyt/klinechart-plot-contracts": "workspace:*"
+    "@363045841yyt/klinechart-plot-contracts": "workspace:*",
+    "quickjs-emscripten": "^0.32.0"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
