@@ -3,13 +3,13 @@
  *
  * 它把散落的 (id, barIndex, point) 收成每个 Plot 的列：
  * - 声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
- * - 未声明 plots 时，允许动态 id，一律按默认折线处理。
+ * - 未声明 plots 时，允许动态 id，使用调用处类型，缺省为折线。
  *
  * onEvent 是引擎输出端口的空实现：组装只消费绘图点，不消费事件。
  */
 import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
 import { PLOT_ERROR_CODES } from './errors.js'
-import type { LinePlot, Plot, PlotCollection, PlotFill, PlotPoint } from './plots.js'
+import type { Plot, PlotCollection, PlotFill, PlotPoint } from './plots.js'
 
 /** Plot 默认颜色。 */
 const DEFAULT_PLOT_COLOR = '#2196f3'
@@ -41,6 +41,7 @@ export class PlotCollector {
   private readonly declaredIds?: ReadonlySet<string>
   private readonly fillDeclarations?: readonly PlotFillDeclaration[]
   private readonly columns = new Map<string, (PlotPoint | undefined)[]>()
+  private readonly kinds = new Map<string, PlotDeclaration['kind']>()
 
   constructor(options: PlotCollectorOptions) {
     this.barCount = options.barCount
@@ -52,11 +53,17 @@ export class PlotCollector {
   }
 
   /** 接收绘图点：校验声明（如有）后写入对应 id 的列。 */
-  onPlot(id: string, barIndex: number, point: PlotPoint): void {
+  onPlot(id: string, barIndex: number, point: PlotPoint, kind?: PlotDeclaration['kind']): void {
     if (this.declaredIds && !this.declaredIds.has(id)) {
       throw new Error(
         `[${PLOT_ERROR_CODES.UNDECLARED_PLOT}] plot id '${id}' is not declared in script.plots`,
       )
+    }
+    if (kind !== undefined) {
+      const previous = this.kinds.get(id)
+      if (previous !== undefined && previous !== kind)
+        throw new TypeError(`Plot ${id} cannot change kind during a run`)
+      this.kinds.set(id, kind)
     }
     let column = this.columns.get(id)
     if (!column) {
@@ -73,8 +80,15 @@ export class PlotCollector {
   collect(): PlotCollection {
     const plots: Plot[] =
       this.declarations?.map((declaration) =>
-        toPlot(declaration, this.columns.get(declaration.id) ?? this.emptyColumn()),
-      ) ?? [...this.columns].map(([id, column]) => toDynamicLine(id, column))
+        toPlot(
+          declaration,
+          this.columns.get(declaration.id) ?? this.emptyColumn(),
+          this.kinds.get(declaration.id),
+        ),
+      ) ??
+      [...this.columns].map(([id, column]) =>
+        toPlot({ id, kind: this.kinds.get(id) ?? 'line' }, column),
+      )
     const fills: PlotFill[] = this.fillDeclarations?.map(toFill) ?? []
     const ids = new Set(plots.map((plot) => plot.id))
     for (const fill of fills) {
@@ -91,7 +105,11 @@ export class PlotCollector {
 }
 
 /** 把 Plot 声明与采集到的数据组装成具体 Plot，缺省字段填入默认值。 */
-function toPlot(declaration: PlotDeclaration, data: readonly (PlotPoint | undefined)[]): Plot {
+function toPlot(
+  declaration: PlotDeclaration,
+  data: readonly (PlotPoint | undefined)[],
+  kind = declaration.kind,
+): Plot {
   const base = {
     id: declaration.id,
     label: declaration.label ?? declaration.id,
@@ -100,37 +118,36 @@ function toPlot(declaration: PlotDeclaration, data: readonly (PlotPoint | undefi
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
   }
-  switch (declaration.kind) {
+  switch (kind) {
     case 'line':
       return {
         ...base,
         kind: 'line',
-        width: declaration.width ?? DEFAULT_LINE_WIDTH,
-        dash: declaration.dash ?? DEFAULT_LINE_DASH,
+        width:
+          declaration.kind === 'line'
+            ? (declaration.width ?? DEFAULT_LINE_WIDTH)
+            : DEFAULT_LINE_WIDTH,
+        dash:
+          declaration.kind === 'line' ? (declaration.dash ?? DEFAULT_LINE_DASH) : DEFAULT_LINE_DASH,
       }
     case 'histogram':
       return {
         ...base,
         kind: 'histogram',
-        baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
+        baseline:
+          declaration.kind === 'histogram'
+            ? (declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE)
+            : DEFAULT_HISTOGRAM_BASELINE,
       }
     case 'points':
-      return { ...base, kind: 'points', radius: declaration.radius ?? DEFAULT_POINTS_RADIUS }
-  }
-}
-
-/** 未声明脚本的动态 Plot 一律按默认折线处理。 */
-function toDynamicLine(id: string, data: readonly (PlotPoint | undefined)[]): LinePlot {
-  return {
-    kind: 'line',
-    id,
-    label: id,
-    data,
-    color: DEFAULT_PLOT_COLOR,
-    visible: true,
-    offset: 0,
-    width: DEFAULT_LINE_WIDTH,
-    dash: DEFAULT_LINE_DASH,
+      return {
+        ...base,
+        kind: 'points',
+        radius:
+          declaration.kind === 'points'
+            ? (declaration.radius ?? DEFAULT_POINTS_RADIUS)
+            : DEFAULT_POINTS_RADIUS,
+      }
   }
 }
 

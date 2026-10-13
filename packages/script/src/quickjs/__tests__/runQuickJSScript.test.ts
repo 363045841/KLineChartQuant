@@ -27,10 +27,62 @@ function values(options: Awaited<ReturnType<typeof runQuickJSScript>>, id: strin
 }
 
 describe('runQuickJSScript', () => {
+  it.each(['Line', 'Histogram', 'Points'])(
+    '从 QuickJS Global 读取 PlotKind.%s 并生成对应图形',
+    async (member) => {
+      const result = await runQuickJSScript({
+        source: scriptSource(`
+        if (PlotKind !== globalThis.PlotKind) throw new Error('枚举全局不一致')
+        plot(close[0], globalThis.PlotKind.${member}, { id: 'shape' })
+      `),
+        bars: barsFromCloses([2, 4]),
+      })
+      expect(result.plots[0]?.kind).toBe(member.toLowerCase())
+      expect(values(result, 'shape')).toEqual([2, 4])
+    },
+  )
+
+  it('调用类型优先于 plots 声明并保留公共样式', async () => {
+    const result = await runQuickJSScript({
+      source: `defineIndicator({
+        name: 'Override', inputs: {},
+        plots: [{ id: 'shape', kind: 'line', label: 'Shape', offset: 1 }],
+        onBar() { plot(close[0], PlotKind.Histogram, { id: 'shape' }) }
+      })`,
+      bars: barsFromCloses([2, 4]),
+    })
+    expect(result.plots[0]).toMatchObject({
+      kind: 'histogram',
+      label: 'Shape',
+      offset: 1,
+      baseline: 0,
+    })
+  })
+
+  it('拒绝同一 Plot 在运行中改变类型', async () => {
+    await expect(
+      runQuickJSScript({
+        source: scriptSource(
+          `plot(close[0], close[0] === 2 ? PlotKind.Line : PlotKind.Points, { id: 'shape' })`,
+        ),
+        bars: barsFromCloses([2, 4]),
+      }),
+    ).rejects.toThrow('cannot change kind')
+  })
+
+  it('拒绝未知绘图类型', async () => {
+    await expect(
+      runQuickJSScript({
+        source: scriptSource(`plot(close[0], 'unknown', { id: 'shape' })`),
+        bars: barsFromCloses([2]),
+      }),
+    ).rejects.toThrow('plot kind')
+  })
+
   it('逐 bar 计算 ta.sma，历史不足保留 NaN', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
-        `plot(ta.sma(close, params.period)[0], { id: 'ma' })`,
+        `plot(ta.sma(close, params.period)[0], PlotKind.Line, { id: 'ma' })`,
         `{ period: input(3, '周期') }`,
       ),
       bars: barsFromCloses([10, 20, 30, 40]),
@@ -41,8 +93,8 @@ describe('runQuickJSScript', () => {
   it('序列支持历史偏移，params 作为全局注入', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
-        `plot(close[0] * params.factor, { id: 'scaled' })
-plot(close[1], { id: 'prev' })`,
+        `plot(close[0] * params.factor, PlotKind.Line, { id: 'scaled' })
+plot(close[1], PlotKind.Line, { id: 'prev' })`,
         `{ factor: input(1) }`,
       ),
       bars: barsFromCloses([2, 4, 6]),
@@ -58,14 +110,14 @@ plot(close[1], { id: 'prev' })`,
     ).rejects.toBeInstanceOf(ScriptExecutionError)
     await expect(
       runQuickJSScript({
-        source: scriptSource(`plot(1 / 0, { id: 'bad' })`),
+        source: scriptSource(`plot(1 / 0, PlotKind.Line, { id: 'bad' })`),
         bars: barsFromCloses([1]),
       }),
     ).rejects.toBeInstanceOf(ScriptPlotError)
   })
 
   it('两次运行互不影响，序列状态各自独立', async () => {
-    const source = scriptSource(`plot(ta.sma(close, 2)[0], { id: 'ma' })`)
+    const source = scriptSource(`plot(ta.sma(close, 2)[0], PlotKind.Line, { id: 'ma' })`)
     const first = await runQuickJSScript({ source, bars: barsFromCloses([10, 20, 30]) })
     const second = await runQuickJSScript({ source, bars: barsFromCloses([100, 200, 300]) })
     expect(values(first, 'ma')).toEqual([NaN, 15, 25])
@@ -78,8 +130,8 @@ plot(close[1], { id: 'prev' })`,
       let calls = 0
       defineIndicator({ name: 'PersistentSeries', pane: 'sub', inputs: {}, onBar() {
         if (globalThis.close !== close || globalThis.ta !== ta) throw new Error('全局对象不一致')
-        plot(average[0], { id: 'ma' })
-        plot(++calls, { id: 'calls' })
+        plot(average[0], PlotKind.Line, { id: 'ma' })
+        plot(++calls, PlotKind.Line, { id: 'calls' })
       } })`
     const result = await runQuickJSScript({ source, bars: barsFromCloses([10, 20, 30, 40]) })
     expect(values(result, 'ma')).toEqual([NaN, 15, 25, 35])
@@ -93,7 +145,7 @@ plot(close[1], { id: 'prev' })`,
 
   it('用户库与内置库走同一 defineLibrary 协议', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot(stats.mid(open, close), { id: 'mid' })`),
+      source: scriptSource(`plot(stats.mid(open, close), PlotKind.Line, { id: 'mid' })`),
       bars: barsFromCloses([10, 20]),
       libraries: [
         { name: 'stats', source: `defineLibrary('stats', { mid: (a, b) => (a[0] + b[0]) / 2 })` },
@@ -105,7 +157,7 @@ plot(close[1], { id: 'prev' })`,
   it('库名与已有全局冲突时拒绝加载', async () => {
     await expect(
       runQuickJSScript({
-        source: scriptSource(`plot(close[0], { id: 'close' })`),
+        source: scriptSource(`plot(close[0], PlotKind.Line, { id: 'close' })`),
         bars: barsFromCloses([1]),
         libraries: [{ name: 'close', source: `defineLibrary('close', {})` }],
       }),
@@ -122,7 +174,7 @@ plot(close[1], { id: 'prev' })`,
   })
 
   it.each([
-    `plot(1, { id: 'x' })`,
+    `plot(1, PlotKind.Line, { id: 'x' })`,
     `defineIndicator({ name: 'Bad', pane: 'side', inputs: {}, onBar() {} })`,
     `defineIndicator({ name: 'Bad', inputs: { period: input(Infinity) }, onBar() {} })`,
     `defineIndicator({ name: 'Bad', inputs: {}, onBar() {} }); defineIndicator({})`,

@@ -1,7 +1,9 @@
 /** VM 库注册协议：每个 Context 独立，库显式加载并绑定到 VM 全局。 */
-export const LIBRARY_PRELUDE = `
-const __libraries = new Map()
-function defineLibrary(name, members) {
+
+const __libraries = new Map<string, object>()
+
+/** 注册一个库并绑定到 VM 全局；名称空、重复或与已有全局冲突时拒绝。脚本无类型，入参按未知值校验。 */
+function defineLibrary(name: unknown, members: unknown): object {
   if (typeof name !== 'string' || !name || __libraries.has(name) || name in globalThis) {
     throw new TypeError('库名无效或已注册：' + name)
   }
@@ -11,8 +13,10 @@ function defineLibrary(name, members) {
   Object.defineProperty(globalThis, name, { value: library, enumerable: true })
   return library
 }
-function importLibrary(name) {
-  if (!__libraries.has(name)) throw new TypeError('库未加载：' + name)
-  return __libraries.get(name)
+
+/** 读取已加载的库；未加载时抛出。 */
+function importLibrary(name: string): object {
+  const library = __libraries.get(name)
+  if (!library) throw new TypeError('库未加载：' + name)
+  return library
 }
-`

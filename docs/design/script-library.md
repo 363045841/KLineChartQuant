@@ -8,7 +8,7 @@
 ```js
 onBar() {
   const ma = ta.sma(close, params.period)
-  plot(ma[0], { id: 'ma' })
+  plot(ma[0], PlotKind.Line, { id: 'ma' })
 }
 ```
 

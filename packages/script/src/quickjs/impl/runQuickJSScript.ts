@@ -13,6 +13,12 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
+import {
+  INDICATOR_PRELUDE,
+  LIBRARY_PRELUDE,
+  PLOT_KIND_PRELUDE,
+  SCRIPT_PRELUDE,
+} from '../generated/runtime.js'
 import type {
   QuickJSLibrary,
   QuickJSRunOptions,
@@ -20,8 +26,6 @@ import type {
   ScriptParamValue,
 } from '../types.js'
 import { builtinLibraries } from './builtinLibraries.js'
-import { LIBRARY_PRELUDE } from './libraryPrelude.js'
-import { INDICATOR_PRELUDE, SCRIPT_PRELUDE } from './prelude.js'
 import { readDefinition } from './readDefinition.js'
 
 /** 共享的 WASM 模块类型。 */
@@ -103,6 +107,7 @@ function runWithContext(
     mountParams(vm, options.params)
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile').dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile').dispose()
+    evalOrThrow(vm, PLOT_KIND_PRELUDE, 'compile').dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile').dispose()
     for (const library of [...builtinLibraries, ...(options.libraries ?? [])]) {
       evalOrThrow(vm, library.source, 'compile').dispose()
@@ -158,7 +163,7 @@ function mountHostFunctions(
   vm.setProp(vm.global, '__count', count)
   count.dispose()
 
-  const plot = vm.newFunction('__plot', (idHandle, valueHandle, colorHandle) => {
+  const plot = vm.newFunction('__plot', (idHandle, valueHandle, colorHandle, kindHandle) => {
     const collector = getCollector()
     if (!collector || cursor.index < 0) {
       onError(new ScriptExecutionError('compile', 'plot 只能在 onBar 中调用'))
@@ -167,10 +172,16 @@ function mountHostFunctions(
     const id = String(vm.dump(idHandle))
     const value = Number(vm.dump(valueHandle))
     const color = vm.dump(colorHandle)
+    const kind: unknown = vm.dump(kindHandle)
     if (value === Infinity || value === -Infinity) {
       onError(new ScriptPlotError(id, cursor.index))
     } else {
-      collector.onPlot(id, cursor.index, typeof color === 'string' ? { value, color } : { value })
+      collector.onPlot(
+        id,
+        cursor.index,
+        typeof color === 'string' ? { value, color } : { value },
+        kind === 'line' || kind === 'histogram' || kind === 'points' ? kind : undefined,
+      )
     }
     return vm.undefined
   })

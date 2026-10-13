@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { createScriptService } from '../impl/createScriptService.js'
 
 const source = `defineIndicator({ name: 'ServiceAverage', pane: 'sub', inputs: { n: input(2) },
-  onBar() { plot((open[0] + close[0]) / params.n, { id: 'average' }) } })`
+  onBar() { plot((open[0] + close[0]) / params.n, PlotKind.Line, { id: 'average' }) } })`
 
 describe('ScriptService', () => {
   it('单个快照完成 CRUD，更新不新增身份，过期版本或错误源码不覆盖', async () => {

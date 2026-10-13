@@ -195,6 +195,14 @@
       }
     },
     {
+      "includes": ["packages/script/src/quickjs/runtime/**/*"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUnusedVariables": "off" }
+        }
+      }
+    },
+    {
       "includes": ["packages/react/**/*.{ts,tsx}"],
       "linter": {
         "rules": {

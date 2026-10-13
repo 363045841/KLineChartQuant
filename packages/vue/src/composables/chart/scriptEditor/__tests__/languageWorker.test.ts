@@ -44,6 +44,21 @@ describe('script language service', () => {
     expect(await completions('const settings = { length: 20 }; settings.')).toContain('length')
   })
 
+  it('补全全局绘图枚举，并检查第二个参数的枚举类型', async () => {
+    expect(await completions('PlotKind.')).toEqual(
+      expect.arrayContaining(['Line', 'Histogram', 'Points']),
+    )
+    expect(await completions('globalThis.PlotKind.')).toEqual(
+      expect.arrayContaining(['Line', 'Histogram', 'Points']),
+    )
+    const worker = await createSession(`plot(1, globalThis.PlotKind.Histogram, { id: 'volume' })`)
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
+    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot(1, 'histogram', { id: 'volume' })` })
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
+      1,
+    )
+  })
+
   it('显示 ta 函数的参数签名与类型诊断', async () => {
     const source = 'ta.sma(close, "bad")'
     const worker = await createSession(source)
@@ -67,7 +82,7 @@ describe('script language service', () => {
     expect(first?.options.map((option) => option.label)).toContain('period')
     const updated = `defineIndicator({
       name: 'Changed', inputs: { enabled: input(true) },
-      onBar() { plot(params.enabled ? close[0] : NaN, { id: 'value' }) }
+      onBar() { plot(params.enabled ? close[0] : NaN, PlotKind.Line, { id: 'value' }) }
     });\nparams.`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: updated })
     const next = await worker.getAutocompletion({

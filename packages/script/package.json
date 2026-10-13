@@ -34,7 +34,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",

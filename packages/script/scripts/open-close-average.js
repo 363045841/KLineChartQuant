@@ -8,8 +8,8 @@ defineIndicator({
   },
   onBar() {
     const average = (open[0] + close[0]) / params.n + params.a
-    plot(average, { id: 'oc-average' })
-    plot(high[0], { id: 'oc-high' })
-    plot(low[0], { id: 'oc-low' })
+    plot(average, PlotKind.Line, { id: 'oc-average' })
+    plot(high[0], PlotKind.Line, { id: 'oc-high' })
+    plot(low[0], PlotKind.Line, { id: 'oc-low' })
   },
 })

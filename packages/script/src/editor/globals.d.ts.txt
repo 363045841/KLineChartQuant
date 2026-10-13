@@ -1,10 +1,11 @@
 /** 脚本虚拟程序专用声明资源，不参与宿主 TypeScript 程序。 */
+/// <reference path="../quickjs/runtime/plotKind.ts" />
 import type { InputDef } from '@363045841yyt/klinechart-plot-contracts'
 import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
-import type { ScriptIndicatorDeclaration } from './types.js'
+import type { ScriptIndicatorDeclaration, ScriptPlotOptions } from './types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -24,7 +25,7 @@ declare global {
   /** 声明完整指标；onBar 在每根 K 线上执行。 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
   /** 输出当前 K 线的一个绘图点，NaN 表示空点。 */
-  function plot(value: number, options: { id: string; color?: string }): void
+  function plot(value: number, kind: PlotKind, options: ScriptPlotOptions): void
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */

@@ -7,6 +7,6 @@ defineIndicator({
   },
   onBar() {
     const average = ta.sma(close, params.period)
-    plot(average[0], { id: 'sma' })
+    plot(average[0], PlotKind.Line, { id: 'sma' })
   },
 })

@@ -17,7 +17,7 @@ async function collect(directory, prefix) {
 for (const directory of ['contracts', 'Library', 'series']) {
   await collect(new URL(`src/${directory}/`, packageRoot), `${scriptPrefix}${directory}/`)
 }
-for (const file of ['quickjs/types.ts', 'editor/types.ts']) {
+for (const file of ['quickjs/types.ts', 'editor/types.ts', 'quickjs/runtime/plotKind.ts']) {
   files[scriptPrefix + file] = await readFile(new URL(`src/${file}`, packageRoot), 'utf8')
 }
 const entry = `${scriptPrefix}editor/globals.d.ts`
