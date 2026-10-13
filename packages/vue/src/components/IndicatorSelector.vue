@@ -217,6 +217,8 @@
 
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
+  /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
+  const currentIndicator = ref<ReturnType<typeof findIndicator>>()
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
     if (props.replacePaneId) {
@@ -228,11 +230,6 @@
     computed(() => props.chartController ?? null),
     availableIndicators,
   )
-
-  const currentIndicator = computed(() => {
-    if (!currentIndicatorId.value) return null
-    return findIndicator(currentIndicatorId.value)
-  })
 
   const modalTitle = computed(() => (props.replacePaneId ? '更换指标' : '添加指标'))
 
@@ -271,6 +268,7 @@
 
   function showParams(indicatorId: string) {
     currentIndicatorId.value = indicatorId
+    currentIndicator.value = findIndicator(indicatorId)
     paramsVisible.value = true
   }
 

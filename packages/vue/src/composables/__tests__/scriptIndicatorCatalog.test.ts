@@ -5,19 +5,21 @@ import {
   createIndicatorSelectorController,
   findIndicator,
 } from '@363045841yyt/klinechart-core/controllers'
-import { input } from '@363045841yyt/klinechart-script'
-import { openCloseAverage } from '@363045841yyt/klinechart-script/indicators'
-import { registerScriptIndicator } from '@363045841yyt/klinechart-script-chart'
-import { describe, expect, it } from 'vitest'
+import { createScriptService, type ScriptService } from '@363045841yyt/klinechart-script-chart'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { effectScope, ref } from 'vue'
 import { useIndicatorCatalog } from '../useIndicatorCatalog.js'
 import { INDICATOR_SELECTOR_SECTIONS, useIndicatorFavorites } from '../useIndicatorFavorites.js'
 import { useIndicatorParams } from '../useIndicatorParams.js'
 
 describe('Script selector catalog', () => {
+  let scripts: ScriptService
+  beforeAll(async () => {
+    scripts = await createScriptService()
+  })
   it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', () => {
-    registerScriptIndicator(openCloseAverage, { pane: 'main' })
-    const indicator = findIndicator(openCloseAverage.name)
+    scripts.create(`defineIndicator({ name: 'OC Average', pane: 'main', inputs: {}, onBar() {} })`)
+    const indicator = findIndicator('OC Average')
     expect(indicator).toMatchObject({ id: 'OC Average', source: 'script', pane: 'main' })
   })
   it('组件挂载后注册的脚本进入专用分组，保留输入类型和默认值', () => {
@@ -26,13 +28,9 @@ describe('Script selector catalog', () => {
     scope.run(() => {
       useIndicatorCatalog(controller)
     })
-    registerScriptIndicator({
-      name: 'SelectorScript',
-      inputs: { period: { default: 5 }, text: { default: 'close' }, enabled: { default: false } },
-      onBar(ctx) {
-        ctx.plot(ctx.close[0], { id: 'close' })
-      },
-    })
+    scripts.create(`defineIndicator({ name: 'SelectorScript',
+      inputs: { period: input(5), text: input('close'), enabled: input(false) },
+      onBar() { plot(close[0], { id: 'close' }) } })`)
     const definition = controller.catalog.peek().find((item) => item.id === 'SelectorScript')!
     expect(definition.source).toBe('script')
     expect(definition.params).toEqual([
@@ -65,16 +63,30 @@ describe('Script selector catalog', () => {
     scope.stop()
   })
   it('input() 声明的标题作为参数面板显示名', () => {
-    registerScriptIndicator({
-      name: 'TitledInputScript',
-      inputs: { n: input(2, '除数') },
-      onBar(ctx) {
-        ctx.plot(ctx.close[0], { id: 'close' })
-      },
-    })
+    scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, '除数') },
+      onBar() { plot(close[0], { id: 'close' }) } })`)
 
     expect(findIndicator('TitledInputScript')!.params).toEqual([
       { key: 'n', label: '除数', type: 'number', default: 2 },
+    ])
+  })
+  it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', () => {
+    const created = scripts.create(
+      `defineIndicator({ name: 'UpdatableScript', inputs: { period: input(3) }, onBar() {} })`,
+    )
+    expect(findIndicator('UpdatableScript')!.params).toEqual([
+      { key: 'period', label: 'period', type: 'number', default: 3 },
+    ])
+
+    scripts.update(
+      created.id,
+      `defineIndicator({ name: 'UpdatableScript',
+        inputs: { period: input(7), label: input('ma', '名称') }, onBar() {} })`,
+      created.revision,
+    )
+    expect(findIndicator('UpdatableScript')!.params).toEqual([
+      { key: 'period', label: 'period', type: 'number', default: 7 },
+      { key: 'label', label: '名称', type: 'string', default: 'ma' },
     ])
   })
 })
