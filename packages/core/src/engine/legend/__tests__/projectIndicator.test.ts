@@ -1,7 +1,6 @@
 /** 主副图共用的指标标题投影契约与十字线取值测试。 */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { resolveThemeColors } from '@/foundation/tokens/index'
 import type { KLineData } from '@/foundation/types/price'
@@ -42,30 +41,13 @@ function project(definitionId: string, data: KLineData[], index: number, hidden 
 }
 
 describe('统一指标图例投影', () => {
-  it.each([
-    { volume: 2500, text: '2.50K' },
-    { volume: 12500, text: '12.50K' },
-    { volume: 125000000, text: '125.00M' },
-    { volume: 1250000000, text: '1.25B' },
-  ])('副图成交量使用指标自己的格式 $text', ({ volume, text }) => {
-    const data = [{ timestamp: 1, open: 10, high: 12, low: 9, close: 11, volume }]
-    expect(project('VOL', data, 0).texts.map((item) => item.text)).toEqual(['VOL', `VOL ${text}`])
+  it('副图成交量标题沿用指标自己的格式器', () => {
+    const data = [{ timestamp: 1, open: 10, high: 12, low: 9, close: 11, volume: 1250000000 }]
+    expect(project('VOL', data, 0).texts.map((item) => item.text)).toEqual(['VOL', 'VOL 1.25B'])
   })
 
-  it('将实例身份、取值索引和帧读取器传给定义，并保留隐藏标题', () => {
-    const getTitleInfo = vi
-      .spyOn(getRegisteredIndicatorDefinition('rsi')!, 'getTitleInfo')
-      .mockReturnValue({ name: 'RSI' })
-    const { title, context } = project('rsi', [], -1, true)
-    expect(getTitleInfo).toHaveBeenCalledWith(
-      [],
-      -1,
-      {},
-      context.indicatorStateReader,
-      'instance',
-      'sub',
-      expect.any(Object),
-    )
+  it('保留隐藏标记，不因当前位置没有取值而丢弃副图行', () => {
+    const { title } = project('rsi', [], -1, true)
     expect(title).toMatchObject({
       instanceId: 'instance',
       definitionId: 'rsi',

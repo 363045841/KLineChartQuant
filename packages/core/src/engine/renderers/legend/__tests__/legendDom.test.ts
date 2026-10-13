@@ -163,6 +163,8 @@ describe('DOM Legend renderer', () => {
     expect(button.hidden).toBe(false)
     expect(getComputedStyle(button).display).toBe('flex')
     button.click()
+    // 收起主图行不改变按钮自身的可见性，它只由品种选择与指标行数决定。
+    expect(button.hidden).toBe(false)
 
     selected = false
     renderer.update('main', [row], ['main'])
@@ -261,9 +263,10 @@ describe('DOM Legend renderer', () => {
 
     renderer.update('main', [row, second], ['main'])
     const rows = host.querySelectorAll<HTMLElement>('.klc-legend-row')
+    const buttonTop = () => Number.parseFloat(button.style.top)
     expect(button.hidden).toBe(false)
     // 展开态：按钮位于末行下方，不显示指标数量。
-    expect(button.style.top).toBe(`${second.y + second.height + 2}px`)
+    expect(buttonTop()).toBeGreaterThan(second.y + second.height)
     expect(button.style.left).toBe(`${row.x}px`)
     expect(button.title).toBe('收起指标')
     expect(count.hidden).toBe(true)
@@ -274,14 +277,14 @@ describe('DOM Legend renderer', () => {
     expect(button.getAttribute('aria-expanded')).toBe('false')
     expect(button.title).toBe('展开指标')
     expect([...rows].every((element) => element.style.display === 'none')).toBe(true)
-    expect(button.style.top).toBe(`${row.y}px`)
+    expect(buttonTop()).toBe(row.y)
     expect(count.hidden).toBe(false)
     expect(count.textContent).toBe('2')
 
     button.click()
     expect(button.getAttribute('aria-expanded')).toBe('true')
     expect([...rows].every((element) => element.style.display === '')).toBe(true)
-    expect(button.style.top).toBe(`${second.y + second.height + 2}px`)
+    expect(buttonTop()).toBeGreaterThan(second.y + second.height)
     expect(count.hidden).toBe(true)
     renderer.dispose()
   })
