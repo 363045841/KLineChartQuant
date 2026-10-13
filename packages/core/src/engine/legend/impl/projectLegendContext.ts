@@ -185,7 +185,12 @@ function collectIndicatorRows(
   return rows
 }
 
-/** 主副图指标从同一实例目录及帧读取器生成标题；加载时保留占位。 */
+/**
+ * 主副图指标从同一实例目录及帧读取器生成标题。
+ *
+ * 只要定义已注册就返回一行：当前位置没有取值（如脚本 plot 输出 NaN、计算未覆盖该 bar）
+ * 只表现为没有 values，不回退隐藏整个指标。主副图据此保持一致的可见性。
+ */
 export function projectIndicator(
   instance: IndicatorInstanceDescriptor,
   stateReader: RenderContext['indicatorStateReader'],
@@ -216,7 +221,6 @@ export function projectIndicator(
           colors,
         )
       : null
-  if (!titleInfo && !loading && !error && instance.paneId === 'main') return null
   return {
     instanceId: instance.instanceId,
     definitionId: instance.definitionId,

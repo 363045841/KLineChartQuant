@@ -139,7 +139,6 @@ describe('MainIndicatorLegend paint', () => {
     const context = createLegendContext(MA_INSTANCE_ID, createMARenderState())
 
     layer.paint(context)
-    expect(ctx.fillText).not.toHaveBeenCalled()
     expect(onContext).toHaveBeenLastCalledWith(
       expect.objectContaining({ indicators: expect.any(Array) }),
     )
@@ -242,22 +241,15 @@ describe('MainIndicatorLegend paint', () => {
     expect(countLegendTexts((text) => text.includes('109.000'))).toBeGreaterThan(0)
   })
 
-  it.each([
-    { label: 'the instance projection is missing', state: undefined },
-    {
-      label: 'state has no valid data',
-      state: createMARenderState({
-        visibleMin: Infinity,
-        visibleMax: -Infinity,
-        enabledPeriods: [],
-      }),
-    },
-  ])('does not paint MA and does not throw when $label', ({ state }) => {
+  it('keeps the MA row without values when the crosshair bar has no plot point', () => {
+    // 脚本 plot 输出 NaN：该 bar 无取值，但定义仍注册，图例必须保留该指标行。
+    const state = createMARenderState({ series: { 5: [undefined, 100] }, enabledPeriods: [5] })
     const layer = createLegendLayer(createMAHost())
-    const context = createLegendContext(MA_INSTANCE_ID, state)
 
-    expect(() => layer.paint(context)).not.toThrow()
-    expect(countTitleRows('MA')).toBe(0)
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 0 }))
+
+    const row = rows.find((entry) => entry.key === MA_INSTANCE_ID)
+    expect(row?.texts.map((item) => item.text)).toEqual(['MA'])
   })
 
   it('displays values with 3 decimal places', () => {
