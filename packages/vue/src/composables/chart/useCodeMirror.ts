@@ -1,61 +1,43 @@
 /**
  * CodeMirror 6 的 Vue 组合式封装：创建编辑器视图、双向同步文本、卸载时销毁。
  *
- * 只负责编辑器生命周期与文本同步，不认识脚本语义；补全只提供脚本运行时注入的全局。
+ * 脚本语言服务按需加载，源码是文档的唯一输入，关闭弹窗即释放当前语言会话。
  */
-import {
-  autocompletion,
-  type CompletionContext,
-  type CompletionResult,
-} from '@codemirror/autocomplete'
 import { javascript } from '@codemirror/lang-javascript'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { basicSetup, EditorView } from 'codemirror'
-import { onBeforeUnmount, type Ref, shallowRef, watch } from 'vue'
+import { type Ref, shallowRef, watch } from 'vue'
 import { scriptEditorTheme } from './scriptEditor/impl/editorTheme.js'
-
-/** 脚本运行时注入的全局标识符。 */
-const SCRIPT_GLOBALS = [
-  'defineIndicator',
-  'input',
-  'open',
-  'high',
-  'low',
-  'close',
-  'volume',
-  'time',
-  'ta',
-  'plot',
-  'params',
-]
-/** ta 命名空间下的函数。 */
-const TA_MEMBERS = ['sma', 'ema', 'rsi', 'highest', 'lowest', 'crossover', 'crossunder']
-
-/** 为注入全局与 ta 成员提供补全。 */
-function completions(context: CompletionContext): CompletionResult | null {
-  const token = context.matchBefore(/[A-Za-z_][\w.]*/)
-  if (!token || (token.from === token.to && !context.explicit)) return null
-  if (token.text.startsWith('ta.')) {
-    return {
-      from: token.from + 'ta.'.length,
-      options: TA_MEMBERS.map((label) => ({ label, type: 'method' })),
-    }
-  }
-  return { from: token.from, options: SCRIPT_GLOBALS.map((label) => ({ label, type: 'variable' })) }
-}
 
 /** 在 host 元素上挂载编辑器，并把文档变化写回 value。 */
 export function useCodeMirror(
   host: Ref<HTMLElement | null>,
   value: Ref<string>,
   onChange: (next: string) => void,
-): { view: Ref<EditorView | null> } {
+): {
+  view: Ref<EditorView | null>
+  languageLoading: Ref<boolean>
+  languageError: Ref<string | null>
+} {
   const view = shallowRef<EditorView | null>(null)
+  const languageLoading = shallowRef(false)
+  const languageError = shallowRef<string | null>(null)
 
   watch(
     host,
     (element, _previous, onCleanup) => {
       if (!element) return
+      const language = new Compartment()
+      let active = true
+      let disposeLanguage: (() => void) | undefined
+      /** 启动失败和运行中 Worker 错误共用同一条可见错误链路。 */
+      const showLanguageError = (error: unknown) => {
+        if (!active) return
+        disposeLanguage?.()
+        languageLoading.value = false
+        const message = error instanceof Error ? error.message : String(error)
+        languageError.value = `智能提示加载失败：${message}`
+      }
       const instance = new EditorView({
         parent: element,
         state: EditorState.create({
@@ -65,7 +47,7 @@ export function useCodeMirror(
             javascript(),
             scriptEditorTheme,
             EditorState.tabSize.of(2),
-            autocompletion({ override: [completions] }),
+            language.of([]),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) onChange(update.state.doc.toString())
             }),
@@ -73,9 +55,28 @@ export function useCodeMirror(
         }),
       })
       view.value = instance
+      languageLoading.value = true
+      languageError.value = null
+      // 初始化期间仍可编辑；挂载服务前再读取最新草稿，不用打开时的旧文本覆盖。
+      void import('./scriptEditor/impl/languageSupport.js')
+        .then(async ({ createScriptLanguageSupport }) => {
+          if (!active) return
+          const support = createScriptLanguageSupport(showLanguageError)
+          disposeLanguage = support.dispose
+          const extensions = await support.initialize(() => instance.state.doc.toString())
+          if (!active) return
+          instance.dispatch({ effects: language.reconfigure(extensions) })
+        })
+        .catch(showLanguageError)
+        .finally(() => {
+          if (active) languageLoading.value = false
+        })
       onCleanup(() => {
+        active = false
+        disposeLanguage?.()
         instance.destroy()
         view.value = null
+        languageLoading.value = false
       })
     },
     { flush: 'post' },
@@ -90,7 +91,5 @@ export function useCodeMirror(
     instance.dispatch({ changes: { from: 0, to: current.length, insert: next } })
   })
 
-  onBeforeUnmount(() => view.value?.destroy())
-
-  return { view }
+  return { view, languageLoading, languageError }
 }

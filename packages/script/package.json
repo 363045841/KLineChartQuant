@@ -14,6 +14,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./editor": {
+      "types": "./dist/editor/resources.d.ts",
+      "import": "./dist/editor/resources.js"
+    },
     "./scripts/*": "./scripts/*",
     ".": {
       "types": "./dist/index.d.ts",
@@ -30,7 +34,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",

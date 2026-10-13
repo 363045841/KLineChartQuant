@@ -1,7 +1,7 @@
-/** CodeMirror 主题：颜色与字体统一消费图表 Token，随深浅主题自动切换。 */
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+/** CodeMirror 界面消费图表 Token，语法高亮使用官方 One Dark 配色。 */
+import { syntaxHighlighting } from '@codemirror/language'
+import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
-import { tags } from '@lezer/highlight'
 
 /** 编辑区、行号、选区和补全面板共用图表的界面颜色。 */
 const editorTheme = EditorView.theme({
@@ -56,7 +56,33 @@ const editorTheme = EditorView.theme({
     color: 'var(--klc-color-ui-text)',
     border: '1px solid var(--klc-color-ui-border)',
   },
-  '.cm-tooltip': { borderRadius: 'var(--klc-radius-md, 8px)', overflow: 'hidden' },
+  '.cm-tooltip': {
+    borderRadius: 'var(--klc-radius-md, 8px)',
+    overflow: 'hidden',
+  },
+  // 类型悬浮框和参数提示共用卡片布局，避免长签名贴边并覆盖整行代码。
+  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip:has(.cm-script-signature)': {
+    maxWidth: 'min(560px, 80vw)',
+    backgroundColor: 'var(--klc-color-ui-control-background)',
+    fontSize: 'var(--klc-text-label-13-font-size, 13px)',
+    lineHeight: '1.6',
+  },
+  '.cm-tooltip-hover > div, .cm-script-signature': {
+    padding: 'var(--klc-space-4, 4px) var(--klc-space-8, 8px)',
+    fontFamily: "'JetBrains Mono', monospace",
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    maxHeight: 'min(280px, 40dvh)',
+    overflowY: 'auto',
+    boxSizing: 'border-box',
+  },
+  '.cm-tooltip-hover .quick-info-keyword': { color: 'var(--klc-color-ui-accent)' },
+  '.cm-tooltip-hover .quick-info-punctuation, .cm-tooltip-hover .quick-info-text': {
+    color: 'var(--klc-color-ui-muted)',
+  },
+  '.cm-tooltip-hover .quick-info-propertyName, .cm-tooltip-hover .quick-info-methodName': {
+    fontWeight: '500',
+  },
   '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
     backgroundColor: 'var(--klc-color-ui-selected)',
     color: 'var(--klc-color-ui-text)',
@@ -71,17 +97,5 @@ const editorTheme = EditorView.theme({
   },
 })
 
-/** 覆盖默认亮色高亮，避免深色背景上出现低对比度的蓝色和红色。 */
-const highlight = HighlightStyle.define([
-  { tag: tags.keyword, color: 'var(--klc-color-ui-accent)' },
-  { tag: [tags.string, tags.regexp], color: 'var(--klc-color-performance-positive)' },
-  { tag: [tags.number, tags.bool, tags.null], color: 'var(--klc-color-ui-accent)' },
-  { tag: tags.comment, color: 'var(--klc-color-ui-muted)', fontStyle: 'italic' },
-  { tag: tags.function(tags.variableName), color: 'var(--klc-color-ui-text)', fontWeight: '500' },
-  { tag: [tags.variableName, tags.propertyName], color: 'var(--klc-color-ui-text)' },
-  { tag: [tags.operator, tags.punctuation], color: 'var(--klc-color-ui-muted)' },
-  { tag: tags.invalid, color: 'var(--klc-color-performance-negative)' },
-])
-
 /** 编辑器共享样式扩展，CSS 变量变更时无需重建文档或视图。 */
-export const scriptEditorTheme = [editorTheme, syntaxHighlighting(highlight)]
+export const scriptEditorTheme = [editorTheme, syntaxHighlighting(oneDarkHighlightStyle)]

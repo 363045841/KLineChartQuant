@@ -11,10 +11,12 @@
     <div class="script-workspace">
       <div class="script-workspace__toolbar">
         <span class="script-workspace__language">JavaScript</span>
-        <span class="script-workspace__meta">{{ lineCount }} 行</span>
+        <span class="script-workspace__meta">
+          <span v-if="languageLoading">加载智能提示… · </span>{{ lineCount }} 行
+        </span>
       </div>
       <div ref="editorHost" class="script-editor" />
-      <p v-if="error" class="script-workspace__error" role="alert">{{ error }}</p>
+      <p v-if="editorError" class="script-workspace__error" role="alert">{{ editorError }}</p>
     </div>
     <template #footer>
       <BaseButton @click="emit('update:open', false)">关闭</BaseButton>
@@ -67,7 +69,10 @@
     set: (value) => emit('update:source', value),
   })
   const lineCount = computed(() => props.source.split('\n').length)
-  useCodeMirror(editorHost, source, (next) => emit('update:source', next))
+  const { languageLoading, languageError } = useCodeMirror(editorHost, source, (next) =>
+    emit('update:source', next),
+  )
+  const editorError = computed(() => props.error || languageError.value)
 </script>
 
 <style scoped>
