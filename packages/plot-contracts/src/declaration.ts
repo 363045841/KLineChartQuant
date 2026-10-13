@@ -1,13 +1,12 @@
 /**
- * 脚本的 Plot 与填充声明。
+ * 声明式 Plot 契约：描述「画出什么形状、用什么样式」。
  *
- * 脚本作者用它描述「画出什么形状、用什么样式」；采集器据此把逐 bar 输出组装成
- * 契约包中的 Plot。未声明的样式由采集器填入默认值。
+ * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
 /** 声明式 Plot 的公共信息。 */
 interface PlotDeclarationBase {
-  /** Plot 的唯一标识，与 ctx.plot 的 id 对应。 */
+  /** Plot 的唯一标识，与逐 bar 输出的 id 对应。 */
   readonly id: string
   /** 图例名称；缺省时取 id。 */
   readonly label?: string
@@ -38,7 +37,7 @@ export interface PointsPlotDeclaration extends PlotDeclarationBase {
   readonly radius?: number
 }
 
-/** 脚本声明的 Plot：按 kind 区分折线 / 柱状图 / 点图。 */
+/** 声明的 Plot：按 kind 区分折线 / 柱状图 / 点图。 */
 export type PlotDeclaration = LinePlotDeclaration | HistogramPlotDeclaration | PointsPlotDeclaration
 
 /** 声明式填充：引用两个 Plot id，样式缺省时由采集器填入默认值。 */

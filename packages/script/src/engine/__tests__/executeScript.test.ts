@@ -41,7 +41,7 @@ describe('executeScript', () => {
         { id: 'empty', kind: 'points' },
       ],
       onBar(ctx, params) {
-        if (ctx.close > 1) ctx.plot(ctx.close * params.factor, { id: 'close', color: 'red' })
+        if (ctx.close[0] > 1) ctx.plot(ctx.close[0] * params.factor, { id: 'close', color: 'red' })
       },
     }
     const bars = [1, 2, 3].map((close) => ({

@@ -25,7 +25,9 @@ export const openCloseAverage = defineIndicator({
    * 每根 K 线执行一次：读取当前 bar 的 open / close，求和后除以 n 用 Plot 系函数输出。
    */
   onBar(ctx, params) {
-    const average = (ctx.open + ctx.close) / params.n + params.a
+    const average = (ctx.open[0] + ctx.close[0]) / params.n + params.a
     ctx.plot(average, { id: 'oc-average', color: '#26a69a' })
+    ctx.plot(ctx.high[0], { id: 'oc-high' })
+    ctx.plot(ctx.low[0], { id: 'oc-low' })
   },
 })

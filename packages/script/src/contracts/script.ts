@@ -1,7 +1,15 @@
 /**
  * 脚本契约：指标定义、输入声明与逐 bar 执行上下文。
  */
-import type { PlotDeclaration, PlotFillDeclaration } from './plotDeclaration.js'
+import type {
+  InputSchema,
+  PlotDeclaration,
+  PlotFillDeclaration,
+} from '@363045841yyt/klinechart-plot-contracts'
+import type { Series } from '../series/types.js'
+import type { LibraryModules } from './library.js'
+
+export type { InputDef, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
 
 /** Plot 的标识和样式。 */
 export interface PlotOptions {
@@ -10,27 +18,17 @@ export interface PlotOptions {
   color?: string
 }
 
-/** 逐 bar 执行时由引擎注入的上下文：内置序列 + Plot 系函数。 */
-export interface Ctx {
-  readonly open: number
-  readonly high: number
-  readonly low: number
-  readonly close: number
-  readonly volume: number
+/** 逐 bar 执行上下文：行情序列 + 类型目录中的库 + Plot 系函数。 */
+export interface Ctx extends LibraryModules {
+  readonly open: Series
+  readonly high: Series
+  readonly low: Series
+  readonly close: Series
+  readonly volume: Series
+  readonly time: Series
   /** 输出绘图点，id 指定它属于哪个 Plot。 */
   plot(value: number, options: PlotOptions): void
 }
-
-/** 单个输入参数的声明，由 input() 工厂产出。 */
-export interface InputDef<T> {
-  /** 默认值，同时决定参数在面板中的编辑类型。 */
-  readonly default: T
-  /** 参数面板中的显示名；缺省显示参数名。 */
-  readonly title?: string
-}
-
-/** 输入声明表：键即参数名，P 为解析后的参数值类型。 */
-export type InputSchema<P> = { [K in keyof P]: InputDef<P[K]> }
 
 /** 指标定义：名称、输入声明与逐 bar 执行函数。 */
 export interface IndicatorDef<P> {

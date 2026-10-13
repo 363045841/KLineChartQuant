@@ -6,8 +6,6 @@
 
 /** 脚本引擎错误码常量。 */
 export const SCRIPT_ERROR_CODES = {
-  /** 脚本声明了 plots，但输出落在未声明的 Plot id 上。 */
-  UNDECLARED_PLOT: 'SCRIPT_UNDECLARED_PLOT',
   /** Plot 输出了正无穷大或负无穷大。 */
   INFINITE_PLOT_VALUE: 'SCRIPT_INFINITE_PLOT_VALUE',
 } as const

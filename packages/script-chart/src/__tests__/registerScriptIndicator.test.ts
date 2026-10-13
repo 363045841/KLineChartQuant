@@ -11,7 +11,7 @@ const mainLine = defineIndicator({
   name: 'AdapterMainLine',
   inputs: { factor: input(2, '系数') },
   onBar(ctx) {
-    ctx.plot(ctx.close, { id: 'close' })
+    ctx.plot(ctx.close[0], { id: 'close' })
   },
 })
 
@@ -20,7 +20,7 @@ const subLine = defineIndicator({
   name: 'AdapterSubLine',
   inputs: {},
   onBar(ctx) {
-    ctx.plot(ctx.close, { id: 'close' })
+    ctx.plot(ctx.close[0], { id: 'close' })
   },
 })
 

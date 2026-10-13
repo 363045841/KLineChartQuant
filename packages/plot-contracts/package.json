@@ -1,7 +1,7 @@
 {
   "name": "@363045841yyt/klinechart-plot-contracts",
   "version": "0.0.0",
-  "description": "Plot data contracts shared by KLineChartQuant producers and renderers.",
+  "description": "Shared Plot contract for KLineChartQuant: data model, declarative Plot declarations, and the canonical assembler.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

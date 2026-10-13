@@ -26,8 +26,8 @@ describe('runEngine', () => {
       name: 'Conditional plots',
       inputs: {},
       onBar(ctx) {
-        if (ctx.close > ctx.open) ctx.plot(ctx.high, { id: 'high', color: 'red' })
-        ctx.plot(ctx.close, { id: 'close', color: 'blue' })
+        if (ctx.close[0] > ctx.open[0]) ctx.plot(ctx.high[0], { id: 'high', color: 'red' })
+        ctx.plot(ctx.close[0], { id: 'close', color: 'blue' })
       },
     })
 

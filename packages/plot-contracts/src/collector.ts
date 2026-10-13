@@ -1,20 +1,15 @@
 /**
  * PlotCollector：把逐 bar 的 onPlot 输出汇聚成按 K 线对齐的 PlotCollection。
  *
- * 作为 OutputSink 的实现，它把散落的 (id, barIndex, point) 收成每个 Plot 的列：
- * - 脚本声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
- * - 脚本未声明 plots 时，允许动态 id，一律按默认折线处理。
+ * 它把散落的 (id, barIndex, point) 收成每个 Plot 的列：
+ * - 声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
+ * - 未声明 plots 时，允许动态 id，一律按默认折线处理。
+ *
+ * onEvent 是引擎输出端口的空实现：组装只消费绘图点，不消费事件。
  */
-import type {
-  LinePlot,
-  Plot,
-  PlotCollection,
-  PlotFill,
-  PlotPoint,
-} from '@363045841yyt/klinechart-plot-contracts'
-import type { AlertEvent, LogEvent, OutputSink } from '../../contracts/output.js'
-import type { PlotDeclaration, PlotFillDeclaration } from '../../contracts/plotDeclaration.js'
-import { SCRIPT_ERROR_CODES } from '../../errors.js'
+import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
+import { PLOT_ERROR_CODES } from './errors.js'
+import type { LinePlot, Plot, PlotCollection, PlotFill, PlotPoint } from './plots.js'
 
 /** Plot 默认颜色。 */
 const DEFAULT_PLOT_COLOR = '#2196f3'
@@ -33,14 +28,14 @@ const DEFAULT_FILL_OPACITY = 0.2
 export interface PlotCollectorOptions {
   /** 本次运行的 bar 数量，用于补齐空 Plot 的序列长度。 */
   readonly barCount: number
-  /** 脚本的 Plot 声明；提供时拒绝未声明 id。 */
+  /** Plot 声明；提供时拒绝未声明 id。 */
   readonly plots?: readonly PlotDeclaration[]
-  /** 脚本的填充声明。 */
+  /** 填充声明。 */
   readonly fills?: readonly PlotFillDeclaration[]
 }
 
 /** 按 id / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
-export class PlotCollector implements OutputSink {
+export class PlotCollector {
   private readonly barCount: number
   private readonly declarations?: readonly PlotDeclaration[]
   private readonly declaredIds?: ReadonlySet<string>
@@ -60,7 +55,7 @@ export class PlotCollector implements OutputSink {
   onPlot(id: string, barIndex: number, point: PlotPoint): void {
     if (this.declaredIds && !this.declaredIds.has(id)) {
       throw new Error(
-        `[${SCRIPT_ERROR_CODES.UNDECLARED_PLOT}] plot id '${id}' is not declared in script.plots`,
+        `[${PLOT_ERROR_CODES.UNDECLARED_PLOT}] plot id '${id}' is not declared in script.plots`,
       )
     }
     let column = this.columns.get(id)
@@ -71,8 +66,8 @@ export class PlotCollector implements OutputSink {
     column[barIndex] = point
   }
 
-  /** 事件不参与 PlotCollection；保留空实现以完整实现 OutputSink。 */
-  onEvent(_event: AlertEvent | LogEvent): void {}
+  /** 事件不参与 PlotCollection；参数放宽以匹配引擎 OutputSink 的结构。 */
+  onEvent(_event: unknown): void {}
 
   /** 产出 PlotCollection：声明优先且保持声明顺序，未声明时按首次出现顺序输出。 */
   collect(): PlotCollection {

@@ -12,7 +12,7 @@ const earlyScript = defineIndicator({
   pane: 'main',
   inputs: {},
   onBar(ctx) {
-    ctx.plot(ctx.close, { id: 'close' })
+    ctx.plot(ctx.close[0], { id: 'close' })
   },
 })
 
@@ -29,7 +29,7 @@ describe('registerDefinedScripts', () => {
       name: 'AutoLateScript',
       inputs: {},
       onBar(ctx) {
-        ctx.plot(ctx.close, { id: 'close' })
+        ctx.plot(ctx.close[0], { id: 'close' })
       },
     })
     expect(getIndicatorDescriptor('AutoLateScript')).toMatchObject({

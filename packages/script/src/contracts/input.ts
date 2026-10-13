@@ -5,24 +5,9 @@
  * - history：每根 K 线只执行一次
  * - subscribe：同一根 K 线可能被多次推送，引擎会覆盖重算
  */
+import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 
-/** 单根 K 线 */
-export interface Bar {
-  /** K 线开盘时间戳（毫秒，UTC） */
-  time: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-  /**
-   * 该 K 线是否已收盘
-   * - 历史数据恒为 true
-   * - 缺省视为 true
-   * - 实时推送中，未收盘的 tick 为 false，收盘的最后一次推送为 true
-   */
-  closed?: boolean
-}
+export type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 历史数据请求的时间范围，按 K 线开盘时间过滤，缺省表示不限制 */
 export interface DataFeedRange {

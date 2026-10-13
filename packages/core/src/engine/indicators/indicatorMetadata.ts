@@ -5,6 +5,7 @@
  * 每个指标通过 metadata 描述其渲染器工厂、计算描述与展示配置等元信息
  */
 
+import type { IndicatorSource } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -17,8 +18,8 @@ import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorCont
 export type IndicatorConfig = Readonly<Record<string, unknown>>
 
 export type IndicatorId = string
-/** 指标定义来源，与均线、动量等业务分类独立。 */
-export type IndicatorSource = 'native' | 'script'
+/** 指标定义来源，与均线、动量等业务分类独立；由定义契约统一给出。 */
+export type { IndicatorSource }
 
 /** 指标定义身份：系统渲染器或用户可添加的指标。 */
 export const IndicatorKind = Object.freeze({

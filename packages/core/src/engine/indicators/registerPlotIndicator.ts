@@ -1,0 +1,72 @@
+/**
+ * 按中立指标定义注册「产出 PlotCollection」的指标。
+ *
+ * 生产方（脚本等）只提供 IndicatorDefinition；本模块负责把行情映射成 Bar、绑定通用
+ * Plot Layer，并落入指标目录，使 core 成为纯粹的消费者，不必接触生产方的模型。
+ */
+import {
+  type Bar,
+  type IndicatorDefinition,
+  type InputDef,
+  type InputSchema,
+  resolveInputDefaults,
+} from '@363045841yyt/klinechart-plot-contracts'
+import type { KLineData } from '../../foundation/types/price.js'
+import { plotRenderer } from '../plots/impl/plotDefinition.js'
+import { Indicator, registerIndicatorDefinition } from './indicatorDefinitionRegistry.js'
+import { type IndicatorInputDef, IndicatorKind } from './indicatorMetadata.js'
+
+/** 把 core 行情映射为中立 Bar。 */
+function toBar(bar: KLineData): Bar {
+  return {
+    time: bar.timestamp,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: bar.volume ?? 0,
+  }
+}
+
+/** 提取参数展示声明；默认值与类型仍由 defaultParams 提供，两处不重复存默认值。 */
+function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
+  const defs: Record<string, IndicatorInputDef> = {}
+  for (const [key, def] of Object.entries(inputs as Record<string, InputDef<unknown>>)) {
+    if (def.title !== undefined) defs[key] = { title: def.title }
+  }
+  return defs
+}
+
+/**
+ * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
+ *
+ * 缺省位置与显示名取自定义本身；主图定义允许叠加主图，副图定义独占自己的 pane。
+ */
+export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
+  const main = definition.pane === 'main'
+  const paneId = main ? 'main' : `sub_${definition.name}`
+  const displayName = definition.displayName ?? definition.name
+  const decorate = Indicator({
+    name: definition.name,
+    source: definition.source,
+    displayName,
+    kind: IndicatorKind.Indicator,
+    category: main ? 'main' : 'sub',
+    indicatorType: 'other',
+    defaultPaneId: paneId,
+    allowMainPane: main,
+    mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,
+    scale: { label: displayName, decimals: 2 },
+    plots: { source: 'collection', series: [] },
+    runtime: {
+      defaultParams: resolveInputDefaults(definition.inputs),
+      inputDefs: resolveInputDefs(definition.inputs),
+      compute: (data, params: P) => definition.compute(data.map(toBar), params),
+    },
+  })
+  class PlotIndicatorDefinition {
+    static rendererFactory = plotRenderer(definition.name, paneId)
+  }
+  decorate(PlotIndicatorDefinition)
+  registerIndicatorDefinition(PlotIndicatorDefinition)
+}

@@ -1,7 +1,7 @@
 # 指标 Plot 模型
 
 普通指标统一输出 `line`、`histogram` 或 `points`。`fill` 通过两个 Plot ID 引用边界，不复制序列。
-Script 与 Core 共用 `packages/script/src/contracts/plot.ts` 中的绘图契约。
+Script 与 Core 共用叶子包 `packages/plot-contracts` 中的绘图契约与组装器。
 
 ## 数据与职责
 
@@ -26,6 +26,6 @@ RSI 等指标可声明固定轴范围，CCI 可要求包含参考区间，非负
 
 ## Script 接入
 
-Script 的 `OutputSink.onPlot` 通过 `PlotCollector` 收集为共享 Plot 模型。
+Script 的 `OutputSink.onPlot` 通过叶子包的 `PlotCollector` 收集为共享 Plot 模型。
 `script-chart` 适配层用 `registerScriptIndicator` 注册到现有实例体系，再交给通用 Plot Layer。
 使用方法见 [Script 接入图表](./script-chart-integration.md)。

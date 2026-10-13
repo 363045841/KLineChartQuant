@@ -9,18 +9,27 @@ export type {
   LinePlot,
   Plot,
   PlotCollection,
+  PlotDeclaration,
   PlotFill,
+  PlotFillDeclaration,
   PlotPoint,
   PointsPlot,
 } from '@363045841yyt/klinechart-plot-contracts'
+export { PlotCollector, type PlotCollectorOptions } from '@363045841yyt/klinechart-plot-contracts'
 export * from './contracts/input.js'
+export * from './contracts/library.js'
 export * from './contracts/output.js'
-export * from './contracts/plotDeclaration.js'
 export * from './contracts/script.js'
 export * from './defineIndicator.js'
+export * from './defineLibrary.js'
 export { executeScript } from './engine/impl/executeScript.js'
 export { resolveScriptParams } from './engine/impl/execution.js'
-export { PlotCollector, type PlotCollectorOptions } from './engine/impl/plotCollector.js'
 export { runEngine } from './engine/impl/runEngine.js'
 export * from './engine/types.js'
+export * from './importLibrary.js'
 export { input } from './input.js'
+export { builtinLibraries } from './Library/builtinLibraries.js'
+export { taLibrary } from './Library/ta.js'
+export { createLibraryEnvironment } from './libraryRuntime/impl/createLibraryEnvironment.js'
+export type { Series } from './series/types.js'
+export { toIndicatorDefinition } from './toIndicatorDefinition.js'

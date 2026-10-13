@@ -27,6 +27,7 @@ export {
   type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
+export { registerPlotIndicator } from './engine/indicators/registerPlotIndicator.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {

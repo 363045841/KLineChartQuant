@@ -30,7 +30,7 @@ describe('Script selector catalog', () => {
       name: 'SelectorScript',
       inputs: { period: { default: 5 }, text: { default: 'close' }, enabled: { default: false } },
       onBar(ctx) {
-        ctx.plot(ctx.close, { id: 'close' })
+        ctx.plot(ctx.close[0], { id: 'close' })
       },
     })
     const definition = controller.catalog.peek().find((item) => item.id === 'SelectorScript')!
@@ -69,7 +69,7 @@ describe('Script selector catalog', () => {
       name: 'TitledInputScript',
       inputs: { n: input(2, '除数') },
       onBar(ctx) {
-        ctx.plot(ctx.close, { id: 'close' })
+        ctx.plot(ctx.close[0], { id: 'close' })
       },
     })
 

@@ -26,8 +26,8 @@ const feed: DataFeed = {
 function createRecordingSink() {
   const values: number[] = []
   const sink: OutputSink = {
-    onPlot(_id, barIndex, point) {
-      values[barIndex] = point.value
+    onPlot(id, barIndex, point) {
+      if (id === 'oc-average') values[barIndex] = point.value
     },
     onEvent() {},
   }
