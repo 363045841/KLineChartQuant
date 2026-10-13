@@ -10,7 +10,7 @@
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: 'sub',
+  pane: PaneKind.Sub,
   inputs: {
     n: input(2, '除数'),
     a: input(0, '偏移量'),
@@ -47,7 +47,7 @@ scripts.create(source)
 | 字段 | 作用 |
 | --- | --- |
 | `name` | 指标名称，用于目录展示和实例身份；同名脚本拒绝重复创建 |
-| `pane` | 注册位置，`main` 主图 / `sub` 副图；缺省为副图 |
+| `pane` | 注册位置，`PaneKind.Main` 主图 / `PaneKind.Sub` 副图；缺省为副图 |
 | `displayName` | 显示名称；缺省取 `name`，同时作为对外定义 id |
 | `inputs` | 参数声明表，值由 `input(默认值, 标题)` 生成；用户修改后按覆盖值执行 |
 | `plots` / `fills` | 可选的 Plot 与填充声明 |

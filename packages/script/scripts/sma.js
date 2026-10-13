@@ -1,7 +1,7 @@
 // 收盘价简单移动平均；声明与计算都是编辑器中的完整源码。
 defineIndicator({
   name: 'SMA',
-  pane: 'main',
+  pane: PaneKind.Main,
   inputs: {
     period: input(20, '周期'),
   },

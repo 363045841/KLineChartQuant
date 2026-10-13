@@ -24,7 +24,7 @@ parameters and calculation live in the same document:
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: 'sub',
+  pane: PaneKind.Sub,
   inputs: {
     n: input(2, '除数'),
   },
@@ -41,6 +41,7 @@ The VM prelude injects these globals before the script runs:
 | `open` `high` `low` `close` `volume` `time` | price series; `close[0]` is the current bar, `close[1]` one bar back |
 | `params` | resolved input values |
 | `plot(value, PlotKind.Line, { id, color })` | emit a plot point; also supports `PlotKind.Histogram` and `PlotKind.Points` |
+| `PaneKind` | indicator registration location; `PaneKind.Main` or `PaneKind.Sub` |
 | `input(default, title?)` | declare a parameter |
 | `defineIndicator(definition)` | declare the single indicator of the file |
 | `defineLibrary(name, members)` / `importLibrary(name)` | declare and use a library |

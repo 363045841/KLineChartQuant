@@ -35,4 +35,5 @@ export type {
   QuickJSScriptDefinition,
   ScriptParamValue,
 } from './quickjs/types.js'
+export { PaneKind } from './quickjs/types.js'
 export type { Series } from './series/types.js'

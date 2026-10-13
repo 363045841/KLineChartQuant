@@ -3,6 +3,7 @@
 import type { InputDef } from '@363045841yyt/klinechart-plot-contracts'
 import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
+import { PaneKind as PaneKindEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptPlotOptions } from './types.js'
@@ -19,6 +20,9 @@ declare global {
   const time: Series
   const ta: TechnicalAnalysisLibrary
   const params: ScriptParameters
+
+  /** 指标注册位置枚举；取值与宿主 PaneKind 一致，由宿主注入 VM。 */
+  const PaneKind: typeof PaneKindEnum
 
   /** 声明输入默认值和可选的显示名称。 */
   function input<T extends ScriptParamValue>(value: T, title?: string): InputDef<T>

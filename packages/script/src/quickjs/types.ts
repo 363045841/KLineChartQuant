@@ -10,6 +10,14 @@ import type { Bar } from '../contracts/input.js'
 /** 可以在脚本中作为 `params` 读取的输入值。 */
 export type ScriptParamValue = number | string | boolean
 
+/** 指标注册位置；脚本声明、编辑器与宿主共用同一组取值。 */
+export enum PaneKind {
+  /** 叠加到主图。 */
+  Main = 'main',
+  /** 独立副图。 */
+  Sub = 'sub',
+}
+
 /** VM 库文件；源码通过 defineLibrary(name, exports) 声明公开成员。 */
 export interface QuickJSLibrary {
   readonly name: string
@@ -20,7 +28,7 @@ export interface QuickJSLibrary {
 export interface QuickJSScriptDefinition {
   readonly name: string
   readonly displayName?: string
-  readonly pane?: 'main' | 'sub'
+  readonly pane?: PaneKind
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
   readonly plots?: readonly PlotDeclaration[]
   readonly fills?: readonly PlotFillDeclaration[]

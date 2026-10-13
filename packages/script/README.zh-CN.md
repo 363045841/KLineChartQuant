@@ -21,7 +21,7 @@ pnpm add @363045841yyt/klinechart-script
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: 'sub',
+  pane: PaneKind.Sub,
   inputs: {
     n: input(2, '除数'),
   },
@@ -38,6 +38,7 @@ VM prelude 在脚本运行前注入以下全局：
 | `open` `high` `low` `close` `volume` `time` | 行情序列；`close[0]` 是当前 K 线，`close[1]` 是前一根 |
 | `params` | 解析后的输入参数 |
 | `plot(value, PlotKind.Line, { id, color })` | 为当前 K 线输出绘图点；也支持 `PlotKind.Histogram` 和 `PlotKind.Points` |
+| `PaneKind` | 指标注册位置；`PaneKind.Main` 主图或 `PaneKind.Sub` 副图 |
 | `input(default, title?)` | 声明一个参数 |
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |
 | `defineLibrary(name, members)` / `importLibrary(name)` | 声明并使用库 |

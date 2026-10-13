@@ -59,6 +59,21 @@ describe('script language service', () => {
     )
   })
 
+  it('补全全局 PaneKind 枚举，并检查 pane 的枚举类型', async () => {
+    expect(await completions('PaneKind.')).toEqual(expect.arrayContaining(['Main', 'Sub']))
+    const worker = await createSession(
+      `defineIndicator({ name: 'Pane', pane: PaneKind.Sub, inputs: {}, onBar() {} })`,
+    )
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
+    worker.updateFile({
+      path: SCRIPT_EDITOR_FILE,
+      code: `defineIndicator({ name: 'Pane', pane: 'sub', inputs: {}, onBar() {} })`,
+    })
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
+      1,
+    )
+  })
+
   it('显示 ta 函数的参数签名与类型诊断', async () => {
     const source = 'ta.sma(close, "bad")'
     const worker = await createSession(source)

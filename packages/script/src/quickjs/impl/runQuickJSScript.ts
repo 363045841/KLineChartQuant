@@ -19,11 +19,12 @@ import {
   PLOT_KIND_PRELUDE,
   SCRIPT_PRELUDE,
 } from '../generated/runtime.js'
-import type {
-  QuickJSLibrary,
-  QuickJSRunOptions,
-  QuickJSScriptDefinition,
-  ScriptParamValue,
+import {
+  PaneKind,
+  type QuickJSLibrary,
+  type QuickJSRunOptions,
+  type QuickJSScriptDefinition,
+  type ScriptParamValue,
 } from '../types.js'
 import { builtinLibraries } from './builtinLibraries.js'
 import { readDefinition } from './readDefinition.js'
@@ -105,6 +106,7 @@ function runWithContext(
       },
     )
     mountParams(vm, options.params)
+    mountPaneKind(vm)
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile').dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile').dispose()
     evalOrThrow(vm, PLOT_KIND_PRELUDE, 'compile').dispose()
@@ -208,6 +210,18 @@ function mountParams(
     owned?.dispose()
   }
   vm.setProp(vm.global, 'params', target)
+  target.dispose()
+}
+
+/** 注入指标注册位置枚举；取值唯一来源是宿主 PaneKind，VM 内不重复声明。 */
+function mountPaneKind(vm: QuickJSContext): void {
+  const target = vm.newObject()
+  for (const [name, value] of Object.entries(PaneKind)) {
+    const handle = vm.newString(value)
+    vm.setProp(target, name, handle)
+    handle.dispose()
+  }
+  vm.setProp(vm.global, 'PaneKind', target)
   target.dispose()
 }
 

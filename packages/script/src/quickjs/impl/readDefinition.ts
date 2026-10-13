@@ -1,7 +1,7 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import type { PlotDeclaration, PlotFillDeclaration } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
-import type { QuickJSScriptDefinition, ScriptParamValue } from '../types.js'
+import { PaneKind, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
 
 /** 判断普通对象，便于逐字段收窄脚本返回值。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -15,6 +15,11 @@ function isParam(value: unknown): value is ScriptParamValue {
     typeof value === 'boolean' ||
     (typeof value === 'number' && Number.isFinite(value))
   )
+}
+
+/** pane 从 VM 跨边界读到的仍是字符串，只有 PaneKind 的两个取值有效。 */
+function isPaneKind(value: unknown): value is PaneKind {
+  return value === PaneKind.Main || value === PaneKind.Sub
 }
 
 /** 可选字段校验，缺省值由 Plot 采集器补齐。 */
@@ -67,10 +72,13 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     typeof value.name !== 'string' ||
     !value.name.trim() ||
     !optional(value.displayName, 'string') ||
-    (value.pane !== undefined && value.pane !== 'main' && value.pane !== 'sub') ||
+    (value.pane !== undefined && !isPaneKind(value.pane)) ||
     !isRecord(value.inputs)
   ) {
-    throw new ScriptExecutionError('compile', '指标需要 name、inputs，pane 只能是 main 或 sub')
+    throw new ScriptExecutionError(
+      'compile',
+      `指标需要 name、inputs，pane 只能是 ${PaneKind.Main} 或 ${PaneKind.Sub}`,
+    )
   }
   const inputs: QuickJSScriptDefinition['inputs'] = {}
   for (const [key, declaration] of Object.entries(value.inputs)) {
@@ -97,7 +105,7 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   return {
     name: value.name,
     ...(typeof value.displayName === 'string' ? { displayName: value.displayName } : {}),
-    ...(value.pane === 'main' || value.pane === 'sub' ? { pane: value.pane } : {}),
+    ...(isPaneKind(value.pane) ? { pane: value.pane } : {}),
     inputs,
     ...(Array.isArray(plots) && plots.every(isPlot) ? { plots } : {}),
     ...(Array.isArray(fills) && fills.every(isFill) ? { fills } : {}),

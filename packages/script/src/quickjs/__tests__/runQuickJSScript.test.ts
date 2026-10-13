@@ -42,6 +42,16 @@ describe('runQuickJSScript', () => {
     },
   )
 
+  it.each([
+    ['Main', 'main'],
+    ['Sub', 'sub'],
+  ])('从 QuickJS Global 读取 PaneKind.%s 作为指标注册位置', (member, expected) => {
+    const source = `defineIndicator({ name: 'PaneEnum', pane: globalThis.PaneKind.${member}, inputs: {}, onBar() {
+      if (PaneKind !== globalThis.PaneKind) throw new Error('枚举全局不一致')
+    } })`
+    expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ pane: expected })
+  })
+
   it('调用类型优先于 plots 声明并保留公共样式', async () => {
     const result = await runQuickJSScript({
       source: `defineIndicator({
