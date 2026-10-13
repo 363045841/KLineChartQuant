@@ -54,6 +54,7 @@ function createHarness(hasSelectedSymbol: () => boolean = () => true) {
         },
       ],
       ['main'],
+      () => false,
     ),
     texts: [
       { text: 'MA', color: 'red' },
@@ -65,6 +66,21 @@ function createHarness(hasSelectedSymbol: () => boolean = () => true) {
 }
 
 describe('DOM Legend renderer', () => {
+  it('脚本指标提供代码编辑按钮，普通指标不提供', () => {
+    const entry = {
+      id: 'main:Script',
+      kind: 'indicator' as const,
+      paneId: 'main',
+      definitionId: 'Script',
+      params: {},
+      hidden: false,
+    }
+    const actions = (isScript: boolean) =>
+      projectLegendActions(entry, [entry], ['main'], () => isScript).map((item) => item.action)
+    expect(actions(true)).toContain('edit-code')
+    expect(actions(false)).not.toContain('edit-code')
+  })
+
   it('错误横幅直接显示诊断，恢复后清除且保留图例节点和操作', () => {
     const { host, renderer, row } = createHarness()
     renderer.update('main', [{ ...row, error: 'invalid plot' }], ['main'])
@@ -97,6 +113,7 @@ describe('DOM Legend renderer', () => {
         },
         [],
         ['main'],
+        () => false,
       ),
       texts: [{ text: '比较商品 A', color: 'blue' }],
     }

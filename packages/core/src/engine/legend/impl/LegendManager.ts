@@ -229,7 +229,7 @@ export class LegendManager implements LegendApi {
       : this.deps.panes.replaceContent(entry.paneId, definitionId, {})
   }
 
-  /** 执行图例按钮操作，仅设置和替换返回宿主界面请求。 */
+  /** 执行图例按钮操作，仅设置、替换与编辑脚本返回宿主界面请求。 */
   execute(id: string, action: LegendAction): LegendUiRequest | null {
     const entry = this.get(id)
     if (!entry) return null
@@ -380,9 +380,13 @@ export class LegendManager implements LegendApi {
       return entry ? [entry] : []
     })
     const paneOrder = contexts.map((context) => context.pane.id)
+    const isScriptIndicator = this.deps.isScriptIndicator ?? (() => false)
     return rows.map((row) => {
       const entry = entriesById.get(row.key)
-      return { ...row, actions: entry ? projectLegendActions(entry, entries, paneOrder) : [] }
+      return {
+        ...row,
+        actions: entry ? projectLegendActions(entry, entries, paneOrder, isScriptIndicator) : [],
+      }
     })
   }
 

@@ -2,11 +2,12 @@
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { LegendActionButton, LegendEntry } from '../types.js'
 
-/** 比较品种只支持显隐与删除；指标支持排序、替换、设置与关闭。 */
+/** 比较品种只支持显隐与删除；指标支持排序、替换、编辑脚本、设置与关闭。 */
 export function projectLegendActions(
   entry: LegendEntry,
   entries: ReadonlyArray<LegendEntry>,
   paneOrder: ReadonlyArray<string>,
+  isScriptIndicator: (definitionId: string) => boolean,
 ): ReadonlyArray<LegendActionButton> {
   if (entry.kind === 'custom') return []
   const comparison = entry.kind === 'comparison'
@@ -38,6 +39,9 @@ export function projectLegendActions(
     { action: 'move-up', label: '上移指标', enabled: index > 0 },
     { action: 'move-down', label: '下移指标', enabled: index >= 0 && index < order.length - 1 },
     { action: 'replace', label: '更换指标', enabled: true },
+    ...(isScriptIndicator(entry.definitionId)
+      ? [{ action: 'edit-code' as const, label: '编辑脚本', enabled: true }]
+      : []),
     visibility,
     { action: 'settings', label: '指标设置', enabled: true },
     close,

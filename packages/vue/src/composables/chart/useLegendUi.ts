@@ -10,7 +10,11 @@ import { type Ref, ref, watch } from 'vue'
 export function useLegendUi(
   controller: Ref<ChartController | null>,
   canvasLayer: Ref<HTMLElement | null>,
-  options: { openSelector: () => void; openIndicatorSettings: (definitionId: string) => void },
+  options: {
+    openSelector: () => void
+    openIndicatorSettings: (definitionId: string) => void
+    openScriptEditor?: (definitionId: string) => void
+  },
 ) {
   const replacementId = ref<string | null>(null)
   const replacementRole = ref<'main' | 'sub'>('sub')
@@ -24,6 +28,7 @@ export function useLegendUi(
         if (!(event instanceof CustomEvent) || !isLegendUiRequest(event.detail)) return
         const request = event.detail
         if (request.action === 'settings') options.openIndicatorSettings(request.definitionId)
+        else if (request.action === 'edit-code') options.openScriptEditor?.(request.definitionId)
         else {
           replacementLegendId = request.id
           replacementId.value = request.role === 'main' ? request.definitionId : request.paneId
@@ -56,7 +61,7 @@ function isLegendUiRequest(value: unknown): value is LegendUiRequest {
     !!value &&
     typeof value === 'object' &&
     'action' in value &&
-    (value.action === 'settings' || value.action === 'replace') &&
+    (value.action === 'settings' || value.action === 'replace' || value.action === 'edit-code') &&
     'id' in value &&
     typeof value.id === 'string' &&
     'paneId' in value &&

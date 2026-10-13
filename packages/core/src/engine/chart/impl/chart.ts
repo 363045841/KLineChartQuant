@@ -612,6 +612,9 @@ export class Chart {
       setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
       getVisibleIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
+      // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
+      isScriptIndicator: (definitionId) =>
+        !!getRegisteredIndicatorDefinition(definitionId)?.document,
       requestRender: () => this.scheduleDraw(),
     })
 

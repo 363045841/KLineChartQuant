@@ -355,6 +355,14 @@
       <template #source-management><slot name="source-management" /></template>
     </ChartSettingsDialog>
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
+    <ScriptEditorDialog
+      v-model:open="scriptEditorOpen"
+      v-model:source="scriptEditorSource"
+      :error="scriptEditorError"
+      :saved="scriptEditorSaved"
+      :title="scriptEditorDefinitionId ? `编辑脚本 · ${scriptEditorDefinitionId}` : '编辑脚本'"
+      @save="saveScriptEditor"
+    />
     <ToastViewport />
   </div>
 </template>
@@ -414,6 +422,7 @@
   const hasMarkerTooltipSlot = ref(Boolean(slots['marker-tooltip']))
 
   import './tooltip.css'
+  import { SCRIPT_SOURCE_STORE_KEY } from '../composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
   import { useChartScreenshot } from '../composables/chart/useChartScreenshot.js'
   import { useChartState } from '../composables/chart/useChartState.js'
@@ -430,6 +439,7 @@
   import { useLegendUi } from '../composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { useScriptEditor } from '../composables/chart/useScriptEditor.js'
   import { createChartCommands } from '../composables/commands/chartCommands.js'
   import { provideChartCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
@@ -451,6 +461,7 @@
   import MarkerTooltip from './MarkerTooltip.vue'
   import PriceAxisSettingsMenu from './PriceAxisSettingsMenu.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
+  import ScriptEditorDialog from './ScriptEditorDialog.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import WatchlistPanel from './WatchlistPanel.vue'
@@ -1057,12 +1068,23 @@
   const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
   const {
+    open: scriptEditorOpen,
+    definitionId: scriptEditorDefinitionId,
+    source: scriptEditorSource,
+    error: scriptEditorError,
+    saved: scriptEditorSaved,
+    openFor: openScriptEditor,
+    save: saveScriptEditor,
+  } = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
+
+  const {
     replacementId: replacementPaneId,
     replacementRole,
     replaceLegend,
   } = useLegendUi(controller, canvasLayerRef, {
     openSelector: () => indicatorSelectorRef.value?.openMenu(),
     openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
+    openScriptEditor: (definitionId) => openScriptEditor(definitionId),
   })
 
   const {

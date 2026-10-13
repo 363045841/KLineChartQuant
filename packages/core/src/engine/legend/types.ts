@@ -174,6 +174,7 @@ export type LegendAction =
   | 'move-up'
   | 'move-down'
   | 'replace'
+  | 'edit-code'
   | 'toggle-visibility'
   | 'settings'
   | 'close'
@@ -187,7 +188,7 @@ export const LEGEND_UI_EVENT = 'klc:legend-ui'
 
 /** Core 只把需要宿主打开界面的操作发布给框架。 */
 export interface LegendUiRequest {
-  action: 'replace' | 'settings'
+  action: 'replace' | 'settings' | 'edit-code'
   id: string
   paneId: string
   definitionId: string
@@ -218,5 +219,7 @@ export interface LegendManagerDependencies {
   setComparisonHidden: (identity: string, hidden: boolean) => void
   getOptions: () => { yPaddingPx: number; legend?: LegendOptions }
   getVisibleIndicatorIds: () => ReadonlyArray<string>
+  /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */
+  isScriptIndicator?: (definitionId: string) => boolean
   requestRender: () => void
 }

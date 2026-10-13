@@ -74,9 +74,9 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*",
     "@363045841yyt/klinechart-script-chart": "workspace:*",
-    "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.5",
     "@size-limit/preset-small-lib": "^13.1.1",
     "@vitejs/plugin-vue": "^6.0.9",
@@ -97,9 +97,16 @@
     "vue": "^3.5.42"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
     "@floating-ui/dom": "1.8.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/outfit": "^5.3.0",
+    "@lezer/highlight": "^1.2.5",
+    "codemirror": "^6.0.2",
     "dompurify": "^3.4.15",
     "html-to-image": "^1.11.13",
     "markdown-it": "^15.0.0",

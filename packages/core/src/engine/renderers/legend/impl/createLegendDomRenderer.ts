@@ -4,6 +4,7 @@ import arrowDown from '@iconify-icons/tabler/arrow-down'
 import arrowUp from '@iconify-icons/tabler/arrow-up'
 import chevronDown from '@iconify-icons/tabler/chevron-down'
 import chevronUp from '@iconify-icons/tabler/chevron-up'
+import code from '@iconify-icons/tabler/code'
 import eye from '@iconify-icons/tabler/eye'
 import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
@@ -25,6 +26,7 @@ const ACTION_ICONS: Record<LegendAction, typeof arrowUp> = {
   'move-up': arrowUp,
   'move-down': arrowDown,
   replace: refresh,
+  'edit-code': code,
   'toggle-visibility': eye,
   settings,
   close: x,
