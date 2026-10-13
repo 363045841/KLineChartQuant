@@ -14,14 +14,9 @@ export type {
   TimeShareXLayoutInput,
 } from './timeShareMath.js'
 export {
-  ASHARE_TIMESHARE_SESSION_SLOTS,
-  computeTimeSharePriceRange,
-  computeTimeShareTimeLabelIndices,
   computeTimeShareXLayout,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
-  resolveTimeShareSessionSlots,
-  TIMESHARE_MIN_LABEL_SPACING_PX,
 } from './timeShareMath.js'
 export { TimeShareMode } from './timeShareMode.js'
 export * from './types.js'

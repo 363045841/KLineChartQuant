@@ -24,20 +24,3 @@ export interface ZonesRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-const DEFAULT_ZONES_OB_LOOKBACK = 5
-
-export const EMPTY_ZONES_STATE: ZonesRenderState = {
-  timestamp: 0,
-  series: [],
-  params: {
-    showFVG: true,
-    showOB: true,
-    showFilledZones: false,
-    obLookback: DEFAULT_ZONES_OB_LOOKBACK,
-  },
-  valueMin: 0,
-  valueMax: 1,
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

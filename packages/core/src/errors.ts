@@ -308,8 +308,3 @@ export const CHART_TYPE_ERROR_CODES = {
 export const REPLAY_ERROR_CODES = {
   CONFIG_INVALID: 'REPLAY_CONFIG_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>
-
-// depth/SSE source（深度源）；供 data/depth 引用。
-export const DEPTH_ERROR_CODES = {
-  SOURCE_ERROR: 'DEPTH_SOURCE_ERROR',
-} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
