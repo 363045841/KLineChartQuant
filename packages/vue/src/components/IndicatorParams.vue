@@ -2,7 +2,7 @@
 <template>
   <BaseModal
     :open="visible"
-    :title="indicatorName"
+    :title="dialogTitle"
     width="min(92vw, 360px)"
     footer-align="space-between"
     @update:open="!$event && $emit('close')"
@@ -33,7 +33,6 @@
         v-for="param in visibleParams"
         :key="param.key"
         class="param-item"
-        :class="{ 'has-desc': showDescription && param.description }"
       >
         <div class="param-header">
           <label class="param-label">
@@ -114,6 +113,7 @@
 <script setup lang="ts">
   import type { ParamConfig } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorCatalog'
 
+  import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerHelpCircle from '~icons/tabler/help-circle'
@@ -143,6 +143,9 @@
     close: []
     confirm: [values: IndicatorParamValues]
   }>()
+
+  /** 弹窗标题统一为「参数设置 · 指标名」。 */
+  const dialogTitle = computed(() => `参数设置 · ${props.indicatorName}`)
 
   const {
     localValues,
@@ -189,7 +192,6 @@
   }
 
   .param-item {
-    padding: 8px 12px;
     border-radius: 8px;
     background: transparent;
     border: 1px solid transparent;
@@ -198,10 +200,6 @@
 
   .param-item:has(.param-input:focus) {
     background: var(--klc-color-ui-hover);
-  }
-
-  .param-item.has-desc {
-    padding: 8px 12px 6px;
   }
 
   .param-header {
@@ -215,6 +213,8 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+    /* 补齐正文与底部按钮文字的左侧间距差。 */
+    padding-inline-start: var(--klc-space-4, 4px);
   }
 
   .param-label-text {

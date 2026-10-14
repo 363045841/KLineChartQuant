@@ -310,12 +310,11 @@
     }
   }
 
+  /* 遮罩只做变暗，不做背景模糊：模糊会让弹窗后的图表与面板糊成一片，细节难辨。 */
   .base-modal::backdrop {
     background: transparent;
-    backdrop-filter: blur(0);
     transition:
       background var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      backdrop-filter var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
       overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
       display var(--klc-motion-dur-base, 200ms) allow-discrete;
   }
@@ -323,13 +322,11 @@
   .base-modal[open]::backdrop {
     /* 与 Agent 面板共用遮罩 token；未提供时回退到 30% 黑。 */
     background: var(--klc-color-agent-backdrop, rgb(0 0 0 / 0.3));
-    backdrop-filter: blur(4px);
   }
 
   @starting-style {
     .base-modal[open]::backdrop {
       background: transparent;
-      backdrop-filter: blur(0);
     }
   }
 
