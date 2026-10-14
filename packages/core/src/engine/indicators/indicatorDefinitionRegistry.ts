@@ -188,6 +188,7 @@ export function updateIndicatorDefinition(definitionClass: IndicatorDefinitionCl
     !existing ||
     definition.source !== 'script' ||
     existing.source !== 'script' ||
+    existing.document?.identity === 'builtin' ||
     definition.name !== existing.name ||
     JSON.stringify(identityAliases(definition)) !== JSON.stringify(identityAliases(existing))
   ) {
@@ -218,7 +219,11 @@ function publishDefinition(definition: IndicatorMetadata, replaceDescriptor: boo
 /** 删除脚本文档及目录身份，通知所有图表移除对应实例。 */
 export function removeScriptIndicatorDefinition(id: string): void {
   const definition = getRegisteredIndicatorDefinition(id)
-  if (!definition?.document || definition.source !== 'script') {
+  if (
+    !definition?.document ||
+    definition.source !== 'script' ||
+    definition.document.identity === 'builtin'
+  ) {
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
       '[Indicator] script document not found',

@@ -580,6 +580,9 @@ importers:
       '@363045841yyt/klinechart-core':
         specifier: workspace:*
         version: link:../core
+      '@363045841yyt/klinechart-plot-contracts':
+        specifier: workspace:*
+        version: link:../plot-contracts
       '@363045841yyt/klinechart-script':
         specifier: workspace:*
         version: link:../script
@@ -587,6 +590,9 @@ importers:
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
         version: 0.18.5
+      fake-indexeddb:
+        specifier: ^6.2.5
+        version: 6.2.5
       publint:
         specifier: ^0.3.21
         version: 0.3.24

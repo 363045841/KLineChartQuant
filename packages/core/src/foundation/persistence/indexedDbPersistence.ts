@@ -1,3 +1,4 @@
+/** IndexedDB 持久化原语：绑定工作区并统一处理读写、延迟提交与资源释放。 */
 import type { PersistenceCodec } from './localStoragePersistence.js'
 import { createPendingWriteScheduler, DEFAULT_DEBOUNCE_MS } from './pendingWriteScheduler.js'
 import { scopedPersistenceName } from './persistence-scope.js'
@@ -34,6 +35,8 @@ export interface CreateIndexedDbPersistenceOptions<T> {
   readonly debounceMs?: number
   /** 是否在 pagehide 时补写，默认 true。 */
   readonly flushOnPageHide?: boolean
+  /** 需要区分无记录和读取失败的业务可选择传播读取错误。 */
+  readonly strictLoad?: boolean
 }
 
 function openDatabase<T>(options: CreateIndexedDbPersistenceOptions<T>): Promise<IDBDatabase> {
@@ -103,7 +106,8 @@ export function createIndexedDbPersistence<T>(
       try {
         const value = await transact('readonly', (store) => store.get(options.key))
         return value === undefined ? null : options.codec.decode(value)
-      } catch {
+      } catch (error) {
+        if (options.strictLoad) throw error
         return null
       }
     },

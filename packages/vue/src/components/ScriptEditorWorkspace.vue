@@ -6,7 +6,11 @@
         <span class="script-workspace__language">JavaScript</span>
         <LoadingSpinner v-if="languageLoading" :size="12" class="script-workspace__spinner" />
       </div>
+      <span v-if="identity === 'builtin'" class="script-workspace__readonly">
+        内置脚本只读，请创建副本后编辑
+      </span>
       <div class="script-workspace__toolbar-actions">
+        <BaseButton v-if="identity === 'builtin'" @click="emit('create-copy')">创建副本</BaseButton>
         <BaseTooltip content="设置" placement="bottom">
           <button type="button" class="script-workspace__icon-button" aria-label="设置">
             <IconTablerSettings aria-hidden="true" />
@@ -40,8 +44,9 @@
   import IconTablerDots from '~icons/tabler/dots'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerWindowMaximize from '~icons/tabler/window-maximize'
-
+  import type { ScriptIdentity } from '../composables/chart/scriptEditor/types.js'
   import { useCodeMirror } from '../composables/chart/useCodeMirror.js'
+  import BaseButton from './BaseButton.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
 
@@ -49,17 +54,20 @@
     defineProps<{
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      identity: ScriptIdentity
+      saving?: boolean
       /** 宿主保存校验的错误；与语言服务的错误合并展示。 */
       error?: string | null
       /** 是否提供「在新窗口打开」入口；已在独立窗口内时为 false。 */
       detachable?: boolean
     }>(),
-    { error: null, detachable: false },
+    { error: null, detachable: false, saving: false },
   )
 
   const emit = defineEmits<{
     'update:source': [value: string]
     'open-window': []
+    'create-copy': []
   }>()
 
   const editorHost = useTemplateRef<HTMLElement>('editorHost')
@@ -67,8 +75,12 @@
     get: () => props.source,
     set: (value) => emit('update:source', value),
   })
-  const { languageLoading, languageError } = useCodeMirror(editorHost, source, (next) =>
-    emit('update:source', next),
+  const editable = computed(() => props.identity === 'user' && !props.saving)
+  const { languageLoading, languageError } = useCodeMirror(
+    editorHost,
+    source,
+    (next) => emit('update:source', next),
+    editable,
   )
   const editorError = computed(() => props.error || languageError.value)
 </script>
@@ -81,7 +93,8 @@
   }
 
   .script-workspace__toolbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     justify-content: space-between;
     gap: var(--klc-space-12, 12px);
@@ -108,6 +121,8 @@
   }
 
   .script-workspace__toolbar-actions {
+    grid-column: 3;
+    justify-self: end;
     display: flex;
     align-items: center;
     gap: var(--klc-space-4, 4px);
@@ -128,6 +143,12 @@
     transition:
       color var(--klc-motion-dur-fast, 160ms) ease,
       background-color var(--klc-motion-dur-fast, 160ms) ease;
+  }
+
+  .script-workspace__readonly {
+    grid-column: 2;
+    text-align: center;
+    color: var(--klc-color-ui-muted);
   }
 
   .script-workspace__icon-button:hover {

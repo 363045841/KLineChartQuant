@@ -35,9 +35,9 @@ import { createScriptService } from '@363045841yyt/klinechart-script-chart'
 import source from './my-script.js?raw'
 
 const scripts = await createScriptService()
-const document = scripts.create(source)
+const document = await scripts.create(source)
 const instanceId = controller.addIndicator(document.id)
-// 修改后：scripts.update(document.id, changed, document.revision)
+// 修改后：await scripts.update(document.id, changed, document.revision)
 // 删除时使用 controller.removeIndicator(instanceId)。
 ```
 
@@ -47,7 +47,8 @@ const instanceId = controller.addIndicator(document.id)
 
 ## 指标选择弹窗
 
-已提交定义带有 `source: 'script'`，选择器按来源提供“用户自定义脚本”分组。
+已提交定义带有 `source: 'script'`，选择器按文档身份将用户脚本放入“用户自定义脚本”分组，
+内置脚本放入普通指标分组。内置脚本只读，创建副本后进入用户脚本保存链路。
 业务类型仍保持“其他”等原有分类，收藏可以包含普通指标和脚本。
 参数目录从 `inputs` 默认值生成数字、文本和布尔编辑项；修改后沿用指标参数更新 API。
 组件订阅定义变更通知，运行时新增或更新脚本无需重新挂载弹窗。
@@ -62,4 +63,5 @@ const instanceId = controller.addIndicator(document.id)
 重复创建同名脚本报错，避免静默覆盖；保存已有脚本按修订号做乐观并发，过期草稿不覆盖。
 
 桌面应用和 Vue 预览在启动时加载 `sma.js` 与 `open-close-average.js` 并调用 `createScriptService()`，
-因此“用户自定义脚本”中可直接选择 `SMA` 和 `OC Average`。仅创建脚本文件不会自动进入运行中的目录。
+通过 `builtinSources` 将 `SMA` 和 `OC Average` 注册为只读内置脚本。
+用户脚本启动时从 IndexedDB 恢复；仅创建脚本文件不会自动进入运行中的目录。

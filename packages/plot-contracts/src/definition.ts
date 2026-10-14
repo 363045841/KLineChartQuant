@@ -20,6 +20,8 @@ export type IndicatorSource = 'native' | 'script'
 
 /** 可编辑定义的版本化源码；随定义快照提交，消费者不能独立写入。 */
 export interface IndicatorSourceDocument {
+  /** 脚本身份；内置源码只读，用户源码可持久化。 */
+  readonly identity: 'builtin' | 'user'
   readonly revision: number
   readonly source: string
   readonly definition: IndicatorSourceDefinition

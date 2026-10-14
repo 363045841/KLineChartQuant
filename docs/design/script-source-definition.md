@@ -19,7 +19,9 @@
 
 ### 生命周期
 
-`script-chart` 的 `createScriptService()` 提供同步 CRUD：
+`script-chart` 的 `createScriptService()` 在启动时恢复 IndexedDB 用户脚本并注册内置源码。
+`read` / `list` 同步读取注册表，`create` / `update` / `remove` 异步等待持久化事务后提交运行定义。
+内置脚本只读，用户通过创建副本获得可编辑的独立身份，详见 [身份与持久化](script-identity-persistence.md)。
 
 | 动作 | 语义 |
 | --- | --- |

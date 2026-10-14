@@ -13,9 +13,7 @@ import '../src/styles/scrollbar.css'
 const marketDataHost = createPreviewMarketDataHost()
 /** WASM 就绪后才挂载，确保同步计算端口可立即执行。 */
 async function bootstrap(): Promise<void> {
-  const scripts = await createScriptService()
-  scripts.create(smaSource)
-  scripts.create(averageSource)
+  const scripts = await createScriptService([], { builtinSources: [smaSource, averageSource] })
   createApp(App)
     .provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context)
     .provide(SCRIPT_SOURCE_STORE_KEY, scripts)

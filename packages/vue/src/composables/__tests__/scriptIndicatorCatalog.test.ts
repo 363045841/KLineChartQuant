@@ -1,4 +1,5 @@
 /** 验证运行时脚本注册、选择器分组和参数类型沿同一目录传递。 */
+import 'fake-indexeddb/auto'
 
 import {
   type ChartController,
@@ -17,18 +18,20 @@ describe('Script selector catalog', () => {
   beforeAll(async () => {
     scripts = await createScriptService()
   })
-  it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', () => {
-    scripts.create(`defineIndicator({ name: 'OC Average', pane: 'main', inputs: {}, onBar() {} })`)
+  it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', async () => {
+    await scripts.create(
+      `defineIndicator({ name: 'OC Average', pane: 'main', inputs: {}, onBar() {} })`,
+    )
     const indicator = findIndicator('OC Average')
     expect(indicator).toMatchObject({ id: 'OC Average', source: 'script', pane: 'main' })
   })
-  it('组件挂载后注册的脚本进入专用分组，保留输入类型和默认值', () => {
+  it('组件挂载后注册的脚本进入专用分组，保留输入类型和默认值', async () => {
     const scope = effectScope()
     const controller = createIndicatorSelectorController()
     scope.run(() => {
       useIndicatorCatalog(controller)
     })
-    scripts.create(`defineIndicator({ name: 'SelectorScript',
+    await scripts.create(`defineIndicator({ name: 'SelectorScript',
       inputs: { period: input(5), text: input('close'), enabled: input(false) },
       onBar() { plot(PlotKind.Line, close[0], { id: 'close' }) } })`)
     const definition = controller.catalog.peek().find((item) => item.id === 'SelectorScript')!
@@ -62,23 +65,23 @@ describe('Script selector catalog', () => {
     })
     scope.stop()
   })
-  it('input() 声明的标题作为参数面板显示名', () => {
-    scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, { title: '除数' }) },
+  it('input() 声明的标题作为参数面板显示名', async () => {
+    await scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, { title: '除数' }) },
       onBar() { plot(PlotKind.Line, close[0], { id: 'close' }) } })`)
 
     expect(findIndicator('TitledInputScript')!.params).toEqual([
       { key: 'n', label: '除数', type: 'number', default: 2 },
     ])
   })
-  it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', () => {
-    const created = scripts.create(
+  it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', async () => {
+    const created = await scripts.create(
       `defineIndicator({ name: 'UpdatableScript', inputs: { period: input(3) }, onBar() {} })`,
     )
     expect(findIndicator('UpdatableScript')!.params).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 3 },
     ])
 
-    scripts.update(
+    await scripts.update(
       created.id,
       `defineIndicator({ name: 'UpdatableScript',
         inputs: { period: input(7), label: input('ma', { title: '名称' }) }, onBar() {} })`,
@@ -89,8 +92,8 @@ describe('Script selector catalog', () => {
       { key: 'label', label: '名称', type: 'string', default: 'ma' },
     ])
   })
-  it('字符串输入声明 options 后成为下拉参数', () => {
-    scripts.create(
+  it('字符串输入声明 options 后成为下拉参数', async () => {
+    await scripts.create(
       `defineIndicator({ name: 'OptionScript', inputs: {
         type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] }),
       }, onBar() {} })`,

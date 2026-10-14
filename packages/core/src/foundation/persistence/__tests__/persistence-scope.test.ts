@@ -67,3 +67,26 @@ it('requires a page reload to change scope after persistence starts', async () =
   page.local.dispose()
   await page.database.dispose()
 })
+
+it('strict load propagates IndexedDB failures instead of treating them as missing records', async () => {
+  const { createIndexedDbPersistence } = await import('../indexedDbPersistence.js')
+  const options = {
+    databaseName: 'strict-load',
+    storeName: 'records',
+    key: 'current',
+    codec,
+    flushOnPageHide: false,
+  }
+  const normal = createIndexedDbPersistence(options)
+  const strict = createIndexedDbPersistence({ ...options, strictLoad: true })
+  expect(await strict.load()).toBeNull()
+  vi.stubGlobal('indexedDB', undefined)
+  try {
+    expect(await normal.load()).toBeNull()
+    await expect(strict.load()).rejects.toThrow('IndexedDB is unavailable')
+  } finally {
+    vi.unstubAllGlobals()
+    await normal.dispose()
+    await strict.dispose()
+  }
+})

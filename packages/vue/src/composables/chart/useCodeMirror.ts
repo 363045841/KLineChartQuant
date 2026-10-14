@@ -15,6 +15,7 @@ export function useCodeMirror(
   host: Ref<HTMLElement | null>,
   value: Ref<string>,
   onChange: (next: string) => void,
+  editable: Readonly<Ref<boolean>>,
 ): {
   view: Ref<EditorView | null>
   languageLoading: Ref<boolean>
@@ -23,6 +24,7 @@ export function useCodeMirror(
   const view = shallowRef<EditorView | null>(null)
   const languageLoading = shallowRef(false)
   const languageError = shallowRef<string | null>(null)
+  const editing = new Compartment()
 
   watch(
     host,
@@ -48,9 +50,13 @@ export function useCodeMirror(
             javascript(),
             scriptEditorTheme,
             EditorState.tabSize.of(2),
+            editing.of([
+              EditorState.readOnly.of(!editable.value),
+              EditorView.editable.of(editable.value),
+            ]),
             language.of([]),
             EditorView.updateListener.of((update) => {
-              if (update.docChanged) onChange(update.state.doc.toString())
+              if (update.docChanged && editable.value) onChange(update.state.doc.toString())
             }),
           ],
         }),
@@ -84,6 +90,11 @@ export function useCodeMirror(
   )
 
   // 外部以程序方式修改 value 时同步进文档，避免与用户输入互相覆盖。
+  watch(editable, (next) => {
+    view.value?.dispatch({
+      effects: editing.reconfigure([EditorState.readOnly.of(!next), EditorView.editable.of(next)]),
+    })
+  })
   watch(value, (next) => {
     const instance = view.value
     if (!instance) return

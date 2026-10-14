@@ -22,6 +22,9 @@
             variant="flush"
             @update:model-value="controller.setSearchQuery"
           />
+          <BaseButton v-if="section === INDICATOR_SELECTOR_SECTIONS.scripts" @click="createScript">
+            新建脚本
+          </BaseButton>
         </div>
       </template>
 
@@ -194,7 +197,7 @@
     useIndicatorFavorites,
   } from '../composables/useIndicatorFavorites.js'
   import { coreSignalToVueRef } from '../utils/signalBridge.js'
-
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BasePopover from './common/BasePopover.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
@@ -217,6 +220,7 @@
     replace: [paneId: string, indicatorId: string]
     /** 请求打开该脚本指标的代码编辑器，由宿主图表组件负责弹窗。 */
     editCode: [indicatorId: string]
+    createScript: []
     close: []
   }>()
 
@@ -287,7 +291,14 @@
   }
 
   /** 请求宿主打开脚本代码编辑器；打开动作与图例的编辑脚本共用同一会话。 */
+  function createScript() {
+    closeMenu()
+    emit('createScript')
+  }
+
+  /** 打开当前脚本文档，官方身份由编辑器提供只读展示。 */
   function editScript(indicatorId: string) {
+    closeMenu()
     emit('editCode', indicatorId)
   }
 
@@ -337,6 +348,18 @@
 </script>
 
 <style scoped>
+  .selector-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    padding-inline-end: var(--klc-space-16, 16px);
+  }
+
+  .selector-search {
+    flex: 1;
+    min-width: 0;
+  }
+
   .indicator-selector {
     display: none;
   }

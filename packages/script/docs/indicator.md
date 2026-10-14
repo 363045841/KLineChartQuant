@@ -34,7 +34,7 @@ import { createScriptService } from '@363045841yyt/klinechart-script-chart'
 import source from './open-close-average.js?raw'
 
 const scripts = await createScriptService()
-scripts.create(source)
+await scripts.create(source)
 ```
 
 `OC Average` 随即出现在指标选择弹窗的**用户自定义脚本**分组中。

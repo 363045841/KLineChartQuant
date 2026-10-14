@@ -10,14 +10,17 @@
   >
     <ScriptEditorWorkspace
       :source="source"
+      :identity="identity"
+      :saving="saving"
       :error="error"
       :detachable="detachable"
       @update:source="emit('update:source', $event)"
       @open-window="emit('open-window')"
+      @create-copy="emit('create-copy')"
     />
     <template #footer>
       <BaseButton @click="emit('update:open', false)">关闭</BaseButton>
-      <BaseButton variant="primary" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
+      <BaseButton v-if="identity === 'user'" variant="primary" :disabled="saving" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
         <IconTablerCheck v-if="saved" class="script-save-icon" aria-hidden="true" />
         <span v-else>保存</span>
       </BaseButton>
@@ -27,7 +30,7 @@
 
 <script setup lang="ts">
   import IconTablerCheck from '~icons/tabler/check'
-
+  import type { ScriptIdentity } from '../composables/chart/scriptEditor/types.js'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
@@ -38,6 +41,8 @@
       open: boolean
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      identity: ScriptIdentity
+      saving?: boolean
       /** 完整脚本保存校验的错误，由宿主返回。 */
       error?: string | null
       /** 最近一次保存是否成功；成功时确认按钮显示勾图标。 */
@@ -47,7 +52,7 @@
       /** 是否提供「在新窗口打开」入口。 */
       detachable?: boolean
     }>(),
-    { title: '编辑脚本', saved: false, error: null, detachable: false },
+    { title: '编辑脚本', saved: false, error: null, detachable: false, saving: false },
   )
 
   const emit = defineEmits<{
@@ -55,6 +60,7 @@
     'update:source': [value: string]
     save: []
     'open-window': []
+    'create-copy': []
   }>()
 </script>
 

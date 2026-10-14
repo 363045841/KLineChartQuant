@@ -10,9 +10,7 @@ import App from './App.vue'
 
 /** WASM 就绪后挂载应用，避免同步计算早于模块加载。 */
 async function bootstrap(): Promise<void> {
-  const scripts = await createScriptService()
-  scripts.create(smaSource)
-  scripts.create(averageSource)
+  const scripts = await createScriptService([], { builtinSources: [smaSource, averageSource] })
   createApp(App).provide(SCRIPT_SOURCE_STORE_KEY, scripts).mount('#app')
 }
 void bootstrap()

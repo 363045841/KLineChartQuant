@@ -3,13 +3,16 @@
   <div class="script-editor-window">
     <ScriptEditorWorkspace
       :source="source"
+      :identity="identity"
+      :saving="saving"
       :error="error"
       :detachable="false"
       @update:source="emit('update:source', $event)"
+      @create-copy="emit('create-copy')"
     />
     <div class="script-editor-window__footer">
       <BaseButton @click="emit('return')">返回标签页</BaseButton>
-      <BaseButton variant="primary" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
+      <BaseButton v-if="identity === 'user'" variant="primary" :disabled="saving" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
         <IconTablerCheck v-if="saved" class="script-editor-window__save-icon" aria-hidden="true" />
         <span v-else>保存</span>
       </BaseButton>
@@ -21,7 +24,7 @@
   import { computed } from 'vue'
 
   import IconTablerCheck from '~icons/tabler/check'
-
+  import type { ScriptIdentity } from '../composables/chart/scriptEditor/types.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import BaseButton from './BaseButton.vue'
   import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
@@ -30,6 +33,8 @@
     defineProps<{
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      identity: ScriptIdentity
+      saving?: boolean
       /** 宿主保存校验的错误；与语言服务的错误在工作区内合并展示。 */
       error?: string | null
       /** 最近一次保存是否成功；成功时确认按钮显示勾图标。 */
@@ -37,12 +42,13 @@
       /** 新窗口的文档 body：内部浮层的 Teleport 目标。 */
       container: HTMLElement
     }>(),
-    { error: null, saved: false },
+    { error: null, saved: false, saving: false },
   )
 
   const emit = defineEmits<{
     'update:source': [value: string]
     save: []
+    'create-copy': []
     /** 关闭本窗口并把编辑器交回标签页弹窗。 */
     return: []
   }>()

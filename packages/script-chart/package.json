@@ -36,10 +36,12 @@
   },
   "dependencies": {
     "@363045841yyt/klinechart-core": "workspace:*",
+    "@363045841yyt/klinechart-plot-contracts": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
+    "fake-indexeddb": "^6.2.5",
     "publint": "^0.3.21",
     "typescript": "~6.0.3",
     "vitest": "^5.0.0"

@@ -342,6 +342,7 @@
       @reorder-sub-indicators="handleReorderSubIndicators"
       @replace="replaceLegend"
       @edit-code="openScriptEditor"
+      @create-script="openBlankScriptEditor"
       @close="replacementPaneId = null"
     />
     <ChartSettingsDialog
@@ -362,6 +363,9 @@
       v-model:source="scriptEditorSource"
       :error="scriptEditorError"
       :saved="scriptEditorSaved"
+      :identity="scriptEditorIdentity"
+      :saving="scriptEditorSaving"
+      @create-copy="createScriptCopy"
       :title="scriptEditorTitle"
       :detachable="scriptEditorWindowSupported"
       @save="saveScriptEditor"
@@ -373,6 +377,9 @@
         v-model:source="scriptEditorSource"
         :error="scriptEditorError"
         :saved="scriptEditorSaved"
+        :identity="scriptEditorIdentity"
+        :saving="scriptEditorSaving"
+        @create-copy="createScriptCopy"
         :container="scriptEditorWindowContainer"
         @save="saveScriptEditor"
         @return="returnScriptEditorToDialog"
@@ -1092,6 +1099,9 @@
     source: scriptEditorSource,
     error: scriptEditorError,
     saved: scriptEditorSaved,
+    identity: scriptEditorIdentity,
+    saving: scriptEditorSaving,
+    createCopy: createScriptCopy,
     openFor: openScriptEditor,
     openBlank: openBlankScriptEditor,
     save: saveScriptEditor,

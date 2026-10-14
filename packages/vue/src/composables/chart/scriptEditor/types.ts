@@ -1,16 +1,23 @@
 /** 脚本编辑器的宿主源码仓库契约；Vue 不持有源码注册表。 */
 import type { InjectionKey } from 'vue'
 
+/** 编辑器只允许用户身份修改源码，未指定身份时保持只读。 */
+export type ScriptIdentity = 'builtin' | 'user'
+
+/** 编辑器读取的已提交脚本文档。 */
+export interface ScriptEditorDocument {
+  readonly id: string
+  readonly source: string
+  readonly revision: number
+  readonly identity: ScriptIdentity
+}
+
 /** 宿主提供的源码读写接口，统一访问脚本注册时使用的仓库。 */
 export interface ScriptSourceStore {
-  read(id: string): { readonly source: string; readonly revision: number } | undefined
+  read(id: string): ScriptEditorDocument | undefined
   /** 提交一份新脚本，返回它的定义 id 与首个版本号。 */
-  create(source: string): { readonly id: string; readonly source: string; readonly revision: number }
-  update(
-    id: string,
-    source: string,
-    expectedRevision: number,
-  ): { readonly source: string; readonly revision: number }
+  create(source: string): Promise<ScriptEditorDocument>
+  update(id: string, source: string, expectedRevision: number): Promise<ScriptEditorDocument>
 }
 
 /** 应用级源码仓库注入键，供所有图表编辑器共用。 */
