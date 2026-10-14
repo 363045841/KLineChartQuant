@@ -362,9 +362,22 @@
       v-model:source="scriptEditorSource"
       :error="scriptEditorError"
       :saved="scriptEditorSaved"
-      :title="scriptEditorDefinitionId ? `编辑脚本 · ${scriptEditorDefinitionId}` : '新建脚本'"
+      :title="scriptEditorTitle"
+      :detachable="scriptEditorWindowSupported"
       @save="saveScriptEditor"
+      @open-window="openScriptEditorWindow"
     />
+    <!-- 独立窗口里的编辑器挂在浏览器新窗口的文档上，这里只提供挂载点。 -->
+    <Teleport v-if="scriptEditorWindowContainer" :to="scriptEditorWindowContainer">
+      <ScriptEditorWindow
+        v-model:source="scriptEditorSource"
+        :error="scriptEditorError"
+        :saved="scriptEditorSaved"
+        :container="scriptEditorWindowContainer"
+        @save="saveScriptEditor"
+        @return="returnScriptEditorToDialog"
+      />
+    </Teleport>
     <ToastViewport />
   </div>
 </template>
@@ -409,7 +422,7 @@
     useSlots,
     watch,
   } from 'vue'
-  import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
+  import { provideToast, TOAST_STORE_KEY, useToast } from '../composables/toast/useToast.js'
   import { useAggregationSources } from '../composables/useAggregationSources.js'
   import {
     provideMarketDataContext,
@@ -418,6 +431,7 @@
   import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
+  const toast = useToast()
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
   const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
@@ -442,6 +456,7 @@
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
   import { useScriptEditor } from '../composables/chart/useScriptEditor.js'
+  import { useScriptEditorWindow } from '../composables/chart/useScriptEditorWindow.js'
   import { createChartCommands } from '../composables/commands/chartCommands.js'
   import { provideChartCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
@@ -464,6 +479,7 @@
   import PriceAxisSettingsMenu from './PriceAxisSettingsMenu.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import ScriptEditorDialog from './ScriptEditorDialog.vue'
+  import ScriptEditorWindow from './ScriptEditorWindow.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import WatchlistPanel from './WatchlistPanel.vue'
@@ -1069,6 +1085,7 @@
   /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
   const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
+  const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
   const {
     open: scriptEditorOpen,
     definitionId: scriptEditorDefinitionId,
@@ -1078,7 +1095,28 @@
     openFor: openScriptEditor,
     openBlank: openBlankScriptEditor,
     save: saveScriptEditor,
-  } = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
+  } = scriptEditorSession
+
+  const {
+    supported: scriptEditorWindowSupported,
+    container: scriptEditorWindowContainer,
+    open: detachScriptEditorWindow,
+    returnToDialog: returnScriptEditorToDialog,
+  } = useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
+
+  const scriptEditorTitle = computed(() =>
+    scriptEditorDefinitionId.value ? `编辑脚本 · ${scriptEditorDefinitionId.value}` : '新建脚本',
+  )
+
+  /** 把编辑器搬进独立窗口；打开失败时提示用户，不静默丢弃。 */
+  function openScriptEditorWindow(): void {
+    void detachScriptEditorWindow(scriptEditorTitle.value).catch((error: unknown) => {
+      toast.show({
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'danger',
+      })
+    })
+  }
 
   const {
     replacementId: replacementPaneId,
