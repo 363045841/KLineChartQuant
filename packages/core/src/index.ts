@@ -12,13 +12,13 @@ export {
   getIndicatorDescriptors,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
-  removeScriptIndicatorDefinition,
   Indicator,
   type IndicatorDefinitionConfig,
   type IndicatorDescriptor,
   isIndicatorDefinitionLoaded,
   loadIndicatorDefinitions,
   registerIndicatorDefinition,
+  removeScriptIndicatorDefinition,
   resolveIndicatorLayerId,
 } from './engine/indicators/indicatorDefinitionRegistry.js'
 export {
@@ -43,7 +43,9 @@ export type {
   PlotFill,
   PlotPoint,
   PlotRenderState,
+  ShapePlot,
 } from './engine/plots/types.js'
+export { PlotKind, ShapeLocation, ShapeSize, ShapeStyle } from './engine/plots/types.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,

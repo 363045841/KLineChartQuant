@@ -14,6 +14,7 @@ import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { Plot, PlotFill, PlotRenderState } from '../types.js'
+import { buildShapeGlyph, paintShapeGlyph, type ShapeGlyph } from './shapeGeometry.js'
 
 type Point = { x: number; y: number }
 type LineBatch = { points: Point[]; width: number; color: string }
@@ -22,10 +23,50 @@ interface PlotGeometry {
   readonly points: ReadonlyMap<Plot, ReadonlyMap<number, Point>>
   readonly lines: ReadonlyMap<Plot, LineBatch[]>
   readonly histograms: ReadonlyMap<Plot, RectBatch[]>
+  readonly shapes: ReadonlyMap<Plot, ShapeGlyph>
+}
+
+const SHAPE_BAR_GAP = 4
+
+/** 按 Shape 的定位语义求屏幕锚点；bar 定位使用偏移后的目标 K 线。 */
+function shapeY(
+  plot: Extract<Plot, { kind: 'shape' }>,
+  value: number,
+  index: number,
+  glyph: ShapeGlyph,
+  context: RenderContext,
+): number | undefined {
+  if (plot.location !== 'absolute' && value === 0) return undefined
+  const axis = context.pane.yAxis
+  switch (plot.location) {
+    case 'absolute':
+      return axis.priceToY(value)
+    case 'top':
+      return axis.getPaddingTop() + SHAPE_BAR_GAP - glyph.top
+    case 'bottom':
+      return context.pane.height - axis.getPaddingBottom() - SHAPE_BAR_GAP - glyph.bottom
+    case 'abovebar': {
+      const bar = context.data[index]
+      return bar
+        ? axis.priceToY('close' in bar ? bar.high : bar.price) - SHAPE_BAR_GAP - glyph.bottom
+        : undefined
+    }
+    case 'belowbar': {
+      const bar = context.data[index]
+      return bar
+        ? axis.priceToY('close' in bar ? bar.low : bar.price) + SHAPE_BAR_GAP - glyph.top
+        : undefined
+    }
+  }
 }
 
 /** 取一个 Plot 在指定显示位置的点，空值保持断开。 */
-function projectPoint(plot: Plot, index: number, context: RenderContext): Point | undefined {
+function projectPoint(
+  plot: Plot,
+  index: number,
+  context: RenderContext,
+  glyph?: ShapeGlyph,
+): Point | undefined {
   const value = plot.data[index - plot.offset]?.value
   if (value === undefined || !Number.isFinite(value)) return undefined
   const screenX = logicalIndexToScreenX({
@@ -40,8 +81,11 @@ function projectPoint(plot: Plot, index: number, context: RenderContext): Point 
     fallbackStep: context.kWidth + context.kGap,
   })
   if (screenX === null) return undefined
-  const y = context.pane.yAxis.priceToY(value)
-  return Number.isFinite(y) ? { x: screenX, y } : undefined
+  const y =
+    plot.kind === 'shape'
+      ? glyph && shapeY(plot, value, index, glyph, context)
+      : context.pane.yAxis.priceToY(value)
+  return y !== undefined && Number.isFinite(y) ? { x: screenX, y } : undefined
 }
 
 /** 仅遍历当前视口与超出行情长度的未来序列，不扫描中间的不可见历史。 */
@@ -60,17 +104,46 @@ function collectGeometry(state: PlotRenderState, context: RenderContext): PlotGe
   const geometry = new Map<Plot, Map<number, Point>>()
   const lines = new Map<Plot, LineBatch[]>()
   const histograms = new Map<Plot, RectBatch[]>()
+  const shapes = new Map<Plot, ShapeGlyph>()
   for (const plot of state.plots) {
+    const glyph = plot.kind === 'shape' ? buildShapeGlyph(plot, context) : undefined
+    if (glyph) shapes.set(plot, glyph)
     const points = new Map<number, Point>()
     for (const index of plotIndices(plot, context)) {
-      const point = projectPoint(plot, index, context)
+      const point = projectPoint(plot, index, context, glyph)
       if (point) points.set(index, point)
     }
     geometry.set(plot, points)
     if (plot.kind === 'line') lines.set(plot, buildLineSegments(plot, context, points))
     if (plot.kind === 'histogram') histograms.set(plot, buildHistogram(plot, context, points))
   }
-  return { points: geometry, lines, histograms }
+  return { points: geometry, lines, histograms, shapes }
+}
+
+/** Shape 与其他 Plot 共用投影缓存和滚动坐标，不额外创建标记 Layer。 */
+function drawShapes(
+  plot: Extract<Plot, { kind: 'shape' }>,
+  context: RenderContext,
+  geometry: PlotGeometry,
+): void {
+  const glyph = geometry.shapes.get(plot)
+  if (!glyph) return
+  const { ctx } = context
+  ctx.save()
+  ctx.translate(-context.scrollLeft, 0)
+  ctx.setLineDash([])
+  for (const [index, point] of geometry.points.get(plot) ?? []) {
+    const data = plot.data[index - plot.offset]
+    paintShapeGlyph(
+      ctx,
+      glyph,
+      point.x,
+      point.y,
+      data?.color ?? plot.color,
+      data?.textColor ?? plot.textColor,
+    )
+  }
+  ctx.restore()
 }
 
 /** 构建可复用的折线批次；遇到空点或颜色变化时开始新段。 */
@@ -238,7 +311,6 @@ export function paintPlots(
   context: RenderContext,
   geometry: PlotGeometry = collectGeometry(state, context),
 ): void {
-  if (state.visibleMin > state.visibleMax) return
   for (const fill of state.fills) if (fill.visible) drawFill(fill, state.plots, context, geometry)
   const { ctx } = context
   ctx.save()
@@ -266,6 +338,9 @@ export function paintPlots(
       case 'points':
         drawPoints(plot, context, geometry)
         break
+      case 'shape':
+        drawShapes(plot, context, geometry)
+        break
     }
   }
 }
@@ -285,8 +360,9 @@ export function createPlotLayer(
       if (!options.instanceId) return
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
-      const geometry = retained.read(createProjectionRevision(context, [state.plots]), () =>
-        collectGeometry(state, context),
+      const geometry = retained.read(
+        createProjectionRevision(context, [state.plots, context.data, context.theme]),
+        () => collectGeometry(state, context),
       )
       paintPlots(state, context, geometry)
     },

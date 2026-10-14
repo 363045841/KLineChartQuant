@@ -1,11 +1,14 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
 /** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点，宿主负责与 K 线下标对齐。 */
-function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void {
+function plot(kind: 'shape', value: number | boolean, options: ScriptPlotOptions): void
+function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
+function plot(kind: PlotKind, value: number | boolean, options: ScriptPlotOptions): void {
   if (!options || typeof options.id !== 'string') throw new TypeError('plot 需要 { id }')
-  if (!Object.values(PlotKind).includes(kind))
-    throw new TypeError('plot kind 只能是 line、histogram 或 points')
-  __plot(options.id, value, options.color, kind)
+  if (!Object.values(PlotKind).includes(kind)) throw new TypeError(`未知 plot kind：${kind}`)
+  if (typeof value !== 'number' && !(kind === PlotKind.Shape && typeof value === 'boolean'))
+    throw new TypeError('plot value 需要数值，shape 也可以使用布尔条件')
+  __plot(kind, Number(value), options)
 }
 
 /** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */

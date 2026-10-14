@@ -525,7 +525,6 @@ ChartRenderer 初始化时安装：
 - last-price label
 - comparison line
 - last-price line
-- custom markers
 - extrema markers
 - main-indicator legend
 - crosshair

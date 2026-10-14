@@ -26,7 +26,6 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
   const chartSettings: ChartSettings = {
     showGridLines: true,
     isAsiaMarket: true,
-    showVolumePriceMarkers: false,
     mainLeftAxisDisplaySetting: 'none',
     theme: 'dark',
     colorPresetSettings: {

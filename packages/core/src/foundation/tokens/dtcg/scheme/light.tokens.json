@@ -995,24 +995,6 @@
           "$extensions": { "io.github.363045841.kcq": { "css": "rgba(255, 247, 248, 0.98)" } }
         }
       },
-      "volumePrice": {
-        "riseWith": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [1, 0.2667, 0.2667], "hex": "#FF4444" }
-        },
-        "riseWithout": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0, 0.7843, 0.3255], "hex": "#00C853" }
-        },
-        "fallWith": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [1, 0.2667, 0.2667], "hex": "#FF4444" }
-        },
-        "fallWithout": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0, 0.7843, 0.3255], "hex": "#00C853" }
-        }
-      },
       "structure": {
         "hh": {
           "$type": "color",

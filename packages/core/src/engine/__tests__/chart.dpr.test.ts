@@ -1192,43 +1192,6 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
-  it('routes custom markers through kernel and clears position cache', async () => {
-    const chart = mountChart()
-    const manager = chart.markers.getManager()
-    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
-    const clearCacheSpy = vi.spyOn(manager, 'clearPositionCache')
-
-    const marker = {
-      id: 'm1',
-      date: '2025-01-15',
-      timestamp: 1,
-      shape: 'circle' as const,
-    }
-
-    chart.markers.update([marker])
-    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m1'])
-    expect(clearCacheSpy).toHaveBeenCalled()
-    expect(scheduleDrawSpy).toHaveBeenCalled()
-
-    manager.setCustomMarkerPosition('m1', 10, 20, 12, 'circle')
-    expect(manager.hitTestCustomMarker(10, 20)?.id).toBe('m1')
-
-    clearCacheSpy.mockClear()
-    scheduleDrawSpy.mockClear()
-    chart.markers.clear()
-    expect(manager.getCustomMarkers()).toEqual([])
-    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
-    expect(scheduleDrawSpy).toHaveBeenCalled()
-    expect(manager.hitTestCustomMarker(10, 20)).toBeNull()
-
-    clearCacheSpy.mockClear()
-    chart.markers.register({ ...marker, id: 'm2', shape: 'flag' })
-    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m2'])
-    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
-
-    await chart.destroy()
-  })
-
   it('routes drawings through kernel for store projection', async () => {
     const chart = mountChart()
     const store = chart.drawing.getStore()

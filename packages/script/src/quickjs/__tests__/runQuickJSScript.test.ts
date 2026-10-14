@@ -7,6 +7,17 @@ import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQu
 
 /** 随包发布的 SMA 示例源码；直接读磁盘，避免测试里复制一份脚本。 */
 const shippedSmaSource = readFileSync(new URL('../../../scripts/sma.js', import.meta.url), 'utf8')
+/** 直接执行发布的 Shape 示例，验证全部形状声明和实际逐 bar 输出。 */
+const shippedShapeSource = readFileSync(
+  new URL('../../../scripts/shape.js', import.meta.url),
+  'utf8',
+)
+
+/** 直接执行 OC Average 源码，验证参数和距离信号。 */
+const shippedOcSource = readFileSync(
+  new URL('../../../scripts/open-close-average.js', import.meta.url),
+  'utf8',
+)
 
 /** 用完整文件声明包装计算片段，所有用例走相同初始化入口。 */
 function scriptSource(body: string, inputs = '{}'): string {
@@ -51,6 +62,170 @@ function referenceEma(closes: readonly number[], length: number): number[] {
 }
 
 describe('runQuickJSScript', () => {
+  it.each([
+    { distance: 0.75, a: 0, expected: true },
+    { distance: 0.5, a: 0, expected: false },
+    { distance: 0.6, a: 0.4, expected: false },
+    { distance: 0.6, a: -0.4, expected: false },
+    { distance: 0, a: 0, expected: false },
+  ])(
+    'OC Average 两侧距离都严格小于 $distance（偏移 $a）才绘制 Shape',
+    async ({ distance, a, expected }) => {
+      const bars = barsFromCloses([0, 10]).map((bar) => ({
+        ...bar,
+        high: bar.close + 0.5,
+        low: bar.close - 0.25,
+      }))
+      const result = await runQuickJSScript({
+        source: shippedOcSource,
+        bars,
+        params: { distance, a },
+      })
+      expect(readQuickJSScriptDefinitionSync(shippedOcSource).plots).toBeUndefined()
+      const signal = result.plots.find((plot) => plot.id === 'oc-near')
+      if (expected) {
+        expect(signal).toMatchObject({
+          kind: 'shape',
+          style: 'triangleup',
+          location: 'absolute',
+          size: 'small',
+        })
+        expect(values(result, 'oc-near')).toEqual([a, 10 + a])
+      } else {
+        expect(signal).toBeUndefined()
+      }
+      expect(values(result, 'oc-high')).toEqual([0.5, 10.5])
+      expect(values(result, 'oc-low')).toEqual([-0.25, 9.75])
+    },
+  )
+
+  it('OC Average 条件调用保留未触发 bar 的空位，信号消失后不残留标记', async () => {
+    const bars = barsFromCloses([10, 20, 30]).map((bar, index) => ({
+      ...bar,
+      high: bar.close + (index === 1 ? 0.5 : 2),
+      low: bar.close - 0.25,
+    }))
+    const result = await runQuickJSScript({ source: shippedOcSource, bars })
+    expect(values(result, 'oc-near')).toEqual([undefined, 20, undefined])
+  })
+
+  it('plot 调用直接配置 Shape 样式，形状和文字颜色可以逐 bar 改变', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`plot(PlotKind.Shape, close[0], {
+        id: 'signal', style: ShapeStyle.LabelUp, location: ShapeLocation.Absolute,
+        size: ShapeSize.Small, text: '信号', offset: 1,
+        color: close[0] === 2 ? 'red' : 'green', textColor: close[0] === 2 ? 'blue' : 'red',
+      })`),
+      bars: barsFromCloses([2, 4]),
+    })
+    expect(result.plots[0]).toMatchObject({
+      kind: 'shape',
+      style: 'labelup',
+      location: 'absolute',
+      size: 'small',
+      text: '信号',
+      offset: 1,
+      data: [
+        { value: 2, color: 'red', textColor: 'blue' },
+        { value: 4, color: 'green', textColor: 'red' },
+      ],
+    })
+  })
+
+  it('同一 id 不允许逐 bar 改变整列形状样式', async () => {
+    await expect(
+      runQuickJSScript({
+        source: scriptSource(
+          `plot(PlotKind.Shape, true, { id: 'signal', style: close[0] === 2 ? ShapeStyle.Circle : ShapeStyle.Square })`,
+        ),
+        bars: barsFromCloses([2, 4]),
+      }),
+    ).rejects.toThrow('cannot change style')
+  })
+
+  it('直接调用的 Shape 样式使用与 plots 声明相同的校验', async () => {
+    await expect(
+      runQuickJSScript({
+        source: scriptSource(`plot(PlotKind.Shape, true, { id: 'signal', style: 'unknown' })`),
+        bars: barsFromCloses([2]),
+      }),
+    ).rejects.toThrow('无效 plot 调用参数')
+  })
+
+  it('发布的 Shape Gallery 在 12 根行情上依次输出全部形状', async () => {
+    const result = await runQuickJSScript({
+      source: shippedShapeSource,
+      bars: barsFromCloses(wavyCloses(12)),
+    })
+    expect(result.plots).toHaveLength(12)
+    for (const [index, plot] of result.plots.entries()) {
+      expect(plot.kind).toBe('shape')
+      expect(plot.data.filter((point) => point?.value === 1)).toHaveLength(1)
+      expect(plot.data[index]?.value).toBe(1)
+    }
+  })
+
+  it('Shape 的枚举、声明和布尔输出贯通同一个 PlotCollector', async () => {
+    const result = await runQuickJSScript({
+      source: `defineIndicator({
+        name: 'Signals', inputs: {},
+        plots: [{ id: 'buy', kind: PlotKind.Shape, style: ShapeStyle.LabelUp,
+          location: ShapeLocation.BelowBar, size: ShapeSize.Small, text: '买入', offset: 1 }],
+        onBar() { plot(PlotKind.Shape, close[0] > 2, { id: 'buy', color: 'red', textColor: 'blue' }) }
+      })`,
+      bars: barsFromCloses([2, 4]),
+    })
+    expect(result.plots[0]).toMatchObject({
+      kind: 'shape',
+      style: 'labelup',
+      location: 'belowbar',
+      size: 'small',
+      text: '买入',
+      offset: 1,
+      data: [
+        { value: 0, color: 'red', textColor: 'blue' },
+        { value: 1, color: 'red', textColor: 'blue' },
+      ],
+    })
+  })
+
+  it('未声明的 Shape 仍走统一动态 id 收集，缺省为 xcross/abovebar/auto', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`plot(PlotKind.Shape, true, { id: 'signal' })`),
+      bars: barsFromCloses([2]),
+    })
+    expect(result.plots[0]).toMatchObject({
+      kind: 'shape',
+      style: 'xcross',
+      location: 'abovebar',
+      size: 'auto',
+      data: [{ value: 1 }],
+    })
+  })
+
+  it.each(["style: 'star'", "location: 'middle'", "size: 'giant'", 'text: 12', 'textColor: false'])(
+    'Shape 声明拒绝无效字段 %s',
+    async (field) => {
+      await expect(
+        runQuickJSScript({
+          source: `defineIndicator({ name: 'BadShape', inputs: {}, plots: [{ id: 'bad', kind: 'shape', ${field} }], onBar() {} })`,
+          bars: [],
+        }),
+      ).rejects.toThrow('无效 plots')
+    },
+  )
+
+  it('相对 Shape 不能作为 fill 的价格边界', async () => {
+    await expect(
+      runQuickJSScript({
+        source: `defineIndicator({ name: 'BadFill', inputs: {},
+        plots: [{ id: 'signal', kind: 'shape' }, { id: 'price', kind: 'line' }],
+        fills: [{ id: 'cloud', from: 'signal', to: 'price' }], onBar() {} })`,
+        bars: [],
+      }),
+    ).rejects.toThrow('requires price-positioned plots')
+  })
+
   it.each(['Line', 'Histogram', 'Points'])(
     '从 QuickJS Global 读取 PlotKind.%s 并生成对应图形',
     async (member) => {

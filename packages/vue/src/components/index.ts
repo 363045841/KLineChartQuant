@@ -4,9 +4,7 @@ export { default as IndicatorParams } from './indicator-params/impl/IndicatorPar
 export type {
   KlineTooltipSlotProps,
   LegendSlotProps,
-  MarkerTooltipSlotProps,
 } from './KLineChart.vue'
 export { default as KlineChart } from './KLineChart.vue'
 export { default as KLineTooltip } from './KLineTooltip.vue'
 export { default as LeftToolbar } from './LeftToolbar.vue'
-export { default as MarkerTooltip } from './MarkerTooltip.vue'

@@ -63,7 +63,6 @@ export type { ColorPickerProps } from './components/color-picker/types.js'
 export type {
   KlineTooltipSlotProps,
   LegendSlotProps,
-  MarkerTooltipSlotProps,
 } from './components/index.js'
 export {
   DrawingStyleToolbar,
@@ -72,7 +71,6 @@ export {
   KLineTooltip,
   KlineChart,
   LeftToolbar,
-  MarkerTooltip,
 } from './components/index.js'
 export {
   SCRIPT_SOURCE_STORE_KEY,

@@ -5,7 +5,7 @@
     "chartOverlay": {
       "$type": "number",
       "$value": 10,
-      "$description": "Overlays inside the chart frame; today 10-31 (KLineTooltip, MarkerTooltip, chart HUD layers)."
+      "$description": "Overlays inside the chart frame; today 10-31 (KLineTooltip, chart HUD layers)."
     },
     "sticky": {
       "$type": "number",

@@ -345,7 +345,7 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
   return {
     /** 拖拽位置；外部 tooltip 样式消费 */
     dragPos,
-    /** tooltip layer 相对偏移；外部 tooltip 与 marker tooltip 复用 */
+    /** tooltip layer 相对偏移；外部 tooltip 样式消费 */
     getLayerOffset,
     /** 绑定到 tooltip 容器的 pointerdown */
     onPointerDown,

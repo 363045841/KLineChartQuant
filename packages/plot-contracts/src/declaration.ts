@@ -4,6 +4,8 @@
  * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
+import type { ShapeOptions } from './shape.js'
+
 /** 声明式 Plot 的公共信息。 */
 interface PlotDeclarationBase {
   /** Plot 的唯一标识，与逐 bar 输出的 id 对应。 */
@@ -12,6 +14,8 @@ interface PlotDeclarationBase {
   readonly label?: string
   /** CSS 颜色字符串；缺省时取默认色。 */
   readonly color?: string
+  /** 文字默认颜色；逐 bar 覆盖值由输出点携带。 */
+  readonly textColor?: string
   /** 沿 K 线下标的偏移；缺省为 0。 */
   readonly offset?: number
   /** 是否可见；缺省为 true。 */
@@ -37,8 +41,24 @@ export interface PointsPlotDeclaration extends PlotDeclarationBase {
   readonly radius?: number
 }
 
-/** 声明的 Plot：按 kind 区分折线 / 柱状图 / 点图。 */
-export type PlotDeclaration = LinePlotDeclaration | HistogramPlotDeclaration | PointsPlotDeclaration
+/** 固定 Shape 声明；缺省样式由共享构造器补齐。 */
+export interface ShapePlotDeclaration extends PlotDeclarationBase, ShapeOptions {
+  readonly kind: 'shape'
+}
+
+/** 声明的 Plot：按 kind 区分各图形及其专用字段。 */
+export type PlotDeclaration =
+  | LinePlotDeclaration
+  | HistogramPlotDeclaration
+  | PointsPlotDeclaration
+  | ShapePlotDeclaration
+
+/** plot 调用直接使用声明样式，kind 由调用的第一个参数提供。 */
+export type PlotCallOptions =
+  | Omit<LinePlotDeclaration, 'kind'>
+  | Omit<HistogramPlotDeclaration, 'kind'>
+  | Omit<PointsPlotDeclaration, 'kind'>
+  | Omit<ShapePlotDeclaration, 'kind'>
 
 /** 声明式填充：引用两个 Plot id，样式缺省时由采集器填入默认值。 */
 export interface PlotFillDeclaration {

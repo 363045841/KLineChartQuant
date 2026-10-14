@@ -11,7 +11,6 @@ import {
   getRegisteredIndicatorDefinition,
   isIndicatorDefinitionLoaded,
 } from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import type { CustomMarkerEntity } from '@/engine/marker/registry.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
@@ -294,18 +293,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.panes.move(paneId, targetIndex)
   }
 
-  /** 全量更新自定义标记。 */
-  function updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void {
-    if (isDisposed()) return
-    chart.markers.update([...markers])
-  }
-
-  /** 清空自定义标记。 */
-  function clearCustomMarkers(): void {
-    if (isDisposed()) return
-    chart.markers.clear()
-  }
-
   /** 恢复主图价格轴的纵轴缩放和偏移。 */
   function resetMainPriceAxis(): void {
     if (isDisposed()) return
@@ -382,8 +369,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     updatePane,
     removePane,
     movePane,
-    updateCustomMarkers,
-    clearCustomMarkers,
     updateSettingsFacade,
     updateOptionsFacade,
   }

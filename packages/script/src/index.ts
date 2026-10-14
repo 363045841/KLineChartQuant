@@ -15,8 +15,18 @@ export type {
   PlotFillDeclaration,
   PlotPoint,
   PointsPlot,
+  ShapeOptions,
+  ShapePlot,
+  ShapePlotDeclaration,
 } from '@363045841yyt/klinechart-plot-contracts'
-export { PlotCollector, type PlotCollectorOptions } from '@363045841yyt/klinechart-plot-contracts'
+export {
+  PlotCollector,
+  type PlotCollectorOptions,
+  PlotKind,
+  ShapeLocation,
+  ShapeSize,
+  ShapeStyle,
+} from '@363045841yyt/klinechart-plot-contracts'
 export * from './contracts/input.js'
 export * from './contracts/library.js'
 export * from './contracts/output.js'

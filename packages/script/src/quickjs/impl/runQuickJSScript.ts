@@ -4,7 +4,15 @@
  * 每个脚本一个独立 Context，一次编译成函数、逐 bar 调用；不向宿主 globalThis 注入。
  * 异步入口用于首次加载 WASM；预加载后可用同步入口，供 core 的同步 compute 调用。
  */
-import { type PlotCollection, PlotCollector } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  isPlotKind,
+  type PlotCollection,
+  PlotCollector,
+  PlotKind,
+  ShapeLocation,
+  ShapeSize,
+  ShapeStyle,
+} from '@363045841yyt/klinechart-plot-contracts'
 import {
   getQuickJS,
   getQuickJSSync,
@@ -13,12 +21,7 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import {
-  INDICATOR_PRELUDE,
-  LIBRARY_PRELUDE,
-  PLOT_KIND_PRELUDE,
-  SCRIPT_PRELUDE,
-} from '../generated/runtime.js'
+import { INDICATOR_PRELUDE, LIBRARY_PRELUDE, SCRIPT_PRELUDE } from '../generated/runtime.js'
 import {
   PaneKind,
   type QuickJSLibrary,
@@ -27,7 +30,7 @@ import {
   type ScriptParamValue,
 } from '../types.js'
 import { builtinLibraries } from './builtinLibraries.js'
-import { readDefinition } from './readDefinition.js'
+import { readDefinition, readPlotCall } from './readDefinition.js'
 
 /** 共享的 WASM 模块类型。 */
 type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
@@ -119,10 +122,9 @@ function runWithContext(
       },
     )
     mountParams(vm, options.params)
-    mountPaneKind(vm)
+    mountScriptEnums(vm)
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
-    evalOrThrow(vm, PLOT_KIND_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
     for (const library of [...builtinLibraries, ...(options.libraries ?? [])]) {
       evalOrThrow(vm, library.source, 'compile', timeout).dispose()
@@ -183,24 +185,32 @@ function mountHostFunctions(
   vm.setProp(vm.global, '__count', count)
   count.dispose()
 
-  const plot = vm.newFunction('__plot', (idHandle, valueHandle, colorHandle, kindHandle) => {
+  const plot = vm.newFunction('__plot', (kindHandle, valueHandle, optionsHandle) => {
     const collector = getCollector()
     if (!collector || cursor.index < 0) {
       onError(new ScriptExecutionError('compile', 'plot 只能在 onBar 中调用'))
       return vm.undefined
     }
-    const id = String(vm.dump(idHandle))
     const value = Number(vm.dump(valueHandle))
-    const color = vm.dump(colorHandle)
     const kind: unknown = vm.dump(kindHandle)
-    if (value === Infinity || value === -Infinity) {
-      onError(new ScriptPlotError(id, cursor.index))
+    if (!isPlotKind(kind)) {
+      onError(new ScriptExecutionError('run', '未知 plot kind'))
     } else {
+      const declaration = readPlotCall(vm.dump(optionsHandle), kind)
+      if (value === Infinity || value === -Infinity) {
+        onError(new ScriptPlotError(declaration.id, cursor.index))
+        return vm.undefined
+      }
       collector.onPlot(
-        id,
+        declaration.id,
         cursor.index,
-        typeof color === 'string' ? { value, color } : { value },
-        kind === 'line' || kind === 'histogram' || kind === 'points' ? kind : undefined,
+        {
+          value,
+          ...(declaration.color !== undefined ? { color: declaration.color } : {}),
+          ...(declaration.textColor !== undefined ? { textColor: declaration.textColor } : {}),
+        },
+        kind,
+        declaration,
       )
     }
     return vm.undefined
@@ -231,16 +241,24 @@ function mountParams(
   target.dispose()
 }
 
-/** 注入指标注册位置枚举；取值唯一来源是宿主 PaneKind，VM 内不重复声明。 */
-function mountPaneKind(vm: QuickJSContext): void {
-  const target = vm.newObject()
-  for (const [name, value] of Object.entries(PaneKind)) {
-    const handle = vm.newString(value)
-    vm.setProp(target, name, handle)
-    handle.dispose()
+/** 注入脚本公开枚举；取值来自共享契约，VM 内不重复声明。 */
+function mountScriptEnums(vm: QuickJSContext): void {
+  for (const [globalName, members] of Object.entries({
+    PaneKind,
+    PlotKind,
+    ShapeStyle,
+    ShapeLocation,
+    ShapeSize,
+  })) {
+    const target = vm.newObject()
+    for (const [name, value] of Object.entries(members)) {
+      const handle = vm.newString(value)
+      vm.setProp(target, name, handle)
+      handle.dispose()
+    }
+    vm.setProp(vm.global, globalName, target)
+    target.dispose()
   }
-  vm.setProp(vm.global, 'PaneKind', target)
-  target.dispose()
 }
 
 /** 执行一段源码并返回句柄；失败时按阶段抛出 ScriptExecutionError。 */

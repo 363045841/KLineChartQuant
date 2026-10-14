@@ -108,9 +108,8 @@ Key design choices:
 - `updateIndicatorParams(instanceId, params)`
 - `updateRendererConfig(name, config)` — configure renderer
 
-**Drawing / Markers:**
+**Drawing:**
 - `setDrawingTool(tool)`, `clearDrawings()`, `removeDrawing(drawingId)`
-- `updateCustomMarkers(markers)`, `clearCustomMarkers()`
 
 **Layout:**
 - `createSubPane(paneId, indicatorId, params?)`, `clearSubPanes()`

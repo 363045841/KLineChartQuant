@@ -1,5 +1,6 @@
 /** 把计算器的数值序列投影为 Plot；统一处理显隐、位移、颜色和可见范围。 */
 
+import { createPlot, isPricePlot, validatePlotFills } from '@363045841yyt/klinechart-plot-contracts'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import type {
@@ -45,6 +46,7 @@ export function projectPlots(
 ): PlotRenderState {
   if (definition.source === 'collection') {
     if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
+    validatePlotFills(raw.plots, raw.fills)
     return {
       kind: 'plots',
       timestamp,
@@ -61,10 +63,12 @@ export function projectPlots(
     const data: (PlotPoint | undefined)[] = source.map((item) => {
       const value = spec.field ? readPlotField(item, spec.field) : item
       if (value === undefined || value === null) return undefined
-      if (typeof value !== 'number') throw new TypeError(`Plot ${spec.id} requires numeric values`)
-      const color = spec.pointColor?.(value, previous, colors, item)
-      previous = value
-      return { value, color }
+      const numeric = spec.kind === 'shape' && typeof value === 'boolean' ? Number(value) : value
+      if (typeof numeric !== 'number')
+        throw new TypeError(`Plot ${spec.id} requires numeric values`)
+      const color = spec.pointColor?.(numeric, previous, colors, item)
+      previous = numeric
+      return { value: numeric, color }
     })
     const base = {
       id: spec.id,
@@ -76,11 +80,24 @@ export function projectPlots(
     }
     switch (spec.kind) {
       case 'histogram':
-        return { ...base, kind: 'histogram', baseline: spec.baseline ?? 0 }
+        return createPlot({ ...base, kind: 'histogram', baseline: spec.baseline }, data)
       case 'points':
-        return { ...base, kind: 'points', radius: spec.radius ?? 1.5 }
+        return createPlot({ ...base, kind: 'points', radius: spec.radius ?? 1.5 }, data)
+      case 'shape':
+        return createPlot(
+          {
+            ...base,
+            kind: 'shape',
+            style: spec.style,
+            location: spec.location,
+            size: spec.size,
+            text: spec.text,
+            textColor: spec.textColor,
+          },
+          data,
+        )
       default:
-        return { ...base, kind: 'line', width: spec.width ?? 1, dash: spec.dash ?? [] }
+        return createPlot({ ...base, kind: 'line', width: spec.width, dash: spec.dash }, data)
     }
   })
   const fills = (definition.fills ?? []).map((fill) => ({
@@ -92,6 +109,7 @@ export function projectPlots(
     reverseColor: fill.reverseColor(colors),
     opacity: fill.opacity ?? 0.15,
   }))
+  validatePlotFills(plots, fills)
   return {
     kind: 'plots',
     timestamp,
@@ -149,6 +167,7 @@ function plotRange(
   let max = -Infinity
   for (const plot of plots) {
     if (!plot.visible && !fillSources.has(plot.id)) continue
+    if (!isPricePlot(plot)) continue
     const start = Math.max(0, range.start - plot.offset)
     const end = Math.min(plot.data.length, range.end - plot.offset)
     let hasValues = false

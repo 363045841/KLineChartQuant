@@ -1,5 +1,12 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
-import type { PlotDeclaration, PlotFillDeclaration } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  isShapeLocation,
+  isShapeSize,
+  isShapeStyle,
+  type PlotDeclaration,
+  type PlotFillDeclaration,
+  type PlotKind,
+} from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
 import { PaneKind, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
 
@@ -62,7 +69,23 @@ function isPlot(value: unknown): value is PlotDeclaration {
     )
   }
   if (value.kind === 'histogram') return optional(value.baseline, 'number')
+  if (value.kind === 'shape') {
+    return (
+      (value.style === undefined || isShapeStyle(value.style)) &&
+      (value.location === undefined || isShapeLocation(value.location)) &&
+      (value.size === undefined || isShapeSize(value.size)) &&
+      optional(value.text, 'string') &&
+      optional(value.textColor, 'string')
+    )
+  }
   return value.kind === 'points' && optional(value.radius, 'number')
+}
+
+/** 调用参数复用声明校验，输出类型由 plot 的第一个参数提供。 */
+export function readPlotCall(value: unknown, kind: PlotKind): PlotDeclaration {
+  const declaration = isRecord(value) ? { ...value, kind } : undefined
+  if (!isPlot(declaration)) throw new ScriptExecutionError('run', '无效 plot 调用参数')
+  return declaration
 }
 
 /** 检查填充引用和可选样式。 */

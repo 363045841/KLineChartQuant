@@ -38,13 +38,11 @@ import {
   projectDrawingsForFrame,
   registerDefaultDrawingDefinitions,
 } from '../../drawing/index.js'
-import { MarkerManager } from '../../marker/registry.js'
 import type { PaneRenderer } from '../../pane/index.js'
 import { UpdateLevel } from '../../pane/index.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
 import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
-import { createCustomMarkersLayer } from '../../renderers/customMarkers.js'
 import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
 import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
 import { createGridLinesLayer } from '../../renderers/gridLines.js'
@@ -182,7 +180,6 @@ export class ChartRenderer {
   /** 最新价签的秒级倒计时计时器；只请求 overlay 重绘。 */
   private lastPriceCountdownTimer: ReturnType<typeof setTimeout> | null = null
 
-  readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
   private readonly drawingDefinitions = new DrawingDefinitionRegistry()
   private xAxisCtx: CanvasRenderingContext2D | null = null
@@ -256,7 +253,6 @@ export class ChartRenderer {
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
       // Legend 顺序也属于展示输入，实例重排无需计算变化即可刷新 DOM。
       this.deps.getIndicatorManager().indicatorsComputed.peek(),
-      this.deps.customMarkers$.peek(),
       this.deps.getActiveMode(),
       layers,
       ...layers.map((layer) => layer.visible),
@@ -306,7 +302,6 @@ export class ChartRenderer {
   constructor(deps: RendererDependencies) {
     this.deps = deps
     this.crosshairOverlay = new CrosshairOverlay(deps.getDom().canvasLayer)
-    this.markerManager = new MarkerManager({ customMarkers$: deps.customMarkers$ })
     this.drawingStore = new DrawingStore({
       drawings$: deps.drawings$,
       selectedDrawingIds$: deps.selectedDrawingIds$,
@@ -439,9 +434,6 @@ export class ChartRenderer {
       this.scene.addLayer(createComparisonLineLayer())
     }
     {
-      this.scene.addLayer(createCustomMarkersLayer())
-    }
-    {
       this.scene.addLayer(createExtremaMarkersLayer())
     }
     {
@@ -473,10 +465,6 @@ export class ChartRenderer {
 
   getPaneCtxMap(): Map<string, RenderContext> {
     return this.paneCtxMap
-  }
-
-  getMarkerManager(): MarkerManager {
-    return this.markerManager
   }
 
   getDrawingStore(): DrawingStore {
@@ -614,8 +602,6 @@ export class ChartRenderer {
 
   /** 将 prepareFrameData 的帧几何按 level 画到 canvas，含所有 pane 的 main/overlay/yAxis 及时间轴 */
   private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
-    this.markerManager.clear()
-
     // 当前视图无可绘制数据时必须清空所有 canvas，不能保留前一视图的像素。
     if (!frame) {
       this.clearAllCanvases()
@@ -1146,7 +1132,6 @@ export class ChartRenderer {
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
         indicatorStateReader,
         indicatorAvailability,
-        markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
         yAxisOverlayCtx: yAxisOverlayCtx ?? undefined,

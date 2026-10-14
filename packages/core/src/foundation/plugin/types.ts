@@ -319,12 +319,6 @@ export interface FiveDayTimeShareGeometry {
   verticalGridLineXs: ReadonlyArray<number>
 }
 
-/** MarkerManager 接口（用于 RenderContext） */
-export interface MarkerManagerLike {
-  getCustomMarkers(): unknown[]
-  setCustomMarkerPosition(id: string, x: number, y: number, size: number, shape: string): void
-}
-
 /** 当前帧读取指标渲染投影的只读接口。 */
 export interface IndicatorRenderStateReader {
   /** 按指标实例 ID 读取当前帧已提交的指标状态。 */
@@ -422,7 +416,6 @@ export interface RenderOverlayContext {
   countdown?: string
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
-  markerManager?: MarkerManagerLike
   /** 绘图系统预先生成的当前 Pane 帧投影。 */
   drawingProjection?: DrawingFrameProjection
   /** 会话图元（拖拽覆盖、预览和框选）的独立投影。 */

@@ -59,7 +59,6 @@ state/
 ├── drawingState.ts            # 绘图工具、图元与选中 id
 ├── interactionState.ts        # 十字线、悬停、拖拽、区间选择
 ├── indicatorState.ts          # 指标实例与副图配置
-├── markerState.ts             # 自定义 marker 业务状态
 ├── rendererState.ts           # renderer backend 运行时状态
 ├── viewWorkspace.ts           # 视图工作区可恢复快照类型与持久化契约
 ├── immutable.ts               # 快照深度冻结工具

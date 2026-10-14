@@ -1,14 +1,10 @@
-/** VM 与编辑器共用的绘图类型枚举。 */
-enum ScriptPlotKind {
-  Line = 'line',
-  Histogram = 'histogram',
-  Points = 'points',
-}
-
-/** 对外枚举类型与值；var 让 TypeScript 同时识别 globalThis.PlotKind。 */
-type PlotKind = ScriptPlotKind
-// biome-ignore lint/suspicious/noVar: VM 全局属性必须使用 var 声明以供编辑器识别。
-var PlotKind = ScriptPlotKind
-
-// 显式挂到 VM 全局，裸标识符与 globalThis.PlotKind 使用同一份枚举。
-Object.assign(globalThis, { PlotKind })
+/** VM 的 Plot 枚举声明；实际取值由宿主从共享契约注入，编辑器直接引用同一类型。 */
+type PlotKind = import('@363045841yyt/klinechart-plot-contracts').PlotKind
+// biome-ignore lint/suspicious/noVar: VM 全局声明需要同时支持 globalThis
+declare var PlotKind: typeof import('@363045841yyt/klinechart-plot-contracts').PlotKind
+// biome-ignore lint/suspicious/noVar: VM 全局声明需要同时支持 globalThis
+declare var ShapeStyle: typeof import('@363045841yyt/klinechart-plot-contracts').ShapeStyle
+// biome-ignore lint/suspicious/noVar: VM 全局声明需要同时支持 globalThis
+declare var ShapeLocation: typeof import('@363045841yyt/klinechart-plot-contracts').ShapeLocation
+// biome-ignore lint/suspicious/noVar: VM 全局声明需要同时支持 globalThis
+declare var ShapeSize: typeof import('@363045841yyt/klinechart-plot-contracts').ShapeSize

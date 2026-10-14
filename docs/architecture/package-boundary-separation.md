@@ -25,15 +25,6 @@ The errors propagated through the import chain — a single import from `vue/src
 `@363045841yyt/klinechart-core` → `core/src/index.ts` → its re-exports → their dependencies →
 all the way down, producing ~40 errors per run.
 
-A secondary issue: **MarkerTooltip.vue** imported core types using a raw relative path to
-packages/core:
-
-```ts
-import type { MarkerEntity, CustomMarkerEntity } from '../../../core/src/engine/marker/registry'
-```
-
-This bypasses both the package name and the workspace symlink.
-
 ## Solution
 
 ### 1. Remove core source path aliases
@@ -52,21 +43,12 @@ packages/vue/node_modules/@363045841yyt/klinechart-core
 The Vue package now sees only core's **built declaration files**, not its raw source.
 This eliminates the `rootDir` violation and enforces a clean API boundary.
 
-### 2. Add missing core export
-
-Added `"./engine/marker/registry"` to `packages/core/package.json` exports so the
-MarkerTooltip component can import through the package name:
-
-```ts
-import type { MarkerEntity, CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
-```
-
-### 3. Remove duplicate copyFile
+### 2. Remove duplicate copyFile
 
 Vue's `package.json` had the same `copyFileSync` in both `build` and `postbuild`. Kept
 only `postbuild`, which runs automatically after `vite build`.
 
-### 4. Workspace build command
+### 3. Workspace build command
 
 Added `build:packages` to root `package.json`:
 
@@ -83,8 +65,6 @@ Builds core first, then Vue — mirroring the production dependency order.
 | `packages/vue/tsconfig.json` | Removed 16 core source path aliases |
 | `packages/vue/tsconfig.build.json` | Removed 15 core source path aliases |
 | `packages/vue/package.json` | Removed duplicate `copyFileSync` from `build` script |
-| `packages/vue/src/components/MarkerTooltip.vue` | Relative path → package import |
-| `packages/core/package.json` | Added `"./engine/marker/registry"` export |
 | `package.json` (root) | Added `build:packages` script |
 
 ## Verification

@@ -86,7 +86,7 @@ data/
 
 ### 2. 子模块语义划分
 
-模块内按职责切成 6 个子模块，每个子模块采用 `<sub>/types.ts + <sub>/impl/` 分层（对齐 `engine/marker/shape` 既有先例）；契约类型从 impl 抽出到各层 `types.ts`，`types.ts` 不依赖同模块 impl。
+模块内按职责切成 6 个子模块，每个子模块采用 `<sub>/types.ts + <sub>/impl/` 分层（对齐 `engine/frame` 既有先例）；契约类型从 impl 抽出到各层 `types.ts`，`types.ts` 不依赖同模块 impl。
 
 | 子模块 | 职责 |
 |--------|------|

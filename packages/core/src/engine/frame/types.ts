@@ -12,7 +12,6 @@ import type { InteractionController } from '../controller/interaction.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
 import type { DrawingSelectionMarquee, DrawingStoreDeps } from '../drawing/index.js'
 import type { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
-import type { MarkerManagerDeps } from '../marker/registry.js'
 import type { PaneRenderer } from '../pane/index.js'
 import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
@@ -57,7 +56,6 @@ export interface RendererDependencies {
   primaryRenderer$?: ReadonlySignal<import('../chartModel/index.js').PrimaryRendererType>
   settings$: ReadonlySignal<ChartSettings>
   mainPriceAxis: MainPriceAxisStateModule
-  customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
   getOverlay?: DrawingStoreDeps['getOverlay']

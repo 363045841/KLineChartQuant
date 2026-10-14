@@ -9,7 +9,14 @@
  */
 import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
 import { PLOT_ERROR_CODES } from './errors.js'
-import type { Plot, PlotCollection, PlotFill, PlotPoint } from './plots.js'
+import {
+  type Plot,
+  type PlotCollection,
+  type PlotFill,
+  type PlotPoint,
+  validatePlotFills,
+} from './plots.js'
+import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
 
 /** Plot 默认颜色。 */
 const DEFAULT_PLOT_COLOR = '#2196f3'
@@ -37,40 +44,55 @@ export interface PlotCollectorOptions {
 /** 按 id / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
 export class PlotCollector {
   private readonly barCount: number
-  private readonly declarations?: readonly PlotDeclaration[]
-  private readonly declaredIds?: ReadonlySet<string>
+  private readonly declared: boolean
   private readonly fillDeclarations?: readonly PlotFillDeclaration[]
-  private readonly columns = new Map<string, (PlotPoint | undefined)[]>()
-  private readonly kinds = new Map<string, PlotDeclaration['kind']>()
+  private readonly entries = new Map<string, CollectedPlot>()
 
+  /** 声明和直接调用都写入同一份有序条目，声明只负责预先创建空列。 */
   constructor(options: PlotCollectorOptions) {
     this.barCount = options.barCount
-    this.declarations = options.plots
-    this.declaredIds = options.plots && new Set(options.plots.map((plot) => plot.id))
+    this.declared = options.plots !== undefined
     this.fillDeclarations = options.fills
-    if (this.declaredIds && this.declaredIds.size !== options.plots?.length)
-      throw new TypeError('Duplicate Plot id')
+    for (const declaration of options.plots ?? []) {
+      if (this.entries.has(declaration.id)) throw new TypeError('Duplicate Plot id')
+      this.entries.set(declaration.id, {
+        declaration,
+        data: this.emptyColumn(),
+        emitted: false,
+      })
+    }
   }
 
-  /** 接收绘图点：校验声明（如有）后写入对应 id 的列。 */
-  onPlot(id: string, barIndex: number, point: PlotPoint, kind?: PlotDeclaration['kind']): void {
-    if (this.declaredIds && !this.declaredIds.has(id)) {
+  /** 接收绘图点和调用样式；样式整轮固定，颜色随点变化。 */
+  onPlot(
+    id: string,
+    barIndex: number,
+    point: PlotPoint,
+    kind?: PlotDeclaration['kind'],
+    options?: PlotDeclaration,
+  ): void {
+    let entry = this.entries.get(id)
+    if (this.declared && !entry) {
       throw new Error(
         `[${PLOT_ERROR_CODES.UNDECLARED_PLOT}] plot id '${id}' is not declared in script.plots`,
       )
     }
-    if (kind !== undefined) {
-      const previous = this.kinds.get(id)
-      if (previous !== undefined && previous !== kind)
-        throw new TypeError(`Plot ${id} cannot change kind during a run`)
-      this.kinds.set(id, kind)
+    if (!entry) {
+      entry = {
+        declaration: { id, kind: kind ?? 'line' },
+        data: this.emptyColumn(),
+        emitted: false,
+      }
+      this.entries.set(id, entry)
     }
-    let column = this.columns.get(id)
-    if (!column) {
-      column = this.emptyColumn()
-      this.columns.set(id, column)
-    }
-    column[barIndex] = point
+    const declaration = withCallOptions(resolveDeclaration(entry.declaration, kind), options)
+    if (entry.emitted && declaration.kind !== entry.declaration.kind)
+      throw new TypeError(`Plot ${id} cannot change kind during a run`)
+    if (entry.emitted && JSON.stringify(declaration) !== JSON.stringify(entry.declaration))
+      throw new TypeError(`Plot ${id} cannot change style during a run`)
+    entry.declaration = declaration
+    entry.emitted = true
+    entry.data[barIndex] = point
   }
 
   /** 事件不参与 PlotCollection；参数放宽以匹配引擎 OutputSink 的结构。 */
@@ -78,23 +100,11 @@ export class PlotCollector {
 
   /** 产出 PlotCollection：声明优先且保持声明顺序，未声明时按首次出现顺序输出。 */
   collect(): PlotCollection {
-    const plots: Plot[] =
-      this.declarations?.map((declaration) =>
-        toPlot(
-          declaration,
-          this.columns.get(declaration.id) ?? this.emptyColumn(),
-          this.kinds.get(declaration.id),
-        ),
-      ) ??
-      [...this.columns].map(([id, column]) =>
-        toPlot({ id, kind: this.kinds.get(id) ?? 'line' }, column),
-      )
+    const plots = [...this.entries.values()].map(({ declaration, data }) =>
+      createPlot(declaration, data),
+    )
     const fills: PlotFill[] = this.fillDeclarations?.map(toFill) ?? []
-    const ids = new Set(plots.map((plot) => plot.id))
-    for (const fill of fills) {
-      if (!ids.has(fill.from) || !ids.has(fill.to))
-        throw new TypeError(`Unknown fill source: ${fill.id}`)
-    }
+    validatePlotFills(plots, fills)
     return { plots, fills }
   }
 
@@ -104,11 +114,24 @@ export class PlotCollector {
   }
 }
 
+/** 同一个 Plot 的声明和数值列只保留一份。 */
+interface CollectedPlot {
+  declaration: PlotDeclaration
+  readonly data: (PlotPoint | undefined)[]
+  emitted: boolean
+}
+
+/** 调用样式覆盖声明；逐 bar 颜色由 PlotPoint 携带，不改变整列样式。 */
+function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration): PlotDeclaration {
+  if (!options) return declaration
+  const { color: _color, textColor: _textColor, ...style } = options
+  return { ...declaration, ...style }
+}
+
 /** 把 Plot 声明与采集到的数据组装成具体 Plot，缺省字段填入默认值。 */
-function toPlot(
+export function createPlot(
   declaration: PlotDeclaration,
   data: readonly (PlotPoint | undefined)[],
-  kind = declaration.kind,
 ): Plot {
   const base = {
     id: declaration.id,
@@ -118,37 +141,47 @@ function toPlot(
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
   }
-  switch (kind) {
+  switch (declaration.kind) {
     case 'line':
       return {
         ...base,
         kind: 'line',
-        width:
-          declaration.kind === 'line'
-            ? (declaration.width ?? DEFAULT_LINE_WIDTH)
-            : DEFAULT_LINE_WIDTH,
-        dash:
-          declaration.kind === 'line' ? (declaration.dash ?? DEFAULT_LINE_DASH) : DEFAULT_LINE_DASH,
+        width: declaration.width ?? DEFAULT_LINE_WIDTH,
+        dash: declaration.dash ?? DEFAULT_LINE_DASH,
       }
     case 'histogram':
       return {
         ...base,
         kind: 'histogram',
-        baseline:
-          declaration.kind === 'histogram'
-            ? (declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE)
-            : DEFAULT_HISTOGRAM_BASELINE,
+        baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
       }
     case 'points':
       return {
         ...base,
         kind: 'points',
-        radius:
-          declaration.kind === 'points'
-            ? (declaration.radius ?? DEFAULT_POINTS_RADIUS)
-            : DEFAULT_POINTS_RADIUS,
+        radius: declaration.radius ?? DEFAULT_POINTS_RADIUS,
+      }
+    case 'shape':
+      return {
+        ...base,
+        kind: 'shape',
+        style: declaration.style ?? ShapeStyle.XCross,
+        location: declaration.location ?? ShapeLocation.AboveBar,
+        size: declaration.size ?? ShapeSize.Auto,
+        text: declaration.text ?? '',
+        textColor: declaration.textColor ?? base.color,
       }
   }
+}
+
+/** 调用覆盖 kind 时只保留公共声明；专属字段始终来自实际 kind 的声明。 */
+function resolveDeclaration(
+  declaration: PlotDeclaration,
+  kind = declaration.kind,
+): PlotDeclaration {
+  if (kind === declaration.kind) return declaration
+  const { id, label, color, visible, offset } = declaration
+  return { id, label, color, visible, offset, kind }
 }
 
 /** 把填充声明组装成具体 PlotFill，缺省字段填入默认值。 */

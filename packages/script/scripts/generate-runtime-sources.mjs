@@ -9,7 +9,6 @@ const outputFile = new URL('src/quickjs/generated/runtime.ts', packageRoot)
 const entries = [
   { file: 'library.ts', exportName: 'LIBRARY_PRELUDE' },
   { file: 'series.ts', exportName: 'SCRIPT_PRELUDE' },
-  { file: 'plotKind.ts', exportName: 'PLOT_KIND_PRELUDE' },
   { file: 'indicator.ts', exportName: 'INDICATOR_PRELUDE' },
   { file: 'ta.ts', exportName: 'TA_LIBRARY_SOURCE' },
 ]

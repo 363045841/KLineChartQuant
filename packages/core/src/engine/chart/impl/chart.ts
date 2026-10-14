@@ -104,7 +104,6 @@ import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
-import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
@@ -124,7 +123,6 @@ import type {
 } from '../types.js'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
-import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
 import { ChartPaneFacade } from './facade/chartPaneFacade.js'
 import { ChartThemeFacade } from './facade/chartThemeFacade.js'
 import { ChartZoomFacade } from './facade/chartZoomFacade.js'
@@ -198,9 +196,6 @@ export class Chart {
   redoDrawing(): boolean {
     return this.drawingCommands.history.redo()
   }
-
-  /** 标记领域公开 API。 */
-  readonly markers: ChartMarkerFacade
 
   /** Pane 领域公开 API。 */
   readonly panes: ChartPaneFacade
@@ -492,7 +487,6 @@ export class Chart {
       primaryRenderer$: this.kernel.mode.readonly.effectivePrimaryRenderer,
       settings$: this.kernel.settings.readonly.settings,
       mainPriceAxis: this.kernel.mainPriceAxis,
-      customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
@@ -551,11 +545,6 @@ export class Chart {
         this.cancelDrawingSession()
         this.scheduleDraw()
       },
-    })
-    this.markers = new ChartMarkerFacade({
-      kernel: this.kernel,
-      renderer: this.renderer,
-      scheduleDraw: () => this.scheduleDraw(),
     })
 
     this.indicatorManager = new ChartIndicatorManager({

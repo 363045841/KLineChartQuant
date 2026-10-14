@@ -1,5 +1,9 @@
 /** 图表 Plot 契约：指标声明绘图方式，帧投影提供统一的数值范围。 */
-import type { PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  PlotCollection,
+  PlotKind,
+  ShapeOptions,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 
 export type {
@@ -7,6 +11,13 @@ export type {
   PlotCollection,
   PlotFill,
   PlotPoint,
+  ShapePlot,
+} from '@363045841yyt/klinechart-plot-contracts'
+export {
+  PlotKind,
+  ShapeLocation,
+  ShapeSize,
+  ShapeStyle,
 } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 计算器的数组字段或按周期索引的序列。 */
@@ -17,10 +28,10 @@ export interface PlotSource {
 }
 
 /** 指标只描述绘图配置，不负责坐标转换或实际绘制。 */
-export interface PlotSpec extends PlotSource {
+export interface PlotSpec extends PlotSource, ShapeOptions {
   readonly id: string
   readonly label?: string | ((params: Readonly<Record<string, unknown>>) => string)
-  readonly kind?: 'line' | 'histogram' | 'points'
+  readonly kind?: PlotKind
   readonly show?: string
   readonly color: (colors: ColorTokens) => string
   readonly pointColor?: (

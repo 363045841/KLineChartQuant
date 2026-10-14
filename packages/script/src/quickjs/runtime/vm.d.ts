@@ -33,7 +33,7 @@ declare function __read(field: string, offset: number): number
 declare function __count(): number
 
 /** 宿主注入：上报当前 K 线的绘图点。 */
-declare function __plot(id: string, value: number, color: string | undefined, kind: PlotKind): void
+declare function __plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
 
 /** 调用处的绘图选项，与编辑器共用契约。 */
 type ScriptPlotOptions = import('../../editor/types.js').ScriptPlotOptions

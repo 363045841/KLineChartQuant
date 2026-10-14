@@ -32,7 +32,6 @@ import type {
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { CustomMarkerEntity } from '../engine/marker/registry.js'
 import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
@@ -618,10 +617,6 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   replacePaneContent(paneId: string, indicatorId: string, params: Record<string, unknown>): boolean
   updatePaneContent(paneId: string, params: Record<string, unknown>): boolean
   clearPanes(): void
-
-  // ---- Drawing / Markers ----
-  updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void
-  clearCustomMarkers(): void
 
   // ---- Interaction sub-methods ----
   setTooltipSize(size: { width: number; height: number }): void

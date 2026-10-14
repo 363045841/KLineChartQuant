@@ -18,7 +18,7 @@
 
 ## 🎨 自定义 Tooltip
 
-`KlineChart` 提供 `#kline-tooltip` 和 `#marker-tooltip` 插槽用于自定义 tooltip。当提供插槽时，默认 tooltip 内容完全被替换，你可以完全控制显示内容和样式。
+`KlineChart` 提供 `#kline-tooltip` 插槽用于自定义 tooltip。当提供插槽时，默认 tooltip 内容完全被替换，你可以完全控制显示内容和样式。
 
 定位与拖拽仍由组件接管：`tooltipPosition === 'adaptive'` 时，自定义 `#kline-tooltip` 同样可拖拽；双击复位。`tooltipPosition === 'none'`（默认）时数据悬浮框整体隐藏。
 
@@ -76,12 +76,6 @@
   .custom-tooltip__detail { opacity: 0.7; }
 </style>
 ```
-
-### `#marker-tooltip`
-
-| 插槽属性              | 类型                                                            | 说明                     |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------- |
-| `marker`               | `MarkerEntity \| CustomMarkerEntity \| null`                    | 悬停的标记数据             |
 
 {{include:_docs.zh-CN.md}}
 

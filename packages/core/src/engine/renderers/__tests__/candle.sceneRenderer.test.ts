@@ -83,7 +83,7 @@ describe('candle sceneRenderer path', () => {
       range: { start: 0, end: 5 },
       kLinePositions: [0, 10, 20, 30, 40],
       kLineCenters: [4, 14, 24, 34, 44],
-      settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
+      settings: { rendererBackend: 'webgl' },
     })
 
     paint(ctx)
@@ -99,7 +99,7 @@ describe('candle sceneRenderer path', () => {
       range: { start: 0, end: 3 },
       kLinePositions: [0, 10, 20],
       kLineCenters: [4, 14, 24],
-      settings: { rendererBackend: 'webgpu', showVolumePriceMarkers: false },
+      settings: { rendererBackend: 'webgpu' },
     })
 
     paint(ctx)
@@ -118,7 +118,7 @@ describe('candle sceneRenderer path', () => {
       range: { start: 0, end: 3 },
       kLinePositions: [0, 10, 20],
       kLineCenters: [4, 14, 24],
-      settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
+      settings: { rendererBackend: 'webgl' },
     })
 
     paint(ctx)
@@ -142,7 +142,7 @@ describe('candle preparation', () => {
         kWidthPx: 11,
         dpr,
         dataRevision: 1,
-        settings: { klineShape: 'hollow-candlestick', showVolumePriceMarkers: false },
+        settings: { klineShape: 'hollow-candlestick' },
       })
       layer.paint(context)
       const rectangles = vi.mocked(canvas.fillRect).mock.calls
@@ -187,7 +187,6 @@ describe('candle preparation', () => {
         kLineCenters: [100],
         kWidthPx: 5,
         dpr,
-        settings: { showVolumePriceMarkers: false },
       }),
     )
     const rectangles = vi.mocked(canvas.fillRect).mock.calls
@@ -212,7 +211,6 @@ describe('candle preparation', () => {
         range: { start: 0, end: 1 },
         kLineCenters: [100],
         dpr,
-        settings: { showVolumePriceMarkers: false },
       })
       // 实体宽度和数据版本不变，验证级别切换独立使影线缓存失效。
       for (const { zoomLevel, wickPx } of [
@@ -279,7 +277,6 @@ describe('candle preparation', () => {
       ],
       range: { start: 0, end: 1 },
       kLineCenters: [10],
-      settings: { showVolumePriceMarkers: false },
     })
     const layer = createCandleLayer()
     layer.paint(context)
@@ -349,7 +346,6 @@ describe('candle preparation', () => {
       scrollLeft: 0.4,
       dpr,
       kWidthPx: 5,
-      settings: { showVolumePriceMarkers: false },
     })
     paint(context)
 
@@ -380,54 +376,6 @@ describe('candle preparation', () => {
       [body.x, bodyY, body.width, bodyH],
       [wick.x, upperTop / dpr, wick.width, Math.max(1, upperBottom - upperTop) / dpr],
       [wick.x, lowerTop / dpr, wick.width, Math.max(1, lowerBottom - lowerTop) / dpr],
-    ])
-  })
-
-  it('does not analyze volume when markers are below the zoom threshold', () => {
-    const volumeRead = vi.fn(() => 1000)
-    const data = makeBars(5).map((bar) => ({
-      ...bar,
-      get volume() {
-        return volumeRead()
-      },
-    }))
-    const manager = {
-      getCustomMarkers: () => [],
-      setCustomMarkerPosition: () => {},
-      register: vi.fn((_marker: { id: string }) => {}),
-    }
-    const context = createCtx(undefined, {
-      sceneRenderer: undefined,
-      data,
-      range: { start: 0, end: 5 },
-      kLineCenters: [4, 14, 24, 34, 44],
-      zoomLevel: 1,
-      markerManager: manager,
-    })
-    paint(context)
-    expect(volumeRead).not.toHaveBeenCalled()
-  })
-
-  it('registers visible volume price markers in their original order', () => {
-    const manager = {
-      getCustomMarkers: () => [],
-      setCustomMarkerPosition: () => {},
-      register: vi.fn((_marker: { id: string }) => {}),
-    }
-    const data = makeBars(3)
-    data[2] = { ...data[2]!, close: 98 }
-    const context = createCtx(undefined, {
-      sceneRenderer: undefined,
-      data,
-      range: { start: 0, end: 3 },
-      kLineCenters: [4, 14, 24],
-      markerManager: manager,
-      zoomLevel: 2,
-    })
-    paint(context)
-    expect(manager.register.mock.calls.map(([marker]) => marker.id)).toEqual([
-      'mk_price-volume_1',
-      'mk_price-volume_2',
     ])
   })
 })

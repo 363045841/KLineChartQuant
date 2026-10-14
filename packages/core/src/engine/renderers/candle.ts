@@ -2,16 +2,11 @@
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
-import { VolumePriceRelation } from '../../foundation/types/volumePrice.js'
-import {
-  analyzeVolumePriceRelationBatch,
-  DEFAULT_VOLUME_PRICE_CONFIG,
-} from '../../foundation/utils/volumePrice.js'
 import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import {
@@ -19,7 +14,6 @@ import {
   sameProjectionRevision,
 } from '../frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '../frame/types.js'
-import type { MarkerManager } from '../marker/registry.js'
 import { calcBarLeftPx, fitBarWidthPx } from '../viewport/klineConfig.js'
 import { drawWorldRectBatches } from './rectsViaRenderer.js'
 
@@ -39,16 +33,7 @@ function ensureBufferCapacity(pool: Float64Array | null, requiredFloats: number)
   return new Float64Array(newLen)
 }
 
-type CandleMarker = {
-  i: number
-  relation: VolumePriceRelation
-  alignedHighY: number
-  alignedLowY: number
-}
-
 type PreparedCandles = {
-  upMarkers: CandleMarker[]
-  downMarkers: CandleMarker[]
   upBodyBuf: Float64Array
   upBodyCount: number
   downBodyBuf: Float64Array
@@ -73,7 +58,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     visible: true,
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
-      const { pane, data, range, kWidthPx, dpr, kLineCenters, markerManager, settings } = context
+      const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context
       const hollow = settings?.klineShape === 'hollow-candlestick'
       const colors = resolveThemeColors(
         context.theme,
@@ -82,11 +67,6 @@ export function createCandleLayer(): Layer<RenderContext> {
       )
       const klineData = data as KLineData[]
       if (!klineData.length) return
-      const volumePriceMarkerManager = markerManager as MarkerManager | undefined
-      const showVolumePriceMarkers =
-        settings?.showVolumePriceMarkers !== false &&
-        !!volumePriceMarkerManager &&
-        (context.zoomLevel ?? 1) >= 2
 
       const build = () =>
         prepareCandles({
@@ -97,7 +77,6 @@ export function createCandleLayer(): Layer<RenderContext> {
           dpr,
           kLineCenters,
           zoomLevel: context.zoomLevel ?? 1,
-          showVolumePriceMarkers,
           buffers,
           hollow,
         })
@@ -111,7 +90,6 @@ export function createCandleLayer(): Layer<RenderContext> {
                 context.dataRevision,
                 context.dataView,
                 context.zoomLevel ?? 1,
-                showVolumePriceMarkers,
                 hollow,
               ]),
               build,
@@ -125,10 +103,6 @@ export function createCandleLayer(): Layer<RenderContext> {
         { buf: prepared.upWickBuf, count: prepared.upWickCount, color: upColor },
         { buf: prepared.downWickBuf, count: prepared.downWickCount, color: downColor },
       ])
-
-      if (showVolumePriceMarkers) {
-        drawVolumePriceMarkers(context, prepared, volumePriceMarkerManager!, colors.volumePrice)
-      }
     },
     dispose() {
       retained.clear()
@@ -145,17 +119,11 @@ function prepareCandles(args: {
   dpr: number
   kLineCenters: number[]
   zoomLevel: number
-  showVolumePriceMarkers: boolean
   buffers: CandleBuffers
   hollow: boolean
 }): PreparedCandles {
-  const { pane, data, range, kWidthPx, dpr, kLineCenters, showVolumePriceMarkers, buffers } = args
-  const relations = showVolumePriceMarkers
-    ? analyzeVolumePriceRelationBatch(data, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
-    : null
+  const { pane, data, range, kWidthPx, dpr, kLineCenters, buffers } = args
 
-  const upMarkers: CandleMarker[] = []
-  const downMarkers: CandleMarker[] = []
   const maxRects = Math.max(1, range.end - range.start)
   const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * (args.hollow ? 4 : 1) * 4)
   buffers.upBody = upBodyBuf
@@ -203,8 +171,6 @@ function prepareCandles(args: {
     const closePx = Math.round(fastPriceToY(e.close) * dpr)
     const highPx = Math.round(fastPriceToY(e.high) * dpr)
     const lowPx = Math.round(fastPriceToY(e.low) * dpr)
-    const alignedHighY = highPx * invDpr
-    const alignedLowY = lowPx * invDpr
 
     const centerPx = Math.round(centerLogical * dpr)
     const roundedLeftPx = calcBarLeftPx(centerPx, bodyWidthPx)
@@ -223,12 +189,6 @@ function prepareCandles(args: {
     const preClose = i > 0 ? data[i - 1]?.close : undefined
     const trend = getKLineTrend(e, preClose)
     const isUp = trend === 'up'
-
-    const relation = relations?.[i - range.start]
-    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
-      const targetMarkers = isUp ? upMarkers : downMarkers
-      targetMarkers.push({ i, relation, alignedHighY, alignedLowY })
-    }
 
     const bodyBuf = isUp ? upBodyBuf : downBodyBuf
     // 边框由不重叠的物理像素矩形组成，内部不填背景，保留足迹、网格等底层内容。
@@ -269,8 +229,6 @@ function prepareCandles(args: {
   }
 
   return {
-    upMarkers,
-    downMarkers,
     upBodyBuf,
     upBodyCount,
     downBodyBuf,
@@ -280,189 +238,4 @@ function prepareCandles(args: {
     downWickBuf,
     downWickCount,
   }
-}
-
-function drawVolumePriceMarkers(
-  context: RenderContext,
-  prepared: PreparedCandles,
-  markerManager: MarkerManager,
-  volumePriceColors: VolumePriceColors,
-): void {
-  const { ctx, range, kWidth, dpr } = context
-
-  ctx.save()
-  ctx.translate(-context.scrollLeft, 0)
-
-  for (const k of prepared.upMarkers) {
-    const relation = k.relation
-    const isRising =
-      relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-      relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-    const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
-    const posIndex = k.i - range.start
-    const markerX = context.kLineCenters[posIndex]!
-    drawVolumePriceMarker(
-      ctx,
-      markerX,
-      markerY,
-      relation,
-      k.i,
-      kWidth,
-      4,
-      markerManager,
-      dpr,
-      volumePriceColors,
-    )
-  }
-
-  for (const k of prepared.downMarkers) {
-    const relation = k.relation
-    const isRising =
-      relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-      relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-    const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
-    const posIndex = k.i - range.start
-    const markerX = context.kLineCenters[posIndex]!
-    drawVolumePriceMarker(
-      ctx,
-      markerX,
-      markerY,
-      relation,
-      k.i,
-      kWidth,
-      4,
-      markerManager,
-      dpr,
-      volumePriceColors,
-    )
-  }
-
-  ctx.restore()
-}
-
-/**
- * 绘制量价关系标记
- * 在K线图上标注量价关系标记符号
- *
- * @param ctx - Canvas绘图上下文
- * @param x - 标记的x坐标（三角形水平中心）
- * @param y - 标记的y坐标（三角形底边/顶点与K线的接触点）
- * @param relation - 量价关系类型
- * @param kWidth - K线宽度，作为三角形边长
- * @param gap - 三角形与K线的间距，默认为4
- * @param dpr - 设备像素比
- */
-function drawVolumePriceMarker(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  relation: VolumePriceRelation,
-  kIndex: number,
-  kWidth: number,
-  gap: number = 4,
-  markerManager: MarkerManager,
-  dpr: number,
-  volumePriceColors: VolumePriceColors,
-): void {
-  const align = (v: number) => Math.round(v * dpr) / dpr
-  x = align(x)
-  y = align(y)
-
-  const sideLength = Math.min(kWidth, 20)
-  const height = (sideLength * Math.sqrt(3)) / 2
-
-  let color: string
-  let isUp: boolean
-
-  switch (relation) {
-    case VolumePriceRelation.RISE_WITH_VOLUME:
-      color = volumePriceColors.riseWith
-      isUp = true
-      break
-    case VolumePriceRelation.RISE_WITHOUT_VOLUME:
-      color = volumePriceColors.riseWithout
-      isUp = true
-      break
-    case VolumePriceRelation.FALL_WITH_VOLUME:
-      color = volumePriceColors.fallWith
-      isUp = false
-      break
-    case VolumePriceRelation.FALL_WITHOUT_VOLUME:
-      color = volumePriceColors.fallWithout
-      isUp = false
-      break
-    default:
-      return
-  }
-
-  ctx.save()
-  ctx.beginPath()
-
-  if (isUp) {
-    const baseY = align(y - gap)
-    const tipY = align(baseY - height)
-
-    ctx.moveTo(x, tipY)
-    ctx.lineTo(align(x - sideLength / 2), baseY)
-    ctx.lineTo(align(x + sideLength / 2), baseY)
-  } else {
-    const baseY = align(y + gap)
-    const tipY = align(baseY + height)
-
-    ctx.moveTo(x, tipY)
-    ctx.lineTo(align(x - sideLength / 2), baseY)
-    ctx.lineTo(align(x + sideLength / 2), baseY)
-  }
-
-  ctx.closePath()
-
-  ctx.fillStyle = color
-  ctx.fill()
-
-  ctx.restore()
-
-  let boundingX: number
-  let boundingY: number
-
-  if (isUp) {
-    const baseY = align(y - gap)
-    const tipY = align(baseY - height)
-    boundingX = align(x - sideLength / 2)
-    boundingY = tipY
-  } else {
-    const baseY = align(y + gap)
-    boundingX = align(x - sideLength / 2)
-    boundingY = baseY
-  }
-
-  let markerTypeKey: string
-  switch (relation) {
-    case VolumePriceRelation.RISE_WITH_VOLUME:
-      markerTypeKey = 'RISE_WITH_VOLUME'
-      break
-    case VolumePriceRelation.RISE_WITHOUT_VOLUME:
-      markerTypeKey = 'RISE_WITHOUT_VOLUME'
-      break
-    case VolumePriceRelation.FALL_WITH_VOLUME:
-      markerTypeKey = 'FALL_WITH_VOLUME'
-      break
-    case VolumePriceRelation.FALL_WITHOUT_VOLUME:
-      markerTypeKey = 'FALL_WITHOUT_VOLUME'
-      break
-    default:
-      return
-  }
-
-  const markerId = `mk_price-volume_${kIndex}`
-  markerManager.register({
-    id: markerId,
-    type: 'triangle',
-    markerType: markerTypeKey,
-    x: boundingX,
-    y: boundingY,
-    width: sideLength,
-    height: height,
-    dataIndex: kIndex,
-    metadata: { relation },
-  })
 }

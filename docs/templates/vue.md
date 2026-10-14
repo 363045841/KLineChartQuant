@@ -18,7 +18,7 @@
 
 ## 🎨 Custom Tooltip
 
-`KlineChart` exposes `#kline-tooltip` and `#marker-tooltip` slots for custom tooltip rendering. When a slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
+`KlineChart` exposes the `#kline-tooltip` slot for custom tooltip rendering. When the slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
 
 Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'`, a custom `#kline-tooltip` is also draggable; double-click resets. With `tooltipPosition === 'none'` (default), the data tooltip is hidden entirely.
 
@@ -76,12 +76,6 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
   .custom-tooltip__detail { opacity: 0.7; }
 </style>
 ```
-
-### `#marker-tooltip`
-
-| Slot Prop              | Type                                                            | Description                     |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------- |
-| `marker`               | `MarkerEntity \| CustomMarkerEntity \| null`                    | Hovered marker data             |
 
 {{include:_docs.md}}
 

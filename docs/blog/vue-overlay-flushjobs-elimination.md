@@ -99,7 +99,7 @@ export function useControllerSignalValue(controllerRef, select, project, fallbac
 
 把默认路径清干净之后，我们保留了两类「允许进 VDOM」的高频更新，作为调用方**显式选择**的 opt-in：
 
-- `#kline-tooltip` / `#marker-tooltip` / `#legend`：调用方要用 Vue 模板自定义这些 UI，就得接受高频 patch 成本。
+- `#kline-tooltip` / `#legend`：调用方要用 Vue 模板自定义这些 UI，就得接受高频 patch 成本。
 - 区间选择 overlay：只有确实存在选区时才会临时订阅滚动。
 
 原则是：**默认路径不付高频 VDOM 的账；调用方明确要自定义时才承担。** 高频渲染数据与低频业务/UI 状态不再共用一个组件更新边界。

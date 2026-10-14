@@ -330,8 +330,6 @@ export function createMockChartController(
     replacePaneContent: () => false,
     updatePaneContent: () => false,
     clearPanes: () => {},
-    updateCustomMarkers: () => {},
-    clearCustomMarkers: () => {},
     setTooltipSize: () => {},
     setTooltipAnchorPositioning: () => {},
     getIndicatorTitle: () => undefined,

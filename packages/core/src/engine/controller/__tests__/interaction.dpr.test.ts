@@ -302,62 +302,6 @@ describe('InteractionController pane capability gating', () => {
 })
 
 describe('InteractionController hover snapshot', () => {
-  it('clears marker hover payloads on scroll', () => {
-    const setHover = vi.fn()
-    const marker = { id: 'm1' }
-    const chart = createChartStub({
-      dpr: 1,
-      plotWidth: 300,
-      plotHeight: 200,
-      markerManager: {
-        hitTest: () => marker,
-        setHover,
-        hitTestCustomMarker: () => null,
-      },
-    })
-    const interaction = new InteractionController(chart as never, createMockInteractionState())
-
-    interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
-    interaction.flushPendingHover()
-    expect(interaction.getInteractionSnapshot().hoveredMarkerData).toBe(marker)
-
-    interaction.onScroll()
-
-    const snapshot = interaction.getInteractionSnapshot()
-    expect(snapshot.hoveredMarkerData).toBeNull()
-    expect(snapshot.hoveredCustomMarker).toBeNull()
-    expect(snapshot.crosshairPos).toBeNull()
-    expect(snapshot.hoveredIndex).toBeNull()
-    expect(setHover).toHaveBeenCalledWith(null)
-  })
-
-  it('emits cleared snapshot when moving away from custom marker', () => {
-    const customMarker = { id: 'c1' }
-    let hoveringCustom = true
-    const chart = createChartStub({
-      dpr: 1,
-      plotWidth: 300,
-      plotHeight: 200,
-      markerManager: {
-        hitTest: () => null,
-        setHover: () => undefined,
-        hitTestCustomMarker: () => (hoveringCustom ? customMarker : null),
-      },
-    })
-    const interaction = new InteractionController(chart as never, createMockInteractionState())
-
-    interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
-    interaction.flushPendingHover()
-    expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBe(customMarker)
-
-    hoveringCustom = false
-    interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
-    interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
-    interaction.flushPendingHover()
-
-    expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBeNull()
-  })
-
   it('maps drawing coordinates through the shared slot grid', () => {
     const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 200 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())

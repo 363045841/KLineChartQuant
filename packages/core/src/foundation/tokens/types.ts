@@ -240,14 +240,6 @@ export interface LastPriceLabelColors {
   readonly bg: ColorValue
 }
 
-/** Volume-price relationship markers. */
-export interface VolumePriceColors {
-  readonly riseWith: ColorValue
-  readonly riseWithout: ColorValue
-  readonly fallWith: ColorValue
-  readonly fallWithout: ColorValue
-}
-
 /**
  * 足迹图横条与叠印数字的专用配色。
  * 使用独立红/灰约定（Bid 红、Ask 中性灰），不随 K 线涨跌方向翻转。
@@ -431,7 +423,6 @@ export interface ColorTokens {
   readonly pivot: PivotColors
   readonly label: LabelColors
   readonly lastPriceLabel: LastPriceLabelColors
-  readonly volumePrice: VolumePriceColors
   readonly structure: StructureColors
   readonly zones: ZonesColors
   readonly referenceLine: ReferenceLineColors

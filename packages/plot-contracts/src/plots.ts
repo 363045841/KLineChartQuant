@@ -1,7 +1,7 @@
 /**
  * Plot 数据契约：脚本产出、图表渲染共同依赖的绘图数据模型。
  *
- * 本模块只有类型、没有运行时代码，位于依赖图最底层：core 与 script 都依赖它，
+ * 本模块提供类型和共享枚举，位于依赖图最底层：core 与 script 都依赖它，
  * 而它不依赖任何包。这样两个包互不认识，同时绘图数据只有这一处定义。
  */
 
@@ -10,6 +10,8 @@ export interface PlotPoint {
   value: number
   /** CSS 颜色字符串；缺省时使用所在 Plot 的颜色。 */
   color?: string
+  /** Shape 附带文字的逐 bar 颜色。 */
+  textColor?: string
 }
 
 /** Plot 的公共信息。 */
@@ -43,7 +45,48 @@ export interface PointsPlot extends PlotBase {
   readonly radius: number
 }
 
-export type Plot = LinePlot | HistogramPlot | PointsPlot
+/** 固定形状标记；样式由声明决定，数据沿用统一的逐 bar 列。 */
+export interface ShapePlot extends PlotBase {
+  readonly kind: 'shape'
+  readonly style: import('./shape.js').ShapeStyle
+  readonly location: import('./shape.js').ShapeLocation
+  readonly size: import('./shape.js').ShapeSize
+  readonly text: string
+  readonly textColor: string
+}
+
+export type Plot = LinePlot | HistogramPlot | PointsPlot | ShapePlot
+
+export type PlotKind = Plot['kind']
+
+export const PlotKind = {
+  Line: 'line',
+  Histogram: 'histogram',
+  Points: 'points',
+  Shape: 'shape',
+} satisfies Record<string, PlotKind>
+
+/** 判断绘图类型，供跨 VM 边界校验使用。 */
+export function isPlotKind(value: unknown): value is PlotKind {
+  return Object.values(PlotKind).some((entry) => entry === value)
+}
+
+/** 只有价格定位的 Plot 可以参与数值轴范围和曲线填充。 */
+export function isPricePlot(plot: Plot): boolean {
+  return plot.kind !== 'shape' || plot.location === 'absolute'
+}
+
+/** 校验填充引用；脚本收集器和原生指标投影使用同一套价格边界规则。 */
+export function validatePlotFills(plots: readonly Plot[], fills: readonly PlotFill[]): void {
+  const sources = new Map(plots.map((plot) => [plot.id, plot]))
+  for (const fill of fills) {
+    const from = sources.get(fill.from)
+    const to = sources.get(fill.to)
+    if (!from || !to) throw new TypeError(`Unknown fill source: ${fill.id}`)
+    if (!isPricePlot(from) || !isPricePlot(to))
+      throw new TypeError(`Fill ${fill.id} requires price-positioned plots`)
+  }
+}
 
 /** 引用两个 Plot，填充它们之间的区域，不复制序列数据。 */
 export interface PlotFill {
