@@ -3,54 +3,100 @@
  *
  * 公开接口由 TechnicalAnalysisLibrary 约束，实现与编辑器契约在编译期保持一致。
  * 历史取数统一走 Series.at()，它是契约中为严格索引检查准备的动态访问入口。
+ *
+ * 所有派生序列都经 __deriveOnce 按「输入序列 + 算法 + 参数」缓存：脚本在 onBar 里逐 bar
+ * 重新调用 ta.* 时复用同一实例，memo 跨 bar 保留，整体保持线性复杂度。
  */
+
+/** 窗口类算法（sma/highest/lowest）的缓存包装，key 区分算法与输入序列。 */
+function __windowSeries(
+  source: Series,
+  length: number,
+  kind: 'sma' | 'highest' | 'lowest',
+): Series {
+  return __deriveOnce(`window:${kind}:${__seriesId(source)}:${length}`, (_self, offset) =>
+    __windowValue(source, length, kind, offset),
+  )
+}
+
 defineLibrary('ta', {
   /** 简单移动平均序列，完整窗口之前为 NaN。 */
   sma(source: Series, length: number): Series {
     __checkLength(length)
-    return __window(source, length, 'sma')
+    return __windowSeries(source, length, 'sma')
   },
 
   /** 窗口最高值序列。 */
   highest(source: Series, length: number): Series {
     __checkLength(length)
-    return __window(source, length, 'highest')
+    return __windowSeries(source, length, 'highest')
   },
 
   /** 窗口最低值序列。 */
   lowest(source: Series, length: number): Series {
     __checkLength(length)
-    return __window(source, length, 'lowest')
+    return __windowSeries(source, length, 'lowest')
   },
 
   /** 指数移动平均序列，以首个完整窗口 SMA 初始化。 */
   ema(source: Series, length: number): Series {
     __checkLength(length)
-    const series = __derive((offset) => {
+    return __deriveOnce(`ema:${__seriesId(source)}:${length}`, (self, offset) => {
       if (offset + length > __count()) return Number.NaN
-      const firstWindow = (): number => {
-        let total = 0
-        for (let step = 0; step < length; step++) total += source.at(offset + step)
-        return total / length
-      }
       // 没有上一根的完整值时，用当前窗口 SMA 初始化。
-      if (offset + 1 + length > __count()) return firstWindow()
-      const previous = series.at(offset + 1)
+      if (offset + 1 + length > __count()) return __windowValue(source, length, 'sma', offset)
+      const previous = self.at(offset + 1)
       return Number.isNaN(previous)
-        ? firstWindow()
+        ? __windowValue(source, length, 'sma', offset)
         : previous + (2 / (length + 1)) * (source.at(offset) - previous)
     })
-    return series
+  },
+
+  /** 加权移动平均序列，窗口内越新的值权重越大，完整窗口之前为 NaN。 */
+  wma(source: Series, length: number): Series {
+    __checkLength(length)
+    return __deriveOnce(`wma:${__seriesId(source)}:${length}`, (_self, offset) => {
+      if (offset + length > __count()) return Number.NaN
+      let weighted = 0
+      let weightSum = 0
+      for (let step = 0; step < length; step++) {
+        // step 越小越新，权重从 length 递减到 1，与 native 的 1..length 一致。
+        const weight = length - step
+        weighted += weight * source.at(offset + step)
+        weightSum += weight
+      }
+      return weighted / weightSum
+    })
+  },
+
+  /** 成交量加权移动平均序列，Σ(source×volume)/Σ(volume)；完整窗口之前或窗口成交量之和为 0 时为 NaN。 */
+  vwma(source: Series, volume: Series, length: number): Series {
+    __checkLength(length)
+    return __deriveOnce(
+      `vwma:${__seriesId(source)}:${__seriesId(volume)}:${length}`,
+      (_self, offset) => {
+        if (offset + length > __count()) return Number.NaN
+        let priceVolume = 0
+        let volumeSum = 0
+        for (let step = 0; step < length; step++) {
+          const barVolume = volume.at(offset + step)
+          priceVolume += source.at(offset + step) * barVolume
+          volumeSum += barVolume
+        }
+        return volumeSum > 0 ? priceVolume / volumeSum : Number.NaN
+      },
+    )
   },
 
   /** Wilder RSI 序列，平盘为 50。 */
   rsi(source: Series, length: number): Series {
     __checkLength(length)
+    const id = __seriesId(source)
     // Wilder RSI 需要 length+1 个价格；前 length 个变化做 SMA 初始化，之后按平滑系数递推。
-    const gain = __derive((offset) => {
+    const gain = __deriveOnce(`rsi-gain:${id}:${length}`, (self, offset) => {
       if (offset + length + 1 > __count()) return Number.NaN
       if (offset + length + 2 <= __count()) {
-        const previous = gain.at(offset + 1)
+        const previous = self.at(offset + 1)
         if (!Number.isNaN(previous)) {
           const change = source.at(offset) - source.at(offset + 1)
           return (previous * (length - 1) + Math.max(change, 0)) / length
@@ -62,10 +108,10 @@ defineLibrary('ta', {
       }
       return total / length
     })
-    const loss = __derive((offset) => {
+    const loss = __deriveOnce(`rsi-loss:${id}:${length}`, (self, offset) => {
       if (offset + length + 1 > __count()) return Number.NaN
       if (offset + length + 2 <= __count()) {
-        const previous = loss.at(offset + 1)
+        const previous = self.at(offset + 1)
         if (!Number.isNaN(previous)) {
           const change = source.at(offset + 1) - source.at(offset)
           return (previous * (length - 1) + Math.max(change, 0)) / length
@@ -77,7 +123,7 @@ defineLibrary('ta', {
       }
       return total / length
     })
-    return __derive((offset) => {
+    return __deriveOnce(`rsi:${id}:${length}`, (_self, offset) => {
       const up = gain.at(offset)
       const down = loss.at(offset)
       if (Number.isNaN(up) || Number.isNaN(down)) return Number.NaN

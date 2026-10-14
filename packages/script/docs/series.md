@@ -12,7 +12,7 @@ VM prelude 提供 open、high、low、close、volume、time 六个只读序列�
 `[0]` 是当前值，`[1]` 是上一根，`[n]` 是向过去偏移 n 根。历史不足返回 NaN；
 负数和非整数偏移报错。动态偏移可用 `close.at(n)`。
 
-sma、ema、rsi、highest、lowest 接收序列并返回序列；crossover、crossunder 返回当前是否交叉。
+sma、ema、wma、vwma、rsi、highest、lowest 接收序列并返回序列；crossover、crossunder 返回当前是否交叉。
 派生结果也支持历史引用与嵌套计算。EMA 使用首个完整窗口 SMA 初始化，RSI 使用 Wilder 平滑，平盘为 50。
 
 `ta` 是通过 `defineLibrary('ta', ...)` 加载的内置库，与 `importLibrary('ta')` 指向同一份函数表；

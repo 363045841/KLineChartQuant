@@ -62,22 +62,54 @@ function __derive(compute: (offset: number) => number): Series {
   })
 }
 
-/** 滑动窗口：完整窗口之前返回 NaN，窗口内出现 NaN 时结果也是 NaN。 */
-function __window(source: Series, length: number, kind: 'sma' | 'highest' | 'lowest'): Series {
-  return __derive((offset) => {
-    if (offset + length > __count()) return Number.NaN
-    let value = kind === 'highest' ? -Infinity : kind === 'lowest' ? Infinity : 0
-    for (let step = 0; step < length; step++) {
-      const current = source.at(offset + step)
-      value =
-        kind === 'highest'
-          ? Math.max(value, current)
-          : kind === 'lowest'
-            ? Math.min(value, current)
-            : value + current
-    }
-    return kind === 'sma' ? value / length : value
-  })
+/** 滑动窗口取值：完整窗口之前返回 NaN，窗口内出现 NaN 时结果也是 NaN。 */
+function __windowValue(
+  source: Series,
+  length: number,
+  kind: 'sma' | 'highest' | 'lowest',
+  offset: number,
+): number {
+  if (offset + length > __count()) return Number.NaN
+  let value = kind === 'highest' ? -Infinity : kind === 'lowest' ? Infinity : 0
+  for (let step = 0; step < length; step++) {
+    const current = source.at(offset + step)
+    value =
+      kind === 'highest'
+        ? Math.max(value, current)
+        : kind === 'lowest'
+          ? Math.min(value, current)
+          : value + current
+  }
+  return kind === 'sma' ? value / length : value
+}
+
+/** 派生序列缓存：同一轮运行内，相同输入与算法的派生序列复用同一实例，memo 才能跨 bar 保留。 */
+const __derivedCache = new Map<string, Series>()
+
+/** 序列编号表：每个序列一个稳定编号，用于拼装派生缓存键。 */
+const __seriesIds = new WeakMap<object, number>()
+let __nextSeriesId = 0
+
+/** 返回序列的稳定编号；同一个序列在整轮运行内编号不变。 */
+function __seriesId(series: object): number {
+  let id = __seriesIds.get(series)
+  if (id === undefined) {
+    id = ++__nextSeriesId
+    __seriesIds.set(series, id)
+  }
+  return id
+}
+
+/**
+ * 取得或创建缓存的派生序列。
+ * 重复调用同一 key 返回同一实例，序列自身的 memo 因此跨 bar 保留；compute 需要引用自身时用 self。
+ */
+function __deriveOnce(key: string, compute: (self: Series, offset: number) => number): Series {
+  const cached = __derivedCache.get(key)
+  if (cached !== undefined) return cached
+  const series: Series = __derive((offset) => compute(series, offset))
+  __derivedCache.set(key, series)
+  return series
 }
 
 /** 行情序列：宿主按当前游标提供取值。 */

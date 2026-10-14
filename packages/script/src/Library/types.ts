@@ -7,6 +7,10 @@ export type TechnicalAnalysisLibrary = {
   sma(source: Series, length: number): Series
   /** 指数移动平均序列，以首个完整窗口 SMA 初始化。 */
   ema(source: Series, length: number): Series
+  /** 加权移动平均序列，窗口内越新的值权重越大，完整窗口之前为 NaN。 */
+  wma(source: Series, length: number): Series
+  /** 成交量加权移动平均序列，Σ(source×volume)/Σ(volume)；完整窗口之前或窗口成交量之和为 0 时为 NaN。 */
+  vwma(source: Series, volume: Series, length: number): Series
   /** Wilder RSI 序列，平盘为 50。 */
   rsi(source: Series, length: number): Series
   /** 窗口最高值序列。 */

@@ -31,9 +31,10 @@ OHLCV 与 time 是只读 Series，`[0]` 表示当前值，`[1]` 表示上一根�
 加载协议（`libraryPrelude.ts`）在一个 Context 内维护库表：`defineLibrary` 校验名称并绑定全局，
 `importLibrary` 取回同名库。库名不能与已有全局冲突。
 
-ta 提供 sma、ema、rsi、highest、lowest，以及返回 boolean 的 crossover、crossunder。
+ta 提供 sma、ema、wma、vwma、rsi、highest、lowest，以及返回 boolean 的 crossover、crossunder。
 完整窗口之前返回 NaN；EMA 从 SMA 初始化，RSI 使用 Wilder 平滑，平盘返回 50。
-派生序列按当前 bar 索引惰性计算并缓存，条件分支里首次调用仍能读取完整历史。
+派生序列按当前 bar 索引惰性计算并缓存，同一轮运行内相同输入与算法复用同一实例，
+因此在 `onBar` 里逐 bar 重新调用 `ta.*` 也不会重算历史；条件分支里首次调用仍能读取完整历史。
 
 ### 用户库
 

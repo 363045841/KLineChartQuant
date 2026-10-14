@@ -38,7 +38,7 @@ describe('script language service', () => {
   )
 
   it('从类型声明补全 ta、标准 JS 成员和用户局部变量', async () => {
-    expect(await completions('ta.')).toContain('sma')
+    expect(await completions('ta.')).toEqual(expect.arrayContaining(['sma', 'wma', 'vwma']))
     expect(await completions('Math.')).toContain('abs')
     expect(await completions('con')).toContain('const')
     expect(await completions('const settings = { length: 20 }; settings.')).toContain('length')
