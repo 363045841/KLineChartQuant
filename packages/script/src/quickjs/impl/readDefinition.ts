@@ -29,6 +29,20 @@ function optional(value: unknown, kind: 'string' | 'number' | 'boolean'): boolea
   )
 }
 
+/** 字符串选项数组：非空且每一项都是字符串。 */
+function isOptionsList(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item: unknown) => typeof item === 'string')
+  )
+}
+
+/** 下拉选项只允许声明在字符串输入上。 */
+function isOptionsValid(value: unknown, fallback: unknown): boolean {
+  return value === undefined || (typeof fallback === 'string' && isOptionsList(value))
+}
+
 /** 检查声明式 Plot 的公共字段与各图形的专用字段。 */
 function isPlot(value: unknown): value is PlotDeclaration {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
@@ -85,13 +99,15 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     if (
       !isRecord(declaration) ||
       !isParam(declaration.default) ||
-      !optional(declaration.title, 'string')
+      !optional(declaration.title, 'string') ||
+      !isOptionsValid(declaration.options, declaration.default)
     ) {
       throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
     }
     inputs[key] = {
       default: declaration.default,
       ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
+      ...(isOptionsList(declaration.options) ? { options: declaration.options } : {}),
     }
   }
   const plots: unknown = value.plots

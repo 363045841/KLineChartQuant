@@ -25,12 +25,18 @@ export interface IndicatorSourceDocument {
   readonly definition: IndicatorSourceDefinition
 }
 
-/** 单个输入参数的声明，由 input() 工厂产出。 */
-export interface InputDef<T> {
-  /** 默认值，同时决定参数在面板中的编辑类型。 */
-  readonly default: T
+/** 输入参数的展示选项；options 只在字符串参数上生效，宿主据此渲染下拉选择。 */
+export interface InputOptions {
   /** 参数面板中的显示名；缺省显示参数名。 */
   readonly title?: string
+  /** 下拉选项；值必须是字符串，与 default 同类型。 */
+  readonly options?: readonly string[]
+}
+
+/** 单个输入参数的声明，由 input() 工厂产出。 */
+export interface InputDef<T> extends InputOptions {
+  /** 默认值，同时决定参数在面板中的编辑类型。 */
+  readonly default: T
 }
 
 /** 输入声明表：键即参数名，P 为解析后的参数值类型。 */

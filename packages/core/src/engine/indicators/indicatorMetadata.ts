@@ -200,6 +200,8 @@ export type GetTitleInfoFn = (
 export interface IndicatorInputDef {
   /** 面板显示名；缺省显示参数名。 */
   readonly title?: string
+  /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
+  readonly options?: readonly string[]
 }
 
 /**

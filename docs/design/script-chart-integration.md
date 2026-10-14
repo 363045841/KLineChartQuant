@@ -54,8 +54,9 @@ const instanceId = controller.addIndicator(document.id)
 
 ## 生命周期与版本
 
-脚本的输入参数在 VM 内用 `input(默认值, 标题)` 声明。装配层把展示字段（`title`）作为
-`runtime.inputDefs` 传给 core，默认值仍走 `defaultParams`，两处不重复存默认值。
+脚本的输入参数在 VM 内用 `input(默认值, 选项)` 声明。装配层把展示字段（`title`、`options`）作为
+`runtime.inputDefs` 传给 core，默认值仍走 `defaultParams`，两处不重复存默认值。声明了 `options` 的
+字符串参数在参数面板渲染为下拉选择，取值必须在选项内。
 
 定义提交是一个原子快照：源码、修订号与派生定义一起写入，编辑器与执行端口读取同一份。
 重复创建同名脚本报错，避免静默覆盖；保存已有脚本按修订号做乐观并发，过期草稿不覆盖。

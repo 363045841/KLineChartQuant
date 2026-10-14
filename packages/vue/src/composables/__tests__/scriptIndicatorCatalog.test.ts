@@ -63,7 +63,7 @@ describe('Script selector catalog', () => {
     scope.stop()
   })
   it('input() 声明的标题作为参数面板显示名', () => {
-    scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, '除数') },
+    scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, { title: '除数' }) },
       onBar() { plot(PlotKind.Line, close[0], { id: 'close' }) } })`)
 
     expect(findIndicator('TitledInputScript')!.params).toEqual([
@@ -81,12 +81,32 @@ describe('Script selector catalog', () => {
     scripts.update(
       created.id,
       `defineIndicator({ name: 'UpdatableScript',
-        inputs: { period: input(7), label: input('ma', '名称') }, onBar() {} })`,
+        inputs: { period: input(7), label: input('ma', { title: '名称' }) }, onBar() {} })`,
       created.revision,
     )
     expect(findIndicator('UpdatableScript')!.params).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 7 },
       { key: 'label', label: '名称', type: 'string', default: 'ma' },
+    ])
+  })
+  it('字符串输入声明 options 后成为下拉参数', () => {
+    scripts.create(
+      `defineIndicator({ name: 'OptionScript', inputs: {
+        type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] }),
+      }, onBar() {} })`,
+    )
+
+    expect(findIndicator('OptionScript')!.params).toEqual([
+      {
+        key: 'type',
+        label: '算法',
+        type: 'select',
+        default: 'SMA',
+        options: [
+          { value: 'SMA', label: 'SMA' },
+          { value: 'EMA', label: 'EMA' },
+        ],
+      },
     ])
   })
 })

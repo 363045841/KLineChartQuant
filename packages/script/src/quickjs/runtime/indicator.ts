@@ -8,9 +8,9 @@ function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void {
   __plot(options.id, value, options.color, kind)
 }
 
-/** 声明输入默认值和可选的显示名称。 */
-function input<T extends ScriptParamValue>(value: T, title?: string): InputDef<T> {
-  return title === undefined ? { default: value } : { default: value, title }
+/** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */
+function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T> {
+  return { ...options, default: value }
 }
 
 let __definition: ScriptIndicatorDeclaration | undefined

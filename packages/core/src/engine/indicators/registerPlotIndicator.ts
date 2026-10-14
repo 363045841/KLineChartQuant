@@ -37,7 +37,11 @@ function toBar(bar: KLineData): Bar {
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
   const defs: Record<string, IndicatorInputDef> = {}
   for (const [key, def] of Object.entries(inputs as Record<string, InputDef<unknown>>)) {
-    if (def.title !== undefined) defs[key] = { title: def.title }
+    if (def.title === undefined && def.options === undefined) continue
+    defs[key] = {
+      ...(def.title === undefined ? {} : { title: def.title }),
+      ...(def.options === undefined ? {} : { options: def.options }),
+    }
   }
   return defs
 }

@@ -26,7 +26,7 @@ defineIndicator({
   name: 'OC Average',
   pane: PaneKind.Sub,
   inputs: {
-    n: input(2, '除数'),
+    n: input(2, { title: '除数' }),
   },
   onBar() {
     plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'oc-average' })
@@ -42,7 +42,7 @@ The VM prelude injects these globals before the script runs:
 | `params` | resolved input values |
 | `plot(PlotKind.Line, value, { id, color })` | emit a plot point; also supports `PlotKind.Histogram` and `PlotKind.Points` |
 | `PaneKind` | indicator registration location; `PaneKind.Main` or `PaneKind.Sub` |
-| `input(default, title?)` | declare a parameter |
+| `input(default, options?)` | declare a parameter; `options` renders a dropdown for string inputs |
 | `defineIndicator(definition)` | declare the single indicator of the file |
 | `defineLibrary(name, members)` / `importLibrary(name)` | declare and use a library |
 
@@ -80,7 +80,7 @@ const scripts = await createScriptService([
 ])
 ```
 
-The built-in `ta` library (`sma`, `ema`, `rsi`, `highest`, `lowest`, `crossover`,
+The built-in `ta` library (`sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `crossover`,
 `crossunder`) uses the exact same `defineLibrary` call. See `builtinLibraries` for the manifest.
 
 ## Contracts

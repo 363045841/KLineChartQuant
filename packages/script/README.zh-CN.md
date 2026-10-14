@@ -23,7 +23,7 @@ defineIndicator({
   name: 'OC Average',
   pane: PaneKind.Sub,
   inputs: {
-    n: input(2, '除数'),
+    n: input(2, { title: '除数' }),
   },
   onBar() {
     plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'oc-average' })
@@ -39,7 +39,7 @@ VM prelude 在脚本运行前注入以下全局：
 | `params` | 解析后的输入参数 |
 | `plot(PlotKind.Line, value, { id, color })` | 为当前 K 线输出绘图点；也支持 `PlotKind.Histogram` 和 `PlotKind.Points` |
 | `PaneKind` | 指标注册位置；`PaneKind.Main` 主图或 `PaneKind.Sub` 副图 |
-| `input(default, title?)` | 声明一个参数 |
+| `input(default, options?)` | 声明一个参数；字符串参数带 `options` 时渲染为下拉 |
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |
 | `defineLibrary(name, members)` / `importLibrary(name)` | 声明并使用库 |
 
@@ -74,7 +74,7 @@ const scripts = await createScriptService([
 ])
 ```
 
-内置 `ta` 库（`sma`、`ema`、`rsi`、`highest`、`lowest`、`crossover`、`crossunder`）使用完全相同的
+内置 `ta` 库（`sma`、`ema`、`wma`、`vwma`、`rsi`、`highest`、`lowest`、`crossover`、`crossunder`）使用完全相同的
 `defineLibrary` 调用。manifest 见 `builtinLibraries`。
 
 ## 契约

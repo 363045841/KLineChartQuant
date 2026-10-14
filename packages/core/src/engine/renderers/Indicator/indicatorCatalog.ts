@@ -1445,7 +1445,7 @@ function buildParamConfigs(
   })
 }
 
-/** 脚本输入声明的默认值决定参数编辑类型，显示名取输入声明，缺省回落参数名。 */
+/** 脚本输入声明的默认值决定参数编辑类型；声明了 options 的字符串参数渲染为下拉。 */
 function scriptParamConfigs(
   defaults: RuntimeDefaultParams,
   inputDefs?: Readonly<Record<string, IndicatorInputDef>>,
@@ -1453,13 +1453,22 @@ function scriptParamConfigs(
   return Object.entries(defaults).flatMap(([key, value]): ParamConfig[] => {
     if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'boolean')
       return []
+    const options = inputDefs?.[key]?.options
     return [
       {
         key,
         label: inputDefs?.[key]?.title ?? key,
-        type:
-          typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string',
+        type: options?.length
+          ? 'select'
+          : typeof value === 'number'
+            ? 'number'
+            : typeof value === 'boolean'
+              ? 'boolean'
+              : 'string',
         default: value,
+        ...(options?.length
+          ? { options: options.map((option) => ({ value: option, label: option })) }
+          : {}),
       },
     ]
   })

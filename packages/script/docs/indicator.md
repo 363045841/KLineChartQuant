@@ -12,8 +12,8 @@ defineIndicator({
   name: 'OC Average',
   pane: PaneKind.Sub,
   inputs: {
-    n: input(2, '除数'),
-    a: input(0, '偏移量'),
+    n: input(2, { title: '除数' }),
+    a: input(0, { title: '偏移量' }),
   },
   onBar() {
     const average = (open[0] + close[0]) / params.n + params.a
@@ -49,22 +49,23 @@ scripts.create(source)
 | `name` | 指标名称，用于目录展示和实例身份；同名脚本拒绝重复创建 |
 | `pane` | 注册位置，`PaneKind.Main` 主图 / `PaneKind.Sub` 副图；缺省为副图 |
 | `displayName` | 显示名称；缺省取 `name`，同时作为对外定义 id |
-| `inputs` | 参数声明表，值由 `input(默认值, 标题)` 生成；用户修改后按覆盖值执行 |
+| `inputs` | 参数声明表，值由 `input(默认值, 选项)` 生成；用户修改后按覆盖值执行 |
 | `plots` / `fills` | 可选的 Plot 与填充声明 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取全局序列与参数，输出 Plot |
 
 `onBar` 不需要参数：行情序列、库和参数都是注入的全局。
 `close[0]` 是当前 K 线，`close[1]` 是前一根；历史不足返回 `NaN`，永远不能访问未来。
 
-参数用 `input(默认值, 标题)` 声明，表的键就是脚本里通过 `params` 读的名字：
+参数用 `input(默认值, 选项)` 声明，表的键就是脚本里通过 `params` 读的名字：
 
 | 写法 | 面板编辑项 |
 | --- | --- |
-| `n: input(2, '除数')` | 数字输入 |
-| `show: input(true, '显示')` | 开关 |
-| `label: input('MA', '名称')` | 文本输入 |
+| `n: input(2, { title: '除数' })` | 数字输入 |
+| `show: input(true, { title: '显示' })` | 开关 |
+| `label: input('MA', { title: '名称' })` | 文本输入 |
+| `type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] })` | 下拉选择 |
 
-编辑类型由默认值决定；标题缺省显示参数名。
+编辑类型由默认值决定，标题缺省显示参数名；字符串参数声明 `options` 后渲染为下拉选择，取值必须在选项内。
 
 脚本按 bar 下标顺序执行。某一根 K 线没有输出时，该位置留空，不会影响其他位置。
 输出 `NaN` 同样表示留空。
@@ -130,7 +131,7 @@ onBar() {
 ## 库
 
 脚本通过全局 `defineLibrary(name, members)` 声明库，`importLibrary(name)` 使用库。
-内置 `ta` 库提供 `sma`、`ema`、`rsi`、`highest`、`lowest`、`crossover`、`crossunder`，
+内置 `ta` 库提供 `sma`、`ema`、`wma`、`vwma`、`rsi`、`highest`、`lowest`、`crossover`、`crossunder`，
 使用同一协议加载，用户库也可以这样加入。
 
 ```js

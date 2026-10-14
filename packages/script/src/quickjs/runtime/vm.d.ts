@@ -14,6 +14,9 @@ type ScriptParamValue = import('../../quickjs/types.js').ScriptParamValue
 /** 由 input() 产出的输入声明。 */
 type InputDef<T> = import('@363045841yyt/klinechart-plot-contracts').InputDef<T>
 
+/** input() 的展示选项契约。 */
+type InputOptions = import('@363045841yyt/klinechart-plot-contracts').InputOptions
+
 /** 内置技术分析库的公开契约。 */
 type TechnicalAnalysisLibrary = import('../../Library/types.js').TechnicalAnalysisLibrary
 

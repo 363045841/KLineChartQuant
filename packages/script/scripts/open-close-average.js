@@ -3,8 +3,8 @@ defineIndicator({
   name: 'OC Average',
   pane: PaneKind.Sub,
   inputs: {
-    n: input(2, '除数'),
-    a: input(0, '偏移量'),
+    n: input(2, { title: '除数' }),
+    a: input(0, { title: '偏移量' }),
   },
   onBar() {
     const average = (open[0] + close[0]) / params.n + params.a
