@@ -75,6 +75,14 @@ export function readQuickJSScriptDefinitionSync(
   return runWithContext(getQuickJSSync(), { source, bars: [], libraries }).definition
 }
 
+/** 脚本单次执行的时限（毫秒）；库加载、初始化与逐 bar 计算共用。 */
+const SCRIPT_TIMEOUT_MS = 1000
+
+/** 单次脚本执行的超时状态；中断处理器写入，错误转换时读取。 */
+interface ScriptTimeout {
+  expired: boolean
+}
+
 /** 在单个 Context 内完成编译与逐 bar 执行。 */
 function runWithContext(
   module: QuickJSModule,
@@ -86,9 +94,14 @@ function runWithContext(
   const { source, bars } = options
   let collector: PlotCollector | undefined
   const vm = module.newContext()
-  // 保存校验和逐 bar 执行共用资源上限，死循环不能永久阻塞主线程。
-  const deadline = Date.now() + 1000
-  vm.runtime.setInterruptHandler(() => Date.now() > deadline)
+  // 校验和逐 bar 执行共用同一时限，死循环不能永久阻塞主线程。
+  const timeout: ScriptTimeout = { expired: false }
+  const deadline = Date.now() + SCRIPT_TIMEOUT_MS
+  vm.runtime.setInterruptHandler(() => {
+    if (Date.now() <= deadline) return false
+    timeout.expired = true
+    return true
+  })
   vm.runtime.setMemoryLimit(32 * 1024 * 1024)
   vm.runtime.setMaxStackSize(512 * 1024)
   // 宿主游标决定 __read 相对哪根 K 线；逐 bar 推进。
@@ -107,15 +120,20 @@ function runWithContext(
     )
     mountParams(vm, options.params)
     mountPaneKind(vm)
-    evalOrThrow(vm, LIBRARY_PRELUDE, 'compile').dispose()
-    evalOrThrow(vm, SCRIPT_PRELUDE, 'compile').dispose()
-    evalOrThrow(vm, PLOT_KIND_PRELUDE, 'compile').dispose()
-    evalOrThrow(vm, INDICATOR_PRELUDE, 'compile').dispose()
+    evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, PLOT_KIND_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
     for (const library of [...builtinLibraries, ...(options.libraries ?? [])]) {
-      evalOrThrow(vm, library.source, 'compile').dispose()
-      evalOrThrow(vm, `importLibrary(${JSON.stringify(library.name)})`, 'compile').dispose()
+      evalOrThrow(vm, library.source, 'compile', timeout).dispose()
+      evalOrThrow(
+        vm,
+        `importLibrary(${JSON.stringify(library.name)})`,
+        'compile',
+        timeout,
+      ).dispose()
     }
-    const metadata = evalOrThrow(vm, `${source}\n;__metadata()`, 'compile')
+    const metadata = evalOrThrow(vm, `${source}\n;__metadata()`, 'compile', timeout)
     let definition: QuickJSScriptDefinition
     try {
       definition = readDefinition(vm.dump(metadata))
@@ -128,11 +146,11 @@ function runWithContext(
       plots: definition.plots,
       fills: definition.fills,
     })
-    const compiled = evalOrThrow(vm, '__onBar', 'compile')
+    const compiled = evalOrThrow(vm, '__onBar', 'compile', timeout)
     try {
       for (let index = 0; index < bars.length; index++) {
         cursor.index = index
-        callOrThrow(vm, compiled)
+        callOrThrow(vm, compiled, timeout)
         if (failure) throw failure
       }
     } finally {
@@ -226,10 +244,15 @@ function mountPaneKind(vm: QuickJSContext): void {
 }
 
 /** 执行一段源码并返回句柄；失败时按阶段抛出 ScriptExecutionError。 */
-function evalOrThrow(vm: QuickJSContext, code: string, phase: 'compile' | 'run'): QuickJSHandle {
+function evalOrThrow(
+  vm: QuickJSContext,
+  code: string,
+  phase: 'compile' | 'run',
+  timeout: ScriptTimeout,
+): QuickJSHandle {
   const result = vm.evalCode(code)
   if (result.error) {
-    const message = describeHandle(vm, result.error)
+    const message = describeFailure(vm, result.error, timeout)
     result.error.dispose()
     throw new ScriptExecutionError(phase, message)
   }
@@ -237,14 +260,25 @@ function evalOrThrow(vm: QuickJSContext, code: string, phase: 'compile' | 'run')
 }
 
 /** 调用已编译脚本函数；失败时按运行阶段抛出。 */
-function callOrThrow(vm: QuickJSContext, fn: QuickJSHandle): void {
+function callOrThrow(vm: QuickJSContext, fn: QuickJSHandle, timeout: ScriptTimeout): void {
   const result = vm.callFunction(fn, vm.undefined)
   if (result.error) {
-    const message = describeHandle(vm, result.error)
+    const message = describeFailure(vm, result.error, timeout)
     result.error.dispose()
     throw new ScriptExecutionError('run', message)
   }
   result.value.dispose()
+}
+
+/** 超时中断给出明确时限文案，其余错误沿用 VM 原始信息。 */
+function describeFailure(
+  vm: QuickJSContext,
+  handle: QuickJSHandle,
+  timeout: ScriptTimeout,
+): string {
+  return timeout.expired
+    ? `脚本执行超时：已超过 ${SCRIPT_TIMEOUT_MS} 毫秒上限并被中断`
+    : describeHandle(vm, handle)
 }
 
 /** 把虚拟机错误对象转成可读文本。 */
