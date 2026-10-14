@@ -35,24 +35,6 @@ function createHarness(hasSelectedSymbol: () => boolean = () => true) {
         params: {},
         hidden: false,
       },
-      [
-        {
-          id: 'main:MA',
-          kind: 'indicator',
-          paneId: 'main',
-          definitionId: 'MA',
-          params: {},
-          hidden: false,
-        },
-        {
-          id: 'main:BOLL',
-          kind: 'indicator',
-          paneId: 'main',
-          definitionId: 'BOLL',
-          params: {},
-          hidden: false,
-        },
-      ],
       ['main'],
       () => false,
     ),
@@ -76,7 +58,7 @@ describe('DOM Legend renderer', () => {
       hidden: false,
     }
     const actions = (isScript: boolean) =>
-      projectLegendActions(entry, [entry], ['main'], () => isScript).map((item) => item.action)
+      projectLegendActions(entry, ['main'], () => isScript).map((item) => item.action)
     expect(actions(true)).toContain('edit-code')
     expect(actions(false)).not.toContain('edit-code')
   })
@@ -111,7 +93,6 @@ describe('DOM Legend renderer', () => {
           spec: { symbol: 'A', market: 'CN' },
           hidden: false,
         },
-        [],
         ['main'],
         () => false,
       ),
@@ -204,48 +185,69 @@ describe('DOM Legend renderer', () => {
     renderer.dispose()
   })
 
-  it('六个按钮传递对应实例身份，并更新上下边界', () => {
+  it('主图指标不提供排序按钮，操作按钮按新顺序传递实例身份', () => {
     const { host, renderer, row, execute } = createHarness()
-    const second = {
-      ...row,
-      key: 'main:BOLL',
-      indicator: { instanceId: 'main:BOLL', definitionId: 'BOLL' },
-    }
-    renderer.update('main', [row, second], ['main'])
-    const firstButtons = host
+    renderer.update('main', [row], ['main'])
+    const buttons = host
       .querySelectorAll<HTMLButtonElement>('.klc-legend-row')[0]!
       .querySelectorAll('button')
-    expect(firstButtons[0]!.disabled).toBe(true)
-    expect(firstButtons[1]!.disabled).toBe(false)
-    for (const index of [1, 2, 3, 4, 5]) firstButtons[index]!.click()
+    expect([...buttons].map((button) => button.title)).toEqual([
+      '指标设置',
+      '更换指标',
+      '隐藏指标',
+      '关闭指标',
+    ])
+    for (const index of [0, 1, 2, 3]) buttons[index]!.click()
     expect(execute.mock.calls).toEqual([
-      [row.key, 'move-down'],
+      [row.key, 'settings'],
       [row.key, 'replace'],
       [row.key, 'toggle-visibility'],
-      [row.key, 'settings'],
       [row.key, 'close'],
     ])
+    renderer.dispose()
+  })
+
+  it('副图指标保留上移/下移，并随 Pane 顺序更新边界状态', () => {
+    const { host, renderer, row, execute } = createHarness()
+    const subRow = (paneId: string, paneOrder: string[]): LegendRow => ({
+      ...row,
+      key: paneId,
+      paneId,
+      indicator: { instanceId: paneId, definitionId: 'RSI' },
+      actions: projectLegendActions(
+        { id: paneId, kind: 'indicator', paneId, definitionId: 'RSI', params: {}, hidden: false },
+        paneOrder,
+        () => false,
+      ),
+    })
     renderer.update(
-      'main',
-      [
-        second,
-        {
-          ...row,
-          actions: row.actions.map((action) =>
-            action.action === 'move-up'
-              ? { ...action, enabled: true }
-              : action.action === 'move-down'
-                ? { ...action, enabled: false }
-                : action,
-          ),
-        },
-      ],
-      ['main'],
+      'sub_A',
+      [subRow('sub_A', ['main', 'sub_A', 'sub_B'])],
+      ['main', 'sub_A', 'sub_B'],
     )
-    expect(firstButtons[0]!.disabled).toBe(false)
-    expect(firstButtons[1]!.disabled).toBe(true)
-    firstButtons[0]!.click()
-    expect(execute).toHaveBeenLastCalledWith(row.key, 'move-up')
+    const buttons = host
+      .querySelectorAll<HTMLButtonElement>('.klc-legend-row')[0]!
+      .querySelectorAll('button')
+    expect([...buttons].map((button) => button.title)).toEqual([
+      '上移指标',
+      '下移指标',
+      '指标设置',
+      '更换指标',
+      '隐藏指标',
+      '关闭指标',
+    ])
+    expect(buttons[0]!.disabled).toBe(true)
+    expect(buttons[1]!.disabled).toBe(false)
+    buttons[1]!.click()
+    expect(execute).toHaveBeenLastCalledWith('sub_A', 'move-down')
+
+    renderer.update(
+      'sub_A',
+      [subRow('sub_A', ['main', 'sub_B', 'sub_A'])],
+      ['main', 'sub_B', 'sub_A'],
+    )
+    expect(buttons[0]!.disabled).toBe(false)
+    expect(buttons[1]!.disabled).toBe(true)
     renderer.dispose()
   })
 
@@ -358,7 +360,7 @@ describe('DOM Legend renderer', () => {
     renderer.update('main', [row], ['main'])
     const element = host.querySelector<HTMLElement>('.klc-legend-row')!
     expect(element.hasAttribute('data-hidden')).toBe(false)
-    const toggle = element.querySelectorAll<HTMLButtonElement>('button')[3]!
+    const toggle = element.querySelectorAll<HTMLButtonElement>('button')[2]!
     expect(toggle.title).toBe('隐藏指标')
     expect(icon(toggle)).toBe(eye.body)
 

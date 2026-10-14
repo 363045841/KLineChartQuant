@@ -185,15 +185,15 @@ describe('LegendManager', () => {
         .peek()
         .find((row) => row.key === id)
         ?.actions.map((button) => button.action),
-    ).toEqual(['move-up', 'move-down', 'replace', 'toggle-visibility', 'settings', 'close'])
-    element.querySelectorAll<HTMLButtonElement>('button')[3]!.click()
+    ).toEqual(['settings', 'replace', 'toggle-visibility', 'close'])
+    element.querySelectorAll<HTMLButtonElement>('button')[2]!.click()
     expect(chart.legend.get(id)).toMatchObject({ hidden: true })
     expect(requests).toEqual([])
-    element.querySelectorAll<HTMLButtonElement>('button')[4]!.click()
+    element.querySelectorAll<HTMLButtonElement>('button')[0]!.click()
     expect(requests).toEqual([
       { action: 'settings', id, paneId: 'main', definitionId: 'MA', role: 'main' },
     ])
-    element.querySelectorAll<HTMLButtonElement>('button')[5]!.click()
+    element.querySelectorAll<HTMLButtonElement>('button')[3]!.click()
     expect(chart.legend.get(id)).toBeNull()
   })
 })

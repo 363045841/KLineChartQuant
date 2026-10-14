@@ -375,17 +375,13 @@ export class LegendManager implements LegendApi {
     contexts: ReadonlyArray<RenderContext>,
   ): LegendRow[] {
     const entriesById = new Map(this.list().map((entry) => [entry.id, entry]))
-    const entries = rows.flatMap((row) => {
-      const entry = entriesById.get(row.key)
-      return entry ? [entry] : []
-    })
     const paneOrder = contexts.map((context) => context.pane.id)
     const isScriptIndicator = this.deps.isScriptIndicator ?? (() => false)
     return rows.map((row) => {
       const entry = entriesById.get(row.key)
       return {
         ...row,
-        actions: entry ? projectLegendActions(entry, entries, paneOrder, isScriptIndicator) : [],
+        actions: entry ? projectLegendActions(entry, paneOrder, isScriptIndicator) : [],
       }
     })
   }
