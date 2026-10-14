@@ -1,6 +1,6 @@
 export { default as DrawingStyleToolbar } from './DrawingStyleToolbar.vue'
-export { default as IndicatorParams } from './IndicatorParams.vue'
 export { default as IndicatorSelector } from './IndicatorSelector.vue'
+export { default as IndicatorParams } from './indicator-params/impl/IndicatorParams.vue'
 export type {
   KlineTooltipSlotProps,
   LegendSlotProps,

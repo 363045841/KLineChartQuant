@@ -9,9 +9,9 @@ import {
 import { createScriptService, type ScriptService } from '@363045841yyt/klinechart-script-chart'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { effectScope, ref } from 'vue'
+import { useIndicatorParams } from '../../components/indicator-params/impl/useIndicatorParams.js'
 import { useIndicatorCatalog } from '../useIndicatorCatalog.js'
 import { INDICATOR_SELECTOR_SECTIONS, useIndicatorFavorites } from '../useIndicatorFavorites.js'
-import { useIndicatorParams } from '../useIndicatorParams.js'
 
 describe('Script selector catalog', () => {
   let scripts: ScriptService

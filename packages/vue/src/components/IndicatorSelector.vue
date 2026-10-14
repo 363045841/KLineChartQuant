@@ -203,7 +203,7 @@
   import BaseTooltip from './common/BaseTooltip.vue'
   import OverlayScrollArea from './common/OverlayScrollArea.vue'
   import SearchField from './common/SearchField.vue'
-  import IndicatorParams from './IndicatorParams.vue'
+  import IndicatorParams from './indicator-params/impl/IndicatorParams.vue'
 
   const props = defineProps<{
     chartController?: ChartController | null
