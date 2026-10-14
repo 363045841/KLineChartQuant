@@ -17,9 +17,9 @@ defineIndicator({
   },
   onBar() {
     const average = (open[0] + close[0]) / params.n + params.a
-    plot(average, PlotKind.Line, { id: 'oc-average', color: '#26a69a' })
-    plot(high[0], PlotKind.Line, { id: 'oc-high' })
-    plot(low[0], PlotKind.Line, { id: 'oc-low' })
+    plot(PlotKind.Line, average, { id: 'oc-average', color: '#26a69a' })
+    plot(PlotKind.Line, high[0], { id: 'oc-high' })
+    plot(PlotKind.Line, low[0], { id: 'oc-low' })
   },
 })
 ```
@@ -71,11 +71,11 @@ scripts.create(source)
 
 ## Plot
 
-Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot(value, PlotKind.Line, { id })` 输出数据点，
+Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot(PlotKind.Line, value, { id })` 输出数据点，
 引擎按 `id` 收集为按 K 线下标对齐的序列，再交给通用绘图、坐标轴和图例链路。
 
 `id` 区分不同的 Plot，同一根 K 线上可以输出多个不同 id 的点。
-第二个参数使用全局枚举 `PlotKind.Line`、`PlotKind.Histogram` 或 `PlotKind.Points`，
+第一个参数使用全局枚举 `PlotKind.Line`、`PlotKind.Histogram` 或 `PlotKind.Points`，第二个参数是绘图值，
 也可通过 `globalThis.PlotKind` 访问。绘图类型由调用处决定，无需 `plots` 声明。
 同一个 id 在一次运行中必须使用同一种类型。
 使用可选 `plots` 声明样式时，输出未声明的 id 会报错；类型专用样式仅在声明与调用类型相同时生效。
@@ -120,7 +120,7 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot(value,
 
 ```js
 onBar() {
-  plot(close[0] - open[0], PlotKind.Histogram, {
+  plot(PlotKind.Histogram, close[0] - open[0], {
     id: 'change',
     color: close[0] >= open[0] ? '#26a69a' : '#ef5350',
   })
@@ -136,6 +136,6 @@ onBar() {
 ```js
 onBar() {
   const ma = ta.sma(close, params.period)
-  plot(ma[0], PlotKind.Line, { id: 'sma' })
+  plot(PlotKind.Line, ma[0], { id: 'sma' })
 }
 ```

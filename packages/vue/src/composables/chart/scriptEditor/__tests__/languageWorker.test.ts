@@ -44,16 +44,16 @@ describe('script language service', () => {
     expect(await completions('const settings = { length: 20 }; settings.')).toContain('length')
   })
 
-  it('补全全局绘图枚举，并检查第二个参数的枚举类型', async () => {
+  it('补全全局绘图枚举，并检查第一个参数的枚举类型', async () => {
     expect(await completions('PlotKind.')).toEqual(
       expect.arrayContaining(['Line', 'Histogram', 'Points']),
     )
     expect(await completions('globalThis.PlotKind.')).toEqual(
       expect.arrayContaining(['Line', 'Histogram', 'Points']),
     )
-    const worker = await createSession(`plot(1, globalThis.PlotKind.Histogram, { id: 'volume' })`)
+    const worker = await createSession(`plot(globalThis.PlotKind.Histogram, 1, { id: 'volume' })`)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
-    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot(1, 'histogram', { id: 'volume' })` })
+    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot('histogram', 1, { id: 'volume' })` })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
       1,
     )
@@ -97,7 +97,7 @@ describe('script language service', () => {
     expect(first?.options.map((option) => option.label)).toContain('period')
     const updated = `defineIndicator({
       name: 'Changed', inputs: { enabled: input(true) },
-      onBar() { plot(params.enabled ? close[0] : NaN, PlotKind.Line, { id: 'value' }) }
+      onBar() { plot(PlotKind.Line, params.enabled ? close[0] : NaN, { id: 'value' }) }
     });\nparams.`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: updated })
     const next = await worker.getAutocompletion({

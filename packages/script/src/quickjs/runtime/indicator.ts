@@ -1,7 +1,7 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 输出当前 K 线的一个绘图点；NaN 表示空点，宿主负责与 K 线下标对齐。 */
-function plot(value: number, kind: PlotKind, options: ScriptPlotOptions): void {
+/** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点，宿主负责与 K 线下标对齐。 */
+function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void {
   if (!options || typeof options.id !== 'string') throw new TypeError('plot 需要 { id }')
   if (!Object.values(PlotKind).includes(kind))
     throw new TypeError('plot kind 只能是 line、histogram 或 points')
