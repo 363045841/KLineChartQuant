@@ -30,17 +30,11 @@ declare global {
 
   /** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */
   function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T>
-  /** 声明完整指标；onBar 在每根 K 线上执行。 */
+  /** 定义一个指标 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
   /**
    * 在当前 K 线上绘制形状或字符。
-   * @param kind 标记类型：
-   *
-   * | 类型 | 作用 |
-   * | --- | --- |
-   * | PlotKind.Shape | 绘制形状标记 |
-   * | PlotKind.Char | 绘制字符标记 |
-   *
+   * @param kind 只能是 PlotKind.Shape 或 PlotKind.Char。
    * @param value 标记信号；absolute 定位时为价格。null 或 false 不绘制。
    * @param options 必填 id；可设置颜色、位置、大小和文字。
    */

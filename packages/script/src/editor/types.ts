@@ -8,5 +8,6 @@ export type ScriptPlotOptions = PlotCallOptions
 
 /** 完整脚本的声明与逐 bar 执行回调。 */
 export interface ScriptIndicatorDeclaration extends QuickJSScriptDefinition {
+  /** 逐根 K 线调用一次 */
   onBar(): void
 }
