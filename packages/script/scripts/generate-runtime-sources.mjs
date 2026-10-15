@@ -1,9 +1,13 @@
 /** 把 VM 运行时源码编译成字符串，替代手写模板字符串并让编译期检查生效。 */
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { writeGeneratedFile } from './lib/generated-file.mjs'
 
 const packageRoot = new URL('../', import.meta.url)
-const outputFile = new URL('src/quickjs/generated/runtime.ts', packageRoot)
+const runtimeOutput = fileURLToPath(new URL('src/quickjs/generated/runtime.ts', packageRoot))
+const builtinOutput = fileURLToPath(new URL('src/quickjs/generated/builtinScripts.ts', packageRoot))
 
 /** 运行时源文件与生成导出名的对应；顺序即 VM 内的加载顺序。 */
 const entries = [
@@ -45,34 +49,47 @@ function compile(fileName, source) {
   return outputText
 }
 
-const declarations = []
-for (const entry of entries) {
-  const source = await readFile(new URL(`src/quickjs/runtime/${entry.file}`, packageRoot), 'utf8')
-  declarations.push(
-    `export const ${entry.exportName} = ${JSON.stringify(compile(entry.file, source))}`,
+/**
+ * 生成 VM 运行时源码与内置脚本清单；运行时目录是唯一名单来源。
+ * @param options check 为 true 时只校验生成物是否为最新
+ * @returns changed 表示本次是否写盘
+ */
+export async function generateRuntimeSources({ check = false } = {}) {
+  const declarations = []
+  for (const entry of entries) {
+    const source = await readFile(new URL(`src/quickjs/runtime/${entry.file}`, packageRoot), 'utf8')
+    declarations.push(
+      `export const ${entry.exportName} = ${JSON.stringify(compile(entry.file, source))}`,
+    )
+  }
+  const runtimeChanged = writeGeneratedFile(
+    runtimeOutput,
+    `/** 自动生成的 VM 运行时源码；修改 src/quickjs/runtime/ 后运行 Script build，禁止手工编辑。 */\n` +
+      `// biome-ignore-all format: 运行时源码由生成器统一序列化\n` +
+      `${declarations.join('\n')}\n`,
+    { check },
   )
+
+  // 内置脚本目录是唯一名单，应用启动只消费生成的源码集合，不逐个导入文件。
+  const scriptDirectory = new URL('scripts/', packageRoot)
+  const scriptFiles = (await readdir(scriptDirectory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .map((entry) => entry.name)
+    .sort()
+  const builtinSources = await Promise.all(
+    scriptFiles.map((file) => readFile(new URL(file, scriptDirectory), 'utf8')),
+  )
+  const builtinChanged = writeGeneratedFile(
+    builtinOutput,
+    `/** 自动发现 scripts/*.ts 生成的内置指标源码；运行 Script build 更新，禁止手工编辑。 */\n` +
+      `// biome-ignore-all format: 脚本源码由生成器统一序列化\n` +
+      `export const builtinScriptSources: readonly string[] = ${JSON.stringify(builtinSources, null, 2)}\n`,
+    { check },
+  )
+
+  return { changed: runtimeChanged || builtinChanged }
 }
 
-await mkdir(new URL('src/quickjs/generated/', packageRoot), { recursive: true })
-await writeFile(
-  outputFile,
-  `/** 自动生成的 VM 运行时源码；修改 src/quickjs/runtime/ 后运行 Script build，禁止手工编辑。 */\n` +
-    `// biome-ignore-all format: 运行时源码由生成器统一序列化\n` +
-    `${declarations.join('\n')}\n`,
-)
-
-// 内置脚本目录是唯一名单，应用启动只消费生成的源码集合，不逐个导入文件。
-const scriptDirectory = new URL('scripts/', packageRoot)
-const scriptFiles = (await readdir(scriptDirectory, { withFileTypes: true }))
-  .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-  .map((entry) => entry.name)
-  .sort()
-const builtinSources = await Promise.all(
-  scriptFiles.map((file) => readFile(new URL(file, scriptDirectory), 'utf8')),
-)
-await writeFile(
-  new URL('src/quickjs/generated/builtinScripts.ts', packageRoot),
-  `/** 自动发现 scripts/*.ts 生成的内置指标源码；运行 Script build 更新，禁止手工编辑。 */\n` +
-    `// biome-ignore-all format: 脚本源码由生成器统一序列化\n` +
-    `export const builtinScriptSources: readonly string[] = ${JSON.stringify(builtinSources, null, 2)}\n`,
-)
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await generateRuntimeSources({ check: process.argv.includes('--check') })
+}

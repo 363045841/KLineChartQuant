@@ -9,6 +9,7 @@ import Icons from 'unplugin-icons/vite'
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 import { createPackageSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
+import { contractResourcesPlugin } from '../script/scripts/contract-resources-plugin.mjs'
 
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 const scriptSrc = fileURLToPath(new URL('../script/src', import.meta.url))
@@ -32,6 +33,7 @@ const vueResolverPlugin = {
 
 export default defineConfig({
   plugins: [
+    contractResourcesPlugin(),
     indicatorEntrypointsPlugin(),
     vueResolverPlugin,
     babel({
