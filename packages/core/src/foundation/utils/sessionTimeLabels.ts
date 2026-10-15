@@ -51,7 +51,7 @@ function hm(h: number, m: number): number {
 }
 
 /** A 股默认 */
-export const ASHARE_OPEN_SESSIONS: readonly OpenTimeRange[] = [
+const ASHARE_OPEN_SESSIONS: readonly OpenTimeRange[] = [
   { open: hm(9, 30), close: hm(11, 30) },
   { open: hm(13, 0), close: hm(15, 0) },
 ]

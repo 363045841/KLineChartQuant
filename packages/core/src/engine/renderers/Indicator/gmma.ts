@@ -1,231 +1,37 @@
-import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import type { ColorTokens } from '@/foundation/tokens/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { KLineData } from '@/foundation/types/price.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { calcGMMAData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import {
-  EMPTY_GMMA_STATE,
-  GMMA_LONG_PERIODS,
-  GMMA_SHORT_PERIODS,
-  type GMMARenderState,
-} from '../../indicators/state/gmmaState.js'
-import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-type LinePoint = { x: number; y: number }
-
-/** 构建 GMMA 周期颜色映射：palette 索引（按色相）+ token 色组，draw/title 共用同一来源 */
-function getGMMAColors(colors: ColorTokens): Record<number, string> {
-  return {
-    3: colors.palette.i2,
-    5: colors.palette.i5,
-    12: colors.palette.i4,
-    15: colors.palette.i8,
-    30: colors.palette.i6,
-    35: colors.palette.i6,
-    40: colors.palette.i9,
-    45: colors.palette.i9,
-    8: colors.gmma.g8,
-    10: colors.gmma.g10,
-    50: colors.gmma.g50,
-    60: colors.gmma.g60,
-  }
-}
-
-/**
- * 构建 GMMA 绘制缓存键
- * 视口、缩放、周期列表或时间戳任一变化都会触发重算折线点
- */
-function buildGMMACacheKey(
-  range: { start: number; end: number },
-  kLineCenters: number[],
-  pane: RenderContext['pane'],
-  enabledPeriods: number[],
-  stateTimestamp: number,
-): string {
-  const dr = pane.yAxis.getDisplayRange()
-  return [
-    stateTimestamp,
-    range.start,
-    range.end,
-    kLineCenters.length,
-    kLineCenters[0]?.toFixed(2) ?? 'n',
-    kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
-    dr.maxPrice.toFixed(6),
-    dr.minPrice.toFixed(6),
-    pane.yAxis.getScaleType(),
-    enabledPeriods.join(','),
-    pane.height.toFixed(2),
-  ].join('|')
-}
-
-/**
- * GMMA 标题信息：按启用周期取对应 EMA 值
- * 短组用 G{period} 标签、长组用 L{period} 标签，颜色沿用 getGMMAColors 映射
- */
-function getGMMATitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  _params: Record<string, number | boolean | string>,
-  stateReader: IndicatorRenderStateReader,
-  instanceId: string,
-  _paneId: string,
-  colors: ColorTokens,
-): TitleInfo | null {
-  if (index === null) return null
-
-  const state = stateReader.get<GMMARenderState>(instanceId)
-  if (!state || state.visibleMin > state.visibleMax) return null
-
-  const gmmaColors = getGMMAColors(colors)
-  const values: TitleValueItem[] = []
-  for (const period of state.enabledPeriods) {
-    const value = state.series[period]?.[index]
-    if (value === undefined) continue
-
-    const isShort = GMMA_SHORT_PERIODS.includes(period as (typeof GMMA_SHORT_PERIODS)[number])
-    values.push({
-      label: isShort ? `G${period}` : `L${period}`,
-      value,
-      color: gmmaColors[period] ?? colors.palette.i2,
-    })
-  }
-
-  return { name: 'GMMA', params: [], values }
-}
-
+/** GMMA 的十二条 Plot 声明。 */
+import { calcGMMAData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 @Indicator({
   name: 'gmma',
   displayName: 'GMMA',
   kind: IndicatorKind.Indicator,
-  getTitleInfo: getGMMATitleInfo,
   category: 'main',
   indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
-  mainPane: {
-    toActiveConfig: (params, active) => ({ ...params, showGMMA: active }),
-  },
-  visibleState: {
-    compose: createFixedRangeRecordVisibleStateComposer('gmma', EMPTY_GMMA_STATE),
-  },
+  mainPane: { toActiveConfig: (params, active) => ({ ...params, showGMMA: active }) },
   scale: { indicatorKey: 'gmma', label: 'GMMA', decimals: 2 },
-  presentation: { defaultOptions: { showGMMA: true } },
-  runtime: {
-    defaultParams: {},
-    computeKey: 'calcGMMAData',
-    compute: (data) => calcGMMAData(data),
+  plots: {
+    series: [
+      { id: 'g3', label: 'G3', seriesKey: '3', show: 'showGMMA', color: (c) => c.palette.i2 },
+      { id: 'g5', label: 'G5', seriesKey: '5', show: 'showGMMA', color: (c) => c.palette.i5 },
+      { id: 'g8', label: 'G8', seriesKey: '8', show: 'showGMMA', color: (c) => c.gmma.g8 },
+      { id: 'g10', label: 'G10', seriesKey: '10', show: 'showGMMA', color: (c) => c.gmma.g10 },
+      { id: 'g12', label: 'G12', seriesKey: '12', show: 'showGMMA', color: (c) => c.palette.i4 },
+      { id: 'g15', label: 'G15', seriesKey: '15', show: 'showGMMA', color: (c) => c.palette.i8 },
+      { id: 'l30', label: 'L30', seriesKey: '30', show: 'showGMMA', color: (c) => c.palette.i6 },
+      { id: 'l35', label: 'L35', seriesKey: '35', show: 'showGMMA', color: (c) => c.palette.i6 },
+      { id: 'l40', label: 'L40', seriesKey: '40', show: 'showGMMA', color: (c) => c.palette.i9 },
+      { id: 'l45', label: 'L45', seriesKey: '45', show: 'showGMMA', color: (c) => c.palette.i9 },
+      { id: 'l50', label: 'L50', seriesKey: '50', show: 'showGMMA', color: (c) => c.gmma.g50 },
+      { id: 'l60', label: 'L60', seriesKey: '60', show: 'showGMMA', color: (c) => c.gmma.g60 },
+    ],
   },
+  presentation: { defaultOptions: { showGMMA: true } },
+  runtime: { defaultParams: {}, computeKey: 'calcGMMAData', compute: (data) => calcGMMAData(data) },
 })
 export class GMMADefinition {
-  static rendererFactory = createGMMALayer
-}
-
-/** 创建 GMMA 多线渲染器插件（WebGL 优先，失败回退 Canvas2D） */
-function createGMMALayer(
-  options: { paneId?: string; instanceId?: string } = {},
-): Layer<RenderContext> {
-  const { paneId = 'main', instanceId } = options
-  let cachedKey = ''
-  let cachedLines = new Map<number, LinePoint[]>()
-
-  function clearCache() {
-    cachedKey = ''
-    cachedLines = new Map()
-  }
-
-  return createIndicatorRendererLayer({
-    definitionId: 'gmma',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      const gmmaColors = getGMMAColors(colors)
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<GMMARenderState>(instanceId)
-
-      if (!state || !state.params.showGMMA || state.visibleMin > state.visibleMax) {
-        clearCache()
-        return
-      }
-
-      if (state.enabledPeriods.length === 0) {
-        clearCache()
-        return
-      }
-
-      const cacheKey = buildGMMACacheKey(
-        range,
-        kLineCenters,
-        pane,
-        state.enabledPeriods,
-        state.timestamp,
-      )
-      if (cachedKey !== cacheKey) {
-        cachedKey = cacheKey
-        cachedLines = new Map()
-
-        for (const [periodStr, values] of Object.entries(state.series)) {
-          const period = Number(periodStr)
-          const points: LinePoint[] = []
-
-          for (let i = range.start; i < range.end && i < values.length; i++) {
-            const value = values[i]
-            if (value === undefined) continue
-
-            const centerX = kLineCenters[i - range.start]
-            if (centerX === undefined) continue
-
-            points.push({ x: centerX, y: pane.yAxis.priceToY(value) })
-          }
-
-          if (points.length >= 2) {
-            cachedLines.set(period, points)
-          }
-        }
-      }
-
-      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-      for (const period of state.enabledPeriods) {
-        const points = cachedLines.get(period)
-        if (!points) continue
-        lines.push({ points, width: 1, color: gmmaColors[period] ?? colors.palette.i2 })
-      }
-
-      // sceneRenderer → fail-closed 2D
-      if (tryDrawLinesGpu(context, lines, scrollLeft)) return
-
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-      ctx.lineWidth = 1
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-
-      for (const period of state.enabledPeriods) {
-        const points = cachedLines.get(period)
-        if (!points || points.length < 2) continue
-        ctx.strokeStyle = gmmaColors[period] ?? colors.palette.i2
-        ctx.beginPath()
-        ctx.moveTo(points[0]!.x, points[0]!.y)
-        for (let i = 1; i < points.length; i++) {
-          const point = points[i]!
-          ctx.lineTo(point.x, point.y)
-        }
-        ctx.stroke()
-      }
-
-      ctx.restore()
-    },
-  })
+  static rendererFactory = plotRenderer('gmma', 'main')
 }

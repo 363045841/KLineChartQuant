@@ -5,7 +5,6 @@
  */
 
 export {
-  distanceSq,
   midpoint,
   pointInCircle,
   pointInPolygon,

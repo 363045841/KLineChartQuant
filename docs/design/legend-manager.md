@@ -8,6 +8,6 @@ ChartRenderer 在一帧完成后，把全部 Pane 的帧上下文一次性交给
 
 比较品种按主图当前时间戳读取自身真实行情。无十字线时使用主图最新时间戳，有十字线时使用指向时间戳。价格直接使用真实 close，涨幅沿用比较折线的基准；缺失行情或基准显示 `—`，不生成虚假的 0%。原始匹配行情同时暴露给外部模板。隐藏品种仍保留同一份行情与基准投影，只从曲线绘制和轴范围中排除。
 
-每条展示行的 `actions` 声明按钮集合、标签与边界状态，规则集中在 Core 的 `projectLegendActions`。DOM renderer 按集合展示按钮并调用统一 `execute`。显隐、关闭和排序在 Core 执行；设置和替换通过 `LEGEND_UI_EVENT` 请求宿主打开界面，选择器提交时调用 `legend.replace`。框架和 renderer 不再按主图、副图或比较品种分发领域操作。
+每条展示行的 `actions` 声明按钮集合、标签与边界状态，规则集中在 Core 的 `projectLegendActions`。DOM renderer 按集合展示按钮并调用统一 `execute`。显隐、关闭和排序在 Core 执行；主图指标没有排序行为，不生成上移/下移按钮，副图按 Pane 顺序保留；设置和替换通过 `LEGEND_UI_EVENT` 请求宿主打开界面，选择器提交时调用 `legend.replace`。框架和 renderer 不再按主图、副图或比较品种分发领域操作。
 
 旧 mainIndicatorLegend Layer、Pane title Layer、帧内 publishLegendRows、独立 legendTemplateContext 信号及 Vue 领域分发链路移除，不保留兼容入口。图例不再参与 Canvas Layer 目录或指标 renderer 元数据。

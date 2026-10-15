@@ -2,9 +2,9 @@
  * 渲染侧的 `ProviderCredentialStore`：把 Provider API Key 的读写交给主进程的
  * `safeStorage`，密文与明文都不经过 localStorage。
  */
-import { CREDENTIAL_BRIDGE_KEY, type CredentialBridge } from '../../../electron/credential-bridge'
 
 import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
+import { CREDENTIAL_BRIDGE_KEY, type CredentialBridge } from '../../../electron/credential-bridge'
 
 /** 读取 preload 注入的桥接对象；非 Electron 宿主下返回 undefined。 */
 export function readCredentialBridge(scope: unknown = globalThis): CredentialBridge | undefined {

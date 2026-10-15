@@ -1,385 +1,10 @@
-import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import type { ColorTokens } from '@/foundation/tokens/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { KLineData } from '@/foundation/types/price.js'
-import { alignToPhysicalPixelCenter } from '@/foundation/utils/pixelAlign.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { ChartDataViewId } from '../../chartModel/index.js'
-import { calcRSIData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { RSIRenderState } from '../../indicators/state/rsiState.js'
-import { EMPTY_RSI_STATE } from '../../indicators/state/rsiState.js'
-import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+/** RSI 的三条 Plot、固定轴范围和参考线声明。 */
+import { ChartDataViewId } from '@/engine/chartModel/index.js'
+import { calcRSIData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 import { createRsiScaleLayer } from './scale/rsi_scale.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-type LinePoint = { x: number; y: number }
-
-interface RSIRendererOptions {
-  /** 目标 pane ID（默认 'sub'） */
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-}
-
-/**
- * 创建 RSI 渲染器插件
- */
-function createRSILayer(options: RSIRendererOptions = {}): Layer<RenderContext> {
-  const { paneId = 'sub', instanceId } = options
-  // 线条点缓存
-  let cachedKey = ''
-  let cachedRSI1Points: LinePoint[] = []
-  let cachedRSI2Points: LinePoint[] = []
-  let cachedRSI3Points: LinePoint[] = []
-
-  // 离屏 Canvas 缓存虚线背景线 (80/50/20)
-  let offscreenCanvas: HTMLCanvasElement | null = null
-  let offscreenCtx: CanvasRenderingContext2D | null = null
-  let cachedDashedLinesKey = ''
-
-  function clearLineCache() {
-    cachedKey = ''
-    cachedRSI1Points = []
-    cachedRSI2Points = []
-    cachedRSI3Points = []
-  }
-
-  /**
-   * 获取或创建离屏 Canvas
-   */
-  function getOffscreenCanvas(
-    width: number,
-    height: number,
-  ): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
-    if (!offscreenCanvas || offscreenCanvas.width !== width || offscreenCanvas.height !== height) {
-      offscreenCanvas = document.createElement('canvas')
-      offscreenCanvas.width = width
-      offscreenCanvas.height = height
-      offscreenCtx = offscreenCanvas.getContext('2d')!
-      cachedDashedLinesKey = '' // 尺寸变化时强制重绘
-    }
-    return { canvas: offscreenCanvas, ctx: offscreenCtx! }
-  }
-
-  /**
-   * 生成虚线缓存 key - 只关心影响虚线外观的参数
-   */
-  function buildDashedLinesKey(
-    paneWidth: number,
-    paneHeight: number,
-    displayMin: number,
-    displayMax: number,
-    dpr: number,
-    color: string,
-  ): string {
-    return `${paneWidth}|${paneHeight}|${displayMin.toFixed(4)}|${displayMax.toFixed(4)}|${dpr}|${color}`
-  }
-
-  /**
-   * 绘制虚线背景线到离屏 Canvas
-   */
-  function renderDashedLinesToOffscreen(
-    ctx: CanvasRenderingContext2D,
-    paneWidth: number,
-    paneHeight: number,
-    displayMin: number,
-    displayMax: number,
-    dpr: number,
-    color: string,
-  ): void {
-    const displayValueRange = displayMax - displayMin || 1
-
-    // 计算三条线的 Y 坐标
-    const y80 = alignToPhysicalPixelCenter(
-      paneHeight - ((80 - displayMin) / displayValueRange) * paneHeight,
-      dpr,
-    )
-    const y50 = alignToPhysicalPixelCenter(
-      paneHeight - ((50 - displayMin) / displayValueRange) * paneHeight,
-      dpr,
-    )
-    const y20 = alignToPhysicalPixelCenter(
-      paneHeight - ((20 - displayMin) / displayValueRange) * paneHeight,
-      dpr,
-    )
-
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-    ctx.save()
-    ctx.scale(dpr, dpr)
-
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1
-    ctx.setLineDash([4, 4])
-
-    ctx.beginPath()
-    ctx.moveTo(0, y80)
-    ctx.lineTo(paneWidth, y80)
-    ctx.moveTo(0, y50)
-    ctx.lineTo(paneWidth, y50)
-    ctx.moveTo(0, y20)
-    ctx.lineTo(paneWidth, y20)
-    ctx.stroke()
-
-    ctx.restore()
-  }
-
-  function buildRSICacheKey(
-    range: { start: number; end: number },
-    kLineCenters: number[],
-    pane: RenderContext['pane'],
-    params: RSIRenderState['params'],
-    stateTimestamp: number,
-  ): string {
-    const dr = pane.yAxis.getDisplayRange()
-    return [
-      stateTimestamp,
-      range.start,
-      range.end,
-      kLineCenters.length,
-      kLineCenters[0]?.toFixed(2) ?? 'n',
-      kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
-      dr.maxPrice.toFixed(6),
-      dr.minPrice.toFixed(6),
-      pane.yAxis.getScaleType(),
-      pane.height.toFixed(2),
-      params.showRSI1,
-      params.showRSI2,
-      params.showRSI3,
-    ].join('|')
-  }
-
-  return createIndicatorRendererLayer({
-    definitionId: 'rsi',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<RSIRenderState>(instanceId)
-
-      // 无有效数据时跳过渲染
-      if (!state || state.visibleMin > state.visibleMax) {
-        clearLineCache()
-        return
-      }
-
-      const { params, series } = state
-
-      const displayRange = pane.yAxis.getDisplayRange()
-      const displayMin = displayRange.minPrice
-      const displayMax = displayRange.maxPrice
-      const displayValueRange = displayMax - displayMin || 1
-
-      // ========== 优化1: 使用离屏 Canvas 缓存虚线背景线 ==========
-      const paneWidth = context.paneWidth
-      const paneHeight = pane.height
-      if (paneWidth <= 0 || paneHeight <= 0) {
-        clearLineCache()
-        return
-      }
-      const dashedLinesKey = buildDashedLinesKey(
-        paneWidth,
-        paneHeight,
-        displayMin,
-        displayMax,
-        dpr,
-        colors.rsi.guide,
-      )
-
-      if (cachedDashedLinesKey !== dashedLinesKey) {
-        cachedDashedLinesKey = dashedLinesKey
-        const { ctx: offCtx } = getOffscreenCanvas(
-          Math.ceil(paneWidth * dpr),
-          Math.ceil(paneHeight * dpr),
-        )
-        renderDashedLinesToOffscreen(
-          offCtx,
-          paneWidth,
-          paneHeight,
-          displayMin,
-          displayMax,
-          dpr,
-          colors.rsi.guide,
-        )
-      }
-
-      // 绘制离屏缓存的虚线（只需 drawImage，无需 setLineDash）
-      if (offscreenCanvas) {
-        ctx.drawImage(offscreenCanvas, 0, 0, paneWidth, paneHeight)
-      }
-
-      // 确定绘制范围
-      const drawStart = Math.max(range.start, params.period1)
-      const drawEnd = Math.min(range.end, kLineCenters.length + range.start)
-
-      // 更新线条缓存
-      const cacheKey = buildRSICacheKey(range, kLineCenters, pane, params, state.timestamp)
-      if (cachedKey !== cacheKey) {
-        cachedKey = cacheKey
-
-        const paneH = paneHeight
-        const invRange = paneH / displayValueRange
-        const rangeStart = range.start
-
-        const buildPoints = (data: (number | undefined)[]): LinePoint[] => {
-          const out: LinePoint[] = []
-          for (let i = drawStart; i < drawEnd; i++) {
-            const value = data[i]
-            if (value === undefined) continue
-            const centerX = kLineCenters[i - rangeStart]
-            if (centerX === undefined) continue
-            out.push({ x: centerX, y: paneH - (value - displayMin) * invRange })
-          }
-          return out
-        }
-
-        cachedRSI1Points =
-          params.showRSI1 && series[params.period1] ? buildPoints(series[params.period1]) : []
-
-        cachedRSI2Points =
-          params.showRSI2 && series[params.period2] ? buildPoints(series[params.period2]) : []
-
-        cachedRSI3Points =
-          params.showRSI3 && series[params.period3] ? buildPoints(series[params.period3]) : []
-      }
-
-      // 绘制 RSI 线（WebGL 优先，Canvas2D 回退）
-      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-      if (params.showRSI1 && cachedRSI1Points.length >= 2) {
-        lines.push({ points: cachedRSI1Points, width: 1, color: colors.rsi.rsi1 })
-      }
-      if (params.showRSI2 && cachedRSI2Points.length >= 2) {
-        lines.push({ points: cachedRSI2Points, width: 1, color: colors.rsi.rsi2 })
-      }
-      if (params.showRSI3 && cachedRSI3Points.length >= 2) {
-        lines.push({ points: cachedRSI3Points, width: 1, color: colors.rsi.rsi3 })
-      }
-      if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
-        drawRSILinesWithCanvas2D(
-          ctx,
-          scrollLeft,
-          cachedRSI1Points,
-          cachedRSI2Points,
-          cachedRSI3Points,
-          params,
-          colors.rsi.rsi1,
-          colors.rsi.rsi2,
-          colors.rsi.rsi3,
-        )
-      }
-    },
-  })
-}
-
-/**
- * 获取 RSI 标题信息（供 paneTitle 使用）
- * 从 StateStore 读取已计算的 RSI 数据
- */
-function drawRSILinesWithCanvas2D(
-  ctx: CanvasRenderingContext2D,
-  scrollLeft: number,
-  rsi1Points: LinePoint[],
-  rsi2Points: LinePoint[],
-  rsi3Points: LinePoint[],
-  params: { showRSI1: boolean; showRSI2: boolean; showRSI3: boolean },
-  rsi1Color: string,
-  rsi2Color: string,
-  rsi3Color: string,
-): void {
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-  ctx.lineWidth = 1
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-
-  if (params.showRSI1 && rsi1Points.length >= 2) {
-    ctx.strokeStyle = rsi1Color
-    ctx.beginPath()
-    ctx.moveTo(rsi1Points[0]!.x, rsi1Points[0]!.y)
-    for (let i = 1; i < rsi1Points.length; i++) {
-      const point = rsi1Points[i]!
-      ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-
-  if (params.showRSI2 && rsi2Points.length >= 2) {
-    ctx.strokeStyle = rsi2Color
-    ctx.beginPath()
-    ctx.moveTo(rsi2Points[0]!.x, rsi2Points[0]!.y)
-    for (let i = 1; i < rsi2Points.length; i++) {
-      const point = rsi2Points[i]!
-      ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-
-  if (params.showRSI3 && rsi3Points.length >= 2) {
-    ctx.strokeStyle = rsi3Color
-    ctx.beginPath()
-    ctx.moveTo(rsi3Points[0]!.x, rsi3Points[0]!.y)
-    for (let i = 1; i < rsi3Points.length; i++) {
-      const point = rsi3Points[i]!
-      ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-
-  ctx.restore()
-}
-
-function getRSITitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  stateReader: IndicatorRenderStateReader,
-  instanceId: string,
-  _paneId: string,
-  colors: ColorTokens,
-): {
-  name: string
-  params: number[]
-  values: Array<{ label: string; value: number; color: string }>
-} | null {
-  if (index === null) return null
-  const period1 = (params.period1 as number) ?? 6
-  const period2 = (params.period2 as number) ?? 12
-  const period3 = (params.period3 as number) ?? 24
-  const state = stateReader.get<RSIRenderState>(instanceId)
-
-  if (!state) return null
-
-  const rsi1 = state.series[period1]?.[index]
-  const rsi2 = state.series[period2]?.[index]
-  const rsi3 = state.series[period3]?.[index]
-
-  const values: Array<{ label: string; value: number; color: string }> = []
-  if (rsi1 !== undefined)
-    values.push({ label: `RSI${period1}`, value: rsi1, color: colors.rsi.rsi1 })
-  if (rsi2 !== undefined)
-    values.push({ label: `RSI${period2}`, value: rsi2, color: colors.rsi.rsi2 })
-  if (rsi3 !== undefined)
-    values.push({ label: `RSI${period3}`, value: rsi3, color: colors.rsi.rsi3 })
-
-  if (values.length === 0) return null
-
-  return {
-    name: 'RSI',
-    params: [period1, period2, period3],
-    values,
-  }
-}
-
 @Indicator({
   name: 'rsi',
   displayName: 'RSI',
@@ -388,27 +13,46 @@ function getRSITitleInfo(
   indicatorType: 'momentum',
   defaultPaneId: 'sub_RSI',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
-  visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
   scaleRendererFactory: createRsiScaleLayer,
-  getTitleInfo: getRSITitleInfo,
-  presentation: {
-    defaultOptions: { showRSI1: true, showRSI2: true, showRSI3: true },
-    selectSeriesKeys: (params, options) =>
-      [1, 2, 3]
-        .filter((index) => options[`showRSI${index}` as keyof typeof options])
-        .map((index) => String(params[`period${index}`])),
+  plots: {
+    series: [
+      {
+        id: 'rsi1',
+        label: (p) => `RSI${p.period1}`,
+        periodParam: 'period1',
+        show: 'showRSI1',
+        color: (c) => c.rsi.rsi1,
+      },
+      {
+        id: 'rsi2',
+        label: (p) => `RSI${p.period2}`,
+        periodParam: 'period2',
+        show: 'showRSI2',
+        color: (c) => c.rsi.rsi2,
+      },
+      {
+        id: 'rsi3',
+        label: (p) => `RSI${p.period3}`,
+        periodParam: 'period3',
+        show: 'showRSI3',
+        color: (c) => c.rsi.rsi3,
+      },
+    ],
+    range: { min: 0, max: 100 },
+    guides: [80, 50, 20].map((value) => ({ value, color: (c) => c.rsi.guide })),
   },
+  presentation: { defaultOptions: { showRSI1: true, showRSI2: true, showRSI3: true } },
   runtime: {
     defaultParams: { period1: 6, period2: 12, period3: 24 },
     computeKey: 'calcRSIData',
     compute: (data, c) => {
-      const p = [c.period1, c.period2, c.period3]
-      const r: Record<number, (number | undefined)[]> = {}
-      for (const period of p) r[period] = calcRSIData(data, period)
-      return r
+      const result: Record<number, (number | undefined)[]> = {}
+      for (const period of [c.period1, c.period2, c.period3])
+        result[period] = calcRSIData(data, period)
+      return result
     },
   },
 })
 export class RSIIndicatorDefinition {
-  static rendererFactory = createRSILayer
+  static rendererFactory = plotRenderer('rsi', 'sub_RSI')
 }

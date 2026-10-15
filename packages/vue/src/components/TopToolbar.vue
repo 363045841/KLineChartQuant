@@ -107,7 +107,7 @@
           <IconTablerArrowForwardUp class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'" placement="bottom">
+      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'" command="view.fullscreen" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -126,6 +126,7 @@
         :label="screenshotCapturing ? chartScreenshotLabels.capturing : chartScreenshotLabels.capture"
         :groups="screenshotMenuGroups"
         :disabled="screenshotCapturing"
+        command="chart.snapshot"
         trigger-class="screenshot-button"
         tooltip-placement="bottom"
         placement="bottom"
@@ -143,7 +144,7 @@
         </template>
       </DropMenu>
       <slot name="watchlist"></slot>
-      <BaseTooltip content="设置" placement="bottom">
+      <BaseTooltip content="设置" command="settings.open" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -177,11 +178,8 @@
     chartScreenshotActions,
     chartScreenshotLabels,
   } from '../composables/chart/useChartScreenshot.js'
-  import type {
-    AggregationSourceDefinition,
-  } from '../composables/useAggregationSources.js'
+  import type { AggregationSourceDefinition } from '../composables/useAggregationSources.js'
   import type { SymbolSearchFn } from '../composables/useSymbolSearch.js'
-  import MarketDataManagementDialog from './MarketDataManagementDialog.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from './DropMenu.vue'
@@ -190,6 +188,7 @@
   import KLineShapeDropdown from './KLineShapeDropdown.vue'
   import { isKLineLevel, type KLineLevel } from './kLineLevel'
   import LayoutMenu from './LayoutMenu.vue'
+  import MarketDataManagementDialog from './MarketDataManagementDialog.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
   import SymbolSelector from './SymbolSelector.vue'
 
@@ -347,7 +346,6 @@
   function onSymbolSelectorChange(item: SymbolItem) {
     emit('symbolChange', item)
   }
-
 </script>
 
 <style scoped src="./common/control-button.css"></style>

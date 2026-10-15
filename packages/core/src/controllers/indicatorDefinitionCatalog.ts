@@ -27,6 +27,7 @@ function toParamDef(param: NonNullable<Indicator['params']>[number]): IndicatorP
 export function toIndicatorDefinition(indicator: Indicator): IndicatorDefinition {
   return {
     id: indicator.id,
+    source: indicator.source,
     label: indicator.label,
     name: indicator.name,
     description: indicator.description,

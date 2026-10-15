@@ -5,7 +5,6 @@ import {
   createSubState,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
-import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 
 /**
  * 指针悬停的绘图拖拽目标，与命中结果的目标类型一致，`none` 表示没有悬停在任何可拖拽图元上：
@@ -22,8 +21,6 @@ export interface InteractionSnapshot {
   activePaneId: string | null
   tooltipPos: { x: number; y: number }
   tooltipAnchorPlacement: 'right-bottom' | 'left-bottom'
-  hoveredMarkerData: MarkerEntity | null
-  hoveredCustomMarker: CustomMarkerEntity | null
   isDragging: boolean
   isResizingPaneBoundary: boolean
   isHoveringPaneBoundary: boolean
@@ -48,8 +45,6 @@ export function createIdleInteractionSnapshot(): InteractionSnapshot {
     activePaneId: null,
     tooltipPos: { x: 0, y: 0 },
     tooltipAnchorPlacement: 'right-bottom',
-    hoveredMarkerData: null,
-    hoveredCustomMarker: null,
     isDragging: false,
     isResizingPaneBoundary: false,
     isHoveringPaneBoundary: false,
@@ -90,9 +85,6 @@ export function createInteractionState(_deps: InteractionDeps) {
     hoveredRightAxisPaneId: null as string | null,
     tooltipPos: { x: 0, y: 0 },
     tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
-    hoveredMarkerData: null as MarkerEntity | null,
-    hoveredCustomMarker: null as CustomMarkerEntity | null,
-    hoveredMarkerId: null as string | null,
     hoveredDrawingTarget: 'none' as DrawingHoverTarget,
     /**
      * 图元拖拽会话期间冻结的绘图悬停目标。拖拽中指针会移出锚点，若继续实时命中，
@@ -123,8 +115,6 @@ export function createInteractionState(_deps: InteractionDeps) {
       activePaneId: readonly.activePaneId(),
       tooltipPos: readonly.tooltipPos(),
       tooltipAnchorPlacement: readonly.tooltipAnchorPlacement(),
-      hoveredMarkerData: readonly.hoveredMarkerData(),
-      hoveredCustomMarker: readonly.hoveredCustomMarker(),
       isDragging: readonly.isDragging(),
       isResizingPaneBoundary: dragMode === 'resize-separator',
       isHoveringPaneBoundary: hoveredSep !== null,
@@ -144,8 +134,6 @@ export function createInteractionState(_deps: InteractionDeps) {
         c.activePaneId === next.activePaneId &&
         c.tooltipPos === next.tooltipPos &&
         c.tooltipAnchorPlacement === next.tooltipAnchorPlacement &&
-        c.hoveredMarkerData === next.hoveredMarkerData &&
-        c.hoveredCustomMarker === next.hoveredCustomMarker &&
         c.isDragging === next.isDragging &&
         c.isResizingPaneBoundary === next.isResizingPaneBoundary &&
         c.isHoveringPaneBoundary === next.isHoveringPaneBoundary &&
@@ -171,6 +159,27 @@ export function createInteractionState(_deps: InteractionDeps) {
         to: Math.max(selection.startTimestamp, selection.endTimestamp),
       })
     }),
+  }
+
+  /** 清空全部瞬时交互信号；reset 与 dispose 共用同一份清单，避免两处漏改。 */
+  function clearTransientSignals(): void {
+    batch(() => {
+      signals.crosshairPos.set(null)
+      signals.crosshairPrice.set(null)
+      signals.crosshairIndex.set(null)
+      signals.hoveredIndex.set(null)
+      signals.activePaneId.set(null)
+      signals.isDragging.set(false)
+      signals.dragMode.set('none')
+      signals.hoveredSeparatorUpperPaneId.set(null)
+      signals.hoveredRightAxisPaneId.set(null)
+      signals.tooltipPos.set({ x: 0, y: 0 })
+      signals.tooltipAnchorPlacement.set('right-bottom')
+      signals.hoveredDrawingTarget.set('none')
+      signals.rangeSelection.set(
+        Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+      )
+    })
   }
 
   return {
@@ -282,18 +291,6 @@ export function createInteractionState(_deps: InteractionDeps) {
         })
       },
 
-      updateMarkerHover(
-        markerId: string | null,
-        markerData: MarkerEntity | null,
-        customMarkerData: CustomMarkerEntity | null,
-      ) {
-        batch(() => {
-          signals.hoveredMarkerId.set(markerId)
-          signals.hoveredMarkerData.set(markerData)
-          signals.hoveredCustomMarker.set(customMarkerData)
-        })
-      },
-
       /** 开始区间选择。 */
       startRangeSelection(timestamp: number) {
         if (!Number.isFinite(timestamp)) return
@@ -335,50 +332,12 @@ export function createInteractionState(_deps: InteractionDeps) {
       },
 
       reset() {
-        batch(() => {
-          signals.crosshairPos.set(null)
-          signals.crosshairPrice.set(null)
-          signals.crosshairIndex.set(null)
-          signals.hoveredIndex.set(null)
-          signals.activePaneId.set(null)
-          signals.isDragging.set(false)
-          signals.dragMode.set('none')
-          signals.hoveredSeparatorUpperPaneId.set(null)
-          signals.hoveredRightAxisPaneId.set(null)
-          signals.tooltipPos.set({ x: 0, y: 0 })
-          signals.tooltipAnchorPlacement.set('right-bottom')
-          signals.hoveredMarkerData.set(null)
-          signals.hoveredCustomMarker.set(null)
-          signals.hoveredMarkerId.set(null)
-          signals.hoveredDrawingTarget.set('none')
-          signals.rangeSelection.set(
-            Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
-          )
-        })
+        clearTransientSignals()
       },
     },
 
     dispose() {
-      batch(() => {
-        signals.crosshairPos.set(null)
-        signals.crosshairPrice.set(null)
-        signals.crosshairIndex.set(null)
-        signals.hoveredIndex.set(null)
-        signals.activePaneId.set(null)
-        signals.isDragging.set(false)
-        signals.dragMode.set('none')
-        signals.hoveredSeparatorUpperPaneId.set(null)
-        signals.hoveredRightAxisPaneId.set(null)
-        signals.tooltipPos.set({ x: 0, y: 0 })
-        signals.tooltipAnchorPlacement.set('right-bottom')
-        signals.hoveredMarkerData.set(null)
-        signals.hoveredCustomMarker.set(null)
-        signals.hoveredMarkerId.set(null)
-        signals.hoveredDrawingTarget.set('none')
-        signals.rangeSelection.set(
-          Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
-        )
-      })
+      clearTransientSignals()
     },
   }
 }

@@ -8,6 +8,7 @@ import {
   FOOTPRINT_TEXT_MODES,
   FOOTPRINT_TEXT_OPTIONS,
 } from '@/components/footprint/types.js'
+import { computed, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import {
   getIndicatorDescriptor,
   getIndicatorDescriptors,
@@ -15,6 +16,7 @@ import {
 import {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
+  type IndicatorInputDef,
   IndicatorKind,
   type IndicatorType,
 } from '../../indicators/indicatorMetadata.js'
@@ -22,11 +24,11 @@ import {
 export interface ParamConfig {
   key: string
   label: string
-  type: 'number' | 'select'
+  type: 'number' | 'select' | 'string' | 'boolean'
   min?: number
   max?: number
   step?: number
-  default?: number | string
+  default?: number | string | boolean
   options?: ReadonlyArray<{ value: string; label: string }>
   description?: string
   /** 仅当依赖参数取指定值时显示；条件只影响编辑入口。 */
@@ -34,6 +36,7 @@ export interface ParamConfig {
 }
 
 export interface Indicator {
+  source?: import('../../indicators/indicatorMetadata.js').IndicatorSource
   id: string
   label: string
   name: string
@@ -1424,9 +1427,6 @@ const uiMeta: Record<
   },
 }
 
-let _allIndicators: Indicator[] | null = null
-let _definitionCount = -1
-
 /** 静态目录中计算参数与展示默认项合并后的参数表。 */
 type RuntimeDefaultParams = Readonly<Record<string, unknown>>
 
@@ -1445,12 +1445,47 @@ function buildParamConfigs(
   })
 }
 
-/** 选择器目录只读静态目录项，列出全部指标而不加载任何实现。 */
-function rebuildIfStale(): Indicator[] {
-  const definitions = getIndicatorDescriptors()
-  if (_allIndicators === null || definitions.length !== _definitionCount) {
-    _definitionCount = definitions.length
-    _allIndicators = definitions
+/** 脚本输入声明的默认值决定参数编辑类型；声明了 options 的字符串参数渲染为下拉。 */
+function scriptParamConfigs(
+  defaults: RuntimeDefaultParams,
+  inputDefs?: Readonly<Record<string, IndicatorInputDef>>,
+): ParamConfig[] {
+  return Object.entries(defaults).flatMap(([key, value]): ParamConfig[] => {
+    if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'boolean')
+      return []
+    const options = inputDefs?.[key]?.options
+    return [
+      {
+        key,
+        label: inputDefs?.[key]?.title ?? key,
+        type: options?.length
+          ? 'select'
+          : typeof value === 'number'
+            ? 'number'
+            : typeof value === 'boolean'
+              ? 'boolean'
+              : 'string',
+        default: value,
+        ...(options?.length
+          ? { options: options.map((option) => ({ value: option, label: option })) }
+          : {}),
+      },
+    ]
+  })
+}
+
+/**
+ * 指标展示目录由静态目录派生；uiMeta 是编译期常量，因此派生只依赖注册表。
+ * 采用响应式 computed：注册表修订号变化时自动重建，不再维护手工比较的影子缓存。
+ * 首次读取时才创建，保持内置目录的懒登记。
+ */
+let indicatorCatalog: ReadonlySignal<readonly Indicator[]> | null = null
+
+/** 读取展示目录快照。 */
+function readIndicatorCatalog(): readonly Indicator[] {
+  indicatorCatalog ??= computed(() => {
+    // getIndicatorDescriptors 内部读取修订号，使本 computed 订阅注册表变更。
+    return getIndicatorDescriptors()
       .filter((def) => def.kind === IndicatorKind.Indicator)
       .map((def) => {
         const key = normalizeId(def.name)
@@ -1461,11 +1496,10 @@ function rebuildIfStale(): Indicator[] {
         }
         return {
           id: def.displayName,
+          source: def.source,
           label: def.displayName,
           name: ui?.name ?? def.displayName,
-          pane: (def.category === 'main' || def.allowMainPane
-            ? 'main'
-            : 'sub') as Indicator['pane'],
+          pane: def.category === 'main' ? ('main' as const) : ('sub' as const),
           indicatorType: def.indicatorType,
           indicatorTypeLabel:
             def.indicatorTypeLabel ??
@@ -1473,7 +1507,10 @@ function rebuildIfStale(): Indicator[] {
             def.indicatorType,
           indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
-          params: buildParamConfigs(ui?.params, runtimeDefaults),
+          params:
+            def.source === 'script'
+              ? scriptParamConfigs(runtimeDefaults, def.inputDefs)
+              : buildParamConfigs(ui?.params, runtimeDefaults),
         }
       })
       .sort((a, b) => {
@@ -1481,24 +1518,26 @@ function rebuildIfStale(): Indicator[] {
         const paneOrderB = b.pane === 'main' ? 0 : 1
         return paneOrder - paneOrderB || a.label.localeCompare(b.label)
       })
-  }
-  return _allIndicators ?? []
-}
-export function allIndicators(): Indicator[] {
-  return rebuildIfStale()
+  })
+  return indicatorCatalog()
 }
 
+/** 返回全部展示目录项。 */
+export function allIndicators(): Indicator[] {
+  return [...readIndicatorCatalog()]
+}
+
+/** 按展示名、内部名或别名解析展示目录项。 */
 export function findIndicator(id: string): Indicator | undefined {
   const norm = normalizeId(id)
-  const direct = rebuildIfStale().find(
-    (i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm,
-  )
+  const indicators = readIndicatorCatalog()
+  const direct = indicators.find((i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm)
   if (direct) return direct
   // 兼容内部 name / 别名输入：先解析为规范展示名再匹配
   const canonicalId = getIndicatorDescriptor(id)?.displayName
   if (!canonicalId) return undefined
   const canonical = normalizeId(canonicalId)
-  return rebuildIfStale().find((i) => normalizeId(i.id) === canonical)
+  return indicators.find((i) => normalizeId(i.id) === canonical)
 }
 
 export function isSubIndicatorId(id: string): boolean {

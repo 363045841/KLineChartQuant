@@ -1,8 +1,6 @@
 import {
   ASHARE_MARKET_SESSION,
-  ASHARE_OPEN_SESSIONS,
   computeSessionTimeLabels,
-  countSessionSlots,
   type MarketSessionConfig,
   minuteOfDayToTimestamp,
   resolveMarketSessionSlots,
@@ -13,7 +11,7 @@ import {
 } from './sessionTimeLabels.js'
 
 /** 分时时间标签最小水平间距（逻辑像素） */
-export const TIMESHARE_MIN_LABEL_SPACING_PX = 56
+const TIMESHARE_MIN_LABEL_SPACING_PX = 56
 
 export type TimeShareTimeLabelInput = {
   axisWidth: number
@@ -80,12 +78,8 @@ export type {
 } from './sessionTimeLabels.js'
 export {
   ASHARE_MARKET_SESSION,
-  ASHARE_OPEN_SESSIONS,
-  computeSessionTimeLabels,
-  countSessionSlots,
   minuteOfDayToTimestamp,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
   resolveTimestampSessionSlot,
-  sessionSlotCenterX,
 }

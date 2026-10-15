@@ -24,7 +24,7 @@ export function hasSubPaneRendererMetadata(
   paneId: string,
   indicatorId: string,
 ): boolean {
-  if (definition.category === 'main' || definition.allowMainPane) return false
+  if (definition.category === 'main') return false
   try {
     return Boolean(definition.getScaleRendererName({ paneId, indicatorId }))
   } catch {

@@ -1,10 +1,51 @@
 /** 按视图工作区保存主图/副图布局、比例与坐标轴状态。 */
-import { batch, createSubState } from '../../foundation/reactivity/signal.js'
+import {
+  batch,
+  computed,
+  createSubState,
+  type ReadonlySignal,
+} from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
 import type { PaneSpec } from '../pane/types.js'
+import { MAIN_PANE_ID } from '../pane/types.js'
 import { immutableMap } from './immutable.js'
+import type { IndicatorInstanceSpec } from './indicatorState.js'
+
+/** 从指标定义派生的实例生成 Pane，保存的规格仅提供顺序、尺寸和可见性。 */
+function projectWorkspace(
+  workspace: PaneWorkspace,
+  instances: ReadonlyArray<IndicatorInstanceSpec>,
+): PaneWorkspace {
+  const required = new Set(
+    instances.filter((instance) => instance.role === 'sub').map((instance) => instance.paneId),
+  )
+  const main = workspace.paneSpecs.find((spec) => spec.id === MAIN_PANE_ID) ?? {
+    id: MAIN_PANE_ID,
+    ratio: 1,
+    visible: true,
+    role: 'price' as const,
+  }
+  const specs = [
+    main,
+    ...workspace.paneSpecs.filter(
+      (spec) => spec.id !== MAIN_PANE_ID && (spec.role === 'price' || required.has(spec.id)),
+    ),
+  ]
+  const present = new Set(specs.map((spec) => spec.id))
+  const missing = [...required]
+    .filter((id) => !present.has(id))
+    .map((id) => ({ id, ratio: 1, role: 'indicator' as const }))
+  const projectedSpecs = [...specs, ...missing]
+  const ratios = Object.fromEntries(
+    projectedSpecs.map((spec) => [spec.id, workspace.paneRatios[spec.id] ?? spec.ratio]),
+  )
+  const scales = new Map(
+    [...workspace.paneScaleTypes].filter(([id]) => projectedSpecs.some((spec) => spec.id === id)),
+  )
+  return snapshotWorkspace(ratios, projectedSpecs, scales)
+}
 
 function copyRatios(ratios: Readonly<Record<string, number>>): Record<string, number> {
   return { ...ratios }
@@ -53,27 +94,38 @@ function snapshotWorkspace(
 }
 
 /** 当前工作区的派生接口保持既有消费方不变。 */
-export function createPaneState() {
-  const { signals, readonly } = createSubState({
+export function createPaneState(
+  indicatorWorkspaces: ReadonlySignal<
+    Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceSpec>>>
+  >,
+) {
+  const { signals, readonly: stored } = createSubState({
     activeWorkspace: ChartWorkspaceId.KLine as ChartWorkspaceId,
     workspaces: Object.freeze({
       kline: EMPTY_WORKSPACE,
       timeshare: EMPTY_WORKSPACE,
     }) as Readonly<Record<ChartWorkspaceId, PaneWorkspace>>,
-    paneRatios: EMPTY_WORKSPACE.paneRatios,
-    paneSpecs: EMPTY_WORKSPACE.paneSpecs,
-    paneScaleTypes: EMPTY_WORKSPACE.paneScaleTypes,
   })
+  const workspaces = computed(() =>
+    Object.freeze({
+      kline: projectWorkspace(stored.workspaces().kline, indicatorWorkspaces().kline),
+      timeshare: projectWorkspace(stored.workspaces().timeshare, indicatorWorkspaces().timeshare),
+    }),
+  )
+  const readonly = {
+    ...stored,
+    workspaces,
+    paneSpecs: computed(() => workspaces()[stored.activeWorkspace()].paneSpecs),
+    paneRatios: computed(() => workspaces()[stored.activeWorkspace()].paneRatios),
+    paneScaleTypes: computed(() => workspaces()[stored.activeWorkspace()].paneScaleTypes),
+  }
   const currentWorkspace = (): PaneWorkspace =>
-    readonly.workspaces.peek()[readonly.activeWorkspace.peek()]
+    stored.workspaces.peek()[stored.activeWorkspace.peek()]
 
   const writeActive = (next: PaneWorkspace): void => {
     const workspaceId = readonly.activeWorkspace.peek()
     batch(() => {
-      signals.workspaces.set(Object.freeze({ ...readonly.workspaces.peek(), [workspaceId]: next }))
-      signals.paneRatios.set(next.paneRatios)
-      signals.paneSpecs.set(next.paneSpecs)
-      signals.paneScaleTypes.set(next.paneScaleTypes)
+      signals.workspaces.set(Object.freeze({ ...stored.workspaces.peek(), [workspaceId]: next }))
     })
   }
   const writeScaleTypes = (next: ReadonlyMap<string, ScaleType>): void => {
@@ -84,15 +136,13 @@ export function createPaneState() {
 
   return {
     readonly,
+    /** 命令读取当前轴偏好，batch 内不依赖延迟更新的布局投影。 */
+    getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
       setActiveWorkspace(workspaceId: ChartWorkspaceId): void {
         if (signals.activeWorkspace.peek() === workspaceId) return
-        const next = readonly.workspaces.peek()[workspaceId]
         batch(() => {
           signals.activeWorkspace.set(workspaceId)
-          signals.paneRatios.set(next.paneRatios)
-          signals.paneSpecs.set(next.paneSpecs)
-          signals.paneScaleTypes.set(next.paneScaleTypes)
         })
       },
       /** 用已校验的持久快照恢复两个工作区的布局与坐标轴类型。 */
@@ -100,21 +150,23 @@ export function createPaneState() {
         const next = Object.freeze({
           kline: snapshotWorkspace(
             workspaces.kline.paneRatios,
-            workspaces.kline.paneSpecs,
+            workspaces.kline.paneSpecs.map((spec) => ({
+              ...spec,
+              role: spec.id === 'main' ? 'price' : 'indicator',
+            })),
             new Map(Object.entries(workspaces.kline.paneScaleTypes)),
           ),
           timeshare: snapshotWorkspace(
             workspaces.timeshare.paneRatios,
-            workspaces.timeshare.paneSpecs,
+            workspaces.timeshare.paneSpecs.map((spec) => ({
+              ...spec,
+              role: spec.id === 'main' ? 'price' : 'indicator',
+            })),
             new Map(Object.entries(workspaces.timeshare.paneScaleTypes)),
           ),
         })
-        const active = next[readonly.activeWorkspace.peek()]
         batch(() => {
           signals.workspaces.set(next)
-          signals.paneRatios.set(active.paneRatios)
-          signals.paneSpecs.set(active.paneSpecs)
-          signals.paneScaleTypes.set(active.paneScaleTypes)
         })
       },
       setPaneRatios(ratios: Record<string, number>): void {
@@ -159,9 +211,6 @@ export function createPaneState() {
         signals.workspaces.set(
           Object.freeze({ kline: EMPTY_WORKSPACE, timeshare: EMPTY_WORKSPACE }),
         )
-        signals.paneRatios.set(EMPTY_WORKSPACE.paneRatios)
-        signals.paneSpecs.set(EMPTY_WORKSPACE.paneSpecs)
-        signals.paneScaleTypes.set(EMPTY_WORKSPACE.paneScaleTypes)
       })
     },
   }

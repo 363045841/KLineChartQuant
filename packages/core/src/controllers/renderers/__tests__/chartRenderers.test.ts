@@ -179,7 +179,7 @@ describe('public chart renderer access', () => {
   it('mounts a third-party indicator layer from state and releases it on removal', async () => {
     const controller = await mount()
 
-    const instanceId = controller.addIndicator(indicatorName, 'main')
+    const instanceId = controller.addIndicator(indicatorName)
     expect(instanceId).not.toBeNull()
     const layer = lastIndicatorLayer()
     expect(controller.getRenderer(indicatorLayerId)).toBe(layer)

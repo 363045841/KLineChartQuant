@@ -1,0 +1,58 @@
+{
+  "name": "@363045841yyt/klinechart-script",
+  "version": "0.0.0",
+  "description": "Deterministic, data-source- and render-agnostic time-series script engine for KLineChartQuant. Scripts are written in plain TypeScript.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "bugs": "https://github.com/363045841/KLineChartQuant/issues",
+  "homepage": "https://363045841.github.io/KLineChartQuant/",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./editor": {
+      "types": "./dist/editor/resources.d.ts",
+      "import": "./dist/editor/resources.js"
+    },
+    "./scripts/*": "./scripts/*",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "scripts",
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint:publish": "publint --strict ."
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@types/node": "^25.9.6",
+    "publint": "^0.3.21",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "@363045841yyt/klinechart-plot-contracts": "workspace:*",
+    "quickjs-emscripten": "^0.32.0"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  }
+}

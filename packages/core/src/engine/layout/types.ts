@@ -13,12 +13,11 @@ import type { PriceAxisRangeMode } from '../../foundation/config/priceAxisRangeM
 import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { DrawingObject } from '../drawing/index.js'
-import type { PaneSpec } from '../pane/types.js'
 import type { PriceRange } from '../scale/index.js'
-import type { IndicatorInstanceInput } from '../state/indicatorState.js'
+import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
 
 /** 布局文档版本号；恢复时据此迁移旧文档。 */
-export const LAYOUT_DOCUMENT_VERSION = 1
+export const LAYOUT_DOCUMENT_VERSION = 2
 
 /** 单个数据视图可恢复的横向位置：锚点时间 + 相对偏移 + 缩放等级。 */
 export interface LayoutViewportSnapshot {
@@ -28,10 +27,17 @@ export interface LayoutViewportSnapshot {
 }
 
 /** 单个视图工作区中需要跨会话恢复的用户配置。 */
+export interface LayoutPaneConfig {
+  readonly id: string
+  readonly ratio: number
+  readonly visible?: boolean
+  readonly minHeightPx?: number
+}
+
 export interface LayoutWorkspace {
-  readonly instances: ReadonlyArray<IndicatorInstanceInput>
+  readonly instances: ReadonlyArray<IndicatorInstanceConfig>
   readonly paneRatios: Readonly<Record<string, number>>
-  readonly paneSpecs: ReadonlyArray<PaneSpec>
+  readonly paneSpecs: ReadonlyArray<LayoutPaneConfig>
   readonly paneScaleTypes: Readonly<Record<string, ScaleType>>
 }
 

@@ -8,9 +8,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CREDENTIAL_CHANNELS,
   CredentialEncryptionUnavailableError,
+  type CredentialIpcEvent,
   EncryptedCredentialStore,
   registerCredentialIpc,
-  type CredentialIpcEvent,
   type SafeStorageLike,
 } from './credential-ipc'
 

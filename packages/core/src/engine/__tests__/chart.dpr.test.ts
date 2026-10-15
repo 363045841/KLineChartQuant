@@ -296,6 +296,70 @@ describe('Chart DPR pipeline', () => {
     }
   })
 
+  it('shifts the viewport by whole bars and clamps at the scroll bound', async () => {
+    const chart = mountChart()
+    try {
+      chart.setData(makeBars(200))
+      chart.resize()
+      chart.draw()
+      const viewport = chart.kernel.viewport
+      viewport.actions.scrollToLogical(0)
+      const step = viewport.readonly.viewSnapshot.peek().grid.step
+      expect(step).toBeGreaterThan(0)
+
+      chart.scrollByBars(1)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(step)
+      chart.scrollByBars(-1)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(0)
+
+      // 连续右移在滚动上限处停住，不会越过最后一根。
+      const { max } = viewport.readonly.viewSnapshot.peek().scrollBounds
+      for (let i = 0; i < 1000; i += 1) chart.scrollByBars(1)
+      expect(viewport.readonly.scrollLeftLogical.peek()).toBe(max)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('resets to the configured zoom level and drops the manual price range', async () => {
+    const chart = new Chart(
+      createChartDom(1000, 600),
+      { ...defaultOptions, initialZoomLevel: 3 },
+      {
+        initialSettings: {
+          mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+          mainRightAxisTypeSetting: ScaleType.Linear,
+        },
+      },
+    )
+    try {
+      chart.resize()
+      chart.applyCustomData({
+        symbol: 'PRIMARY',
+        market: 'CN',
+        period: 'daily',
+        data: makeBars(200),
+      })
+      chart.draw()
+      const handRange = () =>
+        chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[MAIN_PANE_ID]?.handRange
+      expect(handRange()).not.toBeNull()
+
+      chart.zoom.toLevel(2)
+      chart.scalePrice(MAIN_PANE_ID, -100)
+      chart.translatePrice(MAIN_PANE_ID, 80)
+      chart.draw()
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(2)
+      expect(handRange()).not.toBeNull()
+
+      chart.resetChart()
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(3)
+      expect(handRange()).toBeNull()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('rejects multiple primary symbols and clears a timeshare primary explicitly', async () => {
     const chart = mountChart()
     try {
@@ -960,23 +1024,22 @@ describe('Chart DPR pipeline', () => {
             {
               instanceId: 'user:rsi-0',
               indicatorId: 'RSI',
-              paneId: 'RSI_0',
-              role: 'sub',
+              layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
             },
           ],
           paneRatios: { main: 0.75, RSI_0: 0.25 },
           paneSpecs: [
-            { id: 'main', ratio: 0.75, role: 'price' },
-            { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+            { id: 'main', ratio: 0.75 },
+            { id: 'RSI_0', ratio: 0.25 },
           ],
           paneScaleTypes: {},
         },
         timeshare: {
           instances: [],
           paneRatios: { main: 1 },
-          paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+          paneSpecs: [{ id: 'main', ratio: 1 }],
           paneScaleTypes: {},
         },
       },
@@ -1125,43 +1188,6 @@ describe('Chart DPR pipeline', () => {
     chart.zoom.toLevel(2)
 
     expect(scheduleDrawSpy).toHaveBeenCalledTimes(1)
-
-    await chart.destroy()
-  })
-
-  it('routes custom markers through kernel and clears position cache', async () => {
-    const chart = mountChart()
-    const manager = chart.markers.getManager()
-    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
-    const clearCacheSpy = vi.spyOn(manager, 'clearPositionCache')
-
-    const marker = {
-      id: 'm1',
-      date: '2025-01-15',
-      timestamp: 1,
-      shape: 'circle' as const,
-    }
-
-    chart.markers.update([marker])
-    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m1'])
-    expect(clearCacheSpy).toHaveBeenCalled()
-    expect(scheduleDrawSpy).toHaveBeenCalled()
-
-    manager.setCustomMarkerPosition('m1', 10, 20, 12, 'circle')
-    expect(manager.hitTestCustomMarker(10, 20)?.id).toBe('m1')
-
-    clearCacheSpy.mockClear()
-    scheduleDrawSpy.mockClear()
-    chart.markers.clear()
-    expect(manager.getCustomMarkers()).toEqual([])
-    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
-    expect(scheduleDrawSpy).toHaveBeenCalled()
-    expect(manager.hitTestCustomMarker(10, 20)).toBeNull()
-
-    clearCacheSpy.mockClear()
-    chart.markers.register({ ...marker, id: 'm2', shape: 'flag' })
-    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m2'])
-    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
 
     await chart.destroy()
   })
@@ -1400,23 +1426,22 @@ describe('Chart pane layout regressions', () => {
             {
               instanceId: 'user:rsi-0',
               indicatorId: 'RSI',
-              paneId: 'RSI_0',
-              role: 'sub',
+              layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
             },
           ],
           paneRatios: { main: 0.75, RSI_0: 0.25 },
           paneSpecs: [
-            { id: 'main', ratio: 0.75, role: 'price' },
-            { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+            { id: 'main', ratio: 0.75 },
+            { id: 'RSI_0', ratio: 0.25 },
           ],
           paneScaleTypes: {},
         },
         timeshare: {
           instances: [],
           paneRatios: { main: 1 },
-          paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+          paneSpecs: [{ id: 'main', ratio: 1 }],
           paneScaleTypes: {},
         },
       },
@@ -1523,14 +1548,14 @@ describe('Chart pane layout regressions', () => {
   it('timeshare does not reuse a K-line volume pane', async () => {
     const chart = mountChart()
     chart.resize()
-    const volumePaneId = chart.indicators.add('VOL', 'sub')
+    const volumePaneId = chart.indicators.add('VOL')
     expect(volumePaneId).not.toBeNull()
     const tsMode = getModeHandlers(chart).timeShare
     const kMode = getModeHandlers(chart).kLine
 
     chart.setActiveMode(tsMode)
     expect(chart.indicators.subPanes.peek()).toEqual([])
-    const timeShareVolumePaneId = chart.indicators.add('VOL', 'sub')
+    const timeShareVolumePaneId = chart.indicators.add('VOL')
     expect(timeShareVolumePaneId).not.toBeNull()
 
     chart.setActiveMode(kMode)
@@ -1652,6 +1677,8 @@ describe('Chart pane layout regressions', () => {
 
   it('normalizes only visible panes in imported layout', async () => {
     const chart = mountChart(1000, 800)
+    chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
     chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },

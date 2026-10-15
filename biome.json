@@ -187,6 +187,22 @@
       }
     },
     {
+      "includes": ["packages/script/scripts/**/*.js"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUndeclaredVariables": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["packages/script/src/quickjs/runtime/**/*"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUnusedVariables": "off" }
+        }
+      }
+    },
+    {
       "includes": ["packages/react/**/*.{ts,tsx}"],
       "linter": {
         "rules": {

@@ -3,6 +3,7 @@
  */
 
 import type { KLineData } from '@/foundation/types/price.js'
+import { _computeStochastic } from './_shared.js'
 
 export interface StochRSIPoint {
   k: number
@@ -37,7 +38,7 @@ export function calcStochRSIData(
   }
 
   const rsi = calculateRSI(data, period)
-  const rawK = calculateStochastic(rsi, period)
+  const rawK = _computeStochastic(rsi, period)
   const kValues = calculateSMA(rawK, kPeriod)
   const dValues = calculateSMA(kValues, dPeriod)
 
@@ -96,41 +97,6 @@ function calculateRSIValue(averageGain: number, averageLoss: number): number {
   if (averageLoss === 0) return 100
   const relativeStrength = averageGain / averageLoss
   return 100 - 100 / (1 + relativeStrength)
-}
-
-/**
- * 在稀疏数值序列上计算随机指标。
- * @param values 输入数值序列。
- * @param period 回溯窗口周期。
- * @returns 与输入等长的未平滑随机指标序列。
- */
-function calculateStochastic(
-  values: (number | undefined)[],
-  period: number,
-): (number | undefined)[] {
-  const result: (number | undefined)[] = new Array(values.length).fill(undefined)
-
-  for (let i = period - 1; i < values.length; i++) {
-    const current = values[i]
-    if (current === undefined) continue
-
-    let lowest = Infinity
-    let highest = -Infinity
-    let validCount = 0
-    for (let j = i - period + 1; j <= i; j++) {
-      const value = values[j]
-      if (value === undefined) continue
-      lowest = Math.min(lowest, value)
-      highest = Math.max(highest, value)
-      validCount++
-    }
-
-    if (validCount !== period) continue
-    const range = highest - lowest
-    result[i] = range === 0 ? 50 : (100 * (current - lowest)) / range
-  }
-
-  return result
 }
 
 /**

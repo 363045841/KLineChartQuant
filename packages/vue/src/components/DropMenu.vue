@@ -1,7 +1,12 @@
 <!-- 分组下拉菜单：统一整行选项、选中态及操作区样式。 -->
 <template>
   <div class="drop-menu">
-    <BaseTooltip :content="label" :placement="tooltipPlacement ?? 'top'" :disabled="open || disabled">
+    <BaseTooltip
+      :content="label"
+      :placement="tooltipPlacement ?? 'top'"
+      :disabled="open || disabled"
+      :command="command"
+    >
       <button
         ref="trigger"
         type="button"
@@ -101,6 +106,8 @@
     placement?: 'auto' | 'top' | 'bottom'
     /** 按钮提示的显示方向，独立于菜单弹出方向。 */
     tooltipPlacement?: 'top' | 'bottom'
+    /** 关联命令 id；存在时按钮提示追加该命令的快捷键。 */
+    command?: string
     message?: string
     /** 分组为空时展示的提示；未提供时不渲染空提示。 */
     emptyText?: string

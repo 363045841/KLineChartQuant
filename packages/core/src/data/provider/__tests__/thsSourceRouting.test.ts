@@ -61,7 +61,10 @@ describe('THS capability 声明驱动的源筛选', () => {
     marketDataProviderRegistry.register(
       createMockMarketDataProvider({
         sourceId: 'ths',
-        capabilities: { assetClasses: ['stock'], bars: { periods: ['daily'], adjustments: ['none'] } },
+        capabilities: {
+          assetClasses: ['stock'],
+          bars: { periods: ['daily'], adjustments: ['none'] },
+        },
         search: async () => [thsInstrument],
         fetchBars: thsFetch,
       }),
@@ -101,7 +104,10 @@ describe('THS capability 声明驱动的源筛选', () => {
     marketDataProviderRegistry.register(
       createMockMarketDataProvider({
         sourceId: 'ths',
-        capabilities: { assetClasses: ['stock'], bars: { periods: ['daily'], adjustments: ['none'] } },
+        capabilities: {
+          assetClasses: ['stock'],
+          bars: { periods: ['daily'], adjustments: ['none'] },
+        },
         search: async () => [thsInstrument],
         fetchBars: async () => {
           throw new Error('unused')
@@ -148,7 +154,10 @@ describe('THS capability 声明驱动的源筛选', () => {
     marketDataProviderRegistry.register(
       createMockMarketDataProvider({
         sourceId: 'ths',
-        capabilities: { assetClasses: ['stock'], bars: { periods: ['daily'], adjustments: ['none'] } },
+        capabilities: {
+          assetClasses: ['stock'],
+          bars: { periods: ['daily'], adjustments: ['none'] },
+        },
         search: async () => [thsInstrument],
         fetchBars: thsFetch,
       }),

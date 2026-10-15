@@ -2,8 +2,11 @@
 
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
+import { createMockChartController } from '../../__tests__/_mockController.js'
 import BaseTooltip from '../../components/common/BaseTooltip.vue'
+import { createChartCommands } from '../commands/chartCommands.js'
+import { provideChartCommands } from '../commands/useCommands.js'
 import { resetTooltipGroup } from '../useTooltip.js'
 
 const Pair = defineComponent({
@@ -59,6 +62,37 @@ describe('BaseTooltip 分组延迟', () => {
     vi.advanceTimersByTime(200)
     await nextTick()
     expect(tooltipTexts()).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('关联命令时在提示里展示该命令的平台化快捷键', async () => {
+    const controller = createMockChartController()
+    const Host = defineComponent({
+      setup() {
+        const root = ref<HTMLElement | null>(null)
+        const registry = provideChartCommands(root)
+        registry.register(
+          createChartCommands({
+            controller: () => controller,
+            openPalette: vi.fn(),
+            toggleFullscreen: vi.fn(),
+            openSettings: vi.fn(),
+            screenshot: vi.fn(),
+          }),
+        )
+        return () =>
+          h('div', { ref: root }, [
+            h(BaseTooltip, { content: '放大', command: 'view.zoomIn' }, () =>
+              h('button', { id: 'z', 'aria-label': '放大' }),
+            ),
+          ])
+      },
+    })
+    const wrapper = mount(Host, { attachTo: document.body })
+    trigger('z').dispatchEvent(new PointerEvent('pointerenter'))
+    vi.advanceTimersByTime(300)
+    await nextTick()
+    expect(tooltipTexts()).toEqual(['放大Ctrl+↑'])
     wrapper.unmount()
   })
 })

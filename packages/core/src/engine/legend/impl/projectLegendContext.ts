@@ -185,7 +185,12 @@ function collectIndicatorRows(
   return rows
 }
 
-/** 主副图指标从同一实例目录及帧读取器生成标题；加载时保留占位。 */
+/**
+ * 主副图指标从同一实例目录及帧读取器生成标题。
+ *
+ * 只要定义已注册就返回一行：当前位置没有取值（如脚本 plot 输出 NaN、计算未覆盖该 bar）
+ * 只表现为没有 values，不回退隐藏整个指标。主副图据此保持一致的可见性。
+ */
 export function projectIndicator(
   instance: IndicatorInstanceDescriptor,
   stateReader: RenderContext['indicatorStateReader'],
@@ -196,14 +201,16 @@ export function projectIndicator(
 ): LegendIndicatorRow | null {
   const meta = getRegisteredIndicatorDefinition(instance.definitionId)
   if (!meta) return null
-  const loading = availability?.isLoading(instance.instanceId) === true
+  const error = stateReader?.get<{ error?: { message: string } }>(instance.instanceId)?.error
+    ?.message
+  const loading = !error && availability?.isLoading(instance.instanceId) === true
   const params: Record<string, number | boolean | string> = {}
   for (const [key, value] of Object.entries(instance.params)) {
     if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string')
       params[key] = value
   }
   const titleInfo: TitleInfo | null =
-    meta.getTitleInfo && stateReader
+    !error && meta.getTitleInfo && stateReader
       ? meta.getTitleInfo(
           data,
           index,
@@ -214,14 +221,16 @@ export function projectIndicator(
           colors,
         )
       : null
-  if (!titleInfo && !loading && instance.paneId === 'main') return null
   return {
     instanceId: instance.instanceId,
     definitionId: instance.definitionId,
     hidden: instance.hidden,
     loading,
+    error,
     name: titleInfo?.name ?? meta.displayName,
-    params: titleInfo?.params,
+    params:
+      titleInfo?.params ??
+      (error ? Object.values(params).filter((value) => typeof value !== 'boolean') : undefined),
     values: titleInfo?.values,
   }
 }

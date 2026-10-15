@@ -184,12 +184,6 @@
     "lastPriceLabel": {
       "bg": { "$type": "color", "$value": "{light.color.lastPriceLabel.bg}" }
     },
-    "volumePrice": {
-      "riseWith": { "$type": "color", "$value": "{light.color.volumePrice.riseWith}" },
-      "riseWithout": { "$type": "color", "$value": "{light.color.volumePrice.riseWithout}" },
-      "fallWith": { "$type": "color", "$value": "{light.color.volumePrice.fallWith}" },
-      "fallWithout": { "$type": "color", "$value": "{light.color.volumePrice.fallWithout}" }
-    },
     "structure": {
       "hh": { "$type": "color", "$value": "{light.color.structure.hh}" },
       "hl": { "$type": "color", "$value": "{light.color.structure.hl}" },

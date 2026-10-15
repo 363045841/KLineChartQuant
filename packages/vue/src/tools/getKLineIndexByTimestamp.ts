@@ -16,15 +16,6 @@ function binarySearch(
   return { low, high }
 }
 
-export function getKLineIndexByTimestamp(
-  data: ReadonlyArray<KLineData>,
-  timestamp: number,
-): number | null {
-  if (data.length === 0) return null
-  const { low, high } = binarySearch(data, timestamp)
-  return low === high ? low : null
-}
-
 export function findNearestKLineIndex(
   data: ReadonlyArray<KLineData>,
   timestamp: number,

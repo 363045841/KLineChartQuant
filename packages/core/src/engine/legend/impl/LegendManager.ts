@@ -89,14 +89,10 @@ export class LegendManager implements LegendApi {
 
   /** 启用领域指标并回读其稳定图例 ID。 */
   private createIndicator(input: Extract<CreateLegendInput, { kind: 'indicator' }>): string | null {
-    const created = this.deps.indicators.add(input.definitionId, input.role, input.params)
+    const created = this.deps.indicators.add(input.definitionId, input.params)
     if (!created) return null
     const entry = this.list().find(
-      (item) =>
-        item.kind === 'indicator' &&
-        (input.role === 'main'
-          ? item.paneId === MAIN_PANE_ID && item.definitionId === created
-          : item.id === created),
+      (item) => item.kind === 'indicator' && (item.id === created || item.definitionId === created),
     )
     return entry?.id ?? null
   }
@@ -233,7 +229,7 @@ export class LegendManager implements LegendApi {
       : this.deps.panes.replaceContent(entry.paneId, definitionId, {})
   }
 
-  /** 执行图例按钮操作，仅设置和替换返回宿主界面请求。 */
+  /** 执行图例按钮操作，仅设置、替换与编辑脚本返回宿主界面请求。 */
   execute(id: string, action: LegendAction): LegendUiRequest | null {
     const entry = this.get(id)
     if (!entry) return null
@@ -335,6 +331,7 @@ export class LegendManager implements LegendApi {
         indicator: { instanceId: instance.instanceId, definitionId: instance.definitionId },
         hidden: title.hidden,
         loading: title.loading,
+        error: title.error,
         texts: projectIndicatorTexts(title, {
           textPrimary: colors.text.primary,
           textTertiary: colors.text.tertiary,
@@ -378,14 +375,14 @@ export class LegendManager implements LegendApi {
     contexts: ReadonlyArray<RenderContext>,
   ): LegendRow[] {
     const entriesById = new Map(this.list().map((entry) => [entry.id, entry]))
-    const entries = rows.flatMap((row) => {
-      const entry = entriesById.get(row.key)
-      return entry ? [entry] : []
-    })
     const paneOrder = contexts.map((context) => context.pane.id)
+    const isScriptIndicator = this.deps.isScriptIndicator ?? (() => false)
     return rows.map((row) => {
       const entry = entriesById.get(row.key)
-      return { ...row, actions: entry ? projectLegendActions(entry, entries, paneOrder) : [] }
+      return {
+        ...row,
+        actions: entry ? projectLegendActions(entry, paneOrder, isScriptIndicator) : [],
+      }
     })
   }
 

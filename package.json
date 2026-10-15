@@ -60,7 +60,7 @@
     "dev:lan:all": "node scripts/dev.mjs --lan -c all",
     "connector": "node scripts/start-connector.mjs",
     "build": "pnpm build:packages",
-    "build:packages": "pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart-agent-runtime build && pnpm --filter @363045841yyt/klinechart build",
+    "build:packages": "pnpm --filter @363045841yyt/klinechart-plot-contracts build && pnpm --filter @363045841yyt/klinechart-script build && pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart-script-chart build && pnpm --filter @363045841yyt/klinechart-agent-runtime build && pnpm --filter @363045841yyt/klinechart build",
     "build:demo": "vite build --config packages/vue/preview/vite.config.ts",
     "preview": "pnpm --filter @363045841yyt/klinechart preview",
     "preview:demo": "vite preview --config packages/vue/preview/vite.config.ts",
@@ -79,6 +79,7 @@
     "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
     "lint:types": "node scripts/lint-types.mjs",
     "lint": "biome check .",
+    "script:run": "tsx scripts/run-script.mts",
     "lint:ui": "stylelint \"packages/vue/src/**/*.{vue,css}\"",
     "lint:ui:prune": "stylelint \"packages/vue/src/**/*.{vue,css}\" --suppress",
     "lint:fix": "biome check --write .",
@@ -97,7 +98,7 @@
     "@vitest/coverage-v8": "^5.0.3",
     "@vue/test-utils": "^2.5.1",
     "@vue/tsconfig": "^0.9.1",
-    "jsdom": "^30.1.0",
+    "jsdom": "^30.1.2",
     "markdown-it": "^15.0.2",
     "npm-run-all2": "^8.0.4",
     "pdf-lib": "^1.17.1",
@@ -114,7 +115,7 @@
     "vite-plugin-babel": "^1.7.3",
     "vite-plugin-dts": "^5.0.3",
     "vite-plugin-vue-devtools": "^8.2.1",
-    "vitest": "^5.0.3",
-    "vue-tsc": "^3.3.12"
+    "vitest": "^5.0.4",
+    "vue-tsc": "^3.3.13"
   }
 }

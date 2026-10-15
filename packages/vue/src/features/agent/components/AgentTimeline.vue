@@ -92,10 +92,10 @@
   import type { EditMessageAction } from '../message-edit/types.js'
   import AgentErrorNotice from './AgentErrorNotice.vue'
   import AgentMessageItem from './AgentMessageItem.vue'
+  import AgentRunStatus from './AgentRunStatus.vue'
   import ConfirmationCard from './ConfirmationCard.vue'
   import QuestionCard from './QuestionCard.vue'
   import ToolCallCard from './ToolCallCard.vue'
-  import AgentRunStatus from './AgentRunStatus.vue'
 
   type TimelineEntry =
     | { kind: 'message'; id: string; at: number; message: AgentMessageView }

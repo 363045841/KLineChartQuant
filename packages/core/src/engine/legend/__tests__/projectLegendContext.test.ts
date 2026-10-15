@@ -86,6 +86,37 @@ describe('projectLegendContext timeshare baseline', () => {
 })
 
 describe('projectLegendContext indicator rows', () => {
+  it('计算错误时保留主图指标名称和参数，不调用正常数值标题生成器', () => {
+    const title = vi.spyOn(getRegisteredIndicatorDefinition('ma')!, 'getTitleInfo')
+    const context = createMockRenderContext({
+      data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
+      indicatorStateReader: createMockStateReader('main:MA', {
+        kind: 'error',
+        error: { message: 'invalid plot' },
+      }),
+    })
+    const result = projectLegendContext({
+      context,
+      host: createMockIndicatorInstanceHost([
+        {
+          instanceId: 'main:MA',
+          definitionId: 'MA',
+          paneId: 'main',
+          hidden: false,
+          params: { n: 0 },
+        },
+      ]),
+      yPaddingPx: 0,
+    })
+    expect(result?.indicators[0]).toMatchObject({
+      instanceId: 'main:MA',
+      name: 'MA',
+      params: [0],
+      error: 'invalid plot',
+      loading: false,
+    })
+    expect(title).not.toHaveBeenCalled()
+  })
   it('uses the view-projected indicator IDs instead of evaluating view support while drawing', () => {
     // 图例通过实例清单服务枚举主图实例，metadata 从静态定义注册表获取
     vi.spyOn(getRegisteredIndicatorDefinition('ma')!, 'getTitleInfo').mockReturnValue({

@@ -4,12 +4,11 @@ import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.
 import type { KLineData } from '@/foundation/types/price.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcVolumeProfileData } from '../../indicators/calculators/index.js'
+import { composeVolumeProfileState } from '../../indicators/customStateComposers.js'
 import { Indicator } from '../../indicators/indicatorDecorator.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState.js'
-import { EMPTY_VOLUME_PROFILE_STATE } from '../../indicators/state/volumeProfileState.js'
-import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 const PROFILE_WIDTH_PX = 80
@@ -128,9 +127,7 @@ function getVolumeProfileTitleInfo(
   defaultPaneId: 'sub_VolumeProfile',
   scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
   getTitleInfo: getVolumeProfileTitleInfo,
-  visibleState: {
-    compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE),
-  },
+  customState: { compose: composeVolumeProfileState },
   presentation: { defaultOptions: { showPOC: true, showValueArea: true } },
   runtime: {
     outputAlignment: 'aggregate',

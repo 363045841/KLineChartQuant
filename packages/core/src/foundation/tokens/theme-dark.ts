@@ -214,12 +214,6 @@ export const darkTheme: Theme = {
     lastPriceLabel: {
       bg: 'rgba(60, 50, 55, 0.98)',
     },
-    volumePrice: {
-      riseWith: '#FF6666',
-      riseWithout: '#66FF99',
-      fallWith: '#FF6666',
-      fallWithout: '#66FF99',
-    },
     structure: {
       hh: '#4ade80',
       hl: '#22c55e',

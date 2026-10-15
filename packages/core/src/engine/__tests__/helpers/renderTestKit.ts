@@ -7,14 +7,15 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
-import type { MARenderState } from '@/core/indicators/state/maState'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding'
+import type { PlotRenderState } from '@/engine/plots/types.js'
 import { createAxisLabelsFrame } from '@/engine/renderers/impl/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } from '@/plugin'
@@ -234,8 +235,16 @@ export function createContextWithInstanceState<T>(
   })
 }
 
-/** 构造测试用 MARenderState：默认 100 根、5 个周期，并保留各周期不同的预热窗口。 */
-export function createMARenderState(overrides: Partial<MARenderState> = {}): MARenderState {
+/** 构造 MA 的 Plot 测试数据，保留各周期的预热窗口。 */
+export function createMARenderState(
+  overrides: {
+    series?: Record<number, (number | undefined)[]>
+    enabledPeriods?: number[]
+    timestamp?: number
+    visibleMin?: number
+    visibleMax?: number
+  } = {},
+): PlotRenderState {
   const series: Record<number, (number | undefined)[]> = {
     5: Array.from({ length: DEFAULT_BAR_COUNT }, () => 105),
     10: Array.from({ length: DEFAULT_BAR_COUNT }, () => 110),
@@ -249,12 +258,26 @@ export function createMARenderState(overrides: Partial<MARenderState> = {}): MAR
   for (let i = 0; i < 19; i++) series[20]![i] = undefined
 
   return {
-    timestamp: 1_000_000_000_000,
-    series,
-    enabledPeriods: [5, 10, 20, 30, 60],
-    visibleMin: 105,
-    visibleMax: 160,
-    ...overrides,
+    kind: 'plots',
+    timestamp: overrides.timestamp ?? 1_000_000_000_000,
+    plots: Object.entries(overrides.series ?? series).map(([period, values]) => ({
+      id: `ma${period}`,
+      label: `MA${period}`,
+      kind: 'line',
+      width: 1,
+      dash: [],
+      offset: 0,
+      visible: (overrides.enabledPeriods ?? [5, 10, 20, 30, 60]).includes(Number(period)),
+      color: resolveThemeColors('light').ma.ma5,
+      data: values.map((value) => (value === undefined ? undefined : { value })),
+    })),
+    params: {},
+    fills: [],
+    guides: [],
+    valueMin: 105,
+    valueMax: 160,
+    visibleMin: overrides.visibleMin ?? 105,
+    visibleMax: overrides.visibleMax ?? 160,
   }
 }
 

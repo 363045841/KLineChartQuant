@@ -59,7 +59,7 @@ const unsubscribe = chart.viewport.subscribe(() => {
 
 // Indicator implementations load on demand; the catalog is available synchronously.
 await chart.loadIndicators(['MA'])
-chart.addIndicator('MA', 'main')
+chart.addIndicator('MA')
 chart.zoomIn()
 
 // Call both when the host is removed.
@@ -158,7 +158,7 @@ Use `data` for immediately available K-line data. Use `symbols` to drive the reg
 `chart.legend` manages indicator, comparison and custom legend entries. Creation returns a stable legend ID used by subsequent queries and mutations.
 
 ```typescript
-const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA', role: 'main' })
+const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA' })
 if (id) {
   chart.legend.update(id, { hidden: true })
   chart.legend.get(id)
@@ -211,7 +211,7 @@ When Core owns the default DOM scaffold, its interaction bindings are installed 
 
 ```typescript
 await chart.loadIndicators(['MACD', 'RSI'])
-const id = chart.addIndicator('MACD', 'sub', { fast: 12, slow: 26, signal: 9 })
+const id = chart.addIndicator('MACD', { fast: 12, slow: 26, signal: 9 })
 if (id) chart.updateIndicatorParams(id, { fast: 10, slow: 20, signal: 7 })
 
 chart.createSubPane('rsi-pane', 'RSI', { period1: 6, period2: 12, period3: 24 })

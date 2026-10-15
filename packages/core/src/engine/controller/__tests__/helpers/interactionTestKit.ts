@@ -64,11 +64,6 @@ export function createChartStub(args: {
     height: number
     candleHitTest: boolean
   }>
-  markerManager?: {
-    hitTest: (worldX: number, y: number, radius: number) => any
-    setHover: (id: string | null) => void
-    hitTestCustomMarker: (x: number, y: number) => any
-  }
   dataView?: ChartDataView
   /** DOM 坐标为参数的滚动 spy；无论是否提供，kit 内部逻辑滚动量都会同步更新。 */
   scrollTo?: (value: number) => boolean
@@ -110,14 +105,6 @@ export function createChartStub(args: {
       },
     }),
   }))
-
-  const markerManager =
-    args.markerManager ??
-    ({
-      hitTest: () => null,
-      setHover: () => undefined,
-      hitTestCustomMarker: () => null,
-    } as const)
 
   const rightAxisLayer = document.createElement('div') as HTMLDivElement
   // 与生产同源：快照由当前视图策略按 dpr 派生，测试只改 view / data / scroll 输入。
@@ -185,7 +172,6 @@ export function createChartStub(args: {
         },
       },
     },
-    markers: { getManager: () => markerManager },
     getPaneRenderers: () => paneRenderers,
     getData: () => data,
     getRenderData: () => data,

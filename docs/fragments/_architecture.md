@@ -24,7 +24,7 @@ flowchart TB
         Pipe["Rendering Pipeline<br/>FrameTransaction · Scene/Layer"]
         GPU["WebGPU / WebGL2 / Canvas2D"]
         Plugin["Plugin Subsystem<br/>PluginHost · RendererPlugin"]
-        Biz["Indicators · Markers · Drawing<br/>Timeshare · Compare · Components"]
+        Biz["Indicators · Drawing<br/>Timeshare · Compare · Components"]
     end
 
     subgraph conn["Market Data Backends"]
@@ -69,7 +69,7 @@ flowchart TB
 - **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
   multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / THS / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
-  indicators, markers and drawing tools plug in as Scene Layers.
+  indicators and drawing tools plug in as Scene Layers.
 - **React bindings** — `@363045841yyt/klinechart-react`'s `KLineChart` mounts the core directly
   (client-only, no Vue runtime); `KLineChartWC` renders the full-UI `<kline-chart>` Custom Element
   bundled from the Vue package (`@363045841yyt/klinechart/web-component`).

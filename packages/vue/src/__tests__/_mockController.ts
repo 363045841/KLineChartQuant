@@ -330,14 +330,14 @@ export function createMockChartController(
     replacePaneContent: () => false,
     updatePaneContent: () => false,
     clearPanes: () => {},
-    updateCustomMarkers: () => {},
-    clearCustomMarkers: () => {},
     setTooltipSize: () => {},
     setTooltipAnchorPositioning: () => {},
     getIndicatorTitle: () => undefined,
     getContentWidth: () => 0,
     getLeftLoadBufferWidth: () => 0,
     scrollToRight: () => {},
+    scrollByBars: () => {},
+    resetChart: () => {},
     updateSettingsFacade: () => {},
     resetMainPriceAxis: () => {
       resetPriceAxisCalls += 1

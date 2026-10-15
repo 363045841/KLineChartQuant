@@ -5,18 +5,24 @@
  * 每个指标通过 metadata 描述其渲染器工厂、计算描述与展示配置等元信息
  */
 
+import type {
+  IndicatorSource,
+  IndicatorSourceDocument,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartDataView } from '../chartModel/index.js'
-
+import type { IndicatorPlotDefinition } from '../plots/types.js'
 import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorContracts.js'
 
 /** 单个指标的计算参数。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>
 
 export type IndicatorId = string
+/** 指标定义来源，与均线、动量等业务分类独立；由定义契约统一给出。 */
+export type { IndicatorSource }
 
 /** 指标定义身份：系统渲染器或用户可添加的指标。 */
 export const IndicatorKind = Object.freeze({
@@ -129,7 +135,7 @@ export function readIndicatorSeriesEntry<K extends IndicatorStateName>(
   entry: unknown,
   _configKey: K,
 ): IndicatorRenderEntryOf<K>
-/** 读取调用方自行约束结构的条目（泛型 visibleState composer）。 */
+/** 读取调用方自行约束结构的领域输出条目。 */
 export function readIndicatorSeriesEntry<T>(entry: unknown, _configKey: string): T
 export function readIndicatorSeriesEntry(entry: unknown, _configKey: string): unknown {
   return entry
@@ -146,17 +152,11 @@ export type IndicatorRenderStateComposer = (
   timestamp: number,
 ) => unknown
 
-export interface IndicatorVisibleStateComposeContext {
-  /** 已规范化的单个实例结果条目，不是类型结果包。 */
-  entry: unknown
-  visibleRange: IndicatorVisibleRange
-  timestamp: number
-  active: boolean
+/** 领域输出的专用投影和价格范围；普通数值序列使用 Plot。 */
+export interface IndicatorCustomStateDescriptor {
+  compose: IndicatorRenderStateComposer
+  computePriceRange?: IndicatorPriceRangeComputer
 }
-
-export type IndicatorVisibleStateComposer = (
-  context: IndicatorVisibleStateComposeContext,
-) => unknown
 
 /**
  * 标题值项：颜色 + 数值 + 标签
@@ -193,6 +193,18 @@ export type GetTitleInfoFn = (
 ) => TitleInfo | null
 
 /**
+ * 输入参数在面板中的展示声明。
+ *
+ * 只承载展示信息，默认值与类型仍由 runtime.defaultParams 提供，避免两处各存一份默认值。
+ */
+export interface IndicatorInputDef {
+  /** 面板显示名；缺省显示参数名。 */
+  readonly title?: string
+  /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
+  readonly options?: readonly string[]
+}
+
+/**
  * 指标计算描述符
  * 描述每个指标的计算逻辑，供 IndicatorRuntime 驱动
  *
@@ -201,6 +213,8 @@ export type GetTitleInfoFn = (
  * - 自定义运行时指标：无 computeKey，仅主线程 inline 运行
  */
 export interface IndicatorRuntimeDescriptor<C = any> {
+  /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
+  revision?: number
   /** 声明额外行情输入；订阅由数据协调层拥有。 */
   inputs?: readonly 'trades'[]
   /** 每个执行器创建独立的增量 calculator。 */
@@ -215,6 +229,8 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   paneIdKey?: string
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
+  /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
+  inputDefs?: Readonly<Record<string, IndicatorInputDef>>
   /** 计算函数（主线程直接调用，Worker 用 computeKey 桥接） */
   compute: (
     data: KLineData[],
@@ -222,7 +238,7 @@ export interface IndicatorRuntimeDescriptor<C = any> {
     trades?: import('../../data/trades/types.js').TradeSnapshot,
   ) => unknown
   /** Worker 端计算键名，映射到 calculators 模块的导出 */
-  computeKey: string
+  computeKey?: string
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
   outputAlignment?: 'bar' | 'aggregate'
 }
@@ -230,17 +246,16 @@ export interface IndicatorRuntimeDescriptor<C = any> {
 /** 指标展示配置，不进入 Runtime、Worker 或业务结果池。 */
 export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unknown>>> {
   readonly defaultOptions: O
-  /** 从完整计算结果中选择当前需要投影的字段，计算结果本身保持不变。 */
-  readonly selectSeriesKeys?: (
-    params: Readonly<Record<string, unknown>>,
-    options: O,
-  ) => ReadonlyArray<string>
 }
 
 /**
  * 指标元数据接口
  */
 export interface IndicatorMetadata<T = unknown> {
+  source?: IndicatorSource
+  document?: IndicatorSourceDocument
+  /** 普通指标统一声明 Plot；专用输出使用自己的 composer。 */
+  plots?: IndicatorPlotDefinition
   /**
    * 指标唯一标识
    * 如：'ma', 'boll', 'rsi', 'customIndicator'
@@ -328,8 +343,6 @@ export interface IndicatorMetadata<T = unknown> {
       params: Record<string, unknown>,
       active: boolean,
     ) => Record<string, unknown> | null
-    computePriceRange?: IndicatorPriceRangeComputer
-    composeRenderState?: IndicatorRenderStateComposer
   }
 
   /** 不创建 renderer 实例地解析其 plugin 名称。 */
@@ -338,9 +351,7 @@ export interface IndicatorMetadata<T = unknown> {
   /** 不创建 renderer 实例地解析副图坐标轴 plugin 名称；无坐标轴时返回 null。 */
   getScaleRendererName: IndicatorAuxiliaryRendererNameResolver
 
-  visibleState?: {
-    compose: IndicatorVisibleStateComposer
-  }
+  customState?: IndicatorCustomStateDescriptor
 
   /**
    * 计算描述符（可选）

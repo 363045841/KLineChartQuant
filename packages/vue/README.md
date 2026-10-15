@@ -45,7 +45,6 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 - **Agent Native** - The chart core exposes its capabilities as `@Tool`-decorated domain primitives, and the Agent calls the same primitives as the UI. Tools are a subset of actions: one shared state, one execution path, no bridge layer
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
-- **Custom Markers** - Supports semantic configuration of custom markers and custom information
 - **High Performance** - Smoothly handles tens of thousands of data points, no lag during zoom or pan; supports **190-200fps on 200Hz displays** with single-frame generation time as low as **2ms**
 - **Multi-Backend Rendering** - Submit drawing primitives once, render via **WebGPU**, **WebGL**, or **Canvas2D**. WebGPU provides hybrid DOM canvas (no `compositeTo` copy), single-command-buffer-per-frame submission with 4x MSAA, and per-instance geometry caching via ResourceTable. Automatic fallback chain: WebGPU → WebGL → Canvas2D. Reaching **190fps on 200Hz displays** with per-frame GPU time under **1ms**
 - **Optimized Interaction** - Stable zoom anchor, precise crosshair cursor, smooth drag
@@ -53,7 +52,7 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 - **Multi-Symbol Comparison** - Supports unlimited number of instruments for trend comparison
 - **Multi-Source Aggregation** - Supports aggregation and unification of multiple data sources
 - **Batch Data Export** - Select a date range and export multiple stocks' K-line data into a single CSV file, with progress indication
-- **Custom Tooltip** - Fully customizable tooltip via named slots (`#kline-tooltip`, `#marker-tooltip`), with engine-provided hover data, position, and styling
+- **Custom Tooltip** - Fully customizable tooltip via the `#kline-tooltip` slot, with engine-provided hover data, position, and styling
 
 
 ## ⚡ Performance
@@ -201,7 +200,6 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
   const chartSettings: ChartSettings = {
     showGridLines: true,
     isAsiaMarket: true,
-    showVolumePriceMarkers: false,
     mainLeftAxisDisplaySetting: 'none',
     theme: 'dark',
     colorPresetSettings: {
@@ -327,7 +325,7 @@ resolved chart theme. They stay outside the draggable, scrolling chart controls.
 
 ## 🎨 Custom Tooltip
 
-`KlineChart` exposes `#kline-tooltip` and `#marker-tooltip` slots for custom tooltip rendering. When a slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
+`KlineChart` exposes the `#kline-tooltip` slot for custom tooltip rendering. When the slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
 
 Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'`, a custom `#kline-tooltip` is also draggable; double-click resets. With `tooltipPosition === 'none'` (default), the data tooltip is hidden entirely.
 
@@ -385,12 +383,6 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
   .custom-tooltip__detail { opacity: 0.7; }
 </style>
 ```
-
-### `#marker-tooltip`
-
-| Slot Prop              | Type                                                            | Description                     |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------- |
-| `marker`               | `MarkerEntity \| CustomMarkerEntity \| null`                    | Hovered marker data             |
 
 ## 📖 More Documentation
 

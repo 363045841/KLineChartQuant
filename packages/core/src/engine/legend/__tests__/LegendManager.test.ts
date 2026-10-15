@@ -61,11 +61,11 @@ describe('LegendManager', () => {
     expect(chart.legend.context.peek()).toBeNull()
     expect(chart.legend.rows.peek()).toEqual([])
     expect(chart.legend.list()).toEqual([])
-    expect(chart.legend.create({ kind: 'indicator', definitionId: 'MA', role: 'main' })).toBeNull()
+    expect(chart.legend.create({ kind: 'indicator', definitionId: 'MA' })).toBeNull()
   })
   it('CRUD 使用同一个主图实例身份，并在删除后移除领域内容', () => {
     chart.indicators.clearMain()
-    const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA', role: 'main' })
+    const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA' })
     expect(id).toBe('main:MA')
     expect(chart.legend.get(id!)).toMatchObject({ kind: 'indicator', definitionId: 'MA' })
     expect(chart.legend.update(id!, { params: { period1: 7 }, hidden: true })).toBe(true)
@@ -81,8 +81,8 @@ describe('LegendManager', () => {
   })
 
   it('副图图例替换、移动和删除委托同一个 Pane 领域', () => {
-    const first = chart.legend.create({ kind: 'indicator', definitionId: 'RSI', role: 'sub' })!
-    const second = chart.legend.create({ kind: 'indicator', definitionId: 'MACD', role: 'sub' })!
+    const first = chart.legend.create({ kind: 'indicator', definitionId: 'RSI' })!
+    const second = chart.legend.create({ kind: 'indicator', definitionId: 'MACD' })!
     const paneId = chart.legend.get(first)!.paneId
     expect(chart.legend.move(second, 'up')).toBe(true)
     expect(
@@ -173,7 +173,7 @@ describe('LegendManager', () => {
   it('DOM 直接执行 Core 操作，只把界面请求交给宿主', () => {
     loadData()
     chart.indicators.clearMain()
-    const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA', role: 'main' })!
+    const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA' })!
     frames.flush()
     const requests: LegendUiRequest[] = []
     host.addEventListener(LEGEND_UI_EVENT, (event) => {
@@ -185,15 +185,15 @@ describe('LegendManager', () => {
         .peek()
         .find((row) => row.key === id)
         ?.actions.map((button) => button.action),
-    ).toEqual(['move-up', 'move-down', 'replace', 'toggle-visibility', 'settings', 'close'])
-    element.querySelectorAll<HTMLButtonElement>('button')[3]!.click()
+    ).toEqual(['settings', 'replace', 'toggle-visibility', 'close'])
+    element.querySelectorAll<HTMLButtonElement>('button')[2]!.click()
     expect(chart.legend.get(id)).toMatchObject({ hidden: true })
     expect(requests).toEqual([])
-    element.querySelectorAll<HTMLButtonElement>('button')[4]!.click()
+    element.querySelectorAll<HTMLButtonElement>('button')[0]!.click()
     expect(requests).toEqual([
       { action: 'settings', id, paneId: 'main', definitionId: 'MA', role: 'main' },
     ])
-    element.querySelectorAll<HTMLButtonElement>('button')[5]!.click()
+    element.querySelectorAll<HTMLButtonElement>('button')[3]!.click()
     expect(chart.legend.get(id)).toBeNull()
   })
 })

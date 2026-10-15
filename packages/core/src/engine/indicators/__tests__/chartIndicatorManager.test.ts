@@ -1,23 +1,121 @@
 /**
  * ChartIndicatorManager 测试：实例 CRUD、主图增删改、副图 pane 联动、读者寻址与主图价格范围。
  */
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type { FootprintRenderState } from '../../../components/footprint/types'
 import { createTradeBuffer } from '../../../data/trades/impl/tradeBuffer'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
-import { createKLineData } from '../../__tests__/helpers/renderTestKit'
+import {
+  createContextWithInstanceState,
+  createKLineData,
+  createMockCanvasContext,
+} from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
+import { plotRenderer } from '../../plots/impl/plotDefinition.js'
+import { paintPlots } from '../../plots/impl/plotRenderer.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
+import { Indicator } from '../indicatorDecorator.js'
+import {
+  getRegisteredIndicatorDefinitions,
+  registerIndicatorDefinition,
+} from '../indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../indicatorMetadata.js'
+import { createInstanceCalculationDefinitions } from '../instances/assembly/instanceDefinitionCatalog.js'
+import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
+import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime.js'
+import type { InstanceWorkerRequest } from '../instances/worker/instanceWorkerProtocol.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
+import { registerPlotIndicator, updatePlotIndicator } from '../registerPlotIndicator.js'
 import type { VolumeRenderState } from '../stateComposer'
 import { createTestData } from './helpers/instanceTestKit'
 
+/**
+ * 用引擎自身能力注册一个产出 Plot 的外部指标，等价于脚本适配层做的事：
+ * 外部来源只提供 Plot 数据，渲染交给引擎。
+ */
+function registerExternalPlotIndicator(config: {
+  name: string
+  category: 'main' | 'sub'
+  compute: (data: KLineData[], params: IndicatorParameters) => PlotCollection
+}): void {
+  const paneId = config.category === 'main' ? 'main' : `sub_${config.name}`
+  const decorate = Indicator({
+    name: config.name,
+    displayName: config.name,
+    kind: IndicatorKind.Indicator,
+    category: config.category,
+    indicatorType: 'other',
+    defaultPaneId: paneId,
+    allowMainPane: config.category === 'main',
+    mainPane:
+      config.category === 'main'
+        ? { toActiveConfig: (params, active) => (active ? params : null) }
+        : undefined,
+    plots: { source: 'collection', series: [] },
+    runtime: { defaultParams: { factor: 1 }, compute: config.compute },
+  })
+  class ExternalPlotDefinition {
+    static rendererFactory = plotRenderer(config.name, paneId)
+  }
+  decorate(ExternalPlotDefinition)
+  registerIndicatorDefinition(ExternalPlotDefinition)
+}
+
+/** 读取数字参数；缺省或类型不符时回落到 1。 */
+function numberOf(params: IndicatorParameters, key: string): number {
+  const value = params[key]
+  return typeof value === 'number' ? value : 1
+}
+
 beforeAll(async () => {
   await loadBuiltinIndicators()
+  registerExternalPlotIndicator({
+    name: 'PlotClose',
+    category: 'main',
+    compute: (data, params) => ({
+      plots: [
+        {
+          kind: 'line',
+          id: 'close',
+          label: 'CLOSE',
+          data: data.map((bar) => ({ value: bar.close * numberOf(params, 'factor') })),
+          color: 'red',
+          visible: true,
+          offset: 0,
+          width: 1,
+          dash: [],
+        },
+      ],
+      fills: [],
+    }),
+  })
+  registerExternalPlotIndicator({
+    name: 'PlotVolume',
+    category: 'sub',
+    compute: (data) => ({
+      plots: [
+        {
+          kind: 'histogram',
+          id: 'volume',
+          label: 'VOLUME',
+          data: data.map((bar) => ({ value: bar.volume ?? 0 })),
+          color: 'blue',
+          visible: true,
+          offset: 0,
+          baseline: 0,
+        },
+      ],
+      fills: [],
+    }),
+  })
 })
 
 /** 构造满足 IndicatorDependencies 的最小依赖，并暴露可断言的 renderer 记录。 */
@@ -36,6 +134,7 @@ function createMockDeps() {
   }
 
   const deps = {
+    plotColors$: createSignal(resolveThemeColors('light', false)),
     getOption: () => ({
       yPaddingPx: 4,
       rightAxisWidth: 60,
@@ -70,6 +169,133 @@ function createMockDeps() {
 }
 
 describe('ChartIndicatorManager', () => {
+  it('Worker 可用时，外部 Plot 指标和内置指标分别执行并统一提交', async () => {
+    const requests: InstanceWorkerRequest[] = []
+    class TestWorker {
+      onmessage: ((event: { data: unknown }) => void) | null = null
+      onerror = null
+      private runtime = new IndicatorInstanceExecutionRuntime(
+        createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
+      )
+      postMessage(message: InstanceWorkerRequest) {
+        requests.push(message)
+        if (message.type === 'init')
+          queueMicrotask(() =>
+            this.onmessage?.({ data: { type: 'ready', protocolVersion: message.protocolVersion } }),
+          )
+        if (message.type === 'setData') this.runtime.setData(message.data, message.dataRevision)
+        if (message.type === 'execute') {
+          const outputs = this.runtime.execute(message.plan)
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: {
+                type: 'result',
+                requestId: message.requestId,
+                dataRevision: message.dataRevision,
+                calculationRevision: message.plan.calculationRevision,
+                outputs,
+                metrics: { computeMs: 0, taskCount: outputs.length },
+              },
+            }),
+          )
+        }
+      }
+      terminate() {}
+    }
+    manager.destroy()
+    vi.stubGlobal('Worker', TestWorker)
+    try {
+      manager = new ChartIndicatorManager(deps)
+      manager.start()
+      manager.enableMainIndicator('PlotClose')
+      manager.enableMainIndicator('BOLL')
+      manager.updateIndicatorData(createTestData(30), { start: 20, end: 30 })
+      await vi.waitFor(() => {
+        expect(manager.createRenderStateReader().get('main:PlotClose')).toBeDefined()
+        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+      })
+      const executions = requests.filter((request) => request.type === 'execute')
+      expect(executions.length).toBeGreaterThan(0)
+      expect(
+        executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
+      ).toContain('boll')
+      expect(
+        executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
+      ).not.toContain('PlotClose')
+    } finally {
+      manager.destroy()
+      vi.unstubAllGlobals()
+    }
+  })
+  it('外部 Plot 副图使用柱状模型及零基准范围', async () => {
+    const instance = manager.addIndicator('PlotVolume')
+    expect(instance).not.toBeNull()
+    const data = createTestData(5)
+    manager.updateIndicatorData(data, { start: 0, end: 5 })
+    await vi.waitFor(() => expect(manager.createRenderStateReader().get(instance!)).toBeDefined())
+    const state = manager.createRenderStateReader().get<PlotRenderState>(instance!)!
+    expect(state.plots[0]).toMatchObject({ kind: 'histogram', baseline: 0 })
+    expect(state.visibleMin).toBe(0)
+    expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
+  })
+  it('已有脚本定义更新后原实例立即重算，同一行情和参数不复用旧结果', async () => {
+    /** 测试脚本产物使用正式中立 Plot 注册入口。 */
+    const definition = (factor: number): IndicatorDefinition<Record<string, never>> => ({
+      name: 'EditablePlotScript',
+      source: 'script',
+      inputs: {},
+      compute: (bars: readonly { close: number }[]): PlotCollection => ({
+        plots: [
+          {
+            kind: 'line',
+            id: 'close',
+            label: 'close',
+            color: 'red',
+            visible: true,
+            offset: 0,
+            width: 1,
+            dash: [],
+            data: bars.map((bar) => ({ value: bar.close * factor })),
+          },
+        ],
+        fills: [],
+      }),
+    })
+    registerPlotIndicator(definition(1))
+    const id = manager.addIndicator('EditablePlotScript')
+    expect(id).not.toBeNull()
+    const data = createTestData(3)
+    manager.updateIndicatorData(data, { start: 0, end: 3 })
+    const read = () => manager.createRenderStateReader().get<PlotRenderState>(id ?? '')
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]?.close))
+    expect(() => updatePlotIndicator(definition(2))).not.toThrow()
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 2))
+    updatePlotIndicator(definition(3))
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 3))
+  })
+  it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
+    manager.enableMainIndicator('PlotClose')
+    const data = createTestData(5)
+    manager.updateIndicatorData(data, { start: 0, end: 5 })
+    const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:PlotClose')
+    await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(5))
+    const state = read()!
+    expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.close)
+    const ctx = createMockCanvasContext()
+    paintPlots(
+      state,
+      createContextWithInstanceState(ctx, 'main:PlotClose', state, {
+        range: { start: 0, end: 5 },
+      }),
+    )
+    expect(ctx.stroke).toHaveBeenCalled()
+    manager.updateMainIndicatorParams('PlotClose', { factor: 2 })
+    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]!.close * 2))
+    manager.updateIndicatorData(data.slice(0, 3), { start: 0, end: 3 })
+    await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(3))
+    manager.disableMainIndicator('PlotClose')
+    expect(read()).toBeUndefined()
+  })
   let manager: ChartIndicatorManager
   let harness: ReturnType<typeof createMockDeps>
   let deps: IndicatorDependencies
@@ -228,7 +454,7 @@ describe('ChartIndicatorManager', () => {
 
   describe('副图实例 CRUD', () => {
     it('为副图指标生成独立实例身份并支持增改删', () => {
-      const instanceId = manager.addIndicator('VOL', 'sub')
+      const instanceId = manager.addIndicator('VOL')
       expect(instanceId).not.toBeNull()
 
       const entry = manager.getSubPaneEntries()[0]!
@@ -268,7 +494,7 @@ describe('ChartIndicatorManager', () => {
     })
 
     it('隐藏副图指标只保留 pane 与实例，不删除副图', () => {
-      const instanceId = manager.addIndicator('VOL', 'sub')
+      const instanceId = manager.addIndicator('VOL')
       expect(instanceId).not.toBeNull()
       const paneId = manager.getSubPaneEntries()[0]!.paneId
 
@@ -287,8 +513,8 @@ describe('ChartIndicatorManager', () => {
 
   describe('实例结果投影', () => {
     it.each([false, true])('VOL 使用分时帧行情，已有 K 线计算结果：%s', async (hasResults) => {
-      const instanceId = manager.addIndicator('VOL', 'sub')!
-      const otherId = manager.addIndicator('OBV', 'sub')!
+      const instanceId = manager.addIndicator('VOL')!
+      const otherId = manager.addIndicator('OBV')!
       if (hasResults) {
         manager.enableMainIndicator('MA')
         const calculationData = createTestData(80)
@@ -389,6 +615,25 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('生命周期', () => {
+    it('滚动只更新 Plot 范围，主题变化只重建绘图投影', async () => {
+      manager.enableMainIndicator('BOLL')
+      const data = createTestData(80)
+      manager.updateIndicatorData(data, { start: 20, end: 40 })
+      await vi.waitFor(() =>
+        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined(),
+      )
+      const initial = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      manager.updateVisibleRangeForFrame({ start: 40, end: 60 })
+      const scrolled = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      expect(scrolled.plots).toBe(initial.plots)
+      expect(scrolled.visibleMin).not.toBe(initial.visibleMin)
+      const dark = resolveThemeColors('dark', false)
+      harness.deps.plotColors$.set(dark)
+      const themed = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      expect(themed.plots[0]?.color).toBe(dark.boll.upper)
+      expect(themed.visibleMin).toBe(scrolled.visibleMin)
+    })
+
     it('销毁后停止状态投影', () => {
       manager.destroy()
       vi.clearAllMocks()

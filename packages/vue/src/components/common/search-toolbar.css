@@ -1,0 +1,11 @@
+/* 模态搜索栏：指标选择、行情数据源、品种选择弹窗共用的贴边搜索条。 */
+.selector-toolbar,
+.source-toolbar,
+.symbol-popover__search {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  border-top: 1px solid var(--klc-color-ui-border);
+  border-bottom: 1px solid var(--klc-color-ui-border);
+  background: var(--klc-color-ui-surface);
+}

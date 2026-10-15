@@ -63,7 +63,6 @@ export type { ColorPickerProps } from './components/color-picker/types.js'
 export type {
   KlineTooltipSlotProps,
   LegendSlotProps,
-  MarkerTooltipSlotProps,
 } from './components/index.js'
 export {
   DrawingStyleToolbar,
@@ -72,8 +71,11 @@ export {
   KLineTooltip,
   KlineChart,
   LeftToolbar,
-  MarkerTooltip,
 } from './components/index.js'
+export {
+  SCRIPT_SOURCE_STORE_KEY,
+  type ScriptSourceStore,
+} from './composables/chart/scriptEditor/types.js'
 export {
   MARKET_DATA_CONTEXT_KEY,
   provideMarketDataContext,
@@ -335,7 +337,7 @@ export function useIndicatorSelector(controller: ChartController): {
     const def = controller.catalog.find((d) => d.id === definitionId)
     if (def === undefined) return null
     await controller.loadIndicators([definitionId])
-    return controller.addIndicator(definitionId, def.role)
+    return controller.addIndicator(definitionId)
   }
 
   function remove(instanceId: string): boolean {

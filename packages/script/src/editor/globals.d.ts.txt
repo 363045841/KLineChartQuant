@@ -1,0 +1,38 @@
+/** 脚本虚拟程序专用声明资源，不参与宿主 TypeScript 程序。 */
+/// <reference path="../quickjs/runtime/plotKind.ts" />
+import type { InputDef, InputOptions } from '@363045841yyt/klinechart-plot-contracts'
+import type { LibraryModules } from '../contracts/library.js'
+import type { TechnicalAnalysisLibrary } from '../Library/types.js'
+import { PaneKind as PaneKindEnum } from '../quickjs/types.js'
+import type { ScriptParamValue } from '../quickjs/types.js'
+import type { Series } from '../series/types.js'
+import type { ScriptIndicatorDeclaration, ScriptPlotOptions } from './types.js'
+
+declare global {
+  /** 编辑器从当前 inputs 推导并合并具体参数。 */
+  interface ScriptParameters {}
+
+  const open: Series
+  const high: Series
+  const low: Series
+  const close: Series
+  const volume: Series
+  const time: Series
+  const ta: TechnicalAnalysisLibrary
+  const params: ScriptParameters
+
+  /** 指标注册位置枚举；取值与宿主 PaneKind 一致，由宿主注入 VM。 */
+  const PaneKind: typeof PaneKindEnum
+
+  /** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */
+  function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T>
+  /** 声明完整指标；onBar 在每根 K 线上执行。 */
+  function defineIndicator(definition: ScriptIndicatorDeclaration): void
+  /** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点。 */
+  function plot(kind: typeof PlotKind.Shape, value: number | boolean, options: ScriptPlotOptions): void
+  function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
+  /** 注册一个库，其成员同时绑定到同名全局对象。 */
+  function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
+  /** 读取已注册的库，内置名称由统一库类型目录提供。 */
+  function importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
+}

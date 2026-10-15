@@ -46,6 +46,16 @@ worker.onmessage = (event: MessageEvent<InstanceWorkerRequest>): void => {
         if (!runtime) throw new TypeError('Runtime not initialized')
         runtime.setData(message.data, message.dataRevision, message.tradesDiff)
         return
+      case 'removeDefinitions':
+        if (!runtime) throw new TypeError('Runtime not initialized')
+        for (const id of message.ids) runtime.removeDefinition(id)
+        return
+      case 'updateDefinitions':
+        if (!runtime) throw new TypeError('Runtime not initialized')
+        for (const descriptor of message.definitions) {
+          runtime.updateDefinition(createDefinition(descriptor))
+        }
+        return
       case 'execute': {
         if (!runtime) throw new TypeError('Runtime not initialized')
         const start = performance.now()

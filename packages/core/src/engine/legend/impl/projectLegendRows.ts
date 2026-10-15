@@ -15,6 +15,7 @@ interface LegendRowMeta {
   comparison?: LegendRow['comparison']
   hidden?: boolean
   loading?: boolean
+  error?: string
 }
 
 type AddRow = (key: string, texts: LegendText[], meta?: LegendRowMeta) => void
@@ -51,6 +52,7 @@ export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: nu
       indicator: { instanceId: title.instanceId, definitionId: title.definitionId },
       hidden: title.hidden,
       loading: title.loading,
+      error: title.error,
     })
   }
   for (const comparison of legend.comparisons) {

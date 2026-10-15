@@ -1,12 +1,11 @@
 /**
- * K 线/标记 tooltip 共用面板样式。
+ * K 线 tooltip 面板样式。
  *
- * DOM 直写的内置 tooltip、`#kline-tooltip` 插槽组件与 MarkerTooltip 共用同一份外观，
+ * DOM 直写的内置 tooltip 与 `#kline-tooltip` 插槽组件共用同一份外观，
  * 组件只保留各自差异（锚点定位、宽度、拖拽态等）。
  */
 
-.kline-tooltip,
-.marker-tooltip {
+.kline-tooltip {
   position: absolute;
   z-index: 10;
   max-width: 260px;
@@ -27,12 +26,7 @@
   user-select: none;
 }
 
-.marker-tooltip {
-  min-width: 180px;
-}
-
-.kline-tooltip__title,
-.marker-tooltip__title {
+.kline-tooltip__title {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -40,15 +34,13 @@
   margin-bottom: 6px;
 }
 
-.kline-tooltip__grid,
-.marker-tooltip__content {
+.kline-tooltip__grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 2px;
 }
 
-.kline-tooltip__grid .row,
-.marker-tooltip__content .row {
+.kline-tooltip__grid .row {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -57,10 +49,6 @@
 .kline-tooltip__grid .row span:first-child {
   color: var(--klc-color-tooltip-text);
   opacity: 0.56;
-}
-
-.marker-tooltip__content .row span:first-child {
-  color: color-mix(in srgb, var(--klc-color-tooltip-text) 70%, transparent);
 }
 
 .kline-tooltip.is-draggable,

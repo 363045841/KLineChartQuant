@@ -3,11 +3,11 @@
 export * from './contract.js'
 export * from './providers/runtime-provider.js'
 export * from './service.js'
+export * from './tool.js'
 export {
-  MAX_STREAM_BYTES,
   applyArtifactPolicy,
   inputFileBytes,
+  MAX_STREAM_BYTES,
   selectChannel,
   truncateStream,
 } from './transport/channel.js'
-export * from './tool.js'

@@ -14,6 +14,19 @@
           <IconTablerMathFunction class="tool-icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
+      <BaseTooltip content="代码编辑器">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="代码编辑器"
+          @click="$emit('openScriptEditor')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerCode class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <span class="left-toolbar__divider"></span>
@@ -204,7 +217,7 @@
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group">
-      <BaseTooltip content="放大">
+      <BaseTooltip content="放大" command="view.zoomIn">
         <button
           type="button"
           class="left-toolbar__button"
@@ -217,7 +230,7 @@
           <IconTablerZoomIn class="tool-icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="缩小">
+      <BaseTooltip content="缩小" command="view.zoomOut">
         <button
           type="button"
           class="left-toolbar__button"
@@ -289,6 +302,7 @@
   import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
   import IconTablerChartLine from '~icons/tabler/chart-line'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
+  import IconTablerCode from '~icons/tabler/code'
   import IconTablerEqual from '~icons/tabler/equal'
   import IconTablerEraser from '~icons/tabler/eraser'
   import IconTablerEye from '~icons/tabler/eye'
@@ -390,6 +404,7 @@
     (e: 'setMagnetMode', mode: MagnetMode): void
     (e: 'setContinuousDrawing', enabled: boolean): void
     (e: 'toggleIndicator'): void
+    (e: 'openScriptEditor'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
     (e: 'clearDrawings'): void

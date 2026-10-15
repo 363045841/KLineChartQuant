@@ -103,14 +103,13 @@ Key design choices:
 - `handlePinchZoom(delta, centerClientX)`
 
 **Indicators:**
-- `addIndicator(definitionId, role, params?)` — add and return instance ID
+- `addIndicator(definitionId, params?)` — add at the definition's declared location and return instance ID
 - `removeIndicator(instanceId)` — remove by ID
 - `updateIndicatorParams(instanceId, params)`
 - `updateRendererConfig(name, config)` — configure renderer
 
-**Drawing / Markers:**
+**Drawing:**
 - `setDrawingTool(tool)`, `clearDrawings()`, `removeDrawing(drawingId)`
-- `updateCustomMarkers(markers)`, `clearCustomMarkers()`
 
 **Layout:**
 - `createSubPane(paneId, indicatorId, params?)`, `clearSubPanes()`

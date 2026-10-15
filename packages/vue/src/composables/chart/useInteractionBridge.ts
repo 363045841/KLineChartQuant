@@ -1,6 +1,6 @@
 /**
  * useInteractionBridge：把 Controller 的 interactionState 桥接到舞台表现与只读 Vue 视图。
- * 负责拖拽/悬停类名、容器光标、外部 K 线 tooltip 与 marker hover 的响应式读取，
+ * 负责拖拽/悬停类名、容器光标与外部 K 线 tooltip 的响应式读取，
  * 并在 controller 更换或组件卸载时显式退订 interactionState。
  */
 import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
@@ -8,12 +8,8 @@ import type {
   ChartController,
   InteractionSnapshot,
 } from '@363045841yyt/klinechart-core/controllers'
-import type {
-  CustomMarkerEntity,
-  MarkerEntity,
-} from '@363045841yyt/klinechart-core/engine/marker/registry'
 import { type Ref, watch } from 'vue'
-import { useControllerSignal, useControllerSignalValue } from './useControllerSignal.js'
+import { useControllerSignal } from './useControllerSignal.js'
 
 /** 交互绑定的依赖；stage/container 等均为组件内唯一实例。 */
 export interface InteractionBridgeOptions {
@@ -27,8 +23,6 @@ export interface InteractionBridgeOptions {
   hasExternalSlot: Ref<boolean>
   /** 图元拖拽会话冻结的光标；非空时优先于通用光标 */
   getDragCursor: () => string | null
-  /** marker 进入悬停时回调，用于重定位 marker tooltip */
-  onMarkerHover: () => void
 }
 
 /**
@@ -91,7 +85,7 @@ function applyStage(
 /**
  * 订阅 interactionState 更新舞台；Vue 消费者直接读取 Core。
  * @param options 交互绑定依赖
- * @returns 外部 tooltip 与 marker hover 的只读响应式视图
+ * @returns 外部 tooltip 的只读响应式视图
  */
 export function useInteractionBridge(options: InteractionBridgeOptions) {
   const externalState = useControllerSignal(
@@ -99,24 +93,10 @@ export function useInteractionBridge(options: InteractionBridgeOptions) {
     (ctrl) => (options.hasExternalSlot.value ? ctrl.interactionState : undefined),
     createIdleInteractionSnapshot,
   )
-  const hoveredMarker = useControllerSignalValue(
-    options.controller,
-    (ctrl) => ctrl.interactionState,
-    (next) => next.hoveredMarkerData,
-    () => null as MarkerEntity | null,
-  )
-  const hoveredCustomMarker = useControllerSignalValue(
-    options.controller,
-    (ctrl) => ctrl.interactionState,
-    (next) => next.hoveredCustomMarker,
-    () => null as CustomMarkerEntity | null,
-  )
 
   /** DOM 副作用不经过 Vue 渲染调度。 */
   function apply(next: InteractionSnapshot): void {
     applyStage(options.stageRef.value, options.containerRef.value, next, options.getDragCursor())
-
-    if (next.hoveredMarkerData || next.hoveredCustomMarker) options.onMarkerHover()
   }
 
   watch(
@@ -129,5 +109,5 @@ export function useInteractionBridge(options: InteractionBridgeOptions) {
     { immediate: true, flush: 'sync' },
   )
 
-  return { externalState, hoveredMarker, hoveredCustomMarker }
+  return { externalState }
 }

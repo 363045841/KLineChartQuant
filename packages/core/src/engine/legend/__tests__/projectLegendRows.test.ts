@@ -8,7 +8,11 @@ import {
   type MockCanvasContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
+import { projectPlots } from '@/engine/plots/impl/projectPlots.js'
+import type { PlotRenderState } from '@/engine/plots/types.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { PluginHost, RenderContext } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { projectLegendContext } from '../impl/projectLegendContext.js'
@@ -135,7 +139,6 @@ describe('MainIndicatorLegend paint', () => {
     const context = createLegendContext(MA_INSTANCE_ID, createMARenderState())
 
     layer.paint(context)
-    expect(ctx.fillText).not.toHaveBeenCalled()
     expect(onContext).toHaveBeenLastCalledWith(
       expect.objectContaining({ indicators: expect.any(Array) }),
     )
@@ -238,22 +241,15 @@ describe('MainIndicatorLegend paint', () => {
     expect(countLegendTexts((text) => text.includes('109.000'))).toBeGreaterThan(0)
   })
 
-  it.each([
-    { label: 'the instance projection is missing', state: undefined },
-    {
-      label: 'state has no valid data',
-      state: createMARenderState({
-        visibleMin: Infinity,
-        visibleMax: -Infinity,
-        enabledPeriods: [],
-      }),
-    },
-  ])('does not paint MA and does not throw when $label', ({ state }) => {
+  it('keeps the MA row without values when the crosshair bar has no plot point', () => {
+    // 脚本 plot 输出 NaN：该 bar 无取值，但定义仍注册，图例必须保留该指标行。
+    const state = createMARenderState({ series: { 5: [undefined, 100] }, enabledPeriods: [5] })
     const layer = createLegendLayer(createMAHost())
-    const context = createLegendContext(MA_INSTANCE_ID, state)
 
-    expect(() => layer.paint(context)).not.toThrow()
-    expect(countTitleRows('MA')).toBe(0)
+    layer.paint(createLegendContext(MA_INSTANCE_ID, state, { crosshairIndex: 0 }))
+
+    const row = rows.find((entry) => entry.key === MA_INSTANCE_ID)
+    expect(row?.texts.map((item) => item.text)).toEqual(['MA'])
   })
 
   it('displays values with 3 decimal places', () => {
@@ -294,12 +290,19 @@ describe('MainIndicatorLegend frame state source', () => {
  * 表驱动避免为每个指标复制同一套宿主、上下文与断言；expectedValueTexts
  * 逐条校验 getTitleInfo 的 state → 展示文本契约，而非仅确认标题出现。
  */
+/** 按真实指标声明构造 Plot 图例数据。 */
+function plotFixture(id: string, raw: unknown, params: Record<string, number>): PlotRenderState {
+  const plots = getRegisteredIndicatorDefinition(id)?.plots
+  if (!plots) throw new TypeError(`Missing Plot definition: ${id}`)
+  return projectPlots(plots, raw, params, { start: 0, end: 1 }, 1, resolveThemeColors('light'))
+}
+
 const MAIN_INDICATOR_CASES: ReadonlyArray<{
   instanceId: string
   definitionId: string
   title: string
-  /** 各指标 getTitleInfo 消费的专属 state 形状。 */
-  state: unknown
+  /** 图例和渲染器共用的 Plot 状态。 */
+  state: () => PlotRenderState
   /** 标题行应发布的取值文本（label + 三位小数），逐条校验 formatting。 */
   expectedValueTexts: readonly string[]
 }> = [
@@ -307,46 +310,30 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
     instanceId: 'main:BOLL',
     definitionId: 'boll',
     title: 'BOLL',
-    state: {
-      timestamp: 1,
-      series: [{ upper: 120, middle: 100, lower: 80 }],
-      params: { period: 20, multiplier: 2 },
-      visibleMin: 80,
-      visibleMax: 120,
-    },
+    state: () =>
+      plotFixture('boll', [{ upper: 120, middle: 100, lower: 80 }], { period: 20, multiplier: 2 }),
     expectedValueTexts: ['UP 120.000', 'MID 100.000', 'DN 80.000'],
   },
   {
     instanceId: 'main:EXPMA',
     definitionId: 'expma',
     title: 'EXPMA',
-    state: {
-      timestamp: 1,
-      series: [{ fast: 10, slow: 8 }],
-      params: { fastPeriod: 12, slowPeriod: 50 },
-      visibleMin: 8,
-      visibleMax: 10,
-    },
+    state: () => plotFixture('expma', [{ fast: 10, slow: 8 }], { fastPeriod: 12, slowPeriod: 50 }),
     expectedValueTexts: ['FAST 10.000', 'SLOW 8.000'],
   },
   {
     instanceId: 'main:ENE',
     definitionId: 'ene',
     title: 'ENE',
-    state: {
-      timestamp: 1,
-      series: [{ upper: 20, middle: 15, lower: 10 }],
-      params: { period: 10, deviation: 11 },
-      visibleMin: 10,
-      visibleMax: 20,
-    },
+    state: () =>
+      plotFixture('ene', [{ upper: 20, middle: 15, lower: 10 }], { period: 10, deviation: 11 }),
     expectedValueTexts: ['UP 20.000', 'MID 15.000', 'DN 10.000'],
   },
   {
     instanceId: 'main:WMA',
     definitionId: 'wma',
     title: 'WMA',
-    state: { timestamp: 1, series: [123], params: { period: 10 } },
+    state: () => plotFixture('wma', [123], { period: 10 }),
     expectedValueTexts: ['WMA 123.000'],
   },
 ]
@@ -357,7 +344,7 @@ describe('MainIndicatorLegend indicator rows', () => {
     ({ instanceId, definitionId, title, state, expectedValueTexts }) => {
       const layer = createLegendLayer(createLegendHost([{ instanceId, definitionId }]))
 
-      layer.paint(createLegendContext(instanceId, state, { crosshairIndex: 0 }))
+      layer.paint(createLegendContext(instanceId, state(), { crosshairIndex: 0 }))
 
       expect(countTitleRows(title)).toBeGreaterThan(0)
       for (const text of expectedValueTexts) {

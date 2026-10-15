@@ -11,12 +11,12 @@ export interface ProviderModelFixture {
 }
 
 /** 浏览器 bridge 用例的默认模型目录。 */
-export const CHART_PROVIDER_MODELS: ReadonlyArray<ProviderModelFixture> = [
+const CHART_PROVIDER_MODELS: ReadonlyArray<ProviderModelFixture> = [
   { id: 'chart-model', name: 'Chart model' },
 ]
 
 /** 构造 OpenAI-compatible 模型目录响应。 */
-export function providerModelCatalogResponse(
+function providerModelCatalogResponse(
   models: ReadonlyArray<ProviderModelFixture>,
 ): Response {
   return new Response(JSON.stringify({ data: models }), {

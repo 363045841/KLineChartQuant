@@ -84,7 +84,6 @@ export type {
   ThemeOverride,
   TypographyTokens,
   UiColors,
-  VolumePriceColors,
   WMSRColors,
   ZIndexTokens,
   ZonesColors,

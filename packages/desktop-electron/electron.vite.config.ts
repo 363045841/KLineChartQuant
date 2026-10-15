@@ -5,6 +5,7 @@ import Icons from 'unplugin-icons/vite'
 import babel from 'vite-plugin-babel'
 
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
+import { createPackageSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -67,6 +68,8 @@ export default defineConfig({
       alias: [
         { find: /^@363045841yyt\/klinechart$/, replacement: vueEntry },
         ...createCoreSourceAliases(coreSrc),
+        ...createPackageSourceAliases(`${root}/packages/script/src`),
+        ...createPackageSourceAliases(`${root}/packages/script-chart/src`),
         {
           find: /^@363045841yyt\/klinechart-agent-runtime\/browser$/,
           replacement: `${root}/packages/agent-runtime/src/browser.ts`,

@@ -255,15 +255,27 @@
         "$description": "足迹图专用红/灰配色：Bid 红、Ask 中性灰，不随涨跌约定翻转。",
         "bid": {
           "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0.8392, 0.2941, 0.2941], "hex": "#d64b4b" }
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8392, 0.2941, 0.2941],
+            "hex": "#d64b4b"
+          }
         },
         "ask": {
           "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0.5725, 0.5725, 0.5725], "hex": "#929292" }
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.5725, 0.5725, 0.5725],
+            "hex": "#929292"
+          }
         },
         "text": {
           "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0.9333, 0.9333, 0.9333], "hex": "#eeeeee" }
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9333, 0.9333, 0.9333],
+            "hex": "#eeeeee"
+          }
         }
       },
       "alertActive": {
@@ -950,24 +962,6 @@
             "hex": "#3C3237"
           },
           "$extensions": { "io.github.363045841.kcq": { "css": "rgba(60, 50, 55, 0.98)" } }
-        }
-      },
-      "volumePrice": {
-        "riseWith": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [1, 0.4, 0.4], "hex": "#FF6666" }
-        },
-        "riseWithout": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0.4, 1, 0.6], "hex": "#66FF99" }
-        },
-        "fallWith": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [1, 0.4, 0.4], "hex": "#FF6666" }
-        },
-        "fallWithout": {
-          "$type": "color",
-          "$value": { "colorSpace": "srgb", "components": [0.4, 1, 0.6], "hex": "#66FF99" }
         }
       },
       "structure": {

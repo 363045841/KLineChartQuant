@@ -42,24 +42,3 @@ export interface StructureRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-const DEFAULT_STRUCTURE_LEFT = 2
-const DEFAULT_STRUCTURE_RIGHT = 2
-
-export const EMPTY_STRUCTURE_STATE: StructureRenderState = {
-  timestamp: 0,
-  series: { swings: [], events: [], trend: 'range' },
-  params: {
-    leftWindow: DEFAULT_STRUCTURE_LEFT,
-    rightWindow: DEFAULT_STRUCTURE_RIGHT,
-    breakoutSource: 'close',
-    showSwingLabels: true,
-    showBOS: true,
-    showCHOCH: true,
-    showProvisional: false,
-  },
-  valueMin: 0,
-  valueMax: 1,
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

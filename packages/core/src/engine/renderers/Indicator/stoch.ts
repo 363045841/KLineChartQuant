@@ -1,292 +1,10 @@
-import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import type { ColorTokens } from '@/foundation/tokens/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { KLineData } from '@/foundation/types/price.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { ChartDataViewId } from '../../chartModel/index.js'
-import { calcSTOCHData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { STOCHRenderState } from '../../indicators/state/stochState.js'
-import { EMPTY_STOCH_STATE } from '../../indicators/state/stochState.js'
-import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+/** KDJ 的三条 Plot 声明。 */
+import { ChartDataViewId } from '@/engine/chartModel/index.js'
+import { calcSTOCHData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 import { createStochScaleLayer } from './scale/stoch_scale.js'
-import { createDashedLineRenderer } from './shared/dashedLines.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-type LinePoint = { x: number; y: number }
-
-interface STOCHRendererOptions {
-  /** 目标 pane ID（默认 'sub'） */
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-}
-
-/**
- * 创建 KDJ 渲染器插件
- */
-function createSTOCHLayer(options: STOCHRendererOptions = {}): Layer<RenderContext> {
-  const { paneId = 'sub', instanceId } = options
-  // 线条点缓存
-  let cachedKey = ''
-  let cachedKPoints: LinePoint[] = []
-  let cachedDPoints: LinePoint[] = []
-  let cachedJPoints: LinePoint[] = []
-
-  // 离屏 Canvas 缓存虚线背景线 (80/20)
-  const dashedLines = createDashedLineRenderer()
-
-  function clearLineCache() {
-    cachedKey = ''
-    cachedKPoints = []
-    cachedDPoints = []
-    cachedJPoints = []
-  }
-
-  function buildSTOCHCacheKey(
-    range: { start: number; end: number },
-    kLineCenters: number[],
-    pane: RenderContext['pane'],
-    params: STOCHRenderState['params'],
-    stateTimestamp: number,
-  ): string {
-    const dr = pane.yAxis.getDisplayRange()
-    return [
-      stateTimestamp,
-      range.start,
-      range.end,
-      kLineCenters.length,
-      kLineCenters[0]?.toFixed(2) ?? 'n',
-      kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
-      dr.maxPrice.toFixed(6),
-      dr.minPrice.toFixed(6),
-      pane.yAxis.getScaleType(),
-      pane.height.toFixed(2),
-      params.showK,
-      params.showD,
-      params.showJ,
-      params.n,
-      params.m,
-    ].join('|')
-  }
-
-  return createIndicatorRendererLayer({
-    definitionId: 'stoch',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<STOCHRenderState>(instanceId)
-      if (!state || state.visibleMin > state.visibleMax) {
-        clearLineCache()
-        return
-      }
-
-      const { params, series } = state
-
-      const displayRange = pane.yAxis.getDisplayRange()
-      const displayMin = displayRange.minPrice
-      const displayMax = displayRange.maxPrice
-      const displayValueRange = displayMax - displayMin || 1
-
-      const paneWidth = context.paneWidth
-      const paneHeight = pane.height
-      dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors.kdj.guide)
-
-      // 确定绘制范围
-      const drawStart = Math.max(range.start, params.n + params.m - 2)
-      const drawEnd = Math.min(range.end, series.length)
-
-      // 更新线条缓存
-      const cacheKey = buildSTOCHCacheKey(range, kLineCenters, pane, params, state.timestamp)
-      if (cachedKey !== cacheKey) {
-        cachedKey = cacheKey
-
-        const paneH = paneHeight
-        const invRange = paneH / displayValueRange
-        const rangeStart = range.start
-
-        if (params.showK) {
-          const points: LinePoint[] = []
-          for (let i = drawStart; i < drawEnd; i++) {
-            const point = series[i]
-            if (!point) continue
-
-            const centerX = kLineCenters[i - rangeStart]
-            if (centerX === undefined) continue
-
-            points.push({ x: centerX, y: paneH - (point.k - displayMin) * invRange })
-          }
-          cachedKPoints = points
-        } else {
-          cachedKPoints = []
-        }
-
-        if (params.showD) {
-          const points: LinePoint[] = []
-          for (let i = drawStart; i < drawEnd; i++) {
-            const point = series[i]
-            if (!point) continue
-
-            const centerX = kLineCenters[i - rangeStart]
-            if (centerX === undefined) continue
-
-            points.push({ x: centerX, y: paneH - (point.d - displayMin) * invRange })
-          }
-          cachedDPoints = points
-        } else {
-          cachedDPoints = []
-        }
-
-        if (params.showJ) {
-          const points: LinePoint[] = []
-          for (let i = drawStart; i < drawEnd; i++) {
-            const point = series[i]
-            if (!point) continue
-
-            const centerX = kLineCenters[i - rangeStart]
-            if (centerX === undefined) continue
-
-            points.push({ x: centerX, y: paneH - (point.j - displayMin) * invRange })
-          }
-          cachedJPoints = points
-        } else {
-          cachedJPoints = []
-        }
-      }
-
-      // 绘制 KDJ 三线（WebGL 优先，Canvas2D 回退）
-      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-      if (params.showK && cachedKPoints.length >= 2) {
-        lines.push({ points: cachedKPoints, width: 1, color: colors.kdj.k })
-      }
-      if (params.showD && cachedDPoints.length >= 2) {
-        lines.push({ points: cachedDPoints, width: 1, color: colors.kdj.d })
-      }
-      if (params.showJ && cachedJPoints.length >= 2) {
-        lines.push({ points: cachedJPoints, width: 1, color: colors.kdj.j })
-      }
-      if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
-        drawSTOCHLinesWithCanvas2D(
-          ctx,
-          scrollLeft,
-          cachedKPoints,
-          cachedDPoints,
-          cachedJPoints,
-          params,
-          colors,
-        )
-      }
-    },
-  })
-}
-
-/**
- * 使用 Canvas 2D 绘制 KDJ 线（WebGL 回退）
- */
-function drawSTOCHLinesWithCanvas2D(
-  ctx: CanvasRenderingContext2D,
-  scrollLeft: number,
-  kPoints: LinePoint[],
-  dPoints: LinePoint[],
-  jPoints: LinePoint[],
-  params: { showK: boolean; showD: boolean; showJ: boolean },
-  colors: { kdj: { k: string; d: string; j: string } },
-): void {
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-  ctx.lineWidth = 1
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-
-  if (params.showK && kPoints.length >= 2) {
-    ctx.strokeStyle = colors.kdj.k
-    ctx.beginPath()
-    ctx.moveTo(kPoints[0]!.x, kPoints[0]!.y)
-    for (let i = 1; i < kPoints.length; i++) {
-      const point = kPoints[i]!
-      ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-
-  if (params.showD && dPoints.length >= 2) {
-    ctx.strokeStyle = colors.kdj.d
-    ctx.beginPath()
-    ctx.moveTo(dPoints[0]!.x, dPoints[0]!.y)
-    for (let i = 1; i < dPoints.length; i++) {
-      const point = dPoints[i]!
-      ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-
-  if (params.showJ && jPoints.length >= 2) {
-    ctx.strokeStyle = colors.kdj.j
-    ctx.beginPath()
-    ctx.moveTo(jPoints[0]!.x, jPoints[0]!.y)
-    for (let i = 1; i < jPoints.length; i++) {
-      const point = jPoints[i]!
-      ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-
-  ctx.restore()
-}
-
-/**
- * 获取 KDJ 标题信息（供 paneTitle 使用）
- */
-function getSTOCHTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  stateReader: IndicatorRenderStateReader,
-  instanceId: string,
-  _paneId: string,
-  colors: ColorTokens,
-): {
-  name: string
-  params: number[]
-  values: Array<{ label: string; value: number; color: string }>
-} | null {
-  const n = (params.n as number) ?? 9
-  const m = (params.m as number) ?? 3
-  const title: {
-    name: string
-    params: number[]
-    values: Array<{ label: string; value: number; color: string }>
-  } = { name: '随机指标', params: [n, m], values: [] }
-  if (index === null) return title
-
-  const state = stateReader.get<STOCHRenderState>(instanceId)
-  if (!state) return title
-
-  const point = state.series[index]
-  if (!point || point.k === undefined) return title
-
-  const values = []
-  if (state.params.showK) values.push({ label: 'K', value: point.k, color: colors.kdj.k })
-  if (state.params.showD) values.push({ label: 'D', value: point.d, color: colors.kdj.d })
-  if (state.params.showJ) values.push({ label: 'J', value: point.j, color: colors.kdj.j })
-
-  return {
-    ...title,
-    values,
-  }
-}
-
 @Indicator({
   name: 'stoch',
   displayName: 'KDJ',
@@ -295,15 +13,15 @@ function getSTOCHTitleInfo(
   indicatorType: 'momentum',
   defaultPaneId: 'sub_STOCH',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
-  visibleState: {
-    compose: createPaddedPointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, [
-      'k',
-      'd',
-      'j',
-    ] as const),
-  },
   scaleRendererFactory: createStochScaleLayer,
-  getTitleInfo: getSTOCHTitleInfo,
+  plots: {
+    series: [
+      { id: 'k', label: 'K', field: 'k', show: 'showK', color: (c) => c.kdj.k },
+      { id: 'd', label: 'D', field: 'd', show: 'showD', color: (c) => c.kdj.d },
+      { id: 'j', label: 'J', field: 'j', show: 'showJ', color: (c) => c.kdj.j },
+    ],
+    guides: [80, 50, 20].map((value) => ({ value, color: (c) => c.kdj.guide })),
+  },
   presentation: { defaultOptions: { showK: true, showD: true, showJ: true } },
   runtime: {
     defaultParams: { n: 9, m: 3 },
@@ -312,5 +30,5 @@ function getSTOCHTitleInfo(
   },
 })
 export class STOCHIndicatorDefinition {
-  static rendererFactory = createSTOCHLayer
+  static rendererFactory = plotRenderer('stoch', 'sub_STOCH')
 }

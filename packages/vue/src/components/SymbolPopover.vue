@@ -104,16 +104,9 @@
     bottom: 6px;
   }
 
-  .symbol-popover__search {
-    display: flex;
-    align-items: center;
-    min-height: 42px;
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-surface);
-  }
-
   .symbol-popover__search :deep(.source-button) {
     margin-right: var(--klc-space-12, 12px);
   }
 </style>
+
+<style scoped src="./common/search-toolbar.css"></style>

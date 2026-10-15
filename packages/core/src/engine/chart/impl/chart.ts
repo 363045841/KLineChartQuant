@@ -59,6 +59,7 @@ import {
 } from '../../../foundation/plugin/index.js'
 import {
   batch,
+  computed,
   createSignal,
   effect,
   type ReadonlySignal,
@@ -66,6 +67,7 @@ import {
   type WritableSignal,
 } from '../../../foundation/reactivity/signal.js'
 import { getFont } from '../../../foundation/tokens/fonts.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.js'
 import type { MarketSessionConfig } from '../../../foundation/utils/sessionTimeLabels.js'
@@ -102,7 +104,6 @@ import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
-import type { CustomMarkerEntity, MarkerManager } from '../../marker/registry.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
@@ -122,7 +123,6 @@ import type {
 } from '../types.js'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
-import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
 import { ChartPaneFacade } from './facade/chartPaneFacade.js'
 import { ChartThemeFacade } from './facade/chartThemeFacade.js'
 import { ChartZoomFacade } from './facade/chartZoomFacade.js'
@@ -149,6 +149,8 @@ function lastSeriesValue(series: unknown): number | null {
 export class Chart {
   private dom: ChartDom
   private dataManager: ChartDataManager
+  /** 创建时配置的初始缩放级别；`resetChart` 恢复到该档位。 */
+  private readonly initialZoomLevel: number
 
   /** StateKernel — single source of truth for all chart state */
   readonly kernel: ChartStateKernel
@@ -194,9 +196,6 @@ export class Chart {
   redoDrawing(): boolean {
     return this.drawingCommands.history.redo()
   }
-
-  /** 标记领域公开 API。 */
-  readonly markers: ChartMarkerFacade
 
   /** Pane 领域公开 API。 */
   readonly panes: ChartPaneFacade
@@ -277,7 +276,7 @@ export class Chart {
     this.pluginHost = createPluginHost()
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
 
-    const initialZoomLevel = opt.initialZoomLevel ?? 1
+    this.initialZoomLevel = opt.initialZoomLevel ?? 1
     const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? DEFAULT_ZOOM_LEVEL_COUNT))
 
     // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
@@ -286,7 +285,7 @@ export class Chart {
         ...restOpt,
         zoomLevelCount,
       },
-      initialZoomLevel,
+      initialZoomLevel: this.initialZoomLevel,
       initialSettings: runtime?.initialSettings,
       initialRendererRuntime: this.rendererHost.runtime,
       marketSessions: this.marketSessions,
@@ -488,7 +487,6 @@ export class Chart {
       primaryRenderer$: this.kernel.mode.readonly.effectivePrimaryRenderer,
       settings$: this.kernel.settings.readonly.settings,
       mainPriceAxis: this.kernel.mainPriceAxis,
-      customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
@@ -548,13 +546,16 @@ export class Chart {
         this.scheduleDraw()
       },
     })
-    this.markers = new ChartMarkerFacade({
-      kernel: this.kernel,
-      renderer: this.renderer,
-      scheduleDraw: () => this.scheduleDraw(),
-    })
 
     this.indicatorManager = new ChartIndicatorManager({
+      plotColors$: computed(() => {
+        const settings = this.kernel.settings.readonly.settings()
+        return resolveThemeColors(
+          this.kernel.effectiveTheme$(),
+          settings.isAsiaMarket,
+          settings.colorPresetSettings,
+        )
+      }),
       getOption: () => this.getRenderOptions(),
       getPluginHost: () => this.pluginHost,
       getRenderer: (id) => this.getRenderer(id),
@@ -600,6 +601,9 @@ export class Chart {
       setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
       getVisibleIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
+      // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
+      isScriptIndicator: (definitionId) =>
+        !!getRegisteredIndicatorDefinition(definitionId)?.document,
       requestRender: () => this.scheduleDraw(),
     })
 
@@ -670,7 +674,7 @@ export class Chart {
     this.legendDom.clear()
 
     if (isTimeShareDataView(nextDataView)) {
-      const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+      const percentMap = new Map(this.kernel.pane.getScalePreferences())
       for (const renderer of this.paneRenderers) {
         const pane = renderer.getPane()
         if (pane.role === 'price') percentMap.set(pane.id, ScaleType.Percent)
@@ -770,7 +774,7 @@ export class Chart {
 
   /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */
   private projectPaneScaleTypes(): void {
-    const types = this.kernel.pane.readonly.paneScaleTypes.peek()
+    const types = this.kernel.pane.getScalePreferences()
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       const t = types.get(pane.id) ?? ScaleType.Linear
@@ -780,7 +784,7 @@ export class Chart {
 
   /** 按用户坐标偏好生成各 pane 的刻度 Map */
   private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
-    const current = this.kernel.pane.readonly.paneScaleTypes.peek()
+    const current = this.kernel.pane.getScalePreferences()
     const panes = this.paneRenderers.map((renderer) => renderer.getPane())
     const next = buildPaneScaleTypesFromSetting(panes, resolvePriceScaleTypeSetting(setting))
     for (const pane of panes) {
@@ -802,7 +806,7 @@ export class Chart {
       this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
     )
     const seeded = this.buildScaleTypesFromSetting(setting)
-    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+    const next = new Map(this.kernel.pane.getScalePreferences())
     let changed = false
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
@@ -1160,6 +1164,30 @@ export class Chart {
   scrollToRight(): void {
     this.dataManager.scrollToRight()
     this.checkVisibleRangeGapWhenIdle()
+  }
+
+  /**
+   * 按 K 线根数水平平移视口；正数向右（更新），负数向左（更早）。
+   *
+   * @param bars - 平移根数，非有限值或 0 时忽略
+   */
+  scrollByBars(bars: number): void {
+    if (!Number.isFinite(bars) || bars === 0) return
+    const view = this.kernel.viewport.readonly.viewSnapshot.peek()
+    if (!view.capabilities.allowPan) return
+    const { min, max } = view.scrollBounds
+    const target = Math.max(min, Math.min(view.scroll + bars * view.grid.step, max))
+    if (this.kernel.viewport.actions.scrollToLogical(target)) {
+      this.interaction.stopInertia()
+      this.scheduleDraw()
+      this.checkVisibleRangeGapWhenIdle()
+    }
+  }
+
+  /** 重置图表视图：恢复初始缩放级别，再清除主图价格轴的手动缩放与偏移。 */
+  resetChart(): void {
+    this.zoom.toLevel(this.initialZoomLevel)
+    this.resetPriceTransform(MAIN_PANE_ID)
   }
 
   /**

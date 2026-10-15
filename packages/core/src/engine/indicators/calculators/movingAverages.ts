@@ -1,6 +1,8 @@
 import type { KLineData } from '@/foundation/types/price.js'
 
-import { GMMA_LONG_PERIODS, GMMA_SHORT_PERIODS } from '../state/gmmaState.js'
+/** GMMA 的短期和长期计算周期。 */
+const GMMA_SHORT_PERIODS: readonly number[] = [3, 5, 8, 10, 12, 15]
+const GMMA_LONG_PERIODS: readonly number[] = [30, 35, 40, 45, 50, 60]
 
 import { _computeEMASeries, _computeWMAOnNumbers } from './_shared.js'
 

@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcZonesData } from '../../indicators/calculators/index.js'
+import { composeUnitState } from '../../indicators/customStateComposers.js'
 import { Indicator } from '../../indicators/indicatorDecorator.js'
 import {
   type GetTitleInfoFn,
@@ -11,8 +12,6 @@ import {
   type TitleValueItem,
 } from '../../indicators/indicatorMetadata.js'
 import type { ZonesRenderState } from '../../indicators/state/zonesState.js'
-import { EMPTY_ZONES_STATE } from '../../indicators/state/zonesState.js'
-import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 function createZonesLayer(
@@ -132,7 +131,7 @@ const getZonesTitleInfo: GetTitleInfoFn = (
     }),
   },
   scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
-  visibleState: { compose: createFixedUnitVisibleStateComposer('zones', EMPTY_ZONES_STATE) },
+  customState: { compose: composeUnitState },
   presentation: { defaultOptions: { showFVG: true, showOB: true, showFilledZones: true } },
   runtime: {
     outputAlignment: 'aggregate',

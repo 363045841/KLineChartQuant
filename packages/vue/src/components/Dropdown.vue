@@ -63,7 +63,7 @@
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import BaseTooltip from './common/BaseTooltip.vue'
 
-  export interface DropdownOption<T extends string = string> {
+  interface DropdownOption<T extends string = string> {
     label: string
     value: T
   }

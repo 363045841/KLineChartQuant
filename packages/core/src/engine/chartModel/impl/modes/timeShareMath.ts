@@ -129,6 +129,5 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
 
 export {
   computeTimeShareTimeLabelIndices,
-  TIMESHARE_MIN_LABEL_SPACING_PX,
   type TimeShareTimeLabelInput,
 } from '@/foundation/utils/timeShareAxisLabels.js'

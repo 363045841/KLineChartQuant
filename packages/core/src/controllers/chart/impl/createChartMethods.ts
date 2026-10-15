@@ -11,7 +11,6 @@ import {
   getRegisteredIndicatorDefinition,
   isIndicatorDefinitionLoaded,
 } from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import type { CustomMarkerEntity } from '@/engine/marker/registry.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
@@ -154,13 +153,9 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   /** 添加指标实例，返回实例 id；失败返回 null。 */
-  function addIndicator(
-    definitionId: string,
-    role: IndicatorRole,
-    params?: Record<string, unknown>,
-  ): string | null {
+  function addIndicator(definitionId: string, params?: Record<string, unknown>): string | null {
     if (isDisposed() || !isLoaded(definitionId)) return null
-    return chart.indicators.add(definitionId, role, params)
+    return chart.indicators.add(definitionId, params)
   }
 
   /** 移除指标实例。 */
@@ -229,6 +224,18 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.scrollToRight()
   }
 
+  /** 按 K 线根数水平平移视口；正数向右、负数向左。 */
+  function scrollByBars(bars: number): void {
+    if (isDisposed()) return
+    chart.scrollByBars(bars)
+  }
+
+  /** 重置图表视图：恢复初始缩放级别，并复位主图价格轴。 */
+  function resetChart(): void {
+    if (isDisposed()) return
+    chart.resetChart()
+  }
+
   /** 获取指标实例标题；找不到返回 undefined。 */
   function getIndicatorTitle(instanceId: string): string | undefined {
     if (isDisposed()) return undefined
@@ -284,18 +291,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   function movePane(paneId: string, targetIndex: number): boolean {
     if (isDisposed()) return false
     return chart.panes.move(paneId, targetIndex)
-  }
-
-  /** 全量更新自定义标记。 */
-  function updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void {
-    if (isDisposed()) return
-    chart.markers.update([...markers])
-  }
-
-  /** 清空自定义标记。 */
-  function clearCustomMarkers(): void {
-    if (isDisposed()) return
-    chart.markers.clear()
   }
 
   /** 恢复主图价格轴的纵轴缩放和偏移。 */
@@ -364,6 +359,8 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     usePlugin,
     removePlugin,
     scrollToRight,
+    scrollByBars,
+    resetChart,
     getIndicatorTitle,
     createPane,
     clearPanes,
@@ -372,8 +369,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     updatePane,
     removePane,
     movePane,
-    updateCustomMarkers,
-    clearCustomMarkers,
     updateSettingsFacade,
     updateOptionsFacade,
   }

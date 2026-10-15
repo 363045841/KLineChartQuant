@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-export const PARENT = path.resolve(__dirname, '..', '..')
+const PARENT = path.resolve(__dirname, '..', '..')
 
 // 各 connector 的启动命令
 const CONNECTORS = {
@@ -66,7 +66,7 @@ const CONNECTORS = {
   },
 }
 
-export const CONNECTOR_NAMES = Object.keys(CONNECTORS)
+const CONNECTOR_NAMES = Object.keys(CONNECTORS)
 
 // `all` 展开的集合：跳过 includeInAll === false 的 connector（如 mt5）
 const ALL_CONNECTOR_NAMES = CONNECTOR_NAMES.filter(
@@ -89,7 +89,7 @@ const ALIASES = {
 }
 
 // 解析用户输入的名称列表，返回去重后的标准 connector 名称数组
-export function resolveConnectors(names) {
+function resolveConnectors(names) {
   const resolved = new Set()
   for (const raw of names) {
     const key = String(raw).toLowerCase().trim()

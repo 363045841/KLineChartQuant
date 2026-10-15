@@ -1,5 +1,5 @@
 // 本文件承载分级传输选路与日志截断。阈值来自 fly.io 实测（design.md §4.1）。
-import { ExecutionRejectedError, type Artifact, type InputFile } from '../contract.js'
+import { type Artifact, ExecutionRejectedError, type InputFile } from '../contract.js'
 
 import type { ProviderCapabilities } from '../providers/runtime-provider.js'
 

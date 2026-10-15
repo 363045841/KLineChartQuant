@@ -17,7 +17,7 @@ export function normalizeIndicatorId(id: string): string {
   return id
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
 }
 
 /** 单个定义的 Layer 命名规则：renderer 与 scale 两个解析器。 */

@@ -126,13 +126,6 @@ export const DEFAULT_SETTINGS = [
     group: 'main',
   },
   {
-    key: 'showVolumePriceMarkers',
-    label: '显示量价关系标记',
-    type: 'boolean',
-    default: false,
-    group: 'main',
-  },
-  {
     key: 'mainRightAxisTypeSetting',
     label: '主图右轴类型',
     type: 'select',

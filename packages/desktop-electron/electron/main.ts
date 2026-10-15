@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
 
 import {
+  type CredentialIpcEvent,
   EncryptedCredentialStore,
   registerCredentialIpc,
-  type CredentialIpcEvent,
 } from './credential-ipc'
 
 let mainWindow: BrowserWindow | null = null

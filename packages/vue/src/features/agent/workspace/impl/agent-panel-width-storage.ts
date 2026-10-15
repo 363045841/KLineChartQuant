@@ -4,7 +4,7 @@ import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841
 import type { AgentPanelWidthStorage } from '../types.js'
 
 /** LocalStorage 中用于定位 Agent 面板宽度的键名。 */
-export const AGENT_PANEL_WIDTH_STORAGE_KEY = 'agent.panelWidth'
+const AGENT_PANEL_WIDTH_STORAGE_KEY = 'agent.panelWidth'
 
 const panelWidthCodec: PersistenceCodec<number> = {
   decode(value): number | null {

@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { CREDENTIAL_BRIDGE_KEY } from '../../../electron/credential-bridge'
 
 import {
-  ElectronCredentialStore,
   createElectronCredentialStore,
+  ElectronCredentialStore,
   readCredentialBridge,
 } from './electron-credential-store'
 

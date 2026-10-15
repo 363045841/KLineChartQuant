@@ -126,6 +126,8 @@ export interface KeyboardEventLike {
   readonly metaKey: boolean
   readonly altKey: boolean
   readonly shiftKey: boolean
+  /** 物理键 code（如 `'Comma'`）；中文等 IME 组合态下 `key` 会退化为 `'Process'`，用 code 兜底标点匹配。 */
+  readonly code?: string
 }
 
 export interface ShortcutRegistryOptions {
@@ -152,6 +154,63 @@ const MODIFIER_TOKENS = new Set([
   'option',
   'shift',
 ])
+
+/**
+ * 标点键的物理 code 映射：中文等 IME 组合态下 `event.key` 会变成 `'Process'` 或全角字符，
+ * 而物理 `code` 不变。命中标点快捷键时用 code 兜底，避免 IME 吞掉 `Ctrl+,` 这类组合。
+ */
+const PUNCTUATION_CODES: Readonly<Record<string, string>> = {
+  ',': 'Comma',
+  '.': 'Period',
+  '/': 'Slash',
+  ';': 'Semicolon',
+  "'": 'Quote',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '\\': 'Backslash',
+  '-': 'Minus',
+  '=': 'Equal',
+  '`': 'Backquote',
+  ' ': 'Space',
+}
+
+/** 可打印 ASCII 区间；IME 组合态下 `key` 会落到区间外（`'Process'`、全角字符等）。 */
+const PRINTABLE_ASCII = /^[\x20-\x7e]$/
+
+/**
+ * 匹配单个按键：单字符键大小写不敏感；标点额外按物理 code 兜底，
+ * 仅在 key 退化为 IME 组合态时启用，避免 Shift 组合误命中未加 Shift 的标点快捷键。
+ */
+function matchesKey(event: KeyboardEventLike, parsed: ParsedCombo): boolean {
+  if (parsed.key.length !== 1) return parsed.key === event.key
+  if (parsed.key.toLowerCase() === event.key.toLowerCase()) return true
+  return (
+    event.code !== undefined &&
+    PUNCTUATION_CODES[parsed.key] === event.code &&
+    !PRINTABLE_ASCII.test(event.key)
+  )
+}
+
+/**
+ * 校验修饰键：`Mod` 展开为平台主修饰键并排除对侧修饰键，
+ * 其余 Ctrl / Meta / Alt / Shift 精确比较。
+ */
+function matchesModifiers(
+  event: KeyboardEventLike,
+  parsed: ParsedCombo,
+  platformIsMac: boolean,
+): boolean {
+  if (parsed.requiresMod) {
+    const primary = platformIsMac ? event.metaKey : event.ctrlKey
+    const opposite = platformIsMac ? event.ctrlKey : event.metaKey
+    if (!primary || opposite) return false
+  }
+  const ctrlOk =
+    parsed.requiresMod && !platformIsMac ? event.ctrlKey : event.ctrlKey === parsed.ctrlKey
+  const metaOk =
+    parsed.requiresMod && platformIsMac ? event.metaKey : event.metaKey === parsed.metaKey
+  return ctrlOk && metaOk && event.altKey === parsed.altKey && event.shiftKey === parsed.shiftKey
+}
 
 /**
  * Parse a combo source string into the normalised {@link ParsedCombo}.
@@ -317,34 +376,8 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
     if (disposed) return null
     for (const def of byCanonical.values()) {
       const parsed = parseCombo(def.combo)
-      // Modifier match — Mod expands to platform-correct modifier.
-      const modOk = parsed.requiresMod
-        ? platformIsMac
-          ? event.metaKey && !event.ctrlKey
-          : event.ctrlKey && !event.metaKey
-        : true
-      if (!modOk) continue
-      // Explicit Ctrl / Meta / Alt / Shift must match exactly UNLESS
-      // requiresMod already accounts for the platform modifier.
-      const ctrlOk = parsed.requiresMod
-        ? !platformIsMac
-          ? event.ctrlKey
-          : event.ctrlKey === parsed.ctrlKey
-        : event.ctrlKey === parsed.ctrlKey
-      const metaOk = parsed.requiresMod
-        ? platformIsMac
-          ? event.metaKey
-          : event.metaKey === parsed.metaKey
-        : event.metaKey === parsed.metaKey
-      const altOk = event.altKey === parsed.altKey
-      const shiftOk = event.shiftKey === parsed.shiftKey
-      // Key match: case-insensitive for single-letter keys, exact for
-      // named keys (ArrowRight, F5, ...).
-      const keyOk =
-        parsed.key.length === 1
-          ? parsed.key.toLowerCase() === event.key.toLowerCase()
-          : parsed.key === event.key
-      if (!ctrlOk || !metaOk || !altOk || !shiftOk || !keyOk) continue
+      if (!matchesModifiers(event, parsed, platformIsMac)) continue
+      if (!matchesKey(event, parsed)) continue
       if (def.when !== undefined && !def.when()) continue
       return def
     }

@@ -29,31 +29,3 @@ export interface VolumeProfileRenderState extends BaseIndicatorState {
   visibleMin: number
   visibleMax: number
 }
-
-const DEFAULT_VP_BINS = 24
-const DEFAULT_VP_LOOKBACK = 0 // 0 = use entire data
-const DEFAULT_VP_VALUE_AREA = 0.7
-
-const EMPTY_VP_RESULT: VolumeProfileResult = {
-  bins: [],
-  poc: 0,
-  vah: 0,
-  val: 0,
-  totalVolume: 0,
-}
-
-export const EMPTY_VOLUME_PROFILE_STATE: VolumeProfileRenderState = {
-  timestamp: 0,
-  series: EMPTY_VP_RESULT,
-  params: {
-    bins: DEFAULT_VP_BINS,
-    lookback: DEFAULT_VP_LOOKBACK,
-    valueAreaPercent: DEFAULT_VP_VALUE_AREA,
-    showPOC: true,
-    showValueArea: true,
-  },
-  valueMin: 0,
-  valueMax: 1,
-  visibleMin: Infinity,
-  visibleMax: -Infinity,
-}

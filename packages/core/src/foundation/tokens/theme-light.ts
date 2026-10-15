@@ -219,12 +219,6 @@ export const lightTheme: Theme = {
     lastPriceLabel: {
       bg: 'rgba(255, 247, 248, 0.98)',
     },
-    volumePrice: {
-      riseWith: '#FF4444',
-      riseWithout: '#00C853',
-      fallWith: '#FF4444',
-      fallWithout: '#00C853',
-    },
     structure: {
       hh: '#16a34a',
       hl: '#22c55e',

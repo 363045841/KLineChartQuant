@@ -59,7 +59,7 @@ function mountDefaultChart(): Chart {
     devicePixelContentBoxSize: [{ inlineSize: WIDTH * DPR, blockSize: HEIGHT * DPR }],
   })
   chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data: makeBars(120) })
-  expect(chart.indicators.add('VOLUME', 'sub')).not.toBeNull()
+  expect(chart.indicators.add('VOLUME')).not.toBeNull()
   chart.draw()
   return chart
 }

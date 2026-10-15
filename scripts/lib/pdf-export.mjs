@@ -14,7 +14,7 @@ import MarkdownIt from 'markdown-it'
 import { PDFDocument } from 'pdf-lib'
 
 /** 参与导出的文本类文件扩展名。 */
-export const TEXT_EXTENSIONS = new Set([
+const TEXT_EXTENSIONS = new Set([
   '.ts',
   '.tsx',
   '.mts',

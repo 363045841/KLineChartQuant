@@ -1,104 +1,8 @@
-import type { RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import { calcChaikinVolData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { ChaikinVolRenderState } from '../../indicators/state/chaikinVolState.js'
-import { EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/state/chaikinVolState.js'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-import { createSingleLineTitleInfo } from './shared/titleInfo.js'
-
-type LinePoint = { x: number; y: number }
-
-function createChaikinVolLayer(
-  options: {
-    paneId?: string
-    /** 指标实例 ID，渲染状态寻址唯一键。 */
-    instanceId?: string
-  } = {},
-): Layer<RenderContext> {
-  const { paneId = 'sub_ChaikinVol', instanceId } = options
-  return createIndicatorRendererLayer({
-    definitionId: 'chaikinVol',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<ChaikinVolRenderState>(instanceId)
-      if (!state || !state.params.showChaikinVol || state.visibleMin > state.visibleMax) return
-
-      const { series } = state
-      const displayRange = pane.yAxis.getDisplayRange()
-      const displayMin = displayRange.minPrice
-      const displayMax = displayRange.maxPrice
-      const displayValueRange = displayMax - displayMin || 1
-      const paneH = pane.height
-      const invRange = paneH / displayValueRange
-      const rangeStart = range.start
-
-      // Zero line
-      const zeroY = paneH - (0 - displayMin) * invRange
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = colors.referenceLine.neutral
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 4])
-      ctx.beginPath()
-      ctx.moveTo(scrollLeft, zeroY)
-      ctx.lineTo(scrollLeft + context.paneWidth, zeroY)
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.restore()
-
-      const drawEnd = Math.min(range.end, series.length)
-      const points: LinePoint[] = []
-      for (let i = range.start; i < drawEnd; i++) {
-        const value = series[i]
-        if (value === undefined) continue
-        const centerX = kLineCenters[i - rangeStart]
-        if (centerX === undefined) continue
-        points.push({ x: centerX, y: paneH - (value - displayMin) * invRange })
-      }
-
-      if (points.length < 2) return
-
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i2 }], scrollLeft))
-        return
-
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = colors.palette.i2
-      ctx.lineWidth = 1
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(points[0]!.x, points[0]!.y)
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i]!.x, points[i]!.y)
-      }
-      ctx.stroke()
-      ctx.restore()
-    },
-  })
-}
-
-const getChaikinVolTitleInfo = createSingleLineTitleInfo({
-  name: 'ChaikinVol',
-  getParams: (p) => [(p.emaPeriod as number) ?? 10, (p.rocPeriod as number) ?? 10],
-  getColor: (colors) => colors.palette.i2,
-})
-
+/** ChaikinVol 的计算和 Plot 声明。 */
+import { calcChaikinVolData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 @Indicator({
   name: 'chaikinVol',
   displayName: 'ChaikinVol',
@@ -106,11 +10,13 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
   category: 'oscillator',
   indicatorType: 'volatility',
   defaultPaneId: 'sub_ChaikinVol',
-  visibleState: {
-    compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE),
+  plots: {
+    series: [
+      { id: 'chaikinVol', label: 'ChaikinVol', show: 'showChaikinVol', color: (c) => c.palette.i2 },
+    ],
+    guides: [{ value: 0, color: (c) => c.referenceLine.neutral }],
   },
   scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
-  getTitleInfo: getChaikinVolTitleInfo,
   presentation: { defaultOptions: { showChaikinVol: true } },
   runtime: {
     defaultParams: { emaPeriod: 10, rocPeriod: 10 },
@@ -119,5 +25,5 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
   },
 })
 export class ChaikinVolIndicatorDefinition {
-  static rendererFactory = createChaikinVolLayer
+  static rendererFactory = plotRenderer('chaikinVol', 'sub_ChaikinVol')
 }

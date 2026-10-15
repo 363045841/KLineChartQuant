@@ -1,5 +1,4 @@
 /** 图表视图唯一事实来源：视图标识、分类、主序列渲染能力与工作区映射。 */
-import type { SymbolSpec } from '../../../../controllers/types.js'
 import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../../../controllers/types.js'
 import {
   type ChartDataView,
@@ -11,7 +10,6 @@ import {
 export {
   type ChartDataView,
   ChartDataViewId,
-  ChartWorkspaceId,
   isTimeShareDataView,
   resolveChartWorkspaceId,
 } from '../../../../foundation/types/chartView.js'
@@ -131,9 +129,4 @@ export function resolveChartDataView(period: string | undefined): ChartDataView 
   return period === FIVE_DAY_TIME_SHARE_PERIOD
     ? ChartDataViewId.FiveDayTimeShare
     : ChartDataViewId.TimeShare
-}
-
-/** 由主品种规格推导目标数据视图。 */
-export function resolveChartDataViewForSpec(spec: SymbolSpec | null | undefined): ChartDataView {
-  return resolveChartDataView(spec?.period)
 }

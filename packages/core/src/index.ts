@@ -10,15 +10,19 @@ export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/in
 export {
   getIndicatorDescriptor,
   getIndicatorDescriptors,
+  getRegisteredIndicatorDefinition,
+  getRegisteredIndicatorDefinitions,
   Indicator,
   type IndicatorDefinitionConfig,
   type IndicatorDescriptor,
   isIndicatorDefinitionLoaded,
   loadIndicatorDefinitions,
   registerIndicatorDefinition,
+  removeScriptIndicatorDefinition,
   resolveIndicatorLayerId,
 } from './engine/indicators/indicatorDefinitionRegistry.js'
 export {
+  type IndicatorInputDef,
   IndicatorKind,
   type IndicatorMetadata,
   type IndicatorRendererOptions,
@@ -26,6 +30,22 @@ export {
   type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
+export {
+  registerPlotIndicator,
+  updatePlotIndicator,
+} from './engine/indicators/registerPlotIndicator.js'
+// 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
+export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
+export type {
+  IndicatorPlotDefinition,
+  Plot,
+  PlotCollection,
+  PlotFill,
+  PlotPoint,
+  PlotRenderState,
+  ShapePlot,
+} from './engine/plots/types.js'
+export { PlotKind, ShapeLocation, ShapeSize, ShapeStyle } from './engine/plots/types.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,

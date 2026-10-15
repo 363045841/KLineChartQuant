@@ -83,7 +83,6 @@
   const chartSettings: ChartSettings = {
     showGridLines: true,
     isAsiaMarket: true,
-    showVolumePriceMarkers: false,
     mainLeftAxisDisplaySetting: 'none',
     theme: 'dark',
     /* colorPresetSettings: {

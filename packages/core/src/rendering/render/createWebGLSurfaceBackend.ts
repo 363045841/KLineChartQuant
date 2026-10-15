@@ -1,10 +1,9 @@
 /** 将 SharedWebGLSurface 适配为统一的 SurfaceBackend 生命周期契约。 */
 
 import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface.js'
-
-import type { SurfaceRegion, VisibleSurface } from './SurfaceBackend.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { copyCanvasFrame } from './frameCapture/impl/copyCanvasFrame.js'
+import type { SurfaceRegion, VisibleSurface } from './SurfaceBackend.js'
 
 /** WebGL surface 对外暴露底层 canvas，供图表直接叠放到 2D canvas 下方。 */
 export type WebGLSurfaceBackend = VisibleSurface

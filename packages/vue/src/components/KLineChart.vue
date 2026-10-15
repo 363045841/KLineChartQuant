@@ -77,6 +77,7 @@
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
           @toggle-indicator="onToggleIndicator"
+          @open-script-editor="openBlankScriptEditor"
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @clear-drawings="controller?.clearDrawings()"
@@ -256,25 +257,6 @@
               @pointerdown="onTooltipPointerDown"
               @dblclick="onTooltipDblClick"
             ></div>
-            <template v-if="hoveredMarker || hoveredCustomMarker">
-              <slot
-                v-if="hasMarkerTooltipSlot"
-                name="marker-tooltip"
-                :marker="hoveredMarker || hoveredCustomMarker"
-                :tooltip-style="externalMarkerTooltipStyle"
-              />
-              <template v-else>
-                <div
-                  ref="markerTooltipAnchorRef"
-                  class="tooltip-anchor marker-tooltip-anchor"
-                ></div>
-                <MarkerTooltip
-                  :marker="hoveredMarker || hoveredCustomMarker"
-                  :pos="markerTooltipInitialPosition"
-                  :set-el="setMarkerTooltipEl"
-                />
-              </template>
-            </template>
           </Teleport>
           <div
             ref="rightAxisLayerRef"
@@ -340,6 +322,8 @@
       @update-params="handleUpdateParams"
       @reorder-sub-indicators="handleReorderSubIndicators"
       @replace="replaceLegend"
+      @edit-code="openScriptEditor"
+      @create-script="openBlankScriptEditor"
       @close="replacementPaneId = null"
     />
     <ChartSettingsDialog
@@ -355,6 +339,33 @@
       <template #source-management><slot name="source-management" /></template>
     </ChartSettingsDialog>
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
+    <ScriptEditorDialog
+      v-model:open="scriptEditorOpen"
+      v-model:source="scriptEditorSource"
+      :error="scriptEditorError"
+      :saved="scriptEditorSaved"
+      :identity="scriptEditorIdentity"
+      :saving="scriptEditorSaving"
+      @create-copy="createScriptCopy"
+      :title="scriptEditorTitle"
+      :detachable="scriptEditorWindowSupported"
+      @save="saveScriptEditor"
+      @open-window="openScriptEditorWindow"
+    />
+    <!-- 独立窗口里的编辑器挂在浏览器新窗口的文档上，这里只提供挂载点。 -->
+    <Teleport v-if="scriptEditorWindowContainer" :to="scriptEditorWindowContainer">
+      <ScriptEditorWindow
+        v-model:source="scriptEditorSource"
+        :error="scriptEditorError"
+        :saved="scriptEditorSaved"
+        :identity="scriptEditorIdentity"
+        :saving="scriptEditorSaving"
+        @create-copy="createScriptCopy"
+        :container="scriptEditorWindowContainer"
+        @save="saveScriptEditor"
+        @return="returnScriptEditorToDialog"
+      />
+    </Teleport>
     <ToastViewport />
   </div>
 </template>
@@ -380,7 +391,6 @@
     type SymbolInfo,
     type SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
-  import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     type InstrumentDescriptor,
@@ -399,18 +409,22 @@
     useSlots,
     watch,
   } from 'vue'
-  import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
+  import { provideToast, TOAST_STORE_KEY, useToast } from '../composables/toast/useToast.js'
   import { useAggregationSources } from '../composables/useAggregationSources.js'
+  import {
+    provideMarketDataContext,
+    useMarketDataContext,
+  } from '../composables/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
-  import { provideMarketDataContext, useMarketDataContext } from '../composables/useMarketDataContext.js'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
+  const toast = useToast()
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
   const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
-  const hasMarkerTooltipSlot = ref(Boolean(slots['marker-tooltip']))
 
   import './tooltip.css'
+  import { SCRIPT_SOURCE_STORE_KEY } from '../composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '../composables/chart/useCanvasDrawingTemplates.js'
   import { useChartScreenshot } from '../composables/chart/useChartScreenshot.js'
   import { useChartState } from '../composables/chart/useChartState.js'
@@ -427,16 +441,17 @@
   import { useLegendUi } from '../composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { useScriptEditor } from '../composables/chart/useScriptEditor.js'
+  import { useScriptEditorWindow } from '../composables/chart/useScriptEditorWindow.js'
   import { createChartCommands } from '../composables/commands/chartCommands.js'
   import { provideChartCommands, useRegisterCommands } from '../composables/commands/useCommands.js'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
   import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
   import { useWatchlist } from '../composables/useWatchlist.js'
-  import { readElementSize } from '../utils/elementSize.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
-  import CommandPalette from './commands/CommandPalette.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
+  import CommandPalette from './commands/CommandPalette.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import ToastViewport from './common/ToastViewport.vue'
   import DrawingSettingsDialog from './DrawingSettingsDialog.vue'
@@ -445,9 +460,10 @@
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
-  import MarkerTooltip from './MarkerTooltip.vue'
   import PriceAxisSettingsMenu from './PriceAxisSettingsMenu.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
+  import ScriptEditorDialog from './ScriptEditorDialog.vue'
+  import ScriptEditorWindow from './ScriptEditorWindow.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
   import WatchlistPanel from './WatchlistPanel.vue'
@@ -455,7 +471,6 @@
   // ── Props & Emits ──
   type ChartIndicatorConfig = {
     definitionId: string
-    role: 'main' | 'sub'
     enabled: boolean
     params?: Record<string, unknown>
   }
@@ -466,8 +481,6 @@
       symbols?: ReadonlyArray<SymbolSpec>
       /** 受控指标实例列表；传入时完整替换当前指标实例。 */
       indicators?: ReadonlyArray<ChartIndicatorConfig>
-      /** 受控自定义标记列表；传入时完整替换当前自定义标记。 */
-      customMarkers?: ReadonlyArray<CustomMarkerEntity>
 
       /** 当前图表实例的市场交易时段覆盖 */
       marketSessions?: ChartMountOptions['marketSessions']
@@ -522,7 +535,9 @@
     },
   )
 
-  const marketDataContext = provideMarketDataContext(props.marketDataContext ?? useMarketDataContext())
+  const marketDataContext = provideMarketDataContext(
+    props.marketDataContext ?? useMarketDataContext(),
+  )
   const aggregationSources = useMarketDataSourceCatalog(marketDataContext)
   const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
     useAggregationSources(aggregationSources, marketDataContext)
@@ -547,21 +562,6 @@
     downColor: string
   }
 
-  /** marker-tooltip 插槽作用域。hoveredMarker || hoveredCustomMarker 时渲染。 */
-  export interface MarkerTooltipSlotProps {
-    marker:
-      | import('@363045841yyt/klinechart-core/engine/marker/registry').MarkerEntity
-      | import('@363045841yyt/klinechart-core/engine/marker/registry').CustomMarkerEntity
-      | null
-    tooltipStyle: {
-      left: string
-      top: string
-      position: 'absolute'
-      pointerEvents: 'none'
-      zIndex: number
-    }
-  }
-
   /**
    * legend 插槽作用域。
    * 存在 #legend 时替换主图默认 DOM 图例；字段与 core LegendTemplateContext 一致。
@@ -579,7 +579,6 @@
     'toolbar-end'(): unknown
     legend(props: LegendSlotProps): unknown
     'kline-tooltip'(props: KlineTooltipSlotProps): unknown
-    'marker-tooltip'(props: MarkerTooltipSlotProps): unknown
   }>()
 
   // ── Symbol / Comparison State ──
@@ -1016,6 +1015,9 @@
       openPalette: () => {
         paletteOpen.value = !paletteOpen.value
       },
+      toggleFullscreen: handleToggleFullscreen,
+      openSettings: () => openChartSettings('main'),
+      screenshot: (action) => void captureScreenshot(action),
     }),
   )
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
@@ -1049,6 +1051,42 @@
   /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
   const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
+  const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
+  const {
+    open: scriptEditorOpen,
+    definitionId: scriptEditorDefinitionId,
+    source: scriptEditorSource,
+    error: scriptEditorError,
+    saved: scriptEditorSaved,
+    identity: scriptEditorIdentity,
+    saving: scriptEditorSaving,
+    createCopy: createScriptCopy,
+    openFor: openScriptEditor,
+    openBlank: openBlankScriptEditor,
+    save: saveScriptEditor,
+  } = scriptEditorSession
+
+  const {
+    supported: scriptEditorWindowSupported,
+    container: scriptEditorWindowContainer,
+    open: detachScriptEditorWindow,
+    returnToDialog: returnScriptEditorToDialog,
+  } = useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
+
+  const scriptEditorTitle = computed(() =>
+    scriptEditorDefinitionId.value ? `编辑脚本 · ${scriptEditorDefinitionId.value}` : '新建脚本',
+  )
+
+  /** 把编辑器搬进独立窗口；打开失败时提示用户，不静默丢弃。 */
+  function openScriptEditorWindow(): void {
+    void detachScriptEditorWindow(scriptEditorTitle.value).catch((error: unknown) => {
+      toast.show({
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'danger',
+      })
+    })
+  }
+
   const {
     replacementId: replacementPaneId,
     replacementRole,
@@ -1056,6 +1094,7 @@
   } = useLegendUi(controller, canvasLayerRef, {
     openSelector: () => indicatorSelectorRef.value?.openMenu(),
     openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
+    openScriptEditor: (definitionId) => openScriptEditor(definitionId),
   })
 
   const {
@@ -1225,98 +1264,17 @@
     /* Controller auto-renders on state changes */
   }
 
-  // ── Marker Tooltip — 默认 MarkerTooltip 的尺寸观测 ──
-  const _measuredTooltips = new WeakSet<HTMLElement>()
-  let _markerTooltipRO: ResizeObserver | null = null
-
-  function setMarkerTooltipEl(el: HTMLDivElement | null) {
-    if (!el) {
-      markerTooltipEl = null
-      return
-    }
-    if (_measuredTooltips.has(el)) return
-    markerTooltipEl = el
-    positionDefaultMarkerTooltip()
-    _measuredTooltips.add(el)
-    if (!_markerTooltipRO) {
-      _markerTooltipRO = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const size = readElementSize(entry)
-          if (!size) continue
-          markerTooltipSize.value = {
-            width: Math.max(120, size.width),
-            height: Math.max(60, size.height),
-          }
-        }
-      })
-    }
-    _markerTooltipRO.observe(el)
-  }
-
   // ── 高频交互 Overlay ──
-  // 鼠标坐标和帧快照只服务于 DOM overlay，不能写入 Vue ref，否则会在事件和 RAF 后各排一次 flushJobs。
-  let mousePos = { x: 0, y: 0 }
   /** 绘图拖拽按下瞬间的光标；非空表示正处于图元拖拽会话，期间光标不随 pointermove 变化。 */
   let drawingDragCursor: string | null = null
-  const markerTooltipInitialPosition = { x: 0, y: 0 }
-  const externalMarkerTooltipStyle = shallowRef({
-    left: '0px',
-    top: '0px',
-    position: 'absolute' as const,
-    pointerEvents: 'none' as const,
-    zIndex: 10,
-  })
-  let markerTooltipEl: HTMLDivElement | null = null
-  const markerTooltipAnchorRef = ref<HTMLDivElement | null>(null)
-
-  let _cachedContainerRect: DOMRect | null = null
-  function invalidateContainerRectCache(): void {
-    _cachedContainerRect = null
-  }
-  function getContainerRect(container: HTMLDivElement): DOMRect {
-    if (!_cachedContainerRect) {
-      _cachedContainerRect = container.getBoundingClientRect()
-    }
-    return _cachedContainerRect
-  }
-
-  /** 以直接 DOM 写入更新默认 marker tooltip 的位置。 */
-  function positionDefaultMarkerTooltip(): void {
-    const offset = getLayerOffset()
-    const left = mousePos.x + offset.x + 12
-    const top = mousePos.y + offset.y + 12
-    if (hasMarkerTooltipSlot.value) {
-      externalMarkerTooltipStyle.value = {
-        left: `${left}px`,
-        top: `${top}px`,
-        position: 'absolute',
-        pointerEvents: 'none',
-        zIndex: 10,
-      }
-      return
-    }
-    if (markerTooltipAnchorRef.value) {
-      markerTooltipAnchorRef.value.style.left = `${mousePos.x + offset.x}px`
-      markerTooltipAnchorRef.value.style.top = `${mousePos.y + offset.y}px`
-    }
-    if (markerTooltipEl) {
-      markerTooltipEl.style.left = `${left}px`
-      markerTooltipEl.style.top = `${top}px`
-    }
-  }
 
   // 交互快照 → 舞台 DOM 副作用与只读 Vue 视图；订阅由作用域统一释放。
-  const {
-    externalState: externalInteractionState,
-    hoveredMarker,
-    hoveredCustomMarker,
-  } = useInteractionBridge({
+  const { externalState: externalInteractionState } = useInteractionBridge({
     controller,
     stageRef: chartStageRef,
     containerRef,
     hasExternalSlot: hasKLineTooltipSlot,
     getDragCursor: () => drawingDragCursor,
-    onMarkerHover: positionDefaultMarkerTooltip,
   })
 
   /** 主图图例模板上下文（#legend slot 消费） */
@@ -1330,7 +1288,6 @@
   onBeforeUpdate(() => {
     hasLegendSlot.value = !!slots.legend
     hasKLineTooltipSlot.value = !!slots['kline-tooltip']
-    hasMarkerTooltipSlot.value = !!slots['marker-tooltip']
   })
 
   const legendOverlayStyle = computed(() => {
@@ -1367,7 +1324,6 @@
   )
 
   const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
-  const markerTooltipSize = ref({ width: 220, height: 120 })
   const isMobile = window.matchMedia('(pointer: coarse)').matches
 
   /** 数据悬浮框是否启用；设置为“不显示”时隐藏内置与外部 tooltip */
@@ -1466,12 +1422,6 @@
         case 'pointermove': {
           const container = containerRef.value
           if (!container) return true
-          const rect = getContainerRect(container)
-          mousePos = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-          }
-          if (hoveredMarker.value || hoveredCustomMarker.value) positionDefaultMarkerTooltip()
           if (!isEditingLineLabel.value) {
             lineLabelTarget.value =
               drawingController.value?.getLineLabelTarget(e, container) ?? null
@@ -1638,7 +1588,6 @@
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
     const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
-      invalidateContainerRectCache()
       const borderTop = containerRef.value
         ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
         : 0
@@ -1711,7 +1660,7 @@
       }
       for (const indicator of props.indicators) {
         if (indicator.enabled) {
-          ctrl.addIndicator(indicator.definitionId, indicator.role, indicator.params)
+          ctrl.addIndicator(indicator.definitionId, indicator.params)
         }
       }
     }
@@ -1722,14 +1671,6 @@
       // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
       ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
       ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
-    }
-
-    if (props.customMarkers !== undefined) {
-      if (props.customMarkers.length === 0) {
-        ctrl.clearCustomMarkers()
-      } else {
-        ctrl.updateCustomMarkers(props.customMarkers)
-      }
     }
   }
 
@@ -1811,8 +1752,6 @@
     disposeChartInput = null
     cleanupChartCallbacks?.()
     cleanupChartCallbacks = null
-    _markerTooltipRO?.disconnect()
-    _markerTooltipRO = null
     applyLegendRenderMode(controller.value, false)
     const ctrl = controller.value
     if (ctrl) {
@@ -1834,12 +1773,7 @@
 
   // 受控业务 props 使用同一条同步路径；指标总是在 data source 之前创建。
   watch(
-    [
-      () => props.symbols,
-      () => props.indicators,
-      () => props.customMarkers,
-      () => props.customData,
-    ],
+    [() => props.symbols, () => props.indicators, () => props.customData],
     async () => {
       const ctrl = controller.value
       if (!ctrl) return
@@ -2207,10 +2141,6 @@
 
   .tooltip-anchor.kline-tooltip-anchor.use-anchor {
     anchor-name: --kline-tooltip-anchor;
-  }
-
-  .tooltip-anchor.marker-tooltip-anchor.use-anchor {
-    anchor-name: --marker-tooltip-anchor;
   }
 
 </style>

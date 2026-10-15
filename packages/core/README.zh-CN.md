@@ -59,7 +59,7 @@ const unsubscribe = chart.viewport.subscribe(() => {
 
 // 指标实现按需加载；目录可同步读取。
 await chart.loadIndicators(['MA'])
-chart.addIndicator('MA', 'main')
+chart.addIndicator('MA')
 chart.zoomIn()
 
 // 宿主移除时调用两者。
@@ -158,7 +158,7 @@ import {
 `chart.legend` 统一管理指标、比较品种与自定义图例。创建返回稳定图例 ID，后续查询和修改使用同一 ID。
 
 ```typescript
-const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA', role: 'main' })
+const id = chart.legend.create({ kind: 'indicator', definitionId: 'MA' })
 if (id) {
   chart.legend.update(id, { hidden: true })
   chart.legend.get(id)
@@ -211,7 +211,7 @@ Core 创建默认 DOM scaffold 时会在挂载期间安装交互绑定。由框�
 
 ```typescript
 await chart.loadIndicators(['MACD', 'RSI'])
-const id = chart.addIndicator('MACD', 'sub', { fast: 12, slow: 26, signal: 9 })
+const id = chart.addIndicator('MACD', { fast: 12, slow: 26, signal: 9 })
 if (id) chart.updateIndicatorParams(id, { fast: 10, slow: 20, signal: 7 })
 
 chart.createSubPane('rsi-pane', 'RSI', { period1: 6, period2: 12, period3: 24 })

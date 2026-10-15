@@ -22,6 +22,9 @@
             variant="flush"
             @update:model-value="controller.setSearchQuery"
           />
+          <BaseButton v-if="section === INDICATOR_SELECTOR_SECTIONS.scripts" @click="createScript">
+            新建脚本
+          </BaseButton>
         </div>
       </template>
 
@@ -44,6 +47,15 @@
             @click="section = INDICATOR_SELECTOR_SECTIONS.indicators"
           >
             <IconTablerMathFunction aria-hidden="true" />指标
+          </button>
+          <button
+            type="button"
+            class="selector-nav-item"
+            :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.scripts }"
+            :aria-current="section === INDICATOR_SELECTOR_SECTIONS.scripts ? 'page' : undefined"
+            @click="section = INDICATOR_SELECTOR_SECTIONS.scripts"
+          >
+            <IconTablerMathFunction aria-hidden="true" />用户自定义脚本
           </button>
         </nav>
         <OverlayScrollArea class="selector-results">
@@ -75,6 +87,17 @@
                   </span>
                 </div>
               </button>
+              <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
+              <BaseTooltip v-if="indicator.source === 'script'" content="编辑脚本" placement="top">
+                <button
+                  type="button"
+                  class="item-action-btn"
+                  :aria-label="`编辑脚本：${indicator.name}`"
+                  @click="editScript(indicator.id)"
+                >
+                  <IconTablerCode aria-hidden="true" />
+                </button>
+              </BaseTooltip>
               <BaseTooltip v-if="indicator.params?.length" content="编辑参数" placement="top">
                 <button
                   type="button"
@@ -126,6 +149,9 @@
             <template v-if="section === INDICATOR_SELECTOR_SECTIONS.favorites && !searchQuery.trim()">
               <p>暂无收藏指标</p>
             </template>
+            <template v-else-if="section === INDICATOR_SELECTOR_SECTIONS.scripts && !searchQuery.trim()">
+              <p>暂无用户自定义脚本</p>
+            </template>
             <template v-else>
               <IconTablerSearch class="no-results-icon" aria-hidden="true" />
               <p>未找到匹配的指标</p>
@@ -152,31 +178,32 @@
 
 <script setup lang="ts">
   import {
-    allIndicatorDefinitions,
     type ChartController,
     createIndicatorSelectorController,
     findIndicator,
   } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
+  import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerStar from '~icons/tabler/star'
   import IconTablerStarFilled from '~icons/tabler/star-filled'
+  import { useIndicatorCatalog } from '../composables/useIndicatorCatalog.js'
   import {
     INDICATOR_SELECTOR_SECTIONS,
     useIndicatorFavorites,
   } from '../composables/useIndicatorFavorites.js'
   import { coreSignalToVueRef } from '../utils/signalBridge.js'
-
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BasePopover from './common/BasePopover.vue'
   import BaseTooltip from './common/BaseTooltip.vue'
   import OverlayScrollArea from './common/OverlayScrollArea.vue'
   import SearchField from './common/SearchField.vue'
-  import IndicatorParams from './IndicatorParams.vue'
+  import IndicatorParams from './indicator-params/impl/IndicatorParams.vue'
 
   const props = defineProps<{
     chartController?: ChartController | null
@@ -189,13 +216,17 @@
 
   const emit = defineEmits<{
     toggle: [indicatorId: string, active: boolean]
-    updateParams: [indicatorId: string, params: Record<string, number | string>]
+    updateParams: [indicatorId: string, params: Record<string, number | string | boolean>]
     replace: [paneId: string, indicatorId: string]
+    /** 请求打开该脚本指标的代码编辑器，由宿主图表组件负责弹窗。 */
+    editCode: [indicatorId: string]
+    createScript: []
     close: []
   }>()
 
   // 目录来自编译期静态元数据，打开选择器不加载任何指标实现。
-  const controller = createIndicatorSelectorController({ catalog: allIndicatorDefinitions() })
+  const controller = createIndicatorSelectorController()
+  useIndicatorCatalog(controller)
 
   const menuOpen = coreSignalToVueRef(controller.menuOpen)
   const searchQuery = coreSignalToVueRef(controller.searchQuery)
@@ -204,6 +235,8 @@
 
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
+  /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
+  const currentIndicator = ref<ReturnType<typeof findIndicator>>()
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
     if (props.replacePaneId) {
@@ -215,11 +248,6 @@
     computed(() => props.chartController ?? null),
     availableIndicators,
   )
-
-  const currentIndicator = computed(() => {
-    if (!currentIndicatorId.value) return null
-    return findIndicator(currentIndicatorId.value)
-  })
 
   const modalTitle = computed(() => (props.replacePaneId ? '更换指标' : '添加指标'))
 
@@ -258,7 +286,20 @@
 
   function showParams(indicatorId: string) {
     currentIndicatorId.value = indicatorId
+    currentIndicator.value = findIndicator(indicatorId)
     paramsVisible.value = true
+  }
+
+  /** 请求宿主打开脚本代码编辑器；打开动作与图例的编辑脚本共用同一会话。 */
+  function createScript() {
+    closeMenu()
+    emit('createScript')
+  }
+
+  /** 打开当前脚本文档，官方身份由编辑器提供只读展示。 */
+  function editScript(indicatorId: string) {
+    closeMenu()
+    emit('editCode', indicatorId)
   }
 
   /** 关闭选择器，并通知父组件清除一次性的 Pane 替换目标。 */
@@ -267,22 +308,22 @@
     emit('close')
   }
 
-  function getParamValues(indicatorId: string): Record<string, number | string> {
+  function getParamValues(indicatorId: string): Record<string, number | string | boolean> {
     const indicator = findIndicator(indicatorId)
     if (!indicator?.params) return {}
 
-    const defaultParams: Record<string, number | string> = {}
+    const defaultParams: Record<string, number | string | boolean> = {}
     for (const p of indicator.params) {
       // 选项参数缺少默认值时回退到首个选项，避免非数值默认写入枚举参数。
       defaultParams[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
     const userParams = props.indicatorParams?.[indicatorId] || {}
-    const result: Record<string, number | string> = { ...defaultParams }
+    const result: Record<string, number | string | boolean> = { ...defaultParams }
 
     // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
     for (const [key, value] of Object.entries(userParams)) {
-      if (typeof value === 'number' || typeof value === 'string') {
+      if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
         result[key] = value
       }
     }
@@ -290,7 +331,7 @@
     return result
   }
 
-  function onParamsConfirm(values: Record<string, number | string>) {
+  function onParamsConfirm(values: Record<string, number | string | boolean>) {
     if (currentIndicatorId.value) {
       emit('updateParams', currentIndicatorId.value, values)
     }
@@ -307,6 +348,18 @@
 </script>
 
 <style scoped>
+  .selector-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    padding-inline-end: var(--klc-space-16, 16px);
+  }
+
+  .selector-search {
+    flex: 1;
+    min-width: 0;
+  }
+
   .indicator-selector {
     display: none;
   }
@@ -319,7 +372,7 @@
 
   .selector-nav {
     display: flex;
-    flex: 0 0 92px;
+    flex: 0 0 140px;
     flex-direction: column;
     border-right: 1px solid var(--klc-color-ui-border);
   }
@@ -354,15 +407,6 @@
   .selector-results {
     flex: 1;
     min-width: 0;
-  }
-
-  .selector-toolbar {
-    display: flex;
-    align-items: center;
-    min-height: 42px;
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-surface);
   }
 
   /* ── 无匹配 ── */
@@ -436,15 +480,6 @@
     background: var(--klc-color-ui-hover);
   }
 
-  .item-header {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
   .item-label {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -467,12 +502,18 @@
     gap: var(--klc-space-4, 4px);
   }
 
-  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
-  .item-check {
+  /* 图标方块：勾号与操作按钮共用居中布局，尺寸由各自规则覆盖。 */
+  .item-check,
+  .item-action-btn,
+  .item-favorite-btn {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
+  }
+
+  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
+  .item-check {
     width: 16px;
     height: 16px;
     color: var(--klc-color-ui-text);
@@ -493,10 +534,6 @@
 
   .item-action-btn,
   .item-favorite-btn {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
     width: 24px;
     height: 24px;
     padding: 0;
@@ -561,3 +598,6 @@
   }
 
 </style>
+
+<style scoped src="./common/search-toolbar.css"></style>
+<style scoped src="./common/header-row.css"></style>

@@ -1,279 +1,12 @@
-/** 一目均衡表 Layer：按序列及轴投影版本保留折线和云层几何，每帧重放。 */
-import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import type { ColorTokens } from '@/foundation/tokens/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type { KLineData } from '@/foundation/types/price.js'
-import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import {
-  createProjectionRevision,
-  sameProjectionRevision,
-} from '../../frame/impl/retainedProjection.js'
-import type { ProjectionRevision } from '../../frame/types.js'
-import { calcIchimokuData } from '../../indicators/calculators/index.js'
-import { Indicator } from '../../indicators/indicatorDecorator.js'
-import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
-import { EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState.js'
-import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
-import { getPhysicalKLineConfig } from '../../viewport/klineConfig.js'
-import { tryDrawLinesGpu } from '../linesViaRenderer.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
-
-type Point = { x: number; y: number }
-/** @internal 对测试暴露 */
-export type CloudSeg = { x: number; ya: number; yb: number; bull: boolean }
-
-function collectIchimokuPoints(
-  context: RenderContext,
-  series: IchimokuRenderState['series'],
-  params: IchimokuRenderState['params'],
-  pane: RenderContext['pane'],
-  kLineCenters: number[],
-  range: RenderContext['range'],
-) {
-  const toY = (price: number) => pane.yAxis.priceToY(price)
-  const rangeStart = range.start
-
-  const tenkanPts: Point[] = []
-  const kijunPts: Point[] = []
-  const spanAPts: Point[] = []
-  const spanBPts: Point[] = []
-  const chikouPts: Point[] = []
-  const cloudSegs: CloudSeg[] = []
-
-  const dataLen = context.data.length
-  // 可见范围包含未来槽位时，历史循环仍只收集行情区，未来云由后续循环追加一次。
-  const drawEnd = Math.min(range.end, dataLen, series.length)
-  for (let i = range.start; i < drawEnd; i++) {
-    const p = series[i]
-    if (!p) continue
-    const centerX = kLineCenters[i - rangeStart]
-    if (centerX === undefined) continue
-    if (params.showTenkan && p.tenkan !== undefined)
-      tenkanPts.push({ x: centerX, y: toY(p.tenkan) })
-    if (params.showKijun && p.kijun !== undefined) kijunPts.push({ x: centerX, y: toY(p.kijun) })
-    if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
-    if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
-    if (params.showChikou && p.chikou !== undefined)
-      chikouPts.push({ x: centerX, y: toY(p.chikou) })
-    if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
-      cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
-    }
-  }
-
-  if (dataLen < series.length) {
-    const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
-    const futureEnd = Math.min(dataLen + params.displacement, series.length)
-    for (let i = dataLen; i < futureEnd; i++) {
-      const p = series[i]
-      if (!p) continue
-      const leftPx = physConfig.startXPx + i * physConfig.unitPx
-      const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
-      const centerX = wickXPx / context.dpr
-      if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
-      if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
-      if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
-        cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
-      }
-    }
-  }
-
-  return { tenkanPts, kijunPts, spanAPts, spanBPts, chikouPts, cloudSegs }
-}
-
-function renderCloudFill(
-  ctx: CanvasRenderingContext2D,
-  cloudSegs: CloudSeg[],
-  colors: ReturnType<typeof resolveThemeColors>,
-  scrollLeft: number,
-): void {
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-  fillCloud(ctx, cloudSegs, colors.candleUpBody, colors.candleDownBody)
-  ctx.restore()
-}
-
-function renderIchimokuLines(
-  context: RenderContext,
-  tenkanPts: Point[],
-  kijunPts: Point[],
-  spanAPts: Point[],
-  spanBPts: Point[],
-  chikouPts: Point[],
-  colors: ReturnType<typeof resolveThemeColors>,
-): void {
-  const { ctx, scrollLeft } = context
-  const lines: Array<{ points: Point[]; width: number; color: string }> = []
-  if (tenkanPts.length >= 2)
-    lines.push({ points: tenkanPts, width: 1, color: colors.ichimoku.tenkan })
-  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: colors.ichimoku.kijun })
-  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: colors.ichimoku.spanA })
-  if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: colors.ichimoku.spanB })
-  if (chikouPts.length >= 2)
-    lines.push({ points: chikouPts, width: 1, color: colors.ichimoku.chikou })
-
-  if (tryDrawLinesGpu(context, lines, scrollLeft)) return
-
-  ctx.save()
-  ctx.translate(-scrollLeft, 0)
-  ctx.lineWidth = 1
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  drawLine(ctx, tenkanPts, colors.ichimoku.tenkan)
-  drawLine(ctx, kijunPts, colors.ichimoku.kijun)
-  drawLine(ctx, spanAPts, colors.ichimoku.spanA)
-  drawLine(ctx, spanBPts, colors.ichimoku.spanB)
-  drawLine(ctx, chikouPts, colors.ichimoku.chikou)
-  ctx.restore()
-}
-
-interface IchimokuRendererOptions {
-  paneId?: string
-  /** 指标实例 ID，渲染状态寻址唯一键。 */
-  instanceId?: string
-}
-
-function createIchimokuLayer(options: IchimokuRendererOptions = {}): Layer<RenderContext> {
-  const { paneId = 'main', instanceId } = options
-  const retained = createRetainedGeometry<
-    ReturnType<typeof collectIchimokuPoints>,
-    ProjectionRevision
-  >(sameProjectionRevision)
-  return createIndicatorRendererLayer({
-    definitionId: 'ichimoku',
-    paneId,
-    z: RENDERER_PRIORITY.INDICATOR,
-    draw(context) {
-      const { ctx, pane, range, scrollLeft, kLineCenters } = context
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      if (!instanceId) return
-      const state = context.indicatorStateReader?.get<IchimokuRenderState>(instanceId)
-      if (!state || state.visibleMin > state.visibleMax) return
-
-      const { params, series } = state
-      const revision = createProjectionRevision(context, [
-        series,
-        state.timestamp,
-        params.displacement,
-        params.showTenkan,
-        params.showKijun,
-        params.showSpanA,
-        params.showSpanB,
-        params.showChikou,
-        params.showCloud,
-      ])
-      const points = retained.read(revision, () =>
-        collectIchimokuPoints(context, series, params, pane, kLineCenters, range),
-      )
-
-      if (params.showCloud && points.cloudSegs.length >= 2) {
-        renderCloudFill(ctx, points.cloudSegs, colors, scrollLeft)
-      }
-      renderIchimokuLines(
-        context,
-        points.tenkanPts,
-        points.kijunPts,
-        points.spanAPts,
-        points.spanBPts,
-        points.chikouPts,
-        colors,
-      )
-    },
-    dispose: () => retained.clear(),
-  })
-}
-
-function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): void {
-  if (pts.length < 2) return
-  ctx.strokeStyle = color
-  ctx.beginPath()
-  ctx.moveTo(pts[0]!.x, pts[0]!.y)
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y)
-  ctx.stroke()
-}
-
-/** @internal */
-export function fillCloud(
-  ctx: CanvasRenderingContext2D,
-  segs: CloudSeg[],
-  bullColor: string,
-  bearColor: string,
-  alpha = 0.15,
-): void {
-  if (segs.length < 2) return
-  ctx.save()
-  ctx.globalAlpha = alpha
-
-  let start = 0
-  const lastSeg = segs.length - 1
-  while (start < lastSeg) {
-    const isBull = segs[start]!.bull
-    ctx.fillStyle = isBull ? bullColor : bearColor
-    let end = start
-    while (end < lastSeg && segs[end]!.bull === isBull) end++
-    end--
-    ctx.beginPath()
-    ctx.moveTo(segs[start]!.x, segs[start]!.ya)
-    for (let k = start + 1; k <= end + 1; k++) ctx.lineTo(segs[k]!.x, segs[k]!.ya)
-    for (let k = end + 1; k >= start; k--) ctx.lineTo(segs[k]!.x, segs[k]!.yb)
-    ctx.closePath()
-    ctx.fill()
-    start = end + 1
-  }
-
-  ctx.restore()
-}
-
-function getIchimokuTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  stateReader: IndicatorRenderStateReader,
-  instanceId: string,
-  _paneId: string,
-  colors: ColorTokens,
-): TitleInfo | null {
-  if (index === null) return null
-  const state = stateReader.get<IchimokuRenderState>(instanceId)
-  const p = state?.series[index]
-  if (!p) return null
-
-  const values: TitleValueItem[] = []
-  if (p.tenkan !== undefined)
-    values.push({ label: 'Tenkan', value: p.tenkan, color: colors.ichimoku.tenkan })
-  if (p.kijun !== undefined)
-    values.push({ label: 'Kijun', value: p.kijun, color: colors.ichimoku.kijun })
-  if (p.spanA !== undefined)
-    values.push({ label: 'SpanA', value: p.spanA, color: colors.ichimoku.spanA })
-  if (p.spanB !== undefined)
-    values.push({ label: 'SpanB', value: p.spanB, color: colors.ichimoku.spanB })
-  if (p.chikou !== undefined)
-    values.push({ label: 'Chikou', value: p.chikou, color: colors.ichimoku.chikou })
-
-  return {
-    name: 'Ichimoku',
-    params: [
-      (params.tenkanPeriod as number) ?? 9,
-      (params.kijunPeriod as number) ?? 26,
-      (params.spanBPeriod as number) ?? 52,
-      (params.displacement as number) ?? 26,
-    ],
-    values,
-  }
-}
-
+/** 一目均衡表声明五条 Plot，云层引用 spanA 和 spanB。 */
+import { calcIchimokuData } from '@/engine/indicators/calculators/index.js'
+import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
+import { IndicatorKind } from '@/engine/indicators/indicatorMetadata.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 @Indicator({
   name: 'ichimoku',
   displayName: 'Ichimoku',
   kind: IndicatorKind.Indicator,
-  getTitleInfo: getIchimokuTitleInfo,
   category: 'main',
   indicatorType: 'trend',
   defaultPaneId: 'main',
@@ -290,14 +23,54 @@ function getIchimokuTitleInfo(
     }),
   },
   scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
-  visibleState: {
-    compose: createIchimokuVisibleStateComposer('ichimoku', EMPTY_ICHIMOKU_STATE, [
-      'tenkan',
-      'kijun',
-      'spanA',
-      'spanB',
-      'chikou',
-    ]),
+  plots: {
+    series: [
+      {
+        id: 'tenkan',
+        label: 'TENKAN',
+        field: 'tenkan',
+        show: 'showTenkan',
+        color: (c) => c.ichimoku.tenkan,
+      },
+      {
+        id: 'kijun',
+        label: 'KIJUN',
+        field: 'kijun',
+        show: 'showKijun',
+        color: (c) => c.ichimoku.kijun,
+      },
+      {
+        id: 'spanA',
+        label: 'SPAN A',
+        field: 'spanA',
+        show: 'showSpanA',
+        color: (c) => c.ichimoku.spanA,
+      },
+      {
+        id: 'spanB',
+        label: 'SPAN B',
+        field: 'spanB',
+        show: 'showSpanB',
+        color: (c) => c.ichimoku.spanB,
+      },
+      {
+        id: 'chikou',
+        label: 'CHIKOU',
+        field: 'chikou',
+        show: 'showChikou',
+        color: (c) => c.ichimoku.chikou,
+      },
+    ],
+    fills: [
+      {
+        id: 'cloud',
+        from: 'spanA',
+        to: 'spanB',
+        show: 'showCloud',
+        color: (c) => c.candleUpBody,
+        reverseColor: (c) => c.candleDownBody,
+      },
+    ],
   },
   presentation: {
     defaultOptions: {
@@ -317,5 +90,5 @@ function getIchimokuTitleInfo(
   },
 })
 export class IchimokuDefinition {
-  static rendererFactory = createIchimokuLayer
+  static rendererFactory = plotRenderer('ichimoku', 'main')
 }

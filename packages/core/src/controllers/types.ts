@@ -32,7 +32,6 @@ import type {
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { CustomMarkerEntity } from '../engine/marker/registry.js'
 import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
@@ -209,6 +208,7 @@ export interface IndicatorParamDef {
 }
 
 export interface IndicatorDefinition {
+  source?: import('../engine/indicators/indicatorMetadata.js').IndicatorSource
   id: string
   label: string
   name?: string
@@ -572,11 +572,7 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>
-  addIndicator(
-    definitionId: string,
-    role: IndicatorRole,
-    params?: Record<string, unknown>,
-  ): string | null
+  addIndicator(definitionId: string, params?: Record<string, unknown>): string | null
   removeIndicator(instanceId: string): boolean
   /** 调整主图指标的 Legend 顺序。 */
   moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean
@@ -622,10 +618,6 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   updatePaneContent(paneId: string, params: Record<string, unknown>): boolean
   clearPanes(): void
 
-  // ---- Drawing / Markers ----
-  updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void
-  clearCustomMarkers(): void
-
   // ---- Interaction sub-methods ----
   setTooltipSize(size: { width: number; height: number }): void
   setTooltipAnchorPositioning(enabled: boolean): void
@@ -638,6 +630,10 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   getLeftLoadBufferWidth(): number
   /** scroll to the rightmost position (latest data) */
   scrollToRight(): void
+  /** 按 K 线根数水平平移视口；正数向右、负数向左。 */
+  scrollByBars(bars: number): void
+  /** 重置视图：恢复初始缩放级别并复位主图价格轴。 */
+  resetChart(): void
 
   // ---- Settings ----
   updateSettingsFacade(settings: Record<string, unknown>): void

@@ -7,7 +7,10 @@ import process from 'node:process'
 
 // 受检包（目录名）→ 需要跳过的入口。CSS 入口不是 JS/类型，attw 必然报无法解析。
 const PACKAGES = {
+  'plot-contracts': [],
+  script: [],
   core: [],
+  'script-chart': [],
   'agent-runtime': [],
   vue: ['style.css'],
   react: [],

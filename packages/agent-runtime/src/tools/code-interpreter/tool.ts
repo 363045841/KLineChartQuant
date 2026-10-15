@@ -1,12 +1,10 @@
 // 本文件把代码解释器注册进 Core 的 ChartToolRegistry。
 // 注册表是 Core 提供的「机制」，本工具是住在 agent-runtime 的「内容」——
 // 二者共享同一个模块实例即可跨包注册（design.md §1.1）。
-import { Tool, type ChartToolExecutionContext } from '@363045841yyt/klinechart-core/agent-tools'
-import { Type, type Static } from 'typebox'
-
-import { MAX_TIMEOUT_MS } from './contract.js'
-
+import { type ChartToolExecutionContext, Tool } from '@363045841yyt/klinechart-core/agent-tools'
+import { type Static, Type } from 'typebox'
 import type { CodeInterpreter, ExecutionRequest, ExecutionResult, InputFile } from './contract.js'
+import { MAX_TIMEOUT_MS } from './contract.js'
 
 export const CODE_INTERPRETER_TOOL_NAME = 'code_interpreter'
 

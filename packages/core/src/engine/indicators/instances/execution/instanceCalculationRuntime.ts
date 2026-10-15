@@ -6,6 +6,7 @@
  */
 import type { KLineData } from '@/foundation/types/price.js'
 import type { TradeSnapshot } from '../../../../data/trades/types.js'
+import { isPlotCollection } from '../../../plots/impl/readPlotState.js'
 import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,
@@ -27,6 +28,16 @@ export type IndicatorCalculationDefinitionResolver = (
 
 /** 查找按 K 线下标对齐的嵌套序列中第一个有效值。 */
 export function findInstanceFirstReadyIndex(value: unknown, dataLength: number): number | null {
+  if (isPlotCollection(value)) {
+    let first: number | null = null
+    for (const plot of value.plots) {
+      const index = plot.data.findIndex(
+        (point) => point !== undefined && Number.isFinite(point.value),
+      )
+      if (index >= 0 && (first === null || index < first)) first = index
+    }
+    return first
+  }
   if (Array.isArray(value)) {
     if (value.length !== dataLength) return null
     for (let index = 0; index < value.length; index++) {
@@ -54,7 +65,29 @@ export function executeIndicatorCalculationTask(
 ): IndicatorCalculationOutput {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
-  const series = definition.compute(data, task.params, trades)
+  let series: unknown
+  try {
+    series = definition.compute(data, task.params, trades)
+  } catch (error) {
+    // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
+    return Object.freeze({
+      calculationKey: task.calculationKey,
+      series: undefined,
+      firstReadyIndex: null,
+      error: Object.freeze({
+        message: error instanceof Error ? error.message : String(error),
+        ...(error instanceof Error && 'code' in error && typeof error.code === 'string'
+          ? { code: error.code }
+          : {}),
+        ...(error instanceof Error && 'plotId' in error && typeof error.plotId === 'string'
+          ? { plotId: error.plotId }
+          : {}),
+        ...(error instanceof Error && 'barIndex' in error && typeof error.barIndex === 'number'
+          ? { barIndex: error.barIndex }
+          : {}),
+      }),
+    })
+  }
   return Object.freeze({
     calculationKey: task.calculationKey,
     series,

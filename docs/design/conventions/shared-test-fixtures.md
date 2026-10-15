@@ -42,7 +42,6 @@
 | `components/mtfOverlay/__tests__/helpers/createBaseBar.ts` | `createBaseBar` |
 | `components/orderBookHeatmap/__tests__/helpers/createOrderBookDelta.ts` | `createOrderBookDelta` |
 | `components/orderBookHeatmap/__tests__/helpers/createTestHeatmapController.ts` | `createTestHeatmapController` |
-| `engine/marker/__tests__/helpers/createCustomMarker.ts` | `createCustomMarker` |
 
 约束：
 

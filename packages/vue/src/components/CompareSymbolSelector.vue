@@ -279,6 +279,7 @@
 <style scoped src="./common/control-button.css"></style>
 <style scoped src="./common/symbol-list.css"></style>
 <style scoped src="./common/list-text.css"></style>
+<style scoped src="./common/control-cluster.css"></style>
 
 <style scoped>
   .compare-chip-wrap {
@@ -436,13 +437,6 @@
 
   .compare-list__item:hover {
     background: var(--klc-color-ui-hover);
-  }
-
-  .compare-list__right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 0 0 auto;
   }
 
   .compare-list__check {
