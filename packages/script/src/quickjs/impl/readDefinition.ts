@@ -50,35 +50,67 @@ function isOptionsValid(value: unknown, fallback: unknown): boolean {
   return value === undefined || (typeof fallback === 'string' && isOptionsList(value))
 }
 
-/** 检查声明式 Plot 的公共字段与各图形的专用字段。 */
+/** 检查声明式 Plot 的公共字段；缺省字段由采集器补齐，这里只拒绝错误类型。 */
+function hasValidPlotBase(value: Record<string, unknown>): boolean {
+  return (
+    optional(value.label, 'string') &&
+    optional(value.color, 'string') &&
+    optional(value.textColor, 'string') &&
+    optional(value.offset, 'number') &&
+    optional(value.visible, 'boolean')
+  )
+}
+
+/** 虚线数组：缺省或全部为有限数值。 */
+function isDash(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.every((item: unknown) => typeof item === 'number' && Number.isFinite(item)))
+  )
+}
+
+/** line 只额外声明线宽和虚线。 */
+function isLineFields(value: Record<string, unknown>): boolean {
+  return optional(value.width, 'number') && isDash(value.dash)
+}
+
+/** histogram 只额外声明基线。 */
+function isHistogramFields(value: Record<string, unknown>): boolean {
+  return optional(value.baseline, 'number')
+}
+
+/** points 只额外声明半径。 */
+function isPointsFields(value: Record<string, unknown>): boolean {
+  return optional(value.radius, 'number')
+}
+
+/** shape 只额外声明形状枚举和文字。 */
+function isShapeFields(value: Record<string, unknown>): boolean {
+  return (
+    (value.style === undefined || isShapeStyle(value.style)) &&
+    (value.location === undefined || isShapeLocation(value.location)) &&
+    (value.size === undefined || isShapeSize(value.size)) &&
+    optional(value.text, 'string')
+  )
+}
+
+/** 按 kind 分派到各自的字段校验；未知 kind 一律拒绝。 */
 function isPlot(value: unknown): value is PlotDeclaration {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
-  if (
-    !optional(value.label, 'string') ||
-    !optional(value.color, 'string') ||
-    !optional(value.offset, 'number') ||
-    !optional(value.visible, 'boolean')
-  )
-    return false
-  if (value.kind === 'line') {
-    return (
-      optional(value.width, 'number') &&
-      (value.dash === undefined ||
-        (Array.isArray(value.dash) &&
-          value.dash.every((item: unknown) => typeof item === 'number' && Number.isFinite(item))))
-    )
+  if (!hasValidPlotBase(value)) return false
+  switch (value.kind) {
+    case 'line':
+      return isLineFields(value)
+    case 'histogram':
+      return isHistogramFields(value)
+    case 'points':
+      return isPointsFields(value)
+    case 'shape':
+      return isShapeFields(value)
+    default:
+      return false
   }
-  if (value.kind === 'histogram') return optional(value.baseline, 'number')
-  if (value.kind === 'shape') {
-    return (
-      (value.style === undefined || isShapeStyle(value.style)) &&
-      (value.location === undefined || isShapeLocation(value.location)) &&
-      (value.size === undefined || isShapeSize(value.size)) &&
-      optional(value.text, 'string') &&
-      optional(value.textColor, 'string')
-    )
-  }
-  return value.kind === 'points' && optional(value.radius, 'number')
 }
 
 /** 调用参数复用声明校验，输出类型由 plot 的第一个参数提供。 */

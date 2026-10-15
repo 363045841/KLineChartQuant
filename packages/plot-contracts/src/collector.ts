@@ -13,6 +13,7 @@ import {
   type Plot,
   type PlotCollection,
   type PlotFill,
+  PlotKind,
   type PlotPoint,
   validatePlotFills,
 } from './plots.js'
@@ -26,10 +27,10 @@ const DEFAULT_LINE_WIDTH = 1
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */
 const DEFAULT_HISTOGRAM_BASELINE = 0
-/** 点图默认半径。 */
-const DEFAULT_POINTS_RADIUS = 3
-/** 填充默认不透明度。 */
-const DEFAULT_FILL_OPACITY = 0.2
+/** 点图默认半径；脚本产出与原生指标共用这一个默认值。 */
+const DEFAULT_POINTS_RADIUS = 1.5
+/** 填充默认不透明度；同样只有这一处定义。 */
+const DEFAULT_FILL_OPACITY = 0.15
 
 /** 采集器构造参数。 */
 export interface PlotCollectorOptions {
@@ -57,6 +58,7 @@ export class PlotCollector {
       if (this.entries.has(declaration.id)) throw new TypeError('Duplicate Plot id')
       this.entries.set(declaration.id, {
         declaration,
+        style: styleSignature(declaration),
         data: this.emptyColumn(),
         emitted: false,
       })
@@ -78,19 +80,20 @@ export class PlotCollector {
       )
     }
     if (!entry) {
-      entry = {
-        declaration: { id, kind: kind ?? 'line' },
-        data: this.emptyColumn(),
-        emitted: false,
-      }
+      entry = this.createEntry(id, kind)
       this.entries.set(id, entry)
     }
     const declaration = withCallOptions(resolveDeclaration(entry.declaration, kind), options)
-    if (entry.emitted && declaration.kind !== entry.declaration.kind)
-      throw new TypeError(`Plot ${id} cannot change kind during a run`)
-    if (entry.emitted && JSON.stringify(declaration) !== JSON.stringify(entry.declaration))
-      throw new TypeError(`Plot ${id} cannot change style during a run`)
-    entry.declaration = declaration
+    // 调用没有改写声明时沿用同一条目，跳过整列样式签名比较。
+    if (declaration !== entry.declaration) {
+      if (entry.emitted && declaration.kind !== entry.declaration.kind)
+        throw new TypeError(`Plot ${id} cannot change kind during a run`)
+      const style = styleSignature(declaration)
+      if (entry.emitted && !sameStyle(entry.style, style))
+        throw new TypeError(`Plot ${id} cannot change style during a run`)
+      entry.declaration = declaration
+      entry.style = style
+    }
     entry.emitted = true
     entry.data[barIndex] = point
   }
@@ -103,9 +106,19 @@ export class PlotCollector {
     const plots = [...this.entries.values()].map(({ declaration, data }) =>
       createPlot(declaration, data),
     )
-    const fills: PlotFill[] = this.fillDeclarations?.map(toFill) ?? []
+    const fills: PlotFill[] = this.fillDeclarations?.map(createFill) ?? []
     validatePlotFills(plots, fills)
     return { plots, fills }
+  }
+
+  /** 动态 id 的条目：沿用与声明条目相同的空列结构，样式先留空。 */
+  private createEntry(id: string, kind: PlotDeclaration['kind'] | undefined): CollectedPlot {
+    return {
+      declaration: { id, kind: kind ?? PlotKind.Line },
+      style: [],
+      data: this.emptyColumn(),
+      emitted: false,
+    }
   }
 
   /** 构造与本次运行 bar 数等长的稠密空序列。 */
@@ -114,11 +127,43 @@ export class PlotCollector {
   }
 }
 
-/** 同一个 Plot 的声明和数值列只保留一份。 */
+/** 同一个 Plot 的声明、整列样式签名和数值列只保留一份。 */
 interface CollectedPlot {
   declaration: PlotDeclaration
+  style: readonly (string | number | boolean | undefined)[]
   readonly data: (PlotPoint | undefined)[]
   emitted: boolean
+}
+
+/**
+ * 整列样式签名：逐 bar 输出必须与首次一致，颜色不参与（逐点颜色由 PlotPoint 携带）。
+ * 虚线展开为元素，避免调用处每根 bar 新建数组造成假变更。
+ */
+function styleSignature(
+  declaration: PlotDeclaration,
+): readonly (string | number | boolean | undefined)[] {
+  const base = [
+    declaration.id,
+    declaration.label,
+    declaration.visible,
+    declaration.offset,
+    declaration.textColor,
+  ] as const
+  switch (declaration.kind) {
+    case 'line':
+      return [...base, declaration.width, ...(declaration.dash ?? [])]
+    case 'histogram':
+      return [...base, declaration.baseline]
+    case 'points':
+      return [...base, declaration.radius]
+    case 'shape':
+      return [...base, declaration.style, declaration.location, declaration.size, declaration.text]
+  }
+}
+
+/** 按元素比较两个整列样式签名。 */
+function sameStyle(previous: readonly unknown[], next: readonly unknown[]): boolean {
+  return previous.length === next.length && previous.every((entry, index) => entry === next[index])
 }
 
 /** 调用样式覆盖声明；逐 bar 颜色由 PlotPoint 携带，不改变整列样式。 */
@@ -185,7 +230,7 @@ function resolveDeclaration(
 }
 
 /** 把填充声明组装成具体 PlotFill，缺省字段填入默认值。 */
-function toFill(declaration: PlotFillDeclaration): PlotFill {
+export function createFill(declaration: PlotFillDeclaration): PlotFill {
   return {
     id: declaration.id,
     from: declaration.from,

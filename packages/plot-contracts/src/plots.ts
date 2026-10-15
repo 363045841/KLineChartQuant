@@ -5,7 +5,7 @@
  * 而它不依赖任何包。这样两个包互不认识，同时绘图数据只有这一处定义。
  */
 
-/** 单个绘图点；缺省位置不绘制，`value` 为 NaN 表示 na。 */
+/** 单个绘图点；缺省位置不绘制，`value` 为 NaN 同为 na，不存在其他「空」取值。 */
 export interface PlotPoint {
   value: number
   /** CSS 颜色字符串；缺省时使用所在 Plot 的颜色。 */
@@ -13,7 +13,6 @@ export interface PlotPoint {
   /** Shape 附带文字的逐 bar 颜色。 */
   textColor?: string
 }
-
 /** Plot 的公共信息。 */
 interface PlotBase {
   readonly id: string
@@ -45,7 +44,10 @@ export interface PointsPlot extends PlotBase {
   readonly radius: number
 }
 
-/** 固定形状标记；样式由声明决定，数据沿用统一的逐 bar 列。 */
+/**
+ * 固定形状标记；样式由声明决定，数据沿用统一的逐 bar 列。
+ * 相对定位只用 bar 的位置，`value` 只表示该 bar 有无信号；absolute 把 `value` 当价格。
+ */
 export interface ShapePlot extends PlotBase {
   readonly kind: 'shape'
   readonly style: import('./shape.js').ShapeStyle

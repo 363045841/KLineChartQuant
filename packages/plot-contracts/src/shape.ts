@@ -50,7 +50,7 @@ export const ShapeSize = {
   Huge: 'huge',
 } satisfies Record<string, ShapeSize>
 
-/** Shape 的声明样式；相对位置把 value 解释为条件，absolute 把 value 解释为价格。 */
+/** Shape 的声明样式；abovebar/belowbar/top/bottom 只决定位置（value 只表示有无信号），absolute 把 value 当价格。 */
 export interface ShapeOptions {
   readonly style?: ShapeStyle
   readonly location?: ShapeLocation

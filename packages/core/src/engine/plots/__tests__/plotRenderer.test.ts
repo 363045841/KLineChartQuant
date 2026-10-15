@@ -102,19 +102,22 @@ describe('Plot renderer', () => {
     expect(vi.mocked(ctx.arc).mock.calls[1]?.[1]).toBe((originalY ?? NaN) + 100)
   })
 
-  it.each(Object.values(ShapeStyle))('Shape %s 只绘制非零有限条件，纯标记也能绘制', (style) => {
-    const { ctx, state } = paint(
-      { series: [{ id: 'signal', kind: 'shape', style, location: 'top', color: () => 'red' }] },
-      [true, false, NaN, -2, undefined],
-    )
-    expect(state.visibleMin).toBe(Infinity)
-    expect(state.visibleMax).toBe(-Infinity)
-    const draws = vi.mocked(ctx.stroke).mock.calls.length + vi.mocked(ctx.fill).mock.calls.length
-    expect(draws).toBe(2)
-    for (const calls of [vi.mocked(ctx.moveTo).mock.calls, vi.mocked(ctx.lineTo).mock.calls]) {
-      expect(calls.flat().every(Number.isFinite)).toBe(true)
-    }
-  })
+  it.each(Object.values(ShapeStyle))(
+    'Shape %s 按有限值绘制：false 与 NaN 不画，0 是合法值',
+    (style) => {
+      const { ctx, state } = paint(
+        { series: [{ id: 'signal', kind: 'shape', style, location: 'top', color: () => 'red' }] },
+        [true, false, Number.NaN, 0, -2],
+      )
+      expect(state.visibleMin).toBe(Infinity)
+      expect(state.visibleMax).toBe(-Infinity)
+      const draws = vi.mocked(ctx.stroke).mock.calls.length + vi.mocked(ctx.fill).mock.calls.length
+      expect(draws).toBe(3)
+      for (const calls of [vi.mocked(ctx.moveTo).mock.calls, vi.mocked(ctx.lineTo).mock.calls]) {
+        expect(calls.flat().every(Number.isFinite)).toBe(true)
+      }
+    },
+  )
 
   it.each([ShapeLocation.AboveBar, ShapeLocation.BelowBar])(
     'Shape %s 使用偏移后的 K 线而不是条件值定位',

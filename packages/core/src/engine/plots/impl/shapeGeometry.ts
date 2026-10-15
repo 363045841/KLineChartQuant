@@ -33,6 +33,8 @@ const SHAPE_PIXELS: Readonly<Record<ShapeSize, number>> = {
 const TEXT_GAP = 3
 const LABEL_PADDING = 4
 const TIP_RATIO = 0.35
+/** 形状文字固定使用的字阶；与 Foundation Token 的 12px 步骤对应。 */
+const SHAPE_TEXT_STEP = 12
 
 type PathBuilder = (width: number, height: number) => readonly (readonly Vertex[])[]
 
@@ -136,8 +138,9 @@ export function buildShapeGlyph(plot: ShapePlot, context: RenderContext): ShapeG
   const pixels = SHAPE_PIXELS[plot.size]
   const tokens = foundationTokens[context.theme]
   // Pine 的 size 控制形状，文字使用独立且固定的字阶。
-  const lineHeight = Number.parseFloat(String(tokens.text[12].lineHeight))
-  const font = `${tokens.text[12].fontSize} ${tokens.fontFamily.brandCjk}`
+  const step = tokens.text[SHAPE_TEXT_STEP]
+  const lineHeight = Number.parseFloat(String(step.lineHeight))
+  const font = `${step.fontSize} ${tokens.fontFamily.brandCjk}`
   const lines = plot.text ? plot.text.split('\n') : []
   const label = plot.style === 'labelup' || plot.style === 'labeldown'
   const { ctx } = context

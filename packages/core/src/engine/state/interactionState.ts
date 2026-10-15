@@ -161,6 +161,27 @@ export function createInteractionState(_deps: InteractionDeps) {
     }),
   }
 
+  /** 清空全部瞬时交互信号；reset 与 dispose 共用同一份清单，避免两处漏改。 */
+  function clearTransientSignals(): void {
+    batch(() => {
+      signals.crosshairPos.set(null)
+      signals.crosshairPrice.set(null)
+      signals.crosshairIndex.set(null)
+      signals.hoveredIndex.set(null)
+      signals.activePaneId.set(null)
+      signals.isDragging.set(false)
+      signals.dragMode.set('none')
+      signals.hoveredSeparatorUpperPaneId.set(null)
+      signals.hoveredRightAxisPaneId.set(null)
+      signals.tooltipPos.set({ x: 0, y: 0 })
+      signals.tooltipAnchorPlacement.set('right-bottom')
+      signals.hoveredDrawingTarget.set('none')
+      signals.rangeSelection.set(
+        Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+      )
+    })
+  }
+
   return {
     readonly: mergedReadonly,
 
@@ -311,44 +332,12 @@ export function createInteractionState(_deps: InteractionDeps) {
       },
 
       reset() {
-        batch(() => {
-          signals.crosshairPos.set(null)
-          signals.crosshairPrice.set(null)
-          signals.crosshairIndex.set(null)
-          signals.hoveredIndex.set(null)
-          signals.activePaneId.set(null)
-          signals.isDragging.set(false)
-          signals.dragMode.set('none')
-          signals.hoveredSeparatorUpperPaneId.set(null)
-          signals.hoveredRightAxisPaneId.set(null)
-          signals.tooltipPos.set({ x: 0, y: 0 })
-          signals.tooltipAnchorPlacement.set('right-bottom')
-          signals.hoveredDrawingTarget.set('none')
-          signals.rangeSelection.set(
-            Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
-          )
-        })
+        clearTransientSignals()
       },
     },
 
     dispose() {
-      batch(() => {
-        signals.crosshairPos.set(null)
-        signals.crosshairPrice.set(null)
-        signals.crosshairIndex.set(null)
-        signals.hoveredIndex.set(null)
-        signals.activePaneId.set(null)
-        signals.isDragging.set(false)
-        signals.dragMode.set('none')
-        signals.hoveredSeparatorUpperPaneId.set(null)
-        signals.hoveredRightAxisPaneId.set(null)
-        signals.tooltipPos.set({ x: 0, y: 0 })
-        signals.tooltipAnchorPlacement.set('right-bottom')
-        signals.hoveredDrawingTarget.set('none')
-        signals.rangeSelection.set(
-          Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
-        )
-      })
+      clearTransientSignals()
     },
   }
 }

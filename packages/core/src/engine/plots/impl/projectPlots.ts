@@ -1,6 +1,12 @@
 /** 把计算器的数值序列投影为 Plot；统一处理显隐、位移、颜色和可见范围。 */
 
-import { createPlot, isPricePlot, validatePlotFills } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  createFill,
+  createPlot,
+  isPricePlot,
+  PlotKind,
+  validatePlotFills,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import type {
@@ -44,26 +50,50 @@ export function projectPlots(
   timestamp: number,
   colors: ColorTokens,
 ): PlotRenderState {
-  if (definition.source === 'collection') {
-    if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
-    validatePlotFills(raw.plots, raw.fills)
-    return {
-      kind: 'plots',
-      timestamp,
-      params,
-      plots: raw.plots,
-      fills: raw.fills,
-      ...plotRange(definition, raw.plots, raw.fills, range),
-      guides: [],
-    }
+  const collection = definition.source === 'collection'
+  const { plots, fills } = collection
+    ? readCollectionPlots(raw)
+    : buildSeriesPlots(definition, raw, params, colors)
+  // 生产端与投影端各校验一次填充边界，绘制端不再重复。
+  validatePlotFills(plots, fills)
+  return {
+    kind: 'plots',
+    timestamp,
+    params,
+    plots,
+    fills,
+    ...plotRange(definition, plots, fills, range),
+    guides: collection
+      ? []
+      : (definition.guides ?? []).map((guide) => ({
+          value: guide.value,
+          color: guide.color(colors),
+          dash: guide.dash ?? [4, 4],
+        })),
   }
-  const plots: Plot[] = definition.series.map((spec) => {
+}
+
+/** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口。 */
+function readCollectionPlots(raw: unknown): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
+  if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
+  return { plots: raw.plots, fills: raw.fills }
+}
+
+/** 从计算结果的数组字段构建 Plot 与填充；样式与填充默认值统一由契约补齐。 */
+function buildSeriesPlots(
+  definition: IndicatorPlotDefinition,
+  raw: unknown,
+  params: Readonly<Record<string, unknown>>,
+  colors: ColorTokens,
+): { plots: Plot[]; fills: PlotFill[] } {
+  const plots = definition.series.map((spec) => {
     const source = sourceArray(raw, spec, params)
     let previous: number | undefined
     const data: (PlotPoint | undefined)[] = source.map((item) => {
       const value = spec.field ? readPlotField(item, spec.field) : item
       if (value === undefined || value === null) return undefined
-      const numeric = spec.kind === 'shape' && typeof value === 'boolean' ? Number(value) : value
+      // 布尔条件只表达有无信号；false 与 NaN 同为 na，不再退化成 0。
+      const numeric = spec.kind === 'shape' && typeof value === 'boolean' ? toNa(value) : value
       if (typeof numeric !== 'number')
         throw new TypeError(`Plot ${spec.id} requires numeric values`)
       const color = spec.pointColor?.(numeric, previous, colors, item)
@@ -78,11 +108,13 @@ export function projectPlots(
       visible: !spec.show || params[spec.show] !== false,
       offset: spec.offset?.(params) ?? 0,
     }
-    switch (spec.kind) {
+    switch (spec.kind ?? PlotKind.Line) {
+      case 'line':
+        return createPlot({ ...base, kind: 'line', width: spec.width, dash: spec.dash }, data)
       case 'histogram':
         return createPlot({ ...base, kind: 'histogram', baseline: spec.baseline }, data)
       case 'points':
-        return createPlot({ ...base, kind: 'points', radius: spec.radius ?? 1.5 }, data)
+        return createPlot({ ...base, kind: 'points', radius: spec.radius }, data)
       case 'shape':
         return createPlot(
           {
@@ -96,33 +128,25 @@ export function projectPlots(
           },
           data,
         )
-      default:
-        return createPlot({ ...base, kind: 'line', width: spec.width, dash: spec.dash }, data)
     }
   })
-  const fills = (definition.fills ?? []).map((fill) => ({
-    id: fill.id,
-    from: fill.from,
-    to: fill.to,
-    visible: !fill.show || params[fill.show] !== false,
-    color: fill.color(colors),
-    reverseColor: fill.reverseColor(colors),
-    opacity: fill.opacity ?? 0.15,
-  }))
-  validatePlotFills(plots, fills)
-  return {
-    kind: 'plots',
-    timestamp,
-    plots,
-    fills,
-    params,
-    ...plotRange(definition, plots, fills, range),
-    guides: (definition.guides ?? []).map((guide) => ({
-      value: guide.value,
-      color: guide.color(colors),
-      dash: guide.dash ?? [4, 4],
-    })),
-  }
+  const fills = (definition.fills ?? []).map((fill) =>
+    createFill({
+      id: fill.id,
+      from: fill.from,
+      to: fill.to,
+      visible: !fill.show || params[fill.show] !== false,
+      color: fill.color(colors),
+      reverseColor: fill.reverseColor(colors),
+      opacity: fill.opacity,
+    }),
+  )
+  return { plots, fills }
+}
+
+/** 布尔条件在数值列里只留下 1 或 na；相对定位的 Shape 用位置而非值。 */
+function toNa(condition: boolean): number {
+  return condition ? 1 : Number.NaN
 }
 
 /** 仅重算可见范围，不重新分配全量绘图点。 */

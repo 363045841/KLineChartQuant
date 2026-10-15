@@ -183,10 +183,20 @@ describe('runQuickJSScript', () => {
       text: '买入',
       offset: 1,
       data: [
-        { value: 0, color: 'red', textColor: 'blue' },
+        { value: Number.NaN, color: 'red', textColor: 'blue' },
         { value: 1, color: 'red', textColor: 'blue' },
       ],
     })
+  })
+
+  it('Shape 的 na 只由 NaN 和缺省表达，0 是合法值', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(
+        `plot(PlotKind.Shape, close[0] - 2, { id: 'signal', location: ShapeLocation.Top })`,
+      ),
+      bars: barsFromCloses([2, 4]),
+    })
+    expect(values(result, 'signal')).toEqual([0, 2])
   })
 
   it('未声明的 Shape 仍走统一动态 id 收集，缺省为 xcross/abovebar/auto', async () => {
