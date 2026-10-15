@@ -193,13 +193,17 @@ function mountHostFunctions(
       onError(new ScriptExecutionError('compile', 'plot 只能在 onBar 中调用'))
       return vm.undefined
     }
-    const value = Number(vm.dump(valueHandle))
+    const value: unknown = vm.dump(valueHandle)
     const kind: unknown = vm.dump(kindHandle)
     if (!isPlotKind(kind)) {
       onError(new ScriptExecutionError('run', '未知 plot kind'))
       return vm.undefined
     }
     const declaration = readPlotCall(vm.dump(optionsHandle), kind)
+    if (value !== null && typeof value !== 'number') {
+      onError(new ScriptExecutionError('run', 'plot value 需要数值或 null'))
+      return vm.undefined
+    }
     if (value === Infinity || value === -Infinity) {
       onError(new ScriptPlotError(declaration.id, cursor.index))
       return vm.undefined
@@ -207,7 +211,7 @@ function mountHostFunctions(
     collector.onPlot(
       declaration.id,
       cursor.index,
-      toPlotPoint(declaration, value),
+      value === null ? null : toPlotPoint(declaration, value),
       kind,
       declaration,
     )

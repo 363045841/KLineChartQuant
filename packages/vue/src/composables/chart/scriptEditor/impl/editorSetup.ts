@@ -1,9 +1,10 @@
 /**
  * 脚本编辑器基础扩展：按 CodeMirror 官方建议复制 basicSetup 的清单，
- * 仅把折叠栏标记换成 chevron 图标（basicSetup 自身不支持自定义）。
+ * 折叠栏使用 chevron，属性补全使用现有 Tabler 图标。
  */
 import {
   autocompletion,
+  type Completion,
   closeBrackets,
   closeBracketsKeymap,
   completionKeymap,
@@ -24,6 +25,7 @@ import {
   crosshairCursor,
   drawSelection,
   dropCursor,
+  type EditorView,
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
@@ -31,8 +33,24 @@ import {
   lineNumbers,
   rectangularSelection,
 } from '@codemirror/view'
+import { h, render } from 'vue'
+import IconTool from '~icons/tabler/tool'
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
+
+/** 属性使用 Tabler 图标，其他类型保留默认符号；克隆后立即卸载 Vue 实例。 */
+function createCompletionIcon(completion: Completion, view: EditorView): Node | null {
+  const types = completion.type?.split(/\s+/)
+  const property = types?.includes('property')
+  if (!property) return null
+  const host = view.dom.ownerDocument.createElement('span')
+  host.className = 'cm-completionIcon cm-script-property-icon'
+  host.setAttribute('aria-hidden', 'true')
+  render(h(IconTool, { width: '1em', height: '1em' }), host)
+  const icon = host.cloneNode(true)
+  render(null, host)
+  return icon
+}
 
 /** 折叠栏标记路径：展开显示 chevron-down，折叠显示 chevron-right。 */
 const FOLD_ARROW_PATH = {
@@ -76,7 +94,14 @@ export const scriptEditorSetup = [
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
   bracketMatching(),
   closeBrackets(),
-  autocompletion(),
+  autocompletion({
+    addToOptions: [
+      {
+        position: 20,
+        render: (completion, _state, view) => createCompletionIcon(completion, view),
+      },
+    ],
+  }),
   rectangularSelection(),
   crosshairCursor(),
   highlightActiveLine(),

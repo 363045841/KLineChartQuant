@@ -4,8 +4,6 @@
  * 它把散落的 (id, barIndex, point) 收成每个 Plot 的列：
  * - 声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
  * - 未声明 plots 时，允许动态 id，使用调用处类型，缺省为折线。
- *
- * onEvent 是引擎输出端口的空实现：组装只消费绘图点，不消费事件。
  */
 import type {
   ArrowPlotDeclaration,
@@ -84,11 +82,11 @@ export class PlotCollector {
     }
   }
 
-  /** 接收绘图点和调用样式；样式整轮固定，颜色随点变化。 */
+  /** 接收绘图点或主动空点；仍校验调用样式，无效数值不会进入输出列。 */
   onPlot(
     id: string,
     barIndex: number,
-    point: PlotPoint,
+    point: PlotPoint | null,
     kind?: PlotDeclaration['kind'],
     options?: PlotDeclaration,
   ): void {
@@ -114,11 +112,8 @@ export class PlotCollector {
       entry.style = style
     }
     entry.emitted = true
-    entry.data[barIndex] = point
+    entry.data[barIndex] = point !== null && Number.isFinite(point.value) ? point : undefined
   }
-
-  /** 事件不参与 PlotCollection；参数放宽以匹配引擎 OutputSink 的结构。 */
-  onEvent(_event: unknown): void {}
 
   /** 产出 PlotCollection：声明优先且保持声明顺序，未声明时按首次出现顺序输出。 */
   collect(): PlotCollection {

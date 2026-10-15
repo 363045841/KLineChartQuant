@@ -18,6 +18,10 @@ declare global {
   const close: Series
   const volume: Series
   const time: Series
+  /**
+   * 内建技术分析库
+   * 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。
+   */
   const ta: TechnicalAnalysisLibrary
   const params: ScriptParameters
 
@@ -28,9 +32,36 @@ declare global {
   function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T>
   /** 声明完整指标；onBar 在每根 K 线上执行。 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
-  /** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点。 */
-  function plot(kind: typeof PlotKind.Shape | typeof PlotKind.Char, value: number | boolean, options: ScriptPlotOptions): void
-  function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
+  /**
+   * 在当前 K 线上绘制形状或字符。
+   * @param kind 标记类型：
+   *
+   * | 类型 | 作用 |
+   * | --- | --- |
+   * | PlotKind.Shape | 绘制形状标记 |
+   * | PlotKind.Char | 绘制字符标记 |
+   *
+   * @param value 标记信号；absolute 定位时为价格。null 或 false 不绘制。
+   * @param options 必填 id；可设置颜色、位置、大小和文字。
+   */
+  function plot(kind: typeof PlotKind.Shape | typeof PlotKind.Char, value: number | boolean | null, options: ScriptPlotOptions): void
+  /**
+   * 在当前 K 线位置上绘制指定图形。
+   * @param kind 绘图类型：
+   *
+   * | 类型 | 作用 |
+   * | --- | --- |
+   * | PlotKind.Line | 折线 |
+   * | PlotKind.Histogram | 柱状图 |
+   * | PlotKind.Points | 散点 |
+   * | PlotKind.Shape | 形状标记 |
+   * | PlotKind.Char | 字符标记 |
+   * | PlotKind.Arrow | 数值箭头，正负决定方向，绝对值决定长度 |
+   *
+   * @param value 当前 K 线的绘图值；null 不绘制。
+   * @param options 必填 id；其余为对应图形的样式选项。
+   */
+  function plot(kind: PlotKind, value: number | null, options: ScriptPlotOptions): void
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */

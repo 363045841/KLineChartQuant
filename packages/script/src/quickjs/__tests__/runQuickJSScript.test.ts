@@ -63,6 +63,23 @@ function referenceEma(closes: readonly number[], length: number): number[] {
 }
 
 describe('runQuickJSScript', () => {
+  it.each(['Line', 'Histogram', 'Points', 'Shape', 'Char', 'Arrow'])(
+    '%s 用 null 主动留空，NaN 被过滤，同一 bar 的 null 清除先前输出',
+    async (kind) => {
+      const result = await runQuickJSScript({
+        source: scriptSource(`
+          plot(PlotKind.${kind}, close[0], { id: 'signal' })
+          if (close[0] === 2) plot(PlotKind.${kind}, null, { id: 'signal' })
+          if (close[0] === 3) plot(PlotKind.${kind}, NaN, { id: 'signal' })
+          plot(PlotKind.${kind}, null, { id: 'empty' })
+        `),
+        bars: barsFromCloses([1, 2, 3, 4]),
+      })
+      expect(values(result, 'signal')).toEqual([1, undefined, undefined, 4])
+      expect(values(result, 'empty')).toEqual([undefined, undefined, undefined, undefined])
+    },
+  )
+
   it('生成的内置目录覆盖 scripts 下全部 JS 文件，不维护第二份名单', () => {
     const directory = new URL('../../../scripts/', import.meta.url)
     const sources = readdirSync(directory)
@@ -110,14 +127,14 @@ describe('runQuickJSScript', () => {
       })`),
       bars: barsFromCloses([1, 2, 3]),
     })
-    expect(values(result, 'char')).toEqual([NaN, 1, 1])
+    expect(values(result, 'char')).toEqual([undefined, 1, 1])
     expect(result.plots[0]).toMatchObject({
       kind: 'char',
       char: '🠅',
       location: 'belowbar',
       text: '买入',
     })
-    expect(result.plots[0]?.data.map((point) => point?.color)).toEqual(['blue', 'blue', 'red'])
+    expect(result.plots[0]?.data.map((point) => point?.color)).toEqual([undefined, 'blue', 'red'])
   })
 
   it('Arrow 保留有符号数值并采集逐 bar 方向颜色', async () => {
@@ -278,14 +295,11 @@ describe('runQuickJSScript', () => {
       size: 'small',
       text: '买入',
       offset: 1,
-      data: [
-        { value: Number.NaN, color: 'red', textColor: 'blue' },
-        { value: 1, color: 'red', textColor: 'blue' },
-      ],
+      data: [undefined, { value: 1, color: 'red', textColor: 'blue' }],
     })
   })
 
-  it('Shape 的 na 只由 NaN 和缺省表达，0 是合法值', async () => {
+  it('Shape 的数值 0 保留在数据列中', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
         `plot(PlotKind.Shape, close[0] - 2, { id: 'signal', location: ShapeLocation.Top })`,
@@ -394,7 +408,7 @@ describe('runQuickJSScript', () => {
     ).rejects.toThrow('plot kind')
   })
 
-  it('逐 bar 计算 ta.sma，历史不足保留 NaN', async () => {
+  it('逐 bar 计算 ta.sma，历史不足时输出空位', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
         `plot(PlotKind.Line, ta.sma(close, params.period)[0], { id: 'ma' })`,
@@ -402,7 +416,7 @@ describe('runQuickJSScript', () => {
       ),
       bars: barsFromCloses([10, 20, 30, 40]),
     })
-    expect(values(result, 'ma')).toEqual([NaN, NaN, 20, 30])
+    expect(values(result, 'ma')).toEqual([undefined, undefined, 20, 30])
   })
 
   it('ta.wma 按 1..length 权重加权，完整窗口之前保留 NaN', async () => {
@@ -410,7 +424,7 @@ describe('runQuickJSScript', () => {
       source: scriptSource(`plot(PlotKind.Line, ta.wma(close, 3)[0], { id: 'wma' })`),
       bars: barsFromCloses([1, 2, 3, 4]),
     })
-    expect(values(result, 'wma')).toEqual([NaN, NaN, 14 / 6, 20 / 6])
+    expect(values(result, 'wma')).toEqual([undefined, undefined, 14 / 6, 20 / 6])
   })
 
   it('ta.vwma 按成交量加权，窗口成交量之和为 0 时留空', async () => {
@@ -418,7 +432,7 @@ describe('runQuickJSScript', () => {
       source: scriptSource(`plot(PlotKind.Line, ta.vwma(close, volume, 2)[0], { id: 'vwma' })`),
       bars: barsFromCloses([10, 20, 30], [0, 0, 2]),
     })
-    expect(values(result, 'vwma')).toEqual([NaN, NaN, 30])
+    expect(values(result, 'vwma')).toEqual([undefined, undefined, 30])
   })
 
   it('序列支持历史偏移，params 作为全局注入', async () => {
@@ -432,7 +446,7 @@ plot(PlotKind.Line, close[1], { id: 'prev' })`,
       params: { factor: 10 },
     })
     expect(values(result, 'scaled')).toEqual([20, 40, 60])
-    expect(values(result, 'prev')).toEqual([NaN, 2, 4])
+    expect(values(result, 'prev')).toEqual([undefined, 2, 4])
   })
 
   it('编译错误与无穷大输出分别抛出可诊断错误', async () => {
@@ -451,8 +465,8 @@ plot(PlotKind.Line, close[1], { id: 'prev' })`,
     const source = scriptSource(`plot(PlotKind.Line, ta.sma(close, 2)[0], { id: 'ma' })`)
     const first = await runQuickJSScript({ source, bars: barsFromCloses([10, 20, 30]) })
     const second = await runQuickJSScript({ source, bars: barsFromCloses([100, 200, 300]) })
-    expect(values(first, 'ma')).toEqual([NaN, 15, 25])
-    expect(values(second, 'ma')).toEqual([NaN, 150, 250])
+    expect(values(first, 'ma')).toEqual([undefined, 15, 25])
+    expect(values(second, 'ma')).toEqual([undefined, 150, 250])
   })
 
   it('整文件只初始化一次，初始化时创建的派生序列跨 bar 正确缓存', async () => {
@@ -465,7 +479,7 @@ plot(PlotKind.Line, close[1], { id: 'prev' })`,
         plot(PlotKind.Line, ++calls, { id: 'calls' })
       } })`
     const result = await runQuickJSScript({ source, bars: barsFromCloses([10, 20, 30, 40]) })
-    expect(values(result, 'ma')).toEqual([NaN, 15, 25, 35])
+    expect(values(result, 'ma')).toEqual([undefined, 15, 25, 35])
     expect(values(result, 'calls')).toEqual([1, 2, 3, 4])
     expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({
       name: 'PersistentSeries',
@@ -540,10 +554,10 @@ describe('随包 SMA 示例脚本', () => {
 
   // 收盘价与成交量都取 1..4、周期 3，期望值即各算法的窗口计算结果。
   it.each([
-    ['SMA', [NaN, NaN, 2, 3]],
-    ['EMA', [NaN, NaN, 2, 3]],
-    ['WMA', [NaN, NaN, 14 / 6, 20 / 6]],
-    ['VWMA', [NaN, NaN, 14 / 6, 29 / 9]],
+    ['SMA', [undefined, undefined, 2, 3]],
+    ['EMA', [undefined, undefined, 2, 3]],
+    ['WMA', [undefined, undefined, 14 / 6, 20 / 6]],
+    ['VWMA', [undefined, undefined, 14 / 6, 29 / 9]],
   ])('算法 %s 产出对应的均线序列', async (type, expected) => {
     const result = await runQuickJSScript({
       source: shippedSmaSource,
@@ -578,8 +592,8 @@ describe('随包 SMA 示例脚本', () => {
     expect(actual).toHaveLength(closes.length)
     for (let index = 0; index < closes.length; index++) {
       const expectedValue = expected[index] ?? Number.NaN
-      // 预热区两边都应为 NaN，不能走数值近似比较。
-      if (Number.isNaN(expectedValue)) expect(Number.isNaN(actual?.[index])).toBe(true)
+      // 计算预热区的无效数值在采集时变为空位。
+      if (Number.isNaN(expectedValue)) expect(actual?.[index]).toBeUndefined()
       else expect(actual?.[index]).toBeCloseTo(expectedValue, 9)
     }
   })

@@ -5,6 +5,50 @@ import ts from 'typescript'
 import type { ScriptLanguageWorker } from '../types.js'
 import { createScriptTypeEnvironment, updateScriptParameters } from './typeEnvironment.js'
 
+/** TypeScript 与 CodeMirror 使用不同的类型名称，在语言边界统一转换。 */
+const COMPLETION_TYPES: Record<ts.ScriptElementKind, string> = {
+  '': 'text',
+  warning: 'text',
+  keyword: 'keyword',
+  script: 'namespace',
+  module: 'namespace',
+  class: 'class',
+  'local class': 'class',
+  interface: 'interface',
+  type: 'type',
+  enum: 'enum',
+  'enum member': 'constant',
+  var: 'variable',
+  'local var': 'variable',
+  using: 'variable',
+  'await using': 'variable',
+  function: 'function',
+  'local function': 'function',
+  method: 'method',
+  getter: 'property',
+  setter: 'property',
+  property: 'property',
+  accessor: 'property',
+  constructor: 'function',
+  call: 'function',
+  index: 'property',
+  construct: 'function',
+  parameter: 'variable',
+  'type parameter': 'type',
+  'primitive type': 'type',
+  label: 'text',
+  alias: 'variable',
+  const: 'constant',
+  let: 'variable',
+  directory: 'namespace',
+  'external module name': 'namespace',
+  'JSX attribute': 'property',
+  string: 'text',
+  link: 'text',
+  'link name': 'text',
+  'link text': 'text',
+}
+
 /** 创建语言服务端；用于真实 Worker 和不依赖 DOM 的契约测试。 */
 export function createScriptLanguageWorker(): ScriptLanguageWorker {
   // 通过初始化 RPC 创建环境，加载错误可返回编辑器，不在 Worker 顶层静默失败。
@@ -35,7 +79,7 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
         from: result.optionalReplacementSpan?.start ?? context.pos - word.length,
         options: result.entries.map((entry) => ({
           label: entry.name,
-          type: entry.kind,
+          type: COMPLETION_TYPES[entry.kind],
           apply: entry.insertText ?? entry.name,
           boost: -Number(entry.sortText) || 0,
         })),

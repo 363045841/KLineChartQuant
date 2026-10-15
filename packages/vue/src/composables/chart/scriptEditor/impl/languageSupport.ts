@@ -11,6 +11,7 @@ import {
 } from '@valtown/codemirror-ts'
 import { type Remote, releaseProxy, wrap } from 'comlink'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from '../types.js'
+import { renderScriptHover } from './renderScriptHover.js'
 import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker&inline'
 
 const signatureEffect = StateEffect.define<Tooltip | null>()
@@ -116,7 +117,7 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
         tsFacetWorker.of({ worker, path: SCRIPT_EDITOR_FILE }),
         tsSyncWorker(),
         tsLinterWorker(),
-        tsHoverWorker(),
+        tsHoverWorker({ renderTooltip: renderScriptHover }),
         javascriptLanguage.data.of({ autocomplete: tsAutocompleteWorker() }),
         signatureField,
         signatureHints(worker),

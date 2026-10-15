@@ -1,27 +1,28 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点，宿主负责与 K 线下标对齐。 */
+/** 输出当前 K 线的一个绘图点；null 主动留空，宿主负责与 K 线下标对齐。 */
 function plot(
   kind: typeof PlotKind.Shape | typeof PlotKind.Char,
-  value: number | boolean,
+  value: number | boolean | null,
   options: ScriptPlotOptions,
 ): void
-function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
-function plot(kind: PlotKind, value: number | boolean, options: ScriptPlotOptions): void {
+function plot(kind: PlotKind, value: number | null, options: ScriptPlotOptions): void
+function plot(kind: PlotKind, value: number | boolean | null, options: ScriptPlotOptions): void {
   if (!options || typeof options.id !== 'string') throw new TypeError('plot 需要 { id }')
   if (
+    value !== null &&
     typeof value !== 'number' &&
     !((kind === PlotKind.Shape || kind === PlotKind.Char) && typeof value === 'boolean')
   )
-    throw new TypeError('plot value 需要数值，shape 和 char 也可以使用布尔条件')
+    throw new TypeError('plot value 需要数值或 null，shape 和 char 也可以使用布尔条件')
   // kind 由宿主按共享契约校验，这里只负责把 JS 值收敛成数值列。
   __plot(kind, toPlotValue(value), options)
 }
 
-/** 布尔条件只表达有无信号：成立记 1，不成立记 na，不再退化成 0。 */
-function toPlotValue(value: number | boolean): number {
-  if (typeof value === 'number') return value
-  return value ? 1 : Number.NaN
+/** 布尔条件成立记 1，否则主动留空；数值和 null 原样跨越 VM 边界。 */
+function toPlotValue(value: number | boolean | null): number | null {
+  if (typeof value !== 'boolean') return value
+  return value ? 1 : null
 }
 
 /** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */
