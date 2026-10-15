@@ -31,9 +31,9 @@ export interface IndicatorSourceDocument {
 
 /** 输入参数的展示选项；options 只在字符串参数上生效，宿主据此渲染下拉选择。 */
 export interface InputOptions {
-  /** 参数面板中的显示名；缺省显示参数名。 */
+  /** 参数面板中的显示名；不填则显示参数名。 */
   readonly title?: string
-  /** 下拉选项；值必须是字符串，与 default 同类型。 */
+  /** 可供选择的字符串列表；填写后，字符串参数会显示为下拉框。 */
   readonly options?: readonly string[]
 }
 

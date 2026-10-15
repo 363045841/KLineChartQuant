@@ -8,54 +8,63 @@ import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape
 
 /** 声明式 Plot 的公共信息。 */
 interface PlotDeclarationBase {
-  /** Plot 的唯一标识，与逐 bar 输出的 id 对应。 */
+  /** 图形 ID，相同 ID 的数据会画在同一条线或同一组标记中。 */
   readonly id: string
-  /** 图例名称；缺省时取 id。 */
+  /** 图例名称；不填则取 id。 */
   readonly label?: string
-  /** CSS 颜色字符串；缺省时取默认色。 */
+  /** 图形颜色，支持 CSS 颜色值；可为每根 K 线设置不同颜色。 */
   readonly color?: string
-  /** 文字默认颜色；逐 bar 覆盖值由输出点携带。 */
+  /** 标记附加文字的颜色，支持 CSS 颜色值；默认与图形颜色一致。 */
   readonly textColor?: string
-  /** 沿 K 线下标的偏移；缺省为 0。 */
+  /** 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 */
   readonly offset?: number
-  /** 是否可见；缺省为 true。 */
+  /** 是否显示图形；不填则显示。 */
   readonly visible?: boolean
   /**
-   * 图形尺寸档位，所有 Plot 类型共用；缺省为 auto。
-   * 各类型如何换算成像素由渲染器决定，契约只传枚举。
+   * 图形尺寸档位；不填则使用 ShapeSize.Auto。
+   * 折线控制线宽，散点控制直径，形状和字符控制外框，箭头控制最大高度，柱状图控制柱宽。
+   * 具体尺寸见 ShapeSize 的档位对照表。
    */
   readonly size?: ShapeSize
 }
 
-/** 折线 Plot 声明；dash 缺省时取默认值。 */
+/** 折线及其样式。 */
 export interface LinePlotDeclaration extends PlotDeclarationBase {
+  /** 绘图类型：折线。 */
   readonly kind: 'line'
+  /** 虚线的线段与间隔长度，单位为逻辑像素；不填或填空数组则画实线。 */
   readonly dash?: readonly number[]
 }
 
-/** 柱状图 Plot 声明；baseline 缺省为 0。 */
+/** 柱状图及其样式。 */
 export interface HistogramPlotDeclaration extends PlotDeclarationBase {
+  /** 绘图类型：柱状图。 */
   readonly kind: 'histogram'
+  /** 柱状图的起始基线值；不填则取 0。 */
   readonly baseline?: number
 }
 
 /** 点图 Plot 声明；散点直径由公共 size 决定。 */
 export interface PointsPlotDeclaration extends PlotDeclarationBase {
+  /** 绘图类型：散点。 */
   readonly kind: 'points'
 }
 
-/** 固定 Shape 声明；缺省样式由共享构造器补齐。 */
+/** 形状标记及其样式。 */
 export interface ShapePlotDeclaration extends PlotDeclarationBase, ShapeOptions {
+  /** 绘图类型：固定形状标记。 */
   readonly kind: 'shape'
 }
 
 /** 字符标记声明。 */
 export interface CharPlotDeclaration extends PlotDeclarationBase, CharOptions {
+  /** 绘图类型：字符标记。 */
   readonly kind: 'char'
 }
 
 /** 数值箭头声明。 */
 export interface ArrowPlotDeclaration extends PlotDeclarationBase, ArrowOptions {
+  /** 绘图类型：数值箭头，正负决定方向，绝对值决定长度。 */
   readonly kind: 'arrow'
 }
 
@@ -68,16 +77,16 @@ export type PlotDeclaration =
   | CharPlotDeclaration
   | ArrowPlotDeclaration
 
-/** plot 调用直接使用声明样式，kind 由调用的第一个参数提供。 */
-export type PlotCallOptions =
-  | Omit<LinePlotDeclaration, 'kind'>
-  | Omit<HistogramPlotDeclaration, 'kind'>
-  | Omit<PointsPlotDeclaration, 'kind'>
-  | Omit<ShapePlotDeclaration, 'kind'>
-  | Omit<CharPlotDeclaration, 'kind'>
-  | Omit<ArrowPlotDeclaration, 'kind'>
+/** 绘图选项；id 必填，其余属性按绘图类型选用。 */
+export interface PlotCallOptions
+  extends PlotDeclarationBase,
+    ShapeOptions,
+    CharOptions,
+    ArrowOptions,
+    Pick<LinePlotDeclaration, 'dash'>,
+    Pick<HistogramPlotDeclaration, 'baseline'> {}
 
-/** 声明式填充：引用两个 Plot id，样式缺省时由采集器填入默认值。 */
+/** 两个图形之间的填充区域及其样式。 */
 export interface PlotFillDeclaration {
   /** 填充的唯一标识。 */
   readonly id: string
@@ -85,12 +94,12 @@ export interface PlotFillDeclaration {
   readonly from: string
   /** 结束 Plot id。 */
   readonly to: string
-  /** CSS 颜色字符串；缺省时取默认色。 */
+  /** 填充颜色，支持 CSS 颜色值；不填则使用默认颜色。 */
   readonly color?: string
-  /** 反向颜色（from 高于 to 时）；缺省时回落到 color 或默认色。 */
+  /** from 高于 to 时的填充颜色；不填则使用 color，color 也没填则使用默认颜色。 */
   readonly reverseColor?: string
-  /** 不透明度；缺省时取默认值。 */
+  /** 填充的不透明度；不填则取 0.15。 */
   readonly opacity?: number
-  /** 是否可见；缺省为 true。 */
+  /** 是否显示填充；不填则显示。 */
   readonly visible?: boolean
 }

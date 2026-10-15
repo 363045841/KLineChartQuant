@@ -41,7 +41,15 @@ export async function generateScriptEnums({ check = false } = {}) {
           }
           return `  ${property.name.getText(file)} = ${JSON.stringify(property.initializer.text)},`
         })
-        declarations.push(`declare enum ${declaration.name.text} {\n${members.join('\n')}\n}`)
+        // 保留共享契约的 JSDoc，让生成的全局枚举提供同一份编辑器提示。
+        const documentation = ts
+          .getJSDocCommentsAndTags(statement)
+          .filter((comment) => comment.kind === ts.SyntaxKind.JSDocComment)
+          .map((comment) => comment.getText(file) + '\n')
+          .join('')
+        declarations.push(
+          `${documentation}declare enum ${declaration.name.text} {\n${members.join('\n')}\n}`,
+        )
       }
     }
   }

@@ -26,6 +26,43 @@ async function completions(source: string) {
 }
 
 describe('script language service', () => {
+  it('在 plot 对象字面量的属性上显示契约注释', async () => {
+    const source = `plot(PlotKind.Points, 1, { id: 'overbought', color: '#ff0000', size: ShapeSize.Tiny })`
+    const worker = await createSession(source)
+    for (const [property, expected] of [
+      ['id', '图形 ID'],
+      ['color', 'CSS'],
+      ['size', '尺寸档位'],
+    ]) {
+      const hover = worker.getHover({
+        path: SCRIPT_EDITOR_FILE,
+        pos: source.indexOf(`${property}:`),
+      })
+      expect(hover?.quickInfo?.documentation?.map((part) => part.text).join('')).toContain(expected)
+    }
+  })
+
+  it.each([
+    ['Line', 'dash: [4, 2]', 'dash', '虚线'],
+    ['Histogram', 'baseline: 0', 'baseline', '基线'],
+    ['Shape', 'location: ShapeLocation.AboveBar', 'location', '标记位置'],
+    ['Shape', 'style: ShapeStyle.Circle', 'style', '标记形状'],
+    ['Shape', "text: 'signal'", 'text', '附加文字'],
+    ['Shape', "textColor: 'red'", 'textColor', 'CSS'],
+    ['Char', "char: '★'", 'char', 'Unicode'],
+    ['Arrow', "colorUp: 'red'", 'colorUp', '正值'],
+    ['Arrow', "colorDown: 'green'", 'colorDown', '负值'],
+  ])('显示 %s 的 %s 属性注释', async (kind, option, property, expected) => {
+    const source = `plot(PlotKind.${kind}, 1, { id: 'signal', ${option} })`
+    const worker = await createSession(source)
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
+    const hover = worker.getHover({
+      path: SCRIPT_EDITOR_FILE,
+      pos: source.indexOf(`${property}:`),
+    })
+    expect(hover?.quickInfo?.documentation?.map((part) => part.text).join('')).toContain(expected)
+  })
+
   it.each(builtinScriptSources)('接受现有内置脚本，行情全局不会与 DOM 冲突', async (source) => {
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
