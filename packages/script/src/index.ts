@@ -42,11 +42,13 @@ export { builtinScriptSources } from './quickjs/generated/builtinScripts.js'
 export { builtinLibraries } from './quickjs/impl/builtinLibraries.js'
 export {
   preloadQuickJS,
+  prepareQuickJSScript,
   readQuickJSScriptDefinitionSync,
   runQuickJSScript,
   runQuickJSScriptSync,
 } from './quickjs/impl/runQuickJSScript.js'
 export type {
+  PreparedQuickJSScript,
   QuickJSLibrary,
   QuickJSRunOptions,
   QuickJSScriptDefinition,

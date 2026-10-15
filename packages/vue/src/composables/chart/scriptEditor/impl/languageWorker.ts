@@ -2,7 +2,7 @@
 import type { CompletionResult } from '@codemirror/autocomplete'
 import { createWorker } from '@valtown/codemirror-ts/worker'
 import ts from 'typescript'
-import type { ScriptLanguageWorker } from '../types.js'
+import type { ScriptLanguageWorker, ScriptSignatureHelp } from '../types.js'
 import { createScriptTypeEnvironment, updateScriptParameters } from './typeEnvironment.js'
 
 /** TypeScript 与 CodeMirror 使用不同的类型名称，在语言边界统一转换。 */
@@ -86,18 +86,26 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
       }
     },
     /** 返回调用点的参数签名，由 TypeScript 判断当前调用和活动参数。 */
-    getSignatureHelp(path: string, position: number): string | null {
+    getSignatureHelp(path: string, position: number): ScriptSignatureHelp | null {
       const help = worker.getEnv().languageService.getSignatureHelpItems(path, position, undefined)
       if (!help) return null
       const item = help.items[help.selectedItemIndex]
       if (!item) return null
-      return (
-        ts.displayPartsToString(item.prefixDisplayParts) +
-        item.parameters
-          .map((parameter) => ts.displayPartsToString(parameter.displayParts))
-          .join(ts.displayPartsToString(item.separatorDisplayParts)) +
-        ts.displayPartsToString(item.suffixDisplayParts)
-      )
+      let text = ts.displayPartsToString(item.prefixDisplayParts)
+      const separator = ts.displayPartsToString(item.separatorDisplayParts)
+      // 剩余参数接受后续所有实参，其高亮始终落在最后一个声明参数上。
+      const activeIndex = item.isVariadic
+        ? Math.min(help.argumentIndex, item.parameters.length - 1)
+        : help.argumentIndex
+      let activeParameter: ScriptSignatureHelp['activeParameter'] = null
+      item.parameters.forEach((parameter, index) => {
+        if (index > 0) text += separator
+        const from = text.length
+        text += ts.displayPartsToString(parameter.displayParts)
+        if (index === activeIndex) activeParameter = { from, to: text.length }
+      })
+      text += ts.displayPartsToString(item.suffixDisplayParts)
+      return { text, activeParameter }
     },
   }
 }

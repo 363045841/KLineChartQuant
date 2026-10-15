@@ -8,11 +8,11 @@ import {
   updatePlotIndicator,
 } from '@363045841yyt/klinechart-core'
 import {
+  type PreparedQuickJSScript,
   preloadQuickJS,
+  prepareQuickJSScript,
   type QuickJSLibrary,
   type QuickJSScriptDefinition,
-  readQuickJSScriptDefinitionSync,
-  runQuickJSScriptSync,
 } from '@363045841yyt/klinechart-script'
 import type { ScriptDocument, ScriptService, ScriptServiceOptions } from '../types.js'
 import { createScriptPersistence } from './scriptPersistence.js'
@@ -60,11 +60,12 @@ export async function createScriptService(
   /** 校验和编译全部完成后，以单个定义快照提交，执行闭包绑定该版本源码。 */
   function publish(
     source: string,
-    definition: QuickJSScriptDefinition,
+    prepared: PreparedQuickJSScript,
     revision: number,
     update: boolean,
     identity: ScriptDocument['identity'] = 'user',
   ): ScriptDocument {
+    const { definition } = prepared
     const id = definition.displayName ?? definition.name
     const document = Object.freeze({ revision, source, definition, identity })
     const commit = update ? updatePlotIndicator : registerPlotIndicator
@@ -72,7 +73,7 @@ export async function createScriptService(
       ...definition,
       source: 'script',
       document,
-      compute: (bars, params) => runQuickJSScriptSync({ source, bars, params, libraries }),
+      compute: (bars, params) => prepared.run(bars, params),
     })
     return Object.freeze({ id, ...document })
   }
@@ -115,18 +116,20 @@ export async function createScriptService(
     }
   }
   for (const source of options.builtinSources ?? []) {
-    publish(source, readQuickJSScriptDefinitionSync(source, libraries), 1, false, 'builtin')
+    publish(source, prepareQuickJSScript(source, libraries), 1, false, 'builtin')
   }
   for (const document of restored ?? []) {
-    const definition = readQuickJSScriptDefinitionSync(document.source, libraries)
+    const prepared = prepareQuickJSScript(document.source, libraries)
+    const { definition } = prepared
     assertAvailable(definition)
-    publish(document.source, definition, document.revision, false)
+    publish(document.source, prepared, document.revision, false)
   }
 
   return Object.freeze({
     create(source: string) {
       return enqueue(async () => {
-        const definition = readQuickJSScriptDefinitionSync(source, libraries)
+        const prepared = prepareQuickJSScript(source, libraries)
+        const { definition } = prepared
         assertAvailable(definition)
         const document: ScriptDocument = {
           id: definition.displayName ?? definition.name,
@@ -136,7 +139,7 @@ export async function createScriptService(
           definition,
         }
         await persist([...list(), document])
-        return publish(source, definition, 1, false)
+        return publish(source, prepared, 1, false)
       })
     },
     read,
@@ -144,7 +147,8 @@ export async function createScriptService(
     update(id: string, source: string, expectedRevision: number) {
       return enqueue(async () => {
         const current = requireRevision(id, expectedRevision)
-        const definition = readQuickJSScriptDefinitionSync(source, libraries)
+        const prepared = prepareQuickJSScript(source, libraries)
+        const { definition } = prepared
         if (
           definition.name !== current.definition.name ||
           (definition.displayName ?? definition.name) !== current.id
@@ -155,7 +159,7 @@ export async function createScriptService(
         await persist(
           list().map((item) => (item.id === current.id ? { ...item, source, revision } : item)),
         )
-        return publish(source, definition, revision, true)
+        return publish(source, prepared, revision, true)
       })
     },
     remove(id: string, expectedRevision: number) {

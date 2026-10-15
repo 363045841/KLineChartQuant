@@ -1,7 +1,6 @@
 /** CodeMirror 界面消费图表 Token，语法高亮使用官方 One Dark 配色。 */
-import { syntaxHighlighting } from '@codemirror/language'
-import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
+import { scriptSyntaxHighlighting } from './codePresentation.js'
 
 /** 编辑区、行号、选区和补全面板共用图表的界面颜色。 */
 const editorTheme = EditorView.theme({
@@ -85,12 +84,12 @@ const editorTheme = EditorView.theme({
     overflow: 'hidden',
   },
   // 类型悬浮框和参数提示随内容确定尺寸。
-  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip:has(.cm-script-signature)': {
+  '.cm-tooltip:has(.cm-script-tooltip)': {
     backgroundColor: 'var(--klc-color-ui-surface)',
     fontSize: 'var(--klc-text-label-13-font-size, 13px)',
     lineHeight: '1.6',
   },
-  '.cm-tooltip-hover > div, .cm-script-signature': {
+  '.cm-script-tooltip': {
     padding: 'var(--klc-space-4, 4px) var(--klc-space-8, 8px)',
     fontFamily: "'JetBrains Mono', monospace",
     whiteSpace: 'pre-wrap',
@@ -126,17 +125,6 @@ const editorTheme = EditorView.theme({
   },
   '.cm-script-hover-documentation th': { backgroundColor: 'var(--klc-color-ui-surface)' },
   '.cm-script-hover-documentation code': { fontFamily: "'JetBrains Mono', monospace" },
-  // 提示内只读代码保留语法高亮，取消正文编辑区的高度、边距和活动交互外观。
-  '.cm-script-hover .cm-editor': {
-    height: 'auto',
-    display: 'inline-block',
-    backgroundColor: 'transparent',
-    verticalAlign: 'baseline',
-    fontSize: 'inherit',
-  },
-  '.cm-script-hover .cm-content': { padding: '0', caretColor: 'transparent' },
-  '.cm-script-hover .cm-line': { padding: '0' },
-  '.cm-script-hover .cm-scroller': { overflow: 'visible', lineHeight: 'inherit' },
   '.cm-script-hover-signature .cm-editor': { display: 'block' },
   '.cm-script-hover-signature': { whiteSpace: 'pre-wrap' },
   '.cm-script-hover-documentation pre': {
@@ -171,4 +159,4 @@ const editorTheme = EditorView.theme({
 })
 
 /** 编辑器共享样式扩展，CSS 变量变更时无需重建文档或视图。 */
-export const scriptEditorTheme = [editorTheme, syntaxHighlighting(oneDarkHighlightStyle)]
+export const scriptEditorTheme = [editorTheme, scriptSyntaxHighlighting]

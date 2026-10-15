@@ -13,7 +13,7 @@ defineIndicator({
 })
 
 /** 按算法名分派到对应的库函数；未知算法直接报错，不回退成别的均线。 */
-function averageSeries(source, length, type) {
+function averageSeries(source: typeof close, length: number, type: string): typeof close {
   switch (type) {
     case 'SMA':
       return ta.sma(source, length)

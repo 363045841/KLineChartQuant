@@ -3,7 +3,7 @@
   <div class="script-workspace">
     <div class="script-workspace__toolbar">
       <div class="script-workspace__toolbar-info">
-        <span class="script-workspace__language">JavaScript</span>
+        <span class="script-workspace__language">TypeScript</span>
         <LoadingSpinner v-if="languageLoading" :size="12" class="script-workspace__spinner" />
       </div>
       <span v-if="identity === 'builtin'" class="script-workspace__readonly">

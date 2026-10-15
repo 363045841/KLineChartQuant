@@ -64,7 +64,7 @@ await writeFile(
 // 内置脚本目录是唯一名单，应用启动只消费生成的源码集合，不逐个导入文件。
 const scriptDirectory = new URL('scripts/', packageRoot)
 const scriptFiles = (await readdir(scriptDirectory, { withFileTypes: true }))
-  .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+  .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
   .map((entry) => entry.name)
   .sort()
 const builtinSources = await Promise.all(
@@ -72,7 +72,7 @@ const builtinSources = await Promise.all(
 )
 await writeFile(
   new URL('src/quickjs/generated/builtinScripts.ts', packageRoot),
-  `/** 自动发现 scripts/*.js 生成的内置指标源码；运行 Script build 更新，禁止手工编辑。 */\n` +
+  `/** 自动发现 scripts/*.ts 生成的内置指标源码；运行 Script build 更新，禁止手工编辑。 */\n` +
     `// biome-ignore-all format: 脚本源码由生成器统一序列化\n` +
     `export const builtinScriptSources: readonly string[] = ${JSON.stringify(builtinSources, null, 2)}\n`,
 )

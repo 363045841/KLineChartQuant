@@ -44,7 +44,7 @@ declare global {
    * @param value 标记信号；absolute 定位时为价格。null 或 false 不绘制。
    * @param options 必填 id；可设置颜色、位置、大小和文字。
    */
-  function plot(kind: typeof PlotKind.Shape | typeof PlotKind.Char, value: number | boolean | null, options: ScriptPlotOptions): void
+  function plot(kind: PlotKind.Shape | PlotKind.Char, value: number | boolean | null, options: ScriptPlotOptions): void
   /**
    * 在当前 K 线位置上绘制指定图形。
    * @param kind 绘图类型：

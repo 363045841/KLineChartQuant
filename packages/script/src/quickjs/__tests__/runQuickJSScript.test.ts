@@ -7,16 +7,16 @@ import { builtinScriptSources } from '../generated/builtinScripts.js'
 import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQuickJSScript.js'
 
 /** 随包发布的 SMA 示例源码；直接读磁盘，避免测试里复制一份脚本。 */
-const shippedSmaSource = readFileSync(new URL('../../../scripts/sma.js', import.meta.url), 'utf8')
+const shippedSmaSource = readFileSync(new URL('../../../scripts/sma.ts', import.meta.url), 'utf8')
 /** 直接执行发布的 Shape 示例，验证全部形状声明和实际逐 bar 输出。 */
 const shippedShapeSource = readFileSync(
-  new URL('../../../scripts/shape.js', import.meta.url),
+  new URL('../../../scripts/shape.ts', import.meta.url),
   'utf8',
 )
 
 /** 直接执行 OC Average 源码，验证参数和距离信号。 */
 const shippedOcSource = readFileSync(
-  new URL('../../../scripts/open-close-average.js', import.meta.url),
+  new URL('../../../scripts/open-close-average.ts', import.meta.url),
   'utf8',
 )
 
@@ -80,10 +80,10 @@ describe('runQuickJSScript', () => {
     },
   )
 
-  it('生成的内置目录覆盖 scripts 下全部 JS 文件，不维护第二份名单', () => {
+  it('生成的内置目录覆盖 scripts 下全部 TS 文件，不维护第二份名单', () => {
     const directory = new URL('../../../scripts/', import.meta.url)
     const sources = readdirSync(directory)
-      .filter((file) => file.endsWith('.js'))
+      .filter((file) => file.endsWith('.ts'))
       .sort()
       .map((file) => readFileSync(new URL(file, directory), 'utf8'))
     expect(builtinScriptSources).toEqual(sources)
@@ -168,7 +168,7 @@ describe('runQuickJSScript', () => {
   })
 
   it.each(['char', 'arrow'])('执行随包发布的 %s 示例', async (name) => {
-    const source = readFileSync(new URL(`../../../scripts/${name}.js`, import.meta.url), 'utf8')
+    const source = readFileSync(new URL(`../../../scripts/${name}.ts`, import.meta.url), 'utf8')
     const bars = barsFromCloses([2, 1, 3]).map((bar) => ({ ...bar, open: 2 }))
     const result = await runQuickJSScript({ source, bars })
     expect(result.plots.length).toBeGreaterThan(0)

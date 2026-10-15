@@ -17,11 +17,11 @@ export function uniqueScriptName(store: ScriptSourceStore, base: string): string
 export async function createCopySource(source: string, name: string): Promise<string> {
   const ts = await import('typescript')
   const file = ts.createSourceFile(
-    'indicator.js',
+    'indicator.ts',
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.JS,
+    ts.ScriptKind.TS,
   )
   const edits: SourceEdit[] = []
 

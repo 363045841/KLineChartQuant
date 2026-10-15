@@ -26,12 +26,14 @@ import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { INDICATOR_PRELUDE, LIBRARY_PRELUDE, SCRIPT_PRELUDE } from '../generated/runtime.js'
 import {
   PaneKind,
+  type PreparedQuickJSScript,
   type QuickJSLibrary,
   type QuickJSRunOptions,
   type QuickJSScriptDefinition,
   type ScriptParamValue,
 } from '../types.js'
 import { builtinLibraries } from './builtinLibraries.js'
+import { compileScript } from './compileScript.js'
 import { readDefinition, readPlotCall } from './readDefinition.js'
 
 /** 共享的 WASM 模块类型。 */
@@ -63,13 +65,16 @@ const FIELD_READERS: Readonly<Record<string, (bar: Bar) => number>> = {
 
 /** 用已有行情执行脚本源码，返回逐 bar 汇聚的 PlotCollection。 */
 export async function runQuickJSScript(options: QuickJSRunOptions): Promise<PlotCollection> {
-  const module = await loadQuickJS()
-  return runWithContext(module, options).collection
+  await loadQuickJS()
+  return runQuickJSScriptSync(options)
 }
 
 /** 同步执行脚本；必须先 preloadQuickJS，否则抛出。 */
 export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
-  return runWithContext(getQuickJSSync(), options).collection
+  return runWithContext(getQuickJSSync(), {
+    ...options,
+    ...compileSources(options.source, options.libraries),
+  }).collection
 }
 
 /** 初始化完整文件并读取声明，供注册层生成指标目录。 */
@@ -77,7 +82,39 @@ export function readQuickJSScriptDefinitionSync(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
 ): QuickJSScriptDefinition {
-  return runWithContext(getQuickJSSync(), { source, bars: [], libraries }).definition
+  return runWithContext(getQuickJSSync(), { ...compileSources(source, libraries), bars: [] })
+    .definition
+}
+
+/** 用户脚本与外部库共用一个编译边界；内置库已由构建过程编译。 */
+function compileSources(source: string, libraries: readonly QuickJSLibrary[] = []) {
+  return {
+    source: compileScript(source),
+    libraries: [
+      ...builtinLibraries,
+      ...libraries.map((library) => ({
+        name: library.name,
+        source: compileScript(library.source),
+      })),
+    ],
+  }
+}
+
+/** 编译一个源码版本及其库；注册层持有快照，行情重算时不再转译 TS。 */
+export function prepareQuickJSScript(
+  source: string,
+  libraries: readonly QuickJSLibrary[] = [],
+): PreparedQuickJSScript {
+  const module = getQuickJSSync()
+  const compiled = compileSources(source, libraries)
+  const definition = runWithContext(module, { ...compiled, bars: [] }).definition
+  return Object.freeze({
+    definition,
+    /** 使用既有编译产物执行，VM 状态不在多次运行间共享。 */
+    run(bars: readonly Bar[], params?: Readonly<Record<string, ScriptParamValue>>) {
+      return runWithContext(module, { ...compiled, bars, params }).collection
+    },
+  })
 }
 
 /** 脚本单次执行的时限（毫秒）；库加载、初始化与逐 bar 计算共用。 */
@@ -128,7 +165,7 @@ function runWithContext(
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
-    for (const library of [...builtinLibraries, ...(options.libraries ?? [])]) {
+    for (const library of options.libraries ?? []) {
       evalOrThrow(vm, library.source, 'compile', timeout).dispose()
       evalOrThrow(
         vm,

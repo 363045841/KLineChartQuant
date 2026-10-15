@@ -47,7 +47,7 @@ export function useCodeMirror(
           doc: value.value,
           extensions: [
             scriptEditorSetup,
-            javascript(),
+            javascript({ typescript: true }),
             scriptEditorTheme,
             EditorState.tabSize.of(2),
             editing.of([

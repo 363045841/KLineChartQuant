@@ -58,6 +58,7 @@
             <IconTablerMathFunction aria-hidden="true" />用户自定义脚本
           </button>
         </nav>
+        <p v-if="removalError" role="alert">{{ removalError }}</p>
         <OverlayScrollArea class="selector-results">
           <div class="indicator-list" role="list" aria-label="指标列表">
             <div
@@ -96,6 +97,17 @@
                   @click="editScript(indicator.id)"
                 >
                   <IconTablerCode aria-hidden="true" />
+                </button>
+              </BaseTooltip>
+              <BaseTooltip v-if="indicator.source === 'script' && canRemove(indicator.id)" content="删除脚本" placement="top">
+                <button
+                  type="button"
+                  class="item-action-btn"
+                  :aria-label="`删除脚本：${indicator.name}`"
+                  :disabled="removing !== null"
+                  @click="removeScript(indicator.id)"
+                >
+                  <IconTablerTrash aria-hidden="true" />
                 </button>
               </BaseTooltip>
               <BaseTooltip v-if="indicator.params?.length" content="编辑参数" placement="top">
@@ -182,7 +194,7 @@
     createIndicatorSelectorController,
     findIndicator,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, ref } from 'vue'
+  import { computed, inject, ref } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
@@ -191,11 +203,14 @@
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerStar from '~icons/tabler/star'
   import IconTablerStarFilled from '~icons/tabler/star-filled'
+  import IconTablerTrash from '~icons/tabler/trash'
+  import { SCRIPT_SOURCE_STORE_KEY } from '../composables/chart/scriptEditor/types.js'
   import { useIndicatorCatalog } from '../composables/useIndicatorCatalog.js'
   import {
     INDICATOR_SELECTOR_SECTIONS,
     useIndicatorFavorites,
   } from '../composables/useIndicatorFavorites.js'
+  import { useScriptRemoval } from '../composables/useScriptRemoval.js'
   import { coreSignalToVueRef } from '../utils/signalBridge.js'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
@@ -227,6 +242,9 @@
   // 目录来自编译期静态元数据，打开选择器不加载任何指标实现。
   const controller = createIndicatorSelectorController()
   useIndicatorCatalog(controller)
+  const { removing, removalError, canRemove, removeScript } = useScriptRemoval(
+    inject(SCRIPT_SOURCE_STORE_KEY, undefined),
+  )
 
   const menuOpen = coreSignalToVueRef(controller.menuOpen)
   const searchQuery = coreSignalToVueRef(controller.searchQuery)

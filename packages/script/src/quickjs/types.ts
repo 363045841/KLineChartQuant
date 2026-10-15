@@ -36,11 +36,20 @@ export interface QuickJSScriptDefinition {
 
 /** 一次 QuickJS 脚本运行的配置。 */
 export interface QuickJSRunOptions {
-  /** 完整 JS 文件，通过 defineIndicator 声明元数据与 onBar。 */
+  /** 完整 TS 文件，通过 defineIndicator 声明元数据与 onBar。 */
   readonly source: string
   /** 已加载的行情，按时间升序。 */
   readonly bars: readonly Bar[]
   /** 脚本参数，作为全局 `params` 注入。 */
   readonly params?: Readonly<Record<string, ScriptParamValue>>
   readonly libraries?: readonly QuickJSLibrary[]
+}
+
+/** 一个源码版本的编译快照；每次运行仍使用独立 VM 上下文。 */
+export interface PreparedQuickJSScript {
+  readonly definition: QuickJSScriptDefinition
+  run(
+    bars: readonly Bar[],
+    params?: Readonly<Record<string, ScriptParamValue>>,
+  ): import('@363045841yyt/klinechart-plot-contracts').PlotCollection
 }

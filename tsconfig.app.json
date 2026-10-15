@@ -8,7 +8,8 @@
     "**/dist",
     "**/out",
     "**/*.config.*",
-    "packages/mobile/**"
+    "packages/mobile/**",
+    "packages/script/scripts/*.ts"
   ],
   "compilerOptions": {
     "incremental": true,

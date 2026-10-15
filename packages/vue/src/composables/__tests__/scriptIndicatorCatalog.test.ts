@@ -12,6 +12,7 @@ import { effectScope, ref } from 'vue'
 import { useIndicatorParams } from '../../components/indicator-params/impl/useIndicatorParams.js'
 import { useIndicatorCatalog } from '../useIndicatorCatalog.js'
 import { INDICATOR_SELECTOR_SECTIONS, useIndicatorFavorites } from '../useIndicatorFavorites.js'
+import { useScriptRemoval } from '../useScriptRemoval.js'
 
 describe('Script selector catalog', () => {
   let scripts: ScriptService
@@ -92,6 +93,25 @@ describe('Script selector catalog', () => {
       { key: 'label', label: '名称', type: 'string', default: 'ma' },
     ])
   })
+  it('从选择器删除用户脚本后刷新目录，非用户脚本不提供删除入口', async () => {
+    const scope = effectScope()
+    const controller = createIndicatorSelectorController()
+    scope.run(() => useIndicatorCatalog(controller))
+    const document = await scripts.create(
+      `defineIndicator({ name: 'RemovableSelectorScript', inputs: {}, onBar() {} })`,
+    )
+    const removal = useScriptRemoval(scripts)
+    expect(removal.canRemove(document.id)).toBe(true)
+    expect(removal.canRemove('MA')).toBe(false)
+    expect(controller.catalog.peek().some((item) => item.id === document.id)).toBe(true)
+    await removal.removeScript(document.id)
+    expect(removal.removalError.value).toBeNull()
+    expect(removal.removing.value).toBeNull()
+    expect(scripts.read(document.id)).toBeUndefined()
+    expect(controller.catalog.peek().some((item) => item.id === document.id)).toBe(false)
+    scope.stop()
+  })
+
   it('字符串输入声明 options 后成为下拉参数', async () => {
     await scripts.create(
       `defineIndicator({ name: 'OptionScript', inputs: {

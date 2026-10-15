@@ -16,7 +16,7 @@ const standardLibraries = import.meta.glob<string>(
   { query: '?raw', import: 'default', eager: true },
 )
 
-/** 创建单个编辑会话的 JS 类型环境，仅加载 ECMAScript 全局，不加载 DOM。 */
+/** 创建单个编辑会话的 TS 类型环境，仅加载 ECMAScript 全局，不加载 DOM。 */
 export function createScriptTypeEnvironment() {
   const files = new Map<string, string>(Object.entries(scriptEditorTypeFiles))
   for (const [path, source] of Object.entries(standardLibraries)) {
@@ -33,10 +33,7 @@ export function createScriptTypeEnvironment() {
       module: ts.ModuleKind.ESNext,
       moduleResolution: ts.ModuleResolutionKind.Bundler,
       lib: ['lib.es2022.d.ts'],
-      allowJs: true,
-      checkJs: true,
       strict: true,
-      noImplicitAny: false,
       noEmit: true,
       skipLibCheck: true,
       types: [],

@@ -22,6 +22,7 @@ function storeWith(names: readonly string[]): ScriptSourceStore {
       names.includes(id) ? { id, source: '', revision: 1, identity: 'user' } : undefined,
     create: () => Promise.reject(new Error('unused')),
     update: () => Promise.reject(new Error('unused')),
+    remove: () => Promise.reject(new Error('unused')),
   }
 }
 

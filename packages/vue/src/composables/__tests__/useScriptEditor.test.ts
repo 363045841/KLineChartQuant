@@ -1,7 +1,7 @@
 /** 编辑器通过正式脚本服务打开、保存，并拒绝覆盖另一会话的新版本。 */
 import 'fake-indexeddb/auto'
 
-import source from '@363045841yyt/klinechart-script/scripts/sma.js?raw'
+import source from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
 import { createScriptService } from '@363045841yyt/klinechart-script-chart'
 import { describe, expect, it } from 'vitest'
 import { useScriptEditor } from '../chart/useScriptEditor.js'

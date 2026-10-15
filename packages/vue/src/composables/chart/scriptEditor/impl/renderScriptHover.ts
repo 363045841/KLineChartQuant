@@ -3,7 +3,8 @@ import type { EditorView, TooltipView } from '@codemirror/view'
 import type { HoverInfo } from '@valtown/codemirror-ts'
 import MarkdownIt from 'markdown-it'
 import type { SymbolDisplayPart } from 'typescript'
-import { highlightScriptCode } from './highlightScriptCode.js'
+import type { ScriptCodeView } from '../types.js'
+import { createScriptCodeView } from './createScriptCodeView.js'
 
 // JSDoc 使用现有 Markdown 解析器；禁用原始 HTML，表格和行内代码由解析器生成。
 const documentationMarkdown = new MarkdownIt({ html: false, breaks: true })
@@ -12,7 +13,7 @@ const documentationMarkdown = new MarkdownIt({ html: false, breaks: true })
 function appendDocumentation(
   parent: HTMLElement,
   parts: readonly SymbolDisplayPart[],
-  codeViews: EditorView[],
+  codeViews: ScriptCodeView[],
 ): void {
   const content = parent.ownerDocument.createElement('div')
   content.className = 'cm-script-hover-documentation'
@@ -21,7 +22,7 @@ function appendDocumentation(
   for (const code of content.querySelectorAll('code')) {
     const source = code.textContent ?? ''
     code.replaceChildren()
-    codeViews.push(highlightScriptCode(code, source))
+    codeViews.push(createScriptCodeView(code, source))
   }
 }
 
@@ -30,8 +31,8 @@ export function renderScriptHover(info: HoverInfo, view: EditorView): TooltipVie
   // 编辑器可以挂载在独立窗口，节点必须属于该编辑器所在的文档。
   const document = view.dom.ownerDocument
   const dom = document.createElement('div')
-  dom.className = 'cm-script-hover'
-  const codeViews: EditorView[] = []
+  dom.className = 'cm-script-tooltip cm-script-hover'
+  const codeViews: ScriptCodeView[] = []
   const quickInfo = info.quickInfo
   if (!quickInfo) return { dom }
 
@@ -39,7 +40,7 @@ export function renderScriptHover(info: HoverInfo, view: EditorView): TooltipVie
     const signature = document.createElement('div')
     signature.className = 'cm-script-hover-signature'
     codeViews.push(
-      highlightScriptCode(signature, quickInfo.displayParts.map((part) => part.text).join('')),
+      createScriptCodeView(signature, quickInfo.displayParts.map((part) => part.text).join('')),
     )
     dom.append(signature)
   }

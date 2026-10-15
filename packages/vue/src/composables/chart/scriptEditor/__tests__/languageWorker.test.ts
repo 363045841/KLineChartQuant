@@ -1,7 +1,9 @@
 /** 使用真实 TypeScript 语言服务验证脚本契约、补全和草稿变化，不替换语言服务实现。 */
+
+import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { describe, expect, it } from 'vitest'
-import averageSource from '../../../../../../script/scripts/open-close-average.js?raw'
-import smaSource from '../../../../../../script/scripts/sma.js?raw'
+import averageSource from '../../../../../../script/scripts/open-close-average.ts?raw'
+import smaSource from '../../../../../../script/scripts/sma.ts?raw'
 import { createScriptLanguageWorker } from '../impl/languageWorker.js'
 import { SCRIPT_EDITOR_FILE } from '../types.js'
 
@@ -24,18 +26,13 @@ async function completions(source: string) {
 }
 
 describe('script language service', () => {
-  it.each([smaSource, averageSource])(
-    '接受现有内置脚本，行情全局不会与 DOM 冲突',
-    async (source) => {
-      const worker = await createSession(source)
-      expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
-      const program = worker.getEnv().languageService.getProgram()
-      expect(program?.getSourceFiles().some((file) => file.fileName.includes('lib.dom.'))).toBe(
-        false,
-      )
-      expect(program?.getOptionsDiagnostics()).toEqual([])
-    },
-  )
+  it.each(builtinScriptSources)('接受现有内置脚本，行情全局不会与 DOM 冲突', async (source) => {
+    const worker = await createSession(source)
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
+    const program = worker.getEnv().languageService.getProgram()
+    expect(program?.getSourceFiles().some((file) => file.fileName.includes('lib.dom.'))).toBe(false)
+    expect(program?.getOptionsDiagnostics()).toEqual([])
+  })
 
   it('从类型声明补全 ta、标准 JS 成员和用户局部变量', async () => {
     expect(await completions('ta.')).toEqual(expect.arrayContaining(['sma', 'wma', 'vwma']))
@@ -48,10 +45,7 @@ describe('script language service', () => {
     expect(await completions('PlotKind.')).toEqual(
       expect.arrayContaining(['Line', 'Histogram', 'Points']),
     )
-    expect(await completions('globalThis.PlotKind.')).toEqual(
-      expect.arrayContaining(['Line', 'Histogram', 'Points']),
-    )
-    const worker = await createSession(`plot(globalThis.PlotKind.Histogram, 1, { id: 'volume' })`)
+    const worker = await createSession(`plot(PlotKind.Histogram, 1, { id: 'volume' })`)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot('histogram', 1, { id: 'volume' })` })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
@@ -77,7 +71,7 @@ describe('script language service', () => {
   it('显示 ta 函数的参数签名与类型诊断', async () => {
     const source = 'ta.sma(close, "bad")'
     const worker = await createSession(source)
-    expect(worker.getSignatureHelp(SCRIPT_EDITOR_FILE, source.indexOf('"bad"'))).toContain(
+    expect(worker.getSignatureHelp(SCRIPT_EDITOR_FILE, source.indexOf('"bad"'))?.text).toContain(
       'length: number',
     )
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([
@@ -85,6 +79,19 @@ describe('script language service', () => {
     ])
     const hover = worker.getHover({ path: SCRIPT_EDITOR_FILE, pos: source.indexOf('sma') })
     expect(hover).toBeTruthy()
+  })
+
+  it.each([
+    ['ta.sma(', 'source: Series'],
+    ['ta.sma(close, ', 'length: number'],
+    ['ta.sma(Math.max(1, 2), ', 'length: number'],
+    ['Math.max(1, 2, ', '...values: number[]'],
+  ])('定位当前参数的签名文本范围：%s', async (source, expected) => {
+    const worker = await createSession(source)
+    const signature = worker.getSignatureHelp(SCRIPT_EDITOR_FILE, source.length)
+    expect(signature?.activeParameter).not.toBeNull()
+    const range = signature?.activeParameter
+    expect(range && signature?.text.slice(range.from, range.to)).toBe(expected)
   })
 
   it('从当前 inputs 推导参数，修改草稿后移除旧参数并采用新类型', async () => {
@@ -131,7 +138,7 @@ describe('script language service', () => {
     const source = `const declare = defineIndicator;
       declare({ name: 'Alias', inputs: { length: input(10) }, onBar() {} });
       function scope() {
-        function defineIndicator(value) {}
+        function defineIndicator(value: unknown) {}
         defineIndicator({ inputs: { fake: input(true) } });
       }
       params.`
