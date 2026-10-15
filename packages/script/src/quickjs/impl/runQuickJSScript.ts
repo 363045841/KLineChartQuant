@@ -8,7 +8,9 @@ import {
   isPlotKind,
   type PlotCollection,
   PlotCollector,
+  type PlotDeclaration,
   PlotKind,
+  type PlotPoint,
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
@@ -195,28 +197,40 @@ function mountHostFunctions(
     const kind: unknown = vm.dump(kindHandle)
     if (!isPlotKind(kind)) {
       onError(new ScriptExecutionError('run', '未知 plot kind'))
-    } else {
-      const declaration = readPlotCall(vm.dump(optionsHandle), kind)
-      if (value === Infinity || value === -Infinity) {
-        onError(new ScriptPlotError(declaration.id, cursor.index))
-        return vm.undefined
-      }
-      collector.onPlot(
-        declaration.id,
-        cursor.index,
-        {
-          value,
-          ...(declaration.color !== undefined ? { color: declaration.color } : {}),
-          ...(declaration.textColor !== undefined ? { textColor: declaration.textColor } : {}),
-        },
-        kind,
-        declaration,
-      )
+      return vm.undefined
     }
+    const declaration = readPlotCall(vm.dump(optionsHandle), kind)
+    if (value === Infinity || value === -Infinity) {
+      onError(new ScriptPlotError(declaration.id, cursor.index))
+      return vm.undefined
+    }
+    collector.onPlot(
+      declaration.id,
+      cursor.index,
+      toPlotPoint(declaration, value),
+      kind,
+      declaration,
+    )
     return vm.undefined
   })
   vm.setProp(vm.global, '__plot', plot)
   plot.dispose()
+}
+
+/** 箭头方向色优先于公共 color；其余 kind 直接用调用颜色。 */
+function resolvePointColor(declaration: PlotDeclaration, value: number): string | undefined {
+  if (declaration.kind !== 'arrow') return declaration.color
+  return (value > 0 ? declaration.colorUp : declaration.colorDown) ?? declaration.color
+}
+
+/** 组装跨边界绘图点：颜色缺省时不写入字段，留给 Plot 层回落声明样式。 */
+function toPlotPoint(declaration: PlotDeclaration, value: number): PlotPoint {
+  const color = resolvePointColor(declaration, value)
+  return {
+    value,
+    ...(color === undefined ? {} : { color }),
+    ...(declaration.textColor === undefined ? {} : { textColor: declaration.textColor }),
+  }
 }
 
 /** 把参数写成一个全局对象 `params`，键值均为可序列化基本类型。 */

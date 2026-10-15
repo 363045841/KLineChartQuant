@@ -1,4 +1,4 @@
-/** Shape Plot 的形状、位置和尺寸契约；宿主、VM 与编辑器共用同一组枚举值。 */
+/** 标记 Plot 的形状、位置、尺寸和方向样式；宿主、VM 与编辑器共用契约。 */
 
 export type ShapeStyle =
   | 'xcross'
@@ -50,13 +50,30 @@ export const ShapeSize = {
   Huge: 'huge',
 } satisfies Record<string, ShapeSize>
 
-/** Shape 的声明样式；abovebar/belowbar/top/bottom 只决定位置（value 只表示有无信号），absolute 把 value 当价格。 */
-export interface ShapeOptions {
-  readonly style?: ShapeStyle
+/** Shape 与 Char 的共享样式；相对位置过滤零值，absolute 把 value 当价格。 */
+export interface MarkerOptions {
   readonly location?: ShapeLocation
   readonly size?: ShapeSize
   readonly text?: string
   readonly textColor?: string
+}
+
+/** 固定形状标记的专属样式。 */
+export interface ShapeOptions extends MarkerOptions {
+  readonly style?: ShapeStyle
+}
+
+/** 字符标记；空字符可只显示附加文字。 */
+export interface CharOptions extends MarkerOptions {
+  readonly char?: string
+}
+
+/** 数值箭头的方向颜色与逻辑像素高度范围。 */
+export interface ArrowOptions {
+  readonly colorUp?: string
+  readonly colorDown?: string
+  readonly minHeight?: number
+  readonly maxHeight?: number
 }
 
 /** 校验跨 VM 边界的形状枚举。 */

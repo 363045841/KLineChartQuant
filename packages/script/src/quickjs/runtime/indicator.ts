@@ -2,15 +2,18 @@
 
 /** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点，宿主负责与 K 线下标对齐。 */
 function plot(
-  kind: typeof PlotKind.Shape,
+  kind: typeof PlotKind.Shape | typeof PlotKind.Char,
   value: number | boolean,
   options: ScriptPlotOptions,
 ): void
 function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
 function plot(kind: PlotKind, value: number | boolean, options: ScriptPlotOptions): void {
   if (!options || typeof options.id !== 'string') throw new TypeError('plot 需要 { id }')
-  if (typeof value !== 'number' && !(kind === PlotKind.Shape && typeof value === 'boolean'))
-    throw new TypeError('plot value 需要数值，shape 也可以使用布尔条件')
+  if (
+    typeof value !== 'number' &&
+    !((kind === PlotKind.Shape || kind === PlotKind.Char) && typeof value === 'boolean')
+  )
+    throw new TypeError('plot value 需要数值，shape 和 char 也可以使用布尔条件')
   // kind 由宿主按共享契约校验，这里只负责把 JS 值收敛成数值列。
   __plot(kind, toPlotValue(value), options)
 }

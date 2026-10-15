@@ -1,8 +1,9 @@
 /** 验证 QuickJS 脚本执行器：全局序列、ta、params、错误、运行隔离与随包示例脚本。 */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
+import { builtinScriptSources } from '../generated/builtinScripts.js'
 import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQuickJSScript.js'
 
 /** 随包发布的 SMA 示例源码；直接读磁盘，避免测试里复制一份脚本。 */
@@ -62,6 +63,101 @@ function referenceEma(closes: readonly number[], length: number): number[] {
 }
 
 describe('runQuickJSScript', () => {
+  it('生成的内置目录覆盖 scripts 下全部 JS 文件，不维护第二份名单', () => {
+    const directory = new URL('../../../scripts/', import.meta.url)
+    const sources = readdirSync(directory)
+      .filter((file) => file.endsWith('.js'))
+      .sort()
+      .map((file) => readFileSync(new URL(file, directory), 'utf8'))
+    expect(builtinScriptSources).toEqual(sources)
+  })
+
+  it('声明式 Char 和 Arrow 使用共享默认值，调用只需提供 id', async () => {
+    const result = await runQuickJSScript({
+      source: `defineIndicator({
+        name: 'Declared markers', inputs: {},
+        plots: [
+          { id: 'char', kind: PlotKind.Char },
+          { id: 'arrow', kind: PlotKind.Arrow, colorUp: 'green', colorDown: 'red' }
+        ],
+        onBar() {
+          plot(PlotKind.Char, true, { id: 'char' })
+          plot(PlotKind.Arrow, close[0], { id: 'arrow' })
+        }
+      })`,
+      bars: barsFromCloses([1, -2]),
+    })
+    expect(result.plots[0]).toMatchObject({
+      kind: 'char',
+      char: '★',
+      location: 'abovebar',
+      size: 'auto',
+    })
+    expect(result.plots[1]).toMatchObject({
+      kind: 'arrow',
+      minHeight: 5,
+      maxHeight: 50,
+      colorUp: 'green',
+      colorDown: 'red',
+    })
+  })
+
+  it('Char 支持布尔条件、Unicode 字符和逐 bar 颜色', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`plot(PlotKind.Char, close[0] > 1, {
+        id: 'char', char: '🠅', location: ShapeLocation.BelowBar,
+        color: close[0] > 2 ? 'red' : 'blue', text: '买入'
+      })`),
+      bars: barsFromCloses([1, 2, 3]),
+    })
+    expect(values(result, 'char')).toEqual([NaN, 1, 1])
+    expect(result.plots[0]).toMatchObject({
+      kind: 'char',
+      char: '🠅',
+      location: 'belowbar',
+      text: '买入',
+    })
+    expect(result.plots[0]?.data.map((point) => point?.color)).toEqual(['blue', 'blue', 'red'])
+  })
+
+  it('Arrow 保留有符号数值并采集逐 bar 方向颜色', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`plot(PlotKind.Arrow, close[0], {
+        id: 'arrow', colorUp: close[0] > 1 ? 'green' : 'blue', colorDown: 'red',
+        minHeight: 4, maxHeight: 40
+      })`),
+      bars: barsFromCloses([1, -2, 0, 10]),
+    })
+    expect(values(result, 'arrow')).toEqual([1, -2, 0, 10])
+    expect(result.plots[0]).toMatchObject({ kind: 'arrow', minHeight: 4, maxHeight: 40 })
+    expect(result.plots[0]?.data.map((point) => point?.color)).toEqual([
+      'blue',
+      'red',
+      'red',
+      'green',
+    ])
+  })
+
+  it.each([
+    `plot(PlotKind.Arrow, true, { id: 'bad' })`,
+    `plot(PlotKind.Arrow, 1, { id: 'bad', minHeight: 0 })`,
+    `plot(PlotKind.Arrow, 1, { id: 'bad', minHeight: 60, maxHeight: 50 })`,
+    `plot(PlotKind.Char, true, { id: 'bad', char: 'AB' })`,
+    `plot(PlotKind.Char, true, { id: 'bad', char: close[0] > 1 ? 'A' : 'B' })`,
+  ])('拒绝无效参数或整轮变化的字符：%s', async (body) => {
+    await expect(
+      runQuickJSScript({ source: scriptSource(body), bars: barsFromCloses([1, 2]) }),
+    ).rejects.toThrow()
+  })
+
+  it.each(['char', 'arrow'])('执行随包发布的 %s 示例', async (name) => {
+    const source = readFileSync(new URL(`../../../scripts/${name}.js`, import.meta.url), 'utf8')
+    const bars = barsFromCloses([2, 1, 3]).map((bar) => ({ ...bar, open: 2 }))
+    const result = await runQuickJSScript({ source, bars })
+    expect(result.plots.length).toBeGreaterThan(0)
+    expect(result.plots.every((plot) => plot.kind === name)).toBe(true)
+  })
+
   it.each([
     { distance: 0.75, a: 0, expected: true },
     { distance: 0.5, a: 0, expected: false },

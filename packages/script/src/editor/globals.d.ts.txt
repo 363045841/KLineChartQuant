@@ -29,7 +29,7 @@ declare global {
   /** 声明完整指标；onBar 在每根 K 线上执行。 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
   /** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点。 */
-  function plot(kind: typeof PlotKind.Shape, value: number | boolean, options: ScriptPlotOptions): void
+  function plot(kind: typeof PlotKind.Shape | typeof PlotKind.Char, value: number | boolean, options: ScriptPlotOptions): void
   function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>

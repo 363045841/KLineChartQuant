@@ -11,6 +11,7 @@ import {
   createContextWithInstanceState,
   createKLineData,
   createMockCanvasContext,
+  type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -25,6 +26,7 @@ function paint(
   definition: IndicatorPlotDefinition,
   raw: unknown,
   params: Record<string, unknown> = {},
+  overrides: MockRenderContextOverrides = {},
 ) {
   const colors = resolveThemeColors('light')
   const state = projectPlots(definition, raw, params, { start: 0, end: 5 }, 1, colors)
@@ -34,12 +36,302 @@ function paint(
     kLineCenters: [5, 15, 25, 35, 45],
     scrollLeft: 10,
     kBarRects: Array.from({ length: 5 }, (_, index) => ({ x: index * 10, width: 8 })),
+    ...overrides,
   })
   paintPlots(state, context)
   return { ctx, context, state }
 }
 
 describe('Plot renderer', () => {
+  it('Char 相对定位过滤零值，absolute 的零值参与价格轴', () => {
+    const { ctx, state } = paint(
+      {
+        series: [
+          {
+            id: 'relative',
+            kind: 'char',
+            char: '▲',
+            location: 'top',
+            field: 'signal',
+            color: () => 'red',
+          },
+          {
+            id: 'absolute',
+            kind: 'char',
+            char: '★',
+            location: 'absolute',
+            field: 'price',
+            color: () => 'blue',
+          },
+        ],
+      },
+      [
+        { signal: 0, price: 0 },
+        { signal: 1, price: 12 },
+      ],
+    )
+    expect(vi.mocked(ctx.fillText).mock.calls.map(([text]) => text)).toEqual(['▲', '★', '★'])
+    expect(ctx.fillText).toHaveBeenCalledWith('★', 5, 0)
+    expect(state.visibleMin).toBe(0)
+    expect(state.visibleMax).toBe(12)
+  })
+
+  it('Char size 控制字符字号，空字符可以只显示附加文字', () => {
+    const fonts: string[] = []
+    for (const size of [ShapeSize.Small, ShapeSize.Large]) {
+      const { ctx } = paint(
+        {
+          series: [
+            { id: 'char', kind: 'char', char: '🠅', location: 'top', size, color: () => 'red' },
+          ],
+        },
+        [true],
+      )
+      expect(ctx.fillText).toHaveBeenCalledTimes(1)
+      fonts.push(ctx.font)
+    }
+    expect(fonts[0]).not.toBe(fonts[1])
+    const { ctx } = paint(
+      {
+        series: [
+          { id: 'text', kind: 'char', char: '', text: '买入', location: 'top', color: () => 'red' },
+        ],
+      },
+      [true],
+    )
+    expect(ctx.fillText).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(ctx.fillText).mock.calls[0]?.[0]).toBe('买入')
+  })
+
+  it('Arrow 使用可见范围外的最大幅度，过滤零和 NaN，正负方向及高度正确', () => {
+    const { ctx, state, context } = paint(
+      {
+        series: [
+          {
+            id: 'arrow',
+            kind: 'arrow',
+            minHeight: 5,
+            maxHeight: 50,
+            colorUp: 'green',
+            colorDown: 'red',
+            color: () => 'blue',
+          },
+        ],
+      },
+      [0.01, 2, -4, 0, NaN, 10],
+    )
+    expect(state.visibleMin).toBe(Infinity)
+    expect(state.visibleMax).toBe(-Infinity)
+    const starts = vi.mocked(ctx.moveTo).mock.calls
+    const lines = vi.mocked(ctx.lineTo).mock.calls
+    expect(starts).toHaveLength(3)
+    const heights = starts.map((start, index) => {
+      const ys = [start[1], ...lines.slice(index * 6, index * 6 + 6).map((point) => point[1])]
+      return Math.max(...ys) - Math.min(...ys)
+    })
+    // 头部高度恒定：三个箭头无论长短，头部都是同一个尺寸。
+    const headHeights = starts.map((start, index) => {
+      const base = lines[index * 6]
+      return Math.abs((base?.[1] ?? NaN) - (start[1] ?? NaN))
+    })
+    expect(headHeights[1]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+    expect(headHeights[2]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+    // 长度按幅度归一化；被托底的最短箭头就是一个完整的头，杆长为 0。
+    expect(heights[1]).toBeCloseTo(10, 5)
+    expect(heights[2]).toBeCloseTo(20, 5)
+    expect(heights[0]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+    // 正箭头尖端最靠近 bar，负箭头尖端位于最下方。
+    expect(starts[0]?.[1]).toBeLessThan(lines[0]?.[1] ?? NaN)
+    expect(starts[2]?.[1]).toBeGreaterThan(lines[12]?.[1] ?? NaN)
+    expect(ctx.strokeStyle).toBe('red')
+    const original = lines.slice()
+    vi.mocked(ctx.lineTo).mockClear()
+    paintPlots(state, { ...context, dpr: 2, range: { start: 0, end: 2 } })
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(original.slice(0, 12))
+  })
+
+  it('Arrow 头部始终是等边三角形，数值只改变杆身长度', () => {
+    // minHeight == maxHeight 固定请求高度，实际高度至少容纳完整头部。
+    const geometryOf = (height: number) => {
+      const { ctx } = paint(
+        {
+          series: [
+            {
+              id: 'arrow',
+              kind: 'arrow',
+              minHeight: height,
+              maxHeight: height,
+              color: () => 'red',
+            },
+          ],
+        },
+        [1],
+      )
+      const calls = [vi.mocked(ctx.moveTo).mock.calls[0], ...vi.mocked(ctx.lineTo).mock.calls]
+      return calls.map(([x, y]) => ({ x, y }))
+    }
+    // 头部 = 尖端到两底角；等边三角形满足 高 = 半宽 × √3。
+    const headShape = (points: readonly { x: number; y: number }[]) => {
+      const tip = points[0]
+      const base = points[1]
+      if (!tip || !base) throw new Error('缺少箭头头部顶点')
+      return { half: Math.abs(base.x - tip.x), height: Math.abs(base.y - tip.y) }
+    }
+    for (const points of [geometryOf(6), geometryOf(20), geometryOf(50)]) {
+      const { half, height } = headShape(points)
+      expect(height / half).toBeCloseTo(Math.sqrt(3), 5)
+    }
+    // 头部尺寸恒定：极短箭头（被头部托底）、中等和最长箭头共用同一个头。
+    const headHalf = headShape(geometryOf(6)).half
+    for (const points of [geometryOf(12), geometryOf(20), geometryOf(50)]) {
+      expect(headShape(points).half).toBeCloseTo(headHalf, 5)
+    }
+    // 杆长 = 总长 − 头高，随数值单调增长；最短的箭头杆长为 0。
+    const shaft = (points: readonly { x: number; y: number }[]) => {
+      const ys = points.map((point) => point.y)
+      return Math.max(...ys) - Math.min(...ys) - headShape(points).height
+    }
+    expect(shaft(geometryOf(6))).toBeCloseTo(0, 5)
+    expect(shaft(geometryOf(50))).toBeGreaterThan(shaft(geometryOf(20)))
+    expect(shaft(geometryOf(20))).toBeGreaterThan(shaft(geometryOf(12)))
+    expect(shaft(geometryOf(50))).toBeGreaterThan(0)
+  })
+
+  it.each([1, -1])('方向 %s 的箭头在小缩放下使用短折线头和贯通杆线', (value) => {
+    const arrow = (overrides: MockRenderContextOverrides) =>
+      paint(
+        {
+          series: [
+            { id: 'arrow', kind: 'arrow', minHeight: 40, maxHeight: 40, color: () => 'red' },
+          ],
+        },
+        [value],
+        {},
+        overrides,
+      )
+    /** 取第 index 次调用的坐标；图表按 moveTo 开新路径，各路径的 lineTo 紧随其后。 */
+    const call = (calls: readonly (readonly number[])[], index: number) => {
+      const value = calls[index]
+      if (!value) throw new Error(`缺少第 ${index} 次调用`)
+      return { x: value[0] ?? NaN, y: value[1] ?? NaN }
+    }
+    // 线框：∧ 头部与杆身是两条开放路径，一次描边画完，不填充也不闭合。
+    const outline = arrow({ zoomLevel: 1, zoomLevelCount: 80 })
+    const outlineMoveTo = vi.mocked(outline.ctx.moveTo).mock.calls
+    const outlineLineTo = vi.mocked(outline.ctx.lineTo).mock.calls
+    expect(outlineMoveTo).toHaveLength(2)
+    expect(outlineLineTo).toHaveLength(3)
+    expect(outline.ctx.stroke).toHaveBeenCalledTimes(1)
+    expect(outline.ctx.fill).not.toHaveBeenCalled()
+    expect(outline.ctx.closePath).not.toHaveBeenCalled()
+    // 头部仍是等边三角形：高 ÷ 半宽 = √3。
+    const tip = call(outlineLineTo, 0)
+    const headCorner = call(outlineMoveTo, 0)
+    expect(Math.abs(headCorner.y - tip.y) / Math.abs(headCorner.x - tip.x)).toBeCloseTo(
+      Math.sqrt(3),
+      5,
+    )
+    // 杆身从头部顶点一直连到尾端，是一条竖直线。
+    const stemTop = call(outlineMoveTo, 1)
+    expect(stemTop.x).toBe(tip.x)
+    expect(stemTop.y).toBe(tip.y)
+    expect(call(outlineLineTo, 2).x).toBe(tip.x)
+    // 实心：头部与矩形杆拼成一条闭合多边形，一次填充。
+    const solid = arrow({ zoomLevel: 80, zoomLevelCount: 80 })
+    const solidMoveTo = vi.mocked(solid.ctx.moveTo).mock.calls
+    const solidLineTo = vi.mocked(solid.ctx.lineTo).mock.calls
+    expect(solidMoveTo).toHaveLength(1)
+    expect(solidLineTo).toHaveLength(6)
+    expect(solid.ctx.fill).toHaveBeenCalledTimes(1)
+    expect(solid.ctx.stroke).not.toHaveBeenCalled()
+    // 实心杆宽为 4px，占 8px 头宽的一半。
+    expect(Math.abs(call(solidLineTo, 1).x - call(solidLineTo, 3).x)).toBeCloseTo(4, 5)
+    // 线框头比实心头更短：两种模式都等边，但线框用更小的头。
+    const solidTip = call(solidMoveTo, 0)
+    const solidHeadCorner = call(solidLineTo, 0)
+    expect(Math.abs(headCorner.x - tip.x)).toBeLessThan(Math.abs(solidHeadCorner.x - solidTip.x))
+    // 上下文没有缩放信息时按已放大处理，保持实心。
+    expect(arrow({}).ctx.fill).toHaveBeenCalledTimes(1)
+  })
+
+  it('全零或空 Arrow 序列不产生无效几何', () => {
+    const { ctx } = paint({ series: [{ id: 'empty', kind: 'arrow', color: () => 'red' }] }, [
+      0,
+      NaN,
+      0,
+    ])
+    expect(ctx.moveTo).not.toHaveBeenCalled()
+    expect(ctx.fill).not.toHaveBeenCalled()
+  })
+
+  it.each(['char', 'arrow'] as const)('%s 相对标记不能作为 fill 端点', (kind) => {
+    expect(() =>
+      paint(
+        {
+          series: [
+            { id: 'marker', kind, color: () => 'red' },
+            { id: 'line', color: () => 'blue' },
+          ],
+          fills: [
+            {
+              id: 'fill',
+              from: 'marker',
+              to: 'line',
+              color: () => 'green',
+              reverseColor: () => 'red',
+            },
+          ],
+        },
+        [1, 2],
+      ),
+    ).toThrow('requires price-positioned plots')
+  })
+
+  it('Arrow offset 使用目标 bar 定位，数据更新后全列幅度缓存失效', () => {
+    const definition: IndicatorPlotDefinition = {
+      series: [
+        {
+          id: 'arrow',
+          kind: 'arrow',
+          minHeight: 1,
+          maxHeight: 50,
+          offset: () => 1,
+          color: () => 'red',
+        },
+      ],
+    }
+    const { ctx, state, context } = paint(definition, [2, 4])
+    const first = vi.mocked(ctx.moveTo).mock.calls[0]
+    expect(first?.[0]).toBe(15)
+    const updated = projectPlots(
+      definition,
+      [2, 4, 20],
+      {},
+      { start: 0, end: 5 },
+      2,
+      resolveThemeColors('light'),
+    )
+    const layer = createPlotLayer('ma', 'main', { instanceId: 'arrow-test' })
+    const geometry = {
+      data: context.data,
+      range: context.range,
+      kLineCenters: context.kLineCenters,
+      scrollLeft: context.scrollLeft,
+    }
+    const originalContext = createContextWithInstanceState(ctx, 'arrow-test', state, geometry)
+    vi.mocked(ctx.lineTo).mockClear()
+    layer.paint(originalContext)
+    const originalLines = vi.mocked(ctx.lineTo).mock.calls.slice(0, 6)
+    const updatedContext = createContextWithInstanceState(ctx, 'arrow-test', updated, geometry)
+    vi.mocked(ctx.lineTo).mockClear()
+    layer.paint(updatedContext)
+    const updatedLines = vi.mocked(ctx.lineTo).mock.calls.slice(0, 6)
+    // 箭头路径覆盖完整高度，比较实际顶点而不是重复实现长度公式。
+    const span = (lines: readonly (readonly [number, number])[]) =>
+      Math.max(...lines.map((point) => point[1])) - Math.min(...lines.map((point) => point[1]))
+    expect(span(updatedLines)).toBeLessThan(span(originalLines))
+  })
+
   it('Shape size 只改变形状尺寸，DPR 不重复缩放 CSS 坐标和文字', () => {
     const sizes = Object.values(ShapeSize).filter((size) => size !== ShapeSize.Auto)
     const radii: number[] = []
@@ -102,22 +394,19 @@ describe('Plot renderer', () => {
     expect(vi.mocked(ctx.arc).mock.calls[1]?.[1]).toBe((originalY ?? NaN) + 100)
   })
 
-  it.each(Object.values(ShapeStyle))(
-    'Shape %s 按有限值绘制：false 与 NaN 不画，0 是合法值',
-    (style) => {
-      const { ctx, state } = paint(
-        { series: [{ id: 'signal', kind: 'shape', style, location: 'top', color: () => 'red' }] },
-        [true, false, Number.NaN, 0, -2],
-      )
-      expect(state.visibleMin).toBe(Infinity)
-      expect(state.visibleMax).toBe(-Infinity)
-      const draws = vi.mocked(ctx.stroke).mock.calls.length + vi.mocked(ctx.fill).mock.calls.length
-      expect(draws).toBe(3)
-      for (const calls of [vi.mocked(ctx.moveTo).mock.calls, vi.mocked(ctx.lineTo).mock.calls]) {
-        expect(calls.flat().every(Number.isFinite)).toBe(true)
-      }
-    },
-  )
+  it.each(Object.values(ShapeStyle))('Shape %s 相对定位：false、NaN 和 0 不画', (style) => {
+    const { ctx, state } = paint(
+      { series: [{ id: 'signal', kind: 'shape', style, location: 'top', color: () => 'red' }] },
+      [true, false, Number.NaN, 0, -2],
+    )
+    expect(state.visibleMin).toBe(Infinity)
+    expect(state.visibleMax).toBe(-Infinity)
+    const draws = vi.mocked(ctx.stroke).mock.calls.length + vi.mocked(ctx.fill).mock.calls.length
+    expect(draws).toBe(2)
+    for (const calls of [vi.mocked(ctx.moveTo).mock.calls, vi.mocked(ctx.lineTo).mock.calls]) {
+      expect(calls.flat().every(Number.isFinite)).toBe(true)
+    }
+  })
 
   it.each([ShapeLocation.AboveBar, ShapeLocation.BelowBar])(
     'Shape %s 使用偏移后的 K 线而不是条件值定位',

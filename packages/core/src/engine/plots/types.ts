@@ -1,5 +1,7 @@
 /** 图表 Plot 契约：指标声明绘图方式，帧投影提供统一的数值范围。 */
 import type {
+  ArrowOptions,
+  CharOptions,
   PlotCollection,
   PlotKind,
   ShapeOptions,
@@ -7,6 +9,8 @@ import type {
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 
 export type {
+  ArrowPlot,
+  CharPlot,
   Plot,
   PlotCollection,
   PlotFill,
@@ -28,7 +32,7 @@ export interface PlotSource {
 }
 
 /** 指标只描述绘图配置，不负责坐标转换或实际绘制。 */
-export interface PlotSpec extends PlotSource, ShapeOptions {
+export interface PlotSpec extends PlotSource, ShapeOptions, CharOptions, ArrowOptions {
   readonly id: string
   readonly label?: string | ((params: Readonly<Record<string, unknown>>) => string)
   readonly kind?: PlotKind

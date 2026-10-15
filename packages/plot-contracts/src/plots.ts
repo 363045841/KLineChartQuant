@@ -48,16 +48,35 @@ export interface PointsPlot extends PlotBase {
  * 固定形状标记；样式由声明决定，数据沿用统一的逐 bar 列。
  * 相对定位只用 bar 的位置，`value` 只表示该 bar 有无信号；absolute 把 `value` 当价格。
  */
-export interface ShapePlot extends PlotBase {
-  readonly kind: 'shape'
-  readonly style: import('./shape.js').ShapeStyle
+interface MarkerPlot extends PlotBase {
   readonly location: import('./shape.js').ShapeLocation
   readonly size: import('./shape.js').ShapeSize
   readonly text: string
   readonly textColor: string
 }
 
-export type Plot = LinePlot | HistogramPlot | PointsPlot | ShapePlot
+/** 固定形状标记。 */
+export interface ShapePlot extends MarkerPlot {
+  readonly kind: 'shape'
+  readonly style: import('./shape.js').ShapeStyle
+}
+
+/** 固定 Unicode 字符标记。 */
+export interface CharPlot extends MarkerPlot {
+  readonly kind: 'char'
+  readonly char: string
+}
+
+/** 符号决定方向，绝对值决定屏幕高度的箭头。 */
+export interface ArrowPlot extends PlotBase {
+  readonly kind: 'arrow'
+  readonly colorUp: string
+  readonly colorDown: string
+  readonly minHeight: number
+  readonly maxHeight: number
+}
+
+export type Plot = LinePlot | HistogramPlot | PointsPlot | ShapePlot | CharPlot | ArrowPlot
 
 export type PlotKind = Plot['kind']
 
@@ -66,6 +85,8 @@ export const PlotKind = {
   Histogram: 'histogram',
   Points: 'points',
   Shape: 'shape',
+  Char: 'char',
+  Arrow: 'arrow',
 } satisfies Record<string, PlotKind>
 
 /** 判断绘图类型，供跨 VM 边界校验使用。 */
@@ -75,7 +96,17 @@ export function isPlotKind(value: unknown): value is PlotKind {
 
 /** 只有价格定位的 Plot 可以参与数值轴范围和曲线填充。 */
 export function isPricePlot(plot: Plot): boolean {
-  return plot.kind !== 'shape' || plot.location === 'absolute'
+  switch (plot.kind) {
+    case 'shape':
+    case 'char':
+      return plot.location === 'absolute'
+    case 'arrow':
+      return false
+    case 'line':
+    case 'histogram':
+    case 'points':
+      return true
+  }
 }
 
 /** 校验填充引用；脚本收集器和原生指标投影使用同一套价格边界规则。 */

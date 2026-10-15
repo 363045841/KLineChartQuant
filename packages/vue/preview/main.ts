@@ -1,7 +1,6 @@
 /** 预览启动：预加载 QuickJS，按完整源码注册指标并接入行情服务。 */
 import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-import smaSource from '@363045841yyt/klinechart-script/scripts/sma.js?raw'
-import averageSource from '@363045841yyt/klinechart-script/scripts/open-close-average.js?raw'
+import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { createApp } from 'vue'
 import App from './App.vue'
 import { SCRIPT_SOURCE_STORE_KEY } from '../src/composables/chart/scriptEditor/types.js'
@@ -13,7 +12,9 @@ import '../src/styles/scrollbar.css'
 const marketDataHost = createPreviewMarketDataHost()
 /** WASM 就绪后才挂载，确保同步计算端口可立即执行。 */
 async function bootstrap(): Promise<void> {
-  const scripts = await createScriptService([], { builtinSources: [smaSource, averageSource] })
+  const scripts = await createScriptService([], {
+    builtinSources: builtinScriptSources,
+  })
   createApp(App)
     .provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context)
     .provide(SCRIPT_SOURCE_STORE_KEY, scripts)

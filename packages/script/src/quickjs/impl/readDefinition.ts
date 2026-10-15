@@ -1,5 +1,6 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import {
+  isPlotKind,
   isShapeLocation,
   isShapeSize,
   isShapeStyle,
@@ -85,32 +86,52 @@ function isPointsFields(value: Record<string, unknown>): boolean {
   return optional(value.radius, 'number')
 }
 
-/** shape 只额外声明形状枚举和文字。 */
-function isShapeFields(value: Record<string, unknown>): boolean {
+/** Shape 与 Char 共用位置、尺寸和附加文字校验。 */
+function isMarkerFields(value: Record<string, unknown>): boolean {
   return (
-    (value.style === undefined || isShapeStyle(value.style)) &&
     (value.location === undefined || isShapeLocation(value.location)) &&
     (value.size === undefined || isShapeSize(value.size)) &&
     optional(value.text, 'string')
   )
 }
 
-/** 按 kind 分派到各自的字段校验；未知 kind 一律拒绝。 */
+/** shape 在标记公共字段之上只额外声明形状枚举。 */
+function isShapeFields(value: Record<string, unknown>): boolean {
+  return isMarkerFields(value) && (value.style === undefined || isShapeStyle(value.style))
+}
+
+/** char 在标记公共字段之上只额外声明单个字符。 */
+function isCharFields(value: Record<string, unknown>): boolean {
+  return isMarkerFields(value) && optional(value.char, 'string')
+}
+
+/** arrow 只额外声明方向颜色与像素高度范围。 */
+function isArrowFields(value: Record<string, unknown>): boolean {
+  return (
+    optional(value.colorUp, 'string') &&
+    optional(value.colorDown, 'string') &&
+    optional(value.minHeight, 'number') &&
+    optional(value.maxHeight, 'number')
+  )
+}
+
+/** 每种 kind 的专属字段校验；契约新增 kind 时这里会因缺项而编译失败。 */
+const PLOT_FIELD_VALIDATORS: Readonly<
+  Record<PlotKind, (value: Record<string, unknown>) => boolean>
+> = {
+  line: isLineFields,
+  histogram: isHistogramFields,
+  points: isPointsFields,
+  shape: isShapeFields,
+  char: isCharFields,
+  arrow: isArrowFields,
+}
+
+/** 校验公共字段后按 kind 查表校验专属字段；未知 kind 一律拒绝。 */
 function isPlot(value: unknown): value is PlotDeclaration {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
   if (!hasValidPlotBase(value)) return false
-  switch (value.kind) {
-    case 'line':
-      return isLineFields(value)
-    case 'histogram':
-      return isHistogramFields(value)
-    case 'points':
-      return isPointsFields(value)
-    case 'shape':
-      return isShapeFields(value)
-    default:
-      return false
-  }
+  return isPlotKind(value.kind) && PLOT_FIELD_VALIDATORS[value.kind](value)
 }
 
 /** 调用参数复用声明校验，输出类型由 plot 的第一个参数提供。 */

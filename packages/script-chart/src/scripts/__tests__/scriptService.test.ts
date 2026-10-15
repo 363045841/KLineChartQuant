@@ -5,6 +5,10 @@ import {
   getRegisteredIndicatorDefinition,
   removeScriptIndicatorDefinition,
 } from '@363045841yyt/klinechart-core'
+import {
+  builtinScriptSources,
+  readQuickJSScriptDefinitionSync,
+} from '@363045841yyt/klinechart-script'
 import { describe, expect, it } from 'vitest'
 import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
@@ -13,6 +17,26 @@ const source = `defineIndicator({ name: 'ServiceAverage', pane: 'sub', inputs: {
   onBar() { plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'average' }) } })`
 
 describe('ScriptService', () => {
+  it('自动发现的完整内置目录通过同一服务注册到指标仓库', async () => {
+    const persistence = createScriptPersistence()
+    const saved = await persistence.load()
+    const scripts = await createScriptService([], {
+      builtinSources: builtinScriptSources,
+      persistence,
+    })
+    for (const source of builtinScriptSources) {
+      const definition = readQuickJSScriptDefinitionSync(source)
+      expect(getRegisteredIndicatorDefinition(definition.name)?.document).toMatchObject({
+        identity: 'builtin',
+        source,
+      })
+      expect(scripts.read(definition.name)?.identity).toBe('builtin')
+    }
+    expect(scripts.read('Char Demo')).toBeDefined()
+    expect(scripts.read('Arrow Demo')).toBeDefined()
+    expect(await persistence.load()).toEqual(saved)
+  })
+
   it('用户源码和版本从 IndexedDB 恢复，删除后不再恢复', async () => {
     const scripts = await createScriptService()
     await expect(scripts.create(source.replace('ServiceAverage', '!!!'))).rejects.toThrow(

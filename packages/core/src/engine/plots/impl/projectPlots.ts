@@ -93,7 +93,10 @@ function buildSeriesPlots(
       const value = spec.field ? readPlotField(item, spec.field) : item
       if (value === undefined || value === null) return undefined
       // 布尔条件只表达有无信号；false 与 NaN 同为 na，不再退化成 0。
-      const numeric = spec.kind === 'shape' && typeof value === 'boolean' ? toNa(value) : value
+      const numeric =
+        (spec.kind === 'shape' || spec.kind === 'char') && typeof value === 'boolean'
+          ? toNa(value)
+          : value
       if (typeof numeric !== 'number')
         throw new TypeError(`Plot ${spec.id} requires numeric values`)
       const color = spec.pointColor?.(numeric, previous, colors, item)
@@ -115,6 +118,31 @@ function buildSeriesPlots(
         return createPlot({ ...base, kind: 'histogram', baseline: spec.baseline }, data)
       case 'points':
         return createPlot({ ...base, kind: 'points', radius: spec.radius }, data)
+      case 'char':
+        return createPlot(
+          {
+            ...base,
+            kind: 'char',
+            char: spec.char,
+            location: spec.location,
+            size: spec.size,
+            text: spec.text,
+            textColor: spec.textColor,
+          },
+          data,
+        )
+      case 'arrow':
+        return createPlot(
+          {
+            ...base,
+            kind: 'arrow',
+            colorUp: spec.colorUp,
+            colorDown: spec.colorDown,
+            minHeight: spec.minHeight,
+            maxHeight: spec.maxHeight,
+          },
+          data,
+        )
       case 'shape':
         return createPlot(
           {

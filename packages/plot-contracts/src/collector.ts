@@ -7,14 +7,29 @@
  *
  * onEvent 是引擎输出端口的空实现：组装只消费绘图点，不消费事件。
  */
-import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
+import type {
+  ArrowPlotDeclaration,
+  CharPlotDeclaration,
+  HistogramPlotDeclaration,
+  LinePlotDeclaration,
+  PlotDeclaration,
+  PlotFillDeclaration,
+  PointsPlotDeclaration,
+  ShapePlotDeclaration,
+} from './declaration.js'
 import { PLOT_ERROR_CODES } from './errors.js'
 import {
+  type ArrowPlot,
+  type CharPlot,
+  type HistogramPlot,
+  type LinePlot,
   type Plot,
   type PlotCollection,
   type PlotFill,
   PlotKind,
   type PlotPoint,
+  type PointsPlot,
+  type ShapePlot,
   validatePlotFills,
 } from './plots.js'
 import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
@@ -31,6 +46,10 @@ const DEFAULT_HISTOGRAM_BASELINE = 0
 const DEFAULT_POINTS_RADIUS = 1.5
 /** 填充默认不透明度；同样只有这一处定义。 */
 const DEFAULT_FILL_OPACITY = 0.15
+/** 字符与箭头的声明默认值只在组装时补齐。 */
+const DEFAULT_CHAR = '★'
+const DEFAULT_ARROW_MIN_HEIGHT = 5
+const DEFAULT_ARROW_MAX_HEIGHT = 50
 
 /** 采集器构造参数。 */
 export interface PlotCollectorOptions {
@@ -158,6 +177,10 @@ function styleSignature(
       return [...base, declaration.radius]
     case 'shape':
       return [...base, declaration.style, declaration.location, declaration.size, declaration.text]
+    case 'char':
+      return [...base, declaration.char, declaration.location, declaration.size, declaration.text]
+    case 'arrow':
+      return [...base, declaration.minHeight, declaration.maxHeight]
   }
 }
 
@@ -173,12 +196,15 @@ function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration
   return { ...declaration, ...style }
 }
 
-/** 把 Plot 声明与采集到的数据组装成具体 Plot，缺省字段填入默认值。 */
-export function createPlot(
+/** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
+type PlotBaseFields = Pick<Plot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset'>
+
+/** 用声明或默认值补齐 Plot 公共字段。 */
+function plotBase(
   declaration: PlotDeclaration,
   data: readonly (PlotPoint | undefined)[],
-): Plot {
-  const base = {
+): PlotBaseFields {
+  return {
     id: declaration.id,
     label: declaration.label ?? declaration.id,
     data,
@@ -186,36 +212,106 @@ export function createPlot(
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
   }
+}
+
+/** 折线：补线宽与虚线默认值。 */
+function createLinePlot(declaration: LinePlotDeclaration, base: PlotBaseFields): LinePlot {
+  return {
+    ...base,
+    kind: 'line',
+    width: declaration.width ?? DEFAULT_LINE_WIDTH,
+    dash: declaration.dash ?? DEFAULT_LINE_DASH,
+  }
+}
+
+/** 柱状图：补基线默认值。 */
+function createHistogramPlot(
+  declaration: HistogramPlotDeclaration,
+  base: PlotBaseFields,
+): HistogramPlot {
+  return {
+    ...base,
+    kind: 'histogram',
+    baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
+  }
+}
+
+/** 散点：补半径默认值。 */
+function createPointsPlot(declaration: PointsPlotDeclaration, base: PlotBaseFields): PointsPlot {
+  return { ...base, kind: 'points', radius: declaration.radius ?? DEFAULT_POINTS_RADIUS }
+}
+
+/** Shape 与 Char 共享的位置、尺寸和文字默认值。 */
+function markerBase(
+  declaration: ShapePlotDeclaration | CharPlotDeclaration,
+  base: PlotBaseFields,
+): Omit<ShapePlot, 'kind' | 'style'> {
+  return {
+    ...base,
+    location: declaration.location ?? ShapeLocation.AboveBar,
+    size: declaration.size ?? ShapeSize.Auto,
+    text: declaration.text ?? '',
+    textColor: declaration.textColor ?? base.color,
+  }
+}
+
+/** 固定形状：补形状枚举默认值。 */
+function createShapePlot(declaration: ShapePlotDeclaration, base: PlotBaseFields): ShapePlot {
+  return {
+    ...markerBase(declaration, base),
+    kind: 'shape',
+    style: declaration.style ?? ShapeStyle.XCross,
+  }
+}
+
+/** 字符标记：空字符合法，只显示附加文字；多码点直接拒绝。 */
+function createCharPlot(declaration: CharPlotDeclaration, base: PlotBaseFields): CharPlot {
+  const char = declaration.char ?? DEFAULT_CHAR
+  if (Array.from(char).length > 1)
+    throw new TypeError('Char Plot requires a single Unicode character')
+  return { ...markerBase(declaration, base), kind: 'char', char }
+}
+
+/** 箭头：高度范围必须有效，方向颜色缺省时回落到公共颜色。 */
+function createArrowPlot(declaration: ArrowPlotDeclaration, base: PlotBaseFields): ArrowPlot {
+  const minHeight = declaration.minHeight ?? DEFAULT_ARROW_MIN_HEIGHT
+  const maxHeight = declaration.maxHeight ?? DEFAULT_ARROW_MAX_HEIGHT
+  if (
+    !Number.isFinite(minHeight) ||
+    !Number.isFinite(maxHeight) ||
+    minHeight <= 0 ||
+    maxHeight < minHeight
+  )
+    throw new TypeError('Arrow Plot requires 0 < minHeight <= maxHeight')
+  return {
+    ...base,
+    kind: 'arrow',
+    colorUp: declaration.colorUp ?? base.color,
+    colorDown: declaration.colorDown ?? base.color,
+    minHeight,
+    maxHeight,
+  }
+}
+
+/** 把 Plot 声明与采集到的数据组装成具体 Plot，只负责按 kind 分派。 */
+export function createPlot(
+  declaration: PlotDeclaration,
+  data: readonly (PlotPoint | undefined)[],
+): Plot {
+  const base = plotBase(declaration, data)
   switch (declaration.kind) {
     case 'line':
-      return {
-        ...base,
-        kind: 'line',
-        width: declaration.width ?? DEFAULT_LINE_WIDTH,
-        dash: declaration.dash ?? DEFAULT_LINE_DASH,
-      }
+      return createLinePlot(declaration, base)
     case 'histogram':
-      return {
-        ...base,
-        kind: 'histogram',
-        baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
-      }
+      return createHistogramPlot(declaration, base)
     case 'points':
-      return {
-        ...base,
-        kind: 'points',
-        radius: declaration.radius ?? DEFAULT_POINTS_RADIUS,
-      }
+      return createPointsPlot(declaration, base)
     case 'shape':
-      return {
-        ...base,
-        kind: 'shape',
-        style: declaration.style ?? ShapeStyle.XCross,
-        location: declaration.location ?? ShapeLocation.AboveBar,
-        size: declaration.size ?? ShapeSize.Auto,
-        text: declaration.text ?? '',
-        textColor: declaration.textColor ?? base.color,
-      }
+      return createShapePlot(declaration, base)
+    case 'char':
+      return createCharPlot(declaration, base)
+    case 'arrow':
+      return createArrowPlot(declaration, base)
   }
 }
 

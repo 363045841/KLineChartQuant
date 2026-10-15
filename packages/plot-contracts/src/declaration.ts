@@ -4,7 +4,7 @@
  * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
-import type { ShapeOptions } from './shape.js'
+import type { ArrowOptions, CharOptions, ShapeOptions } from './shape.js'
 
 /** 声明式 Plot 的公共信息。 */
 interface PlotDeclarationBase {
@@ -46,12 +46,24 @@ export interface ShapePlotDeclaration extends PlotDeclarationBase, ShapeOptions 
   readonly kind: 'shape'
 }
 
+/** 字符标记声明。 */
+export interface CharPlotDeclaration extends PlotDeclarationBase, CharOptions {
+  readonly kind: 'char'
+}
+
+/** 数值箭头声明。 */
+export interface ArrowPlotDeclaration extends PlotDeclarationBase, ArrowOptions {
+  readonly kind: 'arrow'
+}
+
 /** 声明的 Plot：按 kind 区分各图形及其专用字段。 */
 export type PlotDeclaration =
   | LinePlotDeclaration
   | HistogramPlotDeclaration
   | PointsPlotDeclaration
   | ShapePlotDeclaration
+  | CharPlotDeclaration
+  | ArrowPlotDeclaration
 
 /** plot 调用直接使用声明样式，kind 由调用的第一个参数提供。 */
 export type PlotCallOptions =
@@ -59,6 +71,8 @@ export type PlotCallOptions =
   | Omit<HistogramPlotDeclaration, 'kind'>
   | Omit<PointsPlotDeclaration, 'kind'>
   | Omit<ShapePlotDeclaration, 'kind'>
+  | Omit<CharPlotDeclaration, 'kind'>
+  | Omit<ArrowPlotDeclaration, 'kind'>
 
 /** 声明式填充：引用两个 Plot id，样式缺省时由采集器填入默认值。 */
 export interface PlotFillDeclaration {

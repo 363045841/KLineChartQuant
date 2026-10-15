@@ -5,6 +5,12 @@
  */
 
 export type {
+  ArrowOptions,
+  ArrowPlot,
+  ArrowPlotDeclaration,
+  CharOptions,
+  CharPlot,
+  CharPlotDeclaration,
   HistogramPlot,
   InputSchema,
   LinePlot,
@@ -32,6 +38,7 @@ export * from './contracts/library.js'
 export * from './contracts/output.js'
 export { ScriptExecutionError } from './errors.js'
 export type { TechnicalAnalysisLibrary } from './Library/types.js'
+export { builtinScriptSources } from './quickjs/generated/builtinScripts.js'
 export { builtinLibraries } from './quickjs/impl/builtinLibraries.js'
 export {
   preloadQuickJS,
