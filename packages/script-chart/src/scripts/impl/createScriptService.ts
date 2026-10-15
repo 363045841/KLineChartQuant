@@ -49,7 +49,7 @@ export async function createScriptService(
     const document = metadata?.document
     if (!metadata || !document || !document.definition) return undefined
     return Object.freeze({
-      id: metadata.displayName,
+      id: metadata.name,
       identity: document.identity,
       revision: document.revision,
       source: document.source,
@@ -66,7 +66,7 @@ export async function createScriptService(
     identity: ScriptDocument['identity'] = 'user',
   ): ScriptDocument {
     const { definition } = prepared
-    const id = definition.displayName ?? definition.name
+    const id = definition.name
     const document = Object.freeze({ revision, source, definition, identity })
     const commit = update ? updatePlotIndicator : registerPlotIndicator
     commit({
@@ -96,12 +96,11 @@ export async function createScriptService(
       }),
     )
   }
-  /** 在注册前检查全部身份，避免写入一个无法注册的持久化文档。 */
+  /** 在注册前检查身份，避免写入一个无法注册的持久化文档。 */
   function assertAvailable(definition: QuickJSScriptDefinition): void {
-    for (const id of [definition.name, definition.displayName ?? definition.name]) {
-      if (!/[\p{L}\p{N}]/u.test(id)) throw new Error('脚本名称必须包含字母或数字')
-      if (getIndicatorDescriptor(id)) throw new Error(`脚本名称已存在：${id}`)
-    }
+    const id = definition.name
+    if (!/[\p{L}\p{N}]/u.test(id)) throw new Error('脚本名称必须包含字母或数字')
+    if (getIndicatorDescriptor(id)) throw new Error(`脚本名称已存在：${id}`)
   }
   /** 持久化完成后才发布运行定义；保存失败保留当前版本。 */
   async function persist(documents: readonly ScriptDocument[]): Promise<void> {
@@ -132,7 +131,7 @@ export async function createScriptService(
         const { definition } = prepared
         assertAvailable(definition)
         const document: ScriptDocument = {
-          id: definition.displayName ?? definition.name,
+          id: definition.name,
           identity: 'user',
           source,
           revision: 1,
@@ -149,11 +148,8 @@ export async function createScriptService(
         const current = requireRevision(id, expectedRevision)
         const prepared = prepareQuickJSScript(source, libraries)
         const { definition } = prepared
-        if (
-          definition.name !== current.definition.name ||
-          (definition.displayName ?? definition.name) !== current.id
-        ) {
-          throw new Error('已有脚本的 name 和 displayName 是固定身份，请创建新脚本')
+        if (definition.name !== current.definition.name) {
+          throw new Error('已有脚本的 name 是固定身份，请创建新脚本')
         }
         const revision = current.revision + 1
         await persist(

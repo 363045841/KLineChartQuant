@@ -8,14 +8,25 @@
  * 重新调用 ta.* 时复用同一实例，memo 跨 bar 保留，整体保持线性复杂度。
  */
 
-/** 窗口类算法（sma/highest/lowest）的缓存包装，key 区分算法与输入序列。 */
-function __windowSeries(
-  source: Series,
-  length: number,
-  kind: 'sma' | 'highest' | 'lowest',
-): Series {
+/** 窗口类算法：在完整窗口内按固定顺序聚合，窗口不足时结果为 NaN。 */
+type WindowKind = 'sma' | 'sum' | 'highest' | 'lowest'
+
+/** 窗口类算法的缓存包装，key 区分算法与输入序列。 */
+function __windowSeries(source: Series, length: number, kind: WindowKind): Series {
   return __deriveOnce(`window:${kind}:${__seriesId(source)}:${length}`, (_self, offset) =>
     __windowValue(source, length, kind, offset),
+  )
+}
+
+/** 间距类算法：只比较当前值与 length 根之前的值，不要求完整窗口。 */
+function __differenceSeries(
+  kind: 'mom' | 'roc',
+  source: Series,
+  length: number,
+  compute: (current: number, previous: number) => number,
+): Series {
+  return __deriveOnce(`${kind}:${__seriesId(source)}:${length}`, (_self, offset) =>
+    compute(source.at(offset), source.at(offset + length)),
   )
 }
 
@@ -24,6 +35,12 @@ defineLibrary('ta', {
   sma(source: Series, length: number): Series {
     __checkLength(length)
     return __windowSeries(source, length, 'sma')
+  },
+
+  /** 窗口求和序列，完整窗口之前为 NaN。 */
+  sum(source: Series, length: number): Series {
+    __checkLength(length)
+    return __windowSeries(source, length, 'sum')
   },
 
   /** 窗口最高值序列。 */
@@ -36,6 +53,23 @@ defineLibrary('ta', {
   lowest(source: Series, length: number): Series {
     __checkLength(length)
     return __windowSeries(source, length, 'lowest')
+  },
+
+  /** 总体标准差序列（除以 length），完整窗口之前为 NaN。 */
+  stddev(source: Series, length: number): Series {
+    __checkLength(length)
+    return __deriveOnce(`stddev:${__seriesId(source)}:${length}`, (_self, offset) => {
+      if (offset + length > __count()) return Number.NaN
+      let total = 0
+      for (let step = 0; step < length; step++) total += source.at(offset + step)
+      const mean = total / length
+      let variance = 0
+      for (let step = 0; step < length; step++) {
+        const deviation = source.at(offset + step) - mean
+        variance += deviation * deviation
+      }
+      return Math.sqrt(variance / length)
+    })
   },
 
   /** 指数移动平均序列，以首个完整窗口 SMA 初始化。 */
@@ -88,7 +122,7 @@ defineLibrary('ta', {
     )
   },
 
-  /** Wilder RSI 序列，平盘为 50。 */
+  /** Wilder RSI 序列，窗口内无下跌（含平盘）为 100。 */
   rsi(source: Series, length: number): Series {
     __checkLength(length)
     const id = __seriesId(source)
@@ -127,9 +161,24 @@ defineLibrary('ta', {
       const up = gain.at(offset)
       const down = loss.at(offset)
       if (Number.isNaN(up) || Number.isNaN(down)) return Number.NaN
-      if (down === 0) return up === 0 ? 50 : 100
-      return 100 - 100 / (1 + up / down)
+      return down === 0 ? 100 : 100 - 100 / (1 + up / down)
     })
+  },
+
+  /** 动量 MOM：当前值减去 length 根之前的值；历史不足或任一端为 NaN 时为 NaN。 */
+  mom(source: Series, length: number = 1): Series {
+    __checkLength(length)
+    return __differenceSeries('mom', source, length, (current, previous) => current - previous)
+  },
+
+  /** 当前值相对 length 根之前的百分比变化；历史不足、任一端为 NaN 或基准为 0 时为 NaN。 */
+  roc(source: Series, length: number = 1): Series {
+    __checkLength(length)
+    return __differenceSeries('roc', source, length, (current, previous) =>
+      Number.isNaN(previous) || previous === 0
+        ? Number.NaN
+        : ((current - previous) / previous) * 100,
+    )
   },
 
   /** 当前是否发生上穿：左序列刚从下方穿到上方。 */

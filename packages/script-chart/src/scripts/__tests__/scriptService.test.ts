@@ -31,6 +31,18 @@ describe('ScriptService', () => {
         source,
       })
       expect(scripts.read(definition.name)?.identity).toBe('builtin')
+      const metadata = getRegisteredIndicatorDefinition(definition.name)
+      expect(metadata?.indicatorType).toBe(definition.indicatorType ?? 'other')
+      const data = Array.from({ length: 50 }, (_, timestamp) => ({
+        timestamp,
+        open: 100 + timestamp,
+        high: 102 + timestamp,
+        low: 98 + timestamp,
+        close: 101 + timestamp,
+        volume: 100,
+      }))
+      const output = metadata?.runtime?.compute(data, metadata.runtime.defaultParams)
+      expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
     }
     expect(scripts.read('Char Demo')).toBeDefined()
     expect(scripts.read('Arrow Demo')).toBeDefined()

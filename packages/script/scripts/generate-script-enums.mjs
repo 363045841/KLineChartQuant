@@ -12,6 +12,7 @@ const outputFile = fileURLToPath(new URL('src/quickjs/runtime/plotKind.ts', pack
 const definitions = [
   ['plots.ts', ['PlotKind']],
   ['shape.ts', ['ShapeStyle', 'ShapeLocation', 'ShapeSize']],
+  ['indicatorType.ts', ['IndicatorType']],
 ]
 
 /**

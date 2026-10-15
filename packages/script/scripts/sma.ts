@@ -2,6 +2,7 @@
 defineIndicator({
   name: 'SMA',
   pane: PaneKind.Main,
+  indicatorType: IndicatorType.MovingAverage,
   inputs: {
     period: input(20, { title: '周期' }),
     type: input('SMA', { title: '算法', options: ['SMA', 'EMA', 'WMA', 'VWMA'] }),

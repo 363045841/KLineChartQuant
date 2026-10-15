@@ -1,12 +1,9 @@
 /** Shape、Char、Arrow 的屏幕字形：统一构建边界、文字和 Canvas 路径供 Plot Layer 重放。 */
-import type {
-  CharPlot,
-  ShapePlot,
-  ShapeSize,
-  ShapeStyle,
-} from '@363045841yyt/klinechart-plot-contracts'
+import type { CharPlot, ShapePlot, ShapeStyle } from '@363045841yyt/klinechart-plot-contracts'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { foundationTokens } from '@/foundation/tokens/index.js'
+
+import { markerBoxSize } from './plotSize.js'
 
 interface Vertex {
   readonly x: number
@@ -30,14 +27,6 @@ export interface MarkerGlyph {
   readonly charFont: string
 }
 
-const SHAPE_PIXELS: Readonly<Record<ShapeSize, number>> = {
-  auto: 12,
-  tiny: 6,
-  small: 10,
-  normal: 14,
-  large: 20,
-  huge: 28,
-}
 const TEXT_GAP = 3
 const LABEL_PADDING = 4
 const TIP_RATIO = 0.35
@@ -237,7 +226,7 @@ function markerBounds(
 
 /** 测量 Shape 或 Char 并构造完整包围盒，保证相对定位时字形和文字都不盖住 K 线。 */
 export function buildMarkerGlyph(plot: ShapePlot | CharPlot, context: RenderContext): MarkerGlyph {
-  const pixels = SHAPE_PIXELS[plot.size]
+  const pixels = markerBoxSize(plot.size)
   const style = markerStyle(plot)
   const label = isLabelStyle(style)
   const measured = measureMarker(plot, context, pixels)

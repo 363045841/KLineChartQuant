@@ -9,7 +9,8 @@
     "**/out",
     "**/*.config.*",
     "packages/mobile/**",
-    "packages/script/scripts/*.ts"
+    "packages/script/scripts/*.ts",
+    "packages/script/src/quickjs/runtime/**"
   ],
   "compilerOptions": {
     "incremental": true,

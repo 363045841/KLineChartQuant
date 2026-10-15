@@ -6,11 +6,10 @@ import type { ScriptSourceStore } from '../types.js'
 const source = `// 顶部注释
 defineIndicator({
   name: 'Average',
-  displayName: 'Average Line',
   inputs: { period: input(20) },
   onBar() {
     // 计算代码里的同名属性不属于指标身份
-    const options = { name: 'keep-me', displayName: 'keep-me' }
+    const options = { name: 'keep-me' }
     plot(PlotKind.Line, close[0], { id: 'average' })
   },
 })`
@@ -27,14 +26,13 @@ function storeWith(names: readonly string[]): ScriptSourceStore {
 }
 
 describe('createScriptDraft', () => {
-  it('改写 name 与 displayName，注释、计算代码与其他同名属性保持原样', async () => {
+  it('改写 name，注释、计算代码与其他同名属性保持原样', async () => {
     const copy = await createCopySource(source, 'Average 副本')
     expect(copy).toContain('name: "Average 副本"')
-    expect(copy).toContain('displayName: "Average 副本"')
     expect(copy).toContain("name: 'keep-me'")
-    expect(copy).toContain("displayName: 'keep-me'")
     expect(copy).toContain('// 顶部注释')
     expect(copy).toContain('// 计算代码里的同名属性不属于指标身份')
+    expect(copy).not.toContain('displayName')
   })
 
   it('声明不是对象或缺少 name 时明确失败', async () => {

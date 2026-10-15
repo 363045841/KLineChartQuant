@@ -81,7 +81,7 @@ describe('LegendManager', () => {
   })
 
   it('副图图例替换、移动和删除委托同一个 Pane 领域', () => {
-    const first = chart.legend.create({ kind: 'indicator', definitionId: 'RSI' })!
+    const first = chart.legend.create({ kind: 'indicator', definitionId: 'CCI' })!
     const second = chart.legend.create({ kind: 'indicator', definitionId: 'MACD' })!
     const paneId = chart.legend.get(first)!.paneId
     expect(chart.legend.move(second, 'up')).toBe(true)
@@ -91,11 +91,11 @@ describe('LegendManager', () => {
         .map((pane) => pane.id)
         .at(-1),
     ).toBe(paneId)
-    expect(chart.legend.replace(first, 'KDJ')).toBe(true)
+    expect(chart.legend.replace(first, 'MFI')).toBe(true)
     const replacement = chart.legend
       .list()
       .find((entry) => entry.paneId === paneId && entry.kind === 'indicator')!
-    expect(replacement).toMatchObject({ definitionId: 'KDJ' })
+    expect(replacement).toMatchObject({ definitionId: 'MFI' })
     expect(chart.legend.remove(replacement.id)).toBe(true)
     expect(chart.panes.has(paneId)).toBe(false)
   })

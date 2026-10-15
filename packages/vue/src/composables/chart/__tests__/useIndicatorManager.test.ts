@@ -26,8 +26,8 @@ function createFixture() {
 
 describe('useIndicatorManager on-demand loading', () => {
   it.each([
-    { id: 'RSI', role: 'sub' },
-    { id: 'BOLL', role: 'main' },
+    { id: 'CCI', role: 'sub' },
+    { id: 'ENE', role: 'main' },
   ])('loads $id before adding it to the $role pane', async ({ id }) => {
     const { events, manager } = createFixture()
     await manager.handleIndicatorToggle(id, true)

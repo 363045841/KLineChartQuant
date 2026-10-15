@@ -1,5 +1,6 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import {
+  isIndicatorType,
   isPlotKind,
   isShapeLocation,
   isShapeSize,
@@ -58,7 +59,8 @@ function hasValidPlotBase(value: Record<string, unknown>): boolean {
     optional(value.color, 'string') &&
     optional(value.textColor, 'string') &&
     optional(value.offset, 'number') &&
-    optional(value.visible, 'boolean')
+    optional(value.visible, 'boolean') &&
+    (value.size === undefined || isShapeSize(value.size))
   )
 }
 
@@ -71,9 +73,9 @@ function isDash(value: unknown): boolean {
   )
 }
 
-/** line 只额外声明线宽和虚线。 */
+/** line 只额外声明虚线；线宽由公共 size 决定。 */
 function isLineFields(value: Record<string, unknown>): boolean {
-  return optional(value.width, 'number') && isDash(value.dash)
+  return isDash(value.dash)
 }
 
 /** histogram 只额外声明基线。 */
@@ -81,9 +83,9 @@ function isHistogramFields(value: Record<string, unknown>): boolean {
   return optional(value.baseline, 'number')
 }
 
-/** points 只额外声明半径。 */
-function isPointsFields(value: Record<string, unknown>): boolean {
-  return optional(value.radius, 'number')
+/** points 没有专属字段，散点直径由公共 size 决定。 */
+function isPointsFields(_value: Record<string, unknown>): boolean {
+  return true
 }
 
 /** Shape 与 Char 共用位置、尺寸和附加文字校验。 */
@@ -105,14 +107,9 @@ function isCharFields(value: Record<string, unknown>): boolean {
   return isMarkerFields(value) && optional(value.char, 'string')
 }
 
-/** arrow 只额外声明方向颜色与像素高度范围。 */
+/** arrow 只额外声明方向颜色；长度由公共 size 决定。 */
 function isArrowFields(value: Record<string, unknown>): boolean {
-  return (
-    optional(value.colorUp, 'string') &&
-    optional(value.colorDown, 'string') &&
-    optional(value.minHeight, 'number') &&
-    optional(value.maxHeight, 'number')
-  )
+  return optional(value.colorUp, 'string') && optional(value.colorDown, 'string')
 }
 
 /** 每种 kind 的专属字段校验；契约新增 kind 时这里会因缺项而编译失败。 */
@@ -161,13 +158,13 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     !isRecord(value) ||
     typeof value.name !== 'string' ||
     !value.name.trim() ||
-    !optional(value.displayName, 'string') ||
     (value.pane !== undefined && !isPaneKind(value.pane)) ||
+    (value.indicatorType !== undefined && !isIndicatorType(value.indicatorType)) ||
     !isRecord(value.inputs)
   ) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、inputs，pane 只能是 ${PaneKind.Main} 或 ${PaneKind.Sub}`,
+      `指标需要 name、inputs，pane 只能是 ${PaneKind.Main} 或 ${PaneKind.Sub}，indicatorType 必须是已知业务分类`,
     )
   }
   const inputs: QuickJSScriptDefinition['inputs'] = {}
@@ -196,8 +193,8 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   }
   return {
     name: value.name,
-    ...(typeof value.displayName === 'string' ? { displayName: value.displayName } : {}),
     ...(isPaneKind(value.pane) ? { pane: value.pane } : {}),
+    ...(isIndicatorType(value.indicatorType) ? { indicatorType: value.indicatorType } : {}),
     inputs,
     ...(Array.isArray(plots) && plots.every(isPlot) ? { plots } : {}),
     ...(Array.isArray(fills) && fills.every(isFill) ? { fills } : {}),

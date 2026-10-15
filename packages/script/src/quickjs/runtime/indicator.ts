@@ -48,8 +48,8 @@ function __metadata(): QuickJSScriptDefinition {
   if (!__definition) throw new TypeError('脚本需要调用 defineIndicator')
   return {
     name: __definition.name,
-    displayName: __definition.displayName,
     pane: __definition.pane,
+    indicatorType: __definition.indicatorType,
     inputs: __definition.inputs,
     plots: __definition.plots,
     fills: __definition.fills,

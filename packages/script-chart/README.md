@@ -25,7 +25,7 @@ scripts.remove(document.id, document.revision)
 - `remove` 删除定义并清理对应实例。
 - `list` 返回全部已提交脚本文档。
 
-`id` 取脚本的 `displayName`（缺省回落 `name`），也是图例和编辑器读取源码的身份。
+`id` 取脚本的 `name`，也是图例和编辑器读取源码的身份。
 源码、修订号与派生定义属于同一次提交，不存在“定义已更新、源码未写入”的中间状态。
 
 ## 自定义库

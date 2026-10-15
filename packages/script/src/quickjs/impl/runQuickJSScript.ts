@@ -5,6 +5,7 @@
  * 异步入口用于首次加载 WASM；预加载后可用同步入口，供 core 的同步 compute 调用。
  */
 import {
+  IndicatorType,
   isPlotKind,
   type PlotCollection,
   PlotCollector,
@@ -301,6 +302,7 @@ function mountScriptEnums(vm: QuickJSContext): void {
   for (const [globalName, members] of Object.entries({
     PaneKind,
     PlotKind,
+    IndicatorType,
     ShapeStyle,
     ShapeLocation,
     ShapeSize,

@@ -54,15 +54,15 @@ describe('Plot instance projection', () => {
     }
   })
 
-  it('隐藏 BOLL 上轨不改变计算结果，并从可见 Plot 计算范围', () => {
-    const definition = getRegisteredIndicatorDefinition('boll')!
+  it('隐藏 Keltner 上轨不改变计算结果，并从可见 Plot 计算范围', () => {
+    const definition = getRegisteredIndicatorDefinition('keltner')!
     const raw = [
       { upper: 100, middle: 20, lower: 10 },
       { upper: 110, middle: 22, lower: 11 },
     ]
     const state = composeInstanceRenderState(
       definition,
-      result(raw, { period: 1, multiplier: 2 }),
+      result(raw, { emaPeriod: 1, atrPeriod: 1, multiplier: 2 }),
       { showUpper: false },
       { start: 0, end: 2 },
       1,
@@ -79,13 +79,13 @@ describe('Plot instance projection', () => {
     expect(raw[0]?.upper).toBe(100)
   })
 
-  it('RSI 固定范围独立于可见数值，主题颜色来自统一 token', () => {
-    const definition = getRegisteredIndicatorDefinition('rsi')!
+  it('MFI 固定范围独立于可见数值，主题颜色来自统一 token', () => {
+    const definition = getRegisteredIndicatorDefinition('mfi')!
     const state = composeInstanceRenderState(
       definition,
-      result({ 6: [55], 12: [65], 24: [75] }, { period1: 6, period2: 12, period3: 24 }),
+      result([55, 65, 75], { period: 14 }),
       {},
-      { start: 0, end: 1 },
+      { start: 0, end: 3 },
       1,
       resolveThemeColors('dark'),
     )

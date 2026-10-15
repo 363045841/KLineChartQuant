@@ -3,8 +3,7 @@ const styles = Object.values(ShapeStyle)
 let barIndex: number = 0
 
 defineIndicator({
-  name: 'ShapeGallery',
-  displayName: 'Shape 图形示例',
+  name: 'Shape 图形示例',
   pane: PaneKind.Main,
   inputs: {},
   plots: styles.map((style, index) => ({

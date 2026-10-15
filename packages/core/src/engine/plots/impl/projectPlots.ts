@@ -110,14 +110,15 @@ function buildSeriesPlots(
       color: spec.color(colors),
       visible: !spec.show || params[spec.show] !== false,
       offset: spec.offset?.(params) ?? 0,
+      size: spec.size,
     }
     switch (spec.kind ?? PlotKind.Line) {
       case 'line':
-        return createPlot({ ...base, kind: 'line', width: spec.width, dash: spec.dash }, data)
+        return createPlot({ ...base, kind: 'line', dash: spec.dash }, data)
       case 'histogram':
         return createPlot({ ...base, kind: 'histogram', baseline: spec.baseline }, data)
       case 'points':
-        return createPlot({ ...base, kind: 'points', radius: spec.radius }, data)
+        return createPlot({ ...base, kind: 'points' }, data)
       case 'char':
         return createPlot(
           {
@@ -125,7 +126,6 @@ function buildSeriesPlots(
             kind: 'char',
             char: spec.char,
             location: spec.location,
-            size: spec.size,
             text: spec.text,
             textColor: spec.textColor,
           },
@@ -138,8 +138,6 @@ function buildSeriesPlots(
             kind: 'arrow',
             colorUp: spec.colorUp,
             colorDown: spec.colorDown,
-            minHeight: spec.minHeight,
-            maxHeight: spec.maxHeight,
           },
           data,
         )
@@ -150,7 +148,6 @@ function buildSeriesPlots(
             kind: 'shape',
             style: spec.style,
             location: spec.location,
-            size: spec.size,
             text: spec.text,
             textColor: spec.textColor,
           },

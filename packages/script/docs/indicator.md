@@ -46,9 +46,8 @@ await scripts.create(source)
 
 | 字段 | 作用 |
 | --- | --- |
-| `name` | 指标名称，用于目录展示和实例身份；同名脚本拒绝重复创建 |
+| `name` | 指标名称，同时是对外定义 id、目录展示名与实例身份；同名脚本拒绝重复创建 |
 | `pane` | 注册位置，`PaneKind.Main` 主图 / `PaneKind.Sub` 副图；缺省为副图 |
-| `displayName` | 显示名称；缺省取 `name`，同时作为对外定义 id |
 | `inputs` | 参数声明表，值由 `input(默认值, 选项)` 生成；用户修改后按覆盖值执行 |
 | `plots` / `fills` | 可选的 Plot 与填充声明 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取全局序列与参数，输出 Plot |

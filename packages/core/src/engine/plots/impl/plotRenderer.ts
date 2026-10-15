@@ -30,6 +30,13 @@ import {
   type MarkerGlyph,
   paintMarkerGlyph,
 } from './markerGeometry.js'
+import {
+  arrowMaxHeight,
+  arrowMinHeight,
+  barWidthRatio,
+  lineWidth,
+  pointRadius,
+} from './plotSize.js'
 
 type Point = { x: number; y: number }
 type LineBatch = { points: Point[]; width: number; color: string }
@@ -233,7 +240,7 @@ function buildLineSegments(
     if (segment.length === 0 || nextColor !== color) {
       segment = previous ? [previous] : []
       color = nextColor
-      lines.push({ points: segment, width: plot.width, color })
+      lines.push({ points: segment, width: lineWidth(plot.size), color })
     }
     segment.push(point)
     previous = point
@@ -266,10 +273,12 @@ function buildHistogram(
     }
     // 先对齐数值端点和基线，再求高度，保证所有柱子的基线边缘一致。
     const vertical = barVerticalRect(point.y, baselineY, context.dpr)
+    // 柱宽按 size 档位相对 K 线间距缩放，缩放后仍与 K 线中心对齐。
+    const width = bar.width * barWidthRatio(plot.size)
     const offset = batch.count++ * 4
-    batch.buf[offset] = bar.x
+    batch.buf[offset] = bar.x + (bar.width - width) / 2
     batch.buf[offset + 1] = vertical.y
-    batch.buf[offset + 2] = bar.width
+    batch.buf[offset + 2] = width
     batch.buf[offset + 3] = vertical.height
   }
   return [...batches.values()]
@@ -346,11 +355,12 @@ function projectMarkers(plot: MarkerProjection['plot'], context: RenderContext):
   return { kind: plot.kind, plot, points }
 }
 
-/** 箭头高度：按全列最大幅度归一化，再夹在声明的像素范围内。 */
+/** 箭头高度：按全列最大幅度归一化，再夹在 size 决定的高度范围内。 */
 function arrowHeight(plot: ArrowPlot, value: number, maximum: number): number {
+  const maxHeight = arrowMaxHeight(plot.size)
   return Math.max(
-    plot.minHeight,
-    Math.min(plot.maxHeight, plot.maxHeight * (Math.abs(value) / maximum)),
+    arrowMinHeight(plot.size),
+    Math.min(maxHeight, maxHeight * (Math.abs(value) / maximum)),
   )
 }
 
@@ -413,7 +423,7 @@ function drawLine(projection: LineProjection, context: RenderContext): void {
   const { ctx } = context
   ctx.save()
   ctx.translate(-context.scrollLeft, 0)
-  ctx.lineWidth = plot.width
+  ctx.lineWidth = lineWidth(plot.size)
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   ctx.setLineDash([...plot.dash])
@@ -441,7 +451,7 @@ function drawPoints(projection: PointsProjection, context: RenderContext): void 
   for (const [index, point] of points) {
     ctx.fillStyle = plot.data[index - plot.offset]?.color ?? plot.color
     ctx.beginPath()
-    ctx.arc(point.x, point.y, plot.radius, 0, Math.PI * 2)
+    ctx.arc(point.x, point.y, pointRadius(plot.size), 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()

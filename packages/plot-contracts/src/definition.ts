@@ -3,13 +3,15 @@
  */
 import type { Bar } from './bar.js'
 import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
+import type { IndicatorType } from './indicatorType.js'
 import type { PlotCollection } from './plots.js'
 
 /** 可序列化的脚本声明；不包含执行函数。 */
 export interface IndicatorSourceDefinition {
   readonly name: string
-  readonly displayName?: string
   readonly pane?: 'main' | 'sub'
+  /** 业务分类；缺省由消费方归类到 other。 */
+  readonly indicatorType?: IndicatorType
   readonly inputs: InputSchema<Record<string, number | string | boolean>>
   readonly plots?: readonly PlotDeclaration[]
   readonly fills?: readonly PlotFillDeclaration[]
@@ -46,12 +48,12 @@ export type InputSchema<P> = { [K in keyof P]: InputDef<P[K]> }
 
 /** 指标定义：元数据、输入声明与计算端口。 */
 export interface IndicatorDefinition<P> {
-  /** 指标名称。 */
+  /** 指标名称；同时是对外身份与展示名。 */
   readonly name: string
-  /** 显示名称；缺省取 name。 */
-  readonly displayName?: string
   /** 注册位置；缺省放在副图。 */
   readonly pane?: 'main' | 'sub'
+  /** 业务分类；缺省归入 other。 */
+  readonly indicatorType?: IndicatorType
   /** 来源分类；缺省由消费方决定。 */
   readonly source?: IndicatorSource
   readonly document?: IndicatorSourceDocument

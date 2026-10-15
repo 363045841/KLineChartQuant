@@ -450,12 +450,12 @@ describe('Chart DPR pipeline', () => {
       chart.resize()
       chart.setData(makeBars(100))
       chart.indicators.enableMain('MA')
-      chart.indicators.enableMain('BOLL')
+      chart.indicators.enableMain('ENE')
       chart.draw()
       const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
       chart.draw()
       expect(paint).not.toHaveBeenCalled()
-      expect(chart.indicators.moveMain('BOLL', 'up')).toBe(true)
+      expect(chart.indicators.moveMain('ENE', 'up')).toBe(true)
       chart.draw()
       expect(paint).toHaveBeenCalled()
       paint.mockClear()
@@ -1023,7 +1023,7 @@ describe('Chart DPR pipeline', () => {
           instances: [
             {
               instanceId: 'user:rsi-0',
-              indicatorId: 'RSI',
+              indicatorId: 'CCI',
               layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
@@ -1045,9 +1045,9 @@ describe('Chart DPR pipeline', () => {
       },
     })
 
-    const rsiRendererName = getRegisteredIndicatorDefinition('RSI')?.getRendererName({
+    const rsiRendererName = getRegisteredIndicatorDefinition('CCI')?.getRendererName({
       paneId: 'RSI_0',
-      indicatorId: 'RSI',
+      indicatorId: 'CCI',
     })
     expect(rsiRendererName).toBeDefined()
     expect(chart.getRenderer(makePluginLayerId(rsiRendererName!))).toBeDefined()
@@ -1251,7 +1251,7 @@ describe('Chart pane layout regressions', () => {
     chart.resize()
 
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
 
     const specs = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
@@ -1269,7 +1269,7 @@ describe('Chart pane layout regressions', () => {
     const chart = mountChart()
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
     chart.resize()
 
     const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
@@ -1287,7 +1287,7 @@ describe('Chart pane layout regressions', () => {
     const chart = mountChart(1000, 800)
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
     chart.resize()
 
     const resized = chart.panes.resizeBoundary('MACD_0', 20)
@@ -1304,7 +1304,7 @@ describe('Chart pane layout regressions', () => {
     const chart = mountChart()
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
     chart.resize()
 
     const before = chart.panes.getLayoutSpecs()
@@ -1425,7 +1425,7 @@ describe('Chart pane layout regressions', () => {
           instances: [
             {
               instanceId: 'user:rsi-0',
-              indicatorId: 'RSI',
+              indicatorId: 'CCI',
               layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
@@ -1509,7 +1509,7 @@ describe('Chart pane layout regressions', () => {
     chart.resize()
     expect(chart.indicators.enableMain('MA')).toBe(true)
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
     const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
     const entriesBefore = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
@@ -1521,13 +1521,13 @@ describe('Chart pane layout regressions', () => {
     chart.setActiveMode(tsMode)
     expect(chart.indicators.subPanes.peek()).toEqual([])
     expect(
-      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: 'RSI', params: { period: 7 } }),
+      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: 'MACD', params: { fastPeriod: 7 } }),
     ).toBe(true)
     const timeShareEntries = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
-    expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: 'RSI' }])
+    expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: 'MACD' }])
     chart.setActiveMode(kMode)
 
     const entriesAfter = chart.indicators.subPanes.peek().map((e) => ({
@@ -1678,7 +1678,7 @@ describe('Chart pane layout regressions', () => {
   it('normalizes only visible panes in imported layout', async () => {
     const chart = mountChart(1000, 800)
     chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
     chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },

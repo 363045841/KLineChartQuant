@@ -8,6 +8,8 @@
 import type {
   IndicatorSource,
   IndicatorSourceDocument,
+  IndicatorType,
+  IndicatorTypeRegistry,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
@@ -33,22 +35,10 @@ export const IndicatorKind = Object.freeze({
 export type IndicatorKind = (typeof IndicatorKind)[keyof typeof IndicatorKind]
 
 /**
- * 可扩展的指标业务类型注册表，第三方可通过 TypeScript declaration merging 增加类型。
+ * 业务分类词汇与可扩展注册表由叶子契约定义，core 与 script 共用同一份取值；
+ * 扩展分类在契约侧 declaration merging。
  */
-export interface IndicatorTypeRegistry {
-  'moving-average': unknown
-  trend: unknown
-  momentum: unknown
-  volatility: unknown
-  channel: unknown
-  volume: unknown
-  'support-resistance': unknown
-  structure: unknown
-  other: unknown
-}
-
-/** 指标业务类型 ID。 */
-export type IndicatorType = keyof IndicatorTypeRegistry
+export type { IndicatorType, IndicatorTypeRegistry }
 
 /** 内置指标类型定义，同时作为 UI 的默认名称与排序来源。 */
 export const BUILTIN_INDICATOR_TYPES = [

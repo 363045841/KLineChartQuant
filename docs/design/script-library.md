@@ -25,14 +25,16 @@ OHLCV 与 time 是只读 Series，`[0]` 表示当前值，`[1]` 表示上一根�
 库是加载进同一 VM 的 JavaScript 源码，统一走一套协议：
 
 1. **类型目录**：`LibraryModules` 由 `Library/types.ts` 声明合并，键名即脚本作用域中的库名。
-2. **源码**：每个库是一段 `defineLibrary(name, members)` 源码；内置 `ta` 的源码在 `quickjs/impl/prelude.ts`。
+2. **源码**：每个库是一段 `defineLibrary(name, members)` 源码；内置 `ta` 的源码在 `quickjs/runtime/ta.ts`。
 3. **清单**：`quickjs/impl/builtinLibraries.ts` 是显式 manifest，执行时按顺序加载并绑定为 VM 全局。
 
 加载协议（`libraryPrelude.ts`）在一个 Context 内维护库表：`defineLibrary` 校验名称并绑定全局，
 `importLibrary` 取回同名库。库名不能与已有全局冲突。
 
-ta 提供 sma、ema、wma、vwma、rsi、highest、lowest，以及返回 boolean 的 crossover、crossunder。
-完整窗口之前返回 NaN；EMA 从 SMA 初始化，RSI 使用 Wilder 平滑，平盘返回 50。
+ta 的窗口族提供 sma、sum、highest、lowest、stddev；均线族提供 ema、wma、vwma；振荡族提供
+rsi、mom（动量）、roc；另有返回 boolean 的 crossover、crossunder。
+完整窗口之前返回 NaN；EMA 从 SMA 初始化，RSI 使用 Wilder 平滑，窗口内无下跌（含平盘）返回 100，
+stddev 为总体标准差（除以 length），roc 在基准为 0 时返回 NaN。
 派生序列按当前 bar 索引惰性计算并缓存，同一轮运行内相同输入与算法复用同一实例，
 因此在 `onBar` 里逐 bar 重新调用 `ta.*` 也不会重算历史；条件分支里首次调用仍能读取完整历史。
 

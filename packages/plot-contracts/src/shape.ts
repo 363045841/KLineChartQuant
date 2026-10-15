@@ -53,7 +53,6 @@ export const ShapeSize = {
 /** Shape 与 Char 的共享样式；相对位置过滤零值，absolute 把 value 当价格。 */
 export interface MarkerOptions {
   readonly location?: ShapeLocation
-  readonly size?: ShapeSize
   readonly text?: string
   readonly textColor?: string
 }
@@ -68,12 +67,10 @@ export interface CharOptions extends MarkerOptions {
   readonly char?: string
 }
 
-/** 数值箭头的方向颜色与逻辑像素高度范围。 */
+/** 数值箭头的方向颜色；箭头长度由 Plot 公共的 size 决定。 */
 export interface ArrowOptions {
   readonly colorUp?: string
   readonly colorDown?: string
-  readonly minHeight?: number
-  readonly maxHeight?: number
 }
 
 /** 校验跨 VM 边界的形状枚举。 */

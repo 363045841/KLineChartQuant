@@ -23,12 +23,13 @@ interface PlotBase {
   readonly visible: boolean
   /** 沿 K 线下标的偏移，用于一目均衡表等前移或后移的序列。 */
   readonly offset: number
+  /** 图形尺寸档位；渲染器据此换算成该类型的像素尺寸。 */
+  readonly size: import('./shape.js').ShapeSize
 }
 
-/** 折线；线宽与虚线可配置，空值处断开。 */
+/** 折线；虚线可配置，空值处断开；线宽由 size 决定。 */
 export interface LinePlot extends PlotBase {
   readonly kind: 'line'
-  readonly width: number
   readonly dash: readonly number[]
 }
 
@@ -38,10 +39,9 @@ export interface HistogramPlot extends PlotBase {
   readonly baseline: number
 }
 
-/** 圆形散点，不连接相邻数据。 */
+/** 圆形散点，不连接相邻数据；直径由 size 决定。 */
 export interface PointsPlot extends PlotBase {
   readonly kind: 'points'
-  readonly radius: number
 }
 
 /**
@@ -50,7 +50,6 @@ export interface PointsPlot extends PlotBase {
  */
 interface MarkerPlot extends PlotBase {
   readonly location: import('./shape.js').ShapeLocation
-  readonly size: import('./shape.js').ShapeSize
   readonly text: string
   readonly textColor: string
 }
@@ -67,13 +66,11 @@ export interface CharPlot extends MarkerPlot {
   readonly char: string
 }
 
-/** 符号决定方向，绝对值决定屏幕高度的箭头。 */
+/** 符号决定方向，绝对值决定屏幕高度的箭头；长度上限由 size 决定。 */
 export interface ArrowPlot extends PlotBase {
   readonly kind: 'arrow'
   readonly colorUp: string
   readonly colorDown: string
-  readonly minHeight: number
-  readonly maxHeight: number
 }
 
 export type Plot = LinePlot | HistogramPlot | PointsPlot | ShapePlot | CharPlot | ArrowPlot

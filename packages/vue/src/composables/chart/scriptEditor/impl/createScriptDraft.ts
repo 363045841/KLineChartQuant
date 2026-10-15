@@ -13,7 +13,7 @@ export function uniqueScriptName(store: ScriptSourceStore, base: string): string
   return name
 }
 
-/** 修改 defineIndicator 对象中的 name/displayName，保持剩余源码原样。 */
+/** 修改 defineIndicator 对象中的 name，保持剩余源码原样。 */
 export async function createCopySource(source: string, name: string): Promise<string> {
   const ts = await import('typescript')
   const file = ts.createSourceFile(
@@ -36,16 +36,13 @@ export async function createCopySource(source: string, name: string): Promise<st
     return declaration
   }
 
-  /** 收集声明对象里 name / displayName 两处初始值的改写编辑。 */
+  /** 收集声明对象里 name 初始值的改写编辑。 */
   function identityEdits(declaration: ObjectLiteralExpression): SourceEdit[] {
     const found: SourceEdit[] = []
     for (const property of declaration.properties) {
       if (!ts.isPropertyAssignment(property)) continue
       const key = property.name
-      const isIdentity =
-        (ts.isIdentifier(key) || ts.isStringLiteral(key)) &&
-        (key.text === 'name' || key.text === 'displayName')
-      if (!isIdentity) continue
+      if (!(ts.isIdentifier(key) || ts.isStringLiteral(key)) || key.text !== 'name') continue
       found.push({
         start: property.initializer.getStart(file),
         end: property.initializer.end,

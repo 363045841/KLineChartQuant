@@ -66,7 +66,7 @@ function __derive(compute: (offset: number) => number): Series {
 function __windowValue(
   source: Series,
   length: number,
-  kind: 'sma' | 'highest' | 'lowest',
+  kind: 'sma' | 'sum' | 'highest' | 'lowest',
   offset: number,
 ): number {
   if (offset + length > __count()) return Number.NaN

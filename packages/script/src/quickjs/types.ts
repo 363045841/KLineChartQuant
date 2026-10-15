@@ -1,6 +1,7 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
 import type {
+  IndicatorType,
   InputSchema,
   PlotDeclaration,
   PlotFillDeclaration,
@@ -26,9 +27,11 @@ export interface QuickJSLibrary {
 
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
 export interface QuickJSScriptDefinition {
+  /** 指标名称；同时是对外身份与展示名。 */
   readonly name: string
-  readonly displayName?: string
   readonly pane?: PaneKind
+  /** 业务分类；缺省由 core 归入 other。 */
+  readonly indicatorType?: IndicatorType
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
   readonly plots?: readonly PlotDeclaration[]
   readonly fills?: readonly PlotFillDeclaration[]

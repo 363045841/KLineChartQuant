@@ -39,3 +39,15 @@ declare enum ShapeSize {
   Large = "large",
   Huge = "huge",
 }
+
+declare enum IndicatorType {
+  MovingAverage = "moving-average",
+  Trend = "trend",
+  Momentum = "momentum",
+  Volatility = "volatility",
+  Channel = "channel",
+  Volume = "volume",
+  SupportResistance = "support-resistance",
+  Structure = "structure",
+  Other = "other",
+}

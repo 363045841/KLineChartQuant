@@ -3,6 +3,7 @@
  */
 
 import type { IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
+import { IndicatorType, ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
@@ -24,6 +25,7 @@ import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { Indicator } from '../indicatorDecorator.js'
 import {
+  getIndicatorDescriptor,
   getRegisteredIndicatorDefinitions,
   registerIndicatorDefinition,
 } from '../indicatorDefinitionRegistry.js'
@@ -90,7 +92,7 @@ beforeAll(async () => {
           color: 'red',
           visible: true,
           offset: 0,
-          width: 1,
+          size: ShapeSize.Auto,
           dash: [],
         },
       ],
@@ -110,6 +112,7 @@ beforeAll(async () => {
           color: 'blue',
           visible: true,
           offset: 0,
+          size: ShapeSize.Auto,
           baseline: 0,
         },
       ],
@@ -208,17 +211,17 @@ describe('ChartIndicatorManager', () => {
       manager = new ChartIndicatorManager(deps)
       manager.start()
       manager.enableMainIndicator('PlotClose')
-      manager.enableMainIndicator('BOLL')
+      manager.enableMainIndicator('ENE')
       manager.updateIndicatorData(createTestData(30), { start: 20, end: 30 })
       await vi.waitFor(() => {
         expect(manager.createRenderStateReader().get('main:PlotClose')).toBeDefined()
-        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+        expect(manager.createRenderStateReader().get('main:ENE')).toBeDefined()
       })
       const executions = requests.filter((request) => request.type === 'execute')
       expect(executions.length).toBeGreaterThan(0)
       expect(
         executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
-      ).toContain('boll')
+      ).toContain('ene')
       expect(
         executions.flatMap((request) => request.plan.tasks.map((task) => task.definitionId)),
       ).not.toContain('PlotClose')
@@ -253,7 +256,7 @@ describe('ChartIndicatorManager', () => {
             color: 'red',
             visible: true,
             offset: 0,
-            width: 1,
+            size: ShapeSize.Auto,
             dash: [],
             data: bars.map((bar) => ({ value: bar.close * factor })),
           },
@@ -272,6 +275,23 @@ describe('ChartIndicatorManager', () => {
     await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 2))
     updatePlotIndicator(definition(3))
     await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 3))
+  })
+  it('中立定义声明的业务分类进入目录，未声明时归入 other', () => {
+    /** 中立定义只声明 Plot 数据与业务分类，目录元数据由 core 派生。 */
+    const definition = (
+      name: string,
+      indicatorType?: IndicatorType,
+    ): IndicatorDefinition<Record<string, never>> => ({
+      name,
+      source: 'script',
+      indicatorType,
+      inputs: {},
+      compute: () => ({ plots: [], fills: [] }),
+    })
+    registerPlotIndicator(definition('TypedPlotScript', IndicatorType.Momentum))
+    registerPlotIndicator(definition('UntypedPlotScript'))
+    expect(getIndicatorDescriptor('TypedPlotScript')?.indicatorType).toBe('momentum')
+    expect(getIndicatorDescriptor('UntypedPlotScript')?.indicatorType).toBe('other')
   })
   it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
     manager.enableMainIndicator('PlotClose')
@@ -411,24 +431,24 @@ describe('ChartIndicatorManager', () => {
   describe('主图实例增删', () => {
     it('移动 Legend 保留实例及参数，并在没有计算变更时请求重绘', () => {
       manager.enableMainIndicator('MA', { ma5: false })
-      manager.enableMainIndicator('BOLL')
+      manager.enableMainIndicator('ENE')
       const before = harness.indicator.readonly.instances.peek()
       vi.clearAllMocks()
 
-      expect(manager.moveMainIndicator('BOLL', 'up')).toBe(true)
+      expect(manager.moveMainIndicator('ENE', 'up')).toBe(true)
       expect(harness.indicator.readonly.instances.peek()).toEqual([before[1], before[0]])
       expect(deps.scheduleDraw).toHaveBeenCalledTimes(1)
-      expect(manager.moveMainIndicator('BOLL', 'up')).toBe(false)
+      expect(manager.moveMainIndicator('ENE', 'up')).toBe(false)
       expect(manager.moveMainIndicator('missing', 'down')).toBe(false)
     })
 
     it('替换主图 Legend 保留位置及其余实例，拒绝副图定义和重复指标', () => {
       manager.enableMainIndicator('MA', { ma5: false })
-      manager.enableMainIndicator('BOLL')
+      manager.enableMainIndicator('ENE')
       const first = harness.indicator.readonly.instances.peek()[0]
-      expect(manager.replaceMainIndicator('BOLL', 'MA')).toBe(false)
-      expect(manager.replaceMainIndicator('BOLL', 'RSI')).toBe(false)
-      expect(manager.replaceMainIndicator('BOLL', 'EXPMA')).toBe(true)
+      expect(manager.replaceMainIndicator('ENE', 'MA')).toBe(false)
+      expect(manager.replaceMainIndicator('ENE', 'CCI')).toBe(false)
+      expect(manager.replaceMainIndicator('ENE', 'EXPMA')).toBe(true)
       expect(manager.getActiveMainIndicators()).toEqual(['MA', 'EXPMA'])
       expect(harness.indicator.readonly.instances.peek()[0]).toEqual(first)
       expect(manager.getMainIndicatorParams('EXPMA')).not.toBeNull()
@@ -573,21 +593,21 @@ describe('ChartIndicatorManager', () => {
     })
 
     it('把主图展示配置合入实例投影供 renderer 读取', async () => {
-      manager.enableMainIndicator('BOLL')
+      manager.enableMainIndicator('KELTNER')
       const data = createTestData(80)
 
       manager.updateIndicatorData(data, { start: 0, end: data.length })
 
       await vi.waitFor(() => {
-        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+        expect(manager.createRenderStateReader().get('main:Keltner')).toBeDefined()
       })
       const state = manager.createRenderStateReader().get<{
         params: Record<string, unknown>
         visibleMin: number
         visibleMax: number
-      }>('main:BOLL')!
+      }>('main:Keltner')!
 
-      expect(state.params.period).toBe(20)
+      expect(state.params.emaPeriod).toBe(20)
       expect(state.params.multiplier).toBe(2)
       expect(state.params.showUpper).toBe(true)
       expect(state.params.showMiddle).toBe(true)
@@ -596,18 +616,18 @@ describe('ChartIndicatorManager', () => {
     })
 
     it('展示配置变化只重建投影', async () => {
-      manager.enableMainIndicator('BOLL')
+      manager.enableMainIndicator('KELTNER')
       const data = createTestData(80)
       manager.updateIndicatorData(data, { start: 0, end: data.length })
       await vi.waitFor(() => {
-        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined()
+        expect(manager.createRenderStateReader().get('main:Keltner')).toBeDefined()
       })
 
-      manager.updateMainIndicatorParams('BOLL', { showUpper: false })
+      manager.updateMainIndicatorParams('KELTNER', { showUpper: false })
 
       const state = manager.createRenderStateReader().get<{
         params: Record<string, unknown>
-      }>('main:BOLL')!
+      }>('main:Keltner')!
       expect(state.params.showUpper).toBe(false)
       expect(state.params.showMiddle).toBe(true)
       expect(state.params.showLower).toBe(true)
@@ -616,21 +636,21 @@ describe('ChartIndicatorManager', () => {
 
   describe('生命周期', () => {
     it('滚动只更新 Plot 范围，主题变化只重建绘图投影', async () => {
-      manager.enableMainIndicator('BOLL')
+      manager.enableMainIndicator('ENE')
       const data = createTestData(80)
       manager.updateIndicatorData(data, { start: 20, end: 40 })
       await vi.waitFor(() =>
-        expect(manager.createRenderStateReader().get('main:BOLL')).toBeDefined(),
+        expect(manager.createRenderStateReader().get('main:ENE')).toBeDefined(),
       )
-      const initial = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      const initial = manager.createRenderStateReader().get<PlotRenderState>('main:ENE')!
       manager.updateVisibleRangeForFrame({ start: 40, end: 60 })
-      const scrolled = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
+      const scrolled = manager.createRenderStateReader().get<PlotRenderState>('main:ENE')!
       expect(scrolled.plots).toBe(initial.plots)
       expect(scrolled.visibleMin).not.toBe(initial.visibleMin)
       const dark = resolveThemeColors('dark', false)
       harness.deps.plotColors$.set(dark)
-      const themed = manager.createRenderStateReader().get<PlotRenderState>('main:BOLL')!
-      expect(themed.plots[0]?.color).toBe(dark.boll.upper)
+      const themed = manager.createRenderStateReader().get<PlotRenderState>('main:ENE')!
+      expect(themed.plots[0]?.color).toBe(dark.ene.upper)
       expect(themed.visibleMin).toBe(scrolled.visibleMin)
     })
 

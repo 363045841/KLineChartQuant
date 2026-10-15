@@ -7,6 +7,7 @@
 import {
   type Bar,
   type IndicatorDefinition,
+  IndicatorType,
   type InputDef,
   type InputSchema,
   resolveInputDefaults,
@@ -49,7 +50,7 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
 /**
  * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
  *
- * 缺省位置与显示名取自定义本身；主图定义允许叠加主图，副图定义独占自己的 pane。
+ * 位置缺省放副图、显示名取 name；主图定义允许叠加主图，副图定义独占自己的 pane。
  */
 export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
   registerIndicatorDefinition(createPlotIndicatorDefinition(definition))
@@ -66,19 +67,18 @@ function createPlotIndicatorDefinition<P>(
 ): IndicatorDefinitionClass {
   const main = definition.pane === 'main'
   const paneId = main ? 'main' : `sub_${definition.name}`
-  const displayName = definition.displayName ?? definition.name
   const decorate = Indicator({
     name: definition.name,
     source: definition.source,
     document: definition.document,
-    displayName,
+    displayName: definition.name,
     kind: IndicatorKind.Indicator,
     category: main ? 'main' : 'sub',
-    indicatorType: 'other',
+    indicatorType: definition.indicatorType ?? IndicatorType.Other,
     defaultPaneId: paneId,
     allowMainPane: main,
     mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,
-    scale: { label: displayName, decimals: 2 },
+    scale: { label: definition.name, decimals: 2 },
     plots: { source: 'collection', series: [] },
     runtime: {
       revision: definition.document?.revision,

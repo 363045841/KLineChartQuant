@@ -14,7 +14,7 @@ core 按它消费。**注册表、实例生命周期、调度与渲染仍归 cor
 
 ### 中立定义契约
 
-- 元数据：`name`、`displayName`、`pane`
+- 元数据：`name`、`pane`
 - 输入声明：`InputSchema` / `InputDef`
 - 计算端口：`compute(bars, params) => PlotCollection`
 

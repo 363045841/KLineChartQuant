@@ -19,8 +19,6 @@ describe('builtin indicator registration', () => {
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
         'ma',
-        'boll',
-        'rsi',
         'macd',
         'volume',
         'volumeProfile',
@@ -54,7 +52,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('allows builtin definitions to be queried by display name', () => {
-    expect(getRegisteredIndicatorDefinition('RSI')?.name).toBe('rsi')
+    expect(getRegisteredIndicatorDefinition('CCI')?.name).toBe('cci')
     expect(getRegisteredIndicatorDefinition('MACD')?.name).toBe('macd')
     expect(getRegisteredIndicatorDefinition('VOL')?.name).toBe('volume')
   })
@@ -88,18 +86,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('registers dedicated scale renderer factories for stage 5A indicators', () => {
-    const expectedIndicators = [
-      'VOL',
-      'MACD',
-      'RSI',
-      'CCI',
-      'STOCH',
-      'MOM',
-      'WMSR',
-      'KST',
-      'FASTK',
-      'ATR',
-    ]
+    const expectedIndicators = ['VOL', 'MACD', 'CCI', 'KST', 'ATR']
 
     for (const id of expectedIndicators) {
       expect(getRegisteredIndicatorDefinition(id)?.scaleRendererFactory).toBeTypeOf('function')
@@ -107,8 +94,8 @@ describe('builtin indicator registration', () => {
   })
 
   it('creates scale renderers through stage 5A metadata factories', () => {
-    const rsiScaleRenderer = getRegisteredIndicatorDefinition('RSI')?.scaleRendererFactory?.({
-      indicatorId: 'RSI',
+    const rsiScaleRenderer = getRegisteredIndicatorDefinition('CCI')?.scaleRendererFactory?.({
+      indicatorId: 'CCI',
       paneId: 'RSI_0',
       instanceId: 'rsi-instance',
       axisWidth: 80,
@@ -124,13 +111,12 @@ describe('builtin indicator registration', () => {
       getCrosshair: () => null,
     })
 
-    expect(rsiScaleRenderer?.id).toBe(makePluginLayerId('rsiScale_RSI_0'))
+    expect(rsiScaleRenderer?.id).toBe(makePluginLayerId('cciScale_RSI_0'))
     expect(volumeScaleRenderer?.id).toBe(makePluginLayerId('volumeScale_VOLUME_0'))
   })
 
   it('registers generic scale metadata for stage 5B indicators', () => {
     const expected: Record<string, { indicatorKey: string; label: string; decimals: number }> = {
-      WMA: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
       DEMA: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
       TEMA: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
       HMA: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
@@ -138,9 +124,7 @@ describe('builtin indicator registration', () => {
       SAR: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
       SUPERTREND: { indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 },
       KELTNER: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
-      DONCHIAN: { indicatorKey: 'donchian', label: 'Donchian', decimals: 2 },
       ICHIMOKU: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
-      ROC: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
       TRIX: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
       HV: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
       PARKINSON: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
@@ -164,14 +148,13 @@ describe('builtin indicator registration', () => {
   })
 
   it('creates generic scale renderers through stage 5B metadata', () => {
-    const definition = getRegisteredIndicatorDefinition('WMA')
+    const definition = getRegisteredIndicatorDefinition('DEMA')
     expect(definition?.scale).toBeDefined()
   })
 
   it('registers main pane renderer metadata for stage 6A-1 indicators', () => {
     const expected: Record<string, string> = {
       MA: 'ma',
-      BOLL: 'boll',
       EXPMA: 'expma',
       ENE: 'ene',
     }
@@ -189,14 +172,14 @@ describe('builtin indicator registration', () => {
       indicatorId: 'MA',
       instanceId: 'main:MA',
     })
-    const bollRenderer = getRegisteredIndicatorDefinition('BOLL')?.rendererFactory({
+    const bollRenderer = getRegisteredIndicatorDefinition('ENE')?.rendererFactory({
       paneId: 'main',
-      indicatorId: 'BOLL',
+      indicatorId: 'ENE',
       instanceId: 'main:BOLL',
     })
 
     expect(maRenderer?.id).toBe(makePluginLayerId('ma'))
-    expect(bollRenderer?.id).toBe(makePluginLayerId('boll'))
+    expect(bollRenderer?.id).toBe(makePluginLayerId('ene'))
   })
 
   it('resolves renderer names without creating renderer instances', () => {
@@ -221,7 +204,6 @@ describe('builtin indicator registration', () => {
 
   it('registers main pane renderer metadata for stage 6A-2 indicators', () => {
     const expected: Record<string, string> = {
-      WMA: 'wma_main',
       DEMA: 'dema_main',
       TEMA: 'tema_main',
       HMA: 'hma_main',
@@ -229,7 +211,6 @@ describe('builtin indicator registration', () => {
       SAR: 'sar_main',
       SUPERTREND: 'supertrend_main',
       KELTNER: 'keltner_main',
-      DONCHIAN: 'donchian_main',
       ICHIMOKU: 'ichimoku_main',
       PIVOT: 'pivot_main',
       FIB: 'fib_main',
@@ -245,9 +226,9 @@ describe('builtin indicator registration', () => {
   })
 
   it('creates overlay main pane renderers through stage 6A-2 metadata factories', () => {
-    const wma = getRegisteredIndicatorDefinition('WMA')?.rendererFactory({
+    const wma = getRegisteredIndicatorDefinition('DEMA')?.rendererFactory({
       paneId: 'main',
-      indicatorId: 'WMA',
+      indicatorId: 'DEMA',
       instanceId: 'main:WMA',
     })
     const zones = getRegisteredIndicatorDefinition('ZONES')?.rendererFactory({
@@ -256,13 +237,12 @@ describe('builtin indicator registration', () => {
       instanceId: 'main:ZONES',
     })
 
-    expect(wma?.id).toBe(makePluginLayerId('wma_main'))
+    expect(wma?.id).toBe(makePluginLayerId('dema_main'))
     expect(zones?.id).toBe(makePluginLayerId('zones_main'))
   })
 
   it('registers overlay main config metadata for stage 6B-2 indicators', () => {
     const ids = [
-      'WMA',
       'DEMA',
       'TEMA',
       'HMA',
@@ -270,7 +250,6 @@ describe('builtin indicator registration', () => {
       'SAR',
       'SUPERTREND',
       'KELTNER',
-      'DONCHIAN',
       'ICHIMOKU',
       'PIVOT',
       'FIB',
@@ -285,10 +264,10 @@ describe('builtin indicator registration', () => {
 
   it('builds overlay main active configs through stage 6B-2 metadata', () => {
     expect(
-      getRegisteredIndicatorDefinition('WMA')?.mainPane?.toActiveConfig?.({ period: 10 }, false),
+      getRegisteredIndicatorDefinition('DEMA')?.mainPane?.toActiveConfig?.({ period: 10 }, false),
     ).toEqual({
       period: 10,
-      showWMA: false,
+      showDEMA: false,
     })
 
     expect(
@@ -324,7 +303,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('registers base main config metadata for stage 6B-1 indicators', () => {
-    for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
+    for (const id of ['MA', 'EXPMA', 'ENE']) {
       const definition = getRegisteredIndicatorDefinition(id)
       expect(definition?.mainPane?.toActiveConfig).toBeTypeOf('function')
     }
@@ -339,14 +318,6 @@ describe('builtin indicator registration', () => {
       ma60: false,
     })
     expect(
-      getRegisteredIndicatorDefinition('BOLL')?.mainPane?.toActiveConfig?.({ period: 20 }, false),
-    ).toEqual({
-      period: 20,
-      showUpper: false,
-      showMiddle: false,
-      showLower: false,
-    })
-    expect(
       getRegisteredIndicatorDefinition('EXPMA')?.mainPane?.toActiveConfig?.({}, false),
     ).toBeNull()
     expect(
@@ -355,42 +326,31 @@ describe('builtin indicator registration', () => {
   })
 
   it('主图指标通过 Plot 声明价格序列', () => {
-    for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
+    for (const id of ['MA', 'EXPMA', 'ENE']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series.length).toBeGreaterThan(0)
     }
   })
 
   it('主图指标不再声明专用渲染状态投影', () => {
-    for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
+    for (const id of ['MA', 'EXPMA', 'ENE']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
   it('单线指标声明 Plot', () => {
-    for (const id of [
-      'WMA',
-      'DEMA',
-      'TEMA',
-      'HMA',
-      'KAMA',
-      'ROC',
-      'ChaikinVol',
-      'OBV',
-      'PVT',
-      'VWAP',
-    ]) {
+    for (const id of ['DEMA', 'TEMA', 'HMA', 'KAMA', 'ChaikinVol', 'OBV', 'PVT', 'VWAP']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
   it('振荡指标声明 Plot', () => {
-    for (const id of ['RSI', 'STOCH', 'FASTK', 'MFI', 'WMSR', 'CMF']) {
+    for (const id of ['MFI', 'CMF']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 
   it('动量与波动指标声明 Plot', () => {
-    for (const id of ['MOM', 'KST', 'ATR', 'HV', 'PARKINSON', 'VMA', 'TRIX']) {
+    for (const id of ['KST', 'ATR', 'HV', 'PARKINSON', 'VMA', 'TRIX']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
@@ -402,7 +362,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('叠加指标声明 Plot', () => {
-    for (const id of ['SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB']) {
+    for (const id of ['SAR', 'SUPERTREND', 'KELTNER', 'ICHIMOKU', 'PIVOT', 'FIB']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
@@ -415,15 +375,9 @@ describe('builtin indicator registration', () => {
 
   it('registers visible state composer metadata for all composed visible sub indicators', () => {
     const ids = [
-      'RSI',
       'CCI',
-      'STOCH',
-      'MOM',
-      'WMSR',
-      'FASTK',
       'MACD',
       'ATR',
-      'WMA',
       'DEMA',
       'TEMA',
       'HMA',
@@ -431,9 +385,7 @@ describe('builtin indicator registration', () => {
       'SAR',
       'SUPERTREND',
       'KELTNER',
-      'DONCHIAN',
       'ICHIMOKU',
-      'ROC',
       'TRIX',
       'HV',
       'PARKINSON',

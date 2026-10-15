@@ -34,20 +34,14 @@ import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
 
 /** Plot 默认颜色。 */
 const DEFAULT_PLOT_COLOR = '#2196f3'
-/** 折线默认线宽。 */
-const DEFAULT_LINE_WIDTH = 1
 /** 折线默认虚线样式（实线）。 */
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */
 const DEFAULT_HISTOGRAM_BASELINE = 0
-/** 点图默认半径；脚本产出与原生指标共用这一个默认值。 */
-const DEFAULT_POINTS_RADIUS = 1.5
 /** 填充默认不透明度；同样只有这一处定义。 */
 const DEFAULT_FILL_OPACITY = 0.15
-/** 字符与箭头的声明默认值只在组装时补齐。 */
+/** 字符声明的默认值只在组装时补齐。 */
 const DEFAULT_CHAR = '★'
-const DEFAULT_ARROW_MIN_HEIGHT = 5
-const DEFAULT_ARROW_MAX_HEIGHT = 50
 
 /** 采集器构造参数。 */
 export interface PlotCollectorOptions {
@@ -162,20 +156,21 @@ function styleSignature(
     declaration.visible,
     declaration.offset,
     declaration.textColor,
+    declaration.size,
   ] as const
   switch (declaration.kind) {
     case 'line':
-      return [...base, declaration.width, ...(declaration.dash ?? [])]
+      return [...base, ...(declaration.dash ?? [])]
     case 'histogram':
       return [...base, declaration.baseline]
     case 'points':
-      return [...base, declaration.radius]
+      return [...base]
     case 'shape':
-      return [...base, declaration.style, declaration.location, declaration.size, declaration.text]
+      return [...base, declaration.style, declaration.location, declaration.text]
     case 'char':
-      return [...base, declaration.char, declaration.location, declaration.size, declaration.text]
+      return [...base, declaration.char, declaration.location, declaration.text]
     case 'arrow':
-      return [...base, declaration.minHeight, declaration.maxHeight]
+      return [...base]
   }
 }
 
@@ -192,7 +187,7 @@ function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration
 }
 
 /** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
-type PlotBaseFields = Pick<Plot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset'>
+type PlotBaseFields = Pick<Plot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'>
 
 /** 用声明或默认值补齐 Plot 公共字段。 */
 function plotBase(
@@ -206,15 +201,15 @@ function plotBase(
     color: declaration.color ?? DEFAULT_PLOT_COLOR,
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
+    size: declaration.size ?? ShapeSize.Auto,
   }
 }
 
-/** 折线：补线宽与虚线默认值。 */
+/** 折线：补虚线默认值。 */
 function createLinePlot(declaration: LinePlotDeclaration, base: PlotBaseFields): LinePlot {
   return {
     ...base,
     kind: 'line',
-    width: declaration.width ?? DEFAULT_LINE_WIDTH,
     dash: declaration.dash ?? DEFAULT_LINE_DASH,
   }
 }
@@ -231,12 +226,12 @@ function createHistogramPlot(
   }
 }
 
-/** 散点：补半径默认值。 */
+/** 散点：几何全部由公共 size 决定。 */
 function createPointsPlot(declaration: PointsPlotDeclaration, base: PlotBaseFields): PointsPlot {
-  return { ...base, kind: 'points', radius: declaration.radius ?? DEFAULT_POINTS_RADIUS }
+  return { ...base, kind: 'points' }
 }
 
-/** Shape 与 Char 共享的位置、尺寸和文字默认值。 */
+/** Shape 与 Char 共享的位置和文字默认值。 */
 function markerBase(
   declaration: ShapePlotDeclaration | CharPlotDeclaration,
   base: PlotBaseFields,
@@ -244,7 +239,6 @@ function markerBase(
   return {
     ...base,
     location: declaration.location ?? ShapeLocation.AboveBar,
-    size: declaration.size ?? ShapeSize.Auto,
     text: declaration.text ?? '',
     textColor: declaration.textColor ?? base.color,
   }
@@ -267,24 +261,13 @@ function createCharPlot(declaration: CharPlotDeclaration, base: PlotBaseFields):
   return { ...markerBase(declaration, base), kind: 'char', char }
 }
 
-/** 箭头：高度范围必须有效，方向颜色缺省时回落到公共颜色。 */
+/** 箭头：方向颜色缺省时回落到公共颜色；长度由公共 size 决定。 */
 function createArrowPlot(declaration: ArrowPlotDeclaration, base: PlotBaseFields): ArrowPlot {
-  const minHeight = declaration.minHeight ?? DEFAULT_ARROW_MIN_HEIGHT
-  const maxHeight = declaration.maxHeight ?? DEFAULT_ARROW_MAX_HEIGHT
-  if (
-    !Number.isFinite(minHeight) ||
-    !Number.isFinite(maxHeight) ||
-    minHeight <= 0 ||
-    maxHeight < minHeight
-  )
-    throw new TypeError('Arrow Plot requires 0 < minHeight <= maxHeight')
   return {
     ...base,
     kind: 'arrow',
     colorUp: declaration.colorUp ?? base.color,
     colorDown: declaration.colorDown ?? base.color,
-    minHeight,
-    maxHeight,
   }
 }
 
@@ -316,8 +299,8 @@ function resolveDeclaration(
   kind = declaration.kind,
 ): PlotDeclaration {
   if (kind === declaration.kind) return declaration
-  const { id, label, color, visible, offset } = declaration
-  return { id, label, color, visible, offset, kind }
+  const { id, label, color, visible, offset, size } = declaration
+  return { id, label, color, visible, offset, size, kind }
 }
 
 /** 把填充声明组装成具体 PlotFill，缺省字段填入默认值。 */

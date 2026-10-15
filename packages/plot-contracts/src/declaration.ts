@@ -4,7 +4,7 @@
  * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
-import type { ArrowOptions, CharOptions, ShapeOptions } from './shape.js'
+import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape.js'
 
 /** 声明式 Plot 的公共信息。 */
 interface PlotDeclarationBase {
@@ -20,12 +20,16 @@ interface PlotDeclarationBase {
   readonly offset?: number
   /** 是否可见；缺省为 true。 */
   readonly visible?: boolean
+  /**
+   * 图形尺寸档位，所有 Plot 类型共用；缺省为 auto。
+   * 各类型如何换算成像素由渲染器决定，契约只传枚举。
+   */
+  readonly size?: ShapeSize
 }
 
-/** 折线 Plot 声明；width / dash 缺省时取默认值。 */
+/** 折线 Plot 声明；dash 缺省时取默认值。 */
 export interface LinePlotDeclaration extends PlotDeclarationBase {
   readonly kind: 'line'
-  readonly width?: number
   readonly dash?: readonly number[]
 }
 
@@ -35,10 +39,9 @@ export interface HistogramPlotDeclaration extends PlotDeclarationBase {
   readonly baseline?: number
 }
 
-/** 点图 Plot 声明；radius 缺省时取默认值。 */
+/** 点图 Plot 声明；散点直径由公共 size 决定。 */
 export interface PointsPlotDeclaration extends PlotDeclarationBase {
   readonly kind: 'points'
-  readonly radius?: number
 }
 
 /** 固定 Shape 声明；缺省样式由共享构造器补齐。 */

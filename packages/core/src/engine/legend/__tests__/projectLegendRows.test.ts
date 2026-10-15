@@ -307,14 +307,6 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
   expectedValueTexts: readonly string[]
 }> = [
   {
-    instanceId: 'main:BOLL',
-    definitionId: 'boll',
-    title: 'BOLL',
-    state: () =>
-      plotFixture('boll', [{ upper: 120, middle: 100, lower: 80 }], { period: 20, multiplier: 2 }),
-    expectedValueTexts: ['UP 120.000', 'MID 100.000', 'DN 80.000'],
-  },
-  {
     instanceId: 'main:EXPMA',
     definitionId: 'expma',
     title: 'EXPMA',
@@ -330,11 +322,11 @@ const MAIN_INDICATOR_CASES: ReadonlyArray<{
     expectedValueTexts: ['UP 20.000', 'MID 15.000', 'DN 10.000'],
   },
   {
-    instanceId: 'main:WMA',
-    definitionId: 'wma',
-    title: 'WMA',
-    state: () => plotFixture('wma', [123], { period: 10 }),
-    expectedValueTexts: ['WMA 123.000'],
+    instanceId: 'main:DEMA',
+    definitionId: 'dema',
+    title: 'DEMA',
+    state: () => plotFixture('dema', [123], { period: 10 }),
+    expectedValueTexts: ['DEMA 123.000'],
   },
 ]
 

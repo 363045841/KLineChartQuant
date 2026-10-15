@@ -5,6 +5,7 @@ import type {
   PlotCollection,
   PlotKind,
   ShapeOptions,
+  ShapeSize,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 
@@ -45,9 +46,9 @@ export interface PlotSpec extends PlotSource, ShapeOptions, CharOptions, ArrowOp
     raw: unknown,
   ) => string
   readonly offset?: (params: Readonly<Record<string, unknown>>) => number
-  readonly width?: number
+  /** 图形尺寸档位；缺省 auto，由渲染层换算成该类型的像素尺寸。 */
+  readonly size?: ShapeSize
   readonly dash?: readonly number[]
-  readonly radius?: number
   readonly baseline?: number
 }
 

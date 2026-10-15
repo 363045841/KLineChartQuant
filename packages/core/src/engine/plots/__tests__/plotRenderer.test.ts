@@ -110,8 +110,6 @@ describe('Plot renderer', () => {
           {
             id: 'arrow',
             kind: 'arrow',
-            minHeight: 5,
-            maxHeight: 50,
             colorUp: 'green',
             colorDown: 'red',
             color: () => 'blue',
@@ -151,16 +149,15 @@ describe('Plot renderer', () => {
   })
 
   it('Arrow 头部始终是等边三角形，数值只改变杆身长度', () => {
-    // minHeight == maxHeight 固定请求高度，实际高度至少容纳完整头部。
-    const geometryOf = (height: number) => {
+    // 单点序列的幅度等于自身，箭头总长由 size 档位决定，头部固定。
+    const geometryOf = (size: ShapeSize) => {
       const { ctx } = paint(
         {
           series: [
             {
               id: 'arrow',
               kind: 'arrow',
-              minHeight: height,
-              maxHeight: height,
+              size,
               color: () => 'red',
             },
           ],
@@ -177,33 +174,30 @@ describe('Plot renderer', () => {
       if (!tip || !base) throw new Error('缺少箭头头部顶点')
       return { half: Math.abs(base.x - tip.x), height: Math.abs(base.y - tip.y) }
     }
-    for (const points of [geometryOf(6), geometryOf(20), geometryOf(50)]) {
+    for (const points of [geometryOf('tiny'), geometryOf('normal'), geometryOf('huge')]) {
       const { half, height } = headShape(points)
       expect(height / half).toBeCloseTo(Math.sqrt(3), 5)
     }
-    // 头部尺寸恒定：极短箭头（被头部托底）、中等和最长箭头共用同一个头。
-    const headHalf = headShape(geometryOf(6)).half
-    for (const points of [geometryOf(12), geometryOf(20), geometryOf(50)]) {
+    // 头部尺寸恒定：不同 size 档位共用同一个头。
+    const headHalf = headShape(geometryOf('tiny')).half
+    for (const points of [geometryOf('small'), geometryOf('normal'), geometryOf('huge')]) {
       expect(headShape(points).half).toBeCloseTo(headHalf, 5)
     }
-    // 杆长 = 总长 − 头高，随数值单调增长；最短的箭头杆长为 0。
+    // 杆长 = 总长 − 头高，随 size 档位单调增长。
     const shaft = (points: readonly { x: number; y: number }[]) => {
       const ys = points.map((point) => point.y)
       return Math.max(...ys) - Math.min(...ys) - headShape(points).height
     }
-    expect(shaft(geometryOf(6))).toBeCloseTo(0, 5)
-    expect(shaft(geometryOf(50))).toBeGreaterThan(shaft(geometryOf(20)))
-    expect(shaft(geometryOf(20))).toBeGreaterThan(shaft(geometryOf(12)))
-    expect(shaft(geometryOf(50))).toBeGreaterThan(0)
+    expect(shaft(geometryOf('huge'))).toBeGreaterThan(shaft(geometryOf('normal')))
+    expect(shaft(geometryOf('normal'))).toBeGreaterThan(shaft(geometryOf('small')))
+    expect(shaft(geometryOf('huge'))).toBeGreaterThan(0)
   })
 
   it.each([1, -1])('方向 %s 的箭头在小缩放下使用短折线头和贯通杆线', (value) => {
     const arrow = (overrides: MockRenderContextOverrides) =>
       paint(
         {
-          series: [
-            { id: 'arrow', kind: 'arrow', minHeight: 40, maxHeight: 40, color: () => 'red' },
-          ],
+          series: [{ id: 'arrow', kind: 'arrow', size: 'normal', color: () => 'red' }],
         },
         [value],
         {},
@@ -293,8 +287,6 @@ describe('Plot renderer', () => {
         {
           id: 'arrow',
           kind: 'arrow',
-          minHeight: 1,
-          maxHeight: 50,
           offset: () => 1,
           color: () => 'red',
         },
@@ -586,13 +578,14 @@ describe('Plot renderer', () => {
     expect(state.visibleMax).toBe(3)
   })
 
-  it('散点只画圆，不连接数据', () => {
+  it('散点只画圆，不连接数据，直径由 size 档位决定', () => {
     const { ctx } = paint(
-      { series: [{ id: 'sar', kind: 'points', radius: 2, color: () => 'red' }] },
+      { series: [{ id: 'sar', kind: 'points', size: ShapeSize.Large, color: () => 'red' }] },
       [1, undefined, 3],
     )
     expect(ctx.arc).toHaveBeenCalledTimes(2)
     expect(ctx.lineTo).not.toHaveBeenCalled()
+    expect(vi.mocked(ctx.arc).mock.calls[0]?.[2]).toBe(10)
   })
 
   it('隐藏边界线后云层仍绘制，填充包含最后一个点', () => {
