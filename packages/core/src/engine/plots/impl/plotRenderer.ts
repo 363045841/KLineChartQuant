@@ -14,6 +14,7 @@ import {
   sameProjectionRevision,
 } from '@/engine/frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '@/engine/frame/types.js'
+import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { tryDrawLinesGpu } from '@/engine/renderers/linesViaRenderer.js'
 import { drawWorldRectBatches } from '@/engine/renderers/rectsViaRenderer.js'
@@ -263,11 +264,13 @@ function buildHistogram(
       }
       batches.set(color, batch)
     }
+    // 先对齐数值端点和基线，再求高度，保证所有柱子的基线边缘一致。
+    const vertical = barVerticalRect(point.y, baselineY, context.dpr)
     const offset = batch.count++ * 4
     batch.buf[offset] = bar.x
-    batch.buf[offset + 1] = Math.min(point.y, baselineY)
+    batch.buf[offset + 1] = vertical.y
     batch.buf[offset + 2] = bar.width
-    batch.buf[offset + 3] = Math.max(1 / context.dpr, Math.abs(point.y - baselineY))
+    batch.buf[offset + 3] = vertical.height
   }
   return [...batches.values()]
 }
