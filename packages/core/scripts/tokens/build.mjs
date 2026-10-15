@@ -6,6 +6,7 @@
 //   pnpm tokens:check          只校验，生成结果与磁盘不一致时退出码 1（CI / 测试使用）
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -34,11 +35,15 @@ import { exportTokens } from './lib/style-dictionary.mjs'
 
 export const OUT_DIR = path.join(CORE_DIR, 'design-tokens')
 const REPO_ROOT = path.resolve(CORE_DIR, '../..')
-const BIOME = path.join(REPO_ROOT, 'node_modules/.bin/biome')
+// 解析 biome 自带的 Node 启动脚本并用当前 node 执行：node_modules/.bin/biome 在 Windows
+// 上是无扩展名的 shell 脚本，execFileSync 无法直接起进程（#311）。
+const BIOME = createRequire(path.join(REPO_ROOT, 'package.json')).resolve(
+  '@biomejs/biome/bin/biome',
+)
 
 /** 交给 biome 规范化，保证生成文件与手写文件同一格式、`biome check` 通过。 */
 function biomeFormat(file, content) {
-  return execFileSync(BIOME, ['format', `--stdin-file-path=${file}`], {
+  return execFileSync(process.execPath, [BIOME, 'format', `--stdin-file-path=${file}`], {
     input: content,
     encoding: 'utf8',
     cwd: REPO_ROOT,
