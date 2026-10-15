@@ -38,5 +38,8 @@ declare function __plot(kind: PlotKind, value: number | null, options: ScriptPlo
 /** 调用处的绘图选项，与编辑器共用契约。 */
 type ScriptPlotOptions = import('../../editor/types.js').ScriptPlotOptions
 
+/** 绘图方法对象，与编辑器共用契约。 */
+type ScriptPlot = import('../../editor/types.js').ScriptPlot
+
 /** 宿主注入：脚本参数，键为 inputs 中声明的参数名。 */
 declare const params: Record<string, ScriptParamValue>

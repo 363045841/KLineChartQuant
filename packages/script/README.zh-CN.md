@@ -26,7 +26,7 @@ defineIndicator({
     n: input(2, { title: '除数' }),
   },
   onBar() {
-    plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'oc-average' })
+    plot.Line((open[0] + close[0]) / params.n, { id: 'oc-average' })
   },
 })
 ```
@@ -37,7 +37,7 @@ VM prelude 在脚本运行前注入以下全局：
 | --- | --- |
 | `open` `high` `low` `close` `volume` `time` | 行情序列；`close[0]` 是当前 K 线，`close[1]` 是前一根 |
 | `params` | 解析后的输入参数 |
-| `plot(PlotKind.Line, value, { id, color })` | 为当前 K 线输出绘图点；也支持 `PlotKind.Histogram` 和 `PlotKind.Points` |
+| `plot.Line(value, { id, color })` | 为当前 K 线输出绘图点；提供 `Line`、`Histogram`、`Point`、`Shape`、`Char`、`Arrow` 方法 |
 | `PaneKind` | 指标注册位置；`PaneKind.Main` 主图或 `PaneKind.Sub` 副图 |
 | `input(default, options?)` | 声明一个参数；字符串参数带 `options` 时渲染为下拉 |
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |

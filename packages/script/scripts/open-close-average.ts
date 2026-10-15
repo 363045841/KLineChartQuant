@@ -9,13 +9,13 @@ defineIndicator({
   },
   onBar() {
     const average = (open[0] + close[0]) / params.n + params.a
-    plot(PlotKind.Line, average, { id: 'oc-average' })
-    plot(PlotKind.Line, high[0], { id: 'oc-high' })
-    plot(PlotKind.Line, low[0], { id: 'oc-low' })
+    plot.Line(average, { id: 'oc-average' })
+    plot.Line(high[0], { id: 'oc-high' })
+    plot.Line(low[0], { id: 'oc-low' })
     const near =
       Math.abs(high[0] - average) < params.distance && Math.abs(average - low[0]) < params.distance
     if (near) {
-      plot(PlotKind.Shape, average, {
+      plot.Shape(average, {
         id: 'oc-near',
         style: ShapeStyle.TriangleUp,
         location: ShapeLocation.Absolute,

@@ -8,6 +8,6 @@ defineIndicator({
   },
   onBar() {
     const value = ta.wma(close, params.period)[0]
-    plot(PlotKind.Line, value, { id: 'wma', label: 'WMA', color: '#42a5f5' })
+    plot.Line(value, { id: 'wma', label: 'WMA', color: '#42a5f5' })
   },
 })

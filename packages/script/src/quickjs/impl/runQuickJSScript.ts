@@ -24,7 +24,12 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import { INDICATOR_PRELUDE, LIBRARY_PRELUDE, SCRIPT_PRELUDE } from '../generated/runtime.js'
+import {
+  INDICATOR_PRELUDE,
+  LIBRARY_PRELUDE,
+  ROLLING_PRELUDE,
+  SCRIPT_PRELUDE,
+} from '../generated/runtime.js'
 import {
   PaneKind,
   type PreparedQuickJSScript,
@@ -165,6 +170,7 @@ function runWithContext(
     mountScriptEnums(vm)
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
     for (const library of options.libraries ?? []) {
       evalOrThrow(vm, library.source, 'compile', timeout).dispose()

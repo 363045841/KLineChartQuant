@@ -48,7 +48,7 @@
 | --- | --- |
 | 配色 | 脚本里直接写 CSS 串；颜色本就是指标自身配置，不做 token/role 通道。 |
 | 坐标轴范围 | `plotRange` 已按输出数据计算，输出 0~100 就渲染 0~100，无需声明。 |
-| 参考线（如 RSI 80/50/20） | 脚本自己 `plot(PlotKind.Line, 80, { dash: [4, 4], color })` 画。 |
+| 参考线（如 RSI 80/50/20） | 脚本自己 `plot.Line(80, { id: 'overbought', dash: [4, 4], color })` 画。 |
 | 逐线显隐 | 只有同族平行多线才声明逐线布尔 `input`（如 MA5/MA10/MA20、RSI6/12/24）；一个整体的多条线（BOLL 通道、KDJ 的 K/D/J）不做开关。 |
 | 图形尺寸 | 所有 Plot 类型共用公共 `size: ShapeSize`（`auto/tiny/small/normal/large/huge`），各自不再声明 `width`/`radius`/`minHeight`/`maxHeight`；枚举到像素的换算只在渲染层 `plotSize.ts` 一处，`auto` 保持各类型原有基准尺寸。 |
 | 轴精度、图例数值 | 沿用通用默认；不迁移 `getTitleInfo` / 专用 scale 插件。 |

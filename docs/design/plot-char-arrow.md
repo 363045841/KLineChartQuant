@@ -3,7 +3,7 @@
 
 Char、Arrow 与 Line、Histogram、Points、Shape 使用同一份共享契约、PlotCollector、PlotCollection 和 Plot Layer；不增加脚本专用渲染或标记 Layer。
 
-脚本以 `plot(kind, null, options)` 主动留空，Shape/Char 的 false 同样转为 null。null 跨 VM 边界时不做数值强转，采集器将它写为 undefined 空位，同时保留 id 注册和样式校验；同一 bar 再输出 null 会清除先前点。NaN 仅表示无效计算结果（如历史不足），采集时过滤，不作为公开绘图控制值；Infinity 沿用执行错误处理。未调用 plot 的位置同样为空位。
+脚本以 `plot.Line(null, options)` 等方法主动留空，Shape/Char 的 false 同样转为 null。null 跨 VM 边界时不做数值强转，采集器将它写为 undefined 空位，同时保留 id 注册和样式校验；同一 bar 再输出 null 会清除先前点。NaN 仅表示无效计算结果（如历史不足），采集时过滤，不作为公开绘图控制值；Infinity 沿用执行错误处理。未调用绘图方法的位置同样为空位。
 
 Shape 与 Char 共用 MarkerOptions、定位、包围盒和文字绘制。Char 的字符与附加文字整轮固定，颜色可逐 bar 覆盖。字符允许空字符串或一个 Unicode 码点；相对定位的 0 不绘制，absolute 的 0 是有效坐标。
 

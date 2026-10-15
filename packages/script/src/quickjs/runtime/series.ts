@@ -62,27 +62,6 @@ function __derive(compute: (offset: number) => number): Series {
   })
 }
 
-/** 滑动窗口取值：完整窗口之前返回 NaN，窗口内出现 NaN 时结果也是 NaN。 */
-function __windowValue(
-  source: Series,
-  length: number,
-  kind: 'sma' | 'sum' | 'highest' | 'lowest',
-  offset: number,
-): number {
-  if (offset + length > __count()) return Number.NaN
-  let value = kind === 'highest' ? -Infinity : kind === 'lowest' ? Infinity : 0
-  for (let step = 0; step < length; step++) {
-    const current = source.at(offset + step)
-    value =
-      kind === 'highest'
-        ? Math.max(value, current)
-        : kind === 'lowest'
-          ? Math.min(value, current)
-          : value + current
-  }
-  return kind === 'sma' ? value / length : value
-}
-
 /** 派生序列缓存：同一轮运行内，相同输入与算法的派生序列复用同一实例，memo 才能跨 bar 保留。 */
 const __derivedCache = new Map<string, Series>()
 

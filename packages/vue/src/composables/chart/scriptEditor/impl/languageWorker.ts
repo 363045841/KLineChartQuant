@@ -77,12 +77,31 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
       if (!result) return null
       return {
         from: result.optionalReplacementSpan?.start ?? context.pos - word.length,
-        options: result.entries.map((entry) => ({
-          label: entry.name,
-          type: COMPLETION_TYPES[entry.kind],
-          apply: entry.insertText ?? entry.name,
-          boost: -Number(entry.sortText) || 0,
-        })),
+        options: result.entries.map((entry) => {
+          // 成员和函数才查询注释，避免为关键字、普通变量逐项解析详情。
+          const details =
+            result.isMemberCompletion ||
+            entry.kind === ts.ScriptElementKind.functionElement ||
+            entry.kind === ts.ScriptElementKind.localFunctionElement
+              ? env.languageService.getCompletionEntryDetails(
+                  path,
+                  context.pos,
+                  entry.name,
+                  undefined,
+                  entry.source,
+                  undefined,
+                  entry.data,
+                )
+              : undefined
+          const summary = details?.tags?.find((tag) => tag.name === 'summary')
+          return {
+            label: entry.name,
+            detail: ts.displayPartsToString(summary?.text).trim() || undefined,
+            type: COMPLETION_TYPES[entry.kind],
+            apply: entry.insertText ?? entry.name,
+            boost: -Number(entry.sortText) || 0,
+          }
+        }),
       }
     },
     /** 返回调用点的参数签名，由 TypeScript 判断当前调用和活动参数。 */

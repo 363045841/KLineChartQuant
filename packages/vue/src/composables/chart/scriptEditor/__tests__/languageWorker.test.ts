@@ -27,7 +27,7 @@ async function completions(source: string) {
 
 describe('script language service', () => {
   it('在 plot 对象字面量的属性上显示契约注释', async () => {
-    const source = `plot(PlotKind.Points, 1, { id: 'overbought', color: '#ff0000', size: ShapeSize.Tiny })`
+    const source = `plot.Point(1, { id: 'overbought', color: '#ff0000', size: ShapeSize.Tiny })`
     const worker = await createSession(source)
     for (const [property, expected] of [
       ['id', '图形 ID'],
@@ -53,7 +53,7 @@ describe('script language service', () => {
     ['Arrow', "colorUp: 'red'", 'colorUp', '正值'],
     ['Arrow', "colorDown: 'green'", 'colorDown', '负值'],
   ])('显示 %s 的 %s 属性注释', async (kind, option, property, expected) => {
-    const source = `plot(PlotKind.${kind}, 1, { id: 'signal', ${option} })`
+    const source = `plot.${kind}(1, { id: 'signal', ${option} })`
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     const hover = worker.getHover({
@@ -78,11 +78,49 @@ describe('script language service', () => {
     expect(await completions('const settings = { length: 20 }; settings.')).toContain('length')
   })
 
-  it('补全全局绘图枚举，并检查第一个参数的枚举类型', async () => {
-    expect(await completions('PlotKind.')).toEqual(
-      expect.arrayContaining(['Line', 'Histogram', 'Points']),
+  it.each(['ta.', 'const analysis = ta; analysis.', "importLibrary('ta')."])(
+    '从库声明读取补全项右侧的中文名：%s',
+    async (source) => {
+      const worker = await createSession(source)
+      const result = await worker.getAutocompletion({
+        path: SCRIPT_EDITOR_FILE,
+        context: { pos: source.length, explicit: true },
+      })
+      expect(result?.options).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ label: 'ema', detail: '指数移动平均', apply: 'ema' }),
+          expect.objectContaining({ label: 'vwma', detail: '成交量加权移动平均', apply: 'vwma' }),
+          expect.objectContaining({ label: 'crossover', detail: '上穿', apply: 'crossover' }),
+          expect.objectContaining({ label: 'crossunder', detail: '下穿', apply: 'crossunder' }),
+        ]),
+      )
+    },
+  )
+
+  it('用户库可通过 summary 注释提供中文名，未标注的函数不附加名称', async () => {
+    const source = `const stats = defineLibrary('stats', {
+      /** @summary 均价 */
+      mean(left: number, right: number) { return (left + right) / 2 },
+      sum(left: number, right: number) { return left + right }
+    }); stats.`
+    const worker = await createSession(source)
+    const result = await worker.getAutocompletion({
+      path: SCRIPT_EDITOR_FILE,
+      context: { pos: source.length, explicit: true },
+    })
+    expect(result?.options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'mean', detail: '均价', apply: 'mean' }),
+        expect.objectContaining({ label: 'sum', detail: undefined, apply: 'sum' }),
+      ]),
     )
-    const worker = await createSession(`plot(PlotKind.Histogram, 1, { id: 'volume' })`)
+  })
+
+  it('补全绘图方法，并拒绝旧的函数调用', async () => {
+    expect(await completions('plot.')).toEqual(
+      expect.arrayContaining(['Line', 'Histogram', 'Point', 'Shape', 'Char', 'Arrow']),
+    )
+    const worker = await createSession(`plot.Histogram(1, { id: 'volume' })`)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot('histogram', 1, { id: 'volume' })` })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
@@ -103,6 +141,27 @@ describe('script language service', () => {
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
       1,
     )
+  })
+
+  it.each([
+    `plot.Point(true, { id: 'signal' })`,
+    `plot.Arrow(false, { id: 'signal' })`,
+    `plot.Line(1, { id: 'signal', baseline: 0 })`,
+    `plot.Point(1, { id: 'signal', style: ShapeStyle.Circle })`,
+    `plot.Shape(true, { id: 'signal', char: 'A' })`,
+  ])('按绘图方法检查值和专属样式：%s', async (source) => {
+    const worker = await createSession(source)
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
+      1,
+    )
+  })
+
+  it('形状和字符方法接受布尔条件', async () => {
+    const worker = await createSession(`
+      plot.Shape(true, { id: 'shape', style: ShapeStyle.Circle })
+      plot.Char(false, { id: 'char', char: 'A' })
+    `)
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
   })
 
   it('显示 ta 函数的参数签名与类型诊断', async () => {
@@ -141,7 +200,7 @@ describe('script language service', () => {
     expect(first?.options.map((option) => option.label)).toContain('period')
     const updated = `defineIndicator({
       name: 'Changed', inputs: { enabled: input(true) },
-      onBar() { plot(PlotKind.Line, params.enabled ? close[0] : NaN, { id: 'value' }) }
+      onBar() { plot.Line(params.enabled ? close[0] : NaN, { id: 'value' }) }
     });\nparams.`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: updated })
     const next = await worker.getAutocompletion({

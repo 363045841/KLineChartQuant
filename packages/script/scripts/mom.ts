@@ -8,7 +8,7 @@ defineIndicator({
   },
   onBar() {
     const value = ta.mom(close, params.period)[0]
-    plot(PlotKind.Line, value, { id: 'mom', label: 'MOM', color: '#ffb74d' })
-    plot(PlotKind.Line, 0, { id: 'zero', label: '0', color: '#808080', dash: [4, 4] })
+    plot.Line(value, { id: 'mom', label: 'MOM', color: '#ffb74d' })
+    plot.Line(0, { id: 'zero', label: '0', color: '#808080', dash: [4, 4] })
   },
 })

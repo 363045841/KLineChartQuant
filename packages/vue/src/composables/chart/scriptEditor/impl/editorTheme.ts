@@ -131,10 +131,32 @@ const editorTheme = EditorView.theme({
     margin: 'var(--klc-space-8, 8px) 0',
     whiteSpace: 'pre-wrap',
   },
+  // 补全列表约容纳 12 行，较小窗口中最多占视口的一半。
+  '.cm-tooltip.cm-tooltip-autocomplete > ul': {
+    maxHeight: 'min(24em, 50vh)',
+  },
   // 补全项上下各增加 1px 留白，保留默认左右间距与图标。
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+    display: 'flex',
+    alignItems: 'center',
     paddingTop: '2px',
     paddingBottom: '2px',
+    cursor: 'pointer',
+  },
+  // 中文短名称使用 CodeMirror 原生 detail 栏，与插入的函数标识符分开显示。
+  '.cm-tooltip-autocomplete .cm-completionDetail': {
+    marginLeft: 'auto',
+    paddingLeft: 'var(--klc-space-16, 16px)',
+    color: 'var(--klc-color-ui-muted)',
+    fontFamily: 'var(--klc-typography-font-family)',
+    fontSize: '0.8em',
+    fontWeight: '400',
+    fontStyle: 'normal',
+  },
+  // 鼠标悬停显示界面 hover 色，键盘选中态保留更强的高亮。
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li:hover': {
+    backgroundColor: 'var(--klc-color-ui-hover)',
+    color: 'var(--klc-color-ui-text)',
   },
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
     backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent)',

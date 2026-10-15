@@ -16,7 +16,7 @@ defineIndicator({
   })),
   onBar() {
     for (const [index, style] of styles.entries()) {
-      plot(PlotKind.Shape, barIndex % styles.length === index, { id: style })
+      plot.Shape(barIndex % styles.length === index, { id: style })
     }
     barIndex++
   },

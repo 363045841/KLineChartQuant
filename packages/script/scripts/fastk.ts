@@ -10,9 +10,9 @@ defineIndicator({
     const upper = ta.highest(high, params.period)[0]
     const lower = ta.lowest(low, params.period)[0]
     const value = upper === lower ? 50 : (100 * (close[0] - lower)) / (upper - lower)
-    plot(PlotKind.Line, value, { id: 'fastk', label: 'FASTK', color: '#ffb74d' })
+    plot.Line(value, { id: 'fastk', label: 'FASTK', color: '#ffb74d' })
     for (const level of [80, 50, 20]) {
-      plot(PlotKind.Line, level, {
+      plot.Line(level, {
         id: 'guide' + level,
         label: String(level),
         color: '#808080',

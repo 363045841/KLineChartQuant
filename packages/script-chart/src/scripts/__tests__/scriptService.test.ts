@@ -14,7 +14,7 @@ import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
 
 const source = `defineIndicator({ name: 'ServiceAverage', pane: 'sub', inputs: { n: input(2) },
-  onBar() { plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'average' }) } })`
+  onBar() { plot.Line((open[0] + close[0]) / params.n, { id: 'average' }) } })`
 
 describe('ScriptService', () => {
   it('自动发现的完整内置目录通过同一服务注册到指标仓库', async () => {

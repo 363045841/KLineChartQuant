@@ -7,7 +7,7 @@ import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import { PaneKind as PaneKindEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
-import type { ScriptIndicatorDeclaration, ScriptPlotOptions } from './types.js'
+import type { ScriptIndicatorDeclaration, ScriptPlot } from './types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -36,30 +36,8 @@ declare global {
   function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T>
   /** 定义一个指标 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
-  /**
-   * 在当前 K 线上绘制形状或字符。
-   * @param kind 只能是 PlotKind.Shape 或 PlotKind.Char。
-   * @param value 标记信号；absolute 定位时为价格。null 或 false 不绘制。
-   * @param options 必填 id；可设置颜色、位置、大小和文字。
-   */
-  function plot(kind: PlotKind.Shape | PlotKind.Char, value: number | boolean | null, options: ScriptPlotOptions): void
-  /**
-   * 在当前 K 线位置上绘制指定图形。
-   * @param kind 绘图类型：
-   *
-   * | 类型 | 作用 |
-   * | --- | --- |
-   * | PlotKind.Line | 折线 |
-   * | PlotKind.Histogram | 柱状图 |
-   * | PlotKind.Points | 散点 |
-   * | PlotKind.Shape | 形状标记 |
-   * | PlotKind.Char | 字符标记 |
-   * | PlotKind.Arrow | 数值箭头，正负决定方向，绝对值决定长度 |
-   *
-   * @param value 当前 K 线的绘图值；null 不绘制。
-   * @param options 必填 id；其余为对应图形的样式选项。
-   */
-  function plot(kind: PlotKind, value: number | null, options: ScriptPlotOptions): void
+  /** 当前 K 线的绘图方法；通过 plot.Line、plot.Point 等选择图形，null 主动留空。 */
+  const plot: ScriptPlot
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */

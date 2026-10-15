@@ -17,9 +17,9 @@ defineIndicator({
   },
   onBar() {
     const average = (open[0] + close[0]) / params.n + params.a
-    plot(PlotKind.Line, average, { id: 'oc-average', color: '#26a69a' })
-    plot(PlotKind.Line, high[0], { id: 'oc-high' })
-    plot(PlotKind.Line, low[0], { id: 'oc-low' })
+    plot.Line(average, { id: 'oc-average', color: '#26a69a' })
+    plot.Line(high[0], { id: 'oc-high' })
+    plot.Line(low[0], { id: 'oc-low' })
   },
 })
 ```
@@ -71,32 +71,38 @@ await scripts.create(source)
 
 ## Plot
 
-Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot(PlotKind.Line, value, { id })` 输出数据点，
+Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(value, { id })` 输出数据点，
 引擎按 `id` 收集为按 K 线下标对齐的序列，再交给通用绘图、坐标轴和图例链路。
 
 `id` 区分不同的 Plot，同一根 K 线上可以输出多个不同 id 的点。
-第一个参数使用全局枚举 `PlotKind.Line`、`PlotKind.Histogram` 或 `PlotKind.Points`，第二个参数是绘图值，
-也可通过 `globalThis.PlotKind` 访问。绘图类型由调用处决定，无需 `plots` 声明。
+使用 `plot.Line`、`plot.Point` 等方法选择图形，第一个参数是绘图值，第二个参数是包含 `id` 的样式选项。
+也可通过 `globalThis.plot` 访问。绘图类型由方法名决定，无需 `plots` 声明。
 同一个 id 在一次运行中必须使用同一种类型。
 使用可选 `plots` 声明样式时，输出未声明的 id 会报错；类型专用样式仅在声明与调用类型相同时生效。
 
 ### Plot 类型
 
-| `kind` | 形状 | 额外样式 |
+| 方法 | 形状 | 额外样式 |
 | --- | --- | --- |
-| `line` | 折线 | `width` 线宽、`dash` 虚线 |
-| `histogram` | 柱状图，柱宽随 K 线间距变化 | `baseline` 基准值 |
-| `points` | 圆形散点 | `radius` 半径 |
+| `plot.Line` | 折线 | `dash` 虚线 |
+| `plot.Histogram` | 柱状图，柱宽随 K 线间距变化 | `baseline` 基准值 |
+| `plot.Point` | 圆形散点 | — |
+| `plot.Shape` | 形状标记 | `style`、`location`、`text`、`textColor` |
+| `plot.Char` | 字符标记 | `char`、`location`、`text`、`textColor` |
+| `plot.Arrow` | 数值箭头 | `colorUp`、`colorDown` |
+
+所有方法接受 `number | null`，`null` 主动留空。`plot.Shape` 和 `plot.Char` 也接受布尔条件，`false` 留空。
 
 ### Plot 通用声明
 
 | 字段 | 作用 |
 | --- | --- |
-| `id` | Plot 标识，与 `plot()` 的 `id` 对应 |
+| `id` | Plot 标识，与绘图方法的 `id` 对应 |
 | `label` | 图例名称，缺省取 `id` |
 | `color` | CSS 颜色字符串 |
 | `offset` | 沿 K 线下标的偏移，用于前移或后移的序列 |
 | `visible` | 是否绘制，缺省为 `true` |
+| `size` | `ShapeSize` 尺寸档位，控制线宽、点径或标记大小 |
 
 ### 填充
 
@@ -115,12 +121,12 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot(PlotKi
 
 ### 逐点颜色
 
-`plot()` 的 `color` 覆盖该点颜色，缺省使用 Plot 的 `color`。
+绘图方法的 `color` 覆盖该点颜色，缺省使用 Plot 的 `color`。
 柱状图常用它按数值正负或涨跌着色。
 
 ```js
 onBar() {
-  plot(PlotKind.Histogram, close[0] - open[0], {
+  plot.Histogram(close[0] - open[0], {
     id: 'change',
     color: close[0] >= open[0] ? '#26a69a' : '#ef5350',
   })
@@ -136,6 +142,6 @@ onBar() {
 ```js
 onBar() {
   const ma = ta.sma(close, params.period)
-  plot(PlotKind.Line, ma[0], { id: 'sma' })
+  plot.Line(ma[0], { id: 'sma' })
 }
 ```

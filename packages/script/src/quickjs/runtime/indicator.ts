@@ -1,13 +1,39 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 输出当前 K 线的一个绘图点；null 主动留空，宿主负责与 K 线下标对齐。 */
-function plot(
-  kind: typeof PlotKind.Shape | typeof PlotKind.Char,
+/** 按图形类型输出当前 K 线的值，方法名确定类型。 */
+const plot: ScriptPlot = {
+  /** 输出折线点。 */
+  Line(value, options) {
+    emitPlot(PlotKind.Line, value, options)
+  },
+  /** 输出柱状图值。 */
+  Histogram(value, options) {
+    emitPlot(PlotKind.Histogram, value, options)
+  },
+  /** 输出散点。 */
+  Point(value, options) {
+    emitPlot(PlotKind.Points, value, options)
+  },
+  /** 输出形状标记。 */
+  Shape(value, options) {
+    emitPlot(PlotKind.Shape, value, options)
+  },
+  /** 输出字符标记。 */
+  Char(value, options) {
+    emitPlot(PlotKind.Char, value, options)
+  },
+  /** 输出数值箭头。 */
+  Arrow(value, options) {
+    emitPlot(PlotKind.Arrow, value, options)
+  },
+}
+
+/** 校验绘图值并传给宿主；null 留空，布尔标记收敛成数值。 */
+function emitPlot(
+  kind: PlotKind,
   value: number | boolean | null,
   options: ScriptPlotOptions,
-): void
-function plot(kind: PlotKind, value: number | null, options: ScriptPlotOptions): void
-function plot(kind: PlotKind, value: number | boolean | null, options: ScriptPlotOptions): void {
+): void {
   if (!options || typeof options.id !== 'string') throw new TypeError('plot 需要 { id }')
   if (
     value !== null &&

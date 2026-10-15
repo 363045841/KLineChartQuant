@@ -4,13 +4,13 @@ defineIndicator({
   pane: PaneKind.Main,
   inputs: {},
   onBar() {
-    plot(PlotKind.Char, close[0] > open[0], {
+    plot.Char(close[0] > open[0], {
       id: 'up',
       char: '▲',
       location: ShapeLocation.BelowBar,
       size: ShapeSize.Normal,
     })
-    plot(PlotKind.Char, close[0] < open[0], {
+    plot.Char(close[0] < open[0], {
       id: 'down',
       char: '▼',
       location: ShapeLocation.AboveBar,

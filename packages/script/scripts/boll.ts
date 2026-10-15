@@ -10,8 +10,8 @@ defineIndicator({
   onBar() {
     const middle = ta.sma(close, params.period)[0]
     const deviation = ta.stddev(close, params.period)[0] * params.multiplier
-    plot(PlotKind.Line, middle + deviation, { id: 'upper', label: 'UP', color: '#ef5350' })
-    plot(PlotKind.Line, middle, { id: 'middle', label: 'MID', color: '#ffb74d' })
-    plot(PlotKind.Line, middle - deviation, { id: 'lower', label: 'DN', color: '#42a5f5' })
+    plot.Line(middle + deviation, { id: 'upper', label: 'UP', color: '#ef5350' })
+    plot.Line(middle, { id: 'middle', label: 'MID', color: '#ffb74d' })
+    plot.Line(middle - deviation, { id: 'lower', label: 'DN', color: '#42a5f5' })
   },
 })

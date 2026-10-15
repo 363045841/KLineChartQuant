@@ -13,6 +13,7 @@ const builtinOutput = fileURLToPath(new URL('src/quickjs/generated/builtinScript
 const entries = [
   { file: 'library.ts', exportName: 'LIBRARY_PRELUDE' },
   { file: 'series.ts', exportName: 'SCRIPT_PRELUDE' },
+  { file: 'rolling.ts', exportName: 'ROLLING_PRELUDE' },
   { file: 'indicator.ts', exportName: 'INDICATOR_PRELUDE' },
   { file: 'ta.ts', exportName: 'TA_LIBRARY_SOURCE' },
 ]

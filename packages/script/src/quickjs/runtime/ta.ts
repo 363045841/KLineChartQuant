@@ -5,16 +5,18 @@
  * 历史取数统一走 Series.at()，它是契约中为严格索引检查准备的动态访问入口。
  *
  * 所有派生序列都经 __deriveOnce 按「输入序列 + 算法 + 参数」缓存：脚本在 onBar 里逐 bar
- * 重新调用 ta.* 时复用同一实例，memo 跨 bar 保留，整体保持线性复杂度。
+ * 重新调用 ta.* 时复用同一实例；窗口算法使用增量累计器，整体为摊销线性复杂度。
  */
 
-/** 窗口类算法：在完整窗口内按固定顺序聚合，窗口不足时结果为 NaN。 */
+/** 窗口类算法：完整窗口前为 NaN，之后增量维护聚合状态。 */
 type WindowKind = 'sma' | 'sum' | 'highest' | 'lowest'
 
 /** 窗口类算法的缓存包装，key 区分算法与输入序列。 */
 function __windowSeries(source: Series, length: number, kind: WindowKind): Series {
-  return __deriveOnce(`window:${kind}:${__seriesId(source)}:${length}`, (_self, offset) =>
-    __windowValue(source, length, kind, offset),
+  return __rollingSeries(`window:${kind}:${__seriesId(source)}:${length}`, source, length, () =>
+    kind === 'highest' || kind === 'lowest'
+      ? __extremeWindow(length, kind === 'highest')
+      : __sumWindow(kind === 'sma' ? length : 1),
   )
 }
 
@@ -58,18 +60,9 @@ defineLibrary('ta', {
   /** 总体标准差序列（除以 length），完整窗口之前为 NaN。 */
   stddev(source: Series, length: number): Series {
     __checkLength(length)
-    return __deriveOnce(`stddev:${__seriesId(source)}:${length}`, (_self, offset) => {
-      if (offset + length > __count()) return Number.NaN
-      let total = 0
-      for (let step = 0; step < length; step++) total += source.at(offset + step)
-      const mean = total / length
-      let variance = 0
-      for (let step = 0; step < length; step++) {
-        const deviation = source.at(offset + step) - mean
-        variance += deviation * deviation
-      }
-      return Math.sqrt(variance / length)
-    })
+    return __rollingSeries(`stddev:${__seriesId(source)}:${length}`, source, length, () =>
+      __deviationWindow(length),
+    )
   },
 
   /** 指数移动平均序列，以首个完整窗口 SMA 初始化。 */
@@ -78,10 +71,10 @@ defineLibrary('ta', {
     return __deriveOnce(`ema:${__seriesId(source)}:${length}`, (self, offset) => {
       if (offset + length > __count()) return Number.NaN
       // 没有上一根的完整值时，用当前窗口 SMA 初始化。
-      if (offset + 1 + length > __count()) return __windowValue(source, length, 'sma', offset)
+      if (offset + 1 + length > __count()) return __windowSeries(source, length, 'sma').at(offset)
       const previous = self.at(offset + 1)
       return Number.isNaN(previous)
-        ? __windowValue(source, length, 'sma', offset)
+        ? __windowSeries(source, length, 'sma').at(offset)
         : previous + (2 / (length + 1)) * (source.at(offset) - previous)
     })
   },
@@ -89,37 +82,25 @@ defineLibrary('ta', {
   /** 加权移动平均序列，窗口内越新的值权重越大，完整窗口之前为 NaN。 */
   wma(source: Series, length: number): Series {
     __checkLength(length)
-    return __deriveOnce(`wma:${__seriesId(source)}:${length}`, (_self, offset) => {
-      if (offset + length > __count()) return Number.NaN
-      let weighted = 0
-      let weightSum = 0
-      for (let step = 0; step < length; step++) {
-        // step 越小越新，权重从 length 递减到 1，与 native 的 1..length 一致。
-        const weight = length - step
-        weighted += weight * source.at(offset + step)
-        weightSum += weight
-      }
-      return weighted / weightSum
-    })
+    return __rollingSeries(`wma:${__seriesId(source)}:${length}`, source, length, () =>
+      __weightedWindow(length),
+    )
   },
 
   /** 成交量加权移动平均序列，Σ(source×volume)/Σ(volume)；完整窗口之前或窗口成交量之和为 0 时为 NaN。 */
   vwma(source: Series, volume: Series, length: number): Series {
     __checkLength(length)
-    return __deriveOnce(
-      `vwma:${__seriesId(source)}:${__seriesId(volume)}:${length}`,
-      (_self, offset) => {
-        if (offset + length > __count()) return Number.NaN
-        let priceVolume = 0
-        let volumeSum = 0
-        for (let step = 0; step < length; step++) {
-          const barVolume = volume.at(offset + step)
-          priceVolume += source.at(offset + step) * barVolume
-          volumeSum += barVolume
-        }
-        return volumeSum > 0 ? priceVolume / volumeSum : Number.NaN
-      },
+    const key = `vwma:${__seriesId(source)}:${__seriesId(volume)}`
+    const product = __deriveOnce(
+      `${key}:product`,
+      (_self, offset) => source.at(offset) * volume.at(offset),
     )
+    const priceVolume = __windowSeries(product, length, 'sum')
+    const volumes = __windowSeries(volume, length, 'sum')
+    return __deriveOnce(`${key}:${length}`, (_self, offset) => {
+      const total = volumes.at(offset)
+      return total > 0 ? priceVolume.at(offset) / total : Number.NaN
+    })
   },
 
   /** Wilder RSI 序列，窗口内无下跌（含平盘）为 100。 */

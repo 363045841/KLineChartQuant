@@ -7,7 +7,7 @@ defineIndicator({
     colorDown: input('#d50000', { title: '下跌颜色' }),
   },
   onBar() {
-    plot(PlotKind.Arrow, close[0] - open[0], {
+    plot.Arrow(close[0] - open[0], {
       id: 'body',
       colorUp: params.colorUp,
       colorDown: params.colorDown,

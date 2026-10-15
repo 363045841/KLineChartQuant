@@ -29,7 +29,7 @@ defineIndicator({
     n: input(2, { title: '除数' }),
   },
   onBar() {
-    plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'oc-average' })
+    plot.Line((open[0] + close[0]) / params.n, { id: 'oc-average' })
   },
 })
 ```
@@ -40,7 +40,7 @@ The VM prelude injects these globals before the script runs:
 | --- | --- |
 | `open` `high` `low` `close` `volume` `time` | price series; `close[0]` is the current bar, `close[1]` one bar back |
 | `params` | resolved input values |
-| `plot(PlotKind.Line, value, { id, color })` | emit a plot point; also supports `PlotKind.Histogram` and `PlotKind.Points` |
+| `plot.Line(value, { id, color })` | emit a plot point; methods: `Line`, `Histogram`, `Point`, `Shape`, `Char`, `Arrow` |
 | `PaneKind` | indicator registration location; `PaneKind.Main` or `PaneKind.Sub` |
 | `input(default, options?)` | declare a parameter; `options` renders a dropdown for string inputs |
 | `defineIndicator(definition)` | declare the single indicator of the file |
