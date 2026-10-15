@@ -10,8 +10,9 @@ import {
 } from '@/components/footprint/types.js'
 import { computed, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import {
-  getIndicatorDescriptor,
   getIndicatorDescriptors,
+  resolveCanonicalIndicatorId,
+  resolveIndicatorDefinitionId,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   getBuiltinIndicatorTypeLabel,
@@ -1495,7 +1496,7 @@ function readIndicatorCatalog(): readonly Indicator[] {
           ...def.defaultOptions,
         }
         return {
-          id: def.displayName,
+          id: resolveCanonicalIndicatorId(def),
           source: def.source,
           label: def.displayName,
           name: ui?.name ?? def.displayName,
@@ -1533,8 +1534,8 @@ export function findIndicator(id: string): Indicator | undefined {
   const indicators = readIndicatorCatalog()
   const direct = indicators.find((i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm)
   if (direct) return direct
-  // 兼容内部 name / 别名输入：先解析为规范展示名再匹配
-  const canonicalId = getIndicatorDescriptor(id)?.displayName
+  // 兼容内部 name / 别名输入：先解析为规范 ID 再匹配
+  const canonicalId = resolveIndicatorDefinitionId(id)
   if (!canonicalId) return undefined
   const canonical = normalizeId(canonicalId)
   return indicators.find((i) => normalizeId(i.id) === canonical)

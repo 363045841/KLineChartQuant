@@ -9,6 +9,9 @@ function decode(value: unknown): readonly SavedScript[] {
     if (
       typeof item !== 'object' ||
       item === null ||
+      !('id' in item) ||
+      typeof item.id !== 'string' ||
+      !item.id.trim() ||
       !('source' in item) ||
       typeof item.source !== 'string' ||
       !('revision' in item) ||
@@ -17,7 +20,7 @@ function decode(value: unknown): readonly SavedScript[] {
       item.revision < 1
     )
       throw new Error('用户脚本文档格式错误')
-    return { source: item.source, revision: item.revision }
+    return { id: item.id, source: item.source, revision: item.revision }
   })
 }
 

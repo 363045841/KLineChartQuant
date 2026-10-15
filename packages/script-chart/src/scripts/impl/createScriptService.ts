@@ -1,5 +1,6 @@
 /** 通过 core 定义仓库提交完整脚本文档，不维护影子源码仓库。 */
 import {
+  generateUUID,
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
@@ -59,6 +60,7 @@ export async function createScriptService(
 
   /** 校验和编译全部完成后，以单个定义快照提交，执行闭包绑定该版本源码。 */
   function publish(
+    id: string,
     source: string,
     prepared: PreparedQuickJSScript,
     revision: number,
@@ -66,11 +68,11 @@ export async function createScriptService(
     identity: ScriptDocument['identity'] = 'user',
   ): ScriptDocument {
     const { definition } = prepared
-    const id = definition.name
     const document = Object.freeze({ revision, source, definition, identity })
     const commit = update ? updatePlotIndicator : registerPlotIndicator
     commit({
       ...definition,
+      id,
       source: 'script',
       document,
       compute: (bars, params) => prepared.run(bars, params),
@@ -97,10 +99,11 @@ export async function createScriptService(
     )
   }
   /** 在注册前检查身份，避免写入一个无法注册的持久化文档。 */
-  function assertAvailable(definition: QuickJSScriptDefinition): void {
-    const id = definition.name
-    if (!/[\p{L}\p{N}]/u.test(id)) throw new Error('脚本名称必须包含字母或数字')
-    if (getIndicatorDescriptor(id)) throw new Error(`脚本名称已存在：${id}`)
+  function assertAvailable(definition: QuickJSScriptDefinition, currentId?: string): void {
+    const name = definition.name
+    if (!/[\p{L}\p{N}]/u.test(name)) throw new Error('脚本名称必须包含字母或数字')
+    const existing = getIndicatorDescriptor(name)
+    if (existing && existing.name !== currentId) throw new Error(`脚本名称已存在：${name}`)
   }
   /** 持久化完成后才发布运行定义；保存失败保留当前版本。 */
   async function persist(documents: readonly ScriptDocument[]): Promise<void> {
@@ -108,20 +111,22 @@ export async function createScriptService(
       !(await persistence.save(
         documents
           .filter((item) => item.identity === 'user')
-          .map(({ source, revision }) => ({ source, revision })),
+          .map(({ id, source, revision }) => ({ id, source, revision })),
       ))
     ) {
       throw new Error('用户脚本保存失败')
     }
   }
   for (const source of options.builtinSources ?? []) {
-    publish(source, prepareQuickJSScript(source, libraries), 1, false, 'builtin')
+    const prepared = prepareQuickJSScript(source, libraries)
+    publish(prepared.definition.name, source, prepared, 1, false, 'builtin')
   }
   for (const document of restored ?? []) {
     const prepared = prepareQuickJSScript(document.source, libraries)
     const { definition } = prepared
     assertAvailable(definition)
-    publish(document.source, prepared, document.revision, false)
+    if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
+    publish(document.id, document.source, prepared, document.revision, false)
   }
 
   return Object.freeze({
@@ -131,14 +136,14 @@ export async function createScriptService(
         const { definition } = prepared
         assertAvailable(definition)
         const document: ScriptDocument = {
-          id: definition.name,
+          id: `script_${generateUUID()}`,
           identity: 'user',
           source,
           revision: 1,
           definition,
         }
         await persist([...list(), document])
-        return publish(source, prepared, 1, false)
+        return publish(document.id, source, prepared, 1, false)
       })
     },
     read,
@@ -148,21 +153,21 @@ export async function createScriptService(
         const current = requireRevision(id, expectedRevision)
         const prepared = prepareQuickJSScript(source, libraries)
         const { definition } = prepared
-        if (definition.name !== current.definition.name) {
-          throw new Error('已有脚本的 name 是固定身份，请创建新脚本')
-        }
+        assertAvailable(definition, current.id)
         const revision = current.revision + 1
         await persist(
-          list().map((item) => (item.id === current.id ? { ...item, source, revision } : item)),
+          list().map((item) =>
+            item.id === current.id ? { ...item, source, revision, definition } : item,
+          ),
         )
-        return publish(source, prepared, revision, true)
+        return publish(current.id, source, prepared, revision, true)
       })
     },
     remove(id: string, expectedRevision: number) {
       return enqueue(async () => {
         const current = requireRevision(id, expectedRevision)
         await persist(list().filter((item) => item.id !== current.id))
-        removeScriptIndicatorDefinition(current.definition.name)
+        removeScriptIndicatorDefinition(current.id)
       })
     },
   })

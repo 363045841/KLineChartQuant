@@ -10,6 +10,7 @@ import {
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   isIndicatorDefinitionLoaded,
+  resolveCanonicalIndicatorId,
 } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
@@ -264,9 +265,10 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   ): boolean {
     if (isDisposed() || !isLoaded(indicatorId)) return false
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.displayName))
-      return false
-    return chart.panes.replaceContent(paneId, definition.displayName, params)
+    if (!definition) return false
+    const canonicalId = resolveCanonicalIndicatorId(definition)
+    if (!hasSubPaneRendererMetadata(definition, paneId, canonicalId)) return false
+    return chart.panes.replaceContent(paneId, canonicalId, params)
   }
 
   /** 更新窗格内容参数。 */

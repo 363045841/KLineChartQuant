@@ -7,6 +7,7 @@ export type ScriptIdentity = 'builtin' | 'user'
 /** 编辑器读取的已提交脚本文档。 */
 export interface ScriptEditorDocument {
   readonly id: string
+  readonly definition: { readonly name: string }
   readonly source: string
   readonly revision: number
   readonly identity: ScriptIdentity

@@ -19,8 +19,9 @@ export interface ScriptService {
   remove(id: string, expectedRevision: number): Promise<void>
 }
 
-/** 只保存用户源码和版本，编译产物启动时重新生成。 */
+/** 保存框架分配的稳定身份、用户源码和版本，编译产物启动时重新生成。 */
 export interface SavedScript {
+  readonly id: string
   readonly source: string
   readonly revision: number
 }

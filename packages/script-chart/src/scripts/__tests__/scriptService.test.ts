@@ -55,7 +55,17 @@ describe('ScriptService', () => {
       '脚本名称',
     )
     const initial = await scripts.create(source.replace('ServiceAverage', 'PersistedAverage'))
-    const next = await scripts.update(initial.id, initial.source.replace('input(2)', 'input(6)'), 1)
+    const next = await scripts.update(
+      initial.id,
+      initial.source
+        .replace('PersistedAverage', 'RenamedPersistedAverage')
+        .replace('input(2)', 'input(6)'),
+      1,
+    )
+    expect(next.id).toBe(initial.id)
+    const reusedName = await scripts.create(initial.source)
+    expect(reusedName.id).not.toBe(initial.id)
+    await scripts.remove(reusedName.id, reusedName.revision)
     // 清除运行定义模拟页面刷新，保留真实 IndexedDB 数据。
     removeScriptIndicatorDefinition(next.id)
     const restored = await createScriptService()
@@ -77,9 +87,15 @@ describe('ScriptService', () => {
       },
     })
     await expect(
-      failed.update(initial.id, initial.source.replace('input(2)', 'input(8)'), 1),
+      failed.update(initial.id, initial.source.replace('FailedSaveAverage', 'FailedRename'), 1),
     ).rejects.toThrow('磁盘写入失败')
     expect(scripts.read(initial.id)).toEqual(initial)
+    expect(getIndicatorDescriptor('FailedRename')).toBeUndefined()
+    expect(await persistence.load()).toContainEqual({
+      id: initial.id,
+      source: initial.source,
+      revision: initial.revision,
+    })
     const results = await Promise.allSettled([
       scripts.update(initial.id, initial.source.replace('input(2)', 'input(4)'), 1),
       scripts.update(initial.id, initial.source.replace('input(2)', 'input(9)'), 1),
@@ -108,6 +124,12 @@ describe('ScriptService', () => {
     expect(initial.revision).toBe(1)
     expect(scripts.read(initial.id)).toEqual(initial)
     await expect(scripts.create(source)).rejects.toThrow()
+    const occupied = await scripts.create(source.replace('ServiceAverage', 'OccupiedAverage'))
+    await expect(scripts.update(initial.id, occupied.source, initial.revision)).rejects.toThrow(
+      '脚本名称已存在',
+    )
+    expect(scripts.read(initial.id)).toEqual(initial)
+    await scripts.remove(occupied.id, occupied.revision)
     const next = await scripts.update(initial.id, source.replace('input(2)', 'input(4)'), 1)
     expect(next.revision).toBe(2)
     expect(getIndicatorDescriptor(initial.id)?.defaultParams).toEqual({ n: 4 })

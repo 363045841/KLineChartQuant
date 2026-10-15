@@ -20,11 +20,16 @@ describe('Script selector catalog', () => {
     scripts = await createScriptService()
   })
   it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', async () => {
-    await scripts.create(
+    const created = await scripts.create(
       `defineIndicator({ name: 'OC Average', pane: 'main', inputs: {}, onBar() {} })`,
     )
     const indicator = findIndicator('OC Average')
-    expect(indicator).toMatchObject({ id: 'OC Average', source: 'script', pane: 'main' })
+    expect(indicator).toMatchObject({
+      id: created.id,
+      label: 'OC Average',
+      source: 'script',
+      pane: 'main',
+    })
   })
   it('组件挂载后注册的脚本进入专用分组，保留输入类型和默认值', async () => {
     const scope = effectScope()
@@ -32,10 +37,10 @@ describe('Script selector catalog', () => {
     scope.run(() => {
       useIndicatorCatalog(controller)
     })
-    await scripts.create(`defineIndicator({ name: 'SelectorScript',
+    const created = await scripts.create(`defineIndicator({ name: 'SelectorScript',
       inputs: { period: input(5), text: input('close'), enabled: input(false) },
       onBar() { plot(PlotKind.Line, close[0], { id: 'close' }) } })`)
-    const definition = controller.catalog.peek().find((item) => item.id === 'SelectorScript')!
+    const definition = controller.catalog.peek().find((item) => item.id === created.id)!
     expect(definition.source).toBe('script')
     expect(definition.params).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 5 },
@@ -51,7 +56,7 @@ describe('Script selector catalog', () => {
     expect(groups.filteredIndicators.value.map((item) => item.id)).toContain(definition.id)
     expect(groups.filteredIndicators.value.every((item) => item.source === 'script')).toBe(true)
     controller.setSearchQuery('SelectorScript')
-    expect(controller.filteredSub.peek().map((item) => item.id)).toEqual(['SelectorScript'])
+    expect(controller.filteredSub.peek().map((item) => item.id)).toEqual([created.id])
     expect(controller.add(definition.id)).not.toBeNull()
     expect(controller.active.peek()[0]?.params).toEqual({
       period: 5,
@@ -84,11 +89,16 @@ describe('Script selector catalog', () => {
 
     await scripts.update(
       created.id,
-      `defineIndicator({ name: 'UpdatableScript',
+      `defineIndicator({ name: 'RenamedUpdatableScript',
         inputs: { period: input(7), label: input('ma', { title: '名称' }) }, onBar() {} })`,
       created.revision,
     )
-    expect(findIndicator('UpdatableScript')!.params).toEqual([
+    expect(findIndicator('UpdatableScript')).toBeUndefined()
+    expect(findIndicator(created.id)).toMatchObject({
+      id: created.id,
+      label: 'RenamedUpdatableScript',
+    })
+    expect(findIndicator(created.id)!.params).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 7 },
       { key: 'label', label: '名称', type: 'string', default: 'ma' },
     ])

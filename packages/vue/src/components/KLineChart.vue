@@ -1054,7 +1054,6 @@
   const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
   const {
     open: scriptEditorOpen,
-    definitionId: scriptEditorDefinitionId,
     source: scriptEditorSource,
     error: scriptEditorError,
     saved: scriptEditorSaved,
@@ -1074,7 +1073,7 @@
   } = useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
 
   const scriptEditorTitle = computed(() =>
-    scriptEditorDefinitionId.value ? `编辑脚本 · ${scriptEditorDefinitionId.value}` : '新建脚本',
+    scriptEditorSession.name.value ? `编辑脚本 · ${scriptEditorSession.name.value}` : '新建脚本',
   )
 
   /** 把编辑器搬进独立窗口；打开失败时提示用户，不静默丢弃。 */

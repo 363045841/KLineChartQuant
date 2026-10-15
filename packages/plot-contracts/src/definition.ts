@@ -48,7 +48,14 @@ export type InputSchema<P> = { [K in keyof P]: InputDef<P[K]> }
 
 /** 指标定义：元数据、输入声明与计算端口。 */
 export interface IndicatorDefinition<P> {
-  /** 指标名称；同时是对外身份与展示名。 */
+  /**
+   * 宿主分配的稳定 ID；缺省回落到 name。
+   *
+   * 脚本源码只声明 name（展示名），宿主为脚本分配稳定 ID，使展示名可编辑而对外身份不变；
+   * core 以该 ID 作为内部 name、pane ID 与 renderer 身份，displayName 与坐标轴标签仍取 name。
+   */
+  readonly id?: string
+  /** 指标名称；`id` 缺省时同时作为内部身份与展示名。 */
   readonly name: string
   /** 注册位置；缺省放在副图。 */
   readonly pane?: 'main' | 'sub'

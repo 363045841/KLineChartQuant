@@ -44,9 +44,11 @@ import type {
 } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import {
+  getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
   onIndicatorDefinitionChanged,
+  resolveCanonicalIndicatorId,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
@@ -236,14 +238,14 @@ export class ChartIndicatorManager {
     const mainDefinitions = definitions.filter((def) => def.category === 'main')
     const defaultParams: Record<string, Record<string, number | boolean | string>> = {}
     for (const def of mainDefinitions) {
-      defaultParams[def.displayName] = {
+      defaultParams[resolveCanonicalIndicatorId(def)] = {
         ...(def.presentation?.defaultOptions ?? def.runtime?.defaultParams ?? {}),
       } as Record<string, number | boolean | string>
     }
     const next = {
       definitions,
       defaultParams,
-      enabled: mainDefinitions.map((def) => def.displayName),
+      enabled: mainDefinitions.map((def) => resolveCanonicalIndicatorId(def)),
     }
     ChartIndicatorManager._mainCatalogCache = next
     return next
@@ -283,7 +285,7 @@ export class ChartIndicatorManager {
     this.disposeDefinitionSubscription = onIndicatorDefinitionChanged(({ type, definition }) => {
       if (type === 'remove') {
         for (const instance of this.deps.indicator.readonly.instances.peek()) {
-          if (instance.indicatorId !== definition.displayName) continue
+          if (instance.indicatorId !== resolveCanonicalIndicatorId(definition)) continue
           if (instance.role === 'main') this.deps.indicator.actions.removeMain(instance.indicatorId)
           else this.deps.subPaneOps.remove(instance.paneId)
         }
@@ -346,16 +348,21 @@ export class ChartIndicatorManager {
 
     // 派生信号
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() =>
-      this.deps.indicator.readonly.instances().map((instance) => ({
-        id: instance.instanceId,
-        definitionId: instance.indicatorId,
-        label: instance.indicatorId,
-        name: instance.indicatorId,
-        role: instance.role,
-        paneId: instance.role === 'sub' ? instance.paneId : undefined,
-        ordinal: instance.ordinal,
-        params: { ...instance.params },
-      })),
+      this.deps.indicator.readonly.instances().map((instance) => {
+        // definitionId 是规范 ID；label/name 是展示字段，取展示名（脚本改名后随目录刷新）。
+        const label =
+          getIndicatorDescriptor(instance.indicatorId)?.displayName ?? instance.indicatorId
+        return {
+          id: instance.instanceId,
+          definitionId: instance.indicatorId,
+          label,
+          name: label,
+          role: instance.role,
+          paneId: instance.role === 'sub' ? instance.paneId : undefined,
+          ordinal: instance.ordinal,
+          params: { ...instance.params },
+        }
+      }),
     )
     this._subPanesComputed = computed<ReadonlyArray<SubPaneInfo>>(() => {
       const ratios = deps.paneRatios$()
@@ -1239,7 +1246,7 @@ export class ChartIndicatorManager {
       const instanceId = generateUUID()
       const paneId = generateUUID()
       this.deps.subPaneOps.create(
-        this.createPaneInput(paneId, definition.displayName, params, instanceId),
+        this.createPaneInput(paneId, resolveCanonicalIndicatorId(definition), params, instanceId),
       )
       return instanceId
     }

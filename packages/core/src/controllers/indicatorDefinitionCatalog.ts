@@ -1,8 +1,8 @@
 /**
  * 将引擎指标目录映射为控制器指标定义。
  *
- * 对外的规范 ID 统一使用指标的 displayName，与 ChartIndicatorManager 实例身份、
- * 选择器卡片 ID 保持一致；内部 name 不再泄漏到控制器/UI 层。
+ * 对外的规范 ID 与 ChartIndicatorManager 实例身份、选择器卡片 ID 保持一致：脚本用稳定内部
+ * name，原生用 displayName；内部 name 不泄漏到控制器/UI 层。
  */
 import { allIndicators, type Indicator } from '../engine/renderers/Indicator/indicatorCatalog.js'
 

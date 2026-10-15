@@ -27,7 +27,7 @@ export interface QuickJSLibrary {
 
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
 export interface QuickJSScriptDefinition {
-  /** 指标名称；同时是对外身份与展示名。 */
+  /** 用户可修改的指标显示名称；注册身份由宿主维护。 */
   readonly name: string
   readonly pane?: PaneKind
   /** 业务分类；缺省由 core 归入 other。 */

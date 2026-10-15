@@ -50,7 +50,8 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
 /**
  * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
  *
- * 位置缺省放副图、显示名取 name；主图定义允许叠加主图，副图定义独占自己的 pane。
+ * 位置缺省放副图；内部身份取 `id ?? name`（脚本由宿主分配稳定 ID），
+ * displayName 与坐标轴标签取 name（可编辑展示名）。
  */
 export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
   registerIndicatorDefinition(createPlotIndicatorDefinition(definition))
@@ -66,9 +67,10 @@ function createPlotIndicatorDefinition<P>(
   definition: IndicatorDefinition<P>,
 ): IndicatorDefinitionClass {
   const main = definition.pane === 'main'
-  const paneId = main ? 'main' : `sub_${definition.name}`
+  const internalName = definition.id ?? definition.name
+  const paneId = main ? 'main' : `sub_${internalName}`
   const decorate = Indicator({
-    name: definition.name,
+    name: internalName,
     source: definition.source,
     document: definition.document,
     displayName: definition.name,
@@ -88,7 +90,7 @@ function createPlotIndicatorDefinition<P>(
     },
   })
   class PlotIndicatorDefinition {
-    static rendererFactory = plotRenderer(definition.name, paneId)
+    static rendererFactory = plotRenderer(internalName, paneId)
   }
   decorate(PlotIndicatorDefinition)
   return PlotIndicatorDefinition

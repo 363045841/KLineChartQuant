@@ -4,6 +4,7 @@ import { Chart } from '@/engine/chart/index.js'
 import {
   getRegisteredIndicatorDefinition,
   loadIndicatorDefinitions,
+  resolveCanonicalIndicatorId,
 } from '@/engine/indicators/indicatorDefinitionRegistry.js'
 import {
   loadBuiltinIndicators,
@@ -211,8 +212,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
     loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
-    resolveSubPaneIndicatorId: (indicatorId) =>
-      getRegisteredIndicatorDefinition(indicatorId)?.displayName ?? null,
+    resolveSubPaneIndicatorId: (indicatorId) => {
+      const definition = getRegisteredIndicatorDefinition(indicatorId)
+      return definition ? resolveCanonicalIndicatorId(definition) : null
+    },
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = getRegisteredIndicatorDefinition(indicatorId)
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)

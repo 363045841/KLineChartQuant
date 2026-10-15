@@ -1,31 +1,16 @@
 /**
- * Document Picture-in-Picture 独立窗口。
+ * 承载脚本编辑器的普通浏览器独立窗口。
  *
  * 新窗口是一个全新的 document，既没有主应用的样式表，也没有写在 html/body 上的主题变量。
  * 这里负责复制样式表并持续镜像 html/body 的 class 与内联样式，让编辑器在新窗口里与主窗口一致。
  */
 
-/** TS 的 lib.dom 尚未内置该实验性 API，只声明本模块用到的部分。 */
-interface DocumentPictureInPictureApi {
-  requestWindow(options?: { readonly width?: number; readonly height?: number }): Promise<Window>
-}
-
-declare global {
-  interface Window {
-    /** 文档画中画入口；不支持的浏览器为 undefined。 */
-    readonly documentPictureInPicture?: DocumentPictureInPictureApi
-  }
-}
-
 /** 独立编辑器窗口的初始尺寸（px）。 */
 const DETACHED_WINDOW_SIZE = { width: 760, height: 560 } as const
 
-/** 当前环境是否支持文档画中画窗口。 */
+/** 当前环境是否支持打开浏览器窗口。 */
 export function supportsDetachedWindow(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.documentPictureInPicture?.requestWindow === 'function'
-  )
+  return typeof window !== 'undefined' && typeof window.open === 'function'
 }
 
 /** 独立窗口句柄：窗口本体、编辑器挂载点与清理函数。 */
@@ -47,22 +32,31 @@ export async function openDetachedWindow(
   title: string,
   styleHost: HTMLElement | null,
 ): Promise<DetachedWindow> {
-  const api = window.documentPictureInPicture
-  if (!api) throw new Error('当前浏览器不支持文档画中画窗口')
-  const pipWindow = await api.requestWindow(DETACHED_WINDOW_SIZE)
-  pipWindow.document.title = title
-  copyStylesheets(styleHost, pipWindow.document)
-  const stopMirroring = mirrorDocumentShell(document, pipWindow.document)
+  // 在点击事件内同步打开，保留浏览器要求的用户激活状态。
+  const editorWindow = window.open(
+    '',
+    '_blank',
+    `popup=yes,width=${DETACHED_WINDOW_SIZE.width},height=${DETACHED_WINDOW_SIZE.height},resizable=yes,scrollbars=yes`,
+  )
+  if (!editorWindow) throw new Error('无法打开编辑器窗口，请允许浏览器弹出窗口后重试')
+  editorWindow.document.title = title
+  copyStylesheets(styleHost, editorWindow.document)
+  const stopMirroring = mirrorDocumentShell(document, editorWindow.document)
   let disposed = false
+  /** 主页面退出或组件卸载时，同时释放窗口与样式镜像。 */
+  const dispose = (): void => {
+    if (disposed) return
+    disposed = true
+    window.removeEventListener('pagehide', dispose)
+    stopMirroring()
+    editorWindow.close()
+  }
+  window.addEventListener('pagehide', dispose)
+  editorWindow.focus()
   return {
-    window: pipWindow,
-    container: pipWindow.document.body,
-    dispose() {
-      if (disposed) return
-      disposed = true
-      stopMirroring()
-      pipWindow.close()
-    },
+    window: editorWindow,
+    container: editorWindow.document.body,
+    dispose,
   }
 }
 

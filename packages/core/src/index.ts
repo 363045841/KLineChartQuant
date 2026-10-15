@@ -19,6 +19,7 @@ export {
   loadIndicatorDefinitions,
   registerIndicatorDefinition,
   removeScriptIndicatorDefinition,
+  resolveCanonicalIndicatorId,
   resolveIndicatorLayerId,
 } from './engine/indicators/indicatorDefinitionRegistry.js'
 export {

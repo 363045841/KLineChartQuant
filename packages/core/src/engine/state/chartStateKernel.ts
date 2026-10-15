@@ -26,7 +26,10 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry.js'
+import {
+  getRegisteredIndicatorDefinition,
+  resolveCanonicalIndicatorId,
+} from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
 import {
@@ -334,8 +337,8 @@ export class ChartStateKernel extends StateKernel {
         if (instance.role !== 'main' || instance.source === 'mode') continue
         const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
         if (definition && supportsIndicatorDataView(definition, dataView)) {
-          // 对外统一使用规范 ID（displayName），与实例目录的 definitionId 同一身份空间。
-          ids.add(definition.displayName)
+          // 对外统一使用规范 ID，与实例目录的 definitionId 同一身份空间。
+          ids.add(resolveCanonicalIndicatorId(definition))
         }
       }
       return Object.freeze([...ids])

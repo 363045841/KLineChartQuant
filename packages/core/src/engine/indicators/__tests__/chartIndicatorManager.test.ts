@@ -241,10 +241,11 @@ describe('ChartIndicatorManager', () => {
     expect(state.visibleMin).toBe(0)
     expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
   })
-  it('已有脚本定义更新后原实例立即重算，同一行情和参数不复用旧结果', async () => {
+  it('副图脚本改名后保留实例、窗格和参数，并用新实现立即重算', async () => {
     /** 测试脚本产物使用正式中立 Plot 注册入口。 */
     const definition = (factor: number): IndicatorDefinition<Record<string, never>> => ({
-      name: 'EditablePlotScript',
+      id: 'script_editable_plot',
+      name: `EditablePlotScript ${factor}`,
       source: 'script',
       inputs: {},
       compute: (bars: readonly { close: number }[]): PlotCollection => ({
@@ -265,8 +266,9 @@ describe('ChartIndicatorManager', () => {
       }),
     })
     registerPlotIndicator(definition(1))
-    const id = manager.addIndicator('EditablePlotScript')
+    const id = manager.addIndicator('script_editable_plot', { period: 7 })
     expect(id).not.toBeNull()
+    const pane = manager.getSubPaneEntries()[0]!
     const data = createTestData(3)
     manager.updateIndicatorData(data, { start: 0, end: 3 })
     const read = () => manager.createRenderStateReader().get<PlotRenderState>(id ?? '')
@@ -275,6 +277,13 @@ describe('ChartIndicatorManager', () => {
     await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 2))
     updatePlotIndicator(definition(3))
     await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 3))
+    expect(manager.getSubPaneEntries()).toHaveLength(1)
+    expect(manager.getSubPaneEntries()[0]).toMatchObject({
+      instanceId: id,
+      paneId: pane.paneId,
+      indicatorId: 'script_editable_plot',
+      params: { period: 7 },
+    })
   })
   it('中立定义声明的业务分类进入目录，未声明时归入 other', () => {
     /** 中立定义只声明 Plot 数据与业务分类，目录元数据由 core 派生。 */
@@ -292,6 +301,31 @@ describe('ChartIndicatorManager', () => {
     registerPlotIndicator(definition('UntypedPlotScript'))
     expect(getIndicatorDescriptor('TypedPlotScript')?.indicatorType).toBe('momentum')
     expect(getIndicatorDescriptor('UntypedPlotScript')?.indicatorType).toBe('other')
+  })
+  it('主图脚本改名后保留已启用实例与参数，并刷新实例标签', () => {
+    /** 宿主为脚本分配稳定 ID；展示名由脚本源码声明并可编辑。 */
+    const scriptId = 'script_rename_fixture'
+    const source = (displayName: string): IndicatorDefinition<Record<string, never>> => ({
+      id: scriptId,
+      name: displayName,
+      pane: 'main',
+      source: 'script',
+      inputs: {},
+      compute: () => ({ plots: [], fills: [] }),
+    })
+
+    registerPlotIndicator(source('Old Script Name'))
+    expect(manager.addIndicator(scriptId, { factor: 3 })).toBe(scriptId)
+
+    updatePlotIndicator(source('New Script Name'))
+
+    // 改名不重建实例，已启用状态与参数保留。
+    expect(manager.isMainIndicatorActive(scriptId)).toBe(true)
+    expect(manager.getMainIndicatorParams(scriptId)).toEqual({ factor: 3 })
+    // 实例的规范 ID 不变，展示标签随展示名刷新。
+    const instance = manager.indicatorsComputed().find((entry) => entry.definitionId === scriptId)
+    expect(instance?.definitionId).toBe(scriptId)
+    expect(instance?.label).toBe('New Script Name')
   })
   it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
     manager.enableMainIndicator('PlotClose')
