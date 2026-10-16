@@ -44,7 +44,6 @@ describe('迁移的内置指标', () => {
   beforeAll(preloadQuickJS)
   it.each(names)('%s 由 Script 包自动分发且完整窗口前无指标值', async (name) => {
     expect(builtinScriptSources).toContain(source(name))
-    expect(readQuickJSScriptDefinitionSync(source(name)).indicatorType).toBeDefined()
     const result = await run(name, bars([10, 11]))
     for (const [id, values] of Object.entries(result)) {
       if (!id.startsWith('guide') && id !== 'zero')

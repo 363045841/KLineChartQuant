@@ -81,9 +81,6 @@
                     </span>
                   </span>
                   <span class="item-tags">
-                    <span class="type-badge">
-                      {{ indicator.indicatorTypeLabel ?? indicator.indicatorType }}
-                    </span>
                     <span class="type-badge">{{ indicator.role === 'main' ? '主图' : '副图' }}</span>
                   </span>
                 </div>

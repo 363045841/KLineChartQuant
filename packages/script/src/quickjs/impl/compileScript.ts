@@ -4,6 +4,7 @@ import { ScriptExecutionError } from '../../errors.js'
 import { compileScriptValues } from '../../language/impl/compileScriptValues.js'
 import { SCRIPT_MODULE_KIND, SCRIPT_TARGET } from '../../language/impl/scriptCompilerOptions.js'
 import { SCRIPT_SOURCE_FILE } from '../../language/impl/scriptFiles.js'
+import { compileScriptInputs } from './compileScriptInputs.js'
 
 /** 编译完整 TS 文件；模块语法不属于沙箱的全局脚本契约。 */
 export function compileScript(source: string): string {
@@ -11,7 +12,7 @@ export function compileScript(source: string): string {
   if (ts.isExternalModule(file)) {
     throw new ScriptExecutionError('compile', '脚本不能使用 import/export，请使用全局脚本 API')
   }
-  const result = ts.transpileModule(compileScriptValues(source), {
+  const result = ts.transpileModule(compileScriptInputs(compileScriptValues(source)), {
     fileName: SCRIPT_SOURCE_FILE,
     compilerOptions: {
       target: SCRIPT_TARGET,

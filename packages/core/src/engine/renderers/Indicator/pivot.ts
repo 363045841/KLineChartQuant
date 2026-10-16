@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Pivot',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'support-resistance',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

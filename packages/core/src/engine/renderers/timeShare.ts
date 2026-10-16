@@ -92,7 +92,6 @@ export function createTimeShareLayer(): Layer<RenderContext> {
   name: 'timeShare',
   displayName: '分时',
   category: 'main',
-  indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.TimeShare],
   kind: IndicatorKind.System,

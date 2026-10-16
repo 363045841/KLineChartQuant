@@ -361,7 +361,7 @@ describe('Plot renderer', () => {
   it('行情快照修订后，Shape bar 锚点缓存失效', () => {
     const collector = new PlotCollector({
       barCount: 1,
-      plots: [{ id: 'signal', kind: 'shape', style: 'circle' }],
+      plots: [{ name: 'signal', kind: 'shape', style: 'circle' }],
     })
     collector.onPlot('signal', 0, { value: 1 })
     const state = projectPlots(
@@ -494,7 +494,7 @@ describe('Plot renderer', () => {
   it('collection Shape 沿用逐 bar 颜色和文字颜色，滚动重放不重新测量文字', () => {
     const collector = new PlotCollector({
       barCount: 1,
-      plots: [{ id: 'signal', kind: 'shape', location: 'top', text: '买入' }],
+      plots: [{ name: 'signal', kind: 'shape', location: 'top', text: '买入' }],
     })
     collector.onPlot('signal', 0, { value: 1, color: 'red', textColor: 'blue' }, 'shape')
     const state = projectPlots(

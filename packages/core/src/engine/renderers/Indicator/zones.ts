@@ -116,7 +116,6 @@ const getZonesTitleInfo: GetTitleInfoFn = (
   kind: IndicatorKind.Indicator,
   getTitleInfo: getZonesTitleInfo,
   category: 'main',
-  indicatorType: 'structure',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

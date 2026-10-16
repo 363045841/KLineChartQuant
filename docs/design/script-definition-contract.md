@@ -14,9 +14,13 @@ core 按它消费。**注册表、实例生命周期、调度与渲染仍归 cor
 
 ### 中立定义契约
 
-- 元数据：`name`、`pane`
+- 元数据：`name`、`position`
 - 输入声明：`InputSchema` / `InputDef`
 - 计算端口：`compute(bars, params) => PlotCollection`
+
+`position` 表示「注册位置」——主图叠加或独立副图。刻意不叫 `pane`：core 里的 `pane` 是运行时窗格
+实例（`paneId` / `PaneSpec`），定义上这个字段只表达放主图还是副图，两者命名分开。脚本层同步使用
+`position` 字段与 `Position` 枚举（`Position.Main` / `Position.Sub`）。
 
 计算端口刻意**不是**脚本的 `onBar`（那是脚本引擎在 VM 内的执行模型）。消费方只应看到
 「给我 bars 和参数，还我 PlotCollection」；脚本内部由 QuickJS 执行器实现该端口：

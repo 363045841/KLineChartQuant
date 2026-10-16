@@ -6,11 +6,9 @@
 
 import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape.js'
 
-/** 声明式 Plot 的公共信息。 */
-interface PlotDeclarationBase {
-  /** 图形 ID，相同 ID 的数据会画在同一条线或同一组标记中。 */
-  readonly id: string
-  /** 图例名称；不填则取 id。 */
+/** 声明式 Plot 的公共样式。 */
+interface PlotStyleBase {
+  /** 图例名称；不填则取 name。 */
   readonly label?: string
   /** 图形颜色，支持 CSS 颜色值；可为每根 K 线设置不同颜色。 */
   readonly color?: string
@@ -26,6 +24,12 @@ interface PlotDeclarationBase {
    * 具体尺寸见 ShapeSize 的档位对照表。
    */
   readonly size?: ShapeSize
+}
+
+/** 声明式 Plot 的公共信息。 */
+interface PlotDeclarationBase extends PlotStyleBase {
+  /** 绘图名称，相同名称的数据会画在同一条线或同一组标记中。 */
+  readonly name: string
 }
 
 /** 折线及其样式。 */
@@ -77,9 +81,9 @@ export type PlotDeclaration =
   | CharPlotDeclaration
   | ArrowPlotDeclaration
 
-/** 绘图选项；id 必填，其余属性按绘图类型选用。 */
+/** 绘图调用的样式选项；绘图名称由绘图方法的位置参数提供。 */
 export interface PlotCallOptions
-  extends PlotDeclarationBase,
+  extends PlotStyleBase,
     ShapeOptions,
     CharOptions,
     ArrowOptions,
@@ -88,11 +92,11 @@ export interface PlotCallOptions
 
 /** 两个图形之间的填充区域及其样式。 */
 export interface PlotFillDeclaration {
-  /** 填充的唯一标识。 */
-  readonly id: string
-  /** 起始 Plot id。 */
+  /** 填充的唯一名称。 */
+  readonly name: string
+  /** 起始 Plot 的 name。 */
   readonly from: string
-  /** 结束 Plot id。 */
+  /** 结束 Plot 的 name。 */
   readonly to: string
   /** 填充颜色，支持 CSS 颜色值；不填则使用默认颜色。 */
   readonly color?: string

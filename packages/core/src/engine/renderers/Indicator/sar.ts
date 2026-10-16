@@ -9,7 +9,6 @@ import { readPlotField } from '@/engine/plots/impl/projectPlots.js'
   displayName: 'SAR',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'trend',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showSAR: active }) },

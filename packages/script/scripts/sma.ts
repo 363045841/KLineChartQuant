@@ -1,15 +1,12 @@
 // 收盘价移动平均，算法可选 SMA / EMA / WMA / VWMA；声明与计算都是编辑器中的完整源码。
 defineIndicator({
   name: 'SMA',
-  pane: PaneKind.Main,
-  indicatorType: IndicatorType.MovingAverage,
-  inputs: {
-    period: input(20, { title: '周期' }),
-    type: input('SMA', { title: '算法', options: ['SMA', 'EMA', 'WMA', 'VWMA'] }),
-  },
+  position: Position.Main,
   onBar() {
-    const average = averageSeries(close, params.period, params.type)
-    plot.Line(average, { id: 'sma' })
+    const period = input.int(20, { title: '周期', min: 1 })
+    const type = input.string('SMA', { title: '算法', options: ['SMA', 'EMA', 'WMA', 'VWMA'] })
+    const average = averageSeries(close, period, type)
+    plot.Line(average, 'sma')
   },
 })
 

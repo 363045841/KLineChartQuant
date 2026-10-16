@@ -6,7 +6,6 @@
  */
 import {
   Color,
-  IndicatorType,
   isPlotKind,
   type PlotCollection,
   PlotCollector,
@@ -32,7 +31,7 @@ import {
   SCRIPT_PRELUDE,
 } from '../generated/runtime.js'
 import {
-  PaneKind,
+  Position,
   type PreparedQuickJSScript,
   type QuickJSLibrary,
   type QuickJSRunOptions,
@@ -232,7 +231,7 @@ function mountHostFunctions(
   vm.setProp(vm.global, '__count', count)
   count.dispose()
 
-  const plot = vm.newFunction('__plot', (kindHandle, valueHandle, optionsHandle) => {
+  const plot = vm.newFunction('__plot', (kindHandle, valueHandle, nameHandle, optionsHandle) => {
     const collector = getCollector()
     if (!collector || cursor.index < 0) {
       onError(new ScriptExecutionError('compile', 'plot 只能在 onBar 中调用'))
@@ -244,17 +243,17 @@ function mountHostFunctions(
       onError(new ScriptExecutionError('run', '未知 plot kind'))
       return vm.undefined
     }
-    const declaration = readPlotCall(vm.dump(optionsHandle), kind)
+    const declaration = readPlotCall(vm.dump(nameHandle), vm.dump(optionsHandle), kind)
     if (value !== null && typeof value !== 'number') {
       onError(new ScriptExecutionError('run', 'plot value 需要数值或 null'))
       return vm.undefined
     }
     if (value === Infinity || value === -Infinity) {
-      onError(new ScriptPlotError(declaration.id, cursor.index))
+      onError(new ScriptPlotError(declaration.name, cursor.index))
       return vm.undefined
     }
     collector.onPlot(
-      declaration.id,
+      declaration.name,
       cursor.index,
       value === null ? null : toPlotPoint(declaration, value),
       kind,
@@ -308,9 +307,8 @@ function mountParams(
 function mountScriptEnums(vm: QuickJSContext): void {
   for (const [globalName, members] of Object.entries({
     Color,
-    PaneKind,
+    Position,
     PlotKind,
-    IndicatorType,
     ShapeStyle,
     ShapeLocation,
     ShapeSize,

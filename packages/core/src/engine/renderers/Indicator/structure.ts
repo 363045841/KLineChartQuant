@@ -131,7 +131,6 @@ function getStructureTitleInfo(
   displayName: 'Structure',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'structure',
   defaultPaneId: 'sub_Structure',
   allowMainPane: true,
   mainPane: {

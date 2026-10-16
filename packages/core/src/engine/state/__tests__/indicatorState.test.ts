@@ -34,7 +34,6 @@ describe('indicatorState', () => {
         source,
         kind: 'indicator',
         category,
-        indicatorType: 'other',
         defaultPaneId: category === 'main' ? 'main' : `sub_${indicatorId}`,
       })
       const instance = state.readonly.instances.peek()[0]!

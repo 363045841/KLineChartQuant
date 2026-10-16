@@ -214,9 +214,6 @@ export interface IndicatorDefinition {
   name?: string
   description?: string
   role: IndicatorPaneRole
-  indicatorType: import('../engine/indicators/indicatorMetadata.js').IndicatorType
-  indicatorTypeLabel?: string
-  indicatorTypeOrder?: number
   params: ReadonlyArray<IndicatorParamDef>
 }
 

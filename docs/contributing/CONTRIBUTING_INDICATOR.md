@@ -48,7 +48,6 @@ const state = context.indicatorStateReader?.get<XXXRenderState>(instanceId)
   name: 'xxx',
   displayName: 'XXX',
   category: 'oscillator',
-  indicatorType: 'volatility',
   defaultPaneId: 'sub_XXX',
   scaleRendererFactory: createXxxScaleRendererPlugin,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('xxx', EMPTY_XXX_STATE) },
@@ -72,7 +71,6 @@ export class XXXIndicatorDefinition {
 | `name` | 是 | 内部 name，必须是 `indicatorContracts.ts` 登记的键 |
 | `displayName` | 是 | 对外规范 ID，`resolveIndicatorDefinitionId()` 返回它 |
 | `category` | 是 | `'main' \| 'sub' \| 'oscillator' \| 'volume'` |
-| `indicatorType` | 是 | `IndicatorTypeRegistry` 的键，决定指标选择器分组 |
 | `defaultPaneId` | 是 | 默认 pane（主图 `'main'`，副图如 `'sub_XXX'`） |
 | `runtime` | 有 calculator 的指标必填 | `{ defaultParams, compute, computeKey, outputAlignment?, configKey?, paneIdKey? }`；`defaultParams` 的键就是计算参数集合 |
 | `visibleState` | 副图指标需要 | `{ compose }`，复用 `visibleStateComposers.ts` 的 composer 工厂 |
@@ -82,7 +80,7 @@ export class XXXIndicatorDefinition {
 | `scale` / `scaleRendererFactory` | 否 | 副图坐标轴 |
 | `getRendererName` / `getScaleRendererName` / `getPaneTitleRendererName` | 否 | 覆盖默认 plugin 命名规则 |
 | `dataViews` | 否 | 参与渲染的数据视图，未声明时仅 K 线 |
-| `aliases` / `indicatorTypeLabel` / `paneIdField` / `allowMainPane` | 否 | 兼容别名与能力声明 |
+| `aliases` / `paneIdField` / `allowMainPane` | 否 | 兼容别名与能力声明 |
 
 外加挂在被装饰类上的 `static rendererFactory: RendererFactory`（**必填**，缺失会在模块加载时抛 `KLineChartError`）。
 

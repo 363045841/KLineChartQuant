@@ -71,6 +71,29 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
   }
   return {
     ...worker,
+    /** 格式化原始脚本，查询后恢复语义文档，避免把序列转换代码写入草稿。 */
+    formatDocument(path, source) {
+      const env = worker.getEnv()
+      const previous = env.getSourceFile(path)?.text
+      if (previous === undefined) throw new Error('语言会话尚未装载文档')
+      env.updateFile(path, source)
+      try {
+        return env.languageService.getFormattingEditsForDocument(path, {
+          indentSize: 2,
+          tabSize: 2,
+          convertTabsToSpaces: true,
+          newLineCharacter: '\n',
+          insertSpaceAfterCommaDelimiter: true,
+          insertSpaceAfterSemicolonInForStatements: true,
+          insertSpaceBeforeAndAfterBinaryOperators: true,
+          insertSpaceAfterKeywordsInControlFlowStatements: true,
+          insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces: true,
+          semicolons: ts.SemicolonPreference.Remove,
+        })
+      } finally {
+        env.updateFile(path, previous)
+      }
+    },
     /** 文档更新完全交给共享语义会话，Worker 仅适配编辑器协议。 */
     updateFile(input: { path: string; code: string }) {
       session.updateSource(input.code)

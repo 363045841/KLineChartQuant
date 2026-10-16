@@ -9,7 +9,6 @@ import { createUltimateOscillatorScaleLayer } from './scale/ultimateOscillator_s
   displayName: 'UO',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_UO',
   scaleRendererFactory: createUltimateOscillatorScaleLayer,
   plots: singleLinePlots({ id: 'uo', label: 'UO', show: 'showUO', color: (c) => c.palette.i7 }),

@@ -7,7 +7,6 @@
 import {
   type Bar,
   type IndicatorDefinition,
-  IndicatorType,
   type InputDef,
   type InputSchema,
   resolveInputDefaults,
@@ -38,8 +37,10 @@ function toBar(bar: KLineData): Bar {
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
   const defs: Record<string, IndicatorInputDef> = {}
   for (const [key, def] of Object.entries(inputs as Record<string, InputDef<unknown>>)) {
-    if (def.title === undefined && def.options === undefined) continue
     defs[key] = {
+      ...(def.min === undefined ? {} : { min: def.min }),
+      ...(def.max === undefined ? {} : { max: def.max }),
+      ...(def.step === undefined ? {} : { step: def.step }),
       ...(def.title === undefined ? {} : { title: def.title }),
       ...(def.options === undefined ? {} : { options: def.options }),
     }
@@ -62,11 +63,11 @@ export function updatePlotIndicator<P>(definition: IndicatorDefinition<P>): void
   updateIndicatorDefinition(createPlotIndicatorDefinition(definition))
 }
 
-/** 注册与更新共用中立定义转换，避免维护两套默认参数或 pane 映射。 */
+/** 注册与更新共用中立定义转换，避免维护两套默认参数或位置映射。 */
 function createPlotIndicatorDefinition<P>(
   definition: IndicatorDefinition<P>,
 ): IndicatorDefinitionClass {
-  const main = definition.pane === 'main'
+  const main = definition.position === 'main'
   const internalName = definition.id ?? definition.name
   const paneId = main ? 'main' : `sub_${internalName}`
   const decorate = Indicator({
@@ -76,7 +77,6 @@ function createPlotIndicatorDefinition<P>(
     displayName: definition.name,
     kind: IndicatorKind.Indicator,
     category: main ? 'main' : 'sub',
-    indicatorType: definition.indicatorType ?? IndicatorType.Other,
     defaultPaneId: paneId,
     allowMainPane: main,
     mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,

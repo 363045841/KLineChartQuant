@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest'
 import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
 
-const source = `defineIndicator({ name: 'ServiceAverage', pane: 'sub', inputs: { n: input(2) },
-  onBar() { plot.Line((open + close) / params.n, { id: 'average' }) } })`
+const source = `defineIndicator({ name: 'ServiceAverage', position: 'sub',
+  onBar() { const n = input.int(2); plot.Line((open + close) / n, 'average') } })`
 
 describe('ScriptService', () => {
   it('自动发现的完整内置目录通过同一服务注册到指标仓库', async () => {
@@ -32,7 +32,6 @@ describe('ScriptService', () => {
       })
       expect(scripts.read(definition.name)?.identity).toBe('builtin')
       const metadata = getRegisteredIndicatorDefinition(definition.name)
-      expect(metadata?.indicatorType).toBe(definition.indicatorType ?? 'other')
       const data = Array.from({ length: 50 }, (_, timestamp) => ({
         timestamp,
         open: 100 + timestamp,
@@ -59,7 +58,7 @@ describe('ScriptService', () => {
       initial.id,
       initial.source
         .replace('PersistedAverage', 'RenamedPersistedAverage')
-        .replace('input(2)', 'input(6)'),
+        .replace('input.int(2)', 'input.int(6)'),
       1,
     )
     expect(next.id).toBe(initial.id)
@@ -97,8 +96,8 @@ describe('ScriptService', () => {
       revision: initial.revision,
     })
     const results = await Promise.allSettled([
-      scripts.update(initial.id, initial.source.replace('input(2)', 'input(4)'), 1),
-      scripts.update(initial.id, initial.source.replace('input(2)', 'input(9)'), 1),
+      scripts.update(initial.id, initial.source.replace('input.int(2)', 'input.int(4)'), 1),
+      scripts.update(initial.id, initial.source.replace('input.int(2)', 'input.int(9)'), 1),
     ])
     expect(results.map((result) => result.status)).toEqual(['fulfilled', 'rejected'])
     await scripts.remove(initial.id, 2)
@@ -130,7 +129,7 @@ describe('ScriptService', () => {
     )
     expect(scripts.read(initial.id)).toEqual(initial)
     await scripts.remove(occupied.id, occupied.revision)
-    const next = await scripts.update(initial.id, source.replace('input(2)', 'input(4)'), 1)
+    const next = await scripts.update(initial.id, source.replace('input.int(2)', 'input.int(4)'), 1)
     expect(next.revision).toBe(2)
     expect(getIndicatorDescriptor(initial.id)?.defaultParams).toEqual({ n: 4 })
     expect(getRegisteredIndicatorDefinition(initial.id)?.document?.source).toBe(next.source)

@@ -9,7 +9,6 @@ import { createAtrScaleLayer } from './scale/atr_scale.js'
   displayName: 'ATR',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'volatility',
   defaultPaneId: 'sub_ATR',
   scaleRendererFactory: createAtrScaleLayer,
   plots: singleLinePlots(

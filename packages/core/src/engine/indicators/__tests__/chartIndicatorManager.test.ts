@@ -3,7 +3,7 @@
  */
 
 import type { IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
-import { IndicatorType, ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
+import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
@@ -56,7 +56,6 @@ function registerExternalPlotIndicator(config: {
     displayName: config.name,
     kind: IndicatorKind.Indicator,
     category: config.category,
-    indicatorType: 'other',
     defaultPaneId: paneId,
     allowMainPane: config.category === 'main',
     mainPane:
@@ -287,7 +286,7 @@ describe('ChartIndicatorManager', () => {
       params: { period: 7 },
     })
     // 位置由定义派生，迁移到主图后必须继续按原实例身份读取计算结果。
-    updatePlotIndicator({ ...definition(3), pane: 'main' })
+    updatePlotIndicator({ ...definition(3), position: 'main' })
     expect(manager.getSubPaneEntries()).toHaveLength(0)
     const metadata = getRegisteredIndicatorDefinition('script_editable_plot')!
     const renderer = deps.getRenderer(
@@ -306,30 +305,13 @@ describe('ChartIndicatorManager', () => {
     manager.setActiveMainIndicators(['script_editable_plot'])
     expect(manager.indicatorsComputed()[0]?.id).toBe(id)
   })
-  it('中立定义声明的业务分类进入目录，未声明时归入 other', () => {
-    /** 中立定义只声明 Plot 数据与业务分类，目录元数据由 core 派生。 */
-    const definition = (
-      name: string,
-      indicatorType?: IndicatorType,
-    ): IndicatorDefinition<Record<string, never>> => ({
-      name,
-      source: 'script',
-      indicatorType,
-      inputs: {},
-      compute: () => ({ plots: [], fills: [] }),
-    })
-    registerPlotIndicator(definition('TypedPlotScript', IndicatorType.Momentum))
-    registerPlotIndicator(definition('UntypedPlotScript'))
-    expect(getIndicatorDescriptor('TypedPlotScript')?.indicatorType).toBe('momentum')
-    expect(getIndicatorDescriptor('UntypedPlotScript')?.indicatorType).toBe('other')
-  })
   it('主图脚本改名后保留已启用实例与参数，并刷新实例标签', () => {
     /** 宿主为脚本分配稳定 ID；展示名由脚本源码声明并可编辑。 */
     const scriptId = 'script_rename_fixture'
     const source = (displayName: string): IndicatorDefinition<Record<string, never>> => ({
       id: scriptId,
       name: displayName,
-      pane: 'main',
+      position: 'main',
       source: 'script',
       inputs: {},
       compute: () => ({ plots: [], fills: [] }),

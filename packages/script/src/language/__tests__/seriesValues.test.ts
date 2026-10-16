@@ -7,14 +7,14 @@ describe('Series 当前值语法糖', () => {
   it('按 inputs 推导 typeof params 参数的数值上下文', async () => {
     const result = await runQuickJSScript({
       source: `
-        const defaults = { level: input(2) }
         const declare = defineIndicator
         declare({
           name: 'ParameterContext',
-          inputs: { ...defaults },
+          position: Position.Sub,
           onBar() {
-            function double(value: typeof params.level): number { return value * 2 }
-            plot.Line(double(close), { id: 'value' })
+            const level = input.int(2)
+            function double(value: typeof level): number { return value * 2 }
+            plot.Line(double(close), 'value')
           },
         })
       `,
@@ -29,22 +29,22 @@ describe('Series 当前值语法糖', () => {
         const src = close
         const average = ta.sma(src, 2)
         function double(value: number): number { return value * 2 }
-        plot.Line(src, { id: 'current' })
-        plot.Line(high - low, { id: 'range' })
-        plot.Line(src[1], { id: 'previous' })
-        plot.Line(average, { id: 'average' })
-        plot.Line(double(close), { id: 'double' })
-        plot.Line(Math.max(high, close), { id: 'max' })
-        plot.Line(close === high ? close : low, { id: 'equal' })
+        plot.Line(src, 'current')
+        plot.Line(high - low, 'range')
+        plot.Line(src[1], 'previous')
+        plot.Line(average, 'average')
+        plot.Line(double(close), 'double')
+        plot.Line(Math.max(high, close), 'max')
+        plot.Line(close === high ? close : low, 'equal')
         const value = close || high
         const alias = value
         function select() { return close || low }
         const maybe = close > open ? close : 0
         const object: { close: number } = { close }
-        plot.Line(alias, { id: 'logical' })
-        plot.Line(select(), { id: 'returned' })
-        plot.Line(maybe, { id: 'conditional' })
-        plot.Line(object.close, { id: 'property' })
+        plot.Line(alias, 'logical')
+        plot.Line(select(), 'returned')
+        plot.Line(maybe, 'conditional')
+        plot.Line(object.close, 'property')
       `),
       bars: barsFromCloses([2, 4, 8]).map((bar) => ({
         ...bar,
@@ -71,7 +71,7 @@ describe('Series 当前值语法糖', () => {
     const result = await runQuickJSScript({
       source: scriptSource(`
         function offset(close: number): number { return close + 1 }
-        plot.Line(offset(2), { id: 'local' })
+        plot.Line(offset(2), 'local')
       `),
       bars: barsFromCloses([2, 4]),
     })

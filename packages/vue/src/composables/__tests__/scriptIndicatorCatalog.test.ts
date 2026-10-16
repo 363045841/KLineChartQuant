@@ -21,7 +21,7 @@ describe('Script selector catalog', () => {
   })
   it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', async () => {
     const created = await scripts.create(
-      `defineIndicator({ name: 'OC Average', pane: 'main', inputs: {}, onBar() {} })`,
+      `defineIndicator({ name: 'OC Average', position: 'main', inputs: {}, onBar() {} })`,
     )
     const indicator = findIndicator('OC Average')
     expect(indicator).toMatchObject({
@@ -38,8 +38,8 @@ describe('Script selector catalog', () => {
       useIndicatorCatalog(controller)
     })
     const created = await scripts.create(`defineIndicator({ name: 'SelectorScript',
-      inputs: { period: input(5), text: input('close'), enabled: input(false) },
-      onBar() { plot.Line(close, { id: 'close' }) } })`)
+      position: Position.Sub,
+      onBar() { const period = input.float(5); const text = input.string('close'); const enabled = input.bool(false); plot.Line(close, 'close') } })`)
     const definition = controller.catalog.peek().find((item) => item.id === created.id)!
     expect(definition.source).toBe('script')
     expect(definition.params).toEqual([
@@ -72,8 +72,8 @@ describe('Script selector catalog', () => {
     scope.stop()
   })
   it('input() 声明的标题作为参数面板显示名', async () => {
-    await scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, { title: '除数' }) },
-      onBar() { plot.Line(close, { id: 'close' }) } })`)
+    await scripts.create(`defineIndicator({ name: 'TitledInputScript', position: Position.Sub,
+      onBar() { const n = input.float(2, { title: '除数' }); plot.Line(close, 'close') } })`)
 
     expect(findIndicator('TitledInputScript')!.params).toEqual([
       { key: 'n', label: '除数', type: 'number', default: 2 },
@@ -81,7 +81,7 @@ describe('Script selector catalog', () => {
   })
   it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', async () => {
     const created = await scripts.create(
-      `defineIndicator({ name: 'UpdatableScript', inputs: { period: input(3) }, onBar() {} })`,
+      `defineIndicator({ name: 'UpdatableScript', position: Position.Sub, onBar() { const period = input.float(3) } })`,
     )
     expect(findIndicator('UpdatableScript')!.params).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 3 },
@@ -89,8 +89,8 @@ describe('Script selector catalog', () => {
 
     await scripts.update(
       created.id,
-      `defineIndicator({ name: 'RenamedUpdatableScript',
-        inputs: { period: input(7), label: input('ma', { title: '名称' }) }, onBar() {} })`,
+      `defineIndicator({ name: 'RenamedUpdatableScript', position: Position.Sub,
+        onBar() { const period = input.float(7); const label = input.string('ma', { title: '名称' }) } })`,
       created.revision,
     )
     expect(findIndicator('UpdatableScript')).toBeUndefined()
@@ -108,7 +108,7 @@ describe('Script selector catalog', () => {
     const controller = createIndicatorSelectorController()
     scope.run(() => useIndicatorCatalog(controller))
     const document = await scripts.create(
-      `defineIndicator({ name: 'RemovableSelectorScript', inputs: {}, onBar() {} })`,
+      `defineIndicator({ name: 'RemovableSelectorScript', position: Position.Sub, onBar() {} })`,
     )
     const removal = useScriptRemoval(scripts)
     expect(removal.canRemove(document.id)).toBe(true)
@@ -124,9 +124,9 @@ describe('Script selector catalog', () => {
 
   it('字符串输入声明 options 后成为下拉参数', async () => {
     await scripts.create(
-      `defineIndicator({ name: 'OptionScript', inputs: {
-        type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] }),
-      }, onBar() {} })`,
+      `defineIndicator({ name: 'OptionScript', position: Position.Sub, onBar() {
+        const type = input.string('SMA', { title: '算法', options: ['SMA', 'EMA'] })
+      } })`,
     )
 
     expect(findIndicator('OptionScript')!.params).toEqual([

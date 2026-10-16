@@ -81,16 +81,3 @@ declare enum ShapeSize {
   Large = "large",
   Huge = "huge",
 }
-
-/** 内置业务分类取值；VM 枚举与跨边界校验共用，宿主不重复书写字符串。 */
-declare enum IndicatorType {
-  MovingAverage = "moving-average",
-  Trend = "trend",
-  Momentum = "momentum",
-  Volatility = "volatility",
-  Channel = "channel",
-  Volume = "volume",
-  SupportResistance = "support-resistance",
-  Structure = "structure",
-  Other = "other",
-}

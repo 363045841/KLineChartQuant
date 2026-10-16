@@ -315,7 +315,6 @@ const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
   displayName: 'Footprint',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'volume',
   defaultPaneId: 'main',
   getTitleInfo: getFootprintTitleInfo,
   presentation: { defaultOptions: { textMode: FOOTPRINT_TEXT_MODES.BidAsk } },

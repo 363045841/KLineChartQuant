@@ -2,34 +2,47 @@
 
 import type { PlotCallOptions, PlotDeclaration } from '@363045841yyt/klinechart-plot-contracts'
 import type { QuickJSScriptDefinition } from '../quickjs/types.js'
+import type { InputDef, InputOptions, NumberInputOptions, StringInputOptions } from '@363045841yyt/klinechart-plot-contracts'
 
-/** 调用处的绘图选项；color 可逐点变化。 */
+/** 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。 */
+export interface ScriptInput {
+  /** 整数输入；min、max 和 step 必须为整数。 */
+  int(value: number, options?: NumberInputOptions): number
+  /** 浮点数输入，支持数值范围与步长。 */
+  float(value: number, options?: NumberInputOptions): number
+  /** 布尔输入，在参数面板中显示开关。 */
+  bool(value: boolean, options?: InputOptions): boolean
+  /** 字符串输入；提供 options 时显示下拉选项。 */
+  string(value: string, options?: StringInputOptions): string
+}
+
+/** 调用处的样式选项；绘图名称由绘图方法的位置参数提供，color 可逐点变化。 */
 export type ScriptPlotOptions = PlotCallOptions
 
-/** 从共享声明提取对应图形的调用选项，类型由方法名确定。 */
-type PlotOptions<K extends PlotDeclaration['kind']> = Omit<
+/** 从共享声明提取对应图形的样式选项，类型由方法名确定。 */
+type PlotStyleOptions<K extends PlotDeclaration['kind']> = Omit<
   Extract<PlotDeclaration, { kind: K }>,
-  'kind'
+  'kind' | 'name'
 >
 
-/** 当前 K 线的绘图入口；null 主动留空，形状和字符也接受布尔条件。 */
+/** 当前 K 线的绘图入口；name 必填，null 主动留空，形状和字符也接受布尔条件。 */
 export interface ScriptPlot {
   /** 输出折线点。 */
-  Line(value: number | null, options: PlotOptions<'line'>): void
+  Line(value: number | null, name: string, options?: PlotStyleOptions<'line'>): void
   /** 输出柱状图值。 */
-  Histogram(value: number | null, options: PlotOptions<'histogram'>): void
+  Histogram(value: number | null, name: string, options?: PlotStyleOptions<'histogram'>): void
   /** 输出散点。 */
-  Point(value: number | null, options: PlotOptions<'points'>): void
+  Point(value: number | null, name: string, options?: PlotStyleOptions<'points'>): void
   /** 输出形状标记；false 留空，absolute 定位时数值为价格。 */
-  Shape(value: number | boolean | null, options: PlotOptions<'shape'>): void
+  Shape(value: number | boolean | null, name: string, options?: PlotStyleOptions<'shape'>): void
   /** 输出字符标记；false 留空，absolute 定位时数值为价格。 */
-  Char(value: number | boolean | null, options: PlotOptions<'char'>): void
+  Char(value: number | boolean | null, name: string, options?: PlotStyleOptions<'char'>): void
   /** 输出数值箭头，正负决定方向，绝对值决定长度。 */
-  Arrow(value: number | null, options: PlotOptions<'arrow'>): void
+  Arrow(value: number | null, name: string, options?: PlotStyleOptions<'arrow'>): void
 }
 
 /** 完整脚本的声明与逐 bar 执行回调。 */
-export interface ScriptIndicatorDeclaration extends QuickJSScriptDefinition {
+export interface ScriptIndicatorDeclaration extends Omit<QuickJSScriptDefinition, 'inputs'> {
   /** 逐根 K 线调用一次 */
   onBar(): void
 }

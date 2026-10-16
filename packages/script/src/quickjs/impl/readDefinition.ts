@@ -1,6 +1,5 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import {
-  isIndicatorType,
   isPlotKind,
   isShapeLocation,
   isShapeSize,
@@ -10,7 +9,7 @@ import {
   type PlotKind,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
-import { PaneKind, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
+import { Position, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
 
 /** 判断普通对象，便于逐字段收窄脚本返回值。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -26,9 +25,9 @@ function isParam(value: unknown): value is ScriptParamValue {
   )
 }
 
-/** pane 从 VM 跨边界读到的仍是字符串，只有 PaneKind 的两个取值有效。 */
-function isPaneKind(value: unknown): value is PaneKind {
-  return value === PaneKind.Main || value === PaneKind.Sub
+/** position 从 VM 跨边界读到的仍是字符串，只有 Position 的两个取值有效。 */
+function isPosition(value: unknown): value is Position {
+  return value === Position.Main || value === Position.Sub
 }
 
 /** 可选字段校验，缺省值由 Plot 采集器补齐。 */
@@ -126,14 +125,19 @@ const PLOT_FIELD_VALIDATORS: Readonly<
 
 /** 校验公共字段后按 kind 查表校验专属字段；未知 kind 一律拒绝。 */
 function isPlot(value: unknown): value is PlotDeclaration {
-  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
+  if (!isRecord(value) || typeof value.name !== 'string' || !value.name) return false
   if (!hasValidPlotBase(value)) return false
   return isPlotKind(value.kind) && PLOT_FIELD_VALIDATORS[value.kind](value)
 }
 
-/** 调用参数复用声明校验，输出类型由 plot 的第一个参数提供。 */
-export function readPlotCall(value: unknown, kind: PlotKind): PlotDeclaration {
-  const declaration = isRecord(value) ? { ...value, kind } : undefined
+/** 调用参数复用声明校验，name 由位置参数提供，输出类型由 kind 提供。 */
+export function readPlotCall(name: unknown, options: unknown, kind: PlotKind): PlotDeclaration {
+  const declaration =
+    options === undefined
+      ? { name, kind }
+      : isRecord(options)
+        ? { ...options, name, kind }
+        : undefined
   if (!isPlot(declaration)) throw new ScriptExecutionError('run', '无效 plot 调用参数')
   return declaration
 }
@@ -142,7 +146,7 @@ export function readPlotCall(value: unknown, kind: PlotKind): PlotDeclaration {
 function isFill(value: unknown): value is PlotFillDeclaration {
   return (
     isRecord(value) &&
-    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
     typeof value.from === 'string' &&
     typeof value.to === 'string' &&
     optional(value.color, 'string') &&
@@ -158,13 +162,12 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     !isRecord(value) ||
     typeof value.name !== 'string' ||
     !value.name.trim() ||
-    (value.pane !== undefined && !isPaneKind(value.pane)) ||
-    (value.indicatorType !== undefined && !isIndicatorType(value.indicatorType)) ||
+    !isPosition(value.position) ||
     !isRecord(value.inputs)
   ) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、inputs，pane 只能是 ${PaneKind.Main} 或 ${PaneKind.Sub}，indicatorType 必须是已知业务分类`,
+      `指标需要 name、position，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
     )
   }
   const inputs: QuickJSScriptDefinition['inputs'] = {}
@@ -173,6 +176,9 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
       !isRecord(declaration) ||
       !isParam(declaration.default) ||
       !optional(declaration.title, 'string') ||
+      !optional(declaration.min, 'number') ||
+      !optional(declaration.max, 'number') ||
+      !optional(declaration.step, 'number') ||
       !isOptionsValid(declaration.options, declaration.default)
     ) {
       throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
@@ -181,6 +187,9 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
       default: declaration.default,
       ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
       ...(isOptionsList(declaration.options) ? { options: declaration.options } : {}),
+      ...(typeof declaration.min === 'number' ? { min: declaration.min } : {}),
+      ...(typeof declaration.max === 'number' ? { max: declaration.max } : {}),
+      ...(typeof declaration.step === 'number' ? { step: declaration.step } : {}),
     }
   }
   const plots: unknown = value.plots
@@ -193,8 +202,7 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   }
   return {
     name: value.name,
-    ...(isPaneKind(value.pane) ? { pane: value.pane } : {}),
-    ...(isIndicatorType(value.indicatorType) ? { indicatorType: value.indicatorType } : {}),
+    position: value.position,
     inputs,
     ...(Array.isArray(plots) && plots.every(isPlot) ? { plots } : {}),
     ...(Array.isArray(fills) && fills.every(isFill) ? { fills } : {}),

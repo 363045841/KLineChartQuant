@@ -35,10 +35,10 @@ export class ScriptPlotError extends Error {
 
   /** 为无穷大的绘图输出生成诊断，barIndex 使用从零开始的下标。 */
   constructor(
-    readonly plotId: string,
+    readonly plotName: string,
     readonly barIndex: number,
   ) {
-    super(`Plot '${plotId}' 在第 ${barIndex + 1} 根 K 线的结果为无穷大，可能存在除 0 运算`)
+    super(`Plot '${plotName}' 在第 ${barIndex + 1} 根 K 线的结果为无穷大，可能存在除 0 运算`)
     this.name = 'ScriptPlotError'
   }
 }

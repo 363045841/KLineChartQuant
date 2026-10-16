@@ -42,7 +42,7 @@ const instanceId = controller.addIndicator(document.id)
 ```
 
 `create` 校验并编译整份文件，写入定义目录；`update` 需要打开时的 `revision`；
-`remove` 删除定义并清理实例。放置位置与显示名由脚本自己声明（`pane` / `name`），
+`remove` 删除定义并清理实例。放置位置与显示名由脚本自己声明（`position` / `name`），
 缺省为副图。首版使用完整重算，尚不提供 Script Worker 或增量执行。
 
 ## 指标选择弹窗

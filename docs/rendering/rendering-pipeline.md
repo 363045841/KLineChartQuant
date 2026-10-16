@@ -165,7 +165,6 @@ const indicatorName = 'vendorStatus'
   displayName: 'Vendor Status',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'other',
   defaultPaneId: 'main',
   mainPane: {},
 })

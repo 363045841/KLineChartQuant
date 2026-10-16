@@ -1,7 +1,6 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
 import type {
-  IndicatorType,
   InputSchema,
   PlotDeclaration,
   PlotFillDeclaration,
@@ -11,8 +10,8 @@ import type { Bar } from '../contracts/input.js'
 /** 可以在脚本中作为 `params` 读取的输入值。 */
 export type ScriptParamValue = number | string | boolean
 
-/** 指标注册位置；脚本声明、编辑器与宿主共用同一组取值。 */
-export enum PaneKind {
+/** 指标渲染位置；脚本声明、编辑器与宿主共用同一组取值。 */
+export enum Position {
   /** 叠加到主图。 */
   Main = 'main',
   /** 独立副图。 */
@@ -29,9 +28,15 @@ export interface QuickJSLibrary {
 export interface QuickJSScriptDefinition {
   /** 用户可修改的指标显示名称；注册身份由宿主维护。 */
   readonly name: string
-  readonly pane?: PaneKind
-  /** 业务分类；缺省由 core 归入 other。 */
-  readonly indicatorType?: IndicatorType
+  /**
+   * 指标渲染位置。
+   *
+   * | 取值 | 含义 |
+   * | --- | --- |
+   * | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
+   * | `Position.Sub` | 独立副图 |
+   */
+  readonly position: Position
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
   readonly plots?: readonly PlotDeclaration[]
   readonly fills?: readonly PlotFillDeclaration[]

@@ -1,9 +1,9 @@
 /**
  * PlotCollector：把逐 bar 的 onPlot 输出汇聚成按 K 线对齐的 PlotCollection。
  *
- * 它把散落的 (id, barIndex, point) 收成每个 Plot 的列：
- * - 声明了 plots 时，只接受已声明的 id，未声明即报错；已声明但无数据的 Plot 补齐空序列。
- * - 未声明 plots 时，允许动态 id，使用调用处类型，缺省为折线。
+ * 它把散落的 (name, barIndex, point) 收成每个 Plot 的列：
+ * - 声明了 plots 时，只接受已声明的 name，未声明即报错；已声明但无数据的 Plot 补齐空序列。
+ * - 未声明 plots 时，允许动态 name，使用调用处类型，缺省为折线。
  */
 import type {
   ArrowPlotDeclaration,
@@ -47,13 +47,13 @@ const DEFAULT_CHAR = '★'
 export interface PlotCollectorOptions {
   /** 本次运行的 bar 数量，用于补齐空 Plot 的序列长度。 */
   readonly barCount: number
-  /** Plot 声明；提供时拒绝未声明 id。 */
+  /** Plot 声明；提供时拒绝未声明 name。 */
   readonly plots?: readonly PlotDeclaration[]
   /** 填充声明。 */
   readonly fills?: readonly PlotFillDeclaration[]
 }
 
-/** 按 id / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
+/** 按 name / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
 export class PlotCollector {
   private readonly barCount: number
   private readonly declared: boolean
@@ -66,8 +66,8 @@ export class PlotCollector {
     this.declared = options.plots !== undefined
     this.fillDeclarations = options.fills
     for (const declaration of options.plots ?? []) {
-      if (this.entries.has(declaration.id)) throw new TypeError('Duplicate Plot id')
-      this.entries.set(declaration.id, {
+      if (this.entries.has(declaration.name)) throw new TypeError('Duplicate Plot name')
+      this.entries.set(declaration.name, {
         declaration,
         style: styleSignature(declaration),
         data: this.emptyColumn(),
@@ -78,30 +78,30 @@ export class PlotCollector {
 
   /** 接收绘图点或主动空点；仍校验调用样式，无效数值不会进入输出列。 */
   onPlot(
-    id: string,
+    name: string,
     barIndex: number,
     point: PlotPoint | null,
     kind?: PlotDeclaration['kind'],
     options?: PlotDeclaration,
   ): void {
-    let entry = this.entries.get(id)
+    let entry = this.entries.get(name)
     if (this.declared && !entry) {
       throw new Error(
-        `[${PLOT_ERROR_CODES.UNDECLARED_PLOT}] plot id '${id}' is not declared in script.plots`,
+        `[${PLOT_ERROR_CODES.UNDECLARED_PLOT}] plot name '${name}' is not declared in script.plots`,
       )
     }
     if (!entry) {
-      entry = this.createEntry(id, kind)
-      this.entries.set(id, entry)
+      entry = this.createEntry(name, kind)
+      this.entries.set(name, entry)
     }
     const declaration = withCallOptions(resolveDeclaration(entry.declaration, kind), options)
     // 调用没有改写声明时沿用同一条目，跳过整列样式签名比较。
     if (declaration !== entry.declaration) {
       if (entry.emitted && declaration.kind !== entry.declaration.kind)
-        throw new TypeError(`Plot ${id} cannot change kind during a run`)
+        throw new TypeError(`Plot ${name} cannot change kind during a run`)
       const style = styleSignature(declaration)
       if (entry.emitted && !sameStyle(entry.style, style))
-        throw new TypeError(`Plot ${id} cannot change style during a run`)
+        throw new TypeError(`Plot ${name} cannot change style during a run`)
       entry.declaration = declaration
       entry.style = style
     }
@@ -119,10 +119,10 @@ export class PlotCollector {
     return { plots, fills }
   }
 
-  /** 动态 id 的条目：沿用与声明条目相同的空列结构，样式先留空。 */
-  private createEntry(id: string, kind: PlotDeclaration['kind'] | undefined): CollectedPlot {
+  /** 动态 name 的条目：沿用与声明条目相同的空列结构，样式先留空。 */
+  private createEntry(name: string, kind: PlotDeclaration['kind'] | undefined): CollectedPlot {
     return {
-      declaration: { id, kind: kind ?? PlotKind.Line },
+      declaration: { name, kind: kind ?? PlotKind.Line },
       style: [],
       data: this.emptyColumn(),
       emitted: false,
@@ -151,7 +151,7 @@ function styleSignature(
   declaration: PlotDeclaration,
 ): readonly (string | number | boolean | undefined)[] {
   const base = [
-    declaration.id,
+    declaration.name,
     declaration.label,
     declaration.visible,
     declaration.offset,
@@ -189,14 +189,14 @@ function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration
 /** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
 type PlotBaseFields = Pick<Plot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'>
 
-/** 用声明或默认值补齐 Plot 公共字段。 */
+/** 用声明或默认值补齐 Plot 公共字段；声明用 name，模型的身份字段仍是 id。 */
 function plotBase(
   declaration: PlotDeclaration,
   data: readonly (PlotPoint | undefined)[],
 ): PlotBaseFields {
   return {
-    id: declaration.id,
-    label: declaration.label ?? declaration.id,
+    id: declaration.name,
+    label: declaration.label ?? declaration.name,
     data,
     color: declaration.color ?? DEFAULT_PLOT_COLOR,
     visible: declaration.visible ?? true,
@@ -299,14 +299,14 @@ function resolveDeclaration(
   kind = declaration.kind,
 ): PlotDeclaration {
   if (kind === declaration.kind) return declaration
-  const { id, label, color, visible, offset, size } = declaration
-  return { id, label, color, visible, offset, size, kind }
+  const { name, label, color, visible, offset, size } = declaration
+  return { name, label, color, visible, offset, size, kind }
 }
 
-/** 把填充声明组装成具体 PlotFill，缺省字段填入默认值。 */
+/** 把填充声明组装成具体 PlotFill；声明用 name，模型的身份字段仍是 id。 */
 export function createFill(declaration: PlotFillDeclaration): PlotFill {
   return {
-    id: declaration.id,
+    id: declaration.name,
     from: declaration.from,
     to: declaration.to,
     visible: declaration.visible ?? true,

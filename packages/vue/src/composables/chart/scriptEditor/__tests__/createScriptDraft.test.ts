@@ -6,11 +6,11 @@ import type { ScriptSourceStore } from '../types.js'
 const source = `// 顶部注释
 defineIndicator({
   name: 'Average',
-  inputs: { period: input(20) },
+  inputs: { period: input.int(20) },
   onBar() {
     // 计算代码里的同名属性不属于指标身份
     const options = { name: 'keep-me' }
-    plot.Line(close, { id: 'average' })
+    plot.Line(close, 'average')
   },
 })`
 

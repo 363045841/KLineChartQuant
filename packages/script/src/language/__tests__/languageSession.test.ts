@@ -14,19 +14,19 @@ describe('共享脚本语义会话', () => {
   it('同版本复用转换结果，修改 inputs 后清除旧参数并采用新类型', () => {
     const session = createScriptLanguageSession()
     const source = `defineIndicator({
-      name: 'ParameterContext', inputs: { level: input(2) },
-      onBar() { plot.Line(close, { id: 'value' }) }
+      name: 'ParameterContext', position: Position.Sub,
+      onBar() { const level = input.int(2); plot.Line(close * level, 'value') }
     })`
     const conversion = session.updateSource(source)
     expect(session.updateSource(source)).toBe(conversion)
     expect(diagnosticCodes(session)).toEqual([])
 
     session.updateSource(`defineIndicator({
-      name: 'Changed', inputs: { enabled: input(true) },
-      onBar() { const removed = params.level; const active: number = params.enabled }
+      name: 'Changed', position: Position.Sub,
+      onBar() { const enabled = input.bool(true); const removed = level; const active: number = enabled }
     })`)
     // 2339 = 不存在旧参数，2322 = 新参数类型为 boolean 不能赋给 number。
-    expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2339, 2322]))
+    expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2304, 2322]))
 
     session.updateSource('')
     session.updateSource(source)

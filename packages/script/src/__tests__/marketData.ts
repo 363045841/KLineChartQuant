@@ -6,8 +6,8 @@ import type { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
 type ScriptResult = Awaited<ReturnType<typeof runQuickJSScript>>
 
 /** 用完整文件声明包装计算片段，所有用例走相同初始化入口。 */
-export function scriptSource(body: string, inputs = '{}'): string {
-  return `defineIndicator({ name: 'TestScript', pane: 'main', inputs: ${inputs}, onBar() { ${body} } })`
+export function scriptSource(body: string): string {
+  return `defineIndicator({ name: 'TestScript', position: 'main', onBar() { ${body} } })`
 }
 
 /** 生成 close 驱动的完整 K 线，open/high/low 与 close 相同；volume 缺省为 1。 */

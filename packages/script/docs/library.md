@@ -14,7 +14,7 @@ defineLibrary('stats', {
 
 // 在指标脚本里使用
 onBar() {
-  plot.Line(stats.mean([open, close]), { id: 'mean' })
+  plot.Line(stats.mean([open, close]), 'mean')
   // 等价：importLibrary('stats').mean([open, close])
 }
 ```

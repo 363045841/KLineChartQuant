@@ -168,7 +168,6 @@ const getVolumeTitleInfo: GetTitleInfoFn = (
   displayName: 'VOL',
   kind: IndicatorKind.Indicator,
   category: 'volume',
-  indicatorType: 'volume',
   defaultPaneId: 'sub',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare],
   scaleRendererFactory: createVolumeScaleLayer,

@@ -10,16 +10,14 @@
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: PaneKind.Sub,
-  inputs: {
-    n: input(2, { title: '除数' }),
-    a: input(0, { title: '偏移量' }),
-  },
+  position: Position.Sub,
   onBar() {
-    const average = (open + close) / params.n + params.a
-    plot.Line(average, { id: 'oc-average', color: '#26a69a' })
-    plot.Line(high, { id: 'oc-high' })
-    plot.Line(low, { id: 'oc-low' })
+    const n = input.float(2, { title: '除数' })
+    const a = input.float(0, { title: '偏移量' })
+    const average = (open + close) / n + a
+    plot.Line(average, 'oc-average', { color: '#26a69a' })
+    plot.Line(high, 'oc-high')
+    plot.Line(low, 'oc-low')
   },
 })
 ```
@@ -47,16 +45,15 @@ await scripts.create(source)
 | 字段 | 作用 |
 | --- | --- |
 | `name` | 指标显示名称；用户脚本可通过修改名称并保存来重命名，同名脚本拒绝重复创建。稳定 ID 由框架自动分配并持久化，重命名保留实例和配置 |
-| `pane` | 注册位置，`PaneKind.Main` 主图 / `PaneKind.Sub` 副图；缺省为副图 |
-| `inputs` | 参数声明表，值由 `input(默认值, 选项)` 生成；用户修改后按覆盖值执行 |
+| `position` | 指标渲染位置，必填：`Position.Main` 主图 / `Position.Sub` 副图 |
 | `plots` / `fills` | 可选的 Plot 与填充声明 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取全局序列与参数，输出 Plot |
 
-`onBar` 不需要参数：行情序列、库和参数都是注入的全局。
+`onBar` 不需要参数：行情序列和库由宿主注入，输入参数通过局部变量读取。
 `close[0]` 是当前 K 线，`close[1]` 是前一根；历史不足返回 `NaN`，永远不能访问未来。
 
 在数值运算、比较、条件判断，以及要求数值的参数位置，可以省略 `[0]`。
-例如 `high - low`、`close > close[1]`、`Math.max(open, close)` 和 `plot.Line(close, { id: 'close' })`。
+例如 `high - low`、`close > close[1]`、`Math.max(open, close)` 和 `plot.Line(close, 'close')`。
 `open`、`high`、`low`、`close`、`volume`、`time` 和 `ta` 返回的派生序列都遵循同一规则。
 
 需要完整序列的位置仍然保留序列，例如 `ta.sma(close, 20)`。
@@ -64,30 +61,32 @@ await scripts.create(source)
 需要保存当前数值时使用 `const current: number = close` 或显式的 `close[0]`。
 编译器和编辑器共用这套规则，转换仅发生在源码变化时，逐 bar 计算不进行类型分析。
 
-参数用 `input(默认值, 选项)` 声明，表的键就是脚本里通过 `params` 读的名字：
+参数直接在 `onBar` 顶层用 `const` 声明，返回值就是用户设置的参数值，无需 `inputs` 或 `params`：
 
 | 写法 | 面板编辑项 |
 | --- | --- |
-| `n: input(2, { title: '除数' })` | 数字输入 |
-| `show: input(true, { title: '显示' })` | 开关 |
-| `label: input('MA', { title: '名称' })` | 文本输入 |
-| `type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] })` | 下拉选择 |
+| `const period = input.int(20, { min: 1 })` | 整数输入，默认步长为 1 |
+| `const n = input.float(2, { title: '除数', step: 0.1 })` | 小数输入 |
+| `const show = input.bool(true, { title: '显示' })` | 开关 |
+| `const label = input.string('MA', { title: '名称' })` | 文本输入 |
+| `const type = input.string('SMA', { options: ['SMA', 'EMA'] })` | 下拉选择 |
 
-编辑类型由默认值决定，标题缺省显示参数名；字符串参数声明 `options` 后渲染为下拉选择，取值必须在选项内。
+数值输入支持 `min`、`max`、`step`；布尔输入只接受标题；字符串输入支持 `options`。默认值和选项使用常量字面量，变量名作为内部参数身份，标题缺省显示变量名。输入声明不能放在分支、循环或辅助函数中；注册时只提取配置，不执行 `onBar`。
 
 脚本按 bar 下标顺序执行。某一根 K 线没有输出时，该位置留空，不会影响其他位置。
 输出 `NaN` 同样表示留空。
 
 ## Plot
 
-Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(value, { id })` 输出数据点，
-引擎按 `id` 收集为按 K 线下标对齐的序列，再交给通用绘图、坐标轴和图例链路。
+Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(value, name)` 输出数据点，
+引擎按 `name` 收集为按 K 线下标对齐的序列，再交给通用绘图、坐标轴和图例链路。
 
-`id` 区分不同的 Plot，同一根 K 线上可以输出多个不同 id 的点。
-使用 `plot.Line`、`plot.Point` 等方法选择图形，第一个参数是绘图值，第二个参数是包含 `id` 的样式选项。
+`name` 区分不同的 Plot，同一根 K 线上可以输出多个不同 name 的点。
+使用 `plot.Line`、`plot.Point` 等方法选择图形：第一个参数是绘图值，第二个参数是必填的绘图名称，
+第三个参数是可选的样式对象。
 也可通过 `globalThis.plot` 访问。绘图类型由方法名决定，无需 `plots` 声明。
-同一个 id 在一次运行中必须使用同一种类型。
-使用可选 `plots` 声明样式时，输出未声明的 id 会报错；类型专用样式仅在声明与调用类型相同时生效。
+同一个 name 在一次运行中必须使用同一种类型。
+使用可选 `plots` 声明样式时，输出未声明的 name 会报错；类型专用样式仅在声明与调用类型相同时生效。
 
 ### Plot 类型
 
@@ -106,8 +105,8 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 
 | 字段 | 作用 |
 | --- | --- |
-| `id` | Plot 标识，与绘图方法的 `id` 对应 |
-| `label` | 图例名称，缺省取 `id` |
+| `name` | Plot 名称，与绘图方法的第二个参数对应 |
+| `label` | 图例名称，缺省取 `name` |
 | `color` | CSS 颜色字符串，或用内置 `Color` 常用色 |
 | `offset` | 沿 K 线下标的偏移，用于前移或后移的序列 |
 | `visible` | 是否绘制，缺省为 `true` |
@@ -132,9 +131,9 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 
 | 字段 | 作用 |
 | --- | --- |
-| `id` | 填充标识 |
-| `from` | 起始 Plot 的 `id` |
-| `to` | 结束 Plot 的 `id` |
+| `name` | 填充标识 |
+| `from` | 起始 Plot 的 `name` |
+| `to` | 结束 Plot 的 `name` |
 | `color` | `from` 低于 `to` 时的填充色 |
 | `reverseColor` | `from` 高于 `to` 时的填充色 |
 | `opacity` | 不透明度 |
@@ -147,8 +146,7 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 
 ```js
 onBar() {
-  plot.Histogram(close - open, {
-    id: 'change',
+  plot.Histogram(close - open, 'change', {
     color: close >= open ? Color.Teal : Color.Red,
   })
 }
@@ -162,7 +160,8 @@ onBar() {
 
 ```js
 onBar() {
-  const ma = ta.sma(close, params.period)
-  plot.Line(ma, { id: 'sma' })
+  const period = input.int(20, { title: '周期', min: 1 })
+  const ma = ta.sma(close, period)
+  plot.Line(ma, 'sma')
 }
 ```

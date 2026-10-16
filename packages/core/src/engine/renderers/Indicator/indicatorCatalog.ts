@@ -15,11 +15,8 @@ import {
   resolveIndicatorDefinitionId,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
-  getBuiltinIndicatorTypeLabel,
-  getBuiltinIndicatorTypeOrder,
   type IndicatorInputDef,
   IndicatorKind,
-  type IndicatorType,
 } from '../../indicators/indicatorMetadata.js'
 
 export interface ParamConfig {
@@ -42,9 +39,6 @@ export interface Indicator {
   label: string
   name: string
   pane: 'main' | 'sub'
-  indicatorType: IndicatorType
-  indicatorTypeLabel: string
-  indicatorTypeOrder: number
   description?: string
   params?: ParamConfig[]
 }
@@ -1467,6 +1461,9 @@ function scriptParamConfigs(
               ? 'boolean'
               : 'string',
         default: value,
+        min: inputDefs?.[key]?.min,
+        max: inputDefs?.[key]?.max,
+        step: inputDefs?.[key]?.step,
         ...(options?.length
           ? { options: options.map((option) => ({ value: option, label: option })) }
           : {}),
@@ -1501,12 +1498,6 @@ function readIndicatorCatalog(): readonly Indicator[] {
           label: def.displayName,
           name: ui?.name ?? def.displayName,
           pane: def.category === 'main' ? ('main' as const) : ('sub' as const),
-          indicatorType: def.indicatorType,
-          indicatorTypeLabel:
-            def.indicatorTypeLabel ??
-            getBuiltinIndicatorTypeLabel(def.indicatorType) ??
-            def.indicatorType,
-          indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
           params:
             def.source === 'script'

@@ -1,5 +1,6 @@
 /** 脚本编辑器的宿主源码仓库契约；Vue 不持有源码注册表。 */
 import type { InjectionKey } from 'vue'
+import type { TextChange } from 'typescript'
 
 /** 编辑器只允许用户身份修改源码，未指定身份时保持只读。 */
 export type ScriptIdentity = 'builtin' | 'user'
@@ -57,5 +58,6 @@ export interface ScriptSignatureProvider {
 
 /** 编辑器语言服务与独立 Worker 共用的查询契约。 */
 export interface ScriptLanguageWorker extends ReturnType<typeof createWorker> {
+  formatDocument(path: string, source: string): TextChange[]
   getSignatureHelp(path: string, position: number): ScriptSignatureHelp | null
 }

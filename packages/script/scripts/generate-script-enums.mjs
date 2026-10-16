@@ -13,7 +13,6 @@ const definitions = [
   ['color.ts', ['Color']],
   ['plots.ts', ['PlotKind']],
   ['shape.ts', ['ShapeStyle', 'ShapeLocation', 'ShapeSize']],
-  ['indicatorType.ts', ['IndicatorType']],
 ]
 
 /**

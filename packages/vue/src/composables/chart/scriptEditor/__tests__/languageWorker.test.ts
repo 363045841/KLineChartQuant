@@ -50,12 +50,32 @@ async function completions(source: string) {
 }
 
 describe('script language service', () => {
+  it('格式化原文且保留序列语义，格式化结果再次执行不变', async () => {
+    const source = `defineIndicator({name:'Format',inputs:{},onBar(){plot.Line(close,'value');}})`
+    const worker = await createSession(source)
+    const originalType = hoveredType(worker, source, 'close')
+    const edits = worker.formatDocument(SCRIPT_EDITOR_FILE, source)
+    expect(edits.length).toBeGreaterThan(0)
+    let formatted = source
+    for (const edit of [...edits].sort((left, right) => right.span.start - left.span.start)) {
+      formatted =
+        formatted.slice(0, edit.span.start) +
+        edit.newText +
+        formatted.slice(edit.span.start + edit.span.length)
+    }
+    expect(formatted).toContain("plot.Line(close, 'value')")
+    expect(formatted).not.toContain('close[0]')
+    expect(hoveredType(worker, source, 'close')).toBe(originalType)
+    expect(worker.formatDocument(SCRIPT_EDITOR_FILE, formatted)).toEqual([])
+  })
+
   it('按 inputs 推导的参数类型参与数值上下文判定', async () => {
     const source = `defineIndicator({
-      name: 'ParameterContext', inputs: { level: input(2) },
+      name: 'ParameterContext', position: Position.Sub,
       onBar() {
-        function double(value: typeof params.level): number { return value * 2 }
-        plot.Line(double(close), { id: 'value' })
+        const level = input.int(2)
+        function double(value: typeof level): number { return value * 2 }
+        plot.Line(double(close), 'value')
       },
     })`
     const worker = await createSession(source)
@@ -64,10 +84,10 @@ describe('script language service', () => {
   })
 
   it.each([
-    ["plot.Line(close, { id: 'close', color: Color.Purple })", 'close', 0, 'close: number'],
+    ["plot.Line(close, 'close', { color: Color.Purple })", 'close', 0, 'close: number'],
     ['ta.sma(close, 20)', 'close', 0, 'close: Series'],
-    ['const src = close; plot.Line(src, { id: "c" })', 'src', 1, 'src: number'],
-    ['const average = ta.sma(close, 20); plot.Line(average, { id: "a" })', 'average', 1, 'number'],
+    ['const src = close; plot.Line(src, "c")', 'src', 1, 'src: number'],
+    ['const average = ta.sma(close, 20); plot.Line(average, "a")', 'average', 1, 'number'],
     ['const data = { src: close }; Math.max(data.src, 1)', 'src', 1, 'src: number'],
   ])('悬浮提示按使用位置显示类型：%s', async (source, token, occurrence, expected) => {
     const worker = await createSession(source)
@@ -79,7 +99,7 @@ describe('script language service', () => {
   })
 
   it('函数符号仍显示声明签名，不被当前值映射改写', async () => {
-    const source = 'plot.Line(ta.sma(close, 20), { id: "a" })'
+    const source = 'plot.Line(ta.sma(close, 20), "a")'
     const worker = await createSession(source)
     const hover = worker.getHover({ path: SCRIPT_EDITOR_FILE, pos: positionOf(source, 'sma', 0) })
     expect(hover?.quickInfo?.displayParts?.map((part) => part.text).join('')).toContain(
@@ -90,7 +110,7 @@ describe('script language service', () => {
   it('数值上下文无需 [0]，索引访问保持完整序列', async () => {
     const source = `const src = close
       const average = ta.sma(src, 2)
-      plot.Line(high - low + src[1] + average, { id: 'combined' })`
+      plot.Line(high - low + src[1] + average, 'combined')`
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     expect(hoveredType(worker, source, 'average', 1)).toContain('average: number')
@@ -98,7 +118,7 @@ describe('script language service', () => {
   })
 
   it('globalThis 行情序列与全局序列同型，赋值给非序列值仍被拒绝', async () => {
-    const source = `plot.Line(globalThis.close, { id: 'close' })`
+    const source = `plot.Line(globalThis.close, 'close')`
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     expect(hoveredType(worker, source, 'close')).toContain('close: number')
@@ -110,7 +130,7 @@ describe('script language service', () => {
   })
 
   it('转换后诊断、补全和签名的位置对应原文，更新后不残留旧映射', async () => {
-    const prefix = `const spread = high - low; plot.Line(close, { id: 'c' });\n`
+    const prefix = `const spread = high - low; plot.Line(close, 'c');\n`
     const bad = `${prefix}ta.sma(close, "bad")`
     const worker = await createSession(bad)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([
@@ -141,11 +161,11 @@ describe('script language service', () => {
     ])
   })
 
-  it('在 plot 对象字面量的属性上显示契约注释', async () => {
-    const source = `plot.Point(1, { id: 'overbought', color: '#ff0000', size: ShapeSize.Tiny })`
+  it('在 plot 对象字面量的样式属性上显示契约注释', async () => {
+    const source = `plot.Point(1, 'overbought', { label: 'OB', color: '#ff0000', size: ShapeSize.Tiny })`
     const worker = await createSession(source)
     for (const [property, expected] of [
-      ['id', '图形 ID'],
+      ['label', '图例名称'],
       ['color', 'CSS'],
       ['size', '尺寸档位'],
     ]) {
@@ -168,7 +188,7 @@ describe('script language service', () => {
     ['Arrow', "colorUp: 'red'", 'colorUp', '正值'],
     ['Arrow', "colorDown: 'green'", 'colorDown', '负值'],
   ])('显示 %s 的 %s 属性注释', async (kind, option, property, expected) => {
-    const source = `plot.${kind}(1, { id: 'signal', ${option} })`
+    const source = `plot.${kind}(1, 'signal', { ${option} })`
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     const hover = worker.getHover({
@@ -235,23 +255,23 @@ describe('script language service', () => {
     expect(await completions('plot.')).toEqual(
       expect.arrayContaining(['Line', 'Histogram', 'Point', 'Shape', 'Char', 'Arrow']),
     )
-    const worker = await createSession(`plot.Histogram(1, { id: 'volume' })`)
+    const worker = await createSession(`plot.Histogram(1, 'volume')`)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
-    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot('histogram', 1, { id: 'volume' })` })
+    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `plot('histogram', 1, 'volume')` })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
       1,
     )
   })
 
-  it('补全全局 PaneKind 枚举，并检查 pane 的枚举类型', async () => {
-    expect(await completions('PaneKind.')).toEqual(expect.arrayContaining(['Main', 'Sub']))
+  it('补全全局 Position 枚举，并检查 position 的枚举类型', async () => {
+    expect(await completions('Position.')).toEqual(expect.arrayContaining(['Main', 'Sub']))
     const worker = await createSession(
-      `defineIndicator({ name: 'Pane', pane: PaneKind.Sub, inputs: {}, onBar() {} })`,
+      `defineIndicator({ name: 'Position', position: Position.Sub, onBar() {} })`,
     )
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     worker.updateFile({
       path: SCRIPT_EDITOR_FILE,
-      code: `defineIndicator({ name: 'Pane', pane: 'sub', inputs: {}, onBar() {} })`,
+      code: `defineIndicator({ name: 'Position', position: 'sub', onBar() {} })`,
     })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
       1,
@@ -259,11 +279,11 @@ describe('script language service', () => {
   })
 
   it.each([
-    `plot.Point(true, { id: 'signal' })`,
-    `plot.Arrow(false, { id: 'signal' })`,
-    `plot.Line(1, { id: 'signal', baseline: 0 })`,
-    `plot.Point(1, { id: 'signal', style: ShapeStyle.Circle })`,
-    `plot.Shape(true, { id: 'signal', char: 'A' })`,
+    `plot.Point(true, 'signal')`,
+    `plot.Arrow(false, 'signal')`,
+    `plot.Line(1, 'signal', { baseline: 0 })`,
+    `plot.Point(1, 'signal', { style: ShapeStyle.Circle })`,
+    `plot.Shape(true, 'signal', { char: 'A' })`,
   ])('按绘图方法检查值和专属样式：%s', async (source) => {
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
@@ -273,8 +293,8 @@ describe('script language service', () => {
 
   it('形状和字符方法接受布尔条件', async () => {
     const worker = await createSession(`
-      plot.Shape(true, { id: 'shape', style: ShapeStyle.Circle })
-      plot.Char(false, { id: 'char', char: 'A' })
+      plot.Shape(true, 'shape', { style: ShapeStyle.Circle })
+      plot.Char(false, 'char', { char: 'A' })
     `)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
   })
@@ -305,28 +325,28 @@ describe('script language service', () => {
     expect(range && signature?.text.slice(range.from, range.to)).toBe(expected)
   })
 
-  it('从当前 inputs 推导参数，修改草稿后移除旧参数并采用新类型', async () => {
+  it('输入方法提供对应的选项补全', async () => {
     const worker = await createSession(smaSource)
-    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `${smaSource}\nparams.` })
+    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: `input.` })
     const first = await worker.getAutocompletion({
       path: SCRIPT_EDITOR_FILE,
-      context: { pos: `${smaSource}\nparams.`.length, explicit: true },
+      context: { pos: 'input.'.length, explicit: true },
     })
-    expect(first?.options.map((option) => option.label)).toContain('period')
+    expect(first?.options.map((option) => option.label)).toEqual(expect.arrayContaining(['int', 'float', 'bool', 'string']))
     const updated = `defineIndicator({
-      name: 'Changed', inputs: { enabled: input(true) },
-      onBar() { plot.Line(params.enabled ? close[0] : NaN, { id: 'value' }) }
-    });\nparams.`
+      name: 'Changed', position: Position.Sub,
+      onBar() { const enabled = input.bool(true); plot.Line(enabled ? close[0] : NaN, 'value') }
+    });\ninput.`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: updated })
     const next = await worker.getAutocompletion({
       path: SCRIPT_EDITOR_FILE,
       context: { pos: updated.length, explicit: true },
     })
-    expect(next?.options.map((option) => option.label)).toContain('enabled')
+    expect(next?.options.map((option) => option.label)).toContain('bool')
     expect(next?.options.map((option) => option.label)).not.toContain('period')
     worker.updateFile({
       path: SCRIPT_EDITOR_FILE,
-      code: updated.slice(0, -'params.'.length) + '\nta.sma(close, params.enabled)',
+      code: `defineIndicator({ name: 'Changed', position: Position.Sub, onBar() { const enabled = input.bool(true); ta.sma(close, enabled) } })`,
     })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([
       expect.objectContaining({ message: expect.stringContaining('boolean') }),
@@ -347,17 +367,16 @@ describe('script language service', () => {
 
   it('识别声明函数别名和 globalThis 调用，不将局部同名函数当成指标声明', async () => {
     const source = `const declare = defineIndicator;
-      declare({ name: 'Alias', inputs: { length: input(10) }, onBar() {} });
+      declare({ name: 'Alias', position: Position.Sub, onBar() { const length = input.int(10); plot.Line(length, 'length') } });
       function scope() {
         function defineIndicator(value: unknown) {}
-        defineIndicator({ inputs: { fake: input(true) } });
+        defineIndicator({ fake: true });
       }
-      params.`
-    expect(await completions(source)).toContain('length')
-    expect(await completions(source)).not.toContain('fake')
-    expect(
-      await completions(source.replace('declare({', 'globalThis.defineIndicator({')),
-    ).toContain('length')
+      `
+    const worker = await createSession(source)
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
+    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: source.replace('declare({', 'globalThis.defineIndicator({') })
+    expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
   })
 
   it('拒绝浏览器全局并在不同编辑会话间隔离参数', async () => {

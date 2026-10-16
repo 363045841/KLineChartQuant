@@ -71,5 +71,5 @@ export async function createCopySource(source: string, name: string): Promise<st
 
 /** 新建脚本提供可直接保存的独立声明。 */
 export function createBlankSource(name: string): string {
-  return `// 用户自定义指标\ndefineIndicator({\n  name: ${JSON.stringify(name)},\n  pane: PaneKind.Sub,\n  inputs: {},\n  onBar() {\n    plot.Line(close, { id: 'close' })\n  },\n})\n`
+  return `// 用户自定义指标\ndefineIndicator({\n  name: ${JSON.stringify(name)},\n  position: Position.Sub,\n  onBar() {\n    const period = input.int(20, { title: '周期', min: 1 })\n    plot.Line(ta.sma(close, period), 'ma')\n  },\n})\n`
 }

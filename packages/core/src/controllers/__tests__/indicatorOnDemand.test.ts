@@ -194,8 +194,6 @@ describe('static catalog fidelity', () => {
             aliases: definition.aliases,
             displayName: definition.displayName,
             category: definition.category,
-            indicatorType: definition.indicatorType,
-            indicatorTypeLabel: definition.indicatorTypeLabel,
             defaultPaneId: definition.defaultPaneId,
             dataViews: definition.dataViews,
             allowMainPane: definition.allowMainPane,

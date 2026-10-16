@@ -104,7 +104,8 @@ function buildSeriesPlots(
       return { value: numeric, color }
     })
     const base = {
-      id: spec.id,
+      // 共享绘画声明用 name，core 的 PlotSpec 身份字段是 id，这里做一次映射。
+      name: spec.id,
       label: typeof spec.label === 'function' ? spec.label(params) : (spec.label ?? spec.id),
       data,
       color: spec.color(colors),
@@ -157,7 +158,7 @@ function buildSeriesPlots(
   })
   const fills = (definition.fills ?? []).map((fill) =>
     createFill({
-      id: fill.id,
+      name: fill.id,
       from: fill.from,
       to: fill.to,
       visible: !fill.show || params[fill.show] !== false,

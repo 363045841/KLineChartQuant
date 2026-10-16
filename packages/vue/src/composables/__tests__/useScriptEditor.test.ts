@@ -55,7 +55,7 @@ describe('useScriptEditor', () => {
     expect(scripts.read(initial.id)?.revision).toBe(2)
     await stale.save()
     expect(stale.error.value).toContain('重新打开')
-    editor.source.value = editor.source.value.replace('input(20', 'input(5')
+    editor.source.value = editor.source.value.replace('input.int(20', 'input.int(5')
     await editor.save()
     expect(editor.saved.value).toBe(true)
     // 再次编辑即回到未保存，失败保存也保持未保存。

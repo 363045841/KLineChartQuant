@@ -1,13 +1,12 @@
 /** 脚本虚拟程序专用声明资源，不参与宿主 TypeScript 程序。 */
 /// <reference path="../quickjs/runtime/plotKind.ts" />
 import type { InputDef, InputOptions } from '@363045841yyt/klinechart-plot-contracts'
-import { IndicatorType as IndicatorTypeEnum } from '@363045841yyt/klinechart-plot-contracts'
 import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
-import { PaneKind as PaneKindEnum } from '../quickjs/types.js'
+import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
-import type { ScriptIndicatorDeclaration, ScriptPlot } from './types.js'
+import type { ScriptIndicatorDeclaration, ScriptInput, ScriptPlot } from './types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -25,19 +24,34 @@ declare global {
    * 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。
    */
   const ta: TechnicalAnalysisLibrary
-  const params: ScriptParameters
 
-  /** 指标注册位置枚举；取值与宿主 PaneKind 一致，由宿主注入 VM。 */
-  const PaneKind: typeof PaneKindEnum
+  /**
+   * 指标渲染位置，由宿主注入 VM。
+   *
+   * | 取值 | 含义 |
+   * | --- | --- |
+   * | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
+   * | `Position.Sub` | 独立副图 |
+   */
+  const Position: typeof PositionEnum
 
-  /** 指标业务分类枚举；取值来自共享契约，由宿主注入 VM。 */
-  const IndicatorType: typeof IndicatorTypeEnum
 
-  /** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */
-  function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T>
+  /** 输入参数：int / float 支持范围和步长，bool 显示开关，string 支持下拉选项。 */
+  const input: ScriptInput
   /** 定义一个指标 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
-  /** 当前 K 线的绘图方法；通过 plot.Line、plot.Point 等选择图形，null 主动留空。 */
+  /**
+   * 当前 K 线的绘图方法；仅在 onBar 中调用，name 必填，null 主动留空。
+   *
+   * | 方法 | 图形 | value 含义 |
+   * | --- | --- | --- |
+   * | `plot.Line` | 折线 | 折线点数值 |
+   * | `plot.Histogram` | 柱状图 | 柱状图数值 |
+   * | `plot.Point` | 散点 | 散点数值 |
+   * | `plot.Shape` | 形状标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
+   * | `plot.Char` | 字符标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
+   * | `plot.Arrow` | 箭头 | 正负决定方向，绝对值决定长度 |
+   */
   const plot: ScriptPlot
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>

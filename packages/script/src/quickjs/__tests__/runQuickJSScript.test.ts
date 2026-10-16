@@ -100,9 +100,9 @@ describe('runQuickJSScript', () => {
           source: scriptSource(`
             if (time[0] % 7 !== 0 && time[0] !== ${closes.length - 1}) return
             const series = ${expression}
-            plot.Line(series[0], { id: 'current' })
-            plot.Line(series[3], { id: 'previous' })
-            plot.Line(series[0], { id: 'repeat' })
+            plot.Line(series[0], 'current')
+            plot.Line(series[3], 'previous')
+            plot.Line(series[0], 'repeat')
           `),
           bars: barsFromCloses(closes, volumes),
         })
@@ -150,9 +150,9 @@ describe('runQuickJSScript', () => {
           }
           const prices = counted(close)
           const volumes = counted(volume)
-          defineIndicator({ name: 'WindowReads', inputs: {}, onBar() {
-            plot.Line(ta.${algorithm}(prices, ${algorithm === 'vwma' ? 'volumes, ' : ''}1000)[0], { id: 'value' })
-            plot.Line(reads, { id: 'reads' })
+          defineIndicator({ name: 'WindowReads', position: Position.Sub, inputs: {}, onBar() {
+            plot.Line(ta.${algorithm}(prices, ${algorithm === 'vwma' ? 'volumes, ' : ''}1000)[0], 'value')
+            plot.Line(reads, 'reads')
           } })
         `,
         bars: barsFromCloses(wavyCloses(count)),
@@ -167,10 +167,10 @@ describe('runQuickJSScript', () => {
     async (kind) => {
       const result = await runQuickJSScript({
         source: scriptSource(`
-          plot.${kind}(close[0], { id: 'signal' })
-          if (close[0] === 2) plot.${kind}(null, { id: 'signal' })
-          if (close[0] === 3) plot.${kind}(NaN, { id: 'signal' })
-          plot.${kind}(null, { id: 'empty' })
+          plot.${kind}(close[0], 'signal')
+          if (close[0] === 2) plot.${kind}(null, 'signal')
+          if (close[0] === 3) plot.${kind}(NaN, 'signal')
+          plot.${kind}(null, 'empty')
         `),
         bars: barsFromCloses([1, 2, 3, 4]),
       })
@@ -188,17 +188,17 @@ describe('runQuickJSScript', () => {
     expect(builtinScriptSources).toEqual(sources)
   })
 
-  it('声明式 Char 和 Arrow 使用共享默认值，调用只需提供 id', async () => {
+  it('声明式 Char 和 Arrow 使用共享默认值，调用只需提供 name', async () => {
     const result = await runQuickJSScript({
       source: `defineIndicator({
-        name: 'Declared markers', inputs: {},
+        name: 'Declared markers', position: Position.Sub, inputs: {},
         plots: [
-          { id: 'char', kind: PlotKind.Char },
-          { id: 'arrow', kind: PlotKind.Arrow, colorUp: 'green', colorDown: 'red' }
+          { name: 'char', kind: PlotKind.Char },
+          { name: 'arrow', kind: PlotKind.Arrow, colorUp: 'green', colorDown: 'red' }
         ],
         onBar() {
-          plot.Char(true, { id: 'char' })
-          plot.Arrow(close[0], { id: 'arrow' })
+          plot.Char(true, 'char')
+          plot.Arrow(close[0], 'arrow')
         }
       })`,
       bars: barsFromCloses([1, -2]),
@@ -219,8 +219,8 @@ describe('runQuickJSScript', () => {
 
   it('Char 支持布尔条件、Unicode 字符和逐 bar 颜色', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Char(close[0] > 1, {
-        id: 'char', char: '🠅', location: ShapeLocation.BelowBar,
+      source: scriptSource(`plot.Char(close[0] > 1, 'char', {
+        char: '🠅', location: ShapeLocation.BelowBar,
         color: close[0] > 2 ? 'red' : 'blue', text: '买入'
       })`),
       bars: barsFromCloses([1, 2, 3]),
@@ -237,8 +237,8 @@ describe('runQuickJSScript', () => {
 
   it('Arrow 保留有符号数值并采集逐 bar 方向颜色', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Arrow(close[0], {
-        id: 'arrow', colorUp: close[0] > 1 ? 'green' : 'blue', colorDown: 'red',
+      source: scriptSource(`plot.Arrow(close[0], 'arrow', {
+        colorUp: close[0] > 1 ? 'green' : 'blue', colorDown: 'red',
         size: ShapeSize.Large
       })`),
       bars: barsFromCloses([1, -2, 0, 10]),
@@ -254,10 +254,10 @@ describe('runQuickJSScript', () => {
   })
 
   it.each([
-    `plot.Arrow(true, { id: 'bad' })`,
-    `plot.Point(1, { id: 'bad', size: 'gigantic' })`,
-    `plot.Char(true, { id: 'bad', char: 'AB' })`,
-    `plot.Char(true, { id: 'bad', char: close[0] > 1 ? 'A' : 'B' })`,
+    `plot.Arrow(true, 'bad')`,
+    `plot.Point(1, 'bad', { size: 'gigantic' })`,
+    `plot.Char(true, 'bad', { char: 'AB' })`,
+    `plot.Char(true, 'bad', { char: close[0] > 1 ? 'A' : 'B' })`,
   ])('拒绝无效参数或整轮变化的字符：%s', async (body) => {
     await expect(
       runQuickJSScript({ source: scriptSource(body), bars: barsFromCloses([1, 2]) }),
@@ -321,8 +321,8 @@ describe('runQuickJSScript', () => {
 
   it('plot 调用直接配置 Shape 样式，形状和文字颜色可以逐 bar 改变', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Shape(close[0], {
-        id: 'signal', style: ShapeStyle.LabelUp, location: ShapeLocation.Absolute,
+      source: scriptSource(`plot.Shape(close[0], 'signal', {
+        style: ShapeStyle.LabelUp, location: ShapeLocation.Absolute,
         size: ShapeSize.Small, text: '信号', offset: 1,
         color: close[0] === 2 ? 'red' : 'green', textColor: close[0] === 2 ? 'blue' : 'red',
       })`),
@@ -342,11 +342,11 @@ describe('runQuickJSScript', () => {
     })
   })
 
-  it('同一 id 不允许逐 bar 改变整列形状样式', async () => {
+  it('同一 name 不允许逐 bar 改变整列形状样式', async () => {
     await expect(
       runQuickJSScript({
         source: scriptSource(
-          `plot.Shape(true, { id: 'signal', style: close[0] === 2 ? ShapeStyle.Circle : ShapeStyle.Square })`,
+          `plot.Shape(true, 'signal', { style: close[0] === 2 ? ShapeStyle.Circle : ShapeStyle.Square })`,
         ),
         bars: barsFromCloses([2, 4]),
       }),
@@ -356,7 +356,7 @@ describe('runQuickJSScript', () => {
   it('直接调用的 Shape 样式使用与 plots 声明相同的校验', async () => {
     await expect(
       runQuickJSScript({
-        source: scriptSource(`plot.Shape(true, { id: 'signal', style: 'unknown' })`),
+        source: scriptSource(`plot.Shape(true, 'signal', { style: 'unknown' })`),
         bars: barsFromCloses([2]),
       }),
     ).rejects.toThrow('无效 plot 调用参数')
@@ -378,10 +378,10 @@ describe('runQuickJSScript', () => {
   it('Shape 的枚举、声明和布尔输出贯通同一个 PlotCollector', async () => {
     const result = await runQuickJSScript({
       source: `defineIndicator({
-        name: 'Signals', inputs: {},
-        plots: [{ id: 'buy', kind: PlotKind.Shape, style: ShapeStyle.LabelUp,
+        name: 'Signals', position: Position.Sub, inputs: {},
+        plots: [{ name: 'buy', kind: PlotKind.Shape, style: ShapeStyle.LabelUp,
           location: ShapeLocation.BelowBar, size: ShapeSize.Small, text: '买入', offset: 1 }],
-        onBar() { plot.Shape(close[0] > 2, { id: 'buy', color: 'red', textColor: 'blue' }) }
+        onBar() { plot.Shape(close[0] > 2, 'buy', { color: 'red', textColor: 'blue' }) }
       })`,
       bars: barsFromCloses([2, 4]),
     })
@@ -398,17 +398,15 @@ describe('runQuickJSScript', () => {
 
   it('Shape 的数值 0 保留在数据列中', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(
-        `plot.Shape(close[0] - 2, { id: 'signal', location: ShapeLocation.Top })`,
-      ),
+      source: scriptSource(`plot.Shape(close[0] - 2, 'signal', { location: ShapeLocation.Top })`),
       bars: barsFromCloses([2, 4]),
     })
     expect(values(result, 'signal')).toEqual([0, 2])
   })
 
-  it('未声明的 Shape 仍走统一动态 id 收集，缺省为 xcross/abovebar/auto', async () => {
+  it('未声明的 Shape 仍走统一动态 name 收集，缺省为 xcross/abovebar/auto', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Shape(true, { id: 'signal' })`),
+      source: scriptSource(`plot.Shape(true, 'signal')`),
       bars: barsFromCloses([2]),
     })
     expect(result.plots[0]).toMatchObject({
@@ -425,7 +423,7 @@ describe('runQuickJSScript', () => {
     async (field) => {
       await expect(
         runQuickJSScript({
-          source: `defineIndicator({ name: 'BadShape', inputs: {}, plots: [{ id: 'bad', kind: 'shape', ${field} }], onBar() {} })`,
+          source: `defineIndicator({ name: 'BadShape', position: Position.Sub, inputs: {}, plots: [{ name: 'bad', kind: 'shape', ${field} }], onBar() {} })`,
           bars: [],
         }),
       ).rejects.toThrow('无效 plots')
@@ -435,9 +433,9 @@ describe('runQuickJSScript', () => {
   it('相对 Shape 不能作为 fill 的价格边界', async () => {
     await expect(
       runQuickJSScript({
-        source: `defineIndicator({ name: 'BadFill', inputs: {},
-        plots: [{ id: 'signal', kind: 'shape' }, { id: 'price', kind: 'line' }],
-        fills: [{ id: 'cloud', from: 'signal', to: 'price' }], onBar() {} })`,
+        source: `defineIndicator({ name: 'BadFill', position: Position.Sub, inputs: {},
+        plots: [{ name: 'signal', kind: 'shape' }, { name: 'price', kind: 'line' }],
+        fills: [{ name: 'cloud', from: 'signal', to: 'price' }], onBar() {} })`,
         bars: [],
       }),
     ).rejects.toThrow('requires price-positioned plots')
@@ -454,7 +452,7 @@ describe('runQuickJSScript', () => {
     const result = await runQuickJSScript({
       source: scriptSource(`
          if (plot !== globalThis.plot) throw new Error('绘图全局不一致')
-         globalThis.plot.${member}(close[0], { id: 'shape' })
+         globalThis.plot.${member}(close[0], 'shape')
       `),
       bars: barsFromCloses([2, 4]),
     })
@@ -465,22 +463,13 @@ describe('runQuickJSScript', () => {
   it.each([
     ['Main', 'main'],
     ['Sub', 'sub'],
-  ])('从 QuickJS Global 读取 PaneKind.%s 作为指标注册位置', (member, expected) => {
-    const source = `defineIndicator({ name: 'PaneEnum', pane: globalThis.PaneKind.${member}, inputs: {}, onBar() {
-      if (PaneKind !== globalThis.PaneKind) throw new Error('枚举全局不一致')
+  ])('从 QuickJS Global 读取 Position.%s 作为指标注册位置', (member, expected) => {
+    const source = `defineIndicator({ name: 'PositionEnum', position: globalThis.Position.${member}, inputs: {}, onBar() {
+      if (Position !== globalThis.Position) throw new Error('枚举全局不一致')
     } })`
-    expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ pane: expected })
+    expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ position: expected })
   })
 
-  it('业务分类从声明贯通到元数据，VM 枚举与共享契约一致', () => {
-    const source = `defineIndicator({
-      name: 'Typed', pane: PaneKind.Sub, indicatorType: IndicatorType.Momentum, inputs: {},
-      onBar() {
-        if (IndicatorType !== globalThis.IndicatorType) throw new Error('枚举全局不一致')
-      }
-    })`
-    expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ indicatorType: 'momentum' })
-  })
 
   it('Color 常用色枚举在 VM 中与共享契约逐项一致', () => {
     // 成员表由契约生成，用例只比对色值，不复制一份调色板。
@@ -490,31 +479,25 @@ describe('runQuickJSScript', () => {
           `if (Color.${member} !== ${JSON.stringify(value)}) throw new Error('Color.${member} 与契约不一致')`,
       )
       .join('\n')
-    const source = `${checks}\ndefineIndicator({ name: 'ColorEnum', inputs: {}, onBar() {} })`
+    const source = `${checks}\ndefineIndicator({ name: 'ColorEnum', position: Position.Sub, inputs: {}, onBar() {} })`
     expect(readQuickJSScriptDefinitionSync(source).name).toBe('ColorEnum')
   })
 
   it('Color 取值可直接作为绘图颜色', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(close[0], { id: 'line', color: Color.Teal })`),
+      source: scriptSource(`plot.Line(close[0], 'line', { color: Color.Teal })`),
       bars: barsFromCloses([2, 4]),
     })
     expect(result.plots[0]?.data.map((point) => point?.color)).toEqual([Color.Teal, Color.Teal])
   })
 
-  it('未声明业务分类时元数据不写该字段，由 core 归入 other', () => {
-    expect(
-      readQuickJSScriptDefinitionSync(scriptSource(`plot.Line(close[0], { id: 'x' })`))
-        .indicatorType,
-    ).toBeUndefined()
-  })
 
   it('调用类型优先于 plots 声明并保留公共样式', async () => {
     const result = await runQuickJSScript({
       source: `defineIndicator({
-        name: 'Override', inputs: {},
-        plots: [{ id: 'shape', kind: 'line', label: 'Shape', offset: 1 }],
-        onBar() { plot.Histogram(close[0], { id: 'shape' }) }
+        name: 'Override', position: Position.Sub, inputs: {},
+        plots: [{ name: 'shape', kind: 'line', label: 'Shape', offset: 1 }],
+        onBar() { plot.Histogram(close[0], 'shape') }
       })`,
       bars: barsFromCloses([2, 4]),
     })
@@ -529,31 +512,28 @@ describe('runQuickJSScript', () => {
   it('拒绝同一 Plot 在运行中改变类型', async () => {
     await expect(
       runQuickJSScript({
-        source: scriptSource(
-          `(close[0] === 2 ? plot.Line : plot.Point)(close[0], { id: 'shape' })`,
-        ),
+        source: scriptSource(`(close[0] === 2 ? plot.Line : plot.Point)(close[0], 'shape')`),
         bars: barsFromCloses([2, 4]),
       }),
     ).rejects.toThrow('cannot change kind')
   })
 
-  it.each([
-    `plot.Unknown(close[0], { id: 'shape' })`,
-    `plot(PlotKind.Line, close[0], { id: 'shape' })`,
-  ])('拒绝未知方法和已移除的函数调用：%s', async (call) => {
-    await expect(
-      runQuickJSScript({
-        source: scriptSource(call),
-        bars: barsFromCloses([2]),
-      }),
-    ).rejects.toThrow('not a function')
-  })
+  it.each([`plot.Unknown(close[0], 'shape')`, `plot(PlotKind.Line, close[0], 'shape')`])(
+    '拒绝未知方法和已移除的函数调用：%s',
+    async (call) => {
+      await expect(
+        runQuickJSScript({
+          source: scriptSource(call),
+          bars: barsFromCloses([2]),
+        }),
+      ).rejects.toThrow('not a function')
+    },
+  )
 
   it('逐 bar 计算 ta.sma，历史不足时输出空位', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
-        `plot.Line(ta.sma(close, params.period)[0], { id: 'ma' })`,
-        `{ period: input(3, { title: '周期' }) }`,
+        `const period = input.int(3, { title: '周期' }); plot.Line(ta.sma(close, period)[0], 'ma')`,
       ),
       bars: barsFromCloses([10, 20, 30, 40]),
     })
@@ -562,7 +542,7 @@ describe('runQuickJSScript', () => {
 
   it('ta.wma 按 1..length 权重加权，完整窗口之前保留 NaN', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.wma(close, 3)[0], { id: 'wma' })`),
+      source: scriptSource(`plot.Line(ta.wma(close, 3)[0], 'wma')`),
       bars: barsFromCloses([1, 2, 3, 4]),
     })
     expect(values(result, 'wma')).toEqual([undefined, undefined, 14 / 6, 20 / 6])
@@ -570,7 +550,7 @@ describe('runQuickJSScript', () => {
 
   it('ta.vwma 按成交量加权，窗口成交量之和为 0 时留空', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.vwma(close, volume, 2)[0], { id: 'vwma' })`),
+      source: scriptSource(`plot.Line(ta.vwma(close, volume, 2)[0], 'vwma')`),
       bars: barsFromCloses([10, 20, 30], [0, 0, 2]),
     })
     expect(values(result, 'vwma')).toEqual([undefined, undefined, 30])
@@ -578,7 +558,7 @@ describe('runQuickJSScript', () => {
 
   it('ta.sum 对窗口求和，完整窗口之前保留空位', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.sum(close, 3)[0], { id: 'sum' })`),
+      source: scriptSource(`plot.Line(ta.sum(close, 3)[0], 'sum')`),
       bars: barsFromCloses([1, 2, 3, 4, 5]),
     })
     expect(values(result, 'sum')).toEqual([undefined, undefined, 6, 9, 12])
@@ -586,7 +566,7 @@ describe('runQuickJSScript', () => {
 
   it('ta.stddev 计算总体标准差，完整窗口之前保留空位', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.stddev(close, 3)[0], { id: 'sd' })`),
+      source: scriptSource(`plot.Line(ta.stddev(close, 3)[0], 'sd')`),
       bars: barsFromCloses([2, 4, 6, 8]),
     })
     // 窗口 [2,4,6] 均值 4，偏差平方和 8，总体标准差 sqrt(8/3)。
@@ -596,8 +576,8 @@ describe('runQuickJSScript', () => {
 
   it('ta.mom 取相对 length 根之前的差值，历史不足保留空位', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.mom(close, 2)[0], { id: 'mom' })
-plot.Line(ta.mom(close)[0], { id: 'step' })`),
+      source: scriptSource(`plot.Line(ta.mom(close, 2)[0], 'mom')
+plot.Line(ta.mom(close)[0], 'step')`),
       bars: barsFromCloses([1, 2, 4, 7]),
     })
     expect(values(result, 'mom')).toEqual([undefined, undefined, 3, 5])
@@ -606,7 +586,7 @@ plot.Line(ta.mom(close)[0], { id: 'step' })`),
 
   it('ta.roc 取百分比变化，基准为 0 时留空', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.roc(close, 1)[0], { id: 'roc' })`),
+      source: scriptSource(`plot.Line(ta.roc(close, 1)[0], 'roc')`),
       bars: barsFromCloses([1, 2, 4, 0, 5]),
     })
     expect(values(result, 'roc')).toEqual([undefined, 100, 100, -100, undefined])
@@ -618,7 +598,7 @@ plot.Line(ta.mom(close)[0], { id: 'step' })`),
     ['stddev', `ta.stddev(close, 20)[0]`],
   ])('ta.%s 在长序列上保持线性，不触发时间上限', async (id, expression) => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(${expression}, { id: '${id}' })`),
+      source: scriptSource(`plot.Line(${expression}, '${id}')`),
       bars: barsFromCloses(wavyCloses(2000)),
     })
     expect(Number.isFinite(values(result, id)?.at(-1))).toBe(true)
@@ -627,7 +607,7 @@ plot.Line(ta.mom(close)[0], { id: 'step' })`),
   it('长序列下 ta.stddev 结果与独立参考实现一致', async () => {
     const closes = wavyCloses(2000)
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.stddev(close, 20)[0], { id: 'sd' })`),
+      source: scriptSource(`plot.Line(ta.stddev(close, 20)[0], 'sd')`),
       bars: barsFromCloses(closes),
     })
     const actual = values(result, 'sd')
@@ -643,18 +623,17 @@ plot.Line(ta.mom(close)[0], { id: 'step' })`),
   it.each([0, -1, 1.5])('ta.sum 拒绝非法窗口 %s', async (length) => {
     await expect(
       runQuickJSScript({
-        source: scriptSource(`plot.Line(ta.sum(close, ${length})[0], { id: 'sum' })`),
+        source: scriptSource(`plot.Line(ta.sum(close, ${length})[0], 'sum')`),
         bars: barsFromCloses([1, 2, 3]),
       }),
     ).rejects.toBeInstanceOf(ScriptExecutionError)
   })
 
-  it('序列支持历史偏移，params 作为全局注入', async () => {
+  it('序列支持历史偏移，输入变量读取宿主参数', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
-        `plot.Line(close[0] * params.factor, { id: 'scaled' })
-plot.Line(close[1], { id: 'prev' })`,
-        `{ factor: input(1) }`,
+        `const factor = input.float(1); plot.Line(close[0] * factor, 'scaled')
+plot.Line(close[1], 'prev')`,
       ),
       bars: barsFromCloses([2, 4, 6]),
       params: { factor: 10 },
@@ -669,14 +648,14 @@ plot.Line(close[1], { id: 'prev' })`,
     ).rejects.toBeInstanceOf(ScriptExecutionError)
     await expect(
       runQuickJSScript({
-        source: scriptSource(`plot.Line(1 / 0, { id: 'bad' })`),
+        source: scriptSource(`plot.Line(1 / 0, 'bad')`),
         bars: barsFromCloses([1]),
       }),
     ).rejects.toBeInstanceOf(ScriptPlotError)
   })
 
   it('两次运行互不影响，序列状态各自独立', async () => {
-    const source = scriptSource(`plot.Line(ta.sma(close, 2)[0], { id: 'ma' })`)
+    const source = scriptSource(`plot.Line(ta.sma(close, 2)[0], 'ma')`)
     const first = await runQuickJSScript({ source, bars: barsFromCloses([10, 20, 30]) })
     const second = await runQuickJSScript({ source, bars: barsFromCloses([100, 200, 300]) })
     expect(values(first, 'ma')).toEqual([undefined, 15, 25])
@@ -687,24 +666,24 @@ plot.Line(close[1], { id: 'prev' })`,
     const source = `
       const average = ta.sma(close, 2)
       let calls = 0
-      defineIndicator({ name: 'PersistentSeries', pane: 'sub', inputs: {}, onBar() {
+      defineIndicator({ name: 'PersistentSeries', position: 'sub', inputs: {}, onBar() {
         if (globalThis.close !== close || globalThis.ta !== ta) throw new Error('全局对象不一致')
-        plot.Line(average[0], { id: 'ma' })
-        plot.Line(++calls, { id: 'calls' })
+        plot.Line(average[0], 'ma')
+        plot.Line(++calls, 'calls')
       } })`
     const result = await runQuickJSScript({ source, bars: barsFromCloses([10, 20, 30, 40]) })
     expect(values(result, 'ma')).toEqual([undefined, 15, 25, 35])
     expect(values(result, 'calls')).toEqual([1, 2, 3, 4])
     expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({
       name: 'PersistentSeries',
-      pane: 'sub',
+      position: 'sub',
       inputs: {},
     })
   })
 
   it('用户库与内置库走同一 defineLibrary 协议', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(stats.mid(open, close), { id: 'mid' })`),
+      source: scriptSource(`plot.Line(stats.mid(open, close), 'mid')`),
       bars: barsFromCloses([10, 20]),
       libraries: [
         { name: 'stats', source: `defineLibrary('stats', { mid: (a, b) => (a[0] + b[0]) / 2 })` },
@@ -716,7 +695,7 @@ plot.Line(close[1], { id: 'prev' })`,
   it('库名与已有全局冲突时拒绝加载', async () => {
     await expect(
       runQuickJSScript({
-        source: scriptSource(`plot.Line(close[0], { id: 'close' })`),
+        source: scriptSource(`plot.Line(close[0], 'close')`),
         bars: barsFromCloses([1]),
         libraries: [{ name: 'close', source: `defineLibrary('close', {})` }],
       }),
@@ -734,9 +713,9 @@ plot.Line(close[1], { id: 'prev' })`,
 
   it('字符串输入的 options 随声明保存，供参数面板渲染下拉', () => {
     const definition = readQuickJSScriptDefinitionSync(
-      `defineIndicator({ name: 'OptionScript', inputs: {
-        type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] }),
-      }, onBar() {} })`,
+      `defineIndicator({ name: 'OptionScript', position: Position.Sub, onBar() {
+        const type = input.string('SMA', { title: '算法', options: ['SMA', 'EMA'] })
+      } })`,
     )
     expect(definition.inputs).toEqual({
       type: { default: 'SMA', title: '算法', options: ['SMA', 'EMA'] },
@@ -744,13 +723,13 @@ plot.Line(close[1], { id: 'prev' })`,
   })
 
   it.each([
-    `plot.Line(1, { id: 'x' })`,
-    `defineIndicator({ name: 'Bad', pane: 'side', inputs: {}, onBar() {} })`,
-    `defineIndicator({ name: 'Bad', indicatorType: 'unknown-type', inputs: {}, onBar() {} })`,
-    `defineIndicator({ name: 'Bad', inputs: { period: input(Infinity) }, onBar() {} })`,
-    `defineIndicator({ name: 'Bad', inputs: { period: input(2, { options: ['a'] }) }, onBar() {} })`,
-    `defineIndicator({ name: 'Bad', inputs: { period: input('a', { options: [] }) }, onBar() {} })`,
-    `defineIndicator({ name: 'Bad', inputs: { period: input('a', { options: [1] }) }, onBar() {} })`,
+    `plot.Line(1, 'x')`,
+    `defineIndicator({ name: 'MissingPosition', inputs: {}, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', position: 'side', inputs: {}, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', inputs: { period: input.float(Infinity) }, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', inputs: { period: input.int(2.5) }, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', inputs: { period: input.string('a', { options: [] }) }, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', inputs: { period: input.string('a', { options: [1] }) }, onBar() {} })`,
     `defineIndicator({ name: 'Bad', inputs: {}, onBar() {} }); defineIndicator({})`,
   ])('拒绝不完整或错误声明：%s', async (source) => {
     await expect(runQuickJSScript({ source, bars: [] })).rejects.toBeInstanceOf(
@@ -762,9 +741,8 @@ plot.Line(close[1], { id: 'prev' })`,
 describe('随包 SMA 示例脚本', () => {
   it('声明业务分类、周期参数与算法下拉', () => {
     const definition = readQuickJSScriptDefinitionSync(shippedSmaSource)
-    expect(definition.indicatorType).toBe('moving-average')
     expect(definition.inputs).toEqual({
-      period: { default: 20, title: '周期' },
+      period: { default: 20, title: '周期', min: 1, step: 1 },
       type: { default: 'SMA', title: '算法', options: ['SMA', 'EMA', 'WMA', 'VWMA'] },
     })
   })
@@ -817,7 +795,7 @@ describe('随包 SMA 示例脚本', () => {
 
   it('ta.rsi 在长序列上复用派生序列，不触发时间上限', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Line(ta.rsi(close, 14)[0], { id: 'rsi' })`),
+      source: scriptSource(`plot.Line(ta.rsi(close, 14)[0], 'rsi')`),
       bars: barsFromCloses(wavyCloses(2000)),
     })
     expect(Number.isFinite(values(result, 'rsi')?.at(-1))).toBe(true)

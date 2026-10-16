@@ -3,8 +3,8 @@
 ```js
 onBar() {
   const ma = ta.sma(close, 20)
-  plot.Line(ma, { id: 'ma' })
-  if (ta.crossover(close, ma)) plot.Point(close, { id: 'cross' })
+  plot.Line(ma, 'ma')
+  if (ta.crossover(close, ma)) plot.Point(close, 'cross')
 }
 ```
 

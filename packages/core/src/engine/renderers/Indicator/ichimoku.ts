@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Ichimoku',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'trend',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

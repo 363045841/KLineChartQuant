@@ -18,7 +18,6 @@ import type {
   IndicatorPresentationDescriptor,
   IndicatorRendererNameResolver,
   IndicatorRuntimeDescriptor,
-  IndicatorType,
   RendererFactory,
   ScaleRendererFactory,
 } from './indicatorMetadata.js'
@@ -38,8 +37,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   /** 定义身份：系统渲染器或用户可添加的指标。所有定义必须显式声明。 */
   kind: IndicatorKind
   category: IndicatorCategory
-  indicatorType: IndicatorType
-  indicatorTypeLabel?: string
   defaultPaneId: string
   /** 指标可参与渲染的数据视图；未声明时仅支持 K 线。 */
   dataViews?: readonly ChartDataView[]

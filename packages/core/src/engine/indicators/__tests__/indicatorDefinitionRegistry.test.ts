@@ -21,7 +21,6 @@ function declareDefinition(name: string, alias: string, scriptDisplayName?: stri
     source: scriptDisplayName === undefined ? 'native' : 'script',
     kind: IndicatorKind.Indicator,
     category: 'oscillator',
-    indicatorType: 'momentum',
     defaultPaneId: `sub_${alias}`,
     scale: { indicatorKey: name },
   })

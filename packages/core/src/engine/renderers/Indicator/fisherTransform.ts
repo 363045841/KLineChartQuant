@@ -9,7 +9,6 @@ import { createFisherTransformScaleLayer } from './scale/fisherTransform_scale.j
   displayName: 'Fisher',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_Fisher',
   scaleRendererFactory: createFisherTransformScaleLayer,
   plots: {

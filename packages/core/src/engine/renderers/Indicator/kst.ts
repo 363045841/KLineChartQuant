@@ -9,7 +9,6 @@ import { createKstScaleLayer } from './scale/kst_scale.js'
   displayName: 'KST',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_KST',
   scaleRendererFactory: createKstScaleLayer,
   plots: {

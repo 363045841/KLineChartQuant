@@ -21,7 +21,6 @@ import type {
   IndicatorInputDef,
   IndicatorKind,
   IndicatorMetadata,
-  IndicatorType,
 } from './indicatorMetadata.js'
 
 /** 装饰器与定义配置由叶子模块提供，此处转出以维持公开出口。 */
@@ -40,8 +39,6 @@ export interface IndicatorDescriptor {
   readonly aliases?: readonly string[]
   readonly displayName: string
   readonly category: IndicatorCategory
-  readonly indicatorType: IndicatorType
-  readonly indicatorTypeLabel?: string
   readonly defaultPaneId: string
   readonly dataViews?: readonly ChartDataView[]
   readonly allowMainPane?: boolean
@@ -143,8 +140,6 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     aliases: definition.aliases,
     displayName: definition.displayName,
     category: definition.category,
-    indicatorType: definition.indicatorType,
-    indicatorTypeLabel: definition.indicatorTypeLabel,
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
     allowMainPane: definition.allowMainPane,

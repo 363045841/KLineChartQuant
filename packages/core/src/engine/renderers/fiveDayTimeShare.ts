@@ -92,7 +92,6 @@ export function createFiveDayTimeShareLayer(): Layer<RenderContext> {
   name: ChartDataViewId.FiveDayTimeShare,
   displayName: '五日分时',
   category: 'main',
-  indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.FiveDayTimeShare],
   kind: IndicatorKind.System,

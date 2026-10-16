@@ -9,7 +9,6 @@ import { createCciScaleLayer } from './scale/cci_scale.js'
   displayName: 'CCI',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_CCI',
   scaleRendererFactory: createCciScaleLayer,
   plots: {

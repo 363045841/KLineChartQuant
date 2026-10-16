@@ -40,6 +40,10 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
   innerWorker.addEventListener('error', handleError)
   innerWorker.addEventListener('messageerror', handleMessageError)
   return {
+    /** 复用独立语言 Worker 格式化当前原文。 */
+    formatDocument(source: string) {
+      return worker.formatDocument(SCRIPT_EDITOR_FILE, source)
+    },
     /** 初始化后返回服务扩展，现有文档由调用方在挂载前传入。 */
     async initialize(getSource: () => string): Promise<Extension> {
       await Promise.race([

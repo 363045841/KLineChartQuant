@@ -169,15 +169,6 @@ export {
 } from '../engine/drawing/index.js'
 // 选择器可在运行时注册脚本后刷新目录。
 export { onIndicatorDefinitionChanged } from '../engine/indicators/indicatorDefinitionRegistry.js'
-export type {
-  IndicatorType,
-  IndicatorTypeRegistry,
-} from '../engine/indicators/indicatorMetadata.js'
-export {
-  BUILTIN_INDICATOR_TYPES,
-  getBuiltinIndicatorTypeLabel,
-  getBuiltinIndicatorTypeOrder,
-} from '../engine/indicators/indicatorMetadata.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {
   LayoutApi,

@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Keltner',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'channel',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

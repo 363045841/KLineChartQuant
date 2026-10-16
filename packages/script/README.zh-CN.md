@@ -21,12 +21,12 @@ pnpm add @363045841yyt/klinechart-script
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: PaneKind.Sub,
+  position: Position.Sub,
   inputs: {
     n: input(2, { title: '除数' }),
   },
   onBar() {
-    plot.Line((open + close) / params.n, { id: 'oc-average' })
+    plot.Line((open + close) / params.n, 'oc-average')
   },
 })
 ```
@@ -37,8 +37,8 @@ VM prelude 在脚本运行前注入以下全局：
 | --- | --- |
 | `open` `high` `low` `close` `volume` `time` | 行情序列；`close` 取当前 K 线，`close[1]` 取前一根 |
 | `params` | 解析后的输入参数 |
-| `plot.Line(value, { id, color })` | 为当前 K 线输出绘图点；提供 `Line`、`Histogram`、`Point`、`Shape`、`Char`、`Arrow` 方法 |
-| `PaneKind` | 指标注册位置；`PaneKind.Main` 主图或 `PaneKind.Sub` 副图 |
+| `plot.Line(value, name, options?)` | 为当前 K 线输出绘图点；提供 `Line`、`Histogram`、`Point`、`Shape`、`Char`、`Arrow` 方法 |
+| `Position` | 指标注册位置；`Position.Main` 主图或 `Position.Sub` 副图 |
 | `input(default, options?)` | 声明一个参数；字符串参数带 `options` 时渲染为下拉 |
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |
 | `defineLibrary(name, members)` / `importLibrary(name)` | 声明并使用库 |

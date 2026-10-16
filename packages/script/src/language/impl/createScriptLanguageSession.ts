@@ -3,7 +3,6 @@ import type { ScriptConversion, ScriptLanguageSession } from '../types.js'
 import { convertScriptSource } from './convertScriptSource.js'
 import { createScriptTypeEnvironment } from './createScriptTypeEnvironment.js'
 import { SCRIPT_SOURCE_FILE } from './scriptFiles.js'
-import { updateScriptParameters } from './updateScriptParameters.js'
 
 /** 创建独立的增量语义会话；同一源码版本复用转换结果和语言服务程序。 */
 export function createScriptLanguageSession(): ScriptLanguageSession {
@@ -27,7 +26,6 @@ export function createScriptLanguageSession(): ScriptLanguageSession {
         if (environment.getSourceFile(SCRIPT_SOURCE_FILE)?.text !== code) {
           environment.updateFile(SCRIPT_SOURCE_FILE, code)
         }
-        updateScriptParameters(environment)
         const program = environment.languageService.getProgram()
         const file = program?.getSourceFile(SCRIPT_SOURCE_FILE)
         if (!program || !file) throw new Error('无法创建脚本类型程序')
