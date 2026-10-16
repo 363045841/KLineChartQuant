@@ -29,8 +29,10 @@ type PlotStyleOptions<K extends PlotDeclaration['kind']> = Omit<
 export interface ScriptPlot {
   /** 输出折线点。 */
   Line(value: number | null, name: string, options?: PlotStyleOptions<'line'>): void
-  /** 输出柱状图值。 */
+  /** 固定像素柱宽；size 接受正数像素或 ShapeSize 枚举，默认 1px。 */
   Histogram(value: number | null, name: string, options?: PlotStyleOptions<'histogram'>): void
+  /** 输出自动柱宽的柱状图，随 K 线间距缩放，不支持 size。 */
+  Columns(value: number | null, name: string, options?: PlotStyleOptions<'columns'>): void
   /** 输出散点。 */
   Point(value: number | null, name: string, options?: PlotStyleOptions<'points'>): void
   /** 输出形状标记；false 留空，absolute 定位时数值为价格。 */

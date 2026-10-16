@@ -50,14 +50,14 @@ const ARROW_HEIGHT: SizeScale = {
   huge: 90,
 }
 
-/** 柱宽相对 K 线间距的比例。 */
-const BAR_WIDTH_RATIO: SizeScale = {
+/** 柱状图固定柱宽（逻辑像素）；auto/tiny/small 都是最小可见宽度。 */
+const HISTOGRAM_WIDTH: SizeScale = {
   auto: 1,
-  tiny: 0.4,
-  small: 0.6,
-  normal: 0.8,
-  large: 1.2,
-  huge: 1.6,
+  tiny: 1,
+  small: 1,
+  normal: 2,
+  large: 3,
+  huge: 4,
 }
 
 /** 箭头最短高度相对最长高度的比例，保持幅度映射的可见下限。 */
@@ -88,7 +88,7 @@ export function arrowMinHeight(size: ShapeSize): number {
   return ARROW_HEIGHT[size] * ARROW_MIN_RATIO
 }
 
-/** 柱宽比例。 */
-export function barWidthRatio(size: ShapeSize): number {
-  return BAR_WIDTH_RATIO[size]
+/** 柱状图柱宽（逻辑像素）：数值直接取像素，档位查表；不随 K 线间距缩放。 */
+export function histogramWidth(size: ShapeSize | number): number {
+  return typeof size === 'number' ? size : HISTOGRAM_WIDTH[size]
 }

@@ -568,14 +568,54 @@ describe('Plot renderer', () => {
     expect(ctx.strokeStyle).toBe('red')
   })
 
-  it('沿用同一份轴投影绘制直方图，柱子包含零基准', () => {
+  it('沿用同一份轴投影绘制柱形图，柱子包含零基准', () => {
     const { ctx, state } = paint(
-      { series: [{ id: 'bar', kind: 'histogram', color: () => 'red' }] },
+      { series: [{ id: 'bar', kind: 'columns', color: () => 'red' }] },
       [-2, 3],
     )
     expect(ctx.fillRect).toHaveBeenCalledTimes(2)
     expect(state.visibleMin).toBe(-2)
     expect(state.visibleMax).toBe(3)
+  })
+
+  it('columns 柱宽跟随 K 线实体宽度，size 不生效', () => {
+    const widths = (barWidth: number) => {
+      const { ctx } = paint(
+        { series: [{ id: 'bar', kind: 'columns', size: ShapeSize.Huge, color: () => 'red' }] },
+        [1],
+        {},
+        { kBarRects: [{ x: 0, width: barWidth }] },
+      )
+      return vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)
+    }
+    expect(widths(8)).toEqual([8])
+    expect(widths(40)).toEqual([40])
+  })
+
+  it('histogram 柱宽为固定逻辑像素，不随 K 线间距缩放', () => {
+    const widths = (barWidth: number) => {
+      const { ctx } = paint(
+        { series: [{ id: 'bar', kind: 'histogram', size: 3, color: () => 'red' }] },
+        [1],
+        {},
+        { kBarRects: [{ x: 0, width: barWidth }] },
+      )
+      return vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)
+    }
+    expect(widths(8)).toEqual([3])
+    expect(widths(40)).toEqual([3])
+  })
+
+  it('histogram 档位映射为固定像素，auto/tiny/small 为 1px', () => {
+    const widthOf = (size: ShapeSize) => {
+      const { ctx } = paint(
+        { series: [{ id: 'bar', kind: 'histogram', size, color: () => 'red' }] },
+        [1],
+      )
+      return vi.mocked(ctx.fillRect).mock.calls[0]?.[2]
+    }
+    expect([ShapeSize.Auto, ShapeSize.Tiny, ShapeSize.Small].map(widthOf)).toEqual([1, 1, 1])
+    expect([ShapeSize.Normal, ShapeSize.Large, ShapeSize.Huge].map(widthOf)).toEqual([2, 3, 4])
   })
 
   it('散点只画圆，不连接数据，直径由 size 档位决定', () => {

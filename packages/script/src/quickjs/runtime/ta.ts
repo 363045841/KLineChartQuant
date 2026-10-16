@@ -32,7 +32,40 @@ function __differenceSeries(
   )
 }
 
+/** 方向判断比较当前值与历史窗口，不要求历史值逐根单调。 */
+function __direction(source: Series, length: number, rising: boolean): boolean {
+  const current = source.at(0)
+  if (Number.isNaN(current)) return false
+  let found = false
+  const available = Math.min(length, __count() - 1)
+  for (let offset = 1; offset <= available; offset++) {
+    const previous = source.at(offset)
+    if (Number.isNaN(previous)) continue
+    found = true
+    if (rising ? current <= previous : current >= previous) return false
+  }
+  return found
+}
+
 defineLibrary('ta', {
+  /** 当前值严格高于前 length 根中的有效值；忽略历史 NaN。 */
+  rising(source: Series, length: number): boolean {
+    __checkLength(length)
+    return __direction(source, length, true)
+  },
+
+  /** 当前值严格低于前 length 根中的有效值；忽略历史 NaN。 */
+  falling(source: Series, length: number): boolean {
+    __checkLength(length)
+    return __direction(source, length, false)
+  },
+
+  /** 当前值减去 length 根之前的值，默认比较上一根。 */
+  change(source: Series, length: number = 1): Series {
+    __checkLength(length)
+    return __differenceSeries('mom', source, length, (current, previous) => current - previous)
+  },
+
   /** 简单移动平均序列，完整窗口之前为 NaN。 */
   sma(source: Series, length: number): Series {
     __checkLength(length)

@@ -19,7 +19,7 @@ import { createMacdScaleLayer } from './scale/macd_scale.js'
         id: 'bar',
         label: 'BAR',
         field: 'macd',
-        kind: 'histogram',
+        kind: 'columns',
         show: 'showBAR',
         color: (c) => c.macd.barUp,
         pointColor: (value, previous, c) => {

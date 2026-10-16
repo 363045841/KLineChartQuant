@@ -59,7 +59,8 @@ function hasValidPlotBase(value: Record<string, unknown>): boolean {
     optional(value.textColor, 'string') &&
     optional(value.offset, 'number') &&
     optional(value.visible, 'boolean') &&
-    (value.size === undefined || isShapeSize(value.size))
+    (value.size === undefined || isShapeSize(value.size) ||
+      (value.kind === 'histogram' && typeof value.size === 'number' && Number.isFinite(value.size) && value.size > 0))
   )
 }
 
@@ -117,6 +118,7 @@ const PLOT_FIELD_VALIDATORS: Readonly<
 > = {
   line: isLineFields,
   histogram: isHistogramFields,
+  columns: (value) => value.size === undefined && isHistogramFields(value),
   points: isPointsFields,
   shape: isShapeFields,
   char: isCharFields,

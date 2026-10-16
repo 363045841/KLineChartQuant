@@ -46,8 +46,8 @@ export interface PlotSpec extends PlotSource, ShapeOptions, CharOptions, ArrowOp
     raw: unknown,
   ) => string
   readonly offset?: (params: Readonly<Record<string, unknown>>) => number
-  /** 图形尺寸档位；缺省 auto，由渲染层换算成该类型的像素尺寸。 */
-  readonly size?: ShapeSize
+  /** 图形尺寸档位；histogram 也可用数值指定固定像素柱宽，缺省 auto。 */
+  readonly size?: ShapeSize | number
   readonly dash?: readonly number[]
   readonly baseline?: number
 }

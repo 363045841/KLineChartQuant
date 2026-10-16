@@ -8,6 +8,7 @@
 import type {
   ArrowPlotDeclaration,
   CharPlotDeclaration,
+  ColumnsPlotDeclaration,
   HistogramPlotDeclaration,
   LinePlotDeclaration,
   PlotDeclaration,
@@ -19,6 +20,7 @@ import { PLOT_ERROR_CODES } from './errors.js'
 import {
   type ArrowPlot,
   type CharPlot,
+  type ColumnsPlot,
   type HistogramPlot,
   type LinePlot,
   type Plot,
@@ -162,6 +164,7 @@ function styleSignature(
     case 'line':
       return [...base, ...(declaration.dash ?? [])]
     case 'histogram':
+    case 'columns':
       return [...base, declaration.baseline]
     case 'points':
       return [...base]
@@ -183,11 +186,11 @@ function sameStyle(previous: readonly unknown[], next: readonly unknown[]): bool
 function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration): PlotDeclaration {
   if (!options) return declaration
   const { color: _color, textColor: _textColor, ...style } = options
-  return { ...declaration, ...style }
+  return { ...declaration, ...style } as PlotDeclaration
 }
 
 /** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
-type PlotBaseFields = Pick<Plot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'>
+type PlotBaseFields = Pick<LinePlot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'>
 
 /** 用声明或默认值补齐 Plot 公共字段；声明用 name，模型的身份字段仍是 id。 */
 function plotBase(
@@ -201,7 +204,7 @@ function plotBase(
     color: declaration.color ?? DEFAULT_PLOT_COLOR,
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
-    size: declaration.size ?? ShapeSize.Auto,
+    size: typeof declaration.size === 'number' ? ShapeSize.Auto : declaration.size ?? ShapeSize.Auto,
   }
 }
 
@@ -222,8 +225,14 @@ function createHistogramPlot(
   return {
     ...base,
     kind: 'histogram',
+    size: declaration.size ?? ShapeSize.Auto,
     baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
   }
+}
+
+/** 自动柱宽只依赖 K 线间距。 */
+function createColumnsPlot(declaration: ColumnsPlotDeclaration, base: PlotBaseFields): ColumnsPlot {
+  return { ...base, kind: 'columns', size: ShapeSize.Auto, baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE }
 }
 
 /** 散点：几何全部由公共 size 决定。 */
@@ -282,6 +291,8 @@ export function createPlot(
       return createLinePlot(declaration, base)
     case 'histogram':
       return createHistogramPlot(declaration, base)
+    case 'columns':
+      return createColumnsPlot(declaration, base)
     case 'points':
       return createPointsPlot(declaration, base)
     case 'shape':
@@ -300,7 +311,10 @@ function resolveDeclaration(
 ): PlotDeclaration {
   if (kind === declaration.kind) return declaration
   const { name, label, color, visible, offset, size } = declaration
-  return { name, label, color, visible, offset, size, kind }
+  const common = { name, label, color, visible, offset }
+  if (kind === 'columns') return { ...common, kind }
+  if (kind === 'histogram') return { ...common, size, kind }
+  return { ...common, size: typeof size === 'number' ? undefined : size, kind } as PlotDeclaration
 }
 
 /** 把填充声明组装成具体 PlotFill；声明用 name，模型的身份字段仍是 id。 */

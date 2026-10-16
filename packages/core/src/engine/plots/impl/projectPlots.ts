@@ -5,6 +5,7 @@ import {
   createPlot,
   isPricePlot,
   PlotKind,
+  type ShapeSize,
   validatePlotFills,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
@@ -103,6 +104,9 @@ function buildSeriesPlots(
       previous = numeric
       return { value: numeric, color }
     })
+    const kind = spec.kind ?? PlotKind.Line
+    // 数值像素柱宽只属于 histogram；columns 忽略 size，其余 kind 只接受枚举档位。
+    const size = kind === 'histogram' || kind === 'columns' ? undefined : enumPlotSize(spec.size)
     const base = {
       // 共享绘画声明用 name，core 的 PlotSpec 身份字段是 id，这里做一次映射。
       name: spec.id,
@@ -111,15 +115,19 @@ function buildSeriesPlots(
       color: spec.color(colors),
       visible: !spec.show || params[spec.show] !== false,
       offset: spec.offset?.(params) ?? 0,
-      size: spec.size,
     }
-    switch (spec.kind ?? PlotKind.Line) {
+    switch (kind) {
       case 'line':
-        return createPlot({ ...base, kind: 'line', dash: spec.dash }, data)
+        return createPlot({ ...base, kind: 'line', dash: spec.dash, size }, data)
       case 'histogram':
-        return createPlot({ ...base, kind: 'histogram', baseline: spec.baseline }, data)
+        return createPlot(
+          { ...base, kind: 'histogram', baseline: spec.baseline, size: spec.size },
+          data,
+        )
+      case 'columns':
+        return createPlot({ ...base, kind: 'columns', baseline: spec.baseline }, data)
       case 'points':
-        return createPlot({ ...base, kind: 'points' }, data)
+        return createPlot({ ...base, kind: 'points', size }, data)
       case 'char':
         return createPlot(
           {
@@ -129,6 +137,7 @@ function buildSeriesPlots(
             location: spec.location,
             text: spec.text,
             textColor: spec.textColor,
+            size,
           },
           data,
         )
@@ -139,6 +148,7 @@ function buildSeriesPlots(
             kind: 'arrow',
             colorUp: spec.colorUp,
             colorDown: spec.colorDown,
+            size,
           },
           data,
         )
@@ -151,6 +161,7 @@ function buildSeriesPlots(
             location: spec.location,
             text: spec.text,
             textColor: spec.textColor,
+            size,
           },
           data,
         )
@@ -173,6 +184,12 @@ function buildSeriesPlots(
 /** 布尔条件在数值列里只留下 1 或 na；相对定位的 Shape 用位置而非值。 */
 function toNa(condition: boolean): number {
   return condition ? 1 : Number.NaN
+}
+
+/** 数值像素柱宽只对 histogram 有意义；其余 kind 只接受枚举档位，误用直接报错。 */
+function enumPlotSize(size: ShapeSize | number | undefined): ShapeSize | undefined {
+  if (typeof size !== 'number') return size
+  throw new TypeError('Numeric Plot size is only supported by histogram')
 }
 
 /** 仅重算可见范围，不重新分配全量绘图点。 */
@@ -228,7 +245,7 @@ function plotRange(
       min = Math.min(min, value)
       max = Math.max(max, value)
     }
-    if (plot.kind === 'histogram' && hasValues) {
+    if ((plot.kind === 'histogram' || plot.kind === 'columns') && hasValues) {
       min = Math.min(min, plot.baseline)
       max = Math.max(max, plot.baseline)
     }

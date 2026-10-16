@@ -5,6 +5,30 @@ import type { Series } from '../series/types.js'
 /** 技术分析库公开接口。 */
 export type TechnicalAnalysisLibrary = {
   /**
+   * 当前值严格高于前 length 根中的所有有效值，不要求逐根上涨。
+   * @summary 上涨判断
+   * @param source 数据序列，如 close。
+   * @param length 回看根数，正整数，不包含当前根。
+   * @returns 满足时为 true；当前值为 NaN 或没有有效历史值时为 false，历史 NaN 忽略。
+   */
+  rising(source: Series, length: number): boolean
+  /**
+   * 当前值严格低于前 length 根中的所有有效值，不要求逐根下跌。
+   * @summary 下跌判断
+   * @param source 数据序列，如 close。
+   * @param length 回看根数，正整数，不包含当前根。
+   * @returns 满足时为 true；当前值为 NaN 或没有有效历史值时为 false，历史 NaN 忽略。
+   */
+  falling(source: Series, length: number): boolean
+  /**
+   * 当前值减去 length 根之前的值。
+   * @summary 数值变化
+   * @param source 数据序列，如 volume。
+   * @param length 回看根数，正整数，缺省为 1。
+   * @returns 差值序列；历史不足或任一端为 NaN 时为 NaN。
+   */
+  change(source: Series, length?: number): Series
+  /**
    * 简单移动平均（SMA）。
    * @summary 简单移动平均
    * @param source 数据序列，如 close。

@@ -574,6 +574,31 @@ describe('runQuickJSScript', () => {
     expect(values(result, 'sd')?.[3]).toBeCloseTo(Math.sqrt(8 / 3), 12)
   })
 
+  it('Columns 和 Histogram 保留不同柱宽契约', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`
+        plot.Columns(close, 'columns', { baseline: -1 })
+        plot.Histogram(close, 'pixels', { size: 5, baseline: 2 })
+        plot.Histogram(close, 'enum', { size: ShapeSize.Large })
+        plot.Histogram(close, 'default')`),
+      bars: barsFromCloses([1, 3]),
+    })
+    expect(result.plots).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'columns', kind: 'columns', baseline: -1 }),
+      expect.objectContaining({ id: 'pixels', kind: 'histogram', size: 5, baseline: 2 }),
+      expect.objectContaining({ id: 'enum', size: 'large' }),
+      expect.objectContaining({ id: 'default', size: 'auto' }),
+    ]))
+  })
+
+  it.each(['plot.Columns(close, "x", { size: ShapeSize.Normal })',
+    ...['0', '-1', 'NaN', 'Infinity', '"invalid"'].map((size) => `plot.Histogram(close, 'x', { size: ${size} })`),
+  ])('拒绝无效柱宽：%s', async (call) => {
+    await expect(runQuickJSScript({
+      source: scriptSource(call), bars: barsFromCloses([1]),
+    })).rejects.toBeInstanceOf(ScriptExecutionError)
+  })
+
   it('ta.mom 取相对 length 根之前的差值，历史不足保留空位', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(`plot.Line(ta.mom(close, 2)[0], 'mom')
@@ -582,6 +607,60 @@ plot.Line(ta.mom(close)[0], 'step')`),
     })
     expect(values(result, 'mom')).toEqual([undefined, undefined, 3, 5])
     expect(values(result, 'step')).toEqual([undefined, 1, 2, 3])
+  })
+
+  it('ta.rising/falling 严格比较历史窗口，平盘为 false，无需逐根单调', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`
+        const barUp: boolean = ta.rising(close, 1)
+        const barDn: boolean = ta.falling(close, 1)
+        plot.Line(barUp ? 1 : 0, 'up')
+        plot.Line(barDn ? 1 : 0, 'down')
+        plot.Line(ta.rising(close, 3) ? 1 : 0, 'high')
+        plot.Line(ta.falling(close, 3) ? 1 : 0, 'low')`),
+      bars: barsFromCloses([3, 1, 2, 4, 4, 2, 3, 0]),
+    })
+    expect(values(result, 'up')).toEqual([0, 0, 1, 1, 0, 0, 1, 0])
+    expect(values(result, 'down')).toEqual([0, 1, 0, 0, 0, 1, 0, 1])
+    expect(values(result, 'high')).toEqual([0, 0, 0, 1, 0, 0, 0, 0])
+    expect(values(result, 'low')).toEqual([0, 1, 0, 0, 0, 0, 0, 1])
+  })
+
+  it('方向判断忽略历史 NaN，当前 NaN 或没有有效历史时为 false', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`
+        const source = ta.change(close)
+        plot.Line(ta.rising(source, 2) ? 1 : 0, 'up')
+        plot.Line(ta.falling(source, 2) ? 1 : 0, 'down')`),
+      bars: barsFromCloses([1, 2, 4, 5]),
+    })
+    expect(values(result, 'up')).toEqual([0, 0, 1, 0])
+    expect(values(result, 'down')).toEqual([0, 0, 0, 0])
+  })
+
+  it('ta.change 支持成交量、指定间距及历史索引，保留 NaN', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`
+        const volumeChange: number = ta.change(volume)
+        plot.Line(volumeChange, 'change')
+        plot.Line(ta.change(volume, 2), 'two')
+        plot.Line(ta.change(volume)[1], 'previous')
+        plot.Line(ta.change(ta.change(volume)), 'second')`),
+      bars: barsFromCloses([1, 2, 3, 4, 5], [10, 15, 12, 12, 0]),
+    })
+    expect(values(result, 'change')).toEqual([undefined, 5, -3, 0, -12])
+    expect(values(result, 'two')).toEqual([undefined, undefined, 2, -3, -12])
+    expect(values(result, 'previous')).toEqual([undefined, undefined, 5, -3, 0])
+    expect(values(result, 'second')).toEqual([undefined, undefined, -8, 3, -12])
+  })
+
+  it.each(['rising', 'falling', 'change'])( 'ta.%s 拒绝非法周期', async (method) => {
+    for (const length of ['0', '-1', '1.5', 'NaN', 'Infinity']) {
+      await expect(runQuickJSScript({
+        source: scriptSource(`ta.${method}(close, ${length})`),
+        bars: barsFromCloses([1, 2]),
+      })).rejects.toBeInstanceOf(ScriptExecutionError)
+    }
   })
 
   it('ta.roc 取百分比变化，基准为 0 时留空', async () => {

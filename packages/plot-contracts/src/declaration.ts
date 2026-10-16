@@ -20,7 +20,7 @@ interface PlotStyleBase {
   readonly visible?: boolean
   /**
    * 图形尺寸档位；不填则使用 ShapeSize.Auto。
-   * 折线控制线宽，散点控制直径，形状和字符控制外框，箭头控制最大高度，柱状图控制柱宽。
+   * 折线控制线宽，散点控制直径，形状和字符控制外框，箭头控制最大高度。
    * 具体尺寸见 ShapeSize 的档位对照表。
    */
   readonly size?: ShapeSize
@@ -41,11 +41,20 @@ export interface LinePlotDeclaration extends PlotDeclarationBase {
 }
 
 /** 柱状图及其样式。 */
-export interface HistogramPlotDeclaration extends PlotDeclarationBase {
+export interface HistogramPlotDeclaration extends Omit<PlotDeclarationBase, 'size'> {
   /** 绘图类型：柱状图。 */
   readonly kind: 'histogram'
   /** 柱状图的起始基线值；不填则取 0。 */
   readonly baseline?: number
+  /** 固定逻辑像素柱宽，或 Size 档位；默认 1px。 */
+  readonly size?: ShapeSize | number
+}
+
+/** 自动柱宽随 K 线间距缩放，不支持 size。 */
+export interface ColumnsPlotDeclaration extends Omit<PlotDeclarationBase, 'size'> {
+  readonly kind: 'columns'
+  readonly baseline?: number
+  readonly size?: never
 }
 
 /** 点图 Plot 声明；散点直径由公共 size 决定。 */
@@ -76,6 +85,7 @@ export interface ArrowPlotDeclaration extends PlotDeclarationBase, ArrowOptions 
 export type PlotDeclaration =
   | LinePlotDeclaration
   | HistogramPlotDeclaration
+  | ColumnsPlotDeclaration
   | PointsPlotDeclaration
   | ShapePlotDeclaration
   | CharPlotDeclaration
@@ -83,12 +93,12 @@ export type PlotDeclaration =
 
 /** 绘图调用的样式选项；绘图名称由绘图方法的位置参数提供。 */
 export interface PlotCallOptions
-  extends PlotStyleBase,
+  extends Omit<PlotStyleBase, 'size'>,
     ShapeOptions,
     CharOptions,
     ArrowOptions,
     Pick<LinePlotDeclaration, 'dash'>,
-    Pick<HistogramPlotDeclaration, 'baseline'> {}
+    Pick<HistogramPlotDeclaration, 'baseline' | 'size'> {}
 
 /** 两个图形之间的填充区域及其样式。 */
 export interface PlotFillDeclaration {

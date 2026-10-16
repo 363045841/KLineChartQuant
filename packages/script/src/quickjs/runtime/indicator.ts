@@ -10,6 +10,10 @@ const plot: ScriptPlot = {
   Histogram(value, name, options) {
     emitPlot(PlotKind.Histogram, value, name, options)
   },
+  /** 输出随 K 线间距缩放的柱状图。 */
+  Columns(value, name, options) {
+    emitPlot(PlotKind.Columns, value, name, options)
+  },
   /** 输出散点。 */
   Point(value, name, options) {
     emitPlot(PlotKind.Points, value, name, options)

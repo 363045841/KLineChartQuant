@@ -355,10 +355,10 @@ describe('builtin indicator registration', () => {
     }
   })
 
-  it('MACD 声明柱状和线条 Plot', () => {
+  it('MACD 声明柱形和线条 Plot', () => {
     expect(
       getRegisteredIndicatorDefinition('MACD')?.plots?.series.map((plot) => plot.kind ?? 'line'),
-    ).toEqual(['histogram', 'line', 'line'])
+    ).toEqual(['columns', 'line', 'line'])
   })
 
   it('叠加指标声明 Plot', () => {

@@ -33,9 +33,17 @@ export interface LinePlot extends PlotBase {
   readonly dash: readonly number[]
 }
 
-/** 柱状图；柱宽随 K 线间距变化，`baseline` 为柱子起算的基准值。 */
-export interface HistogramPlot extends PlotBase {
+/** 固定像素柱宽的柱状图，`baseline` 为柱子起算的基准值。 */
+export interface HistogramPlot extends Omit<PlotBase, 'size'> {
   readonly kind: 'histogram'
+  readonly baseline: number
+  /** 固定逻辑像素柱宽，或映射为像素的尺寸档位。 */
+  readonly size: import('./shape.js').ShapeSize | number
+}
+
+/** 柱宽随 K 线间距缩放，不支持手动柱宽。 */
+export interface ColumnsPlot extends PlotBase {
+  readonly kind: 'columns'
   readonly baseline: number
 }
 
@@ -73,13 +81,14 @@ export interface ArrowPlot extends PlotBase {
   readonly colorDown: string
 }
 
-export type Plot = LinePlot | HistogramPlot | PointsPlot | ShapePlot | CharPlot | ArrowPlot
+export type Plot = LinePlot | HistogramPlot | ColumnsPlot | PointsPlot | ShapePlot | CharPlot | ArrowPlot
 
 export type PlotKind = Plot['kind']
 
 export const PlotKind = {
   Line: 'line',
   Histogram: 'histogram',
+  Columns: 'columns',
   Points: 'points',
   Shape: 'shape',
   Char: 'char',
@@ -101,6 +110,7 @@ export function isPricePlot(plot: Plot): boolean {
       return false
     case 'line':
     case 'histogram':
+    case 'columns':
     case 'points':
       return true
   }

@@ -106,7 +106,7 @@ beforeAll(async () => {
     compute: (data) => ({
       plots: [
         {
-          kind: 'histogram',
+          kind: 'columns',
           id: 'volume',
           label: 'VOLUME',
           data: data.map((bar) => ({ value: bar.volume ?? 0 })),
@@ -231,14 +231,14 @@ describe('ChartIndicatorManager', () => {
       vi.unstubAllGlobals()
     }
   })
-  it('外部 Plot 副图使用柱状模型及零基准范围', async () => {
+  it('外部 Plot 副图使用柱形模型及零基准范围', async () => {
     const instance = manager.addIndicator('PlotVolume')
     expect(instance).not.toBeNull()
     const data = createTestData(5)
     manager.updateIndicatorData(data, { start: 0, end: 5 })
     await vi.waitFor(() => expect(manager.createRenderStateReader().get(instance!)).toBeDefined())
     const state = manager.createRenderStateReader().get<PlotRenderState>(instance!)!
-    expect(state.plots[0]).toMatchObject({ kind: 'histogram', baseline: 0 })
+    expect(state.plots[0]).toMatchObject({ kind: 'columns', baseline: 0 })
     expect(state.visibleMin).toBe(0)
     expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
   })

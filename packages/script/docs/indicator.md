@@ -93,13 +93,22 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 | 方法 | 形状 | 额外样式 |
 | --- | --- | --- |
 | `plot.Line` | 折线 | `dash` 虚线 |
-| `plot.Histogram` | 柱状图，柱宽随 K 线间距变化 | `baseline` 基准值 |
+| `plot.Columns` | 柱宽随 K 线间距缩放，不支持 `size` | `baseline` 基准值 |
+| `plot.Histogram` | 固定像素柱宽，不随缩放变化 | `baseline` 基准值，`size` 为正数像素或 `ShapeSize` 枚举 |
 | `plot.Point` | 圆形散点 | — |
 | `plot.Shape` | 形状标记 | `style`、`location`、`text`、`textColor` |
 | `plot.Char` | 字符标记 | `char`、`location`、`text`、`textColor` |
 | `plot.Arrow` | 数值箭头 | `colorUp`、`colorDown` |
 
 所有方法接受 `number | null`，`null` 主动留空。`plot.Shape` 和 `plot.Char` 也接受布尔条件，`false` 留空。
+
+```ts
+plot.Columns(volume, 'volume') // 柱宽随缩放变化
+plot.Histogram(close - open, 'body', { size: 3 }) // 固定 3px
+plot.Histogram(close - open, 'body-size', { size: ShapeSize.Large }) // 固定 3px
+```
+
+Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Huge 为 4px。
 
 ### Plot 通用声明
 

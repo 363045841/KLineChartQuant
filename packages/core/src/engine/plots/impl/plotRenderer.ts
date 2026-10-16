@@ -2,6 +2,7 @@
 
 import type {
   ArrowPlot,
+  ColumnsPlot,
   HistogramPlot,
   LinePlot,
   Plot,
@@ -33,7 +34,7 @@ import {
 import {
   arrowMaxHeight,
   arrowMinHeight,
-  barWidthRatio,
+  histogramWidth,
   lineWidth,
   pointRadius,
 } from './plotSize.js'
@@ -50,10 +51,10 @@ interface LineProjection {
   readonly lines: readonly LineBatch[]
 }
 
-/** 柱状图的投影结果。 */
-interface HistogramProjection {
-  readonly kind: 'histogram'
-  readonly plot: HistogramPlot
+/** 柱状图与柱形图的投影结果：几何相同，只有柱宽来源不同。 */
+interface ColumnProjection {
+  readonly kind: 'histogram' | 'columns'
+  readonly plot: HistogramPlot | ColumnsPlot
   readonly points: ReadonlyMap<number, Point>
   readonly rects: readonly RectBatch[]
 }
@@ -80,7 +81,7 @@ interface MarkerProjection {
 }
 
 /** 一个 Plot 的完整投影；每种 kind 携带自己的重放数据，绘制端不再判空或回查。 */
-type PlotProjection = LineProjection | HistogramProjection | PointsProjection | MarkerProjection
+type PlotProjection = LineProjection | ColumnProjection | PointsProjection | MarkerProjection
 
 /** 填充的投影结果：端点在此解析，重放时不再按 id 查找。 */
 interface FillProjection {
@@ -162,7 +163,7 @@ function projectX(index: number, context: RenderContext): number | null {
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
 function projectPricePoint(
-  plot: LinePlot | HistogramPlot | PointsPlot,
+  plot: LinePlot | HistogramPlot | ColumnsPlot | PointsPlot,
   index: number,
   context: RenderContext,
 ): Point | undefined {
@@ -248,9 +249,9 @@ function buildLineSegments(
   return lines.filter((line) => line.points.length >= 2)
 }
 
-/** 构建柱状几何，横向宽度沿用图表的 K 线几何。 */
-function buildHistogram(
-  plot: HistogramPlot,
+/** 构建柱体几何：histogram 用固定像素宽，columns 沿用 K 线实体宽度。 */
+function buildColumnRects(
+  plot: HistogramPlot | ColumnsPlot,
   context: RenderContext,
   points: ReadonlyMap<number, Point>,
 ): RectBatch[] {
@@ -273,8 +274,8 @@ function buildHistogram(
     }
     // 先对齐数值端点和基线，再求高度，保证所有柱子的基线边缘一致。
     const vertical = barVerticalRect(point.y, baselineY, context.dpr)
-    // 柱宽按 size 档位相对 K 线间距缩放，缩放后仍与 K 线中心对齐。
-    const width = bar.width * barWidthRatio(plot.size)
+    // histogram 柱宽固定为逻辑像素，columns 跟随 K 线实体宽度，两者都按 bar 中心对齐。
+    const width = plot.kind === 'histogram' ? histogramWidth(plot.size) : bar.width
     const offset = batch.count++ * 4
     batch.buf[offset] = bar.x + (bar.width - width) / 2
     batch.buf[offset + 1] = vertical.y
@@ -293,11 +294,12 @@ function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
       )
       return { kind: 'line', plot, points, lines: buildLineSegments(plot, context, points) }
     }
-    case 'histogram': {
+    case 'histogram':
+    case 'columns': {
       const points = projectPoints(plot, context, (index) =>
         projectPricePoint(plot, index, context),
       )
-      return { kind: 'histogram', plot, points, rects: buildHistogram(plot, context, points) }
+      return { kind: plot.kind, plot, points, rects: buildColumnRects(plot, context, points) }
     }
     case 'points': {
       const points = projectPoints(plot, context, (index) =>
@@ -520,6 +522,7 @@ export function paintPlots(
         drawLine(projection, context)
         break
       case 'histogram':
+      case 'columns':
         drawWorldRectBatches(context, projection.rects)
         break
       case 'points':

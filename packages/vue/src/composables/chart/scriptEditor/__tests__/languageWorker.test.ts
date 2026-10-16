@@ -253,7 +253,7 @@ describe('script language service', () => {
 
   it('补全绘图方法，并拒绝旧的函数调用', async () => {
     expect(await completions('plot.')).toEqual(
-      expect.arrayContaining(['Line', 'Histogram', 'Point', 'Shape', 'Char', 'Arrow']),
+      expect.arrayContaining(['Line', 'Columns', 'Histogram', 'Point', 'Shape', 'Char', 'Arrow']),
     )
     const worker = await createSession(`plot.Histogram(1, 'volume')`)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
