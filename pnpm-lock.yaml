@@ -555,6 +555,9 @@ importers:
       '@363045841yyt/klinechart-plot-contracts':
         specifier: workspace:*
         version: link:../plot-contracts
+      '@typescript/vfs':
+        specifier: ^1.6.5
+        version: 1.6.5(supports-color@10.2.2)(typescript@6.0.3)
       quickjs-emscripten:
         specifier: ^0.32.0
         version: 0.32.0
@@ -644,9 +647,6 @@ importers:
       '@fontsource/outfit':
         specifier: ^5.3.0
         version: 5.3.0
-      '@typescript/vfs':
-        specifier: ^1.6.5
-        version: 1.6.5(supports-color@10.2.2)(typescript@6.0.3)
       '@valtown/codemirror-ts':
         specifier: ^2.3.1
         version: 2.3.1(@codemirror/autocomplete@6.20.3)(@codemirror/lint@6.9.7)(@codemirror/state@6.7.6)(@codemirror/view@6.43.14)

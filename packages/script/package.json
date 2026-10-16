@@ -14,6 +14,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./language": {
+      "types": "./dist/language/index.d.ts",
+      "import": "./dist/language/index.js"
+    },
     "./editor": {
       "types": "./dist/editor/resources.d.ts",
       "import": "./dist/editor/resources.js"
@@ -48,6 +52,7 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
+    "@typescript/vfs": "^1.6.5",
     "typescript": "~6.0.3",
     "@363045841yyt/klinechart-plot-contracts": "workspace:*",
     "quickjs-emscripten": "^0.32.0"

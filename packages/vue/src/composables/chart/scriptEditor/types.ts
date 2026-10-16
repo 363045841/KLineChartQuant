@@ -26,7 +26,7 @@ export interface ScriptSourceStore {
 /** 应用级源码仓库注入键，供所有图表编辑器共用。 */
 export const SCRIPT_SOURCE_STORE_KEY: InjectionKey<ScriptSourceStore> = Symbol('ScriptSourceStore')
 /** 编辑器虚拟文件的固定身份；会话通过独立 Worker 隔离。 */
-export const SCRIPT_EDITOR_FILE = '/indicator.ts'
+export { SCRIPT_SOURCE_FILE as SCRIPT_EDITOR_FILE } from '@363045841yyt/klinechart-script/language'
 
 import type { createWorker } from '@valtown/codemirror-ts/worker'
 

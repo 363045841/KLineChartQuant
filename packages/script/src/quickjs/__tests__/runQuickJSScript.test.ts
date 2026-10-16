@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { Color } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
-import type { Bar } from '../../contracts/input.js'
+import { barsFromCloses, scriptSource, values, wavyCloses } from '../../__tests__/marketData.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { builtinScriptSources } from '../generated/builtinScripts.js'
 import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQuickJSScript.js'
@@ -21,31 +21,36 @@ const shippedOcSource = readFileSync(
   'utf8',
 )
 
-/** 用完整文件声明包装计算片段，所有用例走相同初始化入口。 */
-function scriptSource(body: string, inputs = '{}'): string {
-  return `defineIndicator({ name: 'TestScript', pane: 'main', inputs: ${inputs}, onBar() { ${body} } })`
-}
-
-/** 生成 close 驱动的完整 K 线，open/high/low 与 close 相同；volume 缺省为 1。 */
-function barsFromCloses(closes: readonly number[], volumes?: readonly number[]): Bar[] {
-  return closes.map((close, index) => ({
-    time: index,
-    open: close,
-    high: close,
-    low: close,
-    close,
-    volume: volumes?.[index] ?? 1,
-  }))
-}
-
-/** 取某 id 的值序列，缺失点为 undefined。 */
-function values(options: Awaited<ReturnType<typeof runQuickJSScript>>, id: string) {
-  return options.plots.find((plot) => plot.id === id)?.data.map((point) => point?.value)
-}
-
-/** 生成平滑波动的收盘价，避免常量序列让各算法退化。 */
-function wavyCloses(count: number): number[] {
-  return Array.from({ length: count }, (_, index) => 100 + Math.sin(index / 7) * 5)
+/** 与 ta 各算法同约定的整窗参考值；权重由调用方按算法给定的窗口计算。 */
+function referenceWindow(
+  algorithm: string,
+  samples: readonly number[],
+  weights: readonly number[],
+): number {
+  const sum = samples.reduce((total, value) => total + value, 0)
+  switch (algorithm) {
+    case 'sma':
+      return sum / samples.length
+    case 'sum':
+      return sum
+    case 'highest':
+      return Math.max(...samples)
+    case 'lowest':
+      return Math.min(...samples)
+    case 'stddev': {
+      const mean = sum / samples.length
+      return Math.sqrt(
+        samples.reduce((total, value) => total + (value - mean) ** 2, 0) / samples.length,
+      )
+    }
+    default: {
+      const weightSum = weights.reduce((total, value) => total + value, 0)
+      if (weightSum <= 0) return Number.NaN
+      return (
+        samples.reduce((total, value, step) => total + value * (weights[step] ?? 0), 0) / weightSum
+      )
+    }
+  }
 }
 
 /** 与 ta.ema 同约定的参考实现：首个完整窗口 SMA 初始化，之后按 2/(length+1) 递推。 */
@@ -111,33 +116,14 @@ describe('runQuickJSScript', () => {
             const queried = index % 7 === 0 || index === closes.length - 1
             const end = index - offset + 1
             const samples = closes.slice(Math.max(0, end - length), Math.max(0, end))
-            let expected = Number.NaN
-            if (queried && end >= length && samples.every(Number.isFinite)) {
-              const sum = samples.reduce((total, value) => total + value, 0)
-              if (algorithm === 'sma') expected = sum / length
-              else if (algorithm === 'sum') expected = sum
-              else if (algorithm === 'highest') expected = Math.max(...samples)
-              else if (algorithm === 'lowest') expected = Math.min(...samples)
-              else if (algorithm === 'stddev') {
-                const mean = sum / length
-                expected = Math.sqrt(
-                  samples.reduce((total, value) => total + (value - mean) ** 2, 0) / length,
-                )
-              } else {
-                const weights =
-                  algorithm === 'wma'
-                    ? samples.map((_value, step) => step + 1)
-                    : volumes.slice(end - length, end)
-                const weightSum = weights.reduce((total, value) => total + value, 0)
-                expected =
-                  weightSum > 0
-                    ? samples.reduce(
-                        (total, value, step) => total + value * (weights[step] ?? 0),
-                        0,
-                      ) / weightSum
-                    : Number.NaN
-              }
-            }
+            const weights =
+              algorithm === 'wma'
+                ? samples.map((_value, step) => step + 1)
+                : volumes.slice(end - length, end)
+            const expected =
+              queried && end >= length && samples.every(Number.isFinite)
+                ? referenceWindow(algorithm, samples, weights)
+                : Number.NaN
             if (Number.isNaN(expected)) expect(actual?.[index]).toBeUndefined()
             else expect(actual?.[index]).toBeCloseTo(expected, 8)
           }

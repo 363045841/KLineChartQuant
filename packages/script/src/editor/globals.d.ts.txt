@@ -13,12 +13,13 @@ declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
   interface ScriptParameters {}
 
-  const open: Series
-  const high: Series
-  const low: Series
-  const close: Series
-  const volume: Series
-  const time: Series
+  // 行情序列由 VM 注入为 globalThis 属性，声明成 var 才能让 globalThis.close 与 close 解析出同一类型。
+  var open: Series
+  var high: Series
+  var low: Series
+  var close: Series
+  var volume: Series
+  var time: Series
   /**
    * 内建技术分析库
    * 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。

@@ -16,10 +16,10 @@ defineIndicator({
     a: input(0, { title: '偏移量' }),
   },
   onBar() {
-    const average = (open[0] + close[0]) / params.n + params.a
+    const average = (open + close) / params.n + params.a
     plot.Line(average, { id: 'oc-average', color: '#26a69a' })
-    plot.Line(high[0], { id: 'oc-high' })
-    plot.Line(low[0], { id: 'oc-low' })
+    plot.Line(high, { id: 'oc-high' })
+    plot.Line(low, { id: 'oc-low' })
   },
 })
 ```
@@ -54,6 +54,15 @@ await scripts.create(source)
 
 `onBar` 不需要参数：行情序列、库和参数都是注入的全局。
 `close[0]` 是当前 K 线，`close[1]` 是前一根；历史不足返回 `NaN`，永远不能访问未来。
+
+在数值运算、比较、条件判断，以及要求数值的参数位置，可以省略 `[0]`。
+例如 `high - low`、`close > close[1]`、`Math.max(open, close)` 和 `plot.Line(close, { id: 'close' })`。
+`open`、`high`、`low`、`close`、`volume`、`time` 和 `ta` 返回的派生序列都遵循同一规则。
+
+需要完整序列的位置仍然保留序列，例如 `ta.sma(close, 20)`。
+未标注类型的 `const src = close` 是序列别名，可继续使用 `src[1]` 或 `ta.sma(src, 20)`；
+需要保存当前数值时使用 `const current: number = close` 或显式的 `close[0]`。
+编译器和编辑器共用这套规则，转换仅发生在源码变化时，逐 bar 计算不进行类型分析。
 
 参数用 `input(默认值, 选项)` 声明，表的键就是脚本里通过 `params` 读的名字：
 
@@ -154,6 +163,6 @@ onBar() {
 ```js
 onBar() {
   const ma = ta.sma(close, params.period)
-  plot.Line(ma[0], { id: 'sma' })
+  plot.Line(ma, { id: 'sma' })
 }
 ```
