@@ -35,11 +35,13 @@ import './styles/fonts.css'
 import './styles/scrollbar.css'
 
 export type {
+  BuiltinMarketId,
   ChartController,
   ChartMountOptions,
   ChartViewport,
   CustomDataSource,
   KLineData,
+  MarketId,
 } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------

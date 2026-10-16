@@ -53,7 +53,10 @@ import {
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
 import type { TradeSnapshot } from '../../data/trades/types.js'
-import { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
+import {
+  MarketSessionRegistry,
+  resolveCustomDataMarket,
+} from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { ChartDom } from '../chart/index.js'
@@ -1223,9 +1226,10 @@ export class ChartDataManager {
 
   applyCustomData(source: CustomDataSource): void {
     const sourceId = `${CUSTOM_SOURCE_PREFIX}${source.source?.trim() || 'default'}`
+    const market = resolveCustomDataMarket(source.market)
     const spec: SymbolSpec = {
       symbol: source.symbol ?? '',
-      market: source.market,
+      market,
       exchange: source.exchange,
       period: ChartDataManager.normalizePeriod(source.period),
       adjust: source.adjust ?? DEFAULT_KLINE_ADJUSTMENT,
@@ -1234,7 +1238,7 @@ export class ChartDataManager {
     }
     const comparisonSpecs = Object.keys(source.comparisons ?? {}).map<SymbolSpec>((symbol) => ({
       symbol,
-      market: source.market,
+      market,
       exchange: source.exchange,
       period: spec.period,
       adjust: spec.adjust,
@@ -1266,7 +1270,7 @@ export class ChartDataManager {
       this.registerSymbols([
         {
           symbol: symbolCode,
-          market: source.market,
+          market,
           description: source.description ?? symbolCode,
           exchange: source.exchange ?? '',
           source: sourceId,

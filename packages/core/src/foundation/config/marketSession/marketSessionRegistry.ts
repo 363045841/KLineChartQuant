@@ -9,7 +9,34 @@ import {
 } from '../../utils/sessionTimeLabels.js'
 import { FOREX_MARKET_SESSION } from './forexMarketSession.js'
 
-const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
+/** 内置市场会话标识；注册表构造时即可用，无需额外配置。 */
+export const BUILTIN_MARKET_IDS = ['CN', 'HK', 'KR', 'US', 'MT5'] as const
+
+/** 内置市场会话标识的字面量联合。 */
+export type BuiltinMarketId = (typeof BUILTIN_MARKET_IDS)[number]
+
+/**
+ * 市场会话标识：内置值获得补全提示，同时允许通过 `ChartMountOptions.marketSessions`
+ * 注册的自定义会话标识（`string & {}` 保留字面量补全）。
+ */
+export type MarketId = BuiltinMarketId | (string & {})
+
+/**
+ * 自定义/内联数据（`applyCustomData` / Vue `customData`）缺省 market 时使用的会话。
+ *
+ * 内置会话中没有 24x7 会话；选择 MT5（FOREX_MARKET_SESSION）是因为它是唯一一个
+ * UTC 时区、单段 00:00–24:00 连续交易、无午休也无交易所本地开收盘时间的会话，
+ * 对任意来源的数据最中性：K 线视图下不会按某个交易所的时区/收盘时间解释用户数据。
+ * 需要交易所语义（分时槽位、收盘倒计时等）时应显式传入 market。
+ */
+export const DEFAULT_CUSTOM_DATA_MARKET: BuiltinMarketId = 'MT5'
+
+/** 解析自定义数据的市场标识：去除空白，缺省或空串回落到 {@link DEFAULT_CUSTOM_DATA_MARKET}。 */
+export function resolveCustomDataMarket(market: string | undefined): string {
+  return market?.trim() || DEFAULT_CUSTOM_DATA_MARKET
+}
+
+const BUILTIN_MARKET_SESSIONS: Readonly<Record<BuiltinMarketId, MarketSessionConfig>> = {
   CN: ASHARE_MARKET_SESSION,
   HK: HK_MARKET_SESSION,
   KR: KR_MARKET_SESSION,

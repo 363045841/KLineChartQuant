@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import { HK_MARKET_SESSION, KR_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
 import { FOREX_MARKET_SESSION } from '../forexMarketSession'
-import { MarketSessionRegistry } from '../marketSessionRegistry'
+import {
+  BUILTIN_MARKET_IDS,
+  DEFAULT_CUSTOM_DATA_MARKET,
+  MarketSessionRegistry,
+  resolveCustomDataMarket,
+} from '../marketSessionRegistry'
 
 describe('MarketSessionRegistry', () => {
   it('provides built-in market sessions per instance', () => {
@@ -51,5 +56,27 @@ describe('MarketSessionRegistry', () => {
         sessions: [],
       }),
     ).toThrow('Invalid market session: BROKEN')
+  })
+
+  it('registers every id in BUILTIN_MARKET_IDS', () => {
+    const registry = new MarketSessionRegistry()
+
+    for (const id of BUILTIN_MARKET_IDS) expect(registry.get(id)).toBeDefined()
+  })
+})
+
+describe('resolveCustomDataMarket', () => {
+  it('defaults missing or blank market to the neutral MT5 (UTC 00:00-24:00) session', () => {
+    expect(DEFAULT_CUSTOM_DATA_MARKET).toBe('MT5')
+    expect(resolveCustomDataMarket(undefined)).toBe('MT5')
+    expect(resolveCustomDataMarket('   ')).toBe('MT5')
+    expect(new MarketSessionRegistry().getRequired(resolveCustomDataMarket(undefined))).toEqual(
+      FOREX_MARKET_SESSION,
+    )
+  })
+
+  it('keeps an explicit market (trimmed) without validating it', () => {
+    expect(resolveCustomDataMarket(' US ')).toBe('US')
+    expect(resolveCustomDataMarket('FUTURES')).toBe('FUTURES')
   })
 })

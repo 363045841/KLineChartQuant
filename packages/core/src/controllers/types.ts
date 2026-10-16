@@ -36,6 +36,7 @@ import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
+import type { MarketId } from '../foundation/config/marketSession/marketSessionRegistry.js'
 import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
@@ -175,7 +176,13 @@ export interface SymbolSpec {
 
 /** User-provided K-line data bundle — bypasses the fetcher pipeline entirely */
 export interface CustomDataSource {
-  market: string
+  /**
+   * Market session id used to interpret the bars' timestamps (time zone, trading hours).
+   * Built-in values: `'CN' | 'HK' | 'KR' | 'US' | 'MT5'`; other ids must be registered via
+   * `ChartMountOptions.marketSessions`. Optional: defaults to `DEFAULT_CUSTOM_DATA_MARKET` (`'MT5'`,
+   * a continuous 00:00–24:00 UTC session) when omitted or blank.
+   */
+  market?: MarketId
   symbol?: string
   period?: string
   adjust?: string

@@ -45,7 +45,10 @@ import {
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
-import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
+import {
+  MarketSessionRegistry,
+  resolveCustomDataMarket,
+} from '../../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
   PRICE_AXIS_RANGE_MODE,
@@ -1646,7 +1649,7 @@ export class Chart {
       resolveSymbolMarketSession(
         {
           symbol: source.symbol ?? '',
-          market: source.market,
+          market: resolveCustomDataMarket(source.market),
         },
         this.marketSessions,
       )

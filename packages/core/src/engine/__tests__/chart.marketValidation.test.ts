@@ -2,6 +2,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FIVE_DAY_TIME_SHARE_PERIOD, TIME_SHARE_PERIOD } from '../../controllers/types'
+import { FOREX_MARKET_SESSION } from '../../foundation/config/marketSession/forexMarketSession'
 import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'
@@ -90,5 +91,24 @@ describe('Chart market validation boundaries', () => {
     ).toThrow('invalid K-line period')
     expect(chart.symbols.peek()).toBe(before)
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
+  })
+
+  it('applies custom data without a market using the default MT5 session', () => {
+    const bar = { timestamp: Date.UTC(2026, 0, 2), open: 1, high: 2, low: 0.5, close: 1.5 }
+    expect(() =>
+      chart.applyCustomData({ symbol: 'DEMO', period: 'daily', data: [bar] }),
+    ).not.toThrow()
+
+    expect(chart.symbols.peek()[0]).toMatchObject({ symbol: 'DEMO', market: 'MT5' })
+    expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
+
+    chart.setCurrentPeriod(TIME_SHARE_PERIOD)
+    expect(chart['_timeShareMode'].marketSession).toBe(FOREX_MARKET_SESSION)
+  })
+
+  it('treats a blank custom-data market as missing', () => {
+    chart.applyCustomData({ symbol: 'DEMO', market: '  ', period: 'daily', data: [] })
+
+    expect(chart.symbols.peek()[0]?.market).toBe('MT5')
   })
 })
