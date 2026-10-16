@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class ZLEMADefinition {
-  static rendererFactory = plotRenderer('zlema', 'main')
+  static rendererFactory = plotRenderer('zlema')
 }

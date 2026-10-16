@@ -36,5 +36,5 @@ import { readPlotField } from '@/engine/plots/impl/projectPlots.js'
   },
 })
 export class SARDefinition {
-  static rendererFactory = plotRenderer('sar', 'main')
+  static rendererFactory = plotRenderer('sar')
 }

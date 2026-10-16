@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class SMMADefinition {
-  static rendererFactory = plotRenderer('smma', 'main')
+  static rendererFactory = plotRenderer('smma')
 }

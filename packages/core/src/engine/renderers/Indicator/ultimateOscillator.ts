@@ -21,5 +21,5 @@ import { createUltimateOscillatorScaleLayer } from './scale/ultimateOscillator_s
   },
 })
 export class UltimateOscillatorIndicatorDefinition {
-  static rendererFactory = plotRenderer('ultimateOscillator', 'sub_UO')
+  static rendererFactory = plotRenderer('ultimateOscillator')
 }

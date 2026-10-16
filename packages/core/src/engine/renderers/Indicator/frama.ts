@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class FRAMADefinition {
-  static rendererFactory = plotRenderer('frama', 'main')
+  static rendererFactory = plotRenderer('frama')
 }

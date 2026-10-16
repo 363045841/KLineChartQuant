@@ -33,5 +33,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   runtime: { defaultParams: {}, computeKey: 'calcGMMAData', compute: (data) => calcGMMAData(data) },
 })
 export class GMMADefinition {
-  static rendererFactory = plotRenderer('gmma', 'main')
+  static rendererFactory = plotRenderer('gmma')
 }

@@ -24,5 +24,5 @@ import { createAtrScaleLayer } from './scale/atr_scale.js'
   },
 })
 export class ATRIndicatorDefinition {
-  static rendererFactory = plotRenderer('atr', 'sub_ATR')
+  static rendererFactory = plotRenderer('atr')
 }

@@ -22,5 +22,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class HMADefinition {
-  static rendererFactory = plotRenderer('hma', 'main')
+  static rendererFactory = plotRenderer('hma')
 }

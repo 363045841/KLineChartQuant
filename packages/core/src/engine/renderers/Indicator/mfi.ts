@@ -27,5 +27,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class MFIIndicatorDefinition {
-  static rendererFactory = plotRenderer('mfi', 'sub_MFI')
+  static rendererFactory = plotRenderer('mfi')
 }

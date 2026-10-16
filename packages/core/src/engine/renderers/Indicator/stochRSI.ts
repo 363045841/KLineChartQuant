@@ -27,5 +27,5 @@ import { createStochRSIScaleLayer } from './scale/stochRSI_scale.js'
   },
 })
 export class StochRSIIndicatorDefinition {
-  static rendererFactory = plotRenderer('stochRSI', 'sub_StochRSI')
+  static rendererFactory = plotRenderer('stochRSI')
 }

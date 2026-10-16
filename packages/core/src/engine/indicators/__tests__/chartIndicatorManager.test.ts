@@ -7,6 +7,7 @@ import { IndicatorType, ShapeSize } from '@363045841yyt/klinechart-plot-contract
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
+import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import { createSignal } from '@/foundation/reactivity/signal'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
@@ -26,6 +27,7 @@ import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndic
 import { Indicator } from '../indicatorDecorator.js'
 import {
   getIndicatorDescriptor,
+  getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
   registerIndicatorDefinition,
 } from '../indicatorDefinitionRegistry.js'
@@ -65,7 +67,7 @@ function registerExternalPlotIndicator(config: {
     runtime: { defaultParams: { factor: 1 }, compute: config.compute },
   })
   class ExternalPlotDefinition {
-    static rendererFactory = plotRenderer(config.name, paneId)
+    static rendererFactory = plotRenderer(config.name)
   }
   decorate(ExternalPlotDefinition)
   registerIndicatorDefinition(ExternalPlotDefinition)
@@ -284,6 +286,25 @@ describe('ChartIndicatorManager', () => {
       indicatorId: 'script_editable_plot',
       params: { period: 7 },
     })
+    // 位置由定义派生，迁移到主图后必须继续按原实例身份读取计算结果。
+    updatePlotIndicator({ ...definition(3), pane: 'main' })
+    expect(manager.getSubPaneEntries()).toHaveLength(0)
+    const metadata = getRegisteredIndicatorDefinition('script_editable_plot')!
+    const renderer = deps.getRenderer(
+      makePluginLayerId(
+        metadata.getRendererName({ paneId: 'main', indicatorId: 'script_editable_plot' }),
+      ),
+    )!
+    const ctx = createMockCanvasContext()
+    renderer.paint(
+      createContextWithInstanceState(ctx, id!, read()!, {
+        range: { start: 0, end: 3 },
+      }),
+    )
+    expect(ctx.stroke).toHaveBeenCalled()
+    manager.updateMainIndicatorParams('script_editable_plot', { period: 9 })
+    manager.setActiveMainIndicators(['script_editable_plot'])
+    expect(manager.indicatorsComputed()[0]?.id).toBe(id)
   })
   it('中立定义声明的业务分类进入目录，未声明时归入 other', () => {
     /** 中立定义只声明 Plot 数据与业务分类，目录元数据由 core 派生。 */

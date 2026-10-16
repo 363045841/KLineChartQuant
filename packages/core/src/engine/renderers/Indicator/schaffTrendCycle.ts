@@ -24,5 +24,5 @@ import { createSchaffTrendCycleScaleLayer } from './scale/schaffTrendCycle_scale
   },
 })
 export class SchaffTrendCycleIndicatorDefinition {
-  static rendererFactory = plotRenderer('schaffTrendCycle', 'sub_STC')
+  static rendererFactory = plotRenderer('schaffTrendCycle')
 }

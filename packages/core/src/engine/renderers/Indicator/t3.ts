@@ -22,5 +22,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class T3Definition {
-  static rendererFactory = plotRenderer('t3', 'main')
+  static rendererFactory = plotRenderer('t3')
 }

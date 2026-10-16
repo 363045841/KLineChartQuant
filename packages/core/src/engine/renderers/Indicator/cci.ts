@@ -29,5 +29,5 @@ import { createCciScaleLayer } from './scale/cci_scale.js'
   },
 })
 export class CCIIndicatorDefinition {
-  static rendererFactory = plotRenderer('cci', 'sub_CCI')
+  static rendererFactory = plotRenderer('cci')
 }

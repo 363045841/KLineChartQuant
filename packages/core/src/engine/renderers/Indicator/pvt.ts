@@ -16,5 +16,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   runtime: { defaultParams: {}, computeKey: 'calcPVTData', compute: (data) => calcPVTData(data) },
 })
 export class PVTIndicatorDefinition {
-  static rendererFactory = plotRenderer('pvt', 'sub_PVT')
+  static rendererFactory = plotRenderer('pvt')
 }

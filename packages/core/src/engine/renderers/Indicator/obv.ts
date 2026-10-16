@@ -16,5 +16,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   runtime: { defaultParams: {}, computeKey: 'calcOBVData', compute: (data) => calcOBVData(data) },
 })
 export class OBVIndicatorDefinition {
-  static rendererFactory = plotRenderer('obv', 'sub_OBV')
+  static rendererFactory = plotRenderer('obv')
 }

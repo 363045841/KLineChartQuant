@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class KAMADefinition {
-  static rendererFactory = plotRenderer('kama', 'main')
+  static rendererFactory = plotRenderer('kama')
 }

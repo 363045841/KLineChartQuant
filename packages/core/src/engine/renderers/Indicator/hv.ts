@@ -23,5 +23,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class HVIndicatorDefinition {
-  static rendererFactory = plotRenderer('hv', 'sub_HV')
+  static rendererFactory = plotRenderer('hv')
 }

@@ -50,5 +50,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class FibDefinition {
-  static rendererFactory = plotRenderer('fib', 'main')
+  static rendererFactory = plotRenderer('fib')
 }

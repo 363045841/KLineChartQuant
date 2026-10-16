@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class TEMADefinition {
-  static rendererFactory = plotRenderer('tema', 'main')
+  static rendererFactory = plotRenderer('tema')
 }

@@ -33,5 +33,5 @@ import { createKstScaleLayer } from './scale/kst_scale.js'
   },
 })
 export class KSTIndicatorDefinition {
-  static rendererFactory = plotRenderer('kst', 'sub_KST')
+  static rendererFactory = plotRenderer('kst')
 }

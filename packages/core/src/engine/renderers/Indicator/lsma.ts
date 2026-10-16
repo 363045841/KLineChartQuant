@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class LSMADefinition {
-  static rendererFactory = plotRenderer('lsma', 'main')
+  static rendererFactory = plotRenderer('lsma')
 }

@@ -53,5 +53,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class PivotDefinition {
-  static rendererFactory = plotRenderer('pivot', 'main')
+  static rendererFactory = plotRenderer('pivot')
 }

@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class VWMADefinition {
-  static rendererFactory = plotRenderer('vwma', 'main')
+  static rendererFactory = plotRenderer('vwma')
 }

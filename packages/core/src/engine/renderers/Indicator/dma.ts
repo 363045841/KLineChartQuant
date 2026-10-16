@@ -25,5 +25,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class DMADefinition {
-  static rendererFactory = plotRenderer('dma', 'sub_DMA')
+  static rendererFactory = plotRenderer('dma')
 }

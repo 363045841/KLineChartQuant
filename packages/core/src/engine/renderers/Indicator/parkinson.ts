@@ -23,5 +23,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class ParkinsonIndicatorDefinition {
-  static rendererFactory = plotRenderer('parkinson', 'sub_Parkinson')
+  static rendererFactory = plotRenderer('parkinson')
 }

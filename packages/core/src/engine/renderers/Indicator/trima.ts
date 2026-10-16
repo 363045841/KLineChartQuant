@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class TRIMADefinition {
-  static rendererFactory = plotRenderer('trima', 'main')
+  static rendererFactory = plotRenderer('trima')
 }

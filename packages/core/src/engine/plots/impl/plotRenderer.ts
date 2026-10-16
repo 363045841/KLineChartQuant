@@ -538,15 +538,14 @@ export function paintPlots(
 export function createPlotLayer(
   definitionId: string,
   defaultPaneId: string,
-  options: { paneId?: string; instanceId?: string } = {},
+  options: { instanceId: string },
 ): Layer<RenderContext> {
   const retained = createRetainedGeometry<PlotGeometry, ProjectionRevision>(sameProjectionRevision)
   return createIndicatorRendererLayer({
     definitionId,
-    paneId: options.paneId ?? defaultPaneId,
+    paneId: defaultPaneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
-      if (!options.instanceId) return
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
       const geometry = retained.read(

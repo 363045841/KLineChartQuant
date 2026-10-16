@@ -31,5 +31,5 @@ import { createAwesomeOscillatorScaleLayer } from './scale/awesomeOscillator_sca
   },
 })
 export class AwesomeOscillatorIndicatorDefinition {
-  static rendererFactory = plotRenderer('awesomeOscillator', 'sub_AO')
+  static rendererFactory = plotRenderer('awesomeOscillator')
 }

@@ -24,5 +24,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class CMFIndicatorDefinition {
-  static rendererFactory = plotRenderer('cmf', 'sub_CMF')
+  static rendererFactory = plotRenderer('cmf')
 }

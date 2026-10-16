@@ -25,5 +25,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class VWAPIndicatorDefinition {
-  static rendererFactory = plotRenderer('vwap', 'sub_VWAP')
+  static rendererFactory = plotRenderer('vwap')
 }

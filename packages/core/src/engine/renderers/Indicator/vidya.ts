@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class VIDYADefinition {
-  static rendererFactory = plotRenderer('vidya', 'main')
+  static rendererFactory = plotRenderer('vidya')
 }

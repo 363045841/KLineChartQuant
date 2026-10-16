@@ -21,5 +21,5 @@ import { createDpoScaleLayer } from './scale/dpo_scale.js'
   },
 })
 export class DPOIndicatorDefinition {
-  static rendererFactory = plotRenderer('dpo', 'sub_DPO')
+  static rendererFactory = plotRenderer('dpo')
 }

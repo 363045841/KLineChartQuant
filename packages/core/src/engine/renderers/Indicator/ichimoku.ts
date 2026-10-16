@@ -90,5 +90,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class IchimokuDefinition {
-  static rendererFactory = plotRenderer('ichimoku', 'main')
+  static rendererFactory = plotRenderer('ichimoku')
 }

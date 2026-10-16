@@ -88,20 +88,19 @@ function resolveLabelFontSize(
 }
 
 /** 可视区共用数值比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
-function createFootprintLayer(
-  options: { paneId?: string; instanceId?: string } = {},
-): Layer<RenderContext> {
+function createFootprintLayer(options: {
+  paneId: string
+  instanceId: string
+}): Layer<RenderContext> {
   return createIndicatorRendererLayer({
     definitionId: 'footprint',
-    paneId: options.paneId ?? 'main',
+    paneId: options.paneId,
     // GPU K 线画布位于 main Canvas2D 上方，足迹内容必须参加覆盖画布绘制。
     role: 'overlay',
     // 足迹成交行和数字必须在 K 线主体之后绘制，避免被实体及影线覆盖。
     z: RENDERER_PRIORITY.OVERLAY,
     draw(context) {
-      const state = options.instanceId
-        ? context.indicatorStateReader?.get<FootprintRenderState>(options.instanceId)
-        : undefined
+      const state = context.indicatorStateReader?.get<FootprintRenderState>(options.instanceId)
       if (!state) return
       const textMode = state.textMode ?? FOOTPRINT_TEXT_MODES.BidAsk
       const isBidAsk = textMode === FOOTPRINT_TEXT_MODES.BidAsk

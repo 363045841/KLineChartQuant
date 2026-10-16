@@ -27,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class DEMADefinition {
-  static rendererFactory = plotRenderer('dema', 'main')
+  static rendererFactory = plotRenderer('dema')
 }

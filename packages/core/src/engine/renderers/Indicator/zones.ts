@@ -14,10 +14,8 @@ import {
 import type { ZonesRenderState } from '../../indicators/state/zonesState.js'
 import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
-function createZonesLayer(
-  options: { paneId?: string; instanceId?: string } = {},
-): Layer<RenderContext> {
-  const { paneId = 'main', instanceId } = options
+function createZonesLayer(options: { paneId: string; instanceId: string }): Layer<RenderContext> {
+  const { paneId, instanceId } = options
   return createIndicatorRendererLayer({
     definitionId: 'zones',
     paneId,
@@ -29,7 +27,6 @@ function createZonesLayer(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      if (!instanceId) return
       const state = context.indicatorStateReader?.get<ZonesRenderState>(instanceId)
       if (!state) return
       const { showFVG, showOB, showFilledZones } = state.params

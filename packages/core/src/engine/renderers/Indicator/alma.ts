@@ -28,5 +28,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class ALMADefinition {
-  static rendererFactory = plotRenderer('alma', 'main')
+  static rendererFactory = plotRenderer('alma')
 }

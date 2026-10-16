@@ -46,5 +46,5 @@ import { createMacdScaleLayer } from './scale/macd_scale.js'
   },
 })
 export class MACDIndicatorDefinition {
-  static rendererFactory = plotRenderer('macd', 'sub_MACD')
+  static rendererFactory = plotRenderer('macd')
 }

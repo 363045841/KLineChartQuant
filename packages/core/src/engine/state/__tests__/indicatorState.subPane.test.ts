@@ -86,7 +86,7 @@ describe('indicatorState sub-pane instances', () => {
 
     expect(state.readonly.subPanes.peek()).not.toBe(first)
     expect(state.readonly.subPanes.peek()[0]).toEqual({
-      instanceId: 'legacy:RSI_0',
+      instanceId: first[0]!.instanceId,
       paneId: 'RSI_0',
       indicatorId: 'CCI',
       ordinal: 0,

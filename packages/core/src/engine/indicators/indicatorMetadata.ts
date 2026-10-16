@@ -89,7 +89,7 @@ export type IndicatorCategory = 'main' | 'sub' | 'oscillator' | 'volume'
 /**
  * 渲染器工厂函数
  */
-export type RendererFactory = (options?: IndicatorRendererOptions) => Layer<RenderContext>
+export type RendererFactory = (options: IndicatorRendererOptions) => Layer<RenderContext>
 
 /** 解析 renderer plugin 名称所需的稳定上下文，不创建 renderer 实例。 */
 export interface IndicatorRendererNameOptions {

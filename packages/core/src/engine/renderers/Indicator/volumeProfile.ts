@@ -13,10 +13,11 @@ import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js
 
 const PROFILE_WIDTH_PX = 80
 
-function createVolumeProfileLayer(
-  options: { paneId?: string; instanceId?: string } = {},
-): Layer<RenderContext> {
-  const { paneId = 'sub_VolumeProfile', instanceId } = options
+function createVolumeProfileLayer(options: {
+  paneId: string
+  instanceId: string
+}): Layer<RenderContext> {
+  const { paneId, instanceId } = options
   return createIndicatorRendererLayer({
     definitionId: 'volumeProfile',
     paneId,
@@ -29,7 +30,6 @@ function createVolumeProfileLayer(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      if (!instanceId) return
       const state = context.indicatorStateReader?.get<VolumeProfileRenderState>(instanceId)
       if (!state) return
       const { bins, poc, vah, val, totalVolume } = state.series

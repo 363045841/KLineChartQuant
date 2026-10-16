@@ -71,5 +71,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class MADefinition {
-  static rendererFactory = plotRenderer('ma', 'main')
+  static rendererFactory = plotRenderer('ma')
 }

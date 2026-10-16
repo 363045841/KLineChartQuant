@@ -25,5 +25,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class ChaikinVolIndicatorDefinition {
-  static rendererFactory = plotRenderer('chaikinVol', 'sub_ChaikinVol')
+  static rendererFactory = plotRenderer('chaikinVol')
 }

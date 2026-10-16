@@ -4,9 +4,9 @@ import type { IndicatorPlotDefinition, PlotSpec } from '../types.js'
 import { createPlotLayer } from './plotRenderer.js'
 
 /** 构造绑定指标身份的通用 Plot Layer 工厂。 */
-export function plotRenderer(definitionId: string, paneId: string) {
-  return (options: Partial<IndicatorRendererOptions> = {}) =>
-    createPlotLayer(definitionId, paneId, options)
+export function plotRenderer(definitionId: string) {
+  return (options: IndicatorRendererOptions) =>
+    createPlotLayer(definitionId, options.paneId, options)
 }
 
 /** 单线指标只声明显示开关、颜色和数值范围。 */

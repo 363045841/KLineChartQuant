@@ -90,7 +90,7 @@ function createPlotIndicatorDefinition<P>(
     },
   })
   class PlotIndicatorDefinition {
-    static rendererFactory = plotRenderer(internalName, paneId)
+    static rendererFactory = plotRenderer(internalName)
   }
   decorate(PlotIndicatorDefinition)
   return PlotIndicatorDefinition

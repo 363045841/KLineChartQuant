@@ -53,5 +53,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class KeltnerDefinition {
-  static rendererFactory = plotRenderer('keltner', 'main')
+  static rendererFactory = plotRenderer('keltner')
 }

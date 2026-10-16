@@ -23,5 +23,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class VMAIndicatorDefinition {
-  static rendererFactory = plotRenderer('vma', 'sub_VMA')
+  static rendererFactory = plotRenderer('vma')
 }

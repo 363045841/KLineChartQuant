@@ -39,5 +39,5 @@ import { createFisherTransformScaleLayer } from './scale/fisherTransform_scale.j
   },
 })
 export class FisherTransformIndicatorDefinition {
-  static rendererFactory = plotRenderer('fisherTransform', 'sub_Fisher')
+  static rendererFactory = plotRenderer('fisherTransform')
 }

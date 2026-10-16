@@ -25,5 +25,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class ENEDefinition {
-  static rendererFactory = plotRenderer('ene', 'main')
+  static rendererFactory = plotRenderer('ene')
 }

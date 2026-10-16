@@ -38,5 +38,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class TRIXIndicatorDefinition {
-  static rendererFactory = plotRenderer('trix', 'sub_TRIX')
+  static rendererFactory = plotRenderer('trix')
 }
