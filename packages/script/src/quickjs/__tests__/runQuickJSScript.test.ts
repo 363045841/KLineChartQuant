@@ -1,5 +1,6 @@
 /** 验证 QuickJS 脚本执行器：全局序列、ta、params、错误、运行隔离与随包示例脚本。 */
 import { readdirSync, readFileSync } from 'node:fs'
+import { Color } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
@@ -493,6 +494,26 @@ describe('runQuickJSScript', () => {
       }
     })`
     expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ indicatorType: 'momentum' })
+  })
+
+  it('Color 常用色枚举在 VM 中与共享契约逐项一致', () => {
+    // 成员表由契约生成，用例只比对色值，不复制一份调色板。
+    const checks = Object.entries(Color)
+      .map(
+        ([member, value]) =>
+          `if (Color.${member} !== ${JSON.stringify(value)}) throw new Error('Color.${member} 与契约不一致')`,
+      )
+      .join('\n')
+    const source = `${checks}\ndefineIndicator({ name: 'ColorEnum', inputs: {}, onBar() {} })`
+    expect(readQuickJSScriptDefinitionSync(source).name).toBe('ColorEnum')
+  })
+
+  it('Color 取值可直接作为绘图颜色', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`plot.Line(close[0], { id: 'line', color: Color.Teal })`),
+      bars: barsFromCloses([2, 4]),
+    })
+    expect(result.plots[0]?.data.map((point) => point?.color)).toEqual([Color.Teal, Color.Teal])
   })
 
   it('未声明业务分类时元数据不写该字段，由 core 归入 other', () => {

@@ -21,14 +21,14 @@ defineIndicator({
     }
     const ready = stochWindow.length === params.m
     const d = ready ? stochSum / params.m : Number.NaN
-    plot.Line(ready ? k : null, { id: 'k', label: 'K', color: '#ffb74d' })
-    plot.Line(d, { id: 'd', label: 'D', color: '#42a5f5' })
-    plot.Line(ready ? 3 * k - 2 * d : null, { id: 'j', label: 'J', color: '#ab47bc' })
+    plot.Line(ready ? k : null, { id: 'k', label: 'K', color: Color.Orange })
+    plot.Line(d, { id: 'd', label: 'D', color: Color.Blue })
+    plot.Line(ready ? 3 * k - 2 * d : null, { id: 'j', label: 'J', color: Color.Purple })
     for (const level of [80, 50, 20]) {
       plot.Line(level, {
         id: 'guide' + level,
         label: String(level),
-        color: '#808080',
+        color: Color.Gray,
         dash: [4, 4],
       })
     }

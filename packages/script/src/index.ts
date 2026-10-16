@@ -26,6 +26,7 @@ export type {
   ShapePlotDeclaration,
 } from '@363045841yyt/klinechart-plot-contracts'
 export {
+  Color,
   PlotCollector,
   type PlotCollectorOptions,
   PlotKind,

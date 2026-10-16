@@ -5,6 +5,7 @@
  */
 export * from './bar.js'
 export * from './collector.js'
+export * from './color.js'
 export * from './declaration.js'
 export * from './definition.js'
 export * from './errors.js'

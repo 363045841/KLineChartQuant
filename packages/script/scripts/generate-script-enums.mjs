@@ -10,6 +10,7 @@ const outputFile = fileURLToPath(new URL('src/quickjs/runtime/plotKind.ts', pack
 
 /** 绘图契约文件与需要导出的枚举名；成员值从契约取值派生，不在此重复书写。 */
 const definitions = [
+  ['color.ts', ['Color']],
   ['plots.ts', ['PlotKind']],
   ['shape.ts', ['ShapeStyle', 'ShapeLocation', 'ShapeSize']],
   ['indicatorType.ts', ['IndicatorType']],

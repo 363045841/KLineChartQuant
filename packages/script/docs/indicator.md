@@ -99,10 +99,22 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 | --- | --- |
 | `id` | Plot 标识，与绘图方法的 `id` 对应 |
 | `label` | 图例名称，缺省取 `id` |
-| `color` | CSS 颜色字符串 |
+| `color` | CSS 颜色字符串，或用内置 `Color` 常用色 |
 | `offset` | 沿 K 线下标的偏移，用于前移或后移的序列 |
 | `visible` | 是否绘制，缺省为 `true` |
 | `size` | `ShapeSize` 尺寸档位，控制线宽、点径或标记大小 |
+
+### 颜色
+
+`color`、`textColor`、`colorUp` / `colorDown`、填充色都接受 CSS 颜色字符串。
+需要常用色时用全局 `Color` 枚举，省去记十六进制：
+
+色相取自 Material 400 色阶：`Color.Red`、`Color.DeepOrange`、`Color.Orange`、`Color.Amber`、
+`Color.Yellow`、`Color.Lime`、`Color.LightGreen`、`Color.Green`、`Color.Teal`、`Color.Cyan`、
+`Color.LightBlue`、`Color.Blue`、`Color.Indigo`、`Color.Purple`、`Color.Pink`、`Color.Brown`、
+`Color.BlueGray`；中性色为 `Color.Gray`、`Color.White`、`Color.Black`。
+
+枚举是固定色值，不随主题变化；其他颜色直接写字符串，例如 `color: '#808080'`。
 
 ### 填充
 
@@ -128,7 +140,7 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 onBar() {
   plot.Histogram(close[0] - open[0], {
     id: 'change',
-    color: close[0] >= open[0] ? '#26a69a' : '#ef5350',
+    color: close[0] >= open[0] ? Color.Teal : Color.Red,
   })
 }
 ```

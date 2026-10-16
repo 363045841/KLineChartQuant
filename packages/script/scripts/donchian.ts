@@ -9,8 +9,8 @@ defineIndicator({
   onBar() {
     const upper = ta.highest(high, params.period)[0]
     const lower = ta.lowest(low, params.period)[0]
-    plot.Line(upper, { id: 'upper', label: 'UPPER', color: '#ab47bc' })
-    plot.Line((upper + lower) / 2, { id: 'middle', label: 'MID', color: '#ffb74d' })
-    plot.Line(lower, { id: 'lower', label: 'LOWER', color: '#ab47bc' })
+    plot.Line(upper, { id: 'upper', label: 'UPPER', color: Color.Purple })
+    plot.Line((upper + lower) / 2, { id: 'middle', label: 'MID', color: Color.Orange })
+    plot.Line(lower, { id: 'lower', label: 'LOWER', color: Color.Purple })
   },
 })

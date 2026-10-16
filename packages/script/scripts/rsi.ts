@@ -14,7 +14,7 @@ defineIndicator({
   onBar() {
     const periods = [params.period1, params.period2, params.period3]
     const shown = [params.showRSI1, params.showRSI2, params.showRSI3]
-    const colors = ['#ffb74d', '#42a5f5', '#ab47bc']
+    const colors = [Color.Orange, Color.Blue, Color.Purple]
     for (let index = 0; index < periods.length; index++) {
       const period = periods[index]!
       if (!Number.isInteger(period) || period < 1) throw new RangeError('RSI 周期必须为正整数')
@@ -29,7 +29,7 @@ defineIndicator({
       plot.Line(level, {
         id: 'guide' + level,
         label: String(level),
-        color: '#808080',
+        color: Color.Gray,
         dash: [4, 4],
       })
     }

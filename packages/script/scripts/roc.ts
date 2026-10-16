@@ -8,7 +8,7 @@ defineIndicator({
   },
   onBar() {
     const value = ta.roc(close, params.period)[0]
-    plot.Line(value, { id: 'roc', label: 'ROC', color: '#ab47bc' })
-    plot.Line(0, { id: 'zero', label: '0', color: '#808080', dash: [4, 4] })
+    plot.Line(value, { id: 'roc', label: 'ROC', color: Color.Purple })
+    plot.Line(0, { id: 'zero', label: '0', color: Color.Gray, dash: [4, 4] })
   },
 })
