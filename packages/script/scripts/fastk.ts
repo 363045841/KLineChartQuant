@@ -7,9 +7,9 @@ defineIndicator({
     period: input(9, { title: '周期' }),
   },
   onBar() {
-    const upper = ta.highest(high, params.period)[0]
-    const lower = ta.lowest(low, params.period)[0]
-    const value = upper === lower ? 50 : (100 * (close[0] - lower)) / (upper - lower)
+    const upper = ta.highest(high, params.period)
+    const lower = ta.lowest(low, params.period)
+    const value = upper === lower ? 50 : (100 * (close - lower)) / (upper - lower)
     plot.Line(value, { id: 'fastk', label: 'FASTK', color: Color.Orange })
     for (const level of [80, 50, 20]) {
       plot.Line(level, {

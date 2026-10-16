@@ -8,8 +8,8 @@ defineIndicator({
     multiplier: input(2, { title: '标准差倍数' }),
   },
   onBar() {
-    const middle = ta.sma(close, params.period)[0]
-    const deviation = ta.stddev(close, params.period)[0] * params.multiplier
+    const middle = ta.sma(close, params.period)
+    const deviation = ta.stddev(close, params.period) * params.multiplier
     plot.Line(middle + deviation, { id: 'upper', label: 'UP', color: Color.Red })
     plot.Line(middle, { id: 'middle', label: 'MID', color: Color.Orange })
     plot.Line(middle - deviation, { id: 'lower', label: 'DN', color: Color.Blue })

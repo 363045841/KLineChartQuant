@@ -19,7 +19,7 @@ defineIndicator({
       const period = periods[index]!
       if (!Number.isInteger(period) || period < 1) throw new RangeError('RSI 周期必须为正整数')
       // ta.rsi 在完整窗口之前返回 NaN，plot 会按空位过滤。
-      plot.Line(shown[index] ? ta.rsi(close, period)[0] : null, {
+      plot.Line(shown[index] ? ta.rsi(close, period) : null, {
         id: 'rsi' + (index + 1),
         label: 'RSI' + period,
         color: colors[index]!,

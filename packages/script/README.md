@@ -29,7 +29,7 @@ defineIndicator({
     n: input(2, { title: '除数' }),
   },
   onBar() {
-    plot.Line((open[0] + close[0]) / params.n, { id: 'oc-average' })
+    plot.Line((open + close) / params.n, { id: 'oc-average' })
   },
 })
 ```
@@ -38,7 +38,7 @@ The VM prelude injects these globals before the script runs:
 
 | Global | Meaning |
 | --- | --- |
-| `open` `high` `low` `close` `volume` `time` | price series; `close[0]` is the current bar, `close[1]` one bar back |
+| `open` `high` `low` `close` `volume` `time` | price series; `close` reads the current bar, `close[1]` one bar back |
 | `params` | resolved input values |
 | `plot.Line(value, { id, color })` | emit a plot point; methods: `Line`, `Histogram`, `Point`, `Shape`, `Char`, `Arrow` |
 | `PaneKind` | indicator registration location; `PaneKind.Main` or `PaneKind.Sub` |
@@ -47,7 +47,8 @@ The VM prelude injects these globals before the script runs:
 | `defineLibrary(name, members)` / `importLibrary(name)` | declare and use a library |
 
 A series returns `NaN` when the requested history is not yet available, and never exposes
-future bars.
+future bars. Numeric contexts accept the series directly: `close - open` equals `close[0] - open[0]`,
+while series parameters such as `ta.sma(close, 20)` still receive the whole series.
 
 ## Execution
 

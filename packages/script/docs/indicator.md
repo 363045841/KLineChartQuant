@@ -147,9 +147,9 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 
 ```js
 onBar() {
-  plot.Histogram(close[0] - open[0], {
+  plot.Histogram(close - open, {
     id: 'change',
-    color: close[0] >= open[0] ? Color.Teal : Color.Red,
+    color: close >= open ? Color.Teal : Color.Red,
   })
 }
 ```

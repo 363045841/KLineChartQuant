@@ -8,12 +8,12 @@ defineIndicator({
     distance: input(1, { title: '距离阈值（价格单位）' }),
   },
   onBar() {
-    const average = (open[0] + close[0]) / params.n + params.a
+    const average = (open + close) / params.n + params.a
     plot.Line(average, { id: 'oc-average' })
-    plot.Line(high[0], { id: 'oc-high' })
-    plot.Line(low[0], { id: 'oc-low' })
+    plot.Line(high, { id: 'oc-high' })
+    plot.Line(low, { id: 'oc-low' })
     const near =
-      Math.abs(high[0] - average) < params.distance && Math.abs(average - low[0]) < params.distance
+      Math.abs(high - average) < params.distance && Math.abs(average - low) < params.distance
     if (near) {
       plot.Shape(average, {
         id: 'oc-near',

@@ -10,7 +10,7 @@ defineIndicator({
   onBar() {
     // 计算代码里的同名属性不属于指标身份
     const options = { name: 'keep-me' }
-    plot.Line(close[0], { id: 'average' })
+    plot.Line(close, { id: 'average' })
   },
 })`
 

@@ -11,9 +11,9 @@ defineIndicator({
   },
   onBar() {
     if (!Number.isInteger(params.m) || params.m < 1) throw new RangeError('平滑周期必须为正整数')
-    const upper = ta.highest(high, params.n)[0]
-    const lower = ta.lowest(low, params.n)[0]
-    const k = upper === lower ? 50 : (100 * (close[0] - lower)) / (upper - lower)
+    const upper = ta.highest(high, params.n)
+    const lower = ta.lowest(low, params.n)
+    const k = upper === lower ? 50 : (100 * (close - lower)) / (upper - lower)
     if (Number.isFinite(k)) {
       stochWindow.push(k)
       stochSum += k

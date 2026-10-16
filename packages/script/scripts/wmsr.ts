@@ -7,9 +7,9 @@ defineIndicator({
     period: input(14, { title: '周期' }),
   },
   onBar() {
-    const upper = ta.highest(high, params.period)[0]
-    const lower = ta.lowest(low, params.period)[0]
-    const value = upper === lower ? -50 : (-100 * (upper - close[0])) / (upper - lower)
+    const upper = ta.highest(high, params.period)
+    const lower = ta.lowest(low, params.period)
+    const value = upper === lower ? -50 : (-100 * (upper - close)) / (upper - lower)
     plot.Line(value, { id: 'wmsr', label: 'WMSR', color: Color.Purple })
     for (const level of [-20, -50, -80]) {
       plot.Line(level, {

@@ -9,7 +9,7 @@ defineIndicator({
   },
   onBar() {
     const average = averageSeries(close, params.period, params.type)
-    plot.Line(average[0], { id: 'sma' })
+    plot.Line(average, { id: 'sma' })
   },
 })
 

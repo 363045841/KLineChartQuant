@@ -7,8 +7,8 @@ defineIndicator({
     period: input(20, { title: '周期' }),
   },
   onBar() {
-    const upper = ta.highest(high, params.period)[0]
-    const lower = ta.lowest(low, params.period)[0]
+    const upper = ta.highest(high, params.period)
+    const lower = ta.lowest(low, params.period)
     plot.Line(upper, { id: 'upper', label: 'UPPER', color: Color.Purple })
     plot.Line((upper + lower) / 2, { id: 'middle', label: 'MID', color: Color.Orange })
     plot.Line(lower, { id: 'lower', label: 'LOWER', color: Color.Purple })

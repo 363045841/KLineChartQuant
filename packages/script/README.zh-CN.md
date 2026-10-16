@@ -26,7 +26,7 @@ defineIndicator({
     n: input(2, { title: '除数' }),
   },
   onBar() {
-    plot.Line((open[0] + close[0]) / params.n, { id: 'oc-average' })
+    plot.Line((open + close) / params.n, { id: 'oc-average' })
   },
 })
 ```
@@ -35,7 +35,7 @@ VM prelude 在脚本运行前注入以下全局：
 
 | 全局 | 含义 |
 | --- | --- |
-| `open` `high` `low` `close` `volume` `time` | 行情序列；`close[0]` 是当前 K 线，`close[1]` 是前一根 |
+| `open` `high` `low` `close` `volume` `time` | 行情序列；`close` 取当前 K 线，`close[1]` 取前一根 |
 | `params` | 解析后的输入参数 |
 | `plot.Line(value, { id, color })` | 为当前 K 线输出绘图点；提供 `Line`、`Histogram`、`Point`、`Shape`、`Char`、`Arrow` 方法 |
 | `PaneKind` | 指标注册位置；`PaneKind.Main` 主图或 `PaneKind.Sub` 副图 |
@@ -43,7 +43,8 @@ VM prelude 在脚本运行前注入以下全局：
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |
 | `defineLibrary(name, members)` / `importLibrary(name)` | 声明并使用库 |
 
-历史不足时序列返回 `NaN`，永远不会暴露未来的 K 线。
+历史不足时序列返回 `NaN`，永远不会暴露未来的 K 线。数值上下文可直接写序列：`close - open` 等价于 `close[0] - open[0]`；
+`ta.sma(close, 20)` 这类要求完整序列的参数位置仍然传入整条序列。
 
 ## 执行
 

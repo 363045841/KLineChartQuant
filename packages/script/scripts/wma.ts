@@ -7,7 +7,7 @@ defineIndicator({
     period: input(9, { title: '周期' }),
   },
   onBar() {
-    const value = ta.wma(close, params.period)[0]
+    const value = ta.wma(close, params.period)
     plot.Line(value, { id: 'wma', label: 'WMA', color: Color.Blue })
   },
 })

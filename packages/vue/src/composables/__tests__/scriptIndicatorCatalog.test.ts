@@ -39,7 +39,7 @@ describe('Script selector catalog', () => {
     })
     const created = await scripts.create(`defineIndicator({ name: 'SelectorScript',
       inputs: { period: input(5), text: input('close'), enabled: input(false) },
-      onBar() { plot.Line(close[0], { id: 'close' }) } })`)
+      onBar() { plot.Line(close, { id: 'close' }) } })`)
     const definition = controller.catalog.peek().find((item) => item.id === created.id)!
     expect(definition.source).toBe('script')
     expect(definition.params).toEqual([
@@ -73,7 +73,7 @@ describe('Script selector catalog', () => {
   })
   it('input() 声明的标题作为参数面板显示名', async () => {
     await scripts.create(`defineIndicator({ name: 'TitledInputScript', inputs: { n: input(2, { title: '除数' }) },
-      onBar() { plot.Line(close[0], { id: 'close' }) } })`)
+      onBar() { plot.Line(close, { id: 'close' }) } })`)
 
     expect(findIndicator('TitledInputScript')!.params).toEqual([
       { key: 'n', label: '除数', type: 'number', default: 2 },

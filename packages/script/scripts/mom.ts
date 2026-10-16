@@ -7,7 +7,7 @@ defineIndicator({
     period: input(10, { title: '周期' }),
   },
   onBar() {
-    const value = ta.mom(close, params.period)[0]
+    const value = ta.mom(close, params.period)
     plot.Line(value, { id: 'mom', label: 'MOM', color: Color.Orange })
     plot.Line(0, { id: 'zero', label: '0', color: Color.Gray, dash: [4, 4] })
   },
