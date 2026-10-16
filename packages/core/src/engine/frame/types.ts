@@ -17,7 +17,6 @@ import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import type { VisiblePriceExtrema } from '../viewport/visiblePriceExtrema.js'
 
 /** 已解析的图表选项：kWidth / kGap 必填，由样式与配置派生。 */
 export type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
@@ -65,8 +64,8 @@ export interface RendererDependencies {
   projectLegendFrame: (contexts: ReadonlyArray<RenderContext>) => void
   getLegendConfiguration: () => ReadonlyArray<import('../legend/types.js').LegendEntry>
   clearLegendFrame: () => void
-  /** 可视区极值跨数量级时才请求右轴实测与布局更新。 */
-  commitRightAxisWidthMeasurement?: (extrema: VisiblePriceExtrema) => void
+  /** 提交所有可见 Pane 的估算轴宽，返回布局是否变化。 */
+  commitAxisWidths?: (widths: import('../axisWidth/types.js').AxisWidths) => boolean
 }
 
 /** 数据版本、展示参数与轴映射快照；横轴坐标按值比较。 */

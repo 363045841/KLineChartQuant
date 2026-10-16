@@ -27,6 +27,7 @@ import {
 } from '../../../foundation/utils/dateFormat.js'
 import { createScene } from '../../../rendering/scene/createScene.js'
 import type { FramePaint, Layer, LayerRole, Scene } from '../../../rendering/scene/types.js'
+import { AxisWidthEstimator } from '../../axisWidth/impl/axisWidthEstimator.js'
 import type { KLinePositions, Viewport } from '../../chart/index.js'
 import { ChartDataViewId } from '../../chartModel/index.js'
 import type { ChartDataManager } from '../../data/chartDataManager.js'
@@ -50,6 +51,7 @@ import {
   createAxisLabelsFrame,
   formatLastPriceCountdown,
   getLastPriceRemainingMs,
+  paintAxisLabels,
   registerAxisLabel,
 } from '../../renderers/impl/labels/index.js'
 import { createTimeAxisLayer } from '../../renderers/timeAxis.js'
@@ -106,7 +108,6 @@ type FrameContext = {
   /** 帧准备阶段生成的真正可视 K 线极值。 */
   visiblePriceExtrema: VisiblePriceExtrema | null
   /** 跨数量级时生成的低频右轴测量意图；由 seal 阶段提交。 */
-  rightAxisWidthMeasurement: VisiblePriceExtrema | null
   /** 本帧每 Pane 解析后的价格轴范围、基准价与锁定初始化标记。 */
   panePriceRanges: Record<string, ResolvedPanePriceRange>
   /** 本帧是否启用比较叠加（仅 K 线视图）。 */
@@ -203,7 +204,8 @@ export class ChartRenderer {
   private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
   private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
   /** 上次已测量右轴的可视区绝对值数量级。 */
-  private measuredVisiblePriceMagnitudeOrder: number | null = null
+  private readonly axisWidthEstimator = new AxisWidthEstimator()
+  private readonly retainedAxisLabels = new Map<string, AxisLabelsFrame>()
   /** 上一帧已提交的主层与交互层内容输入。 */
   private paintedMainVersion: readonly unknown[] | null = null
   private disposed = false
@@ -394,12 +396,6 @@ export class ChartRenderer {
     })
   }
 
-  private requiresRightAxisWidthMeasurement(extrema: VisiblePriceExtrema): boolean {
-    const magnitude = Math.max(Math.abs(extrema.min), Math.abs(extrema.max))
-    const nextOrder = magnitude >= 1 ? Math.floor(Math.log10(magnitude)) : 0
-    return this.measuredVisiblePriceMagnitudeOrder !== nextOrder
-  }
-
   initCoreRenderers(): void {
     const opt = this.deps.getOption()
     const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 0)
@@ -586,13 +582,6 @@ export class ChartRenderer {
    */
   private sealFrameGeometry(frame: FrameContext): void {
     this.deps.getInteraction().setViewSnapshot(frame.viewSnapshot)
-    const widthMeasurement = frame.rightAxisWidthMeasurement
-    if (widthMeasurement) {
-      const magnitude = Math.max(Math.abs(widthMeasurement.min), Math.abs(widthMeasurement.max))
-      this.measuredVisiblePriceMagnitudeOrder =
-        magnitude >= 1 ? Math.floor(Math.log10(magnitude)) : 0
-      this.deps.commitRightAxisWidthMeasurement?.(widthMeasurement)
-    }
   }
 
   /** 将最新 viewport 位置同步到原生滚动容器，作为绘制帧的第一项 DOM 副作用。 */
@@ -741,11 +730,6 @@ export class ChartRenderer {
             vp.plotWidth,
           )
         : null
-    const rightAxisWidthMeasurement =
-      !cached && visiblePriceExtrema && this.requiresRightAxisWidthMeasurement(visiblePriceExtrema)
-        ? visiblePriceExtrema
-        : null
-
     const indicatorManager = this.deps.getIndicatorManager()
 
     return {
@@ -762,7 +746,6 @@ export class ChartRenderer {
       dataRevision: dataManager.getRenderDataRevision(),
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
-      rightAxisWidthMeasurement,
       // 价格轴范围在 render 回调里、visibleRange 更新之后统一收集。
       panePriceRanges: {},
       comparisonActive: false,
@@ -988,7 +971,6 @@ export class ChartRenderer {
       fiveDayTimeShareGeometry,
       visiblePriceExtrema,
     } = frame
-    const requiresRightAxisWidthMeasurement = frame.rightAxisWidthMeasurement !== null
     const countdown = frame.countdown.text
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
     // 轴标签收集统一走 axisLabels 模块的单帧聚合：X 表面共享 + 每 Pane 独立 Y 表面。
@@ -1126,7 +1108,6 @@ export class ChartRenderer {
         kBarRects,
         kWidthPx,
         visiblePriceExtrema,
-        requiresRightAxisWidthMeasurement,
         getLogicalIndexAtTimestamp: (timestamp) =>
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
@@ -1249,6 +1230,60 @@ export class ChartRenderer {
 
     // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()
+
+    const widths = this.axisWidthEstimator.estimate({
+      labels: axisLabelsFrame,
+      paneIds: this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
+      updateStatic: level === UpdateLevel.Main || level === UpdateLevel.All,
+      updateOverlay: level === UpdateLevel.Overlay || level === UpdateLevel.All,
+    })
+    const surfaces = ['yRightStatic', 'yRightOverlay', 'yLeftStatic', 'yLeftOverlay'] as const
+    const visiblePaneIds = new Set(
+      this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
+    )
+    for (const id of this.retainedAxisLabels.keys()) {
+      if (!visiblePaneIds.has(id)) this.retainedAxisLabels.delete(id)
+    }
+    for (const renderer of this.deps.getPaneRenderers()) {
+      const pane = renderer.getPane()
+      const retainedFrame = this.retainedAxisLabels.get(pane.id) ?? createAxisLabelsFrame()
+      this.retainedAxisLabels.set(pane.id, retainedFrame)
+      for (const surface of surfaces) {
+        const update = surface.endsWith('Static')
+          ? level === UpdateLevel.Main || level === UpdateLevel.All
+          : level === UpdateLevel.Overlay || level === UpdateLevel.All
+        if (!update) continue
+        const retained = retainedFrame.forSurface(surface, pane.id).labels
+        retained.length = 0
+        retained.push(...axisLabelsFrame.forSurface(surface, pane.id).labels)
+      }
+    }
+    if (this.deps.commitAxisWidths?.(widths)) {
+      // 宿主宽度变化只清空轴画布；使用保留标签同帧重画，不重跑主图与指标。
+      for (const renderer of this.deps.getPaneRenderers()) {
+        const pane = renderer.getPane()
+        renderer.resize(vp.plotWidth, pane.height, vp.dpr)
+        const contexts = renderer.getContexts()
+        const targets = [
+          contexts.yAxisCtx,
+          contexts.yAxisOverlayCtx,
+          contexts.leftAxisCtx,
+          contexts.leftAxisOverlayCtx,
+        ]
+        for (const [index, surface] of surfaces.entries()) {
+          const target = targets[index]
+          if (!target) continue
+          const axisWidth = target.canvas.width / vp.dpr
+          this.clearAxisCtx(target, vp.dpr, axisWidth, pane.height)
+          paintAxisLabels(
+            target,
+            this.retainedAxisLabels.get(pane.id)?.forSurface(surface, pane.id).labels ?? [],
+            surface,
+            { dpr: vp.dpr, axisWidth, axisHeight: pane.height },
+          )
+        }
+      }
+    }
 
     this.deps.projectLegendFrame(legendContexts)
     return { axisLabelsFrame, sharedXAxisRanges }

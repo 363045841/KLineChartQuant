@@ -261,6 +261,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
+    leftAxisEffectiveWidth: chart.leftAxisEffectiveWidth,
     data: chart.data,
     dataLoading: chart.loading,
     dataError: chart.dataError,
