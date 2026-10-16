@@ -7,7 +7,7 @@
 import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape.js'
 
 /** 声明式 Plot 的公共样式。 */
-interface PlotStyleBase {
+export interface PlotStyleBase {
   /** 图例名称；不填则取 name。 */
   readonly label?: string
   /** 图形颜色，支持 CSS 颜色值；可为每根 K 线设置不同颜色。 */
@@ -27,7 +27,7 @@ interface PlotStyleBase {
 }
 
 /** 声明式 Plot 的公共信息。 */
-interface PlotDeclarationBase extends PlotStyleBase {
+export interface PlotDeclarationBase extends PlotStyleBase {
   /** 绘图名称，相同名称的数据会画在同一条线或同一组标记中。 */
   readonly name: string
 }
@@ -108,12 +108,8 @@ export interface PlotFillDeclaration {
   readonly from: string
   /** 结束 Plot 的 name。 */
   readonly to: string
-  /** 填充颜色，支持 CSS 颜色值；不填则使用默认颜色。 */
-  readonly color?: string
-  /** from 高于 to 时的填充颜色；不填则使用 color，color 也没填则使用默认颜色。 */
-  readonly reverseColor?: string
-  /** 填充的不透明度；不填则取 0.15。 */
-  readonly opacity?: number
+  /** 当前 bar 的 CSS 颜色，透明度由颜色携带；null 表示不填充。 */
+  readonly color: string | null
   /** 是否显示填充；不填则显示。 */
   readonly visible?: boolean
 }

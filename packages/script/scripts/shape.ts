@@ -5,17 +5,14 @@ let barIndex: number = 0
 defineIndicator({
   name: 'Shape 图形示例',
   position: Position.Main,
-  plots: styles.map((style, index) => ({
-    name: style,
-    kind: PlotKind.Shape,
-    style,
-    location: index % 2 === 0 ? ShapeLocation.AboveBar : ShapeLocation.BelowBar,
-    size: ShapeSize.Normal,
-    text: style,
-  })),
   onBar() {
     for (const [index, style] of styles.entries()) {
-      plot.Shape(barIndex % styles.length === index, style)
+      plot.Shape(barIndex % styles.length === index, style, {
+        style,
+        location: index % 2 === 0 ? ShapeLocation.AboveBar : ShapeLocation.BelowBar,
+        size: ShapeSize.Normal,
+        text: style,
+      })
     }
     barIndex++
   },

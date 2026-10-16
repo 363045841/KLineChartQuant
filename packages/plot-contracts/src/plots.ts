@@ -14,7 +14,7 @@ export interface PlotPoint {
   textColor?: string
 }
 /** Plot 的公共信息。 */
-interface PlotBase {
+export interface PlotBase {
   readonly id: string
   readonly label: string
   /** 按 K 线下标对齐的绘图点，缺省表示该位置不绘制。 */
@@ -56,7 +56,7 @@ export interface PointsPlot extends PlotBase {
  * 固定形状标记；样式由声明决定，数据沿用统一的逐 bar 列。
  * 相对定位只用 bar 的位置，`value` 只表示该 bar 有无信号；absolute 把 `value` 当价格。
  */
-interface MarkerPlot extends PlotBase {
+export interface MarkerPlot extends PlotBase {
   readonly location: import('./shape.js').ShapeLocation
   readonly text: string
   readonly textColor: string
@@ -81,7 +81,14 @@ export interface ArrowPlot extends PlotBase {
   readonly colorDown: string
 }
 
-export type Plot = LinePlot | HistogramPlot | ColumnsPlot | PointsPlot | ShapePlot | CharPlot | ArrowPlot
+export type Plot =
+  | LinePlot
+  | HistogramPlot
+  | ColumnsPlot
+  | PointsPlot
+  | ShapePlot
+  | CharPlot
+  | ArrowPlot
 
 export type PlotKind = Plot['kind']
 
@@ -134,10 +141,8 @@ export interface PlotFill {
   readonly from: string
   readonly to: string
   readonly visible: boolean
-  readonly color: string
-  /** from 高于 to 时使用的颜色，在交点处切换。 */
-  readonly reverseColor: string
-  readonly opacity: number
+  /** 按图表 bar 下标保存颜色；null 表示该 bar 不填充。 */
+  readonly colors: readonly (string | null)[]
 }
 
 /** 一个指标实例产出的全部 Plot 与填充关系。 */

@@ -167,17 +167,29 @@ function buildSeriesPlots(
         )
     }
   })
-  const fills = (definition.fills ?? []).map((fill) =>
-    createFill({
-      name: fill.id,
-      from: fill.from,
-      to: fill.to,
-      visible: !fill.show || params[fill.show] !== false,
-      color: fill.color(colors),
-      reverseColor: fill.reverseColor(colors),
-      opacity: fill.opacity,
-    }),
-  )
+  const fills = (definition.fills ?? []).map((fill) => {
+    const from = plots.find((plot) => plot.id === fill.from)
+    const to = plots.find((plot) => plot.id === fill.to)
+    if (!from || !to) throw new TypeError(`Unknown fill source: ${fill.id}`)
+    const count = Math.max(from.data.length + from.offset, to.data.length + to.offset)
+    const fillColors = Array.from({ length: count }, (_, index) =>
+      fill.color(
+        colors,
+        from.data[index - from.offset]?.value,
+        to.data[index - to.offset]?.value,
+        index,
+      ),
+    )
+    return createFill(
+      {
+        name: fill.id,
+        from: fill.from,
+        to: fill.to,
+        visible: !fill.show || params[fill.show] !== false,
+      },
+      fillColors,
+    )
+  })
   return { plots, fills }
 }
 
@@ -220,6 +232,69 @@ function applyRangeBound(
   return bound
 }
 
+/** 一根 Plot 的价格上下界。 */
+interface PriceBounds {
+  min: number
+  max: number
+}
+
+/** 参与价格范围的 Plot：自身可见，或被某个可见填充引用。 */
+function isRangeSource(plot: Plot, fillSources: ReadonlySet<string>): boolean {
+  return (plot.visible || fillSources.has(plot.id)) && isPricePlot(plot)
+}
+
+/**
+ * 取一根 Plot 在可见范围内的价格上下界；范围内没有有效数值时返回 undefined。
+ * histogram / columns 从 baseline 起算，基线一并计入边界。
+ */
+function plotValueBounds(plot: Plot, range: VisibleRange): PriceBounds | undefined {
+  const start = Math.max(0, range.start - plot.offset)
+  const end = Math.min(plot.data.length, range.end - plot.offset)
+  let min = Infinity
+  let max = -Infinity
+  let hasValues = false
+  for (let index = start; index < end; index++) {
+    const value = plot.data[index]?.value
+    if (value === undefined || !Number.isFinite(value)) continue
+    hasValues = true
+    min = Math.min(min, value)
+    max = Math.max(max, value)
+  }
+  if (!hasValues) return undefined
+  if (plot.kind === 'histogram' || plot.kind === 'columns') {
+    return { min: Math.min(min, plot.baseline), max: Math.max(max, plot.baseline) }
+  }
+  return { min, max }
+}
+
+/** 缺省边界直接采用值域，否则按声明模式应用边界。 */
+function resolveBound(
+  value: number,
+  bound: number | undefined,
+  mode: RangeBoundMode,
+  side: 'min' | 'max',
+): number {
+  if (bound === undefined) return value
+  return applyRangeBound(value, bound, mode, side)
+}
+
+/** 汇总所有参与价格范围的 Plot 的上下界；都不参与时保持空区间。 */
+function accumulateBounds(
+  plots: readonly Plot[],
+  fillSources: ReadonlySet<string>,
+  range: VisibleRange,
+): PriceBounds {
+  const bounds = { min: Infinity, max: -Infinity }
+  for (const plot of plots) {
+    if (!isRangeSource(plot, fillSources)) continue
+    const plotBounds = plotValueBounds(plot, range)
+    if (!plotBounds) continue
+    bounds.min = Math.min(bounds.min, plotBounds.min)
+    bounds.max = Math.max(bounds.max, plotBounds.max)
+  }
+  return bounds
+}
+
 /** 图形与坐标轴使用同一套显隐、位移和填充边界规则。 */
 function plotRange(
   definition: IndicatorPlotDefinition,
@@ -230,40 +305,23 @@ function plotRange(
   const fillSources = new Set(
     fills.filter((fill) => fill.visible).flatMap((fill) => [fill.from, fill.to]),
   )
-  let min = Infinity
-  let max = -Infinity
-  for (const plot of plots) {
-    if (!plot.visible && !fillSources.has(plot.id)) continue
-    if (!isPricePlot(plot)) continue
-    const start = Math.max(0, range.start - plot.offset)
-    const end = Math.min(plot.data.length, range.end - plot.offset)
-    let hasValues = false
-    for (let index = start; index < end; index++) {
-      const value = plot.data[index]?.value
-      if (value === undefined || !Number.isFinite(value)) continue
-      hasValues = true
-      min = Math.min(min, value)
-      max = Math.max(max, value)
-    }
-    if ((plot.kind === 'histogram' || plot.kind === 'columns') && hasValues) {
-      min = Math.min(min, plot.baseline)
-      max = Math.max(max, plot.baseline)
-    }
-  }
-  const padding = min <= max ? (max - min) * (definition.padding ?? 0.05) : 0
-  const bounds = definition.range
-  const valueMin =
-    bounds?.min === undefined
-      ? min - padding
-      : applyRangeBound(min - padding, bounds.min, bounds.mode, 'min')
-  const valueMax =
-    bounds?.max === undefined
-      ? max + padding
-      : applyRangeBound(max + padding, bounds.max, bounds.mode, 'max')
+  const bounds = accumulateBounds(plots, fillSources, range)
+  const padding =
+    bounds.min <= bounds.max ? (bounds.max - bounds.min) * (definition.padding ?? 0.05) : 0
   return {
-    visibleMin: min,
-    visibleMax: max,
-    valueMin,
-    valueMax,
+    visibleMin: bounds.min,
+    visibleMax: bounds.max,
+    valueMin: resolveBound(
+      bounds.min - padding,
+      definition.range?.min,
+      definition.range?.mode,
+      'min',
+    ),
+    valueMax: resolveBound(
+      bounds.max + padding,
+      definition.range?.max,
+      definition.range?.mode,
+      'max',
+    ),
   }
 }

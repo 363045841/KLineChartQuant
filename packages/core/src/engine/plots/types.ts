@@ -57,9 +57,13 @@ export interface PlotFillSpec {
   readonly from: string
   readonly to: string
   readonly show?: string
-  readonly color: (colors: ColorTokens) => string
-  readonly reverseColor: (colors: ColorTokens) => string
-  readonly opacity?: number
+  /** 每个图表 bar 求值一次；用户从边界值决定颜色，null 留空。 */
+  readonly color: (
+    colors: ColorTokens,
+    from: number | undefined,
+    to: number | undefined,
+    index: number,
+  ) => string | null
 }
 
 export interface PlotGuide {

@@ -1,24 +1,39 @@
 /** 脚本测试共用的行情构造与结果读取，避免各用例重复维护同一套数据替身。 */
+import { readFileSync } from 'node:fs'
 import type { Bar } from '../contracts/input.js'
 import type { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
 
 /** 一次脚本执行的结果，供取值 helper 复用。 */
 type ScriptResult = Awaited<ReturnType<typeof runQuickJSScript>>
 
+/** 构造行情时可选的成交量与高低点幅度。 */
+export interface BarFixture {
+  /** 逐根成交量；缺省为 1。 */
+  readonly volumes?: readonly number[]
+  /** high/low 相对 close 的固定幅度；缺省为 0，此时四个价格字段相同。 */
+  readonly spread?: number
+}
+
+/** 读取随包发布的示例脚本源码，避免各用例自己拼相对路径。 */
+export function shippedSource(name: string): string {
+  return readFileSync(new URL(`../../scripts/${name}.ts`, import.meta.url), 'utf8')
+}
+
 /** 用完整文件声明包装计算片段，所有用例走相同初始化入口。 */
 export function scriptSource(body: string): string {
   return `defineIndicator({ name: 'TestScript', position: 'main', onBar() { ${body} } })`
 }
 
-/** 生成 close 驱动的完整 K 线，open/high/low 与 close 相同；volume 缺省为 1。 */
-export function barsFromCloses(closes: readonly number[], volumes?: readonly number[]): Bar[] {
+/** 生成 close 驱动的完整 K 线；open 与 close 相同，high/low 由 spread 对称展开。 */
+export function barsFromCloses(closes: readonly number[], fixture: BarFixture = {}): Bar[] {
+  const spread = fixture.spread ?? 0
   return closes.map((close, index) => ({
     time: index,
     open: close,
-    high: close,
-    low: close,
+    high: close + spread,
+    low: close - spread,
     close,
-    volume: volumes?.[index] ?? 1,
+    volume: fixture.volumes?.[index] ?? 1,
   }))
 }
 

@@ -1,10 +1,6 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
-import type {
-  InputSchema,
-  PlotDeclaration,
-  PlotFillDeclaration,
-} from '@363045841yyt/klinechart-plot-contracts'
+import type { InputSchema } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 
 /** 可以在脚本中作为 `params` 读取的输入值。 */
@@ -38,8 +34,6 @@ export interface QuickJSScriptDefinition {
    */
   readonly position: Position
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
-  readonly plots?: readonly PlotDeclaration[]
-  readonly fills?: readonly PlotFillDeclaration[]
 }
 
 /** 一次 QuickJS 脚本运行的配置。 */

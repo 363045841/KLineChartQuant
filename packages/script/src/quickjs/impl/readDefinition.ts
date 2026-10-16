@@ -59,8 +59,12 @@ function hasValidPlotBase(value: Record<string, unknown>): boolean {
     optional(value.textColor, 'string') &&
     optional(value.offset, 'number') &&
     optional(value.visible, 'boolean') &&
-    (value.size === undefined || isShapeSize(value.size) ||
-      (value.kind === 'histogram' && typeof value.size === 'number' && Number.isFinite(value.size) && value.size > 0))
+    (value.size === undefined ||
+      isShapeSize(value.size) ||
+      (value.kind === 'histogram' &&
+        typeof value.size === 'number' &&
+        Number.isFinite(value.size) &&
+        value.size > 0))
   )
 }
 
@@ -144,18 +148,41 @@ export function readPlotCall(name: unknown, options: unknown, kind: PlotKind): P
   return declaration
 }
 
-/** 检查填充引用和可选样式。 */
+/** 检查填充引用和可选样式；name 由调用处的 title 或 from/to 生成。 */
 function isFill(value: unknown): value is PlotFillDeclaration {
   return (
     isRecord(value) &&
     typeof value.name === 'string' &&
     typeof value.from === 'string' &&
     typeof value.to === 'string' &&
-    optional(value.color, 'string') &&
-    optional(value.reverseColor, 'string') &&
-    optional(value.opacity, 'number') &&
+    (value.color === null || typeof value.color === 'string') &&
     optional(value.visible, 'boolean')
   )
+}
+
+/** 校验 fill 调用；from/to 由句柄提供，title 作为填充名称，缺省按 from/to 生成。 */
+export function readFillCall(
+  from: unknown,
+  to: unknown,
+  color: unknown,
+  title: unknown,
+  options: unknown,
+): PlotFillDeclaration {
+  if (
+    options !== undefined &&
+    (!isRecord(options) || Object.keys(options).some((key) => key !== 'visible'))
+  ) {
+    throw new ScriptExecutionError('run', '无效 fill 调用参数')
+  }
+  const declaration = {
+    ...options,
+    name: title === undefined ? `${String(from)}-${String(to)}` : title,
+    from,
+    to,
+    color,
+  }
+  if (!isFill(declaration)) throw new ScriptExecutionError('run', '无效 fill 调用参数')
+  return declaration
 }
 
 /** 读取已初始化脚本的定义；缺字段或错误类型统一作为编译错误报告。 */
@@ -194,19 +221,9 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
       ...(typeof declaration.step === 'number' ? { step: declaration.step } : {}),
     }
   }
-  const plots: unknown = value.plots
-  const fills: unknown = value.fills
-  if (plots !== undefined && (!Array.isArray(plots) || !plots.every(isPlot))) {
-    throw new ScriptExecutionError('compile', '无效 plots 声明')
-  }
-  if (fills !== undefined && (!Array.isArray(fills) || !fills.every(isFill))) {
-    throw new ScriptExecutionError('compile', '无效 fills 声明')
-  }
   return {
     name: value.name,
     position: value.position,
     inputs,
-    ...(Array.isArray(plots) && plots.every(isPlot) ? { plots } : {}),
-    ...(Array.isArray(fills) && fills.every(isFill) ? { fills } : {}),
   }
 }

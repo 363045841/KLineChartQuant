@@ -40,7 +40,7 @@ import {
 } from '../types.js'
 import { builtinLibraries } from './builtinLibraries.js'
 import { compileScript } from './compileScript.js'
-import { readDefinition, readPlotCall } from './readDefinition.js'
+import { readDefinition, readFillCall, readPlotCall } from './readDefinition.js'
 
 /** 共享的 WASM 模块类型。 */
 type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
@@ -189,11 +189,7 @@ function runWithContext(
       metadata.dispose()
     }
     if (failure) throw failure
-    collector = new PlotCollector({
-      barCount: bars.length,
-      plots: definition.plots,
-      fills: definition.fills,
-    })
+    collector = new PlotCollector({ barCount: bars.length })
     const compiled = evalOrThrow(vm, '__onBar', 'compile', timeout)
     try {
       for (let index = 0; index < bars.length; index++) {
@@ -210,7 +206,7 @@ function runWithContext(
   }
 }
 
-/** 注入 __read / __count / __plot 三个宿主函数。 */
+/** 注入 __read / __count / __plot / __fill 四个宿主函数。 */
 function mountHostFunctions(
   vm: QuickJSContext,
   bars: readonly Bar[],
@@ -263,6 +259,30 @@ function mountHostFunctions(
   })
   vm.setProp(vm.global, '__plot', plot)
   plot.dispose()
+
+  const fill = vm.newFunction(
+    '__fill',
+    (fromHandle, toHandle, colorHandle, titleHandle, optionsHandle) => {
+      const collector = getCollector()
+      if (!collector || cursor.index < 0) {
+        onError(new ScriptExecutionError('compile', 'fill 只能在 onBar 中调用'))
+        return vm.undefined
+      }
+      collector.onFill(
+        readFillCall(
+          vm.dump(fromHandle),
+          vm.dump(toHandle),
+          vm.dump(colorHandle),
+          vm.dump(titleHandle),
+          vm.dump(optionsHandle),
+        ),
+        cursor.index,
+      )
+      return vm.undefined
+    },
+  )
+  vm.setProp(vm.global, '__fill', fill)
+  fill.dispose()
 }
 
 /** 箭头方向色优先于公共 color；其余 kind 直接用调用颜色。 */

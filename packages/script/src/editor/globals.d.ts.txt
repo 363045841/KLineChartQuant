@@ -6,7 +6,7 @@ import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
-import type { ScriptIndicatorDeclaration, ScriptInput, ScriptPlot } from './types.js'
+import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -53,6 +53,23 @@ declare global {
    * | `plot.Arrow` | 箭头 | 正负决定方向，绝对值决定长度 |
    */
   const plot: ScriptPlot
+  /**
+   * 声明两个 Plot 之间的填充区域；两个句柄由 plot.* 返回，仅在 onBar 中调用。
+   * 每根 bar 保存调用处求出的颜色；null 表示该 bar 不填充。
+   *
+   * | 参数 | 含义 |
+   * | --- | --- |
+   * | `from` / `to` | 填充的两个边界 Plot |
+   * | `color` | 当前 bar 的 CSS 颜色，透明度由颜色携带 |
+   * | `title` | 填充标识；不填则按 from/to 生成 |
+   */
+  function fill(
+    from: PlotRef,
+    to: PlotRef,
+    color: string | null,
+    title?: string,
+    options?: ScriptFillOptions,
+  ): void
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */

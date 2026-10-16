@@ -22,8 +22,7 @@ defineIndicator({
 })
 ```
 
-本例没有声明 `plots`，输出的 `oc-average` 自动按默认折线绘制。
-需要指定类型、标签或样式时才写 `plots` 声明。
+输出的 `oc-average` 自动按默认折线绘制，类型、标签和样式都由绘图方法的参数决定。
 
 宿主通过脚本服务加载这份文件，源码、修订号和派生定义一起提交：
 
@@ -46,7 +45,6 @@ await scripts.create(source)
 | --- | --- |
 | `name` | 指标显示名称；用户脚本可通过修改名称并保存来重命名，同名脚本拒绝重复创建。稳定 ID 由框架自动分配并持久化，重命名保留实例和配置 |
 | `position` | 指标渲染位置，必填：`Position.Main` 主图 / `Position.Sub` 副图 |
-| `plots` / `fills` | 可选的 Plot 与填充声明 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取全局序列与参数，输出 Plot |
 
 `onBar` 不需要参数：行情序列和库由宿主注入，输入参数通过局部变量读取。
@@ -84,9 +82,8 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 `name` 区分不同的 Plot，同一根 K 线上可以输出多个不同 name 的点。
 使用 `plot.Line`、`plot.Point` 等方法选择图形：第一个参数是绘图值，第二个参数是必填的绘图名称，
 第三个参数是可选的样式对象。
-也可通过 `globalThis.plot` 访问。绘图类型由方法名决定，无需 `plots` 声明。
-同一个 name 在一次运行中必须使用同一种类型。
-使用可选 `plots` 声明样式时，输出未声明的 name 会报错；类型专用样式仅在声明与调用类型相同时生效。
+也可通过 `globalThis.plot` 访问。绘图类型由方法名决定。
+同一个 name 在一次运行中必须使用同一种类型，整列样式也必须保持一致。
 
 ### Plot 类型
 
@@ -110,13 +107,14 @@ plot.Histogram(close - open, 'body-size', { size: ShapeSize.Large }) // 固定 3
 
 Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Huge 为 4px。
 
-### Plot 通用声明
+### Plot 调用选项
+
+第三个参数是调用选项对象，缺省值由采集器补齐：
 
 | 字段 | 作用 |
 | --- | --- |
-| `name` | Plot 名称，与绘图方法的第二个参数对应 |
 | `label` | 图例名称，缺省取 `name` |
-| `color` | CSS 颜色字符串，或用内置 `Color` 常用色 |
+| `color` | CSS 颜色字符串，或逐点颜色 |
 | `offset` | 沿 K 线下标的偏移，用于前移或后移的序列 |
 | `visible` | 是否绘制，缺省为 `true` |
 | `size` | `ShapeSize` 尺寸档位，控制线宽、点径或标记大小 |
@@ -135,18 +133,29 @@ Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Hug
 
 ### 填充
 
-`fills` 引用两个已声明的 Plot，填充它们之间的区域，不复制序列数据。
-两条曲线相交时，在交点切换正反颜色。
+`fill(from, to, color, title)` 声明两个已在 `onBar` 中输出的 Plot 之间的填充区域，不复制序列数据。
+`from` / `to` 是 `plot.*` 返回的句柄；`color` 在每根 bar 求值，`null` 表示该 bar 不填充。
+填充按 `title` 标识，同一对边界可以用不同 title 声明多层填充。边界和 `visible` 在一次运行内固定。
+相邻两个点之间使用右端 bar 的颜色，交叉时不推导颜色，也不在交点切色。
 
-| 字段 | 作用 |
+```js
+onBar() {
+  const fastValue = ta.sma(close, 5)
+  const slowValue = ta.sma(close, 20)
+  const fast = plot.Line(fastValue, 'fast')
+  const slow = plot.Line(slowValue, 'slow')
+  fill(fast, slow, fastValue > slowValue ? Color.Teal : Color.Red, '快慢云')
+}
+```
+
+| 参数 | 作用 |
 | --- | --- |
-| `name` | 填充标识 |
-| `from` | 起始 Plot 的 `name` |
-| `to` | 结束 Plot 的 `name` |
-| `color` | `from` 低于 `to` 时的填充色 |
-| `reverseColor` | `from` 高于 `to` 时的填充色 |
-| `opacity` | 不透明度 |
-| `visible` | 是否绘制，缺省为 `true` |
+| `from` / `to` | 填充的两个边界 Plot 句柄 |
+| `color` | 必填，当前 bar 的 CSS 颜色或 `null`；透明度直接写入颜色，例如 `'#00897b26'` |
+| `title` | 填充标识；不填则按 `from`/`to` 生成 |
+| `options.visible` | 是否绘制，缺省 `true` |
+
+`options` 是第 5 个可选参数。
 
 ### 逐点颜色
 

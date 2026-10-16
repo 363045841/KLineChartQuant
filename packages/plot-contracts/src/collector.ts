@@ -1,9 +1,9 @@
 /**
- * PlotCollector：把逐 bar 的 onPlot 输出汇聚成按 K 线对齐的 PlotCollection。
+ * PlotCollector：把逐 bar 的 onPlot / onFill 输出汇聚成按 K 线对齐的 PlotCollection。
  *
  * 它把散落的 (name, barIndex, point) 收成每个 Plot 的列：
- * - 声明了 plots 时，只接受已声明的 name，未声明即报错；已声明但无数据的 Plot 补齐空序列。
- * - 未声明 plots 时，允许动态 name，使用调用处类型，缺省为折线。
+ * Plot 按首次出现的 name 建立条目，类型取调用处，缺省为折线；
+ * 填充按名称登记边界，颜色写入对应 bar 的序列。
  */
 import type {
   ArrowPlotDeclaration,
@@ -16,7 +16,6 @@ import type {
   PointsPlotDeclaration,
   ShapePlotDeclaration,
 } from './declaration.js'
-import { PLOT_ERROR_CODES } from './errors.js'
 import {
   type ArrowPlot,
   type CharPlot,
@@ -40,8 +39,6 @@ const DEFAULT_PLOT_COLOR = '#2196f3'
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */
 const DEFAULT_HISTOGRAM_BASELINE = 0
-/** 填充默认不透明度；同样只有这一处定义。 */
-const DEFAULT_FILL_OPACITY = 0.15
 /** 字符声明的默认值只在组装时补齐。 */
 const DEFAULT_CHAR = '★'
 
@@ -49,33 +46,37 @@ const DEFAULT_CHAR = '★'
 export interface PlotCollectorOptions {
   /** 本次运行的 bar 数量，用于补齐空 Plot 的序列长度。 */
   readonly barCount: number
-  /** Plot 声明；提供时拒绝未声明 name。 */
-  readonly plots?: readonly PlotDeclaration[]
-  /** 填充声明。 */
-  readonly fills?: readonly PlotFillDeclaration[]
 }
 
 /** 按 name / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
 export class PlotCollector {
   private readonly barCount: number
-  private readonly declared: boolean
-  private readonly fillDeclarations?: readonly PlotFillDeclaration[]
+  private readonly fills = new Map<string, CollectedFill>()
   private readonly entries = new Map<string, CollectedPlot>()
 
-  /** 声明和直接调用都写入同一份有序条目，声明只负责预先创建空列。 */
+  /** 登记 bar 数量；Plot 条目在首次输出时按 name 建立，填充由 onFill 登记。 */
   constructor(options: PlotCollectorOptions) {
     this.barCount = options.barCount
-    this.declared = options.plots !== undefined
-    this.fillDeclarations = options.fills
-    for (const declaration of options.plots ?? []) {
-      if (this.entries.has(declaration.name)) throw new TypeError('Duplicate Plot name')
-      this.entries.set(declaration.name, {
-        declaration,
-        style: styleSignature(declaration),
-        data: this.emptyColumn(),
-        emitted: false,
-      })
+  }
+
+  /** 按名称采集当前 bar 的填充颜色；边界和整列显隐在一次运行内固定。 */
+  onFill(declaration: PlotFillDeclaration, barIndex: number): void {
+    const { color, ...metadata } = declaration
+    let entry = this.fills.get(declaration.name)
+    if (!entry) {
+      entry = { declaration: metadata, colors: new Array<string | null>(this.barCount).fill(null) }
+      this.fills.set(declaration.name, entry)
     }
+    const previous = entry.declaration
+    if (
+      previous.from !== declaration.from ||
+      previous.to !== declaration.to ||
+      (previous.visible !== false) !== (declaration.visible !== false)
+    )
+      throw new TypeError(
+        `Fill ${declaration.name} cannot change boundaries or visibility during a run`,
+      )
+    entry.colors[barIndex] = color
   }
 
   /** 接收绘图点或主动空点；仍校验调用样式，无效数值不会进入输出列。 */
@@ -87,11 +88,6 @@ export class PlotCollector {
     options?: PlotDeclaration,
   ): void {
     let entry = this.entries.get(name)
-    if (this.declared && !entry) {
-      throw new Error(
-        `[${PLOT_ERROR_CODES.UNDECLARED_PLOT}] plot name '${name}' is not declared in script.plots`,
-      )
-    }
     if (!entry) {
       entry = this.createEntry(name, kind)
       this.entries.set(name, entry)
@@ -111,17 +107,19 @@ export class PlotCollector {
     entry.data[barIndex] = point !== null && Number.isFinite(point.value) ? point : undefined
   }
 
-  /** 产出 PlotCollection：声明优先且保持声明顺序，未声明时按首次出现顺序输出。 */
+  /** 产出 PlotCollection：Plot 按首次出现顺序输出，再补齐填充。 */
   collect(): PlotCollection {
     const plots = [...this.entries.values()].map(({ declaration, data }) =>
       createPlot(declaration, data),
     )
-    const fills: PlotFill[] = this.fillDeclarations?.map(createFill) ?? []
+    const fills = [...this.fills.values()].map(({ declaration, colors }) =>
+      createFill(declaration, colors),
+    )
     validatePlotFills(plots, fills)
     return { plots, fills }
   }
 
-  /** 动态 name 的条目：沿用与声明条目相同的空列结构，样式先留空。 */
+  /** 首次出现的 name 建立条目：空列 + 调用类型，样式先留空。 */
   private createEntry(name: string, kind: PlotDeclaration['kind'] | undefined): CollectedPlot {
     return {
       declaration: { name, kind: kind ?? PlotKind.Line },
@@ -135,6 +133,12 @@ export class PlotCollector {
   private emptyColumn(): (PlotPoint | undefined)[] {
     return new Array<PlotPoint | undefined>(this.barCount).fill(undefined)
   }
+}
+
+/** 填充的固定元数据与逐 bar 颜色分别保存。 */
+interface CollectedFill {
+  readonly declaration: Omit<PlotFillDeclaration, 'color'>
+  readonly colors: (string | null)[]
 }
 
 /** 同一个 Plot 的声明、整列样式签名和数值列只保留一份。 */
@@ -190,7 +194,10 @@ function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration
 }
 
 /** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
-type PlotBaseFields = Pick<LinePlot, 'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'>
+type PlotBaseFields = Pick<
+  LinePlot,
+  'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'
+>
 
 /** 用声明或默认值补齐 Plot 公共字段；声明用 name，模型的身份字段仍是 id。 */
 function plotBase(
@@ -204,7 +211,8 @@ function plotBase(
     color: declaration.color ?? DEFAULT_PLOT_COLOR,
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
-    size: typeof declaration.size === 'number' ? ShapeSize.Auto : declaration.size ?? ShapeSize.Auto,
+    size:
+      typeof declaration.size === 'number' ? ShapeSize.Auto : (declaration.size ?? ShapeSize.Auto),
   }
 }
 
@@ -232,7 +240,12 @@ function createHistogramPlot(
 
 /** 自动柱宽只依赖 K 线间距。 */
 function createColumnsPlot(declaration: ColumnsPlotDeclaration, base: PlotBaseFields): ColumnsPlot {
-  return { ...base, kind: 'columns', size: ShapeSize.Auto, baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE }
+  return {
+    ...base,
+    kind: 'columns',
+    size: ShapeSize.Auto,
+    baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
+  }
 }
 
 /** 散点：几何全部由公共 size 决定。 */
@@ -318,14 +331,15 @@ function resolveDeclaration(
 }
 
 /** 把填充声明组装成具体 PlotFill；声明用 name，模型的身份字段仍是 id。 */
-export function createFill(declaration: PlotFillDeclaration): PlotFill {
+export function createFill(
+  declaration: Omit<PlotFillDeclaration, 'color'>,
+  colors: readonly (string | null)[],
+): PlotFill {
   return {
     id: declaration.name,
     from: declaration.from,
     to: declaration.to,
-    visible: declaration.visible ?? true,
-    color: declaration.color ?? DEFAULT_PLOT_COLOR,
-    reverseColor: declaration.reverseColor ?? declaration.color ?? DEFAULT_PLOT_COLOR,
-    opacity: declaration.opacity ?? DEFAULT_FILL_OPACITY,
+    visible: declaration.visible !== false,
+    colors,
   }
 }

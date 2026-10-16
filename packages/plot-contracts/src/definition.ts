@@ -2,7 +2,6 @@
  * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
  */
 import type { Bar } from './bar.js'
-import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
 import type { PlotCollection } from './plots.js'
 
 /** 可序列化的脚本声明；不包含执行函数。 */
@@ -11,8 +10,6 @@ export interface IndicatorSourceDefinition {
   /** 注册位置：主图叠加或独立副图；缺省为副图。 */
   readonly position?: 'main' | 'sub'
   readonly inputs: InputSchema<Record<string, number | string | boolean>>
-  readonly plots?: readonly PlotDeclaration[]
-  readonly fills?: readonly PlotFillDeclaration[]
 }
 
 /** 指标来源分类：系统内置或扩展生产者（脚本）。 */

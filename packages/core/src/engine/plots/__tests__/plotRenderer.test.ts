@@ -17,7 +17,7 @@ import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'
 import { projectPlots } from '../impl/projectPlots.js'
-import type { IndicatorPlotDefinition } from '../types.js'
+import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
 
 beforeAll(loadBuiltinIndicators)
 
@@ -258,6 +258,88 @@ describe('Plot renderer', () => {
     expect(ctx.fill).not.toHaveBeenCalled()
   })
 
+  it('fill 沿两条折线绘制带状区域，同色区域一次提交', () => {
+    const collector = new PlotCollector({ barCount: 3 })
+    const values = [
+      [10, 8],
+      [8, 10],
+      [6, 12],
+    ]
+    values.forEach(([a, b], index) => {
+      collector.onPlot('fast', index, { value: a })
+      collector.onPlot('slow', index, { value: b })
+      collector.onFill(
+        { name: 'cloud', from: 'fast', to: 'slow', color: index === 1 ? 'green' : 'red' },
+        index,
+      )
+    })
+    const ctx = createMockCanvasContext()
+    const styles: unknown[] = []
+    vi.mocked(ctx.fill).mockImplementation(() => {
+      styles.push(ctx.fillStyle)
+    })
+    const state = projectPlots(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      { start: 0, end: 3 },
+      1,
+      resolveThemeColors('light'),
+    )
+    const context = createContextWithInstanceState(ctx, 'fill-color-test', state, {
+      // 真实价格轴向上为小 y；夹具默认映射与屏幕方向相反，这里显式覆盖。
+      pane: { yAxis: { priceToY: (price) => 100 - price } },
+      range: { start: 0, end: 3 },
+      kLineCenters: [5, 15, 25],
+      kBarRects: [
+        { x: 0, width: 8 },
+        { x: 10, width: 8 },
+        { x: 20, width: 8 },
+      ],
+    })
+    paintPlots(state, context)
+    expect(styles).toEqual(['green', 'red'])
+    expect(ctx.fillRect).not.toHaveBeenCalled()
+    expect(ctx.moveTo).toHaveBeenCalledWith(5, 90)
+    expect(ctx.lineTo).toHaveBeenCalledWith(10, 91)
+    expect(ctx.lineTo).toHaveBeenCalledWith(25, 94)
+  })
+
+  it('原生 fill 逐 bar 求色，null 和缺失边界不绘制，颜色 alpha 不再叠加透明度', () => {
+    const color = vi.fn<PlotFillSpec['color']>((_colors, from, to, index) => {
+      if (index === 2 || from === undefined || to === undefined) return null
+      return '#00897b26'
+    })
+    const { ctx, state } = paint(
+      {
+        series: [
+          { id: 'a', field: 'a', color: () => 'red' },
+          { id: 'b', field: 'b', color: () => 'blue' },
+        ],
+        fills: [{ id: 'cloud', from: 'a', to: 'b', color }],
+      },
+      [
+        { a: 1, b: 3 },
+        { a: 4, b: 2 },
+        { a: 2, b: 4 },
+        { a: null, b: 3 },
+        { a: 5, b: 2 },
+      ],
+    )
+    expect(color.mock.calls.map(([, from, to, index]) => [from, to, index])).toEqual([
+      [1, 3, 0],
+      [4, 2, 1],
+      [2, 4, 2],
+      [undefined, 3, 3],
+      [5, 2, 4],
+    ])
+    expect(state.fills[0]?.colors).toEqual(['#00897b26', '#00897b26', null, null, '#00897b26'])
+    expect(ctx.fill).toHaveBeenCalledTimes(1)
+    expect(ctx.fillRect).not.toHaveBeenCalled()
+    expect(ctx.fillStyle).toBe('#00897b26')
+    expect(ctx.globalAlpha).toBe(1)
+  })
+
   it.each(['char', 'arrow'] as const)('%s 相对标记不能作为 fill 端点', (kind) => {
     expect(() =>
       paint(
@@ -272,7 +354,6 @@ describe('Plot renderer', () => {
               from: 'marker',
               to: 'line',
               color: () => 'green',
-              reverseColor: () => 'red',
             },
           ],
         },
@@ -359,11 +440,12 @@ describe('Plot renderer', () => {
   })
 
   it('行情快照修订后，Shape bar 锚点缓存失效', () => {
-    const collector = new PlotCollector({
-      barCount: 1,
-      plots: [{ name: 'signal', kind: 'shape', style: 'circle' }],
+    const collector = new PlotCollector({ barCount: 1 })
+    collector.onPlot('signal', 0, { value: 1 }, 'shape', {
+      name: 'signal',
+      kind: 'shape',
+      style: 'circle',
     })
-    collector.onPlot('signal', 0, { value: 1 })
     const state = projectPlots(
       { source: 'collection', series: [] },
       collector.collect(),
@@ -492,11 +574,13 @@ describe('Plot renderer', () => {
   })
 
   it('collection Shape 沿用逐 bar 颜色和文字颜色，滚动重放不重新测量文字', () => {
-    const collector = new PlotCollector({
-      barCount: 1,
-      plots: [{ name: 'signal', kind: 'shape', location: 'top', text: '买入' }],
+    const collector = new PlotCollector({ barCount: 1 })
+    collector.onPlot('signal', 0, { value: 1, color: 'red', textColor: 'blue' }, 'shape', {
+      name: 'signal',
+      kind: 'shape',
+      location: 'top',
+      text: '买入',
     })
-    collector.onPlot('signal', 0, { value: 1, color: 'red', textColor: 'blue' }, 'shape')
     const state = projectPlots(
       { source: 'collection', series: [] },
       collector.collect(),
@@ -526,7 +610,7 @@ describe('Plot renderer', () => {
         { id: 'a', field: 'a', color: () => 'red' },
         { id: 'b', field: 'b', color: () => 'blue' },
       ],
-      fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green', reverseColor: () => 'red' }],
+      fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
     }
     const state = projectPlots(
       definition,
@@ -635,9 +719,7 @@ describe('Plot renderer', () => {
           { id: 'a', field: 'a', show: 'line', color: () => 'red' },
           { id: 'b', field: 'b', show: 'line', color: () => 'blue' },
         ],
-        fills: [
-          { id: 'cloud', from: 'a', to: 'b', color: () => 'green', reverseColor: () => 'red' },
-        ],
+        fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
       },
       [
         { a: 3, b: 1 },
@@ -646,7 +728,8 @@ describe('Plot renderer', () => {
       ],
       { line: false },
     )
-    expect(ctx.fill).toHaveBeenCalledTimes(2)
+    expect(ctx.fill).toHaveBeenCalledTimes(1)
+    expect(ctx.fillRect).not.toHaveBeenCalled()
     expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 25)).toBe(true)
   })
 })

@@ -25,11 +25,9 @@ parameters and calculation live in the same document:
 defineIndicator({
   name: 'OC Average',
   position: Position.Sub,
-  inputs: {
-    n: input(2, { title: '除数' }),
-  },
   onBar() {
-    plot.Line((open + close) / params.n, 'oc-average')
+    const n = input.float(2, { title: '除数' })
+    plot.Line((open + close) / n, 'oc-average')
   },
 })
 ```
@@ -39,10 +37,11 @@ The VM prelude injects these globals before the script runs:
 | Global | Meaning |
 | --- | --- |
 | `open` `high` `low` `close` `volume` `time` | price series; `close` reads the current bar, `close[1]` one bar back |
-| `params` | resolved input values |
-| `plot.Line(value, name, options?)` | emit a plot point; methods: `Line`, `Histogram`, `Point`, `Shape`, `Char`, `Arrow` |
+| `input.int` `input.float` `input.bool` `input.string` | declare a parameter at the top level of `onBar`; the variable reads back the user's value |
+| `plot.Line(value, name, options?)` | emit a plot point; methods: `Line`, `Columns`, `Histogram`, `Point`, `Shape`, `Char`, `Arrow` |
+| `fill(from, to, color, title, options?)` | fill the area between two plots; `from` / `to` are the handles returned by `plot.*` |
 | `Position` | indicator registration location; `Position.Main` or `Position.Sub` |
-| `input(default, options?)` | declare a parameter; `options` renders a dropdown for string inputs |
+| `Color` | common Material 400 colors, or pass any CSS color string |
 | `defineIndicator(definition)` | declare the single indicator of the file |
 | `defineLibrary(name, members)` / `importLibrary(name)` | declare and use a library |
 
@@ -82,7 +81,8 @@ const scripts = await createScriptService([
 ```
 
 The built-in `ta` library (`sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `crossover`,
-`crossunder`) uses the exact same `defineLibrary` call. See `builtinLibraries` for the manifest.
+`crossunder`, `rising`, `falling`, `change`) uses the exact same `defineLibrary` call. See
+`builtinLibraries` for the manifest.
 
 ## Contracts
 
@@ -93,9 +93,19 @@ The built-in `ta` library (`sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowes
 | QuickJS | `QuickJSRunOptions`, `QuickJSScriptDefinition`, `QuickJSLibrary` |
 | Library | `LibraryModules`, `LibraryExports`, `TechnicalAnalysisLibrary` |
 | Plot | `Plot`, `PlotFill`, `PlotCollection` |
+| Input schema | `InputSchema`, `ScriptParamValue` |
 
 The Plot data model is shared with the chart engine through
 `@363045841yyt/klinechart-plot-contracts` and re-exported here.
+
+## Docs
+
+| Document | Covers |
+| --- | --- |
+| [`docs/indicator.md`](docs/indicator.md) | Indicator declaration, inputs, Plot API, colors, fill |
+| [`docs/library.md`](docs/library.md) | `defineLibrary` / `importLibrary`, loading, editor summaries |
+| [`docs/series.md`](docs/series.md) | Series semantics and history access |
+| [`docs/strategy.md`](docs/strategy.md) | Strategy-shaped scripts |
 
 ## Commands
 

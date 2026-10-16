@@ -25,6 +25,7 @@ import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { PlotRenderState } from '../types.js'
+import { buildFillBands, type FillBand } from './fillGeometry.js'
 import {
   buildArrowGlyph,
   buildMarkerGlyph,
@@ -86,8 +87,7 @@ type PlotProjection = LineProjection | ColumnProjection | PointsProjection | Mar
 /** 填充的投影结果：端点在此解析，重放时不再按 id 查找。 */
 interface FillProjection {
   readonly fill: PlotFill
-  readonly from: PlotProjection
-  readonly to: PlotProjection
+  readonly bands: readonly FillBand[]
 }
 
 /** 一帧可复用的全部重放数据。 */
@@ -395,7 +395,7 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
   const from = byId.get(fill.from)
   const to = byId.get(fill.to)
   if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
-  return { fill, from, to }
+  return { fill, bands: buildFillBands(from.points, to.points, fill.colors) }
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
@@ -459,46 +459,39 @@ function drawPoints(projection: PointsProjection, context: RenderContext): void 
   ctx.restore()
 }
 
-/** 填充两个序列之间的区域；相交时在交点切换颜色。 */
+/** 重放带状多边形；同色区域一次填充，避免分段透明度重叠与接缝。 */
 function drawFill(projection: FillProjection, context: RenderContext): void {
-  const { fill, from, to } = projection
   const { ctx } = context
   ctx.save()
   ctx.translate(-context.scrollLeft, 0)
-  ctx.globalAlpha = fill.opacity
-  const paint = (a: Point, b: Point, c: Point, d: Point, reverse: boolean): void => {
-    ctx.fillStyle = reverse ? fill.reverseColor : fill.color
+  for (const band of projection.bands) {
+    ctx.fillStyle = band.color
     ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.lineTo(c.x, c.y)
-    ctx.lineTo(d.x, d.y)
-    ctx.closePath()
+    for (const polygon of band.polygons) {
+      const first = polygon[0]
+      if (!first) continue
+      ctx.moveTo(first.x, first.y)
+      for (let index = 1; index < polygon.length; index++) {
+        const point = polygon[index]!
+        ctx.lineTo(point.x, point.y)
+      }
+      ctx.closePath()
+    }
     ctx.fill()
-  }
-  for (const index of plotIndices(from.plot, context)) {
-    const a = from.points.get(index - 1),
-      b = from.points.get(index)
-    const c = to.points.get(index),
-      d = to.points.get(index - 1)
-    if (!a || !b || !c || !d) continue
-    const left = a.y - d.y,
-      right = b.y - c.y
-    if (left * right < 0) {
-      const t = left / (left - right)
-      const cross = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
-      paint(a, cross, cross, d, left > 0)
-      paint(cross, b, c, cross, right > 0)
-    } else paint(a, b, c, d, left + right > 0)
   }
   ctx.restore()
 }
 
-/** 绘制一个指标实例的全部填充、参考线和 Plot。 */
-export function paintPlots(
+/** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
+export function paintPlots(state: PlotRenderState, context: RenderContext): void {
+  paintGeometry(state, context, collectGeometry(state, context))
+}
+
+/** 用一帧几何绘制填充、参考线和 Plot；几何已由调用方投影完成。 */
+function paintGeometry(
   state: PlotRenderState,
   context: RenderContext,
-  geometry: PlotGeometry = collectGeometry(state, context),
+  geometry: PlotGeometry,
 ): void {
   for (const fill of geometry.fills) if (fill.fill.visible) drawFill(fill, context)
   const { ctx } = context
@@ -552,10 +545,10 @@ export function createPlotLayer(
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
       const geometry = retained.read(
-        createProjectionRevision(context, [state.plots, context.data, context.theme]),
+        createProjectionRevision(context, [state.plots, state.fills, context.data, context.theme]),
         () => collectGeometry(state, context),
       )
-      paintPlots(state, context, geometry)
+      paintGeometry(state, context, geometry)
     },
     dispose: () => retained.clear(),
   })

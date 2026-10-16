@@ -1,44 +1,44 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 按图形类型输出当前 K 线的值，方法名确定类型，name 为绘图名称。 */
+/** 按图形类型输出当前 K 线的值，方法名确定类型，name 为绘图名称；返回供 fill 引用的句柄。 */
 const plot: ScriptPlot = {
   /** 输出折线点。 */
   Line(value, name, options) {
-    emitPlot(PlotKind.Line, value, name, options)
+    return emitPlot(PlotKind.Line, value, name, options)
   },
   /** 输出柱状图值。 */
   Histogram(value, name, options) {
-    emitPlot(PlotKind.Histogram, value, name, options)
+    return emitPlot(PlotKind.Histogram, value, name, options)
   },
   /** 输出随 K 线间距缩放的柱状图。 */
   Columns(value, name, options) {
-    emitPlot(PlotKind.Columns, value, name, options)
+    return emitPlot(PlotKind.Columns, value, name, options)
   },
   /** 输出散点。 */
   Point(value, name, options) {
-    emitPlot(PlotKind.Points, value, name, options)
+    return emitPlot(PlotKind.Points, value, name, options)
   },
   /** 输出形状标记。 */
   Shape(value, name, options) {
-    emitPlot(PlotKind.Shape, value, name, options)
+    return emitPlot(PlotKind.Shape, value, name, options)
   },
   /** 输出字符标记。 */
   Char(value, name, options) {
-    emitPlot(PlotKind.Char, value, name, options)
+    return emitPlot(PlotKind.Char, value, name, options)
   },
   /** 输出数值箭头。 */
   Arrow(value, name, options) {
-    emitPlot(PlotKind.Arrow, value, name, options)
+    return emitPlot(PlotKind.Arrow, value, name, options)
   },
 }
 
-/** 校验绘图名称、绘图值并传给宿主；null 留空，布尔标记收敛成数值。 */
+/** 校验绘图名称、绘图值并传给宿主；null 留空，布尔标记收敛成数值，返回绘图句柄。 */
 function emitPlot(
   kind: PlotKind,
   value: number | boolean | null,
   name: string,
   options?: ScriptPlotOptions,
-): void {
+): PlotRef {
   if (typeof name !== 'string' || name.length === 0) throw new TypeError('plot 需要非空的 name')
   if (
     value !== null &&
@@ -48,6 +48,18 @@ function emitPlot(
     throw new TypeError('plot value 需要数值或 null，shape 和 char 也可以使用布尔条件')
   // kind 由宿主按共享契约校验，这里只负责把 JS 值收敛成数值列。
   __plot(kind, toPlotValue(value), name, options)
+  return { name }
+}
+
+/** 输出当前 bar 的填充颜色；null 留空，颜色和透明度完全由调用方决定。 */
+function fill(
+  from: PlotRef,
+  to: PlotRef,
+  color: string | null,
+  title?: string,
+  options?: ScriptFillOptions,
+): void {
+  __fill(from.name, to.name, color, title, options)
 }
 
 /** 布尔条件成立记 1，否则主动留空；数值和 null 原样跨越 VM 边界。 */
@@ -60,7 +72,11 @@ function toPlotValue(value: number | boolean | null): number | null {
 const inputFactories = {
   /** 创建整数输入。 */
   int(value: number, options?: NumberInputOptions) {
-    if (![value, options?.min, options?.max, options?.step].every((item) => item === undefined || Number.isInteger(item)))
+    if (
+      ![value, options?.min, options?.max, options?.step].every(
+        (item) => item === undefined || Number.isInteger(item),
+      )
+    )
       throw new TypeError('input.int 的默认值、范围和步长必须是整数')
     return numberInput(value, { step: 1, ...options })
   },
@@ -76,7 +92,12 @@ const inputFactories = {
   /** 创建字符串输入。 */
   string(value: string, options?: StringInputOptions) {
     if (typeof value !== 'string') throw new TypeError('input.string 需要字符串默认值')
-    if (options?.options && (!options.options.length || !options.options.every((item) => typeof item === 'string') || !options.options.includes(value)))
+    if (
+      options?.options &&
+      (!options.options.length ||
+        !options.options.every((item) => typeof item === 'string') ||
+        !options.options.includes(value))
+    )
       throw new TypeError('input.string 的 options 必须是包含默认值的非空字符串列表')
     return { ...options, default: value }
   },
@@ -84,10 +105,15 @@ const inputFactories = {
 
 /** 校验数值默认值、边界和步长，声明由宿主传给参数面板。 */
 function numberInput(value: number, options?: NumberInputOptions): InputDef<number> {
-  if (!Number.isFinite(value) || ![options?.min, options?.max, options?.step].every((item) => item === undefined || Number.isFinite(item)) ||
+  if (
+    !Number.isFinite(value) ||
+    ![options?.min, options?.max, options?.step].every(
+      (item) => item === undefined || Number.isFinite(item),
+    ) ||
     (options?.step !== undefined && options.step <= 0) ||
     (options?.min !== undefined && value < options.min) ||
-    (options?.max !== undefined && value > options.max))
+    (options?.max !== undefined && value > options.max)
+  )
     throw new TypeError('数值输入需要有限默认值、有效范围和正数步长')
   return { ...options, default: value }
 }
@@ -96,7 +122,12 @@ let __definition: ScriptIndicatorDeclaration | undefined
 const __inputs: QuickJSScriptDefinition['inputs'] = {}
 
 /** 编译器生成的输入注册入口，默认值由唯一的类型工厂校验。 */
-function __declareInput(name: string, kind: keyof ScriptInput, value: never, options?: never): void {
+function __declareInput(
+  name: string,
+  kind: keyof ScriptInput,
+  value: never,
+  options?: never,
+): void {
   const declaration = inputFactories[kind](value, options)
   __inputs[name] = declaration
   if (!Object.hasOwn(params, name)) params[name] = declaration.default
@@ -122,8 +153,6 @@ function __metadata(): QuickJSScriptDefinition {
     name: __definition.name,
     position: __definition.position,
     inputs: __inputs,
-    plots: __definition.plots,
-    fills: __definition.fills,
   }
 }
 
@@ -134,4 +163,4 @@ function __onBar(): void {
 }
 
 // 裸标识符和 globalThis 成员指向同一份 VM 对象，不修改宿主全局。
-Object.assign(globalThis, { open, high, low, close, volume, time, plot, defineIndicator })
+Object.assign(globalThis, { open, high, low, close, volume, time, plot, fill, defineIndicator })
