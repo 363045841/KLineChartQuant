@@ -14,5 +14,5 @@
 | priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
 | zoomLevels | `number` | 80 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
-| customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
+| customData | `CustomDataSource` | — | Inline data bundle: `{ data, symbol?, market?, period?, adjust?, comparisons? }`. Bypasses the fetcher pipeline entirely; no backend needed. `market` defaults to `'MT5'`. See Quick Start step 4 for all fields |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |

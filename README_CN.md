@@ -9,7 +9,7 @@
 
 **渲染清晰 · 高性能 · 交互优化 · 移动端友好**
 
-[![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/npm/l/@363045841yyt/klinechart.svg?style=flat&color=orange)](https://github.com/363045841/klinechart/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-在线体验-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
+[![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/github/license/363045841/KLineChartQuant?style=flat&color=orange)](https://github.com/363045841/KLineChartQuant/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-在线体验-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
 
 [![qq](https://img.shields.io/badge/QQ-672011965-blue?style=flat)](https://qm.qq.com/q/672011965) [![tg](https://img.shields.io/badge/Telegram-加入群组-26A5E4?style=flat&logo=telegram)](https://t.me/+1o-6B-wVRTU2MjQ9)
 
@@ -183,83 +183,31 @@ flowchart TB
 1% Low 为帧间隔 P99 的倒数；严重卡顿率为帧间隔超过两倍校准刷新间隔（此处 10 ms）的比例。表格取自一次完整复测，未挑选各场景的最佳值。浏览器调度和系统负载会导致轮次波动；这些数据不能证明解析 AA 提升 GPU 性能，也不能保证所有场景没有性能回退。来源：`bench/results/render-bench-analytic-aa-confirmation.json` 与 `.csv`（本地生成产物）。
 
 
-## 📡 数据源
-
-KLineChart 需要行情数据后端支持。支持的数据源如下：
-
-| 数据源 | 说明 | 文档 |
-|---|---|---|
-| `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `GoTDX-Connector` 提供 | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
-| `binance` | Binance 现货 K 线与真实逐笔成交（足迹图 / 订单流），由 `Binance-Connector` 提供 | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
-| `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
-| `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
-| `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](docs/data-sources/mt5.zh-CN.md) |
-| `ths` | 同花顺（A 股 / 指数 / ETF / 期货 / 期权）**日线**，由 `KCQ-THS-connector` 提供 | [同花顺 THS](docs/data-sources/ths.zh-CN.md) |
-| `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
-
-后端仓库与本仓库同级（不在 monorepo 内）。
-
-### 一条命令启动开发环境
-
-先安装数据源后端：
-
-```bash
-pnpm setup:backends
-```
-
-再 `pnpm dev` 带 `-c` 参数即可同时启动前端与选定的数据源后端：
-
-```bash
-pnpm dev                      # 仅前端（Vite 开发服务器）
-pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5 / ths）
-pnpm dev -c gotdx baostock    # 前端 + 指定的后端
-pnpm dev -c mt5               # 前端 + MT5 本地终端（Windows + 已登录 MT5 (Exness) 终端）
-pnpm dev -c ths               # 前端 + 同花顺日线（需 THS_API_KEY 或 config.json 的 ths.api_key）
-pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / m / t / all）
-pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访问）
-```
-
-常用简写命令：
-
-```bash
-pnpm dev:all                  # 前端 + 全部后端
-pnpm dev:g                    # 前端 + gotdx 通达信
-pnpm dev:b                    # 前端 + BaoStock / TradingView
-pnpm dev:bnb                  # 前端 + Binance 现货行情
-pnpm dev:mt5                  # 前端 + MT5 本地终端
-pnpm dev:ths                  # 前端 + 同花顺日线
-pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
-```
-
-并行进程的日志集中在同一终端，并用彩色来源前缀区分：`[vite]`、`[gotdx]`、`[binance]`、`[baostock]`、`[mt5]`、`[ths]`。
-
-Windows PowerShell 下如果要求 Ctrl+C 后先输出完关闭日志、最后才显示新提示符，请直接运行 `node scripts/dev.mjs -c gotdx`（其他 `-c` 参数同上）。`pnpm dev` 会额外启动一个 pnpm 进程，它自己也会收到 Ctrl+C，无法由子脚本控制它何时输出 `[ELIFECYCLE]`。
-
-仅启动后端（不带前端）：
-
-```bash
-pnpm connector                # 全部后端（不含 mt5 / ths）
-pnpm connector gotdx          # gotdx 通达信（:8080）
-pnpm connector binance        # Binance 现货 K 线 / 逐笔成交（:8091）
-pnpm connector baostock       # BaoStock / TradingView（:8000）
-pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
-pnpm connector ths            # 同花顺日线（:8092，需 THS_API_KEY 或 config.json 的 ths.api_key）
-```
-
-仅启动后端且需要相同的退出顺序时，运行 `node scripts/start-connector.mjs gotdx`。
-
-执行 `pnpm setup:backends` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。
-
-
 ## 🚀 快速开始
 
-### 3. 安装并使用
+本快速开始无需任何后端：图表直接渲染你通过 `customData` 传入的数据。只有使用[数据源](#-数据源)中的实时数据源时才需要启动后端。
+
+### 1. 安装
 
 ```bash
 npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```
 
-**使用组件：**
+对等依赖：`vue`（^3.4）和 `@363045841yyt/klinechart-agent-runtime`。npm 7+ 会自动安装；使用 pnpm 或 Yarn 时请显式添加。
+
+### 2. 在 `main.ts` 中引入样式
+
+```typescript
+import '@363045841yyt/klinechart/style.css'
+import { createApp } from 'vue'
+import App from './App.vue'
+
+createApp(App).mount('#app')
+```
+
+### 3. 在 `App.vue` 中渲染图表
+
+示例在代码中生成 30 根日线数据，可直接运行：
 
 ```vue
 <template>
@@ -271,12 +219,34 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 <script setup lang="ts">
   import { ref } from 'vue'
   import type { ChartSettings } from '@363045841yyt/klinechart-core'
-  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
-  import demoData from './demo-data.json'
+  import { type CustomDataSource, type KLineData, KlineChart } from '@363045841yyt/klinechart'
+
+  /** 30 根日线示例数据。替换为你自己的 KLineData[]（按时间升序）。 */
+  function createSampleBars(count = 30): KLineData[] {
+    const dayMs = 24 * 60 * 60 * 1000
+    const start = Date.UTC(2025, 11, 15)
+    let close = 100
+    return Array.from({ length: count }, (_, i) => {
+      const open = close
+      close = Math.round((open + Math.sin(i / 3) * 3 + ((i % 5) - 2)) * 100) / 100
+      return {
+        timestamp: start + i * dayMs,
+        open,
+        high: Math.max(open, close) + 1.5,
+        low: Math.min(open, close) - 1.5,
+        close,
+        volume: 10_000 + (i % 7) * 1_500,
+      }
+    })
+  }
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
-  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+  const customData = ref<CustomDataSource>({
+    symbol: 'DEMO',
+    period: 'daily',
+    data: createSampleBars(),
+  })
 
   const chartSettings: ChartSettings = {
     showGridLines: true,
@@ -308,15 +278,28 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 </style>
 ```
 
-**Import CSS in main.ts：**
+### 4. 接入自己的数据
 
-```typescript
-import '@363045841yyt/klinechart/style.css'
-import { createApp } from 'vue'
-import App from './App.vue'
+`customData` 接收 `CustomDataSource`，完全绕过数据源管线，不需要数据请求器或后端。
 
-createApp(App).mount('#app')
-```
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `data` | `KLineData[]` | 是 | 主图 K 线，按时间升序 |
+| `symbol` | `string` | 否 | 品种代码，显示在标题和品种目录中 |
+| `market` | `MarketId` | 否 | 用于解释时间戳的市场时段（时区、交易时间）。内置值：`'CN'`、`'HK'`、`'KR'`、`'US'`、`'MT5'`；其他标识需先通过 `marketSessions` 属性（Core 中为 `createChartController` 的 `marketSessions` 选项）注册。默认 `'MT5'`（UTC 00:00–24:00 连续时段） |
+| `period` | `string` | 否 | K 线周期：`'1min'`、`'5min'`、`'15min'`、`'30min'`、`'60min'`、`'4h'`、`'daily'`（默认）、`'weekly'`、`'monthly'`、`'quarterly'`、`'yearly'` |
+| `adjust` | `string` | 否 | 序列的复权标识：`'none'`（默认）、`'qfq'`、`'hfq'`、`'splits'`。数据按原样绘制，不会重新计算 |
+| `description` / `exchange` / `source` | `string` | 否 | 品种目录中的展示信息 |
+| `comparisons` | `Record<string, KLineData[]>` | 否 | 对比品种数据，以品种代码为键 |
+
+每根 `KLineData`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `timestamp` | `number` | 是 | K 线开始时间，Unix 时间戳（**毫秒**） |
+| `open` / `high` / `low` / `close` | `number` | 是 | 开高低收价格 |
+| `volume` | `number` | 否 | 成交量 |
+| `turnover`、`changePercent`、`changeAmount`、`amplitude`、`turnoverRate` | `number` | 否 | 可选扩展字段 |
 
 **插槽用法 — 自定义 Tooltip：**
 
@@ -391,7 +374,7 @@ createApp(App).mount('#app')
 ```
 
 
-### 4.（可选）启用 AI Agent 控制
+### 5.（可选）启用 AI Agent 控制
 
 图表核心以 `@Tool` 原语对外暴露领域能力，UI 与 Agent 通过同一条路径调用：
 
@@ -400,6 +383,74 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 ```
 
 `getRegisteredChartTools()` 返回每个工具的参数 schema、safety 等级与统一执行器。将它们交给 `@363045841yyt/klinechart-agent-runtime`，即可在应用内（浏览器或 Electron）基于 Provider profile 编排 Agent——无 MCP 桥接，无旁路状态副本。详见 [agent-runtime](packages/agent-runtime/README.md)。
+
+
+## 📡 数据源
+
+后端是**可选**的。使用 `customData`（见[快速开始](#-快速开始)）时，图表直接渲染你的数据，不需要任何服务端。只有接入实时数据源，或在本仓库中运行完整应用时才需要后端。支持的实时数据源如下：
+
+| 数据源 | 说明 | 文档 |
+|---|---|---|
+| `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `GoTDX-Connector` 提供 | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `binance` | Binance 现货 K 线与真实逐笔成交（足迹图 / 订单流），由 `Binance-Connector` 提供 | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
+| `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](docs/data-sources/mt5.zh-CN.md) |
+| `ths` | 同花顺（A 股 / 指数 / ETF / 期货 / 期权）**日线**，由 `KCQ-THS-connector` 提供 | [同花顺 THS](docs/data-sources/ths.zh-CN.md) |
+| `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
+
+后端仓库与本仓库同级（不在 monorepo 内）。
+
+### 一条命令启动开发环境（在本仓库中开发）
+
+先安装数据源后端：
+
+```bash
+pnpm setup:backends
+```
+
+再 `pnpm dev` 带 `-c` 参数即可同时启动前端与选定的数据源后端：
+
+```bash
+pnpm dev                      # 仅前端（Vite 开发服务器）
+pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5 / ths）
+pnpm dev -c gotdx baostock    # 前端 + 指定的后端
+pnpm dev -c mt5               # 前端 + MT5 本地终端（Windows + 已登录 MT5 (Exness) 终端）
+pnpm dev -c ths               # 前端 + 同花顺日线（需 THS_API_KEY 或 config.json 的 ths.api_key）
+pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / m / t / all）
+pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访问）
+```
+
+常用简写命令：
+
+```bash
+pnpm dev:all                  # 前端 + 全部后端
+pnpm dev:g                    # 前端 + gotdx 通达信
+pnpm dev:b                    # 前端 + BaoStock / TradingView
+pnpm dev:bnb                  # 前端 + Binance 现货行情
+pnpm dev:mt5                  # 前端 + MT5 本地终端
+pnpm dev:ths                  # 前端 + 同花顺日线
+pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
+```
+
+并行进程的日志集中在同一终端，并用彩色来源前缀区分：`[vite]`、`[gotdx]`、`[binance]`、`[baostock]`、`[mt5]`、`[ths]`。
+
+Windows PowerShell 下如果要求 Ctrl+C 后先输出完关闭日志、最后才显示新提示符，请直接运行 `node scripts/dev.mjs -c gotdx`（其他 `-c` 参数同上）。`pnpm dev` 会额外启动一个 pnpm 进程，它自己也会收到 Ctrl+C，无法由子脚本控制它何时输出 `[ELIFECYCLE]`。
+
+仅启动后端（不带前端）：
+
+```bash
+pnpm connector                # 全部后端（不含 mt5 / ths）
+pnpm connector gotdx          # gotdx 通达信（:8080）
+pnpm connector binance        # Binance 现货 K 线 / 逐笔成交（:8091）
+pnpm connector baostock       # BaoStock / TradingView（:8000）
+pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
+pnpm connector ths            # 同花顺日线（:8092，需 THS_API_KEY 或 config.json 的 ths.api_key）
+```
+
+仅启动后端且需要相同的退出顺序时，运行 `node scripts/start-connector.mjs gotdx`。
+
+执行 `pnpm setup:backends` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。
 
 
 ## 📖 更多文档
@@ -423,7 +474,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | priceLabelWidth | `number` | 60 | 价格标签额外宽度（用于显示涨跌幅） |
 | zoomLevels | `number` | 80 | 缩放级别总数 |
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
-| customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
+| customData | `CustomDataSource` | — | 内联数据包：`{ data, symbol?, market?, period?, adjust?, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染，无需后端。`market` 默认 `'MT5'`。完整字段见快速开始第 4 步 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
 
 
@@ -475,5 +526,5 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 ## 📄 License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](https://github.com/363045841/KLineChartQuant/blob/main/LICENSE)
 

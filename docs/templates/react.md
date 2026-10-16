@@ -51,7 +51,7 @@ Bundlers that do not tree-shake (Metro, Expo DOM components) should import from 
 
 `useKLineChart(containerRef, options)` is the same mount as a hook, for hosts that own the container element. It reads `containerRef.current` once after the first render, so render the container unconditionally.
 
-For full setup including the data backend, see the [root README]{{root}}README.md).
+For full setup including the data backend, see the [root README]({{root}}README.md).
 
 {{include:_docs.md}}
 

@@ -10,7 +10,7 @@
 
 - 通过 `ReadonlySignal` 读取图表状态。
 - 通过 Controller 方法修改图表状态。
-- 自定义宿主需要时转发浏览器输入事件。
+- 通过 `bindChartInput` 接入浏览器输入，或由自定义宿主转发事件。
 - 宿主卸载时销毁 Controller。
 
 ## 安装
@@ -29,27 +29,33 @@ yarn add @363045841yyt/klinechart-core
 
 ```typescript
 import { createChartController, type KLineData } from '@363045841yyt/klinechart-core/controllers'
+import { bindChartInput } from '@363045841yyt/klinechart-core/input'
 
 const container = document.querySelector<HTMLElement>('#chart')
 if (!container) throw new Error('Chart container not found')
 
-const data: KLineData[] = [
-  {
-    timestamp: 1704067200000,
-    open: 100,
-    high: 105,
-    low: 98,
-    close: 103,
-    volume: 10_000,
-  },
-]
+// 30 根日线示例数据（毫秒时间戳，按时间升序）。
+const dayMs = 24 * 60 * 60 * 1000
+const data: KLineData[] = Array.from({ length: 30 }, (_, i) => ({
+  timestamp: Date.UTC(2025, 11, 15) + i * dayMs,
+  open: 100 + i,
+  high: 103 + i,
+  low: 98 + i,
+  close: 101 + i,
+  volume: 10_000,
+}))
 
+// createChartController 是异步的：先 await 再调用任何方法。
 const chart = await createChartController({
   container,
   data,
   initialZoomLevel: 3,
   theme: 'light',
 })
+
+// 裸 Controller 只负责绘制，不监听输入。绑定指针与滚轮输入后
+// 才有十字线、拖拽平移和滚轮缩放。
+const disposeInput = bindChartInput(chart, { surface: container })
 
 // Signal 可调用；subscribe() 返回取消订阅函数。
 const unsubscribe = chart.viewport.subscribe(() => {
@@ -60,12 +66,16 @@ const unsubscribe = chart.viewport.subscribe(() => {
 // 指标实现按需加载；目录可同步读取。
 await chart.loadIndicators(['MA'])
 chart.addIndicator('MA')
-chart.zoomIn()
 
-// 宿主移除时调用两者。
-unsubscribe()
-chart.dispose()
+// 宿主元素移除时调用（例如在卸载钩子中）。
+export function destroyChart(): void {
+  unsubscribe()
+  disposeInput()
+  chart.dispose()
+}
 ```
+
+**裸 Controller 包含什么。** `createChartController` 会在 `container` 内创建自己的 DOM，并绘制 K 线、价格轴、时间轴、最新价线和 OHLC 图例。它**不会**挂载输入监听：不调用 `bindChartInput`（或自行转发到 `handlePointerEvent` / `handleWheelEvent`）时，图表没有十字线、拖拽和滚轮缩放。工具栏、自选列表、指标选择器和画线工具属于框架包（Vue 为 `@363045841yyt/klinechart`）提供的 UI，不在 Core 中。
 
 `createChartController` 是异步的：图表的系统指标与恢复布局引用的指标加载完成后才返回。其余指标实现通过 `loadIndicators`、布局切换与 Agent 工具按需加载；传入 `indicatorLoading: 'all'` 可在创建时加载全部内置指标。接收可配置 factory 的框架适配器应支持 `ChartController | Promise<ChartController>`。
 
@@ -205,7 +215,7 @@ host.addEventListener('scroll', () => chart.handleScrollEvent())
 host.addEventListener('pointermove', (event) => chart.handlePointerEvent(event))
 ```
 
-Core 创建默认 DOM scaffold 时会在挂载期间安装交互绑定。由框架宿主管理事件时，可通过 Controller 转发 pointer、wheel、scroll 和 pinch 事件。
+Core 在挂载时不会安装输入监听。请调用 `@363045841yyt/klinechart-core/input` 的 `bindChartInput(chart, { surface })`（Vue 与 React 适配器即使用它），或自行把 pointer、wheel 和 pinch 事件转发给 Controller 方法。Core 自建滚动容器上的 scroll 事件由内部监听。
 
 ### 指标、面板与绘图
 

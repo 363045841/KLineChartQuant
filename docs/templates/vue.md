@@ -10,8 +10,6 @@
 
 {{include:_performance.md}}
 
-{{include:_data-sources.md}}
-
 ## 🚀 Quick Start
 
 {{include:_usage-vue.md}}
@@ -76,6 +74,8 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
   .custom-tooltip__detail { opacity: 0.7; }
 </style>
 ```
+
+{{include:_data-sources.md}}
 
 {{include:_docs.md}}
 

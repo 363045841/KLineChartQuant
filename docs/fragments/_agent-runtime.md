@@ -1,4 +1,4 @@
-### 4. (Optional) Add AI Agent Control
+### 5. (Optional) Add AI Agent Control
 
 The chart core exposes its domain capabilities as `@Tool` primitives. Both the UI and the Agent call them through the same path:
 

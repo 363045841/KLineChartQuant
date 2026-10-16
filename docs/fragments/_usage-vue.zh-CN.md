@@ -1,10 +1,26 @@
-### 3. 安装并使用
+本快速开始无需任何后端：图表直接渲染你通过 `customData` 传入的数据。只有使用[数据源](#-数据源)中的实时数据源时才需要启动后端。
+
+### 1. 安装
 
 ```bash
 npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```
 
-**使用组件：**
+对等依赖：`vue`（^3.4）和 `@363045841yyt/klinechart-agent-runtime`。npm 7+ 会自动安装；使用 pnpm 或 Yarn 时请显式添加。
+
+### 2. 在 `main.ts` 中引入样式
+
+```typescript
+import '@363045841yyt/klinechart/style.css'
+import { createApp } from 'vue'
+import App from './App.vue'
+
+createApp(App).mount('#app')
+```
+
+### 3. 在 `App.vue` 中渲染图表
+
+示例在代码中生成 30 根日线数据，可直接运行：
 
 ```vue
 <template>
@@ -16,12 +32,34 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 <script setup lang="ts">
   import { ref } from 'vue'
   import type { ChartSettings } from '@363045841yyt/klinechart-core'
-  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
-  import demoData from './demo-data.json'
+  import { type CustomDataSource, type KLineData, KlineChart } from '@363045841yyt/klinechart'
+
+  /** 30 根日线示例数据。替换为你自己的 KLineData[]（按时间升序）。 */
+  function createSampleBars(count = 30): KLineData[] {
+    const dayMs = 24 * 60 * 60 * 1000
+    const start = Date.UTC(2025, 11, 15)
+    let close = 100
+    return Array.from({ length: count }, (_, i) => {
+      const open = close
+      close = Math.round((open + Math.sin(i / 3) * 3 + ((i % 5) - 2)) * 100) / 100
+      return {
+        timestamp: start + i * dayMs,
+        open,
+        high: Math.max(open, close) + 1.5,
+        low: Math.min(open, close) - 1.5,
+        close,
+        volume: 10_000 + (i % 7) * 1_500,
+      }
+    })
+  }
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
-  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+  const customData = ref<CustomDataSource>({
+    symbol: 'DEMO',
+    period: 'daily',
+    data: createSampleBars(),
+  })
 
   const chartSettings: ChartSettings = {
     showGridLines: true,
@@ -53,15 +91,28 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 </style>
 ```
 
-**Import CSS in main.ts：**
+### 4. 接入自己的数据
 
-```typescript
-import '@363045841yyt/klinechart/style.css'
-import { createApp } from 'vue'
-import App from './App.vue'
+`customData` 接收 `CustomDataSource`，完全绕过数据源管线，不需要数据请求器或后端。
 
-createApp(App).mount('#app')
-```
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `data` | `KLineData[]` | 是 | 主图 K 线，按时间升序 |
+| `symbol` | `string` | 否 | 品种代码，显示在标题和品种目录中 |
+| `market` | `MarketId` | 否 | 用于解释时间戳的市场时段（时区、交易时间）。内置值：`'CN'`、`'HK'`、`'KR'`、`'US'`、`'MT5'`；其他标识需先通过 `marketSessions` 属性（Core 中为 `createChartController` 的 `marketSessions` 选项）注册。默认 `'MT5'`（UTC 00:00–24:00 连续时段） |
+| `period` | `string` | 否 | K 线周期：`'1min'`、`'5min'`、`'15min'`、`'30min'`、`'60min'`、`'4h'`、`'daily'`（默认）、`'weekly'`、`'monthly'`、`'quarterly'`、`'yearly'` |
+| `adjust` | `string` | 否 | 序列的复权标识：`'none'`（默认）、`'qfq'`、`'hfq'`、`'splits'`。数据按原样绘制，不会重新计算 |
+| `description` / `exchange` / `source` | `string` | 否 | 品种目录中的展示信息 |
+| `comparisons` | `Record<string, KLineData[]>` | 否 | 对比品种数据，以品种代码为键 |
+
+每根 `KLineData`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `timestamp` | `number` | 是 | K 线开始时间，Unix 时间戳（**毫秒**） |
+| `open` / `high` / `low` / `close` | `number` | 是 | 开高低收价格 |
+| `volume` | `number` | 否 | 成交量 |
+| `turnover`、`changePercent`、`changeAmount`、`amplitude`、`turnoverRate` | `number` | 否 | 可选扩展字段 |
 
 **插槽用法 — 自定义 Tooltip：**
 

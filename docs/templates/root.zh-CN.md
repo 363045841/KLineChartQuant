@@ -12,13 +12,13 @@
 
 {{include:_performance.zh-CN.md}}
 
-{{include:_data-sources.zh-CN.md}}
-
 ## 🚀 快速开始
 
 {{include:_usage-vue.zh-CN.md}}
 
 {{include:_agent-runtime.zh-CN.md}}
+
+{{include:_data-sources.zh-CN.md}}
 
 {{include:_docs.zh-CN.md}}
 

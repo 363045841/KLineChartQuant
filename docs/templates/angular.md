@@ -35,7 +35,7 @@ export class AppModule {}
 </kline-chart>
 ```
 
-For full setup including the data backend, see the [root README]{{root}}README.md).
+For full setup including the data backend, see the [root README]({{root}}README.md).
 
 {{include:_docs.md}}
 

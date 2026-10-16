@@ -10,7 +10,7 @@ The public application boundary is `ChartController`:
 
 - Read chart state through `ReadonlySignal` values.
 - Change chart state through controller methods.
-- Forward browser input events from a custom host when needed.
+- Connect browser input with `bindChartInput`, or forward events from a custom host.
 - Dispose the controller when its host is unmounted.
 
 ## Installation
@@ -29,27 +29,33 @@ Create a container with a non-zero size in CSS before mounting the chart.
 
 ```typescript
 import { createChartController, type KLineData } from '@363045841yyt/klinechart-core/controllers'
+import { bindChartInput } from '@363045841yyt/klinechart-core/input'
 
 const container = document.querySelector<HTMLElement>('#chart')
 if (!container) throw new Error('Chart container not found')
 
-const data: KLineData[] = [
-  {
-    timestamp: 1704067200000,
-    open: 100,
-    high: 105,
-    low: 98,
-    close: 103,
-    volume: 10_000,
-  },
-]
+// 30 daily sample bars (timestamps in milliseconds, oldest first).
+const dayMs = 24 * 60 * 60 * 1000
+const data: KLineData[] = Array.from({ length: 30 }, (_, i) => ({
+  timestamp: Date.UTC(2025, 11, 15) + i * dayMs,
+  open: 100 + i,
+  high: 103 + i,
+  low: 98 + i,
+  close: 101 + i,
+  volume: 10_000,
+}))
 
+// createChartController is async: await it before calling any method.
 const chart = await createChartController({
   container,
   data,
   initialZoomLevel: 3,
   theme: 'light',
 })
+
+// The bare controller draws the chart but does not listen to input. Bind pointer and wheel input
+// to enable crosshair, drag-to-pan and wheel zoom.
+const disposeInput = bindChartInput(chart, { surface: container })
 
 // Signals are callable. subscribe() returns an unsubscribe function.
 const unsubscribe = chart.viewport.subscribe(() => {
@@ -60,12 +66,16 @@ const unsubscribe = chart.viewport.subscribe(() => {
 // Indicator implementations load on demand; the catalog is available synchronously.
 await chart.loadIndicators(['MA'])
 chart.addIndicator('MA')
-chart.zoomIn()
 
-// Call both when the host is removed.
-unsubscribe()
-chart.dispose()
+// Call this when the host element is removed (for example in an unmount hook).
+export function destroyChart(): void {
+  unsubscribe()
+  disposeInput()
+  chart.dispose()
+}
 ```
+
+**What the bare controller includes.** `createChartController` builds its own DOM inside `container` and draws the candles, the price axis, the time axis, the last-price line and the OHLC legend. It does **not** attach input listeners: without `bindChartInput` (or your own forwarding to `handlePointerEvent` / `handleWheelEvent`) the chart has no crosshair, drag or wheel zoom. Toolbars, the watchlist, indicator pickers and drawing tools are UI from the framework packages (`@363045841yyt/klinechart` for Vue) and are not part of Core.
 
 `createChartController` is asynchronous: it resolves once the chart's system indicators and the indicators of the restored layout are loaded. Other indicator implementations load on demand through `loadIndicators`, layout switches and Agent tools; pass `indicatorLoading: 'all'` to load every built-in indicator up front. Framework adapters that accept a configurable factory should support `ChartController | Promise<ChartController>`.
 
@@ -205,7 +215,7 @@ host.addEventListener('scroll', () => chart.handleScrollEvent())
 host.addEventListener('pointermove', (event) => chart.handlePointerEvent(event))
 ```
 
-When Core owns the default DOM scaffold, its interaction bindings are installed during mount. A framework host that manages events can forward pointer, wheel, scroll, and pinch events through the controller methods.
+Core does not install input listeners during mount. Call `bindChartInput(chart, { surface })` from `@363045841yyt/klinechart-core/input` (the Vue and React adapters use it), or forward pointer, wheel and pinch events to the controller methods yourself. Scroll events on the Core-built scroll container are observed internally.
 
 ### Indicators, Panes, and Drawings
 
@@ -278,5 +288,5 @@ The default synchronous host attempts WebGL and falls back to Canvas2D. WebGPU i
 
 ## 📄 License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](https://github.com/363045841/KLineChartQuant/blob/main/LICENSE)
 

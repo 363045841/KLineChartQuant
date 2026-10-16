@@ -1,6 +1,6 @@
 ## 📡 Data Sources
 
-KLineChart requires a market data backend. Supported data sources:
+A backend is **optional**. With `customData` (see [Quick Start](#-quick-start)) the chart renders your bars directly and needs no server. A backend is only needed for live data sources, or to run the full app from this repository. Supported live data sources:
 
 | Data Source | Description | Docs |
 |---|---|---|
@@ -14,7 +14,7 @@ KLineChart requires a market data backend. Supported data sources:
 
 Backend repos live alongside this one (outside the monorepo).
 
-### One-Command Dev Startup
+### One-Command Dev Startup (working in this repository)
 
 Clone the data-source backends first (idempotent: skips directories that already exist):
 

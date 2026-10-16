@@ -10,8 +10,6 @@
 
 {{include:_performance.zh-CN.md}}
 
-{{include:_data-sources.zh-CN.md}}
-
 ## 🚀 快速开始
 
 {{include:_usage-vue.zh-CN.md}}
@@ -76,6 +74,8 @@
   .custom-tooltip__detail { opacity: 0.7; }
 </style>
 ```
+
+{{include:_data-sources.zh-CN.md}}
 
 {{include:_docs.zh-CN.md}}
 

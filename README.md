@@ -9,7 +9,7 @@ English | [简体中文](README_CN.md)
 
 **Crisp Rendering · High Performance · Optimized Interaction · Mobile-Friendly**
 
-[![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/npm/l/@363045841yyt/klinechart.svg?style=flat&color=orange)](https://github.com/363045841/klinechart/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-Online-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
+[![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/github/license/363045841/KLineChartQuant?style=flat&color=orange)](https://github.com/363045841/KLineChartQuant/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-Online-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
 
 [![qq](https://img.shields.io/badge/QQ-672011965-blue?style=flat)](https://qm.qq.com/q/672011965) [![tg](https://img.shields.io/badge/Telegram-Join-26A5E4?style=flat&logo=telegram)](https://t.me/+1o-6B-wVRTU2MjQ9)
 
@@ -183,83 +183,31 @@ Seven command buffers submitted as one batched `queue.submit` versus seven separ
 1% Low is the reciprocal of frame interval P99; Severe Jank is the share of intervals exceeding twice the calibrated refresh interval (10 ms here). Results are from one complete repeat run, not selected best cases. Browser scheduling and system load cause variation between runs; these numbers do not establish that analytic AA improves GPU performance or that all workloads avoid regressions. Source: `bench/results/render-bench-analytic-aa-confirmation.json` and `.csv` (local generated artifacts).
 
 
-## 📡 Data Sources
-
-KLineChart requires a market data backend. Supported data sources:
-
-| Data Source | Description | Docs |
-|---|---|---|
-| `gotdx` | Tongdaxin (GOTDX) quotes: A-share / futures / MAC, served by `GoTDX-Connector` | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
-| `binance` | Binance Spot K-lines and real tick-by-tick trades (footprint / order-flow), served by `Binance-Connector` | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
-| `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
-| `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
-| `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5](docs/data-sources/mt5.zh-CN.md) |
-| `ths` | Tonghuashun (THS): A-share / index / ETF / futures / options **daily** bars, served by `KCQ-THS-connector` | [THS](docs/data-sources/ths.zh-CN.md) |
-| `mock` | Debug only: local MOCK-100 / MOCK-10000 K-lines, no backend needed, always online | — |
-
-Backend repos live alongside this one (outside the monorepo).
-
-### One-Command Dev Startup
-
-Clone the data-source backends first (idempotent: skips directories that already exist):
-
-```bash
-pnpm setup:backends
-```
-
-Then run `pnpm dev` with a `-c` argument to start the frontend and the selected connectors together:
-
-```bash
-pnpm dev                      # frontend only (Vite dev server)
-pnpm dev -c all               # frontend + all backends (gotdx + binance + baostock; mt5 / ths excluded)
-pnpm dev -c gotdx baostock    # frontend + selected backends
-pnpm dev -c mt5               # frontend + MT5 local terminal (Windows + logged-in MT5 terminal)
-pnpm dev -c ths               # frontend + THS daily bars (needs THS_API_KEY or ths.api_key in config.json)
-pnpm dev -c tdx               # aliases supported (tdx / g / b / bnb / m / t / all)
-pnpm dev -c all --lan         # same, dev server bound to 0.0.0.0 (LAN accessible)
-```
-
-Common shorthands:
-
-```bash
-pnpm dev:all                  # frontend + all backends
-pnpm dev:g                    # frontend + gotdx (Tongdaxin)
-pnpm dev:b                    # frontend + BaoStock / TradingView
-pnpm dev:bnb                  # frontend + Binance spot market data
-pnpm dev:mt5                  # frontend + MT5 local terminal
-pnpm dev:ths                  # frontend + THS daily bars
-pnpm dev:lan:all              # frontend (0.0.0.0) + all backends
-```
-
-Parallel process logs stay in one terminal and are separated by colored source prefixes: `[vite]`, `[gotdx]`, `[binance]`, `[baostock]`, `[mt5]`, and `[ths]`.
-
-In Windows PowerShell, run `node scripts/dev.mjs -c gotdx` (or use the other `-c` arguments above) to finish shutdown logs before the next prompt after Ctrl+C. `pnpm dev` adds a pnpm process that also receives Ctrl+C; the child script cannot control when pnpm prints `[ELIFECYCLE]`.
-
-Backend only (no frontend):
-
-```bash
-pnpm connector                # all backends (mt5 / ths excluded)
-pnpm connector gotdx          # gotdx (Tongdaxin) :8080
-pnpm connector binance        # binance (Binance spot K-line & trades) :8091
-pnpm connector baostock       # BaoStock / TradingView :8000
-pnpm connector mt5            # MT5 local terminal :8090 (Windows + logged-in MT5 terminal)
-pnpm connector ths            # THS daily bars :8092 (needs THS_API_KEY or ths.api_key in config.json)
-```
-
-For backend only with the same shutdown ordering, run `node scripts/start-connector.mjs gotdx`.
-
-After `pnpm setup:backends`, no extra setup is needed. The dev server proxies `/api/stock` → `:8000` (Baostock-Tradingview-Connector) and `/api/public` → `:8080` (GoTDX-Connector).
-
-
 ## 🚀 Quick Start
 
-### 3. Install and Use
+No backend is needed for this Quick Start: the chart renders the data you pass in through `customData`. Backends are only needed for the live data sources listed under [Data Sources](#-data-sources).
+
+### 1. Install
 
 ```bash
 npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```
 
-**Use the component:**
+Peer dependencies: `vue` (^3.4) and `@363045841yyt/klinechart-agent-runtime`. npm 7+ installs them automatically; with pnpm or Yarn, add them explicitly.
+
+### 2. Import the stylesheet in `main.ts`
+
+```typescript
+import '@363045841yyt/klinechart/style.css'
+import { createApp } from 'vue'
+import App from './App.vue'
+
+createApp(App).mount('#app')
+```
+
+### 3. Render a chart in `App.vue`
+
+This sample generates 30 daily bars in code, so it runs as-is:
 
 ```vue
 <template>
@@ -271,12 +219,34 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 <script setup lang="ts">
   import { ref } from 'vue'
   import type { ChartSettings } from '@363045841yyt/klinechart-core'
-  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
-  import demoData from './demo-data.json'
+  import { type CustomDataSource, type KLineData, KlineChart } from '@363045841yyt/klinechart'
+
+  /** 30 daily sample bars. Replace with your own KLineData[] (oldest first). */
+  function createSampleBars(count = 30): KLineData[] {
+    const dayMs = 24 * 60 * 60 * 1000
+    const start = Date.UTC(2025, 11, 15)
+    let close = 100
+    return Array.from({ length: count }, (_, i) => {
+      const open = close
+      close = Math.round((open + Math.sin(i / 3) * 3 + ((i % 5) - 2)) * 100) / 100
+      return {
+        timestamp: start + i * dayMs,
+        open,
+        high: Math.max(open, close) + 1.5,
+        low: Math.min(open, close) - 1.5,
+        close,
+        volume: 10_000 + (i % 7) * 1_500,
+      }
+    })
+  }
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
-  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+  const customData = ref<CustomDataSource>({
+    symbol: 'DEMO',
+    period: 'daily',
+    data: createSampleBars(),
+  })
 
   const chartSettings: ChartSettings = {
     showGridLines: true,
@@ -308,15 +278,28 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 </style>
 ```
 
-**Import CSS in main.ts:**
+### 4. Bring your own data
 
-```typescript
-import '@363045841yyt/klinechart/style.css'
-import { createApp } from 'vue'
-import App from './App.vue'
+`customData` takes a `CustomDataSource`. It bypasses the data-source pipeline, so no fetcher or backend is involved.
 
-createApp(App).mount('#app')
-```
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `data` | `KLineData[]` | yes | Main-chart bars, sorted oldest first |
+| `symbol` | `string` | no | Symbol code shown in the header and symbol catalog |
+| `market` | `MarketId` | no | Market session used to read timestamps (time zone, trading hours). Built-in: `'CN'`, `'HK'`, `'KR'`, `'US'`, `'MT5'`. Other ids must first be registered through the `marketSessions` prop (Core: the `marketSessions` option of `createChartController`). Defaults to `'MT5'` (a continuous 00:00–24:00 UTC session) |
+| `period` | `string` | no | K-line period: `'1min'`, `'5min'`, `'15min'`, `'30min'`, `'60min'`, `'4h'`, `'daily'` (default), `'weekly'`, `'monthly'`, `'quarterly'`, `'yearly'` |
+| `adjust` | `string` | no | Adjustment key for the series: `'none'` (default), `'qfq'`, `'hfq'`, `'splits'`. Your bars are drawn as given; nothing is recalculated |
+| `description` / `exchange` / `source` | `string` | no | Labels for the symbol catalog |
+| `comparisons` | `Record<string, KLineData[]>` | no | Comparison series keyed by symbol |
+
+Each `KLineData` bar:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `timestamp` | `number` | yes | Bar open time, Unix epoch **milliseconds** |
+| `open` / `high` / `low` / `close` | `number` | yes | OHLC prices |
+| `volume` | `number` | no | Volume |
+| `turnover`, `changePercent`, `changeAmount`, `amplitude`, `turnoverRate` | `number` | no | Optional extra fields |
 
 **Slot Usage — Custom Tooltip:**
 
@@ -404,7 +387,7 @@ resolved chart theme. They stay outside the draggable, scrolling chart controls.
 ```
 
 
-### 4. (Optional) Add AI Agent Control
+### 5. (Optional) Add AI Agent Control
 
 The chart core exposes its domain capabilities as `@Tool` primitives. Both the UI and the Agent call them through the same path:
 
@@ -413,6 +396,74 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 ```
 
 `getRegisteredChartTools()` returns every tool with its parameter schema, safety level, and unified executor. Hand them to `@363045841yyt/klinechart-agent-runtime`, which orchestrates the Agent inside your app (browser or Electron) against a Provider profile — no MCP bridge, no side-channel state. See [agent-runtime](packages/agent-runtime/README.md).
+
+
+## 📡 Data Sources
+
+A backend is **optional**. With `customData` (see [Quick Start](#-quick-start)) the chart renders your bars directly and needs no server. A backend is only needed for live data sources, or to run the full app from this repository. Supported live data sources:
+
+| Data Source | Description | Docs |
+|---|---|---|
+| `gotdx` | Tongdaxin (GOTDX) quotes: A-share / futures / MAC, served by `GoTDX-Connector` | [GoTDX-Connector](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `binance` | Binance Spot K-lines and real tick-by-tick trades (footprint / order-flow), served by `Binance-Connector` | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
+| `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5](docs/data-sources/mt5.zh-CN.md) |
+| `ths` | Tonghuashun (THS): A-share / index / ETF / futures / options **daily** bars, served by `KCQ-THS-connector` | [THS](docs/data-sources/ths.zh-CN.md) |
+| `mock` | Debug only: local MOCK-100 / MOCK-10000 K-lines, no backend needed, always online | — |
+
+Backend repos live alongside this one (outside the monorepo).
+
+### One-Command Dev Startup (working in this repository)
+
+Clone the data-source backends first (idempotent: skips directories that already exist):
+
+```bash
+pnpm setup:backends
+```
+
+Then run `pnpm dev` with a `-c` argument to start the frontend and the selected connectors together:
+
+```bash
+pnpm dev                      # frontend only (Vite dev server)
+pnpm dev -c all               # frontend + all backends (gotdx + binance + baostock; mt5 / ths excluded)
+pnpm dev -c gotdx baostock    # frontend + selected backends
+pnpm dev -c mt5               # frontend + MT5 local terminal (Windows + logged-in MT5 terminal)
+pnpm dev -c ths               # frontend + THS daily bars (needs THS_API_KEY or ths.api_key in config.json)
+pnpm dev -c tdx               # aliases supported (tdx / g / b / bnb / m / t / all)
+pnpm dev -c all --lan         # same, dev server bound to 0.0.0.0 (LAN accessible)
+```
+
+Common shorthands:
+
+```bash
+pnpm dev:all                  # frontend + all backends
+pnpm dev:g                    # frontend + gotdx (Tongdaxin)
+pnpm dev:b                    # frontend + BaoStock / TradingView
+pnpm dev:bnb                  # frontend + Binance spot market data
+pnpm dev:mt5                  # frontend + MT5 local terminal
+pnpm dev:ths                  # frontend + THS daily bars
+pnpm dev:lan:all              # frontend (0.0.0.0) + all backends
+```
+
+Parallel process logs stay in one terminal and are separated by colored source prefixes: `[vite]`, `[gotdx]`, `[binance]`, `[baostock]`, `[mt5]`, and `[ths]`.
+
+In Windows PowerShell, run `node scripts/dev.mjs -c gotdx` (or use the other `-c` arguments above) to finish shutdown logs before the next prompt after Ctrl+C. `pnpm dev` adds a pnpm process that also receives Ctrl+C; the child script cannot control when pnpm prints `[ELIFECYCLE]`.
+
+Backend only (no frontend):
+
+```bash
+pnpm connector                # all backends (mt5 / ths excluded)
+pnpm connector gotdx          # gotdx (Tongdaxin) :8080
+pnpm connector binance        # binance (Binance spot K-line & trades) :8091
+pnpm connector baostock       # BaoStock / TradingView :8000
+pnpm connector mt5            # MT5 local terminal :8090 (Windows + logged-in MT5 terminal)
+pnpm connector ths            # THS daily bars :8092 (needs THS_API_KEY or ths.api_key in config.json)
+```
+
+For backend only with the same shutdown ordering, run `node scripts/start-connector.mjs gotdx`.
+
+After `pnpm setup:backends`, no extra setup is needed. The dev server proxies `/api/stock` → `:8000` (Baostock-Tradingview-Connector) and `/api/public` → `:8080` (GoTDX-Connector).
 
 
 ## 📖 More Documentation
@@ -436,7 +487,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
 | zoomLevels | `number` | 80 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
-| customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
+| customData | `CustomDataSource` | — | Inline data bundle: `{ data, symbol?, market?, period?, adjust?, comparisons? }`. Bypasses the fetcher pipeline entirely; no backend needed. `market` defaults to `'MT5'`. See Quick Start step 4 for all fields |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
 
 
@@ -488,5 +539,5 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 ## 📄 License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](https://github.com/363045841/KLineChartQuant/blob/main/LICENSE)
 

@@ -12,13 +12,13 @@
 
 {{include:_performance.md}}
 
-{{include:_data-sources.md}}
-
 ## 🚀 Quick Start
 
 {{include:_usage-vue.md}}
 
 {{include:_agent-runtime.md}}
+
+{{include:_data-sources.md}}
 
 {{include:_docs.md}}
 
