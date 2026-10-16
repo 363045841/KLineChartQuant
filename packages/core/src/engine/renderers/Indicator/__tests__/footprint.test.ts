@@ -38,7 +38,7 @@ describe('Footprint Layer', () => {
         bars: [createRowBar(15, 2)],
       },
     }
-    const layer = FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' })
+    const layer = FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' })
     expect(layer.role).toBe('overlay')
     layer.paint(
       createContextWithInstanceState(mainCtx, 'fp', state, {
@@ -84,7 +84,7 @@ describe('Footprint Layer', () => {
       },
     }
     const ctx = createMockCanvasContext()
-    FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
+    FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
       createContextWithInstanceState(ctx, 'fp', state, {
         overlayCtx: ctx,
         range: { start: 0, end: 1 },
@@ -134,7 +134,7 @@ describe('Footprint Layer', () => {
         },
       }
       const ctx = createMockCanvasContext()
-      FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
+      FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
         createContextWithInstanceState(ctx, 'fp', state, {
           overlayCtx: ctx,
           dpr,
@@ -180,7 +180,7 @@ describe('Footprint Layer', () => {
     }
     const ctx = createMockCanvasContext()
     vi.mocked(ctx.measureText).mockReturnValue({ width: 8 } as TextMetrics)
-    FootprintIndicatorDefinition.rendererFactory({ instanceId: 'fp' }).paint(
+    FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
       createContextWithInstanceState(ctx, 'fp', state, {
         overlayCtx: ctx,
         range: { start: 0, end: 1 },

@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'OBV',
   kind: IndicatorKind.Indicator,
   category: 'volume',
-  indicatorType: 'volume',
   defaultPaneId: 'sub_OBV',
   plots: singleLinePlots({ id: 'obv', label: 'OBV', show: 'showOBV', color: (c) => c.palette.i3 }),
   scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
@@ -16,5 +15,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   runtime: { defaultParams: {}, computeKey: 'calcOBVData', compute: (data) => calcOBVData(data) },
 })
 export class OBVIndicatorDefinition {
-  static rendererFactory = plotRenderer('obv', 'sub_OBV')
+  static rendererFactory = plotRenderer('obv')
 }

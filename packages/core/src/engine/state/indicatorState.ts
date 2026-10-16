@@ -6,6 +6,10 @@ import {
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
 } from '../indicators/indicatorDefinitionRegistry.js'
+import {
+  createIndicatorInstanceId,
+  createMainIndicatorInstanceId,
+} from '../indicators/instances/api/instanceIdentity.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
@@ -78,9 +82,9 @@ export interface IndicatorInstanceSpec {
   readonly params: Readonly<Record<string, unknown>>
 }
 
-/** 写入指标状态时可省略实例身份，供 mode 等内部状态构建使用。 */
-export type IndicatorInstanceInput = Omit<IndicatorInstanceSpec, 'instanceId' | 'ordinal'> &
-  Partial<Pick<IndicatorInstanceSpec, 'instanceId' | 'ordinal'>>
+/** 写入指标状态必须提供已分配的实例身份，序号可由状态入口补齐。 */
+export type IndicatorInstanceInput = Omit<IndicatorInstanceSpec, 'ordinal'> &
+  Partial<Pick<IndicatorInstanceSpec, 'ordinal'>>
 
 /** 副图投影使用的只读结构。 */
 export interface SubPaneSpec {
@@ -100,7 +104,7 @@ export type SubPaneInput = Omit<SubPaneSpec, 'instanceId' | 'ordinal'> &
 /** 冻结统一指标实例，隔离调用方对参数对象的修改。 */
 function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceSpec {
   const snapshot = {
-    instanceId: entry.instanceId ?? `legacy:${entry.paneId}`,
+    instanceId: entry.instanceId,
     indicatorId: entry.indicatorId,
     paneId: entry.paneId,
     role: entry.role,
@@ -268,7 +272,7 @@ export function createIndicatorState() {
     const existing = index < 0 ? undefined : prev[index]
     const next = [...prev]
     const entry = snapshotInstance({
-      instanceId: `main:${id}`,
+      instanceId: existing ? existing.instanceId : createMainIndicatorInstanceId(id),
       indicatorId: id,
       paneId: 'main',
       role: 'main',
@@ -395,7 +399,13 @@ export function createIndicatorState() {
         const prev = currentInstances()
         const index = findSubIndex(prev, entry.paneId)
         if (index >= 0 && prev[index]!.source === 'mode') return
-        const nextEntry = snapshotInstance({ ...entry, role: 'sub' })
+        const instanceId =
+          entry.instanceId === undefined
+            ? index < 0
+              ? createIndicatorInstanceId()
+              : prev[index]!.instanceId
+            : entry.instanceId
+        const nextEntry = snapshotInstance({ ...entry, instanceId, role: 'sub' })
         if (index < 0) write([...prev, nextEntry])
         else if (subInstanceEqual(prev[index]!, nextEntry)) return
         else {
@@ -419,7 +429,7 @@ export function createIndicatorState() {
         const next = [...prev]
         next[index] = snapshotInstance({
           ...entry,
-          instanceId: entry.instanceId ?? prev[index]!.instanceId,
+          instanceId: prev[index]!.instanceId,
           ordinal: entry.ordinal ?? prev[index]!.ordinal,
           role: 'sub',
           hidden: entry.hidden ?? prev[index]!.hidden,

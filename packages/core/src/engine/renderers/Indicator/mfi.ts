@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'MFI',
   kind: IndicatorKind.Indicator,
   category: 'volume',
-  indicatorType: 'volume',
   defaultPaneId: 'sub_MFI',
   scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
   plots: {
@@ -27,5 +26,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class MFIIndicatorDefinition {
-  static rendererFactory = plotRenderer('mfi', 'sub_MFI')
+  static rendererFactory = plotRenderer('mfi')
 }

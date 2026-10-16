@@ -5,10 +5,13 @@
  * 异步入口用于首次加载 WASM；预加载后可用同步入口，供 core 的同步 compute 调用。
  */
 import {
+  Color,
   isPlotKind,
   type PlotCollection,
   PlotCollector,
+  type PlotDeclaration,
   PlotKind,
+  type PlotPoint,
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
@@ -21,16 +24,23 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import { INDICATOR_PRELUDE, LIBRARY_PRELUDE, SCRIPT_PRELUDE } from '../generated/runtime.js'
 import {
-  PaneKind,
+  INDICATOR_PRELUDE,
+  LIBRARY_PRELUDE,
+  ROLLING_PRELUDE,
+  SCRIPT_PRELUDE,
+} from '../generated/runtime.js'
+import {
+  Position,
+  type PreparedQuickJSScript,
   type QuickJSLibrary,
   type QuickJSRunOptions,
   type QuickJSScriptDefinition,
   type ScriptParamValue,
 } from '../types.js'
 import { builtinLibraries } from './builtinLibraries.js'
-import { readDefinition, readPlotCall } from './readDefinition.js'
+import { compileScript } from './compileScript.js'
+import { readDefinition, readFillCall, readPlotCall } from './readDefinition.js'
 
 /** 共享的 WASM 模块类型。 */
 type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
@@ -61,13 +71,16 @@ const FIELD_READERS: Readonly<Record<string, (bar: Bar) => number>> = {
 
 /** 用已有行情执行脚本源码，返回逐 bar 汇聚的 PlotCollection。 */
 export async function runQuickJSScript(options: QuickJSRunOptions): Promise<PlotCollection> {
-  const module = await loadQuickJS()
-  return runWithContext(module, options).collection
+  await loadQuickJS()
+  return runQuickJSScriptSync(options)
 }
 
 /** 同步执行脚本；必须先 preloadQuickJS，否则抛出。 */
 export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
-  return runWithContext(getQuickJSSync(), options).collection
+  return runWithContext(getQuickJSSync(), {
+    ...options,
+    ...compileSources(options.source, options.libraries),
+  }).collection
 }
 
 /** 初始化完整文件并读取声明，供注册层生成指标目录。 */
@@ -75,7 +88,39 @@ export function readQuickJSScriptDefinitionSync(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
 ): QuickJSScriptDefinition {
-  return runWithContext(getQuickJSSync(), { source, bars: [], libraries }).definition
+  return runWithContext(getQuickJSSync(), { ...compileSources(source, libraries), bars: [] })
+    .definition
+}
+
+/** 用户脚本与外部库共用一个编译边界；内置库已由构建过程编译。 */
+function compileSources(source: string, libraries: readonly QuickJSLibrary[] = []) {
+  return {
+    source: compileScript(source),
+    libraries: [
+      ...builtinLibraries,
+      ...libraries.map((library) => ({
+        name: library.name,
+        source: compileScript(library.source),
+      })),
+    ],
+  }
+}
+
+/** 编译一个源码版本及其库；注册层持有快照，行情重算时不再转译 TS。 */
+export function prepareQuickJSScript(
+  source: string,
+  libraries: readonly QuickJSLibrary[] = [],
+): PreparedQuickJSScript {
+  const module = getQuickJSSync()
+  const compiled = compileSources(source, libraries)
+  const definition = runWithContext(module, { ...compiled, bars: [] }).definition
+  return Object.freeze({
+    definition,
+    /** 使用既有编译产物执行，VM 状态不在多次运行间共享。 */
+    run(bars: readonly Bar[], params?: Readonly<Record<string, ScriptParamValue>>) {
+      return runWithContext(module, { ...compiled, bars, params }).collection
+    },
+  })
 }
 
 /** 脚本单次执行的时限（毫秒）；库加载、初始化与逐 bar 计算共用。 */
@@ -125,8 +170,9 @@ function runWithContext(
     mountScriptEnums(vm)
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
-    for (const library of [...builtinLibraries, ...(options.libraries ?? [])]) {
+    for (const library of options.libraries ?? []) {
       evalOrThrow(vm, library.source, 'compile', timeout).dispose()
       evalOrThrow(
         vm,
@@ -143,11 +189,7 @@ function runWithContext(
       metadata.dispose()
     }
     if (failure) throw failure
-    collector = new PlotCollector({
-      barCount: bars.length,
-      plots: definition.plots,
-      fills: definition.fills,
-    })
+    collector = new PlotCollector({ barCount: bars.length })
     const compiled = evalOrThrow(vm, '__onBar', 'compile', timeout)
     try {
       for (let index = 0; index < bars.length; index++) {
@@ -164,7 +206,7 @@ function runWithContext(
   }
 }
 
-/** 注入 __read / __count / __plot 三个宿主函数。 */
+/** 注入 __read / __count / __plot / __fill 四个宿主函数。 */
 function mountHostFunctions(
   vm: QuickJSContext,
   bars: readonly Bar[],
@@ -185,38 +227,78 @@ function mountHostFunctions(
   vm.setProp(vm.global, '__count', count)
   count.dispose()
 
-  const plot = vm.newFunction('__plot', (kindHandle, valueHandle, optionsHandle) => {
+  const plot = vm.newFunction('__plot', (kindHandle, valueHandle, nameHandle, optionsHandle) => {
     const collector = getCollector()
     if (!collector || cursor.index < 0) {
       onError(new ScriptExecutionError('compile', 'plot 只能在 onBar 中调用'))
       return vm.undefined
     }
-    const value = Number(vm.dump(valueHandle))
+    const value: unknown = vm.dump(valueHandle)
     const kind: unknown = vm.dump(kindHandle)
     if (!isPlotKind(kind)) {
       onError(new ScriptExecutionError('run', '未知 plot kind'))
-    } else {
-      const declaration = readPlotCall(vm.dump(optionsHandle), kind)
-      if (value === Infinity || value === -Infinity) {
-        onError(new ScriptPlotError(declaration.id, cursor.index))
-        return vm.undefined
-      }
-      collector.onPlot(
-        declaration.id,
-        cursor.index,
-        {
-          value,
-          ...(declaration.color !== undefined ? { color: declaration.color } : {}),
-          ...(declaration.textColor !== undefined ? { textColor: declaration.textColor } : {}),
-        },
-        kind,
-        declaration,
-      )
+      return vm.undefined
     }
+    const declaration = readPlotCall(vm.dump(nameHandle), vm.dump(optionsHandle), kind)
+    if (value !== null && typeof value !== 'number') {
+      onError(new ScriptExecutionError('run', 'plot value 需要数值或 null'))
+      return vm.undefined
+    }
+    if (value === Infinity || value === -Infinity) {
+      onError(new ScriptPlotError(declaration.name, cursor.index))
+      return vm.undefined
+    }
+    collector.onPlot(
+      declaration.name,
+      cursor.index,
+      value === null ? null : toPlotPoint(declaration, value),
+      kind,
+      declaration,
+    )
     return vm.undefined
   })
   vm.setProp(vm.global, '__plot', plot)
   plot.dispose()
+
+  const fill = vm.newFunction(
+    '__fill',
+    (fromHandle, toHandle, colorHandle, titleHandle, optionsHandle) => {
+      const collector = getCollector()
+      if (!collector || cursor.index < 0) {
+        onError(new ScriptExecutionError('compile', 'fill 只能在 onBar 中调用'))
+        return vm.undefined
+      }
+      collector.onFill(
+        readFillCall(
+          vm.dump(fromHandle),
+          vm.dump(toHandle),
+          vm.dump(colorHandle),
+          vm.dump(titleHandle),
+          vm.dump(optionsHandle),
+        ),
+        cursor.index,
+      )
+      return vm.undefined
+    },
+  )
+  vm.setProp(vm.global, '__fill', fill)
+  fill.dispose()
+}
+
+/** 箭头方向色优先于公共 color；其余 kind 直接用调用颜色。 */
+function resolvePointColor(declaration: PlotDeclaration, value: number): string | undefined {
+  if (declaration.kind !== 'arrow') return declaration.color
+  return (value > 0 ? declaration.colorUp : declaration.colorDown) ?? declaration.color
+}
+
+/** 组装跨边界绘图点：颜色缺省时不写入字段，留给 Plot 层回落声明样式。 */
+function toPlotPoint(declaration: PlotDeclaration, value: number): PlotPoint {
+  const color = resolvePointColor(declaration, value)
+  return {
+    value,
+    ...(color === undefined ? {} : { color }),
+    ...(declaration.textColor === undefined ? {} : { textColor: declaration.textColor }),
+  }
 }
 
 /** 把参数写成一个全局对象 `params`，键值均为可序列化基本类型。 */
@@ -244,7 +326,8 @@ function mountParams(
 /** 注入脚本公开枚举；取值来自共享契约，VM 内不重复声明。 */
 function mountScriptEnums(vm: QuickJSContext): void {
   for (const [globalName, members] of Object.entries({
-    PaneKind,
+    Color,
+    Position,
     PlotKind,
     ShapeStyle,
     ShapeLocation,

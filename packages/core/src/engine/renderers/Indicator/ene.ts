@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'ENE',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'channel',
   defaultPaneId: 'main',
   mainPane: { toActiveConfig: (params, active) => (active ? params : null) },
   plots: {
@@ -25,5 +24,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class ENEDefinition {
-  static rendererFactory = plotRenderer('ene', 'main')
+  static rendererFactory = plotRenderer('ene')
 }

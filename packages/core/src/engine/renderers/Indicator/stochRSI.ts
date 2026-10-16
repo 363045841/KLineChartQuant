@@ -9,7 +9,6 @@ import { createStochRSIScaleLayer } from './scale/stochRSI_scale.js'
   displayName: 'StochRSI',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_StochRSI',
   scaleRendererFactory: createStochRSIScaleLayer,
   plots: {
@@ -27,5 +26,5 @@ import { createStochRSIScaleLayer } from './scale/stochRSI_scale.js'
   },
 })
 export class StochRSIIndicatorDefinition {
-  static rendererFactory = plotRenderer('stochRSI', 'sub_StochRSI')
+  static rendererFactory = plotRenderer('stochRSI')
 }

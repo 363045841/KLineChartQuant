@@ -20,8 +20,8 @@ QuickJS 执行器初始化整份文件一次读取声明，再逐 bar 调用 VM 
 `PlotCollector` 按 ID 和 bar 下标收集点，跳过的位置保留空值；成功后一次性返回 `PlotCollection`。
 失败时不提交部分结果。
 
-可选 `plots` 声明指定类型、标签和默认样式；未声明时自动建立折线。
-`fills` 引用边界 Plot。声明过的空 Plot 仍保留。
+绘图类型、标签和样式都在 `plot.*` 调用里给出，Plot 按首次出现的 name 建立。
+`fill(from, to, color, title)` 用 `plot.*` 返回的句柄声明两个边界之间的填充。
 
 完整 Plot 直接参与可见范围投影、图例和通用 Layer 绘制。参数、行情或定义版本更新时重新执行，
 滚动只更新范围。Script 在主线程执行，内置指标继续使用 Worker；两类结果一起提交，沿用原有版本门控。
@@ -42,8 +42,8 @@ const instanceId = controller.addIndicator(document.id)
 ```
 
 `create` 校验并编译整份文件，写入定义目录；`update` 需要打开时的 `revision`；
-`remove` 删除定义并清理实例。放置位置与显示名由脚本自己声明（`pane` / `displayName`），
-缺省为副图和脚本名。首版使用完整重算，尚不提供 Script Worker 或增量执行。
+`remove` 删除定义并清理实例。放置位置与显示名由脚本自己声明（`position` / `name`），
+缺省为副图。首版使用完整重算，尚不提供 Script Worker 或增量执行。
 
 ## 指标选择弹窗
 

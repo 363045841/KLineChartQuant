@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'LSMA',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showLSMA: active }) },
@@ -27,5 +26,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class LSMADefinition {
-  static rendererFactory = plotRenderer('lsma', 'main')
+  static rendererFactory = plotRenderer('lsma')
 }

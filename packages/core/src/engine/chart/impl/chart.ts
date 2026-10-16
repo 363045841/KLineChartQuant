@@ -66,7 +66,6 @@ import {
   type Signal,
   type WritableSignal,
 } from '../../../foundation/reactivity/signal.js'
-import { getFont } from '../../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.js'
@@ -128,9 +127,6 @@ import { ChartThemeFacade } from './facade/chartThemeFacade.js'
 import { ChartZoomFacade } from './facade/chartZoomFacade.js'
 
 export type { InteractionSnapshot }
-
-const RIGHT_AXIS_FONT = getFont(12)
-const RIGHT_AXIS_TEXT_PADDING = 12
 
 /** 取指标投影序列的最后一个有限数值；支持数组与按周期/字段分组的对象。 */
 function lastSeriesValue(series: unknown): number | null {
@@ -237,6 +233,7 @@ export class Chart {
   private _lastAlertTimestamp: number | null = null
   /** 右轴 host 当前生效的 CSS 宽度；仅在可视区极值变化时更新。 */
   private readonly _effectiveRightAxisWidth = createSignal(0)
+  private readonly _effectiveLeftAxisWidth = createSignal(0)
 
   /** 预警控制器 */
   readonly alertController: AlertController
@@ -509,9 +506,7 @@ export class Chart {
         this.legend.clearFrame()
         this.legendDom.clear()
       },
-      commitRightAxisWidthMeasurement: (extrema) => {
-        this.commitRightAxisWidthMeasurement(extrema)
-      },
+      commitAxisWidths: (widths) => this.commitAxisWidths(widths),
     })
     this.pluginHost.registerService(CHART_RENDERERS_SERVICE, {
       useRenderer: (layer) => this.useRenderer(layer),
@@ -1190,40 +1185,24 @@ export class Chart {
     this.resetPriceTransform(MAIN_PANE_ID)
   }
 
-  /**
-   * 由可视区价格 high/low 变更驱动右轴宽度。
-   *
-   * 帧准备阶段仅在可视区极值跨数量级时调用本方法, 避免 measureText 高成本
-   * 该函数不得进入高频路径
-   */
-  private commitRightAxisWidthMeasurement(extrema: { min: number; max: number }): void {
+  /** 提交左右轴估算结果；仅宽度变化时更新宿主布局。 */
+  private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
     const options = this.kernel.options.readonly.options.peek()
-    const minimumWidth =
-      options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH)
-    const yAxisCtx = this.paneRenderers[0]?.getContexts().yAxisCtx ?? null
-    if (!yAxisCtx) return
-    yAxisCtx.save()
-    yAxisCtx.font = RIGHT_AXIS_FONT
-    const widestLabel = Math.max(
-      yAxisCtx.measureText(extrema.min.toFixed(2)).width,
-      yAxisCtx.measureText(extrema.max.toFixed(2)).width,
+    const right = Math.max(
+      options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
+      widths.right,
     )
-    yAxisCtx.restore()
-
-    const nextWidth = Math.max(minimumWidth, Math.ceil(widestLabel + RIGHT_AXIS_TEXT_PADDING))
-    if (this._effectiveRightAxisWidth.peek() === nextWidth) return
-    this._effectiveRightAxisWidth.set(nextWidth)
-    const rightAxisLayer = this.dom.rightAxisLayer
-    if (rightAxisLayer && rightAxisLayer.style.width !== `${nextWidth}px`) {
-      rightAxisLayer.style.width = `${nextWidth}px`
-    }
-
-    // 本帧后续右轴绘制即可使用新 canvas 宽度；不触发容器 resize，也不会重走滚动链路。
-    const viewport = this.getViewport()
-    if (!viewport) return
-    for (const renderer of this.paneRenderers) {
-      renderer.resize(viewport.plotWidth, renderer.getPane().height, viewport.dpr)
-    }
+    const left = Math.max(options.leftAxisWidth, widths.left)
+    const changed =
+      this._effectiveRightAxisWidth.peek() !== right || this._effectiveLeftAxisWidth.peek() !== left
+    if (!changed) return false
+    batch(() => {
+      this._effectiveRightAxisWidth.set(right)
+      this._effectiveLeftAxisWidth.set(left)
+    })
+    if (this.dom.rightAxisLayer) this.dom.rightAxisLayer.style.width = `${right}px`
+    if (this.dom.leftAxisLayer) this.dom.leftAxisLayer.style.width = `${left}px`
+    return true
   }
 
   /** 容器尺寸变化时调用 */
@@ -1367,6 +1346,11 @@ export class Chart {
   /** 右轴当前有效 CSS 宽度；外部宿主应使用它而非覆盖内联宽度。 */
   get rightAxisEffectiveWidth(): ReadonlySignal<number> {
     return this._effectiveRightAxisWidth
+  }
+
+  /** 左轴所需逻辑像素宽度，供宿主布局消费。 */
+  get leftAxisEffectiveWidth(): ReadonlySignal<number> {
+    return this._effectiveLeftAxisWidth
   }
 
   /** 视口状态信号 */

@@ -14,10 +14,11 @@ import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js
 
 const LABEL_FONT = '11px sans-serif'
 
-function createStructureLayer(
-  options: { paneId?: string; instanceId?: string } = {},
-): Layer<RenderContext> {
-  const { paneId = 'sub_Structure', instanceId } = options
+function createStructureLayer(options: {
+  paneId: string
+  instanceId: string
+}): Layer<RenderContext> {
+  const { paneId, instanceId } = options
   return createIndicatorRendererLayer({
     definitionId: 'structure',
     paneId,
@@ -29,7 +30,6 @@ function createStructureLayer(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      if (!instanceId) return
       const state = context.indicatorStateReader?.get<StructureRenderState>(instanceId)
       if (!state) return
       const params = state.params
@@ -131,7 +131,6 @@ function getStructureTitleInfo(
   displayName: 'Structure',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'structure',
   defaultPaneId: 'sub_Structure',
   allowMainPane: true,
   mainPane: {

@@ -15,7 +15,6 @@ it('透传实例身份和参数，并应用显式 role', () => {
       displayName: 'CUSTOM',
       kind: IndicatorKind.Indicator,
       category: 'main',
-      indicatorType: 'other',
     },
     { rendererFactory },
   )

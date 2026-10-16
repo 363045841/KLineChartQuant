@@ -16,6 +16,7 @@ import Icons from 'unplugin-icons/vite'
 import { createCoreSourceAliases } from '../../../scripts/core-source-aliases.mjs'
 import { createPackageSourceAliases } from '../../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
+import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
 
 const decoratorTransform = babel({
   include: [/\/src\/.*\.tsx?$/],
@@ -82,6 +83,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    contractResourcesPlugin(),
     indicatorEntrypointsPlugin(),
     watchWorkspaceSources(root),
     decoratorTransform,

@@ -14,6 +14,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./language": {
+      "types": "./dist/language/index.d.ts",
+      "import": "./dist/language/index.js"
+    },
     "./editor": {
       "types": "./dist/editor/resources.d.ts",
       "import": "./dist/editor/resources.js"
@@ -34,7 +38,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
+    "build": "node scripts/generate-script-enums.mjs && tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -45,10 +49,11 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@types/node": "^25.9.6",
     "publint": "^0.3.21",
-    "typescript": "~6.0.3",
     "vitest": "^5.0.0"
   },
   "dependencies": {
+    "@typescript/vfs": "^1.6.5",
+    "typescript": "~6.0.3",
     "@363045841yyt/klinechart-plot-contracts": "workspace:*",
     "quickjs-emscripten": "^0.32.0"
   },

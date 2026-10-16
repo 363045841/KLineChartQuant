@@ -1,6 +1,8 @@
 /** 通用 Plot Layer：按绘图类型投影到 Pane 坐标，线条和柱子优先使用 GPU。 */
 
 import type {
+  ArrowPlot,
+  ColumnsPlot,
   HistogramPlot,
   LinePlot,
   Plot,
@@ -13,6 +15,7 @@ import {
   sameProjectionRevision,
 } from '@/engine/frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '@/engine/frame/types.js'
+import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { tryDrawLinesGpu } from '@/engine/renderers/linesViaRenderer.js'
 import { drawWorldRectBatches } from '@/engine/renderers/rectsViaRenderer.js'
@@ -22,7 +25,20 @@ import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { PlotRenderState } from '../types.js'
-import { buildShapeGlyph, paintShapeGlyph, type ShapeGlyph } from './shapeGeometry.js'
+import { buildFillBands, type FillBand } from './fillGeometry.js'
+import {
+  buildArrowGlyph,
+  buildMarkerGlyph,
+  type MarkerGlyph,
+  paintMarkerGlyph,
+} from './markerGeometry.js'
+import {
+  arrowMaxHeight,
+  arrowMinHeight,
+  histogramWidth,
+  lineWidth,
+  pointRadius,
+} from './plotSize.js'
 
 type Point = { x: number; y: number }
 type LineBatch = { points: Point[]; width: number; color: string }
@@ -36,10 +52,10 @@ interface LineProjection {
   readonly lines: readonly LineBatch[]
 }
 
-/** 柱状图的投影结果。 */
-interface HistogramProjection {
-  readonly kind: 'histogram'
-  readonly plot: HistogramPlot
+/** 柱状图与柱形图的投影结果：几何相同，只有柱宽来源不同。 */
+interface ColumnProjection {
+  readonly kind: 'histogram' | 'columns'
+  readonly plot: HistogramPlot | ColumnsPlot
   readonly points: ReadonlyMap<number, Point>
   readonly rects: readonly RectBatch[]
 }
@@ -51,22 +67,27 @@ interface PointsProjection {
   readonly points: ReadonlyMap<number, Point>
 }
 
-/** Shape 的投影结果：字形只测量一次，随滚动重放。 */
-interface ShapeProjection {
-  readonly kind: 'shape'
-  readonly plot: ShapePlot
-  readonly points: ReadonlyMap<number, Point>
-  readonly glyph: ShapeGlyph
+/** 标记的单点投影，字形与颜色随滚动直接重放。 */
+interface MarkerPoint extends Point {
+  readonly glyph: MarkerGlyph
+  readonly color: string
+  readonly textColor: string
+}
+
+/** Shape、Char、Arrow 共用同一投影和重放数据。 */
+interface MarkerProjection {
+  readonly kind: 'shape' | 'char' | 'arrow'
+  readonly plot: Extract<Plot, { kind: 'shape' | 'char' | 'arrow' }>
+  readonly points: ReadonlyMap<number, MarkerPoint>
 }
 
 /** 一个 Plot 的完整投影；每种 kind 携带自己的重放数据，绘制端不再判空或回查。 */
-type PlotProjection = LineProjection | HistogramProjection | PointsProjection | ShapeProjection
+type PlotProjection = LineProjection | ColumnProjection | PointsProjection | MarkerProjection
 
 /** 填充的投影结果：端点在此解析，重放时不再按 id 查找。 */
 interface FillProjection {
   readonly fill: PlotFill
-  readonly from: PlotProjection
-  readonly to: PlotProjection
+  readonly bands: readonly FillBand[]
 }
 
 /** 一帧可复用的全部重放数据。 */
@@ -75,36 +96,47 @@ interface PlotGeometry {
   readonly fills: readonly FillProjection[]
 }
 
-const SHAPE_BAR_GAP = 4
+const MARKER_BAR_GAP = 4
 
-/** 按 Shape 的定位语义求屏幕锚点；相对定位只用 K 线位置，absolute 用价格。 */
-function shapeY(
-  plot: ShapePlot,
+/** 相对定位锚定的 bar 极值；时间轴数据没有 OHLC，只有 price。 */
+function barAnchorPrice(bar: RenderContext['data'][number], above: boolean): number {
+  if (!('close' in bar)) return bar.price
+  return above ? bar.high : bar.low
+}
+
+/** abovebar/belowbar：锚在偏移后的 K 线极值上，再让字形避开 K 线。 */
+function barMarkerY(
+  above: boolean,
+  index: number,
+  glyph: MarkerGlyph,
+  context: RenderContext,
+): number | undefined {
+  const bar = context.data[index]
+  if (!bar) return undefined
+  const anchor = context.pane.yAxis.priceToY(barAnchorPrice(bar, above))
+  return above ? anchor - MARKER_BAR_GAP - glyph.bottom : anchor + MARKER_BAR_GAP - glyph.top
+}
+
+/** 按共享标记位置求屏幕锚点；相对定位用 K 线位置，absolute 用价格。 */
+function markerY(
+  location: ShapePlot['location'],
   value: number,
   index: number,
-  glyph: ShapeGlyph,
+  glyph: MarkerGlyph,
   context: RenderContext,
 ): number | undefined {
   const axis = context.pane.yAxis
-  switch (plot.location) {
+  switch (location) {
     case 'absolute':
       return axis.priceToY(value)
     case 'top':
-      return axis.getPaddingTop() + SHAPE_BAR_GAP - glyph.top
+      return axis.getPaddingTop() + MARKER_BAR_GAP - glyph.top
     case 'bottom':
-      return context.pane.height - axis.getPaddingBottom() - SHAPE_BAR_GAP - glyph.bottom
-    case 'abovebar': {
-      const bar = context.data[index]
-      return bar
-        ? axis.priceToY('close' in bar ? bar.high : bar.price) - SHAPE_BAR_GAP - glyph.bottom
-        : undefined
-    }
-    case 'belowbar': {
-      const bar = context.data[index]
-      return bar
-        ? axis.priceToY('close' in bar ? bar.low : bar.price) + SHAPE_BAR_GAP - glyph.top
-        : undefined
-    }
+      return context.pane.height - axis.getPaddingBottom() - MARKER_BAR_GAP - glyph.bottom
+    case 'abovebar':
+      return barMarkerY(true, index, glyph, context)
+    case 'belowbar':
+      return barMarkerY(false, index, glyph, context)
   }
 }
 
@@ -131,7 +163,7 @@ function projectX(index: number, context: RenderContext): number | null {
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
 function projectPricePoint(
-  plot: LinePlot | HistogramPlot | PointsPlot,
+  plot: LinePlot | HistogramPlot | ColumnsPlot | PointsPlot,
   index: number,
   context: RenderContext,
 ): Point | undefined {
@@ -143,17 +175,17 @@ function projectPricePoint(
   return Number.isFinite(y) ? { x, y } : undefined
 }
 
-/** 投影一个 Shape 的锚点；值只用来判定有无信号，absolute 除外。 */
-function projectShapePoint(
-  plot: ShapePlot,
+/** 投影共享标记锚点；相对位置使用 bar，absolute 使用输入坐标。 */
+function projectMarkerPoint(
+  location: ShapePlot['location'],
   value: number,
   index: number,
   context: RenderContext,
-  glyph: ShapeGlyph,
+  glyph: MarkerGlyph,
 ): Point | undefined {
   const x = projectX(index, context)
   if (x === null) return undefined
-  const y = shapeY(plot, value, index, glyph, context)
+  const y = markerY(location, value, index, glyph, context)
   return y !== undefined && Number.isFinite(y) ? { x, y } : undefined
 }
 
@@ -209,7 +241,7 @@ function buildLineSegments(
     if (segment.length === 0 || nextColor !== color) {
       segment = previous ? [previous] : []
       color = nextColor
-      lines.push({ points: segment, width: plot.width, color })
+      lines.push({ points: segment, width: lineWidth(plot.size), color })
     }
     segment.push(point)
     previous = point
@@ -217,9 +249,9 @@ function buildLineSegments(
   return lines.filter((line) => line.points.length >= 2)
 }
 
-/** 构建柱状几何，横向宽度沿用图表的 K 线几何。 */
-function buildHistogram(
-  plot: HistogramPlot,
+/** 构建柱体几何：histogram 用固定像素宽，columns 沿用 K 线实体宽度。 */
+function buildColumnRects(
+  plot: HistogramPlot | ColumnsPlot,
   context: RenderContext,
   points: ReadonlyMap<number, Point>,
 ): RectBatch[] {
@@ -240,11 +272,15 @@ function buildHistogram(
       }
       batches.set(color, batch)
     }
+    // 先对齐数值端点和基线，再求高度，保证所有柱子的基线边缘一致。
+    const vertical = barVerticalRect(point.y, baselineY, context.dpr)
+    // histogram 柱宽固定为逻辑像素，columns 跟随 K 线实体宽度，两者都按 bar 中心对齐。
+    const width = plot.kind === 'histogram' ? histogramWidth(plot.size) : bar.width
     const offset = batch.count++ * 4
-    batch.buf[offset] = bar.x
-    batch.buf[offset + 1] = Math.min(point.y, baselineY)
-    batch.buf[offset + 2] = bar.width
-    batch.buf[offset + 3] = Math.max(1 / context.dpr, Math.abs(point.y - baselineY))
+    batch.buf[offset] = bar.x + (bar.width - width) / 2
+    batch.buf[offset + 1] = vertical.y
+    batch.buf[offset + 2] = width
+    batch.buf[offset + 3] = vertical.height
   }
   return [...batches.values()]
 }
@@ -258,11 +294,12 @@ function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
       )
       return { kind: 'line', plot, points, lines: buildLineSegments(plot, context, points) }
     }
-    case 'histogram': {
+    case 'histogram':
+    case 'columns': {
       const points = projectPoints(plot, context, (index) =>
         projectPricePoint(plot, index, context),
       )
-      return { kind: 'histogram', plot, points, rects: buildHistogram(plot, context, points) }
+      return { kind: plot.kind, plot, points, rects: buildColumnRects(plot, context, points) }
     }
     case 'points': {
       const points = projectPoints(plot, context, (index) =>
@@ -270,17 +307,87 @@ function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
       )
       return { kind: 'points', plot, points }
     }
-    case 'shape': {
-      const glyph = buildShapeGlyph(plot, context)
-      const points = projectPoints(plot, context, (index) => {
-        const value = barValue(plot, index)
-        return value === undefined
-          ? undefined
-          : projectShapePoint(plot, value, index, context, glyph)
-      })
-      return { kind: 'shape', plot, points, glyph }
+    case 'shape':
+    case 'char':
+    case 'arrow':
+      return projectMarkers(plot, context)
+  }
+}
+
+/** 全列统计箭头幅度，屏幕缩放与可见范围不改变长度。 */
+function arrowMagnitude(plot: Plot): number {
+  let maximum = 0
+  for (const point of plot.data) {
+    if (point && Number.isFinite(point.value)) maximum = Math.max(maximum, Math.abs(point.value))
+  }
+  return maximum
+}
+
+/** 方向或声明位置：箭头按正负贴到 K 线下方或上方，其余用声明位置。 */
+function markerLocation(plot: MarkerProjection['plot'], value: number): ShapePlot['location'] {
+  if (plot.kind !== 'arrow') return plot.location
+  return value > 0 ? 'belowbar' : 'abovebar'
+}
+
+/** 逐 bar 颜色优先于整列样式。 */
+function overrideColor(color: string | undefined, fallback: string): string {
+  return color ?? fallback
+}
+
+/** 统一构建标记；相对定位过滤 0，绝对坐标保留 0。 */
+function projectMarkers(plot: MarkerProjection['plot'], context: RenderContext): MarkerProjection {
+  const points = new Map<number, MarkerPoint>()
+  const appearance = markerAppearance(plot, context)
+  for (const index of plotIndices(plot, context)) {
+    const value = barValue(plot, index)
+    if (value === undefined) continue
+    const location = markerLocation(plot, value)
+    if (location !== 'absolute' && value === 0) continue
+    const style = appearance(value)
+    const point = projectMarkerPoint(location, value, index, context, style.glyph)
+    if (!point) continue
+    const data = plot.data[index - plot.offset]
+    points.set(index, {
+      ...point,
+      ...style,
+      color: overrideColor(data?.color, style.color),
+      textColor: overrideColor(data?.textColor, style.textColor),
+    })
+  }
+  return { kind: plot.kind, plot, points }
+}
+
+/** 箭头高度：按全列最大幅度归一化，再夹在 size 决定的高度范围内。 */
+function arrowHeight(plot: ArrowPlot, value: number, maximum: number): number {
+  const maxHeight = arrowMaxHeight(plot.size)
+  return Math.max(
+    arrowMinHeight(plot.size),
+    Math.min(maxHeight, maxHeight * (Math.abs(value) / maximum)),
+  )
+}
+
+/** 固定字形只测量一次，箭头按全列幅度生成每个点的字形。 */
+function markerAppearance(
+  plot: MarkerProjection['plot'],
+  context: RenderContext,
+): (value: number) => Pick<MarkerPoint, 'glyph' | 'color' | 'textColor'> {
+  if (plot.kind === 'arrow') {
+    const maximum = arrowMagnitude(plot)
+    return (value) => {
+      const color = value > 0 ? plot.colorUp : plot.colorDown
+      return {
+        glyph: buildArrowGlyph(arrowHeight(plot, value, maximum), value > 0, context),
+        color,
+        textColor: color,
+      }
     }
   }
+  const style = {
+    glyph: buildMarkerGlyph(plot, context),
+    color: plot.color,
+    textColor: plot.textColor,
+  }
+  return () => style
 }
 
 /** 解析填充端点；id 引用已由 validatePlotFills 校验，缺失即契约违规。 */
@@ -288,7 +395,7 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
   const from = byId.get(fill.from)
   const to = byId.get(fill.to)
   if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
-  return { fill, from, to }
+  return { fill, bands: buildFillBands(from.points, to.points, fill.colors) }
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
@@ -298,23 +405,15 @@ function collectGeometry(state: PlotRenderState, context: RenderContext): PlotGe
   return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
 }
 
-/** Shape 与其他 Plot 共用投影缓存和滚动坐标，不额外创建标记 Layer。 */
-function drawShapes(projection: ShapeProjection, context: RenderContext): void {
-  const { plot, glyph, points } = projection
+/** 三个标记 kind 共用 Plot 的缓存与滚动坐标，不额外创建 Layer。 */
+function drawMarkers(projection: MarkerProjection, context: RenderContext): void {
+  const { points } = projection
   const { ctx } = context
   ctx.save()
   ctx.translate(-context.scrollLeft, 0)
   ctx.setLineDash([])
-  for (const [index, point] of points) {
-    const data = plot.data[index - plot.offset]
-    paintShapeGlyph(
-      ctx,
-      glyph,
-      point.x,
-      point.y,
-      data?.color ?? plot.color,
-      data?.textColor ?? plot.textColor,
-    )
+  for (const point of points.values()) {
+    paintMarkerGlyph(ctx, point.glyph, point.x, point.y, point.color, point.textColor)
   }
   ctx.restore()
 }
@@ -326,7 +425,7 @@ function drawLine(projection: LineProjection, context: RenderContext): void {
   const { ctx } = context
   ctx.save()
   ctx.translate(-context.scrollLeft, 0)
-  ctx.lineWidth = plot.width
+  ctx.lineWidth = lineWidth(plot.size)
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   ctx.setLineDash([...plot.dash])
@@ -354,52 +453,45 @@ function drawPoints(projection: PointsProjection, context: RenderContext): void 
   for (const [index, point] of points) {
     ctx.fillStyle = plot.data[index - plot.offset]?.color ?? plot.color
     ctx.beginPath()
-    ctx.arc(point.x, point.y, plot.radius, 0, Math.PI * 2)
+    ctx.arc(point.x, point.y, pointRadius(plot.size), 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
 }
 
-/** 填充两个序列之间的区域；相交时在交点切换颜色。 */
+/** 重放带状多边形；同色区域一次填充，避免分段透明度重叠与接缝。 */
 function drawFill(projection: FillProjection, context: RenderContext): void {
-  const { fill, from, to } = projection
   const { ctx } = context
   ctx.save()
   ctx.translate(-context.scrollLeft, 0)
-  ctx.globalAlpha = fill.opacity
-  const paint = (a: Point, b: Point, c: Point, d: Point, reverse: boolean): void => {
-    ctx.fillStyle = reverse ? fill.reverseColor : fill.color
+  for (const band of projection.bands) {
+    ctx.fillStyle = band.color
     ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.lineTo(c.x, c.y)
-    ctx.lineTo(d.x, d.y)
-    ctx.closePath()
+    for (const polygon of band.polygons) {
+      const first = polygon[0]
+      if (!first) continue
+      ctx.moveTo(first.x, first.y)
+      for (let index = 1; index < polygon.length; index++) {
+        const point = polygon[index]!
+        ctx.lineTo(point.x, point.y)
+      }
+      ctx.closePath()
+    }
     ctx.fill()
-  }
-  for (const index of plotIndices(from.plot, context)) {
-    const a = from.points.get(index - 1),
-      b = from.points.get(index)
-    const c = to.points.get(index),
-      d = to.points.get(index - 1)
-    if (!a || !b || !c || !d) continue
-    const left = a.y - d.y,
-      right = b.y - c.y
-    if (left * right < 0) {
-      const t = left / (left - right)
-      const cross = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
-      paint(a, cross, cross, d, left > 0)
-      paint(cross, b, c, cross, right > 0)
-    } else paint(a, b, c, d, left + right > 0)
   }
   ctx.restore()
 }
 
-/** 绘制一个指标实例的全部填充、参考线和 Plot。 */
-export function paintPlots(
+/** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
+export function paintPlots(state: PlotRenderState, context: RenderContext): void {
+  paintGeometry(state, context, collectGeometry(state, context))
+}
+
+/** 用一帧几何绘制填充、参考线和 Plot；几何已由调用方投影完成。 */
+function paintGeometry(
   state: PlotRenderState,
   context: RenderContext,
-  geometry: PlotGeometry = collectGeometry(state, context),
+  geometry: PlotGeometry,
 ): void {
   for (const fill of geometry.fills) if (fill.fill.visible) drawFill(fill, context)
   const { ctx } = context
@@ -423,13 +515,16 @@ export function paintPlots(
         drawLine(projection, context)
         break
       case 'histogram':
+      case 'columns':
         drawWorldRectBatches(context, projection.rects)
         break
       case 'points':
         drawPoints(projection, context)
         break
       case 'shape':
-        drawShapes(projection, context)
+      case 'char':
+      case 'arrow':
+        drawMarkers(projection, context)
         break
     }
   }
@@ -439,22 +534,21 @@ export function paintPlots(
 export function createPlotLayer(
   definitionId: string,
   defaultPaneId: string,
-  options: { paneId?: string; instanceId?: string } = {},
+  options: { instanceId: string },
 ): Layer<RenderContext> {
   const retained = createRetainedGeometry<PlotGeometry, ProjectionRevision>(sameProjectionRevision)
   return createIndicatorRendererLayer({
     definitionId,
-    paneId: options.paneId ?? defaultPaneId,
+    paneId: defaultPaneId,
     z: RENDERER_PRIORITY.INDICATOR,
     draw(context) {
-      if (!options.instanceId) return
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
       const geometry = retained.read(
-        createProjectionRevision(context, [state.plots, context.data, context.theme]),
+        createProjectionRevision(context, [state.plots, state.fills, context.data, context.theme]),
         () => collectGeometry(state, context),
       )
-      paintPlots(state, context, geometry)
+      paintGeometry(state, context, geometry)
     },
     dispose: () => retained.clear(),
   })

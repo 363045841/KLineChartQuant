@@ -37,8 +37,10 @@ function toBar(bar: KLineData): Bar {
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
   const defs: Record<string, IndicatorInputDef> = {}
   for (const [key, def] of Object.entries(inputs as Record<string, InputDef<unknown>>)) {
-    if (def.title === undefined && def.options === undefined) continue
     defs[key] = {
+      ...(def.min === undefined ? {} : { min: def.min }),
+      ...(def.max === undefined ? {} : { max: def.max }),
+      ...(def.step === undefined ? {} : { step: def.step }),
       ...(def.title === undefined ? {} : { title: def.title }),
       ...(def.options === undefined ? {} : { options: def.options }),
     }
@@ -49,7 +51,8 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
 /**
  * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
  *
- * 缺省位置与显示名取自定义本身；主图定义允许叠加主图，副图定义独占自己的 pane。
+ * 位置缺省放副图；内部身份取 `id ?? name`（脚本由宿主分配稳定 ID），
+ * displayName 与坐标轴标签取 name（可编辑展示名）。
  */
 export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
   registerIndicatorDefinition(createPlotIndicatorDefinition(definition))
@@ -60,25 +63,24 @@ export function updatePlotIndicator<P>(definition: IndicatorDefinition<P>): void
   updateIndicatorDefinition(createPlotIndicatorDefinition(definition))
 }
 
-/** 注册与更新共用中立定义转换，避免维护两套默认参数或 pane 映射。 */
+/** 注册与更新共用中立定义转换，避免维护两套默认参数或位置映射。 */
 function createPlotIndicatorDefinition<P>(
   definition: IndicatorDefinition<P>,
 ): IndicatorDefinitionClass {
-  const main = definition.pane === 'main'
-  const paneId = main ? 'main' : `sub_${definition.name}`
-  const displayName = definition.displayName ?? definition.name
+  const main = definition.position === 'main'
+  const internalName = definition.id ?? definition.name
+  const paneId = main ? 'main' : `sub_${internalName}`
   const decorate = Indicator({
-    name: definition.name,
+    name: internalName,
     source: definition.source,
     document: definition.document,
-    displayName,
+    displayName: definition.name,
     kind: IndicatorKind.Indicator,
     category: main ? 'main' : 'sub',
-    indicatorType: 'other',
     defaultPaneId: paneId,
     allowMainPane: main,
     mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,
-    scale: { label: displayName, decimals: 2 },
+    scale: { label: definition.name, decimals: 2 },
     plots: { source: 'collection', series: [] },
     runtime: {
       revision: definition.document?.revision,
@@ -88,7 +90,7 @@ function createPlotIndicatorDefinition<P>(
     },
   })
   class PlotIndicatorDefinition {
-    static rendererFactory = plotRenderer(definition.name, paneId)
+    static rendererFactory = plotRenderer(internalName)
   }
   decorate(PlotIndicatorDefinition)
   return PlotIndicatorDefinition

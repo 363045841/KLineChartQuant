@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'GMMA',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showGMMA: active }) },
@@ -33,5 +32,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   runtime: { defaultParams: {}, computeKey: 'calcGMMAData', compute: (data) => calcGMMAData(data) },
 })
 export class GMMADefinition {
-  static rendererFactory = plotRenderer('gmma', 'main')
+  static rendererFactory = plotRenderer('gmma')
 }

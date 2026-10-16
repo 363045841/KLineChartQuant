@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'VMA',
   kind: IndicatorKind.Indicator,
   category: 'volume',
-  indicatorType: 'volume',
   defaultPaneId: 'sub_VMA',
   plots: singleLinePlots(
     { id: 'vma', label: 'VMA', show: 'showVMA', color: (c) => c.palette.i6 },
@@ -23,5 +22,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class VMAIndicatorDefinition {
-  static rendererFactory = plotRenderer('vma', 'sub_VMA')
+  static rendererFactory = plotRenderer('vma')
 }

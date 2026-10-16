@@ -7,19 +7,20 @@ import {
   getRegisteredIndicatorDefinitions,
   registerIndicatorDefinition,
   resolveIndicatorLayerId,
+  updateIndicatorDefinition,
 } from '../indicatorDefinitionRegistry'
 import { IndicatorKind } from '../indicatorMetadata'
 import { createTestRendererLayer } from './helpers/metadataTestKit'
 
 /** 声明带别名的真实 Layer 定义，注册由调用方决定。 */
-function declareDefinition(name: string, alias: string) {
+function declareDefinition(name: string, alias: string, scriptDisplayName?: string) {
   @Indicator({
     name,
     aliases: [alias],
-    displayName: name,
+    displayName: scriptDisplayName ?? name,
+    source: scriptDisplayName === undefined ? 'native' : 'script',
     kind: IndicatorKind.Indicator,
     category: 'oscillator',
-    indicatorType: 'momentum',
     defaultPaneId: `sub_${alias}`,
     scale: { indicatorKey: name },
   })
@@ -76,5 +77,17 @@ describe('Indicator definition registry', () => {
     class Undeclared {}
     expect(() => registerIndicatorDefinition(Undeclared)).toThrow('must declare @Indicator')
     expect(() => resolveIndicatorLayerId('missing', 'main')).toThrow('missing renderer identity')
+  })
+
+  it('rejects a script rename that collides with another identity without changing the registry', () => {
+    registerIndicatorDefinition(declareDefinition('script_alpha', 'alpha_alias', 'Alpha'))
+    registerIndicatorDefinition(declareDefinition('script_beta', 'beta_alias', 'Beta'))
+
+    // 展示名与其它定义冲突时拒绝，目录保持原状。
+    expect(() =>
+      updateIndicatorDefinition(declareDefinition('script_alpha', 'alpha_alias', 'Beta')),
+    ).toThrow('alias is already registered')
+    expect(getRegisteredIndicatorDefinition('Alpha')?.displayName).toBe('Alpha')
+    expect(getRegisteredIndicatorDefinition('Beta')?.displayName).toBe('Beta')
   })
 })

@@ -14,7 +14,7 @@ import type { ScriptEditorSession } from './useScriptEditor.js'
 
 /** 独立窗口会话的状态与操作。 */
 export interface ScriptEditorWindowSession {
-  /** 当前环境是否支持文档画中画窗口。 */
+  /** 当前环境是否支持打开浏览器窗口。 */
   readonly supported: boolean
   /** 编辑器在新窗口中的挂载点；null 表示未在新窗口打开。 */
   readonly container: Ref<HTMLElement | null>
@@ -48,7 +48,7 @@ export function useScriptEditorWindow(
   }
 
   /**
-   * 关闭新窗口并把编辑器交回标签页弹窗；用户关闭窗口、浏览器的「返回标签页」与窗口内按钮共用此路径。
+   * 关闭新窗口并把编辑器交回标签页弹窗；用户关闭窗口与窗口内按钮共用此路径。
    *
    * 只切换展示位置，不重新加载源码，未保存的草稿与保存用的 revision 都保留。
    */

@@ -9,7 +9,6 @@ import { createAwesomeOscillatorScaleLayer } from './scale/awesomeOscillator_sca
   displayName: 'AO',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_AO',
   scaleRendererFactory: createAwesomeOscillatorScaleLayer,
   plots: {
@@ -31,5 +30,5 @@ import { createAwesomeOscillatorScaleLayer } from './scale/awesomeOscillator_sca
   },
 })
 export class AwesomeOscillatorIndicatorDefinition {
-  static rendererFactory = plotRenderer('awesomeOscillator', 'sub_AO')
+  static rendererFactory = plotRenderer('awesomeOscillator')
 }

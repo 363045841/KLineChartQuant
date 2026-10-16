@@ -9,7 +9,6 @@ import { createDpoScaleLayer } from './scale/dpo_scale.js'
   displayName: 'DPO',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_DPO',
   scaleRendererFactory: createDpoScaleLayer,
   plots: singleLinePlots({ id: 'dpo', label: 'DPO', show: 'showDPO', color: (c) => c.palette.i5 }),
@@ -21,5 +20,5 @@ import { createDpoScaleLayer } from './scale/dpo_scale.js'
   },
 })
 export class DPOIndicatorDefinition {
-  static rendererFactory = plotRenderer('dpo', 'sub_DPO')
+  static rendererFactory = plotRenderer('dpo')
 }

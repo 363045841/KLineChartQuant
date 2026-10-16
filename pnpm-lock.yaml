@@ -555,9 +555,15 @@ importers:
       '@363045841yyt/klinechart-plot-contracts':
         specifier: workspace:*
         version: link:../plot-contracts
+      '@typescript/vfs':
+        specifier: ^1.6.5
+        version: 1.6.5(supports-color@10.2.2)(typescript@6.0.3)
       quickjs-emscripten:
         specifier: ^0.32.0
         version: 0.32.0
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
@@ -568,9 +574,6 @@ importers:
       publint:
         specifier: ^0.3.21
         version: 0.3.24
-      typescript:
-        specifier: ~6.0.3
-        version: 6.0.3
       vitest:
         specifier: ^5.0.0
         version: 5.0.4(@opentelemetry/api@1.9.0)(@types/node@25.9.6)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2(@noble/hashes@2.2.0))(vite@8.3.4(@types/node@25.9.6)(esbuild@0.28.1)(jiti@2.7.0)(less@4.2.2)(sass@1.85.0)(terser@5.48.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -644,9 +647,6 @@ importers:
       '@fontsource/outfit':
         specifier: ^5.3.0
         version: 5.3.0
-      '@typescript/vfs':
-        specifier: ^1.6.5
-        version: 1.6.5(supports-color@10.2.2)(typescript@6.0.3)
       '@valtown/codemirror-ts':
         specifier: ^2.3.1
         version: 2.3.1(@codemirror/autocomplete@6.20.3)(@codemirror/lint@6.9.7)(@codemirror/state@6.7.6)(@codemirror/view@6.43.14)

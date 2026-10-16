@@ -1,24 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import {
-  calcBOLLData,
-  calcENEData,
-  calcEXPMAData,
-  calcMAData,
-  calcRSIData,
-  DEFAULT_MA_PERIODS,
-} from '../calculators'
+import { calcENEData, calcEXPMAData, calcMAData, DEFAULT_MA_PERIODS } from '../calculators'
 import { type FromClosesOptions, fromCloses } from './__fixtures__/synthetic'
 
 /** 测试直接声明计算参数，不依赖渲染器默认状态。 */
-const DEFAULT_BOLL_PERIOD = 20
-const DEFAULT_BOLL_MULTIPLIER = 2
 const DEFAULT_ENE_PERIOD = 10
 const DEFAULT_ENE_DEVIATION = 11
 const DEFAULT_EXPMA_FAST_PERIOD = 12
 const DEFAULT_EXPMA_SLOW_PERIOD = 50
-const DEFAULT_RSI_PERIOD1 = 6
-const DEFAULT_RSI_PERIOD2 = 12
-const DEFAULT_RSI_PERIOD3 = 24
 
 /** 计算器测试统一的 K 线选项：固定时间基准与递增成交量。 */
 const CALCULATOR_KLINE_OPTIONS: FromClosesOptions = {
@@ -34,16 +22,6 @@ const CALCULATOR_KLINE_OPTIONS: FromClosesOptions = {
  */
 function createRisingPrices(count: number, start = 10): number[] {
   return Array.from({ length: count }, (_, i) => start + i)
-}
-
-/**
- * 生成测试用的线性下跌价格序列。
- * @param count 序列长度。
- * @param start 首项，默认 20。
- * @returns 等差数列。
- */
-function createFallingPrices(count: number, start = 20): number[] {
-  return Array.from({ length: count }, (_, i) => start - i)
 }
 
 describe('calcMAData', () => {
@@ -156,107 +134,6 @@ describe('DEFAULT_MA_PERIODS', () => {
     expect(DEFAULT_MA_PERIODS).toHaveLength(5)
     expect(DEFAULT_MA_PERIODS[0]).toBe(5)
     expect(DEFAULT_MA_PERIODS[4]).toBe(60)
-  })
-})
-
-describe('calcBOLLData', () => {
-  const prices = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-  const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-
-  it('should return array of same length as input', () => {
-    const result = calcBOLLData(data, 5, 2)
-    expect(result).toHaveLength(data.length)
-  })
-
-  it('should return undefined for indices before period-1', () => {
-    const result = calcBOLLData(data, 5, 2)
-    expect(result[0]).toBeUndefined()
-    expect(result[1]).toBeUndefined()
-    expect(result[2]).toBeUndefined()
-    expect(result[3]).toBeUndefined()
-  })
-
-  it('should calculate correct BOLL5 values with known data', () => {
-    const result = calcBOLLData(data, 5, 2)
-
-    // Index 4: closes [10,11,12,13,14], MA=12, variance=2, stdDev=√2
-    const point4 = result[4]!
-    expect(point4.middle).toBeCloseTo(12, 2)
-    expect(point4.upper).toBeCloseTo(12 + 2 * Math.sqrt(2), 2)
-    expect(point4.lower).toBeCloseTo(12 - 2 * Math.sqrt(2), 2)
-
-    // Index 5: closes [11,12,13,14,15], MA=13, variance=2, stdDev=√2
-    const point5 = result[5]!
-    expect(point5.middle).toBeCloseTo(13, 2)
-    expect(point5.upper).toBeCloseTo(13 + 2 * Math.sqrt(2), 2)
-    expect(point5.lower).toBeCloseTo(13 - 2 * Math.sqrt(2), 2)
-  })
-
-  it('should have upper = middle + multiplier * stdDev', () => {
-    const result = calcBOLLData(data, 5, 2)
-    for (let i = 4; i < data.length; i++) {
-      const p = result[i]!
-      const stdDev = (p.upper - p.middle) / 2
-      expect(p.lower).toBeCloseTo(p.middle - 2 * stdDev, 2)
-    }
-  })
-
-  it('should have lower = middle - multiplier * stdDev', () => {
-    const result = calcBOLLData(data, 5, 2)
-    for (let i = 4; i < data.length; i++) {
-      const p = result[i]!
-      expect(p.lower).toBeCloseTo(p.middle - (p.upper - p.middle), 2)
-    }
-  })
-
-  it('should return all undefined when data length < period', () => {
-    const shortData = fromCloses([10, 11, 12], CALCULATOR_KLINE_OPTIONS)
-    const result = calcBOLLData(shortData, 5, 2)
-
-    expect(result).toHaveLength(3)
-    expect(result[0]).toBeUndefined()
-    expect(result[1]).toBeUndefined()
-    expect(result[2]).toBeUndefined()
-  })
-
-  it('should handle empty data', () => {
-    const result = calcBOLLData([], 5, 2)
-    expect(result).toHaveLength(0)
-  })
-
-  it('should produce consistent results with manual sliding window', () => {
-    const result = calcBOLLData(data, 5, 2)
-
-    for (let i = 4; i < data.length; i++) {
-      let sum = 0
-      for (let j = 0; j < 5; j++) {
-        sum += data[i - j].close
-      }
-      const ma = sum / 5
-
-      let variance = 0
-      for (let j = 0; j < 5; j++) {
-        variance += Math.pow(data[i - j].close - ma, 2)
-      }
-      const stdDev = Math.sqrt(variance / 5)
-
-      expect(result[i]!.middle).toBeCloseTo(ma, 2)
-      expect(result[i]!.upper).toBeCloseTo(ma + 2 * stdDev, 2)
-      expect(result[i]!.lower).toBeCloseTo(ma - 2 * stdDev, 2)
-    }
-  })
-
-  it('should handle large datasets efficiently', () => {
-    const largePrices = createRisingPrices(10000, 100)
-    const largeData = fromCloses(largePrices, CALCULATOR_KLINE_OPTIONS)
-
-    const start = performance.now()
-    const result = calcBOLLData(largeData, 20, 2)
-    const end = performance.now()
-
-    expect(end - start).toBeLessThan(100)
-    expect(result[19]).toBeDefined()
-    expect(result[19]!.middle).toBeCloseTo(109.5, 1)
   })
 })
 
@@ -450,16 +327,6 @@ describe('calcENEData', () => {
   })
 })
 
-describe('BOLL default constants', () => {
-  it('DEFAULT_BOLL_PERIOD should be 20', () => {
-    expect(DEFAULT_BOLL_PERIOD).toBe(20)
-  })
-
-  it('DEFAULT_BOLL_MULTIPLIER should be 2', () => {
-    expect(DEFAULT_BOLL_MULTIPLIER).toBe(2)
-  })
-})
-
 describe('EXPMA default constants', () => {
   it('DEFAULT_EXPMA_FAST_PERIOD should be 12', () => {
     expect(DEFAULT_EXPMA_FAST_PERIOD).toBe(12)
@@ -477,136 +344,5 @@ describe('ENE default constants', () => {
 
   it('DEFAULT_ENE_DEVIATION should be 11', () => {
     expect(DEFAULT_ENE_DEVIATION).toBe(11)
-  })
-})
-
-describe('calcRSIData', () => {
-  it('should return array of same length as input', () => {
-    const prices = createRisingPrices(20)
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const result = calcRSIData(data, 6)
-    expect(result).toHaveLength(data.length)
-  })
-
-  it('should return undefined for first period indices', () => {
-    const prices = createRisingPrices(20)
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const period = 6
-    const result = calcRSIData(data, period)
-
-    // 前 period 个值应为 undefined (index 0-5)
-    for (let i = 0; i < period; i++) {
-      expect(result[i]).toBeUndefined()
-    }
-    // 第 period 个值是第一个有效值 (index 6)
-    expect(result[period]).toBeDefined()
-  })
-
-  it('should return 100 when all gains (no losses)', () => {
-    const prices = createRisingPrices(20)
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const period = 6
-    const result = calcRSIData(data, period)
-
-    // 第一个有效 RSI 值应为 100（全是上涨，没有下跌）
-    expect(result[period + 1]).toBe(100)
-  })
-
-  it('should return 0 when all losses (no gains)', () => {
-    const prices = createFallingPrices(20)
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const period = 6
-    const result = calcRSIData(data, period)
-
-    // 第一个有效 RSI 值应为 0（全是下跌，没有上涨）
-    expect(result[period + 1]).toBe(0)
-  })
-
-  it('should return all undefined when data length < period+1', () => {
-    const prices = [10, 11, 12, 13, 14]
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const period = 6
-    const result = calcRSIData(data, period)
-
-    // 数据不足时，所有值都应为 undefined
-    expect(result).toHaveLength(5)
-    result.forEach((v) => {
-      expect(v).toBeUndefined()
-    })
-  })
-
-  it('should handle empty data', () => {
-    const result = calcRSIData([], 6)
-    expect(result).toHaveLength(0)
-  })
-
-  it('should calculate correct RSI with known oscillating data', () => {
-    // 震荡价格：10, 11, 10, 11, 10, 11, 10, 11, ...
-    const prices = [10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11]
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const period = 6
-    const result = calcRSIData(data, period)
-
-    // 第6个索引（period=6）是第一个有效值
-    // 前6个变化：+1, -1, +1, -1, +1, -1
-    // sumGain = 3, sumLoss = 3
-    // avgGain = 0.5, avgLoss = 0.5
-    // RS = 1, RSI = 100 - 100/(1+1) = 50
-    expect(result[6]).toBeCloseTo(50, 0)
-  })
-
-  it('should handle period=1', () => {
-    // period=1 只需要 2 条数据
-    const prices = [10, 12]
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const result = calcRSIData(data, 1)
-
-    // 第一个变化是 +2，所以 avgGain = 2, avgLoss = 0
-    // RSI = 100
-    // result[0] = undefined, result[1] = 100
-    expect(result[0]).toBeUndefined()
-    expect(result[1]).toBe(100)
-  })
-
-  it('should produce consistent results with manual Wilder smoothing', () => {
-    const prices = [10, 11, 12, 11, 12, 13, 12, 11, 12, 13]
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-    const period = 3
-    const result = calcRSIData(data, period)
-
-    // 手动计算验证第一个有效值（index = period = 3）
-    // 变化：+1, +1, -1, +1, +1, -1, -1, +1, +1
-    // 前3个变化：+1, +1, -1
-    // sumGain = 2, sumLoss = 1
-    // avgGain = 2/3, avgLoss = 1/3
-    // RS = 2, RSI = 100 - 100/(1+2) = 66.67
-    expect(result[3]).toBeCloseTo(66.67, 1)
-  })
-
-  it('should handle large datasets efficiently', () => {
-    const prices = Array.from({ length: 10000 }, (_, i) => 100 + Math.sin(i / 10) * 10)
-    const data = fromCloses(prices, CALCULATOR_KLINE_OPTIONS)
-
-    const start = performance.now()
-    const result = calcRSIData(data, 14)
-    const end = performance.now()
-
-    // 应在 100ms 内完成
-    expect(end - start).toBeLessThan(100)
-    expect(result[15]).toBeDefined()
-  })
-})
-
-describe('RSI default constants', () => {
-  it('DEFAULT_RSI_PERIOD1 should be 6', () => {
-    expect(DEFAULT_RSI_PERIOD1).toBe(6)
-  })
-
-  it('DEFAULT_RSI_PERIOD2 should be 12', () => {
-    expect(DEFAULT_RSI_PERIOD2).toBe(12)
-  })
-
-  it('DEFAULT_RSI_PERIOD3 should be 24', () => {
-    expect(DEFAULT_RSI_PERIOD3).toBe(24)
   })
 })

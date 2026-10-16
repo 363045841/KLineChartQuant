@@ -1,5 +1,6 @@
 /** 通过 core 定义仓库提交完整脚本文档，不维护影子源码仓库。 */
 import {
+  generateUUID,
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
@@ -8,11 +9,11 @@ import {
   updatePlotIndicator,
 } from '@363045841yyt/klinechart-core'
 import {
+  type PreparedQuickJSScript,
   preloadQuickJS,
+  prepareQuickJSScript,
   type QuickJSLibrary,
   type QuickJSScriptDefinition,
-  readQuickJSScriptDefinitionSync,
-  runQuickJSScriptSync,
 } from '@363045841yyt/klinechart-script'
 import type { ScriptDocument, ScriptService, ScriptServiceOptions } from '../types.js'
 import { createScriptPersistence } from './scriptPersistence.js'
@@ -49,7 +50,7 @@ export async function createScriptService(
     const document = metadata?.document
     if (!metadata || !document || !document.definition) return undefined
     return Object.freeze({
-      id: metadata.displayName,
+      id: metadata.name,
       identity: document.identity,
       revision: document.revision,
       source: document.source,
@@ -59,20 +60,22 @@ export async function createScriptService(
 
   /** 校验和编译全部完成后，以单个定义快照提交，执行闭包绑定该版本源码。 */
   function publish(
+    id: string,
     source: string,
-    definition: QuickJSScriptDefinition,
+    prepared: PreparedQuickJSScript,
     revision: number,
     update: boolean,
     identity: ScriptDocument['identity'] = 'user',
   ): ScriptDocument {
-    const id = definition.displayName ?? definition.name
+    const { definition } = prepared
     const document = Object.freeze({ revision, source, definition, identity })
     const commit = update ? updatePlotIndicator : registerPlotIndicator
     commit({
       ...definition,
+      id,
       source: 'script',
       document,
-      compute: (bars, params) => runQuickJSScriptSync({ source, bars, params, libraries }),
+      compute: (bars, params) => prepared.run(bars, params),
     })
     return Object.freeze({ id, ...document })
   }
@@ -95,12 +98,12 @@ export async function createScriptService(
       }),
     )
   }
-  /** 在注册前检查全部身份，避免写入一个无法注册的持久化文档。 */
-  function assertAvailable(definition: QuickJSScriptDefinition): void {
-    for (const id of [definition.name, definition.displayName ?? definition.name]) {
-      if (!/[\p{L}\p{N}]/u.test(id)) throw new Error('脚本名称必须包含字母或数字')
-      if (getIndicatorDescriptor(id)) throw new Error(`脚本名称已存在：${id}`)
-    }
+  /** 在注册前检查身份，避免写入一个无法注册的持久化文档。 */
+  function assertAvailable(definition: QuickJSScriptDefinition, currentId?: string): void {
+    const name = definition.name
+    if (!/[\p{L}\p{N}]/u.test(name)) throw new Error('脚本名称必须包含字母或数字')
+    const existing = getIndicatorDescriptor(name)
+    if (existing && existing.name !== currentId) throw new Error(`脚本名称已存在：${name}`)
   }
   /** 持久化完成后才发布运行定义；保存失败保留当前版本。 */
   async function persist(documents: readonly ScriptDocument[]): Promise<void> {
@@ -108,35 +111,39 @@ export async function createScriptService(
       !(await persistence.save(
         documents
           .filter((item) => item.identity === 'user')
-          .map(({ source, revision }) => ({ source, revision })),
+          .map(({ id, source, revision }) => ({ id, source, revision })),
       ))
     ) {
       throw new Error('用户脚本保存失败')
     }
   }
   for (const source of options.builtinSources ?? []) {
-    publish(source, readQuickJSScriptDefinitionSync(source, libraries), 1, false, 'builtin')
+    const prepared = prepareQuickJSScript(source, libraries)
+    publish(prepared.definition.name, source, prepared, 1, false, 'builtin')
   }
   for (const document of restored ?? []) {
-    const definition = readQuickJSScriptDefinitionSync(document.source, libraries)
+    const prepared = prepareQuickJSScript(document.source, libraries)
+    const { definition } = prepared
     assertAvailable(definition)
-    publish(document.source, definition, document.revision, false)
+    if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
+    publish(document.id, document.source, prepared, document.revision, false)
   }
 
   return Object.freeze({
     create(source: string) {
       return enqueue(async () => {
-        const definition = readQuickJSScriptDefinitionSync(source, libraries)
+        const prepared = prepareQuickJSScript(source, libraries)
+        const { definition } = prepared
         assertAvailable(definition)
         const document: ScriptDocument = {
-          id: definition.displayName ?? definition.name,
+          id: `script_${generateUUID()}`,
           identity: 'user',
           source,
           revision: 1,
           definition,
         }
         await persist([...list(), document])
-        return publish(source, definition, 1, false)
+        return publish(document.id, source, prepared, 1, false)
       })
     },
     read,
@@ -144,25 +151,23 @@ export async function createScriptService(
     update(id: string, source: string, expectedRevision: number) {
       return enqueue(async () => {
         const current = requireRevision(id, expectedRevision)
-        const definition = readQuickJSScriptDefinitionSync(source, libraries)
-        if (
-          definition.name !== current.definition.name ||
-          (definition.displayName ?? definition.name) !== current.id
-        ) {
-          throw new Error('已有脚本的 name 和 displayName 是固定身份，请创建新脚本')
-        }
+        const prepared = prepareQuickJSScript(source, libraries)
+        const { definition } = prepared
+        assertAvailable(definition, current.id)
         const revision = current.revision + 1
         await persist(
-          list().map((item) => (item.id === current.id ? { ...item, source, revision } : item)),
+          list().map((item) =>
+            item.id === current.id ? { ...item, source, revision, definition } : item,
+          ),
         )
-        return publish(source, definition, revision, true)
+        return publish(current.id, source, prepared, revision, true)
       })
     },
     remove(id: string, expectedRevision: number) {
       return enqueue(async () => {
         const current = requireRevision(id, expectedRevision)
         await persist(list().filter((item) => item.id !== current.id))
-        removeScriptIndicatorDefinition(current.definition.name)
+        removeScriptIndicatorDefinition(current.id)
       })
     },
   })

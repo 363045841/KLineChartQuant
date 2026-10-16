@@ -13,15 +13,15 @@ export function uniqueScriptName(store: ScriptSourceStore, base: string): string
   return name
 }
 
-/** 修改 defineIndicator 对象中的 name/displayName，保持剩余源码原样。 */
+/** 修改 defineIndicator 对象中的 name，保持剩余源码原样。 */
 export async function createCopySource(source: string, name: string): Promise<string> {
   const ts = await import('typescript')
   const file = ts.createSourceFile(
-    'indicator.js',
+    'indicator.ts',
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.JS,
+    ts.ScriptKind.TS,
   )
   const edits: SourceEdit[] = []
 
@@ -36,16 +36,13 @@ export async function createCopySource(source: string, name: string): Promise<st
     return declaration
   }
 
-  /** 收集声明对象里 name / displayName 两处初始值的改写编辑。 */
+  /** 收集声明对象里 name 初始值的改写编辑。 */
   function identityEdits(declaration: ObjectLiteralExpression): SourceEdit[] {
     const found: SourceEdit[] = []
     for (const property of declaration.properties) {
       if (!ts.isPropertyAssignment(property)) continue
       const key = property.name
-      const isIdentity =
-        (ts.isIdentifier(key) || ts.isStringLiteral(key)) &&
-        (key.text === 'name' || key.text === 'displayName')
-      if (!isIdentity) continue
+      if (!(ts.isIdentifier(key) || ts.isStringLiteral(key)) || key.text !== 'name') continue
       found.push({
         start: property.initializer.getStart(file),
         end: property.initializer.end,
@@ -74,5 +71,5 @@ export async function createCopySource(source: string, name: string): Promise<st
 
 /** 新建脚本提供可直接保存的独立声明。 */
 export function createBlankSource(name: string): string {
-  return `// 用户自定义指标\ndefineIndicator({\n  name: ${JSON.stringify(name)},\n  pane: PaneKind.Sub,\n  inputs: {},\n  onBar() {\n    plot(PlotKind.Line, close[0], { id: 'close' })\n  },\n})\n`
+  return `// 用户自定义指标\ndefineIndicator({\n  name: ${JSON.stringify(name)},\n  position: Position.Sub,\n  onBar() {\n    const period = input.int(20, { title: '周期', min: 1 })\n    plot.Line(ta.sma(close, period), 'ma')\n  },\n})\n`
 }

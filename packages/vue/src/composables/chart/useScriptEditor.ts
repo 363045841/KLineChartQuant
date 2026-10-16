@@ -13,6 +13,8 @@ import type { ScriptIdentity, ScriptSourceStore } from './scriptEditor/types.js'
 
 /** 一个图表实例持有的编辑器会话状态与操作。 */
 export interface ScriptEditorSession {
+  /** 最近提交的显示名称，独立于框架生成的身份。 */
+  readonly name: Ref<string | null>
   readonly identity: Ref<ScriptIdentity>
   readonly saving: Ref<boolean>
   /** 从当前内置源码创建独立的用户草稿。 */
@@ -41,6 +43,7 @@ export interface ScriptEditorSession {
 export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEditorSession {
   const open = ref(false)
   const definitionId = ref<string | null>(null)
+  const name = ref<string | null>(null)
   const source = ref('')
   const error = ref<string | null>(null)
   const saved = ref(false)
@@ -58,6 +61,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
   )
 
   return {
+    name,
     identity,
     saving,
     open,
@@ -67,10 +71,11 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
     saved,
     openFor(id) {
       if (saving.value) return
-      definitionId.value = id
       error.value = null
       saved.value = false
       const document = store?.read(id)
+      definitionId.value = document?.id ?? id
+      name.value = document?.definition.name ?? null
       identity.value = document?.identity ?? 'builtin'
       source.value = document?.source ?? ''
       revision = document?.revision ?? null
@@ -81,6 +86,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       if (saving.value) return
       identity.value = 'user'
       definitionId.value = null
+      name.value = null
       error.value = null
       saved.value = false
       source.value = store ? createBlankSource(uniqueScriptName(store, '我的脚本')) : ''
@@ -91,6 +97,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       if (saving.value) return
       open.value = false
       definitionId.value = null
+      name.value = null
       error.value = null
       saved.value = false
       revision = null
@@ -99,11 +106,12 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       if (!store || identity.value !== 'builtin' || !definitionId.value) return
       try {
         const originalId = definitionId.value
-        const name = uniqueScriptName(store, `${definitionId.value} 副本`)
-        const copy = await createCopySource(source.value, name)
+        const copyName = uniqueScriptName(store, `${name.value} 副本`)
+        const copy = await createCopySource(source.value, copyName)
         if (definitionId.value !== originalId || identity.value !== 'builtin') return
         source.value = copy
         definitionId.value = null
+        name.value = null
         revision = null
         identity.value = 'user'
         error.value = null
@@ -130,10 +138,12 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
         if (definitionId.value === null) {
           const created = await store.create(submittedSource)
           definitionId.value = created.id
+          name.value = created.definition.name
           revision = created.revision
         } else {
           if (revision === null) throw new Error('此指标没有可编辑的脚本文档')
           const document = await store.update(definitionId.value, submittedSource, revision)
+          name.value = document.definition.name
           revision = document.revision
         }
         error.value = null

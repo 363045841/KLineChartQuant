@@ -21,12 +21,12 @@ pnpm add @363045841yyt/klinechart-script
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: PaneKind.Sub,
+  position: Position.Sub,
   inputs: {
     n: input(2, { title: '除数' }),
   },
   onBar() {
-    plot(PlotKind.Line, (open[0] + close[0]) / params.n, { id: 'oc-average' })
+    plot.Line((open + close) / params.n, 'oc-average')
   },
 })
 ```
@@ -35,15 +35,17 @@ VM prelude 在脚本运行前注入以下全局：
 
 | 全局 | 含义 |
 | --- | --- |
-| `open` `high` `low` `close` `volume` `time` | 行情序列；`close[0]` 是当前 K 线，`close[1]` 是前一根 |
+| `open` `high` `low` `close` `volume` `time` | 行情序列；`close` 取当前 K 线，`close[1]` 取前一根 |
 | `params` | 解析后的输入参数 |
-| `plot(PlotKind.Line, value, { id, color })` | 为当前 K 线输出绘图点；也支持 `PlotKind.Histogram` 和 `PlotKind.Points` |
-| `PaneKind` | 指标注册位置；`PaneKind.Main` 主图或 `PaneKind.Sub` 副图 |
+| `plot.Line(value, name, options?)` | 为当前 K 线输出绘图点；提供 `Line`、`Histogram`、`Point`、`Shape`、`Char`、`Arrow` 方法 |
+| `fill(from, to, color, title, options?)` | 填充两个 Plot 之间的区域；`from` / `to` 是 `plot.*` 返回的句柄 |
+| `Position` | 指标注册位置；`Position.Main` 主图或 `Position.Sub` 副图 |
 | `input(default, options?)` | 声明一个参数；字符串参数带 `options` 时渲染为下拉 |
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |
 | `defineLibrary(name, members)` / `importLibrary(name)` | 声明并使用库 |
 
-历史不足时序列返回 `NaN`，永远不会暴露未来的 K 线。
+历史不足时序列返回 `NaN`，永远不会暴露未来的 K 线。数值上下文可直接写序列：`close - open` 等价于 `close[0] - open[0]`；
+`ta.sma(close, 20)` 这类要求完整序列的参数位置仍然传入整条序列。
 
 ## 执行
 

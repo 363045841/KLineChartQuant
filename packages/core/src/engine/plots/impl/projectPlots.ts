@@ -5,6 +5,7 @@ import {
   createPlot,
   isPricePlot,
   PlotKind,
+  type ShapeSize,
   validatePlotFills,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
@@ -93,28 +94,64 @@ function buildSeriesPlots(
       const value = spec.field ? readPlotField(item, spec.field) : item
       if (value === undefined || value === null) return undefined
       // 布尔条件只表达有无信号；false 与 NaN 同为 na，不再退化成 0。
-      const numeric = spec.kind === 'shape' && typeof value === 'boolean' ? toNa(value) : value
+      const numeric =
+        (spec.kind === 'shape' || spec.kind === 'char') && typeof value === 'boolean'
+          ? toNa(value)
+          : value
       if (typeof numeric !== 'number')
         throw new TypeError(`Plot ${spec.id} requires numeric values`)
       const color = spec.pointColor?.(numeric, previous, colors, item)
       previous = numeric
       return { value: numeric, color }
     })
+    const kind = spec.kind ?? PlotKind.Line
+    // 数值像素柱宽只属于 histogram；columns 忽略 size，其余 kind 只接受枚举档位。
+    const size = kind === 'histogram' || kind === 'columns' ? undefined : enumPlotSize(spec.size)
     const base = {
-      id: spec.id,
+      // 共享绘画声明用 name，core 的 PlotSpec 身份字段是 id，这里做一次映射。
+      name: spec.id,
       label: typeof spec.label === 'function' ? spec.label(params) : (spec.label ?? spec.id),
       data,
       color: spec.color(colors),
       visible: !spec.show || params[spec.show] !== false,
       offset: spec.offset?.(params) ?? 0,
     }
-    switch (spec.kind ?? PlotKind.Line) {
+    switch (kind) {
       case 'line':
-        return createPlot({ ...base, kind: 'line', width: spec.width, dash: spec.dash }, data)
+        return createPlot({ ...base, kind: 'line', dash: spec.dash, size }, data)
       case 'histogram':
-        return createPlot({ ...base, kind: 'histogram', baseline: spec.baseline }, data)
+        return createPlot(
+          { ...base, kind: 'histogram', baseline: spec.baseline, size: spec.size },
+          data,
+        )
+      case 'columns':
+        return createPlot({ ...base, kind: 'columns', baseline: spec.baseline }, data)
       case 'points':
-        return createPlot({ ...base, kind: 'points', radius: spec.radius }, data)
+        return createPlot({ ...base, kind: 'points', size }, data)
+      case 'char':
+        return createPlot(
+          {
+            ...base,
+            kind: 'char',
+            char: spec.char,
+            location: spec.location,
+            text: spec.text,
+            textColor: spec.textColor,
+            size,
+          },
+          data,
+        )
+      case 'arrow':
+        return createPlot(
+          {
+            ...base,
+            kind: 'arrow',
+            colorUp: spec.colorUp,
+            colorDown: spec.colorDown,
+            size,
+          },
+          data,
+        )
       case 'shape':
         return createPlot(
           {
@@ -122,31 +159,49 @@ function buildSeriesPlots(
             kind: 'shape',
             style: spec.style,
             location: spec.location,
-            size: spec.size,
             text: spec.text,
             textColor: spec.textColor,
+            size,
           },
           data,
         )
     }
   })
-  const fills = (definition.fills ?? []).map((fill) =>
-    createFill({
-      id: fill.id,
-      from: fill.from,
-      to: fill.to,
-      visible: !fill.show || params[fill.show] !== false,
-      color: fill.color(colors),
-      reverseColor: fill.reverseColor(colors),
-      opacity: fill.opacity,
-    }),
-  )
+  const fills = (definition.fills ?? []).map((fill) => {
+    const from = plots.find((plot) => plot.id === fill.from)
+    const to = plots.find((plot) => plot.id === fill.to)
+    if (!from || !to) throw new TypeError(`Unknown fill source: ${fill.id}`)
+    const count = Math.max(from.data.length + from.offset, to.data.length + to.offset)
+    const fillColors = Array.from({ length: count }, (_, index) =>
+      fill.color(
+        colors,
+        from.data[index - from.offset]?.value,
+        to.data[index - to.offset]?.value,
+        index,
+      ),
+    )
+    return createFill(
+      {
+        name: fill.id,
+        from: fill.from,
+        to: fill.to,
+        visible: !fill.show || params[fill.show] !== false,
+      },
+      fillColors,
+    )
+  })
   return { plots, fills }
 }
 
 /** 布尔条件在数值列里只留下 1 或 na；相对定位的 Shape 用位置而非值。 */
 function toNa(condition: boolean): number {
   return condition ? 1 : Number.NaN
+}
+
+/** 数值像素柱宽只对 histogram 有意义；其余 kind 只接受枚举档位，误用直接报错。 */
+function enumPlotSize(size: ShapeSize | number | undefined): ShapeSize | undefined {
+  if (typeof size !== 'number') return size
+  throw new TypeError('Numeric Plot size is only supported by histogram')
 }
 
 /** 仅重算可见范围，不重新分配全量绘图点。 */
@@ -177,6 +232,69 @@ function applyRangeBound(
   return bound
 }
 
+/** 一根 Plot 的价格上下界。 */
+interface PriceBounds {
+  min: number
+  max: number
+}
+
+/** 参与价格范围的 Plot：自身可见，或被某个可见填充引用。 */
+function isRangeSource(plot: Plot, fillSources: ReadonlySet<string>): boolean {
+  return (plot.visible || fillSources.has(plot.id)) && isPricePlot(plot)
+}
+
+/**
+ * 取一根 Plot 在可见范围内的价格上下界；范围内没有有效数值时返回 undefined。
+ * histogram / columns 从 baseline 起算，基线一并计入边界。
+ */
+function plotValueBounds(plot: Plot, range: VisibleRange): PriceBounds | undefined {
+  const start = Math.max(0, range.start - plot.offset)
+  const end = Math.min(plot.data.length, range.end - plot.offset)
+  let min = Infinity
+  let max = -Infinity
+  let hasValues = false
+  for (let index = start; index < end; index++) {
+    const value = plot.data[index]?.value
+    if (value === undefined || !Number.isFinite(value)) continue
+    hasValues = true
+    min = Math.min(min, value)
+    max = Math.max(max, value)
+  }
+  if (!hasValues) return undefined
+  if (plot.kind === 'histogram' || plot.kind === 'columns') {
+    return { min: Math.min(min, plot.baseline), max: Math.max(max, plot.baseline) }
+  }
+  return { min, max }
+}
+
+/** 缺省边界直接采用值域，否则按声明模式应用边界。 */
+function resolveBound(
+  value: number,
+  bound: number | undefined,
+  mode: RangeBoundMode,
+  side: 'min' | 'max',
+): number {
+  if (bound === undefined) return value
+  return applyRangeBound(value, bound, mode, side)
+}
+
+/** 汇总所有参与价格范围的 Plot 的上下界；都不参与时保持空区间。 */
+function accumulateBounds(
+  plots: readonly Plot[],
+  fillSources: ReadonlySet<string>,
+  range: VisibleRange,
+): PriceBounds {
+  const bounds = { min: Infinity, max: -Infinity }
+  for (const plot of plots) {
+    if (!isRangeSource(plot, fillSources)) continue
+    const plotBounds = plotValueBounds(plot, range)
+    if (!plotBounds) continue
+    bounds.min = Math.min(bounds.min, plotBounds.min)
+    bounds.max = Math.max(bounds.max, plotBounds.max)
+  }
+  return bounds
+}
+
 /** 图形与坐标轴使用同一套显隐、位移和填充边界规则。 */
 function plotRange(
   definition: IndicatorPlotDefinition,
@@ -187,40 +305,23 @@ function plotRange(
   const fillSources = new Set(
     fills.filter((fill) => fill.visible).flatMap((fill) => [fill.from, fill.to]),
   )
-  let min = Infinity
-  let max = -Infinity
-  for (const plot of plots) {
-    if (!plot.visible && !fillSources.has(plot.id)) continue
-    if (!isPricePlot(plot)) continue
-    const start = Math.max(0, range.start - plot.offset)
-    const end = Math.min(plot.data.length, range.end - plot.offset)
-    let hasValues = false
-    for (let index = start; index < end; index++) {
-      const value = plot.data[index]?.value
-      if (value === undefined || !Number.isFinite(value)) continue
-      hasValues = true
-      min = Math.min(min, value)
-      max = Math.max(max, value)
-    }
-    if (plot.kind === 'histogram' && hasValues) {
-      min = Math.min(min, plot.baseline)
-      max = Math.max(max, plot.baseline)
-    }
-  }
-  const padding = min <= max ? (max - min) * (definition.padding ?? 0.05) : 0
-  const bounds = definition.range
-  const valueMin =
-    bounds?.min === undefined
-      ? min - padding
-      : applyRangeBound(min - padding, bounds.min, bounds.mode, 'min')
-  const valueMax =
-    bounds?.max === undefined
-      ? max + padding
-      : applyRangeBound(max + padding, bounds.max, bounds.mode, 'max')
+  const bounds = accumulateBounds(plots, fillSources, range)
+  const padding =
+    bounds.min <= bounds.max ? (bounds.max - bounds.min) * (definition.padding ?? 0.05) : 0
   return {
-    visibleMin: min,
-    visibleMax: max,
-    valueMin,
-    valueMax,
+    visibleMin: bounds.min,
+    visibleMax: bounds.max,
+    valueMin: resolveBound(
+      bounds.min - padding,
+      definition.range?.min,
+      definition.range?.mode,
+      'min',
+    ),
+    valueMax: resolveBound(
+      bounds.max + padding,
+      definition.range?.max,
+      definition.range?.mode,
+      'max',
+    ),
   }
 }

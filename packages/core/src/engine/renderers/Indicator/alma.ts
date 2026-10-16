@@ -9,7 +9,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'ALMA',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showALMA: active }) },
@@ -28,5 +27,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class ALMADefinition {
-  static rendererFactory = plotRenderer('alma', 'main')
+  static rendererFactory = plotRenderer('alma')
 }

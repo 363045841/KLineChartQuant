@@ -5,6 +5,12 @@
  */
 
 export type {
+  ArrowOptions,
+  ArrowPlot,
+  ArrowPlotDeclaration,
+  CharOptions,
+  CharPlot,
+  CharPlotDeclaration,
   HistogramPlot,
   InputSchema,
   LinePlot,
@@ -20,6 +26,7 @@ export type {
   ShapePlotDeclaration,
 } from '@363045841yyt/klinechart-plot-contracts'
 export {
+  Color,
   PlotCollector,
   type PlotCollectorOptions,
   PlotKind,
@@ -32,18 +39,21 @@ export * from './contracts/library.js'
 export * from './contracts/output.js'
 export { ScriptExecutionError } from './errors.js'
 export type { TechnicalAnalysisLibrary } from './Library/types.js'
+export { builtinScriptSources } from './quickjs/generated/builtinScripts.js'
 export { builtinLibraries } from './quickjs/impl/builtinLibraries.js'
 export {
   preloadQuickJS,
+  prepareQuickJSScript,
   readQuickJSScriptDefinitionSync,
   runQuickJSScript,
   runQuickJSScriptSync,
 } from './quickjs/impl/runQuickJSScript.js'
 export type {
+  PreparedQuickJSScript,
   QuickJSLibrary,
   QuickJSRunOptions,
   QuickJSScriptDefinition,
   ScriptParamValue,
 } from './quickjs/types.js'
-export { PaneKind } from './quickjs/types.js'
+export { Position } from './quickjs/types.js'
 export type { Series } from './series/types.js'

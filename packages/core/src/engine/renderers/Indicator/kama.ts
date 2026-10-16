@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'KAMA',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showKAMA: active }) },
@@ -27,5 +26,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class KAMADefinition {
-  static rendererFactory = plotRenderer('kama', 'main')
+  static rendererFactory = plotRenderer('kama')
 }

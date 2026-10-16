@@ -157,7 +157,6 @@ export function createExtremaMarkersLayer(): Layer<RenderContext> {
   name: 'extremaMarkers',
   displayName: '极值标记',
   category: 'main',
-  indicatorType: 'other',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
   kind: IndicatorKind.System,

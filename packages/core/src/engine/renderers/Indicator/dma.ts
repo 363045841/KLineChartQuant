@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'DMA',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'trend',
   defaultPaneId: 'sub_DMA',
   scale: { indicatorKey: 'dma', label: 'DMA', decimals: 2 },
   plots: {
@@ -25,5 +24,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class DMADefinition {
-  static rendererFactory = plotRenderer('dma', 'sub_DMA')
+  static rendererFactory = plotRenderer('dma')
 }

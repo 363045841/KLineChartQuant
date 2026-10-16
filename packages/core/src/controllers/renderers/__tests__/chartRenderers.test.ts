@@ -42,7 +42,6 @@ const indicatorLayerId = makePluginLayerId(indicatorName)
   displayName: 'Vendor Custom Layer',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'other',
   defaultPaneId: 'main',
   mainPane: {},
 })

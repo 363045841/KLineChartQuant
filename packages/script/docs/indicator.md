@@ -10,22 +10,19 @@
 ```js
 defineIndicator({
   name: 'OC Average',
-  pane: PaneKind.Sub,
-  inputs: {
-    n: input(2, { title: '除数' }),
-    a: input(0, { title: '偏移量' }),
-  },
+  position: Position.Sub,
   onBar() {
-    const average = (open[0] + close[0]) / params.n + params.a
-    plot(PlotKind.Line, average, { id: 'oc-average', color: '#26a69a' })
-    plot(PlotKind.Line, high[0], { id: 'oc-high' })
-    plot(PlotKind.Line, low[0], { id: 'oc-low' })
+    const n = input.float(2, { title: '除数' })
+    const a = input.float(0, { title: '偏移量' })
+    const average = (open + close) / n + a
+    plot.Line(average, 'oc-average', { color: '#26a69a' })
+    plot.Line(high, 'oc-high')
+    plot.Line(low, 'oc-low')
   },
 })
 ```
 
-本例没有声明 `plots`，输出的 `oc-average` 自动按默认折线绘制。
-需要指定类型、标签或样式时才写 `plots` 声明。
+输出的 `oc-average` 自动按默认折线绘制，类型、标签和样式都由绘图方法的参数决定。
 
 宿主通过脚本服务加载这份文件，源码、修订号和派生定义一起提交：
 
@@ -46,84 +43,129 @@ await scripts.create(source)
 
 | 字段 | 作用 |
 | --- | --- |
-| `name` | 指标名称，用于目录展示和实例身份；同名脚本拒绝重复创建 |
-| `pane` | 注册位置，`PaneKind.Main` 主图 / `PaneKind.Sub` 副图；缺省为副图 |
-| `displayName` | 显示名称；缺省取 `name`，同时作为对外定义 id |
-| `inputs` | 参数声明表，值由 `input(默认值, 选项)` 生成；用户修改后按覆盖值执行 |
-| `plots` / `fills` | 可选的 Plot 与填充声明 |
+| `name` | 指标显示名称；用户脚本可通过修改名称并保存来重命名，同名脚本拒绝重复创建。稳定 ID 由框架自动分配并持久化，重命名保留实例和配置 |
+| `position` | 指标渲染位置，必填：`Position.Main` 主图 / `Position.Sub` 副图 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取全局序列与参数，输出 Plot |
 
-`onBar` 不需要参数：行情序列、库和参数都是注入的全局。
+`onBar` 不需要参数：行情序列和库由宿主注入，输入参数通过局部变量读取。
 `close[0]` 是当前 K 线，`close[1]` 是前一根；历史不足返回 `NaN`，永远不能访问未来。
 
-参数用 `input(默认值, 选项)` 声明，表的键就是脚本里通过 `params` 读的名字：
+在数值运算、比较、条件判断，以及要求数值的参数位置，可以省略 `[0]`。
+例如 `high - low`、`close > close[1]`、`Math.max(open, close)` 和 `plot.Line(close, 'close')`。
+`open`、`high`、`low`、`close`、`volume`、`time` 和 `ta` 返回的派生序列都遵循同一规则。
+
+需要完整序列的位置仍然保留序列，例如 `ta.sma(close, 20)`。
+未标注类型的 `const src = close` 是序列别名，可继续使用 `src[1]` 或 `ta.sma(src, 20)`；
+需要保存当前数值时使用 `const current: number = close` 或显式的 `close[0]`。
+编译器和编辑器共用这套规则，转换仅发生在源码变化时，逐 bar 计算不进行类型分析。
+
+参数直接在 `onBar` 顶层用 `const` 声明，返回值就是用户设置的参数值，无需 `inputs` 或 `params`：
 
 | 写法 | 面板编辑项 |
 | --- | --- |
-| `n: input(2, { title: '除数' })` | 数字输入 |
-| `show: input(true, { title: '显示' })` | 开关 |
-| `label: input('MA', { title: '名称' })` | 文本输入 |
-| `type: input('SMA', { title: '算法', options: ['SMA', 'EMA'] })` | 下拉选择 |
+| `const period = input.int(20, { min: 1 })` | 整数输入，默认步长为 1 |
+| `const n = input.float(2, { title: '除数', step: 0.1 })` | 小数输入 |
+| `const show = input.bool(true, { title: '显示' })` | 开关 |
+| `const label = input.string('MA', { title: '名称' })` | 文本输入 |
+| `const type = input.string('SMA', { options: ['SMA', 'EMA'] })` | 下拉选择 |
 
-编辑类型由默认值决定，标题缺省显示参数名；字符串参数声明 `options` 后渲染为下拉选择，取值必须在选项内。
+数值输入支持 `min`、`max`、`step`；布尔输入只接受标题；字符串输入支持 `options`。默认值和选项使用常量字面量，变量名作为内部参数身份，标题缺省显示变量名。输入声明不能放在分支、循环或辅助函数中；注册时只提取配置，不执行 `onBar`。
 
 脚本按 bar 下标顺序执行。某一根 K 线没有输出时，该位置留空，不会影响其他位置。
 输出 `NaN` 同样表示留空。
 
 ## Plot
 
-Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot(PlotKind.Line, value, { id })` 输出数据点，
-引擎按 `id` 收集为按 K 线下标对齐的序列，再交给通用绘图、坐标轴和图例链路。
+Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(value, name)` 输出数据点，
+引擎按 `name` 收集为按 K 线下标对齐的序列，再交给通用绘图、坐标轴和图例链路。
 
-`id` 区分不同的 Plot，同一根 K 线上可以输出多个不同 id 的点。
-第一个参数使用全局枚举 `PlotKind.Line`、`PlotKind.Histogram` 或 `PlotKind.Points`，第二个参数是绘图值，
-也可通过 `globalThis.PlotKind` 访问。绘图类型由调用处决定，无需 `plots` 声明。
-同一个 id 在一次运行中必须使用同一种类型。
-使用可选 `plots` 声明样式时，输出未声明的 id 会报错；类型专用样式仅在声明与调用类型相同时生效。
+`name` 区分不同的 Plot，同一根 K 线上可以输出多个不同 name 的点。
+使用 `plot.Line`、`plot.Point` 等方法选择图形：第一个参数是绘图值，第二个参数是必填的绘图名称，
+第三个参数是可选的样式对象。
+也可通过 `globalThis.plot` 访问。绘图类型由方法名决定。
+同一个 name 在一次运行中必须使用同一种类型，整列样式也必须保持一致。
 
 ### Plot 类型
 
-| `kind` | 形状 | 额外样式 |
+| 方法 | 形状 | 额外样式 |
 | --- | --- | --- |
-| `line` | 折线 | `width` 线宽、`dash` 虚线 |
-| `histogram` | 柱状图，柱宽随 K 线间距变化 | `baseline` 基准值 |
-| `points` | 圆形散点 | `radius` 半径 |
+| `plot.Line` | 折线 | `dash` 虚线 |
+| `plot.Columns` | 柱宽随 K 线间距缩放，不支持 `size` | `baseline` 基准值 |
+| `plot.Histogram` | 固定像素柱宽，不随缩放变化 | `baseline` 基准值，`size` 为正数像素或 `ShapeSize` 枚举 |
+| `plot.Point` | 圆形散点 | — |
+| `plot.Shape` | 形状标记 | `style`、`location`、`text`、`textColor` |
+| `plot.Char` | 字符标记 | `char`、`location`、`text`、`textColor` |
+| `plot.Arrow` | 数值箭头 | `colorUp`、`colorDown` |
 
-### Plot 通用声明
+所有方法接受 `number | null`，`null` 主动留空。`plot.Shape` 和 `plot.Char` 也接受布尔条件，`false` 留空。
+
+```ts
+plot.Columns(volume, 'volume') // 柱宽随缩放变化
+plot.Histogram(close - open, 'body', { size: 3 }) // 固定 3px
+plot.Histogram(close - open, 'body-size', { size: ShapeSize.Large }) // 固定 3px
+```
+
+Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Huge 为 4px。
+
+### Plot 调用选项
+
+第三个参数是调用选项对象，缺省值由采集器补齐：
 
 | 字段 | 作用 |
 | --- | --- |
-| `id` | Plot 标识，与 `plot()` 的 `id` 对应 |
-| `label` | 图例名称，缺省取 `id` |
-| `color` | CSS 颜色字符串 |
+| `label` | 图例名称，缺省取 `name` |
+| `color` | CSS 颜色字符串，或逐点颜色 |
 | `offset` | 沿 K 线下标的偏移，用于前移或后移的序列 |
 | `visible` | 是否绘制，缺省为 `true` |
+| `size` | `ShapeSize` 尺寸档位，控制线宽、点径或标记大小 |
+
+### 颜色
+
+`color`、`textColor`、`colorUp` / `colorDown`、填充色都接受 CSS 颜色字符串。
+需要常用色时用全局 `Color` 枚举，省去记十六进制：
+
+色相取自 Material 400 色阶：`Color.Red`、`Color.DeepOrange`、`Color.Orange`、`Color.Amber`、
+`Color.Yellow`、`Color.Lime`、`Color.LightGreen`、`Color.Green`、`Color.Teal`、`Color.Cyan`、
+`Color.LightBlue`、`Color.Blue`、`Color.Indigo`、`Color.Purple`、`Color.Pink`、`Color.Brown`、
+`Color.BlueGray`；中性色为 `Color.Gray`、`Color.White`、`Color.Black`。
+
+枚举是固定色值，不随主题变化；其他颜色直接写字符串，例如 `color: '#808080'`。
 
 ### 填充
 
-`fills` 引用两个已声明的 Plot，填充它们之间的区域，不复制序列数据。
-两条曲线相交时，在交点切换正反颜色。
+`fill(from, to, color, title)` 声明两个已在 `onBar` 中输出的 Plot 之间的填充区域，不复制序列数据。
+`from` / `to` 是 `plot.*` 返回的句柄；`color` 在每根 bar 求值，`null` 表示该 bar 不填充。
+填充按 `title` 标识，同一对边界可以用不同 title 声明多层填充。边界和 `visible` 在一次运行内固定。
+相邻两个点之间使用右端 bar 的颜色，交叉时不推导颜色，也不在交点切色。
 
-| 字段 | 作用 |
+```js
+onBar() {
+  const fastValue = ta.sma(close, 5)
+  const slowValue = ta.sma(close, 20)
+  const fast = plot.Line(fastValue, 'fast')
+  const slow = plot.Line(slowValue, 'slow')
+  fill(fast, slow, fastValue > slowValue ? Color.Teal : Color.Red, '快慢云')
+}
+```
+
+| 参数 | 作用 |
 | --- | --- |
-| `id` | 填充标识 |
-| `from` | 起始 Plot 的 `id` |
-| `to` | 结束 Plot 的 `id` |
-| `color` | `from` 低于 `to` 时的填充色 |
-| `reverseColor` | `from` 高于 `to` 时的填充色 |
-| `opacity` | 不透明度 |
-| `visible` | 是否绘制，缺省为 `true` |
+| `from` / `to` | 填充的两个边界 Plot 句柄 |
+| `color` | 必填，当前 bar 的 CSS 颜色或 `null`；透明度直接写入颜色，例如 `'#00897b26'` |
+| `title` | 填充标识；不填则按 `from`/`to` 生成 |
+| `options.visible` | 是否绘制，缺省 `true` |
+
+`options` 是第 5 个可选参数。
 
 ### 逐点颜色
 
-`plot()` 的 `color` 覆盖该点颜色，缺省使用 Plot 的 `color`。
+绘图方法的 `color` 覆盖该点颜色，缺省使用 Plot 的 `color`。
 柱状图常用它按数值正负或涨跌着色。
 
 ```js
 onBar() {
-  plot(PlotKind.Histogram, close[0] - open[0], {
-    id: 'change',
-    color: close[0] >= open[0] ? '#26a69a' : '#ef5350',
+  plot.Histogram(close - open, 'change', {
+    color: close >= open ? Color.Teal : Color.Red,
   })
 }
 ```
@@ -136,7 +178,8 @@ onBar() {
 
 ```js
 onBar() {
-  const ma = ta.sma(close, params.period)
-  plot(PlotKind.Line, ma[0], { id: 'sma' })
+  const period = input.int(20, { title: '周期', min: 1 })
+  const ma = ta.sma(close, period)
+  plot.Line(ma, 'sma')
 }
 ```

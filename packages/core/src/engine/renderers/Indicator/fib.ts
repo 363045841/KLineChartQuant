@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Fib',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'support-resistance',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showLevels: active }) },
@@ -50,5 +49,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class FibDefinition {
-  static rendererFactory = plotRenderer('fib', 'main')
+  static rendererFactory = plotRenderer('fib')
 }

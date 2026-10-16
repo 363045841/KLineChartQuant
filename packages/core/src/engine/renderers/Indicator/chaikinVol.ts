@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'ChaikinVol',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'volatility',
   defaultPaneId: 'sub_ChaikinVol',
   plots: {
     series: [
@@ -25,5 +24,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class ChaikinVolIndicatorDefinition {
-  static rendererFactory = plotRenderer('chaikinVol', 'sub_ChaikinVol')
+  static rendererFactory = plotRenderer('chaikinVol')
 }

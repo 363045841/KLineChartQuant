@@ -9,7 +9,6 @@ import { createSchaffTrendCycleScaleLayer } from './scale/schaffTrendCycle_scale
   displayName: 'STC',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_STC',
   scaleRendererFactory: createSchaffTrendCycleScaleLayer,
   plots: {
@@ -24,5 +23,5 @@ import { createSchaffTrendCycleScaleLayer } from './scale/schaffTrendCycle_scale
   },
 })
 export class SchaffTrendCycleIndicatorDefinition {
-  static rendererFactory = plotRenderer('schaffTrendCycle', 'sub_STC')
+  static rendererFactory = plotRenderer('schaffTrendCycle')
 }

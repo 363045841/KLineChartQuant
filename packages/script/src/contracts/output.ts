@@ -30,7 +30,7 @@ export interface LogEvent {
 /** 输出汇聚点：接收 Plot 绘图点与事件 */
 export interface OutputSink {
   /** 接收绘图点，用于绘制指标曲线 */
-  onPlot(id: string, barIndex: number, point: PlotPoint): void
+  onPlot(id: string, barIndex: number, point: PlotPoint | null): void
   /** 接收告警和日志，用于通知或记录 */
   onEvent(e: AlertEvent | LogEvent): void
 }

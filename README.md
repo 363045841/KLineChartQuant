@@ -43,6 +43,7 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 ## ✨ Core Features
 
 - **Agent Native** - The chart core exposes its capabilities as `@Tool`-decorated domain primitives, and the Agent calls the same primitives as the UI. Tools are a subset of actions: one shared state, one execution path, no bridge layer
+- **Script Indicators** - Write indicators in plain TypeScript. Sandboxed QuickJS execution with time and memory budgets, a built-in editor with completions and hover signatures, and plots that flow through the normal rendering chain
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
 - **High Performance** - Smoothly handles tens of thousands of data points, no lag during zoom or pan; supports **190-200fps on 200Hz displays** with single-frame generation time as low as **2ms**
@@ -135,6 +136,64 @@ flowchart TB
 
 See [docs/architecture/architecture.md](docs/architecture/architecture.md) for the full architecture document.
 
+
+## 📜 Script Indicators
+
+Indicators can be written as plain TypeScript instead of being compiled ahead of time. A script is one file that declares a single indicator through `defineIndicator`; the engine compiles it once, then runs it bar by bar and collects Plot points. Scripts are data-source and render agnostic — the host supplies the bars, the chart adapter renders the result.
+
+```js
+defineIndicator({
+  name: 'Volume Tide',
+  position: Position.Sub,
+  onBar() {
+    const period = input.int(20, { title: 'Period', min: 1 })
+    const ma = ta.sma(volume, period)
+    plot.Columns(volume, 'volume', { color: close >= open ? Color.Red : Color.Green })
+    plot.Line(ma, 'ma', { color: Color.Gray })
+  },
+})
+```
+
+Everything a script needs is injected as a global before it runs:
+
+| Global | Meaning |
+| --- | --- |
+| `open` `high` `low` `close` `volume` `time` | price series; `close` reads the current bar, `close[1]` one bar back |
+| `input.int` `input.float` `input.bool` `input.string` | declare a parameter at the top level of `onBar`; the variable reads back the user's value |
+| `plot.Line` `plot.Columns` `plot.Histogram` `plot.Point` `plot.Shape` `plot.Char` `plot.Arrow` | emit plot points; the method name selects the shape; each returns a handle |
+| `fill(from, to, color, title, options?)` | fill the area between two plots; `from` / `to` are handles returned by `plot.*` |
+| `ta` | built-in technical analysis library |
+| `Position` | `Position.Main` or `Position.Sub` |
+| `Color` | common Material 400 colors, or pass any CSS color string |
+| `defineIndicator` / `defineLibrary` / `importLibrary` | declare the indicator, declare a library, use a library |
+
+Parameters are plain `const` declarations, so the variable name is the parameter identity — no `inputs` block and no `params` object:
+
+```js
+onBar() {
+  const period = input.int(20, { title: 'Period', min: 1 })
+  const type = input.string('SMA', { options: ['SMA', 'EMA'] })
+  plot.Line(type === 'SMA' ? ta.sma(close, period) : ta.ema(close, period), 'ma')
+}
+```
+
+The built-in `ta` library covers `sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `crossover`, `crossunder`, `rising`, `falling` and `change`. User libraries use the same `defineLibrary` call and join the same global namespace.
+
+- **Sandboxed execution** - Scripts run in an embedded QuickJS runtime with per-run time and memory budgets, so a runaway script fails instead of hanging the host
+- **No future data** - History that is not yet available reads as `NaN`; a script can never look ahead
+- **Real editor** - The chart ships a CodeMirror-based script editor with completions, hover signatures, and signature help generated from the same declarations the compiler uses
+- **Same rendering path** - Plots flow through the engine's normal Plot, axis, and legend chain, so script indicators behave exactly like built-in ones
+
+Register scripts through the script service; each one then appears in the indicator picker as a normal entry:
+
+```ts
+import { createScriptService } from '@363045841yyt/klinechart-script-chart'
+
+const scripts = await createScriptService()
+await scripts.create(source)
+```
+
+See the [script docs](packages/script/docs/indicator.md) for the full declaration reference, [libraries](packages/script/docs/library.md), and [Plot API](packages/script/docs/indicator.md#plot).
 
 ## ⚡ Performance
 
@@ -418,6 +477,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 ## 📖 More Documentation
 
 - [Rendering Pipeline](docs/rendering/rendering-pipeline.md) - Current paint path: FrameTransaction, Scene/Layer, Renderer backends
+- [Script Indicators](packages/script/docs/indicator.md) - Declaring an indicator in TypeScript: inputs, Plot API, libraries
 
 
 ## 📋 Component Props
@@ -465,6 +525,9 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
 | `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
+| `@363045841yyt/klinechart-script` | Sandboxed script indicator engine (QuickJS runtime + language service) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script) |
+| `@363045841yyt/klinechart-script-chart` | Registers script indicators as chart indicators | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script-chart) |
+| `@363045841yyt/klinechart-plot-contracts` | Plot declaration contracts shared by the engine and the script runtime | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-plot-contracts) |
 
 
 ## 🚀 What's New

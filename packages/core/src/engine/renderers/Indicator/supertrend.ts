@@ -9,7 +9,6 @@ import { readPlotField } from '@/engine/plots/impl/projectPlots.js'
   displayName: 'SuperTrend',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'trend',
   defaultPaneId: 'sub_SuperTrend',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showSuperTrend: active }) },
@@ -35,5 +34,5 @@ import { readPlotField } from '@/engine/plots/impl/projectPlots.js'
   },
 })
 export class SuperTrendIndicatorDefinition {
-  static rendererFactory = plotRenderer('supertrend', 'sub_SuperTrend')
+  static rendererFactory = plotRenderer('supertrend')
 }

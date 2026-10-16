@@ -2,17 +2,14 @@
  * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
  */
 import type { Bar } from './bar.js'
-import type { PlotDeclaration, PlotFillDeclaration } from './declaration.js'
 import type { PlotCollection } from './plots.js'
 
 /** 可序列化的脚本声明；不包含执行函数。 */
 export interface IndicatorSourceDefinition {
   readonly name: string
-  readonly displayName?: string
-  readonly pane?: 'main' | 'sub'
+  /** 注册位置：主图叠加或独立副图；缺省为副图。 */
+  readonly position?: 'main' | 'sub'
   readonly inputs: InputSchema<Record<string, number | string | boolean>>
-  readonly plots?: readonly PlotDeclaration[]
-  readonly fills?: readonly PlotFillDeclaration[]
 }
 
 /** 指标来源分类：系统内置或扩展生产者（脚本）。 */
@@ -27,18 +24,32 @@ export interface IndicatorSourceDocument {
   readonly definition: IndicatorSourceDefinition
 }
 
-/** 输入参数的展示选项；options 只在字符串参数上生效，宿主据此渲染下拉选择。 */
+/** 输入参数的公共展示选项。 */
 export interface InputOptions {
-  /** 参数面板中的显示名；缺省显示参数名。 */
+  /** 参数面板中的显示名；不填则显示参数名。 */
   readonly title?: string
-  /** 下拉选项；值必须是字符串，与 default 同类型。 */
+}
+
+/** 字符串输入可通过 options 渲染下拉选择。 */
+export interface StringInputOptions extends InputOptions {
   readonly options?: readonly string[]
+}
+
+/** 数值输入的范围与步长。 */
+export interface NumberInputOptions extends InputOptions {
+  readonly min?: number
+  readonly max?: number
+  readonly step?: number
 }
 
 /** 单个输入参数的声明，由 input() 工厂产出。 */
 export interface InputDef<T> extends InputOptions {
   /** 默认值，同时决定参数在面板中的编辑类型。 */
   readonly default: T
+  readonly options?: readonly string[]
+  readonly min?: number
+  readonly max?: number
+  readonly step?: number
 }
 
 /** 输入声明表：键即参数名，P 为解析后的参数值类型。 */
@@ -46,12 +57,17 @@ export type InputSchema<P> = { [K in keyof P]: InputDef<P[K]> }
 
 /** 指标定义：元数据、输入声明与计算端口。 */
 export interface IndicatorDefinition<P> {
-  /** 指标名称。 */
+  /**
+   * 宿主分配的稳定 ID；缺省回落到 name。
+   *
+   * 脚本源码只声明 name（展示名），宿主为脚本分配稳定 ID，使展示名可编辑而对外身份不变；
+   * core 以该 ID 作为内部 name、pane ID 与 renderer 身份，displayName 与坐标轴标签仍取 name。
+   */
+  readonly id?: string
+  /** 指标名称；`id` 缺省时同时作为内部身份与展示名。 */
   readonly name: string
-  /** 显示名称；缺省取 name。 */
-  readonly displayName?: string
-  /** 注册位置；缺省放在副图。 */
-  readonly pane?: 'main' | 'sub'
+  /** 注册位置：主图叠加或独立副图；缺省放在副图。 */
+  readonly position?: 'main' | 'sub'
   /** 来源分类；缺省由消费方决定。 */
   readonly source?: IndicatorSource
   readonly document?: IndicatorSourceDocument

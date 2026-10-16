@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Keltner',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'channel',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
@@ -53,5 +52,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class KeltnerDefinition {
-  static rendererFactory = plotRenderer('keltner', 'main')
+  static rendererFactory = plotRenderer('keltner')
 }

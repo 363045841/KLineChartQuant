@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'TRIX',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_TRIX',
   scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
   plots: {
@@ -38,5 +37,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class TRIXIndicatorDefinition {
-  static rendererFactory = plotRenderer('trix', 'sub_TRIX')
+  static rendererFactory = plotRenderer('trix')
 }

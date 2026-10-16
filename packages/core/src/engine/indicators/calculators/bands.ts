@@ -3,65 +3,6 @@ import type { KLineData } from '@/foundation/types/price.js'
 import { _computeEMASeries } from './_shared.js'
 import { calcATRData } from './volatility.js'
 
-export interface BOLLPoint {
-  upper: number
-  middle: number
-  lower: number
-}
-
-export function calcBOLLData(
-  data: KLineData[],
-  period: number,
-  multiplier: number,
-): Array<BOLLPoint | undefined> {
-  const result: Array<BOLLPoint | undefined> = new Array(data.length)
-
-  if (data.length < period) return result
-
-  let sum = 0
-  const window: number[] = []
-
-  for (let i = 0; i < period; i++) {
-    const item = data[i]
-    if (!item) return result
-    const close = item.close
-    window.push(close)
-    sum += close
-  }
-
-  for (let i = period - 1; i < data.length; i++) {
-    const item = data[i]
-    if (!item) continue
-
-    if (i >= period) {
-      const oldVal = window.shift()
-      if (oldVal !== undefined) sum -= oldVal
-      const close = item.close
-      window.push(close)
-      sum += close
-    }
-
-    const ma = sum / period
-
-    let variance = 0
-    for (let j = 0; j < period; j++) {
-      const wVal = window[j]
-      if (wVal !== undefined) {
-        variance += Math.pow(wVal - ma, 2)
-      }
-    }
-    const stdDev = Math.sqrt(variance / period)
-
-    result[i] = {
-      upper: ma + multiplier * stdDev,
-      middle: ma,
-      lower: ma - multiplier * stdDev,
-    }
-  }
-
-  return result
-}
-
 export interface ENEPoint {
   upper: number
   middle: number
@@ -252,30 +193,6 @@ export function calcKeltnerData(
       middle: m,
       lower: m - multiplier * a,
     }
-  }
-  return result
-}
-
-export interface DonchianPoint {
-  upper: number
-  middle: number
-  lower: number
-}
-
-export function calcDonchianData(data: KLineData[], period: number): (DonchianPoint | undefined)[] {
-  const n = data.length
-  const result: (DonchianPoint | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0 || n < period) return result
-
-  for (let t = period - 1; t < n; t++) {
-    let hi = -Infinity
-    let lo = Infinity
-    for (let k = 0; k < period; k++) {
-      const bar = data[t - k]!
-      if (bar.high > hi) hi = bar.high
-      if (bar.low < lo) lo = bar.low
-    }
-    result[t] = { upper: hi, middle: (hi + lo) / 2, lower: lo }
   }
   return result
 }

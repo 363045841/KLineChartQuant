@@ -3,34 +3,73 @@
 import type { InputDef, InputOptions } from '@363045841yyt/klinechart-plot-contracts'
 import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
-import { PaneKind as PaneKindEnum } from '../quickjs/types.js'
+import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
-import type { ScriptIndicatorDeclaration, ScriptPlotOptions } from './types.js'
+import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
   interface ScriptParameters {}
 
-  const open: Series
-  const high: Series
-  const low: Series
-  const close: Series
-  const volume: Series
-  const time: Series
+  // 行情序列由 VM 注入为 globalThis 属性，声明成 var 才能让 globalThis.close 与 close 解析出同一类型。
+  var open: Series
+  var high: Series
+  var low: Series
+  var close: Series
+  var volume: Series
+  var time: Series
+  /**
+   * 内建技术分析库
+   * 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。
+   */
   const ta: TechnicalAnalysisLibrary
-  const params: ScriptParameters
 
-  /** 指标注册位置枚举；取值与宿主 PaneKind 一致，由宿主注入 VM。 */
-  const PaneKind: typeof PaneKindEnum
+  /**
+   * 指标渲染位置，由宿主注入 VM。
+   *
+   * | 取值 | 含义 |
+   * | --- | --- |
+   * | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
+   * | `Position.Sub` | 独立副图 |
+   */
+  const Position: typeof PositionEnum
 
-  /** 声明输入默认值与展示选项；options 只在字符串参数上生成下拉。 */
-  function input<T extends ScriptParamValue>(value: T, options?: InputOptions): InputDef<T>
-  /** 声明完整指标；onBar 在每根 K 线上执行。 */
+
+  /** 输入参数：int / float 支持范围和步长，bool 显示开关，string 支持下拉选项。 */
+  const input: ScriptInput
+  /** 定义一个指标 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
-  /** 输出当前 K 线的一个绘图点；kind 决定图形，NaN 表示空点。 */
-  function plot(kind: typeof PlotKind.Shape, value: number | boolean, options: ScriptPlotOptions): void
-  function plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
+  /**
+   * 当前 K 线的绘图方法；仅在 onBar 中调用，name 必填，null 主动留空。
+   *
+   * | 方法 | 图形 | value 含义 |
+   * | --- | --- | --- |
+   * | `plot.Line` | 折线 | 折线点数值 |
+   * | `plot.Histogram` | 柱状图 | 柱状图数值 |
+   * | `plot.Point` | 散点 | 散点数值 |
+   * | `plot.Shape` | 形状标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
+   * | `plot.Char` | 字符标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
+   * | `plot.Arrow` | 箭头 | 正负决定方向，绝对值决定长度 |
+   */
+  const plot: ScriptPlot
+  /**
+   * 声明两个 Plot 之间的填充区域；两个句柄由 plot.* 返回，仅在 onBar 中调用。
+   * 每根 bar 保存调用处求出的颜色；null 表示该 bar 不填充。
+   *
+   * | 参数 | 含义 |
+   * | --- | --- |
+   * | `from` / `to` | 填充的两个边界 Plot |
+   * | `color` | 当前 bar 的 CSS 颜色，透明度由颜色携带 |
+   * | `title` | 填充标识；不填则按 from/to 生成 |
+   */
+  function fill(
+    from: PlotRef,
+    to: PlotRef,
+    color: string | null,
+    title?: string,
+    options?: ScriptFillOptions,
+  ): void
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */

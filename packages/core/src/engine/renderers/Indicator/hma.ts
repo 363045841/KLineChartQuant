@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'HMA',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: { toActiveConfig: (params, active) => ({ ...params, showHMA: active }) },
@@ -22,5 +21,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class HMADefinition {
-  static rendererFactory = plotRenderer('hma', 'main')
+  static rendererFactory = plotRenderer('hma')
 }

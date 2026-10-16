@@ -1,5 +1,6 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import {
+  isPlotKind,
   isShapeLocation,
   isShapeSize,
   isShapeStyle,
@@ -8,7 +9,7 @@ import {
   type PlotKind,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
-import { PaneKind, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
+import { Position, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
 
 /** 判断普通对象，便于逐字段收窄脚本返回值。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -24,9 +25,9 @@ function isParam(value: unknown): value is ScriptParamValue {
   )
 }
 
-/** pane 从 VM 跨边界读到的仍是字符串，只有 PaneKind 的两个取值有效。 */
-function isPaneKind(value: unknown): value is PaneKind {
-  return value === PaneKind.Main || value === PaneKind.Sub
+/** position 从 VM 跨边界读到的仍是字符串，只有 Position 的两个取值有效。 */
+function isPosition(value: unknown): value is Position {
+  return value === Position.Main || value === Position.Sub
 }
 
 /** 可选字段校验，缺省值由 Plot 采集器补齐。 */
@@ -57,7 +58,13 @@ function hasValidPlotBase(value: Record<string, unknown>): boolean {
     optional(value.color, 'string') &&
     optional(value.textColor, 'string') &&
     optional(value.offset, 'number') &&
-    optional(value.visible, 'boolean')
+    optional(value.visible, 'boolean') &&
+    (value.size === undefined ||
+      isShapeSize(value.size) ||
+      (value.kind === 'histogram' &&
+        typeof value.size === 'number' &&
+        Number.isFinite(value.size) &&
+        value.size > 0))
   )
 }
 
@@ -70,9 +77,9 @@ function isDash(value: unknown): boolean {
   )
 }
 
-/** line 只额外声明线宽和虚线。 */
+/** line 只额外声明虚线；线宽由公共 size 决定。 */
 function isLineFields(value: Record<string, unknown>): boolean {
-  return optional(value.width, 'number') && isDash(value.dash)
+  return isDash(value.dash)
 }
 
 /** histogram 只额外声明基线。 */
@@ -80,58 +87,102 @@ function isHistogramFields(value: Record<string, unknown>): boolean {
   return optional(value.baseline, 'number')
 }
 
-/** points 只额外声明半径。 */
-function isPointsFields(value: Record<string, unknown>): boolean {
-  return optional(value.radius, 'number')
+/** points 没有专属字段，散点直径由公共 size 决定。 */
+function isPointsFields(_value: Record<string, unknown>): boolean {
+  return true
 }
 
-/** shape 只额外声明形状枚举和文字。 */
-function isShapeFields(value: Record<string, unknown>): boolean {
+/** Shape 与 Char 共用位置、尺寸和附加文字校验。 */
+function isMarkerFields(value: Record<string, unknown>): boolean {
   return (
-    (value.style === undefined || isShapeStyle(value.style)) &&
     (value.location === undefined || isShapeLocation(value.location)) &&
     (value.size === undefined || isShapeSize(value.size)) &&
     optional(value.text, 'string')
   )
 }
 
-/** 按 kind 分派到各自的字段校验；未知 kind 一律拒绝。 */
-function isPlot(value: unknown): value is PlotDeclaration {
-  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
-  if (!hasValidPlotBase(value)) return false
-  switch (value.kind) {
-    case 'line':
-      return isLineFields(value)
-    case 'histogram':
-      return isHistogramFields(value)
-    case 'points':
-      return isPointsFields(value)
-    case 'shape':
-      return isShapeFields(value)
-    default:
-      return false
-  }
+/** shape 在标记公共字段之上只额外声明形状枚举。 */
+function isShapeFields(value: Record<string, unknown>): boolean {
+  return isMarkerFields(value) && (value.style === undefined || isShapeStyle(value.style))
 }
 
-/** 调用参数复用声明校验，输出类型由 plot 的第一个参数提供。 */
-export function readPlotCall(value: unknown, kind: PlotKind): PlotDeclaration {
-  const declaration = isRecord(value) ? { ...value, kind } : undefined
+/** char 在标记公共字段之上只额外声明单个字符。 */
+function isCharFields(value: Record<string, unknown>): boolean {
+  return isMarkerFields(value) && optional(value.char, 'string')
+}
+
+/** arrow 只额外声明方向颜色；长度由公共 size 决定。 */
+function isArrowFields(value: Record<string, unknown>): boolean {
+  return optional(value.colorUp, 'string') && optional(value.colorDown, 'string')
+}
+
+/** 每种 kind 的专属字段校验；契约新增 kind 时这里会因缺项而编译失败。 */
+const PLOT_FIELD_VALIDATORS: Readonly<
+  Record<PlotKind, (value: Record<string, unknown>) => boolean>
+> = {
+  line: isLineFields,
+  histogram: isHistogramFields,
+  columns: (value) => value.size === undefined && isHistogramFields(value),
+  points: isPointsFields,
+  shape: isShapeFields,
+  char: isCharFields,
+  arrow: isArrowFields,
+}
+
+/** 校验公共字段后按 kind 查表校验专属字段；未知 kind 一律拒绝。 */
+function isPlot(value: unknown): value is PlotDeclaration {
+  if (!isRecord(value) || typeof value.name !== 'string' || !value.name) return false
+  if (!hasValidPlotBase(value)) return false
+  return isPlotKind(value.kind) && PLOT_FIELD_VALIDATORS[value.kind](value)
+}
+
+/** 调用参数复用声明校验，name 由位置参数提供，输出类型由 kind 提供。 */
+export function readPlotCall(name: unknown, options: unknown, kind: PlotKind): PlotDeclaration {
+  const declaration =
+    options === undefined
+      ? { name, kind }
+      : isRecord(options)
+        ? { ...options, name, kind }
+        : undefined
   if (!isPlot(declaration)) throw new ScriptExecutionError('run', '无效 plot 调用参数')
   return declaration
 }
 
-/** 检查填充引用和可选样式。 */
+/** 检查填充引用和可选样式；name 由调用处的 title 或 from/to 生成。 */
 function isFill(value: unknown): value is PlotFillDeclaration {
   return (
     isRecord(value) &&
-    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
     typeof value.from === 'string' &&
     typeof value.to === 'string' &&
-    optional(value.color, 'string') &&
-    optional(value.reverseColor, 'string') &&
-    optional(value.opacity, 'number') &&
+    (value.color === null || typeof value.color === 'string') &&
     optional(value.visible, 'boolean')
   )
+}
+
+/** 校验 fill 调用；from/to 由句柄提供，title 作为填充名称，缺省按 from/to 生成。 */
+export function readFillCall(
+  from: unknown,
+  to: unknown,
+  color: unknown,
+  title: unknown,
+  options: unknown,
+): PlotFillDeclaration {
+  if (
+    options !== undefined &&
+    (!isRecord(options) || Object.keys(options).some((key) => key !== 'visible'))
+  ) {
+    throw new ScriptExecutionError('run', '无效 fill 调用参数')
+  }
+  const declaration = {
+    ...options,
+    name: title === undefined ? `${String(from)}-${String(to)}` : title,
+    from,
+    to,
+    color,
+  }
+  if (!isFill(declaration)) throw new ScriptExecutionError('run', '无效 fill 调用参数')
+  return declaration
 }
 
 /** 读取已初始化脚本的定义；缺字段或错误类型统一作为编译错误报告。 */
@@ -140,13 +191,12 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     !isRecord(value) ||
     typeof value.name !== 'string' ||
     !value.name.trim() ||
-    !optional(value.displayName, 'string') ||
-    (value.pane !== undefined && !isPaneKind(value.pane)) ||
+    !isPosition(value.position) ||
     !isRecord(value.inputs)
   ) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、inputs，pane 只能是 ${PaneKind.Main} 或 ${PaneKind.Sub}`,
+      `指标需要 name、position，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
     )
   }
   const inputs: QuickJSScriptDefinition['inputs'] = {}
@@ -155,6 +205,9 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
       !isRecord(declaration) ||
       !isParam(declaration.default) ||
       !optional(declaration.title, 'string') ||
+      !optional(declaration.min, 'number') ||
+      !optional(declaration.max, 'number') ||
+      !optional(declaration.step, 'number') ||
       !isOptionsValid(declaration.options, declaration.default)
     ) {
       throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
@@ -163,22 +216,14 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
       default: declaration.default,
       ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
       ...(isOptionsList(declaration.options) ? { options: declaration.options } : {}),
+      ...(typeof declaration.min === 'number' ? { min: declaration.min } : {}),
+      ...(typeof declaration.max === 'number' ? { max: declaration.max } : {}),
+      ...(typeof declaration.step === 'number' ? { step: declaration.step } : {}),
     }
-  }
-  const plots: unknown = value.plots
-  const fills: unknown = value.fills
-  if (plots !== undefined && (!Array.isArray(plots) || !plots.every(isPlot))) {
-    throw new ScriptExecutionError('compile', '无效 plots 声明')
-  }
-  if (fills !== undefined && (!Array.isArray(fills) || !fills.every(isFill))) {
-    throw new ScriptExecutionError('compile', '无效 fills 声明')
   }
   return {
     name: value.name,
-    ...(typeof value.displayName === 'string' ? { displayName: value.displayName } : {}),
-    ...(isPaneKind(value.pane) ? { pane: value.pane } : {}),
+    position: value.position,
     inputs,
-    ...(Array.isArray(plots) && plots.every(isPlot) ? { plots } : {}),
-    ...(Array.isArray(fills) && fills.every(isFill) ? { fills } : {}),
   }
 }

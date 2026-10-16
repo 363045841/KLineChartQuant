@@ -21,7 +21,6 @@ import type {
   IndicatorInputDef,
   IndicatorKind,
   IndicatorMetadata,
-  IndicatorType,
 } from './indicatorMetadata.js'
 
 /** 装饰器与定义配置由叶子模块提供，此处转出以维持公开出口。 */
@@ -40,8 +39,6 @@ export interface IndicatorDescriptor {
   readonly aliases?: readonly string[]
   readonly displayName: string
   readonly category: IndicatorCategory
-  readonly indicatorType: IndicatorType
-  readonly indicatorTypeLabel?: string
   readonly defaultPaneId: string
   readonly dataViews?: readonly ChartDataView[]
   readonly allowMainPane?: boolean
@@ -143,8 +140,6 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     aliases: definition.aliases,
     displayName: definition.displayName,
     category: definition.category,
-    indicatorType: definition.indicatorType,
-    indicatorTypeLabel: definition.indicatorTypeLabel,
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
     allowMainPane: definition.allowMainPane,
@@ -179,7 +174,7 @@ export function registerIndicatorDefinition(definitionClass: IndicatorDefinition
   publishDefinition(definition, false)
 }
 
-/** 显式替换已有脚本实现；注册仍拒绝重复身份，原生定义不允许被脚本编辑覆盖。 */
+/** 显式替换已有脚本实现；脚本内部名与别名固定，仅展示名可编辑。 */
 export function updateIndicatorDefinition(definitionClass: IndicatorDefinitionClass): void {
   const definition = definitionClass[definitionMetadata]?.()
   const existing = definition && getRegisteredIndicatorDefinition(definition.name)
@@ -190,21 +185,33 @@ export function updateIndicatorDefinition(definitionClass: IndicatorDefinitionCl
     existing.source !== 'script' ||
     existing.document?.identity === 'builtin' ||
     definition.name !== existing.name ||
-    JSON.stringify(identityAliases(definition)) !== JSON.stringify(identityAliases(existing))
+    JSON.stringify(definition.aliases ?? []) !== JSON.stringify(existing.aliases ?? [])
   ) {
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
-      '[Indicator] only existing script definitions with unchanged identity can be updated',
+      '[Indicator] only existing script definitions with unchanged name and aliases can be updated',
     )
   }
-  publishDefinition(definition, true)
+  publishDefinition(definition, true, existing)
 }
 
 /** 校验后统一发布完整定义快照，静态目录与执行器订阅者同时接收新元数据。 */
-function publishDefinition(definition: IndicatorMetadata, replaceDescriptor: boolean): void {
+function publishDefinition(
+  definition: IndicatorMetadata,
+  replaceDescriptor: boolean,
+  previous?: IndicatorMetadata,
+): void {
   const normalizedName = normalizeIndicatorId(definition.name)
   const aliases = identityAliases(definition)
   assertAliasesAvailable(aliases, normalizedName)
+  // 脚本展示名可编辑：删除不再归属本定义的旧身份键，避免旧展示名残留成幽灵别名。
+  if (previous) {
+    const nextKeys = new Set(aliases.map(normalizeIndicatorId))
+    for (const stale of identityAliases(previous)) {
+      const key = normalizeIndicatorId(stale)
+      if (key && !nextKeys.has(key)) indicatorDefinitionAliases.delete(key)
+    }
+  }
   indicatorDefinitions.set(normalizedName, definition)
   if (replaceDescriptor || !indicatorDescriptors.has(normalizedName)) {
     indicatorDescriptors.set(normalizedName, { descriptor: descriptorFromMetadata(definition) })
@@ -334,13 +341,24 @@ export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadat
 }
 
 /**
- * 将指标的 name / displayName / 别名解析为对外规范 ID（即 displayName）。
+ * 目录项的对外规范 ID：脚本定义以稳定内部 name（宿主分配的 script_<uuid>）为身份，
+ * 展示名可编辑；原生与内置定义沿用 displayName，保持既有对外契约。
+ */
+export function resolveCanonicalIndicatorId(
+  descriptor: Pick<IndicatorDescriptor, 'name' | 'displayName' | 'source'>,
+): string {
+  return descriptor.source === 'script' ? descriptor.name : descriptor.displayName
+}
+
+/**
+ * 将指标的 name / displayName / 别名解析为对外规范 ID。
  *
- * 规范 ID 是 Core、UI、Agent 共用的唯一指标身份；内部 name 仅用于 renderer 命名与
- * 计算定义解析，不再作为对外标识。未注册时返回 undefined。
+ * 规范 ID 是 Core、UI、Agent 共用的唯一指标身份；脚本取稳定内部 name，原生取 displayName。
+ * 内部 name 仅用于 renderer 命名与计算定义解析。未注册时返回 undefined。
  */
 export function resolveIndicatorDefinitionId(nameOrAlias: string): string | undefined {
-  return getIndicatorDescriptor(nameOrAlias)?.displayName
+  const descriptor = getIndicatorDescriptor(nameOrAlias)
+  return descriptor === undefined ? undefined : resolveCanonicalIndicatorId(descriptor)
 }
 
 /** 清空测试目录；类上的声明仍可重新装配，内置静态目录在下次读取时重新登记。 */

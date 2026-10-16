@@ -10,6 +10,8 @@
 
 {{include:_architecture.md}}
 
+{{include:_script.md}}
+
 {{include:_performance.md}}
 
 {{include:_data-sources.md}}

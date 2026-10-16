@@ -10,7 +10,6 @@ import { createMacdScaleLayer } from './scale/macd_scale.js'
   displayName: 'MACD',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_MACD',
   dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
   scaleRendererFactory: createMacdScaleLayer,
@@ -20,7 +19,7 @@ import { createMacdScaleLayer } from './scale/macd_scale.js'
         id: 'bar',
         label: 'BAR',
         field: 'macd',
-        kind: 'histogram',
+        kind: 'columns',
         show: 'showBAR',
         color: (c) => c.macd.barUp,
         pointColor: (value, previous, c) => {
@@ -46,5 +45,5 @@ import { createMacdScaleLayer } from './scale/macd_scale.js'
   },
 })
 export class MACDIndicatorDefinition {
-  static rendererFactory = plotRenderer('macd', 'sub_MACD')
+  static rendererFactory = plotRenderer('macd')
 }

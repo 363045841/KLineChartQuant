@@ -34,7 +34,6 @@ describe('indicatorState', () => {
         source,
         kind: 'indicator',
         category,
-        indicatorType: 'other',
         defaultPaneId: category === 'main' ? 'main' : `sub_${indicatorId}`,
       })
       const instance = state.readonly.instances.peek()[0]!
@@ -53,9 +52,9 @@ describe('indicatorState', () => {
       kline: {
         instances: [
           {
-            instanceId: 'main:BOLL',
-            indicatorId: 'BOLL',
-            layoutId: 'pane:main:BOLL',
+            instanceId: 'main:ENE',
+            indicatorId: 'ENE',
+            layoutId: 'pane:main:ENE',
             ordinal: 0,
             params: { period: 20 },
           },
@@ -80,7 +79,7 @@ describe('indicatorState', () => {
       },
     })
 
-    expect(m.readonly.instances.peek().map((instance) => instance.indicatorId)).toEqual(['BOLL'])
+    expect(m.readonly.instances.peek().map((instance) => instance.indicatorId)).toEqual(['ENE'])
     m.actions.setActiveWorkspace('timeshare')
     expect(m.readonly.instances.peek().map((instance) => instance.indicatorId)).toEqual(['MA'])
   })
@@ -126,15 +125,16 @@ describe('indicatorState', () => {
   it('toggles hidden without touching calculation config or params', () => {
     const state = createIndicatorState()
     state.actions.upsertMain('MA', { period: 5 })
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    const subInstanceId = state.readonly.subPanes()[0]!.instanceId
     const revision = state.readonly.configRevision()
 
     state.actions.setIndicatorHidden('main:MA', true)
-    state.actions.setIndicatorHidden('legacy:RSI_0', true)
+    state.actions.setIndicatorHidden(subInstanceId, true)
 
     expect(state.readonly.instances()).toEqual([
       expect.objectContaining({ instanceId: 'main:MA', hidden: true, params: { period: 5 } }),
-      expect.objectContaining({ instanceId: 'legacy:RSI_0', hidden: true }),
+      expect.objectContaining({ instanceId: subInstanceId, hidden: true }),
     ])
     expect(state.readonly.subPanes()).toEqual([
       expect.objectContaining({ paneId: 'RSI_0', hidden: true }),
@@ -150,10 +150,10 @@ describe('indicatorState', () => {
   it('remove and clear', () => {
     const m = createIndicatorState()
     m.actions.upsertMain('MA', {})
-    m.actions.upsertMain('BOLL', {})
+    m.actions.upsertMain('ENE', {})
     m.actions.removeMain('MA')
     expect(m.readonly.instances().some((instance) => instance.indicatorId === 'MA')).toBe(false)
-    expect(m.readonly.instances().some((instance) => instance.indicatorId === 'BOLL')).toBe(true)
+    expect(m.readonly.instances().some((instance) => instance.indicatorId === 'ENE')).toBe(true)
     m.actions.clearMain()
     expect(m.readonly.instances()).toEqual([])
   })
@@ -210,7 +210,7 @@ describe('indicatorState', () => {
     m.actions.replaceAllMain(input)
     input.push({
       instanceId: 'legacy:main:boll',
-      indicatorId: 'BOLL',
+      indicatorId: 'ENE',
       paneId: 'main',
       role: 'main',
       ordinal: 0,
@@ -224,15 +224,16 @@ describe('indicatorState', () => {
 
   it('stores main and sub indicators in one ordered instance collection', () => {
     const m = createIndicatorState()
-    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    const subInstanceId = m.readonly.subPanes()[0]!.instanceId
     m.actions.upsertMain('MA', { period: 5 })
 
     expect(m.readonly.instances()).toEqual([
       expect.objectContaining({ instanceId: 'main:MA', ordinal: 0, indicatorId: 'MA' }),
-      expect.objectContaining({ instanceId: 'legacy:RSI_0', ordinal: 0, indicatorId: 'RSI' }),
+      expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'CCI' }),
     ])
     expect(m.readonly.subPanes()).toEqual([
-      expect.objectContaining({ instanceId: 'legacy:RSI_0', ordinal: 0, indicatorId: 'RSI' }),
+      expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'CCI' }),
     ])
   })
 
@@ -240,9 +241,12 @@ describe('indicatorState', () => {
     const m = createIndicatorState()
     m.actions.upsertMain('MA', { period: 5 })
     m.actions.upsertMain('MA', { color: 'red' })
-    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    const firstSubId = m.readonly.subPanes()[0]!.instanceId
     m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'MACD', params: { fast: 12 } })
-    m.actions.upsertSub({ paneId: 'RSI_1', indicatorId: 'RSI', params: { period1: 14 } })
+    m.actions.upsertSub({ paneId: 'RSI_1', indicatorId: 'CCI', params: { period1: 14 } })
+    const secondSubId = m.readonly.subPanes()[1]!.instanceId
+    expect(firstSubId).not.toBe(secondSubId)
 
     expect(m.readonly.instances()).toEqual([
       {
@@ -254,7 +258,7 @@ describe('indicatorState', () => {
         params: { period: 5, color: 'red' },
       },
       {
-        instanceId: 'legacy:RSI_0',
+        instanceId: firstSubId,
         indicatorId: 'MACD',
         paneId: 'RSI_0',
         role: 'sub',
@@ -262,8 +266,8 @@ describe('indicatorState', () => {
         params: { fast: 12 },
       },
       {
-        instanceId: 'legacy:RSI_1',
-        indicatorId: 'RSI',
+        instanceId: secondSubId,
+        indicatorId: 'CCI',
         paneId: 'RSI_1',
         role: 'sub',
         ordinal: 0,

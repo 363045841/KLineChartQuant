@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'CMF',
   kind: IndicatorKind.Indicator,
   category: 'volume',
-  indicatorType: 'volume',
   defaultPaneId: 'sub_CMF',
   plots: {
     series: [{ id: 'cmf', label: 'CMF', show: 'showCMF', color: (c) => c.palette.i6 }],
@@ -24,5 +23,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class CMFIndicatorDefinition {
-  static rendererFactory = plotRenderer('cmf', 'sub_CMF')
+  static rendererFactory = plotRenderer('cmf')
 }

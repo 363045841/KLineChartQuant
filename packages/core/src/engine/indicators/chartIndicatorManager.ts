@@ -44,9 +44,11 @@ import type {
 } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import {
+  getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
   onIndicatorDefinitionChanged,
+  resolveCanonicalIndicatorId,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
@@ -59,6 +61,10 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
+import {
+  createIndicatorInstanceId,
+  createMainIndicatorInstanceId,
+} from './instances/api/instanceIdentity.js'
 import {
   createIndicatorInstancePipeline,
   type IndicatorInstancePipeline,
@@ -182,7 +188,7 @@ export class ChartIndicatorManager {
   private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
   private subPaneCtx: SubPaneContext
   private disposeProjection: (() => void) | null = null
-  private appliedMainIndicators = new Map<string, string>()
+  private appliedMainIndicators = new Map<string, { instanceId: string; projectionKey: string }>()
   private projectedPaneSpecs: ReadonlyArray<PaneSpec> | null = null
   private projectedPaneRatios: Readonly<Record<string, number>> | null = null
   /** 已投影到 renderStates 的展示版本；展示变化只重建投影。 */
@@ -236,14 +242,14 @@ export class ChartIndicatorManager {
     const mainDefinitions = definitions.filter((def) => def.category === 'main')
     const defaultParams: Record<string, Record<string, number | boolean | string>> = {}
     for (const def of mainDefinitions) {
-      defaultParams[def.displayName] = {
+      defaultParams[resolveCanonicalIndicatorId(def)] = {
         ...(def.presentation?.defaultOptions ?? def.runtime?.defaultParams ?? {}),
       } as Record<string, number | boolean | string>
     }
     const next = {
       definitions,
       defaultParams,
-      enabled: mainDefinitions.map((def) => def.displayName),
+      enabled: mainDefinitions.map((def) => resolveCanonicalIndicatorId(def)),
     }
     ChartIndicatorManager._mainCatalogCache = next
     return next
@@ -267,7 +273,7 @@ export class ChartIndicatorManager {
 
     // 实例链路：Kernel 实例配置为输入，计算计划与结果池为输出。
     this.pipeline = createIndicatorInstancePipeline({
-      createId: generateUUID,
+      createId: createIndicatorInstanceId,
       initial: this.toPipelineInstances(deps.indicator.readonly.instances.peek()),
       onCalculationPlanChanged: () => this.requestCompute(),
     })
@@ -283,7 +289,7 @@ export class ChartIndicatorManager {
     this.disposeDefinitionSubscription = onIndicatorDefinitionChanged(({ type, definition }) => {
       if (type === 'remove') {
         for (const instance of this.deps.indicator.readonly.instances.peek()) {
-          if (instance.indicatorId !== definition.displayName) continue
+          if (instance.indicatorId !== resolveCanonicalIndicatorId(definition)) continue
           if (instance.role === 'main') this.deps.indicator.actions.removeMain(instance.indicatorId)
           else this.deps.subPaneOps.remove(instance.paneId)
         }
@@ -346,16 +352,21 @@ export class ChartIndicatorManager {
 
     // 派生信号
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() =>
-      this.deps.indicator.readonly.instances().map((instance) => ({
-        id: instance.instanceId,
-        definitionId: instance.indicatorId,
-        label: instance.indicatorId,
-        name: instance.indicatorId,
-        role: instance.role,
-        paneId: instance.role === 'sub' ? instance.paneId : undefined,
-        ordinal: instance.ordinal,
-        params: { ...instance.params },
-      })),
+      this.deps.indicator.readonly.instances().map((instance) => {
+        // definitionId 是规范 ID；label/name 是展示字段，取展示名（脚本改名后随目录刷新）。
+        const label =
+          getIndicatorDescriptor(instance.indicatorId)?.displayName ?? instance.indicatorId
+        return {
+          id: instance.instanceId,
+          definitionId: instance.indicatorId,
+          label,
+          name: label,
+          role: instance.role,
+          paneId: instance.role === 'sub' ? instance.paneId : undefined,
+          ordinal: instance.ordinal,
+          params: { ...instance.params },
+        }
+      }),
     )
     this._subPanesComputed = computed<ReadonlyArray<SubPaneInfo>>(() => {
       const ratios = deps.paneRatios$()
@@ -998,7 +1009,6 @@ export class ChartIndicatorManager {
     if (index < 0) return false
     instances[index] = {
       ...instances[index]!,
-      instanceId: `main:${nextId}`,
       indicatorId: nextId,
       params: { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[nextId] ?? {}) },
     }
@@ -1078,15 +1088,17 @@ export class ChartIndicatorManager {
       const hasApplied = this.appliedMainIndicators.has(id)
       const params = entry.params as Readonly<Record<string, number | boolean | string>>
       const projectionKey = mainIndicatorProjectionKey(params)
-      if (this.appliedMainIndicators.get(id) === projectionKey) continue
+      const applied = this.appliedMainIndicators.get(id)
+      if (applied?.instanceId === entry.instanceId && applied.projectionKey === projectionKey)
+        continue
       try {
         if (!hasApplied) {
-          this.enableMainIndicatorRenderer(id)
+          this.enableMainIndicatorRenderer(entry)
         } else {
           // 参数变化：原子重建该主图指标 Layer（渲染器不持有 config）
-          this.replaceMainIndicatorLayer(id)
+          this.replaceMainIndicatorLayer(entry)
         }
-        this.appliedMainIndicators.set(id, projectionKey)
+        this.appliedMainIndicators.set(id, { instanceId: entry.instanceId, projectionKey })
         changed = true
       } catch (error) {
         console.error(`[ChartIndicatorManager] Failed to project main indicator "${id}":`, error)
@@ -1095,7 +1107,8 @@ export class ChartIndicatorManager {
     return changed
   }
 
-  private enableMainIndicatorRenderer(indicatorId: string): void {
+  private enableMainIndicatorRenderer(instance: IndicatorInstanceSpec): void {
+    const indicatorId = instance.indicatorId
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     const mainPane = definition?.mainPane
     if (!definition || !mainPane) return
@@ -1104,17 +1117,18 @@ export class ChartIndicatorManager {
     const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
 
     if (!existingLayer) {
-      this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
+      this.deps.useRenderer(this.buildMainIndicatorLayer(instance, definition))
     }
   }
 
   /** 参数变化时原子重建主图指标 Layer。 */
-  private replaceMainIndicatorLayer(indicatorId: string): void {
+  private replaceMainIndicatorLayer(instance: IndicatorInstanceSpec): void {
+    const indicatorId = instance.indicatorId
     const definition = getRegisteredIndicatorDefinition(indicatorId)
     const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
     if (!definition || !rendererName) return
     this.deps.removeRenderer(makePluginLayerId(rendererName))
-    this.deps.useRenderer(this.buildMainIndicatorLayer(indicatorId, definition))
+    this.deps.useRenderer(this.buildMainIndicatorLayer(instance, definition))
   }
 
   /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。 */
@@ -1128,13 +1142,13 @@ export class ChartIndicatorManager {
 
   /** 构造主图指标 Layer，保留工厂声明的绘制角色，供 Scene 按画布刷新。 */
   private buildMainIndicatorLayer(
-    indicatorId: string,
+    instance: IndicatorInstanceSpec,
     definition: IndicatorMetadata,
   ): Layer<RenderContext> {
     return createIndicatorLayer({
       paneId: 'main',
-      indicatorId,
-      instanceId: `main:${indicatorId}`,
+      indicatorId: instance.indicatorId,
+      instanceId: instance.instanceId,
       definition,
     })
   }
@@ -1153,7 +1167,7 @@ export class ChartIndicatorManager {
     const instances: IndicatorInstanceSpec[] = newIds.map((id) => {
       const existing = this.getMainIndicatorInstance(id)
       return {
-        instanceId: `main:${id}`,
+        instanceId: existing ? existing.instanceId : createMainIndicatorInstanceId(id),
         indicatorId: id,
         paneId: 'main',
         role: 'main',
@@ -1236,10 +1250,10 @@ export class ChartIndicatorManager {
       if (!success) return null
       return resolveIndicatorDefinitionId(definitionId) ?? definitionId
     } else {
-      const instanceId = generateUUID()
+      const instanceId = createIndicatorInstanceId()
       const paneId = generateUUID()
       this.deps.subPaneOps.create(
-        this.createPaneInput(paneId, definition.displayName, params, instanceId),
+        this.createPaneInput(paneId, resolveCanonicalIndicatorId(definition), params, instanceId),
       )
       return instanceId
     }

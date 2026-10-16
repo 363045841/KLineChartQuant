@@ -157,9 +157,9 @@ describe('chartModel', () => {
       kline: {
         instances: [
           {
-            instanceId: 'main:BOLL',
-            indicatorId: 'BOLL',
-            layoutId: 'pane:main:BOLL',
+            instanceId: 'main:ENE',
+            indicatorId: 'ENE',
+            layoutId: 'pane:main:ENE',
             ordinal: 0,
             params: { period: 20 },
           },
@@ -170,7 +170,7 @@ describe('chartModel', () => {
       },
       timeshare: {
         instances: [
-          { instanceId: 'rsi', indicatorId: 'RSI', layoutId: 'RSI_0', ordinal: 0, params: {} },
+          { instanceId: 'rsi', indicatorId: 'MACD', layoutId: 'RSI_0', ordinal: 0, params: {} },
         ],
         paneRatios: { main: 0.75, RSI_0: 0.25 },
         paneSpecs: [
@@ -206,14 +206,14 @@ describe('chartModel', () => {
           instances: [
             {
               instanceId: 'native-rsi',
-              indicatorId: 'RSI',
+              indicatorId: 'CCI',
               layoutId: 'rsi-layout',
               ordinal: 0,
               params: { period: 14 },
             },
             {
               instanceId: 'native-boll',
-              indicatorId: 'BOLL',
+              indicatorId: 'ENE',
               layoutId: 'unused-boll-layout',
               ordinal: 0,
               params: { period: 20 },
@@ -252,17 +252,17 @@ describe('chartModel', () => {
   it('uses an independent indicator workspace for timeshare', async () => {
     await loadBuiltinIndicators()
     expect(
-      getRegisteredIndicatorDefinition('RSI')?.getRendererName({
+      getRegisteredIndicatorDefinition('CCI')?.getRendererName({
         paneId: 'sub_RSI',
-        indicatorId: 'RSI',
+        indicatorId: 'CCI',
       }),
-    ).toBe('rsi_sub_RSI')
+    ).toBe('cci_sub_RSI')
     const kernel = createTestChartStateKernel()
     kernel.indicator.actions.upsertMain('MA', {})
-    kernel.indicator.actions.upsertMain('BOLL', {})
-    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
+    kernel.indicator.actions.upsertMain('ENE', {})
+    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
 
-    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['MA', 'BOLL'])
+    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['MA', 'ENE'])
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
@@ -270,9 +270,9 @@ describe('chartModel', () => {
       { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
       { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
       { name: 'ma', layerId: 'plugin:ma' },
-      { name: 'boll', layerId: 'plugin:boll' },
-      { name: 'rsi_sub_RSI', layerId: 'plugin:rsi_sub_RSI' },
-      { name: 'rsiScale_sub_RSI', layerId: 'plugin:rsiScale_sub_RSI' },
+      { name: 'ene', layerId: 'plugin:ene' },
+      { name: 'cci_sub_RSI', layerId: 'plugin:cci_sub_RSI' },
+      { name: 'cciScale_sub_RSI', layerId: 'plugin:cciScale_sub_RSI' },
     ])
 
     kernel.actions.setDataView('timeshare')
@@ -287,6 +287,6 @@ describe('chartModel', () => {
 
     kernel.actions.setDataView(ChartDataViewId.KLine)
 
-    expect(kernel.activeRenderers$.peek()).toContainEqual({ name: 'boll', layerId: 'plugin:boll' })
+    expect(kernel.activeRenderers$.peek()).toContainEqual({ name: 'ene', layerId: 'plugin:ene' })
   })
 })

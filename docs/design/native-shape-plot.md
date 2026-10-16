@@ -6,9 +6,9 @@ Shape 作为现有 Plot 的第四种 kind，沿用指标计算、PlotCollector�
 
 默认值只有一处来源：`createPlot` 补齐 Plot 字段（线宽、基线、半径、虚线和 Shape 样式），`createFill` 补齐填充字段（不透明度与反转色）。原生指标投影与脚本采集器都调用它们，不再各自写 `??` 兜底；点图半径只有 1.5、填充不透明度只有 0.15 两个数字。
 
-逐 bar 数据仍为数值和颜色。Shape 接受布尔条件，入口把 false 记为 na、true 记为 1。「不绘制」只有一种表示：数据点缺省或 `value` 为 NaN，0 与其他有限值一样是合法取值。相对定位（abovebar/belowbar/top/bottom）只用 K 线的位置，只有 absolute 才把 `value` 当价格；此前「相对定位下 0 表示无信号」的双重语义已取消，条件不成立一律用 false/NaN 表达。样式、尺寸、文字可在 plot 调用参数或 plots 声明中配置，形状和文字颜色均可逐 bar 覆盖。文字支持换行。
+逐 bar 数据仍为数值和颜色。Shape 接受布尔条件，入口把 false 记为 na、true 记为 1。「不绘制」只有一种表示：数据点缺省或 `value` 为 NaN，0 与其他有限值一样是合法取值。相对定位（abovebar/belowbar/top/bottom）只用 K 线的位置，只有 absolute 才把 `value` 当价格；此前「相对定位下 0 表示无信号」的双重语义已取消，条件不成立一律用 false/NaN 表达。样式、尺寸、文字在 plot 调用参数中配置，形状和文字颜色均可逐 bar 覆盖。文字支持换行。
 
-PlotCollector 用一个有序条目集合保存声明和数据列：plots 声明预先创建条目，直接调用按首次出现创建条目，二者不维护各自的收集链路。调用参数复用声明校验，并覆盖对应条目的配置；同一 id 首次输出后 kind 保持固定，整列样式按字段签名比较（不序列化，也不受调用处每根 bar 新建数组影响），颜色随数据点变化。
+PlotCollector 用一个有序条目集合保存数据列：Plot 按首次出现的 name 建立条目，类型取调用处。调用参数复用契约校验并写入条目配置；同一 id 首次输出后 kind 保持固定，整列样式按字段签名比较（不序列化，也不受调用处每根 bar 新建数组影响），颜色随数据点变化。
 
 填充引用只在两处校验：生产者 PlotCollector.collect 与投影端 projectPlots，两端都调用契约的 `validatePlotFills`。Plot Layer 不重复判定，只在投影缓存里解析一次端点，滚动重放不重新按 id 查找。
 
@@ -20,4 +20,4 @@ abovebar/belowbar 使用 offset 后目标 K 线的 high/low；分时数据使用
 
 默认采用 xcross、abovebar、auto。尺寸使用 CSS 像素，DPR 由现有画布变换统一处理。auto 使用固定默认尺寸；本实现覆盖绘图语义，不承诺 TradingView 私有字体和尺寸的像素级一致。
 
-手动验证：在脚本编辑器运行 packages/script/scripts/shape.js，使用实际行情检查 12 种形状、文字、滚动和缩放；将声明 location 改为 top/bottom/absolute 验证定位。自动测试覆盖 VM 到收集器、纯 Shape 绘制、na 表示（false 与 NaN 不绘制、0 会绘制）、价格范围、offset、文字颜色和滚动缓存。
+手动验证：在脚本编辑器运行 packages/script/scripts/shape.ts，使用实际行情检查 12 种形状、文字、滚动和缩放；将调用 location 改为 top/bottom/absolute 验证定位。自动测试覆盖 VM 到收集器、纯 Shape 绘制、na 表示（false 与 NaN 不绘制、0 会绘制）、价格范围、offset、文字颜色和滚动缓存。

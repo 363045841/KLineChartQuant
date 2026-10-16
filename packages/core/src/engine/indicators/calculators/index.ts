@@ -1,7 +1,5 @@
 export { calcAwesomeOscillatorData } from './awesomeOscillator.js'
 export type {
-  BOLLPoint,
-  DonchianPoint,
   ENEPoint,
   IchimokuPoint,
   KeltnerPoint,
@@ -9,8 +7,6 @@ export type {
   SuperTrendPoint,
 } from './bands.js'
 export {
-  calcBOLLData,
-  calcDonchianData,
   calcENEData,
   calcIchimokuData,
   calcKeltnerData,
@@ -36,22 +32,15 @@ export {
   calcTEMAData,
   calcTRIMAData,
   calcVWMAData,
-  calcWMAData,
   calcZLEMAData,
   DEFAULT_MA_PERIODS,
 } from './movingAverages.js'
-export type { KSTPoint, MACDPoint, STOCHPoint, TRIXResult } from './oscillators.js'
+export type { KSTPoint, MACDPoint, TRIXResult } from './oscillators.js'
 export {
   calcCCIData,
-  calcFASTKData,
   calcKSTData,
   calcMACDData,
-  calcMOMData,
-  calcROCData,
-  calcRSIData,
-  calcSTOCHData,
   calcTRIXData,
-  calcWMSRData,
 } from './oscillators.js'
 export type {
   FibPoint,

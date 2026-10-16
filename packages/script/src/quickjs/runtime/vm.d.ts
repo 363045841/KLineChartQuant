@@ -16,6 +16,10 @@ type InputDef<T> = import('@363045841yyt/klinechart-plot-contracts').InputDef<T>
 
 /** input() 的展示选项契约。 */
 type InputOptions = import('@363045841yyt/klinechart-plot-contracts').InputOptions
+/** 输入方法对象，与编辑器共用类型。 */
+type ScriptInput = import('../../editor/types.js').ScriptInput
+type NumberInputOptions = import('@363045841yyt/klinechart-plot-contracts').NumberInputOptions
+type StringInputOptions = import('@363045841yyt/klinechart-plot-contracts').StringInputOptions
 
 /** 内置技术分析库的公开契约。 */
 type TechnicalAnalysisLibrary = import('../../Library/types.js').TechnicalAnalysisLibrary
@@ -33,10 +37,33 @@ declare function __read(field: string, offset: number): number
 declare function __count(): number
 
 /** 宿主注入：上报当前 K 线的绘图点。 */
-declare function __plot(kind: PlotKind, value: number, options: ScriptPlotOptions): void
+declare function __plot(
+  kind: PlotKind,
+  value: number | null,
+  name: string,
+  options?: ScriptPlotOptions,
+): void
 
-/** 调用处的绘图选项，与编辑器共用契约。 */
+/** 调用处的样式选项，与编辑器共用契约。 */
 type ScriptPlotOptions = import('../../editor/types.js').ScriptPlotOptions
+
+/** 绘图方法对象，与编辑器共用契约。 */
+type ScriptPlot = import('../../editor/types.js').ScriptPlot
+
+/** plot.* 返回的绘图句柄，与编辑器共用契约。 */
+type PlotRef = import('../../editor/types.js').PlotRef
+
+/** fill 的可选样式，与编辑器共用契约。 */
+type ScriptFillOptions = import('../../editor/types.js').ScriptFillOptions
+
+/** 宿主注入：登记两个 Plot 之间的填充。 */
+declare function __fill(
+  from: string,
+  to: string,
+  color: string | null,
+  title?: string,
+  options?: ScriptFillOptions,
+): void
 
 /** 宿主注入：脚本参数，键为 inputs 中声明的参数名。 */
 declare const params: Record<string, ScriptParamValue>

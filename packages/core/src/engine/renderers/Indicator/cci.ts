@@ -9,7 +9,6 @@ import { createCciScaleLayer } from './scale/cci_scale.js'
   displayName: 'CCI',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'momentum',
   defaultPaneId: 'sub_CCI',
   scaleRendererFactory: createCciScaleLayer,
   plots: {
@@ -29,5 +28,5 @@ import { createCciScaleLayer } from './scale/cci_scale.js'
   },
 })
 export class CCIIndicatorDefinition {
-  static rendererFactory = plotRenderer('cci', 'sub_CCI')
+  static rendererFactory = plotRenderer('cci')
 }

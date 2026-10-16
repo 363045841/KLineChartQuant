@@ -3,19 +3,25 @@
   <div class="script-workspace">
     <div class="script-workspace__toolbar">
       <div class="script-workspace__toolbar-info">
-        <span class="script-workspace__language">JavaScript</span>
+        <span class="script-workspace__language">TypeScript</span>
         <LoadingSpinner v-if="languageLoading" :size="12" class="script-workspace__spinner" />
       </div>
       <span v-if="identity === 'builtin'" class="script-workspace__readonly">
         内置脚本只读，请创建副本后编辑
       </span>
       <div class="script-workspace__toolbar-actions">
-        <BaseButton v-if="identity === 'builtin'" @click="emit('create-copy')">创建副本</BaseButton>
-        <BaseTooltip content="设置" placement="bottom">
-          <button type="button" class="script-workspace__icon-button" aria-label="设置">
-            <IconTablerSettings aria-hidden="true" />
+        <BaseTooltip content="格式化" placement="bottom">
+          <button
+            type="button"
+            class="script-workspace__icon-button"
+            aria-label="格式化"
+            :disabled="!editable || languageLoading || !!languageError"
+            @click="formatDocument"
+          >
+            <IconTablerAlignLeft aria-hidden="true" />
           </button>
         </BaseTooltip>
+        <BaseButton v-if="identity === 'builtin'" @click="emit('create-copy')">创建副本</BaseButton>
         <BaseTooltip content="更多" placement="bottom">
           <button type="button" class="script-workspace__icon-button" aria-label="更多">
             <IconTablerDots aria-hidden="true" />
@@ -31,6 +37,11 @@
             <IconTablerWindowMaximize aria-hidden="true" />
           </button>
         </BaseTooltip>
+        <BaseTooltip content="设置" placement="bottom">
+          <button type="button" class="script-workspace__icon-button" aria-label="设置">
+            <IconTablerSettings aria-hidden="true" />
+          </button>
+        </BaseTooltip>
       </div>
     </div>
     <div ref="editorHost" class="script-editor" />
@@ -41,6 +52,7 @@
 <script setup lang="ts">
   import { computed, useTemplateRef } from 'vue'
 
+  import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerDots from '~icons/tabler/dots'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerWindowMaximize from '~icons/tabler/window-maximize'
@@ -76,7 +88,7 @@
     set: (value) => emit('update:source', value),
   })
   const editable = computed(() => props.identity === 'user' && !props.saving)
-  const { languageLoading, languageError } = useCodeMirror(
+  const { languageLoading, languageError, formatDocument } = useCodeMirror(
     editorHost,
     source,
     (next) => emit('update:source', next),
@@ -159,6 +171,13 @@
   .script-workspace__icon-button:focus-visible {
     outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
+  }
+
+  .script-workspace__icon-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
   }
 
   .script-workspace__icon-button svg {

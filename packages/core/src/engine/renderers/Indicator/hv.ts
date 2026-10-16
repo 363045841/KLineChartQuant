@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'HV',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'volatility',
   defaultPaneId: 'sub_HV',
   plots: singleLinePlots(
     { id: 'hv', label: 'HV', show: 'showHV', color: (c) => c.palette.i8 },
@@ -23,5 +22,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class HVIndicatorDefinition {
-  static rendererFactory = plotRenderer('hv', 'sub_HV')
+  static rendererFactory = plotRenderer('hv')
 }

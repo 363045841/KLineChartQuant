@@ -10,15 +10,13 @@ import {
 } from '@/components/footprint/types.js'
 import { computed, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import {
-  getIndicatorDescriptor,
   getIndicatorDescriptors,
+  resolveCanonicalIndicatorId,
+  resolveIndicatorDefinitionId,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
-  getBuiltinIndicatorTypeLabel,
-  getBuiltinIndicatorTypeOrder,
   type IndicatorInputDef,
   IndicatorKind,
-  type IndicatorType,
 } from '../../indicators/indicatorMetadata.js'
 
 export interface ParamConfig {
@@ -41,9 +39,6 @@ export interface Indicator {
   label: string
   name: string
   pane: 'main' | 'sub'
-  indicatorType: IndicatorType
-  indicatorTypeLabel: string
-  indicatorTypeOrder: number
   description?: string
   params?: ParamConfig[]
 }
@@ -1466,6 +1461,9 @@ function scriptParamConfigs(
               ? 'boolean'
               : 'string',
         default: value,
+        min: inputDefs?.[key]?.min,
+        max: inputDefs?.[key]?.max,
+        step: inputDefs?.[key]?.step,
         ...(options?.length
           ? { options: options.map((option) => ({ value: option, label: option })) }
           : {}),
@@ -1495,17 +1493,11 @@ function readIndicatorCatalog(): readonly Indicator[] {
           ...def.defaultOptions,
         }
         return {
-          id: def.displayName,
+          id: resolveCanonicalIndicatorId(def),
           source: def.source,
           label: def.displayName,
           name: ui?.name ?? def.displayName,
           pane: def.category === 'main' ? ('main' as const) : ('sub' as const),
-          indicatorType: def.indicatorType,
-          indicatorTypeLabel:
-            def.indicatorTypeLabel ??
-            getBuiltinIndicatorTypeLabel(def.indicatorType) ??
-            def.indicatorType,
-          indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
           params:
             def.source === 'script'
@@ -1533,8 +1525,8 @@ export function findIndicator(id: string): Indicator | undefined {
   const indicators = readIndicatorCatalog()
   const direct = indicators.find((i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm)
   if (direct) return direct
-  // 兼容内部 name / 别名输入：先解析为规范展示名再匹配
-  const canonicalId = getIndicatorDescriptor(id)?.displayName
+  // 兼容内部 name / 别名输入：先解析为规范 ID 再匹配
+  const canonicalId = resolveIndicatorDefinitionId(id)
   if (!canonicalId) return undefined
   const canonical = normalizeId(canonicalId)
   return indicators.find((i) => normalizeId(i.id) === canonical)

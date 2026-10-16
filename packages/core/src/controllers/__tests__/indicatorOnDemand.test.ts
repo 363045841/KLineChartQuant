@@ -92,19 +92,19 @@ describe('indicator catalog without implementations', () => {
   it('lists every indicator for the picker without loading any module', () => {
     const catalog = allIndicatorDefinitions()
     expect(catalog).toHaveLength(userIndicatorNames.length)
-    expect(catalog.find((item) => item.id === 'RSI')?.params?.map((param) => param.key)).toEqual(
-      expect.arrayContaining(['period1', 'period2', 'period3']),
+    expect(catalog.find((item) => item.id === 'CCI')?.params?.map((param) => param.key)).toEqual(
+      expect.arrayContaining(['period']),
     )
     expect(loads.size).toBe(0)
     expect(getRegisteredIndicatorDefinitions()).toEqual([])
   })
 
   it('loads exactly the requested module, once, when an indicator is added', async () => {
-    await Promise.all([loadIndicatorDefinitions(['RSI']), loadIndicatorDefinitions(['rsi'])])
-    expect([...loads]).toEqual([['rsi', 1]])
-    expect(loadedNames()).toEqual(['rsi'])
-    await loadIndicatorDefinitions(['RSI', 'unknown-indicator'])
-    expect([...loads]).toEqual([['rsi', 1]])
+    await Promise.all([loadIndicatorDefinitions(['CCI']), loadIndicatorDefinitions(['cci'])])
+    expect([...loads]).toEqual([['cci', 1]])
+    expect(loadedNames()).toEqual(['cci'])
+    await loadIndicatorDefinitions(['CCI', 'unknown-indicator'])
+    expect([...loads]).toEqual([['cci', 1]])
   })
 })
 
@@ -139,9 +139,9 @@ describe('chart controller on-demand loading', () => {
 
   it('restores a saved layout only after loading the indicators it references', async () => {
     const first = await mountController()
-    await first.controller.loadIndicators(['RSI', 'BOLL'])
-    expect(first.controller.addIndicator('RSI')).not.toBeNull()
-    expect(first.controller.addIndicator('BOLL')).not.toBeNull()
+    await first.controller.loadIndicators(['CCI', 'ENE'])
+    expect(first.controller.addIndicator('CCI')).not.toBeNull()
+    expect(first.controller.addIndicator('ENE')).not.toBeNull()
     await first.controller.saveLayout({ name: 'restored' })
     await first.controller.dispose()
     first.container.remove()
@@ -151,25 +151,25 @@ describe('chart controller on-demand loading', () => {
     loads.clear()
     const second = await mountController()
     try {
-      expect(loads.get('rsi')).toBe(1)
-      expect(loads.get('boll')).toBe(1)
+      expect(loads.get('cci')).toBe(1)
+      expect(loads.get('ene')).toBe(1)
       expect([...loads.keys()].filter((name) => userIndicatorNames.includes(name)).sort()).toEqual([
-        'boll',
-        'rsi',
+        'cci',
+        'ene',
       ])
       const catalogIds = new Set(second.controller.catalog.map((item) => item.id))
       const restored = second.controller.indicators
         .peek()
         .filter((instance) => catalogIds.has(instance.definitionId))
-      expect(restored.map((instance) => instance.definitionId).sort()).toEqual(['BOLL', 'RSI'])
-      const rsiPane = second.controller.subPanes.peek().find((item) => item.indicatorId === 'RSI')
+      expect(restored.map((instance) => instance.definitionId).sort()).toEqual(['CCI', 'ENE'])
+      const rsiPane = second.controller.subPanes.peek().find((item) => item.indicatorId === 'CCI')
       expect(rsiPane).toBeDefined()
       // 副图首帧即可使用该指标的 renderer 与坐标轴，不存在先空后补的帧。
       expect(
-        second.controller.getRenderer(resolveIndicatorLayerId('RSI', rsiPane!.paneId)),
+        second.controller.getRenderer(resolveIndicatorLayerId('CCI', rsiPane!.paneId)),
       ).toBeDefined()
       expect(
-        second.controller.getRenderer(resolveIndicatorLayerId('RSI', rsiPane!.paneId, 'scale')),
+        second.controller.getRenderer(resolveIndicatorLayerId('CCI', rsiPane!.paneId, 'scale')),
       ).toBeDefined()
     } finally {
       await second.controller.dispose()
@@ -194,8 +194,6 @@ describe('static catalog fidelity', () => {
             aliases: definition.aliases,
             displayName: definition.displayName,
             category: definition.category,
-            indicatorType: definition.indicatorType,
-            indicatorTypeLabel: definition.indicatorTypeLabel,
             defaultPaneId: definition.defaultPaneId,
             dataViews: definition.dataViews,
             allowMainPane: definition.allowMainPane,

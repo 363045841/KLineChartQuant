@@ -5,7 +5,9 @@
     "packages/core/src/engine/state/index.ts",
     "packages/vue/src/index.ts",
     "packages/react/src/index.ts",
-    "packages/angular/src/index.ts"
+    "packages/angular/src/index.ts",
+    "packages/vue/preview/main.ts",
+    "packages/script/src/quickjs/runtime/indicator.ts"
   ],
   "ignorePatterns": [
     "**/dist/**",

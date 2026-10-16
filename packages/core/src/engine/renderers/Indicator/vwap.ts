@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'VWAP',
   kind: IndicatorKind.Indicator,
   category: 'volume',
-  indicatorType: 'volume',
   defaultPaneId: 'sub_VWAP',
   plots: singleLinePlots({
     id: 'vwap',
@@ -25,5 +24,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class VWAPIndicatorDefinition {
-  static rendererFactory = plotRenderer('vwap', 'sub_VWAP')
+  static rendererFactory = plotRenderer('vwap')
 }

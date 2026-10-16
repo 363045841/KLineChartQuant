@@ -382,8 +382,6 @@ export interface RenderGeometryContext {
   visiblePriceExtrema?:
     | import('../../engine/viewport/visiblePriceExtrema.js').VisiblePriceExtrema
     | null
-  /** 本帧可视极值跨越右轴文字数量级边界，允许低频实测并调整宽度。 */
-  requiresRightAxisWidthMeasurement?: boolean
   viewport: {
     scrollLeft: number
     plotWidth: number

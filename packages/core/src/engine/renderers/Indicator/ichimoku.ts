@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Ichimoku',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'trend',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
@@ -67,8 +66,10 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
         from: 'spanA',
         to: 'spanB',
         show: 'showCloud',
-        color: (c) => c.candleUpBody,
-        reverseColor: (c) => c.candleDownBody,
+        color: (c, from, to) => {
+          if (from === undefined || to === undefined) return null
+          return from > to ? c.candleUpBody : c.candleDownBody
+        },
       },
     ],
   },
@@ -90,5 +91,7 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class IchimokuDefinition {
-  static rendererFactory = plotRenderer('ichimoku', 'main')
+  // @indicator 装饰器按名称读取静态 rendererFactory，静态分析无法识别该读取。
+  // fallow-ignore-next-line unused-class-member
+  static rendererFactory = plotRenderer('ichimoku')
 }

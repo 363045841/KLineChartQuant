@@ -76,15 +76,6 @@ export function calcEXPMAData(
   return result
 }
 
-export function calcWMAData(data: KLineData[], period: number): (number | undefined)[] {
-  if (data.length === 0 || period <= 0) {
-    return new Array(data.length).fill(undefined)
-  }
-  const closes = new Array<number | undefined>(data.length)
-  for (let i = 0; i < data.length; i++) closes[i] = data[i]!.close
-  return _computeWMAOnNumbers(closes, period)
-}
-
 export function calcDEMAData(data: KLineData[], period: number): (number | undefined)[] {
   const n = data.length
   const result: (number | undefined)[] = new Array(n).fill(undefined)

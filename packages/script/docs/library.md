@@ -14,7 +14,7 @@ defineLibrary('stats', {
 
 // 在指标脚本里使用
 onBar() {
-  plot(PlotKind.Line, stats.mean([open, close]), { id: 'mean' })
+  plot.Line(stats.mean([open, close]), 'mean')
   // 等价：importLibrary('stats').mean([open, close])
 }
 ```
@@ -46,3 +46,20 @@ declare module '@363045841yyt/klinechart-script' {
 ```
 
 库运行在同一个 QuickJS Context 内，受相同的时间和内存限制。
+
+## 补全列表中的中文名
+
+在函数的公开类型声明中用 JSDoc `@summary` 标注简短中文名，编辑器会将它显示在补全项右侧。
+选择补全时仍然插入函数标识符；正文注释继续用于悬浮说明。
+
+```ts
+interface StatsLibrary {
+  /**
+   * 返回窗口内数值的算术平均值。
+   * @summary 算术平均
+   */
+  mean(values: number[]): number
+}
+```
+
+内置 `ta` 的中文名统一维护在 `Library/types.ts` 中，库别名和 `importLibrary('ta')` 也读取同一份声明。

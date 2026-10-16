@@ -7,6 +7,7 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
+import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
@@ -264,7 +265,7 @@ export function createMARenderState(
       id: `ma${period}`,
       label: `MA${period}`,
       kind: 'line',
-      width: 1,
+      size: ShapeSize.Auto,
       dash: [],
       offset: 0,
       visible: (overrides.enabledPeriods ?? [5, 10, 20, 30, 60]).includes(Number(period)),

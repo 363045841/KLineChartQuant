@@ -1,7 +1,6 @@
-/** 装配现成 CodeMirror 类型适配并管理独立语言 Worker 的生命周期。 */
-import { javascriptLanguage } from '@codemirror/lang-javascript'
-import { type Extension, StateEffect, StateField } from '@codemirror/state'
-import { EditorView, showTooltip, type Tooltip, ViewPlugin } from '@codemirror/view'
+/** 装配 CodeMirror 语言适配并管理独立语言 Worker 的生命周期。 */
+import { typescriptLanguage } from '@codemirror/lang-javascript'
+import type { Extension } from '@codemirror/state'
 import {
   tsAutocompleteWorker,
   tsFacetWorker,
@@ -9,72 +8,11 @@ import {
   tsLinterWorker,
   tsSyncWorker,
 } from '@valtown/codemirror-ts'
-import { type Remote, releaseProxy, wrap } from 'comlink'
+import { releaseProxy, wrap } from 'comlink'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from '../types.js'
+import { renderScriptHover } from './renderScriptHover.js'
 import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker&inline'
-
-const signatureEffect = StateEffect.define<Tooltip | null>()
-const signatureField = StateField.define<Tooltip | null>({
-  create: () => null,
-  update(value, transaction) {
-    if (transaction.docChanged || transaction.selection) value = null
-    for (const effect of transaction.effects) {
-      if (effect.is(signatureEffect)) value = effect.value
-    }
-    return value
-  },
-  provide: (field) => showTooltip.from(field),
-})
-
-/** 查询签名并忽略已过期的响应；实际调用识别和参数列表由 TypeScript 提供。 */
-function signatureHints(worker: Remote<ScriptLanguageWorker>): Extension {
-  return ViewPlugin.define((view) => {
-    let revision = 0
-    let disposed = false
-    /** 光标或文本变化时获取当前函数签名。 */
-    async function updateSignature(): Promise<void> {
-      const request = ++revision
-      const state = view.state
-      const position = state.selection.main.head
-      const signature = await worker.getSignatureHelp(SCRIPT_EDITOR_FILE, position)
-      if (
-        disposed ||
-        revision !== request ||
-        view.state.doc !== state.doc ||
-        view.state.selection.main.head !== position
-      )
-        return
-      view.dispatch({
-        effects: signatureEffect.of(
-          signature
-            ? {
-                pos: position,
-                above: true,
-                create() {
-                  const dom = document.createElement('div')
-                  dom.className = 'cm-script-signature'
-                  dom.textContent = signature
-                  return { dom }
-                },
-              }
-            : null,
-        ),
-      })
-    }
-    return {
-      update(update) {
-        if (!update.docChanged && !update.selectionSet) return
-        // ViewPlugin 先于文档同步监听器执行，微任务保证 Worker 先收到新文档。
-        queueMicrotask(() => {
-          if (!disposed) void updateSignature()
-        })
-      },
-      destroy() {
-        disposed = true
-      },
-    }
-  })
-}
+import { scriptSignatureHelp } from './scriptSignatureHelp.js'
 
 /** 为当前编辑器创建服务；dispose 在初始化尚未结束时也能终止 Worker。 */
 export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
@@ -86,20 +24,26 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
   const failed = new Promise<never>((_resolve, reject) => {
     rejectFailure = reject
   })
-  // Comlink 不会把 Worker 的模块加载错误转换成 RPC 拒绝，需要监听原生错误。
-  const handleError = (event: ErrorEvent) => {
-    const error = new Error(event.message || '语言服务 Worker 启动失败')
+  /** 原生 Worker 错误与自定义查询错误共用当前会话的失败链路。 */
+  const reportFailure = (error: Error) => {
+    if (disposed) return
     if (initialized) onFailure(error)
     else rejectFailure(error)
   }
+  // Comlink 不会把 Worker 的模块加载错误转换成 RPC 拒绝，需要监听原生错误。
+  const handleError = (event: ErrorEvent) => {
+    reportFailure(new Error(event.message || '语言服务 Worker 启动失败'))
+  }
   const handleMessageError = () => {
-    const error = new Error('语言服务 Worker 消息无法解析')
-    if (initialized) onFailure(error)
-    else rejectFailure(error)
+    reportFailure(new Error('语言服务 Worker 消息无法解析'))
   }
   innerWorker.addEventListener('error', handleError)
   innerWorker.addEventListener('messageerror', handleMessageError)
   return {
+    /** 复用独立语言 Worker 格式化当前原文。 */
+    formatDocument(source: string) {
+      return worker.formatDocument(SCRIPT_EDITOR_FILE, source)
+    },
     /** 初始化后返回服务扩展，现有文档由调用方在挂载前传入。 */
     async initialize(getSource: () => string): Promise<Extension> {
       await Promise.race([
@@ -116,10 +60,9 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
         tsFacetWorker.of({ worker, path: SCRIPT_EDITOR_FILE }),
         tsSyncWorker(),
         tsLinterWorker(),
-        tsHoverWorker(),
-        javascriptLanguage.data.of({ autocomplete: tsAutocompleteWorker() }),
-        signatureField,
-        signatureHints(worker),
+        tsHoverWorker({ renderTooltip: renderScriptHover }),
+        typescriptLanguage.data.of({ autocomplete: tsAutocompleteWorker() }),
+        scriptSignatureHelp(worker, reportFailure),
       ]
     },
     /** 释放代理并终止当前会话，关闭弹窗后不保留语言程序。 */

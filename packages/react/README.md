@@ -43,6 +43,7 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 ## ✨ Core Features
 
 - **Agent Native** - The chart core exposes its capabilities as `@Tool`-decorated domain primitives, and the Agent calls the same primitives as the UI. Tools are a subset of actions: one shared state, one execution path, no bridge layer
+- **Script Indicators** - Write indicators in plain TypeScript. Sandboxed QuickJS execution with time and memory budgets, a built-in editor with completions and hover signatures, and plots that flow through the normal rendering chain
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
 - **High Performance** - Smoothly handles tens of thousands of data points, no lag during zoom or pan; supports **190-200fps on 200Hz displays** with single-frame generation time as low as **2ms**
@@ -103,6 +104,7 @@ For full setup including the data backend, see the [root README]../../README.md)
 ## 📖 More Documentation
 
 - [Rendering Pipeline](../../docs/rendering/rendering-pipeline.md) - Current paint path: FrameTransaction, Scene/Layer, Renderer backends
+- [Script Indicators](../../packages/script/docs/indicator.md) - Declaring an indicator in TypeScript: inputs, Plot API, libraries
 
 
 ## 🗺️ Roadmap
@@ -130,6 +132,9 @@ For full setup including the data backend, see the [root README]../../README.md)
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
 | `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
+| `@363045841yyt/klinechart-script` | Sandboxed script indicator engine (QuickJS runtime + language service) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script) |
+| `@363045841yyt/klinechart-script-chart` | Registers script indicators as chart indicators | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script-chart) |
+| `@363045841yyt/klinechart-plot-contracts` | Plot declaration contracts shared by the engine and the script runtime | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-plot-contracts) |
 
 
 ## 📄 License

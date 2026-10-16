@@ -210,8 +210,6 @@ const DESCRIPTOR_FIELDS = [
   ['aliases'],
   ['displayName'],
   ['category'],
-  ['indicatorType'],
-  ['indicatorTypeLabel'],
   ['defaultPaneId'],
   ['dataViews'],
   ['allowMainPane'],

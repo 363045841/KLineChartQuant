@@ -8,7 +8,9 @@
     "**/dist",
     "**/out",
     "**/*.config.*",
-    "packages/mobile/**"
+    "packages/mobile/**",
+    "packages/script/scripts/*.ts",
+    "packages/script/src/quickjs/runtime/**"
   ],
   "compilerOptions": {
     "incremental": true,

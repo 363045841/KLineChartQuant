@@ -8,7 +8,6 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   displayName: 'Parkinson',
   kind: IndicatorKind.Indicator,
   category: 'oscillator',
-  indicatorType: 'volatility',
   defaultPaneId: 'sub_Parkinson',
   plots: singleLinePlots(
     { id: 'parkinson', label: 'Parkinson', show: 'showParkinson', color: (c) => c.palette.i6 },
@@ -23,5 +22,5 @@ import { plotRenderer, singleLinePlots } from '@/engine/plots/impl/plotDefinitio
   },
 })
 export class ParkinsonIndicatorDefinition {
-  static rendererFactory = plotRenderer('parkinson', 'sub_Parkinson')
+  static rendererFactory = plotRenderer('parkinson')
 }

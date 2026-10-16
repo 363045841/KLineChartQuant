@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'EXPMA',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   mainPane: { toActiveConfig: (params, active) => (active ? params : null) },
   plots: {
@@ -24,5 +23,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class EXPMADefinition {
-  static rendererFactory = plotRenderer('expma', 'main')
+  static rendererFactory = plotRenderer('expma')
 }

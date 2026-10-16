@@ -95,7 +95,7 @@
               bottom: `${props.bottomAxisHeight + 8}px`,
               '--chart-brand-axis-width': `${
                 chartMode === 'timeshare'
-                  ? props.rightAxisWidth + props.priceLabelWidth
+                  ? leftAxisHostWidth
                   : priceAxisPosition === 'left' ? axisHostWidth : 0
               }px`,
             }"
@@ -105,7 +105,7 @@
             ref="leftAxisLayerRef"
             v-show="chartMode === 'timeshare'"
             class="left-axis-host"
-            :style="{ width: props.rightAxisWidth + props.priceLabelWidth + 'px' }"
+            :style="{ width: leftAxisHostWidth + 'px' }"
             aria-label="价格轴"
           ></div>
           <div class="pane-separator-layer" aria-hidden="true">
@@ -1054,7 +1054,6 @@
   const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
   const {
     open: scriptEditorOpen,
-    definitionId: scriptEditorDefinitionId,
     source: scriptEditorSource,
     error: scriptEditorError,
     saved: scriptEditorSaved,
@@ -1074,7 +1073,7 @@
   } = useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
 
   const scriptEditorTitle = computed(() =>
-    scriptEditorDefinitionId.value ? `编辑脚本 · ${scriptEditorDefinitionId.value}` : '新建脚本',
+    scriptEditorSession.name.value ? `编辑脚本 · ${scriptEditorSession.name.value}` : '新建脚本',
   )
 
   /** 把编辑器搬进独立窗口；打开失败时提示用户，不静默丢弃。 */
@@ -1524,6 +1523,14 @@
   )
   const axisHostWidth = computed(() =>
     Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
+  )
+  const effectiveLeftAxisWidth = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.leftAxisEffectiveWidth,
+    () => 0,
+  )
+  const leftAxisHostWidth = computed(() =>
+    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveLeftAxisWidth.value),
   )
 
   // 位置只改变同一 DOM 轴的 flex 顺序，Canvas、范围与交互实例保持同一份。

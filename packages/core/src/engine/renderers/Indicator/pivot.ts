@@ -8,7 +8,6 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   displayName: 'Pivot',
   kind: IndicatorKind.Indicator,
   category: 'main',
-  indicatorType: 'support-resistance',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {
@@ -53,5 +52,5 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
   },
 })
 export class PivotDefinition {
-  static rendererFactory = plotRenderer('pivot', 'main')
+  static rendererFactory = plotRenderer('pivot')
 }

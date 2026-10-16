@@ -4,7 +4,7 @@
  * 脚本语言服务按需加载，源码是文档的唯一输入，关闭弹窗即释放当前语言会话。
  */
 import { javascript } from '@codemirror/lang-javascript'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import { EditorView } from 'codemirror'
 import { type Ref, shallowRef, watch } from 'vue'
 import { scriptEditorSetup } from './scriptEditor/impl/editorSetup.js'
@@ -20,11 +20,37 @@ export function useCodeMirror(
   view: Ref<EditorView | null>
   languageLoading: Ref<boolean>
   languageError: Ref<string | null>
+  formatDocument(): Promise<void>
 } {
   const view = shallowRef<EditorView | null>(null)
   const languageLoading = shallowRef(false)
   const languageError = shallowRef<string | null>(null)
   const editing = new Compartment()
+  let languageSupport: ReturnType<
+    typeof import('./scriptEditor/impl/languageSupport.js').createScriptLanguageSupport
+  > | undefined
+  /** 仅应用当前文档的格式化结果，保留撤销能力和光标映射。 */
+  async function formatDocument(): Promise<void> {
+    const instance = view.value
+    const support = languageSupport
+    if (!instance || !support || !editable.value) return
+    const original = instance.state.doc
+    try {
+      const edits = await support.formatDocument(original.toString())
+      if (view.value !== instance || instance.state.doc !== original || !editable.value) return
+      instance.dispatch({
+        changes: edits.map(({ span, newText }) => ({
+          from: span.start,
+          to: span.start + span.length,
+          insert: newText,
+        })),
+        annotations: Transaction.userEvent.of('input.format'),
+      })
+      instance.focus()
+    } catch (error) {
+      languageError.value = `格式化失败：${error instanceof Error ? error.message : String(error)}`
+    }
+  }
 
   watch(
     host,
@@ -47,7 +73,7 @@ export function useCodeMirror(
           doc: value.value,
           extensions: [
             scriptEditorSetup,
-            javascript(),
+            javascript({ typescript: true }),
             scriptEditorTheme,
             EditorState.tabSize.of(2),
             editing.of([
@@ -72,6 +98,7 @@ export function useCodeMirror(
           disposeLanguage = support.dispose
           const extensions = await support.initialize(() => instance.state.doc.toString())
           if (!active) return
+          languageSupport = support
           instance.dispatch({ effects: language.reconfigure(extensions) })
         })
         .catch(showLanguageError)
@@ -80,6 +107,7 @@ export function useCodeMirror(
         })
       onCleanup(() => {
         active = false
+        languageSupport = undefined
         disposeLanguage?.()
         instance.destroy()
         view.value = null
@@ -103,5 +131,5 @@ export function useCodeMirror(
     instance.dispatch({ changes: { from: 0, to: current.length, insert: next } })
   })
 
-  return { view, languageLoading, languageError }
+  return { view, languageLoading, languageError, formatDocument }
 }
