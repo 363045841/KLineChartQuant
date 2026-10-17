@@ -1,6 +1,5 @@
 /** 预览启动：在 Script Worker 中注册指标，并接入行情服务。 */
-import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-import { builtinScriptSources } from '@363045841yyt/klinechart-script'
+import { createBuiltinScriptService } from '@363045841yyt/klinechart-script-chart'
 import { createApp } from 'vue'
 import App from './App.vue'
 import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
@@ -12,9 +11,7 @@ import '../src/styles/scrollbar.css'
 const marketDataHost = createPreviewMarketDataHost()
 /** 脚本声明在 Worker 内准备完成后挂载应用。 */
 async function bootstrap(): Promise<void> {
-  const scripts = await createScriptService([], {
-    builtinSources: builtinScriptSources,
-  })
+  const scripts = await createBuiltinScriptService()
   const app = createApp(App)
   app.onUnmount(() => scripts.dispose())
   app
