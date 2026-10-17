@@ -369,9 +369,12 @@ describe('ChartIndicatorManager', () => {
     manager.destroy()
   })
 
-  it('历史页写入后提交足迹结果并请求绘制', async () => {
+  it('启用足迹时挂载绘制层，并将历史成交结果绘制到覆盖画布', async () => {
     const data = createKLineData(100)
     manager.enableMainIndicator('Footprint')
+    const layer = deps.getLayer(makePluginLayerId('footprint'))
+    expect(layer).not.toBeNull()
+    expect(layer?.role).toBe('overlay')
     manager.updateIndicatorData(data, { start: 80, end: 82 }, 1)
     const buffer = createTradeBuffer({
       id: 'binance:spot:BTCUSDT',
@@ -409,6 +412,23 @@ describe('ChartIndicatorManager', () => {
         const state = manager.createRenderStateReader().get<FootprintRenderState>(instanceId)
         expect(state?.series.bars[81]?.total).toBe('25')
       })
+      const ctx = createMockCanvasContext()
+      layer?.paint(
+        createContextWithInstanceState(
+          ctx,
+          instanceId,
+          manager.createRenderStateReader().get(instanceId),
+          {
+            overlayCtx: ctx,
+            range: { start: 81, end: 82 },
+            kLineCenters: [200],
+            kWidth: 60,
+            kGap: 4,
+            pane: { height: 500, yAxis: { priceToY: (price) => 500 - price } },
+          },
+        ),
+      )
+      expect(ctx.fillRect).toHaveBeenCalled()
       expect(deps.scheduleDraw).toHaveBeenCalled()
     } finally {
       unsubscribe()

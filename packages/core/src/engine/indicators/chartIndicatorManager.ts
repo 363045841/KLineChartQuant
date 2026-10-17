@@ -1110,8 +1110,8 @@ export class ChartIndicatorManager {
   private enableMainIndicatorRenderer(instance: IndicatorInstanceSpec): void {
     const indicatorId = instance.indicatorId
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const mainPane = definition?.mainPane
-    if (!definition || !mainPane) return
+    // mainPane 只声明模式启停转换；普通主图实例的绘制层由已启用实例决定。
+    if (!definition) return
 
     const rendererName = definition.getRendererName({ paneId: 'main', indicatorId })
     const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
