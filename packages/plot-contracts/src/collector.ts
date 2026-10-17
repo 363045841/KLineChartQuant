@@ -11,7 +11,8 @@ import type {
   ColumnsPlotDeclaration,
   HistogramPlotDeclaration,
   LinePlotDeclaration,
-  PlotDeclaration,
+  OhlcPlotDeclaration,
+  ScalarPlotDeclaration as PlotDeclaration,
   PlotFillDeclaration,
   PointsPlotDeclaration,
   ShapePlotDeclaration,
@@ -22,19 +23,22 @@ import {
   type ColumnsPlot,
   type HistogramPlot,
   type LinePlot,
+  type OhlcPlot,
+  type OhlcPlotPoint,
   type Plot,
   type PlotCollection,
   type PlotFill,
   PlotKind,
   type PlotPoint,
   type PointsPlot,
+  type ScalarPlot,
   type ShapePlot,
   validatePlotFills,
 } from './plots.js'
 import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
 
 /** Plot 默认颜色。 */
-const DEFAULT_PLOT_COLOR = '#2196f3'
+export const DEFAULT_PLOT_COLOR = '#2196f3'
 /** 折线默认虚线样式（实线）。 */
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */
@@ -52,7 +56,7 @@ export interface PlotCollectorOptions {
 export class PlotCollector {
   private readonly barCount: number
   private readonly fills = new Map<string, CollectedFill>()
-  private readonly entries = new Map<string, CollectedPlot>()
+  private readonly entries = new Map<string, CollectedPlot | CollectedOhlcPlot>()
 
   /** 登记 bar 数量；Plot 条目在首次输出时按 name 建立，填充由 onFill 登记。 */
   constructor(options: PlotCollectorOptions) {
@@ -88,6 +92,8 @@ export class PlotCollector {
     options?: PlotDeclaration,
   ): void {
     let entry = this.entries.get(name)
+    if (entry?.source === 'ohlc')
+      throw new TypeError(`Plot ${name} cannot change kind during a run`)
     if (!entry) {
       entry = this.createEntry(name, kind)
       this.entries.set(name, entry)
@@ -109,8 +115,11 @@ export class PlotCollector {
 
   /** 产出 PlotCollection：Plot 按首次出现顺序输出，再补齐填充。 */
   collect(): PlotCollection {
-    const plots = [...this.entries.values()].map(({ declaration, data }) =>
-      createPlot(declaration, data),
+    const plots = [...this.entries.values()].map(
+      (entry): Plot =>
+        entry.source === 'ohlc'
+          ? createOhlcPlot(entry.declaration, entry.data)
+          : createPlot(entry.declaration, entry.data),
     )
     const fills = [...this.fills.values()].map(({ declaration, colors }) =>
       createFill(declaration, colors),
@@ -119,9 +128,35 @@ export class PlotCollector {
     return { plots, fills }
   }
 
+  /** 采集完整 OHLC；颜色写入逐点数据，整列元数据在一次运行内固定。 */
+  onOhlc(
+    declaration: OhlcPlotDeclaration,
+    barIndex: number,
+    point: OhlcPlotPoint | undefined,
+  ): void {
+    const { name, kind, label, visible, offset, showLast } = declaration
+    let entry = this.entries.get(name)
+    if (entry?.source === 'scalar')
+      throw new TypeError(`Plot ${name} cannot change kind during a run`)
+    const style = [kind, label, visible, offset, showLast]
+    if (!entry) {
+      entry = {
+        source: 'ohlc',
+        declaration,
+        style,
+        data: new Array<OhlcPlotPoint | undefined>(this.barCount).fill(undefined),
+      }
+      this.entries.set(name, entry)
+    } else if (!sameStyle(entry.style, style)) {
+      throw new TypeError(`Plot ${name} cannot change style during a run`)
+    }
+    entry.data[barIndex] = point
+  }
+
   /** 首次出现的 name 建立条目：空列 + 调用类型，样式先留空。 */
   private createEntry(name: string, kind: PlotDeclaration['kind'] | undefined): CollectedPlot {
     return {
+      source: 'scalar',
       declaration: { name, kind: kind ?? PlotKind.Line },
       style: [],
       data: this.emptyColumn(),
@@ -143,10 +178,36 @@ interface CollectedFill {
 
 /** 同一个 Plot 的声明、整列样式签名和数值列只保留一份。 */
 interface CollectedPlot {
+  readonly source: 'scalar'
   declaration: PlotDeclaration
   style: readonly (string | number | boolean | undefined)[]
   readonly data: (PlotPoint | undefined)[]
   emitted: boolean
+}
+
+/** OHLC 列单独保存四个价格，不借用单值 PlotPoint。 */
+interface CollectedOhlcPlot {
+  readonly source: 'ohlc'
+  readonly declaration: OhlcPlotDeclaration
+  readonly style: readonly unknown[]
+  readonly data: (OhlcPlotPoint | undefined)[]
+}
+
+/** 补齐 OHLC 整列元数据；颜色在逐 bar 点上独立解析。 */
+function createOhlcPlot(
+  declaration: OhlcPlotDeclaration,
+  data: readonly (OhlcPlotPoint | undefined)[],
+): OhlcPlot {
+  return {
+    id: declaration.name,
+    label: declaration.label ?? declaration.name,
+    kind: declaration.kind,
+    visible: declaration.visible ?? true,
+    offset: declaration.offset ?? 0,
+    showLast: declaration.showLast,
+    color: DEFAULT_PLOT_COLOR,
+    data,
+  }
 }
 
 /**
@@ -297,7 +358,7 @@ function createArrowPlot(declaration: ArrowPlotDeclaration, base: PlotBaseFields
 export function createPlot(
   declaration: PlotDeclaration,
   data: readonly (PlotPoint | undefined)[],
-): Plot {
+): ScalarPlot {
   const base = plotBase(declaration, data)
   switch (declaration.kind) {
     case 'line':

@@ -81,7 +81,7 @@ export interface ArrowPlot extends PlotBase {
   readonly colorDown: string
 }
 
-export type Plot =
+export type ScalarPlot =
   | LinePlot
   | HistogramPlot
   | ColumnsPlot
@@ -89,6 +89,37 @@ export type Plot =
   | ShapePlot
   | CharPlot
   | ArrowPlot
+
+/** 一根完整 OHLC；各部分颜色已由生产端解析，null 表示不绘制。 */
+export interface OhlcPlotPoint {
+  readonly open: number
+  readonly high: number
+  readonly low: number
+  readonly close: number
+  readonly color: string | null
+  readonly wickColor: string | null
+  readonly borderColor: string | null
+}
+
+/** OHLC 图形不提供单值填充边界，宽度跟随 K 线间距。 */
+export interface OhlcPlotBase extends Omit<PlotBase, 'data' | 'size'> {
+  readonly data: readonly (OhlcPlotPoint | undefined)[]
+  readonly showLast?: number
+}
+
+/** 蜡烛图，包含独立着色的实体、影线和边框。 */
+export interface CandlePlot extends OhlcPlotBase {
+  readonly kind: 'candle'
+}
+
+/** 美国线，整根图形使用同一颜色。 */
+export interface BarPlot extends OhlcPlotBase {
+  readonly kind: 'bar'
+}
+
+export type OhlcPlot = CandlePlot | BarPlot
+
+export type Plot = ScalarPlot | OhlcPlot
 
 export type PlotKind = Plot['kind']
 
@@ -100,6 +131,8 @@ export const PlotKind = {
   Shape: 'shape',
   Char: 'char',
   Arrow: 'arrow',
+  Candle: 'candle',
+  Bar: 'bar',
 } satisfies Record<string, PlotKind>
 
 /** 判断绘图类型，供跨 VM 边界校验使用。 */
@@ -119,6 +152,8 @@ export function isPricePlot(plot: Plot): boolean {
     case 'histogram':
     case 'columns':
     case 'points':
+    case 'candle':
+    case 'bar':
       return true
   }
 }
@@ -130,9 +165,19 @@ export function validatePlotFills(plots: readonly Plot[], fills: readonly PlotFi
     const from = sources.get(fill.from)
     const to = sources.get(fill.to)
     if (!from || !to) throw new TypeError(`Unknown fill source: ${fill.id}`)
-    if (!isPricePlot(from) || !isPricePlot(to))
+    if (!isPricePlot(from) || !isPricePlot(to) || isOhlcPlot(from) || isOhlcPlot(to))
       throw new TypeError(`Fill ${fill.id} requires price-positioned plots`)
   }
+}
+
+/** 按判别字段识别四价格图形，消费端据此读取完整 OHLC。 */
+export function isOhlcPlot(plot: Plot): plot is OhlcPlot {
+  return plot.kind === PlotKind.Candle || plot.kind === PlotKind.Bar
+}
+
+/** showLast 按整列长度裁剪，渲染、图例和自动缩放共享起点。 */
+export function ohlcPlotStart(plot: OhlcPlot): number {
+  return plot.showLast === undefined ? 0 : Math.max(0, plot.data.length - plot.showLast)
 }
 
 /** 引用两个 Plot，填充它们之间的区域，不复制序列数据。 */

@@ -4,6 +4,8 @@
  * Worker 入口与 inline fallback 都只能通过此模块执行任务，从而保证二者的去重、
  * 参数和 firstReadyIndex 语义完全一致。
  */
+
+import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '@/foundation/types/price.js'
 import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import { isPlotCollection } from '../../../plots/impl/readPlotState.js'
@@ -31,9 +33,9 @@ export function findInstanceFirstReadyIndex(value: unknown, dataLength: number):
   if (isPlotCollection(value)) {
     let first: number | null = null
     for (const plot of value.plots) {
-      const index = plot.data.findIndex(
-        (point) => point !== undefined && Number.isFinite(point.value),
-      )
+      const index = isOhlcPlot(plot)
+        ? plot.data.findIndex((point) => point !== undefined)
+        : plot.data.findIndex((point) => point !== undefined && Number.isFinite(point.value))
       if (index >= 0 && (first === null || index < first)) first = index
     }
     return first

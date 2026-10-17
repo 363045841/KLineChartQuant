@@ -1,5 +1,6 @@
 /** 脚本测试共用的行情构造与结果读取，避免各用例重复维护同一套数据替身。 */
 import { readFileSync } from 'node:fs'
+import { isOhlcPlot, type Plot, type ScalarPlot } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
 
@@ -44,12 +45,19 @@ export function wavyCloses(count: number): number[] {
 
 /** 取某 id 的值序列，缺失点为 undefined。 */
 export function values(result: ScriptResult, id: string) {
-  return result.plots.find((plot) => plot.id === id)?.data.map((point) => point?.value)
+  const plot = result.plots.find((plot) => plot.id === id)
+  return plot === undefined ? undefined : scalarPlot(plot).data.map((point) => point?.value)
 }
 
 /** 取全部 id 的值序列，按 id 建表用于整组比对。 */
 export function plotValues(result: ScriptResult): Record<string, (number | undefined)[]> {
   return Object.fromEntries(
-    result.plots.map((plot) => [plot.id, plot.data.map((point) => point?.value)]),
+    result.plots.map((plot) => [plot.id, scalarPlot(plot).data.map((point) => point?.value)]),
   )
+}
+
+/** 单值测试必须明确排除 OHLC，不把四价格数据静默当作空值。 */
+function scalarPlot(plot: Plot): ScalarPlot {
+  if (isOhlcPlot(plot)) throw new TypeError(`Expected scalar Plot: ${plot.id}`)
+  return plot
 }

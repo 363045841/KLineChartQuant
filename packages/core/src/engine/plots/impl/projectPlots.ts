@@ -3,7 +3,9 @@
 import {
   createFill,
   createPlot,
+  isOhlcPlot,
   isPricePlot,
+  ohlcPlotStart,
   PlotKind,
   type ShapeSize,
   validatePlotFills,
@@ -248,11 +250,21 @@ function isRangeSource(plot: Plot, fillSources: ReadonlySet<string>): boolean {
  * histogram / columns 从 baseline 起算，基线一并计入边界。
  */
 function plotValueBounds(plot: Plot, range: VisibleRange): PriceBounds | undefined {
-  const start = Math.max(0, range.start - plot.offset)
+  const start = Math.max(isOhlcPlot(plot) ? ohlcPlotStart(plot) : 0, range.start - plot.offset)
   const end = Math.min(plot.data.length, range.end - plot.offset)
   let min = Infinity
   let max = -Infinity
   let hasValues = false
+  if (isOhlcPlot(plot)) {
+    for (let index = start; index < end; index++) {
+      const point = plot.data[index]
+      if (!point) continue
+      hasValues = true
+      min = Math.min(min, point.low)
+      max = Math.max(max, point.high)
+    }
+    return hasValues ? { min, max } : undefined
+  }
   for (let index = start; index < end; index++) {
     const value = plot.data[index]?.value
     if (value === undefined || !Number.isFinite(value)) continue

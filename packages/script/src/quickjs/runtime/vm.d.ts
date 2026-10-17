@@ -39,9 +39,12 @@ declare function __count(): number
 /** 宿主注入：上报当前 K 线的绘图点。 */
 declare function __plot(
   kind: PlotKind,
-  value: number | null,
+  value:
+    | number
+    | null
+    | { open: number | null; high: number | null; low: number | null; close: number | null },
   name: string,
-  options?: ScriptPlotOptions,
+  options?: ScriptPlotOptions | import('@363045841yyt/klinechart-plot-contracts').CandlePlotOptions,
 ): void
 
 /** 调用处的样式选项，与编辑器共用契约。 */

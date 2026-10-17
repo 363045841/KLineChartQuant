@@ -6,7 +6,7 @@ import {
   isShapeStyle,
   type PlotDeclaration,
   type PlotFillDeclaration,
-  type PlotKind,
+  PlotKind,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
 import { Position, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
@@ -55,7 +55,8 @@ function isOptionsValid(value: unknown, fallback: unknown): boolean {
 function hasValidPlotBase(value: Record<string, unknown>): boolean {
   return (
     optional(value.label, 'string') &&
-    optional(value.color, 'string') &&
+    (((value.kind === PlotKind.Candle || value.kind === PlotKind.Bar) && value.color === null) ||
+      optional(value.color, 'string')) &&
     optional(value.textColor, 'string') &&
     optional(value.offset, 'number') &&
     optional(value.visible, 'boolean') &&
@@ -127,6 +128,31 @@ const PLOT_FIELD_VALIDATORS: Readonly<
   shape: isShapeFields,
   char: isCharFields,
   arrow: isArrowFields,
+  candle: (value) =>
+    isOhlcFields(value) && isOptionalColor(value.wickColor) && isOptionalColor(value.borderColor),
+  bar: (value) =>
+    isOhlcFields(value) && value.wickColor === undefined && value.borderColor === undefined,
+}
+
+/** 颜色允许缺省或显式留空；透明度由 CSS 颜色本身携带。 */
+function isOptionalColor(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === 'string'
+}
+
+/** OHLC 无尺寸、基线或标记定位；只保留公共显示元数据。 */
+function isOhlcFields(value: Record<string, unknown>): boolean {
+  return (
+    value.size === undefined &&
+    value.baseline === undefined &&
+    value.location === undefined &&
+    value.textColor === undefined &&
+    (value.offset === undefined ||
+      (typeof value.offset === 'number' && Number.isInteger(value.offset))) &&
+    (value.showLast === undefined ||
+      (typeof value.showLast === 'number' &&
+        Number.isInteger(value.showLast) &&
+        value.showLast > 0))
+  )
 }
 
 /** 校验公共字段后按 kind 查表校验专属字段；未知 kind 一律拒绝。 */

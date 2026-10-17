@@ -96,6 +96,8 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 | `plot.Shape` | 形状标记 | `style`、`location`、`text`、`textColor` |
 | `plot.Char` | 字符标记 | `char`、`location`、`text`、`textColor` |
 | `plot.Arrow` | 数值箭头 | `colorUp`、`colorDown` |
+| `plot.Candle` | 蜡烛图，接收 OHLC 四个价格 | `wickColor`、`borderColor`、`showLast` |
+| `plot.Bar` | 美国线，接收 OHLC 四个价格 | `showLast` |
 
 所有方法接受 `number | null`，`null` 主动留空。`plot.Shape` 和 `plot.Char` 也接受布尔条件，`false` 留空。
 
@@ -107,9 +109,38 @@ plot.Histogram(close - open, 'body-size', { size: ShapeSize.Large }) // 固定 3
 
 Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Huge 为 4px。
 
+### 蜡烛图和美国线
+
+`plot.Candle(open, high, low, close, name, options?)` 和 `plot.Bar(open, high, low, close, name, options?)`
+接收当前 bar 的四个价格，名称必填，返回 `void`，不能作为 `fill` 边界。四价格输入可直接使用行情或派生序列。
+
+```ts
+onBar() {
+  const color = close >= open ? Color.Green : Color.Red
+  plot.Candle(open, high, low, close, 'candles', {
+    color,
+    wickColor: Color.Gray,
+    borderColor: color,
+  })
+  plot.Bar(open, high, low, close, 'bars', { color, showLast: 100 })
+}
+```
+
+蜡烛的实体色 `color`、影线色 `wickColor` 和边框色 `borderColor` 可以逐 bar 变化；
+显式传 `null` 隐藏对应部分。实体为 `null` 且边框有色时绘制空心蜡烛。
+默认实体色沿用 Plot 默认蓝色，影线与边框默认跟随实体色，不自动按市场规则区分涨跌。
+美国线只有整体 `color`，绘制高低竖线、左侧开盘短横线和右侧收盘短横线。
+
+任一价格为 `null`、`NaN` 或无穷值时整根留空；0 有效。按 Pine 语义，四个输入的最大值作为 high，
+最小值作为 low，open/close 保持原值。自动缩放包含归一化后的高低价，图例展示 O/H/L/C。
+
+两者接受 `label`、`visible` 和整数 `offset`，宽度跟随 K 线间距，不接受 `size`。
+`showLast` 为正整数，表示整个数据序列最后 N 根，先按源下标裁剪再应用 offset；不按当前可视窗口计数。
+除颜色外，同名 Plot 的选项在一次运行内必须保持一致。
+
 ### Plot 调用选项
 
-第三个参数是调用选项对象，缺省值由采集器补齐：
+单值 Plot 的第三个参数是调用选项对象，OHLC Plot 则是第六个参数，缺省值由采集器补齐：
 
 | 字段 | 作用 |
 | --- | --- |

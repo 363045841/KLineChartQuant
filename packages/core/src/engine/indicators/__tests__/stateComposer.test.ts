@@ -47,7 +47,11 @@ describe('Plot instance projection', () => {
       // 不依赖字段命名猜测：检查每个声明的 Plot 在足够长的数据上确实产出数值。
       for (const plot of state.plots) {
         expect(
-          plot.data.some((point) => point && Number.isFinite(point.value)),
+          plot.data.some(
+            (point) =>
+              point &&
+              ('close' in point ? Number.isFinite(point.close) : Number.isFinite(point.value)),
+          ),
           `${definition.name}:${plot.id}`,
         ).toBe(true)
       }

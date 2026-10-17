@@ -104,6 +104,7 @@ export const DEFAULT_SETTINGS = [
     options: [
       { value: 'candlestick', label: '实心 K 线' },
       { value: 'hollow-candlestick', label: '空心 K 线' },
+      { value: 'ohlc-bar', label: '美国线' },
     ],
   },
   {

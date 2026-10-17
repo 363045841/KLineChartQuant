@@ -128,6 +128,39 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it('同一行情版本切换美国线使缓存失效，GPU 与 Canvas 使用相同矩形', () => {
+    const canvas = createMockCanvasContext()
+    const layer = createCandleLayer()
+    const context = createCtx(undefined, {
+      ctx: canvas,
+      data: makeBars(1),
+      range: { start: 0, end: 1 },
+      kLineCenters: [100],
+      kWidthPx: 11,
+      dataRevision: 1,
+      settings: { klineShape: 'candlestick' },
+    })
+    layer.paint(context)
+    vi.mocked(canvas.fillRect).mockClear()
+    const barContext = { ...context, settings: { klineShape: 'ohlc-bar' } } as const
+    layer.paint(barContext)
+    const rects = vi.mocked(canvas.fillRect).mock.calls
+    expect(rects).toHaveLength(3)
+    const [stem, open, close] = rects
+    if (!stem || !open || !close) throw new Error('Missing OHLC geometry')
+    expect(open[0] + open[2]).toBe(stem[0])
+    expect(close[0]).toBe(stem[0] + stem[2])
+    for (const backend of ['webgl2', 'webgpu']) {
+      const { r, writeBuffer } = makeSceneRenderer(backend)
+      layer.paint({ ...barContext, sceneRenderer: r })
+      const actual = writeBuffer.mock.calls.flatMap(([, data]) =>
+        data instanceof Float32Array ? [...data] : [],
+      )
+      expect(actual).toEqual(rects.flatMap((rect) => rect))
+    }
+    layer.dispose()
+  })
+
   it.each([1, 1.25, 1.5, 2, 3].flatMap((dpr) => [false, true].map((down) => ({ dpr, down }))))(
     'hollow candles preserve transparent interiors and backend geometry at DPR=$dpr down=$down',
     ({ dpr, down }) => {

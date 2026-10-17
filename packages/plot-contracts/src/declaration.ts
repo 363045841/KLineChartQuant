@@ -82,7 +82,7 @@ export interface ArrowPlotDeclaration extends PlotDeclarationBase, ArrowOptions 
 }
 
 /** 声明的 Plot：按 kind 区分各图形及其专用字段。 */
-export type PlotDeclaration =
+export type ScalarPlotDeclaration =
   | LinePlotDeclaration
   | HistogramPlotDeclaration
   | ColumnsPlotDeclaration
@@ -90,6 +90,37 @@ export type PlotDeclaration =
   | ShapePlotDeclaration
   | CharPlotDeclaration
   | ArrowPlotDeclaration
+
+/** 四价格图形的调用样式；颜色允许逐 bar 变化，null 隐藏对应部分。 */
+export interface OhlcPlotOptions {
+  readonly label?: string
+  readonly visible?: boolean
+  readonly offset?: number
+  readonly showLast?: number
+  readonly color?: string | null
+}
+
+/** 蜡烛实体、影线和边框可独立着色。 */
+export interface CandlePlotOptions extends OhlcPlotOptions {
+  readonly wickColor?: string | null
+  readonly borderColor?: string | null
+}
+
+/** 美国线的竖线和左右短横线共用颜色。 */
+export interface BarPlotOptions extends OhlcPlotOptions {}
+
+export interface CandlePlotDeclaration extends CandlePlotOptions {
+  readonly name: string
+  readonly kind: 'candle'
+}
+
+export interface BarPlotDeclaration extends BarPlotOptions {
+  readonly name: string
+  readonly kind: 'bar'
+}
+
+export type OhlcPlotDeclaration = CandlePlotDeclaration | BarPlotDeclaration
+export type PlotDeclaration = ScalarPlotDeclaration | OhlcPlotDeclaration
 
 /** 绘图调用的样式选项；绘图名称由绘图方法的位置参数提供。 */
 export interface PlotCallOptions

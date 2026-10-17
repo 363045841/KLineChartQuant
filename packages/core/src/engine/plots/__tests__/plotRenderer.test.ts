@@ -16,6 +16,7 @@ import {
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'
+import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
 import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
 
@@ -43,6 +44,90 @@ function paint(
 }
 
 describe('Plot renderer', () => {
+  it('OHLC 的 showLast、位移、自动缩放和四价格图例使用同一数据范围', () => {
+    const collector = new PlotCollector({ barCount: 3 })
+    for (let index = 0; index < 3; index++) {
+      collector.onOhlc({ name: 'candles', kind: 'candle', showLast: 1, offset: 1 }, index, {
+        open: 2,
+        high: index === 2 ? 8 : 1000,
+        low: index === 2 ? 1 : -1000,
+        close: 6,
+        color: null,
+        borderColor: 'blue',
+        wickColor: 'gray',
+      })
+    }
+    const { state, ctx, context } = paint(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      {
+        pane: { yAxis: { priceToY: (price) => 100 - price * 10 } },
+        kWidthPx: 9,
+      },
+    )
+    expect(state.visibleMin).toBe(1)
+    expect(state.visibleMax).toBe(8)
+    // 只绘制最后一根：四条边框和两段影线，没有背景填充。
+    expect(ctx.fillRect).toHaveBeenCalledTimes(6)
+    expect(ctx.fillStyle).toBe('gray')
+    const reader = context.indicatorStateReader
+    if (!reader) throw new Error('Missing Plot state reader')
+    const title = createPlotTitleInfo('OHLC')
+    const readTitle = (index: number) =>
+      title([], index, {}, reader, 'plot-test', 'main', resolveThemeColors('light'))
+    expect(readTitle(2)).toBeNull()
+    expect(readTitle(3)?.values).toEqual([
+      { label: 'candles O', value: 2, color: 'blue' },
+      { label: 'candles H', value: 8, color: 'blue' },
+      { label: 'candles L', value: 1, color: 'blue' },
+      { label: 'candles C', value: 6, color: 'blue' },
+    ])
+    const outside = projectPlots(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      { start: 0, end: 3 },
+      1,
+      resolveThemeColors('light'),
+    )
+    expect(outside.visibleMin).toBe(Infinity)
+    expect(outside.visibleMax).toBe(-Infinity)
+  })
+
+  it('美国线输出高低竖线和左开右收横线，忽略空点', () => {
+    const collector = new PlotCollector({ barCount: 2 })
+    collector.onOhlc({ name: 'bars', kind: 'bar' }, 0, undefined)
+    collector.onOhlc({ name: 'bars', kind: 'bar' }, 1, {
+      open: 3,
+      high: 8,
+      low: 1,
+      close: 6,
+      color: 'green',
+      wickColor: 'green',
+      borderColor: 'green',
+    })
+    const { state, ctx } = paint(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      {
+        pane: { yAxis: { priceToY: (price) => 100 - price * 10 } },
+        kWidthPx: 9,
+      },
+    )
+    expect(state.visibleMin).toBe(1)
+    expect(state.visibleMax).toBe(8)
+    const rects = vi.mocked(ctx.fillRect).mock.calls
+    expect(rects).toHaveLength(3)
+    const [stem, open, close] = rects
+    if (!stem || !open || !close) throw new Error('Missing OHLC geometry')
+    expect(open[0] + open[2]).toBe(stem[0])
+    expect(close[0]).toBe(stem[0] + stem[2])
+    expect(open[1]).toBe(70)
+    expect(close[1]).toBe(40)
+  })
+
   it('Char 相对定位过滤零值，absolute 的零值参与价格轴', () => {
     const { ctx, state } = paint(
       {

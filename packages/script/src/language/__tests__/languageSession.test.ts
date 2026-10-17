@@ -11,6 +11,22 @@ function diagnosticCodes(session: ReturnType<typeof createScriptLanguageSession>
 }
 
 describe('共享脚本语义会话', () => {
+  it('OHLC 接口支持派生序列，编辑器拒绝美国线影线参数和 fill 句柄误用', () => {
+    const session = createScriptLanguageSession()
+    session.updateSource(`defineIndicator({ name: 'OHLC', position: Position.Main, onBar() {
+      const average = ta.sma(close, 2)
+      plot.Candle(open, high, low, average, 'candles', { color: null, wickColor: Color.Gray, borderColor: Color.Blue })
+      plot.Bar(open, high, low, close, 'bars', { showLast: 10, offset: 1 })
+    } })`)
+    expect(diagnosticCodes(session)).toEqual([])
+    session.updateSource(`defineIndicator({ name: 'InvalidOHLC', position: Position.Main, onBar() {
+      plot.Bar(open, high, low, close, 'bars', { wickColor: Color.Red })
+      const candle = plot.Candle(open, high, low, close, 'candles')
+      fill(candle, plot.Line(close, 'line'), Color.Blue)
+    } })`)
+    expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2345]))
+  })
+
   it('同版本复用转换结果，修改 inputs 后清除旧参数并采用新类型', () => {
     const session = createScriptLanguageSession()
     const source = `defineIndicator({

@@ -35,6 +35,8 @@ declare enum PlotKind {
   Shape = "shape",
   Char = "char",
   Arrow = "arrow",
+  Candle = "candle",
+  Bar = "bar",
 }
 
 declare enum ShapeStyle {

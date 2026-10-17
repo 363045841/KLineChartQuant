@@ -110,6 +110,7 @@ defineIndicator({
 | `open` `high` `low` `close` `volume` `time` | 行情序列；`close` 取当前 K 线，`close[1]` 取前一根 |
 | `input.int` `input.float` `input.bool` `input.string` | 在 `onBar` 顶层声明参数，变量本身就是用户设置的值 |
 | `plot.Line` `plot.Columns` `plot.Histogram` `plot.Point` `plot.Shape` `plot.Char` `plot.Arrow` | 输出绘图点，方法名决定图形；每个方法返回可被 `fill` 引用的句柄 |
+| `plot.Candle` `plot.Bar` | 接收 OHLC 四个价格，输出蜡烛或美国线；蜡烛支持独立实体、影线、边框色，返回 `void` |
 | `fill(from, to, color, title, options?)` | 填充两个 Plot 之间的区域；`from` / `to` 是 `plot.*` 返回的句柄 |
 | `ta` | 内置技术分析函数库 |
 | `Position` | `Position.Main` 主图或 `Position.Sub` 副图 |
@@ -143,6 +144,7 @@ await scripts.create(source)
 ```
 
 完整声明参考见[脚本文档](../../packages/script/docs/indicator.md)，另有[函数库](../../packages/script/docs/library.md)与 [Plot API](../../packages/script/docs/indicator.md#plot)。
+
 
 ## ⚡ 性能
 

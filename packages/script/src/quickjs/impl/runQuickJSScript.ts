@@ -22,7 +22,12 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import { compileSources, FIELD_READERS, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
+import {
+  compileSources,
+  FIELD_READERS,
+  toOhlcPlotPoint,
+  toPlotPoint,
+} from '../../execution/impl/scriptRuntime.js'
 import {
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
@@ -213,6 +218,10 @@ function mountHostFunctions(
       return vm.undefined
     }
     const declaration = readPlotCall(vm.dump(nameHandle), vm.dump(optionsHandle), kind)
+    if (declaration.kind === PlotKind.Candle || declaration.kind === PlotKind.Bar) {
+      collector.onOhlc(declaration, cursor.index, toOhlcPlotPoint(declaration, value))
+      return vm.undefined
+    }
     if (value !== null && typeof value !== 'number') {
       onError(new ScriptExecutionError('run', 'plot value 需要数值或 null'))
       return vm.undefined
@@ -225,7 +234,7 @@ function mountHostFunctions(
       declaration.name,
       cursor.index,
       value === null ? null : toPlotPoint(declaration, value),
-      kind,
+      declaration.kind,
       declaration,
     )
     return vm.undefined

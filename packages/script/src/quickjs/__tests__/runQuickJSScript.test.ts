@@ -387,6 +387,7 @@ describe('runQuickJSScript', () => {
     expect(result.plots).toHaveLength(12)
     for (const [index, plot] of result.plots.entries()) {
       expect(plot.kind).toBe('shape')
+      if (plot.kind !== 'shape') throw new Error('Expected Shape Plot')
       expect(plot.data.filter((point) => point?.value === 1)).toHaveLength(1)
       expect(plot.data[index]?.value).toBe(1)
     }

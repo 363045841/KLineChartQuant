@@ -240,7 +240,7 @@ describe('ChartIndicatorManager', () => {
     const state = manager.createRenderStateReader().get<PlotRenderState>(instance!)!
     expect(state.plots[0]).toMatchObject({ kind: 'columns', baseline: 0 })
     expect(state.visibleMin).toBe(0)
-    expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.volume)
+    expect(state.plots[0]?.data[0]).toMatchObject({ value: data[0]?.volume })
   })
   it('副图脚本改名后保留实例、窗格和参数，并用新实现立即重算', async () => {
     /** 测试脚本产物使用正式中立 Plot 注册入口。 */
@@ -273,11 +273,17 @@ describe('ChartIndicatorManager', () => {
     const data = createTestData(3)
     manager.updateIndicatorData(data, { start: 0, end: 3 })
     const read = () => manager.createRenderStateReader().get<PlotRenderState>(id ?? '')
-    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]?.close))
+    await vi.waitFor(() =>
+      expect(read()?.plots[0]?.data[0]).toMatchObject({ value: data[0]?.close }),
+    )
     expect(() => updatePlotIndicator(definition(2))).not.toThrow()
-    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 2))
+    await vi.waitFor(() =>
+      expect(read()?.plots[0]?.data[0]).toMatchObject({ value: (data[0]?.close ?? 0) * 2 }),
+    )
     updatePlotIndicator(definition(3))
-    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe((data[0]?.close ?? 0) * 3))
+    await vi.waitFor(() =>
+      expect(read()?.plots[0]?.data[0]).toMatchObject({ value: (data[0]?.close ?? 0) * 3 }),
+    )
     expect(manager.getSubPaneEntries()).toHaveLength(1)
     expect(manager.getSubPaneEntries()[0]).toMatchObject({
       instanceId: id,
@@ -337,7 +343,7 @@ describe('ChartIndicatorManager', () => {
     const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:PlotClose')
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(5))
     const state = read()!
-    expect(state.plots[0]?.data[0]?.value).toBe(data[0]?.close)
+    expect(state.plots[0]?.data[0]).toMatchObject({ value: data[0]?.close })
     const ctx = createMockCanvasContext()
     paintPlots(
       state,
@@ -347,7 +353,9 @@ describe('ChartIndicatorManager', () => {
     )
     expect(ctx.stroke).toHaveBeenCalled()
     manager.updateMainIndicatorParams('PlotClose', { factor: 2 })
-    await vi.waitFor(() => expect(read()?.plots[0]?.data[0]?.value).toBe(data[0]!.close * 2))
+    await vi.waitFor(() =>
+      expect(read()?.plots[0]?.data[0]).toMatchObject({ value: data[0]!.close * 2 }),
+    )
     manager.updateIndicatorData(data.slice(0, 3), { start: 0, end: 3 })
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(3))
     manager.disableMainIndicator('PlotClose')

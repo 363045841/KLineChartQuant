@@ -1,6 +1,6 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 按图形类型输出当前 K 线的值，方法名确定类型，name 为绘图名称；返回供 fill 引用的句柄。 */
+/** 按方法类型输出当前 K 线；name 标识整列，单值方法返回句柄，OHLC 方法仅输出四价格。 */
 const plot: ScriptPlot = {
   /** 输出折线点。 */
   Line(value, name, options) {
@@ -29,6 +29,14 @@ const plot: ScriptPlot = {
   /** 输出数值箭头。 */
   Arrow(value, name, options) {
     return emitPlot(PlotKind.Arrow, value, name, options)
+  },
+  /** 输出完整蜡烛 OHLC，统一交给宿主校验、归一化和采集。 */
+  Candle(open, high, low, close, name, options) {
+    __plot(PlotKind.Candle, { open, high, low, close }, name, options)
+  },
+  /** 输出完整美国线 OHLC，与蜡烛共用数据语义。 */
+  Bar(open, high, low, close, name, options) {
+    __plot(PlotKind.Bar, { open, high, low, close }, name, options)
   },
 }
 

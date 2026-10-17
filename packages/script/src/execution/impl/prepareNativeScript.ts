@@ -23,7 +23,7 @@ import {
   type QuickJSLibrary,
   type ScriptParamValue,
 } from '../../quickjs/types.js'
-import { compileSources, FIELD_READERS, toPlotPoint } from './scriptRuntime.js'
+import { compileSources, FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from './scriptRuntime.js'
 
 /** 工厂只返回指标入口，运行库和用户状态留在每次调用的函数作用域内。 */
 interface NativeRuntime {
@@ -98,6 +98,10 @@ export function prepareNativeScript(
         requireBar('plot')
         if (!isPlotKind(kind)) throw new ScriptExecutionError('run', '未知 plot kind')
         const declaration = readPlotCall(name, options, kind)
+        if (declaration.kind === PlotKind.Candle || declaration.kind === PlotKind.Bar) {
+          collector.onOhlc(declaration, index, toOhlcPlotPoint(declaration, value))
+          return
+        }
         if (value !== null && typeof value !== 'number')
           throw new ScriptExecutionError('run', 'plot value 需要数值或 null')
         if (value === Infinity || value === -Infinity)
@@ -106,7 +110,7 @@ export function prepareNativeScript(
           declaration.name,
           index,
           value === null ? null : toPlotPoint(declaration, value),
-          kind,
+          declaration.kind,
           declaration,
         )
       },

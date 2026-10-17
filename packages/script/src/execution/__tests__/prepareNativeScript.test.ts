@@ -1,4 +1,6 @@
 /** 验证原生后端与 QuickJS 的数值、绘图契约及每次调用的状态隔离。 */
+
+import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { barsFromCloses, wavyCloses } from '../../__tests__/marketData.js'
 import { builtinScriptSources } from '../../quickjs/generated/builtinScripts.js'
@@ -21,6 +23,8 @@ describe('原生脚本后端', () => {
       expect(actual.plots).toHaveLength(expected.plots.length)
       actual.plots.forEach((plot, index) => {
         const reference = expected.plots[index]!
+        if (isOhlcPlot(plot) || isOhlcPlot(reference))
+          throw new Error('Expected scalar builtin Plot')
         expect({ ...plot, data: [] }).toEqual({ ...reference, data: [] })
         expect(plot.data).toHaveLength(reference.data.length)
         plot.data.forEach((point, barIndex) => {

@@ -1,6 +1,8 @@
 /** 编辑器中的脚本全局契约；复用执行器、行情序列与绘图声明的公开类型。 */
 
 import type {
+  BarPlotOptions,
+  CandlePlotOptions,
   InputDef,
   InputOptions,
   NumberInputOptions,
@@ -43,22 +45,67 @@ export type PlotStyleOptions<K extends PlotDeclaration['kind']> = Omit<
   'kind' | 'name'
 >
 
-/** 当前 K 线的绘图入口；name 必填，null 主动留空，形状和字符也接受布尔条件，返回可被 fill 引用的句柄。 */
+/** 当前 K 线绘图入口；name 必填，null 留空；单值方法返回 PlotRef，OHLC 方法返回 void。 */
 export interface ScriptPlot {
-  /** 输出折线点。 */
+  /**
+   * 输出折线点。
+   * @summary 折线
+   */
   Line(value: number | null, name: string, options?: PlotStyleOptions<'line'>): PlotRef
-  /** 固定像素柱宽；size 接受正数像素或 ShapeSize 枚举，默认 1px。 */
+  /**
+   * 固定像素柱宽；size 接受正数像素或 ShapeSize 枚举，默认 1px。
+   * @summary 柱状图（定宽）
+   */
   Histogram(value: number | null, name: string, options?: PlotStyleOptions<'histogram'>): PlotRef
-  /** 输出自动柱宽的柱状图，随 K 线间距缩放，不支持 size。 */
+  /**
+   * 输出自动柱宽的柱状图，随 K 线间距缩放，不支持 size。
+   * @summary 柱形图（跟随缩放）
+   */
   Columns(value: number | null, name: string, options?: PlotStyleOptions<'columns'>): PlotRef
-  /** 输出散点。 */
+  /**
+   * 输出散点。
+   * @summary 散点
+   */
   Point(value: number | null, name: string, options?: PlotStyleOptions<'points'>): PlotRef
-  /** 输出形状标记；false 留空，absolute 定位时数值为价格。 */
+  /**
+   * 输出形状标记；false 留空，absolute 定位时数值为价格。
+   * @summary 形状标记
+   */
   Shape(value: number | boolean | null, name: string, options?: PlotStyleOptions<'shape'>): PlotRef
-  /** 输出字符标记；false 留空，absolute 定位时数值为价格。 */
+  /**
+   * 输出字符标记；false 留空，absolute 定位时数值为价格。
+   * @summary 字符标记
+   */
   Char(value: number | boolean | null, name: string, options?: PlotStyleOptions<'char'>): PlotRef
-  /** 输出数值箭头，正负决定方向，绝对值决定长度。 */
+  /**
+   * 输出数值箭头，正负决定方向，绝对值决定长度。
+   * @summary 箭头
+   */
   Arrow(value: number | null, name: string, options?: PlotStyleOptions<'arrow'>): PlotRef
+  /**
+   * 输出蜡烛；任一价格缺失时留空，实体、影线和边框可独立着色。
+   * @summary 蜡烛图
+   */
+  Candle(
+    open: number | null,
+    high: number | null,
+    low: number | null,
+    close: number | null,
+    name: string,
+    options?: CandlePlotOptions,
+  ): void
+  /**
+   * 输出美国线；左侧短横线为开盘，右侧短横线为收盘。
+   * @summary 美国线（OHLC）
+   */
+  Bar(
+    open: number | null,
+    high: number | null,
+    low: number | null,
+    close: number | null,
+    name: string,
+    options?: BarPlotOptions,
+  ): void
 }
 
 /** 完整脚本的声明与逐 bar 执行回调。 */

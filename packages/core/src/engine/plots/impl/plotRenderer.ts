@@ -5,11 +5,14 @@ import type {
   ColumnsPlot,
   HistogramPlot,
   LinePlot,
+  OhlcPlot,
   Plot,
   PlotFill,
   PointsPlot,
+  ScalarPlot,
   ShapePlot,
 } from '@363045841yyt/klinechart-plot-contracts'
+import { ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
 import {
   createProjectionRevision,
   sameProjectionRevision,
@@ -18,6 +21,8 @@ import type { ProjectionRevision } from '@/engine/frame/types.js'
 import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { tryDrawLinesGpu } from '@/engine/renderers/linesViaRenderer.js'
+import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
+import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
 import { drawWorldRectBatches } from '@/engine/renderers/rectsViaRenderer.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
@@ -82,7 +87,20 @@ interface MarkerProjection {
 }
 
 /** 一个 Plot 的完整投影；每种 kind 携带自己的重放数据，绘制端不再判空或回查。 */
-type PlotProjection = LineProjection | ColumnProjection | PointsProjection | MarkerProjection
+type PlotProjection =
+  | LineProjection
+  | ColumnProjection
+  | PointsProjection
+  | MarkerProjection
+  | OhlcProjection
+
+/** OHLC 的绘制批次；没有可供 fill 引用的单值边界。 */
+interface OhlcProjection {
+  readonly kind: 'candle' | 'bar'
+  readonly plot: OhlcPlot
+  readonly points: ReadonlyMap<number, Point>
+  readonly rects: readonly RectBatch[]
+}
 
 /** 填充的投影结果：端点在此解析，重放时不再按 id 查找。 */
 interface FillProjection {
@@ -141,7 +159,7 @@ function markerY(
 }
 
 /** 该 bar 的有限数值；缺省与 NaN 都表示不绘制，0 是合法取值。 */
-function barValue(plot: Plot, index: number): number | undefined {
+function barValue(plot: ScalarPlot, index: number): number | undefined {
   const value = plot.data[index - plot.offset]?.value
   return value === undefined || !Number.isFinite(value) ? undefined : value
 }
@@ -288,6 +306,9 @@ function buildColumnRects(
 /** 投影单个 Plot；每种 kind 只构建自己绘制所需的数据。 */
 function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
   switch (plot.kind) {
+    case 'candle':
+    case 'bar':
+      return projectOhlcPlot(plot, context)
     case 'line': {
       const points = projectPoints(plot, context, (index) =>
         projectPricePoint(plot, index, context),
@@ -315,7 +336,7 @@ function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
 }
 
 /** 全列统计箭头幅度，屏幕缩放与可见范围不改变长度。 */
-function arrowMagnitude(plot: Plot): number {
+function arrowMagnitude(plot: ArrowPlot): number {
   let maximum = 0
   for (const point of plot.data) {
     if (point && Number.isFinite(point.value)) maximum = Math.max(maximum, Math.abs(point.value))
@@ -516,6 +537,8 @@ function paintGeometry(
         break
       case 'histogram':
       case 'columns':
+      case 'candle':
+      case 'bar':
         drawWorldRectBatches(context, projection.rects)
         break
       case 'points':
@@ -527,6 +550,70 @@ function paintGeometry(
         drawMarkers(projection, context)
         break
     }
+  }
+}
+
+/** 按部分与颜色汇聚 OHLC 矩形；同色批次一次提交给现有 GPU/Canvas 绘制链路。 */
+function projectOhlcPlot(plot: OhlcPlot, context: RenderContext): OhlcProjection {
+  const batches = new Map<string, { color: string; values: number[] }>()
+  /** null 隐藏对应部分，颜色本身携带透明度。 */
+  function append(part: string, color: string | null, rects: readonly OhlcRect[]): void {
+    if (color === null || rects.length === 0) return
+    const key = `${part}:${color}`
+    let batch = batches.get(key)
+    if (!batch) {
+      batch = { color, values: [] }
+      batches.set(key, batch)
+    }
+    for (const rect of rects) batch.values.push(...rect)
+  }
+  const start = ohlcPlotStart(plot)
+  for (const index of plotIndices(plot, context)) {
+    const sourceIndex = index - plot.offset
+    if (sourceIndex < start) continue
+    const point = plot.data[sourceIndex]
+    const center = projectX(index, context)
+    if (!point || center === null) continue
+    const axis = context.pane.yAxis
+    const openY = axis.priceToY(point.open)
+    const highY = axis.priceToY(point.high)
+    const lowY = axis.priceToY(point.low)
+    const closeY = axis.priceToY(point.close)
+    if (![openY, highY, lowY, closeY].every(Number.isFinite)) continue
+    const geometry = projectOhlc({
+      openY,
+      highY,
+      lowY,
+      closeY,
+      center,
+      widthPx: context.kWidthPx,
+      dpr: context.dpr,
+      zoomLevel: context.zoomLevel ?? 1,
+      shape:
+        plot.kind === 'bar'
+          ? 'ohlc-bar'
+          : point.color === null
+            ? 'hollow-candlestick'
+            : 'candlestick',
+      separateBorder: point.borderColor !== null && point.borderColor !== point.color,
+    })
+    for (const [part, color, rects] of [
+      ['body', point.color, geometry.body],
+      ['border', point.borderColor, geometry.border],
+      ['wick', point.wickColor, geometry.wick],
+    ] as const) {
+      append(part, color, rects)
+    }
+  }
+  return {
+    kind: plot.kind,
+    plot,
+    points: new Map(),
+    rects: [...batches.values()].map(({ color, values }) => ({
+      color,
+      buf: new Float64Array(values),
+      count: values.length / 4,
+    })),
   }
 }
 
