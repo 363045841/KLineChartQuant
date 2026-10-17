@@ -100,7 +100,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
         run: { id: null, sessionId, status: 'idle' },
         previousRuns: [],
         error: null,
-        canUndoTurn: false,
       }
     }
     const snapshot = await bridge.openSession(sessionId)

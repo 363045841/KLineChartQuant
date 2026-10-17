@@ -1,0 +1,15 @@
+/* Agent 面板次级按钮（描边 + 输入底色）的公共样式。 */
+.agent-quiet-button {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid var(--agent-border);
+  border-radius: 4px;
+  color: var(--agent-text);
+  background: var(--agent-input);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}

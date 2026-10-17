@@ -9,7 +9,12 @@
         {{ text.recommended }}: {{ error.recommendedAction }}
       </span>
     </div>
-    <button v-if="error.retryable" type="button" @click="$emit('retry')">
+    <button
+      v-if="error.retryable"
+      class="agent-quiet-button"
+      type="button"
+      @click="$emit('retry')"
+    >
       <IconRefresh aria-hidden="true" />
       {{ text.retry }}
     </button>
@@ -66,18 +71,6 @@
     color: var(--agent-muted);
     font-size: 10px;
   }
-  button {
-    min-height: 28px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 8px;
-    border: 1px solid var(--agent-border);
-    border-radius: 4px;
-    color: var(--agent-text);
-    background: var(--agent-input);
-    font: inherit;
-    font-size: 11px;
-    cursor: pointer;
-  }
 </style>
+
+<style scoped src="./agent-quiet-button.css"></style>

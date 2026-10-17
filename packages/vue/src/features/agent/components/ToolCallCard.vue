@@ -54,12 +54,18 @@
     </div>
 
     <div v-if="showActions" class="tool-card__actions">
-      <button v-if="tool.canLocate" type="button" @click="$emit('locate', tool.id)">
+      <button
+        v-if="tool.canLocate"
+        class="agent-quiet-button"
+        type="button"
+        @click="$emit('locate', tool.id)"
+      >
         <IconFocusCentered aria-hidden="true" />
         {{ text.locate }}
       </button>
       <button
         v-if="tool.status === 'succeeded' && tool.undoToken"
+        class="agent-quiet-button"
         type="button"
         @click="$emit('undo')"
       >
@@ -284,22 +290,9 @@
     gap: 5px;
   }
 
-  button {
-    min-height: 28px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 8px;
-    border: 1px solid var(--agent-border);
-    border-radius: 4px;
-    color: var(--agent-text);
-    background: var(--agent-input);
-    font: inherit;
-    font-size: 11px;
-    cursor: pointer;
-  }
-
   button:hover {
     background: var(--agent-hover);
   }
 </style>
+
+<style scoped src="./agent-quiet-button.css"></style>

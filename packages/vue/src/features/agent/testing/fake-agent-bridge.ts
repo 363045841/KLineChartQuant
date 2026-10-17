@@ -30,6 +30,9 @@ import {
 import { ProviderModelPool } from '../browser-agent/provider/impl/provider-model-pool.js'
 import { createInitialAgentState, reduceAgentUiEvent } from './script-state.js'
 
+/** 会话 UI 归约状态，与 states 字段共用同一来源类型。 */
+type FakeSessionState = ReturnType<typeof createInitialAgentState>
+
 interface FakeRun {
   id: string
   sessionId: string
@@ -50,8 +53,22 @@ export interface FakeAgentBridgeOptions {
   providerConfigured?: boolean
 }
 
+/** 面板订阅直接消费的事件类型；Record 保证与契约联合类型逐项对齐。 */
+const WORKSPACE_EVENT_TYPES: Record<AgentWorkspaceEvent['type'], true> = {
+  'session.snapshot': true,
+  'sessions.changed': true,
+  'provider.status.changed': true,
+  'tool.question.required': true,
+  'tool.question.resolved': true,
+}
+
+/** 判断事件是否属于面板可直接接收的类型。 */
+function isWorkspaceEvent(event: AgentUiEvent): event is AgentWorkspaceEvent {
+  return event.type in WORKSPACE_EVENT_TYPES
+}
+
 export class FakeAgentBridge implements AgentBridgeClient {
-  private readonly states = new Map<string, ReturnType<typeof createInitialAgentState>>()
+  private readonly states = new Map<string, FakeSessionState>()
   private readonly listeners = new Set<(event: AgentWorkspaceEvent) => void>()
   private readonly runs = new Map<string, FakeRun>()
   private readonly confirmations = new Map<string, PendingConfirmation>()
@@ -365,7 +382,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
       questions: [],
       confirmations: [],
       error: null,
-      canUndoTurn: false,
     })
     return this.startRun({
       sessionId: run.sessionId,
@@ -697,38 +713,49 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   private emit(event: AgentUiEventInput): void {
     const normalized = { protocolVersion: AGENT_UI_PROTOCOL_VERSION, ...event } as AgentUiEvent
-    if ('sessionId' in normalized) {
-      const session = this.sessions.find((item) => item.id === normalized.sessionId)
-      if (session) {
-        const state = reduceAgentUiEvent(
-          this.states.get(session.id) ?? createInitialAgentState(),
-          normalized,
-        )
-        this.states.set(session.id, state)
-        const snapshot: AgentSessionSnapshot = {
-          session,
-          messages: state.messages,
-          toolCalls: state.toolCalls,
-          runs: state.run.id ? [...state.previousRuns, state.run] : [],
-          questions: state.questions,
-          confirmations: state.confirmations,
-        }
-        for (const listener of this.listeners)
-          listener({
-            protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-            type: 'session.snapshot',
-            snapshot,
-          })
-        return
-      }
+    if (this.publishSessionSnapshot(normalized)) return
+    this.forwardWorkspaceEvent(normalized)
+  }
+
+  /** 已知会话的事件归约为快照并广播；会话未知时返回 false 交给后续分派。 */
+  private publishSessionSnapshot(event: AgentUiEvent): boolean {
+    if (!('sessionId' in event)) return false
+    const session = this.sessions.find((item) => item.id === event.sessionId)
+    if (!session) return false
+    const state = reduceAgentUiEvent(this.stateOf(session.id), event)
+    this.states.set(session.id, state)
+    this.broadcast({
+      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
+      type: 'session.snapshot',
+      snapshot: this.createSnapshot(session, state),
+    })
+    return true
+  }
+
+  /** 读取会话当前状态；首次出现的会话从初始状态起算。 */
+  private stateOf(sessionId: string): FakeSessionState {
+    return this.states.get(sessionId) ?? createInitialAgentState()
+  }
+
+  /** 把归约后的状态组装成面板消费的完整会话快照。 */
+  private createSnapshot(session: AgentSessionView, state: FakeSessionState): AgentSessionSnapshot {
+    return {
+      session,
+      messages: state.messages,
+      toolCalls: state.toolCalls,
+      runs: state.run.id ? [...state.previousRuns, state.run] : [],
+      questions: state.questions,
+      confirmations: state.confirmations,
     }
-    if (
-      normalized.type === 'sessions.changed' ||
-      normalized.type === 'provider.status.changed' ||
-      normalized.type === 'session.snapshot' ||
-      normalized.type === 'tool.question.required' ||
-      normalized.type === 'tool.question.resolved'
-    )
-      for (const listener of this.listeners) listener(normalized)
+  }
+
+  /** 目录、Provider 状态与提问事件不归约进快照，直接转发给订阅者。 */
+  private forwardWorkspaceEvent(event: AgentUiEvent): void {
+    if (isWorkspaceEvent(event)) this.broadcast(event)
+  }
+
+  /** 向所有订阅者推送一个面板事件。 */
+  private broadcast(event: AgentWorkspaceEvent): void {
+    for (const listener of this.listeners) listener(event)
   }
 }

@@ -31,7 +31,6 @@
         :run="state.run"
         :runs="[...state.previousRuns, state.run]"
         :error="state.error"
-        :can-undo="state.canUndoTurn"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
         @prompt="draft = $event"

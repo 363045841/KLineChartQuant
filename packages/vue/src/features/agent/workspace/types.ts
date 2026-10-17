@@ -23,7 +23,6 @@ export interface AgentWorkspaceState {
   previousRuns: AgentRunView[]
   provider: ProviderStatusView
   error: AgentErrorView | null
-  canUndoTurn: boolean
   announcement: string
 }
 

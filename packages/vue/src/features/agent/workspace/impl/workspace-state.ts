@@ -20,7 +20,6 @@ export function createWorkspaceState(): AgentWorkspaceState {
       compatibility: 'unknown',
     },
     error: null,
-    canUndoTurn: false,
     announcement: '',
   }
 }
@@ -46,9 +45,6 @@ export function displayConversation(
     ),
     questions: (snapshot.questions ?? (changed ? [] : state.questions)).filter((item) =>
       visibleTools.has(item.toolCallId),
-    ),
-    canUndoTurn: snapshot.toolCalls.some(
-      (tool) => tool.runId === run.id && tool.status === 'succeeded' && Boolean(tool.undoToken),
     ),
     announcement: run.status === 'running' ? '' : (run.error?.message ?? ''),
   }

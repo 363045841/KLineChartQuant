@@ -36,7 +36,6 @@ export function createInitialAgentState(): AgentWorkspaceState {
       compatibility: 'unknown',
     },
     error: null,
-    canUndoTurn: false,
     announcement: '',
   }
 }
@@ -67,17 +66,11 @@ function updateTool(
   return tools.map((tool) => (tool.id === toolCallId ? update(tool) : tool))
 }
 
-function runHasUndo(tools: ToolCallView[], runId: string): boolean {
-  return tools.some(
-    (tool) => tool.runId === runId && tool.status === 'succeeded' && Boolean(tool.undoToken),
-  )
-}
-
 function archiveRun(state: AgentWorkspaceState): AgentRunView[] {
   return state.run.id ? [...state.previousRuns, state.run] : state.previousRuns
 }
 
-// follow-ignore-next-line complexity
+// fallow-ignore-next-line complexity
 function reduceCurrentAgentUiEvent(
   state: AgentWorkspaceState,
   event: AgentUiEvent,
@@ -95,7 +88,6 @@ function reduceCurrentAgentUiEvent(
       },
       previousRuns: archiveRun(state),
       error: null,
-      canUndoTurn: false,
       announcement: 'Agent run started.',
     }
   }
@@ -256,7 +248,6 @@ function reduceCurrentAgentUiEvent(
       return {
         ...state,
         toolCalls,
-        canUndoTurn: state.run.id ? runHasUndo(toolCalls, state.run.id) : false,
         announcement: `${event.result.label} ${event.result.status}.`,
       }
     }
@@ -269,7 +260,6 @@ function reduceCurrentAgentUiEvent(
           status: 'undone',
           finishedAt: event.undoneAt,
         })),
-        canUndoTurn: false,
         announcement: 'Chart changes undone.',
       }
 
@@ -292,7 +282,6 @@ function reduceCurrentAgentUiEvent(
           status: event.partial ? 'partial' : 'cancelled',
           endedAt: event.endedAt,
         },
-        canUndoTurn: state.run.id ? runHasUndo(state.toolCalls, state.run.id) : false,
         announcement: event.partial ? 'Run stopped with partial changes.' : 'Run stopped.',
       }
     }
@@ -306,7 +295,6 @@ function reduceCurrentAgentUiEvent(
           endedAt: event.endedAt,
           usage: event.usage,
         },
-        canUndoTurn: state.run.id ? runHasUndo(state.toolCalls, state.run.id) : false,
         announcement: 'Agent run completed.',
       }
 
