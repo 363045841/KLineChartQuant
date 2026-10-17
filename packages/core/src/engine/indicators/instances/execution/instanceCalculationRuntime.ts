@@ -21,7 +21,12 @@ export interface IndicatorCalculationDefinition {
   readonly createCompute?: () => IndicatorCalculationDefinition['compute']
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
-  compute(data: KLineData[], params: IndicatorParameters, trades?: TradeSnapshot): unknown
+  compute(
+    data: KLineData[],
+    params: IndicatorParameters,
+    trades?: TradeSnapshot,
+    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+  ): unknown
 }
 
 export type IndicatorCalculationDefinitionResolver = (
@@ -64,12 +69,13 @@ export async function executeIndicatorCalculationTask(
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
   trades?: TradeSnapshot,
+  market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
 ): Promise<IndicatorCalculationOutput> {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
   let series: unknown
   try {
-    series = await definition.compute(data, task.params, trades)
+    series = await definition.compute(data, task.params, trades, market)
   } catch (error) {
     // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
     return Object.freeze({

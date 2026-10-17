@@ -9,9 +9,7 @@ import { scriptSyntaxHighlighting } from './codePresentation.js'
 const codeViewTheme = EditorView.theme({
   '&.cm-script-code': {
     height: 'auto',
-    display: 'inline-block',
     backgroundColor: 'transparent',
-    verticalAlign: 'baseline',
     fontSize: 'inherit',
   },
   '&.cm-script-code .cm-content': { padding: '0', caretColor: 'transparent' },
@@ -33,6 +31,8 @@ export function createScriptCodeView(parent: HTMLElement, source: string): Scrip
       doc: source,
       extensions: [
         typescriptLanguage,
+        // 长示例在提示宽度内换行，避免横向溢出被裁切。
+        EditorView.lineWrapping,
         scriptSyntaxHighlighting,
         codeViewTheme,
         EditorView.editorAttributes.of({ class: 'cm-script-code' }),

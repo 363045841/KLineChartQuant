@@ -94,10 +94,28 @@ export function createScriptWorker(
       return response.definition
     },
     /** 使用 Worker 内已有编译快照计算行情。 */
-    async run(id, bars, params) {
-      const response = await request({ requestId: ++nextRequestId, type: 'run', id, bars, params })
+    async run(id, bars, params, context) {
+      const response = await request({
+        requestId: ++nextRequestId,
+        type: 'run',
+        id,
+        bars,
+        params,
+        context,
+      })
       if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
       return response.collection
+    },
+    async requests(id, params, symbol) {
+      const response = await request({
+        requestId: ++nextRequestId,
+        type: 'requests',
+        id,
+        params,
+        symbol,
+      })
+      if (response.type !== 'requests') throw new Error('Script Worker 响应类型不匹配')
+      return response.requests
     },
     /** 删除指定脚本的编译快照。 */
     async release(id) {

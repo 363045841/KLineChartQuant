@@ -11,6 +11,7 @@ import {
 import type { IndicatorCalculationDefinition } from './instanceCalculationRuntime.js'
 import type { IndicatorCalculationExecutor } from './instanceCalculationScheduler.js'
 import { diffTradeSnapshot, IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
+import type { IndicatorMarketData } from './marketDataTypes.js'
 
 /** inline 执行器：可在运行中追加按需加载的定义。 */
 export type InlineIndicatorCalculationExecutor = IndicatorCalculationExecutor & {
@@ -30,8 +31,9 @@ export type WorkerIndicatorCalculationExecutor = IndicatorCalculationExecutor & 
 /** 不依赖 Worker 的直接执行器；测试、SSR 和降级路径使用同一执行语义。 */
 export function createInlineIndicatorCalculationExecutor(
   definitions: Iterable<IndicatorCalculationDefinition>,
+  marketData?: () => IndicatorMarketData,
 ): InlineIndicatorCalculationExecutor {
-  const runtime = new IndicatorInstanceExecutionRuntime(definitions)
+  const runtime = new IndicatorInstanceExecutionRuntime(definitions, marketData)
   const executor: InlineIndicatorCalculationExecutor = {
     /** 追加按需加载后的定义；已有身份的同一定义幂等。 */
     addDefinitions(next: Iterable<IndicatorCalculationDefinition>): void {

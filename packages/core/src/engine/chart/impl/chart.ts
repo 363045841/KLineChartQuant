@@ -367,6 +367,7 @@ export class Chart {
               ),
             ),
         updateTradeInput: (input) => this.indicatorManager.updateTradeInput(input),
+        invalidateRequests: () => this.indicatorManager.invalidateMarketData(),
         scheduleDraw: (level) => this.scheduleDraw(level),
         onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
         resetInteraction: () => {
@@ -543,6 +544,7 @@ export class Chart {
     })
 
     this.indicatorManager = new ChartIndicatorManager({
+      getMarketData: () => this.dataManager.indicatorMarketData,
       plotColors$: computed(() => {
         const settings = this.kernel.settings.readonly.settings()
         return resolveThemeColors(

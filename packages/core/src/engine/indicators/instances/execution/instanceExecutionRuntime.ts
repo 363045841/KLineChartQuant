@@ -50,12 +50,20 @@ export class IndicatorInstanceExecutionRuntime {
   private trades: TradeSnapshot | undefined
   private readonly cache = new Map<
     string,
-    { dataRevision: number; tradeRevision: number; output: Promise<IndicatorCalculationOutput> }
+    {
+      dataRevision: number
+      tradeRevision: number
+      marketRevision: number
+      output: Promise<IndicatorCalculationOutput>
+    }
   >()
   private readonly taskDefinitions = new Map<string, IndicatorCalculationDefinition>()
   private readonly definitions = new Map<string, IndicatorCalculationDefinition>()
 
-  constructor(definitions: Iterable<IndicatorCalculationDefinition> = []) {
+  constructor(
+    definitions: Iterable<IndicatorCalculationDefinition> = [],
+    private readonly marketData?: () => IndicatorMarketData,
+  ) {
     for (const definition of definitions) this.addDefinition(definition)
   }
 
@@ -117,9 +125,11 @@ export class IndicatorInstanceExecutionRuntime {
   }
 
   async execute(plan: IndicatorCalculationPlan): Promise<readonly IndicatorCalculationOutput[]> {
+    const market = this.marketData?.()
     const resolve: IndicatorCalculationDefinitionResolver = (definitionId) =>
       this.definitions.get(definitionId)
     const activeKeys = new Set(plan.tasks.map((task) => task.calculationKey))
+    market?.retain(activeKeys)
     for (const key of this.cache.keys()) if (!activeKeys.has(key)) this.cache.delete(key)
     for (const key of this.taskDefinitions.keys())
       if (!activeKeys.has(key)) this.taskDefinitions.delete(key)
@@ -135,6 +145,7 @@ export class IndicatorInstanceExecutionRuntime {
           if (
             cached &&
             cached.dataRevision === this.dataRevision &&
+            cached.marketRevision === (market === undefined ? 0 : market.revision) &&
             cached.tradeRevision === tradeRevision
           )
             return cached.output
@@ -151,8 +162,10 @@ export class IndicatorInstanceExecutionRuntime {
             this.data,
             () => taskDefinition,
             this.trades,
+            market?.context(task.calculationKey, this.data),
           )
           this.cache.set(task.calculationKey, {
+            marketRevision: market === undefined ? 0 : market.revision,
             dataRevision: this.dataRevision,
             tradeRevision,
             output,
@@ -163,3 +176,5 @@ export class IndicatorInstanceExecutionRuntime {
     )
   }
 }
+
+import type { IndicatorMarketData } from './marketDataTypes.js'

@@ -11,6 +11,7 @@ const outputFile = fileURLToPath(new URL('src/quickjs/runtime/plotKind.ts', pack
 /** 绘图契约文件与需要导出的枚举名；成员值从契约取值派生，不在此重复书写。 */
 const definitions = [
   ['color.ts', ['Color']],
+  ['market.ts', ['DataSource']],
   ['plots.ts', ['PlotKind']],
   ['shape.ts', ['ShapeStyle', 'ShapeLocation', 'ShapeSize']],
 ]
@@ -30,10 +31,11 @@ export async function generateScriptEnums({ check = false } = {}) {
       for (const declaration of statement.declarationList.declarations) {
         if (!ts.isIdentifier(declaration.name) || !names.includes(declaration.name.text)) continue
         const initializer = declaration.initializer
-        const object =
+        let object =
           initializer && ts.isSatisfiesExpression(initializer)
             ? initializer.expression
             : initializer
+        if (object && ts.isAsExpression(object)) object = object.expression
         if (!object || !ts.isObjectLiteralExpression(object)) throw new Error('枚举契约必须为对象')
         const members = object.properties.map((property) => {
           if (!ts.isPropertyAssignment(property) || !ts.isStringLiteral(property.initializer)) {

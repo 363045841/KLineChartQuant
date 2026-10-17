@@ -16,6 +16,13 @@ export interface ReadyMarketSession {
 }
 
 export interface MarketRuntimeDependencies {
+  resolveBarsSelection(
+    instrument: InstrumentDescriptor,
+    period: BarsSelection['period'],
+    adjustment: BarsSelection['adjustment'],
+    aggregation: BarsSelection['barAggregation'],
+  ): BarsSelection
+  invalidateRequests?(): void
   readonly registry?: import('@/data/provider/impl/registry.js').MarketDataProviderRegistry
   readonly cache: MarketDataCache
   readonly session: ReadonlySignal<ReadyMarketSession | null>

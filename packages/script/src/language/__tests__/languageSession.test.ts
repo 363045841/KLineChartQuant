@@ -27,6 +27,18 @@ describe('共享脚本语义会话', () => {
     expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2345]))
   })
 
+  it('request.security 是编辑器可见的全局接口', () => {
+    const session = createScriptLanguageSession()
+    session.updateSource(`defineIndicator({ name: 'Request', position: Position.Main, onBar() {
+      const minutes = input.string('60', { options: ['60', '240', 'D'] })
+      const [o, h, l, c] = request.security(syminfo.tickerid, minutes, () => [open, high, low, close] as const)
+      const ma: number = request.security('BTCUSDT', '60', () => ta.sma(close, 20), { source: DataSource.Binance, calcBarsCount: 300, gaps: 'off' })
+      plot.Candle(o, h, l, c, 'htf')
+      plot.Line(ma, 'ma')
+    } })`)
+    expect(diagnosticCodes(session)).toEqual([])
+  })
+
   it('同版本复用转换结果，修改 inputs 后清除旧参数并采用新类型', () => {
     const session = createScriptLanguageSession()
     const source = `defineIndicator({

@@ -201,6 +201,51 @@ onBar() {
 }
 ```
 
+## 跨品种与跨周期取数
+
+`request.security(品种, 周期, 回调, options?)` 在目标行情上独立计算：
+
+```ts
+defineIndicator({
+  name: '高周期蜡烛',
+  position: Position.Main,
+  onBar() {
+    const timeframe = input.string('D', { title: '目标周期', options: ['60', '240', 'D', 'W', 'M'] })
+    const [o, h, l, c] = request.security(
+      syminfo.tickerid,
+      timeframe,
+      () => [open, high, low, close] as const,
+    )
+    const color = c >= o ? Color.Green : Color.Red
+    plot.Candle(o, h, l, c, 'higher-timeframe', { color, wickColor: color, borderColor: color })
+  },
+})
+```
+
+目标周期必须大于或等于主图周期。支持 Pine 常用写法 `'60'`、`'240'`、`'D'`、`'W'`、`'M'`，
+以及 Provider 周期名（如 `'60min'`、`'daily'`）。蜡烛宽度跟随主图 K 线间距。
+
+指定来源使用 options.source，例如在分钟图上：
+
+```ts
+const hourlyMA = request.security('BTCUSDT', '60', () => ta.sma(close, 20), {
+  source: DataSource.Binance,
+  calcBarsCount: 300,
+  gaps: 'off',
+})
+```
+
+DataSource 包含 Binance、Gotdx、BaoStock、TradingView、MT5、THS、Mock。
+请求品种与图表品种相同时继承图表来源；请求其他品种时必须显式指定 source，否则直接报错。
+指定来源不可用时也直接报错，不在数据源之间自动切换。
+calcBarsCount 表示主图历史之前额外加载的目标周期预热根数，默认 300。
+gaps='off' 延续最近可用结果；gaps='on' 只在新目标结果出现时输出，其余点留空。
+
+请求必须在 onBar 顶层声明。回调内的行情、历史索引和 ta 都属于目标周期，可使用 input 参数；
+其他局部计算请写入回调内。不支持嵌套请求或逐 bar 动态改变品种。
+返回元组只读，不暴露 Data Buffer。末根使用最新目标快照，数据更新后指标重算；
+当前不提供“只读取已确认收盘”的模式。
+
 ## 库
 
 脚本通过全局 `defineLibrary(name, members)` 声明库，`importLibrary(name)` 使用库。

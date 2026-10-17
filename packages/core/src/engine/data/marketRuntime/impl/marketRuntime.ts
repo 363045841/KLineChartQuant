@@ -1,16 +1,25 @@
 /** 从活动行情就绪状态统一管理 K 线流、成交流及视口历史成交需求。 */
 
+import type {
+  IndicatorBarsRequest,
+  IndicatorMarketContext,
+} from '@363045841yyt/klinechart-plot-contracts'
+import type { SymbolSpec } from '@/controllers/types.js'
+import { DataBuffer } from '@/data/buffer/impl/dataBuffer.js'
 import {
+  type BarsSelection,
   SERIES_SELECTION_KIND,
   seriesSelectionKey,
   type TradesSelection,
 } from '@/data/buffer/impl/seriesRepository.js'
+import type { KLineBuffer } from '@/data/buffer/types.js'
 import { RealtimeBarsConnector } from '@/data/live/impl/barsLive.js'
 import type { LiveBarsStream } from '@/data/live/types.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
 } from '@/data/provider/impl/registry.js'
+import { OLDER_DATA_STATUS } from '@/data/provider/types.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
   TRADE_MESSAGES,
@@ -20,7 +29,10 @@ import {
   type TradeDataSource,
   type TradeStream,
 } from '@/data/trades/types.js'
+import type { IndicatorMarketData } from '@/engine/indicators/instances/execution/marketDataTypes.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type { MarketRuntimeDependencies, ReadyMarketSession } from '../types.js'
+import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
 
 /** 成交流订阅的身份与传输目标；由就绪会话和指标需求解析得到。 */
 interface TradeTarget {
@@ -82,9 +94,255 @@ function needsRebind(current: TradeBinding | null, target: TradeTarget): boolean
 }
 
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
-export class MarketRuntime {
+export class MarketRuntime implements IndicatorMarketData {
   private readonly registry: MarketDataProviderRegistry
-  private live: { stream: LiveBarsStream; connector: RealtimeBarsConnector } | null = null
+  private readonly live = new Map<
+    string,
+    { stream: LiveBarsStream; connector: RealtimeBarsConnector }
+  >()
+  private readonly barDemands = new Map<
+    string,
+    { session: ReadyMarketSession; buffer: KLineBuffer; comparison: boolean; owners: Set<string> }
+  >()
+  private readonly requestAborts = new Map<string, AbortController>()
+  private requestRevision = 0
+
+  /** 行情依赖版本参与现有指标缓存身份。 */
+  get revision(): number {
+    return this.requestRevision
+  }
+
+  /** 使用已解析的品种身份查找现有需求，先请求后添加比较也复用同一个叶子。 */
+  findBarsSelection(
+    spec: SymbolSpec,
+    period: BarsSelection['period'],
+    adjustment: BarsSelection['adjustment'],
+    aggregation: BarsSelection['barAggregation'],
+  ): BarsSelection | undefined {
+    const source = spec.source === undefined ? spec.instrument?.sourceId : spec.source
+    for (const demand of this.barDemands.values()) {
+      const { selection, instrument } = demand.session
+      if (
+        selection.sourceId !== source ||
+        selection.period !== period ||
+        selection.adjustment !== adjustment ||
+        selection.barAggregation !== aggregation
+      )
+        continue
+      const matches =
+        spec.instrument === undefined
+          ? spec.symbol === instrument.symbol &&
+            (spec.exchange === undefined || spec.exchange === instrument.exchange)
+          : spec.instrument.id === instrument.id
+      if (matches) return selection
+    }
+    return undefined
+  }
+
+  /** 比较品种只登记行情使用权，连接与 Request 使用同一份序列身份。 */
+  retainComparison(session: ReadyMarketSession, buffer: KLineBuffer): void {
+    const demand = this.demand(session, buffer)
+    demand.comparison = true
+    this.reconcileBarStreams()
+  }
+
+  /** 释放比较使用权后，仍被主图或脚本使用的 Buffer 不允许被删除。 */
+  releaseComparison(selection: BarsSelection): boolean {
+    const key = seriesSelectionKey(selection)
+    const demand = this.barDemands.get(key)
+    if (demand !== undefined) demand.comparison = false
+    this.releaseUnusedBars()
+    this.reconcileBarStreams()
+    const primary = this.deps.session.peek()
+    return (
+      !this.barDemands.has(key) &&
+      (primary === null || seriesSelectionKey(primary.selection) !== key)
+    )
+  }
+
+  /** 给计算任务提供只读取数端口，完整 Buffer 永不进入脚本。 */
+  context(owner: string, bars: readonly KLineData[]): IndicatorMarketContext {
+    const session = this.deps.session.peek()
+    const symbol = session === null ? '' : session.instrument.symbol
+    return Object.freeze({
+      symbol,
+      loadBars: (request: IndicatorBarsRequest) =>
+        this.loadRequestBars(owner, bars, request, session),
+    })
+  }
+
+  /** 计算计划移除最后使用者时取消查询并关闭连接。 */
+  retain(owners: ReadonlySet<string>): void {
+    for (const [owner, abort] of this.requestAborts) {
+      if (owners.has(owner)) continue
+      abort.abort()
+      this.requestAborts.delete(owner)
+    }
+    for (const demand of this.barDemands.values())
+      for (const owner of demand.owners) if (!owners.has(owner)) demand.owners.delete(owner)
+    this.releaseUnusedBars()
+    this.reconcileBarStreams()
+  }
+
+  /** 比较与脚本登记到同一个需求条目，保留 Repository 的唯一 Buffer。 */
+  private demand(session: ReadyMarketSession, buffer: KLineBuffer) {
+    const key = seriesSelectionKey(session.selection)
+    let demand = this.barDemands.get(key)
+    if (demand === undefined) {
+      demand = { session, buffer, comparison: false, owners: new Set<string>() }
+      this.barDemands.set(key, demand)
+    } else {
+      demand.session = session
+      demand.buffer = buffer
+    }
+    return demand
+  }
+
+  /** 最后使用者退出时释放叶子，主图持有的叶子始终保留。 */
+  private releaseUnusedBars(): void {
+    const primary = this.deps.session.peek()
+    for (const [key, demand] of this.barDemands) {
+      if (demand.comparison || demand.owners.size > 0) continue
+      this.barDemands.delete(key)
+      if (primary === null || seriesSelectionKey(primary.selection) !== key)
+        this.deps.cache.repository.delete(demand.session.selection)
+    }
+  }
+
+  /** 沿游标加载覆盖主图历史的实际 K 线，再向前补足目标周期预热根数。 */
+  private async loadRequestBars(
+    owner: string,
+    bars: readonly KLineData[],
+    request: IndicatorBarsRequest,
+    session: ReadyMarketSession | null,
+  ) {
+    if (this.disposed || session === null || this.deps.session.peek() !== session)
+      throw new Error('Request 没有有效的图表行情会话')
+    if (bars.length === 0) return []
+    let abort = this.requestAborts.get(owner)
+    if (abort === undefined) {
+      abort = new AbortController()
+      this.requestAborts.set(owner, abort)
+    }
+    const signal = abort.signal
+    const period = requestPeriod(request.timeframe)
+    assertSecurityPeriod(period, session.selection.period)
+    const sameSymbol = request.symbol === session.instrument.symbol
+    // 同品种继承图表已解析来源；跨品种没有确定来源，必须由调用方显式指定。
+    if (!sameSymbol && request.source === undefined)
+      throw new Error('跨品种 Request 必须显式指定 source')
+    const sourceId = request.source ?? session.instrument.sourceId
+    const sameInstrument = sameSymbol && sourceId === session.instrument.sourceId
+    const instrument = sameInstrument ? session.instrument : undefined
+    const query = {
+      symbol: request.symbol,
+      period,
+      sourceId,
+      instrument,
+      adjustment: session.selection.adjustment,
+      barAggregation: session.selection.barAggregation,
+      limit: request.calcBarsCount,
+      signal,
+    }
+    const pages: KLineData[][] = []
+    let beforeTimestamp: number | undefined
+    const earliest = bars[0]!.timestamp
+    let warmup = 0
+    let result = await this.deps.cache.queryBars(query)
+    while (true) {
+      signal.throwIfAborted()
+      if (this.disposed || this.deps.session.peek() !== session)
+        throw new Error('Request 图表会话已切换')
+      const page = [...result.series.data]
+      pages.unshift(page)
+      warmup += page.filter((bar) => bar.timestamp < earliest).length
+      if (
+        warmup >= request.calcBarsCount ||
+        (result.series.olderData === OLDER_DATA_STATUS.EXHAUSTED && page.length < query.limit) ||
+        page.length === 0
+      )
+        break
+      const cursor = page[0]!.timestamp
+      if (beforeTimestamp !== undefined && cursor >= beforeTimestamp)
+        throw new Error('Request 历史游标没有前进')
+      beforeTimestamp = cursor
+      result = await this.deps.cache.queryBars({ ...query, beforeTimestamp })
+    }
+    const selection = this.deps.resolveBarsSelection(
+      result.instrument,
+      period,
+      query.adjustment,
+      query.barAggregation,
+    )
+    const buffer = this.deps.cache.repository.getOrCreateBars(selection, () => new DataBuffer())
+    buffer.mergeData(pages.flat(), result.series.olderData, result.series.timezone)
+    const provider = this.registry.get(result.sourceId)
+    if (provider === undefined) throw new Error(`Request 数据源不可用：${result.sourceId}`)
+    const capabilities = provider.source.capabilities
+    if (capabilities === undefined)
+      throw new Error(`Request 数据源没有能力声明：${result.sourceId}`)
+    this.demand({ selection, instrument: result.instrument, capabilities }, buffer).owners.add(
+      owner,
+    )
+    this.reconcileBarStreams()
+    return buffer.getRawData().map((bar) =>
+      Object.freeze({
+        time: bar.timestamp,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume === undefined ? 0 : bar.volume,
+      }),
+    )
+  }
+
+  /** 主图和 Request 共用同一张连接表，完整序列身份相同就复用连接。 */
+  private reconcileBarStreams(): void {
+    if (this.disposed) return
+    const targets = new Map([...this.barDemands].map(([key, target]) => [key, target.session]))
+    const primary = this.deps.session.peek()
+    if (primary !== null) targets.set(seriesSelectionKey(primary.selection), primary)
+    for (const [key, binding] of this.live) {
+      if (targets.has(key)) continue
+      this.live.delete(key)
+      binding.connector.stop()
+      binding.stream.destroy()
+    }
+    for (const [key, target] of targets) {
+      if (this.live.has(key) || !target.capabilities.liveBars) continue
+      const provider = this.registry.get(target.instrument.sourceId)
+      if (provider?.liveBars === undefined)
+        throw new Error(`数据源声明实时 K 线但没有提供接口：${target.instrument.sourceId}`)
+      const stream = provider.liveBars.createStream({
+        symbol: target.instrument.symbol,
+        period: target.selection.period,
+        barAggregation: target.selection.barAggregation,
+      })
+      const connector = new RealtimeBarsConnector(
+        {
+          updateBars: (bars) => {
+            if (this.disposed || this.live.get(key)?.stream !== stream) return
+            this.deps.cache.acceptBars(target.selection, target.instrument, bars)
+            const current = this.deps.session.peek()
+            const demand = this.barDemands.get(key)
+            if (current !== null && seriesSelectionKey(current.selection) === key)
+              this.deps.writeBars(current, bars)
+            else {
+              demand?.buffer.applyRealtimeBars(bars)
+            }
+            if (demand !== undefined && demand.owners.size > 0) {
+              this.requestRevision++
+              this.deps.invalidateRequests?.()
+            }
+          },
+        },
+        stream,
+      )
+      this.live.set(key, { stream, connector })
+      connector.start()
+    }
+  }
   private session: ReadyMarketSession | null = null
   private trade: TradeBinding | null = null
   private demandTimer: ReturnType<typeof setTimeout> | null = null
@@ -126,35 +384,12 @@ export class MarketRuntime {
     const next = this.deps.session.peek()
     if (next !== this.session) {
       this.session = next
-      const previous = this.live
-      this.live = null
-      previous?.connector.stop()
-      previous?.stream.destroy()
-      if (next?.capabilities.liveBars) {
-        const provider = this.registry.get(next.instrument.sourceId)
-        if (provider?.liveBars) {
-          const stream = provider.liveBars.createStream({
-            symbol: next.instrument.symbol,
-            period: next.selection.period,
-            barAggregation: next.selection.barAggregation,
-          })
-          const connector = new RealtimeBarsConnector(
-            {
-              updateBars: (bars) => {
-                if (
-                  !this.disposed &&
-                  this.live?.stream === stream &&
-                  this.deps.session.peek() === next
-                )
-                  this.deps.writeBars(next, bars)
-              },
-            },
-            stream,
-          )
-          this.live = { stream, connector }
-          connector.start()
-        }
-      }
+      for (const abort of this.requestAborts.values()) abort.abort()
+      this.requestAborts.clear()
+      for (const demand of this.barDemands.values()) demand.owners.clear()
+      this.releaseUnusedBars()
+      this.requestRevision++
+      this.reconcileBarStreams()
     }
     this.reconcileTrades()
   }
@@ -283,9 +518,14 @@ export class MarketRuntime {
     this.disposed = true
     for (const unsubscribe of this.subscriptions) unsubscribe()
     this.clearTradeDemand()
-    this.live?.connector.stop()
-    this.live?.stream.destroy()
-    this.live = null
+    for (const abort of this.requestAborts.values()) abort.abort()
+    this.requestAborts.clear()
+    this.barDemands.clear()
+    for (const binding of this.live.values()) {
+      binding.connector.stop()
+      binding.stream.destroy()
+    }
+    this.live.clear()
     this.unmountTrade()
   }
 }

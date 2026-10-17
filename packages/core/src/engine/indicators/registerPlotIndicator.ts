@@ -86,7 +86,8 @@ function createPlotIndicatorDefinition<P>(
       revision: definition.document?.revision,
       defaultParams: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
-      compute: (data, params: P) => definition.compute(data.map(toBar), params),
+      compute: (data, params: P, _trades, market) =>
+        definition.compute(data.map(toBar), params, market),
     },
   })
   class PlotIndicatorDefinition {

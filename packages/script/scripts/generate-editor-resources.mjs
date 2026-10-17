@@ -48,7 +48,7 @@ export async function generateEditorResources({ check = false } = {}) {
     }
   }
 
-  for (const directory of ['contracts', 'Library', 'series']) {
+  for (const directory of ['contracts', 'Library', 'series', 'request']) {
     await collect(new URL(`src/${directory}/`, packageRoot), `${scriptPrefix}${directory}/`)
   }
   for (const file of ['quickjs/types.ts', 'editor/types.ts', 'quickjs/runtime/plotKind.ts']) {

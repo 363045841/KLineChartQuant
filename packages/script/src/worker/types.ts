@@ -1,6 +1,7 @@
 /** Script Worker 的异步执行接口与消息类型。 */
 import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import type { QuickJSLibrary, QuickJSScriptDefinition, ScriptParamValue } from '../quickjs/types.js'
+import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
 /** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功后替换编译结果。 */
 export interface ScriptWorker {
@@ -14,7 +15,13 @@ export interface ScriptWorker {
     id: string,
     bars: readonly Bar[],
     params?: Readonly<Record<string, ScriptParamValue>>,
+    context?: ScriptRequestContext,
   ): Promise<PlotCollection>
+  requests(
+    id: string,
+    params: Readonly<Record<string, ScriptParamValue>>,
+    symbol: string,
+  ): Promise<readonly SecurityRequest[]>
   release(id: string): Promise<void>
   dispose(): void
 }
@@ -31,6 +38,12 @@ export type ScriptWorkerRequest = { readonly requestId: number; readonly id: str
       readonly type: 'run'
       readonly bars: readonly Bar[]
       readonly params?: Readonly<Record<string, ScriptParamValue>>
+      readonly context?: ScriptRequestContext
+    }
+  | {
+      readonly type: 'requests'
+      readonly params: Readonly<Record<string, ScriptParamValue>>
+      readonly symbol: string
     }
   | { readonly type: 'release' }
 )
@@ -49,6 +62,7 @@ export interface ScriptWorkerError {
 export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'prepare'; readonly definition: QuickJSScriptDefinition }
   | { readonly type: 'run'; readonly collection: PlotCollection }
+  | { readonly type: 'requests'; readonly requests: readonly SecurityRequest[] }
   | { readonly type: 'release' }
   | { readonly type: 'error'; readonly error: ScriptWorkerError }
 )

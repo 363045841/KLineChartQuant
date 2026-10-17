@@ -146,6 +146,7 @@ export interface SubPaneOps {
 }
 
 export interface IndicatorDependencies {
+  getMarketData?: () => import('./instances/execution/marketDataTypes.js').IndicatorMarketData
   plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
@@ -281,6 +282,7 @@ export class ChartIndicatorManager {
     // 执行器：Worker 可用时优先，异步失败在 handleCalculationError 中降级 inline。
     this.inlineExecutor = createInlineIndicatorCalculationExecutor(
       createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
+      deps.getMarketData,
     )
     this.executorHolder = { active: this.inlineExecutor }
     this.workerExecutor = this.tryCreateWorkerExecutor()
@@ -320,6 +322,7 @@ export class ChartIndicatorManager {
             await this.executorHolder.active.setData(data, revision, trades)
         },
         execute: async (plan, revision) => {
+          this.deps.getMarketData?.().retain(new Set(plan.tasks.map((task) => task.calculationKey)))
           const active = this.executorHolder.active
           if (active === this.inlineExecutor) return active.execute(plan, revision)
           const inlineTasks = plan.tasks.filter(
@@ -394,6 +397,11 @@ export class ChartIndicatorManager {
     if (this.disposeProjection) return
     this.syncRuntimeFromState()
     this.disposeProjection = effect(() => this.syncRuntimeFromState())
+  }
+
+  /** 目标行情更新复用现有调度器，旧任务结果由请求版本屏障丢弃。 */
+  invalidateMarketData(): void {
+    this.requestCompute()
   }
 
   /** 将 kernel 当前快照投影为 pane、renderer 与实例链路的运行时状态。 */

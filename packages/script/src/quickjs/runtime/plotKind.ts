@@ -27,6 +27,17 @@ declare enum Color {
   Black = "#000000",
 }
 
+/** 内置数据源身份；指定后严格路由，不做跨来源回退。 */
+declare enum DataSource {
+  Binance = "binance",
+  Gotdx = "gotdx",
+  BaoStock = "baostock",
+  TradingView = "tradingview",
+  MT5 = "mt5",
+  THS = "ths",
+  Mock = "mock",
+}
+
 declare enum PlotKind {
   Line = "line",
   Histogram = "histogram",

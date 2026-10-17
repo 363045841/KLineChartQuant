@@ -83,11 +83,12 @@ const editorTheme = EditorView.theme({
     borderRadius: 'var(--klc-radius-md, 8px)',
     overflow: 'hidden',
   },
-  // 类型悬浮框和参数提示随内容确定尺寸。
+  // 类型悬浮框和参数提示限制尺寸，长文档在框内滚动，不遮满编辑区。
   '.cm-tooltip:has(.cm-script-tooltip)': {
     backgroundColor: 'var(--klc-color-ui-surface)',
     fontSize: 'var(--klc-text-label-13-font-size, 13px)',
     lineHeight: '1.6',
+    maxWidth: 'min(520px, 46vw)',
   },
   '.cm-script-tooltip': {
     padding: 'var(--klc-space-4, 4px) var(--klc-space-8, 8px)',
@@ -95,6 +96,8 @@ const editorTheme = EditorView.theme({
     whiteSpace: 'pre-wrap',
     overflowWrap: 'anywhere',
     boxSizing: 'border-box',
+    maxHeight: 'min(60vh, 420px)',
+    overflowY: 'auto',
   },
   '.cm-script-hover-description, .cm-script-hover-tags': {
     margin: 'var(--klc-space-8, 8px) 0 0',
@@ -134,6 +137,12 @@ const editorTheme = EditorView.theme({
   // 补全列表约容纳 12 行，较小窗口中最多占视口的一半。
   '.cm-tooltip.cm-tooltip-autocomplete > ul': {
     maxHeight: 'min(24em, 50vh)',
+  },
+  // 补全项的文档面板与悬浮提示共用同一份 JSDoc，同样限制尺寸并内部滚动。
+  '.cm-tooltip.cm-tooltip-autocomplete .cm-completionInfo': {
+    maxWidth: 'min(520px, 46vw)',
+    maxHeight: 'min(24em, 50vh)',
+    overflow: 'auto',
   },
   // 补全项上下各增加 1px 留白，保留默认左右间距与图标。
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {

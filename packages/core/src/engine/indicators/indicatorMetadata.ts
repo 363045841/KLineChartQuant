@@ -198,6 +198,7 @@ export interface IndicatorRuntimeDescriptor<C = any> {
     data: KLineData[],
     config: C,
     trades?: import('../../data/trades/types.js').TradeSnapshot,
+    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown
   /** Worker 端计算键名，映射到 calculators 模块的导出 */
   computeKey?: string
@@ -241,7 +242,6 @@ export interface IndicatorMetadata<T = unknown> {
    * 分类：主图/副图
    */
   category: IndicatorCategory
-
 
   /**
    * 在 configSnapshot 中的 paneId 字段名

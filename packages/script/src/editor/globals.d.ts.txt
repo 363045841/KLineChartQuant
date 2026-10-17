@@ -7,6 +7,7 @@ import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
+import type { ScriptRequest } from '../request/types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -74,4 +75,22 @@ declare global {
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */
   function importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
+
+  /**
+   * 跨品种、跨周期取数；仅在 onBar 顶层调用，回调在目标周期的独立上下文中逐根执行。
+   *
+   * | 参数 | 含义 |
+   * | --- | --- |
+   * | `symbol` | 目标品种；等于 `syminfo.tickerid` 时继承图表来源，否则必须指定 options.source |
+   * | `timeframe` | 目标周期，如 '60'、'D'；不得低于图表周期 |
+   * | `expression` | 无参同步回调，返回标量、序列或元组 |
+   * | `options` | `source`、`calcBarsCount`、`gaps` |
+   *
+   * ```ts
+   * const [o, h, l, c] = request.security(syminfo.tickerid, '60', () => [open, high, low, close] as const)
+   * ```
+   */
+  const request: ScriptRequest
+  /** 当前图表品种信息；`tickerid` 可直接传给 `request.security`。 */
+  const syminfo: { readonly tickerid: string }
 }

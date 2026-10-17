@@ -2,6 +2,7 @@
  * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
  */
 import type { Bar } from './bar.js'
+import type { IndicatorMarketContext } from './market.js'
 import type { PlotCollection } from './plots.js'
 
 /** 可序列化的脚本声明；不包含执行函数。 */
@@ -76,7 +77,11 @@ export interface IndicatorDefinition<P> {
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
   /** 计算端口：给定 bars 与参数，产出完整 PlotCollection。 */
-  compute(bars: readonly Bar[], params: P): PlotCollection | Promise<PlotCollection>
+  compute(
+    bars: readonly Bar[],
+    params: P,
+    market?: IndicatorMarketContext,
+  ): PlotCollection | Promise<PlotCollection>
 }
 
 /** 按输入声明取默认值，构成初始参数。 */

@@ -80,6 +80,7 @@ import { ScrollCompensator } from './scrollCompensator.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
+  invalidateRequests?(): void
   marketDataProviderRegistry?: MarketDataProviderRegistry
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
@@ -173,6 +174,11 @@ export class ChartDataManager {
   private _loadHint: IncrementalLoadHint
   private _pendingIncrementalLoadFlushTimer = 0
 
+  /** 跨周期行情复用市场运行模块。 */
+  get indicatorMarketData(): import('../indicators/instances/execution/marketDataTypes.js').IndicatorMarketData {
+    return this.marketRuntime
+  }
+
   private deps: DataDependencies
 
   constructor(deps: DataDependencies, dataState: DataStateModule, dmState: DataManagerStateModule) {
@@ -188,6 +194,30 @@ export class ChartDataManager {
       visibleRange: deps.viewport.readonly.visibleRange,
       data: dataState.readonly.data,
       needsTrades: () => deps.needsTrades(),
+      invalidateRequests: () => deps.invalidateRequests?.(),
+      resolveBarsSelection: (instrument, period, adjustment, barAggregation) => {
+        const specs = [...this.symbols.peek(), ...this.deps.comparison.readonly.specs.peek()]
+        const matching = specs.find(
+          (spec) =>
+            sourceIdFromSpec(spec) === instrument.sourceId &&
+            (spec.instrument === undefined
+              ? spec.symbol === instrument.symbol &&
+                (spec.exchange === undefined || spec.exchange === instrument.exchange)
+              : spec.instrument.id === instrument.id),
+        )
+        const spec: SymbolSpec =
+          matching === undefined
+            ? {
+                market: instrument.exchange,
+                symbol: instrument.symbol,
+                instrument,
+                source: instrument.sourceId,
+                period,
+                adjust: adjustment,
+              }
+            : { ...matching, period, adjust: adjustment }
+        return { ...this.barsSelectionForSpec(spec), barAggregation }
+      },
       publishTrades: (snapshot) => deps.updateTradeInput(snapshot),
       writeBars: (session, bars) => {
         this._repository.getBars(session.selection)?.applyRealtimeBars(bars)
@@ -244,6 +274,13 @@ export class ChartDataManager {
     if (!KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
       throw new Error(`[ChartDataManager] invalid K-line adjustment "${adjustment}"`)
     }
+    const existing = this.marketRuntime.findBarsSelection(
+      spec,
+      period as KLinePeriod,
+      adjustment as KLineAdjustment,
+      this.barAggregation(),
+    )
+    if (existing !== undefined) return existing
     return {
       kind: SERIES_SELECTION_KIND.bars,
       instrumentKey: instrumentKeyFromSpec(spec),
@@ -530,6 +567,20 @@ export class ChartDataManager {
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+      const resolvedSelection = { ...selection, sourceId: result.sourceId }
+      if (
+        this.deps.comparison.readonly.specs
+          .peek()
+          .some(
+            (comparison) =>
+              seriesSelectionKey(
+                this.barsSelectionForSpec(this.comparisonSpecForPrimary(comparison)),
+              ) === seriesSelectionKey(resolvedSelection),
+          )
+      ) {
+        const session = this.readySession(resolvedSelection, buffer)
+        if (session !== null) this.marketRuntime.retainComparison(session, buffer)
+      }
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -688,6 +739,17 @@ export class ChartDataManager {
           : spec,
       )
     this.deps.setSymbols(symbols)
+    const comparisons = this.deps.comparison.readonly.specs.peek()
+    const resolvedComparisons = comparisons.map((spec) =>
+      sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
+      selection.kind === SERIES_SELECTION_KIND.bars &&
+      seriesSelectionKey(this.barsSelectionForSpec(this.comparisonSpecForPrimary(spec))) ===
+        seriesSelectionKey(selection)
+        ? { ...spec, source: sourceId, instrument }
+        : spec,
+    )
+    if (resolvedComparisons.some((spec, index) => spec !== comparisons[index]))
+      this.deps.comparison.actions.setSpecs(resolvedComparisons)
     const current = this._dmState.readonly.currentSpec.peek()
     if (
       current &&
@@ -1100,6 +1162,7 @@ export class ChartDataManager {
 
   /** 删除不再被 comparison 或当前主品种引用的 Repository 叶子。 */
   private releaseComparisonSelection(selection: BarsSelection): void {
+    if (!this.marketRuntime.releaseComparison(selection)) return
     if (this.isActiveSelection(selection)) return
     const primary = this._dataState.readonly.symbols.peek()[0]
     if (

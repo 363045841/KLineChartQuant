@@ -70,3 +70,7 @@ declare function __fill(
 
 /** 宿主注入：脚本参数，键为 inputs 中声明的参数名。 */
 declare const params: Record<string, ScriptParamValue>
+
+/** 宿主注入的跨周期计算输入，仅包含可克隆数据。 */
+declare const __requestContext: import('../../request/types.js').RequestExecution
+declare function __emitRequestResult(value: import('../../request/types.js').RequestValue): void

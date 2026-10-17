@@ -8,6 +8,7 @@ import {
   removeScriptIndicatorDefinition,
   updatePlotIndicator,
 } from '@363045841yyt/klinechart-core'
+import { DEFAULT_REQUEST_BARS } from '@363045841yyt/klinechart-plot-contracts'
 import { type QuickJSLibrary, type QuickJSScriptDefinition } from '@363045841yyt/klinechart-script'
 import { createScriptWorker } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument, ScriptService, ScriptServiceOptions } from '../types.js'
@@ -73,7 +74,23 @@ export async function createScriptService(
       id,
       source: 'script',
       document,
-      compute: (bars, params) => worker.run(prepared.handle, bars, params),
+      compute: async (bars, params, market) => {
+        if (market === undefined) return worker.run(prepared.handle, bars, params)
+        const requests = await worker.requests(prepared.handle, params, market.symbol)
+        const snapshots = await Promise.all(
+          requests.map(async (request) => ({
+            id: request.id,
+            bars: await market.loadBars({
+              symbol: request.symbol,
+              timeframe: request.timeframe,
+              source: request.source,
+              calcBarsCount:
+                request.calcBarsCount === undefined ? DEFAULT_REQUEST_BARS : request.calcBarsCount,
+            }),
+          })),
+        )
+        return worker.run(prepared.handle, bars, params, { symbol: market.symbol, snapshots })
+      },
     })
     const previous = handles.get(id)
     handles.set(id, prepared.handle)
