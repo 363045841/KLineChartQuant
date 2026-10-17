@@ -19,7 +19,7 @@ function storeWith(names: readonly string[]): ScriptSourceStore {
   return {
     read: (id) =>
       names.includes(id)
-        ? { id, definition: { name: id }, source: '', revision: 1, identity: 'user' }
+        ? { id, definition: { name: id }, source: '', revision: 1, identity: 'user', trusted: false }
         : undefined,
     create: () => Promise.reject(new Error('unused')),
     update: () => Promise.reject(new Error('unused')),
