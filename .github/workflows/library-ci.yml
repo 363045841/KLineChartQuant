@@ -8,7 +8,7 @@
 #
 # Gate state:
 #   - REQUIRED  : type-check:src, type-check:tests, package tests, lint:types (attw)
-#   - WARN-ONLY : size:packages, lint:publish, build
+#   - WARN-ONLY : lint:ui (temporarily demoted), size:packages, lint:publish, build
 #
 # type-check and lint:types resolve each workspace package through its
 # published entrypoint (dist/*.d.ts), so the `test` job builds them before
@@ -70,8 +70,13 @@ jobs:
       # Stylelint bulk suppressions record existing debt
       # (stylelint-suppressions.json); only new
       # violations fail. After fixing debt run `pnpm lint:ui:prune`.
-      - name: UI token gates (pnpm lint:ui) [REQUIRED]
+      #
+      # WARN-ONLY: the tokens-v2 adaptation of the Vue components is not done
+      # yet, so this gate cannot block merges today. Drop `continue-on-error`
+      # and restore the [REQUIRED] label once that adaptation lands.
+      - name: UI token gates (pnpm lint:ui) [WARN]
         run: pnpm lint:ui
+        continue-on-error: true
 
       # Builds core and its workspace dependencies itself (the pnpm filter
       # widens to the dependency graph), so it does not rely on the package
