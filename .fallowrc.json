@@ -28,8 +28,51 @@
     "unused-exports": "warn",
     "unused-types": "warn",
     "unused-dependencies": "warn",
+    "boundary-violation": "error",
+    "policy-violation": "off",
     "css-dead-surface": "off",
     "css-selector-complexity": "off"
+  },
+  "rulePacks": [],
+  "boundaries": {
+    "zones": [
+      { "name": "plot-contracts", "patterns": ["packages/plot-contracts/**"] },
+      { "name": "script", "patterns": ["packages/script/**"] },
+      { "name": "core", "patterns": ["packages/core/**"] },
+      { "name": "script-chart", "patterns": ["packages/script-chart/**"] },
+      { "name": "agent-runtime", "patterns": ["packages/agent-runtime/**"] },
+      { "name": "vue", "patterns": ["packages/vue/**"] },
+      { "name": "react", "patterns": ["packages/react/**"] },
+      { "name": "angular", "patterns": ["packages/angular/**"] },
+      { "name": "mobile", "patterns": ["packages/mobile/**"] },
+      { "name": "desktop-electron", "patterns": ["packages/desktop-electron/**"] },
+      { "name": "examples", "patterns": ["examples/**"] }
+    ],
+    "rules": [
+      { "from": "plot-contracts", "allow": [] },
+      { "from": "script", "allow": ["plot-contracts"] },
+      { "from": "core", "allow": ["plot-contracts"] },
+      { "from": "script-chart", "allow": ["plot-contracts", "script", "core"] },
+      { "from": "agent-runtime", "allow": ["core"] },
+      { "from": "vue", "allow": ["core", "script", "script-chart", "agent-runtime"] },
+      { "from": "react", "allow": ["core", "vue"] },
+      { "from": "angular", "allow": ["core"] },
+      { "from": "mobile", "allow": ["core", "react"] },
+      { "from": "desktop-electron", "allow": ["core", "script-chart", "agent-runtime", "vue"] },
+      {
+        "from": "examples",
+        "allow": [
+          "plot-contracts",
+          "script",
+          "script-chart",
+          "core",
+          "agent-runtime",
+          "vue",
+          "react",
+          "angular"
+        ]
+      }
+    ]
   },
   "duplicates": {
     "ignorePatterns": ["**/__tests__/**"]
