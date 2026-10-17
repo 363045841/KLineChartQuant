@@ -20,6 +20,10 @@ export default defineConfig({
         ]),
   ],
 
+  resolve: {
+    alias: [{ find: /^@vue-src\//, replacement: fileURLToPath(new URL('./src/', import.meta.url)) }],
+  },
+
   build: {
     target: 'esnext',
     emptyOutDir: !isWC,

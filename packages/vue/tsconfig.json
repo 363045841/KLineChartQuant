@@ -13,6 +13,9 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
     "types": ["vite/client", "unplugin-icons/types/vue"],
+    "paths": {
+      "@vue-src/*": ["./src/*"]
+    },
     "outDir": "dist",
     "rootDir": "../.."
   },

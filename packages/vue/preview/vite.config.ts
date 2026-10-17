@@ -93,6 +93,7 @@ export default defineConfig({
   resolve: {
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
     alias: [
+      { find: /^@vue-src\//, replacement: `${root}/packages/vue/src/` },
       ...createCoreSourceAliases(coreSrc),
       ...createPackageSourceAliases(`${root}/packages/script/src`),
       ...createPackageSourceAliases(`${root}/packages/script-chart/src`),

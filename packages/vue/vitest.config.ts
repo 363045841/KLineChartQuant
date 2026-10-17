@@ -80,6 +80,7 @@ export default defineConfig({
         find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
         replacement: agentContracts,
       },
+      { find: /^@vue-src\//, replacement: `${fileURLToPath(new URL('./src', import.meta.url))}/` },
       { find: /^@\//, replacement: `${repoSrc}/` },
     ],
   },
