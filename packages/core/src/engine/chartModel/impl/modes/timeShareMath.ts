@@ -1,11 +1,6 @@
 /** 分时几何与价格轴计算的纯函数集合。 */
 import type { TimeShareRange } from '@/data/provider/types.js'
-import {
-  ASHARE_MARKET_SESSION,
-  type MarketSessionConfig,
-  resolveMarketSessionSlots,
-  resolveSessionSlotPhysicalGrid,
-} from '@/foundation/utils/timeShareAxisLabels.js'
+import { resolveSessionSlotPhysicalGrid } from '@/foundation/utils/timeShareAxisLabels.js'
 import { calcKBarWidthPx } from '../../../viewport/klineConfig.js'
 
 export type TimeShareBaselineInput = {
@@ -62,21 +57,6 @@ export function computeTimeSharePriceRange(
   }
 }
 
-/** A 股默认全天 1 分钟槽位数（兼容旧导出） */
-export const ASHARE_TIMESHARE_SESSION_SLOTS = resolveMarketSessionSlots(ASHARE_MARKET_SESSION)
-
-/**
- * 全天交易槽位数：以 marketSession 为 SSOT，不因 arrivedCount 放大。
- * @deprecated 优先用 resolveMarketSessionSlots(config)
- */
-export function resolveTimeShareSessionSlots(
-  arrivedCount: number,
-  marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION,
-): number {
-  void arrivedCount
-  return resolveMarketSessionSlots(marketSession)
-}
-
 export type TimeShareXLayoutInput = {
   arrivedCount: number
   sessionSlots: number
@@ -127,7 +107,4 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
   return { step, offset: (grid?.offsetPx ?? 0) / dpr, centers, barWidth, barVisible, kWidthPx }
 }
 
-export {
-  computeTimeShareTimeLabelIndices,
-  type TimeShareTimeLabelInput,
-} from '@/foundation/utils/timeShareAxisLabels.js'
+export { computeTimeShareTimeLabelIndices } from '@/foundation/utils/timeShareAxisLabels.js'

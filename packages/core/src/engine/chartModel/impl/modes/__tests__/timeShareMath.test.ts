@@ -7,13 +7,11 @@ import {
   timeShareSlotCenterX,
 } from '@/foundation/utils/timeShareAxisLabels'
 import {
-  ASHARE_TIMESHARE_SESSION_SLOTS,
   computeTimeSharePriceRange,
   computeTimeShareTimeLabelIndices,
   computeTimeShareXLayout,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
-  resolveTimeShareSessionSlots,
 } from '../timeShareMath'
 
 describe('resolveTimeShareBaseline', () => {
@@ -99,18 +97,6 @@ describe('computeTimeSharePriceRange', () => {
     )
     expect(computeTimeSharePriceRange([])).toBeNull()
     expect(computeTimeSharePriceRange([null, undefined, NaN, Infinity])).toBeNull()
-  })
-})
-
-describe('resolveTimeShareSessionSlots', () => {
-  it('defaults to A-share 240 one-minute slots (sessions SSOT)', () => {
-    expect(ASHARE_TIMESHARE_SESSION_SLOTS).toBe(240)
-    expect(resolveTimeShareSessionSlots(0)).toBe(240)
-    expect(resolveTimeShareSessionSlots(60)).toBe(240)
-  })
-
-  it('does not expand when arrived points exceed session slots', () => {
-    expect(resolveTimeShareSessionSlots(300)).toBe(240)
   })
 })
 

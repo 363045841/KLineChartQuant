@@ -29,9 +29,7 @@ export { createSettingsState, type SettingsStateModule } from './settingsState.j
 export { StateKernel, type SubStateModule } from './stateKernel.js'
 export {
   createSystemThemeState,
-  createThemeState,
   type SystemThemeStateModule,
-  type ThemeStateModule,
 } from './themeState.js'
 export {
   clampDpr,

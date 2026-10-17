@@ -11,8 +11,6 @@ import {
   type ViewCapabilities,
 } from './chartViews.js'
 
-export type ChartModeId = ChartDataView
-
 /** 按数据视图校验主渲染器，不支持的组合回退到视图默认值。 */
 function resolveEffectivePrimaryRenderer(
   view: ChartDataView,

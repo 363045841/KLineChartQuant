@@ -1,11 +1,5 @@
+/** 指标计算器入口：转发指标定义可直接调用的计算函数与默认参数。 */
 export { calcAwesomeOscillatorData } from './awesomeOscillator.js'
-export type {
-  ENEPoint,
-  IchimokuPoint,
-  KeltnerPoint,
-  SARPoint,
-  SuperTrendPoint,
-} from './bands.js'
 export {
   calcENEData,
   calcIchimokuData,
@@ -14,10 +8,8 @@ export {
   calcSuperTrendData,
 } from './bands.js'
 export { calcDPOData } from './dpo.js'
-export type { FisherPoint } from './fisherTransform.js'
 export { calcFisherTransformData } from './fisherTransform.js'
 export { calcFRAMAData } from './frama.js'
-export type { DMAPoint, EXPMAPoint, MAFlags } from './movingAverages.js'
 export {
   calcALMAData,
   calcDEMAData,
@@ -35,32 +27,19 @@ export {
   calcZLEMAData,
   DEFAULT_MA_PERIODS,
 } from './movingAverages.js'
-export type { KSTPoint, MACDPoint, TRIXResult } from './oscillators.js'
 export {
   calcCCIData,
   calcKSTData,
   calcMACDData,
   calcTRIXData,
 } from './oscillators.js'
-export type {
-  FibPoint,
-  PivotPoint,
-  StructureEvent,
-  StructureEventKind,
-  StructureSnapshot,
-  SwingPoint,
-  Zone,
-  ZoneKind,
-} from './patterns.js'
 export { calcFibData, calcPivotData, calcStructureData, calcZonesData } from './patterns.js'
 export { calcSchaffTrendCycleData } from './schaffTrendCycle.js'
-export type { StochRSIPoint } from './stochRSI.js'
 export { calcStochRSIData } from './stochRSI.js'
 export { calcT3Data } from './t3.js'
 export { calcUltimateOscillatorData } from './ultimateOscillator.js'
 export { calcVIDYAData } from './vidya.js'
 export { calcATRData, calcChaikinVolData, calcHVData, calcParkinsonData } from './volatility.js'
-export type { VolumeProfileBin, VolumeProfileResult } from './volume.js'
 export {
   calcCMFData,
   calcMFIData,

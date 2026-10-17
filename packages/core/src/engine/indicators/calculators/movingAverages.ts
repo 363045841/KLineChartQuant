@@ -1,3 +1,4 @@
+/** 均线家族指标计算：SMA/EMA/WMA/DEMA/TEMA/GMMA 等。 */
 import type { KLineData } from '@/foundation/types/price.js'
 
 /** GMMA 的短期和长期计算周期。 */
@@ -5,14 +6,6 @@ const GMMA_SHORT_PERIODS: readonly number[] = [3, 5, 8, 10, 12, 15]
 const GMMA_LONG_PERIODS: readonly number[] = [30, 35, 40, 45, 50, 60]
 
 import { _computeEMASeries, _computeWMAOnNumbers } from './_shared.js'
-
-export type MAFlags = {
-  ma5?: boolean
-  ma10?: boolean
-  ma20?: boolean
-  ma30?: boolean
-  ma60?: boolean
-}
 
 export const DEFAULT_MA_PERIODS = [5, 10, 20, 30, 60] as const
 

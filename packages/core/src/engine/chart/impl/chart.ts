@@ -67,7 +67,7 @@ import {
   type WritableSignal,
 } from '../../../foundation/reactivity/signal.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
-import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
+import type { KLineData } from '../../../foundation/types/price.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.js'
 import type { MarketSessionConfig } from '../../../foundation/utils/sessionTimeLabels.js'
 import {
@@ -704,11 +704,6 @@ export class Chart {
     return this.kernel.viewport.readonly.dpr.peek()
   }
 
-  /** 获取当前周期 */
-  get currentPeriod(): string {
-    return this.dataManager.currentPeriod
-  }
-
   /** 获取插件宿主 */
   get plugin(): PluginHostImpl {
     return this.pluginHost
@@ -733,17 +728,6 @@ export class Chart {
   /** 获取已注册渲染器 Layer。 */
   getRenderer(id: string): Layer<RenderContext> | undefined {
     return this.renderer.getScene().getLayer(id) ?? undefined
-  }
-
-  /** 启用/禁用渲染器（Scene Layer 显隐）。 */
-  setRendererEnabled(id: string, enabled: boolean): void {
-    this.renderer.getScene().setLayerVisibility(id, enabled)
-    this.scheduleDraw()
-  }
-
-  /** 获取所有渲染器 Layer。 */
-  getAllRenderers(): ReadonlyArray<Layer<RenderContext>> {
-    return this.renderer.getScene().layers.peek()
   }
 
   /** 外部 Layer 更新私有数据后请求完整重绘，不受帧内容缓存跳过。 */
@@ -1014,14 +998,6 @@ export class Chart {
   scalePrice(paneId: string, deltaY: number, anchorY?: number): void {
     this.transformPrice(paneId, (yAxis, base) => yAxis.scaleRange(base, deltaY, anchorY))
   }
-  /**
-   * 更新数据并请求重绘
-   * @param data K 线数据数组
-   */
-  updateData(data: KLineData[]) {
-    this.dataManager.updateData(data)
-  }
-
   /** 获取当前数据源（供 renderers 和 interaction 使用） */
   getData(): KLineData[] {
     return this.dataManager.getData()
@@ -1042,19 +1018,9 @@ export class Chart {
     this.dataManager.ensureDataRange(startTs)
   }
 
-  /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */
-  getRenderData(): ReadonlyArray<KLineData | TimeShareData> {
-    return this.dataManager.getRenderData()
-  }
-
   /** K线原始数据（分时模式下为空） */
   getInternalData(): KLineData[] {
     return this.dataManager.getInternalData()
-  }
-
-  /** 获取预警控制器 */
-  getAlertController(): AlertController {
-    return this.alertController
   }
 
   /** 数据就绪时触发预警评估 */
@@ -1120,10 +1086,6 @@ export class Chart {
       orderBook: undefined,
       footprint: undefined,
     }
-  }
-
-  getLogicalSlotCount(): number {
-    return this.dataManager.getLogicalSlotCount()
   }
 
   getTimestampAtLogicalIndex(index: number): number | null {
@@ -1501,10 +1463,6 @@ export class Chart {
   /** 实时帧写入活动 K 线序列：末尾窗口 replace-on-conflict（SSE forming/closed 链路）。 */
   updateBars(bars: KLineData[]): void {
     this.dataManager.updateBars(bars)
-  }
-
-  appendData(newData: KLineData[]): void {
-    this.dataManager.appendData(newData)
   }
 
   get dataBuffer(): DataBuffer {
