@@ -14,6 +14,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./worker": {
+      "types": "./dist/worker/index.d.ts",
+      "import": "./dist/worker/index.js"
+    },
     "./language": {
       "types": "./dist/language/index.d.ts",
       "import": "./dist/language/index.js"
@@ -42,6 +46,7 @@
     "prepublishOnly": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:worker": "pnpm build && node --test scripts/test-worker.mjs",
     "coverage": "vitest run --coverage",
     "lint:publish": "publint --strict ."
   },

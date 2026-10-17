@@ -25,6 +25,8 @@ export interface ScriptEditorSession {
   readonly definitionId: Ref<string | null>
   /** 草稿源码，编辑期间不写回注册表。 */
   readonly source: Ref<string>
+  /** 当前源码的信任草稿；随保存一并提交。 */
+  readonly trusted: Ref<boolean>
   /** 保存校验失败时的可读错误。 */
   readonly error: Ref<string | null>
   /** 最近一次保存是否成功；草稿再次变化或重新打开时复位。 */
@@ -45,6 +47,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
   const definitionId = ref<string | null>(null)
   const name = ref<string | null>(null)
   const source = ref('')
+  const trusted = ref(false)
   const error = ref<string | null>(null)
   const saved = ref(false)
   const identity = ref<ScriptIdentity>('user')
@@ -53,9 +56,18 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
 
   // 草稿一旦变化即回到「未保存」，勾标只在最近一次成功保存后保持。
   watch(
-    source,
+    [source, trusted],
     () => {
       saved.value = false
+    },
+    { flush: 'sync' },
+  )
+
+  // 信任仅属于当前源码，编辑后必须由用户重新授予。
+  watch(
+    source,
+    () => {
+      trusted.value = false
     },
     { flush: 'sync' },
   )
@@ -67,6 +79,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
     open,
     definitionId,
     source,
+    trusted,
     error,
     saved,
     openFor(id) {
@@ -78,6 +91,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       name.value = document?.definition.name ?? null
       identity.value = document?.identity ?? 'builtin'
       source.value = document?.source ?? ''
+      trusted.value = document?.trusted === true
       revision = document?.revision ?? null
       if (!document) error.value = '此指标没有可编辑的脚本文档'
       open.value = true
@@ -90,6 +104,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       error.value = null
       saved.value = false
       source.value = store ? createBlankSource(uniqueScriptName(store, '我的脚本')) : ''
+      trusted.value = false
       revision = null
       open.value = true
     },
@@ -101,6 +116,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       error.value = null
       saved.value = false
       revision = null
+      trusted.value = false
     },
     async createCopy() {
       if (!store || identity.value !== 'builtin' || !definitionId.value) return
@@ -110,6 +126,7 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
         const copy = await createCopySource(source.value, copyName)
         if (definitionId.value !== originalId || identity.value !== 'builtin') return
         source.value = copy
+        trusted.value = false
         definitionId.value = null
         name.value = null
         revision = null
@@ -135,19 +152,25 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
       try {
         saving.value = true
         const submittedSource = source.value
+        const submittedTrusted = trusted.value
         if (definitionId.value === null) {
-          const created = await store.create(submittedSource)
+          const created = await store.create(submittedSource, submittedTrusted)
           definitionId.value = created.id
           name.value = created.definition.name
           revision = created.revision
         } else {
           if (revision === null) throw new Error('此指标没有可编辑的脚本文档')
-          const document = await store.update(definitionId.value, submittedSource, revision)
+          const document = await store.update(
+            definitionId.value,
+            submittedSource,
+            revision,
+            submittedTrusted,
+          )
           name.value = document.definition.name
           revision = document.revision
         }
         error.value = null
-        saved.value = source.value === submittedSource
+        saved.value = source.value === submittedSource && trusted.value === submittedTrusted
       } catch (failure) {
         error.value = failure instanceof Error ? failure.message : String(failure)
         saved.value = false

@@ -3,19 +3,55 @@ import 'fake-indexeddb/auto'
 
 import source from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
 import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { NodeScriptWorker } from '../../../../../script/src/worker/__tests__/nodeWorker.js'
 import { useScriptEditor } from '../useScriptEditor.js'
 
+vi.stubGlobal('Worker', NodeScriptWorker)
+
 describe('useScriptEditor', () => {
+  it('信任随草稿保存并恢复，源码变化、新建和副本不会继承信任', async () => {
+    const scripts = await createScriptService()
+    const editor = useScriptEditor(scripts)
+    editor.openBlank()
+    expect(editor.trusted.value).toBe(false)
+    editor.source.value = source.replace("name: 'SMA'", "name: 'Trusted Editor'")
+    editor.trusted.value = true
+    await editor.save()
+    expect(editor.saved.value).toBe(true)
+    const created = scripts.read('Trusted Editor')!
+    expect(created.trusted).toBe(true)
+    editor.close()
+    editor.openFor(created.id)
+    expect(editor.trusted.value).toBe(true)
+    editor.trusted.value = false
+    expect(editor.saved.value).toBe(false)
+    await editor.save()
+    expect(scripts.read(created.id)?.trusted).toBe(false)
+    editor.trusted.value = true
+    editor.source.value += '\n// 编辑后需重新信任'
+    expect(editor.trusted.value).toBe(false)
+    expect(editor.saved.value).toBe(false)
+    expect(scripts.read(created.id)?.source).toBe(created.source)
+    editor.trusted.value = true
+    editor.openBlank()
+    expect(editor.trusted.value).toBe(false)
+    await scripts.remove(created.id, 2)
+  })
+
   it('内置脚本只读，副本生成独立用户身份并沿同一入口保存', async () => {
     const builtinSource = source.replace("name: 'SMA'", "name: 'Builtin SMA'")
     const scripts = await createScriptService([], { builtinSources: [builtinSource] })
     const editor = useScriptEditor(scripts)
     editor.openFor('Builtin SMA')
     expect(editor.identity.value).toBe('builtin')
+    // 内置脚本只读但默认受信任。
+    expect(editor.trusted.value).toBe(true)
     await editor.save()
     expect(editor.error.value).toContain('内置脚本只读')
     await editor.createCopy()
+    // 副本是可编辑的用户源码，默认不受信任。
+    expect(editor.trusted.value).toBe(false)
     expect(editor.identity.value).toBe('user')
     expect(editor.definitionId.value).toBeNull()
     expect(editor.source.value).toContain('Builtin SMA 副本')

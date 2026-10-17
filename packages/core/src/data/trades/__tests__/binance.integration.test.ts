@@ -77,7 +77,7 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
       },
     })
     const plan = pipeline.calculationPlan()
-    const outputs = runtime.execute(plan)
+    const outputs = await runtime.execute(plan)
     const series = readIndicatorSeriesEntry<FootprintSeries>(outputs[0]?.series, 'footprint')
     expect(series.bars[0]?.complete).toBe(true)
     // 聚合成交按成交额累计，应与同一根 K 线的报价额（turnover）一致。

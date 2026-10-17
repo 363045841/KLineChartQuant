@@ -181,7 +181,7 @@ describe('ChartIndicatorManager', () => {
       private runtime = new IndicatorInstanceExecutionRuntime(
         createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
       )
-      postMessage(message: InstanceWorkerRequest) {
+      async postMessage(message: InstanceWorkerRequest) {
         requests.push(message)
         if (message.type === 'init')
           queueMicrotask(() =>
@@ -189,7 +189,7 @@ describe('ChartIndicatorManager', () => {
           )
         if (message.type === 'setData') this.runtime.setData(message.data, message.dataRevision)
         if (message.type === 'execute') {
-          const outputs = this.runtime.execute(message.plan)
+          const outputs = await this.runtime.execute(message.plan)
           queueMicrotask(() =>
             this.onmessage?.({
               data: {

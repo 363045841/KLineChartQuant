@@ -342,6 +342,7 @@
     <ScriptEditorDialog
       v-model:open="scriptEditorOpen"
       v-model:source="scriptEditorSource"
+      v-model:trusted="scriptEditorTrusted"
       :error="scriptEditorError"
       :saved="scriptEditorSaved"
       :identity="scriptEditorIdentity"
@@ -356,6 +357,7 @@
     <Teleport v-if="scriptEditorWindowContainer" :to="scriptEditorWindowContainer">
       <ScriptEditorWindow
         v-model:source="scriptEditorSource"
+        v-model:trusted="scriptEditorTrusted"
         :error="scriptEditorError"
         :saved="scriptEditorSaved"
         :identity="scriptEditorIdentity"
@@ -1057,6 +1059,7 @@
   const {
     open: scriptEditorOpen,
     source: scriptEditorSource,
+    trusted: scriptEditorTrusted,
     error: scriptEditorError,
     saved: scriptEditorSaved,
     identity: scriptEditorIdentity,

@@ -1,4 +1,4 @@
-/** 预览启动：预加载 QuickJS，按完整源码注册指标并接入行情服务。 */
+/** 预览启动：在 Script Worker 中注册指标，并接入行情服务。 */
 import { createScriptService } from '@363045841yyt/klinechart-script-chart'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { createApp } from 'vue'
@@ -10,12 +10,14 @@ import '../src/styles/fonts.css'
 import '../src/styles/scrollbar.css'
 
 const marketDataHost = createPreviewMarketDataHost()
-/** WASM 就绪后才挂载，确保同步计算端口可立即执行。 */
+/** 脚本声明在 Worker 内准备完成后挂载应用。 */
 async function bootstrap(): Promise<void> {
   const scripts = await createScriptService([], {
     builtinSources: builtinScriptSources,
   })
-  createApp(App)
+  const app = createApp(App)
+  app.onUnmount(() => scripts.dispose())
+  app
     .provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context)
     .provide(SCRIPT_SOURCE_STORE_KEY, scripts)
     .mount('#app')

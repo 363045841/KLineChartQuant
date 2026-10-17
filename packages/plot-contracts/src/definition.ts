@@ -17,6 +17,8 @@ export type IndicatorSource = 'native' | 'script'
 
 /** 可编辑定义的版本化源码；随定义快照提交，消费者不能独立写入。 */
 export interface IndicatorSourceDocument {
+  /** 宿主授予的源码信任标记；未指定时不授予信任。 */
+  readonly trusted?: boolean
   /** 脚本身份；内置源码只读，用户源码可持久化。 */
   readonly identity: 'builtin' | 'user'
   readonly revision: number
@@ -74,7 +76,7 @@ export interface IndicatorDefinition<P> {
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
   /** 计算端口：给定 bars 与参数，产出完整 PlotCollection。 */
-  compute(bars: readonly Bar[], params: P): PlotCollection
+  compute(bars: readonly Bar[], params: P): PlotCollection | Promise<PlotCollection>
 }
 
 /** 按输入声明取默认值，构成初始参数。 */

@@ -2,6 +2,7 @@
   // 运行时源码按全局脚本检查；contracts 层是模块增强的目标，必须显式纳入程序。
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "lib": ["ES2022"],
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,

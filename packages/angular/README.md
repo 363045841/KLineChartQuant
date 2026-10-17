@@ -1,4 +1,4 @@
-High-performance financial chart library with a single-frame generation time of just 2ms, stable scrolling at 190–200fps in a 200Hz environment, native support for AI Agent control, full-link ResizeObserver-driven crisp rendering, and a pluggable architecture.
+High-performance financial charting infrastructure with a single-frame generation time of just 2 ms, stable scrolling at 190–200 fps in a 200 Hz environment, a native AI-Native chart architecture, full-link ResizeObserver-driven crisp rendering, a QuickJS indicator runtime, and support for running scripts against the in-house KCQ financial analysis API to render indicators.
 
 
 <div align="center">

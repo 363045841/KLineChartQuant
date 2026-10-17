@@ -8,13 +8,8 @@ import {
   removeScriptIndicatorDefinition,
   updatePlotIndicator,
 } from '@363045841yyt/klinechart-core'
-import {
-  type PreparedQuickJSScript,
-  preloadQuickJS,
-  prepareQuickJSScript,
-  type QuickJSLibrary,
-  type QuickJSScriptDefinition,
-} from '@363045841yyt/klinechart-script'
+import { type QuickJSLibrary, type QuickJSScriptDefinition } from '@363045841yyt/klinechart-script'
+import { createScriptWorker } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument, ScriptService, ScriptServiceOptions } from '../types.js'
 import { createScriptPersistence } from './scriptPersistence.js'
 
@@ -23,9 +18,10 @@ export async function createScriptService(
   libraries: readonly QuickJSLibrary[] = [],
   options: ScriptServiceOptions = {},
 ): Promise<ScriptService> {
-  await preloadQuickJS()
   const persistence = options.persistence ?? createScriptPersistence()
   const restored = await persistence.load()
+  const worker = createScriptWorker()
+  const handles = new Map<string, string>()
   // 异步写入串行执行，版本检查与快照生成均在队列内完成。
   let pending: Promise<unknown> = Promise.resolve()
   /** 串行提交，单次失败不会阻断后续保存。 */
@@ -54,30 +50,42 @@ export async function createScriptService(
       identity: document.identity,
       revision: document.revision,
       source: document.source,
+      trusted: document.trusted === true,
       definition: document.definition,
     })
   }
 
   /** 校验和编译全部完成后，以单个定义快照提交，执行闭包绑定该版本源码。 */
-  function publish(
+  async function publish(
     id: string,
     source: string,
-    prepared: PreparedQuickJSScript,
+    prepared: { readonly handle: string; readonly definition: QuickJSScriptDefinition },
     revision: number,
     update: boolean,
+    trusted: boolean,
     identity: ScriptDocument['identity'] = 'user',
-  ): ScriptDocument {
+  ): Promise<ScriptDocument> {
     const { definition } = prepared
-    const document = Object.freeze({ revision, source, definition, identity })
+    const document = Object.freeze({ revision, source, definition, identity, trusted })
     const commit = update ? updatePlotIndicator : registerPlotIndicator
     commit({
       ...definition,
       id,
       source: 'script',
       document,
-      compute: (bars, params) => prepared.run(bars, params),
+      compute: (bars, params) => worker.run(prepared.handle, bars, params),
     })
+    const previous = handles.get(id)
+    handles.set(id, prepared.handle)
+    if (previous) await worker.release(previous)
     return Object.freeze({ id, ...document })
+  }
+
+  /** 每次准备使用独立句柄，保存失败或过期提交不会覆盖当前可执行版本。 */
+  async function prepare(source: string, trusted: boolean) {
+    const handle = generateUUID()
+    const definition = await worker.prepare(handle, source, libraries, trusted)
+    return { handle, definition }
   }
 
   /** 乐观并发校验，过期编辑会话不能覆盖新提交。 */
@@ -111,56 +119,79 @@ export async function createScriptService(
       !(await persistence.save(
         documents
           .filter((item) => item.identity === 'user')
-          .map(({ id, source, revision }) => ({ id, source, revision })),
+          .map(({ id, source, revision, trusted }) => ({ id, source, revision, trusted })),
       ))
     ) {
       throw new Error('用户脚本保存失败')
     }
   }
-  for (const source of options.builtinSources ?? []) {
-    const prepared = prepareQuickJSScript(source, libraries)
-    publish(prepared.definition.name, source, prepared, 1, false, 'builtin')
-  }
-  for (const document of restored ?? []) {
-    const prepared = prepareQuickJSScript(document.source, libraries)
-    const { definition } = prepared
-    assertAvailable(definition)
-    if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
-    publish(document.id, document.source, prepared, document.revision, false)
+  try {
+    for (const source of options.builtinSources ?? []) {
+      const prepared = await prepare(source, true)
+      // 内置脚本随包发布且只读，可信是它的固有属性，不是用户选择。
+      await publish(prepared.definition.name, source, prepared, 1, false, true, 'builtin')
+    }
+    for (const document of restored ?? []) {
+      const prepared = await prepare(document.source, document.trusted)
+      const { definition } = prepared
+      assertAvailable(definition)
+      if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
+      await publish(
+        document.id,
+        document.source,
+        prepared,
+        document.revision,
+        false,
+        document.trusted,
+      )
+    }
+  } catch (error) {
+    worker.dispose()
+    throw error
   }
 
   return Object.freeze({
-    create(source: string) {
+    create(source: string, trusted = false) {
       return enqueue(async () => {
-        const prepared = prepareQuickJSScript(source, libraries)
-        const { definition } = prepared
-        assertAvailable(definition)
-        const document: ScriptDocument = {
-          id: `script_${generateUUID()}`,
-          identity: 'user',
-          source,
-          revision: 1,
-          definition,
+        const id = `script_${generateUUID()}`
+        const prepared = await prepare(source, trusted)
+        try {
+          const { definition } = prepared
+          assertAvailable(definition)
+          const document: ScriptDocument = {
+            id,
+            identity: 'user',
+            source,
+            revision: 1,
+            definition,
+            trusted,
+          }
+          await persist([...list(), document])
+          return await publish(document.id, source, prepared, 1, false, trusted)
+        } finally {
+          if (handles.get(id) !== prepared.handle) await worker.release(prepared.handle)
         }
-        await persist([...list(), document])
-        return publish(document.id, source, prepared, 1, false)
       })
     },
     read,
     list,
-    update(id: string, source: string, expectedRevision: number) {
+    update(id: string, source: string, expectedRevision: number, trusted = false) {
       return enqueue(async () => {
         const current = requireRevision(id, expectedRevision)
-        const prepared = prepareQuickJSScript(source, libraries)
-        const { definition } = prepared
-        assertAvailable(definition, current.id)
-        const revision = current.revision + 1
-        await persist(
-          list().map((item) =>
-            item.id === current.id ? { ...item, source, revision, definition } : item,
-          ),
-        )
-        return publish(current.id, source, prepared, revision, true)
+        const prepared = await prepare(source, trusted)
+        try {
+          const { definition } = prepared
+          assertAvailable(definition, current.id)
+          const revision = current.revision + 1
+          await persist(
+            list().map((item) =>
+              item.id === current.id ? { ...item, source, revision, definition, trusted } : item,
+            ),
+          )
+          return await publish(current.id, source, prepared, revision, true, trusted)
+        } finally {
+          if (handles.get(current.id) !== prepared.handle) await worker.release(prepared.handle)
+        }
       })
     },
     remove(id: string, expectedRevision: number) {
@@ -168,7 +199,16 @@ export async function createScriptService(
         const current = requireRevision(id, expectedRevision)
         await persist(list().filter((item) => item.id !== current.id))
         removeScriptIndicatorDefinition(current.id)
+        const handle = handles.get(current.id)
+        if (handle) {
+          handles.delete(current.id)
+          await worker.release(handle)
+        }
       })
+    },
+    dispose() {
+      worker.dispose()
+      handles.clear()
     },
   })
 }

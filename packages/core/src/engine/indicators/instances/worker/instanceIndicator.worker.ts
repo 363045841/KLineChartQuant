@@ -28,7 +28,7 @@ function createDefinition(
   })
 }
 
-worker.onmessage = (event: MessageEvent<InstanceWorkerRequest>): void => {
+worker.onmessage = async (event: MessageEvent<InstanceWorkerRequest>): Promise<void> => {
   const message = event.data
   try {
     switch (message.type) {
@@ -59,7 +59,7 @@ worker.onmessage = (event: MessageEvent<InstanceWorkerRequest>): void => {
       case 'execute': {
         if (!runtime) throw new TypeError('Runtime not initialized')
         const start = performance.now()
-        const outputs = runtime.execute(message.plan)
+        const outputs = await runtime.execute(message.plan)
         respond({
           type: 'result',
           requestId: message.requestId,

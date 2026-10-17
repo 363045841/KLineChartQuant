@@ -3,11 +3,13 @@
   <div class="script-editor-window">
     <ScriptEditorWorkspace
       :source="source"
+      :trusted="trusted"
       :identity="identity"
       :saving="saving"
       :error="error"
       :detachable="false"
       @update:source="emit('update:source', $event)"
+      @update:trusted="emit('update:trusted', $event)"
       @create-copy="emit('create-copy')"
     />
     <div class="script-editor-window__footer">
@@ -32,6 +34,7 @@
     defineProps<{
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
       /** 宿主保存校验的错误；与语言服务的错误在工作区内合并展示。 */
@@ -46,6 +49,7 @@
 
   const emit = defineEmits<{
     'update:source': [value: string]
+    'update:trusted': [value: boolean]
     save: []
     'create-copy': []
     /** 关闭本窗口并把编辑器交回标签页弹窗。 */

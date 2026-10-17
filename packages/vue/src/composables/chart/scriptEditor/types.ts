@@ -1,12 +1,14 @@
 /** 脚本编辑器的宿主源码仓库契约；Vue 不持有源码注册表。 */
-import type { InjectionKey } from 'vue'
+
 import type { TextChange } from 'typescript'
+import type { InjectionKey } from 'vue'
 
 /** 编辑器只允许用户身份修改源码，未指定身份时保持只读。 */
 export type ScriptIdentity = 'builtin' | 'user'
 
 /** 编辑器读取的已提交脚本文档。 */
 export interface ScriptEditorDocument {
+  readonly trusted: boolean
   readonly id: string
   readonly definition: { readonly name: string }
   readonly source: string
@@ -18,8 +20,13 @@ export interface ScriptEditorDocument {
 export interface ScriptSourceStore {
   read(id: string): ScriptEditorDocument | undefined
   /** 提交一份新脚本，返回它的定义 id 与首个版本号。 */
-  create(source: string): Promise<ScriptEditorDocument>
-  update(id: string, source: string, expectedRevision: number): Promise<ScriptEditorDocument>
+  create(source: string, trusted?: boolean): Promise<ScriptEditorDocument>
+  update(
+    id: string,
+    source: string,
+    expectedRevision: number,
+    trusted?: boolean,
+  ): Promise<ScriptEditorDocument>
   /** 删除指定版本的用户脚本，持久化成功后通知目录更新。 */
   remove(id: string, expectedRevision: number): Promise<void>
 }

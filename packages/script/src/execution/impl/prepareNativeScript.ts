@@ -1,0 +1,142 @@
+/** 可信脚本的原生执行后端；只由 Script Worker 使用，不提供沙箱保护。 */
+import {
+  Color,
+  isPlotKind,
+  PlotCollector,
+  PlotKind,
+  ShapeLocation,
+  ShapeSize,
+  ShapeStyle,
+} from '@363045841yyt/klinechart-plot-contracts'
+import type { Bar } from '../../contracts/input.js'
+import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
+import {
+  INDICATOR_PRELUDE,
+  LIBRARY_PRELUDE,
+  ROLLING_PRELUDE,
+  SCRIPT_PRELUDE,
+} from '../../quickjs/generated/runtime.js'
+import { readDefinition, readFillCall, readPlotCall } from '../../quickjs/impl/readDefinition.js'
+import {
+  Position,
+  type PreparedQuickJSScript,
+  type QuickJSLibrary,
+  type ScriptParamValue,
+} from '../../quickjs/types.js'
+import { compileSources, FIELD_READERS, toPlotPoint } from './scriptRuntime.js'
+
+/** 工厂只返回指标入口，运行库和用户状态留在每次调用的函数作用域内。 */
+interface NativeRuntime {
+  metadata(): unknown
+  onBar(): void
+}
+
+/** 动态函数创建失败（包括 CSP 拒绝）统一报告为编译错误，不切换后端。 */
+function createFactory(body: string) {
+  try {
+    return new Function('globalThis', body)
+  } catch (error) {
+    throw new ScriptExecutionError(
+      'compile',
+      error instanceof Error ? error.message : String(error),
+    )
+  }
+}
+
+/** 编译一次原生工厂；读取声明和每次计算都创建独立运行态。 */
+export function prepareNativeScript(
+  source: string,
+  libraries: readonly QuickJSLibrary[] = [],
+): PreparedQuickJSScript {
+  const compiled = compileSources(source, libraries)
+  // with 只用于让动态注册的库名可被脚本解析；作用域不是安全边界。
+  // 运行库的 globalThis 指向本次调用的对象，避免库和行情对象写入 Worker 全局。
+  const factory = createFactory(
+    `
+    with (globalThis) {
+      return (function () {
+        'use strict'
+        ${LIBRARY_PRELUDE}
+        ${SCRIPT_PRELUDE}
+        ${ROLLING_PRELUDE}
+        ${INDICATOR_PRELUDE}
+        ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
+        ${compiled.source}
+        ;return { metadata: __metadata, onBar: __onBar }
+      }).call(globalThis)
+    }
+  `,
+  )
+
+  /** 注入本次行情与采集器，原生调用共享的声明校验和绘图契约。 */
+  function execute(bars: readonly Bar[], params: Readonly<Record<string, ScriptParamValue>> = {}) {
+    let index = -1
+    let phase: 'compile' | 'run' = 'compile'
+    const collector = new PlotCollector({ barCount: bars.length })
+    /** 顶层源码只能声明指标，绘图必须发生在 onBar 内。 */
+    function requireBar(kind: string): void {
+      if (index < 0) throw new ScriptExecutionError('compile', `${kind} 只能在 onBar 中调用`)
+    }
+    const scope = {
+      Color,
+      Position,
+      PlotKind,
+      ShapeLocation,
+      ShapeSize,
+      ShapeStyle,
+      params: { ...params },
+      /** 按当前游标读取历史行情。 */
+      __read(field: string, offset: number): number {
+        const bar = bars[index - offset]
+        const reader = FIELD_READERS[field]
+        return bar && reader ? reader(bar) : Number.NaN
+      },
+      /** 当前已经处理的行情数量。 */
+      __count: () => index + 1,
+      /** 采集数值点；保留与 QuickJS 相同的无穷值诊断。 */
+      __plot(kind: unknown, value: unknown, name: unknown, options: unknown) {
+        requireBar('plot')
+        if (!isPlotKind(kind)) throw new ScriptExecutionError('run', '未知 plot kind')
+        const declaration = readPlotCall(name, options, kind)
+        if (value !== null && typeof value !== 'number')
+          throw new ScriptExecutionError('run', 'plot value 需要数值或 null')
+        if (value === Infinity || value === -Infinity)
+          throw new ScriptPlotError(declaration.name, index)
+        collector.onPlot(
+          declaration.name,
+          index,
+          value === null ? null : toPlotPoint(declaration, value),
+          kind,
+          declaration,
+        )
+      },
+      /** 采集填充，复用共享的边界与颜色校验。 */
+      __fill(from: unknown, to: unknown, color: unknown, title: unknown, options: unknown) {
+        requireBar('fill')
+        collector.onFill(readFillCall(from, to, color, title, options), index)
+      },
+    }
+    // 保留原生全局能力的读取，运行库写入仍归本次 scope 所有；这里不做安全隔离。
+    Object.setPrototypeOf(scope, globalThis)
+    Object.defineProperty(scope, 'globalThis', { value: scope })
+    try {
+      const runtime: NativeRuntime = factory(scope)
+      const definition = readDefinition(runtime.metadata())
+      phase = 'run'
+      for (index = 0; index < bars.length; index++) runtime.onBar()
+      return { definition, collection: collector.collect() }
+    } catch (error) {
+      if (error instanceof ScriptExecutionError || error instanceof ScriptPlotError) throw error
+      throw new ScriptExecutionError(phase, error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const definition = execute([]).definition
+  return Object.freeze({
+    definition,
+    /** 每次计算重建局部状态，避免参数、库、序列缓存串到其他请求。 */
+    run(bars: readonly Bar[], params?: Readonly<Record<string, ScriptParamValue>>) {
+      return execute(bars, params).collection
+    },
+  })
+}

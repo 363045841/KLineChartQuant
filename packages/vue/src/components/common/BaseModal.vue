@@ -454,6 +454,44 @@
     flex-shrink: 0;
   }
 
+  /* Footer 按钮悬浮只保留下划线：去掉背景高亮，下划线由文字下方从中间向两侧展开。 */
+  .base-footer :deep(.base-button) {
+    position: relative;
+  }
+
+  .base-footer :deep(.base-button:hover:not(:disabled)) {
+    background-color: transparent;
+  }
+
+  /*
+    下划线用 width 展开，不用 transform: scaleX。
+    transform 过渡走合成层，动画结束时该层被回收、线重新栅格化，视觉上会突然变细。
+    left 50% + 静态 translate 让宽度从中心向两侧生长，长度等于文字宽度（按钮内容区）。
+    线高 1px、离按钮下缘 5px：与文字留出间距的同时不贴着按钮下缘。
+  */
+  .base-footer :deep(.base-button)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 5px;
+    width: 0;
+    height: 1px;
+    background: currentColor;
+    translate: -50% 0;
+    transition: width var(--klc-motion-dur-fast, 160ms) ease;
+  }
+
+  .base-footer :deep(.base-button:not(:disabled):hover)::after,
+  .base-footer :deep(.base-button:not(:disabled):focus-visible)::after {
+    width: calc(100% - 2 * var(--klc-space-8, 8px));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .base-footer :deep(.base-button)::after {
+      transition: none;
+    }
+  }
+
   /* ── Responsive ── */
   @media (max-width: 480px) {
     .base-modal {

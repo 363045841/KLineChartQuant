@@ -1,4 +1,4 @@
-High-performance financial chart library with a single-frame generation time of just 2ms, stable scrolling at 190–200fps in a 200Hz environment, native support for AI Agent control, full-link ResizeObserver-driven crisp rendering, and a pluggable architecture.
+High-performance financial charting infrastructure with a single-frame generation time of just 2 ms, stable scrolling at 190–200 fps in a 200 Hz environment, a native AI-Native chart architecture, full-link ResizeObserver-driven crisp rendering, a QuickJS indicator runtime, and support for running scripts against the in-house KCQ financial analysis API to render indicators.
 
 
 <div align="center">
@@ -146,10 +146,40 @@ defineIndicator({
   name: 'Volume Tide',
   position: Position.Sub,
   onBar() {
-    const period = input.int(20, { title: 'Period', min: 1 })
-    const ma = ta.sma(volume, period)
-    plot.Columns(volume, 'volume', { color: close >= open ? Color.Red : Color.Green })
-    plot.Line(ma, 'ma', { color: Color.Gray })
+    const RED = '#F08080'
+    const RED_LIGHT = 'rgba(240, 128, 128, 0.5)'
+    const RED_LIGHTER = 'rgba(240, 128, 128, 0.15)'
+    const GREEN = '#008000'
+    const GREEN_LIGHT = 'rgba(0, 128, 0, 0.5)'
+    const GREEN_LIGHTER = 'rgba(0, 128, 0, 0.1)'
+    const GRAY_LIGHTER = 'rgba(128, 128, 128, 0.15)'
+
+    const barUp = ta.rising(close, 1)
+    const barDn = ta.falling(close, 1)
+    const volumeChange = ta.change(volume)
+
+    const volumeColor = barUp
+      ? RED_LIGHTER
+      : barDn ? GREEN_LIGHTER : GRAY_LIGHTER
+
+    plot.Columns(volume, 'Volume columns', {
+      color: volumeColor,
+    })
+
+    const volumeChangeColor = barUp
+      ? (volumeChange > 0 ? RED : RED_LIGHT)
+      : barDn
+        ? (volumeChange > 0 ? GREEN : GREEN_LIGHT)
+        : Color.Gray
+
+    plot.Histogram(volumeChange, 'Volume change columns', {
+      color: volumeChangeColor,
+      size: 12,
+    })
+
+    plot.Line(0, 'Zero line', {
+      color: Color.Gray,
+    })
   },
 })
 ```

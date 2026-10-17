@@ -1,4 +1,4 @@
-高性能金融图表库，单帧生成时间仅需2ms，200hz环境下稳定滚动190-200fps，原生支持 AI Agent 控制，全链路 ResizeObserver 驱动清晰渲染，插件化架构。
+高性能金融图表基础设施，单帧生成时间仅需 2 ms，200 hz 环境下稳定滚动 190-200 fps，原生 AI-Native 图表架构，全链路 ResizeObserver 驱动清晰渲染，QuickJS 指标运行环境，支持自研 KCQ 金融分析 API 运行脚本实现指标渲染。
 
 
 <div align="center">
@@ -65,10 +65,40 @@ defineIndicator({
   name: '成交量潮汐',
   position: Position.Sub,
   onBar() {
-    const period = input.int(20, { title: '周期', min: 1 })
-    const ma = ta.sma(volume, period)
-    plot.Columns(volume, 'volume', { color: close >= open ? Color.Red : Color.Green })
-    plot.Line(ma, 'ma', { color: Color.Gray })
+    const RED = '#F08080'
+    const RED_LIGHT = 'rgba(240, 128, 128, 0.5)'
+    const RED_LIGHTER = 'rgba(240, 128, 128, 0.15)'
+    const GREEN = '#008000'
+    const GREEN_LIGHT = 'rgba(0, 128, 0, 0.5)'
+    const GREEN_LIGHTER = 'rgba(0, 128, 0, 0.1)'
+    const GRAY_LIGHTER = 'rgba(128, 128, 128, 0.15)'
+
+    const barUp = ta.rising(close, 1)
+    const barDn = ta.falling(close, 1)
+    const volumeChange = ta.change(volume)
+
+    const volumeColor = barUp
+      ? RED_LIGHTER
+      : barDn ? GREEN_LIGHTER : GRAY_LIGHTER
+
+    plot.Columns(volume, 'Volume columns', {
+      color: volumeColor,
+    })
+
+    const volumeChangeColor = barUp
+      ? (volumeChange > 0 ? RED : RED_LIGHT)
+      : barDn
+        ? (volumeChange > 0 ? GREEN : GREEN_LIGHT)
+        : Color.Gray
+
+    plot.Histogram(volumeChange, 'Volume change columns', {
+      color: volumeChangeColor,
+      size: 12,
+    })
+
+    plot.Line(0, 'Zero line', {
+      color: Color.Gray,
+    })
   },
 })
 ```

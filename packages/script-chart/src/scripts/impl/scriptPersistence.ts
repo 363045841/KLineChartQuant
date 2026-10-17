@@ -20,7 +20,16 @@ function decode(value: unknown): readonly SavedScript[] {
       item.revision < 1
     )
       throw new Error('用户脚本文档格式错误')
-    return { id: item.id, source: item.source, revision: item.revision }
+    if ('trusted' in item && typeof item.trusted !== 'boolean') {
+      throw new Error('用户脚本信任状态格式错误')
+    }
+    // 既有文档没有信任记录，不能因字段缺失而自动获得信任。
+    return {
+      id: item.id,
+      source: item.source,
+      revision: item.revision,
+      trusted: 'trusted' in item && item.trusted === true,
+    }
   })
 }
 

@@ -144,7 +144,7 @@ export function createIndicatorQuery(dependencies: IndicatorQueryDependencies): 
         }
 
         // 使用完整行情计算，避免 from/to 截断指标所需的历史窗口。
-        const series = runtime.compute([...dataSnapshot.data], calculationConfig)
+        const series = await runtime.compute([...dataSnapshot.data], calculationConfig)
         const latestDataSnapshot = dependencies.dataState.readonly.activeBuffer.peek()
         if (latestDataSnapshot.dataRevision !== dataSnapshot.dataRevision) continue
 

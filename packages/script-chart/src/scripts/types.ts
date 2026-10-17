@@ -3,6 +3,8 @@ import type { IndicatorSourceDefinition } from '@363045841yyt/klinechart-plot-co
 
 /** 已提交的不可变脚本文档；id 是图表定义身份。 */
 export interface ScriptDocument {
+  /** 宿主保存的信任状态，不能由脚本声明自行授予。 */
+  readonly trusted: boolean
   readonly identity: 'builtin' | 'user'
   readonly id: string
   readonly revision: number
@@ -12,15 +14,23 @@ export interface ScriptDocument {
 
 /** 工厂初始化 VM 并恢复文档；读取同步，写入等待持久化事务。 */
 export interface ScriptService {
-  create(source: string): Promise<ScriptDocument>
+  create(source: string, trusted?: boolean): Promise<ScriptDocument>
   read(id: string): ScriptDocument | undefined
   list(): readonly ScriptDocument[]
-  update(id: string, source: string, expectedRevision: number): Promise<ScriptDocument>
+  update(
+    id: string,
+    source: string,
+    expectedRevision: number,
+    trusted?: boolean,
+  ): Promise<ScriptDocument>
   remove(id: string, expectedRevision: number): Promise<void>
+  /** 应用关闭时终止脚本计算线程；销毁后注册计算入口不再可用。 */
+  dispose(): void
 }
 
 /** 保存框架分配的稳定身份、用户源码和版本，编译产物启动时重新生成。 */
 export interface SavedScript {
+  readonly trusted: boolean
   readonly id: string
   readonly source: string
   readonly revision: number

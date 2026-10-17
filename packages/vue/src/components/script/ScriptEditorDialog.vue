@@ -10,11 +10,13 @@
   >
     <ScriptEditorWorkspace
       :source="source"
+      :trusted="trusted"
       :identity="identity"
       :saving="saving"
       :error="error"
       :detachable="detachable"
       @update:source="emit('update:source', $event)"
+      @update:trusted="emit('update:trusted', $event)"
       @open-window="emit('open-window')"
       @create-copy="emit('create-copy')"
     />
@@ -41,6 +43,7 @@
       open: boolean
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
       /** 完整脚本保存校验的错误，由宿主返回。 */
@@ -58,6 +61,7 @@
   const emit = defineEmits<{
     'update:open': [value: boolean]
     'update:source': [value: string]
+    'update:trusted': [value: boolean]
     save: []
     'open-window': []
     'create-copy': []

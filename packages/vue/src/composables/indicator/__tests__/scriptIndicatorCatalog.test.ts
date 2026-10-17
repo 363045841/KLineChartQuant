@@ -8,17 +8,21 @@ import {
 } from '@363045841yyt/klinechart-core/controllers'
 import { createScriptService, type ScriptService } from '@363045841yyt/klinechart-script-chart'
 import { useIndicatorParams } from '@vue-src/components/indicator/params/impl/useIndicatorParams.js'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref } from 'vue'
+import { NodeScriptWorker } from '../../../../../script/src/worker/__tests__/nodeWorker.js'
 import { useIndicatorCatalog } from '../useIndicatorCatalog.js'
 import { INDICATOR_SELECTOR_SECTIONS, useIndicatorFavorites } from '../useIndicatorFavorites.js'
 import { useScriptRemoval } from '../useScriptRemoval.js'
+
+vi.stubGlobal('Worker', NodeScriptWorker)
 
 describe('Script selector catalog', () => {
   let scripts: ScriptService
   beforeAll(async () => {
     scripts = await createScriptService()
   })
+  afterAll(() => scripts.dispose())
   it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', async () => {
     const created = await scripts.create(
       `defineIndicator({ name: 'OC Average', position: 'main', inputs: {}, onBar() {} })`,

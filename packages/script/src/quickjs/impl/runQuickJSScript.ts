@@ -9,9 +9,7 @@ import {
   isPlotKind,
   type PlotCollection,
   PlotCollector,
-  type PlotDeclaration,
   PlotKind,
-  type PlotPoint,
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
@@ -24,6 +22,7 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
+import { compileSources, FIELD_READERS, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
 import {
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
@@ -38,8 +37,6 @@ import {
   type QuickJSScriptDefinition,
   type ScriptParamValue,
 } from '../types.js'
-import { builtinLibraries } from './builtinLibraries.js'
-import { compileScript } from './compileScript.js'
 import { readDefinition, readFillCall, readPlotCall } from './readDefinition.js'
 
 /** 共享的 WASM 模块类型。 */
@@ -57,16 +54,6 @@ async function loadQuickJS(): Promise<QuickJSModule> {
 /** 预加载 WASM 模块；预加载后 runQuickJSScriptSync 才可用。 */
 export async function preloadQuickJS(): Promise<void> {
   await loadQuickJS()
-}
-
-/** 各行情字段的取值函数；字段名固定，未知字段返回 NaN。 */
-const FIELD_READERS: Readonly<Record<string, (bar: Bar) => number>> = {
-  open: (bar) => bar.open,
-  high: (bar) => bar.high,
-  low: (bar) => bar.low,
-  close: (bar) => bar.close,
-  volume: (bar) => bar.volume,
-  time: (bar) => bar.time,
 }
 
 /** 用已有行情执行脚本源码，返回逐 bar 汇聚的 PlotCollection。 */
@@ -90,20 +77,6 @@ export function readQuickJSScriptDefinitionSync(
 ): QuickJSScriptDefinition {
   return runWithContext(getQuickJSSync(), { ...compileSources(source, libraries), bars: [] })
     .definition
-}
-
-/** 用户脚本与外部库共用一个编译边界；内置库已由构建过程编译。 */
-function compileSources(source: string, libraries: readonly QuickJSLibrary[] = []) {
-  return {
-    source: compileScript(source),
-    libraries: [
-      ...builtinLibraries,
-      ...libraries.map((library) => ({
-        name: library.name,
-        source: compileScript(library.source),
-      })),
-    ],
-  }
 }
 
 /** 编译一个源码版本及其库；注册层持有快照，行情重算时不再转译 TS。 */
@@ -283,22 +256,6 @@ function mountHostFunctions(
   )
   vm.setProp(vm.global, '__fill', fill)
   fill.dispose()
-}
-
-/** 箭头方向色优先于公共 color；其余 kind 直接用调用颜色。 */
-function resolvePointColor(declaration: PlotDeclaration, value: number): string | undefined {
-  if (declaration.kind !== 'arrow') return declaration.color
-  return (value > 0 ? declaration.colorUp : declaration.colorDown) ?? declaration.color
-}
-
-/** 组装跨边界绘图点：颜色缺省时不写入字段，留给 Plot 层回落声明样式。 */
-function toPlotPoint(declaration: PlotDeclaration, value: number): PlotPoint {
-  const color = resolvePointColor(declaration, value)
-  return {
-    value,
-    ...(color === undefined ? {} : { color }),
-    ...(declaration.textColor === undefined ? {} : { textColor: declaration.textColor }),
-  }
 }
 
 /** 把参数写成一个全局对象 `params`，键值均为可序列化基本类型。 */

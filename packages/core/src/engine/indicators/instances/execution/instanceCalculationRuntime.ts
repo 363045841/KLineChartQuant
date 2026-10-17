@@ -57,17 +57,17 @@ export function findInstanceFirstReadyIndex(value: unknown, dataLength: number):
 }
 
 /** 执行一个去重任务。context 的解释权属于未来具备上下文计算能力的 definition；当前不隐式混入参数。 */
-export function executeIndicatorCalculationTask(
+export async function executeIndicatorCalculationTask(
   task: IndicatorCalculationTask,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
   trades?: TradeSnapshot,
-): IndicatorCalculationOutput {
+): Promise<IndicatorCalculationOutput> {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
   let series: unknown
   try {
-    series = definition.compute(data, task.params, trades)
+    series = await definition.compute(data, task.params, trades)
   } catch (error) {
     // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
     return Object.freeze({
@@ -99,15 +99,17 @@ export function executeIndicatorCalculationTask(
 }
 
 /** 按计划顺序执行所有任务；每个 calculationKey 恰好执行一次。 */
-export function executeIndicatorCalculationPlan(
+export async function executeIndicatorCalculationPlan(
   plan: IndicatorCalculationPlan,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
   trades?: TradeSnapshot,
-): readonly IndicatorCalculationOutput[] {
+): Promise<readonly IndicatorCalculationOutput[]> {
   return Object.freeze(
-    plan.tasks.map((task) =>
-      executeIndicatorCalculationTask(task, data, resolveDefinition, trades),
+    await Promise.all(
+      plan.tasks.map((task) =>
+        executeIndicatorCalculationTask(task, data, resolveDefinition, trades),
+      ),
     ),
   )
 }

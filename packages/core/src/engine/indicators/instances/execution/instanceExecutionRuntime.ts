@@ -50,7 +50,7 @@ export class IndicatorInstanceExecutionRuntime {
   private trades: TradeSnapshot | undefined
   private readonly cache = new Map<
     string,
-    { dataRevision: number; tradeRevision: number; output: IndicatorCalculationOutput }
+    { dataRevision: number; tradeRevision: number; output: Promise<IndicatorCalculationOutput> }
   >()
   private readonly taskDefinitions = new Map<string, IndicatorCalculationDefinition>()
   private readonly definitions = new Map<string, IndicatorCalculationDefinition>()
@@ -116,47 +116,50 @@ export class IndicatorInstanceExecutionRuntime {
     }
   }
 
-  execute(plan: IndicatorCalculationPlan): readonly IndicatorCalculationOutput[] {
+  async execute(plan: IndicatorCalculationPlan): Promise<readonly IndicatorCalculationOutput[]> {
     const resolve: IndicatorCalculationDefinitionResolver = (definitionId) =>
       this.definitions.get(definitionId)
     const activeKeys = new Set(plan.tasks.map((task) => task.calculationKey))
     for (const key of this.cache.keys()) if (!activeKeys.has(key)) this.cache.delete(key)
     for (const key of this.taskDefinitions.keys())
       if (!activeKeys.has(key)) this.taskDefinitions.delete(key)
+    // 缓存进行中的 Promise，同一版本并发请求共享计算；新版本替换缓存后旧请求不再写回。
     return Object.freeze(
-      plan.tasks.map((task) => {
-        const definition = resolve(task.definitionId)
-        const tradeRevision = definition?.inputs?.includes('trades')
-          ? (this.trades?.revision ?? 0)
-          : 0
-        const cached = this.cache.get(task.calculationKey)
-        if (
-          cached &&
-          cached.dataRevision === this.dataRevision &&
-          cached.tradeRevision === tradeRevision
-        )
-          return cached.output
-        let taskDefinition = this.taskDefinitions.get(task.calculationKey)
-        if (!taskDefinition && definition) {
-          taskDefinition = {
-            ...definition,
-            compute: definition.createCompute?.() ?? definition.compute,
+      await Promise.all(
+        plan.tasks.map((task) => {
+          const definition = resolve(task.definitionId)
+          const tradeRevision = definition?.inputs?.includes('trades')
+            ? (this.trades?.revision ?? 0)
+            : 0
+          const cached = this.cache.get(task.calculationKey)
+          if (
+            cached &&
+            cached.dataRevision === this.dataRevision &&
+            cached.tradeRevision === tradeRevision
+          )
+            return cached.output
+          let taskDefinition = this.taskDefinitions.get(task.calculationKey)
+          if (!taskDefinition && definition) {
+            taskDefinition = {
+              ...definition,
+              compute: definition.createCompute?.() ?? definition.compute,
+            }
+            this.taskDefinitions.set(task.calculationKey, taskDefinition)
           }
-          this.taskDefinitions.set(task.calculationKey, taskDefinition)
-        }
-        const output = executeIndicatorCalculationTask(
-          task,
-          this.data,
-          () => taskDefinition,
-          this.trades,
-        )
-        this.cache.set(task.calculationKey, {
-          dataRevision: this.dataRevision,
-          tradeRevision,
-          output,
-        })
-        return output
-      }),
+          const output = executeIndicatorCalculationTask(
+            task,
+            this.data,
+            () => taskDefinition,
+            this.trades,
+          )
+          this.cache.set(task.calculationKey, {
+            dataRevision: this.dataRevision,
+            tradeRevision,
+            output,
+          })
+          return output
+        }),
+      ),
     )
   }
 }
