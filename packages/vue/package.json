@@ -46,7 +46,7 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "vite --config preview/vite.config.ts",
+    "dev": "node ../../scripts/vite-dev.mjs --config preview/vite.config.ts",
     "build": "vite build && pnpm build:wc",
     "build:wc": "cross-env BUILD_TARGET=web-component vite build",
     "postbuild": "node scripts/postbuild.mjs",

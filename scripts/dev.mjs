@@ -18,6 +18,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startConnectors } from './connectors.mjs'
 import { manageShutdown } from './lib/managed-shutdown.mjs'
+import { withRolldownThreadLimit } from './lib/rolldown-thread-env.mjs'
 import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -41,6 +42,8 @@ const vite = attachPrefixedOutput(
       cwd: vueRoot,
       stdio: ['inherit', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
+      // 限制 Rolldown 线程池，抑制依赖预打包后的内存驻留；详见 lib/rolldown-thread-env.mjs
+      env: withRolldownThreadLimit(),
     },
   ),
   'vite',
