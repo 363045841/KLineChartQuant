@@ -73,6 +73,9 @@ jobs:
       - name: UI token gates (pnpm lint:ui) [REQUIRED]
         run: pnpm lint:ui
 
+      # Builds core and its workspace dependencies itself (the pnpm filter
+      # widens to the dependency graph), so it does not rely on the package
+      # build below.
       - name: Check automatic indicator discovery and production bundle
         run: |
           pnpm indicators:check

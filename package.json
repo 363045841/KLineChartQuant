@@ -47,7 +47,7 @@
   "scripts": {
     "indicators:generate": "node scripts/generate-indicator-entrypoints.mjs",
     "indicators:check": "node scripts/generate-indicator-entrypoints.mjs --check",
-    "test:indicator-generation": "pnpm --filter @363045841yyt/klinechart-core build && node --test scripts/__tests__/generate-indicator-entrypoints.test.mjs",
+    "test:indicator-generation": "pnpm --filter @363045841yyt/klinechart-core... build && node --test scripts/__tests__/generate-indicator-entrypoints.test.mjs",
     "setup:backends": "node scripts/setup-backends.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:lan": "node scripts/dev.mjs --lan",
