@@ -7,17 +7,15 @@ import babel from 'vite-plugin-babel'
 import Icons from 'unplugin-icons/vite'
 
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
-import { createPackageSourceAliases } from '../../scripts/package-source-aliases.mjs'
+import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 import { contractResourcesPlugin } from '../script/scripts/contract-resources-plugin.mjs'
 
+const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
-const scriptSrc = fileURLToPath(new URL('../script/src', import.meta.url))
-const scriptChartSrc = fileURLToPath(new URL('../script-chart/src', import.meta.url))
+const vueSrc = fileURLToPath(new URL('./src', import.meta.url))
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 const coreAliases = createCoreSourceAliases(coreSrc)
-const agentRuntime = fileURLToPath(new URL('../agent-runtime/src/index.ts', import.meta.url))
-const agentContracts = fileURLToPath(new URL('../agent-runtime/src/contracts/ui.ts', import.meta.url))
 
 const vueResolverPlugin = {
   name: 'vue-resolver',
@@ -61,26 +59,11 @@ export default defineConfig({
   resolve: {
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
     alias: [
+      // workspace 各包按各自 exports 解析到源码，新增包自动纳入；core 另由 coreAliases
+      // 补齐 @/ 与 Indicator 深层入口，vue 包自身走相对路径，两者都不进入工作区扫描。
       ...coreAliases,
-      ...createPackageSourceAliases(scriptSrc),
-      ...createPackageSourceAliases(scriptChartSrc),
-      {
-        find: /^@363045841yyt\/klinechart-agent-runtime\/testing$/,
-        replacement: fileURLToPath(new URL('../agent-runtime/src/testing/index.ts', import.meta.url)),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-agent-runtime\/browser$/,
-        replacement: fileURLToPath(new URL('../agent-runtime/src/browser.ts', import.meta.url)),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-agent-runtime$/,
-        replacement: agentRuntime,
-      },
-      {
-        find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
-        replacement: agentContracts,
-      },
-      { find: /^@vue-src\//, replacement: `${fileURLToPath(new URL('./src', import.meta.url))}/` },
+      ...createWorkspaceSourceAliases(root, { exclude: [coreSrc, vueSrc] }),
+      { find: /^@vue-src\//, replacement: `${vueSrc}/` },
       { find: /^@\//, replacement: `${repoSrc}/` },
     ],
   },

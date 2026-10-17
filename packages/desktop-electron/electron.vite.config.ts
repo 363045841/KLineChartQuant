@@ -5,15 +5,11 @@ import Icons from 'unplugin-icons/vite'
 import babel from 'vite-plugin-babel'
 
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
-import { createPackageSourceAliases } from '../../scripts/package-source-aliases.mjs'
+import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
-// 渲染进程按包名导入 Vue UI；开发与打包都解析到源码，保留热更新且不依赖预先构建 dist。
-const vueEntry = `${root}/packages/vue/src/index.ts`
-const agentRuntime = `${root}/packages/agent-runtime/src/index.ts`
-const agentContracts = `${root}/packages/agent-runtime/src/contracts/ui.ts`
 
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 export default defineConfig({
@@ -65,23 +61,11 @@ export default defineConfig({
       },
     },
     resolve: {
+      // 渲染进程按包名导入 workspace 各包（含 Vue UI），统一解析到源码，保留热更新且不依赖
+      // 预先构建 dist；core 另由 createCoreSourceAliases 补齐 @/ 与 Indicator 深层入口。
       alias: [
-        { find: /^@363045841yyt\/klinechart$/, replacement: vueEntry },
         ...createCoreSourceAliases(coreSrc),
-        ...createPackageSourceAliases(`${root}/packages/script/src`),
-        ...createPackageSourceAliases(`${root}/packages/script-chart/src`),
-        {
-          find: /^@363045841yyt\/klinechart-agent-runtime\/browser$/,
-          replacement: `${root}/packages/agent-runtime/src/browser.ts`,
-        },
-        {
-          find: /^@363045841yyt\/klinechart-agent-runtime$/,
-          replacement: agentRuntime,
-        },
-        {
-          find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
-          replacement: agentContracts,
-        },
+        ...createWorkspaceSourceAliases(root, { exclude: [coreSrc] }),
       ],
     },
   },
