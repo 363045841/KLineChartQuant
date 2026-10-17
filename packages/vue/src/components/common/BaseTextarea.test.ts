@@ -7,8 +7,8 @@ import BaseTextarea from './BaseTextarea.vue'
 
 const platform = vi.hoisted(() => ({ fieldSizing: true }))
 
-vi.mock('../../composables/overlay/platform.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../composables/overlay/platform.js')>()),
+vi.mock('@vue-src/composables/overlay/platform.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@vue-src/composables/overlay/platform.js')>()),
   supportsFieldSizing: () => platform.fieldSizing,
 }))
 

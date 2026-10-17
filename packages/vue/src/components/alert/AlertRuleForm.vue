@@ -340,13 +340,13 @@
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
+  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
   import { computed, reactive, ref } from 'vue'
   import IconTablerArrowDown from '~icons/tabler/arrow-down'
   import IconTablerArrowUp from '~icons/tabler/arrow-up'
   import IconTablerArrowsUpDown from '~icons/tabler/arrows-up-down'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
-  import ToggleSwitch from '../common/ToggleSwitch.vue'
   import AlertDirectionButtons from './AlertDirectionButtons.vue'
 
   const props = defineProps<{ rule?: AlertRule }>()

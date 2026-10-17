@@ -2,7 +2,7 @@
  * Vue 品种相关测试共享数据：可搜索品种工厂与跨数据源测试目录。
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
-import type { SearchableSymbol } from '../useSymbolSearch'
+import type { SearchableSymbol } from '@vue-src/composables/symbol/useSymbolSearch.js'
 
 /** 构造可搜索品种，只声明用例关心的字段差异。 */
 export function makeSearchableSymbol(

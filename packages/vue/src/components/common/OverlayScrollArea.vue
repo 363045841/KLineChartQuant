@@ -20,8 +20,8 @@
 </template>
 
 <script setup lang="ts">
+  import { useOverlayScrollbar } from '@vue-src/composables/ui/useOverlayScrollbar.js'
   import { useTemplateRef } from 'vue'
-  import { useOverlayScrollbar } from '../../composables/useOverlayScrollbar.js'
 
   const viewport = useTemplateRef<HTMLElement>('viewport')
   const { visible, thumbStyle, onScroll, onPointerDown, onPointerMove, onPointerEnd } =

@@ -30,7 +30,7 @@ Because the core boundary is framework-agnostic, each adapter only solves three 
 
 ## 3. Vue SFC as the Source UI
 
-The Vue package contains the most complete UI implementation today. `packages/vue/src/components/KLineChart.vue` owns the composed interface around the canvas engine:
+The Vue package contains the most complete UI implementation today. `packages/vue/src/components/chart/KLineChart.vue` owns the composed interface around the canvas engine:
 
 - left toolbar and drawing tools
 - indicator selector and parameter editing

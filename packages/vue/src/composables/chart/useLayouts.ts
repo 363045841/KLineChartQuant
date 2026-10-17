@@ -1,7 +1,7 @@
 // 将布局领域 API 接入 Vue；弹层只负责展示与派发操作。
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
 import { computed, onScopeDispose, type Ref, ref } from 'vue'
-import type { DropMenuGroup } from '../../components/DropMenu.vue'
 import { useToast } from '../toast/useToast.js'
 import { useControllerSignal } from './useControllerSignal.js'
 

@@ -4,8 +4,8 @@
 </template>
 
 <script setup lang="ts">
+  import type { SearchableSymbol } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { computed } from 'vue'
-  import type { SearchableSymbol } from '../../composables/useSymbolSearch.js'
 
   const props = defineProps<{ symbol?: SearchableSymbol }>()
 

@@ -1,0 +1,80 @@
+<template>
+  <BaseModal
+    title="导出数据"
+    :open="!!progress"
+    :close-on-overlay="false"
+    footer-align="center"
+    @update:open="!$event && emit('close')"
+  >
+    <div class="export-body">
+      <div class="export-label">{{ progress?.label }}</div>
+      <div class="export-bar-track">
+        <div class="export-bar-fill" :style="{ width: pct + '%' }" />
+      </div>
+      <div class="export-counter">{{ progress?.current ?? 0 }} / {{ progress?.total ?? 0 }}</div>
+    </div>
+    <template #footer>
+      <BaseButton v-if="progress && progress.current === progress.total" @click="emit('close')">
+        完成
+      </BaseButton>
+    </template>
+  </BaseModal>
+</template>
+
+<script setup lang="ts">
+  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import { computed } from 'vue'
+
+  const props = defineProps<{
+    progress: { current: number; total: number; label: string } | null
+  }>()
+
+  const emit = defineEmits<{
+    close: []
+  }>()
+
+  const pct = computed(() => {
+    if (!props.progress || props.progress.total <= 0) return 0
+    return Math.min(100, Math.round((props.progress.current / props.progress.total) * 100))
+  })
+</script>
+
+<style scoped>
+  .export-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .export-label {
+    font-size: 13px;
+    color: var(--klc-color-axis-text);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .export-bar-track {
+    width: 100%;
+    height: 6px;
+    background: var(--klc-color-grid-major);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .export-bar-fill {
+    height: 100%;
+    background: var(--klc-color-foreground);
+    border-radius: 999px;
+    transition: width 0.25s ease;
+  }
+
+  .export-counter {
+    font-size: 12px;
+    color: var(--klc-color-axis-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+</style>

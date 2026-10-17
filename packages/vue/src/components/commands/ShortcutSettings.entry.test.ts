@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
 import { expect, it } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import ChartSettingsDialog from '../ChartSettingsDialog.vue'
 import CommandPalette from './CommandPalette.vue'
 
 it('opens chart settings from the command palette', async () => {

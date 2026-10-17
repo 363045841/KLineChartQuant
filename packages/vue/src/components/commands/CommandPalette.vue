@@ -75,14 +75,14 @@
     type CommandRegistry,
     primaryShortcut,
   } from '@363045841yyt/klinechart-core'
+  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
+  import { comboFromEvent } from '@vue-src/composables/commands/keyCombo.js'
+  import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconTablerKeyboard from '~icons/tabler/keyboard'
-  import { comboFromEvent } from '../../composables/commands/keyCombo.js'
-  import { injectCommands, useCommandList } from '../../composables/commands/useCommands.js'
-  import BaseModal from '../BaseModal.vue'
-  import BaseTooltip from '../common/BaseTooltip.vue'
-  import SearchField from '../common/SearchField.vue'
-  import ShortcutKeys from '../common/ShortcutKeys.vue'
 
   const props = withDefaults(
     defineProps<{

@@ -105,7 +105,7 @@ data/
 
 - 常量不带 `: DrawingToolId` 标注，保留字面量类型，`switch` 才能正常收窄；需要完整联合类型的信号（`drawingState.drawingTool`、Vue 的 `drawingToolId`）显式标注。`CURSOR_DRAWING_TOOL_ID` / `BOX_SELECT_DRAWING_TOOL_ID` 保留为 `DrawingTool.Cursor` / `DrawingTool.BoxSelect` 的别名，engine、controllers、features/agent 与 Vue 的运行时比较一律引用常量，禁止散落字面量；仅测试断言与纯类型声明可保留字面量。
 - `DrawingKind`（`engine/drawing/types.ts`）是与 `DrawingToolId` 不同的词汇表（如 `h-line` → `horizontal-line`），其字符串字面量不受本约束影响，两者通过 `getDrawingKind` 单点映射。
-- Vue 侧 `range-select` 是纯 UI 模式 id（不写进 kernel `DrawingToolId`），统一由 `packages/vue/src/components/toolbarToolIds.ts` 的 `RANGE_SELECT_UI_TOOL_ID` 提供。
+- Vue 侧 `range-select` 是纯 UI 模式 id（不写进 kernel `DrawingToolId`），统一由 `packages/vue/src/components/toolbar/toolbarToolIds.ts` 的 `RANGE_SELECT_UI_TOOL_ID` 提供。
 
 ### 4. 公开入口收口
 

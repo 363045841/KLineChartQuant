@@ -87,6 +87,8 @@
 </template>
 
 <script setup lang="ts">
+  import Dropdown from '@vue-src/components/common/Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
@@ -94,8 +96,6 @@
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import Dropdown from '../../../components/Dropdown.vue'
-  import DropMenu, { type DropMenuGroup } from '../../../components/DropMenu.vue'
   import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 

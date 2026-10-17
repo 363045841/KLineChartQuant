@@ -18,9 +18,8 @@
 </template>
 
 <script setup lang="ts">
+  import { supportsFieldSizing } from '@vue-src/composables/overlay/platform.js'
   import { computed, nextTick, onMounted, useTemplateRef, watch } from 'vue'
-
-  import { supportsFieldSizing } from '../../composables/overlay/platform.js'
 
   const props = withDefaults(
     defineProps<{

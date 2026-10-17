@@ -366,19 +366,19 @@
 </template>
 
 <script setup lang="ts">
+  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
+  import Dropdown from '@vue-src/components/common/Dropdown.vue'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
   import IconTrash from '~icons/tabler/trash'
-  import BaseButton from '../../../components/BaseButton.vue'
-  import BaseModal from '../../../components/BaseModal.vue'
-  import BaseTabs from '../../../components/BaseTabs.vue'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
-  import Dropdown from '../../../components/Dropdown.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,

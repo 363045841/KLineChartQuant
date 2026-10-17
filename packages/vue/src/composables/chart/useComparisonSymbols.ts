@@ -1,6 +1,6 @@
 /** 原生比较入口：仅增删比较折线，不改写主品种或图表模式。 */
 import type { ChartController, SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
-import type { SymbolItem } from '../../components/SymbolSelector.vue'
+import type { SymbolItem } from '@vue-src/components/symbol/SymbolSelector.vue'
 
 /** 比较入口需要的主图上下文与错误反馈。 */
 interface ComparisonSymbolsOptions {

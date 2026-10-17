@@ -1,5 +1,10 @@
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { batch, createSignal } from '@363045841yyt/klinechart-core/reactivity'
+import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
+import {
+  useControllerSignal,
+  useControllerSignalValue,
+} from '@vue-src/composables/chart/useControllerSignal.js'
 import { describe, expect, it } from 'vitest'
 import {
   type ComputedRef,
@@ -12,11 +17,6 @@ import {
   watchEffect,
 } from 'vue'
 import { createMockChartController } from '../__tests__/_mockController.js'
-import {
-  useControllerSignal,
-  useControllerSignalValue,
-} from '../composables/chart/useControllerSignal.js'
-import { useAlerts } from '../composables/useAlerts.js'
 import { coreSignalToVueRef, useSignalSource } from './signalBridge.js'
 
 function observedSignal<T>(initial: T) {

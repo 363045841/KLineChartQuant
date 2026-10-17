@@ -1,10 +1,10 @@
 /** 命令面板：检索命令注册表、选中执行并关闭。 */
 import { createCommandRegistry } from '@363045841yyt/klinechart-core'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createMockChartController } from '@vue-src/__tests__/_mockController.js'
+import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import { createMockChartController } from '../../__tests__/_mockController.js'
-import { createChartCommands } from '../../composables/commands/chartCommands.js'
 import CommandPalette from './CommandPalette.vue'
 
 /** 等 BaseModal 的 dialog 打开与一次宏任务。 */

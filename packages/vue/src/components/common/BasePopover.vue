@@ -29,10 +29,9 @@
 </template>
 
 <script setup lang="ts">
+  import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
+  import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { computed, ref, useTemplateRef } from 'vue'
-
-  import { useAnchoredPopover } from '../../composables/overlay/useAnchoredPopover.js'
-  import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
 
   const props = withDefaults(
     defineProps<{

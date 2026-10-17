@@ -1,0 +1,2178 @@
+<template>
+  <div
+    ref="chartWrapperRef"
+    class="chart-wrapper"
+    :data-theme="chartTheme"
+    :style="[themeCssVars, { colorScheme: chartTheme }]"
+  >
+    <div class="chart-workspace">
+      <TopToolbar
+        :layout-controller="controller"
+        :is-fullscreen="effectiveIsFullscreen"
+        @toggle-fullscreen="handleToggleFullscreen"
+        @settings="openChartSettings('main')"
+        :can-undo-drawing="canUndoDrawing"
+        :can-redo-drawing="canRedoDrawing"
+        @undo-drawing="controller?.undoDrawing()"
+        @redo-drawing="controller?.redoDrawing()"
+        :symbol="currentSymbol"
+        :symbol-item="currentSymbolItem ?? undefined"
+        :symbols="symbolPool"
+        :search="searchSymbols"
+        :k-line-level="kLineLevel"
+        :k-line-adjust="kLineAdjust"
+        :k-line-shape="kLineShape"
+        :symbol-loading="symbolStatus === 'loading'"
+        :symbol-error="symbolStatus === 'error'"
+        :symbol-retrying="symbolRetrying"
+        :symbol-error-message="symbolErrorMessage || undefined"
+        :overlay-symbols="overlaySymbols"
+        :overlay-symbol-items="overlaySymbolItems"
+        :comparison-colors="comparisonColorsMap"
+        :comparison-loading="comparisonLoading"
+        :aggregation-sources="aggregationSources"
+        :enabled-source-names="enabledSourceNameSet"
+        :watchlist-keys="watchlistKeys"
+        :show-back-button="kLineLevel === 'timeshare'"
+        :screenshot-capturing="isCapturing"
+        :screenshot-message="screenshotMessage"
+        @screenshot="captureScreenshot"
+        @add-overlay-symbol="onAddOverlaySymbol"
+        @remove-overlay-symbol="onRemoveOverlaySymbol"
+        @k-line-level-change="onKLineLevelChange"
+        @k-line-adjust-change="onKLineAdjustChange"
+        @k-line-shape-change="onKLineShapeChange"
+        @symbol-change="onSymbolChange"
+        @add-watchlist="addWatchlistItem"
+        @back="onBackFromTimeShare"
+      >
+        <template #source-management><slot name="source-management" /></template>
+        <template v-if="slots['toolbar-start']" #start>
+          <slot name="toolbar-start" />
+        </template>
+        <template v-if="slots['toolbar-end']" #end>
+          <slot name="toolbar-end" />
+        </template>
+        <template #watchlist>
+          <WatchlistPanel
+            :items="watchlistItems"
+            @select="onSymbolChange"
+            @remove="removeWatchlistItem"
+          />
+        </template>
+      </TopToolbar>
+      <div ref="chartStageRef" class="chart-stage">
+        <LeftToolbar
+          :alert-controller="controller"
+          :effective-settings="chartSettings"
+          :drawing-tool-id="drawingToolId"
+          :magnet-mode="magnetMode"
+          :continuous-drawing="continuousDrawing"
+          :has-drawings="drawings.length > 0"
+          :has-indicators="activeIndicators.length > 0"
+          :all-drawings-hidden="drawings.length > 0 && drawings.every((drawing) => !drawing.visible)"
+          :global-drawing-locked="globalDrawingLock"
+          :is-range-select-mode="isRangeSelectMode"
+          @select-tool="handleSelectTool"
+          @set-magnet-mode="setMagnetMode"
+          @set-continuous-drawing="setContinuousDrawing"
+          @toggle-indicator="onToggleIndicator"
+          @open-script-editor="openBlankScriptEditor"
+          @zoom-in="applyZoomToLevel(zoomLevel + 1)"
+          @zoom-out="applyZoomToLevel(zoomLevel - 1)"
+          @clear-drawings="controller?.clearDrawings()"
+          @clear-indicators="clearAllIndicators"
+          @set-global-drawing-lock="onSetGlobalDrawingLock"
+          @set-all-drawings-visible="onSetAllDrawingsVisible"
+        />
+        <div ref="chartMainRef" class="chart-main">
+          <a
+            class="chart-brand"
+            href="https://github.com/363045841/KLineChartQuant"
+            target="_blank"
+            rel="noopener noreferrer"
+            :style="{
+              bottom: `${props.bottomAxisHeight + 8}px`,
+              '--chart-brand-axis-width': `${
+                chartMode === 'timeshare'
+                  ? leftAxisHostWidth
+                  : priceAxisPosition === 'left' ? axisHostWidth : 0
+              }px`,
+            }"
+            aria-label="KlineChartQuant"
+          >KlineChartQuant</a>
+          <div
+            ref="leftAxisLayerRef"
+            v-show="chartMode === 'timeshare'"
+            class="left-axis-host"
+            :style="{ width: leftAxisHostWidth + 'px' }"
+            aria-label="价格轴"
+          ></div>
+          <div class="pane-separator-layer" aria-hidden="true">
+            <div
+              v-for="line in paneSeparatorLines"
+              :key="line.id"
+              class="pane-separator-line"
+              :data-pane-id="line.id"
+              :style="{ top: `${line.top}px` }"
+            ></div>
+          </div>
+          <div ref="tooltipLayerRef" class="tooltip-layer"></div>
+          <div
+            ref="containerRef"
+            tabindex="0"
+            class="chart-container"
+            @dblclick="onDoubleClick"
+            @contextmenu.prevent
+          >
+            <div class="scroll-content">
+              <div ref="canvasLayerRef" class="canvas-layer">
+                <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
+
+                <div
+                  v-if="hasLegendSlot && legendContext"
+                  class="main-legend-overlay"
+                  :style="legendOverlayStyle"
+                >
+                  <slot name="legend" v-bind="legendContext" />
+                </div>
+
+                <CanvasToolbarStack>
+                  <RangeSelectionExport
+                    v-if="rangeSelectionReady"
+                    v-model:start-date="customStartDate"
+                    v-model:end-date="customEndDate"
+                    :start-label="rangeSelectionStartLabel"
+                    :end-label="rangeSelectionEndLabel"
+                    :count="rangeSelectionCount"
+                    :return-rate="rangeSelectionReturnRate"
+                    @export="exportRangeToCsv"
+                    @clear="clearRangeSelection"
+                    @batch-setting="showBatchStockDialog = true"
+                  />
+                  <DrawingStyleToolbar
+                    v-if="selectedDrawings.length > 0 || isEditingLineLabel"
+                    :drawings="selectedDrawings"
+                    :editable-style-keys="selectedDrawingStyleKeys"
+                    :line-label-position="isEditingLineLabel ? lineLabelPosition : undefined"
+                    :template-names="canvasTemplateNames"
+                    :template-error="canvasTemplateError"
+                    :template-saved="canvasTemplateSavedName"
+                    :can-use-templates="canUseCanvasTemplates"
+                    @open-templates="reloadCanvasTemplates"
+                    @save-template="openCanvasTemplateSave"
+                    @apply-template="applyCanvasTemplate"
+                    @delete-template="deleteCanvasTemplate"
+                    @save-existing-template="saveCanvasTemplateExisting"
+                    @update-style="onUpdateDrawingStyle"
+                    @delete="onDeleteDrawing"
+                    @toggle-lock="onToggleDrawingLock"
+                    @hide="onHideSelectedDrawings"
+                    @copy="onCopyDrawings"
+                    @update-line-label-position="setLineLabelPosition"
+                    @open-settings="openDrawingSettings"
+                  />
+                </CanvasToolbarStack>
+                <div
+                  v-if="lineLabelTarget"
+                  class="drawing-line-label-editor"
+                  :class="{ 'is-placeholder': !isEditingLineLabel && !lineLabelTarget.text }"
+                  :style="lineLabelEditorStyle"
+                  @pointerdown.stop
+                  @pointermove.stop
+                  @pointerup.stop
+                  @click.stop="openLineLabelEditor"
+                >
+                  <button
+                    v-if="!isEditingLineLabel"
+                    type="button"
+                    class="drawing-line-label-editor__prompt"
+                  >
+                    {{ lineLabelTarget.text || '+ 添加文本' }}
+                  </button>
+                  <input
+                    v-else
+                    ref="lineLabelInput"
+                    v-model="lineLabelDraft"
+                    class="drawing-line-label-editor__input"
+                    type="text"
+                    maxlength="200"
+                    aria-label="线段文本"
+                    @blur="saveLineLabel"
+                    @keydown.enter.prevent="saveLineLabel"
+                    @keydown.escape.prevent="cancelLineLabelEditor"
+                  />
+                </div>
+              </div>
+              <div
+                v-if="rangeSelectionOverlayStyle"
+                class="range-selection-overlay"
+                :class="{ 'is-dragging': rangeSelection.isDragging }"
+                :style="rangeSelectionOverlayStyle"
+                aria-label="已选择的 K 线区间"
+              >
+                <div
+                  v-if="rangeSelectionReady"
+                  class="range-selection-handle range-selection-handle--left"
+                  @pointerdown.stop="onEdgePointerDown('left', $event)"
+                  @pointermove.stop="onEdgePointerMove($event)"
+                  @pointerup.stop="onEdgePointerUp($event)"
+                />
+                <div
+                  v-if="rangeSelectionReady"
+                  class="range-selection-handle range-selection-handle--right"
+                  @pointerdown.stop="onEdgePointerDown('right', $event)"
+                  @pointermove.stop="onEdgePointerMove($event)"
+                  @pointerup.stop="onEdgePointerUp($event)"
+                />
+              </div>
+            </div>
+          </div>
+          <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
+            <template v-if="hasKLineTooltipSlot">
+              <div
+                v-if="showExternalKLineTooltip"
+                class="kline-tooltip-host"
+                :class="{ 'is-draggable': isTooltipDraggable }"
+                :style="externalKLineTooltipStyle"
+                @pointerdown="onTooltipPointerDown"
+                @dblclick="onTooltipDblClick"
+              >
+                <slot
+                  name="kline-tooltip"
+                  :hover-data="externalHoveredKLine!"
+                  :hovered-index="externalInteractionState.hoveredIndex"
+                  :data="chartData"
+                  :up-color="tooltipColors.upColor"
+                  :down-color="tooltipColors.downColor"
+                />
+              </div>
+            </template>
+            <div
+              v-else
+              ref="tooltipContentRef"
+              class="kline-tooltip"
+              :class="{ 'is-draggable': isTooltipDraggable }"
+              style="display: none"
+              @pointerdown="onTooltipPointerDown"
+              @dblclick="onTooltipDblClick"
+            ></div>
+          </Teleport>
+          <div
+            ref="rightAxisLayerRef"
+            class="right-axis-host"
+            :class="{ 'price-axis-host--left': chartMode !== 'timeshare' && priceAxisPosition === 'left' }"
+            :style="{ width: axisHostWidth + 'px' }"
+            @contextmenu.prevent
+          >
+            <div
+              v-for="pane in paneAxisItems"
+              :key="pane.id"
+              class="pane-axis-controls-host"
+              :style="{ top: pane.top + 'px', height: pane.height + 'px' }"
+            >
+              <PriceAxisSettingsMenu
+                :controller="controller"
+                :pane-id="pane.id"
+                :height="0"
+                :show-settings="false"
+                @settings-change="handleSettingsChange"
+              />
+            </div>
+            <PriceAxisSettingsMenu
+              :controller="controller"
+              :height="props.bottomAxisHeight"
+              :show-shortcuts="false"
+              @settings-change="handleSettingsChange"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+    <ExportProgressDialog :progress="exportingProgress" @close="exportingProgress = null" />
+    <BatchStockDialog
+      :show="showBatchStockDialog"
+      @close="showBatchStockDialog = false"
+      @apply="onBatchApply"
+    />
+    <DrawingSettingsDialog
+      v-if="editingDrawing"
+      :show="showDrawingSettingsDialog"
+      :drawing="editingDrawing"
+      :editable-style-keys="editingDrawingStyleKeys"
+      @update-style="onUpdateEditingDrawingStyle"
+      @update-text="onUpdateEditingDrawingText"
+      @close="showDrawingSettingsDialog = false"
+    />
+    <DrawingTemplateSaveDialog
+      :show="showCanvasTemplateSave"
+      :busy="canvasTemplateBusy"
+      :error="canvasTemplateError"
+      @close="showCanvasTemplateSave = false"
+      @save="saveCanvasTemplate"
+    />
+    <IndicatorSelector
+      ref="indicatorSelectorRef"
+      :chart-controller="controller"
+      :active-indicators="activeIndicators"
+      :indicator-params="indicatorParams"
+      :replace-pane-id="replacementPaneId"
+      :replace-role="replacementRole"
+      @toggle="handleIndicatorToggle"
+      @update-params="handleUpdateParams"
+      @reorder-sub-indicators="handleReorderSubIndicators"
+      @replace="replaceLegend"
+      @edit-code="openScriptEditor"
+      @create-script="openBlankScriptEditor"
+      @close="replacementPaneId = null"
+    />
+    <ChartSettingsDialog
+      v-model:open="chartSettingsOpen"
+      :initial-section="chartSettingsSection"
+      :initial-settings="chartSettings"
+      :renderer-runtime="rendererRuntime"
+      :market-data-cache-stats="marketDataCacheStats"
+      @confirm="confirmChartSettings"
+      @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
+      @clear-market-data-cache="controller?.clearMarketDataCache()"
+    >
+      <template #source-management><slot name="source-management" /></template>
+    </ChartSettingsDialog>
+    <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
+    <ScriptEditorDialog
+      v-model:open="scriptEditorOpen"
+      v-model:source="scriptEditorSource"
+      :error="scriptEditorError"
+      :saved="scriptEditorSaved"
+      :identity="scriptEditorIdentity"
+      :saving="scriptEditorSaving"
+      @create-copy="createScriptCopy"
+      :title="scriptEditorTitle"
+      :detachable="scriptEditorWindowSupported"
+      @save="saveScriptEditor"
+      @open-window="openScriptEditorWindow"
+    />
+    <!-- 独立窗口里的编辑器挂在浏览器新窗口的文档上，这里只提供挂载点。 -->
+    <Teleport v-if="scriptEditorWindowContainer" :to="scriptEditorWindowContainer">
+      <ScriptEditorWindow
+        v-model:source="scriptEditorSource"
+        :error="scriptEditorError"
+        :saved="scriptEditorSaved"
+        :identity="scriptEditorIdentity"
+        :saving="scriptEditorSaving"
+        @create-copy="createScriptCopy"
+        :container="scriptEditorWindowContainer"
+        @save="saveScriptEditor"
+        @return="returnScriptEditorToDialog"
+      />
+    </Teleport>
+    <ToastViewport />
+  </div>
+</template>
+
+<script setup lang="ts">
+  import {
+    type ChartSettings,
+    normalizeSettings,
+    TOOLTIP_POSITION_NONE,
+  } from '@363045841yyt/klinechart-core/config'
+  import {
+    type ChartController,
+    type ChartMountOptions,
+    CURSOR_DRAWING_TOOL_ID,
+    type CustomDataSource,
+    createChartController,
+    type DrawingLineLabelTarget,
+    type DrawingStyle,
+    type DrawingToolId,
+    type LegendOptions,
+    type LegendTemplateContext,
+    type RendererBackendRuntime,
+    type SymbolInfo,
+    type SymbolSpec,
+  } from '@363045841yyt/klinechart-core/controllers'
+  import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
+  import {
+    type InstrumentDescriptor,
+    type MarketDataContext,
+    searchInstruments,
+  } from '@363045841yyt/klinechart-core/market-data'
+  import { useAggregationSources } from '@vue-src/composables/market/useAggregationSources.js'
+  import {
+    provideMarketDataContext,
+    useMarketDataContext,
+  } from '@vue-src/composables/market/useMarketDataContext.js'
+  import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
+  import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
+  import {
+    computed,
+    inject,
+    nextTick,
+    onBeforeUpdate,
+    onMounted,
+    onUnmounted,
+    ref,
+    shallowRef,
+    useSlots,
+    watch,
+  } from 'vue'
+
+  if (!inject(TOAST_STORE_KEY, null)) provideToast()
+  const toast = useToast()
+  const slots = useSlots()
+  // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
+  const hasKLineTooltipSlot = ref(Boolean(slots['kline-tooltip']))
+
+  import './tooltip.css'
+  import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
+  import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
+  import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
+  import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
+  import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
+  import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
+  import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
+  import DrawingTemplateSaveDialog from '@vue-src/components/drawing/settings/DrawingTemplateSaveDialog.vue'
+  import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
+  import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
+  import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
+  import ScriptEditorDialog from '@vue-src/components/script/ScriptEditorDialog.vue'
+  import ScriptEditorWindow from '@vue-src/components/script/ScriptEditorWindow.vue'
+  import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
+  import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
+  import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
+  import { RANGE_SELECT_UI_TOOL_ID } from '@vue-src/components/toolbar/toolbarToolIds.js'
+  import WatchlistPanel from '@vue-src/components/watchlist/WatchlistPanel.vue'
+  import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
+  import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
+  import { useChartScreenshot } from '@vue-src/composables/chart/useChartScreenshot.js'
+  import { useChartState } from '@vue-src/composables/chart/useChartState.js'
+  import { useChartTheme } from '@vue-src/composables/chart/useChartTheme.js'
+  import { useComparisonSymbols } from '@vue-src/composables/chart/useComparisonSymbols.js'
+  import {
+    useControllerSignal,
+    useControllerSignalValue,
+  } from '@vue-src/composables/chart/useControllerSignal.js'
+  import { useDrawingManager } from '@vue-src/composables/chart/useDrawingManager.js'
+  import { useIndicatorManager } from '@vue-src/composables/chart/useIndicatorManager.js'
+  import { useInteractionBridge } from '@vue-src/composables/chart/useInteractionBridge.js'
+  import { useKLineTooltip } from '@vue-src/composables/chart/useKLineTooltip.js'
+  import { useLegendUi } from '@vue-src/composables/chart/useLegendUi.js'
+  import { usePaneAxisItems } from '@vue-src/composables/chart/usePaneAxisItems.js'
+  import { useRangeSelection } from '@vue-src/composables/chart/useRangeSelection.js'
+  import { useScriptEditor } from '@vue-src/composables/chart/useScriptEditor.js'
+  import { useScriptEditorWindow } from '@vue-src/composables/chart/useScriptEditorWindow.js'
+  import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
+  import {
+    provideChartCommands,
+    useRegisterCommands,
+  } from '@vue-src/composables/commands/useCommands.js'
+  import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
+  import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
+  import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
+
+  // ── Props & Emits ──
+  type ChartIndicatorConfig = {
+    definitionId: string
+    enabled: boolean
+    params?: Record<string, unknown>
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      /** 受控品种列表；传入时由组件同步到图表数据源。 */
+      symbols?: ReadonlyArray<SymbolSpec>
+      /** 受控指标实例列表；传入时完整替换当前指标实例。 */
+      indicators?: ReadonlyArray<ChartIndicatorConfig>
+
+      /** 当前图表实例的市场交易时段覆盖 */
+      marketSessions?: ChartMountOptions['marketSessions']
+      /** 挂载时确定的行情管理实例；其生命周期归宿主所有。 */
+      marketDataContext?: MarketDataContext
+
+      yPaddingPx?: number
+      minKWidth?: number
+      maxKWidth?: number
+      /** 右侧价格轴宽度 */
+      rightAxisWidth?: number
+      /** 左侧价格轴宽度（默认 0，不显示） */
+      leftAxisWidth?: number
+      /** 底部时间轴高度 */
+      bottomAxisHeight?: number
+      /** 价格标签额外宽度（用于显示涨跌幅，默认 60px） */
+      priceLabelWidth?: number
+
+      /** 缩放级别数量（默认 80） */
+      zoomLevels?: number
+      /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
+      initialZoomLevel?: number
+      /** 是否全屏（受控）。不绑定时为非受控模式，组件内部接管全屏 DOM 操作 */
+      isFullscreen?: boolean
+      /** 时区，默认 Asia/Shanghai */
+      timezone?: string
+
+      /**
+       * 图表设置。显式声明的 key 覆盖活动布局，其余设置由布局和默认值提供。
+       */
+      settings?: Partial<ChartSettings>
+
+      /** Canvas 主图图例配置；默认由 Core 绘制，不进入 Vue 更新路径。 */
+      legend?: LegendOptions
+
+      /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
+      customData?: CustomDataSource
+    }>(),
+    {
+      yPaddingPx: 20,
+      minKWidth: 1,
+      maxKWidth: 200,
+      rightAxisWidth: 0,
+      bottomAxisHeight: 24,
+      priceLabelWidth: 60,
+      zoomLevels: 80,
+      initialZoomLevel: 3,
+      // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
+      // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
+      isFullscreen: undefined,
+      timezone: 'Asia/Shanghai',
+    },
+  )
+
+  const marketDataContext = provideMarketDataContext(
+    props.marketDataContext ?? useMarketDataContext(),
+  )
+  const aggregationSources = useMarketDataSourceCatalog(marketDataContext)
+  const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
+    useAggregationSources(aggregationSources, marketDataContext)
+
+  const emit = defineEmits<{
+    (e: 'toggleFullscreen'): void
+    (e: 'update:isFullscreen', value: boolean): void
+    (e: 'themeChange', theme: 'light' | 'dark'): void
+    (e: 'kLineLevelChange', level: string): void
+    (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
+    (e: 'controllerReady', controller: ChartController): void
+  }>()
+
+  // ── Slot Props Types ──
+
+  /** kline-tooltip 插槽作用域。hoveredKLine && !isMobile 时渲染，hoverData 一定不为 null。 */
+  export interface KlineTooltipSlotProps {
+    hoverData: import('@363045841yyt/klinechart-core/types/price').KLineData
+    hoveredIndex: number | null
+    data: ReadonlyArray<import('@363045841yyt/klinechart-core/types/price').KLineData>
+    upColor: string
+    downColor: string
+  }
+
+  /**
+   * legend 插槽作用域。
+   * 存在 #legend 时替换主图默认 DOM 图例；字段与 core LegendTemplateContext 一致。
+   */
+  export type LegendSlotProps = LegendTemplateContext
+
+  /**
+   * 声明命名插槽作用域类型，供 Volar 在父组件模板中做 slot props 补全。
+   * @remarks 仅类型契约，运行时仍用 useSlots() 判断插槽是否存在。
+   */
+  defineSlots<{
+    /** 宿主管理行情连接与凭据；图表不持有密钥。 */
+    'source-management'(): unknown
+    'toolbar-start'(): unknown
+    'toolbar-end'(): unknown
+    legend(props: LegendSlotProps): unknown
+    'kline-tooltip'(props: KlineTooltipSlotProps): unknown
+  }>()
+
+  // ── Symbol / Comparison State ──
+
+  const controller = shallowRef<ChartController | null>(null)
+  const chartState = useChartState(controller)
+  const {
+    data,
+    dataLoading,
+    dataError,
+    zoomLevel,
+    paneRatios,
+    paneLayout,
+    comparisonColorsMap,
+    comparisonLoading,
+    isRangeSelectMode,
+  } = chartState
+  const controllerSymbols = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.symbols,
+    () => [],
+  )
+  const symbolCatalog = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.symbolCatalog,
+    () => [],
+  )
+  const comparisonSpecs = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.comparisonSpecs,
+    () => [],
+  )
+  const initialKLineLevel = props.symbols?.[0]?.period ?? 'daily'
+  // Preference used only before a primary symbol exists; active adjustment is Core-owned.
+  const initialAdjust = ref<'qfq' | 'hfq' | 'splits' | 'none'>(
+    (props.symbols?.[0]?.adjust as 'qfq' | 'hfq' | 'splits' | 'none' | undefined) ?? 'none',
+  )
+  const kLineAdjust = computed(() => {
+    const adjust = controllerSymbols.value[0]?.adjust
+    return adjust === 'qfq' || adjust === 'hfq' || adjust === 'splits' || adjust === 'none'
+      ? adjust
+      : initialAdjust.value
+  })
+  const currentSymbol = computed(() => controllerSymbols.value[0]?.symbol ?? '选择商品')
+  const currentSymbolItem = computed(() => {
+    const primary = controllerSymbols.value[0]
+    return primary ? symbolItemForSpec(primary) : null
+  })
+  // Local feedback describes rejected/pending UI commands, not a copy of Core loading state.
+  const localSymbolStatus = ref<'loading' | 'error' | null>(null)
+  const localSymbolError = ref<string | null>(null)
+  const symbolStatus = computed(
+    () =>
+      localSymbolStatus.value ??
+      (dataLoading.value
+        ? 'loading'
+        : dataError.value
+          ? 'error'
+          : controller.value
+            ? 'ready'
+            : 'idle'),
+  )
+  const symbolErrorMessage = computed(() => localSymbolError.value ?? dataError.value)
+  watch(
+    [data, dataLoading, dataError],
+    () => {
+      localSymbolStatus.value = null
+      localSymbolError.value = null
+    },
+    { flush: 'sync' },
+  )
+  const symbolRetrying = computed(
+    () => symbolStatus.value === 'loading' && Boolean(symbolErrorMessage.value),
+  )
+  const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
+  const overlaySymbolItems = computed(() => comparisonSpecs.value.map(symbolItemForSpec))
+  const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
+  const { watchlistItems, watchlistKeys, restoreWatchlist, addWatchlistItem, removeWatchlistItem } =
+    useWatchlist()
+
+  /** 分时入口统一校验：品种未声明分时能力或缺会话时写入错误态，返回是否允许进入。 */
+  function ensureTimeShareSupported(): boolean {
+    const item = currentSymbolItem.value
+    if (item?.capabilities && (item.capabilities.timeShare !== true || !item.sessionId)) {
+      localSymbolStatus.value = 'error'
+      localSymbolError.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
+      return false
+    }
+    return true
+  }
+
+  function onKLineLevelChange(level: string) {
+    if (level === 'timeshare' && !ensureTimeShareSupported()) return
+    emit('kLineLevelChange', level)
+    try {
+      controller.value?.setCurrentPeriod(level)
+    } catch (error) {
+      localSymbolStatus.value = 'error'
+      if (currentSymbolItem.value) {
+        localSymbolError.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
+      }
+    }
+  }
+
+  function onBackFromTimeShare() {
+    const prevLevel = controller.value?.lastBarPeriod.peek()
+    if (prevLevel) {
+      onKLineLevelChange(prevLevel)
+    }
+  }
+
+  function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
+    if (!currentSymbolItem.value) initialAdjust.value = adjust
+    emit('kLineAdjustChange', adjust)
+    syncSymbolsToController(adjust)
+  }
+
+  function formatUnsupportedSymbolMessage(item: SymbolItem, error: unknown): string {
+    const detail = error instanceof Error ? error.message : String(error)
+    const sessionId = item.sessionId
+    if (!sessionId?.trim() || /market is required|Market session is not registered/i.test(detail)) {
+      return `暂不支持该品种（${item.exchange || item.symbol}）`
+    }
+    return detail || '切换品种失败'
+  }
+
+  function onSymbolChange(item: SymbolItem) {
+    const ctrl = controller.value
+    if (!ctrl) return
+    // 同一主品种已由 core 缓存并短路，不会产生加载完成事件，不能进入 loading 状态。
+    if (
+      currentSymbolItem.value &&
+      symbolIdentityKey(item) === symbolIdentityKey(currentSymbolItem.value)
+    ) {
+      return
+    }
+    localSymbolStatus.value = 'loading'
+    localSymbolError.value = null
+    try {
+      const adjust = applyInstrumentCapabilities(item)
+      ctrl.registerSymbols([toLegacySymbolInfo(item)])
+      ctrl.setSymbols([toSymbolSpec(item, adjust)])
+    } catch (error) {
+      localSymbolStatus.value = 'error'
+      localSymbolError.value = formatUnsupportedSymbolMessage(item, error)
+    }
+  }
+
+  /** 切换品种时将当前周期和复权收敛到该品种声明的能力范围。 */
+  function applyInstrumentCapabilities(item: SymbolItem): 'qfq' | 'hfq' | 'splits' | 'none' {
+    const capabilities = item.capabilities
+    if (!capabilities) return kLineAdjust.value
+    const supportedPeriods = capabilities.bars?.periods ?? []
+    const currentPeriodSupported =
+      kLineLevel.value === 'timeshare'
+        ? capabilities.timeShare === true
+        : supportedPeriods.includes(kLineLevel.value as (typeof supportedPeriods)[number])
+    if (!currentPeriodSupported) {
+      const nextLevel =
+        supportedPeriods[0] ?? (capabilities.timeShare ? 'timeshare' : kLineLevel.value)
+      controller.value?.setCurrentPeriod(nextLevel)
+    }
+
+    const adjustments = capabilities.bars?.adjustments ?? []
+    if (
+      adjustments.length > 0 &&
+      !adjustments.includes(kLineAdjust.value as (typeof adjustments)[number])
+    ) {
+      return adjustments[0]!
+    }
+    return kLineAdjust.value
+  }
+
+  function toSymbolSpec(item: SymbolItem, adjust = kLineAdjust.value): SymbolSpec {
+    return {
+      id: item.id,
+      instrument: item,
+      symbol: item.symbol,
+      market: item.sessionId ?? '',
+      exchange: item.exchange,
+      period: kLineLevel.value,
+      source: item.sourceId,
+      params: item.providerRef,
+      startDate: props.symbols?.[0]?.startDate ?? '',
+      endDate: props.symbols?.[0]?.endDate ?? '',
+      adjust,
+    }
+  }
+
+  async function searchSymbols(
+    query: string,
+    limit: number,
+    signal: AbortSignal,
+    sources?: ReadonlyArray<string>,
+  ): Promise<ReadonlyArray<SymbolItem>> {
+    return searchInstruments(marketDataContext.registry, {
+      keyword: query,
+      limit,
+      signal,
+      sourceIds: sources ?? enabledSourceNames.value,
+    })
+  }
+
+  /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */
+  function legacyInstrumentId(
+    sourceId: string,
+    symbol: string,
+    exchange: string,
+    providerRef?: Readonly<Record<string, string | number | boolean>>,
+  ): string {
+    const params = Object.entries(providerRef ?? {}).sort(([left], [right]) =>
+      left.localeCompare(right),
+    )
+    return `legacy:${sourceId}:${exchange}:${symbol}:${JSON.stringify(params)}`
+  }
+
+  /** 将旧 controller 目录条目转换为 UI 使用的统一品种模型。 */
+  function fromSymbolInfo(info: SymbolInfo): InstrumentDescriptor {
+    return {
+      id:
+        info.id ??
+        legacyInstrumentId(info.source ?? '', info.symbol, info.exchange ?? '', info.params),
+      sourceId: info.source ?? '',
+      symbol: info.symbol,
+      name: info.description ?? info.symbol,
+      assetClass: info.assetClass ?? 'unknown',
+      exchange: info.exchange ?? '',
+      sessionId: info.sessionId ?? (info.market || undefined),
+      providerRef: info.params,
+      tickSize: info.tickSize,
+      lotSize: info.lotSize,
+      currency: info.currency,
+      capabilities: info.capabilities ?? {},
+    }
+  }
+
+  /** 将统一品种转换为旧 controller 目录结构，仅用于兼容边界。 */
+  function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
+    return {
+      id: item.id,
+      assetClass: item.assetClass,
+      sessionId: item.sessionId,
+      capabilities: item.capabilities,
+      tickSize: item.tickSize,
+      lotSize: item.lotSize,
+      currency: item.currency,
+      symbol: item.symbol,
+      market: item.sessionId ?? '',
+      description: item.name,
+      exchange: item.exchange,
+      source: item.sourceId,
+      params: item.providerRef,
+    }
+  }
+
+  function symbolItemForSpec(spec: SymbolSpec): SymbolItem {
+    if (spec.instrument) return spec.instrument
+    const info = symbolCatalog.value.find((item) =>
+      spec.id && item.id
+        ? spec.id === item.id
+        : item.symbol === spec.symbol &&
+          item.source === spec.source &&
+          item.exchange === spec.exchange,
+    )
+    return info
+      ? fromSymbolInfo(info)
+      : {
+          id:
+            spec.id ??
+            legacyInstrumentId(spec.source ?? '', spec.symbol, spec.exchange ?? '', spec.params),
+          sourceId: spec.source ?? '',
+          symbol: spec.symbol,
+          name: spec.symbol,
+          assetClass: 'unknown',
+          exchange: spec.exchange ?? '',
+          sessionId: spec.market || undefined,
+          providerRef: spec.params,
+          capabilities: {},
+        }
+  }
+
+  function syncSymbolsToController(adjust = kLineAdjust.value) {
+    if (!currentSymbolItem.value) return
+    const ctrl = controller.value
+    if (!ctrl) return
+    // 主品种与对比集合解耦：分别写入，周期/复权变化时对比集合用最新周期重建。
+    const comparisons = overlaySymbolItems.value.map((item) => toSymbolSpec(item, adjust))
+    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value, adjust)])
+    ctrl.setComparisonSpecs(comparisons)
+  }
+
+  // ── DOM Template Refs ──
+  const containerRef = ref<HTMLDivElement | null>(null)
+  const canvasLayerRef = ref<HTMLDivElement | null>(null)
+  const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
+  const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
+  const chartMainRef = ref<HTMLDivElement | null>(null)
+  const { isCapturing, screenshotMessage, captureScreenshot } = useChartScreenshot(
+    chartMainRef,
+    currentSymbol,
+    computed(() => currentSymbolItem.value?.name ?? ''),
+    () => controller.value,
+  )
+  const chartStageRef = ref<HTMLDivElement | null>(null)
+  const chartWrapperRef = ref<HTMLDivElement | null>(null)
+  const tooltipLayerRef = ref<HTMLDivElement | null>(null)
+  const tooltipContentRef = ref<HTMLDivElement | null>(null)
+  const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
+  provideFullscreenTeleportTarget(chartWrapperRef)
+
+  // ── Fullscreen (controlled / uncontrolled) ──
+  const internalIsFullscreen = ref(false)
+  const chartSettingsOpen = ref(false)
+  const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
+
+  function openChartSettings(section: 'main' | 'shortcuts'): void {
+    chartSettingsSection.value = section
+    chartSettingsOpen.value = true
+  }
+
+  function confirmChartSettings(settings: ChartSettings): void {
+    handleSettingsChange(settings)
+    chartSettingsOpen.value = false
+  }
+  const paletteOpen = ref(false)
+  const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
+  let onFullscreenChange: (() => void) | null = null
+
+  function handleToggleFullscreen() {
+    // 受控模式：保持旧行为，仅通知，不操作 DOM
+    if (props.isFullscreen !== undefined) {
+      emit('toggleFullscreen')
+      return
+    }
+
+    // 非受控模式：组件内部接管全屏 DOM 操作
+    if (typeof document !== 'undefined') {
+      const el = chartWrapperRef.value
+      if (!document.fullscreenElement) {
+        if (el && typeof el.requestFullscreen === 'function') {
+          el.requestFullscreen().catch(() => {
+            /* 用户拒绝或浏览器不支持，忽略 */
+          })
+        }
+      } else if (typeof document.exitFullscreen === 'function') {
+        document.exitFullscreen().catch(() => {
+          /* 忽略 */
+        })
+      }
+    }
+    emit('toggleFullscreen')
+  }
+
+  // ── Controller & Composable Wiring ──
+  const { add: onAddOverlaySymbol, remove: onRemoveOverlaySymbol } = useComparisonSymbols({
+    getController: () => controller.value,
+    getPrimary: () => (currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null),
+    toSpec: toSymbolSpec,
+    onError: (item, error) => {
+      localSymbolStatus.value = 'error'
+      localSymbolError.value = formatUnsupportedSymbolMessage(item, error)
+    },
+  })
+  const chartMode = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.chartMode,
+    () => 'kline' as const,
+  )
+  const marketDataCacheStats = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.marketDataCacheStats,
+    () => ({ usedBytes: 0, maxBytes: 0, entryCount: 0 }),
+  )
+  const kLineLevel = computed(() => {
+    if (chartMode.value === 'timeshare') return 'timeshare'
+    return controllerSymbols.value[0]?.period ?? initialKLineLevel
+  })
+  const isIntraday = computed(() => kLineLevel.value.includes('min'))
+
+  // 控制器就绪前使用显式设置与默认值，就绪后直接读取活动布局设置。
+  const _initialResolved = normalizeSettings(props.settings)
+  const _initialTheme: 'light' | 'dark' = (() => {
+    const theme = _initialResolved.theme as string
+    if (theme === 'auto') {
+      return typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+    }
+    return theme as 'light' | 'dark'
+  })()
+
+  const { chartTheme, chartSettings, tooltipColors, themeCssVars, handleSettingsChange } =
+    useChartTheme(controller, _initialTheme, _initialResolved)
+
+  const liveSettings = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.settings,
+    () => _initialResolved,
+  )
+  const kLineShape = computed(() => liveSettings.value.klineShape ?? 'candlestick')
+  function onKLineShapeChange(shape: NonNullable<ChartSettings['klineShape']>): void {
+    handleSettingsChange({ ...liveSettings.value, klineShape: shape })
+  }
+
+  const showBatchStockDialog = ref(false)
+
+  const showDrawingSettingsDialog = ref(false)
+  const editingDrawingId = ref<string | null>(null)
+  const batchSymbols = ref<string[]>([])
+
+  const drawingToolId = useControllerSignal<DrawingToolId>(
+    controller,
+    (ctrl) => ctrl.drawingTool,
+    () => CURSOR_DRAWING_TOOL_ID,
+  )
+  const canUndoDrawing = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.canUndoDrawing,
+    () => false,
+  )
+  const canRedoDrawing = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.canRedoDrawing,
+    () => false,
+  )
+
+  // ── Commands ──
+  // 每张图表一个命令注册表；撤销/重做走命令层，快捷键只作用于获得焦点的图表。
+  const commands = provideChartCommands(chartWrapperRef)
+  useRegisterCommands(commands, () =>
+    createChartCommands({
+      controller: () => controller.value,
+      openPalette: () => {
+        paletteOpen.value = !paletteOpen.value
+      },
+      toggleFullscreen: handleToggleFullscreen,
+      openSettings: () => openChartSettings('main'),
+      screenshot: (action) => void captureScreenshot(action),
+    }),
+  )
+  const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
+    controller,
+    (ctrl) => ctrl.rendererRuntime,
+    () => null,
+  )
+
+  const {
+    mainActiveIndicators,
+    subActiveIndicators,
+    activeIndicators,
+    indicatorParams,
+    subPanes,
+    buildPaneLayoutIntent,
+    getDefaultParams,
+    isSubPaneIndicator,
+    addSubPane,
+    removeSubPane,
+    clearAllSubPanes,
+    clearAllIndicators,
+    switchSubIndicator,
+    handleIndicatorToggle,
+    handleUpdateParams,
+    handleReorderSubIndicators,
+  } = useIndicatorManager(controller, paneRatios)
+
+  // 画布几何（尺寸 / DPR）变化时刷新轴快捷入口布局；横向滚动改变 visible range 不触发。
+  const paneAxisLayoutEpoch = ref(0)
+
+  /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
+  const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
+
+  const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
+  const {
+    open: scriptEditorOpen,
+    source: scriptEditorSource,
+    error: scriptEditorError,
+    saved: scriptEditorSaved,
+    identity: scriptEditorIdentity,
+    saving: scriptEditorSaving,
+    createCopy: createScriptCopy,
+    openFor: openScriptEditor,
+    openBlank: openBlankScriptEditor,
+    save: saveScriptEditor,
+  } = scriptEditorSession
+
+  const {
+    supported: scriptEditorWindowSupported,
+    container: scriptEditorWindowContainer,
+    open: detachScriptEditorWindow,
+    returnToDialog: returnScriptEditorToDialog,
+  } = useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
+
+  const scriptEditorTitle = computed(() =>
+    scriptEditorSession.name.value ? `编辑脚本 · ${scriptEditorSession.name.value}` : '新建脚本',
+  )
+
+  /** 把编辑器搬进独立窗口；打开失败时提示用户，不静默丢弃。 */
+  function openScriptEditorWindow(): void {
+    void detachScriptEditorWindow(scriptEditorTitle.value).catch((error: unknown) => {
+      toast.show({
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'danger',
+      })
+    })
+  }
+
+  const {
+    replacementId: replacementPaneId,
+    replacementRole,
+    replaceLegend,
+  } = useLegendUi(controller, canvasLayerRef, {
+    openSelector: () => indicatorSelectorRef.value?.openMenu(),
+    openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
+    openScriptEditor: (definitionId) => openScriptEditor(definitionId),
+  })
+
+  const {
+    drawingController,
+    magnetMode,
+    setMagnetMode,
+    continuousDrawing,
+    setContinuousDrawing,
+    selectedDrawings,
+    selectedDrawingStyleKeys,
+    drawings,
+    handleSelectTool: handleDrawingToolSelect,
+    onUpdateDrawingStyle,
+    updateDrawingLabel,
+    onDeleteDrawing,
+    onToggleDrawingLock,
+    onHideSelectedDrawings,
+    onCopyDrawings,
+    onSetAllDrawingsVisible,
+    globalDrawingLock,
+    onSetGlobalDrawingLock,
+    setupDrawing,
+  } = useDrawingManager(controller)
+  const {
+    names: canvasTemplateNames,
+    canUse: canUseCanvasTemplates,
+    showSave: showCanvasTemplateSave,
+    busy: canvasTemplateBusy,
+    error: canvasTemplateError,
+    savedName: canvasTemplateSavedName,
+    reload: reloadCanvasTemplates,
+    apply: applyCanvasTemplate,
+    remove: deleteCanvasTemplate,
+    openSave: openCanvasTemplateSave,
+    save: saveCanvasTemplate,
+    saveExisting: saveCanvasTemplateExisting,
+  } = useCanvasDrawingTemplates(
+    selectedDrawings,
+    selectedDrawingStyleKeys,
+    onUpdateDrawingStyle,
+    updateDrawingLabel,
+  )
+  const editingDrawing = computed(() =>
+    drawings.value.find((drawing) => drawing.id === editingDrawingId.value),
+  )
+  const editingDrawingStyleKeys = computed(() =>
+    editingDrawingId.value
+      ? (controller.value?.getBatchStyleKeys([editingDrawingId.value]) ?? [])
+      : [],
+  )
+
+  function onUpdateEditingDrawingStyle(style: Partial<DrawingStyle>) {
+    if (editingDrawing.value) controller.value?.updateBatch([editingDrawing.value.id], { style })
+  }
+  function openDrawingSettings(drawingId: string) {
+    editingDrawingId.value = drawingId
+    showDrawingSettingsDialog.value = true
+  }
+  function onUpdateEditingDrawingText(
+    target: 'line' | 'area',
+    text: string,
+    position: 'start' | 'center' | 'end',
+  ) {
+    const drawing = editingDrawing.value
+    if (!drawing) return
+    updateDrawingLabel(drawing.id, target, 0, text, position)
+  }
+  const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)
+  const lineLabelInput = ref<HTMLInputElement | null>(null)
+  const lineLabelDraft = ref('')
+  const lineLabelPosition = ref<'start' | 'center' | 'end'>('center')
+  const isEditingLineLabel = ref(false)
+
+  /**
+   * 命中框按被命中标签的绘制参数摆放：锚点贴文本块的对应边（基线定纵向、对齐定横向），
+   * 并以同一锚点旋转，保证输入框与画布文字重合。
+   */
+  const lineLabelEditorStyle = computed(() => {
+    const target = lineLabelTarget.value
+    if (!target) return undefined
+    const translateX = target.align === 'left' ? '0' : target.align === 'right' ? '-100%' : '-50%'
+    const translateY =
+      target.baseline === 'top' ? '0' : target.baseline === 'bottom' ? '-100%' : '-50%'
+    const originX = target.align === 'left' ? 'left' : target.align === 'right' ? 'right' : 'center'
+    const originY =
+      target.baseline === 'top' ? 'top' : target.baseline === 'bottom' ? 'bottom' : 'center'
+    return {
+      left: `${target.x}px`,
+      top: `${target.y}px`,
+      transform: `translate(${translateX}, ${translateY}) rotate(${target.rotation}rad)`,
+      transformOrigin: `${originX} ${originY}`,
+      fontSize: `${target.fontSize}px`,
+      textAlign: target.align,
+    }
+  })
+
+  /** 打开命中线段标签的就地文本编辑器。 */
+  function openLineLabelEditor(): void {
+    if (!lineLabelTarget.value || isEditingLineLabel.value) return
+    lineLabelDraft.value = lineLabelTarget.value.text
+    lineLabelPosition.value = lineLabelTarget.value.position
+    isEditingLineLabel.value = true
+    void nextTick(() => lineLabelInput.value?.focus())
+  }
+
+  /** 结束就地编辑并立即收起命中框；再次悬停时才会重新显示提示。 */
+  function closeLineLabelEditor(): void {
+    isEditingLineLabel.value = false
+    lineLabelTarget.value = null
+  }
+
+  /** 提交当前线段文本，并收起编辑器。 */
+  function saveLineLabel(): void {
+    const target = lineLabelTarget.value
+    if (!target || !isEditingLineLabel.value) return
+    updateDrawingLabel(
+      target.drawingId,
+      target.targetKind,
+      target.lineIndex,
+      lineLabelDraft.value,
+      lineLabelPosition.value,
+    )
+    closeLineLabelEditor()
+  }
+
+  /** 放弃当前文本草稿，不修改绘图模型。 */
+  function cancelLineLabelEditor(): void {
+    closeLineLabelEditor()
+  }
+
+  /** 在不转移输入焦点的情况下切换线段文字位置。 */
+  function setLineLabelPosition(position: 'start' | 'center' | 'end'): void {
+    lineLabelPosition.value = position
+  }
+
+  const {
+    rangeSelection,
+    customStartDate,
+    customEndDate,
+    isRangeSelectActive,
+    rangeSelectionReady,
+    rangeSelectionBounds,
+    rangeSelectionCount,
+    rangeSelectionReturnRate,
+    rangeSelectionStartLabel,
+    rangeSelectionEndLabel,
+    rangeSelectionOverlayStyle,
+    clearRangeSelection,
+    handleRangePointerDown,
+    handleRangePointerMove,
+    handleRangePointerUp,
+    exportRangeToCsv,
+    exportingProgress,
+    onEdgePointerDown,
+    onEdgePointerMove,
+    onEdgePointerUp,
+  } = useRangeSelection({
+    controller,
+    isRangeSelectMode,
+    containerRef,
+    data,
+    batchSymbols,
+  })
+
+  // ── No-op Render Trigger (exposed) ──
+  function scheduleRender() {
+    /* Controller auto-renders on state changes */
+  }
+
+  // ── 高频交互 Overlay ──
+  /** 绘图拖拽按下瞬间的光标；非空表示正处于图元拖拽会话，期间光标不随 pointermove 变化。 */
+  let drawingDragCursor: string | null = null
+
+  // 交互快照 → 舞台 DOM 副作用与只读 Vue 视图；订阅由作用域统一释放。
+  const { externalState: externalInteractionState } = useInteractionBridge({
+    controller,
+    stageRef: chartStageRef,
+    containerRef,
+    hasExternalSlot: hasKLineTooltipSlot,
+    getDragCursor: () => drawingDragCursor,
+  })
+
+  /** 主图图例模板上下文（#legend slot 消费） */
+  const hasLegendSlot = ref(!!slots.legend)
+  const legendContext = useControllerSignal<LegendTemplateContext | null>(
+    controller,
+    (ctrl) => (hasLegendSlot.value ? ctrl.legend.context : undefined),
+    () => null,
+  )
+
+  onBeforeUpdate(() => {
+    hasLegendSlot.value = !!slots.legend
+    hasKLineTooltipSlot.value = !!slots['kline-tooltip']
+  })
+
+  const legendOverlayStyle = computed(() => {
+    const ctx = legendContext.value
+    if (!ctx) return undefined
+    return {
+      left: `${ctx.layout.x}px`,
+      top: `${ctx.layout.y}px`,
+    }
+  })
+
+  function applyLegendRenderMode(ctrl: ChartController | null, external: boolean): void {
+    if (!ctrl) return
+    ctrl.updateOptionsFacade({
+      legend: {
+        visible: !external && props.legend?.visible !== false,
+        visibleIndicatorIds: props.legend?.visibleIndicatorIds,
+      },
+    })
+  }
+
+  watch(
+    hasLegendSlot,
+    (external) => {
+      applyLegendRenderMode(controller.value, external)
+    },
+    { immediate: false },
+  )
+
+  watch(
+    () => props.legend,
+    () => applyLegendRenderMode(controller.value, hasLegendSlot.value),
+    { deep: true },
+  )
+
+  const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
+  const isMobile = window.matchMedia('(pointer: coarse)').matches
+
+  /** 数据悬浮框是否启用；设置为“不显示”时隐藏内置与外部 tooltip */
+  const isTooltipEnabled = computed(
+    () => chartSettings.value.tooltipPosition !== TOOLTIP_POSITION_NONE,
+  )
+
+  /** adaptive 模式下 tooltip 可拖拽（内置与 #kline-tooltip 共用） */
+  const isTooltipDraggable = computed(() => chartSettings.value.tooltipPosition === 'adaptive')
+
+  // 默认 tooltip 直接订阅 kernel，绕过 Vue VNode；内容由 composable 直写 DOM 维护
+  const {
+    dragPos,
+    getLayerOffset,
+    onPointerDown: onTooltipPointerDown,
+    onDoubleClick: onTooltipDblClick,
+  } = useKLineTooltip({
+    controller,
+    contentRef: tooltipContentRef,
+    containerRef,
+    colors: tooltipColors,
+    hasExternalSlot: hasKLineTooltipSlot,
+    isMobile,
+    isIntraday: () => isIntraday.value,
+    timezone: () => props.timezone,
+    isDraggable: () => isTooltipDraggable.value,
+    isEnabled: () => isTooltipEnabled.value,
+  })
+
+  const externalHoveredKLine = computed(() => {
+    const idx = externalInteractionState.value.hoveredIndex
+    if (typeof idx !== 'number') return null
+    void data.value
+    const items = data.value
+    if (items && idx >= 0 && idx < items.length) {
+      return items[idx]
+    }
+    return null
+  })
+  const showExternalKLineTooltip = computed(
+    () => externalHoveredKLine.value !== null && !isMobile && isTooltipEnabled.value,
+  )
+  const externalKLineTooltipStyle = computed(() => {
+    const position = dragPos.value ?? externalInteractionState.value.tooltipPos
+    const offset = getLayerOffset()
+    return {
+      left: `${position.x + offset.x}px`,
+      top: `${position.y + offset.y}px`,
+      position: 'absolute' as const,
+      pointerEvents: (isTooltipDraggable.value ? 'auto' : 'none') as 'auto' | 'none',
+      zIndex: 10,
+    }
+  })
+
+  const chartData = computed(() => {
+    void data.value
+    return data.value
+  })
+
+  // ── Pointer Event Handlers ──
+  function onToggleIndicator() {
+    indicatorSelectorRef.value?.toggleMenu()
+  }
+
+  function onBatchApply(codes: string[]) {
+    batchSymbols.value = codes
+  }
+
+  function handleSelectTool(toolId: string) {
+    if (toolId === RANGE_SELECT_UI_TOOL_ID) {
+      isRangeSelectMode.value = true
+      controller.value?.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
+      controller.value?.setSelectedDrawingIds([])
+      return
+    }
+
+    isRangeSelectMode.value = false
+    clearRangeSelection()
+    handleDrawingToolSelect(toolId)
+  }
+
+  // DOM 接线由 Core bindChartInput 统一负责；这里只提供画线、区间选择拦截与宿主侧状态。
+  let disposeChartInput: (() => void) | null = null
+
+  const chartInputHooks: ChartInputHooks = {
+    beforePointer(e) {
+      switch (e.type) {
+        case 'pointerdown':
+          if (e.target instanceof HTMLCanvasElement) {
+            containerRef.value?.focus({ preventScroll: true })
+          }
+          // 记录按下瞬间的光标：若随后进入图元拖拽会话，期间沿用该 cursor 而不回落成十字线。
+          drawingDragCursor =
+            e.pointerType === 'touch' ? null : (containerRef.value?.style.cursor ?? 'crosshair')
+          return true
+        case 'pointermove': {
+          const container = containerRef.value
+          if (!container) return true
+          if (!isEditingLineLabel.value) {
+            lineLabelTarget.value =
+              drawingController.value?.getLineLabelTarget(e, container) ?? null
+          }
+          return true
+        }
+        case 'pointerleave': {
+          const related = e.relatedTarget as Node | null
+          if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
+            return false
+          }
+          if (!isEditingLineLabel.value) lineLabelTarget.value = null
+          drawingDragCursor = null
+          return true
+        }
+        case 'pointercancel':
+        case 'lostpointercapture':
+          drawingDragCursor = null
+          return true
+        default:
+          return true
+      }
+    },
+    intercept: {
+      onPointerDown: (event, container) => {
+        if (handleRangePointerDown(event, container)) {
+          drawingDragCursor = null
+          return true
+        }
+        return Boolean(drawingController.value?.onPointerDown(event, container))
+      },
+      onPointerMove: (event, container) => {
+        if (handleRangePointerMove(event, container)) return true
+        // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
+        return Boolean(drawingController.value?.onPointerMove(event, container))
+      },
+      onPointerUp: (event, container) => {
+        if (handleRangePointerUp(event, container)) {
+          drawingDragCursor = null
+          return true
+        }
+        if (drawingController.value?.onPointerUp(event, container)) {
+          drawingDragCursor = null
+          return true
+        }
+        return false
+      },
+    },
+    afterPointer(e) {
+      // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
+      if (e.type === 'pointerup') drawingDragCursor = null
+    },
+  }
+
+  function onDoubleClick(e: MouseEvent) {
+    const container = containerRef.value
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+
+    const hitDrawing = drawingController.value?.hitTestAt(mouseX, mouseY)
+    if (hitDrawing) {
+      openDrawingSettings(hitDrawing.id)
+      return
+    }
+
+    if (kLineLevel.value !== 'daily' || !controller.value) return
+
+    const index = controller.value.getLogicalIndexAtX(mouseX)
+    if (index == null) return
+
+    const timestamp = controller.value.getTimestampAtLogicalIndex(index)
+    if (timestamp == null) return
+
+    // 双击进入分时前复用与分时下拉一致的品种能力校验；无会话的数据源（如 MT5）直接忽略，避免触发未注册会话异常。
+    if (!ensureTimeShareSupported()) return
+
+    const d = new Date(timestamp)
+    const shD = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
+
+    try {
+      controller.value.switchToTimeShareForDate(yyyymmdd)
+    } catch (error) {
+      localSymbolStatus.value = 'error'
+      if (currentSymbolItem.value) {
+        localSymbolError.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
+      }
+      return
+    }
+    emit('kLineLevelChange', 'timeshare')
+  }
+
+  // ── Width / Zoom / Expose ──
+  const effectiveRightAxisWidth = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.rightAxisEffectiveWidth,
+    () => 0,
+  )
+  const axisHostWidth = computed(() =>
+    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
+  )
+  const effectiveLeftAxisWidth = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.leftAxisEffectiveWidth,
+    () => 0,
+  )
+  const leftAxisHostWidth = computed(() =>
+    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveLeftAxisWidth.value),
+  )
+
+  // 位置只改变同一 DOM 轴的 flex 顺序，Canvas、范围与交互实例保持同一份。
+  const priceAxisPosition = useControllerSignalValue(
+    controller,
+    (ctrl) => ctrl.settings,
+    (settings) => settings.priceAxisPosition,
+    () => _initialResolved.priceAxisPosition,
+  )
+
+  function applyZoomToLevel(targetLevel: number, anchorX?: number) {
+    controller.value?.zoomToLevel(targetLevel, anchorX)
+  }
+
+  defineExpose({
+    scheduleRender,
+    addSubPane,
+    removeSubPane,
+    switchSubIndicator,
+    clearAllSubPanes,
+    zoomToLevel: applyZoomToLevel,
+    zoomIn: (anchorX?: number) => applyZoomToLevel(zoomLevel.value + 1, anchorX),
+    zoomOut: (anchorX?: number) => applyZoomToLevel(zoomLevel.value - 1, anchorX),
+    getZoomLevel: () => zoomLevel.value,
+    getZoomLevelCount: () => controller.value?.getZoomLevelCount() ?? 10,
+    getController: () => controller.value,
+  })
+
+  // ── Lifecycle Setup ──
+
+  let cleanupChartCallbacks: (() => void) | null = null
+
+  function initChart(
+    container: HTMLDivElement,
+    canvasLayer: HTMLDivElement,
+    rightAxisLayer: HTMLDivElement,
+    xAxisCanvas: HTMLCanvasElement,
+  ): Promise<ChartController> {
+    const ctrl = createChartController({
+      container,
+      data: [],
+      marketSessions: props.marketSessions,
+      marketDataContext,
+      canvasLayer,
+      rightAxisLayer,
+      leftAxisLayer: leftAxisLayerRef.value ?? undefined,
+      leftAxisWidth: props.rightAxisWidth + props.priceLabelWidth,
+      xAxisCanvas,
+      theme: _initialTheme,
+      initialZoomLevel: props.initialZoomLevel,
+      zoomLevels: props.zoomLevels,
+      yPaddingPx: props.yPaddingPx,
+      rightAxisWidth: props.rightAxisWidth,
+      bottomAxisHeight: props.bottomAxisHeight,
+      priceLabelWidth: props.priceLabelWidth,
+      minKWidth: props.minKWidth,
+      maxKWidth: props.maxKWidth,
+      settings: props.settings,
+    })
+    return ctrl
+  }
+
+  function setupChartCallbacks(ctrl: ChartController): () => void {
+    const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
+      const borderTop = containerRef.value
+        ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
+        : 0
+      const panes = ctrl.paneLayout.peek()
+      // 使用 pane 的实际渲染位置计算分隔线位置，确保与鼠标检测一致
+      paneSeparatorLines.value = panes.slice(0, -1).map((pane) => {
+        const paneInfo = ctrl.getPaneInfo(pane.id)
+        // 分隔线位置 = pane 顶部位置 + pane 实际高度
+        const separatorTop = (paneInfo?.top ?? 0) + (paneInfo?.height ?? 0)
+        return { id: pane.id, top: separatorTop + borderTop }
+      })
+    })
+
+    // 轴快捷入口读取画布真实几何；容器尺寸或 DPR 变化后需重新读取，横向滚动不触发。
+    let paneAxisViewportSignature = ''
+    const refreshPaneAxisLayout = () => {
+      const viewport = ctrl.viewport.peek()
+      const nextSignature = `${viewport.plotWidth}:${viewport.plotHeight}:${viewport.dpr}`
+      if (nextSignature === paneAxisViewportSignature) return
+      paneAxisViewportSignature = nextSignature
+      paneAxisLayoutEpoch.value += 1
+    }
+    refreshPaneAxisLayout()
+    const unsubscribeViewport = ctrl.viewport.subscribe(refreshPaneAxisLayout)
+
+    const unsubscribeTheme = ctrl.theme.subscribe(() => {
+      const newTheme = ctrl.theme.peek()
+      emit('themeChange', newTheme)
+    })
+
+    return () => {
+      unsubscribePaneLayout()
+      unsubscribeViewport()
+      unsubscribeTheme()
+    }
+  }
+
+  /** 只取 props.settings 中显式声明（非 undefined）的 key，未声明项保留内核当前值。 */
+  function declaredSettings(settings: Partial<ChartSettings>): Partial<ChartSettings> {
+    return Object.fromEntries(
+      Object.entries(settings).filter(([, value]) => value !== undefined),
+    ) as Partial<ChartSettings>
+  }
+
+  /**
+   * 活动布局恢复后，只把 props 显式声明的 key 覆盖到内核。
+   */
+  function applyInitialSettings(ctrl: ChartController): void {
+    if (props.settings !== undefined) ctrl.updateSettingsFacade(declaredSettings(props.settings))
+  }
+
+  /** 受控指标引用的定义实现按需加载；加载失败时由同步方法拒绝写入并给出提示。 */
+  async function loadControlledIndicators(ctrl: ChartController): Promise<void> {
+    const ids = (props.indicators ?? [])
+      .filter((indicator) => indicator.enabled)
+      .map((indicator) => indicator.definitionId)
+    if (ids.length === 0) return
+    try {
+      await ctrl.loadIndicators(ids)
+    } catch (err) {
+      console.error('[KLineChart] loading indicators failed:', err)
+    }
+  }
+
+  /** 将受控业务 props 按固定顺序同步到 ChartController。 */
+  function applyControlledChartProps(ctrl: ChartController, initial = false): void {
+    if (props.indicators !== undefined) {
+      for (const indicator of ctrl.indicators.peek()) {
+        ctrl.removeIndicator(indicator.id)
+      }
+      for (const indicator of props.indicators) {
+        if (indicator.enabled) {
+          ctrl.addIndicator(indicator.definitionId, indicator.params)
+        }
+      }
+    }
+
+    if (props.customData) {
+      ctrl.applyCustomData(props.customData)
+    } else if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
+      // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
+      ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
+      ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
+    }
+  }
+
+  // ── onMounted ──
+  onMounted(async () => {
+    void restoreWatchlist()
+
+    // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
+    if (typeof document !== 'undefined') {
+      onFullscreenChange = () => {
+        internalIsFullscreen.value = !!document.fullscreenElement
+        emit('update:isFullscreen', internalIsFullscreen.value)
+      }
+      document.addEventListener('fullscreenchange', onFullscreenChange)
+    }
+
+    const container = containerRef.value
+    const chartMain = chartMainRef.value
+    if (!container || !chartMain) return
+
+    // 1) 创建 Chart 控制器（使用模板 DOM 元素）
+    const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
+    const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
+    const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
+    let ctrl: ChartController
+    try {
+      ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
+    } catch (err) {
+      console.error('[KLineChart] initChart failed:', err)
+      return
+    }
+    // 受控指标的实现须在首次同步前就绪，保证其与首批行情同帧计算。
+    await loadControlledIndicators(ctrl)
+    if (!containerRef.value || !chartMainRef.value) {
+      // 组件在 await 期间已卸载：此时 ctrl 尚未写入 controller.value，需主动释放。
+      ctrl.dispose()
+      return
+    }
+    controller.value = ctrl
+    // 2) 输入接线：绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
+    disposeChartInput = bindChartInput(
+      ctrl,
+      {
+        surface: container,
+        wheelTarget: chartMain,
+        axisTargets: rightAxisLayer ? [rightAxisLayer] : [],
+      },
+      chartInputHooks,
+    )
+    emit('controllerReady', ctrl)
+
+    // controllerReady 监听可能同步卸载组件；DOM ref 被清空后继续接线会在已销毁实例上遗留订阅。
+    if (!containerRef.value || !chartMainRef.value) return
+
+    // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
+    cleanupChartCallbacks = setupChartCallbacks(ctrl)
+
+    // 指标必须在 data source 首次加载前创建，避免 scheduler 漏掉首帧计算。
+    applyControlledChartProps(ctrl, true)
+
+    // 4) 工具栏初始设置
+    applyInitialSettings(ctrl)
+
+    // 5) 绘图交互控制器
+    setupDrawing(ctrl)
+
+    // 6) 交互初始化与图例接线（interactionState 订阅由 useInteractionBridge 管理）
+    ctrl.setTooltipAnchorPositioning(false)
+    applyLegendRenderMode(ctrl, hasLegendSlot.value)
+  })
+
+  // ── onUnmounted & Watchers ──
+  onUnmounted(() => {
+    if (typeof document !== 'undefined' && onFullscreenChange) {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+    }
+    onFullscreenChange = null
+    disposeChartInput?.()
+    disposeChartInput = null
+    cleanupChartCallbacks?.()
+    cleanupChartCallbacks = null
+    applyLegendRenderMode(controller.value, false)
+    const ctrl = controller.value
+    if (ctrl) {
+      controller.value = null
+      ctrl.dispose()
+    }
+    drawingController.value = null
+  })
+
+  // kWidth/kGap 由 zoomLevel 派生，不再通过 props 直接修改
+  // 如需程序化控制缩放，请使用 expose 的 zoomToLevel/zoomIn/zoomOut 方法
+
+  watch(
+    () => props.yPaddingPx,
+    (newVal) => {
+      controller.value?.updateOptionsFacade({ yPaddingPx: newVal })
+    },
+  )
+
+  // 受控业务 props 使用同一条同步路径；指标总是在 data source 之前创建。
+  watch(
+    [() => props.symbols, () => props.indicators, () => props.customData],
+    async () => {
+      const ctrl = controller.value
+      if (!ctrl) return
+      await loadControlledIndicators(ctrl)
+      // 同步时读取最新 props；加载期间被替换的控制器不再写入。
+      if (controller.value === ctrl) applyControlledChartProps(ctrl)
+    },
+    { deep: true },
+  )
+
+  // 受控设置只覆盖显式声明的 key，未声明部分保留活动布局值。
+  watch(
+    () => props.settings,
+    (next) => {
+      if (next === undefined || !controller.value) return
+      controller.value.updateSettingsFacade(declaredSettings(next))
+    },
+    { deep: true },
+  )
+</script>
+
+<style scoped>
+  .chart-wrapper {
+    font-family: var(--klc-typography-font-family);
+    font-variant-numeric: tabular-nums;
+    --kmap-height: var(--kmap-chart-height, 100%);
+    --kmap-width: var(--kmap-chart-width, 100%);
+
+    --chart-bg: var(--klc-color-ui-background);
+    --chart-bg-secondary: var(--klc-color-ui-background);
+    --chart-border: var(--klc-color-ui-border);
+    --chart-border-active: var(--klc-color-ui-accent);
+    --chart-text: var(--klc-color-ui-text);
+    --chart-text-secondary: var(--klc-color-ui-muted);
+
+    display: flex;
+    align-items: stretch;
+    width: var(--kmap-width);
+    height: var(--kmap-height);
+    min-height: 300px;
+    flex-direction: row;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    gap: 0;
+  }
+
+  .chart-workspace {
+    --chart-frame-radius: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-radius: var(--chart-frame-radius);
+    /* 图表内部存在高 z-index 的叠加层，隔离为独立层叠上下文，
+       避免它们越过自选股面板滑出动画（后者靠 DOM 顺序天然在上层）。 */
+    isolation: isolate;
+  }
+
+  .chart-stage {
+    flex: 1;
+    min-height: 255px;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .chart-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* 截图区域独立绘制完整外框，子容器只负责坐标轴分隔线。 */
+    border: 1px solid var(--chart-border);
+    /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
+    box-sizing: border-box;
+    border-bottom-right-radius: var(--chart-frame-radius);
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    position: relative;
+  }
+
+  .chart-brand {
+    position: absolute;
+    /* 品牌锚定绘图区左边缘，随分时左轴或左侧价格轴的宽度移动。 */
+    left: calc(var(--chart-brand-axis-width) + 12px);
+    /* Canvas 叠层最高为 3；品牌位于其上，低于 tooltip 等交互浮层。 */
+    z-index: 4;
+    color: var(--klc-color-ui-text);
+    opacity: 0.3;
+    font-family: var(--klc-font-family-brand);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .pane-separator-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .pane-separator-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px solid var(--chart-border);
+    opacity: 1;
+    box-sizing: border-box;
+    transition:
+      border-top-color 120ms ease,
+      border-top-width 120ms ease,
+      margin-top 120ms ease,
+      opacity 120ms ease;
+  }
+
+  .pane-separator-line.is-active {
+    border-top-color: var(--chart-border-active);
+    border-top-width: 2px;
+    margin-top: -1px;
+  }
+
+  .chart-stage.is-resizing-pane,
+  .chart-stage.is-hovering-pane-separator {
+    cursor: ns-resize;
+  }
+
+  .chart-stage.is-hovering-kline {
+    cursor: pointer;
+  }
+
+  .chart-stage.is-hovering-right-axis {
+    cursor: ns-resize;
+  }
+
+  .chart-stage.is-dragging {
+    cursor: grabbing;
+  }
+
+  /* 拖拽图元时沿用锚点/手柄/线身光标；内联 `cursor` 不足以覆盖上面的 CSS 规则。 */
+  .chart-stage.is-dragging-drawing {
+    cursor: inherit;
+  }
+
+  .chart-stage.is-dragging-drawing[data-drawing-cursor='anchor'] {
+    cursor: default;
+  }
+
+  .chart-stage.is-dragging-drawing[data-drawing-cursor='vertical-handle'] {
+    cursor: ns-resize;
+  }
+
+  .chart-stage.is-dragging-drawing[data-drawing-cursor='all'] {
+    cursor: move;
+  }
+
+  /* 绘图区与左右轴共用布局、背景和手势规则。 */
+  .chart-container,
+  .left-axis-host,
+  .right-axis-host {
+    position: relative;
+    min-height: inherit;
+    box-sizing: border-box;
+    background: var(--chart-bg);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .chart-container {
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .drawing-line-label-editor {
+    position: absolute;
+    z-index: 21;
+    pointer-events: auto;
+    color: var(--klc-color-ui-text);
+    line-height: var(--klc-typography-line-height-tight);
+  }
+
+  /* 外框绘制在容器上：提示态与编辑态共用同一外框，几何完全一致。
+     内容盒必须等于画布文本块，故子元素 padding/border 均为 0，避免锚点漂移。 */
+  .drawing-line-label-editor::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -3px -8px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 6px;
+    background: var(--klc-color-ui-surface);
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+    transition:
+      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
+      border-color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
+  }
+
+  .drawing-line-label-editor.is-placeholder {
+    color: var(--klc-color-ui-muted);
+  }
+
+  .drawing-line-label-editor.is-placeholder::before {
+    border-style: dashed;
+  }
+
+  .drawing-line-label-editor:hover::before {
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
+  }
+
+  .drawing-line-label-editor__prompt {
+    display: block;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    white-space: pre;
+    cursor: text;
+  }
+
+  .drawing-line-label-editor__input {
+    display: block;
+    width: 140px;
+    height: calc(var(--klc-typography-line-height-tight) * 1em);
+    padding: 0;
+    border: 0;
+    color: inherit;
+    caret-color: var(--klc-color-ui-accent);
+    background: transparent;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    outline: none;
+  }
+
+  .drawing-line-label-editor__input::placeholder {
+    color: var(--klc-color-ui-muted);
+  }
+
+  .chart-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .right-axis-host {
+    flex: 0 0 auto;
+    border-left: 1px solid var(--chart-border);
+    border-bottom-right-radius: var(--chart-frame-radius);
+  }
+
+  /* 分时左轴独立占据 flex 宽度，容器缩放由 Core 的 ResizeObserver 感知。 */
+  .left-axis-host {
+    position: relative;
+    flex: 0 0 auto;
+    border-right: 1px solid var(--chart-border);
+  }
+
+  .left-axis-host :deep(> canvas) {
+    display: block;
+  }
+
+  .pane-axis-controls-host {
+    position: absolute;
+    width: 100%;
+    z-index: 2;
+  }
+
+  .pane-axis-controls-host:hover :deep(.price-axis-shortcuts) {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .price-axis-host--left {
+    order: -1;
+    border-left: 0;
+    border-right: 1px solid var(--chart-border);
+    border-radius: 0;
+  }
+
+  /* 轴画布由 Core 动态创建，定位与叠层由 Core 管理，Vue 只负责显示样式。 */
+  .right-axis-host :deep(> canvas) {
+    display: block;
+  }
+
+  .scroll-content {
+    min-height: inherit;
+    position: relative;
+  }
+
+  .range-selection-overlay {
+    position: absolute;
+    top: 0;
+    z-index: 25;
+    box-sizing: border-box;
+    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 75%, transparent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
+    pointer-events: none;
+  }
+
+  .range-selection-overlay.is-dragging {
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
+  }
+
+  .range-selection-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
+    pointer-events: auto;
+    z-index: 101;
+  }
+
+  .range-selection-handle--left {
+    left: -4px;
+  }
+
+  .range-selection-handle--right {
+    right: -4px;
+  }
+
+  .main-legend-overlay {
+    position: absolute;
+    z-index: 8;
+    pointer-events: none;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--klc-color-ui-text);
+  }
+
+  .canvas-layer {
+    position: sticky;
+    left: 0;
+    top: 0;
+    z-index: 26;
+    pointer-events: none;
+  }
+
+  .tooltip-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+  }
+
+  .tooltip-anchor {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+  }
+
+  .tooltip-anchor.kline-tooltip-anchor.use-anchor {
+    anchor-name: --kline-tooltip-anchor;
+  }
+
+</style>
+
+<style>
+  .plot-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: block;
+  }
+
+  .x-axis-canvas {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    display: block;
+    z-index: 10;
+  }
+</style>
+
+<style>
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+</style>

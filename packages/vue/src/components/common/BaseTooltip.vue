@@ -33,11 +33,11 @@
 
 <script setup lang="ts">
   import { primaryShortcut } from '@363045841yyt/klinechart-core'
+  import { injectCommands } from '@vue-src/composables/commands/useCommands.js'
+  import { supportsPopover } from '@vue-src/composables/overlay/platform.js'
+  import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
+  import { type TooltipPlacement, useTooltip } from '@vue-src/composables/ui/useTooltip.js'
   import { computed, watch } from 'vue'
-  import { injectCommands } from '../../composables/commands/useCommands.js'
-  import { supportsPopover } from '../../composables/overlay/platform.js'
-  import { useFullscreenTeleportTarget } from '../../composables/useFullscreenTeleportTarget.js'
-  import { type TooltipPlacement, useTooltip } from '../../composables/useTooltip.js'
   import ShortcutKeys from './ShortcutKeys.vue'
 
   const props = withDefaults(

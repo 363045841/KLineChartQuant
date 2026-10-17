@@ -1,0 +1,402 @@
+<!-- 图表设置弹窗：编辑设置草稿，管理主题、配色、数据源与缓存。 -->
+<template>
+  <!-- 主弹窗 -->
+  <BaseModal
+    :open="open"
+    title="图表设置"
+    width="min(92vw, 460px)"
+    max-height="min(720px, calc(100vh - 48px))"
+    body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm))"
+    footer-align="space-between"
+    @update:open="emit('update:open', $event)"
+  >
+    <template #tabs>
+      <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
+    </template>
+
+    <div class="settings-body" :class="{ 'settings-body--style': activeSection === 'style' }">
+      <ShortcutSettings v-if="activeSection === 'shortcuts'" />
+
+      <template v-else-if="activeSection === 'dataSource'">
+        <div class="settings-item">
+          <span>缓存上限</span>
+          <Dropdown
+            :model-value="String(settings.marketDataCacheMaxMiB)"
+            :options="cacheLimitOptions"
+            size="sm"
+            min-width="100px"
+            @update:model-value="settings.marketDataCacheMaxMiB = Number($event)"
+          />
+        </div>
+        <div class="settings-item cache-usage">
+          <span>当前用量</span>
+          <span class="cache-usage__value">
+            {{ cacheUsageText }}
+            <button
+              type="button"
+              class="cache-clear-btn"
+              title="清除缓存"
+              aria-label="清除缓存"
+              @click="clearCache"
+            >
+              <IconTablerTrash aria-hidden="true" />
+            </button>
+          </span>
+        </div>
+        <SettingsNavRow @select="showAggregationSourceModal = true">行情数据源</SettingsNavRow>
+      </template>
+
+      <OpenSourceCredits v-else-if="activeSection === 'opensource'" />
+
+      <template v-else>
+        <ThemePresetPanel
+          v-if="activeSection === 'style'"
+          :settings="settings"
+          @update:settings="onThemePresetChange"
+        >
+          <template #actions>
+            <ThemeModeControl v-model="settings.theme" label="明暗模式" />
+          </template>
+        </ThemePresetPanel>
+        <template v-for="item in sectionItems" :key="item.key">
+          <SettingsItemRow
+            :label="item.label"
+            :type="item.type"
+            :value="settings[item.key]"
+            :options="optionsFor(item)"
+            @update="settings[item.key] = $event"
+          />
+          <div
+            v-if="item.key === 'rendererBackend' && runtimeHint"
+            class="settings-item runtime-hint"
+          >
+            <span>{{ runtimeHint }}</span>
+          </div>
+        </template>
+        <SettingsNavRow v-if="activeSection === 'style'" @select="showColorPresetModal = true">
+          颜色配置
+        </SettingsNavRow>
+      </template>
+    </div>
+
+    <template #footer>
+      <BaseButton @click="resetSettings">重置</BaseButton>
+      <div class="footer-right">
+        <BaseButton @click="closeSettings">取消</BaseButton>
+        <BaseButton @click="confirmSettings">确定</BaseButton>
+      </div>
+    </template>
+  </BaseModal>
+
+  <!-- 使用同一宿主实例的行情管理界面 -->
+  <MarketDataManagementDialog
+    :show="showAggregationSourceModal"
+    @close="showAggregationSourceModal = false"
+  >
+    <template #source-management><slot name="source-management" /></template>
+  </MarketDataManagementDialog>
+
+  <!-- 嵌套颜色预设弹窗 -->
+  <BaseModal
+    v-model:open="showColorPresetModal"
+    title="颜色预设"
+    width="min(92vw, 460px)"
+    max-height="min(720px, calc(100vh - 48px))"
+    footer-align="space-between"
+  >
+    <template #tabs>
+      <BaseTabs v-model="colorPresetTheme" :tabs="colorThemeOptions" aria-label="颜色主题" />
+    </template>
+    <ColorPresetPanel
+      ref="colorPresetPanelRef"
+      :color-preset-settings="settings.colorPresetSettings"
+      :editing-theme="colorPresetTheme"
+      :is-asia-market="settings.isAsiaMarket"
+      @update:color-preset-settings="settings = { ...settings, colorPresetSettings: $event }"
+    />
+    <template #footer>
+      <BaseButton @click="colorPresetPanelRef?.resetCurrentThemeColors()"> 重置颜色 </BaseButton>
+      <BaseButton @click="showColorPresetModal = false">确认</BaseButton>
+    </template>
+  </BaseModal>
+</template>
+
+<script setup lang="ts">
+  import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
+  import {
+    type ChartSettings,
+    DEFAULT_SETTINGS,
+    normalizeSettings,
+    resolveSettingDefault,
+    type SettingItem,
+  } from '@363045841yyt/klinechart-core/config'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
+  import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
+  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
+  import Dropdown from '@vue-src/components/common/Dropdown.vue'
+  import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
+  import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
+  import ShortcutSettings from '@vue-src/components/shortcut/settings/ShortcutSettings.vue'
+  import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
+  import { computed, ref, watch } from 'vue'
+  import IconTablerTrash from '~icons/tabler/trash'
+  import OpenSourceCredits from './OpenSourceCredits.vue'
+  import SettingsItemRow from './SettingsItemRow.vue'
+  import SettingsNavRow from './SettingsNavRow.vue'
+
+  const props = withDefaults(
+    defineProps<{
+      open: boolean
+      initialSection?: 'main' | 'shortcuts'
+      initialSettings?: ChartSettings
+      rendererRuntime?: RendererBackendRuntime | null
+      marketDataCacheStats?: MarketDataCacheStats
+    }>(),
+    {},
+  )
+
+  const emit = defineEmits<{
+    (e: 'update:open', value: boolean): void
+    (e: 'confirm', settings: ChartSettings): void
+    (e: 'clearMarketDataCache'): void
+    /** 主题预设点击即生效，无需等“确定”。 */
+    (
+      e: 'applyThemePreset',
+      colorPresetSettings: NonNullable<ChartSettings['colorPresetSettings']>,
+    ): void
+  }>()
+
+  const mainSettings = computed(
+    () =>
+      DEFAULT_SETTINGS.filter(
+        (s) => s.key !== 'theme' && s.group === 'main',
+      ) as unknown as SettingItem[],
+  )
+
+  const localTimeZone = resolveLocalTimeZone()
+
+  function optionsFor(item: SettingItem): { value: string; label: string }[] {
+    if (item.key !== 'displayTimeZone') return item.options ?? []
+    return (item.options ?? []).map((option) =>
+      option.value === 'local'
+        ? { ...option, label: `${option.label}（${localTimeZone}）` }
+        : option,
+    )
+  }
+
+  function resolveLocalTimeZone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    } catch {
+      return 'UTC'
+    }
+  }
+  const experimentalSettings = computed(
+    () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
+  )
+  const styleSettings = computed(
+    () =>
+      DEFAULT_SETTINGS.filter(
+        (s) => s.key !== 'theme' && s.group === 'style',
+      ) as unknown as SettingItem[],
+  )
+  const cacheLimitOptions = [50, 100, 150, 200, 500].map((value) => ({
+    value: String(value),
+    label: `${value} MiB`,
+  }))
+
+  /** 主图 / 样式 / 实验性三个 section 共享同一套设置行渲染，这里按当前 section 取列表。 */
+  const sectionItems = computed<ReadonlyArray<SettingItem>>(() => {
+    if (activeSection.value === 'style') return styleSettings.value
+    if (activeSection.value === 'experimental') return experimentalSettings.value
+    return mainSettings.value
+  })
+
+  type SettingsSectionId =
+    | 'shortcuts'
+    | 'main'
+    | 'style'
+    | 'experimental'
+    | 'dataSource'
+    | 'opensource'
+
+  /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
+  const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
+    const tabs: { id: SettingsSectionId; label: string }[] = []
+    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
+    tabs.push({ id: 'shortcuts', label: '快捷键' })
+    tabs.push({ id: 'dataSource', label: '数据源' })
+    tabs.push({ id: 'style', label: '样式 / 颜色' })
+    if (experimentalSettings.value.length > 0) {
+      tabs.push({ id: 'experimental', label: '实验性 / 调试设置' })
+    }
+    tabs.push({ id: 'opensource', label: '开源致谢' })
+    return tabs
+  })
+
+  const activeSection = ref<SettingsSectionId>('main')
+  const showAggregationSourceModal = ref(false)
+  const showColorPresetModal = ref(false)
+  const colorPresetTheme = ref<ColorPresetThemeName>('light')
+  const colorThemeOptions: readonly { id: ColorPresetThemeName; label: string }[] = [
+    { id: 'light', label: '浅色' },
+    { id: 'dark', label: '深色' },
+  ]
+
+  const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
+
+  const runtimeHint = computed(() => {
+    const runtime = props.rendererRuntime
+    if (!runtime) return ''
+    const status =
+      runtime.status === 'ready'
+        ? ''
+        : runtime.status === 'switching'
+          ? '切换中'
+          : runtime.status === 'degraded'
+            ? '已降级'
+            : runtime.status
+    return status ? `当前有效：${runtime.effective}（${status}）` : `当前有效：${runtime.effective}`
+  })
+  const cacheUsageText = computed(() => {
+    const stats = props.marketDataCacheStats
+    if (!stats) return '尚未初始化'
+    return `${formatBytes(stats.usedBytes)} / ${formatBytes(stats.maxBytes)}（${stats.entryCount} 项）`
+  })
+
+  function formatBytes(bytes: number): string {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+  }
+
+  const settings = ref<ChartSettings>(normalizeSettings(props.initialSettings))
+
+  watch(
+    () => props.open,
+    (val) => {
+      if (val) {
+        settings.value = structuredClone(normalizeSettings(props.initialSettings))
+        activeSection.value = props.initialSection ?? settingsTabs.value[0]?.id ?? 'dataSource'
+      }
+    },
+  )
+
+  function closeSettings() {
+    emit('update:open', false)
+  }
+
+  function resetSettings() {
+    const defaults: ChartSettings = {}
+    DEFAULT_SETTINGS.forEach((item) => {
+      ;(defaults as Record<string, unknown>)[item.key] = resolveSettingDefault(item.default)
+    })
+    defaults.colorPresetSettings = {}
+    settings.value = defaults
+  }
+
+  function confirmSettings() {
+    emit('confirm', { ...settings.value })
+  }
+
+  /** 主题预设点击即生效：先写入草稿，再立即提交给上层应用并持久化，不关闭弹窗。 */
+  function onThemePresetChange(next: ChartSettings): void {
+    settings.value = next
+    emit('applyThemePreset', next.colorPresetSettings ?? {})
+  }
+
+  function clearCache() {
+    emit('clearMarketDataCache')
+  }
+</script>
+
+<style scoped src="../../common/settings-item.css"></style>
+
+<style scoped>
+  .settings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    font-family: var(--klc-typography-font-family);
+    font-size: var(--klc-typography-font-size-md);
+    line-height: var(--klc-typography-line-height-standard);
+    color: var(--klc-color-ui-text);
+  }
+
+  /* 区块只在边界留白，避免说明文字、区块 padding 与设置行 padding 叠加。 */
+  .settings-body--style > :first-child {
+    margin-block-end: var(--klc-spacing-sm);
+    /* 与设置行共用水平内边距，保持主题面板与下方设置项对齐。 */
+    padding-inline: var(--klc-spacing-sm);
+  }
+
+  /* 设置行仅负责布局，交互状态由具体控件提供。 */
+  .settings-item.runtime-hint {
+    min-block-size: auto;
+    padding-block: 0 var(--klc-spacing-sm);
+    font-size: var(--klc-typography-font-size-md);
+    line-height: var(--klc-typography-line-height-standard);
+    color: var(--klc-color-ui-muted);
+  }
+
+  .settings-item.cache-usage {
+    color: var(--klc-color-ui-muted);
+  }
+
+  .cache-usage__value {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--klc-spacing-sm);
+    white-space: nowrap;
+  }
+
+  .cache-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: 28px;
+    min-block-size: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
+    background: none;
+    cursor: pointer;
+    transition: color var(--klc-motion-duration-fast) ease;
+  }
+
+  .cache-clear-btn:hover {
+    color: var(--klc-color-ui-text);
+  }
+
+  .cache-clear-btn:focus-visible {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: 2px;
+  }
+
+  .cache-clear-btn svg {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+
+  /* 底部按钮 */
+  .footer-right {
+    display: flex;
+    gap: var(--klc-spacing-sm);
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 480px) {
+    .settings-item {
+      gap: var(--klc-spacing-sm);
+    }
+
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .settings-item,
+    .cache-clear-btn {
+      transition: none;
+    }
+  }
+</style>

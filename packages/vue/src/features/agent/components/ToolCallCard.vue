@@ -71,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+  import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
   import { computed } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconArrowBackUp from '~icons/tabler/arrow-back-up'
@@ -81,7 +82,6 @@
   import IconFocusCentered from '~icons/tabler/focus-centered'
   import IconRotateClockwise2 from '~icons/tabler/rotate-clockwise-2'
   import IconShieldCheck from '~icons/tabler/shield-check'
-  import LoadingSpinner from '../../../components/LoadingSpinner.vue'
   import type { ToolCallView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 

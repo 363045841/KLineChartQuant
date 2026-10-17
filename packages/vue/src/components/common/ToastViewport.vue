@@ -57,11 +57,10 @@
 </template>
 
 <script setup lang="ts">
+  import { supportsPopover } from '@vue-src/composables/overlay/platform.js'
+  import { type ToastItem, useToastStore } from '@vue-src/composables/toast/useToast.js'
   import { computed, nextTick, onBeforeUnmount, onMounted, useId, useTemplateRef, watch } from 'vue'
   import IconX from '~icons/tabler/x'
-
-  import { supportsPopover } from '../../composables/overlay/platform.js'
-  import { type ToastItem, useToastStore } from '../../composables/toast/useToast.js'
 
   const props = withDefaults(
     defineProps<{

@@ -220,14 +220,13 @@
     AlertRule,
     ChartController,
   } from '@363045841yyt/klinechart-core'
+  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import SegmentedTabs from '@vue-src/components/common/SegmentedTabs.vue'
+  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
+  import { useToast } from '@vue-src/composables/toast/useToast.js'
   import { ref, watch } from 'vue'
-
-  import { useToast } from '../../composables/toast/useToast.js'
-  import { useAlerts } from '../../composables/useAlerts.js'
-  import BaseModal from '../BaseModal.vue'
-  import BaseTooltip from '../common/BaseTooltip.vue'
-  import ToggleSwitch from '../common/ToggleSwitch.vue'
-  import SegmentedTabs from '../SegmentedTabs.vue'
 
   import AlertRuleForm from './AlertRuleForm.vue'
 

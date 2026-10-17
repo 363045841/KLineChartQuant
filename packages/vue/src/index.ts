@@ -20,6 +20,7 @@ import type {
   KLineData,
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
+import { KlineChart } from '@vue-src/components/index.js'
 import {
   type App,
   type ComputedRef,
@@ -29,8 +30,6 @@ import {
   shallowRef,
   watch,
 } from 'vue'
-
-import { KlineChart } from './components/index.js'
 import './styles/fonts.css'
 import './styles/scrollbar.css'
 
@@ -58,12 +57,12 @@ export {
   defaultMarketDataContext,
   MarketDataContext,
 } from '@363045841yyt/klinechart-core/market-data'
-export { default as ColorPicker } from './components/ColorPicker.vue'
-export type { ColorPickerProps } from './components/color-picker/types.js'
+export { default as ColorPicker } from '@vue-src/components/color/impl/ColorPicker.vue'
+export type { ColorPickerProps } from '@vue-src/components/color/types.js'
 export type {
   KlineTooltipSlotProps,
   LegendSlotProps,
-} from './components/index.js'
+} from '@vue-src/components/index.js'
 export {
   DrawingStyleToolbar,
   IndicatorParams,
@@ -71,32 +70,35 @@ export {
   KLineTooltip,
   KlineChart,
   LeftToolbar,
-} from './components/index.js'
+} from '@vue-src/components/index.js'
 export {
   SCRIPT_SOURCE_STORE_KEY,
   type ScriptSourceStore,
-} from './composables/chart/scriptEditor/types.js'
+} from '@vue-src/composables/chart/scriptEditor/types.js'
 export {
   MARKET_DATA_CONTEXT_KEY,
   provideMarketDataContext,
   useMarketDataContext,
-} from './composables/useMarketDataContext.js'
+} from '@vue-src/composables/market/useMarketDataContext.js'
 
 // ---------------------------------------------------------------------------
 // Interaction primitives (overlay, toast + undo, textarea)
 // ---------------------------------------------------------------------------
 
-export { default as BaseModal } from './components/BaseModal.vue'
-export { default as BasePopover } from './components/common/BasePopover.vue'
-export { default as BaseTextarea } from './components/common/BaseTextarea.vue'
-export { default as BaseTooltip } from './components/common/BaseTooltip.vue'
-export { default as ToastViewport } from './components/common/ToastViewport.vue'
+export { default as BaseModal } from '@vue-src/components/common/BaseModal.vue'
+export { default as BasePopover } from '@vue-src/components/common/BasePopover.vue'
+export { default as BaseTextarea } from '@vue-src/components/common/BaseTextarea.vue'
+export { default as BaseTooltip } from '@vue-src/components/common/BaseTooltip.vue'
+export { default as ToastViewport } from '@vue-src/components/common/ToastViewport.vue'
 export {
   type AnchoredPlacement,
   type UseAnchoredPopoverOptions,
   useAnchoredPopover,
-} from './composables/overlay/useAnchoredPopover.js'
-export { type UseRovingFocusOptions, useRovingFocus } from './composables/overlay/useRovingFocus.js'
+} from '@vue-src/composables/overlay/useAnchoredPopover.js'
+export {
+  type UseRovingFocusOptions,
+  useRovingFocus,
+} from '@vue-src/composables/overlay/useRovingFocus.js'
 export {
   type CreateToastStoreOptions,
   createToastStore,
@@ -112,28 +114,28 @@ export {
   type ToastTone,
   type UndoToastOptions,
   useToast,
-} from './composables/toast/useToast.js'
+} from '@vue-src/composables/toast/useToast.js'
 
 // ---------------------------------------------------------------------------
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 
-export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
-export * from './features/agent/agent-contracts.js'
-export { BrowserAgentBridge } from './features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
-export type { BrowserAgentBridgeOptions } from './features/agent/browser-agent/bridge/types.js'
-export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
-export { createAgentPanelWidthStorage } from './features/agent/workspace/impl/agent-panel-width-storage.js'
-export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'
+export { default as AgentWorkbenchShell } from '@vue-src/features/agent/AgentWorkbenchShell.vue'
+export * from '@vue-src/features/agent/agent-contracts.js'
+export { BrowserAgentBridge } from '@vue-src/features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
+export type { BrowserAgentBridgeOptions } from '@vue-src/features/agent/browser-agent/bridge/types.js'
+export { default as AgentWorkspace } from '@vue-src/features/agent/components/AgentWorkspace.vue'
+export { createAgentPanelWidthStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-width-storage.js'
+export { useAgentWorkspace } from '@vue-src/features/agent/workspace/impl/use-agent-workspace.js'
 export {
   createWorkspaceState,
   displayConversation,
-} from './features/agent/workspace/impl/workspace-state.js'
+} from '@vue-src/features/agent/workspace/impl/workspace-state.js'
 export type {
   AgentPanelWidthStorage,
   AgentWorkspaceAvailability,
   AgentWorkspaceState,
-} from './features/agent/workspace/types.js'
+} from '@vue-src/features/agent/workspace/types.js'
 
 // ---------------------------------------------------------------------------
 // Controller factory injection
@@ -178,7 +180,7 @@ export function createChart(opts: ChartMountOptions): ChartController | Promise<
   return controllerFactory(opts)
 }
 
-import { coreSignalToVueRef } from './utils/signalBridge.js'
+import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
 
 export { coreSignalToVueRef }
 
@@ -393,4 +395,4 @@ import { createChartController } from '@363045841yyt/klinechart-core'
 
 __setControllerFactory(createChartController)
 
-export { CORE_VERSION, VERSION } from './version.js'
+export { CORE_VERSION, VERSION } from '@vue-src/version.js'

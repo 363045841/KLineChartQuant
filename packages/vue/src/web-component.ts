@@ -1,6 +1,5 @@
+import KlineChart from '@vue-src/components/chart/KLineChart.vue'
 import { defineCustomElement } from 'vue'
-
-import KlineChart from './components/KLineChart.vue'
 import './styles/fonts.css'
 
 const KLineChartElement = defineCustomElement(KlineChart, {
