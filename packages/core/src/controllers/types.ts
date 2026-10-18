@@ -438,6 +438,8 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   readonly chartMode: ReadonlySignal<ChartDataView>
   /** 最近一次 K 线周期；分时返回操作使用该值。 */
   readonly lastBarPeriod: ReadonlySignal<string>
+  /** 当前就绪品种是否支持原始逐笔成交；足迹显示模式据此置灰入口。 */
+  readonly footprintSupported: ReadonlySignal<boolean>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   /** 当前布局的指标收藏唯一数据源。 */
   readonly favoriteIndicatorIds: ReadonlySignal<ReadonlyArray<string>>

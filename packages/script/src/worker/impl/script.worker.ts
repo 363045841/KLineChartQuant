@@ -30,7 +30,21 @@ async function handleRequest(message: ScriptWorkerRequest): Promise<void> {
       case 'run': {
         const script = scripts.get(id)
         if (!script) throw new Error(`脚本尚未准备：${id}`)
-        response = { requestId, type: 'run', collection: script.run(message.bars, message.params) }
+        response = {
+          requestId,
+          type: 'run',
+          collection: script.run(message.bars, message.params, message.context),
+        }
+        break
+      }
+      case 'requests': {
+        const script = scripts.get(id)
+        if (!script) throw new Error(`脚本尚未准备：${id}`)
+        response = {
+          requestId,
+          type: 'requests',
+          requests: script.requests(message.params, message.symbol),
+        }
         break
       }
       case 'release':

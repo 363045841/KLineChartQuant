@@ -32,12 +32,27 @@ export interface PlotDeclarationBase extends PlotStyleBase {
   readonly name: string
 }
 
-/** 折线及其样式。 */
+/** 普通折线及其样式，跨空值连接有效点。 */
 export interface LinePlotDeclaration extends PlotDeclarationBase {
   /** 绘图类型：折线。 */
   readonly kind: 'line'
   /** 虚线的线段与间隔长度，单位为逻辑像素；不填或填空数组则画实线。 */
   readonly dash?: readonly number[]
+}
+
+/** 断线折线及其样式，空值处断开。 */
+export interface LineBRPlotDeclaration extends Omit<LinePlotDeclaration, 'kind'> {
+  readonly kind: 'linebr'
+}
+
+/** 阶梯线声明，在相邻有效点的水平中点跳变，跨空值连接。 */
+export interface StepLinePlotDeclaration extends Omit<LinePlotDeclaration, 'kind'> {
+  readonly kind: 'stepline'
+}
+
+/** 断线阶梯线声明，空值处断开。 */
+export interface StepLineBRPlotDeclaration extends Omit<LinePlotDeclaration, 'kind'> {
+  readonly kind: 'steplinebr'
 }
 
 /** 柱状图及其样式。 */
@@ -82,14 +97,48 @@ export interface ArrowPlotDeclaration extends PlotDeclarationBase, ArrowOptions 
 }
 
 /** 声明的 Plot：按 kind 区分各图形及其专用字段。 */
-export type PlotDeclaration =
+export type ScalarPlotDeclaration =
   | LinePlotDeclaration
+  | LineBRPlotDeclaration
+  | StepLinePlotDeclaration
+  | StepLineBRPlotDeclaration
   | HistogramPlotDeclaration
   | ColumnsPlotDeclaration
   | PointsPlotDeclaration
   | ShapePlotDeclaration
   | CharPlotDeclaration
   | ArrowPlotDeclaration
+
+/** 四价格图形的调用样式；颜色允许逐 bar 变化，null 隐藏对应部分。 */
+export interface OhlcPlotOptions {
+  readonly label?: string
+  readonly visible?: boolean
+  readonly offset?: number
+  readonly showLast?: number
+  readonly color?: string | null
+}
+
+/** 蜡烛实体、影线和边框可独立着色。 */
+export interface CandlePlotOptions extends OhlcPlotOptions {
+  readonly wickColor?: string | null
+  readonly borderColor?: string | null
+}
+
+/** 美国线的竖线和左右短横线共用颜色。 */
+export interface BarPlotOptions extends OhlcPlotOptions {}
+
+export interface CandlePlotDeclaration extends CandlePlotOptions {
+  readonly name: string
+  readonly kind: 'candle'
+}
+
+export interface BarPlotDeclaration extends BarPlotOptions {
+  readonly name: string
+  readonly kind: 'bar'
+}
+
+export type OhlcPlotDeclaration = CandlePlotDeclaration | BarPlotDeclaration
+export type PlotDeclaration = ScalarPlotDeclaration | OhlcPlotDeclaration
 
 /** 绘图调用的样式选项；绘图名称由绘图方法的位置参数提供。 */
 export interface PlotCallOptions

@@ -1,34 +1,40 @@
 /** 可信脚本的原生执行后端；只由 Script Worker 使用，不提供沙箱保护。 */
-import {
-  Color,
-  isPlotKind,
-  PlotCollector,
-  PlotKind,
-  ShapeLocation,
-  ShapeSize,
-  ShapeStyle,
-} from '@363045841yyt/klinechart-plot-contracts'
+import { isPlotKind, PlotCollector, PlotKind } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import {
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
+  REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
 } from '../../quickjs/generated/runtime.js'
 import { readDefinition, readFillCall, readPlotCall } from '../../quickjs/impl/readDefinition.js'
+import { SCRIPT_ENUM_GLOBALS } from '../../quickjs/impl/scriptEnumGlobals.js'
 import {
-  Position,
   type PreparedQuickJSScript,
   type QuickJSLibrary,
   type ScriptParamValue,
 } from '../../quickjs/types.js'
-import { compileSources, FIELD_READERS, toPlotPoint } from './scriptRuntime.js'
+import {
+  CURRENT_SYMBOL,
+  EMPTY_REQUEST_EXECUTION,
+  executeRequests,
+} from '../../request/impl/executeRequests.js'
+import type {
+  RequestExecution,
+  RequestValue,
+  ScriptRequestContext,
+  SecurityRequest,
+} from '../../request/types.js'
+import { compileSources, FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from './scriptRuntime.js'
 
 /** 工厂只返回指标入口，运行库和用户状态留在每次调用的函数作用域内。 */
 interface NativeRuntime {
   metadata(): unknown
   onBar(): void
+  requests(): readonly SecurityRequest[]
+  expression(id: string): RequestValue
 }
 
 /** 动态函数创建失败（包括 CSP 拒绝）统一报告为编译错误，不切换后端。 */
@@ -58,18 +64,23 @@ export function prepareNativeScript(
         'use strict'
         ${LIBRARY_PRELUDE}
         ${SCRIPT_PRELUDE}
+        ${REQUEST_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
-        ;return { metadata: __metadata, onBar: __onBar }
+        ;return { metadata: __metadata, onBar: __onBar, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
       }).call(globalThis)
     }
   `,
   )
 
   /** 注入本次行情与采集器，原生调用共享的声明校验和绘图契约。 */
-  function execute(bars: readonly Bar[], params: Readonly<Record<string, ScriptParamValue>> = {}) {
+  function execute(
+    bars: readonly Bar[],
+    params: Readonly<Record<string, ScriptParamValue>> = {},
+    execution: RequestExecution = EMPTY_REQUEST_EXECUTION,
+  ) {
     let index = -1
     let phase: 'compile' | 'run' = 'compile'
     const collector = new PlotCollector({ barCount: bars.length })
@@ -78,12 +89,9 @@ export function prepareNativeScript(
       if (index < 0) throw new ScriptExecutionError('compile', `${kind} 只能在 onBar 中调用`)
     }
     const scope = {
-      Color,
-      Position,
-      PlotKind,
-      ShapeLocation,
-      ShapeSize,
-      ShapeStyle,
+      __requestContext: execution,
+      // 公开枚举与 QuickJS 后端共用同一份名字和取值，两个后端不再各自抄一遍。
+      ...SCRIPT_ENUM_GLOBALS,
       params: { ...params },
       /** 按当前游标读取历史行情。 */
       __read(field: string, offset: number): number {
@@ -98,6 +106,10 @@ export function prepareNativeScript(
         requireBar('plot')
         if (!isPlotKind(kind)) throw new ScriptExecutionError('run', '未知 plot kind')
         const declaration = readPlotCall(name, options, kind)
+        if (declaration.kind === PlotKind.Candle || declaration.kind === PlotKind.Bar) {
+          collector.onOhlc(declaration, index, toOhlcPlotPoint(declaration, value))
+          return
+        }
         if (value !== null && typeof value !== 'number')
           throw new ScriptExecutionError('run', 'plot value 需要数值或 null')
         if (value === Infinity || value === -Infinity)
@@ -106,7 +118,7 @@ export function prepareNativeScript(
           declaration.name,
           index,
           value === null ? null : toPlotPoint(declaration, value),
-          kind,
+          declaration.kind,
           declaration,
         )
       },
@@ -123,8 +135,12 @@ export function prepareNativeScript(
       const runtime: NativeRuntime = factory(scope)
       const definition = readDefinition(runtime.metadata())
       phase = 'run'
-      for (index = 0; index < bars.length; index++) runtime.onBar()
-      return { definition, collection: collector.collect() }
+      const values: RequestValue[] = []
+      for (index = 0; index < bars.length; index++) {
+        if (execution.expressionId === undefined) runtime.onBar()
+        else values.push(runtime.expression(execution.expressionId))
+      }
+      return { definition, collection: collector.collect(), requests: runtime.requests(), values }
     } catch (error) {
       if (error instanceof ScriptExecutionError || error instanceof ScriptPlotError) throw error
       throw new ScriptExecutionError(phase, error instanceof Error ? error.message : String(error))
@@ -134,9 +150,16 @@ export function prepareNativeScript(
   const definition = execute([]).definition
   return Object.freeze({
     definition,
+    requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
+      return execute([], params, { symbol, results: {} }).requests
+    },
     /** 每次计算重建局部状态，避免参数、库、序列缓存串到其他请求。 */
-    run(bars: readonly Bar[], params?: Readonly<Record<string, ScriptParamValue>>) {
-      return execute(bars, params).collection
+    run(
+      bars: readonly Bar[],
+      params: Readonly<Record<string, ScriptParamValue>> = {},
+      context?: ScriptRequestContext,
+    ) {
+      return executeRequests(execute, bars, params, context)
     },
   })
 }

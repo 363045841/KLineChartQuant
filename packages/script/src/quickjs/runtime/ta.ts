@@ -47,7 +47,116 @@ function __direction(source: Series, length: number, rising: boolean): boolean {
   return found
 }
 
+/** ATR 的共享序列，真实波幅在首根使用 high-low，完整窗口以均值初始化。 */
+function __atrSeries(length: number): Series {
+  const range = __deriveOnce('true-range', (_self, offset) => {
+    const highValue = high.at(offset)
+    const lowValue = low.at(offset)
+    if (offset + 1 >= __count()) return highValue - lowValue
+    const previousClose = close.at(offset + 1)
+    return Math.max(
+      highValue - lowValue,
+      Math.abs(highValue - previousClose),
+      Math.abs(lowValue - previousClose),
+    )
+  })
+  return __deriveOnce(`atr:${length}`, (self, offset) => {
+    if (offset + length > __count()) return Number.NaN
+    if (offset + length === __count()) return __windowSeries(range, length, 'sma').at(offset)
+    return (self.at(offset + 1) * (length - 1) + range.at(offset)) / length
+  })
+}
+
+/** EMA 的共享递推；window 保持完整窗口均值初始化，first 用于旧 MACD 的首值初始化。 */
+function __emaSeries(source: Series, length: number, seed: 'window' | 'first'): Series {
+  return __deriveOnce(`ema:${seed}:${__seriesId(source)}:${length}`, (self, offset) => {
+    if (seed === 'first') {
+      if (offset >= __count()) return Number.NaN
+      const current = source.at(offset)
+      if (Number.isNaN(current)) return Number.NaN
+      const previous = self.at(offset + 1)
+      const weight = 2 / (length + 1)
+      return Number.isNaN(previous) ? current : current * weight + previous * (1 - weight)
+    }
+    if (offset + length > __count()) return Number.NaN
+    if (offset + 1 + length > __count()) return __windowSeries(source, length, 'sma').at(offset)
+    const previous = self.at(offset + 1)
+    return Number.isNaN(previous)
+      ? __windowSeries(source, length, 'sma').at(offset)
+      : previous + (2 / (length + 1)) * (source.at(offset) - previous)
+  })
+}
+
 defineLibrary('ta', {
+  /** MACD 按输入与周期组合缓存，柱体返回未翻倍的 DIF-DEA，绘图倍率由脚本决定。 */
+  macd(
+    source: Series,
+    fastLength: number,
+    slowLength: number,
+    signalLength: number,
+  ): readonly [Series, Series, Series] {
+    __checkLength(fastLength)
+    __checkLength(slowLength)
+    __checkLength(signalLength)
+    const fast = __emaSeries(source, fastLength, 'first')
+    const slow = __emaSeries(source, slowLength, 'first')
+    const difference = __deriveOnce(
+      `macd:${__seriesId(source)}:${fastLength}:${slowLength}`,
+      (_self, offset) => fast.at(offset) - slow.at(offset),
+    )
+    const signal = __emaSeries(difference, signalLength, 'first')
+    const histogram = __deriveOnce(
+      `macd-histogram:${__seriesId(difference)}:${signalLength}`,
+      (_self, offset) => difference.at(offset) - signal.at(offset),
+    )
+    return [difference, signal, histogram]
+  },
+  /** Wilder ATR，序列实例按周期缓存，与 Supertrend 共用同一计算。 */
+  atr(length: number): Series {
+    __checkLength(length)
+    return __atrSeries(length)
+  },
+
+  /** Supertrend 的通道、方向与趋势值分别缓存，首个有效方向沿用旧指标的上涨方向。 */
+  supertrend(multiplier: number, atrPeriod: number): readonly [Series, Series] {
+    __checkLength(atrPeriod)
+    if (!Number.isFinite(multiplier) || multiplier <= 0)
+      throw new RangeError('Supertrend multiplier 必须是有限正数')
+    const atr = __atrSeries(atrPeriod)
+    const key = `supertrend:${atrPeriod}:${multiplier}`
+    const upper = __deriveOnce(`${key}:upper`, (self, offset) => {
+      const basic = (high.at(offset) + low.at(offset)) / 2 + multiplier * atr.at(offset)
+      if (Number.isNaN(basic)) return Number.NaN
+      const previous = self.at(offset + 1)
+      return Number.isNaN(previous) || basic < previous || close.at(offset + 1) > previous
+        ? basic
+        : previous
+    })
+    const lower = __deriveOnce(`${key}:lower`, (self, offset) => {
+      const basic = (high.at(offset) + low.at(offset)) / 2 - multiplier * atr.at(offset)
+      if (Number.isNaN(basic)) return Number.NaN
+      const previous = self.at(offset + 1)
+      return Number.isNaN(previous) || basic > previous || close.at(offset + 1) < previous
+        ? basic
+        : previous
+    })
+    const direction = __deriveOnce(`${key}:direction`, (self, offset) => {
+      if (Number.isNaN(atr.at(offset))) return Number.NaN
+      // 每根都推进双侧通道，长时间单向趋势后反转也不需要递归补算另一侧历史。
+      const upperValue = upper.at(offset)
+      const lowerValue = lower.at(offset)
+      const previous = self.at(offset + 1)
+      const up = Number.isNaN(previous) || previous < 0
+      const price = close.at(offset)
+      return up ? (price < lowerValue ? 1 : -1) : price > upperValue ? -1 : 1
+    })
+    const trend = __deriveOnce(`${key}:trend`, (_self, offset) => {
+      const sign = direction.at(offset)
+      return Number.isNaN(sign) ? Number.NaN : sign < 0 ? lower.at(offset) : upper.at(offset)
+    })
+    return [trend, direction]
+  },
+
   /** 当前值严格高于前 length 根中的有效值；忽略历史 NaN。 */
   rising(source: Series, length: number): boolean {
     __checkLength(length)
@@ -101,15 +210,61 @@ defineLibrary('ta', {
   /** 指数移动平均序列，以首个完整窗口 SMA 初始化。 */
   ema(source: Series, length: number): Series {
     __checkLength(length)
-    return __deriveOnce(`ema:${__seriesId(source)}:${length}`, (self, offset) => {
-      if (offset + length > __count()) return Number.NaN
-      // 没有上一根的完整值时，用当前窗口 SMA 初始化。
-      if (offset + 1 + length > __count()) return __windowSeries(source, length, 'sma').at(offset)
-      const previous = self.at(offset + 1)
-      return Number.isNaN(previous)
-        ? __windowSeries(source, length, 'sma').at(offset)
-        : previous + (2 / (length + 1)) * (source.at(offset) - previous)
-    })
+    return __emaSeries(source, length, 'window')
+  },
+
+  /** 双重指数均线，两个 EMA 都使用完整有效窗口初始化。 */
+  dema(source: Series, length: number): Series {
+    __checkLength(length)
+    const first = __emaSeries(source, length, 'window')
+    const second = __emaSeries(first, length, 'window')
+    return __deriveOnce(
+      `dema:${__seriesId(source)}:${length}`,
+      (_self, offset) => 2 * first.at(offset) - second.at(offset),
+    )
+  },
+
+  /** 三重指数均线，抵消 EMA 的一阶与二阶滞后。 */
+  tema(source: Series, length: number): Series {
+    __checkLength(length)
+    const first = __emaSeries(source, length, 'window')
+    const second = __emaSeries(first, length, 'window')
+    const third = __emaSeries(second, length, 'window')
+    return __deriveOnce(
+      `tema:${__seriesId(source)}:${length}`,
+      (_self, offset) => 3 * first.at(offset) - 3 * second.at(offset) + third.at(offset),
+    )
+  },
+
+  /** Tillson T3：六层 EMA 的加权组合，因子只影响组合，不复制 EMA 缓存。 */
+  t3(source: Series, length: number, volumeFactor: number = 0.7): Series {
+    __checkLength(length)
+    if (!Number.isFinite(volumeFactor) || volumeFactor < 0 || volumeFactor > 1)
+      throw new RangeError('T3 volumeFactor 必须在 0 到 1 之间')
+    const first = __emaSeries(source, length, 'window')
+    const second = __emaSeries(first, length, 'window')
+    const third = __emaSeries(second, length, 'window')
+    const fourth = __emaSeries(third, length, 'window')
+    const fifth = __emaSeries(fourth, length, 'window')
+    const sixth = __emaSeries(fifth, length, 'window')
+    const factor = volumeFactor
+    const square = factor * factor
+    const cube = square * factor
+    return __deriveOnce(
+      `t3:${__seriesId(source)}:${length}:${factor}`,
+      (_self, offset) =>
+        -cube * sixth.at(offset) +
+        (3 * square + 3 * cube) * fifth.at(offset) +
+        (-6 * square - 3 * factor - 3 * cube) * fourth.at(offset) +
+        (1 + 3 * factor + 3 * square + cube) * third.at(offset),
+    )
+  },
+
+  /** 三角均线：奇数周期采用相同双窗口，偶数周期第二窗口比第一窗口长一根。 */
+  trima(source: Series, length: number): Series {
+    __checkLength(length)
+    const first = __windowSeries(source, Math.ceil(length / 2), 'sma')
+    return __windowSeries(first, Math.floor(length / 2) + 1, 'sma')
   },
 
   /** 加权移动平均序列，窗口内越新的值权重越大，完整窗口之前为 NaN。 */
@@ -120,7 +275,40 @@ defineLibrary('ta', {
     )
   },
 
-  /** 成交量加权移动平均序列，Σ(source×volume)/Σ(volume)；完整窗口之前或窗口成交量之和为 0 时为 NaN。 */
+  /** HMA 组合已有 WMA 累计器，中间价差按输入与周期缓存。 */
+  hma(source: Series, length: number): Series {
+    __checkLength(length)
+    const weighted = (period: number) =>
+      __rollingSeries(`wma:${__seriesId(source)}:${period}`, source, period, () =>
+        __weightedWindow(period),
+      )
+    const half = weighted(Math.max(1, Math.floor(length / 2)))
+    const full = weighted(length)
+    const difference = __deriveOnce(
+      `hma-difference:${__seriesId(source)}:${length}`,
+      (_self, offset) => 2 * half.at(offset) - full.at(offset),
+    )
+    const root = Math.max(1, Math.round(Math.sqrt(length)))
+    return __rollingSeries(`wma:${__seriesId(difference)}:${root}`, difference, root, () =>
+      __weightedWindow(root),
+    )
+  },
+
+  /** CCI 的偏差相对于当前窗口均值，不能用各历史 bar 的均值代替；平盘（偏差为零）输出 0。 */
+  cci(source: Series, length: number): Series {
+    __checkLength(length)
+    const average = __windowSeries(source, length, 'sma')
+    return __deriveOnce(`cci:${__seriesId(source)}:${length}`, (_self, offset) => {
+      const mean = average.at(offset)
+      if (Number.isNaN(mean)) return Number.NaN
+      let deviation = 0
+      for (let step = 0; step < length; step++)
+        deviation += Math.abs(source.at(offset + step) - mean)
+      return deviation === 0 ? 0 : (source.at(offset) - mean) / ((0.015 * deviation) / length)
+    })
+  },
+
+  /** 成交量加权移动平均序列，窗口成交量之和为零时为 NaN。 */
   vwma(source: Series, volume: Series, length: number): Series {
     __checkLength(length)
     const key = `vwma:${__seriesId(source)}:${__seriesId(volume)}`

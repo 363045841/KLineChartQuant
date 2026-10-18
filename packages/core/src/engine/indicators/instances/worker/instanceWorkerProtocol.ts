@@ -8,11 +8,9 @@ import type {
   IndicatorCalculationOutput,
   IndicatorCalculationPlan,
 } from '../domain/instanceCalculationPlan.js'
-import type { TradeSnapshotDiff } from '../execution/instanceExecutionRuntime.js'
 
 /** Worker 可执行的指标定义描述。 */
 export interface SerializedIndicatorCalculationDefinition {
-  readonly inputs?: readonly 'trades'[]
   readonly definitionId: string
   readonly computeKey: string
   readonly outputAlignment?: 'bar' | 'aggregate'
@@ -37,7 +35,6 @@ export type InstanceWorkerRequest =
     }
   | {
       readonly type: 'setData'
-      readonly tradesDiff?: TradeSnapshotDiff
       readonly dataRevision: number
       readonly data: KLineData[]
     }
@@ -66,7 +63,7 @@ export type InstanceWorkerResponse =
       readonly message: string
     }
 
-export const INSTANCE_WORKER_PROTOCOL_VERSION = 4
+export const INSTANCE_WORKER_PROTOCOL_VERSION = 5
 
 export function isInstanceWorkerResponse(value: unknown): value is InstanceWorkerResponse {
   if (!value || typeof value !== 'object') return false

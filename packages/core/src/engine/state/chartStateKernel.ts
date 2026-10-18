@@ -1,4 +1,5 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
+import { createFootprintState } from './footprintState.js'
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 import { type ChartSettings, normalizeSettings } from '../../foundation/config/chartSettings.js'
@@ -184,6 +185,7 @@ export interface ChartStateKernelDeps {
 }
 
 export class ChartStateKernel extends StateKernel {
+  readonly footprint: import('./footprintState.js').FootprintStateModule
   readonly options: OptionsStateModule
   readonly zoom: ZoomStateModule
   readonly data: DataStateModule
@@ -228,7 +230,8 @@ export class ChartStateKernel extends StateKernel {
     this.options = createOptionsState(deps.initialOptions)
 
     // ── Data view state（缩放宽度需按视图派生）──
-    this.mode = createChartModel()
+    this.settings = createSettingsState(deps.initialSettings)
+    this.mode = createChartModel(this.settings.readonly.settings)
 
     // ── Zoom state ──
     this.zoom = createZoomState({
@@ -297,7 +300,11 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     // K 线形态由 settings.klineShape 直接派生，不再镜像进 mode 主序列偏好。
-    this.settings = createSettingsState(deps.initialSettings)
+    this.footprint = createFootprintState({
+      data: this.data,
+      settings$: this.settings.readonly.settings,
+      dataView$: this.mode.readonly.dataView,
+    })
     this.mainPriceAxis = createMainPriceAxisState(
       this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
     )
@@ -598,6 +605,7 @@ export class ChartStateKernel extends StateKernel {
   }
 
   dispose(): void {
+    this.footprint.dispose()
     this.options.dispose()
     this.zoom.dispose()
     this.data.dispose()

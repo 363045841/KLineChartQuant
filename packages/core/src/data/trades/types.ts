@@ -8,7 +8,6 @@ export const TRADE_STATUS = {
   ready: 'ready',
   gap: 'gap',
   error: 'error',
-  unsupported: 'unsupported',
 } as const
 export type TradeStatus = (typeof TRADE_STATUS)[keyof typeof TRADE_STATUS]
 
@@ -63,7 +62,7 @@ export interface TradeSnapshot {
   readonly message: string | null
 }
 
-/** 存储只发布数据事实；查询状态仅在交给指标时合成。 */
+/** 存储只发布数据事实；查询状态仅在交给消费方时合成。 */
 export type TradeFacts = Omit<TradeSnapshot, 'status' | 'message'>
 
 /** 待提交更新用于公共缓存写入前检查预算，不能提前发布覆盖。 */

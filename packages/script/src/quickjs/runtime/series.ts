@@ -48,6 +48,7 @@ function __derive(compute: (offset: number) => number): Series {
       throw new RangeError('Series offset 必须是非负整数')
     }
     const index = __count() - 1 - offset
+    if (index < 0) return Number.NaN
     const cached = memo.get(index)
     if (cached !== undefined) return cached
     const value = compute(offset)
@@ -89,6 +90,11 @@ function __deriveOnce(key: string, compute: (self: Series, offset: number) => nu
   const series: Series = __derive((offset) => compute(series, offset))
   __derivedCache.set(key, series)
   return series
+}
+
+/** 脚本派生序列：key 标识计算定义，隔离内部缓存；回调只在读取未缓存的 bar 时执行。 */
+function derive(key: string, compute: (self: Series, offset: number) => number): Series {
+  return __deriveOnce(`script:${key}`, compute)
 }
 
 /** 行情序列：宿主按当前游标提供取值。 */

@@ -77,6 +77,54 @@ export type TechnicalAnalysisLibrary = {
    */
   ema(source: Series, length: number): Series
   /**
+   * 双重指数均线：2×EMA(source)−EMA(EMA(source))。
+   * @summary 双重指数均线
+   * @param source 数据序列。
+   * @param length 正整数周期，各层 EMA 以完整窗口均值初始化。
+   * @returns DEMA 序列，前 2×(length−1) 根为 NaN。
+   */
+  dema(source: Series, length: number): Series
+  /**
+   * 三重指数均线：3×EMA1−3×EMA2+EMA3。
+   * @summary 三重指数均线
+   * @param source 数据序列。
+   * @param length 正整数周期，各层 EMA 以完整窗口均值初始化。
+   * @returns TEMA 序列，前 3×(length−1) 根为 NaN。
+   */
+  tema(source: Series, length: number): Series
+  /**
+   * Tillson T3，以六层 EMA 及成交量因子系数组合平滑价格。
+   * @summary Tillson T3 均线
+   * @param source 数据序列。
+   * @param length 正整数周期。
+   * @param volumeFactor 平滑因子，有限数值 0–1，缺省 0.7，不读取成交量。
+   * @returns T3 序列，前 6×(length−1) 根为 NaN；周期 1 时等于输入。
+   */
+  t3(source: Series, length: number, volumeFactor?: number): Series
+  /**
+   * 三角均线：SMA(SMA(source, ceil(length/2)), floor(length/2)+1)。
+   * @summary 三角移动平均
+   * @param source 数据序列。
+   * @param length 正整数周期。
+   * @returns TRIMA 序列，前 length−1 根为 NaN。
+   */
+  trima(source: Series, length: number): Series
+  /**
+   * MACD，快慢 EMA 与信号 EMA 均以首个有效值初始化，从该位置逐根输出。
+   * @summary 指数平滑异同平均线
+   * @param source 价格序列，如 close。
+   * @param fastLength 快周期，正整数。
+   * @param slowLength 慢周期，正整数。
+   * @param signalLength 信号周期，正整数。
+   * @returns [DIF, DEA, DIF-DEA] 三个序列；柱体不翻倍，NaN 处留空，后续有效值重新初始化。
+   */
+  macd(
+    source: Series,
+    fastLength: number,
+    slowLength: number,
+    signalLength: number,
+  ): readonly [Series, Series, Series]
+  /**
    * 加权移动平均（WMA），越新的值权重越大。
    * @summary 加权移动平均
    * @param source 数据序列，如 close。
@@ -84,6 +132,22 @@ export type TechnicalAnalysisLibrary = {
    * @returns 均线序列；[0] 取当前值。
    */
   wma(source: Series, length: number): Series
+  /**
+   * Hull 移动平均，组合 WMA(2×WMA(source, floor(length/2))−WMA(source, length), round(sqrt(length)))。
+   * @summary Hull 移动平均
+   * @param source 数据序列。
+   * @param length 正整数周期，派生窗口最小为 1。
+   * @returns 均线序列，完整组合窗口之前为 NaN。
+   */
+  hma(source: Series, length: number): Series
+  /**
+   * 顺势指标：(source−SMA)/(0.015×平均绝对偏差)。
+   * @summary 顺势指标
+   * @param source 数据序列，通常为 (high+low+close)/3。
+   * @param length 正整数周期。
+   * @returns CCI 序列；窗口不足为 NaN，平均绝对偏差为零时为 0。
+   */
+  cci(source: Series, length: number): Series
   /**
    * 成交量加权移动平均（VWMA），按 Σ(价格×成交量)/Σ(成交量) 计算。
    * @summary 成交量加权移动平均
@@ -101,6 +165,21 @@ export type TechnicalAnalysisLibrary = {
    * @returns RSI 序列，范围 0–100；[0] 取当前值，完整窗口之前为 NaN。
    */
   rsi(source: Series, length: number): Series
+  /**
+   * 平均真实波幅（ATR），首个完整窗口取真实波幅均值，之后使用 Wilder 平滑。
+   * @summary 平均真实波幅
+   * @param length 周期，正整数。
+   * @returns ATR 序列；第一根真实波幅为 high-low，完整窗口之前为 NaN。
+   */
+  atr(length: number): Series
+  /**
+   * Supertrend，保留原生指标的上涨初始方向与 ATR 通道递推规则。
+   * @summary 超级趋势
+   * @param multiplier ATR 倍数，有限正数。
+   * @param atrPeriod ATR 周期，正整数。
+   * @returns [趋势线序列, 方向序列]；-1 为上涨、1 为下跌，预热期间两者均为 NaN。
+   */
+  supertrend(multiplier: number, atrPeriod: number): readonly [Series, Series]
   /**
    * 动量（MOM），当前值减去 length 根之前的值。
    * @summary 动量

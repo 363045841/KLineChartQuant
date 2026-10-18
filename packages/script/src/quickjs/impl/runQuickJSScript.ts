@@ -5,14 +5,10 @@
  * 异步入口用于首次加载 WASM；预加载后可用同步入口，供 core 的同步 compute 调用。
  */
 import {
-  Color,
   isPlotKind,
   type PlotCollection,
   PlotCollector,
   PlotKind,
-  ShapeLocation,
-  ShapeSize,
-  ShapeStyle,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
   getQuickJS,
@@ -22,15 +18,27 @@ import {
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import { compileSources, FIELD_READERS, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
+import {
+  compileSources,
+  FIELD_READERS,
+  toOhlcPlotPoint,
+  toPlotPoint,
+} from '../../execution/impl/scriptRuntime.js'
+import {
+  CURRENT_SYMBOL,
+  EMPTY_REQUEST_EXECUTION,
+  executeRequests,
+} from '../../request/impl/executeRequests.js'
+import { requestExecutionSource } from '../../request/impl/requestExecutionSource.js'
+import type { RequestValue, ScriptRequestContext, SecurityRequest } from '../../request/types.js'
 import {
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
+  REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
 } from '../generated/runtime.js'
 import {
-  Position,
   type PreparedQuickJSScript,
   type QuickJSLibrary,
   type QuickJSRunOptions,
@@ -38,6 +46,7 @@ import {
   type ScriptParamValue,
 } from '../types.js'
 import { readDefinition, readFillCall, readPlotCall } from './readDefinition.js'
+import { SCRIPT_ENUM_GLOBALS } from './scriptEnumGlobals.js'
 
 /** 共享的 WASM 模块类型。 */
 type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
@@ -64,10 +73,14 @@ export async function runQuickJSScript(options: QuickJSRunOptions): Promise<Plot
 
 /** 同步执行脚本；必须先 preloadQuickJS，否则抛出。 */
 export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
-  return runWithContext(getQuickJSSync(), {
-    ...options,
-    ...compileSources(options.source, options.libraries),
-  }).collection
+  const compiled = compileSources(options.source, options.libraries)
+  return executeRequests(
+    (bars, params, requestExecution) =>
+      runWithContext(getQuickJSSync(), { ...compiled, bars, params, requestExecution }),
+    options.bars,
+    options.params === undefined ? {} : options.params,
+    options.requestContext,
+  )
 }
 
 /** 初始化完整文件并读取声明，供注册层生成指标目录。 */
@@ -89,9 +102,27 @@ export function prepareQuickJSScript(
   const definition = runWithContext(module, { ...compiled, bars: [] }).definition
   return Object.freeze({
     definition,
+    requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
+      return runWithContext(module, {
+        ...compiled,
+        bars: [],
+        params,
+        requestExecution: { symbol, results: {} },
+      }).requests
+    },
     /** 使用既有编译产物执行，VM 状态不在多次运行间共享。 */
-    run(bars: readonly Bar[], params?: Readonly<Record<string, ScriptParamValue>>) {
-      return runWithContext(module, { ...compiled, bars, params }).collection
+    run(
+      bars: readonly Bar[],
+      params: Readonly<Record<string, ScriptParamValue>> = {},
+      context?: ScriptRequestContext,
+    ) {
+      return executeRequests(
+        (target, input, requestExecution) =>
+          runWithContext(module, { ...compiled, bars: target, params: input, requestExecution }),
+        bars,
+        params,
+        context,
+      )
     },
   })
 }
@@ -111,6 +142,8 @@ function runWithContext(
 ): {
   definition: QuickJSScriptDefinition
   collection: PlotCollection
+  requests: readonly SecurityRequest[]
+  values: readonly RequestValue[]
 } {
   const { source, bars } = options
   let collector: PlotCollector | undefined
@@ -127,6 +160,7 @@ function runWithContext(
   vm.runtime.setMaxStackSize(512 * 1024)
   // 宿主游标决定 __read 相对哪根 K 线；逐 bar 推进。
   const cursor = { index: -1 }
+  const values: RequestValue[] = []
   let failure: Error | undefined
 
   try {
@@ -140,9 +174,24 @@ function runWithContext(
       },
     )
     mountParams(vm, options.params)
+    const execution =
+      options.requestExecution === undefined ? EMPTY_REQUEST_EXECUTION : options.requestExecution
+    evalOrThrow(
+      vm,
+      `globalThis.__requestContext = ${requestExecutionSource(execution)}`,
+      'compile',
+      timeout,
+    ).dispose()
+    const emit = vm.newFunction('__emitRequestResult', (value) => {
+      values.push(vm.dump(value))
+      return vm.undefined
+    })
+    vm.setProp(vm.global, '__emitRequestResult', emit)
+    emit.dispose()
     mountScriptEnums(vm)
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
     for (const library of options.libraries ?? []) {
@@ -163,7 +212,17 @@ function runWithContext(
     }
     if (failure) throw failure
     collector = new PlotCollector({ barCount: bars.length })
-    const compiled = evalOrThrow(vm, '__onBar', 'compile', timeout)
+    const requestsHandle = evalOrThrow(vm, '__requests', 'compile', timeout)
+    const requests: readonly SecurityRequest[] = vm.dump(requestsHandle)
+    requestsHandle.dispose()
+    const compiled = evalOrThrow(
+      vm,
+      execution.expressionId === undefined
+        ? '__onBar'
+        : `() => __emitRequestResult(__copyRequestValue(__requestExpressions.get(${JSON.stringify(execution.expressionId)})()))`,
+      'compile',
+      timeout,
+    )
     try {
       for (let index = 0; index < bars.length; index++) {
         cursor.index = index
@@ -173,7 +232,7 @@ function runWithContext(
     } finally {
       compiled.dispose()
     }
-    return { definition, collection: collector.collect() }
+    return { definition, collection: collector.collect(), requests, values }
   } finally {
     vm.dispose()
   }
@@ -213,6 +272,10 @@ function mountHostFunctions(
       return vm.undefined
     }
     const declaration = readPlotCall(vm.dump(nameHandle), vm.dump(optionsHandle), kind)
+    if (declaration.kind === PlotKind.Candle || declaration.kind === PlotKind.Bar) {
+      collector.onOhlc(declaration, cursor.index, toOhlcPlotPoint(declaration, value))
+      return vm.undefined
+    }
     if (value !== null && typeof value !== 'number') {
       onError(new ScriptExecutionError('run', 'plot value 需要数值或 null'))
       return vm.undefined
@@ -225,7 +288,7 @@ function mountHostFunctions(
       declaration.name,
       cursor.index,
       value === null ? null : toPlotPoint(declaration, value),
-      kind,
+      declaration.kind,
       declaration,
     )
     return vm.undefined
@@ -282,14 +345,7 @@ function mountParams(
 
 /** 注入脚本公开枚举；取值来自共享契约，VM 内不重复声明。 */
 function mountScriptEnums(vm: QuickJSContext): void {
-  for (const [globalName, members] of Object.entries({
-    Color,
-    Position,
-    PlotKind,
-    ShapeStyle,
-    ShapeLocation,
-    ShapeSize,
-  })) {
+  for (const [globalName, members] of Object.entries(SCRIPT_ENUM_GLOBALS)) {
     const target = vm.newObject()
     for (const [name, value] of Object.entries(members)) {
       const handle = vm.newString(value)

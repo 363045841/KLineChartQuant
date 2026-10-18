@@ -63,7 +63,10 @@
             :label="item.label"
             :type="item.type"
             :value="settings[item.key]"
-            :options="optionsFor(item)"
+             :options="optionsFor(item)"
+             :min="item.min"
+             :max="item.max"
+             :step="item.step"
             @update="settings[item.key] = $event"
           />
           <div
@@ -129,6 +132,7 @@
     normalizeSettings,
     resolveSettingDefault,
     type SettingItem,
+    isSettingVisible,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
@@ -211,7 +215,7 @@
   const sectionItems = computed<ReadonlyArray<SettingItem>>(() => {
     if (activeSection.value === 'style') return styleSettings.value
     if (activeSection.value === 'experimental') return experimentalSettings.value
-    return mainSettings.value
+    return mainSettings.value.filter((item) => isSettingVisible(item, settings.value))
   })
 
   type SettingsSectionId =

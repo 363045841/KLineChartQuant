@@ -8,7 +8,6 @@
  * 4. 协调副图 renderer 与主图 legend，并注册实例状态与目录服务。
  */
 
-import { TRADE_STATUS } from '../../data/trades/types.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type {
   IndicatorAvailabilityReader,
@@ -146,6 +145,7 @@ export interface SubPaneOps {
 }
 
 export interface IndicatorDependencies {
+  getMarketData?: () => import('./instances/execution/marketDataTypes.js').IndicatorMarketData
   plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
@@ -281,6 +281,7 @@ export class ChartIndicatorManager {
     // 执行器：Worker 可用时优先，异步失败在 handleCalculationError 中降级 inline。
     this.inlineExecutor = createInlineIndicatorCalculationExecutor(
       createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
+      deps.getMarketData,
     )
     this.executorHolder = { active: this.inlineExecutor }
     this.workerExecutor = this.tryCreateWorkerExecutor()
@@ -314,12 +315,13 @@ export class ChartIndicatorManager {
     this.calculationScheduler = createInstanceCalculationScheduler({
       pipeline: this.pipeline,
       executor: {
-        setData: async (data, revision, trades) => {
-          await this.inlineExecutor.setData(data, revision, trades)
+        setData: async (data, revision) => {
+          await this.inlineExecutor.setData(data, revision)
           if (this.executorHolder.active !== this.inlineExecutor)
-            await this.executorHolder.active.setData(data, revision, trades)
+            await this.executorHolder.active.setData(data, revision)
         },
         execute: async (plan, revision) => {
+          this.deps.getMarketData?.().retain(new Set(plan.tasks.map((task) => task.calculationKey)))
           const active = this.executorHolder.active
           if (active === this.inlineExecutor) return active.execute(plan, revision)
           const inlineTasks = plan.tasks.filter(
@@ -394,6 +396,11 @@ export class ChartIndicatorManager {
     if (this.disposeProjection) return
     this.syncRuntimeFromState()
     this.disposeProjection = effect(() => this.syncRuntimeFromState())
+  }
+
+  /** 目标行情更新复用现有调度器，旧任务结果由请求版本屏障丢弃。 */
+  invalidateMarketData(): void {
+    this.requestCompute()
   }
 
   /** 将 kernel 当前快照投影为 pane、renderer 与实例链路的运行时状态。 */
@@ -671,40 +678,6 @@ export class ChartIndicatorManager {
   }
 
   /** 计算计划或数据变化后请求一次调度；无数据时不触发。 */
-  private tradeInput: import('../../data/trades/types.js').TradeSnapshot | undefined
-
-  /** 成交与 K 线共用同一计算调度及过期请求门控。 */
-  updateTradeInput(input: import('../../data/trades/types.js').TradeSnapshot): void {
-    if (
-      this.tradeInput?.status === input.status &&
-      this.tradeInput.tickSize === input.tickSize &&
-      this.tradeInput.message === input.message &&
-      this.tradeInput.coverage === input.coverage &&
-      this.tradeInput.latestTimestamp === input.latestTimestamp &&
-      this.tradeInput.batches === input.batches
-    )
-      return
-    // revision 由成交摄取层保证单调；这里兜底保证内容变更时版本严格前进，
-    // 避免 chartDataManager 合成的 revision=0 unsupported 快照造成版本回退。
-    this.tradeInput = {
-      ...input,
-      revision: Math.max(input.revision, (this.tradeInput?.revision ?? 0) + 1),
-    }
-    // 声明了 trades 输入的实例按成交快照状态上报领域加载态；映射留在边界，领域侧不感知可用性。
-    const tradesLoading = input.status === TRADE_STATUS.loading
-    for (const instance of this.deps.indicator.readonly.instances.peek()) {
-      const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
-      if (definition?.runtime?.inputs?.includes('trades')) {
-        this.reportAvailability(
-          instance.instanceId,
-          INDICATOR_AVAILABILITY_SOURCE.trades,
-          tradesLoading,
-        )
-      }
-    }
-    this.requestCompute()
-  }
-
   private requestCompute(): void {
     if (!this.hasData) return
     // 仅当实例尚无已提交结果时标记为计算中：已有结果的重算不显示加载圈，避免闪烁。
@@ -720,7 +693,6 @@ export class ChartIndicatorManager {
         dataRevision: this.dataRevision,
         timestamps: this.displayTimestamps ?? this.currentTimestamps,
         data: this.currentData,
-        trades: this.tradeInput,
       })
       .finally(() => {
         for (const instanceId of pending) {

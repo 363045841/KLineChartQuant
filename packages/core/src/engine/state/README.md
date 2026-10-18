@@ -28,7 +28,7 @@ Chart（engine/chart.ts）
 
 - 定义 `StateKernel` 抽象基类与 `SubStateModule` 组合契约。
 - 为每一类图表状态提供 `createXxxState()` 子状态工厂：options、zoom、data、viewport、pane、
-  systemTheme、settings、mode、drawing、interaction、dataManager、indicator、
+  systemTheme、settings、mode、footprint、drawing、interaction、dataManager、indicator、
   marker、renderer。
 - 在 `ChartStateKernel` 中组合上述子状态，并暴露跨子状态的派生信号
   （如 `effectiveTheme$`、`dataLength$`、`activeRenderers$`）。
@@ -56,6 +56,7 @@ state/
 ├── paneState.ts               # 主图/副图布局
 ├── themeState.ts              # 系统主题注入点（用户偏好在 settings.theme）
 ├── settingsState.ts           # 用户偏好设置快照
+├── footprintState.ts          # 足迹主序列输入与异步聚合结果
 ├── drawingState.ts            # 绘图工具、图元与选中 id
 ├── interactionState.ts        # 十字线、悬停、拖拽、区间选择
 ├── indicatorState.ts          # 指标实例与副图配置

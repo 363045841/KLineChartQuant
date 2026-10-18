@@ -9,6 +9,7 @@
 | `position` 属性 | `quickjs/types.ts` 中的 `readonly position?: Position` |
 | 全局 `Position` | `editor/globals.d.ts.txt` 中的 `const Position` |
 | 全局 `plot` | `editor/globals.d.ts.txt` 中的 `const plot` |
+| `request.security` | `request/types.ts` 中的 `ScriptRequest.security` |
 | `plot.Line` 的 `Line` | `editor/types.ts` 中的 `ScriptPlot.Line` 方法 |
 
 之前表格只写在枚举类型上，因此悬浮属性或全局变量时没有显示。

@@ -1,4 +1,5 @@
 /** K 线蜡烛图 Layer：按可见范围准备实体/影线，优先 GPU 画笔，失败回退 Canvas2D。 */
+import { HOLLOW_BODY_KLINE_SHAPES } from '../../foundation/config/chartSettings.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
@@ -14,10 +15,8 @@ import {
   sameProjectionRevision,
 } from '../frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '../frame/types.js'
-import { calcBarLeftPx, fitBarWidthPx } from '../viewport/klineConfig.js'
+import { projectOhlc } from './ohlcGeometry/impl/projectOhlc.js'
 import { drawWorldRectBatches } from './rectsViaRenderer.js'
-
-const THICK_WICK_ZOOM_LEVEL = 10
 
 /** 缓冲池属于 Layer，避免其他图表覆盖已保留的几何。 */
 type CandleBuffers = {
@@ -59,7 +58,9 @@ export function createCandleLayer(): Layer<RenderContext> {
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context
-      const hollow = settings?.klineShape === 'hollow-candlestick'
+      const klineShape = settings?.klineShape
+      const hollow = klineShape !== undefined && HOLLOW_BODY_KLINE_SHAPES.has(klineShape)
+      const ohlcBar = settings?.klineShape === 'ohlc-bar'
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -79,6 +80,7 @@ export function createCandleLayer(): Layer<RenderContext> {
           zoomLevel: context.zoomLevel ?? 1,
           buffers,
           hollow,
+          ohlcBar,
         })
       // 无版本的直接调用不能继续持有旧版本，缓冲将在下面重新写入。
       if (context.dataRevision === undefined) retained.clear()
@@ -91,6 +93,7 @@ export function createCandleLayer(): Layer<RenderContext> {
                 context.dataView,
                 context.zoomLevel ?? 1,
                 hollow,
+                ohlcBar,
               ]),
               build,
             )
@@ -121,13 +124,15 @@ function prepareCandles(args: {
   zoomLevel: number
   buffers: CandleBuffers
   hollow: boolean
+  ohlcBar: boolean
 }): PreparedCandles {
   const { pane, data, range, kWidthPx, dpr, kLineCenters, buffers } = args
 
   const maxRects = Math.max(1, range.end - range.start)
-  const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * (args.hollow ? 4 : 1) * 4)
+  const bodyRectsPerBar = args.ohlcBar ? 3 : args.hollow ? 4 : 1
+  const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * bodyRectsPerBar * 4)
   buffers.upBody = upBodyBuf
-  const downBodyBuf = ensureBufferCapacity(buffers.downBody, maxRects * (args.hollow ? 4 : 1) * 4)
+  const downBodyBuf = ensureBufferCapacity(buffers.downBody, maxRects * bodyRectsPerBar * 4)
   buffers.downBody = downBodyBuf
   const upWickBuf = ensureBufferCapacity(buffers.upWick, maxRects * 2 * 4)
   buffers.upWick = upWickBuf
@@ -154,12 +159,6 @@ function prepareCandles(args: {
     fastPriceToY = (price: number) => pane.yAxis.priceToY(price)
   }
 
-  const invDpr = 1 / dpr
-  // 两档均为固定物理像素，不随 DPR 增粗；实体与影线同奇偶，保证居中和整数边界。
-  const wickWidthPx = args.zoomLevel >= THICK_WICK_ZOOM_LEVEL ? 2 : 1
-  const bodyWidthPx = fitBarWidthPx(kWidthPx, wickWidthPx)
-  const wickWidth = wickWidthPx * invDpr
-
   for (let i = range.start; i < range.end && i < data.length; i++) {
     const e = data[i]
     if (!e) continue
@@ -167,64 +166,33 @@ function prepareCandles(args: {
     const centerLogical = kLineCenters[i - range.start]
     if (centerLogical === undefined) continue
 
-    const openPx = Math.round(fastPriceToY(e.open) * dpr)
-    const closePx = Math.round(fastPriceToY(e.close) * dpr)
-    const highPx = Math.round(fastPriceToY(e.high) * dpr)
-    const lowPx = Math.round(fastPriceToY(e.low) * dpr)
-
-    const centerPx = Math.round(centerLogical * dpr)
-    const roundedLeftPx = calcBarLeftPx(centerPx, bodyWidthPx)
-
-    // 全部实体/影线几何在整数物理像素空间完成，最小实体高度也只占一个物理像素。
-    const topPx = Math.min(openPx, closePx)
-    const bodyHPx = Math.max(1, Math.abs(openPx - closePx))
-    const bottomPx = topPx + bodyHPx
-
-    const bodyX = roundedLeftPx * invDpr
-    const bodyY = topPx * invDpr
-    const bodyW = bodyWidthPx * invDpr
-    const bodyH = bodyHPx * invDpr
-    const wickLeftX = calcBarLeftPx(centerPx, wickWidthPx) * invDpr
+    const geometry = projectOhlc({
+      openY: fastPriceToY(e.open),
+      highY: fastPriceToY(e.high),
+      lowY: fastPriceToY(e.low),
+      closeY: fastPriceToY(e.close),
+      center: centerLogical,
+      widthPx: kWidthPx,
+      dpr,
+      zoomLevel: args.zoomLevel,
+      shape: args.ohlcBar ? 'ohlc-bar' : args.hollow ? 'hollow-candlestick' : 'candlestick',
+      separateBorder: false,
+    })
 
     const preClose = i > 0 ? data[i - 1]?.close : undefined
     const trend = getKLineTrend(e, preClose)
     const isUp = trend === 'up'
 
     const bodyBuf = isUp ? upBodyBuf : downBodyBuf
-    // 边框由不重叠的物理像素矩形组成，内部不填背景，保留足迹、网格等底层内容。
-    // 太窄或十字星没有内部空间时，使用原有最小实体几何。
-    const bodyRects: readonly (readonly number[])[] =
-      args.hollow && bodyWidthPx > 2 && bodyHPx > 2
-        ? [
-            [bodyX, bodyY, bodyW, invDpr],
-            [bodyX, (bottomPx - 1) * invDpr, bodyW, invDpr],
-            [bodyX, (topPx + 1) * invDpr, invDpr, (bodyHPx - 2) * invDpr],
-            [
-              (roundedLeftPx + bodyWidthPx - 1) * invDpr,
-              (topPx + 1) * invDpr,
-              invDpr,
-              (bodyHPx - 2) * invDpr,
-            ],
-          ]
-        : [[bodyX, bodyY, bodyW, bodyH]]
-    for (const rect of bodyRects) {
+    for (const rect of [...geometry.body, ...geometry.border]) {
       const bodyOff = (isUp ? upBodyCount++ : downBodyCount++) * 4
       bodyBuf.set(rect, bodyOff)
     }
 
-    // 上下影线只取实体外的物理像素区间，不再重复价格方向和端点排序逻辑。
-    const wickSegments: readonly [number, number][] = [
-      [highPx, topPx],
-      [bottomPx, lowPx],
-    ]
-    for (const [wickTop, wickBottom] of wickSegments) {
-      if (wickBottom <= wickTop) continue
+    for (const rect of geometry.wick) {
       const wickBuf = isUp ? upWickBuf : downWickBuf
       const wickOff = (isUp ? upWickCount++ : downWickCount++) * 4
-      wickBuf.set(
-        [wickLeftX, wickTop * invDpr, wickWidth, (wickBottom - wickTop) * invDpr],
-        wickOff,
-      )
+      wickBuf.set(rect, wickOff)
     }
   }
 

@@ -2,6 +2,7 @@
  * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
  */
 import type { Bar } from './bar.js'
+import type { IndicatorMarketContext, Timeframe } from './market.js'
 import type { PlotCollection } from './plots.js'
 
 /** 可序列化的脚本声明；不包含执行函数。 */
@@ -35,6 +36,11 @@ export interface InputOptions {
 /** 字符串输入可通过 options 渲染下拉选择。 */
 export interface StringInputOptions extends InputOptions {
   readonly options?: readonly string[]
+}
+
+/** 周期输入的 options 只允许 Timeframe 中登记的周期。 */
+export interface TimeframeInputOptions extends InputOptions {
+  readonly options?: readonly Timeframe[]
 }
 
 /** 数值输入的范围与步长。 */
@@ -76,7 +82,11 @@ export interface IndicatorDefinition<P> {
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
   /** 计算端口：给定 bars 与参数，产出完整 PlotCollection。 */
-  compute(bars: readonly Bar[], params: P): PlotCollection | Promise<PlotCollection>
+  compute(
+    bars: readonly Bar[],
+    params: P,
+    market?: IndicatorMarketContext,
+  ): PlotCollection | Promise<PlotCollection>
 }
 
 /** 按输入声明取默认值，构成初始参数。 */

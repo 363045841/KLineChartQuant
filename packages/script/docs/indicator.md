@@ -96,6 +96,8 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 | `plot.Shape` | 形状标记 | `style`、`location`、`text`、`textColor` |
 | `plot.Char` | 字符标记 | `char`、`location`、`text`、`textColor` |
 | `plot.Arrow` | 数值箭头 | `colorUp`、`colorDown` |
+| `plot.Candle` | 蜡烛图，接收 OHLC 四个价格 | `wickColor`、`borderColor`、`showLast` |
+| `plot.Bar` | 美国线，接收 OHLC 四个价格 | `showLast` |
 
 所有方法接受 `number | null`，`null` 主动留空。`plot.Shape` 和 `plot.Char` 也接受布尔条件，`false` 留空。
 
@@ -107,9 +109,38 @@ plot.Histogram(close - open, 'body-size', { size: ShapeSize.Large }) // 固定 3
 
 Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Huge 为 4px。
 
+### 蜡烛图和美国线
+
+`plot.Candle(open, high, low, close, name, options?)` 和 `plot.Bar(open, high, low, close, name, options?)`
+接收当前 bar 的四个价格，名称必填，返回 `void`，不能作为 `fill` 边界。四价格输入可直接使用行情或派生序列。
+
+```ts
+onBar() {
+  const color = close >= open ? Color.Green : Color.Red
+  plot.Candle(open, high, low, close, 'candles', {
+    color,
+    wickColor: Color.Gray,
+    borderColor: color,
+  })
+  plot.Bar(open, high, low, close, 'bars', { color, showLast: 100 })
+}
+```
+
+蜡烛的实体色 `color`、影线色 `wickColor` 和边框色 `borderColor` 可以逐 bar 变化；
+显式传 `null` 隐藏对应部分。实体为 `null` 且边框有色时绘制空心蜡烛。
+默认实体色沿用 Plot 默认蓝色，影线与边框默认跟随实体色，不自动按市场规则区分涨跌。
+美国线只有整体 `color`，绘制高低竖线、左侧开盘短横线和右侧收盘短横线。
+
+任一价格为 `null`、`NaN` 或无穷值时整根留空；0 有效。按 Pine 语义，四个输入的最大值作为 high，
+最小值作为 low，open/close 保持原值。自动缩放包含归一化后的高低价，图例展示 O/H/L/C。
+
+两者接受 `label`、`visible` 和整数 `offset`，宽度跟随 K 线间距，不接受 `size`。
+`showLast` 为正整数，表示整个数据序列最后 N 根，先按源下标裁剪再应用 offset；不按当前可视窗口计数。
+除颜色外，同名 Plot 的选项在一次运行内必须保持一致。
+
 ### Plot 调用选项
 
-第三个参数是调用选项对象，缺省值由采集器补齐：
+单值 Plot 的第三个参数是调用选项对象，OHLC Plot 则是第六个参数，缺省值由采集器补齐：
 
 | 字段 | 作用 |
 | --- | --- |
@@ -169,6 +200,56 @@ onBar() {
   })
 }
 ```
+
+## 跨品种与跨周期取数
+
+`request.security(品种, 周期, 回调, options?)` 在目标行情上独立计算：
+
+```ts
+defineIndicator({
+  name: '高周期蜡烛',
+  position: Position.Main,
+  onBar() {
+    const timeframe = input.timeframe(Timeframe.Day, {
+      title: '目标周期',
+      options: [Timeframe.Hour1, Timeframe.Hour4, Timeframe.Day, Timeframe.Week],
+    })
+    const [o, h, l, c] = request.security(
+      syminfo.tickerid,
+      timeframe,
+      () => [open, high, low, close] as const,
+    )
+    const color = c >= o ? Color.Green : Color.Red
+    plot.Candle(o, h, l, c, 'higher-timeframe', { color, wickColor: color, borderColor: color })
+  },
+})
+```
+
+目标周期取 `Timeframe` 枚举，必须大于或等于主图周期。枚举取值是周期短写法，从 `Timeframe.Minute1`
+到 `Timeframe.Month12`，只登记图表已支持的周期。`input.timeframe` 是周期专用的输入，不填 options 时列出全部受支持周期。
+宿主侧仍按统一解析表处理，Provider 周期名（如 `'60min'`、`'daily'`）在运行时继续可用，未登记的写法直接报错。
+蜡烛宽度跟随主图 K 线间距。
+
+指定来源使用 options.source，例如在分钟图上：
+
+```ts
+const hourlyMA = request.security('BTCUSDT', Timeframe.Hour1, () => ta.sma(close, 20), {
+  source: DataSource.Binance,
+  calcBarsCount: 300,
+  gaps: 'off',
+})
+```
+
+DataSource 包含 Binance、Gotdx、BaoStock、TradingView、MT5、THS、Mock。
+请求品种与图表品种相同时继承图表来源；请求其他品种时必须显式指定 source，否则直接报错。
+指定来源不可用时也直接报错，不在数据源之间自动切换。
+calcBarsCount 表示主图历史之前额外加载的目标周期预热根数，默认 300。
+gaps='off' 延续最近可用结果；gaps='on' 只在新目标结果出现时输出，其余点留空。
+
+请求必须在 onBar 顶层声明。回调内的行情、历史索引和 ta 都属于目标周期，可使用 input 参数；
+其他局部计算请写入回调内。不支持嵌套请求或逐 bar 动态改变品种。
+返回元组只读，不暴露 Data Buffer。末根使用最新目标快照，数据更新后指标重算；
+当前不提供“只读取已确认收盘”的模式。
 
 ## 库
 

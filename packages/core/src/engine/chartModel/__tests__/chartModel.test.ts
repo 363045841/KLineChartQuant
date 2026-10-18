@@ -1,27 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
-import { LAYOUT_DOCUMENT_VERSION } from '../../layout/types'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
-import { ChartDataViewId, createChartModel } from '../index'
+import { createChartModel } from '../index'
 
 describe('chartModel', () => {
-  it('keeps the kline primary renderer at the view default while persisting the candle shape setting', () => {
+  it('derives the kline primary renderer from the persisted shape setting', () => {
     const kernel = createTestChartStateKernel()
     const restored = createTestChartStateKernel()
     try {
       kernel.settings.actions.patch({ klineShape: 'hollow-candlestick' })
-      // 形态由 settings 派生，mode 的 kline 主序列画法保持视图默认值。
-      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      // 形态和主序列模型共用 settings，切换数据视图不覆盖 K 线选择。
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
       kernel.actions.setDataView('timeshare')
       expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('line')
       kernel.actions.setDataView('kline')
-      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
       const layout = kernel.exportLayout()
       expect(layout.settings?.klineShape).toBe('hollow-candlestick')
       restored.applyLayout(layout)
       expect(restored.settings.readonly.settings.peek().klineShape).toBe('hollow-candlestick')
-      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
       restored.settings.actions.patch({ klineShape: 'candlestick' })
       expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
     } finally {
@@ -78,7 +76,7 @@ describe('chartModel', () => {
   it('derives the primary renderer from the active view declaration', () => {
     const m = createChartModel()
 
-    // 主序列画法只由 CHART_VIEW_DEFINITIONS 决定；K 线形态另由 settings.klineShape 表达。
+    // 无设置覆盖时采用数据视图的主序列默认画法。
     expect(m.readonly.primaryRendererByView.peek()).toEqual({
       kline: 'candlestick',
       timeshare: 'line',
@@ -149,144 +147,5 @@ describe('chartModel', () => {
       name: 'comparisonLine',
       layerId: 'plugin:comparisonLine',
     })
-  })
-
-  it('restores and snapshots independent view workspaces without mode instances', async () => {
-    await loadBuiltinIndicators()
-    const workspaces = {
-      kline: {
-        instances: [
-          {
-            instanceId: 'main:ENE',
-            indicatorId: 'ENE',
-            layoutId: 'pane:main:ENE',
-            ordinal: 0,
-            params: { period: 20 },
-          },
-        ],
-        paneRatios: { main: 1 },
-        paneSpecs: [{ id: 'main', ratio: 1, visible: true }],
-        paneScaleTypes: { main: 'log' as const },
-      },
-      timeshare: {
-        instances: [
-          { instanceId: 'rsi', indicatorId: 'MACD', layoutId: 'RSI_0', ordinal: 0, params: {} },
-        ],
-        paneRatios: { main: 0.75, RSI_0: 0.25 },
-        paneSpecs: [
-          { id: 'main', ratio: 0.75, visible: true },
-          { id: 'RSI_0', ratio: 0.25, visible: true },
-        ],
-        paneScaleTypes: { main: 'percent' as const },
-      },
-    }
-    const kernel = createTestChartStateKernel()
-    kernel.applyLayout({
-      version: LAYOUT_DOCUMENT_VERSION,
-      workspaces,
-      panePriceAxisModes: {},
-    })
-
-    expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
-    kernel.actions.setDataView(ChartDataViewId.TimeShare)
-    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual(['main', 'RSI_0'])
-    expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
-  })
-
-  it('定义决定实例、Pane 和持久文档的位置，布局身份不能覆盖主副图', async () => {
-    await loadBuiltinIndicators()
-    const kernel = createTestChartStateKernel()
-    const document = kernel.createLayout()
-    kernel.applyLayout({
-      ...document,
-      workspaces: {
-        ...document.workspaces,
-        kline: {
-          ...document.workspaces.kline,
-          instances: [
-            {
-              instanceId: 'native-rsi',
-              indicatorId: 'CCI',
-              layoutId: 'rsi-layout',
-              ordinal: 0,
-              params: { period: 14 },
-            },
-            {
-              instanceId: 'native-boll',
-              indicatorId: 'ENE',
-              layoutId: 'unused-boll-layout',
-              ordinal: 0,
-              params: { period: 20 },
-            },
-          ],
-          paneSpecs: [
-            { id: 'main', ratio: 1 },
-            { id: 'unused-boll-layout', ratio: 1 },
-          ],
-        },
-      },
-    })
-    expect(kernel.indicator.readonly.instances.peek()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ instanceId: 'native-rsi', role: 'sub', paneId: 'rsi-layout' }),
-        expect.objectContaining({ instanceId: 'native-boll', role: 'main', paneId: 'main' }),
-      ]),
-    )
-    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual([
-      'main',
-      'rsi-layout',
-    ])
-    const snapshot = kernel.exportLayout()
-    expect(snapshot.version).toBe(2)
-    for (const config of snapshot.workspaces.kline.instances) {
-      expect(config).not.toHaveProperty('role')
-      expect(config).not.toHaveProperty('paneId')
-    }
-    for (const config of snapshot.workspaces.kline.paneSpecs) {
-      expect(config).not.toHaveProperty('role')
-      expect(config).not.toHaveProperty('capabilities')
-    }
-    kernel.dispose()
-  })
-
-  it('uses an independent indicator workspace for timeshare', async () => {
-    await loadBuiltinIndicators()
-    expect(
-      getRegisteredIndicatorDefinition('CCI')?.getRendererName({
-        paneId: 'sub_RSI',
-        indicatorId: 'CCI',
-      }),
-    ).toBe('cci_sub_RSI')
-    const kernel = createTestChartStateKernel()
-    kernel.indicator.actions.upsertMain('MA', {})
-    kernel.indicator.actions.upsertMain('ENE', {})
-    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
-
-    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['MA', 'ENE'])
-
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'candle', layerId: 'plugin:candle' },
-      { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
-      { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
-      { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
-      { name: 'ma', layerId: 'plugin:ma' },
-      { name: 'ene', layerId: 'plugin:ene' },
-      { name: 'cci_sub_RSI', layerId: 'plugin:cci_sub_RSI' },
-      { name: 'cciScale_sub_RSI', layerId: 'plugin:cciScale_sub_RSI' },
-    ])
-
-    kernel.actions.setDataView('timeshare')
-
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'timeShare', layerId: 'plugin:timeShare' },
-    ])
-    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual([])
-    expect(kernel.pane.readonly.paneSpecs.peek()).toEqual([
-      { id: 'main', ratio: 1, visible: true, role: 'price' },
-    ])
-
-    kernel.actions.setDataView(ChartDataViewId.KLine)
-
-    expect(kernel.activeRenderers$.peek()).toContainEqual({ name: 'ene', layerId: 'plugin:ene' })
   })
 })

@@ -1,6 +1,5 @@
 /** 新实例计算链路的 inline 与 Worker 执行器适配。 */
 import type { KLineData } from '@/foundation/types/price.js'
-import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import type { IndicatorCalculationOutput } from '../domain/instanceCalculationPlan.js'
 import {
   INSTANCE_WORKER_PROTOCOL_VERSION,
@@ -10,7 +9,8 @@ import {
 } from '../worker/instanceWorkerProtocol.js'
 import type { IndicatorCalculationDefinition } from './instanceCalculationRuntime.js'
 import type { IndicatorCalculationExecutor } from './instanceCalculationScheduler.js'
-import { diffTradeSnapshot, IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
+import { IndicatorInstanceExecutionRuntime } from './instanceExecutionRuntime.js'
+import type { IndicatorMarketData } from './marketDataTypes.js'
 
 /** inline 执行器：可在运行中追加按需加载的定义。 */
 export type InlineIndicatorCalculationExecutor = IndicatorCalculationExecutor & {
@@ -30,8 +30,9 @@ export type WorkerIndicatorCalculationExecutor = IndicatorCalculationExecutor & 
 /** 不依赖 Worker 的直接执行器；测试、SSR 和降级路径使用同一执行语义。 */
 export function createInlineIndicatorCalculationExecutor(
   definitions: Iterable<IndicatorCalculationDefinition>,
+  marketData?: () => IndicatorMarketData,
 ): InlineIndicatorCalculationExecutor {
-  const runtime = new IndicatorInstanceExecutionRuntime(definitions)
+  const runtime = new IndicatorInstanceExecutionRuntime(definitions, marketData)
   const executor: InlineIndicatorCalculationExecutor = {
     /** 追加按需加载后的定义；已有身份的同一定义幂等。 */
     addDefinitions(next: Iterable<IndicatorCalculationDefinition>): void {
@@ -41,13 +42,8 @@ export function createInlineIndicatorCalculationExecutor(
     updateDefinitions(next: Iterable<IndicatorCalculationDefinition>): void {
       for (const definition of next) runtime.updateDefinition(definition)
     },
-    async setData(data, dataRevision, trades) {
-      // inline 无结构化克隆开销，成交始终按整段替换下发，与 Worker 共享同一运行时合并路径。
-      runtime.setData(
-        data,
-        dataRevision,
-        trades === undefined ? undefined : { mode: 'replace', snapshot: trades },
-      )
+    async setData(data, dataRevision) {
+      runtime.setData(data, dataRevision)
     },
     /** 删除定义及其任务缓存。 */
     removeDefinitions(ids: readonly string[]): void {
@@ -68,7 +64,6 @@ export function createWorkerIndicatorCalculationExecutor(input: {
   let nextRequestId = 0
   let ready = false
   let disposed = false
-  let previousTrades: TradeSnapshot | undefined
   const pending = new Map<
     number,
     {
@@ -134,17 +129,14 @@ export function createWorkerIndicatorCalculationExecutor(input: {
       if (disposed || definitions.length === 0) return
       input.worker.postMessage({ type: 'updateDefinitions', definitions })
     },
-    async setData(data: KLineData[], dataRevision: number, trades?: TradeSnapshot): Promise<void> {
+    async setData(data: KLineData[], dataRevision: number): Promise<void> {
       await readyPromise
       if (disposed) throw new Error('Indicator Worker executor is disposed')
       input.worker.postMessage({
         type: 'setData',
         data,
         dataRevision,
-        // 引用前缀扩展时只传新增批次，避免全量成交结构化克隆。
-        tradesDiff: trades === undefined ? undefined : diffTradeSnapshot(previousTrades, trades),
       })
-      previousTrades = trades
     },
     /** 删除消息与后续任务按序到达。 */
     removeDefinitions(ids: readonly string[]): void {

@@ -4,12 +4,18 @@ import type {
   ArrowPlot,
   ColumnsPlot,
   HistogramPlot,
+  LineBRPlot,
   LinePlot,
+  OhlcPlot,
   Plot,
   PlotFill,
   PointsPlot,
+  ScalarPlot,
   ShapePlot,
+  StepLineBRPlot,
+  StepLinePlot,
 } from '@363045841yyt/klinechart-plot-contracts'
+import { ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
 import {
   createProjectionRevision,
   sameProjectionRevision,
@@ -18,6 +24,8 @@ import type { ProjectionRevision } from '@/engine/frame/types.js'
 import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { tryDrawLinesGpu } from '@/engine/renderers/linesViaRenderer.js'
+import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
+import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
 import { drawWorldRectBatches } from '@/engine/renderers/rectsViaRenderer.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
@@ -43,11 +51,12 @@ import {
 type Point = { x: number; y: number }
 type LineBatch = { points: Point[]; width: number; color: string }
 type RectBatch = { color: string; buf: Float64Array; count: number }
+type LineSeriesPlot = LinePlot | LineBRPlot | StepLinePlot | StepLineBRPlot
 
 /** 折线的投影结果：批次供 GPU 或 Canvas2D 重放。 */
 interface LineProjection {
   readonly kind: 'line'
-  readonly plot: LinePlot
+  readonly plot: LineSeriesPlot
   readonly points: ReadonlyMap<number, Point>
   readonly lines: readonly LineBatch[]
 }
@@ -82,7 +91,20 @@ interface MarkerProjection {
 }
 
 /** 一个 Plot 的完整投影；每种 kind 携带自己的重放数据，绘制端不再判空或回查。 */
-type PlotProjection = LineProjection | ColumnProjection | PointsProjection | MarkerProjection
+type PlotProjection =
+  | LineProjection
+  | ColumnProjection
+  | PointsProjection
+  | MarkerProjection
+  | OhlcProjection
+
+/** OHLC 的绘制批次；没有可供 fill 引用的单值边界。 */
+interface OhlcProjection {
+  readonly kind: 'candle' | 'bar'
+  readonly plot: OhlcPlot
+  readonly points: ReadonlyMap<number, Point>
+  readonly rects: readonly RectBatch[]
+}
 
 /** 填充的投影结果：端点在此解析，重放时不再按 id 查找。 */
 interface FillProjection {
@@ -141,7 +163,7 @@ function markerY(
 }
 
 /** 该 bar 的有限数值；缺省与 NaN 都表示不绘制，0 是合法取值。 */
-function barValue(plot: Plot, index: number): number | undefined {
+function barValue(plot: ScalarPlot, index: number): number | undefined {
   const value = plot.data[index - plot.offset]?.value
   return value === undefined || !Number.isFinite(value) ? undefined : value
 }
@@ -163,7 +185,7 @@ function projectX(index: number, context: RenderContext): number | null {
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
 function projectPricePoint(
-  plot: LinePlot | HistogramPlot | ColumnsPlot | PointsPlot,
+  plot: LineSeriesPlot | HistogramPlot | ColumnsPlot | PointsPlot,
   index: number,
   context: RenderContext,
 ): Point | undefined {
@@ -214,13 +236,19 @@ function projectPoints(
   return points
 }
 
-/** 构建可复用的折线批次；遇到空点或颜色变化时开始新段。 */
+/** 判断 Plot 是否采用中点跳变的阶梯形状，供路径与填充共同使用。 */
+function isStepPlot(plot: Plot): boolean {
+  return plot.kind === 'stepline' || plot.kind === 'steplinebr'
+}
+
+/** 折线与阶梯线共用批次构建；BR 在空点处断开，颜色变化时共享前一有效端点。 */
 function buildLineSegments(
-  plot: LinePlot,
+  plot: LineSeriesPlot,
   context: RenderContext,
   points: ReadonlyMap<number, Point>,
 ): LineBatch[] {
   const lines: LineBatch[] = []
+  const stepped = isStepPlot(plot)
   let segment: Point[] = []
   let color = plot.color
   let previous: Point | undefined
@@ -233,8 +261,10 @@ function buildLineSegments(
     previousIndex = index
     const point = points.get(index)
     if (!point) {
-      segment = []
-      previous = undefined
+      if (plot.kind === 'linebr' || plot.kind === 'steplinebr') {
+        segment = []
+        previous = undefined
+      }
       continue
     }
     const nextColor = plot.data[index - plot.offset]?.color ?? plot.color
@@ -242,6 +272,10 @@ function buildLineSegments(
       segment = previous ? [previous] : []
       color = nextColor
       lines.push({ points: segment, width: lineWidth(plot.size), color })
+    }
+    if (stepped && previous && previous.y !== point.y) {
+      const middleX = (previous.x + point.x) / 2
+      segment.push({ x: middleX, y: previous.y }, { x: middleX, y: point.y })
     }
     segment.push(point)
     previous = point
@@ -288,7 +322,13 @@ function buildColumnRects(
 /** 投影单个 Plot；每种 kind 只构建自己绘制所需的数据。 */
 function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
   switch (plot.kind) {
-    case 'line': {
+    case 'candle':
+    case 'bar':
+      return projectOhlcPlot(plot, context)
+    case 'line':
+    case 'linebr':
+    case 'stepline':
+    case 'steplinebr': {
       const points = projectPoints(plot, context, (index) =>
         projectPricePoint(plot, index, context),
       )
@@ -315,7 +355,7 @@ function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
 }
 
 /** 全列统计箭头幅度，屏幕缩放与可见范围不改变长度。 */
-function arrowMagnitude(plot: Plot): number {
+function arrowMagnitude(plot: ArrowPlot): number {
   let maximum = 0
   for (const point of plot.data) {
     if (point && Number.isFinite(point.value)) maximum = Math.max(maximum, Math.abs(point.value))
@@ -395,7 +435,16 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
   const from = byId.get(fill.from)
   const to = byId.get(fill.to)
   if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
-  return { fill, bands: buildFillBands(from.points, to.points, fill.colors) }
+  return {
+    fill,
+    bands: buildFillBands(
+      from.points,
+      to.points,
+      fill.colors,
+      isStepPlot(from.plot),
+      isStepPlot(to.plot),
+    ),
+  }
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
@@ -516,6 +565,8 @@ function paintGeometry(
         break
       case 'histogram':
       case 'columns':
+      case 'candle':
+      case 'bar':
         drawWorldRectBatches(context, projection.rects)
         break
       case 'points':
@@ -527,6 +578,70 @@ function paintGeometry(
         drawMarkers(projection, context)
         break
     }
+  }
+}
+
+/** 按部分与颜色汇聚 OHLC 矩形；同色批次一次提交给现有 GPU/Canvas 绘制链路。 */
+function projectOhlcPlot(plot: OhlcPlot, context: RenderContext): OhlcProjection {
+  const batches = new Map<string, { color: string; values: number[] }>()
+  /** null 隐藏对应部分，颜色本身携带透明度。 */
+  function append(part: string, color: string | null, rects: readonly OhlcRect[]): void {
+    if (color === null || rects.length === 0) return
+    const key = `${part}:${color}`
+    let batch = batches.get(key)
+    if (!batch) {
+      batch = { color, values: [] }
+      batches.set(key, batch)
+    }
+    for (const rect of rects) batch.values.push(...rect)
+  }
+  const start = ohlcPlotStart(plot)
+  for (const index of plotIndices(plot, context)) {
+    const sourceIndex = index - plot.offset
+    if (sourceIndex < start) continue
+    const point = plot.data[sourceIndex]
+    const center = projectX(index, context)
+    if (!point || center === null) continue
+    const axis = context.pane.yAxis
+    const openY = axis.priceToY(point.open)
+    const highY = axis.priceToY(point.high)
+    const lowY = axis.priceToY(point.low)
+    const closeY = axis.priceToY(point.close)
+    if (![openY, highY, lowY, closeY].every(Number.isFinite)) continue
+    const geometry = projectOhlc({
+      openY,
+      highY,
+      lowY,
+      closeY,
+      center,
+      widthPx: context.kWidthPx,
+      dpr: context.dpr,
+      zoomLevel: context.zoomLevel ?? 1,
+      shape:
+        plot.kind === 'bar'
+          ? 'ohlc-bar'
+          : point.color === null
+            ? 'hollow-candlestick'
+            : 'candlestick',
+      separateBorder: point.borderColor !== null && point.borderColor !== point.color,
+    })
+    for (const [part, color, rects] of [
+      ['body', point.color, geometry.body],
+      ['border', point.borderColor, geometry.border],
+      ['wick', point.wickColor, geometry.wick],
+    ] as const) {
+      append(part, color, rects)
+    }
+  }
+  return {
+    kind: plot.kind,
+    plot,
+    points: new Map(),
+    rects: [...batches.values()].map(({ color, values }) => ({
+      color,
+      buf: new Float64Array(values),
+      count: values.length / 4,
+    })),
   }
 }
 

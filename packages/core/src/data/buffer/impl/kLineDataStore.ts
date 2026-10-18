@@ -97,6 +97,8 @@ export class KLineDataStore {
     const oldLength = this._data.length
     const oldEarliestTs = oldLength > 0 ? this._data[0]!.timestamp : null
     const merged = mergeSortedData(this._data, [...incoming])
+    // 命中既有历史时事实没有变化，不发布通知，避免共享消费者反复触发重算。
+    if (merged === this._data) return { prependedCount: 0, advancedEarliest: false }
     const newEarliestTs = merged[0]?.timestamp ?? null
     const advancedEarliest =
       oldEarliestTs !== null && newEarliestTs !== null && newEarliestTs < oldEarliestTs

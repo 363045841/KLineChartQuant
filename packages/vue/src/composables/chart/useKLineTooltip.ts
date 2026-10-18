@@ -40,8 +40,8 @@ export interface UseKLineTooltipOptions {
   colors: ComputedRef<{ upColor: string; downColor: string }>
   /** 调用方是否提供 #kline-tooltip 外部插槽 */
   hasExternalSlot: Ref<boolean>
-  /** 是否触屏设备 */
-  isMobile: boolean
+  /** 主输入是否粗指针；变化时同步重算显隐 */
+  isCoarsePointer: Readonly<Ref<boolean>>
   /** 是否分时；决定 tooltip 是否显示时间 */
   isIntraday: () => boolean
   /** 时区 */
@@ -186,7 +186,7 @@ function updateTooltipDom(
  */
 export function useKLineTooltip(options: UseKLineTooltipOptions) {
   const { controller, contentRef, containerRef, colors, hasExternalSlot } = options
-  const { isMobile, isIntraday, timezone, isDraggable, isEnabled } = options
+  const { isCoarsePointer, isIntraday, timezone, isDraggable, isEnabled } = options
 
   /** 拖拽后的 tooltip 位置；null 表示跟随交互快照。 */
   const dragPos = ref<{ x: number; y: number } | null>(null)
@@ -277,7 +277,7 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
         const data = ctrl.getData()
         const kline =
           typeof idx === 'number' && idx >= 0 && idx < data.length ? data[idx] : undefined
-        const hidden = !kline || isMobile || !isEnabled()
+        const hidden = !kline || isCoarsePointer.value || !isEnabled()
         if (visibilityEl !== el) {
           visibilityEl = el
           hiddenState = true
@@ -338,6 +338,7 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
 
   // 数据悬浮框启用状态变化时立即重算显隐（如设置切到“不显示”）
   watch(isEnabled, () => refresh?.())
+  watch(isCoarsePointer, () => refresh?.())
 
   // 组件卸载时若仍在拖拽，移除文档级监听
   onBeforeUnmount(onDragPointerUp)

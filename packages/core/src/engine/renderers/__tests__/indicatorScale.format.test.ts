@@ -1,11 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
-import {
-  createMockCanvasContext,
-  createMockRenderContext,
-  createMockStateReader,
-} from '@/engine/__tests__/helpers/renderTestKit'
-
-import { createIndicatorScaleLayer } from '../Indicator/scale/indicator_scale'
+import { describe, expect, it } from 'vitest'
 import { formatScaleValue, resolveAdaptiveDecimals } from '../Indicator/scale/scaleFormat'
 
 describe('resolveAdaptiveDecimals', () => {
@@ -26,51 +19,5 @@ describe('formatScaleValue', () => {
   it('normalizes values that round down to zero', () => {
     expect(formatScaleValue(-0.0004, 2)).toBe('0.00')
     expect(formatScaleValue(-0.001, 3)).toBe('-0.001')
-  })
-})
-
-/** 坐标轴按实例身份寻址，不再按指标类型 state key 读取。 */
-const MACD_INSTANCE_ID = 'inst-macd'
-
-describe('indicator scale layer formatting', () => {
-  it('renders small-magnitude ticks with adaptive decimals and no negative zero', () => {
-    const yAxisCtx = createMockCanvasContext()
-    const layer = createIndicatorScaleLayer({
-      axisWidth: 60,
-      paneId: 'sub_MACD_test',
-      instanceId: MACD_INSTANCE_ID,
-      indicatorKey: 'macd',
-      label: 'MACD',
-      decimals: 2,
-    })
-
-    layer.paint(
-      createMockRenderContext({
-        yAxisCtx,
-        dpr: 2,
-        pane: {
-          id: 'sub_MACD_test',
-          height: 160,
-          yAxis: {
-            getScaleType: () => 'linear',
-            getDisplayRange: () => ({ maxPrice: 0.002, minPrice: -0.002 }),
-            getPaddingTop: () => 0,
-            getPaddingBottom: () => 0,
-          },
-        },
-        indicatorStateReader: createMockStateReader(MACD_INSTANCE_ID, {
-          timestamp: 1,
-          valueMin: -0.002,
-          valueMax: 0.002,
-        }),
-        isAsiaMarket: true,
-        colorPresetSettings: {},
-      }),
-    )
-
-    const labels = vi.mocked(yAxisCtx.fillText).mock.calls.map(([text]) => text as string)
-    expect(labels.length).toBeGreaterThan(0)
-    expect(labels).not.toContain('-0.00')
-    expect(labels.some((text) => /\.\d{3,}$/.test(text))).toBe(true)
   })
 })

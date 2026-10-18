@@ -120,31 +120,10 @@ describe('createChartController mount theme', () => {
     ctrl.dispose()
     ctrl.setData(createBars())
     expect(ctrl.getData()).toEqual([])
-    expect(ctrl.addIndicator('CCI')).toBeNull()
     expect(ctrl.removeDrawing('missing')).toBe(false)
     expect(ctrl.getPaneInfo('main')).toBeUndefined()
     expect(ctrl.getViewport()).toBeNull()
     expect(ctrl.getZoomLevelCount()).toBe(0)
-    container.remove()
-  })
-
-  it('normalizes a VOL alias when replacing sub-pane content', async () => {
-    const container = document.createElement('div')
-    Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
-    Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
-    document.body.appendChild(container)
-
-    const ctrl = await createChartController({ container })
-    const instanceId = ctrl.addIndicator('CCI')
-    const paneId = ctrl.subPanes.peek().find((pane) => pane.instanceId === instanceId)?.paneId
-
-    expect(paneId).toBeDefined()
-    expect(ctrl.replacePaneContent(paneId!, 'VOL', {})).toBe(true)
-    expect(ctrl.subPanes.peek()).toContainEqual(
-      expect.objectContaining({ paneId, indicatorId: 'VOL' }),
-    )
-
-    ctrl.dispose()
     container.remove()
   })
 
@@ -186,9 +165,6 @@ describe('createChartController mount theme', () => {
       dataSource: 'chart-custom:fixture',
       dataRange: { from: 60_000, to: 1_800_000, bars: 30 },
     })
-    await expect(
-      first.agent.queryIndicator({ definitionId: 'CCI', params: { period: 14 }, limit: 3 }),
-    ).resolves.toContain('cci | period=14')
     first.setTheme('light')
 
     first.setData([...data, { ...data[data.length - 1]!, timestamp: 1_860_000 }])

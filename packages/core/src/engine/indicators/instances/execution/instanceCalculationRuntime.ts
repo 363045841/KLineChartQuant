@@ -4,8 +4,9 @@
  * Worker 入口与 inline fallback 都只能通过此模块执行任务，从而保证二者的去重、
  * 参数和 firstReadyIndex 语义完全一致。
  */
+
+import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import { isPlotCollection } from '../../../plots/impl/readPlotState.js'
 import type {
   IndicatorCalculationOutput,
@@ -15,11 +16,14 @@ import type {
 import type { IndicatorParameters } from '../domain/instanceModel.js'
 
 export interface IndicatorCalculationDefinition {
-  readonly inputs?: readonly 'trades'[]
   readonly createCompute?: () => IndicatorCalculationDefinition['compute']
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
-  compute(data: KLineData[], params: IndicatorParameters, trades?: TradeSnapshot): unknown
+  compute(
+    data: KLineData[],
+    params: IndicatorParameters,
+    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+  ): unknown
 }
 
 export type IndicatorCalculationDefinitionResolver = (
@@ -31,9 +35,9 @@ export function findInstanceFirstReadyIndex(value: unknown, dataLength: number):
   if (isPlotCollection(value)) {
     let first: number | null = null
     for (const plot of value.plots) {
-      const index = plot.data.findIndex(
-        (point) => point !== undefined && Number.isFinite(point.value),
-      )
+      const index = isOhlcPlot(plot)
+        ? plot.data.findIndex((point) => point !== undefined)
+        : plot.data.findIndex((point) => point !== undefined && Number.isFinite(point.value))
       if (index >= 0 && (first === null || index < first)) first = index
     }
     return first
@@ -61,13 +65,13 @@ export async function executeIndicatorCalculationTask(
   task: IndicatorCalculationTask,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
-  trades?: TradeSnapshot,
+  market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
 ): Promise<IndicatorCalculationOutput> {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
   let series: unknown
   try {
-    series = await definition.compute(data, task.params, trades)
+    series = await definition.compute(data, task.params, market)
   } catch (error) {
     // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
     return Object.freeze({
@@ -103,12 +107,11 @@ export async function executeIndicatorCalculationPlan(
   plan: IndicatorCalculationPlan,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
-  trades?: TradeSnapshot,
 ): Promise<readonly IndicatorCalculationOutput[]> {
   return Object.freeze(
     await Promise.all(
       plan.tasks.map((task) =>
-        executeIndicatorCalculationTask(task, data, resolveDefinition, trades),
+        executeIndicatorCalculationTask(task, data, resolveDefinition),
       ),
     ),
   )

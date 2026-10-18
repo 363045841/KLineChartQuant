@@ -2,6 +2,15 @@
  * 图表设置配置
  */
 
+import {
+  FOOTPRINT_DEFAULT_PARAMS,
+  FOOTPRINT_METRIC_OPTIONS,
+  FOOTPRINT_ROW_MODE_OPTIONS,
+  FOOTPRINT_ROW_MODES,
+  FOOTPRINT_SHAPE,
+  FOOTPRINT_TEXT_MODES,
+  FOOTPRINT_TEXT_OPTIONS,
+} from '../../components/footprint/types.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../types/scaleType.js'
 
 import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
@@ -20,40 +29,15 @@ export interface SettingItem {
   min?: number
   max?: number
   step?: number
+  /** 所有条件满足时显示该设置；只控制编辑入口。 */
+  visibleWhen?: readonly {
+    readonly key: string
+    readonly values: readonly (string | number | boolean)[]
+  }[]
 }
 
-/**
- * 检测设备类型：mobile / tablet / desktop
- * 优先使用 Client Hints API (navigator.userAgentData)，不支持时回退到 UA + 屏幕/触控检测
- */
-export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
-  if (typeof navigator === 'undefined' || typeof window === 'undefined') return 'desktop'
-
-  const uaData = (navigator as any).userAgentData
-  if (uaData?.formFactor) {
-    const formFactor = uaData.formFactor as string
-    if (formFactor === 'phone') return 'mobile'
-    if (formFactor === 'tablet') return 'tablet'
-    if (formFactor === 'desktop') return 'desktop'
-  }
-
-  if (uaData?.mobile === true) return 'mobile'
-  if (uaData?.mobile === false) {
-    // 明确非手机，但不确定是平板还是桌面，继续后续判断
-  }
-
-  const ua = navigator.userAgent.toLowerCase()
-  const isMobileUA =
-    /android.*mobile|webos|iphone|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
-  if (isMobileUA) return 'mobile'
-
-  const hasTouch = navigator.maxTouchPoints > 1
-  const isTabletScreen = window.screen.width >= 768 && window.screen.width <= 1366
-
-  if (hasTouch && isTabletScreen) return 'tablet'
-
-  return 'desktop'
-}
+export { getDeviceEnvironment, getDeviceType } from '../device/impl/deviceEnvironment.js'
+export type { DeviceEnvironment, DeviceType } from '../device/types.js'
 
 /** 渲染后端设置值。 */
 type RendererBackendSetting = 'webgpu' | 'webgl' | 'canvas'
@@ -94,6 +78,9 @@ export function resolveSettingDefault(value: SettingItem['default']): boolean | 
 export const TOOLTIP_POSITION_NONE = 'none'
 
 /** 默认设置配置 */
+const FOOTPRINT_VISIBLE_WHEN = [{ key: 'klineShape', values: [FOOTPRINT_SHAPE] }]
+
+/** 默认设置配置；工具栏、设置面板与持久化共用。 */
 export const DEFAULT_SETTINGS = [
   {
     key: 'klineShape',
@@ -101,10 +88,98 @@ export const DEFAULT_SETTINGS = [
     type: 'select',
     default: 'candlestick',
     group: 'toolbar',
+    // 哪些形态画成空心主体由 HOLLOW_BODY_KLINE_SHAPES 声明，不在选项里就地表达。
     options: [
       { value: 'candlestick', label: '实心 K 线' },
       { value: 'hollow-candlestick', label: '空心 K 线' },
+      { value: 'ohlc-bar', label: '美国线' },
+      { value: FOOTPRINT_SHAPE, label: '足迹图' },
     ],
+  },
+  {
+    key: 'footprintRowMode',
+    label: '足迹分行方式',
+    type: 'select',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.rowMode,
+    options: FOOTPRINT_ROW_MODE_OPTIONS,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+  },
+  {
+    key: 'footprintRowPeriod',
+    label: '足迹振幅周期',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.rowPeriod,
+    min: 1,
+    step: 1,
+    visibleWhen: [
+      ...FOOTPRINT_VISIBLE_WHEN,
+      {
+        key: 'footprintRowMode',
+        values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+      },
+    ],
+  },
+  {
+    key: 'footprintTargetRows',
+    label: '足迹目标行数',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.targetRows,
+    min: 10,
+    max: 20,
+    step: 1,
+    visibleWhen: [
+      ...FOOTPRINT_VISIBLE_WHEN,
+      {
+        key: 'footprintRowMode',
+        values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+      },
+    ],
+  },
+  {
+    key: 'footprintTicksPerRow',
+    label: '足迹每行跳数',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.ticksPerRow,
+    min: 1,
+    max: 100000,
+    step: 1,
+    visibleWhen: [
+      ...FOOTPRINT_VISIBLE_WHEN,
+      { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.Fixed] },
+    ],
+  },
+  {
+    key: 'footprintImbalanceRatio',
+    label: '足迹不平衡倍数',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.imbalanceRatio,
+    min: 1,
+    max: 100,
+    step: 1,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+  },
+  {
+    key: 'footprintMetric',
+    label: '足迹数值口径',
+    type: 'select',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.metric,
+    options: FOOTPRINT_METRIC_OPTIONS,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+  },
+  {
+    key: 'footprintTextMode',
+    label: '足迹文字模式',
+    type: 'select',
+    group: 'main',
+    default: FOOTPRINT_TEXT_MODES.BidAsk,
+    options: FOOTPRINT_TEXT_OPTIONS,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
   },
   {
     key: 'displayTimeZone',
@@ -252,6 +327,31 @@ export type ChartSettings = {
 } & Record<string, unknown> & {
     colorPresetSettings?: ColorPresetSettings
   }
+
+/** 设置显示条件只影响编辑入口，隐藏时仍保存用户参数。 */
+export function isSettingVisible(item: SettingItem, settings: ChartSettings): boolean {
+  return (
+    item.visibleWhen === undefined ||
+    item.visibleWhen.every((condition) =>
+      condition.values.some((value) => settings[condition.key] === value),
+    )
+  )
+}
+
+/** K 线形态取值；与 DEFAULT_SETTINGS 的 klineShape 选项共用同一份推论类型。 */
+type KLineShapeValue = NonNullable<ChartSettings['klineShape']>
+
+/**
+ * 实体画成空心轮廓的 K 线形态。
+ *
+ * 空心 K 线只画实体边框并保留影线；足迹图同样先以空心轮廓占位，再由足迹 Layer
+ * 在轮廓之上叠加成交分布，因此两者共用同一份判定。形态与画法的对应关系只此一处，
+ * 渲染器不得自行追加比较；需要第三种空心主体时在这里登记。
+ */
+export const HOLLOW_BODY_KLINE_SHAPES: ReadonlySet<KLineShapeValue> = new Set<KLineShapeValue>([
+  'hollow-candlestick',
+  FOOTPRINT_SHAPE,
+])
 
 /** DEFAULT_SETTINGS 已覆盖的 key 及单独归一化的 colorPresetSettings，其余视为扩展字段保留。 */
 const KNOWN_SETTING_KEYS = new Set<string>([

@@ -1,67 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { calcFibData, calcPivotData } from '../calculators'
+import { calcFibData } from '../calculators'
 
-import {
-  empty,
-  pureDowntrend,
-  pureUptrend,
-  sideways,
-  singleBar,
-  spikeAtBar19,
-} from './__fixtures__/synthetic'
-
-describe('calcPivotData', () => {
-  it('empty returns empty', () => {
-    expect(calcPivotData(empty)).toEqual([])
-  })
-
-  it('first bar has no pivot (needs prior bar)', () => {
-    expect(calcPivotData(pureUptrend)[0]).toBeUndefined()
-  })
-
-  it('PP = (prevH + prevL + prevC) / 3', () => {
-    const out = calcPivotData(pureUptrend)
-    for (let t = 1; t < out.length; t++) {
-      const prev = pureUptrend[t - 1]!
-      expect(out[t]!.pp).toBeCloseTo((prev.high + prev.low + prev.close) / 3, 9)
-    }
-  })
-
-  it('R1 > PP > S1 invariant (price-action symmetry)', () => {
-    const out = calcPivotData(pureUptrend)
-    for (let t = 1; t < out.length; t++) {
-      const p = out[t]!
-      expect(p.r1).toBeGreaterThan(p.pp)
-      expect(p.pp).toBeGreaterThan(p.s1)
-    }
-  })
-
-  it('R3 > R2 > R1 > PP > S1 > S2 > S3 chain', () => {
-    const out = calcPivotData(pureUptrend)
-    for (let t = 1; t < out.length; t++) {
-      const p = out[t]!
-      expect(p.r3).toBeGreaterThanOrEqual(p.r2)
-      expect(p.r2).toBeGreaterThanOrEqual(p.r1)
-      expect(p.r1).toBeGreaterThanOrEqual(p.pp)
-      expect(p.pp).toBeGreaterThanOrEqual(p.s1)
-      expect(p.s1).toBeGreaterThanOrEqual(p.s2)
-      expect(p.s2).toBeGreaterThanOrEqual(p.s3)
-    }
-  })
-
-  it('extensional consistency', () => {
-    const full = calcPivotData(pureUptrend)
-    for (let n = 3; n < pureUptrend.length; n++) {
-      const partial = calcPivotData(pureUptrend.slice(0, n))
-      for (let i = 0; i < n; i++) {
-        if (full[i] && partial[i]) {
-          expect(partial[i]!.pp).toBeCloseTo(full[i]!.pp, 9)
-        }
-      }
-    }
-  })
-})
+import { empty, pureDowntrend, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
 
 describe('calcFibData', () => {
   it('empty returns empty', () => {

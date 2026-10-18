@@ -19,7 +19,8 @@ function appendDocumentation(
   content.className = 'cm-script-hover-documentation'
   content.innerHTML = documentationMarkdown.render(parts.map((part) => part.text).join(''))
   parent.append(content)
-  for (const code of content.querySelectorAll('code')) {
+  // 仅块级代码交给只读代码视图；行内 code 保持行内流，块级编辑器会把每个标识符强制换行。
+  for (const code of content.querySelectorAll<HTMLElement>('pre > code')) {
     const source = code.textContent ?? ''
     code.replaceChildren()
     codeViews.push(createScriptCodeView(code, source))

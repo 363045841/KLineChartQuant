@@ -41,7 +41,6 @@ import type {
   BarAggregation,
   InstrumentDescriptor,
   KLineAdjustment,
-  KLinePeriod,
   SourceCapabilities,
   TradingDate,
 } from '../../data/provider/types.js'
@@ -49,6 +48,7 @@ import {
   AUTO_SOURCE_ID,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
+  isKLinePeriod,
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
@@ -80,6 +80,7 @@ import { ScrollCompensator } from './scrollCompensator.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
+  invalidateRequests?(): void
   marketDataProviderRegistry?: MarketDataProviderRegistry
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
@@ -109,20 +110,6 @@ export interface DataDependencies {
 
 const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
 const CUSTOM_SOURCE_PREFIX = 'chart-custom:'
-
-const KLINE_PERIODS = new Set<KLinePeriod>([
-  '1min',
-  '5min',
-  '15min',
-  '30min',
-  '60min',
-  '4h',
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'yearly',
-])
 
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
@@ -173,6 +160,11 @@ export class ChartDataManager {
   private _loadHint: IncrementalLoadHint
   private _pendingIncrementalLoadFlushTimer = 0
 
+  /** 跨周期行情复用市场运行模块。 */
+  get indicatorMarketData(): import('../indicators/instances/execution/marketDataTypes.js').IndicatorMarketData {
+    return this.marketRuntime
+  }
+
   private deps: DataDependencies
 
   constructor(deps: DataDependencies, dataState: DataStateModule, dmState: DataManagerStateModule) {
@@ -188,6 +180,30 @@ export class ChartDataManager {
       visibleRange: deps.viewport.readonly.visibleRange,
       data: dataState.readonly.data,
       needsTrades: () => deps.needsTrades(),
+      invalidateRequests: () => deps.invalidateRequests?.(),
+      resolveBarsSelection: (instrument, period, adjustment, barAggregation) => {
+        const specs = [...this.symbols.peek(), ...this.deps.comparison.readonly.specs.peek()]
+        const matching = specs.find(
+          (spec) =>
+            sourceIdFromSpec(spec) === instrument.sourceId &&
+            (spec.instrument === undefined
+              ? spec.symbol === instrument.symbol &&
+                (spec.exchange === undefined || spec.exchange === instrument.exchange)
+              : spec.instrument.id === instrument.id),
+        )
+        const spec: SymbolSpec =
+          matching === undefined
+            ? {
+                market: instrument.exchange,
+                symbol: instrument.symbol,
+                instrument,
+                source: instrument.sourceId,
+                period,
+                adjust: adjustment,
+              }
+            : { ...matching, period, adjust: adjustment }
+        return { ...this.barsSelectionForSpec(spec), barAggregation }
+      },
       publishTrades: (snapshot) => deps.updateTradeInput(snapshot),
       writeBars: (session, bars) => {
         this._repository.getBars(session.selection)?.applyRealtimeBars(bars)
@@ -238,17 +254,24 @@ export class ChartDataManager {
   private barsSelectionForSpec(spec: SymbolSpec): BarsSelection {
     const period = ChartDataManager.normalizePeriod(spec.period)
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
-    if (!KLINE_PERIODS.has(period as KLinePeriod)) {
+    if (!isKLinePeriod(period)) {
       throw new Error(`[ChartDataManager] invalid K-line period "${period}"`)
     }
     if (!KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
       throw new Error(`[ChartDataManager] invalid K-line adjustment "${adjustment}"`)
     }
+    const existing = this.marketRuntime.findBarsSelection(
+      spec,
+      period,
+      adjustment as KLineAdjustment,
+      this.barAggregation(),
+    )
+    if (existing !== undefined) return existing
     return {
       kind: SERIES_SELECTION_KIND.bars,
       instrumentKey: instrumentKeyFromSpec(spec),
       sourceId: sourceIdFromSpec(spec),
-      period: period as KLinePeriod,
+      period,
       adjustment: adjustment as KLineAdjustment,
       barAggregation: this.barAggregation(),
     }
@@ -491,10 +514,7 @@ export class ChartDataManager {
     this.loadRequests.set(buffer, request)
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
-    if (
-      !KLINE_PERIODS.has(period as KLinePeriod) ||
-      !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
-    ) {
+    if (!isKLinePeriod(period) || !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
       throw new Error(`[MarketDataCache] invalid bars request for "${spec.symbol}"`)
     }
     buffer.setLoading(true)
@@ -505,7 +525,7 @@ export class ChartDataManager {
         symbol: spec.symbol,
         exchange: spec.exchange,
         assetClass: spec.instrument?.assetClass,
-        period: period as KLinePeriod,
+        period,
         adjustment: adjustment as KLineAdjustment,
         barAggregation: selection.barAggregation,
         limit: target.limit,
@@ -530,6 +550,20 @@ export class ChartDataManager {
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+      const resolvedSelection = { ...selection, sourceId: result.sourceId }
+      if (
+        this.deps.comparison.readonly.specs
+          .peek()
+          .some(
+            (comparison) =>
+              seriesSelectionKey(
+                this.barsSelectionForSpec(this.comparisonSpecForPrimary(comparison)),
+              ) === seriesSelectionKey(resolvedSelection),
+          )
+      ) {
+        const session = this.readySession(resolvedSelection, buffer)
+        if (session !== null) this.marketRuntime.retainComparison(session, buffer)
+      }
       if (
         this.isActiveSelection(selection) &&
         buffer.loadedTimeRange?.earliestTs !== previousEarliest
@@ -688,6 +722,17 @@ export class ChartDataManager {
           : spec,
       )
     this.deps.setSymbols(symbols)
+    const comparisons = this.deps.comparison.readonly.specs.peek()
+    const resolvedComparisons = comparisons.map((spec) =>
+      sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
+      selection.kind === SERIES_SELECTION_KIND.bars &&
+      seriesSelectionKey(this.barsSelectionForSpec(this.comparisonSpecForPrimary(spec))) ===
+        seriesSelectionKey(selection)
+        ? { ...spec, source: sourceId, instrument }
+        : spec,
+    )
+    if (resolvedComparisons.some((spec, index) => spec !== comparisons[index]))
+      this.deps.comparison.actions.setSpecs(resolvedComparisons)
     const current = this._dmState.readonly.currentSpec.peek()
     if (
       current &&
@@ -1100,6 +1145,7 @@ export class ChartDataManager {
 
   /** 删除不再被 comparison 或当前主品种引用的 Repository 叶子。 */
   private releaseComparisonSelection(selection: BarsSelection): void {
+    if (!this.marketRuntime.releaseComparison(selection)) return
     if (this.isActiveSelection(selection)) return
     const primary = this._dataState.readonly.symbols.peek()[0]
     if (

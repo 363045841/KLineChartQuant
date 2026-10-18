@@ -3,7 +3,7 @@ import type {
   ArrowOptions,
   CharOptions,
   PlotCollection,
-  PlotKind,
+  ScalarPlot,
   ShapeOptions,
   ShapeSize,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -11,7 +11,11 @@ import type { ColorTokens } from '@/foundation/tokens/index.js'
 
 export type {
   ArrowPlot,
+  BarPlot,
+  CandlePlot,
   CharPlot,
+  OhlcPlot,
+  OhlcPlotPoint,
   Plot,
   PlotCollection,
   PlotFill,
@@ -36,7 +40,7 @@ export interface PlotSource {
 export interface PlotSpec extends PlotSource, ShapeOptions, CharOptions, ArrowOptions {
   readonly id: string
   readonly label?: string | ((params: Readonly<Record<string, unknown>>) => string)
-  readonly kind?: PlotKind
+  readonly kind?: ScalarPlot['kind']
   readonly show?: string
   readonly color: (colors: ColorTokens) => string
   readonly pointColor?: (

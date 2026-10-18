@@ -22,6 +22,7 @@
         :k-line-level="kLineLevel"
         :k-line-adjust="kLineAdjust"
         :k-line-shape="kLineShape"
+        :k-line-shape-disabled="kLineShapeDisabled"
         :symbol-loading="symbolStatus === 'loading'"
         :symbol-error="symbolStatus === 'error'"
         :symbol-retrying="symbolRetrying"
@@ -378,6 +379,7 @@
     normalizeSettings,
     TOOLTIP_POSITION_NONE,
   } from '@363045841yyt/klinechart-core/config'
+  import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
   import {
     type ChartController,
     type ChartMountOptions,
@@ -406,6 +408,7 @@
   } from '@vue-src/composables/market/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
+  import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
   import {
     computed,
     inject,
@@ -557,7 +560,7 @@
 
   // ── Slot Props Types ──
 
-  /** kline-tooltip 插槽作用域。hoveredKLine && !isMobile 时渲染，hoverData 一定不为 null。 */
+  /** kline-tooltip 插槽作用域。细指针且存在 hoveredKLine 时渲染，hoverData 一定不为 null。 */
   export interface KlineTooltipSlotProps {
     hoverData: import('@363045841yyt/klinechart-core/types/price').KLineData
     hoveredIndex: number | null
@@ -984,6 +987,15 @@
     () => _initialResolved,
   )
   const kLineShape = computed(() => liveSettings.value.klineShape ?? 'candlestick')
+  const footprintSupported = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.footprintSupported,
+    () => true,
+  )
+  // 品种缺少原始逐笔成交时足迹图无数据可聚合，入口置灰而不是在图上提示。
+  const kLineShapeDisabled = computed<readonly string[]>(() =>
+    footprintSupported.value ? [] : [FOOTPRINT_SHAPE],
+  )
   function onKLineShapeChange(shape: NonNullable<ChartSettings['klineShape']>): void {
     handleSettingsChange({ ...liveSettings.value, klineShape: shape })
   }
@@ -1328,7 +1340,8 @@
   )
 
   const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
-  const isMobile = window.matchMedia('(pointer: coarse)').matches
+  const deviceEnvironment = useDeviceEnvironment()
+  const isCoarsePointer = computed(() => deviceEnvironment.value.isCoarsePointer)
 
   /** 数据悬浮框是否启用；设置为“不显示”时隐藏内置与外部 tooltip */
   const isTooltipEnabled = computed(
@@ -1350,7 +1363,7 @@
     containerRef,
     colors: tooltipColors,
     hasExternalSlot: hasKLineTooltipSlot,
-    isMobile,
+    isCoarsePointer,
     isIntraday: () => isIntraday.value,
     timezone: () => props.timezone,
     isDraggable: () => isTooltipDraggable.value,
@@ -1368,7 +1381,7 @@
     return null
   })
   const showExternalKLineTooltip = computed(
-    () => externalHoveredKLine.value !== null && !isMobile && isTooltipEnabled.value,
+    () => externalHoveredKLine.value !== null && !isCoarsePointer.value && isTooltipEnabled.value,
   )
   const externalKLineTooltipStyle = computed(() => {
     const position = dragPos.value ?? externalInteractionState.value.tooltipPos

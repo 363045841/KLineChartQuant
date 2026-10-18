@@ -8,12 +8,24 @@ export type {
   ArrowOptions,
   ArrowPlot,
   ArrowPlotDeclaration,
+  BarPlot,
+  BarPlotDeclaration,
+  BarPlotOptions,
+  CandlePlot,
+  CandlePlotDeclaration,
+  CandlePlotOptions,
   CharOptions,
   CharPlot,
   CharPlotDeclaration,
   HistogramPlot,
   InputSchema,
+  LineBRPlot,
+  LineBRPlotDeclaration,
   LinePlot,
+  OhlcPlot,
+  OhlcPlotDeclaration,
+  OhlcPlotOptions,
+  OhlcPlotPoint,
   Plot,
   PlotCollection,
   PlotDeclaration,
@@ -21,18 +33,26 @@ export type {
   PlotFillDeclaration,
   PlotPoint,
   PointsPlot,
+  ScalarPlot,
+  ScalarPlotDeclaration,
   ShapeOptions,
   ShapePlot,
   ShapePlotDeclaration,
+  StepLineBRPlot,
+  StepLineBRPlotDeclaration,
+  StepLinePlot,
+  StepLinePlotDeclaration,
 } from '@363045841yyt/klinechart-plot-contracts'
 export {
   Color,
+  DataSource,
   PlotCollector,
   type PlotCollectorOptions,
   PlotKind,
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
+  Timeframe,
 } from '@363045841yyt/klinechart-plot-contracts'
 export * from './contracts/input.js'
 export * from './contracts/library.js'
@@ -56,4 +76,11 @@ export type {
   ScriptParamValue,
 } from './quickjs/types.js'
 export { Position } from './quickjs/types.js'
+export type {
+  RequestSnapshot,
+  ScriptRequest,
+  ScriptRequestContext,
+  SecurityOptions,
+  SecurityRequest,
+} from './request/types.js'
 export type { Series } from './series/types.js'

@@ -75,7 +75,7 @@ function makeSceneRenderer(capsName = 'webgl2') {
 }
 
 describe('candle sceneRenderer path', () => {
-  it('draws via sceneRenderer.drawInstances on webgl', () => {
+  it.each(['candlestick', 'footprint'] as const)('draws %s via sceneRenderer.drawInstances on webgl', (klineShape) => {
     const { r, drawInstances } = makeSceneRenderer()
 
     const ctx = createCtx(r, {
@@ -83,7 +83,7 @@ describe('candle sceneRenderer path', () => {
       range: { start: 0, end: 5 },
       kLinePositions: [0, 10, 20, 30, 40],
       kLineCenters: [4, 14, 24, 34, 44],
-      settings: { rendererBackend: 'webgl' },
+      settings: { rendererBackend: 'webgl', klineShape },
     })
 
     paint(ctx)
@@ -128,6 +128,57 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it('足迹模式在没有历史成交时仍绘制全部可见空心 K 线和影线', () => {
+    const canvas = createMockCanvasContext()
+    const context = createCtx(undefined, {
+      ctx: canvas,
+      data: makeBars(5),
+      range: { start: 0, end: 5 },
+      kLineCenters: [4, 14, 24, 34, 44],
+      kWidthPx: 8,
+      settings: { klineShape: 'footprint' },
+    })
+    paint(context)
+    const footprintRects = [...vi.mocked(canvas.fillRect).mock.calls]
+    expect(footprintRects).toHaveLength(30)
+    vi.mocked(canvas.fillRect).mockClear()
+    paint({ ...context, settings: { klineShape: 'hollow-candlestick' } })
+    expect(vi.mocked(canvas.fillRect).mock.calls).toEqual(footprintRects)
+  })
+
+  it('同一行情版本切换美国线使缓存失效，GPU 与 Canvas 使用相同矩形', () => {
+    const canvas = createMockCanvasContext()
+    const layer = createCandleLayer()
+    const context = createCtx(undefined, {
+      ctx: canvas,
+      data: makeBars(1),
+      range: { start: 0, end: 1 },
+      kLineCenters: [100],
+      kWidthPx: 11,
+      dataRevision: 1,
+      settings: { klineShape: 'candlestick' },
+    })
+    layer.paint(context)
+    vi.mocked(canvas.fillRect).mockClear()
+    const barContext = { ...context, settings: { klineShape: 'ohlc-bar' } } as const
+    layer.paint(barContext)
+    const rects = vi.mocked(canvas.fillRect).mock.calls
+    expect(rects).toHaveLength(3)
+    const [stem, open, close] = rects
+    if (!stem || !open || !close) throw new Error('Missing OHLC geometry')
+    expect(open[0] + open[2]).toBe(stem[0])
+    expect(close[0]).toBe(stem[0] + stem[2])
+    for (const backend of ['webgl2', 'webgpu']) {
+      const { r, writeBuffer } = makeSceneRenderer(backend)
+      layer.paint({ ...barContext, sceneRenderer: r })
+      const actual = writeBuffer.mock.calls.flatMap(([, data]) =>
+        data instanceof Float32Array ? [...data] : [],
+      )
+      expect(actual).toEqual(rects.flatMap((rect) => rect))
+    }
+    layer.dispose()
+  })
+
   it.each([1, 1.25, 1.5, 2, 3].flatMap((dpr) => [false, true].map((down) => ({ dpr, down }))))(
     'hollow candles preserve transparent interiors and backend geometry at DPR=$dpr down=$down',
     ({ dpr, down }) => {

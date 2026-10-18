@@ -478,6 +478,28 @@ export class MarketDataCache {
     }
   }
 
+  /** 实时帧回写所有指向同一事实序列的查询条目，后续历史查询不会覆盖最新尾部。 */
+  acceptBars(
+    selection: import('./seriesRepository.js').BarsSelection,
+    instrument: InstrumentDescriptor,
+    bars: readonly KLineData[],
+  ): void {
+    this.throwIfDestroyed()
+    for (const [key, entry] of this.bars) {
+      if (
+        entry.sourceId !== selection.sourceId ||
+        entry.instrument.id !== instrument.id ||
+        entry.series.period !== selection.period ||
+        entry.series.adjustment !== selection.adjustment ||
+        entry.series.barAggregation !== selection.barAggregation
+      )
+        continue
+      const value = { ...entry, data: mergeBars(entry.data, bars) }
+      this.bars.set(key, value)
+      this.recordEntry({ kind: 'bars', key, bytes: estimateBytes(value) })
+    }
+  }
+
   /** 查询单个交易日分时，命中后直接返回缓存快照。 */
   async queryTimeShare(query: TimeShareCacheQuery): Promise<TimeShareCacheResult> {
     this.throwIfDestroyed()

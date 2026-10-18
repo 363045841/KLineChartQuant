@@ -30,7 +30,7 @@
             type="button"
             class="script-workspace__icon-button"
             aria-label="格式化"
-            :disabled="!editable || languageLoading || !!languageError"
+            :disabled="!formatAvailable"
             @click="formatDocument"
           >
             <IconTablerAlignLeft aria-hidden="true" />
@@ -103,7 +103,7 @@
     set: (value) => emit('update:source', value),
   })
   const editable = computed(() => props.identity === 'user' && !props.saving)
-  const { languageLoading, languageError, formatDocument } = useCodeMirror(
+  const { languageLoading, languageError, formatAvailable, formatDocument } = useCodeMirror(
     editorHost,
     source,
     (next) => emit('update:source', next),

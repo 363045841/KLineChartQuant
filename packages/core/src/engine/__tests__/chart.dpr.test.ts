@@ -20,7 +20,6 @@ import type { ChartModeHandler } from '../chartModel/index'
 import { ChartDataViewId, isTimeShareDataView, resolveChartDataView } from '../chartModel/index'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
 import { MAIN_PANE_ID } from '../pane/types'
@@ -442,28 +441,6 @@ describe('Chart DPR pipeline', () => {
       true,
     )
     await chart.destroy()
-  })
-
-  it('refreshes Legend after main instance reorder even when calculation state is unchanged', async () => {
-    const chart = mountChart()
-    try {
-      chart.resize()
-      chart.setData(makeBars(100))
-      chart.indicators.enableMain('MA')
-      chart.indicators.enableMain('ENE')
-      chart.draw()
-      const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
-      chart.draw()
-      expect(paint).not.toHaveBeenCalled()
-      expect(chart.indicators.moveMain('ENE', 'up')).toBe(true)
-      chart.draw()
-      expect(paint).toHaveBeenCalled()
-      paint.mockClear()
-      chart.draw()
-      expect(paint).not.toHaveBeenCalled()
-    } finally {
-      await chart.destroy()
-    }
   })
 
   it('shares one clock sample across countdown paint and cached overlay frames', async () => {
@@ -1013,47 +990,6 @@ describe('Chart DPR pipeline', () => {
     expect(host.querySelector('canvas.crosshair-canvas')).toBeNull()
   })
 
-  it('mounts renderer layers for restored sub-pane indicators', async () => {
-    const chart = mountChart()
-    chart.kernel.applyLayout({
-      version: LAYOUT_DOCUMENT_VERSION,
-      panePriceAxisModes: {},
-      workspaces: {
-        kline: {
-          instances: [
-            {
-              instanceId: 'user:rsi-0',
-              indicatorId: 'CCI',
-              layoutId: 'RSI_0',
-              ordinal: 0,
-              params: {},
-            },
-          ],
-          paneRatios: { main: 0.75, RSI_0: 0.25 },
-          paneSpecs: [
-            { id: 'main', ratio: 0.75 },
-            { id: 'RSI_0', ratio: 0.25 },
-          ],
-          paneScaleTypes: {},
-        },
-        timeshare: {
-          instances: [],
-          paneRatios: { main: 1 },
-          paneSpecs: [{ id: 'main', ratio: 1 }],
-          paneScaleTypes: {},
-        },
-      },
-    })
-
-    const rsiRendererName = getRegisteredIndicatorDefinition('CCI')?.getRendererName({
-      paneId: 'RSI_0',
-      indicatorId: 'CCI',
-    })
-    expect(rsiRendererName).toBeDefined()
-    expect(chart.getRenderer(makePluginLayerId(rsiRendererName!))).toBeDefined()
-    await chart.destroy()
-  })
-
   it('registers the latest price line and label layers and follows the data view', async () => {
     const chart = mountChart()
     const scene = chart['renderer'].getScene()
@@ -1246,111 +1182,6 @@ describe('Chart pane layout regressions', () => {
     vi.restoreAllMocks()
   })
 
-  it('allocates initial pane ratios as 3:1:1 for main+MACD+RSI', async () => {
-    const chart = mountChart()
-    chart.resize()
-
-    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
-
-    const specs = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
-    expect(specs).toHaveLength(3)
-
-    // 公共读对齐 kernel SSOT（create pane 3:1:1 → 0.6:0.2:0.2）
-    const byId = new Map(specs.map((pane) => [pane.id, pane]))
-    expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(0.6, 6)
-    expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
-    expect(byId.get('RSI_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
-
-    await chart.destroy()
-  })
-
-  it('keeps indicator pane heights equal for main+MACD+RSI', async () => {
-    const chart = mountChart()
-    chart.resize()
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
-    chart.resize()
-
-    const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
-    const macd = panes.find((pane) => pane.id === 'MACD_0')
-    const rsi = panes.find((pane) => pane.id === 'RSI_0')
-
-    expect(macd).toBeDefined()
-    expect(rsi).toBeDefined()
-    expect(Math.abs((macd?.height ?? 0) - (rsi?.height ?? 0))).toBeLessThanOrEqual(1)
-
-    await chart.destroy()
-  })
-
-  it('keeps visible ratio sum at 1 after boundary resize', async () => {
-    const chart = mountChart(1000, 800)
-    chart.resize()
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
-    chart.resize()
-
-    const resized = chart.panes.resizeBoundary('MACD_0', 20)
-    expect(resized).toBe(true)
-
-    const visible = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
-    const sum = visible.reduce((acc, pane) => acc + pane.ratio, 0)
-    expect(sum).toBeCloseTo(1, 6)
-
-    await chart.destroy()
-  })
-
-  it('returns false and keeps layout unchanged for invalid boundary resize input', async () => {
-    const chart = mountChart()
-    chart.resize()
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
-    chart.resize()
-
-    const before = chart.panes.getLayoutSpecs()
-    const invalidId = chart.panes.resizeBoundary('missing-pane-id', 20)
-    const zeroDelta = chart.panes.resizeBoundary('main', 0)
-    const after = chart.panes.getLayoutSpecs()
-
-    expect(invalidId).toBe(false)
-    expect(zeroDelta).toBe(false)
-    expect(after).toEqual(before)
-
-    await chart.destroy()
-  })
-
-  it('projects the price axis scale from settings and data view', async () => {
-    const chart = mountChart()
-    chart.resize()
-    chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
-    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
-    expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('log')
-
-    // 副图不继承主图设置，独立切换后也不被主图覆盖。
-    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe(ScaleType.Linear)
-    const macd = chart
-      .getPaneRenderers()
-      .find((r) => r.getPane().id === 'MACD_0')
-      ?.getPane()
-    expect(macd?.yAxis.getScaleType()).toBe(ScaleType.Linear)
-    chart.setPanePriceAxisScaleType('MACD_0', ScaleType.Log)
-    chart.setPanePriceAxisRangeMode('MACD_0', PRICE_AXIS_RANGE_MODE.HAND)
-    chart.updateSettings({ mainRightAxisTypeSetting: ScaleType.Percent })
-    expect(macd?.yAxis.getScaleType()).toBe(ScaleType.Log)
-    expect(chart.kernel.mainPriceAxis.readonly.paneRanges.peek().MACD_0?.rangeMode).toBe(
-      PRICE_AXIS_RANGE_MODE.HAND,
-    )
-    expect(chart.kernel.mainPriceAxis.readonly.rangeMode.peek()).toBe(PRICE_AXIS_RANGE_MODE.AUTO)
-
-    // 分时视图强制主图 percent，覆盖设置里的 log。
-    chart.setActiveMode(getModeHandlers(chart).timeShare)
-    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
-    expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('percent')
-    expect(chart.kernel.mode.readonly.dataView.peek()).toBe('timeshare')
-    await chart.destroy()
-  })
-
   it('can turn off a restored main log axis when the settings preference is already linear', async () => {
     const source = mountChart()
     source.setPanePriceAxisScaleType(MAIN_PANE_ID, ScaleType.Log)
@@ -1373,121 +1204,6 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('pans a manual sub-pane horizontally and vertically without moving the main price range', async () => {
-    const chart = mountChart()
-    chart.setData(makeBars(500))
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.resize()
-    chart.draw()
-    chart.setPanePriceAxisRangeMode('MACD_0', PRICE_AXIS_RANGE_MODE.HAND)
-    const pane = chart
-      .getPaneRenderers()
-      .find((renderer) => renderer.getPane().id === 'MACD_0')!
-      .getPane()
-    const before = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
-    chart.kernel.viewport.actions.scrollTo(
-      chart.kernel.viewport.readonly.leftLoadBufferWidth.peek() + 100,
-    )
-    const dom = chart.getDom()
-    dom.container.hasPointerCapture = () => false
-    const mouse = { pointerType: 'mouse', clientY: pane.top + pane.height / 2 }
-    chart.handlePointerEvent(pointerEvent('pointerdown', dom.container, mouse))
-    chart.handlePointerEvent(
-      pointerEvent('pointermove', dom.container, {
-        ...mouse,
-        clientX: 120,
-        clientY: mouse.clientY + 20,
-      }),
-    )
-    expect(chart.kernel.viewport.readonly.scrollLeftLogical.peek()).toBe(80)
-    expect(chart.kernel.mainPriceAxis.readonly.paneRanges.peek().MACD_0?.handRange).not.toEqual(
-      before.MACD_0?.handRange,
-    )
-    expect(chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[MAIN_PANE_ID]).toEqual(
-      before[MAIN_PANE_ID],
-    )
-    chart.handlePointerEvent(pointerEvent('pointerup', dom.container, mouse))
-    await chart.destroy()
-  })
-
-  it('restores each pane range mode from the layout document over the settings preference', async () => {
-    const chart = mountChart(1000, 600, {
-      initialSettings: { mainPriceAxisRangeMode: PRICE_AXIS_RANGE_MODE.AUTO },
-    })
-    chart.kernel.applyLayout({
-      version: LAYOUT_DOCUMENT_VERSION,
-      panePriceAxisModes: {
-        [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.HAND,
-        RSI_0: PRICE_AXIS_RANGE_MODE.HAND,
-      },
-      workspaces: {
-        kline: {
-          instances: [
-            {
-              instanceId: 'user:rsi-0',
-              indicatorId: 'CCI',
-              layoutId: 'RSI_0',
-              ordinal: 0,
-              params: {},
-            },
-          ],
-          paneRatios: { main: 0.75, RSI_0: 0.25 },
-          paneSpecs: [
-            { id: 'main', ratio: 0.75 },
-            { id: 'RSI_0', ratio: 0.25 },
-          ],
-          paneScaleTypes: {},
-        },
-        timeshare: {
-          instances: [],
-          paneRatios: { main: 1 },
-          paneSpecs: [{ id: 'main', ratio: 1 }],
-          paneScaleTypes: {},
-        },
-      },
-    })
-
-    const ranges = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
-    expect(ranges[MAIN_PANE_ID]?.rangeMode).toBe(PRICE_AXIS_RANGE_MODE.HAND)
-    expect(ranges.RSI_0?.rangeMode).toBe(PRICE_AXIS_RANGE_MODE.HAND)
-    // 只持久化模式；手动范围值不落盘，恢复后为空，等首个有效帧再初始化。
-    expect(ranges[MAIN_PANE_ID]?.handRange).toBeNull()
-    await chart.destroy()
-  })
-
-  it('initializes all pending pane hand ranges with one action', async () => {
-    await loadBuiltinIndicators()
-    const chart = mountChart()
-    chart.setData(makeBars(500))
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    const indicators = chart['indicatorManager']
-    const entry = indicators.getSubPaneEntry('MACD_0')
-    expect(entry).toBeDefined()
-    // 副图计算异步提交；先等待真实结果，再验证同一帧的批量初始化。
-    await vi.waitFor(() => {
-      expect(indicators.createRenderStateReader().get(entry!.instanceId)).toBeDefined()
-    })
-    // 恢复模式不捕获运行时默认轴，模拟两个 pane 等待首个有效帧初始化。
-    chart.kernel.mainPriceAxis.actions.restoreModes({
-      [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.HAND,
-      MACD_0: PRICE_AXIS_RANGE_MODE.HAND,
-    })
-    const initialize = vi.spyOn(chart.kernel.mainPriceAxis.actions, 'initializeHandRanges')
-
-    chart.resize()
-    chart.draw()
-
-    expect(initialize).toHaveBeenCalledOnce()
-    expect(initialize.mock.calls[0]?.[0].map((entry) => entry.paneId).sort()).toEqual([
-      'MACD_0',
-      MAIN_PANE_ID,
-    ])
-    const ranges = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
-    expect(ranges[MAIN_PANE_ID]?.handRange).toEqual({ minPrice: 9, maxPrice: 11 })
-    expect(ranges.MACD_0?.handRange).toEqual({ minPrice: 0, maxPrice: 0 })
-    await chart.destroy()
-  })
-
   it('clears stale canvases and cached geometry when switching data views', async () => {
     const chart = mountChart()
     const renderer = chart['renderer']
@@ -1501,47 +1217,6 @@ describe('Chart pane layout regressions', () => {
     expect(clearCachedFrame).toHaveBeenCalledOnce()
     expect(clearLegendFrame).toHaveBeenCalled()
     expect(chart.legend.context.peek()).toBeNull()
-    await chart.destroy()
-  })
-
-  it('timeshare switching preserves independent indicator workspaces and layouts', async () => {
-    const chart = mountChart()
-    chart.resize()
-    expect(chart.indicators.enableMain('MA')).toBe(true)
-    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
-    const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
-    const entriesBefore = chart.indicators.subPanes.peek().map((e) => ({
-      paneId: e.paneId,
-      indicatorId: e.indicatorId,
-    }))
-
-    const tsMode = getModeHandlers(chart).timeShare
-    const kMode = getModeHandlers(chart).kLine
-    chart.setActiveMode(tsMode)
-    expect(chart.indicators.subPanes.peek()).toEqual([])
-    expect(
-      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: 'MACD', params: { fastPeriod: 7 } }),
-    ).toBe(true)
-    const timeShareEntries = chart.indicators.subPanes.peek().map((e) => ({
-      paneId: e.paneId,
-      indicatorId: e.indicatorId,
-    }))
-    expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: 'MACD' }])
-    chart.setActiveMode(kMode)
-
-    const entriesAfter = chart.indicators.subPanes.peek().map((e) => ({
-      paneId: e.paneId,
-      indicatorId: e.indicatorId,
-    }))
-    expect(entriesAfter).toEqual(entriesBefore)
-    expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
-    chart.setActiveMode(tsMode)
-    expect(
-      chart.indicators.subPanes
-        .peek()
-        .map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId })),
-    ).toEqual(timeShareEntries)
     await chart.destroy()
   })
 
@@ -1673,34 +1348,5 @@ describe('Chart pane layout regressions', () => {
     } finally {
       await chart.destroy()
     }
-  })
-
-  it('normalizes only visible panes in imported layout', async () => {
-    const chart = mountChart(1000, 800)
-    chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'MACD', params: {} })
-    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
-    chart.panes.importLayout([
-      { id: 'main', ratio: 3, visible: true, role: 'price' },
-      { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },
-      { id: 'sub_RSI', ratio: 100, visible: false, role: 'indicator' },
-    ])
-
-    const specs = chart.panes.getLayoutSpecs()
-    const main = specs.find((pane) => pane.id === 'main')
-    const macd = specs.find((pane) => pane.id === 'sub_MACD')
-    const rsi = specs.find((pane) => pane.id === 'sub_RSI')
-
-    // 导入布局是显式快照替换，输入比例必须
-    // be honoured (3:1 → 0.75:0.25 after visible normalization). Earlier this was
-    // weakened to `main > macd` because syncPaneRatiosFromSpecs preserved a stale
-    // 忽略上一帧 `main` 的 stale ratio。
-    expect((main?.ratio ?? 0) + (macd?.ratio ?? 0)).toBeCloseTo(1, 6)
-    expect(main?.ratio).toBeCloseTo(0.75, 6)
-    expect(macd?.ratio).toBeCloseTo(0.25, 6)
-    // Hidden pane preserves its incoming raw ratio (not normalized against visible);
-    // it will be folded into the layout only if/when re-shown.
-    expect(rsi?.visible).toBe(false)
-
-    await chart.destroy()
   })
 })

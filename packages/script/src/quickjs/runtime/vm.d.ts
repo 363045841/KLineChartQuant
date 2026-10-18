@@ -20,6 +20,7 @@ type InputOptions = import('@363045841yyt/klinechart-plot-contracts').InputOptio
 type ScriptInput = import('../../editor/types.js').ScriptInput
 type NumberInputOptions = import('@363045841yyt/klinechart-plot-contracts').NumberInputOptions
 type StringInputOptions = import('@363045841yyt/klinechart-plot-contracts').StringInputOptions
+type TimeframeInputOptions = import('@363045841yyt/klinechart-plot-contracts').TimeframeInputOptions
 
 /** 内置技术分析库的公开契约。 */
 type TechnicalAnalysisLibrary = import('../../Library/types.js').TechnicalAnalysisLibrary
@@ -39,9 +40,12 @@ declare function __count(): number
 /** 宿主注入：上报当前 K 线的绘图点。 */
 declare function __plot(
   kind: PlotKind,
-  value: number | null,
+  value:
+    | number
+    | null
+    | { open: number | null; high: number | null; low: number | null; close: number | null },
   name: string,
-  options?: ScriptPlotOptions,
+  options?: ScriptPlotOptions | import('@363045841yyt/klinechart-plot-contracts').CandlePlotOptions,
 ): void
 
 /** 调用处的样式选项，与编辑器共用契约。 */
@@ -67,3 +71,7 @@ declare function __fill(
 
 /** 宿主注入：脚本参数，键为 inputs 中声明的参数名。 */
 declare const params: Record<string, ScriptParamValue>
+
+/** 宿主注入的跨周期计算输入，仅包含可克隆数据。 */
+declare const __requestContext: import('../../request/types.js').RequestExecution
+declare function __emitRequestResult(value: import('../../request/types.js').RequestValue): void

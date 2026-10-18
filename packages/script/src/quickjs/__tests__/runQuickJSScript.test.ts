@@ -387,6 +387,7 @@ describe('runQuickJSScript', () => {
     expect(result.plots).toHaveLength(12)
     for (const [index, plot] of result.plots.entries()) {
       expect(plot.kind).toBe('shape')
+      if (plot.kind !== 'shape') throw new Error('Expected Shape Plot')
       expect(plot.data.filter((point) => point?.value === 1)).toHaveLength(1)
       expect(plot.data[index]?.value).toBe(1)
     }
@@ -793,6 +794,21 @@ plot.Line(ta.mom(close)[0], 'step')`),
     })
   })
 
+  it('周期输入接受 Timeframe 成员并保存声明', () => {
+    const definition = readQuickJSScriptDefinitionSync(
+      `defineIndicator({ name: 'TimeframeScript', position: Position.Sub, onBar() {
+        const timeframe = input.timeframe(Timeframe.Day, {
+          title: '目标周期',
+          options: [Timeframe.Hour1, Timeframe.Day],
+        })
+        plot.Line(ta.sma(close, 2)[0], timeframe)
+      } })`,
+    )
+    expect(definition.inputs).toEqual({
+      timeframe: { default: 'D', title: '目标周期', options: ['60', 'D'] },
+    })
+  })
+
   it.each([
     `plot.Line(1, 'x')`,
     `defineIndicator({ name: 'MissingPosition', inputs: {}, onBar() {} })`,
@@ -801,6 +817,8 @@ plot.Line(ta.mom(close)[0], 'step')`),
     `defineIndicator({ name: 'Bad', inputs: { period: input.int(2.5) }, onBar() {} })`,
     `defineIndicator({ name: 'Bad', inputs: { period: input.string('a', { options: [] }) }, onBar() {} })`,
     `defineIndicator({ name: 'Bad', inputs: { period: input.string('a', { options: [1] }) }, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', inputs: { timeframe: input.timeframe('2h') }, onBar() {} })`,
+    `defineIndicator({ name: 'Bad', inputs: { timeframe: input.timeframe('D', { options: ['60'] }) }, onBar() {} })`,
     `defineIndicator({ name: 'Bad', inputs: {}, onBar() {} }); defineIndicator({})`,
   ])('拒绝不完整或错误声明：%s', async (source) => {
     await expect(runQuickJSScript({ source, bars: [] })).rejects.toBeInstanceOf(

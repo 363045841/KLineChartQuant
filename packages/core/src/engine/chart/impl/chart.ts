@@ -9,6 +9,7 @@
  *
  * 不是绘制管线的一部分。绘制由 ChartRenderer 完成，Chart 仅负责代理调用并维护 runtimeProjection（批量投影）屏障。
  */
+import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
 
 import {
   CHART_RENDERERS_SERVICE,
@@ -215,6 +216,8 @@ export class Chart {
   private disposeActiveRendererProjection: (() => void) | null = null
   private disposeLeftAxisProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
+  private footprintRuntime: ReturnType<typeof createFootprintRuntime>
+  private disposeFootprintDraw: (() => void) | null = null
   private disposeSettingsProjection: (() => void) | null = null
   /** 图例领域操作与展示投影的唯一入口。 */
   readonly legend: LegendManager
@@ -358,15 +361,9 @@ export class Chart {
         getDom: () => this.dom,
         viewport: this.kernel.viewport,
         comparison: this.kernel.comparison,
-        needsTrades: () =>
-          this.kernel.indicator.readonly.instances
-            .peek()
-            .some((instance) =>
-              getRegisteredIndicatorDefinition(instance.indicatorId)?.runtime?.inputs?.includes(
-                'trades',
-              ),
-            ),
-        updateTradeInput: (input) => this.indicatorManager.updateTradeInput(input),
+        needsTrades: () => this.kernel.footprint.readonly.enabled.peek(),
+        updateTradeInput: (input) => this.kernel.data.actions.setTrades(input),
+        invalidateRequests: () => this.indicatorManager.invalidateMarketData(),
         scheduleDraw: (level) => this.scheduleDraw(level),
         onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
         resetInteraction: () => {
@@ -386,9 +383,14 @@ export class Chart {
         this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
       ),
     )
-    this.disposeTradeDemand = this.kernel.indicator.readonly.instances.subscribe(() =>
+    this.disposeTradeDemand = this.kernel.footprint.readonly.enabled.subscribe(() =>
       this.dataManager.reconcileTradeInput(),
     )
+    this.footprintRuntime = createFootprintRuntime({
+      input$: this.kernel.footprint.readonly.input,
+      commit: this.kernel.footprint.actions.commit,
+    })
+    this.disposeFootprintDraw = this.kernel.footprint.readonly.renderState.subscribe(() => this.scheduleDraw())
 
     // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
     this.comparisonCommands = new ComparisonCommands({
@@ -482,6 +484,7 @@ export class Chart {
       getActiveMode: () => this.activeMode,
       dataView$: this.kernel.mode.readonly.dataView,
       primaryRenderer$: this.kernel.mode.readonly.effectivePrimaryRenderer,
+      footprintState$: this.kernel.footprint.readonly.renderState,
       settings$: this.kernel.settings.readonly.settings,
       mainPriceAxis: this.kernel.mainPriceAxis,
       drawings$: this.kernel.drawing.readonly.drawings,
@@ -543,6 +546,7 @@ export class Chart {
     })
 
     this.indicatorManager = new ChartIndicatorManager({
+      getMarketData: () => this.dataManager.indicatorMarketData,
       plotColors$: computed(() => {
         const settings = this.kernel.settings.readonly.settings()
         return resolveThemeColors(
@@ -1286,6 +1290,9 @@ export class Chart {
     this.disposeLeftAxisProjection = null
     this.disposeTradeDemand?.()
     this.disposeTradeDemand = null
+    this.disposeFootprintDraw?.()
+    this.disposeFootprintDraw = null
+    this.footprintRuntime.dispose()
     this.disposeSettingsProjection?.()
     this.disposeSettingsProjection = null
     this.indicatorManager.destroy()

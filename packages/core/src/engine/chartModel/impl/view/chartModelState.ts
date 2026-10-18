@@ -1,5 +1,7 @@
 /** ChartModel 状态：当前数据视图、主序列渲染偏好与视图派生能力。 */
 import { batch, computed, createSubState } from '../../../../foundation/reactivity/signal.js'
+import { createSignal, type ReadonlySignal } from '../../../../foundation/reactivity/signal.js'
+import type { ChartSettings } from '../../../../foundation/config/chartSettings.js'
 import {
   CHART_VIEW_DEFINITIONS,
   type ChartDataView,
@@ -7,31 +9,22 @@ import {
   DEFAULT_PRIMARY_RENDERERS,
   isTimeShareDataView,
   type PrimaryRendererByView,
-  type PrimaryRendererType,
   type ViewCapabilities,
 } from './chartViews.js'
 
-/** 按数据视图校验主渲染器，不支持的组合回退到视图默认值。 */
-function resolveEffectivePrimaryRenderer(
-  view: ChartDataView,
-  renderer: PrimaryRendererType,
-): PrimaryRendererType {
-  if (isTimeShareDataView(view) && renderer !== 'line' && renderer !== 'area') {
-    return 'line'
-  }
-  return renderer
-}
-
-export function createChartModel() {
+/** 主序列画法从设置派生，模型不再保存一份独立的 K 线偏好。 */
+export function createChartModel(settings$: ReadonlySignal<ChartSettings> = createSignal({})) {
   const { signals, readonly: sourceReadonly } = createSubState({
     dataView: ChartDataViewId.KLine as ChartDataView,
     lastBarPeriod: 'daily',
-    primaryRendererByView: DEFAULT_PRIMARY_RENDERERS,
   })
-
+  const primaryRendererByView = computed<PrimaryRendererByView>(() => ({
+    ...DEFAULT_PRIMARY_RENDERERS,
+    [ChartDataViewId.KLine]: settings$().klineShape ?? CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine].primaryRenderer,
+  }))
   const effectivePrimaryRenderer = computed(() => {
     const view = sourceReadonly.dataView()
-    return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
+    return primaryRendererByView()[view]
   })
   const interactionCapabilities = computed<Readonly<ViewCapabilities>>(
     () => CHART_VIEW_DEFINITIONS[sourceReadonly.dataView()].capabilities,
@@ -48,6 +41,7 @@ export function createChartModel() {
   return {
     readonly: {
       ...sourceReadonly,
+      primaryRendererByView,
       /** 兼容现有 Controller API；与 dataView 指向同一只读 Signal。 */
       chartMode: sourceReadonly.dataView,
       effectivePrimaryRenderer,
@@ -66,7 +60,6 @@ export function createChartModel() {
       batch(() => {
         signals.dataView.set(ChartDataViewId.KLine)
         signals.lastBarPeriod.set('daily')
-        signals.primaryRendererByView.set(DEFAULT_PRIMARY_RENDERERS)
       })
     },
   }

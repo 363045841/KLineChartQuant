@@ -1,10 +1,22 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 按图形类型输出当前 K 线的值，方法名确定类型，name 为绘图名称；返回供 fill 引用的句柄。 */
+/** 按方法类型输出当前 K 线；name 标识整列，单值方法返回句柄，OHLC 方法仅输出四价格。 */
 const plot: ScriptPlot = {
-  /** 输出折线点。 */
+  /** 输出普通折线点，跨空值连接。 */
   Line(value, name, options) {
     return emitPlot(PlotKind.Line, value, name, options)
+  },
+  /** 输出断线折线点，空值处断开。 */
+  LineBR(value, name, options) {
+    return emitPlot(PlotKind.LineBR, value, name, options)
+  },
+  /** 输出阶梯线点，跨空值连接。 */
+  StepLine(value, name, options) {
+    return emitPlot(PlotKind.StepLine, value, name, options)
+  },
+  /** 输出断线阶梯线点，空值处断开。 */
+  StepLineBR(value, name, options) {
+    return emitPlot(PlotKind.StepLineBR, value, name, options)
   },
   /** 输出柱状图值。 */
   Histogram(value, name, options) {
@@ -29,6 +41,14 @@ const plot: ScriptPlot = {
   /** 输出数值箭头。 */
   Arrow(value, name, options) {
     return emitPlot(PlotKind.Arrow, value, name, options)
+  },
+  /** 输出完整蜡烛 OHLC，统一交给宿主校验、归一化和采集。 */
+  Candle(open, high, low, close, name, options) {
+    __plot(PlotKind.Candle, { open, high, low, close }, name, options)
+  },
+  /** 输出完整美国线 OHLC，与蜡烛共用数据语义。 */
+  Bar(open, high, low, close, name, options) {
+    __plot(PlotKind.Bar, { open, high, low, close }, name, options)
   },
 }
 
@@ -99,6 +119,19 @@ const inputFactories = {
         !options.options.includes(value))
     )
       throw new TypeError('input.string 的 options 必须是包含默认值的非空字符串列表')
+    return { ...options, default: value }
+  },
+  /** 创建目标周期输入；默认值和选项都必须是 Timeframe 中登记的周期。 */
+  timeframe(value: Timeframe, options?: TimeframeInputOptions) {
+    const periods: readonly string[] = Object.values(Timeframe)
+    if (!periods.includes(value)) throw new TypeError('input.timeframe 需要 Timeframe 中登记的周期')
+    if (
+      options?.options &&
+      (!options.options.length ||
+        !options.options.every((item) => periods.includes(item)) ||
+        !options.options.includes(value))
+    )
+      throw new TypeError('input.timeframe 的 options 必须是包含默认值的周期列表')
     return { ...options, default: value }
   },
 }

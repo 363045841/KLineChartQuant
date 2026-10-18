@@ -177,13 +177,11 @@ export interface IndicatorInputDef {
 export interface IndicatorRuntimeDescriptor<C = any> {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
-  /** 声明额外行情输入；订阅由数据协调层拥有。 */
-  inputs?: readonly 'trades'[]
   /** 每个执行器创建独立的增量 calculator。 */
   createCompute?: () => (
     data: KLineData[],
     config: C,
-    trades?: import('../../data/trades/types.js').TradeSnapshot,
+    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown
   /** configSnapshot 中的 key，默认等于 name（如 'macd'） */
   configKey?: string
@@ -197,7 +195,7 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   compute: (
     data: KLineData[],
     config: C,
-    trades?: import('../../data/trades/types.js').TradeSnapshot,
+    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown
   /** Worker 端计算键名，映射到 calculators 模块的导出 */
   computeKey?: string
@@ -241,7 +239,6 @@ export interface IndicatorMetadata<T = unknown> {
    * 分类：主图/副图
    */
   category: IndicatorCategory
-
 
   /**
    * 在 configSnapshot 中的 paneId 字段名

@@ -40,19 +40,36 @@ export function isFilterableAssetClass(value: AssetClass | undefined): value is 
   return value !== undefined && value !== 'unknown'
 }
 
+/**
+ * 图表支持的标准 K 线周期。
+ *
+ * 这是周期清单的唯一事实来源：类型、运行时白名单、Agent 工具参数与 Request 周期顺序都从这里派生。
+ * 顺序即由小到大的比较顺序，`request.security` 判断目标周期是否低于主图时直接用该顺序。
+ */
+export const KLINE_PERIODS = [
+  '1min',
+  '5min',
+  '15min',
+  '30min',
+  '60min',
+  '4h',
+  'daily',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+] as const
+
 /** 图表当前支持的标准 K 线周期。 */
-export type KLinePeriod =
-  | '1min'
-  | '5min'
-  | '15min'
-  | '30min'
-  | '60min'
-  | '4h'
-  | 'daily'
-  | 'weekly'
-  | 'monthly'
-  | 'quarterly'
-  | 'yearly'
+export type KLinePeriod = (typeof KLINE_PERIODS)[number]
+
+/** 周期校验集合；只在模块内建一次，避免调用方各自复制清单。 */
+const KLINE_PERIOD_SET: ReadonlySet<string> = new Set(KLINE_PERIODS)
+
+/** 判断任意字符串是否为受支持的标准 K 线周期。 */
+export function isKLinePeriod(value: string): value is KLinePeriod {
+  return KLINE_PERIOD_SET.has(value)
+}
 
 /** 保留上游原生周期边界的聚合方式。 */
 export const ORIGINAL_BAR_AGGREGATION = 'original'

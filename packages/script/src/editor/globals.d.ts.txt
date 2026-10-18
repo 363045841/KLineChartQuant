@@ -7,6 +7,7 @@ import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
+import type { ScriptRequest } from '../request/types.js'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -26,6 +27,8 @@ declare global {
   const ta: TechnicalAnalysisLibrary
 
   /**
+   * @summary 渲染位置
+   *
    * 指标渲染位置，由宿主注入 VM。
    *
    * | 取值 | 含义 |
@@ -41,11 +44,21 @@ declare global {
   /** 定义一个指标 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
   /**
+   * 惰性派生序列；读取时按绝对 bar 缓存，不主动填充历史。
+   * key 必须稳定且区分输入与参数；同 key 复用首次注册的回调。
+   * 回调用 offset 读取输入历史，用 self[offset + 1] 读取自身上一根；历史越界返回 NaN。
+   * 不要捕获当前 bar 的数值快照，应捕获 Series 并按 offset 取值。
+   */
+  function derive(key: string, compute: (self: Series, offset: number) => number): Series
+  /**
    * 当前 K 线的绘图方法；仅在 onBar 中调用，name 必填，null 主动留空。
    *
    * | 方法 | 图形 | value 含义 |
    * | --- | --- | --- |
-   * | `plot.Line` | 折线 | 折线点数值 |
+   * | `plot.Line` | 普通折线 | 跨空值连接前后有效点 |
+   * | `plot.LineBR` | 断线折线 | 空值处断开 |
+   * | `plot.StepLine` | 阶梯线 | 在相邻有效点的水平中点跳变，跨空值连接 |
+   * | `plot.StepLineBR` | 断线阶梯线 | 空值处断开 |
    * | `plot.Histogram` | 柱状图 | 柱状图数值 |
    * | `plot.Point` | 散点 | 散点数值 |
    * | `plot.Shape` | 形状标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
@@ -74,4 +87,10 @@ declare global {
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */
   function importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
+
+  // 参数契约与示例只在 ../request/types.ts 的 ScriptRequest.security 维护，这里不复制第二份。
+  /** 获取指定品种周期的数据；`syminfo.tickerid` 是当前图表品种。 */
+  const request: ScriptRequest
+  /** 当前图表品种信息；`tickerid` 可直接传给 `request.security`。 */
+  const syminfo: { readonly tickerid: string }
 }

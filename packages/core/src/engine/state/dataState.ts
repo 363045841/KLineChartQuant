@@ -7,6 +7,7 @@ import {
   type TimeShareSelection,
 } from '../../data/buffer/impl/seriesRepository.js'
 import type { TimeShareRange } from '../../data/provider/types.js'
+import { EMPTY_TRADE_SNAPSHOT, type TradeSnapshot } from '../../data/trades/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { ReadyMarketSession } from '../data/marketRuntime/types.js'
@@ -95,6 +96,7 @@ export function createDataState(_deps: DataDeps = {}) {
     {
       activeBuffer: emptyActiveBufferSnapshot(),
       readyMarket: null as ReadyMarketSession | null,
+      trades: EMPTY_TRADE_SNAPSHOT,
       symbols: [] as ReadonlyArray<SymbolSpec>,
       symbolCatalog: [] as ReadonlyArray<SymbolInfo>,
     },
@@ -114,6 +116,20 @@ export function createDataState(_deps: DataDeps = {}) {
     readonly,
 
     actions: {
+      /** 行情运行模块发布主品种成交快照；显示模式只读取，不拥有订阅。 */
+      setTrades(snapshot: TradeSnapshot): void {
+        const previous = readonly.trades.peek()
+        if (
+          previous.status === snapshot.status &&
+          previous.tickSize === snapshot.tickSize &&
+          previous.message === snapshot.message &&
+          previous.coverage === snapshot.coverage &&
+          previous.latestTimestamp === snapshot.latestTimestamp &&
+          previous.batches === snapshot.batches
+        )
+          return
+        signals.trades.set(snapshot)
+      },
       setSymbols(symbols: ReadonlyArray<SymbolSpec>) {
         signals.symbols.set(snapshotSymbols(symbols))
       },
@@ -122,7 +138,22 @@ export function createDataState(_deps: DataDeps = {}) {
         signals.symbolCatalog.set(catalog)
       },
 
-      /** 发布完整活动 Buffer 快照，避免缓冲切换中间态。 */
+      /**
+       * 发布完整活动 Buffer 快照，避免缓冲切换中间态。
+       *
+       * 换市场或周期时清空成交，保证新 K 线不会配到旧成交；即使新市场不提供原始逐笔成交、
+       * 后续没有任何成交发布，空快照也是最终状态。
+       *
+       * 下面三处写入的顺序是载荷：清空必须排在 `readyMarket.set` 之前，且必须留在同一个 `batch` 内。
+       * 行情运行模块观察到 `readyMarket` 变化后才会重新发布成交，而 `batch` 把通知推迟到最外层，
+       * 重新发布因此必然落在清空之后。调换顺序或绕过 `batch` 会让刚发布的成交被清空，且不会报错。
+       *
+       * `readyMarket` 按引用比较，依赖 `ChartDataManager.readySession()` 在来源、品种与能力不变时
+       * 复用同一实例：K 线数据更新不会清空成交。去掉那份缓存会让每次数据修订都清空足迹结果。
+       *
+       * @param snapshot - 活动 Buffer 的完整快照
+       * @param readyMarket - 与快照同批发布的活动行情；null 表示尚未就绪
+       */
       applyActiveBufferSnapshot(
         snapshot: ActiveBufferSnapshotInput,
         readyMarket: ReadyMarketSession | null = null,
@@ -132,6 +163,8 @@ export function createDataState(_deps: DataDeps = {}) {
           previous.selection !== snapshot.selection || previous.data !== snapshot.data
         const dataRevision = dataChanged ? previous.dataRevision + 1 : previous.dataRevision
         batch(() => {
+          // 先清空再切换就绪行情，成交由行情运行模块在通知到达后重新发布。
+          if (readonly.readyMarket.peek() !== readyMarket) signals.trades.set(EMPTY_TRADE_SNAPSHOT)
           signals.activeBuffer.set(snapshotWithRevision(snapshot, dataRevision))
           signals.readyMarket.set(readyMarket)
         })
@@ -141,6 +174,7 @@ export function createDataState(_deps: DataDeps = {}) {
         batch(() => {
           signals.activeBuffer.set(emptyActiveBufferSnapshot())
           signals.readyMarket.set(null)
+          signals.trades.set(EMPTY_TRADE_SNAPSHOT)
           signals.symbols.set([])
           signals.symbolCatalog.set([])
         })

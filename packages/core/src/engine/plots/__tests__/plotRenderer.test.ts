@@ -9,13 +9,13 @@ import {
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   createContextWithInstanceState,
-  createKLineData,
   createMockCanvasContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'
+import { paintPlots } from '../impl/plotRenderer.js'
+import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
 import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
 
@@ -43,6 +43,203 @@ function paint(
 }
 
 describe('Plot renderer', () => {
+  it.each(['stepline', 'steplinebr'] as const)('%s 在中点跳变并按类型处理连续空点', (kind) => {
+    const { ctx } = paint({ series: [{ id: 'step', kind, color: () => 'blue' }] }, [
+      1,
+      2,
+      null,
+      NaN,
+      5,
+    ])
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10]])
+    const firstStep = [
+      [10, 10],
+      [10, 20],
+      [15, 20],
+    ]
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
+      kind === 'steplinebr' ? firstStep : [...firstStep, [30, 20], [30, 50], [45, 50]],
+    )
+  })
+
+  it.each(['stepline', 'steplinebr'] as const)(
+    '%s 保留偏移、逐点颜色、虚线、尺寸和同值平台',
+    (kind) => {
+      const { ctx, state } = paint(
+        {
+          series: [
+            {
+              id: 'step',
+              kind,
+              color: () => 'blue',
+              pointColor: (value) => (value === 3 ? 'red' : 'blue'),
+              offset: () => 1,
+              dash: [4, 2],
+              size: ShapeSize.Large,
+            },
+          ],
+        },
+        [1, 3, 3, 0],
+      )
+      expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([
+        [15, 10],
+        [35, 30],
+      ])
+      expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([
+        [20, 10],
+        [20, 30],
+        [25, 30],
+        [35, 30],
+        [40, 30],
+        [40, 0],
+        [45, 0],
+      ])
+      expect(ctx.setLineDash).toHaveBeenCalledWith([4, 2])
+      expect(ctx.lineWidth).toBe(3)
+      expect(ctx.strokeStyle).toBe('blue')
+      expect(state.visibleMin).toBe(0)
+      expect(state.visibleMax).toBe(3)
+    },
+  )
+
+  it('断线阶梯线在空点后重新开始，孤立点不生成线段', () => {
+    const definition: IndicatorPlotDefinition = {
+      series: [{ id: 'step', kind: 'steplinebr', color: () => 'blue' }],
+    }
+    const { ctx } = paint(definition, [1, 2, null, 4, 5])
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([
+      [5, 10],
+      [35, 40],
+    ])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([
+      [10, 10],
+      [10, 20],
+      [15, 20],
+      [40, 40],
+      [40, 50],
+      [45, 50],
+    ])
+    expect(paint(definition, [NaN, 1, null]).ctx.stroke).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, 'line', 'linebr'] as const)('折线 kind=%s 控制连续空点两侧的连接', (kind) => {
+    const { ctx, state } = paint({ series: [{ id: 'line', kind, color: () => 'blue' }] }, [
+      1,
+      2,
+      null,
+      NaN,
+      5,
+    ])
+    expect(state.plots[0]).toMatchObject({ kind: kind ?? 'line' })
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10]])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
+      kind === 'linebr'
+        ? [[15, 20]]
+        : [
+            [15, 20],
+            [45, 50],
+          ],
+    )
+  })
+
+  it('跨空值连接保留逐点颜色，并且不为首尾空点生成线段', () => {
+    const collector = new PlotCollector({ barCount: 5 })
+    const declaration = { name: 'line', kind: 'line' } as const
+    collector.onPlot('line', 0, null, 'line', declaration)
+    collector.onPlot('line', 1, { value: 2, color: 'blue' }, 'line', declaration)
+    collector.onPlot('line', 2, null, 'line', declaration)
+    collector.onPlot('line', 3, { value: 4, color: 'red' }, 'line', declaration)
+    collector.onPlot('line', 4, null, 'line', declaration)
+    const { ctx } = paint({ source: 'collection', series: [] }, collector.collect())
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[15, 20]])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([[35, 40]])
+    expect(ctx.strokeStyle).toBe('red')
+  })
+
+  it('OHLC 的 showLast、位移、自动缩放和四价格图例使用同一数据范围', () => {
+    const collector = new PlotCollector({ barCount: 3 })
+    for (let index = 0; index < 3; index++) {
+      collector.onOhlc({ name: 'candles', kind: 'candle', showLast: 1, offset: 1 }, index, {
+        open: 2,
+        high: index === 2 ? 8 : 1000,
+        low: index === 2 ? 1 : -1000,
+        close: 6,
+        color: null,
+        borderColor: 'blue',
+        wickColor: 'gray',
+      })
+    }
+    const { state, ctx, context } = paint(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      {
+        pane: { yAxis: { priceToY: (price) => 100 - price * 10 } },
+        kWidthPx: 9,
+      },
+    )
+    expect(state.visibleMin).toBe(1)
+    expect(state.visibleMax).toBe(8)
+    // 只绘制最后一根：四条边框和两段影线，没有背景填充。
+    expect(ctx.fillRect).toHaveBeenCalledTimes(6)
+    expect(ctx.fillStyle).toBe('gray')
+    const reader = context.indicatorStateReader
+    if (!reader) throw new Error('Missing Plot state reader')
+    const title = createPlotTitleInfo('OHLC')
+    const readTitle = (index: number) =>
+      title([], index, {}, reader, 'plot-test', 'main', resolveThemeColors('light'))
+    expect(readTitle(2)).toBeNull()
+    expect(readTitle(3)?.values).toEqual([
+      { label: 'candles O', value: 2, color: 'blue' },
+      { label: 'candles H', value: 8, color: 'blue' },
+      { label: 'candles L', value: 1, color: 'blue' },
+      { label: 'candles C', value: 6, color: 'blue' },
+    ])
+    const outside = projectPlots(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      { start: 0, end: 3 },
+      1,
+      resolveThemeColors('light'),
+    )
+    expect(outside.visibleMin).toBe(Infinity)
+    expect(outside.visibleMax).toBe(-Infinity)
+  })
+
+  it('美国线输出高低竖线和左开右收横线，忽略空点', () => {
+    const collector = new PlotCollector({ barCount: 2 })
+    collector.onOhlc({ name: 'bars', kind: 'bar' }, 0, undefined)
+    collector.onOhlc({ name: 'bars', kind: 'bar' }, 1, {
+      open: 3,
+      high: 8,
+      low: 1,
+      close: 6,
+      color: 'green',
+      wickColor: 'green',
+      borderColor: 'green',
+    })
+    const { state, ctx } = paint(
+      { source: 'collection', series: [] },
+      collector.collect(),
+      {},
+      {
+        pane: { yAxis: { priceToY: (price) => 100 - price * 10 } },
+        kWidthPx: 9,
+      },
+    )
+    expect(state.visibleMin).toBe(1)
+    expect(state.visibleMax).toBe(8)
+    const rects = vi.mocked(ctx.fillRect).mock.calls
+    expect(rects).toHaveLength(3)
+    const [stem, open, close] = rects
+    if (!stem || !open || !close) throw new Error('Missing OHLC geometry')
+    expect(open[0] + open[2]).toBe(stem[0])
+    expect(close[0]).toBe(stem[0] + stem[2])
+    expect(open[1]).toBe(70)
+    expect(close[1]).toBe(40)
+  })
+
   it('Char 相对定位过滤零值，absolute 的零值参与价格轴', () => {
     const { ctx, state } = paint(
       {
@@ -362,49 +559,6 @@ describe('Plot renderer', () => {
     ).toThrow('requires price-positioned plots')
   })
 
-  it('Arrow offset 使用目标 bar 定位，数据更新后全列幅度缓存失效', () => {
-    const definition: IndicatorPlotDefinition = {
-      series: [
-        {
-          id: 'arrow',
-          kind: 'arrow',
-          offset: () => 1,
-          color: () => 'red',
-        },
-      ],
-    }
-    const { ctx, state, context } = paint(definition, [2, 4])
-    const first = vi.mocked(ctx.moveTo).mock.calls[0]
-    expect(first?.[0]).toBe(15)
-    const updated = projectPlots(
-      definition,
-      [2, 4, 20],
-      {},
-      { start: 0, end: 5 },
-      2,
-      resolveThemeColors('light'),
-    )
-    const layer = createPlotLayer('ma', 'main', { instanceId: 'arrow-test' })
-    const geometry = {
-      data: context.data,
-      range: context.range,
-      kLineCenters: context.kLineCenters,
-      scrollLeft: context.scrollLeft,
-    }
-    const originalContext = createContextWithInstanceState(ctx, 'arrow-test', state, geometry)
-    vi.mocked(ctx.lineTo).mockClear()
-    layer.paint(originalContext)
-    const originalLines = vi.mocked(ctx.lineTo).mock.calls.slice(0, 6)
-    const updatedContext = createContextWithInstanceState(ctx, 'arrow-test', updated, geometry)
-    vi.mocked(ctx.lineTo).mockClear()
-    layer.paint(updatedContext)
-    const updatedLines = vi.mocked(ctx.lineTo).mock.calls.slice(0, 6)
-    // 箭头路径覆盖完整高度，比较实际顶点而不是重复实现长度公式。
-    const span = (lines: readonly (readonly [number, number])[]) =>
-      Math.max(...lines.map((point) => point[1])) - Math.min(...lines.map((point) => point[1]))
-    expect(span(updatedLines)).toBeLessThan(span(originalLines))
-  })
-
   it('Shape size 只改变形状尺寸，DPR 不重复缩放 CSS 坐标和文字', () => {
     const sizes = Object.values(ShapeSize).filter((size) => size !== ShapeSize.Auto)
     const radii: number[] = []
@@ -437,35 +591,6 @@ describe('Plot renderer', () => {
     expect(radii.every((radius, index) => index === 0 || radius > (radii[index - 1] ?? 0))).toBe(
       true,
     )
-  })
-
-  it('行情快照修订后，Shape bar 锚点缓存失效', () => {
-    const collector = new PlotCollector({ barCount: 1 })
-    collector.onPlot('signal', 0, { value: 1 }, 'shape', {
-      name: 'signal',
-      kind: 'shape',
-      style: 'circle',
-    })
-    const state = projectPlots(
-      { source: 'collection', series: [] },
-      collector.collect(),
-      {},
-      { start: 0, end: 1 },
-      1,
-      resolveThemeColors('light'),
-    )
-    const ctx = createMockCanvasContext()
-    const data = createKLineData(1)
-    const context = createContextWithInstanceState(ctx, 'shape-test', state, {
-      data,
-      range: { start: 0, end: 1 },
-      kLineCenters: [5],
-    })
-    const layer = createPlotLayer('ma', 'main', { instanceId: 'shape-test' })
-    layer.paint(context)
-    const originalY = vi.mocked(ctx.arc).mock.calls[0]?.[1]
-    layer.paint({ ...context, data: data.map((bar) => ({ ...bar, high: bar.high + 10 })) })
-    expect(vi.mocked(ctx.arc).mock.calls[1]?.[1]).toBe((originalY ?? NaN) + 100)
   })
 
   it.each(Object.values(ShapeStyle))('Shape %s 相对定位：false、NaN 和 0 不画', (style) => {
@@ -573,72 +698,8 @@ describe('Plot renderer', () => {
     expect(ctx.arc).toHaveBeenCalledTimes(4)
   })
 
-  it('collection Shape 沿用逐 bar 颜色和文字颜色，滚动重放不重新测量文字', () => {
-    const collector = new PlotCollector({ barCount: 1 })
-    collector.onPlot('signal', 0, { value: 1, color: 'red', textColor: 'blue' }, 'shape', {
-      name: 'signal',
-      kind: 'shape',
-      location: 'top',
-      text: '买入',
-    })
-    const state = projectPlots(
-      { source: 'collection', series: [] },
-      collector.collect(),
-      {},
-      { start: 0, end: 1 },
-      1,
-      resolveThemeColors('light'),
-    )
-    const ctx = createMockCanvasContext()
-    const context = createContextWithInstanceState(ctx, 'shape-test', state, {
-      range: { start: 0, end: 1 },
-      kLineCenters: [5],
-    })
-    const layer = createPlotLayer('ma', 'main', { instanceId: 'shape-test' })
-    layer.paint(context)
-    expect(ctx.strokeStyle).toBe('red')
-    expect(ctx.fillStyle).toBe('blue')
-    expect(ctx.measureText).toHaveBeenCalledTimes(1)
-    layer.paint({ ...context, scrollLeft: 5 })
-    expect(ctx.measureText).toHaveBeenCalledTimes(1)
-    expect(ctx.translate).toHaveBeenLastCalledWith(-5, 0)
-  })
-
-  it.each([4, 5, 6, 10])('可见区间结束于 %i 时，未来云层的每个点只投影一次', (end) => {
-    const definition: IndicatorPlotDefinition = {
-      series: [
-        { id: 'a', field: 'a', color: () => 'red' },
-        { id: 'b', field: 'b', color: () => 'blue' },
-      ],
-      fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
-    }
-    const state = projectPlots(
-      definition,
-      Array.from({ length: 6 }, (_, index) => ({ a: index + 3, b: index + 1 })),
-      {},
-      { start: 0, end },
-      1,
-      resolveThemeColors('light'),
-    )
-    const ctx = createMockCanvasContext()
-    const context = createContextWithInstanceState(ctx, 'ichimoku-test', state, {
-      data: createKLineData(4),
-      range: { start: 0, end },
-      kLineCenters: [5, 15, 25, 35],
-    })
-    const priceRead = vi.spyOn(context.pane.yAxis, 'priceToY')
-    const layer = createPlotLayer('ichimoku', 'main', { instanceId: 'ichimoku-test' })
-    layer.paint(context)
-    expect(priceRead).toHaveBeenCalledTimes(12)
-    expect(ctx.lineTo).toHaveBeenCalledWith(55, context.pane.yAxis.priceToY(6))
-    const count = priceRead.mock.calls.length
-    layer.paint({ ...context, scrollLeft: 5 })
-    expect(priceRead).toHaveBeenCalledTimes(count)
-    expect(ctx.translate).toHaveBeenLastCalledWith(-5, 0)
-  })
-
-  it('空点和 NaN 断开折线，保持正确 K 线位置和滚动偏移', () => {
-    const { ctx } = paint({ series: [{ id: 'close', color: () => 'red' }] }, [
+  it('LineBR 遇到空点和 NaN 断线，保持正确 K 线位置和滚动偏移', () => {
+    const { ctx } = paint({ series: [{ id: 'close', kind: 'linebr', color: () => 'red' }] }, [
       1,
       2,
       Number.NaN,

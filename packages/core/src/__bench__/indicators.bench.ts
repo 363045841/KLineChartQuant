@@ -26,14 +26,11 @@ import { describe, test } from 'vitest'
 import { computeALMA } from '../features/indicators/alma'
 
 // Oscillator family (b-10)
-import { computeAwesomeOscillator } from '../features/indicators/awesomeOscillator'
-import { computeDPO } from '../features/indicators/dpo'
 import { computeFisherTransform } from '../features/indicators/fisherTransform'
 import { computeFRAMA } from '../features/indicators/frama'
 import { computeLSMA } from '../features/indicators/lsma'
 import { computeSchaffTrendCycle } from '../features/indicators/schaffTrendCycle'
 import { computeStochRSI } from '../features/indicators/stochRSI'
-import { computeT3 } from '../features/indicators/t3'
 import { computeUltimateOscillator } from '../features/indicators/ultimateOscillator'
 import { computeVIDYA } from '../features/indicators/vidya'
 import { computeZLEMA } from '../features/indicators/zlema'
@@ -101,9 +98,6 @@ describe('MA family @ 10k bars (close-only)', () => {
       bench('ALMA (period=21)', () => {
         computeALMA(close10k, { period: 21 })
       }),
-      bench('T3 (period=21, volumeFactor=0.7)', () => {
-        computeT3(close10k, { period: 21, volumeFactor: 0.7 })
-      }),
       bench('ZLEMA (period=21)', () => {
         computeZLEMA(close10k, { period: 21 })
       }),
@@ -126,9 +120,6 @@ describe('MA family @ 100k bars (close-only)', () => {
     await bench.compare(
       bench('ALMA (period=21)', () => {
         computeALMA(close100k, { period: 21 })
-      }),
-      bench('T3 (period=21, volumeFactor=0.7)', () => {
-        computeT3(close100k, { period: 21, volumeFactor: 0.7 })
       }),
       bench('ZLEMA (period=21)', () => {
         computeZLEMA(close100k, { period: 21 })
@@ -156,14 +147,8 @@ describe('Oscillators @ 10k bars', () => {
       bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
         computeStochRSI(close10k, { period: 14, kPeriod: 3, dPeriod: 3 })
       }),
-      bench('Awesome Oscillator (fast=5, slow=34)', () => {
-        computeAwesomeOscillator(hl10k, { fast: 5, slow: 34 })
-      }),
       bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
         computeUltimateOscillator(ohlc10k, { p1: 7, p2: 14, p3: 28 })
-      }),
-      bench('DPO (period=20)', () => {
-        computeDPO(close10k, { period: 20 })
       }),
       bench('Fisher Transform (period=10)', () => {
         computeFisherTransform(hl10k, { period: 10 })
@@ -186,14 +171,8 @@ describe('Oscillators @ 100k bars', () => {
       bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
         computeStochRSI(close100k, { period: 14, kPeriod: 3, dPeriod: 3 })
       }),
-      bench('Awesome Oscillator (fast=5, slow=34)', () => {
-        computeAwesomeOscillator(hl100k, { fast: 5, slow: 34 })
-      }),
       bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
         computeUltimateOscillator(ohlc100k, { p1: 7, p2: 14, p3: 28 })
-      }),
-      bench('DPO (period=20)', () => {
-        computeDPO(close100k, { period: 20 })
       }),
       bench('Fisher Transform (period=10)', () => {
         computeFisherTransform(hl100k, { period: 10 })

@@ -332,7 +332,9 @@ describe('script language service', () => {
       path: SCRIPT_EDITOR_FILE,
       context: { pos: 'input.'.length, explicit: true },
     })
-    expect(first?.options.map((option) => option.label)).toEqual(expect.arrayContaining(['int', 'float', 'bool', 'string']))
+    expect(first?.options.map((option) => option.label)).toEqual(
+      expect.arrayContaining(['int', 'float', 'bool', 'string']),
+    )
     const updated = `defineIndicator({
       name: 'Changed', position: Position.Sub,
       onBar() { const enabled = input.bool(true); plot.Line(enabled ? close[0] : NaN, 'value') }
@@ -375,7 +377,10 @@ describe('script language service', () => {
       `
     const worker = await createSession(source)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
-    worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: source.replace('declare({', 'globalThis.defineIndicator({') })
+    worker.updateFile({
+      path: SCRIPT_EDITOR_FILE,
+      code: source.replace('declare({', 'globalThis.defineIndicator({'),
+    })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
   })
 

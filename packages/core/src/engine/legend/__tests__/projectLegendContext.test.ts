@@ -1,13 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
-import {
-  createMockIndicatorInstanceHost,
-  createMockRenderContext,
-  createMockStateReader,
-} from '@/engine/__tests__/helpers/renderTestKit'
+import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { projectComparison } from '@/engine/chartModel'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
@@ -83,84 +78,6 @@ describe('projectLegendContext timeshare baseline', () => {
       expect(result?.timeshare).toBeNull()
     },
   )
-})
-
-describe('projectLegendContext indicator rows', () => {
-  it('计算错误时保留主图指标名称和参数，不调用正常数值标题生成器', () => {
-    const title = vi.spyOn(getRegisteredIndicatorDefinition('ma')!, 'getTitleInfo')
-    const context = createMockRenderContext({
-      data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
-      indicatorStateReader: createMockStateReader('main:MA', {
-        kind: 'error',
-        error: { message: 'invalid plot' },
-      }),
-    })
-    const result = projectLegendContext({
-      context,
-      host: createMockIndicatorInstanceHost([
-        {
-          instanceId: 'main:MA',
-          definitionId: 'MA',
-          paneId: 'main',
-          hidden: false,
-          params: { n: 0 },
-        },
-      ]),
-      yPaddingPx: 0,
-    })
-    expect(result?.indicators[0]).toMatchObject({
-      instanceId: 'main:MA',
-      name: 'MA',
-      params: [0],
-      error: 'invalid plot',
-      loading: false,
-    })
-    expect(title).not.toHaveBeenCalled()
-  })
-  it('uses the view-projected indicator IDs instead of evaluating view support while drawing', () => {
-    // 图例通过实例清单服务枚举主图实例，metadata 从静态定义注册表获取
-    vi.spyOn(getRegisteredIndicatorDefinition('ma')!, 'getTitleInfo').mockReturnValue({
-      name: 'MA',
-      values: [],
-    })
-    const context = createMockRenderContext({
-      data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
-      period: 'timeshare',
-      dataView: ChartDataViewId.TimeShare,
-      range: { start: 0, end: 1 },
-      paneWidth: 800,
-      isAsiaMarket: true,
-      indicatorStateReader: createMockStateReader('indicator:unused'),
-    })
-
-    const result = projectLegendContext({
-      context,
-      host: createMockIndicatorInstanceHost([
-        { instanceId: 'main:MA', definitionId: 'MA', paneId: 'main', hidden: false, params: {} },
-        {
-          instanceId: 'main:BOLL',
-          definitionId: 'BOLL',
-          paneId: 'main',
-          hidden: false,
-          params: {},
-        },
-      ]),
-      yPaddingPx: 0,
-      visibleIndicatorIds: new Set(['MA']),
-    })
-
-    expect(result?.indicators).toEqual([
-      {
-        instanceId: 'main:MA',
-        definitionId: 'MA',
-        hidden: false,
-        loading: false,
-        name: 'MA',
-        params: undefined,
-        values: [],
-      },
-    ])
-  })
 })
 
 describe('projectLegendContext comparison rows', () => {

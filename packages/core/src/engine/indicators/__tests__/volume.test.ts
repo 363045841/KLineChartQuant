@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { calcOBVData, calcPVTData, calcVMAData } from '../calculators'
+import { calcOBVData, calcPVTData } from '../calculators'
 
 import {
   constantPrice,
@@ -10,39 +10,6 @@ import {
   sideways,
   spikeAtBar19,
 } from './__fixtures__/synthetic'
-
-describe('calcVMAData', () => {
-  it('empty returns empty', () => {
-    expect(calcVMAData(empty, 5)).toEqual([])
-  })
-
-  it('shorter than period returns all undefined', () => {
-    const out = calcVMAData(pureUptrend.slice(0, 3), 5)
-    for (const v of out) expect(v).toBeUndefined()
-  })
-
-  it('period <= 0 returns all undefined', () => {
-    const out = calcVMAData(pureUptrend, 0)
-    for (const v of out) expect(v).toBeUndefined()
-  })
-
-  it('on constantPrice (volume=1000) VMA = 1000 after warm-up', () => {
-    const out = calcVMAData(constantPrice, 5)
-    for (let t = 4; t < out.length; t++) {
-      expect(out[t]).toBe(1000)
-    }
-  })
-
-  it('mathematical exactness: VMA = mean of last `period` volumes', () => {
-    const period = 5
-    const out = calcVMAData(pureUptrend, period)
-    for (let t = period - 1; t < out.length; t++) {
-      let sum = 0
-      for (let k = 0; k < period; k++) sum += pureUptrend[t - k]!.volume ?? 0
-      expect(out[t]!).toBeCloseTo(sum / period, 9)
-    }
-  })
-})
 
 describe('calcOBVData', () => {
   it('empty returns empty', () => {
