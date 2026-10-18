@@ -7,13 +7,11 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
-import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding'
-import type { PlotRenderState } from '@/engine/plots/types.js'
 import { createAxisLabelsFrame } from '@/engine/renderers/impl/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -234,52 +232,6 @@ export function createContextWithInstanceState<T>(
     indicatorStateReader: createMockStateReader(instanceId, state),
     ...overrides,
   })
-}
-
-/** 构造 MA 的 Plot 测试数据，保留各周期的预热窗口。 */
-export function createMARenderState(
-  overrides: {
-    series?: Record<number, (number | undefined)[]>
-    enabledPeriods?: number[]
-    timestamp?: number
-    visibleMin?: number
-    visibleMax?: number
-  } = {},
-): PlotRenderState {
-  const series: Record<number, (number | undefined)[]> = {
-    5: Array.from({ length: DEFAULT_BAR_COUNT }, () => 105),
-    10: Array.from({ length: DEFAULT_BAR_COUNT }, () => 110),
-    20: Array.from({ length: DEFAULT_BAR_COUNT }, () => 120),
-    30: Array.from({ length: DEFAULT_BAR_COUNT }, () => 130),
-    60: Array.from({ length: DEFAULT_BAR_COUNT }, () => 160),
-  }
-  // 起始若干索引置空，覆盖 5/10/20 周期各自的预热窗口。
-  for (let i = 0; i < 4; i++) series[5]![i] = undefined
-  for (let i = 0; i < 9; i++) series[10]![i] = undefined
-  for (let i = 0; i < 19; i++) series[20]![i] = undefined
-
-  return {
-    kind: 'plots',
-    timestamp: overrides.timestamp ?? 1_000_000_000_000,
-    plots: Object.entries(overrides.series ?? series).map(([period, values]) => ({
-      id: `ma${period}`,
-      label: `MA${period}`,
-      kind: 'line',
-      size: ShapeSize.Auto,
-      dash: [],
-      offset: 0,
-      visible: (overrides.enabledPeriods ?? [5, 10, 20, 30, 60]).includes(Number(period)),
-      color: resolveThemeColors('light').ma.ma5,
-      data: values.map((value) => (value === undefined ? undefined : { value })),
-    })),
-    params: {},
-    fills: [],
-    guides: [],
-    valueMin: 105,
-    valueMax: 160,
-    visibleMin: overrides.visibleMin ?? 105,
-    visibleMax: overrides.visibleMax ?? 160,
-  }
 }
 
 /** 构造完整 PluginHost，只覆盖调用方声明的字段；共享状态默认由内存 Map 承载。 */

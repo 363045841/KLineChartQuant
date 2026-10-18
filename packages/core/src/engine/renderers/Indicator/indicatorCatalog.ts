@@ -47,12 +47,6 @@ const uiMeta: Record<
     params?: ParamConfig[]
   }
 > = {
-  ma: {
-    name: '均线',
-    description:
-      'MA 将指定周期内的收盘价取平均，用于观察价格趋势。价格位于均线上方通常偏强，下方通常偏弱；均线交叉可作为趋势变化参考。',
-    params: [],
-  },
   volume: {
     name: '成交量',
     description:
@@ -82,60 +76,6 @@ const uiMeta: Record<
         step: 0.1,
         default: 2,
         description: '标准差倍数，决定轨道宽度，通常为 2',
-      },
-    ],
-  },
-  expma: {
-    name: '指数平滑移动平均线',
-    description:
-      'EXPMA 对近期价格给予更高权重，比普通 MA 更敏感。快线上穿慢线为金叉看涨，下穿为死叉看跌。',
-    params: [
-      {
-        key: 'fastPeriod',
-        label: '快线',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 12,
-        description: '快线周期，对价格变化更敏感',
-      },
-      {
-        key: 'slowPeriod',
-        label: '慢线',
-        type: 'number',
-        min: 2,
-        max: 200,
-        step: 1,
-        default: 50,
-        description: '慢线周期，用于判断趋势方向',
-      },
-    ],
-  },
-  ene: {
-    name: '轨道线',
-    description:
-      'ENE 轨道线由三条轨道组成，价格突破上轨可能超买，突破下轨可能超卖，适合判断震荡行情的买卖点。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 10,
-        description: '计算中轨的周期数',
-      },
-      {
-        key: 'deviation',
-        label: '偏离率',
-        type: 'number',
-        min: 1,
-        max: 30,
-        step: 0.5,
-        default: 11,
-        description: '轨道偏离率百分比，决定轨道宽度',
       },
     ],
   },
@@ -289,23 +229,6 @@ const uiMeta: Record<
       },
     ],
   },
-  atr: {
-    name: '平均真实波幅',
-    description:
-      'ATR（Average True Range）衡量市场波动性，值越大表示波动越剧烈。Wilder 平滑算法，常用于设置止损位和判断趋势强度。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 1,
-        max: 100,
-        step: 1,
-        default: 14,
-        description: 'ATR 计算周期，周期越长曲线越平滑',
-      },
-    ],
-  },
   wma: {
     name: '加权移动平均',
     description: 'WMA 对近期价格赋予更高权重，比普通 MA 反应更快，适用于短期趋势跟踪。',
@@ -318,38 +241,6 @@ const uiMeta: Record<
         max: 100,
         step: 1,
         default: 10,
-        description: '计算周期',
-      },
-    ],
-  },
-  dema: {
-    name: '双指数移动平均',
-    description: 'DEMA 通过双重平滑减少滞后，比传统 EMA 更贴近价格，适合快速趋势判断。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 14,
-        description: '计算周期',
-      },
-    ],
-  },
-  tema: {
-    name: '三指数移动平均',
-    description: 'TEMA 三重平滑，滞后最小，响应最快，适合敏锐捕捉价格变化。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 14,
         description: '计算周期',
       },
     ],
@@ -407,22 +298,6 @@ const uiMeta: Record<
       },
     ],
   },
-  trima: {
-    name: '三角移动平均',
-    description: 'TRIMA 对价格做两次平滑（SMA 的 SMA），比普通 MA 更平滑，适合识别中期趋势。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 20,
-        description: '计算周期',
-      },
-    ],
-  },
   zlema: {
     name: '零滞后指数移动平均',
     description: 'ZLEMA 通过移除滞后项使均线更贴近价格，兼顾平滑与响应速度，适合快速趋势跟踪。',
@@ -435,22 +310,6 @@ const uiMeta: Record<
         max: 100,
         step: 1,
         default: 14,
-        description: '计算周期',
-      },
-    ],
-  },
-  vwma: {
-    name: '成交量加权移动平均',
-    description: 'VWMA 以成交量加权，放量时的价格对均线影响更大，量价配合时信号更可靠。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 20,
         description: '计算周期',
       },
     ],
@@ -508,12 +367,6 @@ const uiMeta: Record<
       },
     ],
   },
-  gmma: {
-    name: '顾比移动平均',
-    description:
-      'GMMA 用 12 条 EMA 分短（G3-G15）长（L30-L60）两组，短组与长组间距扩张预示趋势延续，收窄预示转换。',
-    params: [],
-  },
   sar: {
     name: '抛物线转向',
     description:
@@ -567,42 +420,6 @@ const uiMeta: Record<
       },
     ],
   },
-  keltner: {
-    name: '肯特纳通道',
-    description: 'Keltner Channel 以 EMA 为中轨，ATR 倍数确定通道宽度，适合判断突破与回归。',
-    params: [
-      {
-        key: 'emaPeriod',
-        label: 'EMA 周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 20,
-        description: '中轨 EMA 周期',
-      },
-      {
-        key: 'atrPeriod',
-        label: 'ATR 周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 10,
-        description: 'ATR 计算周期',
-      },
-      {
-        key: 'multiplier',
-        label: '倍数',
-        type: 'number',
-        min: 0.5,
-        max: 10,
-        step: 0.5,
-        default: 2,
-        description: 'ATR 倍数',
-      },
-    ],
-  },
   donchian: {
     name: '唐奇安通道',
     description: 'Donchian Channel 显示 N 日内最高价和最低价的通道，价格突破上下轨视为趋势信号。',
@@ -616,53 +433,6 @@ const uiMeta: Record<
         step: 1,
         default: 20,
         description: '通道周期',
-      },
-    ],
-  },
-  ichimoku: {
-    name: '一目均衡表',
-    description:
-      'Ichimoku Kinko Hyo（一目均衡表）综合显示支撑阻力、趋势方向和动量，云区变色提示趋势转换。',
-    params: [
-      {
-        key: 'tenkanPeriod',
-        label: '转折线',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 9,
-        description: 'Tenkan-sen 周期',
-      },
-      {
-        key: 'kijunPeriod',
-        label: '基准线',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 26,
-        description: 'Kijun-sen 周期',
-      },
-      {
-        key: 'spanBPeriod',
-        label: '领先线 B',
-        type: 'number',
-        min: 2,
-        max: 200,
-        step: 1,
-        default: 52,
-        description: 'Senkou Span B 周期',
-      },
-      {
-        key: 'displacement',
-        label: '偏移',
-        type: 'number',
-        min: 1,
-        max: 52,
-        step: 1,
-        default: 26,
-        description: '偏移量',
       },
     ],
   },
@@ -786,22 +556,6 @@ const uiMeta: Record<
       },
     ],
   },
-  vma: {
-    name: '成交量移动平均',
-    description: 'VMA 对成交量做移动平均，量能上升确认趋势，量能萎缩预示反转。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 5,
-        description: 'VMA 周期',
-      },
-    ],
-  },
   obv: {
     name: '能量潮',
     description: 'OBV 累积量能，价格上涨时加量，下跌时减量。OBV 趋势与价格背离常预示反转。',
@@ -859,10 +613,6 @@ const uiMeta: Record<
         description: 'MFI 周期',
       },
     ],
-  },
-  pivot: {
-    name: '枢轴点',
-    description: 'Pivot Points 根据前日最高/最低/收盘计算支撑阻力位，R1-R3 为阻力，S1-S3 为支撑。',
   },
   fib: {
     name: '斐波那契',
@@ -961,32 +711,6 @@ const uiMeta: Record<
       },
     ],
   },
-  t3: {
-    name: 'T3 平滑移动平均',
-    description: 'T3 通过六层 EMA 级联减少滞后，兼顾平滑与响应，适合趋势跟踪。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 5,
-        description: 'EMA 周期',
-      },
-      {
-        key: 'volumeFactor',
-        label: '体积因子',
-        type: 'number',
-        min: 0,
-        max: 1,
-        step: 0.05,
-        default: 0.7,
-        description: '平滑体积因子，越低越平滑',
-      },
-    ],
-  },
   vidya: {
     name: '可变指数移动平均',
     description: 'VIDYA 用 CMO 自适应调整平滑系数，趋势强时快速跟随，震荡时平滑过滤。',
@@ -1026,22 +750,6 @@ const uiMeta: Record<
         step: 1,
         default: 16,
         description: '周期，需为偶数且大于等于 4',
-      },
-    ],
-  },
-  dpo: {
-    name: '去趋势价格振荡器',
-    description: 'DPO 移除价格趋势分量，凸显周期性波动，用于判断波段顶部与底部。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 20,
-        description: '去趋势周期',
       },
     ],
   },

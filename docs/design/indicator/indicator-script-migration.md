@@ -58,9 +58,10 @@
 | 批次 | 指标 | 说明 |
 | --- | --- | --- |
 | 第一批（已迁移） | `rsi` `mom` `roc` `wma` `boll` `donchian` `fastk` `wmsr` `stoch` | 仅 K 线；保留原默认参数、预热及计算规则；只有 RSI 是周期族多线，保留逐线开关 |
-| 第二批（SuperTrend、MACD 已迁移） | `ma` 及状态机与位移型：`sar` `atr` `keltner` `ichimoku` `obv` `pvt` `vwap` `mfi` `cmf` `dpo` `trix` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | 已补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；其余按需迁移 |
+| 状态机与振荡类（待迁移） | `sar` `obv` `pvt` `vwap` `mfi` `cmf` `trix` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | SuperTrend、MACD 已迁移并补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；本行其余指标按需迁移 |
 | 组合类（已迁移） | `ao` `cci` `hma` `kst` `dma` | 除 `ta.hma` / `ta.cci` 外均由现有 `ta.sma` / `ta.roc` 与全局 `derive` 组合，不新增计算原语 |
-| 第三批 | 其余 MA 家族：`kama` `frama` `vidya` `t3` `zlema` `lsma` `alma` `trima` `smma`、`pivot` `fib` | 需追加 ta 原语 |
+| 均线与通道批次（已迁移） | `atr` `ma` `expma` `dema` `tema` `t3` `trima` `gmma` `ene` `vma` `vwma` `keltner` `dpo` `pivot` `ichimoku` | TA 增加 DEMA、TEMA、T3、TRIMA；其他组合由脚本表达，删除原生定义及其相关测试 |
+| 其余均线与叠加类（待迁移） | `kama` `frama` `vidya` `zlema` `lsma` `alma` `smma` `fib` | 需追加 ta 原语 |
 | 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
 
 ## 落地切片（每片独立可测）
@@ -84,7 +85,7 @@
   `ta.supertrend(multiplier, atrPeriod)` 返回趋势值与方向两个 Series，-1 为上涨、1 为下跌；保留旧 core
   的上涨初始方向与严格突破判断，不宣称与 Pine 的初始化完全相同。各参数组合独立缓存，历史取值不重置状态。
   发布脚本只声明输入并用两条 `LineBR` 分别输出上涨和下跌区间，非当前方向与预热阶段留空。
-  删除旧 SuperTrend 定义、专属 calculator、Worker 映射及静态身份；core 的通用 ATR 仍服务未迁移指标。
+  删除旧 SuperTrend 定义、专属 calculator、Worker 映射及静态身份；ATR 在均线与通道批次完成迁移。
 - MACD 默认 12/26/9，`ta.macd(source, fastLength, slowLength, signalLength)` 返回 DIF、DEA、未翻倍柱体三个
   Series。内部 EMA 沿用旧 MACD 的首个有效值初始化，通用 `ta.ema` 仍以完整窗口均值初始化。
   脚本使用 Columns 输出 `2 * (DIF - DEA)`，按正负与增减绘制四色，DIF/DEA 使用 LineBR。
@@ -99,6 +100,20 @@
   各线按自身预热起点输出。删除对应原生定义、calculator、专用 scale、Worker 映射、静态身份与目录元数据。
 
 ## 验证边界
+
+本次均线与通道迁移采用公式及现有 TA 的语义，不以旧 Core 实现为数值契约。EXPMA 使用
+完整窗口均值初始化的 `ta.ema`；DEMA、TEMA、T3 的有效起点分别为 2、3、6 层 EMA 的完整预热。
+TRIMA 用两个 SMA 窗口组合，周期 1 直接等于源序列。MA 五条线独立设置周期和显隐，GMMA
+固定短期 3/5/8/10/12/15、长期 30/35/40/45/50/60，按组显隐。VMA 是成交量 SMA。
+ENE 是 SMA 的百分比通道；Keltner 是 EMA 加减 Wilder ATR 倍数，各线独立预热。
+DPO 为 `close[floor(period/2)+1] - SMA(close, period)`，不读取未来。
+Pivot 明确按前一根图表 K 线计算经典 PP/R1–R3/S1–S3，不隐式假定图表周期是日线。
+Ichimoku 的转换线和基准线采用区间高低中点，Span A/B 用正向 Plot offset，迟行线用负向
+Plot offset；云带填充引用相同偏移的两条先行线，计算本身不读取未来行情。
+
+Core 删除本批指标的定义、计算器、专用坐标轴、Worker 映射、契约与目录元数据。相关测试用例
+直接删除，不换用另一个待迁移指标继续断言；混合测试文件保留独立的其他用例。足迹图 ATR 行高
+属于足迹内部布局算法，保留末端振幅计算并收回足迹模块，不依赖已删除的指标计算器。
 
 宿主应用与 QuickJS VM 使用不同的全局作用域。根类型检查分别检查 runtime 专用配置和
 应用配置，避免把 VM 中的 `close`、`time`、`defineLibrary` 等全局误当成宿主模块变量。

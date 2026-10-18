@@ -1,19 +1,5 @@
 import type { KLineData } from '@/foundation/types/price.js'
 
-export function calcVMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const n = data.length
-  const result: (number | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0 || n < period) return result
-  let sum = 0
-  for (let i = 0; i < period; i++) sum += data[i]!.volume ?? 0
-  result[period - 1] = sum / period
-  for (let t = period; t < n; t++) {
-    sum += (data[t]!.volume ?? 0) - (data[t - period]!.volume ?? 0)
-    result[t] = sum / period
-  }
-  return result
-}
-
 export function calcOBVData(data: KLineData[]): (number | undefined)[] {
   const n = data.length
   const result: (number | undefined)[] = new Array(n).fill(undefined)

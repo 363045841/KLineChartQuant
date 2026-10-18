@@ -1,115 +1,7 @@
-/** 均线家族指标计算：SMA/EMA/WMA/DEMA/TEMA/GMMA 等。 */
+/** 尚未迁移的自适应、平滑及回归均线计算。 */
 import type { KLineData } from '@/foundation/types/price.js'
 
-/** GMMA 的短期和长期计算周期。 */
-const GMMA_SHORT_PERIODS: readonly number[] = [3, 5, 8, 10, 12, 15]
-const GMMA_LONG_PERIODS: readonly number[] = [30, 35, 40, 45, 50, 60]
-
 import { _computeEMASeries } from './_shared.js'
-
-export const DEFAULT_MA_PERIODS = [5, 10, 20, 30, 60] as const
-
-export function calcMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const result: (number | undefined)[] = new Array(data.length)
-
-  if (data.length < period) return result
-
-  let sum = 0
-
-  for (let i = 0; i < period; i++) {
-    const item = data[i]
-    if (!item) return result
-    sum += item.close
-  }
-
-  result[period - 1] = sum / period
-
-  for (let i = period; i < data.length; i++) {
-    const prevItem = data[i - period]
-    const currItem = data[i]
-    if (!prevItem || !currItem) continue
-
-    sum = sum - prevItem.close + currItem.close
-    result[i] = sum / period
-  }
-
-  return result
-}
-
-export interface EXPMAPoint {
-  fast: number
-  slow: number
-}
-
-export function calcEXPMAData(
-  data: KLineData[],
-  fastPeriod: number,
-  slowPeriod: number,
-): EXPMAPoint[] {
-  const result: EXPMAPoint[] = new Array(data.length)
-
-  if (data.length === 0) return result
-
-  const fastK = 2 / (fastPeriod + 1)
-  const slowK = 2 / (slowPeriod + 1)
-
-  const firstClose = data[0]!.close
-  let fastEMA = firstClose
-  let slowEMA = firstClose
-
-  result[0] = { fast: fastEMA, slow: slowEMA }
-
-  for (let i = 1; i < data.length; i++) {
-    const close = data[i]!.close
-    fastEMA = close * fastK + fastEMA * (1 - fastK)
-    slowEMA = close * slowK + slowEMA * (1 - slowK)
-    result[i] = { fast: fastEMA, slow: slowEMA }
-  }
-
-  return result
-}
-
-export function calcDEMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const n = data.length
-  const result: (number | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0) return result
-
-  const closes = new Array<number | undefined>(n)
-  for (let i = 0; i < n; i++) closes[i] = data[i]!.close
-
-  const ema1 = _computeEMASeries(closes, period)
-  const ema2 = _computeEMASeries(ema1, period)
-
-  for (let i = 0; i < n; i++) {
-    const e1 = ema1[i]
-    const e2 = ema2[i]
-    if (e1 === undefined || e2 === undefined) continue
-    result[i] = 2 * e1 - e2
-  }
-  return result
-}
-
-export function calcTEMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const n = data.length
-  const result: (number | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0) return result
-
-  const closes = new Array<number | undefined>(n)
-  for (let i = 0; i < n; i++) closes[i] = data[i]!.close
-
-  const ema1 = _computeEMASeries(closes, period)
-  const ema2 = _computeEMASeries(ema1, period)
-  const ema3 = _computeEMASeries(ema2, period)
-
-  for (let i = 0; i < n; i++) {
-    const e1 = ema1[i]
-    const e2 = ema2[i]
-    const e3 = ema3[i]
-    if (e1 === undefined || e2 === undefined || e3 === undefined) continue
-    result[i] = 3 * e1 - 3 * e2 + e3
-  }
-  return result
-}
 
 export function calcKAMAData(
   data: KLineData[],
@@ -173,51 +65,6 @@ export function calcSMMAData(data: KLineData[], period: number): (number | undef
   return result
 }
 
-// TRIMA（三角移动平均）：TRIMA = SMA(SMA(source, ceil(period/2)), floor(period/2)+1)
-export function calcTRIMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const n = data.length
-  const result: (number | undefined)[] = new Array(n).fill(undefined)
-
-  if (n === 0 || period <= 0 || n < period) return result
-
-  const firstPeriod = Math.ceil(period / 2)
-  const secondPeriod = Math.floor(period / 2) + 1
-
-  // 第一层 SMA：滑动窗口简单累加，输出从 firstPeriod-1 起连续有定义
-  const firstMA: (number | undefined)[] = new Array(n).fill(undefined)
-  let sum = 0
-  for (let i = 0; i < firstPeriod; i++) {
-    sum += data[i]!.close
-  }
-  firstMA[firstPeriod - 1] = sum / firstPeriod
-  for (let i = firstPeriod; i < n; i++) {
-    sum = sum - data[i - firstPeriod]!.close + data[i]!.close
-    firstMA[i] = sum / firstPeriod
-  }
-
-  // 第二层 SMA：对第一层结果滑动求平均，中间出现 undefined 时重置窗口
-  let sum2 = 0
-  let count = 0
-  for (let i = 0; i < n; i++) {
-    const v = firstMA[i]
-    if (v === undefined) {
-      sum2 = 0
-      count = 0
-      continue
-    }
-    sum2 += v
-    count++
-    if (count > secondPeriod) {
-      sum2 -= firstMA[i - secondPeriod]!
-    }
-    if (count >= secondPeriod) {
-      result[i] = sum2 / secondPeriod
-    }
-  }
-
-  return result
-}
-
 // ZLEMA（零滞后指数移动平均）：先构造零滞后源序列，再对其做 EMA
 export function calcZLEMAData(data: KLineData[], period: number): (number | undefined)[] {
   const n = data.length
@@ -234,33 +81,6 @@ export function calcZLEMAData(data: KLineData[], period: number): (number | unde
   }
 
   return _computeEMASeries(zlSource, period)
-}
-
-// VWMA（成交量加权移动平均）：VWMA = Σ(close*volume) / Σ(volume)，滑动窗口 O(n)
-export function calcVWMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const n = data.length
-  const result: (number | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0 || n < period) return result
-
-  let pvSum = 0
-  let vSum = 0
-  for (let i = 0; i < period; i++) {
-    const vol = data[i]!.volume ?? 0
-    pvSum += data[i]!.close * vol
-    vSum += vol
-  }
-  if (vSum > 0) result[period - 1] = pvSum / vSum
-
-  for (let t = period; t < n; t++) {
-    const inBar = data[t]!
-    const outBar = data[t - period]!
-    const inVol = inBar.volume ?? 0
-    const outVol = outBar.volume ?? 0
-    pvSum += inBar.close * inVol - outBar.close * outVol
-    vSum += inVol - outVol
-    if (vSum > 0) result[t] = pvSum / vSum
-  }
-  return result
 }
 
 // ALMA（Arnaud Legoux 移动平均）：高斯权重加权平均，权重偏向 offset 位置，降低噪声并减少滞后
@@ -339,19 +159,5 @@ export function calcLSMAData(data: KLineData[], period: number): (number | undef
     result[i] = intercept + slope * (period - 1)
   }
 
-  return result
-}
-
-// GMMA（顾比均线）：对短/长两组固定周期分别计算收盘价 EMA，返回「周期 → 序列」映射
-export function calcGMMAData(data: KLineData[]): Record<number, (number | undefined)[]> {
-  const result: Record<number, (number | undefined)[]> = {}
-  if (data.length === 0) return result
-
-  const closes = new Array<number | undefined>(data.length)
-  for (let i = 0; i < data.length; i++) closes[i] = data[i]!.close
-
-  for (const period of [...GMMA_SHORT_PERIODS, ...GMMA_LONG_PERIODS]) {
-    result[period] = _computeEMASeries(closes, period)
-  }
   return result
 }

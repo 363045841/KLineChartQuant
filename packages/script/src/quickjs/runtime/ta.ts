@@ -213,6 +213,60 @@ defineLibrary('ta', {
     return __emaSeries(source, length, 'window')
   },
 
+  /** 双重指数均线，两个 EMA 都使用完整有效窗口初始化。 */
+  dema(source: Series, length: number): Series {
+    __checkLength(length)
+    const first = __emaSeries(source, length, 'window')
+    const second = __emaSeries(first, length, 'window')
+    return __deriveOnce(
+      `dema:${__seriesId(source)}:${length}`,
+      (_self, offset) => 2 * first.at(offset) - second.at(offset),
+    )
+  },
+
+  /** 三重指数均线，抵消 EMA 的一阶与二阶滞后。 */
+  tema(source: Series, length: number): Series {
+    __checkLength(length)
+    const first = __emaSeries(source, length, 'window')
+    const second = __emaSeries(first, length, 'window')
+    const third = __emaSeries(second, length, 'window')
+    return __deriveOnce(
+      `tema:${__seriesId(source)}:${length}`,
+      (_self, offset) => 3 * first.at(offset) - 3 * second.at(offset) + third.at(offset),
+    )
+  },
+
+  /** Tillson T3：六层 EMA 的加权组合，因子只影响组合，不复制 EMA 缓存。 */
+  t3(source: Series, length: number, volumeFactor: number = 0.7): Series {
+    __checkLength(length)
+    if (!Number.isFinite(volumeFactor) || volumeFactor < 0 || volumeFactor > 1)
+      throw new RangeError('T3 volumeFactor 必须在 0 到 1 之间')
+    const first = __emaSeries(source, length, 'window')
+    const second = __emaSeries(first, length, 'window')
+    const third = __emaSeries(second, length, 'window')
+    const fourth = __emaSeries(third, length, 'window')
+    const fifth = __emaSeries(fourth, length, 'window')
+    const sixth = __emaSeries(fifth, length, 'window')
+    const factor = volumeFactor
+    const square = factor * factor
+    const cube = square * factor
+    return __deriveOnce(
+      `t3:${__seriesId(source)}:${length}:${factor}`,
+      (_self, offset) =>
+        -cube * sixth.at(offset) +
+        (3 * square + 3 * cube) * fifth.at(offset) +
+        (-6 * square - 3 * factor - 3 * cube) * fourth.at(offset) +
+        (1 + 3 * factor + 3 * square + cube) * third.at(offset),
+    )
+  },
+
+  /** 三角均线：奇数周期采用相同双窗口，偶数周期第二窗口比第一窗口长一根。 */
+  trima(source: Series, length: number): Series {
+    __checkLength(length)
+    const first = __windowSeries(source, Math.ceil(length / 2), 'sma')
+    return __windowSeries(first, Math.floor(length / 2) + 1, 'sma')
+  },
+
   /** 加权移动平均序列，窗口内越新的值权重越大，完整窗口之前为 NaN。 */
   wma(source: Series, length: number): Series {
     __checkLength(length)

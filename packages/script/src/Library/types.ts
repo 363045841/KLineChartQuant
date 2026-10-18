@@ -77,6 +77,39 @@ export type TechnicalAnalysisLibrary = {
    */
   ema(source: Series, length: number): Series
   /**
+   * 双重指数均线：2×EMA(source)−EMA(EMA(source))。
+   * @summary 双重指数均线
+   * @param source 数据序列。
+   * @param length 正整数周期，各层 EMA 以完整窗口均值初始化。
+   * @returns DEMA 序列，前 2×(length−1) 根为 NaN。
+   */
+  dema(source: Series, length: number): Series
+  /**
+   * 三重指数均线：3×EMA1−3×EMA2+EMA3。
+   * @summary 三重指数均线
+   * @param source 数据序列。
+   * @param length 正整数周期，各层 EMA 以完整窗口均值初始化。
+   * @returns TEMA 序列，前 3×(length−1) 根为 NaN。
+   */
+  tema(source: Series, length: number): Series
+  /**
+   * Tillson T3，以六层 EMA 及成交量因子系数组合平滑价格。
+   * @summary Tillson T3 均线
+   * @param source 数据序列。
+   * @param length 正整数周期。
+   * @param volumeFactor 平滑因子，有限数值 0–1，缺省 0.7，不读取成交量。
+   * @returns T3 序列，前 6×(length−1) 根为 NaN；周期 1 时等于输入。
+   */
+  t3(source: Series, length: number, volumeFactor?: number): Series
+  /**
+   * 三角均线：SMA(SMA(source, ceil(length/2)), floor(length/2)+1)。
+   * @summary 三角移动平均
+   * @param source 数据序列。
+   * @param length 正整数周期。
+   * @returns TRIMA 序列，前 length−1 根为 NaN。
+   */
+  trima(source: Series, length: number): Series
+  /**
    * MACD，快慢 EMA 与信号 EMA 均以首个有效值初始化，从该位置逐根输出。
    * @summary 指数平滑异同平均线
    * @param source 价格序列，如 close。

@@ -1,5 +1,4 @@
 /** 从已收盘 K 线振幅推导足迹图统一行高，输出最小价格跳动的整数倍。 */
-import { calcATRData } from '@/engine/indicators/calculators/volatility.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { FOOTPRINT_DEFAULT_PARAMS, FOOTPRINT_ROW_MODES, type FootprintParams } from '../types.js'
@@ -29,7 +28,7 @@ export function resolveRowTicks(
   const samplePeriod = Math.min(period, closed.length)
   let amplitude: number
   if (params.rowMode === FOOTPRINT_ROW_MODES.ATR) {
-    amplitude = calcATRData(closed, samplePeriod)[closed.length - 1] ?? 0
+    amplitude = averageTrueRange(closed, samplePeriod)
   } else if (params.rowMode === FOOTPRINT_ROW_MODES.AverageRange) {
     const sample = closed.slice(-samplePeriod)
     amplitude = sample.reduce((sum, bar) => sum + bar.high - bar.low, 0) / samplePeriod
@@ -41,4 +40,28 @@ export function resolveRowTicks(
     throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '自动行高超出有效价格跳数范围')
   }
   return ticks
+}
+
+/** 足迹分行只需要已收盘行情的末端 Wilder 振幅，不创建指标序列或依赖指标目录。 */
+function averageTrueRange(data: readonly KLineData[], period: number): number {
+  const first = data[0]!
+  let previousClose = first.close
+  let total = 0
+  let average = 0
+  for (let index = 0; index < data.length; index++) {
+    const bar = data[index]!
+    const range = Math.max(
+      bar.high - bar.low,
+      Math.abs(bar.high - previousClose),
+      Math.abs(bar.low - previousClose),
+    )
+    if (index < period) {
+      total += range
+      if (index === period - 1) average = total / period
+    } else {
+      average = (average * (period - 1) + range) / period
+    }
+    previousClose = bar.close
+  }
+  return average
 }

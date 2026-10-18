@@ -1,8 +1,5 @@
-import atrGolden from './atr.json'
-import demaGolden from './dema.json'
 import hmaGolden from './hma.json'
 import kamaGolden from './kama.json'
-import temaGolden from './tema.json'
 
 export interface GoldenSeries {
   period: number
@@ -11,9 +8,6 @@ export interface GoldenSeries {
 
 export type GoldenFixture = Record<string, GoldenSeries>
 
-export const ATR_GOLDEN: GoldenFixture = filterMeta(atrGolden as Record<string, unknown>)
-export const DEMA_GOLDEN: GoldenFixture = filterMeta(demaGolden as Record<string, unknown>)
-export const TEMA_GOLDEN: GoldenFixture = filterMeta(temaGolden as Record<string, unknown>)
 export const HMA_GOLDEN: GoldenFixture = filterMeta(hmaGolden as Record<string, unknown>)
 export const KAMA_GOLDEN: GoldenFixture = filterMeta(kamaGolden as Record<string, unknown>)
 

@@ -1,36 +1,5 @@
 import type { KLineData } from '@/foundation/types/price.js'
 
-export interface PivotPoint {
-  pp: number
-  r1: number
-  r2: number
-  r3: number
-  s1: number
-  s2: number
-  s3: number
-}
-
-export function calcPivotData(data: KLineData[]): (PivotPoint | undefined)[] {
-  const n = data.length
-  const result: (PivotPoint | undefined)[] = new Array(n).fill(undefined)
-  if (n < 2) return result
-  for (let t = 1; t < n; t++) {
-    const p = data[t - 1]!
-    const pp = (p.high + p.low + p.close) / 3
-    const range = p.high - p.low
-    result[t] = {
-      pp,
-      r1: 2 * pp - p.low,
-      s1: 2 * pp - p.high,
-      r2: pp + range,
-      s2: pp - range,
-      r3: p.high + 2 * (pp - p.low),
-      s3: p.low - 2 * (p.high - pp),
-    }
-  }
-  return result
-}
-
 export interface FibPoint {
   high: number
   low: number

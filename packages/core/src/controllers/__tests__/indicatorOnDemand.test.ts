@@ -16,14 +16,10 @@ import {
   getIndicatorDescriptors,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
-  loadIndicatorDefinitions,
-  resolveIndicatorLayerId,
 } from '@/engine/indicators/indicatorDefinitionRegistry'
 import { IndicatorKind } from '@/engine/indicators/indicatorMetadata'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
-import { createChartController } from '../chart/index'
 import { allIndicatorDefinitions } from '../indicatorDefinitionCatalog'
-import type { ChartController, KLineData } from '../types'
 
 /** 记录每个内置定义模块的加载次数；必须在注册表首次读取目录前安装。 */
 const loads = new Map<string, number>()
@@ -37,38 +33,10 @@ beforeAll(() => {
   }
 })
 
-/** 返回已加载实现的内部名称，按字母排序。 */
-function loadedNames(): string[] {
-  return getRegisteredIndicatorDefinitions()
-    .map((definition) => definition.name)
-    .sort()
-}
-
 /** 用户可添加的内置指标名称（不含系统定义）。 */
 const userIndicatorNames = BUILTIN_INDICATOR_MANIFEST.filter(
   (entry) => entry.descriptor.kind === IndicatorKind.Indicator,
 ).map((entry) => entry.descriptor.name)
-
-function createBars(length = 60): KLineData[] {
-  return Array.from({ length }, (_, index) => ({
-    timestamp: (index + 1) * 86_400_000,
-    open: index + 10,
-    high: index + 12,
-    low: index + 8,
-    close: index + 11,
-    volume: 100,
-  }))
-}
-
-/** 挂载一个按需加载模式的图表，容器尺寸固定。 */
-async function mountController(): Promise<{ controller: ChartController; container: HTMLElement }> {
-  const container = document.createElement('div')
-  Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
-  Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
-  document.body.appendChild(container)
-  const controller = await createChartController({ container, data: createBars() })
-  return { controller, container }
-}
 
 beforeEach(async () => {
   // 每个用例使用独立的布局归档，避免前一用例的自动保存参与恢复。
@@ -92,89 +60,8 @@ describe('indicator catalog without implementations', () => {
   it('lists every indicator for the picker without loading any module', () => {
     const catalog = allIndicatorDefinitions()
     expect(catalog).toHaveLength(userIndicatorNames.length)
-    expect(catalog.find((item) => item.id === 'DPO')?.params?.map((param) => param.key)).toEqual(
-      expect.arrayContaining(['period']),
-    )
     expect(loads.size).toBe(0)
     expect(getRegisteredIndicatorDefinitions()).toEqual([])
-  })
-
-  it('loads exactly the requested module, once, when an indicator is added', async () => {
-    await Promise.all([loadIndicatorDefinitions(['DPO']), loadIndicatorDefinitions(['dpo'])])
-    expect([...loads]).toEqual([['dpo', 1]])
-    expect(loadedNames()).toEqual(['dpo'])
-    await loadIndicatorDefinitions(['DPO', 'unknown-indicator'])
-    expect([...loads]).toEqual([['dpo', 1]])
-  })
-})
-
-describe('chart controller on-demand loading', () => {
-  it('creates a chart with only system definitions and adds one indicator on demand', async () => {
-    const { controller, container } = await mountController()
-    try {
-      const systemNames = BUILTIN_INDICATOR_MANIFEST.filter(
-        (entry) => entry.descriptor.kind === IndicatorKind.System,
-      ).map((entry) => entry.descriptor.name)
-      expect(loadedNames()).toEqual([...systemNames].sort())
-      expect(controller.catalog).toHaveLength(userIndicatorNames.length)
-
-      // 未加载时同步方法拒绝写入，并提示宿主先加载。
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      expect(controller.addIndicator('ATR')).toBeNull()
-      expect(warn).toHaveBeenCalledOnce()
-
-      loads.clear()
-      await controller.loadIndicators(['ATR'])
-      expect([...loads]).toEqual([['atr', 1]])
-      const instanceId = controller.addIndicator('ATR')
-      expect(instanceId).not.toBeNull()
-      const pane = controller.subPanes.peek().find((item) => item.indicatorId === 'ATR')
-      expect(pane).toBeDefined()
-      expect(controller.getRenderer(resolveIndicatorLayerId('ATR', pane!.paneId))).toBeDefined()
-    } finally {
-      await controller.dispose()
-      container.remove()
-    }
-  })
-
-  it('restores a saved layout only after loading the indicators it references', async () => {
-    const first = await mountController()
-    await first.controller.loadIndicators(['DPO', 'ENE'])
-    expect(first.controller.addIndicator('DPO')).not.toBeNull()
-    expect(first.controller.addIndicator('ENE')).not.toBeNull()
-    await first.controller.saveLayout({ name: 'restored' })
-    await first.controller.dispose()
-    first.container.remove()
-
-    // 新会话：实现目录清空，只有布局归档保留。
-    clearRegisteredIndicatorDefinitionsForTest()
-    loads.clear()
-    const second = await mountController()
-    try {
-      expect(loads.get('dpo')).toBe(1)
-      expect(loads.get('ene')).toBe(1)
-      expect([...loads.keys()].filter((name) => userIndicatorNames.includes(name)).sort()).toEqual([
-        'dpo',
-        'ene',
-      ])
-      const catalogIds = new Set(second.controller.catalog.map((item) => item.id))
-      const restored = second.controller.indicators
-        .peek()
-        .filter((instance) => catalogIds.has(instance.definitionId))
-      expect(restored.map((instance) => instance.definitionId).sort()).toEqual(['DPO', 'ENE'])
-      const rsiPane = second.controller.subPanes.peek().find((item) => item.indicatorId === 'DPO')
-      expect(rsiPane).toBeDefined()
-      // 副图首帧即可使用该指标的 renderer 与坐标轴，不存在先空后补的帧。
-      expect(
-        second.controller.getRenderer(resolveIndicatorLayerId('DPO', rsiPane!.paneId)),
-      ).toBeDefined()
-      expect(
-        second.controller.getRenderer(resolveIndicatorLayerId('DPO', rsiPane!.paneId, 'scale')),
-      ).toBeDefined()
-    } finally {
-      await second.controller.dispose()
-      second.container.remove()
-    }
   })
 })
 

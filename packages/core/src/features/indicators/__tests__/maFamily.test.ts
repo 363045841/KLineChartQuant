@@ -14,7 +14,6 @@ import { describe, expect, it } from 'vitest'
 import { computeALMA } from '../alma'
 import { computeFRAMA } from '../frama'
 import { computeLSMA } from '../lsma'
-import { computeT3 } from '../t3'
 import { computeVIDYA } from '../vidya'
 import { computeZLEMA } from '../zlema'
 import { constant, ramp } from './helpers/sequences'
@@ -48,25 +47,6 @@ describe('computeALMA', () => {
     expect(() => computeALMA([1, 2], { period: 0 })).toThrow(/period/)
     expect(() => computeALMA([1, 2], { period: 5, offset: -0.1 })).toThrow(/offset/)
     expect(() => computeALMA([1, 2], { period: 5, sigma: 0 })).toThrow(/sigma/)
-  })
-})
-
-describe('computeT3', () => {
-  it('output length === input length', () => {
-    const r = computeT3(ramp(50), { period: 5 })
-    expect(r.length).toBe(50)
-  })
-
-  it('seeds on first sample and produces no NaN once primed', () => {
-    const r = computeT3(constant(30, 50), { period: 5 })
-    // T3 with constant input is a 6-deep EMA cascade of 50 → asymptotes to 50.
-    const last = r[r.length - 1]!
-    expect(last).toBeCloseTo(50, 6)
-  })
-
-  it('respects volumeFactor bounds', () => {
-    expect(() => computeT3(ramp(20), { period: 5, volumeFactor: -0.1 })).toThrow(/volumeFactor/)
-    expect(() => computeT3(ramp(20), { period: 5, volumeFactor: 1.1 })).toThrow(/volumeFactor/)
   })
 })
 

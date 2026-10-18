@@ -58,31 +58,6 @@ describe('Plot instance projection', () => {
     }
   })
 
-  it('隐藏 Keltner 上轨不改变计算结果，并从可见 Plot 计算范围', () => {
-    const definition = getRegisteredIndicatorDefinition('keltner')!
-    const raw = [
-      { upper: 100, middle: 20, lower: 10 },
-      { upper: 110, middle: 22, lower: 11 },
-    ]
-    const state = composeInstanceRenderState(
-      definition,
-      result(raw, { emaPeriod: 1, atrPeriod: 1, multiplier: 2 }),
-      { showUpper: false },
-      { start: 0, end: 2 },
-      1,
-    )
-    expect(state).toMatchObject({
-      visibleMin: 10,
-      visibleMax: 22,
-      plots: [
-        { id: 'upper', visible: false },
-        { id: 'middle', visible: true },
-        { id: 'lower', visible: true },
-      ],
-    })
-    expect(raw[0]?.upper).toBe(100)
-  })
-
   it('MFI 固定范围独立于可见数值，主题颜色来自统一 token', () => {
     const definition = getRegisteredIndicatorDefinition('mfi')!
     const state = composeInstanceRenderState(

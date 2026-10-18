@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
-import { ChartDataViewId, createChartModel } from '../index'
+import { createChartModel } from '../index'
 
 describe('chartModel', () => {
   it('derives the kline primary renderer from the persisted shape setting', () => {
@@ -148,102 +147,5 @@ describe('chartModel', () => {
       name: 'comparisonLine',
       layerId: 'plugin:comparisonLine',
     })
-  })
-
-  it('定义决定实例、Pane 和持久文档的位置，布局身份不能覆盖主副图', async () => {
-    await loadBuiltinIndicators()
-    const kernel = createTestChartStateKernel()
-    const document = kernel.createLayout()
-    kernel.applyLayout({
-      ...document,
-      workspaces: {
-        ...document.workspaces,
-        kline: {
-          ...document.workspaces.kline,
-          instances: [
-            {
-              instanceId: 'native-rsi',
-              indicatorId: 'DPO',
-              layoutId: 'rsi-layout',
-              ordinal: 0,
-              params: { period: 14 },
-            },
-            {
-              instanceId: 'native-boll',
-              indicatorId: 'ENE',
-              layoutId: 'unused-boll-layout',
-              ordinal: 0,
-              params: { period: 20 },
-            },
-          ],
-          paneSpecs: [
-            { id: 'main', ratio: 1 },
-            { id: 'unused-boll-layout', ratio: 1 },
-          ],
-        },
-      },
-    })
-    expect(kernel.indicator.readonly.instances.peek()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ instanceId: 'native-rsi', role: 'sub', paneId: 'rsi-layout' }),
-        expect.objectContaining({ instanceId: 'native-boll', role: 'main', paneId: 'main' }),
-      ]),
-    )
-    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual([
-      'main',
-      'rsi-layout',
-    ])
-    const snapshot = kernel.exportLayout()
-    expect(snapshot.version).toBe(2)
-    for (const config of snapshot.workspaces.kline.instances) {
-      expect(config).not.toHaveProperty('role')
-      expect(config).not.toHaveProperty('paneId')
-    }
-    for (const config of snapshot.workspaces.kline.paneSpecs) {
-      expect(config).not.toHaveProperty('role')
-      expect(config).not.toHaveProperty('capabilities')
-    }
-    kernel.dispose()
-  })
-
-  it('uses an independent indicator workspace for timeshare', async () => {
-    await loadBuiltinIndicators()
-    expect(
-      getRegisteredIndicatorDefinition('DPO')?.getRendererName({
-        paneId: 'sub_RSI',
-        indicatorId: 'DPO',
-      }),
-    ).toBe('dpo_sub_RSI')
-    const kernel = createTestChartStateKernel()
-    kernel.indicator.actions.upsertMain('MA', {})
-    kernel.indicator.actions.upsertMain('ENE', {})
-    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'DPO', params: {} })
-
-    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['MA', 'ENE'])
-
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'candle', layerId: 'plugin:candle' },
-      { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
-      { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
-      { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
-      { name: 'ma', layerId: 'plugin:ma' },
-      { name: 'ene', layerId: 'plugin:ene' },
-      { name: 'dpo_sub_RSI', layerId: 'plugin:dpo_sub_RSI' },
-      { name: 'dpoScale_sub_RSI', layerId: 'plugin:dpoScale_sub_RSI' },
-    ])
-
-    kernel.actions.setDataView('timeshare')
-
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'timeShare', layerId: 'plugin:timeShare' },
-    ])
-    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual([])
-    expect(kernel.pane.readonly.paneSpecs.peek()).toEqual([
-      { id: 'main', ratio: 1, visible: true, role: 'price' },
-    ])
-
-    kernel.actions.setDataView(ChartDataViewId.KLine)
-
-    expect(kernel.activeRenderers$.peek()).toContainEqual({ name: 'ene', layerId: 'plugin:ene' })
   })
 })

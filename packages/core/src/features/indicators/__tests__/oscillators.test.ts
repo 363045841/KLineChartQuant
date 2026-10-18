@@ -2,19 +2,18 @@
  * Oscillator completion pack tests (B-10).
  *
  * Mixed input signatures across the 6:
- *   - close-only: StochRSI, DPO, STC
+ *   - close-only: StochRSI, STC
  *   - HL bars   : AO, Fisher Transform
  *   - OHLC bars : UO
  */
 
 import { describe, expect, it } from 'vitest'
 
-import { computeDPO } from '../dpo'
 import { computeFisherTransform } from '../fisherTransform'
 import { computeSchaffTrendCycle } from '../schaffTrendCycle'
 import { computeStochRSI } from '../stochRSI'
 import { computeUltimateOscillator } from '../ultimateOscillator'
-import { constant, ramp } from './helpers/sequences'
+import { ramp } from './helpers/sequences'
 
 function hlBars(n: number, mid = 100, spread = 1): Array<{ high: number; low: number }> {
   return Array.from({ length: n }, (_, i) => ({
@@ -70,18 +69,6 @@ describe('computeUltimateOscillator', () => {
 
   it('rejects non-positive periods', () => {
     expect(() => computeUltimateOscillator(ohlcRamp(50), { p1: 0 })).toThrow()
-  })
-})
-
-describe('computeDPO', () => {
-  it('output length === input length and constant input → ~0 once primed', () => {
-    const r = computeDPO(constant(40, 50), { period: 10 })
-    expect(r.length).toBe(40)
-    for (let i = 14; i < 40; i++) expect(r[i]!).toBeCloseTo(0, 9)
-  })
-
-  it('rejects period < 2', () => {
-    expect(() => computeDPO(ramp(20), { period: 1 })).toThrow()
   })
 })
 
