@@ -236,43 +236,4 @@ describe('indicatorState', () => {
       expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'CCI' }),
     ])
   })
-
-  it('keeps one main instance per indicator and one sub instance per pane', () => {
-    const m = createIndicatorState()
-    m.actions.upsertMain('MA', { period: 5 })
-    m.actions.upsertMain('MA', { color: 'red' })
-    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
-    const firstSubId = m.readonly.subPanes()[0]!.instanceId
-    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'MACD', params: { fast: 12 } })
-    m.actions.upsertSub({ paneId: 'RSI_1', indicatorId: 'CCI', params: { period1: 14 } })
-    const secondSubId = m.readonly.subPanes()[1]!.instanceId
-    expect(firstSubId).not.toBe(secondSubId)
-
-    expect(m.readonly.instances()).toEqual([
-      {
-        instanceId: 'main:MA',
-        indicatorId: 'MA',
-        paneId: 'main',
-        role: 'main',
-        ordinal: 0,
-        params: { period: 5, color: 'red' },
-      },
-      {
-        instanceId: firstSubId,
-        indicatorId: 'MACD',
-        paneId: 'RSI_0',
-        role: 'sub',
-        ordinal: 0,
-        params: { fast: 12 },
-      },
-      {
-        instanceId: secondSubId,
-        indicatorId: 'CCI',
-        paneId: 'RSI_1',
-        role: 'sub',
-        ordinal: 0,
-        params: { period1: 14 },
-      },
-    ])
-  })
 })

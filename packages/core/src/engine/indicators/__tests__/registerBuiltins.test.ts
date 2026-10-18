@@ -1,3 +1,4 @@
+/** 验证仍由 core 提供的原生指标注册、渲染与配置契约。 */
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
@@ -19,7 +20,7 @@ describe('builtin indicator registration', () => {
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
         'ma',
-        'macd',
+        'atr',
         'volume',
         'volumeProfile',
         'zones',
@@ -53,7 +54,7 @@ describe('builtin indicator registration', () => {
 
   it('allows builtin definitions to be queried by display name', () => {
     expect(getRegisteredIndicatorDefinition('CCI')?.name).toBe('cci')
-    expect(getRegisteredIndicatorDefinition('MACD')?.name).toBe('macd')
+    expect(getRegisteredIndicatorDefinition('ATR')?.name).toBe('atr')
     expect(getRegisteredIndicatorDefinition('VOL')?.name).toBe('volume')
   })
 
@@ -86,7 +87,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('registers dedicated scale renderer factories for stage 5A indicators', () => {
-    const expectedIndicators = ['VOL', 'MACD', 'CCI', 'KST', 'ATR']
+    const expectedIndicators = ['VOL', 'CCI', 'KST', 'ATR']
 
     for (const id of expectedIndicators) {
       expect(getRegisteredIndicatorDefinition(id)?.scaleRendererFactory).toBeTypeOf('function')
@@ -122,7 +123,6 @@ describe('builtin indicator registration', () => {
       HMA: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
       KAMA: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
       SAR: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
-      SUPERTREND: { indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 },
       KELTNER: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
       ICHIMOKU: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
       TRIX: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
@@ -209,7 +209,6 @@ describe('builtin indicator registration', () => {
       HMA: 'hma_main',
       KAMA: 'kama_main',
       SAR: 'sar_main',
-      SUPERTREND: 'supertrend_main',
       KELTNER: 'keltner_main',
       ICHIMOKU: 'ichimoku_main',
       PIVOT: 'pivot_main',
@@ -248,7 +247,6 @@ describe('builtin indicator registration', () => {
       'HMA',
       'KAMA',
       'SAR',
-      'SUPERTREND',
       'KELTNER',
       'ICHIMOKU',
       'PIVOT',
@@ -355,14 +353,8 @@ describe('builtin indicator registration', () => {
     }
   })
 
-  it('MACD 声明柱形和线条 Plot', () => {
-    expect(
-      getRegisteredIndicatorDefinition('MACD')?.plots?.series.map((plot) => plot.kind ?? 'line'),
-    ).toEqual(['columns', 'line', 'line'])
-  })
-
   it('叠加指标声明 Plot', () => {
-    for (const id of ['SAR', 'SUPERTREND', 'KELTNER', 'ICHIMOKU', 'PIVOT', 'FIB']) {
+    for (const id of ['SAR', 'KELTNER', 'ICHIMOKU', 'PIVOT', 'FIB']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
@@ -376,14 +368,12 @@ describe('builtin indicator registration', () => {
   it('registers visible state composer metadata for all composed visible sub indicators', () => {
     const ids = [
       'CCI',
-      'MACD',
       'ATR',
       'DEMA',
       'TEMA',
       'HMA',
       'KAMA',
       'SAR',
-      'SUPERTREND',
       'KELTNER',
       'ICHIMOKU',
       'TRIX',

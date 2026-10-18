@@ -44,6 +44,9 @@ const SOURCE = `defineIndicator({ name: 'Hints', position: Position.Main, onBar(
   const size = ShapeSize.Huge
   const kind = PlotKind.Histogram
   plot.Candle(open, high, low, close, 'candle')
+  const [trend, direction] = ta.supertrend(3, 10)
+  const atr = ta.atr(10)
+  const [dif, dea, histogram] = ta.macd(close, 12, 26, 9)
 } })`
 
 describe('脚本补全中文名', () => {
@@ -59,6 +62,14 @@ describe('脚本补全中文名', () => {
     ['Position', 'Sub', '副图'],
     ['input', 'timeframe', '目标周期'],
     ['plot', 'Candle', '蜡烛图'],
+    ['plot', 'LineBR', '断线折线'],
+    ['plot', 'StepLine', '阶梯线'],
+    ['plot', 'StepLineBR', '断线阶梯线'],
+    ['ta', 'atr', '平均真实波幅'],
+    ['ta', 'supertrend', '超级趋势'],
+    ['ta', 'macd', '指数平滑异同平均线'],
+    ['PlotKind', 'StepLine', '阶梯线'],
+    ['PlotKind', 'StepLineBR', '断线阶梯线'],
   ])('%s.%s 的补全中文名是「%s」', (owner, member, summary) => {
     expect(completionSummary(SOURCE, owner, member)).toBe(summary)
   })

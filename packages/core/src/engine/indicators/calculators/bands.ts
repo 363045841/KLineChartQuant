@@ -1,3 +1,4 @@
+/** 通道与 SAR 等原生指标计算。 */
 import type { KLineData } from '@/foundation/types/price.js'
 
 import { _computeEMASeries } from './_shared.js'
@@ -109,54 +110,6 @@ export function calcSARData(
     }
 
     result[t] = { value: sar, trend }
-  }
-
-  return result
-}
-
-export interface SuperTrendPoint {
-  value: number
-  trend: 'up' | 'down'
-}
-
-export function calcSuperTrendData(
-  data: KLineData[],
-  atrPeriod: number,
-  multiplier: number,
-): (SuperTrendPoint | undefined)[] {
-  const n = data.length
-  const result: (SuperTrendPoint | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || atrPeriod <= 0 || multiplier <= 0) return result
-
-  const atr = calcATRData(data, atrPeriod)
-
-  let trend: 'up' | 'down' = 'up'
-  let prevUpper = Infinity
-  let prevLower = -Infinity
-
-  for (let t = 0; t < n; t++) {
-    const bar = data[t]!
-    const a = atr[t]
-    if (a === undefined) continue
-
-    const hl2 = (bar.high + bar.low) / 2
-    const upperBasic = hl2 + multiplier * a
-    const lowerBasic = hl2 - multiplier * a
-
-    const prevClose = t > 0 ? data[t - 1]!.close : bar.close
-    const upper = upperBasic < prevUpper || prevClose > prevUpper ? upperBasic : prevUpper
-    const lower = lowerBasic > prevLower || prevClose < prevLower ? lowerBasic : prevLower
-
-    if (trend === 'up' && bar.close < lower) {
-      trend = 'down'
-    } else if (trend === 'down' && bar.close > upper) {
-      trend = 'up'
-    }
-
-    result[t] = { value: trend === 'up' ? lower : upper, trend }
-
-    prevUpper = upper
-    prevLower = lower
   }
 
   return result

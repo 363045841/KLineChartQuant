@@ -27,10 +27,25 @@ export interface PlotBase {
   readonly size: import('./shape.js').ShapeSize
 }
 
-/** 折线；虚线可配置，空值处断开；线宽由 size 决定。 */
+/** 普通折线，跨空值连接前后有效点；线宽由 size 决定。 */
 export interface LinePlot extends PlotBase {
   readonly kind: 'line'
   readonly dash: readonly number[]
+}
+
+/** 断线折线，空值处断开；与普通折线共享尺寸和虚线配置。 */
+export interface LineBRPlot extends Omit<LinePlot, 'kind'> {
+  readonly kind: 'linebr'
+}
+
+/** 阶梯线，在相邻有效点的水平中点跳变，跨空值连接。 */
+export interface StepLinePlot extends Omit<LinePlot, 'kind'> {
+  readonly kind: 'stepline'
+}
+
+/** 断线阶梯线，空值处断开。 */
+export interface StepLineBRPlot extends Omit<LinePlot, 'kind'> {
+  readonly kind: 'steplinebr'
 }
 
 /** 固定像素柱宽的柱状图，`baseline` 为柱子起算的基准值。 */
@@ -83,6 +98,9 @@ export interface ArrowPlot extends PlotBase {
 
 export type ScalarPlot =
   | LinePlot
+  | LineBRPlot
+  | StepLinePlot
+  | StepLineBRPlot
   | HistogramPlot
   | ColumnsPlot
   | PointsPlot
@@ -131,6 +149,12 @@ export type PlotKind = Plot['kind']
 export const PlotKind = {
   /** @summary 折线 */
   Line: 'line',
+  /** @summary 断线折线 */
+  LineBR: 'linebr',
+  /** @summary 阶梯线 */
+  StepLine: 'stepline',
+  /** @summary 断线阶梯线 */
+  StepLineBR: 'steplinebr',
   /** @summary 柱状图 */
   Histogram: 'histogram',
   /** @summary 柱形图 */
@@ -163,6 +187,9 @@ export function isPricePlot(plot: Plot): boolean {
     case 'arrow':
       return false
     case 'line':
+    case 'linebr':
+    case 'stepline':
+    case 'steplinebr':
     case 'histogram':
     case 'columns':
     case 'points':

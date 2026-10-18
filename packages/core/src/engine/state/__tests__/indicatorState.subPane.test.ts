@@ -161,7 +161,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
 
   it('moves panes without changing their content ownership', () => {
     const kernel = createTestChartStateKernel()
-    kernel.paneManager.actions.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    kernel.paneManager.actions.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
     kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
 
     expect(kernel.paneManager.actions.move('RSI_0', 1)).toBe(true)

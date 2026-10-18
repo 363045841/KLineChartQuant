@@ -30,7 +30,6 @@ import {
   calcKeltnerData,
   calcKSTData,
   calcLSMAData,
-  calcMACDData,
   calcMAData,
   calcMFIData,
   calcOBVData,
@@ -42,7 +41,6 @@ import {
   calcSMMAData,
   calcStochRSIData,
   calcStructureData,
-  calcSuperTrendData,
   calcT3Data,
   calcTEMAData,
   calcTRIMAData,
@@ -61,7 +59,6 @@ import {
 /** Worker 端 computeKey → calculator 的映射。 */
 const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
   calcCCIData: (data, c) => calcCCIData(data, c.period),
-  calcMACDData: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
   calcMAData: (data, c) => {
     const r: Record<number, (number | undefined)[]> = {}
     const periods = Object.values(c).filter(
@@ -90,7 +87,6 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
   calcDMAData: (data, c) => calcDMAData(data, c.p1, c.p2, c.p3),
   calcGMMAData: (data) => calcGMMAData(data),
   calcSARData: (data, c) => calcSARData(data, c.step, c.maxStep),
-  calcSuperTrendData: (data, c) => calcSuperTrendData(data, c.atrPeriod, c.multiplier),
   calcKeltnerData: (data, c) => calcKeltnerData(data, c.emaPeriod, c.atrPeriod, c.multiplier),
   calcIchimokuData: (data, c) =>
     calcIchimokuData(data, c.tenkanPeriod, c.kijunPeriod, c.spanBPeriod, c.displacement),

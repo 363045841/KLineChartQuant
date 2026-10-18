@@ -82,7 +82,7 @@ describe('LegendManager', () => {
 
   it('副图图例替换、移动和删除委托同一个 Pane 领域', () => {
     const first = chart.legend.create({ kind: 'indicator', definitionId: 'CCI' })!
-    const second = chart.legend.create({ kind: 'indicator', definitionId: 'MACD' })!
+    const second = chart.legend.create({ kind: 'indicator', definitionId: 'ATR' })!
     const paneId = chart.legend.get(first)!.paneId
     expect(chart.legend.move(second, 'up')).toBe(true)
     expect(

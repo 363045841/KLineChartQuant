@@ -4,6 +4,7 @@ import type {
   ArrowPlot,
   ColumnsPlot,
   HistogramPlot,
+  LineBRPlot,
   LinePlot,
   OhlcPlot,
   Plot,
@@ -11,6 +12,8 @@ import type {
   PointsPlot,
   ScalarPlot,
   ShapePlot,
+  StepLineBRPlot,
+  StepLinePlot,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
 import {
@@ -48,11 +51,12 @@ import {
 type Point = { x: number; y: number }
 type LineBatch = { points: Point[]; width: number; color: string }
 type RectBatch = { color: string; buf: Float64Array; count: number }
+type LineSeriesPlot = LinePlot | LineBRPlot | StepLinePlot | StepLineBRPlot
 
 /** 折线的投影结果：批次供 GPU 或 Canvas2D 重放。 */
 interface LineProjection {
   readonly kind: 'line'
-  readonly plot: LinePlot
+  readonly plot: LineSeriesPlot
   readonly points: ReadonlyMap<number, Point>
   readonly lines: readonly LineBatch[]
 }
@@ -181,7 +185,7 @@ function projectX(index: number, context: RenderContext): number | null {
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
 function projectPricePoint(
-  plot: LinePlot | HistogramPlot | ColumnsPlot | PointsPlot,
+  plot: LineSeriesPlot | HistogramPlot | ColumnsPlot | PointsPlot,
   index: number,
   context: RenderContext,
 ): Point | undefined {
@@ -232,13 +236,19 @@ function projectPoints(
   return points
 }
 
-/** 构建可复用的折线批次；遇到空点或颜色变化时开始新段。 */
+/** 判断 Plot 是否采用中点跳变的阶梯形状，供路径与填充共同使用。 */
+function isStepPlot(plot: Plot): boolean {
+  return plot.kind === 'stepline' || plot.kind === 'steplinebr'
+}
+
+/** 折线与阶梯线共用批次构建；BR 在空点处断开，颜色变化时共享前一有效端点。 */
 function buildLineSegments(
-  plot: LinePlot,
+  plot: LineSeriesPlot,
   context: RenderContext,
   points: ReadonlyMap<number, Point>,
 ): LineBatch[] {
   const lines: LineBatch[] = []
+  const stepped = isStepPlot(plot)
   let segment: Point[] = []
   let color = plot.color
   let previous: Point | undefined
@@ -251,8 +261,10 @@ function buildLineSegments(
     previousIndex = index
     const point = points.get(index)
     if (!point) {
-      segment = []
-      previous = undefined
+      if (plot.kind === 'linebr' || plot.kind === 'steplinebr') {
+        segment = []
+        previous = undefined
+      }
       continue
     }
     const nextColor = plot.data[index - plot.offset]?.color ?? plot.color
@@ -260,6 +272,10 @@ function buildLineSegments(
       segment = previous ? [previous] : []
       color = nextColor
       lines.push({ points: segment, width: lineWidth(plot.size), color })
+    }
+    if (stepped && previous && previous.y !== point.y) {
+      const middleX = (previous.x + point.x) / 2
+      segment.push({ x: middleX, y: previous.y }, { x: middleX, y: point.y })
     }
     segment.push(point)
     previous = point
@@ -309,7 +325,10 @@ function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
     case 'candle':
     case 'bar':
       return projectOhlcPlot(plot, context)
-    case 'line': {
+    case 'line':
+    case 'linebr':
+    case 'stepline':
+    case 'steplinebr': {
       const points = projectPoints(plot, context, (index) =>
         projectPricePoint(plot, index, context),
       )
@@ -416,7 +435,16 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
   const from = byId.get(fill.from)
   const to = byId.get(fill.to)
   if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
-  return { fill, bands: buildFillBands(from.points, to.points, fill.colors) }
+  return {
+    fill,
+    bands: buildFillBands(
+      from.points,
+      to.points,
+      fill.colors,
+      isStepPlot(from.plot),
+      isStepPlot(to.plot),
+    ),
+  }
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */

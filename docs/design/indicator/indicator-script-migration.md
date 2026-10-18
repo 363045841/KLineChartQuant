@@ -58,7 +58,7 @@
 | 批次 | 指标 | 说明 |
 | --- | --- | --- |
 | 第一批（已迁移） | `rsi` `mom` `roc` `wma` `boll` `donchian` `fastk` `wmsr` `stoch` | 仅 K 线；保留原默认参数、预热及计算规则；只有 RSI 是周期族多线，保留逐线开关 |
-| 第二批 | `ma` 及状态机与位移型：`sar` `supertrend` `macd` `atr` `keltner` `ichimoku` `obv` `pvt` `vwap` `mfi` `cmf` `dpo` `trix` `kst` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | 按需追加 ta 原语与确认视图范围 |
+| 第二批（SuperTrend、MACD 已迁移） | `ma` 及状态机与位移型：`sar` `atr` `keltner` `ichimoku` `obv` `pvt` `vwap` `mfi` `cmf` `dpo` `trix` `kst` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | 已补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；其余按需迁移 |
 | 第三批 | 其余 MA 家族：`kama` `frama` `vidya` `t3` `hma` `zlema` `lsma` `alma` `trima` `smma`、`pivot` `fib` | 需追加 ta 原语 |
 | 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
 
@@ -79,6 +79,18 @@
   三线从 D 就绪时同时输出，J 可超出 0~100。D 依赖对 K 序列再平滑，目前仍在指标源码内维护窗口。
 - BOLL 使用总体标准差；FastK/WMSR 平盘分别输出 50/-50；ROC 的零基期留空。
 - 参考线由脚本绘制，坐标轴使用实际 Plot 范围，不保留原生固定范围和主题 token 通道。
+- SuperTrend 默认 ATR 周期 10、倍数 3；`ta.atr` 以首个完整 TR 窗口均值初始化，之后 Wilder 平滑。
+  `ta.supertrend(multiplier, atrPeriod)` 返回趋势值与方向两个 Series，-1 为上涨、1 为下跌；保留旧 core
+  的上涨初始方向与严格突破判断，不宣称与 Pine 的初始化完全相同。各参数组合独立缓存，历史取值不重置状态。
+  发布脚本只声明输入并用两条 `LineBR` 分别输出上涨和下跌区间，非当前方向与预热阶段留空。
+  删除旧 SuperTrend 定义、专属 calculator、Worker 映射及静态身份；core 的通用 ATR 仍服务未迁移指标。
+- MACD 默认 12/26/9，`ta.macd(source, fastLength, slowLength, signalLength)` 返回 DIF、DEA、未翻倍柱体三个
+  Series。内部 EMA 沿用旧 MACD 的首个有效值初始化，通用 `ta.ema` 仍以完整窗口均值初始化。
+  脚本使用 Columns 输出 `2 * (DIF - DEA)`，按正负与增减绘制四色，DIF/DEA 使用 LineBR。
+  整体三图元不增加逐线开关；删除原生 MACD 定义、calculator、专用 scale、Worker 映射和静态身份。
+  旧 calculator 仅当输入总长度达到慢周期才输出并回填至首根，这一依赖未来长度的行为不迁移：TA 从首个有效
+  输入逐根输出，NaN 留空并在下一有效值重新初始化，追加历史不改写已有前缀。
+  原生 MACD 曾声明分时与五日分时支持；迁移脚本沿用当前框架的 K 线视图边界，跨视图支持另行实现。
 
 ## 验证边界
 

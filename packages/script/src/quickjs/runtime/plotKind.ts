@@ -113,6 +113,12 @@ declare enum Timeframe {
 declare enum PlotKind {
   /** @summary 折线 */
   Line = "line",
+  /** @summary 断线折线 */
+  LineBR = "linebr",
+  /** @summary 阶梯线 */
+  StepLine = "stepline",
+  /** @summary 断线阶梯线 */
+  StepLineBR = "steplinebr",
   /** @summary 柱状图 */
   Histogram = "histogram",
   /** @summary 柱形图 */

@@ -44,6 +44,99 @@ function paint(
 }
 
 describe('Plot renderer', () => {
+  it.each(['stepline', 'steplinebr'] as const)('%s 在中点跳变并按类型处理连续空点', (kind) => {
+    const { ctx } = paint(
+      { series: [{ id: 'step', kind, color: () => 'blue' }] },
+      [1, 2, null, NaN, 5],
+    )
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10]])
+    const firstStep = [
+      [10, 10],
+      [10, 20],
+      [15, 20],
+    ]
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
+      kind === 'steplinebr' ? firstStep : [...firstStep, [30, 20], [30, 50], [45, 50]],
+    )
+  })
+
+  it.each(['stepline', 'steplinebr'] as const)('%s 保留偏移、逐点颜色、虚线、尺寸和同值平台', (kind) => {
+    const { ctx, state } = paint(
+      {
+        series: [
+          {
+            id: 'step',
+            kind,
+            color: () => 'blue',
+            pointColor: (value) => (value === 3 ? 'red' : 'blue'),
+            offset: () => 1,
+            dash: [4, 2],
+            size: ShapeSize.Large,
+          },
+        ],
+      },
+      [1, 3, 3, 0],
+    )
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[15, 10], [35, 30]])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([
+      [20, 10],
+      [20, 30],
+      [25, 30],
+      [35, 30],
+      [40, 30],
+      [40, 0],
+      [45, 0],
+    ])
+    expect(ctx.setLineDash).toHaveBeenCalledWith([4, 2])
+    expect(ctx.lineWidth).toBe(3)
+    expect(ctx.strokeStyle).toBe('blue')
+    expect(state.visibleMin).toBe(0)
+    expect(state.visibleMax).toBe(3)
+  })
+
+  it('断线阶梯线在空点后重新开始，孤立点不生成线段', () => {
+    const definition: IndicatorPlotDefinition = {
+      series: [{ id: 'step', kind: 'steplinebr', color: () => 'blue' }],
+    }
+    const { ctx } = paint(definition, [1, 2, null, 4, 5])
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10], [35, 40]])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([
+      [10, 10],
+      [10, 20],
+      [15, 20],
+      [40, 40],
+      [40, 50],
+      [45, 50],
+    ])
+    expect(paint(definition, [NaN, 1, null]).ctx.stroke).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, 'line', 'linebr'] as const)('折线 kind=%s 控制连续空点两侧的连接', (kind) => {
+    const { ctx, state } = paint(
+      { series: [{ id: 'line', kind, color: () => 'blue' }] },
+      [1, 2, null, NaN, 5],
+    )
+    expect(state.plots[0]).toMatchObject({ kind: kind ?? 'line' })
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10]])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
+      kind === 'linebr' ? [[15, 20]] : [[15, 20], [45, 50]],
+    )
+  })
+
+  it('跨空值连接保留逐点颜色，并且不为首尾空点生成线段', () => {
+    const collector = new PlotCollector({ barCount: 5 })
+    const declaration = { name: 'line', kind: 'line' } as const
+    collector.onPlot('line', 0, null, 'line', declaration)
+    collector.onPlot('line', 1, { value: 2, color: 'blue' }, 'line', declaration)
+    collector.onPlot('line', 2, null, 'line', declaration)
+    collector.onPlot('line', 3, { value: 4, color: 'red' }, 'line', declaration)
+    collector.onPlot('line', 4, null, 'line', declaration)
+    const { ctx } = paint({ source: 'collection', series: [] }, collector.collect())
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[15, 20]])
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([[35, 40]])
+    expect(ctx.strokeStyle).toBe('red')
+  })
+
   it('OHLC 的 showLast、位移、自动缩放和四价格图例使用同一数据范围', () => {
     const collector = new PlotCollector({ barCount: 3 })
     for (let index = 0; index < 3; index++) {
@@ -722,8 +815,8 @@ describe('Plot renderer', () => {
     expect(ctx.translate).toHaveBeenLastCalledWith(-5, 0)
   })
 
-  it('空点和 NaN 断开折线，保持正确 K 线位置和滚动偏移', () => {
-    const { ctx } = paint({ series: [{ id: 'close', color: () => 'red' }] }, [
+  it('LineBR 遇到空点和 NaN 断线，保持正确 K 线位置和滚动偏移', () => {
+    const { ctx } = paint({ series: [{ id: 'close', kind: 'linebr', color: () => 'red' }] }, [
       1,
       2,
       Number.NaN,

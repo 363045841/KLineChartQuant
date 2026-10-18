@@ -19,6 +19,8 @@ export type {
   CharPlotDeclaration,
   HistogramPlot,
   InputSchema,
+  LineBRPlot,
+  LineBRPlotDeclaration,
   LinePlot,
   OhlcPlot,
   OhlcPlotDeclaration,
@@ -36,6 +38,10 @@ export type {
   ShapeOptions,
   ShapePlot,
   ShapePlotDeclaration,
+  StepLineBRPlot,
+  StepLineBRPlotDeclaration,
+  StepLinePlot,
+  StepLinePlotDeclaration,
 } from '@363045841yyt/klinechart-plot-contracts'
 export {
   Color,

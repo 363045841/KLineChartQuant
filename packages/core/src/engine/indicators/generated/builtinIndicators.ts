@@ -102,10 +102,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/ma.js').then((module) => module.MADefinition),
   },
   {
-    descriptor: {"name":"macd","kind":"indicator","displayName":"MACD","category":"oscillator","defaultPaneId":"sub_MACD","dataViews":["kline","timeshare","fiveDayTimeShare"],"defaultParams":{"fastPeriod":12,"slowPeriod":26,"signalPeriod":9},"defaultOptions":{"showDIF":true,"showDEA":true,"showBAR":true}},
-    load: () => import('../../renderers/Indicator/macd.js').then((module) => module.MACDIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"mfi","kind":"indicator","displayName":"MFI","category":"volume","defaultPaneId":"sub_MFI","defaultParams":{"period":14},"defaultOptions":{"showMFI":true}},
     load: () => import('../../renderers/Indicator/mfi.js').then((module) => module.MFIIndicatorDefinition),
   },
@@ -144,10 +140,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   {
     descriptor: {"name":"structure","kind":"indicator","displayName":"Structure","category":"main","defaultPaneId":"sub_Structure","allowMainPane":true,"defaultParams":{"leftWindow":5,"rightWindow":2,"breakoutSource":"close"},"defaultOptions":{"showSwingLabels":true,"showBOS":true,"showCHOCH":true,"showProvisional":true}},
     load: () => import('../../renderers/Indicator/structure.js').then((module) => module.StructureIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"supertrend","kind":"indicator","displayName":"SuperTrend","category":"main","defaultPaneId":"sub_SuperTrend","allowMainPane":true,"defaultParams":{"atrPeriod":10,"multiplier":3},"defaultOptions":{"showSuperTrend":true}},
-    load: () => import('../../renderers/Indicator/supertrend.js').then((module) => module.SuperTrendIndicatorDefinition),
   },
   {
     descriptor: {"name":"t3","kind":"indicator","displayName":"t3","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":5,"volumeFactor":0.7},"defaultOptions":{"showT3":true}},

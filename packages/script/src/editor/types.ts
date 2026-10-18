@@ -67,10 +67,25 @@ export type PlotStyleOptions<K extends PlotDeclaration['kind']> = Omit<
 /** 当前 K 线绘图入口；name 必填，null 留空；单值方法返回 PlotRef，OHLC 方法返回 void。 */
 export interface ScriptPlot {
   /**
-   * 输出折线点。
+   * 输出普通折线点，跨空值连接前后有效点，对应 Pine plot.style_line。
    * @summary 折线
    */
   Line(value: number | null, name: string, options?: PlotStyleOptions<'line'>): PlotRef
+  /**
+   * 输出断线折线点，空值处断开，对应 Pine plot.style_linebr。
+   * @summary 断线折线
+   */
+  LineBR(value: number | null, name: string, options?: PlotStyleOptions<'linebr'>): PlotRef
+  /**
+   * 输出阶梯线点，在相邻有效点的水平中点跳变，跨空值连接，对应 Pine plot.style_stepline。
+   * @summary 阶梯线
+   */
+  StepLine(value: number | null, name: string, options?: PlotStyleOptions<'stepline'>): PlotRef
+  /**
+   * 输出断线阶梯线点，空值处断开，对应 Pine plot.style_steplinebr。
+   * @summary 断线阶梯线
+   */
+  StepLineBR(value: number | null, name: string, options?: PlotStyleOptions<'steplinebr'>): PlotRef
   /**
    * 固定像素柱宽；size 接受正数像素或 ShapeSize 枚举，默认 1px。
    * @summary 柱状图（定宽）

@@ -78,7 +78,7 @@ function isDash(value: unknown): boolean {
   )
 }
 
-/** line 只额外声明虚线；线宽由公共 size 决定。 */
+/** 折线与阶梯线只额外声明虚线；线宽由公共 size 决定。 */
 function isLineFields(value: Record<string, unknown>): boolean {
   return isDash(value.dash)
 }
@@ -122,6 +122,9 @@ const PLOT_FIELD_VALIDATORS: Readonly<
   Record<PlotKind, (value: Record<string, unknown>) => boolean>
 > = {
   line: isLineFields,
+  linebr: isLineFields,
+  stepline: isLineFields,
+  steplinebr: isLineFields,
   histogram: isHistogramFields,
   columns: (value) => value.size === undefined && isHistogramFields(value),
   points: isPointsFields,

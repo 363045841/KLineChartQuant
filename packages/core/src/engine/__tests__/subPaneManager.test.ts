@@ -133,14 +133,14 @@ describe('SubPaneManager runtime projection', () => {
 
   it('removes the old projection when the replacement factory throws', () => {
     manager.reconcile(ctx, [rsi])
-    vi.spyOn(getRegisteredIndicatorDefinition('macd')!, 'rendererFactory').mockImplementation(
+    vi.spyOn(getRegisteredIndicatorDefinition('atr')!, 'rendererFactory').mockImplementation(
       () => {
         throw new Error('factory failed')
       },
     )
 
     manager.reconcile(ctx, [
-      { instanceId: 'user:macd:0', paneId: 'RSI_0', indicatorId: 'MACD', ordinal: 0, params: {} },
+      { instanceId: 'user:atr:0', paneId: 'RSI_0', indicatorId: 'ATR', ordinal: 0, params: {} },
     ])
 
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()

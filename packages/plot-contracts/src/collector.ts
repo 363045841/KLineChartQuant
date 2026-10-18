@@ -10,18 +10,22 @@ import type {
   CharPlotDeclaration,
   ColumnsPlotDeclaration,
   HistogramPlotDeclaration,
+  LineBRPlotDeclaration,
   LinePlotDeclaration,
   OhlcPlotDeclaration,
   ScalarPlotDeclaration as PlotDeclaration,
   PlotFillDeclaration,
   PointsPlotDeclaration,
   ShapePlotDeclaration,
+  StepLineBRPlotDeclaration,
+  StepLinePlotDeclaration,
 } from './declaration.js'
 import {
   type ArrowPlot,
   type CharPlot,
   type ColumnsPlot,
   type HistogramPlot,
+  type LineBRPlot,
   type LinePlot,
   type OhlcPlot,
   type OhlcPlotPoint,
@@ -33,6 +37,8 @@ import {
   type PointsPlot,
   type ScalarPlot,
   type ShapePlot,
+  type StepLineBRPlot,
+  type StepLinePlot,
   validatePlotFills,
 } from './plots.js'
 import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
@@ -227,6 +233,9 @@ function styleSignature(
   ] as const
   switch (declaration.kind) {
     case 'line':
+    case 'linebr':
+    case 'stepline':
+    case 'steplinebr':
       return [...base, ...(declaration.dash ?? [])]
     case 'histogram':
     case 'columns':
@@ -277,11 +286,18 @@ function plotBase(
   }
 }
 
-/** 折线：补虚线默认值。 */
-function createLinePlot(declaration: LinePlotDeclaration, base: PlotBaseFields): LinePlot {
+/** 折线与阶梯线共用组装逻辑，kind 保留形状和空值语义。 */
+function createLinePlot(
+  declaration:
+    | LinePlotDeclaration
+    | LineBRPlotDeclaration
+    | StepLinePlotDeclaration
+    | StepLineBRPlotDeclaration,
+  base: PlotBaseFields,
+): LinePlot | LineBRPlot | StepLinePlot | StepLineBRPlot {
   return {
     ...base,
-    kind: 'line',
+    kind: declaration.kind,
     dash: declaration.dash ?? DEFAULT_LINE_DASH,
   }
 }
@@ -362,6 +378,9 @@ export function createPlot(
   const base = plotBase(declaration, data)
   switch (declaration.kind) {
     case 'line':
+    case 'linebr':
+    case 'stepline':
+    case 'steplinebr':
       return createLinePlot(declaration, base)
     case 'histogram':
       return createHistogramPlot(declaration, base)

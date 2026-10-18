@@ -48,7 +48,10 @@ declare global {
    *
    * | 方法 | 图形 | value 含义 |
    * | --- | --- | --- |
-   * | `plot.Line` | 折线 | 折线点数值 |
+   * | `plot.Line` | 普通折线 | 跨空值连接前后有效点 |
+   * | `plot.LineBR` | 断线折线 | 空值处断开 |
+   * | `plot.StepLine` | 阶梯线 | 在相邻有效点的水平中点跳变，跨空值连接 |
+   * | `plot.StepLineBR` | 断线阶梯线 | 空值处断开 |
    * | `plot.Histogram` | 柱状图 | 柱状图数值 |
    * | `plot.Point` | 散点 | 散点数值 |
    * | `plot.Shape` | 形状标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |

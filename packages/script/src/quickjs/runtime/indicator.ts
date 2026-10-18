@@ -2,9 +2,21 @@
 
 /** 按方法类型输出当前 K 线；name 标识整列，单值方法返回句柄，OHLC 方法仅输出四价格。 */
 const plot: ScriptPlot = {
-  /** 输出折线点。 */
+  /** 输出普通折线点，跨空值连接。 */
   Line(value, name, options) {
     return emitPlot(PlotKind.Line, value, name, options)
+  },
+  /** 输出断线折线点，空值处断开。 */
+  LineBR(value, name, options) {
+    return emitPlot(PlotKind.LineBR, value, name, options)
+  },
+  /** 输出阶梯线点，跨空值连接。 */
+  StepLine(value, name, options) {
+    return emitPlot(PlotKind.StepLine, value, name, options)
+  },
+  /** 输出断线阶梯线点，空值处断开。 */
+  StepLineBR(value, name, options) {
+    return emitPlot(PlotKind.StepLineBR, value, name, options)
   },
   /** 输出柱状图值。 */
   Histogram(value, name, options) {

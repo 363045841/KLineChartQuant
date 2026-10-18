@@ -120,7 +120,11 @@ function buildSeriesPlots(
     }
     switch (kind) {
       case 'line':
-        return createPlot({ ...base, kind: 'line', dash: spec.dash, size }, data)
+      case 'linebr':
+        return createPlot({ ...base, kind, dash: spec.dash, size }, data)
+      case 'stepline':
+      case 'steplinebr':
+        return createPlot({ ...base, kind, dash: spec.dash, size }, data)
       case 'histogram':
         return createPlot(
           { ...base, kind: 'histogram', baseline: spec.baseline, size: spec.size },

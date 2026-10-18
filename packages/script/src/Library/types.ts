@@ -77,6 +77,16 @@ export type TechnicalAnalysisLibrary = {
    */
   ema(source: Series, length: number): Series
   /**
+   * MACD，快慢 EMA 与信号 EMA 均以首个有效值初始化，从该位置逐根输出。
+   * @summary 指数平滑异同平均线
+   * @param source 价格序列，如 close。
+   * @param fastLength 快周期，正整数。
+   * @param slowLength 慢周期，正整数。
+   * @param signalLength 信号周期，正整数。
+   * @returns [DIF, DEA, DIF-DEA] 三个序列；柱体不翻倍，NaN 处留空，后续有效值重新初始化。
+   */
+  macd(source: Series, fastLength: number, slowLength: number, signalLength: number): readonly [Series, Series, Series]
+  /**
    * 加权移动平均（WMA），越新的值权重越大。
    * @summary 加权移动平均
    * @param source 数据序列，如 close。
@@ -101,6 +111,21 @@ export type TechnicalAnalysisLibrary = {
    * @returns RSI 序列，范围 0–100；[0] 取当前值，完整窗口之前为 NaN。
    */
   rsi(source: Series, length: number): Series
+  /**
+   * 平均真实波幅（ATR），首个完整窗口取真实波幅均值，之后使用 Wilder 平滑。
+   * @summary 平均真实波幅
+   * @param length 周期，正整数。
+   * @returns ATR 序列；第一根真实波幅为 high-low，完整窗口之前为 NaN。
+   */
+  atr(length: number): Series
+  /**
+   * Supertrend，保留原生指标的上涨初始方向与 ATR 通道递推规则。
+   * @summary 超级趋势
+   * @param multiplier ATR 倍数，有限正数。
+   * @param atrPeriod ATR 周期，正整数。
+   * @returns [趋势线序列, 方向序列]；-1 为上涨、1 为下跌，预热期间两者均为 NaN。
+   */
+  supertrend(multiplier: number, atrPeriod: number): readonly [Series, Series]
   /**
    * 动量（MOM），当前值减去 length 根之前的值。
    * @summary 动量

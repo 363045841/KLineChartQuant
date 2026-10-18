@@ -10,6 +10,65 @@ import { prepareNativeScript } from '../impl/prepareNativeScript.js'
 describe('原生脚本后端', () => {
   beforeAll(preloadQuickJS)
 
+  it.each([prepareNativeScript, prepareQuickJSScript])('执行器 %s 输出两种阶梯线并保留样式与 fill 句柄', (prepare) => {
+    const prepared = prepare(`defineIndicator({ name: 'Steps', position: 'main', onBar() {
+      const value = close[0] === 2 ? null : close[0] === 3 ? NaN : close[0]
+      const joined = plot.StepLine(value, 'joined')
+      const broken = plot.StepLineBR(value, 'broken', {
+        color: Color.Red, dash: [4, 2], offset: 1, size: ShapeSize.Large, visible: false
+      })
+      fill(joined, broken, Color.Blue)
+    } })`)
+    const result = prepared.run(barsFromCloses([1, 2, 3, 4]))
+    expect(result.plots).toEqual([
+      expect.objectContaining({ id: 'joined', kind: 'stepline', dash: [], offset: 0, visible: true }),
+      expect.objectContaining({ id: 'broken', kind: 'steplinebr', dash: [4, 2], offset: 1, size: 'large', visible: false }),
+    ])
+    for (const plot of result.plots) {
+      if (isOhlcPlot(plot)) throw new Error('Expected step Plot')
+      expect(plot.data.map((point) => point?.value)).toEqual([1, undefined, undefined, 4])
+    }
+    expect(result.fills[0]).toMatchObject({ from: 'joined', to: 'broken' })
+    const invalid = prepare(`defineIndicator({ name: 'InvalidStep', position: 'main', onBar() {
+      plot.StepLineBR(close, 'step', { dash: 'invalid' })
+    } })`)
+    expect(() => invalid.run(barsFromCloses([1]))).toThrow('无效 plot 调用参数')
+    const changing = prepare(`defineIndicator({ name: 'ChangingStep', position: 'main', onBar() {
+      (close[0] > 1 ? plot.StepLineBR : plot.StepLine)(close[0], 'step')
+    } })`)
+    expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
+  })
+
+  it.each([prepareNativeScript, prepareQuickJSScript])('执行器 %s 保留折线空值与连接策略', (prepare) => {
+    const prepared = prepare(`defineIndicator({ name: 'Gaps', position: 'main', onBar() {
+      const value = close[0] === 2 ? null : close[0]
+      const joined = plot.Line(value, 'joined')
+      const broken = plot.LineBR(value, 'broken', { dash: [4, 4], offset: 1 })
+      fill(joined, broken, Color.Blue)
+    } })`)
+    const result = prepared.run(barsFromCloses([1, 2, 3]))
+    expect(result.plots.map((plot) => ({ ...plot, data: [] }))).toEqual([
+      expect.objectContaining({ id: 'joined', kind: 'line' }),
+      expect.objectContaining({ id: 'broken', kind: 'linebr', dash: [4, 4], offset: 1 }),
+    ])
+    expect(result.fills[0]).toMatchObject({ from: 'joined', to: 'broken' })
+    for (const plot of result.plots) {
+      if (isOhlcPlot(plot)) throw new Error('Expected line Plot')
+      expect(plot.data.map((point) => point?.value)).toEqual([1, undefined, 3])
+    }
+  })
+
+  it.each([prepareNativeScript, prepareQuickJSScript])('执行器 %s 校验 LineBR 样式及整列类型一致性', (prepare) => {
+    const invalid = prepare(`defineIndicator({ name: 'InvalidGaps', position: 'main', onBar() {
+      plot.LineBR(close[0], 'line', { dash: 'invalid' })
+    } })`)
+    expect(() => invalid.run(barsFromCloses([1]))).toThrow('无效 plot 调用参数')
+    const changing = prepare(`defineIndicator({ name: 'ChangingGaps', position: 'main', onBar() {
+      (close[0] > 1 ? plot.LineBR : plot.Line)(close[0], 'line')
+    } })`)
+    expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
+  })
+
   it.each(builtinScriptSources.map((source, index) => ({ source, index })))(
     '内置脚本 $index 的声明、数值、样式和填充与 QuickJS 一致',
     ({ source }) => {

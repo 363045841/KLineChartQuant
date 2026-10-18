@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
-import { LAYOUT_DOCUMENT_VERSION } from '../../layout/types'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
 import { ChartDataViewId, createChartModel } from '../index'
 
@@ -149,48 +148,6 @@ describe('chartModel', () => {
       name: 'comparisonLine',
       layerId: 'plugin:comparisonLine',
     })
-  })
-
-  it('restores and snapshots independent view workspaces without mode instances', async () => {
-    await loadBuiltinIndicators()
-    const workspaces = {
-      kline: {
-        instances: [
-          {
-            instanceId: 'main:ENE',
-            indicatorId: 'ENE',
-            layoutId: 'pane:main:ENE',
-            ordinal: 0,
-            params: { period: 20 },
-          },
-        ],
-        paneRatios: { main: 1 },
-        paneSpecs: [{ id: 'main', ratio: 1, visible: true }],
-        paneScaleTypes: { main: 'log' as const },
-      },
-      timeshare: {
-        instances: [
-          { instanceId: 'rsi', indicatorId: 'MACD', layoutId: 'RSI_0', ordinal: 0, params: {} },
-        ],
-        paneRatios: { main: 0.75, RSI_0: 0.25 },
-        paneSpecs: [
-          { id: 'main', ratio: 0.75, visible: true },
-          { id: 'RSI_0', ratio: 0.25, visible: true },
-        ],
-        paneScaleTypes: { main: 'percent' as const },
-      },
-    }
-    const kernel = createTestChartStateKernel()
-    kernel.applyLayout({
-      version: LAYOUT_DOCUMENT_VERSION,
-      workspaces,
-      panePriceAxisModes: {},
-    })
-
-    expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
-    kernel.actions.setDataView(ChartDataViewId.TimeShare)
-    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual(['main', 'RSI_0'])
-    expect(kernel.snapshotViewWorkspaces()).toEqual(workspaces)
   })
 
   it('定义决定实例、Pane 和持久文档的位置，布局身份不能覆盖主副图', async () => {

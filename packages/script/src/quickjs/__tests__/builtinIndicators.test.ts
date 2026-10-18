@@ -14,7 +14,7 @@ import {
   runQuickJSScript,
 } from '../impl/runQuickJSScript.js'
 
-const names = ['rsi', 'mom', 'roc', 'wma', 'boll', 'donchian', 'fastk', 'wmsr', 'stoch']
+const names = ['rsi', 'mom', 'roc', 'wma', 'boll', 'donchian', 'fastk', 'wmsr', 'stoch', 'supertrend']
 
 /** 执行发布源码并按绘图身份提取数值，缺失点保持 undefined。 */
 async function run(
@@ -118,7 +118,7 @@ describe('迁移的内置指标', () => {
   })
 
   // 跨数据与追加历史都不能残留脚本状态；「同输入同输出」由执行器用例统一覆盖。
-  it.each(['rsi', 'stoch'])('%s 追加历史不泄漏脚本状态', async (name) => {
+  it.each(['rsi', 'stoch', 'supertrend', 'macd'])('%s 追加历史不泄漏脚本状态', async (name) => {
     const data = barsFromCloses(wavyCloses(50))
     const full = await run(name, data)
     const prefix = await run(name, data.slice(0, 35))

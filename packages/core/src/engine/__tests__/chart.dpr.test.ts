@@ -20,10 +20,35 @@ import type { ChartModeHandler } from '../chartModel/index'
 import { ChartDataViewId, isTimeShareDataView, resolveChartDataView } from '../chartModel/index'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import { calcATRData } from '../indicators/calculators/volatility'
+import { Indicator } from '../indicators/indicatorDecorator'
+import { getRegisteredIndicatorDefinition, registerIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import { IndicatorKind } from '../indicators/indicatorMetadata'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
 import { MAIN_PANE_ID } from '../pane/types'
+import { plotRenderer } from '../plots/impl/plotDefinition'
+
+/** 用真实 ATR 计算声明跨视图测试指标，工作区隔离不依赖已迁走的 MACD。 */
+function registerTimeShareTestIndicator(): string {
+  const name = 'VIEW_TEST_ATR'
+  const decorate = Indicator({
+    name, displayName: name, kind: IndicatorKind.Indicator, category: 'oscillator',
+    defaultPaneId: `sub_${name}`,
+    dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare],
+    plots: { series: [{ id: 'atr', color: (colors) => colors.palette.indicatorAtr }] },
+    runtime: {
+      defaultParams: { period: 14 },
+      compute: (data, config) => calcATRData(data, config.period),
+    },
+  })
+  class ViewTestATR {
+    static rendererFactory = plotRenderer(name)
+  }
+  decorate(ViewTestATR)
+  registerIndicatorDefinition(ViewTestATR)
+  return name
+}
 
 const defaultOptions: ChartOptions = {
   kWidth: 10,
@@ -1246,11 +1271,11 @@ describe('Chart pane layout regressions', () => {
     vi.restoreAllMocks()
   })
 
-  it('allocates initial pane ratios as 3:1:1 for main+MACD+RSI', async () => {
+  it('allocates initial pane ratios as 3:1:1 for main+ATR+CCI', async () => {
     const chart = mountChart()
     chart.resize()
 
-    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })).toBe(true)
     expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
 
     const specs = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
@@ -1265,10 +1290,10 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('keeps indicator pane heights equal for main+MACD+RSI', async () => {
+  it('keeps indicator pane heights equal for main+ATR+CCI', async () => {
     const chart = mountChart()
     chart.resize()
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
     chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
     chart.resize()
 
@@ -1286,7 +1311,7 @@ describe('Chart pane layout regressions', () => {
   it('keeps visible ratio sum at 1 after boundary resize', async () => {
     const chart = mountChart(1000, 800)
     chart.resize()
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
     chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
     chart.resize()
 
@@ -1303,7 +1328,7 @@ describe('Chart pane layout regressions', () => {
   it('returns false and keeps layout unchanged for invalid boundary resize input', async () => {
     const chart = mountChart()
     chart.resize()
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
     chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
     chart.resize()
 
@@ -1327,7 +1352,7 @@ describe('Chart pane layout regressions', () => {
     expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('log')
 
     // 副图不继承主图设置，独立切换后也不被主图覆盖。
-    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })).toBe(true)
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe(ScaleType.Linear)
     const macd = chart
       .getPaneRenderers()
@@ -1376,7 +1401,7 @@ describe('Chart pane layout regressions', () => {
   it('pans a manual sub-pane horizontally and vertically without moving the main price range', async () => {
     const chart = mountChart()
     chart.setData(makeBars(500))
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
     chart.resize()
     chart.draw()
     chart.setPanePriceAxisRangeMode('MACD_0', PRICE_AXIS_RANGE_MODE.HAND)
@@ -1459,7 +1484,7 @@ describe('Chart pane layout regressions', () => {
     await loadBuiltinIndicators()
     const chart = mountChart()
     chart.setData(makeBars(500))
-    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
     const indicators = chart['indicatorManager']
     const entry = indicators.getSubPaneEntry('MACD_0')
     expect(entry).toBeDefined()
@@ -1484,7 +1509,7 @@ describe('Chart pane layout regressions', () => {
     ])
     const ranges = chart.kernel.mainPriceAxis.readonly.paneRanges.peek()
     expect(ranges[MAIN_PANE_ID]?.handRange).toEqual({ minPrice: 9, maxPrice: 11 })
-    expect(ranges.MACD_0?.handRange).toEqual({ minPrice: 0, maxPrice: 0 })
+    expect(ranges.MACD_0?.handRange).toEqual({ minPrice: 2, maxPrice: 2 })
     await chart.destroy()
   })
 
@@ -1505,10 +1530,11 @@ describe('Chart pane layout regressions', () => {
   })
 
   it('timeshare switching preserves independent indicator workspaces and layouts', async () => {
+    const timeShareIndicatorId = registerTimeShareTestIndicator()
     const chart = mountChart()
     chart.resize()
     expect(chart.indicators.enableMain('MA')).toBe(true)
-    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })).toBe(true)
     expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
     const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
     const entriesBefore = chart.indicators.subPanes.peek().map((e) => ({
@@ -1521,13 +1547,13 @@ describe('Chart pane layout regressions', () => {
     chart.setActiveMode(tsMode)
     expect(chart.indicators.subPanes.peek()).toEqual([])
     expect(
-      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: 'MACD', params: { fastPeriod: 7 } }),
+      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: timeShareIndicatorId, params: { period: 7 } }),
     ).toBe(true)
     const timeShareEntries = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
-    expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: 'MACD' }])
+    expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: timeShareIndicatorId }])
     chart.setActiveMode(kMode)
 
     const entriesAfter = chart.indicators.subPanes.peek().map((e) => ({
@@ -1677,7 +1703,7 @@ describe('Chart pane layout regressions', () => {
 
   it('normalizes only visible panes in imported layout', async () => {
     const chart = mountChart(1000, 800)
-    chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'ATR', params: {} })
     chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
     chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },

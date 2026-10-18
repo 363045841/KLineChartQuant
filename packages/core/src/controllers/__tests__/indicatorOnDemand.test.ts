@@ -120,17 +120,17 @@ describe('chart controller on-demand loading', () => {
 
       // 未加载时同步方法拒绝写入，并提示宿主先加载。
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      expect(controller.addIndicator('MACD')).toBeNull()
+      expect(controller.addIndicator('ATR')).toBeNull()
       expect(warn).toHaveBeenCalledOnce()
 
       loads.clear()
-      await controller.loadIndicators(['MACD'])
-      expect([...loads]).toEqual([['macd', 1]])
-      const instanceId = controller.addIndicator('MACD')
+      await controller.loadIndicators(['ATR'])
+      expect([...loads]).toEqual([['atr', 1]])
+      const instanceId = controller.addIndicator('ATR')
       expect(instanceId).not.toBeNull()
-      const pane = controller.subPanes.peek().find((item) => item.indicatorId === 'MACD')
+      const pane = controller.subPanes.peek().find((item) => item.indicatorId === 'ATR')
       expect(pane).toBeDefined()
-      expect(controller.getRenderer(resolveIndicatorLayerId('MACD', pane!.paneId))).toBeDefined()
+      expect(controller.getRenderer(resolveIndicatorLayerId('ATR', pane!.paneId))).toBeDefined()
     } finally {
       await controller.dispose()
       container.remove()

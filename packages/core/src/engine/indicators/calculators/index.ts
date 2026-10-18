@@ -5,7 +5,6 @@ export {
   calcIchimokuData,
   calcKeltnerData,
   calcSARData,
-  calcSuperTrendData,
 } from './bands.js'
 export { calcDPOData } from './dpo.js'
 export { calcFisherTransformData } from './fisherTransform.js'
@@ -30,7 +29,6 @@ export {
 export {
   calcCCIData,
   calcKSTData,
-  calcMACDData,
   calcTRIXData,
 } from './oscillators.js'
 export { calcFibData, calcPivotData, calcStructureData, calcZonesData } from './patterns.js'

@@ -36,13 +36,9 @@ describe('useIndicatorManager on-demand loading', () => {
 
   it('classifies indicators from the static catalog without loading them', () => {
     const { events, manager } = createFixture()
-    expect(manager.isSubPaneIndicator('MACD')).toBe(true)
+    expect(manager.isSubPaneIndicator('CCI')).toBe(true)
     expect(manager.isSubPaneIndicator('MA')).toBe(false)
-    expect(manager.getDefaultParams('MACD')).toEqual({
-      fastPeriod: 12,
-      slowPeriod: 26,
-      signalPeriod: 9,
-    })
+    expect(manager.getDefaultParams('CCI')).toEqual({ period: 14 })
     expect(events).toEqual([])
   })
 })

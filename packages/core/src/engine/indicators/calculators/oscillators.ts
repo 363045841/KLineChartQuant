@@ -1,3 +1,4 @@
+/** CCI、KST、TRIX 等仍在 core 中的振荡指标计算。 */
 import type { KLineData } from '@/foundation/types/price.js'
 
 import { _computeEMASeries } from './_shared.js'
@@ -132,87 +133,6 @@ export function calcKSTData(
 
     if (kst !== undefined && signal !== undefined) {
       result[i] = { kst, signal }
-    }
-  }
-
-  return result
-}
-
-export interface MACDPoint {
-  dif: number
-  dea: number
-  macd: number
-}
-
-function calcEMA(data: KLineData[], period: number): number[] {
-  const result: number[] = new Array(data.length)
-  const k = 2 / (period + 1)
-
-  if (data.length === 0) return result
-
-  result[0] = data[0]!.close
-
-  for (let i = 1; i < data.length; i++) {
-    const item = data[i]
-    if (!item) continue
-    result[i] = item.close * k + result[i - 1]! * (1 - k)
-  }
-
-  return result
-}
-
-function calcEMAFromArray(values: (number | undefined)[], period: number): (number | undefined)[] {
-  const result: (number | undefined)[] = new Array(values.length)
-  const k = 2 / (period + 1)
-
-  const firstValid = values.findIndex((v) => v !== undefined)
-  if (firstValid === -1) return result
-
-  result[firstValid] = values[firstValid]
-
-  for (let i = firstValid + 1; i < values.length; i++) {
-    const val = values[i]
-    const prev = result[i - 1]
-    if (val === undefined || prev === undefined) continue
-    result[i] = val * k + prev * (1 - k)
-  }
-
-  return result
-}
-
-export function calcMACDData(
-  data: KLineData[],
-  fastPeriod: number,
-  slowPeriod: number,
-  signalPeriod: number,
-): MACDPoint[] {
-  const result: MACDPoint[] = new Array(data.length)
-
-  if (data.length < slowPeriod) return result
-
-  const emaFast = calcEMA(data, fastPeriod)
-  const emaSlow = calcEMA(data, slowPeriod)
-
-  const dif: (number | undefined)[] = new Array(data.length)
-  for (let i = 0; i < data.length; i++) {
-    const fast = emaFast[i]
-    const slow = emaSlow[i]
-    if (fast !== undefined && slow !== undefined) {
-      dif[i] = fast - slow
-    }
-  }
-
-  const dea = calcEMAFromArray(dif, signalPeriod)
-
-  for (let i = 0; i < data.length; i++) {
-    const d = dif[i]
-    const e = dea[i]
-    if (d !== undefined && e !== undefined) {
-      result[i] = {
-        dif: d,
-        dea: e,
-        macd: (d - e) * 2,
-      }
     }
   }
 

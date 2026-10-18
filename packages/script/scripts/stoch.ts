@@ -18,9 +18,9 @@ defineIndicator({
     }
     const ready = stochWindow.length === m
     const d = ready ? stochSum / m : Number.NaN
-    plot.Line(ready ? k : null, 'k', { label: 'K', color: Color.Orange })
+    plot.LineBR(ready ? k : null, 'k', { label: 'K', color: Color.Orange })
     plot.Line(d, 'd', { label: 'D', color: Color.Blue })
-    plot.Line(ready ? 3 * k - 2 * d : null, 'j', { label: 'J', color: Color.Purple })
+    plot.LineBR(ready ? 3 * k - 2 * d : null, 'j', { label: 'J', color: Color.Purple })
     for (const level of [80, 50, 20]) {
       plot.Line(level, 'guide' + level, {
         label: String(level),
