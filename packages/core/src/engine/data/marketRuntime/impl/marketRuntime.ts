@@ -22,8 +22,6 @@ import {
 import { OLDER_DATA_STATUS } from '@/data/provider/types.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
-  TRADE_MESSAGES,
-  TRADE_STATUS,
   TRADE_STREAM_CODES,
   type TradeBuffer,
   type TradeDataSource,
@@ -31,7 +29,11 @@ import {
 } from '@/data/trades/types.js'
 import type { IndicatorMarketData } from '@/engine/indicators/instances/execution/marketDataTypes.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { MarketRuntimeDependencies, ReadyMarketSession } from '../types.js'
+import {
+  supportsRawTradeStream,
+  type MarketRuntimeDependencies,
+  type ReadyMarketSession,
+} from '../types.js'
 import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
 
 /** 成交流订阅的身份与传输目标；由就绪会话和指标需求解析得到。 */
@@ -49,16 +51,6 @@ interface TradeBinding {
   readonly stream: TradeStream
   readonly abort: AbortController
   readonly unsubscribe: () => void
-}
-
-/** 会话与品种是否同时声明支持原始实时成交流；能力位判断只此一处。 */
-function supportsRawTradeStream(session: ReadyMarketSession): boolean {
-  const { instrument } = session
-  return Boolean(
-    session.capabilities.trades?.live &&
-      instrument.capabilities.trades?.raw &&
-      instrument.capabilities.trades.live,
-  )
 }
 
 /** 解析当前会话是否支持原始成交流；不支持时返回 null。 */
@@ -394,7 +386,7 @@ export class MarketRuntime implements IndicatorMarketData {
     this.reconcileTrades()
   }
 
-  /** 指标需求变化时协调成交订阅；同一就绪品种的重复协调复用连接及缓存。 */
+  /** 主序列显示模式需求变化时协调成交订阅；同一就绪品种复用连接及缓存。 */
   reconcileTrades(): void {
     if (this.disposed) return
     const target = resolveTradeTarget(
@@ -404,7 +396,7 @@ export class MarketRuntime implements IndicatorMarketData {
     )
     if (!target) {
       this.unmountTrade()
-      this.publishUnsupported()
+      this.publishIdle()
       return
     }
     if (this.trade && !needsRebind(this.trade, target)) {
@@ -495,15 +487,9 @@ export class MarketRuntime implements IndicatorMarketData {
       .commit()
   }
 
-  /** 成交不可用时发布空闲或品种不支持状态；两种情况都不建立连接。 */
-  private publishUnsupported(): void {
-    const session = this.deps.session.peek()
-    const requiresTrades = this.deps.needsTrades() && session !== null
-    this.deps.publishTrades({
-      ...EMPTY_TRADE_SNAPSHOT,
-      status: requiresTrades ? TRADE_STATUS.unsupported : TRADE_STATUS.idle,
-      message: requiresTrades ? TRADE_MESSAGES.unsupportedRaw : null,
-    })
+  /** 无成交需求或品种不支持时发布空闲快照：不保留旧成交，也不建立连接。 */
+  private publishIdle(): void {
+    this.deps.publishTrades(EMPTY_TRADE_SNAPSHOT)
   }
 
   /** 取消旧视口尚未发出的历史需求。 */

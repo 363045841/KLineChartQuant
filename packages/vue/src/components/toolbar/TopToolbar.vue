@@ -61,6 +61,7 @@
         v-if="!showBackButton"
         class="top-toolbar__item"
         :model-value="kLineShape"
+        :disabled-values="kLineShapeDisabled"
         @update:model-value="emit('kLineShapeChange', $event)"
       />
       <BaseTooltip v-if="showBackButton" content="返回" placement="bottom" trigger-display="contents">
@@ -274,6 +275,8 @@
       kLineLevel?: string
       kLineAdjust?: string
       kLineShape?: ChartSettings['klineShape']
+      /** 当前品种不支持、需要在形态菜单中置灰的取值。 */
+      kLineShapeDisabled?: readonly string[]
       symbols?: SymbolItem[]
       search?: SymbolSearchFn<SymbolItem>
       symbolLoading?: boolean
@@ -298,6 +301,7 @@
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
       watchlistKeys: () => new Set<string>(),
+      kLineShapeDisabled: () => [],
     },
   )
 

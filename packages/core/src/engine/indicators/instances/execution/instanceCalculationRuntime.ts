@@ -7,7 +7,6 @@
 
 import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { TradeSnapshot } from '../../../../data/trades/types.js'
 import { isPlotCollection } from '../../../plots/impl/readPlotState.js'
 import type {
   IndicatorCalculationOutput,
@@ -17,14 +16,12 @@ import type {
 import type { IndicatorParameters } from '../domain/instanceModel.js'
 
 export interface IndicatorCalculationDefinition {
-  readonly inputs?: readonly 'trades'[]
   readonly createCompute?: () => IndicatorCalculationDefinition['compute']
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
   compute(
     data: KLineData[],
     params: IndicatorParameters,
-    trades?: TradeSnapshot,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ): unknown
 }
@@ -68,14 +65,13 @@ export async function executeIndicatorCalculationTask(
   task: IndicatorCalculationTask,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
-  trades?: TradeSnapshot,
   market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
 ): Promise<IndicatorCalculationOutput> {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
   let series: unknown
   try {
-    series = await definition.compute(data, task.params, trades, market)
+    series = await definition.compute(data, task.params, market)
   } catch (error) {
     // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
     return Object.freeze({
@@ -111,12 +107,11 @@ export async function executeIndicatorCalculationPlan(
   plan: IndicatorCalculationPlan,
   data: KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
-  trades?: TradeSnapshot,
 ): Promise<readonly IndicatorCalculationOutput[]> {
   return Object.freeze(
     await Promise.all(
       plan.tasks.map((task) =>
-        executeIndicatorCalculationTask(task, data, resolveDefinition, trades),
+        executeIndicatorCalculationTask(task, data, resolveDefinition),
       ),
     ),
   )

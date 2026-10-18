@@ -1,4 +1,6 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
+import { createFootprintLayer, computeFootprintPriceRange } from '../../renderers/footprint.js'
+import { MAIN_PANE_ID } from '../../pane/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
@@ -237,6 +239,7 @@ export class ChartRenderer {
       this.deps.getDataManager().currentPeriod,
       this.deps.dataView$.peek(),
       this.deps.primaryRenderer$?.peek(),
+      this.deps.footprintState$.peek(),
       vp?.scrollLeft,
       vp?.plotWidth,
       vp?.plotHeight,
@@ -419,6 +422,7 @@ export class ChartRenderer {
     }
     {
       this.scene.addLayer(createCandleLayer())
+      this.scene.addLayer(createFootprintLayer(() => this.deps.footprintState$.peek()))
     }
     {
       this.scene.addLayer(createTimeShareLayer())
@@ -813,7 +817,7 @@ export class ChartRenderer {
     const pendingHandRanges: Array<{ paneId: string; range: PriceRange }> = []
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const auto = computePaneAutoRange({
+      let auto = computePaneAutoRange({
         paneId: pane.id,
         role: pane.role,
         range: frame.range,
@@ -824,6 +828,18 @@ export class ChartRenderer {
         comparisonProjection,
         subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
       })
+      if (pane.id === MAIN_PANE_ID && !comparisonActive) {
+        const footprintRange = computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range)
+        if (footprintRange) {
+          auto = {
+            range: auto ? {
+              minPrice: Math.min(auto.range.minPrice, footprintRange.minPrice),
+              maxPrice: Math.max(auto.range.maxPrice, footprintRange.maxPrice),
+            } : footprintRange,
+            basePrice: auto?.basePrice ?? null,
+          }
+        }
+      }
       const axisState = inputs.axisStates[pane.id]
       const resolved = resolvePanePriceRange({
         rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,

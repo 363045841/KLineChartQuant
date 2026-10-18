@@ -62,10 +62,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/fisherTransform.js').then((module) => module.FisherTransformIndicatorDefinition),
   },
   {
-    descriptor: {"name":"footprint","kind":"indicator","displayName":"Footprint","category":"main","defaultPaneId":"main","defaultParams":{"rowMode":"averageRange","rowPeriod":20,"targetRows":15,"ticksPerRow":300,"imbalanceRatio":3,"metric":"turnover"},"defaultOptions":{"textMode":"bidAsk"}},
-    load: () => import('../../renderers/Indicator/footprint.js').then((module) => module.FootprintIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"frama","kind":"indicator","displayName":"frama","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":16},"defaultOptions":{"showFRAMA":true}},
     load: () => import('../../renderers/Indicator/frama.js').then((module) => module.FRAMADefinition),
   },

@@ -21,7 +21,6 @@ function createDefinition(
 ): IndicatorCalculationDefinition {
   return Object.freeze({
     definitionId: descriptor.definitionId,
-    inputs: descriptor.inputs,
     outputAlignment: descriptor.outputAlignment,
     compute: createWorkerCompute(descriptor),
     createCompute: () => createWorkerCompute(descriptor),
@@ -44,7 +43,7 @@ worker.onmessage = async (event: MessageEvent<InstanceWorkerRequest>): Promise<v
         return
       case 'setData':
         if (!runtime) throw new TypeError('Runtime not initialized')
-        runtime.setData(message.data, message.dataRevision, message.tradesDiff)
+        runtime.setData(message.data, message.dataRevision)
         return
       case 'removeDefinitions':
         if (!runtime) throw new TypeError('Runtime not initialized')

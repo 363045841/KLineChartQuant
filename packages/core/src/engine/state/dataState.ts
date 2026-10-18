@@ -10,6 +10,7 @@ import type { TimeShareRange } from '../../data/provider/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { ReadyMarketSession } from '../data/marketRuntime/types.js'
+import { EMPTY_TRADE_SNAPSHOT, type TradeSnapshot } from '../../data/trades/types.js'
 
 export interface DataDeps {
   /** placeholder — for future visibleRange computed */
@@ -95,6 +96,7 @@ export function createDataState(_deps: DataDeps = {}) {
     {
       activeBuffer: emptyActiveBufferSnapshot(),
       readyMarket: null as ReadyMarketSession | null,
+      trades: EMPTY_TRADE_SNAPSHOT,
       symbols: [] as ReadonlyArray<SymbolSpec>,
       symbolCatalog: [] as ReadonlyArray<SymbolInfo>,
     },
@@ -114,6 +116,19 @@ export function createDataState(_deps: DataDeps = {}) {
     readonly,
 
     actions: {
+      /** 行情运行模块发布主品种成交快照；显示模式只读取，不拥有订阅。 */
+      setTrades(snapshot: TradeSnapshot): void {
+        const previous = readonly.trades.peek()
+        if (
+          previous.status === snapshot.status &&
+          previous.tickSize === snapshot.tickSize &&
+          previous.message === snapshot.message &&
+          previous.coverage === snapshot.coverage &&
+          previous.latestTimestamp === snapshot.latestTimestamp &&
+          previous.batches === snapshot.batches
+        ) return
+        signals.trades.set(snapshot)
+      },
       setSymbols(symbols: ReadonlyArray<SymbolSpec>) {
         signals.symbols.set(snapshotSymbols(symbols))
       },
@@ -132,6 +147,7 @@ export function createDataState(_deps: DataDeps = {}) {
           previous.selection !== snapshot.selection || previous.data !== snapshot.data
         const dataRevision = dataChanged ? previous.dataRevision + 1 : previous.dataRevision
         batch(() => {
+          if (readonly.readyMarket.peek() !== readyMarket) signals.trades.set(EMPTY_TRADE_SNAPSHOT)
           signals.activeBuffer.set(snapshotWithRevision(snapshot, dataRevision))
           signals.readyMarket.set(readyMarket)
         })
@@ -141,6 +157,7 @@ export function createDataState(_deps: DataDeps = {}) {
         batch(() => {
           signals.activeBuffer.set(emptyActiveBufferSnapshot())
           signals.readyMarket.set(null)
+          signals.trades.set(EMPTY_TRADE_SNAPSHOT)
           signals.symbols.set([])
           signals.symbolCatalog.set([])
         })

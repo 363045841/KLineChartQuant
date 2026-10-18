@@ -1,20 +1,9 @@
-/** 显式开启的真实 Connector 验收：标准 Provider → 指标实例执行 → 投影 → K 线成交量核对。 */
+/** 显式开启的真实 Connector 验收：标准 Provider → 足迹主序列执行 → K 线成交额核对。 */
 import { expect, it } from 'vitest'
 import {
   FOOTPRINT_METRICS,
-  type FootprintRenderState,
-  type FootprintSeries,
 } from '../../../components/footprint/types.js'
-import {
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-} from '../../../engine/indicators/indicatorDefinitionRegistry.js'
-import { readIndicatorSeriesEntry } from '../../../engine/indicators/indicatorMetadata.js'
-import { createIndicatorInstancePipeline } from '../../../engine/indicators/instances/assembly/indicatorInstancePipeline.js'
-import { createInstanceCalculationDefinitions } from '../../../engine/indicators/instances/assembly/instanceDefinitionCatalog.js'
-import { expandIndicatorCalculationOutputs } from '../../../engine/indicators/instances/domain/instanceCalculationPlan.js'
-import { IndicatorInstanceExecutionRuntime } from '../../../engine/indicators/instances/execution/instanceExecutionRuntime.js'
-import { composeInstanceRenderState } from '../../../engine/indicators/stateComposer.js'
+import { createFootprintExecution } from '../../../components/footprint/runtime/impl/footprintExecution.js'
 import { marketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { binanceMarketDataProvider } from '../../provider/impl/sources/binance.js'
 import { TRADE_STATUS } from '../types.js'
@@ -50,23 +39,12 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
       signal,
     })
     expect(batch.items.length).toBeGreaterThan(0)
-    const pipeline = createIndicatorInstancePipeline({ createId: () => 'footprint-test' })
-    pipeline.instances.create({
-      definitionId: 'footprint',
-      paneId: 'main',
-      calculation: {
-        definitionId: 'footprint',
-        params: { ticksPerRow: 100, imbalanceRatio: 3, metric: FOOTPRINT_METRICS.Turnover },
-        context: {},
-      },
-      presentation: {},
-    })
-    const runtime = new IndicatorInstanceExecutionRuntime(
-      createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
-    )
-    runtime.setData([...result.data], 1, {
-      mode: 'replace',
-      snapshot: {
+    const output = createFootprintExecution()({
+      requestId: 1,
+      marketKey: `${instrument.sourceId}:${instrument.id}:1min`,
+      data: result.data,
+      params: { ticksPerRow: 100, imbalanceRatio: 3, metric: FOOTPRINT_METRICS.Turnover },
+      trades: { mode: 'replace', snapshot: {
         revision: 1,
         tickSize: String(instrument.tickSize),
         status: TRADE_STATUS.ready,
@@ -74,25 +52,17 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
         coverage: [batch.range],
         latestTimestamp: batch.range.to,
         message: null,
-      },
+      } },
     })
-    const plan = pipeline.calculationPlan()
-    const outputs = await runtime.execute(plan)
-    const series = readIndicatorSeriesEntry<FootprintSeries>(outputs[0]?.series, 'footprint')
+    if (!('series' in output)) throw new Error(output.error)
+    const series = output.series
     expect(series.bars[0]?.complete).toBe(true)
     // 聚合成交按成交额累计，应与同一根 K 线的报价额（turnover）一致。
     const turnover = first.turnover ?? 0
     const total = Number(series.bars[0]?.total)
     expect(turnover).toBeGreaterThan(0)
     expect(Math.abs(total - turnover) / turnover).toBeLessThan(1e-6)
-    const definition = getRegisteredIndicatorDefinition('footprint')
-    const instanceResult = expandIndicatorCalculationOutputs(plan, outputs, 1).get('footprint-test')
-    if (!definition || !instanceResult) throw new Error('Footprint registered result missing')
-    const state = readIndicatorSeriesEntry<FootprintRenderState>(
-      composeInstanceRenderState(definition, instanceResult, {}, { start: 0, end: 2 }, 1),
-      'footprint',
-    )
-    expect(state.series.bars[0]?.timestamp).toBe(first.timestamp)
+    expect(series.bars[0]?.timestamp).toBe(first.timestamp)
   },
   75_000,
 )

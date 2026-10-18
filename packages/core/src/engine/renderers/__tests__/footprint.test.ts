@@ -2,10 +2,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FootprintBar, FootprintRenderState } from '@/components/footprint/types.js'
 import {
-  createContextWithInstanceState,
+  createMockRenderContext,
   createMockCanvasContext,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
-import { FootprintIndicatorDefinition } from '../footprint.js'
+import { createFootprintLayer, computeFootprintPriceRange } from '../footprint.js'
+import { createFootprintRenderState } from '@/components/footprint/__tests__/helpers/footprintTestKit.js'
 
 /** 构造按固定价差排列的 Footprint 柱子，用于文本布局断言。 */
 function createRowBar(rowSize: number, cellCount: number, startPrice = 100): FootprintBar {
@@ -28,20 +29,12 @@ describe('Footprint Layer', () => {
   it('paints both rows and labels on the canvas above GPU candles', () => {
     const mainCtx = createMockCanvasContext()
     const overlayCtx = createMockCanvasContext()
-    const state: FootprintRenderState = {
-      timestamp: 1,
-      series: {
-        status: 'ready',
-        message: null,
-        rowSize: '15',
-        latestTimestamp: 2,
-        bars: [createRowBar(15, 2)],
-      },
-    }
-    const layer = FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' })
+    let state: FootprintRenderState | null = createFootprintRenderState(15, [createRowBar(15, 2)])
+    expect(computeFootprintPriceRange(state, { start: 0, end: 1 })).toEqual({ minPrice: 100, maxPrice: 130 })
+    const layer = createFootprintLayer(() => state)
     expect(layer.role).toBe('overlay')
     layer.paint(
-      createContextWithInstanceState(mainCtx, 'fp', state, {
+      createMockRenderContext({ ctx: mainCtx,
         overlayCtx,
         range: { start: 0, end: 1 },
         kLineCenters: [200],
@@ -54,38 +47,20 @@ describe('Footprint Layer', () => {
     expect(overlayCtx.fillText).toHaveBeenCalled()
     expect(mainCtx.fillRect).not.toHaveBeenCalled()
     expect(mainCtx.fillText).not.toHaveBeenCalled()
+    state = null
+    layer.paint(createMockRenderContext({ overlayCtx }))
+    expect(overlayCtx.fillRect).toHaveBeenCalledTimes(4)
+    expect(computeFootprintPriceRange(state, { start: 0, end: 1 })).toBeNull()
   })
 
   it('clips a price row crossing the pane boundary instead of discarding it', () => {
-    const state: FootprintRenderState = {
-      timestamp: 1,
-      series: {
-        status: 'ready',
-        message: null,
-        rowSize: '2',
-        latestTimestamp: 2,
-        bars: [
-          {
-            timestamp: 1,
-            complete: false,
-            delta: '1',
-            total: '1',
-            cells: [
-              {
-                price: '89',
-                bid: '0',
-                ask: '1',
-                bidImbalance: false,
-                askImbalance: false,
-              },
-            ],
-          },
-        ],
-      },
-    }
+    const state = createFootprintRenderState(2, [{
+      timestamp: 1, complete: false, delta: '1', total: '1',
+      cells: [{ price: '89', bid: '0', ask: '1', bidImbalance: false, askImbalance: false }],
+    }])
     const ctx = createMockCanvasContext()
-    FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
-      createContextWithInstanceState(ctx, 'fp', state, {
+    createFootprintLayer(() => state).paint(
+      createMockRenderContext({ ctx,
         overlayCtx: ctx,
         range: { start: 0, end: 1 },
         kLineCenters: [100],
@@ -100,42 +75,16 @@ describe('Footprint Layer', () => {
   it.each([1, 1.25, 1.5, 2, 3])(
     'aligns all histogram edges after fractional scrolling at DPR=%s',
     (dpr) => {
-      const state: FootprintRenderState = {
-        timestamp: 1,
-        series: {
-          status: 'ready',
-          message: null,
-          rowSize: '1.37',
-          latestTimestamp: 2,
-          bars: [
-            {
-              timestamp: 1,
-              complete: true,
-              delta: '0',
-              total: '0',
-              cells: [
-                {
-                  price: '100.23',
-                  bid: '0.000001',
-                  ask: '3',
-                  bidImbalance: false,
-                  askImbalance: false,
-                },
-                {
-                  price: '101.6',
-                  bid: '7',
-                  ask: '0',
-                  bidImbalance: false,
-                  askImbalance: false,
-                },
-              ],
-            },
-          ],
-        },
-      }
+      const state = createFootprintRenderState(1.37, [{
+        timestamp: 1, complete: true, delta: '0', total: '0',
+        cells: [
+          { price: '100.23', bid: '0.000001', ask: '3', bidImbalance: false, askImbalance: false },
+          { price: '101.6', bid: '7', ask: '0', bidImbalance: false, askImbalance: false },
+        ],
+      }])
       const ctx = createMockCanvasContext()
-      FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
-        createContextWithInstanceState(ctx, 'fp', state, {
+      createFootprintLayer(() => state).paint(
+        createMockRenderContext({ ctx,
           overlayCtx: ctx,
           dpr,
           range: { start: 0, end: 1 },
@@ -168,20 +117,11 @@ describe('Footprint Layer', () => {
     { rowSize: 9.7, expected: 0 },
   ])('renders $expected of 12 price-row labels at rowSize $rowSize', ({ rowSize, expected }) => {
     const cellCount = 12
-    const state: FootprintRenderState = {
-      timestamp: 1,
-      series: {
-        status: 'ready',
-        message: null,
-        rowSize: String(rowSize),
-        latestTimestamp: 2,
-        bars: [createRowBar(rowSize, cellCount)],
-      },
-    }
+    const state = createFootprintRenderState(rowSize, [createRowBar(rowSize, cellCount)])
     const ctx = createMockCanvasContext()
-    vi.mocked(ctx.measureText).mockReturnValue({ width: 8 } as TextMetrics)
-    FootprintIndicatorDefinition.rendererFactory({ paneId: 'main', instanceId: 'fp' }).paint(
-      createContextWithInstanceState(ctx, 'fp', state, {
+    vi.mocked(ctx.measureText).mockReturnValue({ ...ctx.measureText(''), width: 8 })
+    createFootprintLayer(() => state).paint(
+      createMockRenderContext({ ctx,
         overlayCtx: ctx,
         range: { start: 0, end: 1 },
         kLineCenters: [200],

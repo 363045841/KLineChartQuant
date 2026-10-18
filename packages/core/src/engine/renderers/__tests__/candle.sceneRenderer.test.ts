@@ -75,7 +75,7 @@ function makeSceneRenderer(capsName = 'webgl2') {
 }
 
 describe('candle sceneRenderer path', () => {
-  it('draws via sceneRenderer.drawInstances on webgl', () => {
+  it.each(['candlestick', 'footprint'] as const)('draws %s via sceneRenderer.drawInstances on webgl', (klineShape) => {
     const { r, drawInstances } = makeSceneRenderer()
 
     const ctx = createCtx(r, {
@@ -83,7 +83,7 @@ describe('candle sceneRenderer path', () => {
       range: { start: 0, end: 5 },
       kLinePositions: [0, 10, 20, 30, 40],
       kLineCenters: [4, 14, 24, 34, 44],
-      settings: { rendererBackend: 'webgl' },
+      settings: { rendererBackend: 'webgl', klineShape },
     })
 
     paint(ctx)
@@ -128,6 +128,24 @@ describe('candle sceneRenderer path', () => {
 })
 
 describe('candle preparation', () => {
+  it('足迹模式在没有历史成交时仍绘制全部可见空心 K 线和影线', () => {
+    const canvas = createMockCanvasContext()
+    const context = createCtx(undefined, {
+      ctx: canvas,
+      data: makeBars(5),
+      range: { start: 0, end: 5 },
+      kLineCenters: [4, 14, 24, 34, 44],
+      kWidthPx: 8,
+      settings: { klineShape: 'footprint' },
+    })
+    paint(context)
+    const footprintRects = [...vi.mocked(canvas.fillRect).mock.calls]
+    expect(footprintRects).toHaveLength(30)
+    vi.mocked(canvas.fillRect).mockClear()
+    paint({ ...context, settings: { klineShape: 'hollow-candlestick' } })
+    expect(vi.mocked(canvas.fillRect).mock.calls).toEqual(footprintRects)
+  })
+
   it('同一行情版本切换美国线使缓存失效，GPU 与 Canvas 使用相同矩形', () => {
     const canvas = createMockCanvasContext()
     const layer = createCandleLayer()

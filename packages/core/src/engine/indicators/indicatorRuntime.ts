@@ -5,8 +5,6 @@
  * metadata 的 runtime.compute，不经过本模块。
  */
 
-import { createFootprintCalculator } from '../../components/footprint/impl/calculateFootprint.js'
-import type { TradeSnapshot } from '../../data/trades/types.js'
 import type { KLineData } from '../../foundation/types/price.js'
 
 import {
@@ -126,8 +124,7 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
 
 export function createWorkerCompute(descriptor: {
   computeKey: string
-}): (data: KLineData[], config: any, trades?: TradeSnapshot) => unknown {
-  if (descriptor.computeKey === 'calcFootprint') return createFootprintCalculator()
+}): (data: KLineData[], config: any) => unknown {
   return (
     CALCULATOR_MAP[descriptor.computeKey] ??
     ((_data: KLineData[], _config: any) => {

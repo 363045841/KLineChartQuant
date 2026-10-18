@@ -57,7 +57,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context
-      const hollow = settings?.klineShape === 'hollow-candlestick'
+      const hollow = settings?.klineShape === 'hollow-candlestick' || settings?.klineShape === 'footprint'
       const ohlcBar = settings?.klineShape === 'ohlc-bar'
       const colors = resolveThemeColors(
         context.theme,

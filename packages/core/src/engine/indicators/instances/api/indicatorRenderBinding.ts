@@ -16,8 +16,6 @@ export const INDICATOR_AVAILABILITY_SERVICE = 'indicatorAvailability'
 export const INDICATOR_AVAILABILITY_SOURCE = Object.freeze({
   /** 指标计算结果尚未提交。 */
   compute: 'compute',
-  /** 指标声明的领域数据输入仍在加载。 */
-  trades: 'trades',
 })
 
 /**

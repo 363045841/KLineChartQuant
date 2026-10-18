@@ -1,33 +1,19 @@
-/** Footprint 标准指标定义及 Layer；复用帧柱中心、价格轴和 token 配色，不创建第二套画布。 */
-import { createFootprintCalculator } from '@/components/footprint/impl/calculateFootprint.js'
+/** 足迹主序列 Layer；直接消费内核足迹状态，共享 K 线坐标和覆盖画布。 */
 import type {
   FootprintCell,
-  FootprintMetric,
   FootprintRenderState,
-  FootprintTextMode,
 } from '@/components/footprint/types.js'
 import {
-  FOOTPRINT_DEFAULT_PARAMS,
-  FOOTPRINT_METRIC_OPTIONS,
-  FOOTPRINT_METRICS,
-  FOOTPRINT_ROW_MODE_OPTIONS,
-  FOOTPRINT_ROW_MODES,
   FOOTPRINT_TEXT_MODES,
-  FOOTPRINT_TEXT_OPTIONS,
 } from '@/components/footprint/types.js'
-import { Indicator } from '@/engine/indicators/indicatorDecorator.js'
-import {
-  type GetTitleInfoFn,
-  IndicatorKind,
-  readIndicatorSeriesEntry,
-} from '@/engine/indicators/indicatorMetadata.js'
+import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { getFont } from '@/foundation/tokens/fonts.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { roundToPhysicalPixel, worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
 import type { Layer } from '@/rendering/scene/types.js'
-import { createIndicatorRendererLayer } from './shared/indicatorRendererLayer.js'
 
 /** 不平衡方向的不透明度；透明度不是颜色，故不进入 token。 */
 const IMBALANCE_ALPHA = 0.75
@@ -88,21 +74,19 @@ function resolveLabelFontSize(
 }
 
 /** 可视区共用数值比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
-function createFootprintLayer(options: {
-  paneId: string
-  instanceId: string
-}): Layer<RenderContext> {
-  return createIndicatorRendererLayer({
-    definitionId: 'footprint',
-    paneId: options.paneId,
+export function createFootprintLayer(readState: () => FootprintRenderState | null): Layer<RenderContext> {
+  return {
+    id: makePluginLayerId('footprint'),
+    pane: MAIN_PANE_ID,
+    visible: true,
     // GPU K 线画布位于 main Canvas2D 上方，足迹内容必须参加覆盖画布绘制。
     role: 'overlay',
     // 足迹成交行和数字必须在 K 线主体之后绘制，避免被实体及影线覆盖。
     z: RENDERER_PRIORITY.OVERLAY,
-    draw(context) {
-      const state = context.indicatorStateReader?.get<FootprintRenderState>(options.instanceId)
+    paint(context) {
+      const state = readState()
       if (!state) return
-      const textMode = state.textMode ?? FOOTPRINT_TEXT_MODES.BidAsk
+      const textMode = state.textMode
       const isBidAsk = textMode === FOOTPRINT_TEXT_MODES.BidAsk
       const { overlayCtx: ctx, pane, range, kLineCenters, scrollLeft } = context
       if (!ctx) return
@@ -259,7 +243,8 @@ function createFootprintLayer(options: {
       }
       ctx.restore()
     },
-  })
+    dispose() {},
+  }
 }
 
 const valueFormatter = new Intl.NumberFormat('en', {
@@ -271,84 +256,16 @@ function compactValue(value: string): string {
   return valueFormatter.format(Number(value))
 }
 
-/** 归一化文本模式，未知值回退到 Bid Ask。 */
-function resolveFootprintTextMode(value: unknown): FootprintTextMode {
-  return value === FOOTPRINT_TEXT_MODES.Volume || value === FOOTPRINT_TEXT_MODES.Delta
-    ? value
-    : FOOTPRINT_TEXT_MODES.BidAsk
-}
-
-/** 归一化数值口径，未知值回退到成交额。 */
-function resolveFootprintMetric(value: unknown): FootprintMetric {
-  return value === FOOTPRINT_METRICS.Volume ? FOOTPRINT_METRICS.Volume : FOOTPRINT_METRICS.Turnover
-}
-
-/** 文本模式的展示名称，用于标题参数文本。 */
-function footprintTextModeLabel(mode: FootprintTextMode): string {
-  return FOOTPRINT_TEXT_OPTIONS.find((option) => option.value === mode)?.label ?? mode
-}
-
-/** 数值口径的展示名称，用于标题参数文本。 */
-function footprintMetricLabel(metric: FootprintMetric): string {
-  return FOOTPRINT_METRIC_OPTIONS.find((option) => option.value === metric)?.label ?? metric
-}
-
-/** 图例标题：只声明身份与参数，足迹的逐柱数值留在画布，不进入标题行。 */
-const getFootprintTitleInfo: GetTitleInfoFn = (_data, _index, params) => ({
-  name: '足迹图',
-  params: [
-    ...(params.rowMode === undefined || params.rowMode === FOOTPRINT_ROW_MODES.Fixed
-      ? [params.ticksPerRow as number]
-      : [
-          FOOTPRINT_ROW_MODE_OPTIONS.find((option) => option.value === params.rowMode)?.label ?? '',
-          params.rowPeriod as number,
-          params.targetRows as number,
-        ]),
-    params.imbalanceRatio as number,
-    footprintMetricLabel(resolveFootprintMetric(params.metric)),
-    footprintTextModeLabel(resolveFootprintTextMode(params.textMode)),
-  ],
-})
-
-@Indicator({
-  name: 'footprint',
-  displayName: 'Footprint',
-  kind: IndicatorKind.Indicator,
-  category: 'main',
-  defaultPaneId: 'main',
-  getTitleInfo: getFootprintTitleInfo,
-  presentation: { defaultOptions: { textMode: FOOTPRINT_TEXT_MODES.BidAsk } },
-  runtime: {
-    inputs: ['trades'],
-    defaultParams: FOOTPRINT_DEFAULT_PARAMS,
-    computeKey: 'calcFootprint',
-    createCompute: createFootprintCalculator,
-    compute: (data, params, trades) => createFootprintCalculator()(data, params, trades),
-  },
-  customState: {
-    /** 价格行覆盖完整档位宽度，与蜡烛价格范围合并后仍使用原有主图价格轴。 */
-    computePriceRange(entry, range) {
-      const source = readIndicatorSeriesEntry<FootprintRenderState>(entry, 'footprint')
-      let min = Infinity
-      let max = -Infinity
-      for (const bar of source.series.bars.slice(Math.max(0, range.start), range.end)) {
-        const first = bar?.cells[0]
-        const last = bar?.cells[bar.cells.length - 1]
-        if (!first || !last) continue
-        min = Math.min(min, Number(first.price))
-        max = Math.max(max, Number(last.price) + Number(source.series.rowSize))
-      }
-      return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
-    },
-    compose(entry, _range, timestamp) {
-      const source = readIndicatorSeriesEntry<
-        FootprintRenderState & { params?: Readonly<Record<string, unknown>> }
-      >(entry, 'footprint')
-      const textMode = resolveFootprintTextMode(source.params?.textMode)
-      return { series: source.series, timestamp, textMode }
-    },
-  },
-})
-export class FootprintIndicatorDefinition {
-  static rendererFactory = createFootprintLayer
+/** 足迹价格行覆盖完整档位宽度，自动缩放不能裁掉最上面一行。 */
+export function computeFootprintPriceRange(state: FootprintRenderState | null, range: { start: number; end: number }): { minPrice: number; maxPrice: number } | null {
+  if (!state) return null
+  let minPrice = Infinity
+  let maxPrice = -Infinity
+  for (const bar of state.series.bars.slice(Math.max(0, range.start), range.end)) {
+    for (const cell of bar?.cells ?? []) {
+      minPrice = Math.min(minPrice, Number(cell.price))
+      maxPrice = Math.max(maxPrice, Number(cell.price) + Number(state.series.rowSize))
+    }
+  }
+  return Number.isFinite(minPrice) && Number.isFinite(maxPrice) ? { minPrice, maxPrice } : null
 }

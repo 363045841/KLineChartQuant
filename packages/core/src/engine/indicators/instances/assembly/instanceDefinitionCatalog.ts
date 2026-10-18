@@ -16,7 +16,6 @@ export function createInstanceCalculationDefinitions(
     if (!runtime) continue
     const definition: IndicatorCalculationDefinition = {
       definitionId: item.name,
-      inputs: runtime.inputs,
       outputAlignment: runtime.outputAlignment,
       compute: runtime.compute,
       createCompute: runtime.createCompute,
@@ -38,7 +37,6 @@ export function serializeInstanceCalculationDefinitions(
       Object.freeze({
         definitionId: item.name,
         computeKey: runtime.computeKey,
-        inputs: runtime.inputs,
         outputAlignment: runtime.outputAlignment,
       }),
     )

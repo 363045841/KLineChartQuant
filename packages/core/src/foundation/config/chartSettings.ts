@@ -2,6 +2,15 @@
  * 图表设置配置
  */
 
+import {
+  FOOTPRINT_DEFAULT_PARAMS,
+  FOOTPRINT_METRIC_OPTIONS,
+  FOOTPRINT_ROW_MODE_OPTIONS,
+  FOOTPRINT_ROW_MODES,
+  FOOTPRINT_SHAPE,
+  FOOTPRINT_TEXT_MODES,
+  FOOTPRINT_TEXT_OPTIONS,
+} from '../../components/footprint/types.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../types/scaleType.js'
 
 import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
@@ -20,6 +29,8 @@ export interface SettingItem {
   min?: number
   max?: number
   step?: number
+  /** 所有条件满足时显示该设置；只控制编辑入口。 */
+  visibleWhen?: readonly { readonly key: string; readonly values: readonly (string | number | boolean)[] }[]
 }
 
 export { getDeviceEnvironment, getDeviceType } from '../device/impl/deviceEnvironment.js'
@@ -64,6 +75,9 @@ export function resolveSettingDefault(value: SettingItem['default']): boolean | 
 export const TOOLTIP_POSITION_NONE = 'none'
 
 /** 默认设置配置 */
+const FOOTPRINT_VISIBLE_WHEN = [{ key: 'klineShape', values: [FOOTPRINT_SHAPE] }]
+
+/** 默认设置配置；工具栏、设置面板与持久化共用。 */
 export const DEFAULT_SETTINGS = [
   {
     key: 'klineShape',
@@ -75,7 +89,39 @@ export const DEFAULT_SETTINGS = [
       { value: 'candlestick', label: '实心 K 线' },
       { value: 'hollow-candlestick', label: '空心 K 线' },
       { value: 'ohlc-bar', label: '美国线' },
+      { value: FOOTPRINT_SHAPE, label: '足迹图' },
     ],
+  },
+  {
+    key: 'footprintRowMode', label: '足迹分行方式', type: 'select', group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.rowMode, options: FOOTPRINT_ROW_MODE_OPTIONS, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+  },
+  {
+    key: 'footprintRowPeriod', label: '足迹振幅周期', type: 'number', group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.rowPeriod, min: 1, step: 1,
+    visibleWhen: [...FOOTPRINT_VISIBLE_WHEN, { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR] }],
+  },
+  {
+    key: 'footprintTargetRows', label: '足迹目标行数', type: 'number', group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.targetRows, min: 10, max: 20, step: 1,
+    visibleWhen: [...FOOTPRINT_VISIBLE_WHEN, { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR] }],
+  },
+  {
+    key: 'footprintTicksPerRow', label: '足迹每行跳数', type: 'number', group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.ticksPerRow, min: 1, max: 100000, step: 1,
+    visibleWhen: [...FOOTPRINT_VISIBLE_WHEN, { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.Fixed] }],
+  },
+  {
+    key: 'footprintImbalanceRatio', label: '足迹不平衡倍数', type: 'number', group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.imbalanceRatio, min: 1, max: 100, step: 1, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+  },
+  {
+    key: 'footprintMetric', label: '足迹数值口径', type: 'select', group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.metric, options: FOOTPRINT_METRIC_OPTIONS, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+  },
+  {
+    key: 'footprintTextMode', label: '足迹文字模式', type: 'select', group: 'main',
+    default: FOOTPRINT_TEXT_MODES.BidAsk, options: FOOTPRINT_TEXT_OPTIONS, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
   },
   {
     key: 'displayTimeZone',
@@ -223,6 +269,13 @@ export type ChartSettings = {
 } & Record<string, unknown> & {
     colorPresetSettings?: ColorPresetSettings
   }
+
+/** 设置显示条件只影响编辑入口，隐藏时仍保存用户参数。 */
+export function isSettingVisible(item: SettingItem, settings: ChartSettings): boolean {
+  return item.visibleWhen === undefined || item.visibleWhen.every((condition) =>
+    condition.values.some((value) => settings[condition.key] === value),
+  )
+}
 
 /** DEFAULT_SETTINGS 已覆盖的 key 及单独归一化的 colorPresetSettings，其余视为扩展字段保留。 */
 const KNOWN_SETTING_KEYS = new Set<string>([

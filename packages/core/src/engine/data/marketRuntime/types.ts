@@ -15,6 +15,23 @@ export interface ReadyMarketSession {
   readonly capabilities: SourceCapabilities
 }
 
+/**
+ * 会话与品种是否同时声明支持原始实时成交流。
+ *
+ * 能力位判断只此一处：成交流订阅和有无原始逐笔成交的显示模式判断共用同一份规则。
+ *
+ * @param session - 已就绪的活动行情
+ * @returns 会话源、品种原始成交与实时流三项能力是否齐备
+ */
+export function supportsRawTradeStream(session: ReadyMarketSession): boolean {
+  const { instrument } = session
+  return Boolean(
+    session.capabilities.trades?.live &&
+      instrument.capabilities.trades?.raw &&
+      instrument.capabilities.trades.live,
+  )
+}
+
 export interface MarketRuntimeDependencies {
   resolveBarsSelection(
     instrument: InstrumentDescriptor,

@@ -6,22 +6,22 @@ import { createTestChartStateKernel } from '../../state/__tests__/helpers/create
 import { ChartDataViewId, createChartModel } from '../index'
 
 describe('chartModel', () => {
-  it('keeps the kline primary renderer at the view default while persisting the candle shape setting', () => {
+  it('derives the kline primary renderer from the persisted shape setting', () => {
     const kernel = createTestChartStateKernel()
     const restored = createTestChartStateKernel()
     try {
       kernel.settings.actions.patch({ klineShape: 'hollow-candlestick' })
-      // 形态由 settings 派生，mode 的 kline 主序列画法保持视图默认值。
-      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      // 形态和主序列模型共用 settings，切换数据视图不覆盖 K 线选择。
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
       kernel.actions.setDataView('timeshare')
       expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('line')
       kernel.actions.setDataView('kline')
-      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
       const layout = kernel.exportLayout()
       expect(layout.settings?.klineShape).toBe('hollow-candlestick')
       restored.applyLayout(layout)
       expect(restored.settings.readonly.settings.peek().klineShape).toBe('hollow-candlestick')
-      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
+      expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('hollow-candlestick')
       restored.settings.actions.patch({ klineShape: 'candlestick' })
       expect(restored.mode.readonly.effectivePrimaryRenderer.peek()).toBe('candlestick')
     } finally {
@@ -78,7 +78,7 @@ describe('chartModel', () => {
   it('derives the primary renderer from the active view declaration', () => {
     const m = createChartModel()
 
-    // 主序列画法只由 CHART_VIEW_DEFINITIONS 决定；K 线形态另由 settings.klineShape 表达。
+    // 无设置覆盖时采用数据视图的主序列默认画法。
     expect(m.readonly.primaryRendererByView.peek()).toEqual({
       kline: 'candlestick',
       timeshare: 'line',

@@ -274,6 +274,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     rendererRuntime: chart.kernel.renderer.readonly.runtime,
     chartMode: chart.kernel.mode.readonly.chartMode,
     lastBarPeriod: chart.kernel.mode.readonly.lastBarPeriod,
+    footprintSupported: chart.kernel.footprint.readonly.supported,
     indicators,
     subPanes,
     drawingTool: chart.drawing.tool,

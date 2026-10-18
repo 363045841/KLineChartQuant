@@ -1,6 +1,9 @@
 /** Footprint 的计算与渲染契约；柱子以实际 K 线开盘时间寻址，展示数值口径由 metric 决定，不平衡固定按成交量判定。 */
 import type { TradeStatus } from '../../data/trades/types.js'
 
+/** 足迹作为主序列显示模式的唯一身份。 */
+export const FOOTPRINT_SHAPE = 'footprint'
+
 /** 足迹数值口径：成交量（base asset）或成交额（价 × 量，quote asset）。 */
 export const FOOTPRINT_METRICS = {
   Volume: 'volume',
@@ -81,7 +84,7 @@ export interface FootprintSeries {
   readonly message: string | null
 }
 export interface FootprintRenderState {
-  readonly textMode?: FootprintTextMode
+  readonly textMode: FootprintTextMode
   readonly series: FootprintSeries
   readonly timestamp: number
 }

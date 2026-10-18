@@ -5,7 +5,7 @@
 把 core 中「纯逐 bar 数值序列」类内置指标改为脚本指标（`packages/script/scripts/*.ts`），
 删除对应的原生定义、calculator、renderer 与 state 契约：一个指标只有一处实现。
 
-非目标：结构类（`structure`/`zones`）、需要额外数据源的定义（`footprint`/`volumeProfile`）、
+非目标：结构类（`structure`/`zones`）、成交分布定义（`volumeProfile`）、
 以及 `kind: system` 的系统定义不参与迁移。
 
 ## 目录契约
@@ -60,7 +60,7 @@
 | 第一批（已迁移） | `rsi` `mom` `roc` `wma` `boll` `donchian` `fastk` `wmsr` `stoch` | 仅 K 线；保留原默认参数、预热及计算规则；只有 RSI 是周期族多线，保留逐线开关 |
 | 第二批 | `ma` 及状态机与位移型：`sar` `supertrend` `macd` `atr` `keltner` `ichimoku` `obv` `pvt` `vwap` `mfi` `cmf` `dpo` `trix` `kst` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | 按需追加 ta 原语与确认视图范围 |
 | 第三批 | 其余 MA 家族：`kama` `frama` `vidya` `t3` `hma` `zlema` `lsma` `alma` `trima` `smma`、`pivot` `fib` | 需追加 ta 原语 |
-| 不迁移 | `footprint` `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
+| 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
 
 ## 落地切片（每片独立可测）
 

@@ -1,55 +1,13 @@
 /** 验证足迹统计的十进制精度、时间对齐、增量及缺口语义。 */
 import { describe, expect, it } from 'vitest'
-import {
-  EMPTY_TRADE_SNAPSHOT,
-  type MarketTrade,
-  TRADE_STATUS,
-  type TradeBatch,
-  type TradeSnapshot,
-} from '../../../data/trades/types.js'
-import type { KLineData } from '../../../foundation/types/price.js'
+import { TRADE_STATUS } from '../../../data/trades/types.js'
+import { data, params, trade, batch, input } from './helpers/footprintTestKit.js'
 import { createFootprintCalculator } from '../impl/calculateFootprint.js'
 import {
   FOOTPRINT_DEFAULT_PARAMS,
   FOOTPRINT_METRICS,
   FOOTPRINT_ROW_MODES,
-  type FootprintParams,
 } from '../types.js'
-
-const data: KLineData[] = [1000, 2000].map((timestamp) => ({
-  timestamp,
-  open: 1,
-  high: 2,
-  low: 1,
-  close: 1,
-}))
-const params: FootprintParams = {
-  ticksPerRow: 1,
-  imbalanceRatio: 3,
-  metric: FOOTPRINT_METRICS.Turnover,
-}
-const trade = (
-  tradeId: string,
-  timestamp: number,
-  price: string,
-  size: string,
-  side: MarketTrade['side'],
-): MarketTrade => ({ tradeId, timestamp, price, size, side })
-const batch = (
-  items: readonly MarketTrade[],
-  from = 1000,
-  to = 2000,
-  complete = true,
-): TradeBatch => ({ items, range: { from, to }, complete })
-const input = (batches: readonly TradeBatch[]): TradeSnapshot => ({
-  ...EMPTY_TRADE_SNAPSHOT,
-  revision: 1,
-  tickSize: '0.1',
-  status: TRADE_STATUS.ready,
-  batches,
-  coverage: batches.filter((batch) => batch.complete).map((batch) => batch.range),
-  latestTimestamp: batches.reduce((latest, batch) => Math.max(latest, batch.range.to), 0),
-})
 
 describe('Footprint calculator', () => {
   // 活跃柱振幅不参与统计；网格变化后必须重放成交，同时保持总量和 Delta。

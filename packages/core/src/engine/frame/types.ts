@@ -54,6 +54,7 @@ export interface RendererDependencies {
   dataView$: ReadonlySignal<ChartDataView>
   primaryRenderer$?: ReadonlySignal<import('../chartModel/index.js').PrimaryRendererType>
   settings$: ReadonlySignal<ChartSettings>
+  footprintState$: ReadonlySignal<import('../../components/footprint/types.js').FootprintRenderState | null>
   mainPriceAxis: MainPriceAxisStateModule
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
