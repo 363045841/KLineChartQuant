@@ -1,4 +1,5 @@
 /** K 线蜡烛图 Layer：按可见范围准备实体/影线，优先 GPU 画笔，失败回退 Canvas2D。 */
+import { HOLLOW_BODY_KLINE_SHAPES } from '../../foundation/config/chartSettings.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
@@ -57,7 +58,8 @@ export function createCandleLayer(): Layer<RenderContext> {
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context
-      const hollow = settings?.klineShape === 'hollow-candlestick' || settings?.klineShape === 'footprint'
+      const klineShape = settings?.klineShape
+      const hollow = klineShape !== undefined && HOLLOW_BODY_KLINE_SHAPES.has(klineShape)
       const ohlcBar = settings?.klineShape === 'ohlc-bar'
       const colors = resolveThemeColors(
         context.theme,

@@ -30,7 +30,10 @@ export interface SettingItem {
   max?: number
   step?: number
   /** 所有条件满足时显示该设置；只控制编辑入口。 */
-  visibleWhen?: readonly { readonly key: string; readonly values: readonly (string | number | boolean)[] }[]
+  visibleWhen?: readonly {
+    readonly key: string
+    readonly values: readonly (string | number | boolean)[]
+  }[]
 }
 
 export { getDeviceEnvironment, getDeviceType } from '../device/impl/deviceEnvironment.js'
@@ -85,6 +88,7 @@ export const DEFAULT_SETTINGS = [
     type: 'select',
     default: 'candlestick',
     group: 'toolbar',
+    // 哪些形态画成空心主体由 HOLLOW_BODY_KLINE_SHAPES 声明，不在选项里就地表达。
     options: [
       { value: 'candlestick', label: '实心 K 线' },
       { value: 'hollow-candlestick', label: '空心 K 线' },
@@ -93,35 +97,89 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
-    key: 'footprintRowMode', label: '足迹分行方式', type: 'select', group: 'main',
-    default: FOOTPRINT_DEFAULT_PARAMS.rowMode, options: FOOTPRINT_ROW_MODE_OPTIONS, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+    key: 'footprintRowMode',
+    label: '足迹分行方式',
+    type: 'select',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.rowMode,
+    options: FOOTPRINT_ROW_MODE_OPTIONS,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
   },
   {
-    key: 'footprintRowPeriod', label: '足迹振幅周期', type: 'number', group: 'main',
-    default: FOOTPRINT_DEFAULT_PARAMS.rowPeriod, min: 1, step: 1,
-    visibleWhen: [...FOOTPRINT_VISIBLE_WHEN, { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR] }],
+    key: 'footprintRowPeriod',
+    label: '足迹振幅周期',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.rowPeriod,
+    min: 1,
+    step: 1,
+    visibleWhen: [
+      ...FOOTPRINT_VISIBLE_WHEN,
+      {
+        key: 'footprintRowMode',
+        values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+      },
+    ],
   },
   {
-    key: 'footprintTargetRows', label: '足迹目标行数', type: 'number', group: 'main',
-    default: FOOTPRINT_DEFAULT_PARAMS.targetRows, min: 10, max: 20, step: 1,
-    visibleWhen: [...FOOTPRINT_VISIBLE_WHEN, { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR] }],
+    key: 'footprintTargetRows',
+    label: '足迹目标行数',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.targetRows,
+    min: 10,
+    max: 20,
+    step: 1,
+    visibleWhen: [
+      ...FOOTPRINT_VISIBLE_WHEN,
+      {
+        key: 'footprintRowMode',
+        values: [FOOTPRINT_ROW_MODES.AverageRange, FOOTPRINT_ROW_MODES.ATR],
+      },
+    ],
   },
   {
-    key: 'footprintTicksPerRow', label: '足迹每行跳数', type: 'number', group: 'main',
-    default: FOOTPRINT_DEFAULT_PARAMS.ticksPerRow, min: 1, max: 100000, step: 1,
-    visibleWhen: [...FOOTPRINT_VISIBLE_WHEN, { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.Fixed] }],
+    key: 'footprintTicksPerRow',
+    label: '足迹每行跳数',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.ticksPerRow,
+    min: 1,
+    max: 100000,
+    step: 1,
+    visibleWhen: [
+      ...FOOTPRINT_VISIBLE_WHEN,
+      { key: 'footprintRowMode', values: [FOOTPRINT_ROW_MODES.Fixed] },
+    ],
   },
   {
-    key: 'footprintImbalanceRatio', label: '足迹不平衡倍数', type: 'number', group: 'main',
-    default: FOOTPRINT_DEFAULT_PARAMS.imbalanceRatio, min: 1, max: 100, step: 1, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+    key: 'footprintImbalanceRatio',
+    label: '足迹不平衡倍数',
+    type: 'number',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.imbalanceRatio,
+    min: 1,
+    max: 100,
+    step: 1,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
   },
   {
-    key: 'footprintMetric', label: '足迹数值口径', type: 'select', group: 'main',
-    default: FOOTPRINT_DEFAULT_PARAMS.metric, options: FOOTPRINT_METRIC_OPTIONS, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+    key: 'footprintMetric',
+    label: '足迹数值口径',
+    type: 'select',
+    group: 'main',
+    default: FOOTPRINT_DEFAULT_PARAMS.metric,
+    options: FOOTPRINT_METRIC_OPTIONS,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
   },
   {
-    key: 'footprintTextMode', label: '足迹文字模式', type: 'select', group: 'main',
-    default: FOOTPRINT_TEXT_MODES.BidAsk, options: FOOTPRINT_TEXT_OPTIONS, visibleWhen: FOOTPRINT_VISIBLE_WHEN,
+    key: 'footprintTextMode',
+    label: '足迹文字模式',
+    type: 'select',
+    group: 'main',
+    default: FOOTPRINT_TEXT_MODES.BidAsk,
+    options: FOOTPRINT_TEXT_OPTIONS,
+    visibleWhen: FOOTPRINT_VISIBLE_WHEN,
   },
   {
     key: 'displayTimeZone',
@@ -272,10 +330,28 @@ export type ChartSettings = {
 
 /** 设置显示条件只影响编辑入口，隐藏时仍保存用户参数。 */
 export function isSettingVisible(item: SettingItem, settings: ChartSettings): boolean {
-  return item.visibleWhen === undefined || item.visibleWhen.every((condition) =>
-    condition.values.some((value) => settings[condition.key] === value),
+  return (
+    item.visibleWhen === undefined ||
+    item.visibleWhen.every((condition) =>
+      condition.values.some((value) => settings[condition.key] === value),
+    )
   )
 }
+
+/** K 线形态取值；与 DEFAULT_SETTINGS 的 klineShape 选项共用同一份推论类型。 */
+type KLineShapeValue = NonNullable<ChartSettings['klineShape']>
+
+/**
+ * 实体画成空心轮廓的 K 线形态。
+ *
+ * 空心 K 线只画实体边框并保留影线；足迹图同样先以空心轮廓占位，再由足迹 Layer
+ * 在轮廓之上叠加成交分布，因此两者共用同一份判定。形态与画法的对应关系只此一处，
+ * 渲染器不得自行追加比较；需要第三种空心主体时在这里登记。
+ */
+export const HOLLOW_BODY_KLINE_SHAPES: ReadonlySet<KLineShapeValue> = new Set<KLineShapeValue>([
+  'hollow-candlestick',
+  FOOTPRINT_SHAPE,
+])
 
 /** DEFAULT_SETTINGS 已覆盖的 key 及单独归一化的 colorPresetSettings，其余视为扩展字段保留。 */
 const KNOWN_SETTING_KEYS = new Set<string>([
