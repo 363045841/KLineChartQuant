@@ -442,7 +442,7 @@ describe('ChartIndicatorManager', () => {
       manager.enableMainIndicator('ENE')
       const first = harness.indicator.readonly.instances.peek()[0]
       expect(manager.replaceMainIndicator('ENE', 'MA')).toBe(false)
-      expect(manager.replaceMainIndicator('ENE', 'CCI')).toBe(false)
+      expect(manager.replaceMainIndicator('ENE', 'DPO')).toBe(false)
       expect(manager.replaceMainIndicator('ENE', 'EXPMA')).toBe(true)
       expect(manager.getActiveMainIndicators()).toEqual(['MA', 'EXPMA'])
       expect(harness.indicator.readonly.instances.peek()[0]).toEqual(first)

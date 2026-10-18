@@ -44,6 +44,13 @@ declare global {
   /** 定义一个指标 */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
   /**
+   * 惰性派生序列；读取时按绝对 bar 缓存，不主动填充历史。
+   * key 必须稳定且区分输入与参数；同 key 复用首次注册的回调。
+   * 回调用 offset 读取输入历史，用 self[offset + 1] 读取自身上一根；历史越界返回 NaN。
+   * 不要捕获当前 bar 的数值快照，应捕获 Series 并按 offset 取值。
+   */
+  function derive(key: string, compute: (self: Series, offset: number) => number): Series
+  /**
    * 当前 K 线的绘图方法；仅在 onBar 中调用，name 必填，null 主动留空。
    *
    * | 方法 | 图形 | value 含义 |

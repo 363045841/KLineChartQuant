@@ -47,11 +47,11 @@ describe('统一指标图例投影', () => {
   })
 
   it('保留隐藏标记，不因当前位置没有取值而丢弃副图行', () => {
-    const { title } = project('cci', [], -1, true)
+    const { title } = project('dpo', [], -1, true)
     expect(title).toMatchObject({
       instanceId: 'instance',
-      definitionId: 'cci',
-      name: 'CCI',
+      definitionId: 'dpo',
+      name: 'DPO',
       hidden: true,
     })
   })

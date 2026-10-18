@@ -8,7 +8,7 @@ describe('indicatorState sub-pane instances', () => {
     const state = createIndicatorState()
     const params = { period1: 6 }
 
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params })
     params.period1 = 99
 
     const entry = state.readonly.subPanes.peek()[0]!
@@ -25,8 +25,8 @@ describe('indicatorState sub-pane instances', () => {
     const listener = vi.fn()
     state.readonly.subPanes.subscribe(listener)
 
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params: { period1: 6 } })
 
     expect(listener).toHaveBeenCalledTimes(1)
   })
@@ -35,7 +35,7 @@ describe('indicatorState sub-pane instances', () => {
     const state = createIndicatorState()
     const params = { levels: [20, 80], style: { width: 2 } }
 
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params })
     params.levels[0] = 10
     params.style.width = 4
 
@@ -51,7 +51,7 @@ describe('indicatorState sub-pane instances', () => {
     expect(() =>
       state.actions.upsertSub({
         paneId: 'RSI_0',
-        indicatorId: 'CCI',
+        indicatorId: 'DPO',
         params: { dates: new Map([['start', new Date()]]) },
       }),
     ).toThrow(TypeError)
@@ -64,14 +64,14 @@ describe('indicatorState sub-pane instances', () => {
     expect(() =>
       state.actions.upsertSub({
         paneId: 'RSI_0',
-        indicatorId: 'CCI',
+        indicatorId: 'DPO',
         params: { value: 1n },
       }),
     ).toThrow(TypeError)
     expect(() =>
       state.actions.upsertSub({
         paneId: 'RSI_0',
-        indicatorId: 'CCI',
+        indicatorId: 'DPO',
         params: { value: Symbol('x') },
       }),
     ).toThrow(TypeError)
@@ -79,16 +79,16 @@ describe('indicatorState sub-pane instances', () => {
 
   it('replace rewrites even when params are equal', () => {
     const state = createIndicatorState()
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params: { period1: 6 } })
     const first = state.readonly.subPanes.peek()
 
-    state.actions.replaceSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    state.actions.replaceSub({ paneId: 'RSI_0', indicatorId: 'DPO', params: { period1: 6 } })
 
     expect(state.readonly.subPanes.peek()).not.toBe(first)
     expect(state.readonly.subPanes.peek()[0]).toEqual({
       instanceId: first[0]!.instanceId,
       paneId: 'RSI_0',
-      indicatorId: 'CCI',
+      indicatorId: 'DPO',
       ordinal: 0,
       params: { period1: 6 },
     })
@@ -110,7 +110,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
 
     kernel.paneManager.actions.create({
       paneId: 'RSI_0',
-      indicatorId: 'CCI',
+      indicatorId: 'DPO',
       params: { period1: 6 },
     })
 
@@ -125,7 +125,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
     const kernel = createTestChartStateKernel()
     kernel.paneManager.actions.create({
       paneId: 'RSI_0',
-      indicatorId: 'CCI',
+      indicatorId: 'DPO',
       params: { period1: 6 },
     })
     const snapshots: Array<{ paneIds: string[]; entryIds: string[] }> = []
@@ -147,7 +147,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
     const kernel = createTestChartStateKernel()
     kernel.paneManager.actions.create({
       paneId: 'RSI_0',
-      indicatorId: 'CCI',
+      indicatorId: 'DPO',
       params: { period1: 6 },
     })
 
@@ -162,7 +162,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
   it('moves panes without changing their content ownership', () => {
     const kernel = createTestChartStateKernel()
     kernel.paneManager.actions.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
-    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
+    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'DPO', params: {} })
 
     expect(kernel.paneManager.actions.move('RSI_0', 1)).toBe(true)
     expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual([

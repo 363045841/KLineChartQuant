@@ -120,7 +120,7 @@ describe('createChartController mount theme', () => {
     ctrl.dispose()
     ctrl.setData(createBars())
     expect(ctrl.getData()).toEqual([])
-    expect(ctrl.addIndicator('CCI')).toBeNull()
+    expect(ctrl.addIndicator('DPO')).toBeNull()
     expect(ctrl.removeDrawing('missing')).toBe(false)
     expect(ctrl.getPaneInfo('main')).toBeUndefined()
     expect(ctrl.getViewport()).toBeNull()
@@ -135,7 +135,7 @@ describe('createChartController mount theme', () => {
     document.body.appendChild(container)
 
     const ctrl = await createChartController({ container })
-    const instanceId = ctrl.addIndicator('CCI')
+    const instanceId = ctrl.addIndicator('DPO')
     const paneId = ctrl.subPanes.peek().find((pane) => pane.instanceId === instanceId)?.paneId
 
     expect(paneId).toBeDefined()
@@ -187,8 +187,8 @@ describe('createChartController mount theme', () => {
       dataRange: { from: 60_000, to: 1_800_000, bars: 30 },
     })
     await expect(
-      first.agent.queryIndicator({ definitionId: 'CCI', params: { period: 14 }, limit: 3 }),
-    ).resolves.toContain('cci | period=14')
+      first.agent.queryIndicator({ definitionId: 'DPO', params: { period: 20 }, limit: 3 }),
+    ).resolves.toContain('dpo | period=20')
     first.setTheme('light')
 
     first.setData([...data, { ...data[data.length - 1]!, timestamp: 1_860_000 }])

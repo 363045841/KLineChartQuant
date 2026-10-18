@@ -22,7 +22,10 @@ import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/help
 import { DrawingInteractionController, DrawingTool } from '../drawing/index'
 import { calcATRData } from '../indicators/calculators/volatility'
 import { Indicator } from '../indicators/indicatorDecorator'
-import { getRegisteredIndicatorDefinition, registerIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import {
+  getRegisteredIndicatorDefinition,
+  registerIndicatorDefinition,
+} from '../indicators/indicatorDefinitionRegistry'
 import { IndicatorKind } from '../indicators/indicatorMetadata'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
@@ -33,7 +36,10 @@ import { plotRenderer } from '../plots/impl/plotDefinition'
 function registerTimeShareTestIndicator(): string {
   const name = 'VIEW_TEST_ATR'
   const decorate = Indicator({
-    name, displayName: name, kind: IndicatorKind.Indicator, category: 'oscillator',
+    name,
+    displayName: name,
+    kind: IndicatorKind.Indicator,
+    category: 'oscillator',
     defaultPaneId: `sub_${name}`,
     dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare],
     plots: { series: [{ id: 'atr', color: (colors) => colors.palette.indicatorAtr }] },
@@ -1048,7 +1054,7 @@ describe('Chart DPR pipeline', () => {
           instances: [
             {
               instanceId: 'user:rsi-0',
-              indicatorId: 'CCI',
+              indicatorId: 'DPO',
               layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
@@ -1070,9 +1076,9 @@ describe('Chart DPR pipeline', () => {
       },
     })
 
-    const rsiRendererName = getRegisteredIndicatorDefinition('CCI')?.getRendererName({
+    const rsiRendererName = getRegisteredIndicatorDefinition('DPO')?.getRendererName({
       paneId: 'RSI_0',
-      indicatorId: 'CCI',
+      indicatorId: 'DPO',
     })
     expect(rsiRendererName).toBeDefined()
     expect(chart.getRenderer(makePluginLayerId(rsiRendererName!))).toBeDefined()
@@ -1271,12 +1277,12 @@ describe('Chart pane layout regressions', () => {
     vi.restoreAllMocks()
   })
 
-  it('allocates initial pane ratios as 3:1:1 for main+ATR+CCI', async () => {
+  it('allocates initial pane ratios as 3:1:1 for main+ATR+DPO', async () => {
     const chart = mountChart()
     chart.resize()
 
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })).toBe(true)
-    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'DPO', params: {} })).toBe(true)
 
     const specs = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
@@ -1290,11 +1296,11 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('keeps indicator pane heights equal for main+ATR+CCI', async () => {
+  it('keeps indicator pane heights equal for main+ATR+DPO', async () => {
     const chart = mountChart()
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'DPO', params: {} })
     chart.resize()
 
     const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
@@ -1312,7 +1318,7 @@ describe('Chart pane layout regressions', () => {
     const chart = mountChart(1000, 800)
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'DPO', params: {} })
     chart.resize()
 
     const resized = chart.panes.resizeBoundary('MACD_0', 20)
@@ -1329,7 +1335,7 @@ describe('Chart pane layout regressions', () => {
     const chart = mountChart()
     chart.resize()
     chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })
-    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'DPO', params: {} })
     chart.resize()
 
     const before = chart.panes.getLayoutSpecs()
@@ -1450,7 +1456,7 @@ describe('Chart pane layout regressions', () => {
           instances: [
             {
               instanceId: 'user:rsi-0',
-              indicatorId: 'CCI',
+              indicatorId: 'DPO',
               layoutId: 'RSI_0',
               ordinal: 0,
               params: {},
@@ -1535,7 +1541,7 @@ describe('Chart pane layout regressions', () => {
     chart.resize()
     expect(chart.indicators.enableMain('MA')).toBe(true)
     expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'ATR', params: {} })).toBe(true)
-    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'CCI', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'DPO', params: {} })).toBe(true)
     const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
     const entriesBefore = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
@@ -1547,7 +1553,11 @@ describe('Chart pane layout regressions', () => {
     chart.setActiveMode(tsMode)
     expect(chart.indicators.subPanes.peek()).toEqual([])
     expect(
-      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: timeShareIndicatorId, params: { period: 7 } }),
+      chart.panes.create({
+        paneId: 'TS_RSI_0',
+        indicatorId: timeShareIndicatorId,
+        params: { period: 7 },
+      }),
     ).toBe(true)
     const timeShareEntries = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
@@ -1704,7 +1714,7 @@ describe('Chart pane layout regressions', () => {
   it('normalizes only visible panes in imported layout', async () => {
     const chart = mountChart(1000, 800)
     chart.panes.create({ paneId: 'sub_MACD', indicatorId: 'ATR', params: {} })
-    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
+    chart.panes.create({ paneId: 'sub_RSI', indicatorId: 'DPO', params: {} })
     chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },

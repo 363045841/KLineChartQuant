@@ -5,10 +5,7 @@ import {
   resolveCanonicalIndicatorId,
   resolveIndicatorDefinitionId,
 } from '../../indicators/indicatorDefinitionRegistry.js'
-import {
-  type IndicatorInputDef,
-  IndicatorKind,
-} from '../../indicators/indicatorMetadata.js'
+import { type IndicatorInputDef, IndicatorKind } from '../../indicators/indicatorMetadata.js'
 
 export interface ParamConfig {
   key: string
@@ -215,23 +212,6 @@ const uiMeta: Record<
       },
     ],
   },
-  cci: {
-    name: '顺势指标',
-    description:
-      'CCI 衡量价格与统计平均值的偏离程度。CCI > 100 超买，CCI < -100 超卖，适合捕捉趋势反转。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 14,
-        description: '计算周期，周期越短信号越灵敏',
-      },
-    ],
-  },
   stoch: {
     name: 'KDJ',
     description:
@@ -289,63 +269,6 @@ const uiMeta: Record<
         step: 1,
         default: 14,
         description: '回溯周期，统计周期内最高最低价',
-      },
-    ],
-  },
-  kst: {
-    name: '确然指标',
-    description:
-      'KST 综合多个 ROC 判断长期趋势，KST 上穿信号线看涨，下穿看跌。适合捕捉主要趋势转换。',
-    params: [
-      {
-        key: 'roc1',
-        label: 'ROC1',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 10,
-        description: '短期变化率周期',
-      },
-      {
-        key: 'roc2',
-        label: 'ROC2',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 15,
-        description: '中短期变化率周期',
-      },
-      {
-        key: 'roc3',
-        label: 'ROC3',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 20,
-        description: '中长期变化率周期',
-      },
-      {
-        key: 'roc4',
-        label: 'ROC4',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 30,
-        description: '长期变化率周期',
-      },
-      {
-        key: 'signalPeriod',
-        label: '信号',
-        type: 'number',
-        min: 2,
-        max: 50,
-        step: 1,
-        default: 9,
-        description: '信号线的 SMA 周期',
       },
     ],
   },
@@ -418,22 +341,6 @@ const uiMeta: Record<
   tema: {
     name: '三指数移动平均',
     description: 'TEMA 三重平滑，滞后最小，响应最快，适合敏锐捕捉价格变化。',
-    params: [
-      {
-        key: 'period',
-        label: '周期',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 14,
-        description: '计算周期',
-      },
-    ],
-  },
-  hma: {
-    name: '赫尔移动平均',
-    description: 'HMA 通过加权移动平均和平方根计算，在平滑度和响应速度之间取得极佳平衡。',
     params: [
       {
         key: 'period',
@@ -598,43 +505,6 @@ const uiMeta: Record<
         step: 1,
         default: 25,
         description: '回归窗口周期',
-      },
-    ],
-  },
-  dma: {
-    name: '平行线差',
-    description:
-      'DMA（平行线差）比较两周期均线的差值（DIF）及其均线（AMA），DIF 上穿 AMA 看涨，下穿看跌。',
-    params: [
-      {
-        key: 'p1',
-        label: '快线',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 10,
-        description: '快线 MA 周期',
-      },
-      {
-        key: 'p2',
-        label: '慢线',
-        type: 'number',
-        min: 2,
-        max: 200,
-        step: 1,
-        default: 50,
-        description: '慢线 MA 周期',
-      },
-      {
-        key: 'p3',
-        label: '信号',
-        type: 'number',
-        min: 2,
-        max: 100,
-        step: 1,
-        default: 10,
-        description: 'DIF 的 MA 周期',
       },
     ],
   },
@@ -1172,32 +1042,6 @@ const uiMeta: Record<
         step: 1,
         default: 20,
         description: '去趋势周期',
-      },
-    ],
-  },
-  awesomeoscillator: {
-    name: 'Awesome Oscillator',
-    description: 'AO 比较快慢两条中价简单均线的差值，观察动量强弱与零轴穿越。',
-    params: [
-      {
-        key: 'fast',
-        label: '快线',
-        type: 'number',
-        min: 1,
-        max: 100,
-        step: 1,
-        default: 5,
-        description: '快线周期',
-      },
-      {
-        key: 'slow',
-        label: '慢线',
-        type: 'number',
-        min: 2,
-        max: 200,
-        step: 1,
-        default: 34,
-        description: '慢线周期',
       },
     ],
   },

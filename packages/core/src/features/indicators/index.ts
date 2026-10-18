@@ -12,7 +12,6 @@
 
 // MA family completion pack (tick 7 b-9)
 export { type AlmaOptions, computeALMA } from './alma.js'
-export { type AwesomeOscillatorOptions, computeAwesomeOscillator } from './awesomeOscillator.js'
 export { computeDPO, type DpoOptions } from './dpo.js'
 export { computeFisherTransform, type FisherTransformOptions } from './fisherTransform.js'
 export { computeFRAMA, type FramaOptions } from './frama.js'

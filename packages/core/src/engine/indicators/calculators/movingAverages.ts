@@ -5,7 +5,7 @@ import type { KLineData } from '@/foundation/types/price.js'
 const GMMA_SHORT_PERIODS: readonly number[] = [3, 5, 8, 10, 12, 15]
 const GMMA_LONG_PERIODS: readonly number[] = [30, 35, 40, 45, 50, 60]
 
-import { _computeEMASeries, _computeWMAOnNumbers } from './_shared.js'
+import { _computeEMASeries } from './_shared.js'
 
 export const DEFAULT_MA_PERIODS = [5, 10, 20, 30, 60] as const
 
@@ -109,30 +109,6 @@ export function calcTEMAData(data: KLineData[], period: number): (number | undef
     result[i] = 3 * e1 - 3 * e2 + e3
   }
   return result
-}
-
-export function calcHMAData(data: KLineData[], period: number): (number | undefined)[] {
-  const n = data.length
-  const result: (number | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0) return result
-
-  const closes = new Array<number | undefined>(n)
-  for (let i = 0; i < n; i++) closes[i] = data[i]!.close
-
-  const halfPeriod = Math.max(1, Math.floor(period / 2))
-  const sqrtPeriod = Math.max(1, Math.round(Math.sqrt(period)))
-
-  const wmaHalf = _computeWMAOnNumbers(closes, halfPeriod)
-  const wmaFull = _computeWMAOnNumbers(closes, period)
-
-  const raw: (number | undefined)[] = new Array(n).fill(undefined)
-  for (let i = 0; i < n; i++) {
-    const h = wmaHalf[i]
-    const f = wmaFull[i]
-    if (h === undefined || f === undefined) continue
-    raw[i] = 2 * h - f
-  }
-  return _computeWMAOnNumbers(raw, sqrtPeriod)
 }
 
 export function calcKAMAData(
@@ -361,62 +337,6 @@ export function calcLSMAData(data: KLineData[], period: number): (number | undef
     slope = (period * sumXY - sumX * sumY) / denominator
     intercept = (sumY - slope * sumX) / period
     result[i] = intercept + slope * (period - 1)
-  }
-
-  return result
-}
-
-/**
- * DMA 单点：DIF = MA(close,p1) - MA(close,p2)，AMA = MA(DIF,p3)
- */
-export interface DMAPoint {
-  dif: number
-  ama: number
-}
-
-// DMA（平行线差）：DIF 仅当 ma1/ma2 同点都有定义才输出；AMA 为 dif 的 p3 窗口简单平均
-export function calcDMAData(
-  data: KLineData[],
-  p1: number,
-  p2: number,
-  p3: number,
-): (DMAPoint | undefined)[] {
-  const n = data.length
-  const result: (DMAPoint | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || p1 <= 0 || p2 <= 0 || p3 <= 0) return result
-
-  const ma1 = calcMAData(data, p1)
-  const ma2 = calcMAData(data, p2)
-
-  const dif: (number | undefined)[] = new Array(n).fill(undefined)
-  for (let i = 0; i < n; i++) {
-    const a = ma1[i]
-    const b = ma2[i]
-    if (a === undefined || b === undefined) continue
-    dif[i] = a - b
-  }
-
-  // 滑动窗口对 dif 做 p3 简单平均，count 追踪窗口内已定义点数
-  let sum = 0
-  let count = 0
-  for (let i = 0; i < n; i++) {
-    const v = dif[i]
-    if (v !== undefined) {
-      sum += v
-      count++
-    }
-    const left = i - p3
-    if (left >= 0) {
-      const out = dif[left]
-      if (out !== undefined) {
-        sum -= out
-        count--
-      }
-    }
-    // 窗口满且全部定义才输出 ama
-    if (i >= p3 - 1 && count === p3) {
-      result[i] = { dif: dif[i]!, ama: sum / p3 }
-    }
   }
 
   return result

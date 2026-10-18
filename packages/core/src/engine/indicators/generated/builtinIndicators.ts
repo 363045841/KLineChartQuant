@@ -18,14 +18,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/atr.js').then((module) => module.ATRIndicatorDefinition),
   },
   {
-    descriptor: {"name":"awesomeOscillator","kind":"indicator","displayName":"AO","category":"oscillator","defaultPaneId":"sub_AO","defaultParams":{"fast":5,"slow":34},"defaultOptions":{"showAO":true}},
-    load: () => import('../../renderers/Indicator/awesomeOscillator.js').then((module) => module.AwesomeOscillatorIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"cci","kind":"indicator","displayName":"CCI","category":"oscillator","defaultPaneId":"sub_CCI","defaultParams":{"period":14},"defaultOptions":{"showCCI":true}},
-    load: () => import('../../renderers/Indicator/cci.js').then((module) => module.CCIIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"chaikinVol","kind":"indicator","displayName":"ChaikinVol","category":"oscillator","defaultPaneId":"sub_ChaikinVol","defaultParams":{"emaPeriod":10,"rocPeriod":10},"defaultOptions":{"showChaikinVol":true}},
     load: () => import('../../renderers/Indicator/chaikinVol.js').then((module) => module.ChaikinVolIndicatorDefinition),
   },
@@ -36,10 +28,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   {
     descriptor: {"name":"dema","kind":"indicator","displayName":"DEMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14},"defaultOptions":{"showDEMA":true}},
     load: () => import('../../renderers/Indicator/dema.js').then((module) => module.DEMADefinition),
-  },
-  {
-    descriptor: {"name":"dma","kind":"indicator","displayName":"DMA","category":"oscillator","defaultPaneId":"sub_DMA","defaultParams":{"p1":10,"p2":50,"p3":10},"defaultOptions":{"showDMA":true}},
-    load: () => import('../../renderers/Indicator/dma.js').then((module) => module.DMADefinition),
   },
   {
     descriptor: {"name":"dpo","kind":"indicator","displayName":"DPO","category":"oscillator","defaultPaneId":"sub_DPO","defaultParams":{"period":20},"defaultOptions":{"showDPO":true}},
@@ -70,10 +58,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/gmma.js').then((module) => module.GMMADefinition),
   },
   {
-    descriptor: {"name":"hma","kind":"indicator","displayName":"HMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14},"defaultOptions":{"showHMA":true}},
-    load: () => import('../../renderers/Indicator/hma.js').then((module) => module.HMADefinition),
-  },
-  {
     descriptor: {"name":"hv","kind":"indicator","displayName":"HV","category":"oscillator","defaultPaneId":"sub_HV","defaultParams":{"period":20,"annualizationFactor":252},"defaultOptions":{"showHV":true}},
     load: () => import('../../renderers/Indicator/hv.js').then((module) => module.HVIndicatorDefinition),
   },
@@ -88,10 +72,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   {
     descriptor: {"name":"keltner","kind":"indicator","displayName":"Keltner","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"emaPeriod":20,"atrPeriod":10,"multiplier":2},"defaultOptions":{"showUpper":true,"showMiddle":true,"showLower":true}},
     load: () => import('../../renderers/Indicator/keltner.js').then((module) => module.KeltnerDefinition),
-  },
-  {
-    descriptor: {"name":"kst","kind":"indicator","displayName":"KST","category":"oscillator","defaultPaneId":"sub_KST","defaultParams":{"roc1":10,"roc2":15,"roc3":20,"roc4":30,"signalPeriod":9},"defaultOptions":{"showKST":true,"showSignal":true}},
-    load: () => import('../../renderers/Indicator/kst.js').then((module) => module.KSTIndicatorDefinition),
   },
   {
     descriptor: {"name":"lsma","kind":"indicator","displayName":"LSMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":25},"defaultOptions":{"showLSMA":true}},

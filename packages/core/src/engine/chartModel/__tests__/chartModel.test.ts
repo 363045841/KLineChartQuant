@@ -163,7 +163,7 @@ describe('chartModel', () => {
           instances: [
             {
               instanceId: 'native-rsi',
-              indicatorId: 'CCI',
+              indicatorId: 'DPO',
               layoutId: 'rsi-layout',
               ordinal: 0,
               params: { period: 14 },
@@ -209,15 +209,15 @@ describe('chartModel', () => {
   it('uses an independent indicator workspace for timeshare', async () => {
     await loadBuiltinIndicators()
     expect(
-      getRegisteredIndicatorDefinition('CCI')?.getRendererName({
+      getRegisteredIndicatorDefinition('DPO')?.getRendererName({
         paneId: 'sub_RSI',
-        indicatorId: 'CCI',
+        indicatorId: 'DPO',
       }),
-    ).toBe('cci_sub_RSI')
+    ).toBe('dpo_sub_RSI')
     const kernel = createTestChartStateKernel()
     kernel.indicator.actions.upsertMain('MA', {})
     kernel.indicator.actions.upsertMain('ENE', {})
-    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'CCI', params: {} })
+    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'DPO', params: {} })
 
     expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['MA', 'ENE'])
 
@@ -228,8 +228,8 @@ describe('chartModel', () => {
       { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
       { name: 'ma', layerId: 'plugin:ma' },
       { name: 'ene', layerId: 'plugin:ene' },
-      { name: 'cci_sub_RSI', layerId: 'plugin:cci_sub_RSI' },
-      { name: 'cciScale_sub_RSI', layerId: 'plugin:cciScale_sub_RSI' },
+      { name: 'dpo_sub_RSI', layerId: 'plugin:dpo_sub_RSI' },
+      { name: 'dpoScale_sub_RSI', layerId: 'plugin:dpoScale_sub_RSI' },
     ])
 
     kernel.actions.setDataView('timeshare')

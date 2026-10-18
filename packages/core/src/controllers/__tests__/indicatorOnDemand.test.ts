@@ -92,7 +92,7 @@ describe('indicator catalog without implementations', () => {
   it('lists every indicator for the picker without loading any module', () => {
     const catalog = allIndicatorDefinitions()
     expect(catalog).toHaveLength(userIndicatorNames.length)
-    expect(catalog.find((item) => item.id === 'CCI')?.params?.map((param) => param.key)).toEqual(
+    expect(catalog.find((item) => item.id === 'DPO')?.params?.map((param) => param.key)).toEqual(
       expect.arrayContaining(['period']),
     )
     expect(loads.size).toBe(0)
@@ -100,11 +100,11 @@ describe('indicator catalog without implementations', () => {
   })
 
   it('loads exactly the requested module, once, when an indicator is added', async () => {
-    await Promise.all([loadIndicatorDefinitions(['CCI']), loadIndicatorDefinitions(['cci'])])
-    expect([...loads]).toEqual([['cci', 1]])
-    expect(loadedNames()).toEqual(['cci'])
-    await loadIndicatorDefinitions(['CCI', 'unknown-indicator'])
-    expect([...loads]).toEqual([['cci', 1]])
+    await Promise.all([loadIndicatorDefinitions(['DPO']), loadIndicatorDefinitions(['dpo'])])
+    expect([...loads]).toEqual([['dpo', 1]])
+    expect(loadedNames()).toEqual(['dpo'])
+    await loadIndicatorDefinitions(['DPO', 'unknown-indicator'])
+    expect([...loads]).toEqual([['dpo', 1]])
   })
 })
 
@@ -139,8 +139,8 @@ describe('chart controller on-demand loading', () => {
 
   it('restores a saved layout only after loading the indicators it references', async () => {
     const first = await mountController()
-    await first.controller.loadIndicators(['CCI', 'ENE'])
-    expect(first.controller.addIndicator('CCI')).not.toBeNull()
+    await first.controller.loadIndicators(['DPO', 'ENE'])
+    expect(first.controller.addIndicator('DPO')).not.toBeNull()
     expect(first.controller.addIndicator('ENE')).not.toBeNull()
     await first.controller.saveLayout({ name: 'restored' })
     await first.controller.dispose()
@@ -151,25 +151,25 @@ describe('chart controller on-demand loading', () => {
     loads.clear()
     const second = await mountController()
     try {
-      expect(loads.get('cci')).toBe(1)
+      expect(loads.get('dpo')).toBe(1)
       expect(loads.get('ene')).toBe(1)
       expect([...loads.keys()].filter((name) => userIndicatorNames.includes(name)).sort()).toEqual([
-        'cci',
+        'dpo',
         'ene',
       ])
       const catalogIds = new Set(second.controller.catalog.map((item) => item.id))
       const restored = second.controller.indicators
         .peek()
         .filter((instance) => catalogIds.has(instance.definitionId))
-      expect(restored.map((instance) => instance.definitionId).sort()).toEqual(['CCI', 'ENE'])
-      const rsiPane = second.controller.subPanes.peek().find((item) => item.indicatorId === 'CCI')
+      expect(restored.map((instance) => instance.definitionId).sort()).toEqual(['DPO', 'ENE'])
+      const rsiPane = second.controller.subPanes.peek().find((item) => item.indicatorId === 'DPO')
       expect(rsiPane).toBeDefined()
       // 副图首帧即可使用该指标的 renderer 与坐标轴，不存在先空后补的帧。
       expect(
-        second.controller.getRenderer(resolveIndicatorLayerId('CCI', rsiPane!.paneId)),
+        second.controller.getRenderer(resolveIndicatorLayerId('DPO', rsiPane!.paneId)),
       ).toBeDefined()
       expect(
-        second.controller.getRenderer(resolveIndicatorLayerId('CCI', rsiPane!.paneId, 'scale')),
+        second.controller.getRenderer(resolveIndicatorLayerId('DPO', rsiPane!.paneId, 'scale')),
       ).toBeDefined()
     } finally {
       await second.controller.dispose()

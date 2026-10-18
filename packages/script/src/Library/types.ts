@@ -85,7 +85,12 @@ export type TechnicalAnalysisLibrary = {
    * @param signalLength 信号周期，正整数。
    * @returns [DIF, DEA, DIF-DEA] 三个序列；柱体不翻倍，NaN 处留空，后续有效值重新初始化。
    */
-  macd(source: Series, fastLength: number, slowLength: number, signalLength: number): readonly [Series, Series, Series]
+  macd(
+    source: Series,
+    fastLength: number,
+    slowLength: number,
+    signalLength: number,
+  ): readonly [Series, Series, Series]
   /**
    * 加权移动平均（WMA），越新的值权重越大。
    * @summary 加权移动平均
@@ -94,6 +99,22 @@ export type TechnicalAnalysisLibrary = {
    * @returns 均线序列；[0] 取当前值。
    */
   wma(source: Series, length: number): Series
+  /**
+   * Hull 移动平均，组合 WMA(2×WMA(source, floor(length/2))−WMA(source, length), round(sqrt(length)))。
+   * @summary Hull 移动平均
+   * @param source 数据序列。
+   * @param length 正整数周期，派生窗口最小为 1。
+   * @returns 均线序列，完整组合窗口之前为 NaN。
+   */
+  hma(source: Series, length: number): Series
+  /**
+   * 顺势指标：(source−SMA)/(0.015×平均绝对偏差)。
+   * @summary 顺势指标
+   * @param source 数据序列，通常为 (high+low+close)/3。
+   * @param length 正整数周期。
+   * @returns CCI 序列；窗口不足为 NaN，平均绝对偏差为零时为 0。
+   */
+  cci(source: Series, length: number): Series
   /**
    * 成交量加权移动平均（VWMA），按 Σ(价格×成交量)/Σ(成交量) 计算。
    * @summary 成交量加权移动平均

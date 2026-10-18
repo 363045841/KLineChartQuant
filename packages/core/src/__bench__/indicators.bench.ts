@@ -26,7 +26,6 @@ import { describe, test } from 'vitest'
 import { computeALMA } from '../features/indicators/alma'
 
 // Oscillator family (b-10)
-import { computeAwesomeOscillator } from '../features/indicators/awesomeOscillator'
 import { computeDPO } from '../features/indicators/dpo'
 import { computeFisherTransform } from '../features/indicators/fisherTransform'
 import { computeFRAMA } from '../features/indicators/frama'
@@ -156,9 +155,6 @@ describe('Oscillators @ 10k bars', () => {
       bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
         computeStochRSI(close10k, { period: 14, kPeriod: 3, dPeriod: 3 })
       }),
-      bench('Awesome Oscillator (fast=5, slow=34)', () => {
-        computeAwesomeOscillator(hl10k, { fast: 5, slow: 34 })
-      }),
       bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
         computeUltimateOscillator(ohlc10k, { p1: 7, p2: 14, p3: 28 })
       }),
@@ -185,9 +181,6 @@ describe('Oscillators @ 100k bars', () => {
     await bench.compare(
       bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
         computeStochRSI(close100k, { period: 14, kPeriod: 3, dPeriod: 3 })
-      }),
-      bench('Awesome Oscillator (fast=5, slow=34)', () => {
-        computeAwesomeOscillator(hl100k, { fast: 5, slow: 34 })
       }),
       bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
         computeUltimateOscillator(ohlc100k, { p1: 7, p2: 14, p3: 28 })

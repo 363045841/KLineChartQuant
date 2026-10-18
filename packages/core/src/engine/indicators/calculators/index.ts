@@ -1,5 +1,4 @@
 /** 指标计算器入口：转发指标定义可直接调用的计算函数与默认参数。 */
-export { calcAwesomeOscillatorData } from './awesomeOscillator.js'
 export {
   calcENEData,
   calcIchimokuData,
@@ -12,10 +11,8 @@ export { calcFRAMAData } from './frama.js'
 export {
   calcALMAData,
   calcDEMAData,
-  calcDMAData,
   calcEXPMAData,
   calcGMMAData,
-  calcHMAData,
   calcKAMAData,
   calcLSMAData,
   calcMAData,
@@ -26,11 +23,7 @@ export {
   calcZLEMAData,
   DEFAULT_MA_PERIODS,
 } from './movingAverages.js'
-export {
-  calcCCIData,
-  calcKSTData,
-  calcTRIXData,
-} from './oscillators.js'
+export { calcTRIXData } from './oscillators.js'
 export { calcFibData, calcPivotData, calcStructureData, calcZonesData } from './patterns.js'
 export { calcSchaffTrendCycleData } from './schaffTrendCycle.js'
 export { calcStochRSIData } from './stochRSI.js'

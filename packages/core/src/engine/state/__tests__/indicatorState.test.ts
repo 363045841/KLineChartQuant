@@ -4,13 +4,13 @@ import {
   registerIndicatorDefinition,
   registerIndicatorDescriptor,
 } from '../../indicators/indicatorDefinitionRegistry'
-import { CCIIndicatorDefinition } from '../../renderers/Indicator/cci'
+import { DPOIndicatorDefinition } from '../../renderers/Indicator/dpo'
 import { VolumeIndicatorDefinition } from '../../renderers/subVolume'
 import { createIndicatorState, type IndicatorInstanceSpec } from '../indicatorState'
 import { createPaneState } from '../paneState'
 
 beforeAll(() => {
-  registerIndicatorDefinition(CCIIndicatorDefinition)
+  registerIndicatorDefinition(DPOIndicatorDefinition)
   registerIndicatorDefinition(VolumeIndicatorDefinition)
 })
 
@@ -109,23 +109,23 @@ describe('indicatorState', () => {
   it('advances configRevision for calculation params but not presentation options', () => {
     const state = createIndicatorState()
     state.actions.upsertSub({
-      indicatorId: 'CCI',
-      paneId: 'CCI_0',
-      params: { period: 14, showCCI: true },
+      indicatorId: 'DPO',
+      paneId: 'DPO_0',
+      params: { period: 20, showDPO: true },
     })
     const initialRevision = state.readonly.configRevision()
 
-    state.actions.setSubParams('CCI_0', { showCCI: false })
+    state.actions.setSubParams('DPO_0', { showDPO: false })
     expect(state.readonly.configRevision()).toBe(initialRevision)
 
-    state.actions.setSubParams('CCI_0', { period: 20 })
+    state.actions.setSubParams('DPO_0', { period: 21 })
     expect(state.readonly.configRevision()).toBe(initialRevision + 1)
   })
 
   it('toggles hidden without touching calculation config or params', () => {
     const state = createIndicatorState()
     state.actions.upsertMain('MA', { period: 5 })
-    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params: { period1: 6 } })
     const subInstanceId = state.readonly.subPanes()[0]!.instanceId
     const revision = state.readonly.configRevision()
 
@@ -224,16 +224,16 @@ describe('indicatorState', () => {
 
   it('stores main and sub indicators in one ordered instance collection', () => {
     const m = createIndicatorState()
-    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'CCI', params: { period1: 6 } })
+    m.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'DPO', params: { period1: 6 } })
     const subInstanceId = m.readonly.subPanes()[0]!.instanceId
     m.actions.upsertMain('MA', { period: 5 })
 
     expect(m.readonly.instances()).toEqual([
       expect.objectContaining({ instanceId: 'main:MA', ordinal: 0, indicatorId: 'MA' }),
-      expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'CCI' }),
+      expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'DPO' }),
     ])
     expect(m.readonly.subPanes()).toEqual([
-      expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'CCI' }),
+      expect.objectContaining({ instanceId: subInstanceId, ordinal: 0, indicatorId: 'DPO' }),
     ])
   })
 })

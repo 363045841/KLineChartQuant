@@ -89,18 +89,25 @@ function __emaSeries(source: Series, length: number, seed: 'window' | 'first'): 
 
 defineLibrary('ta', {
   /** MACD 按输入与周期组合缓存，柱体返回未翻倍的 DIF-DEA，绘图倍率由脚本决定。 */
-  macd(source: Series, fastLength: number, slowLength: number, signalLength: number): readonly [Series, Series, Series] {
+  macd(
+    source: Series,
+    fastLength: number,
+    slowLength: number,
+    signalLength: number,
+  ): readonly [Series, Series, Series] {
     __checkLength(fastLength)
     __checkLength(slowLength)
     __checkLength(signalLength)
     const fast = __emaSeries(source, fastLength, 'first')
     const slow = __emaSeries(source, slowLength, 'first')
-    const difference = __deriveOnce(`macd:${__seriesId(source)}:${fastLength}:${slowLength}`, (_self, offset) =>
-      fast.at(offset) - slow.at(offset),
+    const difference = __deriveOnce(
+      `macd:${__seriesId(source)}:${fastLength}:${slowLength}`,
+      (_self, offset) => fast.at(offset) - slow.at(offset),
     )
     const signal = __emaSeries(difference, signalLength, 'first')
-    const histogram = __deriveOnce(`macd-histogram:${__seriesId(difference)}:${signalLength}`, (_self, offset) =>
-      difference.at(offset) - signal.at(offset),
+    const histogram = __deriveOnce(
+      `macd-histogram:${__seriesId(difference)}:${signalLength}`,
+      (_self, offset) => difference.at(offset) - signal.at(offset),
     )
     return [difference, signal, histogram]
   },
@@ -141,7 +148,7 @@ defineLibrary('ta', {
       const previous = self.at(offset + 1)
       const up = Number.isNaN(previous) || previous < 0
       const price = close.at(offset)
-      return up ? (price < lowerValue ? 1 : -1) : (price > upperValue ? -1 : 1)
+      return up ? (price < lowerValue ? 1 : -1) : price > upperValue ? -1 : 1
     })
     const trend = __deriveOnce(`${key}:trend`, (_self, offset) => {
       const sign = direction.at(offset)
@@ -214,7 +221,40 @@ defineLibrary('ta', {
     )
   },
 
-  /** 成交量加权移动平均序列，Σ(source×volume)/Σ(volume)；完整窗口之前或窗口成交量之和为 0 时为 NaN。 */
+  /** HMA 组合已有 WMA 累计器，中间价差按输入与周期缓存。 */
+  hma(source: Series, length: number): Series {
+    __checkLength(length)
+    const weighted = (period: number) =>
+      __rollingSeries(`wma:${__seriesId(source)}:${period}`, source, period, () =>
+        __weightedWindow(period),
+      )
+    const half = weighted(Math.max(1, Math.floor(length / 2)))
+    const full = weighted(length)
+    const difference = __deriveOnce(
+      `hma-difference:${__seriesId(source)}:${length}`,
+      (_self, offset) => 2 * half.at(offset) - full.at(offset),
+    )
+    const root = Math.max(1, Math.round(Math.sqrt(length)))
+    return __rollingSeries(`wma:${__seriesId(difference)}:${root}`, difference, root, () =>
+      __weightedWindow(root),
+    )
+  },
+
+  /** CCI 的偏差相对于当前窗口均值，不能用各历史 bar 的均值代替；平盘（偏差为零）输出 0。 */
+  cci(source: Series, length: number): Series {
+    __checkLength(length)
+    const average = __windowSeries(source, length, 'sma')
+    return __deriveOnce(`cci:${__seriesId(source)}:${length}`, (_self, offset) => {
+      const mean = average.at(offset)
+      if (Number.isNaN(mean)) return Number.NaN
+      let deviation = 0
+      for (let step = 0; step < length; step++)
+        deviation += Math.abs(source.at(offset + step) - mean)
+      return deviation === 0 ? 0 : (source.at(offset) - mean) / ((0.015 * deviation) / length)
+    })
+  },
+
+  /** 成交量加权移动平均序列，窗口成交量之和为零时为 NaN。 */
   vwma(source: Series, volume: Series, length: number): Series {
     __checkLength(length)
     const key = `vwma:${__seriesId(source)}:${__seriesId(volume)}`

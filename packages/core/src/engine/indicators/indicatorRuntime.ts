@@ -10,12 +10,9 @@ import type { KLineData } from '../../foundation/types/price.js'
 import {
   calcALMAData,
   calcATRData,
-  calcAwesomeOscillatorData,
-  calcCCIData,
   calcChaikinVolData,
   calcCMFData,
   calcDEMAData,
-  calcDMAData,
   calcDPOData,
   calcENEData,
   calcEXPMAData,
@@ -23,12 +20,10 @@ import {
   calcFisherTransformData,
   calcFRAMAData,
   calcGMMAData,
-  calcHMAData,
   calcHVData,
   calcIchimokuData,
   calcKAMAData,
   calcKeltnerData,
-  calcKSTData,
   calcLSMAData,
   calcMAData,
   calcMFIData,
@@ -58,7 +53,6 @@ import {
 
 /** Worker 端 computeKey → calculator 的映射。 */
 const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
-  calcCCIData: (data, c) => calcCCIData(data, c.period),
   calcMAData: (data, c) => {
     const r: Record<number, (number | undefined)[]> = {}
     const periods = Object.values(c).filter(
@@ -72,11 +66,9 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
   calcTRIXData: (data, c) => calcTRIXData(data, c.period, c.signalPeriod),
   calcEXPMAData: (data, c) => calcEXPMAData(data, c.fastPeriod, c.slowPeriod),
   calcENEData: (data, c) => calcENEData(data, c.period, c.deviation),
-  calcKSTData: (data, c) => calcKSTData(data, c.roc1, c.roc2, c.roc3, c.roc4, c.signalPeriod),
   calcATRData: (data, c) => calcATRData(data, c.period),
   calcDEMAData: (data, c) => calcDEMAData(data, c.period),
   calcTEMAData: (data, c) => calcTEMAData(data, c.period),
-  calcHMAData: (data, c) => calcHMAData(data, c.period),
   calcKAMAData: (data, c) => calcKAMAData(data, c.period, c.fastPeriod, c.slowPeriod),
   calcSMMAData: (data, c) => calcSMMAData(data, c.period),
   calcTRIMAData: (data, c) => calcTRIMAData(data, c.period),
@@ -84,7 +76,6 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
   calcVWMAData: (data, c) => calcVWMAData(data, c.period),
   calcALMAData: (data, c) => calcALMAData(data, c.period, c.offset, c.sigma),
   calcLSMAData: (data, c) => calcLSMAData(data, c.period),
-  calcDMAData: (data, c) => calcDMAData(data, c.p1, c.p2, c.p3),
   calcGMMAData: (data) => calcGMMAData(data),
   calcSARData: (data, c) => calcSARData(data, c.step, c.maxStep),
   calcKeltnerData: (data, c) => calcKeltnerData(data, c.emaPeriod, c.atrPeriod, c.multiplier),
@@ -110,7 +101,6 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
   calcVIDYAData: (data, c) => calcVIDYAData(data, c.period, c.cmoPeriod),
   calcFRAMAData: (data, c) => calcFRAMAData(data, c.period),
   calcDPOData: (data, c) => calcDPOData(data, c.period),
-  calcAwesomeOscillatorData: (data, c) => calcAwesomeOscillatorData(data, c.fast, c.slow),
   calcUltimateOscillatorData: (data, c) => calcUltimateOscillatorData(data, c.p1, c.p2, c.p3),
   calcStochRSIData: (data, c) => calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
   calcFisherTransformData: (data, c) => calcFisherTransformData(data, c.period),

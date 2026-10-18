@@ -58,8 +58,9 @@
 | 批次 | 指标 | 说明 |
 | --- | --- | --- |
 | 第一批（已迁移） | `rsi` `mom` `roc` `wma` `boll` `donchian` `fastk` `wmsr` `stoch` | 仅 K 线；保留原默认参数、预热及计算规则；只有 RSI 是周期族多线，保留逐线开关 |
-| 第二批（SuperTrend、MACD 已迁移） | `ma` 及状态机与位移型：`sar` `atr` `keltner` `ichimoku` `obv` `pvt` `vwap` `mfi` `cmf` `dpo` `trix` `kst` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | 已补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；其余按需迁移 |
-| 第三批 | 其余 MA 家族：`kama` `frama` `vidya` `t3` `hma` `zlema` `lsma` `alma` `trima` `smma`、`pivot` `fib` | 需追加 ta 原语 |
+| 第二批（SuperTrend、MACD 已迁移） | `ma` 及状态机与位移型：`sar` `atr` `keltner` `ichimoku` `obv` `pvt` `vwap` `mfi` `cmf` `dpo` `trix` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | 已补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；其余按需迁移 |
+| 组合类（已迁移） | `ao` `cci` `hma` `kst` `dma` | 除 `ta.hma` / `ta.cci` 外均由现有 `ta.sma` / `ta.roc` 与全局 `derive` 组合，不新增计算原语 |
+| 第三批 | 其余 MA 家族：`kama` `frama` `vidya` `t3` `zlema` `lsma` `alma` `trima` `smma`、`pivot` `fib` | 需追加 ta 原语 |
 | 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
 
 ## 落地切片（每片独立可测）
@@ -91,6 +92,11 @@
   旧 calculator 仅当输入总长度达到慢周期才输出并回填至首根，这一依赖未来长度的行为不迁移：TA 从首个有效
   输入逐根输出，NaN 留空并在下一有效值重新初始化，追加历史不改写已有前缀。
   原生 MACD 曾声明分时与五日分时支持；迁移脚本沿用当前框架的 K 线视图边界，跨视图支持另行实现。
+
+- AO 用中位价 (high+low)/2 的快慢 SMA 之差，fast >= slow 时留空；CCI 用当前窗口的平均绝对偏差，
+  偏差为零输出 0；HMA 复用 `ta.hma`（半周期向下取整、平方根四舍五入）；KST 四组 ROC 平滑固定
+  10/10/10/15、权重 1~4，信号为 KST 的 signalPeriod SMA；DMA 的 DIF 为两均线差、AMA 为 DIF 的 p3 SMA，
+  各线按自身预热起点输出。删除对应原生定义、calculator、专用 scale、Worker 映射、静态身份与目录元数据。
 
 ## 验证边界
 

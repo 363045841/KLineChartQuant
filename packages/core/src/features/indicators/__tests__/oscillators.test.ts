@@ -9,7 +9,6 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { computeAwesomeOscillator } from '../awesomeOscillator'
 import { computeDPO } from '../dpo'
 import { computeFisherTransform } from '../fisherTransform'
 import { computeSchaffTrendCycle } from '../schaffTrendCycle'
@@ -55,24 +54,6 @@ describe('computeStochRSI', () => {
   it('throws on invalid period args', () => {
     expect(() => computeStochRSI(ramp(20), { rsiPeriod: 1, stochPeriod: 10 })).toThrow()
     expect(() => computeStochRSI(ramp(20), { rsiPeriod: 14, stochPeriod: 1 })).toThrow()
-  })
-})
-
-describe('computeAwesomeOscillator', () => {
-  it('output length === input length, leading NaN until slow window primed', () => {
-    const r = computeAwesomeOscillator(hlBars(60), { fast: 5, slow: 34 })
-    expect(r.length).toBe(60)
-    for (let i = 0; i < 33; i++) expect(Number.isNaN(r[i] as number)).toBe(true)
-    expect(Number.isNaN(r[33] as number)).toBe(false)
-  })
-
-  it('on a steady linear trend, AO is positive once primed (fast > slow)', () => {
-    const r = computeAwesomeOscillator(hlBars(60, 100, 1), { fast: 5, slow: 34 })
-    for (let i = 34; i < 60; i++) expect(r[i]).toBeGreaterThan(0)
-  })
-
-  it('rejects fast >= slow', () => {
-    expect(() => computeAwesomeOscillator(hlBars(60), { fast: 10, slow: 10 })).toThrow()
   })
 })
 

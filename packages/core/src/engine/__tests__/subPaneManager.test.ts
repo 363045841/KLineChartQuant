@@ -41,7 +41,7 @@ describe('SubPaneManager runtime projection', () => {
   const rsi: SubPaneSpec = {
     instanceId: 'user:rsi:0',
     paneId: 'RSI_0',
-    indicatorId: 'CCI',
+    indicatorId: 'DPO',
     ordinal: 0,
     params: { period1: 6 },
   }
@@ -56,8 +56,8 @@ describe('SubPaneManager runtime projection', () => {
     manager.reconcile(ctx, [rsi])
 
     expect(ctx.useRenderer).toHaveBeenCalledTimes(2)
-    expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('cci_RSI_0')
-    expect(manager.getMountedResources('RSI_0')?.scaleRendererName).toBe('cciScale_RSI_0')
+    expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('dpo_RSI_0')
+    expect(manager.getMountedResources('RSI_0')?.scaleRendererName).toBe('dpoScale_RSI_0')
   })
 
   it('rebuilds layers when only params change', () => {
@@ -80,7 +80,7 @@ describe('SubPaneManager runtime projection', () => {
     vi.clearAllMocks()
     manager.reconcile(ctx, [rsi])
     expect(ctx.layers.size).toBe(2)
-    expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('cci_RSI_0')
+    expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('dpo_RSI_0')
   })
 
   it('unmounts drawing layers when a mounted indicator becomes hidden', () => {
@@ -133,11 +133,9 @@ describe('SubPaneManager runtime projection', () => {
 
   it('removes the old projection when the replacement factory throws', () => {
     manager.reconcile(ctx, [rsi])
-    vi.spyOn(getRegisteredIndicatorDefinition('atr')!, 'rendererFactory').mockImplementation(
-      () => {
-        throw new Error('factory failed')
-      },
-    )
+    vi.spyOn(getRegisteredIndicatorDefinition('atr')!, 'rendererFactory').mockImplementation(() => {
+      throw new Error('factory failed')
+    })
 
     manager.reconcile(ctx, [
       { instanceId: 'user:atr:0', paneId: 'RSI_0', indicatorId: 'ATR', ordinal: 0, params: {} },

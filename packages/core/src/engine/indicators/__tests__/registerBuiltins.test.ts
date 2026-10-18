@@ -31,7 +31,6 @@ describe('builtin indicator registration', () => {
         'vidya',
         'frama',
         'dpo',
-        'awesomeOscillator',
         'ultimateOscillator',
         'stochRSI',
         'fisherTransform',
@@ -53,7 +52,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('allows builtin definitions to be queried by display name', () => {
-    expect(getRegisteredIndicatorDefinition('CCI')?.name).toBe('cci')
+    expect(getRegisteredIndicatorDefinition('DPO')?.name).toBe('dpo')
     expect(getRegisteredIndicatorDefinition('ATR')?.name).toBe('atr')
     expect(getRegisteredIndicatorDefinition('VOL')?.name).toBe('volume')
   })
@@ -80,14 +79,14 @@ describe('builtin indicator registration', () => {
       ).toEqual([])
     }
 
-    expect(getRegisteredIndicatorDefinition('CCI')).toMatchObject({
-      runtime: { defaultParams: { period: 14 } },
-      presentation: { defaultOptions: { showCCI: true } },
+    expect(getRegisteredIndicatorDefinition('DPO')).toMatchObject({
+      runtime: { defaultParams: { period: 20 } },
+      presentation: { defaultOptions: { showDPO: true } },
     })
   })
 
   it('registers dedicated scale renderer factories for stage 5A indicators', () => {
-    const expectedIndicators = ['VOL', 'CCI', 'KST', 'ATR']
+    const expectedIndicators = ['VOL', 'DPO', 'ATR']
 
     for (const id of expectedIndicators) {
       expect(getRegisteredIndicatorDefinition(id)?.scaleRendererFactory).toBeTypeOf('function')
@@ -95,8 +94,8 @@ describe('builtin indicator registration', () => {
   })
 
   it('creates scale renderers through stage 5A metadata factories', () => {
-    const rsiScaleRenderer = getRegisteredIndicatorDefinition('CCI')?.scaleRendererFactory?.({
-      indicatorId: 'CCI',
+    const rsiScaleRenderer = getRegisteredIndicatorDefinition('DPO')?.scaleRendererFactory?.({
+      indicatorId: 'DPO',
       paneId: 'RSI_0',
       instanceId: 'rsi-instance',
       axisWidth: 80,
@@ -112,7 +111,7 @@ describe('builtin indicator registration', () => {
       getCrosshair: () => null,
     })
 
-    expect(rsiScaleRenderer?.id).toBe(makePluginLayerId('cciScale_RSI_0'))
+    expect(rsiScaleRenderer?.id).toBe(makePluginLayerId('dpoScale_RSI_0'))
     expect(volumeScaleRenderer?.id).toBe(makePluginLayerId('volumeScale_VOLUME_0'))
   })
 
@@ -120,7 +119,6 @@ describe('builtin indicator registration', () => {
     const expected: Record<string, { indicatorKey: string; label: string; decimals: number }> = {
       DEMA: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
       TEMA: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
-      HMA: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
       KAMA: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
       SAR: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
       KELTNER: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
@@ -206,7 +204,6 @@ describe('builtin indicator registration', () => {
     const expected: Record<string, string> = {
       DEMA: 'dema_main',
       TEMA: 'tema_main',
-      HMA: 'hma_main',
       KAMA: 'kama_main',
       SAR: 'sar_main',
       KELTNER: 'keltner_main',
@@ -244,7 +241,6 @@ describe('builtin indicator registration', () => {
     const ids = [
       'DEMA',
       'TEMA',
-      'HMA',
       'KAMA',
       'SAR',
       'KELTNER',
@@ -336,7 +332,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('单线指标声明 Plot', () => {
-    for (const id of ['DEMA', 'TEMA', 'HMA', 'KAMA', 'ChaikinVol', 'OBV', 'PVT', 'VWAP']) {
+    for (const id of ['DEMA', 'TEMA', 'KAMA', 'ChaikinVol', 'OBV', 'PVT', 'VWAP']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
@@ -348,7 +344,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('动量与波动指标声明 Plot', () => {
-    for (const id of ['KST', 'ATR', 'HV', 'PARKINSON', 'VMA', 'TRIX']) {
+    for (const id of ['ATR', 'HV', 'PARKINSON', 'VMA', 'TRIX']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
@@ -367,11 +363,9 @@ describe('builtin indicator registration', () => {
 
   it('registers visible state composer metadata for all composed visible sub indicators', () => {
     const ids = [
-      'CCI',
       'ATR',
       'DEMA',
       'TEMA',
-      'HMA',
       'KAMA',
       'SAR',
       'KELTNER',
@@ -386,7 +380,6 @@ describe('builtin indicator registration', () => {
       'VWAP',
       'CMF',
       'MFI',
-      'KST',
       'PIVOT',
       'FIB',
       'STRUCTURE',

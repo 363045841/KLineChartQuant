@@ -26,7 +26,7 @@ function createFixture() {
 
 describe('useIndicatorManager on-demand loading', () => {
   it.each([
-    { id: 'CCI', role: 'sub' },
+    { id: 'DPO', role: 'sub' },
     { id: 'ENE', role: 'main' },
   ])('loads $id before adding it to the $role pane', async ({ id }) => {
     const { events, manager } = createFixture()
@@ -36,9 +36,9 @@ describe('useIndicatorManager on-demand loading', () => {
 
   it('classifies indicators from the static catalog without loading them', () => {
     const { events, manager } = createFixture()
-    expect(manager.isSubPaneIndicator('CCI')).toBe(true)
+    expect(manager.isSubPaneIndicator('DPO')).toBe(true)
     expect(manager.isSubPaneIndicator('MA')).toBe(false)
-    expect(manager.getDefaultParams('CCI')).toEqual({ period: 14 })
+    expect(manager.getDefaultParams('DPO')).toEqual({ period: 20 })
     expect(events).toEqual([])
   })
 })
