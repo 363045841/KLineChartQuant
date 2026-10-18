@@ -77,7 +77,7 @@ pnpm workspace at `packages/*`;Node `^20.19.0 || >=22.12.0`,pnpm 11.x.可以发�
 
 ## Code Conventions
 
-- **Formatter / Linter**: 只在提交前跑 biome,其他时候不要自作主张跑格式化.
+- **Formatter / Linter**: `biome`/`pnpm lint`/`pnpm format` 只属于提交环节,只在提交前跑一次;编辑改动和验证改动期间一律不跑,包括"顺手 check 一下有没有破坏 lint/format"这种自检,`biome check` 只读也不行——那是提交的动作,不是编辑的动作.改动是否正确用类型检查和测试证明,不靠 biome 兜底.
 - **Imports**: 跨目录导入可用 tsconfig 的 `@/` 别名(`@/engine/*`,`@/foundation/*`),避免 `../../../` 形式的深层相对路径.
 - **Decorator transform**: Babel(`@babel/plugin-proposal-decorators`,`version: '2023-11'`),不是原生 TC39 decorators.
 - **Vue bindings signal bridge**: 用 `shallowRef`(不是 `ref`),core signal 值不可变,深代理会破坏 `Object.is` 的引用相等.

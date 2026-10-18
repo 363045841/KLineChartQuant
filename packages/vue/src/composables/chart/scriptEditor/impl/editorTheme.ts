@@ -2,6 +2,19 @@
 import { EditorView } from '@codemirror/view'
 import { scriptSyntaxHighlighting } from './codePresentation.js'
 
+/**
+ * 脚本提示框框体的尺寸约束：参数提示与 hover 提示是两种 DOM 形态，声明只有这一份。
+ * 宽度到上限即换行，长签名和长 JSDoc 都不会横向撑破编辑区。
+ */
+const tooltipBoxStyle = {
+  backgroundColor: 'var(--klc-color-ui-surface)',
+  fontSize: 'var(--klc-text-label-13-font-size, 13px)',
+  lineHeight: '1.6',
+  maxWidth: 'min(520px, 46vw)',
+  maxHeight: 'min(60vh, 420px)',
+  overflow: 'auto',
+}
+
 /** 编辑区、行号、选区和补全面板共用图表的界面颜色。 */
 const editorTheme = EditorView.theme({
   '&': {
@@ -83,21 +96,18 @@ const editorTheme = EditorView.theme({
     borderRadius: 'var(--klc-radius-md, 8px)',
     overflow: 'hidden',
   },
-  // 类型悬浮框和参数提示限制尺寸，长文档在框内滚动，不遮满编辑区。
-  '.cm-tooltip:has(.cm-script-tooltip)': {
-    backgroundColor: 'var(--klc-color-ui-surface)',
-    fontSize: 'var(--klc-text-label-13-font-size, 13px)',
-    lineHeight: '1.6',
-    maxWidth: 'min(520px, 46vw)',
-  },
+  // 参数提示：我们创建的节点自身就被 CodeMirror 标上 .cm-tooltip，复合选择器即可命中。
+  '.cm-tooltip.cm-script-tooltip': tooltipBoxStyle,
+  // hover 提示：CodeMirror 会另建一层 .cm-tooltip，我们的节点只是它内部的 .cm-tooltip-section，
+  // 只有 :has() 能命中外层框体；两种形态各写一条，避免一种写法失效时另一种跟着失败。
+  '.cm-tooltip:has(.cm-script-tooltip)': tooltipBoxStyle,
+  // 两种形态都存在的内容节点，负责内边距与换行。
   '.cm-script-tooltip': {
     padding: 'var(--klc-space-4, 4px) var(--klc-space-8, 8px)',
     fontFamily: "'JetBrains Mono', monospace",
     whiteSpace: 'pre-wrap',
     overflowWrap: 'anywhere',
     boxSizing: 'border-box',
-    maxHeight: 'min(60vh, 420px)',
-    overflowY: 'auto',
   },
   '.cm-script-hover-description, .cm-script-hover-tags': {
     margin: 'var(--klc-space-8, 8px) 0 0',
@@ -127,6 +137,12 @@ const editorTheme = EditorView.theme({
     verticalAlign: 'top',
   },
   '.cm-script-hover-documentation th': { backgroundColor: 'var(--klc-color-ui-surface)' },
+  // 表格前面的参数、类型列保持完整，最后一列说明继续自动换行。
+  '.cm-script-hover-documentation th:not(:last-child), .cm-script-hover-documentation td:not(:last-child)':
+    {
+      whiteSpace: 'nowrap',
+      overflowWrap: 'normal',
+    },
   '.cm-script-hover-documentation code': { fontFamily: "'JetBrains Mono', monospace" },
   '.cm-script-hover-signature .cm-editor': { display: 'block' },
   '.cm-script-hover-signature': { whiteSpace: 'pre-wrap' },

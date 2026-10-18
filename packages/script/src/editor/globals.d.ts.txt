@@ -78,20 +78,8 @@ declare global {
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */
   function importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
 
-  /**
-   * 跨品种、跨周期取数；仅在 onBar 顶层调用，回调在目标周期的独立上下文中逐根执行。
-   *
-   * | 参数 | 含义 |
-   * | --- | --- |
-   * | `symbol` | 目标品种；等于 `syminfo.tickerid` 时继承图表来源，否则必须指定 options.source |
-   * | `timeframe` | 目标周期，取 Timeframe 枚举；不得低于图表周期 |
-   * | `expression` | 无参同步回调，返回标量、序列或元组 |
-   * | `options` | `source`、`calcBarsCount`、`gaps` |
-   *
-   * ```ts
-   * const [o, h, l, c] = request.security(syminfo.tickerid, Timeframe.Hour1, () => [open, high, low, close] as const)
-   * ```
-   */
+  // 参数契约与示例只在 ../request/types.ts 的 ScriptRequest.security 维护，这里不复制第二份。
+  /** 获取指定品种周期的数据；`syminfo.tickerid` 是当前图表品种。 */
   const request: ScriptRequest
   /** 当前图表品种信息；`tickerid` 可直接传给 `request.security`。 */
   const syminfo: { readonly tickerid: string }

@@ -23,18 +23,24 @@ export interface SecurityOptions {
 /** 跨品种、跨周期取数入口，等价于 Pine 的 request.security。 */
 export interface ScriptRequest {
   /**
-   * 在目标品种、目标周期上独立计算，并把结果按时间对齐回当前图表。
+   * 在指定品种、周期的上下文中计算 expression，再将计算结果对齐到当前图表品种的 K 线时间槽位上。
    *
-   * 回调在目标周期的独立上下文中逐根执行：其中的 `open`、`close`、历史下标和 `ta` 都属于目标周期；请求必须在 onBar 顶层调用，不支持嵌套请求或逐 bar 动态改变品种。
+   * | 参数 | 类型 | 含义 |
+   * | --- | --- | --- |
+   * | `symbol` | `string` | 目标品种 |
+   * | `timeframe` | `Timeframe` | 目标周期 |
+   * | `expression` | `() => T` | 在目标品种、周期的上下文中执行的计算回调，可访问目标的 OHLC 数据；结果由 security 对齐到当前图表的时间槽位 |
+   * | `options` | `SecurityOptions` | 来源、预热根数、缺口策略 |
    *
-   * @param symbol 目标品种；与图表品种相同时继承图表来源，不同时必须指定 source。
-   * @param timeframe 目标周期，取 `Timeframe` 枚举；不得低于图表周期。
-   * @param expression 无参同步回调，返回标量、序列或元组。
-   * @param options 来源、预热根数与缺口策略。
-   * @returns 对齐到当前 bar 的标量或只读元组。
+   * | 返回值 |
+   * | --- |
+   * | `expression` 的计算结果，对齐到当前图表品种的 K 线时间槽位；缺口按 `options.gaps` 策略处理 |
    *
-   * @example
+   * **用法：**
+   *
+   * ```ts
    * const [o, h, l, c] = request.security(syminfo.tickerid, Timeframe.Hour1, () => [open, high, low, close] as const)
+   * ```
    */
   security<T extends RequestValue | Series | readonly (RequestValue | Series)[]>(
     symbol: string,

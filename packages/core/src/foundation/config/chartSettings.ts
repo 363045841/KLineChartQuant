@@ -22,38 +22,8 @@ export interface SettingItem {
   step?: number
 }
 
-/**
- * 检测设备类型：mobile / tablet / desktop
- * 优先使用 Client Hints API (navigator.userAgentData)，不支持时回退到 UA + 屏幕/触控检测
- */
-export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
-  if (typeof navigator === 'undefined' || typeof window === 'undefined') return 'desktop'
-
-  const uaData = (navigator as any).userAgentData
-  if (uaData?.formFactor) {
-    const formFactor = uaData.formFactor as string
-    if (formFactor === 'phone') return 'mobile'
-    if (formFactor === 'tablet') return 'tablet'
-    if (formFactor === 'desktop') return 'desktop'
-  }
-
-  if (uaData?.mobile === true) return 'mobile'
-  if (uaData?.mobile === false) {
-    // 明确非手机，但不确定是平板还是桌面，继续后续判断
-  }
-
-  const ua = navigator.userAgent.toLowerCase()
-  const isMobileUA =
-    /android.*mobile|webos|iphone|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
-  if (isMobileUA) return 'mobile'
-
-  const hasTouch = navigator.maxTouchPoints > 1
-  const isTabletScreen = window.screen.width >= 768 && window.screen.width <= 1366
-
-  if (hasTouch && isTabletScreen) return 'tablet'
-
-  return 'desktop'
-}
+export { getDeviceEnvironment, getDeviceType } from '../device/impl/deviceEnvironment.js'
+export type { DeviceEnvironment, DeviceType } from '../device/types.js'
 
 /** 渲染后端设置值。 */
 type RendererBackendSetting = 'webgpu' | 'webgl' | 'canvas'
