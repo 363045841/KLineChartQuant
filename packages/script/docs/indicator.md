@@ -210,7 +210,10 @@ defineIndicator({
   name: '高周期蜡烛',
   position: Position.Main,
   onBar() {
-    const timeframe = input.string('D', { title: '目标周期', options: ['60', '240', 'D', 'W', 'M'] })
+    const timeframe = input.timeframe(Timeframe.Day, {
+      title: '目标周期',
+      options: [Timeframe.Hour1, Timeframe.Hour4, Timeframe.Day, Timeframe.Week],
+    })
     const [o, h, l, c] = request.security(
       syminfo.tickerid,
       timeframe,
@@ -222,13 +225,15 @@ defineIndicator({
 })
 ```
 
-目标周期必须大于或等于主图周期。支持 Pine 常用写法 `'60'`、`'240'`、`'D'`、`'W'`、`'M'`，
-以及 Provider 周期名（如 `'60min'`、`'daily'`）。蜡烛宽度跟随主图 K 线间距。
+目标周期取 `Timeframe` 枚举，必须大于或等于主图周期。枚举取值是周期短写法，从 `Timeframe.Minute1`
+到 `Timeframe.Month12`，只登记图表已支持的周期。`input.timeframe` 是周期专用的输入，不填 options 时列出全部受支持周期。
+宿主侧仍按统一解析表处理，Provider 周期名（如 `'60min'`、`'daily'`）在运行时继续可用，未登记的写法直接报错。
+蜡烛宽度跟随主图 K 线间距。
 
 指定来源使用 options.source，例如在分钟图上：
 
 ```ts
-const hourlyMA = request.security('BTCUSDT', '60', () => ta.sma(close, 20), {
+const hourlyMA = request.security('BTCUSDT', Timeframe.Hour1, () => ta.sma(close, 20), {
   source: DataSource.Binance,
   calcBarsCount: 300,
   gaps: 'off',

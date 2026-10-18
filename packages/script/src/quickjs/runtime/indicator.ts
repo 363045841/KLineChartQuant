@@ -109,6 +109,19 @@ const inputFactories = {
       throw new TypeError('input.string 的 options 必须是包含默认值的非空字符串列表')
     return { ...options, default: value }
   },
+  /** 创建目标周期输入；默认值和选项都必须是 Timeframe 中登记的周期。 */
+  timeframe(value: Timeframe, options?: TimeframeInputOptions) {
+    const periods: readonly string[] = Object.values(Timeframe)
+    if (!periods.includes(value)) throw new TypeError('input.timeframe 需要 Timeframe 中登记的周期')
+    if (
+      options?.options &&
+      (!options.options.length ||
+        !options.options.every((item) => periods.includes(item)) ||
+        !options.options.includes(value))
+    )
+      throw new TypeError('input.timeframe 的 options 必须是包含默认值的周期列表')
+    return { ...options, default: value }
+  },
 }
 
 /** 校验数值默认值、边界和步长，声明由宿主传给参数面板。 */

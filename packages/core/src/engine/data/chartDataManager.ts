@@ -41,7 +41,6 @@ import type {
   BarAggregation,
   InstrumentDescriptor,
   KLineAdjustment,
-  KLinePeriod,
   SourceCapabilities,
   TradingDate,
 } from '../../data/provider/types.js'
@@ -49,6 +48,7 @@ import {
   AUTO_SOURCE_ID,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
+  isKLinePeriod,
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
@@ -110,20 +110,6 @@ export interface DataDependencies {
 
 const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
 const CUSTOM_SOURCE_PREFIX = 'chart-custom:'
-
-const KLINE_PERIODS = new Set<KLinePeriod>([
-  '1min',
-  '5min',
-  '15min',
-  '30min',
-  '60min',
-  '4h',
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'yearly',
-])
 
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
@@ -268,7 +254,7 @@ export class ChartDataManager {
   private barsSelectionForSpec(spec: SymbolSpec): BarsSelection {
     const period = ChartDataManager.normalizePeriod(spec.period)
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
-    if (!KLINE_PERIODS.has(period as KLinePeriod)) {
+    if (!isKLinePeriod(period)) {
       throw new Error(`[ChartDataManager] invalid K-line period "${period}"`)
     }
     if (!KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
@@ -276,7 +262,7 @@ export class ChartDataManager {
     }
     const existing = this.marketRuntime.findBarsSelection(
       spec,
-      period as KLinePeriod,
+      period,
       adjustment as KLineAdjustment,
       this.barAggregation(),
     )
@@ -285,7 +271,7 @@ export class ChartDataManager {
       kind: SERIES_SELECTION_KIND.bars,
       instrumentKey: instrumentKeyFromSpec(spec),
       sourceId: sourceIdFromSpec(spec),
-      period: period as KLinePeriod,
+      period,
       adjustment: adjustment as KLineAdjustment,
       barAggregation: this.barAggregation(),
     }
@@ -528,10 +514,7 @@ export class ChartDataManager {
     this.loadRequests.set(buffer, request)
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
-    if (
-      !KLINE_PERIODS.has(period as KLinePeriod) ||
-      !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
-    ) {
+    if (!isKLinePeriod(period) || !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
       throw new Error(`[MarketDataCache] invalid bars request for "${spec.symbol}"`)
     }
     buffer.setLoading(true)
@@ -542,7 +525,7 @@ export class ChartDataManager {
         symbol: spec.symbol,
         exchange: spec.exchange,
         assetClass: spec.instrument?.assetClass,
-        period: period as KLinePeriod,
+        period,
         adjustment: adjustment as KLineAdjustment,
         barAggregation: selection.barAggregation,
         limit: target.limit,

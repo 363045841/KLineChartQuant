@@ -1,6 +1,6 @@
 /** Request 的脚本接口与可跨 Worker 传递的行情快照。 */
 
-import type { DataSource } from '@363045841yyt/klinechart-plot-contracts'
+import type { DataSource, Timeframe } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { Series } from '../series/types.js'
 
@@ -28,17 +28,17 @@ export interface ScriptRequest {
    * 回调在目标周期的独立上下文中逐根执行：其中的 `open`、`close`、历史下标和 `ta` 都属于目标周期；请求必须在 onBar 顶层调用，不支持嵌套请求或逐 bar 动态改变品种。
    *
    * @param symbol 目标品种；与图表品种相同时继承图表来源，不同时必须指定 source。
-   * @param timeframe 目标周期，如 '60'、'D'；不得低于图表周期。
+   * @param timeframe 目标周期，取 `Timeframe` 枚举；不得低于图表周期。
    * @param expression 无参同步回调，返回标量、序列或元组。
    * @param options 来源、预热根数与缺口策略。
    * @returns 对齐到当前 bar 的标量或只读元组。
    *
    * @example
-   * const [o, h, l, c] = request.security(syminfo.tickerid, '60', () => [open, high, low, close] as const)
+   * const [o, h, l, c] = request.security(syminfo.tickerid, Timeframe.Hour1, () => [open, high, low, close] as const)
    */
   security<T extends RequestValue | Series | readonly (RequestValue | Series)[]>(
     symbol: string,
-    timeframe: string,
+    timeframe: Timeframe,
     expression: () => T,
     options?: SecurityOptions,
   ): RequestResult<T>
@@ -47,6 +47,12 @@ export interface ScriptRequest {
 export interface SecurityRequest extends SecurityOptions {
   readonly id: string
   readonly symbol: string
+  /**
+   * 目标周期写法。
+   *
+   * 这里是跨 Worker 的计划值而非作者输入面：宿主仍接受 Provider 周期名与短写法的历史写法，
+   * 校验统一由 core 的 requestPeriod 负责，因此不做 Timeframe 收窄。
+   */
   readonly timeframe: string
 }
 

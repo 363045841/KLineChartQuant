@@ -123,15 +123,29 @@ export type Plot = ScalarPlot | OhlcPlot
 
 export type PlotKind = Plot['kind']
 
+/**
+ * @summary 绘图类型
+ *
+ * 脚本 `plot.*` 的图形种类；取值与 Plot 声明的 `kind` 完全一致。
+ */
 export const PlotKind = {
+  /** @summary 折线 */
   Line: 'line',
+  /** @summary 柱状图 */
   Histogram: 'histogram',
+  /** @summary 柱形图 */
   Columns: 'columns',
+  /** @summary 散点 */
   Points: 'points',
+  /** @summary 形状标记 */
   Shape: 'shape',
+  /** @summary 字符标记 */
   Char: 'char',
+  /** @summary 箭头 */
   Arrow: 'arrow',
+  /** @summary 蜡烛图 */
   Candle: 'candle',
+  /** @summary 美国线 */
   Bar: 'bar',
 } satisfies Record<string, PlotKind>
 

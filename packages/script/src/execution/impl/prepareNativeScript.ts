@@ -1,14 +1,5 @@
 /** 可信脚本的原生执行后端；只由 Script Worker 使用，不提供沙箱保护。 */
-import {
-  Color,
-  DataSource,
-  isPlotKind,
-  PlotCollector,
-  PlotKind,
-  ShapeLocation,
-  ShapeSize,
-  ShapeStyle,
-} from '@363045841yyt/klinechart-plot-contracts'
+import { isPlotKind, PlotCollector, PlotKind } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import {
@@ -19,8 +10,8 @@ import {
   SCRIPT_PRELUDE,
 } from '../../quickjs/generated/runtime.js'
 import { readDefinition, readFillCall, readPlotCall } from '../../quickjs/impl/readDefinition.js'
+import { SCRIPT_ENUM_GLOBALS } from '../../quickjs/impl/scriptEnumGlobals.js'
 import {
-  Position,
   type PreparedQuickJSScript,
   type QuickJSLibrary,
   type ScriptParamValue,
@@ -99,13 +90,8 @@ export function prepareNativeScript(
     }
     const scope = {
       __requestContext: execution,
-      Color,
-      DataSource,
-      Position,
-      PlotKind,
-      ShapeLocation,
-      ShapeSize,
-      ShapeStyle,
+      // 公开枚举与 QuickJS 后端共用同一份名字和取值，两个后端不再各自抄一遍。
+      ...SCRIPT_ENUM_GLOBALS,
       params: { ...params },
       /** 按当前游标读取历史行情。 */
       __read(field: string, offset: number): number {

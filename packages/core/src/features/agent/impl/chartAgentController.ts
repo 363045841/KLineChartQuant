@@ -6,8 +6,8 @@ import {
   lookupInstrumentsBySymbol,
   searchInstruments,
 } from '@/data/provider/impl/instrumentSearch.js'
-import type { KLineAdjustment, KLinePeriod, TradingDate } from '@/data/provider/types.js'
-import { BAR_AGGREGATIONS, KNOWN_ASSET_CLASS_VALUES } from '@/data/provider/types.js'
+import type { KLineAdjustment, TradingDate } from '@/data/provider/types.js'
+import { BAR_AGGREGATIONS, KLINE_PERIODS, KNOWN_ASSET_CLASS_VALUES } from '@/data/provider/types.js'
 import type { PaneSpec } from '@/engine/pane/types.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
 import '@/engine/data/comparisonCommands.js'
@@ -54,19 +54,6 @@ const InstrumentLookupToolParameters = Type.Object({
 const INDICATOR_QUERY_MAX_LIMIT = 2000
 /** GoTDX V1 /bars 接口单页最大返回条数。 */
 const MARKET_BARS_QUERY_MAX_LIMIT = 798
-const KLINE_PERIOD_VALUES = [
-  '1min',
-  '5min',
-  '15min',
-  '30min',
-  '60min',
-  '4h',
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'yearly',
-] as const satisfies ReadonlyArray<KLinePeriod>
 const KLINE_ADJUSTMENT_VALUES = [
   'qfq',
   'hfq',
@@ -75,7 +62,7 @@ const KLINE_ADJUSTMENT_VALUES = [
 ] as const satisfies ReadonlyArray<KLineAdjustment>
 
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
-const KLinePeriodToolParameter = Type.Enum(KLINE_PERIOD_VALUES)
+const KLinePeriodToolParameter = Type.Enum(KLINE_PERIODS)
 const KLineAdjustmentToolParameter = Type.Enum(KLINE_ADJUSTMENT_VALUES)
 const BarAggregationToolParameter = Type.Enum(BAR_AGGREGATIONS)
 // unknown 只描述数据源未归一化状态，禁止作为工具输入的路由筛选条件。

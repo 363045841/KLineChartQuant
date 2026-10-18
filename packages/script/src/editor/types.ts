@@ -9,19 +9,38 @@ import type {
   PlotCallOptions,
   PlotDeclaration,
   StringInputOptions,
+  Timeframe,
+  TimeframeInputOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { QuickJSScriptDefinition } from '../quickjs/types.js'
 
 /** 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。 */
 export interface ScriptInput {
-  /** 整数输入；min、max 和 step 必须为整数。 */
+  /**
+   * 整数输入；min、max 和 step 必须为整数。
+   * @summary 整数
+   */
   int(value: number, options?: NumberInputOptions): number
-  /** 浮点数输入，支持数值范围与步长。 */
+  /**
+   * 浮点数输入，支持数值范围与步长。
+   * @summary 浮点数
+   */
   float(value: number, options?: NumberInputOptions): number
-  /** 布尔输入，在参数面板中显示开关。 */
+  /**
+   * 布尔输入，在参数面板中显示开关。
+   * @summary 开关
+   */
   bool(value: boolean, options?: InputOptions): boolean
-  /** 字符串输入；提供 options 时显示下拉选项。 */
+  /**
+   * 字符串输入；提供 options 时显示下拉选项。
+   * @summary 字符串
+   */
   string(value: string, options?: StringInputOptions): string
+  /**
+   * 目标周期输入；缺省列出全部受支持周期，返回值可直接传给 request.security。
+   * @summary 目标周期
+   */
+  timeframe(value: Timeframe, options?: TimeframeInputOptions): Timeframe
 }
 
 /** 调用处的样式选项；绘图名称由绘图方法的位置参数提供，color 可逐点变化。 */

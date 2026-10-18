@@ -7,11 +7,21 @@ import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '..
 /** 可以在脚本中作为 `params` 读取的输入值。 */
 export type ScriptParamValue = number | string | boolean
 
-/** 指标渲染位置；脚本声明、编辑器与宿主共用同一组取值。 */
+/**
+ * @summary 渲染位置
+ *
+ * 指标渲染位置；脚本声明、编辑器与宿主共用同一组取值。
+ */
 export enum Position {
-  /** 叠加到主图。 */
+  /**
+   * 叠加到主图。
+   * @summary 主图
+   */
   Main = 'main',
-  /** 独立副图。 */
+  /**
+   * 独立副图。
+   * @summary 副图
+   */
   Sub = 'sub',
 }
 

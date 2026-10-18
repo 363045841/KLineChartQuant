@@ -11,10 +11,19 @@ const outputFile = fileURLToPath(new URL('src/quickjs/runtime/plotKind.ts', pack
 /** 绘图契约文件与需要导出的枚举名；成员值从契约取值派生，不在此重复书写。 */
 const definitions = [
   ['color.ts', ['Color']],
-  ['market.ts', ['DataSource']],
+  ['market.ts', ['DataSource', 'Timeframe']],
   ['plots.ts', ['PlotKind']],
   ['shape.ts', ['ShapeStyle', 'ShapeLocation', 'ShapeSize']],
 ]
+
+/** 按指定空格数给多行文本加缩进，供生成物内的成员注释对齐。 */
+function indent(text, spaces) {
+  const prefix = ' '.repeat(spaces)
+  return text
+    .split('\n')
+    .map((line) => `${prefix}${line}`)
+    .join('\n')
+}
 
 /**
  * 从绘图契约生成全局枚举声明。
@@ -41,7 +50,13 @@ export async function generateScriptEnums({ check = false } = {}) {
           if (!ts.isPropertyAssignment(property) || !ts.isStringLiteral(property.initializer)) {
             throw new Error('枚举契约成员必须为字符串')
           }
-          return `  ${property.name.getText(file)} = ${JSON.stringify(property.initializer.text)},`
+          // 成员 JSDoc 同样带进生成物，编辑器对 Timeframe.Hour1 这类取值才有逐项提示。
+          const memberDoc = ts
+            .getJSDocCommentsAndTags(property)
+            .filter((comment) => comment.kind === ts.SyntaxKind.JSDocComment)
+            .map((comment) => indent(comment.getText(file), 2))
+            .join('\n')
+          return `${memberDoc ? `${memberDoc}\n` : ''}  ${property.name.getText(file)} = ${JSON.stringify(property.initializer.text)},`
         })
         // 保留共享契约的 JSDoc，让生成的全局枚举提供同一份编辑器提示。
         const documentation = ts
@@ -59,6 +74,7 @@ export async function generateScriptEnums({ check = false } = {}) {
     changed: writeGeneratedFile(
       outputFile,
       '/** 从 plot-contracts 自动生成的全局 TS 枚举；运行 generate-script-enums.mjs 更新。 */\n' +
+        '// biome-ignore-all format: 枚举声明由生成器统一序列化\n' +
         declarations.join('\n\n') +
         '\n',
       { check },

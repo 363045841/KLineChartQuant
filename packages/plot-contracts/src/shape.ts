@@ -14,34 +14,63 @@ export type ShapeStyle =
   | 'labeldown'
   | 'flag'
 
+/**
+ * @summary 标记形状
+ *
+ * 固定形状标记可选的外形；缺省使用 XCross。
+ */
 export const ShapeStyle = {
+  /** @summary X 叉 */
   XCross: 'xcross',
+  /** @summary 十字 */
   Cross: 'cross',
+  /** @summary 圆 */
   Circle: 'circle',
+  /** @summary 方形 */
   Square: 'square',
+  /** @summary 菱形 */
   Diamond: 'diamond',
+  /** @summary 上三角 */
   TriangleUp: 'triangleup',
+  /** @summary 下三角 */
   TriangleDown: 'triangledown',
+  /** @summary 上箭头 */
   ArrowUp: 'arrowup',
+  /** @summary 下箭头 */
   ArrowDown: 'arrowdown',
+  /** @summary 上标签 */
   LabelUp: 'labelup',
+  /** @summary 下标签 */
   LabelDown: 'labeldown',
+  /** @summary 旗形 */
   Flag: 'flag',
 } satisfies Record<string, ShapeStyle>
 
 export type ShapeLocation = 'abovebar' | 'belowbar' | 'top' | 'bottom' | 'absolute'
 
+/**
+ * @summary 标记位置
+ *
+ * 标记相对 K 线的位置；缺省在 K 线上方，Absolute 表示按价格定位。
+ */
 export const ShapeLocation = {
+  /** @summary 上方 */
   AboveBar: 'abovebar',
+  /** @summary 下方 */
   BelowBar: 'belowbar',
+  /** @summary 顶部 */
   Top: 'top',
+  /** @summary 底部 */
   Bottom: 'bottom',
+  /** @summary 按价格定位 */
   Absolute: 'absolute',
 } satisfies Record<string, ShapeLocation>
 
 export type ShapeSize = 'auto' | 'tiny' | 'small' | 'normal' | 'large' | 'huge'
 
 /**
+ * @summary 尺寸档位
+ *
  * 图形尺寸档位；size 不填则使用 Auto，各档位的尺寸如下。
  *
  * | 档位 | 折线宽度（px） | 散点直径（px） | 形状 / 字符外框边长（px） | 箭头最大高度（px） | Histogram 柱宽（px） |
@@ -57,11 +86,17 @@ export type ShapeSize = 'auto' | 'tiny' | 'small' | 'normal' | 'large' | 'huge'
  * Columns 不接受 size，柱宽随 K 线间距自动调整。
  */
 export const ShapeSize = {
+  /** @summary 自动 */
   Auto: 'auto',
+  /** @summary 极小 */
   Tiny: 'tiny',
+  /** @summary 小 */
   Small: 'small',
+  /** @summary 常规 */
   Normal: 'normal',
+  /** @summary 大 */
   Large: 'large',
+  /** @summary 特大 */
   Huge: 'huge',
 } satisfies Record<string, ShapeSize>
 

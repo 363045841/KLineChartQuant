@@ -27,6 +27,8 @@ declare global {
   const ta: TechnicalAnalysisLibrary
 
   /**
+   * @summary 渲染位置
+   *
    * 指标渲染位置，由宿主注入 VM。
    *
    * | 取值 | 含义 |
@@ -82,12 +84,12 @@ declare global {
    * | 参数 | 含义 |
    * | --- | --- |
    * | `symbol` | 目标品种；等于 `syminfo.tickerid` 时继承图表来源，否则必须指定 options.source |
-   * | `timeframe` | 目标周期，如 '60'、'D'；不得低于图表周期 |
+   * | `timeframe` | 目标周期，取 Timeframe 枚举；不得低于图表周期 |
    * | `expression` | 无参同步回调，返回标量、序列或元组 |
    * | `options` | `source`、`calcBarsCount`、`gaps` |
    *
    * ```ts
-   * const [o, h, l, c] = request.security(syminfo.tickerid, '60', () => [open, high, low, close] as const)
+   * const [o, h, l, c] = request.security(syminfo.tickerid, Timeframe.Hour1, () => [open, high, low, close] as const)
    * ```
    */
   const request: ScriptRequest

@@ -20,6 +20,7 @@ type InputOptions = import('@363045841yyt/klinechart-plot-contracts').InputOptio
 type ScriptInput = import('../../editor/types.js').ScriptInput
 type NumberInputOptions = import('@363045841yyt/klinechart-plot-contracts').NumberInputOptions
 type StringInputOptions = import('@363045841yyt/klinechart-plot-contracts').StringInputOptions
+type TimeframeInputOptions = import('@363045841yyt/klinechart-plot-contracts').TimeframeInputOptions
 
 /** 内置技术分析库的公开契约。 */
 type TechnicalAnalysisLibrary = import('../../Library/types.js').TechnicalAnalysisLibrary

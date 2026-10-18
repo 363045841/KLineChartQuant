@@ -38,6 +38,14 @@ describe.each([
     ])
   })
 
+  it('目标周期可以直接写 Timeframe 枚举', () => {
+    const script = prepare(`defineIndicator({name:'EnumRequest',position:Position.Main,onBar(){
+      const value = request.security(syminfo.tickerid, Timeframe.Day, () => close)
+      plot.Line(value, 'daily')
+    }})`)
+    expect(script.requests({}, 'BTCUSDT')).toEqual([{ id: '0', symbol: 'BTCUSDT', timeframe: 'D' }])
+  })
+
   it('元组可以直接作为蜡烛输入，脚本不能写入共享结果', () => {
     const script = prepare(`defineIndicator({name:'Candles',position:Position.Main,onBar(){
       const [o,h,l,c] = request.security('BTCUSDT','60',()=>[open,high,low,close] as const)

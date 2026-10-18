@@ -5,15 +5,10 @@
  * 异步入口用于首次加载 WASM；预加载后可用同步入口，供 core 的同步 compute 调用。
  */
 import {
-  Color,
-  DataSource,
   isPlotKind,
   type PlotCollection,
   PlotCollector,
   PlotKind,
-  ShapeLocation,
-  ShapeSize,
-  ShapeStyle,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
   getQuickJS,
@@ -44,7 +39,6 @@ import {
   SCRIPT_PRELUDE,
 } from '../generated/runtime.js'
 import {
-  Position,
   type PreparedQuickJSScript,
   type QuickJSLibrary,
   type QuickJSRunOptions,
@@ -52,6 +46,7 @@ import {
   type ScriptParamValue,
 } from '../types.js'
 import { readDefinition, readFillCall, readPlotCall } from './readDefinition.js'
+import { SCRIPT_ENUM_GLOBALS } from './scriptEnumGlobals.js'
 
 /** 共享的 WASM 模块类型。 */
 type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
@@ -350,15 +345,7 @@ function mountParams(
 
 /** 注入脚本公开枚举；取值来自共享契约，VM 内不重复声明。 */
 function mountScriptEnums(vm: QuickJSContext): void {
-  for (const [globalName, members] of Object.entries({
-    DataSource,
-    Color,
-    Position,
-    PlotKind,
-    ShapeStyle,
-    ShapeLocation,
-    ShapeSize,
-  })) {
+  for (const [globalName, members] of Object.entries(SCRIPT_ENUM_GLOBALS)) {
     const target = vm.newObject()
     for (const [name, value] of Object.entries(members)) {
       const handle = vm.newString(value)

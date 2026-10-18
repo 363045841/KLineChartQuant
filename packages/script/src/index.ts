@@ -46,6 +46,7 @@ export {
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
+  Timeframe,
 } from '@363045841yyt/klinechart-plot-contracts'
 export * from './contracts/input.js'
 export * from './contracts/library.js'
