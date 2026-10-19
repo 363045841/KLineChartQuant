@@ -1,10 +1,17 @@
+// 本文件汇总设置弹窗「开源致谢」展示的包元数据：白名单决定展示范围，元数据来自各包 package.json。
 import vueLibPkg from 'vue/package.json'
 import piAiPkg from '../../../agent-runtime/node_modules/@earendil-works/pi-ai/package.json'
 import agentRuntimePkg from '../../../agent-runtime/package.json'
 import corePkg from '../../../core/package.json'
+import plotContractsPkg from '../../../plot-contracts/package.json'
+import scriptChartPkg from '../../../script-chart/package.json'
+import scriptServerPkg from '../../../script-server/package.json'
+import scriptPkg from '../../../script/package.json'
+import codemirrorPkg from '../../node_modules/codemirror/package.json'
 import vuePkg from '../../package.json'
 
 export interface CreditItem {
+  /** 展示名：本仓库包省略 npm scope，第三方为完整包名 */
   name: string
   version: string
   license: string
@@ -23,11 +30,17 @@ export const OPEN_SOURCE_WHITELIST = [
   { name: '@363045841yyt/klinechart', section: 'workspace' },
   { name: '@363045841yyt/klinechart-core', section: 'workspace' },
   { name: '@363045841yyt/klinechart-agent-runtime', section: 'workspace' },
+  { name: '@363045841yyt/klinechart-plot-contracts', section: 'workspace' },
+  { name: '@363045841yyt/klinechart-script', section: 'workspace' },
+  { name: '@363045841yyt/klinechart-script-server', section: 'workspace' },
+  { name: '@363045841yyt/klinechart-script-chart', section: 'workspace' },
+  { name: 'codemirror', section: 'third-party' },
   { name: '@earendil-works/pi-ai', section: 'third-party' },
   { name: 'vue', section: 'third-party' },
 ] as const
 
 type WhitelistName = (typeof OPEN_SOURCE_WHITELIST)[number]['name']
+type WhitelistEntry = (typeof OPEN_SOURCE_WHITELIST)[number]
 
 interface PackageMeta {
   version: string
@@ -44,6 +57,11 @@ const PACKAGE_META: Record<WhitelistName, PackageMeta> = {
   '@363045841yyt/klinechart': vuePkg,
   '@363045841yyt/klinechart-core': corePkg,
   '@363045841yyt/klinechart-agent-runtime': agentRuntimePkg,
+  '@363045841yyt/klinechart-plot-contracts': plotContractsPkg,
+  '@363045841yyt/klinechart-script': scriptPkg,
+  '@363045841yyt/klinechart-script-server': scriptServerPkg,
+  '@363045841yyt/klinechart-script-chart': scriptChartPkg,
+  codemirror: codemirrorPkg,
   '@earendil-works/pi-ai': piAiPkg,
   vue: vueLibPkg,
 }
@@ -98,10 +116,20 @@ export function resolveGithubUrl(meta: PackageMeta, fallback = MONOREPO_GITHUB):
   return fallback
 }
 
-function toCreditItem(name: WhitelistName): CreditItem {
-  const meta = PACKAGE_META[name]
+/** npm scope 前缀，本仓库包展示时省略 */
+const SCOPE_PREFIX = /^@[^/]+\//
+
+/**
+ * 展示名：本仓库包省略 npm scope，第三方保留完整包名以标明发布者。
+ */
+function toDisplayName(entry: WhitelistEntry): string {
+  return entry.section === 'workspace' ? entry.name.replace(SCOPE_PREFIX, '') : entry.name
+}
+
+function toCreditItem(entry: WhitelistEntry): CreditItem {
+  const meta = PACKAGE_META[entry.name]
   return {
-    name,
+    name: toDisplayName(entry),
     version: meta.version,
     license: readLicense(meta),
     url: resolveGithubUrl(meta),
@@ -119,7 +147,7 @@ export function getOpenSourceCredits(): CreditSection[] {
   }
 
   for (const entry of OPEN_SOURCE_WHITELIST) {
-    grouped[entry.section].push(toCreditItem(entry.name))
+    grouped[entry.section].push(toCreditItem(entry))
   }
 
   return (['workspace', 'third-party'] as const).map((id) => ({
