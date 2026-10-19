@@ -13,7 +13,6 @@
 // MA family completion pack (tick 7 b-9)
 export { type AlmaOptions, computeALMA } from './alma.js'
 export { computeFisherTransform, type FisherTransformOptions } from './fisherTransform.js'
-export { computeFRAMA, type FramaOptions } from './frama.js'
 export { computeLSMA, type LsmaOptions } from './lsma.js'
 export { computeSchaffTrendCycle, type SchaffTrendCycleOptions } from './schaffTrendCycle.js'
 // Oscillator completion pack (tick 8 b-10)

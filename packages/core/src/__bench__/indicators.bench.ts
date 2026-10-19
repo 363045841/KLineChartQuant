@@ -27,7 +27,6 @@ import { computeALMA } from '../features/indicators/alma'
 
 // Oscillator family (b-10)
 import { computeFisherTransform } from '../features/indicators/fisherTransform'
-import { computeFRAMA } from '../features/indicators/frama'
 import { computeLSMA } from '../features/indicators/lsma'
 import { computeSchaffTrendCycle } from '../features/indicators/schaffTrendCycle'
 import { computeStochRSI } from '../features/indicators/stochRSI'
@@ -87,10 +86,6 @@ describe('MA family @ 10k bars (close-only)', () => {
       bench('VIDYA (period=21, cmoPeriod=9)', () => {
         computeVIDYA(close10k, { period: 21, cmoPeriod: 9 })
       }),
-      bench('FRAMA (period=16)', () => {
-        // FRAMA requires `period` even and >= 4
-        computeFRAMA(close10k, { period: 16 })
-      }),
     )
   })
 })
@@ -109,9 +104,6 @@ describe('MA family @ 100k bars (close-only)', () => {
       }),
       bench('VIDYA (period=21, cmoPeriod=9)', () => {
         computeVIDYA(close100k, { period: 21, cmoPeriod: 9 })
-      }),
-      bench('FRAMA (period=16)', () => {
-        computeFRAMA(close100k, { period: 16 })
       }),
     )
   })

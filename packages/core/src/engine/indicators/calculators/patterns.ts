@@ -1,53 +1,5 @@
+/** 结构、区域等非均线类原生指标计算。 */
 import type { KLineData } from '@/foundation/types/price.js'
-
-export interface FibPoint {
-  high: number
-  low: number
-  direction: 'up' | 'down'
-  level236: number
-  level382: number
-  level500: number
-  level618: number
-  level786: number
-}
-
-export function calcFibData(data: KLineData[], period: number): (FibPoint | undefined)[] {
-  const n = data.length
-  const result: (FibPoint | undefined)[] = new Array(n).fill(undefined)
-  if (n === 0 || period <= 0 || n < period) return result
-
-  for (let t = period - 1; t < n; t++) {
-    let hi = -Infinity
-    let lo = Infinity
-    let hiIdx = t
-    let loIdx = t
-    for (let k = 0; k < period; k++) {
-      const bar = data[t - k]!
-      if (bar.high > hi) {
-        hi = bar.high
-        hiIdx = t - k
-      }
-      if (bar.low < lo) {
-        lo = bar.low
-        loIdx = t - k
-      }
-    }
-    const direction: 'up' | 'down' = hiIdx >= loIdx ? 'up' : 'down'
-    const range = hi - lo
-    const level = (frac: number) => (direction === 'up' ? hi - range * frac : lo + range * frac)
-    result[t] = {
-      high: hi,
-      low: lo,
-      direction,
-      level236: level(0.236),
-      level382: level(0.382),
-      level500: level(0.5),
-      level618: level(0.618),
-      level786: level(0.786),
-    }
-  }
-  return result
-}
 
 export interface SwingPoint {
   index: number

@@ -216,7 +216,7 @@ onBar() {
 }
 ```
 
-The built-in `ta` library covers `sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `crossover`, `crossunder`, `rising`, `falling` and `change`. User libraries use the same `defineLibrary` call and join the same global namespace.
+The built-in `ta` library covers `sma`, `ema`, `rma`, `swma`, `alma`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `highestbars`, `lowestbars`, `crossover`, `crossunder`, `rising`, `falling` and `change`. `highestbars` / `lowestbars` return negative bar offsets (0 is the current bar) and resolve ties to the earliest bar, matching Pine. User libraries use the same `defineLibrary` call and join the same global namespace.
 
 - **Sandboxed execution** - Scripts run in an embedded QuickJS runtime with per-run time and memory budgets, so a runaway script fails instead of hanging the host
 - **No future data** - History that is not yet available reads as `NaN`; a script can never look ahead

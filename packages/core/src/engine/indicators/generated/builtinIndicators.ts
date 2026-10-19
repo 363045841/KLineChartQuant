@@ -14,16 +14,8 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/alma.js').then((module) => module.ALMADefinition),
   },
   {
-    descriptor: {"name":"fib","kind":"indicator","displayName":"Fib","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":50},"defaultOptions":{"showLevels":true}},
-    load: () => import('../../renderers/Indicator/fib.js').then((module) => module.FibDefinition),
-  },
-  {
     descriptor: {"name":"fisherTransform","kind":"indicator","displayName":"Fisher","category":"oscillator","defaultPaneId":"sub_Fisher","defaultParams":{"period":10},"defaultOptions":{"showFisher":true,"showSignal":true}},
     load: () => import('../../renderers/Indicator/fisherTransform.js').then((module) => module.FisherTransformIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"frama","kind":"indicator","displayName":"frama","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":16},"defaultOptions":{"showFRAMA":true}},
-    load: () => import('../../renderers/Indicator/frama.js').then((module) => module.FRAMADefinition),
   },
   {
     descriptor: {"name":"kama","kind":"indicator","displayName":"KAMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":10,"fastPeriod":2,"slowPeriod":30},"defaultOptions":{"showKAMA":true}},

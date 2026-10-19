@@ -9,9 +9,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 
 import {
   calcALMAData,
-  calcFibData,
   calcFisherTransformData,
-  calcFRAMAData,
   calcKAMAData,
   calcLSMAData,
   calcSchaffTrendCycleData,
@@ -31,14 +29,12 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
   calcZLEMAData: (data, c) => calcZLEMAData(data, c.period),
   calcALMAData: (data, c) => calcALMAData(data, c.period, c.offset, c.sigma),
   calcLSMAData: (data, c) => calcLSMAData(data, c.period),
-  calcFibData: (data, c) => calcFibData(data, c.period),
   calcStructureData: (data, c) =>
     calcStructureData(data, c.leftWindow, c.rightWindow, c.breakoutSource),
   calcZonesData: (data, c) => calcZonesData(data, c.obLookback, 5, 2, 'close'),
   calcVolumeProfileData: (data, c) =>
     calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
   calcVIDYAData: (data, c) => calcVIDYAData(data, c.period, c.cmoPeriod),
-  calcFRAMAData: (data, c) => calcFRAMAData(data, c.period),
   calcStochRSIData: (data, c) => calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
   calcFisherTransformData: (data, c) => calcFisherTransformData(data, c.period),
   calcSchaffTrendCycleData: (data, c) =>

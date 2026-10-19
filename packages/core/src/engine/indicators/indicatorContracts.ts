@@ -6,9 +6,7 @@ import type { ZonesRenderState } from './state/zonesState.js'
 
 type PlotIndicatorName =
   | 'alma'
-  | 'fib'
   | 'fisherTransform'
-  | 'frama'
   | 'kama'
   | 'lsma'
   | 'schaffTrendCycle'

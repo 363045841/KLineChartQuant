@@ -12,7 +12,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { computeALMA } from '../alma'
-import { computeFRAMA } from '../frama'
 import { computeLSMA } from '../lsma'
 import { computeVIDYA } from '../vidya'
 import { computeZLEMA } from '../zlema'
@@ -114,20 +113,4 @@ describe('computeVIDYA', () => {
   })
 })
 
-describe('computeFRAMA', () => {
-  it('output length === input length and period-1 leading NaN', () => {
-    const r = computeFRAMA(ramp(40), { period: 16 })
-    expect(r.length).toBe(40)
-    expect(countLeadingNaN(r)).toBe(15)
-  })
 
-  it('rejects odd or too-small periods', () => {
-    expect(() => computeFRAMA(ramp(20), { period: 3 })).toThrow(/period/)
-    expect(() => computeFRAMA(ramp(20), { period: 5 })).toThrow(/period/)
-  })
-
-  it('constant input → flat output once primed', () => {
-    const r = computeFRAMA(constant(40, 9), { period: 8 })
-    for (let i = 7; i < 40; i++) expect(r[i]!).toBeCloseTo(9, 6)
-  })
-})

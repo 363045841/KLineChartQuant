@@ -9,15 +9,17 @@
  */
 
 /** 窗口类算法：完整窗口前为 NaN，之后增量维护聚合状态。 */
-type WindowKind = 'sma' | 'sum' | 'highest' | 'lowest'
+type WindowKind = 'sma' | 'sum' | 'highest' | 'lowest' | 'highestbars' | 'lowestbars'
 
 /** 窗口类算法的缓存包装，key 区分算法与输入序列。 */
 function __windowSeries(source: Series, length: number, kind: WindowKind): Series {
-  return __rollingSeries(`window:${kind}:${__seriesId(source)}:${length}`, source, length, () =>
-    kind === 'highest' || kind === 'lowest'
-      ? __extremeWindow(length, kind === 'highest')
-      : __sumWindow(kind === 'sma' ? length : 1),
-  )
+  return __rollingSeries(`window:${kind}:${__seriesId(source)}:${length}`, source, length, () => {
+    if (kind === 'highestbars' || kind === 'lowestbars')
+      return __extremeWindow(length, kind === 'highestbars', true)
+    if (kind === 'highest' || kind === 'lowest')
+      return __extremeWindow(length, kind === 'highest')
+    return __sumWindow(kind === 'sma' ? length : 1)
+  })
 }
 
 /** 间距类算法：只比较当前值与 length 根之前的值，不要求完整窗口。 */
@@ -85,6 +87,45 @@ function __emaSeries(source: Series, length: number, seed: 'window' | 'first'): 
       ? __windowSeries(source, length, 'sma').at(offset)
       : previous + (2 / (length + 1)) * (source.at(offset) - previous)
   })
+}
+
+/** Wilder 平滑均线：完整窗口 SMA 初始化，之后按 alpha = 1 / length 递推。 */
+function __rmaSeries(source: Series, length: number): Series {
+  return __deriveOnce(`rma:${__seriesId(source)}:${length}`, (self, offset) => {
+    if (offset + length > __count()) return Number.NaN
+    if (offset + length === __count()) return __windowSeries(source, length, 'sma').at(offset)
+    const previous = self.at(offset + 1)
+    if (Number.isNaN(previous)) return __windowSeries(source, length, 'sma').at(offset)
+    return previous + (source.at(offset) - previous) / length
+  })
+}
+
+/** ALMA：高斯权重中心由 offset 决定，floor 为 true 时对中心取下整。 */
+function __almaSeries(
+  source: Series,
+  length: number,
+  offset: number,
+  sigma: number,
+  floor: boolean,
+): Series {
+  const center = floor ? Math.floor(offset * (length - 1)) : offset * (length - 1)
+  const spread = length / sigma
+  const denominator = 2 * spread * spread
+  return __deriveOnce(
+    `alma:${__seriesId(source)}:${length}:${offset}:${sigma}:${floor}`,
+    (_self, barOffset) => {
+      if (barOffset + length > __count()) return Number.NaN
+      let sum = 0
+      let norm = 0
+      for (let step = 0; step < length; step++) {
+        const weight = Math.exp(-((step - center) * (step - center)) / denominator)
+        // 权重从窗口最旧一根递增到当前根，与 Pine 的 series[length - i - 1] 对齐。
+        sum += source.at(barOffset + length - 1 - step) * weight
+        norm += weight
+      }
+      return sum / norm
+    },
+  )
 }
 
 defineLibrary('ta', {
@@ -197,6 +238,54 @@ defineLibrary('ta', {
   lowest(source: Series, length: number): Series {
     __checkLength(length)
     return __windowSeries(source, length, 'lowest')
+  },
+
+  /** 最高值相对当前 K 线的负偏移；并列最高取更早一根，完整窗口之前为 NaN。 */
+  highestbars(source: Series, length: number): Series {
+    __checkLength(length)
+    return __windowSeries(source, length, 'highestbars')
+  },
+
+  /** 最低值相对当前 K 线的负偏移；并列最低取更早一根，完整窗口之前为 NaN。 */
+  lowestbars(source: Series, length: number): Series {
+    __checkLength(length)
+    return __windowSeries(source, length, 'lowestbars')
+  },
+
+  /** Wilder 平滑均线序列，以首个完整窗口 SMA 初始化。 */
+  rma(source: Series, length: number): Series {
+    __checkLength(length)
+    return __rmaSeries(source, length)
+  },
+
+  /** 固定 4 根窗口的对称加权均线，权重由旧到新为 1/6、2/6、2/6、1/6。 */
+  swma(source: Series): Series {
+    return __deriveOnce(`swma:${__seriesId(source)}`, (_self, offset) => {
+      if (offset + 4 > __count()) return Number.NaN
+      return (
+        (source.at(offset + 3) +
+          2 * source.at(offset + 2) +
+          2 * source.at(offset + 1) +
+          source.at(offset)) /
+        6
+      )
+    })
+  },
+
+  /** Arnaud Legoux 均线序列，完整窗口之前为 NaN。 */
+  alma(
+    source: Series,
+    length: number,
+    offset: number = 0.85,
+    sigma: number = 6,
+    floor: boolean = false,
+  ): Series {
+    __checkLength(length)
+    if (!Number.isFinite(offset) || offset < 0 || offset > 1)
+      throw new RangeError('ALMA offset 必须在 0 到 1 之间')
+    if (!Number.isFinite(sigma) || sigma <= 0)
+      throw new RangeError('ALMA sigma 必须是有限正数')
+    return __almaSeries(source, length, offset, sigma, floor)
   },
 
   /** 总体标准差序列（除以 length），完整窗口之前为 NaN。 */

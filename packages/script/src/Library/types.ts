@@ -61,6 +61,54 @@ export type TechnicalAnalysisLibrary = {
    */
   lowest(source: Series, length: number): Series
   /**
+   * 最近 length 根 K 线最高值相对当前 K 线的偏移，负值或 0。
+   * @summary 最高值偏移
+   * @param source 数据序列，如 high。
+   * @param length 窗口长度，正整数。
+   * @returns 偏移序列；并列最高取更早一根，完整窗口之前为 NaN。
+   */
+  highestbars(source: Series, length: number): Series
+  /**
+   * 最近 length 根 K 线最低值相对当前 K 线的偏移，负值或 0。
+   * @summary 最低值偏移
+   * @param source 数据序列，如 low。
+   * @param length 窗口长度，正整数。
+   * @returns 偏移序列；并列最低取更早一根，完整窗口之前为 NaN。
+   */
+  lowestbars(source: Series, length: number): Series
+  /**
+   * Wilder 平滑均线（RMA），alpha = 1 / length，以首个完整窗口 SMA 初始化。
+   * @summary Wilder 平滑均线
+   * @param source 数据序列，如 close。
+   * @param length 周期，正整数。
+   * @returns 均线序列；完整窗口之前为 NaN。
+   */
+  rma(source: Series, length: number): Series
+  /**
+   * 对称加权均线，固定 4 根窗口，权重由旧到新为 1/6、2/6、2/6、1/6。
+   * @summary 对称加权均线
+   * @param source 数据序列，如 close。
+   * @returns 均线序列；前 3 根为 NaN。
+   */
+  swma(source: Series): Series
+  /**
+   * Arnaud Legoux 均线（ALMA），高斯权重中心位于 offset × (length − 1)。
+   * @summary Arnaud Legoux 均线
+   * @param source 数据序列，如 close。
+   * @param length 窗口长度，正整数。
+   * @param offset 高斯中心在窗口中的相对位置，0–1，缺省 0.85。
+   * @param sigma 高斯宽度，有限正数，缺省 6。
+   * @param floor 为 true 时对中心取下整，缺省 false。
+   * @returns 均线序列；完整窗口之前为 NaN。
+   */
+  alma(
+    source: Series,
+    length: number,
+    offset?: number,
+    sigma?: number,
+    floor?: boolean,
+  ): Series
+  /**
    * 总体标准差（STDDEV），窗口内数值相对窗口均值的偏差，除以 length。
    * @summary 总体标准差
    * @param source 数据序列，如 close。

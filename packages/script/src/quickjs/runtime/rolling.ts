@@ -4,7 +4,8 @@
 interface RollingWindow {
   push(value: number, index: number): void
   remove(value: number, index: number): void
-  value(): number
+  /** currentIndex 为当前求值下标，仅偏移类窗口使用。 */
+  value(currentIndex: number): number
 }
 
 /** 创建缓存窗口序列；跳读时迭代补齐历史，历史查询直接命中派生缓存。 */
@@ -31,7 +32,7 @@ function __rollingSeries(
     samples[slot] = current
     window.push(current, target)
     processed = target
-    return target + 1 < length ? Number.NaN : window.value()
+    return target + 1 < length ? Number.NaN : window.value(target)
   })
 }
 
@@ -151,13 +152,16 @@ function __deviationWindow(length: number): RollingWindow {
   }
 }
 
-/** 单调队列维护最高/最低值，每个下标最多入队、出队各一次。 */
-function __extremeWindow(length: number, highest: boolean): RollingWindow {
+/**
+ * 单调队列维护最高/最低值，每个下标最多入队、出队各一次。
+ * bars 为 true 时返回相对当前下标的负偏移，并把并列极值判给更早一根（与 Pine 一致）。
+ */
+function __extremeWindow(length: number, highest: boolean, bars = false): RollingWindow {
   const queue: { value: number; index: number }[] = []
   let head = 0
   let missing = 0
   return {
-    /** 弹出不会再成为极值的队尾，再加入当前值。 */
+    /** 弹出不会再成为极值的队尾，再加入当前值；bars 模式保留更早的并列极值。 */
     push(value, index) {
       if (Number.isNaN(value)) {
         missing++
@@ -165,7 +169,15 @@ function __extremeWindow(length: number, highest: boolean): RollingWindow {
       }
       while (queue.length > head) {
         const last = queue.at(-1)
-        if (!last || (highest ? last.value > value : last.value < value)) break
+        if (!last) break
+        const keep = bars
+          ? highest
+            ? last.value >= value
+            : last.value <= value
+          : highest
+            ? last.value > value
+            : last.value < value
+        if (keep) break
         queue.pop()
       }
       queue.push({ value, index })
@@ -179,9 +191,12 @@ function __extremeWindow(length: number, highest: boolean): RollingWindow {
         head = 0
       }
     },
-    /** 有无效样本时留空，否则队首就是窗口极值。 */
-    value() {
-      return missing ? Number.NaN : (queue[head]?.value ?? Number.NaN)
+    /** 有无效样本时留空；bars 模式返回相对当前下标的负偏移。 */
+    value(currentIndex) {
+      if (missing) return Number.NaN
+      const entry = queue[head]
+      if (!entry) return Number.NaN
+      return bars ? entry.index - currentIndex : entry.value
     },
   }
 }
