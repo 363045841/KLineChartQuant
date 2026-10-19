@@ -10,12 +10,6 @@
  * This makes alignment with bar arrays trivial in render code.
  */
 
-// MA family completion pack (tick 7 b-9)
-export { type AlmaOptions, computeALMA } from './alma.js'
 export { computeFisherTransform, type FisherTransformOptions } from './fisherTransform.js'
-export { computeLSMA, type LsmaOptions } from './lsma.js'
 export { computeSchaffTrendCycle, type SchaffTrendCycleOptions } from './schaffTrendCycle.js'
-// Oscillator completion pack (tick 8 b-10)
 export { computeStochRSI, type StochRsiOptions } from './stochRSI.js'
-export { computeVIDYA, type VidyaOptions } from './vidya.js'
-export { computeZLEMA, type ZlemaOptions } from './zlema.js'

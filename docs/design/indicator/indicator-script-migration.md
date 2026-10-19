@@ -62,12 +62,14 @@
 | 组合类（已迁移） | `ao` `cci` `hma` `kst` `dma` | 除 `ta.hma` / `ta.cci` 外均由现有 `ta.sma` / `ta.roc` 与全局 `derive` 组合，不新增计算原语 |
 | 均线与通道批次（已迁移） | `atr` `ma` `expma` `dema` `tema` `t3` `trima` `gmma` `ene` `vma` `vwma` `keltner` `dpo` `pivot` `ichimoku` | TA 增加 DEMA、TEMA、T3、TRIMA；其他组合由脚本表达，删除原生定义及其相关测试 |
 | Fib 与 FRAMA（已迁移） | `fib` `frama` | Fib 使用横线阶梯与最高/最低偏移；FRAMA 用现有极值原语加顶层递推状态 |
-| 其余均线与叠加类（待迁移） | `kama` `vidya` `zlema` `lsma` `alma` `smma` | 需追加 ta 原语 |
+| ALMA 与 SMMA（已迁移） | `alma` `smma` | 直接用 `ta.alma` / `ta.rma`；ALMA 采用 Pine 默认 `floor=false`，不再复刻旧 core 的 floor 取整 |
+| ZLEMA（已迁移） | `zlema` | 零滞后源用 `derive` 组合，EMA 交给 `ta.ema`，不新增 TA 原语 |
+| KAMA / VIDYA / LSMA（已迁移） | `kama` `vidya` `lsma` | KAMA 用 `derive` + `ta.sum`；VIDYA 用 `ta.cmo`；LSMA 用 `ta.linreg` |
 | 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
 
 ## 落地切片（每片独立可测）
 
-1. **ta 原语**（已完成）：`sum` / `stddev` / `mom` / `roc`；本批补充 `highestbars` / `lowestbars` / `rma` / `swma` / `alma`，含参考实现对照与线性复杂度用例。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。
+1. **ta 原语**（已完成）：`sum` / `stddev` / `mom` / `roc`；本批补充 `highestbars` / `lowestbars` / `rma` / `swma` / `alma` / `cmo` / `linreg`，含参考实现对照与线性复杂度用例。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。
 2. **业务分类字段**（已完成）：如上。
 3. **第一批脚本 + 删除原生实现**（已完成）：删除原生定义、专用 scale、calculator、
    Worker 映射与静态身份条目，重新生成原生目录；保留其他指标仍依赖的通用计算原语。
@@ -117,6 +119,14 @@ Fib 用 `ta.highestbars` / `ta.lowestbars` 取窗口高低点及其偏移：偏�
 FRAMA 的 period 仍要求偶数且不小于 4；前半段窗口取 `ta.highest/lowest(close, half).at(half)`，
 后半段取当前窗口，全窗口取 `period`；alpha 使用 Ehlers 分形维数公式并截断到 `[0.01, 1]`，
 顶层 `frama` 状态每轮重算都从第一根重建，追加历史不依赖上一轮运行。
+ALMA 直接调用 `ta.alma(close, period, offset, sigma)`，采用 Pine 默认 `floor=false`；SMMA 直接调用
+`ta.rma(close, period)`，两者都不再保留原生 `show*` 展示开关。
+ZLEMA 用 `derive` 构造零滞后源 `close + (close − close[lag])`，lag 取 `floor((period − 1) / 2)`，
+历史不足时退化为 close，再交给 `ta.ema`；不把 ZLEMA 提升为 TA 原语。
+KAMA 用 `derive` 构造绝对变化序列，`ta.sum` 求波动和，效率比决定快慢平滑系数，顶层 `kama`
+状态逐 bar 递推。VIDYA 用 `ta.cmo(close, cmoPeriod)` 的绝对值缩放基础 EMA 系数，同样以顶层
+状态递推；CMO 平盘时按 0 处理。LSMA 直接调用 `ta.linreg(close, period, 0)`，TA 新增的
+`cmo` / `linreg` 与 Pine 的 `ta.cmo` / `ta.linreg` 对齐。
 
 Core 删除本批指标的定义、计算器、专用坐标轴、Worker 映射、契约与目录元数据。相关测试用例
 直接删除，不换用另一个待迁移指标继续断言；混合测试文件保留独立的其他用例。足迹图 ATR 行高

@@ -4,16 +4,7 @@ import type { StructureRenderState } from './state/structureState.js'
 import type { VolumeProfileRenderState } from './state/volumeProfileState.js'
 import type { ZonesRenderState } from './state/zonesState.js'
 
-type PlotIndicatorName =
-  | 'alma'
-  | 'fisherTransform'
-  | 'kama'
-  | 'lsma'
-  | 'schaffTrendCycle'
-  | 'smma'
-  | 'stochRSI'
-  | 'vidya'
-  | 'zlema'
+type PlotIndicatorName = 'fisherTransform' | 'schaffTrendCycle' | 'stochRSI'
 
 /** 第三方仍可通过 declaration merging 扩展指标身份。 */
 export interface IndicatorStateContracts extends Record<PlotIndicatorName, PlotRenderState> {

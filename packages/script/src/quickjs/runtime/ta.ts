@@ -383,6 +383,31 @@ defineLibrary('ta', {
     )
   },
 
+  /** 最小二乘回归曲线；offset 为相对当前根向前的根数。 */
+  linreg(source: Series, length: number, offset: number = 0): Series {
+    __checkLength(length)
+    if (!Number.isSafeInteger(offset)) throw new RangeError('LINREG offset 必须是整数')
+    return __deriveOnce(
+      `linreg:${__seriesId(source)}:${length}:${offset}`,
+      (_self, barOffset) => {
+        if (barOffset + length > __count()) return Number.NaN
+        if (length === 1) return source.at(barOffset)
+        const center = (length - 1) / 2
+        let mean = 0
+        for (let step = 0; step < length; step++) mean += source.at(barOffset + length - 1 - step)
+        mean /= length
+        let numerator = 0
+        let denominator = 0
+        for (let x = 0; x < length; x++) {
+          const dx = x - center
+          numerator += dx * (source.at(barOffset + length - 1 - x) - mean)
+          denominator += dx * dx
+        }
+        return mean + (numerator / denominator) * (length - 1 - offset - center)
+      },
+    )
+  },
+
   /** CCI 的偏差相对于当前窗口均值，不能用各历史 bar 的均值代替；平盘（偏差为零）输出 0。 */
   cci(source: Series, length: number): Series {
     __checkLength(length)
@@ -453,6 +478,23 @@ defineLibrary('ta', {
       const down = loss.at(offset)
       if (Number.isNaN(up) || Number.isNaN(down)) return Number.NaN
       return down === 0 ? 100 : 100 - 100 / (1 + up / down)
+    })
+  },
+
+  /** Chande 动量振荡器：涨跌差占涨跌和的比例；平盘返回 0。 */
+  cmo(source: Series, length: number): Series {
+    __checkLength(length)
+    return __deriveOnce(`cmo:${__seriesId(source)}:${length}`, (_self, offset) => {
+      if (offset + length + 1 > __count()) return Number.NaN
+      let up = 0
+      let down = 0
+      for (let step = 0; step < length; step++) {
+        const change = source.at(offset + step) - source.at(offset + step + 1)
+        if (change > 0) up += change
+        else if (change < 0) down -= change
+      }
+      const total = up + down
+      return total === 0 ? 0 : ((up - down) / total) * 100
     })
   },
 

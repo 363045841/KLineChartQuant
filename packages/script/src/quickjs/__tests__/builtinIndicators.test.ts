@@ -32,6 +32,12 @@ const names = [
   'dma',
   'fib',
   'frama',
+  'alma',
+  'smma',
+  'zlema',
+  'kama',
+  'vidya',
+  'lsma',
 ]
 
 /** 执行发布源码并按绘图身份提取数值，缺失点保持 undefined。 */

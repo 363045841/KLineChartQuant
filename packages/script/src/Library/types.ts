@@ -189,6 +189,15 @@ export type TechnicalAnalysisLibrary = {
    */
   hma(source: Series, length: number): Series
   /**
+   * 线性回归曲线：对窗口做最小二乘拟合，返回相对当前根向前 offset 根的拟合值。
+   * @summary 线性回归
+   * @param source 数据序列，如 close。
+   * @param length 窗口长度，正整数。
+   * @param offset 向前偏移的根数，整数，缺省 0（当前根）。
+   * @returns 回归值序列；完整窗口之前为 NaN。
+   */
+  linreg(source: Series, length: number, offset?: number): Series
+  /**
    * 顺势指标：(source−SMA)/(0.015×平均绝对偏差)。
    * @summary 顺势指标
    * @param source 数据序列，通常为 (high+low+close)/3。
@@ -244,6 +253,14 @@ export type TechnicalAnalysisLibrary = {
    * @returns 百分比变化序列；历史不足或基准为 0 时为 NaN。
    */
   roc(source: Series, length?: number): Series
+  /**
+   * Chande 动量振荡器：100 × (涨幅和 − 跌幅和) / (涨幅和 + 跌幅和)，窗口含 length 个差分。
+   * @summary 钱德动量振荡器
+   * @param source 数据序列，如 close。
+   * @param length 差分窗口，正整数。
+   * @returns CMO 序列，范围 -100–100；完整窗口之前为 NaN，平盘（分母为零）为 0。
+   */
+  cmo(source: Series, length: number): Series
   /**
    * 判断当前 K 线是否发生上穿：left 当前大于 right，上一根小于或等于 right。
    * @summary 上穿

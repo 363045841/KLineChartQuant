@@ -10,6 +10,12 @@ import {
 import { preloadQuickJS, runQuickJSScript } from '../impl/runQuickJSScript.js'
 
 const names = [
+  'alma',
+  'smma',
+  'zlema',
+  'kama',
+  'vidya',
+  'lsma',
   'atr',
   'ma',
   'expma',
@@ -101,6 +107,49 @@ describe('均线与通道脚本', () => {
     expect(values.slice(0, 3)).toEqual(Array(3).fill(undefined))
     expect(values[3]).toBeCloseTo((1 + 2 * 2 + 2 * 4 + 8) / 6, 10)
     expect(values[4]).toBeCloseTo((2 + 2 * 4 + 2 * 8 + 16) / 6, 10)
+  })
+
+  it('ALMA 高斯权重与 SMMA Wilder 递推正确', async () => {
+    const prices = [1, 2, 3, 4, 5]
+    const alma = plotValues(await run('alma', prices, { period: 3, offset: 0.5, sigma: 6 })).alma!
+    expect(alma.slice(0, 2)).toEqual([undefined, undefined])
+    expect(alma[2]).toBeCloseTo(2, 10)
+    expect(alma[3]).toBeCloseTo(3, 10)
+    expect(alma[4]).toBeCloseTo(4, 10)
+    const smma = plotValues(await run('smma', prices, { period: 3 })).smma!
+    expect(smma.slice(0, 2)).toEqual([undefined, undefined])
+    expect(smma[2]).toBeCloseTo(2, 10)
+    expect(smma[3]).toBeCloseTo(2 + (4 - 2) / 3, 10)
+    expect(smma[4]).toBeCloseTo(2 + (4 - 2) / 3 + (5 - (2 + (4 - 2) / 3)) / 3, 10)
+  })
+
+  it('ZLEMA 零滞后源与 EMA 预热正确', async () => {
+    const values = plotValues(await run('zlema', [1, 2, 3, 4, 5], { period: 3 })).zlema!
+    expect(values.slice(0, 2)).toEqual([undefined, undefined])
+    const seed = 8 / 3
+    expect(values[2]).toBeCloseTo(seed, 10)
+    expect(values[3]).toBeCloseTo(seed + 0.5 * (5 - seed), 10)
+    expect(values[4]).toBeCloseTo(seed + 0.5 * (5 - seed) + 0.5 * (6 - (seed + 0.5 * (5 - seed))), 10)
+  })
+
+  it('KAMA / VIDYA / LSMA 使用各自的标准定义', async () => {
+    const constantPrices = Array(40).fill(9)
+    const kama = plotValues(
+      await run('kama', constantPrices, { period: 10, fastPeriod: 2, slowPeriod: 30 }),
+    ).kama!
+    expect(kama.slice(0, 9)).toEqual(Array(9).fill(undefined))
+    expect(kama[9]).toBeCloseTo(9, 10)
+    expect(kama[39]).toBeCloseTo(9, 10)
+
+    const vidya = plotValues(
+      await run('vidya', Array(20).fill(42), { period: 14, cmoPeriod: 9 }),
+    ).vidya!
+    expect(vidya.slice(0, 9)).toEqual(Array(9).fill(undefined))
+    expect(vidya[9]).toBeCloseTo(42, 10)
+    expect(vidya[19]).toBeCloseTo(42, 10)
+
+    const lsma = plotValues(await run('lsma', [1, 2, 3, 4, 5], { period: 3 })).lsma!
+    expect(lsma).toEqual([undefined, undefined, 3, 4, 5])
   })
 
   it('MA 五线各自预热，EXPMA 快慢线按 EMA 窗口初始化', async () => {

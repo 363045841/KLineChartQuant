@@ -45,8 +45,31 @@ describe.each([prepareNativeScript, prepareQuickJSScript])('TA 新增原语 %s',
     expect(result.floor?.[1]).toBeCloseTo(1.011, 3)
   })
 
+  it('cmo 使用涨跌差窗口，平盘输出 0', () => {
+    const prepared = prepare(scriptSource(`plot.Line(ta.cmo(close, 3)[0], 'cmo')`))
+    const result = plotValues(prepared.run(barsFromCloses([1, 2, 4, 3, 5])))
+    expect(result.cmo).toEqual([undefined, undefined, undefined, 50, 60])
+    const flat = plotValues(prepared.run(barsFromCloses([5, 5, 5, 5])))
+    expect(flat.cmo).toEqual([undefined, undefined, 0, 0])
+  })
+
+  it('linreg 返回最小二乘拟合值并支持偏移', () => {
+    const prepared = prepare(
+      scriptSource(`
+        plot.Line(ta.linreg(close, 3)[0], 'current')
+        plot.Line(ta.linreg(close, 3, 1)[0], 'previous')
+      `),
+    )
+    const result = plotValues(prepared.run(barsFromCloses([1, 2, 3, 4, 5])))
+    expect(result.current).toEqual([undefined, undefined, 3, 4, 5])
+    expect(result.previous).toEqual([undefined, undefined, 2, 3, 4])
+  })
+
   it.each([
     'ta.rma(close, 0)',
+    'ta.cmo(close, 0)',
+    'ta.linreg(close, 0)',
+    'ta.linreg(close, 3, 0.5)',
     'ta.highestbars(close, 0)',
     'ta.lowestbars(close, 1.5)',
     'ta.alma(close, 0)',

@@ -22,16 +22,10 @@
 
 import { describe, test } from 'vitest'
 
-// MA family (b-9)
-import { computeALMA } from '../features/indicators/alma'
-
 // Oscillator family (b-10)
 import { computeFisherTransform } from '../features/indicators/fisherTransform'
-import { computeLSMA } from '../features/indicators/lsma'
 import { computeSchaffTrendCycle } from '../features/indicators/schaffTrendCycle'
 import { computeStochRSI } from '../features/indicators/stochRSI'
-import { computeVIDYA } from '../features/indicators/vidya'
-import { computeZLEMA } from '../features/indicators/zlema'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -66,48 +60,6 @@ const close10k = buildCloseArray(10_000)
 const close100k = buildCloseArray(100_000)
 const hl10k = buildOhlcBars(10_000)
 const hl100k = buildOhlcBars(100_000)
-
-// ---------------------------------------------------------------------------
-// MA family — close-only inputs
-// ---------------------------------------------------------------------------
-
-describe('MA family @ 10k bars (close-only)', () => {
-  test('compares moving-average throughput', async ({ bench }) => {
-    await bench.compare(
-      bench('ALMA (period=21)', () => {
-        computeALMA(close10k, { period: 21 })
-      }),
-      bench('ZLEMA (period=21)', () => {
-        computeZLEMA(close10k, { period: 21 })
-      }),
-      bench('LSMA (period=21)', () => {
-        computeLSMA(close10k, { period: 21 })
-      }),
-      bench('VIDYA (period=21, cmoPeriod=9)', () => {
-        computeVIDYA(close10k, { period: 21, cmoPeriod: 9 })
-      }),
-    )
-  })
-})
-
-describe('MA family @ 100k bars (close-only)', () => {
-  test('compares moving-average throughput', async ({ bench }) => {
-    await bench.compare(
-      bench('ALMA (period=21)', () => {
-        computeALMA(close100k, { period: 21 })
-      }),
-      bench('ZLEMA (period=21)', () => {
-        computeZLEMA(close100k, { period: 21 })
-      }),
-      bench('LSMA (period=21)', () => {
-        computeLSMA(close100k, { period: 21 })
-      }),
-      bench('VIDYA (period=21, cmoPeriod=9)', () => {
-        computeVIDYA(close100k, { period: 21, cmoPeriod: 9 })
-      }),
-    )
-  })
-})
 
 // ---------------------------------------------------------------------------
 // Oscillators — mixed input signatures

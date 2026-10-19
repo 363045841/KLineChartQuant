@@ -10,28 +10,12 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   readonly load: () => Promise<IndicatorDefinitionClass>
 }> = [
   {
-    descriptor: {"name":"alma","kind":"indicator","displayName":"ALMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":9,"offset":0.85,"sigma":6},"defaultOptions":{"showALMA":true}},
-    load: () => import('../../renderers/Indicator/alma.js').then((module) => module.ALMADefinition),
-  },
-  {
     descriptor: {"name":"fisherTransform","kind":"indicator","displayName":"Fisher","category":"oscillator","defaultPaneId":"sub_Fisher","defaultParams":{"period":10},"defaultOptions":{"showFisher":true,"showSignal":true}},
     load: () => import('../../renderers/Indicator/fisherTransform.js').then((module) => module.FisherTransformIndicatorDefinition),
   },
   {
-    descriptor: {"name":"kama","kind":"indicator","displayName":"KAMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":10,"fastPeriod":2,"slowPeriod":30},"defaultOptions":{"showKAMA":true}},
-    load: () => import('../../renderers/Indicator/kama.js').then((module) => module.KAMADefinition),
-  },
-  {
-    descriptor: {"name":"lsma","kind":"indicator","displayName":"LSMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":25},"defaultOptions":{"showLSMA":true}},
-    load: () => import('../../renderers/Indicator/lsma.js').then((module) => module.LSMADefinition),
-  },
-  {
     descriptor: {"name":"schaffTrendCycle","kind":"indicator","displayName":"STC","category":"oscillator","defaultPaneId":"sub_STC","defaultParams":{"fast":23,"slow":50,"cycle":10,"factor":0.5},"defaultOptions":{"showSTC":true}},
     load: () => import('../../renderers/Indicator/schaffTrendCycle.js').then((module) => module.SchaffTrendCycleIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"smma","kind":"indicator","displayName":"SMMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14},"defaultOptions":{"showSMMA":true}},
-    load: () => import('../../renderers/Indicator/smma.js').then((module) => module.SMMADefinition),
   },
   {
     descriptor: {"name":"stochRSI","kind":"indicator","displayName":"StochRSI","category":"oscillator","defaultPaneId":"sub_StochRSI","defaultParams":{"period":14,"kPeriod":3,"dPeriod":3},"defaultOptions":{"showK":true,"showD":true}},
@@ -42,16 +26,8 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/structure.js').then((module) => module.StructureIndicatorDefinition),
   },
   {
-    descriptor: {"name":"vidya","kind":"indicator","displayName":"vidya","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14,"cmoPeriod":9},"defaultOptions":{"showVIDYA":true}},
-    load: () => import('../../renderers/Indicator/vidya.js').then((module) => module.VIDYADefinition),
-  },
-  {
     descriptor: {"name":"volumeProfile","kind":"indicator","displayName":"VP","category":"volume","defaultPaneId":"sub_VolumeProfile","defaultParams":{"bins":24,"lookback":100,"valueAreaPercent":70},"defaultOptions":{"showPOC":true,"showValueArea":true}},
     load: () => import('../../renderers/Indicator/volumeProfile.js').then((module) => module.VolumeProfileIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"zlema","kind":"indicator","displayName":"ZLEMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14},"defaultOptions":{"showZLEMA":true}},
-    load: () => import('../../renderers/Indicator/zlema.js').then((module) => module.ZLEMADefinition),
   },
   {
     descriptor: {"name":"zones","kind":"indicator","displayName":"Zones","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"obLookback":20},"defaultOptions":{"showFVG":true,"showOB":true,"showFilledZones":true}},

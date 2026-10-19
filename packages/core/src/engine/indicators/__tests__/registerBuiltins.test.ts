@@ -20,7 +20,6 @@ describe('builtin indicator registration', () => {
         'extremaMarkers',
         'lastPriceLine',
         'lastPriceLabelRegistrar',
-        'vidya',
         'stochRSI',
         'fisherTransform',
         'schaffTrendCycle',
