@@ -14,6 +14,9 @@ import type { PluginHost } from '@/foundation/plugin/index.js'
 import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 
+/** 图例文本的 CSS line-height；行盒高度与文本行高分离时，顶部对齐按两者差值补偿。 */
+export const LEGEND_TEXT_LINE_HEIGHT = 18
+
 /** 图例行的像素布局，由构建阶段按帧算出。 */
 export interface LegendLayout {
   x: number
@@ -217,7 +220,7 @@ export interface LegendManagerDependencies {
   comparisons: ComparisonCommandsApi
   getComparisonHidden: (identity: string) => boolean
   setComparisonHidden: (identity: string, hidden: boolean) => void
-  getOptions: () => { yPaddingPx: number; legend?: LegendOptions }
+  getOptions: () => { legend?: LegendOptions }
   getVisibleIndicatorIds: () => ReadonlyArray<string>
   /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */
   isScriptIndicator?: (definitionId: string) => boolean

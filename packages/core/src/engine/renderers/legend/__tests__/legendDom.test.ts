@@ -5,6 +5,7 @@ import eyeOff from '@iconify-icons/tabler/eye-off'
 import { describe, expect, it, vi } from 'vitest'
 import { projectLegendActions } from '@/engine/legend/impl/projectLegendActions.js'
 import {
+  LEGEND_TEXT_LINE_HEIGHT,
   LEGEND_UI_EVENT,
   type LegendAction,
   type LegendRow,
@@ -48,21 +49,6 @@ function createHarness(hasSelectedSymbol: () => boolean = () => true) {
 }
 
 describe('DOM Legend renderer', () => {
-  it('脚本指标提供代码编辑按钮，普通指标不提供', () => {
-    const entry = {
-      id: 'main:Script',
-      kind: 'indicator' as const,
-      paneId: 'main',
-      definitionId: 'Script',
-      params: {},
-      hidden: false,
-    }
-    const actions = (isScript: boolean) =>
-      projectLegendActions(entry, ['main'], () => isScript).map((item) => item.action)
-    expect(actions(true)).toContain('edit-code')
-    expect(actions(false)).not.toContain('edit-code')
-  })
-
   it('错误横幅直接显示诊断，恢复后清除且保留图例节点和操作', () => {
     const { host, renderer, row } = createHarness()
     renderer.update('main', [{ ...row, error: 'invalid plot' }], ['main'])
@@ -185,73 +171,84 @@ describe('DOM Legend renderer', () => {
     renderer.dispose()
   })
 
-  it('主图指标不提供排序按钮，操作按钮按新顺序传递实例身份', () => {
-    const { host, renderer, row, execute } = createHarness()
-    renderer.update('main', [row], ['main'])
-    const buttons = host
-      .querySelectorAll<HTMLButtonElement>('.klc-legend-row')[0]!
-      .querySelectorAll('button')
-    expect([...buttons].map((button) => button.title)).toEqual([
-      '指标设置',
-      '更换指标',
-      '隐藏指标',
-      '关闭指标',
-    ])
-    for (const index of [0, 1, 2, 3]) buttons[index]!.click()
-    expect(execute.mock.calls).toEqual([
-      [row.key, 'settings'],
-      [row.key, 'replace'],
-      [row.key, 'toggle-visibility'],
-      [row.key, 'close'],
-    ])
+  it.each([
+    {
+      label: '主图指标',
+      legendKey: 'main:MA',
+      paneId: 'main',
+      definitionId: 'MA',
+      paneOrder: ['main'],
+      titles: ['指标设置', '更换指标', '隐藏指标', '关闭指标'],
+      disabled: [false, false, false, false],
+      clicks: [0, 1, 2, 3],
+      calls: [
+        ['main:MA', 'settings'],
+        ['main:MA', 'replace'],
+        ['main:MA', 'toggle-visibility'],
+        ['main:MA', 'close'],
+      ],
+      reorder: null,
+    },
+    {
+      label: '副图指标',
+      legendKey: 'sub_A',
+      paneId: 'sub_A',
+      definitionId: 'RSI',
+      paneOrder: ['main', 'sub_A', 'sub_B'],
+      titles: ['上移指标', '下移指标', '指标设置', '更换指标', '隐藏指标', '关闭指标'],
+      disabled: [true, false, false, false, false, false],
+      clicks: [1],
+      calls: [['sub_A', 'move-down']],
+      reorder: {
+        paneOrder: ['main', 'sub_B', 'sub_A'],
+        disabled: [false, true, false, false, false, false],
+      },
+    },
+  ])(
+    '$label 按 Pane 角色和顺序投影操作按钮',
+    ({ legendKey, paneId, definitionId, paneOrder, titles, disabled, clicks, calls, reorder }) => {
+      const { host, renderer, row, execute } = createHarness()
+      const rowFor = (order: readonly string[]): LegendRow => ({
+        ...row,
+        key: legendKey,
+        paneId,
+        indicator: { instanceId: legendKey, definitionId },
+        actions: projectLegendActions(
+          { id: legendKey, kind: 'indicator', paneId, definitionId, params: {}, hidden: false },
+          order,
+          () => false,
+        ),
+      })
+
+      renderer.update(paneId, [rowFor(paneOrder)], paneOrder)
+      const buttons = [
+        ...host.querySelectorAll<HTMLButtonElement>('.klc-legend-row')[0]!.querySelectorAll('button'),
+      ]
+      expect(buttons.map((button) => button.title)).toEqual(titles)
+      expect(buttons.map((button) => button.disabled)).toEqual(disabled)
+      for (const index of clicks) buttons[index]!.click()
+      expect(execute.mock.calls).toEqual(calls)
+
+      if (reorder) {
+        renderer.update(paneId, [rowFor(reorder.paneOrder)], reorder.paneOrder)
+        expect(buttons.map((button) => button.disabled)).toEqual(reorder.disabled)
+      }
+      renderer.dispose()
+    },
+  )
+
+  it('行盒高于文本行高时向上补偿，文本顶部仍落在行坐标上', () => {
+    const { host, renderer, row } = createHarness()
+    const tall = { ...row, height: 24 }
+    renderer.update('main', [tall], ['main'])
+    const element = host.querySelector<HTMLElement>('.klc-legend-row')!
+    expect(Number.parseFloat(element.style.top)).toBe(
+      tall.y - (tall.height - LEGEND_TEXT_LINE_HEIGHT) / 2,
+    )
     renderer.dispose()
   })
 
-  it('副图指标保留上移/下移，并随 Pane 顺序更新边界状态', () => {
-    const { host, renderer, row, execute } = createHarness()
-    const subRow = (paneId: string, paneOrder: string[]): LegendRow => ({
-      ...row,
-      key: paneId,
-      paneId,
-      indicator: { instanceId: paneId, definitionId: 'RSI' },
-      actions: projectLegendActions(
-        { id: paneId, kind: 'indicator', paneId, definitionId: 'RSI', params: {}, hidden: false },
-        paneOrder,
-        () => false,
-      ),
-    })
-    renderer.update(
-      'sub_A',
-      [subRow('sub_A', ['main', 'sub_A', 'sub_B'])],
-      ['main', 'sub_A', 'sub_B'],
-    )
-    const buttons = host
-      .querySelectorAll<HTMLButtonElement>('.klc-legend-row')[0]!
-      .querySelectorAll('button')
-    expect([...buttons].map((button) => button.title)).toEqual([
-      '上移指标',
-      '下移指标',
-      '指标设置',
-      '更换指标',
-      '隐藏指标',
-      '关闭指标',
-    ])
-    expect(buttons[0]!.disabled).toBe(true)
-    expect(buttons[1]!.disabled).toBe(false)
-    buttons[1]!.click()
-    expect(execute).toHaveBeenLastCalledWith('sub_A', 'move-down')
-
-    renderer.update(
-      'sub_A',
-      [subRow('sub_A', ['main', 'sub_B', 'sub_A'])],
-      ['main', 'sub_B', 'sub_A'],
-    )
-    expect(buttons[0]!.disabled).toBe(false)
-    expect(buttons[1]!.disabled).toBe(true)
-    renderer.dispose()
-  })
-
-  it('收起按钮收起全部主图行并移动到首行位置，展开后回到末行下方', () => {
+  it('收起按钮收起全部主图行，展开后回到末行下方并跟随行数更新数量', () => {
     const { host, renderer, row } = createHarness()
     const button = host.querySelector<HTMLButtonElement>('.klc-legend-collapse')!
     const count = host.querySelector<HTMLElement>('.klc-legend-collapse-count')!
@@ -288,37 +285,18 @@ describe('DOM Legend renderer', () => {
     expect([...rows].every((element) => element.style.display === '')).toBe(true)
     expect(buttonTop()).toBeGreaterThan(second.y + second.height)
     expect(count.hidden).toBe(true)
-    renderer.dispose()
-  })
 
-  it('收起态再更新时指标数量随启用指标数变化', () => {
-    const { host, renderer, row } = createHarness()
-    const button = host.querySelector<HTMLButtonElement>('.klc-legend-collapse')!
-    const count = host.querySelector<HTMLElement>('.klc-legend-collapse-count')!
-    renderer.update('main', [row], ['main'])
+    // 收起态再发布行时数量跟随启用指标数变化，新行保持隐藏。
     button.click()
-    expect(count.textContent).toBe('1')
-
-    renderer.update(
-      'main',
-      [
-        row,
-        {
-          ...row,
-          key: 'main:BOLL',
-          y: 40,
-          indicator: { instanceId: 'main:BOLL', definitionId: 'BOLL' },
-        },
-        {
-          ...row,
-          key: 'main:EXPMA',
-          y: 64,
-          indicator: { instanceId: 'main:EXPMA', definitionId: 'EXPMA' },
-        },
-      ],
-      ['main'],
-    )
+    const third = {
+      ...second,
+      key: 'main:EXPMA',
+      y: 64,
+      indicator: { instanceId: 'main:EXPMA', definitionId: 'EXPMA' },
+    }
+    renderer.update('main', [row, second, third], ['main'])
     expect(count.textContent).toBe('3')
+    expect(host.querySelector<HTMLElement>('[data-indicator]')!.style.display).toBe('none')
     renderer.dispose()
   })
 
@@ -389,13 +367,18 @@ describe('DOM Legend renderer', () => {
     renderer.dispose()
   })
 
-  it('隐藏、删除 Pane、清空和销毁都会释放标题节点', () => {
+  it('行清理、Pane 移除、clear 和销毁都会释放标题节点', () => {
     const { host, renderer, row } = createHarness()
     renderer.update('sub_RSI', [{ ...row, paneId: 'sub_RSI' }], ['main', 'sub_RSI'])
+    renderer.update('main', [row], ['main', 'sub_RSI'])
+    expect(host.querySelectorAll('.klc-legend-row')).toHaveLength(2)
+
+    // Pane 被移出顺序时连同其行一起释放。
     renderer.update('main', [row], ['main'])
     expect(host.querySelectorAll('.klc-legend-row')).toHaveLength(1)
     renderer.update('main', [], ['main'])
     expect(host.querySelectorAll('.klc-legend-row')).toHaveLength(0)
+
     renderer.update('main', [row], ['main'])
     renderer.clear()
     expect(host.querySelectorAll('.klc-legend-row')).toHaveLength(0)

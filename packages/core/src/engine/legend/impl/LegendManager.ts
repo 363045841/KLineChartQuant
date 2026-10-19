@@ -274,7 +274,6 @@ export class LegendManager implements LegendApi {
     return projectLegendContext({
       context: main,
       host: this.deps.host,
-      yPaddingPx: options.yPaddingPx,
       visibleIndicatorIds: new Set(visible),
     })
   }

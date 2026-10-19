@@ -1,24 +1,34 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { projectComparison } from '@/engine/chartModel'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
-import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
+import { PANE_HEADER_INSET_PX } from '@/engine/pane/types'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
 import { projectLegendContext } from '../impl/projectLegendContext'
 
-beforeAll(async () => {
-  await loadBuiltinIndicators()
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
-
 function point(timestamp: number, price: number): TimeShareData {
   return { timestamp, price, average: price, volume: 100, amount: price * 100 }
 }
+
+describe('projectLegendContext layout', () => {
+  it('主图图例左、上内边距一致', () => {
+    const context = createMockRenderContext({
+      data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
+      period: 'daily',
+      dataView: 'kline',
+      range: { start: 0, end: 1 },
+      paneWidth: 800,
+      isAsiaMarket: true,
+    })
+
+    const layout = projectLegendContext({ context, host: null })!.layout
+
+    expect(layout.x).toBe(PANE_HEADER_INSET_PX)
+    expect(layout.y).toBe(PANE_HEADER_INSET_PX)
+  })
+})
 
 describe('projectLegendContext timeshare baseline', () => {
   it('formats timeshare volume as hands', () => {
@@ -33,7 +43,7 @@ describe('projectLegendContext timeshare baseline', () => {
       settings: { preClose: 9 },
     })
 
-    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null })
 
     expect(result?.timeshare?.volumeText).toBe('1.23万手')
   })
@@ -51,7 +61,7 @@ describe('projectLegendContext timeshare baseline', () => {
       settings: { preClose: 3828.47 },
     })
 
-    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null })
 
     expect(result?.timeshare?.volume).toBeNull()
     expect(result?.timeshare?.volumeText).toBeNull()
@@ -73,7 +83,7 @@ describe('projectLegendContext timeshare baseline', () => {
         settings: { preClose },
       })
 
-      const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
+      const result = projectLegendContext({ context, host: null })
 
       expect(result?.timeshare).toBeNull()
     },
@@ -108,15 +118,27 @@ describe('projectLegendContext comparison rows', () => {
     ]
   }
 
-  it.each([
+  const comparisonCases: ReadonlyArray<{
+    spec: SymbolSpec
+    label: string
+    expectedPercent: number
+  }> = [
     {
       spec: {
         id: 'SH.600000',
         symbol: '600000',
         market: 'SH',
         period: 'daily',
-        instrument: { name: '浦发银行' },
-      } as SymbolSpec,
+        instrument: {
+          id: 'SH.600000',
+          sourceId: 'test',
+          symbol: '600000',
+          name: '浦发银行',
+          assetClass: 'stock',
+          exchange: 'SH',
+          capabilities: {},
+        },
+      },
       label: 'with id',
       expectedPercent: 100 / 15,
     },
@@ -125,42 +147,47 @@ describe('projectLegendContext comparison rows', () => {
       label: 'without id',
       expectedPercent: 10,
     },
-  ])('resolves comparison data by identity key ($label)', ({ spec, expectedPercent }) => {
-    const identity = symbolSpecIdentityKey(spec)
-    const comparisonData = new Map([[identity, comparisonDataFor(spec)]])
-    const context = createMockRenderContext({
-      data: mainData,
-      period: 'daily',
-      dataView: 'kline',
-      range: { start: 0, end: 2 },
-      crosshairIndex: 1,
-      paneWidth: 800,
-      isAsiaMarket: true,
-      comparisonSymbols: [spec],
-      comparisonData,
-      comparisonProjection:
-        projectComparison(mainData, comparisonData, { start: 0, end: 2 }, [0, 10], 0, 800) ??
-        undefined,
-      comparisonColors: new Map([[identity, '#123456']]),
-    })
+  ]
 
-    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
+  it.each(comparisonCases)(
+    'resolves comparison data by identity key ($label)',
+    ({ spec, expectedPercent }) => {
+      const identity = symbolSpecIdentityKey(spec)
+      const comparisonData = new Map([[identity, comparisonDataFor(spec)]])
+      const context = createMockRenderContext({
+        data: mainData,
+        period: 'daily',
+        dataView: 'kline',
+        range: { start: 0, end: 2 },
+        crosshairIndex: 1,
+        paneWidth: 800,
+        isAsiaMarket: true,
+        comparisonSymbols: [spec],
+        comparisonData,
+        comparisonProjection:
+          projectComparison(mainData, comparisonData, { start: 0, end: 2 }, [0, 10], 0, 800) ??
+          undefined,
+        comparisonColors: new Map([[identity, '#123456']]),
+      })
 
-    expect(result?.currentBar?.close).toBe(mainData[1]!.close)
-    expect(result?.comparisons).toEqual([
-      {
-        symbol: spec.symbol,
-        identity,
-        hidden: false,
-        price: comparisonDataFor(spec)[1]!.close,
-        bar: comparisonDataFor(spec)[1],
-        ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
-        percent: expectedPercent,
-        color: '#123456',
-        percentColor: result?.colors?.up,
-      },
-    ])
-  })
+      const result = projectLegendContext({ context, host: null })
+
+      expect(result?.currentBar?.close).toBe(mainData[1]!.close)
+      expect(result?.comparisons).toEqual([
+        {
+          symbol: spec.symbol,
+          identity,
+          hidden: false,
+          price: comparisonDataFor(spec)[1]!.close,
+          bar: comparisonDataFor(spec)[1],
+          ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
+          percent: expectedPercent,
+          color: '#123456',
+          percentColor: result?.colors?.up,
+        },
+      ])
+    },
+  )
 
   it('keeps the primary OHLC row when comparison data is not loaded', () => {
     const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
@@ -175,7 +202,7 @@ describe('projectLegendContext comparison rows', () => {
       comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
     })
 
-    const result = projectLegendContext({ context, host: null, yPaddingPx: 0 })
+    const result = projectLegendContext({ context, host: null })
 
     expect(result?.comparisons).toEqual([
       expect.objectContaining({ symbol: spec.symbol, identity: symbolSpecIdentityKey(spec) }),

@@ -10,24 +10,25 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
+import { PANE_HEADER_INSET_PX } from '@/engine/pane/types.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId, isTimeShareDataView } from '@/foundation/types/chartView.js'
 import { isKLineDataArray, isTimeShareDataArray, type KLineData } from '@/foundation/types/price.js'
-import type {
-  LegendComparisonRow,
-  LegendIndicatorRow,
-  LegendLayout,
-  LegendTemplateContext,
-  LegendTimeshareRow,
+import {
+  type LegendComparisonRow,
+  type LegendIndicatorRow,
+  type LegendLayout,
+  type LegendTemplateContext,
+  type LegendTimeshareRow,
 } from '../types.js'
 import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
 
 const LINE_HEIGHT = 24
-const LEGEND_X = 12
 const LEGEND_GAP = 10
-const LEGEND_Y_OFFSET = 6
+/** 主图图例左、上内边距与 pane 标题共用同一基准。 */
+const LEGEND_INSET = PANE_HEADER_INSET_PX
 /** 窄于该宽度时行情行拆成两行，避免与指标挤在同一行。 */
 const COMPACT_PANE_WIDTH = 400
 
@@ -35,7 +36,6 @@ const COMPACT_PANE_WIDTH = 400
 export interface ProjectLegendContextInput {
   context: RenderContext
   host: PluginHost | null
-  yPaddingPx: number
   /** 由视图状态投影的可见主图指标；null 表示不过滤。 */
   visibleIndicatorIds?: ReadonlySet<string> | null
 }
@@ -61,7 +61,7 @@ function signedColor(value: number | null, colors: ColorTokens): string {
 export function projectLegendContext(
   input: ProjectLegendContextInput,
 ): LegendTemplateContext | null {
-  const { context, host, yPaddingPx, visibleIndicatorIds } = input
+  const { context, host, visibleIndicatorIds } = input
   if (!context.data.length) return null
 
   const colors = resolveThemeColors(
@@ -71,8 +71,8 @@ export function projectLegendContext(
   )
   const targetIndex = resolveLegendValueIndex(context.crosshairIndex, context.data.length)
   const layout: LegendLayout = {
-    x: LEGEND_X,
-    y: yPaddingPx / 2 + LEGEND_Y_OFFSET,
+    x: LEGEND_INSET,
+    y: LEGEND_INSET,
     lineHeight: LINE_HEIGHT,
     gap: LEGEND_GAP,
     paneWidth: context.paneWidth,

@@ -53,15 +53,19 @@ function loadData(): void {
 }
 
 describe('LegendManager', () => {
-  it('图表销毁时释放图例快照，旧 API 不能再写入', async () => {
+  it('销毁后清空图例快照，后续写入被拒绝', async () => {
     loadData()
     expect(chart.legend.context.peek()).not.toBeNull()
     await chart.destroy()
     expect(chart.legend.context.peek()).toBeNull()
     expect(chart.legend.rows.peek()).toEqual([])
     expect(chart.legend.list()).toEqual([])
+    expect(
+      chart.legend.create({ kind: 'custom', id: 'after-destroy', paneId: 'main', texts: [] }),
+    ).toBeNull()
+    expect(chart.legend.update('custom:after-destroy', { hidden: true })).toBe(false)
   })
-  it('自定义行有独立身份，外部模板与 DOM 消费同一份行数据', () => {
+  it('自定义行有独立身份，更新文本且隐藏图例不影响帧投影', () => {
     loadData()
     const colors = resolveThemeColors('light', true)
     const id = chart.legend.create({

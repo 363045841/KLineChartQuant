@@ -11,6 +11,7 @@ import refresh from '@iconify-icons/tabler/refresh'
 import settings from '@iconify-icons/tabler/settings'
 import x from '@iconify-icons/tabler/x'
 import {
+  LEGEND_TEXT_LINE_HEIGHT,
   LEGEND_UI_EVENT,
   type LegendAction,
   type LegendRow,
@@ -65,6 +66,11 @@ function applyStyle(
   if (style[property] !== value) style[property] = value
 }
 
+/** 行盒内文本垂直居中产生的顶部偏移；文字行高小于行盒时需向上补偿，使文本顶部与左边距一致。 */
+function textTopOffset(height: number): number {
+  return Math.max(0, height - LEGEND_TEXT_LINE_HEIGHT) / 2
+}
+
 /** 将主题与交互样式限制在当前图表拥有的 Legend 容器中。 */
 function createStyles(document: Document): HTMLStyleElement {
   const style = document.createElement('style')
@@ -72,7 +78,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-root { position:absolute; inset:0; z-index:9; pointer-events:none; }
     .klc-legend-row { position:absolute; display:flex; align-items:center; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
-      line-height:18px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
+      line-height:${LEGEND_TEXT_LINE_HEIGHT}px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
     .klc-legend-row[data-actions] { pointer-events:auto; }
     .klc-legend-name { position:relative; display:flex; align-items:center; justify-content:center;
       flex:0 0 auto; min-height:inherit; z-index:1; }
@@ -338,7 +344,7 @@ export function createLegendDomRenderer(
       ? data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX
       : 0
     applyStyle(row.element.style, 'left', `${data.x}px`)
-    applyStyle(row.element.style, 'top', `${data.y}px`)
+    applyStyle(row.element.style, 'top', `${data.y - textTopOffset(data.height)}px`)
     applyStyle(row.element.style, 'maxWidth', `${Math.max(0, data.maxWidth - actionWidth)}px`)
     applyStyle(row.element.style, 'minHeight', `${data.height}px`)
     // 首段参数已移到独立容器，其前置间距由容器间 gap 承担，避免负 margin 被裁剪。
@@ -423,8 +429,8 @@ export function createLegendDomRenderer(
       hasSelectedSymbol() && indicatorRows.length > 0 && first !== undefined && last !== undefined
     if (collapseButton.hidden === enable) collapseButton.hidden = !enable
     if (enable) {
-      firstRowTop = `${first.y}px`
-      lastRowBottom = `${last.y + last.height + COLLAPSE_GAP_PX}px`
+      firstRowTop = `${first.y - textTopOffset(first.height)}px`
+      lastRowBottom = `${last.y - textTopOffset(last.height) + last.height + COLLAPSE_GAP_PX}px`
       applyStyle(collapseButton.style, 'left', `${first.x}px`)
     } else {
       firstRowTop = null
