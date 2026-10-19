@@ -2,9 +2,9 @@
   <BaseModal
     :open="providerSettings.open"
     :title="text.settings"
-    width="min(92vw, 760px)"
+    width="min(92vw, 780px)"
     max-height="calc(100vh - 36px)"
-    body-padding="12px 20px 16px"
+    body-padding="12px 20px 20px"
     :body-scrollable="false"
     @update:open="!$event && closeProviderSettings()"
   >
@@ -12,133 +12,122 @@
       <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.settings" />
     </template>
 
-    <div class="provider-form agent-settings-selects">
-      <div class="agent-settings-body">
-        <section v-if="activeTab === 'interface'" class="agent-settings-interface" role="tabpanel">
-          <div class="settings-item">
-            <span>{{ text.language }}</span>
-            <Dropdown
-              :model-value="locale"
-              :options="languageOptions"
-              :title="text.language"
-              size="sm"
-              min-width="120px"
-              @update:model-value="setLocale($event)"
-            />
-          </div>
-          <div class="settings-item">
-            <span>{{ text.collapseReasoning }}</span>
-            <ToggleSwitch
-              :model-value="collapseReasoning"
-              :aria-label="text.collapseReasoning"
-              @update:model-value="emit('update:collapseReasoning', $event)"
-            />
-          </div>
-        </section>
-
+    <div class="settings agent-settings-selects">
+      <div class="settings__body">
+        <!-- ───────────── Provider ───────────── -->
         <section
-          v-else-if="activeTab === 'provider'"
-          class="provider-settings-layout"
+          v-if="activeTab === 'provider'"
+          class="provider"
           role="tabpanel"
         >
-          <aside class="provider-settings-profiles">
-            <div class="provider-settings-profiles__header">
-              <span>{{ text.providerProfile }}</span>
-            </div>
-            <div
-              v-for="profile in profileOptions"
-              :key="profile.value"
-              class="provider-settings-profile"
-              :class="{
-                'is-active': profile.value === providerSettings.profileName,
-                'is-editing': renamingProfile === profile.value || deletingProfile === profile.value,
-              }"
-            >
-              <!-- 行内重命名（替代设置弹窗上再叠一层命名弹窗）。 -->
-              <form
-                v-if="profileNameMode === 'rename' && renamingProfile === profile.value"
-                class="provider-profile-inline"
-                @submit.prevent="submitProfileName()"
-              >
-                <input
-                  ref="profileNameInput"
-                  class="form-control-inline-name"
-                  v-model="profileNameDraft"
-                  type="text"
-                  autocomplete="off"
-                  :aria-label="text.providerProfileName"
-                  :aria-invalid="profileNameDialogError ? 'true' : undefined"
-                  @keydown.escape.stop.prevent="closeProfileNameDialog()"
-                />
-              </form>
+          <aside class="provider__rail" :aria-label="text.providerProfile">
+            <header class="rail__title">{{ text.providerProfile }}</header>
 
-              <!-- 删除会移除凭据与模型池，不可恢复：行内确认并说明后果。 -->
-              <div
-                v-else-if="deletingProfile === profile.value"
-                class="provider-profile-confirm"
-                role="group"
-                :aria-label="text.deleteProviderProfile"
-                @keydown.escape.stop.prevent="cancelRemoveProfile()"
+            <ul class="rail__list">
+              <li
+                v-for="profile in profileOptions"
+                :key="profile.value"
+                class="rail__item"
+                :class="{
+                  'is-active': profile.value === providerSettings.profileName,
+                  'is-editing':
+                    renamingProfile === profile.value || deletingProfile === profile.value,
+                }"
               >
-                <span>{{ text.deleteProviderProfileConfirm }}</span>
-                <div class="provider-profile-confirm__actions">
-                  <button
-                    ref="deleteCancelButton"
-                    type="button"
-                    class="provider-profile-text-button"
-                    @click="cancelRemoveProfile()"
-                  >
-                    {{ text.cancel }}
-                  </button>
-                  <button
-                    type="button"
-                    class="provider-profile-text-button provider-profile-text-button--danger"
-                    @click="confirmRemoveProfile(profile.value)"
-                  >
-                    {{ text.deleteProviderProfile }}
-                  </button>
+                <!-- 行内重命名 -->
+                <form
+                  v-if="profileNameMode === 'rename' && renamingProfile === profile.value"
+                  class="rail__inline"
+                  @submit.prevent="submitProfileName()"
+                >
+                  <input
+                    ref="profileNameInput"
+                    class="form-control-inline-name"
+                    v-model="profileNameDraft"
+                    type="text"
+                    autocomplete="off"
+                    :aria-label="text.providerProfileName"
+                    :aria-invalid="profileNameDialogError ? 'true' : undefined"
+                    @keydown.escape.stop.prevent="closeProfileNameDialog()"
+                  />
+                  <BaseTooltip :content="text.save" placement="top">
+                    <button
+                      type="submit"
+                      class="rail__inline-save"
+                      :aria-label="text.save"
+                      :disabled="!profileNameDraft.trim()"
+                    >
+                      <IconCheck aria-hidden="true" />
+                    </button>
+                  </BaseTooltip>
+                </form>
+
+                <!-- 删除确认：会移除凭据与模型池，不可恢复 -->
+                <div
+                  v-else-if="deletingProfile === profile.value"
+                  class="rail__confirm"
+                  role="group"
+                  :aria-label="text.deleteProviderProfile"
+                  @keydown.escape.stop.prevent="cancelRemoveProfile()"
+                >
+                  <p>{{ text.deleteProviderProfileConfirm }}</p>
+                  <div class="rail__confirm-actions">
+                    <button
+                      ref="deleteCancelButton"
+                      type="button"
+                      class="text-button"
+                      @click="cancelRemoveProfile()"
+                    >
+                      {{ text.cancel }}
+                    </button>
+                    <button
+                      type="button"
+                      class="text-button text-button--danger"
+                      @click="confirmRemoveProfile(profile.value)"
+                    >
+                      {{ text.deleteProviderProfile }}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <template v-else>
-                <button
-                  type="button"
-                  class="provider-settings-profile__select"
-                  @click="selectProfile(profile.value)"
-                >
-                  {{ profile.label }}
-                </button>
-                <span
-                  v-if="persistedProfileNames.has(profile.value)"
-                  class="provider-settings-profile__actions"
-                >
-                  <BaseTooltip :content="text.renameProviderProfile" placement="top">
-                    <button
-                      type="button"
-                      class="provider-settings-profile__action"
-                      :aria-label="`${text.renameProviderProfile}: ${profile.label}`"
-                      @click.stop="openRenameProfileDialog(profile.value)"
-                    >
-                      <IconPencil aria-hidden="true" />
-                    </button>
-                  </BaseTooltip>
-                  <BaseTooltip :content="text.deleteProviderProfile" placement="top">
-                    <button
-                      type="button"
-                      class="provider-settings-profile__action provider-settings-profile__action--danger"
-                      :aria-label="`${text.deleteProviderProfile}: ${profile.label}`"
-                      @click.stop="removeProfile(profile.value)"
-                    >
-                      <IconTrash aria-hidden="true" />
-                    </button>
-                  </BaseTooltip>
-                </span>
-              </template>
-            </div>
+                <template v-else>
+                  <button
+                    type="button"
+                    class="rail__select"
+                    :aria-current="profile.value === providerSettings.profileName ? 'true' : undefined"
+                    @click="selectProfile(profile.value)"
+                  >
+                    <span class="rail__name">{{ profile.label }}</span>
+                  </button>
+                  <span v-if="persistedProfileNames.has(profile.value)" class="rail__actions">
+                    <BaseTooltip :content="text.renameProviderProfile" placement="top">
+                      <button
+                        type="button"
+                        class="icon-button"
+                        :aria-label="`${text.renameProviderProfile}: ${profile.label}`"
+                        @click.stop="openRenameProfileDialog(profile.value)"
+                      >
+                        <IconPencil aria-hidden="true" />
+                      </button>
+                    </BaseTooltip>
+                    <BaseTooltip :content="text.deleteProviderProfile" placement="top">
+                      <button
+                        type="button"
+                        class="icon-button icon-button--danger"
+                        :aria-label="`${text.deleteProviderProfile}: ${profile.label}`"
+                        @click.stop="removeProfile(profile.value)"
+                      >
+                        <IconTrash aria-hidden="true" />
+                      </button>
+                    </BaseTooltip>
+                  </span>
+                </template>
+              </li>
+            </ul>
 
             <form
               v-if="profileNameMode === 'create'"
-              class="provider-profile-inline provider-profile-inline--create"
+              class="rail__inline rail__inline--create"
               @submit.prevent="submitProfileName()"
             >
               <input
@@ -152,34 +141,52 @@
                 :aria-invalid="profileNameDialogError ? 'true' : undefined"
                 @keydown.escape.stop.prevent="closeProfileNameDialog()"
               />
+              <BaseTooltip :content="text.save" placement="top">
+                <button
+                  type="submit"
+                  class="rail__inline-save"
+                  :aria-label="text.save"
+                  :disabled="!profileNameDraft.trim()"
+                >
+                  <IconCheck aria-hidden="true" />
+                </button>
+              </BaseTooltip>
             </form>
-            <button
-              v-else
-              type="button"
-              class="provider-profile-new-button"
-              @click="openCreateProfileDialog()"
-            >
+            <button v-else type="button" class="rail__new" @click="openCreateProfileDialog()">
               <IconPlus aria-hidden="true" />
               <span>{{ text.newProviderProfile }}</span>
             </button>
-            <p v-if="profileNameDialogError" class="provider-profile-error" role="alert">
+
+            <p v-if="profileNameDialogError" class="rail__error" role="alert">
               {{ profileNameDialogError }}
             </p>
           </aside>
 
-          <div class="provider-settings-detail">
-            <section class="provider-settings-connection provider-form__fields">
-              <label class="provider-field">
-                <span class="provider-field__label">{{ text.apiProtocol }}</span>
-                <Dropdown
-                  :model-value="providerSettings.protocol"
-                  :options="protocolOptions"
-                  class="provider-protocol-control"
-                  @update:model-value="updateProtocol($event)"
-                />
+          <div class="provider__detail">
+            <!-- 连接 -->
+            <section class="card connection">
+              <label class="field">
+                <span class="field__label">{{ text.apiProtocol }}</span>
+                <DropMenu
+                  :label="text.apiProtocol"
+                  :groups="protocolGroups"
+                  class="protocol-control"
+                  density="compact"
+                  @select="selectProtocol"
+                >
+                  <template #trigger>
+                    <span class="selection-menu__value">{{ selectedProtocolLabel }}</span>
+                    <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+                  </template>
+                  <template #item-action="{ item }">
+                    <span v-if="item.id === providerSettings.protocol" class="drop-menu__status">
+                      <IconCheck aria-hidden="true" />
+                    </span>
+                  </template>
+                </DropMenu>
               </label>
-              <label class="provider-field">
-                <span class="provider-field__label">{{ text.baseUrl }}</span>
+              <label class="field">
+                <span class="field__label">{{ text.baseUrl }}</span>
                 <input
                   class="form-control"
                   v-model="providerSettings.baseUrl"
@@ -189,8 +196,8 @@
                   @blur="providerSettings.persistConnection()"
                 />
               </label>
-              <label class="provider-field">
-                <span class="provider-field__label">{{ text.apiKey }}</span>
+              <label class="field">
+                <span class="field__label">{{ text.apiKey }}</span>
                 <input
                   class="form-control"
                   v-model="providerSettings.apiKey"
@@ -202,14 +209,14 @@
                   @blur="providerSettings.persistConnection()"
                 />
               </label>
-              <label class="provider-field">
-                <span class="provider-field__label">{{ text.additionalHeaders }}</span>
+              <label class="field">
+                <span class="field__label">{{ text.additionalHeaders }}</span>
                 <BaseTextarea
                   v-model="providerSettings.headers"
-                  class="provider-field__textarea"
+                  class="field__mono"
                   size="sm"
                   :min-rows="3"
-                  :max-rows="10"
+                  :max-rows="8"
                   spellcheck="false"
                   :placeholder="text.additionalHeadersPlaceholder"
                   @blur="providerSettings.persistConnection()"
@@ -217,11 +224,16 @@
               </label>
             </section>
 
-            <section class="provider-settings-models">
-              <div class="provider-settings-models__header">
-                <span>{{ text.modelList }}</span>
+            <!-- 模型 -->
+            <section class="card models">
+              <header class="models__header">
+                <span class="models__title">
+                  {{ text.modelList }}
+                  <em class="badge" :title="text.modelPool">{{ modelPoolIds.size }}</em>
+                </span>
                 <input
                   v-model="modelSearch"
+                  class="models__search"
                   type="search"
                   :placeholder="text.modelSearchPlaceholder"
                   :disabled="providerSettings.modelsLoading"
@@ -229,7 +241,8 @@
                 <BaseTooltip :content="text.refreshModels" placement="top">
                   <BaseButton
                     size="sm"
-                    class="provider-settings-models__refresh"
+                    class="models__refresh"
+                    :class="{ 'is-loading': providerSettings.modelsLoading }"
                     :aria-label="text.refreshModels"
                     :disabled="providerSettings.modelsLoading || !hasProviderConnection"
                     @click="providerSettings.refreshModelCatalog()"
@@ -237,40 +250,40 @@
                     <IconRefresh aria-hidden="true" />
                   </BaseButton>
                 </BaseTooltip>
-              </div>
-              <div
-                v-if="providerSettings.modelCatalog.length"
-                class="provider-settings-models__list"
-              >
-                <div
-                  v-for="model in filteredModels"
-                  :key="model.id"
-                  class="provider-settings-model"
-                >
-                  <span>{{ model.name }}</span>
-                  <div class="provider-settings-model__actions">
-                    <small v-if="model.contextWindow">{{
-                      formatContextWindow(model.contextWindow)
-                    }}</small>
+              </header>
+
+              <ul v-if="providerSettings.modelCatalog.length" class="models__list">
+                <li v-for="model in filteredModels" :key="model.id" class="model">
+                  <span class="model__name" :title="model.name">{{ model.name }}</span>
+                  <span class="model__meta">
+                    <small v-if="model.contextWindow" class="chip">
+                      {{ formatContextWindow(model.contextWindow) }}
+                    </small>
                     <ToggleSwitch
                       :model-value="modelPoolIds.has(model.id)"
-                      :aria-label="text.modelPool"
+                      :aria-label="`${text.modelPool}: ${model.name}`"
                       size="compact"
                       @update:model-value="setModelPoolMembership(model.id, $event)"
                     />
-                  </div>
-                </div>
-              </div>
-              <p v-else class="agent-tools__empty">{{ text.noModelsInPool }}</p>
+                  </span>
+                </li>
+              </ul>
+              <p v-else class="empty">{{ text.noModelsInPool }}</p>
             </section>
           </div>
         </section>
 
-        <section v-else class="agent-settings-tools" role="tabpanel">
-          <div v-if="providerSettings.tools.length" class="agent-tools">
-            <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
-              <div class="agent-tool__toggle">
-                <span>
+        <!-- ───────────── Tools ───────────── -->
+        <section v-else-if="activeTab === 'tools'" class="tools" role="tabpanel">
+          <template v-if="providerSettings.tools.length">
+            <article
+              v-for="tool in providerSettings.tools"
+              :key="tool.name"
+              class="card tool"
+              :class="{ 'is-disabled': tool.available === false }"
+            >
+              <header class="tool__head">
+                <span class="tool__text">
                   <strong>{{ tool.label }}</strong>
                   <small>{{ tool.description }}</small>
                 </span>
@@ -280,13 +293,15 @@
                   :aria-label="tool.label"
                   @update:model-value="setToolEnabled(tool.name, $event)"
                 />
-              </div>
-              <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
+              </header>
+
+              <p v-if="tool.unavailableReason" class="tool__note">
                 {{ tool.unavailableReason }}
               </p>
-              <div v-if="tool.name === 'web_search'" class="provider-field">
-                <span class="provider-field__label">{{ text.exaApiKey }}</span>
-                <div class="provider-field__control">
+
+              <div v-if="tool.name === 'web_search'" class="field">
+                <span class="field__label">{{ text.exaApiKey }}</span>
+                <div class="field__row">
                   <input
                     class="form-control"
                     v-model="providerSettings.exaApiKey"
@@ -298,20 +313,21 @@
                   />
                   <BaseButton
                     size="sm"
-                    class="provider-field__save"
+                    class="field__save"
                     :disabled="!providerSettings.exaApiKey.trim()"
                     @click="providerSettings.persistWebSearchApiKey()"
                   >
                     {{ text.save }}
                   </BaseButton>
                 </div>
-                <small class="provider-field__help">{{ text.exaApiKeyPlaceholder }}</small>
+                <small class="field__help">{{ text.exaApiKeyPlaceholder }}</small>
               </div>
-              <details class="agent-tool__parameters">
+
+              <details class="tool__params">
                 <summary>{{ text.toolParameters }}</summary>
                 <BaseTextarea
                   :model-value="providerSettings.toolInputs[tool.name] ?? '{}'"
-                  class="agent-tool__input"
+                  class="field__mono"
                   size="sm"
                   :min-rows="3"
                   :max-rows="12"
@@ -320,42 +336,66 @@
                   @update:model-value="setToolInput(tool.name, $event)"
                 />
               </details>
-              <BaseButton
-                size="sm"
-                class="agent-tool__run"
-                :disabled="
-                  !tool.enabled ||
-                  tool.available === false ||
-                  providerSettings.runningToolName !== null
-                "
-                @click="providerSettings.debugTool(tool.name)"
-              >
-                {{
-                  providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
-                }}
-              </BaseButton>
-              <p
-                v-if="providerSettings.toolErrors[tool.name]"
-                class="agent-tool__error"
-                role="alert"
-              >
+
+              <div class="tool__foot">
+                <BaseButton
+                  size="sm"
+                  :disabled="
+                    !tool.enabled ||
+                    tool.available === false ||
+                    providerSettings.runningToolName !== null
+                  "
+                  @click="providerSettings.debugTool(tool.name)"
+                >
+                  {{
+                    providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
+                  }}
+                </BaseButton>
+              </div>
+
+              <p v-if="providerSettings.toolErrors[tool.name]" class="tool__error" role="alert">
                 {{ providerSettings.toolErrors[tool.name] }}
               </p>
-              <pre v-if="providerSettings.toolResults[tool.name]" class="agent-tool__result">{{
+              <pre v-if="providerSettings.toolResults[tool.name]" class="tool__result">{{
                 providerSettings.toolResults[tool.name].content
               }}</pre>
-            </section>
+            </article>
+          </template>
+          <p v-else class="empty">{{ text.noTools }}</p>
+        </section>
+
+        <!-- ───────────── Interface ───────────── -->
+        <section v-else class="interface" role="tabpanel">
+          <div class="card interface__list">
+            <div class="row">
+              <span class="row__label">{{ text.language }}</span>
+              <Dropdown
+                :model-value="locale"
+                :options="languageOptions"
+                :title="text.language"
+                size="sm"
+                min-width="140px"
+                @update:model-value="setLocale($event)"
+              />
+            </div>
+            <div class="row">
+              <span class="row__label">{{ text.collapseReasoning }}</span>
+              <ToggleSwitch
+                :model-value="collapseReasoning"
+                :aria-label="text.collapseReasoning"
+                @update:model-value="emit('update:collapseReasoning', $event)"
+              />
+            </div>
           </div>
-          <p v-else class="agent-tools__empty">{{ text.noTools }}</p>
         </section>
       </div>
 
-      <div v-if="visibleError" class="provider-error" role="alert">
+      <div v-if="visibleError" class="alert" role="alert">
         <IconAlertTriangle aria-hidden="true" />
         <span>
           <strong>{{ visibleError.message }}</strong>
           <small v-if="visibleError.providerCode">{{ visibleError.providerCode }}</small>
-          <small v-if="visibleError.raw" class="provider-error__raw">{{ visibleError.raw }}</small>
+          <small v-if="visibleError.raw" class="alert__raw">{{ visibleError.raw }}</small>
           <small v-if="visibleError.recommendedAction">
             {{ visibleError.recommendedAction }}
           </small>
@@ -370,8 +410,11 @@
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import Dropdown from '@vue-src/components/common/Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
@@ -386,6 +429,8 @@
   } from '../agent-contracts.js'
   import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import type { AgentProviderSettingsStore } from '../browser-agent/provider-settings/types.js'
+
+  type SettingsTab = 'provider' | 'tools' | 'interface'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
@@ -409,41 +454,43 @@
   const profileNameDraft = ref('')
   const renamingProfile = ref('')
   const deletingProfile = ref('')
-  const activeTab = ref<'provider' | 'tools' | 'interface'>('provider')
+  const activeTab = ref<SettingsTab>('provider')
+  const modelSearch = ref('')
+
   const text = computed(() => getAgentCopy(props.locale))
   const languageOptions = computed(() => [...AGENT_LOCALE_OPTIONS])
-  const agentTabs = computed<
-    ReadonlyArray<{ id: 'provider' | 'tools' | 'interface'; label: string }>
-  >(() => [
-    { id: 'interface', label: text.value.interface },
+  const agentTabs = computed<ReadonlyArray<{ id: SettingsTab; label: string }>>(() => [
     { id: 'provider', label: text.value.providerSettings },
     { id: 'tools', label: text.value.tools },
+    { id: 'interface', label: text.value.interface },
   ])
   const persistedProfileNames = computed(
     () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
   )
-  const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const profileNameDialogError = computed(() =>
     props.providerSettings.profileNameError ? text.value.providerProfileNameDuplicated : '',
   )
-  const protocolOptions = computed(() =>
-    PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
-  )
+  /** 协议选项不需要分组标题，空 label 让 DropMenu 省略分组行。 */
+  const protocolGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'protocol',
+      label: '',
+      items: PROVIDER_API_PROTOCOLS.map((protocol) => ({
+        id: protocol,
+        label: protocolLabel(protocol),
+      })),
+    },
+  ])
+  const selectedProtocolLabel = computed(() => protocolLabel(props.providerSettings.protocol))
   const profileOptions = computed(() => {
     const profiles = props.providerSettings.profiles.map((profile) => ({
       value: profile.name,
       label: profile.name,
     }))
-    const isNewProfile =
-      props.providerSettings.profileName &&
-      !profiles.some((profile) => profile.value === props.providerSettings.profileName)
-    return isNewProfile
-      ? [
-          { value: props.providerSettings.profileName, label: props.providerSettings.profileName },
-          ...profiles,
-        ]
-      : profiles
+    const draftName = props.providerSettings.profileName
+    const isNewProfile = draftName && !profiles.some((profile) => profile.value === draftName)
+    return isNewProfile ? [{ value: draftName, label: draftName }, ...profiles] : profiles
   })
   const modelPoolIds = computed(
     () => new Set(props.providerSettings.modelPool.map((model) => model.id)),
@@ -474,6 +521,11 @@
     void props.providerSettings.persistConnection()
   }
 
+  /** 菜单选中协议；值域由 PROVIDER_API_PROTOCOLS 保证，草稿校验仍在 store 内完成。 */
+  function selectProtocol(_groupId: string, itemId: string): void {
+    updateProtocol(itemId)
+  }
+
   /** 判断下拉返回的字符串是否为受支持的界面语言。 */
   function isAgentLocale(value: string): value is AgentLocale {
     return AGENT_LOCALE_OPTIONS.some((option) => option.value === value)
@@ -487,8 +539,8 @@
   /** 将模型声明的上下文窗口格式化为紧凑标签。 */
   function formatContextWindow(value: number): string {
     if (props.locale === 'zh-CN') {
-      const tenThousands = value / 10_000
-      const window = value >= 10_000 ? tenThousands.toFixed(1).replace(/\.0$/, '') : String(value)
+      const window =
+        value >= 10_000 ? (value / 10_000).toFixed(1).replace(/\.0$/, '') : String(value)
       return `${window} 万`
     }
     const thousands = value / 1_000
@@ -519,6 +571,7 @@
     if (id) void props.providerSettings.selectProfile(id)
   }
 
+  /** 聚焦行内命名输入；重命名时全选原名称。 */
   function focusProfileNameInput(select: boolean): void {
     void nextTick(() => {
       const value = profileNameInput.value
@@ -580,10 +633,12 @@
     void nextTick(() => deleteCancelButton.value?.[0]?.focus())
   }
 
+  /** 取消行内删除确认。 */
   function cancelRemoveProfile(): void {
     deletingProfile.value = ''
   }
 
+  /** 确认删除指定配置。 */
   function confirmRemoveProfile(name: string): void {
     deletingProfile.value = ''
     void props.providerSettings.deleteProfile(name)
@@ -599,172 +654,270 @@
   watch(
     () => props.providerSettings.open,
     (open) => {
-      if (!open) return
-      activeTab.value = 'provider'
+      if (open) activeTab.value = 'provider'
     },
   )
 </script>
 
 <style scoped src="../../../components/common/form-control.css"></style>
 
+<!-- 当前值与展开箭头的外观复用工具栏单选下拉，避免两套相似样式漂移。 -->
+<style scoped src="../../../components/common/selection-menu.css"></style>
+
 <style scoped>
-  .provider-form {
+  /* ───────── 基础 ───────── */
+  .settings {
+    --_gap: 12px;
+    --_radius: 10px;
+    --_pad: 14px;
     height: 100%;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--_gap);
     color: var(--klc-color-foreground);
   }
 
-  .provider-form__fields {
-    display: grid;
-    gap: 12px;
-  }
-
-  .agent-settings-body {
+  .settings__body {
     min-height: 0;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    scrollbar-gutter: stable;
   }
 
-  .agent-settings-tools {
-    max-height: min(560px, calc(100vh - 230px));
-    overflow-y: auto;
-  }
-
-  .agent-settings-interface {
-    display: grid;
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .settings-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    color: var(--klc-color-foreground);
-    font-size: 12px;
-  }
-
-  .provider-settings-layout {
-    width: 100%;
-    max-width: 760px;
-    min-height: 420px;
-    display: grid;
-    grid-template-columns: 144px minmax(0, 1fr);
+  .card {
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    overflow: hidden;
+    border-radius: var(--_radius);
+    background: color-mix(in srgb, var(--klc-color-ui-input) 40%, transparent);
   }
 
-  .provider-settings-profiles {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 8px;
-    border-right: 1px solid var(--klc-color-ui-border);
+  .empty {
+    margin: 0;
+    padding: 24px 12px;
+    color: var(--klc-color-ui-muted);
+    font-size: 12px;
+    text-align: center;
   }
 
-  .provider-settings-profiles__header,
-  .provider-settings-models__header {
-    display: flex;
+  .badge,
+  .chip {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    height: 18px;
+    padding: 0 7px;
+    border-radius: 999px;
+    color: var(--klc-color-ui-muted);
+    background: var(--klc-color-ui-hover);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* ───────── 表单字段 ───────── */
+  .field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .field__label {
     color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
+    letter-spacing: 0.01em;
   }
 
-  .provider-settings-profiles__header {
-    justify-content: space-between;
-    padding: 0 4px 6px;
+  .field__help {
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
   }
 
-  .provider-settings-profile {
-    position: relative;
-    min-width: 0;
+  .field__row {
     display: flex;
     align-items: center;
-    border-radius: 5px;
-    color: var(--klc-color-ui-muted);
+    gap: 8px;
+  }
+
+  .field__row input {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .field__save {
+    flex: 0 0 auto;
+    font-size: 12px;
+  }
+
+  .field__mono {
+    font-family: var(--klc-typography-font-family-mono);
+  }
+
+  /* ───────── 单横线输入 ───────── */
+  /* 仅连接卡片的三个字段用下划线样式：去掉四周边框、圆角与填充底色，只保留一条底线。 */
+  .connection .form-control,
+  .connection :deep(.base-textarea) {
+    border: 0;
+    border-bottom: 1px solid var(--klc-color-ui-border);
+    border-radius: 0;
     background: transparent;
+    box-shadow: none;
+  }
+
+  .connection .form-control {
+    height: var(--klc-density-default, 32px);
+    padding: 0 2px;
+  }
+
+  /* 多行输入高度仍随内容增长，只是不再画四周框线。 */
+  .connection :deep(.base-textarea) {
+    --base-textarea-border: 0;
+
+    padding: var(--klc-space-4, 4px) 2px;
+  }
+
+  /* 聚焦只点亮底线，不出现外发光或边框变色。 */
+  .connection .form-control:focus,
+  .connection :deep(.base-textarea:focus-visible) {
+    border-bottom-color: var(--klc-color-ui-accent);
+    outline: 0;
+    box-shadow: none;
+  }
+
+  .field input::placeholder {
+    color: var(--klc-color-ui-text-soft);
+    opacity: 0.55;
+  }
+
+  /* ───────── Provider 布局 ───────── */
+  .provider {
+    width: 100%;
+    min-height: 440px;
+    display: grid;
+    grid-template-columns: 164px minmax(0, 1fr);
+    gap: var(--_gap);
+  }
+
+  /* 左侧配置列表：行高亮贴到列表左右边缘，只留垂直内边距。 */
+  .provider__rail {
+    /* 配置行与行内命名输入共用同一行高算料，切换编辑态时列表不跳动。 */
+    --rail-row-padding-block: 8px;
+    --rail-row-line-height: var(--klc-text-12-line-height, 16px);
+    --rail-row-height: calc(2 * var(--rail-row-padding-block) + var(--rail-row-line-height));
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 10px 0;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: var(--_radius);
+  }
+
+  .rail__title {
+    padding: 2px 10px 6px;
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .rail__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .rail__item {
+    position: relative;
+    min-width: 0;
+    /* 编辑态只剩行内输入，用行高兜底，避免行高塌缩导致列表跳动。 */
+    min-height: var(--rail-row-height);
+    display: flex;
+    align-items: center;
+    color: var(--klc-color-ui-muted);
     transition:
       background-color 0.15s ease,
       color 0.15s ease;
   }
 
-  .provider-settings-profile:hover,
-  .provider-settings-profile:focus-within {
+  .rail__item:hover,
+  .rail__item:focus-within,
+  .rail__item.is-editing {
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-hover);
   }
 
-  .provider-settings-profile.is-active {
+  .rail__item.is-active {
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-hover);
     font-weight: 600;
   }
 
-  .provider-settings-profile__select {
+  .rail__select {
     min-width: 0;
     flex: 1 1 auto;
-    padding: 7px 10px;
+    padding: var(--rail-row-padding-block) 10px;
     border: 0;
-    border-radius: 5px;
+    border-radius: 0;
     color: inherit;
     background: transparent;
     font: inherit;
     font-size: 12px;
+    line-height: var(--rail-row-line-height);
     text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     cursor: pointer;
     transition: padding-right 0.15s ease;
   }
 
-  .provider-settings-profile:has(.provider-settings-profile__actions):hover
-    .provider-settings-profile__select,
-  .provider-settings-profile:has(.provider-settings-profile__actions):focus-within
-    .provider-settings-profile__select {
-    padding-right: 52px;
-  }
-
-  .provider-settings-profile__select:focus-visible {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
+  .rail__select:focus-visible {
     outline: 0;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 28%, transparent);
   }
 
-  .provider-settings-profile__actions {
+  .rail__name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rail__item:has(.rail__actions):hover .rail__select,
+  .rail__item:has(.rail__actions):focus-within .rail__select {
+    padding-right: 54px;
+  }
+
+  .rail__actions {
     position: absolute;
     top: 50%;
     right: 4px;
     display: flex;
-    align-items: center;
     gap: 2px;
-    padding-left: 6px;
-    background: var(--klc-color-ui-hover);
     transform: translateY(-50%);
     visibility: hidden;
   }
 
-  .provider-settings-profile:hover .provider-settings-profile__actions,
-  .provider-settings-profile:focus-within .provider-settings-profile__actions {
+  .rail__item:hover .rail__actions,
+  .rail__item:focus-within .rail__actions {
     visibility: visible;
   }
 
-  .provider-settings-profile__action {
-    width: 20px;
-    height: 20px;
+  .icon-button {
+    width: 22px;
+    height: 22px;
     display: inline-grid;
     place-items: center;
     padding: 0;
     border: 0;
-    border-radius: 4px;
+    border-radius: 5px;
     color: var(--klc-color-ui-muted);
     background: transparent;
     cursor: pointer;
@@ -773,49 +926,236 @@
       background-color 0.15s ease;
   }
 
-  .provider-settings-profile__action svg {
+  .icon-button svg {
     width: 14px;
     height: 14px;
   }
 
-  .provider-settings-profile__action:hover,
-  .provider-settings-profile__action:focus-visible {
+  .icon-button:hover,
+  .icon-button:focus-visible {
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-border);
     outline: 0;
   }
 
-  .provider-settings-profile__action--danger:hover,
-  .provider-settings-profile__action--danger:focus-visible {
+  .icon-button--danger:hover,
+  .icon-button--danger:focus-visible {
     color: var(--klc-color-ui-danger-text);
   }
 
-  .provider-settings-detail {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+  .rail__inline {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
     min-width: 0;
+    flex: 1 1 auto;
+    padding-inline: 10px;
   }
 
-  .provider-settings-connection {
-    padding: 12px;
+  /* 行内命名输入取紧凑档高度，落在行高内而不是撑满整行；左右内边距沿用共享控件的 8px。 */
+  .rail__inline input {
+    min-width: 0;
+    flex: 1 1 0;
+    height: var(--klc-density-compact, 24px);
+  }
+
+  /* 行内保存按钮：显式确认入口，回车只是额外快捷键。 */
+  .rail__inline-save {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: var(--klc-density-compact, 24px);
+    height: var(--klc-density-compact, 24px);
+    padding: 0;
+    border: 0;
+    border-radius: var(--klc-radius-xs, 4px);
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .rail__inline-save svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .rail__inline-save:hover:not(:disabled),
+  .rail__inline-save:focus-visible:not(:disabled) {
+    color: var(--klc-color-ui-success);
+    background: var(--klc-color-ui-hover);
+    outline: 0;
+  }
+
+  .rail__inline-save:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .rail__inline input[aria-invalid='true'] {
+    border-color: var(--klc-color-ui-danger-text);
+  }
+
+  .rail__inline--create {
+    margin-top: 4px;
+  }
+
+  .rail__confirm {
+    width: 100%;
+    display: grid;
+    gap: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .rail__confirm p {
+    margin: 0;
+  }
+
+  .rail__confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .text-button {
+    height: 24px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 5px;
+    color: var(--klc-color-ui-text);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .text-button:hover,
+  .text-button:focus-visible {
+    background: var(--klc-color-ui-border);
+    outline: 0;
+  }
+
+  .text-button--danger {
+    color: var(--klc-color-ui-danger-text);
+    font-weight: 600;
+  }
+
+  .rail__new {
+    margin: auto 10px 0;
+    align-self: stretch;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 8px;
+    border: 1px dashed var(--klc-color-ui-border-strong, var(--klc-color-ui-border));
+    border-radius: 7px;
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .rail__new svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .rail__new:hover,
+  .rail__new:focus-visible {
+    color: var(--klc-color-ui-text);
+    border-color: var(--klc-color-ui-accent);
+    background: var(--klc-color-ui-hover);
+    outline: 0;
+  }
+
+  .rail__error {
+    margin: 2px 10px 0;
+    color: var(--klc-color-ui-danger-text);
+    font-size: 11px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  /* 右侧详情 */
+  .provider__detail {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--_gap);
+  }
+
+  .connection {
+    display: grid;
+    gap: 12px;
+    padding: var(--_pad);
+  }
+
+  /* 协议选择：触发器与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
+  .protocol-control {
+    width: 100%;
+  }
+
+  .protocol-control :deep(.drop-menu__trigger) {
+    width: 100%;
+    box-sizing: border-box;
+    --control-button-background: var(--klc-color-ui-input);
+    --control-button-color: var(--klc-color-ui-text);
+    --control-button-active-border: var(--klc-color-ui-border-strong);
+    --control-button-active-background: var(--klc-color-ui-hover);
+    --control-button-focus-border: var(--klc-color-ui-accent);
+    --control-button-focus-background: var(--klc-color-ui-hover);
+  }
+
+  .protocol-control :deep(.selection-menu__value) {
+    flex: 1 1 auto;
+    font-size: 11px;
+    font-weight: 400;
+    text-align: left;
+  }
+
+  /* 模型列表 */
+  .models {
+    min-height: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .models__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px var(--_pad);
     border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
-  .provider-settings-models {
-    width: 100%;
-    max-width: 760px;
-    min-height: 0;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 8px;
-    padding: 12px;
+  .models__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--klc-color-ui-text);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .provider-settings-models__header input {
+  .models__search {
     min-width: 0;
     height: 28px;
     flex: 1 1 auto;
-    padding: 0 8px;
+    padding: 0 10px;
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     outline: none;
@@ -824,390 +1164,269 @@
     font: inherit;
     font-size: 11px;
     transition:
-      background-color 0.2s ease,
       border-color 0.2s ease,
       box-shadow 0.2s ease;
   }
 
-  .provider-settings-models__list {
-    max-height: 240px;
-    min-height: 0;
-    display: grid;
-    align-content: start;
-    overflow-y: auto;
+  .models__search:focus {
+    border-color: var(--klc-color-ui-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent);
   }
 
-  .provider-settings-model {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 6px 4px 6px 8px;
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    color: var(--klc-color-foreground);
-    font-size: 12px;
-  }
-
-  .provider-settings-model span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .provider-settings-model__actions {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .provider-settings-model__actions small {
-    color: var(--klc-color-axis-text);
-    font-size: 11px;
-    white-space: nowrap;
-  }
-
-  .agent-tools {
-    display: grid;
-    gap: 8px;
-  }
-
-  .agent-tool {
-    display: grid;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
-  }
-
-  .agent-tool__toggle {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 8px;
-  }
-
-  .agent-tool__toggle span {
-    display: grid;
-    gap: 2px;
-  }
-
-  .agent-tool__toggle strong {
-    color: var(--klc-color-foreground);
-    font-size: 12px;
-    font-weight: 500;
-  }
-
-  .agent-tool__toggle small,
-  .agent-tools__empty {
-    color: var(--klc-color-axis-text);
-    font-size: 11px;
-    line-height: 1.35;
-  }
-
-  .agent-tool__parameters {
-    display: grid;
-    gap: 4px;
-    color: var(--klc-color-axis-text);
-    font-size: 11px;
-  }
-
-  .agent-tool__parameters summary {
-    cursor: pointer;
-  }
-
-  .agent-tool__input {
-    font-family: var(--klc-typography-font-family-mono);
-  }
-
-  .agent-tool__result {
-    box-sizing: border-box;
-    width: 100%;
-    min-height: 74px;
-    margin: 0;
-    padding: 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    font: 11px/1.4 var(--klc-typography-font-family-mono);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  .agent-tool__run {
-    justify-self: start;
-    font-size: 12px;
-  }
-
-  .provider-settings-models__refresh {
-    width: 28px;
-    height: 28px;
-    padding: 0;
-  }
-
-  .provider-settings-models__refresh svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .agent-tool__error {
-    margin: 0;
-    color: var(--klc-color-ui-danger-text);
-    font-size: 11px;
-  }
-
-  .agent-tool__unavailable {
-    margin: 0;
-    color: var(--klc-color-axis-text);
-    font-size: 11px;
-  }
-
-  .agent-tools__empty {
-    margin: 0;
-  }
-
-  .provider-field {
-    display: grid;
-    gap: 5px;
-  }
-
-  .provider-field__label {
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 500;
-  }
-
-  .provider-field__help {
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-  }
-
-  .provider-field__control {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .provider-field__control input {
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .provider-field__save {
-    flex: 0 0 auto;
-    font-size: 12px;
-  }
-
-  .provider-settings-models__header input:disabled {
+  .models__search:disabled {
     color: var(--klc-color-ui-muted);
     background: transparent;
     cursor: not-allowed;
   }
 
-  .provider-field input::placeholder,
-  .provider-settings-models__header input::placeholder {
+  .models__search::placeholder {
     color: var(--klc-color-ui-text-soft);
     opacity: 0.55;
   }
 
-  .provider-field__textarea {
-    font-family: var(--klc-typography-font-family-mono);
+  .models__refresh {
+    width: 28px;
+    height: 28px;
+    padding: 0;
   }
 
-  .provider-profile-inline {
-    display: flex;
-    min-width: 0;
-    flex: 1 1 auto;
+  .models__refresh svg {
+    width: 16px;
+    height: 16px;
   }
 
-  .provider-profile-inline--create {
-    margin-top: var(--klc-space-4, 4px);
+  .models__refresh.is-loading svg {
+    animation: settings-spin 0.9s linear infinite;
   }
 
-  .provider-profile-inline input {
-    width: 100%;
-  }
-
-  .provider-profile-inline input[aria-invalid='true'] {
-    border-color: var(--klc-color-ui-danger-text);
-  }
-
-  .provider-profile-confirm {
+  .models__list {
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    min-height: 0;
+    max-height: 260px;
+    overflow-y: auto;
     display: grid;
-    gap: var(--klc-space-4, 4px);
-    padding: var(--klc-space-8, 8px);
-    color: var(--klc-color-ui-text);
-    font-size: var(--klc-text-12-font-size, 12px);
-    line-height: var(--klc-text-12-line-height, 16px);
+    align-content: start;
+    gap: 1px;
   }
 
-  .provider-profile-confirm__actions {
+  .model {
+    min-width: 0;
     display: flex;
-    justify-content: flex-end;
-    gap: var(--klc-space-4, 4px);
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    transition: background-color 0.15s ease;
   }
 
-  .provider-profile-text-button {
-    height: var(--klc-density-compact, 24px);
-    padding: 0 var(--klc-space-8, 8px);
-    border: 0;
-    border-radius: var(--klc-radius-xs, 4px);
-    color: var(--klc-color-ui-text);
-    background: transparent;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .provider-profile-text-button:hover,
-  .provider-profile-text-button:focus-visible {
+  .model:hover {
     background: var(--klc-color-ui-hover);
   }
 
-  .provider-profile-text-button--danger {
-    color: var(--klc-color-ui-danger-text);
+  .model__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .model__meta {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ───────── Tools ───────── */
+  .tools {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    max-height: min(560px, calc(100vh - 230px));
+  }
+
+  .tool {
+    display: grid;
+    gap: 12px;
+    padding: var(--_pad);
+  }
+
+  .tool.is-disabled {
+    opacity: 0.7;
+  }
+
+  .tool__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+  }
+
+  .tool__text {
+    display: grid;
+    gap: 3px;
+  }
+
+  .tool__text strong {
+    font-size: 13px;
     font-weight: 600;
   }
 
-  .provider-settings-profile.is-editing {
-    background: var(--klc-color-ui-hover);
-  }
-
-  .provider-protocol-control {
-    width: 100%;
-    --dropdown-trigger-background: var(--klc-color-ui-input);
-    --dropdown-trigger-color: var(--klc-color-ui-text);
-    --dropdown-trigger-chevron: var(--klc-color-ui-muted);
-    --dropdown-trigger-active-border: var(--klc-color-ui-border-strong);
-    --dropdown-trigger-active-background: var(--klc-color-ui-hover);
-    --dropdown-trigger-focus-border: var(--klc-color-ui-accent);
-    --dropdown-trigger-focus-background: var(--klc-color-ui-hover);
-    --dropdown-trigger-focus-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
-  }
-
-  .provider-model-dropdown {
-    width: 100%;
-  }
-
-  .provider-protocol-control :deep(.dropdown__trigger) {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .provider-protocol-control :deep(.dropdown__value),
-  .provider-profile-dropdown :deep(.dropdown__value) {
-    font-size: 11px;
-    font-weight: 400;
-  }
-
-  .provider-profile-control {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 34px;
-    gap: 8px;
-  }
-
-  .provider-profile-dropdown {
-    min-width: 0;
-  }
-
-  .provider-profile-dropdown :deep(.dropdown__trigger) {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .provider-profile-new-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border: 1px solid var(--klc-color-ui-border);
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s,
-      opacity 0.15s;
-  }
-
-  .provider-profile-new-button {
-    margin-top: auto;
-    width: 100%;
-    height: 28px;
-    box-sizing: border-box;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 6px;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-  }
-
-  .provider-profile-new-button:hover:not(:disabled) {
-    border-color: var(--klc-color-ui-border-strong);
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .provider-error {
-    display: grid;
-    grid-template-columns: 16px minmax(0, 1fr);
-    gap: 8px;
-    padding: 10px 12px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
-    color: var(--klc-color-ui-danger-text);
+  .tool__text small {
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     line-height: 1.45;
   }
 
-  .provider-error span {
+  .tool__note,
+  .tool__error {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .tool__note {
+    color: var(--klc-color-ui-muted);
+  }
+
+  .tool__error {
+    color: var(--klc-color-ui-danger-text);
+  }
+
+  .tool__params {
+    display: grid;
+    gap: 6px;
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
+  }
+
+  .tool__params summary {
+    width: fit-content;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tool__params summary:hover {
+    color: var(--klc-color-ui-text);
+  }
+
+  .tool__params[open] summary {
+    margin-bottom: 6px;
+  }
+
+  .tool__foot {
+    display: flex;
+    justify-content: flex-start;
+    font-size: 12px;
+  }
+
+  .tool__result {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 74px;
+    max-height: 220px;
+    margin: 0;
+    padding: 10px;
+    overflow: auto;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 8px;
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
+    font: 11px/1.5 var(--klc-typography-font-family-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* ───────── Interface ───────── */
+  .interface__list {
+    display: grid;
+  }
+
+  .row {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px var(--_pad);
+    font-size: 12px;
+  }
+
+  .row + .row {
+    border-top: 1px solid var(--klc-color-ui-border);
+  }
+
+  .row__label {
+    font-weight: 500;
+  }
+
+  /* ───────── 错误提示 ───────── */
+  .alert {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--klc-color-ui-danger-text) 45%, transparent);
+    border-radius: 8px;
+    color: var(--klc-color-ui-danger-text);
+    background: color-mix(in srgb, var(--klc-color-ui-danger-text) 8%, transparent);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .alert svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .alert span {
     display: grid;
     gap: 3px;
     min-width: 0;
   }
 
-  .provider-error strong,
-  .provider-error small {
+  .alert strong,
+  .alert small {
     overflow-wrap: anywhere;
     font: inherit;
   }
 
-  .provider-error strong {
+  .alert strong {
     font-weight: 600;
   }
 
-  .provider-profile-error {
-    margin: 8px 0 0;
-    color: var(--klc-color-ui-danger-text);
-    font-size: 11px;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
+  @keyframes settings-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .models__refresh.is-loading svg {
+      animation: none;
+    }
+  }
+
+  /* ───────── 窄屏 ───────── */
   @media (max-width: 640px) {
-    .provider-settings-layout {
+    .provider {
       grid-template-columns: 1fr;
     }
 
-    .provider-settings-profiles {
+    .rail__list {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      border-right: 0;
-      border-bottom: 1px solid var(--klc-color-ui-border);
     }
 
-    .provider-settings-profiles__header {
-      grid-column: 1 / -1;
-    }
-
-    .provider-settings-models__header {
+    .models__header {
       flex-wrap: wrap;
     }
 
-    .provider-settings-models__header input {
+    .models__search {
       min-width: 120px;
     }
   }
