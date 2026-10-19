@@ -1,4 +1,4 @@
-<!-- Agent 面板头部：左侧开关对话列表抽屉，右侧提供新建会话、模型设置与关闭面板。 -->
+<!-- Agent 面板头部：左侧开关对话列表抽屉，右侧提供新建会话、模型设置、停靠侧切换与关闭面板。 -->
 <template>
   <header class="agent-header">
     <div class="agent-header__top">
@@ -33,6 +33,17 @@
             <IconSettings aria-hidden="true" />
           </button>
         </BaseTooltip>
+        <BaseTooltip :content="panelSideLabel" placement="bottom">
+          <button
+            type="button"
+            data-testid="agent-panel-side-toggle"
+            :aria-label="panelSideLabel"
+            @click="$emit('toggle-panel-side')"
+          >
+            <IconLayoutSidebarLeftExpand v-if="panelSide === 'right'" aria-hidden="true" />
+            <IconLayoutSidebarRightExpand v-else aria-hidden="true" />
+          </button>
+        </BaseTooltip>
         <BaseTooltip :content="text.closePanel" placement="bottom">
           <button
             type="button"
@@ -40,7 +51,8 @@
             :aria-label="text.closePanel"
             @click="$emit('close')"
           >
-            <IconChevronRight aria-hidden="true" />
+            <IconChevronLeft v-if="panelSide === 'left'" aria-hidden="true" />
+            <IconChevronRight v-else aria-hidden="true" />
           </button>
         </BaseTooltip>
       </div>
@@ -50,27 +62,33 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
+  import IconChevronLeft from '~icons/tabler/chevron-left'
   import IconChevronRight from '~icons/tabler/chevron-right'
+  import IconLayoutSidebarLeftExpand from '~icons/tabler/layout-sidebar-left-expand'
+  import IconLayoutSidebarRightExpand from '~icons/tabler/layout-sidebar-right-expand'
   import IconMenu2 from '~icons/tabler/menu-2'
   import IconPlus from '~icons/tabler/plus'
   import IconSettings from '~icons/tabler/settings'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import type { AgentPanelSide } from '../workspace/types.js'
 
   const props = withDefaults(
     defineProps<{
       locale: AgentLocale
       sessionsOpen: boolean
+      panelSide?: AgentPanelSide
       /** 运行时可用时才允许操作会话；不可用时仅保留设置与关闭入口。 */
       available?: boolean
     }>(),
-    { available: true },
+    { panelSide: 'right', available: true },
   )
 
   defineEmits<{
     create: []
     'toggle-sessions': []
     settings: []
+    'toggle-panel-side': []
     close: []
   }>()
 
@@ -78,6 +96,10 @@
   // 开关按钮的提示文案随抽屉状态在展开/收起之间切换。
   const sessionsToggleLabel = computed(() =>
     props.sessionsOpen ? text.value.closeSessions : text.value.openSessions,
+  )
+  // 切换按钮的提示文案指向面板将要移动到的位置。
+  const panelSideLabel = computed(() =>
+    props.panelSide === 'right' ? text.value.movePanelLeft : text.value.movePanelRight,
   )
 </script>
 

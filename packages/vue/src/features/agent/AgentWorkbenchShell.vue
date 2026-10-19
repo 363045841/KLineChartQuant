@@ -1,4 +1,4 @@
-<!-- 承载图表插槽与 Agent 面板，统一管理面板开合、宽度和响应式布局。 -->
+<!-- 承载图表插槽与 Agent 面板，统一管理面板开合、停靠侧、宽度和响应式布局。 -->
 <template>
   <div
     ref="shell"
@@ -7,6 +7,7 @@
       'agent-workbench-shell--resizing': resizing,
       'agent-workbench-shell--resize-ready': panelResizeReady,
       'agent-workbench-shell--panel-open': panelOpen,
+      'agent-workbench-shell--panel-left': panelSide === 'left',
       'agent-workbench-shell--compact': compact,
     }"
     :style="shellStyle"
@@ -18,7 +19,7 @@
     <BaseTooltip
       v-if="!panelOpen"
       :content="text.openPanel"
-      placement="left"
+      :placement="panelSide === 'right' ? 'left' : 'right'"
       trigger-display="contents"
     >
       <button
@@ -29,7 +30,8 @@
         aria-expanded="false"
         @click="panelOpen = true"
       >
-        <IconChevronLeft aria-hidden="true" />
+        <IconChevronRight v-if="panelSide === 'left'" aria-hidden="true" />
+        <IconChevronLeft v-else aria-hidden="true" />
       </button>
     </BaseTooltip>
 
@@ -50,7 +52,12 @@
       @pointermove="updateResizeCursor"
       @pointerleave="panelResizeReady = false"
     >
-      <AgentWorkspace :bridge="bridge" @close="panelOpen = false" />
+      <AgentWorkspace
+        :bridge="bridge"
+        :panel-side="panelSide"
+        @close="panelOpen = false"
+        @toggle-panel-side="togglePanelSide"
+      />
     </aside>
   </div>
 </template>
@@ -58,12 +65,17 @@
 <script setup lang="ts">
   import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
   import IconChevronLeft from '~icons/tabler/chevron-left'
+  import IconChevronRight from '~icons/tabler/chevron-right'
 
   import BaseTooltip from '../../components/common/BaseTooltip.vue'
   import type { AgentBridgeClient } from './agent-contracts.js'
   import { getAgentCopy } from './agent-copy.js'
   import AgentWorkspace from './components/AgentWorkspace.vue'
-  import type { AgentPanelWidthStorage } from './workspace/types.js'
+  import type {
+    AgentPanelSide,
+    AgentPanelSideStorage,
+    AgentPanelWidthStorage,
+  } from './workspace/types.js'
 
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640
@@ -73,14 +85,20 @@
     defineProps<{
       bridge: AgentBridgeClient
       panelWidthStorage?: AgentPanelWidthStorage
+      panelSideStorage?: AgentPanelSideStorage
       initialPanelOpen?: boolean
     }>(),
-    { initialPanelOpen: true, panelWidthStorage: undefined },
+    {
+      initialPanelOpen: true,
+      panelWidthStorage: undefined,
+      panelSideStorage: undefined,
+    },
   )
 
   const shell = ref<HTMLElement | null>(null)
   const panel = ref<HTMLElement | null>(null)
   const panelOpen = ref(props.initialPanelOpen)
+  const panelSide = ref<AgentPanelSide>('right')
   const panelWidth = ref(DEFAULT_PANEL_WIDTH)
   const resizing = ref(false)
   const panelResizeReady = ref(false)
@@ -111,11 +129,23 @@
     }
   }
 
-  // 根据指针事件的横坐标与容器右边界更新面板宽度。
+  // 在左右停靠侧之间切换并立即保存偏好，存储失败不阻断布局交互。
+  function togglePanelSide(): void {
+    panelSide.value = panelSide.value === 'right' ? 'left' : 'right'
+    try {
+      props.panelSideStorage?.save(panelSide.value)
+    } catch {
+      return
+    }
+  }
+
+  // 根据停靠侧，用指针到对应容器边缘的距离更新面板宽度。
   function updatePanelFromPointer(event: PointerEvent): void {
     const bounds = shell.value?.getBoundingClientRect()
     if (!bounds) return
-    panelWidth.value = clampPanelWidth(bounds.right - event.clientX)
+    panelWidth.value = clampPanelWidth(
+      panelSide.value === 'right' ? bounds.right - event.clientX : event.clientX - bounds.left,
+    )
   }
 
   // 结束拖拽，移除文档级监听并保存最终宽度。
@@ -128,18 +158,21 @@
     persistPanelWidth()
   }
 
-  // 判断指针是否位于面板左侧的拖拽命中区。
+  // 右侧面板的拖拽命中区在左边缘，左侧面板在右边缘。
   function isPanelResizeTarget(clientX: number): boolean {
     const bounds = panel.value?.getBoundingClientRect()
-    return Boolean(bounds && clientX - bounds.left <= 8)
+    if (!bounds) return false
+    return panelSide.value === 'right'
+      ? clientX - bounds.left <= 8
+      : bounds.right - clientX <= 8
   }
 
-  // 仅在左侧边框附近显示横向拖拽光标。
+  // 仅在面板内侧边缘附近显示横向拖拽光标。
   function updateResizeCursor(event: PointerEvent): void {
     panelResizeReady.value = !compact.value && isPanelResizeTarget(event.clientX)
   }
 
-  // 仅在非紧凑布局的面板左边缘响应指针事件并开始拖拽。
+  // 仅在非紧凑布局的面板内侧边缘响应指针事件并开始拖拽。
   function startResize(event: PointerEvent): void {
     if (compact.value || !isPanelResizeTarget(event.clientX)) return
     event.preventDefault()
@@ -159,6 +192,15 @@
     if (typeof storedWidth === 'number' && Number.isFinite(storedWidth)) {
       panelWidth.value = clampPanelWidth(storedWidth)
     }
+
+    let storedSide: AgentPanelSide | null | undefined
+    try {
+      storedSide = props.panelSideStorage?.load()
+    } catch {
+      storedSide = undefined
+    }
+    if (storedSide === 'left' || storedSide === 'right') panelSide.value = storedSide
+
     if (shell.value) {
       compact.value = shell.value.getBoundingClientRect().width < 880
       shellObserver = new ResizeObserver(([entry]) => {
@@ -215,6 +257,12 @@
     margin-right: var(--agent-panel-track, 0px);
   }
 
+  /* 面板停靠在左侧时改为预留左轨道，图表仍占满剩余空间。 */
+  .agent-workbench-shell--panel-left .chart-surface {
+    margin-right: 0;
+    margin-left: var(--agent-panel-track, 0px);
+  }
+
   .agent-panel {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -227,11 +275,18 @@
     z-index: 3;
     overflow: hidden;
     background: var(--agent-bg);
-     visibility: hidden;
+    visibility: hidden;
     transform: translateX(100%);
     transition:
       transform 0.28s ease,
       visibility 0s linear 0.28s;
+  }
+
+  /* 左侧停靠时从左侧滑入，关闭态向左侧移出。 */
+  .agent-workbench-shell--panel-left .agent-panel {
+    right: auto;
+    left: 0;
+    transform: translateX(-100%);
   }
 
   .agent-workbench-shell--panel-open .agent-panel {
@@ -267,6 +322,14 @@
     cursor: pointer;
   }
 
+  /* 左侧停靠时启动器贴左边缘，边框方向随之翻转。 */
+  .agent-workbench-shell--panel-left .agent-launcher {
+    right: auto;
+    left: 0;
+    border-left: 1px solid var(--klc-color-ui-border);
+    border-right: 0;
+  }
+
   .agent-launcher:hover,
   .agent-launcher:focus-visible {
     background: var(--klc-color-ui-hover);
@@ -294,6 +357,7 @@
 
   .agent-workbench-shell--compact.agent-workbench-shell--panel-open .chart-surface {
     margin-right: 0;
+    margin-left: 0;
   }
 
   .agent-workbench-shell--compact .drawer-backdrop {
@@ -311,6 +375,13 @@
     min-width: min(360px, calc(100% - 28px));
     z-index: 31;
     box-shadow: -12px 0 32px var(--klc-color-agent-panel-shadow);
+  }
+
+  /* 紧凑布局下左侧抽屉的边框与投影同样镜像到右侧。 */
+  .agent-workbench-shell--compact.agent-workbench-shell--panel-left .agent-panel {
+    border-left: 0;
+    border-right: 1px solid var(--klc-color-ui-border);
+    box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 
   @media (prefers-reduced-motion: reduce) {

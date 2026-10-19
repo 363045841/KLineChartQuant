@@ -4,9 +4,11 @@
       :locale="locale"
       :sessions-open="sessionDrawerOpen"
       :available="available"
+      :panel-side="panelSide"
       @create="handleCreateSession"
       @toggle-sessions="sessionDrawerOpen = !sessionDrawerOpen"
       @settings="providerSettings.show(state.provider)"
+      @toggle-panel-side="handleTogglePanelSide"
       @close="handleClosePanel"
     />
 
@@ -87,6 +89,7 @@
   import type { AgentBridgeClient } from '../agent-contracts.js'
   import { getAgentCopy } from '../agent-copy.js'
   import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
+  import type { AgentPanelSide } from '../workspace/types.js'
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
   import AgentHeader from './AgentHeader.vue'
@@ -95,8 +98,11 @@
   import AgentTimeline from './AgentTimeline.vue'
   import AgentUnavailableNotice from './AgentUnavailableNotice.vue'
 
-  const props = defineProps<{ bridge: AgentBridgeClient }>()
-  const emit = defineEmits<{ close: [] }>()
+  const props = withDefaults(
+    defineProps<{ bridge: AgentBridgeClient; panelSide?: AgentPanelSide }>(),
+    { panelSide: 'right' },
+  )
+  const emit = defineEmits<{ close: []; 'toggle-panel-side': [] }>()
 
   const workspace = ref<HTMLElement | null>(null)
   const sessionDrawerOpen = ref(false)
@@ -146,6 +152,11 @@
   async function handleSelectSession(sessionId: string): Promise<void> {
     await selectSession(sessionId)
     sessionDrawerOpen.value = false
+  }
+
+  // 停靠侧切换由壳层执行，工作区只负责把头部事件上抛。
+  function handleTogglePanelSide(): void {
+    emit('toggle-panel-side')
   }
 
   // 关闭面板前先收起抽屉，避免再次打开时残留旧的抽屉状态。

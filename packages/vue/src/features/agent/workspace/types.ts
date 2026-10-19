@@ -38,6 +38,15 @@ export interface AgentPanelWidthStorage {
   save(width: number): void
 }
 
+/** Agent 面板的停靠侧。 */
+export type AgentPanelSide = 'left' | 'right'
+
+/** Agent 面板停靠侧的持久化读写端口。 */
+export interface AgentPanelSideStorage {
+  load(): AgentPanelSide | null | undefined
+  save(side: AgentPanelSide): void
+}
+
 /** Agent 工作区的用户偏好。 */
 export interface AgentWorkspacePreferences {
   readonly locale: 'en' | 'zh-CN'

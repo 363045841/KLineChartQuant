@@ -125,6 +125,7 @@ export * from '@vue-src/features/agent/agent-contracts.js'
 export { BrowserAgentBridge } from '@vue-src/features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
 export type { BrowserAgentBridgeOptions } from '@vue-src/features/agent/browser-agent/bridge/types.js'
 export { default as AgentWorkspace } from '@vue-src/features/agent/components/AgentWorkspace.vue'
+export { createAgentPanelSideStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-side-storage.js'
 export { createAgentPanelWidthStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-width-storage.js'
 export { useAgentWorkspace } from '@vue-src/features/agent/workspace/impl/use-agent-workspace.js'
 export {
@@ -132,6 +133,8 @@ export {
   displayConversation,
 } from '@vue-src/features/agent/workspace/impl/workspace-state.js'
 export type {
+  AgentPanelSide,
+  AgentPanelSideStorage,
   AgentPanelWidthStorage,
   AgentWorkspaceAvailability,
   AgentWorkspaceState,

@@ -14,7 +14,11 @@
       :class="{ 'is-fullscreen': isFullscreen }"
       :style="{ width: embedWidth, height: embedHeight }"
     >
-      <AgentWorkbenchShell :bridge="agentBridge" :panel-width-storage="webPanelWidthStorage">
+      <AgentWorkbenchShell
+        :bridge="agentBridge"
+        :panel-width-storage="webPanelWidthStorage"
+        :panel-side-storage="webPanelSideStorage"
+      >
         <template #chart>
           <KlineChart
             ref="chartRef"
@@ -69,7 +73,12 @@
   import { ref, computed, provide, inject, onBeforeUnmount, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
   import { useChartDocumentTitle } from './useChartDocumentTitle'
-  import { AgentWorkbenchShell, createAgentPanelWidthStorage, KlineChart } from '../src/index'
+  import {
+    AgentWorkbenchShell,
+    createAgentPanelSideStorage,
+    createAgentPanelWidthStorage,
+    KlineChart,
+  } from '../src/index'
   import { BrowserAgentBridge } from '../src/features/agent/browser-agent/bridge/impl/browser-agent-bridge'
   import {
     type KLineData,
@@ -521,6 +530,7 @@
   })
   onBeforeUnmount(() => agentBridge.close())
   const webPanelWidthStorage = createAgentPanelWidthStorage()
+  const webPanelSideStorage = createAgentPanelSideStorage()
   const showModal = ref(false)
 
   const sizeIndex = ref(0)

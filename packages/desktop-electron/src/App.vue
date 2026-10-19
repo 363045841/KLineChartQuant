@@ -1,5 +1,9 @@
 <template>
-  <AgentWorkbenchShell :bridge="bridge" :panel-width-storage="panelWidthStorage">
+  <AgentWorkbenchShell
+    :bridge="bridge"
+    :panel-width-storage="panelWidthStorage"
+    :panel-side-storage="panelSideStorage"
+  >
     <template #chart>
       <KlineChart
         ref="chartRef"
@@ -14,6 +18,7 @@
   import {
     AgentWorkbenchShell,
     BrowserAgentBridge,
+    createAgentPanelSideStorage,
     createAgentPanelWidthStorage,
     KlineChart,
   } from '@363045841yyt/klinechart'
@@ -33,6 +38,7 @@
   const e2eChartData = import.meta.env.MODE === 'e2e' ? createE2eChartData() : undefined
 
   const panelWidthStorage = createAgentPanelWidthStorage()
+  const panelSideStorage = createAgentPanelSideStorage()
 </script>
 
 <style>
