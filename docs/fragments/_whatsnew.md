@@ -1,6 +1,11 @@
 ## 🚀 What's New
 
-- **v0.11** Introduced the AI Agent runtime (agent-runtime and AI runtime with OpenAI protocol support and a shared web/Electron Agent workspace) plus `@tool` registration and drawing Agent tools. Drawing gained sub-pane and timeshare support with workspace isolation, multi-select and batch editing, blank-area anchors, inline text editing, marquee group drag, and configurable labels; five-day timeshare, native timeshare indicators, and persistent view workspaces landed alongside WebGL-on-visible-canvas rendering.
+- **v0.11**
+  - **Agent Runtime** - `agent-runtime` and an AI runtime with OpenAI protocol support, driving the chart through the same `@tool` primitives the UI uses, plus `@tool` registration, drawing Agent tools, and a shared web/Electron Agent workspace
+  - **Script Indicator Engine** - One plain TypeScript file per indicator, executed in a sandboxed QuickJS runtime under time and memory budgets; built-in CodeMirror editor, a `ta` technical-analysis library, and user libraries; plots flow through the normal rendering chain, so a script indicator behaves exactly like a built-in one
+  - **Drawing** - Sub-pane and timeshare drawing with workspace isolation, multi-select and batch editing, blank-area anchors, inline text editing, marquee group drag, and configurable labels
+  - **Timeshare and Workspaces** - Five-day timeshare, native timeshare indicators, and persistent view workspaces
+  - **Rendering** - WebGL rendering directly on the visible canvas
 - **v0.10** Reworked the data layer around a unified MarketDataProvider, added multi-day timeshare, a unified indicator query pipeline shared by charts and Agents, Fibonacci/rectangle/arrow annotation tools, and promoted comparison to a first-class chart mode. Aligned the Vue/React/Angular bindings with the unified provider contract and shipped multiple rendering and state-consistency fixes.
 - **v0.9.0** Self-developed Core-layer reactive state model migration, timing issues eliminated
 - **v0.9.0** Single-path Scene renderer + WebGPU backend (hybrid DOM canvas, no compositeTo), FrameTransaction reactivity, device-lost recovery, auto-fallback WebGPU → WebGL → Canvas2D
