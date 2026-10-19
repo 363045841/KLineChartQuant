@@ -355,6 +355,8 @@ export class ChartRenderer {
         // timer 只请求下一帧；即使本帧跳过 paint，也由事务统一续订。
         this.scheduleLastPriceCountdown(snapshot.countdown)
         if (snapshot.skip) return
+        // 调整后备存储会自动清屏，必须紧邻本帧绘制，不能在 ResizeObserver 中提前执行。
+        this.deps.commitViewportResize()
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame) {

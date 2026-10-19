@@ -46,6 +46,8 @@ export interface RendererDependencies {
   options: OptionsStateModule
   /** scroll / dpr / plot 几何 SSOT */
   viewport: ViewportStateModule
+  /** 绘制前统一提交待处理的 GPU 与 Pane Canvas 尺寸，避免观察器提前清空像素。 */
+  commitViewportResize: () => void
   /** 由 Chart 的 ViewportScrollBridge 在 render frame 内提交原生滚动。 */
   commitViewportScroll: (targetScrollLeft: number) => void
   getDataManager: () => ChartDataManager
@@ -54,7 +56,9 @@ export interface RendererDependencies {
   dataView$: ReadonlySignal<ChartDataView>
   primaryRenderer$?: ReadonlySignal<import('../chartModel/index.js').PrimaryRendererType>
   settings$: ReadonlySignal<ChartSettings>
-  footprintState$: ReadonlySignal<import('../../components/footprint/types.js').FootprintRenderState | null>
+  footprintState$: ReadonlySignal<
+    import('../../components/footprint/types.js').FootprintRenderState | null
+  >
   mainPriceAxis: MainPriceAxisStateModule
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']

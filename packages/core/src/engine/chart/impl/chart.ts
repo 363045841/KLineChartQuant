@@ -156,6 +156,8 @@ export class Chart {
   /** 唯一的 renderer 程序滚动与原生 scroll 回流协调器。 */
   private viewportScrollBridge: ViewportScrollBridge
   private layoutManager: ChartPaneLayout
+  /** ResizeObserver 只置位；会清空像素的表面尺寸变更由绘制帧统一提交。 */
+  private viewportResizePending = false
   private get paneRenderers(): PaneRenderer[] {
     return this.layoutManager.getPaneRenderers()
   }
@@ -303,8 +305,7 @@ export class Chart {
     // Inject DOM deps into kernel's viewportState (needed before init)
     this.kernel.setViewportDomDeps({
       getDom: () => this.dom,
-      resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
-        this.rendererHost.resize(plotWidth, plotHeight, dpr),
+      resizeSharedWebGLSurface: () => this.resize(),
     })
 
     // ── ViewportManager (DOM lifecycle: ResizeObserver + scroll events) ──
@@ -390,7 +391,9 @@ export class Chart {
       input$: this.kernel.footprint.readonly.input,
       commit: this.kernel.footprint.actions.commit,
     })
-    this.disposeFootprintDraw = this.kernel.footprint.readonly.renderState.subscribe(() => this.scheduleDraw())
+    this.disposeFootprintDraw = this.kernel.footprint.readonly.renderState.subscribe(() =>
+      this.scheduleDraw(),
+    )
 
     // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
     this.comparisonCommands = new ComparisonCommands({
@@ -469,6 +472,7 @@ export class Chart {
       zoom: this.kernel.zoom,
       options: this.kernel.options,
       viewport: this.kernel.viewport,
+      commitViewportResize: () => this.commitViewportResize(),
       commitViewportScroll: (targetScrollLeft) =>
         this.viewportScrollBridge.commit(
           targetScrollLeft,
@@ -1151,14 +1155,20 @@ export class Chart {
     this.resetPriceTransform(MAIN_PANE_ID)
   }
 
-  /** 提交左右轴估算结果；仅宽度变化时更新宿主布局。 */
+  /** 统一提交左右纵轴宽度；交互期间只扩宽，结束后按所有 Pane 的实际标签需求收缩。 */
   private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
     const options = this.kernel.options.readonly.options.peek()
+    const interacting = this.interaction.isPointerDown()
     const right = Math.max(
       options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
       widths.right,
+      interacting ? this._effectiveRightAxisWidth.peek() : 0,
     )
-    const left = Math.max(options.leftAxisWidth, widths.left)
+    const left = Math.max(
+      options.leftAxisWidth,
+      widths.left,
+      interacting ? this._effectiveLeftAxisWidth.peek() : 0,
+    )
     const changed =
       this._effectiveRightAxisWidth.peek() !== right || this._effectiveLeftAxisWidth.peek() !== left
     if (!changed) return false
@@ -1171,16 +1181,27 @@ export class Chart {
     return true
   }
 
-  /** 容器尺寸变化时调用 */
+  /** 容器尺寸变化时记录重排意图，保留当前像素直到下一帧能够立即重画。 */
   resize() {
     const vp = this.getViewport()
     const timeShare = this.activeMode === this._timeShareMode
     if (!vp || (timeShare ? vp.plotWidth <= 0 : vp.viewWidth < 10 || vp.viewHeight < 10)) return
+    this.viewportResizePending = true
     this.renderer.clearCachedFrame()
-    this.layoutManager.layoutPanes()
+    this.renderer.invalidateFrame()
     this.interaction.invalidateHover()
     this.scheduleDraw()
     if (!timeShare) this.checkVisibleRangeGapWhenIdle()
+  }
+
+  /** 在绘制帧内提交 GPU 和 Pane 表面尺寸，随后同帧绘制，避免清屏后跨帧留白。 */
+  private commitViewportResize(): void {
+    if (!this.viewportResizePending) return
+    const vp = this.getViewport()
+    if (!vp) return
+    this.viewportResizePending = false
+    this.rendererHost.resize(vp.plotWidth, vp.plotHeight, vp.dpr)
+    this.layoutManager.layoutPanes()
   }
 
   /**

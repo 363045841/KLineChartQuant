@@ -158,9 +158,12 @@ export class InteractionController {
 
   /** 新输入、视图重置及销毁时立即取消惯性。 */
   stopInertia(): void {
+    const wasActive = this.inertiaFrame !== null
     if (this.inertiaFrame !== null) cancelAnimationFrame(this.inertiaFrame)
     this.inertiaFrame = null
     this.panSamples = []
+    // 惯性也属于持续交互；结束后让统一轴宽提交入口释放保留的宽度。
+    if (wasActive) this.chart.scheduleDraw(UpdateLevel.Overlay)
   }
 
   private samplePan(time: number): void {
@@ -770,6 +773,8 @@ export class InteractionController {
     if (releaseCapture && pointerId !== null && captureElement?.hasPointerCapture(pointerId)) {
       captureElement.releasePointerCapture(pointerId)
     }
+    // 即使松手后没有 hover 或数据变化，也需要一次帧提交来统一收缩纵轴。
+    this.chart.scheduleDraw(UpdateLevel.Overlay)
   }
 
   /**
