@@ -1,35 +1,32 @@
 /** 验证足迹统计的十进制精度、时间对齐、增量及缺口语义。 */
 import { describe, expect, it } from 'vitest'
 import { TRADE_STATUS } from '../../../data/trades/types.js'
-import { data, params, trade, batch, input } from './helpers/footprintTestKit.js'
 import { createFootprintCalculator } from '../impl/calculateFootprint.js'
-import {
-  FOOTPRINT_DEFAULT_PARAMS,
-  FOOTPRINT_METRICS,
-  FOOTPRINT_ROW_MODES,
-} from '../types.js'
+import { FOOTPRINT_DEFAULT_PARAMS, FOOTPRINT_METRICS, FOOTPRINT_ROW_MODES } from '../types.js'
+import { batch, data, input, params, trade } from './helpers/footprintTestKit.js'
 
 describe('Footprint calculator', () => {
   // 活跃柱振幅不参与统计；网格变化后必须重放成交，同时保持总量和 Delta。
   it('reaggregates retained trades when automatic row height changes after a close', () => {
     const compute = createFootprintCalculator()
+    const autoParams = { ...FOOTPRINT_DEFAULT_PARAMS, targetRows: 15 }
     const bars = data.map((bar) => ({ ...bar, high: 4, low: 1 }))
     const snapshot = input([
       batch([trade('1', 1500, '1.2', '2', 'buy'), trade('2', 1600, '1.4', '1', 'sell')]),
     ])
-    const first = compute(bars, FOOTPRINT_DEFAULT_PARAMS, snapshot)
+    const first = compute(bars, autoParams, snapshot)
     expect(first.rowSize).toBe('0.2')
     expect(first.bars[0]?.cells).toHaveLength(2)
     const live = bars.map((bar, index) => (index === 1 ? { ...bar, high: 10 } : bar))
-    const intrabar = compute(live, FOOTPRINT_DEFAULT_PARAMS, snapshot)
+    const intrabar = compute(live, autoParams, snapshot)
     expect(intrabar.rowSize).toBe(first.rowSize)
     expect(intrabar.bars[0]).toBe(first.bars[0])
     const closed = [...live, { ...bars[1]!, timestamp: 3000 }]
-    const next = compute(closed, FOOTPRINT_DEFAULT_PARAMS, snapshot)
+    const next = compute(closed, autoParams, snapshot)
     expect(next.rowSize).toBe('0.4')
     expect(next.bars[0]?.cells).toHaveLength(1)
     expect(next.bars[0]).toMatchObject({ total: '3.8', delta: '1' })
-    expect(compute(closed, FOOTPRINT_DEFAULT_PARAMS, structuredClone(snapshot))).toEqual(next)
+    expect(compute(closed, autoParams, structuredClone(snapshot))).toEqual(next)
   })
 
   // 周期切换即使复用计算器，也应按新柱振幅重新决定网格。
@@ -38,8 +35,8 @@ describe('Footprint calculator', () => {
     const snapshot = input([])
     const small = data.map((bar) => ({ ...bar, high: 4 }))
     const large = data.map((bar) => ({ ...bar, high: 31 }))
-    expect(compute(small, FOOTPRINT_DEFAULT_PARAMS, snapshot).rowSize).toBe('0.2')
-    expect(compute(large, FOOTPRINT_DEFAULT_PARAMS, snapshot).rowSize).toBe('2')
+    expect(compute(small, FOOTPRINT_DEFAULT_PARAMS, snapshot).rowSize).toBe('0.3')
+    expect(compute(large, FOOTPRINT_DEFAULT_PARAMS, snapshot).rowSize).toBe('3')
     expect(
       compute(large, { ...FOOTPRINT_DEFAULT_PARAMS, rowMode: FOOTPRINT_ROW_MODES.Fixed }, snapshot)
         .rowSize,

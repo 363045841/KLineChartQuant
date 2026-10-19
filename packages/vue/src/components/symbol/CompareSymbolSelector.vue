@@ -292,7 +292,7 @@
     align-items: center;
     justify-content: center;
     color: var(--klc-color-ui-muted);
-    /* Tabler 图标在 24 viewBox 内四周留白，15px 下左右各约 3px；抵消后使视觉间距与 Dropdown 触发器一致 */
+    /* Tabler 图标在 24 viewBox 内四周留白，15px 下左右各约 3px；抵消后使视觉间距与 DropMenu 触发器一致 */
     margin-inline: -3px;
   }
 

@@ -20,13 +20,18 @@
       <template v-else-if="activeSection === 'dataSource'">
         <div class="settings-item">
           <span>缓存上限</span>
-          <Dropdown
-            :model-value="String(settings.marketDataCacheMaxMiB)"
-            :options="cacheLimitOptions"
-            size="sm"
-            min-width="100px"
-            @update:model-value="settings.marketDataCacheMaxMiB = Number($event)"
-          />
+          <DropMenu
+            class="settings-select"
+            label="缓存上限"
+            :groups="cacheLimitGroups"
+            density="compact"
+            @select="(_groupId, value) => settings.marketDataCacheMaxMiB = Number(value)"
+          >
+            <template #trigger>
+              <span class="selection-menu__value">{{ settings.marketDataCacheMaxMiB }} MiB</span>
+              <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+            </template>
+          </DropMenu>
         </div>
         <div class="settings-item cache-usage">
           <span>当前用量</span>
@@ -129,22 +134,23 @@
   import {
     type ChartSettings,
     DEFAULT_SETTINGS,
+    isSettingVisible,
     normalizeSettings,
     resolveSettingDefault,
     type SettingItem,
-    isSettingVisible,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import Dropdown from '@vue-src/components/common/Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import ShortcutSettings from '@vue-src/components/shortcut/settings/ShortcutSettings.vue'
   import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
   import { computed, ref, watch } from 'vue'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerTrash from '~icons/tabler/trash'
   import OpenSourceCredits from './OpenSourceCredits.vue'
   import SettingsItemRow from './SettingsItemRow.vue'
@@ -206,10 +212,17 @@
         (s) => s.key !== 'theme' && s.group === 'style',
       ) as unknown as SettingItem[],
   )
-  const cacheLimitOptions = [50, 100, 150, 200, 500].map((value) => ({
-    value: String(value),
-    label: `${value} MiB`,
-  }))
+  const cacheLimitGroups = computed<ReadonlyArray<DropMenuGroup>>(() => [
+    {
+      id: 'marketDataCacheMaxMiB',
+      label: '',
+      items: [50, 100, 150, 200, 500].map((value) => ({
+        id: String(value),
+        label: `${value} MiB`,
+        active: settings.value.marketDataCacheMaxMiB === value,
+      })),
+    },
+  ])
 
   /** 主图 / 样式 / 实验性三个 section 共享同一套设置行渲染，这里按当前 section 取列表。 */
   const sectionItems = computed<ReadonlyArray<SettingItem>>(() => {
@@ -315,18 +328,9 @@
 </script>
 
 <style scoped src="../../common/settings-item.css"></style>
+<style scoped src="../../common/selection-menu.css"></style>
 
 <style scoped>
-  .settings-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    font-family: var(--klc-typography-font-family);
-    font-size: var(--klc-typography-font-size-md);
-    line-height: var(--klc-typography-line-height-standard);
-    color: var(--klc-color-ui-text);
-  }
-
   /* 区块只在边界留白，避免说明文字、区块 padding 与设置行 padding 叠加。 */
   .settings-body--style > :first-child {
     margin-block-end: var(--klc-spacing-sm);

@@ -30,7 +30,7 @@ export const FOOTPRINT_ROW_MODE_OPTIONS = [
 export const FOOTPRINT_DEFAULT_PARAMS = {
   rowMode: FOOTPRINT_ROW_MODES.AverageRange,
   rowPeriod: 20,
-  targetRows: 15,
+  targetRows: 10,
   ticksPerRow: 300,
   imbalanceRatio: 3,
   metric: FOOTPRINT_METRICS.Turnover,

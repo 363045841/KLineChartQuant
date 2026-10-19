@@ -9,21 +9,24 @@
     </BaseTooltip>
 
     <BaseTooltip v-if="canEdit('strokeWidth')" content="线宽" placement="top" trigger-display="contents">
-      <Dropdown
-        :model-value="String(style.strokeWidth ?? 1)"
-        :options="widthOptions"
-        size="sm"
-        @update:model-value="onWidthChange(Number($event))"
-      />
+      <DropMenu label="线宽" :groups="widthGroups" density="compact"
+        trigger-class="control-button--sm"
+        @select="(_groupId, value) => onWidthChange(Number(value))">
+        <template #trigger>
+          <span class="selection-menu__value">{{ style.strokeWidth ?? 1 }}px</span>
+          <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+        </template>
+      </DropMenu>
     </BaseTooltip>
 
     <BaseTooltip v-if="canEdit('strokeStyle')" content="线型" placement="top" trigger-display="contents">
-      <Dropdown
-        :model-value="style.strokeStyle ?? 'solid'"
-        :options="styleOptions"
-        size="sm"
-        @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
-      />
+      <DropMenu label="线型" :groups="styleGroups" density="compact"
+        trigger-class="control-button--sm" @select="selectLineStyle">
+        <template #trigger>
+          <span class="selection-menu__value">{{ selectedStyleLabel }}</span>
+          <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+        </template>
+      </DropMenu>
     </BaseTooltip>
 
     <span v-if="drawings.length > 1" class="selection-count">已选 {{ drawings.length }}</span>
@@ -160,12 +163,13 @@
   import ColorPicker from '@vue-src/components/color/impl/ColorPicker.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import CanvasToolbar from '@vue-src/components/common/CanvasToolbar.vue'
-  import Dropdown from '@vue-src/components/common/Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed, onMounted, onUnmounted } from 'vue'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
   import IconTablerBookmarks from '~icons/tabler/bookmarks'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerCopy from '~icons/tabler/copy'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerLock from '~icons/tabler/lock'
@@ -184,7 +188,7 @@
     { label: '实线', value: 'solid' },
     { label: '虚线', value: 'dashed' },
     { label: '点线', value: 'dotted' },
-  ]
+  ] as const
 
   const positionOptions = [
     { value: 'start', label: '起点', icon: IconTablerAlignLeft },
@@ -233,6 +237,38 @@
 
   /** 批量编辑展示首个图元的当前值；写入仅限 Core 确认的字段交集。 */
   const style = computed(() => props.drawings[0]?.style ?? {})
+  const widthGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'width',
+      label: '',
+      items: widthOptions.map((option) => ({
+        id: option.value,
+        label: option.label,
+        active: Number(option.value) === (style.value.strokeWidth ?? 1),
+      })),
+    },
+  ])
+  const styleGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'style',
+      label: '',
+      items: styleOptions.map((option) => ({
+        id: option.value,
+        label: option.label,
+        active: option.value === (style.value.strokeStyle ?? 'solid'),
+      })),
+    },
+  ])
+  const selectedStyleLabel = computed(
+    () =>
+      styleOptions.find((option) => option.value === (style.value.strokeStyle ?? 'solid'))?.label,
+  )
+
+  /** 从菜单选项中解析线型，再提交类型明确的样式变更。 */
+  function selectLineStyle(_groupId: string, value: string): void {
+    const option = styleOptions.find((option) => option.value === value)
+    if (option) onLineStyleChange(option.value)
+  }
   function canEdit(key: keyof DrawingStyle): boolean {
     return props.editableStyleKeys.includes(key)
   }
@@ -259,6 +295,7 @@
   }
 </script>
 
+<style scoped src="../common/selection-menu.css"></style>
 <style scoped>
   .selection-count {
     padding: 0 4px;

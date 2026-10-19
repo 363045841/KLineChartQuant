@@ -11,6 +11,7 @@
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @settings="openChartSettings('main')"
+        @footprint-settings="footprintSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
         @undo-drawing="controller?.undoDrawing()"
@@ -339,6 +340,11 @@
     >
       <template #source-management><slot name="source-management" /></template>
     </ChartSettingsDialog>
+    <FootprintSettingsDialog
+      v-model:open="footprintSettingsOpen"
+      :initial-settings="chartSettings"
+      @confirm="handleSettingsChange({ ...chartSettings, ...$event }); footprintSettingsOpen = false"
+    />
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
     <ScriptEditorDialog
       v-model:open="scriptEditorOpen"
@@ -374,12 +380,12 @@
 </template>
 
 <script setup lang="ts">
+  import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
   import {
     type ChartSettings,
     normalizeSettings,
     TOOLTIP_POSITION_NONE,
   } from '@363045841yyt/klinechart-core/config'
-  import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
   import {
     type ChartController,
     type ChartMountOptions,
@@ -430,6 +436,7 @@
 
   import './tooltip.css'
   import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
+  import FootprintSettingsDialog from '@vue-src/components/chart/settings/FootprintSettingsDialog.vue'
   import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
@@ -899,6 +906,7 @@
   // ── Fullscreen (controlled / uncontrolled) ──
   const internalIsFullscreen = ref(false)
   const chartSettingsOpen = ref(false)
+  const footprintSettingsOpen = ref(false)
   const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
 
   function openChartSettings(section: 'main' | 'shortcuts'): void {

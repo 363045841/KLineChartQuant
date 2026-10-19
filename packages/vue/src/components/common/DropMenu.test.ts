@@ -1,15 +1,20 @@
-/** Dropdown / DropMenu：列表选择、键盘导航与菜单互斥。 */
+/** DropMenu：列表选择、键盘导航与菜单互斥。 */
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
-import Dropdown from './Dropdown.vue'
 import DropMenu from './DropMenu.vue'
 
-const options = [
-  { label: 'Alpha', value: 'a' },
-  { label: 'Beta', value: 'b' },
-  { label: 'Gamma', value: 'g' },
+const selectionGroups = [
+  {
+    id: 'selection',
+    label: '',
+    items: [
+      { label: 'Alpha', id: 'a' },
+      { label: 'Beta', id: 'b', active: true },
+      { label: 'Gamma', id: 'g' },
+    ],
+  },
 ]
 
 async function flush(): Promise<void> {
@@ -30,14 +35,14 @@ function key(target: Element, name: string, init: KeyboardEventInit = {}): Keybo
 }
 
 function optionEls(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+  return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
 }
 
-describe('Dropdown（无 Popover API 的退化模式）', () => {
+describe('DropMenu 单选（无 Popover API 的退化模式）', () => {
   it('点击打开后焦点落在已选项，方向键/Home/End/typeahead 移动焦点', async () => {
-    const wrapper = mount(Dropdown, {
+    const wrapper = mount(DropMenu, {
       attachTo: document.body,
-      props: { modelValue: 'b', options, ariaLabel: '级别' },
+      props: { groups: selectionGroups, label: '级别' },
     })
     const trigger = wrapper.get('button').element as HTMLButtonElement
     trigger.click()
@@ -45,7 +50,7 @@ describe('Dropdown（无 Popover API 的退化模式）', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     const [alpha, beta, gamma] = optionEls()
     expect(document.activeElement).toBe(beta)
-    const listbox = document.querySelector('[role="listbox"]') as HTMLElement
+    const listbox = document.querySelector('[role="menu"]') as HTMLElement
     expect(listbox.getAttribute('aria-label')).toBe('级别')
 
     key(beta as HTMLElement, 'ArrowDown')
@@ -63,25 +68,31 @@ describe('Dropdown（无 Popover API 的退化模式）', () => {
     wrapper.unmount()
   })
 
-  it('选择后发出 update:modelValue、关闭并把焦点还给触发器', async () => {
-    const wrapper = mount(Dropdown, {
+  it('选择后发出 select、关闭并把焦点还给触发器', async () => {
+    const wrapper = mount(DropMenu, {
       attachTo: document.body,
-      props: { modelValue: 'a', options },
+      props: { groups: selectionGroups, label: '级别' },
     })
     const trigger = wrapper.get('button').element as HTMLButtonElement
     trigger.click()
     await flush()
     optionEls()[2]?.click()
     await flush()
-    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['g'])
+    expect(wrapper.emitted('select')?.[0]).toEqual(['selection', 'g'])
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(document.activeElement).toBe(trigger)
     wrapper.unmount()
   })
 
   it('打开另一个下拉会关闭当前下拉（同一时间只开一个）', async () => {
-    const first = mount(Dropdown, { attachTo: document.body, props: { modelValue: 'a', options } })
-    const second = mount(Dropdown, { attachTo: document.body, props: { modelValue: 'a', options } })
+    const first = mount(DropMenu, {
+      attachTo: document.body,
+      props: { groups: selectionGroups, label: '级别' },
+    })
+    const second = mount(DropMenu, {
+      attachTo: document.body,
+      props: { groups: selectionGroups, label: '级别' },
+    })
     const a = first.get('button').element as HTMLButtonElement
     const b = second.get('button').element as HTMLButtonElement
     a.click()

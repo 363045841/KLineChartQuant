@@ -11,14 +11,19 @@
       :aria-label="label"
       @update:model-value="emit('update', $event)"
     />
-    <Dropdown
+    <DropMenu
       v-else-if="type === 'select' && options"
-      :model-value="String(value)"
-      :options="options"
-      size="sm"
-      min-width="100px"
-      @update:model-value="emit('update', $event)"
-    />
+      class="settings-select"
+      :label="label"
+      :groups="groups"
+      density="compact"
+      @select="(_groupId, value) => emit('update', value)"
+    >
+      <template #trigger>
+        <span class="selection-menu__value">{{ selectedLabel }}</span>
+        <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+      </template>
+    </DropMenu>
     <input
       v-else-if="type === 'number'"
       type="number"
@@ -35,8 +40,10 @@
 
 <script setup lang="ts">
   import type { SettingItem } from '@363045841yyt/klinechart-core/config'
-  import Dropdown from '@vue-src/components/common/Dropdown.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import { computed } from 'vue'
+  import IconChevronDown from '~icons/tabler/chevron-down'
 
   const props = defineProps<{
     /** 设置项标签。 */
@@ -54,6 +61,25 @@
 
   const emit = defineEmits<{ update: [value: string | boolean | number] }>()
 
+  const selectedLabel = computed(
+    () => props.options?.find((option) => option.value === String(props.value))?.label,
+  )
+  const groups = computed<ReadonlyArray<DropMenuGroup>>(() =>
+    props.options
+      ? [
+          {
+            id: props.label,
+            label: '',
+            items: props.options.map((option) => ({
+              id: option.value,
+              label: option.label,
+              active: option.value === String(props.value),
+            })),
+          },
+        ]
+      : [],
+  )
+
   /** 数值设置通过原生约束校验后提交，空值和越界输入恢复为当前草稿。 */
   function onNumberChange(event: Event): void {
     const input = event.target
@@ -68,8 +94,21 @@
 
 <style scoped src="../../common/settings-item.css"></style>
 <style scoped src="../../common/form-control.css"></style>
+<style scoped src="../../common/selection-menu.css"></style>
 <style scoped>
   .settings-number {
     width: 100px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 4px;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  /* 隐藏浏览器原生增减按钮，数值约束仍由 number 输入框校验。 */
+  .settings-number::-webkit-inner-spin-button,
+  .settings-number::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 </style>

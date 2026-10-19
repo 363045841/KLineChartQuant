@@ -203,6 +203,24 @@
 <style scoped src="./control-button.css"></style>
 
 <style scoped>
+  /* 设置弹窗内的菜单共用紧凑、透明的触发器。 */
+  .settings-select .drop-menu__trigger {
+    min-width: 100px;
+    height: 24px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    box-shadow: none;
+    font-size: var(--klc-typography-font-size-md);
+    justify-content: space-between;
+  }
+
+  .settings-select .drop-menu__trigger:hover:not(:disabled),
+  .settings-select .drop-menu__trigger[aria-expanded='true'] {
+    background: var(--klc-color-ui-hover);
+  }
+
   .drop-menu {
     flex: 0 0 auto;
   }

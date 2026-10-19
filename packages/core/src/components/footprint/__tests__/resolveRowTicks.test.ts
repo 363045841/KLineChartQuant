@@ -19,14 +19,17 @@ describe('Footprint row ticks', () => {
   it('uses only the most recent completed candles in the selected window', () => {
     expect(
       resolveRowTicks(bars([300, 15, 45, 900]), { ...FOOTPRINT_DEFAULT_PARAMS, rowPeriod: 2 }, 1),
-    ).toBe(2)
+    ).toBe(3)
   })
 
-  it.each([10, 15, 20])('targets %i rows and rounds to whole ticks', (targetRows) => {
-    expect(resolveRowTicks(bars([30, 900]), { ...FOOTPRINT_DEFAULT_PARAMS, targetRows }, 0.1)).toBe(
-      Math.round(300 / targetRows),
-    )
-  })
+  it.each([1, 5, 10, 15, 20, 50, 100])(
+    'targets %i rows and rounds to whole ticks',
+    (targetRows) => {
+      expect(
+        resolveRowTicks(bars([30, 900]), { ...FOOTPRINT_DEFAULT_PARAMS, targetRows }, 0.1),
+      ).toBe(Math.round(300 / targetRows))
+    },
+  )
 
   it.each([[], [900], [0, 900], [0.01, 900]].map((ranges) => ({ ranges })))(
     'uses one tick for insufficient range $ranges',
@@ -36,7 +39,7 @@ describe('Footprint row ticks', () => {
   )
 
   it('uses available completed candles before the full window is populated', () => {
-    expect(resolveRowTicks(bars([30, 900]), FOOTPRINT_DEFAULT_PARAMS, 1)).toBe(2)
+    expect(resolveRowTicks(bars([30, 900]), FOOTPRINT_DEFAULT_PARAMS, 1)).toBe(3)
   })
 
   it('includes gaps in ATR and uses Wilder smoothing', () => {
@@ -44,7 +47,7 @@ describe('Footprint row ticks', () => {
     data[1] = { ...data[1]!, low: 130, high: 145, close: 130 }
     data[2] = { ...data[2]!, low: 130, high: 145, close: 130 }
     const params = { ...FOOTPRINT_DEFAULT_PARAMS, rowPeriod: 2 }
-    expect(resolveRowTicks(data, params, 0.1)).toBe(10)
-    expect(resolveRowTicks(data, { ...params, rowMode: FOOTPRINT_ROW_MODES.ATR }, 0.1)).toBe(15)
+    expect(resolveRowTicks(data, params, 0.1)).toBe(15)
+    expect(resolveRowTicks(data, { ...params, rowMode: FOOTPRINT_ROW_MODES.ATR }, 0.1)).toBe(23)
   })
 })

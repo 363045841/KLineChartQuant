@@ -1,4 +1,14 @@
 /* 设置行：图表设置弹窗内各分组共用的行布局与文本列。 */
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-family: var(--klc-typography-font-family);
+  font-size: var(--klc-typography-font-size-md);
+  line-height: var(--klc-typography-line-height-standard);
+  color: var(--klc-color-ui-text);
+}
+
 .settings-item {
   /* 行高包含内边距，所有分组共用相同的水平对齐与垂直节奏。 */
   box-sizing: border-box;

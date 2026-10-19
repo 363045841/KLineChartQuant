@@ -64,6 +64,20 @@
         :disabled-values="kLineShapeDisabled"
         @update:model-value="emit('kLineShapeChange', $event)"
       />
+      <BaseTooltip
+        v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
+        content="足迹图设置"
+        placement="bottom"
+      >
+        <button
+          type="button"
+          class="control-button footprint-settings-button"
+          aria-label="足迹图设置"
+          @click="emit('footprintSettings')"
+        >
+          <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
       <BaseTooltip v-if="showBackButton" content="返回" placement="bottom" trigger-display="contents">
       <button
         type="button"
@@ -161,6 +175,7 @@
 </template>
 
 <script setup lang="ts">
+  import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
@@ -318,6 +333,7 @@
     (e: 'redoDrawing'): void
     (e: 'toggleFullscreen'): void
     (e: 'settings'): void
+    (e: 'footprintSettings'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
   }>()
 
@@ -450,6 +466,29 @@
   .back-button__icon {
     width: 15px;
     height: 15px;
+  }
+
+  /* 足迹设置仅用图标变色提示悬浮，点击区域保持紧凑。 */
+  .top-toolbar .footprint-settings-button {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    transition: color var(--klc-motion-duration-moderate) ease;
+  }
+
+  .top-toolbar .footprint-settings-button:hover:not(:disabled) {
+    background: transparent;
+    color: var(--klc-color-ui-accent);
+  }
+
+  .footprint-settings-button__icon {
+    width: 14px;
+    height: 14px;
   }
 
   .layout-actions {

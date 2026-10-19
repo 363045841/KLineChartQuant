@@ -369,14 +369,18 @@
           <div class="card interface__list">
             <div class="row">
               <span class="row__label">{{ text.language }}</span>
-              <Dropdown
-                :model-value="locale"
-                :options="languageOptions"
-                :title="text.language"
-                size="sm"
-                min-width="140px"
-                @update:model-value="setLocale($event)"
-              />
+              <DropMenu
+                class="language-control"
+                :label="text.language"
+                :groups="languageGroups"
+                density="compact"
+                @select="(_groupId, value) => setLocale(value)"
+              >
+                <template #trigger>
+                  <span>{{ selectedLanguageLabel }}</span>
+                  <IconChevronDown class="language-chevron" aria-hidden="true" />
+                </template>
+              </DropMenu>
             </div>
             <div class="row">
               <span class="row__label">{{ text.collapseReasoning }}</span>
@@ -409,7 +413,6 @@
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import Dropdown from '@vue-src/components/common/Dropdown.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
@@ -458,7 +461,20 @@
   const modelSearch = ref('')
 
   const text = computed(() => getAgentCopy(props.locale))
-  const languageOptions = computed(() => [...AGENT_LOCALE_OPTIONS])
+  const languageGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'language',
+      label: '',
+      items: AGENT_LOCALE_OPTIONS.map((option) => ({
+        id: option.value,
+        label: option.label,
+        active: option.value === props.locale,
+      })),
+    },
+  ])
+  const selectedLanguageLabel = computed(
+    () => AGENT_LOCALE_OPTIONS.find((option) => option.value === props.locale)?.label,
+  )
   const agentTabs = computed<ReadonlyArray<{ id: SettingsTab; label: string }>>(() => [
     { id: 'provider', label: text.value.providerSettings },
     { id: 'tools', label: text.value.tools },
@@ -665,6 +681,16 @@
 <style scoped src="../../../components/common/selection-menu.css"></style>
 
 <style scoped>
+  .language-control :deep(.drop-menu__trigger) {
+    min-width: 140px;
+    justify-content: space-between;
+  }
+
+  .language-chevron {
+    width: 14px;
+    height: 14px;
+    color: var(--klc-color-ui-muted);
+  }
   /* ───────── 基础 ───────── */
   .settings {
     --_gap: 12px;

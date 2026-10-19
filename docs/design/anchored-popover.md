@@ -1,6 +1,6 @@
 # Anchored popover lifecycle and positioning
 
-`useAnchoredPopover` is the public composition facade. Dropdown, DropMenu and
+`useAnchoredPopover` is the public composition facade. DropMenu and
 BasePopover keep the same bindings and show/hide API. Capabilities are selected once
 per instance, and each concern owns its own lifetime:
 

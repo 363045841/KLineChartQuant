@@ -20,8 +20,8 @@ export function resolveRowTicks(
   if (!Number.isSafeInteger(period) || period < 1) {
     throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '振幅统计根数必须是正整数')
   }
-  if (!Number.isSafeInteger(targetRows) || targetRows < 10 || targetRows > 20) {
-    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '目标行数必须是 10 到 20 的整数')
+  if (!Number.isSafeInteger(targetRows) || targetRows <= 0) {
+    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '目标行数必须是正整数')
   }
   const closed = data.slice(0, -1)
   if (closed.length === 0) return 1

@@ -32,19 +32,21 @@
               </span>
             </template>
           </DropMenu>
-          <Dropdown
+          <DropMenu
             v-if="provider.reasoningEfforts?.length"
             class="composer__reasoning"
-            allow-empty
-            size="sm"
+            density="compact"
             placement="top"
-            :model-value="provider.reasoningEffort"
-            :options="reasoningOptions"
-            :placeholder="text.reasoning"
-            :title="text.reasoningEffort"
+            :groups="reasoningGroups"
+            :label="text.reasoningEffort"
             :disabled="running"
-            @update:model-value="$emit('reasoning-effort', $event)"
-          />
+            @select="(_groupId, value) => $emit('reasoning-effort', value)"
+          >
+            <template #trigger>
+              <span class="composer__reasoning-value">{{ provider.reasoningEffort || text.reasoning }}</span>
+              <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
+            </template>
+          </DropMenu>
         </div>
         <BaseTooltip
           v-if="contextUsage"
@@ -87,7 +89,6 @@
 </template>
 
 <script setup lang="ts">
-  import Dropdown from '@vue-src/components/common/Dropdown.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
@@ -130,9 +131,17 @@
     if (selected) return selected.name
     return props.modelsLoading ? text.value.loadingModels : text.value.modelPlaceholder
   })
-  const reasoningOptions = computed(() =>
-    (props.provider.reasoningEfforts ?? []).map((effort) => ({ value: effort, label: effort })),
-  )
+  const reasoningGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'reasoning',
+      label: '',
+      items: (props.provider.reasoningEfforts ?? []).map((effort) => ({
+        id: effort,
+        label: effort,
+        active: effort === props.provider.reasoningEffort,
+      })),
+    },
+  ])
   const contextUsage = computed(() => {
     const used = props.usage?.contextTokens
     const window = props.usage?.contextWindow ?? props.provider.contextWindow
@@ -241,7 +250,7 @@
     min-width: 0;
   }
 
-  .composer__reasoning :deep(.dropdown__trigger) {
+  .composer__reasoning :deep(.drop-menu__trigger) {
     max-width: 160px;
     height: 26px;
     box-sizing: border-box;
@@ -262,20 +271,20 @@
     max-width: 160px;
   }
 
-  .composer__reasoning :deep(.dropdown__trigger:hover:not(:disabled)),
-  .composer__reasoning :deep(.dropdown__trigger[aria-expanded='true']:not(:disabled)) {
+  .composer__reasoning :deep(.drop-menu__trigger:hover:not(:disabled)),
+  .composer__reasoning :deep(.drop-menu__trigger[aria-expanded='true']:not(:disabled)) {
     border-color: var(--klc-color-agent-composer-control-hover);
     background: var(--klc-color-agent-composer-control-hover);
   }
 
-  .composer__reasoning :deep(.dropdown__trigger:focus-visible) {
+  .composer__reasoning :deep(.drop-menu__trigger:focus-visible) {
     outline: none;
     border-color: var(--agent-focus);
     background: var(--klc-color-agent-composer-control-hover);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
   }
 
-  .composer__reasoning :deep(.dropdown__trigger:disabled) {
+  .composer__reasoning :deep(.drop-menu__trigger:disabled) {
     color: var(--agent-text-soft);
     background: transparent;
     cursor: not-allowed;
@@ -293,7 +302,7 @@
     transform: rotate(180deg);
   }
 
-  .composer__reasoning :deep(.dropdown__value) {
+  .composer__reasoning-value {
     min-width: 0;
     overflow: hidden;
     color: var(--agent-text);
