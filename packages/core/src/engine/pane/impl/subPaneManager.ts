@@ -6,7 +6,11 @@ import {
   resolveIndicatorLayerId,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import { createIndicatorLayer } from '../../renderers/Indicator/factory.js'
-import { createIndicatorScaleLayer } from '../../renderers/Indicator/scale/indicator_scale.js'
+import {
+  createIndicatorScaleLayer,
+  hasIndicatorScaleCrosshairLayer,
+  resolveIndicatorScaleCrosshairLayerId,
+} from '../../renderers/Indicator/scale/indicator_scale.js'
 import type { SubPaneSpec } from '../../state/indicatorState.js'
 import type { SubPaneContext, SubPaneResources } from '../types.js'
 import { DEFAULT_PRICE_LABEL_WIDTH } from '../types.js'
@@ -212,12 +216,14 @@ export class SubPaneManager {
         : null
     if (!layer) return
     ctx.useRenderer(layer)
+    if (hasIndicatorScaleCrosshairLayer(layer)) ctx.useRenderer(layer.crosshairLayer)
   }
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources): void {
     // removeRenderer 同步卸 Scene Layer 并触发 Layer.dispose
     ctx.removeRenderer(entry.layerId)
     ctx.removeRenderer(entry.scaleLayerId)
+    ctx.removeRenderer(resolveIndicatorScaleCrosshairLayerId(entry.scaleLayerId))
   }
 
   private invalidateProjection(

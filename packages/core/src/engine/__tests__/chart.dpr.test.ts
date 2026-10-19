@@ -940,6 +940,44 @@ describe('Chart DPR pipeline', () => {
     await loadBuiltinIndicators()
   })
 
+  it('preserves the time axis bitmap until the resize frame repaints it', async () => {
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(() => 1)
+    vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {})
+    const chart = mountChart()
+    try {
+      chart.setData(makeBars(200))
+      chart.draw()
+      const canvas = chart.getDom().xAxisCanvas
+      const initialWidth = canvas.width
+      const initialHeight = canvas.height
+      const initialCssWidth = canvas.style.width
+      const context = chart['renderer']['xAxisCtx']!
+      const paint = vi.spyOn(context, 'fillText')
+      paint.mockClear()
+
+      // 模拟纵轴加宽导致的容器缩窄，并同时改变 DPR。
+      emitResize(ResizeObserverMock.instances[0]!, {
+        width: 900,
+        height: 600,
+        devicePixelWidth: 1800,
+        devicePixelHeight: 1200,
+      })
+      expect(canvas.width).toBe(initialWidth)
+      expect(canvas.height).toBe(initialHeight)
+      expect(canvas.style.width).toBe(initialCssWidth)
+      expect(paint).not.toHaveBeenCalled()
+
+      chart.draw()
+      const viewport = chart.getViewport()!
+      expect(canvas.width).toBe(Math.round(viewport.plotWidth * viewport.dpr))
+      expect(canvas.height).toBe(Math.round(defaultOptions.bottomAxisHeight * viewport.dpr))
+      expect(canvas.style.width).toBe(`${canvas.width / viewport.dpr}px`)
+      expect(paint).toHaveBeenCalled()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   beforeEach(() => {
     restoreChartDomStubs = installChartDomStubs()
   })

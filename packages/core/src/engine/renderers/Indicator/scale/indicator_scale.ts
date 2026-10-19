@@ -1,7 +1,7 @@
 /**
  * 通用指标坐标轴刻度 Layer 工厂。
  *
- * 按实例投影的极值计算刻度与十字线价签，绘制到右轴静态画布；
+ * 静态刻度与动态十字线价签分别绘制到右轴对应画布；
  * 状态经 `context.indicatorStateReader` 读取，不再持有 config。
  */
 
@@ -38,9 +38,29 @@ export interface IndicatorScaleLayerOptions {
   instanceId: string
 }
 
+const CROSSHAIR_LAYER_SUFFIX = ':crosshair'
+
+/** 指标轴的静态层及随鼠标更新的独立动态层。 */
+interface IndicatorScaleLayer extends Layer<RenderContext> {
+  crosshairLayer: Layer<RenderContext>
+}
+
+/** 从静态轴身份派生动态层身份，供挂载与卸载共用。 */
+export function resolveIndicatorScaleCrosshairLayerId(scaleLayerId: string): string {
+  return `${scaleLayerId}${CROSSHAIR_LAYER_SUFFIX}`
+}
+
+/** 识别通用指标轴工厂提供的动态层，兼容独立实现的自定义轴。 */
+export function hasIndicatorScaleCrosshairLayer(
+  layer: Layer<RenderContext>,
+): layer is IndicatorScaleLayer {
+  return 'crosshairLayer' in layer
+}
+
+/** 构建静态刻度与动态标签，两者共享指标的格式化选项。 */
 export function createIndicatorScaleLayer(
   options: IndicatorScaleLayerOptions,
-): Layer<RenderContext> {
+): IndicatorScaleLayer {
   const {
     axisWidth,
     paneId,
@@ -53,7 +73,7 @@ export function createIndicatorScaleLayer(
     instanceId,
   } = options
 
-  return createIndicatorRendererLayer({
+  const staticLayer = createIndicatorRendererLayer({
     definitionId: indicatorKey,
     part: 'scale',
     paneId,
@@ -116,8 +136,40 @@ export function createIndicatorScaleLayer(
         })
       }
 
+      paintAxisLabels(yAxisCtx, labels.labels, 'yRightStatic', {
+        dpr,
+        axisWidth: effectiveAxisWidth,
+        axisHeight: pane.height,
+      })
+    },
+  })
+
+  const crosshairLayer = createIndicatorRendererLayer({
+    layerId: resolveIndicatorScaleCrosshairLayerId(staticLayer.id),
+    paneId,
+    role: 'overlay',
+    z: RENDERER_PRIORITY.INDICATOR_SCALE,
+    draw(context) {
+      const { yAxisOverlayCtx, pane, dpr } = context
+      if (!yAxisOverlayCtx) return
+      const state = context.indicatorStateReader?.get<IndicatorScaleRenderState>(instanceId)
+      if (!state) return
+      const valueMin = state.valueMin ?? state.visibleMin
+      const valueMax = state.valueMax ?? state.visibleMax
+      if (!Number.isFinite(valueMin) || !Number.isFinite(valueMax)) return
       const crosshair = getCrosshair?.()
       if (crosshair && crosshair.activePaneId === pane.id) {
+        const displayRange = pane.yAxis.getDisplayRange()
+        const effectiveDecimals = formatTickLabel
+          ? decimals
+          : resolveAdaptiveDecimals(displayRange, decimals)
+        const formatValue =
+          formatTickLabel ?? ((value: number) => formatScaleValue(value, effectiveDecimals))
+        const tokenColors = resolveThemeColors(
+          context.theme,
+          context.isAsiaMarket,
+          context.colorPresetSettings,
+        )
         const localY = crosshair.y - pane.top
         const paddingTop = pane.yAxis.getPaddingTop()
         const paddingBottom = pane.yAxis.getPaddingBottom()
@@ -130,7 +182,7 @@ export function createIndicatorScaleLayer(
           displayRange.maxPrice - t * (displayRange.maxPrice - displayRange.minPrice)
         const formatCrosshair = formatCrosshairLabel ?? formatValue
 
-        registerAxisLabel(context, 'yRightStatic', {
+        registerAxisLabel(context, 'yRightOverlay', {
           kind: AXIS_LABEL_KIND.TAG,
           text: formatCrosshair(displayPrice),
           pos: localY,
@@ -142,11 +194,17 @@ export function createIndicatorScaleLayer(
         })
       }
 
-      paintAxisLabels(yAxisCtx, labels.labels, 'yRightStatic', {
-        dpr,
-        axisWidth: effectiveAxisWidth,
-        axisHeight: pane.height,
-      })
+      paintAxisLabels(
+        yAxisOverlayCtx,
+        context.axisLabels.forSurface('yRightOverlay', pane.id).labels,
+        'yRightOverlay',
+        {
+          dpr,
+          axisWidth: yAxisOverlayCtx.canvas.width / dpr,
+          axisHeight: pane.height,
+        },
+      )
     },
   })
+  return Object.assign(staticLayer, { crosshairLayer })
 }

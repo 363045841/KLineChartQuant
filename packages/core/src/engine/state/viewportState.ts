@@ -293,8 +293,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const syncCanvasDom = (dpr: number, viewWidth: number, viewHeight: number): void => {
     const dom = _getDom()
     const canvasLayer = dom.canvasLayer
-    const xAxisCanvas = dom.xAxisCanvas
-    if (!canvasLayer || !xAxisCanvas) return
+    if (!canvasLayer) return
 
     const dprRoundedViewWidth = Math.round(viewWidth * dpr) / dpr
 
@@ -308,25 +307,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       canvasLayer.style.height = canvasLayerHeight
     }
 
-    const xAxisWidthPx = Math.round(dprRoundedViewWidth * dpr)
-    if (xAxisCanvas.width !== xAxisWidthPx) {
-      xAxisCanvas.width = xAxisWidthPx
-    }
-
-    const xAxisHeight = Math.round(signalDeps.options$().bottomAxisHeight * dpr)
-    if (xAxisCanvas.height !== xAxisHeight) {
-      xAxisCanvas.height = xAxisHeight
-    }
-
-    const xAxisCssWidth = `${dprRoundedViewWidth}px`
-    if (xAxisCanvas.style.width !== xAxisCssWidth) {
-      xAxisCanvas.style.width = xAxisCssWidth
-    }
-
-    const xAxisCssHeight = `${xAxisHeight / dpr}px`
-    if (xAxisCanvas.style.height !== xAxisCssHeight) {
-      xAxisCanvas.style.height = xAxisCssHeight
-    }
+    // 时间轴后备存储由 ChartRenderer 在绘制帧内调整，避免 resize 清空后跨帧留白。
   }
 
   // ── Actions（外部消费者变更内部状态入口） ──

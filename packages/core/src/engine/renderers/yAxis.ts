@@ -132,7 +132,12 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
 
       // 十字线价签：在装饰标签之后注册，保证绘制顺序与既有 overlay 语义一致。
       const crosshair = options.getCrosshair?.()
-      if (crosshair && crosshair.activePaneId === pane.id && crosshair.price !== null) {
+      if (
+        pane.role === 'price' &&
+        crosshair &&
+        crosshair.activePaneId === pane.id &&
+        crosshair.price !== null
+      ) {
         const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
         registerAxisLabel(context, 'yRightOverlay', {
           kind: AXIS_LABEL_KIND.TAG,

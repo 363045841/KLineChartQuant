@@ -1,6 +1,5 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
-import { createFootprintLayer, computeFootprintPriceRange } from '../../renderers/footprint.js'
-import { MAIN_PANE_ID } from '../../pane/types.js'
+
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
@@ -43,11 +42,13 @@ import {
 } from '../../drawing/index.js'
 import type { PaneRenderer } from '../../pane/index.js'
 import { UpdateLevel } from '../../pane/index.js'
+import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
 import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
 import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
 import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
+import { computeFootprintPriceRange, createFootprintLayer } from '../../renderers/footprint.js'
 import { createGridLinesLayer } from '../../renderers/gridLines.js'
 import {
   createAxisLabelsFrame,
@@ -826,13 +827,18 @@ export class ChartRenderer {
         subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
       })
       if (pane.id === MAIN_PANE_ID && !comparisonActive) {
-        const footprintRange = computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range)
+        const footprintRange = computeFootprintPriceRange(
+          this.deps.footprintState$.peek(),
+          frame.range,
+        )
         if (footprintRange) {
           auto = {
-            range: auto ? {
-              minPrice: Math.min(auto.range.minPrice, footprintRange.minPrice),
-              maxPrice: Math.max(auto.range.maxPrice, footprintRange.maxPrice),
-            } : footprintRange,
+            range: auto
+              ? {
+                  minPrice: Math.min(auto.range.minPrice, footprintRange.minPrice),
+                  maxPrice: Math.max(auto.range.maxPrice, footprintRange.maxPrice),
+                }
+              : footprintRange,
             basePrice: auto?.basePrice ?? null,
           }
         }
@@ -1302,6 +1308,7 @@ export class ChartRenderer {
     return { axisLabelsFrame, sharedXAxisRanges }
   }
 
+  /** 在同一次绘制中提交时间轴尺寸与内容，避免 ResizeObserver 提前清空画布。 */
   private renderXAxis(
     frame: FrameContext,
     axisLabelsFrame: AxisLabelsFrame,
@@ -1324,6 +1331,16 @@ export class ChartRenderer {
     }
     if (xAxisCtx && this.timeAxisLayer) {
       const opt = this.deps.getOption()
+      // width / height 赋值会清空 canvas，必须紧邻下方 paint，不能交给视口 effect 提前执行。
+      const canvas = dom.xAxisCanvas
+      const widthPx = Math.round(vp.plotWidth * vp.dpr)
+      const heightPx = Math.round(opt.bottomAxisHeight * vp.dpr)
+      if (canvas.width !== widthPx) canvas.width = widthPx
+      if (canvas.height !== heightPx) canvas.height = heightPx
+      const cssWidth = `${widthPx / vp.dpr}px`
+      const cssHeight = `${heightPx / vp.dpr}px`
+      if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth
+      if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight
       const dataManager = this.deps.getDataManager()
       const timeAxisContext: RenderContext = {
         ctx: xAxisCtx,
