@@ -177,6 +177,7 @@ function prepareCandles(args: {
       zoomLevel: args.zoomLevel,
       shape: args.ohlcBar ? 'ohlc-bar' : args.hollow ? 'hollow-candlestick' : 'candlestick',
       separateBorder: false,
+      mergeWick: true,
     })
 
     const preClose = i > 0 ? data[i - 1]?.close : undefined

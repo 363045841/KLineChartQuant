@@ -35,6 +35,15 @@ export function projectOhlc(input: OhlcGeometryInput): OhlcGeometry {
   const top = Math.min(open, close)
   const height = Math.max(1, Math.abs(open - close))
   const bottom = top + height
+  // 等宽且同色时三段覆盖连续；保留十字星实体可能超出 low 的一个物理像素。
+  if (input.mergeWick && !input.separateBorder && width === stroke) {
+    const lineTop = Math.min(high, top)
+    return {
+      body: [rect(stemLeft, lineTop, stroke, Math.max(bottom, low) - lineTop)],
+      border: [],
+      wick: [],
+    }
+  }
   const body: OhlcRect[] = []
   const border: OhlcRect[] = []
   const hollow = input.shape === 'hollow-candlestick'
