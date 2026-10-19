@@ -1901,7 +1901,8 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    z-index: 20;
+    /* 高于 canvas-layer(26)，分隔线与拖拽手柄才不会被网格/蜡烛画布盖住；低于 tooltip(30)。 */
+    z-index: 27;
   }
 
   .pane-separator-line {
