@@ -22,7 +22,7 @@ import {
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
-import type { ChartSeriesDatum, KLineData } from '../../foundation/types/price.js'
+import type { KLineData } from '../../foundation/types/price.js'
 import { encodeStableNumber } from '../../foundation/utils/stableNumber.js'
 import { generateUUID } from '../../foundation/utils/uuid.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
@@ -91,7 +91,6 @@ import {
 } from './instances/execution/instanceCalculationScheduler.js'
 import {
   composeInstanceRenderState,
-  composeVolumeRenderState,
   computeInstanceMainIndicatorPriceRange,
 } from './stateComposer.js'
 
@@ -725,25 +724,11 @@ export class ChartIndicatorManager {
     this.onResultsAppliedCallback = callback
   }
 
-  /** 按 instanceId 读取已提交结果；绘制帧的 VOL 直接从展示行情派生。 */
-  createRenderStateReader(frame?: {
-    data: readonly ChartSeriesDatum[]
-    range: VisibleRange
-  }): IndicatorRenderStateReader {
-    const frameStates = new Map<string, unknown>()
-    const volume = frame ? composeVolumeRenderState(frame.data, frame.range, Date.now()) : null
-    const volumeMetadata = getRegisteredIndicatorDefinition('volume')
-    if (volume && volumeMetadata) {
-      for (const instance of this.deps.indicator.readonly.instances.peek()) {
-        const metadata = getRegisteredIndicatorDefinition(instance.indicatorId)
-        if (metadata?.name === volumeMetadata.name) {
-          frameStates.set(instance.instanceId, volume)
-        }
-      }
-    }
+  /** 按 instanceId 读取已提交结果；同帧 renderer 看到同一份投影。 */
+  createRenderStateReader(): IndicatorRenderStateReader {
     return {
       get: <T = unknown>(instanceId: string): T | undefined =>
-        (frameStates.get(instanceId) ?? this.renderStates.get(instanceId)) as T | undefined,
+        this.renderStates.get(instanceId) as T | undefined,
     }
   }
 

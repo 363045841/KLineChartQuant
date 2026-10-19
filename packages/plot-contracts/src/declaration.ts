@@ -4,6 +4,7 @@
  * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
+import type { Format } from './format.js'
 import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape.js'
 
 /** 声明式 Plot 的公共样式。 */
@@ -12,6 +13,8 @@ export interface PlotStyleBase {
   readonly label?: string
   /** 图形颜色，支持 CSS 颜色值；可为每根 K 线设置不同颜色。 */
   readonly color?: string
+  /** 数值格式档位；缺省继承指标级 format，用于图例数值显示。 */
+  readonly format?: Format
   /** 标记附加文字的颜色，支持 CSS 颜色值；默认与图形颜色一致。 */
   readonly textColor?: string
   /** 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 */
@@ -116,6 +119,8 @@ export interface OhlcPlotOptions {
   readonly offset?: number
   readonly showLast?: number
   readonly color?: string | null
+  /** 数值格式档位；缺省继承指标级 format，用于图例数值显示。 */
+  readonly format?: Format
 }
 
 /** 蜡烛实体、影线和边框可独立着色。 */

@@ -1,17 +1,13 @@
 /** 实例投影测试：显隐只影响 Plot，计算结果保持完整，坐标轴从同一 Plot 模型取范围。 */
 import { beforeAll, describe, expect, it } from 'vitest'
 import { isPlotRenderState } from '@/engine/plots/impl/readPlotState.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import {
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-} from '../indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinitions } from '../indicatorDefinitionRegistry.js'
 import type {
   IndicatorParameters,
   IndicatorSeriesResult,
 } from '../instances/domain/instanceModel.js'
 import { loadBuiltinIndicators } from '../registerBuiltins.js'
-import { composeInstanceRenderState, composeVolumeRenderState } from '../stateComposer.js'
+import { composeInstanceRenderState } from '../stateComposer.js'
 import { createTestData } from './helpers/instanceTestKit.js'
 
 beforeAll(loadBuiltinIndicators)
@@ -56,29 +52,5 @@ describe('Plot instance projection', () => {
         ).toBe(true)
       }
     }
-  })
-
-  it('MFI 固定范围独立于可见数值，主题颜色来自统一 token', () => {
-    const definition = getRegisteredIndicatorDefinition('mfi')!
-    const state = composeInstanceRenderState(
-      definition,
-      result([55, 65, 75], { period: 14 }),
-      {},
-      { start: 0, end: 3 },
-      1,
-      resolveThemeColors('dark'),
-    )
-    expect(state).toMatchObject({ valueMin: 0, valueMax: 100, visibleMin: 55, visibleMax: 75 })
-  })
-})
-
-describe('composeVolumeRenderState', () => {
-  it('从帧行情计算可见成交量范围', () => {
-    expect(composeVolumeRenderState(createTestData(3), { start: 0, end: 3 }, 99)).toEqual({
-      timestamp: 99,
-      valueMin: 980,
-      valueMax: 1220,
-    })
-    expect(composeVolumeRenderState([], { start: 0, end: 0 }, 1)).toBeNull()
   })
 })

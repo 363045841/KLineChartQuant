@@ -31,7 +31,6 @@ import { computeFRAMA } from '../features/indicators/frama'
 import { computeLSMA } from '../features/indicators/lsma'
 import { computeSchaffTrendCycle } from '../features/indicators/schaffTrendCycle'
 import { computeStochRSI } from '../features/indicators/stochRSI'
-import { computeUltimateOscillator } from '../features/indicators/ultimateOscillator'
 import { computeVIDYA } from '../features/indicators/vidya'
 import { computeZLEMA } from '../features/indicators/zlema'
 
@@ -64,29 +63,10 @@ function buildOhlcBars(n: number): Array<{
   return out
 }
 
-function buildOhlcWithOpen(n: number): Array<{
-  open: number
-  high: number
-  low: number
-  close: number
-}> {
-  const closes = buildCloseArray(n)
-  const out: Array<{ open: number; high: number; low: number; close: number }> = new Array(n)
-  for (let i = 0; i < n; i++) {
-    const c = closes[i]!
-    // Open = previous close (or self at i=0). Gives a non-degenerate body.
-    const o = i === 0 ? c : closes[i - 1]!
-    out[i] = { open: o, high: Math.max(o, c) + 0.5, low: Math.min(o, c) - 0.5, close: c }
-  }
-  return out
-}
-
 const close10k = buildCloseArray(10_000)
 const close100k = buildCloseArray(100_000)
 const hl10k = buildOhlcBars(10_000)
 const hl100k = buildOhlcBars(100_000)
-const ohlc10k = buildOhlcWithOpen(10_000)
-const ohlc100k = buildOhlcWithOpen(100_000)
 
 // ---------------------------------------------------------------------------
 // MA family — close-only inputs
@@ -147,9 +127,6 @@ describe('Oscillators @ 10k bars', () => {
       bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
         computeStochRSI(close10k, { period: 14, kPeriod: 3, dPeriod: 3 })
       }),
-      bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
-        computeUltimateOscillator(ohlc10k, { p1: 7, p2: 14, p3: 28 })
-      }),
       bench('Fisher Transform (period=10)', () => {
         computeFisherTransform(hl10k, { period: 10 })
       }),
@@ -170,9 +147,6 @@ describe('Oscillators @ 100k bars', () => {
     await bench.compare(
       bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
         computeStochRSI(close100k, { period: 14, kPeriod: 3, dPeriod: 3 })
-      }),
-      bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
-        computeUltimateOscillator(ohlc100k, { p1: 7, p2: 14, p3: 28 })
       }),
       bench('Fisher Transform (period=10)', () => {
         computeFisherTransform(hl100k, { period: 10 })

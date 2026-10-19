@@ -18,6 +18,5 @@ export { computeLSMA, type LsmaOptions } from './lsma.js'
 export { computeSchaffTrendCycle, type SchaffTrendCycleOptions } from './schaffTrendCycle.js'
 // Oscillator completion pack (tick 8 b-10)
 export { computeStochRSI, type StochRsiOptions } from './stochRSI.js'
-export { computeUltimateOscillator, type UltimateOscillatorOptions } from './ultimateOscillator.js'
 export { computeVIDYA, type VidyaOptions } from './vidya.js'
 export { computeZLEMA, type ZlemaOptions } from './zlema.js'

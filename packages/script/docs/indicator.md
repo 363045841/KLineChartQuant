@@ -71,6 +71,31 @@ await scripts.create(source)
 
 数值输入支持 `min`、`max`、`step`；布尔输入只接受标题；字符串输入支持 `options`。默认值和选项使用常量字面量，变量名作为内部参数身份，标题缺省显示变量名。输入声明不能放在分支、循环或辅助函数中；注册时只提取配置，不执行 `onBar`。
 
+### 跨 bar 记忆
+
+一次运行只在开始时执行一遍顶层代码，`onBar` 随后逐根调用。因此**文件顶层声明的变量跨 K 线保留**，用来维护需要记忆状态的指标（等价于 Pine 的 `var`）：
+
+```js
+let obv = 0 // 顶层：整轮运行只初始化一次，逐 bar 累加
+
+defineIndicator({
+  name: 'OBV',
+  position: Position.Sub,
+  onBar() {
+    const previous = close[1]
+    if (!Number.isNaN(previous)) {
+      if (close > previous) obv += volume
+      else if (close < previous) obv -= volume
+    }
+    plot.Line(obv, 'obv')
+  },
+})
+```
+
+写进 `onBar` 内部会变成逐 bar 重置的局部变量，累加不起来。只有需要跨 bar 记忆时才用顶层变量，能表达成序列组合的计算优先交给 `ta` 与 `derive`；每次重算都从第一根按序执行，状态随之重建，不依赖上一次运行。
+
+参数与状态声明位置不同：`input.*` 必须在 `onBar` 顶层（配置），跨 bar 状态在文件顶层（运行态）。
+
 脚本按 bar 下标顺序执行。某一根 K 线没有输出时，该位置留空，不会影响其他位置。
 输出 `NaN` 同样表示留空。
 

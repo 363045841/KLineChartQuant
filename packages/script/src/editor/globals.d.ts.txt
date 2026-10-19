@@ -41,7 +41,10 @@ declare global {
 
   /** 输入参数：int / float 支持范围和步长，bool 显示开关，string 支持下拉选项。 */
   const input: ScriptInput
-  /** 定义一个指标 */
+  /**
+   * 定义一个指标。
+   * 顶层代码只执行一次，顶层变量跨 bar 保留（等价 Pine 的 var）；逐根计算写在 onBar 内。
+   */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
   /**
    * 惰性派生序列；读取时按绝对 bar 缓存，不主动填充历史。

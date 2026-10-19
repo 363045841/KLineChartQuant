@@ -14,14 +14,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/alma.js').then((module) => module.ALMADefinition),
   },
   {
-    descriptor: {"name":"chaikinVol","kind":"indicator","displayName":"ChaikinVol","category":"oscillator","defaultPaneId":"sub_ChaikinVol","defaultParams":{"emaPeriod":10,"rocPeriod":10},"defaultOptions":{"showChaikinVol":true}},
-    load: () => import('../../renderers/Indicator/chaikinVol.js').then((module) => module.ChaikinVolIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"cmf","kind":"indicator","displayName":"CMF","category":"volume","defaultPaneId":"sub_CMF","defaultParams":{"period":20},"defaultOptions":{"showCMF":true}},
-    load: () => import('../../renderers/Indicator/cmf.js').then((module) => module.CMFIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"fib","kind":"indicator","displayName":"Fib","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":50},"defaultOptions":{"showLevels":true}},
     load: () => import('../../renderers/Indicator/fib.js').then((module) => module.FibDefinition),
   },
@@ -34,36 +26,12 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/frama.js').then((module) => module.FRAMADefinition),
   },
   {
-    descriptor: {"name":"hv","kind":"indicator","displayName":"HV","category":"oscillator","defaultPaneId":"sub_HV","defaultParams":{"period":20,"annualizationFactor":252},"defaultOptions":{"showHV":true}},
-    load: () => import('../../renderers/Indicator/hv.js').then((module) => module.HVIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"kama","kind":"indicator","displayName":"KAMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":10,"fastPeriod":2,"slowPeriod":30},"defaultOptions":{"showKAMA":true}},
     load: () => import('../../renderers/Indicator/kama.js').then((module) => module.KAMADefinition),
   },
   {
     descriptor: {"name":"lsma","kind":"indicator","displayName":"LSMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":25},"defaultOptions":{"showLSMA":true}},
     load: () => import('../../renderers/Indicator/lsma.js').then((module) => module.LSMADefinition),
-  },
-  {
-    descriptor: {"name":"mfi","kind":"indicator","displayName":"MFI","category":"volume","defaultPaneId":"sub_MFI","defaultParams":{"period":14},"defaultOptions":{"showMFI":true}},
-    load: () => import('../../renderers/Indicator/mfi.js').then((module) => module.MFIIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"obv","kind":"indicator","displayName":"OBV","category":"volume","defaultPaneId":"sub_OBV","defaultParams":{},"defaultOptions":{"showOBV":true}},
-    load: () => import('../../renderers/Indicator/obv.js').then((module) => module.OBVIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"parkinson","kind":"indicator","displayName":"Parkinson","category":"oscillator","defaultPaneId":"sub_Parkinson","defaultParams":{"period":20,"annualizationFactor":252},"defaultOptions":{"showParkinson":true}},
-    load: () => import('../../renderers/Indicator/parkinson.js').then((module) => module.ParkinsonIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"pvt","kind":"indicator","displayName":"PVT","category":"volume","defaultPaneId":"sub_PVT","defaultParams":{},"defaultOptions":{"showPVT":true}},
-    load: () => import('../../renderers/Indicator/pvt.js').then((module) => module.PVTIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"sar","kind":"indicator","displayName":"SAR","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"step":0.02,"maxStep":0.2},"defaultOptions":{"showSAR":true}},
-    load: () => import('../../renderers/Indicator/sar.js').then((module) => module.SARDefinition),
   },
   {
     descriptor: {"name":"schaffTrendCycle","kind":"indicator","displayName":"STC","category":"oscillator","defaultPaneId":"sub_STC","defaultParams":{"fast":23,"slow":50,"cycle":10,"factor":0.5},"defaultOptions":{"showSTC":true}},
@@ -82,24 +50,12 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/structure.js').then((module) => module.StructureIndicatorDefinition),
   },
   {
-    descriptor: {"name":"trix","kind":"indicator","displayName":"TRIX","category":"oscillator","defaultPaneId":"sub_TRIX","defaultParams":{"period":15,"signalPeriod":9},"defaultOptions":{"showTRIX":true,"showSignal":true}},
-    load: () => import('../../renderers/Indicator/trix.js').then((module) => module.TRIXIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"ultimateOscillator","kind":"indicator","displayName":"UO","category":"oscillator","defaultPaneId":"sub_UO","defaultParams":{"p1":7,"p2":14,"p3":28},"defaultOptions":{"showUO":true}},
-    load: () => import('../../renderers/Indicator/ultimateOscillator.js').then((module) => module.UltimateOscillatorIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"vidya","kind":"indicator","displayName":"vidya","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14,"cmoPeriod":9},"defaultOptions":{"showVIDYA":true}},
     load: () => import('../../renderers/Indicator/vidya.js').then((module) => module.VIDYADefinition),
   },
   {
     descriptor: {"name":"volumeProfile","kind":"indicator","displayName":"VP","category":"volume","defaultPaneId":"sub_VolumeProfile","defaultParams":{"bins":24,"lookback":100,"valueAreaPercent":70},"defaultOptions":{"showPOC":true,"showValueArea":true}},
     load: () => import('../../renderers/Indicator/volumeProfile.js').then((module) => module.VolumeProfileIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"vwap","kind":"indicator","displayName":"VWAP","category":"volume","defaultPaneId":"sub_VWAP","defaultParams":{"sessionResetGapMs":0},"defaultOptions":{"showVWAP":true}},
-    load: () => import('../../renderers/Indicator/vwap.js').then((module) => module.VWAPIndicatorDefinition),
   },
   {
     descriptor: {"name":"zlema","kind":"indicator","displayName":"ZLEMA","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"period":14},"defaultOptions":{"showZLEMA":true}},
@@ -124,10 +80,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   {
     descriptor: {"name":"lastPriceLine","kind":"system","displayName":"最新价虚线","category":"main","defaultPaneId":"main","dataViews":["kline"]},
     load: () => import('../../renderers/lastPrice.js').then((module) => module.LastPriceLineIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"volume","kind":"indicator","displayName":"VOL","category":"volume","defaultPaneId":"sub","dataViews":["kline","timeshare"]},
-    load: () => import('../../renderers/subVolume.js').then((module) => module.VolumeIndicatorDefinition),
   },
   {
     descriptor: {"name":"timeShare","kind":"system","displayName":"分时","category":"main","defaultPaneId":"main","dataViews":["timeshare"]},

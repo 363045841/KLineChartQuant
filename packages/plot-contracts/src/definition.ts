@@ -2,6 +2,7 @@
  * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
  */
 import type { Bar } from './bar.js'
+import type { Format } from './format.js'
 import type { IndicatorMarketContext, Timeframe } from './market.js'
 import type { PlotCollection } from './plots.js'
 
@@ -10,6 +11,8 @@ export interface IndicatorSourceDefinition {
   readonly name: string
   /** 注册位置：主图叠加或独立副图；缺省为副图。 */
   readonly position?: 'main' | 'sub'
+  /** 指标级数值格式：驱动整条 y 轴与图例显示；缺省按价格。 */
+  readonly format?: Format
   readonly inputs: InputSchema<Record<string, number | string | boolean>>
 }
 
@@ -76,6 +79,8 @@ export interface IndicatorDefinition<P> {
   readonly name: string
   /** 注册位置：主图叠加或独立副图；缺省放在副图。 */
   readonly position?: 'main' | 'sub'
+  /** 指标级数值格式：驱动整条 y 轴与图例显示；缺省按价格。 */
+  readonly format?: Format
   /** 来源分类；缺省由消费方决定。 */
   readonly source?: IndicatorSource
   readonly document?: IndicatorSourceDocument

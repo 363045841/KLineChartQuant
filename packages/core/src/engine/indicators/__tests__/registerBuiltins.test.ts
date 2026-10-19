@@ -15,7 +15,6 @@ describe('builtin indicator registration', () => {
     expect(new Set(definitions.map((definition) => definition.name)).size).toBe(definitions.length)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
-        'volume',
         'volumeProfile',
         'zones',
         'extremaMarkers',
@@ -23,7 +22,6 @@ describe('builtin indicator registration', () => {
         'lastPriceLabelRegistrar',
         'vidya',
         'frama',
-        'ultimateOscillator',
         'stochRSI',
         'fisherTransform',
         'schaffTrendCycle',
@@ -83,7 +81,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('振荡指标声明 Plot', () => {
-    for (const id of ['MFI', 'CMF']) {
+    for (const id of ['schaffTrendCycle', 'stochRSI']) {
       expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })

@@ -20,6 +20,8 @@ export interface PlotBase {
   /** 按 K 线下标对齐的绘图点，缺省表示该位置不绘制。 */
   readonly data: readonly (PlotPoint | undefined)[]
   readonly color: string
+  /** 数值格式档位；已按 plot 级覆盖指标级解析完成，消费端直接使用。 */
+  readonly format?: import('./format.js').Format
   readonly visible: boolean
   /** 沿 K 线下标的偏移，用于一目均衡表等前移或后移的序列。 */
   readonly offset: number

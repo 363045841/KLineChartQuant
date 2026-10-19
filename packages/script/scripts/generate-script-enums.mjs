@@ -13,6 +13,7 @@ const definitions = [
   ['color.ts', ['Color']],
   ['market.ts', ['DataSource', 'Timeframe']],
   ['plots.ts', ['PlotKind']],
+  ['format.ts', ['Format']],
   ['shape.ts', ['ShapeStyle', 'ShapeLocation', 'ShapeSize']],
 ]
 

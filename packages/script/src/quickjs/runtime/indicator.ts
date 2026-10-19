@@ -185,6 +185,7 @@ function __metadata(): QuickJSScriptDefinition {
   return {
     name: __definition.name,
     position: __definition.position,
+    format: __definition.format,
     inputs: __inputs,
   }
 }

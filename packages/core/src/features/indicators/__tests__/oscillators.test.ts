@@ -4,7 +4,6 @@
  * Mixed input signatures across the 6:
  *   - close-only: StochRSI, STC
  *   - HL bars   : AO, Fisher Transform
- *   - OHLC bars : UO
  */
 
 import { describe, expect, it } from 'vitest'
@@ -12,7 +11,6 @@ import { describe, expect, it } from 'vitest'
 import { computeFisherTransform } from '../fisherTransform'
 import { computeSchaffTrendCycle } from '../schaffTrendCycle'
 import { computeStochRSI } from '../stochRSI'
-import { computeUltimateOscillator } from '../ultimateOscillator'
 import { ramp } from './helpers/sequences'
 
 function hlBars(n: number, mid = 100, spread = 1): Array<{ high: number; low: number }> {
@@ -20,17 +18,6 @@ function hlBars(n: number, mid = 100, spread = 1): Array<{ high: number; low: nu
     high: mid + i * 0.1 + spread / 2,
     low: mid + i * 0.1 - spread / 2,
   }))
-}
-
-function ohlcRamp(
-  n: number,
-  start = 100,
-  step = 0.5,
-): Array<{ high: number; low: number; close: number }> {
-  return Array.from({ length: n }, (_, i) => {
-    const c = start + step * i
-    return { high: c + 0.5, low: c - 0.5, close: c }
-  })
 }
 
 describe('computeStochRSI', () => {
@@ -53,22 +40,6 @@ describe('computeStochRSI', () => {
   it('throws on invalid period args', () => {
     expect(() => computeStochRSI(ramp(20), { rsiPeriod: 1, stochPeriod: 10 })).toThrow()
     expect(() => computeStochRSI(ramp(20), { rsiPeriod: 14, stochPeriod: 1 })).toThrow()
-  })
-})
-
-describe('computeUltimateOscillator', () => {
-  it('output length === input length and 0..100 once primed', () => {
-    const r = computeUltimateOscillator(ohlcRamp(80), { p1: 7, p2: 14, p3: 28 })
-    expect(r.length).toBe(80)
-    for (let i = 30; i < 80; i++) {
-      const v = r[i] as number
-      expect(v).toBeGreaterThanOrEqual(0)
-      expect(v).toBeLessThanOrEqual(100)
-    }
-  })
-
-  it('rejects non-positive periods', () => {
-    expect(() => computeUltimateOscillator(ohlcRamp(50), { p1: 0 })).toThrow()
   })
 })
 

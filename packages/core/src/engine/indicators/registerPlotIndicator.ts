@@ -6,6 +6,7 @@
  */
 import {
   type Bar,
+  Format,
   type IndicatorDefinition,
   type InputDef,
   type InputSchema,
@@ -13,13 +14,20 @@ import {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '../../foundation/types/price.js'
 import { plotRenderer } from '../plots/impl/plotDefinition.js'
+import { createPlotTitleInfo } from '../plots/impl/plotTitleInfo.js'
+import { formatPlotValue } from '../plots/impl/plotValueFormat.js'
+import { createIndicatorScaleLayer } from '../renderers/Indicator/scale/indicator_scale.js'
 import {
   Indicator,
   type IndicatorDefinitionClass,
   registerIndicatorDefinition,
   updateIndicatorDefinition,
 } from './indicatorDefinitionRegistry.js'
-import { type IndicatorInputDef, IndicatorKind } from './indicatorMetadata.js'
+import {
+  type IndicatorInputDef,
+  IndicatorKind,
+  type ScaleRendererFactory,
+} from './indicatorMetadata.js'
 
 /** 把 core 行情映射为中立 Bar。 */
 function toBar(bar: KLineData): Bar {
@@ -48,6 +56,28 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
   return defs
 }
 
+/** 非价格档位的指标级 format 覆盖坐标轴刻度；价格档位不提供覆盖，沿用自适应小数位。 */
+function createScaleRendererFactory(
+  format: Format,
+  label: string,
+  indicatorKey: string,
+): ScaleRendererFactory | undefined {
+  if (format === Format.Price) return undefined
+  return (options) =>
+    createIndicatorScaleLayer({
+      axisWidth: options.axisWidth,
+      paneId: options.paneId,
+      indicatorKey,
+      label,
+      decimals: 2,
+      yPaddingPx: options.yPaddingPx,
+      getCrosshair: options.getCrosshair,
+      formatTickLabel: (value) => formatPlotValue(format, value),
+      formatCrosshairLabel: (value) => formatPlotValue(format, value),
+      instanceId: options.instanceId,
+    })
+}
+
 /**
  * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
  *
@@ -70,6 +100,7 @@ function createPlotIndicatorDefinition<P>(
   const main = definition.position === 'main'
   const internalName = definition.id ?? definition.name
   const paneId = main ? 'main' : `sub_${internalName}`
+  const format = definition.format
   const decorate = Indicator({
     name: internalName,
     source: definition.source,
@@ -81,7 +112,11 @@ function createPlotIndicatorDefinition<P>(
     allowMainPane: main,
     mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,
     scale: { label: definition.name, decimals: 2 },
+    scaleRendererFactory: format
+      ? createScaleRendererFactory(format, definition.name, internalName)
+      : undefined,
     plots: { source: 'collection', series: [] },
+    getTitleInfo: createPlotTitleInfo(definition.name, format),
     runtime: {
       revision: definition.document?.revision,
       defaultParams: resolveInputDefaults(definition.inputs),

@@ -1,6 +1,6 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
-import type { InputSchema } from '@363045841yyt/klinechart-plot-contracts'
+import type { Format, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
@@ -44,6 +44,8 @@ export interface QuickJSScriptDefinition {
    * | `Position.Sub` | 独立副图 |
    */
   readonly position: Position
+  /** 指标级数值格式；驱动副图轴与图例显示，缺省按价格。 */
+  readonly format?: Format
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
 }
 

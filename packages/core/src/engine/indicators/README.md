@@ -18,7 +18,7 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
   -> IndicatorCalculationPlan（按 calculationKey 去重）
   -> IndicatorCalculationExecutor（Worker 优先，失败降级 inline）
   -> 任务输出展开为 instanceId 结果池（IndicatorResultPool）
-  -> composeInstanceRenderState / composeVolumeRenderState（逐 instanceId 生成投影）
+  -> composeInstanceRenderState（逐 instanceId 生成投影）
   -> createRenderStateReader().get(instanceId)
   -> engine/renderers/Indicator
 ```
@@ -77,7 +77,7 @@ indicators/
 
 `Kernel.indicator`（`indicatorState`）是 UI 与持久化的配置 SSOT。`ChartIndicatorManager` 在每个状态 effect
 中把 Kernel 实例单向投影为 `instances/` 的计算实例：`instanceId`、`paneId` 原样保留，`definitionId` 取静态
-定义注册表的 `metadata.name`；没有 `runtime` 的展示型指标（如成交量）不进入计算链路。
+定义注册表的 `metadata.name`；没有 `runtime` 的展示型指标不进入计算链路。
 
 每次计算按以下规则执行：
 
@@ -106,8 +106,7 @@ indicators/
 逐实例把结果投影为 renderer 状态：展示配置合入 renderer 读取的 `params`，并按
 `presentation.selectSeriesKeys` 过滤可见序列；随后优先使用 `mainPane.composeRenderState`，否则使用
 `visibleState.compose`。
-`visibleStateComposers.ts` 提供基于当前可见范围的极值、padding 等通用 composer。成交量没有 calculator，
-其渲染状态由 `composeVolumeRenderState` 直接合成，按 Kernel 成交量实例的 `instanceId` 写入投影。
+`visibleStateComposers.ts` 提供基于当前可见范围的极值、padding 等通用 composer。
 
 提交完成后 `renderStates` 是按 `instanceId` 索引的只读投影；可见范围变化只重算投影，不触发 Worker，
 也不改变业务结果版本。
@@ -161,6 +160,13 @@ interface IndicatorRenderStateReader {
 - `instanceCalculationScheduler.test.ts` / `instanceCalculationRuntime.test.ts`：去重计划、请求门控、降级与结果池展开。
 - `stateComposer.test.ts`：逐实例的渲染状态投影。
 - 其余按指标命名的测试：各 calculator 的数值和边界条件。
+
+运行 Core 指标相关全量测试：
+
+```bash
+pnpm --filter @363045841yyt/klinechart-core test
+```
+：各 calculator 的数值和边界条件。
 
 运行 Core 指标相关全量测试：
 

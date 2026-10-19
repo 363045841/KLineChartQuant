@@ -1,11 +1,15 @@
 /** Plot 图例投影：从绘图数据直接读取当前点、标签和颜色。 */
 
-import { isOhlcPlot, ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
+import { type Format, isOhlcPlot, ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
 import type { GetTitleInfoFn } from '@/engine/indicators/indicatorMetadata.js'
+import { formatPlotValue } from './plotValueFormat.js'
 import { isPlotRenderState } from './readPlotState.js'
 
-/** 普通指标共用图例取值逻辑，不再读取各自的计算结果字段。 */
-export function createPlotTitleInfo(name: string): GetTitleInfoFn {
+/**
+ * 普通指标共用图例取值逻辑，不再读取各自的计算结果字段。
+ * indicatorFormat 为指标级数值格式，plot 自带 format 时逐图覆盖它。
+ */
+export function createPlotTitleInfo(name: string, indicatorFormat?: Format): GetTitleInfoFn {
   return (_data, index, params, reader, instanceId) => {
     if (index === null) return null
     const state = reader.get(instanceId)
@@ -26,9 +30,16 @@ export function createPlotTitleInfo(name: string): GetTitleInfoFn {
           ]
         }
         const point = plot.data[index - plot.offset]
-        return point && Number.isFinite(point.value)
-          ? [{ label: plot.label, value: point.value, color: point.color ?? plot.color }]
-          : []
+        if (!point || !Number.isFinite(point.value)) return []
+        const format = plot.format ?? indicatorFormat
+        return [
+          {
+            label: plot.label,
+            value: point.value,
+            color: point.color ?? plot.color,
+            ...(format ? { formattedValue: formatPlotValue(format, point.value) } : {}),
+          },
+        ]
       })
     if (values.length === 0) return null
     return {

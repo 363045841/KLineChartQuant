@@ -88,12 +88,12 @@ export interface ScriptPlot {
   StepLineBR(value: number | null, name: string, options?: PlotStyleOptions<'steplinebr'>): PlotRef
   /**
    * 固定像素柱宽；size 接受正数像素或 ShapeSize 枚举，默认 1px。
-   * @summary 柱状图（定宽）
+   * @summary 柱状图(定宽)
    */
   Histogram(value: number | null, name: string, options?: PlotStyleOptions<'histogram'>): PlotRef
   /**
    * 输出自动柱宽的柱状图，随 K 线间距缩放，不支持 size。
-   * @summary 柱形图（跟随缩放）
+   * @summary 柱形图(跟随缩放)
    */
   Columns(value: number | null, name: string, options?: PlotStyleOptions<'columns'>): PlotRef
   /**
@@ -130,7 +130,7 @@ export interface ScriptPlot {
   ): void
   /**
    * 输出美国线；左侧短横线为开盘，右侧短横线为收盘。
-   * @summary 美国线（OHLC）
+   * @summary 美国线(OHLC)
    */
   Bar(
     open: number | null,

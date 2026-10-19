@@ -144,7 +144,7 @@ export class PlotCollector {
     let entry = this.entries.get(name)
     if (entry?.source === 'scalar')
       throw new TypeError(`Plot ${name} cannot change kind during a run`)
-    const style = [kind, label, visible, offset, showLast]
+    const style = [kind, label, visible, offset, showLast, declaration.format]
     if (!entry) {
       entry = {
         source: 'ohlc',
@@ -212,6 +212,7 @@ function createOhlcPlot(
     offset: declaration.offset ?? 0,
     showLast: declaration.showLast,
     color: DEFAULT_PLOT_COLOR,
+    format: declaration.format,
     data,
   }
 }
@@ -226,6 +227,7 @@ function styleSignature(
   const base = [
     declaration.name,
     declaration.label,
+    declaration.format,
     declaration.visible,
     declaration.offset,
     declaration.textColor,
@@ -266,7 +268,7 @@ function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration
 /** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
 type PlotBaseFields = Pick<
   LinePlot,
-  'id' | 'label' | 'data' | 'color' | 'visible' | 'offset' | 'size'
+  'id' | 'label' | 'data' | 'color' | 'format' | 'visible' | 'offset' | 'size'
 >
 
 /** 用声明或默认值补齐 Plot 公共字段；声明用 name，模型的身份字段仍是 id。 */
@@ -279,6 +281,7 @@ function plotBase(
     label: declaration.label ?? declaration.name,
     data,
     color: declaration.color ?? DEFAULT_PLOT_COLOR,
+    format: declaration.format,
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
     size:
@@ -403,8 +406,8 @@ function resolveDeclaration(
   kind = declaration.kind,
 ): PlotDeclaration {
   if (kind === declaration.kind) return declaration
-  const { name, label, color, visible, offset, size } = declaration
-  const common = { name, label, color, visible, offset }
+  const { name, label, color, visible, offset, size, format } = declaration
+  const common = { name, label, color, visible, offset, format }
   if (kind === 'columns') return { ...common, kind }
   if (kind === 'histogram') return { ...common, size, kind }
   return { ...common, size: typeof size === 'number' ? undefined : size, kind } as PlotDeclaration

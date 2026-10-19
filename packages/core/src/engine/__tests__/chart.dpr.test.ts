@@ -1220,34 +1220,6 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('timeshare does not reuse a K-line volume pane', async () => {
-    const chart = mountChart()
-    chart.resize()
-    const volumePaneId = chart.indicators.add('VOL')
-    expect(volumePaneId).not.toBeNull()
-    const tsMode = getModeHandlers(chart).timeShare
-    const kMode = getModeHandlers(chart).kLine
-
-    chart.setActiveMode(tsMode)
-    expect(chart.indicators.subPanes.peek()).toEqual([])
-    const timeShareVolumePaneId = chart.indicators.add('VOL')
-    expect(timeShareVolumePaneId).not.toBeNull()
-
-    chart.setActiveMode(kMode)
-    expect(chart.indicators.subPanes.peek()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'VOL' }),
-      ]),
-    )
-    chart.setActiveMode(tsMode)
-    expect(chart.indicators.subPanes.peek()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ instanceId: timeShareVolumePaneId, indicatorId: 'VOL' }),
-      ]),
-    )
-    await chart.destroy()
-  })
-
   it('removeDrawing drops id from kernel and clears selection', async () => {
     const chart = mountChart()
     const d1 = createTrendLine('d1', { style: { stroke: '#f00' } })

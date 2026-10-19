@@ -2,6 +2,7 @@
 defineIndicator({
   name: 'KST',
   position: Position.Sub,
+  format: Format.Percent,
   onBar() {
     const roc1 = input.int(10, { title: 'ROC 周期 1', min: 1 })
     const roc2 = input.int(15, { title: 'ROC 周期 2', min: 1 })

@@ -312,13 +312,13 @@ describe('ChartIndicatorManager', () => {
 
   describe('副图实例 CRUD', () => {
     it('为副图指标生成独立实例身份并支持增改删', () => {
-      const instanceId = manager.addIndicator('VOL')
+      const instanceId = manager.addIndicator('PlotVolume')
       expect(instanceId).not.toBeNull()
 
       const entry = manager.getSubPaneEntries()[0]!
       expect(entry.instanceId).toBe(instanceId)
       expect(entry.instanceId).not.toBe(entry.paneId)
-      expect(entry.indicatorId).toBe('VOL')
+      expect(entry.indicatorId).toBe('PlotVolume')
       expect(entry.ordinal).toBe(0)
 
       expect(manager.updateIndicatorParams(instanceId!, { opacity: 0.5 })).toBe(true)
@@ -334,7 +334,7 @@ describe('ChartIndicatorManager', () => {
 
   describe('隐藏指标', () => {
     it('隐藏副图指标只保留 pane 与实例，不删除副图', () => {
-      const instanceId = manager.addIndicator('VOL')
+      const instanceId = manager.addIndicator('PlotVolume')
       expect(instanceId).not.toBeNull()
       const paneId = manager.getSubPaneEntries()[0]!.paneId
 

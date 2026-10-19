@@ -755,10 +755,7 @@ export class ChartRenderer {
       comparisonActive: false,
       comparisonProjection: null,
       mainIndicatorRange: null,
-      indicatorStateReader: indicatorManager.createRenderStateReader({
-        data: internalData,
-        range,
-      }),
+      indicatorStateReader: indicatorManager.createRenderStateReader(),
       indicatorAvailability: indicatorManager.createAvailabilityReader(),
     }
   }

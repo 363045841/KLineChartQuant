@@ -2,6 +2,7 @@
 defineIndicator({
   name: 'VMA',
   position: Position.Sub,
+  format: Format.Volume,
   onBar() {
     const period = input.int(5, { title: '周期', min: 1 })
     plot.Line(ta.sma(volume, period), 'vma', { label: 'VMA', color: Color.Orange })

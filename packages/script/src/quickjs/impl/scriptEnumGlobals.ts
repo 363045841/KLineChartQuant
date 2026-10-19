@@ -9,6 +9,7 @@
 import {
   Color,
   DataSource,
+  Format,
   PlotKind,
   ShapeLocation,
   ShapeSize,
@@ -21,6 +22,7 @@ import { Position } from '../types.js'
 export const SCRIPT_ENUM_GLOBALS = {
   DataSource,
   Color,
+  Format,
   Position,
   PlotKind,
   ShapeStyle,

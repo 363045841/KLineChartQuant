@@ -91,7 +91,7 @@
     "@babel/core": "^8.0.5",
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@babel/plugin-transform-typescript": "^8.0.5",
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.5.15",
     "@iconify-json/tabler": "^1.2.41",
     "@tsconfig/node24": "^24.0.5",
     "@types/jsdom": "^30.0.0",

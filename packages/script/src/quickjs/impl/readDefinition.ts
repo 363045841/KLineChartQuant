@@ -1,5 +1,6 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import {
+  isFormat,
   isPlotKind,
   isShapeLocation,
   isShapeSize,
@@ -55,6 +56,7 @@ function isOptionsValid(value: unknown, fallback: unknown): boolean {
 function hasValidPlotBase(value: Record<string, unknown>): boolean {
   return (
     optional(value.label, 'string') &&
+    (value.format === undefined || isFormat(value.format)) &&
     (((value.kind === PlotKind.Candle || value.kind === PlotKind.Bar) && value.color === null) ||
       optional(value.color, 'string')) &&
     optional(value.textColor, 'string') &&
@@ -221,11 +223,12 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     typeof value.name !== 'string' ||
     !value.name.trim() ||
     !isPosition(value.position) ||
+    (value.format !== undefined && !isFormat(value.format)) ||
     !isRecord(value.inputs)
   ) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、position，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
+      `指标需要 name、position 与合法的 format，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
     )
   }
   const inputs: QuickJSScriptDefinition['inputs'] = {}
@@ -253,6 +256,7 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   return {
     name: value.name,
     position: value.position,
+    ...(isFormat(value.format) ? { format: value.format } : {}),
     inputs,
   }
 }

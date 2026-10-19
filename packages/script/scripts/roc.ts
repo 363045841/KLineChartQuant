@@ -2,6 +2,7 @@
 defineIndicator({
   name: 'ROC',
   position: Position.Sub,
+  format: Format.Percent,
   onBar() {
     const period = input.int(12, { title: '周期', min: 1 })
     const value = ta.roc(close, period)
