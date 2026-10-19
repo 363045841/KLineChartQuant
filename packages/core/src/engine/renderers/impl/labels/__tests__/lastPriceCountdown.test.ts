@@ -1,90 +1,66 @@
-/** 验证市场时段、跨午休周期、收盘边界和夏令时下的收线倒计时。 */
+/** 验证倒计时只由开线时间与周期长度决定，覆盖固定时长及 UTC 日历周期。 */
 import { describe, expect, it } from 'vitest'
-import {
-  ASHARE_MARKET_SESSION,
-  HK_MARKET_SESSION,
-  KR_MARKET_SESSION,
-  US_MARKET_SESSION,
-} from '@/foundation/utils/sessionTimeLabels.js'
-import { FOREX_MARKET_SESSION } from '../../../../../foundation/config/marketSession/forexMarketSession.js'
 import { formatLastPriceCountdown, getLastPriceRemainingMs } from '../index.js'
 
 describe('last price countdown', () => {
+  // 所有标准周期均从实际开线时间推进，不对齐交易所或整点边界。
   it.each([
-    ['1min', '01:00'],
-    ['5min', '05:00'],
-    ['15min', '15:00'],
-    ['30min', '30:00'],
-    ['60min', '01:00:00'],
-    ['4h', '05:30:00'],
-  ])('counts %s from the market opening', (period, text) => {
-    const opened = Date.parse('2026-06-01T09:30:00+08:00')
-    expect(formatLastPriceCountdown(period, opened, ASHARE_MARKET_SESSION, opened)).toBe(text)
+    ['1min', '2026-06-01T10:02:03Z', '2026-06-01T10:03:03Z'],
+    ['5min', '2026-06-01T10:02:03Z', '2026-06-01T10:07:03Z'],
+    ['15min', '2026-06-01T10:02:03Z', '2026-06-01T10:17:03Z'],
+    ['30min', '2026-06-01T10:02:03Z', '2026-06-01T10:32:03Z'],
+    ['60min', '2026-06-01T11:00:00+08:00', '2026-06-01T12:00:00+08:00'],
+    ['4h', '2026-06-01T14:30:00+08:00', '2026-06-01T18:30:00+08:00'],
+    ['daily', '2026-06-05T14:30:00+08:00', '2026-06-06T14:30:00+08:00'],
+    ['weekly', '2026-06-05T14:30:00+08:00', '2026-06-12T14:30:00+08:00'],
+    ['monthly', '2026-02-01T00:00:00Z', '2026-03-01T00:00:00Z'],
+    ['quarterly', '2026-11-01T00:00:00Z', '2027-02-01T00:00:00Z'],
+    ['yearly', '2026-06-01T00:00:00Z', '2027-06-01T00:00:00Z'],
+    ['monthly', '2028-01-31T12:34:56.789Z', '2028-02-29T12:34:56.789Z'],
+    ['yearly', '2028-02-29T12:34:56.789Z', '2029-02-28T12:34:56.789Z'],
+    ['daily', '2026-03-08T00:00:00-05:00', '2026-03-09T01:00:00-04:00'],
+    ['5min', '2026-06-07T23:59:00Z', '2026-06-08T00:04:00Z'],
+  ])('advances %s by one period', (period, bar, end) => {
+    const opened = Date.parse(bar)
+    const closesAt = Date.parse(end)
+    expect(getLastPriceRemainingMs(period, opened, opened)).toBe(closesAt - opened)
+    expect(getLastPriceRemainingMs(period, opened, closesAt - 1)).toBe(1)
+    expect(getLastPriceRemainingMs(period, opened, closesAt)).toBeNull()
+    expect(getLastPriceRemainingMs(period, opened, closesAt + 1)).toBeNull()
   })
 
+  // 失效或未来的 K 线不能生成倒计时，也不能用当前时间取模伪造新周期。
   it.each([
-    [ASHARE_MARKET_SESSION, '2026-06-01T00:00:00+08:00', '2026-06-01T14:00:00+08:00', '01:00:00'],
-    [HK_MARKET_SESSION, '2026-06-01T00:00:00+08:00', '2026-06-01T14:00:00+08:00', '02:00:00'],
-    [KR_MARKET_SESSION, '2026-06-01T00:00:00+09:00', '2026-06-01T14:00:00+09:00', '01:30:00'],
-    [US_MARKET_SESSION, '2026-06-01T00:00:00-04:00', '2026-06-01T15:00:00-04:00', '01:00:00'],
-    [US_MARKET_SESSION, '2026-01-05T00:00:00-05:00', '2026-01-05T15:00:00-05:00', '01:00:00'],
-    [FOREX_MARKET_SESSION, '2026-06-01T00:00:00Z', '2026-06-01T23:00:00Z', '01:00:00'],
-  ])('ends daily bars at the configured market close', (session, bar, now, expected) => {
-    expect(formatLastPriceCountdown('daily', Date.parse(bar), session, Date.parse(now))).toBe(
-      expected,
-    )
+    ['timeshare', 0, 0],
+    ['5daytimeshare', 0, 0],
+    ['unknown', 0, 0],
+    ['toString', 0, 0],
+    ['5min', 1_000, 999],
+    ['5min', Number.NaN, 0],
+    ['5min', 0, Number.NaN],
+    ['5min', Number.POSITIVE_INFINITY, 0],
+    ['5min', 0, Number.POSITIVE_INFINITY],
+    ['5min', 1e20, 1e20],
+    ['monthly', 8_640_000_000_000_000, 8_640_000_000_000_000],
+  ])('hides invalid input %s / %s / %s', (period, bar, now) => {
+    expect(getLastPriceRemainingMs(period, bar, now)).toBeNull()
   })
 
-  it('skips lunch when locating the close and includes lunch in elapsed countdown time', () => {
-    const bar = Date.parse('2026-06-01T11:00:00+08:00')
-    expect(formatLastPriceCountdown('60min', bar, ASHARE_MARKET_SESSION, bar)).toBe('02:30:00')
-    expect(
-      formatLastPriceCountdown(
-        '60min',
-        bar,
-        ASHARE_MARKET_SESSION,
-        Date.parse('2026-06-01T12:00:00+08:00'),
-      ),
-    ).toBe('01:30:00')
-  })
-
-  it('clips incomplete periods at the final close and rounds the last second up', () => {
-    const bar = Date.parse('2026-06-01T14:30:00+08:00')
-    const close = Date.parse('2026-06-01T15:00:00+08:00')
-    expect(getLastPriceRemainingMs('60min', bar, ASHARE_MARKET_SESSION, bar)).toBe(30 * 60_000)
-    expect(formatLastPriceCountdown('60min', bar, ASHARE_MARKET_SESSION, close - 1)).toBe('00:01')
-    expect(formatLastPriceCountdown('60min', bar, ASHARE_MARKET_SESSION, close)).toBeNull()
-  })
-
-  it('uses custom sessions without applying a trading calendar', () => {
-    const session = { timeZone: 'UTC', sessions: [{ open: 600, close: 660 }], tradingDays: [1] }
-    const bar = Date.parse('2026-06-07T10:00:00Z')
-    expect(formatLastPriceCountdown('daily', bar, session, bar)).toBe('01:00:00')
-  })
-
-  it('hides countdowns without a valid current bar or market configuration', () => {
-    const bar = Date.parse('2026-06-01T09:30:00+08:00')
-    expect(formatLastPriceCountdown('weekly', bar, ASHARE_MARKET_SESSION, bar)).toBeNull()
-    expect(formatLastPriceCountdown('5min', bar, undefined, bar)).toBeNull()
-    expect(formatLastPriceCountdown('5min', bar, ASHARE_MARKET_SESSION, bar - 1)).toBeNull()
-    expect(formatLastPriceCountdown('5min', Number.NaN, ASHARE_MARKET_SESSION, bar)).toBeNull()
-    expect(formatLastPriceCountdown('5min', bar, ASHARE_MARKET_SESSION, Number.NaN)).toBeNull()
-    expect(formatLastPriceCountdown('5min', 1e20, ASHARE_MARKET_SESSION, 1e20)).toBeNull()
-    expect(
-      formatLastPriceCountdown(
-        '5min',
-        Date.parse('2026-06-01T12:00:00+08:00'),
-        ASHARE_MARKET_SESSION,
-        Date.parse('2026-06-01T12:01:00+08:00'),
-      ),
-    ).toBeNull()
-    expect(
-      formatLastPriceCountdown(
-        'daily',
-        bar,
-        ASHARE_MARKET_SESSION,
-        Date.parse('2026-06-02T10:00:00+08:00'),
-      ),
-    ).toBeNull()
+  // 文本只消费已经计算的剩余时间，与帧计时器共享同一数值。
+  it.each([
+    [300_000, '05:00'],
+    [299_001, '05:00'],
+    [299_000, '04:59'],
+    [3_600_000, '01:00:00'],
+    [86_400_000, '24:00:00'],
+    [604_800_000, '168:00:00'],
+    [1, '00:01'],
+    [0, null],
+    [-1, null],
+    [Number.NaN, null],
+    [Number.POSITIVE_INFINITY, null],
+    [null, null],
+  ])('formats remaining milliseconds %s', (remaining, expected) => {
+    expect(formatLastPriceCountdown(remaining)).toBe(expected)
   })
 })

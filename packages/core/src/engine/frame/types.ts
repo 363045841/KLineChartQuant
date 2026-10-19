@@ -28,7 +28,7 @@ export type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
 export interface RendererDependencies {
   /** 帧开始时读取一次的时间源，测试可注入。 */
   clock?: Clock
-  /** 当前主品种的市场时段，倒计时显示与刷新共用。 */
+  /** 当前主品种的市场时段，供分时几何与市场时间标签使用。 */
   getMarketSession: () => typeof ASHARE_MARKET_SESSION | undefined
   getDom: () => ChartDom
   getOption: () => ResolvedChartOptions

@@ -656,12 +656,11 @@ export class ChartRenderer {
       return { now, remainingMs: null, text: null }
     }
     const period = this.deps.getDataManager().currentPeriod
-    const marketSession = this.deps.getMarketSession()
-    const remaining = getLastPriceRemainingMs(period, last.timestamp, marketSession, now)
+    const remaining = getLastPriceRemainingMs(period, last.timestamp, now)
     return {
       now,
       remainingMs: remaining,
-      text: formatLastPriceCountdown(period, last.timestamp, marketSession, now),
+      text: formatLastPriceCountdown(remaining),
     }
   }
 
