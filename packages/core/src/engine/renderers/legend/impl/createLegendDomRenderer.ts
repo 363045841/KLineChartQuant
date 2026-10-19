@@ -41,6 +41,7 @@ const COLLAPSE_GAP_PX = 2
 
 interface MountedRow {
   element: HTMLDivElement
+  name: HTMLDivElement
   text: HTMLDivElement
   /** 加载圈元素，位于文本流最前；加载结束由 hidden 隐藏。 */
   spinner: HTMLSpanElement
@@ -69,13 +70,16 @@ function createStyles(document: Document): HTMLStyleElement {
   const style = document.createElement('style')
   style.textContent = `
     .klc-legend-root { position:absolute; inset:0; z-index:9; pointer-events:none; }
-    .klc-legend-row { position:absolute; width:max-content; box-sizing:border-box; z-index:0;
+    .klc-legend-row { position:absolute; display:flex; align-items:center; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:18px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
     .klc-legend-row[data-actions] { pointer-events:auto; }
-    .klc-legend-text { display:flex; align-items:center; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
+    .klc-legend-name { position:relative; display:flex; align-items:center; justify-content:center;
+      flex:0 0 auto; min-height:inherit; z-index:1; }
+    .klc-legend-text { display:flex; align-items:center; min-width:0; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
-    .klc-legend-row[data-hidden] .klc-legend-text { filter:grayscale(1); opacity:.55; }
+    .klc-legend-row[data-hidden] .klc-legend-text,
+    .klc-legend-row[data-hidden] .klc-legend-name > span { filter:grayscale(1); opacity:.55; }
     .klc-legend-frame { position:absolute; left:-5px; top:50%; transform:translateY(-50%);
       height:28px; box-sizing:border-box;
       display:none; align-items:center; justify-content:flex-end; padding:2px 3px;
@@ -83,7 +87,7 @@ function createStyles(document: Document): HTMLStyleElement {
       background:color-mix(in srgb,var(--klc-color-ui-surface) 80%,transparent); z-index:-1; pointer-events:auto; }
     .klc-legend-actions { display:flex; align-items:center; gap:2px; }
     .klc-legend-row[data-actions]:hover, .klc-legend-row[data-actions]:focus-within { z-index:1; }
-    .klc-legend-row:hover > .klc-legend-frame, .klc-legend-row:focus-within > .klc-legend-frame { display:flex; }
+    .klc-legend-row:hover .klc-legend-frame, .klc-legend-row:focus-within .klc-legend-frame { display:flex; }
     .klc-legend-button { display:grid; place-items:center; flex:0 0 22px;
       width:22px; height:22px; padding:0; border:0; border-radius:3px;
       background:transparent; color:var(--klc-color-ui-text-soft); cursor:pointer; }
@@ -119,7 +123,7 @@ function addActions(
   row: MountedRow,
   execute: (id: string, action: LegendAction) => LegendUiRequest | null,
 ): void {
-  // frame 是独立于文本流的包裹层，依据同一文本 DOM 的尺寸定位，不改变文字坐标。
+  // frame 以名称为定位容器，按钮紧跟名称，悬浮时覆盖后续参数且不改变文字坐标。
   const frame = document.createElement('div')
   frame.className = 'klc-legend-frame'
   frame.style.width = `calc(100% + ${row.data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX}px)`
@@ -156,7 +160,7 @@ function addActions(
     }
   }
   frame.append(actions)
-  row.element.append(frame)
+  row.name.append(frame)
   row.actionFrame = frame
 }
 
@@ -271,6 +275,8 @@ export function createLegendDomRenderer(
   function createRow(data: LegendRow): MountedRow {
     const element = document.createElement('div')
     element.className = 'klc-legend-row'
+    const name = document.createElement('div')
+    name.className = 'klc-legend-name'
     const text = document.createElement('div')
     text.className = 'klc-legend-text'
     const spinner = document.createElement('span')
@@ -280,9 +286,10 @@ export function createLegendDomRenderer(
     const errorBanner = document.createElement('div')
     errorBanner.className = 'klc-legend-error-banner'
     errorBanner.setAttribute('role', 'status')
-    element.append(text)
+    element.append(name, text)
     const row: MountedRow = {
       element,
+      name,
       text,
       spinner,
       errorBanner,
@@ -334,6 +341,8 @@ export function createLegendDomRenderer(
     applyStyle(row.element.style, 'top', `${data.y}px`)
     applyStyle(row.element.style, 'maxWidth', `${Math.max(0, data.maxWidth - actionWidth)}px`)
     applyStyle(row.element.style, 'minHeight', `${data.height}px`)
+    // 首段参数已移到独立容器，其前置间距由容器间 gap 承担，避免负 margin 被裁剪。
+    applyStyle(row.element.style, 'gap', `${data.texts[1]?.gapBefore ?? data.gap}px`)
     applyStyle(row.text.style, 'gap', `${data.gap}px`)
     const loading = data.loading === true
     if (row.spinner.hidden === loading) row.spinner.hidden = !loading
@@ -355,14 +364,15 @@ export function createLegendDomRenderer(
         span.append(node)
         row.nodes.push(node)
         row.spans.push(span)
-        row.text.append(span)
+        if (index === 0) row.name.prepend(span)
+        else row.text.append(span)
       }
       const node = row.nodes[index]!
       if (node.data !== segment.text) node.data = segment.text
       if (created || previous.texts[index]?.color !== segment.color)
         span.style.color = segment.color
       const marginLeft =
-        index > 0 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
+        index > 1 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
       if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
     }
     // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。

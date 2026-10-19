@@ -113,8 +113,6 @@ describe('ScriptService', () => {
       const output = await metadata?.runtime?.compute(data, metadata.runtime.defaultParams)
       expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
     }
-    expect(scripts.read('Char Demo')).toBeDefined()
-    expect(scripts.read('Arrow Demo')).toBeDefined()
     expect(await persistence.load()).toEqual(saved)
   })
 

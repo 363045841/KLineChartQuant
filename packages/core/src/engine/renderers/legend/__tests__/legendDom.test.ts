@@ -160,7 +160,7 @@ describe('DOM Legend renderer', () => {
     const geometry = vi.spyOn(host, 'getBoundingClientRect')
     renderer.update('main', [row], ['main'])
     const element = host.querySelector('.klc-legend-row')
-    const value = host.querySelectorAll('.klc-legend-text > span')[2]!.firstChild
+    const value = host.querySelectorAll('.klc-legend-text > span')[1]!.firstChild
     const observer = new MutationObserver(() => {})
     observer.observe(host, {
       subtree: true,
@@ -177,7 +177,7 @@ describe('DOM Legend renderer', () => {
       ['main'],
     )
     expect(host.querySelector('.klc-legend-row')).toBe(element)
-    expect(host.querySelectorAll('.klc-legend-text > span')[2]!.firstChild).toBe(value)
+    expect(host.querySelectorAll('.klc-legend-text > span')[1]!.firstChild).toBe(value)
     expect(value?.textContent).toBe('MA5 101.000')
     expect(observer.takeRecords().map((record) => record.type)).toEqual(['characterData'])
     expect(geometry).not.toHaveBeenCalled()

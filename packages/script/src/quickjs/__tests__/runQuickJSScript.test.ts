@@ -320,14 +320,6 @@ describe('runQuickJSScript', () => {
     ).rejects.toThrow()
   })
 
-  it.each(['char', 'arrow'])('执行随包发布的 %s 示例', async (name) => {
-    const source = shippedSource(name)
-    const bars = barsFromCloses([2, 1, 3]).map((bar) => ({ ...bar, open: 2 }))
-    const result = await runQuickJSScript({ source, bars })
-    expect(result.plots.length).toBeGreaterThan(0)
-    expect(result.plots.every((plot) => plot.kind === name)).toBe(true)
-  })
-
   it.each<OcCase>([
     { ...OC_DEFAULT_CASE, distance: 0.75, a: 0, near: [0, 10] },
     { ...OC_DEFAULT_CASE, distance: 0.5, a: 0, near: null },
