@@ -1,6 +1,8 @@
 // UO：按三个周期加权的买压与真实波幅比值。
 defineIndicator({
   name: 'UO',
+  title: '终极振荡器',
+  info: 'UO 综合多个周期买卖压力加权，值域 0-100，避免单一周期的噪声信号。',
   position: Position.Sub,
   onBar() {
     const shortPeriod = input.int(7, { title: '短周期', min: 1 })

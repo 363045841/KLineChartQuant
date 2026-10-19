@@ -1,6 +1,8 @@
 // 快慢两条收盘价指数移动平均。
 defineIndicator({
   name: 'EXPMA',
+  title: '指数移动平均',
+  info: 'EXPMA 是指数移动平均，给近期价格更高权重，响应速度快于 SMA。',
   position: Position.Main,
   onBar() {
     const fastPeriod = input.int(12, { title: '快周期', min: 1 })

@@ -22,6 +22,8 @@
       v-bind="popover.panelBindings.value"
       :role="role"
       :aria-label="label"
+      @mouseenter="onPanelEnter"
+      @mouseleave="onPanelLeave"
     >
       <slot v-if="isOpen" :close="close" />
     </div>
@@ -31,7 +33,7 @@
 <script setup lang="ts">
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-  import { computed, ref, useTemplateRef } from 'vue'
+  import { computed, onScopeDispose, ref, useTemplateRef } from 'vue'
 
   const props = withDefaults(
     defineProps<{
@@ -40,9 +42,16 @@
       placement?: 'auto' | 'top' | 'bottom'
       /** 面板语义：dialog（含可交互内容）或 note（纯说明）。 */
       role?: 'dialog' | 'note'
+      /** 触发方式：click 用于可交互面板，hover 用于纯说明气泡。 */
+      trigger?: 'click' | 'hover'
       maxHeight?: string
     }>(),
-    { placement: 'auto', role: 'dialog', maxHeight: 'min(360px, calc(100vh - 24px))' },
+    {
+      placement: 'auto',
+      role: 'dialog',
+      trigger: 'click',
+      maxHeight: 'min(360px, calc(100vh - 24px))',
+    },
   )
 
   const emit = defineEmits<{ open: []; close: [] }>()
@@ -61,16 +70,57 @@
     onClose: () => emit('close'),
   })
   const isOpen = popover.open
+  let hideTimer: ReturnType<typeof setTimeout> | undefined
+
+  /** 鼠标在触发器和面板之间移动时延迟收起，避免刚显示就被 mouseleave 关掉。 */
+  function scheduleHide(): void {
+    clearTimeout(hideTimer)
+    hideTimer = setTimeout(() => popover.hide({ restoreFocus: false }), 120)
+  }
+
+  function cancelHide(): void {
+    clearTimeout(hideTimer)
+    hideTimer = undefined
+  }
+
+  function onPanelEnter(): void {
+    if (props.trigger === 'hover') cancelHide()
+  }
+
+  function onPanelLeave(): void {
+    if (props.trigger === 'hover') scheduleHide()
+  }
+
+  onScopeDispose(() => clearTimeout(hideTimer))
 
   /** 触发元素通过 ref 回调登记，供定位与焦点归还使用。 */
-  const triggerProps = computed(() => ({
-    ...popover.triggerBindings.value,
-    'aria-haspopup': props.role === 'dialog' ? ('dialog' as const) : undefined,
-    ref: (element: unknown) => {
-      triggerEl.value = element instanceof HTMLElement ? element : null
-    },
-    onClick: popover.onTriggerClick,
-  }))
+  const triggerProps = computed(() => {
+    const bindings = {
+      ...popover.triggerBindings.value,
+      'aria-haspopup': props.role === 'dialog' ? ('dialog' as const) : undefined,
+      ref: (element: unknown) => {
+        triggerEl.value = element instanceof HTMLElement ? element : null
+      },
+    } as Record<string, unknown>
+    if (props.trigger === 'hover') {
+      // hover 模式不能保留 popovertarget，否则点击仍会被浏览器原生切换。
+      delete bindings.popovertarget
+      return {
+        ...bindings,
+        onMouseenter: () => {
+          cancelHide()
+          popover.show()
+        },
+        onMouseleave: scheduleHide,
+        onFocus: () => {
+          cancelHide()
+          popover.show()
+        },
+        onBlur: () => popover.hide({ restoreFocus: false }),
+      }
+    }
+    return { ...bindings, onClick: popover.onTriggerClick }
+  })
 
   function close(): void {
     popover.hide({ restoreFocus: true })

@@ -1,6 +1,8 @@
 // 布林通道：收盘价均线加减总体标准差倍数。
 defineIndicator({
   name: 'BOLL',
+  title: '布林带',
+  info: '布林带由三条轨道线组成，用于判断价格的波动范围和趋势强度。价格触及上轨可能超买，触及下轨可能超卖。',
   position: Position.Main,
   onBar() {
     const period = input.int(20, { title: '周期', min: 1 })

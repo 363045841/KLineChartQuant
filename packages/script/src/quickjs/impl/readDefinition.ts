@@ -222,13 +222,16 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     !isRecord(value) ||
     typeof value.name !== 'string' ||
     !value.name.trim() ||
+    (value.title !== undefined &&
+      (typeof value.title !== 'string' || !value.title.trim())) ||
+    (value.info !== undefined && (typeof value.info !== 'string' || !value.info.trim())) ||
     !isPosition(value.position) ||
     (value.format !== undefined && !isFormat(value.format)) ||
     !isRecord(value.inputs)
   ) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、position 与合法的 format，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
+      `指标需要 name、position 与合法的 format/title/info，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
     )
   }
   const inputs: QuickJSScriptDefinition['inputs'] = {}
@@ -255,6 +258,8 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   }
   return {
     name: value.name,
+    ...(typeof value.title === 'string' ? { title: value.title } : {}),
+    ...(typeof value.info === 'string' ? { info: value.info } : {}),
     position: value.position,
     ...(isFormat(value.format) ? { format: value.format } : {}),
     inputs,

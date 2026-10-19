@@ -481,6 +481,25 @@ defineLibrary('ta', {
     })
   },
 
+  /** 随机指标：100 × (source − 窗口最低) / (窗口最高 − 窗口最低)；零幅窗口输出 50。 */
+  stoch(source: Series, high: Series, low: Series, length: number): Series {
+    __checkLength(length)
+    const upper = __windowSeries(high, length, 'highest')
+    const lower = __windowSeries(low, length, 'lowest')
+    return __deriveOnce(
+      `stoch:${__seriesId(source)}:${__seriesId(high)}:${__seriesId(low)}:${length}`,
+      (_self, offset) => {
+        const value = source.at(offset)
+        const highValue = upper.at(offset)
+        const lowValue = lower.at(offset)
+        if (Number.isNaN(value) || Number.isNaN(highValue) || Number.isNaN(lowValue))
+          return Number.NaN
+        const range = highValue - lowValue
+        return range === 0 ? 50 : (100 * (value - lowValue)) / range
+      },
+    )
+  },
+
   /** Chande 动量振荡器：涨跌差占涨跌和的比例；平盘返回 0。 */
   cmo(source: Series, length: number): Series {
     __checkLength(length)

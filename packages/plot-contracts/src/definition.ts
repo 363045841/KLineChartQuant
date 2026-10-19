@@ -9,6 +9,10 @@ import type { PlotCollection } from './plots.js'
 /** 可序列化的脚本声明；不包含执行函数。 */
 export interface IndicatorSourceDefinition {
   readonly name: string
+  /** 指标选择器/图例显示的长名称；缺省用 name。 */
+  readonly title?: string
+  /** 指标选择器里的说明文本；缺省不展示说明。 */
+  readonly info?: string
   /** 注册位置：主图叠加或独立副图；缺省为副图。 */
   readonly position?: 'main' | 'sub'
   /** 指标级数值格式：驱动整条 y 轴与图例显示；缺省按价格。 */
@@ -77,6 +81,10 @@ export interface IndicatorDefinition<P> {
   readonly id?: string
   /** 指标名称；`id` 缺省时同时作为内部身份与展示名。 */
   readonly name: string
+  /** 指标选择器/图例显示的长名称；缺省用 name。 */
+  readonly title?: string
+  /** 指标选择器里的说明文本；缺省不展示说明。 */
+  readonly info?: string
   /** 注册位置：主图叠加或独立副图；缺省放在副图。 */
   readonly position?: 'main' | 'sub'
   /** 指标级数值格式：驱动整条 y 轴与图例显示；缺省按价格。 */

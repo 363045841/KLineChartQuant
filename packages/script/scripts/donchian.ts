@@ -1,6 +1,8 @@
 // 唐奇安通道：窗口最高价、最低价与二者中点。
 defineIndicator({
   name: 'Donchian',
+  title: '唐奇安通道',
+  info: 'Donchian Channel 显示 N 日内最高价和最低价的通道，价格突破上下轨视为趋势信号。',
   position: Position.Main,
   onBar() {
     const period = input.int(20, { title: '周期', min: 1 })

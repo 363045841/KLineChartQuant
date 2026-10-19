@@ -1,13 +1,10 @@
-/** 指标身份契约：普通指标共用 Plot 状态，领域输出保留明确的专用类型。 */
-import type { PlotRenderState } from '../plots/types.js'
+/** 指标身份契约：领域输出保留明确的专用类型。 */
 import type { StructureRenderState } from './state/structureState.js'
 import type { VolumeProfileRenderState } from './state/volumeProfileState.js'
 import type { ZonesRenderState } from './state/zonesState.js'
 
-type PlotIndicatorName = 'fisherTransform' | 'schaffTrendCycle' | 'stochRSI'
-
 /** 第三方仍可通过 declaration merging 扩展指标身份。 */
-export interface IndicatorStateContracts extends Record<PlotIndicatorName, PlotRenderState> {
+export interface IndicatorStateContracts {
   structure: StructureRenderState
   volumeProfile: VolumeProfileRenderState
   zones: ZonesRenderState

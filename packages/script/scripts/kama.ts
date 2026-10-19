@@ -4,6 +4,8 @@ let barCount = 0
 
 defineIndicator({
   name: 'KAMA',
+  title: '考夫曼自适应移动平均',
+  info: 'KAMA 根据市场噪音自适应调整平滑度，趋势强时快速跟随，震荡时平滑过滤。',
   position: Position.Main,
   onBar() {
     const period = input.int(10, { title: '效率周期', min: 1 })

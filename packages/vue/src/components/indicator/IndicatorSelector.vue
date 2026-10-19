@@ -79,6 +79,26 @@
                     <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
                       {{ indicator.name }}
                     </span>
+                    <BasePopover
+                      v-if="indicator.description"
+                      :label="`${indicator.name} 指标说明`"
+                      role="note"
+                      placement="auto"
+                      trigger="hover"
+                    >
+                      <template #trigger="{ props: triggerProps }">
+                        <button
+                          type="button"
+                          class="item-info-btn"
+                          :aria-label="`查看指标说明：${indicator.name}`"
+                          v-bind="triggerProps"
+                        >
+                          <IconTablerInfoCircle aria-hidden="true" />
+                        </button>
+                      </template>
+                      <p class="indicator-description__title">{{ indicator.name }}</p>
+                      <p class="indicator-description">{{ indicator.description }}</p>
+                    </BasePopover>
                   </span>
                   <span class="item-tags">
                     <span class="type-badge">{{ indicator.role === 'main' ? '主图' : '副图' }}</span>
@@ -86,10 +106,11 @@
                 </div>
               </button>
               <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
-              <BaseTooltip v-if="indicator.source === 'script'" content="编辑脚本" placement="top">
+              <BaseTooltip content="编辑脚本" placement="top">
                 <button
                   type="button"
                   class="item-action-btn"
+                  :disabled="indicator.source !== 'script'"
                   :aria-label="`编辑脚本：${indicator.name}`"
                   @click="editScript(indicator.id)"
                 >
@@ -107,36 +128,17 @@
                   <IconTablerTrash aria-hidden="true" />
                 </button>
               </BaseTooltip>
-              <BaseTooltip v-if="indicator.params?.length" content="编辑参数" placement="top">
+              <BaseTooltip content="编辑参数" placement="top">
                 <button
                   type="button"
                   class="item-action-btn"
+                  :disabled="!indicator.params?.length"
                   :aria-label="`编辑参数：${indicator.name}`"
                   @click="showParams(indicator.id)"
                 >
                   <IconTablerSettings aria-hidden="true" />
                 </button>
               </BaseTooltip>
-              <!-- 说明用锚定气泡，避免在选择器上叠加第二个弹窗。 -->
-              <BasePopover
-                v-else-if="indicator.description"
-                :label="`${indicator.name} 指标说明`"
-                role="note"
-                placement="auto"
-              >
-                <template #trigger="{ props: triggerProps }">
-                  <button
-                    type="button"
-                    class="item-action-btn"
-                    :aria-label="`查看指标说明：${indicator.name}`"
-                    v-bind="triggerProps"
-                  >
-                    <IconTablerInfoCircle aria-hidden="true" />
-                  </button>
-                </template>
-                <p class="indicator-description__title">{{ indicator.name }}</p>
-                <p class="indicator-description">{{ indicator.description }}</p>
-              </BasePopover>
               <button
                 type="button"
                 class="item-favorite-btn"
@@ -300,8 +302,11 @@
   }
 
   function showParams(indicatorId: string) {
+    const indicator = findIndicator(indicatorId)
+    // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
+    if (!indicator?.params?.length) return
     currentIndicatorId.value = indicatorId
-    currentIndicator.value = findIndicator(indicatorId)
+    currentIndicator.value = indicator
     paramsVisible.value = true
   }
 
@@ -313,6 +318,9 @@
 
   /** 打开当前脚本文档，官方身份由编辑器提供只读展示。 */
   function editScript(indicatorId: string) {
+    const indicator = findIndicator(indicatorId)
+    // 原生指标没有脚本可编辑；入口按钮保持可见并置灰。
+    if (indicator?.source !== 'script') return
     closeMenu()
     emit('editCode', indicatorId)
   }
@@ -486,6 +494,7 @@
   .item-select:focus-visible,
   .item-action-btn:focus-visible,
   .item-favorite-btn:focus-visible,
+  .item-info-btn:focus-visible,
   .selector-nav-item:focus-visible {
     outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
@@ -496,12 +505,40 @@
   }
 
   .item-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12px;
     font-weight: 500;
     color: var(--klc-color-foreground);
+  }
+
+  .item-info-btn {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-axis-text);
+    cursor: pointer;
+  }
+
+  .item-info-btn:hover {
+    color: var(--klc-color-foreground);
+  }
+
+  .item-info-btn svg {
+    width: 14px;
+    height: 14px;
   }
 
   .item-name {
@@ -562,7 +599,7 @@
       background-color var(--klc-motion-dur-fast, 160ms) ease;
   }
 
-  .item-action-btn:hover,
+  .item-action-btn:hover:not(:disabled),
   .item-favorite-btn:hover:not(:disabled) {
     background: var(--klc-color-tag-bg-hover);
     color: var(--klc-color-foreground);
@@ -572,6 +609,7 @@
     color: var(--klc-color-ui-text);
   }
 
+  .item-action-btn:disabled,
   .item-favorite-btn:disabled {
     opacity: 0.45;
     cursor: default;

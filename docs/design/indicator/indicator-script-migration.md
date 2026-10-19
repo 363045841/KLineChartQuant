@@ -13,23 +13,24 @@
 脚本走中立定义 `IndicatorDefinition`，core 经 `registerPlotIndicator` 翻译成 `IndicatorMetadata`。
 指标不声明业务分类，目录根据来源、收藏与搜索展示列表，UI 只保留主图或副图位置标签。
 
-## 脚本身份只保留 name
+## 脚本身份：name 是身份，title/info 是展示
 
-脚本不再声明 `displayName`。原生 `@Indicator` 的 `name` 是被 renderer / calculator 按名字
-引用的代码键，因此必须另有一个对外展示身份；脚本没有这层代码键引用，`name` 同时就是对外的
-定义 id、目录展示名与实例身份，再声明一份 `displayName` 等于把同一个值填两遍。
-注册表 `normalizeIndicatorId` 对大小写不敏感，纯大小写差异不产生新身份，只影响展示，
-因此这类 `displayName` 连"别名"的作用都没有。
+脚本的 `name` 是稳定身份与选择器短名；可选 `title` 设置选择器 item-name（长名称），
+可选 `info` 设置选择器里的说明文本，缺省回落到 `name` / 不展示说明。core 的
+`IndicatorMetadata` / `IndicatorDescriptor` 增加 `title` 与 `info`，`registerPlotIndicator`
+只负责转发；`indicatorCatalog` 对脚本使用 `title ?? displayName` 与 `def.info`，
+不再从 `uiMeta` 读取脚本名称或说明。原生 `@Indicator` 仍使用 `displayName` 与 `uiMeta`
+（结构、区域、成交量分布等）。
 
 落地：
 
-- 契约删字段：`IndicatorSourceDefinition`、`IndicatorDefinition`、`QuickJSScriptDefinition`，
-  以及 VM 元数据读取与 `defineIndicator` 的跨边界校验。
-- `registerPlotIndicator` 落 `displayName: definition.name`；core 的 `IndicatorMetadata.displayName`
-  保留，原生指标仍以它为对外身份。
-- 迁移脚本的 `name` 直接取原 `displayName`（`BOLL` / `RSI` / `KDJ` / `Donchian` …），
-  选择器标签与目录键不变，副图 pane id 回到迁移前的 `sub_RSI` / `sub_FASTK` / `sub_STOCH`。
-- 副本只改写 `name`，去掉"name 与 displayName 同为固定身份"的双身份校验。
+- 契约新增字段：`IndicatorSourceDefinition`、`IndicatorDefinition`、`QuickJSScriptDefinition`
+  与 VM 元数据读取都支持可选 `title` 与 `info`。
+- `registerPlotIndicator` 落 `displayName: definition.name`、`title: definition.title`、
+  `info: definition.info`；脚本选择器的短名仍是 `name`，长名称读 `title`，说明读 `info`。
+- 内置脚本把原 `uiMeta.name` / `uiMeta.description` 搬到 `defineIndicator.title` / `info`
+  （`BOLL` + `布林带` + 布林带说明等）；`uiMeta` 只保留原生定义。
+- `name` 仍是稳定身份；`title` / `info` 可随脚本更新，不改变指标实例身份。
 
 ## 明确不引入的东西
 
@@ -58,18 +59,20 @@
 | 批次 | 指标 | 说明 |
 | --- | --- | --- |
 | 第一批（已迁移） | `rsi` `mom` `roc` `wma` `boll` `donchian` `fastk` `wmsr` `stoch` | 仅 K 线；保留原默认参数、预热及计算规则；只有 RSI 是周期族多线，保留逐线开关 |
-| 状态机与振荡类（待迁移） | `sar` `obv` `pvt` `vwap` `mfi` `cmf` `trix` `stc` `fisher` `uo` `hv` `parkinson` `chaikinVol` `stochRSI` | SuperTrend、MACD 已迁移并补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；本行其余指标按需迁移 |
+| 状态机与振荡类（待迁移） | `sar` `obv` `pvt` `vwap` `mfi` `cmf` `trix` `uo` `hv` `parkinson` `chaikinVol` | SuperTrend、MACD 已迁移并补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；本行其余指标按需迁移 |
+| STC（已迁移） | `stc` | 用 `ta.macd` 取 DIF，两次 `ta.stoch`，`derive` 自递推做 factor 平滑 |
 | 组合类（已迁移） | `ao` `cci` `hma` `kst` `dma` | 除 `ta.hma` / `ta.cci` 外均由现有 `ta.sma` / `ta.roc` 与全局 `derive` 组合，不新增计算原语 |
 | 均线与通道批次（已迁移） | `atr` `ma` `expma` `dema` `tema` `t3` `trima` `gmma` `ene` `vma` `vwma` `keltner` `dpo` `pivot` `ichimoku` | TA 增加 DEMA、TEMA、T3、TRIMA；其他组合由脚本表达，删除原生定义及其相关测试 |
 | Fib 与 FRAMA（已迁移） | `fib` `frama` | Fib 使用横线阶梯与最高/最低偏移；FRAMA 用现有极值原语加顶层递推状态 |
 | ALMA 与 SMMA（已迁移） | `alma` `smma` | 直接用 `ta.alma` / `ta.rma`；ALMA 采用 Pine 默认 `floor=false`，不再复刻旧 core 的 floor 取整 |
 | ZLEMA（已迁移） | `zlema` | 零滞后源用 `derive` 组合，EMA 交给 `ta.ema`，不新增 TA 原语 |
 | KAMA / VIDYA / LSMA（已迁移） | `kama` `vidya` `lsma` | KAMA 用 `derive` + `ta.sum`；VIDYA 用 `ta.cmo`；LSMA 用 `ta.linreg` |
+| Fisher 与 StochRSI（已迁移） | `fisher` `stochRSI` | Fisher 用 `derive` + `ta.highest/lowest` + 顶层递推；StochRSI 用 `ta.rsi` + `ta.highest/lowest` + `ta.sma` |
 | 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
 
 ## 落地切片（每片独立可测）
 
-1. **ta 原语**（已完成）：`sum` / `stddev` / `mom` / `roc`；本批补充 `highestbars` / `lowestbars` / `rma` / `swma` / `alma` / `cmo` / `linreg`，含参考实现对照与线性复杂度用例。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。
+1. **ta 原语**（已完成）：`sum` / `stddev` / `mom` / `roc`；本批补充 `highestbars` / `lowestbars` / `rma` / `swma` / `alma` / `cmo` / `linreg` / `stoch`，含参考实现对照与线性复杂度用例。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。
 2. **业务分类字段**（已完成）：如上。
 3. **第一批脚本 + 删除原生实现**（已完成）：删除原生定义、专用 scale、calculator、
    Worker 映射与静态身份条目，重新生成原生目录；保留其他指标仍依赖的通用计算原语。
@@ -82,7 +85,10 @@
   指标源码不含顶层可变状态，重算与追加历史都不依赖前一次运行。
 - Stoch 保留原 KDJ 规则：K 为 RSV，D 为 K 的 m 周期均值，J = 3K - 2D；
   三线从 D 就绪时同时输出，J 可超出 0~100。D 依赖对 K 序列再平滑，目前仍在指标源码内维护窗口。
-- BOLL 使用总体标准差；FastK/WMSR 平盘分别输出 50/-50；ROC 的零基期留空。
+- BOLL 使用总体标准差；FastK/WMSR/KDJ/StochRSI 的随机窗口统一走 `ta.stoch`（零幅窗口输出 50，
+  WMSR 由 `ta.stoch - 100` 得到 -50）；ROC 的零基期留空。
+- STC 用 `ta.macd(close, fast, slow, 1)[0]` 取 DIF，两次 `ta.stoch` 做随机化，`derive` 自递推
+  按 `previous + factor × (raw − previous)` 平滑；DIF 从首根有效值起算，STC 从 `2 × cycle − 2` 起输出。
 - 参考线由脚本绘制，坐标轴使用实际 Plot 范围，不保留原生固定范围和主题 token 通道。
 - SuperTrend 默认 ATR 周期 10、倍数 3；`ta.atr` 以首个完整 TR 窗口均值初始化，之后 Wilder 平滑。
   `ta.supertrend(multiplier, atrPeriod)` 返回趋势值与方向两个 Series，-1 为上涨、1 为下跌；保留旧 core
@@ -127,6 +133,9 @@ KAMA 用 `derive` 构造绝对变化序列，`ta.sum` 求波动和，效率比�
 状态逐 bar 递推。VIDYA 用 `ta.cmo(close, cmoPeriod)` 的绝对值缩放基础 EMA 系数，同样以顶层
 状态递推；CMO 平盘时按 0 处理。LSMA 直接调用 `ta.linreg(close, period, 0)`，TA 新增的
 `cmo` / `linreg` 与 Pine 的 `ta.cmo` / `ta.linreg` 对齐。
+Fisher 用 `derive` 构造中位价，`ta.highest` / `ta.lowest` 取窗口极值，顶层 `value` / `fisher`
+状态递推，`signal` 输出上一根 Fisher。StochRSI 用 `ta.rsi` 得到 RSI，再用 `ta.highest` /
+`ta.lowest` 做随机窗口，`ta.sma` 平滑 K/D；窗口极值相等时输出 50。
 
 Core 删除本批指标的定义、计算器、专用坐标轴、Worker 映射、契约与目录元数据。相关测试用例
 直接删除，不换用另一个待迁移指标继续断言；混合测试文件保留独立的其他用例。足迹图 ATR 行高

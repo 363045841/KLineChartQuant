@@ -1,6 +1,8 @@
 // 均线按百分比上下偏移形成 ENE 价格轨道。
 defineIndicator({
   name: 'ENE',
+  title: '包络线',
+  info: 'ENE 以均线为中枢，按百分比上下偏移形成包络通道，用于观察价格相对波动区间。',
   position: Position.Main,
   onBar() {
     const period = input.int(10, { title: '周期', min: 1 })

@@ -1,6 +1,8 @@
 // 顾比均线以短期和长期两组 EMA 观察趋势及其收敛发散。
 defineIndicator({
   name: 'GMMA',
+  title: '顾比复合移动平均',
+  info: 'GMMA 用多组短期与长期均线判断趋势，短期组上穿长期组常视为趋势转强。',
   position: Position.Main,
   onBar() {
     const showShort = input.bool(true, { title: '显示短期均线组' })

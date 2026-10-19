@@ -38,6 +38,9 @@ const names = [
   'kama',
   'vidya',
   'lsma',
+  'fisher',
+  'stoch-rsi',
+  'stc',
 ]
 
 /** 执行发布源码并按绘图身份提取数值，缺失点保持 undefined。 */
@@ -142,14 +145,25 @@ describe('迁移的内置指标', () => {
   })
 
   // 跨数据与追加历史都不能残留脚本状态；「同输入同输出」由执行器用例统一覆盖。
-  it.each(['rsi', 'stoch', 'supertrend', 'macd', 'ao', 'cci', 'hma', 'kst', 'dma', 'frama'])(
-    '%s 追加历史不泄漏脚本状态',
-    async (name) => {
-      const data = barsFromCloses(wavyCloses(50))
-      const full = await run(name, data)
-      const prefix = await run(name, data.slice(0, 35))
-      for (const [id, values] of Object.entries(prefix))
-        expect(full[id]?.slice(0, 35)).toEqual(values)
-    },
-  )
+  it.each([
+    'rsi',
+    'stoch',
+    'supertrend',
+    'macd',
+    'ao',
+    'cci',
+    'hma',
+    'kst',
+    'dma',
+    'frama',
+    'fisher',
+    'stoch-rsi',
+    'stc',
+  ])('%s 追加历史不泄漏脚本状态', async (name) => {
+    const data = barsFromCloses(wavyCloses(50))
+    const full = await run(name, data)
+    const prefix = await run(name, data.slice(0, 35))
+    for (const [id, values] of Object.entries(prefix))
+      expect(full[id]?.slice(0, 35)).toEqual(values)
+  })
 })

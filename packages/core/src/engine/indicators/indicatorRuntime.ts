@@ -8,9 +8,6 @@
 import type { KLineData } from '../../foundation/types/price.js'
 
 import {
-  calcFisherTransformData,
-  calcSchaffTrendCycleData,
-  calcStochRSIData,
   calcStructureData,
   calcVolumeProfileData,
   calcZonesData,
@@ -23,10 +20,6 @@ const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown
   calcZonesData: (data, c) => calcZonesData(data, c.obLookback, 5, 2, 'close'),
   calcVolumeProfileData: (data, c) =>
     calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
-  calcStochRSIData: (data, c) => calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
-  calcFisherTransformData: (data, c) => calcFisherTransformData(data, c.period),
-  calcSchaffTrendCycleData: (data, c) =>
-    calcSchaffTrendCycleData(data, c.fast, c.slow, c.cycle, c.factor),
 }
 
 export function createWorkerCompute(descriptor: {

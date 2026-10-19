@@ -20,9 +20,6 @@ describe('builtin indicator registration', () => {
         'extremaMarkers',
         'lastPriceLine',
         'lastPriceLabelRegistrar',
-        'stochRSI',
-        'fisherTransform',
-        'schaffTrendCycle',
         'timeShare',
         'fiveDayTimeShare',
       ]),
@@ -75,12 +72,6 @@ describe('builtin indicator registration', () => {
         ids.add(layer.id)
       }
       expect(ids.size, definition.name).toBe(panes.length)
-    }
-  })
-
-  it('振荡指标声明 Plot', () => {
-    for (const id of ['schaffTrendCycle', 'stochRSI']) {
-      expect(getRegisteredIndicatorDefinition(id)?.plots?.series).toBeInstanceOf(Array)
     }
   })
 

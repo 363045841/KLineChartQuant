@@ -1,6 +1,8 @@
 // 以前一根 K 线的高低收盘计算经典枢轴点及三组支撑阻力。
 defineIndicator({
   name: 'Pivot',
+  title: '枢轴点',
+  info: 'Pivot 根据前一根 K 线计算经典枢轴点与支撑阻力位，用于日内关键价位参考。',
   position: Position.Main,
   onBar() {
     const previousHigh = high[1]

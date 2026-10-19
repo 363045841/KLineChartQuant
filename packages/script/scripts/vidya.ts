@@ -3,6 +3,8 @@ let vidya = Number.NaN
 
 defineIndicator({
   name: 'VIDYA',
+  title: '可变指数移动平均',
+  info: 'VIDYA 用 CMO 自适应调整平滑系数，趋势强时快速跟随，震荡时平滑过滤。',
   position: Position.Main,
   onBar() {
     const period = input.int(14, { title: 'EMA 周期', min: 1 })

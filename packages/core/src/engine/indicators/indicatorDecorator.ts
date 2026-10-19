@@ -34,6 +34,10 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   name: IndicatorName
   aliases?: readonly string[]
   displayName: string
+  /** 指标选择器/图例显示的长名称；缺省用 displayName。 */
+  title?: string
+  /** 指标选择器里的说明文本；缺省不展示说明。 */
+  info?: string
   /** 定义身份：系统渲染器或用户可添加的指标。所有定义必须显式声明。 */
   kind: IndicatorKind
   category: IndicatorCategory

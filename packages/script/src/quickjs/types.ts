@@ -33,8 +33,12 @@ export interface QuickJSLibrary {
 
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
 export interface QuickJSScriptDefinition {
-  /** 用户可修改的指标显示名称；注册身份由宿主维护。 */
+  /** 稳定身份与选择器短名；注册身份由宿主维护。 */
   readonly name: string
+  /** 指标选择器/图例显示的长名称；缺省用 name。 */
+  readonly title?: string
+  /** 指标选择器里的说明文本；缺省不展示说明。 */
+  readonly info?: string
   /**
    * 指标渲染位置。
    *

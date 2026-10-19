@@ -1,6 +1,8 @@
 // 典型价格的顺势指标，参考线 ±100 与 0。
 defineIndicator({
   name: 'CCI',
+  title: '顺势指标',
+  info: 'CCI 衡量价格相对统计平均的偏离程度，+100 以上常视为强势，-100 以下常视为弱势。',
   position: Position.Sub,
   onBar() {
     const period = input.int(14, { title: '周期', min: 1 })

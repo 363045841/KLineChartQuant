@@ -532,6 +532,27 @@ describe('runQuickJSScript', () => {
     expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ position: expected })
   })
 
+  it('读取可选 title/info 作为选择器展示名与说明，缺省不写入，空值拒绝', () => {
+    const titled = readQuickJSScriptDefinitionSync(
+      `defineIndicator({ name: 'Titled', title: '展示名', info: '说明文本', position: Position.Sub, inputs: {}, onBar() {} })`,
+    )
+    expect(titled).toMatchObject({ name: 'Titled', title: '展示名', info: '说明文本' })
+
+    const plain = readQuickJSScriptDefinitionSync(
+      `defineIndicator({ name: 'Plain', position: Position.Sub, inputs: {}, onBar() {} })`,
+    )
+    expect(plain).not.toHaveProperty('title')
+    expect(plain).not.toHaveProperty('info')
+
+    for (const field of [`title: ' '`, `info: ' '`]) {
+      expect(() =>
+        readQuickJSScriptDefinitionSync(
+          `defineIndicator({ name: 'Empty', ${field}, position: Position.Sub, inputs: {}, onBar() {} })`,
+        ),
+      ).toThrow()
+    }
+  })
+
   it('Color 常用色枚举在 VM 中与共享契约逐项一致，取值可直接作为绘图颜色', async () => {
     // 成员表由契约生成，用例只比对色值，不复制一份调色板。
     const checks = Object.entries(Color)

@@ -1,6 +1,8 @@
 // MFI：窗口内正向与负向典型价现金流的比值。
 defineIndicator({
   name: 'MFI',
+  title: '资金流量指数',
+  info: 'MFI（Money Flow Index）类似 RSI 但用量能加权，判断超买超卖。MFI > 80 超买，MFI < 20 超卖。',
   position: Position.Sub,
   onBar() {
     const period = input.int(14, { title: '周期', min: 1 })

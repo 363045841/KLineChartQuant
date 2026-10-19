@@ -1,6 +1,8 @@
 // Wilder RSI 三线；6/12/24 是周期族平行多线，可逐条隐藏，计算全部走 ta.rsi。
 defineIndicator({
   name: 'RSI',
+  title: '相对强弱指标',
+  info: 'RSI 衡量价格变动的速度和幅度，判断超买超卖状态。RSI > 70 超买，RSI < 30 超卖。',
   position: Position.Sub,
   onBar() {
     const period1 = input.int(6, { title: '周期 1', min: 1 })

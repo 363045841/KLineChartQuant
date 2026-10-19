@@ -82,7 +82,7 @@ function createScaleRendererFactory(
  * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
  *
  * 位置缺省放副图；内部身份取 `id ?? name`（脚本由宿主分配稳定 ID），
- * displayName 与坐标轴标签取 name（可编辑展示名）。
+ * displayName 与坐标轴标签取 name（稳定短名），title 作为选择器长名称。
  */
 export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
   registerIndicatorDefinition(createPlotIndicatorDefinition(definition))
@@ -106,6 +106,8 @@ function createPlotIndicatorDefinition<P>(
     source: definition.source,
     document: definition.document,
     displayName: definition.name,
+    title: definition.title,
+    info: definition.info,
     kind: IndicatorKind.Indicator,
     category: main ? 'main' : 'sub',
     defaultPaneId: paneId,

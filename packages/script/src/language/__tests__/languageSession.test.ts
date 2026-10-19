@@ -27,6 +27,12 @@ describe('共享脚本语义会话', () => {
     expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2345]))
   })
 
+  it('title 是 defineIndicator 的合法展示名', () => {
+    const session = createScriptLanguageSession()
+    session.updateSource(`defineIndicator({ name: 'Titled', title: '展示名', position: Position.Sub, onBar() {} })`)
+    expect(diagnosticCodes(session)).toEqual([])
+  })
+
   it('request.security 是编辑器可见的全局接口', () => {
     const session = createScriptLanguageSession()
     session.updateSource(`defineIndicator({ name: 'Request', position: Position.Main, onBar() {

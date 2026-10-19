@@ -59,6 +59,8 @@ defineIndicator({
 | `Color` | Material 400 常用色，也可直接写任意 CSS 颜色字符串 |
 | `defineIndicator` / `defineLibrary` / `importLibrary` | 声明指标、声明库、使用库 |
 
+`defineIndicator` 还接受可选的 `title` 和 `info`，分别用于指标选择器里的长名称和说明文本；`name` 仍是稳定身份和短名。
+
 `plot.Line` 跨过 `null` 或 `NaN` 空值连接前后有效点，对应 Pine 的 `plot.style_line`；`plot.LineBR` 在空值处断开，对应 `plot.style_linebr`。两者支持相同的颜色、尺寸、虚线和偏移选项，都返回可供 `fill` 引用的句柄。已有脚本若依赖空值断线，应改用 `plot.LineBR`。
 
 `plot.StepLine` 绘制阶梯线，在相邻有效点的水平中点垂直跳变，并跨空值连接；`plot.StepLineBR` 在空值处断开。两者分别对应 Pine 的 `plot.style_stepline` 和 `plot.style_steplinebr`，复用折线选项，返回可供 `fill` 引用的句柄。
@@ -77,7 +79,7 @@ onBar() {
 }
 ```
 
-内置 `ta` 库提供 `sma`、`ema`、`rma`、`swma`、`alma`、`wma`、`vwma`、`rsi`、`highest`、`lowest`、`highestbars`、`lowestbars`、`cmo`、`linreg`、`crossover`、`crossunder`、`rising`、`falling` 与 `change`。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。用户库使用同一套 `defineLibrary` 调用，进入同一个全局命名空间。
+内置 `ta` 库提供 `sma`、`ema`、`rma`、`swma`、`alma`、`wma`、`vwma`、`rsi`、`highest`、`lowest`、`highestbars`、`lowestbars`、`stoch`、`cmo`、`linreg`、`crossover`、`crossunder`、`rising`、`falling` 与 `change`。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。用户库使用同一套 `defineLibrary` 调用，进入同一个全局命名空间。
 
 - **沙箱执行** — 脚本在内嵌 QuickJS 运行时中执行，每次运行都有时间和内存预算，跑飞的脚本会失败退出而不是拖垮宿主
 - **不接触未来数据** — 历史不足时序列返回 `NaN`，脚本永远无法读取未来

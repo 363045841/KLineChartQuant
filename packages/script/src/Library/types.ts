@@ -223,6 +223,16 @@ export type TechnicalAnalysisLibrary = {
    */
   rsi(source: Series, length: number): Series
   /**
+   * 随机指标：100 × (source − 窗口最低) / (窗口最高 − 窗口最低)。
+   * @summary 随机指标
+   * @param source 数据序列，如 close。
+   * @param high 最高价序列，如 high。
+   * @param low 最低价序列，如 low。
+   * @param length 窗口长度，正整数。
+   * @returns 随机指标序列，范围 0–100；完整窗口之前为 NaN，零幅窗口输出 50。
+   */
+  stoch(source: Series, high: Series, low: Series, length: number): Series
+  /**
    * 平均真实波幅（ATR），首个完整窗口取真实波幅均值，之后使用 Wilder 平滑。
    * @summary 平均真实波幅
    * @param length 周期，正整数。

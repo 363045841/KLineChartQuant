@@ -1,6 +1,8 @@
 // 一目均衡表以区间中点、先行云带和迟行收盘价呈现趋势。
 defineIndicator({
   name: 'Ichimoku',
+  title: '一目均衡表',
+  info: '一目均衡表用转换线、基准线、先行 span 与迟行线描述趋势、支撑阻力与未来均衡区。',
   position: Position.Main,
   onBar() {
     const tenkanPeriod = input.int(9, { title: '转换线周期', min: 1 })

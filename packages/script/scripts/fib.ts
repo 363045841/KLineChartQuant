@@ -1,6 +1,8 @@
 // 斐波那契回撤：滚动窗口高低点、方向与 5 条回撤位，全部按阶梯线输出。
 defineIndicator({
   name: 'Fib',
+  title: '斐波那契',
+  info: 'Fibonacci 回调线标记关键回撤位（0.236/0.382/0.5/0.618/0.786），用于判断回调目标。',
   position: Position.Main,
   onBar() {
     const period = input.int(50, { title: '周期', min: 5, max: 500 })

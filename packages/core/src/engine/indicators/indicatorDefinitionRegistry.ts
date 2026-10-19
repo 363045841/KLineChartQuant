@@ -38,6 +38,10 @@ export interface IndicatorDescriptor {
   readonly kind: IndicatorKind
   readonly aliases?: readonly string[]
   readonly displayName: string
+  /** 指标选择器/图例显示的长名称；缺省用 displayName。 */
+  readonly title?: string
+  /** 指标选择器里的说明文本；缺省不展示说明。 */
+  readonly info?: string
   readonly category: IndicatorCategory
   readonly defaultPaneId: string
   readonly dataViews?: readonly ChartDataView[]
@@ -139,6 +143,8 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     kind: definition.kind,
     aliases: definition.aliases,
     displayName: definition.displayName,
+    title: definition.title,
+    info: definition.info,
     category: definition.category,
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,

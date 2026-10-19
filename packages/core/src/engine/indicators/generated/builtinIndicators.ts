@@ -10,18 +10,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   readonly load: () => Promise<IndicatorDefinitionClass>
 }> = [
   {
-    descriptor: {"name":"fisherTransform","kind":"indicator","displayName":"Fisher","category":"oscillator","defaultPaneId":"sub_Fisher","defaultParams":{"period":10},"defaultOptions":{"showFisher":true,"showSignal":true}},
-    load: () => import('../../renderers/Indicator/fisherTransform.js').then((module) => module.FisherTransformIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"schaffTrendCycle","kind":"indicator","displayName":"STC","category":"oscillator","defaultPaneId":"sub_STC","defaultParams":{"fast":23,"slow":50,"cycle":10,"factor":0.5},"defaultOptions":{"showSTC":true}},
-    load: () => import('../../renderers/Indicator/schaffTrendCycle.js').then((module) => module.SchaffTrendCycleIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"stochRSI","kind":"indicator","displayName":"StochRSI","category":"oscillator","defaultPaneId":"sub_StochRSI","defaultParams":{"period":14,"kPeriod":3,"dPeriod":3},"defaultOptions":{"showK":true,"showD":true}},
-    load: () => import('../../renderers/Indicator/stochRSI.js').then((module) => module.StochRSIIndicatorDefinition),
-  },
-  {
     descriptor: {"name":"structure","kind":"indicator","displayName":"Structure","category":"main","defaultPaneId":"sub_Structure","allowMainPane":true,"defaultParams":{"leftWindow":5,"rightWindow":2,"breakoutSource":"close"},"defaultOptions":{"showSwingLabels":true,"showBOS":true,"showCHOCH":true,"showProvisional":true}},
     load: () => import('../../renderers/Indicator/structure.js').then((module) => module.StructureIndicatorDefinition),
   },

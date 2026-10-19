@@ -222,6 +222,12 @@ export interface IndicatorMetadata<T = unknown> {
    */
   name: string
 
+  /** 指标选择器/图例显示的长名称；缺省用 displayName。 */
+  readonly title?: string
+
+  /** 指标选择器里的说明文本；缺省不展示说明。 */
+  readonly info?: string
+
   /**
    * 可选别名，用于兼容 UI/API 中的大写 ID 或历史名称。
    */

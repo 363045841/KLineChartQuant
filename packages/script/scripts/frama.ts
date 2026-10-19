@@ -2,7 +2,9 @@
 let frama = Number.NaN
 
 defineIndicator({
-  name: 'frama',
+  name: 'FRAMA',
+  title: '分形自适应移动平均',
+  info: 'FRAMA 用分形维度自适应调整平滑系数，趋势强时快，震荡时慢。',
   position: Position.Main,
   onBar() {
     const period = input.int(16, { title: '周期', min: 4, max: 200, step: 2 })

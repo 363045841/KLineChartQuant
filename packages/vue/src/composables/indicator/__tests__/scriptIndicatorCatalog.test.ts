@@ -35,6 +35,18 @@ describe('Script selector catalog', () => {
       pane: 'main',
     })
   })
+  it('脚本 title/info 控制选择器 item-name 与说明，name 仍是身份', async () => {
+    const created = await scripts.create(
+      `defineIndicator({ name: 'OC Display', title: 'OC 展示名', info: 'OC 说明', position: Position.Sub, inputs: {}, onBar() {} })`,
+    )
+    expect(findIndicator('OC Display')).toMatchObject({
+      id: created.id,
+      label: 'OC Display',
+      name: 'OC 展示名',
+      description: 'OC 说明',
+    })
+  })
+
   it('组件挂载后注册的脚本进入专用分组，保留输入类型和默认值', async () => {
     const scope = effectScope()
     const controller = createIndicatorSelectorController()

@@ -50,7 +50,7 @@ describe.each([prepareNativeScript, prepareQuickJSScript])('TA 新增原语 %s',
     const result = plotValues(prepared.run(barsFromCloses([1, 2, 4, 3, 5])))
     expect(result.cmo).toEqual([undefined, undefined, undefined, 50, 60])
     const flat = plotValues(prepared.run(barsFromCloses([5, 5, 5, 5])))
-    expect(flat.cmo).toEqual([undefined, undefined, 0, 0])
+    expect(flat.cmo).toEqual([undefined, undefined, undefined, 0])
   })
 
   it('linreg 返回最小二乘拟合值并支持偏移', () => {
@@ -65,8 +65,26 @@ describe.each([prepareNativeScript, prepareQuickJSScript])('TA 新增原语 %s',
     expect(result.previous).toEqual([undefined, undefined, 2, 3, 4])
   })
 
+  it('stoch 用 source/high/low 计算随机指标，零幅窗口输出 50', () => {
+    const prepared = prepare(
+      scriptSource(`
+        plot.Line(ta.stoch(close, high, low, 3)[0], 'range')
+        plot.Line(ta.stoch(close, close, close, 3)[0], 'shifted')
+      `),
+    )
+    const result = plotValues(prepared.run(barsFromCloses([1, 3, 2, 4], { spread: 1 })))
+    expect(result.range).toEqual([undefined, undefined, 50, 75])
+    expect(result.shifted).toEqual([undefined, undefined, 50, 100])
+
+    const flat = plotValues(prepared.run(barsFromCloses([2, 2, 2, 2])))
+    expect(flat.range).toEqual([undefined, undefined, 50, 50])
+    expect(flat.shifted).toEqual([undefined, undefined, 50, 50])
+  })
+
   it.each([
     'ta.rma(close, 0)',
+    'ta.stoch(close, high, low, 0)',
+    'ta.stoch(close, high, low, 1.5)',
     'ta.cmo(close, 0)',
     'ta.linreg(close, 0)',
     'ta.linreg(close, 3, 0.5)',
