@@ -9,7 +9,7 @@ import {
   tsSyncWorker,
 } from '@valtown/codemirror-ts'
 import { releaseProxy, wrap } from 'comlink'
-import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from '../types.js'
+import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from './types.js'
 import { renderScriptHover } from './renderScriptHover.js'
 import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker&inline'
 import { scriptSignatureHelp } from './scriptSignatureHelp.js'

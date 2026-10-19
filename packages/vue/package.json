@@ -40,7 +40,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "!src/**/__tests__/**"
   ],
   "publishConfig": {
     "access": "public"
@@ -71,12 +72,19 @@
   "peerDependencies": {
     "@363045841yyt/klinechart-agent-runtime": "workspace:^",
     "@363045841yyt/klinechart-core": "workspace:^",
+    "@363045841yyt/klinechart-script-server": "workspace:^",
     "vue": "^3.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@363045841yyt/klinechart-script-server": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*",
     "@363045841yyt/klinechart-script-chart": "workspace:*",
+    "@363045841yyt/klinechart-script-server": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.5",
     "@size-limit/preset-small-lib": "^13.1.1",
     "@vitejs/plugin-vue": "^6.0.9",
@@ -108,9 +116,7 @@
     "@floating-ui/dom": "1.8.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/outfit": "^5.3.0",
-    "@valtown/codemirror-ts": "^2.3.1",
     "codemirror": "^6.0.2",
-    "comlink": "^4.4.2",
     "dompurify": "^3.4.15",
     "html-to-image": "^1.11.13",
     "markdown-it": "^15.0.0",

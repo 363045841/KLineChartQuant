@@ -12,7 +12,7 @@ const language = vi.hoisted(() => ({
   formatDocument: vi.fn(),
 }))
 
-vi.mock('../../composables/chart/scriptEditor/impl/languageSupport.js', () => ({
+vi.mock('@363045841yyt/klinechart-script-server', () => ({
   createScriptLanguageSupport: () => {
     language.create()
     return language

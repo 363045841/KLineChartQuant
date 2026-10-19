@@ -114,3 +114,13 @@ The Plot data model is shared with the chart engine through
 | `pnpm build` | TypeScript declaration + JS emit to `dist/` |
 | `pnpm test` | Vitest, Node environment |
 | `pnpm lint:publish` | `publint --strict` package check |
+
+## License
+
+[AGPL-3.0-or-later](LICENSE)
+
+This package is part of the monorepo's AGPL island: it may depend on the Apache-2.0
+packages, but no Apache-2.0 package may import or bundle it. Source for a published
+version is available from the
+[KLineChartQuant repository](https://github.com/363045841/KLineChartQuant/tree/main/packages/script)
+under the matching release tag.

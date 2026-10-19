@@ -11,7 +11,7 @@ import {
   SCRIPT_EDITOR_FILE,
   type ScriptSignatureHelp,
   type ScriptSignatureProvider,
-} from '../types.js'
+} from './types.js'
 import { createScriptCodeView } from './createScriptCodeView.js'
 
 /** 签名数据与锚点组成一个原子快照。 */

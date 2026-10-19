@@ -9,7 +9,7 @@ import {
 import type { CompletionResult } from '@codemirror/autocomplete'
 import { createWorker } from '@valtown/codemirror-ts/worker'
 import ts from 'typescript'
-import type { ScriptLanguageWorker, ScriptSignatureHelp } from '../types.js'
+import type { ScriptLanguageWorker, ScriptSignatureHelp } from './types.js'
 
 /** TypeScript 与 CodeMirror 使用不同的类型名称，在语言边界统一转换。 */
 const COMPLETION_TYPES: Record<ts.ScriptElementKind, string> = {

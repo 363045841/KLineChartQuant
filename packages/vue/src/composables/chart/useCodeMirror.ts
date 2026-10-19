@@ -36,7 +36,7 @@ export function useCodeMirror(
   const editing = new Compartment()
   let languageSupport:
     | ReturnType<
-        typeof import('./scriptEditor/impl/languageSupport.js').createScriptLanguageSupport
+        typeof import('@363045841yyt/klinechart-script-server').createScriptLanguageSupport
       >
     | undefined
   /** 仅应用当前文档的格式化结果，保留撤销能力和光标映射。 */
@@ -116,7 +116,7 @@ export function useCodeMirror(
           }
           languageLoading.value = true
           // 挂载前读取最新草稿，不用打开时的旧文本覆盖初始化期间的编辑。
-          void import('./scriptEditor/impl/languageSupport.js')
+          void import('@363045841yyt/klinechart-script-server')
             .then(async ({ createScriptLanguageSupport }) => {
               if (!active) return
               const support = createScriptLanguageSupport(showLanguageError)

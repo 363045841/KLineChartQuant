@@ -32,3 +32,10 @@ scripts.remove(document.id, document.revision)
 
 脚本通过全局 `defineLibrary(name, members)` 声明库，`importLibrary(name)` 使用库。
 `createScriptService([{ name, source }])` 可加载额外库源码；内置 `ta` 库使用同一协议。
+
+## 许可证
+
+[AGPL-3.0-or-later](LICENSE)
+
+本包属于本仓库的 AGPL 岛，直接依赖 klinechart-script，因此随 script 一起按 AGPL-3.0-or-later 分发。对应发布版本的源码见
+[KLineChartQuant 仓库](https://github.com/363045841/KLineChartQuant/tree/main/packages/script-chart) 的发布 tag。

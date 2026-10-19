@@ -2,9 +2,9 @@
 
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { describe, expect, it } from 'vitest'
-import averageSource from '../../../../../../script/scripts/open-close-average.ts?raw'
-import smaSource from '../../../../../../script/scripts/sma.ts?raw'
-import { createScriptLanguageWorker } from '../impl/languageWorker.js'
+import averageSource from '@363045841yyt/klinechart-script/scripts/open-close-average.ts?raw'
+import smaSource from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
+import { createScriptLanguageWorker } from '../languageWorker.js'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from '../types.js'
 
 /** 创建已初始化的语言会话，并把真实源码装入其中。 */

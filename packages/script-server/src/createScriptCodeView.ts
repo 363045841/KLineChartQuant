@@ -2,7 +2,7 @@
 import { typescriptLanguage } from '@codemirror/lang-javascript'
 import { Compartment, EditorState } from '@codemirror/state'
 import { Decoration, EditorView } from '@codemirror/view'
-import type { ScriptCodeView, ScriptTextRange } from '../types.js'
+import type { ScriptCodeView, ScriptTextRange } from './types.js'
 import { scriptSyntaxHighlighting } from './codePresentation.js'
 
 /** 提示自身持有布局样式，新增提示类型无需在主编辑器中追加选择器。 */

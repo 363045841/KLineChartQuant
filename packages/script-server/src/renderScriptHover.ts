@@ -3,7 +3,7 @@ import type { EditorView, TooltipView } from '@codemirror/view'
 import type { HoverInfo } from '@valtown/codemirror-ts'
 import MarkdownIt from 'markdown-it'
 import type { SymbolDisplayPart } from 'typescript'
-import type { ScriptCodeView } from '../types.js'
+import type { ScriptCodeView } from './types.js'
 import { createScriptCodeView } from './createScriptCodeView.js'
 
 // JSDoc 使用现有 Markdown 解析器；禁用原始 HTML，表格和行内代码由解析器生成。

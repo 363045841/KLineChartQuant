@@ -1,6 +1,10 @@
 /** CodeMirror 界面消费图表 Token，语法高亮使用官方 One Dark 配色。 */
+import { syntaxHighlighting } from '@codemirror/language'
+import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
-import { scriptSyntaxHighlighting } from './codePresentation.js'
+
+/** 与 script-server（AGPL）各自声明同一 One Dark 组合，避免 Apache 包依赖 AGPL 包。 */
+const scriptSyntaxHighlighting = syntaxHighlighting(oneDarkHighlightStyle)
 
 /**
  * 脚本提示框框体的尺寸约束：参数提示与 hover 提示是两种 DOM 形态，声明只有这一份。

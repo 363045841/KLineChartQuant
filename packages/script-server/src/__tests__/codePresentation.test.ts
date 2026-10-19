@@ -2,8 +2,8 @@
 import { typescriptLanguage } from '@codemirror/lang-javascript'
 import { EditorView } from '@codemirror/view'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createScriptCodeView } from '../impl/createScriptCodeView.js'
-import { scriptEditorTheme } from '../impl/editorTheme.js'
+import { scriptSyntaxHighlighting } from '../codePresentation.js'
+import { createScriptCodeView } from '../createScriptCodeView.js'
 import type { ScriptCodeView } from '../types.js'
 
 const views: Array<Pick<ScriptCodeView, 'destroy'>> = []
@@ -29,7 +29,7 @@ describe('script code presentation', () => {
     const editor = new EditorView({
       parent,
       doc: source,
-      extensions: [typescriptLanguage, scriptEditorTheme],
+      extensions: [typescriptLanguage, scriptSyntaxHighlighting],
     })
     const code = createScriptCodeView(parent, source)
     views.push(editor, code)

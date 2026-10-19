@@ -43,8 +43,13 @@ export default defineConfig({
         },
     rolldownOptions: {
       external: isWC
-        ? []
-        : ['vue', /@363045841yyt\/klinechart-core/, /@363045841yyt\/klinechart-agent-runtime/],
+        ? [/@363045841yyt\/klinechart-script/]
+        : [
+            'vue',
+            /@363045841yyt\/klinechart-core/,
+            /@363045841yyt\/klinechart-agent-runtime/,
+            /@363045841yyt\/klinechart-script/,
+          ],
       output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
     },
   },

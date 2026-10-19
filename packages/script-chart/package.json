@@ -2,7 +2,7 @@
   "name": "@363045841yyt/klinechart-script-chart",
   "version": "0.0.0",
   "description": "Bridge that registers KLineChartQuant script indicators as chart indicators.",
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/363045841/KLineChartQuant.git"
@@ -22,6 +22,7 @@
   },
   "files": [
     "dist",
+    "LICENSE",
     "README.md"
   ],
   "publishConfig": {

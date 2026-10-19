@@ -98,3 +98,10 @@ Plot 数据模型由 `@363045841yyt/klinechart-plot-contracts` 提供，与图�
 | `pnpm build` | 生成 `dist/` 下的 JS 与类型声明 |
 | `pnpm test` | Vitest，Node 环境，无需图形环境 |
 | `pnpm lint:publish` | `publint --strict` 包检查 |
+
+## 许可证
+
+[AGPL-3.0-or-later](LICENSE)
+
+本包属于本仓库的 AGPL 岛：可以依赖 Apache-2.0 的包，但任何 Apache-2.0 的包都不得 import 或打包它。对应发布版本的源码见
+[KLineChartQuant 仓库](https://github.com/363045841/KLineChartQuant/tree/main/packages/script) 的发布 tag。

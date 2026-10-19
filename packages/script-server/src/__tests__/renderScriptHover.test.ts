@@ -3,7 +3,7 @@ import { EditorView } from '@codemirror/view'
 import type { HoverInfo } from '@valtown/codemirror-ts'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { renderScriptHover } from '../impl/renderScriptHover.js'
+import { renderScriptHover } from '../renderScriptHover.js'
 
 /** 构造最小 hover 信息；documentation 分段与 TypeScript 的返回结构一致。 */
 function createHover(documentation: string): HoverInfo {

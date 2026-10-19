@@ -2,9 +2,9 @@
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { scriptEditorTheme } from '../impl/editorTheme.js'
-import { createScriptLanguageWorker } from '../impl/languageWorker.js'
-import { scriptSignatureHelp } from '../impl/scriptSignatureHelp.js'
+import { scriptSyntaxHighlighting } from '../codePresentation.js'
+import { createScriptLanguageWorker } from '../languageWorker.js'
+import { scriptSignatureHelp } from '../scriptSignatureHelp.js'
 import { SCRIPT_EDITOR_FILE } from '../types.js'
 
 const views: EditorView[] = []
@@ -26,7 +26,7 @@ async function createEditor() {
     parent,
     state: EditorState.create({
       extensions: [
-        scriptEditorTheme,
+        scriptSyntaxHighlighting,
         scriptSignatureHelp(
           {
             getSignatureHelp: async (path, position) => worker.getSignatureHelp(path, position),
