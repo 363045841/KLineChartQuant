@@ -18,7 +18,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
         if (bar_index === 0) ref = line.new(0, 10, 1, 20);
         line.set_xy2(ref, bar_index + 1, close[0] + 10);
         if (bar_index === 2) {
-          line.set_xy1(ref, -1, 5);
+          line.set_xy1(ref, 0, 5);
           line.set_x1(ref, 0); line.set_y1(ref, 10);
           line.set_x2(ref, 2); line.set_y2(ref, 30);
           line.set_color(ref, Color.Red); line.set_width(ref, 3);
@@ -74,6 +74,27 @@ describe.each(backends)('line API ($name)', ({ run }) => {
       const id = line.new(time[0], 10, time[0] + 1000, 20, xloc.bar_time);
       line.get_price(id, 1);
     }});`)).rejects.toThrow('get_price')
+  })
+
+  it('rejects bar_index coordinates outside the loaded window', async () => {
+    await expect(run(`defineIndicator({ name: 'past', position: Position.Main, onBar() {
+      line.new(-1, 10, 1, 20);
+    }});`)).rejects.toThrow('bar_index')
+    // 时间戳误用默认 xloc：万亿级数值远超未来槽位上限。
+    await expect(run(`defineIndicator({ name: 'time', position: Position.Main, onBar() {
+      line.new(time[0], 10, time[0] + 1000, 20);
+    }});`)).rejects.toThrow('bar_index')
+    await expect(run(`defineIndicator({ name: 'future', position: Position.Main, onBar() {
+      line.new(bar_index, 10, bar_index + 501, 20);
+    }});`)).rejects.toThrow('bar_index')
+  })
+
+  it('accepts future bar_index coordinates within the slot limit', async () => {
+    const result = await run(`defineIndicator({ name: 'future', position: Position.Main, onBar() {
+      if (bar_index !== 0) return;
+      line.new(0, 10, bar_index + 500, 20);
+    }});`)
+    expect(result.drawings?.[0]?.anchors[1]?.logicalIndex).toBe(500)
   })
 
   it('preserves na coordinates and vertical line price semantics', async () => {

@@ -3,6 +3,14 @@ import { extend, LineStyle, xloc } from './drawing.js'
 import { createDrawingObjectApi } from './drawingObject.js'
 import type { ChartPoint, DrawingLineApi, DrawingLineContext, DrawingObjectStore, DrawingObject, LineExtend, LineRef, LineXLoc, PersistedDrawingAnchor } from './drawing.js'
 
+/**
+ * line 的 bar_index 坐标允许指向的未来槽位数，与图表时间轴可合成的未来槽位一致。
+ *
+ * 定义在这里而不是 drawing.ts：VM 预置源码只拼接 lineApi 与 drawingObject，
+ * 常量必须随实现一起进入 VM 作用域。
+ */
+export const DRAWING_FUTURE_BARS = 500
+
 type PointLineArguments = [ChartPoint, ChartPoint, LineXLoc?, LineExtend?, string?, LineStyle?, number?]
 type CoordinateLineArguments = [number, number, number, number, LineXLoc?, LineExtend?, string?, LineStyle?, number?]
 /** 对整个参数元组收窄，避免对重载参数使用类型断言。 */
@@ -11,9 +19,13 @@ function isCoordinateLineArguments(args: PointLineArguments | CoordinateLineArgu
 }
 
 /** 按坐标类型构造独立锚点；NaN 保留 ID，但不绘制。 */
-function lineAnchor(id: string, x: number, price: number, mode: LineXLoc): PersistedDrawingAnchor {
-  if (Number.isFinite(x) && !Number.isSafeInteger(x)) throw new TypeError('line X 坐标必须是整数')
+function lineAnchor(id: string, x: number, price: number, mode: LineXLoc, barCount: number): PersistedDrawingAnchor {
   if (x === Infinity || x === -Infinity || price === Infinity || price === -Infinity) throw new TypeError('line 坐标不能是 Infinity')
+  if (Number.isFinite(x) && !Number.isSafeInteger(x)) throw new TypeError('line X 坐标必须是整数')
+  // bar_index 必须落在当前已执行的 K 线范围内；把时间戳误用默认 xloc 时在这里暴露。
+  if (mode === xloc.bar_index && Number.isFinite(x) && (x < 0 || x > barCount - 1 + DRAWING_FUTURE_BARS)) {
+    throw new RangeError('line 的 bar_index 超出当前已执行的 K 线范围；时间坐标请用 xloc.bar_time')
+  }
   return { id, type: 'point', ...(mode === xloc.bar_index ? { logicalIndex: x } : { time: x }), price }
 }
 /** 非法属性在 API 边界拒绝。 */
@@ -64,7 +76,7 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
     const anchor = drawing?.anchors[index]
     if (!drawing || !anchor) return
     const mode = anchor.logicalIndex === undefined ? xloc.bar_time : xloc.bar_index
-    const next = lineAnchor(anchor.id, x === undefined ? anchorX(anchor) : x, y === undefined ? anchor.price : y, mode)
+    const next = lineAnchor(anchor.id, x === undefined ? anchorX(anchor) : x, y === undefined ? anchor.price : y, mode, context.barCount)
     update(ref, { anchors: drawing.anchors.map((item, i) => i === index ? next : item) })
   }
   /** 新建和复制都计入限额，按创建顺序回收。 */
@@ -98,7 +110,7 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
     const id = store.nextId()
     return insert({ id, kind: 'trend-line', paneId: context.paneId, ownerId: context.ownerId,
       visible: true, params: {}, xloc: mode, extend: extension,
-      anchors: [first, second].map((point, index) => lineAnchor(`${id}:${index}`, (mode === xloc.bar_index ? point.index : point.time) ?? Number.NaN, point.price, mode)),
+      anchors: [first, second].map((point, index) => lineAnchor(`${id}:${index}`, (mode === xloc.bar_index ? point.index : point.time) ?? Number.NaN, point.price, mode, context.barCount)),
       style: { stroke: color, strokeStyle: stroke, strokeWidth: lineWidth(width) } })
   }
   return Object.freeze({

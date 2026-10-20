@@ -11,6 +11,7 @@ const line: DrawingLineApi = createDrawingLineApi({
 }, {
   paneId: '', ownerId: 'script', defaultColor: Color.Blue,
   get maxLines() { return __definition?.max_lines_count ?? 50 },
+  get barCount() { return __count() },
 })
 /** 当前 bar 的标量索引。 */
 Object.defineProperty(globalThis, 'bar_index', { get: () => __count() - 1 })

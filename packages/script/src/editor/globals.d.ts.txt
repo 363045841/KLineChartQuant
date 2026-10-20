@@ -23,14 +23,28 @@ declare global {
   var time: Series
   /** 当前 K 线索引，从 0 开始。 */
   const bar_index: number
-  /** 创建、修改、读取和删除线对象，跨 bar 保留。 */
+  /**
+   * 创建、修改、读取和删除线段，跨 bar 保留。
+   *
+   * 只能在 onBar 内新建与修改；引用只在本次运行内有效，重算后旧引用失效。
+   *
+   * ```ts
+   * const id = line.new(bar_index, low[0], bar_index + 5, high[0])
+   * line.set_color(id, Color.Red)
+   * ```
+   */
   const line: DrawingLineApi
-  /** point 坐标工厂；line.new 会复制坐标。 */
+  /** chart.point 坐标工厂；line.new 会复制坐标，不保留 point 对象引用。 */
   const chart: { readonly point: {
+    /** 用时间戳、bar 索引和价格构造 point；xloc 决定 line.new 读取哪个字段。 */
     "new"(time: number, index: number, price: number): ChartPoint
+    /** 当前 K 线的 point，索引取 bar_index。 */
     now(price: number): ChartPoint
+    /** 只带 bar 索引的 point，用于 xloc.bar_index。 */
     from_index(index: number, price: number): ChartPoint
+    /** 只带毫秒时间戳的 point，用于 xloc.bar_time。 */
     from_time(time: number, price: number): ChartPoint
+    /** 复制 point，得到独立值对象。 */
     copy(point: ChartPoint): ChartPoint
   } }
   /**

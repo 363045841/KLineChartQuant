@@ -52,25 +52,43 @@ declare enum Color {
 
 /** 手绘与脚本共用的对象、坐标、样式和 Pine 风格 line API 契约。 */
 declare enum LineStyle {
+  /** @summary 实线 */
   style_solid = "solid",
+  /** @summary 虚线 */
   style_dashed = "dashed",
+  /** @summary 点线 */
   style_dotted = "dotted",
+  /** @summary 左箭头 */
   style_arrow_left = "arrow_left",
+  /** @summary 右箭头 */
   style_arrow_right = "arrow_right",
+  /** @summary 双箭头 */
   style_arrow_both = "arrow_both",
 }
 
 /** 延伸沿两锚点的参数方向，与屏幕左右方向无关。 */
 declare enum extend {
+  /** @summary 不延伸 */
   none = "none",
+  /** @summary 延伸至起点之外 */
   left = "left",
+  /** @summary 延伸至终点之外 */
   right = "right",
+  /** @summary 两端延伸 */
   both = "both",
 }
 
-/** bar_time 使用毫秒时间戳。 */
+/**
+ * 决定 X 是第几根 K 线还是毫秒时间戳。
+ *
+ * bar_index 从当前已加载数据的第一根算起；左侧加载更多历史后，同一根 K 线的序号会变大。
+ * 允许范围是 0 到当前 bar_index，再向右最多 500 根；越界直接报错。
+ * 要让线段跨历史保持在固定的 K 线上，用 bar_time 传 time[offset]。
+ */
 declare enum xloc {
+  /** @summary 第几根 K 线 */
   bar_index = "bar_index",
+  /** @summary 毫秒时间戳 */
   bar_time = "bar_time",
 }
 
