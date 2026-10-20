@@ -25,7 +25,7 @@ const failures = rows.filter((r) => !r.pass)
 if (process.argv.includes('--update-known')) {
   const known: KnownFailures = {
     $comment:
-      'Accepted WCAG AA failures of the current palettes (Phase 1 baseline). contrastGate.test.ts fails only on pairs not listed here, or listed pairs whose ratio drops further. Phase 3 (preset regeneration) should empty this list. Regenerate with `pnpm tokens:contrast --update-known` only after review.',
+      'Remaining accepted WCAG AA failures after the light-mode refresh. contrastGate.test.ts fails only on pairs not listed here, or listed pairs whose ratio drops further. Regenerate with `pnpm tokens:contrast --update-known` only after review.',
     failures: Object.fromEntries(failures.map((r) => [r.key, r.wcag])),
   }
   fs.writeFileSync(knownFile, `${JSON.stringify(known, null, 2)}\n`)

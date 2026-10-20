@@ -176,12 +176,12 @@ describe('foundation tokens: per mode', () => {
     expect(lightFoundation.brand.accent).toBe('#4C77C6')
     expect(darkFoundation.brand.accent).toBe('#4C77C6')
     expect(darkFoundation.brand.accentText).toBe('#537ECD')
-    expect(lightFoundation.brand.accentText).toBe('#456FBD')
+    expect(lightFoundation.brand.accentText).toBe('#4067AF')
     const darkBg = darkTheme.colors.ui.background
     const lightBg = lightTheme.colors.ui.background
-    // UI / focus ring ≥ 3:1（ADR 记录 4.10 与 4.05）。
-    expect(contrast('#4C77C6', darkBg)).toBeCloseTo(4.1, 1)
-    expect(contrast('#4C77C6', lightBg)).toBeCloseTo(4.05, 1)
+    // UI / focus ring 按 WCAG 非文字门槛保持 ≥ 3:1。
+    expect(contrast('#4C77C6', darkBg)).toBeGreaterThanOrEqual(3)
+    expect(contrast('#4C77C6', lightBg)).toBeGreaterThanOrEqual(3)
     // 作为文字 ≥ 4.5:1。
     expect(contrast(darkFoundation.brand.accentText, darkBg)).toBeGreaterThanOrEqual(4.5)
     expect(contrast(lightFoundation.brand.accentText, lightBg)).toBeGreaterThanOrEqual(4.5)
