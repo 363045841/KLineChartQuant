@@ -105,7 +105,7 @@
 
 <style scoped>
   .agent-header {
-    height: var(--klc-density-comfortable, 40px);
+    height: 40px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -119,7 +119,7 @@
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    gap: 0;
+    gap: 2px;
   }
 
   .agent-header__top button:disabled {

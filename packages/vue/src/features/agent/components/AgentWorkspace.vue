@@ -225,8 +225,8 @@
 
 <style scoped>
   .agent-workspace {
-    --agent-bg: var(--klc-color-ui-surface);
-    --agent-control-radius: var(--klc-radius-sm, 6px);
+    --agent-bg: var(--klc-color-ui-background);
+    --agent-control-radius: 8px;
     --agent-surface: var(--klc-color-ui-surface);
     --agent-card: var(--klc-color-ui-card);
     --agent-control: var(--klc-color-ui-control-background);

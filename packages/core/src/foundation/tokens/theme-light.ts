@@ -4,15 +4,15 @@
  *
  * Color choices:
  *
- *   - Background = #F4F2EC (warm paper, low glare for long sessions) with
- *     #FBFAF6 chrome and #FFFFFF cards forming a calm three-step surface.
- *   - Bull (up) = #089981 and bear (down) = #f23645; both clear WCAG AA
- *     non-text contrast (≥ 3:1) against the paper background.
- *   - Grid major / minor split: major lines mark round-number price tiers,
- *     minor lines carry between-tier rhythm. Both stay quiet (≈1.28:1 and
- *     ≈1.13:1) so market data remains dominant.
- *   - Strong boundaries, warning text and brand link text are measured
- *     against their actual surfaces and clear WCAG AA.
+ *   - Bull (up) = a saturated green (#089981). Clears the WCAG AA non-text
+ *     threshold (≥ 3:1) against #FAFAFA at 3.42:1.
+ *   - Bear (down) = a saturated red (#f23645). Clears the same threshold at
+ *     3.73:1.
+ *   - Background = #FAFAFA (slightly off-white, kinder to eyes than pure
+ *     #FFFFFF for long sessions).
+ *   - Grid major / minor split: major lines for round-number price tiers,
+ *     minor for between-tier rhythm. Both very low contrast (1.3:1, 1.1:1)
+ *     so they don't dominate.
  *
  * Indicator palette: ten qualitatively distinct hues using the Okabe-Ito
  * colorblind-safe set (extended to ten by adding three desaturated mids).
@@ -49,16 +49,16 @@ export const lightTheme: Theme = {
     axisText: lightInterfaceColors.muted,
     axisLine: lightInterfaceColors.border,
     axisTick: lightInterfaceColors.border,
-    gridMajor: '#DDD7CB',
-    gridMinor: '#E9E4DA',
-    crosshairLine: '#7B756A',
+    gridMajor: '#E5E5E5',
+    gridMinor: '#F0F0F0',
+    crosshairLine: '#8C8C8C',
     crosshairLabelBg: lightInterfaceColors.text,
     crosshairLabelText: lightInterfaceColors.background,
     selectionFill: '#2D7FF933',
     selectionStroke: '#2D7FF9',
     tooltipBg: lightInterfaceColors.surface,
     tooltipText: lightInterfaceColors.text,
-    tooltipBorder: lightInterfaceColors.borderStrong,
+    tooltipBorder: lightInterfaceColors.border,
     heatmapColdest: '#F0F4F8',
     heatmapHottest: '#1F3A5F',
     volumeProfileFill: '#9CA3AF66',

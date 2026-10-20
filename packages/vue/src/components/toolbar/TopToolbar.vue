@@ -12,7 +12,7 @@
       @wheel="onWheel"
     >
       <SymbolSelector
-        class="top-toolbar__item top-toolbar__item--primary"
+        class="top-toolbar__item"
         v-if="displaySymbol"
         :symbol="displaySymbol"
         :selected-item="symbolItem"
@@ -30,7 +30,7 @@
         @manage-sources="showSourceDialog = true"
       />
       <CompareSymbolSelector
-        class="top-toolbar__item top-toolbar__item--context"
+        class="top-toolbar__item"
         :symbols="symbolPool"
         :search="search"
         :selected="overlaySymbols"
@@ -44,14 +44,14 @@
         @manage-sources="showSourceDialog = true"
       />
       <KLineLevelDropdown
-        class="top-toolbar__item top-toolbar__item--context"
+        class="top-toolbar__item"
         v-if="supportedKLineLevels === undefined || supportedKLineLevels.length > 0"
         :model-value="kLineLevel"
         :supported-levels="supportedKLineLevels"
         @update:model-value="emit('kLineLevelChange', $event)"
       />
       <KLineAdjustmentDropdown
-        class="top-toolbar__item top-toolbar__item--context"
+        class="top-toolbar__item"
         v-if="supportedAdjustments === undefined || supportedAdjustments.length > 0"
         :model-value="kLineAdjust"
         :supported-adjustments="supportedAdjustments"
@@ -59,7 +59,7 @@
       />
       <KLineShapeDropdown
         v-if="!showBackButton"
-        class="top-toolbar__item top-toolbar__item--context"
+        class="top-toolbar__item"
         :model-value="kLineShape"
         :disabled-values="kLineShapeDisabled"
         @update:model-value="emit('kLineShapeChange', $event)"
@@ -373,11 +373,11 @@
 <style scoped>
   .top-toolbar {
     position: relative;
-    height: var(--klc-density-comfortable, 40px);
+    height: 40px;
     display: flex;
     align-items: center;
-    gap: var(--klc-space-8, 8px);
-    padding: 0 var(--klc-space-8, 8px);
+    gap: 6px;
+    padding: 0 8px;
     border: 1px solid var(--klc-color-ui-border);
     border-bottom: 0;
     border-radius: 0;
@@ -417,8 +417,8 @@
   }
 
   .top-toolbar__item + .top-toolbar__item {
-    margin-left: var(--klc-space-4, 4px);
-    padding-left: var(--klc-space-4, 4px);
+    margin-left: 4px;
+    padding-left: 5px;
   }
 
   .top-toolbar__item + .top-toolbar__item::before {
@@ -426,20 +426,10 @@
     position: absolute;
     left: 0;
     top: 50%;
-    height: var(--klc-space-16, 16px);
+    height: 22px;
     width: 1px;
     transform: translateY(-50%);
     background: var(--klc-color-ui-border);
-  }
-
-  /* 同一上下文组内只靠间距区分，避免每个控件之间都出现分隔线。 */
-  .top-toolbar__item--context + .top-toolbar__item--context {
-    margin-left: 0;
-    padding-left: 0;
-  }
-
-  .top-toolbar__item--context + .top-toolbar__item--context::before {
-    display: none;
   }
 
   .top-toolbar :deep(.symbol-chip),
@@ -448,27 +438,12 @@
   .top-toolbar .back-button,
   .top-toolbar .history-button,
   .top-toolbar :deep(.screenshot-button) {
-    height: var(--klc-density-default, 32px);
-    padding: 0 var(--klc-space-8, 8px);
+    height: 30px;
+    padding: 0 10px;
     border: 0;
-    border-radius: var(--klc-radius-xs, 4px);
+    border-radius: 4px;
     background: transparent;
     box-shadow: none;
-  }
-
-  /* 当前标的承担主信息层级，其余下拉保持上下文层级。 */
-  .top-toolbar :deep(.top-toolbar__item--primary .symbol-chip) {
-    color: var(--klc-color-ui-text);
-    font-size: var(--klc-text-13-font-size, 13px);
-    font-weight: var(--klc-text-label-13-font-weight, 500);
-    letter-spacing: var(--klc-text-label-13-letter-spacing, -0.003em);
-  }
-
-  .top-toolbar :deep(.top-toolbar__item--context .compare-chip),
-  .top-toolbar__item--context :deep(.drop-menu__trigger) {
-    color: var(--klc-color-ui-text-soft);
-    font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: var(--klc-text-label-12-font-weight, 500);
   }
 
   .top-toolbar :deep(.symbol-chip:hover),
@@ -489,8 +464,8 @@
   }
 
   .back-button__icon {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
   }
 
   /* 足迹设置仅用图标变色提示悬浮，点击区域保持紧凑。 */
@@ -522,23 +497,23 @@
     flex: 0 0 auto;
     margin-left: auto;
     border-left: 1px solid var(--klc-color-ui-border);
-    padding-left: var(--klc-space-4, 4px);
+    padding-left: 4px;
   }
 
   .screenshot-actions {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 0;
+    gap: 2px;
     border-left: 1px solid var(--klc-color-ui-border);
-    padding-left: var(--klc-space-4, 4px);
+    padding-left: 4px;
   }
 
   .screenshot-actions .history-button,
   .screenshot-actions :deep(.screenshot-button) {
     color: var(--klc-color-ui-muted);
-    width: var(--klc-density-default, 32px);
-    min-width: var(--klc-density-default, 32px);
+    width: 30px;
+    min-width: 30px;
     padding: 0;
   }
 
@@ -558,17 +533,17 @@
   }
 
   .screenshot-button__icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .history-button__icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .screenshot-message {
     color: var(--klc-color-ui-text);
-    font-size: var(--klc-text-12-font-size, 12px);
+    font-size: 12px;
   }
 </style>

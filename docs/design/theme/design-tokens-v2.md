@@ -4,7 +4,7 @@
 
 Token 源改为 DTCG 2025.10 JSON，经 Style Dictionary v5 生成现有的 TS Theme 与 `--klc-*` CSS 变量；在 Theme 之外新增一层与框架无关的基础 Token（圆角、字阶、间距、密度、阴影层级、动效、层级、断点、品牌强调色）。
 
-- Theme 层（`lightTheme` / `darkTheme` / 五种预设）的 DTCG 迁移保持了当时的运行时取值；2026 浅色刷新随后有意更新了浅色 Theme 与 `baseline.test.ts.snap`，深色取值未变。
+- Theme 层（`lightTheme` / `darkTheme` / 五种预设）的取值不变：生成结果与迁移前逐字节一致，`baseline.test.ts.snap` 未改动。
 - 渲染器不受影响：`engine/renderers`、`engine/scale`、`controllers`、`fonts.ts` 无改动（ADR 0005、0008）。
 - 本阶段不迁移组件（Phase 2），也不应用重新生成的预设色板（Phase 3）。
 
@@ -66,7 +66,7 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 | 行情闪烁 | `--klc-motion-flash` / `--klc-motion-fade` | 500ms / 1000ms，减少动效时关闭 | design §3.3 |
 | 层级 | `--klc-z-index-{base,chart-overlay,sticky,dropdown,popover,modal,toast,tooltip}` | 0 / 10 / 100 / 1000 / 1010 / 1100 / 1150 / 1200 | 顺序来自 design §3.3；数值锚定现有用法 [derived] |
 | 断点 | `--klc-breakpoint-{sm,md,lg,xl}` | 640 / 768 / 1024 / 1280 | design §3.3（项目自定） |
-| 品牌 | `--klc-brand-accent`、`--klc-brand-accent-text` | `#4C77C6`；文字 `#537ECD`（深）/ `#4067AF`（浅） | ADR 0007 |
+| 品牌 | `--klc-brand-accent`、`--klc-brand-accent-text` | `#4C77C6`；文字 `#537ECD`（深）/ `#456FBD`（浅） | ADR 0007 |
 | 字体族 | `--klc-font-family-{brand,brand-cjk}` | `Outfit, sans-serif` / `'HarmonyOS Sans', sans-serif` | 品牌字与截图水印中文名；随包自托管（`@fontsource/outfit`、`assets/fonts/HarmonyOS_Sans_SC_Medium.ttf`），不依赖宿主系统或 CDN |
 
 旧的 `--klc-spacing-*`、`--klc-typography-*`、`--klc-motion-duration-*` / `-easing-*` 保留原值；新动效使用 `dur-*` / `ease-*`，名称不冲突。
@@ -82,8 +82,8 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 ## 对比度门槛
 
 - `contrastGate.test.ts`（随 core 的 `pnpm test` 运行）：对 5 个预设 × 明暗 × 涨跌约定（绿涨 / 红涨）共 20 个组合、每个组合 27 组声明的前景 / 背景对执行 WCAG 2 AA：文字 4.5:1，组件与图形 3:1。半透明颜色先按浏览器的方式与底色合成再计算。
-- 当前色板仍有深色模式不达标项，记录在 `__tests__/contrast-known-failures.json`；浅色模式在 2026 刷新后为 0 失败。测试只在出现新的失败或已知失败进一步变差时报错。涨跌颜色不允许进入已知清单。
-- `pnpm tokens:contrast` 生成 `design-tokens/reports/contrast.{md,json}`，其中 APCA 仅作建议（文字 |Lc| ≥ 60、组件 ≥ 45，约等于 4.5:1 / 3:1）。APCA 仍是 beta 且许可证非 OSI，因此不作为门槛；`apca-w3` 依赖 AGPL 的 `colorparsley`，所以改用 colorjs.io（MIT）的 APCA 实现。
+- 当前色板已有不达标项，记录在 `__tests__/contrast-known-failures.json`；测试只在出现新的失败或已知失败进一步变差时报错。涨跌颜色不允许进入已知清单。
+- `pnpm tokens:contrast` 生成 `design-tokens/reports/contrast.{md,json}`（本地生成产物，不入库），其中 APCA 仅作建议（文字 |Lc| ≥ 60、组件 ≥ 45，约等于 4.5:1 / 3:1）。APCA 仍是 beta 且许可证非 OSI，因此不作为门槛；`apca-w3` 依赖 AGPL 的 `colorparsley`，所以改用 colorjs.io（MIT）的 APCA 实现。
 - 只有在评审接受后才运行 `pnpm tokens:contrast --update-known` 重写已知清单。
 
 ## 不变量与测试
