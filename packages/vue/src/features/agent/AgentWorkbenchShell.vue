@@ -162,7 +162,9 @@
   function isPanelResizeTarget(clientX: number): boolean {
     const bounds = panel.value?.getBoundingClientRect()
     if (!bounds) return false
-    return panelSide.value === 'right' ? clientX - bounds.left <= 8 : bounds.right - clientX <= 8
+    return panelSide.value === 'right'
+      ? clientX - bounds.left <= 8
+      : bounds.right - clientX <= 8
   }
 
   // 仅在面板内侧边缘附近显示横向拖拽光标。
@@ -221,7 +223,7 @@
     --agent-text: var(--klc-color-ui-text);
     --agent-focus: var(--klc-color-ui-focus);
     --agent-header-inset: 8px;
-    --agent-header-button-size: var(--klc-density-default, 32px);
+    --agent-header-button-size: 30px;
 
     width: 100%;
     height: 100%;
@@ -265,7 +267,6 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     width: var(--agent-panel-width);
-    box-sizing: border-box;
     min-height: 0;
     position: absolute;
     top: 0;
@@ -273,8 +274,7 @@
     bottom: 0;
     z-index: 3;
     overflow: hidden;
-    background: var(--agent-surface);
-    border-left: 1px solid var(--klc-color-ui-border);
+    background: var(--agent-bg);
     visibility: hidden;
     transform: translateX(100%);
     transition:
@@ -286,8 +286,6 @@
   .agent-workbench-shell--panel-left .agent-panel {
     right: auto;
     left: 0;
-    border-right: 1px solid var(--klc-color-ui-border);
-    border-left: 0;
     transform: translateX(-100%);
   }
 

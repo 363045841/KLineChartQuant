@@ -1,15 +1,15 @@
 {
-  "$description": "Pro light scheme: warm paper surfaces and graphite text form the base every preset starts from. Mirrors theme-light.ts and interface-colors.ts.",
+  "$description": "Pro light scheme: the base values every preset starts from. Mirrors theme-light.ts and interface-colors.ts.",
   "light": {
     "interface": {
-      "$description": "图表、工具栏与 Agent 共用的暖中性界面配色；纸面背景、石墨文字、轻填充控件，行情与指标承担主要色彩。",
+      "$description": "图表、工具栏与 Agent 共用的冷黑界面配色；控件轻填充，行情与指标承担主要色彩。",
       "background": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9569, 0.949, 0.9255], "hex": "#F4F2EC" }
+        "$value": { "colorSpace": "srgb", "components": [0.9608, 0.9608, 0.9686], "hex": "#F5F5F7" }
       },
       "surface": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9843, 0.9804, 0.9647], "hex": "#FBFAF6" }
+        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9882], "hex": "#FAFAFC" }
       },
       "card": {
         "$type": "color",
@@ -17,39 +17,39 @@
       },
       "input": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9294, 0.902], "hex": "#F0EDE6" }
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
       },
       "controlBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9294, 0.9176, 0.8902], "hex": "#EDEAE3" }
+        "$value": { "colorSpace": "srgb", "components": [0.898, 0.898, 0.9176], "hex": "#E5E5EA" }
       },
       "hover": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.902, 0.8824, 0.8431], "hex": "#E6E1D7" }
+        "$value": { "colorSpace": "srgb", "components": [0.8627, 0.8627, 0.8824], "hex": "#DCDCE1" }
       },
       "selected": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9373, 0.9216, 0.8902], "hex": "#EFEBE3" }
+        "$value": { "colorSpace": "srgb", "components": [0.9255, 0.9255, 0.9373], "hex": "#ECECEF" }
       },
       "border": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.8627, 0.8392, 0.7961], "hex": "#DCD6CB" }
+        "$value": { "colorSpace": "srgb", "components": [0.8471, 0.8471, 0.8706], "hex": "#D8D8DE" }
       },
       "borderStrong": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.5569, 0.5333, 0.4863], "hex": "#8E887C" }
+        "$value": { "colorSpace": "srgb", "components": [0.7216, 0.7216, 0.7451], "hex": "#B8B8BE" }
       },
       "text": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.1255, 0.1176, 0.102], "hex": "#201E1A" }
+        "$value": { "colorSpace": "srgb", "components": [0.1412, 0.1412, 0.149], "hex": "#242426" }
       },
       "textSoft": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4078, 0.3882, 0.3529], "hex": "#68635A" }
+        "$value": { "colorSpace": "srgb", "components": [0.4627, 0.4627, 0.4863], "hex": "#76767C" }
       },
       "muted": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3686, 0.349, 0.3137], "hex": "#5E5950" }
+        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.3765, 0.4], "hex": "#606066" }
       },
       "accent": {
         "$type": "color",
@@ -65,19 +65,19 @@
       },
       "warningBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [1, 0.9647, 0.8902], "hex": "#FFF6E3" }
+        "$value": { "colorSpace": "srgb", "components": [1, 0.9725, 0.9098], "hex": "#FFF8E8" }
       },
       "warningBorder": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.7176, 0.4745, 0.1216], "hex": "#B7791F" }
+        "$value": { "colorSpace": "srgb", "components": [0.8235, 0.6039, 0.2275], "hex": "#D29A3A" }
       },
       "warningText": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4784, 0.3059, 0], "hex": "#7A4E00" }
+        "$value": { "colorSpace": "srgb", "components": [0.6784, 0.4549, 0.0784], "hex": "#AD7414" }
       },
       "warningStrong": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4196, 0.2667, 0], "hex": "#6B4400" }
+        "$value": { "colorSpace": "srgb", "components": [0.6, 0.3882, 0.0667], "hex": "#996311" }
       },
       "dangerBackground": {
         "$type": "color",
@@ -105,7 +105,7 @@
       },
       "neutral": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4078, 0.3882, 0.3529], "hex": "#68635A" }
+        "$value": { "colorSpace": "srgb", "components": [0.4627, 0.4627, 0.4863], "hex": "#76767C" }
       },
       "onAccent": {
         "$type": "color",
@@ -113,11 +113,11 @@
       },
       "secondaryButtonText": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3608, 0.3412, 0.3059], "hex": "#5C574E" }
+        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.3765, 0.4], "hex": "#606066" }
       }
     },
     "color": {
-      "$description": "Light theme — concrete token values.\n\nColor choices:\n\n  - Background = #F4F2EC (warm paper, low glare for long sessions) with\n    #FBFAF6 chrome and #FFFFFF cards forming a calm three-step surface.\n  - Bull (up) = #089981 and bear (down) = #f23645; both clear WCAG AA\n    non-text contrast (≥ 3:1) against the paper background.\n  - Grid major / minor split: major lines mark round-number price tiers,\n    minor lines carry between-tier rhythm. Both stay quiet (≈1.28:1 and\n    ≈1.13:1) so market data remains dominant.\n  - Strong boundaries, warning text and brand link text are measured\n    against their actual surfaces and clear WCAG AA.\n\nIndicator palette: ten qualitatively distinct hues using the Okabe-Ito\ncolorblind-safe set (extended to ten by adding three desaturated mids).\nEach WCAG AA against the background (>= 3:1 for non-text).",
+      "$description": "Light theme — concrete token values.\n\nColor choices:\n\n  - Bull (up) = a saturated green (#089981). Clears the WCAG AA non-text\n    threshold (≥ 3:1) against #FAFAFA at 3.42:1.\n  - Bear (down) = a saturated red (#f23645). Clears the same threshold at\n    3.73:1.\n  - Background = #FAFAFA (slightly off-white, kinder to eyes than pure\n    #FFFFFF for long sessions).\n  - Grid major / minor split: major lines for round-number price tiers,\n    minor for between-tier rhythm. Both very low contrast (1.3:1, 1.1:1)\n    so they don't dominate.\n\nIndicator palette: ten qualitatively distinct hues using the Okabe-Ito\ncolorblind-safe set (extended to ten by adding three desaturated mids).\nEach WCAG AA against the background (>= 3:1 for non-text).",
       "background": { "$type": "color", "$value": "{light.interface.background}" },
       "foreground": { "$type": "color", "$value": "{light.interface.text}" },
       "chartBackground": { "$type": "color", "$value": "{light.interface.background}" },
@@ -190,15 +190,15 @@
       "axisTick": { "$type": "color", "$value": "{light.interface.border}" },
       "gridMajor": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.8667, 0.8431, 0.7961], "hex": "#DDD7CB" }
+        "$value": { "colorSpace": "srgb", "components": [0.898, 0.898, 0.898], "hex": "#E5E5E5" }
       },
       "gridMinor": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9137, 0.8941, 0.8549], "hex": "#E9E4DA" }
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9412, 0.9412], "hex": "#F0F0F0" }
       },
       "crosshairLine": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4824, 0.4588, 0.4157], "hex": "#7B756A" }
+        "$value": { "colorSpace": "srgb", "components": [0.549, 0.549, 0.549], "hex": "#8C8C8C" }
       },
       "crosshairLabelBg": { "$type": "color", "$value": "{light.interface.text}" },
       "crosshairLabelText": { "$type": "color", "$value": "{light.interface.background}" },
@@ -217,7 +217,7 @@
       },
       "tooltipBg": { "$type": "color", "$value": "{light.interface.surface}" },
       "tooltipText": { "$type": "color", "$value": "{light.interface.text}" },
-      "tooltipBorder": { "$type": "color", "$value": "{light.interface.borderStrong}" },
+      "tooltipBorder": { "$type": "color", "$value": "{light.interface.border}" },
       "heatmapColdest": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9569, 0.9725], "hex": "#F0F4F8" }
@@ -1299,8 +1299,8 @@
         "$type": "color",
         "$value": {
           "colorSpace": "srgb",
-          "components": [0.251, 0.4039, 0.6863],
-          "hex": "#4067AF"
+          "components": [0.2706, 0.4353, 0.7412],
+          "hex": "#456FBD"
         },
         "$description": "Accent used as text on light surfaces (≥ 4.5:1). ADR 0007; competitor-brand-colors.md §4."
       }

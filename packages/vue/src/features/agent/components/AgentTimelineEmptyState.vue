@@ -40,100 +40,55 @@
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    gap: 0;
-    padding: clamp(var(--klc-space-48, 48px), 12vh, var(--klc-space-96, 96px)) 0
-      var(--klc-space-24, 24px);
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
     color: var(--agent-text);
-    text-align: left;
+    text-align: center;
   }
 
   h2 {
-    margin: 0;
-    font-size: var(--klc-text-20-font-size, 20px);
-    font-weight: var(--klc-text-20-font-weight, 600);
-    letter-spacing: var(--klc-text-20-letter-spacing, -0.017em);
-    line-height: var(--klc-text-20-line-height, 24px);
+    margin: 4px 0 0;
+    font-size: 16px;
+    line-height: 1.25;
   }
-
   .empty-state > p {
-    max-width: 36ch;
-    margin: var(--klc-space-8, 8px) 0 var(--klc-space-32, 32px);
-    color: var(--agent-text-soft);
-    font-size: var(--klc-text-13-font-size, 13px);
-    letter-spacing: var(--klc-text-13-letter-spacing, -0.003em);
-    line-height: var(--klc-text-13-line-height, 18px);
+    margin: 0 0 8px;
+    color: var(--agent-muted);
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .empty-state__prompts {
     width: 100%;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    border-top: 1px solid var(--agent-border-strong);
+    align-items: center;
+    gap: 10px;
   }
-
   .empty-state__prompts button {
-    width: 100%;
     max-width: 100%;
-    min-height: var(--klc-density-comfortable, 40px);
+    min-height: 36px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--klc-space-8, 8px);
-    padding: var(--klc-space-8, 8px);
-    border: 0;
-    border-bottom: 1px solid var(--agent-border);
-    border-radius: 0;
+    justify-content: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid var(--agent-border);
+    border-radius: 999px;
     color: var(--agent-text);
-    background: transparent;
+    background: var(--agent-surface);
     font: inherit;
-    font-size: var(--klc-text-13-font-size, 13px);
-    font-weight: var(--klc-text-label-13-font-weight, 500);
-    line-height: var(--klc-text-13-line-height, 18px);
-    text-align: left;
+    font-size: 12px;
+    text-align: center;
     cursor: pointer;
-    transition:
-      color var(--klc-motion-duration-fast) ease,
-      background-color var(--klc-motion-duration-fast) ease;
   }
-
   .empty-state__prompts button:hover {
+    border-color: var(--agent-border-strong);
     background: var(--agent-hover);
-    color: var(--agent-accent-strong);
   }
-
-  .empty-state__prompts button:focus-visible {
-    outline: 2px solid var(--agent-focus);
-    outline-offset: -2px;
-  }
-
   .empty-state__prompts span {
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-
-  .empty-state__prompts svg {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    color: var(--agent-muted);
-    transition:
-      color var(--klc-motion-duration-fast) ease,
-      transform var(--klc-motion-duration-fast) ease;
-  }
-
-  .empty-state__prompts button:hover svg {
-    color: var(--agent-accent-strong);
-    transform: translate(2px, -2px);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .empty-state__prompts button,
-    .empty-state__prompts svg {
-      transition: none;
-    }
   }
 </style>
