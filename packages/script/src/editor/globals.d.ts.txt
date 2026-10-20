@@ -5,12 +5,15 @@ import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
-import type { Series } from '../series/types.js'
+import type { Series as ScriptSeries } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 import type { ScriptRequest } from '../request/types.js'
 import type { DrawingLineApi, ChartPoint } from '@363045841yyt/klinechart-plot-contracts'
 
 declare global {
+  /** 行情与金融计算共用的只读序列契约。 */
+  type Series = ScriptSeries
+
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
   interface ScriptParameters {}
 

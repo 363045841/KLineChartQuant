@@ -11,6 +11,30 @@ function diagnosticCodes(session: ReturnType<typeof createScriptLanguageSession>
 }
 
 describe('共享脚本语义会话', () => {
+  it('Series 在脚本类型补全中可见，并保持只读序列契约', () => {
+    const session = createScriptLanguageSession()
+    const source = 'let source: Ser'
+    const conversion = session.updateSource(source)
+    const completions = session.environment.languageService.getCompletionsAtPosition(
+      SCRIPT_SOURCE_FILE,
+      conversion.toGenerated(source.length),
+      {},
+    )
+    expect(completions?.entries.map((entry) => entry.name)).toContain('Series')
+
+    session.updateSource(`function current(source: Series): number {
+      return source.at(0) + source[1]
+    }
+    const source: Series = close
+    const average: Series = ta.sma(source, 20)
+    current(average)`)
+    expect(diagnosticCodes(session)).toEqual([])
+
+    session.updateSource('const source: Series = close; source[0] = 1')
+    // 2540 = 序列当前值不可写，2542 = 数字索引签名只允许读取。
+    expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2540]))
+  })
+
   it('OHLC 接口支持派生序列，编辑器拒绝美国线影线参数和 fill 句柄误用', () => {
     const session = createScriptLanguageSession()
     session.updateSource(`defineIndicator({ name: 'OHLC', position: Position.Main, onBar() {
@@ -29,7 +53,9 @@ describe('共享脚本语义会话', () => {
 
   it('title 是 defineIndicator 的合法展示名', () => {
     const session = createScriptLanguageSession()
-    session.updateSource(`defineIndicator({ name: 'Titled', title: '展示名', position: Position.Sub, onBar() {} })`)
+    session.updateSource(
+      `defineIndicator({ name: 'Titled', title: '展示名', position: Position.Sub, onBar() {} })`,
+    )
     expect(diagnosticCodes(session)).toEqual([])
   })
 
