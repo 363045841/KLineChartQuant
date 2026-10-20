@@ -1,11 +1,11 @@
 /** 绘图文档领域服务：为用户交互与 Agent 提供统一的已确认图元 CRUD。 */
 
-import type { TradingDate } from '@/data/provider/types.js'
-import { createDrawingObjectApi } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingObjectInput } from '@363045841yyt/klinechart-plot-contracts'
-import { batch } from '@/foundation/reactivity/signal.js'
+import { applyDrawingPatch, createDrawingObjectApi } from '@363045841yyt/klinechart-plot-contracts'
+import type { TradingDate } from '@/data/provider/types.js'
 import { DRAWING_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
+import { batch } from '@/foundation/reactivity/signal.js'
+import { DEFAULT_DRAWING_FILL_OPACITY, DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import type { DrawingDocumentSnapshot } from '../../history/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
@@ -55,20 +55,25 @@ export class DrawingDocument {
   /** 将公共图形服务绑定到 Kernel 仓库；用户选择和历史策略不进入公共图形层。 */
   constructor(private readonly dependencies: DrawingDocumentDependencies) {
     const state = dependencies.drawingState
-    this.objects = createDrawingObjectApi({
-      list: () => state.readonly.drawings.peek(),
-      replace: (drawings) => {
-        state.actions.commitDocument(drawings, state.readonly.selectedDrawingIds.peek())
+    this.objects = createDrawingObjectApi(
+      {
+        list: () => state.readonly.drawings.peek(),
+        replace: (drawings) => {
+          state.actions.commitDocument(drawings, state.readonly.selectedDrawingIds.peek())
+        },
+        nextId: () => `drawing-${generateUUID()}`,
       },
-      nextId: () => `drawing-${generateUUID()}`,
-    }, DEFAULT_DRAWING_STROKE)
+      DEFAULT_DRAWING_STROKE,
+    )
   }
 
   /** 用户创建事务同时选择新图元；导入和历史恢复不隐式改变选择。 */
   private createAndSelect(inputs: readonly DrawingObjectInput[]): readonly DrawingObject[] {
     return batch(() => {
       const drawings = this.objects.createMany(inputs)
-      this.dependencies.drawingState.actions.setSelectedDrawingIds(drawings.map((drawing) => drawing.id))
+      this.dependencies.drawingState.actions.setSelectedDrawingIds(
+        drawings.map((drawing) => drawing.id),
+      )
       return drawings
     })
   }
@@ -112,23 +117,25 @@ export class DrawingDocument {
       )
     }
     const anchors = this.resolveAnchors(input.kind, input.anchors)
-    return this.createAndSelect([{
-      id: `drawing-${generateUUID()}`,
-      kind: input.kind,
-      paneId: input.paneId,
-      workspaceId: this.dependencies.getWorkspaceId(),
-      visible: input.visible ?? true,
-      ...(input.locked === undefined ? {} : { locked: input.locked }),
-      ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
-      anchors,
-      params:
-        input.params ?? (input.kind === 'regression-channel' ? { sigma: 2 } : Object.freeze({})),
-      labels: normalizeDrawingLabels(input.labels),
-      style: {
-        ...(isChannel(input.kind) ? { fillOpacity: 0.1 } : {}),
-        ...input.style,
+    return this.createAndSelect([
+      {
+        id: `drawing-${generateUUID()}`,
+        kind: input.kind,
+        paneId: input.paneId,
+        workspaceId: this.dependencies.getWorkspaceId(),
+        visible: input.visible ?? true,
+        ...(input.locked === undefined ? {} : { locked: input.locked }),
+        ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
+        anchors,
+        params:
+          input.params ?? (input.kind === 'regression-channel' ? { sigma: 2 } : Object.freeze({})),
+        labels: normalizeDrawingLabels(input.labels),
+        style: {
+          ...(isChannel(input.kind) ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : {}),
+          ...input.style,
+        },
       },
-    }])[0]!
+    ])[0]!
   }
 
   /** 按已解析的位置复制整组图元；保留配置，生成新 ID，原子选中可见且未锁定的副本。 */
@@ -148,7 +155,10 @@ export class DrawingDocument {
         ...copy,
         visible: true,
         locked: false,
-        anchors: anchors.map((anchor, anchorIndex) => ({ ...anchor, id: copy.anchors[anchorIndex]!.id })),
+        anchors: anchors.map((anchor, anchorIndex) => ({
+          ...anchor,
+          id: copy.anchors[anchorIndex]!.id,
+        })),
       })
     }
     return this.createAndSelect(copies)
@@ -175,16 +185,7 @@ export class DrawingDocument {
     if (isDrawingMovementLocked(current, globalLocked) && patch.anchors !== undefined) return null
     const anchors =
       patch.anchors === undefined ? undefined : this.resolveAnchorsForUpdate(id, patch.anchors)
-    return this.writeDrawing({
-      ...current,
-      ...(anchors === undefined ? {} : { anchors }),
-      ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
-      ...(patch.params === undefined ? {} : { params: patch.params }),
-      ...(patch.labels === undefined ? {} : { labels: patch.labels }),
-      ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-      ...(patch.locked === undefined ? {} : { locked: patch.locked }),
-      ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
-    })
+    return this.writeDrawing(applyDrawingPatch(current, { ...patch, anchors }))
   }
 
   /** 无策略的原子快照写入，仅校验 id/kind/pane 匹配。 */
@@ -286,13 +287,7 @@ export class DrawingDocument {
       return Object.freeze([])
     }
 
-    return this.objects.updateMany(drawings.map((drawing) => ({
-      ...drawing,
-      ...(patch.style === undefined ? {} : { style: { ...drawing.style, ...patch.style } }),
-      ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-      ...(patch.locked === undefined ? {} : { locked: patch.locked }),
-      ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
-    })))
+    return this.objects.updateMany(drawings.map((drawing) => applyDrawingPatch(drawing, patch)))
   }
 
   /** 移除指定图元；锁定图元不可移除。 */
@@ -306,9 +301,7 @@ export class DrawingDocument {
   removeBatch(ids: ReadonlyArray<string>): boolean {
     const targets = this.getDrawingsByIds(ids).filter((drawing) => !isDrawingLocked(drawing))
     if (targets.length === 0) return false
-    return this.objects.deleteMany(
-      targets.map((drawing) => drawing.id),
-    )
+    return this.objects.deleteMany(targets.map((drawing) => drawing.id))
   }
 
   /** 清除所有已确认图元。 */

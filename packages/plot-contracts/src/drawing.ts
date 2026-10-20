@@ -62,9 +62,21 @@ export type PersistedDrawingAnchor = {
   price: number
 }
 export type DrawingKind =
-  | 'trend-line' | 'ray' | 'extended-line' | 'fib-retracement' | 'rectangle' | 'arrow'
-  | 'horizontal-line' | 'horizontal-ray' | 'vertical-line' | 'cross-line' | 'info-line'
-  | 'parallel-channel' | 'regression-channel' | 'flat-line' | 'disjoint-channel'
+  | 'trend-line'
+  | 'ray'
+  | 'extended-line'
+  | 'fib-retracement'
+  | 'rectangle'
+  | 'arrow'
+  | 'horizontal-line'
+  | 'horizontal-ray'
+  | 'vertical-line'
+  | 'cross-line'
+  | 'info-line'
+  | 'parallel-channel'
+  | 'regression-channel'
+  | 'flat-line'
+  | 'disjoint-channel'
 export type DrawingLabel = { text: string; position: DrawingLabelPosition }
 export type DrawingLabelIndex = `${number}`
 export type DrawingLabels = {
@@ -89,6 +101,19 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   /** line API 声明的绝对坐标单位；手绘的 bar 身份锚点由 anchors 自身表达。 */
   xloc?: LineXLoc
   extend?: LineExtend
+}
+/**
+ * 声明式修改：undefined 表示不修改，style 按字段合并而不是整体替换。
+ * 手绘命令、脚本结果与 Agent 共用同一份字段语义。
+ */
+export type DrawingPatch = {
+  readonly anchors?: ReadonlyArray<PersistedDrawingAnchor> | undefined
+  readonly style?: Partial<DrawingStyle> | undefined
+  readonly params?: Readonly<Record<string, unknown>> | undefined
+  readonly labels?: DrawingLabels | undefined
+  readonly visible?: boolean | undefined
+  readonly locked?: boolean | undefined
+  readonly zIndex?: number | undefined
 }
 /** 指标归属禁用全部交互；与用户的移动锁定分开。 */
 export function isDrawingInteractive(drawing: DrawingObject): boolean {
@@ -128,7 +153,15 @@ export interface LineFactory {
    *
    * 返回线段引用；超过 max_lines_count 时最旧的线段被回收。
    */
-  (first_point: ChartPoint, second_point: ChartPoint, xloc?: LineXLoc, extend?: LineExtend, color?: string, style?: LineStyle, width?: number): LineRef
+  (
+    first_point: ChartPoint,
+    second_point: ChartPoint,
+    xloc?: LineXLoc,
+    extend?: LineExtend,
+    color?: string,
+    style?: LineStyle,
+    width?: number,
+  ): LineRef
   /**
    * 直接给出起止点的 X / Y 绘制线段。
    * @summary 绘制线段
@@ -149,7 +182,17 @@ export interface LineFactory {
    *
    * 返回线段引用。
    */
-  (x1: number, y1: number, x2: number, y2: number, xloc?: LineXLoc, extend?: LineExtend, color?: string, style?: LineStyle, width?: number): LineRef
+  (
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    xloc?: LineXLoc,
+    extend?: LineExtend,
+    color?: string,
+    style?: LineStyle,
+    width?: number,
+  ): LineRef
 }
 /**
  * 脚本和原生调用方共用的完整 line API。

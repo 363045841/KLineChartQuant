@@ -5,9 +5,10 @@ import {
   pointInCircle,
   pointInPolygon,
   pointToSegmentDistanceSq,
-  rectFromPoints,
 } from '@/foundation/geometry/index.js'
+import { arrowHead } from '../../geometry/impl/arrowGeometry.js'
 import { anchorToScreen, isScreenPoint } from '../../geometry/impl/coordinateUtils.js'
+import { fibLevelLines } from '../../geometry/impl/fibLevels.js'
 import { buildFillPolygon } from '../../geometry/impl/fillRegions.js'
 import {
   LINE_LABEL_BASELINE,
@@ -15,14 +16,13 @@ import {
   resolveLineLabelLayout,
 } from '../../geometry/impl/labelLayout.js'
 import { getLines, getVerticalHandleLines } from '../../geometry/impl/lines.js'
+import { rectangleGeometry } from '../../geometry/impl/rectangleGeometry.js'
 import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.js'
 import type { DrawingLine, VerticalHandleLine } from '../../geometry/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingObject } from '../../types.js'
 import type { HitResult, LineLabelTarget } from '../types.js'
 import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
-
-export type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
 
 // ---- Types ----
 
@@ -100,6 +100,7 @@ function labelHitDistanceSq(
 
 /** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
 const NO_SELECTION: ReadonlySet<string> = new Set()
+
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 
 /**
@@ -216,118 +217,74 @@ export class HitTester {
     const viewport = adapter.getViewport()
     if (!viewport) return []
 
-    // regression-channel: compute from linear regression geometry
-    if (drawing.kind === 'regression-channel') {
+    if (drawing.kind === 'regression-channel')
       return (
         this.getRegressionChannelGeometry(drawing, adapter, regressionGeometryCache)?.segments ?? []
       )
-    }
 
     // 组合图元：线由线表（LINES）的锚点对定义，不再按锚点顺序推导。
     const lines = getLines(drawing.kind)
     if (lines.length > 0) return this.getPairedLineSegments(drawing, lines, adapter)
 
-    // Single-anchor drawings (horizontal-line, horizontal-ray, vertical-line, cross-line)
-    if (drawing.anchors.length === 1) {
-      const screen = anchorToScreen(drawing.anchors[0]!, drawing.paneId, adapter)
-      if (!screen) return []
+    if (drawing.anchors.length === 1)
+      return this.getSingleAnchorSegments(drawing, adapter, viewport.plotWidth)
+    return this.getTwoAnchorSegments(drawing, adapter, viewport.plotWidth, viewport.plotHeight)
+  }
 
-      const paneInfo = adapter.getPaneInfo(drawing.paneId)
-      if (!paneInfo) return []
+  /** 单锚点图元：横线/竖线/十字线沿 pane 边界延伸。 */
+  private getSingleAnchorSegments(
+    drawing: DrawingObject,
+    adapter: DrawingViewportPort,
+    right: number,
+  ): LineSegment[] {
+    const screen = anchorToScreen(drawing.anchors[0]!, drawing.paneId, adapter)
+    if (!screen) return []
 
-      const right = viewport.plotWidth
-      const bottom = paneInfo.height
+    const paneInfo = adapter.getPaneInfo(drawing.paneId)
+    if (!paneInfo) return []
 
-      switch (drawing.kind) {
-        case 'horizontal-line':
-          if (screen.type !== 'horizontal') return []
-          return [{ a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
-        case 'horizontal-ray':
-          if (!isScreenPoint(screen)) return []
-          return [{ a: screen, b: { x: right, y: screen.y } }]
-        case 'vertical-line':
-          if (screen.type !== 'vertical') return []
-          return [{ a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
-        case 'cross-line':
-          if (!isScreenPoint(screen)) return []
-          return [
-            { a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
-            { a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
-          ]
-        default:
-          return []
-      }
+    const bottom = paneInfo.height
+
+    switch (drawing.kind) {
+      case 'horizontal-line':
+        if (screen.type !== 'horizontal') return []
+        return [{ a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
+      case 'horizontal-ray':
+        if (!isScreenPoint(screen)) return []
+        return [{ a: screen, b: { x: right, y: screen.y } }]
+      case 'vertical-line':
+        if (screen.type !== 'vertical') return []
+        return [{ a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
+      case 'cross-line':
+        if (!isScreenPoint(screen)) return []
+        return [
+          { a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
+          { a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
+        ]
+      default:
+        return []
     }
+  }
 
-    // 两锚点图元：线段直接由两个锚点派生（矩形四条边 / 斐波那契水平线 / 箭头等）。
+  /** 两锚点图元：专属线段优先，其余按 extend 延长。 */
+  private getTwoAnchorSegments(
+    drawing: DrawingObject,
+    adapter: DrawingViewportPort,
+    plotWidth: number,
+    plotHeight: number,
+  ): LineSegment[] {
     const points = drawing.anchors
       .map((anchor) => anchorToScreen(anchor, drawing.paneId, adapter))
       .filter(isScreenPoint)
     if (points.length < 2) return []
+
     const a = points[0]!
     const b = points[1]!
-
-    if (drawing.kind === 'rectangle') {
-      const { left, top, right, bottom } = rectFromPoints(a, b)
-      const topLeft = { x: left, y: top }
-      const topRight = { x: right, y: top }
-      const bottomRight = { x: right, y: bottom }
-      const bottomLeft = { x: left, y: bottom }
-      return [
-        { a: topLeft, b: topRight },
-        { a: topRight, b: bottomRight },
-        { a: bottomRight, b: bottomLeft },
-        { a: bottomLeft, b: topLeft },
+    return (
+      resolveTwoAnchorSegments(drawing, a, b) ?? [
+        extendSegment(drawing, a, b, plotWidth, plotHeight),
       ]
-    }
-
-    if (drawing.kind === 'fib-retracement') {
-      const ratios = (drawing.params as { levels?: number[] } | undefined)?.levels ?? [
-        0, 0.236, 0.382, 0.5, 0.618, 0.786, 1,
-      ]
-      const { left, right } = rectFromPoints(a, b)
-      return ratios.map((ratio) => {
-        const y = a.y + (b.y - a.y) * ratio
-        return { a: { x: left, y }, b: { x: right, y } }
-      })
-    }
-
-    if (drawing.kind === 'arrow') {
-      const angle = Math.atan2(b.y - a.y, b.x - a.x)
-      const headLength = 10
-      const headAngle = Math.PI / 6
-      const headA = {
-        x: b.x - headLength * Math.cos(angle - headAngle),
-        y: b.y - headLength * Math.sin(angle - headAngle),
-      }
-      const headB = {
-        x: b.x - headLength * Math.cos(angle + headAngle),
-        y: b.y - headLength * Math.sin(angle + headAngle),
-      }
-      return [
-        { a, b },
-        { a: headA, b },
-        { a: headB, b },
-      ]
-    }
-
-    const dx = b.x - a.x
-    const dy = b.y - a.y
-
-    let start: { x: number; y: number } = a
-    let end: { x: number; y: number } = b
-
-    const extend = drawing.extend ?? getExtendMode(drawing.kind)
-    const maxLen = Math.max(viewport.plotWidth, viewport.plotHeight) * 4
-
-    if (extend === 'right' || extend === 'both') {
-      end = { x: b.x + dx * maxLen, y: b.y + dy * maxLen }
-    }
-    if (extend === 'left' || extend === 'both') {
-      start = { x: a.x - dx * maxLen, y: a.y - dy * maxLen }
-    }
-
-    return [{ a: start, b: end }]
+    )
   }
 
   /** 组合图元的线段：由线表（LINES）的锚点对直接构成。 */
@@ -381,79 +338,19 @@ export class HitTester {
     for (const drawing of drawings) {
       if (!isDrawingInteractive(drawing)) continue
       const segments = this.getDrawingLabelSegments(drawing, adapter)
-
-      for (const [lineIndex, segment] of segments.entries()) {
-        const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
-        const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
-        const distanceSq = labelHitDistanceSq(
-          mouseX,
-          mouseY,
-          layout.x,
-          layout.y,
-          label?.text,
-          drawing.style.fontSize ?? 12,
-          layout.align,
-          'bottom',
-          layout.rotation,
-        )
-        if (distanceSq > closestLineDistanceSq) continue
-        closestLineDistanceSq = distanceSq
-        closestLine = {
-          drawingId: drawing.id,
-          targetKind: 'line',
-          lineIndex,
-          x: layout.x,
-          y: layout.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
-          rotation: layout.rotation,
-          text: label?.text ?? '',
-          position: label?.position ?? 'center',
-          align: layout.align,
-          baseline: LINE_LABEL_BASELINE,
-          fontSize: drawing.style.fontSize ?? 12,
-        }
-      }
-
-      // 填充图元用同一批线段求包围盒中心；CHANNEL_KINDS 不含 ray/extended-line，
-      // 故 getDrawingLabelSegments 与其延长线段一致。已找到首个 area 热点便不再重算。
-      if (areaTarget || segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) continue
-      const points = segments.flatMap((segment) => [segment.a, segment.b])
-      const areaPosition = drawing.labels?.area['0']?.position ?? 'center'
-      const areaLayout = resolveAreaLabelLayout(
-        Math.min(...points.map((point) => point.x)),
-        Math.max(...points.map((point) => point.x)),
-        areaPosition,
+      const line = findLineLabelTarget(
+        drawing,
+        segments,
+        adapter,
+        mouseX,
+        mouseY,
+        closestLineDistanceSq,
       )
-      const x = areaLayout.x
-      const y =
-        (Math.min(...points.map((point) => point.y)) +
-          Math.max(...points.map((point) => point.y))) /
-        2
-      if (
-        labelHitDistanceSq(
-          mouseX,
-          mouseY,
-          x,
-          y,
-          drawing.labels?.area['0']?.text,
-          drawing.style.fontSize ?? 12,
-          areaLayout.align,
-          'middle',
-        ) > LINE_LABEL_TARGET_RADIUS_SQ
-      )
-        continue
-      areaTarget = {
-        drawingId: drawing.id,
-        targetKind: 'area',
-        lineIndex: 0,
-        x,
-        y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
-        rotation: 0,
-        text: drawing.labels?.area['0']?.text ?? '',
-        position: areaPosition,
-        align: areaLayout.align,
-        baseline: 'middle',
-        fontSize: drawing.style.fontSize ?? 12,
+      if (line) {
+        closestLine = line.target
+        closestLineDistanceSq = line.distanceSq
       }
+      if (!areaTarget) areaTarget = findAreaLabelTarget(drawing, segments, adapter, mouseX, mouseY)
     }
 
     return closestLine ?? areaTarget
@@ -486,89 +383,7 @@ export class HitTester {
   ): RegressionChannelGeometry | null {
     const cached = cache?.get(drawing.id)
     if (cached !== undefined) return cached
-
-    const data = adapter.getData()
-    if (data.length === 0 || drawing.anchors.length < 2) {
-      cache?.set(drawing.id, null)
-      return null
-    }
-
-    const firstTimestamp = Number(drawing.anchors[0]!.time)
-    const secondTimestamp = Number(drawing.anchors[1]!.time)
-    const firstIndex = adapter.getLogicalIndexAtTimestamp(firstTimestamp)
-    const secondIndex = adapter.getLogicalIndexAtTimestamp(secondTimestamp)
-    if (firstIndex === null || secondIndex === null) {
-      cache?.set(drawing.id, null)
-      return null
-    }
-    const clampedFirst = Math.min(Math.max(firstIndex, 0), data.length - 1)
-    const clampedSecond = Math.min(Math.max(secondIndex, 0), data.length - 1)
-    const params = drawing.params
-    const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
-    const regression = computeRegressionChannel(
-      data.map((item: { close: number }) => item.close),
-      clampedFirst,
-      clampedSecond,
-      sigma,
-    )
-    if (!regression) {
-      cache?.set(drawing.id, null)
-      return null
-    }
-
-    const { firstValue, secondValue, offset } = regression
-
-    const middleStart = anchorToScreen(
-      { id: '', time: firstTimestamp, price: firstValue },
-      drawing.paneId,
-      adapter,
-    )
-    const middleEnd = anchorToScreen(
-      { id: '', time: secondTimestamp, price: secondValue },
-      drawing.paneId,
-      adapter,
-    )
-    const upperStart = anchorToScreen(
-      { id: '', time: firstTimestamp, price: firstValue + offset },
-      drawing.paneId,
-      adapter,
-    )
-    const upperEnd = anchorToScreen(
-      { id: '', time: secondTimestamp, price: secondValue + offset },
-      drawing.paneId,
-      adapter,
-    )
-    const lowerStart = anchorToScreen(
-      { id: '', time: firstTimestamp, price: firstValue - offset },
-      drawing.paneId,
-      adapter,
-    )
-    const lowerEnd = anchorToScreen(
-      { id: '', time: secondTimestamp, price: secondValue - offset },
-      drawing.paneId,
-      adapter,
-    )
-
-    const segments: LineSegment[] = []
-    if (isScreenPoint(middleStart) && isScreenPoint(middleEnd)) {
-      segments.push({ a: middleStart, b: middleEnd })
-    }
-    if (isScreenPoint(upperStart) && isScreenPoint(upperEnd)) {
-      segments.push({ a: upperStart, b: upperEnd })
-    }
-    if (isScreenPoint(lowerStart) && isScreenPoint(lowerEnd)) {
-      segments.push({ a: lowerStart, b: lowerEnd })
-    }
-
-    const endpoints: RegressionChannelGeometry['endpoints'] = []
-    if (isScreenPoint(middleStart)) endpoints.push({ point: middleStart, anchorIndex: 0 })
-    if (isScreenPoint(middleEnd)) endpoints.push({ point: middleEnd, anchorIndex: 1 })
-    if (isScreenPoint(upperStart)) endpoints.push({ point: upperStart, anchorIndex: 0 })
-    if (isScreenPoint(upperEnd)) endpoints.push({ point: upperEnd, anchorIndex: 1 })
-    if (isScreenPoint(lowerStart)) endpoints.push({ point: lowerStart, anchorIndex: 0 })
-    if (isScreenPoint(lowerEnd)) endpoints.push({ point: lowerEnd, anchorIndex: 1 })
-
-    const geometry: RegressionChannelGeometry = { segments, endpoints }
+    const geometry = buildRegressionChannelGeometry(drawing, adapter)
     cache?.set(drawing.id, geometry)
     return geometry
   }
@@ -596,4 +411,215 @@ export class HitTester {
 
     return null
   }
+}
+
+/** 矩形/斐波那契/箭头的专属命中线段；其他两锚点图元返回 null。 */
+function resolveTwoAnchorSegments(
+  drawing: DrawingObject,
+  a: Point,
+  b: Point,
+): LineSegment[] | null {
+  if (drawing.kind === 'rectangle')
+    return rectangleGeometry(a, b).edges.map((edge) => ({ a: edge.a, b: edge.b }))
+  if (drawing.kind === 'fib-retracement')
+    return fibLevelLines(drawing.params, a, b).map((level) => ({
+      a: { x: level.left, y: level.y },
+      b: { x: level.right, y: level.y },
+    }))
+  if (drawing.kind === 'arrow') {
+    const head = arrowHead(a, b)
+    return [
+      { a, b },
+      { a: head.left, b },
+      { a: head.right, b },
+    ]
+  }
+  return null
+}
+
+/** 按图元自身的 extend 或 kind 默认延长两锚点线段。 */
+function extendSegment(
+  drawing: DrawingObject,
+  a: Point,
+  b: Point,
+  plotWidth: number,
+  plotHeight: number,
+): LineSegment {
+  const extend = drawing.extend ?? getExtendMode(drawing.kind)
+  const maxLen = Math.max(plotWidth, plotHeight) * 4
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const start =
+    extend === 'left' || extend === 'both' ? { x: a.x - dx * maxLen, y: a.y - dy * maxLen } : a
+  const end =
+    extend === 'right' || extend === 'both' ? { x: b.x + dx * maxLen, y: b.y + dy * maxLen } : b
+  return { a: start, b: end }
+}
+
+/** 线段中点文本热点：取半径内最近的一条。 */
+function findLineLabelTarget(
+  drawing: DrawingObject,
+  segments: readonly LineSegment[],
+  adapter: DrawingViewportPort,
+  mouseX: number,
+  mouseY: number,
+  threshold: number,
+): { target: LineLabelTarget; distanceSq: number } | null {
+  let best: { target: LineLabelTarget; distanceSq: number } | null = null
+  for (const [lineIndex, segment] of segments.entries()) {
+    const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
+    const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
+    const distanceSq = labelHitDistanceSq(
+      mouseX,
+      mouseY,
+      layout.x,
+      layout.y,
+      label?.text,
+      drawing.style.fontSize ?? 12,
+      layout.align,
+      'bottom',
+      layout.rotation,
+    )
+    if (distanceSq > threshold) continue
+    threshold = distanceSq
+    best = {
+      distanceSq,
+      target: {
+        drawingId: drawing.id,
+        targetKind: 'line',
+        lineIndex,
+        x: layout.x,
+        y: layout.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+        rotation: layout.rotation,
+        text: label?.text ?? '',
+        position: label?.position ?? 'center',
+        align: layout.align,
+        baseline: LINE_LABEL_BASELINE,
+        fontSize: drawing.style.fontSize ?? 12,
+      },
+    }
+  }
+  return best
+}
+
+/** 填充图元的文本热点：用线段包围盒中心，只对通道类图元生效。 */
+function findAreaLabelTarget(
+  drawing: DrawingObject,
+  segments: readonly LineSegment[],
+  adapter: DrawingViewportPort,
+  mouseX: number,
+  mouseY: number,
+): LineLabelTarget | null {
+  if (segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) return null
+  const points = segments.flatMap((segment) => [segment.a, segment.b])
+  const areaPosition = drawing.labels?.area['0']?.position ?? 'center'
+  const areaLayout = resolveAreaLabelLayout(
+    Math.min(...points.map((point) => point.x)),
+    Math.max(...points.map((point) => point.x)),
+    areaPosition,
+  )
+  const x = areaLayout.x
+  const y =
+    (Math.min(...points.map((point) => point.y)) + Math.max(...points.map((point) => point.y))) / 2
+  if (
+    labelHitDistanceSq(
+      mouseX,
+      mouseY,
+      x,
+      y,
+      drawing.labels?.area['0']?.text,
+      drawing.style.fontSize ?? 12,
+      areaLayout.align,
+      'middle',
+    ) > LINE_LABEL_TARGET_RADIUS_SQ
+  )
+    return null
+  return {
+    drawingId: drawing.id,
+    targetKind: 'area',
+    lineIndex: 0,
+    x,
+    y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+    rotation: 0,
+    text: drawing.labels?.area['0']?.text ?? '',
+    position: areaPosition,
+    align: areaLayout.align,
+    baseline: 'middle',
+    fontSize: drawing.style.fontSize ?? 12,
+  }
+}
+
+/** 读取锚点索引并计算回归通道；数据或锚点不足时返回 null。 */
+function buildRegressionChannelGeometry(
+  drawing: DrawingObject,
+  adapter: DrawingViewportPort,
+): RegressionChannelGeometry | null {
+  const data = adapter.getData()
+  if (data.length === 0 || drawing.anchors.length < 2) return null
+  const firstTimestamp = Number(drawing.anchors[0]!.time)
+  const secondTimestamp = Number(drawing.anchors[1]!.time)
+  const firstIndex = adapter.getLogicalIndexAtTimestamp(firstTimestamp)
+  const secondIndex = adapter.getLogicalIndexAtTimestamp(secondTimestamp)
+  if (firstIndex === null || secondIndex === null) return null
+  const clampedFirst = Math.min(Math.max(firstIndex, 0), data.length - 1)
+  const clampedSecond = Math.min(Math.max(secondIndex, 0), data.length - 1)
+  const params = drawing.params
+  const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
+  const regression = computeRegressionChannel(
+    data.map((item: { close: number }) => item.close),
+    clampedFirst,
+    clampedSecond,
+    sigma,
+  )
+  if (!regression) return null
+  return projectRegressionGeometry(
+    drawing,
+    adapter,
+    firstTimestamp,
+    secondTimestamp,
+    regression.firstValue,
+    regression.secondValue,
+    regression.offset,
+  )
+}
+
+/** 把回归通道的三条线投影为屏幕线段与可拖拽端点。 */
+function projectRegressionGeometry(
+  drawing: DrawingObject,
+  adapter: DrawingViewportPort,
+  firstTimestamp: number,
+  secondTimestamp: number,
+  firstValue: number,
+  secondValue: number,
+  offset: number,
+): RegressionChannelGeometry {
+  const at = (timestamp: number, price: number) =>
+    anchorToScreen({ id: '', time: timestamp, price }, drawing.paneId, adapter)
+  const middleStart = at(firstTimestamp, firstValue)
+  const middleEnd = at(secondTimestamp, secondValue)
+  const upperStart = at(firstTimestamp, firstValue + offset)
+  const upperEnd = at(secondTimestamp, secondValue + offset)
+  const lowerStart = at(firstTimestamp, firstValue - offset)
+  const lowerEnd = at(secondTimestamp, secondValue - offset)
+
+  const segments: LineSegment[] = []
+  const addSegment = (a: ReturnType<typeof at>, b: ReturnType<typeof at>) => {
+    if (isScreenPoint(a) && isScreenPoint(b)) segments.push({ a, b })
+  }
+  addSegment(middleStart, middleEnd)
+  addSegment(upperStart, upperEnd)
+  addSegment(lowerStart, lowerEnd)
+
+  const endpoints: RegressionChannelGeometry['endpoints'] = []
+  const addEndpoint = (point: ReturnType<typeof at>, anchorIndex: 0 | 1) => {
+    if (isScreenPoint(point)) endpoints.push({ point, anchorIndex })
+  }
+  addEndpoint(middleStart, 0)
+  addEndpoint(middleEnd, 1)
+  addEndpoint(upperStart, 0)
+  addEndpoint(upperEnd, 1)
+  addEndpoint(lowerStart, 0)
+  addEndpoint(lowerEnd, 1)
+
+  return { segments, endpoints }
 }

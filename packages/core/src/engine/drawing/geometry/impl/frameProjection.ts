@@ -1,5 +1,6 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
@@ -27,8 +28,8 @@ import type { DrawingPaintScope } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
-import { drawingTimeIndex } from './timeCoordinate.js'
 import { getVerticalHandleLines } from './lines.js'
+import { drawingTimeIndex } from './timeCoordinate.js'
 
 type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
@@ -58,7 +59,10 @@ function hasResolvableTimeAnchors(drawing: ResolvedDrawingObject): boolean {
     if (!Number.isFinite(anchor.price)) return false
     if (anchor.logicalIndex !== undefined) return Number.isFinite(anchor.index)
     const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-    return timestamp === undefined || (drawing.xloc === 'bar_time' ? Number.isFinite(anchor.index) : anchor.index >= 0)
+    return (
+      timestamp === undefined ||
+      (drawing.xloc === 'bar_time' ? Number.isFinite(anchor.index) : anchor.index >= 0)
+    )
   })
 }
 
@@ -74,7 +78,10 @@ function resolveDrawingForFrame(
       if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
       const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
       if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
-        return { ...anchor, index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex) }
+        return {
+          ...anchor,
+          index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex),
+        }
       }
       if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
       const baseIndex = getLogicalIndexAtTimestamp(timestamp)
@@ -333,7 +340,7 @@ export function projectDrawingsForFrame(
       toScreen,
     })
     if (!geometry) continue
-    const isSelected = drawing.ownerId === undefined && selectedIds.has(drawing.id)
+    const isSelected = isDrawingInteractive(drawing) && selectedIds.has(drawing.id)
     const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
     output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
     if (isSelected) {

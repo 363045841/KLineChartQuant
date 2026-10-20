@@ -59,7 +59,7 @@
       </div>
     </div>
     <div ref="editorHost" class="script-editor" />
-    <ScriptEditorPanels :logs="logs" :problems="problems" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
+    <ScriptEditorPanels :logs="logs" :problems="problems" :editor-host="editorHost" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
   </div>
 </template>
 

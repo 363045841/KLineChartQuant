@@ -1,5 +1,10 @@
 /** 可信脚本的原生执行后端；只由 Script Worker 使用，不提供沙箱保护。 */
-import { isPlotKind, PlotCollector, PlotKind } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  isPlotKind,
+  type PlotCollection,
+  PlotCollector,
+  PlotKind,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/output.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
@@ -39,9 +44,7 @@ interface NativeRuntime {
   onBar(): void
   requests(): readonly SecurityRequest[]
   expression(id: string): RequestValue
-  drawings(): NonNullable<
-    import('@363045841yyt/klinechart-plot-contracts').PlotCollection['drawings']
-  >
+  drawings(): NonNullable<PlotCollection['drawings']>
 }
 
 /** 动态函数创建失败（包括 CSP 拒绝）统一报告为编译错误，不切换后端。 */

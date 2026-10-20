@@ -57,17 +57,30 @@ function hasValidPlotBase(value: Record<string, unknown>): boolean {
   return (
     optional(value.label, 'string') &&
     (value.format === undefined || isFormat(value.format)) &&
-    (((value.kind === PlotKind.Candle || value.kind === PlotKind.Bar) && value.color === null) ||
-      optional(value.color, 'string')) &&
+    isValidPlotColor(value) &&
     optional(value.textColor, 'string') &&
     optional(value.offset, 'number') &&
     optional(value.visible, 'boolean') &&
-    (value.size === undefined ||
-      isShapeSize(value.size) ||
-      (value.kind === 'histogram' &&
-        typeof value.size === 'number' &&
-        Number.isFinite(value.size) &&
-        value.size > 0))
+    isValidPlotSize(value)
+  )
+}
+
+/** OHLC 用 null 表示该 bar 不绘制，其余 kind 只接受字符串颜色。 */
+function isValidPlotColor(value: Record<string, unknown>): boolean {
+  const isOhlc = value.kind === PlotKind.Candle || value.kind === PlotKind.Bar
+  return isOhlc
+    ? value.color === null || optional(value.color, 'string')
+    : optional(value.color, 'string')
+}
+
+/** histogram 额外允许正数数值柱宽，其余 kind 只接受尺寸档位。 */
+function isValidPlotSize(value: Record<string, unknown>): boolean {
+  if (value.size === undefined || isShapeSize(value.size)) return true
+  return (
+    value.kind === 'histogram' &&
+    typeof value.size === 'number' &&
+    Number.isFinite(value.size) &&
+    value.size > 0
   )
 }
 
@@ -216,53 +229,84 @@ export function readFillCall(
   return declaration
 }
 
+/** 声明级字段通过校验后可直接读取的输入形状。 */
+type DefinitionBase = Record<string, unknown> & {
+  readonly name: string
+  readonly position: Position
+  readonly inputs: Record<string, unknown>
+}
+
+/** 单个输入声明。 */
+type ScriptInputDeclaration = QuickJSScriptDefinition['inputs'][string]
+
+/** 可选文本字段：缺省或去掉空白后非空。 */
+function isOptionalNonEmptyText(value: unknown): boolean {
+  return value === undefined || (typeof value === 'string' && value.trim() !== '')
+}
+
+/** 声明级字段校验；通过后 name/position/inputs 可直接读取。 */
+function isDefinitionBase(value: unknown): value is DefinitionBase {
+  return (
+    isRecord(value) &&
+    typeof value.name === 'string' &&
+    value.name.trim() !== '' &&
+    isOptionalNonEmptyText(value.title) &&
+    isOptionalNonEmptyText(value.info) &&
+    isPosition(value.position) &&
+    (value.format === undefined || isFormat(value.format)) &&
+    isRecord(value.inputs)
+  )
+}
+
+/** 读取单个输入声明；非法字段直接作为编译错误拒绝。 */
+function readInput(key: string, declaration: unknown): ScriptInputDeclaration {
+  if (
+    !isRecord(declaration) ||
+    !isParam(declaration.default) ||
+    !optional(declaration.title, 'string') ||
+    !optional(declaration.min, 'number') ||
+    !optional(declaration.max, 'number') ||
+    !optional(declaration.step, 'number') ||
+    !isOptionsValid(declaration.options, declaration.default)
+  ) {
+    throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
+  }
+  return {
+    default: declaration.default,
+    ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
+    ...(isOptionsList(declaration.options) ? { options: declaration.options } : {}),
+    ...(typeof declaration.min === 'number' ? { min: declaration.min } : {}),
+    ...(typeof declaration.max === 'number' ? { max: declaration.max } : {}),
+    ...(typeof declaration.step === 'number' ? { step: declaration.step } : {}),
+  }
+}
+
+/** 读取全部输入参数声明。 */
+function readInputs(inputs: Record<string, unknown>): QuickJSScriptDefinition['inputs'] {
+  const result: QuickJSScriptDefinition['inputs'] = {}
+  for (const [key, declaration] of Object.entries(inputs)) {
+    result[key] = readInput(key, declaration)
+  }
+  return result
+}
+
 /** 读取已初始化脚本的定义；缺字段或错误类型统一作为编译错误报告。 */
 export function readDefinition(value: unknown): QuickJSScriptDefinition {
-  if (
-    !isRecord(value) ||
-    typeof value.name !== 'string' ||
-    !value.name.trim() ||
-    (value.title !== undefined &&
-      (typeof value.title !== 'string' || !value.title.trim())) ||
-    (value.info !== undefined && (typeof value.info !== 'string' || !value.info.trim())) ||
-    !isPosition(value.position) ||
-    (value.format !== undefined && !isFormat(value.format)) ||
-    !isRecord(value.inputs)
-  ) {
+  if (!isDefinitionBase(value)) {
     throw new ScriptExecutionError(
       'compile',
       `指标需要 name、position 与合法的 format/title/info，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
     )
-  }
-  const inputs: QuickJSScriptDefinition['inputs'] = {}
-  for (const [key, declaration] of Object.entries(value.inputs)) {
-    if (
-      !isRecord(declaration) ||
-      !isParam(declaration.default) ||
-      !optional(declaration.title, 'string') ||
-      !optional(declaration.min, 'number') ||
-      !optional(declaration.max, 'number') ||
-      !optional(declaration.step, 'number') ||
-      !isOptionsValid(declaration.options, declaration.default)
-    ) {
-      throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
-    }
-    inputs[key] = {
-      default: declaration.default,
-      ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
-      ...(isOptionsList(declaration.options) ? { options: declaration.options } : {}),
-      ...(typeof declaration.min === 'number' ? { min: declaration.min } : {}),
-      ...(typeof declaration.max === 'number' ? { max: declaration.max } : {}),
-      ...(typeof declaration.step === 'number' ? { step: declaration.step } : {}),
-    }
   }
   return {
     name: value.name,
     ...(typeof value.title === 'string' ? { title: value.title } : {}),
     ...(typeof value.info === 'string' ? { info: value.info } : {}),
     position: value.position,
-    ...(typeof value.max_lines_count === 'number' ? { max_lines_count: value.max_lines_count } : {}),
+    ...(typeof value.max_lines_count === 'number'
+      ? { max_lines_count: value.max_lines_count }
+      : {}),
     ...(isFormat(value.format) ? { format: value.format } : {}),
-    inputs,
+    inputs: readInputs(value.inputs),
   }
 }

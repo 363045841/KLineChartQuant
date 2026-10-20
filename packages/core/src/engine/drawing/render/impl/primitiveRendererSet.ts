@@ -7,6 +7,11 @@
 import { type Point, pointInRect, type Rect } from '@/foundation/geometry/index.js'
 import { type DrawingStyle, POINT_ROLE } from '@/foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '@/foundation/tokens/index.js'
+import {
+  ARROW_HEAD_ANGLE,
+  ARROW_HEAD_LENGTH,
+  arrowHead,
+} from '../../geometry/impl/arrowGeometry.js'
 import { resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
 import { extendLineToViewport } from '../../geometry/impl/lineClipping.js'
 import type { PrimitiveRendererSet } from '../types.js'
@@ -143,57 +148,12 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       if (!clipped) return
 
       ctx.save()
-      applyLineStyle(ctx, primitive.style)
-      const lineWidth = primitive.style?.strokeWidth ?? 1
-      const align = lineWidth <= 1 ? 0.5 / dpr : 0
-      ctx.beginPath()
-      ctx.moveTo(clipped.a.x + align, clipped.a.y + align)
-      ctx.lineTo(clipped.b.x + align, clipped.b.y + align)
-      ctx.stroke()
-
-      if (primitive.text) {
-        // 标签基于原始锚点，不随延长线或视口裁剪漂移。
-        const textLayout = resolveLineLabelLayout(primitive.a, primitive.b, primitive.text.position)
-        ctx.save()
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? textLayout.align
-        const baseline = primitive.text.baseline ?? 'middle'
-        ctx.translate(textLayout.x, textLayout.y)
-        ctx.rotate(textLayout.rotation)
-        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
-        ctx.restore()
-      }
-
-      const strokeStyle = primitive.style?.strokeStyle
-      const arrowLeft = strokeStyle === 'arrow_left' || strokeStyle === 'arrow_both'
-      const arrowRight = strokeStyle === 'arrow_right' || strokeStyle === 'arrow_both'
-      if (arrowLeft || arrowRight) {
-        ctx.setLineDash([])
-        const angle = Math.atan2(clipped.b.y - clipped.a.y, clipped.b.x - clipped.a.x)
-        const length = Math.max(8, lineWidth * 3)
-        for (const head of [
-          ...(arrowLeft ? [{ point: clipped.a, angle: angle + Math.PI }] : []),
-          ...(arrowRight ? [{ point: clipped.b, angle }] : []),
-        ]) {
-          ctx.beginPath()
-          ctx.moveTo(head.point.x - length * Math.cos(head.angle - Math.PI / 6), head.point.y - length * Math.sin(head.angle - Math.PI / 6))
-          ctx.lineTo(head.point.x, head.point.y)
-          ctx.lineTo(head.point.x - length * Math.cos(head.angle + Math.PI / 6), head.point.y - length * Math.sin(head.angle + Math.PI / 6))
-          ctx.stroke()
-        }
-      }
-
-      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
-      if (primitive.showEndpoints !== false) {
-        const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
-        for (const endpoint of [primitive.a, primitive.b]) {
-          if (!isInsideViewport(endpoint, viewportClip)) continue
-          drawAnchor(ctx, endpoint, pointRadius, primitive.style)
-        }
-      }
-
+      strokeSegment(ctx, clipped.a, clipped.b, primitive.style, dpr)
+      if (primitive.text)
+        drawLineText(ctx, primitive.a, primitive.b, primitive.text, primitive.style)
+      drawStrokeArrowHeads(ctx, clipped, primitive.style)
+      // 端点使用原始锚点位置，不是裁剪后的位置；屏幕外锚点只保留被裁剪的线段。
+      if (primitive.showEndpoints !== false) drawEndpoints(ctx, primitive, viewportClip, dpr)
       ctx.restore()
     },
 
@@ -258,55 +218,127 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
     },
 
     arrow(ctx, primitive, dpr) {
-      const angle = Math.atan2(
-        primitive.end.y - primitive.start.y,
-        primitive.end.x - primitive.start.x,
-      )
-      const headLength = primitive.headLength ?? 10
-      const headAngle = primitive.headAngle ?? Math.PI / 6
-      const left = {
-        x: primitive.end.x - headLength * Math.cos(angle - headAngle),
-        y: primitive.end.y - headLength * Math.sin(angle - headAngle),
-      }
-      const right = {
-        x: primitive.end.x - headLength * Math.cos(angle + headAngle),
-        y: primitive.end.y - headLength * Math.sin(angle + headAngle),
-      }
-
       ctx.save()
-      applyLineStyle(ctx, primitive.style)
-      const lineWidth = primitive.style?.strokeWidth ?? 1
-      const align = lineWidth <= 1 ? 0.5 / dpr : 0
-      ctx.beginPath()
-      ctx.moveTo(primitive.start.x + align, primitive.start.y + align)
-      ctx.lineTo(primitive.end.x + align, primitive.end.y + align)
-      ctx.stroke()
-
+      strokeSegment(ctx, primitive.start, primitive.end, primitive.style, dpr)
+      const head = arrowHead(
+        primitive.start,
+        primitive.end,
+        primitive.headLength ?? ARROW_HEAD_LENGTH,
+        primitive.headAngle ?? ARROW_HEAD_ANGLE,
+      )
       ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
       ctx.beginPath()
       ctx.moveTo(primitive.end.x, primitive.end.y)
-      ctx.lineTo(left.x, left.y)
-      ctx.lineTo(right.x, right.y)
+      ctx.lineTo(head.left.x, head.left.y)
+      ctx.lineTo(head.right.x, head.right.y)
       ctx.closePath()
       ctx.fill()
-      if (primitive.text) {
-        const textLayout = resolveLineLabelLayout(
-          primitive.start,
-          primitive.end,
-          primitive.text.position,
-        )
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? textLayout.align
-        const baseline = primitive.text.baseline ?? 'middle'
-        ctx.save()
-        ctx.translate(textLayout.x, textLayout.y)
-        ctx.rotate(textLayout.rotation)
-        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
-        ctx.restore()
-      }
+      if (primitive.text)
+        drawLineText(ctx, primitive.start, primitive.end, primitive.text, primitive.style)
       ctx.restore()
     },
+  }
+}
+
+/** 线身文字的最小形状；与 LinePrimitive.text 一致。 */
+type LineTextLayoutInput = {
+  readonly text: string
+  readonly position?: 'start' | 'center' | 'end'
+  readonly align?: CanvasTextAlign
+  readonly baseline?: CanvasTextBaseline
+}
+
+/** 含端点开关的最小线图元形状。 */
+type LineEndpointSource = {
+  readonly a: Point
+  readonly b: Point
+  readonly showEndpoints?: boolean
+  readonly style?: DrawingStyle
+}
+
+/** 按 dpr 对齐并描一条线；线宽 ≤1 时用半像素偏移避免发虚。 */
+function strokeSegment(
+  ctx: CanvasRenderingContext2D,
+  a: Point,
+  b: Point,
+  style: DrawingStyle | undefined,
+  dpr: number,
+): void {
+  applyLineStyle(ctx, style)
+  const lineWidth = style?.strokeWidth ?? 1
+  const align = lineWidth <= 1 ? 0.5 / dpr : 0
+  ctx.beginPath()
+  ctx.moveTo(a.x + align, a.y + align)
+  ctx.lineTo(b.x + align, b.y + align)
+  ctx.stroke()
+}
+
+/** 沿线身绘制标签；位置基于原始锚点，不随裁剪漂移。 */
+function drawLineText(
+  ctx: CanvasRenderingContext2D,
+  from: Point,
+  to: Point,
+  text: LineTextLayoutInput,
+  style?: DrawingStyle,
+): void {
+  const layout = resolveLineLabelLayout(from, to, text.position)
+  ctx.save()
+  ctx.fillStyle = style?.textColor ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
+  ctx.font = `${style?.fontSize ?? 12}px sans-serif`
+  ctx.textAlign = text.align ?? layout.align
+  ctx.translate(layout.x, layout.y)
+  ctx.rotate(layout.rotation)
+  drawMultilineText(ctx, text.text, 0, 0, style?.fontSize ?? 12, text.baseline ?? 'middle')
+  ctx.restore()
+}
+
+/** 线型箭头：在两端描开放的两翼。 */
+function drawStrokeArrowHeads(
+  ctx: CanvasRenderingContext2D,
+  segment: { readonly a: Point; readonly b: Point },
+  style: DrawingStyle | undefined,
+): void {
+  const strokeStyle = style?.strokeStyle
+  const arrowLeft = strokeStyle === 'arrow_left' || strokeStyle === 'arrow_both'
+  const arrowRight = strokeStyle === 'arrow_right' || strokeStyle === 'arrow_both'
+  if (!arrowLeft && !arrowRight) return
+  ctx.setLineDash([])
+  const length = Math.max(8, (style?.strokeWidth ?? 1) * 3)
+  const { angle } = arrowHead(segment.a, segment.b, length)
+  if (arrowLeft) strokeArrowWing(ctx, segment.a, angle + Math.PI, length)
+  if (arrowRight) strokeArrowWing(ctx, segment.b, angle, length)
+}
+
+/** 描一组箭头两翼。 */
+function strokeArrowWing(
+  ctx: CanvasRenderingContext2D,
+  point: Point,
+  angle: number,
+  length: number,
+): void {
+  ctx.beginPath()
+  ctx.moveTo(
+    point.x - length * Math.cos(angle - ARROW_HEAD_ANGLE),
+    point.y - length * Math.sin(angle - ARROW_HEAD_ANGLE),
+  )
+  ctx.lineTo(point.x, point.y)
+  ctx.lineTo(
+    point.x - length * Math.cos(angle + ARROW_HEAD_ANGLE),
+    point.y - length * Math.sin(angle + ARROW_HEAD_ANGLE),
+  )
+  ctx.stroke()
+}
+
+/** 绘制线身端点；屏幕外锚点跳过。 */
+function drawEndpoints(
+  ctx: CanvasRenderingContext2D,
+  primitive: LineEndpointSource,
+  clip: Rect,
+  dpr: number,
+): void {
+  const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
+  for (const endpoint of [primitive.a, primitive.b]) {
+    if (!isInsideViewport(endpoint, clip)) continue
+    drawAnchor(ctx, endpoint, radius, primitive.style)
   }
 }

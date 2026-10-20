@@ -1,6 +1,7 @@
 /** 编辑器底部工具面板：Tab 切换、拖拽高度及输出跟随滚动。 */
 
 import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
+import { usePointerDragSession } from '@vue-src/composables/ui/usePointerDragSession.js'
 import { nextTick, onMounted, onScopeDispose, type Ref, ref, watch } from 'vue'
 
 /** 绑定输出列表；用户向上阅读历史时保留当前位置。 */
@@ -9,6 +10,7 @@ export function useScriptEditorPanels(
   separator: Readonly<Ref<HTMLElement | null>>,
   panelHost: Readonly<Ref<HTMLElement | null>>,
   logs: () => readonly LogEvent[],
+  editorHost: () => HTMLElement | null,
 ) {
   const expanded = ref(true)
   const activePanel = ref<'output' | 'problems'>('output')
@@ -17,8 +19,13 @@ export function useScriptEditorPanels(
   const minHeight = 48
   const minEditorHeight = 80
   const maxHeight = ref(160)
-  const dragging = ref(false)
-  let drag: { pointerId: number; startY: number; startHeight: number } | undefined
+  const {
+    dragging,
+    begin: beginDrag,
+    move: moveDrag,
+    end: endDrag,
+  } = usePointerDragSession(() => separator.value)
+  let resizeSession: { pointerId: number; startY: number; startHeight: number } | undefined
   let observer: ResizeObserver | undefined
   let follow = true
 
@@ -61,9 +68,10 @@ export function useScriptEditorPanels(
     const content = host.value
     const panel = panelHost.value
     const workspace = panel?.parentElement
-    if (!expanded.value || !content || !panel || !workspace) return
+    const editor = editorHost()
+    if (!expanded.value || !content || !panel || !workspace || !editor) return
     const occupied = Array.from(workspace.children)
-      .filter((element) => element !== panel && !element.classList.contains('script-editor'))
+      .filter((element) => element !== panel && element !== editor)
       .reduce((total, element) => total + element.getBoundingClientRect().height, 0)
     const panelChrome = panel.getBoundingClientRect().height - height.value
     maxHeight.value = Math.max(
@@ -78,31 +86,29 @@ export function useScriptEditorPanels(
     if (event.button !== 0 || !expanded.value || !separator.value || !host.value) return
     event.preventDefault()
     updateBounds()
-    drag = {
-      pointerId: event.pointerId,
-      startY: event.clientY,
+    const session = beginDrag(event)
+    if (!session) return
+    resizeSession = {
+      pointerId: session.pointerId,
+      startY: session.startY,
       startHeight: host.value.getBoundingClientRect().height,
     }
-    separator.value.setPointerCapture(event.pointerId)
-    dragging.value = true
   }
 
   /** 向上拖动增高输出区，向下拖动缩小输出区。 */
   function resize(event: PointerEvent): void {
-    if (!drag || event.pointerId !== drag.pointerId) return
+    const session = moveDrag(event)
+    if (!session || !resizeSession || resizeSession.pointerId !== session.pointerId) return
     height.value = Math.max(
       minHeight,
-      Math.min(maxHeight.value, drag.startHeight + drag.startY - event.clientY),
+      Math.min(maxHeight.value, resizeSession.startHeight + resizeSession.startY - event.clientY),
     )
   }
 
   /** 完成、取消或丢失捕获时统一结束拖拽。 */
-  function stopResize(): void {
-    const pointerId = drag?.pointerId
-    drag = undefined
-    dragging.value = false
-    if (pointerId !== undefined && separator.value?.hasPointerCapture(pointerId))
-      separator.value.releasePointerCapture(pointerId)
+  function stopResize(event?: PointerEvent): void {
+    resizeSession = undefined
+    endDrag(event)
   }
 
   /** 分隔条也支持方向键微调，Home / End 跳到高度边界。 */

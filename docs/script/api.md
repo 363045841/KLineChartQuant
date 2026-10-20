@@ -106,121 +106,127 @@
 - [ShapeSize.Normal](#api-97)
 - [ShapeSize.Large](#api-98)
 - [ShapeSize.Huge](#api-99)
-- [open](#api-100)
-- [high](#api-101)
-- [low](#api-102)
-- [close](#api-103)
-- [volume](#api-104)
-- [time](#api-105)
-- [bar_index](#api-106)
-- [bar_index.toString](#api-107)
-- [bar_index.toFixed](#api-108)
-- [bar_index.toExponential](#api-109)
-- [bar_index.toPrecision](#api-110)
-- [bar_index.valueOf](#api-111)
-- [bar_index.toLocaleString](#api-112)
-- [line](#api-113)
-- [line.style_solid](#api-114)
-- [line.style_dashed](#api-115)
-- [line.style_dotted](#api-116)
-- [line.style_arrow_left](#api-117)
-- [line.style_arrow_right](#api-118)
-- [line.style_arrow_both](#api-119)
-- [line.new](#api-120)
-- [line.all](#api-121)
-- [line.set_xy1](#api-122)
-- [line.set_xy2](#api-123)
-- [line.set_x1](#api-124)
-- [line.set_y1](#api-125)
-- [line.set_x2](#api-126)
-- [line.set_y2](#api-127)
-- [line.set_color](#api-128)
-- [line.set_style](#api-129)
-- [line.set_width](#api-130)
-- [line.set_extend](#api-131)
-- [line.get_x1](#api-132)
-- [line.get_y1](#api-133)
-- [line.get_x2](#api-134)
-- [line.get_y2](#api-135)
-- [line.get_color](#api-136)
-- [line.get_style](#api-137)
-- [line.get_width](#api-138)
-- [line.get_extend](#api-139)
-- [line.get_price](#api-140)
-- [line.copy](#api-141)
-- [line.delete](#api-142)
-- [chart](#api-143)
-- [chart.point](#api-144)
-- [chart.point.new](#api-145)
-- [chart.point.now](#api-146)
-- [chart.point.from_index](#api-147)
-- [chart.point.from_time](#api-148)
-- [chart.point.copy](#api-149)
-- [ta](#api-150)
-- [ta.rising](#api-151)
-- [ta.falling](#api-152)
-- [ta.change](#api-153)
-- [ta.sma](#api-154)
-- [ta.sum](#api-155)
-- [ta.highest](#api-156)
-- [ta.lowest](#api-157)
-- [ta.highestbars](#api-158)
-- [ta.lowestbars](#api-159)
-- [ta.rma](#api-160)
-- [ta.swma](#api-161)
-- [ta.alma](#api-162)
-- [ta.stddev](#api-163)
-- [ta.ema](#api-164)
-- [ta.dema](#api-165)
-- [ta.tema](#api-166)
-- [ta.t3](#api-167)
-- [ta.trima](#api-168)
-- [ta.macd](#api-169)
-- [ta.wma](#api-170)
-- [ta.hma](#api-171)
-- [ta.linreg](#api-172)
-- [ta.cci](#api-173)
-- [ta.vwma](#api-174)
-- [ta.rsi](#api-175)
-- [ta.stoch](#api-176)
-- [ta.atr](#api-177)
-- [ta.supertrend](#api-178)
-- [ta.mom](#api-179)
-- [ta.roc](#api-180)
-- [ta.cmo](#api-181)
-- [ta.crossover](#api-182)
-- [ta.crossunder](#api-183)
-- [Position](#api-184)
-- [Position.Main](#api-185)
-- [Position.Sub](#api-186)
-- [input](#api-187)
-- [input.int](#api-188)
-- [input.float](#api-189)
-- [input.bool](#api-190)
-- [input.string](#api-191)
-- [input.timeframe](#api-192)
-- [defineIndicator](#api-193)
-- [derive](#api-194)
-- [plot](#api-195)
-- [plot.Line](#api-196)
-- [plot.LineBR](#api-197)
-- [plot.StepLine](#api-198)
-- [plot.StepLineBR](#api-199)
-- [plot.Histogram](#api-200)
-- [plot.Columns](#api-201)
-- [plot.Point](#api-202)
-- [plot.Shape](#api-203)
-- [plot.Char](#api-204)
-- [plot.Arrow](#api-205)
-- [plot.Candle](#api-206)
-- [plot.Bar](#api-207)
-- [fill](#api-208)
-- [defineLibrary](#api-209)
-- [importLibrary](#api-210)
-- [request](#api-211)
-- [request.security](#api-212)
-- [syminfo](#api-213)
-- [syminfo.tickerid](#api-214)
+- [console](#api-100)
+- [console.log](#api-101)
+- [console.info](#api-102)
+- [console.warn](#api-103)
+- [console.error](#api-104)
+- [console.debug](#api-105)
+- [open](#api-106)
+- [high](#api-107)
+- [low](#api-108)
+- [close](#api-109)
+- [volume](#api-110)
+- [time](#api-111)
+- [bar_index](#api-112)
+- [bar_index.toString](#api-113)
+- [bar_index.toFixed](#api-114)
+- [bar_index.toExponential](#api-115)
+- [bar_index.toPrecision](#api-116)
+- [bar_index.valueOf](#api-117)
+- [bar_index.toLocaleString](#api-118)
+- [line](#api-119)
+- [line.style_solid](#api-120)
+- [line.style_dashed](#api-121)
+- [line.style_dotted](#api-122)
+- [line.style_arrow_left](#api-123)
+- [line.style_arrow_right](#api-124)
+- [line.style_arrow_both](#api-125)
+- [line.new](#api-126)
+- [line.all](#api-127)
+- [line.set_xy1](#api-128)
+- [line.set_xy2](#api-129)
+- [line.set_x1](#api-130)
+- [line.set_y1](#api-131)
+- [line.set_x2](#api-132)
+- [line.set_y2](#api-133)
+- [line.set_color](#api-134)
+- [line.set_style](#api-135)
+- [line.set_width](#api-136)
+- [line.set_extend](#api-137)
+- [line.get_x1](#api-138)
+- [line.get_y1](#api-139)
+- [line.get_x2](#api-140)
+- [line.get_y2](#api-141)
+- [line.get_color](#api-142)
+- [line.get_style](#api-143)
+- [line.get_width](#api-144)
+- [line.get_extend](#api-145)
+- [line.get_price](#api-146)
+- [line.copy](#api-147)
+- [line.delete](#api-148)
+- [chart](#api-149)
+- [chart.point](#api-150)
+- [chart.point.new](#api-151)
+- [chart.point.now](#api-152)
+- [chart.point.from_index](#api-153)
+- [chart.point.from_time](#api-154)
+- [chart.point.copy](#api-155)
+- [ta](#api-156)
+- [ta.rising](#api-157)
+- [ta.falling](#api-158)
+- [ta.change](#api-159)
+- [ta.sma](#api-160)
+- [ta.sum](#api-161)
+- [ta.highest](#api-162)
+- [ta.lowest](#api-163)
+- [ta.highestbars](#api-164)
+- [ta.lowestbars](#api-165)
+- [ta.rma](#api-166)
+- [ta.swma](#api-167)
+- [ta.alma](#api-168)
+- [ta.stddev](#api-169)
+- [ta.ema](#api-170)
+- [ta.dema](#api-171)
+- [ta.tema](#api-172)
+- [ta.t3](#api-173)
+- [ta.trima](#api-174)
+- [ta.macd](#api-175)
+- [ta.wma](#api-176)
+- [ta.hma](#api-177)
+- [ta.linreg](#api-178)
+- [ta.cci](#api-179)
+- [ta.vwma](#api-180)
+- [ta.rsi](#api-181)
+- [ta.stoch](#api-182)
+- [ta.atr](#api-183)
+- [ta.supertrend](#api-184)
+- [ta.mom](#api-185)
+- [ta.roc](#api-186)
+- [ta.cmo](#api-187)
+- [ta.crossover](#api-188)
+- [ta.crossunder](#api-189)
+- [Position](#api-190)
+- [Position.Main](#api-191)
+- [Position.Sub](#api-192)
+- [input](#api-193)
+- [input.int](#api-194)
+- [input.float](#api-195)
+- [input.bool](#api-196)
+- [input.string](#api-197)
+- [input.timeframe](#api-198)
+- [defineIndicator](#api-199)
+- [derive](#api-200)
+- [plot](#api-201)
+- [plot.Line](#api-202)
+- [plot.LineBR](#api-203)
+- [plot.StepLine](#api-204)
+- [plot.StepLineBR](#api-205)
+- [plot.Histogram](#api-206)
+- [plot.Columns](#api-207)
+- [plot.Point](#api-208)
+- [plot.Shape](#api-209)
+- [plot.Char](#api-210)
+- [plot.Arrow](#api-211)
+- [plot.Candle](#api-212)
+- [plot.Bar](#api-213)
+- [fill](#api-214)
+- [defineLibrary](#api-215)
+- [importLibrary](#api-216)
+- [request](#api-217)
+- [request.security](#api-218)
+- [syminfo](#api-219)
+- [syminfo.tickerid](#api-220)
 
 ## 全局 API
 
@@ -1270,13 +1276,63 @@ ShapeSize.Huge = "huge"
 
 <a id="api-100"></a>
 
+### console
+
+```ts
+console: { log(...values: unknown[]): void; info(...values: unknown[]): void; warn(...values: unknown[]): void; error(...values: unknown[]): void; debug(...values: unknown[]): void; }
+```
+
+输出到编辑器底部的“输出”面板；支持多个参数和对象。
+
+<a id="api-101"></a>
+
+### console.log
+
+```ts
+console.log(...values: unknown[]): void
+```
+
+<a id="api-102"></a>
+
+### console.info
+
+```ts
+console.info(...values: unknown[]): void
+```
+
+<a id="api-103"></a>
+
+### console.warn
+
+```ts
+console.warn(...values: unknown[]): void
+```
+
+<a id="api-104"></a>
+
+### console.error
+
+```ts
+console.error(...values: unknown[]): void
+```
+
+<a id="api-105"></a>
+
+### console.debug
+
+```ts
+console.debug(...values: unknown[]): void
+```
+
+<a id="api-106"></a>
+
 ### open
 
 ```ts
 open: ScriptSeries
 ```
 
-<a id="api-101"></a>
+<a id="api-107"></a>
 
 ### high
 
@@ -1284,7 +1340,7 @@ open: ScriptSeries
 high: ScriptSeries
 ```
 
-<a id="api-102"></a>
+<a id="api-108"></a>
 
 ### low
 
@@ -1292,7 +1348,7 @@ high: ScriptSeries
 low: ScriptSeries
 ```
 
-<a id="api-103"></a>
+<a id="api-109"></a>
 
 ### close
 
@@ -1300,7 +1356,7 @@ low: ScriptSeries
 close: ScriptSeries
 ```
 
-<a id="api-104"></a>
+<a id="api-110"></a>
 
 ### volume
 
@@ -1308,7 +1364,7 @@ close: ScriptSeries
 volume: ScriptSeries
 ```
 
-<a id="api-105"></a>
+<a id="api-111"></a>
 
 ### time
 
@@ -1316,7 +1372,7 @@ volume: ScriptSeries
 time: ScriptSeries
 ```
 
-<a id="api-106"></a>
+<a id="api-112"></a>
 
 ### bar_index
 
@@ -1326,7 +1382,7 @@ bar_index: number
 
 当前 K 线索引，从 0 开始。
 
-<a id="api-107"></a>
+<a id="api-113"></a>
 
 ### bar_index.toString
 
@@ -1338,7 +1394,7 @@ Returns a string representation of an object.
 
 **@param** radix Specifies a radix for converting numeric values to strings. This value is only used for numbers.
 
-<a id="api-108"></a>
+<a id="api-114"></a>
 
 ### bar_index.toFixed
 
@@ -1350,7 +1406,7 @@ Returns a string representing a number in fixed-point notation.
 
 **@param** fractionDigits Number of digits after the decimal point. Must be in the range 0 - 20, inclusive.
 
-<a id="api-109"></a>
+<a id="api-115"></a>
 
 ### bar_index.toExponential
 
@@ -1362,7 +1418,7 @@ Returns a string containing a number represented in exponential notation.
 
 **@param** fractionDigits Number of digits after the decimal point. Must be in the range 0 - 20, inclusive.
 
-<a id="api-110"></a>
+<a id="api-116"></a>
 
 ### bar_index.toPrecision
 
@@ -1374,7 +1430,7 @@ Returns a string containing a number represented either in exponential or fixed-
 
 **@param** precision Number of significant digits. Must be in the range 1 - 21, inclusive.
 
-<a id="api-111"></a>
+<a id="api-117"></a>
 
 ### bar_index.valueOf
 
@@ -1384,7 +1440,7 @@ bar_index.valueOf(): number
 
 Returns the primitive value of the specified object.
 
-<a id="api-112"></a>
+<a id="api-118"></a>
 
 ### bar_index.toLocaleString
 
@@ -1403,7 +1459,7 @@ Converts a number to a string by using the current or specified locale.
 
 **@param** options An object that contains one or more properties that specify comparison options.
 
-<a id="api-113"></a>
+<a id="api-119"></a>
 
 ### line
 
@@ -1420,7 +1476,7 @@ const id = line.new(bar_index, low[0], bar_index + 5, high[0])
 line.set_color(id, Color.Red)
 ```
 
-<a id="api-114"></a>
+<a id="api-120"></a>
 
 ### line.style_solid
 
@@ -1430,7 +1486,7 @@ line.style_solid: LineStyle
 
 **@summary** 实线
 
-<a id="api-115"></a>
+<a id="api-121"></a>
 
 ### line.style_dashed
 
@@ -1440,7 +1496,7 @@ line.style_dashed: LineStyle
 
 **@summary** 虚线
 
-<a id="api-116"></a>
+<a id="api-122"></a>
 
 ### line.style_dotted
 
@@ -1450,7 +1506,7 @@ line.style_dotted: LineStyle
 
 **@summary** 点线
 
-<a id="api-117"></a>
+<a id="api-123"></a>
 
 ### line.style_arrow_left
 
@@ -1460,7 +1516,7 @@ line.style_arrow_left: LineStyle
 
 **@summary** 左箭头
 
-<a id="api-118"></a>
+<a id="api-124"></a>
 
 ### line.style_arrow_right
 
@@ -1470,7 +1526,7 @@ line.style_arrow_right: LineStyle
 
 **@summary** 右箭头
 
-<a id="api-119"></a>
+<a id="api-125"></a>
 
 ### line.style_arrow_both
 
@@ -1480,7 +1536,7 @@ line.style_arrow_both: LineStyle
 
 **@summary** 双箭头
 
-<a id="api-120"></a>
+<a id="api-126"></a>
 
 ### line.new
 
@@ -1493,7 +1549,7 @@ line.new(x1: number, y1: number, x2: number, y2: number, xloc?: LineXLoc, extend
 
 **@summary** 绘制线段
 
-<a id="api-121"></a>
+<a id="api-127"></a>
 
 ### line.all
 
@@ -1505,7 +1561,7 @@ line.all: readonly LineRef[]
 
 **@summary** 全部线段
 
-<a id="api-122"></a>
+<a id="api-128"></a>
 
 ### line.set_xy1
 
@@ -1517,7 +1573,7 @@ line.set_xy1(id: LineRef, x: number, y: number): void
 
 **@summary** 设置起点
 
-<a id="api-123"></a>
+<a id="api-129"></a>
 
 ### line.set_xy2
 
@@ -1529,7 +1585,7 @@ line.set_xy2(id: LineRef, x: number, y: number): void
 
 **@summary** 设置终点
 
-<a id="api-124"></a>
+<a id="api-130"></a>
 
 ### line.set_x1
 
@@ -1541,7 +1597,7 @@ line.set_x1(id: LineRef, x: number): void
 
 **@summary** 设置起点 X
 
-<a id="api-125"></a>
+<a id="api-131"></a>
 
 ### line.set_y1
 
@@ -1553,7 +1609,7 @@ line.set_y1(id: LineRef, y: number): void
 
 **@summary** 设置起点价格
 
-<a id="api-126"></a>
+<a id="api-132"></a>
 
 ### line.set_x2
 
@@ -1565,7 +1621,7 @@ line.set_x2(id: LineRef, x: number): void
 
 **@summary** 设置终点 X
 
-<a id="api-127"></a>
+<a id="api-133"></a>
 
 ### line.set_y2
 
@@ -1577,7 +1633,7 @@ line.set_y2(id: LineRef, y: number): void
 
 **@summary** 设置终点价格
 
-<a id="api-128"></a>
+<a id="api-134"></a>
 
 ### line.set_color
 
@@ -1589,7 +1645,7 @@ line.set_color(id: LineRef, color: string): void
 
 **@summary** 设置颜色
 
-<a id="api-129"></a>
+<a id="api-135"></a>
 
 ### line.set_style
 
@@ -1601,7 +1657,7 @@ line.set_style(id: LineRef, style: LineStyle): void
 
 **@summary** 设置线型
 
-<a id="api-130"></a>
+<a id="api-136"></a>
 
 ### line.set_width
 
@@ -1613,7 +1669,7 @@ line.set_width(id: LineRef, width: number): void
 
 **@summary** 设置线宽
 
-<a id="api-131"></a>
+<a id="api-137"></a>
 
 ### line.set_extend
 
@@ -1625,7 +1681,7 @@ line.set_extend(id: LineRef, extend: LineExtend): void
 
 **@summary** 设置延伸
 
-<a id="api-132"></a>
+<a id="api-138"></a>
 
 ### line.get_x1
 
@@ -1637,7 +1693,7 @@ line.get_x1(id: LineRef): number
 
 **@summary** 起点 X
 
-<a id="api-133"></a>
+<a id="api-139"></a>
 
 ### line.get_y1
 
@@ -1649,7 +1705,7 @@ line.get_y1(id: LineRef): number
 
 **@summary** 起点价格
 
-<a id="api-134"></a>
+<a id="api-140"></a>
 
 ### line.get_x2
 
@@ -1661,7 +1717,7 @@ line.get_x2(id: LineRef): number
 
 **@summary** 终点 X
 
-<a id="api-135"></a>
+<a id="api-141"></a>
 
 ### line.get_y2
 
@@ -1673,7 +1729,7 @@ line.get_y2(id: LineRef): number
 
 **@summary** 终点价格
 
-<a id="api-136"></a>
+<a id="api-142"></a>
 
 ### line.get_color
 
@@ -1685,7 +1741,7 @@ line.get_color(id: LineRef): string | null
 
 **@summary** 颜色
 
-<a id="api-137"></a>
+<a id="api-143"></a>
 
 ### line.get_style
 
@@ -1697,7 +1753,7 @@ line.get_style(id: LineRef): LineStyle | null
 
 **@summary** 线型
 
-<a id="api-138"></a>
+<a id="api-144"></a>
 
 ### line.get_width
 
@@ -1709,7 +1765,7 @@ line.get_width(id: LineRef): number
 
 **@summary** 线宽
 
-<a id="api-139"></a>
+<a id="api-145"></a>
 
 ### line.get_extend
 
@@ -1721,7 +1777,7 @@ line.get_extend(id: LineRef): LineExtend | null
 
 **@summary** 延伸方向
 
-<a id="api-140"></a>
+<a id="api-146"></a>
 
 ### line.get_price
 
@@ -1733,7 +1789,7 @@ line.get_price(id: LineRef, x: number): number
 
 **@summary** 求价格
 
-<a id="api-141"></a>
+<a id="api-147"></a>
 
 ### line.copy
 
@@ -1745,7 +1801,7 @@ line.copy(id: LineRef): LineRef | null
 
 **@summary** 复制线段
 
-<a id="api-142"></a>
+<a id="api-148"></a>
 
 ### line.delete
 
@@ -1757,7 +1813,7 @@ line.delete(id: LineRef | null): void
 
 **@summary** 删除线段
 
-<a id="api-143"></a>
+<a id="api-149"></a>
 
 ### chart
 
@@ -1767,7 +1823,7 @@ chart: { readonly point: { "new"(time: number, index: number, price: number): Ch
 
 chart.point 坐标工厂；line.new 会复制坐标，不保留 point 对象引用。
 
-<a id="api-144"></a>
+<a id="api-150"></a>
 
 ### chart.point
 
@@ -1775,7 +1831,7 @@ chart.point 坐标工厂；line.new 会复制坐标，不保留 point 对象引�
 chart.point: { "new"(time: number, index: number, price: number): ChartPoint; now(price: number): ChartPoint; from_index(index: number, price: number): ChartPoint; from_time(time: number, price: number): ChartPoint; copy(point: ChartPoint): ChartPoint; }
 ```
 
-<a id="api-145"></a>
+<a id="api-151"></a>
 
 ### chart.point.new
 
@@ -1785,7 +1841,7 @@ chart.point.new(time: number, index: number, price: number): ChartPoint
 
 用时间戳、bar 索引和价格构造 point；xloc 决定 line.new 读取哪个字段。
 
-<a id="api-146"></a>
+<a id="api-152"></a>
 
 ### chart.point.now
 
@@ -1795,7 +1851,7 @@ chart.point.now(price: number): ChartPoint
 
 当前 K 线的 point，索引取 bar_index。
 
-<a id="api-147"></a>
+<a id="api-153"></a>
 
 ### chart.point.from_index
 
@@ -1805,7 +1861,7 @@ chart.point.from_index(index: number, price: number): ChartPoint
 
 只带 bar 索引的 point，用于 xloc.bar_index。
 
-<a id="api-148"></a>
+<a id="api-154"></a>
 
 ### chart.point.from_time
 
@@ -1815,7 +1871,7 @@ chart.point.from_time(time: number, price: number): ChartPoint
 
 只带毫秒时间戳的 point，用于 xloc.bar_time。
 
-<a id="api-149"></a>
+<a id="api-155"></a>
 
 ### chart.point.copy
 
@@ -1825,7 +1881,7 @@ chart.point.copy(point: ChartPoint): ChartPoint
 
 复制 point，得到独立值对象。
 
-<a id="api-150"></a>
+<a id="api-156"></a>
 
 ### ta
 
@@ -1836,7 +1892,7 @@ ta: TechnicalAnalysisLibrary
 内建技术分析库
 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。
 
-<a id="api-151"></a>
+<a id="api-157"></a>
 
 ### ta.rising
 
@@ -1854,7 +1910,7 @@ ta.rising(source: Series, length: number): boolean
 
 **@returns** 满足时为 true；当前值为 NaN 或没有有效历史值时为 false，历史 NaN 忽略。
 
-<a id="api-152"></a>
+<a id="api-158"></a>
 
 ### ta.falling
 
@@ -1872,7 +1928,7 @@ ta.falling(source: Series, length: number): boolean
 
 **@returns** 满足时为 true；当前值为 NaN 或没有有效历史值时为 false，历史 NaN 忽略。
 
-<a id="api-153"></a>
+<a id="api-159"></a>
 
 ### ta.change
 
@@ -1890,7 +1946,7 @@ ta.change(source: Series, length?: number): Series
 
 **@returns** 差值序列；历史不足或任一端为 NaN 时为 NaN。
 
-<a id="api-154"></a>
+<a id="api-160"></a>
 
 ### ta.sma
 
@@ -1908,7 +1964,7 @@ ta.sma(source: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值，完整窗口之前为 NaN。
 
-<a id="api-155"></a>
+<a id="api-161"></a>
 
 ### ta.sum
 
@@ -1926,7 +1982,7 @@ ta.sum(source: Series, length: number): Series
 
 **@returns** 求和序列；[0] 取当前窗口结果，完整窗口之前为 NaN。
 
-<a id="api-156"></a>
+<a id="api-162"></a>
 
 ### ta.highest
 
@@ -1944,7 +2000,7 @@ ta.highest(source: Series, length: number): Series
 
 **@returns** 最高值序列；[0] 取当前窗口的结果。
 
-<a id="api-157"></a>
+<a id="api-163"></a>
 
 ### ta.lowest
 
@@ -1962,7 +2018,7 @@ ta.lowest(source: Series, length: number): Series
 
 **@returns** 最低值序列；[0] 取当前窗口的结果。
 
-<a id="api-158"></a>
+<a id="api-164"></a>
 
 ### ta.highestbars
 
@@ -1980,7 +2036,7 @@ ta.highestbars(source: Series, length: number): Series
 
 **@returns** 偏移序列；并列最高取更早一根，完整窗口之前为 NaN。
 
-<a id="api-159"></a>
+<a id="api-165"></a>
 
 ### ta.lowestbars
 
@@ -1998,7 +2054,7 @@ ta.lowestbars(source: Series, length: number): Series
 
 **@returns** 偏移序列；并列最低取更早一根，完整窗口之前为 NaN。
 
-<a id="api-160"></a>
+<a id="api-166"></a>
 
 ### ta.rma
 
@@ -2016,7 +2072,7 @@ Wilder 平滑均线（RMA），alpha = 1 / length，以首个完整窗口 SMA �
 
 **@returns** 均线序列；完整窗口之前为 NaN。
 
-<a id="api-161"></a>
+<a id="api-167"></a>
 
 ### ta.swma
 
@@ -2032,7 +2088,7 @@ ta.swma(source: Series): Series
 
 **@returns** 均线序列；前 3 根为 NaN。
 
-<a id="api-162"></a>
+<a id="api-168"></a>
 
 ### ta.alma
 
@@ -2056,7 +2112,7 @@ Arnaud Legoux 均线（ALMA），高斯权重中心位于 offset × (length − 
 
 **@returns** 均线序列；完整窗口之前为 NaN。
 
-<a id="api-163"></a>
+<a id="api-169"></a>
 
 ### ta.stddev
 
@@ -2074,7 +2130,7 @@ ta.stddev(source: Series, length: number): Series
 
 **@returns** 标准差序列；[0] 取当前窗口结果，完整窗口之前为 NaN。
 
-<a id="api-164"></a>
+<a id="api-170"></a>
 
 ### ta.ema
 
@@ -2092,7 +2148,7 @@ ta.ema(source: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值。
 
-<a id="api-165"></a>
+<a id="api-171"></a>
 
 ### ta.dema
 
@@ -2110,7 +2166,7 @@ ta.dema(source: Series, length: number): Series
 
 **@returns** DEMA 序列，前 2×(length−1) 根为 NaN。
 
-<a id="api-166"></a>
+<a id="api-172"></a>
 
 ### ta.tema
 
@@ -2128,7 +2184,7 @@ ta.tema(source: Series, length: number): Series
 
 **@returns** TEMA 序列，前 3×(length−1) 根为 NaN。
 
-<a id="api-167"></a>
+<a id="api-173"></a>
 
 ### ta.t3
 
@@ -2148,7 +2204,7 @@ Tillson T3，以六层 EMA 及成交量因子系数组合平滑价格。
 
 **@returns** T3 序列，前 6×(length−1) 根为 NaN；周期 1 时等于输入。
 
-<a id="api-168"></a>
+<a id="api-174"></a>
 
 ### ta.trima
 
@@ -2166,7 +2222,7 @@ ta.trima(source: Series, length: number): Series
 
 **@returns** TRIMA 序列，前 length−1 根为 NaN。
 
-<a id="api-169"></a>
+<a id="api-175"></a>
 
 ### ta.macd
 
@@ -2188,7 +2244,7 @@ MACD，快慢 EMA 与信号 EMA 均以首个有效值初始化，从该位置逐
 
 **@returns** [DIF, DEA, DIF-DEA] 三个序列；柱体不翻倍，NaN 处留空，后续有效值重新初始化。
 
-<a id="api-170"></a>
+<a id="api-176"></a>
 
 ### ta.wma
 
@@ -2206,7 +2262,7 @@ ta.wma(source: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值。
 
-<a id="api-171"></a>
+<a id="api-177"></a>
 
 ### ta.hma
 
@@ -2224,7 +2280,7 @@ Hull 移动平均，组合 WMA(2×WMA(source, floor(length/2))−WMA(source, len
 
 **@returns** 均线序列，完整组合窗口之前为 NaN。
 
-<a id="api-172"></a>
+<a id="api-178"></a>
 
 ### ta.linreg
 
@@ -2244,7 +2300,7 @@ ta.linreg(source: Series, length: number, offset?: number): Series
 
 **@returns** 回归值序列；完整窗口之前为 NaN。
 
-<a id="api-173"></a>
+<a id="api-179"></a>
 
 ### ta.cci
 
@@ -2262,7 +2318,7 @@ ta.cci(source: Series, length: number): Series
 
 **@returns** CCI 序列；窗口不足为 NaN，平均绝对偏差为零时为 0。
 
-<a id="api-174"></a>
+<a id="api-180"></a>
 
 ### ta.vwma
 
@@ -2282,7 +2338,7 @@ ta.vwma(source: Series, volume: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值。
 
-<a id="api-175"></a>
+<a id="api-181"></a>
 
 ### ta.rsi
 
@@ -2300,7 +2356,7 @@ ta.rsi(source: Series, length: number): Series
 
 **@returns** RSI 序列，范围 0–100；[0] 取当前值，完整窗口之前为 NaN。
 
-<a id="api-176"></a>
+<a id="api-182"></a>
 
 ### ta.stoch
 
@@ -2322,7 +2378,7 @@ ta.stoch(source: Series, high: Series, low: Series, length: number): Series
 
 **@returns** 随机指标序列，范围 0–100；完整窗口之前为 NaN，零幅窗口输出 50。
 
-<a id="api-177"></a>
+<a id="api-183"></a>
 
 ### ta.atr
 
@@ -2338,7 +2394,7 @@ ta.atr(length: number): Series
 
 **@returns** ATR 序列；第一根真实波幅为 high-low，完整窗口之前为 NaN。
 
-<a id="api-178"></a>
+<a id="api-184"></a>
 
 ### ta.supertrend
 
@@ -2356,7 +2412,7 @@ Supertrend，保留原生指标的上涨初始方向与 ATR 通道递推规则�
 
 **@returns** [趋势线序列, 方向序列]；-1 为上涨、1 为下跌，预热期间两者均为 NaN。
 
-<a id="api-179"></a>
+<a id="api-185"></a>
 
 ### ta.mom
 
@@ -2374,7 +2430,7 @@ ta.mom(source: Series, length?: number): Series
 
 **@returns** 差值序列，按数值轴绘制；历史不足时为 NaN。
 
-<a id="api-180"></a>
+<a id="api-186"></a>
 
 ### ta.roc
 
@@ -2392,7 +2448,7 @@ ta.roc(source: Series, length?: number): Series
 
 **@returns** 百分比变化序列；历史不足或基准为 0 时为 NaN。
 
-<a id="api-181"></a>
+<a id="api-187"></a>
 
 ### ta.cmo
 
@@ -2410,7 +2466,7 @@ Chande 动量振荡器：100 × (涨幅和 − 跌幅和) / (涨幅和 + 跌幅�
 
 **@returns** CMO 序列，范围 -100–100；完整窗口之前为 NaN，平盘（分母为零）为 0。
 
-<a id="api-182"></a>
+<a id="api-188"></a>
 
 ### ta.crossover
 
@@ -2428,7 +2484,7 @@ ta.crossover(left: Series, right: Series): boolean
 
 **@returns** 发生上穿时为 true。
 
-<a id="api-183"></a>
+<a id="api-189"></a>
 
 ### ta.crossunder
 
@@ -2446,7 +2502,7 @@ ta.crossunder(left: Series, right: Series): boolean
 
 **@returns** 发生下穿时为 true。
 
-<a id="api-184"></a>
+<a id="api-190"></a>
 
 ### Position
 
@@ -2463,7 +2519,7 @@ Position: typeof PositionEnum
 | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
 | `Position.Sub` | 独立副图 |
 
-<a id="api-185"></a>
+<a id="api-191"></a>
 
 ### Position.Main
 
@@ -2475,7 +2531,7 @@ Position.Main = "main"
 
 **@summary** 主图
 
-<a id="api-186"></a>
+<a id="api-192"></a>
 
 ### Position.Sub
 
@@ -2487,7 +2543,7 @@ Position.Sub = "sub"
 
 **@summary** 副图
 
-<a id="api-187"></a>
+<a id="api-193"></a>
 
 ### input
 
@@ -2497,7 +2553,7 @@ input: ScriptInput
 
 输入参数：int / float 支持范围和步长，bool 显示开关，string 支持下拉选项。
 
-<a id="api-188"></a>
+<a id="api-194"></a>
 
 ### input.int
 
@@ -2509,7 +2565,7 @@ input.int(value: number, options?: NumberInputOptions): number
 
 **@summary** 整数
 
-<a id="api-189"></a>
+<a id="api-195"></a>
 
 ### input.float
 
@@ -2521,7 +2577,7 @@ input.float(value: number, options?: NumberInputOptions): number
 
 **@summary** 浮点数
 
-<a id="api-190"></a>
+<a id="api-196"></a>
 
 ### input.bool
 
@@ -2533,7 +2589,7 @@ input.bool(value: boolean, options?: InputOptions): boolean
 
 **@summary** 开关
 
-<a id="api-191"></a>
+<a id="api-197"></a>
 
 ### input.string
 
@@ -2545,7 +2601,7 @@ input.string(value: string, options?: StringInputOptions): string
 
 **@summary** 字符串
 
-<a id="api-192"></a>
+<a id="api-198"></a>
 
 ### input.timeframe
 
@@ -2557,7 +2613,7 @@ input.timeframe(value: Timeframe, options?: TimeframeInputOptions): Timeframe
 
 **@summary** 目标周期
 
-<a id="api-193"></a>
+<a id="api-199"></a>
 
 ### defineIndicator
 
@@ -2568,7 +2624,7 @@ defineIndicator(definition: ScriptIndicatorDeclaration): void
 定义一个指标。
 顶层代码只执行一次，顶层变量跨 bar 保留（等价 Pine 的 var）；逐根计算写在 onBar 内。
 
-<a id="api-194"></a>
+<a id="api-200"></a>
 
 ### derive
 
@@ -2581,7 +2637,7 @@ key 必须稳定且区分输入与参数；同 key 复用首次注册的回调�
 回调用 offset 读取输入历史，用 self[offset + 1] 读取自身上一根；历史越界返回 NaN。
 不要捕获当前 bar 的数值快照，应捕获 Series 并按 offset 取值。
 
-<a id="api-195"></a>
+<a id="api-201"></a>
 
 ### plot
 
@@ -2603,7 +2659,7 @@ plot: ScriptPlot
 | `plot.Char` | 字符标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
 | `plot.Arrow` | 箭头 | 正负决定方向，绝对值决定长度 |
 
-<a id="api-196"></a>
+<a id="api-202"></a>
 
 ### plot.Line
 
@@ -2615,7 +2671,7 @@ plot.Line(value: number | null, name: string, options?: PlotStyleOptions<"line">
 
 **@summary** 折线
 
-<a id="api-197"></a>
+<a id="api-203"></a>
 
 ### plot.LineBR
 
@@ -2627,7 +2683,7 @@ plot.LineBR(value: number | null, name: string, options?: PlotStyleOptions<"line
 
 **@summary** 断线折线
 
-<a id="api-198"></a>
+<a id="api-204"></a>
 
 ### plot.StepLine
 
@@ -2639,7 +2695,7 @@ plot.StepLine(value: number | null, name: string, options?: PlotStyleOptions<"st
 
 **@summary** 阶梯线
 
-<a id="api-199"></a>
+<a id="api-205"></a>
 
 ### plot.StepLineBR
 
@@ -2651,7 +2707,7 @@ plot.StepLineBR(value: number | null, name: string, options?: PlotStyleOptions<"
 
 **@summary** 断线阶梯线
 
-<a id="api-200"></a>
+<a id="api-206"></a>
 
 ### plot.Histogram
 
@@ -2663,7 +2719,7 @@ plot.Histogram(value: number | null, name: string, options?: PlotStyleOptions<"h
 
 **@summary** 柱状图(定宽)
 
-<a id="api-201"></a>
+<a id="api-207"></a>
 
 ### plot.Columns
 
@@ -2675,7 +2731,7 @@ plot.Columns(value: number | null, name: string, options?: PlotStyleOptions<"col
 
 **@summary** 柱形图(跟随缩放)
 
-<a id="api-202"></a>
+<a id="api-208"></a>
 
 ### plot.Point
 
@@ -2687,7 +2743,7 @@ plot.Point(value: number | null, name: string, options?: PlotStyleOptions<"point
 
 **@summary** 散点
 
-<a id="api-203"></a>
+<a id="api-209"></a>
 
 ### plot.Shape
 
@@ -2699,7 +2755,7 @@ plot.Shape(value: number | boolean | null, name: string, options?: PlotStyleOpti
 
 **@summary** 形状标记
 
-<a id="api-204"></a>
+<a id="api-210"></a>
 
 ### plot.Char
 
@@ -2711,7 +2767,7 @@ plot.Char(value: number | boolean | null, name: string, options?: PlotStyleOptio
 
 **@summary** 字符标记
 
-<a id="api-205"></a>
+<a id="api-211"></a>
 
 ### plot.Arrow
 
@@ -2723,7 +2779,7 @@ plot.Arrow(value: number | null, name: string, options?: PlotStyleOptions<"arrow
 
 **@summary** 箭头
 
-<a id="api-206"></a>
+<a id="api-212"></a>
 
 ### plot.Candle
 
@@ -2735,7 +2791,7 @@ plot.Candle(open: number | null, high: number | null, low: number | null, close:
 
 **@summary** 蜡烛图
 
-<a id="api-207"></a>
+<a id="api-213"></a>
 
 ### plot.Bar
 
@@ -2747,7 +2803,7 @@ plot.Bar(open: number | null, high: number | null, low: number | null, close: nu
 
 **@summary** 美国线(OHLC)
 
-<a id="api-208"></a>
+<a id="api-214"></a>
 
 ### fill
 
@@ -2764,7 +2820,7 @@ fill(from: PlotRef, to: PlotRef, color: string | null, title?: string, options?:
 | `color` | 当前 bar 的 CSS 颜色，透明度由颜色携带 |
 | `title` | 填充标识；不填则按 from/to 生成 |
 
-<a id="api-209"></a>
+<a id="api-215"></a>
 
 ### defineLibrary
 
@@ -2774,7 +2830,7 @@ defineLibrary<T extends object>(name: string, members: T): Readonly<T>
 
 注册一个库，其成员同时绑定到同名全局对象。
 
-<a id="api-210"></a>
+<a id="api-216"></a>
 
 ### importLibrary
 
@@ -2784,7 +2840,7 @@ importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
 
 读取已注册的库，内置名称由统一库类型目录提供。
 
-<a id="api-211"></a>
+<a id="api-217"></a>
 
 ### request
 
@@ -2794,7 +2850,7 @@ request: ScriptRequest
 
 获取指定品种周期的数据；`syminfo.tickerid` 是当前图表品种。
 
-<a id="api-212"></a>
+<a id="api-218"></a>
 
 ### request.security
 
@@ -2821,7 +2877,7 @@ request.security<T extends RequestValue | Series | readonly (RequestValue | Seri
 const [o, h, l, c] = request.security(syminfo.tickerid, Timeframe.Hour1, () => [open, high, low, close] as const)
 ```
 
-<a id="api-213"></a>
+<a id="api-219"></a>
 
 ### syminfo
 
@@ -2831,7 +2887,7 @@ syminfo: { readonly tickerid: string; }
 
 当前图表品种信息；`tickerid` 可直接传给 `request.security`。
 
-<a id="api-214"></a>
+<a id="api-220"></a>
 
 ### syminfo.tickerid
 

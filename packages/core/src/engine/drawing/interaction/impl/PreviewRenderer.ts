@@ -1,4 +1,4 @@
-import { DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
+import { DEFAULT_DRAWING_FILL_OPACITY, DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
 import type { InteractionDrawingAnchor } from '../../geometry/types.js'
 import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
@@ -122,7 +122,9 @@ export class PreviewRenderer {
         stroke: DEFAULT_DRAWING_STROKE,
         strokeWidth: 1,
         strokeStyle: 'dashed',
-        ...(activeTool === DrawingTool.RegressionChannel ? { fillOpacity: 0.1 } : {}),
+        ...(activeTool === DrawingTool.RegressionChannel
+          ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY }
+          : {}),
       },
     }
   }
@@ -212,7 +214,7 @@ export class PreviewRenderer {
         stroke: DEFAULT_DRAWING_STROKE,
         strokeWidth: 1,
         strokeStyle: 'dashed',
-        ...(isChannel ? { fillOpacity: 0.1 } : {}),
+        ...(isChannel ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : {}),
       },
     }
   }

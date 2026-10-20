@@ -1,5 +1,6 @@
 /** 原生 dialog 的标题栏拖动；用视口坐标定位，保留内部 fixed 浮层的定位基准。 */
 import { type CSSProperties, computed, onScopeDispose, type Ref, shallowRef, watch } from 'vue'
+import { type PointerDragSession, usePointerDragSession } from './usePointerDragSession.js'
 
 /** 标题栏交互控件不作为拖动热区，插槽可用 data-modal-no-drag 显式排除。 */
 const INTERACTIVE_SELECTOR =
@@ -13,10 +14,9 @@ export function useModalDrag(
   open: () => boolean,
 ) {
   const position = shallowRef<{ left: number; top: number } | null>(null)
-  const dragging = shallowRef(false)
-  let session:
-    | { pointerId: number; capture: HTMLElement; x: number; y: number; left: number; top: number }
-    | undefined
+  const { dragging, begin, move, end } = usePointerDragSession(() => header.value)
+  /** 拖动基准：按下时的会话起点与弹窗实际位置。 */
+  let baseline: { session: PointerDragSession; left: number; top: number } | undefined
   const dragStyle = computed<CSSProperties>(() =>
     position.value
       ? {
@@ -43,14 +43,10 @@ export function useModalDrag(
       position.value = next
   }
 
-  /** 释放捕获前先清空会话，避免 lostpointercapture 重入。 */
+  /** 结束拖动并清掉基准；关闭或禁用后不会残留上一次的起始位置。 */
   function stopDrag(event?: PointerEvent): void {
-    if (event && session && event.pointerId !== session.pointerId) return
-    const previous = session
-    session = undefined
-    dragging.value = false
-    if (previous?.capture.hasPointerCapture(previous.pointerId))
-      previous.capture.releasePointerCapture(previous.pointerId)
+    baseline = undefined
+    end(event)
   }
 
   /** 左键或主触点按住标题栏时记录弹窗实际位置，避免从居中布局开始拖动时跳变。 */
@@ -62,7 +58,6 @@ export function useModalDrag(
       !open() ||
       !element?.open ||
       !capture ||
-      session ||
       event.button !== 0 ||
       event.isPrimary === false
     )
@@ -77,24 +72,21 @@ export function useModalDrag(
     )
       return
     event.preventDefault()
+    const session = begin(event)
+    if (!session) return
     const rect = element.getBoundingClientRect()
-    session = {
-      pointerId: event.pointerId,
-      capture,
-      x: event.clientX,
-      y: event.clientY,
-      left: rect.left,
-      top: rect.top,
-    }
-    capture.setPointerCapture(event.pointerId)
+    baseline = { session, left: rect.left, top: rect.top }
     moveTo(rect.left, rect.top)
-    dragging.value = true
   }
 
   /** 只消费当前捕获指针，指针移出标题栏后仍可连续拖动。 */
   function drag(event: PointerEvent): void {
-    if (!session || event.pointerId !== session.pointerId) return
-    moveTo(session.left + event.clientX - session.x, session.top + event.clientY - session.y)
+    const session = move(event)
+    if (!session || !baseline || baseline.session.pointerId !== session.pointerId) return
+    moveTo(
+      baseline.left + event.clientX - session.startX,
+      baseline.top + event.clientY - session.startY,
+    )
   }
 
   /** 窗口或内容尺寸变化后收回越界位置，不改变尚未拖动过的居中布局。 */

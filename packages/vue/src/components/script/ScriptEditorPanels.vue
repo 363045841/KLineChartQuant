@@ -42,23 +42,20 @@
     <OverlayScrollArea v-show="expanded" persistent :id="panelId" ref="scrollArea" role="tabpanel" :aria-labelledby="activePanel === 'output' ? tabId : problemsTabId" tabindex="0" class="script-output__content" :style="{ height: `${height}px` }" @scroll="onScroll">
       <template v-if="activePanel === 'output'">
       <p v-if="!logs.length" class="script-output__empty">暂无输出。脚本运行时的 console 输出将显示在这里。</p>
-      <div v-for="(entry, index) in logs" :key="index" class="script-output__entry" :data-level="entry.level">
-        <time :datetime="new Date(entry.time).toISOString()">{{ new Date(entry.time).toLocaleTimeString() }}</time>
-        <span class="script-output__level">{{ entry.level }}</span>
-        <span class="script-output__bar">{{ entry.barIndex < 0 ? '—' : `#${entry.barIndex}` }}</span>
-        <span class="script-output__message">{{ entry.message }}</span>
-      </div>
+      <ScriptOutputEntry
+        v-for="entry in logEntries"
+        :key="entry.key"
+        :level="entry.level"
+        :bar="entry.bar"
+        :message="entry.message"
+        :date-time="entry.dateTime"
+        :time-text="entry.timeText"
+      />
       <p v-if="logs.length >= SCRIPT_OUTPUT_LIMIT" class="script-output__empty">仅保留最近 {{ SCRIPT_OUTPUT_LIMIT }} 条输出。</p>
       </template>
       <template v-else>
         <p v-if="!problems.length" class="script-output__empty">未发现问题。</p>
-        <button v-for="(problem, index) in problems" :key="index" type="button" class="script-problems__item" :data-severity="problem.severity" :disabled="!problem.location" @click="emit('reveal-problem', problem)">
-          <IconTablerAlertCircle v-if="problem.severity === 'error'" class="script-problems__icon" aria-label="错误" />
-          <IconTablerAlertTriangle v-else-if="problem.severity === 'warning'" class="script-problems__icon" aria-label="警告" />
-          <IconTablerInfoCircle v-else class="script-problems__icon" aria-label="提示" />
-          <span class="script-problems__message">{{ problem.message }}</span>
-          <span class="script-problems__location">{{ problem.source }}<template v-if="problem.location"> [{{ problem.location.line }}:{{ problem.location.column }}]</template></span>
-        </button>
+        <ScriptProblemItem v-for="(problem, index) in problems" :key="index" :problem="problem" @reveal="emit('reveal-problem', $event)" />
       </template>
     </OverlayScrollArea>
   </section>
@@ -71,18 +68,36 @@
   import { useScriptEditorPanels } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorPanels.js'
   import type { ScriptEditorProblem } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { computed, useId, useTemplateRef } from 'vue'
-  import IconTablerAlertCircle from '~icons/tabler/alert-circle'
-  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerChevronUp from '~icons/tabler/chevron-up'
-  import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerTrash from '~icons/tabler/trash'
+  import ScriptOutputEntry from './ScriptOutputEntry.vue'
+  import ScriptProblemItem from './ScriptProblemItem.vue'
 
   const props = withDefaults(
-    defineProps<{ logs: readonly LogEvent[]; problems?: readonly ScriptEditorProblem[] }>(),
-    { problems: () => [] },
+    defineProps<{
+      logs: readonly LogEvent[]
+      problems?: readonly ScriptEditorProblem[]
+      /** 编辑区元素；输出面板据此预留高度，不再按 CSS 类名识别兄弟节点。 */
+      editorHost?: HTMLElement | null
+    }>(),
+    { problems: () => [], editorHost: null },
   )
   const emit = defineEmits<{ clear: []; 'reveal-problem': [problem: ScriptEditorProblem] }>()
+  /** 日志一次性算好展示字段，模板不再重复解析时间。 */
+  const logEntries = computed(() =>
+    props.logs.map((entry, index) => {
+      const time = new Date(entry.time)
+      return {
+        key: `${entry.time}-${index}`,
+        level: entry.level,
+        bar: entry.barIndex < 0 ? '—' : `#${entry.barIndex}`,
+        message: entry.message,
+        dateTime: time.toISOString(),
+        timeText: time.toLocaleTimeString(),
+      }
+    }),
+  )
   const id = useId()
   const tabId = `${id}-output-tab`
   const problemsTabId = `${id}-problems-tab`
@@ -105,7 +120,13 @@
     resize,
     stopResize,
     resizeWithKeyboard,
-  } = useScriptEditorPanels(outputHost, resizeHandle, panelHost, () => props.logs)
+  } = useScriptEditorPanels(
+    outputHost,
+    resizeHandle,
+    panelHost,
+    () => props.logs,
+    () => props.editorHost,
+  )
 </script>
 
 <style scoped>
@@ -121,24 +142,11 @@
   .script-output__tabs { display: flex; gap: var(--klc-space-16, 16px); }
   .script-output .script-output__tab { min-height: 32px; gap: var(--klc-space-4, 4px); }
   .script-output .script-output__tab[aria-selected='true'] { color: var(--klc-color-ui-text); box-shadow: inset 0 -2px var(--klc-brand-accent-text); }
-  .script-output .script-problems__item { display: grid; grid-template-columns: 16px minmax(0, 1fr) max-content; gap: var(--klc-space-8, 8px); width: 100%; padding: var(--klc-space-8, 8px) 0; text-align: left; align-items: start; color: var(--klc-color-ui-text); }
-  .script-output .script-problems__item:disabled { opacity: 1; }
-  .script-problems__icon { width: 16px; height: 16px; }
-  .script-problems__item[data-severity='error'] .script-problems__icon { color: var(--klc-color-performance-negative); }
-  .script-problems__item[data-severity='warning'] .script-problems__icon { color: var(--klc-brand-accent-text); }
-  .script-problems__message { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .script-problems__location { color: var(--klc-color-ui-muted); font-size: inherit; }
   .script-output__icon-button { width: 24px; height: 24px; border-radius: var(--klc-radius-sm, 4px); }
   .script-output__icon-button svg { width: 16px; height: 16px; }
   .script-output button:hover { background: var(--klc-color-ui-hover); }
   .script-output button:disabled { opacity: 0.4; cursor: default; }
   .script-output button:focus-visible { outline: 2px solid var(--klc-color-ui-focus); outline-offset: -2px; }
   .script-output__content { box-sizing: border-box; padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px); font-family: 'JetBrains Mono', monospace; }
-  .script-output__entry { display: grid; grid-template-columns: max-content 5ch 6ch minmax(0, 1fr); gap: var(--klc-space-8, 8px); padding: var(--klc-space-4, 4px) 0; align-items: baseline; }
-  .script-output__entry time, .script-output__bar, .script-output__level, .script-output__empty { color: var(--klc-color-ui-muted); }
-  .script-output__entry[data-level='error'] .script-output__message, .script-output__entry[data-level='error'] .script-output__level { color: var(--klc-color-performance-negative); }
-  .script-output__entry[data-level='warn'] .script-output__level { color: var(--klc-brand-accent-text); }
-  .script-output__message { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
-  .script-output__empty { margin: var(--klc-space-8, 8px) 0; text-align: center; }
-  @media (max-width: 480px) { .script-output__entry { grid-template-columns: 5ch 5ch minmax(0, 1fr); } .script-output__entry time { display: none; } }
+  .script-output__empty { color: var(--klc-color-ui-muted); margin: var(--klc-space-8, 8px) 0; text-align: center; }
 </style>

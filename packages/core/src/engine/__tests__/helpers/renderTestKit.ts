@@ -7,11 +7,6 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
-import {
-  INDICATOR_INSTANCE_CATALOG_SERVICE,
-  type IndicatorInstanceCatalog,
-  type IndicatorInstanceDescriptor,
-} from '@/engine/indicators/instances/api/indicatorRenderBinding'
 import { createAxisLabelsFrame } from '@/engine/renderers/impl/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -272,30 +267,8 @@ function createMockPluginHost(overrides: Partial<PluginHost> = {}): PluginHost {
 }
 
 /** 构造只按 instanceId 命中返回的帧状态读取 stub。 */
-export function createMockStateReader(
-  instanceId: string,
-  state?: unknown,
-): IndicatorRenderStateReader {
+function createMockStateReader(instanceId: string, state?: unknown): IndicatorRenderStateReader {
   // biome-ignore lint/suspicious/noExplicitAny: vitest 无法把泛型 spy 赋给泛型方法，any 返回可保持可间谍性
   const get = vi.fn((key: string): any => (key === instanceId ? state : undefined))
   return { get } satisfies IndicatorRenderStateReader
-}
-
-/** 构造按名解析注册服务的 PluginHost stub。 */
-function createMockServiceHost(services: Record<string, unknown>): PluginHost {
-  return createMockPluginHost({
-    // biome-ignore lint/suspicious/noExplicitAny: 见 createMockStateReader，泛型 getService 需要 any 返回
-    getService: vi.fn((name: string): any => services[name]),
-  })
-}
-
-/** 构造只提供主图实例清单服务的 PluginHost，图例等消费者据此枚举实例。 */
-export function createMockIndicatorInstanceHost(
-  mainInstances: ReadonlyArray<IndicatorInstanceDescriptor>,
-): PluginHost {
-  const catalog: IndicatorInstanceCatalog = {
-    listMainInstances: () => mainInstances,
-    listPaneInstances: () => [],
-  }
-  return createMockServiceHost({ [INDICATOR_INSTANCE_CATALOG_SERVICE]: catalog })
 }

@@ -1,5 +1,5 @@
 /** 公共图形构造入口：手绘文档和脚本 API 统一补齐对象与样式。 */
-import type { DrawingObject, DrawingObjectStore } from './drawing.js'
+import type { DrawingObject, DrawingObjectStore, DrawingPatch } from './drawing.js'
 
 /** 对象构造输入；所有默认值只在公共对象服务补齐。 */
 export type DrawingObjectInput = Omit<DrawingObject, 'visible' | 'params' | 'style'> & {
@@ -9,7 +9,10 @@ export type DrawingObjectInput = Omit<DrawingObject, 'visible' | 'params' | 'sty
 }
 
 /** 复制调用方的锚点和样式，避免图形模型持有可变输入引用。 */
-export function createDrawingObject(input: DrawingObjectInput, defaultColor: string): DrawingObject {
+export function createDrawingObject(
+  input: DrawingObjectInput,
+  defaultColor: string,
+): DrawingObject {
   return snapshotDrawingObject({
     ...input,
     visible: input.visible ?? true,
@@ -23,20 +26,47 @@ function snapshotDrawingObject(input: DrawingObject): DrawingObject {
   const params = Object.fromEntries(
     Object.entries(input.params).map(([key, value]) => [key, cloneDrawingValue(value)]),
   )
-  const labels = input.labels === undefined ? undefined : {
-    line: Object.fromEntries(Object.entries(input.labels.line).map(([key, label]) => [key, { ...label }])),
-    area: Object.fromEntries(Object.entries(input.labels.area).map(([key, label]) => [key, { ...label }])),
-  }
-  return { ...input, params, labels,
+  const labels =
+    input.labels === undefined
+      ? undefined
+      : {
+          line: Object.fromEntries(
+            Object.entries(input.labels.line).map(([key, label]) => [key, { ...label }]),
+          ),
+          area: Object.fromEntries(
+            Object.entries(input.labels.area).map(([key, label]) => [key, { ...label }]),
+          ),
+        }
+  return {
+    ...input,
+    params,
+    labels,
     anchors: input.anchors.map((anchor) => ({ ...anchor })),
-    style: { ...input.style } }
+    style: { ...input.style },
+  }
+}
+
+/** 应用声明的 patch：undefined 字段保持原值，style 按字段合并。 */
+export function applyDrawingPatch(drawing: DrawingObject, patch: DrawingPatch): DrawingObject {
+  return {
+    ...drawing,
+    ...(patch.anchors === undefined ? {} : { anchors: [...patch.anchors] }),
+    ...(patch.style === undefined ? {} : { style: { ...drawing.style, ...patch.style } }),
+    ...(patch.params === undefined ? {} : { params: patch.params }),
+    ...(patch.labels === undefined ? {} : { labels: patch.labels }),
+    ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+    ...(patch.locked === undefined ? {} : { locked: patch.locked }),
+    ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+  }
 }
 
 /** 图形参数属于可序列化文档数据，递归复制而不依赖宿主专有的 structuredClone。 */
 function cloneDrawingValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(cloneDrawingValue)
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, cloneDrawingValue(nested)]))
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, cloneDrawingValue(nested)]),
+    )
   }
   return value
 }
@@ -48,7 +78,10 @@ export function createDrawingObjectApi(store: DrawingObjectStore, defaultColor: 
     return store.list().find((drawing) => drawing.id === id)
   }
   /** 批量新增仍只提交一次，避免创建和回收、选择之间出现中间状态。 */
-  function createMany(inputs: readonly DrawingObjectInput[], removeIds: readonly string[] = []): readonly DrawingObject[] {
+  function createMany(
+    inputs: readonly DrawingObjectInput[],
+    removeIds: readonly string[] = [],
+  ): readonly DrawingObject[] {
     if (inputs.length === 0) return []
     const removed = new Set(removeIds)
     const current = store.list().filter((drawing) => !removed.has(drawing.id))
@@ -69,7 +102,14 @@ export function createDrawingObjectApi(store: DrawingObjectStore, defaultColor: 
     const updates = new Map<string, DrawingObject>()
     for (const drawing of drawings) {
       const previous = byId.get(drawing.id)
-      if (!previous || previous.kind !== drawing.kind || previous.paneId !== drawing.paneId || previous.ownerId !== drawing.ownerId || updates.has(drawing.id)) return []
+      if (
+        !previous ||
+        previous.kind !== drawing.kind ||
+        previous.paneId !== drawing.paneId ||
+        previous.ownerId !== drawing.ownerId ||
+        updates.has(drawing.id)
+      )
+        return []
       updates.set(drawing.id, snapshotDrawingObject(drawing))
     }
     store.replace(current.map((drawing) => updates.get(drawing.id) ?? drawing))
@@ -102,7 +142,9 @@ export function createDrawingObjectApi(store: DrawingObjectStore, defaultColor: 
     /** 深复制可变模型，并为对象和锚点重新分配身份；由调用方决定单个还是批量提交。 */
     clone(drawing: DrawingObject): DrawingObject {
       const id = store.nextId()
-      return snapshotDrawingObject({ ...drawing, id,
+      return snapshotDrawingObject({
+        ...drawing,
+        id,
         anchors: drawing.anchors.map((anchor, index) => ({ ...anchor, id: `${id}:${index}` })),
       })
     },
@@ -112,7 +154,8 @@ export function createDrawingObjectApi(store: DrawingObjectStore, defaultColor: 
     },
     /** 权威快照只复制和校验身份，不重新应用创建默认值。 */
     replaceAll(inputs: readonly DrawingObject[]): void {
-      if (new Set(inputs.map((drawing) => drawing.id)).size !== inputs.length) throw new TypeError('Duplicate drawing IDs')
+      if (new Set(inputs.map((drawing) => drawing.id)).size !== inputs.length)
+        throw new TypeError('Duplicate drawing IDs')
       store.replace(inputs.map(snapshotDrawingObject))
     },
   }

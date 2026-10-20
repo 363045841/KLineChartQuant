@@ -22,7 +22,11 @@ export {
   UI_COLOR_PRESET_ITEMS,
   type UiColorPresetKey,
 } from './colorPresetSettings.js'
-export { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from './drawingColors.js'
+export {
+  DEFAULT_DRAWING_FILL_OPACITY,
+  DEFAULT_DRAWING_STROKE,
+  DRAWING_ANCHOR_FILL,
+} from './drawingColors.js'
 export { darkFoundation, foundationTokens, lightFoundation } from './foundation.js'
 export { mergeTheme } from './mergeTheme.js'
 export { findThemePreset, THEME_PRESETS } from './presets/impl/themePresets.js'
