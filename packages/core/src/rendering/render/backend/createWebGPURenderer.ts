@@ -28,6 +28,8 @@ import {
   type WebGPUSurfaceBackend,
 } from './createWebGPUSurfaceBackend.js'
 
+import { createWebGPUPrimitiveBackend } from '../../primitives/impl/webgpu.js'
+
 type PipelineType = 'candle' | 'line'
 
 type BufferRecord = {
@@ -183,6 +185,7 @@ export async function createWebGPURenderer(
   if (!canvas) throw new Error('WebGPU canvas unavailable')
   const format = gpu.getPreferredCanvasFormat()
   const rawSurface = createWebGPUSurfaceBackend({ canvas, device, format })
+  const primitives = createWebGPUPrimitiveBackend(device, format)
   const metrics = options.metrics ?? createFrameMetrics()
   const resourceTable = createWebGPUResourceTable({ device, metrics })
 
@@ -496,6 +499,7 @@ export async function createWebGPURenderer(
   const surface: WebGPUSurfaceBackend = rawSurface
 
   const renderer: Renderer = {
+    primitives,
     surface,
     caps: { compute: false, storageBuffer: false, maxInstances: 1_000_000, name: 'webgpu' },
     createBuffer(usage, sizeBytes): BufferHandle {
@@ -681,6 +685,7 @@ export async function createWebGPURenderer(
     dispose(): void {
       if (disposed) return
       disposed = true
+      primitives.dispose()
       pendingDraws = []
       stripKeysThisFrame.clear()
       stripKeysKnown.clear()

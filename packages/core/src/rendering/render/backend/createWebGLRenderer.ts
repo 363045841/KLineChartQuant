@@ -16,6 +16,7 @@ import type {
   RendererCapabilities,
 } from '../Renderer.js'
 import type { SurfaceBackend, SurfaceRegion } from '../SurfaceBackend.js'
+import { createWebGLPrimitiveBackend } from '../../primitives/impl/webgl.js'
 
 type WebGLPipelineDescriptor = {
   type: 'candle' | 'line'
@@ -40,6 +41,7 @@ const handleCaps: RendererCapabilities = {
 
 export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurface): Renderer {
   let disposed = false
+  const primitives = createWebGLPrimitiveBackend()
   let candleSurface: CandleWebGLSurface | null = null
   let lineSurface: LineWebGLSurface | null = null
   let frameOpen = false
@@ -93,6 +95,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
   }
 
   const renderer = {
+    primitives,
     get surface(): SurfaceBackend {
       return surface
     },
@@ -270,6 +273,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
     dispose(): void {
       if (disposed) return
       disposed = true
+      primitives.dispose()
       if (frameOpen) gl.endFrame()
       frameOpen = false
       disposeSurfaces()

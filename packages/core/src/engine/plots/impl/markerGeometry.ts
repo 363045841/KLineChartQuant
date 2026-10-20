@@ -1,7 +1,8 @@
-/** Shape、Char、Arrow 的屏幕字形：统一构建边界、文字和 Canvas 路径供 Plot Layer 重放。 */
+/** Shape、Char、Arrow 的屏幕字形：构建边界、排版和跨后端原语供 Plot Layer 重放。 */
 import type { CharPlot, ShapePlot, ShapeStyle } from '@363045841yyt/klinechart-plot-contracts'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { foundationTokens } from '@/foundation/tokens/index.js'
+import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 
 import { markerBoxSize } from './plotSize.js'
 
@@ -323,43 +324,26 @@ export function buildArrowGlyph(height: number, up: boolean, context: RenderCont
   }
 }
 
-/** 在统一 Plot 局部坐标下重放标记字形与文字，颜色由逐 bar 数据覆盖声明。 */
-export function paintMarkerGlyph(
-  ctx: CanvasRenderingContext2D,
+/** 把标记字形映射成有序公共原语，颜色由逐 bar 数据覆盖声明。 */
+export function markerPrimitives(
   glyph: MarkerGlyph,
   x: number,
   y: number,
   color: string,
   textColor: string,
-): void {
-  ctx.fillStyle = color
-  ctx.strokeStyle = color
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  const stroked = glyph.strokeWidth !== undefined
-  if (stroked) ctx.lineWidth = glyph.strokeWidth
-  ctx.beginPath()
-  if (glyph.circle) ctx.arc(x, y, glyph.width / 2, 0, Math.PI * 2)
-  for (const path of glyph.paths) {
-    const first = path[0]
-    if (!first) continue
-    ctx.moveTo(x + first.x, y + first.y)
-    for (const vertex of path.slice(1)) ctx.lineTo(x + vertex.x, y + vertex.y)
-    // 描边路径保持开放，填充路径必须闭合。
-    if (!stroked) ctx.closePath()
-  }
-  if (stroked) ctx.stroke()
-  else ctx.fill()
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
+  dpr: number,
+): PaintPrimitive[] {
+  const paths = glyph.paths.map(path => path.map(point => ({ x: x + point.x, y: y + point.y })))
+  const commands: PaintPrimitive[] = []
+  if (glyph.circle) commands.push({ kind: 'circle', x, y, radius: glyph.width / 2, color })
+  if (paths.length) commands.push(glyph.strokeWidth === undefined
+    ? { kind: 'fill', paths, color }
+    : { kind: 'stroke', paths, color, width: glyph.strokeWidth, cap: 'round', join: 'round' })
   if (glyph.char) {
-    ctx.font = glyph.charFont
-    ctx.fillText(glyph.char, x, y)
+    commands.push({ kind: 'text', text: glyph.char, x, y, color, font: glyph.charFont, align: 'center', baseline: 'middle' })
   }
-  if (!glyph.lines.length) return
-  ctx.fillStyle = textColor
-  ctx.font = glyph.font
   for (const [index, line] of glyph.lines.entries()) {
-    ctx.fillText(line, x, y + glyph.textY + index * glyph.lineHeight)
+    commands.push({ kind: 'text', text: line, x, y: y + glyph.textY + index * glyph.lineHeight, color: textColor, font: glyph.font, align: 'center', baseline: 'middle' })
   }
+  return commands
 }

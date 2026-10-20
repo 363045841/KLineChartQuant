@@ -12,6 +12,7 @@
  */
 
 import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend.js'
+import type { PrimitiveBackend } from '../primitives/types.js'
 
 /** 后端上报的能力位，调用方据此分支 */
 export type RendererCapabilities = {
@@ -30,6 +31,8 @@ export type RendererCapabilities = {
  * 后端持有 GPU 资源，调用方通过不透明 handle 操作。
  */
 export interface Renderer {
+  /** 有序屏幕原语能力；自定义后端未提供时统一使用 Canvas 实现。 */
+  readonly primitives?: PrimitiveBackend
   /** 底层 surface，用于 region 绑定和最终合成 */
   readonly surface: SurfaceBackend
 

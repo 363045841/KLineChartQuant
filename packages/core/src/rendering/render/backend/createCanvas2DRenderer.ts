@@ -11,11 +11,13 @@ import type {
   Renderer,
 } from '../Renderer.js'
 import type { SurfaceBackend } from '../SurfaceBackend.js'
+import { createCanvasPrimitiveBackend } from '../../primitives/impl/canvas.js'
 
 export function createCanvas2DRenderer(): Renderer {
   let disposed = false
   const buffers = new WeakSet<object>()
   const pipelines = new WeakSet<object>()
+  const primitives = createCanvasPrimitiveBackend()
 
   const surface: SurfaceBackend = {
     isAvailable: () => false,
@@ -30,6 +32,7 @@ export function createCanvas2DRenderer(): Renderer {
   }
 
   return {
+    primitives,
     surface,
     caps: {
       compute: false,
@@ -78,6 +81,7 @@ export function createCanvas2DRenderer(): Renderer {
     dispose(): void {
       if (disposed) return
       disposed = true
+      primitives.dispose()
       surface.dispose()
     },
   }
