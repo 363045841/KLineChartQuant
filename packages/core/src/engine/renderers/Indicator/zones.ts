@@ -1,9 +1,10 @@
+/** 区域指标按已映射到当前行情的起止 bar 绘制价格区域。 */
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { type ColorTokens, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcZonesData } from '../../indicators/calculators/index.js'
-import { composeUnitState } from '../../indicators/customStateComposers.js'
+import { composeZonesState } from '../../indicators/customStateComposers.js'
 import { Indicator } from '../../indicators/indicatorDecorator.js'
 import {
   type GetTitleInfoFn,
@@ -127,7 +128,7 @@ const getZonesTitleInfo: GetTitleInfoFn = (
     }),
   },
   scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
-  customState: { compose: composeUnitState },
+  customState: { compose: composeZonesState },
   presentation: { defaultOptions: { showFVG: true, showOB: true, showFilledZones: true } },
   runtime: {
     outputAlignment: 'aggregate',

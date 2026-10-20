@@ -3,6 +3,7 @@
  */
 
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { mergePaint } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingPaintScope, DrawingStoreDeps } from '../types.js'
@@ -13,14 +14,20 @@ export class DrawingStore {
 
   /** 当前选中的绘图 id 快照。 */
   getSelectedIds(): ReadonlyArray<string> {
-    return this.deps.selectedDrawingIds$.peek()
+    const interactiveIds = new Set(this.deps.drawings$.peek().filter(isDrawingInteractive).map((drawing) => drawing.id))
+    return this.deps.selectedDrawingIds$.peek().filter((id) => interactiveIds.has(id))
   }
 
   /** kernel 已提交图元叠加会话层 overlay 后的绘制列表。 */
   private paintList(): DrawingObject[] {
     const committed = this.deps.drawings$.peek()
     const overlay = this.deps.getOverlay?.() ?? []
-    return mergePaint(committed, overlay)
+    return [...this.indicatorDrawings(), ...mergePaint(committed, overlay)]
+  }
+
+  /** 指标图元只参与绘制，不进入用户文档、选择和历史。 */
+  private indicatorDrawings(): readonly DrawingObject[] {
+    return this.deps.getIndicatorDrawings ? this.deps.getIndicatorDrawings() : []
   }
 
   /** 返回全部绘制对象（含 overlay）。 */
@@ -49,7 +56,10 @@ export class DrawingStore {
       scope === 'session'
         ? overlay
         : scope === 'committed'
-          ? this.deps.drawings$.peek().filter((drawing) => !overriddenIds.has(drawing.id))
+          ? [
+              ...this.indicatorDrawings(),
+              ...this.deps.drawings$.peek().filter((drawing) => !overriddenIds.has(drawing.id)),
+            ]
           : this.paintList()
     return drawings
       .filter(

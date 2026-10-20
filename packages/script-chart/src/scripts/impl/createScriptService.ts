@@ -12,6 +12,7 @@ import { DEFAULT_REQUEST_BARS } from '@363045841yyt/klinechart-plot-contracts'
 import { type QuickJSLibrary, type QuickJSScriptDefinition } from '@363045841yyt/klinechart-script'
 import { createScriptWorker } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument, ScriptService, ScriptServiceOptions } from '../types.js'
+import { createScriptOutput } from './createScriptOutput.js'
 import { createScriptPersistence } from './scriptPersistence.js'
 
 /** 应用级脚本服务：启动恢复源码，读写统一经过 core 定义仓库。 */
@@ -21,8 +22,13 @@ export async function createScriptService(
 ): Promise<ScriptService> {
   const persistence = options.persistence ?? createScriptPersistence()
   const restored = await persistence.load()
-  const worker = createScriptWorker()
   const handles = new Map<string, string>()
+  const output = createScriptOutput()
+  const worker = createScriptWorker(undefined, (handle, events) => {
+    for (const [id, active] of handles) {
+      if (active === handle) output.append(id, events)
+    }
+  })
   // 异步写入串行执行，版本检查与快照生成均在队列内完成。
   let pending: Promise<unknown> = Promise.resolve()
   /** 串行提交，单次失败不会阻断后续保存。 */
@@ -168,6 +174,7 @@ export async function createScriptService(
   }
 
   return Object.freeze({
+    output: output.source,
     create(source: string, trusted = false) {
       return enqueue(async () => {
         const id = `script_${generateUUID()}`
@@ -216,6 +223,7 @@ export async function createScriptService(
         const current = requireRevision(id, expectedRevision)
         await persist(list().filter((item) => item.id !== current.id))
         removeScriptIndicatorDefinition(current.id)
+        output.remove(current.id)
         const handle = handles.get(current.id)
         if (handle) {
           handles.delete(current.id)
@@ -224,6 +232,7 @@ export async function createScriptService(
       })
     },
     dispose() {
+      output.dispose()
       worker.dispose()
       handles.clear()
     },

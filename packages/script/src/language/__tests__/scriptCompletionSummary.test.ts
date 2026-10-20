@@ -43,6 +43,10 @@ const SOURCE = `defineIndicator({ name: 'Hints', position: Position.Main, onBar(
   const location = ShapeLocation.Absolute
   const size = ShapeSize.Huge
   const kind = PlotKind.Histogram
+  const lineRef = line.all
+  const dashed = LineStyle.style_dashed
+  const extended = extend.right
+  const timestamp = xloc.bar_time
   plot.Candle(open, high, low, close, 'candle')
   const [trend, direction] = ta.supertrend(3, 10)
   const atr = ta.atr(10)
@@ -70,6 +74,12 @@ describe('脚本补全中文名', () => {
     ['ta', 'macd', '指数平滑异同平均线'],
     ['PlotKind', 'StepLine', '阶梯线'],
     ['PlotKind', 'StepLineBR', '断线阶梯线'],
+    ['line', 'new', '绘制线段'],
+    ['line', 'set_xy2', '设置终点'],
+    ['line', 'get_price', '求价格'],
+    ['LineStyle', 'style_dashed', '虚线'],
+    ['extend', 'right', '延伸至终点之外'],
+    ['xloc', 'bar_time', '毫秒时间戳'],
   ])('%s.%s 的补全中文名是「%s」', (owner, member, summary) => {
     expect(completionSummary(SOURCE, owner, member)).toBe(summary)
   })

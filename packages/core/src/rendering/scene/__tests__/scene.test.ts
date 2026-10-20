@@ -13,6 +13,8 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
+import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
+import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 
 import { createScene } from '../createScene'
 import {
@@ -79,8 +81,12 @@ function frame(paneId: string, clear = false, roles?: ReadonlyArray<LayerRole>):
       {
         paneId,
         context: { tag: paneId },
-        renderer: { beginFrame: vi.fn() },
-        region: { x: 0, y: 0, width: 600, height: 300, dpr: 1 },
+        renderer: createMockRenderer(),
+        targets: {
+          main: createMockCanvasContext(),
+          drawing: createMockCanvasContext(),
+          overlay: createMockCanvasContext(),
+        },
         frameNumber: 0,
         deltaMs: 0,
         roles,
@@ -95,50 +101,35 @@ function frame(paneId: string, clear = false, roles?: ReadonlyArray<LayerRole>):
 // ---------------------------------------------------------------------------
 
 describe('createScene', () => {
-  it('binds each pane region before painting its layers and preserves overlay content', () => {
+  it('selects each pane target before painting and keeps drawing separate from the main target', () => {
     const scene = createScene<FrameStub>()
-    const mainRegion = { x: 0, y: 0, width: 600, height: 300, dpr: 2 }
-    const subRegion = { ...mainRegion, y: 310, height: 150 }
-    let boundRegion = subRegion
-    const beginFrame = vi.fn((region: typeof mainRegion) => {
-      boundRegion = region
-    })
-    const renderer = { beginFrame }
-    const painted: Array<{ paneId: string; region: typeof mainRegion }> = []
-    for (const paneId of [LAYER_PANE_GLOBAL, 'main', 'sub']) {
+    const input = frame('main')
+    const targets = input.panes[0]!.targets
+    const painted: CanvasRenderingContext2D[] = []
+    for (const [id, role] of [
+      ['main', 'primary'],
+      ['drawing', 'drawing'],
+      ['overlay', 'overlay'],
+    ] as const) {
       scene.addLayer({
-        id: paneId,
-        pane: paneId,
-        role: 'primary',
+        id,
+        pane: 'main',
+        role,
         z: 0,
         visible: true,
         paint(context) {
-          painted.push({ paneId: context.tag, region: boundRegion })
+          painted.push(context.ctx)
         },
         dispose() {},
       })
     }
-    const passes = [
-      { paneId: 'main', region: mainRegion, clear: true },
-      { paneId: 'main', region: mainRegion, clear: false },
-      { paneId: 'sub', region: subRegion, clear: true },
-    ]
-    scene.paint({
-      panes: passes.map((pass) => ({
-        ...pass,
-        context: { tag: pass.paneId },
-        renderer,
-        frameNumber: 0,
-        deltaMs: 0,
-      })),
-    })
-    expect(painted).toEqual(
-      passes.flatMap(({ paneId, region }) => [
-        { paneId, region },
-        { paneId, region },
-      ]),
-    )
-    expect(beginFrame.mock.calls).toEqual(passes.map(({ region, clear }) => [region, { clear }]))
+    scene.paint(input)
+    expect(painted).toEqual([targets.main, targets.drawing, targets.overlay])
+    for (const target of Object.values(targets)) {
+      expect(target?.save).toHaveBeenCalledOnce()
+      expect(target?.restore).toHaveBeenCalledOnce()
+      expect(target?.clearRect).not.toHaveBeenCalled()
+    }
   })
 
   it('addLayer then getLayer round-trips by id', () => {
@@ -266,8 +257,8 @@ describe('createScene', () => {
       }),
     )
     scene.paint(frame('main'))
-    // z order: b (1) → c (3) → a (5)
-    expect(order).toEqual(['b', 'c', 'a'])
+    // main 目标内按 z 排序，overlay 层带始终与实际 DOM 一样位于其上。
+    expect(order).toEqual(['b', 'a', 'c'])
   })
 
   it('paint skips invisible layers', () => {

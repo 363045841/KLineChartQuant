@@ -1,5 +1,8 @@
 /** 验证真实 CodeMirror 工作区在移动端跳过服务，以及异步初始化期间的设备切换。 */
+
+import { setDiagnostics } from '@codemirror/lint'
 import type { Extension } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -41,6 +44,34 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Script 编辑器设备策略', () => {
+  it('问题 Tab 读取真实编辑器诊断，点击定位代码，诊断清除后同步归零', async () => {
+    setDevice('Mozilla/5.0 (Windows NT 10.0)')
+    const wrapper = mountEditor()
+    try {
+      await flushPromises()
+      const view = EditorView.findFromDOM(wrapper.get<HTMLElement>('.cm-editor').element)
+      if (!view) throw new Error('CodeMirror 未挂载')
+      view.dispatch(
+        setDiagnostics(view.state, [
+          { from: 6, to: 11, severity: 'error', message: 'test diagnostic', source: 'ts' },
+        ]),
+      )
+      await nextTick()
+      const tab = wrapper.get('[data-panel="problems"]')
+      expect(tab.text()).toContain('问题 (1)')
+      await tab.trigger('click')
+      expect(wrapper.get('.script-problems__location').text()).toContain('[1:7]')
+      await wrapper.get('.script-problems__item').trigger('click')
+      expect(view.state.selection.main.from).toBe(6)
+      expect(view.state.selection.main.to).toBe(11)
+      view.dispatch(setDiagnostics(view.state, []))
+      await nextTick()
+      expect(wrapper.find('.script-problems__item').exists()).toBe(false)
+      expect(wrapper.get('[role="tabpanel"]').text()).toContain('未发现问题')
+    } finally {
+      wrapper.unmount()
+    }
+  })
   it.each(['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)'])(
     '移动设备 %s 保留编辑并跳过语言服务',
     async (ua) => {

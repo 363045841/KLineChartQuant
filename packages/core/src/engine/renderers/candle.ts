@@ -1,4 +1,4 @@
-/** K 线蜡烛图 Layer：按可见范围准备实体/影线，优先 GPU 画笔，失败回退 Canvas2D。 */
+/** K 线蜡烛图 Layer：投影实体与影线，通过公共原语写入 Scene 指定目标。 */
 import { HOLLOW_BODY_KLINE_SHAPES } from '../../foundation/config/chartSettings.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
@@ -15,8 +15,8 @@ import {
   sameProjectionRevision,
 } from '../frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '../frame/types.js'
+import { paintBarBatches } from './barGeometry/impl/paintBars.js'
 import { projectOhlc } from './ohlcGeometry/impl/projectOhlc.js'
-import { drawWorldRectBatches } from './rectsViaRenderer.js'
 
 /** 缓冲池属于 Layer，避免其他图表覆盖已保留的几何。 */
 type CandleBuffers = {
@@ -100,7 +100,7 @@ export function createCandleLayer(): Layer<RenderContext> {
 
       const upColor = colors.candleUpBody
       const downColor = colors.candleDownBody
-      drawWorldRectBatches(context, [
+      paintBarBatches(context, [
         { buf: prepared.upBodyBuf, count: prepared.upBodyCount, color: upColor },
         { buf: prepared.downBodyBuf, count: prepared.downBodyCount, color: downColor },
         { buf: prepared.upWickBuf, count: prepared.upWickCount, color: upColor },

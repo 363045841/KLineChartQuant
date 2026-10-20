@@ -5,11 +5,27 @@ import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
-import type { Series } from '../series/types.js'
+import type { Series as ScriptSeries } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 import type { ScriptRequest } from '../request/types.js'
+import type { DrawingLineApi, ChartPoint, LineRef as ScriptLineRef } from '@363045841yyt/klinechart-plot-contracts'
 
 declare global {
+  /** 输出到编辑器底部的“输出”面板；支持多个参数和对象。 */
+  var console: {
+    log(...values: unknown[]): void
+    info(...values: unknown[]): void
+    warn(...values: unknown[]): void
+    error(...values: unknown[]): void
+    debug(...values: unknown[]): void
+  }
+
+  /** 行情与金融计算共用的只读序列契约。 */
+  type Series = ScriptSeries
+
+  /** line.new 返回的线段引用；只在本次运行内有效，用于为接收引用的函数标注参数。 */
+  type LineRef = ScriptLineRef
+
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
   interface ScriptParameters {}
 
@@ -20,6 +36,32 @@ declare global {
   var close: Series
   var volume: Series
   var time: Series
+  /** 当前 K 线索引，从 0 开始。 */
+  const bar_index: number
+  /**
+   * 创建、修改、读取和删除线段，跨 bar 保留。
+   *
+   * 只能在 onBar 内新建与修改；引用只在本次运行内有效，重算后旧引用失效。
+   *
+   * ```ts
+   * const id = line.new(bar_index, low[0], bar_index + 5, high[0])
+   * line.set_color(id, Color.Red)
+   * ```
+   */
+  const line: DrawingLineApi
+  /** chart.point 坐标工厂；line.new 会复制坐标，不保留 point 对象引用。 */
+  const chart: { readonly point: {
+    /** 用时间戳、bar 索引和价格构造 point；xloc 决定 line.new 读取哪个字段。 */
+    "new"(time: number, index: number, price: number): ChartPoint
+    /** 当前 K 线的 point，索引取 bar_index。 */
+    now(price: number): ChartPoint
+    /** 只带 bar 索引的 point，用于 xloc.bar_index。 */
+    from_index(index: number, price: number): ChartPoint
+    /** 只带毫秒时间戳的 point，用于 xloc.bar_time。 */
+    from_time(time: number, price: number): ChartPoint
+    /** 复制 point，得到独立值对象。 */
+    copy(point: ChartPoint): ChartPoint
+  } }
   /**
    * 内建技术分析库
    * 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。

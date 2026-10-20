@@ -1,3 +1,4 @@
+/** 结构指标按已映射到当前行情的结构事件绘制标签与突破线。 */
 import type { IndicatorRenderStateReader, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
@@ -5,7 +6,7 @@ import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import { calcStructureData } from '../../indicators/calculators/index.js'
-import { composeUnitState } from '../../indicators/customStateComposers.js'
+import { composeStructureState } from '../../indicators/customStateComposers.js'
 import { Indicator } from '../../indicators/indicatorDecorator.js'
 import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
@@ -143,7 +144,7 @@ function getStructureTitleInfo(
   },
   scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
   getTitleInfo: getStructureTitleInfo,
-  customState: { compose: composeUnitState },
+  customState: { compose: composeStructureState },
   presentation: {
     defaultOptions: {
       showSwingLabels: true,

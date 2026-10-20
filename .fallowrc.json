@@ -7,7 +7,10 @@
     "packages/react/src/index.ts",
     "packages/angular/src/index.ts",
     "packages/vue/preview/main.ts",
-    "packages/script/src/quickjs/runtime/indicator.ts"
+    "packages/script/src/quickjs/runtime/indicator.ts",
+    "packages/script/src/quickjs/runtime/drawing.ts",
+    "packages/script/src/quickjs/runtime/plotKind.ts",
+    "examples/scripts/drawing-line.ts"
   ],
   "ignorePatterns": [
     "**/dist/**",
@@ -22,12 +25,26 @@
     "packages/react/preview/**",
     "scripts/lint/stylelint-plugin-klc.mjs"
   ],
-  "ignoreDependencies": ["~icons", "postcss-html", "@arethetypeswrong/cli"],
+  "ignoreDependencies": [
+    "~icons",
+    "postcss-html",
+    "@arethetypeswrong/cli",
+    "@babel/plugin-proposal-decorators",
+    "@babel/plugin-transform-typescript",
+    "@babel/plugin-transform-react-jsx",
+    "@babel/preset-react",
+    "@babel/preset-typescript",
+    "@iconify-json/tabler",
+    "@vue/test-utils",
+    "npm-run-all2",
+    "typedoc"
+  ],
   "rules": {
     "unused-files": "warn",
     "unused-exports": "warn",
     "unused-types": "warn",
     "unused-dependencies": "warn",
+    "unused-class-members": "warn",
     "boundary-violation": "error",
     "policy-violation": "off",
     "css-dead-surface": "off",
@@ -54,7 +71,10 @@
       { "from": "core", "allow": ["plot-contracts"] },
       { "from": "script-chart", "allow": ["plot-contracts", "script", "core"] },
       { "from": "agent-runtime", "allow": ["core"] },
-      { "from": "vue", "allow": ["core", "script", "script-chart", "agent-runtime"] },
+      {
+        "from": "vue",
+        "allow": ["core", "script", "script-chart", "agent-runtime", "plot-contracts"]
+      },
       { "from": "react", "allow": ["core", "vue"] },
       { "from": "angular", "allow": ["core"] },
       { "from": "mobile", "allow": ["core", "react"] },

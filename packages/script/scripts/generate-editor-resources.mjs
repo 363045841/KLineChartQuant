@@ -11,11 +11,10 @@ const plotPrefix = '/node_modules/@363045841yyt/klinechart-plot-contracts/'
 const outputFile = fileURLToPath(new URL('src/editor/resources.ts', packageRoot))
 
 /**
- * 生成编辑器类型资源；契约变更后由调用方重新执行以刷新编辑器声明。
- * @param options check 为 true 时只校验生成物是否为最新
- * @returns changed 表示本次是否写盘
+ * 收集编辑器与 Markdown 文档共用的契约源码、标准库与全局入口，不写入生成物。
+ * @returns files、libraries 为虚拟文件内容，entry 为全局声明路径
  */
-export async function generateEditorResources({ check = false } = {}) {
+export async function collectEditorResources() {
   const files = {}
   const libraries = {}
   const require = createRequire(import.meta.url)
@@ -32,13 +31,6 @@ export async function generateEditorResources({ check = false } = {}) {
     }
   }
   await collectLibrary('lib.es2022.d.ts')
-  const librariesChanged = writeGeneratedFile(
-    fileURLToPath(new URL('src/language/standardLibraries.ts', packageRoot)),
-    `/** 自动生成的 ES2022 标准库，供编译器和编辑器共用；禁止手工编辑。 */\n` +
-      `// biome-ignore-all format: 标准库由生成器统一序列化\n` +
-      `export const scriptStandardLibraryFiles: Readonly<Record<string, string>> = ${JSON.stringify(libraries, null, 2)}\n`,
-    { check },
-  )
 
   /** 收集一层契约源码，文件身份与包内相对导入保持一致。 */
   async function collect(directory, prefix) {
@@ -58,6 +50,19 @@ export async function generateEditorResources({ check = false } = {}) {
   files[entry] = await readFile(new URL('src/editor/globals.d.ts.txt', packageRoot), 'utf8')
   await collect(new URL('../plot-contracts/src/', packageRoot), plotPrefix)
 
+  return { files, libraries, entry }
+}
+
+/** 从同一份源码快照写出编辑器契约与标准库；check 模式只校验。 */
+export async function generateEditorResources({ check = false } = {}) {
+  const { files, libraries, entry } = await collectEditorResources()
+  const librariesChanged = writeGeneratedFile(
+    fileURLToPath(new URL('src/language/standardLibraries.ts', packageRoot)),
+    `/** 自动生成的 ES2022 标准库，供编译器和编辑器共用；禁止手工编辑。 */\n` +
+      `// biome-ignore-all format: 标准库由生成器统一序列化\n` +
+      `export const scriptStandardLibraryFiles: Readonly<Record<string, string>> = ${JSON.stringify(libraries, null, 2)}\n`,
+    { check },
+  )
   return {
     changed:
       writeGeneratedFile(

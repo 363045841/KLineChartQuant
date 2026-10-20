@@ -1,5 +1,5 @@
 /**
- * Chart DOM 集成测试的共享夹具：canvas getContext、WebGL stub、ResizeObserver 与容器构造。
+ * Chart DOM 集成测试的共享夹具：Canvas2D、ResizeObserver 与容器构造；GPU 在真实浏览器验证。
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  *
  * 约束：DOM 类型（CanvasRenderingContext2D / WebGL2RenderingContext）无法完整实现，
@@ -43,38 +43,11 @@ export class ResizeObserverMock {
 }
 
 /**
- * 构造 WebGL2 context 的最小可用 stub。
- * 常量返回 0，创建/查询类方法返回可辨对象，其余方法为 noop。
- */
-function createWebGLContextStub(): WebGL2RenderingContext {
-  const noop = () => {}
-  return new Proxy({} as unknown as WebGL2RenderingContext, {
-    get(_, prop) {
-      if (typeof prop !== 'string') return undefined
-      if (/^[A-Z][A-Z0-9_]*$/.test(prop)) return 0
-      if (prop === 'getShaderInfoLog' || prop === 'getProgramInfoLog') return () => ''
-      if (prop === 'getShaderParameter' || prop === 'getProgramParameter') return () => true
-      if (prop === 'getError') return () => 0
-      if (prop === 'getSupportedExtensions') return () => []
-      if (prop === 'getContextAttributes') return () => ({})
-      if (prop === 'getParameter') return () => 0
-      if (prop === 'getUniformLocation' || prop === 'getAttribLocation') return () => 0
-      if (prop.startsWith('create') || prop === 'getExtension') return () => ({ __webglStub: true })
-      if (prop === 'drawingBufferWidth' || prop === 'drawingBufferHeight') return 300
-      return noop
-    },
-  }) as WebGL2RenderingContext
-}
-
-/**
- * 构造 HTMLCanvasElement.getContext 替身：2d 返回可观测 Canvas2D，WebGL 返回 context stub。
+ * jsdom 只提供可观测 Canvas2D，不伪造始终成功却无法绘制的 GPU 设备。
  */
 export function createCanvasGetContextMock(): typeof HTMLCanvasElement.prototype.getContext {
   return vi.fn((type: string) => {
     if (type === '2d') return createMockCanvasContext()
-    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-      return createWebGLContextStub()
-    }
     return null
   }) as unknown as typeof HTMLCanvasElement.prototype.getContext
 }

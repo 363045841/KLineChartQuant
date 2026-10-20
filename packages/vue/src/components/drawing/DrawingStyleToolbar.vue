@@ -132,7 +132,7 @@
         class="toolbar-btn toolbar-btn--delete"
         aria-label="删除"
         :disabled="allLocked"
-        @click="$emit('delete')"
+        @click="emit('delete')"
       >
         <svg
           class="delete-icon"

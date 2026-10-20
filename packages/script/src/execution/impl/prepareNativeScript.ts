@@ -1,10 +1,18 @@
 /** 可信脚本的原生执行后端；只由 Script Worker 使用，不提供沙箱保护。 */
-import { isPlotKind, PlotCollector, PlotKind } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  isPlotKind,
+  type PlotCollection,
+  PlotCollector,
+  PlotKind,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
+import type { LogEvent } from '../../contracts/output.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import {
+  DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
+  LINE_API_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
@@ -27,6 +35,7 @@ import type {
   ScriptRequestContext,
   SecurityRequest,
 } from '../../request/types.js'
+import { createScriptConsole } from './createScriptConsole.js'
 import { compileSources, FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from './scriptRuntime.js'
 
 /** 工厂只返回指标入口，运行库和用户状态留在每次调用的函数作用域内。 */
@@ -35,6 +44,7 @@ interface NativeRuntime {
   onBar(): void
   requests(): readonly SecurityRequest[]
   expression(id: string): RequestValue
+  drawings(): NonNullable<PlotCollection['drawings']>
 }
 
 /** 动态函数创建失败（包括 CSP 拒绝）统一报告为编译错误，不切换后端。 */
@@ -53,6 +63,7 @@ function createFactory(body: string) {
 export function prepareNativeScript(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
+  onLog?: (event: LogEvent) => void,
 ): PreparedQuickJSScript {
   const compiled = compileSources(source, libraries)
   // with 只用于让动态注册的库名可被脚本解析；作用域不是安全边界。
@@ -67,9 +78,11 @@ export function prepareNativeScript(
         ${REQUEST_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
+        ${LINE_API_PRELUDE}
+        ${DRAWING_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
-        ;return { metadata: __metadata, onBar: __onBar, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
+        ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
       }).call(globalThis)
     }
   `,
@@ -80,6 +93,7 @@ export function prepareNativeScript(
     bars: readonly Bar[],
     params: Readonly<Record<string, ScriptParamValue>> = {},
     execution: RequestExecution = EMPTY_REQUEST_EXECUTION,
+    emit?: (event: LogEvent) => void,
   ) {
     let index = -1
     let phase: 'compile' | 'run' = 'compile'
@@ -89,6 +103,7 @@ export function prepareNativeScript(
       if (index < 0) throw new ScriptExecutionError('compile', `${kind} 只能在 onBar 中调用`)
     }
     const scope = {
+      console: createScriptConsole(emit, () => index),
       __requestContext: execution,
       // 公开枚举与 QuickJS 后端共用同一份名字和取值，两个后端不再各自抄一遍。
       ...SCRIPT_ENUM_GLOBALS,
@@ -140,7 +155,12 @@ export function prepareNativeScript(
         if (execution.expressionId === undefined) runtime.onBar()
         else values.push(runtime.expression(execution.expressionId))
       }
-      return { definition, collection: collector.collect(), requests: runtime.requests(), values }
+      return {
+        definition,
+        collection: { ...collector.collect(), drawings: runtime.drawings() },
+        requests: runtime.requests(),
+        values,
+      }
     } catch (error) {
       if (error instanceof ScriptExecutionError || error instanceof ScriptPlotError) throw error
       throw new ScriptExecutionError(phase, error instanceof Error ? error.message : String(error))
@@ -159,7 +179,13 @@ export function prepareNativeScript(
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
     ) {
-      return executeRequests(execute, bars, params, context)
+      return executeRequests(
+        (target, input, execution, emitOutput) =>
+          execute(target, input, execution, emitOutput ? onLog : undefined),
+        bars,
+        params,
+        context,
+      )
     },
   })
 }

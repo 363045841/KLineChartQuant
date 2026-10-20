@@ -1,6 +1,6 @@
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingChartAdapter } from '@/controllers/types.js'
 import type { DrawingHoverTarget } from '@/engine/state/interactionState.js'
-import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import { resolveDrawingPointer } from '../../geometry/impl/coordinateUtils.js'
 import type {
@@ -30,10 +30,6 @@ import { HitTester } from './HitTester.js'
 import { PreviewRenderer } from './PreviewRenderer.js'
 import { drawingIntersectsSelectionMarquee, hasSelectionMarqueeArea } from './selectionMarquee.js'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
-
-export type { InteractionDrawingAnchor } from '../../geometry/types.js'
-// Re-export types so index.ts re-exports work unchanged
-export type { DrawingToolId } from '../types.js'
 
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
 export type DrawingLineLabelTarget = LineLabelTarget
@@ -120,58 +116,8 @@ export class DrawingInteractionController {
     this.magnetMode = mode
   }
 
-  /** 读取当前磁吸档位。 */
-  getMagnetMode(): MagnetMode {
-    return this.magnetMode
-  }
-
   setContinuousDrawing(enabled: boolean): void {
     this.continuousDrawing = enabled
-  }
-
-  // ============ 图元 CRUD ============
-
-  getDrawings(): DrawingObject[] {
-    return this.sessionOverlay.getAll()
-  }
-
-  setDrawings(drawings: DrawingObject[]) {
-    this.sessionOverlay.clearSession()
-    this.adapter.replaceDrawings(drawings)
-  }
-
-  clear() {
-    this.anchorCollector.reset()
-    this.pendingPaneId = null
-    this.resetPointerSession()
-    this.sessionOverlay.removePreview()
-    this.sessionOverlay.clearSession()
-    this.adapter.clearDrawings()
-  }
-
-  updateDrawingStyle(drawingId: string, style: Partial<DrawingStyle>): void {
-    const drawing = this.adapter.getFullDrawings().find((item) => item.id === drawingId)
-    if (drawing) this.adapter.updateDrawing({ ...drawing, style: { ...drawing.style, ...style } })
-  }
-
-  /** 原子更新一批图元的公共属性。 */
-  updateBatch(ids: ReadonlyArray<string>, patch: { style?: Partial<DrawingStyle> }): void {
-    this.adapter.updateBatch(ids, patch)
-  }
-
-  removeDrawing(drawingId: string): void {
-    this.adapter.removeDrawing(drawingId)
-  }
-
-  /** 原子移除一批图元。 */
-  removeBatch(ids: ReadonlyArray<string>): void {
-    this.adapter.removeBatch(ids)
-  }
-
-  // ============ 选中状态 ============
-
-  getSelectedDrawings(): DrawingObject[] {
-    return this.sessionOverlay.getSelectedDrawings()
   }
 
   /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑，锁定图元同样可编辑文本。 */
@@ -421,6 +367,7 @@ export class DrawingInteractionController {
       .filter(
         (drawing) =>
           drawing.visible &&
+          isDrawingInteractive(drawing) &&
           drawing.paneId === paneId &&
           (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )

@@ -837,13 +837,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: Static<typeof DrawingUpdateToolParameters>,
   ): Promise<ChartAgentDrawingSnapshot | null> {
     const patch = input.patch
+    const { anchors, ...rest } = patch
     const drawing = this.dependencies.drawingCommands.updateFromInput(input.drawingId, {
-      ...(patch.anchors === undefined ? {} : { anchors: parseDrawingAnchors(patch.anchors) }),
-      ...(patch.style === undefined ? {} : { style: patch.style }),
-      ...(patch.labels === undefined ? {} : { labels: patch.labels }),
-      ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-      ...(patch.locked === undefined ? {} : { locked: patch.locked }),
-      ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+      ...rest,
+      ...(anchors === undefined ? {} : { anchors: parseDrawingAnchors(anchors) }),
     })
     return drawing ? projectDrawing(drawing) : null
   }

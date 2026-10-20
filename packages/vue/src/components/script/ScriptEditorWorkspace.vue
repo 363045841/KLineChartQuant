@@ -59,26 +59,32 @@
       </div>
     </div>
     <div ref="editorHost" class="script-editor" />
-    <p v-if="editorError" class="script-workspace__error" role="alert">{{ editorError }}</p>
+    <ScriptEditorPanels :logs="logs" :problems="problems" :editor-host="editorHost" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
   </div>
 </template>
 
 <script setup lang="ts">
+  import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
-  import type { ScriptIdentity } from '@vue-src/composables/chart/scriptEditor/types.js'
+  import type {
+    ScriptEditorProblem,
+    ScriptIdentity,
+  } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCodeMirror } from '@vue-src/composables/chart/useCodeMirror.js'
   import { computed, useTemplateRef } from 'vue'
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerDots from '~icons/tabler/dots'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerWindowMaximize from '~icons/tabler/window-maximize'
+  import ScriptEditorPanels from './ScriptEditorPanels.vue'
 
   const props = withDefaults(
     defineProps<{
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      logs?: readonly LogEvent[]
       trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
@@ -87,7 +93,7 @@
       /** 是否提供「在新窗口打开」入口；已在独立窗口内时为 false。 */
       detachable?: boolean
     }>(),
-    { error: null, detachable: false, saving: false },
+    { error: null, detachable: false, saving: false, logs: () => [] },
   )
 
   const emit = defineEmits<{
@@ -95,6 +101,7 @@
     'update:trusted': [value: boolean]
     'open-window': []
     'create-copy': []
+    'clear-output': []
   }>()
 
   const editorHost = useTemplateRef<HTMLElement>('editorHost')
@@ -103,17 +110,27 @@
     set: (value) => emit('update:source', value),
   })
   const editable = computed(() => props.identity === 'user' && !props.saving)
-  const { languageLoading, languageError, formatAvailable, formatDocument } = useCodeMirror(
-    editorHost,
-    source,
-    (next) => emit('update:source', next),
-    editable,
-  )
-  const editorError = computed(() => props.error || languageError.value)
+  const {
+    languageLoading,
+    languageError,
+    diagnostics,
+    revealProblem,
+    formatAvailable,
+    formatDocument,
+  } = useCodeMirror(editorHost, source, (next) => emit('update:source', next), editable)
+  const problems = computed<readonly ScriptEditorProblem[]>(() => [
+    ...diagnostics.value,
+    ...[languageError.value, props.error].flatMap((message) =>
+      message ? [{ severity: 'error', message, location: null } satisfies ScriptEditorProblem] : [],
+    ),
+  ])
 </script>
 
 <style scoped>
   .script-workspace {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 160px);
     overflow: hidden;
     border-top: 1px solid var(--klc-color-ui-border);
     border-bottom: 1px solid var(--klc-color-ui-border);
@@ -121,6 +138,7 @@
 
   /* 工具栏三列：左侧按钮组 / 中间提示 / 右侧按钮组，两列按内容撑开，中列吃掉剩余宽度。 */
   .script-workspace__toolbar {
+    flex-shrink: 0;
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
@@ -255,18 +273,11 @@
   }
 
   .script-editor {
+    min-height: 80px;
+    flex: 1 1 auto;
     height: clamp(200px, 52dvh, 480px);
     max-height: calc(100dvh - 180px);
     overflow: hidden;
   }
 
-  .script-workspace__error {
-    margin: 0;
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
-    color: var(--klc-color-performance-negative);
-    border-top: 1px solid var(--klc-color-ui-border);
-    font-size: var(--klc-text-label-12-font-size, 12px);
-    max-height: 80px;
-    overflow: auto;
-  }
 </style>

@@ -316,7 +316,7 @@
 
     <!-- 操作按钮 -->
     <div class="rule-form-actions">
-      <button type="button" class="rule-form-btn rule-form-btn--cancel" @click="$emit('cancel')">取消</button>
+      <button type="button" class="rule-form-btn rule-form-btn--cancel" @click="emit('cancel')">取消</button>
       <button type="button" class="rule-form-btn rule-form-btn--save" :disabled="!isValid" @click="handleSave">
         <svg
           viewBox="0 0 24 24"

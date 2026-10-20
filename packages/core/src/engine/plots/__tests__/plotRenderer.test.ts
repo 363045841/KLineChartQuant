@@ -14,12 +14,18 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
 import { paintPlots } from '../impl/plotRenderer.js'
 import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
 import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
 
 beforeAll(loadBuiltinIndicators)
+
+/** 公共原语已经投影到屏幕坐标，不再通过 Canvas translate 扣除滚动。 */
+function screenPoints(points: number[][]): number[][] {
+  return points.map(([x, y]) => [x! - 10, y!])
+}
 
 /** 从真实 Plot 投影创建绘制上下文，强制验证 Canvas 回退结果。 */
 function paint(
@@ -43,6 +49,27 @@ function paint(
 }
 
 describe('Plot renderer', () => {
+  it('submits fill, line and points in one ordered backend batch', () => {
+    const submit = vi.fn(() => true)
+    const { ctx } = paint({
+      series: [
+        { id: 'a', field: 'a', color: () => 'red' },
+        { id: 'b', field: 'b', kind: 'points', color: () => 'blue' },
+      ],
+      fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
+    }, [{ a: 1, b: 3 }, { a: 2, b: 4 }], {}, {
+      sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+    })
+    expect(submit).toHaveBeenCalledExactlyOnceWith(ctx, [
+      expect.objectContaining({ kind: 'fill' }),
+      expect.objectContaining({ kind: 'stroke', paths: [[{ x: -5, y: 10 }, { x: 5, y: 20 }]] }),
+      expect.objectContaining({ kind: 'circle', x: -5, y: 30 }),
+      expect.objectContaining({ kind: 'circle', x: 5, y: 40 }),
+    ], 1)
+    expect(ctx.stroke).not.toHaveBeenCalled()
+    expect(ctx.fill).not.toHaveBeenCalled()
+  })
+
   it.each(['stepline', 'steplinebr'] as const)('%s 在中点跳变并按类型处理连续空点', (kind) => {
     const { ctx } = paint({ series: [{ id: 'step', kind, color: () => 'blue' }] }, [
       1,
@@ -51,14 +78,14 @@ describe('Plot renderer', () => {
       NaN,
       5,
     ])
-    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10]])
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([[5, 10]]))
     const firstStep = [
       [10, 10],
       [10, 20],
       [15, 20],
     ]
     expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
-      kind === 'steplinebr' ? firstStep : [...firstStep, [30, 20], [30, 50], [45, 50]],
+      screenPoints(kind === 'steplinebr' ? firstStep : [...firstStep, [30, 20], [30, 50], [45, 50]]),
     )
   })
 
@@ -81,11 +108,11 @@ describe('Plot renderer', () => {
         },
         [1, 3, 3, 0],
       )
-      expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([
+      expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([
         [15, 10],
         [35, 30],
-      ])
-      expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([
+      ]))
+      expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(screenPoints([
         [20, 10],
         [20, 30],
         [25, 30],
@@ -93,7 +120,7 @@ describe('Plot renderer', () => {
         [40, 30],
         [40, 0],
         [45, 0],
-      ])
+      ]))
       expect(ctx.setLineDash).toHaveBeenCalledWith([4, 2])
       expect(ctx.lineWidth).toBe(3)
       expect(ctx.strokeStyle).toBe('blue')
@@ -107,18 +134,18 @@ describe('Plot renderer', () => {
       series: [{ id: 'step', kind: 'steplinebr', color: () => 'blue' }],
     }
     const { ctx } = paint(definition, [1, 2, null, 4, 5])
-    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([
       [5, 10],
       [35, 40],
-    ])
-    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([
+    ]))
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(screenPoints([
       [10, 10],
       [10, 20],
       [15, 20],
       [40, 40],
       [40, 50],
       [45, 50],
-    ])
+    ]))
     expect(paint(definition, [NaN, 1, null]).ctx.stroke).not.toHaveBeenCalled()
   })
 
@@ -131,14 +158,14 @@ describe('Plot renderer', () => {
       5,
     ])
     expect(state.plots[0]).toMatchObject({ kind: kind ?? 'line' })
-    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[5, 10]])
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([[5, 10]]))
     expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
-      kind === 'linebr'
+      screenPoints(kind === 'linebr'
         ? [[15, 20]]
         : [
             [15, 20],
             [45, 50],
-          ],
+          ]),
     )
   })
 
@@ -151,8 +178,8 @@ describe('Plot renderer', () => {
     collector.onPlot('line', 3, { value: 4, color: 'red' }, 'line', declaration)
     collector.onPlot('line', 4, null, 'line', declaration)
     const { ctx } = paint({ source: 'collection', series: [] }, collector.collect())
-    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual([[15, 20]])
-    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual([[35, 40]])
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([[15, 20]]))
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(screenPoints([[35, 40]]))
     expect(ctx.strokeStyle).toBe('red')
   })
 
@@ -268,7 +295,7 @@ describe('Plot renderer', () => {
       ],
     )
     expect(vi.mocked(ctx.fillText).mock.calls.map(([text]) => text)).toEqual(['▲', '★', '★'])
-    expect(ctx.fillText).toHaveBeenCalledWith('★', 5, 0)
+    expect(ctx.fillText).toHaveBeenCalledWith('★', -5, 0)
     expect(state.visibleMin).toBe(0)
     expect(state.visibleMax).toBe(12)
   })
@@ -338,7 +365,7 @@ describe('Plot renderer', () => {
     // 正箭头尖端最靠近 bar，负箭头尖端位于最下方。
     expect(starts[0]?.[1]).toBeLessThan(lines[0]?.[1] ?? NaN)
     expect(starts[2]?.[1]).toBeGreaterThan(lines[12]?.[1] ?? NaN)
-    expect(ctx.strokeStyle).toBe('red')
+    expect(ctx.fillStyle).toBe('red')
     const original = lines.slice()
     vi.mocked(ctx.lineTo).mockClear()
     paintPlots(state, { ...context, dpr: 2, range: { start: 0, end: 2 } })
@@ -626,14 +653,14 @@ describe('Plot renderer', () => {
         [1],
       )
       const [x, y, radius] = vi.mocked(ctx.arc).mock.calls[0] ?? []
-      expect(x).toBe(15)
+      expect(x).toBe(5)
       const bar = context.data[1]
       if (!bar || !('close' in bar) || y === undefined || radius === undefined)
         throw new Error('缺少 Shape 绘制')
       if (location === 'abovebar')
         expect(y + radius).toBeLessThan(context.pane.yAxis.priceToY(bar.high))
       else expect(y - radius).toBeGreaterThan(context.pane.yAxis.priceToY(bar.low))
-      expect(ctx.translate).toHaveBeenCalledWith(-10, 0)
+      expect(ctx.translate).not.toHaveBeenCalled()
     },
   )
 
@@ -694,7 +721,7 @@ describe('Plot renderer', () => {
     )
     expect(state.visibleMin).toBe(0)
     expect(state.visibleMax).toBe(12)
-    expect(ctx.arc).toHaveBeenCalledWith(5, 0, expect.any(Number), 0, Math.PI * 2)
+    expect(ctx.arc).toHaveBeenCalledWith(-5, 0, expect.any(Number), 0, Math.PI * 2)
     expect(ctx.arc).toHaveBeenCalledTimes(4)
   })
 
@@ -708,8 +735,8 @@ describe('Plot renderer', () => {
     ])
     expect(ctx.moveTo).toHaveBeenCalledTimes(2)
     expect(ctx.lineTo).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(ctx.moveTo).mock.calls.map(([x]) => x)).toEqual([5, 35])
-    expect(ctx.translate).toHaveBeenCalledWith(-10, 0)
+    expect(vi.mocked(ctx.moveTo).mock.calls.map(([x]) => x)).toEqual([-5, 25])
+    expect(ctx.translate).not.toHaveBeenCalled()
     expect(ctx.strokeStyle).toBe('red')
   })
 
@@ -791,6 +818,6 @@ describe('Plot renderer', () => {
     )
     expect(ctx.fill).toHaveBeenCalledTimes(1)
     expect(ctx.fillRect).not.toHaveBeenCalled()
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 25)).toBe(true)
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 15)).toBe(true)
   })
 })

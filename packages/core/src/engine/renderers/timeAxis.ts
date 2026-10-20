@@ -51,7 +51,7 @@ function formatCrosshairTime(context: RenderContext, timestamp: number): string 
 export function resolveCrosshairTimestamp(context: RenderContext, index: number): number | null {
   const k = (context.data as KLineData[])[index]
   if (k) return k.timestamp
-  return context.getTimestampAtLogicalIndex?.(index) ?? null
+  return context.getTimestampAtLogicalIndex(index)
 }
 
 /**
@@ -185,7 +185,7 @@ function collectTimeAxisTicks(
     rangeStart: range.start,
     rangeEnd: range.end,
     kind: isMinuteData ? 'day' : 'month',
-    getTimestamp: (idx) => context.getTimestampAtLogicalIndex?.(idx) ?? null,
+    getTimestamp: context.getTimestampAtLogicalIndex,
     dateKeyOf: (ts) => displayTimeFormatter.formatDate(ts),
   })
   for (const boundary of futureBoundaries) {
@@ -219,7 +219,7 @@ function collectTimeAxisTicks(
     offset += step
   ) {
     const index = klineData.length - 1 + offset
-    if (context.getTimestampAtLogicalIndex?.(index) != null) continue
+    if (context.getTimestampAtLogicalIndex(index) !== null) continue
     const centerX = context.kLineCenters[index - range.start]
     if (centerX === undefined) continue
     const screenX = centerX - scrollLeft

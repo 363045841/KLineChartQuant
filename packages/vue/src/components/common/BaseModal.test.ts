@@ -17,6 +17,42 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+/** 挂载实际弹窗，只替换无布局测试环境的几何与浏览器指针捕获边界。 */
+async function draggableModal() {
+  const wrapper = mount(BaseModal, {
+    attachTo: document.body,
+    props: { open: true, title: '可拖动弹窗' },
+  })
+  await flush()
+  const dialog = dialogEl()
+  const header = dialog.querySelector<HTMLElement>('.base-header')
+  if (!header) throw new Error('标题栏未挂载')
+  const capture = vi.fn()
+  const release = vi.fn()
+  Object.defineProperties(header, {
+    setPointerCapture: { value: capture },
+    hasPointerCapture: { value: () => true },
+    releasePointerCapture: { value: release },
+  })
+  vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 80, 300, 200))
+  return { wrapper, dialog, header, capture, release }
+}
+
+/** 发送主指针事件，覆盖拖动位移与结束后的行为。 */
+function pointer(target: Element, type: string, x: number, y: number, pointerId = 1): void {
+  target.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      isPrimary: true,
+      pointerId,
+      clientX: x,
+      clientY: y,
+    }),
+  )
+}
+
 describe('BaseModal', () => {
   let showModal: ReturnType<typeof vi.spyOn>
 
@@ -26,6 +62,74 @@ describe('BaseModal', () => {
 
   afterEach(() => {
     showModal.mockRestore()
+  })
+
+  it('拖动标题栏移动弹窗，忽略其他指针，松开后结束移动', async () => {
+    const { wrapper, dialog, header, capture, release } = await draggableModal()
+    try {
+      pointer(header, 'pointerdown', 150, 100)
+      pointer(header, 'pointermove', 230, 145, 2)
+      await nextTick()
+      expect(dialog.style.left).toBe('100px')
+      pointer(header, 'pointermove', 230, 145)
+      await nextTick()
+      expect(dialog.style.left).toBe('180px')
+      expect(dialog.style.top).toBe('125px')
+      expect(dialog.style.transform).toBe('')
+      expect(capture).toHaveBeenCalledWith(1)
+      pointer(header, 'pointerup', 230, 145)
+      pointer(header, 'pointermove', 300, 300)
+      await nextTick()
+      expect(dialog.style.left).toBe('180px')
+      expect(release).toHaveBeenCalledWith(1)
+      expect(wrapper.emitted('update:open')).toBeUndefined()
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('拖动限制在窗口内，重新打开恢复默认居中布局', async () => {
+    const { wrapper, dialog, header } = await draggableModal()
+    try {
+      pointer(header, 'pointerdown', 150, 100)
+      pointer(header, 'pointermove', 10000, 10000)
+      await nextTick()
+      expect(dialog.style.left).toBe(`${Math.max(0, window.innerWidth - 300)}px`)
+      expect(dialog.style.top).toBe(`${Math.max(0, window.innerHeight - 200)}px`)
+      pointer(header, 'pointermove', -10000, -10000)
+      await nextTick()
+      expect(dialog.style.left).toBe('0px')
+      expect(dialog.style.top).toBe('0px')
+      await wrapper.setProps({ open: false })
+      await flush()
+      await wrapper.setProps({ open: true })
+      await flush()
+      expect(dialogEl().style.left).toBe('')
+      expect(dialogEl().style.margin).toBe('')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('关闭按钮不触发拖动，禁用 draggable 时标题栏保持原有行为', async () => {
+    const { wrapper, dialog, header, capture } = await draggableModal()
+    try {
+      const close = dialog.querySelector<HTMLButtonElement>('.base-close-btn')
+      if (!close) throw new Error('关闭按钮未挂载')
+      pointer(close, 'pointerdown', 150, 100)
+      pointer(header, 'pointermove', 230, 145)
+      expect(capture).not.toHaveBeenCalled()
+      close.click()
+      expect(wrapper.emitted('update:open')).toEqual([[false]])
+      await wrapper.setProps({ draggable: false })
+      pointer(header, 'pointerdown', 150, 100)
+      pointer(header, 'pointermove', 230, 145)
+      await nextTick()
+      expect(dialog.style.left).toBe('')
+      expect(capture).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('用 showModal() 打开，并以标题作为 aria-labelledby', async () => {

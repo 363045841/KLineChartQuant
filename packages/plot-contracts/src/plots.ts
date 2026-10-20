@@ -237,4 +237,5 @@ export interface PlotFill {
 export interface PlotCollection {
   readonly plots: readonly Plot[]
   readonly fills: readonly PlotFill[]
+  readonly drawings?: readonly import('./drawing.js').DrawingObject[]
 }

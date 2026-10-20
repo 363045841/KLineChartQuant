@@ -7,19 +7,51 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 
 import type { DrawingPrimitive } from '@/foundation/plugin/index'
+import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer'
 import { LINE_LABEL_NORMAL_OFFSET } from '../../geometry/impl/labelLayout'
 import { createDrawingLayer, createDrawingSessionLayer } from '../impl/plugin'
 import { createDefaultPrimitiveRendererSet } from '../impl/primitiveRendererSet'
 
 describe('createDrawingLayer', () => {
+  /** 默认适配器整层提交原语，GPU 目标不能误用行情画布。 */
+  it.each(['committed', 'session'] as const)(
+    'submits the default %s renderer through the backend',
+    (scope) => {
+      const drawingCtx = createMockCanvasContext()
+      const overlayCtx = createMockCanvasContext()
+      const paint = vi.fn(() => true)
+      const projection = {
+        primitives: [{ kind: 'point', point: { x: 10, y: 20 } } satisfies DrawingPrimitive],
+        yAxisRanges: [],
+        xAxisRanges: [],
+      }
+      const context = createMockRenderContext({
+        ctx: scope === 'committed' ? drawingCtx : overlayCtx,
+        drawingCtx,
+        overlayCtx,
+        drawingProjection: projection,
+        sessionDrawingProjection: projection,
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint, dispose() {} } },
+      })
+      const layer = (scope === 'committed' ? createDrawingLayer : createDrawingSessionLayer)()
+      layer.paint({ ...context, paneId: 'main', clear: false })
+      expect(paint).toHaveBeenCalledExactlyOnceWith(
+        scope === 'committed' ? drawingCtx : overlayCtx,
+        [expect.objectContaining({ kind: 'circle', strokeWidth: 1 })],
+        1,
+      )
+      expect(drawingCtx.fill).not.toHaveBeenCalled()
+      expect(overlayCtx.fill).not.toHaveBeenCalled()
+    },
+  )
+
   /** 正式图元与会话图元分别写入独立表面，避免被动态清屏和 GPU 覆盖。 */
   it.each(['committed', 'session'] as const)('renders %s primitives on its own canvas', (scope) => {
-    const mainCtx = createMockCanvasContext()
     const drawingCtx = createMockCanvasContext()
     const overlayCtx = createMockCanvasContext()
     const point = vi.fn()
     const context = createMockRenderContext({
-      ctx: mainCtx,
+      ctx: scope === 'committed' ? drawingCtx : overlayCtx,
       drawingCtx,
       overlayCtx,
       drawingProjection: {

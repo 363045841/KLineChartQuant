@@ -29,7 +29,7 @@ function releaseCanvas(canvas: HTMLCanvasElement | undefined): void {
    正式图元与左轴表面按需创建；隐藏 pane 的后备存储归零
    持有 Pane 实例（布局、Y 轴、价格范围）
    响应 Chart 的 resize / layout 信号
-   GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
+   Scene 选择本类持有的目标；GPU 后端只执行原语，不额外挂载可见画布 */
 export class PaneRenderer {
   private dom: PaneRendererDom
   private pane: import('./layout/pane.js').Pane

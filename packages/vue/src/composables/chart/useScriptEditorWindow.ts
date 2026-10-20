@@ -2,22 +2,21 @@
  * 脚本编辑器的独立窗口会话。
  *
  * 窗口是 DOM 副作用，编辑状态仍由 useScriptEditor 的会话持有：
- * 本组合式只负责开关窗口、提供 Teleport 挂载点，并在窗口关闭时把编辑器交回标签页弹窗。
+ * 本组合式通过专用消息通道同步草稿和保存结果，编辑器运行时归新窗口所有。
  */
-import { onBeforeUnmount, type Ref, ref, watch } from 'vue'
+import { onBeforeUnmount, type Ref, watch } from 'vue'
 import {
   type DetachedWindow,
   openDetachedWindow,
   supportsDetachedWindow,
 } from './scriptEditor/impl/detachedWindow.js'
+import type { DetachedEditorEvent, DetachedEditorSnapshot } from './scriptEditor/windowTypes.js'
 import type { ScriptEditorSession } from './useScriptEditor.js'
 
 /** 独立窗口会话的状态与操作。 */
 export interface ScriptEditorWindowSession {
   /** 当前环境是否支持打开浏览器窗口。 */
   readonly supported: boolean
-  /** 编辑器在新窗口中的挂载点；null 表示未在新窗口打开。 */
-  readonly container: Ref<HTMLElement | null>
   /** 在新窗口打开编辑器，并关闭页面内的弹窗。 */
   open(title: string): Promise<void>
   /** 关闭新窗口并把编辑器交回标签页弹窗。 */
@@ -28,23 +27,53 @@ export interface ScriptEditorWindowSession {
  * 创建独立窗口会话；每个图表实例独立。
  *
  * @param session 编辑会话，独立窗口只读取它的草稿并写回保存结果
- * @param styleHost 图表宿主元素：独立窗口从它所在的根节点复制样式（Web Component 下是 shadow root）
+ * @param styleHost 图表宿主元素：独立页面从宿主同步主题变量和外部样式
  */
 export function useScriptEditorWindow(
   session: ScriptEditorSession,
   styleHost: Readonly<Ref<HTMLElement | null>>,
 ): ScriptEditorWindowSession {
   const supported = supportsDetachedWindow()
-  const container = ref<HTMLElement | null>(null)
   let detached: DetachedWindow | null = null
+  let editVersion = 0
+  let title = ''
+
+  /** 快照只包含跨窗口可克隆的数据，不共享 Vue 引用或语言服务实例。 */
+  function snapshot(): DetachedEditorSnapshot {
+    return {
+      title: session.name.value ? `编辑脚本 · ${session.name.value}` : title,
+      source: session.source.value,
+      trusted: session.trusted.value,
+      editVersion,
+      identity: session.identity.value,
+      saving: session.saving.value,
+      saved: session.saved.value,
+      error: session.error.value,
+      logs: session.logs.value,
+    }
+  }
+
+  /** 按端口消息顺序接收草稿，保存与返回始终使用命令携带的最新文本。 */
+  function onMessage(message: DetachedEditorEvent): void {
+    if (message.type === 'ready' || !detached) return
+    if (message.type === 'clear-output') {
+      session.clearOutput()
+      return
+    }
+    if (message.editVersion < editVersion) return
+    editVersion = message.editVersion
+    session.source.value = message.source
+    session.trusted.value = message.trusted
+    if (message.type === 'save') void session.save()
+    else if (message.type === 'create-copy') void session.createCopy()
+    else if (message.type === 'return') returnToDialog()
+  }
 
   /** 释放新窗口与样式镜像；不改动编辑会话状态。 */
   function disposeWindow(): void {
     if (!detached) return
-    detached.window.removeEventListener('pagehide', returnToDialog)
     detached.dispose()
     detached = null
-    container.value = null
   }
 
   /**
@@ -58,15 +87,24 @@ export function useScriptEditorWindow(
     session.open.value = true
   }
 
-  async function open(title: string): Promise<void> {
+  /** 同步创建浏览器窗口，待独立页面接通后再交接草稿并关闭弹窗。 */
+  async function open(windowTitle: string): Promise<void> {
     if (detached) {
       detached.window.focus()
       return
     }
-    const next = await openDetachedWindow(title, styleHost.value)
+    title = windowTitle
+    editVersion = 0
+    const next = openDetachedWindow(title, styleHost.value, onMessage)
     detached = next
-    next.window.addEventListener('pagehide', returnToDialog)
-    container.value = next.container
+    try {
+      await next.ready
+    } catch (error) {
+      if (detached === next) disposeWindow()
+      throw error
+    }
+    if (detached !== next) return
+    next.update(snapshot())
     // 编辑器已在独立窗口，关闭页面内的弹窗，避免同一草稿出现两个编辑器。
     session.open.value = false
   }
@@ -76,7 +114,23 @@ export function useScriptEditorWindow(
     if (isOpen) disposeWindow()
   })
 
+  // 本地编辑不会等待这里的确认；序号阻止较早的确认覆盖新窗口随后输入的草稿。
+  watch(
+    [
+      session.source,
+      session.trusted,
+      session.identity,
+      session.saving,
+      session.saved,
+      session.error,
+      session.name,
+      session.logs,
+    ],
+    () => detached?.update(snapshot()),
+    { flush: 'post' },
+  )
+
   onBeforeUnmount(disposeWindow)
 
-  return { supported, container, open, returnToDialog }
+  return { supported, open, returnToDialog }
 }

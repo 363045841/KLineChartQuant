@@ -1,4 +1,4 @@
-/** 通用 Plot Layer：按绘图类型投影到 Pane 坐标，线条和柱子优先使用 GPU。 */
+/** 通用 Plot Layer：保留投影缓存，所有绘制按顺序提交公共屏幕原语。 */
 
 import type {
   ArrowPlot,
@@ -21,15 +21,16 @@ import {
   sameProjectionRevision,
 } from '@/engine/frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '@/engine/frame/types.js'
+import { projectBarPrimitives } from '@/engine/renderers/barGeometry/impl/paintBars.js'
 import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
-import { tryDrawLinesGpu } from '@/engine/renderers/linesViaRenderer.js'
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
-import { drawWorldRectBatches } from '@/engine/renderers/rectsViaRenderer.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
+import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { PlotRenderState } from '../types.js'
@@ -38,7 +39,7 @@ import {
   buildArrowGlyph,
   buildMarkerGlyph,
   type MarkerGlyph,
-  paintMarkerGlyph,
+  markerPrimitives,
 } from './markerGeometry.js'
 import {
   arrowMaxHeight,
@@ -454,83 +455,6 @@ function collectGeometry(state: PlotRenderState, context: RenderContext): PlotGe
   return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
 }
 
-/** 三个标记 kind 共用 Plot 的缓存与滚动坐标，不额外创建 Layer。 */
-function drawMarkers(projection: MarkerProjection, context: RenderContext): void {
-  const { points } = projection
-  const { ctx } = context
-  ctx.save()
-  ctx.translate(-context.scrollLeft, 0)
-  ctx.setLineDash([])
-  for (const point of points.values()) {
-    paintMarkerGlyph(ctx, point.glyph, point.x, point.y, point.color, point.textColor)
-  }
-  ctx.restore()
-}
-
-/** 重放折线批次，保留稳定点数组供 GPU 几何缓存复用。 */
-function drawLine(projection: LineProjection, context: RenderContext): void {
-  const { plot, lines } = projection
-  if (plot.dash.length === 0 && tryDrawLinesGpu(context, lines, context.scrollLeft)) return
-  const { ctx } = context
-  ctx.save()
-  ctx.translate(-context.scrollLeft, 0)
-  ctx.lineWidth = lineWidth(plot.size)
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.setLineDash([...plot.dash])
-  for (const line of lines) {
-    const first = line.points[0]
-    if (!first) continue
-    ctx.strokeStyle = line.color
-    ctx.beginPath()
-    ctx.moveTo(first.x, first.y)
-    for (let index = 1; index < line.points.length; index++) {
-      const point = line.points[index]
-      if (point) ctx.lineTo(point.x, point.y)
-    }
-    ctx.stroke()
-  }
-  ctx.restore()
-}
-
-/** 画独立散点，不连接相邻数据。 */
-function drawPoints(projection: PointsProjection, context: RenderContext): void {
-  const { plot, points } = projection
-  const { ctx } = context
-  ctx.save()
-  ctx.translate(-context.scrollLeft, 0)
-  for (const [index, point] of points) {
-    ctx.fillStyle = plot.data[index - plot.offset]?.color ?? plot.color
-    ctx.beginPath()
-    ctx.arc(point.x, point.y, pointRadius(plot.size), 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.restore()
-}
-
-/** 重放带状多边形；同色区域一次填充，避免分段透明度重叠与接缝。 */
-function drawFill(projection: FillProjection, context: RenderContext): void {
-  const { ctx } = context
-  ctx.save()
-  ctx.translate(-context.scrollLeft, 0)
-  for (const band of projection.bands) {
-    ctx.fillStyle = band.color
-    ctx.beginPath()
-    for (const polygon of band.polygons) {
-      const first = polygon[0]
-      if (!first) continue
-      ctx.moveTo(first.x, first.y)
-      for (let index = 1; index < polygon.length; index++) {
-        const point = polygon[index]!
-        ctx.lineTo(point.x, point.y)
-      }
-      ctx.closePath()
-    }
-    ctx.fill()
-  }
-  ctx.restore()
-}
-
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
 export function paintPlots(state: PlotRenderState, context: RenderContext): void {
   paintGeometry(state, context, collectGeometry(state, context))
@@ -542,43 +466,80 @@ function paintGeometry(
   context: RenderContext,
   geometry: PlotGeometry,
 ): void {
-  for (const fill of geometry.fills) if (fill.fill.visible) drawFill(fill, context)
-  const { ctx } = context
-  ctx.save()
-  ctx.lineWidth = 1
+  const commands: PaintPrimitive[] = []
+  const screen = (path: PrimitivePath) =>
+    path.map((point) => ({ x: point.x - context.scrollLeft, y: point.y }))
+  for (const fill of geometry.fills)
+    if (fill.fill.visible)
+      for (const band of fill.bands) {
+        commands.push({ kind: 'fill', paths: band.polygons.map(screen), color: band.color })
+      }
   for (const guide of state.guides) {
     const y = context.pane.yAxis.priceToY(guide.value)
     if (!Number.isFinite(y)) continue
-    ctx.strokeStyle = guide.color
-    ctx.setLineDash([...guide.dash])
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(context.paneWidth, y)
-    ctx.stroke()
+    commands.push({
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 0, y },
+          { x: context.paneWidth, y },
+        ],
+      ],
+      color: guide.color,
+      width: 1,
+      dash: guide.dash,
+    })
   }
-  ctx.restore()
   for (const projection of geometry.plots) {
     if (!projection.plot.visible) continue
     switch (projection.kind) {
       case 'line':
-        drawLine(projection, context)
+        for (const line of projection.lines)
+          commands.push({
+            kind: 'stroke',
+            paths: [screen(line.points)],
+            color: line.color,
+            width: line.width,
+            dash: projection.plot.dash,
+            cap: 'round',
+            join: 'round',
+          })
         break
       case 'histogram':
       case 'columns':
       case 'candle':
       case 'bar':
-        drawWorldRectBatches(context, projection.rects)
+        commands.push(...projectBarPrimitives(projection.rects, context.scrollLeft, context.dpr))
         break
       case 'points':
-        drawPoints(projection, context)
+        for (const [index, point] of projection.points)
+          commands.push({
+            kind: 'circle',
+            x: point.x - context.scrollLeft,
+            y: point.y,
+            radius: pointRadius(projection.plot.size),
+            color:
+              projection.plot.data[index - projection.plot.offset]?.color ?? projection.plot.color,
+          })
         break
       case 'shape':
       case 'char':
       case 'arrow':
-        drawMarkers(projection, context)
+        for (const point of projection.points.values())
+          commands.push(
+            ...markerPrimitives(
+              point.glyph,
+              point.x - context.scrollLeft,
+              point.y,
+              point.color,
+              point.textColor,
+              context.dpr,
+            ),
+          )
         break
     }
   }
+  primitiveSink(context.sceneRenderer?.primitives)(context.ctx, commands, context.dpr)
 }
 
 /** 按部分与颜色汇聚 OHLC 矩形；同色批次一次提交给现有 GPU/Canvas 绘制链路。 */

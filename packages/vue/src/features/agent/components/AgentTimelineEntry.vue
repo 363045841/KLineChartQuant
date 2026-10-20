@@ -9,7 +9,7 @@
     :regenerate-disabled="isLoading || actionsDisabled"
     :edit-disabled="isLoading || actionsDisabled"
     :edit-message="editMessage"
-    @regenerate="$emit('retry', entry.message.runId)"
+    @regenerate="emit('retry', entry.message.runId)"
   >
     <template #run-status>
       <AgentRunStatus v-if="entry.statusRun" :run="entry.statusRun" :locale="locale" />
@@ -20,20 +20,20 @@
     <ToolCallCard
       :tool="entry.tool"
       :locale="locale"
-      @locate="$emit('locate', $event)"
-      @undo="$emit('undo')"
+      @locate="emit('locate', $event)"
+      @undo="emit('undo')"
     />
     <ConfirmationCard
       v-if="entry.confirmation"
       :confirmation="entry.confirmation"
       :locale="locale"
-      @decide="$emit('confirm', entry.confirmation!.id, $event)"
+      @decide="emit('confirm', entry.confirmation!.id, $event)"
     />
     <QuestionCard
       v-if="entry.question"
       :question="entry.question"
       :locale="locale"
-      @answer="$emit('answer', entry.question!.id, $event)"
+      @answer="emit('answer', entry.question!.id, $event)"
     />
   </template>
 
@@ -64,7 +64,7 @@
     actionsDisabled?: boolean
   }>()
 
-  defineEmits<{
+  const emit = defineEmits<{
     retry: [runId?: string]
     confirm: [confirmationId: string, decision: ConfirmationDecision]
     answer: [questionId: string, answer: QuestionAnswerView]

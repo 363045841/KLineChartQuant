@@ -5,6 +5,7 @@
  * 调用方依赖本文件，不反向依赖 impl/。
  */
 
+import type { DrawingPatch } from '@363045841yyt/klinechart-plot-contracts'
 import type { TradingDate } from '@/data/provider/types.js'
 import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
@@ -55,24 +56,13 @@ export interface CreateDrawingInput {
   readonly zIndex?: number
 }
 
-/** 更新已确认图元的声明式 patch。 */
-export interface UpdateDrawingPatch {
-  readonly anchors?: ReadonlyArray<DrawingAnchorCommandInput>
-  readonly style?: Partial<DrawingStyle>
-  readonly params?: Readonly<Record<string, unknown>>
-  readonly labels?: DrawingLabels
-  readonly visible?: boolean
-  readonly locked?: boolean
-  readonly zIndex?: number
+/** 更新已确认图元的声明式 patch；只有锚点需要命令输入，其余字段沿用公共 patch。 */
+export interface UpdateDrawingPatch extends Omit<DrawingPatch, 'anchors'> {
+  readonly anchors?: ReadonlyArray<DrawingAnchorCommandInput> | undefined
 }
 
 /** 可同时应用到多个图元的公共属性。 */
-export interface BatchDrawingPatch {
-  readonly style?: Partial<DrawingStyle>
-  readonly visible?: boolean
-  readonly locked?: boolean
-  readonly zIndex?: number
-}
+export type BatchDrawingPatch = Pick<DrawingPatch, 'style' | 'visible' | 'locked' | 'zIndex'>
 
 /** DrawingStyle 的字段名。 */
 export type DrawingStyleKey = keyof DrawingStyle

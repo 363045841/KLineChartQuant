@@ -657,6 +657,9 @@ importers:
       '@363045841yyt/klinechart-core':
         specifier: workspace:^
         version: link:../core
+      '@363045841yyt/klinechart-plot-contracts':
+        specifier: workspace:*
+        version: link:../plot-contracts
       '@codemirror/autocomplete':
         specifier: ^6.20.3
         version: 6.20.3

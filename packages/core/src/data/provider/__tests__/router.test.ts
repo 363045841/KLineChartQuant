@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { KLineChartError } from '@/errors'
 import { symbolInfoFromSpec } from '../../../engine/data/symbolInfo'
-import { marketDataProviderRegistry } from '../impl/registry'
+import { MarketDataProviderRegistry } from '../impl/registry'
 import { SourceRouter, SourceRoutingError } from '../impl/router'
 import type { InstrumentDescriptor, MarketDataProvider } from '../types'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
@@ -22,8 +22,14 @@ const baseInstrument: InstrumentDescriptor = {
 }
 
 describe('SourceRouter', () => {
+  /**
+   * 用例独占注册表实例：内置 Provider 在模块导入时注册进生产默认单例，
+   * 用例清空或改写那个单例会连带影响同一 worker 中的其它用例文件。
+   */
+  let registry: MarketDataProviderRegistry
+
   beforeEach(() => {
-    marketDataProviderRegistry.clear()
+    registry = new MarketDataProviderRegistry()
   })
 
   it('resolves missing trade price precision from the catalog and preserves it in chart symbol info', async () => {
@@ -35,7 +41,7 @@ describe('SourceRouter', () => {
       capabilities: { ...baseInstrument.capabilities, trades: { raw: true, live: true } },
     }
     let catalogCalls = 0
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: instrument.sourceId,
         search: async () => {
@@ -56,7 +62,7 @@ describe('SourceRouter', () => {
         },
       }),
     )
-    const result = await new SourceRouter().bars({
+    const result = await new SourceRouter(registry).bars({
       preferredSourceId: instrument.sourceId,
       instrument: { ...instrument, tickSize: undefined },
       symbol: instrument.symbol,
@@ -85,7 +91,7 @@ describe('SourceRouter', () => {
       capabilities: { ...baseInstrument.capabilities, trades: { raw: true, live: true } },
     }
     let catalogCalls = 0
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: instrument.sourceId,
         search: async () => {
@@ -107,7 +113,7 @@ describe('SourceRouter', () => {
         },
       }),
     )
-    const result = await new SourceRouter().bars({
+    const result = await new SourceRouter(registry).bars({
       preferredSourceId: instrument.sourceId,
       instrument,
       symbol: instrument.symbol,
@@ -161,10 +167,10 @@ describe('SourceRouter', () => {
       fetchBars: targetFetch,
       search: targetSearch,
     })
-    marketDataProviderRegistry.register(first, { priority: 10 })
-    marketDataProviderRegistry.register(second, { priority: 1 })
+    registry.register(first, { priority: 10 })
+    registry.register(second, { priority: 1 })
 
-    const router = new SourceRouter()
+    const router = new SourceRouter(registry)
     const result = await router.bars({
       preferredSourceId: 'auto',
       instrument: baseInstrument,
@@ -210,11 +216,11 @@ describe('SourceRouter', () => {
       },
       search: async () => [{ ...baseInstrument, sourceId: 'baostock' }],
     })
-    marketDataProviderRegistry.register(first, { priority: 10 })
-    marketDataProviderRegistry.register(second, { priority: 1 })
+    registry.register(first, { priority: 10 })
+    registry.register(second, { priority: 1 })
 
     await expect(
-      new SourceRouter().bars({
+      new SourceRouter(registry).bars({
         preferredSourceId: 'gotdx',
         instrument: baseInstrument,
         symbol: baseInstrument.symbol,
@@ -256,11 +262,11 @@ describe('SourceRouter', () => {
       },
       search: async () => [],
     })
-    marketDataProviderRegistry.register(first, { priority: 10 })
-    marketDataProviderRegistry.register(second, { priority: 1 })
+    registry.register(first, { priority: 10 })
+    registry.register(second, { priority: 1 })
 
     await expect(
-      new SourceRouter().bars({
+      new SourceRouter(registry).bars({
         preferredSourceId: 'gotdx',
         instrument: baseInstrument,
         symbol: baseInstrument.symbol,
@@ -291,10 +297,10 @@ describe('SourceRouter', () => {
         { ...baseInstrument, sourceId: 'baostock', id: 'baostock:stock:600519' },
       ],
     })
-    marketDataProviderRegistry.register(first, { priority: 2 })
-    marketDataProviderRegistry.register(second, { priority: 1 })
+    registry.register(first, { priority: 2 })
+    registry.register(second, { priority: 1 })
 
-    const router = new SourceRouter()
+    const router = new SourceRouter(registry)
     const promise = router.bars({
       symbol: baseInstrument.symbol,
       exchange: baseInstrument.exchange,
@@ -342,9 +348,9 @@ describe('SourceRouter', () => {
         }
       },
     })
-    marketDataProviderRegistry.register(provider)
+    registry.register(provider)
 
-    const result = await new SourceRouter().bars({
+    const result = await new SourceRouter(registry).bars({
       preferredSourceId: 'gotdx',
       instrument: unknownInstrument,
       symbol: unknownInstrument.symbol,

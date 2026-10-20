@@ -85,6 +85,16 @@ function createDisjointChannelFixture() {
 }
 
 describe('HitTester', () => {
+  it('excludes indicator drawings from pointer and label interaction', () => {
+    const drawing = createFillFixture('parallel-channel', [
+      { time: 1000, price: 10 }, { time: 2000, price: 20 },
+      { time: 1000, price: 30 }, { time: 2000, price: 40 },
+    ])
+    drawing.ownerId = 'indicator'
+    const tester = new HitTester()
+    expect(tester.hitTest(20, 10, [drawing], createLineAdapter())).toBeNull()
+    expect(tester.findLabelTarget(120, 15, [drawing], createLineAdapter())).toBeNull()
+  })
   it('hits a vertical anchor along its full height', () => {
     const drawing: DrawingObject = {
       id: 'vertical',

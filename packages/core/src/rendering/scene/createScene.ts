@@ -18,8 +18,10 @@ import {
   LAYER_PANE_GLOBAL,
   type Layer,
   type LayerPaint,
+  SCENE_TARGET_Z,
   type Scene,
   type SceneFrame,
+  scenePaintTarget,
 } from './types.js'
 
 export function createScene<TFrame = unknown>(): Scene<TFrame> {
@@ -87,8 +89,6 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
   const paint = (frame: SceneFrame): void => {
     if (disposed) return
     for (const pane of frame.panes) {
-      // 区域绑定必须紧邻实际绘制，避免共享后端沿用最后一个副图的区域。
-      pane.renderer.beginFrame(pane.region, { clear: pane.clear })
       // 本批要绘制的 Layer 列表
       let candidates = layerList.filter(
         (layer) =>
@@ -100,21 +100,31 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         candidates = candidates.filter((layer) => roles.includes(layer.role))
       }
       // 按 z 升序稳定排序，相同 z 保留注册顺序（ECMAScript 2019+ 保证稳定）
-      candidates.sort((a, b) => a.z - b.z)
+      candidates.sort(
+        (a, b) =>
+          SCENE_TARGET_Z[scenePaintTarget(a.role)] - SCENE_TARGET_Z[scenePaintTarget(b.role)] ||
+          a.z - b.z,
+      )
       // 依次绘制这批 Layer
       for (const layer of candidates) {
+        const target = pane.targets[scenePaintTarget(layer.role)]
+        if (!target) continue
         const ctx: LayerPaint<TFrame> = {
           ...(pane.context as TFrame),
+          ctx: target,
           paneId: pane.paneId,
           clear: pane.clear,
           // 本帧渲染后端由 Scene 注入，渲染器无需自行获取。
           sceneRenderer: pane.renderer,
         }
+        target.save()
         try {
           layer.paint(ctx)
         } catch (e) {
           // 异常隔离：单个 Layer 抛错不中断同 pane 后续 Layer。
           console.error(`[Layer] ${layer.id} paint error:`, e)
+        } finally {
+          target.restore()
         }
       }
     }

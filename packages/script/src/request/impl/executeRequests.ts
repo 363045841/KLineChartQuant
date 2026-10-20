@@ -20,6 +20,7 @@ export type RequestRunner = (
   bars: readonly Bar[],
   params: Readonly<Record<string, ScriptParamValue>>,
   execution: RequestExecution,
+  emitOutput: boolean,
 ) => RequestRunResult
 
 /** 空点保持元组形状，数值用 NaN，与既有 Plot 缺值语义相同。 */
@@ -61,19 +62,25 @@ export function executeRequests(
   context: ScriptRequestContext | undefined,
 ): PlotCollection {
   const symbol = context === undefined ? CURRENT_SYMBOL : context.symbol
-  const plan = run([], params, { symbol, results: {} }).requests
-  if (plan.length === 0) return run(bars, params, { symbol, results: {} }).collection
+  // 请求规划会重放顶层源码，但它不是用户的一次实际运行，不应重复输出。
+  const plan = run([], params, { symbol, results: {} }, false).requests
+  if (plan.length === 0) return run(bars, params, { symbol, results: {} }, true).collection
   if (context === undefined) throw new Error('Request 需要宿主提供行情上下文')
   const results: Record<string, readonly RequestValue[]> = {}
   for (const request of plan) {
     const snapshot = context.snapshots.find((item) => item.id === request.id)
     if (!snapshot) throw new Error(`Request 缺少行情快照：${request.id}`)
-    const evaluated = run(snapshot.bars, params, {
-      symbol: request.symbol,
-      expressionId: request.id,
-      results: {},
-    })
+    const evaluated = run(
+      snapshot.bars,
+      params,
+      {
+        symbol: request.symbol,
+        expressionId: request.id,
+        results: {},
+      },
+      true,
+    )
     results[request.id] = align(bars, snapshot.bars, evaluated.values, request.gaps)
   }
-  return run(bars, params, { symbol, results }).collection
+  return run(bars, params, { symbol, results }, true).collection
 }

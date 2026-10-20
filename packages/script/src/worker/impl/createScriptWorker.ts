@@ -1,4 +1,6 @@
 /** Script Worker 客户端；只负责请求关联、错误传递和线程释放。 */
+
+import type { LogEvent } from '../../contracts/output.js'
 import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 /**
@@ -15,6 +17,7 @@ import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '..
  */
 export function createScriptWorker(
   worker = new Worker(new URL('./script.worker.js', import.meta.url), { type: 'module' }),
+  onOutput?: (id: string, events: readonly LogEvent[]) => void,
 ): ScriptWorker {
   let nextRequestId = 0
   let failure: Error | undefined
@@ -41,6 +44,10 @@ export function createScriptWorker(
   /** 按请求 ID 完成调用，脚本自身错误不影响后续请求。 */
   function onMessage(event: MessageEvent<ScriptWorkerResponse>): void {
     const response = event.data
+    if (response.type === 'output') {
+      onOutput?.(response.id, response.events)
+      return
+    }
     const request = pending.get(response.requestId)
     if (!request) return
     pending.delete(response.requestId)

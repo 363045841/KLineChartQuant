@@ -1,193 +1,22 @@
-/**
- * Type-level contract test for the Renderer abstraction.
- *
- * Approach: this file builds **minimal mock implementations** of both
- * `SurfaceBackend` and `Renderer` and assigns them to typed variables.
- * If a future change to either interface breaks contract conformance,
- * `tsc` fails at the mock's `: SurfaceBackend` annotation — the test
- * names below describe what each mock proves.
- *
- * Runtime assertions only verify the mock objects are well-formed
- * (the real point of the file is the type checks above each test).
- */
-
+/** 三后端共用单一原语契约，不再允许第二条可见 GPU 输出链路。 */
 import { describe, expect, it } from 'vitest'
-
+import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { createCanvas2DRenderer } from '../backend/createCanvas2DRenderer'
-import type {
-  BufferHandle,
-  ComputePipelineHandle,
-  PipelineHandle,
-  Renderer,
-  RendererCapabilities,
-  SurfaceBackend,
-  SurfaceRegion,
-  VisibleSurface,
-} from '../index'
-import { getVisibleCanvas } from '../index'
 
-// --- SurfaceBackend conformance ---
-
-function makeMockSurface(): SurfaceBackend {
-  let disposed = false
-  let lastRegion: SurfaceRegion | null = null
-  const surface: SurfaceBackend = {
-    isAvailable: () => !disposed,
-    resize: () => {},
-    bindRegion: (region) => {
-      if (disposed) return false
-      lastRegion = region
-      return region.width > 0 && region.height > 0
-    },
-    clearRegion: () => {},
-    dispose: () => {
-      disposed = true
-      lastRegion = null
-    },
-  }
-  // Touch the inner state via the surface so it's not unused.
-  void lastRegion
-  return surface
-}
-
-describe('SurfaceBackend contract', () => {
-  it('mock satisfies the interface shape', () => {
-    const s = makeMockSurface()
-    expect(typeof s.isAvailable).toBe('function')
-    expect(typeof s.resize).toBe('function')
-    expect(typeof s.bindRegion).toBe('function')
-    expect(typeof s.clearRegion).toBe('function')
-    expect(typeof s.dispose).toBe('function')
-  })
-
-  it('lifecycle: dispose then isAvailable returns false', () => {
-    const s = makeMockSurface()
-    expect(s.isAvailable()).toBe(true)
-    s.dispose()
-    expect(s.isAvailable()).toBe(false)
-  })
-
-  it('bindRegion rejects zero-area regions', () => {
-    const s = makeMockSurface()
-    expect(s.bindRegion({ x: 0, y: 0, width: 0, height: 100, dpr: 1 })).toBe(false)
-    expect(s.bindRegion({ x: 0, y: 0, width: 100, height: 0, dpr: 1 })).toBe(false)
-    expect(s.bindRegion({ x: 0, y: 0, width: 100, height: 100, dpr: 2 })).toBe(true)
-  })
-})
-
-// --- VisibleSurface capability ---
-
-function makeMockVisibleSurface(canvas: HTMLCanvasElement): VisibleSurface {
-  return { ...makeMockSurface(), canvas }
-}
-
-describe('getVisibleCanvas', () => {
-  it('returns the canvas when the surface exposes one', () => {
-    const canvas = {} as HTMLCanvasElement
-    expect(getVisibleCanvas(makeMockVisibleSurface(canvas))).toBe(canvas)
-  })
-
-  it('returns null for a surface without a visible canvas', () => {
-    expect(getVisibleCanvas(makeMockSurface())).toBeNull()
-  })
-
-  it('returns null for the Canvas2D backend surface', () => {
-    expect(getVisibleCanvas(createCanvas2DRenderer().surface)).toBeNull()
-  })
-})
-
-// --- Renderer conformance ---
-
-const fakeBuffer = { __brand: 'BufferHandle' } as BufferHandle
-const fakePipeline = { __brand: 'PipelineHandle' } as PipelineHandle
-const fakeCompute = { __brand: 'ComputePipelineHandle' } as ComputePipelineHandle
-
-function makeMockRenderer(surface: SurfaceBackend, computeSupported: boolean): Renderer {
-  const caps: RendererCapabilities = {
-    compute: computeSupported,
-    storageBuffer: computeSupported,
-    maxInstances: 1_000_000,
-    name: computeSupported ? 'webgpu' : 'webgl2',
-  }
-  return {
-    surface,
-    caps,
-    createBuffer: () => fakeBuffer,
-    writeBuffer: () => {},
-    destroyBuffer: () => {},
-    createPipeline: () => fakePipeline,
-    destroyPipeline: () => {},
-    createComputePipeline: () => {
-      if (!computeSupported) {
-        throw new Error('compute not supported on this backend')
-      }
-      return fakeCompute
-    },
-    destroyComputePipeline: () => {},
-    beginFrame: () => {},
-    drawInstances: () => true,
-    drawLines: () => true,
-    dispatchCompute: () => {
-      if (!computeSupported) {
-        throw new Error('dispatchCompute requires a backend with caps.compute === true')
-      }
-    },
-    endFrame: () => {},
-    dispose: () => {},
-  }
-}
-
-describe('Renderer contract', () => {
-  it('mock satisfies the interface shape', () => {
-    const r = makeMockRenderer(makeMockSurface(), false)
-    expect(r.surface).toBeDefined()
-    expect(r.caps).toBeDefined()
-    expect(typeof r.createBuffer).toBe('function')
-    expect(typeof r.drawInstances).toBe('function')
-    expect(typeof r.dispose).toBe('function')
-  })
-
-  it('capabilities flag distinguishes backends', () => {
-    const webgl = makeMockRenderer(makeMockSurface(), false)
-    const webgpu = makeMockRenderer(makeMockSurface(), true)
-    expect(webgl.caps.compute).toBe(false)
-    expect(webgl.caps.name).toBe('webgl2')
-    expect(webgpu.caps.compute).toBe(true)
-    expect(webgpu.caps.name).toBe('webgpu')
-  })
-
-  it('WebGL impl must throw on createComputePipeline + dispatchCompute', () => {
-    const webgl = makeMockRenderer(makeMockSurface(), false)
-    expect(() => webgl.createComputePipeline({})).toThrow(/compute/)
-    expect(() =>
-      webgl.dispatchCompute({
-        pipeline: fakeCompute,
-        workgroups: [1],
-        bindings: {},
-      }),
-    ).toThrow(/compute/)
-  })
-
-  it('WebGPU impl supports compute path without throwing', () => {
-    const webgpu = makeMockRenderer(makeMockSurface(), true)
-    expect(() => webgpu.createComputePipeline({})).not.toThrow()
-    expect(() =>
-      webgpu.dispatchCompute({
-        pipeline: webgpu.createComputePipeline({}),
-        workgroups: [256, 1, 1],
-        bindings: { 0: fakeBuffer },
-      }),
-    ).not.toThrow()
-  })
-
-  it('buffer handles round-trip through write/destroy', () => {
-    const r = makeMockRenderer(makeMockSurface(), false)
-    const handle = r.createBuffer('vertex', 1024)
-    // Buffer handle is opaque; the contract just verifies we get
-    // a value and can pass it back without TypeScript complaint.
-    const data = new Float32Array(256)
-    expect(() => r.writeBuffer(handle, data)).not.toThrow()
-    expect(() => r.writeBuffer(handle, data, 64)).not.toThrow()
-    expect(() => r.destroyBuffer(handle)).not.toThrow()
+describe('unified Renderer contract', () => {
+  it('exposes only backend identity, primitive execution and disposal', () => {
+    const renderer = createCanvas2DRenderer()
+    expect(Object.keys(renderer).sort()).toEqual(['caps', 'dispose', 'primitives'])
+    const target = createMockCanvasContext()
+    expect(
+      renderer.primitives.paint(
+        target,
+        [{ kind: 'rect', x: 1, y: 2, width: 3, height: 4, color: 'red' }],
+        1,
+      ),
+    ).toBe(true)
+    expect(target.fillRect).toHaveBeenCalledWith(1, 2, 3, 4)
+    renderer.dispose()
+    expect(renderer.primitives.paint(target, [], 1)).toBe(false)
   })
 })

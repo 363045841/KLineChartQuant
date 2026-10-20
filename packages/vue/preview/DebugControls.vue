@@ -1,7 +1,7 @@
 <template>
   <div class="debug-controls">
     <div class="debug-left">
-      <button @click="$emit('open-modal')" title="打开 Modal">
+      <button @click="emit('open-modal')" title="打开 Modal">
         <svg
           class="debug-icon"
           viewBox="0 0 24 24"
@@ -17,7 +17,7 @@
           <line x1="9" y1="3" x2="9" y2="21" />
         </svg>
       </button>
-      <button @click="$emit('toggle-embed-size')" title="切换嵌入容器尺寸">
+      <button @click="emit('toggle-embed-size')" title="切换嵌入容器尺寸">
         <svg
           class="debug-icon"
           viewBox="0 0 24 24"
@@ -36,7 +36,7 @@
       </button>
       <button
         :class="{ 'is-active': customDataActive }"
-        @click="$emit('toggle-custom-data')"
+        @click="emit('toggle-custom-data')"
         :title="customDataActive ? '切换到 Fetcher 数据源' : '切换到自定义数据源'"
       >
         <svg
@@ -99,7 +99,7 @@
 
   const version = `Vue@${VERSION}-Core@${CORE_VERSION}`
 
-  defineEmits<{
+  const emit = defineEmits<{
     'open-modal': []
     'toggle-embed-size': []
     'toggle-custom-data': []

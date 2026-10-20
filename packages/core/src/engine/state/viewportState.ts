@@ -83,7 +83,7 @@ export interface ViewportDomDeps {
     canvasLayer: HTMLElement | null
     xAxisCanvas: HTMLCanvasElement | null
   }
-  resizeSharedWebGLSurface: (plotWidth: number, plotHeight: number, dpr: number) => void
+  onViewportResize: (plotWidth: number, plotHeight: number, dpr: number) => void
 }
 
 const NULL_DOM_RETURN: ReturnType<ViewportDomDeps['getDom']> = {
@@ -97,8 +97,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const readTimeShareSlotWidth = (): number | undefined =>
     signalDeps.timeShareSlotWidth$?.() ?? undefined
   const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
-  const _resizeSharedWebGLSurface = (w: number, h: number, dpr: number) => {
-    if (_domDeps) _domDeps.resizeSharedWebGLSurface(w, h, dpr)
+  const requestViewportResize = (w: number, h: number, dpr: number) => {
+    if (_domDeps) _domDeps.onViewportResize(w, h, dpr)
   }
 
   const computeDpr = (viewWidth: number, viewHeight: number, preciseDpr: number): number => {
@@ -244,7 +244,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   // effect 的监听行为是自动的，但它的启动时机是手动控制的
 
   let canvasDomEffect: (() => void) | null = null
-  let webglEffect: (() => void) | null = null
+  let resizeEffect: (() => void) | null = null
 
   /**
    * 写入请求 scrollLeft；与当前值相等时跳过，避免 pan 重复事件空通知。
@@ -267,7 +267,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   }
 
   /**
-   * 挂载 canvas DOM 尺寸与 WebGL surface 的同步 effect。
+   * 挂载 Canvas DOM 尺寸同步与绘制帧 resize 请求。
    *
    * @remarks init() 时调用，返回的清理函数由 dispose() 执行。
    */
@@ -280,13 +280,13 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       const dpr = readonly.dpr()
       syncCanvasDom(dpr, viewWidth, viewHeight)
     })
-    webglEffect = effect(() => {
+    resizeEffect = effect(() => {
       if (!readonly.initialized()) return
       const plotWidth = readonly.plotWidth()
       const plotHeight = readonly.plotHeight()
       if (plotWidth <= 0 || plotHeight <= 0) return
       const dpr = readonly.dpr()
-      _resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
+      requestViewportResize(plotWidth, plotHeight, dpr)
     })
   }
 
@@ -425,9 +425,9 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
      */
     dispose() {
       canvasDomEffect?.()
-      webglEffect?.()
+      resizeEffect?.()
       canvasDomEffect = null
-      webglEffect = null
+      resizeEffect = null
       batch(() => {
         signals.initialized.set(false)
         signals.preciseDpr.set(0)

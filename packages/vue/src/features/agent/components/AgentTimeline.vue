@@ -9,7 +9,7 @@
     <AgentTimelineEmptyState
       v-if="entries.length === 0"
       :locale="locale"
-      @prompt="$emit('prompt', $event)"
+      @prompt="emit('prompt', $event)"
     />
 
     <AgentTimelineEntry
@@ -24,7 +24,7 @@
       v-on="entryListeners"
     />
 
-    <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="$emit('retry')" />
+    <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="emit('retry')" />
   </main>
 </template>
 

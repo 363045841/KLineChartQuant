@@ -97,6 +97,30 @@ function projectSingleDrawing(drawing: DrawingObject, selected: boolean): Drawin
 }
 
 describe('projectDrawingsForFrame', () => {
+  it('projects timestamp positions between bars through the shared continuous X axis', () => {
+    const drawing = createTrendDrawing({ ownerId: 'indicator', xloc: 'bar_time', anchors: [
+      { id: 'a', time: 1500, price: 10 }, { id: 'b', time: 2000, price: 20 },
+    ] })
+    expect(linePrimitives(projectSingleDrawing(drawing, false).primitives)).toMatchObject([
+      { a: { x: 20, y: 90 }, b: { x: 30, y: 80 } },
+    ])
+  })
+  it('projects indicator index anchors with no handles even if selected', () => {
+    const drawing = createTrendDrawing({ ownerId: 'indicator', extend: 'left', anchors: [
+      { id: 'a', logicalIndex: 0, price: 10 }, { id: 'b', logicalIndex: 3, price: 20 },
+    ] })
+    const projection = projectSingleDrawing(drawing, true)
+    expect(linePrimitives(projection.primitives)).toMatchObject([{ a: { x: 10, y: 90 }, extend: 'left', showEndpoints: false }])
+    expect(pointPrimitives(projection.primitives)).toHaveLength(0)
+    expect(projection.yAxisRanges).toHaveLength(0)
+  })
+
+  it('retains na objects without projecting invalid coordinates', () => {
+    const drawing = createTrendDrawing({ ownerId: 'indicator', anchors: [
+      { id: 'a', logicalIndex: Number.NaN, price: 10 }, { id: 'b', logicalIndex: 1, price: 20 },
+    ] })
+    expect(projectSingleDrawing(drawing, false).primitives).toHaveLength(0)
+  })
   it('registers selected drawing axis labels into the frame collectors without mutating ranges', () => {
     const drawing = createTrendDrawing({ style: { stroke: '#2962ff', strokeWidth: 1 } })
     const store = new DrawingStore({

@@ -13,7 +13,7 @@ type GpuGlobal = typeof globalThis & {
     readonly UNIFORM?: number
     readonly STORAGE?: number
   }
-  readonly GPUTextureUsage?: { readonly RENDER_ATTACHMENT?: number; readonly COPY_SRC?: number }
+  readonly GPUTextureUsage?: { readonly RENDER_ATTACHMENT?: number; readonly COPY_SRC?: number; readonly COPY_DST?: number; readonly TEXTURE_BINDING?: number }
   readonly GPUMapMode?: { readonly READ?: number }
 }
 
@@ -27,4 +27,6 @@ export const GPU_BUFFER_STORAGE = gpu.GPUBufferUsage?.STORAGE ?? 0x0080
 export const GPU_TEXTURE_RENDER_ATTACHMENT = gpu.GPUTextureUsage?.RENDER_ATTACHMENT ?? 0x10
 export const GPU_BUFFER_MAP_READ = gpu.GPUBufferUsage?.MAP_READ ?? 0x0001
 export const GPU_TEXTURE_COPY_SRC = gpu.GPUTextureUsage?.COPY_SRC ?? 0x01
+export const GPU_TEXTURE_COPY_DST = gpu.GPUTextureUsage?.COPY_DST ?? 0x02
+export const GPU_TEXTURE_BINDING = gpu.GPUTextureUsage?.TEXTURE_BINDING ?? 0x04
 export const GPU_MAP_READ = gpu.GPUMapMode?.READ ?? 0x0001

@@ -11,7 +11,7 @@
           aria-haspopup="dialog"
           :aria-expanded="sessionsOpen"
           :disabled="!available"
-          @click="$emit('toggle-sessions')"
+          @click="emit('toggle-sessions')"
         >
           <IconMenu2 aria-hidden="true" />
         </button>
@@ -23,13 +23,13 @@
             type="button"
             :aria-label="text.newSession"
             :disabled="!available"
-            @click="$emit('create')"
+            @click="emit('create')"
           >
             <IconPlus aria-hidden="true" />
           </button>
         </BaseTooltip>
         <BaseTooltip :content="text.settings" placement="bottom">
-          <button type="button" :aria-label="text.settings" @click="$emit('settings')">
+          <button type="button" :aria-label="text.settings" @click="emit('settings')">
             <IconSettings aria-hidden="true" />
           </button>
         </BaseTooltip>
@@ -38,7 +38,7 @@
             type="button"
             data-testid="agent-panel-side-toggle"
             :aria-label="panelSideLabel"
-            @click="$emit('toggle-panel-side')"
+            @click="emit('toggle-panel-side')"
           >
             <IconLayoutSidebarLeftExpand v-if="panelSide === 'right'" aria-hidden="true" />
             <IconLayoutSidebarRightExpand v-else aria-hidden="true" />
@@ -49,7 +49,7 @@
             type="button"
             data-testid="agent-panel-close"
             :aria-label="text.closePanel"
-            @click="$emit('close')"
+            @click="emit('close')"
           >
             <IconChevronLeft v-if="panelSide === 'left'" aria-hidden="true" />
             <IconChevronRight v-else aria-hidden="true" />
@@ -84,7 +84,7 @@
     { panelSide: 'right', available: true },
   )
 
-  defineEmits<{
+  const emit = defineEmits<{
     create: []
     'toggle-sessions': []
     settings: []

@@ -7,7 +7,7 @@
         :max-rows="6"
         :placeholder="text.composerPlaceholder"
         :aria-label="text.composerPlaceholder"
-        @update:model-value="$emit('update:draft', $event)"
+        @update:model-value="emit('update:draft', $event)"
         @keydown="onKeydown"
       />
       <div class="composer__footer">
@@ -19,7 +19,7 @@
             :empty-text="text.noModelsInPool"
             :disabled="running || !provider.configured"
             placement="top"
-            @open="$emit('models-open')"
+            @open="emit('models-open')"
             @select="selectModel"
           >
             <template #trigger>
@@ -40,7 +40,7 @@
             :groups="reasoningGroups"
             :label="text.reasoningEffort"
             :disabled="running"
-            @select="(_groupId, value) => $emit('reasoning-effort', value)"
+            @select="(_groupId, value) => emit('reasoning-effort', value)"
           >
             <template #trigger>
               <span class="composer__reasoning-value">{{ provider.reasoningEffort || text.reasoning }}</span>
@@ -66,7 +66,7 @@
             type="button"
             class="composer__primary composer__primary--stop agent-primary-button"
             :aria-label="text.stop"
-            @click="$emit('stop')"
+            @click="emit('stop')"
           >
             <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
             <IconPlayerStopFilled aria-hidden="true" />
@@ -78,7 +78,7 @@
             class="composer__primary agent-primary-button"
             :disabled="!draft.trim()"
             :aria-label="text.send"
-            @click="$emit('send')"
+            @click="emit('send')"
           >
             <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
             <IconArrowUp aria-hidden="true" />

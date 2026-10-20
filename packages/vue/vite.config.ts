@@ -4,15 +4,20 @@ import vue from '@vitejs/plugin-vue'
 import dts from 'vite-plugin-dts'
 import Icons from 'unplugin-icons/vite'
 import cssInjectedByJs from 'vite-plugin-css-injected-by-js'
+import { scriptEditorPagePlugin } from './scripts/script-editor-page-plugin.mjs'
 
 const isWC = process.env.BUILD_TARGET === 'web-component'
 
 export default defineConfig({
   plugins: [
+    scriptEditorPagePlugin(),
     vue({ customElement: isWC }),
     Icons({ compiler: 'vue3', autoInstall: true }),
     ...(isWC
-      ? [cssInjectedByJs()]
+      ? [cssInjectedByJs({
+          // 独立页面的样式必须留在资源目录，由子窗口加载，不能注入宿主后删除。
+          cssAssetsFilterFunction: (asset) => !asset.fileName.startsWith('assets/script-editor/'),
+        })]
       : [
           dts({
             tsconfigPath: fileURLToPath(new URL('./tsconfig.build.json', import.meta.url)),

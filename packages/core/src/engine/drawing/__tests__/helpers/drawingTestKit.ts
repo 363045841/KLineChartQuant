@@ -16,9 +16,9 @@ import type {
   PaneLayoutInfo,
 } from '@/controllers/types'
 import type { KLineData } from '@/foundation/types/price'
-import type { HitResult } from '../../interaction/impl/HitTester'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
+import type { HitResult } from '../../interaction/types'
 import type { MagnetMode } from '../../magnet/types'
 import type { DrawingObject } from '../../types'
 

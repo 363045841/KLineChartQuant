@@ -8,6 +8,9 @@
 
 import {
   Color,
+  LineStyle,
+  extend,
+  xloc,
   DataSource,
   Format,
   PlotKind,
@@ -22,6 +25,9 @@ import { Position } from '../types.js'
 export const SCRIPT_ENUM_GLOBALS = {
   DataSource,
   Color,
+  LineStyle,
+  extend,
+  xloc,
   Format,
   Position,
   PlotKind,

@@ -171,7 +171,7 @@ describe('viewportState template', () => {
 
     module.setDomDeps({
       getDom: () => ({ container, scrollContent: null, canvasLayer: null, xAxisCanvas: null }),
-      resizeSharedWebGLSurface: () => {},
+      onViewportResize: () => {},
     })
     module.actions.resize(100, 100, 1)
     module.actions.init()
@@ -219,7 +219,7 @@ describe('viewportState template', () => {
 
     module.setDomDeps({
       getDom: () => ({ container, scrollContent, canvasLayer: null, xAxisCanvas: null }),
-      resizeSharedWebGLSurface: () => {},
+      onViewportResize: () => {},
     })
     module.actions.resize(100, 100, 1)
     module.actions.init()

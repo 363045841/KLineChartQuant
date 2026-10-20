@@ -109,6 +109,7 @@ export type IndicatorRenderStateComposer = (
   entry: unknown,
   visibleRange: IndicatorVisibleRange,
   timestamp: number,
+  projectIndex: (index: number) => number,
 ) => unknown
 
 /** 领域输出的专用投影和价格范围；普通数值序列使用 Plot。 */

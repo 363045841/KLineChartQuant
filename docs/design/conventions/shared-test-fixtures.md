@@ -19,7 +19,7 @@
 
 | 模块 | 覆盖 |
 | --- | --- |
-| `engine/__tests__/helpers/renderTestKit.ts` | `createMockRenderContext` / `createMockPaneInfo` / `createMockPluginHost` / `createMockCanvasContext` / `createMockStateReader` / `createMockServiceHost` / `createMockIndicatorInstanceHost` |
+| `engine/__tests__/helpers/renderTestKit.ts` | `createMockRenderContext` / `createMockPaneInfo` / `createMockPluginHost` / `createMockCanvasContext` / `createMockStateReader` |
 | `engine/__tests__/helpers/chartDomTestKit.ts` | `createChartDom` / `createCanvasGetContextMock` / `createWebGLContextStub` / `ResizeObserverMock` / `installChartDomStubs` / `stubAnimationFrame` |
 | `engine/drawing/__tests__/helpers/drawingTestKit.ts` | 图元构造 + `DrawingDocumentPort` / `DrawingViewportPort` / `DrawingSessionPort` 工厂 + `createDrawingAdapter` + `createFourBarTimelineAdapter` / flat-line / disjoint-channel / parallel-channel 图元工厂 |
 | `engine/data/__tests__/helpers/chartDataManagerTestKit.ts` | `createMockViewport` / `createMockDataDependencies` / `createMockChartDataManager` / `createTestDocument` / `createChartDom` |

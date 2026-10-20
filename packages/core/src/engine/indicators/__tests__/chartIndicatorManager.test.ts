@@ -3,13 +3,13 @@
  */
 
 import type { IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
-import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
+import { createDrawingObject, ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
 import { createPluginHost } from '@/foundation/plugin'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import { createSignal } from '@/foundation/reactivity/signal'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerStoreTestKit'
 import {
@@ -164,6 +164,89 @@ function createMockDeps() {
 }
 
 describe('ChartIndicatorManager', () => {
+  it.each(['main', 'sub'])('异步重算期间 %s 指标始终按原始时间身份对齐，连续补历史不累计错位', async (category) => {
+    const name = `Timeline_${category}`
+    registerExternalPlotIndicator({ name, category: category === 'main' ? 'main' : 'sub', compute: (data) => ({
+      plots: [{ kind: 'line', id: 'close', label: 'Close', color: DEFAULT_DRAWING_STROKE,
+        visible: true, offset: 0, size: ShapeSize.Auto, dash: [], data: data.map((bar) => ({ value: bar.close })) }],
+      fills: [],
+      drawings: [createDrawingObject({ id: 'line', kind: 'trend-line', paneId: 'main', xloc: 'bar_index',
+        anchors: [{ id: 'a', logicalIndex: 0, price: data[0]!.close }, { id: 'b', logicalIndex: data.length, price: data[0]!.close }],
+      }, DEFAULT_DRAWING_STROKE)],
+    }) })
+    manager.addIndicator(name)
+    const id = harness.indicator.readonly.instances.peek().find((instance) => instance.indicatorId === name)!.instanceId
+    const all = createTestData(8)
+    const initial = all.slice(4, 7)
+    const reader = manager.createRenderStateReader()
+    /** 从同一读取器观察同步展示更新与异步提交之间的窗口。 */
+    const read = (): PlotRenderState => reader.get<PlotRenderState>(id)!
+    manager.updateIndicatorData(initial, { start: 0, end: 3 })
+    await vi.waitFor(() => expect(read()?.plots[0]?.data).toHaveLength(3))
+    const original = read()
+    manager.updateIndicatorData(all.slice(2, 7), { start: 0, end: 5 })
+    expect(read().plots[0]?.data).toEqual([undefined, undefined, ...original.plots[0]!.data])
+    expect(read().drawings?.[0]?.anchors.map((anchor) => anchor.logicalIndex)).toEqual([2, 5])
+    manager.updateIndicatorData(all, { start: 0, end: 8 })
+    expect(read().plots[0]?.data).toEqual([undefined, undefined, undefined, undefined, ...original.plots[0]!.data, undefined])
+    expect(read().drawings?.[0]?.anchors.map((anchor) => anchor.logicalIndex)).toEqual([4, 7])
+    // 原始计算输出没有被投影反向修改，新结果提交后才填充新位置。
+    expect(original.drawings?.[0]?.anchors.map((anchor) => anchor.logicalIndex)).toEqual([0, 3])
+    await vi.waitFor(() => expect(read().plots[0]?.data[0]).toMatchObject({ value: all[0]!.close }))
+    expect(read().plots[0]?.data).toEqual(all.map((bar) => ({ value: bar.close })))
+    expect(read().drawings?.[0]?.anchors.map((anchor) => anchor.logicalIndex)).toEqual([0, 8])
+  })
+
+  it('分时展示重排 Plot 数据时保留图元列表、锚点和线型数组', async () => {
+    manager.enableMainIndicator('PlotClose')
+    const data = createTestData(3)
+    const display = [data[1]!.timestamp, data[2]!.timestamp]
+    manager.updateIndicatorData(data, { start: 0, end: 2 }, 1, display)
+    const reader = manager.createRenderStateReader()
+    await vi.waitFor(() => expect(reader.get<PlotRenderState>('main:PlotClose')?.plots[0]?.data).toEqual([
+      { value: data[1]!.close, color: undefined }, { value: data[2]!.close, color: undefined },
+    ]))
+  })
+  it.each(['main', 'sub'])('按 %s 指标身份统一隐藏与恢复 Plot 和 drawing，保留计算结果', async (category) => {
+    const name = `Visibility_${category}`
+    const compute = vi.fn((data: KLineData[]): PlotCollection => ({
+      plots: [{
+        kind: 'line', id: 'close', label: 'Close', color: DEFAULT_DRAWING_STROKE,
+        visible: true, offset: 0, size: ShapeSize.Auto, dash: [],
+        data: data.map((bar) => ({ value: bar.close })),
+      }],
+      fills: [],
+      drawings: [createDrawingObject({
+        id: 'line', kind: 'trend-line', paneId: 'main', xloc: 'bar_index',
+        anchors: [{ id: 'a', logicalIndex: 0, price: 100 }, { id: 'b', logicalIndex: 1, price: 200 }],
+      }, DEFAULT_DRAWING_STROKE)],
+    }))
+    registerExternalPlotIndicator({ name, category: category === 'main' ? 'main' : 'sub', compute })
+    expect(manager.addIndicator(name)).not.toBeNull()
+    const id = harness.indicator.readonly.instances.peek().find((instance) => instance.indicatorId === name)!.instanceId
+    manager.updateIndicatorData(createTestData(5), { start: 0, end: 5 })
+    const reader = manager.createRenderStateReader()
+    await vi.waitFor(() => expect(reader.get<PlotRenderState>(id)?.drawings).toHaveLength(1))
+    const output = reader.get<PlotRenderState>(id)!
+    expect(output.plots).toHaveLength(1)
+    const snapshot = manager.getRenderStatesSnapshot()
+    expect(manager.getRenderStatesSnapshot()).toBe(snapshot)
+    const calls = compute.mock.calls.length
+    /** 使用正式主图与副图隐藏入口，验证已有读取器同步反映实例展示状态。 */
+    const setHidden = (hidden: boolean): void => {
+      if (category === 'main') manager.setMainHidden(name, hidden)
+      else manager.setSubHidden(manager.getSubPaneEntries().find((pane) => pane.instanceId === id)!.paneId, hidden)
+    }
+    setHidden(true)
+    expect(reader.get(id)).toBeUndefined()
+    expect(manager.getRenderStatesSnapshot().has(id)).toBe(false)
+    expect(manager.getRenderStatesSnapshot()).not.toBe(snapshot)
+    if (category === 'main') expect(manager.getMainIndicatorPriceRange()).toBeNull()
+    setHidden(false)
+    expect(reader.get(id)).toBe(output)
+    expect(manager.getRenderStatesSnapshot().get(id)).toBe(output)
+    expect(compute).toHaveBeenCalledTimes(calls)
+  })
   it('外部 Plot 副图使用柱形模型及零基准范围', async () => {
     const instance = manager.addIndicator('PlotVolume')
     expect(instance).not.toBeNull()

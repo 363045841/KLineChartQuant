@@ -1,293 +1,249 @@
-/**
- * 默认 primitive 渲染器集合：把投影后的绘图 primitive 绘制到 Canvas2D。
- *
- * 线段/箭头裁剪依赖 geometry/impl/lineClipping 的纯几何函数。
- */
-
-import { type Point, pointInRect, type Rect } from '@/foundation/geometry/index.js'
+/** drawing 投影到公共屏幕原语；不持有 Canvas 状态或后端资源。 */
+import { type Point, pointInRect } from '@/foundation/geometry/index.js'
 import { type DrawingStyle, POINT_ROLE } from '@/foundation/plugin/index.js'
 import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '@/foundation/tokens/index.js'
+import { paintCanvasPrimitives } from '@/rendering/primitives/impl/canvas.js'
+import type { PaintPrimitive, PrimitiveSink } from '@/rendering/primitives/types.js'
+import {
+  ARROW_HEAD_ANGLE,
+  ARROW_HEAD_LENGTH,
+  arrowHead,
+} from '../../geometry/impl/arrowGeometry.js'
 import { resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/impl/labelLayout.js'
 import { extendLineToViewport } from '../../geometry/impl/lineClipping.js'
 import type { PrimitiveRendererSet } from '../types.js'
 
-/** 按 DrawingStyle 设置线身描边样式（颜色/宽度/虚实）。 */
-function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
-  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.lineWidth = style?.strokeWidth ?? 1
-  if (style?.strokeStyle === 'dashed') {
-    ctx.setLineDash([6, 4])
-    return
+/** 图元线型只作用于线身，锚点和箭头翼保持实线。 */
+function line(a: Point, b: Point, style: DrawingStyle | undefined, dpr: number): PaintPrimitive {
+  const width = style?.strokeWidth ?? 1
+  const align = width <= 1 ? 0.5 / dpr : 0
+  return {
+    kind: 'stroke',
+    paths: [
+      [
+        { x: a.x + align, y: a.y + align },
+        { x: b.x + align, y: b.y + align },
+      ],
+    ],
+    color: style?.stroke ?? DEFAULT_DRAWING_STROKE,
+    width,
+    dash: style?.strokeStyle === 'dashed' ? [6, 4] : style?.strokeStyle === 'dotted' ? [2, 3] : [],
   }
-  if (style?.strokeStyle === 'dotted') {
-    ctx.setLineDash([2, 3])
-    return
+}
+
+/** 锚点的填充与描边作为同一实例提交，多个选中对象共享基础形状批次。 */
+function anchor(
+  point: Point,
+  style: DrawingStyle | undefined,
+  dpr: number,
+  handle = false,
+): PaintPrimitive[] {
+  const radius = Math.max(style?.pointRadius ?? 4, 1 / dpr)
+  const paint = {
+    color: DRAWING_ANCHOR_FILL,
+    strokeColor: style?.stroke ?? DEFAULT_DRAWING_STROKE,
+    strokeWidth: 1,
   }
-  ctx.setLineDash([])
+  return [
+    handle
+      ? {
+          kind: 'rect',
+          x: point.x - radius,
+          y: point.y - radius,
+          width: radius * 2,
+          height: radius * 2,
+          radius: Math.min(2, radius),
+          ...paint,
+        }
+      : { kind: 'circle', x: point.x, y: point.y, radius, ...paint },
+  ]
 }
 
-/** 按 DrawingStyle 设置填充样式（填充色/透明度）。 */
-function applyFillStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
-  ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.globalAlpha = style?.fillOpacity ?? 1
-}
-
-/** 锚点与中点手柄的描边宽度（px）。 */
-const ANCHOR_STROKE_WIDTH = 1
-/** 线段中点垂直手柄的圆角半径（px）。 */
-const HANDLE_CORNER_RADIUS = 2
-
-/**
- * 绘制线段中点垂直手柄：以中点为心的圆角矩形，填白底、描图元颜色，指示这条线可沿价格轴平移。
- * 圆角只是让方块不显得生硬，整体仍是方形轮廓，与圆形锚点区分；描边宽度与锚点一致。
- */
-function drawVerticalHandle(
-  ctx: CanvasRenderingContext2D,
-  point: Point,
-  halfSize: number,
-  style?: DrawingStyle,
-): void {
-  const radius = Math.min(HANDLE_CORNER_RADIUS, halfSize)
-  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.lineWidth = ANCHOR_STROKE_WIDTH
-  // 手柄是交互提示，描边始终实线；图元的 strokeStyle 只作用于线身。
-  ctx.setLineDash([])
-  ctx.beginPath()
-  ctx.roundRect(point.x - halfSize, point.y - halfSize, halfSize * 2, halfSize * 2, radius)
-  ctx.fillStyle = DRAWING_ANCHOR_FILL
-  ctx.fill()
-  ctx.stroke()
-}
-
-/** 判断屏幕点是否落在视口裁剪矩形内（含边界），线段端点据此决定是否绘制。 */
-function isInsideViewport(point: Point, clip: Rect): boolean {
-  return pointInRect(point, clip)
-}
-
-/**
- * 绘制锚点：白底实心 + 图元色描边环，圆形，圆心即锚点。
- * 描边环是交互提示，始终实线，图元的 strokeStyle 只作用于线身。
- */
-function drawAnchor(
-  ctx: CanvasRenderingContext2D,
-  point: Point,
-  radius: number,
-  style?: DrawingStyle,
-): void {
-  ctx.beginPath()
-  ctx.arc(point.x, point.y, radius, 0, Math.PI * 2)
-  ctx.fillStyle = DRAWING_ANCHOR_FILL
-  ctx.fill()
-  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
-  ctx.lineWidth = ANCHOR_STROKE_WIDTH
-  ctx.setLineDash([])
-  ctx.stroke()
-}
-
-/** 将绘图文档中的字面量换行控制码拆为逻辑文本行。 */
-function splitDrawingTextLines(text: string): string[] {
-  return text.split('\\n')
-}
-
-/** 在当前坐标系绘制由字面量换行控制码分隔的多行文本，并保持原始基线语义。 */
-function drawMultilineText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
+/** 按文档的字面量换行码排多行文字，保留已有块基线语义。 */
+function text(
+  value: string,
   x: number,
   y: number,
-  fontSize: number,
+  style: DrawingStyle | undefined,
+  align: CanvasTextAlign,
   baseline: CanvasTextBaseline,
-): void {
-  const lines = splitDrawingTextLines(text)
-  const lineHeight = fontSize * 1.2
-  const height = lines.length * lineHeight
-  const top = baseline === 'top' ? y : baseline === 'middle' ? y - height / 2 : y - height
-  ctx.textBaseline = 'top'
-  for (const [index, line] of lines.entries()) {
-    ctx.fillText(line, x, top + index * lineHeight)
+  rotation?: number,
+): PaintPrimitive[] {
+  const lines = value.split('\\n')
+  const size = style?.fontSize ?? 12,
+    lineHeight = size * 1.2,
+    height = lines.length * lineHeight
+  const top = baseline === 'top' ? 0 : baseline === 'middle' ? -height / 2 : -height
+  return lines.map((value, index) => {
+    const offset = top + index * lineHeight
+    return {
+      kind: 'text',
+      text: value,
+      x,
+      y: rotation === undefined ? y + offset : y,
+      font: `${size}px sans-serif`,
+      color: style?.textColor ?? style?.stroke ?? DEFAULT_DRAWING_STROKE,
+      align,
+      baseline: 'top',
+      rotation,
+      offsetY: rotation === undefined ? undefined : offset,
+    }
+  })
+}
+
+/** 沿原始锚点定位标签，裁剪或延伸不改变标签的语义位置。 */
+function lineText(
+  a: Point,
+  b: Point,
+  attachment: {
+    text: string
+    position?: 'start' | 'center' | 'end'
+    align?: CanvasTextAlign
+    baseline?: CanvasTextBaseline
+  },
+  style?: DrawingStyle,
+): PaintPrimitive[] {
+  const layout = resolveLineLabelLayout(a, b, attachment.position)
+  return text(
+    attachment.text,
+    layout.x,
+    layout.y,
+    style,
+    attachment.align ?? layout.align,
+    attachment.baseline ?? 'middle',
+    layout.rotation,
+  )
+}
+
+/** 以尖端为中心产生开放箭头翼。 */
+function wing(point: Point, angle: number, length: number, style?: DrawingStyle): PaintPrimitive {
+  return {
+    kind: 'stroke',
+    width: style?.strokeWidth ?? 1,
+    color: style?.stroke ?? DEFAULT_DRAWING_STROKE,
+    paths: [
+      [
+        {
+          x: point.x - length * Math.cos(angle - ARROW_HEAD_ANGLE),
+          y: point.y - length * Math.sin(angle - ARROW_HEAD_ANGLE),
+        },
+        point,
+        {
+          x: point.x - length * Math.cos(angle + ARROW_HEAD_ANGLE),
+          y: point.y - length * Math.sin(angle + ARROW_HEAD_ANGLE),
+        },
+      ],
+    ],
   }
 }
 
-/** 创建默认 primitive 渲染器集合。 */
-export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
+/** 创建纯投影适配器；提交器决定使用三后端中的哪一个。 */
+export function createDefaultPrimitiveRendererSet(
+  submit: PrimitiveSink = paintCanvasPrimitives,
+): PrimitiveRendererSet {
   return {
     point(ctx, primitive, dpr) {
-      const radius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
-      ctx.save()
-      if (primitive.role === POINT_ROLE['translate-handle']) {
-        drawVerticalHandle(ctx, primitive.point, radius, primitive.style)
-        ctx.restore()
-        return
-      }
-      drawAnchor(ctx, primitive.point, radius, primitive.style)
-      if (primitive.text) {
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        const align = primitive.text.align ?? 'center'
-        ctx.textAlign = align
-        drawMultilineText(
-          ctx,
-          primitive.text.text,
-          primitive.point.x,
-          primitive.point.y,
-          primitive.style?.fontSize ?? 12,
-          primitive.text.baseline ?? 'middle',
+      const commands = anchor(
+        primitive.point,
+        primitive.style,
+        dpr,
+        primitive.role === POINT_ROLE['translate-handle'],
+      )
+      if (primitive.text && primitive.role !== POINT_ROLE['translate-handle'])
+        commands.push(
+          ...text(
+            primitive.text.text,
+            primitive.point.x,
+            primitive.point.y,
+            primitive.style,
+            primitive.text.align ?? 'center',
+            primitive.text.baseline ?? 'middle',
+          ),
         )
-      }
-      ctx.restore()
+      submit(ctx, commands, dpr)
     },
-
-    line(ctx, primitive, viewportClip, dpr) {
-      const clipped = extendLineToViewport(primitive, viewportClip)
+    line(ctx, primitive, clip, dpr) {
+      const clipped = extendLineToViewport(primitive, clip)
       if (!clipped) return
-
-      ctx.save()
-      applyLineStyle(ctx, primitive.style)
-      const lineWidth = primitive.style?.strokeWidth ?? 1
-      const align = lineWidth <= 1 ? 0.5 / dpr : 0
-      ctx.beginPath()
-      ctx.moveTo(clipped.a.x + align, clipped.a.y + align)
-      ctx.lineTo(clipped.b.x + align, clipped.b.y + align)
-      ctx.stroke()
-
-      if (primitive.text) {
-        // 标签基于原始锚点，不随延长线或视口裁剪漂移。
-        const textLayout = resolveLineLabelLayout(primitive.a, primitive.b, primitive.text.position)
-        ctx.save()
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? textLayout.align
-        const baseline = primitive.text.baseline ?? 'middle'
-        ctx.translate(textLayout.x, textLayout.y)
-        ctx.rotate(textLayout.rotation)
-        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
-        ctx.restore()
-      }
-
-      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
-      if (primitive.showEndpoints !== false) {
-        const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)
-        for (const endpoint of [primitive.a, primitive.b]) {
-          if (!isInsideViewport(endpoint, viewportClip)) continue
-          drawAnchor(ctx, endpoint, pointRadius, primitive.style)
+      const commands = [line(clipped.a, clipped.b, primitive.style, dpr)]
+      if (primitive.text)
+        commands.push(...lineText(primitive.a, primitive.b, primitive.text, primitive.style))
+      const style = primitive.style?.strokeStyle
+      const length = Math.max(8, (primitive.style?.strokeWidth ?? 1) * 3)
+      const { angle } = arrowHead(clipped.a, clipped.b, length)
+      if (style === 'arrow_left' || style === 'arrow_both')
+        commands.push(wing(clipped.a, angle + Math.PI, length, primitive.style))
+      if (style === 'arrow_right' || style === 'arrow_both')
+        commands.push(wing(clipped.b, angle, length, primitive.style))
+      if (primitive.showEndpoints !== false)
+        for (const point of [primitive.a, primitive.b]) {
+          if (pointInRect(point, clip)) commands.push(...anchor(point, primitive.style, dpr))
         }
-      }
-
-      ctx.restore()
+      submit(ctx, commands, dpr)
     },
-
-    area(ctx, primitive) {
+    area(ctx, primitive, dpr) {
       if (primitive.points.length === 0) return
-      ctx.save()
-      applyFillStyle(ctx, primitive.style)
-      ctx.beginPath()
-      ctx.moveTo(primitive.points[0]!.x, primitive.points[0]!.y)
-      for (let i = 1; i < primitive.points.length; i++) {
-        const point = primitive.points[i]!
-        ctx.lineTo(point.x, point.y)
-      }
-      if (primitive.closed) {
-        ctx.closePath()
-      }
-      ctx.fill()
+      const commands: PaintPrimitive[] = [
+        {
+          kind: 'fill',
+          paths: [primitive.points],
+          color: primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE,
+          opacity: primitive.style?.fillOpacity ?? 1,
+        },
+      ]
       if (primitive.text) {
-        const xs = primitive.points.map((point) => point.x)
-        const ys = primitive.points.map((point) => point.y)
+        const xs = primitive.points.map((point) => point.x),
+          ys = primitive.points.map((point) => point.y)
         const layout = resolveAreaLabelLayout(
           Math.min(...xs),
           Math.max(...xs),
           primitive.text.position,
         )
-        // 文字在填充后绘制，始终位于填充带上层。
-        ctx.globalAlpha = 1
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? layout.align
-        const x = layout.x
-        const y = (Math.min(...ys) + Math.max(...ys)) / 2
-        drawMultilineText(
-          ctx,
-          primitive.text.text,
-          x,
-          y,
-          primitive.style?.fontSize ?? 12,
-          primitive.text.baseline ?? 'middle',
+        commands.push(
+          ...text(
+            primitive.text.text,
+            layout.x,
+            (Math.min(...ys) + Math.max(...ys)) / 2,
+            primitive.style,
+            primitive.text.align ?? layout.align,
+            primitive.text.baseline ?? 'middle',
+          ),
         )
       }
-      ctx.restore()
+      submit(ctx, commands, dpr)
     },
-
-    text(ctx, primitive) {
-      ctx.save()
-      ctx.fillStyle =
-        primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-      ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-      const align = primitive.align ?? 'left'
-      ctx.textAlign = align
-      drawMultilineText(
+    text(ctx, primitive, dpr) {
+      submit(
         ctx,
-        primitive.text,
-        primitive.point.x,
-        primitive.point.y,
-        primitive.style?.fontSize ?? 12,
-        primitive.baseline ?? 'bottom',
+        text(
+          primitive.text,
+          primitive.point.x,
+          primitive.point.y,
+          primitive.style,
+          primitive.align ?? 'left',
+          primitive.baseline ?? 'bottom',
+        ),
+        dpr,
       )
-      ctx.restore()
     },
-
     arrow(ctx, primitive, dpr) {
-      const angle = Math.atan2(
-        primitive.end.y - primitive.start.y,
-        primitive.end.x - primitive.start.x,
+      const head = arrowHead(
+        primitive.start,
+        primitive.end,
+        primitive.headLength ?? ARROW_HEAD_LENGTH,
+        primitive.headAngle ?? ARROW_HEAD_ANGLE,
       )
-      const headLength = primitive.headLength ?? 10
-      const headAngle = primitive.headAngle ?? Math.PI / 6
-      const left = {
-        x: primitive.end.x - headLength * Math.cos(angle - headAngle),
-        y: primitive.end.y - headLength * Math.sin(angle - headAngle),
-      }
-      const right = {
-        x: primitive.end.x - headLength * Math.cos(angle + headAngle),
-        y: primitive.end.y - headLength * Math.sin(angle + headAngle),
-      }
-
-      ctx.save()
-      applyLineStyle(ctx, primitive.style)
-      const lineWidth = primitive.style?.strokeWidth ?? 1
-      const align = lineWidth <= 1 ? 0.5 / dpr : 0
-      ctx.beginPath()
-      ctx.moveTo(primitive.start.x + align, primitive.start.y + align)
-      ctx.lineTo(primitive.end.x + align, primitive.end.y + align)
-      ctx.stroke()
-
-      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-      ctx.beginPath()
-      ctx.moveTo(primitive.end.x, primitive.end.y)
-      ctx.lineTo(left.x, left.y)
-      ctx.lineTo(right.x, right.y)
-      ctx.closePath()
-      ctx.fill()
-      if (primitive.text) {
-        const textLayout = resolveLineLabelLayout(
-          primitive.start,
-          primitive.end,
-          primitive.text.position,
-        )
-        ctx.fillStyle =
-          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
-        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
-        ctx.textAlign = primitive.text.align ?? textLayout.align
-        const baseline = primitive.text.baseline ?? 'middle'
-        ctx.save()
-        ctx.translate(textLayout.x, textLayout.y)
-        ctx.rotate(textLayout.rotation)
-        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
-        ctx.restore()
-      }
-      ctx.restore()
+      const commands: PaintPrimitive[] = [
+        line(primitive.start, primitive.end, primitive.style, dpr),
+        {
+          kind: 'fill',
+          paths: [[primitive.end, head.left, head.right]],
+          color: primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE,
+        },
+      ]
+      if (primitive.text)
+        commands.push(...lineText(primitive.start, primitive.end, primitive.text, primitive.style))
+      submit(ctx, commands, dpr)
     },
   }
 }

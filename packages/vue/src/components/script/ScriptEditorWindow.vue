@@ -3,6 +3,8 @@
   <div class="script-editor-window">
     <ScriptEditorWorkspace
       :source="source"
+      :logs="logs"
+      @clear-output="emit('clear-output')"
       :trusted="trusted"
       :identity="identity"
       :saving="saving"
@@ -23,6 +25,7 @@
 </template>
 
 <script setup lang="ts">
+  import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import type { ScriptIdentity } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
@@ -34,6 +37,7 @@
     defineProps<{
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      logs?: readonly LogEvent[]
       trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
@@ -41,7 +45,7 @@
       error?: string | null
       /** 最近一次保存是否成功；成功时确认按钮显示勾图标。 */
       saved?: boolean
-      /** 新窗口的文档 body：内部浮层的 Teleport 目标。 */
+      /** 当前页面的文档 body：内部浮层的 Teleport 目标。 */
       container: HTMLElement
     }>(),
     { error: null, saved: false, saving: false },
@@ -52,11 +56,12 @@
     'update:trusted': [value: boolean]
     save: []
     'create-copy': []
+    'clear-output': []
     /** 关闭本窗口并把编辑器交回标签页弹窗。 */
     return: []
   }>()
 
-  // 浮层默认 Teleport 到 'body'，在独立窗口里会解析成主文档；这里改指向新窗口的文档。
+  // 编辑器和浮层都由当前独立页面创建，显式提供本页浮层容器。
   provideFullscreenTeleportTarget(computed(() => props.container))
 </script>
 
@@ -73,6 +78,7 @@
 
   /* 弹窗里的编辑区是固定高度，独立窗口里改为撑满可用空间；选择器带上工作区根类以稳定压过组件自身的固定高度规则。 */
   .script-editor-window :deep(.script-workspace) {
+    max-height: none;
     display: flex;
     flex: 1;
     flex-direction: column;

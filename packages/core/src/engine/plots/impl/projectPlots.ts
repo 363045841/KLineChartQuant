@@ -23,7 +23,7 @@ import type {
 import { isPlotCollection } from './readPlotState.js'
 
 /** 读取计算结果的具名字段，不猜测或转换数值。 */
-export function readPlotField(value: unknown, key: string): unknown {
+function readPlotField(value: unknown, key: string): unknown {
   if (value === null || typeof value !== 'object') return undefined
   return Reflect.get(value, key)
 }
@@ -65,7 +65,14 @@ export function projectPlots(
     params,
     plots,
     fills,
-    ...plotRange(definition, plots, fills, range),
+    drawings: collection && isPlotCollection(raw) ? raw.drawings : undefined,
+    ...plotRange(
+      definition,
+      plots,
+      fills,
+      range,
+      collection && isPlotCollection(raw) ? raw.drawings : undefined,
+    ),
     guides: collection
       ? []
       : (definition.guides ?? []).map((guide) => ({
@@ -217,7 +224,11 @@ export function updatePlotRange(
   range: VisibleRange,
   timestamp: number,
 ): PlotRenderState {
-  return { ...state, timestamp, ...plotRange(definition, state.plots, state.fills, range) }
+  return {
+    ...state,
+    timestamp,
+    ...plotRange(definition, state.plots, state.fills, range, state.drawings),
+  }
 }
 
 /** 固定上下界模式；undefined 与 'fixed' 都表示直接替换。 */
@@ -311,17 +322,56 @@ function accumulateBounds(
   return bounds
 }
 
+/** 图元是否参与价格范围：自身可见，且有效锚点落在可见区间或带 extend。 */
+function drawingContributes(
+  drawing: import('@363045841yyt/klinechart-plot-contracts').DrawingObject,
+  range: VisibleRange,
+): boolean {
+  const valid = drawing.anchors.every(
+    (anchor) =>
+      Number.isFinite(anchor.price) &&
+      (anchor.logicalIndex === undefined || Number.isFinite(anchor.logicalIndex)) &&
+      (anchor.time === undefined ||
+        Number.isFinite(typeof anchor.time === 'number' ? anchor.time : Date.parse(anchor.time))),
+  )
+  if (!drawing.visible || !valid) return false
+  const indices = drawing.anchors.map((anchor) => anchor.logicalIndex)
+  const finiteIndices = indices.filter(
+    (index): index is number => index !== undefined && Number.isFinite(index),
+  )
+  if (finiteIndices.length !== indices.length || finiteIndices.length === 0) return true
+  if (drawing.extend !== undefined && drawing.extend !== 'none') return true
+  return Math.max(...finiteIndices) >= range.start && Math.min(...finiteIndices) < range.end
+}
+
+/** 纯 drawing 副图也必须有价格范围；只并入可见区间内的图元锚点。 */
+function accumulateDrawingBounds(
+  bounds: PriceBounds,
+  drawings: ReadonlyArray<import('@363045841yyt/klinechart-plot-contracts').DrawingObject>,
+  range: VisibleRange,
+): void {
+  for (const drawing of drawings) {
+    if (!drawingContributes(drawing, range)) continue
+    for (const anchor of drawing.anchors) {
+      bounds.min = Math.min(bounds.min, anchor.price)
+      bounds.max = Math.max(bounds.max, anchor.price)
+    }
+  }
+}
+
 /** 图形与坐标轴使用同一套显隐、位移和填充边界规则。 */
 function plotRange(
   definition: IndicatorPlotDefinition,
   plots: readonly Plot[],
   fills: readonly PlotFill[],
   range: VisibleRange,
+  drawings: import('@363045841yyt/klinechart-plot-contracts').PlotCollection['drawings'] = [],
 ) {
   const fillSources = new Set(
     fills.filter((fill) => fill.visible).flatMap((fill) => [fill.from, fill.to]),
   )
   const bounds = accumulateBounds(plots, fillSources, range)
+  accumulateDrawingBounds(bounds, drawings, range)
   const padding =
     bounds.min <= bounds.max ? (bounds.max - bounds.min) * (definition.padding ?? 0.05) : 0
   return {

@@ -2,6 +2,7 @@
 
 import type { Format, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
+import type { LogEvent } from '../contracts/output.js'
 import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
 /** 可以在脚本中作为 `params` 读取的输入值。 */
@@ -50,11 +51,14 @@ export interface QuickJSScriptDefinition {
   readonly position: Position
   /** 指标级数值格式；驱动副图轴与图例显示，缺省按价格。 */
   readonly format?: Format
+  /** 可保留的 line 对象数；默认 50，范围 1..500。 */
+  readonly max_lines_count?: number
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
 }
 
 /** 一次 QuickJS 脚本运行的配置。 */
 export interface QuickJSRunOptions {
+  readonly onLog?: (event: LogEvent) => void
   readonly requestContext?: ScriptRequestContext
   readonly requestExecution?: RequestExecution
   /** 完整 TS 文件，通过 defineIndicator 声明元数据与 onBar。 */

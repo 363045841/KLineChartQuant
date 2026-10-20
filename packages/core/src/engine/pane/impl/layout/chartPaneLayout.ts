@@ -1,3 +1,5 @@
+/** Pane 表面布局：DOM 层序复用 Scene 合成目标契约。 */
+import { SCENE_TARGET_Z } from '@/rendering/scene/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../../errors.js'
 import type { PaneRole } from '../../../../foundation/plugin/index.js'
 import { ScaleType } from '../../../../foundation/types/scaleType.js'
@@ -120,6 +122,7 @@ export class ChartPaneLayout {
         drawingCanvas.id = `${spec.id}-drawing`
         drawingCanvas.className = 'drawing-canvas'
         drawingCanvas.style.cssText = overlayCanvas.style.cssText
+        drawingCanvas.style.zIndex = String(SCENE_TARGET_Z.drawing)
         overlayCanvas.before(drawingCanvas)
         return drawingCanvas
       },
@@ -175,7 +178,7 @@ export class ChartPaneLayout {
       mainCanvas.style.position = 'absolute'
       mainCanvas.style.left = '0'
       mainCanvas.style.top = '0'
-      mainCanvas.style.zIndex = '0'
+      mainCanvas.style.zIndex = String(SCENE_TARGET_Z.main)
 
       overlayCanvas.id = `${spec.id}-overlay`
       overlayCanvas.className = 'overlay-canvas'
@@ -184,7 +187,7 @@ export class ChartPaneLayout {
       overlayCanvas.style.top = '0'
       overlayCanvas.style.pointerEvents = 'none'
       overlayCanvas.style.backgroundColor = 'transparent'
-      overlayCanvas.style.zIndex = '2'
+      overlayCanvas.style.zIndex = String(SCENE_TARGET_Z.overlay)
 
       return new PaneRenderer(
         { mainCanvas, overlayCanvas, yAxisCanvas, yAxisOverlayCanvas },

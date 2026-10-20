@@ -28,6 +28,11 @@
     background: transparent;
   }
 
+  /* 横纵滚动条交汇处跟随容器背景，避免深色界面出现默认白块。 */
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   *::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 999px;

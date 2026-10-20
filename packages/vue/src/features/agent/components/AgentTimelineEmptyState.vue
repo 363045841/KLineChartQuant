@@ -8,7 +8,7 @@
         v-for="prompt in prompts"
         :key="prompt"
         type="button"
-        @click="$emit('prompt', prompt)"
+        @click="emit('prompt', prompt)"
       >
         <span>{{ prompt }}</span>
         <IconArrowUpRight aria-hidden="true" />
@@ -23,7 +23,7 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ locale: AgentLocale }>()
-  defineEmits<{ prompt: [prompt: string] }>()
+  const emit = defineEmits<{ prompt: [prompt: string] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   // 空态只展示固定四条引导，顺序与产品文案对应。

@@ -16,13 +16,12 @@
 
 import type { Signal } from '../../foundation/reactivity/signal.js'
 import type { Renderer } from '../render/Renderer.js'
-import type { SurfaceRegion } from '../render/SurfaceBackend.js'
 
 /**
  * 绘制角色。Scene 按角色分组/过滤（例如 overlay 帧只画 overlay），
  * 也供其它子系统按语义定位 Layer（如命中测试忽略 background）。
  *
- * 顺序是语义性的，不是绘制顺序；z 才是权威叠放顺序。
+ * 角色映射到 main / drawing / overlay 合成目标；同一目标内由 z 决定顺序。
  */
 export type LayerRole =
   | 'background' // grid, axes
@@ -45,6 +44,20 @@ export type LayerPane = string
 /** Layer 声明绘制到所有 pane 时使用的 pane 身份。 */
 export const LAYER_PANE_GLOBAL: LayerPane = 'global'
 
+/** 合成目标是固定的三个层带；z 只在目标内比较，避免 DOM 层序与 Scene 层序冲突。 */
+export type ScenePaintTarget = 'main' | 'drawing' | 'overlay'
+export const SCENE_TARGET_Z: Readonly<Record<ScenePaintTarget, number>> = {
+  main: 0,
+  drawing: 1,
+  overlay: 2,
+}
+export const SCENE_PAINT_TARGETS: readonly ScenePaintTarget[] = ['main', 'drawing', 'overlay']
+
+/** 角色到合成目标的唯一映射，Scene 与 DOM 使用相同层带语义。 */
+export function scenePaintTarget(role: LayerRole): ScenePaintTarget {
+  return role === 'drawing' ? 'drawing' : role === 'overlay' ? 'overlay' : 'main'
+}
+
 /**
  * 单个 pane 在一帧内的绘制输入：Scene 透传给每个命中该 pane 的 Layer。
  */
@@ -52,9 +65,9 @@ export interface FramePaint {
   /** 本帧构建的业务帧上下文（含 ctx/几何/主题），由 ChartRenderer 提供。 */
   context: unknown
   /** 本帧渲染后端；Layer 用它提交 GPU 画笔。 */
-  renderer: Pick<Renderer, 'beginFrame'>
-  /** 本 pane 的绘制区域，由 Scene 在分发图层前绑定。 */
-  region: SurfaceRegion
+  renderer: Renderer
+  /** 原始像素目标由 Pane 持有；未分配的 drawing 目标为 null。 */
+  targets: Readonly<Record<ScenePaintTarget, CanvasRenderingContext2D | null>>
   /** 帧计数器，用于动画与跳帧检测。 */
   frameNumber: number
   /** 距离上一次绘制的时间（ms），首帧可能为 0。 */
@@ -80,6 +93,8 @@ export interface SceneFrame {
  * Layer 从 `context` 读取所需能力（数据/几何/主题）。
  */
 export type LayerPaint<TFrame> = TFrame & {
+  /** Scene 已根据图层角色选择目标，业务层不得另行选择输出画布。 */
+  ctx: CanvasRenderingContext2D
   /** 当前 pane id；由 Scene 注入。 */
   paneId?: string
   /** 本帧是否清除该 pane 的 canvas；由 Scene 注入。 */
@@ -107,7 +122,7 @@ export interface Layer<TFrame = unknown> {
   readonly role: LayerRole
   /** 绘制目标 pane：具体 paneId 或 LAYER_PANE_GLOBAL。 */
   readonly pane: LayerPane
-  /** z 小者先画；相同 z 按注册顺序。 */
+  /** 同一合成目标内 z 小者先画；相同 z 按注册顺序。 */
   readonly z: number
   /** 运行时开关，不改变图层成员关系。 */
   visible: boolean

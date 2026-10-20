@@ -93,7 +93,7 @@
           type="button"
           :disabled="regenerateDisabled"
           :aria-label="text.regenerate"
-          @click="$emit('regenerate')"
+          @click="emit('regenerate')"
         >
           <IconRefresh aria-hidden="true" />
         </button>
@@ -133,7 +133,7 @@
     editDisabled?: boolean
     editMessage?: EditMessageAction
   }>()
-  defineEmits<{ regenerate: [] }>()
+  const emit = defineEmits<{ regenerate: [] }>()
   const { status: copyStatus, copy } = useMessageCopy(() => props.message.content)
   const text = computed(() => getAgentCopy(props.locale))
   const {

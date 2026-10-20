@@ -3,13 +3,17 @@
   <BaseModal
     :open="open"
     :title="title"
-    width="min(92vw, 880px)"
+    width="min(94vw, 1040px)"
+    max-height="calc(100dvh - 48px)"
     :body-scrollable="false"
     body-padding="0"
     @update:open="emit('update:open', $event)"
   >
-    <ScriptEditorWorkspace
+    <div class="script-editor-dialog__body">
+      <ScriptEditorWorkspace
       :source="source"
+      :logs="logs"
+      @clear-output="emit('clear-output')"
       :trusted="trusted"
       :identity="identity"
       :saving="saving"
@@ -19,7 +23,8 @@
       @update:trusted="emit('update:trusted', $event)"
       @open-window="emit('open-window')"
       @create-copy="emit('create-copy')"
-    />
+      />
+    </div>
     <template #footer>
       <BaseButton @click="emit('update:open', false)">关闭</BaseButton>
       <BaseButton v-if="identity === 'user'" variant="primary" :disabled="saving" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
@@ -31,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+  import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import type { ScriptIdentity } from '@vue-src/composables/chart/scriptEditor/types.js'
@@ -43,6 +49,7 @@
       open: boolean
       /** 当前脚本源码，变更通过 update:source 回传。 */
       source: string
+      logs?: readonly LogEvent[]
       trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
@@ -65,10 +72,32 @@
     save: []
     'open-window': []
     'create-copy': []
+    'clear-output': []
   }>()
 </script>
 
 <style scoped>
+  /* Teleport 不转发 class；用 slot 内的真实容器约束工作区，为标题和页脚预留高度。 */
+  .script-editor-dialog__body {
+    display: flex;
+    flex-direction: column;
+    height: min(80dvh, 780px);
+    max-height: calc(100dvh - 128px);
+    min-height: 0;
+  }
+
+  .script-editor-dialog__body :deep(.script-workspace) {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .script-editor-dialog__body :deep(.script-editor) {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
   .script-save-icon {
     width: 16px;
     height: 16px;

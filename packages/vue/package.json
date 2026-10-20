@@ -52,6 +52,7 @@
     "build:wc": "cross-env BUILD_TARGET=web-component vite build",
     "postbuild": "node scripts/postbuild.mjs",
     "test": "vitest run",
+    "test:editor-page": "node --test scripts/test-script-editor-page.mjs",
     "test:watch": "vitest",
     "size": "size-limit",
     "lint:publish": "publint --strict .",
@@ -104,6 +105,7 @@
     "vue": "^3.5.44"
   },
   "dependencies": {
+    "@363045841yyt/klinechart-plot-contracts": "workspace:*",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-javascript": "^6.2.5",

@@ -1,5 +1,6 @@
 /** 绘图框选会话的几何命中与临时 primitive 投影。 */
 import type { DrawingViewportPort } from '@/controllers/types.js'
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { rectFromPoints, segmentIntersectsRect } from '@/foundation/geometry/index.js'
 import type { DrawingPrimitive } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
@@ -53,6 +54,7 @@ export function drawingIntersectsSelectionMarquee(
   hitTester: HitTester,
   adapter: DrawingViewportPort,
 ): boolean {
+  if (!isDrawingInteractive(drawing)) return false
   const rect = rectFromPoints(marquee.start, marquee.end)
   return hitTester
     .getDrawingLineSegments(drawing, adapter)

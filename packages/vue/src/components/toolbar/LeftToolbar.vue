@@ -6,7 +6,7 @@
           type="button"
           class="left-toolbar__button"
           aria-label="指标"
-          @click="$emit('toggleIndicator')"
+          @click="emit('toggleIndicator')"
           @pointerdown.stop
           @pointermove.stop
           @pointerup.stop
@@ -19,7 +19,7 @@
           type="button"
           class="left-toolbar__button"
           aria-label="代码编辑器"
-          @click="$emit('openScriptEditor')"
+          @click="emit('openScriptEditor')"
           @pointerdown.stop
           @pointermove.stop
           @pointerup.stop
@@ -222,7 +222,7 @@
           type="button"
           class="left-toolbar__button"
           aria-label="放大"
-          @click="$emit('zoomIn')"
+          @click="emit('zoomIn')"
           @pointerdown.stop
           @pointermove.stop
           @pointerup.stop
@@ -235,7 +235,7 @@
           type="button"
           class="left-toolbar__button"
           aria-label="缩小"
-          @click="$emit('zoomOut')"
+          @click="emit('zoomOut')"
           @pointerdown.stop
           @pointermove.stop
           @pointerup.stop
