@@ -1,6 +1,16 @@
 /** 脚本编辑器与宿主的源码仓库契约；不依赖 script 包，保持图表包的 Apache 边界。 */
 
+import type { ScriptOutputSource } from '@363045841yyt/klinechart-plot-contracts'
+import type { Diagnostic } from '@codemirror/lint'
 import type { InjectionKey } from 'vue'
+
+/** 问题面板的诊断快照；服务或保存失败没有可跳转的位置。 */
+export interface ScriptEditorProblem {
+  severity: Diagnostic['severity']
+  message: string
+  source?: string
+  location: { from: number; to: number; line: number; column: number } | null
+}
 
 /** 编辑器只用于用户脚本源码；未指定归属时按只读处理。 */
 export type ScriptIdentity = 'builtin' | 'user'
@@ -17,6 +27,8 @@ export interface ScriptEditorDocument {
 
 /** 宿主提供的源码读写接口，统一访问脚本注册时使用的仓库。 */
 export interface ScriptSourceStore {
+  /** 宿主支持脚本运行输出时提供；纯源码仓库可以省略。 */
+  readonly output?: ScriptOutputSource
   read(id: string): ScriptEditorDocument | undefined
   /** 提交一个新脚本，返回分配的稳定 id 与首个版本号。 */
   create(source: string, trusted?: boolean): Promise<ScriptEditorDocument>

@@ -17,7 +17,9 @@ import {
   type QuickJSHandle,
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
+import type { LogEvent } from '../../contracts/output.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
+import { createScriptConsole } from '../../execution/impl/createScriptConsole.js'
 import {
   compileSources,
   FIELD_READERS,
@@ -32,10 +34,10 @@ import {
 import { requestExecutionSource } from '../../request/impl/requestExecutionSource.js'
 import type { RequestValue, ScriptRequestContext, SecurityRequest } from '../../request/types.js'
 import {
-  INDICATOR_PRELUDE,
-  LINE_API_PRELUDE,
   DRAWING_PRELUDE,
+  INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
+  LINE_API_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
@@ -77,8 +79,14 @@ export async function runQuickJSScript(options: QuickJSRunOptions): Promise<Plot
 export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
   const compiled = compileSources(options.source, options.libraries)
   return executeRequests(
-    (bars, params, requestExecution) =>
-      runWithContext(getQuickJSSync(), { ...compiled, bars, params, requestExecution }),
+    (bars, params, requestExecution, emitOutput) =>
+      runWithContext(getQuickJSSync(), {
+        ...compiled,
+        bars,
+        params,
+        requestExecution,
+        onLog: emitOutput ? options.onLog : undefined,
+      }),
     options.bars,
     options.params === undefined ? {} : options.params,
     options.requestContext,
@@ -98,6 +106,7 @@ export function readQuickJSScriptDefinitionSync(
 export function prepareQuickJSScript(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
+  onLog?: (event: LogEvent) => void,
 ): PreparedQuickJSScript {
   const module = getQuickJSSync()
   const compiled = compileSources(source, libraries)
@@ -119,8 +128,14 @@ export function prepareQuickJSScript(
       context?: ScriptRequestContext,
     ) {
       return executeRequests(
-        (target, input, requestExecution) =>
-          runWithContext(module, { ...compiled, bars: target, params: input, requestExecution }),
+        (target, input, requestExecution, emitOutput) =>
+          runWithContext(module, {
+            ...compiled,
+            bars: target,
+            params: input,
+            requestExecution,
+            onLog: emitOutput ? onLog : undefined,
+          }),
         bars,
         params,
         context,
@@ -166,6 +181,18 @@ function runWithContext(
   let failure: Error | undefined
 
   try {
+    const console = createScriptConsole(options.onLog, () => cursor.index)
+    const consoleHandle = vm.newObject()
+    for (const [level, write] of Object.entries(console)) {
+      const method = vm.newFunction(level, (...values) => {
+        write(...values.map((value) => vm.dump(value)))
+        return vm.undefined
+      })
+      vm.setProp(consoleHandle, level, method)
+      method.dispose()
+    }
+    vm.setProp(vm.global, 'console', consoleHandle)
+    consoleHandle.dispose()
     mountHostFunctions(
       vm,
       bars,
@@ -240,13 +267,21 @@ function runWithContext(
     try {
       const drawings: NonNullable<PlotCollection['drawings']> = vm.dump(drawingHandle)
       // QuickJS 的复合值通道使用 JSON，NaN 变成 null；仅在已知数值字段还原 na。
-      const snapshot = drawings.map((drawing) => ({ ...drawing, anchors: drawing.anchors.map((anchor) => ({
-        ...anchor,
-        ...(anchor.logicalIndex === null ? { logicalIndex: Number.NaN } : {}),
-        ...(anchor.time === null ? { time: Number.NaN } : {}),
-        price: anchor.price === null ? Number.NaN : anchor.price,
-      })) }))
-      return { definition, collection: { ...collector.collect(), drawings: snapshot }, requests, values }
+      const snapshot = drawings.map((drawing) => ({
+        ...drawing,
+        anchors: drawing.anchors.map((anchor) => ({
+          ...anchor,
+          ...(anchor.logicalIndex === null ? { logicalIndex: Number.NaN } : {}),
+          ...(anchor.time === null ? { time: Number.NaN } : {}),
+          price: anchor.price === null ? Number.NaN : anchor.price,
+        })),
+      }))
+      return {
+        definition,
+        collection: { ...collector.collect(), drawings: snapshot },
+        requests,
+        values,
+      }
     } finally {
       drawingHandle.dispose()
     }

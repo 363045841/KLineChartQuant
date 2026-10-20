@@ -351,6 +351,8 @@
       v-model:source="scriptEditorSource"
       v-model:trusted="scriptEditorTrusted"
       :error="scriptEditorError"
+      :logs="scriptEditorLogs"
+      @clear-output="clearScriptEditorOutput"
       :saved="scriptEditorSaved"
       :identity="scriptEditorIdentity"
       :saving="scriptEditorSaving"
@@ -360,21 +362,6 @@
       @save="saveScriptEditor"
       @open-window="openScriptEditorWindow"
     />
-    <!-- 独立窗口里的编辑器挂在浏览器新窗口的文档上，这里只提供挂载点。 -->
-    <Teleport v-if="scriptEditorWindowContainer" :to="scriptEditorWindowContainer">
-      <ScriptEditorWindow
-        v-model:source="scriptEditorSource"
-        v-model:trusted="scriptEditorTrusted"
-        :error="scriptEditorError"
-        :saved="scriptEditorSaved"
-        :identity="scriptEditorIdentity"
-        :saving="scriptEditorSaving"
-        @create-copy="createScriptCopy"
-        :container="scriptEditorWindowContainer"
-        @save="saveScriptEditor"
-        @return="returnScriptEditorToDialog"
-      />
-    </Teleport>
     <ToastViewport />
   </div>
 </template>
@@ -448,7 +435,6 @@
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
   import ScriptEditorDialog from '@vue-src/components/script/ScriptEditorDialog.vue'
-  import ScriptEditorWindow from '@vue-src/components/script/ScriptEditorWindow.vue'
   import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
@@ -1081,6 +1067,8 @@
     source: scriptEditorSource,
     trusted: scriptEditorTrusted,
     error: scriptEditorError,
+    logs: scriptEditorLogs,
+    clearOutput: clearScriptEditorOutput,
     saved: scriptEditorSaved,
     identity: scriptEditorIdentity,
     saving: scriptEditorSaving,
@@ -1090,12 +1078,8 @@
     save: saveScriptEditor,
   } = scriptEditorSession
 
-  const {
-    supported: scriptEditorWindowSupported,
-    container: scriptEditorWindowContainer,
-    open: detachScriptEditorWindow,
-    returnToDialog: returnScriptEditorToDialog,
-  } = useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
+  const { supported: scriptEditorWindowSupported, open: detachScriptEditorWindow } =
+    useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
 
   const scriptEditorTitle = computed(() =>
     scriptEditorSession.name.value ? `编辑脚本 · ${scriptEditorSession.name.value}` : '新建脚本',

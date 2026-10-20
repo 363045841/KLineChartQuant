@@ -40,6 +40,29 @@ class WebWorker extends EventTarget {
 }
 
 globalThis.Worker = WebWorker
+for (const trusted of [false, true]) {
+  test(`console 日志经过真实线程传回，异常前输出不丢失（trusted=${trusted}）`, {
+    timeout: 15000,
+  }, async (context) => {
+    const batches = []
+    const client = createScriptWorker(undefined, (id, events) => batches.push({ id, events }))
+    context.after(() => client.dispose())
+    await client.prepare(
+      'console',
+      `defineIndicator({ name: 'Console', position: 'main', onBar() {
+      console.log('close', close[0]); throw new Error('console failure')
+    } })`,
+      [],
+      trusted,
+    )
+    await assert.rejects(client.run('console', bars), /console failure/)
+    assert.equal(batches.length, 1)
+    assert.equal(batches[0].id, 'console')
+    assert.equal(batches[0].events[0].message, 'close 1')
+    assert.equal(batches[0].events[0].barIndex, 0)
+    assert.equal(batches[0].events[1].level, 'error')
+  })
+}
 const source = await readFile(new URL('sma.ts', import.meta.url), 'utf8')
 const bars = Array.from({ length: 12 }, (_, index) => ({
   time: index,

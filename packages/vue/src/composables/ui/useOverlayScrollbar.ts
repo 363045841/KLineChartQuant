@@ -1,11 +1,15 @@
 /** 浮层滚动条：原生容器负责滚动，滑块仅在滚动或拖动期间显示。 */
-import { computed, onScopeDispose, type Ref, ref } from 'vue'
+import { computed, onMounted, onScopeDispose, type Ref, ref, watch } from 'vue'
 
 const HIDE_DELAY_MS = 700
 const MIN_THUMB_HEIGHT = 24
 
 /** 根据容器实际滚动位置派生滑块，并处理拖动和延迟隐藏。 */
-export function useOverlayScrollbar(viewport: Ref<HTMLElement | null>) {
+export function useOverlayScrollbar(
+  viewport: Ref<HTMLElement | null>,
+  content: Readonly<Ref<HTMLElement | null>>,
+  persistent: () => boolean,
+) {
   const visible = ref(false)
   const thumbHeight = ref(0)
   const thumbTop = ref(0)
@@ -17,32 +21,40 @@ export function useOverlayScrollbar(viewport: Ref<HTMLElement | null>) {
   let dragging = false
   let startY = 0
   let startScrollTop = 0
+  let observer: ResizeObserver | undefined
 
   /** 停止滚动后隐藏滑块，拖动期间始终保持可见。 */
   function scheduleHide(): void {
     clearTimeout(hideTimer)
-    if (!dragging) {
+    if (!dragging && !persistent()) {
       hideTimer = setTimeout(() => {
         visible.value = false
       }, HIDE_DELAY_MS)
     }
   }
 
-  /** 滚动事件读取真实几何，不维护第二份滚动位置。 */
-  function onScroll(): void {
+  /** 内容或容器变化时更新滑块，常驻模式无需先滚动即可显示溢出状态。 */
+  function updateGeometry(): boolean {
     const element = viewport.value
-    if (!element) return
+    if (!element) return false
     const { clientHeight, scrollHeight, scrollTop } = element
     const range = scrollHeight - clientHeight
     if (range <= 0 || clientHeight === 0) {
       visible.value = false
-      return
+      return false
     }
     thumbHeight.value = Math.min(
       clientHeight,
       Math.max(MIN_THUMB_HEIGHT, clientHeight ** 2 / scrollHeight),
     )
     thumbTop.value = ((clientHeight - thumbHeight.value) * scrollTop) / range
+    if (persistent()) visible.value = true
+    return true
+  }
+
+  /** 滚动事件读取真实几何，不维护第二份滚动位置。 */
+  function onScroll(): void {
+    if (!updateGeometry()) return
     visible.value = true
     scheduleHide()
   }
@@ -76,6 +88,20 @@ export function useOverlayScrollbar(viewport: Ref<HTMLElement | null>) {
     scheduleHide()
   }
 
-  onScopeDispose(() => clearTimeout(hideTimer))
+  onMounted(() => {
+    updateGeometry()
+    observer = new ResizeObserver(updateGeometry)
+    if (viewport.value) observer.observe(viewport.value)
+    if (content.value) observer.observe(content.value)
+  })
+  watch(persistent, () => {
+    clearTimeout(hideTimer)
+    updateGeometry()
+    if (!persistent()) scheduleHide()
+  })
+  onScopeDispose(() => {
+    clearTimeout(hideTimer)
+    observer?.disconnect()
+  })
   return { visible, thumbStyle, onScroll, onPointerDown, onPointerMove, onPointerEnd }
 }

@@ -1,5 +1,8 @@
 /** 脚本服务公开契约；源码版本、定义和执行端口属于同一提交。 */
-import type { IndicatorSourceDefinition } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  IndicatorSourceDefinition,
+  ScriptOutputSource,
+} from '@363045841yyt/klinechart-plot-contracts'
 
 /** 已提交的不可变脚本文档；id 是图表定义身份。 */
 export interface ScriptDocument {
@@ -14,6 +17,7 @@ export interface ScriptDocument {
 
 /** 工厂初始化 VM 并恢复文档；读取同步，写入等待持久化事务。 */
 export interface ScriptService {
+  readonly output: ScriptOutputSource
   create(source: string, trusted?: boolean): Promise<ScriptDocument>
   read(id: string): ScriptDocument | undefined
   list(): readonly ScriptDocument[]

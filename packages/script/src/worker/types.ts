@@ -1,5 +1,6 @@
 /** Script Worker 的异步执行接口与消息类型。 */
 import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+import type { LogEvent } from '../contracts/output.js'
 import type { QuickJSLibrary, QuickJSScriptDefinition, ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
@@ -60,6 +61,7 @@ export interface ScriptWorkerError {
 
 /** 请求 ID 关联一次响应，不增加握手或版本协商。 */
 export type ScriptWorkerResponse = { readonly requestId: number } & (
+  | { readonly type: 'output'; readonly id: string; readonly events: readonly LogEvent[] }
   | { readonly type: 'prepare'; readonly definition: QuickJSScriptDefinition }
   | { readonly type: 'run'; readonly collection: PlotCollection }
   | { readonly type: 'requests'; readonly requests: readonly SecurityRequest[] }

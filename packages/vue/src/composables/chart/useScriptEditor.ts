@@ -3,7 +3,9 @@
  *
  * 源码由宿主提供的仓库管理；编辑器只持有当前草稿，不维护第二份注册表。
  */
-import { type Ref, ref, watch } from 'vue'
+
+import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
+import { onScopeDispose, type Ref, ref, shallowRef, watch } from 'vue'
 import {
   createBlankSource,
   createCopySource,
@@ -13,6 +15,8 @@ import type { ScriptIdentity, ScriptSourceStore } from './scriptEditor/types.js'
 
 /** 一个图表实例持有的编辑器会话状态与操作。 */
 export interface ScriptEditorSession {
+  readonly logs: Ref<readonly LogEvent[]>
+  clearOutput(): void
   /** 最近提交的显示名称，独立于框架生成的身份。 */
   readonly name: Ref<string | null>
   readonly identity: Ref<ScriptIdentity>
@@ -45,6 +49,22 @@ export interface ScriptEditorSession {
 export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEditorSession {
   const open = ref(false)
   const definitionId = ref<string | null>(null)
+  const logs = shallowRef<readonly LogEvent[]>([])
+  let unsubscribeOutput: (() => void) | undefined
+  watch(
+    definitionId,
+    (id) => {
+      unsubscribeOutput?.()
+      unsubscribeOutput = undefined
+      logs.value = []
+      if (id !== null)
+        unsubscribeOutput = store?.output?.subscribe(id, (events) => {
+          logs.value = events
+        })
+    },
+    { flush: 'sync' },
+  )
+  onScopeDispose(() => unsubscribeOutput?.())
   const name = ref<string | null>(null)
   const source = ref('')
   const trusted = ref(false)
@@ -73,6 +93,12 @@ export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEdi
   )
 
   return {
+    logs,
+    clearOutput() {
+      const id = definitionId.value
+      if (id !== null) store?.output?.clear(id)
+      logs.value = []
+    },
     name,
     identity,
     saving,

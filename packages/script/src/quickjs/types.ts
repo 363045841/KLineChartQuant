@@ -2,6 +2,7 @@
 
 import type { Format, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
+import type { LogEvent } from '../contracts/output.js'
 import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
 /** 可以在脚本中作为 `params` 读取的输入值。 */
@@ -57,6 +58,7 @@ export interface QuickJSScriptDefinition {
 
 /** 一次 QuickJS 脚本运行的配置。 */
 export interface QuickJSRunOptions {
+  readonly onLog?: (event: LogEvent) => void
   readonly requestContext?: ScriptRequestContext
   readonly requestExecution?: RequestExecution
   /** 完整 TS 文件，通过 defineIndicator 声明元数据与 onBar。 */

@@ -18,6 +18,7 @@ import {
 } from '../../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
+import { scriptEditorPagePlugin } from '../scripts/script-editor-page-plugin.mjs'
 
 const decoratorTransform = babel({
   include: [/\/src\/.*\.tsx?$/],
@@ -70,6 +71,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    scriptEditorPagePlugin(),
     contractResourcesPlugin(),
     indicatorEntrypointsPlugin(),
     watchWorkspaceSources(root),

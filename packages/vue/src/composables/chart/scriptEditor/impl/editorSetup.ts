@@ -9,7 +9,7 @@ import {
   closeBracketsKeymap,
   completionKeymap,
 } from '@codemirror/autocomplete'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import {
   bracketMatching,
   defaultHighlightStyle,
@@ -107,6 +107,8 @@ export const scriptEditorSetup = [
   highlightActiveLine(),
   highlightSelectionMatches(),
   keymap.of([
+    // Tab 使用编辑器的空格缩进，Shift+Tab 减少缩进，阻止浏览器切换焦点。
+    indentWithTab,
     ...closeBracketsKeymap,
     ...defaultKeymap,
     ...searchKeymap,
