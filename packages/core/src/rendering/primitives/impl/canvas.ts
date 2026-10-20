@@ -8,11 +8,37 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
     if (primitive.kind === 'rect') {
       ctx.fillStyle = primitive.color
       if (primitive.radius) {
-        ctx.beginPath(); ctx.roundRect(primitive.x, primitive.y, primitive.width, primitive.height, primitive.radius); ctx.fill()
+        ctx.beginPath()
+        ctx.roundRect(primitive.x, primitive.y, primitive.width, primitive.height, primitive.radius)
+        ctx.fill()
       } else ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
+      if (primitive.strokeColor) {
+        ctx.beginPath()
+        if (primitive.radius)
+          ctx.roundRect(
+            primitive.x,
+            primitive.y,
+            primitive.width,
+            primitive.height,
+            primitive.radius,
+          )
+        else ctx.rect(primitive.x, primitive.y, primitive.width, primitive.height)
+        ctx.strokeStyle = primitive.strokeColor
+        ctx.lineWidth = primitive.strokeWidth ?? 1
+        ctx.setLineDash([])
+        ctx.stroke()
+      }
     } else if (primitive.kind === 'circle') {
       ctx.fillStyle = primitive.color
-      ctx.beginPath(); ctx.arc(primitive.x, primitive.y, primitive.radius, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath()
+      ctx.arc(primitive.x, primitive.y, primitive.radius, 0, Math.PI * 2)
+      ctx.fill()
+      if (primitive.strokeColor) {
+        ctx.strokeStyle = primitive.strokeColor
+        ctx.lineWidth = primitive.strokeWidth ?? 1
+        ctx.setLineDash([])
+        ctx.stroke()
+      }
     } else if (primitive.kind === 'text') {
       ctx.font = primitive.font
       ctx.fillStyle = primitive.color
@@ -42,7 +68,7 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
         ctx.lineCap = primitive.cap ?? 'butt'
         ctx.lineJoin = primitive.join ?? 'miter'
         ctx.miterLimit = primitive.miterLimit ?? 10
-        ctx.setLineDash([...primitive.dash ?? []])
+        ctx.setLineDash([...(primitive.dash ?? [])])
         ctx.lineDashOffset = primitive.dashOffset ?? 0
         ctx.stroke()
       }
@@ -60,6 +86,8 @@ export function createCanvasPrimitiveBackend(): PrimitiveBackend {
       paintCanvasPrimitives(target, primitives, dpr)
       return true
     },
-    dispose() { disposed = true },
+    dispose() {
+      disposed = true
+    },
   }
 }

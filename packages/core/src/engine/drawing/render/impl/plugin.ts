@@ -2,9 +2,9 @@
 
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.js'
-import type { Layer } from '@/rendering/scene/types.js'
-import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
+import type { PaintPrimitive } from '@/rendering/primitives/types.js'
+import type { Layer } from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
 import { createDefaultPrimitiveRendererSet } from './primitiveRendererSet.js'
@@ -27,11 +27,22 @@ function renderPrimitives(
 }
 
 /** 一层一次提交，保留 primitive 的原始顺序和该层独立的合成目标。 */
-function paintProjection(context: RenderContext, target: CanvasRenderingContext2D, primitives: ReadonlyArray<DrawingPrimitive>, custom?: PrimitiveRendererSet): void {
+function paintProjection(
+  context: RenderContext,
+  primitives: ReadonlyArray<DrawingPrimitive>,
+  custom?: PrimitiveRendererSet,
+): void {
+  const target = context.ctx
   const commands: PaintPrimitive[] = []
-  const renderers = custom ?? createDefaultPrimitiveRendererSet((_target, batch) => commands.push(...batch))
-  renderPrimitives(target, primitives, renderers,
-    { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height }, context.dpr)
+  const renderers =
+    custom ?? createDefaultPrimitiveRendererSet((_target, batch) => commands.push(...batch))
+  renderPrimitives(
+    target,
+    primitives,
+    renderers,
+    { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height },
+    context.dpr,
+  )
   if (!custom) primitiveSink(context.sceneRenderer?.primitives)(target, commands, context.dpr)
 }
 
@@ -54,8 +65,8 @@ export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<Ren
     visible: true,
     paint(context) {
       const projection = context.drawingProjection
-      if (!projection || projection.primitives.length === 0 || !context.drawingCtx) return
-      paintProjection(context, context.drawingCtx, projection.primitives, options.renderers)
+      if (!projection || projection.primitives.length === 0) return
+      paintProjection(context, projection.primitives, options.renderers)
     },
     dispose() {},
   }
@@ -72,7 +83,7 @@ export function createDrawingSessionLayer(options: DrawingLayerOptions = {}): La
     paint(context) {
       const projection = context.sessionDrawingProjection
       if (!projection || projection.primitives.length === 0) return
-      paintProjection(context, context.overlayCtx ?? context.ctx, projection.primitives, options.renderers)
+      paintProjection(context, projection.primitives, options.renderers)
     },
     dispose() {},
   }

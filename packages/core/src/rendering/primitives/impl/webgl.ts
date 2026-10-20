@@ -1,104 +1,198 @@
-/** WebGL2 原语设备：stencil winding 实现任意路径填充，字形走纹理四边形。 */
-import type { PrimitiveDevice } from './gpu.js'
-import { createGpuPrimitiveBackend } from './gpu.js'
+/** WebGL2 有序合批设备：实例化基础形状、连续网格上传与受约束的 stencil 合批。 */
+import { UploadTracker } from './buffers.js'
+import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
+import {
+  INSTANCE_FLOATS,
+  MESH_FLOATS,
+  MESH_FRAGMENT_GLSL,
+  MESH_VERTEX_GLSL,
+  SHAPE_FRAGMENT_GLSL,
+  SHAPE_VERTEX_GLSL,
+} from './shaders.js'
 
-const VERTEX = `#version 300 es
-in vec2 position; in vec2 uv; in vec4 color;
-out vec2 textureUV; out vec4 tint;
-void main(){ gl_Position=vec4(position,0.,1.); textureUV=uv; tint=color; }`
-const FRAGMENT = `#version 300 es
-precision highp float;
-in vec2 textureUV; in vec4 tint; uniform sampler2D image; out vec4 outputColor;
-void main(){ vec4 value=texture(image,textureUV); outputColor=vec4(value.rgb*tint.rgb*tint.a,value.a*tint.a); }`
+/** 编译具名布局的绘制管线；初始化失败时释放已创建的 shader。 */
+function program(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {
+  const result = gl.createProgram()
+  if (!result) throw new Error('Primitive WebGL allocation failed')
+  try {
+    for (const [type, source] of [
+      [gl.VERTEX_SHADER, vertex],
+      [gl.FRAGMENT_SHADER, fragment],
+    ] as const) {
+      const shader = gl.createShader(type)
+      if (!shader) throw new Error('Primitive shader allocation failed')
+      gl.shaderSource(shader, source)
+      gl.compileShader(shader)
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        gl.deleteShader(shader)
+        throw new Error('Primitive shader compilation failed')
+      }
+      gl.attachShader(result, shader)
+      gl.deleteShader(shader)
+    }
+    gl.linkProgram(result)
+    if (!gl.getProgramParameter(result, gl.LINK_STATUS))
+      throw new Error('Primitive WebGL pipeline failed')
+    return result
+  } catch (error) {
+    gl.deleteProgram(result)
+    throw error
+  }
+}
 
-/** 创建独立原语目标，不改变行情共享 WebGL surface 的帧和绑定状态。 */
+/** 独立 context 只负责整批目标，不改变行情 surface 和帧生命周期。 */
 function createDevice(document: Document): PrimitiveDevice {
   const canvas = document.createElement('canvas')
-  const gl = canvas.getContext('webgl2', { alpha: true, antialias: true, stencil: true, premultipliedAlpha: true, preserveDrawingBuffer: true })
+  const gl = canvas.getContext('webgl2', {
+    alpha: true,
+    antialias: true,
+    stencil: true,
+    premultipliedAlpha: true,
+    preserveDrawingBuffer: true,
+  })
   if (!gl) throw new Error('Primitive WebGL unavailable')
-  const program = gl.createProgram()
-  const buffer = gl.createBuffer()
-  const vao = gl.createVertexArray()
-  const texture = gl.createTexture()
-  if (!program || !buffer || !vao || !texture) throw new Error('Primitive WebGL allocation failed')
-  for (const [type, source] of [[gl.VERTEX_SHADER, VERTEX], [gl.FRAGMENT_SHADER, FRAGMENT]] as const) {
-    const shader = gl.createShader(type)
-    if (!shader) throw new Error('Primitive shader allocation failed')
-    gl.shaderSource(shader, source)
-    gl.compileShader(shader)
-    gl.attachShader(program, shader)
-    gl.deleteShader(shader)
-  }
-  gl.linkProgram(program)
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error('Primitive WebGL pipeline failed')
-  gl.bindVertexArray(vao)
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-  for (const [name, size, offset] of [['position', 2, 0], ['uv', 2, 8], ['color', 4, 16]] as const) {
-    const location = gl.getAttribLocation(program, name)
+  const meshProgram = program(gl, MESH_VERTEX_GLSL, MESH_FRAGMENT_GLSL)
+  const shapeProgram = program(gl, SHAPE_VERTEX_GLSL, SHAPE_FRAGMENT_GLSL)
+  const meshBuffer = gl.createBuffer(),
+    instanceBuffer = gl.createBuffer()
+  const meshVao = gl.createVertexArray(),
+    shapeVao = gl.createVertexArray()
+  if (!meshBuffer || !instanceBuffer || !meshVao || !shapeVao)
+    throw new Error('Primitive WebGL allocation failed')
+  const meshTracker = new UploadTracker(),
+    instanceTracker = new UploadTracker()
+  let meshCapacity = 0,
+    instanceCapacity = 0
+  const viewport = gl.getUniformLocation(shapeProgram, 'viewport')
+  gl.bindVertexArray(meshVao)
+  gl.bindBuffer(gl.ARRAY_BUFFER, meshBuffer)
+  for (const [name, count, offset] of [
+    ['position', 2, 0],
+    ['color', 4, 8],
+  ] as const) {
+    const location = gl.getAttribLocation(meshProgram, name)
     gl.enableVertexAttribArray(location)
-    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 32, offset)
+    gl.vertexAttribPointer(location, count, gl.FLOAT, false, MESH_FLOATS * 4, offset)
   }
-  gl.bindTexture(gl.TEXTURE_2D, texture)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  const shapeLocations = ['bounds', 'parameters', 'fillColor', 'strokeColor'].map((name) =>
+    gl.getAttribLocation(shapeProgram, name),
+  )
+  gl.bindVertexArray(shapeVao)
+  gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
+  for (const location of shapeLocations) {
+    gl.enableVertexAttribArray(location)
+    gl.vertexAttribDivisor(location, 1)
+  }
   return {
-    render(batch, width, height) {
+    render(batch, width, height, dpr) {
       if (gl.isContextLost()) throw new Error('Primitive WebGL context lost')
       if (canvas.width !== width) canvas.width = width
       if (canvas.height !== height) canvas.height = height
+      const metrics = { drawCalls: 0, uploads: 0, uploadedBytes: 0, submissions: 1 }
+      /** 每类数据最多一次 bufferSubData；完全未变时复用 GPU 内容。 */
+      const upload = (
+        buffer: WebGLBuffer,
+        values: Float32Array,
+        tracker: UploadTracker,
+        capacity: number,
+      ): number => {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+        const grow = values.byteLength > capacity
+        if (grow) {
+          capacity = Math.max(values.byteLength, capacity * 2, 1024)
+          gl.bufferData(gl.ARRAY_BUFFER, capacity, gl.DYNAMIC_DRAW)
+        }
+        const range = tracker.update(values, grow)
+        if (range) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, range.offset, range.values)
+          metrics.uploads++
+          metrics.uploadedBytes += range.values.byteLength
+        }
+        return capacity
+      }
+      meshCapacity = upload(meshBuffer, batch.vertices, meshTracker, meshCapacity)
+      instanceCapacity = upload(instanceBuffer, batch.instances, instanceTracker, instanceCapacity)
       gl.viewport(0, 0, width, height)
-      gl.clearColor(0, 0, 0, 0)
-      gl.clearStencil(0)
       gl.colorMask(true, true, true, true)
       gl.stencilMask(0xff)
+      gl.clearColor(0, 0, 0, 0)
+      gl.clearStencil(0)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT)
-      gl.useProgram(program)
-      gl.bindVertexArray(vao)
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(gl.getUniformLocation(program, 'image'), 0)
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
-      for (const primitive of batch) {
-        gl.bufferData(gl.ARRAY_BUFFER, primitive.vertices, gl.STREAM_DRAW)
-        if (primitive.direct) {
+      let active: 'mesh' | 'shape' | undefined
+      for (const draw of batch.draws) {
+        if (draw.kind === 'instances') {
+          if (active !== 'shape') {
+            gl.useProgram(shapeProgram)
+            gl.bindVertexArray(shapeVao)
+            gl.uniform4f(viewport, width / dpr, height / dpr, dpr, 0)
+            active = 'shape'
+          }
           gl.disable(gl.STENCIL_TEST)
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]))
-          gl.drawArrays(gl.TRIANGLES, 0, primitive.vertices.length / 8)
-        } else if (primitive.image) {
-          gl.disable(gl.STENCIL_TEST)
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, primitive.image)
-          gl.drawArrays(gl.TRIANGLES, 0, 6)
-        } else if (primitive.maskCount > 0) {
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]))
-          gl.enable(gl.STENCIL_TEST)
-          gl.colorMask(false, false, false, false)
-          gl.stencilFunc(gl.ALWAYS, 0, 0xff)
-          gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, primitive.evenodd ? gl.INVERT : gl.INCR_WRAP)
-          gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, primitive.evenodd ? gl.INVERT : gl.DECR_WRAP)
-          gl.drawArrays(gl.TRIANGLES, 0, primitive.maskCount)
-          gl.colorMask(true, true, true, true)
-          gl.stencilFunc(gl.NOTEQUAL, 0, primitive.evenodd ? 1 : 0xff)
-          gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO)
-          gl.drawArrays(gl.TRIANGLES, primitive.maskCount, 6)
+          gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
+          for (let i = 0; i < shapeLocations.length; i++)
+            gl.vertexAttribPointer(
+              shapeLocations[i]!,
+              4,
+              gl.FLOAT,
+              false,
+              INSTANCE_FLOATS * 4,
+              draw.first * INSTANCE_FLOATS * 4 + i * 16,
+            )
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, draw.count)
+          metrics.drawCalls++
+        } else {
+          if (active !== 'mesh') {
+            gl.useProgram(meshProgram)
+            gl.bindVertexArray(meshVao)
+            active = 'mesh'
+          }
+          if (draw.kind === 'direct') {
+            gl.disable(gl.STENCIL_TEST)
+            gl.drawArrays(gl.TRIANGLES, draw.first, draw.count)
+            metrics.drawCalls++
+          } else {
+            gl.enable(gl.STENCIL_TEST)
+            gl.colorMask(false, false, false, false)
+            gl.stencilFunc(gl.ALWAYS, 0, 0xff)
+            gl.stencilOpSeparate(
+              gl.FRONT,
+              gl.KEEP,
+              gl.KEEP,
+              draw.evenodd ? gl.INVERT : gl.INCR_WRAP,
+            )
+            gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, draw.evenodd ? gl.INVERT : gl.DECR_WRAP)
+            gl.drawArrays(gl.TRIANGLES, draw.first, draw.count)
+            gl.colorMask(true, true, true, true)
+            gl.stencilFunc(gl.NOTEQUAL, 0, draw.evenodd ? 1 : 0xff)
+            gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO)
+            gl.drawArrays(gl.TRIANGLES, draw.coverFirst, draw.coverCount)
+            metrics.drawCalls += 2
+          }
         }
       }
       gl.disable(gl.STENCIL_TEST)
-      gl.flush()
-      if (gl.getError() !== gl.NO_ERROR) throw new Error('Primitive WebGL submission failed')
-      return canvas
+      // 不在热路径调用 getError/finish；context 丢失由入口检查及宿主生命周期处理。
+      return { canvas, metrics }
+    },
+    async waitForIdle() {
+      gl.finish()
     },
     dispose() {
-      gl.deleteTexture(texture); gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program)
+      gl.deleteBuffer(meshBuffer)
+      gl.deleteBuffer(instanceBuffer)
+      gl.deleteVertexArray(meshVao)
+      gl.deleteVertexArray(shapeVao)
+      gl.deleteProgram(meshProgram)
+      gl.deleteProgram(shapeProgram)
       gl.getExtension('WEBGL_lose_context')?.loseContext()
       canvas.width = canvas.height = 1
     },
   }
 }
 
-/** 建立 WebGL 原语后端，资源在首次绘制时创建。 */
-export function createWebGLPrimitiveBackend() { return createGpuPrimitiveBackend(createDevice) }
+/** 延迟创建资源；无图形或全在屏幕外的批次不创建 GPU context。 */
+export function createWebGLPrimitiveBackend(document?: Document) {
+  return createGpuPrimitiveBackend(createDevice, document ? createDevice(document) : undefined)
+}

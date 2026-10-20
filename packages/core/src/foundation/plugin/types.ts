@@ -428,7 +428,7 @@ export interface RenderIndicatorContext {
   indicatorAvailability?: IndicatorAvailabilityReader
   /**
    * Scene 本帧 Renderer（Scene.paint 注入）。
-   * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
+   * 业务绘制提交公共原语并写入 Scene 指定的 ctx；失败由统一提交器完整回退。
    */
   sceneRenderer?: import('../../rendering/render/Renderer.js').Renderer
 }
@@ -497,8 +497,9 @@ export interface RenderContext
     RenderThemeContext {}
 
 /** 绘图渲染 primitive 契约：样式引用公共图形模型，屏幕图元由 foundation 拥有。 */
-import type { DrawingStyle, DrawingLabelPosition } from '@363045841yyt/klinechart-plot-contracts'
-export type { DrawingStyle, DrawingLabelPosition } from '@363045841yyt/klinechart-plot-contracts'
+import type { DrawingLabelPosition, DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
+
+export type { DrawingLabelPosition, DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 图元附属文字；位置由所属图元在渲染期计算。 */
 export type PrimitiveTextAttachment = {

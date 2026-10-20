@@ -1,123 +1,261 @@
-/** WebGPU 原语设备：共享宿主 device，独立 MSAA 目标和 stencil，提交后合成到指定业务层。 */
-import { GPU_BUFFER_COPY_DST, GPU_BUFFER_VERTEX, GPU_TEXTURE_RENDER_ATTACHMENT, GPU_TEXTURE_COPY_DST, GPU_TEXTURE_BINDING } from '@/rendering/render/webgpuGlobals.js'
+/** WebGPU 有序合批设备：共享宿主 device、复用上传资源和 MSAA 目标，文字不进入 GPU。 */
+import {
+  GPU_BUFFER_COPY_DST,
+  GPU_BUFFER_UNIFORM,
+  GPU_BUFFER_VERTEX,
+  GPU_TEXTURE_RENDER_ATTACHMENT,
+} from '@/rendering/render/webgpuGlobals.js'
+import { UploadTracker } from './buffers.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
+import { INSTANCE_FLOATS, MESH_FLOATS, MESH_WGSL, SHAPE_WGSL } from './shaders.js'
 
-const SHADER = `
-struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, @location(1) color: vec4f }
-@vertex fn vs(@location(0) position:vec2f,@location(1) uv:vec2f,@location(2) color:vec4f)->Vertex {
-  var out:Vertex;out.position=vec4f(position,0.,1.);out.uv=uv;out.color=color;return out;
-}
-@group(0) @binding(0) var image:texture_2d<f32>;
-@group(0) @binding(1) var imageSampler:sampler;
-@fragment fn fs(in:Vertex)->@location(0) vec4f {
-  let value=textureSample(image,imageSampler,in.uv);
-  return vec4f(value.rgb*in.color.rgb*in.color.a,value.a*in.color.a);
-}`
-
-/** 使用宿主 device 构造隔离管线，避免重复申请 adapter/device。 */
-function createDevice(document: Document, device: GPUDevice, format: GPUTextureFormat): PrimitiveDevice {
+/** 设备只负责整批重画；没有局部保留、脏区域或读回。 */
+function createDevice(
+  document: Document,
+  device: GPUDevice,
+  format: GPUTextureFormat,
+): PrimitiveDevice {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('webgpu')
   if (!context || !('configure' in context)) throw new Error('Primitive WebGPU unavailable')
   context.configure({ device, format, alphaMode: 'premultiplied' })
-  const module = device.createShaderModule({ code: SHADER })
-  const sampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' })
-  const layout = device.createBindGroupLayout({ entries: [
-    { binding: 0, visibility: 2, texture: {} }, { binding: 1, visibility: 2, sampler: {} },
-  ] })
-  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] })
+  const meshModule = device.createShaderModule({ code: MESH_WGSL })
+  const shapeModule = device.createShaderModule({ code: SHAPE_WGSL })
   const blend: GPUBlendState = {
     color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
     alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
   }
-  /** mask 累计 winding；cover 一次着色并清零 stencil，防止透明路径交叉处重复混合。 */
-  function pipeline(mode: 'mask' | 'evenodd' | 'cover' | 'coverEvenodd' | 'image'): GPURenderPipeline {
-    const mask = mode === 'mask' || mode === 'evenodd'
-    const face: GPUStencilFaceState = { compare: 'always', passOp: 'keep' }
+  const shapeLayout = device.createBindGroupLayout({
+    entries: [{ binding: 0, visibility: 3, buffer: { type: 'uniform' } }],
+  })
+  const shapePipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [shapeLayout] })
+  const meshPipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [] })
+  /** 同一网格布局覆盖直绘、winding mask 和 cover，切换不重新绑定 buffer。 */
+  const pipeline = (
+    mode: 'shape' | 'direct' | 'mask' | 'parityMask' | 'cover' | 'parityCover',
+  ): GPURenderPipeline => {
+    const mask = mode === 'mask' || mode === 'parityMask',
+      shape = mode === 'shape'
+    const cover = mode === 'cover' || mode === 'parityCover'
+    const attributes: GPUVertexAttribute[] = shape
+      ? [0, 1, 2, 3].map((index) => ({
+          shaderLocation: index,
+          offset: index * 16,
+          format: 'float32x4',
+        }))
+      : [
+          { shaderLocation: 0, offset: 0, format: 'float32x2' },
+          { shaderLocation: 1, offset: 8, format: 'float32x4' },
+        ]
     return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex: { module, entryPoint: 'vs', buffers: [{ arrayStride: 32, attributes: [
-        { shaderLocation: 0, offset: 0, format: 'float32x2' },
-        { shaderLocation: 1, offset: 8, format: 'float32x2' },
-        { shaderLocation: 2, offset: 16, format: 'float32x4' },
-      ] }] },
-      fragment: { module, entryPoint: 'fs', targets: [{ format, blend, writeMask: mask ? 0 : 0xf }] },
+      layout: shape ? shapePipelineLayout : meshPipelineLayout,
+      vertex: {
+        module: shape ? shapeModule : meshModule,
+        entryPoint: 'vs',
+        buffers: [
+          {
+            arrayStride: (shape ? INSTANCE_FLOATS : MESH_FLOATS) * 4,
+            stepMode: shape ? 'instance' : 'vertex',
+            attributes,
+          },
+        ],
+      },
+      fragment: {
+        module: shape ? shapeModule : meshModule,
+        entryPoint: 'fs',
+        targets: [{ format, blend, writeMask: mask ? 0 : 0xf }],
+      },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
       multisample: { count: 4 },
       depthStencil: {
-        format: 'depth24plus-stencil8', depthWriteEnabled: false, depthCompare: 'always',
-        stencilReadMask: mode === 'coverEvenodd' ? 1 : 0xff,
+        format: 'depth24plus-stencil8',
+        depthWriteEnabled: false,
+        depthCompare: 'always',
+        stencilReadMask: mode === 'parityCover' ? 1 : 0xff,
         stencilWriteMask: 0xff,
-        stencilFront: mask ? { compare: 'always', passOp: mode === 'evenodd' ? 'invert' : 'increment-wrap' } : mode === 'image' ? face : { compare: 'not-equal', passOp: 'zero', failOp: 'zero' },
-        stencilBack: mask ? { compare: 'always', passOp: mode === 'evenodd' ? 'invert' : 'decrement-wrap' } : mode === 'image' ? face : { compare: 'not-equal', passOp: 'zero', failOp: 'zero' },
+        stencilFront: mask
+          ? { compare: 'always', passOp: mode === 'parityMask' ? 'invert' : 'increment-wrap' }
+          : cover
+            ? { compare: 'not-equal', passOp: 'zero', failOp: 'zero' }
+            : { compare: 'always', passOp: 'keep' },
+        stencilBack: mask
+          ? { compare: 'always', passOp: mode === 'parityMask' ? 'invert' : 'decrement-wrap' }
+          : cover
+            ? { compare: 'not-equal', passOp: 'zero', failOp: 'zero' }
+            : { compare: 'always', passOp: 'keep' },
       },
     })
   }
-  const mask = pipeline('mask'), parityMask = pipeline('evenodd'), cover = pipeline('cover'), parityCover = pipeline('coverEvenodd'), imagePipeline = pipeline('image')
+  const shapes = pipeline('shape'),
+    direct = pipeline('direct'),
+    mask = pipeline('mask'),
+    parityMask = pipeline('parityMask'),
+    cover = pipeline('cover'),
+    parityCover = pipeline('parityCover')
+  const uniform = device.createBuffer({ size: 16, usage: GPU_BUFFER_UNIFORM | GPU_BUFFER_COPY_DST })
+  const bind = device.createBindGroup({
+    layout: shapeLayout,
+    entries: [{ binding: 0, resource: { buffer: uniform } }],
+  })
+  const viewport = new Float32Array(4)
+  let viewportWidth = 0,
+    viewportHeight = 0,
+    viewportDpr = 0
   let color: GPUTexture | undefined, depth: GPUTexture | undefined
-  let buffer: GPUBuffer | undefined, capacity = 0
-  const white = device.createTexture({ size: [1, 1], format: 'rgba8unorm', usage: GPU_TEXTURE_COPY_DST | GPU_TEXTURE_BINDING })
-  device.queue.writeTexture({ texture: white }, new Uint8Array([255, 255, 255, 255]), { bytesPerRow: 4 }, [1, 1])
-  /** 同一 layout 用于所有模式，纹理可在管线之间复用。 */
-  function bind(texture: GPUTexture): GPUBindGroup {
-    return device.createBindGroup({ layout, entries: [{ binding: 0, resource: texture.createView() }, { binding: 1, resource: sampler }] })
-  }
-  const solid = bind(white)
+  let meshBuffer: GPUBuffer | undefined, instanceBuffer: GPUBuffer | undefined
+  let meshCapacity = 0,
+    instanceCapacity = 0
+  const meshTracker = new UploadTracker(),
+    instanceTracker = new UploadTracker()
   return {
-    render(batch, width, height) {
+    render(batch, width, height, dpr) {
       if (!color || canvas.width !== width || canvas.height !== height) {
-        color?.destroy(); depth?.destroy()
-        canvas.width = width; canvas.height = height
-        color = device.createTexture({ size: [width, height], format, sampleCount: 4, usage: GPU_TEXTURE_RENDER_ATTACHMENT })
-        depth = device.createTexture({ size: [width, height], format: 'depth24plus-stencil8', sampleCount: 4, usage: GPU_TEXTURE_RENDER_ATTACHMENT })
+        color?.destroy()
+        depth?.destroy()
+        canvas.width = width
+        canvas.height = height
+        color = device.createTexture({
+          size: [width, height],
+          format,
+          sampleCount: 4,
+          usage: GPU_TEXTURE_RENDER_ATTACHMENT,
+        })
+        depth = device.createTexture({
+          size: [width, height],
+          format: 'depth24plus-stencil8',
+          sampleCount: 4,
+          usage: GPU_TEXTURE_RENDER_ATTACHMENT,
+        })
       }
-      const size = batch.reduce((sum, primitive) => sum + primitive.vertices.byteLength, 0)
-      if (!buffer || capacity < size) {
-        buffer?.destroy(); capacity = Math.max(32, size)
-        buffer = device.createBuffer({ size: capacity, usage: GPU_BUFFER_VERTEX | GPU_BUFFER_COPY_DST })
+      const metrics = { drawCalls: 0, uploads: 0, uploadedBytes: 0, submissions: 1 }
+      /** buffer 按容量增长，CPU 镜像决定本批实际需要上传的连续区间。 */
+      const upload = (
+        values: Float32Array,
+        tracker: UploadTracker,
+        buffer: GPUBuffer | undefined,
+        capacity: number,
+      ): { buffer: GPUBuffer; capacity: number } => {
+        const grow = !buffer || values.byteLength > capacity
+        if (grow) {
+          buffer?.destroy()
+          capacity = Math.max(values.byteLength, capacity * 2, 1024)
+          buffer = device.createBuffer({
+            size: capacity,
+            usage: GPU_BUFFER_VERTEX | GPU_BUFFER_COPY_DST,
+          })
+        }
+        const range = tracker.update(values, grow)
+        if (range) {
+          device.queue.writeBuffer(
+            buffer!,
+            range.offset,
+            range.values.buffer,
+            range.values.byteOffset,
+            range.values.byteLength,
+          )
+          metrics.uploads++
+          metrics.uploadedBytes += range.values.byteLength
+        }
+        return { buffer: buffer!, capacity }
       }
-      const textures: GPUTexture[] = []
-      const draws = batch.map(primitive => {
-        if (!primitive.image) return solid
-        const texture = device.createTexture({ size: [primitive.image.width, primitive.image.height], format: 'rgba8unorm', usage: GPU_TEXTURE_COPY_DST | GPU_TEXTURE_BINDING | GPU_TEXTURE_RENDER_ATTACHMENT })
-        textures.push(texture)
-        device.queue.copyExternalImageToTexture({ source: primitive.image }, { texture, premultipliedAlpha: true }, [primitive.image.width, primitive.image.height])
-        return bind(texture)
-      })
-      let offset = 0
-      for (const primitive of batch) {
-        device.queue.writeBuffer(buffer, offset, primitive.vertices.buffer, primitive.vertices.byteOffset, primitive.vertices.byteLength)
-        offset += primitive.vertices.byteLength
+      const mesh = upload(batch.vertices, meshTracker, meshBuffer, meshCapacity)
+      meshBuffer = mesh.buffer
+      meshCapacity = mesh.capacity
+      const instances = upload(batch.instances, instanceTracker, instanceBuffer, instanceCapacity)
+      instanceBuffer = instances.buffer
+      instanceCapacity = instances.capacity
+      if (
+        batch.instances.length &&
+        (viewportWidth !== width || viewportHeight !== height || viewportDpr !== dpr)
+      ) {
+        viewport.set([width / dpr, height / dpr, dpr, 0])
+        device.queue.writeBuffer(uniform, 0, viewport)
+        viewportWidth = width
+        viewportHeight = height
+        viewportDpr = dpr
+        metrics.uploads++
+        metrics.uploadedBytes += viewport.byteLength
       }
       const encoder = device.createCommandEncoder()
       const pass = encoder.beginRenderPass({
-        colorAttachments: [{ view: color.createView(), resolveTarget: context.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: 'clear', storeOp: 'store' }],
-        depthStencilAttachment: { view: depth!.createView(), depthLoadOp: 'clear', depthStoreOp: 'discard', depthClearValue: 1, stencilLoadOp: 'clear', stencilStoreOp: 'discard', stencilClearValue: 0 },
+        colorAttachments: [
+          {
+            view: color.createView(),
+            resolveTarget: context.getCurrentTexture().createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            loadOp: 'clear',
+            storeOp: 'discard',
+          },
+        ],
+        depthStencilAttachment: {
+          view: depth!.createView(),
+          depthLoadOp: 'clear',
+          depthStoreOp: 'discard',
+          depthClearValue: 1,
+          stencilLoadOp: 'clear',
+          stencilStoreOp: 'discard',
+          stencilClearValue: 0,
+        },
       })
       pass.setStencilReference(0)
-      offset = 0
-      for (let i = 0; i < batch.length; i++) {
-        const primitive = batch[i]!
-        pass.setVertexBuffer(0, buffer, offset, primitive.vertices.byteLength)
-        pass.setBindGroup(0, draws[i]!)
-        if (primitive.image || primitive.direct) { pass.setPipeline(imagePipeline); pass.draw(primitive.vertices.length / 8) }
-        else if (primitive.maskCount > 0) {
-          pass.setPipeline(primitive.evenodd ? parityMask : mask); pass.draw(primitive.maskCount)
-          pass.setPipeline(primitive.evenodd ? parityCover : cover); pass.draw(6, 1, primitive.maskCount)
+      let active: GPURenderPipeline | undefined
+      let activeBuffer: GPUBuffer | undefined
+      /** 避免相邻同管线命令重复绑定。 */
+      const select = (next: GPURenderPipeline, buffer: GPUBuffer): void => {
+        if (active !== next) {
+          pass.setPipeline(next)
+          active = next
         }
-        offset += primitive.vertices.byteLength
+        if (activeBuffer !== buffer) {
+          pass.setVertexBuffer(0, buffer)
+          activeBuffer = buffer
+        }
+      }
+      for (const draw of batch.draws) {
+        if (draw.kind === 'instances') {
+          select(shapes, instanceBuffer)
+          pass.setBindGroup(0, bind)
+          pass.draw(6, draw.count, 0, draw.first)
+          metrics.drawCalls++
+        } else if (draw.kind === 'direct') {
+          select(direct, meshBuffer)
+          pass.draw(draw.count, 1, draw.first)
+          metrics.drawCalls++
+        } else {
+          select(draw.evenodd ? parityMask : mask, meshBuffer)
+          pass.draw(draw.count, 1, draw.first)
+          select(draw.evenodd ? parityCover : cover, meshBuffer)
+          pass.draw(draw.coverCount, 1, draw.coverFirst)
+          metrics.drawCalls += 2
+        }
       }
       pass.end()
       device.queue.submit([encoder.finish()])
-      // submit 已持有资源引用；销毁不再供后续帧使用的字形纹理。
-      for (const texture of textures) texture.destroy()
-      return canvas
+      return { canvas, metrics }
     },
-    dispose() { buffer?.destroy(); color?.destroy(); depth?.destroy(); white.destroy(); context.unconfigure(); canvas.width = canvas.height = 1 },
+    async waitForIdle() {
+      await device.queue.onSubmittedWorkDone()
+    },
+    dispose() {
+      meshBuffer?.destroy()
+      instanceBuffer?.destroy()
+      uniform.destroy()
+      color?.destroy()
+      depth?.destroy()
+      context.unconfigure()
+      canvas.width = canvas.height = 1
+    },
   }
 }
 
-/** WebGPU 原语后端与行情后端共享设备生命周期。 */
-export function createWebGPUPrimitiveBackend(device: GPUDevice, format: GPUTextureFormat) {
-  return createGpuPrimitiveBackend(document => createDevice(document, device, format))
+/** WebGPU 原语后端共用行情 device，但独立管理自身管线和容量。 */
+export function createWebGPUPrimitiveBackend(
+  device: GPUDevice,
+  format: GPUTextureFormat,
+  document?: Document,
+) {
+  return createGpuPrimitiveBackend(
+    (document) => createDevice(document, device, format),
+    document ? createDevice(document, device, format) : undefined,
+  )
 }

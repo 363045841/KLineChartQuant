@@ -30,7 +30,6 @@ export type RendererHostListeners = Pick<
 export interface RendererHost {
   readonly renderer: Renderer
   readonly runtime: Readonly<RendererBackendRuntime>
-  resize(widthLogical: number, heightLogical: number, dpr: number): void
   switchTo(preference: RendererBackend): Promise<void>
   handleDeviceLost(error: string): Promise<void>
   setListeners(listeners: RendererHostListeners): void
@@ -102,7 +101,6 @@ export function createRendererHostFromRenderer(
   }
   let generation = 0
   let disposed = false
-  let surfaceSize: { widthLogical: number; heightLogical: number; dpr: number } | null = null
   let listeners: RendererHostListeners = {
     onRuntimeChange: deps.onRuntimeChange,
     requestRedraw: deps.requestRedraw,
@@ -119,11 +117,6 @@ export function createRendererHostFromRenderer(
     },
     get runtime() {
       return runtime
-    },
-    resize(widthLogical, heightLogical, dpr): void {
-      if (disposed) return
-      surfaceSize = { widthLogical, heightLogical, dpr }
-      activeRenderer.surface.resize(widthLogical, heightLogical, dpr)
     },
     async switchTo(nextPreference): Promise<void> {
       if (disposed) return
@@ -142,14 +135,6 @@ export function createRendererHostFromRenderer(
       if (disposed || requestGeneration !== generation) {
         prepared.renderer.dispose()
         return
-      }
-
-      if (surfaceSize) {
-        prepared.renderer.surface.resize(
-          surfaceSize.widthLogical,
-          surfaceSize.heightLogical,
-          surfaceSize.dpr,
-        )
       }
 
       const previous = activeRenderer
@@ -179,14 +164,6 @@ export function createRendererHostFromRenderer(
       if (disposed || requestGeneration !== generation) {
         prepared.renderer.dispose()
         return
-      }
-
-      if (surfaceSize) {
-        prepared.renderer.surface.resize(
-          surfaceSize.widthLogical,
-          surfaceSize.heightLogical,
-          surfaceSize.dpr,
-        )
       }
 
       const previous = activeRenderer

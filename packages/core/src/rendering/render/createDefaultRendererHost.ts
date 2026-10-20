@@ -1,10 +1,8 @@
 /** 创建默认 RendererHost，并配置 WebGPU、WebGL 和 Canvas2D 的降级链。 */
 
-import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface.js'
 import { createCanvas2DRenderer } from './backend/createCanvas2DRenderer.js'
 import { createWebGLRenderer } from './backend/createWebGLRenderer.js'
 import { createWebGPURenderer } from './backend/createWebGPURenderer.js'
-import { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend.js'
 import type { Renderer } from './Renderer.js'
 import {
   createRendererHost,
@@ -15,16 +13,7 @@ import {
   type RendererHostListeners,
 } from './rendererHost.js'
 
-function createWebGLBackendRenderer(): Renderer {
-  const shared = new SharedWebGLSurface()
-  const surface = createWebGLSurfaceBackend(shared)
-  if (!surface.isAvailable()) {
-    surface.dispose()
-    throw new Error('WebGL2 unavailable')
-  }
-  return createWebGLRenderer(surface, shared)
-}
-
+/** 后端工厂只创建原语执行器，不创建或挂载可见画布。 */
 function createDependencies(hostRef: { current: RendererHost | null }): RendererHostDependencies {
   return {
     createWebGPU: () =>
@@ -33,7 +22,7 @@ function createDependencies(hostRef: { current: RendererHost | null }): Renderer
           void hostRef.current?.handleDeviceLost(info.message || 'WebGPU device lost')
         },
       }),
-    createWebGL: createWebGLBackendRenderer,
+    createWebGL: createWebGLRenderer,
     createCanvas: createCanvas2DRenderer,
   }
 }
@@ -42,7 +31,7 @@ export async function createDefaultRendererHost(
   preference: RendererBackend,
   listeners: RendererHostListeners = {},
 ): Promise<RendererHost> {
-  const hostRef = { current: null as RendererHost | null }
+  const hostRef: { current: RendererHost | null } = { current: null }
   const host = await createRendererHost(preference, createDependencies(hostRef))
   hostRef.current = host
   host.setListeners(listeners)
@@ -50,13 +39,13 @@ export async function createDefaultRendererHost(
 }
 
 export function createDefaultRendererHostSync(listeners: RendererHostListeners = {}): RendererHost {
-  const hostRef = { current: null as RendererHost | null }
+  const hostRef: { current: RendererHost | null } = { current: null }
   const deps = createDependencies(hostRef)
   let renderer: Renderer
   let effective: RendererBackend
   let error: string | null = null
   try {
-    renderer = createWebGLBackendRenderer()
+    renderer = createWebGLRenderer()
     effective = 'webgl'
   } catch (cause) {
     renderer = createCanvas2DRenderer()

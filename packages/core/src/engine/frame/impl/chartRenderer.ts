@@ -1,9 +1,6 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import { isPlotRenderState } from '../../plots/impl/readPlotState.js'
-import type { DrawingObject } from '../../drawing/types.js'
-import { resolveChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
@@ -20,6 +17,7 @@ import {
   type FrameTransaction,
 } from '../../../foundation/reactivity/frameTransaction.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { resolveChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { ChartSeriesDatum, KLineData } from '../../../foundation/types/price.js'
 import { ScaleType } from '../../../foundation/types/scaleType.js'
 import { systemClock } from '../../../foundation/utils/clock.js'
@@ -30,7 +28,13 @@ import {
   resolveDisplayTimeZone,
 } from '../../../foundation/utils/dateFormat.js'
 import { createScene } from '../../../rendering/scene/createScene.js'
-import type { FramePaint, Layer, LayerRole, Scene } from '../../../rendering/scene/types.js'
+import {
+  type FramePaint,
+  LAYER_PANE_GLOBAL,
+  type Layer,
+  type LayerRole,
+  type Scene,
+} from '../../../rendering/scene/types.js'
 import { AxisWidthEstimator } from '../../axisWidth/impl/axisWidthEstimator.js'
 import type { KLinePositions, Viewport } from '../../chart/index.js'
 import { ChartDataViewId } from '../../chartModel/index.js'
@@ -43,9 +47,11 @@ import {
   projectDrawingsForFrame,
   registerDefaultDrawingDefinitions,
 } from '../../drawing/index.js'
+import type { DrawingObject } from '../../drawing/types.js'
 import type { PaneRenderer } from '../../pane/index.js'
 import { UpdateLevel } from '../../pane/index.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
+import { isPlotRenderState } from '../../plots/impl/readPlotState.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
 import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
@@ -189,6 +195,7 @@ export class ChartRenderer {
 
   readonly drawingStore: DrawingStore
   private readonly drawingDefinitions = new DrawingDefinitionRegistry()
+  private readonly drawingLayer = createDrawingLayer()
   private xAxisCtx: CanvasRenderingContext2D | null = null
   private readonly crosshairOverlay: CrosshairOverlay
 
@@ -376,7 +383,7 @@ export class ChartRenderer {
         }
         // 用本帧几何将鼠标坐标吸附到最近 K 线，算出十字线位置
         this.deps.getInteraction().flushPendingHover()
-        // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paint → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
+        // 绘制：清原生目标 → 构建 RenderContext → Scene 选择目标与层序 → 时间轴。
         this.drawWithFrame(snapshot.level, snapshot.frame)
         if (snapshot.frame) {
           this.paintedMainVersion = this.mainContentVersion()
@@ -462,7 +469,7 @@ export class ChartRenderer {
   }
 
   registerDrawingPlugins(): void {
-    this.scene.addLayer(createDrawingLayer())
+    this.scene.addLayer(this.drawingLayer)
     this.scene.addLayer(createDrawingSessionLayer())
   }
 
@@ -964,17 +971,6 @@ export class ChartRenderer {
       const xH = xCtx.canvas.height
       xCtx.clearRect(0, 0, xW, xH)
     }
-    // 可见 GPU canvas 不经 2D clearRect，需显式 transparent clear
-    const scene = this.deps.getSceneRenderer()
-    if (scene.caps.name !== 'canvas2d') {
-      scene.surface.clearRegion({
-        x: 0,
-        y: 0,
-        width: vp.plotWidth,
-        height: vp.plotHeight,
-        dpr: vp.dpr,
-      })
-    }
   }
 
   /** 为当前活动指标绑定对象归属与面板，交给公共 drawing 链路绘制。 */
@@ -985,9 +981,13 @@ export class ChartRenderer {
     return manager.indicatorsComputed.peek().flatMap((instance) => {
       const state = states.get(instance.id)
       if (!isPlotRenderState(state) || !state.drawings) return []
-      return state.drawings.map((drawing) => ({ ...drawing,
-        id: `${instance.id}:${drawing.id}`, ownerId: instance.id,
-        paneId: instance.paneId ?? MAIN_PANE_ID, workspaceId }))
+      return state.drawings.map((drawing) => ({
+        ...drawing,
+        id: `${instance.id}:${drawing.id}`,
+        ownerId: instance.id,
+        paneId: instance.paneId ?? MAIN_PANE_ID,
+        workspaceId,
+      }))
     })
   }
 
@@ -1032,9 +1032,11 @@ export class ChartRenderer {
     ]
     const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
     const SESSION_CANVAS_ROLES: readonly LayerRole[] = ['overlay']
-    const drawingVersion = [...this.drawingStore.getCommittedPaintVersion(),
+    const drawingVersion = [
+      ...this.drawingStore.getCommittedPaintVersion(),
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
-      this.deps.getIndicatorManager().indicatorsComputed.peek()]
+      this.deps.getIndicatorManager().indicatorsComputed.peek(),
+    ]
     const drawingChanged = !this.sameVersion(this.paintedDrawingVersion, drawingVersion)
 
     // 本帧所有 pane 的绘制输入；全部 pane 构建完成后再一次性交给 Scene。
@@ -1192,7 +1194,19 @@ export class ChartRenderer {
         )
         this.drawingAxisLabels.set(renderer, labels)
         // 正式图元表面在 pane 首次出现图元时创建；新表面为空白，只需与清除路径相同的 DPR 变换。
-        if (!context.drawingCtx && (context.drawingProjection?.primitives.length ?? 0) > 0) {
+        const customDrawingVisible = this.scene.layers
+          .peek()
+          .some(
+            (layer) =>
+              layer !== this.drawingLayer &&
+              layer.visible &&
+              layer.role === 'drawing' &&
+              (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
+          )
+        if (
+          !context.drawingCtx &&
+          ((context.drawingProjection?.primitives.length ?? 0) > 0 || customDrawingVisible)
+        ) {
           const createdDrawingCtx = renderer.ensureDrawingContext()
           if (createdDrawingCtx) {
             createdDrawingCtx.setTransform(1, 0, 0, 1, 0, 0)
@@ -1234,14 +1248,14 @@ export class ChartRenderer {
       this.paneCtxMap.set(pane.id, context)
       legendContexts.push(context)
 
-      const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
+      const targets = { main: mainCtx, drawing: context.drawingCtx ?? null, overlay: overlayCtx }
       // 画 main canvas（非 overlay 角色 layer）
       if (shouldUpdateMain) {
         framePanes.push({
           paneId: pane.id,
           context,
           renderer: sceneRenderer,
-          region,
+          targets,
           frameNumber: this.frameCount++,
           deltaMs: 0,
           roles: MAIN_CANVAS_ROLES,
@@ -1250,12 +1264,12 @@ export class ChartRenderer {
       }
       // 画 overlay canvas（绘图和动态 overlay 角色 layer）
       if (shouldUpdateOverlay) {
-        // GPU 主层在本帧已经清过；overlay 不得清除其可见 GPU 内容。
+        // 正式图元与会话层保留独立像素，后端只能写入 Scene 选定的目标。
         framePanes.push({
           paneId: pane.id,
           context,
           renderer: sceneRenderer,
-          region,
+          targets,
           frameNumber: this.frameCount++,
           deltaMs: 0,
           roles: shouldUpdateDrawing ? OVERLAY_CANVAS_ROLES : SESSION_CANVAS_ROLES,
@@ -1267,9 +1281,6 @@ export class ChartRenderer {
     // 所有 pane 构建完成后一次性绘制；Scene 逐 pane 过滤、z 排序、逐层隔离分发。
     this.scene.paint({ panes: framePanes })
     this.paintedDrawingVersion = drawingVersion
-
-    // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
-    this.deps.getSceneRenderer().endFrame()
 
     const widths = this.axisWidthEstimator.estimate({
       labels: axisLabelsFrame,

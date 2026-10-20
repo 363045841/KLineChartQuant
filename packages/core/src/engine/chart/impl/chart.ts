@@ -73,7 +73,6 @@ import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.j
 import type { MarketSessionConfig } from '../../../foundation/utils/sessionTimeLabels.js'
 import {
   createDefaultRendererHostSync,
-  getVisibleCanvas,
   type RendererBackend,
   type RendererHost,
 } from '../../../rendering/render/index.js'
@@ -296,16 +295,14 @@ export class Chart {
     this.rendererHost.setListeners({
       onRuntimeChange: (rendererRuntime) => {
         this.kernel.renderer.actions.setRuntime(rendererRuntime)
-        this.syncGpuSceneCanvas()
       },
       requestRedraw: () => this.scheduleDraw(UpdateLevel.All),
     })
-    this.syncGpuSceneCanvas()
 
     // Inject DOM deps into kernel's viewportState (needed before init)
     this.kernel.setViewportDomDeps({
       getDom: () => this.dom,
-      resizeSharedWebGLSurface: () => this.resize(),
+      onViewportResize: () => this.resize(),
     })
 
     // ── ViewportManager (DOM lifecycle: ResizeObserver + scroll events) ──
@@ -744,17 +741,11 @@ export class Chart {
     this.scheduleDraw()
   }
 
-  /** 在完整帧完成后立即启动 GPU 快照，并让宿主同步捕获同帧的 Canvas2D 图层。 */
+  /** 完整 Scene 合成后捕获同一帧；可见目标均为已经合成完毕的 Canvas。 */
   captureFrame<T>(capture: (frame: ChartFrameCaptureContext) => T | Promise<T>): Promise<T> {
     return this.renderer.captureFrame(() => {
-      const surface = this.rendererHost.renderer.surface
-      const source = getVisibleCanvas(surface)
-      if (source && !surface.captureFrame) {
-        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, '当前 GPU 后端未提供取帧能力')
-      }
       return capture({
         dpr: this.kernel.viewport.readonly.dpr.peek(),
-        surface: source && surface.captureFrame ? { source, image: surface.captureFrame() } : null,
       })
     })
   }
@@ -853,7 +844,6 @@ export class Chart {
     }
     if (prev.rendererBackend !== next.rendererBackend) {
       void this.rendererHost.switchTo(next.rendererBackend as RendererBackend).then(() => {
-        this.syncGpuSceneCanvas()
         this.scheduleDraw(UpdateLevel.All)
       })
       return
@@ -1194,13 +1184,12 @@ export class Chart {
     if (!timeShare) this.checkVisibleRangeGapWhenIdle()
   }
 
-  /** 在绘制帧内提交 GPU 和 Pane 表面尺寸，随后同帧绘制，避免清屏后跨帧留白。 */
+  /** 在绘制帧内提交 Pane 表面尺寸，随后同帧绘制，避免清屏后跨帧留白。 */
   private commitViewportResize(): void {
     if (!this.viewportResizePending) return
     const vp = this.getViewport()
     if (!vp) return
     this.viewportResizePending = false
-    this.rendererHost.resize(vp.plotWidth, vp.plotHeight, vp.dpr)
     this.layoutManager.layoutPanes()
   }
 
@@ -1260,38 +1249,6 @@ export class Chart {
     })
   }
 
-  /**
-   * 将 GPU canvas 挂到 plot 区（main 与 overlay 之间），Canvas2D 后端时移除。
-   * 多 pane 共用一张 canvas，region.y + scissor 区分。
-   */
-  private syncGpuSceneCanvas(): void {
-    const layer = this.dom.canvasLayer
-    if (!layer) return
-    const effective = this.rendererHost.runtime.effective
-    const existing = layer.querySelector('canvas.gpu-scene-canvas') as HTMLCanvasElement | null
-
-    if (effective === 'canvas') {
-      existing?.remove()
-      return
-    }
-
-    const canvas = getVisibleCanvas(this.rendererHost.renderer.surface)
-    if (!canvas) return
-
-    canvas.classList.add('gpu-scene-canvas')
-    canvas.style.position = 'absolute'
-    canvas.style.left = '0'
-    canvas.style.top = '0'
-    canvas.style.pointerEvents = 'none'
-    canvas.style.zIndex = '1'
-    canvas.style.backgroundColor = 'transparent'
-
-    if (existing !== canvas) {
-      existing?.remove()
-      if (!canvas.isConnected) layer.appendChild(canvas)
-    }
-  }
-
   /** 销毁图表实例 */
   destroy(): Promise<void> {
     if (!this.destruction) this.destruction = this.destroyChart()
@@ -1324,7 +1281,6 @@ export class Chart {
     this.dataManager.destroy()
     this.viewportManager.destroy()
     this.layoutManager.destroy()
-    this.dom.canvasLayer?.querySelector('canvas.gpu-scene-canvas')?.remove()
     this.rendererHost.dispose()
     this.drawingCommands.dispose()
     this.kernel.dispose()

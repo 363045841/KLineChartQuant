@@ -7,7 +7,7 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 import type { RenderContext } from '@/foundation/plugin/index'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
-import type { Renderer } from '@/rendering/render/Renderer'
+import type { Renderer, RendererName } from '@/rendering/render/Renderer'
 import { createCandleLayer } from '../candle'
 
 /** 以主图身份调用 K 线 Layer.paint；sceneRenderer 由上下文携带。 */
@@ -65,34 +65,44 @@ function makeBars(length: number) {
   }))
 }
 
-function makeSceneRenderer(capsName = 'webgl2') {
+/** 观察公共矩形原语；坐标单位与 Canvas 完全一致。 */
+function makeSceneRenderer(capsName: RendererName = 'webgl2') {
   const r = createMockRenderer({ capsName })
   return {
     r,
-    drawInstances: r.drawInstances,
-    writeBuffer: r.writeBuffer,
+    submit: r.primitives.paint,
+    rectangles: () =>
+      r.primitives.paint.mock.calls.flatMap(([, commands]) =>
+        commands.flatMap((command) =>
+          command.kind === 'rect' ? [[command.x, command.y, command.width, command.height]] : [],
+        ),
+      ),
   }
 }
 
 describe('candle sceneRenderer path', () => {
-  it.each(['candlestick', 'footprint'] as const)('draws %s via sceneRenderer.drawInstances on webgl', (klineShape) => {
-    const { r, drawInstances } = makeSceneRenderer()
+  it.each(['candlestick', 'footprint'] as const)(
+    'draws %s through the scene primitive target on webgl',
+    (klineShape) => {
+      const { r, submit } = makeSceneRenderer()
 
-    const ctx = createCtx(r, {
-      data: makeBars(5),
-      range: { start: 0, end: 5 },
-      kLinePositions: [0, 10, 20, 30, 40],
-      kLineCenters: [4, 14, 24, 34, 44],
-      settings: { rendererBackend: 'webgl', klineShape },
-    })
+      const ctx = createCtx(r, {
+        data: makeBars(5),
+        range: { start: 0, end: 5 },
+        kLinePositions: [0, 10, 20, 30, 40],
+        kLineCenters: [4, 14, 24, 34, 44],
+        settings: { rendererBackend: 'webgl', klineShape },
+      })
 
-    paint(ctx)
+      paint(ctx)
 
-    expect(drawInstances).toHaveBeenCalled()
-  })
+      expect(submit).toHaveBeenCalledOnce()
+      expect(submit.mock.calls[0]?.[0]).toBe(ctx.ctx)
+    },
+  )
 
-  it('draws via sceneRenderer.drawInstances when sceneRenderer is webgpu', () => {
-    const { r, drawInstances } = makeSceneRenderer('webgpu')
+  it('draws through the same primitive target on webgpu', () => {
+    const { r, submit } = makeSceneRenderer('webgpu')
 
     const ctx = createCtx(r, {
       data: makeBars(3),
@@ -104,12 +114,12 @@ describe('candle sceneRenderer path', () => {
 
     paint(ctx)
 
-    expect(drawInstances).toHaveBeenCalled()
+    expect(submit).toHaveBeenCalledOnce()
   })
 
-  it('falls to Canvas2D when drawInstances returns false (fail-closed)', () => {
-    const { r, drawInstances } = makeSceneRenderer()
-    drawInstances.mockReturnValue(false)
+  it('falls to Canvas2D on the same target when primitive execution fails', () => {
+    const { r, submit } = makeSceneRenderer()
+    submit.mockReturnValue(false)
     const ctx2d = createMockCanvasContext()
 
     const ctx = createCtx(r, {
@@ -168,13 +178,10 @@ describe('candle preparation', () => {
     if (!stem || !open || !close) throw new Error('Missing OHLC geometry')
     expect(open[0] + open[2]).toBe(stem[0])
     expect(close[0]).toBe(stem[0] + stem[2])
-    for (const backend of ['webgl2', 'webgpu']) {
-      const { r, writeBuffer } = makeSceneRenderer(backend)
+    for (const backend of ['webgl2', 'webgpu'] as const) {
+      const { r, rectangles } = makeSceneRenderer(backend)
       layer.paint({ ...barContext, sceneRenderer: r })
-      const actual = writeBuffer.mock.calls.flatMap(([, data]) =>
-        data instanceof Float32Array ? [...data] : [],
-      )
-      expect(actual).toEqual(rects.flatMap((rect) => rect))
+      expect(rectangles()).toEqual(rects)
     }
     layer.dispose()
   })
@@ -210,15 +217,10 @@ describe('candle preparation', () => {
       ).toBe(false)
       for (const rectangle of rectangles)
         for (const value of rectangle) expect(value * dpr).toBeCloseTo(Math.round(value * dpr), 4)
-      for (const backend of ['webgl2', 'webgpu']) {
-        const { r, writeBuffer } = makeSceneRenderer(backend)
+      for (const backend of ['webgl2', 'webgpu'] as const) {
+        const { r, rectangles: submittedRectangles } = makeSceneRenderer(backend)
         layer.paint({ ...context, sceneRenderer: r })
-        const actual = writeBuffer.mock.calls.flatMap(([, values]) =>
-          values instanceof Float32Array ? [...values] : [],
-        )
-        expect(actual).toEqual(
-          rectangles.flatMap((rectangle) => rectangle.map((value) => Math.round(value * dpr))),
-        )
+        expect(submittedRectangles()).toEqual(rectangles)
       }
       // 同一数据版本切换形态必须重建几何。
       vi.mocked(canvas.fillRect).mockClear()
@@ -254,7 +256,7 @@ describe('candle preparation', () => {
     ({ dpr, bodyPx }) => {
       const canvas = createMockCanvasContext()
       const layer = createCandleLayer()
-      const { r, writeBuffer } = makeSceneRenderer()
+      const { r, submit, rectangles: submittedRectangles } = makeSceneRenderer()
       const context = createCtx(undefined, {
         ctx: canvas,
         dataRevision: 1,
@@ -272,7 +274,7 @@ describe('candle preparation', () => {
         { zoomLevel: 9, wickPx: 1 },
       ]) {
         vi.mocked(canvas.fillRect).mockClear()
-        writeBuffer.mockClear()
+        submit.mockClear()
         const projected = { ...context, kWidthPx: bodyPx, kWidth: bodyPx / dpr, zoomLevel }
         layer.paint(projected)
         const rectangles = vi.mocked(canvas.fillRect).mock.calls
@@ -290,19 +292,13 @@ describe('candle preparation', () => {
           expect(leftMargin * dpr).toBeCloseTo(Math.round(leftMargin * dpr), 5)
         }
         layer.paint({ ...projected, sceneRenderer: r })
-        const batches = writeBuffer.mock.calls.map(([, data]) => data)
-        expect(batches).toHaveLength(2)
-        const wicks = batches[1]
-        const bodies = batches[0]
-        if (!(bodies instanceof Float32Array)) throw new Error('Missing body geometry')
-        expect(wicks).toBeInstanceOf(Float32Array)
-        if (!(wicks instanceof Float32Array)) throw new Error('Missing wick geometry')
-        expect(wicks[2]).toBe(wickPx)
-        expect(wicks[6]).toBe(wickPx)
-        for (const offset of [0, 4]) {
-          // GPU 批次直接存整数物理像素，几何中心必须完全相等。
-          expect(Number.isInteger(wicks[offset])).toBe(true)
-          expect(wicks[offset]! + wicks[offset + 2]! / 2).toBe(bodies[0]! + bodies[2]! / 2)
+        expect(submit).toHaveBeenCalledOnce()
+        const submitted = submittedRectangles()
+        expect(submitted).toEqual(rectangles)
+        for (const wick of submitted.slice(1)) {
+          expect(wick[2]! * dpr).toBeCloseTo(wickPx, 5)
+          expect(wick[0]! * dpr).toBeCloseTo(Math.round(wick[0]! * dpr), 5)
+          expect(wick[0]! + wick[2]! / 2).toBeCloseTo(body[0] + body[2] / 2, 5)
         }
       }
       layer.dispose()

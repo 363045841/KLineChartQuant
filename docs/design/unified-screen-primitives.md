@@ -2,13 +2,13 @@
 
 Plot 与 drawing 原先分别调用 Canvas API，GPU 只覆盖矩形和实线。这使虚线、区域、标记、文字、选中锚点与预览无法共享后端。
 
-本次采用统一的 `PaintPrimitive`：多轮廓 fill、带样式 stroke、circle、rect、text。业务模块只投影几何和排版；Canvas、WebGL2、WebGPU 消费同一份有序命令。圆、矩形与圆角矩形在 GPU 上使用凸形直接绘制路径，避免每个散点或柱子都经过 stencil；箭头归约成通用路径，不增加业务专用后端方法。
+统一的 `PaintPrimitive` 包含多轮廓 fill、带样式 stroke、circle、rect、text。业务模块只投影几何和排版；Canvas、WebGL2、WebGPU 消费同一份有序命令。圆、矩形与圆角矩形在 GPU 上使用解析形状实例管线；箭头归约成通用路径，不增加业务专用后端方法。
 
-GPU 填充通过有向三角扇累计 stencil winding，支持凹形、自交、多轮廓和 evenodd。描边在共享几何层展开为同向轮廓，使用 nonzero 并集，避免透明线条连接处重复混合；dash 按路径长度连续切分。文字使用浏览器字体排版与字形栅格化，随后由 GPU 纹理四边形绘制。几何路径不经 Canvas 栅格化。
+复杂 GPU 填充通过有向三角扇累计 stencil winding，支持凹形、自交、多轮廓和 evenodd。复杂描边在共享几何层展开为同向轮廓，使用 nonzero 并集，避免透明线条连接处重复混合；dash 按路径长度连续切分。基础形状实例化，简单几何直接绘制；文字直接使用 Canvas。几何路径不经 Canvas 栅格化。
 
-各批次先在隔离 GPU 目标上绘制，完整成功后合成到调用方已有画布。这保留主图、正式 drawing 与 session 的清屏、裁剪和层级语义，也保证一批失败时能完整回退，避免先提交部分内容后重复绘制。WebGPU 共用宿主 device，WebGL 使用独立目标，不改变行情共享 surface 的绑定状态。新增能力作为可选 `Renderer.primitives` 提供，自定义后端未实现时由统一提交器解释 Canvas 原语。
+各批次先在隔离 GPU 目标上绘制，完整成功后合成到 Scene 指定画布。这保留主图、正式 drawing 与 session 的清屏、裁剪和层级语义，也保证一批失败时能完整回退。`Renderer.primitives` 是唯一且必需的后端绘制能力；可见 GPU surface、旧 buffer/pipeline API 和旧行情绘制链路已经删除，详见 `scene-owned-composition.md`。
 
-取舍：保留现有图层画布需要每批一次 GPU→目标画布合成，文字纹理目前按批上传，尚未引入跨批字形图集；这比让所有对象长期停留在 Canvas 路径更完整，但不应宣称已经获得最优性能。未来可在保持原语契约的前提下，将合成目标提升为原生 GPU 图层。此变更不扩展到坐标轴、十字线及第三方自定义 Canvas 插件。
+后续优化已改为基础形状实例化、几何与颜色缓存、连续缓冲复用和有序合批，详见 `primitive-batching-and-reuse.md`。文字按产品要求直接由 Canvas 绘制，不再上传 GPU 字形纹理。图文交错时必须保留原始顺序，Canvas 文字会形成 GPU 提交边界。此变更不扩展到坐标轴、十字线及第三方自定义 Canvas 插件，也不实现局部重绘。
 
 验证需覆盖 dash 跨折点、凹形与孔洞、交叉透明填充、旋转多行文字、非整数 DPR、正式层/预览层隔离、整批失败回退和后端资源释放，并通过真实浏览器检查三后端像素。
 

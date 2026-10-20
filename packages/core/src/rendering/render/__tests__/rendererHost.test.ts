@@ -1,6 +1,7 @@
 /** 验证 RendererHost 的后端降级、切换、设备丢失和销毁行为。 */
 
 import { describe, expect, it, vi } from 'vitest'
+import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { createCanvas2DRenderer } from '../backend/createCanvas2DRenderer'
 import type { Renderer } from '../Renderer'
 import { createRendererHost, type RendererBackend } from '../rendererHost'
@@ -17,7 +18,7 @@ function makeRenderer(backend: RendererBackend): Renderer {
   const renderer = createCanvas2DRenderer()
   return {
     ...renderer,
-    caps: { ...renderer.caps, name: backend === 'webgl' ? 'webgl2' : backend },
+    caps: { name: backend === 'webgl' ? 'webgl2' : backend === 'canvas' ? 'canvas2d' : 'webgpu' },
   }
 }
 
@@ -82,22 +83,32 @@ describe('RendererHost', () => {
     expect(host.runtime).toEqual({ effective: 'webgpu', status: 'ready', error: null })
   })
 
-  it('preserves the surface size when switching renderers', async () => {
+  it('switches only the executor without clearing or owning the visible target', async () => {
     const webgl = makeRenderer('webgl')
     const webgpu = makeRenderer('webgpu')
-    const resizeWebGL = vi.spyOn(webgl.surface, 'resize')
-    const resizeWebGPU = vi.spyOn(webgpu.surface, 'resize')
+    const target = createMockCanvasContext()
+    const disposeWebGL = vi.spyOn(webgl, 'dispose')
     const host = await createRendererHost('webgl', {
       createWebGPU: () => webgpu,
       createWebGL: () => webgl,
       createCanvas: createCanvas2DRenderer,
     })
 
-    host.resize(960, 540, 1.5)
+    host.renderer.primitives.paint(
+      target,
+      [{ kind: 'rect', x: 0, y: 0, width: 20, height: 20, color: 'red' }],
+      1.5,
+    )
     await host.switchTo('webgpu')
-
-    expect(resizeWebGL).toHaveBeenCalledWith(960, 540, 1.5)
-    expect(resizeWebGPU).toHaveBeenCalledWith(960, 540, 1.5)
+    host.renderer.primitives.paint(
+      target,
+      [{ kind: 'circle', x: 10, y: 10, radius: 3, color: 'blue' }],
+      1.5,
+    )
+    expect(disposeWebGL).toHaveBeenCalledOnce()
+    expect(target.clearRect).not.toHaveBeenCalled()
+    expect(target.fillRect).toHaveBeenCalledOnce()
+    expect(target.arc).toHaveBeenCalledOnce()
   })
 
   it('disposes a stale renderer created by an older switch', async () => {

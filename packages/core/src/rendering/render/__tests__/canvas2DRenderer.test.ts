@@ -1,36 +1,16 @@
-/** 验证 Canvas2D fallback Renderer 的能力声明与资源生命周期契约。 */
-
-import { describe, expect, it } from 'vitest'
-
+/** Canvas 生命周期与显式原语目标回归。 */
+import { expect, it } from 'vitest'
+import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { createCanvas2DRenderer } from '../backend/createCanvas2DRenderer'
 
-describe('createCanvas2DRenderer', () => {
-  it('fails closed so business renderers use Canvas2D', () => {
-    const renderer = createCanvas2DRenderer()
-    const buffer = renderer.createBuffer('instance', 16)
-    const pipeline = renderer.createPipeline({ type: 'candle' })
-
-    expect(renderer.caps.name).toBe('canvas2d')
-    expect(renderer.surface.isAvailable()).toBe(false)
-    expect(
-      renderer.drawInstances({
-        pipeline,
-        vertices: buffer,
-        instances: buffer,
-        instanceCount: 1,
-        vertexCount: 6,
-      }),
-    ).toBe(false)
-    expect(renderer.drawLines({ pipeline, strips: [] })).toBe(false)
-  })
-
-  it('has an idempotent disposed lifecycle', () => {
-    const renderer = createCanvas2DRenderer()
-
-    renderer.dispose()
-    renderer.dispose()
-
-    expect(() => renderer.createBuffer('vertex', 8)).toThrow('Renderer is disposed')
-    expect(() => renderer.createComputePipeline({})).toThrow('compute not supported')
-  })
+it('writes only to the provided target and stops after disposal', () => {
+  const renderer = createCanvas2DRenderer(),
+    target = createMockCanvasContext(),
+    other = createMockCanvasContext()
+  renderer.primitives.paint(target, [{ kind: 'circle', x: 10, y: 20, radius: 4, color: 'red' }], 1)
+  expect(target.arc).toHaveBeenCalledOnce()
+  expect(other.arc).not.toHaveBeenCalled()
+  renderer.dispose()
+  renderer.dispose()
+  expect(renderer.primitives.paint(other, [], 1)).toBe(false)
 })

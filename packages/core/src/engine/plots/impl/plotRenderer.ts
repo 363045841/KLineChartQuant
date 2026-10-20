@@ -21,17 +21,18 @@ import {
   sameProjectionRevision,
 } from '@/engine/frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '@/engine/frame/types.js'
-import { barVerticalRect, projectBarBatches } from '@/engine/renderers/barGeometry/impl/projectBars.js'
+import { projectBarPrimitives } from '@/engine/renderers/barGeometry/impl/paintBars.js'
+import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
-import type { Layer } from '@/rendering/scene/types.js'
 import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types.js'
+import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
+import type { Layer } from '@/rendering/scene/types.js'
 import type { PlotRenderState } from '../types.js'
 import { buildFillBands, type FillBand } from './fillGeometry.js'
 import {
@@ -466,36 +467,75 @@ function paintGeometry(
   geometry: PlotGeometry,
 ): void {
   const commands: PaintPrimitive[] = []
-  const screen = (path: PrimitivePath) => path.map(point => ({ x: point.x - context.scrollLeft, y: point.y }))
-  for (const fill of geometry.fills) if (fill.fill.visible) for (const band of fill.bands) {
-    commands.push({ kind: 'fill', paths: band.polygons.map(screen), color: band.color })
-  }
+  const screen = (path: PrimitivePath) =>
+    path.map((point) => ({ x: point.x - context.scrollLeft, y: point.y }))
+  for (const fill of geometry.fills)
+    if (fill.fill.visible)
+      for (const band of fill.bands) {
+        commands.push({ kind: 'fill', paths: band.polygons.map(screen), color: band.color })
+      }
   for (const guide of state.guides) {
     const y = context.pane.yAxis.priceToY(guide.value)
     if (!Number.isFinite(y)) continue
-    commands.push({ kind: 'stroke', paths: [[{ x: 0, y }, { x: context.paneWidth, y }]], color: guide.color, width: 1, dash: guide.dash })
+    commands.push({
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 0, y },
+          { x: context.paneWidth, y },
+        ],
+      ],
+      color: guide.color,
+      width: 1,
+      dash: guide.dash,
+    })
   }
   for (const projection of geometry.plots) {
     if (!projection.plot.visible) continue
     switch (projection.kind) {
       case 'line':
-        for (const line of projection.lines) commands.push({ kind: 'stroke', paths: [screen(line.points)], color: line.color, width: line.width, dash: projection.plot.dash, cap: 'round', join: 'round' })
+        for (const line of projection.lines)
+          commands.push({
+            kind: 'stroke',
+            paths: [screen(line.points)],
+            color: line.color,
+            width: line.width,
+            dash: projection.plot.dash,
+            cap: 'round',
+            join: 'round',
+          })
         break
       case 'histogram':
       case 'columns':
       case 'candle':
       case 'bar':
-        for (const batch of projectBarBatches(projection.rects, context.scrollLeft, context.dpr)) {
-          for (let i = 0; i < batch.count * 4; i += 4) commands.push({ kind: 'rect', x: batch.buf[i]! / context.dpr, y: batch.buf[i + 1]! / context.dpr, width: batch.buf[i + 2]! / context.dpr, height: batch.buf[i + 3]! / context.dpr, color: batch.color })
-        }
+        commands.push(...projectBarPrimitives(projection.rects, context.scrollLeft, context.dpr))
         break
       case 'points':
-        for (const [index, point] of projection.points) commands.push({ kind: 'circle', x: point.x - context.scrollLeft, y: point.y, radius: pointRadius(projection.plot.size), color: projection.plot.data[index - projection.plot.offset]?.color ?? projection.plot.color })
+        for (const [index, point] of projection.points)
+          commands.push({
+            kind: 'circle',
+            x: point.x - context.scrollLeft,
+            y: point.y,
+            radius: pointRadius(projection.plot.size),
+            color:
+              projection.plot.data[index - projection.plot.offset]?.color ?? projection.plot.color,
+          })
         break
       case 'shape':
       case 'char':
       case 'arrow':
-        for (const point of projection.points.values()) commands.push(...markerPrimitives(point.glyph, point.x - context.scrollLeft, point.y, point.color, point.textColor, context.dpr))
+        for (const point of projection.points.values())
+          commands.push(
+            ...markerPrimitives(
+              point.glyph,
+              point.x - context.scrollLeft,
+              point.y,
+              point.color,
+              point.textColor,
+              context.dpr,
+            ),
+          )
         break
     }
   }

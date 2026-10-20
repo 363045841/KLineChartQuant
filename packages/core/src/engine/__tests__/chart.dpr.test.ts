@@ -413,16 +413,14 @@ describe('Chart DPR pipeline', () => {
     chart.resize()
     chart.setData(makeBars(100))
     const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
-    const instances = vi.spyOn(chart['rendererHost'].renderer, 'drawInstances')
-    const lines = vi.spyOn(chart['rendererHost'].renderer, 'drawLines')
+    const primitives = vi.spyOn(chart['rendererHost'].renderer.primitives, 'paint')
     chart.draw()
+    const mainTarget = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)?.ctx
     paint.mockClear()
-    instances.mockClear()
-    lines.mockClear()
+    primitives.mockClear()
     chart.draw()
     expect(paint).not.toHaveBeenCalled()
-    expect(instances).not.toHaveBeenCalled()
-    expect(lines).not.toHaveBeenCalled()
+    expect(primitives).not.toHaveBeenCalled()
 
     chart.handlePointerEvent(pointerEvent('pointermove', dom.container, { pointerType: 'mouse' }))
     chart.draw()
@@ -432,7 +430,7 @@ describe('Chart DPR pipeline', () => {
         pane.roles?.every((role) => role === 'drawing' || role === 'overlay'),
       ),
     ).toBe(true)
-    expect(instances).not.toHaveBeenCalled()
+    expect(primitives.mock.calls.some(([target]) => target === mainTarget)).toBe(false)
 
     paint.mockClear()
     chart.kernel.viewport.actions.scrollTo(30)
@@ -441,6 +439,31 @@ describe('Chart DPR pipeline', () => {
       true,
     )
     await chart.destroy()
+  })
+
+  it('allocates the drawing target for a native drawing Layer without document objects', async () => {
+    const chart = mountChart()
+    try {
+      chart.setData(makeBars(3))
+      const paint = vi.fn<(context: { ctx: CanvasRenderingContext2D }) => void>()
+      chart.useRenderer({
+        id: 'native:drawing-target',
+        role: 'drawing',
+        pane: MAIN_PANE_ID,
+        z: 1,
+        visible: true,
+        paint,
+        dispose() {},
+      })
+      chart.draw()
+      expect(paint).toHaveBeenCalledOnce()
+      const targets = chart['paneRenderers'][0]!.getContexts()
+      expect(targets.drawingCtx).not.toBeNull()
+      expect(paint.mock.calls[0]?.[0].ctx).toBe(targets.drawingCtx)
+      expect(paint.mock.calls[0]?.[0].ctx).not.toBe(targets.mainCtx)
+    } finally {
+      await chart.destroy()
+    }
   })
 
   // 市场配置不参与倒计时；未注册或空市场标识也沿用相同的帧和 timer 链路。
@@ -589,7 +612,8 @@ describe('Chart DPR pipeline', () => {
         const formalLayer = scene.layers.peek().find((layer) => layer.role === 'drawing')
         if (!formalLayer) throw new Error('Expected the committed drawing layer')
         const formalPaint = vi.spyOn(formalLayer, 'paint')
-        const instances = vi.spyOn(chart['rendererHost'].renderer, 'drawInstances')
+        const primitives = vi.spyOn(chart['rendererHost'].renderer.primitives, 'paint')
+        const mainTarget = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)?.ctx
         const committed = chart.drawing.drawings.peek()
         expect(session.onPointerDown(event('pointerdown'), dom.container)).toBe(true)
         expect(session.onPointerMove(event('pointermove', 20), dom.container)).toBe(true)
@@ -599,14 +623,14 @@ describe('Chart DPR pipeline', () => {
         expect(first?.drawingProjection?.primitives.length).toBeGreaterThan(0)
         expect(first?.sessionDrawingProjection?.primitives.length).toBeGreaterThan(0)
         formalPaint.mockClear()
-        instances.mockClear()
+        primitives.mockClear()
         expect(session.onPointerMove(event('pointermove', 40), dom.container)).toBe(true)
         chart.draw()
         const second = chart['renderer'].getPaneCtxMap().get(MAIN_PANE_ID)
         expect(second?.sessionDrawingProjection).not.toEqual(first?.sessionDrawingProjection)
         expect(second?.drawingProjection).toBe(first?.drawingProjection)
         expect(formalPaint).not.toHaveBeenCalled()
-        expect(instances).not.toHaveBeenCalled()
+        expect(primitives.mock.calls.some(([target]) => target === mainTarget)).toBe(false)
         expect(chart.drawing.drawings.peek()).toBe(committed)
 
         if (finish === 'commit') session.onPointerUp(event('pointerup', 40), dom.container)
@@ -1350,20 +1374,22 @@ describe('Chart pane layout regressions', () => {
     const chart = mountChart()
     try {
       const switchBackend = vi.spyOn(chart['rendererHost'], 'switchTo')
+      const originalBackend = chart.kernel.settings.readonly.settings.peek().rendererBackend
+      const targetBackend = originalBackend === 'canvas' ? 'webgl' : 'canvas'
       const document = chart.kernel.exportLayout()
       chart.kernel.applyLayout({
         ...document,
         settings: {
           ...document.settings,
-          rendererBackend: 'canvas',
+          rendererBackend: targetBackend,
           marketDataCacheMaxMiB: 200,
         },
       })
-      expect(switchBackend).toHaveBeenCalledWith('canvas')
+      expect(switchBackend).toHaveBeenCalledWith(targetBackend)
       expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(200 * 1024 * 1024)
       chart.kernel.applyLayout({ ...document, settings: {} })
       expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(50 * 1024 * 1024)
-      expect(chart.kernel.settings.readonly.settings.peek().rendererBackend).toBe('webgl')
+      expect(chart.kernel.settings.readonly.settings.peek().rendererBackend).toBe(originalBackend)
     } finally {
       await chart.destroy()
     }

@@ -3,16 +3,10 @@
  * 页面只暴露确定性的测试 API，实际编排、硬件采样与结果落盘由 run.mjs 完成。
  */
 
-import { drawRectBatchesViaRenderer } from '../../packages/core/src/engine/renderers/rectsViaRenderer'
-import { SharedWebGLSurface } from '../../packages/core/src/engine/renderers/webgl/sharedWebGLSurface'
+import type { PaintPrimitive } from '../../packages/core/src/rendering/primitives/types'
 import { createCanvas2DRenderer } from '../../packages/core/src/rendering/render/backend/createCanvas2DRenderer'
 import { createWebGLRenderer } from '../../packages/core/src/rendering/render/backend/createWebGLRenderer'
 import { createWebGPURenderer } from '../../packages/core/src/rendering/render/backend/createWebGPURenderer'
-import { createWebGLSurfaceBackend } from '../../packages/core/src/rendering/render/createWebGLSurfaceBackend'
-import {
-  getFrameMetrics,
-  resetFrameMetrics,
-} from '../../packages/core/src/rendering/render/frameMetrics'
 import type { Renderer } from '../../packages/core/src/rendering/render/Renderer'
 import { createRetainedGeometry } from '../../packages/core/src/rendering/scene/retainedGeometry'
 
@@ -468,281 +462,101 @@ function jsHeapUsed(): number | null {
   return memory?.usedJSHeapSize ?? null
 }
 
-/** 执行 Canvas2D 场景并采集 CPU 与真实帧间隔。 */
-async function runCanvasScenario(options: ScenarioOptions): Promise<ScenarioResult> {
-  const geometrySource = createGeometrySource(options)
-  const initializationStarted = performance.now()
-  const canvas = mountCanvas(options.width, options.height, options.dpr)
-  const ctx = canvas.getContext('2d', { alpha: true })!
-  ctx.scale(options.dpr, options.dpr)
-  const canvasContract = createCanvas2DRenderer()
-  const initializationMs = performance.now() - initializationStarted
-  const cpuFramePreparationMs: number[] = []
-  const cpuFrameMs: number[] = []
-  const frameIntervalsMs: number[] = []
-  let drawCallsPerFrame = 0
-  let previousTimestamp: number | null = null
-
-  const draw = (geometry: Geometry): void => {
-    ctx.clearRect(0, 0, options.width, options.height)
-    for (const batch of geometry.batches) {
-      ctx.fillStyle = batch.color
-      for (let offset = 0; offset < batch.buf.length; offset += 4) {
-        ctx.fillRect(
-          batch.buf[offset]!,
-          batch.buf[offset + 1]!,
-          batch.buf[offset + 2]!,
-          batch.buf[offset + 3]!,
-        )
-      }
-    }
-    for (const strip of geometry.strips) {
-      if (strip.points.length < 2) continue
-      ctx.beginPath()
-      ctx.strokeStyle = strip.color
-      ctx.lineWidth = strip.width
-      ctx.moveTo(strip.points[0]!.x, strip.points[0]!.y)
-      for (let index = 1; index < strip.points.length; index += 1) {
-        ctx.lineTo(strip.points[index]!.x, strip.points[index]!.y)
-      }
-      ctx.stroke()
-    }
-  }
-
-  for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
-    const timestamp = await nextAnimationFrame()
-    const { geometry, preparationMs } = geometrySource.prepare()
-    drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
-    const startedAt = performance.now()
-    draw(geometry)
-    const elapsed = performance.now() - startedAt
-    if (index >= options.warmupFrames) {
-      cpuFramePreparationMs.push(preparationMs)
-      cpuFrameMs.push(elapsed)
-      if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
-    }
-    previousTimestamp = timestamp
-  }
-
-  canvasContract.dispose()
-  return {
-    backend: options.backend,
-    indicatorProfile: options.indicatorProfile,
-    effectiveBackend: canvasContract.caps.name,
-    visiblePoints: options.visiblePoints,
-    width: options.width,
-    height: options.height,
-    dpr: options.dpr,
-    warmupFrames: options.warmupFrames,
-    sampleFrames: options.sampleFrames,
-    initializationMs,
-    cpuFramePreparationMs,
-    cpuFrameMs,
-    frameIntervalsMs,
-    gpuFrameMs: [],
-    drawCallsPerFrame,
-    queueSubmitsPerFrame: null,
-    jsHeapUsedBytes: jsHeapUsed(),
-    webglRenderer: null,
-    webgpuAdapter: null,
-    timestampQuerySupported: false,
-    geometryBuildCount: geometrySource.builds,
-  }
-}
-
-/** 执行项目 WebGL 后端场景，并用 EXT_disjoint_timer_query_webgl2 读取 GPU 时间。 */
-async function runWebGlScenario(options: ScenarioOptions): Promise<ScenarioResult> {
-  const geometrySource = createGeometrySource(options)
-  const initializationStarted = performance.now()
-  const canvas = mountCanvas(options.width, options.height, options.dpr)
-  const shared = new SharedWebGLSurface(canvas)
-  const surface = createWebGLSurfaceBackend(shared)
-  surface.resize(options.width, options.height, options.dpr)
-  const renderer = createWebGLRenderer(surface, shared)
-  const gl = shared.getGL()
-  if (!gl) throw new Error('WebGL2 unavailable')
-  const timer = gl.getExtension('EXT_disjoint_timer_query_webgl2')
-  const linePipeline = renderer.createPipeline({ type: 'line' })
-  const initializationMs = performance.now() - initializationStarted
-  const cpuFramePreparationMs: number[] = []
-  const cpuFrameMs: number[] = []
-  const frameIntervalsMs: number[] = []
-  const queries: WebGLQuery[] = []
-  let drawCallsPerFrame = 0
-  let previousTimestamp: number | null = null
-
-  const draw = (geometry: Geometry): void => {
-    renderer.beginFrame({
-      x: 0,
-      y: 0,
-      width: options.width,
-      height: options.height,
-      dpr: options.dpr,
-    })
-    if (!drawRectBatchesViaRenderer(renderer, geometry.batches, 0)) {
-      throw new Error('WebGL rect draw failed')
-    }
-    if (!renderer.drawLines({ pipeline: linePipeline, strips: geometry.strips })) {
-      throw new Error('WebGL line draw failed')
-    }
-    renderer.endFrame()
-  }
-
-  for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
-    const timestamp = await nextAnimationFrame()
-    const { geometry, preparationMs } = geometrySource.prepare()
-    drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
-    const query = timer ? gl.createQuery() : null
-    if (query && timer) gl.beginQuery(timer.TIME_ELAPSED_EXT, query)
-    const startedAt = performance.now()
-    draw(geometry)
-    const elapsed = performance.now() - startedAt
-    if (query && timer) {
-      gl.endQuery(timer.TIME_ELAPSED_EXT)
-      if (index >= options.warmupFrames) queries.push(query)
-      else gl.deleteQuery(query)
-    }
-    if (index >= options.warmupFrames) {
-      cpuFramePreparationMs.push(preparationMs)
-      cpuFrameMs.push(elapsed)
-      if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
-    }
-    previousTimestamp = timestamp
-  }
-
-  const gpuFrameMs: number[] = []
-  const deadline = performance.now() + 10_000
-  while (queries.length > 0 && performance.now() < deadline) {
-    for (let index = queries.length - 1; index >= 0; index -= 1) {
-      const query = queries[index]!
-      if (!gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)) continue
-      if (!timer || gl.getParameter(timer.GPU_DISJOINT_EXT)) {
-        gl.deleteQuery(query)
-        queries.splice(index, 1)
-        continue
-      }
-      gpuFrameMs.push(Number(gl.getQueryParameter(query, gl.QUERY_RESULT)) / 1_000_000)
-      gl.deleteQuery(query)
-      queries.splice(index, 1)
-    }
-    if (queries.length > 0) await new Promise((resolve) => setTimeout(resolve, 10))
-  }
-  for (const query of queries) gl.deleteQuery(query)
-
-  const webglRenderer = inspectWebGlRenderer(canvas)
-  renderer.destroyPipeline(linePipeline)
-  renderer.dispose()
-  return {
-    backend: options.backend,
-    indicatorProfile: options.indicatorProfile,
-    effectiveBackend: renderer.caps.name,
-    visiblePoints: options.visiblePoints,
-    width: options.width,
-    height: options.height,
-    dpr: options.dpr,
-    warmupFrames: options.warmupFrames,
-    sampleFrames: options.sampleFrames,
-    initializationMs,
-    cpuFramePreparationMs,
-    cpuFrameMs,
-    frameIntervalsMs,
-    gpuFrameMs,
-    drawCallsPerFrame,
-    queueSubmitsPerFrame: null,
-    jsHeapUsedBytes: jsHeapUsed(),
-    webglRenderer,
-    webgpuAdapter: null,
-    timestampQuerySupported: timer !== null,
-    geometryBuildCount: geometrySource.builds,
-  }
-}
-
-/** 执行项目 WebGPU 后端场景，并读取单次 RenderPass 的真实 GPU 时间。 */
-async function runWebGpuScenario(options: ScenarioOptions): Promise<ScenarioResult> {
-  const geometrySource = createGeometrySource(options)
-  const initializationStarted = performance.now()
-  const canvas = mountCanvas(options.width, options.height, options.dpr)
-  const timedGpu = await createTimestampedGpu()
-  const renderer = await createWebGPURenderer({ gpu: timedGpu.gpu, canvas })
-  renderer.surface.resize(options.width, options.height, options.dpr)
-  const linePipeline = renderer.createPipeline({ type: 'line' })
-  const initializationMs = performance.now() - initializationStarted
-  const cpuFramePreparationMs: number[] = []
-  const cpuFrameMs: number[] = []
-  const frameIntervalsMs: number[] = []
-  let drawCallsPerFrame = 0
-  let previousTimestamp: number | null = null
-  resetFrameMetrics()
-
-  const draw = (geometry: Geometry): void => {
-    renderer.beginFrame({
-      x: 0,
-      y: 0,
-      width: options.width,
-      height: options.height,
-      dpr: options.dpr,
-    })
-    if (!drawRectBatchesViaRenderer(renderer, geometry.batches, 0)) {
-      throw new Error('WebGPU rect draw failed')
-    }
-    if (!renderer.drawLines({ pipeline: linePipeline, strips: geometry.strips })) {
-      throw new Error('WebGPU line draw failed')
-    }
-    renderer.endFrame()
-  }
-
-  for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
-    const timestamp = await nextAnimationFrame()
-    const { geometry, preparationMs } = geometrySource.prepare()
-    drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
-    const startedAt = performance.now()
-    draw(geometry)
-    const elapsed = performance.now() - startedAt
-    if (index >= options.warmupFrames) {
-      cpuFramePreparationMs.push(preparationMs)
-      cpuFrameMs.push(elapsed)
-      if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
-    }
-    previousTimestamp = timestamp
-  }
-
-  await timedGpu.device.queue.onSubmittedWorkDone()
-  const allGpuFrames = await timedGpu.drain()
-  const gpuFrameMs = allGpuFrames.slice(-options.sampleFrames)
-  const metrics = getFrameMetrics()
-  const webgpuAdapter = adapterInfo(timedGpu.adapter)
-  renderer.destroyPipeline(linePipeline)
-  renderer.dispose()
-  return {
-    backend: options.backend,
-    indicatorProfile: options.indicatorProfile,
-    effectiveBackend: renderer.caps.name,
-    visiblePoints: options.visiblePoints,
-    width: options.width,
-    height: options.height,
-    dpr: options.dpr,
-    warmupFrames: options.warmupFrames,
-    sampleFrames: options.sampleFrames,
-    initializationMs,
-    cpuFramePreparationMs,
-    cpuFrameMs,
-    frameIntervalsMs,
-    gpuFrameMs,
-    drawCallsPerFrame: metrics.drawCallCount || drawCallsPerFrame,
-    queueSubmitsPerFrame: metrics.queueSubmitCount,
-    jsHeapUsedBytes: jsHeapUsed(),
-    webglRenderer: null,
-    webgpuAdapter,
-    timestampQuerySupported: timedGpu.timestampSupported,
-    geometryBuildCount: geometrySource.builds,
-  }
-}
-
-/** 执行单个后端、单个可见点数量的独立场景。 */
+/** 三后端都将相同命令合成到同一原生目标，不使用独立 GPU DOM 画布。 */
 async function runScenario(options: ScenarioOptions): Promise<ScenarioResult> {
-  if (options.backend === 'canvas2d') return runCanvasScenario(options)
-  if (options.backend === 'webgl2') return runWebGlScenario(options)
-  return runWebGpuScenario(options)
+  const geometrySource = createGeometrySource(options)
+  const retained = createRetainedGeometry<PaintPrimitive[], Geometry>(Object.is)
+  const started = performance.now()
+  const canvas = mountCanvas(options.width, options.height, options.dpr)
+  const ctx = canvas.getContext('2d')!
+  ctx.scale(options.dpr, options.dpr)
+  const timedGpu = options.backend === 'webgpu' ? await createTimestampedGpu() : null
+  const renderer: Renderer = timedGpu
+    ? await createWebGPURenderer({ gpu: timedGpu.gpu })
+    : options.backend === 'webgl2'
+      ? createWebGLRenderer()
+      : createCanvas2DRenderer()
+  const initializationMs = performance.now() - started
+  const cpuFramePreparationMs: number[] = [],
+    cpuFrameMs: number[] = [],
+    frameIntervalsMs: number[] = []
+  let previousTimestamp: number | null = null,
+    drawCallsPerFrame = 0,
+    queueSubmitsPerFrame = 0
+  try {
+    for (let index = 0; index < options.warmupFrames + options.sampleFrames; index++) {
+      const timestamp = await nextAnimationFrame(),
+        prepareStart = performance.now()
+      const { geometry } = geometrySource.prepare()
+      const commands = retained.read(geometry, () => {
+        const commands: PaintPrimitive[] = []
+        for (const batch of geometry.batches)
+          for (let i = 0; i < batch.count * 4; i += 4)
+            commands.push({
+              kind: 'rect',
+              x: batch.buf[i]!,
+              y: batch.buf[i + 1]!,
+              width: batch.buf[i + 2]!,
+              height: batch.buf[i + 3]!,
+              color: batch.color,
+            })
+        for (const strip of geometry.strips)
+          commands.push({
+            kind: 'stroke',
+            paths: [strip.points],
+            color: strip.color,
+            width: strip.width,
+          })
+        return commands
+      })
+      const preparationMs = performance.now() - prepareStart,
+        paintStart = performance.now()
+      ctx.clearRect(0, 0, options.width, options.height)
+      if (!renderer.primitives.paint(ctx, commands, options.dpr))
+        throw new Error(`${options.backend} primitive paint failed`)
+      const elapsed = performance.now() - paintStart,
+        metrics = renderer.primitives.getMetrics?.()
+      drawCallsPerFrame = metrics?.drawCalls ?? commands.length
+      queueSubmitsPerFrame = metrics?.submissions ?? 0
+      if (index >= options.warmupFrames) {
+        cpuFramePreparationMs.push(preparationMs)
+        cpuFrameMs.push(elapsed)
+        if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
+      }
+      previousTimestamp = timestamp
+    }
+    await renderer.primitives.waitForIdle?.()
+    const gpuFrameMs = timedGpu ? (await timedGpu.drain()).slice(-options.sampleFrames) : []
+    return {
+      backend: options.backend,
+      indicatorProfile: options.indicatorProfile,
+      effectiveBackend: renderer.caps.name,
+      visiblePoints: options.visiblePoints,
+      width: options.width,
+      height: options.height,
+      dpr: options.dpr,
+      warmupFrames: options.warmupFrames,
+      sampleFrames: options.sampleFrames,
+      initializationMs,
+      cpuFramePreparationMs,
+      cpuFrameMs,
+      frameIntervalsMs,
+      gpuFrameMs,
+      drawCallsPerFrame,
+      queueSubmitsPerFrame,
+      jsHeapUsedBytes: jsHeapUsed(),
+      webglRenderer:
+        options.backend === 'webgl2'
+          ? inspectWebGlRenderer(document.createElement('canvas'))
+          : null,
+      webgpuAdapter: timedGpu ? adapterInfo(timedGpu.adapter) : null,
+      timestampQuerySupported: timedGpu?.timestampSupported ?? false,
+      geometryBuildCount: geometrySource.builds,
+    }
+  } finally {
+    renderer.dispose()
+    retained.clear()
+  }
 }
 
 /** 在正式测试前检查浏览器内的 WebGL/WebGPU 设备身份。 */
