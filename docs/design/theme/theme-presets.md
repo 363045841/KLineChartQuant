@@ -2,7 +2,7 @@
 
 ## 范围
 
-提供 Pro、Exchange、Terminal、Zen、Quant 五种风格。Pro Dark 完整复用项目原有 darkTheme，作为无历史偏好时的默认基底；Pro Light 沿用原有浅色基础。
+提供 Pro、Exchange、Terminal、Zen、Quant 五种风格。Pro Dark 完整复用项目原有 darkTheme，作为无历史偏好时的默认基底；Pro Light 在 2026 浅色刷新中改为暖纸面与石墨文字，作为浅色预设的共同语义基线。
 
 五种风格均提供 Light / Dark 变体，避免切换风格强行修改明暗偏好。Terminal 以 Dark 为主要使用场景，Light 保证现有明暗开关可独立使用。Paper 和 Midnight 不另建风格标识。
 
@@ -25,7 +25,7 @@
 
 | 风格 | 视觉策略 |
 | --- | --- |
-| Pro | 原版深浅主题，原始数据层级不变 |
+| Pro | 暖纸面、石墨文字、三级表面层级 |
 | Exchange | 黑灰分层表面、独立琥珀强调色 |
 | Terminal | 冷灰面板、高对比边框与文字、琥珀强调 |
 | Zen | 灰绿表面、极弱网格、低饱和强调色 |

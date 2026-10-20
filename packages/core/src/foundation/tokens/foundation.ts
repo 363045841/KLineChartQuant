@@ -219,7 +219,7 @@ export const lightFoundation: FoundationTokens = {
   },
   brand: {
     accent: '#4C77C6',
-    accentText: '#456FBD',
+    accentText: '#4067AF',
   },
 }
 
