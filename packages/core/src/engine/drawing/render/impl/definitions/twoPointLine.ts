@@ -17,13 +17,17 @@ export function createTwoPointLineDefinition(
     compute(drawing, context) {
       const [first, second] = drawing.anchors
       if (!first || !second) return { primitives: [] }
+      const a = context.toScreen(first)
+      const b = context.toScreen(second)
+      if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return { primitives: [] }
+      if (a.x === b.x && a.y === b.y) return { primitives: [] }
       return {
         primitives: [
           {
             kind: 'line',
-            a: context.toScreen(first),
-            b: context.toScreen(second),
-            extend,
+            a,
+            b,
+            extend: drawing.extend ?? extend,
             style: drawing.style,
           },
         ],

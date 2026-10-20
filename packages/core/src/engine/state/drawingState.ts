@@ -1,6 +1,6 @@
 /** 绘图状态模块：工具、图元与选中图元集合的 SSOT。 */
 
-import type { DrawingStyle } from '../../foundation/plugin/index.js'
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import { CURSOR_DRAWING_TOOL_ID, type DrawingObject, type DrawingToolId } from '../drawing/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
@@ -22,7 +22,7 @@ function snapshotSelectedDrawingIds(
   ids: ReadonlyArray<string>,
   drawings: ReadonlyArray<DrawingObject>,
 ): ReadonlyArray<string> {
-  const existingIds = new Set(drawings.map((drawing) => drawing.id))
+  const existingIds = new Set(drawings.filter((drawing) => drawing.visible && isDrawingInteractive(drawing)).map((drawing) => drawing.id))
   return Object.freeze([...new Set(ids.filter((id) => existingIds.has(id)))])
 }
 
@@ -67,8 +67,8 @@ export function createDrawingState() {
         return next
       },
 
-      /** 历史回放：在同一次通知中恢复图元与选中集合。 */
-      restoreDocument(
+      /** 以一个原子文档快照提交图元和选择，用户操作与历史回放共用。 */
+      commitDocument(
         drawings: ReadonlyArray<DrawingObject>,
         selectedIds: ReadonlyArray<string>,
       ): void {
@@ -78,106 +78,6 @@ export function createDrawingState() {
           signals.drawings.set(next)
           signals.selectedDrawingIds.set(selected)
         })
-      },
-
-      /** 原子新增一组图元并选中整组，创建与选中不可分割。 */
-      addDrawingsAndSelect(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
-        if (drawings.length === 0) return Object.freeze([])
-        const next = snapshotDrawings([...signals.drawings.peek(), ...drawings])
-        const selected = snapshotSelectedDrawingIds(
-          drawings.map((drawing) => drawing.id),
-          next,
-        )
-        batch(() => {
-          signals.drawings.set(next)
-          signals.selectedDrawingIds.set(selected)
-        })
-        return Object.freeze(next.slice(-drawings.length))
-      },
-
-      /** 以完整模型快照替换指定图元，并返回更新后的不可变快照。 */
-      updateDrawing(id: string, drawing: DrawingObject): DrawingObject | null {
-        const current = signals.drawings.peek()
-        const index = current.findIndex((drawing) => drawing.id === id)
-        if (index === -1) return null
-        const next = [...current]
-        next[index] = drawing
-        const snapshot = snapshotDrawings(next)
-        signals.drawings.set(snapshot)
-        return snapshot[index]!
-      },
-
-      /** 原子更新一批已确认图元的公共属性。 */
-      updateDrawings(
-        ids: ReadonlyArray<string>,
-        patch: {
-          readonly style?: Partial<DrawingStyle>
-          readonly visible?: boolean
-          readonly locked?: boolean
-          readonly zIndex?: number
-        },
-      ): ReadonlyArray<DrawingObject> {
-        const idSet = new Set(ids)
-        if (idSet.size === 0) return Object.freeze([])
-        const current = signals.drawings.peek()
-        const targets = current.filter((drawing) => idSet.has(drawing.id))
-        if (targets.length !== idSet.size) return Object.freeze([])
-
-        const next = current.map((drawing) => {
-          if (!idSet.has(drawing.id)) return drawing
-          return {
-            ...drawing,
-            ...(patch.style === undefined ? {} : { style: { ...drawing.style, ...patch.style } }),
-            ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-            ...(patch.locked === undefined ? {} : { locked: patch.locked }),
-            ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
-          }
-        })
-        const snapshot = snapshotDrawings(next)
-        const selected =
-          patch.visible === false
-            ? signals.selectedDrawingIds.peek().filter((id) => !idSet.has(id))
-            : signals.selectedDrawingIds.peek()
-        batch(() => {
-          signals.drawings.set(snapshot)
-          if (!hasSameIds(signals.selectedDrawingIds.peek(), selected)) {
-            signals.selectedDrawingIds.set(Object.freeze(selected))
-          }
-        })
-        const snapshotsById = new Map(snapshot.map((drawing) => [drawing.id, drawing]))
-        return Object.freeze(targets.map((drawing) => snapshotsById.get(drawing.id)!))
-      },
-
-      /** 按 id 移除已确认图元，并同步剔除失效的选中状态。 */
-      removeDrawing(id: string): boolean {
-        const current = signals.drawings.peek()
-        const next = current.filter((drawing) => drawing.id !== id)
-        if (next.length === current.length) return false
-        const selected = snapshotSelectedDrawingIds(signals.selectedDrawingIds.peek(), next)
-        batch(() => {
-          signals.drawings.set(snapshotDrawings(next))
-          if (!hasSameIds(signals.selectedDrawingIds.peek(), selected)) {
-            signals.selectedDrawingIds.set(selected)
-          }
-        })
-        return true
-      },
-
-      /** 原子移除一批已确认图元，并同步清理选中集合。 */
-      removeDrawings(ids: ReadonlyArray<string>): boolean {
-        const idSet = new Set(ids)
-        if (idSet.size === 0) return false
-        const current = signals.drawings.peek()
-        const next = current.filter((drawing) => !idSet.has(drawing.id))
-        if (next.length !== current.length - idSet.size) return false
-        const selected = snapshotSelectedDrawingIds(signals.selectedDrawingIds.peek(), next)
-        batch(() => {
-          signals.drawings.set(snapshotDrawings(next))
-          if (!hasSameIds(signals.selectedDrawingIds.peek(), selected)) {
-            signals.selectedDrawingIds.set(selected)
-          }
-        })
-        return true
       },
 
       /** 设置当前选中图元集合；不存在的 id 会被忽略。 */

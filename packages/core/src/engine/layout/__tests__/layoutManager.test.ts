@@ -115,7 +115,7 @@ it('绘图随布局落盘，复制保留图元，新建与缺少绘图的文档�
   try {
     await manager.initialize()
     const drawing = createDrawing()
-    kernel.drawing.actions.addDrawingsAndSelect([drawing])
+    kernel.drawing.actions.commitDocument([drawing], [drawing.id])
     const exported = manager.exportLayout()
     expect(exported.drawings).toEqual([drawing])
     expect(exported.drawings).not.toBe(kernel.drawing.readonly.drawings.peek())
@@ -154,7 +154,7 @@ it('绘图修改和删除通过自动保存落盘，重新打开不复活已删�
   const unsubscribe = subscribeDrawingAutoSave(first)
   try {
     const drawing = createDrawing()
-    first.kernel.drawing.actions.addDrawingsAndSelect([drawing])
+    first.kernel.drawing.actions.commitDocument([drawing], [drawing.id])
     expect(first.manager.layoutDirty.peek()).toBe(true)
     await first.manager.saveLayout({ name: '绘图自动保存' })
     first.kernel.drawing.actions.setSelectedDrawingIds([])

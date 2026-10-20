@@ -166,6 +166,25 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
         ctx.restore()
       }
 
+      const strokeStyle = primitive.style?.strokeStyle
+      const arrowLeft = strokeStyle === 'arrow_left' || strokeStyle === 'arrow_both'
+      const arrowRight = strokeStyle === 'arrow_right' || strokeStyle === 'arrow_both'
+      if (arrowLeft || arrowRight) {
+        ctx.setLineDash([])
+        const angle = Math.atan2(clipped.b.y - clipped.a.y, clipped.b.x - clipped.a.x)
+        const length = Math.max(8, lineWidth * 3)
+        for (const head of [
+          ...(arrowLeft ? [{ point: clipped.a, angle: angle + Math.PI }] : []),
+          ...(arrowRight ? [{ point: clipped.b, angle }] : []),
+        ]) {
+          ctx.beginPath()
+          ctx.moveTo(head.point.x - length * Math.cos(head.angle - Math.PI / 6), head.point.y - length * Math.sin(head.angle - Math.PI / 6))
+          ctx.lineTo(head.point.x, head.point.y)
+          ctx.lineTo(head.point.x - length * Math.cos(head.angle + Math.PI / 6), head.point.y - length * Math.sin(head.angle + Math.PI / 6))
+          ctx.stroke()
+        }
+      }
+
       // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
         const pointRadius = Math.max(primitive.style?.pointRadius ?? 4, 1 / dpr)

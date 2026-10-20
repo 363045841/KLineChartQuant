@@ -27,6 +27,7 @@ import type { DrawingPaintScope } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
+import { drawingTimeIndex } from './timeCoordinate.js'
 import { getVerticalHandleLines } from './lines.js'
 
 type MutableDrawingFrameProjection = {
@@ -37,11 +38,8 @@ type MutableDrawingFrameProjection = {
 
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
-  const { pane, range, kLineCenters, scrollLeft, kWidth } = context
+  const { pane, range, kLineCenters, scrollLeft } = context
   return (anchor) => {
-    if (!Number.isFinite(anchor.index) || anchor.index < 0) {
-      return { x: -kWidth, y: pane.yAxis.priceToY(anchor.price) }
-    }
     const x = logicalIndexToScreenX({
       index: anchor.index,
       visibleRange: range,
@@ -50,15 +48,17 @@ function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor)
       dpr: context.dpr,
       fallbackStep: context.kWidth + context.kGap,
     })
-    return { x: x ?? -kWidth, y: pane.yAxis.priceToY(anchor.price) }
+    return { x: x ?? Number.NaN, y: pane.yAxis.priceToY(anchor.price) }
   }
 }
 
 /** 缺失时间锚点对应的数据时不能生成几何，禁止复用旧位置。 */
 function hasResolvableTimeAnchors(drawing: ResolvedDrawingObject): boolean {
   return drawing.anchors.every((anchor) => {
+    if (!Number.isFinite(anchor.price)) return false
+    if (anchor.logicalIndex !== undefined) return Number.isFinite(anchor.index)
     const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-    return timestamp === undefined || anchor.index >= 0
+    return timestamp === undefined || (drawing.xloc === 'bar_time' ? Number.isFinite(anchor.index) : anchor.index >= 0)
   })
 }
 
@@ -66,11 +66,16 @@ function hasResolvableTimeAnchors(drawing: ResolvedDrawingObject): boolean {
 function resolveDrawingForFrame(
   drawing: import('../../types.js').DrawingObject,
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
+  context: RenderContext,
 ): ResolvedDrawingObject {
   return {
     ...drawing,
     anchors: drawing.anchors.map((anchor) => {
+      if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
       const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+      if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
+        return { ...anchor, index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex) }
+      }
       if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
       const baseIndex = getLogicalIndexAtTimestamp(timestamp)
       const futureOffset = anchor.futureOffset
@@ -215,7 +220,7 @@ function projectAxisDecorations(
     // 槽位已变为真实 bar 时取 bar 时间，仍在未来时只取交易日历。
     const timestamp =
       anchor.index >= series.length
-        ? (context.getTimestampAtLogicalIndex?.(anchor.index) ?? null)
+        ? context.getTimestampAtLogicalIndex(anchor.index)
         : anchor.futureOffset !== undefined
           ? (series[anchor.index]?.timestamp ?? null)
           : anchorTimestamp !== undefined && Number.isFinite(anchorTimestamp)
@@ -310,7 +315,7 @@ export function projectDrawingsForFrame(
     context.colorPresetSettings,
   )
   for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
-    const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp)
+    const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
     if (!hasResolvableTimeAnchors(drawing)) continue
     const geometry = definitions.compute(drawing, {
       pane: context.pane,
@@ -328,7 +333,7 @@ export function projectDrawingsForFrame(
       toScreen,
     })
     if (!geometry) continue
-    const isSelected = selectedIds.has(drawing.id)
+    const isSelected = drawing.ownerId === undefined && selectedIds.has(drawing.id)
     const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
     output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
     if (isSelected) {

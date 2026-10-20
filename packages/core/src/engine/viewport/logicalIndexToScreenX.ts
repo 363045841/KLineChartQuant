@@ -13,17 +13,25 @@ export interface LogicalIndexScreenXInput {
 }
 
 /**
- * 将任意有效逻辑索引投影为当前视口的屏幕 X 坐标。
+ * 将连续逻辑坐标投影为当前视口的屏幕 X；整数表示 bar，分数表示槽位间的位置。
  *
  * 可见范围外的索引按当前帧第一个中心点及槽位步长线性外推，确保未来槽位、
  * 渲染、命中与拖拽共享同一坐标语义。
  */
 export function logicalIndexToScreenX(input: LogicalIndexScreenXInput): number | null {
   const { index, visibleRange, centers, scrollLeft, dpr, fallbackStep } = input
-  if (!Number.isInteger(index) || index < 0 || centers.length === 0) return null
+  if (!Number.isFinite(index) || centers.length === 0) return null
 
   const center = centers[index - visibleRange.start]
   if (Number.isFinite(center)) return worldXToScreenX(center, scrollLeft, dpr)
+
+  const offset = index - visibleRange.start
+  const lower = Math.floor(offset)
+  if (lower >= 0 && lower + 1 < centers.length) {
+    const left = centers[lower]!
+    const right = centers[lower + 1]!
+    return worldXToScreenX(left + (right - left) * (offset - lower), scrollLeft, dpr)
+  }
 
   const step =
     centers.length >= 2

@@ -93,6 +93,8 @@ import {
   composeInstanceRenderState,
   computeInstanceMainIndicatorPriceRange,
 } from './stateComposer.js'
+import { createIndicatorTimelineProjection, projectIndicatorCollection } from './projection/impl/indicatorTimelineProjection.js'
+import type { IndicatorTimelineProjection } from './projection/types.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -203,6 +205,19 @@ export class ChartIndicatorManager {
   private hasData = false
   private resultPool: IndicatorResultPool | null = null
   private renderStates: ReadonlyMap<string, unknown> = new Map()
+  /** 映射只随计算或行情时间轴变化重建，滚动和缩放复用整列投影。 */
+  private timelineProjection: {
+    source: readonly number[]
+    target: readonly number[]
+    byMinute: boolean
+    projection: IndicatorTimelineProjection
+  } | null = null
+  /** 实例展示状态与计算投影共同决定可见输出，缓存引用供帧版本检测使用。 */
+  private visibleRenderStatesCache: {
+    states: ReadonlyMap<string, unknown>
+    instances: readonly IndicatorInstanceSpec[]
+    visible: ReadonlyMap<string, unknown>
+  } | null = null
   private projectedPlotColors: ColorTokens | null = null
   /** 绘图点由结果和展示配置派生；可见区间变化只重算范围。 */
   private readonly plotProjections = new WeakMap<
@@ -211,14 +226,26 @@ export class ChartIndicatorManager {
       presentation: Readonly<Record<string, unknown>>
       colors: ColorTokens
       state: PlotRenderState
+      timeline: IndicatorTimelineProjection
     }
   >()
   /** 每个实例尚未完成的异步来源集合；集合非空即视为加载中。 */
   private readonly availabilitySources = new Map<string, Set<string>>()
 
-  /** 返回当前绘制投影的身份，供帧内容版本检测异步指标提交。 */
+  /** 按指标实例身份提供整份可见输出；隐藏不删除计算结果，不区分绘图 API。 */
   getRenderStatesSnapshot(): ReadonlyMap<string, unknown> {
-    return this.renderStates
+    const instances = this.deps.indicator.readonly.instances.peek()
+    const cached = this.visibleRenderStatesCache
+    if (cached?.states === this.renderStates && cached.instances === instances) {
+      return cached.visible
+    }
+    const visible = new Map<string, unknown>()
+    for (const instance of instances) {
+      if (instance.hidden === true || !this.renderStates.has(instance.instanceId)) continue
+      visible.set(instance.instanceId, this.renderStates.get(instance.instanceId))
+    }
+    this.visibleRenderStatesCache = { states: this.renderStates, instances, visible }
+    return visible
   }
   private onResultsAppliedCallback: (() => void) | null = null
 
@@ -673,6 +700,8 @@ export class ChartIndicatorManager {
     this.displayTimestamps = displayTimestamps
     this.dataRevision = dataRevision ?? this.dataRevision + 1
     this.hasData = data.length > 0
+    // 行情下标已变化时，先重定位已提交结果，再等待异步计算补齐新位置。
+    if (this.reprojectRenderStates()) this.deps.scheduleDraw()
     this.requestCompute()
   }
 
@@ -690,7 +719,7 @@ export class ChartIndicatorManager {
     void this.calculationScheduler
       .compute({
         dataRevision: this.dataRevision,
-        timestamps: this.displayTimestamps ?? this.currentTimestamps,
+        timestamps: this.currentTimestamps,
         data: this.currentData,
       })
       .finally(() => {
@@ -700,11 +729,10 @@ export class ChartIndicatorManager {
       })
   }
 
-  /** 提交最新结果池：先投影到展示时间轴，再生成帧级渲染投影。 */
+  /** 结果池始终保留计算时的时间轴；展示映射在投影边界生成。 */
   private applyCommittedPool(pool: IndicatorResultPool): void {
-    const projected = this.projectPoolToDisplayTimestamps(pool)
-    this.resultPool = projected
-    this.renderStates = this.composeRenderStates(projected)
+    this.resultPool = pool
+    this.renderStates = this.composeRenderStates(pool)
     this.deps.scheduleDraw()
     this.onResultsAppliedCallback?.()
   }
@@ -728,7 +756,7 @@ export class ChartIndicatorManager {
   createRenderStateReader(): IndicatorRenderStateReader {
     return {
       get: <T = unknown>(instanceId: string): T | undefined =>
-        this.renderStates.get(instanceId) as T | undefined,
+        this.getRenderStatesSnapshot().get(instanceId) as T | undefined,
     }
   }
 
@@ -736,18 +764,12 @@ export class ChartIndicatorManager {
   getMainIndicatorPriceRange(): { min: number; max: number } | null {
     const pool = this.resultPool
     if (!pool) return null
-    // 隐藏的主图指标不参与主图价格范围，避免不可见线条撑大缩放区间。
-    const hiddenIds = new Set(
-      this.deps.indicator.readonly.instances
-        .peek()
-        .filter((instance) => instance.hidden === true)
-        .map((instance) => instance.instanceId),
-    )
+    const visibleStates = this.getRenderStatesSnapshot()
     let min = Infinity
     let max = -Infinity
     for (const instance of this.pipeline.snapshot().instances.values()) {
       // 主图实例固定落在 main pane；paneId 不参与计算身份。
-      if (instance.paneId !== 'main' || hiddenIds.has(instance.instanceId)) continue
+      if (instance.paneId !== 'main' || !visibleStates.has(instance.instanceId)) continue
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
@@ -786,6 +808,7 @@ export class ChartIndicatorManager {
   /** 逐实例生成渲染投影；结果池是唯一事实来源。 */
   private composeRenderStates(pool: IndicatorResultPool): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
+    const timeline = this.getTimelineProjection(pool.timestamps)
     const renderStates = new Map<string, unknown>()
     for (const instance of this.pipeline.snapshot().instances.values()) {
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
@@ -795,6 +818,7 @@ export class ChartIndicatorManager {
       const previous = this.plotProjections.get(result)
       if (
         metadata.plots &&
+        previous?.timeline === timeline &&
         previous?.presentation === instance.presentation &&
         previous.colors === colors
       ) {
@@ -811,49 +835,29 @@ export class ChartIndicatorManager {
         this.visibleRange,
         timestamp,
         colors,
+        timeline.projectIndex,
       )
       if (state === undefined) continue
-      if (isPlotRenderState(state))
-        this.plotProjections.set(result, { presentation: instance.presentation, colors, state })
-      renderStates.set(instance.instanceId, state)
+      if (isPlotRenderState(state) && metadata.plots) {
+        const projected = updatePlotRange({ ...state, ...projectIndicatorCollection(state, timeline) }, metadata.plots, this.visibleRange, timestamp)
+        this.plotProjections.set(result, { presentation: instance.presentation, colors, state: projected, timeline })
+        renderStates.set(instance.instanceId, projected)
+      } else {
+        renderStates.set(instance.instanceId, state)
+      }
     }
     return renderStates
   }
 
-  /** 把计算结果按分钟时间戳投影到展示序列，保持分时指标与分时坐标对齐。 */
-  private projectPoolToDisplayTimestamps(pool: IndicatorResultPool): IndicatorResultPool {
-    const display = this.displayTimestamps
-    if (!display) return pool
-    const indexByMinute = new Map<number, number>()
-    for (let index = 0; index < this.currentTimestamps.length; index++) {
-      indexByMinute.set(Math.floor(this.currentTimestamps[index]! / 60_000), index)
-    }
-    const project = (value: unknown): unknown => {
-      if (Array.isArray(value)) {
-        return display.map((timestamp) => {
-          const sourceIndex = indexByMinute.get(Math.floor(timestamp / 60_000))
-          return sourceIndex === undefined ? undefined : value[sourceIndex]
-        })
-      }
-      if (value && typeof value === 'object') {
-        return Object.fromEntries(
-          Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
-            key,
-            project(nested),
-          ]),
-        )
-      }
-      return value
-    }
-    const results = new Map<string, IndicatorSeriesResult>()
-    for (const [instanceId, result] of pool.results) {
-      results.set(instanceId, Object.freeze({ ...result, series: project(result.series) }))
-    }
-    return Object.freeze({
-      ...pool,
-      timestamps: Object.freeze([...display]),
-      results,
-    })
+  /** 从权威计算时间轴映射到当前展示时间轴，缓存完整的映射身份。 */
+  private getTimelineProjection(source: readonly number[]): IndicatorTimelineProjection {
+    const target = this.displayTimestamps ?? this.currentTimestamps
+    const byMinute = this.displayTimestamps !== null
+    const cached = this.timelineProjection
+    if (cached?.source === source && cached.target === target && cached.byMinute === byMinute) return cached.projection
+    const projection = createIndicatorTimelineProjection(source, target, byMinute)
+    this.timelineProjection = { source, target, byMinute, projection }
+    return projection
   }
 
   get indicatorsComputed(): Computed<ReadonlyArray<IndicatorInstance>> {

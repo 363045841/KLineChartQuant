@@ -36,6 +36,10 @@ declare function __read(field: string, offset: number): number
 
 /** 宿主注入：已推进的 K 线条数。 */
 declare function __count(): number
+type DrawingObject = import('@363045841yyt/klinechart-plot-contracts').DrawingObject
+type DrawingLineApi = import('@363045841yyt/klinechart-plot-contracts').DrawingLineApi
+type ChartPoint = import('@363045841yyt/klinechart-plot-contracts').ChartPoint
+declare const createDrawingLineApi: typeof import('@363045841yyt/klinechart-plot-contracts').createDrawingLineApi
 
 /** 宿主注入：上报当前 K 线的绘图点。 */
 declare function __plot(

@@ -33,6 +33,8 @@ import { requestExecutionSource } from '../../request/impl/requestExecutionSourc
 import type { RequestValue, ScriptRequestContext, SecurityRequest } from '../../request/types.js'
 import {
   INDICATOR_PRELUDE,
+  LINE_API_PRELUDE,
+  DRAWING_PRELUDE,
   LIBRARY_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
@@ -194,6 +196,8 @@ function runWithContext(
     evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, LINE_API_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, DRAWING_PRELUDE, 'compile', timeout).dispose()
     for (const library of options.libraries ?? []) {
       evalOrThrow(vm, library.source, 'compile', timeout).dispose()
       evalOrThrow(
@@ -232,7 +236,20 @@ function runWithContext(
     } finally {
       compiled.dispose()
     }
-    return { definition, collection: collector.collect(), requests, values }
+    const drawingHandle = evalOrThrow(vm, '__drawingSnapshot()', 'run', timeout)
+    try {
+      const drawings: NonNullable<PlotCollection['drawings']> = vm.dump(drawingHandle)
+      // QuickJS 的复合值通道使用 JSON，NaN 变成 null；仅在已知数值字段还原 na。
+      const snapshot = drawings.map((drawing) => ({ ...drawing, anchors: drawing.anchors.map((anchor) => ({
+        ...anchor,
+        ...(anchor.logicalIndex === null ? { logicalIndex: Number.NaN } : {}),
+        ...(anchor.time === null ? { time: Number.NaN } : {}),
+        price: anchor.price === null ? Number.NaN : anchor.price,
+      })) }))
+      return { definition, collection: { ...collector.collect(), drawings: snapshot }, requests, values }
+    } finally {
+      drawingHandle.dispose()
+    }
   } finally {
     vm.dispose()
   }

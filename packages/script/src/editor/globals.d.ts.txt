@@ -8,6 +8,7 @@ import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 import type { ScriptRequest } from '../request/types.js'
+import type { DrawingLineApi, ChartPoint } from '@363045841yyt/klinechart-plot-contracts'
 
 declare global {
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
@@ -20,6 +21,18 @@ declare global {
   var close: Series
   var volume: Series
   var time: Series
+  /** 当前 K 线索引，从 0 开始。 */
+  const bar_index: number
+  /** 创建、修改、读取和删除线对象，跨 bar 保留。 */
+  const line: DrawingLineApi
+  /** point 坐标工厂；line.new 会复制坐标。 */
+  const chart: { readonly point: {
+    "new"(time: number, index: number, price: number): ChartPoint
+    now(price: number): ChartPoint
+    from_index(index: number, price: number): ChartPoint
+    from_time(time: number, price: number): ChartPoint
+    copy(point: ChartPoint): ChartPoint
+  } }
   /**
    * 内建技术分析库
    * 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。

@@ -598,7 +598,7 @@ export class ChartStateKernel extends StateKernel {
         document.panePriceAxisModes,
         document.panePriceAxisRanges,
       )
-      this.drawing.actions.restoreDocument(document.drawings ?? [], [])
+      this.drawing.actions.commitDocument(document.drawings ?? [], [])
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())
     })

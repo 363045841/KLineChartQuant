@@ -1,6 +1,9 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { isPlotRenderState } from '../../plots/impl/readPlotState.js'
+import type { DrawingObject } from '../../drawing/types.js'
+import { resolveChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
@@ -312,6 +315,7 @@ export class ChartRenderer {
       drawings$: deps.drawings$,
       selectedDrawingIds$: deps.selectedDrawingIds$,
       getOverlay: deps.getOverlay,
+      getIndicatorDrawings: () => this.getIndicatorDrawings(),
     })
     registerDefaultDrawingDefinitions(this.drawingDefinitions)
     this.scene = createScene()
@@ -973,7 +977,21 @@ export class ChartRenderer {
     }
   }
 
-  /** 构建所有 pane 的上下文与区域，由 Scene 逐 pane 绑定并绘制，最后统一提交 GPU。 */
+  /** 为当前活动指标绑定对象归属与面板，交给公共 drawing 链路绘制。 */
+  private getIndicatorDrawings(): readonly DrawingObject[] {
+    const manager = this.deps.getIndicatorManager()
+    const states = manager.getRenderStatesSnapshot()
+    const workspaceId = resolveChartWorkspaceId(this.deps.dataView$.peek())
+    return manager.indicatorsComputed.peek().flatMap((instance) => {
+      const state = states.get(instance.id)
+      if (!isPlotRenderState(state) || !state.drawings) return []
+      return state.drawings.map((drawing) => ({ ...drawing,
+        id: `${instance.id}:${drawing.id}`, ownerId: instance.id,
+        paneId: instance.paneId ?? MAIN_PANE_ID, workspaceId }))
+    })
+  }
+
+  /** 构造 pane 上下文，通过统一 drawing 投影绘制用户与指标对象。 */
   private renderPanes(
     frame: FrameContext,
     level: UpdateLevel,
@@ -1014,7 +1032,9 @@ export class ChartRenderer {
     ]
     const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
     const SESSION_CANVAS_ROLES: readonly LayerRole[] = ['overlay']
-    const drawingVersion = this.drawingStore.getCommittedPaintVersion()
+    const drawingVersion = [...this.drawingStore.getCommittedPaintVersion(),
+      this.deps.getIndicatorManager().getRenderStatesSnapshot(),
+      this.deps.getIndicatorManager().indicatorsComputed.peek()]
     const drawingChanged = !this.sameVersion(this.paintedDrawingVersion, drawingVersion)
 
     // 本帧所有 pane 的绘制输入；全部 pane 构建完成后再一次性交给 Scene。

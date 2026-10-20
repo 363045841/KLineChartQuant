@@ -50,6 +50,30 @@ declare enum Color {
   Black = "#000000",
 }
 
+/** 手绘与脚本共用的对象、坐标、样式和 Pine 风格 line API 契约。 */
+declare enum LineStyle {
+  style_solid = "solid",
+  style_dashed = "dashed",
+  style_dotted = "dotted",
+  style_arrow_left = "arrow_left",
+  style_arrow_right = "arrow_right",
+  style_arrow_both = "arrow_both",
+}
+
+/** 延伸沿两锚点的参数方向，与屏幕左右方向无关。 */
+declare enum extend {
+  none = "none",
+  left = "left",
+  right = "right",
+  both = "both",
+}
+
+/** bar_time 使用毫秒时间戳。 */
+declare enum xloc {
+  bar_index = "bar_index",
+  bar_time = "bar_time",
+}
+
 /**
  * @summary 数据源
  *

@@ -100,6 +100,7 @@ function labelHitDistanceSq(
 
 /** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
 const NO_SELECTION: ReadonlySet<string> = new Set()
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 
 /**
  * Hit detection — test mouse position against drawing anchors and line segments.
@@ -118,7 +119,7 @@ export class HitTester {
     adapter: DrawingViewportPort,
     selectedDrawingIds: ReadonlySet<string> = NO_SELECTION,
   ): HitResult | null {
-    const visibleDrawings = drawings.filter((d) => d.visible)
+    const visibleDrawings = drawings.filter((d) => d.visible && isDrawingInteractive(d))
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
     const pointer: Point = { x: mouseX, y: mouseY }
 
@@ -316,7 +317,7 @@ export class HitTester {
     let start: { x: number; y: number } = a
     let end: { x: number; y: number } = b
 
-    const extend = getExtendMode(drawing.kind)
+    const extend = drawing.extend ?? getExtendMode(drawing.kind)
     const maxLen = Math.max(viewport.plotWidth, viewport.plotHeight) * 4
 
     if (extend === 'right' || extend === 'both') {
@@ -378,6 +379,7 @@ export class HitTester {
     let areaTarget: LineLabelTarget | null = null
 
     for (const drawing of drawings) {
+      if (!isDrawingInteractive(drawing)) continue
       const segments = this.getDrawingLabelSegments(drawing, adapter)
 
       for (const [lineIndex, segment] of segments.entries()) {

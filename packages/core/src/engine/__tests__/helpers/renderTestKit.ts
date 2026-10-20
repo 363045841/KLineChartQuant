@@ -196,6 +196,7 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
       const index = data.findIndex((item) => item.timestamp === timestamp)
       return index >= 0 ? index : null
     },
+    getTimestampAtLogicalIndex: (index: number) => data[index]?.timestamp ?? null,
     pane: createMockPaneInfo(pane),
     range: { start: 0, end: count },
     scrollLeft: 0,

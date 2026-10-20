@@ -65,7 +65,8 @@ export function projectPlots(
     params,
     plots,
     fills,
-    ...plotRange(definition, plots, fills, range),
+    drawings: collection && isPlotCollection(raw) ? raw.drawings : undefined,
+    ...plotRange(definition, plots, fills, range, collection && isPlotCollection(raw) ? raw.drawings : undefined),
     guides: collection
       ? []
       : (definition.guides ?? []).map((guide) => ({
@@ -217,7 +218,7 @@ export function updatePlotRange(
   range: VisibleRange,
   timestamp: number,
 ): PlotRenderState {
-  return { ...state, timestamp, ...plotRange(definition, state.plots, state.fills, range) }
+  return { ...state, timestamp, ...plotRange(definition, state.plots, state.fills, range, state.drawings) }
 }
 
 /** 固定上下界模式；undefined 与 'fixed' 都表示直接替换。 */
@@ -317,11 +318,29 @@ function plotRange(
   plots: readonly Plot[],
   fills: readonly PlotFill[],
   range: VisibleRange,
+  drawings: import('@363045841yyt/klinechart-plot-contracts').PlotCollection['drawings'] = [],
 ) {
   const fillSources = new Set(
     fills.filter((fill) => fill.visible).flatMap((fill) => [fill.from, fill.to]),
   )
   const bounds = accumulateBounds(plots, fillSources, range)
+  // 纯 drawing 副图也必须有价格范围；对象仅在其区间与可见区相交时参与。
+  for (const drawing of drawings) {
+    if (!drawing.visible || !drawing.anchors.every((anchor) =>
+      Number.isFinite(anchor.price) &&
+      (anchor.logicalIndex === undefined || Number.isFinite(anchor.logicalIndex)) &&
+      (anchor.time === undefined || Number.isFinite(typeof anchor.time === 'number' ? anchor.time : Date.parse(anchor.time)))
+    )) continue
+    const indices = drawing.anchors.map((anchor) => anchor.logicalIndex)
+    const finiteIndices = indices.filter((index): index is number => index !== undefined && Number.isFinite(index))
+    if (finiteIndices.length === indices.length && finiteIndices.length > 0 &&
+      (Math.max(...finiteIndices) < range.start || Math.min(...finiteIndices) >= range.end) &&
+      (drawing.extend === undefined || drawing.extend === 'none')) continue
+    for (const anchor of drawing.anchors) {
+      bounds.min = Math.min(bounds.min, anchor.price)
+      bounds.max = Math.max(bounds.max, anchor.price)
+    }
+  }
   const padding =
     bounds.min <= bounds.max ? (bounds.max - bounds.min) * (definition.padding ?? 0.05) : 0
   return {

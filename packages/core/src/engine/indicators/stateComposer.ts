@@ -5,6 +5,7 @@ import { projectPlots } from '../plots/impl/projectPlots.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
 import type { IndicatorSeriesResult } from './instances/domain/instanceModel.js'
+import { identityIndicatorIndex } from './projection/impl/indicatorTimelineProjection.js'
 
 /** 计算和展示数据只在此相交，渲染器不读取原始计算结果。 */
 export function composeInstanceRenderState(
@@ -14,12 +15,13 @@ export function composeInstanceRenderState(
   visibleRange: VisibleRange,
   timestamp: number,
   colors: ColorTokens = resolveThemeColors('light', false),
+  projectIndex: (index: number) => number = identityIndicatorIndex,
 ): unknown {
   if (result.error) return { kind: 'error', error: result.error }
   const params = { ...result.params, ...presentation }
   if (metadata.plots)
     return projectPlots(metadata.plots, result.series, params, visibleRange, timestamp, colors)
-  return metadata.customState?.compose({ series: result.series, params }, visibleRange, timestamp)
+  return metadata.customState?.compose({ series: result.series, params }, visibleRange, timestamp, projectIndex)
 }
 
 /** 领域指标的主图范围；Plot 的范围直接由当前帧的 Plot 状态提供。 */

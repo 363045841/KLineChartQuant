@@ -4,6 +4,8 @@ import type { Bar } from '../../contracts/input.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import {
   INDICATOR_PRELUDE,
+  LINE_API_PRELUDE,
+  DRAWING_PRELUDE,
   LIBRARY_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
@@ -35,6 +37,7 @@ interface NativeRuntime {
   onBar(): void
   requests(): readonly SecurityRequest[]
   expression(id: string): RequestValue
+  drawings(): NonNullable<import('@363045841yyt/klinechart-plot-contracts').PlotCollection['drawings']>
 }
 
 /** 动态函数创建失败（包括 CSP 拒绝）统一报告为编译错误，不切换后端。 */
@@ -67,9 +70,11 @@ export function prepareNativeScript(
         ${REQUEST_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
+        ${LINE_API_PRELUDE}
+        ${DRAWING_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
-        ;return { metadata: __metadata, onBar: __onBar, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
+        ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
       }).call(globalThis)
     }
   `,
@@ -140,7 +145,7 @@ export function prepareNativeScript(
         if (execution.expressionId === undefined) runtime.onBar()
         else values.push(runtime.expression(execution.expressionId))
       }
-      return { definition, collection: collector.collect(), requests: runtime.requests(), values }
+      return { definition, collection: { ...collector.collect(), drawings: runtime.drawings() }, requests: runtime.requests(), values }
     } catch (error) {
       if (error instanceof ScriptExecutionError || error instanceof ScriptPlotError) throw error
       throw new ScriptExecutionError(phase, error instanceof Error ? error.message : String(error))

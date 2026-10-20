@@ -357,7 +357,7 @@ export interface RenderDataContext {
   /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   /** 逻辑索引 → X 轴时间戳；未来槽位仅由数据源交易日历提供，无对应值时为 null。 */
-  getTimestampAtLogicalIndex?: (index: number) => number | null
+  getTimestampAtLogicalIndex: (index: number) => number | null
   /** 当前图表的显示时区 formatter；仅用于普通 K 线的日期显示与边界。 */
   displayTimeFormatter: import('../utils/dateFormat.js').DisplayTimeFormatter
 }
@@ -496,21 +496,9 @@ export interface RenderContext
     RenderSurfaceContext,
     RenderThemeContext {}
 
-/** 绘图渲染 primitive 契约：仅保留 `RenderContext`/`DrawingFrameProjection` 依赖的屏幕原语。 */
-
-export type DrawingStyle = {
-  stroke?: string
-  strokeWidth?: number
-  strokeStyle?: 'solid' | 'dashed' | 'dotted'
-  fill?: string
-  fillOpacity?: number
-  pointRadius?: number
-  textColor?: string
-  fontSize?: number
-}
-
-/** 绘图线段文字在线段语义方向上的位置。 */
-export type DrawingLabelPosition = 'start' | 'center' | 'end'
+/** 绘图渲染 primitive 契约：样式引用公共图形模型，屏幕图元由 foundation 拥有。 */
+import type { DrawingStyle, DrawingLabelPosition } from '@363045841yyt/klinechart-plot-contracts'
+export type { DrawingStyle, DrawingLabelPosition } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 图元附属文字；位置由所属图元在渲染期计算。 */
 export type PrimitiveTextAttachment = {

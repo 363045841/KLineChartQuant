@@ -24,6 +24,8 @@ export interface DrawingStoreDeps {
   selectedDrawingIds$: ReadonlySignal<ReadonlyArray<string>>
   /** 会话层覆盖（拖拽/预览）；缺省为空 */
   getOverlay?: () => ReadonlyArray<DrawingObject>
+  /** 指标结果中的公共图形快照，不复制进用户文档。 */
+  getIndicatorDrawings?: () => ReadonlyArray<DrawingObject>
 }
 
 /** 各 primitive 的 Canvas2D 渲染器集合。 */

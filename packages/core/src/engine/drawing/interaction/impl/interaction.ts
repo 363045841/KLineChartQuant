@@ -421,6 +421,7 @@ export class DrawingInteractionController {
       .filter(
         (drawing) =>
           drawing.visible &&
+          drawing.ownerId === undefined &&
           drawing.paneId === paneId &&
           (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )

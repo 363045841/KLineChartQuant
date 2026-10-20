@@ -261,6 +261,7 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     ...(typeof value.title === 'string' ? { title: value.title } : {}),
     ...(typeof value.info === 'string' ? { info: value.info } : {}),
     position: value.position,
+    ...(typeof value.max_lines_count === 'number' ? { max_lines_count: value.max_lines_count } : {}),
     ...(isFormat(value.format) ? { format: value.format } : {}),
     inputs,
   }
