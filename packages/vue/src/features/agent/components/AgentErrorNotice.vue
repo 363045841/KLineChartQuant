@@ -13,7 +13,7 @@
       v-if="error.retryable"
       class="agent-quiet-button"
       type="button"
-      @click="$emit('retry')"
+      @click="emit('retry')"
     >
       <IconRefresh aria-hidden="true" />
       {{ text.retry }}
@@ -29,7 +29,7 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ error: AgentErrorView; locale: AgentLocale }>()
-  defineEmits<{ retry: [] }>()
+  const emit = defineEmits<{ retry: [] }>()
   const text = computed(() => getAgentCopy(props.locale))
 </script>
 

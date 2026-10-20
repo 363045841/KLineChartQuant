@@ -5,7 +5,7 @@
     :title="dialogTitle"
     width="min(92vw, 360px)"
     footer-align="space-between"
-    @update:open="!$event && $emit('close')"
+    @update:open="!$event && emit('close')"
   >
     <template #header-extra>
       <BaseTooltip content="显示/隐藏说明" placement="bottom">
@@ -42,7 +42,7 @@
     <template #footer>
       <BaseButton @click="onReset">重置</BaseButton>
       <div class="footer-right">
-        <BaseButton @click="$emit('close')">取消</BaseButton>
+        <BaseButton @click="emit('close')">取消</BaseButton>
         <BaseButton variant="primary" @click="onConfirm">确定</BaseButton>
       </div>
     </template>

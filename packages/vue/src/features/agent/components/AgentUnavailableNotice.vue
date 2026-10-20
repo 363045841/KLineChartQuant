@@ -10,7 +10,7 @@
     <strong>{{ text.workspaceUnavailableTitle }}</strong>
     <p>{{ body }}</p>
     <p v-if="!locked" class="agent-unavailable__detail">{{ error.message }}</p>
-    <button v-if="error.retryable" type="button" @click="$emit('retry')">
+    <button v-if="error.retryable" type="button" @click="emit('retry')">
       <IconRefresh aria-hidden="true" />
       {{ text.retry }}
     </button>
@@ -25,7 +25,7 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ error: AgentErrorView; locale: AgentLocale }>()
-  defineEmits<{ retry: [] }>()
+  const emit = defineEmits<{ retry: [] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   // 独占写锁冲突有专门文案；其他启动失败回退到通用说明。

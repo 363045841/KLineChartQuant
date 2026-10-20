@@ -58,7 +58,7 @@
         v-if="tool.canLocate"
         class="agent-quiet-button"
         type="button"
-        @click="$emit('locate', tool.id)"
+        @click="emit('locate', tool.id)"
       >
         <IconFocusCentered aria-hidden="true" />
         {{ text.locate }}
@@ -67,7 +67,7 @@
         v-if="tool.status === 'succeeded' && tool.undoToken"
         class="agent-quiet-button"
         type="button"
-        @click="$emit('undo')"
+        @click="emit('undo')"
       >
         <IconArrowBackUp aria-hidden="true" />
         {{ text.undo }}
@@ -92,7 +92,7 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ tool: ToolCallView; locale: AgentLocale }>()
-  defineEmits<{ locate: [toolCallId: string]; undo: [] }>()
+  const emit = defineEmits<{ locate: [toolCallId: string]; undo: [] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   const statusLabel = computed(

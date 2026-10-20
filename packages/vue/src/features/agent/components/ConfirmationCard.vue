@@ -23,11 +23,11 @@
       </div>
     </dl>
     <div v-if="confirmation.status === 'pending'" class="confirmation__actions">
-      <button type="button" class="confirmation__reject" @click="$emit('decide', 'rejected')">
+      <button type="button" class="confirmation__reject" @click="emit('decide', 'rejected')">
         <IconX aria-hidden="true" />
         {{ text.reject }}
       </button>
-      <button type="button" class="confirmation__confirm" @click="$emit('decide', 'confirmed')">
+      <button type="button" class="confirmation__confirm" @click="emit('decide', 'confirmed')">
         <IconCheck aria-hidden="true" />
         {{ text.confirm }}
       </button>
@@ -47,7 +47,7 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ confirmation: ConfirmationView; locale: AgentLocale }>()
-  defineEmits<{ decide: [decision: 'confirmed' | 'rejected'] }>()
+  const emit = defineEmits<{ decide: [decision: 'confirmed' | 'rejected'] }>()
   const text = computed(() => getAgentCopy(props.locale))
 </script>
 

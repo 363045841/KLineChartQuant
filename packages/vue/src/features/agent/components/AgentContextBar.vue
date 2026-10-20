@@ -7,7 +7,7 @@
           :model-value="readOnly"
           :aria-label="text.readOnly"
           size="compact"
-          @update:model-value="$emit('read-only', $event)"
+          @update:model-value="emit('read-only', $event)"
         />
       </div>
     </BaseTooltip>
@@ -48,7 +48,7 @@
     locale: AgentLocale
     readOnly: boolean
   }>()
-  defineEmits<{ 'read-only': [value: boolean] }>()
+  const emit = defineEmits<{ 'read-only': [value: boolean] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   const symbolContext = computed(() =>

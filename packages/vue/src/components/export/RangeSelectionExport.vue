@@ -5,14 +5,14 @@
       class="range-input"
       :value="startDate"
       :placeholder="startLabel"
-      @input="$emit('update:startDate', ($event.target as HTMLInputElement).value)"
+      @input="emit('update:startDate', ($event.target as HTMLInputElement).value)"
     />
     <span class="range-sep">~</span>
     <input
       class="range-input"
       :value="endDate"
       :placeholder="endLabel"
-      @input="$emit('update:endDate', ($event.target as HTMLInputElement).value)"
+      @input="emit('update:endDate', ($event.target as HTMLInputElement).value)"
     />
     <span class="range-count">共 {{ count }} 条</span>
     <BaseTooltip content="按区间首尾收盘价计算" placement="top" trigger-display="contents">
@@ -25,14 +25,14 @@
         {{ formattedReturnRate }}
       </span>
     </BaseTooltip>
-    <button type="button" class="toolbar-btn" @click="$emit('batchSetting')">批量设置</button>
-    <button type="button" class="toolbar-btn" @click="$emit('export')">导出</button>
+    <button type="button" class="toolbar-btn" @click="emit('batchSetting')">批量设置</button>
+    <button type="button" class="toolbar-btn" @click="emit('export')">导出</button>
     <BaseTooltip content="取消选区" placement="top" trigger-display="contents">
     <button
       type="button"
       class="toolbar-btn toolbar-btn--delete"
       aria-label="取消选区"
-      @click="$emit('clear')"
+      @click="emit('clear')"
     >
       <svg
         class="delete-icon"
@@ -67,7 +67,7 @@
     returnRate: number | null
   }>()
 
-  defineEmits<{
+  const emit = defineEmits<{
     'update:startDate': [value: string]
     'update:endDate': [value: string]
     export: []
