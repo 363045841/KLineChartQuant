@@ -5,25 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createWebGLRenderer } from '../backend/createWebGLRenderer'
 import { createMockSharedWebGLSurface, createMockSurfaceBackend } from './helpers/rendererTestKit'
 
-vi.mock('@/engine/renderers/webgl/candleSurface', () => ({
-  CandleWebGLSurface: class {
-    isAvailable = () => false
-    setRegion = vi.fn()
-    resize = vi.fn()
-    clear = vi.fn()
-    drawRectBuffer = vi.fn()
-    destroy = vi.fn()
-  },
-  LineWebGLSurface: class {
-    isAvailable = () => false
-    setRegion = vi.fn()
-    resize = vi.fn()
-    clear = vi.fn()
-    drawLineStrips = vi.fn()
-    destroy = vi.fn()
-  },
-}))
-
 /** 构造 GPU surface 不可用的 renderer，覆盖 fail-closed 分支。 */
 function makeRenderer() {
   return createWebGLRenderer(

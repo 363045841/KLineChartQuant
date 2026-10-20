@@ -11,7 +11,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { marketDataProviderRegistry } from '../impl/registry'
+import { MarketDataProviderRegistry } from '../impl/registry'
 import { SourceRouter } from '../impl/router'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
 
@@ -40,8 +40,14 @@ const minuteInstrument = {
 }
 
 describe('THS capability 声明驱动的源筛选', () => {
+  /**
+   * 用例独占注册表实例：内置 Provider 在模块导入时注册进生产默认单例，
+   * 用例清空或改写那个单例会连带影响同一 worker 中的其它用例文件。
+   */
+  let registry: MarketDataProviderRegistry
+
   beforeEach(() => {
-    marketDataProviderRegistry.clear()
+    registry = new MarketDataProviderRegistry()
   })
 
   it('请求 1min 时 THS 在筛选阶段即被排除，不会被请求', async () => {
@@ -58,7 +64,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       olderData: 'available' as const,
     }))
 
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: 'ths',
         capabilities: {
@@ -69,7 +75,7 @@ describe('THS capability 声明驱动的源筛选', () => {
         fetchBars: thsFetch,
       }),
     )
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: 'other',
         capabilities: {
@@ -81,10 +87,10 @@ describe('THS capability 声明驱动的源筛选', () => {
       }),
     )
     // THS 优先级更高，确保 auto 会先考虑它
-    marketDataProviderRegistry.setConfig('ths', { enabled: true, priority: 100 })
-    marketDataProviderRegistry.setConfig('other', { enabled: true, priority: 1 })
+    registry.setConfig('ths', { enabled: true, priority: 100 })
+    registry.setConfig('other', { enabled: true, priority: 1 })
 
-    const result = await new SourceRouter().bars({
+    const result = await new SourceRouter(registry).bars({
       preferredSourceId: 'auto',
       instrument: thsInstrument,
       symbol: thsInstrument.symbol,
@@ -101,7 +107,7 @@ describe('THS capability 声明驱动的源筛选', () => {
   })
 
   it('源级能力查询对 1min 不返回 THS', () => {
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: 'ths',
         capabilities: {
@@ -114,7 +120,7 @@ describe('THS capability 声明驱动的源筛选', () => {
         },
       }),
     )
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: 'other',
         capabilities: {
@@ -128,12 +134,12 @@ describe('THS capability 声明驱动的源筛选', () => {
       }),
     )
 
-    const forMinute = marketDataProviderRegistry
+    const forMinute = registry
       .getEnabledByCapability({ capability: 'bars', period: '1min', adjustment: 'none' })
       .map((provider) => provider.source.id)
     expect(forMinute).toEqual(['other'])
 
-    const forDaily = marketDataProviderRegistry
+    const forDaily = registry
       .getEnabledByCapability({ capability: 'bars', period: 'daily', adjustment: 'none' })
       .map((provider) => provider.source.id)
     expect(forDaily).toContain('ths')
@@ -151,7 +157,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       olderData: 'available' as const,
     }))
 
-    marketDataProviderRegistry.register(
+    registry.register(
       createMockMarketDataProvider({
         sourceId: 'ths',
         capabilities: {
@@ -162,9 +168,9 @@ describe('THS capability 声明驱动的源筛选', () => {
         fetchBars: thsFetch,
       }),
     )
-    marketDataProviderRegistry.setConfig('ths', { enabled: true, priority: 100 })
+    registry.setConfig('ths', { enabled: true, priority: 100 })
 
-    const result = await new SourceRouter().bars({
+    const result = await new SourceRouter(registry).bars({
       preferredSourceId: 'auto',
       instrument: thsInstrument,
       symbol: thsInstrument.symbol,
