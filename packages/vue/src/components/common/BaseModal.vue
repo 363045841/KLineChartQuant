@@ -12,7 +12,8 @@
       v-if="rendered"
       ref="dialog"
       class="base-modal"
-      :style="modalStyle"
+      :class="{ 'base-modal--draggable': draggable, 'base-modal--dragging': dragging }"
+      :style="[modalStyle, dragStyle]"
       :aria-labelledby="labelledBy"
       :aria-label="labelledBy ? undefined : ariaLabel || undefined"
       @cancel.prevent="requestClose"
@@ -22,7 +23,16 @@
       @keydown.tab="trapTab"
     >
       <div class="base-modal__surface">
-        <div v-if="$slots.header || $slots.title || title" class="base-header">
+        <div
+          v-if="$slots.header || $slots.title || title"
+          ref="dragHeader"
+          class="base-header"
+          @pointerdown="startDrag"
+          @pointermove="drag"
+          @pointerup="stopDrag"
+          @pointercancel="stopDrag"
+          @lostpointercapture="stopDrag"
+        >
           <div class="base-header-left">
             <slot name="header">
               <h2 :id="titleId" class="base-title"><slot name="title">{{ title }}</slot></h2>
@@ -82,6 +92,7 @@
     provideFullscreenTeleportTarget,
     useFullscreenTeleportTarget,
   } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
+  import { useModalDrag } from '@vue-src/composables/ui/useModalDrag.js'
   import {
     computed,
     nextTick,
@@ -99,6 +110,8 @@
     defineProps<{
       /** 唯一开关状态，由父组件持有。 */
       open: boolean
+      /** 默认允许拖动标题栏；控件与 data-modal-no-drag 区域不会触发拖动。 */
+      draggable?: boolean
       title?: string
       width?: string
       maxWidth?: string
@@ -116,6 +129,7 @@
     }>(),
     {
       title: '',
+      draggable: true,
       width: 'min(92vw, 400px)',
       maxWidth: '',
       maxHeight: 'min(600px, calc(100vh - 48px))',
@@ -142,6 +156,13 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const dialog = useTemplateRef<HTMLDialogElement>('dialog')
+  const dragHeader = useTemplateRef<HTMLElement>('dragHeader')
+  const { dragging, dragStyle, startDrag, drag, stopDrag } = useModalDrag(
+    dialog,
+    dragHeader,
+    () => props.draggable,
+    () => props.open,
+  )
   // 原生 modal dialog 位于 top layer，dialog 外的内容是 inert；内部弹层也挂在 dialog 内。
   provideFullscreenTeleportTarget(dialog)
 
@@ -280,6 +301,18 @@
       translate var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
       overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
       display var(--klc-motion-dur-base, 200ms) allow-discrete;
+  }
+
+  .base-modal--draggable .base-header {
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .base-modal--dragging {
+    transition: none;
+    scale: none;
+    translate: none;
   }
 
   /* 内容在圆角内裁剪；dialog 自身仍保持 visible，供内部弹层越过内容边界。 */
