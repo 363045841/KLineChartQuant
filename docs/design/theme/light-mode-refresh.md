@@ -80,10 +80,12 @@ Pro 从旧冷灰 `#F5F5F7` 调整为暖纸面，其他预设同步收窄过度�
 ```bash
 pnpm tokens:build
 pnpm tokens:check
+pnpm tokens:palettes
 pnpm tokens:contrast
-pnpm test:unit -- packages/core/src/foundation/tokens
-pnpm lint
+pnpm --filter @363045841yyt/klinechart-core exec vitest run src/foundation/tokens/__tests__
+pnpm build:packages
 pnpm type-check
+pnpm test:packages
 ```
 
-浏览器人工检查覆盖：Pro/Exchange/Terminal/Zen/Quant 浅色图表、顶部工具栏、左侧工具栏、设置弹窗、主题卡片、下拉菜单、Tooltip、焦点态和 Agent 面板。
+变更文件的 Biome 与 stylelint 定向检查通过。浏览器人工检查覆盖：Pro 浅色/深色、顶部工具栏、左侧工具栏选中态、设置弹窗中的五个预设卡片、Agent 左右停靠与开合、窄视口和焦点态。
