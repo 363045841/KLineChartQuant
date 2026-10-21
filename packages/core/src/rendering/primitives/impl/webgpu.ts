@@ -1,24 +1,33 @@
-/** WebGPU 有序合批设备：共享宿主 device、复用上传资源和 MSAA 目标，文字不进入 GPU。 */
+/** WebGPU 有序合批设备：共享宿主 device、复用上传资源与 MSAA 目标，文字不进入 GPU。 */
 import {
   GPU_BUFFER_COPY_DST,
   GPU_BUFFER_UNIFORM,
   GPU_BUFFER_VERTEX,
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '@/rendering/render/webgpuGlobals.js'
+import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
 import { UploadTracker } from './buffers.js'
+import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
+import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
 import { INSTANCE_FLOATS, MESH_FLOATS, MESH_WGSL, SHAPE_WGSL } from './shaders.js'
 
-/** 设备只负责整批重画；没有局部保留、脏区域或读回。 */
+/**
+ * 绑定一个画布的设备。
+ *
+ * @param direct true 表示画布本身就是可见表面：单采样、直接写 current texture，
+ *   保留上一帧内容时用 loadOp=load；false 表示离屏目标：4x MSAA 后 resolve。
+ */
 function createDevice(
-  document: Document,
   device: GPUDevice,
   format: GPUTextureFormat,
+  canvas: HTMLCanvasElement,
+  direct: boolean,
 ): PrimitiveDevice {
-  const canvas = document.createElement('canvas')
   const context = canvas.getContext('webgpu')
   if (!context || !('configure' in context)) throw new Error('Primitive WebGPU unavailable')
   context.configure({ device, format, alphaMode: 'premultiplied' })
+  const sampleCount = direct ? 1 : 4
   const meshModule = device.createShaderModule({ code: MESH_WGSL })
   const shapeModule = device.createShaderModule({ code: SHAPE_WGSL })
   const blend: GPUBlendState = {
@@ -66,7 +75,7 @@ function createDevice(
         targets: [{ format, blend, writeMask: mask ? 0 : 0xf }],
       },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
-      multisample: { count: 4 },
+      multisample: { count: sampleCount },
       depthStencil: {
         format: 'depth24plus-stencil8',
         depthWriteEnabled: false,
@@ -87,7 +96,7 @@ function createDevice(
     })
   }
   const shapes = pipeline('shape'),
-    direct = pipeline('direct'),
+    directPipeline = pipeline('direct'),
     mask = pipeline('mask'),
     parityMask = pipeline('parityMask'),
     cover = pipeline('cover'),
@@ -101,7 +110,9 @@ function createDevice(
   let viewportWidth = 0,
     viewportHeight = 0,
     viewportDpr = 0
-  let color: GPUTexture | undefined, depth: GPUTexture | undefined
+  /** 离屏目标的多采样颜色纹理；可见表面直接渲染到 current texture。 */
+  let color: GPUTexture | undefined
+  let depth: GPUTexture | undefined
   let meshBuffer: GPUBuffer | undefined, instanceBuffer: GPUBuffer | undefined
   let meshCapacity = 0,
     instanceCapacity = 0
@@ -110,25 +121,35 @@ function createDevice(
   const meshTracker = new UploadTracker(),
     instanceTracker = new UploadTracker()
   return {
-    render(batch, width, height, dpr) {
-      // 目标只增不减：多 pane 交替绘制不会每帧销毁重建 MSAA 纹理。
-      if (!color || targetWidth < width || targetHeight < height) {
+    render(batch, width, height, dpr, clear = true) {
+      // 离屏目标只增不减；可见表面由 Pane 负责尺寸，直接沿用。
+      const nextWidth = direct ? canvas.width : Math.max(width, targetWidth)
+      const nextHeight = direct ? canvas.height : Math.max(height, targetHeight)
+      if (nextWidth <= 0 || nextHeight <= 0) throw new Error('Primitive WebGPU target unavailable')
+      if (
+        depth === undefined ||
+        targetWidth !== nextWidth ||
+        targetHeight !== nextHeight ||
+        (!direct && color === undefined)
+      ) {
         color?.destroy()
         depth?.destroy()
-        targetWidth = Math.max(width, targetWidth)
-        targetHeight = Math.max(height, targetHeight)
-        canvas.width = targetWidth
-        canvas.height = targetHeight
-        color = device.createTexture({
-          size: [targetWidth, targetHeight],
-          format,
-          sampleCount: 4,
-          usage: GPU_TEXTURE_RENDER_ATTACHMENT,
-        })
+        targetWidth = nextWidth
+        targetHeight = nextHeight
+        if (!direct) {
+          canvas.width = targetWidth
+          canvas.height = targetHeight
+          color = device.createTexture({
+            size: [targetWidth, targetHeight],
+            format,
+            sampleCount: 4,
+            usage: GPU_TEXTURE_RENDER_ATTACHMENT,
+          })
+        }
         depth = device.createTexture({
           size: [targetWidth, targetHeight],
           format: 'depth24plus-stencil8',
-          sampleCount: 4,
+          sampleCount,
           usage: GPU_TEXTURE_RENDER_ATTACHMENT,
         })
       }
@@ -182,22 +203,30 @@ function createDevice(
         metrics.uploadedBytes += viewport.byteLength
       }
       const encoder = device.createCommandEncoder()
+      const current = context.getCurrentTexture().createView()
       const pass = encoder.beginRenderPass({
         colorAttachments: [
-          {
-            view: color.createView(),
-            resolveTarget: context.getCurrentTexture().createView(),
-            clearValue: { r: 0, g: 0, b: 0, a: 0 },
-            loadOp: 'clear',
-            storeOp: 'discard',
-          },
+          direct
+            ? {
+                view: current,
+                clearValue: { r: 0, g: 0, b: 0, a: 0 },
+                loadOp: clear ? 'clear' : 'load',
+                storeOp: 'store',
+              }
+            : {
+                view: color!.createView(),
+                resolveTarget: current,
+                clearValue: { r: 0, g: 0, b: 0, a: 0 },
+                loadOp: 'clear',
+                storeOp: 'discard',
+              },
         ],
         depthStencilAttachment: {
           view: depth!.createView(),
-          depthLoadOp: 'clear',
+          depthLoadOp: clear ? 'clear' : 'load',
           depthStoreOp: 'discard',
           depthClearValue: 1,
-          stencilLoadOp: 'clear',
+          stencilLoadOp: clear ? 'clear' : 'load',
           stencilStoreOp: 'discard',
           stencilClearValue: 0,
         },
@@ -225,7 +254,7 @@ function createDevice(
           pass.draw(6, draw.count, 0, draw.first)
           metrics.drawCalls++
         } else if (draw.kind === 'direct') {
-          select(direct, meshBuffer)
+          select(directPipeline, meshBuffer)
           pass.draw(draw.count, 1, draw.first)
           metrics.drawCalls++
         } else {
@@ -250,19 +279,59 @@ function createDevice(
       color?.destroy()
       depth?.destroy()
       context.unconfigure()
-      canvas.width = canvas.height = 1
+      if (!direct) canvas.width = canvas.height = 1
     },
   }
 }
 
-/** WebGPU 原语后端共用行情 device，但独立管理自身管线和容量。 */
+/** 直接写入可见画布的 WebGPU 表面；单采样、不 resolve、不拷贝。 */
+function createSurface(
+  device: GPUDevice,
+  format: GPUTextureFormat,
+  canvas: HTMLCanvasElement,
+): PrimitiveSurface | null {
+  let target: PrimitiveDevice | null = null
+  let preparer: ReturnType<typeof createPrimitivePreparer> | null = null
+  return {
+    canvas,
+    paint(primitives, dpr, clear) {
+      try {
+        const document = canvas.ownerDocument
+        if (!document) return false
+        if (primitives.some((primitive) => primitive.kind === 'text')) return false
+        const width = canvas.width,
+          height = canvas.height
+        if (width <= 0 || height <= 0) return false
+        preparer ??= createPrimitivePreparer(createColorResolver(document))
+        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr)
+        target ??= createDevice(device, format, canvas, true)
+        target.render(batch, width, height, dpr, clear)
+        return true
+      } catch {
+        target?.dispose()
+        target = null
+        return false
+      }
+    },
+    dispose() {
+      target?.dispose()
+      target = null
+    },
+  }
+}
+
+/** WebGPU 原语后端共用行情 device，但独立管理自身管线与容量。 */
 export function createWebGPUPrimitiveBackend(
   device: GPUDevice,
   format: GPUTextureFormat,
   document?: Document,
 ) {
-  return createGpuPrimitiveBackend(
-    (document) => createDevice(document, device, format),
-    document ? createDevice(document, device, format) : undefined,
+  const composite = createGpuPrimitiveBackend(
+    (target) => createDevice(device, format, target.createElement('canvas'), false),
+    document ? createDevice(device, format, document.createElement('canvas'), false) : undefined,
   )
+  return {
+    ...composite,
+    createSurface: (canvas: HTMLCanvasElement) => createSurface(device, format, canvas),
+  } satisfies PrimitiveBackend
 }

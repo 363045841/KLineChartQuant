@@ -7,6 +7,7 @@ import type { Signal } from '../../foundation/reactivity/signal.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
 import { createPrimitiveComposer, type PrimitiveComposer } from '../primitives/impl/composer.js'
 import { primitiveSink } from '../primitives/impl/paint.js'
+import type { PaintPrimitive, PrimitivePaint, PrimitiveSurface } from '../primitives/types.js'
 import type {
   Layer,
   LayerPaint,
@@ -93,6 +94,29 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     if (disposed) return
     // 每个绘制目标一个合成器：同一帧内按层序累积，帧末统一落盘。
     const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
+    // 可见 GPU 表面按 pane 累积；帧末一次直出，不产生拷贝。
+    const surfaces = new Map<PrimitiveSurface, { primitives: PaintPrimitive[]; dpr: number }>()
+    /** 几何写可见表面，文字仍走它上方的 2D 目标；两者顺序保持不变。 */
+    const submitToSurface = (
+      surface: PrimitiveSurface,
+      composer: PrimitiveComposer,
+      primitives: readonly PaintPrimitive[],
+      dpr: number,
+    ): void => {
+      let entry = surfaces.get(surface)
+      for (const primitive of primitives) {
+        if (primitive.kind === 'text') {
+          composer.submit([primitive], dpr)
+          continue
+        }
+        if (!entry) {
+          entry = { primitives: [], dpr }
+          surfaces.set(surface, entry)
+        }
+        entry.dpr = dpr
+        entry.primitives.push(primitive)
+      }
+    }
     /** 取（或建立）目标合成器；后端由 pane 提供，目标由 Scene 选定。 */
     const composerFor = (
       target: CanvasRenderingContext2D,
@@ -128,10 +152,13 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         if (!target) continue
         const composer = composerFor(target, pane.renderer)
         if (layer.kind === 'draw-list') {
-          // 纯增量图层：没有 ctx，图元由合成器累积到帧末。
+          // 纯增量图层：没有 ctx；有可见 GPU 表面时直接写入，否则进入合成器。
+          const surface = pane.gpuSurface
           const context: PrimitiveDrawContext<TFrame> = {
             ...withoutContext(pane.context as TFrame),
-            primitives: composer.submit,
+            primitives: surface
+              ? (primitives, dpr) => submitToSurface(surface, composer, primitives, dpr)
+              : composer.submit,
             measureContext: target,
             paneId: pane.paneId,
             clear: pane.clear,
@@ -165,6 +192,24 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           target.restore()
         }
         composer.flush()
+      }
+      // 主图带直出：一次写入可见表面；失败整批回落到 2D 合成路径。
+      const surface = pane.gpuSurface
+      if (surface) {
+        const entry = surfaces.get(surface)
+        const dpr = entry?.dpr ?? pane.dpr ?? 1
+        const batch = entry?.primitives
+        if (entry || pane.clear) {
+          if (!surface.paint(batch ?? [], dpr, pane.clear) && batch?.length) {
+            const main = pane.targets.main
+            if (main) {
+              const composer = composerFor(main, pane.renderer)
+              composer.submit(batch, dpr)
+              composer.flush()
+            }
+          }
+        }
+        surfaces.delete(surface)
       }
     }
     // 帧末统一落盘：每个目标只做一次离屏渲染与合成。

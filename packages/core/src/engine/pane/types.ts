@@ -33,6 +33,8 @@ export type PaneSpec = {
  */
 export type PaneRendererDom = {
   mainCanvas: HTMLCanvasElement
+  /** 主图带的可见 GPU 表面；仅在 GPU 后端且需要直出时创建。 */
+  mainGpuCanvas?: HTMLCanvasElement
   /** 正式图元独立表面；仅当该 pane 有正式图元时创建。拖拽和预览使用 overlayCanvas。 */
   drawingCanvas?: HTMLCanvasElement
   overlayCanvas: HTMLCanvasElement
@@ -47,6 +49,8 @@ export type PaneRendererDom = {
 
 /** 按需表面的创建入口：负责 DOM 身份、样式与插入位置，尺寸由 PaneRenderer 写入。 */
 export interface PaneSurfaceFactory {
+  /** 创建主图带的可见 GPU 表面，并插在同 pane 的 2D 主画布之下。 */
+  createMainGpuCanvas(): HTMLCanvasElement
   /** 创建正式图元表面，并插入到同 pane overlay 表面之下。 */
   createDrawingCanvas(): HTMLCanvasElement
   /** 创建左轴静态与动态表面，并挂到左轴宿主。 */

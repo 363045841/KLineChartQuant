@@ -16,6 +16,8 @@ export interface PrimitiveDevice {
     width: number,
     height: number,
     dpr: number,
+    /** false 时只清 stencil，保留上一帧颜色（可见表面的增量帧）。 */
+    clear?: boolean,
   ): { canvas: HTMLCanvasElement; metrics: DeviceMetrics }
   waitForIdle(): Promise<void>
   dispose(): void

@@ -110,12 +110,26 @@ export class ChartPaneLayout {
    */
   private createSurfaceFactory(
     spec: PaneSpec,
+    mainCanvas: HTMLCanvasElement,
     overlayCanvas: HTMLCanvasElement,
     isMain: boolean,
   ): PaneSurfaceFactory {
     const leftAxisHost = this.deps.getDom().leftAxisLayer
     return {
       leftAxisHostMeasurable: leftAxisHost !== undefined,
+      createMainGpuCanvas: () => {
+        // GPU 直接呈现主图带几何；2D 主画布在其上承载文字与 ctx 图层。
+        const gpuCanvas = document.createElement('canvas')
+        gpuCanvas.id = `${spec.id}-main-gpu`
+        gpuCanvas.className = 'main-canvas-gpu'
+        gpuCanvas.style.position = 'absolute'
+        gpuCanvas.style.left = '0'
+        gpuCanvas.style.top = '0'
+        gpuCanvas.style.pointerEvents = 'none'
+        gpuCanvas.style.zIndex = String(SCENE_TARGET_Z.main)
+        mainCanvas.before(gpuCanvas)
+        return gpuCanvas
+      },
       createDrawingCanvas: () => {
         // 正式图元与动态覆盖分开保存像素，同 z-index 按 DOM 顺序叠放在行情之上。
         const drawingCanvas = document.createElement('canvas')
@@ -198,7 +212,7 @@ export class ChartPaneLayout {
           yPaddingPx: this.deps.getOption().yPaddingPx,
           priceLabelWidth: this.deps.getOption().priceLabelWidth,
         },
-        this.createSurfaceFactory(spec, overlayCanvas, isMain),
+        this.createSurfaceFactory(spec, mainCanvas, overlayCanvas, isMain),
       )
     })
 

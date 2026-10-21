@@ -3,7 +3,6 @@ import { createWebGLPrimitiveBackend } from '../../primitives/impl/webgl.js'
 import { createRenderer } from '../impl/createRenderer.js'
 
 /** 初始化时验证实际设备；失败交给 RendererHost 选择后端。 */
-export function createWebGLRenderer(document: Document = globalThis.document) {
-  if (!document) throw new Error('WebGL document unavailable')
-  return createRenderer('webgl2', createWebGLPrimitiveBackend(document))
+export function createWebGLRenderer() {
+  return createRenderer('webgl2', createWebGLPrimitiveBackend())
 }

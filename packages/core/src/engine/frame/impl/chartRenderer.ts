@@ -941,6 +941,10 @@ export class ChartRenderer {
       } = r.getContexts()
       const pane = r.getPane()
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      // 可见 GPU 表面不在 2D 上下文里，必须由后端显式清空。
+      if (r.getDom().mainGpuCanvas) {
+        r.getMainGpuSurface(this.deps.getSceneRenderer())?.paint([], vp.dpr, true)
+      }
       drawingCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       if (yAxisCtx) {
@@ -1250,6 +1254,10 @@ export class ChartRenderer {
       legendContexts.push(context)
 
       const targets = { main: mainCtx, drawing: context.drawingCtx ?? null, overlay: overlayCtx }
+      // GPU 后端为每个 pane 提供可见直出表面；Canvas 后端为 undefined，走 2D 合成。
+      const gpuSurface = sceneRenderer.primitives.createSurface
+        ? (renderer.getMainGpuSurface(sceneRenderer) ?? undefined)
+        : undefined
       // 画 main canvas（非 overlay 角色 layer）
       if (shouldUpdateMain) {
         framePanes.push({
@@ -1257,6 +1265,8 @@ export class ChartRenderer {
           context,
           renderer: sceneRenderer,
           targets,
+          gpuSurface,
+          dpr: vp.dpr,
           frameNumber: this.frameCount++,
           deltaMs: 0,
           roles: MAIN_CANVAS_ROLES,
@@ -1271,6 +1281,7 @@ export class ChartRenderer {
           context,
           renderer: sceneRenderer,
           targets,
+          dpr: vp.dpr,
           frameNumber: this.frameCount++,
           deltaMs: 0,
           roles: shouldUpdateDrawing ? OVERLAY_CANVAS_ROLES : SESSION_CANVAS_ROLES,

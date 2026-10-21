@@ -73,6 +73,18 @@ export interface PrimitiveBackend {
   getMetrics?(): Readonly<PrimitiveMetrics>
   /** 仅供基准等待完成，生产帧不调用。 */
   waitForIdle?(): Promise<void>
+  /**
+   * 为可见画布建立直出表面：图元直接写入该画布，不经过离屏目标，也没有整张拷贝。
+   * 无法提供直出能力的后端（Canvas）不实现此方法。
+   */
+  createSurface?(canvas: HTMLCanvasElement): PrimitiveSurface | null
+  dispose(): void
+}
+
+/** 可见 GPU 表面的直出入口；`clear` 表示本帧是否先清空整张表面。 */
+export interface PrimitiveSurface {
+  readonly canvas: HTMLCanvasElement
+  paint(primitives: readonly PaintPrimitive[], dpr: number, clear: boolean): boolean
   dispose(): void
 }
 

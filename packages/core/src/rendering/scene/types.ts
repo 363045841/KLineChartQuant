@@ -68,6 +68,13 @@ export interface FramePaint {
   renderer: Renderer
   /** 原始像素目标由 Pane 持有；未分配的 drawing 目标为 null。 */
   targets: Readonly<Record<ScenePaintTarget, CanvasRenderingContext2D | null>>
+  /**
+   * 该 pane 主图带的可见 GPU 表面。存在时纯增量图层直接写入它，不再做整张拷贝；
+   * 缺省（Canvas 后端或直出不可用）时仍合成到 `targets.main`。
+   */
+  gpuSurface?: import('../primitives/types.js').PrimitiveSurface
+  /** 本帧 DPR；直出表面按它投影，缺省为 1。 */
+  dpr?: number
   /** 帧计数器，用于动画与跳帧检测。 */
   frameNumber: number
   /** 距离上一次绘制的时间（ms），首帧可能为 0。 */

@@ -1,6 +1,9 @@
 /** WebGL2 有序合批设备：实例化基础形状、连续网格上传与受约束的 stencil 合批。 */
+import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
 import { UploadTracker } from './buffers.js'
+import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
+import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
 import {
   INSTANCE_FLOATS,
   MESH_FLOATS,
@@ -40,14 +43,22 @@ function program(gl: WebGL2RenderingContext, vertex: string, fragment: string): 
   }
 }
 
-/** 独立 context 只负责整批目标，不改变行情 surface 和帧生命周期。 */
-function createDevice(document: Document): PrimitiveDevice {
-  const canvas = document.createElement('canvas')
+/**
+ * 绑定一个画布的设备。
+ *
+ * @param canvas 离屏目标或可见表面
+ * @param preserveDrawingBuffer 可见表面需要保留像素供截图读取，离屏目标不需要
+ */
+function createDevice(
+  canvas: HTMLCanvasElement,
+  preserveDrawingBuffer: boolean,
+): PrimitiveDevice {
   const gl = canvas.getContext('webgl2', {
     alpha: true,
     antialias: true,
     stencil: true,
     premultipliedAlpha: true,
+    preserveDrawingBuffer,
   })
   if (!gl) throw new Error('Primitive WebGL unavailable')
   const meshProgram = program(gl, MESH_VERTEX_GLSL, MESH_FRAGMENT_GLSL)
@@ -83,7 +94,7 @@ function createDevice(document: Document): PrimitiveDevice {
     gl.vertexAttribDivisor(location, 1)
   }
   return {
-    render(batch, width, height, dpr) {
+    render(batch, width, height, dpr, clear = true) {
       if (gl.isContextLost()) throw new Error('Primitive WebGL context lost')
       // 目标只增不减：多 pane 交替绘制不会每帧重分配 drawing buffer。
       if (canvas.width < width) canvas.width = width
@@ -120,7 +131,8 @@ function createDevice(document: Document): PrimitiveDevice {
       // 只清理本目标区域，共享设备上其他 pane 的残留不影响本次读回。
       gl.enable(gl.SCISSOR_TEST)
       gl.scissor(0, 0, width, height)
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT)
+      // 可见表面在增量帧保留颜色，只重置 stencil。
+      gl.clear(clear ? gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT : gl.STENCIL_BUFFER_BIT)
       gl.disable(gl.SCISSOR_TEST)
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
@@ -196,7 +208,43 @@ function createDevice(document: Document): PrimitiveDevice {
   }
 }
 
-/** 延迟创建资源；无图形或全在屏幕外的批次不创建 GPU context。 */
-export function createWebGLPrimitiveBackend(document?: Document) {
-  return createGpuPrimitiveBackend(createDevice, document ? createDevice(document) : undefined)
+/** 直接写入可见画布的 WebGL 表面；保留绘图缓冲以支持后续截图。 */
+function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
+  let device: PrimitiveDevice | null = null
+  let preparer: ReturnType<typeof createPrimitivePreparer> | null = null
+  return {
+    canvas,
+    paint(primitives, dpr, clear) {
+      try {
+        const document = canvas.ownerDocument
+        if (!document) return false
+        // 文字由上层 2D 画布负责；这里只接受几何原语。
+        if (primitives.some((primitive) => primitive.kind === 'text')) return false
+        const width = canvas.width,
+          height = canvas.height
+        if (width <= 0 || height <= 0) return false
+        preparer ??= createPrimitivePreparer(createColorResolver(document))
+        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr)
+        device ??= createDevice(canvas, true)
+        device.render(batch, width, height, dpr, clear)
+        return true
+      } catch {
+        device?.dispose()
+        device = null
+        return false
+      }
+    },
+    dispose() {
+      device?.dispose()
+      device = null
+    },
+  }
+}
+
+/** 延迟创建离屏资源；无图形或全在屏幕外的批次不创建 GPU surface。 */
+export function createWebGLPrimitiveBackend(): PrimitiveBackend {
+  const composite = createGpuPrimitiveBackend((document) =>
+    createDevice(document.createElement('canvas'), false),
+  )
+  return { ...composite, createSurface }
 }
