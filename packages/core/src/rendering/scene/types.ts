@@ -100,7 +100,9 @@ export type LayerPaint<TFrame> = TFrame & {
   /** 本帧是否清除该 pane 的 canvas；由 Scene 注入。 */
   clear?: boolean
   /** 本帧渲染后端；由 Scene 注入，直接绘制（测试）时可缺省。 */
-  sceneRenderer?: unknown
+  sceneRenderer?: Renderer
+  /** 本帧合成到该目标的原语提交器；Scene 注入，直接绘制（测试）时可缺省。 */
+  primitives?: import('../primitives/types.js').PrimitiveSink
 }
 
 /**
@@ -126,6 +128,11 @@ export interface Layer<TFrame = unknown> {
   readonly z: number
   /** 运行时开关，不改变图层成员关系。 */
   visible: boolean
+  /**
+   * 只输出公共原语、且不改动目标级状态（裁剪/透明度/坐标系）。
+   * 声明为 true 的相邻图层由 Scene 合并成一次离屏渲染与合成；未声明者前后立即合成。
+   */
+  readonly primitiveOnly?: boolean
 
   paint(ctx: LayerPaint<TFrame>): void
   dispose(): void

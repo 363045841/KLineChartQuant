@@ -6,6 +6,8 @@
 
 Scene 定义三个明确层带：main、drawing、overlay。前者容纳背景、主行情、指标与组件，drawing 保存正式图元，overlay 保存动态内容。同一层带内按 z 稳定排序；跨层带按固定目标顺序排列。DOM 布局使用同一份 `SCENE_TARGET_Z`，避免声称全局 z 排序却输出到不同 DOM 层。Scene 在调用前注入 `context.ctx`，并用 save/restore 隔离每个 Layer；业务 Layer 不再自行选择 drawing 或 overlay 输出目标。
 
+Scene 还为每个目标注入帧内合成器（`primitives`）：声明 `primitiveOnly` 的相邻图层合并成一批，每个目标每帧只合成一次；其余图层前后立即合成，层级顺序不变。旧的逐层合成让每个 Layer 各付一次全目标离屏渲染与整张拷贝，成本随层数增长；现在成本随目标数增长，与图层数量无关。
+
 GPU 的 Canvas 和 MSAA 纹理只作为后端私有离屏资源。后端执行成功后按当前 Layer 顺序合成到指定目标。文字直接由 Canvas 绘制，图文交错保留原始顺序；失败回退也写到同一目标。非默认仿射变换使用 Canvas 执行，避免后端提前按错误坐标剔除图形。
 
 可见 Canvas 的尺寸与清屏属于 Pane 和帧调度。RendererHost 切换执行器不会挂载、清理或调整可见画布；GPU 私有目标在实际 paint 时跟随目标尺寸。WebGPU device 与原语设备由同一个后端释放。

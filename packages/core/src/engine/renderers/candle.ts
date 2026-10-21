@@ -55,6 +55,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     pane: 'main',
     z: RENDERER_PRIORITY.MAIN,
     visible: true,
+    primitiveOnly: true,
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context

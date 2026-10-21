@@ -1,79 +1,128 @@
 /** Canvas 原语后端：所有业务层共用同一套路径和文字解释器。 */
-import type { PaintPrimitive, PrimitiveBackend, PrimitiveSink } from '../types.js'
+import type { PrimitiveBackend, PrimitivePath, PrimitiveSink } from '../types.js'
 
-/** 按批次顺序重放原语；外层负责目标坐标变换和裁剪。 */
+/**
+ * 按批次顺序重放原语。
+ *
+ * 每个原语显式声明自己用到的状态（填充色、线宽、虚线、字体），因此整批只做一次
+ * save/restore；旋转文字是唯一会改变坐标系的图元，单独包裹。外层声明的合成、
+ * 阴影与裁剪保持调用方语义。
+ */
 export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
+  if (primitives.length === 0) return
+  const baseAlpha = ctx.globalAlpha
+  ctx.save()
   for (const primitive of primitives) {
-    ctx.save()
-    if (primitive.kind === 'rect') {
-      ctx.fillStyle = primitive.color
-      if (primitive.radius) {
-        ctx.beginPath()
-        ctx.roundRect(primitive.x, primitive.y, primitive.width, primitive.height, primitive.radius)
-        ctx.fill()
-      } else ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
-      if (primitive.strokeColor) {
-        ctx.beginPath()
-        if (primitive.radius)
-          ctx.roundRect(
-            primitive.x,
-            primitive.y,
-            primitive.width,
-            primitive.height,
-            primitive.radius,
+    switch (primitive.kind) {
+      case 'rects': {
+        ctx.fillStyle = primitive.color
+        const data = primitive.data
+        for (let offset = 0; offset < data.length; offset += 4)
+          ctx.fillRect(
+            data[offset]!,
+            data[offset + 1]!,
+            data[offset + 2]!,
+            data[offset + 3]!,
           )
-        else ctx.rect(primitive.x, primitive.y, primitive.width, primitive.height)
-        ctx.strokeStyle = primitive.strokeColor
-        ctx.lineWidth = primitive.strokeWidth ?? 1
-        ctx.setLineDash([])
-        ctx.stroke()
+        break
       }
-    } else if (primitive.kind === 'circle') {
-      ctx.fillStyle = primitive.color
-      ctx.beginPath()
-      ctx.arc(primitive.x, primitive.y, primitive.radius, 0, Math.PI * 2)
-      ctx.fill()
-      if (primitive.strokeColor) {
-        ctx.strokeStyle = primitive.strokeColor
-        ctx.lineWidth = primitive.strokeWidth ?? 1
-        ctx.setLineDash([])
-        ctx.stroke()
+      case 'rect': {
+        ctx.fillStyle = primitive.color
+        if (primitive.radius) {
+          ctx.beginPath()
+          ctx.roundRect(primitive.x, primitive.y, primitive.width, primitive.height, primitive.radius)
+          ctx.fill()
+        } else ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
+        if (primitive.strokeColor) {
+          ctx.beginPath()
+          if (primitive.radius)
+            ctx.roundRect(
+              primitive.x,
+              primitive.y,
+              primitive.width,
+              primitive.height,
+              primitive.radius,
+            )
+          else ctx.rect(primitive.x, primitive.y, primitive.width, primitive.height)
+          ctx.strokeStyle = primitive.strokeColor
+          ctx.lineWidth = primitive.strokeWidth ?? 1
+          ctx.setLineDash([])
+          ctx.lineJoin = 'miter'
+          ctx.stroke()
+        }
+        break
       }
-    } else if (primitive.kind === 'text') {
-      ctx.font = primitive.font
-      ctx.fillStyle = primitive.color
-      ctx.textAlign = primitive.align
-      ctx.textBaseline = primitive.baseline
-      if (primitive.rotation !== undefined) {
+      case 'circle': {
+        ctx.fillStyle = primitive.color
+        ctx.beginPath()
+        ctx.arc(primitive.x, primitive.y, primitive.radius, 0, Math.PI * 2)
+        ctx.fill()
+        if (primitive.strokeColor) {
+          ctx.strokeStyle = primitive.strokeColor
+          ctx.lineWidth = primitive.strokeWidth ?? 1
+          ctx.setLineDash([])
+          ctx.stroke()
+        }
+        break
+      }
+      case 'text': {
+        ctx.font = primitive.font
+        ctx.fillStyle = primitive.color
+        ctx.textAlign = primitive.align
+        ctx.textBaseline = primitive.baseline
+        if (primitive.rotation === undefined) {
+          ctx.fillText(primitive.text, primitive.x, primitive.y)
+          break
+        }
+        ctx.save()
         ctx.translate(primitive.x, primitive.y)
         ctx.rotate(primitive.rotation)
         ctx.fillText(primitive.text, 0, primitive.offsetY ?? 0)
-      } else ctx.fillText(primitive.text, primitive.x, primitive.y)
-    } else {
-      ctx.beginPath()
-      for (const path of primitive.paths) {
-        const first = path[0]
-        if (!first) continue
-        ctx.moveTo(first.x, first.y)
-        for (let i = 1; i < path.length; i++) ctx.lineTo(path[i]!.x, path[i]!.y)
-        if (primitive.kind === 'fill' || primitive.closed) ctx.closePath()
+        ctx.restore()
+        break
       }
-      if (primitive.kind === 'fill') {
+      case 'fill': {
+        ctx.beginPath()
+        appendPaths(ctx, primitive.paths, true)
         ctx.fillStyle = primitive.color
-        ctx.globalAlpha *= primitive.opacity ?? 1
+        ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
         ctx.fill(primitive.fillRule ?? 'nonzero')
-      } else {
+        ctx.globalAlpha = baseAlpha
+        break
+      }
+      case 'stroke': {
+        ctx.beginPath()
+        appendPaths(ctx, primitive.paths, primitive.closed === true)
         ctx.strokeStyle = primitive.color
         ctx.lineWidth = primitive.width
         ctx.lineCap = primitive.cap ?? 'butt'
         ctx.lineJoin = primitive.join ?? 'miter'
         ctx.miterLimit = primitive.miterLimit ?? 10
-        ctx.setLineDash([...(primitive.dash ?? [])])
+        ctx.setLineDash(primitive.dash === undefined ? [] : [...primitive.dash])
         ctx.lineDashOffset = primitive.dashOffset ?? 0
         ctx.stroke()
+        break
       }
     }
-    ctx.restore()
+  }
+  ctx.restore()
+}
+
+/** 把多轮廓路径写入当前路径对象。 */
+function appendPaths(
+  ctx: CanvasRenderingContext2D,
+  paths: readonly PrimitivePath[],
+  close: boolean,
+): void {
+  for (const path of paths) {
+    const first = path[0]
+    if (!first) continue
+    ctx.moveTo(first.x, first.y)
+    for (let index = 1; index < path.length; index++) {
+      const point = path[index]!
+      ctx.lineTo(point.x, point.y)
+    }
+    if (close) ctx.closePath()
   }
 }
 

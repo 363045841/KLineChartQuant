@@ -29,7 +29,7 @@ import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
-import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
+import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
@@ -539,7 +539,7 @@ function paintGeometry(
         break
     }
   }
-  primitiveSink(context.sceneRenderer?.primitives)(context.ctx, commands, context.dpr)
+  submitPrimitives(context, context.ctx, commands, context.dpr)
 }
 
 /** 按部分与颜色汇聚 OHLC 矩形；同色批次一次提交给现有 GPU/Canvas 绘制链路。 */
@@ -617,6 +617,7 @@ export function createPlotLayer(
     definitionId,
     paneId: defaultPaneId,
     z: RENDERER_PRIORITY.INDICATOR,
+    primitiveOnly: true,
     draw(context) {
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return

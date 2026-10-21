@@ -6,6 +6,9 @@ import type { ColorResolver, PrimitiveColor } from './colors.js'
 import { pathTriangles, simpleStrokePath, strokePaths } from './geometry.js'
 
 export type GeometryPrimitive = Exclude<PaintPrimitive, { kind: 'text' }>
+
+/** 一个解析形状实例的 float 数：中心、半宽高、圆角、线宽、占位、填充色、描边色。 */
+const INSTANCE_FLOATS = 16
 export type PreparedDraw =
   | { kind: 'instances'; first: number; count: number }
   | { kind: 'direct'; first: number; count: number }
@@ -63,6 +66,18 @@ function bounds(primitive: GeometryPrimitive, dpr: number): PrimitiveBounds {
     top = Math.min(primitive.y, primitive.y + primitive.height)
     bottom = Math.max(primitive.y, primitive.y + primitive.height)
     expand += (primitive.strokeWidth ?? 0) / 2
+  } else if (primitive.kind === 'rects') {
+    const data = primitive.data
+    for (let offset = 0; offset < data.length; offset += 4) {
+      const x = data[offset]!,
+        y = data[offset + 1]!,
+        width = data[offset + 2]!,
+        height = data[offset + 3]!
+      left = Math.min(left, x)
+      right = Math.max(right, x + width)
+      top = Math.min(top, y)
+      bottom = Math.max(bottom, y + height)
+    }
   } else {
     for (const path of primitive.paths)
       for (const point of path) {
@@ -193,6 +208,43 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
         pendingBounds = undefined
       }
       for (const primitive of primitives) {
+        // 矩形批次自带逐矩形裁剪，不做整批包围盒；省掉一次全量扫描。
+        if (primitive.kind === 'rects') {
+          flush()
+          const data = primitive.data
+          const color = resolveColor(primitive.color)
+          const first = instances.length / INSTANCE_FLOATS
+          let count = 0
+          for (let offset = 0; offset < data.length; offset += 4) {
+            const x = data[offset]!,
+              y = data[offset + 1]!,
+              width = data[offset + 2]!,
+              height = data[offset + 3]!
+            if (!(width > 0 && height > 0)) continue
+            if (x + width < 0 || y + height < 0 || x > viewportWidth || y > viewportHeight) {
+              culled++
+              continue
+            }
+            instances.reserve(INSTANCE_FLOATS)
+            instances.write(x + width / 2)
+            instances.write(y + height / 2)
+            instances.write(width / 2)
+            instances.write(height / 2)
+            instances.write(0)
+            instances.write(0)
+            instances.write(0)
+            instances.write(0)
+            for (const component of color) instances.write(component)
+            for (const component of color) instances.write(component)
+            count++
+          }
+          if (count > 0) {
+            const last = draws.at(-1)
+            if (last?.kind === 'instances') last.count += count
+            else draws.push({ kind: 'instances', first, count })
+          }
+          continue
+        }
         const box = bounds(primitive, dpr)
         if (
           box.right < 0 ||

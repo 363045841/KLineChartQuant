@@ -1,26 +1,21 @@
 /**
- * Scene 工厂——组合、有序分发、生命周期。
+ * Scene 实现：拥有 Layer 集合、排序与逐帧分发，并把原语合成收敛到每目标一次。
  *
- * 设计要点：
- * - Layer 列表按**注册顺序**保存在私有数组中，`paint` 时按 z 做稳定排序。
- *   不在数组上维护有序不变量：增删保持 O(n)，且稳定排序天然给出
- *   「注册顺序」这一 tie-breaker。
- * - `layers` signal 暴露快照，每次修改都产生**新数组**，绝不原地修改——这是
- *   框架适配层依赖的不可变契约。
- * - `paint` 按 paneId 过滤 Layer，并在每个 Layer 外层做异常隔离：单个 Layer
- *   抛错不影响同 pane 的其它 Layer（原本由适配器承担的职责上移到 Scene）。
- * - `dispose` 后所有公开方法变为 no-op，与 renderer 的「dispose 冻结」语义一致。
+ * 与 `types.ts` 的分工：本文件只有运行时装配，类型契约全部在 `types.ts`。
  */
-
-import { createSignal, type Signal } from '../../foundation/reactivity/signal.js'
-
+import type { Signal } from '../../foundation/reactivity/signal.js'
+import { createSignal } from '../../foundation/reactivity/signal.js'
+import { createPrimitiveComposer, type PrimitiveComposer } from '../primitives/impl/composer.js'
+import { primitiveSink } from '../primitives/impl/paint.js'
+import type {
+  Layer,
+  LayerPaint,
+  Scene,
+  SceneFrame,
+} from './types.js'
 import {
   LAYER_PANE_GLOBAL,
-  type Layer,
-  type LayerPaint,
   SCENE_TARGET_Z,
-  type Scene,
-  type SceneFrame,
   scenePaintTarget,
 } from './types.js'
 
@@ -88,6 +83,20 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
   /** 绘制一整帧：逐 pane 选出命中且可见的 Layer，按 z 稳定排序后隔离式分发。 */
   const paint = (frame: SceneFrame): void => {
     if (disposed) return
+    // 每个绘制目标一个合成器：同一帧内按层序累积，帧末统一落盘。
+    const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
+    /** 取（或建立）目标合成器；后端由 pane 提供，目标由 Scene 选定。 */
+    const composerFor = (
+      target: CanvasRenderingContext2D,
+      backend: SceneFrame['panes'][number]['renderer'],
+    ): PrimitiveComposer => {
+      let composer = composers.get(target)
+      if (!composer) {
+        composer = createPrimitiveComposer(primitiveSink(backend.primitives), target)
+        composers.set(target, composer)
+      }
+      return composer
+    }
     for (const pane of frame.panes) {
       // 本批要绘制的 Layer 列表
       let candidates = layerList.filter(
@@ -109,13 +118,19 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       for (const layer of candidates) {
         const target = pane.targets[scenePaintTarget(layer.role)]
         if (!target) continue
+        const composer = composerFor(target, pane.renderer)
+        // 只有声明了 primitiveOnly 的图层参与跨层合并；其余图层前后立即合成。
+        const composable = layer.primitiveOnly === true
+        // 非合批角色可能自带裁剪或局部坐标系，必须在它前后各自落盘。
+        if (!composable) composer.flush()
         const ctx: LayerPaint<TFrame> = {
           ...(pane.context as TFrame),
           ctx: target,
           paneId: pane.paneId,
           clear: pane.clear,
-          // 本帧渲染后端由 Scene 注入，渲染器无需自行获取。
+          // 本帧渲染后端与合成入口由 Scene 注入，渲染器无需自行获取。
           sceneRenderer: pane.renderer,
+          primitives: composer.sink,
         }
         target.save()
         try {
@@ -126,8 +141,11 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         } finally {
           target.restore()
         }
+        if (!composable) composer.flush()
       }
     }
+    // 帧末统一落盘：每个目标只做一次离屏渲染与合成。
+    for (const composer of composers.values()) composer.flush()
   }
 
   const dispose = (): void => {

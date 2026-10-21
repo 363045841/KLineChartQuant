@@ -469,6 +469,8 @@ export interface RenderThemeContext {
 export interface FrameDrawContext {
   /** 本帧渲染后端；Scene 注入，直接绘制（测试）时可缺省。 */
   sceneRenderer?: RendererLike
+  /** 本帧合成到当前目标的原语提交器；Scene 注入，直接绘制（测试）时可缺省。 */
+  primitives?: import('../../rendering/primitives/types.js').PrimitiveSink
 }
 
 /** 渲染器插件可用的最小渲染后端契约（避免 foundation 依赖 rendering 层）。 */

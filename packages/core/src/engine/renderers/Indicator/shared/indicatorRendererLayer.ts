@@ -19,6 +19,8 @@ export type IndicatorRendererLayerSpec = {
   z: number
   /** 显式 role；缺省按 pane 推导。 */
   role?: LayerRole
+  /** 只输出公共原语且不改目标状态；声明后可与相邻图层合并成一次合成。 */
+  primitiveOnly?: boolean
   /** 绘制体，等价旧 plugin.draw。 */
   draw: (context: RenderContext) => void
   /** 卸载清理；缺省无操作。 */
@@ -41,6 +43,7 @@ export function createIndicatorRendererLayer(
     pane: spec.paneId,
     z: spec.z,
     visible: true,
+    primitiveOnly: spec.primitiveOnly === true,
     paint(context) {
       spec.draw(context)
     },

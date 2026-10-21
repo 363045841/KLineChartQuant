@@ -48,7 +48,6 @@ function createDevice(document: Document): PrimitiveDevice {
     antialias: true,
     stencil: true,
     premultipliedAlpha: true,
-    preserveDrawingBuffer: true,
   })
   if (!gl) throw new Error('Primitive WebGL unavailable')
   const meshProgram = program(gl, MESH_VERTEX_GLSL, MESH_FRAGMENT_GLSL)
@@ -86,8 +85,9 @@ function createDevice(document: Document): PrimitiveDevice {
   return {
     render(batch, width, height, dpr) {
       if (gl.isContextLost()) throw new Error('Primitive WebGL context lost')
-      if (canvas.width !== width) canvas.width = width
-      if (canvas.height !== height) canvas.height = height
+      // 目标只增不减：多 pane 交替绘制不会每帧重分配 drawing buffer。
+      if (canvas.width < width) canvas.width = width
+      if (canvas.height < height) canvas.height = height
       const metrics = { drawCalls: 0, uploads: 0, uploadedBytes: 0, submissions: 1 }
       /** 每类数据最多一次 bufferSubData；完全未变时复用 GPU 内容。 */
       const upload = (
@@ -117,7 +117,11 @@ function createDevice(document: Document): PrimitiveDevice {
       gl.stencilMask(0xff)
       gl.clearColor(0, 0, 0, 0)
       gl.clearStencil(0)
+      // 只清理本目标区域，共享设备上其他 pane 的残留不影响本次读回。
+      gl.enable(gl.SCISSOR_TEST)
+      gl.scissor(0, 0, width, height)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT)
+      gl.disable(gl.SCISSOR_TEST)
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       let active: 'mesh' | 'shape' | undefined

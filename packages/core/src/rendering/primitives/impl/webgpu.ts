@@ -105,23 +105,28 @@ function createDevice(
   let meshBuffer: GPUBuffer | undefined, instanceBuffer: GPUBuffer | undefined
   let meshCapacity = 0,
     instanceCapacity = 0
+  let targetWidth = 0,
+    targetHeight = 0
   const meshTracker = new UploadTracker(),
     instanceTracker = new UploadTracker()
   return {
     render(batch, width, height, dpr) {
-      if (!color || canvas.width !== width || canvas.height !== height) {
+      // 目标只增不减：多 pane 交替绘制不会每帧销毁重建 MSAA 纹理。
+      if (!color || targetWidth < width || targetHeight < height) {
         color?.destroy()
         depth?.destroy()
-        canvas.width = width
-        canvas.height = height
+        targetWidth = Math.max(width, targetWidth)
+        targetHeight = Math.max(height, targetHeight)
+        canvas.width = targetWidth
+        canvas.height = targetHeight
         color = device.createTexture({
-          size: [width, height],
+          size: [targetWidth, targetHeight],
           format,
           sampleCount: 4,
           usage: GPU_TEXTURE_RENDER_ATTACHMENT,
         })
         depth = device.createTexture({
-          size: [width, height],
+          size: [targetWidth, targetHeight],
           format: 'depth24plus-stencil8',
           sampleCount: 4,
           usage: GPU_TEXTURE_RENDER_ATTACHMENT,
@@ -198,6 +203,8 @@ function createDevice(
         },
       })
       pass.setStencilReference(0)
+      // 共享目标可能大于本 pane；只写左上角目标区域，其余内容由合成端忽略。
+      pass.setViewport(0, 0, width, height, 0, 1)
       let active: GPURenderPipeline | undefined
       let activeBuffer: GPUBuffer | undefined
       /** 避免相邻同管线命令重复绑定。 */

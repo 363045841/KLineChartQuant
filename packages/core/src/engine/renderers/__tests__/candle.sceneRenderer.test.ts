@@ -73,9 +73,20 @@ function makeSceneRenderer(capsName: RendererName = 'webgl2') {
     submit: r.primitives.paint,
     rectangles: () =>
       r.primitives.paint.mock.calls.flatMap(([, commands]) =>
-        commands.flatMap((command) =>
-          command.kind === 'rect' ? [[command.x, command.y, command.width, command.height]] : [],
-        ),
+        commands.flatMap((command) => {
+          if (command.kind === 'rect')
+            return [[command.x, command.y, command.width, command.height]]
+          if (command.kind !== 'rects') return []
+          const rects: Array<[number, number, number, number]> = []
+          for (let offset = 0; offset < command.data.length; offset += 4)
+            rects.push([
+              command.data[offset]!,
+              command.data[offset + 1]!,
+              command.data[offset + 2]!,
+              command.data[offset + 3]!,
+            ])
+          return rects
+        }),
       ),
   }
 }

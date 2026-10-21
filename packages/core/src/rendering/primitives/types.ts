@@ -24,6 +24,12 @@ export type PaintPrimitive =
       strokeWidth?: number
     }
   | {
+      kind: 'rects'
+      /** 每 4 个数一个矩形：x、y、width、height（逻辑像素，双精度），长度恒为 count * 4。 */
+      data: Float64Array
+      color: string
+    }
+  | {
       kind: 'fill'
       paths: readonly PrimitivePath[]
       color: string

@@ -21,6 +21,12 @@ export interface PrimitiveDevice {
   dispose(): void
 }
 
+/**
+ * 一批内容覆盖的目标面积低于该比例时，离屏渲染 + 整张合成比直接 Canvas 画更贵。
+ * 阈值只拦截"几乎空"的批次，正常行情与指标内容仍然走 GPU。
+ */
+const MIN_GPU_COVERAGE = 0.06
+
 /** 为每次 paint 重置指标；对象只在绘制开始分配一次。 */
 function emptyMetrics(): PrimitiveMetrics {
   return {
@@ -36,6 +42,48 @@ function emptyMetrics(): PrimitiveMetrics {
     prepareMs: 0,
     renderMs: 0,
   }
+}
+
+/** 估算本批在逻辑像素上的覆盖面积，用于判断离屏合成是否值得。 */
+function coverage(primitives: readonly PaintPrimitive[]): number {
+  let area = 0
+  for (const primitive of primitives) {
+    switch (primitive.kind) {
+      case 'rect':
+        area += Math.abs(primitive.width * primitive.height)
+        break
+      case 'circle':
+        area += Math.PI * primitive.radius * primitive.radius
+        break
+      case 'rects': {
+        const data = primitive.data
+        for (let offset = 0; offset < data.length; offset += 4)
+          area += Math.abs(data[offset + 2]! * data[offset + 3]!)
+        break
+      }
+      case 'text':
+        area += primitive.font.length * 8
+        break
+      default: {
+        let left = Infinity,
+          top = Infinity,
+          right = -Infinity,
+          bottom = -Infinity
+        for (const path of primitive.paths)
+          for (const point of path) {
+            left = Math.min(left, point.x)
+            top = Math.min(top, point.y)
+            right = Math.max(right, point.x)
+            bottom = Math.max(bottom, point.y)
+          }
+        const expand = primitive.kind === 'stroke' ? primitive.width : 0
+        if (right > left && bottom > top)
+          area += (right - left + expand) * (bottom - top + expand)
+        break
+      }
+    }
+  }
+  return area
 }
 
 /** 不跨文字重排几何；混合批次使用复用 staging 保证后半批失败时可完整回退。 */
@@ -78,11 +126,15 @@ export function createGpuPrimitiveBackend(
         transform.f !== 0
       )
         return false
+      const width = target.canvas.width,
+        height = target.canvas.height
+      if (width <= 0 || height <= 0) return false
+      // 覆盖面积近乎为零时，整张离屏渲染与合成为纯开销。
+      const canvasArea = (width / dpr) * (height / dpr)
+      if (coverage(primitives) < canvasArea * MIN_GPU_COVERAGE) return false
       try {
         const document = target.canvas.ownerDocument
-        const width = target.canvas.width,
-          height = target.canvas.height
-        if (!document || width <= 0 || height <= 0) return false
+        if (!document) return false
         preparer ??= createPrimitivePreparer(createColorResolver(document))
         const mixed = primitives.some((primitive) => primitive.kind === 'text')
         let destination = target
@@ -115,7 +167,18 @@ export function createGpuPrimitiveBackend(
             metrics.uploads += result.metrics.uploads
             metrics.uploadedBytes += result.metrics.uploadedBytes
             metrics.submissions += result.metrics.submissions
-            destination.drawImage(result.canvas, 0, 0, width / dpr, height / dpr)
+            // 设备目标可能大于本目标，只取左上角 width × height 区域。
+            destination.drawImage(
+              result.canvas,
+              0,
+              0,
+              width,
+              height,
+              0,
+              0,
+              width / dpr,
+              height / dpr,
+            )
             metrics.compositions++
           }
           geometry.length = 0

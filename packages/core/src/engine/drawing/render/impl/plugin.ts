@@ -2,7 +2,7 @@
 
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.js'
-import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
+import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
 
@@ -43,7 +43,7 @@ function paintProjection(
     { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height },
     context.dpr,
   )
-  if (!custom) primitiveSink(context.sceneRenderer?.primitives)(target, commands, context.dpr)
+  if (!custom) submitPrimitives(context, target, commands, context.dpr)
 }
 
 /** 绘图 Layer 选项。 */
