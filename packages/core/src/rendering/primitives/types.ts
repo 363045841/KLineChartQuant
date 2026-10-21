@@ -97,3 +97,6 @@ export type PrimitiveSink = (
   primitives: readonly PaintPrimitive[],
   dpr: number,
 ) => void
+
+/** 目标已由合成器绑定的提交入口：只增量绘制的图层只能拿到这个，拿不到 ctx。 */
+export type PrimitivePaint = (primitives: readonly PaintPrimitive[], dpr: number) => void

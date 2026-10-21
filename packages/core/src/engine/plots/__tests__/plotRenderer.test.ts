@@ -44,7 +44,7 @@ function paint(
     kBarRects: Array.from({ length: 5 }, (_, index) => ({ x: index * 10, width: 8 })),
     ...overrides,
   })
-  paintPlots(state, context)
+  paintPlots(state, { ...context, measureContext: ctx })
   return { ctx, context, state }
 }
 
@@ -368,7 +368,7 @@ describe('Plot renderer', () => {
     expect(ctx.fillStyle).toBe('red')
     const original = lines.slice()
     vi.mocked(ctx.lineTo).mockClear()
-    paintPlots(state, { ...context, dpr: 2, range: { start: 0, end: 2 } })
+    paintPlots(state, { ...context, measureContext: ctx, dpr: 2, range: { start: 0, end: 2 } })
     expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(original.slice(0, 12))
   })
 
@@ -521,7 +521,7 @@ describe('Plot renderer', () => {
         { x: 20, width: 8 },
       ],
     })
-    paintPlots(state, context)
+    paintPlots(state, { ...context, measureContext: ctx })
     expect(styles).toEqual(['green', 'red'])
     expect(ctx.fillRect).not.toHaveBeenCalled()
     expect(ctx.moveTo).toHaveBeenCalledWith(5, 90)
@@ -611,7 +611,7 @@ describe('Plot renderer', () => {
       if (!first) throw new Error('缺少圆形绘制')
       radii.push(first[2])
       fonts.push(ctx.font)
-      paintPlots(state, { ...context, dpr: 2 })
+      paintPlots(state, { ...context, measureContext: ctx, dpr: 2 })
       expect(vi.mocked(ctx.arc).mock.calls[1]).toEqual(first)
     }
     expect(new Set(fonts).size).toBe(1)

@@ -101,8 +101,52 @@ export type LayerPaint<TFrame> = TFrame & {
   clear?: boolean
   /** 本帧渲染后端；由 Scene 注入，直接绘制（测试）时可缺省。 */
   sceneRenderer?: Renderer
-  /** 本帧合成到该目标的原语提交器；Scene 注入，直接绘制（测试）时可缺省。 */
+  /** 本帧合成到该目标的原语提交器（带目标）；Scene 注入。 */
   primitives?: import('../primitives/types.js').PrimitiveSink
+}
+
+/**
+ * 纯增量图层的绘制上下文：**没有 ctx**，只能提交原语。
+ *
+ * 类型上因此写不出 clip / clear / 读回 / 改坐标系，合批边界由构造保证，
+ * 不再依赖"图层承诺不碰状态"的口头约定。
+ */
+export type PrimitiveDrawContext<TFrame> = Omit<TFrame, 'ctx'> & {
+  /** 目标已绑定的原语提交入口；Scene 必注入，直接绘制的测试上下文可缺省。 */
+  primitives?: import('../primitives/types.js').PrimitivePaint
+  /** 仅用于文字度量；禁止用于绘制。 */
+  measureContext?: CanvasRenderingContext2D
+  /** 当前 pane id；由 Scene 注入。 */
+  paneId?: string
+  /** 本帧是否清除该 pane 的 canvas；由 Scene 注入。 */
+  clear?: boolean
+  /** 本帧渲染后端；由 Scene 注入。 */
+  sceneRenderer?: Renderer
+}
+
+/** 所有 Layer 的公共身份与生命周期。 */
+interface LayerBase<TFrame> {
+  readonly id: string
+  readonly role: LayerRole
+  /** 绘制目标 pane：具体 paneId 或 LAYER_PANE_GLOBAL。 */
+  readonly pane: LayerPane
+  /** 同一合成目标内 z 小者先画；相同 z 按注册顺序。 */
+  readonly z: number
+  /** 运行时开关，不改变图层成员关系。 */
+  visible: boolean
+  dispose(): void
+}
+
+/** 只输出纯增量原语：拿不到 ctx，可与相邻同类图层合并成一次合成。 */
+export interface DrawListLayer<TFrame = unknown> extends LayerBase<TFrame> {
+  readonly kind: 'draw-list'
+  paint(context: PrimitiveDrawContext<TFrame>): void
+}
+
+/** 允许自行改状态或直接写 canvas：Scene 在其前后立即合成。 */
+export interface ContextLayer<TFrame = unknown> extends LayerBase<TFrame> {
+  readonly kind?: 'context'
+  paint(context: LayerPaint<TFrame>): void
 }
 
 /**
@@ -116,27 +160,11 @@ export type LayerPaint<TFrame> = TFrame & {
  * - `visible` 是运行时开关；不可见的 Layer 被 Scene 跳过（不调用 paint）。
  * - `pane` 声明绘制目标，`LAYER_PANE_GLOBAL` 表示所有 pane。
  *
- * 泛型参数 `TFrame` 由使用方实例化为具体帧上下文类型（图表侧为 `RenderContext`）；
- * Scene 只透传，不感知其结构。
+ * 判别联合决定合成边界：`draw-list` 拿不到 ctx，只能增量提交；`context` 保留完整
+ * ctx，Scene 在其前后各自合成。泛型 `TFrame` 由使用方实例化为具体帧上下文
+ * （图表侧为 `RenderContext`），Scene 只透传，不感知其结构。
  */
-export interface Layer<TFrame = unknown> {
-  readonly id: string
-  readonly role: LayerRole
-  /** 绘制目标 pane：具体 paneId 或 LAYER_PANE_GLOBAL。 */
-  readonly pane: LayerPane
-  /** 同一合成目标内 z 小者先画；相同 z 按注册顺序。 */
-  readonly z: number
-  /** 运行时开关，不改变图层成员关系。 */
-  visible: boolean
-  /**
-   * 只输出公共原语、且不改动目标级状态（裁剪/透明度/坐标系）。
-   * 声明为 true 的相邻图层由 Scene 合并成一次离屏渲染与合成；未声明者前后立即合成。
-   */
-  readonly primitiveOnly?: boolean
-
-  paint(ctx: LayerPaint<TFrame>): void
-  dispose(): void
-}
+export type Layer<TFrame = unknown> = DrawListLayer<TFrame> | ContextLayer<TFrame>
 
 /**
  * Scene 组合 Layer，并通过 Signal 暴露给订阅方。

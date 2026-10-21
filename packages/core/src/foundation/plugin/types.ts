@@ -469,8 +469,6 @@ export interface RenderThemeContext {
 export interface FrameDrawContext {
   /** 本帧渲染后端；Scene 注入，直接绘制（测试）时可缺省。 */
   sceneRenderer?: RendererLike
-  /** 本帧合成到当前目标的原语提交器；Scene 注入，直接绘制（测试）时可缺省。 */
-  primitives?: import('../../rendering/primitives/types.js').PrimitiveSink
 }
 
 /** 渲染器插件可用的最小渲染后端契约（避免 foundation 依赖 rendering 层）。 */
@@ -497,6 +495,14 @@ export interface RenderContext
     RenderOverlayContext,
     RenderSurfaceContext,
     RenderThemeContext {}
+
+/** 只提交原语的业务帧：去掉 ctx，从类型上排除直接绘制与状态变更。 */
+export type PrimitiveRenderContext = Omit<RenderContext, 'ctx'> & {
+  /** 目标已绑定的原语提交器；Scene 注入，直接绘制（测试）时可缺省。 */
+  primitives?: import('../../rendering/primitives/types.js').PrimitivePaint
+  /** 仅用于文字度量；禁止用于绘制。Scene 注入当前目标，测试注入替身。 */
+  measureContext?: CanvasRenderingContext2D
+}
 
 /** 绘图渲染 primitive 契约：样式引用公共图形模型，屏幕图元由 foundation 拥有。 */
 import type { DrawingLabelPosition, DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'

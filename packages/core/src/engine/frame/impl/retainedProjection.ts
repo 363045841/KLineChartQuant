@@ -1,10 +1,10 @@
 /** 业务绘制投影的版本：显式数据输入与横纵轴几何共同决定是否复用。 */
-import type { RenderContext } from '../../../foundation/plugin/index.js'
+import type { PrimitiveRenderContext } from '../../../foundation/plugin/index.js'
 import type { ProjectionRevision } from '../types.js'
 
 /** 捕获会改变几何的轴输入；主题与 scrollLeft 由每帧重放消费。 */
 export function createProjectionRevision(
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   inputs: readonly unknown[],
 ): ProjectionRevision {
   const axis = context.pane.yAxis

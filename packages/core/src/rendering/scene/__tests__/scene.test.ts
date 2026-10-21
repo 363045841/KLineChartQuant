@@ -18,6 +18,7 @@ import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendere
 
 import { createScene } from '../createScene'
 import {
+  type ContextLayer,
   LAYER_PANE_GLOBAL,
   type Layer,
   type LayerPaint,
@@ -42,7 +43,7 @@ interface MockLayerOpts {
   onDispose?: () => void
 }
 
-interface MockLayer extends Layer<FrameStub> {
+interface MockLayer extends ContextLayer<FrameStub> {
   paintCalls: Array<LayerPaint<FrameStub>>
   disposeCalls: number
 }
@@ -56,6 +57,7 @@ function makeMockLayer(opts: MockLayerOpts): MockLayer {
     pane: opts.pane,
     z: opts.z,
     visible: opts.visible ?? true,
+    kind: 'context',
     paint: (ctx) => {
       paintCalls.push(ctx)
       opts.onPaint?.()

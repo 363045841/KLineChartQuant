@@ -22,7 +22,7 @@ import {
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
 } from '../../foundation/utils/timeShareAxisLabels.js'
-import type { Layer } from '../../rendering/scene/types.js'
+import type { ContextLayer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
 import { createKLineSlotGrid, slotWorldX } from '../viewport/slotGrid.js'
 import { paintAxisLabels, registerAxisLabel } from './impl/labels/index.js'
@@ -310,7 +310,7 @@ export interface TimeAxisLayerOptions {
  * 时间轴 Layer。时间轴渲染到 xAxisCanvas，由 ChartRenderer 直接调度。
  * @param options 时间轴高度与十字线读取器
  */
-export function createTimeAxisLayer(options: TimeAxisLayerOptions): Layer<RenderContext> {
+export function createTimeAxisLayer(options: TimeAxisLayerOptions): ContextLayer<RenderContext> {
   return {
     id: makePluginLayerId('timeAxis'),
     role: 'background',

@@ -1,5 +1,5 @@
 /** 柱状几何统一映射到公共原语，所有后端输出到 Scene 当前目标。 */
-import type { RenderContext } from '@/foundation/plugin/index.js'
+import type { PrimitiveRenderContext } from '@/foundation/plugin/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { WorldRectBatch } from '../types.js'
@@ -27,10 +27,12 @@ export function projectBarPrimitives(
 }
 
 /** 蜡烛和其他柱状图使用同一个有序提交入口，不存在直绘可见 GPU 的分支。 */
-export function paintBarBatches(context: RenderContext, batches: readonly WorldRectBatch[]): void {
+export function paintBarBatches(
+  context: PrimitiveRenderContext,
+  batches: readonly WorldRectBatch[],
+): void {
   submitPrimitives(
     context,
-    context.ctx,
     projectBarPrimitives(batches, context.scrollLeft, context.dpr),
     context.dpr,
   )

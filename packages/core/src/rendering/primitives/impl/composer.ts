@@ -5,10 +5,12 @@
  * 透明度、合成模式、阴影与滤镜属于目标级状态，变化前必须先落盘，否则后画的原语
  * 会被套上错误的坐标系或透明度。
  */
-import type { PaintPrimitive, PrimitiveSink } from '../types.js'
+import type { PaintPrimitive, PrimitivePaint, PrimitiveSink } from '../types.js'
 
 export interface PrimitiveComposer {
-  /** 交给 Layer 的提交入口；目标由 Scene 选定，Layer 只能写这个目标。 */
+  /** 交给纯增量图层的提交入口：目标由 Scene 选定，且不允许改动目标状态。 */
+  readonly submit: PrimitivePaint
+  /** 带目标的提交入口，保留给仍持有 ctx 的图层。 */
   readonly sink: PrimitiveSink
   /** 立即合成待提交内容；Scene 在帧末与非合批层前后调用。 */
   flush(): void
@@ -70,6 +72,18 @@ export function createPrimitiveComposer(
   let pendingState: ComposedState | null = null
   let pendingDpr = 1
 
+  /** 追加一批纯增量原语；目标级状态变化前先落盘。 */
+  const compose = (primitives: readonly PaintPrimitive[], dpr: number): void => {
+    if (primitives.length === 0) return
+    const state = readState(target)
+    if (pendingState !== null && (pendingDpr !== dpr || !sameState(pendingState, state))) flush()
+    if (pendingState === null) {
+      pendingState = state
+      pendingDpr = dpr
+    }
+    for (const primitive of primitives) pending.push(primitive)
+  }
+
   /** 用提交时记录的状态重放整批，保证跨层合并后坐标与透明度仍准确。 */
   const flush = (): void => {
     if (pending.length === 0 || pendingState === null) return
@@ -95,15 +109,9 @@ export function createPrimitiveComposer(
 
   return {
     flush,
+    submit: compose,
     sink(_target, primitives, dpr) {
-      if (primitives.length === 0) return
-      const state = readState(target)
-      if (pendingState !== null && (pendingDpr !== dpr || !sameState(pendingState, state))) flush()
-      if (pendingState === null) {
-        pendingState = state
-        pendingDpr = dpr
-      }
-      for (const primitive of primitives) pending.push(primitive)
+      compose(primitives, dpr)
     },
   }
 }

@@ -10,14 +10,22 @@ import { primitiveSink } from '../primitives/impl/paint.js'
 import type {
   Layer,
   LayerPaint,
+  PrimitiveDrawContext,
   Scene,
   SceneFrame,
 } from './types.js'
-import {
-  LAYER_PANE_GLOBAL,
-  SCENE_TARGET_Z,
-  scenePaintTarget,
-} from './types.js'
+import { LAYER_PANE_GLOBAL, SCENE_TARGET_Z, scenePaintTarget } from './types.js'
+
+/**
+ * 去掉帧上下文里的 `ctx`。
+ *
+ * 纯增量图层通过类型拿不到 ctx；运行时也必须真的不传，否则"拿不到"只是编译期假象。
+ */
+function withoutContext<TFrame>(frame: TFrame): Omit<TFrame, 'ctx'> {
+  const copy: Record<string, unknown> = { ...(frame as Record<string, unknown>) }
+  delete copy.ctx
+  return copy as Omit<TFrame, 'ctx'>
+}
 
 export function createScene<TFrame = unknown>(): Scene<TFrame> {
   // ---- 内部状态 ----------------------------------------------------------
@@ -119,16 +127,31 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         const target = pane.targets[scenePaintTarget(layer.role)]
         if (!target) continue
         const composer = composerFor(target, pane.renderer)
-        // 只有声明了 primitiveOnly 的图层参与跨层合并；其余图层前后立即合成。
-        const composable = layer.primitiveOnly === true
-        // 非合批角色可能自带裁剪或局部坐标系，必须在它前后各自落盘。
-        if (!composable) composer.flush()
+        if (layer.kind === 'draw-list') {
+          // 纯增量图层：没有 ctx，图元由合成器累积到帧末。
+          const context: PrimitiveDrawContext<TFrame> = {
+            ...withoutContext(pane.context as TFrame),
+            primitives: composer.submit,
+            measureContext: target,
+            paneId: pane.paneId,
+            clear: pane.clear,
+            sceneRenderer: pane.renderer,
+          }
+          try {
+            layer.paint(context)
+          } catch (e) {
+            console.error(`[Layer] ${layer.id} paint error:`, e)
+          }
+          continue
+        }
+        // 完整上下文图层可能自带裁剪或局部坐标系：前后各自落盘。
+        composer.flush()
         const ctx: LayerPaint<TFrame> = {
           ...(pane.context as TFrame),
           ctx: target,
           paneId: pane.paneId,
           clear: pane.clear,
-          // 本帧渲染后端与合成入口由 Scene 注入，渲染器无需自行获取。
+          // 本帧渲染后端与带目标提交入口由 Scene 注入。
           sceneRenderer: pane.renderer,
           primitives: composer.sink,
         }
@@ -141,7 +164,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         } finally {
           target.restore()
         }
-        if (!composable) composer.flush()
+        composer.flush()
       }
     }
     // 帧末统一落盘：每个目标只做一次离屏渲染与合成。

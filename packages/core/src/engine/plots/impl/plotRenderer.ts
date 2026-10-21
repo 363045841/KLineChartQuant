@@ -27,7 +27,7 @@ import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/share
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
-import type { RenderContext } from '@/foundation/plugin/index.js'
+import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types.js'
@@ -122,7 +122,7 @@ interface PlotGeometry {
 const MARKER_BAR_GAP = 4
 
 /** 相对定位锚定的 bar 极值；时间轴数据没有 OHLC，只有 price。 */
-function barAnchorPrice(bar: RenderContext['data'][number], above: boolean): number {
+function barAnchorPrice(bar: PrimitiveRenderContext['data'][number], above: boolean): number {
   if (!('close' in bar)) return bar.price
   return above ? bar.high : bar.low
 }
@@ -132,7 +132,7 @@ function barMarkerY(
   above: boolean,
   index: number,
   glyph: MarkerGlyph,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
 ): number | undefined {
   const bar = context.data[index]
   if (!bar) return undefined
@@ -146,7 +146,7 @@ function markerY(
   value: number,
   index: number,
   glyph: MarkerGlyph,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
 ): number | undefined {
   const axis = context.pane.yAxis
   switch (location) {
@@ -170,7 +170,7 @@ function barValue(plot: ScalarPlot, index: number): number | undefined {
 }
 
 /** 把 K 线下标投影到屏幕 X；该下标不在绘图区时返回 null。 */
-function projectX(index: number, context: RenderContext): number | null {
+function projectX(index: number, context: PrimitiveRenderContext): number | null {
   return logicalIndexToScreenX({
     index,
     visibleRange: {
@@ -188,7 +188,7 @@ function projectX(index: number, context: RenderContext): number | null {
 function projectPricePoint(
   plot: LineSeriesPlot | HistogramPlot | ColumnsPlot | PointsPlot,
   index: number,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
 ): Point | undefined {
   const value = barValue(plot, index)
   if (value === undefined) return undefined
@@ -203,7 +203,7 @@ function projectMarkerPoint(
   location: ShapePlot['location'],
   value: number,
   index: number,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   glyph: MarkerGlyph,
 ): Point | undefined {
   const x = projectX(index, context)
@@ -213,7 +213,7 @@ function projectMarkerPoint(
 }
 
 /** 仅遍历当前视口与超出行情长度的未来序列，不扫描中间的不可见历史。 */
-function* plotIndices(plot: Plot, context: RenderContext): Iterable<number> {
+function* plotIndices(plot: Plot, context: PrimitiveRenderContext): Iterable<number> {
   for (let index = context.range.start; index < context.range.end; index++) yield index
   for (
     let index = Math.max(context.range.end, context.data.length);
@@ -226,7 +226,7 @@ function* plotIndices(plot: Plot, context: RenderContext): Iterable<number> {
 /** 逐 bar 投影并收集有点位的下标。 */
 function projectPoints(
   plot: Plot,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   project: (index: number) => Point | undefined,
 ): Map<number, Point> {
   const points = new Map<number, Point>()
@@ -245,7 +245,7 @@ function isStepPlot(plot: Plot): boolean {
 /** 折线与阶梯线共用批次构建；BR 在空点处断开，颜色变化时共享前一有效端点。 */
 function buildLineSegments(
   plot: LineSeriesPlot,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   points: ReadonlyMap<number, Point>,
 ): LineBatch[] {
   const lines: LineBatch[] = []
@@ -287,7 +287,7 @@ function buildLineSegments(
 /** 构建柱体几何：histogram 用固定像素宽，columns 沿用 K 线实体宽度。 */
 function buildColumnRects(
   plot: HistogramPlot | ColumnsPlot,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   points: ReadonlyMap<number, Point>,
 ): RectBatch[] {
   const batches = new Map<string, RectBatch>()
@@ -321,7 +321,7 @@ function buildColumnRects(
 }
 
 /** 投影单个 Plot；每种 kind 只构建自己绘制所需的数据。 */
-function projectPlot(plot: Plot, context: RenderContext): PlotProjection {
+function projectPlot(plot: Plot, context: PrimitiveRenderContext): PlotProjection {
   switch (plot.kind) {
     case 'candle':
     case 'bar':
@@ -376,7 +376,7 @@ function overrideColor(color: string | undefined, fallback: string): string {
 }
 
 /** 统一构建标记；相对定位过滤 0，绝对坐标保留 0。 */
-function projectMarkers(plot: MarkerProjection['plot'], context: RenderContext): MarkerProjection {
+function projectMarkers(plot: MarkerProjection['plot'], context: PrimitiveRenderContext): MarkerProjection {
   const points = new Map<number, MarkerPoint>()
   const appearance = markerAppearance(plot, context)
   for (const index of plotIndices(plot, context)) {
@@ -410,7 +410,7 @@ function arrowHeight(plot: ArrowPlot, value: number, maximum: number): number {
 /** 固定字形只测量一次，箭头按全列幅度生成每个点的字形。 */
 function markerAppearance(
   plot: MarkerProjection['plot'],
-  context: RenderContext,
+  context: PrimitiveRenderContext,
 ): (value: number) => Pick<MarkerPoint, 'glyph' | 'color' | 'textColor'> {
   if (plot.kind === 'arrow') {
     const maximum = arrowMagnitude(plot)
@@ -449,21 +449,21 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
-function collectGeometry(state: PlotRenderState, context: RenderContext): PlotGeometry {
+function collectGeometry(state: PlotRenderState, context: PrimitiveRenderContext): PlotGeometry {
   const plots = state.plots.map((plot) => projectPlot(plot, context))
   const byId = new Map(plots.map((projection) => [projection.plot.id, projection]))
   return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
 }
 
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
-export function paintPlots(state: PlotRenderState, context: RenderContext): void {
+export function paintPlots(state: PlotRenderState, context: PrimitiveRenderContext): void {
   paintGeometry(state, context, collectGeometry(state, context))
 }
 
 /** 用一帧几何绘制填充、参考线和 Plot；几何已由调用方投影完成。 */
 function paintGeometry(
   state: PlotRenderState,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   geometry: PlotGeometry,
 ): void {
   const commands: PaintPrimitive[] = []
@@ -539,11 +539,11 @@ function paintGeometry(
         break
     }
   }
-  submitPrimitives(context, context.ctx, commands, context.dpr)
+  submitPrimitives(context, commands, context.dpr)
 }
 
 /** 按部分与颜色汇聚 OHLC 矩形；同色批次一次提交给现有 GPU/Canvas 绘制链路。 */
-function projectOhlcPlot(plot: OhlcPlot, context: RenderContext): OhlcProjection {
+function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcProjection {
   const batches = new Map<string, { color: string; values: number[] }>()
   /** null 隐藏对应部分，颜色本身携带透明度。 */
   function append(part: string, color: string | null, rects: readonly OhlcRect[]): void {
@@ -617,7 +617,7 @@ export function createPlotLayer(
     definitionId,
     paneId: defaultPaneId,
     z: RENDERER_PRIORITY.INDICATOR,
-    primitiveOnly: true,
+    kind: 'draw-list',
     draw(context) {
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return

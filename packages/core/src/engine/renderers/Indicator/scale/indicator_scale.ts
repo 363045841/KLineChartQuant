@@ -41,7 +41,7 @@ export interface IndicatorScaleLayerOptions {
 const CROSSHAIR_LAYER_SUFFIX = ':crosshair'
 
 /** 指标轴的静态层及随鼠标更新的独立动态层。 */
-interface IndicatorScaleLayer extends Layer<RenderContext> {
+type IndicatorScaleLayer = Layer<RenderContext> & {
   crosshairLayer: Layer<RenderContext>
 }
 

@@ -9,7 +9,7 @@ import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
 import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.js'
-import type { Layer } from '../../rendering/scene/types.js'
+import type { DrawListLayer } from '../../rendering/scene/types.js'
 import {
   createProjectionRevision,
   sameProjectionRevision,
@@ -44,7 +44,7 @@ type PreparedCandles = {
 }
 
 /** 创建 K 线主体 Layer。形态直接取 settings.klineShape，作为唯一事实来源。 */
-export function createCandleLayer(): Layer<RenderContext> {
+export function createCandleLayer(): DrawListLayer<RenderContext> {
   const buffers: CandleBuffers = { upBody: null, downBody: null, upWick: null, downWick: null }
   const retained = createRetainedGeometry<PreparedCandles, ProjectionRevision>(
     sameProjectionRevision,
@@ -55,7 +55,7 @@ export function createCandleLayer(): Layer<RenderContext> {
     pane: 'main',
     z: RENDERER_PRIORITY.MAIN,
     visible: true,
-    primitiveOnly: true,
+    kind: 'draw-list',
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context

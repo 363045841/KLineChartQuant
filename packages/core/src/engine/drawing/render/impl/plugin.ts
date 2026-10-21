@@ -43,7 +43,7 @@ function paintProjection(
     { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height },
     context.dpr,
   )
-  if (!custom) submitPrimitives(context, target, commands, context.dpr)
+  if (!custom) submitPrimitives(context, commands, context.dpr)
 }
 
 /** 绘图 Layer 选项。 */

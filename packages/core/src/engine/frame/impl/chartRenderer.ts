@@ -29,6 +29,7 @@ import {
 } from '../../../foundation/utils/dateFormat.js'
 import { createScene } from '../../../rendering/scene/createScene.js'
 import {
+  type ContextLayer,
   type FramePaint,
   LAYER_PANE_GLOBAL,
   type Layer,
@@ -213,7 +214,7 @@ export class ChartRenderer {
   private scene: Scene<RenderContext>
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
-  private timeAxisLayer: Layer<RenderContext> | null = null
+  private timeAxisLayer: ContextLayer<RenderContext> | null = null
   private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
   private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
   /** 上次已测量右轴的可视区绝对值数量级。 */

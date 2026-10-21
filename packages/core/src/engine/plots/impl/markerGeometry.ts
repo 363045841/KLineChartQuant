@@ -1,6 +1,6 @@
 /** Shape、Char、Arrow 的屏幕字形：构建边界、排版和跨后端原语供 Plot Layer 重放。 */
 import type { CharPlot, ShapePlot, ShapeStyle } from '@363045841yyt/klinechart-plot-contracts'
-import type { RenderContext } from '@/foundation/plugin/index.js'
+import type { PrimitiveRenderContext } from '@/foundation/plugin/index.js'
 import { foundationTokens } from '@/foundation/tokens/index.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 
@@ -140,10 +140,19 @@ interface MarkerText {
   readonly width: number
 }
 
-/** 一次 save 内完成文字与字符测量，滚动重放不再重复测量。 */
+let measureCtx: CanvasRenderingContext2D | null = null
+
+/** 文本度量只依赖字体，用独立上下文，不读取也不修改绘制目标。 */
+function measurementContext(): CanvasRenderingContext2D {
+  measureCtx ??= document.createElement('canvas').getContext('2d')
+  if (!measureCtx) throw new Error('Text measurement context unavailable')
+  return measureCtx
+}
+
+/** 一次测量覆盖文字与字符，滚动重放不再重复测量。 */
 function measureMarker(
   plot: ShapePlot | CharPlot,
-  context: RenderContext,
+  context: PrimitiveRenderContext,
   pixels: number,
 ): { text: MarkerText; char: string; charFont: string; charWidth: number } {
   const tokens = foundationTokens[context.theme]
@@ -154,13 +163,11 @@ function measureMarker(
   const lines = plot.text ? plot.text.split('\n') : []
   const char = plot.kind === 'char' ? plot.char : ''
   const charFont = `${pixels}px ${tokens.fontFamily.brandCjk}`
-  const { ctx } = context
-  ctx.save()
+  const ctx = context.measureContext ?? measurementContext()
   ctx.font = font
   const width = Math.max(0, ...lines.map((line) => ctx.measureText(line).width))
   ctx.font = charFont
   const charWidth = char ? ctx.measureText(char).width : 0
-  ctx.restore()
   return { text: { font, lineHeight, lines, width }, char, charFont, charWidth }
 }
 
@@ -226,7 +233,7 @@ function markerBounds(
 }
 
 /** 测量 Shape 或 Char 并构造完整包围盒，保证相对定位时字形和文字都不盖住 K 线。 */
-export function buildMarkerGlyph(plot: ShapePlot | CharPlot, context: RenderContext): MarkerGlyph {
+export function buildMarkerGlyph(plot: ShapePlot | CharPlot, context: PrimitiveRenderContext): MarkerGlyph {
   const pixels = markerBoxSize(plot.size)
   const style = markerStyle(plot)
   const label = isLabelStyle(style)
@@ -255,7 +262,7 @@ const ARROW_LINE = { headHalfWidth: 1.5, stemHalfWidth: 0, strokeWidth: 1 }
 const ARROW_LINE_ZOOM_PROGRESS = 0.05
 
 /** 只用现有缩放档位选择外观，不把 K 线间距或数值幅度混入几何。 */
-function arrowStyle(context: RenderContext): typeof ARROW_SOLID | typeof ARROW_LINE {
+function arrowStyle(context: PrimitiveRenderContext): typeof ARROW_SOLID | typeof ARROW_LINE {
   const { zoomLevel, zoomLevelCount } = context
   if (zoomLevel === undefined || zoomLevelCount === undefined || zoomLevelCount < 2)
     return ARROW_SOLID
@@ -304,7 +311,7 @@ function arrowPaths(
 }
 
 /** 固定头部、只伸缩杆长；包围盒使用实际总高，确保尖端始终贴近 bar。 */
-export function buildArrowGlyph(height: number, up: boolean, context: RenderContext): MarkerGlyph {
+export function buildArrowGlyph(height: number, up: boolean, context: PrimitiveRenderContext): MarkerGlyph {
   const style = arrowStyle(context)
   const totalHeight = Math.max(height, style.headHalfWidth * Math.sqrt(3))
   return {
